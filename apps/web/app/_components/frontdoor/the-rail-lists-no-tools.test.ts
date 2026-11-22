@@ -65,7 +65,9 @@ async function railMenu(variant: 'front-door' | 'app' | 'doorway', who: Who, pat
   assert.ok(at > 0, 'the shell painted no rail — this guard is reading the wrong markup');
   const nav = html.slice(at, html.indexOf('</nav>', at));
   // The small print (About · Pricing · Help · policies …) is not a menu.
-  return nav.slice(0, nav.indexOf('class="fd-smallprint"'));
+  // 🍎 A `data-app-only` row (22 Nov, "Open your shop") is hidden on the web before first paint — this guard reads the
+  // WEB rail, so it is dropped here; the app's row is held by the-app-supplier-door-names-no-price.test.ts.
+  return nav.slice(0, nav.indexOf('class="fd-smallprint"')).replace(/<a\b[^>]*\bdata-app-only=""[^>]*>[\s\S]*?<\/a>/g, '');
 }
 
 async function rail(variant: 'front-door' | 'app' | 'doorway', who: Who, pathname: string): Promise<string[]> {

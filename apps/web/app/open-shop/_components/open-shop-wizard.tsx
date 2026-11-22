@@ -177,6 +177,7 @@ export function OpenShopWizard({
   error,
   refusalStamp = 0,
   plan = null,
+  storeShell = false,
   feeNotice = null,
   initialStep = 1,
   guest = false,
@@ -269,6 +270,14 @@ export function OpenShopWizard({
   refusalStamp?: number;
   /** W1-B21 — `?plan=` from /for-suppliers' "Start on Plus / Pro / Ultra" (whitelisted by `parseSupplierPlan`). */
   plan?: string | null;
+  /**
+   * 🍎 IN-APP SUPPLIER DOOR (controller 22 Nov, drawing `app_supplier_door_2026-11-22`): the page was asked for by the
+   * App Store / Play Store shell (`isStoreShellRequest`). The app sells no plan and shows no price, so the wizard holds
+   * the picks to what Free allows (one service — `freeOnly` on the cards), never opens the plan explainer, says only
+   * "Add more later." at the pick, and keeps step 5's fee line with no ⓘ and no number. Held by
+   * `the-app-supplier-door-names-no-price.test.ts`.
+   */
+  storeShell?: boolean;
   /** The signed-in account's own name. Shown READ-ONLY when present (owner
    *  2026-08-10: "your name (automatic from their account)") — presented, not
    *  asked. Falls back to an editable input when the account has none, because
@@ -483,7 +492,7 @@ export function OpenShopWizard({
   /** Every picked service, the main first (`PickedService` — key + name). */
   const picked: PickedService[] = service ? [{ key: service, label: serviceLabel ?? service }, ...added] : [];
   /** ② The picks hold more than Free does — Continue explains the plans first. */
-  const overFree = holdsMoreThanFree(
+  const overFree = !storeShell && holdsMoreThanFree(
     picked.map((p) => ({ categoryId: places.get(p.key)?.categoryId ?? p.key, categoryLabel: '' })),
   );
   /** ④ The services left on for NO ticked event — Continue (and the server) refuse them. */
@@ -872,7 +881,8 @@ export function OpenShopWizard({
       setPickedLabel(d.serviceLabel);
     }
     if (d.events.length) setEvents(d.events);
-    if (d.added?.length) setAdded(d.added.map((a) => ({ key: a.key, label: a.label })));
+    // 🍎 The app's door holds the picks to what Free allows — a draft begun on the web brings back its main service only.
+    if (d.added?.length && !storeShell) setAdded(d.added.map((a) => ({ key: a.key, label: a.label })));
     if (d.evOff) setEvOff(d.evOff);
     if (d.specialties) setPicks(d.specialties);
     if (d.planAgreed) setPlanAgreed(true);
@@ -1435,6 +1445,7 @@ export function OpenShopWizard({
                         onOpenSpecialty={setOpenSpecialty}
                         adding={adding}
                         onAddingChange={setAdding}
+                        freeOnly={storeShell}
                       />
                     ) : (
                       <ServicePicker
@@ -1479,7 +1490,10 @@ export function OpenShopWizard({
                     numbers. */}
                 {service || coordinating ? null : (
                   <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }} data-open-shop-plan-hint="">
-                    {planCategories.length > 0 ? (
+                    {/* 🍎 In the app: the one plain line — no ⓘ, no plan names (controller call 3, 22 Nov). */}
+                    {storeShell ? (
+                      'Add more later.'
+                    ) : planCategories.length > 0 ? (
                       <InfoTip
                         label="Add more later. How many categories you can run depends on your plan"
                         labelClassName="text-xs"
@@ -2026,7 +2040,7 @@ export function OpenShopWizard({
                   numbers inside the ⓘ — `feeNotice` is composed by `bookingFeeJoinDisclosure` from the LIVE
                   schedule, never a rate typed here. (v16 dropped the prototype's "on us" footnote; this line is the
                   shipped disclosure the owner's 2026-09-20 ruling keeps, held by the-fee-finds-the-supplier.test.ts.) */}
-              {feeNotice ? (
+              {feeNotice && !storeShell ? (
                 <p data-testid="open-shop-fee-disclosure" className="max-w-[620px] text-sm" style={{ color: 'var(--m-slate)' }}>
                   <InfoTip
                     label="Free to open, free to run. You pay only when a couple books you through Setnayan."
@@ -2037,6 +2051,11 @@ export function OpenShopWizard({
                     <span className="block font-semibold">{feeNotice.headline}</span>
                     <span className="mt-0.5 block">{feeNotice.detail}</span>
                   </InfoTip>
+                </p>
+              ) : feeNotice ? (
+                /* 🍎 In the app the line stays and its ⓘ goes: no number, no rate (controller call 4, 22 Nov). */
+                <p data-open-shop-fee-plain="" className="max-w-[620px] text-sm" style={{ color: 'var(--m-slate)' }}>
+                  Free to open, free to run. You pay only when a couple books you through Setnayan.
                 </p>
               ) : null}
               {/* The plan, when their picks are more than Free holds (its tick inside); else PB5's tick on its own. */}

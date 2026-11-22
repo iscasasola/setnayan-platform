@@ -602,7 +602,7 @@ export function CheckinDesk({
             <button
               type="button"
               onClick={stopScanner}
-              className="absolute bottom-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-ink shadow"
+              className="absolute bottom-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-raised/90 px-4 py-2 text-sm font-medium text-ink shadow"
             >
               <CameraOff className="h-4 w-4" /> Stop scanning
             </button>
@@ -654,7 +654,7 @@ export function CheckinDesk({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="No QR on hand? Search their name…"
-            className="min-h-12 w-full rounded-xl border border-ink/15 bg-white py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-ink/50 focus:border-terracotta"
+            className="min-h-12 w-full rounded-xl border border-ink/15 bg-raised py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-ink/50 focus:border-terracotta"
           />
         </div>
         {matches.length > 0 ? (

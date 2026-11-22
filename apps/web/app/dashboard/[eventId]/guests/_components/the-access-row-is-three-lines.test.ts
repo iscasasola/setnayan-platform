@@ -95,9 +95,11 @@ test('3 · Give and Take back side by side; Give opens on a tap, only while they
   assert.match(doors, /<Explain title="This seat">/, 'the doors’ explanation is not the ⓘ');
 });
 
-test('the Passed Away row stays exactly as it was', () => {
+/* (20 Nov 2026, the approved drawing § 3: the card reads in sentence case — the row's word is "Passed away" — and the row sits
+   inside More. Its switch, the column it posts, its form and its note are exactly as they were.) */
+test('the Passed away row stays exactly as it was', () => {
   const body = code('guest-card-body.tsx');
-  assert.match(body, /<K\.Toggle\s+name="passed_away"\s+form=\{formId\}\s+defaultChecked=\{guest\.passed_away === true\}\s+label="Passed Away"\s+note="Kept on the list as “the late …”\. Not counted, seated or sent an invitation\."\s+soft\s+\/>/);
+  assert.match(body, /<K\.Toggle\s+name="passed_away"\s+form=\{formId\}\s+defaultChecked=\{guest\.passed_away === true\}\s+label="Passed away"\s+note="Kept on the list as “the late …”\. Not counted, seated or sent an invitation\."\s+soft\s+\/>/);
 });
 
 test('1b · Access ▾ only for a LINKED guest — unlinked means no dropdown (owner 2026-11-02)', () => {

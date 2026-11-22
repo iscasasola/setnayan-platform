@@ -127,7 +127,7 @@ export function DomainManager({
               onDelete={() => handleRemove(d)}
               disabled={pending}
               radiusClass="rounded-none"
-              surfaceClass="bg-white"
+              surfaceClass="bg-raised"
             >
             <div className="py-3" data-domain-row="">
               <div className="flex flex-wrap items-center justify-between gap-3">

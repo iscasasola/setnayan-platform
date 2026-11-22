@@ -101,8 +101,11 @@ test('2 · /dashboard/<id>/prints is the Maker’s own page, told by a key no ad
 async function paintShell(props: Record<string, unknown>): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerShell } = await import(`../${L}/_components/maker-shell`);
+  /* ‹ (20 Nov) is the house BackButton, whose return-in-place reads the router — the app always mounts one. */
+  const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
+  const ROUTER = { refresh() {}, push() {}, replace() {}, back() {}, forward() {}, prefetch() {} };
   return renderToStaticMarkup(
-    React.createElement(
+    React.createElement(AppRouterContext.Provider, { value: ROUTER as never }, React.createElement(
       MakerShell as unknown as React.ComponentType<Record<string, unknown>>,
       {
         eventId: 'ev-1',
@@ -123,7 +126,7 @@ async function paintShell(props: Record<string, unknown>): Promise<string> {
         ...props,
       },
       React.createElement('div', { 'data-stub': 'work' }),
-    ),
+    )),
   );
 }
 

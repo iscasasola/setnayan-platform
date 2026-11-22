@@ -720,6 +720,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Who pressed “Release to Drive”. The job row is about the EVENT — file counters and a status — not about a person.',
   },
   {
+    table: 'service_included_templates',
+    column: 'updated_by',
+    why: 'Which admin last saved one of Setnayan’s starting "What’s included" lists (Quick Forms, migration 20271351904391). Platform content; the list stays, the clerk goes.',
+  },
+  {
     table: 'form_templates',
     column: 'updated_by',
     why: 'Which admin last saved a "Suggested for your service" form template. Platform content; the template stays, the clerk goes.',
@@ -830,6 +835,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     table: 'shop_gift_stock_entries',
     column: 'created_by',
     why: 'Who caused a gift-stock entry (a buy, a delivery, a reversal). The ledger is the SHOP’s and stays; the stamp goes.',
+  },
+  {
+    table: 'shop_gift_order_lines',
+    column: 'created_by',
+    why: 'Who pressed Buy now on a gift-store order. The lines are the SHOP’s money record and stay; the stamp goes.',
   },
   {
     table: 'shop_badge_rewards',
@@ -1024,6 +1034,16 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
   why: string;
 }> = [
   {
+    table: 'admin_focus_put_offs',
+    column: 'user_id',
+    why: '⏭ CASCADE + NOT NULL — one admin\u2019s own "Do it tomorrow" on their Focus list (Today v3 part 4, migration 20271355036188). It is about that admin\u2019s day and nobody else reads it; it goes with them, and the item stays in every other admin\u2019s Focus.',
+  },
+  {
+    table: 'event_today_put_offs',
+    column: 'user_id',
+    why: '⏭ CASCADE + NOT NULL — one person\u2019s own "Do it tomorrow" on an event\u2019s Today (Event Today, Focus shape, migration 20271356173915). It is about that person\u2019s day and nobody else reads it; it goes with them, and the task stays on every other host\u2019s Today.',
+  },
+  {
     table: 'chat_poll_votes',
     column: 'voter_user_id',
     why: '🗳 CASCADE + NOT NULL — a vote is this person\u2019s own pick on a chat poll (migration 20271338412990). It goes with them; the poll and the other side\u2019s votes stay.',
@@ -1059,6 +1079,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'creator_chapters',
     column: 'user_id',
     why: 'CASCADE + NOT NULL. A creator chapter is the subject’s own body of work on the platform.',
+  },
+  {
+    table: 'creator_chapter_replies',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL. A reply under an article (Build 2, 2026-11-17) is the subject’s own words; it goes with the account. The article it answered stays, its other replies stay.',
   },
   {
     table: 'lead_token_holds',
@@ -1549,6 +1574,14 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
       'person are another account’s private list — left, and never shown to them.',
   },
   {
+    table: 'chat_thread_mutes',
+    column: 'user_id',
+    why:
+      'The subject’s own "Mute this chat" rows (Unichat, controller ruling 2026-11-21; migration ' +
+      '20271356402294) — their private phone-notice preference per chat, keyed to them. Nobody else ' +
+      'reads it. Deleted with the subject (also ON DELETE CASCADE from public.users).',
+  },
+  {
     table: 'user_unfollows',
     column: 'follower_user_id',
     why:
@@ -1700,7 +1733,8 @@ export const ERASURE_ROW_DELETES: Readonly<Record<string, readonly string[]>> = 
   chat_messages: ['sender_user_id'],
   user_face_profiles: ['user_id'],
   push_subscriptions: ['user_id'],
-  vendor_push_tokens: ['vendor_profile_id'],
+  // By the subject's own shop, AND (since 2026-11-21) every device the subject registered on any shop (`user_id`).
+  vendor_push_tokens: ['vendor_profile_id', 'user_id'],
   // Purged inline in purge.ts through the subject's vendor profile — it has NO
   // user column, so the generic .eq(column, targetUserId) loop cannot reach it.
   vendor_ig_connections: ['vendor_profile_id'],

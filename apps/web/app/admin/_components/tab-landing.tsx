@@ -16,6 +16,8 @@
  */
 import Link from 'next/link';
 
+import { CHIP_CLASS, CHIP_OFF_CLASS } from '@/app/_components/chip-classes';
+
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 import { ageShort, getAdminQueueDigest, type AdminQueueDigest } from '@/lib/admin/queue-counts';
@@ -112,7 +114,23 @@ function show(n: number | null | undefined): string {
   return typeof n === 'number' ? formatCount(n) : '—';
 }
 
-export async function TabLanding({ tab, digest: given }: { tab: AdminBarKey; /** Lab only — fixture counts. */ digest?: AdminQueueDigest }) {
+/**
+ * 🗂 CATALOGUE's own head numbers (#7693, the Catalogue Home): how big the taxonomy is, read by the Categories page's
+ * own loader (`loadCategories`) on `/admin/catalogue`. `null` = that list could not be read → "—", never 0.
+ */
+export type CatalogueHeadFacts = { categories: number | null; services: number | null };
+
+export async function TabLanding({
+  tab,
+  digest: given,
+  catalogue,
+}: {
+  tab: AdminBarKey;
+  /** Lab only — fixture counts. */
+  digest?: AdminQueueDigest;
+  /** Catalogue only — the taxonomy counts its page read (absent = the head shows the requests alone). */
+  catalogue?: CatalogueHeadFacts;
+}) {
   const digest = given ?? (await getAdminQueueDigest());
   const nowMs = Date.now();
   const pages = pagesIn(tab);
@@ -152,7 +170,27 @@ export async function TabLanding({ tab, digest: given }: { tab: AdminBarKey; /**
     head = [{ label: 'Problems, last 24 h', value: show(q('problems')), sub: 'app errors' }];
     hello = HELLO_WHEN_EMPTY.insights;
   } else {
-    hello = HELLO_WHEN_EMPTY.catalogue;
+    // 🗂 #7693: what waits here is shops asking for a service we lack (the Work queue `service-requests`, same read).
+    const asking = q('requests');
+    head = [
+      ...(catalogue
+        ? [
+            { label: 'Categories', value: show(catalogue.categories), sub: catalogue.categories === null ? 'couldn’t read' : 'in the taxonomy' },
+            { label: 'Services', value: show(catalogue.services), sub: catalogue.services === null ? 'couldn’t read' : 'under them' },
+          ]
+        : []),
+      { label: 'Asking', value: show(asking), sub: asking === null ? 'couldn’t read' : 'shops asking for a service' },
+    ];
+    const o = oldest(allViews, digest, nowMs);
+    if (o) head.push(o);
+    hello =
+      typeof asking === 'number' && asking > 0
+        ? asking === 1
+          ? '1 shop is asking for a service'
+          : `${formatCount(asking)} shops are asking for a service`
+        : asking === null || catalogue?.categories === null || catalogue?.services === null
+          ? 'Some counts could not be read'
+          : HELLO_WHEN_EMPTY.catalogue;
   }
 
   return (
@@ -193,13 +231,11 @@ export async function TabLanding({ tab, digest: given }: { tab: AdminBarKey; /**
                 ) : null}
               </Link>
               <p className="text-sm text-[color:var(--sn-ink-500)]">{c.count === null ? 'Couldn’t count — not the same as none' : c.line}</p>
-              <div className="flex flex-wrap gap-1.5">
+              {/* 👆 Each chip is the app's ONE chip (`CHIP_CLASS`: 40 drawn, `.sn-hit` presses at 44 — walk W4/W5 18 Nov,
+                  #7900 follow-up: these were 24-px one-offs). gap-2 keeps two wrapped rows' presses from overlapping. */}
+              <div className="flex flex-wrap gap-2" data-admin-landing-chips="">
                 {c.chips.slice(0, 6).map((ch) => (
-                  <Link
-                    key={ch.href}
-                    href={ch.href}
-                    className="rounded-full bg-cream px-2.5 py-1 text-xs text-[color:var(--sn-ink-700)]"
-                  >
+                  <Link key={ch.href} href={ch.href} className={`${CHIP_CLASS} ${CHIP_OFF_CLASS}`} data-admin-landing-chip="">
                     {ch.label}
                     {typeof ch.count === 'number' && ch.count > 0 ? <em className="ml-1 not-italic font-semibold">{formatCount(ch.count)}</em> : null}
                     {ch.count === null ? <em className="ml-1 not-italic">—</em> : null}

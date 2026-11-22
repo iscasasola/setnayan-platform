@@ -49,15 +49,19 @@ const ACTIONS = stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'act
 
 // ── THE CARD ────────────────────────────────────────────────────────────────
 
-test('card top: the ticket (tap → full view + Save ticket), ONE Invite, ⋯, the status line — no QR look', () => {
-  assert.match(CARD, /<TicketThumb guestId=\{guest\.guest_id\}/, 'the ticket thumbnail is gone');
+/* RE-AIMED 2026-11-20 (the approved drawing `guests_redesign_2026-11-20_fable.html` § 3, "Yes, build it"): the top is the quick
+   row (Send invite first — the ONE Invite) and "Their ticket" as one row; NFC · New QR · Unlink are labelled buttons INSIDE the
+   opened ticket (`tools={more}`), no longer a ⋯ beside Invite. Everything they do is unchanged, and held below. */
+test('card top: ONE Invite (the quick row’s Send invite), the ticket row (tap → full view + Save ticket + its buttons), the status in words — no QR look', () => {
+  assert.match(CARD, /<TicketThumb\s+guestId=\{guest\.guest_id\}/, 'the ticket row is gone');
   // THE card (`guest-card.tsx` — the Guest list's panel, the standalone route, the march, the parents) hands in the real
   // ticket view and ⋯ (2026-10-24, one card everywhere).
   assert.match(read('guest-card.tsx'), /TicketThumb=\{GuestTicketThumb\}\s*MoreMenu=\{GuestMoreMenu\}/, 'the card is drawn without its ticket view or ⋯');
   assert.equal((CARD.match(/<SendInvite\b/g) ?? []).length, 1, 'the card draws more than one Invite');
-  assert.match(CARD, /more=\{more\}/, 'the ⋯ is not beside Invite');
+  assert.match(CARD, /tools=\{more\}/, 'NFC · New QR · Unlink are not handed into the opened ticket');
+  assert.match(CARD, /<SendInvite[\s\S]*?layout="card"\s+quick=\{quick\}\s+ticket=\{ticketRow\(\)\}/, 'the quick actions and the ticket row are not drawn with the ONE Invite');
   assert.doesNotMatch(CARD, /Customize guest QRs|launch\?tool=details&item=qr|Copy message|Download QR/, 'the old QR tools are back on the card');
-  // ⋯ = Write to NFC · New QR · Unlink account, one list; New QR asks first.
+  // Inside the opened ticket: Write to NFC · New QR · Unlink account, each with its word; New QR asks first.
   assert.match(PARTS, /<NfcWriteButton url=\{nfcUrl\}/);
   assert.match(PARTS, /Make a new QR for \{guestName\}\?/);
   assert.match(PARTS, /name="new_qr" value="1"/);
@@ -95,27 +99,31 @@ test('card body: every choice is ONE shipped PickMenu — never a native select,
 /* RE-AIMED 2026-10-23 — THE OWNER'S GROUPS (prototype `guest_card_groups_and_papic_2026-10-23.html`): the name is no longer
    open above the rows; it is Basic Info, the first group, CLOSED with the mobile in its summary. Every group is one row
    (label · summary · open), in his order, and the read-only Tags line is gone (its words were the eyebrow and the summaries). */
-test('card body: the owner’s groups, in his order — every one folds, one open at a time; Tags gone', () => {
-  const ORDER = ['Basic Info', 'Details', 'Additional Guests', 'RSVP Status', 'Papic', 'Seat Plan', 'Note for them · Private note', 'Access', 'Passed Away', 'Delete'];
-  // Papic is named only off the app (🍎 — it is "Photos" there and in the Maker's cards).
-  // RE-AIMED 2026-10-24 (the approved prototype): Passed Away is no fold — its switch IS its row (`data-card-passed-away`).
+test('card body: the approved groups, in the drawing’s order — every one folds, one open at a time; Tags gone', () => {
+  /* RE-AIMED 2026-11-20 (the approved drawing § 3): three groups — About (Name and contact · Role and group · Plus-ones) · For
+     the event (Reply · Seat · Photos · Notes · Access) · More (Not counted for · Passed away · Reset or delete). Seat moved up
+     before Photos; "Papic" reads "Photos" on every surface (its camera row inside still says Papic where the app may). */
+  const ORDER = ['Name and contact', 'Role and group', 'Plus-ones', 'Reply', 'Seat', 'Photos', 'Notes', 'Access', 'More', 'Passed away', 'Delete'];
+  // Passed away is no fold — its switch IS its row (`data-card-passed-away`, 2026-10-24); Delete is More's last row.
   const at = ORDER.map((g) =>
-    CARD.indexOf(g === 'Papic' ? `<K.Fold summary={papicRow ? 'Papic' : 'Photos'}` : g === 'Passed Away' ? 'data-card-passed-away=""' : `<K.Fold summary="${g}"`),
+    CARD.indexOf(g === 'Passed away' ? 'data-card-passed-away=""' : g === 'Delete' ? '<DeleteControl ' : g === 'More' ? '<K.Fold\n          summary="More"' : `<K.Fold summary="${g}"`),
   );
   ORDER.forEach((g, i) => assert.ok(at[i]! > 0, `the ${g} group is gone`));
   for (let i = 1; i < ORDER.length; i++) assert.ok(at[i]! > at[i - 1]!, `${ORDER[i]} is drawn before ${ORDER[i - 1]}`);
   // RE-AIMED 2026-10-23 (review, owner "Always show them"): while the event's Papic is off, its one line replaces only
   // "Their camera" — INSIDE the Papic group, beside the face switches that always show — never the whole group.
   const door = CARD.indexOf('<K.Door label="Their camera"');
-  assert.ok(door > at[4]! && door < at[5]!, 'the "Papic is off" line is not inside the Papic group');
+  assert.ok(door > at[5]! && door < at[6]!, 'the "Papic is off" line is not inside the Photos group');
   // Basic Info is CLOSED by default and holds the name and the mobile; RSVP Status opens by itself for the guest's note.
-  assert.match(CARD, /<K\.Fold summary="Basic Info" value=\{basicSummary\} emptyValue="Add a mobile">/, 'Basic Info opens by itself');
+  assert.match(CARD, /<K\.Fold summary="Name and contact" handle="Basic Info" value=\{guest\.mobile\?\.trim\(\) \? basicSummary : null\} emptyValue="Add a mobile" missing=\{!guest\.mobile\?\.trim\(\)\}>/, 'Name and contact opens by itself, or a missing mobile is not said in colour');
   const basic = CARD.slice(at[0]!, at[1]!);
   assert.match(basic, /data-guest-card-name=""/, 'the name is not in Basic Info');
   assert.match(basic, /<K\.Field id="mobile"/, 'the mobile is not in Basic Info');
   assert.match(CARD, /const basicSummary = \[[^\n]*guest\.mobile/, 'the mobile is not Basic Info’s summary');
-  assert.match(CARD, /<K\.Fold summary="RSVP Status" value=\{rsvpSummary\} open=\{Boolean\(guest\.guest_note\?\.trim\(\)\)\}>/);
-  assert.match(CARD.slice(at[3]!, door), /data-guest-own-note=""/, 'the guest’s own note is not in RSVP Status');
+  assert.match(CARD, /<K\.Fold summary="Reply" handle="RSVP Status" value=\{rsvpSummary\} open=\{Boolean\(guest\.guest_note\?\.trim\(\)\)\}>/);
+  assert.match(CARD.slice(at[3]!, at[4]!), /data-guest-own-note=""/, 'the guest’s own note is not in Reply');
+  // The two small headings sit right above their groups; More's rows are inside More.
+  assert.ok(CARD.indexOf('data-card-group="about"') < at[0]! && CARD.indexOf('data-card-group="event"') > at[2]! && CARD.indexOf('data-card-group="event"') < at[3]!, 'a group heading is not above its group');
   // ONE card, ONE kit (2026-10-24): every row is the shared Fold, one-open-at-a-time (`useOneOpen`) — the hand-drawn
   // exclusive <details> rows (the Maker's "chevron rows") are gone.
   assert.match(read('guest-card-rows.tsx'), /<Fold title=\{summary\}/, 'the card’s rows are not the shared Fold');
@@ -207,8 +215,9 @@ test('rows: requests are never rows between guests — one door leads to the Req
   // the summary carousel ("● N requests to join ›") — the whole card opens the same Requests page.
   const SCREEN = read('guests-screen.tsx');
   assert.doesNotMatch(SCREEN, /data-requests-strip=""/, 'the requests strip came back above the list — it is card ① now');
+  // 👥 20 Nov (Guests redesign §1): the door is the summary's extra line — "N asking to join ›".
   assert.match(SCREEN, /href=\{`\/dashboard\/\$\{eventId\}\/guests\/claims`\}[^>]*data-requests-door=""/);
-  assert.match(SCREEN, /'request' : 'requests'\} to join/);
+  assert.match(SCREEN, /<\/b>\{' '\}\s*asking to join/);
   assert.match(PAGE, /\.filter\(\(g\) => !selfJoinIds\.includes\(g\.guest_id\)\)/, 'requests are drawn as rows on the new list');
 });
 

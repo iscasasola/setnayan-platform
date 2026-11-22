@@ -7,7 +7,9 @@
  *      you"). Their reads are unchanged except the `form_id IS NULL` filter that keeps the library out of them.
  *   2. "Forms sent to <couple>" — each library form sent into this event (by the supplier or on booking), answered
  *      N of M; tapping one shows the couple's answers.
- *   3. "Your forms · the library" — every live form, "N questions · used with N"; tap opens it in the Form Maker.
+ *   3. "Forms for <couple>" — ONLY the forms on the cards they asked about or booked + the shop's chat forms (owner
+ *      18 Nov 2026, `formsForThisClient`; replaces "Your forms · the library"); tap opens it. A sent card form offers
+ *      "Send again" — the same send, their last answers still ticked.
  *   4. "Added from the service cards they booked" — the library forms linked to a card this booking holds.
  *   Thumb row: Load a form (the Forms Maker sheet: your forms · Suggested for <service> · Also useful for <group>) ·
  *   ＋ New form.
@@ -43,8 +45,12 @@ export async function FormsPage({ ctx }: PickedPageProps) {
     supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', ctx.vendorProfileId).maybeSingle(),
   ]);
   const caps = tierCaps(asVendorTier((tierRes.data as { tier_state: string | null } | null)?.tier_state));
+  // C-3 (supplier audit 2026-11-17): a REFUSED plan read is not Free — it told a paid shop "Media files come with Pro".
+  // Unread draws no lock; the save still re-checks the plan on the server.
+  const tierUnread = Boolean(tierRes.error);
+  if (tierUnread) console.error('[supabase-error] forms page: plan read', tierRes.error);
   const lock = (has: boolean, pick: (c: ReturnType<typeof tierCaps>) => boolean) => {
-    if (has) return null;
+    if (has || tierUnread) return null;
     const plan = firstPlanWith(pick);
     return plan ? TIER_LABEL[plan] : 'a higher plan';
   };
@@ -65,7 +71,8 @@ export async function FormsPage({ ctx }: PickedPageProps) {
           bookedCardIds: bookedIds,
         })
       : Promise.resolve({ status: 'unread' as const }),
-    readFormSuggestions(supabase, ownCategories),
+    // F-1: no library read = no categories to suggest for — "unread", never "No suggested forms for this service yet".
+    lib ? readFormSuggestions(supabase, ownCategories) : Promise.resolve({ status: 'unread' as const }),
     startersForShopServices(profile?.services ?? null),
     // 🔤 This event kind's word for the client ("celebrant" on a debut) — never "couple" on every event.
     readClientNoun(ctx.eventId),
@@ -106,6 +113,8 @@ export async function FormsPage({ ctx }: PickedPageProps) {
         locks={locks}
         answersOpen={ctx.feeUnlocked}
         shopId={ctx.vendorProfileId}
+        // 📋 Owner 18 Nov 2026: only the forms on the cards THIS client asked about or booked, plus the chat forms.
+        clientCardIds={booked.status === 'ok' ? booked.cardIds : null}
       />
     </div>
   );

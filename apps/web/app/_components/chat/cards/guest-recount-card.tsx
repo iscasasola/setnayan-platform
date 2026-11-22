@@ -21,9 +21,8 @@ import { formatCount } from '@/lib/format-number';
 import { patchPlus } from '@/lib/chat-plus-store';
 import { deltaWords, guestRecount, recountedLines, type PerPaxLine, type Recount } from '@/lib/chat-cards';
 import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
-import { ChatCardShell } from '../chat-step-card';
 import { keepPriceFromChat, loadRecount, type QuoteForCard } from './card-calls';
-import { CouldNotLoad, EqualRow, Loading, Problem, type Read } from './card-bits';
+import { CouldNotLoad, EqualRow, KindCard, KindTag, Loading, Problem, type Read } from './card-bits';
 
 export function GuestRecountCard({
   threadId,
@@ -62,19 +61,19 @@ export function GuestRecountCard({
   );
   if (viewer === 'couple') {
     return (
-      <ChatCardShell topic="quote" kicker="Guest count" title="Guest count changed" tone="auto">
+      <KindCard kind="quote" topic="quote" kicker="Guest count" title="Guest count changed">
         <div className="grid gap-2">
           {head}
           <p className="text-[14px] text-ink/60">{supplierName} decides: apply a new total for the per-guest lines, or keep the price.</p>
         </div>
-      </ChatCardShell>
+      </KindCard>
     );
   }
   if (read.at !== 'ok') {
     return (
-      <ChatCardShell topic="quote" kicker="Guest count" title="Guest count changed" tone="auto">
+      <KindCard kind="quote" topic="quote" kicker="Guest count" title="Guest count changed">
         {read.at === 'loading' ? <Loading /> : <CouldNotLoad what="your quote" onRetry={load} />}
-      </ChatCardShell>
+      </KindCard>
     );
   }
   const q = read.data.quote;
@@ -118,7 +117,14 @@ export function GuestRecountCard({
   };
 
   return (
-    <ChatCardShell topic="quote" kicker="Guest count" title="Guest count changed" tone="auto">
+    <KindCard
+      kind="quote"
+      topic="quote"
+      kicker="Guest count"
+      title="Guest count changed"
+      turn={done ? 'done' : r.kind === 'locked' ? 'wait' : 'me'}
+      settled={done ? `Guests ${formatCount(from)} → ${formatCount(to)} · ${done}` : undefined}
+    >
       <div className="grid gap-2" data-recount={r.kind}>
         {head}
         {r.kind === 'locked' ? (
@@ -188,7 +194,7 @@ export function GuestRecountCard({
         )}
         <Problem text={problem} />
       </div>
-    </ChatCardShell>
+    </KindCard>
   );
 }
 
@@ -200,10 +206,10 @@ export function GuestRecountCard({
  */
 export function QuoteRoseCard({ pax, deltaWords, viewer, supplierName }: { pax: number; deltaWords: string; viewer: 'vendor' | 'couple'; supplierName: string }) {
   return (
-    <ChatCardShell topic="quote" kicker="Guest list" title="Quote rose" tone="auto">
+    <KindCard kind="quote" topic="quote" kicker="Guest list" title="Quote rose">
       <div className="grid gap-2" data-quote-rose="">
         <p className="text-[15px] text-ink">
-          Now <b className="tabular-nums">{formatCount(pax)} pax</b> · <b className="tabular-nums">+{deltaWords}</b>
+          Now <b className="tabular-nums">{formatCount(pax)} pax</b> · <KindTag kind="quote">+{deltaWords}</KindTag>
         </p>
         <p className="text-[14px] text-ink/65">
           {viewer === 'vendor'
@@ -211,7 +217,7 @@ export function QuoteRoseCard({ pax, deltaWords, viewer, supplierName }: { pax: 
             : `${supplierName}’s quote follows your guest list. The rise is added to the Final balance — what you have paid stays as it is. Nothing to accept.`}
         </p>
       </div>
-    </ChatCardShell>
+    </KindCard>
   );
 }
 
@@ -222,10 +228,10 @@ export function QuoteRoseCard({ pax, deltaWords, viewer, supplierName }: { pax: 
  */
 export function QuoteFellCard({ pax, deltaWords, viewer, supplierName }: { pax: number; deltaWords: string; viewer: 'vendor' | 'couple'; supplierName: string }) {
   return (
-    <ChatCardShell topic="quote" kicker="Guest list" title="Quote fell" tone="auto">
+    <KindCard kind="quote" topic="quote" kicker="Guest list" title="Quote fell">
       <div className="grid gap-2" data-quote-fell="">
         <p className="text-[15px] text-ink">
-          Now <b className="tabular-nums">{formatCount(pax)} pax</b> · <b className="tabular-nums">−{deltaWords}</b>
+          Now <b className="tabular-nums">{formatCount(pax)} pax</b> · <KindTag kind="quote">−{deltaWords}</KindTag>
         </p>
         <p className="text-[14px] text-ink/65">
           {viewer === 'vendor'
@@ -233,6 +239,6 @@ export function QuoteFellCard({ pax, deltaWords, viewer, supplierName }: { pax: 
             : `${supplierName}’s quote follows your guest list. The drop comes off the Final balance — what you have paid stays as it is. Nothing to accept.`}
         </p>
       </div>
-    </ChatCardShell>
+    </KindCard>
   );
 }

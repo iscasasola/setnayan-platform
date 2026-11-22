@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import type { PlusOneFilter } from '@/lib/guest-roster-view';
 import { guestsFilterIsOn, type GuestsFilter } from '@/lib/guests-filter';
 import type { PaxListService, PaxPick } from '@/lib/guest-pax-filter';
-import { FilterFace } from './guests-filter-menu';
+import { SortFace, sortLabel } from '@/components/sort-face';
 
 /**
  * guests-filter-sheet.tsx — THE LIST'S ≡ AS A "SHOW & SORT" SHEET (owner approved 2026-11-03, prototype
@@ -50,6 +50,8 @@ export type GuestsFilterSheetProps = {
   shown: number;
   /** ✕ Clear all — every choice back to the plain list. */
   onClearAll: () => void;
+  /** ⇕ The sheet's last line: fold every heading, or open them all (Guests redesign, 20 Nov). Null → not drawn. */
+  fold?: { allOpen: boolean; onToggle: () => void } | null;
 };
 
 export function GuestsFilterSheet({
@@ -68,7 +70,7 @@ export function GuestsFilterSheet({
     <>
       <button
         type="button"
-        aria-label="Show and sort"
+        aria-label={sortLabel(on)}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen(true)}
@@ -76,7 +78,7 @@ export function GuestsFilterSheet({
         data-tour={tour}
         {...{ [mark]: '' }}
       >
-        <FilterFace on={on} />
+        <SortFace on={on} />
       </button>
       {open ? <GuestsFilterPanel {...props} onClose={() => setOpen(false)} /> : null}
     </>

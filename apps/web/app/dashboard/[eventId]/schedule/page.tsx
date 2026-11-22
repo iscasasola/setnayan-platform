@@ -1,3 +1,5 @@
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import { ChangeRequestsQueue } from '@/app/_components/change-requests/change-requests-queue';
 import { readOpenChangeRequests } from '@/lib/change-requests.server';
 import { redirect } from 'next/navigation';
@@ -113,6 +115,7 @@ import {
   type ScheduleMeeting,
 } from './_components/vendor-meetings-section';
 import { venueNowMs } from '@/lib/schedule';
+import { daysToGoCount } from '@/lib/countdown-target';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { DETAILS_SCHEDULE_ANNOUNCE_SLOT, DETAILS_SCHEDULE_INSPECTOR_SLOT } from '@/lib/maker-details-items';
 import { InSlot } from '../launch/_components/details-piece';
@@ -144,8 +147,9 @@ import {
 } from '@/lib/coordinator-broadcasts-server';
 import type { CoordinatorBroadcastItem } from '@/lib/coordinator-broadcasts';
 import { eventClockNow } from '@/lib/event-clock.server';
-import { daysBetween, wallDateKey } from '@/lib/schedule-rail';
 import { findBookedHost } from '@/lib/booked-host';
+import { startAhead } from '@/lib/start-ahead';
+import { eventDelegateGrantOnce } from '@/lib/event-delegate-once';
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { wholeMarchLabel } from '@/lib/schedule-chapters';
@@ -209,9 +213,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // treated as no flash at all, so a hand-edited URL cannot forge "Sent."
   const noteFlash = parseNoteFlash(noteParam);
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   /* 📅 THE SCHEDULE IS ITS OWN PAGE, OPENED FROM HOME — AND IT NEVER SENDS YOU AWAY (owner 2026-11-01 "SCHEDULE AND
@@ -236,11 +238,12 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
   const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead, marchRead, asksRes, contactRead, changeRequests] = await Promise.all([
-    supabase
+    eventRowOnce(supabase, eventId, 'event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start, cleared_at, timezone, venue_latitude, venue_longitude, launch_mode, manual_phase, std_invitation_launch_date', () =>
+      supabase
       .from('events')
       .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start, cleared_at, timezone, venue_latitude, venue_longitude, launch_mode, manual_phase, std_invitation_launch_date')
       .eq('event_id', eventId)
-      .maybeSingle(),
+      .maybeSingle()),
     /* 🛑 A REFUSED READ OF THE DAY IS SAID, NEVER DRAWN AS AN EMPTY DAY. Inside the Maker (Studio › Schedule) the
        page says so where the moments would be, with Try again — and stops there, before anything could seed a
        run of show over moments it merely failed to read. Everywhere else the read throws, as it always has. */
@@ -348,6 +351,42 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       </TimelineReadProblem>
     );
   }
+  /* ⚡ SPEED PASS (2026-11-18): these reads need nothing from the seeds, the agenda or each other, so they start here,
+     together, and each is awaited on the line that always awaited it (`startAhead` — a refused read still throws or is
+     still said exactly where it was). Every path below awaits each one; none of them writes. */
+  const profileRead = startAhead(resolveProfile(eventRow?.event_type ?? 'wedding'));
+  const rosEnabledRead = startAhead(isDataPrivacyControlActive('coordinator_run_of_show'));
+  const prepEnabledRead = startAhead(isCoordinatorPrepReleaseEnabled());
+  const advRolesRead = startAhead(
+    Promise.all([
+      Promise.resolve(
+        supabase
+          .from('event_members')
+          // `user_id`, not `member_type`: the comment above the advance rule states the rule is ANY event_members row,
+          // and the type was requested and never compared — the shape `host-means-host.test.ts` sweeps for.
+          .select('user_id')
+          .eq('event_id', eventId)
+          .eq('user_id', user.id)
+          .maybeSingle(),
+      ),
+      // The render's one delegate-grant read (lib/event-delegate-once.ts) — `fetchEventViewer` above asked it already.
+      eventDelegateGrantOnce(supabase, eventId, user.id),
+    ]),
+  );
+  const announceRead = startAhead(Promise.all([resolveBroadcastAuthority(supabase, eventId, user.id), isCoordinatorP3Enabled()]));
+  const hostLookupRead = isTravel ? null : startAhead(findBookedHost(supabase, eventId, 'SchedulePage.hostTool'));
+  const apptRead = chatNegotiationEnabled()
+    ? startAhead(
+        Promise.resolve(
+          supabase
+            .from('event_appointments')
+            .select('appointment_id, kind, custom_label, scheduled_at, status, vendor_profile_id, thread_id')
+            .eq('event_id', eventId)
+            .in('status', ['proposed', 'confirmed'])
+            .order('scheduled_at', { ascending: true, nullsFirst: false }),
+        ),
+      )
+    : null;
   let scheduleBlocks = blocks;
   if (
     scheduleBlocks.length === 0 &&
@@ -374,7 +413,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // Iteration 0053 P4 Unit 1: only marriage-profile events get PH statutory
   // milestones in the agenda. Wedding → 'ph_marriage' → statutory true (byte-
   // identical); non-wedding → null → no PSA/CENOMAR/marriage-license rows.
-  const profile = await resolveProfile(eventRow?.event_type ?? 'wedding');
+  const profile = await profileRead;
   const statutory = profile.statutoryPackKey === 'ph_marriage';
 
   const now = new Date();
@@ -408,7 +447,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // vendor registry that feed the filtered run-of-show chrome. Both fetches
   // are SKIPPED entirely while the flag is dark; fetchBlockRosMeta is
   // additionally best-effort (pre-migration → empty map, page unaffected).
-  const rosEnabled = await isDataPrivacyControlActive('coordinator_run_of_show');
+  const rosEnabled = await rosEnabledRead;
   let rosMeta: RosMetaMap = EMPTY_ROS_META;
   let rosVendors: EventVendorOption[] = [];
   /** 🔌 The suppliers could not be read (audit #16) — the page says so; tasks never read as "A supplier" unnoticed. */
@@ -441,7 +480,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // backfilled as partner1/partner2 moderators, is excluded. visibilityMap is
   // best-effort (pre-migration → empty → everything treated couple_visible), so
   // the page never breaks before the migration lands.
-  const prepEnabled = await isCoordinatorPrepReleaseEnabled();
+  const prepEnabled = await prepEnabledRead;
   let isCoordinator = false;
   let stagedBlocks: ScheduleBlockRow[] = [];
   if (prepEnabled) {
@@ -488,25 +527,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // delegate whose permission grid resolves schedule:'edit' (the coordinator
   // the owner directive admits). Both reads are the caller's own rows (RLS-
   // safe); errors degrade to "no button", never a crash.
-  const [advMemberRes, advDelegateRes] = await Promise.all([
-    supabase
-      .from('event_members')
-      // `user_id`, not `member_type`: the comment above states the rule is ANY
-      // event_members row, and the type was requested and never compared — the
-      // shape `host-means-host.test.ts` sweeps for. Behaviour is unchanged.
-      .select('user_id')
-      .eq('event_id', eventId)
-      .eq('user_id', user.id)
-      .maybeSingle(),
-    supabase
-      .from('event_moderators')
-      .select('permissions_json')
-      .eq('event_id', eventId)
-      .eq('user_id', user.id)
-      .not('accepted_at', 'is', null)
-      .is('removed_at', null)
-      .maybeSingle(),
-  ]);
+  // Both reads started above, beside the page's first reads (`advRolesRead`).
+  const [advMemberRes, advDelegateRes] = await advRolesRead;
   // The access window (owner 2026-09-14): a delegate seven days past the event
   // is not a coordinator any more. An event_members row is the couple/host and
   // never expires, which is why it stays the first arm of this `||`.
@@ -539,15 +561,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // new-time / decline in chat reflects here automatically. Flag-gated (dark
   // until negotiations launch). RLS lets the couple read their event's rows.
   let vendorMeetings: ScheduleMeeting[] = [];
-  if (chatNegotiationEnabled()) {
-    const { data: apptRows, error: apptRowsError } = await supabase
-      .from('event_appointments')
-      .select(
-        'appointment_id, kind, custom_label, scheduled_at, status, vendor_profile_id, thread_id',
-      )
-      .eq('event_id', eventId)
-      .in('status', ['proposed', 'confirmed'])
-      .order('scheduled_at', { ascending: true, nullsFirst: false });
+  if (apptRead) {
+    // Started above, beside the page's first reads (`apptRead`).
+    const { data: apptRows, error: apptRowsError } = await apptRead;
     // ⚠ APPOINTMENTS the couple booked. Refused, the schedule reads as empty and a
     // ⚠ booked meeting vanishes from the day it belongs to.
     if (apptRowsError) {
@@ -598,10 +614,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // gates both the rail's edit controls and Announce, and neither can show a
   // control the database will refuse. Owner 2026-09-25: *"setting up the
   // schedule can be done by hosts of the event and coordinator(upon approval)"*.
-  const [authority, announceEnabled] = await Promise.all([
-    resolveBroadcastAuthority(supabase, eventId, user.id),
-    isCoordinatorP3Enabled(),
-  ]);
+  const [authority, announceEnabled] = await announceRead;
   const dayRole: DayRole = authority.canSend
     ? authority.role === 'couple'
       ? 'host'
@@ -626,8 +639,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // strip on the day"); before it the page is for planning.
   const isEventDay = clock.theDayOpen;
   const eventDateKey = eventDate ? eventDate.slice(0, 10) : null;
-  const venueTodayKey = wallDateKey(new Date(venueNowMs()).toISOString());
-  const daysToGo = eventDateKey ? daysBetween(venueTodayKey, eventDateKey) : null;
+  // 🔢 W4 B4: the ONE days-to-go calculation (`daysToGoCount`) — the same number Home prints.
+  const daysLeft = eventDateKey ? daysToGoCount(eventDate, eventRow?.timezone, Date.now()) : null;
   const dateLabel = eventDateKey
     ? new Date(`${eventDateKey}T00:00:00Z`).toLocaleDateString('en-GB', {
         timeZone: 'UTC',
@@ -644,8 +657,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // unpublished shop). Taking either keeps a tool that any of the three would
   // fill — hiding it on one lookup's "no" would delete the other two's content.
   let hasHost = false;
-  if (!isTravel) {
-    const lookup = await findBookedHost(supabase, eventId, 'SchedulePage.hostTool');
+  if (hostLookupRead) {
+    const lookup = await hostLookupRead;
     hasHost = lookup.state !== 'none';
     if (!hasHost && canAdvanceRunOfShow) {
       hasHost = (await fetchEmceeRecipients(supabase, eventId, createAdminClient())).length > 0;
@@ -1115,7 +1128,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                 : []
             }
             isEventDay={isEventDay}
-            daysToGo={daysToGo}
+            daysToGo={daysLeft}
             emcee={
               <EmceeScriptButton
                 eventId={eventId}
@@ -1160,7 +1173,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           year: 'numeric',
         }).replace(',', '')
       : 'No date yet',
-    isEventDay ? 'today' : daysToGo !== null && daysToGo > 0 ? `${formatCount(daysToGo)} day${daysToGo === 1 ? '' : 's'} to go` : null,
+    isEventDay ? 'today' : daysLeft !== null && daysLeft > 0 ? `${formatCount(daysLeft)} day${daysLeft === 1 ? '' : 's'} to go` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -1242,10 +1255,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
               ) : null}
               {eventRow?.display_name?.trim() && dateLabel ? ' · ' : null}
               {dateLabel}
-              {daysToGo !== null && daysToGo > 0 && !isEventDay ? (
+              {daysLeft !== null && daysLeft > 0 && !isEventDay ? (
                 <>
                   {' · '}
-                  <b className="font-semibold text-ink/85">{daysToGo}</b> day{daysToGo === 1 ? '' : 's'} to go
+                  <b className="font-semibold text-ink/85">{daysLeft}</b> day{daysLeft === 1 ? '' : 's'} to go
                 </>
               ) : null}
             </p>

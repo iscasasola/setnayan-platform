@@ -174,13 +174,20 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
   const jobs = parseJobs(ci);
   const byId = new Map(jobs.map((j) => [j.id, j]));
 
-  /* a · every required name is the name of exactly one job, somewhere */
-  const allNames = [...jobs.map((j) => j.name), ...Object.values(others).flatMap((t) => parseJobs(t).map((j) => j.name))];
+  /* a · every required name is reported by exactly one place: the name of one job, somewhere, or one line of a
+         report step (see REPORT_SCRIPT) */
+  const reported = parseReportedChecks(ci);
+  const allNames = [
+    ...jobs.map((j) => j.name),
+    ...Object.values(others).flatMap((t) => parseJobs(t).map((j) => j.name)),
+    ...reported.map((r) => r.name),
+  ];
   for (const ctx of REQUIRED_CONTEXTS) {
     const n = allNames.filter((x) => x === ctx).length;
-    if (n === 0) problems.push(`required check "${ctx}" is no longer the name of any job — branch protection would wait forever on a check that never reports, and every PR would be stuck`);
-    if (n > 1) problems.push(`required check "${ctx}" is the name of ${n} jobs — which one branch protection reads is not something this file decides`);
+    if (n === 0) problems.push(`required check "${ctx}" is no longer the name of any job, nor reported by name — branch protection would wait forever on a check that never reports, and every PR would be stuck`);
+    if (n > 1) problems.push(`required check "${ctx}" is reported by ${n} places (job names + report lines) — which one branch protection reads is not something this file decides`);
   }
+  problems.push(...reportProblems(ci, jobs));
 
   /* b · the gate exists and is fail-closed */
   const gates = jobs.filter((j) => j.name === GATE_NAME);
@@ -266,6 +273,96 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
   }
 
   return problems;
+}
+
+/* ── 2b. required checks a job reports by name ──────────────────────────────*/
+
+/**
+ * 2026-11-18 — GitHub Pro runs 40 jobs at once on this account, so seconds-long
+ * jobs that were each a REQUIRED check are steps of the `guards` job now, and
+ * one step of that job posts each of them back under its exact required name
+ * through the Checks API (scripts/ci-report-checks.mjs). A check run created
+ * with the job's GITHUB_TOKEN belongs to the GitHub Actions app — the same app
+ * branch protection pins those names to — so branch protection is unchanged.
+ *
+ * The step's `REPORT: |` env block has one line per check:
+ *     <exact required name>=${{ steps.<id>.outcome }}[,${{ steps.<id>.outcome }}…]
+ */
+export const REPORT_SCRIPT = 'scripts/ci-report-checks.mjs';
+
+/** @returns {{job:string, name:string, stepIds:string[], step:string}[]} */
+export function parseReportedChecks(ci) {
+  const out = [];
+  for (const j of parseJobs(ci)) {
+    for (const step of j.steps) {
+      if (!runLines(step).some((r) => r === `node ${REPORT_SCRIPT}`)) continue;
+      const block = /^ {10}REPORT:\s*\|\s*\n((?: {12}.*\n?)+)/m.exec(step);
+      if (!block) {
+        out.push({ job: j.id, name: '', stepIds: [], step });
+        continue;
+      }
+      for (const raw of block[1].split('\n')) {
+        const line = raw.trim();
+        if (!line) continue;
+        const eq = line.indexOf('=');
+        const name = eq < 0 ? line : line.slice(0, eq).trim();
+        const rhs = eq < 0 ? '' : line.slice(eq + 1);
+        const stepIds = [...rhs.matchAll(/\$\{\{\s*steps\.([A-Za-z0-9_-]+)\.outcome\s*\}\}/g)].map((m) => m[1]);
+        out.push({ job: j.id, name, stepIds, step });
+      }
+    }
+  }
+  return out;
+}
+
+/** What must hold for a reported name to mean what a job of that name meant. */
+function reportProblems(ci, jobs) {
+  const problems = [];
+  const reported = parseReportedChecks(ci);
+  const byId = new Map(jobs.map((j) => [j.id, j]));
+  const steps = new Set(reported.map((r) => r.step));
+  for (const step of steps) {
+    const r0 = reported.find((r) => r.step === step);
+    const job = byId.get(r0.job);
+    if (!/^ {8}if:\s*\$\{\{\s*always\(\)\s*\}\}\s*$/m.test(step)) {
+      problems.push(`job "${r0.job}": the step that reports required checks by name must be \`if: \${{ always() }}\` — if an earlier step fails it would be SKIPPED, and every name it carries would wait forever`);
+    }
+    if (!/^ {10}GITHUB_TOKEN:\s*\$\{\{\s*secrets\.GITHUB_TOKEN\s*\}\}/m.test(step)) problems.push(`job "${r0.job}": the report step must be given GITHUB_TOKEN — a check run from any other token is not the GitHub Actions app branch protection pins the names to`);
+    if (!/^ {10}HEAD_SHA:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha \|\| github\.sha\s*\}\}/m.test(step)) problems.push(`job "${r0.job}": the report step must post to \`github.event.pull_request.head.sha || github.sha\` — on a pull request github.sha is the MERGE commit, which branch protection never reads`);
+    if (job && !/^ {6}checks:\s*write\s*$/m.test(job.body)) problems.push(`job "${r0.job}" reports checks by name but has no \`permissions: checks: write\` — every post would be refused and the names would never report`);
+    if (r0.name === '' && r0.stepIds.length === 0) problems.push(`job "${r0.job}": the report step has no \`REPORT: |\` block — it reports nothing`);
+  }
+  for (const r of reported) {
+    if (!r.name) continue;
+    if (r.stepIds.length === 0) problems.push(`reported check "${r.name}" reads no step outcome — it would be green while standing for nothing`);
+    const job = byId.get(r.job);
+    for (const id of r.stepIds) {
+      if (!job || !new RegExp(`^ {6}- id:\\s*${id}\\s*$|^ {8}id:\\s*${id}\\s*$`, 'm').test(job.body)) {
+        problems.push(`reported check "${r.name}" reads steps.${id}, which is not a step of job "${r.job}" — the outcome would be empty and the check red forever`);
+      }
+    }
+  }
+  return problems;
+}
+
+/**
+ * The conclusion for each line of a REPORT block. FAIL-CLOSED: green only when
+ * the line lists at least one outcome and every one is exactly `success`.
+ * @returns {{name:string, conclusion:'success'|'failure', outcomes:string[]}[]}
+ */
+export function reportConclusions(report) {
+  const out = [];
+  for (const raw of String(report ?? '').split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const eq = line.lastIndexOf('=');
+    if (eq <= 0) continue;
+    const name = line.slice(0, eq).trim();
+    const outcomes = line.slice(eq + 1).split(',').map((x) => x.trim());
+    const ok = outcomes.length > 0 && outcomes.every((o) => o === 'success');
+    out.push({ name, conclusion: ok ? 'success' : 'failure', outcomes: outcomes.map((o) => o || 'missing') });
+  }
+  return out;
 }
 
 /* ── 3. a test shard's log ──────────────────────────────────────────────────*/

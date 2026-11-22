@@ -235,7 +235,7 @@ export function PaletteLookThumb({ look, colours }: { look: PaletteLookId; colou
     );
   } else if (look === 'chips') {
     inner = (
-      <span className="flex flex-col gap-px rounded-sm bg-white p-[2px] shadow-[0_0_0_0.5px_rgba(0,0,0,.12)]">
+      <span className="flex flex-col gap-px rounded-sm bg-raised p-[2px] shadow-[0_0_0_0.5px_rgba(0,0,0,.12)]">
         {colours.map((hex, i) => (
           <i key={i} className="block h-[6px] w-[26px]" style={bg(hex)} />
         ))}

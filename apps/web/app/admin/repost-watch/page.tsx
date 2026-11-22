@@ -1,5 +1,7 @@
 import { InfoTip } from '@/app/_components/info-tip';
-import { PillLink, PillTrack } from '@/app/_components/pill-track';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
+import { TemplateEmpty, TemplateSection } from '@/app/_components/template-rows';
+import { actionButtonClass } from '@/components/action-button-class';
 import { ActionButton } from '@/components/action-button';
 import {
   ArrowUpRight,
@@ -7,7 +9,6 @@ import {
   X,
   ShieldAlert,
   RefreshCw,
-  QrCode,
 } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -235,29 +236,16 @@ export default async function AdminRepostWatchPage({
   for (const [id, url] of qrImageEntries) qrImageUrl.set(id, url);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       {/* The page starts at its content. 🔒 Rescan all is the only way to
           re-run the match from here, so it moves into `actions`.
           ⚖ The sentence survives: DETECT AND REVIEW ONLY — resolving a flag
           records a verdict and never touches anybody&apos;s image. On a queue
           about one vendor allegedly using another&apos;s photograph, that is
           the sentence that stops a reviewer expecting a takedown. */}
-      <PageMasthead
-        title="Repost watch"
-        className="mb-2"
-        actions={
-          <form action={rescanAllRepostWatch}>
-            <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
-              pendingLabel="Rescanning…"
-            >
-              <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Rescan all
-            </SubmitButton>
-          </form>
-        }
-      />
-      <div className="mb-6">
-        <div>
+      <PageMasthead title="Repost watch" />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="min-w-0 flex-1">
           <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
             Cross-supplier reverse-image matches — a supplier&apos;s newly-uploaded
           portfolio / service-cover image whose perceptual hash matches an older
@@ -266,7 +254,12 @@ export default async function AdminRepostWatchPage({
           touches the image. Demo suppliers and same-supplier matches are excluded.
           The latest 200 matching the filter, newest first.
           </InfoTip>
-        </div>
+        </span>
+        <form action={rescanAllRepostWatch}>
+          <SubmitButton className={actionButtonClass('neutral')} pendingLabel="Rescanning…">
+            <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Rescan all
+          </SubmitButton>
+        </form>
       </div>
 
       {(search.rescanned !== undefined) && (
@@ -294,14 +287,22 @@ export default async function AdminRepostWatchPage({
       {/* 🃏 "It's mine — report it" (owner 2026-10-26) — a LIST, not a queue: the card stays blocked either way. */}
       <SupplierPhotoReports />
 
-      <PillTrack className="mb-4">
-        {STATUS_FILTERS.map((f) => (
-          <PillLink key={f.value} on={status === f.value} href={`/admin/repost-watch?status=${f.value}`} aria-current={status === f.value ? 'page' : undefined} className="px-3">
-            {f.label}
-            {f.value === 'open' && openCount > 0 ? ` · ${formatCount(openCount)}` : ''}
-          </PillLink>
-        ))}
-      </PillTrack>
+      <TemplateSection
+        label="Repost flags"
+        data="repost-flags"
+        right={
+          <LinkPickMenu
+            label="Status"
+            value={status}
+            dataAttr="repost-status"
+            options={STATUS_FILTERS.map((f) => ({
+              key: f.value,
+              label: `${f.label}${f.value === 'open' && openCount > 0 ? ` · ${formatCount(openCount)}` : ''}`,
+              href: `/admin/repost-watch?status=${f.value}`,
+            }))}
+          />
+        }
+      >
 
       {listError && (
         <FormFlash tone="error">
@@ -311,11 +312,12 @@ export default async function AdminRepostWatchPage({
       )}
 
       {listError ? null : rows.length === 0 ? (
-        <p className="rounded-md border border-ink/10 bg-white/70 px-4 py-3 text-sm text-ink/65">
-          No flags in this view. With the founder-only pilot this stays empty
-          until a second real supplier onboards — use “Rescan all” to hash existing
-          images.
-        </p>
+        <TemplateEmpty data="repost-flags">
+          <InfoTip label="No flags in this view." align="start">
+            With the founder-only pilot this stays empty until a second real supplier onboards — use “Rescan all” to
+            hash existing images.
+          </InfoTip>
+        </TemplateEmpty>
       ) : (
         <ul className="space-y-4">
           {rows.map((r) => {
@@ -348,9 +350,7 @@ export default async function AdminRepostWatchPage({
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {/* Likely reposter — the NEW upload. */}
                   <div className="space-y-1.5">
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-                      Newly uploaded
-                    </p>
+                    <p className="text-[13px] text-[color:var(--m-slate-2)]">Newly uploaded</p>
                     <div className="aspect-video w-full overflow-hidden rounded-xl bg-ink/[0.04]">
                       {flaggedUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -374,9 +374,7 @@ export default async function AdminRepostWatchPage({
 
                   {/* Likely victim — first seen. */}
                   <div className="space-y-1.5">
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-                      Seen earlier on
-                    </p>
+                    <p className="text-[13px] text-[color:var(--m-slate-2)]">Seen earlier on</p>
                     <div className="aspect-video w-full overflow-hidden rounded-xl bg-ink/[0.04]">
                       {sourceUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -441,30 +439,16 @@ export default async function AdminRepostWatchPage({
           })}
         </ul>
       )}
+      </TemplateSection>
 
       {/* ── QR-in-media guard (owner-locked 2026-07-03) ─────────────────── */}
-      <section className="mt-10">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <QrCode className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-            <h2 className="text-lg font-semibold tracking-tight">QR-in-media guard</h2>
-            {qrOpen.length > 0 && (
-              <span className="rounded-full bg-warn-100 px-2 py-0.5 text-[12px] font-medium text-warn-900">
-                {qrOpen.length} open
-              </span>
-            )}
-          </div>
-          <form action={scanQrMediaGuard}>
-            <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
-              pendingLabel="Scanning…"
-            >
-              <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Scan QR
-              codes
-            </SubmitButton>
-          </form>
-        </div>
-        <div className="mb-4">
+      <TemplateSection
+        label="QR-in-media guard"
+        data="qr-media"
+        right={qrOpen.length > 0 ? `${qrOpen.length} open` : undefined}
+      >
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="min-w-0 flex-1">
           <InfoTip label="About website media checks" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
             Supplier-website media (portfolio, logo, hero, service photos) containing a
           QR that targets the supplier&apos;s invite / lock funnel — directly or via a
@@ -472,6 +456,13 @@ export default async function AdminRepostWatchPage({
           media uploaded before the guard shipped. Review-only: resolving a flag
           never touches the image.
           </InfoTip>
+          </span>
+          <form action={scanQrMediaGuard}>
+            <SubmitButton className={actionButtonClass('neutral')} pendingLabel="Scanning…">
+              <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Scan QR
+              codes
+            </SubmitButton>
+          </form>
         </div>
 
         {qrError && (
@@ -482,10 +473,10 @@ export default async function AdminRepostWatchPage({
         )}
 
         {qrRows.length === 0 ? (
-          <p className="rounded-md border border-ink/10 bg-white/70 px-4 py-3 text-sm text-ink/65">
+          <TemplateEmpty data="qr-media">
             No QR flags. Run “Scan QR codes” to sweep already-uploaded supplier
             media.
-          </p>
+          </TemplateEmpty>
         ) : (
           <ul className="space-y-4">
             {qrRows.map((r) => {
@@ -594,7 +585,7 @@ export default async function AdminRepostWatchPage({
             })}
           </ul>
         )}
-      </section>
+      </TemplateSection>
 
       
       {/* 🃏 The claim words the card maker refuses, and the shops allowed one (owner 2026-10-26). */}

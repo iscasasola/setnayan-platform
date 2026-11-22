@@ -18,8 +18,8 @@ import { Field } from '@/app/_components/forms/field';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import {
   fetchPlatformSettingsMeasured,
-  fetchVendorValidateContacts,
   fetchDriveSpeed,
+  fetchGrowLines,
 } from '@/lib/platform-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
 import { removeBrandIcon, saveBusinessIdentity } from '@/app/admin/settings/actions';
@@ -68,8 +68,8 @@ export async function SettingsSurface({ searchParams }: Props) {
   const { settings, readFailed: settingsReadFailed } =
     await fetchPlatformSettingsMeasured(admin);
   // Soft probe (degrades to defaults pre-migration 20270503417266).
-  const validateContacts = await fetchVendorValidateContacts(admin);
   const driveSpeed = await fetchDriveSpeed(admin);
+  const growLines = await fetchGrowLines(admin);
   // Loader appearance (owner 2026-07-05; degrades to DEFAULT pre-migration
   // 20270520000000).
   const loaderConfig = await getLoaderSettings();
@@ -206,36 +206,6 @@ export async function SettingsSurface({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
-          <Field
-            label="Supplier VALIDATE email"
-            htmlFor="vendor_validate_email"
-            help='Setnayan-owned inbox suppliers email their "VALIDATE <shop name>" message to during verification. Admins mark each received message on the verification queue.'
-          >
-            <input
-              autoComplete="off"
-              id="vendor_validate_email"
-              name="vendor_validate_email"
-              type="email"
-              required
-              defaultValue={validateContacts.vendor_validate_email}
-              className="input-field"
-            />
-          </Field>
-          <Field
-            label="Supplier VALIDATE mobile number"
-            htmlFor="vendor_validate_phone"
-            help='Setnayan-owned number suppliers text their "VALIDATE <shop name>" message to. Leave blank to show "number coming soon" to suppliers until one exists.'
-          >
-            <input
-              autoComplete="off"
-              id="vendor_validate_phone"
-              name="vendor_validate_phone"
-              type="tel"
-              defaultValue={validateContacts.vendor_validate_phone ?? ''}
-              placeholder="09XX XXX XXXX"
-              className="input-field"
-            />
-          </Field>
           {/* 🚗 Slice 5 (owner 2026-11-04, "Admin-set speed"): no default — blank means no drive is estimated. */}
           <Field
             label="Average driving speed (km/h)"
@@ -255,6 +225,140 @@ export async function SettingsSurface({ searchParams }: Props) {
               step="0.5"
               disabled={!driveSpeed.read}
               defaultValue={driveSpeed.read && driveSpeed.kmh !== null ? driveSpeed.kmh : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
+          {/* 🌱 Today v2 (owner 2026-11-18, pick 1): the two grow lines are the owner's — blank means that stage is off. */}
+          <Field
+            label="Few inquiries — in 28 days"
+            htmlFor="grow_few_inquiries_28d"
+            help={
+              growLines.read
+                ? 'A supplier with fewer inquiries than this in the last 28 days sees “Get inquiries” on Today: share your page, print your QR. Leave blank to keep that stage off.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="grow_few_inquiries_28d"
+              name="grow_few_inquiries_28d"
+              type="number"
+              min={1}
+              max={10000}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.fewInquiries !== null ? growLines.fewInquiries : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
+          <Field
+            label="Few bookings — this month"
+            htmlFor="grow_few_bookings_month"
+            help={
+              growLines.read
+                ? 'A supplier with fewer bookings than this dated this month sees “Win bookings” on Today: reply within 1 hour, send your quote, add where couples pay you. Leave blank to keep that stage off.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="grow_few_bookings_month"
+              name="grow_few_bookings_month"
+              type="number"
+              min={1}
+              max={10000}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.fewBookings !== null ? growLines.fewBookings : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
+          {/* ⚙ Today v3 part 5 (owner 19 Nov, “Yes, all your picks”): Today’s three other numbers — blank means that rule is off. */}
+          <Field
+            label="Shared photos — days of silence"
+            htmlFor="story_photo_silence_days"
+            help={
+              growLines.read
+                ? 'After a supplier wraps up an event, the photos they share to the couple’s story count as accepted after this many days with no answer. Nothing is ever removed. Leave blank to keep photos waiting until the couple answers.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="story_photo_silence_days"
+              name="story_photo_silence_days"
+              type="number"
+              min={1}
+              max={90}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.silenceDays !== null ? growLines.silenceDays : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
+          <Field
+            label="“Soon” — inquiry or booking ask, in hours"
+            htmlFor="today_soon_ask_hours"
+            help={
+              growLines.read
+                ? 'A supplier’s Today shows an inquiry unanswered for this many hours, or a booking ask whose window closes within them, in amber with the word “Soon”. Leave blank to keep that colour off.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="today_soon_ask_hours"
+              name="today_soon_ask_hours"
+              type="number"
+              min={1}
+              max={720}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.soonAskHours !== null ? growLines.soonAskHours : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
+          <Field
+            label="“Soon” — an event beyond tomorrow, in days"
+            htmlFor="today_soon_event_days"
+            help={
+              growLines.read
+                ? 'Booked events beyond tomorrow and this many days away or fewer show on a supplier’s Today as one line, “This week: N events”, that opens the calendar. Leave blank to keep it off.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="today_soon_event_days"
+              name="today_soon_event_days"
+              type="number"
+              min={1}
+              max={60}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.soonEventDays !== null ? growLines.soonEventDays : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
+          <Field
+            label="Who gets new inquiries — own clients before a shop’s own split"
+            htmlFor="inquiry_split_own_enough"
+            help={
+              growLines.read
+                ? 'A supplier’s new inquiries go to one Account Manager by last name. Once a card has this many past clients, its split is cut from the shop’s own clients; until then, and while this is blank, from every Setnayan inquiry of that event type.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="inquiry_split_own_enough"
+              name="inquiry_split_own_enough"
+              type="number"
+              min={1}
+              max={100000}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.splitOwnEnough != null ? growLines.splitOwnEnough : ''}
               placeholder="Not set"
               className="input-field"
             />

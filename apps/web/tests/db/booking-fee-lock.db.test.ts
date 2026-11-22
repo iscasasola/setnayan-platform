@@ -10,7 +10,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { bookingFeePhp } from '../../lib/booking-fee';
+import { bookingFeePhp, unverifiedBookingFeePhp } from '../../lib/booking-fee';
 import { SOURCED_INQUIRY_SOURCES } from '../../lib/booking-fee-gate';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
@@ -142,22 +142,21 @@ after(async () => {
   await db?.close();
 });
 
-test('schedule: booking_fee_centavos is the 5%/1% TAPER, ₱50 floor, NO cap', async () => {
+test('schedule: booking_fee_centavos is 5% then 3%, ₱50 floor, LOCKED at ₱100,000 (owner 2026-11-20)', async () => {
   const q = async (c: number) => {
     const r = await db.query<{ f: number }>(`SELECT public.booking_fee_centavos($1)::int AS f`, [c]);
     return r.rows[0]!.f;
   };
-  // Owner-locked 2026-07-25: 5% on the first ₱100,000, then 1% above.
-  // The SQL is the authoritative mirror of lib/booking-fee.ts — these are the
-  // same four worked examples the model states, in centavos.
+  // Owner 2026-11-20: 5% on the first ₱100,000, then 3% above, locked at ₱100,000.
+  // The SQL is the authoritative mirror of lib/booking-fee.ts — in centavos.
   assert.equal(await q(0), 0); // ₱0 → no fee
   assert.equal(await q(50_000), 5_000); // ₱500 → 5% = ₱25 → floored ₱50 (5000c)
   assert.equal(await q(10_000_00), 50_000); // ₱10,000 → ₱500 (inside the band)
   assert.equal(await q(100_000_00), 500_000); // ₱100,000 → ₱5,000 (the band edge)
   assert.equal(await q(60_000_00), 300_000); // ₱60,000 → ₱3,000
-  assert.equal(await q(300_000_00), 700_000); // ₱300,000 → ₱7,000
-  assert.equal(await q(1_000_000_00), 1_400_000); // ₱1M → ₱14,000, uncapped
-  assert.equal(await q(10_000_000_00), 10_400_000); // ₱10M → ₱104,000
+  assert.equal(await q(300_000_00), 1_100_000); // ₱300,000 → ₱11,000
+  assert.equal(await q(1_000_000_00), 3_200_000); // ₱1M → ₱32,000
+  assert.equal(await q(10_000_000_00), 10_000_000); // ₱10M → ₱302,000 → LOCKED at ₱100,000
 
   // The property that stops under-declaration paying: monotonic across the edge.
   assert.ok(
@@ -166,25 +165,59 @@ test('schedule: booking_fee_centavos is the 5%/1% TAPER, ₱50 floor, NO cap', a
   );
 
   // And the SQL agrees with the TS to the centavo, so the two can never drift.
-  for (const php of [500, 10_000, 60_000, 100_000, 300_000, 1_000_000, 10_000_000]) {
+  for (const php of [500, 10_000, 60_000, 100_000, 300_000, 1_000_000, 9_600_000, 10_000_000, 50_000_000]) {
     assert.equal(
       await q(php * 100),
       Math.round(bookingFeePhp(php) * 100),
       `SQL and TS disagree at ₱${php}`,
     );
   }
+
+  // ⚖ THE SHOWN FEE IS THE BILLED FEE (ship review 21 Nov): TS equals SQL to the centavo over many amounts,
+  // half-centavo edges included (₱100,003.50 → ₱5,000.11), for the taper AND the unverified flat fee.
+  {
+    const cs: number[] = [];
+    for (let c = 1; c <= 300; c++) cs.push(100_000_00 + c * 50); // every half-peso above the band edge
+    for (let c = 1; c <= 200; c++) cs.push(c * 251); // through the floor
+    let seed = 11;
+    for (let i = 0; i < 1_500; i++) {
+      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+      cs.push(1 + Math.floor((seed / 2_147_483_648) * 500_000_000));
+    }
+    const r = await db.query<{ c: string; t: string; f: string }>(
+      `SELECT c::text AS c, public.booking_fee_centavos(c)::text AS t, public.booking_fee_flat_centavos(c)::text AS f
+         FROM unnest($1::bigint[]) AS c`,
+      [cs],
+    );
+    assert.equal(r.rows.length, cs.length);
+    for (const row of r.rows) {
+      const php = Number(row.c) / 100;
+      assert.equal(Math.round(bookingFeePhp(php) * 100), Number(row.t), `taper: TS shows ≠ SQL bills at ₱${php}`);
+      assert.equal(Math.round(unverifiedBookingFeePhp(php) * 100), Number(row.f), `flat: TS shows ≠ SQL bills at ₱${php}`);
+    }
+  }
+
+  // ⚖ The payment ceiling (owner 2026-11-17, max_payment_php) also bounds the fee: the lower of it and the lock wins.
+  await db.query(`UPDATE public.platform_settings SET max_payment_php = 50000 WHERE id = 1`);
+  try {
+    assert.equal(await q(10_000_000_00), 5_000_000, 'max_payment_php ₱50,000 holds the fee under the ₱100,000 lock');
+    const flat = await db.query<{ f: number }>(`SELECT public.booking_fee_flat_centavos($1)::int AS f`, [10_000_000_00]);
+    assert.equal(flat.rows[0]!.f, 5_000_000, 'the unverified flat fee is held to the ceiling too');
+    assert.equal(await q(300_000_00), 1_100_000, 'under the ceiling the taper is untouched');
+  } finally {
+    await db.query(`UPDATE public.platform_settings SET max_payment_php = 100000 WHERE id = 1`);
+  }
 });
 
-// ⚖ One free booking since 2026-10-23 (owner: "Your first booking is on us.
-// Not 5."). The boundary moved from 5th-vs-6th to 1st-vs-2nd.
-test('the first booking free, then 5% at the 2nd — the boundary + the base', async () => {
+// ⚖ 20 Nov 2026: no free first booking (it was one since 2026-10-23, five before). Booking 1 is billed.
+test('the first booking is billed, and so is the 2nd — 5% of the confirmed base', async () => {
   const { vendorProfileId } = await newVendor('free5@fee.test');
 
-  // Booking 1 → FREE (waived_free5, no money).
+  // Booking 1 → CHARGED, pending.
   const first = await lockAndCharge(vendorProfileId, 100_000, 'free1-1');
-  assert.equal(first.is_free, true, 'booking 1 is free');
-  assert.equal(first.status, 'waived_free5', 'booking 1 → waived_free5');
-  assert.equal(first.amount_charged_centavos, 0, 'booking 1 charges nothing');
+  assert.equal(first.is_free, false, 'booking 1 is not free any more');
+  assert.equal(first.status, 'pending', 'booking 1 → pending');
+  assert.equal(first.amount_charged_centavos, 500_000, 'booking 1 charges 5% of ₱100,000');
   assert.equal(first.booking_ordinal, 1, 'booking 1 ordinal frozen');
 
   // Booking 2 → CHARGED 5% of the confirmed ₱100,000 = ₱5,000 (500000c), pending.
@@ -201,7 +234,7 @@ test('the first booking free, then 5% at the 2nd — the boundary + the base', a
        WHERE vendor_profile_id = $1 AND status = 'pending'`,
     [vendorProfileId],
   );
-  assert.equal(chargeCount.rows[0]!.c, 1, 'only the 2nd booking has a pending charge');
+  assert.equal(chargeCount.rows[0]!.c, 2, 'both bookings have a pending charge');
 });
 
 test('idempotent re-lock: same (vendor,event) never double-charges', async () => {
@@ -216,7 +249,7 @@ test('idempotent re-lock: same (vendor,event) never double-charges', async () =>
   const first = await openLockCharge(evId);
   assert.equal(first.status, 'pending');
   assert.equal(first.reused, false, 'first open mints a charge');
-  assert.equal(first.computed_fee_centavos, 600_000, '₱200,000 → ₱6,000 (5% of 100k + 1% of 100k)');
+  assert.equal(first.computed_fee_centavos, 800_000, '₱200,000 → ₱8,000 (5% of 100k + 3% of 100k)');
 
   // Re-lock the SAME event_vendor → same charge, no new row.
   const second = await openLockCharge(evId);
@@ -309,10 +342,12 @@ test('a client the VENDOR brought is never billed — no thread at all', async (
   // No free-5 warm-up needed: the import gate runs BEFORE the ordinal and
   // returns a DISTINCT status, so `waived_import` proves which gate fired.
   const eventId = await newEvent('byo-6');
+  // ⟲ Owner 2026-11-16 (answer 3): a booking with nothing imported now PAYS, so a client the supplier brought is
+  // modelled the way the app records one — a supplier-brought source (the Locked QR) — not as a row with no source.
   const evId = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors
-       (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id)
-     VALUES ($1, 'photographer', 'Fee Test Vendor', 'contracted', 200000, $2)
+       (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id, source)
+     VALUES ($1, 'photographer', 'Fee Test Vendor', 'contracted', 200000, $2, 'vendor_locked_qr')
      RETURNING vendor_id`,
     [eventId, vendorProfileId],
   );

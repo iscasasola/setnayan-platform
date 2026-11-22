@@ -23,7 +23,10 @@ const GLOBALS = readFileSync(join(WEB, 'app', 'globals.css'), 'utf8');
 const accRules = [...GLOBALS.matchAll(/([^{}]*\.sn-acc-head[^{}]*)\{([^}]*)\}/g)].map((m) => ({ sel: m[1]!.trim().split('\n').pop()!.trim(), body: m[2]! }));
 const rule = (sel: string) => accRules.find((r) => r.sel === sel)?.body ?? '';
 
-test('Guests: every group header wears the mark — data-open on the OPEN one only, the chip on its icon', async () => {
+test('Guests: every group header wears the mark and starts OPEN; its heading is text only (Guests redesign, 20 Nov)', async () => {
+  // 👥 Owner 20 Nov 2026, Guests redesign §1 ("Yes, your picks" → "Yes, build it"): "Sections start open. The page opens
+  // on names, not on a menu of folded headings" and "Headings are text only. The grey circle icon per heading is gone."
+  // The shared mark stays on the header (its divider, `data-open`); the chip does not — Seats and People keep theirs.
   const guests = [
     guestRow({ role: 'bride', rsvp_status: 'attending' }),
     guestRow({ role: 'groom', side: 'groom', rsvp_status: 'attending' }),
@@ -33,13 +36,13 @@ test('Guests: every group header wears the mark — data-open on the OPEN one on
   const html = await renderGuestsScreen({ guests });
   const heads = [...html.matchAll(/<section\b[^>]*data-open="(true|false)"[^>]*>\s*<div class="([^"]*)"([^>]*)>([\s\S]*?)<\/button>/g)];
   assert.ok(heads.length >= 2, 'the fixture drew fewer than two groups — re-aim');
-  assert.ok(heads.some((h) => h[1] === 'true') && heads.some((h) => h[1] === 'false'), 'no open AND closed group to compare');
   for (const [, open, cls, attrs, inner] of heads) {
+    assert.equal(open, 'true', 'a group starts folded — the page must open on names');
     assert.match(cls!, /\bsn-acc-head\b/, 'a group header does not wear the shared mark');
     assert.equal(/\bdata-open=""/.test(attrs!), open === 'true', `a ${open === 'true' ? 'open' : 'closed'} header says the opposite`);
     assert.match(inner!, /aria-expanded="(true|false)"/);
     assert.equal(/aria-expanded="true"/.test(inner!), open === 'true', 'data-open and aria-expanded disagree');
-    assert.match(inner!, /<span class="[^"]*\bsn-acc-chip\b[^"]*" aria-hidden="true">/, 'the icon is not the chip');
+    assert.doesNotMatch(inner!, /\bsn-acc-chip\b/, 'the heading wears its icon chip again — it is text only');
   }
 });
 

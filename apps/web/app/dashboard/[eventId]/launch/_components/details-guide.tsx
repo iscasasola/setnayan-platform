@@ -149,7 +149,7 @@ export function GuideReady({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const quiet =
-    'sn-press inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-ink/15 bg-white px-4 text-[14px] font-semibold text-ink hover:bg-ink/[0.04]';
+    'sn-press inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-ink/15 bg-raised px-4 text-[14px] font-semibold text-ink hover:bg-ink/[0.04]';
   return (
     <section
       data-details-guide-ready={round}
@@ -172,7 +172,7 @@ export function GuideReady({
             )}
           </p>
         </header>
-        <ul className="flex flex-col divide-y divide-ink/10 rounded-lg bg-white/80 px-3 shadow-sn-sm">
+        <ul className="flex flex-col divide-y divide-ink/10 rounded-lg bg-raised/80 px-3 shadow-sn-sm">
           {steps.map((s) => (
             <li key={s.key}>
               <button

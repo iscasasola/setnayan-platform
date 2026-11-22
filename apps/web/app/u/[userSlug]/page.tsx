@@ -115,10 +115,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const hasPublic = (resolved?.publicWebsiteEvents.length ?? 0) > 0;
   if (!resolved || !enabled || !hasPublic) {
     return {
-      // `absolute` bypasses the root template so this renders exactly
-      // "Setnayan" and not "Setnayan · Setnayan". The neutral title is the
-      // privacy control here — it must not confirm the slug belongs to anyone.
-      title: { absolute: 'Setnayan' },
+      // Name-free on purpose: the neutral title is the privacy control here — it must not confirm the slug belongs
+      // to anyone. It is still a PER-PAGE title (W5-B5: the bare "Setnayan" told a tab nothing). The root layout's
+      // template adds the brand once: "Profile · Setnayan".
+      title: 'Profile',
       robots: { index: false, follow: false },
     };
   }
@@ -131,7 +131,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // only ever emitted for a genuine public showcase.
   const ogImage = `${SITE_URL}/api/og/u/${canonicalSlug}`;
   return {
-    title: `${name} · Setnayan`,
+    // The document title goes through the root layout's `template: '%s · Setnayan'` — it carries the name alone
+    // ("Ice Casasola · Setnayan · Setnayan" read the brand twice, logged-out crawl #20). The share card keeps the brand.
+    title: name === 'Setnayan' ? { absolute: 'Setnayan' } : name,
     // Aggregation surface — the individual event pages carry the real SEO. Keep
     // this out of the index to avoid thin-content duplication, but allow follow
     // so the (public) chapter links are crawled.
@@ -1032,11 +1034,18 @@ function PosterSprig({ side }: { side: 'l' | 'r' }) {
   );
 }
 
+/*
+  ⚠ THIS STRING MUST NEVER CONTAIN THE TEXT "<style" OR "</style" — NOT EVEN IN A CSS COMMENT.
+  React's server renderer rewrites either one inside <style> children to a CSS escape (`<\73 tyle`), so the
+  HTML no longer equals the string the client hydrates with: React error #418 (text) on EVERY load of every
+  /u/<slug> page. That is exactly what this comment's old wording ("a second <style> block") did, measured
+  on live /u/icecasa 2026-11-18 (6 of 6 loads). 🔒 lib/a-style-tag-never-names-a-style-tag.test.ts
+*/
 const UPROF_CSS = `
   /* "Days you were both there" — rendered by the MutualDays client island.
      The island is a separate file, so these classes are its only styling; keep
      them here with the rest of the page's CSS rather than shipping a second
-     <style> block. */
+     style block. */
   .uprof-md { margin-top: clamp(2.5rem, 6vw, 3.75rem); }
   .uprof-md-head {
     font-size: clamp(1.2rem, 3.5vw, 1.6rem);

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
+import { rawTokens, tokenHex } from '@/lib/css-colour-tokens';
 
 /**
  * THE FRONT DOOR'S SMALL PRINT IS READABLE — WCAG AA, COMPUTED.
@@ -60,16 +61,23 @@ function blocks(selector: string): string[] {
   return out;
 }
 
-function tokens(selector: string): Record<string, string> {
-  const b = blocks(selector);
-  assert.ok(b.length > 0, `the ${selector} token block is gone`);
+/**
+ * The shell's tokens as the browser resolves them. Since the one colour set (18 Nov 2026) a `--fd-*` token may POINT
+ * at a `--color-*` one (`--fd-m1: rgb(var(--color-ink-3))`), so the pointer is followed (`lib/css-colour-tokens.ts`).
+ */
+function tokens(theme: 'light' | 'dark'): Record<string, string> {
+  assert.ok(blocks(theme === 'light' ? '.fd' : 'html.dark .fd').length > 0, `the ${theme} .fd token block is gone`);
   const t: Record<string, string> = {};
-  for (const m of b[0]!.matchAll(/(--fd-[\w-]+):\s*(#[0-9a-fA-F]{6})/g)) t[m[1]!] = m[2]!.toLowerCase();
+  for (const name of Object.keys(rawTokens(theme, 'fd'))) {
+    if (!name.startsWith('--fd-')) continue;
+    const hex = tokenHex(name, theme, 'fd');
+    if (hex) t[name] = hex;
+  }
   return t;
 }
 
-const LIGHT = tokens('.fd');
-const DARK = { ...LIGHT, ...tokens('html.dark .fd') };
+const LIGHT = tokens('light');
+const DARK = tokens('dark');
 
 function resolve(value: string, set: Record<string, string>): string {
   const v = /var\((--fd-[\w-]+)\)/.exec(value);

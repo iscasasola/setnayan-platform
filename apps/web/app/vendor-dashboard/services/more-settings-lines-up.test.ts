@@ -14,9 +14,15 @@ import { stripComments } from '@/lib/strip-comments';
 const src = stripComments(readFileSync(join(__dirname, '_components/canvas-maker.tsx'), 'utf8'));
 const box = (fn: string) => src.slice(src.indexOf(`function ${fn}(`)).match(/className="grid (h-\d+ w-\d+) /)?.[1];
 
-test('a nested row’s mark sits in the same box as the row above it', () => {
+/* Re-aimed 2026-11-17 (Card Maker HYBRID, owner-approved — "Folds become framed groups", REMOVES 8): the nested folds and
+   their marks are gone from More settings. The claim — one column inside it — now holds because every group is the ONE
+   frame (MakerGroup) holding Form rows, whose names all start on the frame's edge; no nested mark is left to misalign. */
+test('inside More settings every group is the one frame, and no nested mark is left to misalign', () => {
   assert.equal(box('RowIcon'), 'h-10 w-10');
-  assert.equal(box('SubIcon'), box('RowIcon'), 'nested marks are a different width — names no longer line up');
+  assert.ok(!src.includes('function SubIcon('), 'nested marks are back inside More settings');
+  const more = src.slice(src.indexOf('data-maker-more=""'), src.indexOf('</Fold>', src.indexOf('data-maker-more=""')));
+  assert.ok((more.match(/<MakerGroup id="/g) ?? []).length >= 6, 'More settings is no longer framed groups');
+  assert.ok(!/<Fold\b/.test(more), 'a nested fold is back inside More settings');
 });
 
 test('every top-level row puts its name on the fold head’s column (40 px mark + 8 px gap)', () => {
@@ -28,15 +34,17 @@ test('every top-level row puts its name on the fold head’s column (40 px mark 
 });
 
 test('Discounts says, in its ⓘ, that a quote can always go lower', () => {
-  const at = src.indexOf('data="m-disc"');
+  const at = src.indexOf('data-maker-group-row="m-disc"');
   const body = src.slice(at, src.indexOf('<DiscountsEditor', at));
-  assert.match(body, /<InfoTip label="Starting offers"/);
+  assert.ok(at > 0 && body.length > 0, 'the Discounts row is gone');
+  assert.match(body, /about=\{\{ title: 'Starting offers'/);
   assert.ok(body.includes('Starting offers. You can give a bigger discount in any quote.'), 'the Discounts ⓘ line is gone');
 });
 
-test('what a nested fold opens onto starts on the name column, with no extra inset', () => {
+test('what a group opens onto starts on the name column, with no extra inset', () => {
   const at = src.indexOf('data-maker-more=""');
   const tag = src.slice(src.lastIndexOf('<div', at), at);
-  assert.match(tag, /\[&>\[data-fold\]>\[data-fold-body\]>div>\*\]:pl-12/);
-  assert.ok(!/\bpl-1\b/.test(tag), 'the extra 4 px inset is back');
+  assert.ok(!/\bpl-\d+\b/.test(tag), 'an extra inset is back on More settings');
+  const group = src.slice(src.indexOf('function MakerGroup('), src.indexOf('function byCategory('));
+  assert.match(group, /!px-3\.5/, 'the frame lost its 14 px sides (the drawing’s .fr)');
 });

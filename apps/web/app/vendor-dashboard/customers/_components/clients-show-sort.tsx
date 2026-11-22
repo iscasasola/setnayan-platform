@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChosenRow } from '@/app/_components/form-row';
 import { ShowSortSheet, ShowSortTopic } from '@/app/_components/show-sort-sheet';
-import { FilterFace } from '@/app/dashboard/[eventId]/guests/_components/guests-filter-menu';
+import { SortFace, sortLabel } from '@/components/sort-face';
 import { formatCount } from '@/lib/format-number';
 import {
   CLIENTS_GROUP,
@@ -48,6 +48,7 @@ export function ClientsShowSort({
   clients,
   seats,
   agent,
+  hasBranches = false,
   shown,
   keep,
   schedules = [],
@@ -63,6 +64,8 @@ export function ClientsShowSort({
   /** The team's seats; null = the team could not be read. */
   seats: readonly { key: string; label: string }[] | null;
   agent: boolean;
+  /** The shop has two or more locations — Group by offers Branch (#8013 (f)). */
+  hasBranches?: boolean;
   /** How many events the list holds now — "Show N clients". */
   shown: number;
   /** Every other param of the address, kept (`?q=` …). */
@@ -108,7 +111,7 @@ export function ClientsShowSort({
     <>
       <button
         type="button"
-        aria-label="Show and sort"
+        aria-label={sortLabel(on)}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen(true)}
@@ -116,7 +119,7 @@ export function ClientsShowSort({
         data-thumb-sort=""
         data-tour="customers-sort"
       >
-        <FilterFace on={on} />
+        <SortFace on={on} />
       </button>
       {open ? (
         <ShowSortSheet
@@ -201,7 +204,7 @@ export function ClientsShowSort({
             name="Group by"
             line="The headings of the list"
             value={choice.group}
-            options={CLIENTS_GROUP.filter((g) => g.key !== 'seat' || (!agent && seats !== null && seats.length > 0))}
+            options={CLIENTS_GROUP.filter((g) => (g.key !== 'seat' || (!agent && seats !== null && seats.length > 0)) && (g.key !== 'branch' || hasBranches))}
             onPick={(k) => go({ ...choice, group: k as ClientsChoice['group'] })}
             dataAttr="data-clients-group"
           />

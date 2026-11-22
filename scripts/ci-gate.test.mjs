@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { gateVerdict, shapeProblems, parseJobs, summariseTap, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM } from './lib/ci-shape.mjs';
+import { gateVerdict, shapeProblems, parseJobs, summariseTap, parseReportedChecks, reportConclusions, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM } from './lib/ci-shape.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -83,11 +83,60 @@ test('the committed workflow is sound', () => {
   assert.deepEqual(problemsOf(CI), []);
 });
 
-test('all 13 required names are each the name of exactly one job', () => {
+test('all 13 required names are each reported by exactly one place — a job name or a report line', () => {
   assert.equal(REQUIRED_CONTEXTS.length, 13);
   assert.equal(new Set(REQUIRED_CONTEXTS).size, 13);
-  const names = [...parseJobs(CI), ...Object.values(others).flatMap((t) => parseJobs(t))].map((j) => j.name);
+  const names = [...[...parseJobs(CI), ...Object.values(others).flatMap((t) => parseJobs(t))].map((j) => j.name), ...parseReportedChecks(CI).map((r) => r.name)];
   for (const ctx of REQUIRED_CONTEXTS) assert.equal(names.filter((n) => n === ctx).length, 1, ctx);
+});
+
+/* ── required checks reported by name (2026-11-18, the 40-job limit) ────────*/
+
+test('the eight folded required checks are reported by the guards job, each from real steps', () => {
+  const r = parseReportedChecks(CI).filter((x) => x.job === 'guards');
+  assert.deepEqual(r.map((x) => x.name).sort(), ['lint bottom-nav template', 'lint entitlement gates', 'lint exposure baseline', 'lint guest legibility', 'lint nav icon source', 'lint nested forms', 'migration timestamp guard', 'secret scan']);
+  assert.ok(r.every((x) => x.stepIds.length > 0));
+  assert.equal(r.find((x) => x.name === 'migration timestamp guard').stepIds.length, 7, 'the guard and its six rule tests');
+});
+
+test('🚨 "bundle size check" reads the ONE production build — green only if the build and both budgets passed', () => {
+  const r = parseReportedChecks(CI).filter((x) => x.job === 'build');
+  assert.deepEqual(r.map((x) => [x.name, x.stepIds]), [['bundle size check', ['build_web', 'bundle_size', 'maker_budget']]]);
+  const builds = parseJobs(CI).filter((j) => j.steps.some((st) => /^ {8}run:.*pnpm --filter @setnayan\/web build\s*$/m.test(st) || /^ {10}pnpm --filter @setnayan\/web build\s*$/m.test(st)));
+  assert.deepEqual(builds.map((j) => j.id), ['build'], 'ci.yml runs exactly one production build');
+  mentions(problemsOf(broken('bundle size check=${{ steps.build_web.outcome }}', 'bundle size check=${{ steps.build_webb.outcome }}')), /reads steps\.build_webb, which is not a step of job "build"/);
+});
+
+test('🚨 a reported name with a renamed step id, or no outcome, is caught', () => {
+  mentions(problemsOf(broken('lint nested forms=${{ steps.req_nested_forms.outcome }}', 'lint nested forms=${{ steps.req_nested_formz.outcome }}')), /reads steps\.req_nested_formz, which is not a step of job "guards"/);
+  mentions(problemsOf(broken('lint nested forms=${{ steps.req_nested_forms.outcome }}', 'lint nested forms=success')), /"lint nested forms" reads no step outcome/);
+});
+
+test('🚨 a required name dropped from the report, or reported twice, is caught', () => {
+  mentions(problemsOf(broken(/ {12}secret scan=.*\n/, '')), /required check "secret scan" is no longer the name of any job, nor reported by name/);
+  mentions(problemsOf(broken('            lint nested forms=', '            lint nested forms=${{ steps.req_bottom_nav.outcome }}\n            lint nested forms=')), /"lint nested forms" is reported by 2 places/);
+});
+
+test('🚨 a report step that can be skipped, posts to the merge commit, or lacks checks: write is caught', () => {
+  mentions(problemsOf(broken('      - name: Report the required checks this job carries\n        if: ${{ always() }}', '      - name: Report the required checks this job carries\n        if: ${{ success() }}')), /must be `if: \$\{\{ always\(\) \}\}`/);
+  mentions(problemsOf(broken('HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}', 'HEAD_SHA: ${{ github.sha }}')), /MERGE commit/);
+  mentions(problemsOf(broken(/ {6}checks: write\n/, '')), /no `permissions: checks: write`/);
+  mentions(problemsOf(broken('          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n          HEAD_SHA', '          GITHUB_TOKEN: ${{ secrets.OTHER }}\n          HEAD_SHA')), /must be given GITHUB_TOKEN/);
+});
+
+test('🚨 a reported check is green only when EVERY outcome on its line is exactly success', () => {
+  const c = reportConclusions('a=success\nb=success,failure\nc=skipped\nd=\ne=success,\nf=cancelled\ng=SUCCESS\n\n');
+  assert.deepEqual(c.map((x) => [x.name, x.conclusion]), [['a', 'success'], ['b', 'failure'], ['c', 'failure'], ['d', 'failure'], ['e', 'failure'], ['f', 'failure'], ['g', 'failure']]);
+  assert.deepEqual(reportConclusions(''), []);
+  assert.deepEqual(reportConclusions(undefined), []);
+});
+
+test('the reporter refuses to post nothing, and refuses without a commit or token', () => {
+  const run = (env) => spawnSync(process.execPath, [path.join(HERE, 'ci-report-checks.mjs')], { env: { PATH: process.env.PATH, ...env }, encoding: 'utf8' });
+  assert.equal(run({ REPORT: '' }).status, 1);
+  const r = run({ REPORT: 'secret scan=success' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /HEAD_SHA, GITHUB_TOKEN and GITHUB_REPOSITORY are all needed/);
 });
 
 test('the gate stands for every job that is not required under its own name', () => {
@@ -95,14 +144,14 @@ test('the gate stands for every job that is not required under its own name', ()
   const gate = jobs.find((j) => j.name === GATE_NAME);
   assert.equal(gate.id, 'typecheck-lint');
   const mustBeNeeded = jobs.filter((j) => j !== gate && !REQUIRED_CONTEXTS.includes(j.name)).map((j) => j.id);
-  assert.ok(mustBeNeeded.length >= 6, `only ${mustBeNeeded.length} gated jobs — the reader is looking at the wrong thing`);
+  assert.ok(mustBeNeeded.length >= 5, `only ${mustBeNeeded.length} gated jobs — the reader is looking at the wrong thing`);
   assert.deepEqual([...gate.needs].sort(), [...mustBeNeeded].sort());
 });
 
 /* ── the workflow, broken one way at a time ─────────────────────────────────*/
 
 test('🚨 a job left out of the gate is caught — it would block nothing', () => {
-  mentions(problemsOf(broken('needs: [guards, typecheck, eslint, unit-tests, db-replay, source-guards]', 'needs: [guards, typecheck, eslint, unit-tests, source-guards]')), /"db-replay".*not in the gate's `needs:`/);
+  mentions(problemsOf(broken('needs: [guards, typecheck, eslint, unit-tests, db-replay]', 'needs: [guards, typecheck, eslint, unit-tests]')), /"db-replay".*not in the gate's `needs:`/);
 });
 
 test('a NEW job nobody needs is caught', () => {
@@ -111,7 +160,7 @@ test('a NEW job nobody needs is caught', () => {
 });
 
 test('🚨 the gate without `if: always()` is caught — skipped would count as passed', () => {
-  mentions(problemsOf(broken('    needs: [guards, typecheck, eslint, unit-tests, db-replay, source-guards]\n    if: ${{ always() }}\n', '    needs: [guards, typecheck, eslint, unit-tests, db-replay, source-guards]\n')), /must be `if: \$\{\{ always\(\) \}\}`/);
+  mentions(problemsOf(broken('    needs: [guards, typecheck, eslint, unit-tests, db-replay]\n    if: ${{ always() }}\n', '    needs: [guards, typecheck, eslint, unit-tests, db-replay]\n')), /must be `if: \$\{\{ always\(\) \}\}`/);
   mentions(problemsOf(broken('    if: ${{ always() }}\n    steps:\n      - uses: actions/checkout@v4\n', '    if: ${{ !cancelled() }}\n    steps:\n      - uses: actions/checkout@v4\n')), /must be `if:/);
 });
 
@@ -125,8 +174,8 @@ test('a gate that needs a job that does not exist is caught', () => {
 });
 
 test('a renamed or duplicated required name is caught', () => {
-  mentions(problemsOf(broken('    name: lint nested forms', '    name: lint forms nested')), /required check "lint nested forms" is no longer the name of any job/);
-  mentions(problemsOf(broken('    name: typecheck\n', '    name: typecheck + lint\n')), /is the name of 2 jobs/);
+  mentions(problemsOf(broken('            lint nested forms=', '            lint forms nested=')), /required check "lint nested forms" is no longer the name of any job/);
+  mentions(problemsOf(broken('    name: typecheck\n', '    name: typecheck + lint\n')), /"typecheck \+ lint" is reported by 2 places/);
   mentions(problemsOf(CI, webPackage, {}), /required check "lighthouse" is no longer/);
 });
 
@@ -140,7 +189,7 @@ test('a step the split dropped is caught, one by one', () => {
 });
 
 test('🚨 a shard list with a hole in it is caught — a slice of the suite that never runs', () => {
-  mentions(problemsOf(broken('shard: [1, 2, 3, 4, 5, 6]', 'shard: [1, 2, 3, 4, 5]')), /"db-replay": the shards are \[1, 2, 3, 4, 5\] but the flag deals the suite into 6/);
+  mentions(problemsOf(broken('shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]', 'shard: [1, 2, 3, 4, 5, 6, 7, 8, 9]')), /"db-replay": the shards are \[1, 2, 3, 4, 5, 6, 7, 8, 9\] but the flag deals the suite into 10/);
   mentions(problemsOf(broken('shard: [1, 2, 3]\n', 'shard: [1, 2, 4]\n')), /"unit-tests": the shards are/);
   mentions(problemsOf(broken('--test-shard=${{ matrix.shard }}/3', '--test-shard=${{ matrix.shard }}/4')), /deals the suite into 4/);
 });

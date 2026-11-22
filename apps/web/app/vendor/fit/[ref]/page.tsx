@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import Link from 'next/link';
@@ -18,7 +19,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { hydrateVendorCards } from '@/lib/vendor-cards';
 import { listHostEvents } from '@/lib/vendor-couple-invite';
 import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { effectiveOuterRadiusKm, isVerifiedForReach } from '@/lib/vendor-service-radius';
 import { haversineKm } from '@/lib/distance';
 import { fetchBudgetSnapshot } from '@/lib/budget';
 import { getTaxonomy } from '@/lib/taxonomy-db';
@@ -93,16 +94,16 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
 
   const vendorId = market.vendor_profile_id;
 
-  // Display identity (hybrid-anonymity aware), tier, and "starts at" price.
+  // Display identity (hybrid-anonymity aware), reach (verification + the shop's own ring), and "starts at" price.
   const [cardMap, profRes, svcRes] = await Promise.all([
     hydrateVendorCards([vendorId]),
-    admin.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', vendorId).maybeSingle(),
+    admin.from('vendor_profiles').select('verification_state, outer_radius_km').eq('vendor_profile_id', vendorId).maybeSingle(),
     admin.from('vendor_services').select('starting_price_php, is_active').eq('vendor_profile_id', vendorId),
   ]);
   const card = cardMap.get(vendorId);
   const displayName = card?.displayName ?? market.business_name ?? 'This supplier';
   const logoUrl = card?.logoUrl ?? market.logo_url ?? null;
-  const tierState = (profRes.data as { tier_state: string | null } | null)?.tier_state ?? null;
+  const reachRow = profRes.data as { verification_state: string | null; outer_radius_km: number | null } | null;
   const startingPricePhp =
     ((svcRes.data as { starting_price_php: number | null; is_active: boolean | null }[] | null) ?? [])
       .filter((s) => s.is_active !== false && typeof s.starting_price_php === 'number' && s.starting_price_php > 0)
@@ -123,9 +124,7 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const nextPath = `/vendor/fit/${encodeURIComponent(ref)}`;
 
@@ -160,7 +159,8 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
       evLat != null && evLng != null && market.hq_latitude != null && market.hq_longitude != null
         ? Math.round(haversineKm(evLat, evLng, market.hq_latitude, market.hq_longitude) * 10) / 10
         : null;
-    const radius = tierCaps(asVendorTier(tierState)).serviceRadiusKm;
+    // The shop's own furthest distance under the verification ceiling — never the plan (owner 2026-11-19).
+    const radius = effectiveOuterRadiusKm(reachRow?.outer_radius_km ?? null, isVerifiedForReach(reachRow?.verification_state ?? null));
     const serviceRadiusKm = Number.isFinite(radius) && radius > 0 ? radius : null;
 
     let remainingBudgetPhp: number | null = null;

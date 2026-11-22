@@ -24,8 +24,9 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { buildConfirmUrl } from '@/lib/auth-confirm-link';
+import { siteOrigin } from '@/lib/site-origin';
 
-const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+const appUrl = siteOrigin;
 
 export async function sendPasswordRecoveryLink(
   rawEmail: string,

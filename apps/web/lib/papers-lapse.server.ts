@@ -4,11 +4,11 @@ import { emitNotification } from '@/lib/notification-emit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import {
-  PAPERS_LAPSED_AUDIT_ACTION,
   PAPERS_LAPSED_NOTICE,
   papersLapseDue,
   type LapseCandidate,
 } from '@/lib/papers-lapse';
+import { planHoldAtLapse } from '@/lib/papers-renewal';
 
 /**
  * Stamp every shop whose renewal day passed with no renewed papers — the
@@ -18,7 +18,7 @@ import {
  * What a lapse DOES (owner DECISION_LOG 481b9b6b, correcting "block new"):
  *   · `papers_lapsed_at` is stamped → the shop leaves search, Discover and every
  *     couple-facing list (`FINDABLE_SHOP_GATE` reads `papers_current`);
- *   · a free "verified" plan becomes "free" (paid plans are left alone);
+ *   · a free "verified" plan becomes "free"; a paid plan becomes "free" with its days left held (ruling 2);
  *   · the supplier is told once, in-app and by email.
  * What it does NOT do: refuse any booking request (the app's booking gate and the
  * database trigger do not read the stamp — whether an event that inquired before
@@ -38,7 +38,7 @@ export async function stampLapsedPapers(_admin: SupabaseClient, now: Date = new 
   try {
     const { data, error } = await admin
       .from('vendor_profiles')
-      .select('vendor_profile_id, user_id, tier_state, verification_state, next_renewal_due_at, papers_lapsed_at')
+      .select('vendor_profile_id, user_id, tier_state, tier_expires_at, verification_state, next_renewal_due_at, papers_lapsed_at')
       .eq('verification_state', 'verified')
       .is('papers_lapsed_at', null)
       .not('next_renewal_due_at', 'is', null)
@@ -49,24 +49,27 @@ export async function stampLapsedPapers(_admin: SupabaseClient, now: Date = new 
       return 0;
     }
     let stamped = 0;
-    for (const row of (data ?? []) as Array<LapseCandidate & { vendor_profile_id: string; user_id: string | null; tier_state: string | null }>) {
+    for (const row of (data ?? []) as Array<LapseCandidate & { vendor_profile_id: string; user_id: string | null; tier_state: string | null; tier_expires_at?: string | null }>) {
       if (!papersLapseDue(row, now)) continue;
       const stampedAt = now.toISOString();
-      const { data: changed, error: stampErr } = await admin
-        .from('vendor_profiles')
-        .update({
-          papers_lapsed_at: stampedAt,
-          // Free · Unverified: the free "verified" plan drops to "free". A paid plan is left as it is.
-          ...(row.tier_state === 'verified' ? { tier_state: 'free' } : {}),
-          updated_at: stampedAt,
-        })
-        .eq('vendor_profile_id', row.vendor_profile_id)
-        .is('papers_lapsed_at', null)
-        .select('vendor_profile_id');
+      // ⏸ RULING (2), 14 Nov "Fable's picks taken": the shop drops to Free; a PAID plan's unused days WAIT (held in
+      // this lapse's audit row) and come back on renewal (`heldPlanBack` in verification-decision.server.ts).
+      const plan = planHoldAtLapse(row, now);
+      // 🔑 ONE WRITE, THROUGH THE ONE DOOR. A plain update that lowers a live plan is refused by
+      // `vendor_tier_no_silent_downgrade` (20271115090000) — and the pass never throws, so the refusal was a console
+      // line and the shop never dropped. `stamp_papers_lapse` (20271354465843) sets the deliberate-downgrade flag
+      // for its own transaction and writes the stamp, the Free plan, the stopped clock AND the audit row that holds
+      // the paid days (held_tier, held_ms) in ONE transaction — a drop can never commit without its hold. It is
+      // conditional (`papers_lapsed_at IS NULL`, re-checked in SQL) and returns true only for a row it changed.
+      const { data: changed, error: stampErr } = await admin.rpc('stamp_papers_lapse', {
+        p_vendor_profile_id: row.vendor_profile_id,
+        p_plan: plan.kind,
+        p_now: stampedAt,
+      });
+      if (stampErr) console.error('[papers-lapse] stamp failed', stampErr.message);
+      if (stampErr || changed !== true) continue;
       // The home page remembers the live shops for 60 s — this shop just left them (lib/home-shelf-clear.ts).
       clearHomeShelf('shops');
-      if (stampErr) console.error('[papers-lapse] stamp failed', stampErr.message);
-      if (stampErr || !Array.isArray(changed) || changed.length !== 1) continue;
       stamped += 1;
       if (row.user_id) {
         await emitNotification({
@@ -77,20 +80,6 @@ export async function stampLapsedPapers(_admin: SupabaseClient, now: Date = new 
           relatedUrl: '/vendor-dashboard/profile#docs',
         }).catch(() => undefined);
       }
-      const { error: auditErr } = await admin.from('admin_audit_log').insert({
-        action: PAPERS_LAPSED_AUDIT_ACTION,
-        target_table: 'vendor_profiles',
-        target_id: row.vendor_profile_id,
-        actor_user_id: null,
-        metadata: {
-          deadline: row.next_renewal_due_at,
-          lapsed_at: stampedAt,
-          tier_before: row.tier_state,
-          tier_after: row.tier_state === 'verified' ? 'free' : row.tier_state,
-          notified: Boolean(row.user_id),
-        },
-      });
-      if (auditErr) console.error('[papers-lapse] audit write failed', auditErr.message);
     }
     return stamped;
   } catch (e) {

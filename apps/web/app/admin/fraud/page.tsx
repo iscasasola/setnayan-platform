@@ -1,4 +1,4 @@
-import { ShieldAlert, ShieldCheck, Snowflake, Ban, TriangleAlert } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, Snowflake, Ban } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -23,6 +23,15 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
+import {
+  TEMPLATE_SUBLINE,
+  TemplateEmpty,
+  TemplateFail,
+  TemplateNums,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
+import { actionButtonClass } from '@/components/action-button-class';
 export const metadata = { title: 'Fraud queue · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -208,31 +217,26 @@ export default async function AdminFraudQueuePage() {
   const audit = auditRes.data as AuditRow[] | null;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       <PageMasthead
         title="Fraud queue"
       />
 
-      <div className="mb-8 flex flex-wrap gap-3 text-xs text-ink/70">
-        <span className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 bg-white px-3 py-1.5">
-          <TriangleAlert className="h-3.5 w-3.5 text-warn-700" aria-hidden="true" />
-          Attention bar: <strong className="text-ink">{VENDOR_FRAUD_ATTENTION_THRESHOLD}</strong>
-        </span>
-        <span className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 bg-white px-3 py-1.5">
-          <Snowflake className="h-3.5 w-3.5 text-terracotta-700" aria-hidden="true" />
-          Auto-suspend bar (summed): <strong className="text-ink">{FRAUD_AUTOSUSPEND_THRESHOLD}</strong>
-        </span>
-      </div>
+      {/* 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): the two bars are one numbers frame, the queue
+          is hairline rows in one white frame, the trail sits under a section label. Same reads, same three actions. */}
+      <TemplateNums
+        items={[
+          { label: 'Attention bar', value: VENDOR_FRAUD_ATTENTION_THRESHOLD, tone: 'warn' },
+          { label: 'Auto-suspend bar (summed)', value: FRAUD_AUTOSUSPEND_THRESHOLD, tone: 'danger' },
+        ]}
+      />
 
       {/* FAILS TOWARD THE CAVEAT: a partially-loaded card must not read as a
           complete one. Never silent, and never mistakable for the queue itself
           being empty — that is the state above. */}
       {signalsError || vendorsError ? (
-        <p
-          role="alert"
-          className="mb-6 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 p-4 text-sm text-ink/70"
-        >
-          <strong className="text-ink">These cards are incomplete.</strong>{' '}
+        <TemplateFail data="labels">
+          <strong>These cards are incomplete.</strong>{' '}
           {signalsError
             ? 'The evidence behind each signal could not be read, so a card showing no evidence is not a signal raised without any. '
             : ''}
@@ -241,7 +245,7 @@ export default async function AdminFraudQueuePage() {
             : ''}
           The scores and the count below are still accurate. Do not confirm fraud
           from this state — reload first.
-        </p>
+        </TemplateFail>
       ) : null}
 
       {/* THE THREE-WAY SPLIT. This queue is a card list, not a table, so it does
@@ -260,15 +264,15 @@ export default async function AdminFraudQueuePage() {
           todo="Reload. If it happens again, assume signals may be open and hand the message above to an engineer — do not treat this screen as a clear queue."
         />
       ) : scores.length === 0 ? (
-        <div className="sn-row flex flex-col items-center gap-2 p-10 text-center">
-          <ShieldCheck className="h-8 w-8 text-success-600" aria-hidden="true" />
-          <p className="text-sm font-semibold text-ink">No open fraud signals.</p>
-          <p className="text-xs text-ink/70">
-            The hunt is running. Suppliers appear here the moment a detector fires. Set na ’yan.
-          </p>
-        </div>
+        <TemplateEmpty data="queue">
+          <span className="inline-flex items-center gap-1.5 font-semibold text-ink">
+            <ShieldCheck className="h-4 w-4 text-success-600" aria-hidden="true" />
+            No open fraud signals.
+          </span>{' '}
+          The hunt is running. Suppliers appear here the moment a detector fires. Set na ’yan.
+        </TemplateEmpty>
       ) : (
-        <ul className="space-y-4">
+        <TemplateRows label="Fraud queue">
           {scores.map((s) => {
             const meta = vendorMeta.get(s.vendor_profile_id);
             const name = meta?.name ?? s.vendor_profile_id;
@@ -276,9 +280,9 @@ export default async function AdminFraudQueuePage() {
             const sigs = signalsByVendor.get(s.vendor_profile_id) ?? [];
             const overAutoBar = s.sum_open_score >= FRAUD_AUTOSUSPEND_THRESHOLD;
             return (
-              <li key={s.vendor_profile_id} className="sn-tile overflow-hidden !p-0">
+              <li key={s.vendor_profile_id} data-template-row={s.vendor_profile_id}>
                 {/* Header row */}
-                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 px-5 py-4">
+                <div className="flex flex-wrap items-start justify-between gap-3 py-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <ShieldAlert
@@ -288,7 +292,7 @@ export default async function AdminFraudQueuePage() {
                       <span className="text-sm font-bold text-ink">{name}</span>
                       <StateBadge state={state} />
                     </div>
-                    <p className="mt-1 text-xs text-ink/55">
+                    <p className={`mt-0.5 ${TEMPLATE_SUBLINE}`}>
                       {meta?.publicId} · {formatCount(s.open_signal_count)}{' '}
                       open signal{s.open_signal_count === 1 ? '' : 's'} · latest{' '}
                       {timeAgo(s.latest_detected_at)}
@@ -296,11 +300,11 @@ export default async function AdminFraudQueuePage() {
                   </div>
                   <div className="flex shrink-0 items-center gap-3 text-right">
                     <div>
-                      <p className="text-[11px] uppercase tracking-wide text-ink/45">Worst</p>
+                      <p className={TEMPLATE_SUBLINE}>Worst</p>
                       <p className="text-lg font-bold text-ink">{s.max_open_score}</p>
                     </div>
                     <div>
-                      <p className="text-[11px] uppercase tracking-wide text-ink/45">Summed</p>
+                      <p className={TEMPLATE_SUBLINE}>Summed</p>
                       <p
                         className={
                           overAutoBar
@@ -315,9 +319,9 @@ export default async function AdminFraudQueuePage() {
                 </div>
 
                 {/* Signals + evidence */}
-                <div className="space-y-3 px-5 py-4">
+                <div className="space-y-2 pb-3">
                   {sigs.map((sig) => (
-                    <div key={sig.public_id} className="rounded-lg bg-ink/[0.02] p-3">
+                    <div key={sig.public_id} className="border-t border-[color:var(--sn-divider)] pt-2">
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="text-sm font-semibold text-ink">
                           {sig.signal_type}
@@ -336,11 +340,11 @@ export default async function AdminFraudQueuePage() {
 
                 {/* Actions */}
                 {state === 'banned' ? (
-                  <div className="border-t border-ink/10 bg-terracotta-50/40 px-5 py-3 text-xs text-terracotta-800">
+                  <div className="pb-3 text-[13px] text-terracotta-800">
                     Permanently banned. Data voided. Appeal routed to the help center.
                   </div>
                 ) : (
-                  <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 px-5 py-3">
+                  <div className="flex flex-wrap items-center gap-2 pb-3">
                     {/* Dismiss (false positive) */}
                     <form action={dismissVendorSignals} className="flex items-center gap-2">
                       <input type="hidden" name="vendor_profile_id" value={s.vendor_profile_id} />
@@ -348,11 +352,11 @@ export default async function AdminFraudQueuePage() {
                         type="text"
                         name="reason"
                         placeholder="reason (optional)"
-                        className="w-40 rounded-md border border-ink/15 bg-white px-2 py-1 text-xs"
+                        className="input-field h-11 w-40 py-1 text-[13px]"
                       />
                       <SubmitButton
                         pendingLabel="Dismissing…"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-success-600/40 bg-white px-3 py-1.5 text-xs font-bold text-success-700 transition-colors hover:bg-success-50"
+                        className={actionButtonClass('ok')}
                       >
                         <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                         Dismiss (false positive)
@@ -365,7 +369,7 @@ export default async function AdminFraudQueuePage() {
                         <input type="hidden" name="vendor_profile_id" value={s.vendor_profile_id} />
                         <SubmitButton
                           pendingLabel="Un-suspending…"
-                          className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white px-3 py-1.5 text-xs font-bold text-ink transition-colors hover:bg-ink/5"
+                          className={actionButtonClass('neutral')}
                         >
                           <Snowflake className="h-3.5 w-3.5" aria-hidden="true" />
                           Un-suspend (keep watching)
@@ -383,7 +387,7 @@ export default async function AdminFraudQueuePage() {
               </li>
             );
           })}
-        </ul>
+        </TemplateRows>
       )}
 
       {/* Recent enforcement trail.
@@ -392,8 +396,7 @@ export default async function AdminFraudQueuePage() {
           trace at all. On a desk that bans businesses, an absent audit trail must
           say it is absent. It is now always rendered and ConsoleTable decides
           which of the three states it is in. */}
-      <section className="mt-10">
-        <h2 className="mb-3 sn-eye">Recent enforcement</h2>
+      <TemplateSection label="Recent enforcement" data="audit">
         <ConsoleTable
           rows={audit}
           readPermitted
@@ -451,7 +454,7 @@ export default async function AdminFraudQueuePage() {
             },
           ]}
         />
-      </section>
+      </TemplateSection>
     </div>
   );
 }

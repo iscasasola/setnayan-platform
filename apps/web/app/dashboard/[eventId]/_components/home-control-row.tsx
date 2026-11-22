@@ -4,6 +4,7 @@ import { ArrowRight, CalendarDays, Check, ChevronRight, Eye, ListChecks, Mail, P
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Count } from '@/components/count';
+import { ReplyArrives } from '@/app/_components/signature/reply-arrives';
 import { GlanceDot, GlanceMeter } from '@/app/_components/service-glance';
 import { EVENT_MENU_ICONS } from '@/lib/customer-menu';
 import { planningTodoHref } from '@/lib/checklist-anchor';
@@ -19,6 +20,7 @@ import {
   homeWidgetFramed,
   nextHubStage,
   paymentsToSettle,
+  paysHeldByToday,
   shortDay,
   type HomeControlInput,
   type HomeControlKey,
@@ -390,7 +392,8 @@ function DetailCard({
             <span className="sg-status hc-figs" data-glance-status="" data-tour="home-faces">
               {/* The faces, side by side — each opens the exact list it counts. */}
               <Link href={`/dashboard/${e}/guests?q=coming`} className="hc-fig sn-hit">
-                <b><Count value={g.coming} id={`home-guests-coming${countKey}`} /></b> coming
+                {/* 🕯 Reply arrives (motion standard § 9 ④) — new "coming" replies since the last look; once per visit. */}
+                <b><ReplyArrives eventId={`${e}${countKey}`} coming={g.coming}><Count value={g.coming} id={`home-guests-coming${countKey}`} /></ReplyArrives></b> coming
               </Link>
               <span aria-hidden className="hc-sep">·</span>
               <Link href={`/dashboard/${e}/guests?q=no+reply`} className="hc-fig sn-hit">
@@ -550,7 +553,10 @@ function DetailCard({
       }
       const agreed = b.paidPhp + b.owingPhp;
       const pct = agreed > 0 ? Math.round((b.paidPhp / agreed) * 100) : null;
-      const pays = b.pays === 'unread' ? null : paymentsToSettle(b.pays);
+      // 🔁 NOW NEVER REPEATS BELOW, here too (Event Today drawing v3, part C · 3): the payment the card's strip holds and
+      // every payment Today's list shows as a red row leave this card's list — the same rule as its tile (`budgetTile`).
+      const held = new Set(paysHeldByToday(b.pays, homeControlTiles(input).today.holds?.pay));
+      const pays = b.pays === 'unread' ? null : paymentsToSettle(b.pays).filter((p) => !held.has(p.id));
       const listed = pays ? (pays.length > BUDGET_MAX_PAY_FACES ? pays.slice(0, BUDGET_MAX_PAY_FACES - 1) : pays) : [];
       const suppliers = pays ? new Set(pays.map((p) => p.vendorId ?? p.who)).size : 0;
       const payFace = (id: string) => tile.faces.find((f) => f.id === `pay-${id}`);

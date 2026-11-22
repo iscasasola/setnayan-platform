@@ -52,28 +52,10 @@ export async function OwnCapturesStrip({
 
   // A read failure must not read as "you have taken nothing" — that is the same
   // value as an empty gallery and it would tell a vendor their work is gone.
-  if (error) {
-    return (
-      <TemplateSection label="What you’ve shot" data="own-captures">
-        <TemplateFail data="own-captures">
-          Couldn&rsquo;t load what you&rsquo;ve shot just now. Your photos are safe — this is
-          only the view.
-        </TemplateFail>
-      </TemplateSection>
-    );
-  }
+  if (error) return <OwnCapturesView unread />;
 
   const captures = visibleVendorCaptures(data ?? []);
-  if (captures.length === 0) {
-    return (
-      <TemplateSection label="What you’ve shot" data="own-captures">
-        <TemplateEmpty data="own-captures">
-          Nothing yet. A photo appears here a moment after you take it — it is checked
-          first.
-        </TemplateEmpty>
-      </TemplateSection>
-    );
-  }
+  if (captures.length === 0) return <OwnCapturesView tiles={[]} />;
 
   // 🪤 THE STORED VALUE IS A REF, NOT A KEY. The capture route writes
   // `r2://setnayan-media/papic/...` into `r2_object_key` / `poster_r2_key`,
@@ -105,11 +87,40 @@ export async function OwnCapturesStrip({
     }),
   );
 
+  return <OwnCapturesView tiles={tiles} />;
+}
+
+type CaptureTile = { capture: ReturnType<typeof visibleVendorCaptures>[number]; url: string | null };
+
+/** The strip DRAWN — no reads (the reader above reads and signs; the lab hands fixtures). Its look is the shared
+ *  template's, unchanged: the drawing keeps "What you’ve shot" as it is. */
+export function OwnCapturesView(props: { unread: true } | { unread?: false; tiles: readonly CaptureTile[] }) {
+  if (props.unread) {
+    return (
+      <TemplateSection label="What you’ve shot" data="own-captures">
+        <TemplateFail data="own-captures">
+          Couldn&rsquo;t load what you&rsquo;ve shot just now. Your photos are safe — this is
+          only the view.
+        </TemplateFail>
+      </TemplateSection>
+    );
+  }
+  const { tiles } = props;
+  if (tiles.length === 0) {
+    return (
+      <TemplateSection label="What you’ve shot" data="own-captures">
+        <TemplateEmpty data="own-captures">
+          Nothing yet. A photo appears here a moment after you take it — it is checked
+          first.
+        </TemplateEmpty>
+      </TemplateSection>
+    );
+  }
   return (
     <TemplateSection
       label="What you’ve shot"
       data="own-captures"
-      right={captureSummary(captures)}
+      right={captureSummary(tiles.map((t) => t.capture))}
       tip="These are in the couple’s Memories too. If they take one down, it leaves here as well."
     >
       <ul className="mt-1 grid grid-cols-3 gap-1.5 sm:grid-cols-4">
@@ -139,7 +150,6 @@ export async function OwnCapturesStrip({
           );
         })}
       </ul>
-
     </TemplateSection>
   );
 }

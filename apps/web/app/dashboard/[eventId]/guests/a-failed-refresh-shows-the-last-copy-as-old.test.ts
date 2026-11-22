@@ -62,13 +62,13 @@ test('2 · while the fresh list comes, the line says it is the last copy — in 
   assert.match(stick, /data-guests-view-counts=""[^>]*>[^]*?<\/span><\/div><span [^>]*data-guests-view-rounds=""><\/span>(?:<span data-menu-settings="guests"[\s\S]*?<\/span>)?<\/div><p role="status"[^>]*data-guests-status="updating"/, 'the line follows the selector in the flow');
   assert.doesNotMatch(html, /data-last-seen-mark|class="[^"]*\bfixed\b[^"]*"[^>]*data-guests-status/);
   // (The round ＋ left the row 2026-10-25; the ways to add are gated on `copy` — held by search-or-add.test.ts.)
-  // (The row's remove reads "Delete" since 2026-10-27 — owner: "share and delete only".)
-  for (const write of ['>Delete<', '>Share<']) {
+  // (The row's remove reads "Remove" since 2026-11-20 — the Guests redesign; no Share on a row at all.)
+  for (const write of ['>Remove<', '>Delete<', '>Share<']) {
     assert.equal(html.includes(write), false, `no ${write} on a copy`);
   }
   const fresh = await renderGuestsScreen({ guests });
   assert.doesNotMatch(fresh, /data-guests-status|last copy/, 'the fresh list draws no line (until a copy was on screen)');
-  assert.ok(fresh.includes('>Delete<'), 'and keeps its tools');
+  assert.ok(fresh.includes('>Remove<'), 'and keeps its tools');
   const mark = readFileSync(join(HERE, '_components', 'guest-copy-mark.tsx'), 'utf8');
   assert.match(mark, /if \(copy \|\| !fresh\) return;\s*if \(!takeLastSeenShown\('guests'\)\) return;/, 'a refused read is never "Updated just now"');
 });

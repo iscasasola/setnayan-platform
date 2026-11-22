@@ -90,6 +90,33 @@
 .row[data-riding] > [data-thumb-seat='field'] {
   background: rgb(var(--color-cream)); box-shadow: inset 0 0 0 2px rgb(var(--sn-accent)); backdrop-filter: none; -webkit-backdrop-filter: none;
 }
+/* 👆 A SEARCH RESTS AS ITS ICON — TAP AND TYPE (owner 18 Nov 2026: "when they press the search icon it automatically
+   places the text indicator on the search bar and directly type … it should be tap and type"). This replaces, FOR THE
+   RESTING STATE ONLY, the 22 Oct drawing in which the field is always the widest seat: empty and not being typed in, a
+   search is a 44 round showing its magnifier — and the real <input> lies over the WHOLE round, unseen, so the one tap
+   lands on the input itself (the cursor and the keyboard arrive in that same gesture). Typed in, or holding words, it is
+   the field again: the widest seat (≥ 60 % of the row), the whole row on a phone while it is typed in.
+   `data-search-force` is the motion's own measuring switch (`search-grows.ts`): it puts one shape back for one read.
+   Only a search (`type=search`) rests so — a date, a chat's composer and a mode row are untouched.
+   🔒 lib/a-search-is-tap-and-type.test.ts */
+.row:not([data-search-force='open']) > [data-thumb-seat='field']:not(:focus-within):has(input[type='search']:placeholder-shown),
+.row[data-search-force='rest'] > [data-thumb-seat='field']:has(input[type='search']) {
+  position: relative; flex: 0 0 44px; width: 44px; padding: 0; gap: 0; justify-content: center; overflow: hidden;
+}
+.row:not([data-search-force='open']) > [data-thumb-seat='field']:not(:focus-within):has(input[type='search']:placeholder-shown) input[type='search'],
+.row[data-search-force='rest'] > [data-thumb-seat='field']:has(input[type='search']) input[type='search'] {
+  position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
+}
+/* Search on the LEFT, the rest on the right (owner 18 Nov: "search on left show and sort on right"): the seat after a
+   resting search takes the free room before it. */
+.row:not([data-search-force='open']) > [data-thumb-seat='field']:not(:focus-within):has(input[type='search']:placeholder-shown) + [data-thumb-seat],
+.row[data-search-force='rest'] > [data-thumb-seat='field']:has(input[type='search']) + [data-thumb-seat] { margin-left: auto; }
+/* On a touch screen the keyboard is about to open: the moment the search has the cursor it has the whole row (the
+   buttons fold at once — they used to wait for the keyboard to report itself, a second jump). */
+@media (hover: none) and (pointer: coarse) {
+  .row:not([data-search-force='rest']):has(> [data-thumb-seat='field']:focus-within input[type='search']) > [data-thumb-seat]:not([data-thumb-seat='field']),
+  .row[data-search-force='open']:has(> [data-thumb-seat='field'] input[type='search']) > [data-thumb-seat]:not([data-thumb-seat='field']) { display: none; }
+}
 /* ✍ A FIELD THAT GROWS (RW-274, re-walk 14 Nov, the group chat at 390): the seat is a 44 px pill, so a composer's
    textarea grew INSIDE a box that did not — the second line was hidden. A seat holding a textarea grows with it (from 44
    up, the composer caps itself at ~5 lines) and the row's other seats sit at its foot, as a chat's do. Search boxes (an
@@ -97,3 +124,25 @@
 .fieldNode:has(textarea) { height: auto; min-height: 44px; border-radius: var(--m-r-lg); }
 .fieldNode:has(textarea) > * { height: auto; min-height: 44px; }
 .row:has(> .fieldNode textarea) { align-items: flex-end; }
+/* ➕ SEARCH OR ADD (components/search-add.tsx): a field that can add wears the 🔍 → ＋ icon — a 44 px press in the
+   magnifier's place. Open, it gives the field's own padding back so the words start where they did; at rest the seat
+   IS that 44 round (the resting rule above) and the real input still lies over all of it — tap and type is untouched. */
+.field > :global([data-search-add-icon]) { margin: 0 -6px 0 -12px; }
+@media (max-width: 360px) { .field > :global([data-search-add-icon]) { margin-left: -10px; } }
+.row:not([data-search-force='open']) > [data-thumb-seat='field']:not(:focus-within):has(input[type='search']:placeholder-shown) > :global([data-search-add-icon]),
+.row[data-search-force='rest'] > [data-thumb-seat='field']:has(input[type='search']) > :global([data-search-add-icon]) { margin: 0; }
+/* 👉 DRAG THE BOX RIGHT TO ADD (owner 20 Nov 2026, Guests redesign pick 1; drawing `.box.add` · `.kind`). While it adds,
+   the box is ringed in the add colour (the morph's own `--color-mulberry`, the drawing's CTA), and its right end is the
+   small "Guest ▾" pick in the CTA's tint. The box follows a drag a short way (`translate`, written by the drag), and
+   settles back on the motion standard's Quick · Settle. A drag never selects the words. */
+.field[data-drag-add] { touch-action: pan-y; transition: translate var(--sn-m-quick) var(--sn-m-settle); }
+.row[data-thumb-row] > .field[data-search-mode='add'] { box-shadow: inset 0 0 0 1.5px rgb(var(--color-mulberry)), var(--sn-sh-float); }
+.row[data-riding] > [data-thumb-seat='field'][data-search-mode='add'] { box-shadow: inset 0 0 0 2px rgb(var(--color-mulberry)); }
+.kind { flex: 0 0 auto; display: inline-flex; align-items: center; margin: 0 -6px 0 0; }
+/* The press is 44 tall (the house minimum); the drawn pill inside it is the drawing's 36. */
+.kind :global(button) { height: 44px; min-height: 44px; padding: 0; background: transparent; border: 0; border-radius: var(--m-r-full); }
+.kind :global([data-kind-face]) {
+  display: inline-flex; align-items: center; gap: 4px; height: 36px; border-radius: var(--m-r-full); padding: 0 10px 0 12px;
+  background: rgb(var(--color-mulberry) / 0.08); color: rgb(var(--color-mulberry)); font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) { .field[data-drag-add] { transition: none; } }

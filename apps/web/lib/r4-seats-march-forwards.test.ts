@@ -248,7 +248,8 @@ test('6 · Guests draws List · Map · Seats · March — the shipped maker unde
   assert.match(page, /bodies=\{bodies\}/);
   // …and a switch is a client switch: the view row's press is handled in place, the address follows (`replaceState`).
   const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(screen, /onPick=\{\(k\) => \{\s*if \(k === 'march'\) pickView\('march'\);\s*else if \(k\.startsWith\('seats:'\)\) chooseSeat\(k\.slice\(6\) as SeatMode\);\s*else pickView\(k\.slice\(7\) as GuestsView\);/, 'a ▾ pick navigates (a server round trip) instead of switching in place');
+  // 🎚 20 Nov (Guests redesign § 8): the ▾ picks a PLACE, which opens on its last look — still in place, never a navigation.
+  assert.match(screen, /onPick=\{\(k\) => \{\s*if \(k === 'march'\) pickView\('march'\);\s*else if \(k === 'seats'\) chooseSeat\(seatMode\);\s*else pickView\(/, 'a ▾ pick navigates (a server round trip) instead of switching in place');
   // ⇅ …carrying the shared Show · Group by · Sort with it (lib/guests-filter.ts), so a switch keeps what is shown.
   assert.match(screen, /const at = guestsViewHref\(eventId, v, \{ seat: v === 'seats' \? seatOfMode\(seat \?\? seatMode\) : null \}\);\s*window\.history\.replaceState\(window\.history\.state, '', hrefWithGuestsFilter\(at, filterRef\.current\)\);/);
   assert.match(page, /<GuestsMarch eventId=\{eventId\} \/>/);
@@ -269,10 +270,11 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   assert.match(row, /data-view-count="walks"[\s\S]*?20/);
   assert.match(row, /data-view-count="out"[\s\S]*?—[\s\S]*?couldn’t read/, 'an unread count reads as a number');
   assert.doesNotMatch(row, /<button[^>]*data-view-count="out"/, 'an unread count is still a door');
-  // The march and the seat plan draw it (never the old plain line), from their own counts.
+  // 20 Nov 2026 (Guests redesign § 7, owner "Yes, build it"): Guests › March's counts are ONE line of words — never the
+  // tiles, never the Maker's plain line — from its own counts; an unread tray still never reads 0.
   const march = read('app/dashboard/[eventId]/launch/_components/details-march.tsx');
-  assert.match(march, /\{guests \? \([\s\S]{0,300}?<ViewCountRow\s+view="march"/);
-  assert.match(march, /value: outUnread \? null : shownOut\.length/, 'Not walking reads 0 over an unread tray');
+  assert.match(march, /\{guests \? \([\s\S]{0,900}?data-march-count-line=""/);
+  assert.match(march, /\{outUnread \? '—' : formatCount\(shownOut\.length\)\}<\/b> not walking/, 'Not walking reads 0 over an unread tray');
   const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   // 📌 Seats' counts ride the ONE top row (owner 2026-10-30) — the four tiles are gone (lib/guests-top-row-and-full-screen.test.ts (6)).
   assert.match(ed, /const seatCountsSlot =\s*inGuests && lens\?\.countsSlot/);
@@ -281,7 +283,8 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   // mode's ONE state stays the plan's (`lens.registerSeats`). No desk segment in Guests.
   const scr = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   assert.match(scr, /const seatModes: PickOption\[\] = SEAT_MODES\.filter\(\(m\) => m !== '3d' \|\| seatShow3D\)/, 'Seats ▾ does not list List · 2D · 3D');
-  assert.match(scr, /\.\.\.\(tops\.includes\('seats'\) \? seatModes\.map\(/, 'the ▾ does not list Seats’ modes');
+  // 🎚 20 Nov (§ 8): Seats' modes are the look round at the thumb (the lens's `lookRound`), not lines of the ▾.
+  assert.match(scr, /const lookKeys = gview === 'seats' \? seatModes\.map\(/, 'the look round does not list Seats’ modes');
   assert.match(ed, /const studioHead = studioSeat && !inGuests \?/, 'Guests draws the old "Seat plan · 2D ▾" head');
   assert.match(ed, /createPortal\(<SeatPlanToolRounds more=\{phoneMore\} trailing=\{phoneTrailing\} \/>, lens\.toolsSlot\)/, 'Seats’ Edit · ⋯ have no home in the top row');
   assert.match(ed, /registerSeats\(\{ mode: studioView, setMode: \(m\) => onSelectViewRef\.current\(m\), show3D \}\)/, 'the plan does not tell the top row its mode');
@@ -318,13 +321,16 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
     }),
   );
   // ⇅ A guest the shared Show / the search leaves out is drawn faint — never hidden (their seat is still taken).
-  assert.match(list, /data-seat-guest="b"[^>]*data-seat-dim=""[^>]*opacity:0\.3/, 'a left-out guest is not drawn faint');
-  assert.doesNotMatch(list, /data-seat-guest="a"[^>]*data-seat-dim/, 'a shown guest is dimmed');
-  assert.match(list, /class="[^"]*sn-acc-head[ "]/, 'the list is not the house foldable header');
-  assert.match(list, />Table 1<[\s\S]*?· 2 of 4 seats</);
-  assert.equal((list.match(/data-seat-guest="/g) ?? []).length, 3, 'a guest row is missing');
-  assert.equal((list.match(/data-seat-empty=""/g) ?? []).length, 2, '"2 of 4" does not draw two empty seats');
-  assert.match(list, /aria-label="Guest a, Table 1, seat 1"/, 'a guest is not named for a screen reader');
+  // (👥 20 Nov, Guests redesign pick 5: at rest a table is a card of faces — the face is the one drawn faint.)
+  assert.match(list, /data-seat-face="b"[^>]*data-seat-dim=""[^>]*opacity:0\.3/, 'a left-out guest is not drawn faint');
+  assert.doesNotMatch(list, /data-seat-face="a"[^>]*data-seat-dim/, 'a shown guest is dimmed');
+  // 👥 Guests redesign pick 5 (owner 20 Nov 2026): a card per table — its name, "2 of 4", its faces and dotted chairs;
+  // "To seat" first. The rows (with each guest's name for a screen reader) are on the table once it rises.
+  assert.match(list, /aria-label="Table 1, 2 of 4 seats — open"[^>]*data-seat-card="t1"/, 'a table card does not say what it is');
+  assert.match(list, />Table 1<[\s\S]*?2 of 4</);
+  assert.equal((list.match(/data-seat-card-face=""/g) ?? []).length, 3, 'a face is missing (two seated, one to seat)');
+  assert.equal((list.match(/data-seat-card-empty=""/g) ?? []).length, 2, '"2 of 4" does not draw two dotted chairs');
+  assert.ok(list.indexOf('data-seat-card="unseated"') < list.indexOf('data-seat-card="t1"'), 'To seat does not lead');
   // A face — on the plan AND in the list — opens the ONE guest card (the shipped sheet), with Remove · Swap.
   assert.match(ed, /else if \(inGuests\) tapFace\(occupant\.guest_id\);/, 'a face on the 2D plan does not open the card');
   assert.match(ed, /<SeatList\s+units=\{faceUnits\}[^>]*onOpenGuest=\{tapFace\}/, 'a guest in the list does not open the card');
@@ -355,9 +361,13 @@ test('8 · Seats and March count in ONE fixed row (no swipe) — the view’s fo
   // March draws it (its four). Seats' tiles left for the ONE top row on 2026-10-30 (owner, *"Like this one"*): its counts
   // are the row's doors and ✨ Auto arrange is in its ⋯ — held by lib/guests-top-row-and-full-screen.test.ts (6).
   const march = read('app/dashboard/[eventId]/launch/_components/details-march.tsx');
-  for (const k of ['walks', 'walking', 'out', 'preview']) assert.match(march, new RegExp(`key: '${k}'`), `March lost its ${k} tile`);
-  // ▶ The walk preview ships (2026-10-30): the tile plays the march — held by the-march-preview-plays-the-walks.test.ts.
-  assert.match(march, /key: 'preview',\s*word: play === null \? 'Preview' : 'Stop',/);
+  // 20 Nov 2026 (Guests redesign § 7): March no longer draws the tile row — its three counts are one line of words and
+  // ▶ Preview is the one terracotta button in the Guests top row (guests/the-march-is-a-numbered-line.test.ts). The
+  // shared row above stays for whoever draws it.
+  assert.doesNotMatch(march, /<ViewCountRow\b/, 'March draws the count tiles again');
+  assert.match(march, /data-march-count-line=""/);
+  // ▶ The walk preview ships (2026-10-30): the button plays the march — held by the-march-preview-plays-the-walks.test.ts.
+  assert.match(march, /label=\{play === null \? 'Preview' : 'Stop'\}/);
   const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   for (const k of ['seated', 'unseated', 'tables']) assert.match(ed, new RegExp(`'data-seat-count': '${k}'`), `Seats lost its ${k} count`);
   // 🪑 2026-11-02 (owner: *"We ask if we change all seated or just the unseated ones?"*): the ⋯ item asks first — lib/auto-arrange-asks-who-moves.test.ts.

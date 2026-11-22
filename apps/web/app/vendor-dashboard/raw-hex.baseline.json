@@ -1,0 +1,11 @@
+{
+  "_about": "Raw hex colour literals per area under app/vendor-dashboard (raw-hex-only-goes-down.test.ts). May only go DOWN. What remains: supplier-look.css (the look's own token values), art and the person's own colours, print routes that are always light, status tones that carry their dark pair. Regenerate with WRITE_HEX_BASELINE=1; never edit by hand.",
+  "total": 86,
+  "areas": {
+    "_components": 70,
+    "moodboard-library": 7,
+    "on-the-day": 6,
+    "services": 1,
+    "shop": 2
+  }
+}

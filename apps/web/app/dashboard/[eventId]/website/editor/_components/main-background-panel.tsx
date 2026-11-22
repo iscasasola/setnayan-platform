@@ -87,6 +87,7 @@ import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/m
 import { uploadStill } from '@/lib/upload-still';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
 import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
+import type { EventMediaPlan } from '@/lib/event-plans';
 import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 
 /**
@@ -378,7 +379,7 @@ function Choice({
       onClick={onClick}
       {...data}
       className={`sn-press flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors duration-sn-control ease-sn disabled:cursor-default ${
-        on ? 'bg-ink text-cream' : 'bg-white text-ink hover:bg-white/80'
+        on ? 'bg-ink text-cream' : 'bg-raised text-ink hover:bg-raised/80'
       }`}
     >
       {thumb ? (
@@ -405,6 +406,7 @@ export function MainBackgroundPanel({
   overrideStillUrl,
   drafted,
   ownsPro,
+  mediaPlan,
   loops = [],
   photoChoices = [],
   videoChoice = null,
@@ -434,6 +436,8 @@ export function MainBackgroundPanel({
   /** The draft holds a different Main background from what guests see. */
   drafted: boolean;
   ownsPro: boolean;
+  /** 🎟 The event's upload plan (owner 2026-11-18) — the meter's number; absent reads the older Pro/Free answer. */
+  mediaPlan?: EventMediaPlan;
   /**
    * 🎞 MOVING BACKGROUNDS — every shipped loop of ours (`hubMovingBackgroundIds`),
    * each by its picture-able name and public still, built on the server.
@@ -1252,7 +1256,7 @@ export function MainBackgroundPanel({
               disabled={pending}
               label="Upload a photo or clip"
             />
-            {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
+            {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(mediaPlan ?? ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
             <span className="text-[12px] text-ink/70" data-main-ground-tip="">
               <InfoTip label="Best size" align="start">
                 An upright (portrait) photo, {IMAGE_MAX_EDGE.toLocaleString('en-US')} pixels or more on its long side. Faces near the middle — the edges are cropped. Clips up to{' '}
@@ -1323,7 +1327,7 @@ export function MainBackgroundPanel({
               type="button"
               data-bg-candlelight-off=""
               onClick={() => pickLook({ events: { site_art_direction: 'daylight' } }, FAILED)}
-              className="sn-press relative inline-flex h-8 min-h-0 shrink-0 items-center gap-1.5 rounded-full bg-white px-3 text-[12.5px] font-semibold text-ink ring-1 ring-ink/15 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-['']"
+              className="sn-press relative inline-flex h-8 min-h-0 shrink-0 items-center gap-1.5 rounded-full bg-raised px-3 text-[12.5px] font-semibold text-ink ring-1 ring-ink/15 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-['']"
             >
               <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               Turn off
@@ -1447,7 +1451,7 @@ export function MainBackgroundPanel({
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-md bg-white/70 px-3 py-3" data-maker-main-background="">
+    <section className="flex flex-col gap-3 rounded-md bg-raised/70 px-3 py-3" data-maker-main-background="">
       <p className="text-[14px] font-semibold text-ink">Behind every scene</p>
 
       {/* 🧭 ONE DROPDOWN (owner rule "any set of choices is a dropdown"; controller sweep
@@ -1526,7 +1530,7 @@ export function MainBackgroundPanel({
             label="Upload a photo or clip"
           />
           {/* 💾 The event's uploads against its PLAN's allowance (Free 10 MB · Pro 500 MB), beside the upload that spends it. */}
-          {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
+          {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(mediaPlan ?? ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
           {/* 📐 The owner asked for the best size (2026-10-01). The photo fills
               the screen and is cropped to it, and 99% of guests are on a phone —
               so upright, and at least the size the upload keeps. */}

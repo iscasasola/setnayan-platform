@@ -845,12 +845,14 @@ export function FrontDoorShell({
     the bar has to keep the rule or scrolling a wedding suddenly pins a strip
     that used to slide away.
 
-    ⚠ APP VARIANT ONLY. `/` is a marketing page whose bar is an approved
-    prototype that stays put; changing it here would be a redraw of a signed-off
-    design smuggled in as a shared-component change. The hook is passed
-    `inApp`, so on the front door it never engages.
+    ✅ EVERY VARIANT (owner 19 Nov 2026, *"Yes, tuck it"*). Until then `/` kept
+    its bar put, from an earlier ruling that its bar was a signed-off prototype;
+    the owner reversed it so every page behaves the same. The public bar has no
+    wrapper (see the sticky note below), so the `.fd` root wears `data-bar-hidden`
+    and `front-door.css` tucks the <header> below 1024, like the app bar.
+    🔒 app/_components/nav/tuck-keeps-the-rows.test.ts
   */
-  const barHidden = useHideOnScroll(inApp);
+  const barHidden = useHideOnScroll(true);
 
   /*
     WHICH ROW IS LIT — the whole reason this file changed.
@@ -1212,7 +1214,7 @@ export function FrontDoorShell({
     // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
     // variant paints no chrome at all; the surface's own bars are untouched.
     <ShellBoundaryProvider value={boundary}>
-    <div className="fd" data-chrome={chrome} data-boundary={boundary === 'tab' ? 'tab' : undefined} data-pinned-bar={pinnedBar ? '' : undefined}>
+    <div className="fd" data-chrome={chrome} data-boundary={boundary === 'tab' ? 'tab' : undefined} data-pinned-bar={pinnedBar ? '' : undefined} data-bar-hidden={!inApp && barHidden ? '' : undefined}>
       <>
       {/*
         🔑 `shell-topbar` IS A CONTRACT, NOT A CLASS NAME. Two shipped event

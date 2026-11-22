@@ -61,7 +61,7 @@ export function LinkPicker({
       {/* Required, so Link cannot post with nobody picked. */}
       <input type="text" name="target_guest_id" required value="" onChange={() => {}} className="sr-only" tabIndex={-1} aria-hidden />
       {q.trim() ? (
-        <ul id={listId} className="mt-1 max-h-64 overflow-y-auto rounded-2xl bg-white p-1 shadow-sm ring-1 ring-ink/10">
+        <ul id={listId} className="mt-1 max-h-64 overflow-y-auto rounded-2xl bg-raised p-1 shadow-sm ring-1 ring-ink/10">
           {matches.length === 0 ? (
             <li className="px-3 py-2 text-sm text-ink/70">Nobody by that name who is not already linked.</li>
           ) : (

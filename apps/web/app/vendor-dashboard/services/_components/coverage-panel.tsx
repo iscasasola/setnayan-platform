@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { SERVICE_REQUEST_NEW_HREF } from '@/lib/service-requests';
 import { Plus, X, Check, Tag, Folder, Search, ChevronRight, ChevronLeft } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { allowedEventOptions, droppedEventTypes } from '@/lib/coverage-allowed-events';
@@ -58,12 +60,15 @@ const paper = 'var(--m-paper)';
 export function CoveragePanel({
   tree,
   coverages,
+  coveragesUnread = false,
   eventTypeOptions,
   faithOptions,
   parentUsage,
 }: {
   tree: CoverageParent[];
   coverages: CoverageItem[];
+  /** The shop's categories could not be read: say so, never "Nothing yet". */
+  coveragesUnread?: boolean;
   eventTypeOptions: EventTypeOption[];
   faithOptions: FaithOption[];
   parentUsage: ParentUsage;
@@ -81,29 +86,39 @@ export function CoveragePanel({
         <span className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
           Add what you serve
         </span>
-        <span className="text-[13px]" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-slate-2)' }}>
-          Parents{' '}
-          <b className="font-medium" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-ink)' }}>
-            {formatCount(parentUsage.used)} of {capLabel}
-          </b>
-          {overCap ? ' · upgrade to add more' : ''}
-        </span>
+        {/* An unread list has no count: "0 of N" beside "Couldn't load" would be a number nobody measured. */}
+        {coveragesUnread ? null : (
+          <span className="text-[13px]" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-slate-2)' }} data-coverage-parent-count="">
+            Parents{' '}
+            <b className="font-medium" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-ink)' }}>
+              {formatCount(parentUsage.used)} of {capLabel}
+            </b>
+            {overCap ? ' · upgrade to add more' : ''}
+          </span>
+        )}
       </div>
 
-      {/* The browse IS the surface (v20) — search + 3-per-row drill, always on. */}
-      <CoverageBrowse
-        tree={tree}
-        covered={covered}
-        eventTypeOptions={eventTypeOptions}
-        faithOptions={faithOptions}
-      />
+      {/* The browse IS the surface (v20) — search + 3-per-row drill, always on. EXCEPT on an unread list: an empty
+          `covered` set would draw every category as not picked, so the picker waits for the read. */}
+      {coveragesUnread ? null : (
+        <CoverageBrowse
+          tree={tree}
+          covered={covered}
+          eventTypeOptions={eventTypeOptions}
+          faithOptions={faithOptions}
+        />
+      )}
 
       <div className="border-t" style={{ borderColor: line }} />
 
       <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
         Your coverage
       </p>
-      {coverages.length === 0 ? (
+      {coveragesUnread ? (
+        <p role="status" className="text-[13px] font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-coverage-unread="">
+          Couldn&apos;t load your categories — nothing has changed. Refresh in a moment to try again.
+        </p>
+      ) : coverages.length === 0 ? (
         <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
           Nothing yet — pick a category above and it lands here. Service cards
           are built inside your coverage.
@@ -218,7 +233,9 @@ function YourCoverage({
                           e.preventDefault();
                       }}
                       aria-label={`Remove ${c.leafLabel}`}
-                      className="inline-flex h-4 w-4 items-center justify-center rounded-full"
+                      // V-9 (supplier audit 2026-11-17): a destructive ✕ only 16 px wide. The drawn circle is unchanged;
+                      // the ::after reaches 44 × 44 so the press lands.
+                      className="relative inline-flex h-4 w-4 items-center justify-center rounded-full after:absolute after:-inset-3.5 after:content-['']"
                       style={{ color: 'var(--m-slate-3)' }}
                     >
                       <X className="h-3 w-3" strokeWidth={2} />
@@ -485,7 +502,14 @@ function CoverageBrowse({
             })}
           </div>
         ) : (
-          <Muted>No categories match “{query}”. Try a broader word — or request it under Tools.</Muted>
+          // V-8: "under Tools" pointed at a view that was removed — the request form is its own page now.
+          <Muted>
+            No categories match “{query}”. Try a broader word — or{' '}
+            <Link href={SERVICE_REQUEST_NEW_HREF} className="font-medium underline underline-offset-2" data-coverage-request-link="">
+              ask us to add it
+            </Link>
+            .
+          </Muted>
         )
       ) : (
         <>
@@ -505,7 +529,7 @@ function CoverageBrowse({
             {branch ? (
               <>
                 <ChevronRight className="h-3 w-3" strokeWidth={2} style={{ color: 'var(--m-slate-3)' }} />
-                <Crumb active onClick={() => {}}>
+                <Crumb active>
                   {branch.label}
                 </Crumb>
               </>
@@ -608,7 +632,15 @@ function GridCard({
   );
 }
 
-function Crumb({ children, active, onClick }: { children: ReactNode; active?: boolean; onClick: () => void }) {
+function Crumb({ children, active, onClick }: { children: ReactNode; active?: boolean; onClick?: () => void }) {
+  // V-9: the current crumb with nowhere to go is the place you are, not a button that does nothing.
+  if (!onClick) {
+    return (
+      <span aria-current="location" className="rounded px-1 py-0.5 font-medium" style={{ color: 'var(--m-ink)' }}>
+        {children}
+      </span>
+    );
+  }
   return (
     <button
       type="button"

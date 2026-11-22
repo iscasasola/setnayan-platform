@@ -7,6 +7,7 @@ import { recordSeatCapture } from '@/app/papic/actions';
 import { startAddingPhotos } from '@/app/dashboard/[eventId]/studio/papic/actions';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
+import { useHandedFiles } from '@/app/_components/memories/memories-add-photos';
 import type { UploadOutcome } from '@/lib/upload-send';
 import {
   costInfoLine,
@@ -185,7 +186,8 @@ export function AddToLibrary({
       // A neutral name, as before: the picked file's own name never reaches the object key.
       const file = new File([blob], `upload-${Date.now()}.${e}`, { type: contentType });
       const run = sendToStorage(
-        { file, contentType, papicSeatToken: token },
+        // 📤 `papicAdded`: this door is the hand-added one — the upload price (owner 2026-11-22: a live shot is 1×).
+        { file, contentType, papicSeatToken: token, papicAdded: true },
         { stallMs: UPLOAD_STALL_MS, responseMs: UPLOAD_RESPONSE_MS, onProgress },
       );
       const out = await run.done;
@@ -202,7 +204,7 @@ export function AddToLibrary({
         timer = setTimeout(() => resolve({ ok: false, error: 'record_stalled' }), RECORD_STALL_MS);
       });
       try {
-        return await Promise.race([recordSeatCapture(tokenRef.current ?? '', ref, kind, posterRef, durationMs), stalled]);
+        return await Promise.race([recordSeatCapture(tokenRef.current ?? '', ref, kind, posterRef, durationMs, undefined, undefined, undefined, true), stalled]);
       } catch {
         return { ok: false as const, error: 'record_failed' };
       } finally {
@@ -213,7 +215,7 @@ export function AddToLibrary({
   );
 
   const onPick = useCallback(
-    async (files: FileList | null) => {
+    async (files: FileList | readonly File[] | null) => {
       if (!files || files.length === 0) return;
       const stamp = Date.now();
       const picked = Array.from(files).map((file, i) => ({ file, id: `${stamp}-${i}` }));
@@ -351,6 +353,16 @@ export function AddToLibrary({
     },
     [send, record, patch, pot, router, eventId],
   );
+
+  /* ＋ THE PAPIC BLOCK'S "Add photos" (owner 2026-11-20, "memories approved"): that press opened the phone's picker at
+     once, then opened this sheet — the files it picked run through THIS `onPick`, once, exactly as "Choose photos" does
+     (`memories-add-photos.tsx`). Absent outside Memories' gallery. */
+  const handed = useHandedFiles();
+  useEffect(() => {
+    const files = handed?.take() ?? null;
+    if (files) void onPick(files);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when new files are handed, once each
+  }, [handed?.files]);
 
   return (
     <div className="space-y-3" data-add-photos="">

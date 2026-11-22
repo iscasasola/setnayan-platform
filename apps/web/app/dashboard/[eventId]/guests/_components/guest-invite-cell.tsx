@@ -23,6 +23,7 @@ import { hearAction } from './hear-action';
 import { SentOrNotYet } from './sent-or-not-yet';
 import { useAskOnReturn } from '@/lib/ask-on-return';
 import { Popover } from './overlay-primitives';
+import { GUEST_QUICK_ROW, GuestTicketStatusProvider } from './guest-card-quick';
 import {
   shareInvite,
   ticketFileName,
@@ -126,6 +127,8 @@ export function GuestInviteCell({
   template,
   layout = 'row',
   more,
+  quick,
+  ticket,
   linked = null,
 }: {
   eventId: string;
@@ -138,8 +141,15 @@ export function GuestInviteCell({
    * DELETE"). On a phone it opens the phone's own share sheet at once; on a computer it opens this same sheet.
    */
   layout?: 'card' | 'row' | 'phone' | 'icon';
-  /** The card's NFC · New QR · ⋯ (`GuestMoreMenu`), drawn after Share on the ticket row. */
+  /** A row's own extra controls after its Invite (the no-link line's New QR). The card's moved into its opened ticket (20 Nov). */
   more?: React.ReactNode;
+  /**
+   * 'card' only — the OTHER quick actions, drawn after Send invite in the card's one quick row (Call · Seat · Note;
+   * drawing § 3, 20 Nov 2026). Send invite is this cell's own button: the card's ONE send.
+   */
+  quick?: React.ReactNode;
+  /** 'card' only — "Their ticket", the one row under the quick actions; it reads this cell's status words. */
+  ticket?: React.ReactNode;
   /** Whether an account holds this invitation; null = not measured, so not said. */
   linked?: boolean | null;
 }) {
@@ -199,11 +209,8 @@ export function GuestInviteCell({
   const sentDay = sentAt
     ? new Date(sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })
     : null;
-  const status = (
-    <p
-      className={`text-xs ${layout === 'phone' ? 'ml-auto text-right' : ''} ${sentAt ? 'text-ink/70' : 'text-ink/50'}`}
-      data-guest-invite-status=""
-    >
+  const statusWords = (
+    <>
       {sentAt ? (
         <>
           <span className="text-success-700">✓</span> Sent {sentDay}
@@ -214,12 +221,33 @@ export function GuestInviteCell({
         'Not sent'
       )}
       {linked === null ? null : ` · ${linked ? 'Linked' : 'Not linked'}`}
+    </>
+  );
+  const status = (
+    <p
+      className={`text-xs ${layout === 'phone' ? 'ml-auto text-right' : ''} ${sentAt ? 'text-ink/70' : 'text-ink/50'}`}
+      data-guest-invite-status=""
+    >
+      {statusWords}
     </p>
   );
 
   if (!guest.inviteUrl) {
     // 📤 A row's Share is drawn only for a guest with their own link (`rowVerbsFor` → 'share'); nothing to say here.
     if (layout === 'icon') return null;
+    /* 🪪 The card keeps its shape with no link yet: Send invite waits (New QR, inside their ticket, gives them one), the
+       other quick actions and the ticket row are where they always are. */
+    if (layout === 'card') {
+      return (
+        <div className="space-y-3" data-guest-invite-pair="card" data-guest-invite-cell="no-link">
+          <div className={GUEST_QUICK_ROW} data-guest-quick-actions="">
+            <ActionButton tone="brand" main waiting icon={Share} label="Send invite" name={`Send invite — ${first} has no personal link yet. New QR, in their ticket, gives them one.`} data-testid="guest-card-share" />
+            {quick}
+          </div>
+          <GuestTicketStatusProvider words={<>No link yet{linked === null ? null : ` · ${linked ? 'Linked' : 'Not linked'}`}</>}>{ticket}</GuestTicketStatusProvider>
+        </div>
+      );
+    }
     return (
       <div className={layout === 'phone' ? 'flex items-center gap-2' : 'space-y-1'} data-guest-invite-cell="no-link">
         <div className="flex items-center gap-1.5">
@@ -545,33 +573,36 @@ export function GuestInviteCell({
     );
   }
 
-  /* 🎟 THE CARD'S TICKET ROW — SHARE · NFC · NEW QR, then ⋯ (owner 2026-10-27, DECISION_LOG "GUEST CARD TICKET ROW = THREE
-     ICON BUTTONS" + "APPROVED — ONE SEND BUTTON FOR EVERY INVITE"; owner 2026-10-28 "guest card still does not ahve that one
-     share button"). Share is the row's ONE Send (`rowShare`): on every device it opens this cell's own sheet — the shipped app
-     rows + Copy (owner 2026-11-05); the phone's system sheet is only behind its "More apps…".
-     NFC · New QR · ⋯ are the `more` the card hands in (`GuestMoreMenu`). The big "Invite ▾" left the card.
-     🔒 guests/_components/the-ticket-row-is-three-icons.test.ts */
+  /* 🪪 THE CARD'S QUICK ROW AND ITS TICKET ROW (owner-approved drawing `guests_redesign_2026-11-20_fable.html` § 3, "Yes,
+     build it" 20 Nov 2026 — it replaces the 27 Oct "ticket row = three icon buttons"): SEND INVITE is the first of the
+     four quick actions, with its word, filled — still the card's ONE send (`rowShare`: on every device this cell's own
+     sheet — the shipped app rows + Copy, owner 2026-11-05; the phone's system sheet only behind "More apps…"). The other
+     three (`quick`: Call · Seat · Note) follow it in the same row. Under it, "Their ticket" is ONE row (`ticket`) wearing
+     this cell's status in words; NFC · New QR · Unlink account are labelled buttons inside the opened ticket.
+     🔒 guests/_components/the-ticket-row-is-three-icons.test.ts · the-guest-card-is-the-20-nov-card.test.ts */
   if (layout === 'card') {
-    const shareName = sentAt ? `Share ${guest.fullName}’s invitation — sent ${sentDay}` : `Share ${guest.fullName}’s invitation`;
+    const shareName = sentAt ? `Send invite to ${guest.fullName} — sent ${sentDay}` : `Send invite to ${guest.fullName}`;
     return (
-      <div className="space-y-1" data-guest-invite-pair="card">
-        <div className="flex items-center gap-1.5" data-guest-ticket-row="">
+      <div className="space-y-3" data-guest-invite-pair="card">
+        <div className={GUEST_QUICK_ROW} data-guest-quick-actions="">
           <span className="contents" data-guest-invite-cell="" data-sent={sentAt ? 'true' : undefined}>
             <ActionButton
               ref={ref}
-              tone="neutral"
-              iconOnly
+              tone="brand"
+              main
               icon={Share}
-              label="Share"
+              label="Send invite"
               name={shareName}
               onClick={() => rowShare('body')}
               disabled={pending}
+              aria-haspopup="dialog"
               data-testid="guest-card-share"
             />
           </span>
-          {more ? <Handed>{more}</Handed> : null}
+          {quick}
         </div>
-        {status}
+        <GuestTicketStatusProvider words={statusWords}>{ticket}</GuestTicketStatusProvider>
+        {more ? <Handed>{more}</Handed> : null}
         {pin.pinned && pin.slot
           ? createPortal(
               <span className="sn-inspector-pin" data-guest-invite-pinned="">
@@ -580,7 +611,7 @@ export function GuestInviteCell({
                   tone="neutral"
                   iconOnly
                   icon={Share}
-                  label="Share"
+                  label="Send invite"
                   name={shareName}
                   onClick={() => rowShare('head')}
                   disabled={pending}

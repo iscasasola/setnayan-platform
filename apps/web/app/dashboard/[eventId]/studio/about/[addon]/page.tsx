@@ -6,6 +6,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventSkuActive } from '@/lib/entitlements';
 import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
 import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
+import { isRetiredAddOn } from '@/lib/retired-products';
 import { eventClockOf } from '@/lib/event-clock.server';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import {
@@ -110,6 +111,12 @@ export default async function AddOnDetailPage({ params }: Props) {
     on this route — the same one the event-type scope gate uses a few lines up.
   */
   if (entry?.dayOfOnly && eventHasHappened) notFound();
+
+  /*
+    🪦 Not owned, and RETIRED (owner 2026-11-20: Patiktok and Music Maker are no
+    longer offered). The buy screen is gone; an old link lands on the event.
+  */
+  if (entry && isRetiredAddOn(entry)) redirect(`/dashboard/${eventId}`);
 
   return <AddOnDetailView eventId={eventId} addon={addon} />;
 }

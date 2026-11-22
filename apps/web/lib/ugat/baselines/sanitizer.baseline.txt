@@ -4,3 +4,4 @@
 #   pnpm --filter @setnayan/web root-map --baseline
 # Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
 # be dropped by re-running the command above.
+app/vendor-dashboard/customers/_components/customers-pin.tsx#pick	# first run 2026-10-02 · supplier app · a cleaner that silently throws away what it does not know

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { Mail } from 'lucide-react';
 import { HELP_TOPICS, helpTopicsFor } from '@/lib/help';
@@ -7,7 +8,6 @@ import { readPeopleAsk } from '@/lib/help-asks.server';
 import { AnswerRows, AnswerWays, BestAnswer, NoAnswer, type AnswerCtx } from '@/app/_components/help-ask/help-ask-view';
 import { TopicTiles } from '@/app/_components/help-ask/topic-tiles';
 import { helpDoorFor, tilesFor } from '@/app/_components/help-ask/help-ask-places';
-import { createClient } from '@/lib/supabase/server';
 import { getSelfPersonalization } from '@/lib/self-personalization';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
@@ -80,7 +80,7 @@ const FAQ_JSONLD = {
 };
 
 type Props = {
-  searchParams: Promise<{ submitted?: string; error?: string; role?: string; for?: string; q?: string; refer?: string }>;
+  searchParams: Promise<{ submitted?: string; error?: string; role?: string; for?: string; q?: string; refer?: string; subject?: string; body?: string; topic?: string }>;
 };
 
 /**
@@ -113,12 +113,14 @@ const CONTACT_TOPIC: Record<HelpCoverage, string> = { user: 'couple', supplier: 
 
 export default async function HelpPage({ searchParams }: Props) {
   const search = await searchParams;
+  // ✍ A door that already knows what the note is about opens it prefilled (the Card Maker's "Need your own form?" row:
+  // "Custom form request · [card] · [category]:"). Plain text, capped to the fields' own limits; the person still sends.
+  const prefillSubject = typeof search.subject === 'string' ? search.subject.slice(0, 160) : '';
+  const prefillBody = typeof search.body === 'string' ? search.body.slice(0, 4000) : '';
+  const prefillTopic = ['couple', 'vendor', 'guest', 'billing', 'bug', 'feature', 'other'].includes(search.topic ?? '') ? search.topic! : null;
   const referEvent = typeof search.refer === 'string' && /^[A-Za-z0-9-]{1,64}$/.test(search.refer) ? search.refer : null;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const signedIn = Boolean(user && !user.is_anonymous);
   const coverage = coverageFor(search, signedIn);
   const forParam = coverage === 'supplier' ? 'shop' : coverage === 'guest' ? 'guest' : undefined;
@@ -190,7 +192,7 @@ export default async function HelpPage({ searchParams }: Props) {
           </Field>
         </div>
         <Field label="Topic" htmlFor="topic">
-          <select id="topic" name="topic" defaultValue={CONTACT_TOPIC[coverage]} className="input-field">
+          <select id="topic" name="topic" defaultValue={prefillTopic ?? CONTACT_TOPIC[coverage]} className="input-field">
             <option value="">Choose one (optional)</option>
             <option value="couple">I&rsquo;m a couple planning an event</option>
             <option value="vendor">I&rsquo;m a supplier</option>
@@ -202,10 +204,10 @@ export default async function HelpPage({ searchParams }: Props) {
           </select>
         </Field>
         <Field label="Subject" htmlFor="subject">
-          <input id="subject" name="subject" required maxLength={160} defaultValue={q} placeholder="One sentence about what's up" className="input-field" />
+          <input id="subject" name="subject" required maxLength={160} defaultValue={prefillSubject || q} placeholder="One sentence about what's up" className="input-field" />
         </Field>
         <Field label="Message" htmlFor="body">
-          <textarea id="body" name="body" required rows={5} maxLength={4000} placeholder="Anything that helps us help you — event ID, exact URL you were on, what you expected vs. what happened." className="input-field min-h-[120px] py-2" />
+          <textarea id="body" name="body" required rows={5} maxLength={4000} defaultValue={prefillBody} placeholder="Anything that helps us help you — event ID, exact URL you were on, what you expected vs. what happened." className="input-field min-h-[120px] py-2" />
         </Field>
         {q ? (
           <p className="text-xs text-ink/60">

@@ -96,7 +96,11 @@ function settled(server: IapConfirmResult): boolean {
  * The whole purchase, start to finish. Resolves to the ONE screen the sheet
  * shows next — never throws, never shows Apple's raw error text.
  */
-export async function buyWithApple(input: { eventId: string; productId: string }): Promise<IapScreen> {
+/**
+ * `eventId` names the couple's event; a shop's gift (`gift_*`) has none — it lands in the shop's own gift stock.
+ * `quantity` — a gift cart line's count (1–10, one Apple purchase); the SERVER's answer is what StoreKit is asked for.
+ */
+export async function buyWithApple(input: { eventId?: string; productId: string; quantity?: number }): Promise<IapScreen> {
   if (!nativeStoreAvailable()) return { kind: 'refused', message: 'This is not available in the app right now.' };
 
   let started: Awaited<ReturnType<typeof startAppStorePurchase>>;
@@ -109,7 +113,11 @@ export async function buyWithApple(input: { eventId: string; productId: string }
 
   let answer: PurchaseAnswer;
   try {
-    answer = await call<PurchaseAnswer>('purchase', { productId: started.productId, appAccountToken: started.token });
+    answer = await call<PurchaseAnswer>('purchase', {
+      productId: started.productId,
+      appAccountToken: started.token,
+      ...(started.quantity > 1 ? { quantity: started.quantity } : {}),
+    });
   } catch {
     return screenFor('failed', null);
   }

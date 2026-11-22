@@ -7,10 +7,17 @@ import { appendLedger } from '@/lib/ledger';
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { formatPhp } from '@/lib/php';
-import { APP_STORE_CHANNEL_KEY, appStorePriceMatchesWeb, iapPriceRowFor, type IapProduct } from './products';
+import {
+  APP_STORE_CHANNEL_KEY,
+  appStorePriceMatchesWeb,
+  iapPriceRowFor,
+  isIapSupplierGiftProduct,
+  type IapProduct,
+} from './products';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { computeVatFromBase } from '@/lib/receipts';
 import { chargedPhp, type AppleTransaction } from './apple-transaction';
+import { appleGiftDeliveryFor, appleGiftOrderKey, appleGiftPurchaseRow } from './supplier-gift.server';
 
 /**
  * 🍎 APPLE SAID YES → THE SAME ORDER, THE SAME ACTIVATION.
@@ -50,11 +57,12 @@ import { chargedPhp, type AppleTransaction } from './apple-transaction';
  */
 
 export type FulfilOutcome =
-  | { status: 'on'; orderId: string; eventId: string; serviceKey: string; activatedNow: boolean }
+  /** `eventId` null ⇒ a shop's gift (`vendorProfileId`), landed in its gift stock. */
+  | { status: 'on'; orderId: string; eventId: string | null; vendorProfileId?: string; serviceKey: string; activatedNow: boolean }
   | { status: 'refunded' }
   | {
       status: 'refused';
-      reason: 'unknown_token' | 'not_yours' | 'token_reused' | 'product_mismatch' | 'no_event';
+      reason: 'unknown_token' | 'not_yours' | 'token_reused' | 'product_mismatch' | 'no_event' | 'no_shop';
     }
   /** A read or write failed — nothing is lost: Apple re-delivers, and Restore re-asks. */
   | { status: 'error'; where: string };
@@ -63,6 +71,8 @@ type IntentRow = {
   app_account_token: string;
   user_id: string;
   event_id: string | null;
+  /** 💝 A shop's gift intent: the shop the gift lands in. Null on every couple intent. */
+  vendor_profile_id: string | null;
   product_id: string;
   service_key: string;
   transaction_id: string | null;
@@ -70,7 +80,7 @@ type IntentRow = {
 };
 
 const INTENT_COLS =
-  'app_account_token, user_id, event_id, product_id, service_key, transaction_id, order_id';
+  'app_account_token, user_id, event_id, vendor_profile_id, product_id, service_key, transaction_id, order_id';
 
 /** The order's unique reference — one Apple transaction, one order. */
 export function appStoreReferenceCode(transactionId: string): string {
@@ -80,18 +90,25 @@ export function appStoreReferenceCode(transactionId: string): string {
 /** The payment's `channel` and the order's `payment_method_key`. */
 export const APP_STORE_CHANNEL = APP_STORE_CHANNEL_KEY;
 
-/** Create the intent row whose key Apple signs into the purchase (`appAccountToken`). */
+/**
+ * Create the intent row whose key Apple signs into the purchase (`appAccountToken`). A couple's names the EVENT; a
+ * shop's gift names the SHOP and no event (`vendorProfileId`), and records the web gift's order key
+ * (`vendor_gift__<code>`) so a refund reverses it through the web gift's own hook.
+ */
 export async function createPurchaseIntent(
   admin: SupabaseClient,
-  input: { userId: string; eventId: string; product: IapProduct },
+  input: { userId: string; eventId: string; product: IapProduct } | { userId: string; vendorProfileId: string; product: IapProduct },
 ): Promise<{ ok: true; token: string } | { ok: false }> {
+  const shop = 'vendorProfileId' in input ? input.vendorProfileId : null;
+  if (shop ? input.product.kind !== 'supplier-gift' : input.product.kind === 'supplier-gift') return { ok: false };
   const { data, error } = await admin
     .from('app_store_purchases')
     .insert({
       user_id: input.userId,
-      event_id: input.eventId,
+      event_id: 'eventId' in input ? input.eventId : null,
+      vendor_profile_id: shop,
       product_id: input.product.productId,
-      service_key: input.product.serviceKey,
+      service_key: isIapSupplierGiftProduct(input.product) ? appleGiftOrderKey(input.product) : input.product.serviceKey,
     })
     .select('app_account_token')
     .maybeSingle();
@@ -102,7 +119,7 @@ export async function createPurchaseIntent(
       element_name: 'App Store purchase — create intent',
       file_path: 'lib/iap/fulfil.server.ts',
       error_message: error?.message ?? 'no row returned',
-      payload_snapshot: { productId: input.product.productId, eventId: input.eventId },
+      payload_snapshot: { productId: input.product.productId, eventId: 'eventId' in input ? input.eventId : null, vendorProfileId: shop },
     });
     return { ok: false };
   }
@@ -139,7 +156,8 @@ async function orderAmountPhp(
     .maybeSingle();
   if (error) console.error('[iap] could not read the catalogue price (Apple’s PHP figure is used when present):', error.message);
   const raw = (data as { retail_price_php?: number | string | null } | null)?.retail_price_php;
-  const catalogPhp = raw === null || raw === undefined || error ? null : Number(raw);
+  // 💝 A gift line is the gift × the quantity Apple signed (a 10 + 1 bundle row is 10 × list — one price everywhere).
+  const catalogPhp = raw === null || raw === undefined || error ? null : Number(raw) * tx.quantity;
   const php = chargedPhp(tx);
   if (php !== null) return { ok: true, amount: php, note: null, catalogPhp };
   // Not charged in pesos (another storefront): we do not invent an exchange
@@ -191,7 +209,13 @@ export async function fulfilAppleTransaction(
   if (opts.expectUserId && row.user_id !== opts.expectUserId) return { status: 'refused', reason: 'not_yours' };
   if (row.product_id !== tx.product.productId) return { status: 'refused', reason: 'product_mismatch' };
   if (row.transaction_id && row.transaction_id !== tx.transactionId) return { status: 'refused', reason: 'token_reused' };
-  if (!row.event_id) {
+  // 💝 A gift product lands ONLY in a shop's stock, and a shop intent buys ONLY a gift — never one for the other.
+  const gift = isIapSupplierGiftProduct(tx.product) ? tx.product : null;
+  if (!gift && row.vendor_profile_id) return { status: 'refused', reason: 'product_mismatch' };
+  // A shop that was deleted after it bought (`ON DELETE SET NULL`) has nowhere for the gift to land.
+  if (gift && !row.vendor_profile_id) return { status: 'refused', reason: 'no_shop' };
+  const giftShop = gift ? row.vendor_profile_id : null;
+  if (!gift && !row.event_id) {
     await insertFaultLog({
       event_type: 'OTHER',
       element_name: 'App Store purchase — the event is gone',
@@ -201,7 +225,14 @@ export async function fulfilAppleTransaction(
     });
     return { status: 'refused', reason: 'no_event' };
   }
-  const eventId = row.event_id;
+  // A shop's gift belongs to no event — it waits in the shop's stock until the shop gives it (Agree / a quote).
+  const eventId = gift ? null : row.event_id;
+  // The order's key: the web gift's own (`vendor_gift__<code>`) for a gift, the product's catalogue code otherwise.
+  const orderKey = gift ? appleGiftOrderKey(gift) : tx.product.serviceKey;
+  // 💝 What the gift line lands — by the quantity APPLE SIGNED (owner 2026-11-22): singles, or the 10 + 1 bundle whose
+  // paid count it equals (its catalogue count lands, 11). A read failure is an error: Apple re-delivers.
+  const giftDelivery = gift ? await appleGiftDeliveryFor(admin, gift, tx.quantity) : null;
+  if (gift && !giftDelivery) return { status: 'error', where: 'gift_delivery' };
 
   // 1 · Stamp what Apple said onto the intent (first writer wins; a repeat is a no-op).
   if (!row.transaction_id) {
@@ -238,10 +269,13 @@ export async function fulfilAppleTransaction(
         orderRowFor(
           // Identity from the INTENT row — the user and event the membership
           // check covered before Apple's sheet opened (startAppStorePurchase).
-          { userId: row.user_id, eventId, vendorProfileId: null },
+          { userId: row.user_id, eventId, vendorProfileId: giftShop },
           {
-            service_key: tx.product.serviceKey,
-            description: `${tx.product.appStoreName} · App Store`,
+            service_key: orderKey,
+            description:
+              gift && giftDelivery
+                ? `Gifts for your couples — ${giftDelivery.bundleCode ? `${tx.quantity} + ${giftDelivery.packsEach - tx.quantity} free` : tx.quantity} × ${gift.appStoreName.replace(/^Gift · /, '')} · App Store`
+                : `${tx.product.appStoreName} · App Store`,
             requested_total_php: amount.amount,
             reference_code: referenceCode,
             platform: 'ios',
@@ -277,12 +311,28 @@ export async function fulfilAppleTransaction(
       actor_role: 'system',
       amount_centavos: Math.round(amount.amount * 100),
       metadata: {
-        service_key: tx.product.serviceKey,
+        service_key: orderKey,
         channel: APP_STORE_CHANNEL,
         apple_transaction_id: tx.transactionId,
         apple_environment: tx.environment,
       },
     });
+  }
+
+  // 💝 What a gift order bought — the row a web gift order carries, read by approval to land the gift in the shop's
+  // stock. Written BEFORE the promote (activation reads it); the order is its key, so a repeat delivery is a no-op.
+  if (gift && giftShop && giftDelivery) {
+    const giftRow = appleGiftPurchaseRow({
+      orderId: order.order_id,
+      vendorProfileId: giftShop,
+      userId: row.user_id,
+      product: gift,
+      delivery: giftDelivery,
+      chargedPhp: amount.amount,
+    });
+    if (!giftRow) return { status: 'error', where: 'gift_row' };
+    const { error: giftErr } = await admin.from('shop_gift_purchases').insert(giftRow);
+    if (giftErr && giftErr.code !== '23505') return { status: 'error', where: 'gift_row' };
   }
 
   if (order.status === 'refunded' || order.status === 'cancelled' || order.status === 'lapsed') {
@@ -341,18 +391,19 @@ export async function fulfilAppleTransaction(
         actor_role: 'system',
         amount_centavos: Math.round(amount.amount * 100),
         metadata: {
-          service_key: tx.product.serviceKey,
+          service_key: orderKey,
           channel: APP_STORE_CHANNEL,
           apple_transaction_id: tx.transactionId,
           apple_environment: tx.environment,
         },
       });
-      // 4 · The SAME activation path the web's admin approval runs. Non-fatal by contract.
+      // 4 · The SAME activation path the web's admin approval runs. Non-fatal by contract. A gift runs the web gift's
+      // hook (`grantShopGiftPurchase`), which lands it in the shop's stock.
       await activateOrderSku({
         admin,
         orderId: order.order_id,
         eventId,
-        serviceKey: tx.product.serviceKey,
+        serviceKey: orderKey,
         actorUserId: row.user_id,
       });
       activatedNow = true;
@@ -395,7 +446,9 @@ export async function fulfilAppleTransaction(
     }
   }
 
-  return { status: 'on', orderId: order.order_id, eventId, serviceKey: tx.product.serviceKey, activatedNow };
+  return gift && giftShop
+    ? { status: 'on', orderId: order.order_id, eventId: null, vendorProfileId: giftShop, serviceKey: orderKey, activatedNow }
+    : { status: 'on', orderId: order.order_id, eventId, serviceKey: orderKey, activatedNow };
 }
 
 /**
@@ -471,7 +524,10 @@ export async function revokeAppleTransaction(
     // The buyer whose purchase Apple refunded — the actor is Apple ('system').
     actor_user_id: row.user_id,
     actor_role: 'system',
-    amount_centavos: tx.currency === 'PHP' && tx.priceMilliunits !== null ? Math.round(tx.priceMilliunits / 10) : null,
+    amount_centavos: (() => {
+      const php = chargedPhp(tx);
+      return php === null ? null : Math.round(php * 100);
+    })(),
     metadata: {
       service_key: row.service_key,
       channel: APP_STORE_CHANNEL,

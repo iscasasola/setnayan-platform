@@ -36,11 +36,13 @@ import { countNoun, formatCount } from '@/lib/format-number';
 import { formatPeso } from '@/lib/v2-catalog-pure';
 import { CARD_MEDALS } from '@/lib/public-badges';
 import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
-import { ServiceFace, includesLineOf } from '@/app/_components/service-face';
+import { ServiceFace } from '@/app/_components/service-face';
+import { aboutKmLine } from '@/lib/mall-card';
+import { SampleDateFit } from './sample-card-date-fit';
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
 import type { CardBadgeView } from '@/lib/card-badges';
 import { FREE_FINDABLE } from './plan-table-data';
-import { GROW_TIERS, VERIFIED_PAPERS, growName, verifiedSpec } from './supplier-front-data';
+import { GROW_TIERS, VERIFIED_PAPERS, growName, planLine, verifiedSpec } from './supplier-front-data';
 import { FeeRuler, PlanRows, type FreeWhen, type PlanRow } from './supplier-front-client';
 import { Info } from './supplier-front-info';
 import { SupplierHowWeEarn } from './supplier-how-we-earn';
@@ -90,7 +92,15 @@ const SAMPLE_CARDS: ReadonlyArray<{
   path: string;
   cover: string;
   shop: string;
+  /** Where the shop works, said after its name. */
+  city: string;
   price: number;
+  /** The card's own note under its price. */
+  priceNote: string;
+  /** Reviews come only from completed bookings; a sample shows what a reviewed card looks like. */
+  rating: { avg: number; count: number };
+  /** Straight-line km to the couple's venue (`aboutKmLine`). */
+  km: number;
   includes: readonly string[];
   notIncluded: readonly string[];
   badges: readonly CardBadgeView[];
@@ -100,7 +110,11 @@ const SAMPLE_CARDS: ReadonlyArray<{
     path: 'Photographers · Photo & video',
     cover: `${A}/c-photo.webp`,
     shop: 'Lumen Studio',
+    city: 'Quezon City',
     price: 45999,
+    priceNote: 'whole day, 2 shooters',
+    rating: { avg: 4.9, count: 128 },
+    km: 12,
     includes: ['2 shooters', 'Online album', 'Same-day edit'],
     notIncluded: ['crew meal'],
     badges: [
@@ -113,7 +127,11 @@ const SAMPLE_CARDS: ReadonlyArray<{
     path: 'Hair & make-up · Bridal',
     cover: `${A}/c-makeup.webp`,
     shop: 'Blush by Ria',
+    city: 'Makati',
     price: 18999,
+    priceNote: 'bride + 1, with trial',
+    rating: { avg: 4.8, count: 86 },
+    km: 6,
     includes: ['Trial session', 'Airbrush', 'Touch-ups'],
     notIncluded: [],
     badges: [
@@ -127,7 +145,11 @@ const SAMPLE_CARDS: ReadonlyArray<{
     path: 'Videographers · Highlights',
     cover: `${A}/c-video.webp`,
     shop: 'Reel Day Films',
+    city: 'Pasig',
     price: 35999,
+    priceNote: '4-minute film',
+    rating: { avg: 5.0, count: 41 },
+    km: 9,
     includes: ['4-minute film', 'Drone shots', 'Raw files'],
     notIncluded: [],
     badges: [{ key: 'hot_booking', since: null }],
@@ -189,11 +211,12 @@ export function SupplierFrontPage({
   ];
 
   const planRows: PlanRow[] = [
-    { name: 'Free', line: 'Run the business you already have.', price: '₱0', per: 'always', cta: CTA },
-    { name: 'Verified', line: 'Be found on Discover and Find.', price: '₱0', per: 'always', cta: CTA },
+    // Free and Verified show what they hold too, never a slogan alone (owner via controller 22 Nov: "not just Memory Space").
+    { name: 'Free', line: planLine('free'), price: '₱0', per: 'always', cta: CTA },
+    { name: 'Verified', line: planLine('verified'), price: '₱0', per: 'always', cta: CTA },
     ...GROW_TIERS.map((t) => ({
       name: growName(t),
-      line: { solo: 'Something to test on, with a small team.', pro: 'The complete business package.', enterprise: 'Expand: more people, cards and branches.' }[t],
+      line: planLine(t), // 💾 the size and what it adds, from TIER_CAPS (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE")
       price: { solo: prices.soloMonthly, pro: prices.proMonthly, enterprise: prices.enterpriseMonthly }[t],
       per: 'per 4 weeks',
       cta: `Start on ${growName(t)}`,
@@ -342,15 +365,20 @@ export function SupplierFrontPage({
         <ul className={`${s.row} ${s.cards}`}>
           {SAMPLE_CARDS.map((c) => (
             <li key={c.name} className={s.card}>
+              {/* Card 14, the agreed service card (owner 20 Nov "card 14 approved"; shipped #8070): the mall face Find and
+                  Discover draw. Includes / Not included live in the opened card, never on this face. */}
               <ServiceFace
+                layout="mall"
                 name={c.name}
                 coverUrl={c.cover}
-                path={c.path}
                 shop={{ name: c.shop, href: null, logoUrl: null, verified: c.badges.some((b) => b.key === 'verified') }}
+                city={c.city}
+                rating={c.rating}
                 price={peso(c.price)}
-                includes={includesLineOf(c.includes)}
-                notIncluded={c.notIncluded}
-                footer={<CardBadgeRow badges={c.badges} cardName={c.name} shopName={c.shop} now={0} />}
+                priceNote={c.priceNote}
+                medals={<CardBadgeRow badges={c.badges} cardName={c.name} shopName={c.shop} now={0} />}
+                lines={<SampleDateFit />}
+                distance={aboutKmLine(c.km)}
               />
             </li>
           ))}

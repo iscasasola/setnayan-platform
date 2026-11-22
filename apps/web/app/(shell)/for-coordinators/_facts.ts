@@ -30,12 +30,14 @@ import {
   PORTFOLIO_FREE_BASE,
   TIER_CAPS,
   TIER_LABEL,
+  FIRST_PAID_SIZE,
   firstPlanWith,
   type TierCaps,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 
 import { FREE_FINDABLE } from '@/app/for-suppliers/_components/plan-table-data';
+import { growSpec as supplierGrowSpec } from '@/app/for-suppliers/_components/supplier-front-data';
 
 import { countWord, type ClaimSwitch } from './_claims';
 
@@ -83,16 +85,8 @@ export function verifiedSpec(): string {
  * is left out (Plus has no branches). The waiting list (2026-11-18) and reach (2026-11-19) are not plan limits.
  */
 export function growSpec(t: GrowTier): string {
-  const c: TierCaps = TIER_CAPS[t];
-  const parts = [
-    many(c.parentCategories, 'category', 'categories'),
-    // Cards are unlimited to MAKE; the plan counts the LIVE ones (owner 19 Nov 2026, lib/live-cards-cap.ts). Bookings a
-    // day are not a plan limit — the same words as /for-suppliers (lib/the-two-supplier-pages-say-the-same-caps.test.ts).
-    `${many(c.serviceCardsTotal, 'service card', 'service cards')} live`,
-    many(c.agentAccounts, 'team seat', 'team seats'),
-  ];
-  if (c.branchesIncluded > 0) parts.push(many(c.branchesIncluded, 'branch', 'branches'));
-  return parts.join(' · ');
+  // One builder for both pages (2026-11-22): the size first, then the caps or "no limit" in words.
+  return supplierGrowSpec(t);
 }
 
 /** The search reach in one sentence — the same on every plan (2026-11-19), the same words as /for-suppliers. */
@@ -209,10 +203,9 @@ export function foldGroups(): readonly FoldGroup[] {
         { text: 'Earnings dashboard, won and lost reasons', tag: plan((c) => c.soloBusinessTools) },
         { text: 'Reverse-image theft watch', tag: plan((c) => c.theftWatch) },
         { text: 'Branches under one shop', tag: plan((c) => c.branchesIncluded > 0) },
-        // Category benchmarks vs peers — the Ultra row of the shipped plan list
-        // (`app/_components/home/vendor-benefits.ts`, "Market Intelligence — category benchmarks vs peers").
-        // No cap flag isolates it (`marketIntel` is Pro's Demand Radar), so it is named by the plan it is sold in.
-        { text: 'Market Intelligence', tag: { kind: 'plan', text: planPill('enterprise') } },
+        // Category benchmarks vs peers (`app/_components/home/vendor-benefits.ts`, "Market Intelligence"). Every paid
+        // size has every feature since owner 2026-11-22 "SAME FEATURES IN EVERY SIZE", so it opens on the first paid size.
+        { text: 'Market Intelligence', tag: { kind: 'plan', text: planPill(FIRST_PAID_SIZE) } },
         { text: 'Gifts per badge', tag: FREE },
       ],
     },

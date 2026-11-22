@@ -76,14 +76,15 @@ export function isVendorAiAdvanced(raw: string | null | undefined): boolean {
  * 💳 THE CHATBOT A PLAN INCLUDES — owner 2026-11-21, verbatim: *"AI Chatbot is for verified and up but smarter chatbot is
  * for pro and up"* (DECISION_LOG 21 Nov; replaces the 14 Nov split "SIMPLER SUPPLIER PLANS" item 3, which put the
  * chatbot on Pro and the smarter level on Ultra only). Verified and Plus get today's chatbot; Pro and Ultra get the
- * smarter level (the shop's voice, the couple's language, no daily cap). An unverified Free shop has none. Neither level
+ * smarter level (the shop's voice, the couple's language, no daily cap). An unverified Free shop has none.
+ * Since 2026-11-22 (DECISION_LOG "SUPPLIER PLANS MIRROR ICLOUD+: SAME FEATURES IN EVERY SIZE") Plus has the smarter level too. Neither level
  * is sold on its own. A chatbot window a shop BOUGHT before the fold keeps working until it runs out (item 11) — that is
  * `windowActive` below, never this table.
  */
 export const PLAN_CHATBOT_LEVEL: Readonly<Record<string, VendorAiLevel | 'none'>> = Object.freeze({
   free: 'none',
   verified: 'basic',
-  solo: 'basic',
+  solo: 'advanced', // owner 2026-11-22 "SAME FEATURES IN EVERY SIZE" (was basic)
   pro: 'advanced',
   enterprise: 'advanced',
 });

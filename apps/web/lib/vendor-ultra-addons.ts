@@ -112,7 +112,7 @@ export function isCountAddOnKind(raw: unknown): raw is CountAddOnKind {
   return typeof raw === 'string' && (COUNT_ADDON_KINDS as readonly string[]).includes(raw);
 }
 
-/** May this plan buy this add-on? Ultra only, for every one of the six. */
+/** May this plan buy this add-on? No plan, for any of the six (owner 2026-11-22: no add-ons; the gates below say so). */
 export function canBuyUltraAddOn(kind: UltraAddOnKind, tier: string | null | undefined): boolean {
   switch (kind) {
     case 'category':

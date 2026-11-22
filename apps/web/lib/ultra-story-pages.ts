@@ -10,7 +10,7 @@
  * `loadVendorFeaturedStories` — consent, a public slug, past the 30-day wait). A private or unpublished event never
  * gets one. The server half is `lib/ultra-story-pages.server.ts`.
  */
-import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { shopPath } from '@/lib/shop-address';
 
 /** The Ultra card's link words (drawing § 5). */
@@ -22,9 +22,9 @@ export const IN_OUR_WORDS = 'In our words';
 /** The longest note a shop may write (held equal to the table's CHECK in the migration). */
 export const STORY_NOTE_MAX = 600;
 
-/** Does this plan give the shop a story page per booked event? Ultra (and anything above it) only. */
+/** Does this plan give the shop a story page per booked event? Every paid size (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE"; was Ultra only). */
 export function hasStoryPages(tier: string | null | undefined): boolean {
-  return isTierAtLeast(tier, 'enterprise');
+  return isPaidSize(tier);
 }
 
 /** The shop's own page for one event — always on the shop's address. */

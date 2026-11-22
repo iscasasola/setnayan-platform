@@ -1,10 +1,11 @@
 /**
  * lib/supplier-storage.ts — THE PLAN HOLDS STORAGE, THE PURE HALF.
  *
- * Owner 2026-11-13 (specs DECISION_LOG, commit ce2d0a8 "plan storage"): *Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB*, included
- * in the plan. Free and Free · Verified were given no allowance and keep what they had: no limit, nothing drawn.
+ * Owner 2026-11-22 "FINAL LADDER" (specs SUPPLIER_SUBSCRIPTIONS_BUILD_SPEC § ★ B), sizes re-cut the same day ("SUPPLIER SIZES
+ * RE-CUT" + "PLUS CUT TO 128 GB"): the plans ARE storage sizes — Free 256 MB · Verified 2 GB · Plus 128 GB · Pro 500 GB · Ultra 1 TB. Every plan has an allowance now (was: Plus 5 · Pro 10 · Ultra 20 GB,
+ * Free and Verified none).
  *
- *   · the number   — `TIER_CAPS[plan].storageBytes` (lib/vendor-tier-caps.ts), twin `vendor_tier_limit(…,'storage_gb')`.
+ *   · the number   — `TIER_CAPS[plan].storageBytes` (lib/vendor-tier-caps.ts), twin `vendor_tier_limit(…,'storage_mb')` (whole MB).
  *   · what counts  — each stored copy a filed event file still points at, once (`vendor_storage_used_bytes`, read by
  *                    `readStoredBytes` in lib/downgrade-limits.server.ts). Removing a file from its events makes room;
  *                    nothing is ever deleted by the allowance.
@@ -18,7 +19,8 @@
  * PURE: no I/O, no env. 🔒 lib/supplier-storage.test.ts
  */
 import { storageWords } from './downgrade-limits';
-import { TIER_CAPS, VENDOR_TIERS, asVendorTier, tierCaps, tierRank, type VendorTier } from './vendor-tier-caps';
+import { TIER_CAPS, VENDOR_TIERS, asVendorTier, isPaidSize, tierCaps, tierRank, type VendorTier } from './vendor-tier-caps';
+import { formatCount } from './format-number';
 import { planWord } from './vendor-plan-change-words';
 
 /** The machine-readable half of a refusal (the sentence is `storageFullMessage`). */
@@ -34,7 +36,8 @@ export const STORAGE_UNREAD = 'Couldn’t read what you store just now — nothi
 export const STORAGE_CHECK_FAILED = 'We couldn’t check your storage just now. Nothing was uploaded — try again in a moment.';
 
 /**
- * The storage a plan holds, in bytes — READ FROM `TIER_CAPS`. Null = the plan has no allowance (Free · Verified).
+ * The storage a plan holds, in bytes — READ FROM `TIER_CAPS`. Every plan has one since 2026-11-22; null is kept only
+ * as the "no allowance known" answer the callers already handle.
  * (Re-exported by lib/downgrade-limits.server.ts, where the limits sheet has always asked for it.)
  */
 export function storageAllowanceBytes(plan: string | null | undefined): number | null {
@@ -46,13 +49,54 @@ function words(bytes: number): string {
   return bytes <= 0 ? '0 MB' : storageWords(bytes);
 }
 
-/** The next plan up that holds more than this one, or null (Ultra — the packs are not on sale). */
+/**
+ * 📋 A PLAN IN ONE LINE — its account features WITH its size, never the size alone (owner 2026-11-22: "supplier plans is
+ * not just Memory Space. but features for their account as well"; build-sessions/SUPPLIER-PLANS-EXPLAINED-2026-11-22.md).
+ * Read from `TIER_CAPS`, so a cap change moves every surface that says it:
+ *   Free      "run your own clients, 1 live service, just you, main shop only, and 256 MB"
+ *   Verified  "on the marketplace with the basics, 3 live services, just you, main shop only, and 2 GB"
+ *   Plus      "every tool, 15 live services, you and 2 more, main shop only, and 128 GB"
+ *   Pro/Ultra "every tool, no limit on services, people or branches, and 500 GB" / "… and 1 TB"
+ * The /for-suppliers plan cards, the Plans page taglines and the storage-full way up all say it.
+ */
+export function planSummaryWords(plan: string | null | undefined): string {
+  const t = asVendorTier(plan);
+  const c = TIER_CAPS[t];
+  const tools = isPaidSize(t) ? 'every tool' : t === 'verified' ? 'on the marketplace with the basics' : 'run your own clients';
+  const open = [c.serviceCardsTotal, c.agentAccounts, c.branchesIncluded].every((v) => !Number.isFinite(v));
+  const parts = [tools];
+  if (open) parts.push('no limit on services, people or branches');
+  else {
+    const n = c.serviceCardsTotal;
+    parts.push(Number.isFinite(n) ? `${formatCount(n)} live ${n === 1 ? 'service' : 'services'}` : 'no limit on services');
+    parts.push(!Number.isFinite(c.agentAccounts) ? 'no limit on people' : c.agentAccounts > 0 ? `you and ${formatCount(c.agentAccounts)} more` : 'just you');
+    parts.push(!Number.isFinite(c.branchesIncluded) ? 'no limit on branches' : c.branchesIncluded > 0 ? `${formatCount(c.branchesIncluded)} ${c.branchesIncluded === 1 ? 'branch' : 'branches'}` : 'main shop only');
+  }
+  if (c.storageBytes !== null) parts.push(storageWords(c.storageBytes));
+  return `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
+}
+
+/**
+ * A paid size's role in the plan-page copy (SUPPLIER-PLANS-EXPLAINED): the first one with limits is the starter business,
+ * the top size the big studio, the size between them the growing business. Free and Verified have no role line.
+ */
+export function planRole(plan: string | null | undefined): string {
+  const t = asVendorTier(plan);
+  if (!isPaidSize(t)) return t === 'verified' ? 'Verified' : 'Free';
+  if (Number.isFinite(TIER_CAPS[t].serviceCardsTotal)) return 'The starter business';
+  return t === VENDOR_TIERS[VENDOR_TIERS.length - 1] ? 'The big studio' : 'The growing business';
+}
+
+/**
+ * The next PAID plan up that holds more than this one, or null (Ultra — nothing is above it, and there are no packs).
+ * Verified is never "moved to": it is earned by verifying, not bought — so Free and Verified both point at Plus.
+ */
 export function nextStoragePlan(plan: string | null | undefined): VendorTier | null {
   const current = asVendorTier(plan);
   const have = TIER_CAPS[current].storageBytes;
   if (have === null) return null; // no allowance to outgrow
   for (const t of VENDOR_TIERS) {
-    if (tierRank(t) <= tierRank(current)) continue;
+    if (t === 'verified' || tierRank(t) <= tierRank(current)) continue;
     const s = TIER_CAPS[t].storageBytes;
     if (s !== null && s > have) return t;
   }
@@ -86,7 +130,8 @@ export function storageFullMessage(plan: string | null | undefined, usedBytes: n
   const name = planWord(asVendorTier(plan));
   const left = Math.max(0, allowance - Math.max(0, usedBytes));
   const next = nextStoragePlan(plan);
-  const up = next ? ` or move to ${planWord(next)} for ${storageWords(TIER_CAPS[next].storageBytes ?? 0)}` : '';
+  // The way up names the plan's account features with its size, never the size alone (owner 2026-11-22).
+  const up = next ? ` or move to ${planWord(next)}: ${planSummaryWords(next)}` : '';
   const reason =
     left < 1e6
       ? `Your ${name} plan’s ${storageWords(allowance)} of storage is full.`

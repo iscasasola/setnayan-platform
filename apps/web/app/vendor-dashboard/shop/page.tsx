@@ -155,7 +155,7 @@ type ShopData = {
   formsSaved: number | null;
   /** 🏷 The Offer Maker tile: Verified (the lock), how many offers run, and the papers line for the lock. */
   offerTile: OfferTileFacts;
-  /** 🎂 Special tools (the Cake Maker) are locked for this shop — the tile reads "Included in Pro". */
+  /** 🎂 Special tools (the Cake Maker) are locked for this shop — the tile reads "Included in Plus". */
   specialToolsLocked: boolean;
 };
 

@@ -44,7 +44,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
-import { ServiceFace, includesLineOf } from '@/app/_components/service-face';
+import { ServiceFace } from '@/app/_components/service-face';
 import type { CardBadgeView } from '@/lib/card-badges';
 
 import { TIERS } from '@/lib/badge-tiers';
@@ -435,13 +435,11 @@ export default async function ForCoordinatorsPage() {
             {/* The LIVE service card, exactly as main draws it (ServiceFace + CardBadgeRow) — never a hand copy. */}
             <div className="fc-sf">
               <ServiceFace
+                layout="mall"
                 name="On-the-day coordination"
                 coverUrl={`${SHOT}/c-coord.webp`}
-                path="Coordinators · Planning"
                 shop={{ name: 'Amihan Events', href: null, logoUrl: null, verified: true }}
-                includes={includesLineOf(['2 coordinators', '12 hours'])}
-                notIncluded={['crew meal']}
-                footer={
+                medals={
                   <CardBadgeRow
                     badges={SAMPLE_BADGES}
                     cardName="On-the-day coordination"

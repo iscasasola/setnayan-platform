@@ -93,9 +93,11 @@
 
 /* THE SAMPLE SERVICE CARD — the shipped face (service-face.tsx + card-badge-row.tsx), on the card's own tokens */
 .fc .fc-cards{gap:12px;padding-block:6px 26px;margin-bottom:-16px}
-.fc .fc-sf{width:300px;flex:none}
+.fc .fc-sf{width:206px;flex:none} /* Card 14's phone width (DECISION_LOG 20 Nov) */
 /* The live card clips its cover with overflow:hidden; inside the swipe row that stops the sideways-scroll check, so clip by shape instead (as /for-suppliers does). */
 .fc .fc-sf span.overflow-hidden.rounded-lg{overflow:visible;clip-path:inset(0 round var(--m-r-md))}
+.fc .fc-sf [data-service-face-layout='mall'],.fc .fc-sf [data-service-face-layout='mall'] .overflow-hidden{overflow:visible}
+.fc .fc-sf [data-service-face-layout='mall'] .aspect-square{clip-path:inset(0 round var(--sn-frame-radius) var(--sn-frame-radius) 0 0)}
 .fc .fc-ic{flex:none;width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
 
 /* Check a date — the seat plan's calendar, a still, on the seat tokens */
@@ -148,7 +150,8 @@
   .fc .fc-hp{aspect-ratio:16/9;max-height:none}
   .fc .fc-hero .fc-btn,.fc .fc-close .fc-btn{width:max-content;min-width:280px;margin-left:auto;margin-right:auto}
   .fc .fc-item{width:calc((720px - 32px - 36px) / 4)}
-  .fc .fc-sf,.fc .fc-seatm{width:calc((720px - 32px - 12px) / 2)}
+  .fc .fc-seatm{width:calc((720px - 32px - 12px) / 2)}
+  .fc .fc-sf{width:285px} /* Card 14's desktop width */
   .fc .fc-chips{justify-content:center}
   .fc .fc-ref{max-width:420px}
 }

@@ -36,7 +36,7 @@ import { countNoun, formatCount } from '@/lib/format-number';
 import { formatPeso } from '@/lib/v2-catalog-pure';
 import { CARD_MEDALS } from '@/lib/public-badges';
 import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
-import { ServiceFace, includesLineOf } from '@/app/_components/service-face';
+import { ServiceFace } from '@/app/_components/service-face';
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
 import type { CardBadgeView } from '@/lib/card-badges';
 import { FREE_FINDABLE } from './plan-table-data';
@@ -343,15 +343,15 @@ export function SupplierFrontPage({
         <ul className={`${s.row} ${s.cards}`}>
           {SAMPLE_CARDS.map((c) => (
             <li key={c.name} className={s.card}>
+              {/* Card 14, the agreed service card (owner 20 Nov "card 14 approved"; shipped #8070): the mall face Find and
+                  Discover draw. Includes / Not included live in the opened card, never on this face. */}
               <ServiceFace
+                layout="mall"
                 name={c.name}
                 coverUrl={c.cover}
-                path={c.path}
                 shop={{ name: c.shop, href: null, logoUrl: null, verified: c.badges.some((b) => b.key === 'verified') }}
                 price={peso(c.price)}
-                includes={includesLineOf(c.includes)}
-                notIncluded={c.notIncluded}
-                footer={<CardBadgeRow badges={c.badges} cardName={c.name} shopName={c.shop} now={0} />}
+                medals={<CardBadgeRow badges={c.badges} cardName={c.name} shopName={c.shop} now={0} />}
               />
             </li>
           ))}

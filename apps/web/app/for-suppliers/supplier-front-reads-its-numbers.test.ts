@@ -143,3 +143,14 @@ test('owner via controller 22 Nov: a plan is never its size alone — Free and V
   assert.match(coord, /\{planLine\('free'\)\}/);
   assert.match(coord, /\{planLine\('verified'\)\}/);
 });
+
+test('owner 23 Nov "this is not our agreed service card": the samples wear Card 14, the mall face (approved 20 Nov, #8070)', () => {
+  for (const rel of ['app/for-suppliers/_components/supplier-front-page.tsx', 'app/(shell)/for-coordinators/page.tsx']) {
+    const src = code(rel);
+    const faces = src.match(/<ServiceFace\b[^>]*?layout="(\w+)"/gs) ?? [];
+    assert.ok(src.includes('<ServiceFace'), `${rel} draws no sample card`);
+    assert.equal((src.match(/<ServiceFace\b/g) ?? []).length, faces.length, `${rel}: a sample card has no layout — the old row face`);
+    for (const f of faces) assert.match(f, /layout="mall"/, `${rel}: a sample is not Card 14`);
+    assert.doesNotMatch(src, /includesLineOf|notIncluded=/, `${rel}: Includes / Not included live in the opened card, not on the face`);
+  }
+});

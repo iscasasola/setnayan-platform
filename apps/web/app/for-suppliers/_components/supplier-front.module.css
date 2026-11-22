@@ -89,11 +89,16 @@
 .q em { font-style: normal; font-weight: 700; }
 .ok { justify-self: end; padding: 5px 10px; border-radius: var(--m-r-full); background: var(--sf-ok); color: #fff; font-weight: 650; }
 .cards { padding-bottom: 10px; }
-.card { flex: 0 0 min(300px, 82vw); scroll-snap-align: start; }
+/* Card 14's own widths (DECISION_LOG 20 Nov): ~206 px on a phone, ~285 px on desktop. */
+.card { flex: 0 0 206px; scroll-snap-align: start; }
+@media (min-width: 768px) { .card { flex-basis: 285px; } }
 /* The shared ServiceFace rounds its cover with overflow:hidden. On the card that peeks at the row's edge, that half-shown
    box is the first clipper the sideways-scroll e2e finds, so it never reaches the scroller around it. Round it with a
    clip-path instead: the same 14 px corner, and the swipe row stays the box that holds it. */
 .card :global(span.overflow-hidden.rounded-lg) { overflow: visible; clip-path: inset(0 round var(--m-r-md)); }
+.card :global([data-service-face-layout='mall']),
+.card :global([data-service-face-layout='mall'] .overflow-hidden) { overflow: visible; }
+.card :global([data-service-face-layout='mall'] .aspect-square) { clip-path: inset(0 round var(--sn-frame-radius) var(--sn-frame-radius) 0 0); }
 
 /* ── 3 · shop page ── */
 .wide { position: relative; margin: 10px 0 0; border-radius: var(--m-r-lg); overflow: hidden; background: var(--sf-wash); }

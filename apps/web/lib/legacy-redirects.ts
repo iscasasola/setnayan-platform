@@ -69,6 +69,9 @@ const EVENT_SCOPED: readonly (readonly [from: string, to: string])[] = [
   // MEMORIES"; 2026-10-28 *"all mapping will be kept"*). The maker page moved whole; its old address forwards.
   // Held by `lib/r3-thank-you-forwards.test.ts`.
   ['studio/thank-you', 'memories/thank-you'],
+  // 📖 The Editorial PRO buy page (no door since 2026-07-22, when it became bundle-only). Owner 2026-09-25 E4: *"fix the
+  // 'Editorial PRO' copy"*; 2026-11-20: Post Event became the event's Story, made in the Story Maker. Old links land there.
+  ['studio/editorial-pro', 'story'],
   // (`details/change` is a real page again, 2026-10-02 — Event settings save
   // live, so they cannot sit in the Maker. Its redirect from #6280 is gone.)
 ];

@@ -238,14 +238,14 @@ export function TodayWrapUpBody({ facts }: { facts: WrapUpFacts }) {
                 <Line mark="↗" title={`Share to the ${facts.eventName} story`} line="They get the photos and can hide any" />
               ) : (
                 <div className="border-t border-ink/10 py-2" data-today-wrap-lock="">
-                  <Line mark="🔒" title="Shared to the event’s story · kept" line="Every plan shares. Only Supplier Ultra photos show in their story." />
+                  <Line mark="🔒" title="Shared to the event’s story · kept" line="Every plan shares. Only Ultra photos show in their story." />
                   <p className="m-0 text-[13px] text-[color:var(--m-slate-2)]">
                     <b className="text-ink">Problem.</b> Your photos are shared and kept, but they do not show in the couple’s story on your plan.
                   </p>
                   <p className="m-0 mt-1 text-[13px] text-[color:var(--m-slate-2)]">
-                    <b className="text-ink">Solution.</b> Move to Supplier Ultra. Your shared photos then show in your own scene.{' '}
+                    <b className="text-ink">Solution.</b> Move to Ultra. Your shared photos then show in your own scene.{' '}
                     <a href={UPGRADE_HREF} className="font-semibold text-sn-accent">
-                      See Supplier Ultra
+                      See Ultra
                     </a>
                   </p>
                 </div>

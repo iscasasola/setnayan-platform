@@ -4,8 +4,33 @@
     {
       "name": "pa3d-preview",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "apps/web", "dev", "--port", "3462"],
+      "runtimeArgs": [
+        "--dir",
+        "apps/web",
+        "dev",
+        "--port",
+        "3462"
+      ],
       "port": 3462
+    },
+    {
+      "name": "maker-proto",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /private/tmp/claude-501/-Users-icecasasola-Documents-Claude-Projects-setnayan-platform--claude-worktrees-maker-one-toolbar-opus-1237f1/705646ae-24d5-4825-a4da-b2646481dbce/scratchpad/proto && exec python3 -m http.server 3611"
+      ],
+      "port": 3611
+    },
+    {
+      "name": "mk-lab",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/icecasasola/Documents/Claude/Projects/setnayan-platform/.claude/worktrees/maker-one-toolbar-opus-1237f1/apps/web && env -u SUPABASE_DB_URL NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:1 NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy SUPABASE_SERVICE_ROLE_KEY=dummy NEXT_TELEMETRY_DISABLED=1 nice -n 10 pnpm exec next dev --port 3622"
+      ],
+      "port": 3622,
+      "autoPort": false
     }
   ]
 }

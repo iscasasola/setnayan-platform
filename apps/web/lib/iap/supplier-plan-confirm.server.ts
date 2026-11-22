@@ -27,6 +27,10 @@ export async function confirmSupplierPlanForUser(userId: string, jws: string): P
   };
   const out = await confirmSupplierPlanJws(createMoneyWriterClient(), jws, callerShops);
   if (!out) return null;
-  if (out.result.status === 'on') revalidatePath('/vendor-dashboard', 'layout');
+  // Page-scoped, never the vendor layout (lint-vendor-layout-revalidate): the plan door's page and the Plan page.
+  if (out.result.status === 'on') {
+    revalidatePath('/vendor-dashboard/shop');
+    revalidatePath('/vendor-dashboard/subscription');
+  }
   return out.result;
 }

@@ -46,7 +46,7 @@ const verifyWith =
 
 export type SupplierPlanFault = (message: string, snapshot: Record<string, unknown>) => Promise<unknown>;
 
-const recordFault: SupplierPlanFault = (message, snapshot) =>
+const faultForAPerson: SupplierPlanFault = (message, snapshot) =>
   insertFaultLog({
     event_type: 'OTHER',
     element_name: 'App Store supplier plan — needs a person',
@@ -81,7 +81,7 @@ export async function applySupplierPlanPeriod(
   tx: AppleSubscriptionTransaction,
   notification: string,
   callerShops: readonly string[] | null,
-  fault: SupplierPlanFault = recordFault,
+  fault: SupplierPlanFault = faultForAPerson,
 ): Promise<ApplyOutcome> {
   const mapped = await mappedShop(admin, tx.originalTransactionId);
   if (mapped === 'error') return { status: 'error', where: 'map_read' };
@@ -149,7 +149,7 @@ export async function handleSupplierPlanNotification(
   admin: SupabaseClient,
   outerPayload: Record<string, unknown>,
   trustedRoots: readonly string[] = PRODUCTION_TRUSTED_ROOTS,
-  fault: SupplierPlanFault = recordFault,
+  fault: SupplierPlanFault = faultForAPerson,
   verify: VerifyJws = verifyWith(trustedRoots),
 ): Promise<Handled | null> {
   const n = readSubscriptionNotificationParts(outerPayload);
@@ -224,7 +224,7 @@ export async function confirmSupplierPlanJws(
   /** Read only once the JWS is proved a supplier plan, so a consumable's confirm never pays for it. */
   callerShops: () => Promise<readonly string[]>,
   trustedRoots: readonly string[] = PRODUCTION_TRUSTED_ROOTS,
-  fault: SupplierPlanFault = recordFault,
+  fault: SupplierPlanFault = faultForAPerson,
   verify: VerifyJws = verifyWith(trustedRoots),
 ): Promise<{ result: IapConfirmResult; vendorId: string | null } | null> {
   const v = verify(jws);

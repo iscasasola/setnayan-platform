@@ -45,6 +45,32 @@ export async function readShopSpecialToolsAllowed(admin: SupabaseClient, vendorP
   return { status: 'ok', data: specialToolsAllowed(shop.tier, paid.paidFrom, Date.now()) };
 }
 
+/**
+ * 🛍 Is the Cake Maker OPEN for this shop — its plan allows the special tools, OR the shop bought it once in the Store, OR
+ * its 30-day trial runs (and an event booked inside the trial keeps it to its last day — never locked mid-event). The
+ * Store's answer is the database's (`vendor_store_tool_open`, service role). Store drawing v10, owner 23 Nov 2026.
+ * A refused read on both sides is `unread`; a refused Store read with a plan that allows it is still open.
+ */
+export async function readShopCakeToolOpen(admin: SupabaseClient, vendorProfileId: string, eventId: string | null = null): Promise<Read<boolean>> {
+  const [plan, store] = await Promise.all([
+    readShopSpecialToolsAllowed(admin, vendorProfileId),
+    admin.rpc('vendor_store_tool_open', { p_vendor_profile_id: vendorProfileId, p_tool: 'cake_tool', p_event_id: eventId }).then(
+      ({ data, error }) => {
+        if (error) {
+          logQueryError('readShopCakeToolOpen.store', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+          return null;
+        }
+        return data === true;
+      },
+      () => null,
+    ),
+  ]);
+  if (plan.status === 'ok' && plan.data) return plan;
+  if (store === true) return { status: 'ok', data: true };
+  if (plan.status === 'unread' || store === null) return { status: 'unread' };
+  return plan;
+}
+
 export type ShopCakeCard = { id: string; name: string; oneCentavos: number | null; usualPrepDays: number | null };
 
 /** The shop's live cake cards — the one price a design is estimated from (the same read Make a quote lists). */
@@ -99,7 +125,7 @@ export async function buildCakeDesign(
 ): Promise<{ ok: true; built: BuiltCakeDesign } | { ok: false; reason: CakeConfigRefusal | 'unread' }> {
   const [options, allowed, cards, mood] = await Promise.all([
     readShopCakeMaker(admin, args.vendorProfileId),
-    readShopSpecialToolsAllowed(admin, args.vendorProfileId),
+    readShopCakeToolOpen(admin, args.vendorProfileId, args.eventId),
     readShopCakeCards(admin, args.vendorProfileId),
     readMoodCakeColours(supabase, args.eventId),
   ]);
@@ -230,7 +256,7 @@ export async function saveShopCakeMaker(admin: SupabaseClient, args: { vendorPro
  * tools now. For the chat ＋ tray (couple) and the supplier's ＋ › For your service. `unread` → show nothing new.
  */
 export async function readCakeMakerOn(admin: SupabaseClient, vendorProfileId: string): Promise<Read<boolean>> {
-  const [options, allowed] = await Promise.all([readShopCakeMaker(admin, vendorProfileId), readShopSpecialToolsAllowed(admin, vendorProfileId)]);
+  const [options, allowed] = await Promise.all([readShopCakeMaker(admin, vendorProfileId), readShopCakeToolOpen(admin, vendorProfileId)]);
   if (options.status === 'unread' || allowed.status === 'unread') return { status: 'unread' };
   return { status: 'ok', data: options.status === 'ok' && allowed.status === 'ok' && allowed.data };
 }

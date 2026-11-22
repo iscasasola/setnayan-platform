@@ -47,7 +47,7 @@ import {
   readShopCakeCards,
   readCakeMakerOn,
   readShopCakeMaker,
-  readShopSpecialToolsAllowed,
+  readShopCakeToolOpen,
   readStoredCakeDesign,
   saveShopCakeMaker,
   storeCakeDesign,
@@ -124,7 +124,7 @@ export async function runCakeAction(input: CakeActionInput): Promise<CakeActionR
       return fail('Only the shop owner or an admin can change the Cake Maker.');
     }
     const admin = createAdminClient();
-    const allowed = await readShopSpecialToolsAllowed(admin, shop);
+    const allowed = await readShopCakeToolOpen(admin, shop);
     if (allowed.status !== 'ok') return fail();
     if (op === 'options') {
       const read = await readShopCakeMaker(supabase, shop);
@@ -258,7 +258,7 @@ export async function runCakeAction(input: CakeActionInput): Promise<CakeActionR
   if (op !== 'open') return fail();
   const [options, allowed, cards, mood, shopRes, eventRes, shopPhotos, ownPhotos] = await Promise.all([
     readShopCakeMaker(admin, t.vendor_profile_id),
-    readShopSpecialToolsAllowed(admin, t.vendor_profile_id),
+    readShopCakeToolOpen(admin, t.vendor_profile_id, t.event_id),
     readShopCakeCards(admin, t.vendor_profile_id),
     readMoodCakeColours(supabase, t.event_id),
     admin.from('vendor_profiles').select('business_name').eq('vendor_profile_id', t.vendor_profile_id).maybeSingle(),

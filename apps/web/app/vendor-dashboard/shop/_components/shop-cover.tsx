@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ExternalLink, Gem, Gift, IdCard, Printer, QrCode, Settings, ShieldCheck, Star, Share, type LucideIcon } from 'lucide-react';
-import { PRINTS_LINE } from '@/lib/prints-line';
+import { ArrowUpRight, ExternalLink, Megaphone, Settings, ShieldCheck, Star, Share } from 'lucide-react';
+import { PillSelector } from '@/app/_components/pill-selector';
+import type { StorageMeter } from '@/lib/supplier-store';
+import { STORAGE_UPGRADE_HREF } from '@/lib/supplier-storage';
 import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
-import { actionButtonClass } from '@/components/action-button';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { VendorAvatar } from '@/app/_components/vendor-avatar';
 import { formatCount } from '@/lib/format-number';
@@ -97,6 +99,9 @@ export type CoverData = {
   earned?: ShopBadge[] | null;
   /** "Next badge: Bronze at 5 bookings · 5 to go" — the Completed bookings tile's own goal (`shelfNextBadgeLine`); said when nothing is earned yet; null = unread. */
   nextBadge?: string | null;
+  /** 💾 The Storage row (Store drawing v10, F0): what the shop stores against its plan (`storageMeter`), and the next
+   *  plan that holds more (the storage sheet's "Go …"; null = none). Absent = no row. */
+  storage?: { meter: StorageMeter; next: string | null };
 };
 
 /**
@@ -122,12 +127,17 @@ export function replaceAddressParam(key: string, value: string | null) {
   }
 }
 
-/** The cover's four sheets and the address param that names each (a deep link, a reload, a save coming back). */
-type CoverSheet = 'promote' | 'prints' | 'qr' | 'logo' | 'cover';
+/**
+ * The cover's sheets and the address param that names each (a deep link, a reload, a save coming back). Promote is ONE
+ * sheet with two tabs (Store drawing v10 F0b: Posters & prints · QR codes): `?sheet=promote` (and the old `prints`) open
+ * it on Posters & prints, `?sheet=qr` on QR codes — links already sent still land. `?sheet=storage` = the plan chip's sheet.
+ */
+type CoverSheet = 'promote' | 'prints' | 'qr' | 'storage' | 'logo' | 'cover';
 const SHEET_ADDRESS: Readonly<Record<CoverSheet, readonly [param: string, value: string]>> = {
   promote: ['sheet', 'promote'],
   prints: ['sheet', 'prints'],
   qr: ['sheet', 'qr'],
+  storage: ['sheet', 'storage'],
   logo: ['view', 'logo'],
   cover: ['view', 'cover'],
 };
@@ -158,16 +168,15 @@ export function ShopCover({
   d,
   gearBody,
   promoteBody,
-  printsBody,
   qrBody,
   logoBody,
   coverBody,
 }: {
   d: CoverData;
   gearBody: ReactNode | null;
+  /** Promote › Posters & prints — the shipped Promote body (Prints · Gifts · Share your work). */
   promoteBody: ReactNode | null;
-  /** The Prints tile's screen — the prints alone (`PromoteBody part="prints"`). */
-  printsBody: ReactNode | null;
+  /** Promote › QR codes — the shipped QR body ("Scan or tap"). */
   qrBody: ReactNode | null;
   logoBody: ReactNode | null;
   coverBody: ReactNode | null;
@@ -217,11 +226,9 @@ export function ShopCover({
     replaceAddressParam(SHEET_ADDRESS[id][0], null);
     if (id === 'logo') setLogoFiles(null); // the picked photo belongs to that one opening
   };
-  // The quick row's Your gifts: open the Promote sheet, then bring that section into view once it has drawn.
-  const openPromoteAt = (section: 'gifts') => {
-    openSheet('promote');
-    requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView({ block: 'start' })));
-  };
+  // Promote's tab: the address names it, so a reload lands on the same tab.
+  const promoteTab: 'prints' | 'qr' = sheet === 'qr' ? 'qr' : 'prints';
+  const promoteOpen = sheet === 'promote' || sheet === 'prints' || sheet === 'qr';
   // ⚙ The pinned row's `ShopSettings` owns the ONE settings sheet; the cover opens it through its address.
   const openGear = () => replaceAddressParam('gear', '1');
   // 📷 THE LOGO IS THE BUTTON TOO (owner 19 Nov 2026, "same as the profile photo"): a tap opens the picker at once and the
@@ -339,10 +346,14 @@ export function ShopCover({
       </div>
       {d.logoUnavailable ? <p className="px-4 pt-2 text-[12px] text-ink/65">Couldn&rsquo;t load your logo just now.</p> : null}
 
-      {/* 🚪 THE COVER'S DOORS, TWO LINES (owner 19 Nov 2026: "profile photo Share then view Shop / Then Promote, QR,
-          Prints, Gifts, Plan"; drawing `shop_final_with_spaces_2026-11-19`, Part 1). Line one: the logo (tap = the
-          picker) · Share · View shop. Line two: five EQUAL buttons. Every door opens the place it opened before. */}
-      <div className="space-y-2.5 px-4 pt-3" data-shop-cover-doors="">
+      {/* 🚪 THE COVER'S DOORS (Store drawing `supplier_store_graphs_badges_2026-11-23` v10, F0 — owner 23 Nov 2026): the
+          Storage row (what the shop stores of its plan's space; the plan chip opens the storage sheet), then ONE line —
+          the logo (tap = the picker) · View shop · Share · Promote. The QR door is a tab inside Promote now; Gifts lives
+          in Promote › Posters & prints (its shipped section); the plan is the chip. 🔒 the-cover-is-the-store-drawing.test.ts */}
+      <div className="space-y-3 px-4 pt-3" data-shop-cover-doors="">
+        {d.storage ? (
+          <StorageRow storage={d.storage} plan={d.planLabel} label={d.planLabel == null ? PLAN_UNREAD : `${d.planLabel} plan`} onOpen={() => openSheet('storage')} />
+        ) : null}
         <div className="flex items-center gap-2" data-shop-cover-line="one">
           <span className="shrink-0" data-tour="shop-logo">
           {logoPicks ? (
@@ -363,87 +374,157 @@ export function ShopCover({
             </button>
           )}
           </span>
-          <button type="button" onClick={() => setShareOpen(true)} disabled={!d.shareUrl} className={SHARE_PILL} data-shop-cover-icon="share">
-            <Share aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-            Share
-          </button>
           {d.publicPath ? (
             <button
               type="button"
               onClick={() => setViewOpen(true)}
-              className="flex min-h-[48px] min-w-0 flex-1 items-center justify-between gap-2 rounded-full bg-ink px-4 text-left text-[color:var(--m-paper)]"
+              aria-label={d.websiteLive ? 'View shop as couples see it' : 'View shop — a preview for your team'}
+              className="sn-press flex min-h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-ink px-3 text-sn-base font-semibold text-[color:var(--m-paper)]"
               data-view-shop=""
             >
-              <span className="min-w-0">
-                <b className="block truncate text-[14.5px] font-semibold leading-tight">View shop</b>
-                <span className="block truncate text-[11px] leading-tight opacity-75">{d.websiteLive ? 'as couples see it' : 'a preview for your team'}</span>
-              </span>
-              <ExternalLink aria-hidden className="h-3.5 w-3.5 shrink-0 opacity-85" strokeWidth={2} />
+              <ExternalLink aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+              <span className="truncate">View shop</span>
             </button>
           ) : (
-            <Link href="/vendor-dashboard/profile" className="flex min-h-[48px] min-w-0 flex-1 items-center rounded-full border border-ink/15 px-4 text-[13.5px] font-medium text-ink">
-              Add your shop name to get your address
+            <Link href="/vendor-dashboard/profile" className="flex min-h-12 min-w-0 flex-1 items-center rounded-full border border-ink/15 px-4 text-sn-md font-medium text-ink">
+              <span className="truncate">Add your shop name</span>
             </Link>
           )}
-        </div>
-        {/* 🪪 THE FIVE (one row, equal widths — the Button Rule, owner 9 Nov): Promote · QR · Prints · Gifts · Plan.
-            Prints, Gifts and Plan are the 16 Nov quick row's own tiles and doors (Prints = the prints alone; Gifts =
-            the Promote sheet's `#gifts`; Plan = the ⚙ sheet's Plan and billing fold), drawn as icon + name so five
-            fit 390 px. 🔒 app/vendor-dashboard/shop/the-quick-row-is-the-drawn-five.test.ts */}
-        <div className="grid grid-cols-5 gap-1.5" data-shop-quick-row="">
-          <button type="button" onClick={() => openSheet('promote')} className={QUICK_TILE} data-shop-quick="promote">
-            <QuickIcon icon={Printer} />
-            <b className={QUICK_WORD}>Promote</b>
+          <button type="button" onClick={() => setShareOpen(true)} disabled={!d.shareUrl} className={SHARE_PILL} data-shop-cover-icon="share">
+            <Share aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+            Share
           </button>
-          <button type="button" onClick={() => openSheet('qr')} className={QUICK_TILE} data-shop-quick="qr">
-            <QuickIcon icon={QrCode} />
-            <b className={QUICK_WORD}>QR</b>
+          <button type="button" onClick={() => openSheet('promote')} className={SHARE_PILL} data-shop-cover-icon="promote" data-shop-quick="promote">
+            <Megaphone aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+            Promote
           </button>
-          <button type="button" onClick={() => openSheet('prints')} className={QUICK_TILE} data-shop-quick="prints">
-            <QuickIcon icon={IdCard} />
-            <b className={QUICK_WORD}>Prints</b>
-            <span className="sr-only">{PRINTS_LINE}</span>
-          </button>
-          <button type="button" onClick={() => openPromoteAt('gifts')} className={QUICK_TILE} data-shop-quick="gifts">
-            <QuickIcon icon={Gift} />
-            <b className={QUICK_WORD}>Gifts</b>
-          </button>
-          <a href="#plan" className={QUICK_TILE} data-shop-quick="plan">
-            <QuickIcon icon={Gem} />
-            <b className={QUICK_WORD}>Plan</b>
-            <span className="sr-only">{d.planLabel == null ? PLAN_UNREAD : `${d.planLabel} plan`}</span>
-          </a>
         </div>
       </div>
 
       {shareOpen && d.shareUrl ? <ShareSheet url={d.shareUrl} slug={d.slug} name={d.name} onClose={() => setShareOpen(false)} /> : null}
       {viewOpen && d.publicPath ? <ViewShopScreen path={d.publicPath} live={d.websiteLive} shareUrl={d.shareUrl} onClose={() => setViewOpen(false)} /> : null}
-      <ParamSheet open={sheet === 'promote'} onClose={() => closeSheet('promote')} title="Promote" body={promoteBody} data="promote" />
-      <ParamSheet open={sheet === 'prints'} onClose={() => closeSheet('prints')} title="Prints" body={printsBody} data="prints" />
-      <ParamSheet open={sheet === 'qr'} onClose={() => closeSheet('qr')} title="QR · scan or tap" body={qrBody} data="qr" />
+      <ParamSheet
+        open={promoteOpen}
+        onClose={() => closeSheet(sheet === 'qr' ? 'qr' : sheet === 'prints' ? 'prints' : 'promote')}
+        title="Promote"
+        body={
+          <>
+            <div className="pb-3" data-promote-tabs="">
+              <PillSelector
+                label="Promote"
+                value={promoteTab}
+                options={[
+                  { key: 'prints', label: 'Posters & prints' },
+                  { key: 'qr', label: 'QR codes' },
+                ]}
+                onPick={(k) => {
+                  if (k === promoteTab) return;
+                  replaceAddressParam('sheet', k === 'qr' ? 'qr' : 'promote');
+                  setSheet(k === 'qr' ? 'qr' : 'promote');
+                }}
+                data="promote-tabs"
+              />
+            </div>
+            {promoteTab === 'qr' ? qrBody : promoteBody}
+          </>
+        }
+        data="promote"
+      />
+      {d.storage ? (
+        <ParamSheet open={sheet === 'storage'} onClose={() => closeSheet('storage')} title="Storage" body={<StorageBody storage={d.storage} plan={d.planLabel} />} data="storage" />
+      ) : null}
       <ParamSheet open={sheet === 'logo'} onClose={() => closeSheet('logo')} title="Logo" body={logoBody ? <PickedLogoFiles.Provider value={logoFiles}>{logoBody}</PickedLogoFiles.Provider> : null} data="logo" />
       <ParamSheet open={sheet === 'cover'} onClose={() => closeSheet('cover')} title="Cover photo" body={coverBody} data="cover" />
     </>
   );
 }
 
-/** One of the five equal doors (drawing `.q5`): centred, the frame's white with its lift, no line. */
-const QUICK_TILE =
-  'sn-press relative flex min-h-[72px] min-w-0 flex-col items-center justify-center gap-1 rounded-[var(--sn-frame-radius)] bg-[rgb(var(--sn-frame-bg))] px-0.5 py-2 text-center shadow-[var(--sn-frame-shadow-tile)]';
-const QUICK_WORD = 'whitespace-nowrap text-[12px] font-semibold leading-tight text-ink';
+/** Share · Promote, beside View shop: 48 px white pills, the same height as View shop. */
+const SHARE_PILL =
+  'sn-press inline-flex min-h-12 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[rgb(var(--sn-frame-bg))] px-3.5 text-sn-base font-semibold text-ink shadow-[var(--sn-frame-shadow-tile)] disabled:opacity-40';
 
-/** The tile's 32 px icon square on the wash, the icon in the link colour. */
-function QuickIcon({ icon: I }: { icon: LucideIcon }) {
+/** The plan chip's words — the plan, or that it could not be read (never "Free" on a refused read). */
+function chipWord(plan: string | null): string {
+  return plan == null ? PLAN_UNREAD : plan;
+}
+
+/** "12 GB of 128 GB" · "1.2 GB stored" (no limit on the plan) · "Couldn’t load" — never 0 for an unread store. */
+function meterWords(m: StorageMeter): string {
+  if (m.kind === 'unread') return 'Couldn’t load';
+  if (m.kind === 'no_limit') return m.used ? `${m.used} stored` : 'Couldn’t load';
+  return `${m.used} of ${m.total}`;
+}
+
+function StorageBar({ m, big = false }: { m: StorageMeter; big?: boolean }) {
+  if (m.kind !== 'meter') return null;
   return (
-    <i aria-hidden className="grid h-8 w-8 flex-none place-items-center rounded-xl bg-[var(--surface-soft)] not-italic text-[rgb(var(--color-link))]">
-      <I className="h-[17px] w-[17px]" strokeWidth={1.8} />
-    </i>
+    <span className={`relative block min-w-0 flex-1 overflow-hidden rounded-full bg-[color:var(--m-line)] ${big ? 'h-2' : 'h-1.5'}`} aria-hidden data-storage-bar="">
+      <i className={`absolute inset-y-0 left-0 block rounded-full ${m.over ? 'bg-[rgb(var(--color-warn))]' : 'bg-[rgb(var(--color-link))]'}`} style={{ width: `${Math.max(m.pct, 2)}%` }} />
+    </span>
   );
 }
 
-/** Share, beside the logo on line one: a 48 px white pill, the same height as View shop. */
-const SHARE_PILL =
-  'sn-press inline-flex min-h-[48px] shrink-0 items-center justify-center gap-1.5 rounded-full bg-[rgb(var(--sn-frame-bg))] px-4 text-[14px] font-semibold text-ink shadow-[var(--sn-frame-shadow-tile)] disabled:opacity-40';
+/** 💾 The cover's Storage row: Storage · the bar · "12 GB of 128 GB" · the plan chip (→ the storage sheet). */
+function StorageRow({ storage, plan, label, onOpen }: { storage: NonNullable<CoverData['storage']>; plan: string | null; label: string; onOpen: () => void }) {
+  const m = storage.meter;
+  return (
+    <div className="flex min-h-11 items-center gap-2.5" data-shop-storage={m.kind}>
+      <span className="text-sn-md font-semibold text-ink">Storage</span>
+      {m.kind === 'meter' ? <StorageBar m={m} /> : <span className="flex-1" />}
+      <span className={`whitespace-nowrap text-sn-md tabular-nums ${m.kind === 'unread' ? 'text-[rgb(var(--color-warn))]' : 'text-[color:var(--m-slate-2)]'}`}>{meterWords(m)}</span>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`${label} — storage`}
+        className="sn-press inline-flex min-h-11 shrink-0 items-center rounded-full px-1"
+        data-shop-plan-chip=""
+      >
+        <span className={`rounded-full bg-[color:var(--surface-soft)] px-2.5 py-1 text-sn-sm font-semibold ${plan == null ? 'text-[rgb(var(--color-warn))]' : 'text-ink'}`}>
+          {plan == null ? 'Plan' : plan}
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/**
+ * 💾 THE STORAGE SHEET (drawing v10, "Storage"): the plan, what is stored of its space, the bar, and the way up. Display
+ * only. The photo-at-an-event limits per plan are not drawn here: they have no home in the catalog or `TIER_CAPS` yet.
+ */
+function StorageBody({ storage, plan }: { storage: NonNullable<CoverData['storage']>; plan: string | null }) {
+  const m = storage.meter;
+  return (
+    <div className="space-y-4" data-storage-sheet="">
+      <div className="sn-frame space-y-2 p-4">
+        <span className={`text-sn-md font-semibold ${plan == null ? 'text-[rgb(var(--color-warn))]' : 'text-[color:var(--m-slate-2)]'}`}>{chipWord(plan)}</span>
+        <b className={`block text-sn-3xl font-bold tabular-nums leading-tight ${m.kind === 'unread' ? 'text-[rgb(var(--color-warn))]' : 'text-ink'}`} data-storage-words="">
+          {m.kind === 'unread' ? 'Couldn’t load what you store' : meterWords(m)}
+        </b>
+        {m.kind === 'meter' ? (
+          <span className="flex">
+            <StorageBar m={m} big />
+          </span>
+        ) : null}
+        {m.kind === 'meter' && m.over ? <p className="text-sn-base text-[rgb(var(--color-warn))]">Over your space — new files wait for room. Nothing you stored was changed.</p> : null}
+      </div>
+      {m.kind === 'meter' ? (
+        <ul className="sn-frame sn-frame-flush px-4">
+          <li className="flex min-h-14 items-center justify-between gap-3 py-2">
+            <b className="text-sn-lg font-semibold text-ink">Portfolio photos</b>
+            <span className="text-right text-sn-md text-[color:var(--m-slate-2)]">As many as your space holds</span>
+          </li>
+        </ul>
+      ) : null}
+      <div className="flex [&>*]:w-full">
+        {storage.next ? (
+          <ActionButton tone="brand" main icon={<ArrowUpRight aria-hidden strokeWidth={2} />} label={`Go ${storage.next}`} href={STORAGE_UPGRADE_HREF} />
+        ) : (
+          <ActionButton tone="neutral" icon={<ArrowUpRight aria-hidden strokeWidth={2} />} label="See your plan" href={STORAGE_UPGRADE_HREF} />
+        )}
+      </div>
+    </div>
+  );
+}
 
 /**
  * The Share door's three presses — Copy · Save · Share — are ONE shape at ONE width (T19, the Button Rule: owner 9 Nov

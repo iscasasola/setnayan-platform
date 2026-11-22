@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Gift, Lock } from 'lucide-react';
+import { ChevronRight, Gift, Lock, Plus } from 'lucide-react';
+import { followLines } from '@/lib/supplier-store';
 import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { BadgeFullscreen } from '@/app/_components/award/badge-fullscreen';
@@ -29,7 +30,20 @@ import { RING_COLOUR, RING_EASE, RING_MS, ringDelay } from '@/lib/badge-ring';
  * 🏅 EVERY BADGE SITS IN ITS PROGRESS RING (owner 8 Nov): the shipped `ProgressRing`, drawn in once when seen.
  * 🔒 lib/shop-badge-shelf.test.ts · shop/the-shop-tab-is-v113.test.ts · performance/your-badges-are-on-the-page.test.ts
  */
-export function ShopBadgeRow({ tiles, shopName = 'Your shop' }: { tiles: ShelfTile[] | null; shopName?: string }) {
+export function ShopBadgeRow({
+  tiles,
+  shopName = 'Your shop',
+  seeAllHref,
+  addHref,
+}: {
+  tiles: ShelfTile[] | null;
+  shopName?: string;
+  /** 🛍 The Store remaster (owner 23 Nov 2026): "See all" → the Badges page; the row then shows the three followed
+   *  badges (the caller picks them, `followedBadges`) with "N to go" · "<Tier> next" under each. */
+  seeAllHref?: string;
+  /** The [+] tile at the row's end → the Store's Badges shelf ("Follow another"). */
+  addHref?: string;
+}) {
   const [open, setOpen] = useState<{ tile: ShelfTile; from: HTMLElement | null } | null>(null);
   const close = () => setOpen(null);
   return (
@@ -38,7 +52,14 @@ export function ShopBadgeRow({ tiles, shopName = 'Your shop' }: { tiles: ShelfTi
         <h2 id="shop-badges-h" className="home-k2 !my-0">
           Badges
         </h2>
-        <span className="text-xs text-ink/70">Tap a badge to see how it&rsquo;s earned</span>
+        {seeAllHref ? (
+          <Link href={seeAllHref} className="sn-press inline-flex min-h-11 items-center gap-0.5 text-sn-base font-semibold text-[rgb(var(--color-link))]" data-shop-badges-all="">
+            See all
+            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </Link>
+        ) : (
+          <span className="text-xs text-ink/70">Tap a badge to see how it&rsquo;s earned</span>
+        )}
       </div>
       {tiles === null ? (
         <p role="status" className="px-4 text-[13.5px] text-ink/70" data-shop-badges-unread="">
@@ -61,10 +82,28 @@ export function ShopBadgeRow({ tiles, shopName = 'Your shop' }: { tiles: ShelfTi
                   <BadgeArt tile={t} size={60} />
                 </BadgeRing>
                 <b className="line-clamp-2 text-[12.5px] font-semibold leading-tight text-ink">{t.title}</b>
-                <small className={`text-xs leading-tight ${t.goal ? 'font-semibold text-[color:var(--m-orange-deep)]' : 'text-ink/70'}`}>{t.sub}</small>
+                {seeAllHref ? (
+                  <FollowLines tile={t} />
+                ) : (
+                  <small className={`text-xs leading-tight ${t.goal ? 'font-semibold text-[color:var(--m-orange-deep)]' : 'text-ink/70'}`}>{t.sub}</small>
+                )}
               </button>
             </li>
           ))}
+          {addHref ? (
+            <li className="flex-none snap-start">
+              <Link
+                href={addHref}
+                className="sn-press flex w-[96px] flex-col items-center gap-1 rounded-2xl px-1 pb-1 pt-1 text-center"
+                data-shop-badges-add=""
+              >
+                <span aria-hidden className="grid h-[68px] w-[68px] place-items-center rounded-full border-2 border-dashed border-[color:var(--m-line)] text-[color:var(--m-slate-2)]">
+                  <Plus className="h-6 w-6" strokeWidth={1.8} />
+                </span>
+                <b className="text-sn-sm font-semibold leading-tight text-ink">Follow another</b>
+              </Link>
+            </li>
+          ) : null}
         </ul>
       )}
       {open ? <BadgeOpen tile={open.tile} from={open.from} shopName={shopName} onClose={close} /> : null}
@@ -77,7 +116,7 @@ export function ShopBadgeRow({ tiles, shopName = 'Your shop' }: { tiles: ShelfTi
  * properly"*): the drawn badge — not the 300 × 286 canvas around it — fills a `box` square, centred both ways. The
  * canvas's empty margin and the soft shadow under the badge spill outside the square, unseen.
  */
-function FittedArt({ src, box, style, ...rest }: { src: string; box: number; style?: CSSProperties; loading?: 'lazy'; 'data-badge-img'?: string }) {
+export function FittedArt({ src, box, style, ...rest }: { src: string; box: number; style?: CSSProperties; loading?: 'lazy'; 'data-badge-img'?: string }) {
   const fit = badgeArtFit(src, box);
   return (
     <span className="relative block" style={{ width: box, height: box }} data-badge-art-box="">
@@ -111,7 +150,7 @@ const LOCK_PX = 22;
 export const LOCKED_ART_OPACITY = 'var(--sn-locked-art-opacity, 1)';
 
 /** The v84 picture: the tier reached, or Bronze in its own colours under a small lock before it; Verified is the blue check. */
-function BadgeArt({ tile, size }: { tile: ShelfTile; size: number }) {
+export function BadgeArt({ tile, size }: { tile: ShelfTile; size: number }) {
   const earned = tile.state === 'earned';
   const look = earned ? undefined : { opacity: LOCKED_ART_OPACITY };
   // ONE visual size for every badge: the Verified check's (0.9 of the slot), so no badge reads smaller than another.
@@ -145,7 +184,7 @@ function BadgeArt({ tile, size }: { tile: ShelfTile; size: number }) {
 }
 
 /** The ring around one badge — empty until it scrolls into view, then drawn in once (staggered by its place in the row). */
-function BadgeRing({ tile, i, children }: { tile: ShelfTile; i: number; children: ReactNode }) {
+export function BadgeRing({ tile, i, children }: { tile: ShelfTile; i: number; children: ReactNode }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [seen, setSeen] = useState(false);
   useEffect(() => {
@@ -272,4 +311,17 @@ function BadgeArtLarge({ tile }: { tile: ShelfTile }) {
   if (tile.src) return <FittedArt src={tile.src} box={84} loading="lazy" />;
   // trusted: the approved v84 art from a constant, never user text
   return <span dangerouslySetInnerHTML={{ __html: verifiedV84Svg({ uid: 'sheet-vr', size: 96, word: true }) }} />;
+}
+
+/** Under a followed badge on the Shop: "60 to go" (the goal, in the orange that marks it) · "Bronze next". */
+function FollowLines({ tile }: { tile: ShelfTile }) {
+  const l = followLines(tile);
+  return (
+    <>
+      <small className="text-sn-sm font-semibold leading-tight text-[color:var(--m-orange-deep)]" data-badge-to-go="">
+        {l.toGo}
+      </small>
+      {l.next ? <small className="text-sn-xs leading-tight text-[color:var(--m-slate-2)]">{l.next}</small> : null}
+    </>
+  );
 }

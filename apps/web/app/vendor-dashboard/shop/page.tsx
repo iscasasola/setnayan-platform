@@ -1,9 +1,14 @@
 import { getCurrentUser } from '@/lib/auth';
-import { readSpecialToolsLocked } from '@/lib/special-tools.server';
+import { readStorePicks, readStoreToolFacts, type StorePicks } from '@/lib/supplier-store.server';
+import { followedBadges, storageMeter, trialDaysLeft, yourTools, type StorageMeter } from '@/lib/supplier-store';
+import { readStoredBytes } from '@/lib/supplier-storage.server';
+import { nextStoragePlan } from '@/lib/supplier-storage';
+import { readPayPlanTemplates } from '@/lib/pay-plan-templates.server';
+import { routes } from '@/lib/routes';
 import Link from 'next/link';
 import { readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
 import { redirect } from 'next/navigation';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Plus } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -54,7 +59,7 @@ import { readPortfolioUploadFacts } from '@/lib/portfolio-upload-facts.server';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { ShopCover, type CoverData } from './_components/shop-cover';
 import { ShopBadgeRow } from './_components/shop-badge-row';
-import { ShopMakers, type BookedDay, type OfferTileFacts, type ScannerLine } from './_components/shop-makers';
+import { ShopMakers, type BookedDay, type MyTool, type OfferTileFacts, type ScannerLine } from './_components/shop-makers';
 import { shopTemplatesBody } from './_components/shop-templates-body';
 import { blankOffer, offerStatus, type OfferWho } from '@/lib/offers';
 import { heroPlaceholderUrl } from '@/lib/supplier-hero.server';
@@ -155,8 +160,14 @@ type ShopData = {
   formsSaved: number | null;
   /** 🏷 The Offer Maker tile: Verified (the lock), how many offers run, and the papers line for the lock. */
   offerTile: OfferTileFacts;
-  /** 🎂 Special tools (the Cake Maker) are locked for this shop — the tile reads "Included in Pro". */
-  specialToolsLocked: boolean;
+  /** 🛍 The shop's Store picks (graphs · followed badges · free tools); null = unread (the defaults are drawn). */
+  picks: StorePicks | null;
+  /** 🧰 Your tools, in order (`yourTools`): the free tools added and the paid ones held, with trial days. */
+  mine: MyTool[];
+  /** 💾 The cover's Storage row: the meter and the next plan that holds more. */
+  storage: { meter: StorageMeter; next: string | null };
+  /** 💳 Saved payment plans (the Payment plan tile) — null = unread. */
+  plansSaved: number | null;
 };
 
 /** The badge facts were unread — the reward lines are then simply absent (a sentinel, never logged twice). */
@@ -388,12 +399,17 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // 📂 The Upload doors (hero · Cover · Logo menus): the uploader's free room and wallet, beside the batch.
   const uploadFactsRead = readPortfolioUploadFacts(supabase, vendorId, portfolio, ownRead.then((own) => own?.tier_state ?? null));
 
-  // 🎂 The Cake Maker tile's lock (Pro and up after the admin's start date, promo deals counted). Display only — the save
-  // and the couple's send re-check on the server.
-  const specialLockedRead = readSpecialToolsLocked(supabase, vendorId);
+  // 🛍 THE STORE'S PICKS (Store drawing v10, owner 23 Nov 2026): which graphs the Analytics shows, the three badges the
+  // shop follows, the free tools it added — and each paid tool's state (bought · plan · trial · price), the storage
+  // meter and the saved payment plans. Started here, awaited in the one wait below.
+  const storeAdmin = createAdminClient();
+  const picksRead = readStorePicks(supabase, vendorId);
+  const toolFactsRead = picksRead.then((p) => readStoreToolFacts(supabase, storeAdmin, vendorId, (profile.services ?? []) as string[], p?.tools ?? null));
+  const storedRead = readStoredBytes(storeAdmin, vendorId);
+  const plansRead = readPayPlanTemplates(supabase, vendorId).catch(() => ({ status: 'unread' as const }));
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
-  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, coverUrl, hero, booked, uploadFacts, specialToolsLocked] = await Promise.all([
+  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, coverUrl, hero, booked, uploadFacts, picks, toolFacts, stored, plans] = await Promise.all([
     ownRead,
     verifyAppRead,
     logoRead,
@@ -405,7 +421,10 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     heroRead,
     bookedRead,
     uploadFactsRead,
-    specialLockedRead,
+    picksRead,
+    toolFactsRead,
+    storedRead,
+    plansRead,
   ]);
   const bundles = await bundlesRead;
   // 🔒 THE BUNDLE MAKER'S LOCK — the same `canUse` the save asks (lib/locks.ts). Unread: no lock row is drawn and the
@@ -486,7 +505,17 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     logoFields: logoFieldData(profile, logoUrl),
     uploadFacts,
     formsSaved: own && Array.isArray(own.vendor_forms) ? own.vendor_forms.length : null,
-    specialToolsLocked,
+    picks,
+    mine: yourTools(toolFacts).map((r) => ({
+      key: r.tool.key,
+      trialDays: r.status.kind === 'trial' ? (trialDaysLeft(toolFacts.trialEndsAt, toolFacts.nowMs) ?? null) : null,
+    })),
+    // The plan is the shop's own row's; unread → the meter says "Couldn't load" (never a 0 against a guessed plan).
+    storage: {
+      meter: own ? storageMeter(own.tier_state ?? null, stored) : { kind: 'unread' },
+      next: own ? (nextStoragePlan(own.tier_state ?? null) ? planWord(nextStoragePlan(own.tier_state ?? null)) : null) : null,
+    },
+    plansSaved: plans.status === 'ok' ? plans.plans.length : null,
     offerTile: {
       // S-4: an unread own row falls back to the profile's measured visibility — never a lock on a verified shop.
       verified: own ? own.verification_state === 'verified' : profile.public_visibility === 'verified',
@@ -549,6 +578,12 @@ function AnalyticsPlaceholder() {
       </div>
     </section>
   );
+}
+
+/** 🏅 The badges on the Shop: the followed three in the shop's order, else the three closest (`followedBadges`). */
+function followedTiles(tiles: ShelfTile[], picks: StorePicks | null): ShelfTile[] {
+  const { keys } = followedBadges(picks?.badges ?? null, tiles);
+  return keys.map((k) => tiles.find((t) => t.key === k)).filter((t): t is ShelfTile => !!t);
 }
 
 /** The services head's line — one plain sentence; the counts live in the pinned row. */
@@ -651,6 +686,7 @@ async function ShopHome({
     hero: data.hero,
     heroCaption: data.heroCaption,
     uploadFacts: data.uploadFacts,
+    storage: data.storage,
   };
   const qrSearch = { et: one('et'), cat: one('cat'), mode: one('mode') };
   const scanners: ScannerLine[] | null =
@@ -671,11 +707,6 @@ async function ShopHome({
           promoteBody={
             <Suspense fallback={<SheetOpening />}>
               <PromoteBody search={qrSearch} part="promote" />
-            </Suspense>
-          }
-          printsBody={
-            <Suspense fallback={<SheetOpening />}>
-              <PromoteBody search={qrSearch} part="prints" />
             </Suspense>
           }
           qrBody={
@@ -728,8 +759,25 @@ async function ShopHome({
             (`display: contents`) — the phone is unchanged. The grid lives in `_components/supplier-frame.css`. */}
         <div data-shop-desk="">
         <div data-shop-desk-side="">
-        {/* 📋🧰 TEMPLATES, THEN SPECIALIZED TOOLS — ABOVE the numbers (owner 19 Nov 2026, "Yes, all three": what you set up comes
-            before what you read). Templates = Forms Maker · Offer Maker; Specialized tools = its own open row. */}
+        {/* 📊🎠 ANALYTICS — THE CAROUSEL, AND THE ONLY ANALYTICS (owner 11 Nov 2026: "Analytics should be the carousel" ·
+            "one long carousel" · the window "inside each card"). Every graph once, each card with its own 30 days / 12
+            months switch; tap = it rises with ONE recommendation. Owners and admins only. Streamed: the cover draws
+            first, the carousel arrives in place of a same-height placeholder; the badge row stays directly under it. */}
+        <Suspense fallback={<AnalyticsPlaceholder />}>
+          <OneAnalyticsSection {...data.analytics} store={{ graphs: data.picks?.graphs ?? null, addHref: routes.vendorDashboard.shop.store.shelf('graphs') }} />
+        </Suspense>
+
+        {/* 🏅 BADGES — the three the shop follows (or the three closest to their next step), each with what is left;
+            "See all" opens the Badges page, "Follow another" the Store's Badges shelf (Store drawing v10, F0). */}
+        <ShopBadgeRow
+          tiles={data.badges ? followedTiles(data.badges, data.picks) : null}
+          shopName={data.businessName}
+          seeAllHref={routes.vendorDashboard.shop.badges()}
+          addHref={routes.vendorDashboard.shop.store.shelf('badges')}
+        />
+
+        {/* 🧰📋 YOUR TOOLS, THEN TEMPLATES (Store drawing v10, owner 23 Nov 2026 — after the numbers and the badges): the
+            tools this shop uses with "Add a tool" into the Store, then Chat forms · Card forms · Offer maker · Payment plan. */}
         <ShopMakers
           scanners={scanners}
           formsBody={shopFormsBody(sp)}
@@ -739,19 +787,10 @@ async function ShopHome({
           services={data.services}
           booked={data.booked}
           offers={data.offerTile}
-          specialToolsLocked={data.specialToolsLocked}
+          mine={data.mine}
+          addToolHref={routes.vendorDashboard.shop.store.shelf('tools')}
+          plansSaved={data.plansSaved}
         />
-
-        {/* 📊🎠 ANALYTICS — THE CAROUSEL, AND THE ONLY ANALYTICS (owner 11 Nov 2026: "Analytics should be the carousel" ·
-            "one long carousel" · the window "inside each card"). Every graph once, each card with its own 30 days / 12
-            months switch; tap = it rises with ONE recommendation. Owners and admins only. Streamed: the cover draws
-            first, the carousel arrives in place of a same-height placeholder; the badge row stays directly under it. */}
-        <Suspense fallback={<AnalyticsPlaceholder />}>
-          <OneAnalyticsSection {...data.analytics} />
-        </Suspense>
-
-        {/* 🏅 BADGES — ONE row of the approved v84 badges: completed first, then in progress, then not yet (Lane E item 2). */}
-        <ShopBadgeRow tiles={data.badges} shopName={data.businessName} />
         </div>
 
         {/* 🧰 YOUR SERVICES — ONE list (Build 3 Lane E items 5–7; owner: *"Bundles should be first and the services grouped
@@ -772,11 +811,20 @@ async function ShopHome({
             No services match that search.
           </p>
           <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" toolsByCoverage={toolsByCoverage(data)} />
+          {/* ＋ Services end in their own tile (Store drawing v10, F0): the Card Maker, as the head's ＋ › New service. */}
+          <Link
+            href={SERVICE_MAKER_HREF}
+            className="sn-press mt-3 flex min-h-16 items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[color:var(--m-line)] text-sn-lg font-semibold text-ink"
+            data-shop-service-add=""
+          >
+            <Plus aria-hidden className="h-5 w-5 text-[color:var(--m-slate-2)]" strokeWidth={2} />
+            Add a service
+          </Link>
         </section>
         </div>
       </div>
-      {/* 👍 Tools in the lower third — Search services · Show & sort · ＋ Add a service (v95). */}
-      <ShopServicesThumb bundlesOn={packageAuthoringEnabled()} />
+      {/* 👍 Tools in the lower third — Search services · Show & sort (the ＋ is the "Add a service" tile now). */}
+      <ShopServicesThumb />
     </>
   );
 }

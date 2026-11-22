@@ -35,9 +35,11 @@ test('1 · one scroll, in the ruled order', () => {
   // Analytics — the carousel, every graph a card — `shop/analytics-is-the-carousel.test.ts` holds its shape.
   // 🔁 RE-AIMED ON PURPOSE 2026-11-19 (owner, "Yes, all three"; drawing `shop_final_with_spaces_2026-11-19`): what you SET
   // UP comes before what you READ — Templates and Specialized tools (`<ShopMakers`) sit above Analytics and Badges.
-  const order = [at(/<ShopCover\b/), at(/<ShopMakers\b/), at(/<OneAnalyticsSection\b/), at(/<ShopBadgeRow\b/), at(/id="services"/)];
+  // 🔁 RE-AIMED ON PURPOSE 2026-11-23 (owner; Store drawing `supplier_store_graphs_badges_2026-11-23` v10): cover ·
+  // Analytics · Badges · Your tools + Templates (`<ShopMakers`) · Services.
+  const order = [at(/<ShopCover\b/), at(/<OneAnalyticsSection\b/), at(/<ShopBadgeRow\b/), at(/<ShopMakers\b/), at(/id="services"/)];
   assert.ok(order.every((i) => i > 0), `a Shop part is missing: ${order.join(',')}`);
-  assert.deepEqual([...order].sort((a, b) => a - b), order, 'the Shop tab is out of the ruled order (cover · Templates + Specialized tools · Analytics · Badges · Services)');
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'the Shop tab is out of the ruled order (cover · Analytics · Badges · Your tools + Templates · Services)');
   assert.doesNotMatch(PAGE, /data-shop-doors=""/, 'loose door rows are back under the cover (§10 #31)');
   assert.doesNotMatch(PAGE, /<ShopSegments\b/, 'the retired Shop ▾ row is back on the Shop tab');
 });
@@ -51,7 +53,7 @@ test('2 · the app’s words, never the WRONG or INVENTED ones', () => {
   assert.match(COVER, /View shop/);
 });
 
-test('3 · Templates = Forms Maker + Offer Maker; Specialized tools = its own open row, Scanner first; no Tools Maker', () => {
+test('3 · Your tools (its own list, opening each tool), then Templates; no Tools Maker', () => {
   // 🔁 UPDATED ON PURPOSE 2026-11-09 (Build 3 Lane E item 13, owner: "our scanner will live inside the specialized
   // tools"): the Scanner tile left the row and is the FIRST tile of the Specialized tools carousel, same shipped body.
   assert.match(MAKERS, /<ServiceScannerPick\b/);
@@ -61,11 +63,12 @@ test('3 · Templates = Forms Maker + Offer Maker; Specialized tools = its own op
   assert.doesNotMatch(MAKERS, /k: 'tools'/, 'Specialized tools is a Maker tile again (it is its own open row)');
   assert.match(MAKERS, />\s*Templates\s*<\/h2>/, 'the two makers lost their Templates heading');
   assert.doesNotMatch(MAKERS, />\s*Makers\s*<\/h2>/, 'the Makers heading is back');
+  // 🔁 RE-AIMED ON PURPOSE 2026-11-23 (Store drawing v10): Your tools comes FIRST, as a list, ending in "Add a tool".
   const templates = MAKERS.indexOf('id="makers"');
   const tools = MAKERS.indexOf('id="tools"');
-  assert.ok(templates > 0 && tools > templates, 'Specialized tools does not come after Templates');
-  assert.match(MAKERS.slice(tools), /data-tool-carousel=""[\s\S]*?data-tool-tile=\{t\.key\}/, 'the tools row is not open on the page');
-  assert.match(MAKERS, /k: 'forms' as const, title: 'Forms Maker'/);
+  assert.ok(tools > 0 && templates > tools, 'Templates does not come after Your tools');
+  assert.match(MAKERS.slice(tools), />\s*Your tools\s*<\/h2>[\s\S]*?data-tool-list=""[\s\S]*?data-tool-tile=\{t\.key\}[\s\S]*?data-tool-add=""/, 'Your tools is not a list on the page with its Add a tool row');
+  assert.match(MAKERS, /k: 'forms' as const, title: 'Chat forms'/);
   assert.match(PAGE, /<ShopMakers\s+scanners=\{scanners\}\s+formsBody=\{shopFormsBody\(sp\)\}/, 'the Forms tile has no body behind it (a dead tile)');
   assert.match(read('_components/shop-forms-body.tsx'), /return sp\.maker === 'forms' \? <ShopFormsBody \/> : null;/, 'the Forms body is read when the panel is shut');
   // The tools' lines are already on the page — opening them must not touch the address (a server re-draw of the Shop).

@@ -24,10 +24,17 @@ test('a Verified shop after the start date is locked; before it, and on Pro, it 
   assert.equal(specialToolsAllowed('pro', PAST, NOW), true);
 });
 
-test('the locked tile opens the couple’s designer as a demo — not the settings', () => {
-  const makers = read('app/vendor-dashboard/shop/_components/shop-makers.tsx');
-  assert.match(makers, /t\.door\.kind === 'cake_tool' && specialToolsLocked \? setCakeDemo\(true\) : setTool\(t\.key\)/, 'the locked tile no longer opens the demo');
-  assert.match(makers, /<CakeDesigner threadId="" demo onClose=/, 'the demo is not the couple’s own designer');
+// 🔁 RE-AIMED 2026-11-23 (owner; Store drawing `supplier_store_graphs_badges_2026-11-23` v10, F3): a locked Cake Maker
+// is not in Your tools at all — it waits in the Store, where its item's "Try it first" opens the SAME demo. Your tools
+// lists only the tools the shop holds (`yourTools`: bought · with its plan · on the trial), so no tap opens the settings
+// of a tool the shop does not have.
+test('the locked Cake Maker is tried in the Store — the couple’s designer as a demo — never its settings', () => {
+  const client = read('app/vendor-dashboard/shop/store/_components/store-client.tsx');
+  assert.match(client, /<CakeDesigner threadId="" demo onClose=/, 'the demo is not the couple’s own designer');
+  const item = read('app/vendor-dashboard/shop/store/[shelf]/[item]/page.tsx');
+  assert.match(item, /tool\.key === 'cake_tool' \?[\s\S]{0,200}label="Try it first"[\s\S]{0,300}<CakeDemoButton \/>/, 'the Cake Maker item lost its demo');
+  const page = read('app/vendor-dashboard/shop/page.tsx');
+  assert.match(page, /mine: yourTools\(toolFacts\)/, 'Your tools is not the tools the shop holds');
 });
 
 test('the demo reads nothing, saves nothing, sends nothing — and shows no price', () => {

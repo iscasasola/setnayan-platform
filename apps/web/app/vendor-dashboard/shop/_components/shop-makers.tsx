@@ -1,10 +1,9 @@
 'use client';
 
-import { SPECIAL_TOOLS_LOCKED_WORDS } from '@/lib/special-tools';
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowUpRight, CalendarDays, ClipboardList, FolderOpen, Lock, Tag, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, ChevronRight, ClipboardList, FileText, Lock, Plus, ReceiptText, Tag, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
 import type { ScannerChoice } from '@/lib/supplier-scan';
@@ -18,7 +17,6 @@ import { TemplatesOffersContext } from './shop-templates';
 
 // 📦 The Offer Maker is its own chunk, fetched on the first open — never in the Shop tab's first load.
 // 🎂 The Cake Maker's options editor — only fetched when its tile opens (none of it is in the Shop's first load).
-const CakeDesigner = lazy(() => import('@/app/_components/cake-maker/cake-designer').then((m) => ({ default: m.CakeDesigner })));
 const CakeMakerPanel = lazy(() => import('./cake-maker-panel').then((m) => ({ default: m.CakeMakerPanel })));
 const OfferMaker = lazy(() => import('../../offers/_components/offer-maker').then((m) => ({ default: m.OfferMaker })));
 
@@ -55,6 +53,13 @@ export type ScannerLine = { coverageId: number; label: string; choice: ScannerCh
 
 type MakerKey = 'forms' | 'offers' | 'templates';
 
+/** 🧰 One tool in Your tools (Store drawing v10 F0): its key, and the days left when it is open on the 30-day trial. */
+export type MyTool = { key: SpecializedToolKey; trialDays: number | null };
+
+/** The four Templates tiles (drawing v10 F0): Chat forms · Card forms · Offer maker · Payment plan. `tpl` = the
+ *  Templates panel's starting kind. */
+type TemplateTile = { id: 'chat_forms' | 'card_forms' | 'offers' | 'plans'; k: MakerKey; tpl?: 'forms' | 'plans'; title: string; sub: string; icon: LucideIcon; head: string };
+
 /** The Offer Maker tile's facts — read with the Shop's own row. `running`/`total` null = unread ("Couldn't load"). */
 export type OfferTileFacts = { verified: boolean; running: number | null; total: number | null; papers: string };
 
@@ -71,7 +76,9 @@ export function ShopMakers({
   services = [],
   booked = null,
   offers = null,
-  specialToolsLocked = false,
+  mine,
+  addToolHref,
+  plansSaved,
 }: {
   /** One line per service; null = the scanner settings could not be read (said so, never "Off"). */
   scanners: ScannerLine[] | null;
@@ -93,23 +100,27 @@ export function ShopMakers({
   booked?: readonly BookedDay[] | null;
   /** 🏷 The Offer Maker tile (Build 6 Lane D). null = not drawn (the lab rows that predate it). */
   offers?: OfferTileFacts | null;
-  /** 🎂 Special tools are Pro and up after the admin's start date — the Cake Maker tile then reads "Included in Pro". */
-  specialToolsLocked?: boolean;
+  /** 🧰 Your tools (Store drawing v10): the free tools the shop added and the paid ones it holds, in order
+   *  (`yourTools`, lib/supplier-store.ts). Absent (the lab) = Scanner and the tools suggested for its services. */
+  mine?: readonly MyTool[];
+  /** The dashed "Add a tool" row — into the Store's Tools shelf. Absent = no row. */
+  addToolHref?: string;
+  /** 💳 How many payment plans the shop saved — the Payment plan tile's "2 saved". null = unread; absent = not read. */
+  plansSaved?: number | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const inUrl = params.get('maker');
-  // 🎂 Locked (below Pro after the start date): the tile opens the couple's designer as a DEMO — sample options, nothing
-  // saved or sent; the settings stay Pro and up (owner ruling "A LOCKED SPECIAL TOOL SHOWS ITS FRONT-END EXPERIENCE").
-  const [cakeDemo, setCakeDemo] = useState(false);
   const [open, setOpen] = useState<MakerKey | null>(
     inUrl === 'forms' ? 'forms' : inUrl === 'templates' && templatesBody !== false ? 'templates' : inUrl === 'offers' && offers?.verified ? 'offers' : null,
   );
+  // Which Templates tile opened the panel (its rise starts there); on arrival, the address's kind.
+  const [from, setFrom] = useState<TemplateTile['id']>(inUrl === 'templates' && params.get('tpl') === 'plans' ? 'plans' : inUrl === 'templates' ? 'card_forms' : 'chat_forms');
   const [lockOpen, setLockOpen] = useState(false);
   // 🗂 Saved templates › Discounts and Promos raises the shipped Offer Maker OVER the templates panel (× returns to it).
   const [offersOver, setOffersOver] = useState(false);
-  const tiles = useRef<Record<MakerKey, HTMLButtonElement | null>>({ forms: null, offers: null, templates: null });
+  const tiles = useRef<Partial<Record<TemplateTile['id'], HTMLButtonElement | null>>>({});
   const toolTiles = useRef<Partial<Record<SpecializedToolKey, HTMLButtonElement | null>>>({});
   const root = useRef<HTMLDivElement>(null);
   // 🌙 "Run an offer for [month]" (Analytics) lands here with the season's days: a NEW season offer opens on them.
@@ -127,126 +138,156 @@ export function ShopMakers({
     frame.current = (root.current?.closest('[data-shop-tab],[data-shop-tab-lab]') as HTMLElement | null) ?? null;
   }, []);
   const tools = specializedToolsFor(categories, services);
-  // 🧰 Which tool's panel is open — none until a tile is tapped (the row itself is always on the page).
-  const [tool, setTool] = useState<SpecializedToolKey | null>(null);
+  // 🧰 YOUR TOOLS: the shop's own, in its order; the lab (no `mine`) shows Scanner and the suggested ones.
+  const myTools: MyTool[] = (
+    mine ?? tools.filter(({ tool: t, suggested }) => t.key === 'scanner' || suggested).map(({ tool: t }) => ({ key: t.key, trialDays: null }))
+  ).filter((m) => tools.some(({ tool: t }) => t.key === m.key));
+  // "Get" in the Store lands here with `?added=tool:<key>` — that row wears New; `?tool=<key>` (Open) opens its panel.
+  const addedTool = /^tool:(.+)$/.exec(params.get('added') ?? '')?.[1] ?? null;
+  const askedTool = params.get('tool');
+  // 🧰 Which tool's panel is open — none until a row is tapped, or the address's own tool (the Store's Open).
+  const [tool, setTool] = useState<SpecializedToolKey | null>(() => (askedTool && myTools.some((m) => m.key === askedTool) ? (askedTool as SpecializedToolKey) : null));
 
   // Only the Forms Maker writes the address — its body is the server's (`?maker=forms`), so a reload lands on it too. The
   // Scanner's lines are already on the page: it opens with NO request (an address change would re-draw the whole Shop
   // on the server for nothing). Closing clears the address only if it carries a maker. The page never scrolls for it.
-  const go = (k: MakerKey | null) => {
+  const go = (k: MakerKey | null, tpl?: 'forms' | 'plans') => {
     setOpen(k);
     const writes = k === 'forms' || k === 'templates';
     if (!writes && !params.get('maker')) return;
     const q = new URLSearchParams(params.toString());
-    if (writes) q.set('maker', k);
-    else {
+    if (writes) {
+      q.set('maker', k);
+      if (k === 'templates' && tpl) q.set('tpl', tpl);
+      else q.delete('tpl');
+    } else {
       q.delete('maker');
-      for (const x of ['new', 'from', 'to', 'card']) q.delete(x);
+      for (const x of ['new', 'from', 'to', 'card', 'tpl']) q.delete(x);
     }
     const qs = q.toString();
     router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
   };
 
-  const on = scanners?.filter((s) => s.choice !== 'off').length ?? null;
-  const scannerSub =
-    scanners === null
-      ? 'Couldn’t load'
-      : scanners.length === 0
-        ? 'Add a service first'
-        : `${formatCount(on ?? 0)} of ${formatCount(scanners.length)} on`;
-  const list: { k: MakerKey; title: string; sub: string; icon: LucideIcon; head: string }[] = [
-    ...(formsOn ? [{ k: 'forms' as const, title: 'Forms Maker', sub: formsSub(formsSaved), icon: ClipboardList, head: 'Sent to couples as a chat card' }] : []),
-    ...(offers ? [{ k: 'offers' as const, title: 'Offer Maker', sub: offersSub(offers), icon: Tag, head: 'Couples get the single best offer' }] : []),
-    ...(templatesBody !== false && templatesBody !== undefined
-      ? [{ k: 'templates' as const, title: 'Templates', sub: 'Saved once', icon: FolderOpen, head: 'Saved once, used on any card' }]
-      : []),
+  // 📋 TEMPLATES — four tiles (drawing v10): Chat forms (the Forms Maker) · Card forms (Templates › Quick Forms) · Offer
+  // maker · Payment plan (Templates › Payment Strategies). Each opens what it opened before.
+  const hasTemplates = templatesBody !== false && templatesBody !== undefined;
+  const list: TemplateTile[] = [
+    ...(formsOn ? [{ id: 'chat_forms' as const, k: 'forms' as const, title: 'Chat forms', sub: formsSub(formsSaved), icon: ClipboardList, head: 'Sent to couples as a chat card' }] : []),
+    ...(hasTemplates ? [{ id: 'card_forms' as const, k: 'templates' as const, tpl: 'forms' as const, title: 'Card forms', sub: 'Used on any card', icon: FileText, head: 'Saved once, used on any card' }] : []),
+    ...(offers ? [{ id: 'offers' as const, k: 'offers' as const, title: 'Offer maker', sub: offersSub(offers), icon: Tag, head: 'Couples get the single best offer' }] : []),
+    ...(hasTemplates ? [{ id: 'plans' as const, k: 'templates' as const, tpl: 'plans' as const, title: 'Payment plan', sub: savedSub(plansSaved), icon: ReceiptText, head: 'Saved once, used on any card' }] : []),
   ];
   const picked = tool ? (tools.find((t) => t.tool.key === tool)?.tool ?? null) : null;
   const PickedIcon = picked ? toolIcon(picked.key) : null;
-  const cur = open ? list.find((t) => t.k === open) : undefined;
+  const cur = open ? (list.find((t) => t.id === from && t.k === open) ?? list.find((t) => t.k === open)) : undefined;
 
   return (
     <div ref={root} data-shop-makers-and-tools="">
-      {/* 📋 TEMPLATES (owner 19 Nov 2026: "form maker and offer makers are all inside Templates then Specialized Tools") —
-          the two things a shop makes once and sends to couples. Each tile opens as it did under "Makers". */}
+      {/* 🧰 YOUR TOOLS (Store drawing `supplier_store_graphs_badges_2026-11-23` v10, F0 — owner 23 Nov 2026): the tools
+          this shop uses, in its order — the free ones it added and the paid ones it holds (bought · with its plan · on
+          the 30-day trial). A row opens that tool into the body; "Add a tool" opens the Store's Tools shelf. */}
+      <section aria-labelledby="shop-tools-h" data-specialized-tools="" data-your-tools="" id="tools" className="scroll-mt-24">
+        <div className="flex items-baseline justify-between gap-3 px-4 pb-2 pt-5">
+          <h2 id="shop-tools-h" className="home-k2 !my-0">
+            Your tools
+          </h2>
+          <span className="rounded-full bg-[color:var(--surface-soft)] px-2.5 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" data-your-tools-count="">
+            {formatCount(myTools.length)} {myTools.length === 1 ? 'tool' : 'tools'}
+          </span>
+        </div>
+        <ul className="sn-frame sn-frame-flush mx-4 px-4" data-tool-list="">
+          {myTools.map(({ key, trialDays }) => {
+            const t = tools.find((x) => x.tool.key === key)!.tool;
+            const Icon = toolIcon(t.key);
+            const isNew = addedTool === t.key;
+            return (
+              <li key={t.key} data-tool-row={t.key} data-tool-new={isNew ? '' : undefined}>
+                <button
+                  ref={(el) => {
+                    toolTiles.current[t.key] = el;
+                  }}
+                  type="button"
+                  onClick={() => setTool(t.key)}
+                  aria-expanded={t.key === picked?.key}
+                  aria-haspopup="dialog"
+                  className="sn-press flex min-h-16 w-full items-center gap-3 py-2.5 text-left"
+                  data-tool-tile={t.key}
+                >
+                  <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-[color:var(--surface-soft)] text-ink">
+                    <Icon className="h-5 w-5" strokeWidth={1.75} />
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <b className="flex items-center gap-1.5 text-sn-lg font-semibold leading-tight text-ink">
+                      {t.title}
+                      {isNew ? <span className="rounded-full bg-[rgb(var(--color-link))] px-1.5 py-px text-sn-2xs font-bold text-[color:var(--m-paper)]">New</span> : null}
+                    </b>
+                    <span className="mt-0.5 text-sn-md leading-snug text-[color:var(--m-slate-2)]">{t.line}</span>
+                    {trialDays ? (
+                      <span className="mt-0.5 text-sn-sm font-semibold text-[rgb(var(--color-ok))]" data-tool-trial="">
+                        Free trial · {trialDays} {trialDays === 1 ? 'day' : 'days'} left
+                      </span>
+                    ) : null}
+                  </span>
+                  <ChevronRight aria-hidden className="h-4 w-4 flex-none text-[color:var(--m-slate-2)]" strokeWidth={2} />
+                </button>
+              </li>
+            );
+          })}
+          {addToolHref ? (
+            <li>
+              <Link href={addToolHref} className="sn-press flex min-h-14 items-center gap-3 py-2.5 text-sn-lg font-semibold text-ink" data-tool-add="">
+                <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-xl border-2 border-dashed border-[color:var(--m-line)] text-[color:var(--m-slate-2)]">
+                  <Plus className="h-5 w-5" strokeWidth={2} />
+                </span>
+                Add a tool
+              </Link>
+            </li>
+          ) : null}
+        </ul>
+      </section>
+
+      {/* 📋 TEMPLATES — what a shop makes once and sends to couples (owner 19 Nov 2026; four tiles in the Store drawing). */}
       {list.length > 0 ? (
         <section aria-labelledby="shop-makers-h" data-shop-makers="" id="makers" className="scroll-mt-24">
           <div className="flex items-baseline justify-between gap-3 px-4 pb-2 pt-5">
             <h2 id="shop-makers-h" className="home-k2 !my-0">
               Templates
             </h2>
-            <small className="text-xs text-ink/70">Made once, sent to couples</small>
           </div>
-          <div className="grid gap-2 px-4" style={{ gridTemplateColumns: `repeat(${list.length}, minmax(0, 1fr))` }} data-maker-row="">
+          <div className="grid grid-cols-2 gap-2 px-4" data-maker-row="">
             {list.map((t) => (
               <button
-                key={t.k}
+                key={t.id}
                 ref={(el) => {
-                  tiles.current[t.k] = el;
+                  tiles.current[t.id] = el;
                 }}
                 type="button"
-                onClick={() => (t.k === 'offers' && offers && !offers.verified ? setLockOpen(true) : go(t.k))}
-                aria-expanded={open === t.k}
+                onClick={() => {
+                  setFrom(t.id);
+                  if (t.k === 'offers' && offers && !offers.verified) setLockOpen(true);
+                  else go(t.k, t.tpl);
+                }}
+                aria-expanded={open === t.k && from === t.id}
                 aria-haspopup="dialog" // the Maker opens the in-body panel OVER the page (BodyPanel) — a popup surface, not an in-place fold
-                className="sn-press flex min-h-[104px] flex-col items-center justify-center gap-1 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-2 py-3 text-center" // no-card-ok: a Maker tile is a <button> (it opens the Maker into the body) — frames only on what you press
+                className="sn-press flex min-h-16 items-center gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-3 py-2.5 text-left" // no-card-ok: a Maker tile is a <button> (it opens the Maker into the body) — frames only on what you press
                 data-maker={t.k}
+                data-template-tile={t.id}
               >
-                <span aria-hidden className="grid h-10 w-10 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
-                  <t.icon className="h-5 w-5" strokeWidth={1.75} />
+                <span aria-hidden className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-[color:var(--surface-soft)] text-ink">
+                  <t.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
                 </span>
-                <b className="inline-flex items-center gap-1 text-sm font-semibold leading-tight text-ink">
-                  {t.title}
-                  {t.k === 'offers' && offers && !offers.verified ? <Lock aria-label="Locked" className="h-3.5 w-3.5 flex-none text-ink/70" strokeWidth={2} /> : null}
-                </b>
-                <small className="text-xs leading-tight text-ink/70">{t.sub}</small>
+                <span className="flex min-w-0 flex-col">
+                  <b className="inline-flex items-center gap-1 text-sn-base font-semibold leading-tight text-ink">
+                    {t.title}
+                    {t.k === 'offers' && offers && !offers.verified ? <Lock aria-label="Locked" className="h-3.5 w-3.5 flex-none text-ink/70" strokeWidth={2} /> : null}
+                  </b>
+                  <small className="text-sn-sm leading-tight text-[color:var(--m-slate-2)]">{t.sub}</small>
+                </span>
               </button>
             ))}
           </div>
         </section>
       ) : null}
-
-      {/* 🧰 SPECIALIZED TOOLS — its own part, OPEN ON THE PAGE (owner 19 Nov 2026): the carousel that sat one tap inside the
-          old third Maker tile. Scanner first, then suggested, then the rest; a tile opens that tool into the body. */}
-      <section aria-labelledby="shop-tools-h" data-specialized-tools="" id="tools" className="scroll-mt-24">
-        <div className="flex items-baseline justify-between gap-3 px-4 pb-2 pt-5">
-          <h2 id="shop-tools-h" className="home-k2 !my-0">
-            Specialized tools
-          </h2>
-          <small className="text-xs text-ink/70">Each tool opens where you use it</small>
-        </div>
-        <ul className="sn-glide-x flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none]" data-tool-carousel="">
-          {tools.map(({ tool: t, suggested }) => {
-            const Icon = toolIcon(t.key);
-            const on = t.key === picked?.key;
-            return (
-              <li key={t.key} className="w-[150px] flex-none snap-start">
-                <button
-                  ref={(el) => {
-                    toolTiles.current[t.key] = el;
-                  }}
-                  type="button"
-                  onClick={() => (t.door.kind === 'cake_tool' && specialToolsLocked ? setCakeDemo(true) : setTool(t.key))}
-                  aria-expanded={t.door.kind === 'cake_tool' && specialToolsLocked ? cakeDemo : on}
-                  aria-haspopup="dialog"
-                  className="sn-press flex h-full min-h-[148px] w-full flex-col items-start gap-1 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-3 py-3 text-left" // no-card-ok: a carousel tile is a <button>
-                  data-tool-tile={t.key}
-                  data-tool-suggested={suggested ? '' : undefined}
-                >
-                  <span aria-hidden className="grid h-9 w-9 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                  </span>
-                  <b className="inline-flex items-center gap-1 pt-1 text-sm font-semibold leading-tight text-ink">
-                    {t.title}
-                    {t.door.kind === 'cake_tool' && specialToolsLocked ? <Lock aria-label="Locked" className="h-3.5 w-3.5 flex-none text-ink/70" strokeWidth={2} /> : null}
-                  </b>
-                  <small className="text-xs leading-snug text-ink/70">{t.line}</small>
-                  <small className="mt-auto pt-1 text-xs font-semibold leading-tight text-ink/75">{t.door.kind === 'cake_tool' && specialToolsLocked ? SPECIAL_TOOLS_LOCKED_WORDS : toolFoot(t, suggested, scannerSub, booked)}</small>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
 
       {(open === 'offers' || offersOver) && offers?.verified ? (
         <Suspense fallback={null}>
@@ -259,7 +300,7 @@ export function ShopMakers({
 
       {cur && cur.k !== 'offers' ? (
         <BodyPanel
-          origin={tiles.current[cur.k]}
+          origin={tiles.current[cur.id] ?? null}
           frame={frame.current}
           title={cur.title}
           sub={cur.head}
@@ -291,17 +332,12 @@ export function ShopMakers({
         </BodyPanel>
       ) : null}
 
-      {cakeDemo ? (
-        <Suspense fallback={null}>
-          <CakeDesigner threadId="" demo onClose={() => setCakeDemo(false)} />
-        </Suspense>
-      ) : null}
       {picked && PickedIcon ? (
         <BodyPanel
           origin={toolTiles.current[picked.key] ?? null}
           frame={frame.current}
           title={picked.title}
-          sub={picked.door.kind === 'cake_tool' ? 'Set once for your shop · Pro' : picked.line}
+          sub={picked.door.kind === 'cake_tool' ? 'Set once for your shop' : picked.line}
           lead={
             <span aria-hidden className="grid h-10 w-10 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
               <PickedIcon className="h-5 w-5" strokeWidth={1.75} />
@@ -315,6 +351,13 @@ export function ShopMakers({
       ) : null}
     </div>
   );
+}
+
+/** "2 saved" · "None yet" · "Couldn't load" (unread) · "Saved once" (not read here — the lab). */
+function savedSub(n: number | null | undefined): string {
+  if (n === undefined) return 'Saved once';
+  if (n === null) return 'Couldn’t load';
+  return n === 0 ? 'None yet' : `${formatCount(n)} saved`;
 }
 
 /** The Offer Maker tile's line: "2 running" · "None yet" · "Couldn't load" — or the lock's word. */
@@ -338,15 +381,6 @@ function OfferLockPreview() {
       </span>
     </div>
   );
-}
-
-/** The tile's last line: the Scanner's count, the tool's own place, or how many booked events it runs on. */
-function toolFoot(t: SpecializedTool, suggested: boolean, scannerSub: string, booked: readonly BookedDay[] | null): string {
-  if (t.door.kind === 'scanner') return scannerSub;
-  if (t.door.kind === 'page' || t.door.kind === 'cake_tool') return suggested ? 'For your services' : 'Open';
-  if (booked === null) return 'Couldn’t load your events';
-  if (booked.length === 0) return 'Runs on your booked events';
-  return `Runs on ${formatCount(booked.length)} booked ${booked.length === 1 ? 'event' : 'events'}`;
 }
 
 /** Under the carousel: what the picked tile opens — the Scanner lines, its one page, or its booked events. */

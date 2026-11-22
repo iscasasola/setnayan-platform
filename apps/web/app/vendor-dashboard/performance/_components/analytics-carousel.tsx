@@ -2,6 +2,8 @@
 
 import './analytics-growing.css';
 import { useMemo, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { Plus } from 'lucide-react';
 import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
 import { PillSelector } from '@/app/_components/pill-selector';
 import { formatCount } from '@/lib/format-number';
@@ -157,7 +159,15 @@ type Props =
     }
   | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined; unlocks?: undefined; gifts?: undefined; giftsRecFacts?: undefined; invites?: undefined };
 
-export function AnalyticsCarousel(props: Props) {
+/**
+ * 🛍 THE SHOP'S PICKS (owner 23 Nov 2026 — Store drawing v10, F0): `order` = the graphs the shop picked, in its order
+ * (`analyticsGraphs`, lib/supplier-store.ts — open ones only); `addHref` = the dashed "Add a graph" tile at the end, into
+ * the Store's Graphs shelf. With the Store, a shut graph lives on its shelf ("Opens with …"), so the lines under the
+ * carousel step aside. Without them (Performance), the carousel is exactly as before.
+ */
+type Picks = { order?: readonly CardKey[]; addHref?: string };
+
+export function AnalyticsCarousel(props: Props & Picks) {
   const [wins, setWins] = useState<Partial<Record<CardKey, GrowthWindow>>>({});
   const winOf = (k: CardKey): GrowthWindow => wins[k] ?? '30';
   const setWin = (k: CardKey, w: GrowthWindow) => setWins((cur) => ({ ...cur, [k]: w }));
@@ -199,7 +209,7 @@ export function AnalyticsCarousel(props: Props) {
   };
 
   const cards: CarouselCard[] = [];
-  for (const k of CARD_ORDER) {
+  for (const k of props.order ?? CARD_ORDER) {
     if (k === 'opened' || k === 'asked' || k === 'booked') {
       const win = winOf(k);
       const g = countSpec(k, win, totalsOf(win), props.view ?? null);
@@ -212,6 +222,19 @@ export function AnalyticsCarousel(props: Props) {
     const g = specs[winOf(k)][k as GraphKey];
     if (!g) continue;
     cards.push({ key: k, label: g.title, node: <GraphCard g={g} control={control(k, g.title)} /> });
+  }
+  const graphCount = cards.length;
+  if (props.addHref && !props.locked) {
+    cards.push({
+      key: 'add',
+      label: 'Add a graph',
+      node: (
+        <Link href={props.addHref} className="ag-card-in sn-press flex h-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[color:var(--m-line)] text-[color:var(--m-slate-2)]" data-analytics-add="">
+          <Plus aria-hidden className="h-7 w-7" strokeWidth={1.8} />
+          <b className="text-sn-lg font-semibold text-ink">Add a graph</b>
+        </Link>
+      ),
+    });
   }
   if (props.locked) {
     cards.push({
@@ -231,9 +254,15 @@ export function AnalyticsCarousel(props: Props) {
         <h2 id="shop-analytics-h" className="home-k2 !my-0">
           Analytics
         </h2>
-        <span className="text-xs text-ink/70">
-          {formatCount(cards.length)} {cards.length === 1 ? 'card' : 'cards'}
-        </span>
+        {props.addHref ? (
+          <span className="rounded-full bg-[color:var(--surface-soft)] px-2.5 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" data-analytics-count="">
+            {formatCount(graphCount)} {graphCount === 1 ? 'graph' : 'graphs'}
+          </span>
+        ) : (
+          <span className="text-xs text-ink/70">
+            {formatCount(cards.length)} {cards.length === 1 ? 'card' : 'cards'}
+          </span>
+        )}
       </div>
       {/* No auto-advance and no dots (spec §9 #4) — the loop stays (owner 27 Oct). */}
       <SnapCarousel cards={cards} label="Analytics" advanceMs={0} dots={false} />
@@ -249,7 +278,7 @@ export function AnalyticsCarousel(props: Props) {
           return line ? [{ key: b, lead: line.lead, rest: `— ${COULDNT_LOAD}.` }] : [];
         });
         const rows = [...shut, ...unread];
-        if (rows.length === 0) return null;
+        if (rows.length === 0 || props.addHref) return null;
         return (
           <div className="space-y-1 px-4 pt-3 text-sm text-ink/70" data-graph-unlock-lines="">
             <p className="font-semibold text-ink">{LOCKED_HEAD}</p>

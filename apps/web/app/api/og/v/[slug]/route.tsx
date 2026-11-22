@@ -5,8 +5,10 @@ import { fetchVendor } from '@/app/v/[slug]/page';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
-import { renderVendorOgPng } from '@/lib/social/vendor-card';
-import { composeVendorOgDescription } from '@/lib/vendor-og-description';
+import { renderVendorOgJpeg } from '@/lib/social/vendor-card';
+import { readVendorCardFacts } from '@/lib/social/vendor-card-facts.server';
+import { vendorCardProofWords } from '@/lib/social/vendor-card-layout';
+import { composeVendorTradeLine } from '@/lib/vendor-og-description';
 import { DEMO_ONLY_LABEL } from '@/app/_components/demo-only-label';
 
 /**
@@ -43,8 +45,14 @@ import { DEMO_ONLY_LABEL } from '@/app/_components/demo-only-label';
  * browser-writable) is refused there and the card renders without a logo,
  * never signs it.
  *
+ * 🎴 SHOP SHARE CARD v2 (owner, 21 Nov 2026: "approve the share card too"; DECISION_LOG "SHOP SHARE CARD v2 —
+ * APPROVED TO BUILD"): the card now wears the shop's cover photo, its logo with the seal, the proof line and its
+ * earned badges (`lib/social/vendor-card.tsx`). Every fact is a read the page and the prints already make
+ * (`readVendorCardFacts`); a part that cannot be read is left off, and that picture is cached briefly
+ * (`UNREAD_HEADERS`) so the next crawl tries again. Who gets a card is unchanged.
+ *
  * Public (crawlers fetch with no session), Node runtime (native
- * satori/sharp). Short cache — a shop can swap its logo or tagline, and we
+ * satori/sharp). Short cache — a shop can swap its logo or photo, and we
  * want the card to refresh within the hour.
  */
 export const runtime = 'nodejs';
@@ -59,12 +67,18 @@ const SITE_URL = (
 const DEFAULT_OG = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 const CARD_HEADERS = {
-  'Content-Type': 'image/png',
+  'Content-Type': 'image/jpeg',
   'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
 } as const;
 
-function pngResponse(buffer: Buffer): Response {
-  return new Response(new Uint8Array(buffer), { headers: CARD_HEADERS });
+/** Unread is not none: a card drawn without a part it could not read is not kept long (`allRead`). */
+const UNREAD_HEADERS = {
+  'Content-Type': 'image/jpeg',
+  'Cache-Control': 'public, max-age=300',
+} as const;
+
+function cardResponse(buffer: Buffer, allRead: boolean): Response {
+  return new Response(new Uint8Array(buffer), { headers: allRead ? CARD_HEADERS : UNREAD_HEADERS });
 }
 
 export async function GET(
@@ -93,20 +107,27 @@ export async function GET(
       is_verified: vendor.verification_state === 'verified',
     });
 
-    const description = composeVendorOgDescription(vendor);
-
+    // ONE batched read: the card's facts (seal, proof, badges, cover photo) beside the logo.
     // Same r2:// trap as every other read of a shop's logo — resolved through
     // the public-bucket-only signer (lib/site-media-ref.ts), swallowed on
     // failure so a broken logo degrades the card instead of breaking the share.
-    const logoUrl = await displayUrlForStoredAsset(vendor.logo_url).catch(() => null);
+    const [facts, logoUrl] = await Promise.all([
+      readVendorCardFacts(vendor),
+      displayUrlForStoredAsset(vendor.logo_url).catch(() => null),
+    ]);
 
-    const png = await renderVendorOgPng({
+    const jpeg = await renderVendorOgJpeg({
       displayName,
-      description,
-      logoUrl,
+      status: facts.status,
       demoLabel: vendor.is_demo === true ? DEMO_ONLY_LABEL : null,
+      proofWords: vendorCardProofWords(facts.proof),
+      proofHasRating: facts.proof.rating !== null,
+      tradeLine: composeVendorTradeLine(vendor),
+      badges: facts.badges,
+      coverUrl: facts.coverUrl,
+      logoUrl,
     });
-    return pngResponse(png);
+    return cardResponse(jpeg, facts.allRead);
   } catch {
     return Response.redirect(DEFAULT_OG, 302);
   }

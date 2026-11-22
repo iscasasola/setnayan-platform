@@ -79,7 +79,7 @@ test('the logo is read through the public-bucket-only signer, never a raw ref', 
 
 test('the card is served as image/png, and a render failure still returns a card', () => {
   const src = read(ROUTE);
-  assert.match(src, /'Content-Type':\s*'image\/png'/, 'must serve PNG, per the DONE bar');
+  assert.match(src, /'Content-Type':\s*'image\/jpeg'/, 'v2: the ground is a photo, so JPEG (drawing build notes)');
   assert.match(
     src,
     /catch\s*\{\s*\n?\s*return Response\.redirect\(DEFAULT_OG, 302\);/,
@@ -93,8 +93,8 @@ test('the shop page points og:image, twitter:image and the structured-data image
   // openGraph.images and twitter.images (DRY, not three separate literals).
   assert.match(
     src,
-    /const ogImageUrl = `\$\{siteUrl\}\/api\/og\/v\/\$\{vendor\.business_slug \?\? slug\}`;/,
-    'vendorMetadataBySlug must build the permanent OG-card URL',
+    /const ogImageUrl = `\$\{siteUrl\}\/api\/og\/v\/\$\{vendor\.business_slug \?\? slug\}\?v=\$\{vendorCardLookToken\(/,
+    'vendorMetadataBySlug must build the permanent OG-card URL, with the v2 look token so new shares get the new card',
   );
   assert.match(src, /openGraph:\s*\{[\s\S]*?images:\s*\[ogImage\]/, 'openGraph.images must use the permanent card');
   assert.match(src, /twitter:\s*\{[\s\S]*?images:\s*\[ogImageUrl\]/, 'twitter.images must use the permanent card');
@@ -119,4 +119,18 @@ test('the shop page points og:image, twitter:image and the structured-data image
     /image:\s*logoDisplayUrl \?\?/,
     'the structured-data image must not fall back to the raw (expiring) presigned logo URL',
   );
+});
+
+test('v2: every fact on the card is the page\'s and the prints\' own read — no new number', () => {
+  const route = read(ROUTE);
+  assert.match(route, /readVendorCardFacts\(vendor\)/, 'the facts come from the one card reader');
+  assert.match(route, /composeVendorTradeLine\(vendor\)/, 'what they do · city');
+  assert.match(route, /cardResponse\(jpeg, facts\.allRead\)/, 'a card drawn without an unread part is cached briefly');
+  const facts = read('lib/social/vendor-card-facts.server.ts');
+  assert.match(facts, /readShopBadgeFacts\(/, 'trusted review stats + completed events + hasVerifiedBadge');
+  assert.match(facts, /readPrintBadgeList\(/, 'the prints\' own badge list (printBadgesV84) — seals, tiers, No. 1 off');
+  assert.match(facts, /!coupleShopRenewing\(vendor\)/, 'the page\'s Verified also asks papers current');
+  assert.match(facts, /tierCaps\(plan\)\.reviewStarsCounted/, 'the page\'s star gate: the plan counts stars');
+  assert.match(facts, /isShopNameWithheld\(vendor\)\) return null/, 'a withheld name gets no cover photo');
+  assert.doesNotMatch(facts, /\.from\('vendor_profiles'\)/, 'no second query of the shop row');
 });

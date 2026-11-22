@@ -275,6 +275,8 @@ import { ShopSectionBar, type ShopSectionTab } from './_components/shop-section-
 import { ShopHero, shopMotion } from './_components/shop-hero';
 import { ShopHeroGallery } from './_components/shop-hero-gallery';
 import { HERO_PHOTO_COUNT } from '@/lib/shop-hero-photos';
+import { shopCoverChoice, shopPortfolioKeys } from '@/lib/shop-cover-photo';
+import { vendorCardLookToken } from '@/lib/social/vendor-card-layout';
 import { quotePriceOf } from '@/lib/shop-quote';
 import { VerifiedAwardButton } from './_components/verified-award-button';
 import { ShopCanDoPanel } from './_components/shop-can-do-panel';
@@ -653,7 +655,9 @@ export async function vendorMetadataBySlug(slug: string) {
   // fresh PNG on every crawl (no expiry to outrun) and degrades to the same
   // wordmark-only card when there's no logo, so a share is never broken and
   // never bare. See `app/api/og/v/[slug]/route.tsx` / `lib/social/vendor-card.tsx`.
-  const ogImageUrl = `${siteUrl}/api/og/v/${vendor.business_slug ?? slug}`;
+  // 🎴 Shop share card v2 (DECISION_LOG 2026-11-21): a look token on the address, so a chat app that cached the old card
+  // by its URL asks again — the route's own address does not move (`vendorCardLookToken`, lib/social/vendor-card-layout.ts).
+  const ogImageUrl = `${siteUrl}/api/og/v/${vendor.business_slug ?? slug}?v=${vendorCardLookToken({ logoRef: vendor.logo_url })}`;
   const ogImage = {
     url: ogImageUrl,
     width: 1200,
@@ -1527,7 +1531,7 @@ export async function renderVendorBySlug({
   // Per-category attribute details + portfolio gallery (iteration 0044).
   const [attributeDetails, portfolioPhotos, microsite, igMedia, repertoire] = await Promise.all([
     fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
-    resolvePortfolioPhotos((vendor.portfolio_r2_keys ?? []).filter((k: string) => !unlistedPageRefs.has(k))),
+    resolvePortfolioPhotos(shopPortfolioKeys(vendor.portfolio_r2_keys, unlistedPageRefs)),
     // Microsite curation (My Shop → Website editor). Defensive read — an
     // un-curated vendor / not-yet-applied migration degrades to the
     // auto-composed baseline.
@@ -1592,13 +1596,10 @@ export async function renderVendorBySlug({
     distinctServiceKeys,
     canPersonalizePage ? microsite.featuredServiceIds : [],
   );
-  // Pro hero override — a chosen portfolio photo leads the page as a banner.
-  const heroPhotoUrl =
-    proPicksRender && microsite.heroPhotoKey
-      ? unlistedPageRefs.has(microsite.heroPhotoKey)
-        ? null
-        : ((await resolvePortfolioUrls([microsite.heroPhotoKey]))[0] ?? null)
-      : null;
+  // Pro hero override — a chosen portfolio photo leads the page as a banner. The ONE cover rule (lib/shop-cover-photo.ts)
+  // — the shop's share card (/api/og/v/[slug]) wears the same photo through it.
+  const cover = shopCoverChoice({ heroPhotoKey: microsite.heroPhotoKey, proPicksRender, showPortfolio, unlisted: unlistedPageRefs });
+  const heroPhotoUrl = cover.heroKey ? ((await resolvePortfolioUrls([cover.heroKey]))[0] ?? null) : null;
   // Solo accent — retint the microsite's accent ramp (undefined = default).
   const accentVars = canPersonalizePage
     ? micrositeAccentVars(microsite.accent)
@@ -1773,7 +1774,7 @@ export async function renderVendorBySlug({
   // (`renewing` is read above, before the first badge read.)
   const isVerifiedShop = (vendor.verification_state === 'verified' && !renewing) || isDemoVendor || teamPreview !== null;
   // The photo: the shop's chosen hero (Pro picks), else its first portfolio photo, else the shared placeholder.
-  const heroImage = heroPhotoUrl ?? (showPortfolio ? (portfolioUrls[0] ?? null) : null);
+  const heroImage = heroPhotoUrl ?? (cover.portfolioLeads ? (portfolioUrls[0] ?? null) : null);
   // 🖼 v16 S2 — the hero's photos: the shop's portfolio (when the shop shows it), its chosen hero photo FIRST. Two or more
   // become the swipeable slides; a full five also make the desktop mosaic (`ShopHeroGallery`). One photo keeps the
   // single hero exactly as before.

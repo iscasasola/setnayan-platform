@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -73,9 +74,7 @@ export default async function AdminApprovalsPage() {
   // The owner's own requests run 24 h after he types the word — carried here too.
   after(() => maybeRunOwnerApprovals().catch(() => {}));
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const meId = user?.id ?? '';
 
   const admin = createAdminClient();

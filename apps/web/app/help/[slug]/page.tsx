@@ -264,14 +264,14 @@ export default async function HelpArticlePage({ params }: Props) {
         <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2">
           <Link
             href="/help"
-            className="inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
+            className="sn-hit inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
           >
             <ChevronLeft aria-hidden className="mr-1 h-4 w-4" strokeWidth={1.75} />
             All help topics
           </Link>
           <Link
             href="/help#contact"
-            className="inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
+            className="sn-hit inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
           >
             Still stuck? Contact support →
           </Link>

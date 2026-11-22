@@ -88,7 +88,7 @@ function Heading({
   return (
     <div className="mt-2 flex min-h-14 items-center gap-3" data-memories-chapter="">
       {href ? (
-        <Link href={href} className={`min-w-0 flex-1 truncate ${MEMORIES_HEADING}`}>
+        <Link href={href} className={`min-w-0 flex-1 truncate py-3.5 ${MEMORIES_HEADING}`}>
           {text}
         </Link>
       ) : (

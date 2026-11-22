@@ -197,7 +197,7 @@ export function GalleryPicker({
     <section
       aria-label={`Supplier photos for ${slotLabel}`}
       data-gallery-picker={studio ? 'studio' : ''}
-      className={studio ? 'space-y-3' : 'space-y-3 rounded-2xl border border-ink/12 bg-white/70 p-4'}
+      className={studio ? 'space-y-3' : 'space-y-3 rounded-2xl border border-ink/12 bg-raised/70 p-4'}
     >
       {studio ? (
         <div className="space-y-2" data-gallery-search="">

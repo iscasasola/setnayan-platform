@@ -24,9 +24,9 @@
  * column · the phantom enum value · the phantom RPC argument · the blocked
  * iframe · the unresolved `r2://`).
  *
- * `revalidate` is asserted for the same reason: these jobs only fire when the
- * page actually re-renders, so removing the revalidation window would throttle
- * them to almost never while leaving every call site intact.
+ * How often the page re-renders is asserted for the same reason: these jobs only fire when it does. Today it is
+ * request-rendered (it awaits `searchParams`), so they run on every view; a STATIC page with no revalidation window
+ * would throttle them to almost never while leaving every call site intact.
  *
  * ⚠️ IF YOU ARE PORTING THE FRONT DOOR AND THIS TEST FAILS, the fix is to carry
  * the three `after()` calls into the new page — NOT to delete this test. If the
@@ -102,14 +102,20 @@ for (const { fn, what } of JOBS) {
   });
 }
 
-test('/ keeps a revalidation window, or the jobs almost never fire', () => {
+test('/ re-renders often enough for the jobs to fire — per request, or within a revalidation window', () => {
+  /* ⚡ 2026-11-18: `revalidate = 300` was removed because the page awaits `searchParams`, so Next renders it per request
+     and the window never applied. The jobs then run on EVERY view. The guard still holds the real danger: a STATIC
+     page with no window would starve them. */
+  const perRequest = /await\s+searchParams\b/.test(CODE) || /export\s+const\s+dynamic\s*=\s*'force-dynamic'/.test(CODE);
   const m = CODE.match(/export\s+const\s+revalidate\s*=\s*(\d+)/);
-  assert.ok(m, 'app/page.tsx no longer exports `revalidate`');
-  const seconds = Number(m![1]);
-  assert.ok(
-    seconds > 0 && seconds <= 3600,
-    `revalidate is ${seconds}s. These jobs only run when the page re-renders, ` +
-      `so a very long (or zero/never) window throttles them to almost never while ` +
-      `every call site still looks correct.`,
-  );
+  assert.ok(perRequest || m, 'app/page.tsx is neither request-rendered nor revalidated — the cron-free jobs would almost never run');
+  if (m) {
+    const seconds = Number(m[1]);
+    assert.ok(
+      seconds > 0 && seconds <= 3600,
+      `revalidate is ${seconds}s. These jobs only run when the page re-renders, ` +
+        `so a very long (or zero/never) window throttles them to almost never while ` +
+        `every call site still looks correct.`,
+    );
+  }
 });

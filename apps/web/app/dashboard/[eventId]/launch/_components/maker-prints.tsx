@@ -212,8 +212,8 @@ export function allInOneFile(
 ): AllInOneFile {
   const mark = makerProMark({ owns: input.ownsPro, storeShell: input.storeShell });
   if (mark === null) return null;
-  if (mark === 'unlocked') return { kind: 'save', ...save, icon: <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Pro')} /> };
-  return { kind: 'door', href: `/dashboard/${input.eventId}/studio/website-pro`, label: save.label, icon: <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} />, note };
+  if (mark === 'unlocked') return { kind: 'save', ...save, icon: <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'the full Event Hub')} /> };
+  return { kind: 'door', href: `/dashboard/${input.eventId}/studio/website-pro`, label: save.label, icon: <PaidMark state={mark} label={paidMarkLabel(mark, 'the full Event Hub')} />, note };
 }
 /**
  * 🎟 A FREE ALL-GUESTS FILE (owner 2026-10-22, DECISION_LOG "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE QR SHEET ARE FREE";
@@ -232,13 +232,13 @@ function AllInOneShipped({ f, children, primary = false, data }: { f: AllInOneFi
     return (
       <PrintSaveButton href={f.href} file={f.file} variant={primary ? 'primary' : 'secondary'}>
         {/* ◆ unlocked on a Pro file only — a free all-guests file (`freeAllGuestsFile`) carries no mark. */}
-        {f.icon ? <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Pro')} className="mr-1 align-middle" /> : null}
+        {f.icon ? <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'the full Event Hub')} className="mr-1 align-middle" /> : null}
         {data ? <span {...{ [data]: '' }}>{children}</span> : children}
       </PrintSaveButton>
     );
   }
   return (
-    <Link href={f.href} data-print-all-in-one-pro="" className="inline-flex min-h-10 items-center gap-1 rounded-full border border-ink/15 px-3 text-sm font-medium text-ink">
+    <Link href={f.href} data-print-all-in-one-pro="" className="inline-flex min-h-11 items-center gap-1 rounded-full border border-ink/15 px-3 text-sm font-medium text-ink">
       {f.icon}
       {children}
     </Link>
@@ -787,13 +787,13 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
         — 3 mm bleed and crop marks, no watermark.{' '}
         {input.storeShell ? null : (
           <>
-            <PaidMark state={input.ownsPro ? 'unlocked' : 'try'} label={paidMarkLabel(input.ownsPro ? 'unlocked' : 'try', 'Event Pro')} className="mr-1 align-middle" />
+            <PaidMark state={input.ownsPro ? 'unlocked' : 'try'} label={paidMarkLabel(input.ownsPro ? 'unlocked' : 'try', 'the full Event Hub')} className="mr-1 align-middle" />
             Your Event Hub look on paper is Event Pro.{' '}
           </>
         )}
         {!themed || freeTheme ? null : access.printReady ? (
           <>
-            <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Pro')} className="mr-1 align-middle" />
+            <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'the full Event Hub')} className="mr-1 align-middle" />
             With Event Pro they print in <span className="font-semibold text-ink">{t.name}</span> too
             {spot.foil || spot.whiteInk
               ? `, with ${[spot.foil ? 'foil' : null, spot.whiteInk ? 'white ink' : null].filter(Boolean).join(' and ')} on their own layers`
@@ -809,7 +809,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
       </p>
       {!freeTheme && access.offerPro ? (
         <p data-prints-go-pro="" className="text-sm font-medium text-mulberry">
-          <PaidMark state="try" label={paidMarkLabel('try', 'Event Pro')} className="mr-1 align-middle" />
+          <PaidMark state="try" label={paidMarkLabel('try', 'the full Event Hub')} className="mr-1 align-middle" />
           Go Pro to print in {t.name}.
         </p>
       ) : null}

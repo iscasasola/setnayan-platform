@@ -2,24 +2,15 @@
 
 // Root client-side providers for the web app.
 //
-// Wires TanStack Query with an IndexedDB-backed persister so warm data
-// (vendor profiles, mood board, guest list, etc.) survives reloads and
-// rehydrates in <100 ms on return visits — see spec § 3.1 and § 9.2.
-//
-// - `key: 'setnayan-query-cache'` — IndexedDB key for the serialised
-//   query cache blob.
-// - `maxAge: 7 days` — hard ceiling for persisted entries. Anything older
-//   is dropped on rehydrate (spec § 3.1).
-// - `buster: NEXT_PUBLIC_CACHE_BUSTER` — CI bumps this whenever a query
-//   response shape changes, so stale schemas don't survive a deploy
-//   (spec § 9.4).
+// The TanStack Query cache's IndexedDB copy (key `setnayan-query-cache`,
+// 7-day max age, `NEXT_PUBLIC_CACHE_BUSTER` buster — spec § 3.1 / § 9.4)
+// lives in lib/query-persistence.ts and starts after the page has settled
+// (<QueryPersistence />). Nothing reads the cache through React, so no
+// provider wraps the page (speed pass 2026-11-18).
 
-import { Suspense, useState } from 'react';
-import { get, set, del } from 'idb-keyval';
-import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
-import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
+import { Suspense } from 'react';
 
-import { getQueryClient } from '@/lib/query-client';
+import { QueryPersistence } from './_components/query-persistence';
 import { LoaderOverlayProvider } from '@/components/sd-loader';
 import { BrandProvider } from './_components/brand-provider';
 import { LoaderConfigProvider } from './_components/loader-config-provider';
@@ -37,85 +28,9 @@ import { DesktopUpdaterListener } from './_components/desktop-updater-listener';
 /* ✕ The app-wide clear button loads after the page, never in anybody's first load (the Maker's first-load budget): it draws
    nothing until a box is focused with words in it. */
 const GlobalClearField = dynamic(() => import('./_components/global-clear-field').then((m) => m.GlobalClearField), { ssr: false });
-
-const PERSIST_KEY = 'setnayan-query-cache';
-const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — spec § 3.1
-
-// `idb-keyval` exposes an async get/set/del; `createSyncStoragePersister`
-// expects a synchronous `Storage`-like interface. We wrap the async calls
-// behind a fire-and-forget setter and a cached getter — the persister
-// already tolerates a sync API backed by an async store because writes
-// are debounced and reads only happen at boot (during rehydrate).
-function createIdbStorage(): Storage {
-  // Hold the last-known serialised cache in memory so the synchronous
-  // `getItem` contract can be honoured between async hops. On boot the
-  // persister calls `getItem(key)` exactly once during rehydrate, so we
-  // populate this synchronously the first time the module loads via a
-  // top-level promise initiated below.
-  let memory: Record<string, string> = {};
-  let primed: Promise<void> | null = null;
-  // Once IndexedDB proves unusable, stop touching it entirely.
-  let idbUsable = true;
-
-  // Run an idb-keyval call so that NEITHER a synchronous throw NOR an async
-  // rejection can ever escape. This matters because `idb-keyval`'s `get/set/del`
-  // lazily call `indexedDB.open()` the first time they run — and a remote-URL
-  // WKWebView (the Capacitor native shell) and Safari Private Browsing both
-  // partition/block IndexedDB and throw a SecurityError *synchronously* on that
-  // access. Since `createIdbStorage()` runs inside a `useState` initializer
-  // during render (see <Providers> below), a synchronous throw here would
-  // bubble straight into React render and trip the root error boundary — which
-  // is exactly the "Something on our end didn't work" crash on first launch in
-  // the iOS/Android shells. A `.catch()` alone does NOT cover the sync throw,
-  // because the promise it would attach to is never created.
-  function safe<T>(op: () => Promise<T>): Promise<T | undefined> {
-    if (!idbUsable) return Promise.resolve(undefined);
-    try {
-      return op().catch(() => {
-        idbUsable = false;
-        return undefined;
-      });
-    } catch {
-      // Synchronous throw — IndexedDB is blocked/partitioned. Fall back to
-      // in-memory only; the app still works, the cache just doesn't persist.
-      idbUsable = false;
-      return Promise.resolve(undefined);
-    }
-  }
-
-  function prime(key: string): Promise<void> {
-    if (primed) return primed;
-    primed = safe(() => get<string>(key)).then((value) => {
-      if (typeof value === 'string') memory[key] = value;
-    });
-    return primed;
-  }
-
-  // Best-effort eager prime so the persister's first sync read succeeds.
-  if (typeof window !== 'undefined') {
-    void prime(PERSIST_KEY);
-  }
-
-  return {
-    get length() {
-      return Object.keys(memory).length;
-    },
-    clear: () => {
-      memory = {};
-      void safe(() => del(PERSIST_KEY));
-    },
-    key: (index: number) => Object.keys(memory)[index] ?? null,
-    getItem: (key: string) => memory[key] ?? null,
-    setItem: (key: string, value: string) => {
-      memory[key] = value;
-      void safe(() => set(key, value));
-    },
-    removeItem: (key: string) => {
-      delete memory[key];
-      void safe(() => del(key));
-    },
-  };
-}
+/* 🎞 The offline bar and Glide's one listener (MOTION_STANDARD § 4 #28 / #12) load the same way: after the page, in a
+   chunk of their own — they draw nothing until the connection drops or a rail is scrolled. */
+const MotionMounts = dynamic(() => import('./_components/motion-mounts').then((m) => m.MotionMounts), { ssr: false });
 
 export function Providers({
   children,
@@ -144,24 +59,12 @@ export function Providers({
    */
   loaderConfig?: LoaderConfig;
 }) {
-  const [queryClient] = useState(() => getQueryClient());
-  const [persister] = useState(() =>
-    createSyncStoragePersister({
-      storage: createIdbStorage(),
-      key: PERSIST_KEY,
-    }),
-  );
-
   return (
     <ThemeProvider initialMode={initialThemeMode}>
-      <PersistQueryClientProvider
-        client={queryClient}
-        persistOptions={{
-          persister,
-          maxAge: MAX_AGE_MS,
-          buster: process.env.NEXT_PUBLIC_CACHE_BUSTER ?? 'v1',
-        }}
-      >
+      {/* ⚡ The query cache's IndexedDB copy starts after the page has settled (lib/query-persistence.ts). Nothing reads
+          the cache through React, so there is no provider to wrap the page in. */}
+      <QueryPersistence />
+      <>
           {/*
             App-wide blocking loader overlay (Organic loaders handoff
             2026-06-07). Provides useLoader() to any client component for
@@ -213,6 +116,7 @@ export function Providers({
         <GlobalHaptics />
         {/* ✕ in every type box while it is typed into (owner 2026-10-31) — `components/clear-field.tsx`. */}
         <GlobalClearField />
+        <MotionMounts />
         {/*
           App-wide "drag me" hint — one client effect adds a periodic left-right
           knob shake to opted-in line sliders (`.sn-range` / `[data-sn-hint]`)
@@ -220,7 +124,7 @@ export function Providers({
           2026-07-03. Renders nothing; silent under prefers-reduced-motion.
         */}
         <GlobalSliderHint />
-      </PersistQueryClientProvider>
+      </>
     </ThemeProvider>
   );
 }

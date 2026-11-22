@@ -25,8 +25,15 @@ on:
 # THE SHAPE NOW. The same steps run as SEPARATE JOBS, side by side, and none of
 # them can stop another:
 #
-#     guards · typecheck · eslint · unit tests (3 shards) · DB replay (6 shards)
-#     · source guards            ──►  "typecheck + lint"  (the gate, at the bottom)
+#     guards · typecheck · eslint · unit tests (3 shards) · DB replay (10 shards)
+#                                ──►  "typecheck + lint"  (the gate, at the bottom)
+#
+# (2026-11-18: the old `source guards` job and the eight seconds-long REQUIRED
+# jobs — secret scan, migration timestamp guard and six lint jobs — are now
+# steps of `guards`, to fit GitHub Pro's 40-concurrent-job limit, and the
+# `bundle size check` job's budgets read the `build` job's build instead of
+# running a second one. One run went from 24 jobs to 14. See the guards and
+# build job headers.)
 #
 # The gate is the job branch protection requires BY NAME. It `needs:` every job
 # above and is red unless every one of them is exactly `success`. So one push
@@ -36,7 +43,8 @@ on:
 # 🔑 WHAT DID NOT CHANGE: which checks are required, and what each one means.
 # Branch protection lists 13 names (re-measure, never trust this comment:
 #   gh api repos/<owner>/<repo>/branches/main/protection --jq '.required_status_checks.contexts'
-# ); every one is still the `name:` of exactly one job, and "typecheck + lint"
+# ); every one is still reported by exactly one place — the `name:` of one job,
+# or one line of the guards job's "Report the required checks" step — and "typecheck + lint"
 # still goes red for everything it went red for before. A session cannot edit
 # branch protection, so this file may never rename one of them.
 # `scripts/lint-ci-gate.mjs` (a guard step below) holds all of that in place.
@@ -88,12 +96,43 @@ jobs:
     #
     # The blocking-guards block below is `continue-on-error: true` + a single
     # aggregator, so that one failing guard cannot hide the others.
+    #
+    # ═══ THIS JOB ALSO CARRIES EIGHT REQUIRED CHECKS BY NAME (2026-11-18) ═══
+    #
+    # GitHub Pro runs at most 40 jobs at once on this account (GitHub Support,
+    # 2026-11-18), and one ci.yml run used to start 24 of them — so only one or
+    # two PRs could check at a time and ~30 open PRs queued for hours. Nine of
+    # those 24 were seconds-long jobs that each held a runner for its checkout:
+    # `source guards` and the eight below, each a REQUIRED check under its own
+    # name. They are now steps of this job, and this job reports each of the
+    # eight back to the PR under its EXACT old name (the last step, through the
+    # Checks API — scripts/ci-report-checks.mjs). Branch protection matches a
+    # name plus the GitHub Actions app, and a check run created with this job's
+    # GITHUB_TOKEN is the GitHub Actions app, so nothing in branch protection
+    # changes. lint-ci-gate holds each name to exactly one reporter.
+    #
+    #   secret scan · migration timestamp guard · lint bottom-nav template ·
+    #   lint nav icon source · lint entitlement gates · lint guest legibility ·
+    #   lint nested forms · lint exposure baseline
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+      # Only to post the eight required checks above under their own names.
+      checks: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # gitleaks scans the PR's commits, so it needs history (it ran with
+          # the same depth as a job of its own).
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
 
       # ══ BLOCKING GUARDS ══════════════════════════════════════════════════
       # Pure node, no node_modules — this job never installs, so a guard breach
@@ -348,6 +387,15 @@ jobs:
         continue-on-error: true
         run: node scripts/lint-dup-rule-baseline.mjs
 
+      # The motion standard (owner 18 Nov 2026; specs MOTION_STANDARD_2026-11-18.md § 11 Phase 1): no NEW raw
+      # duration or cubic-bezier( in a transition / animation, a Tailwind duration-NNN, or a Web Animations
+      # literal — read the --sn-m-* tokens / lib/motion-table.ts instead. Per-file counts against
+      # scripts/motion-raw.baseline.json may only fall; regenerate with: node scripts/lint-motion-raw.mjs --write
+      - name: Lint motion raw timings
+        id: guard_motion_raw
+        continue-on-error: true
+        run: node scripts/lint-motion-raw.mjs
+
       # Protects the 2026-07-01 vendor-dashboard perf work (PRs #2529/#2533/#2543/
       # #2546). The layout re-renders server-side on every navigation, so a broad
       # `revalidatePath('/vendor-dashboard', 'layout')` (or global `'/', 'layout'`)
@@ -557,6 +605,244 @@ jobs:
         continue-on-error: true
         run: cargo test --manifest-path src-tauri/Cargo.toml -p setnayan-encoder
 
+      # ══ THE STEPS THAT USED TO BE JOBS OF THEIR OWN (2026-11-18) ══════════
+      #
+      # Each was a job that ran for seconds and held a runner slot for it (see
+      # this job's header). Every one is `continue-on-error: true` with an `id`
+      # and a line in the aggregator, like every guard above, and
+      # `if: !cancelled()` so that a failed step earlier in the job (the Rust
+      # install, say — it has no continue-on-error) cannot skip them. The eight
+      # that are REQUIRED checks are also reported under their own names by the
+      # last step of this job.
+
+      # ── secret scan (REQUIRED, reported by name) ───────────────────────────
+      - name: Secret scan
+        id: req_secret_scan
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── lint bottom-nav template (REQUIRED, reported by name) ──────────────
+      # Enforces the UNBREAKABLE bottom-nav template (owner-locked 2026-06-13 ·
+      # project_setnayan_bottom_nav_canonical). Fails if a doorway adds a
+      # *-bottom-nav.tsx wrapper that doesn't delegate to the canonical
+      # <BottomNav>, OR if the canonical primitive loses its locked-interaction
+      # markers (the central --bn-* tuning props + the travel-stretch hook).
+      # See apps/web/scripts/lint-bottom-nav.mjs.
+      - name: Lint bottom-nav template
+        id: req_bottom_nav
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node apps/web/scripts/lint-bottom-nav.mjs
+
+      # ── lint nav icon source (REQUIRED, reported by name) ──────────────────
+      # Locks the nav/icon/menu-registry single-source invariant (Phase 9 ·
+      # project_setnayan_nav_icon_menu_registry). Fails if a nav-chrome chokepoint
+      # (customer/vendor/admin sidebar + bottom-nav, public marketing site-nav)
+      # stops sourcing its menu labels/icons from the registry, OR if the registry
+      # plumbing (resolver/defaults/icon converter) loses a required export.
+      # Positive delegation guard — NOT a lucide ban. See
+      # apps/web/scripts/lint-nav-icon-source.mjs.
+      - name: Lint nav icon source
+        id: req_nav_icon_source
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node apps/web/scripts/lint-nav-icon-source.mjs
+
+      # ── lint entitlement gates (REQUIRED, reported by name) ────────────────
+      # Two guards on the couple-SKU ownership layer (added after the PR4/PR4b
+      # "bundle buyer wrongly denied a paid SKU" bugs):
+      #   1. couple-SKU gates must use the bundle-aware eventOwnsSku(), never the
+      #      bare checkOrderOwnership() (blind to GUIDED_PACK/MEDIA_PACK ownership)
+      #      — unless the SKU is in no bundle (explicit `bare-ok` annotation);
+      #   2. the three bundle-membership mirrors (BUNDLE_MEMBERS · BUNDLE_CHILD_SKUS
+      #      · bundles_granting_sku() SQL) must agree exactly.
+      # Pure node. See apps/web/scripts/lint-entitlement-gates.mjs.
+      - name: Lint entitlement gates
+        id: req_entitlement_gates
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node apps/web/scripts/lint-entitlement-gates.mjs
+
+      # ── lint guest legibility (REQUIRED, reported by name) ─────────────────
+      # Guards the Guest Legibility Floor (02_Specifications/Guest_Legibility_Floor
+      # _2026-06-20.md). After the 2026-06-20 "Lola Remedios" audit found the
+      # dominant guest-facing failure was 7-11px load-bearing text (illegible to an
+      # older guest), this fails when a guest-facing file (app/[slug], app/join, +
+      # the shared guest components) introduces NEW text-[<=11px] beyond the
+      # committed ratcheting baseline. Pure node. See
+      # apps/web/scripts/lint-guest-legibility.mjs.
+      - name: Lint guest legibility
+        id: req_guest_legibility
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node apps/web/scripts/lint-guest-legibility.mjs
+
+      # ── lint nested forms (REQUIRED, reported by name) ─────────────────────
+      # Fails on a <form> (or <ConfirmForm>, which renders its own <form>)
+      # nested inside another form element under apps/web/app. Nested form tags
+      # are invalid HTML — the browser hoists the inner form's $ACTION_ID_ input
+      # into the outer form, so a no-JS / pre-hydration submit of the outer form
+      # dispatches the INNER action (a real bug: no-JS "Save changes" deleted a
+      # vendor's service — 2026-07-03). See apps/web/scripts/lint-nested-forms.mjs.
+      - name: Lint nested forms
+        id: req_nested_forms
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node apps/web/scripts/lint-nested-forms.mjs
+
+      # ── lint exposure baseline (REQUIRED, reported by name) ────────────────
+      # Structural half of THE FREEZE (supabase/security/README.md). The real
+      # comparison — live schema vs committed baseline — runs in the DB replay
+      # jobs via test:db:ci (the required "typecheck + lint" gate needs them),
+      # because it needs the migration replay. THIS step needs nothing but the
+      # files and closes the two ways a file-based guard dies quietly:
+      #   1. the baseline gets truncated/emptied, so the differ compares nothing
+      #      against nothing and reports "no widenings";
+      #   2. the guard gets unwired — test file deleted, renamed out of the
+      #      tests/db/*.db.test.ts glob, or the CI step dropped — and the suite
+      #      still goes green. That is the worst failure mode available, because
+      #      it manufactures confidence.
+      # So it asserts: header fact-count matches the body, per-kind floors are
+      # met, ordering is canonical, keys are unique, the mirrored constants have
+      # not drifted from exposure-surface.ts, and the freeze test is still wired
+      # into both package.json and this workflow.
+      # See scripts/lint-exposure-baseline.mjs.
+      - name: Lint exposure baseline
+        id: req_exposure_baseline
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node scripts/lint-exposure-baseline.mjs
+
+      # ── migration timestamp guard (REQUIRED, reported by name) ─────────────
+      # Runs scripts/check-migration-timestamps.mjs — the SAME check as
+      # `pnpm migration:check` and the .githooks/pre-push hook (one source of
+      # truth, no drift). Two rules:
+      #   1. UNIQUE — no two migrations share a 14-digit prefix. A duplicate is the
+      #      PK in schema_migrations, so `supabase db push` half-applies prod then
+      #      crashes on the dup. (Caught twice in two days early on — PRs #77/#81.)
+      #   2. ALLOCATED — a NEW migration must not use a hand-typed YYYYMMDD000000
+      #      round prefix; those are how parallel branches collide (each passes CI
+      #      alone, then clash on merge — a 2026-06-17 session hit it TWICE, each
+      #      needing manual ledger surgery). `pnpm migration:new` hands out a
+      #      collision-resistant, never-round prefix; this rule forces it.
+      # The required check "migration timestamp guard" is green only when EVERY
+      # step in this block is (see the report step's MIG line).
+      #
+      # RULE 2 distinguishes a NEW migration from one already on main, so it
+      # needs the origin/main ref. Best-effort — a fetch failure just skips
+      # RULE 2; RULE 1 still runs.
+      - name: Fetch origin/main for the allocator rule
+        if: ${{ !cancelled() }}
+        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main || true
+
+      - name: Check migration prefixes (unique + allocator-sourced)
+        id: req_mig_prefixes
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node scripts/check-migration-timestamps.mjs
+
+      - name: Unit-test the guard rules
+        id: req_mig_rules
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node --test scripts/check-migration-timestamps.test.mjs
+
+      - name: Unit-test the migration doctor classifier
+        id: req_mig_doctor
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node --test scripts/migration-doctor.test.mjs
+
+      - name: Unit-test the deploy drift doctor classifier
+        id: req_mig_drift
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node --test scripts/deploy-drift-doctor.test.mjs
+
+      # The FEATURE REGISTER (spec corpus, FEATURE_REGISTER.md) is kept true by
+      # scripts/feature-register-check.mjs: every route, catalogue SKU key and
+      # NEXT_PUBLIC_* setting must have a row, and no row may point at a file
+      # that is gone. The corpus is a PRIVATE repo this job cannot read, so here
+      # only the check's RULES are tested (fixtures + sabotage cases); the real
+      # register run is the test's last case and SKIPS, by name, without it.
+      - name: Unit-test the feature register check + price printout
+        id: req_mig_feature_register
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node --test scripts/feature-register-check.test.mjs
+
+      # `pnpm preflight` (scripts/preflight.mjs) is what a builder runs BEFORE
+      # A PUSH so that the cheap faults are found in minutes on their own
+      # machine instead of one-per-round here. It does not keep its own list of
+      # "what CI runs": it READS THIS FILE and runs every cheap step as written.
+      # That only stays true if every step in this file is one it understands —
+      # so this test fails when a step is added that nobody classified
+      # (cheap = run it locally as written · medium = which targeted version
+      # runs locally · heavy = left to CI, and named as such in its output).
+      - name: Unit-test preflight (every CI step is classified)
+        id: req_mig_preflight
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node --test scripts/preflight.test.mjs
+
+      # The required gate's verdict (scripts/ci-gate.mjs), the workflow-shape
+      # lint (scripts/lint-ci-gate.mjs), the failure summary
+      # (scripts/ci-test-summary.mjs) and the named-check reporter
+      # (scripts/ci-report-checks.mjs) — each is a place where "nothing ran"
+      # could be read as "nothing failed", so each is tested against exactly
+      # that: skipped, cancelled, an empty list, a log with no total.
+      - name: Unit-test the CI gate
+        id: req_mig_ci_gate
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node --test scripts/ci-gate.test.mjs
+
+      # ── source guards (was a job of its own; gated by "typecheck + lint") ──
+      # The two guards that scan the source with the TypeScript scanners, so they
+      # need an install. `continue-on-error` on the install too: a failed install
+      # must not SKIP the guards after it — they fail on their own and say so.
+      - name: Install dependencies
+        id: guard_install
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: pnpm install --frozen-lockfile=false
+
+      # ONE RULE, WRITTEN DOWN TWICE — the two mechanisable halves of the class
+      # that cost a full day on 2026-07-27 (a shadowed exported helper, and a
+      # hand-typed select that drops a column the canonical *_SELECT constant
+      # includes). Fails when a NEW instance appears beyond the committed
+      # apps/web/scripts/dup-rule.baseline.txt; removing a baselined line is a
+      # narrowing and passes silently, so paying debt down never turns the build
+      # red. Needs the TS scanners (tsx), hence after the install. The
+      # structural half — is the baseline canonical, is the guard still wired —
+      # is the pure-node "Lint duplicated-rule baseline" step above.
+      # See apps/web/scripts/lint-dup-rule.ts.
+      - name: Duplicated-rule guards
+        id: guard_dup_rule
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: pnpm --filter @setnayan/web lint:dup-rule
+
+      # THE ROOT MAP (code name Ugat) — owner, DECISION_LOG 2026-10-02 "ONE MAP
+      # OF THE APP" and the rows that amend it. Fails when
+      # apps/web/lib/ugat/screens.generated.json is stale (re-run
+      # `pnpm --filter @setnayan/web ugat:screens`), AND — RATCHET ON since
+      # part 2 — on any NEW no-door screen, door to nowhere or missing #section,
+      # one-fact-two-homes, event answer outside Your info, filled-but-dropped
+      # field, typed live number or fact shown twice that is not in
+      # apps/web/lib/ugat/baselines/*, and (STRICT) on a fixed enforced finding
+      # whose line is still listed — "fixed — remove this line from …", so a
+      # fixed problem cannot quietly come back. Door words, retarget,
+      # never-read and sanitisers warn. Needs tsx, after the install.
+      - name: Root map is current and ratcheted
+        id: guard_ugat_screens
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: node apps/web/scripts/check-ugat-screens.mjs
+
       # ══ THE AGGREGATOR — this is what makes the guards above BLOCK ═══════
       #
       # Each guard step is `continue-on-error: true`, which rewrites its
@@ -594,6 +880,7 @@ jobs:
           PINNED_BARS: ${{ steps.guard_pinned_bars.outcome }}
           BOOTH_POSTER: ${{ steps.guard_booth_poster.outcome }}
           DUP_RULE_BASELINE: ${{ steps.guard_dup_rule_baseline.outcome }}
+          MOTION_RAW: ${{ steps.guard_motion_raw.outcome }}
           VENDOR_REVALIDATE: ${{ steps.guard_vendor_revalidate.outcome }}
           CHANGELOG_DIR: ${{ steps.guard_changelog_dir.outcome }}
           SERVER_ONLY: ${{ steps.guard_server_only.outcome }}
@@ -608,6 +895,23 @@ jobs:
           STORED_ASSET_REFS: ${{ steps.guard_stored_asset_refs.outcome }}
           ENCODER_TESTS: ${{ steps.guard_encoder_tests.outcome }}
           CI_GATE: ${{ steps.guard_ci_gate.outcome }}
+          SECRET_SCAN: ${{ steps.req_secret_scan.outcome }}
+          BOTTOM_NAV: ${{ steps.req_bottom_nav.outcome }}
+          NAV_ICON_SOURCE: ${{ steps.req_nav_icon_source.outcome }}
+          ENTITLEMENT_GATES: ${{ steps.req_entitlement_gates.outcome }}
+          GUEST_LEGIBILITY: ${{ steps.req_guest_legibility.outcome }}
+          NESTED_FORMS: ${{ steps.req_nested_forms.outcome }}
+          EXPOSURE_BASELINE: ${{ steps.req_exposure_baseline.outcome }}
+          MIG_PREFIXES: ${{ steps.req_mig_prefixes.outcome }}
+          MIG_RULES: ${{ steps.req_mig_rules.outcome }}
+          MIG_DOCTOR: ${{ steps.req_mig_doctor.outcome }}
+          MIG_DRIFT: ${{ steps.req_mig_drift.outcome }}
+          MIG_FEATURE_REGISTER: ${{ steps.req_mig_feature_register.outcome }}
+          MIG_PREFLIGHT: ${{ steps.req_mig_preflight.outcome }}
+          MIG_CI_GATE: ${{ steps.req_mig_ci_gate.outcome }}
+          INSTALL: ${{ steps.guard_install.outcome }}
+          DUP_RULE: ${{ steps.guard_dup_rule.outcome }}
+          UGAT_SCREENS: ${{ steps.guard_ugat_screens.outcome }}
         run: |
           failed=0
           check() {
@@ -635,6 +939,7 @@ jobs:
           check 'lint stacked pinned bars'   "$PINNED_BARS"
           check 'lint booth poster placement' "$BOOTH_POSTER"
           check 'lint duplicated-rule baseline' "$DUP_RULE_BASELINE"
+          check 'lint motion raw timings'    "$MOTION_RAW"
           check 'lint vendor layout revalidate' "$VENDOR_REVALIDATE"
           check 'lint changelog fragment dir'  "$CHANGELOG_DIR"
           check 'lint server-only boundary'   "$SERVER_ONLY"
@@ -650,6 +955,23 @@ jobs:
           check 'lint pool-config global columns' "$POOL_CONFIG_COLUMNS"
           check 'native encoder tests'        "$ENCODER_TESTS"
           check 'lint ci gate'                "$CI_GATE"
+          check 'secret scan'                 "$SECRET_SCAN"
+          check 'lint bottom-nav template'    "$BOTTOM_NAV"
+          check 'lint nav icon source'        "$NAV_ICON_SOURCE"
+          check 'lint entitlement gates'      "$ENTITLEMENT_GATES"
+          check 'lint guest legibility'       "$GUEST_LEGIBILITY"
+          check 'lint nested forms'           "$NESTED_FORMS"
+          check 'lint exposure baseline'      "$EXPOSURE_BASELINE"
+          check 'migration prefixes'          "$MIG_PREFIXES"
+          check 'migration guard rule tests'  "$MIG_RULES"
+          check 'migration doctor tests'      "$MIG_DOCTOR"
+          check 'deploy drift doctor tests'   "$MIG_DRIFT"
+          check 'feature register check tests' "$MIG_FEATURE_REGISTER"
+          check 'preflight tests'             "$MIG_PREFLIGHT"
+          check 'CI gate tests'               "$MIG_CI_GATE"
+          check 'install dependencies'        "$INSTALL"
+          check 'duplicated-rule guards'      "$DUP_RULE"
+          check 'root map is current'         "$UGAT_SCREENS"
           if [ "$failed" -ne 0 ]; then
             echo
             echo 'One or more blocking guards failed. Every failure is listed above with its'
@@ -658,6 +980,36 @@ jobs:
           fi
           echo
           echo 'All blocking guards passed.'
+
+      # ══ THE EIGHT REQUIRED CHECKS, REPORTED UNDER THEIR OWN NAMES ════════
+      #
+      # Branch protection waits for each of these names. They used to be jobs;
+      # they are steps above now, so this step posts one check run per name to
+      # the PR's head commit, green only when every step listed after its `=`
+      # finished exactly `success` (fail-closed: failure, skipped, cancelled and
+      # an empty outcome are all red). scripts/ci-report-checks.mjs.
+      #
+      # `always()`, deliberately not `!cancelled()`: a cancelled run still
+      # answers for its commit (red), so no required check is left "expected"
+      # with nothing coming. Each line is `<exact required name>=<outcomes>`;
+      # lint-ci-gate fails if a required name is reported twice, not at all, or
+      # from a step id this job does not have.
+      - name: Report the required checks this job carries
+        if: ${{ always() }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPORT: |
+            secret scan=${{ steps.req_secret_scan.outcome }}
+            lint bottom-nav template=${{ steps.req_bottom_nav.outcome }}
+            lint nav icon source=${{ steps.req_nav_icon_source.outcome }}
+            lint entitlement gates=${{ steps.req_entitlement_gates.outcome }}
+            lint guest legibility=${{ steps.req_guest_legibility.outcome }}
+            lint nested forms=${{ steps.req_nested_forms.outcome }}
+            lint exposure baseline=${{ steps.req_exposure_baseline.outcome }}
+            migration timestamp guard=${{ steps.req_mig_prefixes.outcome }},${{ steps.req_mig_rules.outcome }},${{ steps.req_mig_doctor.outcome }},${{ steps.req_mig_drift.outcome }},${{ steps.req_mig_feature_register.outcome }},${{ steps.req_mig_preflight.outcome }},${{ steps.req_mig_ci_gate.outcome }}
+        run: node scripts/ci-report-checks.mjs
 
   typecheck:
     name: typecheck
@@ -757,17 +1109,18 @@ jobs:
         run: node scripts/ci-test-summary.mjs "$RUNNER_TEMP/tests.log" "unit tests ${{ matrix.shard }}/3"
 
   db-replay:
-    name: DB replay (${{ matrix.shard }}/6)
+    name: DB replay (${{ matrix.shard }}/10)
     if: ${{ github.event.pull_request.draft != true }}
     runs-on: ubuntu-latest
-    # Six shards, because this is the long one: every one of the ~380 DB tests
+    # Ten shards, because this is the long one: every one of the ~380 DB tests
     # replays ALL the migrations into its own PGlite, and as a single step it
-    # measured 41–52 minutes. See the unit-tests job for how shards work and
+    # measured 41–52 minutes. (Six until 21 Nov 2026, when a 6-shard slice hit the
+    # 60-min job timeout on batch B #8085; owner: "split it now so it doesn't time out".) See the unit-tests job for how shards work and
     # for the two traps (flag position, `shell: bash`).
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@v4
 
@@ -797,64 +1150,12 @@ jobs:
       - name: Data-layer guards (DB replay)
         shell: bash
         env:
-          TEST_SHARD_FLAG: --test-shard=${{ matrix.shard }}/6
+          TEST_SHARD_FLAG: --test-shard=${{ matrix.shard }}/10
         run: pnpm --filter @setnayan/web test:db:ci 2>&1 | tee "$RUNNER_TEMP/tests.log"
 
       - name: Name every failure
         if: ${{ !cancelled() }}
-        run: node scripts/ci-test-summary.mjs "$RUNNER_TEMP/tests.log" "DB replay ${{ matrix.shard }}/6"
-
-  source-guards:
-    name: source guards
-    runs-on: ubuntu-latest
-    # The two guards that scan the source with the TypeScript scanners, so they
-    # need an install. Each used to sit BEHIND the unit suite and the DB replay
-    # in one job, which is why a hand-typed select on PR #6444 was not reported
-    # until the hour of tests ahead of it had passed.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
-
-      # ONE RULE, WRITTEN DOWN TWICE — the two mechanisable halves of the class
-      # that cost a full day on 2026-07-27 (a shadowed exported helper, and a
-      # hand-typed select that drops a column the canonical *_SELECT constant
-      # includes). Fails when a NEW instance appears beyond the committed
-      # apps/web/scripts/dup-rule.baseline.txt; removing a baselined line is a
-      # narrowing and passes silently, so paying debt down never turns the build
-      # red.
-      #
-      # It rides THIS job — the guards that need an install — because it needs
-      # the TS scanners (and therefore tsx). The structural half — is the
-      # baseline canonical, is the guard still wired — is pure node and is a
-      # step of the install-free guards job above.
-      # See apps/web/scripts/lint-dup-rule.ts.
-      - name: Duplicated-rule guards
-        run: pnpm --filter @setnayan/web lint:dup-rule
-
-      # THE ROOT MAP (code name Ugat) — owner, DECISION_LOG 2026-10-02 "ONE MAP
-      # OF THE APP" and the rows that amend it. Fails when
-      # apps/web/lib/ugat/screens.generated.json is stale (re-run
-      # `pnpm --filter @setnayan/web ugat:screens`), AND — RATCHET ON since
-      # part 2 — on any NEW no-door screen, door to nowhere or missing #section,
-      # one-fact-two-homes, event answer outside Your info, filled-but-dropped
-      # field, typed live number or fact shown twice that is not in
-      # apps/web/lib/ugat/baselines/*, and (STRICT) on a fixed enforced finding
-      # whose line is still listed — "fixed — remove this line from …", so a
-      # fixed problem cannot quietly come back. Door words, retarget,
-      # never-read and sanitisers warn. Rides this job (needs tsx, after install).
-      # `!cancelled()` so a duplicated-rule failure above cannot hide this one.
-      - name: Root map is current and ratcheted
-        if: ${{ !cancelled() }}
-        run: node apps/web/scripts/check-ugat-screens.mjs
+        run: node scripts/ci-test-summary.mjs "$RUNNER_TEMP/tests.log" "DB replay ${{ matrix.shard }}/10"
 
   # ═══ THE REQUIRED CHECK ═════════════════════════════════════════════════
   #
@@ -880,7 +1181,7 @@ jobs:
   typecheck-lint:
     name: typecheck + lint
     runs-on: ubuntu-latest
-    needs: [guards, typecheck, eslint, unit-tests, db-replay, source-guards]
+    needs: [guards, typecheck, eslint, unit-tests, db-replay]
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@v4
@@ -901,6 +1202,20 @@ jobs:
     name: production build
     if: ${{ github.event.pull_request.draft != true }}
     runs-on: ubuntu-latest
+    # ═══ ONE PRODUCTION BUILD, TWO REQUIRED CHECKS (2026-11-18) ═══
+    # `bundle size check` used to be a job of its own that ran a SECOND full
+    # `next build` of the same commit with the same env, only to measure it.
+    # Its two budget steps now read THIS job's build, and the last step posts
+    # "bundle size check" under its exact required name (Checks API,
+    # scripts/ci-report-checks.mjs — see the guards job header). It is green
+    # only when the build AND both budgets passed. A budget failure does not
+    # turn "production build" red — the two checks keep their old meanings.
+    # On a draft PR this whole job is skipped, so neither name reports until
+    # the PR is marked ready (the draft's gate is red anyway).
+    permissions:
+      contents: read
+      # Only to post "bundle size check" under its own name.
+      checks: write
     # Catches errors that typecheck misses — most notably Next's
     # compile-time `server-only` guard, which only fires in `next build`.
     # Vercel runs the same build, so if this passes locally + here, deploy
@@ -919,6 +1234,7 @@ jobs:
         run: pnpm install --frozen-lockfile=false
 
       - name: Build web app
+        id: build_web
         # Timed for check-build-budget.mjs below. bash -e stops on a failed
         # build before the time is recorded.
         run: |
@@ -948,38 +1264,20 @@ jobs:
       - name: Check Vercel route count
         run: node apps/web/scripts/check-vercel-route-count.mjs
 
-  bundle-size-check:
-    name: bundle size check
-    if: ${{ github.event.pull_request.draft != true }}
-    runs-on: ubuntu-latest
-    # Hard ceiling: 202.3KB gzipped on the shared client JS every app-router
-    # page downloads. CLAUDE.md 2026-05-22 KPI lock — without this guard, a
-    # single chunky import in a shared layout silently regresses LCP for
-    # every couple-facing route. Owner ruling 2026-11-10 "A": it counts the
-    # chunks every app route lists + rootMainFiles, NOT the pages router's
-    # framework/main (no page downloads them) unless an app route lists one,
-    # and prints what it excluded. apps/web/scripts/check-bundle-size.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile=false
-
-      - name: Build web app
-        run: pnpm --filter @setnayan/web build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
-          NEXT_PUBLIC_APP_URL: http://localhost:3000
-
+      # ── bundle size check (REQUIRED, reported by name) ─────────────────────
+      # Hard ceiling: 202.3KB gzipped on the shared client JS every app-router
+      # page downloads. CLAUDE.md 2026-05-22 KPI lock — without this guard, a
+      # single chunky import in a shared layout silently regresses LCP for
+      # every couple-facing route. Owner ruling 2026-11-10 "A": it counts the
+      # chunks every app route lists + rootMainFiles, NOT the pages router's
+      # framework/main (no page downloads them) unless an app route lists one,
+      # and prints what it excluded. apps/web/scripts/check-bundle-size.mjs.
+      # `!cancelled()` + continue-on-error: a red build budget or route count
+      # above must not hide it, and it must not turn "production build" red.
       - name: Check shared bundle size
+        id: bundle_size
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         run: pnpm --filter @setnayan/web bundle-size-check
 
       # ⚡ The Event Hub Maker's first-load JS has its own ceiling (DECISION_LOG
@@ -987,214 +1285,19 @@ jobs:
       # never looks at a route's own chunks, which is where a heavy Maker import
       # would land. apps/web/scripts/check-maker-js-budget.mjs.
       - name: Check the Maker's first-load JS budget
+        id: maker_budget
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         run: node apps/web/scripts/check-maker-js-budget.mjs
 
-  gitleaks:
-    name: secret scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
+      # Posts "bundle size check" — green only when the build and both budget
+      # steps were exactly `success`. See the guards job's report step.
+      - name: Report the required checks this job carries
+        if: ${{ always() }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  lint-bottom-nav:
-    name: lint bottom-nav template
-    runs-on: ubuntu-latest
-    # Enforces the UNBREAKABLE bottom-nav template (owner-locked 2026-06-13 ·
-    # project_setnayan_bottom_nav_canonical). Fails if a doorway adds a
-    # *-bottom-nav.tsx wrapper that doesn't delegate to the canonical
-    # <BottomNav>, OR if the canonical primitive loses its locked-interaction
-    # markers (the central --bn-* tuning props + the travel-stretch hook).
-    # See apps/web/scripts/lint-bottom-nav.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint bottom-nav template
-        run: node apps/web/scripts/lint-bottom-nav.mjs
-
-  lint-nav-icon-source:
-    name: lint nav icon source
-    runs-on: ubuntu-latest
-    # Locks the nav/icon/menu-registry single-source invariant (Phase 9 ·
-    # project_setnayan_nav_icon_menu_registry). Fails if a nav-chrome chokepoint
-    # (customer/vendor/admin sidebar + bottom-nav, public marketing site-nav)
-    # stops sourcing its menu labels/icons from the registry, OR if the registry
-    # plumbing (resolver/defaults/icon converter) loses a required export.
-    # Positive delegation guard — NOT a lucide ban. See
-    # apps/web/scripts/lint-nav-icon-source.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint nav icon source
-        run: node apps/web/scripts/lint-nav-icon-source.mjs
-
-  lint-entitlement-gates:
-    name: lint entitlement gates
-    runs-on: ubuntu-latest
-    # Two guards on the couple-SKU ownership layer (added after the PR4/PR4b
-    # "bundle buyer wrongly denied a paid SKU" bugs):
-    #   1. couple-SKU gates must use the bundle-aware eventOwnsSku(), never the
-    #      bare checkOrderOwnership() (blind to GUIDED_PACK/MEDIA_PACK ownership)
-    #      — unless the SKU is in no bundle (explicit `bare-ok` annotation);
-    #   2. the three bundle-membership mirrors (BUNDLE_MEMBERS · BUNDLE_CHILD_SKUS
-    #      · bundles_granting_sku() SQL) must agree exactly.
-    # Pure node, no install. See apps/web/scripts/lint-entitlement-gates.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint entitlement gates
-        run: node apps/web/scripts/lint-entitlement-gates.mjs
-
-  lint-guest-legibility:
-    name: lint guest legibility
-    runs-on: ubuntu-latest
-    # Guards the Guest Legibility Floor (02_Specifications/Guest_Legibility_Floor
-    # _2026-06-20.md). After the 2026-06-20 "Lola Remedios" audit found the
-    # dominant guest-facing failure was 7-11px load-bearing text (illegible to an
-    # older guest), this fails when a guest-facing file (app/[slug], app/join, +
-    # the shared guest components) introduces NEW text-[<=11px] beyond the
-    # committed ratcheting baseline. Pure node, no install. See
-    # apps/web/scripts/lint-guest-legibility.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint guest legibility
-        run: node apps/web/scripts/lint-guest-legibility.mjs
-
-  lint-nested-forms:
-    name: lint nested forms
-    runs-on: ubuntu-latest
-    # Fails on a <form> (or <ConfirmForm>, which renders its own <form>)
-    # nested inside another form element under apps/web/app. Nested form tags
-    # are invalid HTML — the browser hoists the inner form's $ACTION_ID_ input
-    # into the outer form, so a no-JS / pre-hydration submit of the outer form
-    # dispatches the INNER action (a real bug: no-JS "Save changes" deleted a
-    # vendor's service — 2026-07-03). Tree is clean at landing; this blocks
-    # regressions. Not yet a required check — owner promotes via branch
-    # protection once proven quiet. See apps/web/scripts/lint-nested-forms.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint nested forms
-        run: node apps/web/scripts/lint-nested-forms.mjs
-
-  migration-timestamp-guard:
-    name: migration timestamp guard
-    runs-on: ubuntu-latest
-    # Runs scripts/check-migration-timestamps.mjs — the SAME check as
-    # `pnpm migration:check` and the .githooks/pre-push hook (one source of
-    # truth, no drift). Two rules:
-    #   1. UNIQUE — no two migrations share a 14-digit prefix. A duplicate is the
-    #      PK in schema_migrations, so `supabase db push` half-applies prod then
-    #      crashes on the dup. (Caught twice in two days early on — PRs #77/#81.)
-    #   2. ALLOCATED — a NEW migration must not use a hand-typed YYYYMMDD000000
-    #      round prefix; those are how parallel branches collide (each passes CI
-    #      alone, then clash on merge — a 2026-06-17 session hit it TWICE, each
-    #      needing manual ledger surgery). `pnpm migration:new` hands out a
-    #      collision-resistant, never-round prefix; this rule forces it.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      # RULE 2 distinguishes a NEW migration from one already on main, so it
-      # needs the origin/main ref (the default checkout lacks it). Best-effort —
-      # a fetch failure just skips RULE 2; RULE 1 still runs.
-      - name: Fetch origin/main for the allocator rule
-        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main || true
-
-      - name: Check migration prefixes (unique + allocator-sourced)
-        run: node scripts/check-migration-timestamps.mjs
-
-      - name: Unit-test the guard rules
-        run: node --test scripts/check-migration-timestamps.test.mjs
-
-      - name: Unit-test the migration doctor classifier
-        run: node --test scripts/migration-doctor.test.mjs
-
-      - name: Unit-test the deploy drift doctor classifier
-        run: node --test scripts/deploy-drift-doctor.test.mjs
-
-      # The FEATURE REGISTER (spec corpus, FEATURE_REGISTER.md) is kept true by
-      # scripts/feature-register-check.mjs: every route, catalogue SKU key and
-      # NEXT_PUBLIC_* setting must have a row, and no row may point at a file
-      # that is gone. The corpus is a PRIVATE repo this job cannot read, so here
-      # only the check's RULES are tested (fixtures + sabotage cases); the real
-      # register run is the test's last case and SKIPS, by name, without it.
-      - name: Unit-test the feature register check + price printout
-        run: node --test scripts/feature-register-check.test.mjs
-
-      # `pnpm preflight` (scripts/preflight.mjs) is what a builder runs BEFORE
-      # A PUSH so that the cheap faults are found in minutes on their own
-      # machine instead of one-per-round here. It does not keep its own list of
-      # "what CI runs": it READS THIS FILE and runs every cheap step as written.
-      # That only stays true if every step in this file is one it understands —
-      # so this test fails when a step is added that nobody classified
-      # (cheap = run it locally as written · medium = which targeted version
-      # runs locally · heavy = left to CI, and named as such in its output).
-      # It rides THIS job because this job is required and install-free.
-      - name: Unit-test preflight (every CI step is classified)
-        run: node --test scripts/preflight.test.mjs
-
-      # The required gate's verdict (scripts/ci-gate.mjs), the workflow-shape
-      # lint (scripts/lint-ci-gate.mjs) and the failure summary
-      # (scripts/ci-test-summary.mjs) — each is a place where "nothing ran"
-      # could be read as "nothing failed", so each is tested against exactly
-      # that: skipped, cancelled, an empty list, a log with no total.
-      - name: Unit-test the CI gate
-        run: node --test scripts/ci-gate.test.mjs
-
-  lint-exposure-baseline:
-    name: lint exposure baseline
-    runs-on: ubuntu-latest
-    # Structural half of THE FREEZE (supabase/security/README.md). The real
-    # comparison — live schema vs committed baseline — runs in the DB replay
-    # jobs via test:db:ci (the required "typecheck + lint" gate needs them),
-    # because it needs the migration replay. THIS job needs nothing but the files, so it runs everywhere and
-    # closes the two ways a file-based guard dies quietly:
-    #   1. the baseline gets truncated/emptied, so the differ compares nothing
-    #      against nothing and reports "no widenings";
-    #   2. the guard gets unwired — test file deleted, renamed out of the
-    #      tests/db/*.db.test.ts glob, or the CI step dropped — and the suite
-    #      still goes green. That is the worst failure mode available, because
-    #      it manufactures confidence.
-    # So it asserts: header fact-count matches the body, per-kind floors are
-    # met, ordering is canonical, keys are unique, the mirrored constants have
-    # not drifted from exposure-surface.ts, and the freeze test is still wired
-    # into both package.json and this workflow.
-    # Pure node, no install. See scripts/lint-exposure-baseline.mjs.
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Lint exposure baseline
-        run: node scripts/lint-exposure-baseline.mjs
-
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPORT: |
+            bundle size check=${{ steps.build_web.outcome }},${{ steps.bundle_size.outcome }},${{ steps.maker_budget.outcome }}
+        run: node scripts/ci-report-checks.mjs

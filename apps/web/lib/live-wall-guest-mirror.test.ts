@@ -98,7 +98,8 @@ test('an unrecognised or missing value falls back to the shipped behaviour, not 
 /** Every guest-facing surface that renders or serves the wall. */
 const GUEST_WALL_SURFACES = [
   'app/[slug]/_lib/loaders.ts', // the wedding page (identified + anonymous)
-  'app/[slug]/hub/page.tsx', // the guest hub
+  // (No `hub/page.tsx`: one bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to the event page's tab
+  //  (`dayHubLanding`); the wall reaches a guest on the event page, below, and the derivation dropped it by itself.)
   'app/[slug]/live-wall/route.ts', // the 25s freshness feed
   // The editorial RECAP block. Added when it stopped reading the dead
   // `events.photo_wall_photos` column and started reading the real feed — at
@@ -139,8 +140,9 @@ test('no guest wall surface asks about ownership without asking about the couple
  * 🔑 THE LIST ABOVE IS HAND-ENUMERATED, AND A HAND-ENUMERATED GUARD LIST IS A
  * LIST OF THE SURFACES SOMEBODY THOUGHT OF.
  *
- * The wall reaches a guest in TWO PLACES ON PURPOSE — the event page and the
- * Live hub — plus the freshness feed that keeps both current. That duplication
+ * The wall reached a guest in TWO PLACES ON PURPOSE — the event page and the
+ * Live hub — plus the freshness feed that keeps both current. (Since 20 Nov 2026
+ * the Live hub IS the event page's Live tab: one bar per stage.) That duplication
  * is deliberate (a guest needs it in both) and must NOT be "fixed". What must
  * hold is that the two never drift apart on the host's one on/off question.
  *

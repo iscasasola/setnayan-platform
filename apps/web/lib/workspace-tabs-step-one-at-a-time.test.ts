@@ -59,7 +59,7 @@ test('(2) the key handler is given the tab’s ID — never its place in the who
   assert.match(src, /const nextId = nextPanelTabId\(ids, id, e\.key\);/, 'the handler no longer asks the one rule');
   assert.doesNotMatch(src, /onKeyDown\(e, idx\)|\(idx [+-] 1/, 'the strip position is counted against the page list again');
   // The list it counts in is the menu's own page ids.
-  assert.match(src, /const ids = useMemo\(\(\) => menu\.map\(\(m\) => m\.id\), \[menu\]\);/, 'anti-vacuity: the page list changed shape');
+  assert.match(src, /const ids = useMemo\(\(\) => shownMenu\.map\(\(m\) => m\.id\), \[shownMenu\]\);/, 'anti-vacuity: the page list changed shape');
   // Unhandled keys are left alone: preventDefault comes only after the rule answered.
   assert.match(src, /if \(nextId === null\) return;\s*e\.preventDefault\(\);/, 'a key that is not the menu’s is swallowed');
   // Roving focus: only the picked page is in the Tab order.

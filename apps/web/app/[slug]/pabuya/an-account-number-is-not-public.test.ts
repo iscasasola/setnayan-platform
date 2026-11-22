@@ -187,14 +187,19 @@ test('🔒 the EVENT HUB names rails only — never an identifier, never couple 
     couple's own free-text `label` — author-controlled, so it could carry the
     number the ruling withholds.
   */
+  /*
+    🧭 20 Nov 2026 — one bar per stage: /hub draws nothing, it redirects to the event page's tab
+    (`dayHubLanding`), so its gifts doorway and its rail footline went with it. The ceiling stands and is
+    now total: the hub reads no e-gift row at all. Should a footline come back there, it must come back
+    through the closed vocabulary, and this test is where to say so.
+  */
   const hub = stripComments(
     readFileSync(join(process.cwd(), 'app/[slug]/hub/page.tsx'), 'utf8'),
   );
 
-  assert.match(
-    hub,
-    /egiftKindMeta\(m\.method_kind\)\.defaultLabel/,
-    'the hub no longer derives its rail names from the closed vocabulary',
+  assert.ok(
+    !/fetchEgiftMethods|egift_methods|method_kind/.test(hub),
+    'the hub reads e-gift rows again — it draws nothing of its own since 20 Nov 2026; if it must name rails, derive them from egiftKindMeta(m.method_kind).defaultLabel and pin that here',
   );
 
   for (const banned of ['.handle', '.account_name', '.qrDisplayUrl', '.qr_r2_key']) {

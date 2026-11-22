@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -12,9 +13,7 @@ export const metadata = { title: 'Notifications' };
 
 export default async function CoupleNotificationsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // 📍 Each row's PLACE (owner 2026-11-13): the rows' events in one batch, and the account menu's facts — the layout

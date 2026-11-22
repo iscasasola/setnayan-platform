@@ -245,7 +245,7 @@ export function MomentSheetStudio({
   }, [year, month, day, precision, anchor, moment, moments]);
 
   const field = studio
-    ? 'mt-1.5 min-h-11 w-full scroll-mb-24 rounded-md border border-ink/15 bg-white px-3 py-2 text-[15px] text-ink placeholder:text-ink/45 focus:border-ink/40 focus:outline-none'
+    ? 'mt-1.5 min-h-11 w-full scroll-mb-24 rounded-md border border-ink/15 bg-raised px-3 py-2 text-[15px] text-ink placeholder:text-ink/45 focus:border-ink/40 focus:outline-none'
     : 'mt-1.5 w-full rounded-md border border-[color:var(--ls-rule)] bg-[color:var(--ls-surface)] px-3 py-2 text-[15px] text-[color:var(--ls-ink)] focus:border-[color:var(--ls-accent)] focus:outline-none';
   const eye = studio
     ? 'text-[10px] font-bold uppercase tracking-[0.16em] text-ink/55'
@@ -275,7 +275,7 @@ export function MomentSheetStudio({
                   type="button"
                   aria-label="Close"
                   onClick={() => setOpen(false)}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[color:var(--ls-muted)] hover:bg-black/5"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[color:var(--ls-muted)] hover:bg-black/5 dark:hover:bg-white/10"
                 >
                   <X aria-hidden className="h-5 w-5" strokeWidth={1.75} />
                 </button>
@@ -569,7 +569,7 @@ export function MomentSheetStudio({
                   </button>
                   <SubmitButton
                     pendingLabel="Keeping…"
-                    className="sn-press inline-flex h-11 items-center gap-1.5 rounded-full bg-success-700 px-4 text-[13px] font-semibold text-white disabled:opacity-60"
+                    className="sn-press inline-flex h-11 items-center gap-1.5 rounded-full bg-success-700 px-4 text-[13px] font-semibold text-cream disabled:opacity-60"
                   >
                     <Check aria-hidden className="h-4 w-4" strokeWidth={2.2} />
                     Keep this moment
@@ -580,7 +580,7 @@ export function MomentSheetStudio({
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="inline-flex min-h-10 items-center rounded-full px-4 text-[14px] text-[color:var(--ls-muted)] hover:bg-black/5"
+                  className="inline-flex min-h-10 items-center rounded-full px-4 text-[14px] text-[color:var(--ls-muted)] hover:bg-black/5 dark:hover:bg-white/10"
                 >
                   Not now
                 </button>

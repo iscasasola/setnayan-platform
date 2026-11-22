@@ -6,36 +6,24 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 
 /** Supplier website by plan (owner-approved 2026-10-30) — the card column's plan pieces, read off the shipped caps. */
 
-test('reach follows the plan caps — never a second copy of them', () => {
-  for (const tier of ['verified', 'solo', 'pro'] as const) {
-    const r = shopReach({ verified: true, tier, declaredOuterKm: null });
-    assert.deepEqual(r, { kind: 'ring', km: TIER_CAPS[tier].serviceRadiusKm }, tier);
-  }
-  // Ultra reaches nationwide (owner 2026-11-04, "pro reach 100, ultra nationwide") — said in words, no ring.
-  assert.deepEqual(shopReach({ verified: true, tier: 'enterprise', declaredOuterKm: null }), { kind: 'nationwide' });
+test('reach is the shop’s own, never the plan’s (owner 2026-11-19, "unlock the range")', () => {
+  // A verified shop with no ring of its own serves nationwide — on any plan; there is no plan input at all.
+  assert.deepEqual(shopReach({ verified: true, declaredOuterKm: null }), { kind: 'nationwide' });
   assert.equal(shopReachLine({ kind: 'nationwide' }, 'Tagaytay'), 'Tagaytay · serves nationwide');
-  // …unless the shop drew a narrower ring of its own.
-  assert.deepEqual(shopReach({ verified: true, tier: 'enterprise', declaredOuterKm: 150 }), { kind: 'ring', km: 150 });
-  // The owner's numbers, as the caps say them today (owner 2026-11-04: 20 · 30 · 100 · nationwide).
-  assert.deepEqual(
-    (['verified', 'solo', 'pro', 'enterprise'] as const).map((t) => TIER_CAPS[t].serviceRadiusKm),
-    [20, 30, 100, Infinity],
-  );
+  // Its own ring is believed whole — 200 km is not clamped to any plan.
+  assert.deepEqual(shopReach({ verified: true, declaredOuterKm: 200 }), { kind: 'ring', km: 200 });
+  assert.deepEqual(shopReach({ verified: true, declaredOuterKm: 15 }), { kind: 'ring', km: 15 });
 });
 
-test('a narrower declared ring wins; a wider one is clamped to the plan', () => {
-  assert.deepEqual(shopReach({ verified: true, tier: 'pro', declaredOuterKm: 15 }), { kind: 'ring', km: 15 });
-  assert.deepEqual(shopReach({ verified: true, tier: 'verified', declaredOuterKm: 80 }), { kind: 'ring', km: 20 });
-});
-
-test('an unverified shop reaches 0 km and the line says why (owner 2026-10-29)', () => {
-  const r = shopReach({ verified: false, tier: 'pro', declaredOuterKm: 50 });
+test('an unverified shop reaches 0 km and the line says why (owner 2026-10-29 · 2026-11-19)', () => {
+  const r = shopReach({ verified: false, declaredOuterKm: 50 });
   assert.equal(r.kind, 'until_verified');
   assert.equal(shopReachLine(r, 'Tagaytay'), 'Tagaytay · distance search opens once verified');
 });
 
 test('verified with no ring says the city only — never "0 km"', () => {
-  const r = shopReach({ verified: true, tier: 'free', declaredOuterKm: null });
+  // A verified shop always reaches some distance, so "no ring" is a shop that declared 0.
+  const r = shopReach({ verified: true, declaredOuterKm: 0 });
   assert.equal(r.kind, 'city_only');
   assert.equal(shopReachLine(r, ' Tagaytay '), 'Tagaytay');
   assert.equal(shopReachLine(r, null), null);

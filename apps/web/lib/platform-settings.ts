@@ -144,7 +144,7 @@ const FALLBACK: PlatformSettingsRow = {
  *
  * The QR payload columns (migration 20271027100000) arrived after the code
  * that reads them, and PR #3964 put them straight into SELECT — which is the
- * trap this file already documents for fetchVendorValidateContacts: on a
+ * trap of putting a newer column straight into SELECT: on a
  * pre-migration database the whole fetch fails 42703, `error` is truthy, and
  * fetchPlatformSettings returns FALLBACK. That would blank the BUSINESS NAME,
  * VAT rate, brand icons AND the BDO/GCash account details across receipts and
@@ -347,62 +347,6 @@ async function readPlatformSettings(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Vendor VALIDATE contact destinations (migration 20270503417266)
-//
-// Where vendors send their "VALIDATE <shop name>" email/text during
-// verification. Kept OUT of the main PlatformSettingsRow SELECT on purpose:
-// adding new columns there makes the whole fetch fall back to FALLBACK on a
-// pre-migration database (42703), degrading receipts/brand/payment surfaces
-// that have nothing to do with verification. Instead this is a separate soft
-// probe that degrades to the defaults on ANY error.
-// ---------------------------------------------------------------------------
-
-export const DEFAULT_VENDOR_VALIDATE_EMAIL = 'verify@setnayan.com';
-
-export type VendorValidateContacts = {
-  /** Inbox the vendor emails "VALIDATE <shop name>" to. */
-  vendor_validate_email: string;
-  /** Number the vendor texts "VALIDATE <shop name>" to. NULL = coming soon. */
-  vendor_validate_phone: string | null;
-};
-
-export async function fetchVendorValidateContacts(
-  supabase: SupabaseClient,
-): Promise<VendorValidateContacts> {
-  try {
-    const { data, error } = await supabase
-      .from('platform_settings')
-      .select('vendor_validate_email,vendor_validate_phone')
-      .eq('id', 1)
-      .maybeSingle();
-    if (error) {
-      logQueryError('platform-settings: fetchVendorValidateContacts', error);
-      return {
-        vendor_validate_email: DEFAULT_VENDOR_VALIDATE_EMAIL,
-        vendor_validate_phone: null,
-      };
-    }
-    if (!data) {
-      return {
-        vendor_validate_email: DEFAULT_VENDOR_VALIDATE_EMAIL,
-        vendor_validate_phone: null,
-      };
-    }
-    const row = data as Partial<VendorValidateContacts>;
-    return {
-      vendor_validate_email:
-        row.vendor_validate_email?.trim() || DEFAULT_VENDOR_VALIDATE_EMAIL,
-      vendor_validate_phone: row.vendor_validate_phone?.trim() || null,
-    };
-  } catch {
-    return {
-      vendor_validate_email: DEFAULT_VENDOR_VALIDATE_EMAIL,
-      vendor_validate_phone: null,
-    };
-  }
-}
-
 /**
  * Is there a rail a person can actually pay through?
  *
@@ -556,6 +500,55 @@ export async function fetchDriveSpeed(supabase: SupabaseClient): Promise<DriveSp
     return { read: true, kmh: kmh !== null && Number.isFinite(kmh) && kmh > 0 ? kmh : null };
   } catch (e) {
     logQueryError('platform-settings: fetchDriveSpeed (threw)', e);
+    return { read: false };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 🌱 TODAY v2's GROW LINES (migration 20271350875090, owner 2026-11-18 pick 1) — "few inquiries in 28 days" and "few
+// bookings this month". NULL = not set = that grow stage is OFF on every supplier's Today: no default in code (rule 9).
+// `read: false` = it could not be read, which is NOT "not set": the admin fields are then locked, as drive speed is.
+// ---------------------------------------------------------------------------
+
+// ⚙ Today v3 part 5 (migration 20271355746081): the same row also holds Today's three other owner numbers — the days of
+// silence before a shared photo counts as accepted, and the two "Soon" windows. Same rule: NULL = not set = off.
+export type GrowLines =
+  | {
+      read: true;
+      fewInquiries: number | null;
+      fewBookings: number | null;
+      silenceDays: number | null;
+      soonAskHours: number | null;
+      soonEventDays: number | null;
+      /** 👤 Supplier roles d–h (e): own past clients a card needs before its split is cut from them. NULL = not set. */
+      splitOwnEnough?: number | null;
+    }
+  | { read: false };
+
+export async function fetchGrowLines(supabase: SupabaseClient): Promise<GrowLines> {
+  try {
+    const { data, error } = await supabase
+      .from('platform_settings')
+      .select('grow_few_inquiries_28d, grow_few_bookings_month, story_photo_silence_days, today_soon_ask_hours, today_soon_event_days, inquiry_split_own_enough')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error) {
+      logQueryError('platform-settings: fetchGrowLines', error);
+      return { read: false };
+    }
+    const row = (data ?? {}) as Record<string, number | string | null | undefined>;
+    const n = (v: number | string | null | undefined) => (v === null || v === undefined || !Number.isFinite(Number(v)) || Number(v) <= 0 ? null : Math.trunc(Number(v)));
+    return {
+      read: true,
+      fewInquiries: n(row.grow_few_inquiries_28d),
+      fewBookings: n(row.grow_few_bookings_month),
+      silenceDays: n(row.story_photo_silence_days),
+      soonAskHours: n(row.today_soon_ask_hours),
+      soonEventDays: n(row.today_soon_event_days),
+      splitOwnEnough: n(row.inquiry_split_own_enough),
+    };
+  } catch (e) {
+    logQueryError('platform-settings: fetchGrowLines (threw)', e);
     return { read: false };
   }
 }

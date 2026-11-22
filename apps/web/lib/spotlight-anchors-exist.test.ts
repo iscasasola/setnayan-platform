@@ -40,7 +40,10 @@ function drawnIn(token: string, src: string): boolean {
   const t = token.replace(/[-]/g, '\\-');
   const lit = new RegExp(`(?:data-tour|\\btour)=["'{\`]+${t}["'}\`]`);
   const chosen = new RegExp(`data-tour=\\{[^}]*['"]${t}['"]`);
-  const seat = new RegExp(`\\btour: ['"]${t}['"]`);
+  // `addTour:` — the 🔍 → ＋ icon of a field that adds (19 Nov 2026, `components/search-add.tsx`), pinned below.
+  // `titleTour:` — a picked screen's tour stop on its title (19 Nov 2026, `app/_components/picked/picked-shell.tsx`
+  // stamps `data-tour={chatHome.titleTour}`, pinned in the-client-page-is-one-chat.test.ts).
+  const seat = new RegExp(`\\b(?:tour|addTour|titleTour): ['"]${t}['"]`);
   return lit.test(src) || chosen.test(src) || seat.test(src);
 }
 
@@ -73,7 +76,11 @@ test('every spotlight anchor is drawn by a real element', () => {
 test('the ONE thumb row stamps a seat’s tour token on a real element', () => {
   const row = SOURCES.find(({ f }) => f === join('components', 'thumb-row.tsx'));
   assert.ok(row, 'components/thumb-row.tsx moved');
-  assert.match(row.src, /data-thumb-seat="field" data-tour=\{field\.tour\}/, 'the field seat no longer draws its tour token');
+  assert.match(row.src, /data-thumb-seat="field"[^>]*? data-tour=\{field\.tour\}/, 'the field seat no longer draws its tour token');
+  assert.match(row.src, /<SearchAddIcon [\s\S]{0,240}?tour=\{field\.addTour\} \/>/, 'the 🔍 → ＋ icon is not handed its tour token');
+  const icon = SOURCES.find(({ f }) => f === join('components', 'search-add.tsx'));
+  assert.ok(icon, 'components/search-add.tsx moved');
+  assert.match(icon.src, /data-search-add-icon=""[\s\S]{0,80}data-tour=\{tour\}/, 'the 🔍 → ＋ icon no longer draws its tour token');
   assert.match(row.src, /tour: r\.tour,/, 'a round no longer draws its tour token');
 });
 
@@ -162,7 +169,7 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'customers-list': 'app/vendor-dashboard/customers/_components/customers-roster.tsx',
   'customers-event': 'app/vendor-dashboard/customers/_components/customers-roster.tsx',
   'client-chat': 'app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell.tsx',
-  'client-quote': 'app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell.tsx',
+  'client-quote': 'app/vendor-dashboard/clients/[eventId]/_components/client-chat-strip.tsx',
   'maker-hint': 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx',
   'maker-tools': 'app/dashboard/[eventId]/launch/_components/maker-lower-third.tsx',
   'maker-apply': 'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',

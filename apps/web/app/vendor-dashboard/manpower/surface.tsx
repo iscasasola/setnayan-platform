@@ -47,7 +47,7 @@ const STATUS_LABEL: Record<ManpowerGigStatus, string> = {
 const STATUS_STYLE: Record<ManpowerGigStatus, string> = {
   pending: 'bg-warn-50 text-warn-900 ring-warn-300/40',
   accepted: 'bg-success-50 text-success-900 ring-success-300/40',
-  completed: 'bg-slate-100 text-slate-800 ring-slate-300/40',
+  completed: 'bg-slate-100 dark:bg-ink/[0.06] text-slate-800 dark:text-ink ring-slate-300/40 dark:ring-ink/20',
   cancelled: 'bg-danger-50 text-danger-900 ring-danger-300/40',
 };
 
@@ -186,7 +186,7 @@ export default async function VendorManpowerPage() {
     // Glass PR-7: the opaque `--m-paper` page wrapper is dropped — the wash
     // shows through; eyebrows/headings move to the kit (`.sn-eye`/`.sn-sec`).
     <div className="min-h-screen" style={{ color: 'var(--m-ink)' }}>
-      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full tab:max-w-3xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
         <PageMasthead
           title="Manpower gigs"
         />
@@ -194,7 +194,7 @@ export default async function VendorManpowerPage() {
         {/* BIR-exempt note · surfaced prominently per spec */}
         <aside className="sn-tile mt-6 p-4">
           <p className="sn-eye">Setnayan note</p>
-          <p className="mt-1.5 text-sm leading-relaxed text-slate-700">
+          <p className="mt-1.5 text-sm leading-relaxed text-slate-700 dark:text-ink/80">
             Setnayan doesn&apos;t touch a gig&apos;s cash — the amount on each
             gig flows direct from the host to your crew. You handle your own Form 2307 on this. Accepting a
             gig is free · it stamps your business as the gig owner for event
@@ -297,14 +297,14 @@ function Group({
       </h2>
       <div className="mt-3">
         {note ? (
-          <p role="status" className="mb-3 text-sm text-slate-700">
+          <p role="status" className="mb-3 text-sm text-slate-700 dark:text-ink/80">
             {note}
           </p>
         ) : null}
         {gigs.length > 0 ? (
           <ul className="space-y-3">{children}</ul>
         ) : (
-          <p className="text-sm text-slate-500">{empty}</p>
+          <p className="text-sm text-slate-500 dark:text-ink/60">{empty}</p>
         )}
       </div>
     </div>

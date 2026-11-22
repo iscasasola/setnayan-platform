@@ -23,9 +23,10 @@ import {
   type CountAddOnKind,
 } from '@/lib/vendor-ultra-addons';
 import { extendedExpiryFrom } from '@/lib/term-extends';
-import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
+import { BUNDLE_CHILD_SKUS, eventSkuActive, orderStatusConfersAccess } from '@/lib/entitlements';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
 import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
+import { AI_PLAN_SKUS_BEFORE_RECUT, placedBeforeRecut, planOrderCarriesSetnayanAi } from '@/lib/event-plans';
 import { papicPointsBoughtBySku } from '@/lib/papic-pass-tiers';
 import {
   ONBOARDING_SERVICES_SKU,
@@ -66,7 +67,7 @@ import {
   shopPapicPackCodeOf,
   vendorPortfolioCreditsForFee,
 } from '@/lib/vendor-papic-credits';
-import { shopGiftCodeOf } from '@/lib/shop-gifts';
+import { isShopGiftCartKey, shopGiftCodeOf } from '@/lib/shop-gifts';
 import { resolveAddonDeactivationExpiry } from '@/lib/vendor-addon-deactivation';
 import { type VendorTier } from '@/lib/vendor-tier-caps';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
@@ -438,17 +439,26 @@ async function grantShopPapicPack(ctx: ActivationContext): Promise<void> {
  */
 async function grantShopGiftPurchase(ctx: ActivationContext): Promise<void> {
   if (!shopGiftCodeOf(ctx.serviceKey)) return;
+  // 🛒 A STORE order (many lines, `vendor_gift__GIFT_CART`) lands through its own door.
+  if (isShopGiftCartKey(ctx.serviceKey)) return grantShopGiftCart(ctx);
   try {
     const { data, error } = await ctx.admin
       .from('shop_gift_purchases')
-      .select('vendor_profile_id, gift_kind, quantity, credits_each')
+      .select('vendor_profile_id, service_code, gift_kind, quantity, credits_each, packs_each')
       .eq('order_id', ctx.orderId)
       .maybeSingle();
     if (error) {
       reportActivationFault('activate:shop_gift_purchase', ctx, error);
       return;
     }
-    const p = data as { vendor_profile_id: string; gift_kind: string; quantity: number; credits_each: number } | null;
+    const p = data as {
+      vendor_profile_id: string;
+      service_code: string;
+      gift_kind: string;
+      quantity: number;
+      credits_each: number;
+      packs_each: number | null;
+    } | null;
     if (!p) {
       reportActivationFault(
         'activate:shop_gift_purchase',
@@ -463,12 +473,16 @@ async function grantShopGiftPurchase(ctx: ActivationContext): Promise<void> {
       reportActivationFault('activate:shop_gift_purchase', ctx, new Error(`no credits for ${ctx.serviceKey}`));
       return;
     }
+    // 🔢 Papic is COUNTED IN PACKS (2026-11-14): the row says which pack and how many — a bundle lands
+    // `quantity × packs_each` (11 per buy-10-get-1 bundle, read from the catalogue when it was bought).
+    const packs = p.quantity * (p.packs_each && p.packs_each > 0 ? p.packs_each : 1);
     const { error: insErr } = await ctx.admin.from('shop_gift_stock_entries').insert({
       vendor_profile_id: p.vendor_profile_id,
       gift_kind: p.gift_kind,
       delta: credits,
       kind: 'bought',
       order_id: ctx.orderId,
+      ...(p.gift_kind === 'papic' ? { pack_code: p.service_code, packs } : {}),
       note: `Gifts bought · ${p.quantity} × ${ctx.serviceKey}`,
       created_by: ctx.actorUserId,
     });
@@ -494,6 +508,81 @@ async function grantShopGiftPurchase(ctx: ActivationContext): Promise<void> {
 }
 
 /**
+ * 🛒 2026-11-17 — a gift STORE order (owner-approved prototype v16: any mix of singles and 10 + 1 bundles in ONE order,
+ * paid once). What it bought is its `shop_gift_order_lines` rows; `shop_gift_grant_order_lines` lands every line once,
+ * in one transaction, and REFUSES when the lines do not add up to what the order charged. Idempotent: a re-approval
+ * lands nothing (one bought row per (order, line)). This runs only on an admin's approval — never on its own.
+ */
+async function grantShopGiftCart(ctx: ActivationContext): Promise<void> {
+  try {
+    const { data: line, error } = await ctx.admin
+      .from('shop_gift_order_lines')
+      .select('vendor_profile_id')
+      .eq('order_id', ctx.orderId)
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      reportActivationFault('activate:shop_gift_cart', ctx, error);
+      return;
+    }
+    const shop = (line as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
+    if (!shop) {
+      reportActivationFault('activate:shop_gift_cart', ctx, new Error(`gift store order ${ctx.orderId} has no lines`));
+      return;
+    }
+    await assertOrderOwnsVendorTarget(ctx, shop);
+    const { data, error: rpcErr } = await ctx.admin.rpc('shop_gift_grant_order_lines', {
+      p_order_id: ctx.orderId,
+      p_actor: ctx.actorUserId,
+    });
+    if (rpcErr) {
+      reportActivationFault('activate:shop_gift_cart', ctx, rpcErr);
+      return;
+    }
+    const r = (Array.isArray(data) ? data[0] : data) as { lines_total?: number; lines_landed?: number } | null;
+    if (!r || !(Number(r.lines_landed) > 0)) return; // already landed
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        vendor_profile_id: shop,
+        shop_gift_cart_lines: Number(r.lines_total),
+        shop_gift_cart_lines_landed: Number(r.lines_landed),
+      },
+    });
+  } catch (e) {
+    reportActivationFault('activate:shop_gift_cart', ctx, e);
+  }
+}
+
+/** 🛒 A refunded / un-approved STORE order takes back exactly what each of its lines landed, once. */
+async function reverseShopGiftCart(ctx: ActivationContext): Promise<void> {
+  try {
+    const { data, error } = await ctx.admin.rpc('shop_gift_reverse_order_lines', {
+      p_order_id: ctx.orderId,
+      p_actor: ctx.actorUserId,
+    });
+    if (error) {
+      reportActivationFault('deactivate:shop_gift_cart', ctx, error);
+      return;
+    }
+    if (!(Number(data) > 0)) return; // nothing landed, or already taken back
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'order_refunded',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: { service_key: ctx.serviceKey, shop_gift_cart_lines_reversed: Number(data) },
+    });
+  } catch (e) {
+    reportActivationFault('deactivate:shop_gift_cart', ctx, e);
+  }
+}
+
+/**
  * A refunded / un-approved gift order takes its credits back OUT of the gift stock as a negative 'reversal' row —
  * sized from the 'bought' row, so it takes back exactly what this order put in, and nothing when it never landed.
  * The stock may go below zero when the gifts were already given; the delivery door then refuses until more land.
@@ -502,7 +591,7 @@ async function reverseShopGiftPurchase(ctx: ActivationContext): Promise<void> {
   try {
     const { data, error } = await ctx.admin
       .from('shop_gift_stock_entries')
-      .select('vendor_profile_id, gift_kind, delta')
+      .select('vendor_profile_id, gift_kind, delta, pack_code, packs')
       .eq('order_id', ctx.orderId)
       .eq('kind', 'bought')
       .maybeSingle();
@@ -510,12 +599,19 @@ async function reverseShopGiftPurchase(ctx: ActivationContext): Promise<void> {
       reportActivationFault('deactivate:shop_gift_purchase', ctx, error);
       return;
     }
-    const bought = data as { vendor_profile_id: string; gift_kind: string; delta: number } | null;
+    const bought = data as {
+      vendor_profile_id: string;
+      gift_kind: string;
+      delta: number;
+      pack_code: string | null;
+      packs: number | null;
+    } | null;
     if (!bought || !(bought.delta > 0)) return;
     const { error: insErr } = await ctx.admin.from('shop_gift_stock_entries').insert({
       vendor_profile_id: bought.vendor_profile_id,
       gift_kind: bought.gift_kind,
       delta: -bought.delta,
+      ...(bought.pack_code && bought.packs ? { pack_code: bought.pack_code, packs: -bought.packs } : {}),
       kind: 'reversal',
       order_id: ctx.orderId,
       note: `Gift order refunded or un-approved · ${ctx.serviceKey}`,
@@ -1462,14 +1558,34 @@ async function activateVendorDeepSearchOrder(ctx: ActivationContext): Promise<vo
 // 💎 Event Ultra (owner 2026-11-13) is the third plan: the same hook — AI on, credits topped up to ITS row's number
 // (Plus then Ultra lands Plus's credits + the difference, never both). Its Pro / Live Watch / Patiktok need no hook:
 // they are read off the Ultra order itself (`SKU_OWNERSHIP_ALIASES`), so approving it IS the unlock.
-export const AI_INCLUDED_PLAN_SKUS: readonly string[] = ['EVENT_PLUS', COUPLE_WEBSITE_PRO_SERVICE_KEY, EVENT_ULTRA_SKU];
+// 🎟 THE 18 NOV RE-CUT (owner 2026-11-18, rulings 20 + 34): Event Plus works for events with no suppliers, so it carries NO
+// Setnayan AI any more — the AI is Event Pro's and Ultra's. NEW purchases only: an Event Plus order placed before
+// `EVENT_PLANS_RECUT_AT` (lib/event-plans.ts) still turns the AI on and keeps it (`planOrderCarriesSetnayanAi`). Plus
+// still runs this hook for its included Papic credits.
+export const AI_INCLUDED_PLAN_SKUS: readonly string[] = [COUPLE_WEBSITE_PRO_SERVICE_KEY, EVENT_ULTRA_SKU];
+
+/** Does THIS order carry Setnayan AI? Pro / Ultra always; Event Plus only when the order was placed before the re-cut. */
+async function eventPlanOrderCarriesAi(ctx: ActivationContext): Promise<boolean> {
+  if (AI_INCLUDED_PLAN_SKUS.includes(ctx.serviceKey)) return true;
+  if (!AI_PLAN_SKUS_BEFORE_RECUT.includes(ctx.serviceKey)) return false;
+  const { data, error } = await ctx.admin.from('orders').select('created_at').eq('order_id', ctx.orderId).maybeSingle();
+  if (error || !data) {
+    // Not granted on a failed read — reported, and a re-approval re-runs this hook. Nothing is taken away here.
+    reportActivationFault('activate:plan_order_date', ctx, error ?? new Error('order not found'));
+    return false;
+  }
+  return planOrderCarriesSetnayanAi(ctx.serviceKey, (data as { created_at?: string | null }).created_at ?? null);
+}
 
 async function activateEventPlan(ctx: ActivationContext): Promise<void> {
   if (!ctx.eventId) return;
   const eventId = ctx.eventId;
-  // 1 · Setnayan AI — the same per-event boolean a standalone AI order set.
-  const { error: aiErr } = await ctx.admin.from('events').update({ setnayan_ai_active: true }).eq('event_id', eventId);
-  if (aiErr) reportActivationFault('activate:plan_setnayan_ai', ctx, aiErr);
+  // 1 · Setnayan AI — the same per-event boolean a standalone AI order set; only for an order that carries it.
+  const carriesAi = await eventPlanOrderCarriesAi(ctx);
+  if (carriesAi) {
+    const { error: aiErr } = await ctx.admin.from('events').update({ setnayan_ai_active: true }).eq('event_id', eventId);
+    if (aiErr) reportActivationFault('activate:plan_setnayan_ai', ctx, aiErr);
+  }
 
   // 2 · the included Papic credits, topped up to this product's number.
   try {
@@ -1515,7 +1631,7 @@ async function activateEventPlan(ctx: ActivationContext): Promise<void> {
       event_type: 'service_activated',
       actor_user_id: ctx.actorUserId,
       actor_role: 'admin',
-      metadata: { service_key: ctx.serviceKey, event_id: eventId, points_granted: grant, setnayan_ai: true },
+      metadata: { service_key: ctx.serviceKey, event_id: eventId, points_granted: grant, setnayan_ai: carriesAi },
     });
   } catch (e) {
     reportActivationFault('activate:plan_included_credits', ctx, e);
@@ -1523,7 +1639,7 @@ async function activateEventPlan(ctx: ActivationContext): Promise<void> {
 }
 
 const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
-  // 💎 Event Plus / Event Pro → Setnayan AI on + their included Papic credits (owner 2026-11-04).
+  // 💎 Event Plus / Event Pro / Ultra → their included Papic credits; Setnayan AI on for Pro and Ultra (Plus only before the 18 Nov re-cut).
   EVENT_PLUS: activateEventPlan,
   [COUPLE_WEBSITE_PRO_SERVICE_KEY]: activateEventPlan,
   [EVENT_ULTRA_SKU]: activateEventPlan,
@@ -2439,15 +2555,45 @@ export async function activateOrderSku(ctx: ActivationContext): Promise<void> {
 async function deactivateSetnayanAiIfUnowned(ctx: ActivationContext): Promise<void> {
   if (!ctx.eventId) return;
   if (await eventSkuActive(ctx.admin, ctx.eventId, 'SETNAYAN_AI')) return; // still owned → keep
-  // 💎 Event Plus / Event Pro carry Setnayan AI (owner 2026-11-04) — still held → keep.
+  // 💎 Event Pro / Ultra carry Setnayan AI — still held → keep.
   for (const sku of AI_INCLUDED_PLAN_SKUS) {
     if (await eventSkuActive(ctx.admin, ctx.eventId, sku)) return;
+  }
+  // 🎟 Event Plus carries it only when bought before the 18 Nov re-cut — still held that way → keep.
+  for (const sku of AI_PLAN_SKUS_BEFORE_RECUT) {
+    if ((await eventSkuActive(ctx.admin, ctx.eventId, sku)) && (await planHeldFromBeforeRecut(ctx, sku))) return;
   }
   const { error } = await ctx.admin
     .from('events')
     .update({ setnayan_ai_active: false })
     .eq('event_id', ctx.eventId);
   if (error) throw new Error(`SETNAYAN_AI deactivation write failed: ${error.message}`);
+}
+
+/**
+ * 🎟 Is `sku` (already known to be held) held through an order placed before the 18 Nov re-cut? Only a held plan whose
+ * every live order of its own is dated AFTER the re-cut answers no. Held with no order of its own (a basket line, a comp)
+ * or an unreadable read answers YES — a re-derive may only ever keep a paid unlock, never take one away by error.
+ */
+async function planHeldFromBeforeRecut(ctx: ActivationContext, sku: string): Promise<boolean> {
+  if (!ctx.eventId) return true;
+  const { data, error } = await ctx.admin
+    .from('orders')
+    .select('status, created_at')
+    .eq('event_id', ctx.eventId)
+    .eq('service_key', sku);
+  if (error || !data) {
+    // Kept on a failed read (never strips a past buyer) — but said, never silent.
+    console.error('[sku-activation] could not read plan orders for the AI re-derive; keeping Setnayan AI', {
+      event_id: ctx.eventId,
+      sku,
+      error: error?.message ?? 'no rows object',
+    });
+    return true;
+  }
+  const live = (data as Array<{ status: string | null; created_at: string | null }>).filter((r) => orderStatusConfersAccess(r.status));
+  if (live.length === 0) return true;
+  return live.some((r) => placedBeforeRecut(r.created_at));
 }
 
 /**
@@ -2712,6 +2858,9 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
   } else if (ctx.serviceKey === VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE || shopPapicPackCodeOf(ctx.serviceKey) !== null) {
     // The shop-wallet pack — take its credits back as a reversal row.
     await reverseShopPapicWalletPack(ctx);
+  } else if (isShopGiftCartKey(ctx.serviceKey)) {
+    // 🛒 A gift STORE order — take back what each line landed.
+    await reverseShopGiftCart(ctx);
   } else if (shopGiftCodeOf(ctx.serviceKey) !== null) {
     // 🎁 A gift order — take its credits back out of the gift stock.
     await reverseShopGiftPurchase(ctx);
@@ -2772,10 +2921,13 @@ async function orderGrantsSetnayanAi(ctx: ActivationContext): Promise<boolean> {
     ctx.serviceKey === ONBOARDING_SERVICES_SKU
       ? await readOnboardingOrderItems(ctx.admin, ctx.orderId)
       : [];
+  // 🎟 An Event Plus order may have turned the AI on (bought before the 18 Nov re-cut), so reversing one re-derives too —
+  // the re-derive itself keeps the flag while anything still carries it.
+  const mayCarryAi = (code: string) => AI_INCLUDED_PLAN_SKUS.includes(code) || AI_PLAN_SKUS_BEFORE_RECUT.includes(code);
   const grantsAi =
     ctx.serviceKey === 'SETNAYAN_AI' ||
-    AI_INCLUDED_PLAN_SKUS.includes(ctx.serviceKey) ||
-    basketItems.some((i) => i.serviceCode === 'SETNAYAN_AI' || AI_INCLUDED_PLAN_SKUS.includes(i.serviceCode)) ||
+    mayCarryAi(ctx.serviceKey) ||
+    basketItems.some((i) => i.serviceCode === 'SETNAYAN_AI' || mayCarryAi(i.serviceCode)) ||
     (BUNDLE_CHILD_SKUS[ctx.serviceKey as keyof typeof BUNDLE_CHILD_SKUS]?.includes(
       'SETNAYAN_AI',
     ) ??

@@ -141,7 +141,7 @@ export async function chatHasOpenPoll(supabase: SupabaseClient, threadId: string
 
 export type OpenPollResult =
   | { ok: true; pollId: string }
-  | { ok: false; reason: 'draft' | 'one_open' | 'contact' | 'not_allowed' | 'failed' };
+  | { ok: false; reason: 'draft' | 'one_open' | 'contact' | 'not_allowed' | 'unverified' | 'failed' };
 
 /** Open a poll. `one_open` = another poll is open in this chat — close it first. */
 export async function openPoll(supabase: SupabaseClient, threadId: string, question: string, choices: readonly string[]): Promise<OpenPollResult> {
@@ -153,6 +153,8 @@ export async function openPoll(supabase: SupabaseClient, threadId: string, quest
   });
   if (error) {
     console.warn('[openPoll] refused', error.code);
+    // 🪪 The ＋ gate's trigger (migration 20271357625672) refuses an unverified shop's side with its own word.
+    if ((error.message ?? '').includes('PLUS_NEEDS_VERIFIED')) return { ok: false, reason: 'unverified' };
     const reason =
       error.code === '23505' ? 'one_open' : error.code === '23514' ? 'contact' : error.code === '42501' ? 'not_allowed' : error.code === '22023' ? 'draft' : 'failed';
     return { ok: false, reason };

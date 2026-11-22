@@ -65,7 +65,9 @@ test('3 · the phone’s form skin, every selector given the desk switch; the ph
 
 test('4 · the event’s name: handed in wherever there is work, drawn only by the lazy desk, from 1280', async () => {
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(page, /const deskTitle = hasWork \? await readMakerDeskTitle\(supabase, eventId\) : null;/);
+  /* ⚡ Started as soon as its gate is known (speed pass 2026-11-18) and awaited here — the same read behind the same gate. */
+  assert.match(page, /\? readMakerDeskTitle\(supabase, eventId\)\s*: null,/);
+  assert.match(page, /const deskTitle = hasWork \? await deskTitleRead : null;/);
   assert.match(page, /\bdeskTitle=\{deskTitle\}/);
   const shell = read(`${L}/maker-shell.tsx`);
   assert.doesNotMatch(shell, /data-maker-desk-title/, 'the shell draws the desktop’s name itself');

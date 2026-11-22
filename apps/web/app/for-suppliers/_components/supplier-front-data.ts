@@ -8,19 +8,19 @@
  *   · which plan a Solo / Pro / Ultra line sits under                 → the Plans page's own rows,
  *                                                                       `VENDOR_TIER_SECTIONS` (vendor-benefits.ts)
  *   · which plan first has a fold line ("Pro+")                       → the same rows, or `firstPlanWith(TIER_CAPS)`
- *   · the 3D seat-plan logo                                           → `boothTierCanBrand` (booth-branding-tier-gate)
+ *   · the 3D seat-plan logo                                           → `PRO_TOOLS_MIN_TIER` (specialized-tools-access, owner 20 Nov)
  *   · plan prices, the year price, the branch + seat add-ons          → the catalog, read by the page (getVendorPrices)
  *   · the booking fee                                                  → the live schedule, read by the page
  *
  * Pure module (no React, no I/O) — `supplier-front-reads-its-numbers.test.ts` runs it.
  */
 import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
-import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
+import { bookingFeeCapPhp, bookingFeeLockPointPhp, bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { countNoun, formatCount } from '@/lib/format-number';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { FREE_FINDABLE } from './plan-table-data';
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
-import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
+import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
   PORTFOLIO_FREE_BASE,
@@ -50,11 +50,6 @@ function planName(t: VendorTier): string {
   return t === 'verified' ? 'Verified' : TIER_LABEL[t];
 }
 
-/** "20 km" / "nationwide" from a radius (Ultra is `Infinity`). */
-function reach(km: number, nationwide = 'nationwide'): string {
-  return Number.isFinite(km) ? `${formatCount(km)} km` : nationwide;
-}
-
 /** The pill beside a feature: "Verified", "Solo+", "Pro+", or "Ultra" (nothing is above Ultra on this page). */
 export function planPill(t: VendorTier | null): string {
   if (t === null || t === 'free') return 'Free';
@@ -72,36 +67,40 @@ export function tierOfPlansRow(row: RegExp): VendorTier | null {
 /* ───────────────────────── the steps: Free → Verified → Grow ───────────────────────── */
 
 /**
- * "1 category · 1 service card · found until your first inquiry" — Free's line, from its caps. The search half is the
+ * "1 category · 1 service card live · found until your first inquiry" — Free's line, from its caps. The search half is the
  * 7 Nov rule the database applies (`vendor_profiles.is_findable`, lib/findable-shop.ts): an unverified shop shows in
  * search until its first inquiry, then waits for Verified. (It said "not in search yet" until Lane J — false since 7 Nov.)
  */
 export function freeSpec(): string {
   const c = TIER_CAPS.free;
-  return `${countNoun(c.parentCategories, 'category', 'categories')} · ${countNoun(c.servicesPerLeaf, 'service card', 'service cards')} · ${FREE_FINDABLE}`;
-}
-
-/** "20 km around you · the Verified seal · get paid in the app" — Verified's line. */
-export function verifiedSpec(): string {
-  return `${reach(TIER_CAPS.verified.serviceRadiusKm)} around you · the Verified seal · get paid in the app`;
+  return `${countNoun(c.parentCategories, 'category', 'categories')} · ${countNoun(c.serviceCardsTotal, 'service card', 'service cards')} live · ${FREE_FINDABLE}`;
 }
 
 /**
- * A paid plan's spec line, e.g. Pro: "100 km · 8 categories · 10 service cards each · 3 bookings a day per service, at
- * each branch · 5 team seats · 3 branches · waiting list, 1 a date". A part a plan does not have (Plus's branches,
- * Plus's waiting list) is left out, as the prototype leaves it out. Every number is TIER_CAPS.
+ * "You set your own reach · the Verified seal · get paid in the app" — Verified's line. Reach is not a plan allowance
+ * since 2026-11-19 (owner: *"unlock the range. not plan dependend anymore"*): verified, every plan sets its own.
+ */
+export function verifiedSpec(): string {
+  // 💬 Owner 21 Nov: "AI Chatbot is for verified and up" — read from the gate's own table, never typed.
+  const chatbot = (PLAN_CHATBOT_LEVEL.verified ?? 'none') !== 'none' ? ' · the AI chatbot' : '';
+  return `${VERIFIED_REACH} · the Verified seal · get paid in the app${chatbot}`;
+}
+
+/**
+ * A paid plan's spec line, e.g. Pro: "8 categories · 20 service cards live · 5 team seats · 2 branches". A part a
+ * plan does not have (Plus's branches) is left out, as the prototype leaves it out. The waiting list has no plan limit
+ * since 2026-11-18, and reach is not a plan allowance since 2026-11-19, so neither is a part. Every number is TIER_CAPS.
  */
 export function growSpec(t: GrowTier): string {
   const c: TierCaps = TIER_CAPS[t];
   const parts = [
-    reach(c.serviceRadiusKm, 'Nationwide'),
     countNoun(c.parentCategories, 'category', 'categories'),
-    `${countNoun(c.servicesPerLeaf, 'service card', 'service cards')} each`,
-    `${countNoun(c.bookingsPerDatePerService, 'booking', 'bookings')} a day per service, at each branch`,
+    // Cards are unlimited to MAKE; the plan counts the LIVE ones (owner 19 Nov 2026, lib/live-cards-cap.ts). Bookings a
+    // day are not a plan limit (ruling 17, no part).
+    `${countNoun(c.serviceCardsTotal, 'service card', 'service cards')} live`,
     countNoun(c.agentAccounts, 'team seat', 'team seats'),
   ];
   if (c.branchesIncluded > 0) parts.push(countNoun(c.branchesIncluded, 'branch', 'branches'));
-  if (c.waitlistAcceptances > 0) parts.push(`waiting list, ${formatCount(c.waitlistAcceptances)} a date`);
   return parts.join(' · ');
 }
 
@@ -124,7 +123,7 @@ export const GROW_LINES: ReadonlyArray<{ text: string; tail?: string; lead?: tru
   { text: 'Your own reply and booking metrics', row: /^Your own funnel metrics$/ },
   { text: 'Earnings dashboard', row: /^Earnings dashboard$/ },
   { text: 'Recap sharing to your Facebook Page', row: /^Recap sharing$/ },
-  { text: 'Your logo on the couple’s 3D seat plan (3D Booth add-on)', row: /3D seat plan/ },
+  { text: 'Your logo on your booth in the couple’s 3D seat plan', row: /3D seat plan/ },
   { text: 'Premium two-column page', tail: ' with a sticky Inquire rail', lead: true, row: /^Premium two-column page$/ },
   { text: 'One business identity for your whole crew', row: /^One clean business identity$/ },
   { text: 'Demand Radar', row: /^Demand Radar$/ },
@@ -150,10 +149,19 @@ export type GrowLine = { text: string; tail?: string; lead: boolean };
  */
 export function foldedLines(t: GrowTier): GrowLine[] {
   const firstTools = GROW_TIERS.find((g) => SPECIALIZED_TOOLS_INCLUDED_TIERS.includes(g)) ?? null;
-  const firstBasic = GROW_TIERS.find((g) => PLAN_CHATBOT_LEVEL[g] === 'basic') ?? null;
+  // Verified comes first: when the chatbot opens on Verified (21 Nov), `verifiedSpec` says it and no plan repeats it.
+  const firstBasic = (['verified', ...GROW_TIERS] as const).find((g) => PLAN_CHATBOT_LEVEL[g] === 'basic') ?? null;
   const firstAdvanced = GROW_TIERS.find((g) => PLAN_CHATBOT_LEVEL[g] === 'advanced') ?? null;
   const out: GrowLine[] = [];
-  if (firstTools === t) out.push({ text: 'All specialized tools, included', lead: true });
+  if (firstTools === t) {
+    out.push(
+      firstTools === PRO_TOOLS_MIN_TIER
+        ? { text: 'All specialized tools, included', lead: true }
+        : { text: 'Specialized tools, included', tail: ': Papic Challenges and the branded 3D booth come with Pro', lead: true },
+    );
+  }
+  // 🎁 Owner 20 Nov: the photo challenge comes with Pro and up (the booth line rides GROW_LINES' 3D row).
+  if (t === PRO_TOOLS_MIN_TIER && firstTools !== t) out.push({ text: 'Papic Challenges at your events', lead: true });
   if (firstBasic === t) out.push({ text: 'AI chatbot, included', tail: ': answers price, dates and what’s included', lead: true });
   if (firstAdvanced === t) {
     out.push({ text: 'The smarter AI chatbot', tail: ': writes in your voice, replies in the couple’s language', lead: true });
@@ -164,11 +172,12 @@ export function foldedLines(t: GrowTier): GrowLine[] {
 
 /**
  * The lines shown under one paid plan. A line whose Plans-page row is gone is dropped (never shown under a guess);
- * the 3D seat-plan line additionally sits under the FIRST plan `boothTierCanBrand` opens, so the gate and the page
+ * the 3D seat-plan line additionally sits under the plan `PRO_TOOLS_MIN_TIER` names (owner 20 Nov: Pro and up), so the gate and the page
  * cannot disagree.
  */
 export function growLines(t: GrowTier): GrowLine[] {
-  const firstBooth = GROW_TIERS.find((g) => boothTierCanBrand(g)) ?? null;
+  // 🎁 Owner 20 Nov: the branded booth comes with Pro and up — anchored to the same tier the database gate opens it on.
+  const firstBooth = GROW_TIERS.find((g) => g === PRO_TOOLS_MIN_TIER) ?? null;
   return [...foldedLines(t), ...GROW_LINES.filter((l) => {
     const at = l.row.source.includes('3D') ? firstBooth : tierOfPlansRow(l.row);
     return at === t;
@@ -180,15 +189,17 @@ export const VERIFIED_PAPERS = ['DTI or SEC', 'BIR 2303', 'Permit'] as const;
 
 /* ───────────────────────── reach, the free base, the badges ───────────────────────── */
 
-/** "20 km around you, 30 km on Solo, 100 km on Pro, nationwide on Ultra" — the ⓘ under the QR codes. */
-export function reachSentence(): string {
-  const head = `${reach(TIER_CAPS.verified.serviceRadiusKm)} around you`;
-  const rest = GROW_TIERS.map((t) => `${reach(TIER_CAPS[t].serviceRadiusKm)} on ${planName(t)}`);
-  return [head, ...rest.slice(0, -1)].join(', ') + `, ${rest[rest.length - 1]}`;
-}
+/**
+ * 🔓 REACH IS NOT A PLAN ALLOWANCE (owner 2026-11-19, verbatim: *"ok unlock the range. not plan dependend anymore."* ·
+ * *"Free Unverified account will have a range of 0km."*). An unverified shop is found by its own link or QR; a verified
+ * shop on ANY plan sets how far it goes. No km per plan is printed anywhere on this page.
+ */
+export const VERIFIED_REACH = 'You set your own reach';
 
-/** Verified's own reach, for "Shown in search 20 km around you". */
-export const VERIFIED_REACH = reach(TIER_CAPS.verified.serviceRadiusKm);
+/** The ⓘ under the QR codes — one sentence, the same on every plan. */
+export function reachSentence(): string {
+  return 'until then you are found by your own link and QR; once verified, you set how far you go, on every plan';
+}
 
 /** The free photo base ("50 portfolio photos"). */
 export const FREE_PHOTOS = formatCount(PORTFOLIO_FREE_BASE);
@@ -204,7 +215,6 @@ export type FoldLine = { text: string; pill: string };
 export type FoldGroup = { title: string; lines: FoldLine[] };
 
 const seatsFrom = firstPlanWith((c) => c.agentAccounts > 0);
-const reachGrowsFrom = firstPlanWith((c) => c.serviceRadiusKm > TIER_CAPS.verified.serviceRadiusKm);
 const waitlistFrom = firstPlanWith((c) => c.waitlistAcceptances > 0);
 const branchesFrom = firstPlanWith((c) => c.branchesIncluded > 0);
 
@@ -222,8 +232,8 @@ export function foldGroups(): FoldGroup[] {
         free('Your public page, auto-built, ready for Google'),
         free(`${FREE_PHOTOS} portfolio photos`),
         free('Six QR codes: Shortlist, Check a date, My page, Booked, Crew, Review'),
-        at(`Shown in search ${VERIFIED_REACH} around you`, 'verified'),
-        at('Wider search reach as you grow', reachGrowsFrom),
+        at('Shown in search, as far as you go', 'verified'),
+        at('Your own reach on every plan — you set it', 'verified'),
         at('Your own web address', tierOfPlansRow(/^Your own web address$/)),
         at('Featured in Stories, editorial spotlights', tierOfPlansRow(/^Featured in Stories$/)),
         free('NFC tags, door sticker, ready-made printed pieces'),
@@ -314,6 +324,34 @@ export const PRICE_SHAPE_EXAMPLES = {
 
 /** The fee slider's travel — an example booking price the visitor drags, not a price. */
 export const FEE_SLIDER = { min: 10000, max: 1000000, step: 5000, start: 300000 } as const;
+
+/**
+ * The fee ruler's stops (approved drawing `prototypes/for_suppliers_2026-11-20/`, "Test it: drag the bar"): EXAMPLE
+ * booking prices a visitor swipes through, not prices. Each stop's fee is computed from the LIVE schedule by
+ * `bookingFeePhp` — no fee is typed anywhere. The ruler opens on `FEE_STOP_START`.
+ *
+ * 🔒 The drawing's 26th stop — where the fee reaches the ₱100,000 lock — is NOT typed here: `feeRulerStops` adds it from
+ * the schedule (`bookingFeeLockPointPhp`), so an edited cap or rate moves it. On the live schedule it lands at 80%.
+ */
+export const FEE_STOPS = [
+  50000, 75000, 100000, 150000, 200000, 250000, 300000, 400000, 500000, 600000, 750000, 1000000, 1250000, 1500000, 1750000,
+  2000000, 2250000, 2500000, 2750000, 3000000, 4000000, 5000000, 6000000, 8000000, 10000000,
+] as const;
+export const FEE_STOP_START = 6;
+
+/** One ruler stop: the booking price, its fee, whether the fee sits at the lock, and whether it is the lock point. */
+export type FeeRulerStop = { v: number; fee: number; locked: boolean; lockPoint: boolean };
+
+/** The ruler's stops on a schedule — the example prices plus the lock point, in order, each with its LIVE fee. PURE. */
+export function feeRulerStops(schedule: BookingFeeSchedule): FeeRulerStop[] {
+  const cap = bookingFeeCapPhp(schedule);
+  const at = bookingFeeLockPointPhp(schedule);
+  const vs = [...new Set<number>([...FEE_STOPS, ...(at !== null ? [at] : [])])].sort((a, b) => a - b);
+  return vs.map((v) => {
+    const fee = bookingFeePhp(v, schedule);
+    return { v, fee, locked: fee >= cap, lockPoint: v === at };
+  });
+}
 
 /* ───────────────────────── small read facts the page prints ───────────────────────── */
 

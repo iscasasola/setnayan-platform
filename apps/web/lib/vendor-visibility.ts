@@ -194,19 +194,25 @@ export const SHOP_LIVE_COLUMNS = 'public_visibility, verification_state' as cons
  * too. Fail-closed: an absent column reads as not bookable, so a `.select()`
  * must name all of `SHOP_BOOKABLE_COLUMNS`.
  */
-export type ShopBookingRefusal = 'missing' | 'not_verified' | 'not_listed' | 'suspended' | 'banned';
+export type ShopBookingRefusal = 'missing' | 'not_verified' | 'not_listed' | 'suspended' | 'banned' | 'paused';
 
 export function shopBookingRefusal(row: {
   public_visibility?: unknown;
   verification_state?: unknown;
   fraud_suspended_at?: unknown;
   fraud_banned_at?: unknown;
+  /** ⏸ `vendor_profiles.paused_at` (migration 20271350091032) — set by Shop ⚙ › Shop status or by Setnayan. */
+  paused_at?: unknown;
 } | null | undefined): ShopBookingRefusal | null {
   if (!row) return 'missing';
   // Ban first: a banned shop is also suspended (the wipe+ban stamps both).
   // `undefined` (the column was not selected) is refused, never read as "clear".
   if (row.fraud_banned_at !== null) return 'banned';
   if (row.fraud_suspended_at !== null) return 'suspended';
+  // ⏸ 16 Nov (DECISION_LOG "AN ADMIN-HIDDEN SHOP IS PAUSED FOR EVERYTHING NEW") + 31 Oct ("They can pause and close.
+  // Admin can also do that"): a paused shop takes nothing new — verified or not. Existing bookings are never re-asked.
+  // `undefined` (not selected) is refused, like the fraud columns: select `SHOP_BOOKABLE_COLUMNS`.
+  if (row.paused_at !== null) return 'paused';
   // 🌐 15 Nov (DECISION_LOG "AN UNVERIFIED SHOP HAS THE SAME WEBSITE AS A VERIFIED ONE", owner "We allow booking. Since
   // they can get bookings on their website"): a shop Setnayan has not decided yet is asked and booked through its own
   // page, with the booking fee, unless it is closed. Its default `hidden` is not an admin hide — it was never listed.
@@ -230,4 +236,4 @@ export function isShopBookable(row: Parameters<typeof shopBookingRefusal>[0]): b
 
 /** The columns `isShopBookable` needs, for a PostgREST `.select()`. */
 export const SHOP_BOOKABLE_COLUMNS =
-  'public_visibility, verification_state, fraud_suspended_at, fraud_banned_at' as const;
+  'public_visibility, verification_state, fraud_suspended_at, fraud_banned_at, paused_at' as const;

@@ -79,13 +79,13 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
         { q: 'What are the five stages?', a: 'Save the Date, RSVP, Invitation, The Day and Post Event. Each one shows guests what matters at that time, from one address.' },
         { q: 'Do I need to design or code anything?', a: 'No. Fill in your details and it composes itself. Change anything in the Maker, preview it, and press Apply.' },
         { q: 'Can my partner and I edit at the same time?', a: 'Yes. Your saves merge, a note tells you when the other host changed something, and Undo only takes back your own steps.' },
-        { q: 'Is it free?', a: 'You can start free with three themes, your words, colours and RSVP. The optional ◆ Pro upgrade is priced in the live catalogue and covers everyone on your event.' },
+        { q: 'Is it free?', a: 'You can start free with three themes, your words, colours and RSVP. The optional ◆ Pro upgrade covers everyone on your event; today’s price is on our Pricing page.' },
       ],
       tl: [
         { q: 'Ano ang limang stage?', a: 'Save the Date, RSVP, Invitation, The Day at Post Event. Ipinapakita ng bawat isa ang mahalaga sa bisita sa panahong iyon, mula sa iisang address.' },
         { q: 'Kailangan ko bang mag-design o mag-code?', a: 'Hindi. Punan ang detalye at bubuo ito nang mag-isa. Baguhin ang kahit ano sa Maker, i-preview, at pindutin ang Apply.' },
         { q: 'Puwede ba kaming sabay mag-edit ng partner ko?', a: 'Puwede. Pinagsasama ang mga save ninyo, may note kapag may binago ang isa pang host, at ang sarili mo lang na hakbang ang binabawi ng Undo.' },
-        { q: 'Libre ba ito?', a: 'Puwedeng magsimula nang libre na may tatlong theme, sariling salita, kulay at RSVP. Ang optional na ◆ Pro upgrade ay nasa live catalogue ang presyo at para sa lahat ng nasa event mo.' },
+        { q: 'Libre ba ito?', a: 'Puwedeng magsimula nang libre na may tatlong theme, sariling salita, kulay at RSVP. Ang optional na ◆ Pro upgrade ay para sa lahat ng nasa event mo; nasa Pricing page namin ang presyo ngayon.' },
       ],
     },
     keywords: {
@@ -478,12 +478,12 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
     faq: {
       en: [
         { q: 'What can I build?', a: 'A logo from text, image and frame layers, in the studio’s typefaces and your colours.' },
-        { q: 'What does the upgrade add?', a: 'The animation: each layer drawing on, rising or fading in on your Event Hub. It comes with Event Pro, priced in the live catalogue.' },
+        { q: 'What does the upgrade add?', a: 'The animation: each layer drawing on, rising or fading in on your Event Hub. It comes with Event Pro; today’s price is on our Pricing page.' },
         { q: 'Do I need design skills?', a: 'No. Type your initials, pick a frame, and choose how each layer moves.' },
       ],
       tl: [
         { q: 'Ano ang puwede kong buuin?', a: 'Logo mula sa text, image at frame layers, sa mga typeface ng studio at sa kulay mo.' },
-        { q: 'Ano ang idinadagdag ng upgrade?', a: 'Ang animation: ang pag-draw on, pag-angat o pag-fade in ng bawat layer sa Event Hub mo. Kasama ito sa Event Pro, nasa live catalogue ang presyo.' },
+        { q: 'Ano ang idinadagdag ng upgrade?', a: 'Ang animation: ang pag-draw on, pag-angat o pag-fade in ng bawat layer sa Event Hub mo. Kasama ito sa Event Pro; nasa Pricing page namin ang presyo ngayon.' },
         { q: 'Kailangan ba ng design skills?', a: 'Hindi. I-type ang initials, pumili ng frame, at piliin kung paano gagalaw ang bawat layer.' },
       ],
     },
@@ -507,59 +507,7 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
     moreHref: '/palogo',
     evidence: ['app/(shell)/palogo/page.tsx', 'lib/monogram.ts', 'lib/logo-layers.ts', 'app/dashboard/[eventId]/monogram/page.tsx'],
   },
-  {
-    slug: 'music-maker',
-    group: 'invite',
-    icon: 'pakanta',
-    name: { en: 'Music Maker', tl: 'Music Maker' },
-    line: { en: 'An original song written from your own story.', tl: 'Orihinal na kantang isinulat mula sa sarili mong kuwento.' },
-    title: { en: 'Custom Wedding Song from Your Love Story', tl: 'Custom na Kanta mula sa Love Story Mo' },
-    description: {
-      en: 'An original song made to order, with words drawn from your own love story. Delivered inside Setnayan, yours to keep.',
-      tl: 'Orihinal na kantang ginawa para sa inyo, na ang mga salita ay galing sa sarili mong love story. Ihahatid sa loob ng Setnayan, sa inyo habambuhay.',
-    },
-    answer: {
-      en: 'Setnayan Music Maker makes an original song for your event, with words drawn from the love story you already told us. It is made to order, delivered inside Setnayan, and yours to keep.',
-      tl: 'Gumagawa ang Setnayan Music Maker ng orihinal na kanta para sa event mo, na ang mga salita ay galing sa love story na naikuwento mo na. Ginagawa ito para sa inyo, inihahatid sa loob ng Setnayan, at sa inyo habambuhay.',
-    },
-    forWho: {
-      en: 'Couples who want music that sounds like them, without writing anything.',
-      tl: 'Para sa mga magkasintahang gusto ng musikang kamukha nila, nang hindi nagsusulat.',
-    },
-    steps: {
-      en: ['Your love story is already there. We ask a few short things it does not carry.', 'It becomes lyrics and a finished, original track in music you both like.', 'It is delivered inside Setnayan, and your Music Maker page shows where it is until then.'],
-      tl: ['Nandiyan na ang love story mo. Magtatanong kami ng ilang maikling bagay na wala roon.', 'Nagiging lyrics at tapos na orihinal na track sa musikang gusto n’yong dalawa.', 'Ihahatid ito sa loob ng Setnayan, at ipinapakita ng Music Maker page mo kung nasaan na ito hanggang doon.'],
-    },
-    different: {
-      en: ['Written from your story, not a template with names dropped in.', 'Made to order for you, not picked from a library.', 'It is yours to keep, with nothing to renew.'],
-      tl: ['Isinulat mula sa kuwento mo, hindi template na nilagyan lang ng pangalan.', 'Ginawa para sa inyo, hindi pinili mula sa isang library.', 'Sa iyo ito habambuhay, walang ire-renew.'],
-    },
-    worksWith: [
-      { slug: 'event-hub', how: { en: 'Your love story on the Event Hub is where the song begins.', tl: 'Sa love story mo sa Event Hub nagsisimula ang kanta.' } },
-      { slug: 'patiktok', how: { en: 'Once delivered, your song backs the reels made at your event.', tl: 'Kapag naihatid na, ang kanta mo ang musika ng mga reel na ginawa sa event mo.' } },
-      { slug: 'papic', how: { en: 'Guests making their own photo reels see your song first.', tl: 'Unang makikita ng mga bisitang gumagawa ng sariling photo reel ang kanta mo.' } },
-    ],
-    faq: {
-      en: [
-        { q: 'Do I have to write anything?', a: 'No. The song is built from the love story you already told us, plus a few short questions.' },
-        { q: 'Is the song really ours?', a: 'Yes. It is made for you and yours to keep, with nothing to renew.' },
-        { q: 'When do we get it?', a: 'After you order, it is written and produced, then delivered inside Setnayan. Your Music Maker page shows its status.' },
-      ],
-      tl: [
-        { q: 'Kailangan ba akong magsulat?', a: 'Hindi. Binubuo ang kanta mula sa love story na naikuwento mo na, kasama ang ilang maikling tanong.' },
-        { q: 'Totoo bang atin ang kanta?', a: 'Oo. Ginawa ito para sa inyo at sa inyo habambuhay, walang ire-renew.' },
-        { q: 'Kailan namin ito makukuha?', a: 'Pagkatapos ng order, isusulat at ipo-produce ito, tapos ihahatid sa loob ng Setnayan. Makikita mo ang status sa Music Maker page mo.' },
-      ],
-    },
-    keywords: {
-      en: ['custom wedding song Philippines', 'original song from love story', 'personalized song'],
-      tl: ['custom na kanta sa kasal', 'orihinal na kanta'],
-    },
-    shots: [],
-    price: { kind: 'paid', catalogue: 'retail', codes: ['PAKANTA'] },
-    moreHref: '/pakanta',
-    evidence: ['app/(shell)/pakanta/page.tsx', 'lib/pakanta-brief.ts', 'app/dashboard/[eventId]/pakanta-actions.ts', 'lib/guest-stories.ts'],
-  },
+  // 🪦 'music-maker' retired 2026-11-20 (lib/retired-products.ts) — its page left with it.
   {
     slug: 'groups',
     group: 'invite',

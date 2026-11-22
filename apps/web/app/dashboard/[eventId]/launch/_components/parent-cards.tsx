@@ -87,7 +87,7 @@ export function ParentCards({
               type="button"
               onClick={() => setOpen(p.guestId)}
               data-parent-open={p.guestId}
-              className="sn-press flex min-h-11 items-center justify-between gap-2 rounded-md border border-ink/15 bg-white px-3 text-left text-sm text-ink hover:border-ink/30"
+              className="sn-press flex min-h-11 items-center justify-between gap-2 rounded-md border border-ink/15 bg-raised px-3 text-left text-sm text-ink hover:border-ink/30"
             >
               <span className="truncate">{p.name}</span>
               <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
@@ -116,7 +116,7 @@ export function ParentCards({
             autoFocus
             aria-label="Parent’s name"
             placeholder="e.g. Atty. Rosa M. Santos"
-            className="rounded-md border border-ink/15 bg-white px-3 py-2 text-[16px] text-ink"
+            className="rounded-md border border-ink/15 bg-raised px-3 py-2 text-[16px] text-ink"
           />
           <div className="flex flex-wrap items-center gap-2">
             <PickMenu

@@ -130,7 +130,12 @@ test('5 · the gesture: the List hold, the house slop, the one edge rule — and
   assert.match(tray, /dragEdgeStep\(d\.x, /, 'the floor does not pan sideways near its edges');
   assert.match(tray, /dragEdgeStep\(d\.y, /, 'the floor does not pan up or down near its edges');
   const { SEAT_HOLD_MS } = await import('@/lib/seat-list-drop');
-  assert.equal(Number(/const HOLD_MS = (\d+);/.exec(code('seat-list.tsx'))?.[1]), SEAT_HOLD_MS, 'the tray and Seats › List no longer agree on a hold');
+  // Seats › List reads the SAME constant (19 Nov 2026: no second number to keep equal), and it is the motion
+  // standard's one hold.
+  assert.match(code('seat-list.tsx'), /const HOLD_MS = SEAT_HOLD_MS;/, 'the tray and Seats › List no longer agree on a hold');
+  const { HOLD_MS } = await import('@/lib/motion-table');
+  assert.equal(SEAT_HOLD_MS, HOLD_MS, 'the seat plan holds for a time of its own — the standard has ONE hold');
+  assert.equal(HOLD_MS, 350);
   const ed = code('seating-editor.tsx');
   assert.match(ed, /data-plan-floor=""/);
   assert.match(ed, /data-plan-table=\{t\.table_id\}/);

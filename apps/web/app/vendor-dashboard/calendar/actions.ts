@@ -19,6 +19,8 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchVendorPools } from '@/lib/vendor-schedule';
+import { outsideClientPoolOf } from '@/lib/outside-client-pool';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
@@ -35,6 +37,7 @@ import {
   notifyWaitlistForFreedRange,
 } from '@/lib/vendor-waitlist';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { bookingWindowFromForm } from '@/lib/booking-window';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -60,7 +63,7 @@ async function ownedServiceIds(
   supabase: SupabaseClient,
   vendorProfileId: string,
   requested: FormDataEntryValue[],
-): Promise<string[]> {
+): Promise<string[] | null> {
   const ids = [
     ...new Set(
       requested
@@ -70,11 +73,17 @@ async function ownedServiceIds(
     ),
   ];
   if (ids.length === 0) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('vendor_services')
     .select('vendor_service_id')
     .eq('vendor_profile_id', vendorProfileId)
     .in('vendor_service_id', ids);
+  // 🔎 A refused read is NOT "none of these are yours" — returned as [] it made editCalendar unassign EVERY service
+  // on the schedule and still say "Schedule saved". null = unread; every caller answers save_failed.
+  if (error) {
+    console.error('[calendar] owned services read failed:', error.message);
+    return null;
+  }
   return ((data ?? []) as { vendor_service_id: string }[]).map((r) => r.vendor_service_id);
 }
 
@@ -287,7 +296,10 @@ export async function importExternalClient(formData: FormData): Promise<void> {
   // A venue's booking from outside may hold SEVERAL halls (owner 2026-10-14 🏛, "Which halls") — one row per hall,
   // each the same shipped RPC (one pool each, by CHECK).
   const hallIds = [...new Set(formData.getAll('pool_ids').map((v) => String(v)).filter(Boolean))].slice(0, 12);
-  const poolId = hallIds[0] ?? str(formData, 'pool_id');
+  // 🗓 W1-B18: an empty `pool_id` from a shop with ONE schedule is that schedule (`lib/outside-client-pool.ts`) — a new
+  // shop's first outside client was refused with "pick a schedule" and no picker on screen.
+  const postedPool = hallIds[0] ?? str(formData, 'pool_id');
+  const poolId = postedPool || outsideClientPoolOf(null, await fetchVendorPools(supabase, profile.vendor_profile_id).catch(() => [])) || '';
   const clientName = str(formData, 'client_name');
   const startDate = str(formData, 'start_date');
   const endDate = str(formData, 'end_date') || startDate;
@@ -424,12 +436,16 @@ export async function notifyWaitlistSlot(formData: FormData): Promise<void> {
   const vendorProfileId = profile.vendor_profile_id;
   // Run synchronously so the notice reflects the real outcome; emails inside
   // are best-effort (Promise.allSettled) so a slow provider can't hang us long.
-  await notifyWaitlistForFreedDate(vendorProfileId, requestedDate).catch((e) => {
+  // 🔎 The count it returns is the answer: -1 = it threw, 0 = nobody was told (no one waiting, or the day is
+  // closed again). Only a real count may say "Told them".
+  const told = await notifyWaitlistForFreedDate(vendorProfileId, requestedDate).catch((e) => {
     console.error('[waitlist] one-click notify failed:', String(e));
+    return -1;
   });
 
   revalidateScheduleSurfaces();
-  backToCalendar(formData, 'waitlist_notified');
+  if (told < 0) backToCalendar(formData, 'save_failed');
+  backToCalendar(formData, told === 0 ? 'waitlist_none' : 'waitlist_notified');
 }
 
 /**
@@ -539,18 +555,20 @@ export async function pickWaitlistCouple(formData: FormData): Promise<void> {
   const unlimited = !Number.isFinite(planCap);
 
   // Cap: how many already picked (accepted) for this date.
-  const { count } = await supabase
+  const { count, error: countErr } = await supabase
     .from('vendor_date_waitlist')
     .select('waitlist_id', { count: 'exact', head: true })
     .eq('vendor_profile_id', vp)
     .eq('requested_date', requestedDate)
     .not('accepted_at', 'is', null);
+  // D-6 (supplier audit 2026-11-17): a REFUSED count is not 0 — `count ?? 0` let a pick past the cap. Fail closed.
+  if (countErr || count == null) backToCalendar(formData, 'save_failed');
   if (!unlimited && (count ?? 0) >= cap) backToCalendar(formData, 'waitlist_full');
 
   // Pick the next couple in line (oldest interest) that isn't picked yet.
   // `user_id` comes back too — it is who the pick HAPPENED TO, and the reason
   // this action can tell them at all.
-  const { data: next } = await supabase
+  const { data: next, error: nextErr } = await supabase
     .from('vendor_date_waitlist')
     .select('waitlist_id, user_id')
     .eq('vendor_profile_id', vp)
@@ -560,6 +578,8 @@ export async function pickWaitlistCouple(formData: FormData): Promise<void> {
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
+  // D-6: a refused read is "that didn't go through", never "No one is waiting".
+  if (nextErr) backToCalendar(formData, 'save_failed');
   if (!next) backToCalendar(formData, 'waitlist_none');
 
   const picked = next as { waitlist_id: string; user_id: string | null };
@@ -690,8 +710,15 @@ export async function setCalendarDayState(formData: FormData): Promise<void> {
   backToCalendar(formData, status === 'cleared' ? 'day_state_cleared' : 'day_state_saved');
 }
 
-/** Pool daily capacity — the supplier's own number, clamped only to the database's 50 (no plan limit, 2026-10-23). */
+/**
+ * Pool daily capacity — the supplier's own number, clamped only to the database's 50 (no plan limit, 2026-10-23).
+ *
+ * 📅 `op=booking_window` is the other Teams and days number — "How far away you take bookings" (`saveBookingWindow`
+ * below). It rides this action rather than a new export: every exported server action is a Vercel route
+ * (`scripts/lint-server-action-budget.mjs`), and BUILD_RULES §3 says server actions do not grow.
+ */
 export async function updatePoolCapacity(formData: FormData): Promise<void> {
+  if (str(formData, 'op') === 'booking_window') return saveBookingWindow(formData);
   const { supabase, profile } = await requireVendor();
   const poolId = str(formData, 'pool_id');
   const raw = Number(str(formData, 'capacity'));
@@ -711,6 +738,28 @@ export async function updatePoolCapacity(formData: FormData): Promise<void> {
   revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
   backToCalendar(formData, capacity === raw ? 'capacity_saved' : 'capacity_clamped');
+}
+
+/**
+ * 📅 HOW FAR AWAY YOU TAKE BOOKINGS (owner 2026-11-19, DECISION_LOG "AT LEAST AND AT MOST, EMPTY AT MOST = 3 YEARS";
+ * drawing `schedule_questions_placement_2026-11-19.html` §5). Two picks, every card: At least (days before the event)
+ * and At most (how far ahead). Only the drawing's picks are stored (`bookingWindowFromForm`); Same day and 3 years are
+ * stored empty. The shop's own session writes its own row (vendor_profiles_owner), as the waiting-list settings do.
+ */
+async function saveBookingWindow(formData: FormData): Promise<void> {
+  const { supabase, profile } = await requireVendor();
+  const picked = bookingWindowFromForm(str(formData, 'booking_min_days'), str(formData, 'booking_max_months'));
+  if (!picked) backToCalendar(formData, 'bad_booking_window');
+  // `.select()` so a write the row policy turns into ZERO rows reads as not saved — never as "saved" (ship review of #8058).
+  const { data: saved, error } = await supabase
+    .from('vendor_profiles')
+    .update({ booking_min_days: picked.booking_min_days, booking_max_months: picked.booking_max_months })
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .select('vendor_profile_id');
+  if (error || !saved || saved.length === 0) backToCalendar(formData, 'save_failed');
+  revalidateShopPage(profile.vendor_profile_id);
+  revalidateScheduleSurfaces();
+  backToCalendar(formData, 'booking_window_saved');
 }
 
 /**
@@ -771,11 +820,13 @@ export async function reassignCategoryPool(formData: FormData): Promise<void> {
 
   // Deactivate (never delete — booking history) pools with no categories left.
   if (fromPool) {
-    const { count } = await supabase
+    const { count, error: countErr } = await supabase
       .from('vendor_schedule_pool_categories')
       .select('category_key', { count: 'exact', head: true })
       .eq('pool_id', fromPool);
-    if ((count ?? 0) === 0) {
+    // 🔎 A refused count is not 0 — read as 0 it switched off a schedule that still had services. Left on instead.
+    if (countErr) console.error('[calendar] pool category count failed; schedule left on:', countErr.message);
+    if (!countErr && count === 0) {
       await supabase
         .from('vendor_schedule_pools')
         .update({ is_active: false, updated_at: new Date().toISOString() })
@@ -819,6 +870,7 @@ export async function createCalendar(formData: FormData): Promise<void> {
     profile.vendor_profile_id,
     formData.getAll('service_ids'),
   );
+  if (services === null) backToCalendar(formData, 'save_failed');
 
   const { data: created, error } = await supabase
     .from('vendor_schedule_pools')
@@ -914,6 +966,7 @@ export async function editCalendar(formData: FormData): Promise<void> {
     profile.vendor_profile_id,
     formData.getAll('service_ids'),
   );
+  if (desired === null) backToCalendar(formData, 'save_failed');
   const { data: currentRows } = await supabase
     .from('vendor_schedule_calendar_services')
     .select('vendor_service_id')
@@ -941,12 +994,13 @@ export async function editCalendar(formData: FormData): Promise<void> {
     if (addErr) backToCalendar(formData, 'save_failed');
   }
   if (toRemove.length > 0) {
-    await supabase
+    const { error: removeErr } = await supabase
       .from('vendor_schedule_calendar_services')
       .delete()
       .eq('pool_id', poolId)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .in('vendor_service_id', toRemove);
+    if (removeErr) backToCalendar(formData, 'save_failed');
   }
 
   revalidateShopPage(profile.vendor_profile_id);
@@ -964,7 +1018,7 @@ export async function editCalendar(formData: FormData): Promise<void> {
  */
 export async function setServiceHalls(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
-  const [serviceId] = await ownedServiceIds(supabase, profile.vendor_profile_id, [str(formData, 'vendor_service_id')]);
+  const [serviceId] = (await ownedServiceIds(supabase, profile.vendor_profile_id, [str(formData, 'vendor_service_id')])) ?? [];
   if (!serviceId) backToCalendar(formData, 'save_failed');
   const asked = [...new Set(formData.getAll('pool_ids').map((v) => String(v)).filter(Boolean))];
   let halls: string[] = [];

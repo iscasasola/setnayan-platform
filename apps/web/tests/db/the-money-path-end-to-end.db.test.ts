@@ -698,7 +698,7 @@ test('8 · the fee opens at ₱837.50 — 5% of the accepted total, the first bi
 
   // The three numbers the owner-locked model names, as they stand right now.
   assert.equal(live.rate, 0.05, 'the headline booking-fee rate is no longer 5%');
-  assert.equal(live.tailRate, 0.01, 'the tail rate above the band is no longer 1%');
+  assert.equal(live.tailRate, 0.03, 'the tail rate above the band is no longer 3% (owner 2026-11-20)');
   assert.equal(live.tier1LimitPhp, 100_000, 'the 5% band no longer ends at ₱100,000');
   assert.equal(live.minPhp, 50, 'the ₱50 floor moved');
 
@@ -790,7 +790,7 @@ test('8 · the fee opens at ₱837.50 — 5% of the accepted total, the first bi
   assert.equal(Number(c.days), 7, `the charge is due in ${c.days} days, not 7`);
   assert.equal(
     c.version,
-    '2026-07-25-taper5-1-over-100k',
+    '2026-11-20-taper5-3-cap100k',
     'the charge was stamped with an unexpected schedule version, so history stops being readable',
   );
 
@@ -1088,6 +1088,14 @@ test('waived · a booking inside the first five bills ₱0, mints no bill, and s
     [eventId, QUOTE_TOTAL_C / 100, vpid, coupleU.rows[0]!.id],
   );
   const evId = evRow.rows[0]!.vendor_id;
+  // ⚖ 20 Nov: no booking takes a free place now; the free booking here is a place FROZEN free before the change,
+  // exactly as production holds one (the ledger row the lock reads, never re-derived).
+  await db.query(
+    `INSERT INTO public.booking_fee_ledger
+       (vendor_profile_id, event_id, source, attribution, attribution_frozen_at, booking_ordinal, is_free_booking)
+     VALUES ($1, $2, 'lock', 'sourced', NOW(), 1, TRUE)`,
+    [vpid, eventId],
+  );
 
   // The shop agrees — the same transition step 5 drove.
   await setAuthUid(db, shopUserId);

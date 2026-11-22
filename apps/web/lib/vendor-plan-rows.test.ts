@@ -18,13 +18,11 @@ const line = (tier: string, key: string, paywallOn = true) =>
   planGivesLines(tier, paywallOn).find((l) => l.key === key)?.line;
 
 test('what a plan gives is read from TIER_CAPS', () => {
-  assert.match(line('pro', 'services')!, new RegExp(`^${TIER_CAPS.pro.servicesPerLeaf} per kind`));
+  assert.match(line('pro', 'services')!, new RegExp(`^${TIER_CAPS.pro.serviceCardsTotal} in total`));
   assert.match(line('pro', 'helpers')!, new RegExp(`^${TIER_CAPS.pro.agentAccounts} team seats \\+ 1 free Helper`));
-  assert.equal(line('enterprise', 'services'), '30 per kind · 16 kinds of work'); // Ultra raised 2026-11-14 ("SIMPLER SUPPLIER PLANS")
-  assert.equal(line('free', 'reach'), 'Not in couples’ search on this plan');
-  assert.equal(line('enterprise', 'reach'), 'Nationwide');
-  // Owner 2026-11-04 ("SUPPLIER PLAN ALLOWANCES"): Pro reaches 100 km — NOT nationwide; Ultra does.
-  assert.equal(line('pro', 'reach'), `${TIER_CAPS.pro.serviceRadiusKm} km around you`);
+  assert.equal(line('enterprise', 'services'), '80 in total · 12 kinds of work'); // Max, owner 2026-11-18
+  // 🔓 No reach line on any plan since 2026-11-19 (owner: "unlock the range. not plan dependend anymore").
+  for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise']) assert.equal(line(t, 'reach'), undefined, t);
   // Own web address from Plus up ("website applies to solo as well"); below it, the plan is named from the table.
   assert.equal(line('solo', 'web'), 'Yes');
   assert.equal(line('verified', 'web'), 'Comes with Plus');
@@ -38,7 +36,7 @@ test('with the paywall OFF, a plan with no seats gets the entry plan’s, and sa
   assert.match(line('free', 'helpers', true)!, /^0 team seats \+ 1 free Helper/);
   assert.match(line('free', 'helpers', false)!, /^1 team seat \+ 1 free Helper/);
   assert.equal(line('free', 'insights', false), 'All of it — open to every plan today');
-  assert.equal(line('free', 'waitlist', true), 'Not on this plan');
+  assert.equal(line('free', 'waitlist', true), 'You choose, up to 10 a date'); // no plan limit, 2026-11-18
 });
 
 test('a changed table changes the line (no typed copy survives an edit)', () => {
@@ -59,12 +57,20 @@ test('the fee line reads the LIVE schedule handed in, never the code default', (
   assert.doesNotMatch(row.line, /5%/);
 });
 
-test('the free first booking: still to come, then used — never a count (owner 2026-10-23)', () => {
-  const row = bookingFeeRow({ kind: 'free', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE }, 0)!;
-  assert.deepEqual(row.badge, { tone: 'quiet', word: 'First booking free' });
-  assert.match(row.line, /your first booking from Setnayan is on us$/);
-  const used = bookingFeeRow({ kind: 'billable', ordinal: 2, ordinalIsFrozen: false, schedule: BOOKING_FEE }, 0)!;
-  assert.deepEqual(used.badge, { tone: 'quiet', word: 'Free booking used' });
+test('20 Nov: no free first booking is promised; a place frozen free reads Waived; tickets and every-Nth are named', () => {
+  const frozen = bookingFeeRow({ kind: 'free', ordinal: 1, ordinalIsFrozen: true, schedule: BOOKING_FEE }, 0)!;
+  assert.deepEqual(frozen.badge, { tone: 'ok', word: 'Waived' });
+  assert.doesNotMatch(frozen.line, /first booking/i);
+  const billed = bookingFeeRow({ kind: 'billable', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE }, 0)!;
+  assert.equal(billed.badge, null);
+  assert.equal(billed.line, '5% of the first ₱100,000, then 3%, minimum ₱50, never more than ₱100,000');
+  const flat = bookingFeeRow({ kind: 'billable', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE, unverified: true }, 0)!;
+  assert.equal(flat.line, '5% of the whole booking, minimum ₱50, never more than ₱100,000');
+  const ticket = bookingFeeRow({ kind: 'billable', ordinal: 3, ordinalIsFrozen: false, schedule: BOOKING_FEE, badgeReward: 'next' }, 0)!;
+  assert.match(ticket.line, /ticket pays your next one by itself/);
+  assert.doesNotMatch(ticket.line, /redeem/i);
+  const nth = bookingFeeRow({ kind: 'billable', ordinal: 9, ordinalIsFrozen: true, schedule: BOOKING_FEE, platformFree: 100_000 }, 0)!;
+  assert.match(nth.line, /Setnayan's 100,000th booking fee — free/);
 });
 
 test('waived (launch offer / promotion) reads Waived; a bill waiting outranks it', () => {
@@ -84,4 +90,11 @@ test('picking a plan says what happens, by the live ladder', () => {
   assert.equal(planPickLine('pro', 'solo', '31 October 2026'), 'Starts when Pro ends · 31 October 2026');
   assert.equal(planPickLine('pro', 'free', '31 October 2026'), 'Nothing renews by itself · Pro ends 31 October 2026, then Free');
   assert.equal(planPickLine('free', 'free', null), 'You are on Free — nothing to pay');
+});
+
+test('owner 20 Nov: Plus does not say "All included" for Specialized tools — Papic Challenges and the 3D booth are Pro and up', () => {
+  assert.doesNotMatch(line('solo', 'tools') ?? '', /^All included$/);
+  assert.match(line('solo', 'tools') ?? '', /Papic Challenges and the 3D booth come with Pro/);
+  assert.equal(line('pro', 'tools'), 'All included');
+  assert.equal(line('enterprise', 'tools'), 'All included');
 });

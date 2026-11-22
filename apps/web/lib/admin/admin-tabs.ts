@@ -205,9 +205,11 @@ export const ADMIN_TABS: readonly AdminTab[] = [
     key: 'catalogue',
     label: 'Catalogue',
     icon: 'LayoutGrid',
-    href: '/admin/categories',
+    // #7693: the tab lands on its Home (the shared TabLanding), as `admin-pages.ts` does — the two maps agree.
+    href: '/admin/catalogue',
     searchPlaceholder: 'Search categories, prices, templates',
     views: [
+      { key: 'home', label: 'Home', href: '/admin/catalogue' },
       { key: 'categories', label: 'Categories', href: '/admin/categories' },
       { key: 'event-types', label: 'Event types', href: '/admin/categories?list=event-types' },
       { key: 'religions', label: 'Religions', href: '/admin/categories?list=religions' },

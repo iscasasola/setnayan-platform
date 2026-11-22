@@ -4,7 +4,7 @@ import { seatPlacedShort, type SeatPlacedBy } from '@/lib/seat-why';
 import { plusOneMark, plusOneSeatIndexes } from '@/lib/plus-one-of';
 import { boothCardFromRow, boothHasSupplier } from '@/lib/booth-card-from-row';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
-import { assessSeatMove, seatMoveDoneWords, type MoveAssessment, type MoveGuest } from '@/lib/seat-move-assess';
+import { assessSeatMove, seatMoveDoneWords, seatMoveUndo, type MoveAssessment, type MoveGuest, type SeatBefore } from '@/lib/seat-move-assess';
 import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { floorPlanFieldsOf } from '@/lib/floor-plan-row';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
@@ -20,8 +20,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  ChevronsDownUp,
-  ChevronsUpDown,
   CircleDot,
   GripVertical,
   Lock,
@@ -102,9 +100,7 @@ import { Counter } from '@/app/_components/counter';
 import { seatCounter, seatStepWords } from '@/lib/seat-counter';
 import {
   BOOTH_CATALOG,
-  CHAIR_PX,
   SIDE_COLORS,
-  TABLE_FOOTPRINT_M,
   boothTypeForVendorCategory,
   boothPresenceLabel,
   boothPerimeterSlots,
@@ -112,17 +108,13 @@ import {
   solveAutoLayout,
   freeBoothSlots,
   defaultPriorityOrder,
-  defaultTablePosition,
-  effectiveCapacity,
   autoArrangeNewTableKey,
   autoArrangeSummary,
   autoSeatRoom,
   tablesToAddForAutoSeat,
   groupTablesIntoUnits,
   guestTier,
-  removedSeatSet,
   roleTier,
-  rotatePoint,
   nextTableName,
   obbOf,
   checkPlacement,
@@ -135,10 +127,6 @@ import {
   atLegalJoint,
   chainableShapes,
   stageZone,
-  TABLE_TYPE_CATALOG,
-  TABLE_TYPE_LABEL,
-  shapeHintFor,
-  tableGeometry,
   tableNumberEndsInFour,
   relaxLowestPriorityRule,
   type BoothType,
@@ -151,10 +139,7 @@ import {
   type FloorPlanRow,
   sanitizeCapacity,
   weldCommitBatch,
-  DEFAULT_ROOM_M,
   type FloorSignRow,
-  type TableShapeHint,
-  type TableType,
   type WorldPose,
   type OracleZone,
   type DropHit,
@@ -164,6 +149,24 @@ import {
   parseVipPlusOneSeating,
   type VipPlusOneSeating,
 } from '@/lib/seating';
+// 🪑⚙ Tables, chairs, the room box and the wall rule come from the ONE seat-plan engine the supplier's Spaces uses too
+// (DECISION_LOG 2026-11-20, "ONE SEAT-PLAN ENGINE FOR THE COUPLE AND THE SUPPLIER").
+import {
+  CHAIR_PX,
+  TABLE_FOOTPRINT_M,
+  defaultTablePosition,
+  effectiveCapacity,
+  removedSeatSet,
+  rotatePoint,
+  TABLE_TYPE_CATALOG,
+  TABLE_TYPE_LABEL,
+  shapeHintFor,
+  tableGeometry,
+  DEFAULT_ROOM_M,
+  type TableShapeHint,
+  type TableType,
+  nearestWall,
+} from '@/lib/seat-plan-engine';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
 import {
   roleSeatingChoice,
@@ -5290,7 +5293,7 @@ export function SeatingEditor({
             {count > 0 ? (
               <span
                 className={`rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${
-                  warm ? 'bg-danger-100 text-danger-700' : active ? 'bg-white/25 text-white' : 'bg-ink/8 text-ink/70'
+                  warm ? 'bg-danger-100 text-danger-700' : active ? 'bg-sn-on-accent/25 text-sn-on-accent' : 'bg-ink/8 text-ink/70'
                 }`}
               >
                 {formatCount(count)}
@@ -6858,13 +6861,21 @@ export function SeatingEditor({
      there swapped nobody, and a put-back found its own chair still taken. */
   const seatOps = useRef({ tradeSeats, seatGuestHere, unseat, tables });
   seatOps.current = { tradeSeats, seatGuestHere, unseat, tables };
-  const putBack = (before: readonly { id: string; tableId: string | null; seat: number | null }[]) => {
+  const putBack = (before: readonly SeatBefore[]) => {
     const o = seatOps.current;
     for (const b of before) {
       const t = b.tableId ? o.tables.find((x) => x.table_id === b.tableId) : null;
       if (t) o.seatGuestHere(t, b.id, b.seat ?? undefined);
       else o.unseat(b.id, true);
     }
+  };
+  /* ↩ An Undo restores EVERYONE the move moved (`seatMoveUndo`): a swap is swapped back AND the +1 who came along goes
+     back to their chair (#7906 follow-up, walk 18 Nov — the swap's Undo used to stop at the two). */
+  const undoMove = (moverId: string, otherId: string | null, before: readonly SeatBefore[]) => {
+    setMoveNote(null);
+    const plan = seatMoveUndo(moverId, otherId, before);
+    if (plan.trade) seatOps.current.tradeSeats(plan.trade[0], plan.trade[1]);
+    putBack(plan.putBack);
   };
   const moveGuestOf = (g: SeatingGuest): MoveGuest => ({
     guest_id: g.guest_id,
@@ -6916,11 +6927,7 @@ export function SeatingEditor({
     if (other) tradeSeats(mover.guest_id, other.guest_id);
     else seatGuestHere(target, mover.guest_id, ask.seat ?? undefined);
     for (const x of along) seatGuestHere(target, x.guestId, x.seat);
-    const undo = () => {
-      setMoveNote(null);
-      if (other) return seatOps.current.tradeSeats(mover.guest_id, other.guest_id);
-      putBack(before);
-    };
+    const undo = () => undoMove(mover.guest_id, other?.guest_id ?? null, before);
     setMoveNote({
       text: seatMoveDoneWords(ask.a, moveGuestOf(mover), other ? moveGuestOf(other) : null, target.link_group_label?.trim() || target.table_label, ask.seat, along.map((x) => guestsById.get(x.guestId)?.name ?? '')),
       undo,
@@ -6993,11 +7000,7 @@ export function SeatingEditor({
     const before = [{ id: mover.guest_id, tableId: mover.seated_table_id, seat: mover.seat_number }];
     setMoveNote({
       text: seatMoveDoneWords(a, moveGuestOf(mover), other ? moveGuestOf(other) : null, t.link_group_label?.trim() || t.table_label, seat, []),
-      undo: () => {
-        setMoveNote(null);
-        if (other) return seatOps.current.tradeSeats(mover.guest_id, other.guest_id);
-        putBack(before);
-      },
+      undo: () => undoMove(mover.guest_id, other?.guest_id ?? null, before),
     });
   };
   /* ✋ A FACE (OR A GROUP) LET GO ON THE FLOOR — the tray under the 2D floor on a phone (`seat-face-tray.tsx`, owner
@@ -7426,8 +7429,6 @@ export function SeatingEditor({
       setHighlightId(g.seated_table_id);
     }
   };
-  const faceKeys = [SEAT_LIST_UNSEATED, ...faceUnits.map((u) => u.key)];
-  const facesAllOpen = faceKeys.every((k) => faceOpen.has(k));
   const seatAddOptions: PickOption[] = [
     { key: 'table', label: 'New table…', disabledNote: canEdit ? undefined : 'Tap Edit first' },
     { key: 'entrance', label: 'Entrance', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : entrance.enabled ? 'Already on the plan' : undefined },
@@ -7559,19 +7560,8 @@ export function SeatingEditor({
             {seatPop ?? tableBar ?? seatTray}
             <lens.ThumbRow
               name="guests-seats"
-              left={
-                view === 'list' && !in3d
-                  ? [
-                      {
-                        icon: facesAllOpen ? ChevronsDownUp : ChevronsUpDown,
-                        label: facesAllOpen ? 'Collapse all' : 'Expand all',
-                        expanded: facesAllOpen,
-                        onClick: () => setFaceOpen(facesAllOpen ? new Set() : new Set(faceKeys)),
-                        testId: 'seats-expand',
-                      },
-                    ]
-                  : []
-              }
+              /* 👥 Guests redesign pick 5 (20 Nov): Seats › List is table cards, each rising on its own — there are no
+                 headers left to expand or fold, so the ⇕ left the row. */
               field={{
                 placeholder: 'Search guests',
                 input: {
@@ -7598,6 +7588,8 @@ export function SeatingEditor({
                 },
               }}
               right={[
+                /* 🎚 Guests redesign § 8: the look round (List · 2D floor plan · 3D room), opening upward, before Show. */
+                ...(lens.lookRound ? [lens.lookRound] : []),
                 guestsFilterMenu({
                   view: 'seats',
                   filter: lens.filter,
@@ -8508,15 +8500,12 @@ export function SeatingEditor({
               stays the mouth label. Sits under the pill (z-0). */}
           {entrance.enabled && entrance.kind === 'tunnel'
             ? (() => {
-                // Nearest wall (argmin distance) — same pattern as stageWallOf.
-                const dTop = entrance.y;
-                const dBottom = 100 - entrance.y;
-                const dLeft = entrance.x;
-                const dRight = 100 - entrance.x;
-                const min = Math.min(dTop, dBottom, dLeft, dRight);
+                // Nearest wall (argmin distance) — the shared engine's rule (`nearestWall`, lib/seat-plan-engine), ties
+                // top · bottom · left · right exactly as this block always tested them. A supplier's door uses it too.
+                const wall = nearestWall(entrance.x, entrance.y);
                 // Depth as a % of the room dimension along the inward axis; a
                 // free board (no metre size) uses a fixed ~12% fallback.
-                const vertical = min === dTop || min === dBottom;
+                const vertical = wall === 'top' || wall === 'bottom';
                 const roomDim = venueScaled ? (vertical ? venue.length : venue.width) : 0;
                 const depthPct = roomDim > 0 ? Math.min(60, (entrance.depthM / roomDim) * 100) : 12;
                 const MOUTH = 13; // clear width of the walk-through, % of canvas
@@ -8524,17 +8513,17 @@ export function SeatingEditor({
                 let top: number;
                 let width: number;
                 let height: number;
-                if (min === dTop) {
+                if (wall === 'top') {
                   width = MOUTH;
                   height = depthPct;
                   left = entrance.x - MOUTH / 2;
                   top = 0;
-                } else if (min === dBottom) {
+                } else if (wall === 'bottom') {
                   width = MOUTH;
                   height = depthPct;
                   left = entrance.x - MOUTH / 2;
                   top = 100 - depthPct;
-                } else if (min === dLeft) {
+                } else if (wall === 'left') {
                   width = depthPct;
                   height = MOUTH;
                   left = 0;
@@ -8779,7 +8768,14 @@ export function SeatingEditor({
                 return (
                   /* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 13): the one next thing on an empty floor — on the warm surface,
                      its three steps the only framed (pressable) rows on the screen. */
-                  <div className="pointer-events-auto w-full max-w-sm rounded-2xl bg-[var(--m-paper-2)] p-5 shadow-sm">
+                  /* 👆 THE STEPS TAKE A TAP (owner 2026-11-20, live: "Build my seating draft" did nothing on tap). This card
+                     sits INSIDE the floor, whose `onCanvasPointerDown` captures every press for its pan — and a captured
+                     pointer's `click` lands on the floor, never on the step. The card keeps its presses to itself. */
+                  <div
+                    data-floor-steps=""
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="pointer-events-auto w-full max-w-sm rounded-2xl bg-[var(--m-paper-2)] p-5 shadow-sm"
+                  >
                     <div aria-hidden className="mx-auto mb-3 flex h-16 items-center justify-center rounded-lg border border-dashed border-ink/20 bg-ink/[0.02]">
                       <span className="h-8 w-8 rounded-full border border-dashed border-ink/25" />
                     </div>
@@ -10507,7 +10503,7 @@ function BoothPickerPanel({
           maxLength={280}
           rows={2}
           placeholder="e.g. Espresso martinis & mocktails"
-          className="w-full resize-none rounded-lg border border-ink/15 bg-white/80 px-2 py-1.5 text-sm text-ink placeholder:text-ink/50 focus:border-terracotta focus:outline-none"
+          className="w-full resize-none rounded-lg border border-ink/15 bg-raised/80 px-2 py-1.5 text-sm text-ink placeholder:text-ink/50 focus:border-terracotta focus:outline-none"
         />
         <div className="mt-0.5 flex items-center justify-between">
           <span className="text-xs text-ink/70">Guests see this on the 3D venue walk.</span>

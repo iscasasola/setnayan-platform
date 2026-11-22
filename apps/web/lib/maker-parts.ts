@@ -77,6 +77,38 @@ export type MakerPartTool = (typeof MAKER_PART_TOOLS)[number];
 export const MAKER_PART_TOOL_LABEL: Record<MakerPartTool, string> = { edit: 'Edit', style: 'Style', bg: 'Background', animate: 'Animate' };
 
 /**
+ * 🧰 ONE TOOLBAR, THREE TABS — Edit · Style · Animate ◆ (owner 20 Nov 2026, *"Yes, build it"* on
+ * `prototypes/maker_one_toolbar_expand_2026-11-20_fable.html`; DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN,
+ * APPROVED" (1)). Background is a row inside Style now, so the four tools are three TABS; `bg` stays a tool of the work
+ * area (the scene's Background body), shown under the Style tab. ◆ marks the Pro tab: a Free couple can try it, and
+ * ✓ Apply lists it. Held by `lib/the-toolbar-is-three-tabs.test.ts`.
+ */
+export const MAKER_PART_TABS = ['edit', 'style', 'animate'] as const;
+export type MakerPartTab = (typeof MAKER_PART_TABS)[number];
+export const MAKER_PART_TAB_LABEL: Record<MakerPartTab, string> = { edit: 'Edit', style: 'Style', animate: 'Animate' };
+/** ◆ The tab whose every choice is the full Event Hub's (Event Plus and up). Never a padlock: it is tried, and asked at ✓ Apply. */
+export const MAKER_PRO_TAB: MakerPartTab = 'animate';
+/** The tab a tool's body sits under: Background is Style's. */
+export function makerTabOf(tool: MakerPartTool): MakerPartTab {
+  return tool === 'bg' ? 'style' : tool;
+}
+
+/**
+ * ⤢ EXPAND — ONLY WHERE THE WORK NEEDS ROOM (DECISION_LOG 20 Nov "ONE TOOLBAR" (2) + "MAKER EDIT ROWS RUN BY IMPORTANCE"
+ * (2)): Logo, Love Story, Schedule, Wedding March, E-Gifts and Memories. A tap ALWAYS selects; ⤢ on the toolbar is the
+ * one door to full screen, and ⤡ Minimize, ✓ Done, Esc and Back come back. Dress code has NO ⤢ (its colours keep their
+ * one home, Event › Mood Board). Held by `lib/the-toolbar-is-three-tabs.test.ts`.
+ *
+ * ⏳ Wedding March and Memories are in the drawing's list but have NO full-screen editor in the Maker yet (the March list
+ * opens in Guests › March; nothing edits the Memories grid in place), so they get ⤢ when that editor exists — a ⤢ that
+ * opens nothing is a dead button (BUILD_RULES "Every capability has one reachable place"). Listed in PR #8072's STATUS.
+ */
+export const MAKER_PART_EXPANDS: readonly MakerPartKey[] = ['logo', 'story', 'schedule', 'gifts'];
+export function makerPartExpands(key: MakerPartKey | null): boolean {
+  return key !== null && MAKER_PART_EXPANDS.includes(key) && makerPartRisesEditor(key) !== null;
+}
+
+/**
  * What the WORK AREA is asked for a tool (`MAKER_STAGE_TOOL_EVENT`, `editor-shell.tsx` `onTool`): Animate is the
  * part's own motion; Edit, Style and Background are all read off the scene's Format (`StageStyle` shows the one the
  * toolbar is on — `stage-panel/store.ts` `useStageTool`). The work area's vocabulary is unchanged.
@@ -104,16 +136,33 @@ export const MAKER_PART_TEXT_ROW: Record<MakerPartTextTool, string> = { font: 'f
  * named them. Words only: the controls under each are the shipped ones.
  */
 export const MAKER_PART_ANIMATE_STEPS = [
-  { step: 'in', label: 'Build in' },
-  { step: 'during', label: 'Action' },
-  { step: 'out', label: 'Build out' },
+  { step: 'in', label: 'Arrives' },
+  { step: 'during', label: 'While showing' },
+  { step: 'out', label: 'Leaves' },
 ] as const;
+
+/**
+ * 🏷 THE TITLE'S TEXT FIELD IS "Event name" (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL
+ * SCREEN, APPROVED" (7): *"event name"*). It writes `events.display_name` — the event's name, which a birthday or a wake
+ * has too — so no Maker surface labels it "Names". The scene keeps its own name, "Event title".
+ */
+export const MAKER_EVENT_NAME_LABEL = 'Event name';
+
+/** 🎨 Dress code's one door (20 Nov, "DRESS COLOURS STAY IN MOOD BOARD") — no ⤢: its colours are made in the event's Mood Board. The drawing's row title; its second line ("Made in Event › Mood Board") comes with part 4b's Edit rows — a door is one row (≤ 40). */
+export const MAKER_MOOD_BOARD_DOOR_WORDS = 'Colours and mood board';
 
 /* ── the stages and their pages ───────────────────────────────────────────── */
 
 /** The five stages, in the order a guest meets them (Save the Date · RSVP · Invitation · The Day · Post Event). */
 export type MakerStageKey = HubStage | typeof RSVP_STAGE_KEY;
 export const MAKER_STAGE_KEYS: readonly MakerStageKey[] = ['save_the_date', RSVP_STAGE_KEY, 'rsvp', 'event', 'editorial'];
+/**
+ * 📖 STAGE ▾ IS FOUR STAGES (owner 20 Nov 2026, DECISION_LOG "POST EVENT LEAVES THE EVENT HUB" (1): *"i think post event
+ * doesn't live here anymore"*): Save the Date · RSVP · Invitation · The Day. Post Event becomes the Event's Story, its own
+ * page and editor (the shipped Story Maker), opened when everything is settled — nothing in the Maker's stage list leads
+ * there. `MAKER_STAGE_KEYS` keeps Post Event as a key the canvas still knows (a deep link draws it), never a pick.
+ */
+export const MAKER_STAGE_MENU_KEYS: readonly MakerStageKey[] = MAKER_STAGE_KEYS.filter((k) => k !== 'editorial');
 
 /* ── the parts ────────────────────────────────────────────────────────────── */
 
@@ -472,6 +521,12 @@ export function makerPartQuietRow(
   key: MakerPartKey,
 ): { words: string; to: { studio: MakerStudioTool | 'info' } | { suppliers: 'date' | 'venue' } | { guests: MakerGuestsRow } | { guestsView: MakerGuestsView } } | null {
   const src = makerPartSource(key);
+  /* 🎨 DRESS COLOURS STAY IN MOOD BOARD (owner 20 Nov 2026, DECISION_LOG "MAKER EDIT ROWS RUN BY IMPORTANCE; DRESS COLOURS STAY
+     IN MOOD BOARD" (2)): the colours have ONE home, the event's Mood Board (suppliers read the same colours) — the scene's
+     door says so, and no ⤢. ⚠ The Mood Board page (`/dashboard/[eventId]/studio/mood-board`) still forwards a host into
+     the Maker's own Mood Board editor (`makerHasWork`), so the door opens that same editor in place — a link out would
+     bounce straight back. Giving the Mood Board its own home outside the Event Hub is its own change. */
+  if (src.kind === 'studio' && src.tool === 'mood') return { words: MAKER_MOOD_BOARD_DOOR_WORDS, to: { studio: 'mood' } };
   if (src.kind === 'studio') return { words: makerSceneDoorWords(MAKER_STUDIO_TOOL_LABEL[src.tool]), to: { studio: src.tool } };
   if (src.kind === 'supplier') return { words: 'Change it in Suppliers', to: { suppliers: src.fact } };
   /* 🗂 R1: the reply's settings are Guests ⚙'s — another page of the app, like Suppliers: a plain door to the sheet's row. */

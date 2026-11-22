@@ -49,7 +49,7 @@ const STATUS_LABEL = BOOKING_LIST_LABEL;
 
 const STATUS_TONE: Record<BookingStatus, string> = {
   new: 'bg-terracotta text-cream',
-  in_progress: 'bg-sky-100 text-sky-800',
+  in_progress: 'bg-sky-100 dark:bg-[rgb(var(--color-info)/0.14)] text-sky-800 dark:text-[rgb(var(--color-info))]',
   closed: 'bg-ink/10 text-ink/65',
 };
 
@@ -318,7 +318,7 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
   };
 
   return (
-    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full tab:max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <header className="space-y-3">
         <div className="flex items-center gap-2">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">

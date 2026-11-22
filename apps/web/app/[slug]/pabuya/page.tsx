@@ -3,6 +3,7 @@ import { loadRoomLinks } from '../_lib/room-links.server';
 import { partDoorHidden } from '../_lib/part-door.server';
 import { cache } from 'react';
 import Link from 'next/link';
+import { BackButton } from '@/app/_components/back-button';
 import { notFound, redirect } from 'next/navigation';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -126,9 +127,11 @@ export default async function PabuyaPublicPage({
     <main className="min-h-dvh bg-cream text-ink">
       <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
-          {/* min-h-[40px] (mobile audit item 3: this icon-only back link
-              measured 26px). */}
-          <Link href={`/${slug}`} className="flex min-h-[44px] min-w-[44px] items-center gap-2 text-ink">
+          {/* ‹ A VISIBLE WAY BACK (owner 20 Nov, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN": E-Gifts "goes
+              full screen and no way back") — the logo alone was the only exit, and nothing said it was one. The house back
+              (`BackButton`, the page map's home: the Event Hub), in the thumb's first place; the logo stays a link home too. */}
+          <BackButton route="/[slug]/pabuya" params={{ slug }} className="mb-0" />
+          <Link href={`/${slug}`} aria-label="Back to the Event Hub" className="flex min-h-[44px] min-w-[44px] items-center text-ink">
             <Logo height={26} />
           </Link>
           <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">

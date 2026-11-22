@@ -37,7 +37,8 @@ test('1 · the sheet has one importer — a lazy piece — and the builder has n
   assert.ok(FILES.length > 2000 && FILES.includes(SHEET), `anti-vacuity: walked ${FILES.length} files`);
   const importers = (needle: RegExp) => FILES.filter((f) => needle.test(stripComments(read(f))));
   /* ⚙ (2026-10-30) …and the Hub's ⚙, which offers its row (asking the work area whether it can answer) — two lazy pieces. */
-  assert.deepEqual(importers(/from ['"][^'"]*\/guests-see-sheet['"]/).sort(), [HUB, PARTS].sort());
+  /* 👁 20 Nov 2026 (v17 "What this removes" 8): the row left the ⚙ for the eye on each page of Pages — the switch alone imports it. */
+  assert.deepEqual(importers(/from ['"][^'"]*\/guests-see-sheet['"]/).sort(), [PARTS].sort());
   // …and each is reached through the lazy stand-ins only (never a static import from a first-load file).
   const lazy = read('app/dashboard/[eventId]/launch/_components/details-lazy.tsx');
   assert.match(lazy, /export const StageSwitch = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stages-studio-parts'\)/);
@@ -68,18 +69,17 @@ test('2 · the sheet reaches no server module: the work area lends the table and
   assert.match(src, /const patch = guestsSeePatch\(writes\);\s*if \(!patch\) return setLine\(W\.nothingToKeep\);/, 'Keep is not exactly the pending ticks');
 });
 
-test('3 · one row — in the Hub’s ⚙, no longer in Studio ▾ — only where the work area answers; a sheet, never a Studio page', () => {
-  /* ⚙ MOVED 2026-10-30 (owner, the Event Pro prototype's Q4 drawn as A — DECISION_LOG 2026-10-26 "EACH MENU HAS ITS
-     OWN SETTINGS": "everything guests see on the Hub only in Event Hub Settings"). It was the last row of Studio ▾. */
+test('3 · one door — the eye on each page of Pages, no longer in the Hub’s ⚙ or Studio ▾; a sheet, never a Studio page', () => {
+  /* 👁 MOVED 20 Nov 2026 (the approved drawing v17, "What this removes" 8: *"The 'What guests see' sheet in ⚙. The eye on
+     each row of Pages, per stage."*; DECISION_LOG "MAKER: EVENT HUB SETTINGS REGROUPED" — ⚙ holds only what changes right
+     away). It was a row of the Hub's ⚙ (2026-10-30), and before that the last row of Studio ▾. */
   const src = stripComments(read(PARTS));
   assert.equal((src.match(/data-pick-option="guests-see"/g) ?? []).length, 0, 'the row is back in Studio ▾');
   const hub = stripComments(read(HUB));
-  // The work area is asked while the ⚙ is open, and the row is offered only when it answers.
-  assert.match(hub, /const guestsSeeShown = open && guestsSeeWorkArea\(\) !== null;/);
-  assert.match(hub, /\{guestsSeeShown \? \(\s*<section data-hub-settings-group="guests-see">/);
-  assert.match(hub, /<FormRow data="guests-see" name=\{GUESTS_SEE_WORDS\.menuLine\}[\s\S]{0,200}onClick=\{go\(doors\.guestsSee\)\}/);
-  // The ⚙ closes and asks; the switch — always mounted — opens the shipped sheet.
-  assert.match(stripComments(read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx')), /guestsSee: \(\) => window\.dispatchEvent\(new Event\(MAKER_OPEN_GUESTS_SEE_EVENT\)\)/);
+  assert.doesNotMatch(hub, /data-hub-settings-group="guests-see"|guestsSeeWorkArea/, 'the row is back in the ⚙');
+  // Pages' eye asks; the switch — always mounted — opens the shipped sheet.
+  const pages = stripComments(read('app/dashboard/[eventId]/launch/_components/maker-pages-sheet.tsx'));
+  assert.match(pages, /data-maker-pages-eye=\{p\.key\}[\s\S]{0,400}window\.dispatchEvent\(new Event\(MAKER_OPEN_GUESTS_SEE_EVENT\)\)/);
   assert.match(src, /window\.addEventListener\(MAKER_OPEN_GUESTS_SEE_EVENT, open\);/);
   assert.match(src, /\{guestsSee && typeof document !== 'undefined' \? createPortal\(<GuestsSeeSheet onClose=\{\(\) => setGuestsSee\(false\)\} \/>, document\.body\) : null\}/);
   assert.match(stripComments(read(SHEET)), /<MakerSheet label=\{W\.title\} onClose=\{close\} everyWidth tall>/);
@@ -117,6 +117,6 @@ test('6 · the three buttons fit a phone: ↺ and "Back to our picks" on one lin
   // The 16 px gutter: the sheet's own 8 (`MakerSheet` px-2) and 8 here.
   assert.match(src, /role="table" aria-label=\{W\.title\} className="flex-1 bg-inherit px-2"/);
   assert.match(src, /data-gs-lower="" className="sticky bottom-0 z-10 border-t border-ink\/10 bg-inherit px-2 /);
-  assert.match(read(PARTS), /flex-col rounded-t-3xl bg-white px-2 /);
+  assert.match(read(PARTS), /flex-col rounded-t-3xl bg-raised px-2 /);
 });
 

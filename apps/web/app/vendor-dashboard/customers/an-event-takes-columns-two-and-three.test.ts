@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dayRowsOf } from '@/lib/vendor-dates';
-import { openClientHref } from '@/lib/upcoming-schedule-door';
+import { clientScheduleDayHref } from '@/lib/upcoming-schedule-door';
 import { datesBookingsForWire } from './dates-wire';
 
 const here = join(process.cwd(), 'app/vendor-dashboard');
@@ -58,7 +58,9 @@ test('from 1280, over the Clients month, it keeps the rail and the top bar — w
   assert.match(body, /height:\s*auto/);
 });
 
-test('a booked row carries its event page through the one open path, from the month\'s own read', () => {
+// 📅 Owner 18 Nov 2026: Calendar › a day › a client opens that client's Schedule with THIS day picked (was the one open
+// path's landing page — Details, or Hub on the day).
+test('a booked row opens the client\'s Schedule on that day, from the month\'s own read', () => {
   const wire = datesBookingsForWire([{ poolBookingId: 'pb', poolId: 'p', eventId: 'S89E-AAAAAAAAAA', bookedDate: '2026-12-12', eventName: 'Kat Arroyo', threadId: null }]);
   assert.equal(wire[0]?.eventId, 'S89E-AAAAAAAAAA', 'the month no longer sends the booked event');
   const rows = dayRowsOf('2026-12-12', {
@@ -66,5 +68,6 @@ test('a booked row carries its event page through the one open path, from the mo
     bookings: wire, blocks: [], holds: [], asking: 0, waiting: 0,
   });
   const booked = rows.find((r) => r.kind === 'booked');
-  assert.equal(booked?.href, openClientHref('S89E-AAAAAAAAAA', { booked: true, eventToday: false }));
+  assert.equal(booked?.href, clientScheduleDayHref('S89E-AAAAAAAAAA', '2026-12-12'));
+  assert.equal(booked?.href, '/vendor-dashboard/clients/S89E-AAAAAAAAAA?tab=schedule&day=2026-12-12');
 });

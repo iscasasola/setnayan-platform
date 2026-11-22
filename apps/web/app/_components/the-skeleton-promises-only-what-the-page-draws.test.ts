@@ -114,7 +114,8 @@ function templateCall(file: string): string {
 
 function promisesTitle(file: string): boolean {
   const call = templateCall(file);
-  return /\stitle(\s*=\s*\{true\})?[\s/>]/.test(call);
+  // `title` · `title={true}` · `title="The page's own words"` (👻 Ghost, 18 Nov 2026: a known title is shown as itself).
+  return /\stitle(\s*=\s*\{true\}|\s*=\s*"[^"]+")?[\s/>]/.test(call);
 }
 
 function promisedActions(file: string): number {
@@ -209,12 +210,31 @@ function drawsAHeading(file: string): boolean {
  */
 function actionsIn(source: string): null | 'always' | 'responsive' | 'conditional' {
   let verdict: null | 'always' | 'responsive' | 'conditional' = null;
-  for (const m of source.matchAll(/<PageMasthead\b/g)) {
+  // 📌 TWO PAGE HEADS, ONE RULE (22 Nov 2026). Supplier pages set two draw their head as `<PartPin … end={…}>` — the
+  // pinned row, with the status pill or button at its end — where older pages draw `<PageMasthead actions={…}>`. When
+  // Booking fees moved to the pinned row this scan stopped seeing its header button (9 routes against a floor of 10),
+  // and its loader's reserved button was checked by nothing. Both heads are read, each by its own prop.
+  for (const m of source.matchAll(/<(PageMasthead|PartPin)\b/g)) {
+    const PROP = m[1] === 'PartPin' ? 'end={' : 'actions={';
     // The PROP is found near its element — 4000 characters is room for any
     // opening tag and keeps a later element's `actions=` from being mistaken
     // for this one's.
     const seg = source.slice(m.index!, m.index! + 4000);
-    const j = seg.indexOf('actions={');
+    // A pinned row's `end` is a common prop name (`<PartRow end=…>`, `<PartNote end=…>` sit a few lines below it), so
+    // for <PartPin> the prop is looked for inside ITS OWN opening tag only: up to the first `>` outside any braces.
+    let own = seg;
+    if (m[1] === 'PartPin') {
+      let depth = 0;
+      for (let n = 0; n < seg.length; n++) {
+        if (seg[n] === '{') depth++;
+        else if (seg[n] === '}') depth--;
+        else if (seg[n] === '>' && depth === 0) {
+          own = seg.slice(0, n);
+          break;
+        }
+      }
+    }
+    const j = own.indexOf(PROP);
     if (j < 0) continue;
     // 🪤 BUT ITS BRACES ARE MATCHED TO THE END OF THE FILE, NEVER TO THE WINDOW.
     // The brace scan used to stop at the same 4000 characters. When the guest
@@ -225,7 +245,7 @@ function actionsIn(source: string): null | 'always' | 'responsive' | 'conditiona
     // loading screen's two reserved buttons phantom. The page was right and the
     // guard was blind — and blind in a direction that could as easily have
     // passed a real phantom as failed a real button.
-    const start = m.index! + j + 'actions='.length;
+    const start = m.index! + j + PROP.length - 1;
     let depth = 0;
     let body: string | null = null;
     for (let n = start; n < source.length; n++) {
@@ -242,7 +262,7 @@ function actionsIn(source: string): null | 'always' | 'responsive' | 'conditiona
     // Treating it as empty is exactly how the blindness above stayed silent.
     assert.ok(
       body !== null,
-      'found `actions={` on a <PageMasthead> but never its closing brace — this guard cannot parse the page and must not guess "no buttons"',
+      `found \`${PROP}\` on a <${m[1]}> but never its closing brace — this guard cannot parse the page and must not guess "no buttons"`,
     );
     if (!body!.trim()) continue;
     const flat = body.replace(/\s+/g, ' ').trim();

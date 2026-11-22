@@ -15,7 +15,7 @@
  *     messaged and booked (with the booking fee) — {@link ownLinkOpensUnverified}.
  *   · `find_locked_at` still records a shop's first inquiry or import; it no
  *     longer decides anything.
- *   · Rejected, demoted, archived and fraud-frozen shops never show.
+ *   · Rejected, demoted, archived (closed), paused and fraud-frozen shops never show.
  *
  * ── WHERE THE RULE LIVES ────────────────────────────────────────────────────
  * In the DATABASE, once: `vendor_profiles.is_findable`, a stored generated
@@ -75,7 +75,7 @@ export function findableShopGate(embeddedAs?: string): Record<string, true> {
 
 /** The columns {@link isShopFindable} reads, for a `.select()`. */
 export const FINDABLE_INPUT_COLUMNS =
-  'public_visibility, verification_state, find_locked_at, fraud_suspended_at, fraud_banned_at, fraud_tombstoned, papers_current' as const;
+  'public_visibility, verification_state, find_locked_at, fraud_suspended_at, fraud_banned_at, fraud_tombstoned, papers_current, paused_at' as const;
 
 export type FindableInput = {
   public_visibility?: unknown;
@@ -86,6 +86,8 @@ export type FindableInput = {
   fraud_tombstoned?: unknown;
   /** False once the shop's papers lapsed (the 30 March renewal passed unrenewed). */
   papers_current?: unknown;
+  /** ⏸ Set while the shop is paused (Shop ⚙ › Shop status, or Setnayan) — migration 20271350091032. */
+  paused_at?: unknown;
 };
 
 const UNDECIDED = new Set(['unverified', 'pending_review']);
@@ -101,6 +103,8 @@ export function isShopFindable(row: FindableInput | null | undefined): boolean {
   // A lapsed shop leaves every list, verified or not. Only an explicit `false`
   // refuses here — the database gate (`FINDABLE_SHOP_GATE`) is the strict half.
   if (row.papers_current === false) return false;
+  // ⏸ A paused shop is in no list (16 Nov) — the column's `paused_at IS NULL` half.
+  if (present(row.paused_at)) return false;
   // 15 Nov, "Verified only": nothing but a verified, listed shop is found.
   return isShopLive(row);
 }
@@ -150,6 +154,8 @@ export function shopTakesMessages(
 ): boolean {
   if (bookable) return true;
   if (!row || row.is_demo === true) return false;
+  // ⏸ A paused shop takes no NEW inquiry from its page (16 Nov: "no Book/Inquire"); chats already open continue.
+  if (present(row.paused_at)) return false;
   return ownLinkOpensUnverified(row);
 }
 
@@ -192,11 +198,30 @@ export const NOT_YET_VERIFIED_LINE = 'This shop is not yet verified by Setnayan'
  * answers false — the line is a claim about the shop, so it is never drawn from an absence.
  */
 export function threadShowsNotYetVerified(
-  row: { verification_state?: unknown; is_demo?: unknown } | null | undefined,
+  row: { verification_state?: unknown; is_demo?: unknown; papers_current?: unknown } | null | undefined,
 ): boolean {
-  if (!row || row.is_demo === true) return false;
+  return shopVerifiedNote(row) !== null;
+}
+
+/**
+ * 🛡 WHICH line a couple is told about this shop (owner 16 Nov: "always warned … everywhere they deal with that
+ * shop"; papers renewal ruling 4, confirmed by the owner 16 Nov "10.yes 11.yes"):
+ * - `'not_verified'` — the READ state is not `verified` → {@link NOT_YET_VERIFIED_LINE};
+ * - `'renewing'` — verified before, but its papers lapsed after 30 March (`papers_current === false`, the generated
+ *   `papers_lapsed_at IS NULL`) → "Renewing their papers with Setnayan", ALONE, in every place the first one shows;
+ * - `null` — verified and current, a demo shop, or a row that was not read (never drawn from an absence: a missing
+ *   `papers_current` counts as current).
+ */
+export type ShopVerifiedNote = 'not_verified' | 'renewing' | null;
+
+export function shopVerifiedNote(
+  row: { verification_state?: unknown; is_demo?: unknown; papers_current?: unknown } | null | undefined,
+): ShopVerifiedNote {
+  if (!row || row.is_demo === true) return null;
   const state = typeof row.verification_state === 'string' ? row.verification_state : null;
-  return state !== null && state !== 'verified';
+  if (state === null) return null;
+  if (state !== 'verified') return 'not_verified';
+  return row.papers_current === false ? 'renewing' : null;
 }
 
 /** The admin desk's one line per state. */

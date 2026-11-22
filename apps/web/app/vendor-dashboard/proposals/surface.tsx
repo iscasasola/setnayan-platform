@@ -160,7 +160,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
   const notice = search.notice ? NOTICES[search.notice] : null;
 
   return (
-    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full tab:max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <header className="space-y-2">
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
           <FileText aria-hidden className="h-5 w-5" strokeWidth={1.75} />
@@ -241,7 +241,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
             <div className="flex flex-wrap items-center gap-2 text-xs text-ink/70">
               <label className="inline-flex items-center gap-1.5">
                 No package? Total ₱
-                <input type="number" name="total_php" min="0" step="any" placeholder="0" className="w-28 rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
+                <input type="number" name="total_php" min="0" step="any" placeholder="0" className="w-28 rounded-lg border border-ink/20 bg-raised px-2 py-1.5" />
               </label>
               {/* 📅 The one Valid until picker (2026-11-09). A draft may leave it blank; sending refuses blank. The event is
                   picked in this same form, so the server checks "on or before the event day" when it sends. */}
@@ -312,7 +312,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
 
         <TemplateList templates={templates} />
 
-        <details className="mt-4 rounded-xl border border-ink/10 bg-white/50 p-3" open={templates.length === 0}>
+        <details className="mt-4 rounded-xl border border-ink/10 bg-raised/50 p-3" open={templates.length === 0}>
           <summary className="inline-flex cursor-pointer items-center gap-1 text-sm font-semibold">
             <Plus aria-hidden className="h-4 w-4" /> New template
           </summary>
@@ -324,9 +324,9 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
               rows={6}
               maxLength={20000}
               placeholder={`Dear {{couple_name}},\n\nThank you for booking ${'{{business_name}}'} for {{event_date}} at {{venue_name}}. This quote covers {{guest_count}} confirmed guests ({{guest_count_ceiling}} maximum)…`}
-              className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 font-mono text-xs"
+              className="rounded-lg border border-ink/20 bg-raised px-3 py-1.5 font-mono text-xs"
             />
-            <textarea name="terms" rows={3} maxLength={20000} placeholder="Terms — payment schedule, inclusions, cancellation policy…" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 font-mono text-xs" />
+            <textarea name="terms" rows={3} maxLength={20000} placeholder="Terms — payment schedule, inclusions, cancellation policy…" className="rounded-lg border border-ink/20 bg-raised px-3 py-1.5 font-mono text-xs" />
             {packages.length > 0 ? (
               <select name="default_package_id" className={shopInputClass} defaultValue="">
                 <option value="">Default package (optional)</option>
@@ -341,7 +341,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
               Save template
             </SubmitButton>
           </StayForm>
-          <div className="mt-3 rounded-lg bg-white/70 p-3">
+          <div className="mt-3 rounded-lg bg-raised/70 p-3">
             <p className="text-xs font-semibold text-ink/70">Merge tokens</p>
             <ul className="mt-1 grid gap-x-6 gap-y-0.5 text-xs text-ink/60 sm:grid-cols-2">
               {PROPOSAL_TOKENS.map((t) => (

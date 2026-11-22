@@ -188,7 +188,7 @@ export const ADMIN_MERGED_PAGES: readonly AdminMergedPage[] = [
       v('bands', 'Bands', '/admin/pricing?tab=price-bands', { match: ['/admin/pricing?tab=price-bands', '/admin/price-bands'] }),
       v('free-windows', 'Free windows', '/admin/pricing?tab=free-windows'),
     ],
-    waitsOn: ['#7693 (pricing/page.tsx)', '#7874 (pricing/_components)'],
+    waitsOn: ['#8018 (pricing/page.tsx)', '#7874 (pricing/_components)'],
   },
   {
     key: 'offers',
@@ -299,8 +299,8 @@ export const ADMIN_MERGED_PAGES: readonly AdminMergedPage[] = [
       v('budget', 'Budget benchmarks', '/admin/budget-planner'),
     ],
     openOne: ['/admin/categories/requests/[requestId]'],
-    // categories/page.tsx and budget-planner/page.tsx are being changed there; both keep their address today.
-    waitsOn: ['#7693 (categories/page.tsx, the new /admin/catalogue home)', '#7874 (budget-planner/page.tsx)'],
+    // budget-planner/page.tsx is being changed there; it keeps its address today.
+    waitsOn: ['#7874 (budget-planner/page.tsx)'],
   },
   {
     key: 'studio',
@@ -470,7 +470,14 @@ const BAR: Record<AdminBarKey, BarMeta> = {
     searchPlaceholder: 'Search people, shops, events, venues',
     create: { label: 'Add a venue', href: '/admin/venues/new' },
   },
-  catalogue: { label: 'Catalogue', icon: 'LayoutGrid', href: '/admin/categories', searchPlaceholder: 'Search categories, prices, templates' },
+  catalogue: {
+    label: 'Catalogue',
+    icon: 'LayoutGrid',
+    href: '/admin/catalogue',
+    searchPlaceholder: 'Search categories, prices, templates',
+    // #7693: the Catalogue's one ＋ opens the same New category form the search box fills in.
+    create: { label: 'New category', href: '/admin/categories?new=category' },
+  },
   insights: { label: 'Insights', icon: 'LineChart', href: '/admin/app-performance', searchPlaceholder: 'Search numbers, problems, reports' },
 };
 
@@ -482,8 +489,8 @@ export const ADMIN_TAB_LANDING: Record<AdminBarKey, string | null> = {
   money: '/admin/money',
   people: '/admin/directory',
   insights: '/admin/app-performance',
-  // The Catalogue home is #7693's new page (/admin/catalogue). Until it lands the tab opens Services.
-  catalogue: null,
+  // The Catalogue home — #7693's page (/admin/catalogue): the shared TabLanding, as every tab.
+  catalogue: '/admin/catalogue',
 };
 
 export function pagesIn(place: AdminPlaceKey): AdminMergedPage[] {

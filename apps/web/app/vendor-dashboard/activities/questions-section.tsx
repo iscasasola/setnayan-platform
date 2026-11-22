@@ -1,7 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Check, CircleOff, MessageCircleQuestion, Plus, RotateCcw } from 'lucide-react';
+import { Check, CircleOff, Plus, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateFail, TemplateSection } from '@/app/_components/template-rows';
+import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateFail } from '@/app/_components/template-rows';
+import { Fold } from '@/app/_components/fold';
+import { ToolSection } from '../_components/tool-page';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   askedQuestions,
@@ -87,24 +89,25 @@ export function QuestionsSectionBody({
   const starters = measured ? startersNotYetAdded(all, tradeStarters) : [];
 
   return (
-    <section id="questions" className="scroll-mt-4 space-y-2 border-t border-[color:var(--m-line)] pt-4">
-      <header className="space-y-1">
-        <h2 className="inline-flex items-center gap-2 text-[17px] font-bold leading-tight text-ink">
-          <MessageCircleQuestion aria-hidden className="h-5 w-5 text-gild" strokeWidth={1.7} />
-          Questions for the {one}
-        </h2>
-        {/* ⓘ Title + one short line visible; the rest inside the tip (house rule). */}
+    <section id="questions" className="scroll-mt-4">
+      {/* The redraw (v3, 21 Nov 2026): the supplier label with its count and ⓘ; the gold icon and the top line are gone. */}
+      <h2 className="hc-k2 mb-1 mt-[18px] min-h-9">
         <InfoTip
-          label={`Write them once — every ${every} you work with answers them.`}
-          labelAs="p"
-          labelClassName={`max-w-prose ${TEMPLATE_SUBLINE}`}
+          label={`Questions for the ${one}`}
+          labelNode={
+            <span className="inline-flex items-center gap-2">
+              Questions for the {one}
+              {measured && asked.length > 0 ? <em className="tabular-nums">{asked.length}</em> : null}
+            </span>
+          }
           align="start"
         >
           {every === 'client' ? 'Clients' : 'Couples'} who book you answer them in their event. Before a booking, send them from the
           chat: ＋ › Questions for the {one}. You read the answers on their customer card. Their
           answers stay with their event — only your questions carry on.
         </InfoTip>
-      </header>
+      </h2>
+      <p className={`mb-2 ${TEMPLATE_SUBLINE}`}>Write them once — every {every} you work with answers them.</p>
 
       {!measured ? (
         <TemplateFail data="questions">
@@ -117,9 +120,11 @@ export function QuestionsSectionBody({
           your own.
         </TemplateEmpty>
       ) : (
-        <ol className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
+        <ol className="sn-frame px-4 py-1">
           {asked.map((q, i) => (
-            <li key={q.question_id} className="py-3">
+            <li key={q.question_id}>
+              <Fold title={`${i + 1}. ${q.prompt}`} line={q.hint ? `Hint: ${q.hint}` : undefined} wrap data="question">
+              <div className="pb-4 pt-1">
               <StayForm door="supActivities.updateQuestion" action={updateQuestion} className="space-y-2">
                 <input type="hidden" name="question_id" value={q.question_id} />
                 <div className="flex items-start gap-2">
@@ -151,14 +156,16 @@ export function QuestionsSectionBody({
                 <input type="hidden" name="is_asked" value="false" />
                 <ActionButton type="submit" tone="neutral" quiet icon={<CircleOff aria-hidden />} label="Stop asking" />
               </StayForm>
+              </div>
+              </Fold>
             </li>
           ))}
         </ol>
       )}
 
       {starters.length > 0 ? (
-        <TemplateSection label="Suggested — tap to add, then edit freely">
-          <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
+        <ToolSection label="Suggested — tap to add, then edit freely" data="questions-starters">
+          <ul className="sn-frame px-4 py-1">
             {starters.map((s) => (
               <li key={s.prompt}>
                 <StayForm door="supActivities.addQuestion" action={addQuestion}>
@@ -175,10 +182,10 @@ export function QuestionsSectionBody({
               </li>
             ))}
           </ul>
-        </TemplateSection>
+        </ToolSection>
       ) : null}
 
-      <TemplateSection label="Write your own">
+      <ToolSection label="Write your own" data="questions-own">
         <StayForm door="supActivities.addQuestion" action={addQuestion} className="space-y-2">
           <input
             name="prompt"
@@ -197,17 +204,15 @@ export function QuestionsSectionBody({
           />
           <ActionButton type="submit" tone="brand" icon={<Plus aria-hidden />} label="Add question" />
         </StayForm>
-      </TemplateSection>
+      </ToolSection>
 
       {retired.length > 0 ? (
-        <details className="mt-[18px]">
-          <summary className="flex min-h-11 cursor-pointer items-center text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
-            Not asking · {retired.length}
-          </summary>
+        <div className="sn-frame mt-3 px-4 py-1">
+          <Fold title={`Not asking · ${retired.length}`} data="questions-retired">
           <p className={TEMPLATE_SUBLINE}>
             Kept, not deleted — {every}s who already answered these still have their answers.
           </p>
-          <ul className="mt-1 [&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
+          <ul className="pb-2">
             {retired.map((q) => (
               <li key={q.question_id} className="flex min-h-14 items-center justify-between gap-3 py-2">
                 <span className="text-[15px] text-ink">{q.prompt}</span>
@@ -219,7 +224,8 @@ export function QuestionsSectionBody({
               </li>
             ))}
           </ul>
-        </details>
+          </Fold>
+        </div>
       ) : null}
     </section>
   );

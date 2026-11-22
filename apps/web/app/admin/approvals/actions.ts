@@ -255,6 +255,8 @@ async function executeApproved(
       amount_php?: number;
       reason?: string;
       proof_url?: string | null;
+      /** A Maya-paid order (refundOrder's 'maya_reverse'): Maya is asked first. */
+      maya_payment_id?: string;
     };
     const amountPhp = payload.amount_php;
     if (typeof amountPhp !== 'number' || !Number.isFinite(amountPhp) || amountPhp <= 0) {
@@ -273,6 +275,7 @@ async function executeApproved(
       amountPhp,
       initiatedByAdminId: row.initiated_by,
       confirmingAdminId: row.decided_by,
+      mayaPaymentId: typeof payload.maya_payment_id === 'string' ? payload.maya_payment_id : null,
     });
     return;
   }

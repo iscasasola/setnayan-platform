@@ -12,12 +12,12 @@
  * From 701 only (`tab:`) — below it every page is exactly what shipped (the phone does not move).
  *
  * Each page's OUTERMOST column is read and its cap compared with the page's kind, and the old slab caps
- * (`xl:max-w-7xl` · `2xl:max-w-screen-2xl`) may not come back on any of the four tabs' pages.
+ * (`xl:max-w-7xl` · `2xl:max-w-screen-2xl`) may not come back on any page of the supplier dashboard (lane 5, 2026-11-12).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
@@ -44,6 +44,97 @@ test('no page of the four tabs keeps a slab of its own (xl:max-w-7xl · 2xl:max-
     assert.ok(columns(src).length >= 1 || /MEASURE/.test(src), `${rel}: no outermost column found — the guard reads nothing`);
     assert.doesNotMatch(src, /\bxl:max-w-7xl\b|\b2xl:max-w-screen-2xl\b/, `${rel}: a page still runs its own slab on a desk`);
   }
+});
+
+/*
+  🖥 Lane 5 (2026-11-12 · owner 2026-11-13 "carry the phone design up", v13 "always maximize the screen use"): the
+  secondary pages (Bookings · Proposals · Recommendations · Manpower · How clients pay · Disputes · Track record ·
+  Partnerships · Attributes · Mood boards · Creators · Repertoire · a contract · the client's sub-pages · the loading
+  skeleton) left the slab for the system's measures. No file anywhere under the supplier dashboard may bring it back.
+*/
+function walk(dir: string, out: string[] = []): string[] {
+  for (const ent of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, ent.name);
+    if (ent.isDirectory()) walk(p, out);
+    else if (/\.tsx?$/.test(ent.name) && !/\.test\.tsx?$/.test(ent.name)) out.push(p);
+  }
+  return out;
+}
+
+test('no file under the supplier dashboard runs the old slab (xl:max-w-7xl · 2xl:max-w-screen-2xl)', () => {
+  const files = walk(HERE);
+  assert.ok(files.length > 100, `walked ${files.length} files — the walk reads nothing`);
+  const offenders = files.filter((f) => /\bxl:max-w-7xl\b|\b2xl:max-w-screen-2xl\b/.test(stripComments(readFileSync(f, 'utf8'))));
+  assert.deepEqual(offenders.map((f) => relative(HERE, f)), [], 'a supplier page runs its own slab on a desk again');
+});
+
+const READING = [
+  'bookings/surface.tsx',
+  'proposals/surface.tsx',
+  'manpower/surface.tsx',
+  'payment-options/surface.tsx',
+  // The tool pages redraw (v3, 21 Nov 2026): Disputes · Track record · Creators · Theft Watch · Attributes · Repertoire ·
+  // Recommend · Your segments draw their column through
+  // the shared `ToolPage` — the column is read there, once.
+  '_components/tool-page.tsx',
+  'partnerships/page.tsx',
+  'moodboard-library/page.tsx',
+  'contracts/[contractId]/contract-body.tsx',
+  'contracts/new/upload-body.tsx',
+  'clients/[eventId]/cocktail/cocktail-body.tsx',
+  'clients/[eventId]/editorial-media/editorial-media-body.tsx',
+  'clients/[eventId]/challenge-photos/challenge-photos-body.tsx',
+  'on-the-day/live/[eventId]/_components/papic-desk-body.tsx',
+  'loading.tsx',
+];
+// The event day (supplier pages set two, page 8): the console beside its tools takes the wide stage.
+const WIDE = [
+  'clients/[eventId]/seat-plan/seat-plan-body.tsx',
+  'clients/[eventId]/production-sheet/production-sheet-body.tsx',
+  'services/[serviceId]/page.tsx',
+  'on-the-day/live/[eventId]/_components/event-day-body.tsx',
+];
+
+test('the secondary pages read (48 rem); the seat plan, the production sheet and the maker take the wide stage (64 rem)', () => {
+  for (const [list, cap] of [[READING, 'tab:max-w-3xl'], [WIDE, 'tab:max-w-5xl']] as const) {
+    for (const rel of list) {
+      // Every class string that opens a column — a `className="…"` or a branch of a ternary ('…').
+      const cols = [...read(rel).matchAll(/["'`](mx-auto w-full [^"'`]*)/g)].map((m) => m[1]!);
+      assert.ok(cols.length >= 1, `${rel}: no outermost column found — the guard reads nothing`);
+      for (const c of cols) {
+        // A narrower note column (an empty or gated state at 42 rem or less) already sits inside the measure.
+        const narrower = /^mx-auto w-full max-w-(?:sm|md|lg|xl|2xl)\b/.test(c) && !/\btab:max-w-/.test(c);
+        assert.ok(c.split(/\s+/).includes(cap) || narrower, `${rel}: "${c}" is not the ${cap} column`);
+        assert.doesNotMatch(c, /(^|\s)(lg|xl|2xl):max-w-/, `${rel}: a second cap fights the system measure`);
+      }
+    }
+  }
+});
+
+test('a client’s "Your next move" is the right column from 701 and stays in the list on a phone — never desk-only', () => {
+  const src = read('clients/[eventId]/page.tsx');
+  const d = src.slice(src.indexOf('const detailsShipped = ('), src.indexOf('const bodies = pickedPageBodies('));
+  assert.match(d, /<SupplierColumns\s+name="client-details"/, 'Details lost its two columns');
+  assert.match(d, /pane=\{<div className="tab:pl-4">\{nextMoveCard\}<\/div>\}/, 'the next move is not the right column');
+  assert.match(d, /<div className="tab:hidden" data-next-move-phone="">\s*\{nextMoveCard\}/, 'the phone lost its copy of the next move');
+  assert.doesNotMatch(src, /hidden lg:block/, 'something on the client page exists only on a desk again');
+});
+
+test('the editors split on the frame’s line (701), never md:', () => {
+  // `shop/_components/verify-pairs.tsx` was retired on main (9e4d79bf8f — nothing mounted it), so it left this list in the merge.
+  for (const rel of ['packages/_components/package-editor.tsx', 'services/_components/canvas-maker.tsx']) {
+    const src = read(rel);
+    assert.doesNotMatch(src, /\bmd:/, `${rel}: an editor column still turns on at 768, not on the frame's line`);
+    assert.match(src, /\btab:grid-cols-/, `${rel}: the editor's side column is gone`);
+  }
+});
+
+test('Creators is rows — the phone’s row carried up, never a table', () => {
+  // The tool pages redraw (v3, 21 Nov 2026): the screen is `creators-view.tsx`; each section is ONE frame of rows.
+  const src = read('creators/_components/creators-view.tsx');
+  assert.doesNotMatch(src, /<table\b|<tr\b|<td\b/, 'Creators drew a table again');
+  assert.match(src, /<TemplateRows label="Your collab ROI">/);
+  assert.match(src, /function RoiRow[\s\S]*?<ToolRow\b/);
 });
 
 test('Today reads — every side path is the 48-rem column; the working Today fills the frame with its two columns', () => {

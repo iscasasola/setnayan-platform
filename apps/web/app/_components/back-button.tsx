@@ -51,7 +51,7 @@ export function BackButton(
          * label the accessible name, and it RETURNS IN PLACE — when the tab came to the chat from a chat list, ‹ is
          * the browser's back, so the list comes back where it was scrolled (`chat/chat-back.tsx`).
          */
-        variant?: 'pill' | 'chat';
+        variant?: 'pill' | 'chat' | 'tool';
         /** Return in place — see the docblock. */
         inPlace?: boolean | { whileAt: string };
       }
@@ -62,7 +62,7 @@ export function BackButton(
         params?: never;
         label?: string;
         className?: string;
-        variant?: 'pill' | 'chat';
+        variant?: 'pill' | 'chat' | 'tool';
         /** Return in place — see the docblock. */
         inPlace?: boolean | { whileAt: string };
       },
@@ -78,6 +78,26 @@ export function BackButton(
   } else {
     href = props.href;
     label = props.label ?? 'Back';
+  }
+  if (props.variant === 'tool') {
+    // 🧰 A supplier tool page's pinned row (owner-approved redraw v3, 21 Nov 2026 — `supplier_tools_redraw_v3_fable`):
+    // on a phone the drawing's `.rb` — a 40 round on the frame's white, an ink ‹, the home named for a screen reader;
+    // from 701 the drawing's `.crumb` — "‹ Shop" in the link blue, beside the title.
+    return (
+      <Link
+        href={href}
+        aria-label={`Back to ${label}`}
+        className={`sn-press inline-flex h-11 shrink-0 items-center justify-center text-ink tab:h-auto tab:gap-0.5 tab:text-[14px] tab:font-semibold tab:text-[rgb(var(--color-link))] ${className}`}
+        data-tool-back=""
+      >
+        <span className="grid h-10 w-10 place-items-center rounded-full bg-[rgb(var(--sn-frame-bg))] shadow-[var(--sn-frame-shadow)] tab:h-auto tab:w-auto tab:bg-transparent tab:shadow-none">
+          <ChevronLeft aria-hidden className="h-5 w-5 tab:h-4 tab:w-4" strokeWidth={1.8} />
+        </span>
+        <span aria-hidden className="hidden tab:inline">
+          {label}
+        </span>
+      </Link>
+    );
   }
   if (props.variant === 'chat') {
     return (

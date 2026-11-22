@@ -126,3 +126,28 @@ test('rule 4 · challenge photos never says "0 shared" over an unread read, and 
   const emptyAt = body.indexOf('total === 0 ?');
   assert.ok(nullAt > -1 && emptyAt > nullAt, 'the body must branch on the read before the count');
 });
+
+/**
+ * Rule 5 · money: a fee that could not be read is never "not found", and the waived fees are never simply absent
+ * (supplier pages set two, page 1 — the two "Honest state · new" frames). 🛡 Sabotage (2026-11-21): the try/catch
+ * around the fee read removed → RED; the list's `waived={… ? null : waived}` folded to `waived={waived}` → RED.
+ */
+test('rule 5 · a fee read that failed is said — "not sign you owe nothing", never not-found; waived fees unread are said', () => {
+  const page = read('booking-fees/[orderId]/page.tsx');
+  const failedAt = page.search(/catch \(err\) \{[\s\S]{0,300}return <BookingFeeReadFailed orderId=\{orderId\} \/>;/);
+  const notFoundAt = page.indexOf('notFound()');
+  assert.ok(failedAt > -1, 'the fee read must be caught and said with <BookingFeeReadFailed>');
+  assert.ok(notFoundAt > failedAt, 'the failed branch must be decided BEFORE not-found');
+  const body = read('booking-fees/[orderId]/fee-body.tsx');
+  assert.match(body, /export function BookingFeeReadFailed[\s\S]*?We couldn&rsquo;t load this fee right now\. \{MONEY_NOT_OWED\}/);
+
+  const list = read('booking-fees/page.tsx');
+  assert.match(list, /waived=\{waivedRead === FEE_BILLS_UNREADABLE \? null : waived\}/, 'an unread waived list is handed on as null');
+  assert.match(list, /orders=\{unreadable \? null : orders\}/, 'unread fee orders are handed on as null');
+  const listBody = read('booking-fees/booking-fees-body.tsx');
+  const nullAt = listBody.indexOf('waived === null ?');
+  const someAt = listBody.indexOf('waived.length > 0 ?');
+  assert.ok(nullAt > -1 && someAt > nullAt, 'the waived section must branch on the read before the count');
+  assert.match(listBody.slice(nullAt, someAt), /We couldn&rsquo;t load your waived fees just now\./);
+  assert.match(listBody, /orders === null \?[\s\S]{0,200}\{MONEY_NOT_OWED\}/, 'the unread fee list keeps the money line');
+});

@@ -9,3 +9,7 @@ Words only. One cloud sweep of user-visible copy against the DECISION_LOG; files
 - **No typed price**: the admin inbox matcher's example drops its "PHP 2,999.43" figure.
 
 SPEC IMPACT: None — copy brought in line with existing DECISION_LOG rows; no ruling changed.
+
+**Ship controller, on the controller's answers (2026-11-22):**
+- **Suno is no longer a subprocessor.** No code calls it; the only render that used it was Music Maker (retired 2026-11-20). Removed from `lib/subprocessors.ts`, the /privacy list and the NPC DPA task. The filed NPC PDFs are untouched (they are the filed record). The internal compliance record (`platform_compliance_facts.sub_processors`) still lists it; an admin reconciles that at /admin/compliance.
+- **The onboarding "Patiktok" photo-booth chip reads "Video booth"**: migration `20271357924837_a_video_booth_chip.sql` changes `label_en` on that one row only. `option_key` stays 'Patiktok' so couples' stored answers still match. The code fallback says the same.

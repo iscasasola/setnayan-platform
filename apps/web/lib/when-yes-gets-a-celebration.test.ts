@@ -255,7 +255,7 @@ test('the Maker offers ONE Celebration ▾ dropdown on When yes, drafted through
   assert.doesNotMatch(pick, /<PickMenu\b/, 'a second, bare dropdown');
   assert.doesNotMatch(pick, /role="radiogroup"|aria-pressed/, 'never a pill row');
   assert.match(pick, /makerProUsable\(/, 'hidden in the store shell for a couple without Pro');
-  assert.match(pick, /'◆ Pro'/);
+  assert.match(pick, /'◆ Plus'/);
   assert.match(pick, /'Free'/);
   const panel = code('app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
   assert.match(panel, /\{scene === 'thanks' \? celebrationRow\(\) : null\}/, 'When yes only');

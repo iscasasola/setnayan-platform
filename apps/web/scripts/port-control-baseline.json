@@ -15050,25 +15050,34 @@
     },
     "/vendor-dashboard/booking-fees": {
       "files": [
+        "vendor-dashboard/booking-fees/booking-fees-body.tsx",
         "vendor-dashboard/booking-fees/loading.tsx",
         "vendor-dashboard/booking-fees/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/subscription"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "BookingFeeLine",
+        "BookingFeesBody",
         "FeeGroup",
         "InfoTip",
-        "Link",
         "ListPageSkeleton",
-        "PageMasthead",
+        "PartList",
+        "PartNote",
+        "PartPage",
+        "PartPin",
+        "PartRef",
+        "PartRow",
+        "PartSec",
+        "PartText",
+        "ReadFailedNote",
+        "ShopPill",
         "WaivedFeeRows"
       ]
     },
     "/vendor-dashboard/booking-fees/[orderId]": {
       "files": [
+        "vendor-dashboard/booking-fees/[orderId]/fee-body.tsx",
         "vendor-dashboard/booking-fees/[orderId]/loading.tsx",
         "vendor-dashboard/booking-fees/[orderId]/page.tsx"
       ],
@@ -15078,12 +15087,25 @@
       ],
       "blocks": [
         "ActionButton",
+        "BookingFeeBody",
+        "BookingFeeReadFailed",
         "CopyButton",
         "DetailPageSkeleton",
         "DisputeNoteField",
-        "PageMasthead",
+        "PartCard",
+        "PartFoot",
+        "PartList",
+        "PartNote",
+        "PartPage",
+        "PartPin",
+        "PartRef",
+        "PartRow",
+        "PartSec",
+        "PartText",
+        "PartTop",
         "PaymentChannelName",
-        "ShopNotice",
+        "ReadFailedBody",
+        "ShopPill",
         "SubmitButton"
       ]
     },

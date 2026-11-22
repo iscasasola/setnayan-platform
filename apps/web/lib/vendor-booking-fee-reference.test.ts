@@ -155,7 +155,7 @@ test('every refusal the pay lane can emit is shown to the vendor', () => {
 });
 
 test('the page cannot be made to display an attacker’s sentence', () => {
-  const src = codeOf(PAGE);
+  const src = codeOf(PAGE) + '\n' + codeOf('app/vendor-dashboard/booking-fees/[orderId]/fee-body.tsx'); // set two: the body draws the error note
   assert.ok(
     !/decodeURIComponent\(\s*search\.error\s*\)/.test(src),
     'The page renders the URL parameter straight into an alert again. It was ' +

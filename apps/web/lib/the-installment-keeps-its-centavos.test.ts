@@ -115,6 +115,8 @@ const SCHEDULE_LIB = 'lib/vendor-service-payment-schedules.ts';
 const PROPOSAL_SCHEDULE_LIB = 'lib/proposal-payment-schedule.ts';
 const LOCK_ACTION = 'app/dashboard/[eventId]/vendors/actions.ts';
 const FEE_HUB = 'app/vendor-dashboard/booking-fees/page.tsx';
+// Set two (21 Nov 2026): the hub reads and sums; its body says the words.
+const FEE_HUB_BODY = 'app/vendor-dashboard/booking-fees/booking-fees-body.tsx';
 const PAPIC_ORDER = 'app/papic/order/[token]/page.tsx';
 
 /* ═══ 1 · THE HELPERS, EXECUTED ══════════════════════════════════════════════ */
@@ -466,7 +468,7 @@ test('no money surface maps an absent total to 0', () => {
   // SABOTAGE: put `Number(o.requested_total_php ?? 0)` back on either page.
   const banned =
     /Number\([^)]*(total|amount|php|Php|PHP|centavos|Centavos|price|Price)[^)]*\?\?\s*0\s*\)/i;
-  for (const rel of [FEE_HUB, PAPIC_ORDER, STEPPER]) {
+  for (const rel of [FEE_HUB, FEE_HUB_BODY, PAPIC_ORDER, STEPPER]) {
     const hit = code(rel).match(banned);
     assert.equal(hit, null, `${rel} renders an unreadable amount as zero: ${hit?.[0]}`);
   }
@@ -474,10 +476,10 @@ test('no money surface maps an absent total to 0', () => {
 
 test('the fee hub says it could not load the total, instead of totalling it wrong', () => {
   // SABOTAGE: drop the null branch and the banner silently under-states the debt.
-  const src = code(FEE_HUB);
+  const src = code(FEE_HUB) + '\n' + code(FEE_HUB_BODY);
   assert.match(src, /sumFeeOrderTotalsPhp\(due\)/, 'the hub no longer sums honestly');
   assert.match(src, /totalDue === null/, 'the hub has no branch for an unreadable total');
-  assert.match(read(FEE_HUB), /couldn&rsquo;t load the total/, 'the hub does not say so in words');
+  assert.match(read(FEE_HUB_BODY), /couldn&rsquo;t load the total/, 'the hub does not say so in words');
 });
 
 test('the guest Papic order withholds its Copy button when it has no figure', () => {

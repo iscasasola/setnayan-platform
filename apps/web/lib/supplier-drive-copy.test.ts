@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   bucketOfStoredRef,
+  copyDoneToast,
   copyResultWords,
   copyStatusOf,
   copiedSoFarLine,
@@ -130,10 +131,16 @@ test('3 · honest words: failures are never "done", a refused read is never "not
   const nothing = copyResultWords({ ok: true, status: 'nothing_to_copy' });
   assert.notEqual(unread.words, nothing.words);
   assert.equal(unread.tone, 'bad');
-  assert.match(unread.words, /couldn’t read/);
-  assert.equal(copyResultWords({ ok: true, status: 'done', since: '', total: 1, copied: 1, failed: 0, remaining: 0 }).words, '1 file in your Google Drive');
-  assert.equal(copiedSoFarLine({ total: 0, copied: 0 }), null);
-  assert.equal(copiedSoFarLine({ total: 5, copied: 2 }), '2 of 5 files copied to your Google Drive');
+  assert.match(unread.words, /Couldn’t read/);
+  assert.equal(partial.words, '3 of 4 copied · 1 couldn’t be copied');
+  const done = copyResultWords({ ok: true, status: 'done', since: '', total: 1, copied: 1, failed: 0, remaining: 0 });
+  assert.deepEqual(done, { tone: 'ok', words: 'All 1 file copied' });
+  assert.equal(copyDoneToast(40), '40 files copied to Google Drive');
+  // Before a press: a refused ledger read is SAID, never drawn as "none copied".
+  assert.deepEqual(copiedSoFarLine(null), { tone: 'note', words: 'Couldn’t read what’s copied' });
+  assert.equal(copiedSoFarLine({ total: 0, copied: 0 }).words, 'Not copied yet');
+  assert.equal(copiedSoFarLine({ total: 5, copied: 2 }).words, '2 of 5 files copied');
+  assert.deepEqual(copiedSoFarLine({ total: 40, copied: 40 }), { tone: 'ok', words: 'All 40 files copied' });
 });
 
 test('the way back after Google stays inside the supplier console', () => {

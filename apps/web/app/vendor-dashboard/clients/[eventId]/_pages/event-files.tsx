@@ -76,16 +76,24 @@ export async function EventFilesSection({ ctx, mode }: { ctx: PickedPageContext;
     />
   );
   if (mode !== 'files' || !drive) return board;
+  // ☁️ Under the board: a group head in the board's own style, then the one row in a frame (Fable design, 22 Nov 2026).
   return (
     <>
       {board}
-      <CopyEventToDrive
-        eventId={ctx.eventId}
-        eventName={ctx.eventName}
-        drive={drive}
-        copied={copied === null ? null : (copied?.[ctx.eventId] ?? { total: 0, copied: 0 })}
-        back={`${routes.vendorDashboard.clients.detail(ctx.eventId)}?tab=files`}
-      />
+      <section className="space-y-2 pt-5" aria-labelledby={`keep-a-copy-${ctx.eventId}`} data-keep-a-copy="">
+        <h3 id={`keep-a-copy-${ctx.eventId}`} className="text-sn-md font-semibold text-ink/60">
+          Keep a copy
+        </h3>
+        <div className="sn-frame py-1">
+          <CopyEventToDrive
+            eventId={ctx.eventId}
+            eventName={ctx.eventName}
+            drive={drive}
+            copied={copied === null ? null : (copied?.[ctx.eventId] ?? { total: 0, copied: 0 })}
+            back={`${routes.vendorDashboard.clients.detail(ctx.eventId)}?tab=files`}
+          />
+        </div>
+      </section>
     </>
   );
 }

@@ -184,39 +184,56 @@ export function copyStatusOf(c: { total: number; copied: number; failed: number;
 }
 
 const n = (x: number, one: string, many: string) => `${x.toLocaleString('en-PH')} ${x === 1 ? one : many}`;
+const num = (x: number) => x.toLocaleString('en-PH');
 
-/** The one line a supplier reads for a press. Never "Done" with failures; never "nothing to copy" on a refused read. */
-export function copyResultWords(r: CopyRunResult): { tone: 'ok' | 'bad' | 'note'; words: string } {
+/**
+ * The tone of a line, which is also its mark: `ok` = CloudCheck in --color-ok · `warn` = TriangleAlert in --color-warn
+ * · `bad` = TriangleAlert in --color-danger · `note` = quiet slate, no mark (colour never carries the meaning alone —
+ * the words do). Design: Fable, `drive_copy_design_2026-11-22_fable.html`.
+ */
+export type LineTone = 'ok' | 'warn' | 'bad' | 'note';
+
+/** The one line a supplier reads for a press. Never "done" with failures; never "nothing to copy" on a refused read. */
+export function copyResultWords(r: CopyRunResult): { tone: LineTone; words: string } {
   if (!r.ok) {
     switch (r.reason) {
       case 'unread':
-        return { tone: 'bad', words: 'We couldn’t read this event’s files just now. Nothing was copied — try again in a moment.' };
+        return { tone: 'bad', words: 'Couldn’t read this event’s files. Nothing was copied.' };
       case 'not_connected':
-        return { tone: 'note', words: 'Connect your Google Drive first.' };
+        return { tone: 'note', words: 'Not connected' };
       case 'needs_reconnect':
-        return { tone: 'bad', words: 'Google paused our access to your Drive. Reconnect it and press Copy again — nothing is lost.' };
+        return { tone: 'warn', words: 'Paused by Google. Reconnect to go on.' };
       case 'not_configured':
-        return { tone: 'note', words: 'Google Drive copying is being set up by Setnayan. Your files are safe here meanwhile.' };
+        return { tone: 'note', words: 'Being set up by Setnayan. Your files are safe here.' };
       default:
-        return { tone: 'bad', words: 'The copy stopped before it finished. Nothing is lost — try again.' };
+        return { tone: 'bad', words: 'The copy stopped. Nothing is lost.' };
     }
   }
-  if (r.status === 'nothing_to_copy') return { tone: 'note', words: 'This event has no files of yours to copy yet.' };
-  if (r.status === 'copying') return { tone: 'note', words: `Copying… ${r.copied.toLocaleString('en-PH')} of ${n(r.total, 'file', 'files')}` };
+  if (r.status === 'nothing_to_copy') return { tone: 'note', words: 'No files of yours on this event yet.' };
+  if (r.status === 'copying') return { tone: 'note', words: `Copying… ${num(r.copied)} of ${n(r.total, 'file', 'files')}` };
   if (r.status === 'some_failed') {
     return {
       tone: 'bad',
-      words: `${r.copied.toLocaleString('en-PH')} of ${n(r.total, 'file', 'files')} copied · ${n(Math.max(r.failed, r.total - r.copied), 'file', 'files')} couldn’t be copied. Try again.`,
+      words: `${num(r.copied)} of ${num(r.total)} copied · ${num(Math.max(r.failed, r.total - r.copied))} couldn’t be copied`,
     };
   }
-  return { tone: 'ok', words: `${n(r.total, 'file', 'files')} in your Google Drive` };
+  return { tone: 'ok', words: `All ${n(r.total, 'file', 'files')} copied` };
 }
 
-/** The quiet line under the button before a press: what the shop's Drive holds of this event so far. */
-export function copiedSoFarLine(p: { total: number; copied: number } | null): string | null {
-  if (!p || p.total === 0) return null;
-  if (p.copied >= p.total) return `${n(p.copied, 'file', 'files')} copied to your Google Drive`;
-  return `${p.copied.toLocaleString('en-PH')} of ${n(p.total, 'file', 'files')} copied to your Google Drive`;
+/** The toast for a copy that finished with every file in the Drive. */
+export function copyDoneToast(total: number): string {
+  return `${n(total, 'file', 'files')} copied to Google Drive`;
+}
+
+/**
+ * The quiet line before a press: how much of this event the shop's Drive holds (from the copy ledger, which only knows
+ * an event's files once it has been copied once). Null = the ledger read was refused — said, never drawn as "none".
+ */
+export function copiedSoFarLine(p: { total: number; copied: number } | null): { tone: LineTone; words: string } {
+  if (!p) return { tone: 'note', words: 'Couldn’t read what’s copied' };
+  if (p.total === 0) return { tone: 'note', words: 'Not copied yet' };
+  if (p.copied >= p.total) return { tone: 'ok', words: `All ${n(p.copied, 'file', 'files')} copied` };
+  return { tone: 'note', words: `${num(p.copied)} of ${n(p.total, 'file', 'files')} copied` };
 }
 
 // ── The OAuth round trip (`/api/oauth/drive/{start,callback,disconnect}?for=shop`) ────────────────────────────────

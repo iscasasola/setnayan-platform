@@ -232,7 +232,9 @@ export function PortfolioAlbumView(
           />
         ) : null}
 
-        {drive ? <div className="mt-3">{drive}</div> : null}
+        {/* ☁️ Copy to Google Drive — already inside the card, so no frame of its own; -mx-3 lines the row's title up with
+            the note's text edge (Fable design, 22 Nov 2026). */}
+        {drive ? <div className="-mx-3 mt-2">{drive}</div> : null}
 
         <PortfolioImportForm
           eventId={eventId}

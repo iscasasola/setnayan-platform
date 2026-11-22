@@ -100,7 +100,7 @@ export function ApplePlanDoor({
       if (screen.kind === 'on') toast.success(`${p.name} is on for your shop`);
       else if (screen.kind === 'pending') setMessage(screen.askToBuy ? IAP_COPY.askToBuy : `Apple confirmed ${p.name}. We’re switching it on for your shop now — it usually takes a moment.`);
       else if (screen.kind === 'cancelled') setMessage(IAP_COPY.cancelled);
-      else if (screen.kind === 'failed') setMessage(`${IAP_COPY.failedLead} ${IAP_COPY.failedNext}`);
+      else if (screen.kind === 'failed') setMessage(`The App Store couldn’t complete this purchase. Nothing was charged, and your plan didn’t change. ${IAP_COPY.failedNext}`);
       else setMessage(screen.message);
     });
   };
@@ -124,9 +124,9 @@ export function ApplePlanDoor({
               : `Renews${apple?.endsOn ? ` ${apple.endsOn}` : ''} · every month`
           : price
             ? `${price} a month`
-            : prices.state === 'silent'
-              ? IAP_COPY.storeSilent
-              : 'Reading the App Store price…';
+            : prices.state === 'loading'
+              ? 'Reading the price…'
+              : 'No price yet';
         const verb = move.direction === 'up' ? 'Upgrade' : move.direction === 'down' ? 'Switch' : 'Subscribe';
         const end = isOwn ? null : !verified ? (
           <LockButton lock="plans" need={{ kind: 'verify', progress: papersProgress }} label={`${verb} to ${p.name}`} storeShell />
@@ -153,6 +153,11 @@ export function ApplePlanDoor({
           />
         );
       })}
+      {prices.state === 'silent' ? (
+        <p className="pt-2 text-[13.5px] text-ink/70" role="status" data-apple-plan-silent="">
+          {IAP_COPY.storeSilent}
+        </p>
+      ) : null}
       {message ? (
         <p className="pt-2 text-[13.5px] text-ink/70" role="status" data-apple-plan-message="">
           {message}

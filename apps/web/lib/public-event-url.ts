@@ -94,11 +94,17 @@ export async function resolveEventOwnerSlug(
   // A failed read answers null (the bare address), never a guess: falling through to the couple-member tie-break
   // after an error could name a DIFFERENT owner than the creator, and every QR / redirect built from it would carry it.
   const { data: ev, error: evErr } = await admin.from('events').select('created_by_user_id').eq('event_id', eventId).maybeSingle();
-  if (evErr) return null;
+  if (evErr) {
+    console.error('[public-event-url] the event creator read failed — answering the bare address', evErr);
+    return null;
+  }
   const creatorId = (ev as { created_by_user_id?: string | null } | null)?.created_by_user_id ?? null;
   if (creatorId) {
     const { data: creator, error: creatorErr } = await admin.from('users').select('slug').eq('user_id', creatorId).maybeSingle();
-    if (creatorErr) return null;
+    if (creatorErr) {
+      console.error('[public-event-url] the creator username read failed — answering the bare address', creatorErr);
+      return null;
+    }
     const creatorSlug = (creator as { slug?: string | null } | null)?.slug?.trim();
     if (creatorSlug) return creatorSlug;
   }

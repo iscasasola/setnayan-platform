@@ -10,5 +10,9 @@
   watch link is main's `?tab=live`, built through `publicEventPath`.
 - One new hand-typed event link from main (`site-body.tsx`, "See the venue map" → `/find-my-table`) now goes through
   `publicEventPath`, as `an-event-lives-under-its-creator.test.ts` §7 requires.
+- `resolveEventOwnerSlug` now logs a failed creator read before it answers the bare address (`ugat-both-ends`:
+  a dropped result is a fault even when the fallback is safe).
+- `the-day-hub-follows-the-stage.test.ts` re-anchored to the helper-built venue-map door; the rule (the door stands
+  beside the seat block) is unchanged.
 
 SPEC IMPACT: None

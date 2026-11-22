@@ -1,5 +1,5 @@
 /**
- * WHO RUNS THE CHECK-IN DESK — events.checkin_desk_access (migration 20271350882870_checkin_desk_access.sql).
+ * WHO RUNS THE CHECK-IN DESK — events.checkin_desk_access (migration 20271357880360_checkin_desk_access.sql).
  * Opus review 2026-11-18: the PR shipped the column with no DB test. What the database itself must hold:
  *   1. Neither browser role can read or write it (service role only, read after the door-crew check and written
  *      after the host check — a grant would let any member past that check).

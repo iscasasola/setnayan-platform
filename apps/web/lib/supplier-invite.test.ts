@@ -26,13 +26,14 @@ const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
 test('the drawn words, word for word', () => {
+  // 🤝 "Trusted partners" (owner 19 Nov, COORDINATOR ONBOARDING) renames the drawn "preferred supplier".
   assert.equal(
     ADD_PREFERRED_LINE,
-    'Add a Setnayan shop you trust, or invite one that isn’t here yet. You become each other’s preferred supplier.',
+    'Add a Setnayan shop you trust, or invite one that isn’t here yet. You become each other’s trusted partners.',
   );
   assert.equal(
     INVITE_INFO,
-    'When a supplier joins Setnayan through your link, you are each other’s preferred supplier. Each one counts toward your Invites badge after their first completed booking.',
+    'When a supplier joins Setnayan through your link, you are each other’s trusted partners. Each one counts toward your Invites badge after their first completed booking.',
   );
   assert.deepEqual(Object.values(ORIGIN_TAG), ['Worked together', 'Added', 'Invited']);
   assert.equal(trustedByLine('Liwanag Lights & Bar'), 'Suppliers Liwanag Lights & Bar works with.');

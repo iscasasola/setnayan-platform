@@ -9,7 +9,8 @@
  *   host switch OFF (default) → the EVENT DAY, whole, in Manila — plus the
  *                               twelve hours past it that every camera on the
  *                               celebration now gets (owner 2026-09-22)
- *   host switch ON            → the event's whole Papic capture window
+ *   host switch ON            → from NOW until the event's Papic capture window ends
+ *                               (2026-11-22: the stored window START no longer holds guests back)
  *
  * ── WHY THIS FILE EXISTS AT ALL ─────────────────────────────────────────────
  * Guests had NO time gate anywhere. `eventPapicGuestActive()` asks whether the
@@ -69,14 +70,12 @@ export function guestCaptureGate(opts: {
   const eventDay = manilaDate(opts.eventDate ?? null);
 
   if (opts.earlyAllowed === true) {
-    // The host opened the doors: guests get the same span as the seat cameras.
-    // Bounds are already full ISO instants with an offset, so a plain parse is
-    // correct here — unlike the bare DATE columns on paparazzi_seats.
-    const startMs = opts.windowStart ? Date.parse(opts.windowStart) : NaN;
+    // 📷 "ON — EVERYONE, NOW" MEANS NOW (owner 2026-11-22, live fix: the Hub camera did not open while the card said
+    // "Guests' cameras are open now"). The host pressed the button, so a STORED window START is not a reason to refuse:
+    // capture days that begin on the event day used to hold every guest at "not open yet" until then. Only the END
+    // still closes (the window's end, which already carries the twelve-hour tail when the event day set it).
+    // `windowStart` stays in the signature — callers pass the row as it is — and is deliberately not read here.
     const endMs = opts.windowEnd ? Date.parse(opts.windowEnd) : NaN;
-    if (Number.isFinite(startMs) && nowMs < startMs) {
-      return { state: 'not_open_yet', eventDay };
-    }
     if (Number.isFinite(endMs) && nowMs > endMs) return { state: 'closed', eventDay };
     return { state: 'open', eventDay };
   }

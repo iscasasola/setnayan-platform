@@ -41,6 +41,15 @@ export const WEEKLY_GAP_MS = 6 * 24 * 60 * 60 * 1000;
 export const UNBILLED_FEE_REPAIR_GAP_MS = 30 * 60 * 1000;
 
 /**
+ * Phase 2 of the admin BDO batch match (owner 2026-11-17, "Hold 30 min, then
+ * pay"): an exact match is recorded, waits 30 minutes for an Undo, and this
+ * job then runs the normal approve. Five minutes, so a hold pays within about
+ * 35 minutes of the drop while admin traffic lasts; a quiet window does
+ * nothing when no hold is due (one indexed read).
+ */
+export const RECEIVED_AUTO_RELEASE_GAP_MS = 5 * 60 * 1000;
+
+/**
  * CTRL-B3 build 5. Twice a day: peer bands move with the catalogue, not the hour.
  *
  * 🔑 DECLARED HERE, NOT IMPORTED FROM `price-band-refill.server.ts`. That module
@@ -516,6 +525,16 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'operational',
     gapMs: PRICE_BAND_REFILL_GAP_MS,
     what: 'Refilling the peer price bands behind every supplier’s Price-Position Meter',
+    reportsCount: true,
+  },
+  {
+    // 2026-11-17 — admin BDO batch match, phase 2. An exact match waits 30
+    // minutes (Undo), then this runs approvePaymentCore. Without it a held
+    // match never pays and the buyer waits for ever, with nothing red anywhere.
+    key: 'received-auto-match-release',
+    kind: 'operational',
+    gapMs: RECEIVED_AUTO_RELEASE_GAP_MS,
+    what: 'Confirming the BDO payments that matched by themselves once their 30-minute Undo window is over',
     reportsCount: true,
   },
   {

@@ -448,7 +448,7 @@ function JoinerRow({ word, onWord }: { word: string | null; onWord: (w: string |
             onBlur={box.onBlur}
             enterKeyHint="done"
             placeholder="at saka"
-            className="min-h-11 min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink lg:min-h-9 lg:text-[14px]"
+            className="min-h-11 min-w-0 flex-1 rounded-md border border-ink/15 bg-raised px-3 text-[16px] text-ink lg:min-h-9 lg:text-[14px]"
           />
         </form>
       ) : null}
@@ -491,7 +491,7 @@ function PartWordsRow({ el, word, hint, onWord }: { el: HubElementKey; word: str
         onBlur={box.onBlur}
         enterKeyHint="done"
         placeholder={hint}
-        className="min-h-11 min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink lg:min-h-9 lg:text-[14px]"
+        className="min-h-11 min-w-0 flex-1 rounded-md border border-ink/15 bg-raised px-3 text-[16px] text-ink lg:min-h-9 lg:text-[14px]"
       />
     </form>
   );

@@ -161,6 +161,13 @@ const STAFF_OR_SHOP_OWN_TREES: ReadonlyArray<{ prefix: string; why: string }> = 
       "production (`notFound()`, pinned by app/dev/admin-shell-lab/the-lab-never-ships.test.ts). Never a couple's or the public's page.",
   },
   {
+    prefix: 'app/dev/papers-renewal-lab/',
+    why:
+      "The papers-renewal dev lab — it draws the shop's OWN Today and verification screens and the STAFF console's " +
+      "Renewals list and Renewal fold (which reach the admin's verification checks) from fixtures, and refuses to render " +
+      "in production (`notFound()`, pinned by app/dev/papers-renewal-lab/the-lab-never-ships.test.ts). Never a couple's or the public's page.",
+  },
+  {
     prefix: 'app/vendor/claim/',
     why: 'A shop CLAIMING its own profile — the form is pre-filled with its own email and phone.',
   },
@@ -322,7 +329,8 @@ const BOOKED_HANDOFF_BILL: ReadonlyMap<string, { count: number; why: string; gat
       why:
         'A Call (tel:) and a Viber call (viber://chat?number=) between a couple and a shop, made ONLY when the booking ' +
         'check says the shop is booked on the event (owner 2026-11-04 "Viber and phone call booked suppliers"). Both ' +
-        'builders return null without it. Its one caller is the booked chat head (meetings are Jitsi only and dial nothing).',
+        'builders return null without it. Its callers are the booked chat head and the picked pages\' ⋯ Call · Viber rows ' +
+        '(meetings are Jitsi only and dial nothing).',
     },
   ],
 ]);

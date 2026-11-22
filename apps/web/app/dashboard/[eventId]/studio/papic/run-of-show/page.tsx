@@ -27,6 +27,7 @@
  * not the couple. They share the board, the ceiling and the server action; they
  * are not the same screen and folding one into the other would make both worse.
  */
+import { getCurrentUser } from '@/lib/auth';
 import { papicCardHref } from '@/lib/papic-home-href';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -79,9 +80,7 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
   // B), so a stranger with the URL sees nothing regardless. This check exists
   // to send them somewhere useful rather than to an empty page.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect(`/login?next=/dashboard/${eventId}/studio/papic/run-of-show`);
 
   // What kind of celebration this is, from the shipped resolver — React-cache()d
@@ -210,7 +209,7 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
                 type="submit"
                 className={
                   paused
-                    ? 'inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1 text-xs font-medium text-white'
+                    ? 'inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1 text-xs font-medium text-cream'
                     : 'inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1 text-xs font-medium text-ink hover:bg-ink/5'
                 }
               >

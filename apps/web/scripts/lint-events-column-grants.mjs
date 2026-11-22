@@ -103,7 +103,7 @@ const NO_GRANT_NEEDED = new Set([
   // names it, so a grant would only widen what a guest can read about the couple's settings.
   'papic_phone_uploads_held',
 
-  // ── 🛂 WHO RUNS THE CHECK-IN DESK (20271350882870, owner 2026-11-16) ──────
+  // ── 🛂 WHO RUNS THE CHECK-IN DESK (20271357880360, owner 2026-11-16) ──────
   // Read by the desk page only after the viewer is proven door crew of THIS event, and written by `saveDeskAccess`
   // (guests/checkin/actions.ts) only after the caller is proven a HOST of it — both through the service role. A user
   // grant would let any member write it past the host check.

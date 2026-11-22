@@ -59,8 +59,9 @@ const CHARGE_CENTAVOS = 83_750;
 const CHARGE_PHP = CHARGE_CENTAVOS / 100; // 837.5
 
 /** The surfaces that name this charge. */
-const FEE_DETAIL = 'app/vendor-dashboard/booking-fees/[orderId]/page.tsx';
-const FEE_HUB = 'app/vendor-dashboard/booking-fees/page.tsx';
+// Set two (21 Nov 2026): each page reads and hands its facts to a body that draws them — the amounts live there.
+const FEE_DETAIL = 'app/vendor-dashboard/booking-fees/[orderId]/fee-body.tsx';
+const FEE_HUB = 'app/vendor-dashboard/booking-fees/booking-fees-body.tsx';
 // The desk is two files since the admin Money drawing (2026-11-14): the page reads, `_components/desk.tsx` prints.
 const ADMIN_QUEUE = 'app/admin/payments/_components/desk.tsx';
 const ADMIN_QUEUE_READS = 'app/admin/payments/page.tsx';

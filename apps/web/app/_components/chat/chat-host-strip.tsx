@@ -55,6 +55,8 @@ export function ChatHostStrip({
   leave = null,
   viewerSide = 'vendor',
   calls = null,
+  tail = null,
+  away = false,
   note = null,
   shopLabel = null,
   word = 'Shared chat',
@@ -78,6 +80,10 @@ export function ChatHostStrip({
    * 🔒 lib/every-chat-head-has-its-calls.test.ts
    */
   calls?: ReactNode;
+  /** 🔎 One control at the row's end — the chat's search magnifier (Unichat part D, 20 Nov 2026). An icon until tapped. */
+  tail?: ReactNode;
+  /** 🔎 The search box has this row's place for now: the strip stays mounted (its faces, its dialogs), out of sight. */
+  away?: boolean;
   /**
    * ⓘ The chat's privacy words, one tap away on the "Shared chat" line (a picked chat draws no notice row — v8.3).
    */
@@ -138,7 +144,7 @@ export function ChatHostStrip({
     and "· 1 in the chat now" leave the row; the green ring still shows who is here now.
   */
   return (
-    <div className="border-b border-ink/10 pl-2.5 pr-1" data-chat-host-strip="">
+    <div className={`border-b border-ink/10 pl-2.5 pr-1 ${away ? 'hidden' : ''}`} data-chat-host-strip="">
       <div className="flex h-12 items-center gap-1">
       {/* 🟢 THE RING IS NEVER CLIPPED (Build 2 #26b). `overflow-x-auto` clips on every side, and the ring draws OUTSIDE
           the avatar: ring-2 + ring-offset-2 = 4 px. So the list pads 4 px all round (`p-1`; `-my-1` gives the vertical
@@ -245,6 +251,7 @@ export function ChatHostStrip({
           {calls}
         </div>
       ) : null}
+      {tail}
       </div>
       {leave ? (
         <LeaveChatDialog

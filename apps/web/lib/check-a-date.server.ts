@@ -4,6 +4,7 @@ import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { readAllPages } from '@/lib/read-all-pages';
+import { pieceBookingIdsOf } from '@/lib/piece-seats';
 import { shopPageGate } from '@/lib/own-shop-preview';
 import { resolveVendorDisplayName, displayServiceLabel } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
@@ -11,7 +12,8 @@ import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { fetchVendorServiceAttributes, payloadHidesPricesPublicly } from '@/lib/vendor-service-attributes';
 import { formatPhpRounded } from '@/lib/php';
 import { NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
-import { checkDateAnswer, checkDateWindow, type CheckDateInput, type CheckDateService } from '@/lib/check-a-date';
+import { checkDateAnswer, checkDateWindow, checkDateWindowFor, withBookingWindow, type CheckDateInput, type CheckDateService } from '@/lib/check-a-date';
+import { bookingWindowOf, type BookingWindow } from '@/lib/booking-window';
 
 /**
  * check-a-date.server — THE ONE READ BEHIND `/v/[slug]/dates` (owner 2026-10-28 ✅ "index.html approve").
@@ -82,10 +84,13 @@ type ShopRow = {
   name_revealed_at: string | null;
   screen_name: string | null;
   tier_state: string | null;
+  /** 📅 How far away the shop takes bookings (`lib/booking-window.ts`) — null = the same day · 3 years. */
+  booking_min_days: number | null;
+  booking_max_months: number | null;
 };
 
 const SHOP_COLS =
-  'vendor_profile_id, business_name, business_slug, services, location_city, public_visibility, verification_state, next_renewal_due_at, is_demo, name_revealed_at, screen_name, tier_state';
+  'vendor_profile_id, business_name, business_slug, services, location_city, public_visibility, verification_state, next_renewal_due_at, is_demo, name_revealed_at, screen_name, tier_state, booking_min_days, booking_max_months';
 
 function initialsOf(name: string): string {
   const words = name.replace(/[^\p{L}\p{N}\s]/gu, ' ').trim().split(/\s+/).filter(Boolean);
@@ -118,7 +123,9 @@ export async function readCheckADateFresh(slug: string, now: Date = new Date()):
 
   const id = row.vendor_profile_id;
   const today = checkDateToday(now);
-  const window = checkDateWindow(today);
+  // 📅 The shop's own window (owner 2026-11-19): its "At most" ends the calendar, its "At least" greys the days before.
+  const bookingWindow = bookingWindowOf(row);
+  const window = checkDateWindowFor(today, bookingWindow);
 
   const [read, attrs] = await Promise.all([
     readShopDateFacts(admin, id, { today, from: window.from, to: window.to }),
@@ -127,7 +134,7 @@ export async function readCheckADateFresh(slug: string, now: Date = new Date()):
   if (read.kind === 'unreadable') return { kind: 'unreadable' };
   const { pools, bookings, blocks, dayStates, services, serviceRows } = read;
 
-  const answer = checkDateAnswer({ pools, bookings, blocks, dayStates, services, months: window.months, today });
+  const answer = withBookingWindow(checkDateAnswer({ pools, bookings, blocks, dayStates, services, months: window.months, today }), today, bookingWindow);
 
   // Prices as the shop page shows them: hidden when the shop chose to hide them (a failed read shows — it never hides).
   const hidePrices = Array.isArray(attrs) && attrs.some((a) => payloadHidesPricesPublicly(a.attribute_payload));
@@ -180,11 +187,32 @@ export async function readThisMonthNotBookable(
   const admin = createAdminClient();
   const today = checkDateToday(now);
   const window = checkDateWindow(today, 1);
-  const read = await readShopDateFacts(admin, vendorProfileId, { today, from: window.from, to: window.to });
-  if (read.kind === 'unreadable') return { kind: 'unreadable' };
+  const [read, bookingWindow] = await Promise.all([
+    readShopDateFacts(admin, vendorProfileId, { today, from: window.from, to: window.to }),
+    readBookingWindow(admin, vendorProfileId),
+  ]);
+  if (read.kind === 'unreadable' || bookingWindow === null) return { kind: 'unreadable' };
   const { pools, bookings, blocks, dayStates, services } = read;
-  const answer = checkDateAnswer({ pools, bookings, blocks, dayStates, services, months: window.months, today });
+  // 📅 The shop's "At least" greys this month's too-soon days too, as on the full Check a date.
+  const answer = withBookingWindow(checkDateAnswer({ pools, bookings, blocks, dayStates, services, months: window.months, today }), today, bookingWindow);
   return { kind: 'ok', today, to: window.to, notBookable: answer.notBookable };
+}
+
+/**
+ * 📅 One shop's "How far away you take bookings" (`lib/booking-window.ts`), on the service role. A refused read is
+ * `null` — never the open window, which would offer a couple days the shop said it does not take.
+ */
+export async function readBookingWindow(admin: SupabaseClient, vendorProfileId: string): Promise<BookingWindow | null> {
+  const { data, error } = await admin
+    .from('vendor_profiles')
+    .select('booking_min_days, booking_max_months')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (error) {
+    logQueryError('readBookingWindow', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  return bookingWindowOf(data as { booking_min_days: number | null; booking_max_months: number | null } | null);
 }
 
 /** The six window reads, shared by the public page and the booking gates (`lib/closed-day.server.ts`). */
@@ -244,7 +272,7 @@ export async function readShopDateFacts(
       async (from, to) => {
         const { data, error, count } = await admin
           .from('vendor_schedule_pool_bookings')
-          .select('pool_id, booked_date', { count: 'exact' })
+          .select('pool_id, booked_date, event_vendor_id', { count: 'exact' })
           .eq('vendor_profile_id', id)
           .is('released_at', null)
           .gte('booked_date', today)
@@ -337,7 +365,19 @@ export async function readShopDateFacts(
   )
     .filter((b) => b.blocked_at && b.blocked_until)
     .map((b) => ({ poolId: b.pool_id, source: b.block_source, ...notAvailableShapeOf(b) }));
-  const bookings = (bookingsRead.rows as { pool_id: string; booked_date: string }[]).map((b) => ({ poolId: b.pool_id, bookedDate: b.booked_date }));
+  const bookingRows = bookingsRead.rows as { pool_id: string; booked_date: string; event_vendor_id: string | null }[];
+  // 🔢 Pieces never take a seat (owner 2c) — the same rule as the guard's `schedule_pool_taken_on`. A refused read is
+  // unreadable, like every other read here.
+  const pieces = await pieceBookingIdsOf(admin, bookingRows.map((b) => b.event_vendor_id));
+  if (pieces.error) {
+    logQueryError('readShopDateFacts.pieceSeats', pieces.error, { vendor_profile_id: id }, 'graceful_degrade');
+    return { kind: 'unreadable' as const };
+  }
+  const bookings = bookingRows.map((b) => ({
+    poolId: b.pool_id,
+    bookedDate: b.booked_date,
+    ...(b.event_vendor_id && pieces.ids.has(b.event_vendor_id) ? { seat: false } : {}),
+  }));
   const dayStates = ((statesRes.data ?? []) as { pool_id: string | null; state_date: string; day_state: string }[])
     .filter((s): s is { pool_id: string | null; state_date: string; day_state: 'locked' | 'whitelist' } => s.day_state === 'locked' || s.day_state === 'whitelist')
     .map((s) => ({ poolId: s.pool_id, stateDate: s.state_date, dayState: s.day_state }));

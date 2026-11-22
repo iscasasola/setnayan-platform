@@ -41,15 +41,16 @@ export function isBookingFeeEnforced(): boolean {
 /**
  * The fee schedule in force. Stamped on every charge (the app always passes this
  * value explicitly to the ledger RPC — see booking-fee-charge.ts) so a future
- * reprice cannot silently rewrite history. Bumped 2026-07-25 for the owner-locked
- * TAPER (5% on the first ₱100,000, then 1% above; floor ₱50; no cap —
- * `Vendor_Monetization_Model_LOCKED_2026-07-25.md` § 3), which supersedes the
- * 2026-07-24 flat-5%/no-cap reprice. Charges written under an older string stay
+ * reprice cannot silently rewrite history. Bumped 2026-11-20 for the owner's
+ * schedule (5% on the first ₱100,000, then 3% above; floor ₱50; locked at
+ * ₱100,000; unverified shops flat 5%, locked too), which supersedes the
+ * 2026-07-25 taper (5% then 1%, no cap). Twin of SQL
+ * `public.booking_fee_schedule_version()`. Charges written under an older string stay
  * readable as such; nothing is re-priced retroactively. The ledger migration's
  * SQL DEFAULT ('2026-07-23-flat2') is the historical fallback and is never used
  * on the app path.
  */
-export const BOOKING_FEE_SCHEDULE_VERSION = '2026-07-25-taper5-1-over-100k';
+export const BOOKING_FEE_SCHEDULE_VERSION = '2026-11-20-taper5-3-cap100k';
 
 export type BookingFeeAttribution = 'sourced' | 'import';
 
@@ -162,20 +163,24 @@ export function decideFeeGate(charge: OpenChargeResult | null): FeeGateResult {
  * only the NAME match (answer 8) — it is never stamped; the facts above stand.
  *
  * ⚠ THE APP'S BELIEF, NOT THE BILL. SQL decides what is charged:
- * `public.booking_fee_attribution_for` carries the same arms, and
+ * `public.booking_fee_attribution_for_event` carries the same arms, and
+ * `public.booking_fee_attribution_for` adds ONE more that this per-event mirror cannot see (HOLE 3, migration
+ * 20271352180500, owner LOCKED §3 "every repeat"): the same COUPLE, sourced to this shop on an earlier event, is
+ * sourced here too. And
  * `tests/db/add-your-own-fee-rule.db.test.ts` runs every case of
  * `lib/fee-rule-b-cases.ts` through both and requires the same answer.
  * Fails SAFE to import.
  */
 /**
- * 🔖 THE SHORTLIST QR IS NOT AN IMPORT (owner 2026-11-16, DECISION_LOG d7f4b97f). Shop › Promote's free
- * "Shortlist" QR (`/vendor-invite/<slug>` → `importVendorToEventShortlist`) puts the shop on the couple's shortlist,
- * and a booking from it pays the normal booking fee — it is a save on Setnayan, not the supplier bringing an own
- * client. Until 16 Nov it wrote `vendor_invite` and was a free back door around the import gift (183dcf14).
+ * 🔖 THE SHORTLIST QR IS AN IMPORT QR (owner 2026-11-16, DECISION_LOG 1abf35b — supersedes d7f4b97f "the Shortlist QR
+ * stays free but is not an import"). Shop › Promote's "Shortlist" QR (`/vendor-invite/<slug>` →
+ * `importVendorToEventShortlist`) is one of the supplier's own QRs, so it follows the first-supplier rule
+ * (d4899cd5 / 9fe95ebe): a verified shop that is the first imported supplier on the event books it free; every other
+ * supplier on that event pays; an unverified shop always pays (99b6ab50). SQL decides that (`booking_fee_attribution_for`).
  */
 export const SHORTLIST_QR_SOURCE = 'vendor_shortlist_qr';
-export const SETNAYAN_SAVE_SOURCES: ReadonlySet<string> = new Set(['host_marketplace_search', 'auto_cascade_from_finalize', SHORTLIST_QR_SOURCE]);
-export const SUPPLIER_BROUGHT_SOURCES: ReadonlySet<string> = new Set(['vendor_invite', 'vendor_locked_qr', 'reuse_accept']);
+export const SETNAYAN_SAVE_SOURCES: ReadonlySet<string> = new Set(['host_marketplace_search', 'auto_cascade_from_finalize']);
+export const SUPPLIER_BROUGHT_SOURCES: ReadonlySet<string> = new Set(['vendor_invite', 'vendor_locked_qr', 'reuse_accept', SHORTLIST_QR_SOURCE]);
 
 export type BookingAttributionFacts = {
   /** `inquiry_source` of every thread this event has with the shop. */
@@ -195,7 +200,16 @@ export type BookingAttributionFacts = {
 
 export function bookingFeeAttributionFromFacts(f: BookingAttributionFacts): BookingFeeAttribution {
   if (f.threadSources.some((s) => bookingFeeAttribution(s) === 'sourced')) return 'sourced';
-  if (f.rowSource && SUPPLIER_BROUGHT_SOURCES.has(f.rowSource)) return 'import';
+  // 🎟 Owner 2026-11-16 (DECISION_LOG d4899cd5 point 4): a row the supplier brought is a Setnayan booking when Setnayan
+  // showed the couple the shop FIRST — an earlier save on Setnayan or a Setnayan profile view. Otherwise this per-event
+  // mirror says 'import', meaning only "no Setnayan fact here": whether the import is FREE (the import brought the
+  // client onto Setnayan within 12 months, or this is the first imported supplier on the event) is decided in SQL by
+  // `booking_fee_attribution_for`, which reads across events and other shops.
+  if (f.rowSource && SUPPLIER_BROUGHT_SOURCES.has(f.rowSource)) {
+    if (f.savesBefore.some((s) => s != null && SETNAYAN_SAVE_SOURCES.has(s))) return 'sourced';
+    if (f.viewSourcesBefore.some((s) => bookingFeeAttribution(s) === 'sourced')) return 'sourced';
+    return 'import';
+  }
   if (!f.recordTiedToShop) return 'import';
   // Judged by the row's SOURCE: a Find save that a claimed record merged onto (it now carries the record's
   // manual_vendor_id too) is still a save from Find.

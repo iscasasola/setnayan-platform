@@ -17,5 +17,5 @@ Every part stays mounted (switching never reloads; the scanner keeps its state).
 `Promise.all`. `checkInGuest` / `undoCheckIn` ask the same reader (`readDeskViewer`) at the write — a couple member
 skips it. One new action (`saveDeskAccess`), one new column (`events.checkin_desk_access`, service role only).
 
-SPEC IMPACT: None — implements the approved drawing; no decision changed. Migration `20271350882870_checkin_desk_access`
+SPEC IMPACT: None — implements the approved drawing; no decision changed. Migration `20271357880360_checkin_desk_access`
 (one nullable jsonb column on `events`, no user grant; listed in `lint-events-column-grants.mjs` NO_GRANT_NEEDED).

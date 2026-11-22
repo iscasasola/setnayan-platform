@@ -17,13 +17,14 @@ import { type FrontDoorData } from './data';
 import { shopInitials } from '@/lib/shop-initials';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { bookingFeeBandsLine, bookingFeeMinimumAmount } from '@/lib/booking-fee';
-import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
+import { FEE_FREE_CHIP } from '@/lib/booking-fee-who-words';
 import { formatCount } from '@/lib/format-number';
 import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
 import { SampleMarker } from '@/app/_components/sample-marker';
 import { ImageBadge } from '@/app/_components/image-badge';
 import { badgeImageOf } from '@/lib/shop-badge-row';
 import { EmptyShelf } from './empty-shelf';
+import { FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 
 /**
  * The card's terminal blurb when a story has no excerpt of its own.
@@ -357,8 +358,8 @@ export function FrontDoorFeed({
                 only when the booking-fee sentence travels with it, so both stay here.
 
                 🔑 THE NUMBERS ARE DERIVED, NEVER TYPED. `bookingFeeBandsLine()`,
-                `bookingFeeMinimumAmount()` and `FIRST_BOOKING_FREE` (the owner's
-                2026-11-04 wording of the fee line) speak for the same rule the bill uses,
+                `bookingFeeMinimumAmount()` and `FEE_FREE_CHIP` (the owner's
+                free rule, F1 — 20 Nov: no free first booking) speak for the same rule the bill uses,
                 and the minimum stays inline here because this is already a tip. The launch
                 line is gated on `isBookingFeeEnabled()` — the flag that decides whether
                 anyone is billed.
@@ -367,7 +368,7 @@ export function FrontDoorFeed({
                 Couples pay you directly — we never take a cut of it.{' '}
                 {isBookingFeeEnabled() ? (
                   <>
-                    {FIRST_BOOKING_FREE} After that:{' '}
+                    {FEE_FREE_CHIP}. Otherwise:{' '}
                     {data.bookingFee ? (
                       <>
                         {bookingFeeBandsLine(data.bookingFee)}, minimum{' '}
@@ -376,7 +377,7 @@ export function FrontDoorFeed({
                     ) : (
                       'a booking fee'
                     )}{' '}
-                    — only on couples who found you here. Your own clients stay free.{' '}
+                    — {FEE_SCOPE}. {FEE_FREE_RULE}{' '}
                   </>
                 ) : (
                   <>No booking fee while we&rsquo;re new.{' '}</>

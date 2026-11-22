@@ -296,7 +296,7 @@ export type SaveDeskAccessResult = { ok: true; access: DeskAccess } | { ok: fals
  * only the coordinator's, the helpers' and the door supplier's parts are stored. HOSTS ONLY: the caller must be a
  * couple member or a full co-host seat (`readDeskViewer` → role `host`). The supplier at the door must hold a live
  * supplier seat (`wedding_planner_external`) on THIS event — a typed or stale account id is refused, never stored.
- * Written through the service role (the column has no user grant — migration 20271350882870). The sheet updates in
+ * Written through the service role (the column has no user grant — migration 20271357880360). The sheet updates in
  * place from what comes back; nothing reloads.
  */
 export async function saveDeskAccess(eventId: string, next: unknown): Promise<SaveDeskAccessResult> {

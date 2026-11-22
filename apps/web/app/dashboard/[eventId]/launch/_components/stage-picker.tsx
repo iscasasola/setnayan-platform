@@ -75,7 +75,7 @@ export function StagePicker({
             {formatCount(whole.done)} of {formatCount(whole.total)} in place
           </p>
         </header>
-        <ul role="radiogroup" aria-label="Stages" className="flex flex-col divide-y divide-ink/10 overflow-hidden rounded-xl bg-white/80 shadow-[0_1px_2px_rgba(40,34,24,.06)]">
+        <ul role="radiogroup" aria-label="Stages" className="flex flex-col divide-y divide-ink/10 overflow-hidden rounded-xl bg-raised/80 shadow-[0_1px_2px_rgba(40,34,24,.06)]">
           {SETUP_STAGES.map((s) => {
             const open = walkable(s);
             const p = stageProgress(plan, s);
@@ -146,7 +146,7 @@ export function BeforeWeStartScreen({
 }) {
   const b = beforeWeStart(plan, round);
   const title = roundName(plan, round);
-  const card = 'flex flex-col gap-1.5 rounded-xl bg-white/80 px-3.5 py-3 shadow-[0_1px_2px_rgba(40,34,24,.06)]';
+  const card = 'flex flex-col gap-1.5 rounded-xl bg-raised/80 px-3.5 py-3 shadow-[0_1px_2px_rgba(40,34,24,.06)]';
   const head = 'flex items-baseline justify-between px-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
   return (
     <section data-before-we-start={round} aria-label={`${title} — before we start`} className={PANE}>

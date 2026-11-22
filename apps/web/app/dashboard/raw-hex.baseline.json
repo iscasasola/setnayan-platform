@@ -1,0 +1,24 @@
+{
+  "_about": "Raw hex colour literals per area under app/dashboard (raw-hex-only-goes-down.test.ts). May only go DOWN. What remains is the person's or the art's own colour (palettes, monogram and logo art, drawings of a phone / camera / seal, the seat-plan lab's stage, print and PDF routes that are always light, phase swatches, status tones that carry their html.dark pair in the same stylesheet). Regenerate with WRITE_HEX_BASELINE=1; never edit by hand.",
+  "total": 336,
+  "areas": {
+    "(account)/create-event": 1,
+    "(account)/life-flash": 15,
+    "(account)/people": 7,
+    "[eventId]/_components": 21,
+    "[eventId]/alaala": 3,
+    "[eventId]/budget": 1,
+    "[eventId]/details": 1,
+    "[eventId]/event-qr": 2,
+    "[eventId]/guests": 7,
+    "[eventId]/invitation": 8,
+    "[eventId]/launch": 41,
+    "[eventId]/monogram": 36,
+    "[eventId]/schedule": 12,
+    "[eventId]/seating": 37,
+    "[eventId]/story": 16,
+    "[eventId]/studio": 30,
+    "[eventId]/vendors": 64,
+    "[eventId]/website": 34
+  }
+}

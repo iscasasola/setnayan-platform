@@ -20,9 +20,9 @@
  * refusal now leaves a trace.
  *
  * ── Two proof shapes below ──────────────────────────────────────────────────
- * 1. FUNCTIONAL — the three sites whose function takes an injected
+ * 1. FUNCTIONAL — the sites whose function takes an injected
  *    `SupabaseClient` parameter (`fetchPlatformSettings`,
- *    `fetchVendorValidateContacts`, `fetchFirstLookConfig`) get a stub client
+ *    `fetchFirstLookConfig`) get a stub client
  *    that returns `{ data: null, error }`, and the test asserts
  *    `console.error` was actually called with that error AND that the
  *    function still returns its documented fallback (the fix must never
@@ -51,7 +51,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
-import { fetchPlatformSettings, fetchVendorValidateContacts } from '@/lib/platform-settings';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { fetchFirstLookConfig } from '@/lib/firstlook';
 
 const WEB = join(import.meta.dirname, '..');
@@ -86,25 +86,6 @@ test('fetchPlatformSettings logs a refused read and still returns the safe FALLB
     assert.equal(row.business_name, 'Setnayan', 'fallback default must be unchanged');
     const hit = errorCalls.find((args) =>
       String(args[0]).includes('platform-settings: fetchPlatformSettings'),
-    );
-    assert.ok(hit, `expected a console.error mentioning the call site; got ${JSON.stringify(errorCalls)}`);
-  } finally {
-    restore.mock.restore();
-  }
-});
-
-test('fetchVendorValidateContacts logs a refused read and still returns the documented default email', async () => {
-  const dbError = { code: '42703', message: 'column "vendor_validate_email" does not exist' };
-  const errorCalls: unknown[][] = [];
-  const restore = mock.method(console, 'error', (...args: unknown[]) => {
-    errorCalls.push(args);
-  });
-  try {
-    const stubClient = { from: () => chainStub({ data: null, error: dbError }) } as never;
-    const contacts = await fetchVendorValidateContacts(stubClient);
-    assert.equal(contacts.vendor_validate_email, 'verify@setnayan.com');
-    const hit = errorCalls.find((args) =>
-      String(args[0]).includes('platform-settings: fetchVendorValidateContacts'),
     );
     assert.ok(hit, `expected a console.error mentioning the call site; got ${JSON.stringify(errorCalls)}`);
   } finally {

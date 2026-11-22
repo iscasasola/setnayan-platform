@@ -9,7 +9,7 @@ import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { countDueVendorFeeOrders } from '@/lib/vendor-booking-fees.server';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
+import { fetchV2VendorCatalogRead } from '@/lib/v2-catalog';
 import { planGiftOf, giftEndsSoon, giftPlanLine, giftEndedLine, portfolioPlanRowLine } from '@/lib/plan-gift';
 import { dayAfterWords, offerDayWords, offerFromInvite } from '@/lib/personal-invite-offer';
 import { readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
@@ -206,11 +206,15 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // migration the plan screen silently loses the current plan, the renewal date
   // AND both add-ons at once. Kept separate, an unmigrated database degrades to
   // "nothing scheduled, no money held", which is the truth there anyway.
-  const { data: planChangeRow } = await supabase
+  const { data: planChangeRow, error: planChangeErr } = await supabase
     .from('vendor_profiles')
     .select('pending_tier, subscription_credit_php')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
+  // L-4 (supplier audit 2026-11-17): a REFUSED read was "nothing scheduled, no money held" — the "Today" figure then
+  // ignored held credit and a scheduled change (and its undo) vanished. Unread: no Today figure, and it is said.
+  const planChangeUnread = Boolean(planChangeErr);
+  if (planChangeUnread) console.error('[supabase-error] plan-screen: pending_tier / credit read', planChangeErr);
   const pendingTier =
     (planChangeRow as { pending_tier?: string | null } | null)?.pending_tier ?? null;
   const heldCreditPhp = Number(
@@ -239,7 +243,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       : null;
 
   // DB prices for the chosen cycle, keyed by sku_code.
-  const vendorCatalog = await fetchV2VendorCatalog();
+  // L-2: the read's outcome is kept — a REFUSED catalogue is not "nothing on sale".
+  const { rows: vendorCatalog, ok: catalogRead } = await fetchV2VendorCatalogRead();
+  const catalogUnread = !catalogRead;
   // The extra seat and the extra branch (Ultra only) — the rows their purchases CHARGE; unread → no figure.
   const seatPricePhp = vendorCatalog.find((r) => r.sku_code === SEAT_SKU_CODE)?.price_php ?? null;
   const branchPricePhp = vendorCatalog.find((r) => r.sku_code === BRANCH_SKU_CODE)?.price_php ?? null;
@@ -259,7 +265,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // works." Until it's applied, Solo is omitted so we never render a buy button
   // that would hard-error (UNMAPPED_SKU_TIER). Once applied, Solo appears on the
   // next request — no redeploy (this is a server component reading live prices).
-  const soloBuyable = priceBySku.has('solo_vendor_annual');
+  // L-2 (supplier audit 2026-11-17): an UNREAD catalogue is not proof Solo is unwired — dropping the row then took a
+  // Plus shop's own "Plus · your plan" row away. Unread keeps every row; their prices are unread (no figure, no Pay).
+  const soloBuyable = priceBySku.has('solo_vendor_annual') || catalogUnread || currentTier === 'solo';
   const visibleTiers: PaidTier[] = soloBuyable
     ? PAID_TIERS
     : PAID_TIERS.filter((t) => t !== 'solo');
@@ -422,7 +430,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         paid,
         price,
         tooShort: pick?.tooShort ?? {},
-        today: Object.fromEntries(
+        today: planChangeUnread ? {} : Object.fromEntries(
           (Object.entries(price) as [keyof typeof price, number][]).map(([cy, v]) => [
             cy,
             payToday({ kind, price: v, unusedPhp, creditPhp: heldCreditPhp, currentRaw: currentTier, endsOn: expiresOn }),
@@ -555,6 +563,12 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             {/* A scheduled change, and money the shop is holding — in plain words,
                 each shown only when it is true. The date it names is
                 `tierExpiresAt`; there is no separate stored effective date. */}
+            {planChangeUnread ? (
+              <ShopNotice tone="gold" role="status">
+                We couldn&rsquo;t load a scheduled plan change or money on your account, so no amount for today is shown.
+                Refresh in a moment to try again.
+              </ShopNotice>
+            ) : null}
             <PlanChangeNotice
               situation={{
                 currentTier,
@@ -604,6 +618,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             expiresOn={expiresOn}
             storeShell={storeShell}
             papersProgress={papersProgress(papersRead)}
+            pricesUnread={catalogUnread}
             gift={
               gift
                 ? {

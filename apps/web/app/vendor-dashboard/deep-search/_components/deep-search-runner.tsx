@@ -109,7 +109,7 @@ export function DeepSearchRunner(props: DeepSearchRunnerProps) {
 
         <SubmitButton
           disabled={openRails.length === 0}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-5 py-2.5 text-sm font-semibold text-sn-on-accent transition-colors hover:bg-mulberry-600"
           pendingLabel="Starting…"
         >
           <Search className="h-4 w-4" strokeWidth={2} aria-hidden />

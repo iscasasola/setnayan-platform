@@ -105,7 +105,7 @@ test('3 · the card asks at the versioned address — one address for the thumb,
   assert.equal(ticketUrl('g1', 'abcdefghijklmnopqrstuv'), '/api/guest/pass-card?guest=g1&v=abcdefghijklmnopqrstuv');
   const thumb = src('app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx');
   assert.match(thumb, /const tv = useTicketVersion\(version\);\s*const src = ticketUrl\(guestId, tv\.v\);/);
-  assert.match(thumb, /\{mounted && tv\.ready \? \(/, 'the picture waits for the version — never two addresses');
+  assert.match(thumb, /\{has && mounted && tv\.ready \? \(/, 'the picture waits for the version — never two addresses');
   assert.match(thumb, /<SaveFileLink\s+href=\{src\}/, 'Save uses the same address');
   const share = src('app/dashboard/[eventId]/guests/_components/send-invite.tsx');
   assert.match(share, /fetch\(ticketUrl\(guestId, tv\.v\), \{ credentials: 'same-origin' \}\)/, 'the Share’s fetch hits the same cache');

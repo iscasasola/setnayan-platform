@@ -2,6 +2,7 @@
 
 import { NotYetVerifiedTag } from './not-yet-verified-tag';
 import { NOT_YET_VERIFIED_SIDE_LIST } from '@/lib/not-yet-verified-markings';
+import { RENEWING_COUPLE_MARK } from '@/lib/papers-renewal';
 import { useEffect, useRef } from 'react';
 import { Check, MessageCircle, Plus } from 'lucide-react';
 import { actionButtonClass } from '@/components/action-button-class';
@@ -53,6 +54,7 @@ export function QuoteTray({
   onClear,
   phoneOnly = false,
   notVerified = false,
+  renewing = false,
 }: {
   picked: readonly string[];
   cards: readonly QuoteCard[];
@@ -61,6 +63,8 @@ export function QuoteTray({
   phoneOnly?: boolean;
   /** ⚠ v16 S6 `.nvd`: the dock's line on a shop Setnayan has not checked yet. */
   notVerified?: boolean;
+  /** 📄 Papers renewal ruling (2), DECISION_LOG 2026-11-16: a lapsed shop's dock says it is renewing — never "not verified". */
+  renewing?: boolean;
 }) {
   const sum = quoteSummary(picked, cards);
   const trayRef = useRef<HTMLDivElement | null>(null);
@@ -96,7 +100,11 @@ export function QuoteTray({
           Clear
         </button>
       </div>
-      {notVerified ? (
+      {renewing ? (
+        <p className="mx-auto w-full max-w-3xl text-sm text-ink/80" data-quote-tray-renewing="">
+          {RENEWING_COUPLE_MARK}
+        </p>
+      ) : notVerified ? (
         <div className="mx-auto w-full max-w-3xl" data-quote-tray-not-verified="">
           <NotYetVerifiedTag>{NOT_YET_VERIFIED_SIDE_LIST[0]}</NotYetVerifiedTag>
         </div>

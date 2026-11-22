@@ -1,7 +1,8 @@
 import Image from 'next/image';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ShieldCheck } from 'lucide-react';
+import { RECORD_SUBLINE, RecordBack, RecordEmpty, RecordSection } from '../../_components/record-kit';
+import { actionButtonClass } from '@/components/action-button-class';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -184,14 +185,8 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
     : formatAutoResolveCountdown(row.auto_resolve_at);
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <Link
-        href="/admin/force-majeure"
-        className="mb-4 inline-flex items-center gap-1 text-sm text-mulberry hover:underline"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to queue
-      </Link>
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
+      <RecordBack href="/admin/force-majeure" label="Back to queue" />
 
       {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME.
           The owner removed the row that repeats the menu item you just tapped.
@@ -202,27 +197,31 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
           pixels. One heading, in the document, where a screen reader and a
           skip link can find it. */}
       <PageMasthead titleNode={row.public_id} />
-      <div className="mb-6 space-y-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-            <AlertTriangle aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+      {/* 📐 ADMIN CLEAN PORT (owner 19 Nov 2026): the record-kit head's look — the flag code stays the visible name
+          (`admin-page-starts-at-its-content.test.ts` RECORD_PAGES), its status a chip, the kind + dates one quiet line. */}
+      <header data-record-head="" className="pb-2 pt-1">
+        <div className="flex items-start gap-3">
+          <span className="grid h-14 w-14 flex-none place-items-center rounded-full bg-terracotta/10 text-terracotta">
+            <AlertTriangle aria-hidden className="h-6 w-6" strokeWidth={1.75} />
           </span>
-          <p className="text-2xl font-semibold tracking-tight">
-            {row.public_id}
-          </p>
-          <span
-            className={`rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${FLAG_STATUS_TONE[row.status]}`}
-          >
+          <div className="min-w-0 flex-1">
+            <p className={`truncate ${RECORD_SUBLINE}`}>
+              {FLAG_TYPE_LABEL[row.flag_type]} · filed {row.created_at.slice(0, 10)}{' '}
+              {countdown ? `· ${countdown}` : ''}
+            </p>
+            <p className="text-[24px] font-extrabold leading-tight text-ink [overflow-wrap:anywhere]">
+              {row.public_id}
+            </p>
+          </div>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${FLAG_STATUS_TONE[row.status]}`}>
             {FLAG_STATUS_LABEL[row.status]}
           </span>
         </div>
-        <p className="text-sm text-ink/65">
-          {FLAG_TYPE_LABEL[row.flag_type]} · filed {row.created_at.slice(0, 10)}{' '}
-          {countdown ? `· ${countdown}` : ''}
-        </p>
-      </div>
+      </header>
 
-      <dl className="mb-6 grid gap-4 sn-tile p-5 sm:grid-cols-2">
+      <dl className="mb-6 [&>div+div]:border-t [&>div+div]:border-[color:var(--m-line)]">
         <Field
           label="Event"
           value={
@@ -338,18 +337,13 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
       {/* Change-Order Trail — the immutable both-acknowledged add-on/removal log
           for this booking. Admins read it as evidence; they never raise/resolve. */}
       {row.event_vendor_id ? (
-        <section className="mb-6 space-y-2">
-          <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-            Change orders ({changeOrdersUnread ? '—' : changeOrders.length})
-          </h2>
+        <RecordSection label={`Change orders (${changeOrdersUnread ? '—' : changeOrders.length})`}>
           {changeOrdersUnread ? (
             <ReadFailed what="this booking’s change orders" />
           ) : changeOrders.length === 0 ? (
-            <p className="rounded-md bg-ink/[0.03] p-4 text-sm italic text-ink/55">
-              No change orders on this booking.
-            </p>
+            <RecordEmpty>No change orders on this booking.</RecordEmpty>
           ) : (
-            <ul className="space-y-2">
+            <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
               {changeOrders.map((co) => {
                 const deltaNum =
                   typeof co.delta_amount_php === 'string'
@@ -365,21 +359,19 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                 return (
                   <li
                     key={co.change_order_id}
-                    className="rounded-md border border-ink/10 bg-white/70 px-4 py-3 text-sm"
+                    className="py-3 text-sm"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-medium text-ink">
                         {co.title ?? 'Change order'}{' '}
                         <span
-                          className={`font-mono ${deltaNum < 0 ? 'text-success-700' : 'text-ink/70'}`}
+                          className={`tabular-nums ${deltaNum < 0 ? 'text-success-700' : 'text-ink/70'}`}
                         >
                           {sign}
                           {abs}
                         </span>
                       </span>
-                      <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-                        {co.status}
-                      </span>
+                      <span className={RECORD_SUBLINE}>{co.status}</span>
                     </div>
                     <p className="mt-0.5 text-[12px] text-ink/55">
                       Raised by {co.raised_by} · {co.created_at.slice(0, 10)}
@@ -393,22 +385,18 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
               })}
             </ul>
           )}
-        </section>
+        </RecordSection>
       ) : null}
 
-      <section className="mb-6 space-y-2">
-        <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-          Description
-        </h2>
-        <p className="whitespace-pre-wrap rounded-md bg-ink/[0.03] p-4 text-sm text-ink/85">
+      <RecordSection label="Description">
+        <p className="whitespace-pre-wrap pb-2 text-sm text-ink/85">
           {row.description}
         </p>
-      </section>
+      </RecordSection>
 
-      <section className="mb-6 space-y-2">
-        <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-          Evidence ({evidenceUnread ? (evidenceStored > 0 ? `${evidenceStored} attached` : '—') : evidenceUrls.length})
-        </h2>
+      <RecordSection
+        label={`Evidence (${evidenceUnread ? (evidenceStored > 0 ? `${evidenceStored} attached` : '—') : evidenceUrls.length})`}
+      >
         {evidenceUnread ? (
           <ReadFailed
             what={`${evidenceStored > 0 ? `${evidenceStored} attached file${evidenceStored === 1 ? '' : 's'}` : 'the attached files'}${evidenceUrls.length > 0 ? ` — only ${evidenceUrls.length} loaded below` : ''}`}
@@ -429,7 +417,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                       unoptimized
                     />
                   </span>
-                  <span className="block px-2 py-1 text-center text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+                  <span className={`block px-2 py-1 text-center ${RECORD_SUBLINE}`}>
                     file {idx + 1}
                   </span>
                 </a>
@@ -437,34 +425,23 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
             ))}
           </ul>
         ) : evidenceUnread ? null : (
-          <p className="rounded-md border border-dashed border-ink/15 px-4 py-3 text-sm text-ink/55">
-            No evidence attached.
-          </p>
+          <p className={`py-3 text-[14px] ${RECORD_SUBLINE}`}>No evidence attached.</p>
         )}
-      </section>
+      </RecordSection>
 
       {row.resolution_notes ? (
-        <section className="mb-6 space-y-2">
-          <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-            Resolution notes
-          </h2>
-          <p className="whitespace-pre-wrap rounded-md bg-success-50/60 p-4 text-sm text-success-900">
+        <RecordSection label="Resolution notes">
+          <p className="whitespace-pre-wrap pb-2 text-sm text-success-900">
             {row.resolution_notes}
           </p>
-        </section>
+        </RecordSection>
       ) : null}
 
-      <section className="space-y-4 sn-tile p-5">
-        <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-          Actions
-        </h2>
+      <RecordSection label="Actions">
 
         <form action={takeOwnership} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="flag_id" value={row.flag_id} />
-          <SubmitButton
-            className="inline-flex min-h-[44px] items-center gap-1 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/10 disabled:opacity-60"
-            pendingLabel="…"
-          >
+          <SubmitButton className={actionButtonClass('neutral')} pendingLabel="…">
             <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />
             Take ownership
           </SubmitButton>
@@ -473,8 +450,8 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
           </span>
         </form>
 
-        <div className="space-y-3 border-t border-ink/10 pt-4">
-          <p className="text-xs font-medium text-ink/75">Resolve as</p>
+        <div className="mt-3 space-y-3 border-t border-[color:var(--m-line)] pt-3">
+          <p className={RECORD_SUBLINE}>Resolve as</p>
           <ul className="space-y-3">
             {RESOLUTION_ACTIONS.map((act) => (
               <li key={act}>
@@ -483,9 +460,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                     className={`flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm font-medium ${FLAG_STATUS_TONE[act]} rounded-md`}
                   >
                     <span>{FLAG_STATUS_LABEL[act]}</span>
-                    <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-                      open
-                    </span>
+                    <span className={RECORD_SUBLINE}>open</span>
                   </summary>
                   <form
                     action={resolveFlag}
@@ -494,7 +469,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                     <input type="hidden" name="flag_id" value={row.flag_id} />
                     <input type="hidden" name="action" value={act} />
                     <label className="block space-y-1">
-                      <span className="block text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+                      <span className={`block ${RECORD_SUBLINE}`}>
                         Resolution notes{' '}
                         {act === 'refund_issued' || act === 'partial_credit'
                           ? '(required — amount + channel)'
@@ -514,10 +489,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                         className="input-field min-h-[72px] py-2 text-sm"
                       />
                     </label>
-                    <SubmitButton
-                      className="button-primary h-9 px-3 text-xs"
-                      pendingLabel="Saving…"
-                    >
+                    <SubmitButton className={actionButtonClass('brand', { main: true })} pendingLabel="Saving…">
                       Apply {FLAG_STATUS_LABEL[act]}
                     </SubmitButton>
                   </form>
@@ -526,7 +498,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
             ))}
           </ul>
         </div>
-      </section>
+      </RecordSection>
     </div>
   );
 }
@@ -539,11 +511,9 @@ function Field({
   value: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1">
-      <dt className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-        {label}
-      </dt>
-      <dd className="text-sm">{value}</dd>
+    <div className="flex min-h-11 items-baseline gap-3 py-2">
+      <dt className={`flex-none ${RECORD_SUBLINE}`}>{label}</dt>
+      <dd className="min-w-0 flex-1 text-right text-[14px] text-ink [overflow-wrap:anywhere]">{value}</dd>
     </div>
   );
 }

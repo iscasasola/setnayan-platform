@@ -10,7 +10,7 @@ import 'server-only';
  *   · the viewer's own seat (`event_moderators.role_subtype`, their own row — RLS lets them read it);
  *   · `is_booked_coordinator(event)` and `supplier_proposes_only(event)` — the caller's own answers (SECURITY DEFINER,
  *     granted to authenticated; migrations 20271329284628 / 20271329978605);
- *   · the hosts' choice, `events.checkin_desk_access` — service role only (migration 20271350882870), so it is read
+ *   · the hosts' choice, `events.checkin_desk_access` — service role only (migration 20271357880360), so it is read
  *     ONLY after the caller passed the page's / action's door-crew check.
  *
  * 🔌 A REFUSED READ IS SAID, NEVER GUESSED: `unread: true` comes back and the caller decides (the page says it could

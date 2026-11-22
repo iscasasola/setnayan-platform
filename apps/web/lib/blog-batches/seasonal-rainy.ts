@@ -635,7 +635,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
     ],
   },
   {
-    slug: 'typhoon-season-wedding-vendor-questions',
+    slug: 'typhoon-season-wedding-supplier-questions',
     cover: '/blog/rainy.webp',
     coverAlt: 'An elegant tented wedding reception during the rainy season',
     title: 'Typhoon season: the questions to ask every supplier',
@@ -732,6 +732,6 @@ export const HOOKS_SEASON: Record<string, string> = {
     "Newly engaged and tempted to open twenty tabs at once? Don't. The couples who start with a single page beat the ones who start with fifty. Here is the calm first week.",
   'off-peak-weekday-wedding-pros-cons':
     "A quiet Tuesday wedding can open every calendar and stretch your budget further than any haggling — but there is a trade-off your guests will feel. Here is the honest math.",
-  'typhoon-season-wedding-vendor-questions':
+  'typhoon-season-wedding-supplier-questions':
     "You can't ask a supplier to promise sunshine — but you can ask the questions that reveal whether they have a real plan for rain. These are the ones that matter most.",
 };

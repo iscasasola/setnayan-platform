@@ -14,6 +14,7 @@
  */
 
 import { formatCount } from '@/lib/format-number';
+import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 import { FREE_THEMES } from '@/lib/invite-themes';
 
 /* ─── HERO ───────────────────────────────────────────────────────────────────────────────────── */
@@ -390,8 +391,11 @@ export const FREE_PEEK: readonly string[] = [
  * Entrance animation · Only a small Setnayan mark" — a Plus order unlocks none of them (themes, music and the address
  * are Event Pro parts; the watermark comes off with Event Pro only). They come back the day the app grants them.
  */
+// 🎟 18 Nov re-cut (owner 2026-11-18, rulings 34 + 36): Event Plus works for events with no suppliers, so it no longer
+// carries Setnayan AI (Event Pro does; Plus orders placed before the re-cut keep theirs). What a Plus order unlocks today:
+// the one small mark (`setnayanMarkFor`), 500 MB of uploads (`eventCoupleMediaPlan`) and the included credits.
 export function plusPeek(f: PlanFacts): readonly string[] {
-  return ['Setnayan AI — tells you what’s next and flags what’s at risk', ...creditsLine(f.plusCredits)];
+  return ['One small “Made with Setnayan” mark instead of the watermark', `${formatMakerMediaMB(coupleMediaCapBytes('plus'))} of uploads`, ...creditsLine(f.plusCredits)];
 }
 export const PLUS_MORE: readonly string[] = ['What you pay counts toward Event Pro — upgrade for the difference'];
 
@@ -405,12 +409,13 @@ export const PRO_PEEK: readonly string[] = [
  * and find-my-table pages still print "Powered by Setnayan" (Lane L builds the marks by plan). Says what is true now.
  */
 export function proMore(f: PlanFacts): readonly string[] {
-  return ['No Setnayan watermark on your Event Hub', ...creditsLine(f.proCredits)];
+  // 🎟 Setnayan AI moved here from Event Plus in the 18 Nov re-cut; 1 GB of uploads (`eventCoupleMediaPlan`).
+  return ['Setnayan AI — tells you what’s next and flags what’s at risk', 'No Setnayan watermark on your Event Hub', `${formatMakerMediaMB(coupleMediaCapBytes('pro'))} of uploads`, ...creditsLine(f.proCredits)];
 }
 
 /**
  * 💎 Event Ultra (owner 2026-11-13, "EVENT ULTRA APPROVED — BUILD IT"): what the card shows first, then what it adds
- * beyond Pro — ONLY what a paid Ultra order unlocks in the app today: Live Watch and Patiktok (read off the Ultra order,
+ * beyond Pro — ONLY what a paid Ultra order unlocks in the app today: Live Watch (read off the Ultra order,
  * `SKU_OWNERSHIP_ALIASES`), the 12-month originals (`papic_events_past_fullres_clock` reads the row) and the included
  * credits (`activateEventPlan`). ⚠ Canvas prints are part of Ultra but are NOT said here yet: the Our Day poster that
  * prints on canvas is approved, not built (`eventCanvasPrintsActive` is ready for it). They join the card the day the
@@ -421,7 +426,8 @@ export const ULTRA_PEEK: readonly string[] = [
   'Your full-size photos kept 12 months after the event, not 3',
 ];
 export function ultraMore(f: PlanFacts): readonly string[] {
-  return ['Patiktok — save and share your reels', ...creditsLine(f.ultraCredits ?? null)];
+  // Patiktok left this line 2026-11-20 — retired; owner *"Keep ₱9,990"* (Ultra loses it, keeps its price).
+  return [`${formatMakerMediaMB(coupleMediaCapBytes('ultra'))} of uploads`, ...creditsLine(f.ultraCredits ?? null)];
 }
 
 /** The add-on tiles. Each opens its own feature page, which reads the live price. */
@@ -438,6 +444,6 @@ export const ADD_ONS: readonly { photo: string; title: string; line: string; hre
     line: 'Stream the day on your Event Hub, for family who can’t be there.',
     href: '/features/live-watch',
   },
-  { photo: 'addon-music', title: 'Music Maker', line: 'A song of your own, made for your event.', href: '/features/music-maker' },
-  { photo: 'addon-patiktok', title: 'Patiktok', line: 'Short reels made from your day.', href: '/features/patiktok' },
+  // 🪦 Music Maker and Patiktok left 2026-11-20 (owner: *"Retire Patiktok and Music Maker ( we do not want to serve
+  // this anymore)"* — lib/retired-products.ts).
 ];

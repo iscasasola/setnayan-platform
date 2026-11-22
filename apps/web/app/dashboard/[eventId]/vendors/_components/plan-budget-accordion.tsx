@@ -140,7 +140,7 @@ const PBA_CSS = `
   --gold:var(--m-orange); --gold-deep:var(--m-orange-2);
   --mulberry:var(--m-mulberry); --mulberry-deep:var(--m-mulberry-2,#343A44);
   --line:rgb(var(--color-ink)/.12); --line-soft:rgb(var(--color-ink)/.07);
-  --card:#fff; /* white card surface in light; flips to lifted obsidian in dark */
+  --card:rgb(var(--color-raised)); /* white card surface in light; flips to lifted obsidian in dark */
   /* --topbar-h was the dark P0 budget bar height; that bar is removed (owner
      2026-06-09) so the sticky parent-folder heads now pile from the very top of
      the surface. Kept as a 0 alias so every calc(var(--topbar-h) + ...) sticky
@@ -306,7 +306,7 @@ const PBA_CSS = `
 .pbacc .leaf-head .lh-nm{font-family:var(--sans);font-style:normal;font-size:16px;font-weight:600;color:var(--ink);letter-spacing:.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pbacc .leaf.open > .leaf-head .lh-nm{color:var(--mulberry)}
 .pbacc .leaf-head .lh-right{display:flex;align-items:center;gap:9px;flex:0 0 auto}
-.pbacc .lh-count{font-family:var(--sans);font-size:12px;letter-spacing:.06em;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:22px;text-align:center}
+.pbacc .lh-count{font-family:var(--sans);font-size:12px;letter-spacing:.06em;color:rgb(var(--sn-on-accent));background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:22px;text-align:center}
 .pbacc .lh-svc{color:var(--gold-deep);font-size:13px;line-height:1}
 .pbacc .lh-plan{font-family:var(--sans);font-size:12px;letter-spacing:.04em;color:var(--ink-soft);white-space:nowrap}
 .pbacc .leaf-plan{margin:0 20px 8px;font-size:12.5px;line-height:1.5;color:var(--ink-soft)}
@@ -416,7 +416,7 @@ const PBA_CSS = `
 .pbacc .vx-keep{position:absolute;top:10px;left:62px;z-index:4;height:26px;padding:0 10px;border:0;border-radius: var(--m-r-full);background:rgb(var(--color-ink)/.5);color:#fff;font-family:var(--sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 /* lock CTA */
 .pbacc .lockbar{margin-top:10px;padding:0 1px}
-.pbacc .lockbtn{width:100%;border:0;border-radius: var(--m-r-md);background:var(--mulberry);color:#fff;font-family:var(--sans);font-weight:700;font-size:12.5px;padding:11px;cursor:pointer;transition:background .2s var(--ease)}
+.pbacc .lockbtn{width:100%;border:0;border-radius: var(--m-r-md);background:var(--mulberry);color:rgb(var(--sn-on-accent));font-family:var(--sans);font-weight:700;font-size:12.5px;padding:11px;cursor:pointer;transition:background .2s var(--ease)}
 .pbacc .lockbtn:active{background:var(--mulberry-deep)}
 .pbacc .lockbtn:disabled{opacity:.6;cursor:default}
 .pbacc .changebtn{width:100%;border:1px solid color-mix(in srgb,var(--mulberry) 45%,transparent);border-radius: var(--m-r-md);background:transparent;color:var(--mulberry);font-family:var(--sans);font-weight:600;font-size:12px;padding:9px;cursor:pointer;transition:background .2s var(--ease)}
@@ -499,17 +499,17 @@ const PBA_CSS = `
 .pbacc .catunlock{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:16px;padding:15px 18px;border-radius: var(--m-r-md);border:1.5px solid var(--gold);background:transparent;color:var(--ink);font-family:var(--sans);font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease}
 .pbacc .catunlock:hover{background:rgb(var(--color-terracotta)/0.12);border-color:var(--gold-deep)}
 .pbacc .catunlock .cu-ico{font-size:17px;line-height:1;color:var(--gold-deep)}
-.pbacc .endcard{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius: var(--m-r-lg);padding:24px 22px 22px}
+.pbacc .endcard{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;background:var(--mulberry);color:rgb(var(--sn-on-accent));border-radius: var(--m-r-lg);padding:24px 22px 22px}
 .pbacc .end-eyebrow{font-family:var(--sans);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.6)}
-.pbacc .end-h{font-family:var(--sans);font-style:normal;font-weight:600;font-size:26px;line-height:1.05;color:#fff;margin:2px 0}
+.pbacc .end-h{font-family:var(--sans);font-style:normal;font-weight:600;font-size:26px;line-height:1.05;color:rgb(var(--sn-on-accent));margin:2px 0}
 .pbacc .end-line{font-family:var(--sans);font-size:12px;line-height:1.5;color:rgba(255,255,255,.8);max-width:280px}
 .pbacc .end-stats{display:flex;width:100%;margin-top:10px;padding-top:14px;border-top:1px solid rgba(255,255,255,.2)}
 .pbacc .end-stats>div{flex:1;border-left:1px solid rgba(255,255,255,.14)}
 .pbacc .end-stats>div:first-child{border-left:0}
-.pbacc .esv{font-family:var(--sans);font-style:normal;font-weight:600;font-size:24px;line-height:1;color:#fff}
+.pbacc .esv{font-family:var(--sans);font-style:normal;font-weight:600;font-size:24px;line-height:1;color:rgb(var(--sn-on-accent))}
 .pbacc .esk{font-family:var(--sans);font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-top:5px}
 /* Randomized feel-good line — different on every open (owner 2026-06-01). */
-.pbacc .end-motivate{font-family:var(--sans);font-style:normal;font-size:17px;line-height:1.35;color:#fff;margin-top:16px;max-width:300px}
+.pbacc .end-motivate{font-family:var(--sans);font-style:normal;font-size:17px;line-height:1.35;color:rgb(var(--sn-on-accent));margin-top:16px;max-width:300px}
 
 /* ---- Scroll-driven motion (transforms set per-frame from JS; CSS only
    smooths + declares will-change + the reduced-motion reset). All targets
@@ -532,9 +532,9 @@ const PBA_CSS = `
    flips it (and the sheet) automatically; the rest are the hardcoded
    light/white values that don't ride a token. ───────── */
 html.dark .pbacc{
-  --paper:#1E1C15; --ink:#FBFBFA; --ink-soft:#B3AEA3;
-  --line:rgba(251,251,250,.16); --line-soft:rgba(251,251,250,.1);
-  --card:#232019; --gold:#CBA766; --gold-deep:rgb(var(--color-terracotta));
+  --paper:var(--sn-paper); --ink:rgb(var(--color-ink)); --ink-soft:rgb(var(--color-ink-3));
+  --line:rgb(var(--color-ink) / .16); --line-soft:rgb(var(--color-ink) / .1);
+  --card:rgb(var(--color-raised)); --gold:#CBA766; --gold-deep:rgb(var(--color-terracotta));
 }
 /* bar is now a light surface → flip its muted white text + hairline + accents */
 html.dark .pbacc .topbar{border-bottom-color:rgba(30,26,18,.1)}
@@ -568,7 +568,7 @@ html.dark .pbacc .cmprow-price td{color:rgb(var(--color-mulberry))}
    shortlisted but locked nothing, dismissible (localStorage 'pba_coach_v1'). */
 .pbacc .intro-next{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius: var(--m-r-md);background:rgb(var(--color-ink)/.06);border:1px solid rgb(var(--color-ink)/.22);text-decoration:none;color:inherit}
 .pbacc .intro-next.calm{background:var(--card);border-color:var(--line)}
-.pbacc .intro-next .nx-ico{flex:0 0 auto;width:34px;height:34px;border-radius: var(--m-r-full);background:var(--mulberry);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;line-height:1}
+.pbacc .intro-next .nx-ico{flex:0 0 auto;width:34px;height:34px;border-radius: var(--m-r-full);background:var(--mulberry);color:rgb(var(--sn-on-accent));display:flex;align-items:center;justify-content:center;font-size:17px;line-height:1}
 .pbacc .intro-next.calm .nx-ico{background:rgb(var(--color-ink)/.12);color:var(--mulberry)}
 .pbacc .intro-next .nx-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .pbacc .intro-next .nx-k{font-family:var(--sans);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mulberry)}
@@ -644,7 +644,7 @@ html.dark .pbacc .ds-tag{color:rgb(var(--color-mulberry))}
 .pbacc .tool{flex:0 0 auto;display:inline-flex;align-items:center;gap:9px;padding:10px 13px;border-radius: var(--m-r-md);border:1px solid var(--line);background:var(--card);text-decoration:none;color:var(--ink)}
 .pbacc .tool:hover{border-color:rgb(var(--color-ink)/.35)}
 .pbacc .tool-ico{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius: var(--m-r-sm);background:rgb(var(--color-ink)/.08);color:var(--mulberry)}
-html.dark .pbacc .tool-ico{color:rgb(var(--color-mulberry));background:rgba(229,121,78,.14)}
+html.dark .pbacc .tool-ico{color:rgb(var(--color-mulberry));background:rgb(var(--color-mulberry) / .14)}
 .pbacc .tool-tx{display:flex;flex-direction:column;line-height:1.2}
 .pbacc .tool-nm{font-family:var(--sans);font-weight:600;font-size:13px;color:var(--ink)}
 .pbacc .tool-cta{font-family:var(--sans);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-top:2px}

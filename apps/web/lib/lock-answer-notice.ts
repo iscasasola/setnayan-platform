@@ -60,6 +60,7 @@ export type LockAnswerContext = {
   /**
    * `hall_taken` (owner 2026-10-14 🏛, prototype "A + B asked, A taken") — which of the card's halls are already taken
    * that day, and which of the shop's halls are free to offer instead (`vendor_card_halls_on`, read before the yes).
+   * `schedule_full` reuses `taken` for the full team schedules' names (`fullSchedulesOfAsk`).
    */
   halls?: { taken: string[]; free: string[] } | null;
   /**
@@ -222,6 +223,17 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
       text:
         `${what}, so this booking cannot be held. ` +
         (free.length > 0 ? `Offer ${orList(free)} instead — ${free.length === 1 ? 'it is' : 'they are'} free that day — or turn this one down.` : 'Every hall is taken that day — turn this one down so the couple can look elsewhere.'),
+    };
+  },
+  // 👥 A TEAM SCHEDULE this booking uses is already full that day (walk 22 Nov 2026, `fullSchedulesOfAsk`) — said by the
+  // app before the RPC, by the deposit gate's own count. The names ride `?taken=` like the halls'.
+  schedule_full: (ctx) => {
+    const full = ctx.halls?.taken ?? [];
+    const what = full.length > 0 ? `${andList(full)} ${full.length === 1 ? 'is' : 'are'} already full that day` : 'A schedule this card uses is already full that day';
+    return {
+      tone: 'refused',
+      text: `${what}, so this booking cannot be taken. If your team can take more, raise how many a day in Dates; if not, turn this one down so the couple can look elsewhere.`,
+      door: { label: 'Dates', href: '/vendor-dashboard/customers?seg=dates' },
     };
   },
   // 🎁 EVERY BOOKING NEEDS AT LEAST 1 GIFT (owner 20 Nov), and out of a gift you buy it then come back (21 Nov).

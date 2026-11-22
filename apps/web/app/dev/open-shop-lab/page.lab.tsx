@@ -20,8 +20,6 @@
  *                  guests agreed · ₱30,000 for 5 hours agreed), with how to pay them as recorded (fake numbers)
  *                  chosen · &taken=1 / &check_inbox=<email> its two refusals · &from=setnayan Setnayan's personal invite
  *                  (a staged shop + "Your offer") · &start=account opens on the account slide
- *   ?screen=welcome  Today's welcome, the onboarding's last stop · &kind=claimed|opened · &card=live|draft|refused|claim-draft
- *                  (the first card as the shipped switch answered; claim-draft = the claim door's carry). Never press its buttons.
  */
 import { LAB_FAIR_WORDS } from '../lab-fair-words';
 import { headers } from 'next/headers';
@@ -47,7 +45,7 @@ import {
 import { categoryLadder } from '@/lib/vendor-tier-caps';
 import { DEFAULT_LOGO_FRAME } from '@/lib/open-shop-logo';
 import { siteOrigin } from '@/lib/site-origin';
-import { TodayWelcome } from '@/app/vendor-dashboard/_components/today-welcome';
+import { claimDatePhrase } from '@/lib/claim-invite-words';
 
 export const dynamic = 'force-dynamic';
 
@@ -160,6 +158,9 @@ async function labSaveLogo(): Promise<{ ok: true }> {
   return { ok: true };
 }
 
+/** The sample date, through the SAME formatter the real claim record uses (`claimDatePhrase` → "on Sat, Dec 12, 2026"). */
+const LAB_DATE = claimDatePhrase('2026-12-12', 'day');
+
 /** The prototype v21 record (`REC`, `COUPLE`) — the couple's sample event, the prototype's photographer. */
 const LAB_CLAIM_RECORD: ClaimDoorRecord = {
   token: 'x7k2qp-sample',
@@ -169,7 +170,7 @@ const LAB_CLAIM_RECORD: ClaimDoorRecord = {
   hostNoun: 'couple',
   eventWord: 'wedding',
   eventType: 'wedding',
-  datePhrase: 'on 12 December 2026',
+  datePhrase: LAB_DATE ? `${LAB_DATE.preposition} ${LAB_DATE.label}` : null,
   business: 'Banawe Florals',
   contactPerson: 'Ana Reyes',
   contactPhone: '+639178888889',
@@ -214,7 +215,7 @@ const LAB_TEAM_RECORD: ClaimDoorRecord = {
 export default async function OpenShopLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ card?: string; kind?: string; basis?: string; step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string; as?: string; error?: string; signed?: string; way?: string; from?: string; start?: string }>;
+  searchParams: Promise<{ basis?: string; step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string; as?: string; error?: string; signed?: string; way?: string; from?: string; start?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -231,25 +232,6 @@ export default async function OpenShopLabPage({
         frame={q.framed === '1' ? { x: 70, y: 35, zoom: 140 } : DEFAULT_LOGO_FRAME}
         saveAction={labSaveLogo}
       />
-    );
-  }
-  if (q.screen === 'welcome') {
-    // 🚪 Today's welcome in each first-card state (review 20 Nov) — fixtures only; "live" here is what the page draws
-    // AFTER `readHasLiveCard` confirmed it. The sentence is the shipped switch's own (`FIRST_CARD_NOT_LIVE`-shaped).
-    const why = 'Add a cover photo before this card can go live.';
-    const lab = { title: 'Wedding florals', price: 45_000, category: 'florals' };
-    const c = q.card;
-    return (
-      <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
-        <TodayWelcome
-          kind={q.kind === 'claimed' ? 'claimed' : 'opened'}
-          shopName="Banawe Florals"
-          card={c === 'draft' ? { ...lab, state: 'draft', why, id: 'lab-card' } : c === 'refused' ? { ...lab, state: 'refused', why: 'Add a price first.' } : null}
-          cardState={c === 'live' ? 'live' : c === 'claim-draft' ? 'draft' : null}
-          cardNote={c === 'claim-draft' ? { why, id: 'lab-card' } : null}
-          claimed={q.kind === 'claimed' ? { couple: 'Maria & Jose', eventWord: 'wedding' } : null}
-        />
-      </div>
     );
   }
   if (q.screen === 'claim') {

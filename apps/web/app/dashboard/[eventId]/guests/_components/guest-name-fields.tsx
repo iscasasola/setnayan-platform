@@ -112,7 +112,7 @@ export function GuestNameFields({
           {/* 🪪 THE TITLE CARRIES WOMAN OR MAN (owner 2026-10-17) — the house dropdown, "Atty. (Woman)" ·
               "Atty. (Man)", "Other title…" last. Posts `name_title`; the splitter still fills it — an unlisted
               title it finds comes back as its own two entries. */}
-          <TitlePicker value={title} current={title.split('|')[0] || null} onPicked={setTitle} className="w-full justify-between border border-ink/15 !bg-white/80 font-medium" />
+          <TitlePicker value={title} current={title.split('|')[0] || null} onPicked={setTitle} className="w-full justify-between border border-ink/15 !bg-raised/80 font-medium" />
         </div>
         <div className="space-y-1.5 sm:col-span-3">
           <label className="block text-sm font-medium text-ink" htmlFor="first_name">

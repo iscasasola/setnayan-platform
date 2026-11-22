@@ -102,6 +102,12 @@ export type MakerContext = {
   availabilityOf: Record<string, AvailabilityStyle> | null;
   kindLabel: (kind: string) => string;
   /**
+   * 🗂 THE SERVICES ROW'S SECOND LINE (Card Maker HYBRID, owner-approved 17 Nov): where a service sits in the live
+   * taxonomy, "Group › Category" (e.g. "Venues & Simbahan › Reception Venues"). Read from the same tree the kind sheet
+   * groups by — never typed. `null` = not a live service (an old kind, Other): the row then says nothing.
+   */
+  kindPath: (kind: string) => string | null;
+  /**
    * 🎁 THE CARD'S GIFT ROW (makers prototype 7 Nov 2026 § 3) — the giftable packs on the live catalogue and what this
    * shop can still offer of each kind. `null` = could not be read (the row then offers No gift · Setnayan gift and
    * lists the packs as unreadable — never as empty stock).
@@ -350,6 +356,11 @@ export async function loadMakerContext(
   }
 
   const coveredChoices = coverageKindOptions.filter((o) => o.standing === 'covered');
+  /* 🗂 "Group › Category" for each live service — a level is never said twice in a row (as `pathLabel`). */
+  const kindPathOf = new Map<string, string>();
+  for (const p of tree)
+    for (const b of p.branches)
+      for (const l of b.leaves) if (!kindPathOf.has(l.canonicalService)) kindPathOf.set(l.canonicalService, b.label && b.label !== p.label ? `${p.label} › ${b.label}` : p.label);
 
   return {
     categoryOptions,
@@ -381,6 +392,7 @@ export async function loadMakerContext(
     bookingsPerDate,
     availabilityOf,
     kindLabel,
+    kindPath: (kind: string) => kindPathOf.get(kind) ?? null,
     giftPacks,
     giftFree: freeByKind(giftStock),
     checkRules,
@@ -442,7 +454,7 @@ export async function loadCardForEdit(
   const { data: row, error } = await supabase
     .from('vendor_services')
     .select(
-      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,availability_style,order_lead_days,branch_id,exclusive_perk_text',
+      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,unit_word,unit_base_php,initial_units,extra_unit_php,price_max,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,availability_style,order_lead_days,usual_prep_days,branch_id,exclusive_perk_text,description,video_url,pay_plan_id',
     )
     .eq('vendor_service_id', serviceId)
     .eq('vendor_profile_id', vendorProfileId)
@@ -529,6 +541,8 @@ export async function loadCardForEdit(
     sourceTitle: c.title?.trim() || null,
     sourceWasOtherCategory: false,
     title: c.title?.trim() || '',
+    description: typeof c.description === 'string' ? c.description : '',
+    videoUrl: typeof c.video_url === 'string' ? c.video_url : '',
     includesSetnayanGift: c.includes_setnayan_gift === true,
     giftPackCode: typeof c.gift_pack_code === 'string' && c.gift_pack_code.length > 0 ? c.gift_pack_code : null,
     coverageId: str(c.coverage_id),
@@ -537,7 +551,7 @@ export async function loadCardForEdit(
     lastMinuteEndMonths: str(c.last_minute_end_months),
     lastMinuteSurchargePct: str(c.last_minute_surcharge_pct),
     pricing: {
-      pricing_basis: (c.pricing_basis as 'fixed' | 'per_pax' | 'per_hour' | null) ?? 'fixed',
+      pricing_basis: (c.pricing_basis as 'fixed' | 'per_pax' | 'per_hour' | 'per_unit' | null) ?? 'fixed',
       starting_price_php: n(c.starting_price_php),
       base_pax: n(c.base_pax),
       added_pax_price_php: n(c.added_pax_price_php),
@@ -546,6 +560,12 @@ export async function loadCardForEdit(
       hour_base_php: n(c.hour_base_php),
       min_hours: n(c.min_hours),
       extra_hour_php: n(c.extra_hour_php),
+      // 📦 Card Maker part 7 (migration 20271352223098).
+      unit_word: typeof c.unit_word === 'string' && c.unit_word.trim() !== '' ? c.unit_word : null,
+      unit_base_php: n(c.unit_base_php),
+      initial_units: n(c.initial_units),
+      extra_unit_php: n(c.extra_unit_php),
+      price_max: n(c.price_max),
     },
     included: {
       crew_meal_included: c.crew_meal_included === true,
@@ -565,12 +585,14 @@ export async function loadCardForEdit(
   };
   const editing: MakerEditing = {
     serviceId,
+    payPlanId: typeof c.pay_plan_id === 'string' ? c.pay_plan_id : null,
     isActive: c.is_active === true,
     coverUrl: c.primary_photo_r2_key ? (mediaDisplayUrls[c.primary_photo_r2_key] ?? null) : null,
     coverKey: c.primary_photo_r2_key ?? null,
     dailyCapacity: str(c.daily_capacity),
     availabilityStyle: isAvailabilityStyle(c.availability_style) ? c.availability_style : null,
     orderLeadDays: str(c.order_lead_days),
+    usualPrepDays: str(c.usual_prep_days),
     branchId: str(c.branch_id),
     schedule: ((sched.data ?? []) as PaymentScheduleItemRow[]).map(rowToDraft),
     addons: ((addons.data ?? []) as { label: string; from_price_php: number | null }[]).map((a) => ({

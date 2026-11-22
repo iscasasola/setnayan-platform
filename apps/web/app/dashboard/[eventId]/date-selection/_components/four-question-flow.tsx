@@ -398,7 +398,7 @@ export function FourQuestionFlow({
                     type="date"
                     value={draft.date}
                     onChange={(e) => updateDraft(idx, { date: e.target.value })}
-                    className="mt-1 w-full rounded-md border border-ink/20 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta/30"
+                    className="mt-1 w-full rounded-md border border-ink/20 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta/30"
                   />
                 </div>
                 <div className="flex-1">
@@ -430,7 +430,7 @@ export function FourQuestionFlow({
                     placeholder="e.g., Tatay&apos;s birthday"
                     maxLength={80}
                     onChange={(e) => updateDraft(idx, { note: e.target.value })}
-                    className="mt-1 w-full rounded-md border border-ink/20 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta/30"
+                    className="mt-1 w-full rounded-md border border-ink/20 bg-raised px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta/30"
                   />
                 </div>
                 {drafts.length > 1 ? (

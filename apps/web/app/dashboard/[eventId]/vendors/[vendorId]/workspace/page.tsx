@@ -34,6 +34,9 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
+import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
+import { bookedTelHref, bookedViberHref } from '@/lib/booked-handoff';
+import { readMyMute } from '@/lib/chat-mutes';
 import { getCurrentUser } from '@/lib/auth';
 import { manilaToday } from '@/lib/provisional-approval';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
@@ -163,6 +166,7 @@ import { ShotListCard, type ShotListCardState } from './_components/shot-list-ca
 import { SupplierQuestionsCard } from './_components/supplier-questions-card';
 import { SupplierFormsCard } from './_components/supplier-forms-card';
 import { CouplePhotoApprovals } from './_components/couple-photo-approvals';
+import { CoupleStoryShares } from './_components/couple-story-shares';
 import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
@@ -526,6 +530,18 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     pricing_basis?: string | null;
     pax_quote_base?: number | null;
   };
+
+  // 📞 Call · Viber under ⋯ (Unichat v3) — the ONE booking check, started here beside the page's other reads; the
+  // shop's number is read only once it says yes (`bookedCounterpartyPhone` answers null without it). Fails closed.
+  const shopId = ev.marketplace_vendor_id;
+  const bookedCallP: Promise<{ booked: boolean; phone: string | null }> = shopId
+    ? shopIsBookedOnEvent(eventId, shopId)
+        .then(async (booked) => ({
+          booked,
+          phone: await bookedCounterpartyPhone({ booked, viewer: 'couple', eventId, vendorProfileId: shopId }),
+        }))
+        .catch(() => ({ booked: false, phone: null }))
+    : Promise.resolve({ booked: false, phone: null });
 
   // 👥 AFTER THE CLAIM (20271343652941): a booking the couple priced per guest, now a claimed shop's, follows the
   // guest list. The one line under its Price says why the total is what it is. A refused read draws no line.
@@ -1005,6 +1021,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const chatThread = (chatThreadRes.data ?? null) as { thread_id: string } | null;
   // 🔴 The Chat tab's unread count (v8.3) — started now, awaited at the shell, so it waits on nothing below.
   const chatUnreadP = chatThread ? readThreadUnreadCount(supabase, user.id, chatThread.thread_id) : Promise.resolve(null);
+  // 🔕 Has the viewer muted this chat? Their own row (Pattern A). null = no chat, or the read failed → no ⋯ switch.
+  const myMuteP = chatThread ? readMyMute(supabase, chatThread.thread_id, user.id) : Promise.resolve(null);
 
   /*
     ── ONE CHAT BOX (owner, 2026-09-18) ────────────────────────────────────────
@@ -1683,7 +1701,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       packageIncludedItems.length > 0 ? (
         <section
           aria-labelledby="included-heading"
-          className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
+          className="rounded-2xl border border-ink/10 bg-raised/60 p-5 sm:p-6"
         >
           <h2
             id="included-heading"
@@ -2505,7 +2523,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const quoteCostingSection = acceptedQuote ? (
         <section
           aria-labelledby="costing-heading"
-          className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
+          className="rounded-2xl border border-ink/10 bg-raised/60 p-5 sm:p-6"
         >
           <h2 id="costing-heading" className="mb-1 font-display text-lg italic text-ink">
             Costing
@@ -2534,7 +2552,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             {crewFields}
             {paidSoFarRow}
             {ev.category === 'crew_meals' ? null : (
-              <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</SubmitButton>
+              <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</SubmitButton>
             )}
           </form>
         </section>
@@ -2543,7 +2561,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const paymentModeSection = !showManualCosting ? quoteCostingSection : (
         <section
           aria-labelledby="costing-heading"
-          className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
+          className="rounded-2xl border border-ink/10 bg-raised/60 p-5 sm:p-6"
         >
           <h2
             id="costing-heading"
@@ -2626,7 +2644,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               one source: the same `paidSoFarFormatted` the header shows. */}
           {paidSoFarRow}
 
-          <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
+          <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
         </form>
         </section>
       );
@@ -2836,7 +2854,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <input type="hidden" name="vendor_id" value={ev.vendor_id} />
             <SubmitButton
               pendingLabel="Confirming…"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
             >
               Yes, I got everything
             </SubmitButton>
@@ -2910,7 +2928,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </p>
         <Link
           href={reviewHref}
-          className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           Leave a review
         </Link>
@@ -3074,7 +3092,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       <div className="space-y-6" data-picked-supplier-page="files">
         {/* 📸 Piece 3b: the shop asks to show photos as from your day — only with your yes (FIVE GUARDS 4). */}
         {ev.marketplace_vendor_id ? (
-          <CouplePhotoApprovals eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
+          <>
+            <CouplePhotoApprovals eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
+            {/* ✓ Today v3 part 3: the photos the shop sent for your story at its wrap-up — Approve all · Hide some. */}
+            <CoupleStoryShares eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
+          </>
         ) : null}
         {/*
           📦 Delivery Handover — the vendor posted finished work (gallery link / proof image / note / sign-off); the couple
@@ -3126,6 +3148,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     handoverWaiting: handoverRowsError ? undefined : handovers.some((h) => h.status === 'delivered' && !h.couple_acknowledged_at),
   });
 
+  const bookedCall = await bookedCallP;
+  const myMute = await myMuteP;
+
   return (
     <PickedSupplierShell
       eventId={eventId}
@@ -3140,6 +3165,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: deliverEventDate, isBooked: stage !== null })}
       nextStep={hostNextStep ? <NextStepRow step={hostNextStep} /> : null}
       bodies={pickedPages}
+      call={{ tel: bookedTelHref(bookedCall.booked, bookedCall.phone), viber: bookedViberHref(bookedCall.booked, bookedCall.phone) }}
+      mute={chatThread && myMute !== null ? { threadId: chatThread.thread_id, muted: myMute } : null}
     />
   );
 }

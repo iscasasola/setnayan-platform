@@ -225,7 +225,7 @@ export function MomentSheet({
                 type="button"
                 aria-label="Close"
                 onClick={() => setOpen(false)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[color:var(--ls-muted)] hover:bg-black/5"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[color:var(--ls-muted)] hover:bg-black/5 dark:hover:bg-white/10"
               >
                 <X aria-hidden className="h-5 w-5" strokeWidth={1.75} />
               </button>
@@ -461,7 +461,7 @@ export function MomentSheet({
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="inline-flex min-h-10 items-center rounded-full px-4 text-[14px] text-[color:var(--ls-muted)] hover:bg-black/5"
+                  className="inline-flex min-h-10 items-center rounded-full px-4 text-[14px] text-[color:var(--ls-muted)] hover:bg-black/5 dark:hover:bg-white/10"
                 >
                   Not now
                 </button>

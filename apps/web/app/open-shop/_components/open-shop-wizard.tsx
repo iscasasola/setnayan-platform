@@ -47,6 +47,10 @@ import {
   OPEN_YOUR_COORDINATION_HEAD,
   OPEN_YOUR_SHOP_FREE_LINE,
   OPEN_YOUR_SHOP_HEAD,
+  APPROVE_PAGE,
+  PAGE_PARTNERS_EMPTY,
+  TRUSTED_PARTNERS,
+  YOUR_PAGE_HEAD,
   SELF_SERVE_CHECK_NOTE,
   SELF_SERVE_FACTS,
   SELF_SERVE_LATER,
@@ -86,10 +90,13 @@ import {
   serializeOpenShopDraft,
 } from '@/lib/open-shop-draft';
 import { formatCount } from '@/lib/format-number';
+import { FirstCardDraft } from './first-card-draft';
 import { PasswordField } from '@/app/_components/password-field';
 import { fairRefusal, findFairHits } from '@/lib/fair-presentation';
 import type { ClaimWord } from '@/lib/service-card-checks';
 import { FairNote } from '@/app/_components/fair-note';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { COORDINATOR_TRADE_SERVICES } from '@/lib/coordinator-trade';
 // 🔵 The supplier blue look (owner 19 Nov: the onboarding wears it) — the dashboard's own token scope, re-used.
 import '@/app/vendor-dashboard/_components/supplier-look.css';
 
@@ -336,6 +343,32 @@ export function OpenShopWizard({
   // 🧭 `?as=coordinator`: "Not a coordinator? Search all services" turns the coordinator view off for this visit.
   const [allServices, setAllServices] = useState(false);
   const coordinating = coordinator && !allServices;
+  /**
+   * 🚪 DOOR C (owner 19 Nov, "COORDINATOR ONBOARDING (Door C) APPROVED"): Coordination is PRE-PICKED, and the main
+   * service is ONE dropdown of the coordination services — the leaves whose key is in `COORDINATOR_TRADE_SERVICES`,
+   * read from the constant (never a word search), in the tree's own order and words.
+   */
+  const coordinationLeaves = useMemo(() => {
+    const set = new Set(COORDINATOR_TRADE_SERVICES);
+    const seen = new Set<string>();
+    const out: { key: string; label: string }[] = [];
+    for (const p of serviceTree)
+      for (const b of p.branches)
+        for (const l of b.leaves)
+          if (set.has(l.canonicalService) && !seen.has(l.canonicalService)) {
+            seen.add(l.canonicalService);
+            out.push({ key: l.canonicalService, label: l.label });
+          }
+    return out;
+  }, [serviceTree]);
+  useEffect(() => {
+    // Pre-picked once: the first coordination service, unless one is already chosen (a re-run, a restored draft).
+    if (coordinator && !service && coordinationLeaves[0]) {
+      setService(coordinationLeaves[0].key);
+      setPickedLabel(coordinationLeaves[0].label);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the coordinator door opens
+  }, []);
   /**
    * THE ONE REFUSAL ON SCREEN — seeded from the SERVER and owned by the client thereafter.
    *
@@ -950,7 +983,8 @@ export function OpenShopWizard({
     2: guest ? ONBOARDING_HEADS.account : ['Your shop’s email', 'Where couples and Setnayan reach your shop.'],
     3: ONBOARDING_HEADS.check,
     // PB4 → PB4·b: the line turns once a price is typed.
-    4: [ONBOARDING_HEADS.card[0], parseCardPrice(cardPrice) ? FIRST_CARD_PRICED_LINE : ONBOARDING_HEADS.card[1]],
+    // PC4: on Door C the step is their PAGE, drafted with the first card on it — the same lines.
+    4: [coordinating ? YOUR_PAGE_HEAD : ONBOARDING_HEADS.card[0], parseCardPrice(cardPrice) ? FIRST_CARD_PRICED_LINE : ONBOARDING_HEADS.card[1]],
     5: ONBOARDING_HEADS.done,
   };
   const [title, line] = heads[step];
@@ -1156,7 +1190,7 @@ export function OpenShopWizard({
             </div>
             {/* The step names under the bars (the drawing's dots row): Start · Account · Your shop · Your card · Done. */}
             <ol className="grid grid-cols-5 gap-1.5 text-[11px] md:hidden" aria-hidden data-onboarding-step-names="">
-              {ONBOARDING_STEP_NAMES.open.map((name, i) => (
+              {(coordinating ? ONBOARDING_STEP_NAMES.coordinator : ONBOARDING_STEP_NAMES.open).map((name, i) => (
                 <li key={name} className="truncate" style={{ color: i + 1 <= step ? 'var(--m-ink)' : 'var(--m-slate-3)' }}>
                   {name}
                 </li>
@@ -1250,6 +1284,8 @@ export function OpenShopWizard({
             {guest ? <TurnstileField action="signup" /> : null}
             {/* W1-B21 — the plan picked on /for-suppliers, offered once the shop opens (`planOfferPath`). */}
             {plan ? <input type="hidden" name="plan" value={plan} /> : null}
+            {/* 🚪 Door C: the shop opens, then "Invite shops you trust" (`/open-shop/invite`). */}
+            {coordinating ? <input type="hidden" name="as" value="coordinator" /> : null}
             {logoUrl ? <input type="hidden" name="logo_url" value={logoUrl} /> : null}
 
             {/* 1 · Open your shop — the name (PB1, first half). Always mounted, like every panel — inputs persist
@@ -1332,7 +1368,7 @@ export function OpenShopWizard({
                 {sheetHead('categories')}
                 {/* "Your services" once the main is picked — the main and every added one are one set of cards. */}
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                  {service ? 'Your services' : 'Main service'}
+                  {service && !(coordinating && step === 1) ? 'Your services' : 'Main service'}
                 </span>
                 {/* ── DRILL, DON'T SCROLL (owner 2026-08-09). The flat select survives as the FALLBACK for an empty
                     tree (a failed taxonomy read) — deleting it would turn a read hiccup into "you cannot open a
@@ -1340,7 +1376,29 @@ export function OpenShopWizard({
                 {serviceTree.length > 0 ? (
                   <>
                     <input type="hidden" name="primary_service" value={service} />
-                    {service ? (
+                    {coordinating && step === 1 && coordinationLeaves.length > 0 ? (
+                      // 🚪 Door C: Coordination pre-picked — ONE dropdown for the main service (owner 19 Nov).
+                      <span className="grid gap-2" data-onboarding-coordination="">
+                        <PickMenu
+                          label="Your main coordination service"
+                          value={service}
+                          options={coordinationLeaves}
+                          onPick={(key) => {
+                            setService(key);
+                            setPickedLabel(coordinationLeaves.find((l) => l.key === key)?.label ?? null);
+                            if (errorField === 'service') setBanner(null);
+                          }}
+                          dataAttr="data-onboarding-coordination-pick"
+                        />
+                        <span>
+                          <ActionButton tone="neutral" quiet icon={ArrowRight} label="Not a coordinator? Search all services" onClick={() => {
+                              setAllServices(true);
+                              setService('');
+                              setPickedLabel(null);
+                            }} />
+                        </span>
+                      </span>
+                    ) : service ? (
                       <ServiceCards
                         tree={serviceTree}
                         places={places}
@@ -1813,42 +1871,44 @@ export function OpenShopWizard({
               <input type="hidden" name={FIRST_CARD_FIELD.choice} value={cardChoice ?? ''} />
               {/* The card's name is drafted from the main service (PB4); the Card Maker renames it. */}
               <input type="hidden" name={FIRST_CARD_FIELD.title} value={cardTitle} />
-              {/* PB4 — the drafted card, as couples will see it: its category, its name, its price or "No price yet". */}
-              <div className="grid gap-1.5 border-y py-4" style={{ borderColor: 'var(--m-line)' }} data-onboarding-card-face="">
-                <span className="text-xs font-medium" style={{ color: 'var(--m-mulberry)' }}>
-                  {categoryLabels[0] ?? serviceLabel ?? 'Your service'}
-                </span>
-                <b className="text-[17px] font-semibold" style={{ color: 'var(--m-ink)' }}>
-                  {cardTitle.trim() || serviceLabel || 'Your service'}
-                </b>
-                <span className="text-sm tabular-nums" style={{ color: cardPriceNumber ? 'var(--m-ink)' : 'var(--m-slate-3)' }}>
-                  {cardPriceNumber ? `From ₱${formatCount(cardPriceNumber)}` : 'No price yet'}
-                </span>
-                <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                  Add what&rsquo;s included in the Card Maker.
-                </span>
-              </div>
-              {/* "Built from what you typed" — where each part of the draft came from. */}
-              <div className="grid gap-1.5 text-[13.5px]" data-onboarding-card-source="">
-                <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                  Built from what you typed
-                </span>
-                {[
+              {/* PC4 (Door C) — their page, drafted: the shop's name and main service, the first card ON it, and its
+                  Trusted partners section, empty until shops join. */}
+              {coordinating ? (
+                <div className="grid gap-0.5" data-onboarding-page="">
+                  <b className="text-[17px] font-semibold [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
+                    {shopName.trim() || 'Your shop'}
+                  </b>
+                  <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
+                    {[serviceLabel, confirmedCity].filter(Boolean).join(' · ')}
+                  </span>
+                </div>
+              ) : null}
+              {/* PB4 — the drafted card, as couples will see it (its category, its name, its price or "No price yet"),
+                  then "Built from what you typed": where each part of the draft came from. Shared with Door A's P4. */}
+              <FirstCardDraft
+                category={categoryLabels[0] ?? serviceLabel ?? 'Your service'}
+                name={cardTitle.trim() || serviceLabel || 'Your service'}
+                price={cardPriceNumber || null}
+                lines={[]}
+                between={
+                  coordinating ? (
+                    <div className="grid gap-0.5 text-[13.5px]" data-onboarding-page-partners="">
+                      <b style={{ color: 'var(--m-ink)' }}>{TRUSTED_PARTNERS}</b>
+                      <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                        {PAGE_PARTNERS_EMPTY}
+                      </span>
+                    </div>
+                  ) : null
+                }
+                sourceHead="Built from what you typed"
+                sources={[
                   ['Category', categoryLabels[0] ?? '—', 'you picked it'],
                   ['Service', serviceLabel ?? '—', 'you named it'],
                   ['Price', cardPriceNumber ? `₱${formatCount(cardPriceNumber)}` : 'Not set', cardPriceNumber ? 'you typed it' : 'type yours'],
-                ].map(([k, v, why]) => (
-                  <span key={k} className="flex items-baseline gap-2">
-                    <span className="w-[72px] shrink-0" style={{ color: 'var(--m-slate-3)' }}>
-                      {k}
-                    </span>
-                    <span className="min-w-0 font-medium [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
-                      {v}
-                    </span>
-                    <small style={{ color: 'var(--m-slate-3)' }}>{why}</small>
-                  </span>
-                ))}
-              </div>
+                ]}
+                faceAttr="data-onboarding-card-face"
+                sourceAttr="data-onboarding-card-source"
+              />
               <label className="block space-y-1">
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   From (PHP)
@@ -1876,15 +1936,22 @@ export function OpenShopWizard({
               ) : null}
               {/* PB4·b — no client is booked on it, so it is never locked. Edit opens the shipped Card Maker the moment
                   the shop is open (it needs the shop); until then the price above is the whole draft. */}
+              {coordinating && slug ? (
+                <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-onboarding-page-link="">
+                  setnayan.com/{slug} · goes live when you open
+                </p>
+              ) : null}
               <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-onboarding-card-note="">
                 {cardPriceNumber
                   ? 'Edit any time. No client is booked on it yet.'
                   : 'Edit opens the Card Maker once your shop is open.'}
               </p>
-              <div className="grid grid-cols-3 gap-2 [&>.ab]:w-full [&>.ab]:justify-center" data-onboarding-card-ways="">
+              {/* PB4 as drawn: Approve full width on top, Edit · Skip for now side by side under it (three in one row
+                  ran past the right gutter at 375 px). */}
+              <div className="grid grid-cols-2 gap-2 [&>.ab]:w-full [&>.ab]:justify-center" data-onboarding-card-ways="">
+                <ActionButton tone="brand" main icon={Check} label={coordinating ? APPROVE_PAGE : 'Approve card'} className="col-span-2" onClick={() => chooseCard('approve')} data-testid="onboarding-card-approve" />
                 <ActionButton tone="neutral" icon={PenLine} label="Edit" onClick={() => chooseCard('edit')} data-testid="onboarding-card-edit" />
                 <ActionButton tone="neutral" icon={SkipForward} label="Skip for now" onClick={() => chooseCard('skip')} data-testid="onboarding-card-skip" />
-                <ActionButton tone="brand" main icon={Check} label="Approve card" onClick={() => chooseCard('approve')} data-testid="onboarding-card-approve" />
               </div>
             </div>
 
@@ -1906,7 +1973,9 @@ export function OpenShopWizard({
                       // 🃏 No tick: the card is not made yet, and the shipped switch decides "on your page" (review 20 Nov).
                       false,
                     ],
-                    ['Link', slug ? `setnayan.com/${slug}` : null, Boolean(slug)],
+                    // PC6 (Door C): "Page" names the address; the invite link comes on the screen right after Open my shop.
+                    [coordinating ? 'Page' : 'Link', slug ? `setnayan.com/${slug}` : null, Boolean(slug)],
+                    ['Invite link', coordinating ? 'Next — then in Shop › Partnerships' : null, false],
                   ] as const
                 )
                   .filter(([, v]) => v)
@@ -1996,7 +2065,7 @@ export function OpenShopWizard({
                   <ActionButton
                     tone="neutral"
                     icon={continueIcon}
-                    label={step === 1 && !service ? 'Pick a service to continue' : 'Continue'}
+                    label="Continue"
                     className="ml-auto"
                     onClick={go}
                     data-busy={moving ? '' : undefined}

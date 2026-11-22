@@ -43,7 +43,11 @@ test('the landing after opening is the plan sheet with that row anchored, never 
 
 test('/for-suppliers paid-plan buttons carry the plan; the picker uses each card’s own door', () => {
   const front = readFileSync('app/for-suppliers/_components/supplier-front-page.tsx', 'utf8');
-  const grow = front.slice(front.indexOf('...GROW_TIERS.map('), front.indexOf('const fold = foldGroups()'));
+  // 2026-11-20: the approved drawing's plan rows replace the Grow cards; the paid rows are still built by
+  // `...GROW_TIERS.map(` and still close before the page's `return (` — the slice moved with them.
+  const at = front.indexOf('...GROW_TIERS.map(');
+  assert.ok(at > 0, 'anti-vacuity: the paid plan rows are no longer built from GROW_TIERS');
+  const grow = front.slice(at, front.indexOf('return (', at));
   assert.match(grow, /cta: `Start on \$\{growName\(t\)\}`/, 'anti-vacuity: the Grow cards moved');
   assert.match(grow, /href: openShopWithPlanHref\(t\)/, 'a "Start on <plan>" card is back to a bare /open-shop');
   const client = readFileSync('app/for-suppliers/_components/supplier-front-client.tsx', 'utf8');

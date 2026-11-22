@@ -3,18 +3,22 @@ import { BadgeCheck, Check, ChevronRight, ImagePlus, Info, PenLine, Users } from
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import { approveFirstCard } from '@/app/open-shop/actions';
+import { firstCardWhySentence } from '@/lib/first-card-why';
 import { formatCount } from '@/lib/format-number';
 import {
   FIRST_CARD_CARRY_LINE,
+  FIRST_CARD_DRAFTS_LINE,
+  FIRST_CARD_EDIT_UNREAD_LINE,
   FIRST_CARD_FIELD,
   FIRST_CARD_RETRY,
-  TODAY_WELCOME_LINE,
-  TODAY_WELCOME_STEPS,
   WELCOME_CLAIMED_PATH,
   WELCOME_OPENED_PATH,
   claimedWelcomeLine,
   welcomeDoneRow,
+  todayWelcomeLine,
+  todayWelcomeSteps,
   welcomeTitle,
+  type WelcomeShop,
   type FirstCardCarry,
   type firstCardStateFrom,
 } from '@/lib/supplier-onboarding';
@@ -24,7 +28,7 @@ const ICON = { clients: Users, logo: ImagePlus, verify: BadgeCheck } as const;
 /**
  * 🚪 TODAY'S WELCOME — THE LAST STOP OF EVERY SUPPLIER ONBOARDING DOOR (owner 2026-11-19, drawing `36jmQMWrANcgd2HxihAUw5`
  * PB6 / P6). Drawn when Today is opened with `?opened=1` (the self-serve and coordinator doors) or `?claimed=1` (a couple's
- * invite accepted — before 19 Nov nothing read it). "Welcome, <shop>" · "Your shop is open on Free." · the ticked row of
+ * invite accepted — before 19 Nov nothing read it). "Welcome, <shop>" · "Your shop is open on <its plan>." · the ticked row of
  * what the door made · three next steps in the owner's order: Add the clients you already have · Add your logo
  * (`/open-shop/logo` stays reachable from here) · Get verified to be found. No leads are promised.
  *
@@ -39,30 +43,50 @@ export function TodayWelcome({
   shopName,
   card = null,
   cardState = null,
-  cardNote = null,
   claimed = null,
+  shop,
+  editUnread = false,
 }: {
   kind: 'claimed' | 'opened';
+  /**
+   * The shop's plan and verification, off Today's one shop read (`readTodayShopRow`); null when that read failed.
+   * Ship review 21 Nov: `?claimed=1` also lands ESTABLISHED shops, so the line and the "Get verified" step are drawn
+   * from what is true of THIS shop — never a fixed Free line.
+   */
+  shop: WelcomeShop;
   shopName: string | null;
   card?: FirstCardCarry | null;
   /** `?card=` — the ticked row names the card ONLY when it is `live` (`welcomeDoneRow`); a bare welcome names the shop. */
   cardState?: ReturnType<typeof firstCardStateFrom>;
-  /** The claim door's carry with no card to redraw — the switch's sentence and the card's id (`claimCardFrom`). */
-  cardNote?: { why: string | null; id: string | null } | null;
   /** P6 — the couple whose invite this was, and their event's word; null names nobody. */
   claimed?: { couple: string; eventWord: string } | null;
+  /** Door A: Edit was picked on the first card but the card could not be found to open — said, with the way to the cards. */
+  editUnread?: boolean;
 }) {
   const welcome = kind === 'claimed' ? WELCOME_CLAIMED_PATH : WELCOME_OPENED_PATH;
   return (
-    <section className="mb-4 grid gap-3 border-y border-ink/10 py-4 sm:py-5" aria-labelledby="today-welcome-title" data-today-welcome={kind}>
+    <section className="mb-4 grid gap-3 border-b border-ink/10 pb-5" aria-labelledby="today-welcome-title" data-today-welcome={kind}>
       <div className="grid gap-1">
         <h2 id="today-welcome-title" className="text-lg font-semibold text-ink">
           {welcomeTitle(kind, shopName)}
         </h2>
-        <p className="text-sm text-ink/70">
-          {kind === 'claimed' && claimed ? claimedWelcomeLine(claimed.couple, claimed.eventWord) : TODAY_WELCOME_LINE}
+        <p className="text-sm text-ink/70" data-today-welcome-line="">
+          {/* P6: the couple who invited them, when that read worked; otherwise what is true of this shop (#8028's ship
+              fix 21 Nov) — never a fixed "Free" line on a failed read. */}
+          {kind === 'claimed' && claimed ? claimedWelcomeLine(claimed.couple, claimed.eventWord) : todayWelcomeLine(shop)}
         </p>
       </div>
+      {editUnread ? (
+        <p className="flex items-start gap-1.5 border-y border-ink/10 py-3 text-sm text-ink" role="alert" data-today-welcome-card="edit-unread">
+          <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <span>
+            {FIRST_CARD_EDIT_UNREAD_LINE}{' '}
+            <Link href="/vendor-dashboard/services" className="font-medium text-mulberry underline-offset-2 hover:underline">
+              Open your cards
+            </Link>
+          </span>
+        </p>
+      ) : null}
       {card ? (
         <form
           action={approveFirstCard}
@@ -78,19 +102,19 @@ export function TodayWelcome({
             <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
             <span>
               {FIRST_CARD_CARRY_LINE[card.state]}
-              {card.why ? ` ${card.why}` : null}
+              {/* The reason is a KEY on the address; its sentence comes from code (`lib/first-card-why.ts`). */}
+              {firstCardWhySentence(card.why) ? ` ${firstCardWhySentence(card.why)}` : null}
             </span>
           </p>
           <p className="text-[14.5px] font-medium text-ink">
             {card.title} <span className="font-normal text-ink/60">· from ₱{formatCount(card.price)}</span>
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            {/* A draft whose id could not be read back opens the cards list — never a second "new" card. */}
             <Link
               href={
                 card.id
                   ? `/vendor-dashboard/services/${card.id}`
-                  : card.state === 'draft'
+                  : card.why === 'made-unread'
                     ? '/vendor-dashboard/services'
                     : `/vendor-dashboard/services/new/${encodeURIComponent(card.category)}`
               }
@@ -105,23 +129,14 @@ export function TodayWelcome({
             </SubmitButton>
           </div>
         </form>
-      ) : cardState === 'draft' || cardState === 'refused' ? (
-        // The claim door's first card, as its finish found it — made but not on the page (the switch's own sentence,
-        // the Card Maker on THAT card), or not made at all. Said, never a ✓ (review 20 Nov).
-        <p
-          className={`flex items-start gap-1.5 border-y border-ink/10 py-3 text-sm ${cardState === 'refused' ? 'text-mulberry-deep' : 'text-ink'}`}
-          data-today-welcome-card={cardState}
-          role={cardState === 'refused' ? 'alert' : undefined}
-        >
+      ) : cardState === 'draft' ? (
+        // The claim door's cards are made as drafts — said, with the way to them, never a ✓ (review 20 Nov).
+        <p className="flex items-start gap-1.5 border-y border-ink/10 py-3 text-sm text-ink" data-today-welcome-card="draft">
           <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
           <span>
-            {FIRST_CARD_CARRY_LINE[cardState]}
-            {cardNote?.why ? ` ${cardNote.why}` : null}{' '}
-            <Link
-              href={cardNote?.id ? `/vendor-dashboard/services/${cardNote.id}` : '/vendor-dashboard/services'}
-              className="font-medium text-mulberry underline-offset-2 hover:underline"
-            >
-              {cardNote?.id ? 'Open it in the Card Maker' : 'Open your cards'}
+            {FIRST_CARD_DRAFTS_LINE}{' '}
+            <Link href="/vendor-dashboard/services" className="font-medium text-mulberry underline-offset-2 hover:underline">
+              Open your cards
             </Link>
           </span>
         </p>
@@ -133,7 +148,7 @@ export function TodayWelcome({
           </span>
           <span className="flex-1">{welcomeDoneRow(cardState)}</span>
         </li>
-        {TODAY_WELCOME_STEPS.map((s) => {
+        {todayWelcomeSteps(shop).map((s) => {
           const Icon = ICON[s.key];
           return (
             <li key={s.key}>

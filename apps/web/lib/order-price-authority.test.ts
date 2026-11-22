@@ -204,7 +204,10 @@ const ORDER_MINTERS: Record<string, string> = {
     'server-side from vendor_billing_catalog (fetchVendorPapicPackPricePhp; null/inactive = refuse). ' +
     'Service-role (`createMoneyWriterClient`). No tier or verification gate — authorized by ' +
     'fetchOwnVendorProfile + resolveVendorRoleForProfile + canManageVendor. Minted with eventId: null — ' +
-    'a shop purchase; the activation hook (grantVendorPapicPortfolioPack) writes shop_papic_wallet_entries.',
+    'a shop purchase; the activation hook (grantVendorPapicPortfolioPack) writes shop_papic_wallet_entries. ' +
+    'Since 2026-11-17 also the GIFT STORE (for=gift_cart): the form posts codes + counts only; priceCart re-prices ' +
+    'every line from platform_retail_catalog_v2 (fetchShopGiftPacks / fetchShopGiftBundles), the order total is the ' +
+    'sum, and no order of this action passes platform_settings.max_payment_php (getMaxPaymentPhp + withinMaxPayment).',
   'app/vendor-dashboard/clients/[eventId]/booth-event-actions.ts':
     'Vendor 3D-booth branding for ONE event (₱500 one-time, owner 2026-09-05). pricePhp read ' +
     'server-side from the vendor catalog (fetchVendor3dBoothEventPricePhp; null = off sale = refuse). ' +

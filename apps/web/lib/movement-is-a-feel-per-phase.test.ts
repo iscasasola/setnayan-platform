@@ -261,18 +261,19 @@ const names = (r: string) => [...r.matchAll(/data-dd-label="">([^<]*)</g)].map((
 test('(6) the toolbar: each phase’s row 4 shows ITS feel; Action has none; a feel with nothing to time is grey; on arrival Build out says so', async () => {
   const rin = row(await draw('in'), 4);
   const rout = row(await draw('out'), 4);
-  assert.deepEqual(names(rin), ['Movement ◆', 'Plays ◆', 'Delay ◆']); // 💎 RE-AIMED 2026-10-18: every Animate control wears ◆ (owner 2026-10-16)
+  assert.deepEqual(names(rin), ['Movement ◆', 'With the scroll ◆', 'Delay ◆']); // 💎 RE-AIMED 2026-10-18: every Animate control wears ◆ (owner 2026-10-16)
   assert.deepEqual(names(rout), ['Movement ◆', 'Leaves ◆']);
   assert.match(rin, /data-stage-dd="in-move"[\s\S]*?aria-label="Movement: Quick"/, 'Build in does not show its own feel');
   assert.match(rout, /data-stage-dd="out-move"[\s\S]*?aria-label="Movement: Cinematic"/, 'Build out does not show its own feel');
-  assert.match(rin, /aria-label="Build in plays: On scroll"/);
+  assert.match(rin, /aria-label="With the scroll: Plays with the scroll ◆"/);
   assert.match(rout, /aria-label="How it leaves: As it scrolls away"/);
-  assert.deepEqual(names(row(await draw('in', { delay: null, rows: { value: 'auto', options: [{ key: 'auto', label: 'Auto' }], onPick: noop } }), 4)), ['Movement ◆', 'Plays ◆', 'Rows ◆']);
+  assert.deepEqual(names(row(await draw('in', { delay: null, rows: { value: 'auto', options: [{ key: 'auto', label: 'Auto' }], onPick: noop } }), 4)), ['Movement ◆', 'With the scroll ◆', 'Rows ◆']);
   /* ACTION: rows 1–2 only — it has no feel and no drive of its own. */
   const act = await draw('act');
   assert.equal(row(act, 4), '');
   assert.equal(row(act, 3), '');
-  assert.doesNotMatch(act, /Movement|Leaves|Plays/);
+  // ("Leaves" is a phase's NAME in row 1 since 20 Nov — "MAKER TABS REVISITED" (3); rows 2–4 hold none of the three.)
+  assert.doesNotMatch(act.replace(/data-stage-phases="animate"[\s\S]*?<\/div><\/div>/, ''), /Movement|Leaves|Plays|With the scroll/);
   /* GREY, AND STILL A BUTTON (the tap says why): never `disabled`. */
   const off = row(await draw('out', { move: { in: null, out: { value: 'calm', onPick: noop, off: FEEL_OFF.scrub } } }), 4);
   assert.match(off, /<div[^>]*class="[^"]*aria-disabled:opacity-40[^"]*"[^>]*data-stage-dd="out-move"[^>]*aria-disabled="true"|<div[^>]*aria-disabled="true"[^>]*data-stage-dd="out-move"|data-stage-dd="out-move" aria-disabled="true"/);

@@ -18,6 +18,8 @@
 /* ───────────────────────── the screens ───────────────────────── */
 
 /** The five screens, in the approved order. The account is SECOND (owner: "Create account (second, not last)"). */
+import { TIER_LABEL, VENDOR_TIERS, type VendorTier } from './vendor-tier-caps';
+
 export const ONBOARDING_SCREENS = ['open', 'account', 'check', 'card', 'done'] as const;
 export type OnboardingScreen = (typeof ONBOARDING_SCREENS)[number];
 
@@ -49,7 +51,15 @@ export const FIRST_CARD_PRICED_LINE = 'Approve it, edit it, or skip.';
 export const ONBOARDING_STEP_NAMES = {
   open: ['Start', 'Account', 'Your shop', 'Your card', 'Done'],
   claim: ['Accept', 'Account', 'Your shop', 'Your card', 'Done'],
+  /** Door C: step 4 is their page (PC4). "Invite" is the screen right after Open my shop (`/open-shop/invite`). */
+  coordinator: ['Start', 'Account', 'Shop', 'Page', 'Done'],
 } as const;
+
+/** PC4 — Door C's step 4 is their PAGE, drafted with the first card on it (owner: "we will also create their first page"). */
+export const YOUR_PAGE_HEAD = 'Your page';
+export const APPROVE_PAGE = 'Approve page';
+/** PC4 — the page's Trusted partners section before any shop joins. */
+export const PAGE_PARTNERS_EMPTY = 'Shops you invite show here.'
 
 /** Door B's first screen (PB1): the name, what you do and the main service, on one screen. */
 export const OPEN_YOUR_SHOP_HEAD = ['Open your shop', 'Three answers. Free.'] as const;
@@ -64,6 +74,9 @@ export const ACCEPT_LABEL = 'Accept';
 export const ACCEPT_LINE = 'Accept to run this booking on Setnayan. Free.';
 /** P1's quiet decline link (was the grey pill "I'm not this supplier"). */
 export const NOT_MY_BUSINESS = 'Not my business';
+
+/** P3's title (drawing v4): on the claim door the list is the couple's record to correct. Door B keeps `ONBOARDING_HEADS.check`. */
+export const CLAIM_CHECK_HEAD = 'Check your shop';
 
 /**
  * 🚪 P3 — DOOR A'S ROW NAMES (owner 19 Nov drawing). The couple's record names a booking, so its rows read Covers ·
@@ -242,6 +255,16 @@ export function firstCardLanding(input: {
   return '/vendor-dashboard/services/new';
 }
 
+/* ───────────────────────── Door C — "Invite shops you trust" ───────────────────────── */
+
+/** The coordinator door's screen after the shop opens: their `/i/<slug>` QR, Share, and the line below. */
+export const INVITE_SHOPS_PATH = '/open-shop/invite';
+export const INVITE_SHOPS_HEAD = ['Invite shops you trust', 'Your own invite QR. A shop that scans it joins as your trusted partner.'] as const;
+/** The owner's line, verbatim. */
+export const INVITE_SHOPS_LINE = 'Only invite those you trust.';
+/** The word for the coordinator-to-shop tie and the shop-page section (renames "preferred supplier" / "Trusted by"). */
+export const TRUSTED_PARTNERS = 'Trusted partners';
+
 /* ── the first card, as it truly stands after the door ──
  * The shipped maker makes EVERY card as a draft (`is_active: false`, `createVendorService`); the door then asks the
  * SHIPPED switch (`toggleVendorServiceActive` — the publish gate and the plan's live-cards cap) to put it on the page
@@ -280,6 +303,9 @@ export const FIRST_CARD_PARAM = {
   id: 'card_id',
 } as const;
 
+/** The shape of a first-card reason key (`not-live`, `needs-cover+inclusions`, `cap-3`) — `lib/first-card-why.ts`. */
+export const FIRST_CARD_WHY_KEY = /^[a-z][a-z0-9+-]{0,39}$/;
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The welcome's address carrying a card that is not on the page yet. */
@@ -289,7 +315,8 @@ export function firstCardCarryPath(welcome: string, card: Omit<FirstCardCarry, '
   q.set(FIRST_CARD_PARAM.title, card.title.slice(0, FIRST_CARD_TITLE_MAX));
   q.set(FIRST_CARD_PARAM.price, String(Math.round(card.price)));
   q.set(FIRST_CARD_PARAM.category, card.category);
-  if (card.why) q.set(FIRST_CARD_PARAM.why, card.why.slice(0, 200));
+  // `why` is a KEY from `lib/first-card-why.ts` (ship review 21 Nov) — never a sentence on the address.
+  if (card.why && FIRST_CARD_WHY_KEY.test(card.why)) q.set(FIRST_CARD_PARAM.why, card.why);
   if (card.id && UUID.test(card.id)) q.set(FIRST_CARD_PARAM.id, card.id);
   return `${welcome}${welcome.includes('?') ? '&' : '?'}${q.toString()}`;
 }
@@ -309,54 +336,19 @@ export function firstCardFrom(search: Record<string, string | string[] | undefin
   const price = parseCardPrice(one(FIRST_CARD_PARAM.price));
   const category = (one(FIRST_CARD_PARAM.category) ?? '').trim();
   if (!title || !price || !/^[a-z0-9_]{1,64}$/.test(category)) return null;
-  const why = (one(FIRST_CARD_PARAM.why) ?? '').trim().slice(0, 200) || null;
+  // A KEY only (`lib/first-card-why.ts` draws its sentence): free text on the address is dropped, never drawn.
+  const rawWhy = (one(FIRST_CARD_PARAM.why) ?? '').trim();
+  const why = FIRST_CARD_WHY_KEY.test(rawWhy) ? rawWhy : null;
   const rawId = one(FIRST_CARD_PARAM.id);
   const id = state === 'draft' && rawId && UUID.test(rawId) ? rawId : null;
   return { state, title, price, category, why, id };
 }
 
-/** What `?card=` says on its own — `live` / `skipped` / `draft` / `refused` with no carried card (the claim door). */
-export function firstCardStateFrom(search: Record<string, string | string[] | undefined>): ClaimFirstCardState | null {
+/** What `?card=` says on its own — `live` / `skipped` / `draft` with no carried card (the claim door's other cards). */
+export function firstCardStateFrom(search: Record<string, string | string[] | undefined>): 'live' | 'skipped' | 'draft' | null {
   const v = search[FIRST_CARD_PARAM.state];
-  return v === FIRST_CARD_LIVE || v === FIRST_CARD_SKIPPED || v === 'draft' || v === 'refused' ? v : null;
+  return v === FIRST_CARD_LIVE || v === FIRST_CARD_SKIPPED || v === 'draft' ? v : null;
 }
-
-/**
- * ✓ The welcome's "and first card" tick, held to the database (review 20 Nov): `?card=live` is only a claim on the
- * address — a reload or a hand-typed link can carry it. It ticks only when the shop has a live card NOW; an unread or
- * empty answer drops it to the bare welcome (never a ✓ on a guess). Every other state passes through unchanged.
- */
-export function confirmedCardState(
-  state: ClaimFirstCardState | null,
-  liveNow: boolean,
-): ClaimFirstCardState | null {
-  return state === FIRST_CARD_LIVE && !liveNow ? null : state;
-}
-
-/** 🚪 The claim door's first card, as the finish found it (review 20 Nov) — carried THROUGH finalize to the welcome. */
-export type ClaimFirstCardState = 'live' | 'skipped' | 'draft' | 'refused';
-type ClaimCardCarry = { state: ClaimFirstCardState; why: string | null; id: string | null };
-
-/** `card=…[&card_why=…][&card_id=…]` — the state, the switch's own sentence, and the card (the Card Maker opens on it). */
-export function claimCardQuery(c: ClaimCardCarry): string {
-  const q = new URLSearchParams({ [FIRST_CARD_PARAM.state]: c.state });
-  if (c.why) q.set(FIRST_CARD_PARAM.why, c.why.slice(0, 200));
-  if (c.id && UUID.test(c.id)) q.set(FIRST_CARD_PARAM.id, c.id);
-  return q.toString();
-}
-
-/** Finalize's read of that carry — anything off on the address (it is typed by anyone) is dropped, never trusted. */
-export function claimCardFrom(search: Record<string, string | string[] | undefined>): ClaimCardCarry | null {
-  const state = firstCardStateFrom(search);
-  if (!state) return null;
-  const one = (k: string) => (typeof search[k] === 'string' ? (search[k] as string) : null);
-  const why = (one(FIRST_CARD_PARAM.why) ?? '').trim().slice(0, 200) || null;
-  const rawId = one(FIRST_CARD_PARAM.id);
-  return { state, why: state === 'draft' ? why : null, id: rawId && UUID.test(rawId) ? rawId : null };
-}
-
-/** Where finalize lands a claim: the claimed welcome, carrying what the door found about its first card. */
-export const claimedWelcomePath = (c: ClaimCardCarry | null) => (c ? `${WELCOME_CLAIMED_PATH}&${claimCardQuery(c)}` : WELCOME_CLAIMED_PATH);
 
 /** What the welcome says about a first card that is not on the page. */
 export const FIRST_CARD_CARRY_LINE: Readonly<Record<FirstCardState, string>> = {
@@ -383,8 +375,6 @@ export function firstCardLiveFrom(redirectUrl: string | null | undefined): { liv
 /** The draft card's button on the welcome — asks the shipped switch again (idempotent: no second card is made). */
 export const FIRST_CARD_RETRY = 'Put it on my page';
 /** A door that made cards as drafts with no single card to carry (the claim door's picks). */
-/** P5 on the claim door — what happens to the cards it lists (made as drafts; Today says which went on the page). */
-export const CLAIM_CARDS_MADE_AS = 'made when you open, as drafts; Today says which are on your page';
 export const FIRST_CARD_DRAFTS_LINE = 'Your cards are made as drafts — put each on your page from the Card Maker.';
 
 /** The welcome's three next steps, in the owner's order (PB6). No leads are promised. */
@@ -394,9 +384,36 @@ export const TODAY_WELCOME_STEPS = [
   { key: 'verify', label: 'Get verified to be found', href: '/vendor-dashboard/profile#docs' },
 ] as const;
 
-/** The welcome's own line (PB6). Says what is true — the shop is open on Free — never a lead. */
-export const TODAY_WELCOME_LINE = 'Your shop is open on Free.';
+/**
+ * The welcome's own line (PB6 · P6): what is TRUE about the shop, never a lead.
+ *
+ * ⚠ Ship review 21 Nov: `?claimed=1` is also where main sends an ESTABLISHED shop (the claim finalize page and the
+ * services action), so a fixed "Your shop is open on Free." told a paid or verified shop it was on Free and asked it to
+ * get verified. The line now names the shop's real plan off Today's one shop read (`readTodayShopRow`), and a read
+ * that failed names no plan at all — never a plan that may not be true.
+ */
+export type WelcomeShop = { tierState: string | null | undefined; verified: boolean } | null;
+export const TODAY_WELCOME_LINE_UNREAD = 'Your shop is open.';
+export function todayWelcomeLine(shop: WelcomeShop): string {
+  const tier = shop?.tierState;
+  if (!shop || !tier || !(VENDOR_TIERS as readonly string[]).includes(tier)) return TODAY_WELCOME_LINE_UNREAD;
+  return `Your shop is open on ${TIER_LABEL[tier as VendorTier]}.`;
+}
+/**
+ * The steps to draw: "Get verified to be found" only for a shop the read says is NOT verified — a verified shop is not
+ * asked again, and a failed read does not ask (it cannot know).
+ */
+export function todayWelcomeSteps(shop: WelcomeShop) {
+  return TODAY_WELCOME_STEPS.filter((s) => s.key !== 'verify' || (shop !== null && !shop.verified));
+}
 /** P6 — the claimed welcome's line: where the couple who invited them now is. */
+/**
+ * Door A: Edit was picked on the first card, but the card could not be found to open (not made, or the lookup failed —
+ * ship review 21 Nov). Carried as `?edit=unread` to finalize and `card_edit=unread` to Today, where it is SAID.
+ */
+export const FIRST_CARD_EDIT_UNREAD = 'unread';
+export const FIRST_CARD_EDIT_UNREAD_LINE = 'You picked Edit, but we couldn’t find your card just now. Open your cards to edit it.';
+export const welcomeEditUnreadPath = (welcome: string) => `${welcome}&card_edit=${FIRST_CARD_EDIT_UNREAD}`;
 export const claimedWelcomeLine = (couple: string, eventWord: string) => `${couple}’s ${eventWord} is in Clients.`;
 
 /** PB6's first, already-ticked row: what the door made. */

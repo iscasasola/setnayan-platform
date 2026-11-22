@@ -31,15 +31,46 @@ SPEC IMPACT: None new — implements the 2026-11-19 DECISION_LOG row as written.
 - Step names under the bars: Accept · Account · Your shop · Your card · Done.
 SPEC IMPACT: None — builds the approved 19 Nov drawing.
 
-## 2026-11-20 · fix(onboarding): Door A carries the first card through finalize
+## 2026-11-21 · fix(onboarding): Door A P4 fits 375 px, as drawn
 
-- `finishClaimDoor` asks the shipped switch about the first card. The answer is `live`, `draft` (with the switch's sentence and the card id), `refused` (not made) or `skipped`, and it rides through `/vendor/claim/<token>/finalize` to `?claimed=1&card=…`. A bare `?claimed=1` no longer reads as "and first card".
-- Today's claimed welcome says draft or refused with the way to the card. Its ticked row names the card only on `live`.
-- P5's Cards row has no ✓: the cards are made as drafts when the shop opens, and the welcome says which ones went on the page.
-- Tests: `lib/supplier-onboarding.test.ts` 12.
+Caught up with #8028 + `main` (merge only). P4: Approve card full width, Edit · Skip for now under it (the team door: Approve over Skip). Shot: `build-sessions/shots-onboarding-375/a1-accept-375.jpg`.
 
 SPEC IMPACT: None.
 
-- Review 20 Nov (non-blocking, folded here): the welcome ticks "and first card" only when `readHasLiveCard` reads a live card now (a reload or hand-typed `?card=live` cannot fake it; a failed read is no tick); a made draft whose id was lost opens the cards list, never a second "new" card.
-- P1 shop card → rows on white (owner 20 Nov, option a): a frame only on what you press; clears the template ratchet for open-shop.
-- Lab: `/dev/open-shop-lab?screen=welcome&kind=…&card=live|draft|refused|claim-draft` draws Today's welcome on fixtures (for the §4 light/dark shots).
+## 2026-11-20 · fix(onboarding): Door A's account, check list and first card match the approved drawing (P2 · P3 · P4)
+
+Owner's "Approved" on the controller questions (20 Nov), built to drawing `36jmQMWrANcgd2HxihAUw5` v4:
+
+- **P2 · Create your account:** Google · Apple, then "or", then the email boxes, all at once — as Door B's PB2. The
+  two-step "Continue with Email" (v19, 7 Nov) is superseded by the 19 Nov drawing. The OAuth row sits above the finish
+  form (forms never nest); the line reads "Your changes save as you go."
+- **P3:** the list is titled "Check your shop" (`CLAIM_CHECK_HEAD`); Door B keeps "Your shop".
+- **P4 · Your first service card:** the couple's own first card is drafted — the card as couples will see it (its lines
+  read-only on the face), then "Built from what <couple> recorded" (they picked it · they booked you for · they logged
+  it / add yours), the price box, then Approve · Edit · Skip. Its lines are changed in the Card Maker (Edit). The
+  Setnayan team's door and services the supplier added keep the form.
+- **One piece, two doors:** the drafted card moved out of the wizard into `app/open-shop/_components/first-card-draft.tsx`
+  (`FirstCardDraft`); Door B's PB4 renders it unchanged.
+- Tests: `the-claim-door.test.ts` test 3 now pins P2 (the 7 Nov rule it held is superseded); new test 4 pins P4 and the
+  one shared piece. Six sabotages, each red.
+
+SPEC IMPACT: None (builds the approved drawing; no new rule).
+
+## 2026-11-21 · fix(onboarding): Door A ship-review fixes · the "Couple invite" label and the drawing's date, pinned
+
+Ship review @ `066ffaa34f` (FIX-FIRST, inherits #8028) and the controller's go, 21 Nov:
+
+- **The claimed welcome never falls back to a fixed "open on Free"**: the couple's line ("Maria & Jose's wedding is in
+  Clients.") when that read worked, else #8028's line for THIS shop (its real plan, or "Your shop is open." on a failed
+  read).
+- **Edit picked but the card cannot be found is said**: the claim action sends `?edit=unread` to the shipped finalize,
+  which lands Today with `card_edit=unread`; the welcome says "You picked Edit, but we couldn't find your card just now.
+  Open your cards to edit it." with the link — never a silent welcome.
+- **"Couple invite" label**: kept over every Door A title (one header, the host noun capitalised) and pinned by a test.
+- **The drawing's date**: production already reads the couple's own date line ("Sat, Dec 19, 2026", `claimDatePhrase`);
+  the lab's sample had "12 December 2026" hand-typed — it now goes through the same formatter, and a test pins P1's
+  "For their wedding · Sat, Dec 19, 2026." and that the lab never hand-types a date.
+
+Seven sabotages, each red.
+
+SPEC IMPACT: None.

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { APP_BUILD_PATHS } from './app-build-paths.mjs';
 // Detect drift between what Vercel has ACTUALLY deployed to production and
 // what `origin/main` actually contains.
 //
@@ -213,14 +214,54 @@ export function pendingAgeSeconds({ pendingCommitTs, nowTs }) {
 export function oldestPendingAgeSeconds(deployedSha, opts = {}) {
   const ref = opts.ref ?? 'origin/main';
   const at = opts.cwd ? `-C ${JSON.stringify(opts.cwd)} ` : '';
-  const nextSha = shSafe(
-    `git ${at}rev-list --reverse --first-parent ${deployedSha}..${ref}`,
-  ).split('\n')[0];
+  const nextSha = opts.paths
+    ? pendingAppCommits(deployedSha, opts)[0]
+    : shSafe(`git ${at}rev-list --reverse --first-parent ${deployedSha}..${ref}`).split('\n')[0];
   if (!nextSha) return null;
   const ct = Number(shSafe(`git ${at}log -1 --format=%ct ${nextSha}`));
   if (!ct) return null;
   const nowTs = opts.nowTs ?? Math.floor(Date.now() / 1000);
   return pendingAgeSeconds({ pendingCommitTs: ct, nowTs });
+}
+
+/**
+ * The commits on main's OWN line (first parent) after `deployedSha` that change
+ * a file production is built from — oldest first.
+ *
+ * 🔑 WHY ONLY THESE COUNT AS "BEHIND". Since 2026-11-21 `deploy-prod` publishes
+ * only when an app file changed (`scripts/app-build-paths.mjs`). A changelog
+ * fragment, a docs edit or the bot's schema snapshot no longer triggers a build,
+ * so production legitimately keeps serving an older commit. Counting those
+ * commits would report DRIFT forever while production is exactly current —
+ * the monitor crying wolf, the failure this file already fixed once.
+ *
+ * 🔑 EACH MERGE IS DIFFED AGAINST ITS FIRST PARENT, EXPLICITLY. `git rev-list
+ * -- <paths>` decides with history simplification, which treats a merge that
+ * matches its BRANCH parent as unchanged and drops it — i.e. it would hide
+ * every merged pull request. `git diff --quiet <c>^1 <c> -- <paths>` asks the
+ * only question that matters: did main's tree change here, in a built file.
+ *
+ * @param {string} deployedSha the commit production is serving
+ * @param {{ref?:string, cwd?:string, paths?:string[]}} [opts]
+ * @returns {string[]}
+ */
+export function pendingAppCommits(deployedSha, opts = {}) {
+  const ref = opts.ref ?? 'origin/main';
+  const at = opts.cwd ? `-C ${JSON.stringify(opts.cwd)} ` : '';
+  const paths = (opts.paths ?? APP_BUILD_PATHS).map((p) => JSON.stringify(p)).join(' ');
+  const line = shSafe(`git ${at}rev-list --reverse --first-parent ${deployedSha}..${ref}`)
+    .split('\n')
+    .filter(Boolean);
+  return line.filter((c) => {
+    try {
+      sh(`git ${at}diff --quiet ${c}^1 ${c} -- ${paths}`);
+      return false; // exit 0 = no change in a built file
+    } catch (e) {
+      // exit 1 = changed. Anything else (no parent, bad sha) must not read as
+      // "nothing to deploy": count it, so the monitor errs toward reporting.
+      return true;
+    }
+  });
 }
 
 async function main() {
@@ -245,21 +286,24 @@ async function main() {
     process.exit(2);
   }
 
-  const behindCount = Number(shSafe(`git rev-list --count ${prod.sha}..origin/main`)) || 0;
-  const oldestPendingAgeSec = behindCount > 0 ? oldestPendingAgeSeconds(prod.sha) : null;
+  // Only commits that change a built file count (see pendingAppCommits).
+  const totalBehind = Number(shSafe(`git rev-list --count --first-parent ${prod.sha}..origin/main`)) || 0;
+  const behindCount = pendingAppCommits(prod.sha).length;
+  const oldestPendingAgeSec =
+    behindCount > 0 ? oldestPendingAgeSeconds(prod.sha, { paths: APP_BUILD_PATHS }) : null;
   const graceSec = args.graceMin * 60;
   const { drift, reason } = classifyDeployDrift({ behindCount, oldestPendingAgeSec, graceSec });
 
   if (args.json) {
-    console.log(JSON.stringify({ mainSha, deployedSha: prod.sha, behindCount, oldestPendingAgeSec, drift, reason }, null, 2));
+    console.log(JSON.stringify({ mainSha, deployedSha: prod.sha, behindCount, totalBehind, oldestPendingAgeSec, drift, reason }, null, 2));
   } else {
     console.log('\nDeploy drift doctor — production (Vercel) vs origin/main');
     console.log(`  production is serving ${prod.sha}`);
     console.log(`  origin/main is at     ${mainSha}`);
-    console.log(`  ${behindCount} commit(s) behind\n`);
+    console.log(`  ${behindCount} app change(s) behind (${totalBehind} merge(s) on main in all; the rest change no built file)\n`);
 
     if (!drift) {
-      console.log(behindCount === 0 ? '✓ Production matches origin/main.' : `… ${behindCount} commit(s) pending, within the ${args.graceMin}-min grace — normal deploy latency, not drift.`);
+      console.log(behindCount === 0 ? '✓ Production serves every app change on origin/main.' : `… ${behindCount} commit(s) pending, within the ${args.graceMin}-min grace — normal deploy latency, not drift.`);
     } else {
       const mins = oldestPendingAgeSec != null ? Math.round(oldestPendingAgeSec / 60) : null;
       console.log(`✗ DRIFT — production is ${behindCount} commit(s) behind origin/main${mins != null ? `, oldest pending change merged ${mins} min ago` : ''}.`);

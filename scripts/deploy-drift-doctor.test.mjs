@@ -189,3 +189,119 @@ test('a stale merge is still reported — the fix must not silence real drift', 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ── Only a change to a BUILT file counts as "behind" (2026-11-21) ───────────
+//
+// deploy-prod now skips the Vercel build when no app file changed. If the
+// doctor still counted every commit, it would report DRIFT forever after a docs
+// merge while production was exactly current. Real repo, real merges — the bug
+// class lives in which commits git walks, so a stub would prove nothing.
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { pendingAppCommits } from './deploy-drift-doctor.mjs';
+import { APP_BUILD_PATHS } from './app-build-paths.mjs';
+
+function buildMixedRepo() {
+  const dir = mkdtempSync(join(tmpdir(), 'drift-app-'));
+  const now = Math.floor(Date.now() / 1000);
+  const git = (args, when) =>
+    execFileSync('git', ['-C', dir, ...args], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 't',
+        GIT_AUTHOR_EMAIL: 't@t',
+        GIT_COMMITTER_NAME: 't',
+        GIT_COMMITTER_EMAIL: 't@t',
+        ...(when ? { GIT_AUTHOR_DATE: `${when} +0000`, GIT_COMMITTER_DATE: `${when} +0000` } : {}),
+      },
+    })
+      .toString()
+      .trim();
+  const write = (rel, body) => {
+    mkdirSync(join(dir, rel, '..'), { recursive: true });
+    writeFileSync(join(dir, rel), body);
+  };
+  const mergeBranch = (name, rel, when) => {
+    git(['checkout', '--quiet', '-b', name]);
+    write(rel, name);
+    git(['add', '-A']);
+    git(['commit', '--quiet', '-m', name], when - 3 * HOUR);
+    git(['checkout', '--quiet', 'main']);
+    git(['merge', '--no-ff', '--quiet', '-m', `Merge ${name}`, name], when);
+    return git(['rev-parse', 'HEAD']);
+  };
+
+  git(['init', '--quiet', '-b', 'main']);
+  write('apps/web/page.tsx', 'v1');
+  git(['add', '-A']);
+  git(['commit', '--quiet', '-m', 'deployed'], now - 5 * HOUR);
+  const deployed = git(['rev-parse', 'HEAD']);
+  const docs = mergeBranch('docs', 'changelog.d/note.md', now - 2 * HOUR);
+  const snapshot = mergeBranch('snap', 'supabase/security/prod-schema.snapshot.txt', now - HOUR);
+  return { dir, deployed, now, git, mergeBranch, docs, snapshot };
+}
+
+test('docs and schema-snapshot merges are NOT "behind" — no build was owed', () => {
+  const r = buildMixedRepo();
+  try {
+    const pending = pendingAppCommits(r.deployed, { ref: 'main', cwd: r.dir });
+    assert.deepEqual(pending, [], 'a changelog or snapshot merge must not read as drift');
+    assert.equal(
+      oldestPendingAgeSeconds(r.deployed, { ref: 'main', cwd: r.dir, paths: APP_BUILD_PATHS, nowTs: r.now }),
+      null,
+    );
+  } finally {
+    rmSync(r.dir, { recursive: true, force: true });
+  }
+});
+
+test('a merged app change IS behind, and its age is the MERGE of that change', () => {
+  const r = buildMixedRepo();
+  try {
+    const app = r.mergeBranch('feature', 'apps/web/page.tsx', r.now - 60);
+    const pending = pendingAppCommits(r.deployed, { ref: 'main', cwd: r.dir });
+    assert.deepEqual(pending, [app], 'the app merge — and only it — is pending');
+    const age = oldestPendingAgeSeconds(r.deployed, {
+      ref: 'main',
+      cwd: r.dir,
+      paths: APP_BUILD_PATHS,
+      nowTs: r.now,
+    });
+    // Not the two-hour-old docs merge, not the branch commit: the app merge.
+    assert.ok(age != null && age < 300, `expected ~60s, got ${age}s`);
+    // And once it is stale, it is still drift.
+    const late = oldestPendingAgeSeconds(r.deployed, {
+      ref: 'main',
+      cwd: r.dir,
+      paths: APP_BUILD_PATHS,
+      nowTs: r.now + 2 * HOUR,
+    });
+    assert.equal(
+      classifyDeployDrift({ behindCount: pending.length, oldestPendingAgeSec: late, graceSec: 1200 }).drift,
+      true,
+    );
+  } finally {
+    rmSync(r.dir, { recursive: true, force: true });
+  }
+});
+
+test('a lockfile change counts — a dependency bump changes the build', () => {
+  const r = buildMixedRepo();
+  try {
+    const lock = r.mergeBranch('deps', 'pnpm-lock.yaml', r.now - 60);
+    assert.deepEqual(pendingAppCommits(r.deployed, { ref: 'main', cwd: r.dir }), [lock]);
+  } finally {
+    rmSync(r.dir, { recursive: true, force: true });
+  }
+});
+
+test("vercel.json's ignoreCommand names exactly the app-build paths", () => {
+  const vercel = JSON.parse(readFileSync(new URL('../apps/web/vercel.json', import.meta.url), 'utf8'));
+  const m = /git diff --quiet HEAD\^ HEAD -- (.+)$/.exec(vercel.ignoreCommand);
+  assert.ok(m, 'ignoreCommand no longer ends in the path list — update this test and app-build-paths.mjs together');
+  assert.deepEqual(
+    m[1].trim().split(/\s+/).sort(),
+    [...APP_BUILD_PATHS].sort(),
+    'deploy-prod, the drift doctor and Vercel must agree on what a build is made of',
+  );
+});

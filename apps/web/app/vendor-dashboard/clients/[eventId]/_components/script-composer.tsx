@@ -103,7 +103,7 @@ export function ScriptComposer({
           isPrivate ? 'A note to yourself — never read aloud…' : 'Write the line you’ll actually say…'
         }
         className={[
-          'mt-1.5 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-ink outline-none focus:border-gold',
+          'mt-1.5 w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-ink outline-none focus:border-gold',
           // Serif = say this. Withheld on a private moment, deliberately.
           isPrivate ? 'text-sm' : 'font-serif text-[15px] leading-relaxed',
         ].join(' ')}

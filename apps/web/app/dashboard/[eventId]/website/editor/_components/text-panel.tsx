@@ -94,7 +94,7 @@ export function TextPanel({
         ref={box}
         data-same-field={sameField}
         onInput={(e) => preview(e.currentTarget.value)}
-        className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-terracotta"
+        className="w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink outline-none focus:border-terracotta"
       />
       {hint ? <p className="mt-1 text-[12px] text-ink/75">{hint}</p> : null}
       <SaveButton />

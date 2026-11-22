@@ -760,7 +760,7 @@ function AppealForm({
 
       <details className="space-y-2 text-xs text-warn-950/80">
         <summary className="cursor-pointer font-medium">Want to attach the review you would have posted?</summary>
-        <div className="mt-2 space-y-3 rounded-lg border border-warn-200 bg-white/60 p-3">
+        <div className="mt-2 space-y-3 rounded-lg border border-warn-200 bg-raised/60 p-3">
           <label className="block space-y-1">
             <span className="block text-[11px] font-medium uppercase tracking-wide text-warn-950">
               Overall rating (1–5)

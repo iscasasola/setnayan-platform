@@ -26,6 +26,7 @@ import { INVITE_FEATURES } from './invite';
 import { DAY_MEMORIES_FEATURES } from './day-memories';
 import { SUPPLIERS_A_FEATURES } from './suppliers-a';
 import { SUPPLIERS_B_FEATURES } from './suppliers-b';
+import { RETIRED_FEATURE_SLUGS } from '../retired-products';
 
 export * from './types';
 
@@ -48,9 +49,13 @@ const ALL: readonly FeaturePageEntry[] = [
 ];
 
 /** Every feature page, in `FEATURE_SLUGS` order (the hub's reading order). */
+//
+// 🪦 A RETIRED product (lib/retired-products.ts — owner 2026-11-20, Patiktok and
+// Music Maker) has no page, and no other page's "works with" names it. Its
+// entry stays in its source file as history; `/features/<slug>` redirects.
 export const FEATURE_PAGES: readonly FeaturePageEntry[] = FEATURE_SLUGS.flatMap((slug) =>
-  ALL.filter((f) => f.slug === slug),
-);
+  RETIRED_FEATURE_SLUGS.has(slug) ? [] : ALL.filter((f) => f.slug === slug),
+).map((f) => ({ ...f, worksWith: f.worksWith.filter((w) => !RETIRED_FEATURE_SLUGS.has(w.slug)) }));
 
 export function featurePage(slug: string): FeaturePageEntry | undefined {
   return FEATURE_PAGES.find((f) => f.slug === slug);
@@ -78,7 +83,7 @@ export function featureHref(slug: FeatureSlug, locale: FeatureLocale): string {
  * shared fresh stamp as freshness fraud; see `app/sitemap.xml/route.ts`).
  * Bump it in the same commit as any copy change in this folder.
  */
-export const FEATURES_LASTMOD = '2026-11-13';
+export const FEATURES_LASTMOD = '2026-11-20';
 
 /**
  * THE ECOSYSTEM, AS A MAP (DECISION_LOG 2026-10-01 "EVERY FEATURE PAGE SAYS WHY

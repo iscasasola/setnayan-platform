@@ -181,9 +181,13 @@ test('the legacy list — the one holding Miscellaneous — still renders uncond
   // replacing it — misc is one of SERVICE_GROUPS' own members and this file
   // never touches SERVICE_GROUPS or its "Other" group.
   const tradeAt = src.indexOf('rankedTrades.length > 0 ? (');
-  const legacyAt = src.indexOf('categoryOptions.map((group) => {');
+  // Re-aimed 2026-11-17 (Card Maker HYBRID, screen 6 "grouped by Group, one dropdown"): the groups are no longer one
+  // fold each — a Group dropdown lists EVERY group (so Other › Miscellaneous is always one pick away), and the picked
+  // group's (or, while searching, every group's) kinds are drawn. The groups are built from all of categoryOptions.
+  const legacyAt = src.indexOf('options={restGroups.map((g) => ({ key: g.group.key, label: g.group.label }))}');
   assert.ok(tradeAt > 0 && legacyAt > 0, 'one of the two render sites is missing');
   assert.ok(tradeAt < legacyAt, 'the ranked-trade band stopped sitting ahead of (additive to) the legacy groups');
+  assert.match(src, /const restGroups = useMemo\(\(\) => \{[\s\S]*?return categoryOptions\s*\.map\(\(group\) => \(\{/, 'the groups stopped being built from every group');
   // Since 2026-11-04 the folds are the live taxonomy (lib/service-card-kind-groups.ts), which keeps Miscellaneous
   // reachable on purpose (MISC_KIND) — proven in lib/service-card-kind-groups.test.ts.
   const loader = read(LOADER);

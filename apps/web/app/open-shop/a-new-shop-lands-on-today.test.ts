@@ -20,7 +20,7 @@ test('opening a shop ends on Today', () => {
   const redirects = [...actions.matchAll(/redirect\((?:planOfferPath\(plan\) \?\? )?'([^']+)'\)/g)].map((m) => m[1]);
   assert.match(
     actions,
-    /redirect\(planOfferPath\(plan\) \?\? firstCardLanding\(\{ choice: cardChoice, cardId, category: cardCategory \}\)\);\s*\}/,
+    /redirect\(viaInvite\(planOfferPath\(plan\) \?\? firstCardLanding\(\{ choice: cardChoice, cardId, category: cardCategory \}\)\)\);\s*\}/, // Door C wraps it in its invite (19 Nov)
     'the last redirect of the open-shop action must be Today (its welcome)',
   );
   const onboarding = strip(read('lib/supplier-onboarding.ts'));

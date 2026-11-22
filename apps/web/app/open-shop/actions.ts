@@ -17,6 +17,7 @@ import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
 import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import { FIRST_CARD_NOT_LIVE, putFirstCardLive } from '@/lib/first-card-live.server';
+import { FIRST_CARD_MADE_UNREAD, FIRST_CARD_NOT_MADE, firstCardWhyKey } from '@/lib/first-card-why';
 import { getOpenShopServiceTree, resolvePickedLeaf, type PickerLeaf } from '@/lib/open-shop-service-tree';
 import {
   clipBusinessSlug,
@@ -80,6 +81,7 @@ import {
   FIRST_CARD_FIELD,
   FIRST_CARD_PARAM,
   FIRST_CARD_TITLE_MAX,
+  INVITE_SHOPS_PATH,
   WELCOME_CLAIMED_PATH,
   WELCOME_OPENED_PATH,
   firstCardCarryPath,
@@ -434,7 +436,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   const cardCategory = pickedLeaf ?? coarseService ?? null;
   const cardDrafted = cardChoice && cardChoice !== 'skip' && cardTitle && cardPrice && cardCategory ? true : false;
   const plan = parseSupplierPlan(formData.get('plan'));
-  const afterConfirm =
+  // 🚪 DOOR C (owner 19 Nov): a coordinator's door goes through "Invite shops you trust" — their own QR — wherever it
+  // lands next, on EVERY way: the session path, a refused card, and the Email way's confirm link (review 19 Nov: an
+  // Email-way coordinator never reached the invite).
+  const coordinating = formData.get('as') === 'coordinator';
+  const viaInvite = (path: string) => (coordinating ? `${INVITE_SHOPS_PATH}?next=${encodeURIComponent(path)}` : path);
+  const afterConfirm = viaInvite(
     cardDrafted
       ? firstCardCarryPath(WELCOME_OPENED_PATH, {
           state: 'waiting',
@@ -442,7 +449,8 @@ export async function becomeVendor(formData: FormData): Promise<void> {
           price: cardPrice as number,
           category: cardCategory as string,
         })
-      : (planOfferPath(plan) ?? firstCardLanding({ choice: cardChoice, cardId: null, category: cardCategory }));
+      : (planOfferPath(plan) ?? firstCardLanding({ choice: cardChoice, cardId: null, category: cardCategory })),
+  );
 
   let user: { id: string; email?: string | null } | null = sessionUser;
   let checkEmail: string | null = null;
@@ -854,9 +862,10 @@ export async function becomeVendor(formData: FormData): Promise<void> {
       })
     : null;
   // Made or not, live or not — the welcome is told the truth (`firstCardOutcomePath`). Edit opens the Card Maker on it.
+  // A coordinator goes by the invite screen first (`viaInvite`), as on every other landing.
   if (made && (made.ok === false || cardChoice !== 'edit')) {
     const landing = firstCardOutcomePath(WELCOME_OPENED_PATH, { title: cardTitle, price: cardPrice as number, category: cardCategory as string }, made);
-    redirect(made.ok && made.live ? (planOfferPath(plan) ?? landing) : landing);
+    redirect(viaInvite(made.ok && made.live ? (planOfferPath(plan) ?? landing) : landing));
   }
   const cardId = made && made.ok ? made.id : null;
 
@@ -865,8 +874,8 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // welcome's second step. Edit lands in the shipped Card Maker instead (`firstCardLanding`).
   // W1-B21 (walk 2, 16 Nov 2026): "Start on Plus / Pro / Ultra" carried `?plan=` here — the shop opens, then the
   // plan it came for is offered (the plan sheet, that row open).
-  if (cardChoice === 'edit') redirect(firstCardLanding({ choice: cardChoice, cardId, category: cardCategory }));
-  redirect(planOfferPath(plan) ?? firstCardLanding({ choice: cardChoice, cardId, category: cardCategory }));
+  if (cardChoice === 'edit') redirect(viaInvite(firstCardLanding({ choice: cardChoice, cardId, category: cardCategory })));
+  redirect(viaInvite(planOfferPath(plan) ?? firstCardLanding({ choice: cardChoice, cardId, category: cardCategory })));
 }
 
 /**
@@ -891,7 +900,7 @@ export async function approveFirstCard(formData: FormData): Promise<void> {
   // The shop on screen, through the ONE resolver (lib/active-shop.ts) — and only when this login OWNS it: the card is
   // made with the admin client, so a helper standing in somebody else's shop is told why, never given a write.
   const shop = await resolveOwnedActiveShop(supabase, user.id);
-  if (!shop.ok) redirect(firstCardCarryPath(welcome, { ...card, state: 'refused', why: shop.error }));
+  if (!shop.ok) redirect(firstCardCarryPath(welcome, { ...card, state: 'refused', why: firstCardWhyKey(shop.error, 'refused') }));
   const made = await makeFirstCard(createAdminClient(), shop.vendorProfileId, card);
   revalidatePath('/vendor-dashboard');
   redirect(firstCardOutcomePath(welcome, card, made));
@@ -907,9 +916,9 @@ function firstCardOutcomePath(
   card: { title: string; price: number; category: string },
   made: FirstCardMade,
 ): string {
-  if (made.ok === false) return firstCardCarryPath(welcome, { ...card, state: 'refused', why: made.why });
+  if (made.ok === false) return firstCardCarryPath(welcome, { ...card, state: 'refused', why: firstCardWhyKey(made.why, 'refused') });
   if (made.live) return firstCardLivePath(welcome);
-  return firstCardCarryPath(welcome, { ...card, state: 'draft', why: made.why, id: made.id });
+  return firstCardCarryPath(welcome, { ...card, state: 'draft', why: firstCardWhyKey(made.why, 'draft'), id: made.id });
 }
 
 /**
@@ -963,7 +972,12 @@ async function makeFirstCard(
       }
     }
     const after = await findMade();
-    if (after.error) console.error('[supabase-error] app/open-shop/actions.ts · from:vendor_services.select', after.error.message);
+    // Ship review 21 Nov: a failed re-read is said as a failed read — the maker answered, so the card was likely made;
+    // it is not "made, not live" with no id. The welcome sends them to their cards to finish.
+    if (after.error) {
+      console.error('[supabase-error] app/open-shop/actions.ts · from:vendor_services.select', after.error.message);
+      return { ok: true, id: null, live: false, why: FIRST_CARD_MADE_UNREAD };
+    }
     id = (after.data as { vendor_service_id?: string } | null)?.vendor_service_id ?? null;
   }
   // 🃏 The maker makes every card as a DRAFT. "On your page" is true only when the SHIPPED switch says so (review
@@ -974,4 +988,3 @@ async function makeFirstCard(
 }
 
 /** Said when the maker failed without a sentence of its own. */
-const FIRST_CARD_NOT_MADE = 'Something went wrong making it. Please try again.';

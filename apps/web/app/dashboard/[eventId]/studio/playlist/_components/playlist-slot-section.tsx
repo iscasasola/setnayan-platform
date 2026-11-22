@@ -179,7 +179,7 @@ export function PlaylistSlotSection({
                     ? 'e.g. Macarena'
                     : 'e.g. At Last'
                 }
-                className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm placeholder-ink/35 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+                className="mt-1 w-full rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm placeholder-ink/35 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
               />
             </div>
             <div>
@@ -200,7 +200,7 @@ export function PlaylistSlotSection({
                     ? 'Los del Río'
                     : 'Etta James'
                 }
-                className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm placeholder-ink/35 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+                className="mt-1 w-full rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm placeholder-ink/35 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
               />
             </div>
           </div>
@@ -222,7 +222,7 @@ export function PlaylistSlotSection({
                   ? 'Cringe / overplayed / personal reason'
                   : 'Play the radio edit, not the album version'
               }
-              className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm placeholder-ink/35 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+              className="mt-1 w-full rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm placeholder-ink/35 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
             />
           </div>
 

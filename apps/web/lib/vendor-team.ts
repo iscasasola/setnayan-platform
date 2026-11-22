@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { cleanRoleName, isVendorDuty, type VendorDuty, type VendorRoleNames } from '@/lib/vendor-duties';
 
 export type VendorTeamRole = 'owner' | 'admin' | 'agent' | 'viewer';
 
@@ -57,9 +58,17 @@ export type VendorTeamMemberRow = {
   vendor_profile_id: string;
   user_id: string;
   role: VendorTeamRole;
+  /** The person's ONE supplier role (owner 19 Nov 2026, lib/vendor-duties.ts). `role` is the rank derived from it. */
+  duty: VendorDuty;
+  /** Where they work — a branch of this shop, or null = the main location (always null for Shop Manager / Marketing). */
+  branch_id: string | null;
   team_label: string | null;
   created_at: string;
   updated_at: string;
+  /** Paused (a smaller plan, owner 21 Nov) — on the team, out of the shop until a plan covers them. NULL = active. */
+  deactivated_at?: string | null;
+  /** Set when a smaller plan paused this seat (it comes back when a plan covers it). */
+  paused_by_plan_at?: string | null;
 };
 
 export type VendorTeamMemberWithUser = VendorTeamMemberRow & {
@@ -68,7 +77,7 @@ export type VendorTeamMemberWithUser = VendorTeamMemberRow & {
 };
 
 const SELECT =
-  'vendor_team_member_id,public_id,vendor_profile_id,user_id,role,team_label,created_at,updated_at';
+  'vendor_team_member_id,public_id,vendor_profile_id,user_id,role,duty,branch_id,team_label,created_at,updated_at,deactivated_at,paused_by_plan_at';
 
 export async function fetchVendorTeam(
   supabase: SupabaseClient,
@@ -81,6 +90,27 @@ export async function fetchVendorTeam(
     .order('created_at', { ascending: true });
   if (error) throw new Error(`fetchVendorTeam failed: ${error.message}`);
   return (data ?? []) as VendorTeamMemberRow[];
+}
+
+/**
+ * 🏷 THE SHOP'S OWN NAME FOR EACH ROLE (Team › Roles, owner 19 Nov 2026). No row = the fixed name. A refused read
+ * THROWS — a caller that drew the fixed names instead would show a shop that renamed every role as if it never had.
+ */
+export async function fetchVendorRoleNames(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<VendorRoleNames> {
+  const { data, error } = await supabase
+    .from('vendor_role_names')
+    .select('duty,display_name')
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) throw new Error(`fetchVendorRoleNames failed: ${error.message}`);
+  const names: VendorRoleNames = {};
+  for (const row of (data ?? []) as { duty: string; display_name: string }[]) {
+    const name = cleanRoleName(row.display_name);
+    if (isVendorDuty(row.duty) && name) names[row.duty] = name;
+  }
+  return names;
 }
 
 /**
@@ -241,6 +271,63 @@ export async function fetchAdminVendorContext(
     vendorProfileId: (membership as { vendor_profile_id: string }).vendor_profile_id,
     founderUserId: vp.user_id,
     tierState: vp.tier_state ?? null,
+  };
+}
+
+/**
+ * 🧑‍🤝‍🧑 WHO MAY RUN THE TEAM (owner 19 Nov 2026): a Shop Manager (the whole shop — `fetchAdminVendorContext`), or a
+ * Branch Manager (their branch, at or below their level). Null for every other role and for a refused read — this gates
+ * management, so an absence must block. The database holds the same line (`vendor_team_members_branch_manager_manage`).
+ */
+export type VendorTeamManagerContext = VendorAdminContext & {
+  duty: Extract<VendorDuty, 'shop_manager' | 'branch_manager'>;
+  /** The Branch Manager's branch (null = main); always null for a Shop Manager, who covers every branch. */
+  branchId: string | null;
+};
+
+export async function fetchTeamManagerContext(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<VendorTeamManagerContext | null> {
+  const admin = await fetchAdminVendorContext(supabase, userId);
+  if (admin) return { ...admin, duty: 'shop_manager', branchId: null };
+  let activeShopId: string | null;
+  try {
+    const { resolveActiveShopId } = await import('@/lib/active-shop');
+    activeShopId = await resolveActiveShopId(supabase, userId);
+  } catch {
+    return null;
+  }
+  if (!activeShopId) return null;
+  const { data: seat, error } = await supabase
+    .from('vendor_team_members')
+    .select('vendor_profile_id, branch_id, vendor_profiles!inner(user_id, tier_state)')
+    .eq('vendor_profile_id', activeShopId)
+    .eq('user_id', userId)
+    .eq('duty', 'branch_manager')
+    .is('deactivated_at', null)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    // Management is gated on this read: a refusal blocks (null), and the reason is logged, never dropped.
+    console.error('[supabase-error] lib/vendor-team.ts · fetchTeamManagerContext', error.message);
+    return null;
+  }
+  if (!seat) return null;
+  const vpRaw = (seat as {
+    vendor_profiles:
+      | { user_id: string; tier_state: string | null }
+      | { user_id: string; tier_state: string | null }[]
+      | null;
+  }).vendor_profiles;
+  const vp = Array.isArray(vpRaw) ? vpRaw[0] : vpRaw;
+  if (!vp) return null;
+  return {
+    vendorProfileId: (seat as { vendor_profile_id: string }).vendor_profile_id,
+    founderUserId: vp.user_id,
+    tierState: vp.tier_state ?? null,
+    duty: 'branch_manager',
+    branchId: (seat as { branch_id: string | null }).branch_id ?? null,
   };
 }
 

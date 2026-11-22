@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { readSpecialToolsLocked } from '@/lib/special-tools.server';
 import Link from 'next/link';
 import { readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
 import { redirect } from 'next/navigation';
@@ -54,6 +55,7 @@ import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { ShopCover, type CoverData } from './_components/shop-cover';
 import { ShopBadgeRow } from './_components/shop-badge-row';
 import { ShopMakers, type BookedDay, type OfferTileFacts, type ScannerLine } from './_components/shop-makers';
+import { shopTemplatesBody } from './_components/shop-templates-body';
 import { blankOffer, offerStatus, type OfferWho } from '@/lib/offers';
 import { heroPlaceholderUrl } from '@/lib/supplier-hero.server';
 import { coverIsYourPagePick, shopCoverKey } from '@/lib/supplier-hero';
@@ -95,12 +97,15 @@ type ShopData = {
   coverUrl: string | null;
   slug: string | null;
   city: string | null;
-  tier: string | null;
+  /** The plan word for the cover — `null` = the shop's own row was REFUSED, said as "Couldn't load", never "Free". */
+  planLabel: string | null;
   isVerified: boolean;
   websiteLive: boolean;
   /* Set when the read FAILED, as opposed to legitimately returning nothing. */
   logoUnavailable: boolean;
   verify: {
+    /** True when the latest application read was REFUSED — the cover never reads "Get verified · 0 of 3" then. */
+    unread: boolean;
     status: VerifyStatus;
     requiredDocsIn: boolean;
     /** How many of the required papers are in (the cover's "n of 3 papers"). */
@@ -150,6 +155,8 @@ type ShopData = {
   formsSaved: number | null;
   /** 🏷 The Offer Maker tile: Verified (the lock), how many offers run, and the papers line for the lock. */
   offerTile: OfferTileFacts;
+  /** 🎂 Special tools (the Cake Maker) are locked for this shop — the tile reads "Included in Pro". */
+  specialToolsLocked: boolean;
 };
 
 /** The badge facts were unread — the reward lines are then simply absent (a sentinel, never logged twice). */
@@ -381,8 +388,12 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // 📂 The Upload doors (hero · Cover · Logo menus): the uploader's free room and wallet, beside the batch.
   const uploadFactsRead = readPortfolioUploadFacts(supabase, vendorId, portfolio, ownRead.then((own) => own?.tier_state ?? null));
 
+  // 🎂 The Cake Maker tile's lock (Pro and up after the admin's start date, promo deals counted). Display only — the save
+  // and the couple's send re-check on the server.
+  const specialLockedRead = readSpecialToolsLocked(supabase, vendorId);
+
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
-  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, coverUrl, hero, booked, uploadFacts] = await Promise.all([
+  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, coverUrl, hero, booked, uploadFacts, specialToolsLocked] = await Promise.all([
     ownRead,
     verifyAppRead,
     logoRead,
@@ -394,6 +405,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     heroRead,
     bookedRead,
     uploadFactsRead,
+    specialLockedRead,
   ]);
   const bundles = await bundlesRead;
   // 🔒 THE BUNDLE MAKER'S LOCK — the same `canUse` the save asks (lib/locks.ts). Unread: no lock row is drawn and the
@@ -405,6 +417,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       : null;
 
   const completion = businessProfileChecklist(profile);
+  // S-3: a REFUSED application read and "no application" both arrive as null — only the log tells them apart.
+  const verifyUnread = soft.broke('latestApplication');
   const verifyUploads = (verifyApp?.doc_uploads ?? {}) as DocUploadMap;
   const trusted = facts?.trusted ?? null;
   const avg = trusted?.trusted_avg_rating ?? null;
@@ -427,11 +441,14 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     coverUrl,
     slug: profile.business_slug ?? null,
     city: profile.location_city ?? null,
-    tier: own?.tier_state ?? null,
+    // 💳 S-2 (supplier audit 2026-11-17): `own` is null ONLY when the shop's own row was refused (the profile above
+    // was read, so the row exists). `planWord(null)` is "Free" — a refused read must never tell a paying shop that.
+    planLabel: own ? planWord(own.tier_state ?? null) : null,
     isVerified: profile.public_visibility === 'verified',
     websiteLive: Boolean(profile.business_slug) && isPubliclyVisible(profile.public_visibility),
     logoUnavailable,
     verify: {
+      unread: verifyUnread,
       status: (verifyApp?.status as VerifyStatus) ?? null,
       requiredDocsIn: requiredDocsComplete(verifyUploads),
       requiredIn: countCompleteRequiredSlots(verifyUploads),
@@ -469,14 +486,16 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     logoFields: logoFieldData(profile, logoUrl),
     uploadFacts,
     formsSaved: own && Array.isArray(own.vendor_forms) ? own.vendor_forms.length : null,
+    specialToolsLocked,
     offerTile: {
-      verified: own?.verification_state === 'verified',
+      // S-4: an unread own row falls back to the profile's measured visibility — never a lock on a verified shop.
+      verified: own ? own.verification_state === 'verified' : profile.public_visibility === 'verified',
       total: own && Array.isArray(own.vendor_offers) ? own.vendor_offers.length : null,
       running:
         own && Array.isArray(own.vendor_offers)
           ? own.vendor_offers.filter((o) => offerStatus({ ...blankOffer(), isOn: o.is_on, untilDate: o.until_date, who: (o.who as OfferWho) ?? 'everyone', firstNCap: o.first_n_cap, firstNTaken: o.first_n_taken ?? 0 }, phTodayIso()).k === 'run').length
           : null,
-      papers: papersProgress({ done: countCompleteRequiredSlots(verifyUploads), of: REQUIRED_DOC_SLOT_KEYS.size }),
+      papers: papersProgress(verifyUnread ? null : { done: countCompleteRequiredSlots(verifyUploads), of: REQUIRED_DOC_SLOT_KEYS.size }),
     },
     fairSweep: { vendorId, shopName: profile.business_name ?? null, tagline: profile.tagline ?? null },
   };
@@ -616,6 +635,7 @@ async function ShopHome({
       isVerified: data.isVerified,
       inReview: data.verify.status === 'pending_review' || data.verify.status === 'in_review',
       papersIn: data.verify.requiredIn,
+      unread: data.verify.unread,
       papersOf: REQUIRED_DOC_COUNT,
     },
     rating: data.rating,
@@ -623,7 +643,7 @@ async function ShopHome({
     events: data.events,
     earned: data.earned,
     nextBadge: data.nextBadge,
-    planLabel: planWord(data.tier),
+    planLabel: data.planLabel,
     publicPath,
     websiteLive: data.websiteLive,
     slug: data.slug,
@@ -713,11 +733,13 @@ async function ShopHome({
         <ShopMakers
           scanners={scanners}
           formsBody={shopFormsBody(sp)}
+          templatesBody={shopTemplatesBody(sp)}
           formsSaved={data.formsSaved}
           categories={(data.serviceRows ?? []).map((r) => r.label)}
           services={data.services}
           booked={data.booked}
           offers={data.offerTile}
+          specialToolsLocked={data.specialToolsLocked}
         />
 
         {/* 📊🎠 ANALYTICS — THE CAROUSEL, AND THE ONLY ANALYTICS (owner 11 Nov 2026: "Analytics should be the carousel" ·

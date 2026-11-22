@@ -62,7 +62,7 @@ export function BoothStudioCard({
   }
 
   const field =
-    'mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none';
+    'mt-1 w-full rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none';
 
   return (
     // 📐 Design template rule 2: a section, not a tinted card — a small label, the ⓘ for the explaining (rule 7).

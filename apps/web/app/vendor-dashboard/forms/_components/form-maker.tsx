@@ -127,30 +127,35 @@ export function FormMaker({
       return;
     }
     start(async () => {
-      const fd = new FormData();
-      fd.set('op', 'save');
-      fd.set('draft', JSON.stringify(draft()));
-      fd.set('return_path', returnPath);
-      const saved = await formsAction({ status: 'idle' }, fd);
-      if (saved.status !== 'saved') {
-        // A half-saved NEW form keeps its id, so the next Save updates it instead of making a second one.
-        if (saved.status === 'error' && saved.formId) setFormId(saved.formId);
-        setState(saved);
-        return;
+      // A THROWN call (network drop, server crash) still says so in place — never a quiet screen or the error page.
+      try {
+        const fd = new FormData();
+        fd.set('op', 'save');
+        fd.set('draft', JSON.stringify(draft()));
+        fd.set('return_path', returnPath);
+        const saved = await formsAction({ status: 'idle' }, fd);
+        if (saved.status !== 'saved') {
+          // A half-saved NEW form keeps its id, so the next Save updates it instead of making a second one.
+          if (saved.status === 'error' && saved.formId) setFormId(saved.formId);
+          setState(saved);
+          return;
+        }
+        setFormId(saved.formId);
+        if (forEventId && inLibrary) setLibraryLocked(true);
+        onSaved?.(saved.formId);
+        if (op === 'save' || !eventId) {
+          setState(saved);
+          return;
+        }
+        const sd = new FormData();
+        sd.set('op', 'send');
+        sd.set('form_id', saved.formId);
+        sd.set('event_id', eventId);
+        sd.set('return_path', returnPath);
+        setState(await formsAction({ status: 'idle' }, sd));
+      } catch {
+        setState({ status: 'error', message: 'That didn’t go through. Reload and try again.' });
       }
-      setFormId(saved.formId);
-      if (forEventId && inLibrary) setLibraryLocked(true);
-      onSaved?.(saved.formId);
-      if (op === 'save' || !eventId) {
-        setState(saved);
-        return;
-      }
-      const sd = new FormData();
-      sd.set('op', 'send');
-      sd.set('form_id', saved.formId);
-      sd.set('event_id', eventId);
-      sd.set('return_path', returnPath);
-      setState(await formsAction({ status: 'idle' }, sd));
     });
   };
 

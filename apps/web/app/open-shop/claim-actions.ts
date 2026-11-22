@@ -2,9 +2,6 @@
 
 import { CHECK_INBOX_FLAG, parkSentTo } from '@/lib/open-shop-sent-to';
 import { redirect } from 'next/navigation';
-
-import { putFirstCardLive } from '@/lib/first-card-live.server';
-import { claimCardQuery, type ClaimFirstCardState } from '@/lib/supplier-onboarding';
 import { revalidatePath } from 'next/cache';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { getURLFromRedirectError } from 'next/dist/client/components/redirect';
@@ -34,6 +31,7 @@ import { isValidOpenShopEmail } from '@/lib/open-shop-validation';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { claimChangeQuote, purchaseChange } from '@/lib/supplier-purchase-change';
 import { stagePurchaseChange } from '@/lib/supplier-purchase-change.server';
+import { FIRST_CARD_EDIT_UNREAD } from '@/lib/supplier-onboarding';
 
 /**
  * THE CLAIM DOOR'S FINISH (controller A6, 7 Nov; owner 2026-11-06 "THE SAME DOOR, PRE-FILLED — THEN ONE SLIDE PER
@@ -382,24 +380,14 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   if (fromSetnayan) redirect('/vendor-dashboard/profile');
   // ── THE CONSENT IS THE SHIPPED ONE ──────────────────────────────────────────────────────────────────────────────
   // Edit on the first card: finalize hands over to the shipped Card Maker on that card (`?edit=`), never past consent.
-  const firstMade = Boolean(firstCardName && made.includes(firstCardName));
-  const firstId = firstMade && answers.firstCard !== 'skip' ? await firstCardIdOf(admin, vendorProfileId, firstCardName as string) : null;
-  const editId = answers.firstCard === 'edit' ? firstId : null;
-  // 🃏 WHAT THE WELCOME MAY SAY ABOUT THE FIRST CARD (review 20 Nov) — carried through finalize, never a bare
-  // `?claimed=1` that reads as "and first card". The maker makes every card as a draft; Approve asks the SHIPPED switch
-  // (publish gate + the plan's live-cards cap) and only its yes is `live`. Skip · not made · refused by the switch, each
-  // said. The supplier's other cards stay drafts (P5 says so).
-  let cardCarry: { state: ClaimFirstCardState; why: string | null; id: string | null } | null = null;
-  if (answers.firstCard === 'skip') cardCarry = { state: 'skipped', why: null, id: null };
-  else if (answers.firstCard !== 'edit' && firstCard) {
-    if (!firstMade || !firstId) cardCarry = { state: 'refused', why: null, id: null };
-    else {
-      const live = await putFirstCardLive(firstId);
-      cardCarry = live.live ? { state: 'live', why: null, id: firstId } : { state: 'draft', why: live.why, id: firstId };
-    }
-  }
-  const finalize = `/vendor/claim/${encodeURIComponent(token)}/finalize`;
-  redirect(editId ? `${finalize}?edit=${encodeURIComponent(editId)}` : cardCarry ? `${finalize}?${claimCardQuery(cardCarry)}` : finalize);
+  // Ship review 21 Nov: when Edit was picked but the card cannot be found (not made, or the lookup failed), say so —
+  // finalize lands the welcome with `card_edit=unread`, never silently on the welcome as if Edit had not been pressed.
+  const editId =
+    answers.firstCard === 'edit' && firstCardName && made.includes(firstCardName)
+      ? await firstCardIdOf(admin, vendorProfileId, firstCardName)
+      : null;
+  const editParam = editId ? encodeURIComponent(editId) : answers.firstCard === 'edit' ? FIRST_CARD_EDIT_UNREAD : null;
+  redirect(`/vendor/claim/${encodeURIComponent(token)}/finalize${editParam ? `?edit=${editParam}` : ''}`);
 }
 
 /** The id of the card the door just made under `title` on this shop (the newest), or null. */
@@ -412,6 +400,10 @@ async function firstCardIdOf(admin: ReturnType<typeof createAdminClient>, vendor
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) console.error('[supabase-error] app/open-shop/claim-actions.ts · from:vendor_services.select', error.message);
+  if (error) {
+    // A failed lookup is not "no card": the caller says it (`card_edit=unread`) instead of landing as if nothing was asked.
+    console.error('[supabase-error] app/open-shop/claim-actions.ts · from:vendor_services.select', error.message);
+    return null;
+  }
   return (data as { vendor_service_id?: string } | null)?.vendor_service_id ?? null;
 }

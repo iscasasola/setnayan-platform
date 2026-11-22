@@ -59,4 +59,28 @@ SPEC IMPACT: None new — implements the 2026-11-19 DECISION_LOG rows as written
 SPEC IMPACT: None.
 
 
-- The Today welcome is rows on white (no `sn-tile`): main lowered the vendor-dashboard template baseline to 30 and the tile made it 31 — the owner's option (a), frames only on what you press.
+## 2026-11-21 · fix(onboarding): PB4 and PB1 fit 375 px, as drawn
+
+Caught up with `main` (merge only). PB4: Approve card full width, Edit · Skip for now under it (three in a row ran past the right gutter at 375 px). PB1's not-yet button says Continue, as drawn ("Pick a service to continue" ran past the gutter). Shots: `build-sessions/shots-onboarding-375/`.
+
+SPEC IMPACT: None.
+
+## 2026-11-21 · fix(onboarding): Today's welcome says what is true of THIS shop · first-card reasons ride as keys (ship review)
+
+Ship review @ `f38fbbb93f` (FIX-FIRST), all three:
+
+1. **The welcome no longer tells every `?claimed=1` landing "Your shop is open on Free."** Main also sends established
+   shops there (the claim finalize page, the services action). The line now names the shop's real plan off Today's one
+   shop read (`readTodayShopRow` → `todayWelcomeLine`: "Your shop is open on Pro."), and "Get verified to be found" is
+   drawn only for a shop that read says is not verified (`todayWelcomeSteps`). A failed read names no plan ("Your shop is
+   open.") and does not ask. No new read.
+2. **A failed re-read after the maker answered is said as that** (`FIRST_CARD_MADE_UNREAD`: made, but not found again to
+   put on the page — open your cards), not "made, not live" with no id; the welcome's link goes to the cards list.
+3. **The first card's reason rides the address as a KEY** (`lib/first-card-why.ts`): `not-made` · `not-live` ·
+   `made-unread` · `cards-unread` · `shop-unread` · `owner-only` · `no-shop` · `needs-<cover+price+inclusions>` ·
+   `cap-<n>`. The welcome draws the sentence from code (rebuilt from the shipped publish gate, live-cards cap and shop
+   check), so nobody can put their own words on a supplier's Today; free text on the address is dropped.
+
+Tests: `lib/supplier-onboarding.test.ts` 11b · 11c · 11d (+ 8 and 11 moved to keys). Seven sabotages, each red.
+
+SPEC IMPACT: None.

@@ -324,7 +324,7 @@ test('the bar’s list comes from the one plan, as the viewer is shown it — an
   assert.match(bar, /effects=\{asksForPro \? proEffects : \[\]\}/);
   // The price is the catalogue's, never typed.
   const sheet = code('app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx');
-  assert.match(sheet, /Unlock Pro and Apply\{priceLabel \? ` · \$\{priceLabel\}` : ''\}/);
+  assert.match(sheet, /◆ Get the full Event Hub and apply\{priceLabel \? ` · \$\{priceLabel\}` : ''\}/); // 20 Nov "MAKER PAYWALL" words
   assert.doesNotMatch(sheet, /₱\s?\d/, 'a price is typed into the sheet');
 });
 

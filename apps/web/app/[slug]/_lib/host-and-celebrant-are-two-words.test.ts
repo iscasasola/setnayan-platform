@@ -287,7 +287,8 @@ const FORKED = [
   join('[slug]', 'find-seat', 'page.tsx'),
   join('[slug]', 'find-my-table', 'page.tsx'),
   join('[slug]', 'seat', 'page.tsx'),
-  join('[slug]', 'hub', 'page.tsx'),
+  // hub/page.tsx left this list 20 Nov 2026 (one bar per stage — /hub draws nothing, it redirects to the
+  // event page's tab, `dayHubLanding`): its two sentences were the hub's own seat and programme empty states.
   // guest-hub-card.tsx left this list 2026-09-30: its card (and the one
   // sentence that named the host) was removed by the owner — only its data
   // shape remains, which has no sentences.
@@ -301,7 +302,7 @@ test('no admin sentence drops the person any more — it names the host', () => 
   const forks = FORKED.map((f) => count(read(f), 'words.organizerIsHonoree'));
   assert.deepEqual(
     forks,
-    [0, 0, 0, 0],
+    [0, 0, 0],
     'a person-dropping fork came back. The host noun is what these sentences ' +
       'name now — reach for words.TheHost / words.theHost, never a fork.',
   );
@@ -312,7 +313,7 @@ test('no admin sentence drops the person any more — it names the host', () => 
   const named = FORKED.map((f) => count(read(f), 'words.TheHost') + count(read(f), 'words.theHost'));
   assert.deepEqual(
     named,
-    [1, 2, 2, 2],
+    [1, 2, 2],
     'each sentence must name the host; the counts are per file and exact',
   );
 });

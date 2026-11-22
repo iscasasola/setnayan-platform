@@ -81,14 +81,16 @@ const OPENS = [
   `/dashboard/${E}/studio/panood/cameras/print`,
   // 🍎 23 Oct (owner: "five more Apple products") — each home's pay step is Apple's sheet (section 6 below).
   `/dashboard/${E}/studio/setnayan-ai`,
-  `/dashboard/${E}/studio/pakanta`,
-  `/dashboard/${E}/studio/patiktok`,
-  `/dashboard/${E}/studio/patiktok/booth`,
-  `/dashboard/${E}/studio/patiktok/sunset-glow`,
   // 🎬 R3 (owner 2026-10-27): the Thank-You Video maker is a Memories page now.
   `/dashboard/${E}/memories/thank-you`,
 ];
 const STAYS_REFUSED = [
+  // 2026-11-20: Music Maker and Patiktok are RETIRED (lib/retired-products.ts) — Apple no longer sells them, so
+  // their in-app pages stay refused in the store shell like any web-only page.
+  `/dashboard/${E}/studio/pakanta`,
+  `/dashboard/${E}/studio/patiktok`,
+  `/dashboard/${E}/studio/patiktok/booth`,
+  `/dashboard/${E}/studio/patiktok/sunset-glow`,
   `/dashboard/${E}/studio/live-studio-control`, // the Live Watch buy page — its price, plans, checkout
   `/dashboard/${E}/studio/live-studio-control/setup`,
   `/dashboard/${E}/studio/panood`,

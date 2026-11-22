@@ -185,7 +185,7 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, apple =
               info="We compose it with Setnayan AI from your love story and the music notes above. When it’s ready it appears on this page and can play on your event page."
               triggerLabel="Pay"
               triggerTestId="iap-music-maker-pay"
-              triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-white hover:bg-mulberry/90"
+              triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry/90"
             />
           ) : readyToPay && pricePhp != null ? (
             <InlineCheckoutDrawer
@@ -195,7 +195,7 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, apple =
               originalPriceCentavos={String(Math.round(pricePhp * 100))}
               settings={settings}
               triggerLabel={`Pay${priceSuffix}`}
-              triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-white hover:bg-mulberry/90"
+              triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry/90"
             />
           ) : (
             <button

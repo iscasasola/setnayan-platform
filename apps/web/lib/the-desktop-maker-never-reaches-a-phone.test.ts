@@ -91,8 +91,11 @@ test('3 · the desk code is lazy — a phone never downloads it, and the toolbar
 async function paint(): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerShell } = await import(`../${L}/maker-shell`);
+  /* ‹ (20 Nov) is the house BackButton, whose return-in-place reads the router — the app always mounts one. */
+  const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
+  const ROUTER = { refresh() {}, push() {}, replace() {}, back() {}, forward() {}, prefetch() {} };
   return renderToStaticMarkup(
-    React.createElement(
+    React.createElement(AppRouterContext.Provider, { value: ROUTER as never }, React.createElement(
       MakerShell as unknown as React.ComponentType<Record<string, unknown>>,
       {
         eventId: 'ev-1',
@@ -112,7 +115,7 @@ async function paint(): Promise<string> {
         studio: { tiles: [] },
       },
       React.createElement('div', { 'data-stub': 'work' }),
-    ),
+    )),
   );
 }
 

@@ -218,8 +218,8 @@ export interface TierCaps {
    */
   /**
    * SERVICE CARDS IN TOTAL, across every category the shop covers (owner 2026-11-18, DECISION_LOG "SUPPLIER PLANS
-   * REBUILT" + ruling 39 "MAX 80, ULTRA 200": *"max 80 cards / ultra 200 cards"*) — Free 1 · Verified 3 · Plus 10 · Pro
-   * 20 · Max 80 · Ultra 200. Replaces the per-category allowance (`servicesPerLeaf`, retired): cards are counted like
+   * REBUILT"; the numbers are the 2026-11-19 approved table, "MAX BECOMES ULTRA" — five plans, no Max) — Free 1 ·
+   * Verified 3 · Plus 10 · Pro 27 · Ultra 68. Replaces the per-category allowance (`servicesPerLeaf`, retired): cards are counted like
    * Fiverr counts gigs, categories are capped separately ({@link TierCaps.parentCategories}). Counts every card but a "Copy to another branch".
    * GRANDFATHERED: a shop already above its total keeps every card; only a NEW card past it is refused. Admin-editable
    * as `vendor_plan_contents.key = 'service_cards_total'`. Infinity = no limit.
@@ -452,11 +452,11 @@ export interface TierCaps {
    * Cards already made are kept when a shop drops a plan.
    */
   cardMakerDetailed: boolean;
-  /** Card maker units view: Floor plan (rooms and tables) — Pro · Max · Ultra (ruling 35). Grid is on every plan. */
+  /** Card maker units view: Floor plan (rooms and tables) — Pro · Ultra (ruling 35). Grid is on every plan. */
   floorPlanUnits: boolean;
   /**
    * 🎂 SPECIAL TOOLS — the Cake Maker and every special tool after it (owner, specs DECISION_LOG "SPECIAL TOOLS ARE
-   * INCLUDED IN SUPPLIER PRO AND UP"): a plan benefit of Pro · Max · Ultra, never a separate fee. Until the admin
+   * INCLUDED IN SUPPLIER PRO AND UP"): a plan benefit of Pro · Ultra, never a separate fee. Until the admin
    * start date (`specialToolsOpenToAll`, lib/special-tools.ts) every shop may use them. A shop that drops below Pro
    * keeps its saved options and designs; the tool locks and comes back on upgrade.
    */
@@ -506,11 +506,11 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": basic graphs from Verified; unverified Free sees none
     performanceAdvanced: false,
     soloBusinessTools: false,
-    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Max · Ultra
+    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Ultra only (the old Max; owner 19 Nov "MAX BECOMES ULTRA")
     cardMakerDetailed: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
-    floorPlanUnits: false, // ruling 35: units Floor plan view Pro · Max · Ultra; Grid for all
-    specialTools: false, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Max · Ultra
-    formVideoLinks: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Max · Ultra
+    floorPlanUnits: false, // ruling 35: units Floor plan view Pro · Ultra; Grid for all
+    specialTools: false, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Ultra
+    formVideoLinks: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Ultra
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
     seoLevel: 'basic', // basic indexability is free for all (§ 8)
@@ -557,11 +557,11 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": basic graphs from Verified; unverified Free sees none
     performanceAdvanced: false,
     soloBusinessTools: false,
-    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Max · Ultra
+    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Ultra only (the old Max; owner 19 Nov "MAX BECOMES ULTRA")
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
-    floorPlanUnits: false, // ruling 35: units Floor plan view Pro · Max · Ultra; Grid for all
-    specialTools: false, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Max · Ultra
-    formVideoLinks: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Max · Ultra
+    floorPlanUnits: false, // ruling 35: units Floor plan view Pro · Ultra; Grid for all
+    specialTools: false, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Ultra
+    formVideoLinks: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Ultra
     slotsPerDay: Infinity, // no plan limit (2026-10-23; was 1)
     slotsTimeBounded: true, // owner 2026-11-19: "we do not limit the potential of a card" — morning + afternoon slots on every plan
     inAppCustomersPerWeek: Infinity, // no weekly limit (2026-10-23; was 10)
@@ -593,11 +593,11 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": basic graphs from Verified; unverified Free sees none
     performanceAdvanced: false,
     soloBusinessTools: true,
-    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Max · Ultra
+    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Ultra only (the old Max; owner 19 Nov "MAX BECOMES ULTRA")
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
-    floorPlanUnits: false, // ruling 35: units Floor plan view Pro · Max · Ultra; Grid for all
-    specialTools: false, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Max · Ultra
-    formVideoLinks: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Max · Ultra
+    floorPlanUnits: false, // ruling 35: units Floor plan view Pro · Ultra; Grid for all
+    specialTools: false, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Ultra
+    formVideoLinks: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Ultra
     chat: 'chat',
     parentCategories: 2, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": main categories 1 · 1 · 2 · 8 · all 12 · all 12
     agentAccounts: 1, // owner 2026-11-19 (approved table, "this is good"): people incl. the owner 1 · 1 · 2 · 5 · 16 — this field counts seats BEYOND the owner
@@ -637,11 +637,11 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": basic graphs from Verified; unverified Free sees none
     performanceAdvanced: true,
     soloBusinessTools: true,
-    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Max · Ultra
+    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Ultra only (the old Max; owner 19 Nov "MAX BECOMES ULTRA")
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
-    floorPlanUnits: true, // ruling 35: units Floor plan view Pro · Max · Ultra; Grid for all
-    specialTools: true, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Max · Ultra
-    formVideoLinks: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Max · Ultra
+    floorPlanUnits: true, // ruling 35: units Floor plan view Pro · Ultra; Grid for all
+    specialTools: true, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Ultra
+    formVideoLinks: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Ultra
     serviceCardsTotal: 27, // owner 2026-11-19 (approved table, "this is good"): LIVE cards 1 · 3 · 10 · 27 · 68 (make as many as you like; only these are live)
     chat: 'chat',
     parentCategories: 8, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": main categories 1 · 1 · 2 · 8 · all 12 · all 12
@@ -684,11 +684,11 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": basic graphs from Verified; unverified Free sees none
     performanceAdvanced: true,
     soloBusinessTools: true,
-    formMediaUploads: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Max · Ultra
+    formMediaUploads: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Ultra only (the old Max; owner 19 Nov "MAX BECOMES ULTRA")
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
-    floorPlanUnits: true, // ruling 35: units Floor plan view Pro · Max · Ultra; Grid for all
-    specialTools: true, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Max · Ultra
-    formVideoLinks: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Max · Ultra
+    floorPlanUnits: true, // ruling 35: units Floor plan view Pro · Ultra; Grid for all
+    specialTools: true, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Ultra
+    formVideoLinks: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Ultra
     serviceCardsTotal: 68, // owner 2026-11-19 (approved table, "this is good"): LIVE cards 1 · 3 · 10 · 27 · 68 (make as many as you like; only these are live)
     chat: 'chat',
     parentCategories: 12, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": main categories 1 · 1 · 2 · 8 · all 12 · all 12

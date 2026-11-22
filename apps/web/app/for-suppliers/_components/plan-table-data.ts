@@ -47,7 +47,7 @@ function planName(t: VendorTier): string {
  *     flag-aware `allowance`, so while the plan paywall (`VENDOR_TIER_FEATURE_GATE`) is off the table prints what the
  *     actions actually let a shop do, not a cap nobody enforces;
  *   · plan features → `TIER_CAPS` (lib/vendor-tier-caps.ts);
- *   · the tools unlock → `SPECIALIZED_TOOLS_INCLUDED_TIERS` (included from Plus since 2026-11-14 — no longer sold);
+ *   · the tools unlock → `SPECIALIZED_TOOLS_INCLUDED_TIERS` (Pro and Ultra — owner 21/22 Nov; no longer sold);
  *   · the chatbot → `PLAN_CHATBOT_LEVEL` (lib/vendor-ai-level.ts — the same table the inbox's gate reads);
  *   · gifts → the SAME list price on every plan (📦 2026-11-14 / 2026-11-17: one price per gift; the buy-10-get-1
  *     bundles are open to every shop — lib/shop-gifts.ts), so no plan buys gifts for less;

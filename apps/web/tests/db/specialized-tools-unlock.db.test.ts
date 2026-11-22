@@ -193,8 +193,9 @@ test('1b · the three add-ons it replaces are RETIRED, never deleted, and point 
 
 // ── 2 · THE GRANT ─────────────────────────────────────────────────────────────
 
-test('2a · a live paid window opens the paid tools for a verified Verified shop — at any event (Plus includes them, 2026-11-14)', async () => {
-  for (const tier of ['verified']) {
+test('2a · a live paid window opens the paid tools for a verified Verified or Plus shop — at any event', async () => {
+  // Plus is back on this side since 20271358646819 (owner 21/22 Nov: Pro and Ultra only include the tools).
+  for (const tier of ['verified', 'solo']) {
     const { vpid } = await newShop({ tier });
     assert.equal(await unlocked(vpid, null), false, `${tier}: nothing bought, nothing open`);
     await setWindow(vpid, FUTURE());
@@ -204,14 +205,20 @@ test('2a · a live paid window opens the paid tools for a verified Verified shop
   }
 });
 
-test('2b · Plus, Pro and Ultra include it — no purchase; a lapsed plan does not', async () => {
-  // Plus joined 2026-11-14 (DECISION_LOG "SIMPLER SUPPLIER PLANS": "Specialized tools included from Plus").
-  for (const tier of ['solo', 'pro', 'enterprise']) {
+test('2b · Pro and Ultra include it — no purchase; a lapsed plan does not; Plus does not include it', async () => {
+  // DECISION_LOG 2026-11-21 "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP" + 2026-11-22 "THERE IS NO MAX PLAN"
+  // (tier keys pro, enterprise; solo dropped) — migration 20271358646819 undoes 20271346711828 §5 ("from Plus").
+  for (const tier of ['pro', 'enterprise']) {
     const { vpid } = await newShop({ tier });
     assert.equal(await unlocked(vpid, null), true, tier);
     const lapsed = await newShop({ tier, tierExpires: PAST() });
     assert.equal(await unlocked(lapsed.vpid, null), false, `${tier} with an elapsed tier_expires_at`);
   }
+  const plus = await newShop({ tier: 'solo' });
+  assert.equal(await unlocked(plus.vpid, null), false, 'a live Plus plan alone opens nothing');
+  const unverifiedPlus = await newShop({ tier: 'solo', verified: false });
+  await setWindow(unverifiedPlus.vpid, FUTURE());
+  assert.equal(await unlocked(unverifiedPlus.vpid, null), false, 'an unverified Plus shop gets nothing from a window');
 });
 
 test('2c · an unverified shop or a Free tier gets nothing from a window', async () => {

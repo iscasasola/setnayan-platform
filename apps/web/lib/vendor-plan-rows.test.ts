@@ -94,9 +94,10 @@ test('picking a plan says what happens, by the live ladder', () => {
   assert.equal(planPickLine('free', 'free', null), 'You are on Free — nothing to pay');
 });
 
-test('owner 20 Nov: Plus does not say "All included" for Specialized tools — Papic Challenges and the 3D booth are Pro and up', () => {
+test('owner 21/22 Nov: Specialized tools come with Pro and Ultra only — Plus reads the free set, never "All included"', () => {
   assert.doesNotMatch(line('solo', 'tools') ?? '', /^All included$/);
-  assert.match(line('solo', 'tools') ?? '', /Papic Challenges and the 3D booth come with Pro/);
+  assert.equal(line('solo', 'tools'), 'The free set · all of them from Pro');
+  assert.equal(line('verified', 'tools'), 'The free set · all of them from Pro');
   assert.equal(line('pro', 'tools'), 'All included');
   assert.equal(line('enterprise', 'tools'), 'All included');
 });

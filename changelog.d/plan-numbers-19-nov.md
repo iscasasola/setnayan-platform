@@ -74,3 +74,27 @@ SPEC IMPACT: None.
 - If the original add-on itself is refunded, renewals already paid on it lose their value. That stays Setnayan's call, by hand (controller note).
 - DB test `renewing-an-ultra-addon-extends-that-one.db.test.ts`: 13/13. New: refund the latest renewal (the earlier mark stays) · refund after the add-on has ended (28 days come off the end it set, never off today; no live window; taken once only) · a refund that takes nothing says FALSE · two add-ons on one shop stay independent through out-of-order refunds (B's mark, end and reminder lock never move).
 SPEC IMPACT: None.
+
+## 2026-11-22 · fix(plans): Specialized tools come with Pro and Ultra only — Plus no longer includes them; no "Max" left
+
+Owner, 21 Nov, verbatim: *"or we just place it with Supplier Pro and Up."* → *"Yes, Pro and up"*; 22 Nov: *"i remember
+us retiring max already"* (DECISION_LOG 2026-11-21 "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP", 2026-11-22
+"CORRECTION — THERE IS NO MAX PLAN").
+
+- `SPECIALIZED_TOOLS_INCLUDED_TIERS` is `['pro', 'enterprise']` (was `['solo', 'pro', 'enterprise']`). The Plans table,
+  the plan sheet row and the For Suppliers lines read it, so Plus now says "Free set" / "The free set · all of them
+  from Pro" and Pro carries "All specialized tools, included". No copy was typed; every line is derived from the gate.
+- **The database half:** migration `20271358646819` rewrites `vendor_specialized_tools_unlocked` with the plan arm
+  `('pro', 'enterprise')`; the paid-window and trial arms, the signature and the grants are verbatim. No table, row or
+  price is touched. Prod has no shop on Plus today (measured 22 Nov), so nobody loses anything. Applied only by the
+  pipeline, on the controller's go.
+- A verified Plus shop is once more on the buying side of the (off-sale) unlock, the same as Verified; a window
+  already bought still runs to its end.
+- Comments in `lib/vendor-tier-caps.ts` no longer name a "Max" plan (five plans: Free · Verified · Plus · Pro · Ultra);
+  the service-card docblock states the 19 Nov numbers the table already holds.
+- Tests: `specialized-tools-free-tier.test.ts` (5b), `vendor-plan-rows.test.ts`, DB `specialized-tools-unlock` (2a, 2b,
+  and 2f, which holds the TS mirror to the SQL on every case) and `pro-tools-come-with-pro` (2).
+- Merged `origin/main` (merge commits only, no conflicts on this catch-up). Generated baselines were NOT regenerated
+  here; that is the ship session's, once per batch.
+
+SPEC IMPACT: None — the rulings are already in the corpus DECISION_LOG (21 and 22 Nov rows).

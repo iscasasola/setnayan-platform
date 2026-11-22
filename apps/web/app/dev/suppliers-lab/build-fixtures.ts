@@ -46,6 +46,11 @@ export const LAB_BUILD_PRICES: Readonly<Record<string, number>> = {
   'v-mesa': 153_000,
 };
 
+/** What a price comes with — saved with a build, folded on its card. */
+export const LAB_BUILD_INCLUSIONS: Readonly<Record<string, string[]>> = {
+  'v-luntian': ['Dessert bar', 'Crew meals'],
+};
+
 /** Cannot be booked, and the words that say why (the card's own). */
 export const LAB_BUILD_BLOCKED: ReadonlyMap<string, string> = new Map([['v-mesa', 'Not available on your date']]);
 
@@ -64,7 +69,7 @@ const p = (groupId: string, label: string, vendorId: string, vendorName: string,
   costPhp: LAB_BUILD_PRICES[vendorId] ?? null,
   locked,
   vendorId,
-  inclusions: [],
+  inclusions: LAB_BUILD_INCLUSIONS[vendorId] ?? [],
 });
 
 const BOOKED: BuildSnapshotPick[] = [

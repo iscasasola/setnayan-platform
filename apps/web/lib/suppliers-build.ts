@@ -50,6 +50,9 @@ export type BuildSupplier = {
   groupId: string | null;
   /** Whole pesos, or null — a supplier with no recorded price is never ₱0. */
   pricePhp: number | null;
+  /** What their price comes with (their linked services, the couple's own
+   *  inclusions) — saved with the build, as the old "Current" column saved it. */
+  inclusions: string[];
 };
 
 export type BuildLine = {
@@ -66,6 +69,10 @@ export type BuildLine = {
   /** The couple has already asked this pick to book; the supplier has not
    *  answered. It is not asked a second time. */
   pickAsked: boolean;
+  /** How the supplier's side closed the last ask, when it did not end in a
+   *  booking: they said no, or the answer window ran out. Either way the pick
+   *  may be asked again (the shipped rule — `lib/bench-card-actions.ts`). */
+  pickAnswer: 'declined' | 'expired' | null;
   /** The dropdown: shortlisted here, priced, and free on the date. */
   candidates: BuildSupplier[];
 };
@@ -75,18 +82,30 @@ export type BuildLineInputVendor = {
   name: string;
   status: 'considering' | 'locked';
   planGroupId: string | null;
-  /** Asked to book, waiting for their yes (`lockRequestState === 'requested'`). */
-  asked?: boolean;
+  /**
+   * Where the booking ask stands — `lockRequestStateOf` over the row's own
+   * `(status, lock_request_state)`, the pair the supplier's answer writes.
+   * No new status: the shipped vocabulary, read as it is.
+   */
+  lockState?: 'none' | 'requested' | 'declined' | 'cancelled' | 'expired' | 'locked';
 };
 
-/** A pick the couple has asked to book — the prototype's own state words. */
+/**
+ * THE WORD FOR EACH ANSWER, on a pick's line. "Agreed" needs none — the line
+ * becomes the booked supplier. A withdrawn ask needs none either: the couple
+ * took it back, and the pick is simply a pick again.
+ */
 export const PICK_ASKED_NOTE = 'Asked to book · waiting for their yes';
+export const PICK_DECLINED_NOTE = 'They said no to this booking — you can ask again';
+export const PICK_LAPSED_NOTE = 'They did not answer in time — you can ask again';
 
 export function buildLinesOf(args: {
   /** The category rows Find shows, in its order. */
   tiles: ReadonlyArray<{ tile: string; label: string; vendors: ReadonlyArray<BuildLineInputVendor> }>;
   /** A supplier's price in whole pesos, or null when none is recorded. */
   priceOf: (vendorId: string) => number | null;
+  /** What a supplier's price comes with. Absent → nothing recorded. */
+  inclusionsOf?: (vendorId: string) => readonly string[];
   /** Suppliers pinned to the build (`event_build_picks`). */
   inBuild: ReadonlySet<string>;
   /** Suppliers who cannot be booked (taken on the date, or the ask was
@@ -98,6 +117,7 @@ export function buildLinesOf(args: {
     name: v.name,
     groupId: v.planGroupId,
     pricePhp: args.priceOf(v.vendorId),
+    inclusions: [...(args.inclusionsOf?.(v.vendorId) ?? [])],
   });
   return args.tiles.map((t) => {
     const bookedRow = t.vendors.find((v) => v.status === 'locked') ?? null;
@@ -109,7 +129,8 @@ export function buildLinesOf(args: {
       booked: bookedRow ? supplier(bookedRow) : null,
       pick: pickRow ? supplier(pickRow) : null,
       pickNote: pickRow ? (args.blocked.get(pickRow.vendorId) ?? null) : null,
-      pickAsked: pickRow?.asked === true,
+      pickAsked: pickRow?.lockState === 'requested',
+      pickAnswer: pickRow?.lockState === 'declined' || pickRow?.lockState === 'expired' ? pickRow.lockState : null,
       // "Only picks those that are shortlisted and compatible for the date"
       // (owner 2026-10-07) — and only a priced supplier can be in a build.
       candidates: open
@@ -149,7 +170,7 @@ export function buildSnapshotOf(lines: readonly BuildLine[], budgetPhp: number |
       costPhp: s.pricePhp,
       locked: l.booked != null,
       vendorId: s.vendorId,
-      inclusions: [],
+      inclusions: [...s.inclusions],
     });
   }
   return { budgetPhp, totalPhp: picks.reduce((sum, p) => sum + (p.costPhp ?? 0), 0), picks };
@@ -288,7 +309,7 @@ export type BuildCard = {
   /** Suppliers in it with no recorded price. */
   unpriced: number;
   /** One per category on the event, in the lines' order. */
-  rows: Array<{ label: string; supplier: string | null }>;
+  rows: Array<{ label: string; supplier: string | null; inclusions: string[] }>;
   free: BuildCardFree;
   /** Budget − total; null while a price is missing or there is no budget. */
   bufferPhp: number | null;
@@ -338,7 +359,7 @@ export function buildCardOf(args: {
     unpriced,
     rows: args.categories.map((c) => {
       const p = c.groupId ? byGroup.get(c.groupId) : undefined;
-      return { label: c.label, supplier: p ? shortSupplierName(p.vendorName) : null };
+      return { label: c.label, supplier: p ? shortSupplierName(p.vendorName) : null, inclusions: [...(p?.inclusions ?? [])] };
     }),
     free: args.free,
     bufferPhp: unpriced > 0 || args.budgetPhp == null ? null : args.budgetPhp - totalPhp,

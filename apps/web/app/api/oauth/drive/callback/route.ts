@@ -8,6 +8,14 @@ import {
   getDriveOAuthConfig,
 } from '@/lib/papic-drive';
 import { sealToken } from '@/lib/oauth-token-vault';
+import {
+  DRIVE_COPY_START_PARAM,
+  SHOP_DRIVE_BACK_COOKIE,
+  SUPPLIER_DRIVE_PROVIDER,
+  shopDriveBackPath,
+  withParam,
+} from '@/lib/supplier-drive-copy';
+import { forgetShopDriveCopies } from '@/lib/supplier-drive-copy.server';
 
 // Iteration 0012 Papic — Google Drive OAuth callback.
 //
@@ -68,6 +76,21 @@ export async function GET(req: NextRequest) {
   // Google can surface its own error (user canceled, scope denied, etc.) —
   // forward it verbatim so the UI can show a sensible message.
   if (oauthError) {
+    // ☁️ A supplier who cancelled on Google goes back to the row they pressed Copy on, not the couple's dashboard.
+    if (state) {
+      const { data: shopState } = await createAdminClient()
+        .from('oauth_state')
+        .select('event_id, provider')
+        .eq('state_token', state)
+        .eq('provider', SUPPLIER_DRIVE_PROVIDER)
+        .maybeSingle();
+      if (shopState) {
+        // Single-use either way; a failed delete only leaves a row the 10-minute expiry already refuses.
+        const { error: spentErr } = await createAdminClient().from('oauth_state').delete().eq('state_token', state);
+        if (spentErr) console.error('[supabase-error] oauth/drive/callback · oauth_state.delete (shop, cancelled)', spentErr);
+        return shopRedirect(req, shopState.event_id as string, 'drive_error', oauthError.slice(0, 64));
+      }
+    }
     return redirectWithError(url, null, oauthError);
   }
   if (!code || !state) {
@@ -84,9 +107,9 @@ export async function GET(req: NextRequest) {
   //    one grant.
   const { data: stateRow } = await admin
     .from('oauth_state')
-    .select('state_token, event_id, provider, initiated_by, created_at')
+    .select('state_token, event_id, provider, initiated_by, created_at, vendor_profile_id')
     .eq('state_token', state)
-    .in('provider', ['drive', 'drive_photo_delivery', 'drive_overflow'])
+    .in('provider', ['drive', 'drive_photo_delivery', 'drive_overflow', SUPPLIER_DRIVE_PROVIDER])
     .maybeSingle();
   if (!stateRow) {
     return redirectWithError(url, null, 'state_not_found');
@@ -102,7 +125,21 @@ export async function GET(req: NextRequest) {
     stateRow.provider === 'drive_photo_delivery' ? 'photo-delivery' : 'papic';
   const createdAt = new Date(stateRow.created_at as string).getTime();
   const ageMin = (Date.now() - createdAt) / 60_000;
-  await admin.from('oauth_state').delete().eq('state_token', state);
+  const { error: stateDeleteErr } = await admin.from('oauth_state').delete().eq('state_token', state);
+  // Single-use either way; a failed delete only leaves a row the 10-minute expiry already refuses.
+  if (stateDeleteErr) console.error('[supabase-error] oauth/drive/callback · oauth_state.delete', stateDeleteErr);
+
+  // ☁️ A shop's own Drive (owner 2026-11-22, "Copy this event to Google Drive") — its own branch, below.
+  if (stateRow.provider === SUPPLIER_DRIVE_PROVIDER) {
+    if (ageMin > STATE_TTL_MIN) return shopRedirect(req, eventId, 'drive_error', 'state_expired');
+    return connectShopDrive(req, {
+      code,
+      eventId,
+      shopId: stateRow.vendor_profile_id as string,
+      userId: (stateRow.initiated_by as string | null) ?? null,
+    });
+  }
+
   if (ageMin > STATE_TTL_MIN) {
     return redirectWithError(url, eventId, 'state_expired', returnTo);
   }
@@ -264,4 +301,82 @@ export async function GET(req: NextRequest) {
     '1',
   );
   return NextResponse.redirect(target);
+}
+
+/** Back to the supplier's row (the start's cookie, re-checked), with one query parameter. The cookie is spent. */
+function shopRedirect(req: NextRequest, eventId: string, key: string, value: string): NextResponse {
+  const back = shopDriveBackPath(req.cookies.get(SHOP_DRIVE_BACK_COOKIE)?.value, eventId);
+  const res = NextResponse.redirect(new URL(withParam(back, key, value), req.nextUrl));
+  res.cookies.set(SHOP_DRIVE_BACK_COOKIE, '', { path: '/api/oauth/drive', maxAge: 0 });
+  return res;
+}
+
+/**
+ * ☁️ The shop's grant: provider 'drive_supplier', no event, one per shop (oauth_grants_one_drive_per_shop). No folder
+ * tree is built here — the copy builds one folder per event when it first copies that event. Connecting a DIFFERENT
+ * Google account forgets the old Drive's bookkeeping, so the next copy fills the new Drive instead of skipping every
+ * file as "already copied". On success the supplier lands back on the row with `drive_copy=start`, and the copy they
+ * pressed for starts there.
+ */
+async function connectShopDrive(
+  req: NextRequest,
+  ctx: { code: string; eventId: string; shopId: string; userId: string | null },
+): Promise<NextResponse> {
+  const fail = (reason: string) => shopRedirect(req, ctx.eventId, 'drive_error', reason);
+  const config = await getDriveOAuthConfig();
+  if (!config.ready) return fail('not_configured');
+
+  let token;
+  try {
+    token = await exchangeDriveCodeForToken({
+      code: ctx.code,
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+      redirectUri: config.redirectUri,
+    });
+  } catch {
+    return fail('exchange_failed');
+  }
+  if (!token.refresh_token) return fail('no_refresh_token');
+
+  const userInfo = await fetchDriveUserInfo(token.access_token);
+  const admin = createAdminClient();
+  const { data: existing, error: readErr } = await admin
+    .from('oauth_grants')
+    .select('grant_id, external_account_id, revoked_at')
+    .eq('vendor_profile_id', ctx.shopId)
+    .eq('provider', SUPPLIER_DRIVE_PROVIDER)
+    .maybeSingle();
+  if (readErr) return fail('persist_failed');
+
+  const prevAccount = (existing?.external_account_id as string | null | undefined) ?? null;
+  if (existing && (existing.revoked_at || prevAccount !== (userInfo?.id ?? null))) {
+    await forgetShopDriveCopies(ctx.shopId);
+  }
+
+  const now = new Date().toISOString();
+  const row = {
+    vendor_profile_id: ctx.shopId,
+    event_id: null,
+    provider: SUPPLIER_DRIVE_PROVIDER,
+    scopes: token.scope ? token.scope.split(' ') : [],
+    refresh_token: sealToken(token.refresh_token),
+    access_token: sealToken(token.access_token),
+    access_token_expires_at: new Date(Date.now() + token.expires_in * 1000).toISOString(),
+    external_account_id: userInfo?.id ?? null,
+    external_account_display: userInfo?.email ?? 'Connected Drive',
+    // RA 10173 erasure attribution — the account that completed this consent (lib/erasure/purge.ts deletes by it).
+    granted_by_user_id: ctx.userId,
+    granted_at: now,
+    revoked_at: null,
+    last_refreshed_at: now,
+    connection_health: 'ok',
+    metadata: userInfo?.name ? { account_name: userInfo.name } : {},
+  };
+  const { error } = existing
+    ? await admin.from('oauth_grants').update(row).eq('grant_id', existing.grant_id as string)
+    : await admin.from('oauth_grants').insert(row);
+  if (error) return fail('persist_failed');
+
+  return shopRedirect(req, ctx.eventId, DRIVE_COPY_START_PARAM, 'start');
 }

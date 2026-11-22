@@ -1,10 +1,12 @@
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { routes } from '@/lib/routes';
 import { readChatCollected, readEventSupplierFiles, readPortfolioPicks } from '@/lib/supplier-files.server';
 import { readEventTagBoard } from '@/lib/inspiration-tags.server';
+import { readShopDrive, readShopEventsCopied } from '@/lib/supplier-drive-copy.server';
 // ⚡ On-demand code (`./lazy`): the board is fetched with its page, never on the route's first load.
-import { EventFilesBoard } from './lazy';
+import { CopyEventToDrive, EventFilesBoard } from './lazy';
 import type { PickedPageContext } from './context';
 
 /**
@@ -42,7 +44,7 @@ export async function EventFilesSection({ ctx, mode }: { ctx: PickedPageContext;
       </p>
     );
   }
-  const [picks, chat, tagBoard] = await Promise.all([
+  const [picks, chat, tagBoard, drive, copied] = await Promise.all([
     mode === 'files' ? readPortfolioPicks(supabase, { vendorProfileId: ctx.vendorProfileId, quotedIds: read.quoted.map((q) => q.id) }) : null,
     // 📥 Piece 3c: what was shared in the chat, sorted by kind — Files only (the Hub shows filed service groups only).
     chatRead,
@@ -51,8 +53,11 @@ export async function EventFilesSection({ ctx, mode }: { ctx: PickedPageContext;
     mode === 'files'
       ? readEventTagBoard(createAdminClient(), { eventId: ctx.eventId, shop: ctx.vendorProfileId, files: read.files, quotedIds: read.quoted.map((q) => q.id) })
       : undefined,
+    // ☁️ "Copy to Google Drive" (owner 2026-11-22) — Files only: the shop's Drive and what it already holds of this event.
+    mode === 'files' ? readShopDrive(ctx.vendorProfileId) : null,
+    mode === 'files' ? readShopEventsCopied(ctx.vendorProfileId, [ctx.eventId]) : null,
   ]);
-  return (
+  const board = (
     <EventFilesBoard
       mode={mode}
       eventId={ctx.eventId}
@@ -69,5 +74,18 @@ export async function EventFilesSection({ ctx, mode }: { ctx: PickedPageContext;
       offered={tagBoard?.offered}
       returnPath={`/vendor-dashboard/clients/${ctx.eventId}`}
     />
+  );
+  if (mode !== 'files' || !drive) return board;
+  return (
+    <>
+      {board}
+      <CopyEventToDrive
+        eventId={ctx.eventId}
+        eventName={ctx.eventName}
+        drive={drive}
+        copied={copied === null ? null : (copied?.[ctx.eventId] ?? { total: 0, copied: 0 })}
+        back={`${routes.vendorDashboard.clients.detail(ctx.eventId)}?tab=files`}
+      />
+    </>
   );
 }

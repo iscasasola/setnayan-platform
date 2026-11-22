@@ -15,16 +15,17 @@
  *   ?check_inbox=<email>  the check-your-email state (A1)
  *   ?screen=logo   the "Add your logo" screen (A2; its autosave answers from a stand-in that writes nothing) · &framed=1 with a public image already in, so the align + zoom
  *                  control shows (an upload needs R2, which a dummy env does not have)
+ *   ?screen=welcome  Today's welcome, the onboarding's last stop · &kind=claimed|opened ·
+ *                  &card=live|draft|refused|claim-draft|claim-refused|claim-unread (the first card as the shipped
+ *                  switch answered; claim-* = the claim door's carry, a key + the card's id). Never press its buttons.
  *   ?screen=claim  the claim door on the prototype's couple record · &signed=1 signed in · &way=email the Email way
  *                  &basis=fixed|per_pax|per_hour — price basis v2's samples (₱80,000 one price · ₱162,000 for 120
  *                  guests agreed · ₱30,000 for 5 hours agreed), with how to pay them as recorded (fake numbers)
  *                  chosen · &taken=1 / &check_inbox=<email> its two refusals · &from=setnayan Setnayan's personal invite
  *                  (a staged shop + "Your offer") · &start=account opens on the account slide
- *   ?screen=welcome  Today's welcome, the onboarding's last stop · &kind=claimed|opened ·
- *                  &card=live|draft|refused|claim-draft|claim-refused|claim-unread (the first card as the shipped
- *                  switch answered; claim-* = the claim door's carry, a key + the card's id). Never press its buttons.
  */
 import { LAB_FAIR_WORDS } from '../lab-fair-words';
+import { TodayWelcome } from '@/app/vendor-dashboard/_components/today-welcome';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
@@ -48,7 +49,6 @@ import {
 import { categoryLadder } from '@/lib/vendor-tier-caps';
 import { DEFAULT_LOGO_FRAME } from '@/lib/open-shop-logo';
 import { siteOrigin } from '@/lib/site-origin';
-import { TodayWelcome } from '@/app/vendor-dashboard/_components/today-welcome';
 import { claimDatePhrase } from '@/lib/claim-invite-words';
 
 export const dynamic = 'force-dynamic';
@@ -226,18 +226,6 @@ export default async function OpenShopLabPage({
   const host = (await headers()).get('host');
   const labOrigin = host ? 'http://' + host : siteOrigin();
   const LAB_LOGO = labOrigin + LAB_LOGO_PATH;
-  if (q.screen === 'logo') {
-    return (
-      <AddYourLogo
-        vendorProfileId="lab-shop"
-        shopName="Banawe Florals"
-        storedLogoRef={q.framed === '1' ? LAB_LOGO : null}
-        displayUrl={q.framed === '1' ? LAB_LOGO : null}
-        frame={q.framed === '1' ? { x: 70, y: 35, zoom: 140 } : DEFAULT_LOGO_FRAME}
-        saveAction={labSaveLogo}
-      />
-    );
-  }
   if (q.screen === 'welcome') {
     // 🚪 Today's welcome in each first-card state (review 20 Nov) — fixtures only; "live" here is what the page draws
     // AFTER `readHasLiveCard` confirmed it. Reasons are KEYS (`lib/first-card-why.ts`); the sentence is the shipped one.
@@ -264,6 +252,18 @@ export default async function OpenShopLabPage({
           claimed={q.kind === 'claimed' ? { couple: 'Maria & Jose', eventWord: 'wedding' } : null}
         />
       </div>
+    );
+  }
+  if (q.screen === 'logo') {
+    return (
+      <AddYourLogo
+        vendorProfileId="lab-shop"
+        shopName="Banawe Florals"
+        storedLogoRef={q.framed === '1' ? LAB_LOGO : null}
+        displayUrl={q.framed === '1' ? LAB_LOGO : null}
+        frame={q.framed === '1' ? { x: 70, y: 35, zoom: 140 } : DEFAULT_LOGO_FRAME}
+        saveAction={labSaveLogo}
+      />
     );
   }
   if (q.screen === 'claim') {

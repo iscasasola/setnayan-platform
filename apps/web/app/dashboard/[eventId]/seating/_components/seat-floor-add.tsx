@@ -117,7 +117,7 @@ export function AddTableBar({
           data="floor-add-seats"
         />
       </div>
-      <div className="flex min-h-12 items-center gap-1 rounded-full border-2 border-terracotta bg-[var(--m-paper,#fff)] py-0.5 pl-1 pr-1">
+      <div className="flex min-h-12 items-center gap-1 rounded-full border-2 border-terracotta bg-raised py-0.5 pl-1 pr-1">
         <button
           type="submit"
           disabled={!name || busy}

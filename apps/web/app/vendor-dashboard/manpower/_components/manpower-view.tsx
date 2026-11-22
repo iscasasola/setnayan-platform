@@ -69,25 +69,19 @@ export function ManpowerView({
 
       <Group title="Open gigs · ready to claim" count={openGigs.length} empty={openEmpty} note={openNote}>
         {openGigs.map((gig) => (
-          <li key={gig.gig_id}>
-            <GigCard gig={gig} mode="open" statusLabel={STATUS_LABEL[gig.status]} statusTone={STATUS_TONE[gig.status]} />
-          </li>
+          <GigCard key={gig.gig_id} gig={gig} mode="open" statusLabel={STATUS_LABEL[gig.status]} statusTone={STATUS_TONE[gig.status]} />
         ))}
       </Group>
 
       <Group title="Accepted" count={mine ? accepted.length : undefined} empty="You haven't accepted any gigs yet." unread={mine === null ? unread : null}>
         {accepted.map((gig) => (
-          <li key={gig.gig_id}>
-            <GigCard gig={gig} mode="accepted" statusLabel={STATUS_LABEL[gig.status]} statusTone={STATUS_TONE[gig.status]} />
-          </li>
+          <GigCard key={gig.gig_id} gig={gig} mode="accepted" statusLabel={STATUS_LABEL[gig.status]} statusTone={STATUS_TONE[gig.status]} />
         ))}
       </Group>
 
       <Group title="Wrapped" count={mine ? wrapped.length : undefined} empty="Completed + cancelled gigs will show here." unread={mine === null ? unread : null}>
         {wrapped.map((gig) => (
-          <li key={gig.gig_id}>
-            <GigCard gig={gig} mode="wrapped" statusLabel={STATUS_LABEL[gig.status]} statusTone={STATUS_TONE[gig.status]} />
-          </li>
+          <GigCard key={gig.gig_id} gig={gig} mode="wrapped" statusLabel={STATUS_LABEL[gig.status]} statusTone={STATUS_TONE[gig.status]} />
         ))}
       </Group>
     </ToolPage>

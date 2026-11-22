@@ -1,29 +1,19 @@
 /**
- * a-price-change-takes-two-admins.test.ts — § 9.1's pricing row.
+ * a-price-change-applies-at-once.test.ts — what a customer is charged, and who changes it.
  *
- * `platform_retail_catalog_v2` is admin-managed and is the ONLY price a
- * customer is charged. Vendor Agreement § 9.1 gates changing it.
+ * `platform_retail_catalog_v2` is admin-managed and is the ONLY price a customer is charged.
  *
- * ── 🔑 THE FINDING: THERE IS MORE THAN ONE DOOR, AGAIN ──────────────────────
- * `saveRetailRow` is the obvious one — the per-SKU editor. But
- * `app/admin/pricing/price-control-actions.ts` ALSO writes `retail_price_php`
- * and `onboarding_price_php`, from `savePapicLadder` and `saveFamilyDiscount`,
- * which recompute many rows at once and never touch the row editor.
+ * ⚖ THE RULE, OWNER 23 NOV 2026: *"no need for a second admin. auto approve"* — said of his Live Watch save that sat
+ * in /admin/approvals. One admin's price change is live on save. (Until then this file was
+ * `a-price-change-takes-two-admins.test.ts` and held the opposite: Vendor Agreement § 9.1's two-admin price row.)
  *
- * This is the third time today the same shape has appeared: the comp gate, the
- * receiving-account gate (where a QR image turned out to be a destination), and
- * now this. **The obvious action is never the only writer.**
- *
- * ── What is gated, and what is HONESTLY NOT ─────────────────────────────────
- * ✅ `saveRetailRow` — the per-SKU editor. Gated.
- * ⚠ `price-control-actions.ts` — the bulk ladder / discount surfaces. **NOT
- *   gated yet**, and named below rather than left for someone to discover.
- *   They write N rows from one derivation, so they need a multi-row payload
- *   rather than the single-SKU one the executor takes today. Recorded as a
- *   known door, not hidden by a guard that would otherwise read "one writer".
- *
- * 🔒 The list below is exact. A FOURTH writer fails this test, which is the
- * point: the gap is bounded and visible, and it cannot quietly grow.
+ * What stays held, because the ruling removed a person, not the controls:
+ *  · ONE writer of a customer price per surface, exactly listed — a new door still fails here;
+ *  · the per-SKU editor applies through THE executor (`executeRetailPriceChange`), which writes only
+ *    CUSTOMER_PRICE_FIELDS and leaves an audit row (before → after, who, `applied_directly`);
+ *  · a request still pending from before the ruling is CLOSED on save, so a later approval cannot put the old
+ *    figure back over the new one;
+ *  · no new `approve_retail_price_change` request is opened by the editor.
  */
 
 import { test } from 'node:test';
@@ -37,7 +27,7 @@ import {
   CUSTOMER_PRICE_FIELDS,
   NON_PRICE_FIELDS,
   changedPriceFields,
-  priceChangeNeedsTwoAdmins,
+  changesWhatACustomerPays,
 } from './retail-price-change';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -57,7 +47,7 @@ test('the rule tells a price from copy', () => {
   assert.deepEqual(changedPriceFields({ onboarding_price_php: null }, { onboarding_price_php: null }), []);
 
   assert.deepEqual(changedPriceFields({ retail_price_php: 2999 }, { retail_price_php: 3000 }), ['retail_price_php']);
-  assert.equal(priceChangeNeedsTwoAdmins({ retail_price_php: 2999 }, { retail_price_php: 3000 }), true);
+  assert.equal(changesWhatACustomerPays({ retail_price_php: 2999 }, { retail_price_php: 3000 }), true);
 
   // 🔑 A PRICING MODEL CHANGE MOVES NO PESO FIGURE AND STILL CHANGES THE BILL.
   // Flipping one-time → monthly, or flat → per-head, changes what a customer
@@ -65,13 +55,13 @@ test('the rule tells a price from copy', () => {
   assert.deepEqual(changedPriceFields({ billing_period: 'one_time' }, { billing_period: 'monthly' }), ['billing_period']);
   assert.deepEqual(changedPriceFields({ is_pax_priced: false }, { is_pax_priced: true }), ['is_pax_priced']);
 
-  // 🔒 Copy and our own cost are NOT prices, and must never become gated —
-  // an admin fixing a typo must not wait on a colleague.
+  // 🔒 Copy and our own cost are NOT prices: the executor must never write them, and the audit row must not
+  // report a typo fix as a price change.
   for (const f of NON_PRICE_FIELDS) {
     assert.ok(
       !(CUSTOMER_PRICE_FIELDS as readonly string[]).includes(f),
-      `${f} is copy or internal cost, not a customer price. Gating it would make a typo fix ` +
-        'need two admins, and saas_overhead_cost_php moves OUR margin, not anyone\'s bill.',
+      `${f} is copy or internal cost, not a customer price. saas_overhead_cost_php moves OUR margin, ` +
+        'not anyone\'s bill.',
     );
   }
 });
@@ -121,49 +111,42 @@ test('every writer of a customer-price column is known — exactly', () => {
   assert.deepEqual(
     writers.sort(),
     [EDITOR, BULK, PLAN_CONTENTS].sort(),
-    'A file outside the two known pricing surfaces writes what a customer is charged. That is a ' +
-      'new door onto § 9.1, and a gate with another door is decoration. Either route it through ' +
-      'approve_retail_price_change, or add it here with a reason.\n  ' + writers.join('\n  '),
+    'A file outside the known pricing surfaces writes what a customer is charged. Route it through ' +
+      'executeRetailPriceChange (one writer, one audit row), or add it here with a reason.\n  ' + writers.join('\n  '),
   );
 });
 
-test('the per-SKU editor gates the price and saves the copy', () => {
+test('the per-SKU editor applies a price at once, through the executor, and saves the copy', () => {
   const body = read(EDITOR);
-  const gateAt = body.indexOf('changedPriceFields(');
-  assert.ok(gateAt >= 0, 'saveRetailRow no longer consults the § 9.1 rule');
+  const start = body.indexOf('export async function saveRetailRow');
+  const end = body.indexOf('export async function executeRetailPriceChange', start);
+  assert.ok(start >= 0 && end > start, 'saveRetailRow moved');
+  const fn = body.slice(start, end);
 
-  // The gate must precede the unconditional write, or the price would already
-  // be live by the time anyone was asked.
-  const writeAt = body.indexOf('.update({ ...nextRow');
-  assert.ok(writeAt > gateAt, 'saveRetailRow writes the full row BEFORE testing the § 9.1 rule');
+  // 🪤 ASSERT THE CONDITION, NOT THE TEXT: the price branch is entered on the rule's result.
+  assert.match(fn, /const changed = changedPriceFields\(prior, nextRow\);/, 'saveRetailRow no longer derives `changed`');
+  assert.match(fn, /if \(changed\.length > 0\) \{/, 'the price branch is no longer entered on the rule\'s result');
 
-  // 🪤 ASSERT THE CONDITION, NOT THE TEXT. Sabotaging `if (changed.length > 0)`
-  // to `if (false)` left every string below in place — the approval insert, the
-  // copy-only strip, the rule call — and this test stayed GREEN. A dead branch
-  // still contains its own source. Pin what the branch is entered ON.
+  const branch = fn.slice(fn.indexOf('if (changed.length > 0) {'));
+  // The price goes through THE executor — one writer, one audit row — never a bare update of the price fields.
+  assert.match(branch, /await executeRetailPriceChange\(admin, \{/, 'a price change no longer goes through the executor');
+  assert.match(branch, /appliedDirectly: true/, 'the direct apply is no longer marked in the audit row');
+  // Copy still saves first, apart from the price.
+  assert.match(branch, /delete copyOnly\[f\]/, 'the price branch no longer separates the copy from the price');
+  // A request still pending from before the ruling is closed, so it cannot be approved later over this save.
   assert.match(
-    body,
-    /const changed = changedPriceFields\(prior, nextRow\);/,
-    'saveRetailRow no longer derives `changed` from the § 9.1 rule',
+    branch,
+    /from\('admin_approval_requests'\)\s*\.update\(\{ status: 'expired'[^}]*decision_reason: PRICE_APPLIED_DIRECTLY \}\)\s*\.eq\('action_type', 'approve_retail_price_change'\)\s*\.eq\('target_id', code\)\s*\.eq\('status', 'pending'\)/,
+    'saving a price no longer closes the pending request for that SKU — an old approval could put the old price back',
   );
-  assert.match(
-    body,
-    /if \(changed\.length > 0\) \{/,
-    'the § 9.1 branch is no longer entered on the rule\'s result. A constant condition (`if ' +
-      '(false)`) leaves the approval code in the file and unreachable, which reads exactly like ' +
-      'a working gate to every text-matching check.',
-  );
-  assert.match(body, /action_type: 'approve_retail_price_change'/, 'the gated branch opens no approval');
-  // Copy still saves immediately — the deliberate half.
-  assert.match(
-    body,
-    /delete copyOnly\[f\]/,
-    'the gated branch no longer strips just the price fields. If it now withholds the whole row, ' +
-      'an admin fixing a SKU blurb is blocked by an unrelated pending price change.',
-  );
+  // The close comes BEFORE the apply: a failed close must leave the price unchanged, not half-decided.
+  assert.ok(branch.indexOf("status: 'expired'") < branch.indexOf('executeRetailPriceChange('), 'the price applies before the old request is closed');
+  // The editor opens no new request, and says the price is live — read through lib/php.ts.
+  assert.doesNotMatch(fn, /action_type: 'approve_retail_price_change'/, 'saveRetailRow opens a two-admin request again');
+  assert.match(branch, /message: `Live — \$\{formatPhp\(nextRow\.retail_price_php\)\}\.`/, 'the success line no longer says what is live');
 });
 
-test('the EXECUTOR is reachable only from the approvals dispatcher', () => {
+test('the EXECUTOR is reached only from the editor and the approvals dispatcher', () => {
   const SKIP = new Set(['node_modules', '.next', 'dist']);
   const callers: string[] = [];
   let scanned = 0;
@@ -192,10 +175,10 @@ test('the EXECUTOR is reachable only from the approvals dispatcher', () => {
 
   console.log(`[price-gate] scanned ${scanned} files for executeRetailPriceChange callers`);
   assert.ok(scanned > 500, `only ${scanned} files scanned`);
-  assert.deepEqual(callers.sort(), [DISPATCHER], 'a second door onto the executor');
+  assert.deepEqual(callers.sort(), [DISPATCHER], 'a new door onto the executor (the editor is its own file and is held above)');
 });
 
-test('the executor writes only price columns, and records both admins', () => {
+test('the executor writes only price columns, and records who and how', () => {
   const body = read(EDITOR);
   const start = body.indexOf('export async function executeRetailPriceChange');
   const end = body.indexOf('export async function retireRetailRow', start);
@@ -206,9 +189,9 @@ test('the executor writes only price columns, and records both admins', () => {
     fn,
     /names non-price column/,
     'the executor no longer rejects payload keys outside CUSTOMER_PRICE_FIELDS. A pending row ' +
-      'could then name any column in the catalogue and have a second admin approve a write they ' +
-      'were never shown.',
+      'could then name any column in the catalogue and have it written.',
   );
   assert.match(fn, /confirmed_by: params\.confirmingAdminId/, 'the audit row no longer names the confirming admin');
   assert.match(fn, /initiated_by: params\.initiatedByAdminId/, 'the audit row no longer names the initiator');
+  assert.match(fn, /applied_directly: PRICE_APPLIED_DIRECTLY/, 'the audit row no longer says the change was applied directly');
 });

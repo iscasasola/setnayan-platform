@@ -1039,16 +1039,16 @@ async function applyFormulaPrices(
     fd.set('pax_increment_price', blank(r.pax_increment_price_php));
 
     const res = await saveRetailRow({ ok: false, message: null }, fd);
-    // A price change answers ok:false ON PURPOSE ("saved except the price — a second admin decides it"). An opened
-    // approval counts as sent; anything else is a real refusal and is named.
-    if (res.ok || res.approvalOpened) sent += 1;
+    // Since 23 Nov 2026 a price change is live on save (owner: "no need for a second admin. auto approve"), so ok is
+    // the only success; anything else is a real refusal and is named.
+    if (res.ok) sent += 1;
     else skipped.push(`${code} (${res.message ?? 'not saved'})`);
   }
 
   const head =
     sent === 0
-      ? 'No price was sent.'
-      : `${formatCount(sent)} price change${sent === 1 ? '' : 's'} sent — each waits for a second admin in /admin/approvals.`;
+      ? 'No price was changed.'
+      : `${formatCount(sent)} price${sent === 1 ? '' : 's'} live now.`;
   return {
     ok: skipped.length === 0 && sent > 0,
     message: skipped.length > 0 ? `${head} Skipped: ${skipped.join('; ')}.` : head,

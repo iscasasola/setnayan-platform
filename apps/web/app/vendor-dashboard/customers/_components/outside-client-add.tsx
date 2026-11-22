@@ -47,6 +47,15 @@ import { SupplierSubmit } from '../../_components/supplier-submit';
  */
 export type OutsidePool = { poolId: string; label: string };
 
+const OPEN_EVENT = 'setnayan:outside-client-add-open';
+/**
+ * ➕ Open the sheet from code, with a name already in it — the Clients search is the add (owner 18–19 Nov 2026: *"our
+ * text box is search / add feature"*; `clients-search.tsx`). The IMPORTED opener, never the event name typed by hand.
+ */
+export function openOutsideClientAdd(name = ''): void {
+  window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: { name } }));
+}
+
 export function OutsideClientAdd({
   pools,
   action,
@@ -59,7 +68,13 @@ export function OutsideClientAdd({
   label = 'Add',
   halls = false,
   tour,
+  trigger = true,
 }: {
+  /**
+   * `false` — NO button of its own: the list's search is the add (`openOutsideClientAdd`), so only the sheet is
+   * mounted. The Dates day row, which has no search, keeps its button.
+   */
+  trigger?: boolean;
   /** 🔦 A spotlight anchor on the thumb button (the Dates tour's "Add what you already have"). */
   tour?: string;
   /**
@@ -93,6 +108,15 @@ export function OutsideClientAdd({
 
   const [pool, setPool] = useState<string | null>(pools[0]?.poolId ?? null);
   const [name, setName] = useState('');
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const typed = (e as CustomEvent<{ name?: string }>).detail?.name?.trim();
+      if (typed) setName(typed);
+      setOpen(true);
+    };
+    window.addEventListener(OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_EVENT, onOpen);
+  }, []);
   const [contact, setContact] = useState('');
   const [note, setNote] = useState('');
   const [from, setFrom] = useState<CalendarDay | null>(day);
@@ -216,7 +240,9 @@ export function OutsideClientAdd({
 
   return (
     <>
-      <ActionButton tone="brand" main icon={Plus} label={label} name="Add a booking from outside" aria-haspopup="dialog" onClick={() => setOpen(true)} data-testid="customers-add" tour={tour} />
+      {trigger ? (
+        <ActionButton tone="brand" main icon={Plus} label={label} name="Add a booking from outside" aria-haspopup="dialog" onClick={() => setOpen(true)} data-testid="customers-add" tour={tour} />
+      ) : null}
       {mounted ? createPortal(sheet, document.body) : null}
     </>
   );

@@ -124,3 +124,10 @@
 .fieldNode:has(textarea) { height: auto; min-height: 44px; border-radius: var(--m-r-lg); }
 .fieldNode:has(textarea) > * { height: auto; min-height: 44px; }
 .row:has(> .fieldNode textarea) { align-items: flex-end; }
+/* ➕ SEARCH OR ADD (components/search-add.tsx): a field that can add wears the 🔍 → ＋ icon — a 44 px press in the
+   magnifier's place. Open, it gives the field's own padding back so the words start where they did; at rest the seat
+   IS that 44 round (the resting rule above) and the real input still lies over all of it — tap and type is untouched. */
+.field > :global([data-search-add-icon]) { margin: 0 -6px 0 -12px; }
+@media (max-width: 360px) { .field > :global([data-search-add-icon]) { margin-left: -10px; } }
+.row:not([data-search-force='open']) > [data-thumb-seat='field']:not(:focus-within):has(input[type='search']:placeholder-shown) > :global([data-search-add-icon]),
+.row[data-search-force='rest'] > [data-thumb-seat='field']:has(input[type='search']) > :global([data-search-add-icon]) { margin: 0; }

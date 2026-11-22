@@ -125,11 +125,13 @@ test('T3 · the body swaps only AFTER the row has slid down — and only when a 
 test('T4 · the controls are the ONE shared row — icon rounds, the field the widest seat (2026-10-22)', () => {
   // The 2026-10-07 fit pass (icon + word → word → icon) retires here: every round is icon-only at 44 px, so there is
   // no word to fit; the field takes the rest (`components/thumb-row.module.css` `.field { flex: 1 1 auto }`).
-  const call = ROW.slice(ROW.indexOf('<ThumbRow'), ROW.indexOf('/>', ROW.indexOf('action={{')));
+  const call = ROW.slice(ROW.indexOf('<ThumbRow'), ROW.indexOf('\n      />', ROW.indexOf('<ThumbRow')));
   assert.match(call, /name="suppliers-find"/);
   assert.match(call, /left=\{\[/);
   assert.match(call, /field=\{\{/);
-  assert.match(call, /action=\{\{\s*icon: Plus,/);
+  // 18–19 Nov 2026 (owner: "our text box is search / add feature"): no ＋ round — the field is the add.
+  assert.doesNotMatch(call, /\baction=/);
+  assert.match(call, /onAdd: addTyped,/);
   assert.doesNotMatch(ROW, /useFitRow|ThumbControls/, 'a second drawing of the row is back');
 });
 
@@ -138,7 +140,7 @@ test('T4 · glass: the row has no background; the field is frosted; Add keeps it
   assert.ok(outer, 'the row lost its anchor');
   assert.doesNotMatch(outer, /(^| )(bg-|shadow|backdrop-blur|sn-glass-row)/, 'the row has a fill, a shadow or a blur of its own');
   // The glass and the terracotta are the shared row's (`every-thumb-row-is-the-one-row.test.ts` renders them).
-  assert.match(ROW, /label: text\.trim\(\) \? 'Add' : 'Add your own',/);
+  assert.match(ROW, /data-find-add-own=""[\s\S]{0,400}Add your own/, 'the empty box lost “Add your own”');
   assert.doesNotMatch(ROW, /!bg-/);
 });
 

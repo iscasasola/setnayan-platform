@@ -73,9 +73,9 @@ import {
   Users,
   Trash2,
   X,
-  Keyboard,
 } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { holdFocus } from '@/components/clear-field';
 import { InfoTip } from '@/app/_components/info-tip';
 import { GuestPeek } from './guest-peek';
 import { ThumbRow, type ThumbField, type ThumbMenu } from '@/components/thumb-row';
@@ -388,10 +388,10 @@ const SECTION_ICON: Record<SectionIcon, typeof Star> = {
  * results"*) — the shipped `AddDoors` rows (the same openers and links the add sheet and ≡ use), two to a line so the
  * hits stay in sight over a phone keyboard. Unframed rows, each a 44 px target.
  */
-function TypedWays({ eventId }: { eventId: string }) {
+function TypedWays({ eventId, label = 'Add another way' }: { eventId: string; label?: string }) {
   return (
     <div className={styles.ways} data-typed-ways="">
-      <p className={styles.waysLabel}>Add another way</p>
+      <p className={styles.waysLabel}>{label}</p>
       <div className={styles.waysGrid}>
         <AddDoors eventId={eventId} rows />
       </div>
@@ -1558,25 +1558,13 @@ export function GuestsScreen(props: GuestsScreenProps) {
       tour="guests-sort"
     />
   );
-  /* ＋ ADD ▾ — the row's one main verb (owner 3 Nov: From your people + Import a file move "next to the guests search
-     … where hosts already type new guests"). "Type a name" puts the cursor in the field, which is still the add (Enter
-     adds at once); the other two are the shipped openers (`ADD_WAYS`, `openAddWay`). A viewer who may not write gets none. */
-  const addMenu: ThumbMenu | null = writesOff
-    ? null
-    : {
-        label: 'Add guests',
-        value: null,
-        mark: 'data-thumb-add-menu',
-        tour: 'guests-add-ways',
-        menu: [{ key: 'add:type', label: 'Type a name', icon: <Keyboard className="h-[18px] w-[18px]" strokeWidth={1.9} /> }, ...addWays.map(({ group: _g, ...o }) => o)],
-        onPick: (k) => {
-          if (k === 'add:type') {
-            fieldRef.current?.focus();
-            return;
-          }
-          pickedAddWay(k);
-        },
-      };
+  /* ➕ NO ＋ ADD BESIDE THE FIELD (owner 18–19 Nov 2026: *"so we also do no need an add button because. our text box is
+     search / add feature"* · *"tap the magnifying glass to convert it to add"*). The 3 Nov ＋ Add ▾ is gone from the List
+     row; each way it opened lives on:
+       · Type a name      → the field itself (tap 🔍 and type; ＋ or Enter adds — `field.onAdd`);
+       · From your people → a row under the EMPTY field while it has the cursor (`emptyWays`), and in the typed results;
+       · Import a file    → the same two places.
+     ONE list still (`ADD_WAYS`, `AddDoors`). 🔒 search-or-add.test.ts · lib/a-search-that-adds-shows-add.test.ts */
   /* ⇅ THE MAP'S ROUND: Show · Group by (the SAME state as the List's — v18: the Map has no "Grouped by" chip of its own),
      then the ways to add. */
   const arrangeMenu: ThumbMenu = guestsFilterMenu({
@@ -1678,6 +1666,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setQ('');
     fieldRef.current?.focus();
   };
+  /* The field has the cursor — an EMPTY one then shows the other ways to add right above it (`emptyWays`). */
+  const [fieldOn, setFieldOn] = useState(false);
   const [needsFor, setNeedsFor] = useState<{ q: string; text: string } | null>(null);
   const setNeeds = (text: string | null, line = '') => setNeedsFor(text ? { q: line.trim(), text } : null);
   const needs = needsFor && needsFor.q === q ? needsFor.text : null;
@@ -1723,12 +1713,21 @@ export function GuestsScreen(props: GuestsScreenProps) {
       if (timer.current) clearTimeout(timer.current);
       setQ('');
     },
+    /* ➕ SEARCH OR ADD — the List's field adds (the Map keeps its own ＋ Add guest: its field only finds a seat). A
+       viewer who may not write gets a plain search. ＋ runs the SAME add as the typed "Add “…” as a guest" row. */
+    onAdd: writesOff || gview !== 'list' ? undefined : addTypedOrSheet,
+    query: q,
+    matches: !noMatch,
     input: {
       defaultValue: q,
       autoCorrect: 'off',
       enterKeyHint: 'go',
       'data-guests-search': '',
-      onFocus: loadPeople,
+      onFocus: () => {
+        loadPeople();
+        setFieldOn(true);
+      },
+      onBlur: () => setFieldOn(false),
       onInput: (e) => onType(e.currentTarget.value),
       onKeyDown: (e) => {
         if (e.key !== 'Enter') return;
@@ -1877,7 +1876,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
         ]}
         field={field}
         right={[{ node: filterSheet }]}
-        action={addMenu}
       />
     );
   } else if (gview === 'map') {
@@ -2339,6 +2337,15 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 {thumb}
               </div>
             )}
+            {/* ➕ THE EMPTY FIELD STILL OFFERS EVERY WAY IN (owner 18–19 Nov: no ＋ Add beside the field): while the List's
+                search has the cursor and holds nothing, the other ways (`ADD_WAYS` — From your people · Import a file)
+                stand right above it; the first letter hands over to the typed results, which carry the same rows. A press
+                here never takes the cursor (`holdFocus`), so the box does not vanish under the finger. */}
+            {fieldOn && !q && gview === 'list' && !selectMode && !writesOff ? (
+              <div className={styles.emptyWays} data-empty-ways="" onPointerDown={holdFocus} onMouseDown={holdFocus}>
+                <TypedWays eventId={eventId} label="Type a name to add, or" />
+              </div>
+            ) : null}
             {/* 👁 The Map's peek rises just above the thumb row, in the toolbar's seat (slice 6d). */}
             {peek && gview === 'map' && byId.get(peek.id) ? (
               <div className={styles.peekSeat} data-guests-peek-seat="">

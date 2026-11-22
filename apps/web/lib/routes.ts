@@ -241,6 +241,10 @@ export const routes = {
         detail: (publicId: string) => `/api/v1/vendors/${publicId}`,
       },
     },
+    vendor: {
+      /** ☁️ One press of "Copy this event to Google Drive" (POST, signed-in supplier). */
+      driveCopy: () => `/api/vendor/drive-copy`,
+    },
     wall: {
       claim: () => `/api/wall/claim`,
       feed: (eventId: string) => `/api/wall/${eventId}/feed`,

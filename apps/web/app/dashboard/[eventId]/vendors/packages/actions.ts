@@ -8,6 +8,7 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { openTheCoordinatorsSeatForBooking } from '@/lib/coordinator-grant';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
+import { bookingWindowRefusal } from '@/lib/booking-window.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { resolveLivePax } from '@/lib/pax';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
@@ -467,6 +468,11 @@ export async function lockPackage(
       .eq('event_id', eventId)
       .maybeSingle();
     const d = dayRow as { event_date?: string | null; event_date_precision?: string | null } | null;
+    // 📅 The shop's At least · At most — the same helper every booking door asks (`lib/booking-window.server.ts`).
+    if (d?.event_date_precision === 'day') {
+      const windowWords = await bookingWindowRefusal({ vendorProfileId: pkg.vendor_profile_id, day: d.event_date });
+      if (windowWords) return { status: 'error', message: windowWords };
+    }
     if (
       d?.event_date_precision === 'day' &&
       (await closedDayRefusal({ vendorProfileId: pkg.vendor_profile_id, serviceId: null, day: d.event_date })) === 'closed'

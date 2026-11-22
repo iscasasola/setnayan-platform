@@ -54,7 +54,7 @@ export function MemoriesKeepsakeRow({ doors, cards }: { doors: KeepsakeDoor[]; c
     opened && OpenedIcon ? (
       <div className="flex min-w-0 items-center gap-2.5 pb-3 pl-5 pr-3" data-keepsake-sheet-head="">
         <OpenedIcon aria-hidden className="h-6 w-6 shrink-0 text-terracotta" strokeWidth={1.9} />
-        <h2 id={heading} className="min-w-0 text-[22px] font-bold leading-tight text-ink [overflow-wrap:anywhere]">
+        <h2 id={heading} className="min-w-0 text-sn-3xl font-bold leading-tight text-ink [overflow-wrap:anywhere]">
           {opened.title}
         </h2>
         {opened.mark ? <RecapPrivacyPill published={opened.mark === 'public'} /> : null}

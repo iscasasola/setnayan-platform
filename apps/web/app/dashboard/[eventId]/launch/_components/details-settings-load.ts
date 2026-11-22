@@ -140,7 +140,7 @@ export async function loadEventSettings(input: {
     .select(
       'event_id, event_type, region, mood_feel_key, recurs, recur_cadence, celebrant_shape, ' +
         'estimated_budget_centavos, ceremony_type, secondary_ceremony_type, event_date, event_date_precision, ' +
-        'date_mode, date_candidates, date_window_start, date_window_end, estimated_pax, venue_setting, ' +
+        'date_mode, date_candidates, date_window_start, date_window_end, date_months, estimated_pax, venue_setting, ' +
         'ceremony_venue_setting, guest_list_edit_deadline, adaptive_pricing_mode, ' +
         'partner_a_birth_date, partner_a_birth_time, partner_b_birth_date, partner_b_birth_time, bazi_birthdata_consent_at',
     )

@@ -1,5 +1,6 @@
 'use client';
 
+import { START_GUESTS_LINE } from '@/lib/event-size';
 import { withNewInquireEvent } from '@/lib/shop-inquire';
 import { EVENT_DATE_FLOOR_MESSAGE, eventDatesFloorRefusal, isBeforeFirstEventDay } from '@/lib/event-date-floor';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
@@ -168,6 +169,8 @@ type Props = {
   dateExempt?: boolean;
   /** 📅 The type's cap (`event_type_profiles.max_days`) — above 1 the date step asks "How many days is your event?". */
   maxDays?: number;
+  /** 👥 The type's starting guest number (`startGuestsForSize`) — null when Admin has not set a size. */
+  startGuests?: number | null;
   /**
    * Entrance grey-out (owner ruling 2026-09-11 — "same treatment for any other
    * one-at-a-time event type"). Server-resolved (page.tsx, `getBlockingLifeEvent`
@@ -215,7 +218,8 @@ type Draft = {
   dateValue: string;
   /** The calendar's answer. Optional so a draft saved before this existed
    *  (v is still 1) still parses and simply resumes with an empty calendar. */
-  dateMode?: 'specific' | 'window';
+  dateMode?: 'specific' | 'window' | 'months';
+  dateMonths?: string[];
   dateCandidates?: string[];
   windowStart?: string | null;
   windowEnd?: string | null;
@@ -271,6 +275,7 @@ export function GenericOnboarding(props: Props) {
     todayISO,
     dateExempt = false,
     maxDays = 1,
+    startGuests = null,
     entranceBlocking = null,
     setupView = null,
     setupSteps = [],
@@ -366,7 +371,9 @@ export function GenericOnboarding(props: Props) {
    * the wedding shell. `dateValue` (the single day chip pick) is KEPT as the
    * first candidate so the day chips above still work exactly as they did.
    */
-  const [dateMode, setDateMode] = useState<'specific' | 'window'>('specific');
+  const [dateMode, setDateMode] = useState<'specific' | 'window' | 'months'>('specific');
+  // 🗓 "Some months" / "Not sure yet" (owner 2026-11-17) — the months picked, first-of-month days.
+  const [dateMonths, setDateMonths] = useState<string[]>([]);
   const [dateCandidates, setDateCandidates] = useState<string[]>([]);
   const [windowStart, setWindowStart] = useState<string | null>(null);
   const [windowEnd, setWindowEnd] = useState<string | null>(null);
@@ -378,7 +385,8 @@ export function GenericOnboarding(props: Props) {
   const showRecurToggle = canToggleRecur(eventType);
   const [recurs, setRecurs] = useState(false);
   const [dateValue, setDateValue] = useState('');
-  const [pax, setPax] = useState('');
+  // 👥 The type's size number when it has one (owner 2026-11-17: small 30 · medium 50 · large 150, as the minimum).
+  const [pax, setPax] = useState(startGuests ? String(startGuests) : '');
   const [region, setRegion] = useState('');
   const [axes, setAxes] = useState<Record<string, string>>({});
   const [details, setDetails] = useState<Record<string, string>>({});
@@ -512,6 +520,7 @@ export function GenericOnboarding(props: Props) {
           setHonoree(d.honoree ?? '');
           setAnchorDate(d.anchorDate ?? '');
           setDateMode(d.dateMode ?? 'specific');
+          setDateMonths(Array.isArray(d.dateMonths) ? d.dateMonths : []);
           setDateCandidates(d.dateCandidates ?? []);
           setWindowStart(d.windowStart ?? null);
           setWindowEnd(d.windowEnd ?? null);
@@ -519,7 +528,7 @@ export function GenericOnboarding(props: Props) {
           setAnchorOrigin(d.anchorOrigin ?? 'wedding');
           setRecurs(d.recurs === true);
           setDateValue(d.dateValue ?? '');
-          setPax(d.pax ?? '');
+          setPax(d.pax || (startGuests ? String(startGuests) : ''));
           setRegion(d.region ?? '');
           setAxes(d.axes ?? {});
           seededDetails = { ...prefillDetails, ...(d.details ?? {}) };
@@ -600,12 +609,12 @@ export function GenericOnboarding(props: Props) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, eventDays, pax, region, axes, details, specialtyValues, ...(setupAnswers ? { setup: setupAnswers } : {}), ...(engine ? { preset, needs } : {}) };
+      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateMonths, dateCandidates, windowStart, windowEnd, eventDays, pax, region, axes, details, specialtyValues, ...(setupAnswers ? { setup: setupAnswers } : {}), ...(engine ? { preset, needs } : {}) };
       localStorage.setItem(draftKey, JSON.stringify(d));
     } catch {
       /* quota / private mode — non-fatal */
     }
-  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, eventDays, pax, region, axes, details, specialtyValues, setupAnswers, engine, preset, needs]);
+  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateMonths, dateCandidates, windowStart, windowEnd, eventDays, pax, region, axes, details, specialtyValues, setupAnswers, engine, preset, needs]);
 
   // ── ANCHOR ≠ CELEBRATION ────────────────────────────────────────────────────
   // `anchor_date` is what the event commemorates; `event_date` is when it is
@@ -813,7 +822,17 @@ export function GenericOnboarding(props: Props) {
     if (screen === 'name' || screen === 'needs') return displayName.trim().length > 0;
     if (screen.startsWith('setup_') && setupAnswers) return setupCardAnswered(screen as SetupCardId, setupAnswers);
     if (isAxis) return Boolean(axes[axisIds[axisIndex]!]);
-    return true; // welcome / date / pax / region / reveal are skippable
+    // 🧭 WHEN · WHERE · GUESTS ARE REQUIRED FOR EVERY TYPE (owner 2026-11-17, Q1 — reverses 2026-07-12 "optional"),
+    // and none of them can end blank: When offers "Not sure yet", which ends in a 1–3 month pick; Guests starts at the
+    // type's size number when it has one.
+    if (screen === 'date') {
+      if (dateMode === 'months') return dateMonths.length > 0;
+      if (dateMode === 'window') return Boolean(windowStart && windowEnd);
+      return celebrationDates.length > 0;
+    }
+    if (screen === 'pax') return Number(pax) > 0;
+    if (screen === 'region') return region.trim().length > 0;
+    return true; // welcome / reveal are skippable
   })();
 
   /**
@@ -1060,6 +1079,7 @@ export function GenericOnboarding(props: Props) {
       // as a candidate, so a person who only tapped a chip commits exactly what
       // they did before this calendar existed.
       dateMode,
+      dateMonths: dateMode === 'months' ? dateMonths : [],
       dateCandidates: dateMode === 'specific' ? celebrationDates : [],
       windowStart: dateMode === 'window' ? windowStart : null,
       windowEnd: dateMode === 'window' ? windowEnd : null,
@@ -1622,7 +1642,8 @@ export function GenericOnboarding(props: Props) {
           <div className="mt-6" ref={dateCalendarRef}>
             <DateCalendar
               chrome="bare"
-              undecided
+              allowMonths
+              months={dateMonths}
               dateExempt={dateExempt}
               mode={dateMode}
               candidates={celebrationDates}
@@ -1633,6 +1654,7 @@ export function GenericOnboarding(props: Props) {
               onChange={(patch: DateCalendarValue) => {
                 if (patch.days !== undefined) setEventDays(patch.days);
                 if (patch.dateMode !== undefined) setDateMode(patch.dateMode);
+                if (patch.dateMonths !== undefined) setDateMonths(patch.dateMonths);
                 if (patch.dateCandidates !== undefined) {
                   setDateCandidates(patch.dateCandidates);
                   // Keep the single-date field in step: the day chips, the
@@ -1661,7 +1683,10 @@ export function GenericOnboarding(props: Props) {
         <div>
           <Eyebrow>The basics</Eyebrow>
           <Title>About how many guests?</Title>
-          <p className="mt-2 text-ink/55">A rough number is fine — it helps us size the plan.</p>
+          <p className="mt-2 text-ink/55">
+            {/* 👥 Worded as the minimum (owner 2026-11-17): the start number is the type's size, never a guess. */}
+            {startGuests ? START_GUESTS_LINE : 'A rough number is fine — it helps us size the plan.'}
+          </p>
           <input
             type="number"
             min={1}

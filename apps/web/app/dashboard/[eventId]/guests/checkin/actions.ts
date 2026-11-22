@@ -7,6 +7,8 @@ import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { doorVerdict } from '@/lib/request-key';
 import { limitedHelperRefusal } from '@/lib/host-gate';
+import { readDeskViewer } from '@/lib/checkin-desk.server';
+import { parseDeskAccess, serializeDeskAccess, type DeskAccess, type DeskPart } from '@/lib/checkin-desk';
 
 /**
  * How a guest was checked in — `guest_checkins.method`, CHECKed in the DB
@@ -72,7 +74,31 @@ async function assertDoorCrew(eventId: string) {
     .maybeSingle();
   if (error) throw new DoorCrewUnread();
   if (!data) throw new Error('forbidden');
-  return user;
+  return { ...user, memberType: (data as { member_type: string }).member_type };
+}
+
+/**
+ * 🛂 WHO RUNS THE DESK (owner 16 Nov 2026): the hosts choose which parts the coordinator, helpers and the supplier at
+ * the door may open (lib/checkin-desk.ts). The page draws only those parts; this is the same answer asked again at the
+ * write, so a part the hosts turned Off cannot be worked from an old tab. A couple member is a host and holds every
+ * part, so the door's fastest path asks nothing more. A refused read answers try-again (`unread`), never "not allowed".
+ */
+async function deskPartRefusal(
+  eventId: string,
+  user: { id: string; memberType: string },
+  part: DeskPart,
+): Promise<{ error: string; refused: boolean } | null> {
+  if (user.memberType === 'couple') return null;
+  const supabase = await createClient();
+  const desk = await readDeskViewer(supabase, eventId, user.id, {
+    isCouple: false,
+    isCoordinatorMember: user.memberType === 'coordinator',
+  });
+  // Unread FIRST (opus review 2026-11-18): an unread `checkin_desk_access` parses to the DEFAULTS (helpers get
+  // Guests), so checking `parts` first let a helper the hosts switched Off check guests in whenever that read failed.
+  if (desk.unread) return { error: COULD_NOT_CHECK, refused: false };
+  if (desk.parts.includes(part)) return null;
+  return { error: 'The hosts haven’t given you this part of the desk.', refused: true };
 }
 
 /**
@@ -97,7 +123,37 @@ export async function checkInGuest(
   scannedAt?: string,
 ): Promise<CheckinActionResult> {
   const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
-  if (helperRefusal) return { ok: false, error: helperRefusal, refused: true };
+  if (helperRefusal) {
+    return (await theDoorSupplierHolds(eventId, 'guests'))
+      ? checkInAtTheDesk(eventId, guestId, method, scannedAt)
+      : { ok: false, error: helperRefusal, refused: true };
+  }
+  return checkInAtTheDesk(eventId, guestId, method, scannedAt);
+}
+
+/**
+ * 🛂 THE SUPPLIER AT THE DOOR (owner 16 Nov 2026, "Yes, as drawn": *"the coordinator, helpers and one supplier at the
+ * door each get the parts you choose"*). A booked supplier who is not the coordinator proposes and never writes through
+ * the hosts' screens (8 Nov) — so the helper gate refuses them. The ONE exception is the supplier the HOSTS picked for
+ * the door in ⚙ Who runs the desk, for the part the hosts gave them: that pick is the hosts' own yes. Asked only after
+ * the gate said no; a read that does not answer is a no (`deskPartsFor` gives nothing on an unread). The database
+ * already admits the write (guest_checkins_member_manage: any couple or coordinator member; the supplier's seat is one).
+ */
+async function theDoorSupplierHolds(eventId: string, part: DeskPart): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user || typeof eventId !== 'string' || !/^[0-9a-f-]{36}$/i.test(eventId)) return false;
+  const supabase = await createClient();
+  const desk = await readDeskViewer(supabase, eventId, user.id, { isCouple: false, isCoordinatorMember: true });
+  return !desk.unread && desk.role === 'supplier' && desk.parts.includes(part);
+}
+
+/** The check-in itself, once the helper gate (or the hosts' door pick) has said yes. */
+async function checkInAtTheDesk(
+  eventId: string,
+  guestId: string,
+  method: CheckinMethod,
+  scannedAt?: string,
+): Promise<CheckinActionResult> {
   let user;
   try {
     user = await assertDoorCrew(eventId);
@@ -105,6 +161,8 @@ export async function checkInGuest(
     if (e instanceof DoorCrewUnread) return { ok: false, error: COULD_NOT_CHECK };
     return { ok: false, error: await onlyOrganizerOrCoordinator(eventId, 'check guests in'), refused: true };
   }
+  const deskRefusal = await deskPartRefusal(eventId, user, 'guests');
+  if (deskRefusal) return { ok: false, error: deskRefusal.error, ...(deskRefusal.refused ? { refused: true as const } : {}) };
 
   const supabase = await createClient();
 
@@ -163,19 +221,20 @@ export async function checkInGuest(
   return { ok: true, checkedInAt: inserted.checked_in_at };
 }
 
-/** Undo a check-in (mis-scan at the door). */
-export async function undoCheckIn(
+/** Undo a check-in (mis-scan at the door). Reached through `changeDesk` (below), which asks the helper gate first. */
+async function undoCheckIn(
   eventId: string,
   guestId: string,
 ): Promise<UndoActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
-  if (helperRefusal) return { ok: false, error: helperRefusal };
+  let crew;
   try {
-    await assertDoorCrew(eventId);
+    crew = await assertDoorCrew(eventId);
   } catch (e) {
     if (e instanceof DoorCrewUnread) return { ok: false, error: 'Couldn’t undo that check-in — try again.' };
     return { ok: false, error: await onlyOrganizerOrCoordinator(eventId, 'undo a check-in') };
   }
+  const deskRefusal = await deskPartRefusal(eventId, crew, 'guests');
+  if (deskRefusal) return { ok: false, error: deskRefusal.error };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -256,4 +315,89 @@ export async function checkTicketLive(eventId: string, qrToken: string): Promise
   return joined
     ? { verdict: 'valid', guestId: joined.guest_id as string, name: nameOf(joined), checkedAt }
     : { verdict: 'unknown', checkedAt };
+}
+
+export type SaveDeskAccessResult = { ok: true; access: DeskAccess } | { ok: false; error: string };
+
+/**
+ * ⚙ WHO RUNS THE DESK — the hosts' one save (owner 16 Nov 2026, "Yes, as drawn"). Hosts always run every part, so
+ * only the coordinator's, the helpers' and the door supplier's parts are stored. HOSTS ONLY: the caller must be a
+ * couple member or a full co-host seat (`readDeskViewer` → role `host`). The supplier at the door must hold a live
+ * supplier seat (`wedding_planner_external`) on THIS event — a typed or stale account id is refused, never stored.
+ * Written through the service role (the column has no user grant — migration 20271357880360). The sheet updates in
+ * place from what comes back; nothing reloads. Reached through `changeDesk` (below), which asks the helper gate first.
+ */
+async function saveDeskAccess(eventId: string, next: unknown): Promise<SaveDeskAccessResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Sign in again to change who runs the desk.' };
+  if (typeof eventId !== 'string' || !/^[0-9a-f-]{36}$/i.test(eventId)) return { ok: false, error: 'That event could not be found.' };
+  const supabase = await createClient();
+  const { data: member, error: memberError } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .in('member_type', ['couple', 'coordinator'])
+    .maybeSingle();
+  if (memberError) return { ok: false, error: 'Couldn’t save that just now — try again.' };
+  const memberType = (member as { member_type?: string } | null)?.member_type ?? null;
+  const desk = await readDeskViewer(supabase, eventId, user.id, {
+    isCouple: memberType === 'couple',
+    isCoordinatorMember: memberType === 'coordinator',
+  });
+  if (desk.role !== 'host') {
+    return desk.unread
+      ? { ok: false, error: 'Couldn’t save that just now — try again.' }
+      : { ok: false, error: 'Only a host can change who runs the desk.' };
+  }
+
+  // The wire shape is the stored shape; parsing it drops every unknown part and a malformed door.
+  const access = parseDeskAccess(next);
+  const admin = createAdminClient();
+  if (access.door) {
+    const { data: seat, error: seatError } = await admin
+      .from('event_moderators')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('user_id', access.door.userId)
+      .eq('role_subtype', 'wedding_planner_external')
+      .is('removed_at', null)
+      // The same seat readDeskViewer honours: an invite never accepted opens no desk, so it cannot be picked either.
+      .not('accepted_at', 'is', null)
+      // …and never a limited helper (owner 2026-09-28: "may view but may not edit"). The supplier pin above already
+      // rules one out; saying it here keeps that true if the pin ever widens. 🔒 lib/a-limited-helper-views-never-edits.test.ts
+      .neq('role_subtype', 'viewer')
+      .maybeSingle();
+    if (seatError) return { ok: false, error: 'Couldn’t save that just now — try again.' };
+    if (!seat) return { ok: false, error: 'That supplier no longer has access to this event.' };
+  }
+  const { error } = await admin
+    .from('events')
+    .update({ checkin_desk_access: serializeDeskAccess(access) })
+    .eq('event_id', eventId);
+  if (error) return { ok: false, error: 'Couldn’t save that just now — try again.' };
+  return { ok: true, access };
+}
+
+/**
+ * ONE door for the desk's two writes besides a check-in (owner 16 Nov 2026): `undo` a mis-scan, and the hosts' ⚙ `access`
+ * save. One export, not two — every exported server action is a Vercel route and the count sits at its ceiling
+ * (scripts/lint-server-action-budget.mjs, "fold, never raise"). Both are guest-list writes, so the limited-helper gate is
+ * asked once, here, before either runs.
+ */
+export type DeskChange = { kind: 'undo'; guestId: string } | { kind: 'access'; next: unknown };
+type DeskChangeAnswer<C> = C extends { kind: 'access' } ? SaveDeskAccessResult : UndoActionResult;
+
+export async function changeDesk<C extends DeskChange>(eventId: string, change: C): Promise<DeskChangeAnswer<C>> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
+  if (helperRefusal) {
+    // The door supplier may undo a mis-scan on the part the hosts gave them; ⚙ stays the hosts' (saveDeskAccess asks).
+    return (change?.kind === 'undo' && (await theDoorSupplierHolds(eventId, 'guests'))
+      ? await undoCheckIn(eventId, String(change.guestId ?? ''))
+      : { ok: false, error: helperRefusal }) as DeskChangeAnswer<C>;
+  }
+  const answer = change?.kind === 'access' ? await saveDeskAccess(eventId, change.next)
+    : change?.kind === 'undo' ? await undoCheckIn(eventId, String(change.guestId ?? ''))
+    : ({ ok: false, error: 'That change isn’t one the desk knows.' } as const);
+  return answer as DeskChangeAnswer<C>;
 }

@@ -6,7 +6,7 @@
  * comes back `null` and the page leaves the figure out — a missing price is recoverable, a confidently
  * stale one is not (same rule as `getVendorPrices` in lib/v2-catalog.ts).
  *
- *   Supplier Plus / Pro / Ultra per 4 weeks and per year ... `solo|pro|enterprise_vendor_monthly|annual`
+ *   Supplier Plus / Pro / Ultra per 4 weeks ................ `solo|pro|enterprise_vendor_monthly` (no yearly plan)
  *   +1 branch .................................... `BRANCH_SKU_CODE` (the row a branch order is charged by)
  *   +1 team seat ................................. `SEAT_SKU_CODE`   (the row a seat order is charged by)
  */
@@ -17,7 +17,8 @@ import { SEAT_SKU_CODE } from '@/lib/vendor-seats';
 
 import { pesoWords, type GrowTier } from './_facts';
 
-export type PlanPrice = { month: string | null; year: string | null };
+/** Monthly only — no yearly supplier plan (owner 2026-11-22). */
+export type PlanPrice = { month: string | null };
 export type CoordinatorPrices = {
   plans: Readonly<Record<GrowTier, PlanPrice>>;
   branch: string | null;
@@ -34,10 +35,7 @@ export async function readCoordinatorPrices(): Promise<CoordinatorPrices> {
     const n = rows.find((r) => r.sku_code === code)?.price_php;
     return n != null && Number.isFinite(n) && n > 0 ? pesoWords(n) : null;
   };
-  const plan = (t: GrowTier): PlanPrice => ({
-    month: price(`${SKU[t]}_vendor_monthly`),
-    year: price(`${SKU[t]}_vendor_annual`),
-  });
+  const plan = (t: GrowTier): PlanPrice => ({ month: price(`${SKU[t]}_vendor_monthly`) });
   return {
     plans: { solo: plan('solo'), pro: plan('pro'), enterprise: plan('enterprise') },
     branch: price(BRANCH_SKU_CODE),

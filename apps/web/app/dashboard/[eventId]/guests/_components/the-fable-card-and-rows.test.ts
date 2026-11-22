@@ -131,10 +131,12 @@ test('card body: the approved groups, in the drawing’s order — every one fol
   assert.doesNotMatch(CARD, /data-guest-card-tags=""|tagWords/, 'the Tags line is back');
 });
 
-test('card: RSVP is Attending · No reply · Not coming — Maybe only for a guest who said it', () => {
+test('card: RSVP is Coming · No reply · Can’t come — Maybe only for a guest who said it', () => {
   assert.match(CARD, /RSVP_OPTIONS\.filter\(\(v\) => v !== 'maybe' \|\| guest\.rsvp_status === 'maybe'\)/);
-  // The words live in ONE list (lib/guests RSVP_ROW_WORDS) that the card, the row picker and the filter all read.
-  assert.match(CARD, /CARD_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_ROW_WORDS/);
+  // The words live in lib/guests: the filters and the row picker read RSVP_ROW_WORDS. 22 Nov 2026 (approved drawing v4
+  // § 3, "✓ Coming" / Reply "Coming"): the card reads the List's own RSVP_LIST_WORDS, so a row and its card agree.
+  assert.match(CARD, /CARD_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_LIST_WORDS/);
+  assert.match(GUESTS_LIB, /RSVP_LIST_WORDS: Record<RsvpStatus, string> = \{[^}]*attending: 'Coming'/);
   assert.match(GUESTS_LIB, /RSVP_ROW_WORDS: Record<RsvpStatus, string> = \{[^}]*pending: 'No reply'/);
   assert.match(GUESTS_LIB, /RSVP_ROW_WORDS: Record<RsvpStatus, string> = \{[^}]*declined: 'Not coming'/);
 });

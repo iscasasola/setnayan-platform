@@ -35,8 +35,10 @@ const WEB = path.join(HERE, '..'); // apps/web
 // call. If another capture surface is added, add it here — that is the point of
 // the guardrail. (selfie-capture.tsx is the RSVP/day-of enroll selfie; it calls
 // `embedSingleFace` and is gated on the server-resolved effective mode.)
+// 📷 The seat camera's own screen is retired (owner 2026-11-22, "we only have one camera interface"): a seat now
+// shoots on the guest camera, whose face source is made only on a mode_a event (`developPhoto`) and read by the
+// uploader's prepare step — the same gate a guest's shot passes, pinned below.
 const CAPTURE_FILES = [
-  'app/papic/seat/[token]/_components/papic-seat-capture.tsx',
   'app/dashboard/[eventId]/studio/patiktok/_components/booth-capture.tsx',
   'app/[slug]/_components/selfie-capture.tsx',
 ];
@@ -265,3 +267,16 @@ for (const rel of [
     );
   });
 }
+
+test('📷 the one camera keeps a clean face frame ONLY on a mode_a event — for a guest and for a seat alike', () => {
+  const cam = fs.readFileSync(path.join(WEB, 'app/papic/guest/_components/papic-guest-capture.tsx'), 'utf8');
+  assert.match(
+    cam,
+    /let faceSource: Blob \| null = null;\s*if \(meta\.faceMode === 'mode_a'\) \{/,
+    'the one camera keeps a face frame outside mode_a — a seat on a mode_b event would send face vectors',
+  );
+  // The uploader computes vectors only for a shot that carried a face frame.
+  const replayer = fs.readFileSync(path.join(WEB, 'lib/papic-upload/replayer.ts'), 'utf8');
+  assert.match(replayer, /wantsFaceVectors: !!input\.faceSource,/);
+  assert.match(replayer, /if \(shot\.wantsFaceVectors\) \{/);
+});

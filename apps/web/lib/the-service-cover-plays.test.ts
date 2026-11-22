@@ -134,7 +134,9 @@ test('every surface hands the face its photos', () => {
   // Find's cards read the showcase in the SAME read as the cover — no request per card.
   const bench = src('lib/bench-service-cards.ts');
   assert.match(bench, /'primary_photo_r2_key,showcase_photo_r2_keys'/);
-  assert.match(bench, /photos: \(row\.showcase_photo_r2_keys \?\? \[\]\)/);
+  // 🔒 through the Free-files rule (lib/free-shop-files.ts, spec § ★ J), the public resolver for a verified shop
+  assert.match(bench, /shopFileUrls\(\(row\.showcase_photo_r2_keys \?\? \[\]\)\.slice\(0, 5\), serves, publicUrlForStoredAsset\)/);
+  assert.match(bench, /\n\s+photos,\n/);
   // A bundle: its services' photos, one from each in turn.
   const shop = src('app/vendor-dashboard/shop/page.tsx');
   assert.match(shop, /vendor_services\(title, starting_price_php, primary_photo_r2_key, showcase_photo_r2_keys,/);

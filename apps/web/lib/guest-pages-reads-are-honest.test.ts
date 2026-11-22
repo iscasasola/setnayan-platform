@@ -218,7 +218,7 @@ test('4 · MY camera: a refused read reaches the guest error page, never "This l
 
 test('5 · check-in: a refused read is "couldn’t check — try again", never "not on this event’s list"', () => {
   const live = src('app/dashboard/[eventId]/guests/checkin/actions.ts');
-  const fn = live.slice(live.indexOf('export async function checkInGuest'), live.indexOf('export async function undoCheckIn'));
+  const fn = live.slice(live.indexOf('export async function checkInGuest'), live.indexOf('async function undoCheckIn'));
   assert.match(fn, /const \{ data: guest, error: guestError \} = await supabase\s*\.from\('guests'\)/, 'the guest read drops its error');
   before(fn, 'if (guestError) return { ok: false, error: COULD_NOT_CHECK };', 'if (!guest) return', 'a refused read is said before "not on the list"');
   // Not `refused`: a refusal is a permanent NO the offline queue files and stops sending.

@@ -1,5 +1,6 @@
 import { Lock } from 'lucide-react';
 import { isPaidSize } from '@/lib/vendor-tier-caps';
+import type { ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { r2SignedGet, R2_BUCKETS } from '@/lib/r2';
 import { parseR2Ref } from '@/lib/nsfw-screen';
@@ -11,6 +12,8 @@ import { PutOnMyPageButton } from '@/app/vendor-dashboard/collections/_component
 import { InfoTip } from '@/app/_components/info-tip';
 import { PartCard, setTwo } from '@/app/vendor-dashboard/_components/set-two/parts';
 import { SUPPLIER_PAGE_NOTICE_DAYS, supplierPageNoticeState, type SupplierPageNoticeRow, type SupplierPageNoticeState } from '@/lib/supplier-page-notice';
+import { readShopDrive, readShopEventsCopied } from '@/lib/supplier-drive-copy.server';
+import { CopyEventToDrive } from '@/app/vendor-dashboard/_components/copy-event-to-drive';
 
 /**
  * "Your private portfolio" — a supplier's OWN imported work for THIS booked
@@ -113,9 +116,26 @@ export async function PortfolioAlbumSection({
     }),
   );
 
+  // ☁️ "Copy to Google Drive" for this event (owner 2026-11-22) — the shop's own Drive and what it already holds of it.
+  // Read for the shop this page already proved; never counted, never a gate.
+  const [drive, copied] = vendorProfileId
+    ? await Promise.all([readShopDrive(vendorProfileId), readShopEventsCopied(vendorProfileId, [eventId])])
+    : [null, null];
+
   return (
     <PortfolioAlbumView
       eventId={eventId}
+      drive={
+        drive ? (
+          <CopyEventToDrive
+            eventId={eventId}
+            eventName={coupleName}
+            drive={drive}
+            copied={copied === null ? null : (copied[eventId] ?? { total: 0, copied: 0 })}
+            back={`/vendor-dashboard/on-the-day/live/${eventId}/papic#portfolio`}
+          />
+        ) : null
+      }
       summary={portfolioAlbumSummary(photos)}
       share={share}
       canPutOnPage={canPutOnPage}
@@ -152,6 +172,8 @@ export function PortfolioAlbumView(
         vendorProfileId: string | null;
         tiles: readonly AlbumTile[];
         noticeByPhoto: ReadonlyMap<string, { state: SupplierPageNoticeState; publicFrom: string }>;
+        /** ☁️ "Copy to Google Drive" for this event (`CopyEventToDrive`), drawn under the share switch. */
+        drive?: ReactNode;
       },
 ) {
   if (props.unread) {
@@ -166,7 +188,7 @@ export function PortfolioAlbumView(
       </PartCard>
     );
   }
-  const { eventId, summary, share, canPutOnPage, eventEnded, coupleName, creditsLeft, vendorProfileId, tiles, noticeByPhoto } = props;
+  const { eventId, summary, share, canPutOnPage, eventEnded, coupleName, creditsLeft, vendorProfileId, tiles, noticeByPhoto, drive = null } = props;
   const canImport = creditsLeft == null || creditsLeft >= 1;
 
   return (
@@ -210,6 +232,10 @@ export function PortfolioAlbumView(
             upgradeHref={STORAGE_UPGRADE_HREF}
           />
         ) : null}
+
+        {/* ☁️ Copy to Google Drive — already inside the card, so no frame of its own; -mx-3 lines the row's title up with
+            the note's text edge (Fable design, 22 Nov 2026). */}
+        {drive ? <div className="-mx-3 mt-2">{drive}</div> : null}
 
         <PortfolioImportForm
           eventId={eventId}

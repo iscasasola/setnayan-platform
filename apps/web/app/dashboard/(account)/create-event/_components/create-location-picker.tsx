@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import { CITIES } from '@/app/onboarding/wedding/_data/wedding-cities';
+import { MAX_EVENT_AREAS } from '@/lib/create-event-capture';
 
 /**
- * Compact area picker for the non-wedding inline create form — pick up to 2
+ * Compact area picker for the non-wedding inline create form — pick up to 3 (owner 2026-11-17, Q15; was 2)
  * candidate areas ("Manila or Tagaytay"), mirroring the up-to-4 candidate dates
  * (owner 2026-07-12: "location can be in 2 places, give them choices").
  *
@@ -15,7 +16,7 @@ import { CITIES } from '@/app/onboarding/wedding/_data/wedding-cities';
  * the server action resolves them → region + venue centroid + search_areas.
  * Optional.
  */
-const MAX_AREAS = 2;
+const MAX_AREAS = MAX_EVENT_AREAS;
 
 export function CreateLocationPicker() {
   const [selected, setSelected] = useState<string[]>([]);
@@ -59,7 +60,7 @@ export function CreateLocationPicker() {
       ) : null}
 
       {full ? (
-        <p className="text-xs text-ink/40">Up to 2 areas. Remove one to change it.</p>
+        <p className="text-xs text-ink/40">Up to {MAX_AREAS} areas. Remove one to change it.</p>
       ) : (
         <>
           <input

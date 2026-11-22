@@ -194,6 +194,18 @@ export function popularTilesFor(eventType: string | null | undefined): ReadonlyS
   return new Set(POPULAR_BY_TYPE[eventType ?? 'wedding'] ?? POPULAR_DEFAULT);
 }
 
+/**
+ * 🛒 THE CATEGORIES A NEW EVENT STARTS WITH (owner 2026-11-17, Q4): the type's own core list
+ * (`event_type_profiles.core_categories`, Admin-editable) when one is set — else the shipped starter ring above.
+ * One door, so the page, the Build tally and the bench can never start from different lists.
+ */
+export function starterTilesFor(
+  eventType: string | null | undefined,
+  coreCategories: readonly string[] | null | undefined,
+): ReadonlySet<string> {
+  return coreCategories && coreCategories.length > 0 ? new Set(coreCategories) : popularTilesFor(eventType);
+}
+
 const TYPE_PLURAL: Readonly<Record<string, string>> = {
   wedding: 'weddings',
   birthday: 'birthdays',

@@ -51,7 +51,8 @@ test('each partner wears its tie\'s ⓘ tag (Worked together · Added · Invited
   assert.match(PAGE, /kindHint: trustedByHint\(/);
   assert.match(TRUSTED, /PARTNERSHIP_RANK\[b\.relationshipType\] - PARTNERSHIP_RANK\[a\.relationshipType\]/, 'sorted by the one rank, strongest first');
   assert.match(TRUSTED, /logoRef: nameRevealed \?/, 'a still-hidden partner never shows its logo — it would name the shop');
-  assert.match(PAGE, /logoUrl: v\.logoRef \? await resolveDisplayUrl\(v\.logoRef\) : null/);
+  // 🔒 each partner's logo follows ITS OWN verification (Free files stay private, lib/free-shop-files.ts, spec § ★ J)
+  assert.match(PAGE, /logoUrl: v\.logoRef \? await shopFileUrl\(v\.logoRef, partnerServes, \(r\) => displayUrlForStoredAsset\(r\)\)\.catch\(\(\) => null\) : null/);
   assert.match(PAGE, /initials: shopInitials\(/);
 });
 

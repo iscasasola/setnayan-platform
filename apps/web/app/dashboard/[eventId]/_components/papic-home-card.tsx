@@ -136,7 +136,9 @@ export function PapicHomeCard({
     <div ref={root} id={PAPIC_CARD_ANCHOR} className="flex min-w-0 scroll-mt-20 flex-col" data-papic-home-card={open ? 'open' : 'rest'}>
       <OneOpenScope id={oneOpenId}>
       <PapicHeadContext.Provider value={say}>
-        <div className="sn-frame flex min-w-0 cursor-pointer flex-col gap-2.5 px-3.5 pb-0 pt-3 text-ink" onClick={onBody} {...marker}>
+        {/* 🌙 THE TOP BLOCK'S GLOW (DARK_MODE_STANDARD_2026-11-20 §3): Memories' top block is this one, so in dark it — and
+            nothing else on the page — wears `--color-band-glow` over its own frame fill (Light: `none`, so nothing). */}
+        <div className="sn-frame flex min-w-0 cursor-pointer flex-col gap-2.5 px-3.5 pb-0 pt-3 text-ink [background-image:var(--color-band-glow,none)]" onClick={onBody} data-papic-top-glow="" {...marker}>
           <div className="flex min-w-0 items-center gap-2.5">
             {/* THE HEAD — a press of its own (keyboard and reader): it rises the settings, never another page. */}
             <button

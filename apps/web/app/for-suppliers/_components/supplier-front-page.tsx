@@ -84,16 +84,10 @@ import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import s from './supplier-front.module.css';
 
 export type SupplierFrontPrices = {
+  // Monthly only — no yearly supplier plan (owner 2026-11-22).
   soloMonthly: string | null;
-  soloAnnual: string | null;
-  /** What a year saves against 13 blocks of 4 weeks (`getVendorPrices().*AnnualSave`), or null when unread. */
-  soloAnnualSave: string | null;
   proMonthly: string | null;
-  proAnnual: string | null;
-  proAnnualSave: string | null;
   enterpriseMonthly: string | null;
-  enterpriseAnnual: string | null;
-  enterpriseAnnualSave: string | null;
   branch: string | null;
   seat: string | null;
   /** Every active `vendor_billing_catalog` row by sku_code, formatted (`getVendorPrices().bySku`). */

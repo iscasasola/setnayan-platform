@@ -1,4 +1,4 @@
-import { guestInitials, guestNameWithNick, guestRoleLabel, RSVP_ROW_WORDS, SIDE_LABELS, type GuestSide } from '@/lib/guests';
+import { guestInitials, guestNameWithNick, guestRoleLabel, RSVP_LIST_WORDS, SIDE_LABELS, type GuestSide } from '@/lib/guests';
 import { displayPersonName } from '@/lib/person-name-case';
 import { representedByWords } from '@/lib/guest-proxy';
 import type { GuestCardData } from './guest-card-data';
@@ -50,10 +50,11 @@ export function guestCardNick(guest: Parameters<typeof guestNameWithNick>[0], pl
   return plusOneOf?.name ? null : guestNameWithNick(guest).nick;
 }
 export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>, proxy?: GuestCardData['proxy']): string {
-  if (guest.role === 'bride' || guest.role === 'groom') return `✓ ${RSVP_ROW_WORDS.attending} · always`;
+  // 💬 The list's words (drawing § 3: "✓ Coming") — the row the card was opened from says the same.
+  if (guest.role === 'bride' || guest.role === 'groom') return `✓ ${RSVP_LIST_WORDS.attending} · always`;
   // 🧍 A represented role holder's answer is their proxy's — the pair counts once, as them.
   if (proxy?.representedBy) return representedByWords(proxy.representedBy.name);
-  return `${guest.rsvp_status === 'attending' ? '✓ ' : ''}${RSVP_ROW_WORDS[guest.rsvp_status]}`;
+  return `${guest.rsvp_status === 'attending' ? '✓ ' : ''}${RSVP_LIST_WORDS[guest.rsvp_status]}`;
 }
 
 

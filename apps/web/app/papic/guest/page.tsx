@@ -88,7 +88,7 @@ export default async function PapicGuestPage({
     // couple here, and a host carries no guest session. Their own host camera is the one they already have; a refusal
     // says why and where to go. Anyone else falls through to the guest's door below, unchanged.
     const host = backSlug ? await hostCameraDoor(backSlug) : ({ kind: 'not_host' } as const);
-    if (host.kind === 'camera') redirect(hostCameraHref(host.token));
+    if (host.kind === 'camera') redirect(hostCameraHref(host.token, backTab));
     if (host.kind === 'refused') {
       return (
         <DoorShell

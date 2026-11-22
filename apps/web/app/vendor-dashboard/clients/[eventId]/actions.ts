@@ -23,6 +23,7 @@ import { paymentAskedLine } from '@/lib/chat-gap-lines';
 import { LOCK_AGREE_FEE_HELD, lockAgreeHallsParam, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { closedDayOfAsk } from '@/lib/closed-day.server';
+import { fullSchedulesOfAsk } from '@/lib/schedule-pools';
 import { shortDayWords, waitlistMessage } from '@/lib/day-check';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
@@ -1544,6 +1545,16 @@ export async function vendorAgreeToLock(formData: FormData) {
     if (h.status === 'hall_taken') {
       const backTo = lockAnswerReturnTo(formData.get('return_to'));
       redirect(`${backTo}?lock_agree=hall_taken${lockAgreeHallsParam({ taken: h.taken ?? [], free: h.free ?? [] })}`);
+    }
+  }
+
+  // 👥 A FULL TEAM SCHEDULE TAKES NO YES (walk 22 Nov 2026): the yes never took a schedule seat, so a day whose crew was
+  // already full was agreed here and refused only at the couple's deposit. The deposit's own pool list and count
+  // (`fullSchedulesOfAsk`). Before the RPC: nothing booked, no fee minted. Fails open on a read error.
+  {
+    const full = await fullSchedulesOfAsk(supabase, eventVendorId, createAdminClient());
+    if (full.length > 0) {
+      redirect(`${lockAnswerReturnTo(formData.get('return_to'))}?lock_agree=schedule_full${lockAgreeHallsParam({ taken: full, free: [] })}`);
     }
   }
 

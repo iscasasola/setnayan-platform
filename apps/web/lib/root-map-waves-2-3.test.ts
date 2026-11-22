@@ -202,7 +202,8 @@ test('one rendering per fact: the shared words and the shared reads', () => {
     'lib/guest-roster-view.ts',
   ]) {
     const src = code(file);
-    assert.match(src, /RSVP_ROW_WORDS/, `${file} must take the roster's RSVP words from lib/guests`);
+    // 22 Nov 2026: the guest card speaks the List's words (`RSVP_LIST_WORDS`, drawing v4 § 3 "✓ Coming") — still lib/guests'.
+    assert.match(src, /RSVP_(ROW|LIST)_WORDS/, `${file} must take the roster's RSVP words from lib/guests`);
     assert.doesNotMatch(src, /['"`]No reply['"`]/, `${file} spells "No reply" itself`);
   }
   // The Paid / Still owing read has one copy. (The Suppliers lens that also read

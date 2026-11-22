@@ -25,7 +25,10 @@
 // re-check what landed against `TIER_RULES` (size cap + magic bytes) before a
 // row points at it — a URL can never be reused for another file or another size.
 
-export type CaptureLane = 'guest' | 'vendor';
+// 📷 'seat' (owner 2026-11-22, "we only have one camera interface"): a claimed seat camera — the host's own
+// camera and every camera handed out — shoots on the ONE approved camera and sends through this uploader, then
+// records through the seat's own fence (`recordSeatCapture`, app/papic/actions.ts). See app/api/papic/seat-capture.
+export type CaptureLane = 'guest' | 'vendor' | 'seat';
 
 export type PhotoTier = 'thumb' | 'tile' | 'display' | 'original';
 export type ClipTier = 'poster' | 'clip_web' | 'clip_raw';
@@ -128,7 +131,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
  * Folders are the ones the existing cleanup scopes already own
  * (`lib/cleanup-delete-scope.ts`): `papic/guest/<guest_id>/…` and
  * `papic/vendor-<vendor_profile_id>/event-<event_id>/…`, so "Remove for good"
- * and the account erasure reach these objects with no new rule.
+ * and the account erasure reach these objects with no new rule. A seat's key is
+ * `papic/event-<event_id>/seat-<seat_id>/…` — the folder `/api/upload`'s seat
+ * branch has always minted, which `papicSeatCapturePolicy` (lib/r2-client-ref.ts)
+ * and the seat cleanup already own.
  *
  * Deterministic on purpose: a retry of the same shot's same tier re-signs the
  * same key, so a replay overwrites one object instead of leaving a second.
@@ -136,9 +142,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
  */
 export function captureTierKey(input: {
   lane: CaptureLane;
-  /** guest_id (guest lane) or vendor_profile_id (vendor lane). */
+  /** guest_id (guest lane), vendor_profile_id (vendor lane) or seat_id (seat lane). */
   ownerId: string;
-  /** Required for the vendor lane (its folder is per event). */
+  /** Required for the vendor and seat lanes (their folders are per event). */
   eventId?: string | null;
   clientCaptureId: string;
   tier: CaptureTier;
@@ -152,6 +158,7 @@ export function captureTierKey(input: {
   const file = `cap-${clientCaptureId}-${tier}.${extFor(contentType)}`;
   if (lane === 'guest') return `papic/guest/${ownerId}/${file}`;
   if (!eventId || !SAFE_ID.test(eventId)) return null;
+  if (lane === 'seat') return `papic/event-${eventId}/seat-${ownerId}/${file}`;
   return `papic/vendor-${ownerId}/event-${eventId}/${file}`;
 }
 

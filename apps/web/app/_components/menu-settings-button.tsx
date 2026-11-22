@@ -38,6 +38,8 @@
  *     prototype has its ⚙ swap the body in place there (RiseScreen is one level, never a second screen on top). Since main
  *     bf8998a1 (17 Nov) the picked client's ⚙ rises like the rest, so `inLayer` has NO caller today; it is kept for that
  *     in-place swap. `lib/settings-v2-one-shell.test.ts` (1) holds it at zero callers.
+ *   · Motion: a settings screen is "fill in / edit", so it rises as main's **Stack** (`FULL_SCREEN_MAP.edit`, MOTION
+ *     standard 2026-11-18 — the same kind main's Papic and avatar settings already use), never the retired grow.
  */
 import { useId, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -48,6 +50,7 @@ import { usePortalHost } from '@/lib/use-portal-host';
 import { InfoTip } from '@/app/_components/info-tip';
 import { MENU_SETTINGS_TIP, SETTINGS_ENTRY, type SettingsMenu } from '@/lib/menu-settings';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
+import { FULL_SCREEN_MAP } from '@/lib/rise-screen';
 import { gearText } from '@/app/_components/gear-text';
 
 export function MenuSettingsButton({
@@ -106,6 +109,7 @@ export function MenuSettingsButton({
           thumb={thumb}
           onClose={() => onOpenChange(false)}
           data={`settings-${menu}`}
+          kind={FULL_SCREEN_MAP.edit}
         >
           <div data-menu-settings-sheet={menu}>{children}</div>
         </RiseScreen>

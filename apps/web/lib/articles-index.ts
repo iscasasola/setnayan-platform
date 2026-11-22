@@ -8,7 +8,8 @@
  *     #7935: "hidden" IS `removed_at`, no new column). Every public read filters it, so the post 404s and leaves
  *     `sitemap-articles.xml`, llms.txt and Discover together. There is no second "hidden" test here.
  *   · `sitemap-articles.xml` — `articlesSitemapUrls`
- *   · `llms.txt` lists the articles — `llmsArticlesSection`
+ *   · `llms.txt` lists the articles — its WORDS live in the one search-and-AI source, `lib/llms-txt.ts`
+ *     (`llmsArticlesSection`, #8041). This file only shapes the data; it holds no llms.txt prose.
  *   · structured data: a member's (or a shop's) post is a DiscussionForumPosting, a Setnayan Journal post an
  *     Article — `articleStructuredData`
  *
@@ -76,37 +77,6 @@ export function articlesSitemapUrls(
       return `  <url>\n    <loc>${xmlEscape(base + articleHref(a))}</loc>${lastmod}\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>`;
     })
     .join('\n');
-}
-
-/* ── llms.txt · Articles ──────────────────────────────────────────────────────────────────────────── */
-
-/** How many articles llms.txt names, newest first. The sitemap carries every one; this file stays readable. */
-export const LLMS_ARTICLES_MAX = 50;
-
-/** One line of markdown never breaks: no newlines, no stray brackets in a link label. */
-function oneLine(s: string): string {
-  return s.replace(/\s+/g, ' ').replace(/[[\]]/g, '').trim();
-}
-
-/** Whose words these are, for an answer engine — never a member's opinion quoted as Setnayan's. */
-function whoseWords(b: Byline): string {
-  if (b.kind === 'journal') return JOURNAL_BYLINE;
-  if (b.kind === 'shop') return `a supplier’s post by ${oneLine(b.name)}`;
-  return `a member’s post by ${oneLine(b.name)}`;
-}
-
-/**
- * The `## Articles` section, or '' when there is nothing public to list (a failed read passes [] too: say less,
- * never something untrue). Each line names who wrote it.
- */
-export function llmsArticlesSection(articles: readonly IndexedArticle[], baseUrl: string): string {
-  if (articles.length === 0) return '';
-  const base = baseUrl.replace(/\/$/, '');
-  const lines = articles.slice(0, LLMS_ARTICLES_MAX).map((a) => {
-    const summary = a.summary ? ` — ${oneLine(a.summary).slice(0, 160)}` : '';
-    return `- [${oneLine(a.title)}](${base}${articleHref(a)}): ${whoseWords(a.byline)}${summary}`;
-  });
-  return `## Articles\n\nPosts on Setnayan's Discover. Setnayan Journal posts are Setnayan's own; every other post is its author's own words, not Setnayan's.\n\n${lines.join('\n')}\n\n`;
 }
 
 /* ── Structured data ──────────────────────────────────────────────────────────────────────────────── */

@@ -7,7 +7,8 @@
  *   1 · one address for every list (`articleHref` → Build 2's `/articles/{slug}`), never spelled by hand
  *   2 · a removed or hidden post: an admin Hide sets `removed_at`, and every list's read filters it
  *   3 · sitemap-articles.xml — honest lastmod, escaped, listed in the index
- *   4 · llms.txt — an Articles section only when there is one; Journal, shop and member named
+ *   4 · llms.txt — an Articles section only when there is one; Journal, shop and member named; its words live only in
+ *       the one search-and-AI source, lib/llms-txt.ts (#8041)
  *   5 · structured data — DiscussionForumPosting / Article, replies as Comments, `</script>` cannot escape
  *   6 · Build 2's reads are the only reads; a refused read lists nothing
  *   7 · the article page is indexable, canonical to its one address, with its structured data
@@ -22,15 +23,15 @@ import * as React from 'react';
 
 import { stripComments } from './strip-comments';
 import {
-  LLMS_ARTICLES_MAX,
   articleHref,
   articleStructuredData,
   isJournalArticle,
   jsonLdText,
-  llmsArticlesSection,
   articlesSitemapUrls,
   type IndexedArticle,
 } from './articles-index';
+// The llms.txt WORDS for articles live in the one search-and-AI source (#8041), never in articles-index.ts.
+import { LLMS_ARTICLES_MAX, llmsArticlesSection } from './llms-txt';
 
 const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -126,6 +127,11 @@ test('4 · llms.txt: an Articles section only when there is one; each line says 
   assert.equal((many.match(/^- \[/gm) ?? []).length, LLMS_ARTICLES_MAX);
 
   assert.match(src('lib/llms-txt.ts'), /\$\{llmsArticlesSection\(input\.articles \?\? \[\], ORIGIN\)\}/);
+  // ONE SOURCE (controller, 22 Nov: "make #8041 the one source … never a second copy"): the section's words are in
+  // lib/llms-txt.ts only. SABOTAGE: move the section (or its intro line) back into articles-index.ts → RED.
+  const index = src('lib/articles-index.ts');
+  assert.doesNotMatch(index, /## Articles|own words|a member’s post by|a supplier’s post by|llmsArticlesSection/, 'articles-index.ts carries llms.txt words again — they belong in lib/llms-txt.ts');
+  assert.match(src('lib/llms-txt.ts'), /export function llmsArticlesSection\(/);
   assert.match(src('app/llms.txt/route.ts'), /articles:\s*articles\.items/);
 });
 

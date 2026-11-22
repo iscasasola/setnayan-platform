@@ -196,7 +196,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         dress={cameraDress}
         photoMark={photoMarkOfEvent(dressRow, pro)}
         chapter={chapter}
-        seat={{ token, geoEnabled }}
+        seat={{ token, geoEnabled, isAnon: Boolean(user.is_anonymous) }}
       />
       {bridgeEnabled ? (
         <CameraBridgePanel

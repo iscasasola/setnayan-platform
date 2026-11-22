@@ -313,7 +313,7 @@ type Props = {
    * when the RA 10173 control is on. The guest-only parts — the photo terms, Kwento, Challenges, the face step and
    * "Add from your phone" — are not drawn for a seat (the seat page passes them off).
    */
-  seat?: { token: string; geoEnabled: boolean } | null;
+  seat?: { token: string; geoEnabled: boolean; isAnon?: boolean } | null;
 };
 
 /**
@@ -1793,6 +1793,40 @@ export function PapicGuestCapture({
       {/* In-camera "add your face" fallback — catches the guest who jumped
           straight to shooting without enrolling on their landing page. Opens the
           front-camera selfie panel; dismissible. QR scan is the fallback either way. */}
+      {/* 🛟 A SEAT CLAIMED WITHOUT AN ACCOUNT (carried from the old seat screen, 2026-10-30): one slim line over the
+          picture — the shots are the event's either way, but the photographer's own access to them ends with this tab
+          unless they save an account. It grows gold with what there is to lose. */}
+      {seat?.isAnon ? (
+        <a
+          data-camera-save-account=""
+          href={`/signup?next=${encodeURIComponent(`/papic/seat/${seat.token}`)}`}
+          className={
+            sessionShots.length > 0
+              ? 'mx-4 mb-1 flex min-h-11 items-center gap-2 rounded-full border-2 border-champagne-gold bg-champagne-gold/25 py-1 pl-3 pr-1 text-xs text-cream backdrop-blur-sm transition hover:bg-champagne-gold/30'
+              : 'mx-4 mb-1 flex min-h-11 items-center gap-2 rounded-full border border-champagne-gold/40 bg-ink/40 py-1 pl-3 pr-1 text-xs text-cream/85 backdrop-blur-sm transition hover:bg-champagne-gold/15'
+          }
+        >
+          <ShieldCheck aria-hidden className={sessionShots.length > 0 ? 'h-5 w-5 shrink-0 text-champagne-gold' : 'h-4 w-4 shrink-0 text-champagne-gold'} strokeWidth={1.9} />
+          <span className="min-w-0 flex-1 truncate">
+            {sessionShots.length > 0 ? (
+              <>
+                <span className="font-semibold text-cream">
+                  {formatCount(sessionShots.length)} {sessionShots.length === 1 ? 'shot' : 'shots'} — only on this phone
+                </span>
+                <span className="sr-only"> Save them to your account or they go when you close this tab.</span>
+              </>
+            ) : (
+              <>
+                <span className="font-medium text-cream">Shooting as a guest</span>
+                <span className="sr-only"> Save these to your Setnayan account to find them later.</span>
+              </>
+            )}
+          </span>
+          <span className={sessionShots.length > 0 ? 'shrink-0 rounded-full bg-cream px-3 py-1 font-semibold text-ink' : 'shrink-0 rounded-full bg-cream/15 px-2.5 py-1 font-medium text-cream'}>
+            Save
+          </span>
+        </a>
+      ) : null}
       {needsFaceEnroll && !enrolled && !promptDismissed ? (
         <div className="mx-3 mb-1 flex items-center gap-2 rounded-xl bg-cream/10 px-3 py-2 text-xs text-cream/90">
           <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-cream" strokeWidth={1.75} />

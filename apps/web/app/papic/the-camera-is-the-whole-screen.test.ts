@@ -133,4 +133,8 @@ test('5 · 📷 a seat on the one camera: no guest-only rows — no consent line
   assert.doesNotMatch(html, /Add your face so your photos find you/, 'the guest face step draws on a seat camera');
   assert.match(html, /aria-label="How the shutter works"/, 'the seat camera lost the shutter ⓘ');
   assert.match(html, /data-camera-exit=""/, 'the seat camera has no ✕');
+  // A seat claimed without an account keeps its one slim "save your account" line; a signed-in claimer has none.
+  assert.doesNotMatch(html, /data-camera-save-account=""/, 'a signed-in seat is asked to save an account');
+  const anon = await guestCamera({ seat: { token: 'seat-token', geoEnabled: false, isAnon: true } });
+  assert.match(anon, /data-camera-save-account=""[^>]*href="\/signup\?next=%2Fpapic%2Fseat%2Fseat-token"/, 'an anonymous seat lost its save-your-account line');
 });

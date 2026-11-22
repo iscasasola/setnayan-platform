@@ -22,6 +22,8 @@ import { Info } from './supplier-front-info';
 import s from './supplier-front.module.css';
 import {
   EARN_FREE_ROWS,
+  EARN_HEADLINE,
+  EARN_LEDE,
   EARN_PROMISES,
   ONE_WEDDING,
   ONE_WEDDING_RULE,
@@ -58,7 +60,8 @@ export function SupplierHowWeEarn({
     <div className={s.earn} id="earn">
       <div className={s.earnHead} data-rv="">
         <p className={s.kicker}>How Setnayan earns</p>
-        <h3>We charge for what we add. Never for what you already had.</h3>
+        <h3>{EARN_HEADLINE}</h3>
+        <p className={s.earnLede}>{EARN_LEDE}</p>
       </div>
 
       <ul className={s.promises}>

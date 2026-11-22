@@ -697,9 +697,10 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       settle(false);
       return;
     }
-    // 🚫 The server said no (a rule, not a fault): say its reason on the bubble — a Try again would only be refused again.
+    // 🚫 The server said no (a rule, not a fault): the bubble says its reason. Try again stays real — it sends once more
+    // (the shop may have been verified since), and a second refusal says the reason again.
     if (refused) {
-      forgetRetry(pending.tempId);
+      again();
       settle(false, refused);
       return;
     }

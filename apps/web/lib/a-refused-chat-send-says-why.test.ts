@@ -33,7 +33,8 @@ test('1 · the action hands a refusal back on the JS path, and the bubble says i
   const form = read('app/_components/chat-send-form.tsx');
   assert.match(form, /sendAction: \(formData: FormData\) => Promise<void \| \{ ok: false; reason: string \}>/);
   assert.match(form, /if \(r && r\.ok === false\) refused = r\.reason;/, 'the composer ignores the refusal it is handed');
-  assert.match(form, /if \(refused\) \{\s*forgetRetry\(pending\.tempId\);\s*settle\(false, refused\);\s*return;\s*\}/, 'the bubble does not say the refusal');
+  // Its Try again stays a real resend (registered), never a button that only clears the bubble.
+  assert.match(form, /if \(refused\) \{\s*again\(\);\s*settle\(false, refused\);\s*return;\s*\}/, 'the bubble does not say the refusal, or its Try again is not a real resend');
   // The refusal is said BEFORE the success line, so a refused send is never settled as sent.
   assert.ok(form.indexOf('settle(false, refused)') < form.indexOf('settle(true)'), 'a refused send is settled as sent first');
 });

@@ -10,16 +10,19 @@
  *   ?side=vendor    the supplier's ＋, grouped; &booked=1 → booked (payment rows open)
  *   ?seen=1         the other side has read your last message → "Seen"
  *   ?send=fail      Send fails on the server → "Not sent · Try again"; default: it succeeds after 600 ms
+ *   ?send=refused   the server REFUSES the send (a rule, not a fault) → the bubble says the reason, no Try again
  *   ?delay=<ms>     the server takes this long to answer (default 0) — what the instant open is measured against
  *   ?expiry=1       the event was 80 days ago → the files-rule line "These files go on <date>. Save any you need."
  *   ?unverified=1   (couple side) the shop is not verified yet → the REAL `NotYetVerifiedThreadLine` in the head's
  *                   `below` slot, as the couple's thread page draws it (DECISION_LOG 2026-11-07 ruling (4))
+ *                   (vendor side) the shop is not verified → its ＋ tiles locked and NO mic, as the supplier's page
  *
  * The real thread routes' `loading.tsx` is `ThreadArrival`; this lab has NO loading.tsx (a dev route under a loading
  * boundary that 404s in production would stream a 200 first — `the-press-commits-now.test.ts`). It draws the same
  * `ThreadArrival` as a Suspense fallback instead, AFTER the production 404, so `?delay=` still shows the instant open.
  */
 import { notFound } from 'next/navigation';
+import { PLUS_NEEDS_VERIFIED } from '@/lib/shop-plus-gate';
 import { Suspense } from 'react';
 import { ThreadArrival } from '@/app/_components/chat/thread-arrival';
 import { LabShell } from '@/app/dev/_components/lab-shell';
@@ -84,6 +87,7 @@ async function LabThread({ params, searchParams }: LabProps) {
   const booked = one('booked') === '1';
   const delay = Math.min(Number(one('delay')) || 0, 10000);
   const sendFails = one('send') === 'fail';
+  const sendRefused = one('send') === 'refused';
   if (delay > 0) await new Promise((r) => setTimeout(r, delay));
 
   const thread = LAB_THREADS.find((t) => t.id === threadId) ?? LAB_THREADS[0];
@@ -107,7 +111,10 @@ async function LabThread({ params, searchParams }: LabProps) {
     void formData;
     await new Promise((r) => setTimeout(r, 600));
     if (sendFails) throw new Error('lab: the send was refused');
+    if (sendRefused) return { ok: false as const, reason: PLUS_NEEDS_VERIFIED };
   }
+  // 🪪 The supplier's rule (`vendor-dashboard/messages/[threadId]/page.tsx`): verified === false locks the ＋ and the mic.
+  const shopVerified = side === 'vendor' && one('unverified') === '1' ? false : null;
 
   return (
       <ChatThreadFrame>
@@ -140,13 +147,14 @@ async function LabThread({ params, searchParams }: LabProps) {
                     <ThreadToolsSheet
                       eventId={LAB_EVENT}
                       threadId={threadId}
+                      verified={shopVerified}
                       state={{ hasAgreement: booked, askOpen: false, paymentsToConfirm: 0, guestCountChanges: 0 }}
                     />
                   )
                 }
                 attachInputId={CHAT_ATTACH_INPUT_ID}
                 userId={LAB_USER}
-                voice
+                voice={shopVerified !== false}
               />
             }
             tray={

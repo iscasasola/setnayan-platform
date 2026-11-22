@@ -93,7 +93,7 @@ export function ShopMakers({
   booked?: readonly BookedDay[] | null;
   /** 🏷 The Offer Maker tile (Build 6 Lane D). null = not drawn (the lab rows that predate it). */
   offers?: OfferTileFacts | null;
-  /** 🎂 Special tools are Pro and up after the admin's start date — the Cake Maker tile then reads "Included in Pro". */
+  /** 🎂 Special tools are Plus and up after the admin's start date — the Cake Maker tile then reads "Included in Plus". */
   specialToolsLocked?: boolean;
 }) {
   const router = useRouter();

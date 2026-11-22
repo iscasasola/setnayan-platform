@@ -65,20 +65,21 @@ test('the seed equals TIER_CAPS for every plan and every editable allowance', as
 
 test('a cap edit changes what vendor_tier_limit() returns — and a missing row falls back to the code value', async () => {
   await asRole(null);
+  // Pro has no branch limit since 2026-11-22: the database answers NULL, TIER_CAPS Infinity.
   const before = await limit('pro', 'branches_included');
-  assert.equal(before, TIER_CAPS.pro.branchesIncluded);
+  assert.equal(before ?? Infinity, TIER_CAPS.pro.branchesIncluded);
 
   await db.query(`UPDATE public.vendor_plan_contents SET value = 2 WHERE plan = 'pro' AND key = 'branches_included'`);
   assert.equal(await limit('pro', 'branches_included'), 2, 'the edit did not reach vendor_tier_limit()');
   // Another plan is untouched.
-  assert.equal(await limit('enterprise', 'branches_included'), TIER_CAPS.enterprise.branchesIncluded);
+  assert.equal((await limit('enterprise', 'branches_included')) ?? Infinity, TIER_CAPS.enterprise.branchesIncluded);
 
   await db.query(`UPDATE public.vendor_plan_contents SET value = 4 WHERE plan = 'enterprise' AND key = 'waitlist_acceptances'`);
   assert.equal(await limit('enterprise', 'waitlist_acceptances'), 4);
 
   // Row gone → the code value again (the fallback arms are kept).
   await db.query(`DELETE FROM public.vendor_plan_contents WHERE plan = 'pro' AND key = 'branches_included'`);
-  assert.equal(await limit('pro', 'branches_included'), TIER_CAPS.pro.branchesIncluded);
+  assert.equal((await limit('pro', 'branches_included')) ?? Infinity, TIER_CAPS.pro.branchesIncluded);
 
   // An unknown tier reads as Free; an unknown key is still NULL, never a silent 0.
   await db.query(`UPDATE public.vendor_plan_contents SET value = 3 WHERE plan = 'free' AND key = 'whitelist_per_date'`);
@@ -89,7 +90,7 @@ test('a cap edit changes what vendor_tier_limit() returns — and a missing row 
   await db.query(
     `INSERT INTO public.vendor_plan_contents (plan, key, value) VALUES ('pro','branches_included',$1)
      ON CONFLICT (plan, key) DO UPDATE SET value = EXCLUDED.value`,
-    [TIER_CAPS.pro.branchesIncluded],
+    [codeValue('pro', 'branchesIncluded')],
   );
   await db.query(`UPDATE public.vendor_plan_contents SET value = $1 WHERE plan = 'free' AND key = 'whitelist_per_date'`, [
     TIER_CAPS.free.whitelistPerDate,
@@ -124,7 +125,7 @@ test('the branch gate in the database obeys the edited number', async () => {
   await assert.rejects(add(), 'a second included branch got past an allowance edited down to 1');
 
   await db.query(`UPDATE public.vendor_plan_contents SET value = $1 WHERE plan = 'pro' AND key = 'branches_included'`, [
-    TIER_CAPS.pro.branchesIncluded,
+    codeValue('pro', 'branchesIncluded'),
   ]);
 });
 
@@ -133,13 +134,14 @@ test('every change writes a history row; an unchanged write writes none', async 
   const count = async () =>
     (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.vendor_plan_content_changes WHERE plan='solo' AND key='agent_accounts'`)).rows[0]!.n;
   const n0 = await count();
-  await db.query(`UPDATE public.vendor_plan_contents SET value = 2 WHERE plan = 'solo' AND key = 'agent_accounts'`);
-  await db.query(`UPDATE public.vendor_plan_contents SET value = 2 WHERE plan = 'solo' AND key = 'agent_accounts'`);
+  // An edit away from the seed (Plus holds 2 people beyond the owner since 2026-11-22), written twice.
+  await db.query(`UPDATE public.vendor_plan_contents SET value = 1 WHERE plan = 'solo' AND key = 'agent_accounts'`);
+  await db.query(`UPDATE public.vendor_plan_contents SET value = 1 WHERE plan = 'solo' AND key = 'agent_accounts'`);
   assert.equal(await count(), n0 + 1);
   const h = await db.query<{ old_value: number; new_value: number }>(
     `SELECT old_value, new_value FROM public.vendor_plan_content_changes WHERE plan='solo' AND key='agent_accounts' ORDER BY change_id DESC LIMIT 1`,
   );
-  assert.deepEqual(h.rows[0], { old_value: TIER_CAPS.solo.agentAccounts, new_value: 2 });
+  assert.deepEqual(h.rows[0], { old_value: TIER_CAPS.solo.agentAccounts, new_value: 1 });
   await db.query(`UPDATE public.vendor_plan_contents SET value = $1 WHERE plan = 'solo' AND key = 'agent_accounts'`, [
     TIER_CAPS.solo.agentAccounts,
   ]);
@@ -156,12 +158,16 @@ test('anyone may read the plan table; nobody but the service role may write it; 
   await asRole('anon');
   await assert.rejects(db.query(`SELECT * FROM public.vendor_plan_content_changes`));
   await asRole(null);
-  assert.equal(await limit('pro', 'agent_accounts'), TIER_CAPS.pro.agentAccounts);
+  // Pro has no people limit since 2026-11-22: the database answers NULL, TIER_CAPS Infinity.
+  assert.equal((await limit('pro', 'agent_accounts')) ?? Infinity, TIER_CAPS.pro.agentAccounts);
 });
 
-test('the allowances vendor_tier_limit() serves can never be "no limit"', async () => {
+test('the waitlist and per-date holds vendor_tier_limit() serves can never be "no limit" — branches can (2026-11-22)', async () => {
   await asRole(null);
-  for (const key of ['whitelist_per_date', 'waitlist_acceptances', 'branches_included']) {
+  // Branches: "no limit" is the Pro and Ultra seed itself, and the gate reads it as no limit.
+  const br = await db.query<{ value: number | null }>(`SELECT value FROM public.vendor_plan_contents WHERE plan = 'pro' AND key = 'branches_included'`);
+  assert.equal(br.rows[0]!.value, null);
+  for (const key of ['whitelist_per_date', 'waitlist_acceptances']) {
     await assert.rejects(
       db.query(`UPDATE public.vendor_plan_contents SET value = NULL WHERE plan = 'pro' AND key = $1`, [key]),
       /vendor_plan_contents_sql_keys_finite_ck/,
@@ -170,7 +176,7 @@ test('the allowances vendor_tier_limit() serves can never be "no limit"', async 
   // …while a seat count may be.
   await db.query(`UPDATE public.vendor_plan_contents SET value = NULL WHERE plan = 'enterprise' AND key = 'agent_accounts'`);
   await db.query(`UPDATE public.vendor_plan_contents SET value = $1 WHERE plan = 'enterprise' AND key = 'agent_accounts'`, [
-    TIER_CAPS.enterprise.agentAccounts,
+    codeValue('enterprise', 'agentAccounts'),
   ]);
 });
 

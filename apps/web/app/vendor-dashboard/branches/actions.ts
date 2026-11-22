@@ -281,15 +281,14 @@ export async function createBranch(
     revalidateBranchSurfaces();
     return { status: 'success', kind: 'created', message: `${label} added — included in your plan.` };
   }
-  // ⚖ Past the included ones, only Ultra may BUY more — ULTRA ONLY, ALWAYS (owner 2026-11-05, verbatim
-  // "Ultra only, always"; price sheet 2026-11-04 "Extra branch 1990 (applies for ultra only)"). A price rule is not a
-  // try-first paywall, so VENDOR_TIER_FEATURE_GATE does not open it.
+  // ⚖ Past the included ones nothing is bought any more (owner 2026-11-22 "FINAL LADDER": no add-ons — Pro and Ultra
+  // have no branch limit). `canBuyExtraBranches` answers no on every plan; the buy path below stays for a future ruling.
   if (!canBuyExtraBranches(tier)) {
     const total = planCaps.branchesIncluded;
     return err(
       total > 0
-        ? `Your plan includes ${formatCount(total)} branches and they are all in use. More branches are part of ${TIER_LABEL.enterprise}.`
-        : `Branches come with Supplier Pro and ${TIER_LABEL.enterprise}.`,
+        ? `Your plan includes ${formatCount(total)} branches and they are all in use.`
+        : `Branches come with ${TIER_LABEL.pro} and ${TIER_LABEL.enterprise}.`,
     );
   }
 

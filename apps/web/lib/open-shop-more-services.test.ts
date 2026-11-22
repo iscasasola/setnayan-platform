@@ -67,19 +67,16 @@ test('the plan is the FIRST where categories AND services in total both fit — 
   assert.equal(firstPlanThatHolds(rec(solo.serviceCardsTotal + 1)), 'pro');
   // Verified holds its 3 in one category (2026-11-18).
   assert.equal(firstPlanThatHolds(rec(TIER_CAPS.verified.serviceCardsTotal)), 'verified');
-  // One category more than Plus holds, one service each → the next plan.
-  const many = Array.from({ length: solo.parentCategories + 1 }, (_, i) => ({ categoryId: `c${i}`, categoryLabel: `C${i}` }));
-  assert.equal(firstPlanThatHolds(many), 'pro');
-  // Past the top plan: no Custom plan (retired from the app) — the line says what stays after the first booking, in
-  // the person's plan word ("Ultra", never "Enterprise"), the number read from TIER_CAPS.
-  const past = rec(TIER_CAPS.enterprise.serviceCardsTotal + 1);
-  assert.equal(firstPlanThatHolds(past), null);
-  assert.equal(
-    coverageLine(past).verdict,
-    `more than Ultra holds — all on until your first booking, then Ultra keeps ${TIER_CAPS.enterprise.parentCategories} categories you choose`,
-  );
-  assert.doesNotMatch(coverageLine(past).verdict, /Custom|Talk to us/);
-  assert.match(coverageLine(rec(TIER_CAPS.pro.serviceCardsTotal + 1)).verdict, /^Ultra covers this/);
+  // Owner 2026-11-22 "FINAL LADDER": no category cap on a paid size — many categories, one service each, fit Plus
+  // while the total fits its cards.
+  assert.equal(solo.parentCategories, Infinity);
+  const many = Array.from({ length: 5 }, (_, i) => ({ categoryId: `c${i}`, categoryLabel: `C${i}` }));
+  assert.equal(firstPlanThatHolds(many), 'solo');
+  // Pro has no card limit: nothing is ever past it, so the "more than Ultra holds" line is never reached.
+  const huge = rec(1000);
+  assert.equal(firstPlanThatHolds(huge), 'pro');
+  assert.equal(coverageLine(huge).verdict, 'Pro covers this');
+  assert.doesNotMatch(coverageLine(huge).verdict, /Custom|Talk to us|Infinity|—/);
 });
 
 test('the ladder (Free · Verified → Plus → Pro → Ultra adds) is composed from TIER_CAPS — no number typed, no peso', () => {
@@ -90,14 +87,9 @@ test('the ladder (Free · Verified → Plus → Pro → Ultra adds) is composed 
   );
   // The prototype's own words, rebuilt from the caps. No reach on any rung: reach is not a plan allowance (2026-11-19).
   assert.equal(l[0]!.caps, '1 category · 1 service · basic search listing');
-  assert.equal(
-    l[1]!.caps,
-    `${TIER_CAPS.solo.parentCategories} categories · ${TIER_CAPS.solo.serviceCardsTotal} services · enhanced search`,
-  );
-  assert.equal(
-    l[2]!.caps,
-    `${TIER_CAPS.pro.parentCategories} categories · ${TIER_CAPS.pro.serviceCardsTotal} services · AI answers can quote your offers`,
-  );
+  // A paid size with no limit says so in words, never "Infinity" or "—" (owner 2026-11-22).
+  assert.equal(l[1]!.caps, `every category · ${TIER_CAPS.solo.serviceCardsTotal} services · enhanced search`);
+  assert.equal(l[2]!.caps, 'every category · no limit on services · AI answers can quote your offers');
   assert.match(l[3]!.caps, / · top search priority$/);
   assert.doesNotMatch(JSON.stringify(l), /\bkm\b|nationwide/i);
   assert.doesNotMatch(JSON.stringify(l), /₱|PHP|\bpeso/i);
@@ -168,16 +160,16 @@ test('v19 planSplit · Free keeps the main; the holder is the FIRST plan that ho
     return c.parentCategories >= 2 && c.serviceCardsTotal >= 4;
   })!;
   assert.equal(s.held.name, TIER_LABEL[holder]);
-  assert.equal(s.held.caps, `${TIER_CAPS[holder].parentCategories} categories · ${TIER_CAPS[holder].serviceCardsTotal} services`);
+  assert.equal(holder, 'solo');
+  assert.equal(s.held.caps, `every category · ${TIER_CAPS.solo.serviceCardsTotal} services`);
   assert.equal(s.held.choose, false);
 });
 
-test('v19 planSplit · past the top plan → the top plan, and "you choose which"', () => {
-  const top = TIER_CAPS.enterprise;
-  const many: MeterService[] = Array.from({ length: top.parentCategories + 1 }, (_, i) => ({ categoryId: `c${i}`, categoryLabel: `C${i}` }));
+test('v19 planSplit · a pick bigger than Plus lands on Pro — nothing is past the top any more (2026-11-22)', () => {
+  const many: MeterService[] = Array.from({ length: 40 }, (_, i) => ({ categoryId: `c${i}`, categoryLabel: `C${i}` }));
   const s = planSplit(many);
-  assert.equal(s.held.name, TIER_LABEL.enterprise);
-  assert.equal(s.held.choose, true);
+  assert.equal(s.held.name, TIER_LABEL.pro);
+  assert.equal(s.held.choose, false);
 });
 
 // ── Owner ruling, 13 Nov 2026 (#7549): Free and Verified shops may pick ONE group of services at sign-up, and they may

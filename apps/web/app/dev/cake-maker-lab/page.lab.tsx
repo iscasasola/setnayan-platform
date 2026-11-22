@@ -4,7 +4,7 @@
  *
  *   ?view=supplier            01 · Shop › Specialized tools › Cake Maker, with the drawing's sample extras
  *   ?view=fresh               01 · the same page on a shop's first open (the template, every extra ₱0)
- *   ?view=locked              01 · below Pro after the start date ("Included in Pro · Upgrade")
+ *   ?view=locked              01 · Free or Verified after the start date ("Included in Plus · Upgrade")
  *   ?view=start               02 · Design a cake — the two starts (&fail=1: the refused read)
  *   ?view=designer            02 · the designer itself, from a sample design (Change my design)
  *   ?view=couple              02 · "Your cake design · Sent" in the couple's chat  ·  ?view=replaced  · its old version

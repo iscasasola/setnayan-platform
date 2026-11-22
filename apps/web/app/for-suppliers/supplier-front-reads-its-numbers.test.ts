@@ -85,9 +85,10 @@ test('every Grow line still finds its Plans-page row, and sits under exactly one
   assert.ok(tierOfPlansRow(/^Market Intelligence/), 'anti-vacuity: the Market Intelligence row is gone from the Plans page');
 });
 
-test('Verified names the papers it asks for, and the add-ons name who may buy them', () => {
+test('Verified names the papers it asks for, and the add-ons name who may buy them — nobody, since 2026-11-22', () => {
   assert.equal(VERIFIED_PAPERS.length, REQUIRED_DOC_COUNT, 'the Verified step lists a different number of papers than verification asks for');
-  assert.ok(ADDON_TIERS.length > 0, 'no plan may buy an extra branch and seat — the add-on block would be a promise nobody can take');
+  // Owner 2026-11-22 "FINAL LADDER": no add-ons — Pro and Ultra have no seat or branch limit, so nobody buys one.
+  assert.equal(ADDON_TIERS.length, 0, 'a plan is offered an extra seat or branch');
   for (const t of GROW_TIERS) assert.equal(ADDON_TIERS.includes(t), canBuyExtraBranches(t) && canBuyExtraSeats(t), t);
 });
 
@@ -115,11 +116,11 @@ test('the page says nothing the brief forbids', () => {
   }
 });
 
-test('owner 20 Nov: the 3D booth logo and Papic Challenges sit under Pro, never Plus, and nothing calls the booth an add-on', async () => {
+test('owner 2026-11-22: every tool on every paid size — the 3D booth logo and Papic Challenges are named once, from Plus, and nothing calls the booth an add-on', async () => {
   const { growLines } = await import('./_components/supplier-front-data');
   const words = (t: 'solo' | 'pro' | 'enterprise') => growLines(t).map((l) => l.text + (l.tail ?? '')).join(' | ');
-  assert.doesNotMatch(words('solo'), /3D seat plan|All specialized tools/);
-  assert.match(words('pro'), /3D seat plan/);
-  assert.match(words('pro'), /Papic Challenges|All specialized tools/);
+  assert.match(words('solo'), /3D seat plan/);
+  assert.match(words('solo'), /Papic Challenges|All specialized tools/);
+  assert.doesNotMatch(words('pro'), /3D seat plan/, 'Pro repeats a line Plus already gives');
   for (const t of ['solo', 'pro', 'enterprise'] as const) assert.doesNotMatch(words(t), /add-on\)/);
 });

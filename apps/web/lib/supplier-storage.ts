@@ -1,8 +1,9 @@
 /**
  * lib/supplier-storage.ts — THE PLAN HOLDS STORAGE, THE PURE HALF.
  *
- * Owner 2026-11-13 (specs DECISION_LOG, commit ce2d0a8 "plan storage"): *Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB*, included
- * in the plan. Free and Free · Verified were given no allowance and keep what they had: no limit, nothing drawn.
+ * Owner 2026-11-22 "FINAL LADDER" (specs SUPPLIER_SUBSCRIPTIONS_BUILD_SPEC § ★ B), sizes re-cut the same day ("SUPPLIER SIZES
+ * RE-CUT" + "PLUS CUT TO 128 GB"): the plans ARE storage sizes — Free 1 GB · Verified 5 GB · Plus 128 GB · Pro 500 GB · Ultra 1 TB. Every plan has an allowance now (was: Plus 5 · Pro 10 · Ultra 20 GB,
+ * Free and Verified none).
  *
  *   · the number   — `TIER_CAPS[plan].storageBytes` (lib/vendor-tier-caps.ts), twin `vendor_tier_limit(…,'storage_gb')`.
  *   · what counts  — each stored copy a filed event file still points at, once (`vendor_storage_used_bytes`, read by
@@ -34,7 +35,8 @@ export const STORAGE_UNREAD = 'Couldn’t read what you store just now — nothi
 export const STORAGE_CHECK_FAILED = 'We couldn’t check your storage just now. Nothing was uploaded — try again in a moment.';
 
 /**
- * The storage a plan holds, in bytes — READ FROM `TIER_CAPS`. Null = the plan has no allowance (Free · Verified).
+ * The storage a plan holds, in bytes — READ FROM `TIER_CAPS`. Every plan has one since 2026-11-22; null is kept only
+ * as the "no allowance known" answer the callers already handle.
  * (Re-exported by lib/downgrade-limits.server.ts, where the limits sheet has always asked for it.)
  */
 export function storageAllowanceBytes(plan: string | null | undefined): number | null {
@@ -46,13 +48,16 @@ function words(bytes: number): string {
   return bytes <= 0 ? '0 MB' : storageWords(bytes);
 }
 
-/** The next plan up that holds more than this one, or null (Ultra — the packs are not on sale). */
+/**
+ * The next PAID plan up that holds more than this one, or null (Ultra — nothing is above it, and there are no packs).
+ * Verified is never "moved to": it is earned by verifying, not bought — so Free and Verified both point at Plus.
+ */
 export function nextStoragePlan(plan: string | null | undefined): VendorTier | null {
   const current = asVendorTier(plan);
   const have = TIER_CAPS[current].storageBytes;
   if (have === null) return null; // no allowance to outgrow
   for (const t of VENDOR_TIERS) {
-    if (tierRank(t) <= tierRank(current)) continue;
+    if (t === 'verified' || tierRank(t) <= tierRank(current)) continue;
     const s = TIER_CAPS[t].storageBytes;
     if (s !== null && s > have) return t;
   }

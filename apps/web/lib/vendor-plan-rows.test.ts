@@ -18,23 +18,28 @@ const line = (tier: string, key: string, paywallOn = true) =>
   planGivesLines(tier, paywallOn).find((l) => l.key === key)?.line;
 
 test('what a plan gives is read from TIER_CAPS', () => {
-  assert.match(line('pro', 'services')!, new RegExp(`^${TIER_CAPS.pro.serviceCardsTotal} in total`));
-  assert.match(line('pro', 'helpers')!, new RegExp(`^${TIER_CAPS.pro.agentAccounts} team seats \\+ 1 free Helper`));
-  assert.equal(line('enterprise', 'services'), '80 in total · 12 kinds of work'); // Max, owner 2026-11-18
+  // Owner 2026-11-22 "FINAL LADDER": Plus 15 cards · owner + 2; Pro and Ultra no card, people or category limit.
+  assert.match(line('solo', 'services')!, new RegExp(`^${TIER_CAPS.solo.serviceCardsTotal} in total · every kind of work`));
+  assert.match(line('solo', 'helpers')!, new RegExp(`^${TIER_CAPS.solo.agentAccounts} team seats \\+ 1 free Helper`));
+  assert.equal(line('pro', 'services'), 'No limit in total · every kind of work');
+  assert.match(line('pro', 'helpers')!, /^No limit \+ 1 free Helper/);
+  assert.equal(line('enterprise', 'services'), 'No limit in total · every kind of work');
+  // Storage is what the plans are sold by: 1 GB · 5 GB · 128 GB · 500 GB · 1 TB.
+  assert.deepEqual(['free', 'verified', 'solo', 'pro', 'enterprise'].map((t) => line(t, 'storage')), ['1 GB', '5 GB', '128 GB', '500 GB', '1 TB']);
   // 🔓 No reach line on any plan since 2026-11-19 (owner: "unlock the range. not plan dependend anymore").
   for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise']) assert.equal(line(t, 'reach'), undefined, t);
   // Own web address from Plus up ("website applies to solo as well"); below it, the plan is named from the table.
   assert.equal(line('solo', 'web'), 'Yes');
   assert.equal(line('verified', 'web'), 'Comes with Plus');
-  // Branches (owner 2026-11-04, "branches 0,0,3,10"; only Ultra buys more).
+  // Branches (owner 2026-11-22): none on Plus; no limit on Pro and Ultra, one registered business; none bought.
   assert.equal(line('solo', 'branches'), 'Not on this plan');
-  assert.equal(line('pro', 'branches'), `${TIER_CAPS.pro.branchesIncluded} included`);
-  assert.equal(line('enterprise', 'branches'), `${TIER_CAPS.enterprise.branchesIncluded} included · more can be added`);
+  assert.equal(line('pro', 'branches'), 'No limit · one registered business');
+  assert.equal(line('enterprise', 'branches'), 'No limit · one registered business');
 });
 
 test('with the paywall OFF, a plan with no seats gets the entry plan’s, and says insights are open', () => {
   assert.match(line('free', 'helpers', true)!, /^0 team seats \+ 1 free Helper/);
-  assert.match(line('free', 'helpers', false)!, /^1 team seat \+ 1 free Helper/);
+  assert.match(line('free', 'helpers', false)!, /^2 team seats \+ 1 free Helper/);
   assert.equal(line('free', 'insights', false), 'All of it — open to every plan today');
   assert.equal(line('free', 'waitlist', true), 'You choose, up to 10 a date'); // no plan limit, 2026-11-18
 });
@@ -92,9 +97,9 @@ test('picking a plan says what happens, by the live ladder', () => {
   assert.equal(planPickLine('free', 'free', null), 'You are on Free — nothing to pay');
 });
 
-test('owner 20 Nov: Plus does not say "All included" for Specialized tools — Papic Challenges and the 3D booth are Pro and up', () => {
-  assert.doesNotMatch(line('solo', 'tools') ?? '', /^All included$/);
-  assert.match(line('solo', 'tools') ?? '', /Papic Challenges and the 3D booth come with Pro/);
+test('owner 2026-11-22: every tool on every paid size — Plus says "All included" too', () => {
+  assert.equal(line('solo', 'tools'), 'All included');
+  assert.doesNotMatch(line('verified', 'tools') ?? '', /^All included$/);
   assert.equal(line('pro', 'tools'), 'All included');
   assert.equal(line('enterprise', 'tools'), 'All included');
 });

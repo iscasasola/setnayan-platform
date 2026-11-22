@@ -94,6 +94,11 @@ export function carriesFirstBookingLabel(list: readonly MeterService[]): boolean
   return !planHolds('free', list);
 }
 
+/** "2 categories" · "1 service" — or the plan's own words for no limit (paid sizes since 2026-11-22), never "— categories". */
+function capWords(v: number, one: string, many: string, noLimit: string): string {
+  return Number.isFinite(v) ? `${formatCount(v)} ${v === 1 ? one : many}` : noLimit;
+}
+
 /** Search-listing words per `seoLevel` — the prototype's ladder (`LADDER`, v14–v16), one per level, never a price. */
 const SEARCH_WORDS: Record<(typeof TIER_CAPS)[VendorTier]['seoLevel'], string> = {
   basic: 'basic search listing',
@@ -111,8 +116,8 @@ const SEARCH_WORDS: Record<(typeof TIER_CAPS)[VendorTier]['seoLevel'], string> =
 export function planLadder(): { name: string; caps: string }[] {
   const rung = (t: VendorTier) => {
     const c = TIER_CAPS[t];
-    const cats = `${formatCount(c.parentCategories)} ${c.parentCategories === 1 ? 'category' : 'categories'}`;
-    const per = `${formatCount(c.serviceCardsTotal)} ${c.serviceCardsTotal === 1 ? 'service' : 'services'}`;
+    const cats = capWords(c.parentCategories, 'category', 'categories', 'every category');
+    const per = capWords(c.serviceCardsTotal, 'service', 'services', 'no limit on services');
     return [cats, per, SEARCH_WORDS[c.seoLevel]].join(' · ');
   };
   return [
@@ -160,8 +165,8 @@ export function planSplit(list: readonly MeterService[]): {
 } {
   const capsOf = (t: VendorTier) => {
     const c = TIER_CAPS[t];
-    const cats = `${formatCount(c.parentCategories)} ${c.parentCategories === 1 ? 'category' : 'categories'}`;
-    const per = `${formatCount(c.serviceCardsTotal)} ${c.serviceCardsTotal === 1 ? 'service' : 'services'}`;
+    const cats = capWords(c.parentCategories, 'category', 'categories', 'every category');
+    const per = capWords(c.serviceCardsTotal, 'service', 'services', 'no limit on services');
     return `${cats} · ${per}`;
   };
   const paid = (['solo', 'pro', 'enterprise'] as const).find((t) => planHolds(t, list)) ?? null;

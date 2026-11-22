@@ -5,6 +5,8 @@
  * Owner 2026-11-04 (DECISION_LOG "SUPPLIER PLAN ALLOWANCES" + "BRANCHES PER PLAN"), verbatim: *"waitlist 0,0,1,5"* ·
  * *"branches 0,0,3,10"*. Free·Verified / Solo / Pro / Ultra. (The Custom plan was retired 2026-11-06.)
  * Ultra trimmed the same day ("WITH TRIMMED ALLOWANCES"): waitlist 3, branches 6. Expectations read TIER_CAPS.
+ * Owner 2026-11-22 "FINAL LADDER" (20271360033501): Pro and Ultra have NO branch limit — the database answers NULL and
+ * the gate reads NULL as no limit; Free · Verified · Plus have none.
  *
  * 🔑 PARITY DERIVES FROM THE TYPESCRIPT SIDE (`TIER_CAPS`), so editing one side alone turns CI red.
  * 🔑 GRANDFATHERING is asserted, not assumed: a shop over its allowance keeps every live included branch, renames and
@@ -76,14 +78,15 @@ async function addBranch(vendor: string, included: boolean): Promise<{ id: strin
 
 test('vendor_tier_limit says exactly what TIER_CAPS says — waitlist and branches, every tier; no bookings-per-date key', async () => {
   for (const tier of VENDOR_TIERS) {
-    const r = await db.query<{ wa: number; br: number; bpd: number | null }>(
+    const r = await db.query<{ wa: number; br: number | null; bpd: number | null }>(
       `SELECT public.vendor_tier_limit($1,'waitlist_acceptances') AS wa,
               public.vendor_tier_limit($1,'branches_included') AS br,
               public.vendor_tier_limit($1,'bookings_per_date_per_service') AS bpd`,
       [tier],
     );
     assert.equal(r.rows[0]!.wa, TIER_CAPS[tier].waitlistAcceptances, `${tier} waitlist`);
-    assert.equal(r.rows[0]!.br, TIER_CAPS[tier].branchesIncluded, `${tier} branches`);
+    // NULL = no limit, as TIER_CAPS' Infinity (Pro and Ultra since 2026-11-22).
+    assert.equal(r.rows[0]!.br ?? Infinity, TIER_CAPS[tier].branchesIncluded, `${tier} branches`);
     // Owner 2026-11-18 (ruling 17): bookings per date are not a plan limit — the key answers NULL on every plan.
     assert.equal(r.rows[0]!.bpd, null, `${tier} bookings per date per service`);
   }
@@ -95,14 +98,15 @@ test('vendor_tier_limit says exactly what TIER_CAPS says — waitlist and branch
   assert.equal(unknown.rows[0]!.bpd, null, 'no plan serves a bookings-per-date number');
 });
 
-test('Pro may add its included branches and is refused the next one', async () => {
-  const pro = await newVendor('pro', 'pro');
-  for (let i = 0; i < TIER_CAPS.pro.branchesIncluded; i++) {
-    const r = await addBranch(pro, true);
-    assert.equal(r.error, null, `included branch ${i + 1} refused: ${r.error}`);
+test('Pro and Ultra add included branches with no limit (owner 2026-11-22)', async () => {
+  for (const tier of ['pro', 'enterprise'] as const) {
+    assert.equal(TIER_CAPS[tier].branchesIncluded, Infinity);
+    const v = await newVendor(tier, tier);
+    for (let i = 0; i < 12; i++) {
+      const r = await addBranch(v, true);
+      assert.equal(r.error, null, `${tier}: included branch ${i + 1} refused: ${r.error}`);
+    }
   }
-  const over = await addBranch(pro, true);
-  assert.match(over.error ?? '', /included_branch_allowance/, 'a 4th included branch was let in');
 });
 
 test('Free, Verified and Solo have no included branches', async () => {
@@ -119,17 +123,36 @@ test('a PAID branch (included_in_plan false) is never counted or refused here', 
 });
 
 test('cancelling an included branch frees its place; un-cancelling past the allowance is refused', async () => {
-  const pro = await newVendor('pro-cancel', 'pro');
-  const ids: string[] = [];
-  for (let i = 0; i < TIER_CAPS.pro.branchesIncluded; i++) ids.push((await addBranch(pro, true)).id!);
-  await db.query(`UPDATE public.vendor_branches SET cancelled_at = NOW() WHERE branch_id = $1`, [ids[0]]);
-  const again = await addBranch(pro, true);
-  assert.equal(again.error, null, 'the freed place was not given back');
-  await assert.rejects(
-    db.query(`UPDATE public.vendor_branches SET cancelled_at = NULL WHERE branch_id = $1`, [ids[0]]),
-    /included_branch_allowance/,
-    'un-cancelling took a 4th included branch',
-  );
+  // No plan counts branches today (0 or no limit), so the admin's own edit makes one: Plus with 2 (restored after).
+  await db.query(`UPDATE public.vendor_plan_contents SET value = 2 WHERE plan = 'solo' AND key = 'branches_included'`);
+  try {
+    const solo = await newVendor('solo-cancel', 'solo');
+    const ids: string[] = [];
+    for (let i = 0; i < 2; i++) ids.push((await addBranch(solo, true)).id!);
+    assert.match((await addBranch(solo, true)).error ?? '', /included_branch_allowance/, 'a 3rd included branch was let in');
+    await db.query(`UPDATE public.vendor_branches SET cancelled_at = NOW() WHERE branch_id = $1`, [ids[0]]);
+    const again = await addBranch(solo, true);
+    assert.equal(again.error, null, 'the freed place was not given back');
+    await assert.rejects(
+      db.query(`UPDATE public.vendor_branches SET cancelled_at = NULL WHERE branch_id = $1`, [ids[0]]),
+      /included_branch_allowance/,
+      'un-cancelling took a 3rd included branch',
+    );
+  } finally {
+    await db.query(`UPDATE public.vendor_plan_contents SET value = 0 WHERE plan = 'solo' AND key = 'branches_included'`);
+  }
+});
+
+test('a stored "no limit" row is honoured — the admin can set it, and the gate lets branches through', async () => {
+  await db.query(`UPDATE public.vendor_plan_contents SET value = NULL WHERE plan = 'solo' AND key = 'branches_included'`);
+  try {
+    const r = await db.query<{ br: number | null }>(`SELECT public.vendor_tier_limit('solo','branches_included') AS br`);
+    assert.equal(r.rows[0]!.br, null, 'a NULL row fell back to the code value');
+    const solo = await newVendor('solo-nolimit', 'solo');
+    for (let i = 0; i < 3; i++) assert.equal((await addBranch(solo, true)).error, null);
+  } finally {
+    await db.query(`UPDATE public.vendor_plan_contents SET value = 0 WHERE plan = 'solo' AND key = 'branches_included'`);
+  }
 });
 
 test('GRANDFATHERED: a shop over a lowered allowance keeps its branches, edits them, and is refused only the next', async () => {
@@ -139,7 +162,7 @@ test('GRANDFATHERED: a shop over a lowered allowance keeps its branches, edits t
   // Drop the plan underneath them (admin path — the downgrade guard is a separate concern, so write tier directly).
   await db.query(`ALTER TABLE public.vendor_profiles DISABLE TRIGGER USER`);
   try {
-    await db.query(`UPDATE public.vendor_profiles SET tier_state = 'pro' WHERE vendor_profile_id = $1`, [ent]);
+    await db.query(`UPDATE public.vendor_profiles SET tier_state = 'solo' WHERE vendor_profile_id = $1`, [ent]);
   } finally {
     await db.query(`ALTER TABLE public.vendor_profiles ENABLE TRIGGER USER`);
   }

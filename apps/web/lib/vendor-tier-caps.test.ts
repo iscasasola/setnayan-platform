@@ -14,6 +14,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canBuyExtraBranches,
+  canBuyExtraSeats,
+  STORAGE_GB,
   canBuyExtraCategories,
   canBuyExtraServiceCards,
   canBuyExtraWaitlist,
@@ -32,19 +34,27 @@ import { vendorHoldsActivePaidSub } from './vendor-favorite-gate';
 const LADDER = ['free', 'verified', 'solo', 'pro', 'enterprise'] as const;
 const NUMERIC = ['parentCategories', 'serviceCardsTotal', 'agentAccounts', 'waitlistAcceptances', 'branchesIncluded'] as const;
 
-test('allowances · the owner\'s 2026-11-18 numbers, Free / Verified / Plus / Pro / Max', () => {
+test('allowances · the owner\'s 2026-11-22 FINAL LADDER, Free / Verified / Plus / Pro / Ultra', () => {
   const row = (k: (typeof NUMERIC)[number]) => LADDER.map((t) => TIER_CAPS[t][k]);
-  // Owner 2026-11-18, DECISION_LOG "SUPPLIER PLANS REBUILT" (+ ruling 39). `enterprise` is the plan now called Max.
-  // 🔓 No reach row: reach is not a plan allowance since 2026-11-19 (owner, "unlock the range. not plan dependend
-  // anymore") — held by `reach-is-not-a-plan-allowance.test.ts`.
-  // Ultra raised 2026-11-14 ("SIMPLER SUPPLIER PLANS"): all 16 main categories · 30 cards each · 10 bookings a day.
-  assert.deepEqual(row('parentCategories'), [1, 1, 2, 8, 12], 'main categories: 1 / 1 / 2 / 8 / all 12');
-  assert.deepEqual(row('serviceCardsTotal'), [1, 3, 10, 20, 80], 'service cards in total: 1 / 3 / 10 / 20 / 80');
-  assert.deepEqual(row('agentAccounts'), [0, 0, 1, 5, 11], 'seats beyond the owner: 0 / 0 / 1 / 5 / 11 (1 / 1 / 2 / 6 / 12 with the owner)');
+  // Owner 2026-11-22, specs SUPPLIER_SUBSCRIPTIONS_BUILD_SPEC § ★ B "FINAL LADDER" + "STARTER BUSINESS": the plans are
+  // storage sizes; Pro and Ultra have no card, people or branch limit (one registered business), storage is their
+  // only ceiling. 🔓 No reach row: reach is not a plan allowance since 2026-11-19 (`reach-is-not-a-plan-allowance.test.ts`).
+  assert.deepEqual(row('parentCategories').slice(2), [Infinity, Infinity, Infinity], 'no category cap on a paid size');
+  assert.deepEqual(row('serviceCardsTotal'), [1, 3, 15, Infinity, Infinity], 'live cards: 1 / 3 / 15 / no limit / no limit');
+  assert.deepEqual(row('agentAccounts'), [0, 0, 2, Infinity, Infinity], 'people beyond the owner: 0 / 0 / 2 / no limit / no limit');
   assert.deepEqual(row('waitlistAcceptances'), [10, 10, 10, 10, 10], 'waitlist: no plan limit — the setting\'s own ceiling on every plan');
-  assert.deepEqual(row('branchesIncluded'), [0, 0, 0, 2, 5], 'branches besides the main shop: 0 / 0 / 0 / 2 / 5');
-  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].customWebsiteName), [false, false, true, true, true], 'own web address: Supplier Plus, Pro, Ultra');
+  assert.deepEqual(row('branchesIncluded'), [0, 0, 0, Infinity, Infinity], 'branches besides the main shop: 0 / 0 / 0 / no limit / no limit');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].storageBytes), [1, 5, 128, 500, 1000].map((gb) => gb * STORAGE_GB), 'storage: 1 GB / 5 GB / 128 GB / 500 GB / 1 TB');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].portfolioPhotos === Infinity), [false, false, true, true, true], 'no portfolio photo cap on a paid size');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].customWebsiteName), [false, false, true, true, true], 'own web address: Plus, Pro, Ultra');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].premiumPage), [false, false, false, true, true], 'the Pro page parts stay Pro+');
+});
+
+test('tools · every tool on every paid size, none on the free plans (owner 2026-11-22 "FINAL LADDER")', () => {
+  const TOOLS = ['marketIntel', 'theftWatch', 'performanceAdvanced', 'formMediaUploads', 'formVideoLinks', 'floorPlanUnits', 'specialTools'] as const;
+  for (const k of TOOLS) {
+    assert.deepEqual(LADDER.map((t) => TIER_CAPS[t][k]), [false, false, true, true, true], k);
+  }
 });
 
 test('allowances · every numeric allowance is monotonic up the ladder (no rung gives less than the one below)', () => {
@@ -55,8 +65,9 @@ test('allowances · every numeric allowance is monotonic up the ladder (no rung 
   }
 });
 
-test('branches · only Ultra may buy more', () => {
-  for (const t of VENDOR_TIERS) assert.equal(canBuyExtraBranches(t), t === 'enterprise', t);
+test('add-ons · no plan buys extra branches or seats (owner 2026-11-22: no add-ons)', () => {
+  for (const t of VENDOR_TIERS) assert.equal(canBuyExtraBranches(t), false, t);
+  for (const t of VENDOR_TIERS) assert.equal(canBuyExtraSeats(t), false, t);
   assert.equal(canBuyExtraBranches(null), false);
   // The four Ultra "+1" add-ons of 2026-11-06 are folded into Ultra's limits (2026-11-14 "SIMPLER SUPPLIER PLANS"):
   // no plan buys them any more — and an Ultra shop that bought one still holds it until it runs out.
@@ -89,25 +100,26 @@ test('ladder · Free: 1 category, no market intel, no agent seats', () => {
   assert.equal(c.agentAccounts, 0, 'Free has no agent seats');
 });
 
-test('ladder · Supplier Plus: analytics, still no Market Intel', () => {
+test('ladder · Plus (128 GB): analytics and Market Intel — every tool on every paid size', () => {
   const c = TIER_CAPS.solo;
-  assert.equal(c.performanceTrends, true, 'Supplier Plus gets business-performance analytics');
-  assert.equal(c.marketIntel, false, 'Supplier Plus does NOT get Market Intel (Pro+ only)');
-  assert.equal(canSeeMarketIntel('solo'), false);
+  assert.equal(c.performanceTrends, true, 'Plus gets business-performance analytics');
+  assert.equal(c.marketIntel, true, 'Plus gets Market Intel (owner 2026-11-22: every tool on every paid size)');
+  assert.equal(canSeeMarketIntel('solo'), true);
+  assert.equal(c.agentAccounts, 2, 'Plus = the owner + 2 people');
 });
 
-test('ladder · Pro: Market Intel + up to 5 seats', () => {
+test('ladder · Pro (500 GB): no people limit', () => {
   const c = TIER_CAPS.pro;
   assert.equal(c.marketIntel, true, 'Pro gets Market Intel (Demand Radar + Price-Position)');
   assert.equal(canSeeMarketIntel('pro'), true);
-  assert.equal(c.agentAccounts, 5, 'Pro = up to 5 agent seats (owner 2026-11-04; was 3)');
+  assert.equal(c.agentAccounts, Infinity, 'Pro = no people limit (owner 2026-11-22)');
 });
 
-test('ladder · Max (enterprise): 12 seats + all 12 categories', () => {
+test('ladder · Ultra (enterprise, 1 TB): no people or category limit', () => {
   const c = TIER_CAPS.enterprise;
-  assert.equal(c.agentAccounts, 11, 'Max = 12 seats with the owner (owner 2026-11-18)');
-  assert.equal(c.parentCategories, 12, 'Max = all 12 main categories (owner 2026-11-18)');
-  assert.equal(c.marketIntel, true, 'Enterprise keeps Market Intel');
+  assert.equal(c.agentAccounts, Infinity, 'Ultra = no people limit (owner 2026-11-22)');
+  assert.equal(c.parentCategories, Infinity, 'Ultra = every main category (owner 2026-11-22)');
+  assert.equal(c.marketIntel, true, 'Ultra keeps Market Intel');
 });
 
 test('ladder · agent seats are monotonic Free ≤ Supplier Plus ≤ Pro ≤ Enterprise', () => {
@@ -117,10 +129,10 @@ test('ladder · agent seats are monotonic Free ≤ Supplier Plus ≤ Pro ≤ Ent
   assert.ok(pro.agentAccounts <= enterprise.agentAccounts);
 });
 
-test('ladder · Market Intel unlocks at Pro and never below', () => {
+test('ladder · Market Intel unlocks at Plus (the first paid size) and never below', () => {
   assert.equal(canSeeMarketIntel('free'), false);
   assert.equal(canSeeMarketIntel('verified'), false);
-  assert.equal(canSeeMarketIntel('solo'), false);
+  assert.equal(canSeeMarketIntel('solo'), true);
   assert.equal(canSeeMarketIntel('pro'), true);
   assert.equal(canSeeMarketIntel('enterprise'), true);
   // A stray 'custom' (the retired plan) reads as Free — never as a paid plan.
@@ -164,11 +176,11 @@ test('free tier: real name ONCE VERIFIED — the tier alone never reveals (revea
 // growth capabilities to the owner-locked grid so a future edit to TIER_CAPS
 // that quietly moves one of them fails CI instead of shipping.
 
-test('locked matrix · GROW row — market intel is Pro+ for every tier', () => {
+test('locked matrix · GROW row — market intel is on every paid size (owner 2026-11-22)', () => {
   const WANT: Record<VendorTier, boolean> = {
     free: false,
     verified: false,
-    solo: false,
+    solo: true,
     pro: true,
     enterprise: true,
   };
@@ -179,8 +191,8 @@ test('locked matrix · GROW row — market intel is Pro+ for every tier', () => 
       `${tier} marketIntel must match the locked § 1 GROW row`,
     );
     assert.equal(canSeeMarketIntel(tier), WANT[tier]);
-    // Rank-derived cross-check: Pro-and-up == marketIntel, no exceptions.
-    assert.equal(canSeeMarketIntel(tier), isTierAtLeast(tier, 'pro'));
+    // Rank-derived cross-check: paid (Plus-and-up) == marketIntel, no exceptions.
+    assert.equal(canSeeMarketIntel(tier), isTierAtLeast(tier, 'solo'));
   }
 });
 

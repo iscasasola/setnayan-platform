@@ -80,6 +80,8 @@ test('3 · the AI chatbot keeps BOTH its price rows — off sale since it folded
   assert.deepEqual([Number(entry.price_php), entry.is_active], [1990, false]);
 });
 
+const fin = (v: number): number | null => (Number.isFinite(v) ? v : null);
+
 test('4 · every plan row carries TIER_CAPS — categories and team seats', async () => {
   const plans = [
     ['solo', ['solo_vendor_monthly', 'solo_vendor_annual']],
@@ -92,7 +94,8 @@ test('4 · every plan row carries TIER_CAPS — categories and team seats', asyn
       assert.ok(r, `${sku} is missing`);
       assert.deepEqual(
         { max_categories: r.max_categories, max_sub_seats: r.max_sub_seats },
-        { max_categories: TIER_CAPS[tier].parentCategories, max_sub_seats: TIER_CAPS[tier].agentAccounts },
+        // NULL = no limit, as TIER_CAPS' Infinity (every paid size's categories; Pro and Ultra seats — 2026-11-22).
+        { max_categories: fin(TIER_CAPS[tier].parentCategories), max_sub_seats: fin(TIER_CAPS[tier].agentAccounts) },
         `${sku} disagrees with TIER_CAPS.${tier}`,
       );
     }

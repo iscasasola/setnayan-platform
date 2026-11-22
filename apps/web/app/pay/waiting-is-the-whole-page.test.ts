@@ -51,9 +51,11 @@ test('🔴 every instruction to pay is gone while we are checking', () => {
     SRC,
     // `!overCeiling` (owner 2026-11-17: no payment above max_payment_php) may
     // narrow it further; it may never widen it.
-    /\{!waiting && (?:!overCeiling && )?\(\s*<PayPanel/,
+    /\{!waiting && (?:!overCeiling && )?(?:!mayaOpen && )?\(\s*<PayPanel/,
     'the QR and the proof form must not render while we are checking',
   );
+  // MAYA IN TWO TAPS (2026-11-22): the Maya page renders on its own — and it must carry the same `!waiting`.
+  assert.match(SRC, /\{!waiting && !overCeiling && mayaOpen && \(\s*<MayaPayStage/, 'the Maya pay page must not render while we are checking');
 });
 
 test('the notice says what he asked it to say', () => {

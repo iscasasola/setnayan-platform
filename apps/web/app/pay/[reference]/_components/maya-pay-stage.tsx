@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Lock } from 'lucide-react';
 import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -28,6 +29,7 @@ export function MayaPayStage({
   billedToName,
   billedToEmail,
   line,
+  code = null,
 }: {
   reference: string;
   amountPhp: number;
@@ -37,6 +39,8 @@ export function MayaPayStage({
   billedToEmail: string | null;
   /** One line above the summary after a cancelled or failed try ("…Nothing was charged."). */
   line: string | null;
+  /** 🎟 The collapsed "Have a code?" (or "Code applied"), between the Order summary and "Pay with" (MAYA IN TWO TAPS). */
+  code?: ReactNode;
 }) {
   return (
     <section id="payCard" data-pay-maya-stage="" className="mt-5 scroll-mt-4 pb-40 md:pb-0">
@@ -79,6 +83,7 @@ export function MayaPayStage({
             <span className="text-sm font-semibold text-ink">Total</span>
             <span className="text-base font-bold tabular-nums text-ink">{payAmount(amountPhp)}</span>
           </div>
+          {code ? <div data-pay-maya-code="">{code}</div> : null}
         </div>
 
         {/* ── Pay with — the marks, then the press ── */}

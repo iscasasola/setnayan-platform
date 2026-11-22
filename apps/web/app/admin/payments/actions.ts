@@ -65,6 +65,8 @@ import { appendLedger } from '@/lib/ledger';
 // so main's inline imports/constants are dropped here (typecheck confirms
 // nothing else references them).
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
+import { mayaPaymentIdForOrder, readMayaReversalLive, reverseOnMaya } from '@/lib/maya-reversal.server';
+import { MAYA_NO_LONGER_LINE, MAYA_UNREACHABLE_LINE } from '@/lib/maya-reversal';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import { customerOrderName, orderSubject } from '@/lib/order-naming';
 import {
@@ -1604,6 +1606,12 @@ export async function refundOrder(formData: FormData) {
   if (intent === 'convert_to_papic_credits' || intent === 'move_to_next_event') {
     return serviceRemedy(adminUserId, intent, formData);
   }
+  // ── 💳 A MAYA-PAID ORDER IS HANDED BACK THROUGH MAYA (owner 2026-11-22 · specs 86f20253) ──
+  // An intent branch, not a new action (the budget is at its ceiling). Maya is asked FIRST; only its yes is
+  // recorded, through applyRefund below — the same flip, revocations, ledger row, audit and notice.
+  if (intent === 'maya_reverse') {
+    return mayaReverse(adminUserId, formData);
+  }
   const orderId = formData.get('order_id');
   const reason = nullIfBlank(formData.get('reason'));
   const proofUrl = nullIfBlank(formData.get('proof_url'));
@@ -1681,63 +1689,7 @@ export async function refundOrder(formData: FormData) {
   // second admin is never asked to approve a refund against an order that is
   // already refunded or was never paid.
   if (refundNeedsTwoAdmins(amountPhp)) {
-    // One pending approval per order. A second press must not open a second
-    // request that two different admins could each approve.
-    const { data: alreadyPending } = await admin
-      .from('admin_approval_requests')
-      .select('approval_id')
-      .eq('action_type', 'approve_large_refund')
-      .eq('target_id', orderId)
-      .eq('status', 'pending')
-      .maybeSingle();
-    if (alreadyPending) {
-      revalidatePath('/admin/payments');
-      throw new Error(
-        `A refund for order ${orderBefore.public_id} is already waiting on a second admin — ` +
-          'open /admin/approvals rather than starting another.',
-      );
-    }
-
-    const { error: insErr } = await admin.from('admin_approval_requests').insert({
-      action_type: 'approve_large_refund',
-      target_id: orderId,
-      target_user_id: orderBefore.user_id,
-      payload: { amount_php: amountPhp, reason, proof_url: proofUrl },
-      rationale: reason,
-      initiated_by: adminUserId,
-      // 72 hours, matching the comp-grant window. A couple waiting on money
-      // should not wait on a stale request either: an expired one is re-opened
-      // deliberately rather than approved days later by someone with no memory
-      // of the dispute.
-      expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-    });
-    if (insErr) throw new Error(`Could not open the refund approval: ${insErr.message}`);
-
-    const { error: auditErr } = await admin.from('admin_audit_log').insert({
-      action: 'refund_order_requested',
-      target_id: orderId,
-      actor_user_id: adminUserId,
-      metadata: {
-        public_id: orderBefore.public_id,
-        amount_php: amountPhp,
-        threshold_php: REFUND_TWO_ADMIN_THRESHOLD_PHP,
-        reason,
-      },
-    });
-    if (auditErr) {
-      console.error('[refundOrder] approval audit insert failed (non-fatal):', auditErr);
-    }
-
-    revalidatePath('/admin/payments');
-    revalidatePath('/admin/approvals');
-    // Thrown, not returned: this is the file's existing way of getting a
-    // sentence in front of the admin, and "nothing visibly happened" is the
-    // failure this whole change exists to prevent.
-    throw new Error(
-      `${formatPhp(amountPhp)} is over the ₱${REFUND_TWO_ADMIN_THRESHOLD_PHP.toLocaleString()} ` +
-        'limit in Vendor Agreement § 9.1, so it needs a second admin. The request is open in ' +
-        '/admin/approvals with your reason attached — nothing has been refunded yet.',
-    );
+    await openLargeRefundApproval(admin, { orderId, orderBefore, amountPhp, reason, proofUrl, adminUserId });
   }
 
   await applyRefund(admin, {
@@ -1748,6 +1700,88 @@ export async function refundOrder(formData: FormData) {
     amountPhp,
     refundCentavos,
     actingAdminId: adminUserId,
+  });
+}
+
+/**
+ * 💳 Void or refund a Maya-paid order ON MAYA, then record it (owner 2026-11-22 "make it possible to allow refund
+ * until maya allow refund" · specs DECISION_LOG 86f20253). Lib: lib/maya-reversal.ts (the decision, the lines, what
+ * Maya's docs do and do not confirm).
+ *
+ * · The Maya payment id is read from the order's approved Maya payment — never from the form.
+ * · Full amount only: Maya's own amount for the payment, sent and recorded as one number.
+ * · Over ₱25,000 it opens the § 9.1 two-admin request instead, and NOTHING goes to Maya until a second admin
+ *   approves (executeLargeRefund asks Maya then).
+ * · Idempotent: a refunded order stops at the read; a second press that races the first reaches Maya, which
+ *   refuses it (PY0045/PY0082/PY0093), so nothing is recorded twice. Maya already showing it VOIDED/REFUNDED while
+ *   the order is still paid (a record lost after Maya's yes) records it WITHOUT asking Maya again.
+ */
+async function mayaReverse(adminUserId: string, formData: FormData): Promise<void> {
+  const orderId = formData.get('order_id');
+  const reason = nullIfBlank(formData.get('reason'));
+  if (typeof orderId !== 'string') throw new Error('Refund missing order_id.');
+  if (!reason || reason.length < 20) {
+    throw new Error(
+      'Refund needs a reason (at least 20 characters) so we have a paper trail for the couple.',
+    );
+  }
+
+  const admin = createAdminClient();
+  const { data: orderBefore, error: readErr } = await admin
+    .from('orders')
+    .select(
+      'order_id, user_id, vendor_profile_id, event_id, public_id, status, service_key, requested_total_php, confirmed_total_php',
+    )
+    .eq('order_id', orderId)
+    .maybeSingle();
+  if (readErr) throw new Error(readErr.message);
+  if (!orderBefore) throw new Error('Order not found.');
+  if (orderBefore.status === 'refunded') {
+    revalidatePath('/admin/payments');
+    throw new Error(
+      `Order ${orderBefore.public_id} is already marked refunded. Nothing to do — refresh the page.`,
+    );
+  }
+  if (!(orderBefore.status === 'paid' || orderBefore.status === 'fulfilled')) {
+    throw new Error(
+      `Refund only applies to paid or fulfilled orders. This order is ${orderBefore.status} — cancel or close it instead.`,
+    );
+  }
+
+  const mayaPaymentId = await mayaPaymentIdForOrder(admin, orderId);
+  if (mayaPaymentId === 'error') throw new Error('Couldn’t read this order’s Maya payment — try again. Nothing was recorded.');
+  if (!mayaPaymentId) throw new Error('This order has no Maya payment. Record a refund by hand instead.');
+
+  // The amount is MAYA's, read now: the ₱25,000 gate needs it before anything is sent.
+  const read = await readMayaReversalLive(mayaPaymentId);
+  if (read.kind === 'error') throw new Error(`${MAYA_UNREACHABLE_LINE} Nothing was recorded.`);
+  if (read.kind === 'neither') throw new Error(`${MAYA_NO_LONGER_LINE} Nothing was recorded.`);
+  if (read.kind !== 'already' && refundNeedsTwoAdmins(read.amountPhp)) {
+    await openLargeRefundApproval(admin, {
+      orderId,
+      orderBefore,
+      amountPhp: read.amountPhp,
+      reason,
+      proofUrl: null,
+      adminUserId,
+      mayaPaymentId,
+    });
+  }
+
+  const out = await reverseOnMaya({ mayaPaymentId, reason });
+  if (!out.ok) {
+    revalidatePath('/admin/payments');
+    throw new Error(out.line);
+  }
+  await applyRefund(admin, {
+    orderId,
+    orderBefore,
+    reason,
+    proofUrl: null,
+    amountPhp: out.amountPhp,
+    refundCentavos: Math.round(out.amountPhp * 100),
+    actingAdminId: adminUserId,
+    maya: { mayaPaymentId, kind: out.kind },
   });
 }
 
@@ -1806,9 +1840,11 @@ export async function executeLargeRefund(
     amountPhp: number;
     initiatedByAdminId: string;
     confirmingAdminId: string;
+    /** Set when the order was paid through Maya: Maya is asked first, for exactly the approved amount. */
+    mayaPaymentId?: string | null;
   },
 ): Promise<void> {
-  const { orderId, reason, proofUrl, amountPhp, confirmingAdminId } = params;
+  const { orderId, reason, proofUrl, amountPhp, confirmingAdminId, mayaPaymentId } = params;
 
   const { data: orderBefore, error: readErr } = await admin
     .from('orders')
@@ -1830,6 +1866,14 @@ export async function executeLargeRefund(
     );
   }
 
+  // 💳 A Maya-paid order: Maya hands it back first, or nothing is recorded (the throw re-opens the request).
+  let maya: { mayaPaymentId: string; kind: 'void' | 'refund' | 'already' } | undefined;
+  if (mayaPaymentId) {
+    const out = await reverseOnMaya({ mayaPaymentId, reason, expectAmountPhp: amountPhp });
+    if (!out.ok) throw new Error(out.line);
+    maya = { mayaPaymentId, kind: out.kind };
+  }
+
   await applyRefund(admin, {
     orderId,
     orderBefore,
@@ -1841,7 +1885,90 @@ export async function executeLargeRefund(
     // is on the approval row, and the dispatcher writes its own
     // `approval_approved:` entry naming both.
     actingAdminId: confirmingAdminId,
+    maya,
   });
+}
+
+/**
+ * Open the § 9.1 two-admin request for a refund over ₱25,000 and THROW the sentence that says so. Shared by the
+ * by-hand refund and the Maya one, so both open exactly the same request (a Maya one also carries its payment id).
+ */
+async function openLargeRefundApproval(
+  admin: ReturnType<typeof createAdminClient>,
+  args: {
+    orderId: string;
+    orderBefore: RefundableOrder;
+    amountPhp: number;
+    reason: string;
+    proofUrl: string | null;
+    adminUserId: string;
+    mayaPaymentId?: string;
+  },
+): Promise<never> {
+  const { orderId, orderBefore, amountPhp, reason, proofUrl, adminUserId, mayaPaymentId } = args;
+  // One pending approval per order. A second press must not open a second
+  // request that two different admins could each approve.
+  const { data: alreadyPending } = await admin
+    .from('admin_approval_requests')
+    .select('approval_id')
+    .eq('action_type', 'approve_large_refund')
+    .eq('target_id', orderId)
+    .eq('status', 'pending')
+    .maybeSingle();
+  if (alreadyPending) {
+    revalidatePath('/admin/payments');
+    throw new Error(
+      `A refund for order ${orderBefore.public_id} is already waiting on a second admin — ` +
+        'open /admin/approvals rather than starting another.',
+    );
+  }
+
+  const { error: insErr } = await admin.from('admin_approval_requests').insert({
+    action_type: 'approve_large_refund',
+    target_id: orderId,
+    target_user_id: orderBefore.user_id,
+    payload: {
+      amount_php: amountPhp,
+      reason,
+      proof_url: proofUrl,
+      // A Maya-paid order: the second admin's approval asks MAYA first (executeLargeRefund).
+      ...(mayaPaymentId ? { maya_payment_id: mayaPaymentId } : {}),
+    },
+    rationale: reason,
+    initiated_by: adminUserId,
+    // 72 hours, matching the comp-grant window. A couple waiting on money
+    // should not wait on a stale request either: an expired one is re-opened
+    // deliberately rather than approved days later by someone with no memory
+    // of the dispute.
+    expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+  });
+  if (insErr) throw new Error(`Could not open the refund approval: ${insErr.message}`);
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'refund_order_requested',
+    target_id: orderId,
+    actor_user_id: adminUserId,
+    metadata: {
+      public_id: orderBefore.public_id,
+      amount_php: amountPhp,
+      threshold_php: REFUND_TWO_ADMIN_THRESHOLD_PHP,
+      reason,
+    },
+  });
+  if (auditErr) {
+    console.error('[refundOrder] approval audit insert failed (non-fatal):', auditErr);
+  }
+
+  revalidatePath('/admin/payments');
+  revalidatePath('/admin/approvals');
+  // Thrown, not returned: this is the file's existing way of getting a
+  // sentence in front of the admin, and "nothing visibly happened" is the
+  // failure this whole change exists to prevent.
+  throw new Error(
+    `${formatPhp(amountPhp)} is over the ₱${REFUND_TWO_ADMIN_THRESHOLD_PHP.toLocaleString()} ` +
+      'limit in Vendor Agreement § 9.1, so it needs a second admin. The request is open in ' +
+      '/admin/approvals with your reason attached — nothing has been refunded yet.',
+  );
 }
 
 /** The order row `applyRefund` needs. Structural, so both callers' reads fit. */
@@ -1875,9 +2002,11 @@ async function applyRefund(
     amountPhp: number;
     refundCentavos: number;
     actingAdminId: string;
+    /** Set when Maya handed the money back (lib/maya-reversal.ts) — carried into the audit row. */
+    maya?: { mayaPaymentId: string; kind: 'void' | 'refund' | 'already' };
   },
 ): Promise<void> {
-  const { orderId, orderBefore, reason, proofUrl, amountPhp, refundCentavos, actingAdminId } = ctx;
+  const { orderId, orderBefore, reason, proofUrl, amountPhp, refundCentavos, actingAdminId, maya } = ctx;
 
   // Step 2: flip the order to refunded. Conditional WHERE guards against
   // a concurrent admin who already flipped it between the read and this
@@ -1954,6 +2083,7 @@ async function applyRefund(
         refund_amount_php: amountPhp,
         reason,
         proof_url: proofUrl,
+        ...(maya ? { paid_through: 'maya', maya_payment_id: maya.mayaPaymentId, maya_reversal: maya.kind } : {}),
       },
     });
   } catch (auditErr) {

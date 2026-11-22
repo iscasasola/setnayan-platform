@@ -81,7 +81,8 @@ test('the bill reads the record for its own charge and draws the line on every b
     'something besides the dispute count waits for an accepted dispute',
   );
   assert.doesNotMatch(src.slice(src.indexOf('let foundLine') - 400, src.indexOf('let foundLine')), /auto_accepted/, 'the read waits for a dispute');
-  assert.match(src, /\{foundLine \? \([\s\S]{0,160}★ \{foundLine\}/, 'the bill does not draw the line');
+  // Set two (21 Nov 2026): the page reads the record; its body draws the line.
+  assert.match(code('app/vendor-dashboard/booking-fees/[orderId]/fee-body.tsx'), /\{foundLine \? \([\s\S]{0,160}★ \{foundLine\}/, 'the bill does not draw the line');
 });
 
 test('the words stay pure — no server-only import, no server action', () => {

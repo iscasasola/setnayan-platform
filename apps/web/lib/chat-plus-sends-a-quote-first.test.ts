@@ -10,30 +10,33 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { MAKE_A_QUOTE_LABEL, SEND_A_QUOTE_LABEL, supplierPlusRows } from '@/lib/chat-plus';
+import { MAKE_A_QUOTE_LABEL, NO_VERSIONS_YET, SEND_A_QUOTE_LABEL, supplierPlusRows } from '@/lib/chat-plus';
 import { VENDOR_THREAD_TOOLS } from '@/lib/vendor-thread-tools';
 import { stripComments } from '@/lib/strip-comments';
 
-test('no quote yet → "Make a quote", the short card (its door still the builder), and no "See every version"', () => {
+test('no quote yet → "Make a quote", the short card (its door still the builder), and Every version in its place, shut until the first quote', () => {
   const rows = supplierPlusRows({ paid: false, hasQuote: false });
   const quote = rows.find((r) => r.key === 'quote')!;
   assert.equal(quote.label, MAKE_A_QUOTE_LABEL);
   assert.equal(quote.card, 'quote', 'Make a quote left the chat again');
   assert.equal(quote.door, 'build-quote', 'Full quotation lost its builder');
   assert.equal(VENDOR_THREAD_TOOLS.find((t) => t.key === 'build-quote')?.label, SEND_A_QUOTE_LABEL, 'the builder was renamed');
-  assert.equal(rows.some((r) => /every version/i.test(r.label)), false);
+  // ＋ FINAL (owner 21 Nov): fixed places — Every version stays last, SHUT with its reason (never a dead tile).
+  assert.deepEqual(rows.find((r) => r.key === 'versions')?.shutNow, { reason: NO_VERSIONS_YET });
   /* The card a no-quote chat opens is the Make a quote card, never the dead "No quote in this chat yet". */
   const card = stripComments(readFileSync(join(import.meta.dirname, '..', 'app/_components/chat/cards/quote-step-card.tsx'), 'utf8'));
   assert.match(card, /if \(!q\) return <MakeQuoteCard /);
   assert.doesNotMatch(card, /No quote in this chat yet/);
 });
 
-test('a quote out → "Change quote", as before (also when the rung is not handed in); "See every version" is no (+) row since 20 Nov 2026', () => {
+test('a quote out → "Change quote", as before (also when the rung is not handed in); Every version is open, last (＋ FINAL)', () => {
   for (const rows of [supplierPlusRows({ paid: false, hasQuote: true }), supplierPlusRows({ paid: false })]) {
     assert.equal(rows.find((r) => r.key === 'quote')?.label, 'Change quote');
     assert.equal(rows.find((r) => r.key === 'quote')?.card, 'quote');
-    // The (+) holds only things you send: every version is the strip's Deal box and the quote card's own row.
-    assert.ok(!rows.some((r) => /every version/i.test(r.label)));
+    const versions = rows.at(-1)!;
+    assert.equal(versions.key, 'versions');
+    assert.equal(versions.opensVersions, true);
+    assert.equal(versions.shutNow, undefined);
   }
 });
 

@@ -128,8 +128,10 @@ before(async () => {
   F.rivalUser = await mkUser('offer-rival@chat.test', 'vendor');
   const mkShop = async (uid: string, name: string) =>
     (await one<{ vendor_profile_id: string }>(
-      `INSERT INTO public.vendor_profiles (user_id, business_name) VALUES ($1, $2)
-       ON CONFLICT (user_id) DO UPDATE SET business_name = EXCLUDED.business_name RETURNING vendor_profile_id`,
+      // A ＋ tool needs a verified shop (migration 20271357625672) — the fixture shop is verified.
+      `INSERT INTO public.vendor_profiles (user_id, business_name, verification_state, last_verified_at) VALUES ($1, $2, 'verified', NOW())
+       ON CONFLICT (user_id) DO UPDATE SET business_name = EXCLUDED.business_name, verification_state = 'verified', last_verified_at = NOW()
+       RETURNING vendor_profile_id`,
       [uid, name],
     )).vendor_profile_id;
   F.shop = await mkShop(F.vendorUser, 'Rosa’s Kitchen');

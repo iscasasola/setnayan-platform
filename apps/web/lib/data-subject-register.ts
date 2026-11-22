@@ -226,6 +226,10 @@ export const REQUIRED_DATA_SUBJECT_CATEGORIES: readonly DataSubjectCategoryKey[]
 export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> = {
   api_keys: 'The label an integration is given ("Zapier prod"), not a person.',
   communities: 'The name of a group, not of a person.',
+  vendor_pay_plans:
+    'The name a shop gives one of its saved pay plans ("My 3-step plan") — Payment Strategies, Card Maker part 2, migration 20271350884376. Keyed to the shop, never to a couple; it names no person.',
+  service_included_templates:
+    'The name of one of Setnayan\'s starting "What\'s included" lists for a service ("Catering basics") — Quick Forms, migration 20271351904391. Platform content; it names no person.',
   vendor_offers:
     'The name a shop gives one of its offers ("Shop-wide 10%", "Early bird · a year ahead") — the Offer Maker, Build 6 Lane D, migration 20271336923559. Shop marketing copy keyed to the shop, never to a couple; it names no person.',
   events:
@@ -234,6 +238,8 @@ export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> 
     'The name one person gives a GROUP of their own celebrations — "Our year", "The Cruz wedding" (item 7 phase 7a, migration 20271189765490). Exactly the settled line already drawn for `events` above and `households` below: it can contain the owner\'s own name, but the owner is a declared category, the row is readable by nobody else, and it is exported to them as `years_you_grouped`. A grouping is not a separate data subject. ⚠ It names no THIRD party — the celebrations it groups are joined by uuid, and each carries its own subjects.',
   event_wish_items:
     'The name of a THING the couple would love as a gift — "Air fryer", "Luggage set" (the E-Gifts wish list, migration 20271266228704). Not a person. Its sibling `event_gift_records` DOES record a person — `giver_name`, their words and a screenshot of their own bank or e-wallet screen — under a column name this scan does not match; that is the GUEST category\'s data and is anchored there (`event_gift_records.giver_name`, since the change that first wrote a record — wish list 4/5).',
+  vendor_role_names:
+    'A shop\'s own word for one of its six team ROLES ("Lead Stylist" for Account Manager — Team › Roles, migration supplier_six_roles, 19 Nov 2026). A job title keyed to the shop, never to a person; the people who hold the role are vendor_team_members rows, already anchored.',
   households: 'A household label the couple types ("The Cruz Family") — a grouping, not an individual.',
   moodboard_theme_templates:
     'The display name of a curated admin-authored starter theme ("Rustic Filipiniana Heritage"), not a person. Admin content — no couple/customer row.',

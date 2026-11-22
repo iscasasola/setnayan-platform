@@ -13,10 +13,10 @@ import { stripComments } from './strip-comments';
 
 const WEB = process.cwd();
 
-test('the eleven tiles, Scanner first, then Spaces, the owner’s list', () => {
+test('the twelve tiles, Scanner first, then Spaces, the owner’s list (Cake Maker joined 21 Nov)', () => {
   assert.deepEqual(
     SPECIALIZED_TOOLS.map((t) => t.title),
-    ['Scanner', 'Song bank', 'Song Desk', 'Emcee script', 'Floor Command + March', 'Run of show', 'Headcount', 'Live Watch', 'Papic challenge', '3D plan', 'Spaces'],
+    ['Scanner', 'Cake Maker', 'Song bank', 'Song Desk', 'Emcee script', 'Floor Command + March', 'Run of show', 'Headcount', 'Live Watch', 'Papic challenge', '3D plan', 'Spaces'],
   );
   for (const shop of [[], ['Live Band'], ['Catering'], ['Coordinator / Planner']]) {
     const order = specializedToolsFor(shop, []);

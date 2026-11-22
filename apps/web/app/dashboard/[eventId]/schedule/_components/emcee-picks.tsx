@@ -151,7 +151,7 @@ export async function EmceePicks({
                   className={`flex h-full w-full flex-col items-start gap-1 border p-3 text-left transition-colors ${
                     isPicked
                       ? 'border-gild bg-gild/10'
-                      : 'border-ink/12 bg-white hover:border-gild/50'
+                      : 'border-ink/12 bg-raised hover:border-gild/50'
                   } ${isPlaced ? 'cursor-default opacity-70' : ''}`}
                 >
                   <span className="flex w-full items-start justify-between gap-2">

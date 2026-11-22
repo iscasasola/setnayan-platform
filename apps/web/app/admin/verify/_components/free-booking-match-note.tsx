@@ -3,19 +3,18 @@ import { matchedOnText, type FreeBookingMatch } from '@/lib/business-free-bookin
 import { formatCount } from '@/lib/format-number';
 
 /**
- * 🛡 "Same business as another shop" + a link to each, and where the business's
- * ONE free first booking stands (owner 2026-11-06, DECISION_LOG "ONE FREE FIRST
- * BOOKING PER BUSINESS, NOT PER ACCOUNT"). Read-only, like the shared-number note.
+ * 🛡 "Same business as another shop" + a link to each (owner 2026-11-06, DECISION_LOG "ONE FREE FIRST BOOKING PER
+ * BUSINESS, NOT PER ACCOUNT"). Read-only, like the shared-number note.
  *
- * `null` (the read failed) is said out loud — silence would read as "a new
- * business" — and it says what the money path does meanwhile: it bills.
+ * ⚖ 20 Nov: there is NO free first booking any more (`booking_fee_free_booking_limit()` = 0), so nothing here may say
+ * one is still waiting to be taken. A shop that took one before 20 Nov keeps it — that is said in the past tense, and
+ * only when it happened. `null` (the read failed) is said out loud — silence would read as "a new business".
  */
 export function FreeBookingMatchNote({ match }: { match: FreeBookingMatch | null }) {
   if (!match || match.shops === null) {
     return (
       <p data-free-booking-match="unchecked" className="text-xs text-ink/60">
-        Couldn&rsquo;t check this shop against other shops for the free first booking — reload to try
-        again. Until the check runs, a booking is billed, not free.
+        Couldn&rsquo;t check this shop against other shops — reload to try again.
       </p>
     );
   }
@@ -43,8 +42,7 @@ export function FreeBookingMatchNote({ match }: { match: FreeBookingMatch | null
       className="rounded-md border border-warn-300/60 bg-warn-50 px-3 py-2 text-xs text-warn-900"
     >
       <p className="font-semibold">
-        Same business as {shops.length === 1 ? 'another shop' : `${formatCount(shops.length)} other shops`} — one free first
-        booking between them
+        Same business as {shops.length === 1 ? 'another shop' : `${formatCount(shops.length)} other shops`}
       </p>
       <ul className="mt-1 space-y-0.5">
         {shops.map((s) => (
@@ -53,18 +51,16 @@ export function FreeBookingMatchNote({ match }: { match: FreeBookingMatch | null
               {s.businessName} &rarr;
             </Link>{' '}
             <span className="opacity-80">· same {matchedOnText(s.matchedOn)}</span>
-            {s.tookFree ? <span className="font-semibold"> · used the free first booking</span> : null}
+            {s.tookFree ? <span className="font-semibold"> · had a free first booking before 20 Nov</span> : null}
           </li>
         ))}
       </ul>
       <p className="mt-1 text-[11px] opacity-80">
         {withheld?.selfTookFree
-          ? 'This shop used the free first booking, so the first booking of each shop above carries the fee.'
+          ? 'This shop had a free first booking before 20 Nov; that one stays free. Every other booking carries the fee.'
           : holder
-            ? `The free first booking is used, so this shop's first booking carries the fee.`
-            : withheld
-              ? 'The free first booking is still unused — whichever of these shops books first takes it.'
-              : 'Whether this shop used the free first booking could not be read.'}
+            ? 'One of these shops had a free first booking before 20 Nov; that one stays free. Every other booking carries the fee.'
+            : 'There is no free first booking since 20 Nov — every booking of these shops carries the fee unless the free rule applies.'}
         {withheld && withheld.alreadyUsed > 0
           ? ` ${withheld.alreadyUsed === 1 ? 'One booking has' : `${formatCount(withheld.alreadyUsed)} bookings have`} already been billed for this.`
           : null}

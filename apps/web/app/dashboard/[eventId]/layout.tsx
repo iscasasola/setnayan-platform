@@ -26,6 +26,8 @@ import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
+// 🪪 The guest card's own rules (rise, head, side dot, missing colour) — every event page can open the card.
+import './guests/_components/guest-card.css';
 import { railToolsSignedIn } from '@/lib/studio-rail';
 import type { EventStudioRow } from '@/lib/customer-menu';
 import { EventRailContext } from './_components/event-rail-context';

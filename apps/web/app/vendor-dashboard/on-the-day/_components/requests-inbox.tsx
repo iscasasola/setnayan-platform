@@ -199,7 +199,7 @@ export function RequestsInbox({ eventId, initialRows, side }: Props) {
                     <span
                       className={`inline-flex size-6 items-center justify-center rounded-md border transition duration-sn-micro ease-sn ${
                         done
-                          ? 'border-success-400 bg-success-500 text-white'
+                          ? 'border-success-400 bg-success-500 text-cream'
                           : row.status === 'acknowledged'
                             ? 'border-terracotta bg-terracotta/15 text-ink'
                             : 'border-[color:var(--m-line)] bg-white text-transparent hover:border-terracotta dark:bg-raised'

@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { gapWords, theirOpenAsk, type DealAsk } from './chat-deal';
+import { bookItCap, counterContext, fillTheRest, gapWords, openCounterBy, planBalance, rangePercent, suggestedCounterCentavos, theirOpenAsk, type DealAsk } from './chat-deal';
 import { isUnderLowest } from '@/app/_components/chat/cards/lowest-calls';
 import { stripComments } from './strip-comments';
 
@@ -102,4 +102,101 @@ test('5 · ONE rule for their ask, both places (review F6): a one-line counter i
   const PAGE = stripComments(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'app/vendor-dashboard/clients/[eventId]/page.tsx'), 'utf8'));
   assert.match(PAGE, /theirOpenAsk\(stripAsks, stripToday\)/);
   assert.doesNotMatch(PAGE, /stripAsks\?\.find\(/, 'a second picker for their ask is back on the client page');
+});
+
+// ── Unichat part C (20 Nov 2026 — drawing UNICHAT-LIVE-2026-11-19: the counter and plan editors) ─────────────────────
+// What would silently undo it: (5) the suggestion drops under the supplier's lowest, or is not halfway · (6) the hosts'
+// editor learns the supplier's lowest (a chip, a mark, or a suggestion pulled up to it) · (7) a plan that does not add
+// up may be sent · (8) "Book it" offers more than is free.
+// SABOTAGE (20 Nov 2026, each seen RED then restored): `Math.max(half, lowest)` → `half` (5) · `sup ? whole(…) : null`
+// → `whole(…)` (6) · `left === 0 &&` dropped from `balanced` (7) · `Math.min(asked, max)` → `asked` (8).
+
+test('5 · the suggested counter is halfway between their ask and your quote, a whole peso, never under your lowest', () => {
+  assert.equal(suggestedCounterCentavos({ theirAskCentavos: 4_000_000, yourQuoteCentavos: 4_500_000 }), 4_250_000);
+  assert.equal(suggestedCounterCentavos({ theirAskCentavos: 4_000_000, yourQuoteCentavos: 4_500_000, lowestCentavos: null }), 4_250_000, 'no lowest saved — just halfway');
+  assert.equal(suggestedCounterCentavos({ theirAskCentavos: 4_000_000, yourQuoteCentavos: 4_500_000, lowestCentavos: 4_400_000 }), 4_400_000, 'halfway is under the lowest — the lowest it is');
+  assert.equal(suggestedCounterCentavos({ theirAskCentavos: 4_000_000, yourQuoteCentavos: 4_500_000, lowestCentavos: 4_100_000 }), 4_250_000, 'halfway already clears the lowest');
+  assert.equal(suggestedCounterCentavos({ theirAskCentavos: 4_000_050, yourQuoteCentavos: 4_500_100 }), 4_250_100, 'rounded to a whole peso');
+  assert.equal(suggestedCounterCentavos({ theirAskCentavos: 4_000_000, yourQuoteCentavos: 4_500_025 })! % 100, 0);
+  assert.equal(suggestedCounterCentavos({ theirAskCentavos: null, yourQuoteCentavos: 4_500_000 }), null, 'nobody is asking — nothing to suggest');
+  assert.equal(suggestedCounterCentavos({ theirAskCentavos: 4_600_000, yourQuoteCentavos: 4_500_000 }), null, 'their ask is not under the quote');
+  assert.equal(suggestedCounterCentavos({ theirAskCentavos: 4_000_000, yourQuoteCentavos: 4_500_000, lowestCentavos: 4_800_000 }), null, 'the quote itself is under the lowest — no figure between the two clears it');
+});
+
+test('6 · the counter editor: their ask · your quote · the gap — and the lowest is the SUPPLIER’s alone', () => {
+  const sup = counterContext({ viewer: 'vendor', quoteTotalCentavos: 4_800_000, hostAskCentavos: 4_000_000, supplierCounterCentavos: null, lowestCentavos: 4_250_000 });
+  assert.deepEqual(sup.figures, [{ label: 'Your quote', centavos: 4_800_000 }, { label: 'They ask', centavos: 4_000_000 }]);
+  assert.deepEqual(sup.gap, { amount: '₱8,000', percent: '17%' });
+  assert.equal(sup.suggested, 4_400_000);
+  assert.deepEqual(sup.chips, [
+    { centavos: 4_400_000, words: ['halfway'] },
+    { centavos: 4_250_000, words: ['your lowest'], lowest: true },
+    { centavos: 4_800_000, words: ['keep'] },
+  ]);
+  assert.equal(sup.lowestAt, rangePercent(4_250_000, 4_000_000, 4_800_000));
+  // Halfway under the lowest: ONE chip, both words — the suggestion IS the lowest.
+  const clamped = counterContext({ viewer: 'vendor', quoteTotalCentavos: 4_800_000, hostAskCentavos: 4_000_000, supplierCounterCentavos: null, lowestCentavos: 4_600_000 });
+  assert.equal(clamped.suggested, 4_600_000);
+  assert.deepEqual(clamped.chips[0], { centavos: 4_600_000, words: ['suggested', 'your lowest'], lowest: true });
+  // The supplier already countered: that counter is the far end, not the quote.
+  const again = counterContext({ viewer: 'vendor', quoteTotalCentavos: 4_800_000, hostAskCentavos: 4_200_000, supplierCounterCentavos: 4_600_000, lowestCentavos: null });
+  assert.equal(again.hi, 4_600_000);
+  assert.equal(again.suggested, 4_400_000);
+  // 🔒 The hosts: same deal, the lowest handed in by mistake — it must not exist on their side.
+  const host = counterContext({ viewer: 'couple', quoteTotalCentavos: 4_800_000, hostAskCentavos: 4_000_000, supplierCounterCentavos: null, lowestCentavos: 4_600_000 });
+  assert.equal(host.lowestAt, null);
+  assert.equal(host.suggested, 4_400_000, 'the hosts’ suggestion was pulled up to the supplier’s lowest');
+  assert.ok(host.chips.every((c) => !c.lowest && !c.words.includes('your lowest')), 'the hosts were handed a "lowest" chip');
+  assert.deepEqual(host.chips.map((c) => c.words.join()), ['halfway', 'their quote']);
+  assert.equal(host.figures[0]!.label, 'Their quote');
+  // Nobody is asking: no range, no gap, no suggestion — only what already stands.
+  const quiet = counterContext({ viewer: 'vendor', quoteTotalCentavos: 4_800_000, hostAskCentavos: null, supplierCounterCentavos: null, lowestCentavos: null });
+  assert.equal(quiet.lo, null);
+  assert.equal(quiet.gap, null);
+  assert.equal(quiet.suggested, null);
+  assert.deepEqual(quiet.chips, [{ centavos: 4_800_000, words: ['keep'] }]);
+});
+
+test('6 · each side’s latest counter: open, or answered WITH a counter — never a declined or expired one', () => {
+  const today = '2026-11-23';
+  const host = ask({ askedAt: '2026-11-21T01:00:00Z', amountCentavos: 4_000_000, status: 'countered' });
+  const sup = ask({ askedAt: '2026-11-22T01:00:00Z', amountCentavos: 4_600_000, raisedBy: 'supplier' });
+  assert.equal(openCounterBy([host, sup], today, 'host'), null, 'a countered ask is not an OPEN ask');
+  assert.equal(openCounterBy([host, sup], today, 'host', true), host, 'the range lost the hosts’ last word');
+  assert.equal(openCounterBy([host, sup], today, 'supplier', true), sup);
+  assert.equal(openCounterBy([{ ...host, status: 'declined' }], today, 'host', true), null);
+  assert.equal(openCounterBy([{ ...host, goodUntil: '2026-11-22' }], today, 'host', true), null);
+});
+
+test('6 · the editor reads the lowest only on the supplier’s side, and never sends it', () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const nego = stripComments(readFileSync(join(here, '..', 'app/_components/chat/cards/negotiate-cards.tsx'), 'utf8'));
+  assert.match(nego, /if \(viewer === 'vendor'\) void loadLowest\(threadId\);/, 'the hosts’ session asks for the supplier’s lowest');
+  assert.match(nego, /const lowest = viewer === 'vendor' && lowestState\.at === 'ok' \? lowestState\.centavos : null;/);
+  const send = nego.slice(nego.indexOf('await counterFromChat({'), nego.indexOf('await counterFromChat({') + 400);
+  assert.doesNotMatch(send, /lowest/i, 'the lowest rides the counter to the server');
+});
+
+test('7 · a custom plan must add up to the quote — placed, left, and the words', () => {
+  assert.deepEqual(planBalance([2_000_000, 2_500_000], 4_500_000), { placed: 4_500_000, left: 0, balanced: true, words: 'Placed ₱45,000 of ₱45,000 ✓' });
+  const short = planBalance([2_000_000, 2_000_000], 4_500_000);
+  assert.equal(short.balanced, false);
+  assert.equal(short.words, '₱5,000 still to place');
+  const over = planBalance([3_000_000, 2_000_000], 4_500_000);
+  assert.equal(over.balanced, false);
+  assert.equal(over.words, '₱5,000 over the quote');
+  assert.equal(planBalance([], 0).balanced, false, 'no payments is not a plan');
+  assert.deepEqual(fillTheRest([2_000_000, 0], 1, 4_500_000), [2_000_000, 2_500_000]);
+  assert.deepEqual(fillTheRest([5_000_000, 100], 1, 4_500_000), [5_000_000, 0], 'the rest is never below ₱0');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const nego = stripComments(readFileSync(join(here, '..', 'app/_components/chat/cards/negotiate-cards.tsx'), 'utf8'));
+  assert.match(nego, /const ok = isCustom \? balance\.balanced && !sameAsLive : !!chosen && !chosen\.shut;/, 'Send no longer waits for the plan to balance');
+  assert.match(nego, /disabled=\{fixed \|\| custom\.length < 2\}/, 'a paid payment can be removed');
+});
+
+test('8 · "Book it" is capped by what is free — and an unread count is never a cap', () => {
+  assert.deepEqual(bookItCap(4, 6), { qty: 4, max: 6, short: false });
+  assert.deepEqual(bookItCap(4, 3), { qty: 3, max: 3, short: true });
+  assert.deepEqual(bookItCap(4, 0), { qty: 0, max: 0, short: true });
+  assert.deepEqual(bookItCap(4, null), { qty: 4, max: null, short: false }, 'an unread free count was dressed as a cap');
 });

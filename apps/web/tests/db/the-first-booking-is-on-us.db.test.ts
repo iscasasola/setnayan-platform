@@ -1,5 +1,10 @@
 /**
- * THE FIRST BOOKING IS ON US — ONE, NOT FIVE. Executed against replayed migrations.
+ * ⚖ SUPERSEDED 2026-11-20 — the free first booking is RETIRED (specs DECISION_LOG "BILLING MUST FOLLOW THE RETIRED
+ * COPY", migration 20271356196197: `booking_fee_free_booking_limit()` → 0). The file keeps its name so its history
+ * reads in one place; its assertions now pin the 20 Nov rule: no booking takes a free place, a place frozen free stays
+ * free, and the launch offer still waives inside its cap.
+ *
+ * THE FIRST BOOKING IS ON US — ONE, NOT FIVE (history). Executed against replayed migrations.
  *
  * ⚖ OWNER, 2026-10-23, verbatim: *"Your first booking is on us. Not 5. Then the
  * first 2000 bookings is also free."* Migration 20271284624593.
@@ -104,7 +109,7 @@ async function openCharge(evId: string): Promise<Open> {
 
 test('1 · the SQL limit is the TS twin, and both bodies read it (no literal left behind)', async () => {
   const r = await db.query<{ n: number }>(`SELECT public.booking_fee_free_booking_limit() AS n`);
-  assert.equal(r.rows[0]!.n, 1, 'the database no longer gives one free booking');
+  assert.equal(r.rows[0]!.n, 0, 'the database still gives a free first booking (retired 20 Nov)');
   assert.equal(r.rows[0]!.n, FREE_BOOKING_LIMIT, 'the SQL limit and FREE_BOOKING_LIMIT disagree — two sources of truth');
 
   for (const fn of ['booking_fee_open_lock_charge', 'setnayan_gift_quote_applies']) {
@@ -121,13 +126,12 @@ test('1 · the SQL limit is the TS twin, and both bodies read it (no literal lef
   }
 });
 
-test('2 · no launch offer: booking #1 is waived, booking #2 is billed — and the quote says so first', async () => {
+test('2 · no launch offer: booking #1 is billed (20 Nov), and so is booking #2 — the quote says so first', async () => {
   const vpid = await newVendor();
   const first = await openCharge((await newBooking(vpid)).eventVendorId);
-  assert.equal(first.status, 'waived_free5', `the first booking was ${first.status}`);
+  assert.equal(first.status, 'pending', `the first booking was ${first.status} — the retired free first booking is back`);
   assert.equal(first.booking_ordinal, 1);
-  assert.equal(first.amount_charged_centavos, 0, 'the free booking charged money');
-  assert.ok((first.computed_fee_centavos ?? 0) > 0, 'the free booking does not record what it would have cost');
+  assert.equal(first.amount_charged_centavos, 250000, 'the first booking did not bill 5% of ₱50,000');
 
   // Before the second booking exists, the quote's projection already counts it billable.
   const ask = await newBooking(vpid, 'considering');
@@ -168,7 +172,7 @@ test('3 · bookings frozen free under the old rule stay waived; the next one is 
   assert.equal(fourth.status, 'pending', 'the change did not reach a booking made after it shipped');
 });
 
-test('4 · the launch offer still waives within its cap, and the shop keeps its one free booking', async () => {
+test('4 · the launch offer still waives within its cap; after it, billing starts at once', async () => {
   await db.query(
     `UPDATE public.platform_settings
         SET launch_offer_enabled = TRUE, launch_offer_started_at = NOW() - INTERVAL '1 day',
@@ -181,10 +185,8 @@ test('4 · the launch offer still waives within its cap, and the shop keeps its 
   assert.deepEqual([a.status, b.status], ['waived_launch', 'waived_launch'], 'the launch offer stopped waiving inside its cap');
   assert.deepEqual([a.booking_ordinal, b.booking_ordinal], [null, null], 'a launch booking used up the free one');
 
-  // Offer closed at its cap: the shop's next booking is ITS free one, then billing starts.
+  // Offer closed at its cap: no free first place follows it (20 Nov) — the next booking is billed.
   const c = await openCharge((await newBooking(vpid)).eventVendorId);
-  assert.equal(c.status, 'waived_free5', `after the offer the shop's free booking was gone: ${c.status}`);
+  assert.equal(c.status, 'pending', `after the offer the next booking was ${c.status}`);
   assert.equal(c.booking_ordinal, 1);
-  const d = await openCharge((await newBooking(vpid)).eventVendorId);
-  assert.equal(d.status, 'pending', 'after the offer and the free booking, nothing was billed');
 });

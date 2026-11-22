@@ -66,7 +66,7 @@ function isNotServedTogether(error: { message?: string } | null): boolean {
 }
 
 /** Owner Q4 (16 Nov): the words for a hand add naming a shop that is not verified. */
-const ADD_NEEDS_VERIFIED_MESSAGE = 'Only a verified Setnayan shop can be added as a preferred supplier. Invite them instead.';
+const ADD_NEEDS_VERIFIED_MESSAGE = 'Only a verified Setnayan shop can be added as a trusted partner. Invite them instead.';
 
 function back(msg: string): never {
   redirect(`${PANEL_PATH}?error=${encodeURIComponent(msg)}`);

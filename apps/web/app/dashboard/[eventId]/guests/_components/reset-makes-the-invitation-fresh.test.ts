@@ -190,13 +190,15 @@ test('5 · the writes: one gated host reply write, the row through RLS, songs on
   assert.doesNotMatch(src, /export async function resetGuest/, '+0 server actions — Reset rides the host reply write');
 });
 
-test('6 · the card: Reset first, Delete second, side by side, on a guest’s own card only', () => {
+/* RE-AIMED 2026-11-20 (the approved drawing `guests_redesign_2026-11-20_fable.html` § 3, "Yes, build it"): the two buttons side
+   by side (26 Oct) are ONE dropdown — "Reset or delete ⓘ · Choose ▾", inside More. The same property: Reset first, Delete
+   second, each opening its own ask-first flow, on a guest's own card only. */
+test('6 · the card: Reset first, Delete second, one dropdown, on a guest’s own card only', () => {
   const parts = read('guest-ticket-parts.tsx');
+  const options = parts.slice(parts.indexOf('const RESET_OR_DELETE'), parts.indexOf('export function GuestDeleteControl('));
+  assert.ok(options.indexOf("key: 'reset', label: 'Reset'") > 0 && options.indexOf("key: 'delete', label: 'Delete guest'") > options.indexOf("key: 'reset'"), 'Reset is listed before Delete');
   const control = parts.slice(parts.indexOf('export function GuestDeleteControl('));
-  const r = control.indexOf('data-guest-reset=""');
-  const d = control.indexOf('data-guest-delete=""');
-  assert.ok(r > 0 && d > r, 'Reset is drawn before Delete');
-  assert.match(control, /className=\{resettable && !seatWithNoName \? 'grid grid-cols-2 gap-2 \[&>span>\*\]:w-full \[&>span\]:flex' : undefined\}/, 'two equal buttons side by side');
+  assert.match(control, /\{resettable && !seatWithNoName \? \(\s*<span data-guest-reset-or-delete="">\s*<PickMenu[\s\S]*?buttonText="Choose"\s*options=\{RESET_OR_DELETE\}\s*onPick=\{\(k\) => \(k === 'reset' \? setConfirmReset\(true\) : setConfirmDelete\(true\)\)\}/, 'Reset or delete is not the one dropdown, or a pick does not ask first');
   assert.match(control, /<GuestResetFlow eventId=\{eventId\} guestId=\{guestId\}/);
   const body = read('guest-card-body.tsx');
   assert.match(body, /const canReset = !isCouple && !guest\.plus_one_of_guest_id;/, 'never the couple, never a +1 seat');
@@ -207,18 +209,21 @@ test('6 · the card: Reset first, Delete second, side by side, on a guest’s ow
   assert.match(flow, /const \{ setGuestRsvp, restoreGuestRsvpAndSeat \} = useGuestActions\(\);/, 'through the context — the lab’s stand-ins answer there');
 });
 
-test('7 · the fold: title, one short line and the two buttons visible — what each does inside the ⓘ beside the title', () => {
+test('7 · the row: its name and the dropdown visible — what each does inside the ⓘ beside the name', () => {
   const body = read('guest-card-body.tsx');
-  const fold = body.slice(body.indexOf("summary={canReset ? 'Reset · Delete' : 'Delete'}"), body.indexOf('</K.Fold>', body.indexOf("summary={canReset ? 'Reset · Delete' : 'Delete'}")));
-  const tipAt = fold.indexOf('tip={');
-  const childrenAt = fold.indexOf('<DeleteControl');
-  assert.ok(tipAt > 0 && childrenAt > tipAt, 'the explanations are a prop of the fold');
-  assert.match(fold.slice(tipAt, childrenAt), /Reset: Their reply and what they typed in it are cleared/, 'the Reset line is in the ⓘ');
-  assert.match(fold.slice(tipAt, childrenAt), /Their QR and link stop working/, 'the Delete line is in the ⓘ');
-  const visible = fold.slice(fold.indexOf('}\n          >') + 13, childrenAt);
-  assert.doesNotMatch(visible, /<p\b|Reset:|stop working/, 'no explanation sentence is drawn in the fold’s body (comments are already stripped by `read`)');
-  assert.match(fold, /value=\{seatWithNoName \? 'Release this \+1 seat' : canReset \? 'Can be undone' : seats > 0 \? 'Removes them and their \+1' : 'Asks first · can be undone'\}/, 'the one short line fits at 375 and 390');
-  assert.match(fold.slice(tipAt, childrenAt), /Both ask first/, 'that both ask first is said in the ⓘ');
+  const at = body.indexOf("name={seatWithNoName ? 'Release seat' : canReset ? 'Reset or delete' : 'Delete'}");
+  assert.ok(at > 0, 'the card has no Reset or delete row');
+  const row = body.slice(at, body.indexOf('</FormRow>', at));
+  const tipAt = row.indexOf('about={');
+  const childrenAt = row.indexOf('<DeleteControl');
+  assert.ok(tipAt > 0 && childrenAt > tipAt, 'the explanations are the row’s ⓘ');
+  assert.match(row.slice(tipAt, childrenAt), /Reset: Their reply and what they typed in it are cleared/, 'the Reset line is in the ⓘ');
+  assert.match(row.slice(tipAt, childrenAt), /Their QR and link stop working/, 'the Delete line is in the ⓘ');
+  assert.match(row.slice(tipAt, childrenAt), /Both ask first/, 'that both ask first is said in the ⓘ');
+  assert.doesNotMatch(row.slice(childrenAt), /<p\b|Reset:|stop working/, 'no explanation sentence is drawn beside the control (comments are already stripped by `read`)');
+  // It is a row of More — the rare and heavy things (20 Nov 2026).
+  const more = body.slice(body.indexOf('summary="More"'), at);
+  assert.ok(more.length > 0 && !more.includes('</K.Fold>'), 'Reset or delete is not inside More');
   // The fold draws the ⓘ BESIDE its head button, the title as the ⓘ's own label — never nested in the head.
   const f = readFileSync(join(HERE, '..', '..', '..', '..', '_components', 'fold.tsx'), 'utf8');
   const foldSrc = stripComments(f);

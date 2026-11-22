@@ -2573,9 +2573,12 @@ async function clearAllSeats(eventId: string, formData: FormData): Promise<AutoA
 // + zero-cost, the same family as Auto Arrange: recommend a table SET, create
 // it, lay it out stage-out, and seat the confirmed guests by role tier. Guarded
 // to a truly empty floor so it can never clobber an in-progress plan.
+/** How long after the draft's tables are made its own seats may land (one action; seconds in practice). */
+const DRAFT_SEAT_WINDOW_MS = 120_000;
+
 export async function buildSeatingDraft(
   formData: FormData,
-): Promise<{ tables: number; seated: number }> {
+): Promise<{ tables: number; seated: number; kept?: true }> {
   await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
@@ -2617,6 +2620,30 @@ export async function buildSeatingDraft(
       ids = [];
     }
     if (ids.length > 0) {
+      /* 🛡 THE SERVER DECIDES WHAT IS THE DRAFT'S (ship review 21 Nov): the ids come from the browser, so they are
+         only a claim. The draft makes its tables in ONE insert on an empty floor, so they share one `created_at`;
+         and it seats with `placed_by = 'auto'` moments later. Undo takes them back only when every listed table is
+         this event's, from that one batch, and every seat on them is still the solver's from that same minute. A
+         guest moved by hand (or seated later) since the draft makes Undo refuse — it never silently un-seats them. */
+      const [{ data: mine, error: tErr }, { data: seats, error: sErr }] = await Promise.all([
+        supabase.from('event_tables').select('table_id, created_at').eq('event_id', eventId).in('table_id', ids),
+        supabase.from('event_seat_assignments').select('placed_by, placed_at').eq('event_id', eventId).in('table_id', ids),
+      ]);
+      if (tErr) throw new Error(tErr.message);
+      if (sErr) throw new Error(sErr.message);
+      const batch = new Set((mine ?? []).map((t) => String(t.created_at)));
+      const madeAt = Date.parse([...batch][0] ?? '');
+      const stillTheDrafts =
+        (mine ?? []).length === ids.length &&
+        batch.size === 1 &&
+        Number.isFinite(madeAt) &&
+        (seats ?? []).every(
+          (r) => r.placed_by === 'auto' && r.placed_at != null && Date.parse(String(r.placed_at)) - madeAt <= DRAFT_SEAT_WINDOW_MS,
+        );
+      if (!stillTheDrafts) {
+        await refreshSeatingLock(supabase, lockId);
+        return { tables: 0, seated: 0, kept: true };
+      }
       const { error } = await supabase.from('event_tables').delete().eq('event_id', eventId).in('table_id', ids);
       if (error) throw new Error(error.message);
     }

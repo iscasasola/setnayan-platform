@@ -15,8 +15,16 @@ const strip = (s: string) => stripComments(s);
 test('opening a shop ends on Today', () => {
   const actions = strip(read('app/open-shop/actions.ts'));
   // W1-B21 (16 Nov 2026): the last redirect is Today unless the supplier came for a plan — then that plan's offer.
+  // 🚪 Supplier onboarding (owner 19 Nov): Today is reached through `firstCardLanding` — Today's WELCOME
+  // (`/vendor-dashboard?opened=1`), or the shipped Card Maker when the first card's way was Edit.
   const redirects = [...actions.matchAll(/redirect\((?:planOfferPath\(plan\) \?\? )?'([^']+)'\)/g)].map((m) => m[1]);
-  assert.equal(redirects[redirects.length - 1], '/vendor-dashboard', 'the last redirect of the open-shop action must be Today');
+  assert.match(
+    actions,
+    /redirect\(viaInvite\(planOfferPath\(plan\) \?\? firstCardLanding\(\{ choice: cardChoice, cardId, category: cardCategory \}\)\)\);\s*\}/, // Door C wraps it in its invite (19 Nov)
+    'the last redirect of the open-shop action must be Today (its welcome)',
+  );
+  const onboarding = strip(read('lib/supplier-onboarding.ts'));
+  assert.match(onboarding, /WELCOME_OPENED_PATH = '\/vendor-dashboard\?opened=1'/);
   assert.ok(!redirects.includes('/vendor-dashboard/shop'), 'no open-shop success path lands on My Shop');
 });
 

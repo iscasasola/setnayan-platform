@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { VendorServiceRow } from '@/lib/vendor-services';
 import { findableShopGate } from '@/lib/findable-shop';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
+import { pinOf, type LatLng } from '@/lib/mall-card';
+import { isBookable, parseVisibility } from '@/lib/vendor-visibility';
 
 /**
  * marketplace-service-cards.ts — the marketplace lists SERVICES, not shops.
@@ -57,6 +59,10 @@ export type MarketplaceServiceCard = {
   isDemo: boolean;
   /** `vendor_profiles.verification_state = 'verified'` — the Verified pill on the card's shop line. */
   verified?: boolean;
+  /** 📍 The shop's HQ pin (`vendor_profiles.hq_latitude/longitude`) — card 14's distance line. Null when unset. */
+  hqPin?: LatLng | null;
+  /** The shop can be saved to a plan (`isBookable` — the gate Discover's shop card puts on its Save). */
+  bookable?: boolean;
 };
 
 export type MarketplaceQuery = {
@@ -73,6 +79,7 @@ const SERVICE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,title,starting_price_php,' +
   'added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at,' +
   'pricing_basis,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,' +
+  'unit_word,unit_base_php,initial_units,extra_unit_php,price_max,' +
   'crew_meal_included,transport_included,transport_flat_fee_php,showcase_video_r2_key,' +
   'showcase_photo_r2_keys,primary_photo_r2_key,branch_id,recommended_lead_time_months,' +
   'last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,' +
@@ -122,7 +129,7 @@ export async function fetchMarketplaceServiceCards(
   let q = supabase
     .from('vendor_services')
     .select(
-      `${SERVICE_COLS},vendor_profiles!inner(vendor_profile_id,business_name,business_slug,location_city,logo_url,is_published,verification_state,next_renewal_due_at,public_visibility,is_demo)`,
+      `${SERVICE_COLS},vendor_profiles!inner(vendor_profile_id,business_name,business_slug,location_city,logo_url,is_published,verification_state,next_renewal_due_at,public_visibility,is_demo,hq_latitude,hq_longitude)`,
     )
     .eq('is_active', true)
     // 🔎 The ONE findable rule (lib/findable-shop.ts, DECISION_LOG 2026-11-07):
@@ -170,6 +177,8 @@ export async function fetchMarketplaceServiceCards(
         verification_state: (vp.verification_state as string | null) ?? null,
         next_renewal_due_at: (vp.next_renewal_due_at as string | null) ?? null,
       }),
+      hqPin: pinOf(vp.hq_latitude, vp.hq_longitude),
+      bookable: isBookable(parseVisibility(vp.public_visibility)),
     };
   });
 }

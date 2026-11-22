@@ -40,14 +40,16 @@ import {
   voteForTap,
   type Poll,
 } from '@/lib/chat-polls';
-import { ChatCardShell, ChatStepCard, type ChatCardStep } from '../chat-step-card';
-import { CouldNotLoad, EqualRow, Loading, Problem } from './card-bits';
+import { PLUS_NEEDS_VERIFIED } from '@/lib/shop-plus-gate';
+import { ChatStepCard, type ChatCardStep } from '../chat-step-card';
+import { CouldNotLoad, EqualRow, KindCard, Loading, Problem, type CardTurn } from './card-bits';
 
 const OPEN_REFUSAL: Record<string, string> = {
   draft: 'A question and 2 to 6 different choices.',
   one_open: ONE_POLL_REASON,
   contact: 'Phone numbers, emails and outside-app contacts are not allowed in a conversation.',
   not_allowed: 'You are not in this chat.',
+  unverified: PLUS_NEEDS_VERIFIED,
   failed: 'Could not open the poll. Try again.',
 };
 
@@ -197,8 +199,12 @@ export function PollCard({
       return r.ok ? null : r.reason === 'tie' ? 'It is a tie — pick the decision.' : r.reason === 'already_saved' ? null : 'Could not save it. Try again.';
     });
 
+  const saved = closed && !!poll.savedDecisionId;
   return (
-    <Shell>
+    <Shell
+      turn={saved ? 'done' : !closed && !rows.some((r) => r.mine) ? 'me' : 'wait'}
+      settled={saved ? `${poll.question}${leaders.length === 1 ? ` → ${leaders[0]!.label}` : ''} · Saved as the decision` : undefined}
+    >
       <div className="grid gap-2" data-poll={poll.pollId} data-poll-closed={closed ? '' : undefined}>
         <p className="text-[17px] font-semibold leading-snug text-ink">{poll.question}</p>
         <ul className="grid gap-1.5">
@@ -259,10 +265,10 @@ export function PollCard({
   );
 }
 
-function Shell({ children }: { children: ReactNode }) {
+function Shell({ children, turn = 'wait', settled }: { children: ReactNode; turn?: CardTurn; settled?: string }) {
   return (
-    <ChatCardShell topic="poll" kicker="Poll · both of you vote" title="Poll" tone="auto">
+    <KindCard kind="plain" topic="poll" kicker="Poll · both of you vote" title="Poll" turn={turn} settled={settled}>
       {children}
-    </ChatCardShell>
+    </KindCard>
   );
 }

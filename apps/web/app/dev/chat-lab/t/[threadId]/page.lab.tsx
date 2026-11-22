@@ -146,6 +146,7 @@ async function LabThread({ params, searchParams }: LabProps) {
                 }
                 attachInputId={CHAT_ATTACH_INPUT_ID}
                 userId={LAB_USER}
+                voice
               />
             }
             tray={

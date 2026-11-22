@@ -124,7 +124,7 @@ export function WhatsNextStep({
     'block text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
   const tile = (on: boolean) =>
     `rounded-xl border p-4 text-left transition ${
-      on ? 'border-burgundy/40 bg-burgundy/5' : 'border-ink/10 bg-white hover:border-ink/25'
+      on ? 'border-burgundy/40 bg-burgundy/5' : 'border-ink/10 bg-raised hover:border-ink/25'
     }`;
 
   return (
@@ -223,7 +223,7 @@ export function WhatsNextStep({
               className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                 picked === candidate.kind
                   ? 'border-burgundy/40 bg-burgundy/5 text-ink'
-                  : 'border-ink/15 bg-white text-ink/70 hover:border-ink/30'
+                  : 'border-ink/15 bg-raised text-ink/70 hover:border-ink/30'
               }`}
             >
               {candidate.label}
@@ -246,7 +246,7 @@ export function WhatsNextStep({
 
       {/* ── What No. 2 inherits ────────────────────────────────────────────── */}
       {current ? (
-        <div className="mt-4 rounded-xl border border-ink/10 bg-white/70 p-4">
+        <div className="mt-4 rounded-xl border border-ink/10 bg-raised/70 p-4">
           <span className={eyebrow}>What No. 2 inherits from this story</span>
           <ul className="mt-2 space-y-1 text-xs leading-relaxed text-ink/75">
             <li>
@@ -282,7 +282,7 @@ export function WhatsNextStep({
         <span className={eyebrow}>How the back cover of this story will read</span>
         <div
           className={`mt-2 rounded-xl border p-4 ${
-            backCover ? 'border-ink/15 bg-white' : 'border-dashed border-ink/20 bg-white/50'
+            backCover ? 'border-ink/15 bg-raised' : 'border-dashed border-ink/20 bg-raised/50'
           }`}
         >
           {backCover ? (

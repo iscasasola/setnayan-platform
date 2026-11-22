@@ -56,6 +56,14 @@ test('3 · the draft uses the grid, and its Undo takes back exactly its own tabl
   assert.ok(draft.indexOf('await assertSeatingLockHeld(supabase, eventId, lockId);') < draft.indexOf("formData.get('undo_table_ids')"), 'Undo runs before the lock is checked');
   assert.ok(draft.indexOf('guestsOrStop(supabase, eventId)') < draft.indexOf("formData.get('undo_table_ids')"), 'Undo writes before the stop-readers');
   assert.match(undo, /\.delete\(\)\.eq\('event_id', eventId\)\.in\('table_id', ids\)/, 'Undo is not scoped to this event and these tables');
+  // 🛡 The browser's ids are only a claim (ship review 21 Nov): the server checks they are ONE draft batch and that
+  // every seat on them is still the solver's, BEFORE it deletes; otherwise the draft stays and the screen says so.
+  const check = undo.indexOf('const stillTheDrafts =');
+  assert.ok(check > 0 && check < undo.indexOf('.delete()'), 'Undo deletes without checking the tables are still the draft’s');
+  assert.match(undo, /batch\.size === 1/, 'Undo no longer asks for one draft batch');
+  assert.match(undo, /r\.placed_by === 'auto'/, 'a seat placed by hand no longer stops Undo');
+  assert.match(undo, /if \(!stillTheDrafts\) \{[\s\S]{0,120}return \{ tables: 0, seated: 0, kept: true \};/, 'a refused Undo is not reported as kept');
+  assert.match(ed, /if \(res && 'kept' in res && res\.kept\) setNotice\(/, 'a refused Undo reads as done on the screen');
   assert.match(ed, /const ids = tables\.map\(\(t\) => t\.table_id\);\s*setFloorNote\(\{ text: waiting\.text, undo: \(\) => undoDraft\(ids\) \}\);[\s\S]{0,200}\}, \[tables\.length, floorNote\]\);/, 'the draft’s Undo is not armed with exactly its own tables, whichever arrives first');
 });
 

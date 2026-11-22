@@ -71,3 +71,9 @@ Guards: `the-floor-wears-its-chrome` · `the-room-says-its-controls`. Updated, c
 the-zoom` (the zoom is now a seat of the row the tray stands above) · `lib/maps-are-always-full-screen` (5).
 
 SPEC IMPACT: None — implements drawing § 5 · § 6 · § 9 as approved 2026-11-20.
+
+- **2026-11-22 · fix(seat-plan): a late Undo never un-seats a guest (ship review 21 Nov).** The draft's Undo used to delete
+  whatever table ids the browser sent back. The server now takes them back only when they are this event's, from the
+  draft's one insert, and every seat on them is still the solver's from that minute (`placed_by = 'auto'`). Otherwise
+  the draft stays and the screen says "Guests moved since the draft, so it stays." Held by
+  `the-floor-fits-the-room.test.ts` 3.

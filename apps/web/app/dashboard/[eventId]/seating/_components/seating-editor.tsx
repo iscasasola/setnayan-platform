@@ -1767,7 +1767,9 @@ export function SeatingEditor({
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('undo_table_ids', JSON.stringify(tableIds));
     startTransition(async () => {
-      await runGated(() => (floorWrites?.buildSeatingDraft ?? buildSeatingDraft)(fd));
+      const res = await runGated(() => (floorWrites?.buildSeatingDraft ?? buildSeatingDraft)(fd));
+      // The server refused: guests were seated by hand since the draft, so it is not the draft any more.
+      if (res && 'kept' in res && res.kept) setNotice('Guests moved since the draft, so it stays.');
     });
   };
   /* The Undo is armed once BOTH are here — the draft's answer (the line) and its tables. They arrive in either order
@@ -5436,7 +5438,7 @@ export function SeatingEditor({
             {count > 0 ? (
               <span
                 className={`rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${
-                  warm ? 'bg-danger-100 text-danger-700' : active ? 'bg-white/25 text-white' : 'bg-ink/8 text-ink/70'
+                  warm ? 'bg-danger-100 text-danger-700' : active ? 'bg-sn-on-accent/25 text-sn-on-accent' : 'bg-ink/8 text-ink/70'
                 }`}
               >
                 {formatCount(count)}
@@ -7852,6 +7854,8 @@ export function SeatingEditor({
               right={[
                 /* 🔍 2D: fit · − · + is a pill here, never a stack on the plan (drawing § 5; `seat-floor-zoom.tsx`). */
                 ...(roomOnly ? [{ node: <SeatZoomPill onFit={fitView} onOut={() => zoomAround(0.8)} onIn={() => zoomAround(1.25)} /> }] : []),
+                /* 🎚 Guests redesign § 8: the look round (List · 2D floor plan · 3D room), opening upward, before Show. */
+                ...(lens.lookRound ? [lens.lookRound] : []),
                 guestsFilterMenu({
                   view: 'seats',
                   filter: lens.filter,
@@ -10819,7 +10823,7 @@ function BoothPickerPanel({
           maxLength={280}
           rows={2}
           placeholder="e.g. Espresso martinis & mocktails"
-          className="w-full resize-none rounded-lg border border-ink/15 bg-white/80 px-2 py-1.5 text-sm text-ink placeholder:text-ink/50 focus:border-terracotta focus:outline-none"
+          className="w-full resize-none rounded-lg border border-ink/15 bg-raised/80 px-2 py-1.5 text-sm text-ink placeholder:text-ink/50 focus:border-terracotta focus:outline-none"
         />
         <div className="mt-0.5 flex items-center justify-between">
           <span className="text-xs text-ink/70">Guests see this on the 3D venue walk.</span>

@@ -55,12 +55,16 @@ test('the maker asks the SAME rule the server asks — before it draws a drop', 
 test('a NAME drag never turns into a WALK drag', () => {
   // "Swap these two names" must never silently reorder two walks instead: the
   // source is the INNERMOST draggable under the finger, a walk is dragged only by
-  // its step number, and a walk lands only in a gap.
+  // its own handle — the step number in the Maker, the grip at the right in Guests › March (Guests redesign § 7,
+  // 20 Nov 2026): ONE set of drag marks (`walkHandle`), worn by exactly those two — and a walk lands only in a gap.
   const maker = stripComments(
     readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'details-march.tsx'), 'utf8'),
   );
   assert.match(maker, /const el = \(e\.target as HTMLElement\)\.closest<HTMLElement>\('\[data-march-drag\]'\);/);
-  assert.equal((maker.match(/data-march-drag=\{`walk\|/g) ?? []).length, 1, 'a walk can be lifted from somewhere other than its number');
+  assert.equal((maker.match(/'data-march-drag': `walk\|/g) ?? []).length, 1, 'a walk has more than one set of drag marks');
+  assert.doesNotMatch(maker, /data-march-drag=\{`walk\|/, 'a walk can be lifted from somewhere other than its handle');
+  assert.equal((maker.match(/\{\.\.\.walkHandle\}/g) ?? []).length, 2, 'a walk is lifted by something other than its number (Maker) or its grip (Guests)');
+  assert.match(maker, /\{guests \? \(\s*<span\s+\{\.\.\.walkHandle\}\s+data-march-grip=""/, 'the Guests grip is not the walk’s handle');
   assert.match(maker, /data-march-drag=\{p\.id \? `name\|\$\{p\.id\}` : undefined\}/, 'a name chip does not lift the name');
   const plan = stripComments(readFileSync(join(process.cwd(), 'lib', 'march-drag.ts'), 'utf8'));
   assert.match(plan, /if \(source\.kind === 'walk'\) \{\s*if \(target\.kind !== 'gap'\) return null;/, 'a walk can land on a name');

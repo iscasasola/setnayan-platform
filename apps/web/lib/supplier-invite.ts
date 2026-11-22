@@ -50,19 +50,19 @@ export function cleanInviteSlug(raw: unknown): string | null {
 
 /* ── The card at the top of Shop › Partnerships ─────────────────────────────────────────────────────────────── */
 
-export const ADD_PREFERRED_TITLE = 'Add a preferred supplier';
+export const ADD_PREFERRED_TITLE = 'Add a trusted partner';
 export const ADD_PREFERRED_LINE =
-  'Add a Setnayan shop you trust, or invite one that isn’t here yet. You become each other’s preferred supplier.';
+  'Add a Setnayan shop you trust, or invite one that isn’t here yet. You become each other’s trusted partners.';
 /** The ⓘ on Invite a supplier, word for word. */
 export const INVITE_INFO =
-  'When a supplier joins Setnayan through your link, you are each other’s preferred supplier. Each one counts toward your Invites badge after their first completed booking.';
+  'When a supplier joins Setnayan through your link, you are each other’s trusted partners. Each one counts toward your Invites badge after their first completed booking.';
 export const INVITE_SHEET_TITLE = 'Invite a supplier';
-export const INVITE_QR_LINE = 'Scan to join Setnayan as our preferred supplier.';
+export const INVITE_QR_LINE = 'Scan to join Setnayan as our trusted partner.';
 export const INVITE_SHARE_NOTE =
   'The phone’s own share opens, so the link comes from you. One link for every supplier you invite; it never runs out.';
 export const ADD_SHEET_TITLE = 'Add a shop';
 export const ADD_SHEET_NOTE =
-  'They are on your Trusted by at once. You show on theirs once they accept, through their Incoming requests.';
+  'They are on your Trusted partners at once. You show on theirs once they accept, through their Incoming requests.';
 
 /** "2 joined through your link" — null when nobody has yet (the line is not drawn). */
 export function joinedThroughLinkLine(joined: number): string | null {
@@ -101,10 +101,10 @@ export function partnerLine(p: {
   return n > 0 ? `Worked together · ${n} ${n === 1 ? 'event' : 'events'}` : 'Worked together';
 }
 
-/** The incoming request's line for a hand add: "Added you as a preferred supplier · 16 Nov". */
+/** The incoming request's line for a hand add: "Added you as a trusted partner · 16 Nov". */
 export function addedYouLine(at: string | null): string {
   const when = day(at);
-  return `Added you as a preferred supplier${when ? ` · ${when}` : ''}`;
+  return `Added you as a trusted partner${when ? ` · ${when}` : ''}`;
 }
 
 /** The sent row's line for a hand add: "Added by you · Waiting for them to accept". */
@@ -134,7 +134,7 @@ export function trustedByHint(p: {
       : `${p.shop} joined Setnayan through ${p.other}’s link.`;
   }
   if (p.origin === 'added') {
-    return p.direction === 'this_shop' ? `${p.shop} added ${p.other} as a preferred supplier.` : `${p.other} added ${p.shop} as a preferred supplier.`;
+    return p.direction === 'this_shop' ? `${p.shop} added ${p.other} as a trusted partner.` : `${p.other} added ${p.shop} as a trusted partner.`;
   }
   const n = p.events ?? 0;
   return n > 0 ? `Served ${n} ${n === 1 ? 'event' : 'events'} together on Setnayan.` : 'Served an event together on Setnayan.';

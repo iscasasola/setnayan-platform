@@ -57,9 +57,18 @@ export function buildThemeBootstrapScript(
     if (!/(?:^|;\\s*)sb-[A-Za-z0-9]+-auth-token(?:\\.\\d+)?=/.test(c)) return false;
     var f = p.split('/')[1] || '';
     if (f !== '' && A.indexOf(f) < 0) return false;
+    var q = p.length > 1 && p.charAt(p.length - 1) === '/' ? p.slice(0, -1) : p, h = q.split('/');
     for (var i = 0; i < R.length; i++) {
-      var r = R[i], pre = r.charAt(r.length - 1) === '/' ? r : r + '/';
-      if (p === r || p.indexOf(pre) === 0) return true;
+      var r = R[i], x = r.charAt(r.length - 1) === '$';
+      if (x) r = r.slice(0, -1);
+      if (r.length > 1 && r.charAt(r.length - 1) === '/') r = r.slice(0, -1);
+      var w = r.split('/');
+      if (x ? h.length !== w.length : h.length < w.length) continue;
+      var ok = true;
+      for (var j = 0; j < w.length; j++) {
+        if (w[j] === '*' ? !/\\d/.test(h[j] || '') : w[j] !== h[j]) { ok = false; break; }
+      }
+      if (ok) return true;
     }
     return false;
   }

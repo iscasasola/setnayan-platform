@@ -82,7 +82,14 @@ test('CYC-15 · the bench card: the badge never rides over "1 quote in"; "Not in
   const bench = readFileSync(join(WEB, 'app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx'), 'utf8');
   // The name keeps its 6ch floor (RW-89); the row's left part WRAPS, so the badge drops under the name, never over it.
   assert.match(bench, /\.slcat \.fold\.flat \.cat-l\{gap:12px;flex-wrap:wrap;row-gap:4px\}/, 'the badge spills over the row\'s state');
-  assert.match(stripComments(bench), /svc && svc\.notIncluded\.length > 0 && !hasRecordedPrice \?/, '"Not included" shows beside a quote that charges it');
+  // 🃏 Card 14 (20 Nov): the couple's own bench card is the MALL face, which prints no "Not included" at all — it is in
+  // the opened card. So it can never sit beside a recorded quote. Only the marketplace card ("More to compare", no
+  // recorded price by definition) hands it to the face.
+  const code = stripComments(bench);
+  const mall = code.slice(code.indexOf('<MallFaceBody'), code.indexOf('<span className="meta">'));
+  assert.ok(mall.length > 200, 'the bench card no longer draws the mall face — re-check this rule');
+  assert.doesNotMatch(mall, /notIncluded/, '"Not included" shows beside a quote that charges it');
+  assert.equal((code.match(/notIncluded=\{svc\?\.notIncluded \?\? \[\]\}/g) ?? []).length, 1, 'a second card prints "Not included"');
 });
 
 test('F-W2-23 · the guest card\'s camera pill never takes more than half the row', () => {

@@ -162,7 +162,8 @@ test('every Create-a-service link in the product opens the maker', () => {
   const sites = [
     'app/vendor-dashboard/layout.tsx',
     'lib/vendor-first-steps.ts',
-    'app/vendor-dashboard/repertoire/page.tsx',
+    // The tool pages redraw (v3, 21 Nov 2026): the not-a-music-shop door moved into the screen file.
+    'app/vendor-dashboard/repertoire/_components/repertoire-view.tsx',
     // (earnings/surface.tsx — retired by S-PR4; its empty ledger's "Add services" link went with it: Customers ›
     // Money's empty year says how money arrives — a couple logs a payment you confirm — and links nowhere.)
   ];
@@ -213,7 +214,8 @@ test('no new hand-typed picker link creeps back in anywhere', () => {
   // in front of a supplier. Scans the vendor tree + the libs that feed it.
   const suspects = [
     'app/vendor-dashboard/layout.tsx',
-    'app/vendor-dashboard/repertoire/page.tsx',
+    // The tool pages redraw (v3, 21 Nov 2026): the not-a-music-shop door moved into the screen file.
+    'app/vendor-dashboard/repertoire/_components/repertoire-view.tsx',
     'app/vendor-dashboard/customers/_components/money-view.tsx',
     'lib/vendor-first-steps.ts',
     MANAGER,

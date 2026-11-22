@@ -101,6 +101,35 @@ test('division is not mistaken for a pattern', () => {
   assert.match(out, /total \/ 3/);
 });
 
+test('🪤 a JSX self-close after `}` is not a regex — `x={1.9} />` then a template', () => {
+  // Found 2026-11-22 merging main into PR #8018: `strokeWidth={1.9} />} … href={`…`}`
+  // in app/admin/gifts/page.tsx. With `}` allowed before a pattern, ` />` opened a
+  // "regex" that ran to the `/` inside the template, the leftover backtick opened
+  // a template that never closed, and every comment after it survived — a "40%"
+  // in a `{/* … */}` then red-lined the-gift-limit-is-one-setting.test.ts.
+  const out = stripComments('icon={<S x={1.9} />} href={`/a`}\n/* PROBE */\n');
+  assert.doesNotMatch(out, /PROBE/, 'a comment after a JSX self-close survived stripping');
+  assert.match(out, /href=\{`\/a`\}/, 'the code itself must be left alone');
+});
+
+test('🪤 a `/` in JSX text after `}` is not a regex either', () => {
+  // `{a} / {b}` — the population TypeScript calls JsxText. Read as a pattern, its
+  // body runs to the next `/` — here the one in `href="/x"` — so the attribute's
+  // OPENING quote is swallowed and its closing quote opens a string to EOF.
+  const out = stripComments('<p>{a} / <a href="/x">b</a></p>;\n// GONE\nconst keep = 1;\n');
+  assert.doesNotMatch(out, /GONE/);
+  assert.match(out, /const keep = 1;/);
+});
+
+test('a regex that starts a new line after a block is still a regex', () => {
+  // The other direction: removing `}` from the set must not turn a pattern on
+  // the next line into division. A newline resets the lexer's previous char.
+  const out = stripComments(String.raw`if (x) {}` + '\n' + String.raw`/\/\//.test(y); // NOTE` + '\nconst keep = 1;\n');
+  assert.doesNotMatch(out, /NOTE/);
+  assert.match(out, /const keep = 1;/);
+  assert.match(out, /\.test\(y\);/, 'the escaped-slash pattern must survive intact');
+});
+
 test('offsets are preserved — line numbers stay true', () => {
   const src = 'const a = 1; /* xx */ const b = 2;\n// gone\nconst c = 3;';
   const out = stripComments(src);

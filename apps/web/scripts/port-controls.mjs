@@ -90,9 +90,13 @@ import { join, relative, sep } from 'node:path';
  * tried and removed: it buys almost nothing (`a < /re/.test(b)` is not a thing
  * anyone writes) and in TSX it makes every closing tag `</p>` look like the
  * start of a pattern.
+ *
+ * 🪤 `}` IS DELIBERATELY ABSENT TOO (2026-11-22) — the JSX self-close
+ * `x={1.9} />` was read as a pattern opener. The full reasoning and the
+ * measurement are on the same set in apps/web/lib/strip-comments.ts.
  */
 const REGEX_MAY_FOLLOW_CHAR = new Set([
-  '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';',
+  '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', ';',
   '+', '-', '*', '%', '~', '^', '>', '\n', '',
 ]);
 

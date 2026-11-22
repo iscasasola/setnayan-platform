@@ -410,13 +410,13 @@ export default async function ForCoordinatorsPage() {
                   <b>
                     {planName('free')} · {pesoWords(TIER_PRICE_PHP.free.monthly)}.
                   </b>{' '}
-                  Run the business you already have.
+                  {planLine('free')}
                 </p>
                 <p>
                   <b>
                     {planName('verified')} · {pesoWords(TIER_PRICE_PHP.verified.monthly)}.
                   </b>{' '}
-                  Be found on Discover.
+                  {planLine('verified')}
                 </p>
                 {GROW_TIERS.map((t) => (
                   <p key={t}>

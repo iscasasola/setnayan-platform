@@ -29,6 +29,7 @@ import {
   foldedLines,
   growLines,
   growSpec,
+  planLine,
   tierOfPlansRow,
 } from './_components/supplier-front-data';
 
@@ -130,4 +131,15 @@ test('owner 2026-11-22: every tool on every paid size — the 3D booth logo and 
   assert.match(words('solo'), /Papic Challenges|All specialized tools/);
   assert.doesNotMatch(words('pro'), /3D seat plan/, 'Pro repeats a line Plus already gives');
   for (const t of ['solo', 'pro', 'enterprise'] as const) assert.doesNotMatch(words(t), /add-on\)/);
+});
+
+test('owner via controller 22 Nov: a plan is never its size alone — Free and Verified cards say what they hold, with the size', () => {
+  assert.equal(planLine('free'), 'Run your own clients, 1 live service, just you, main shop only, and 256 MB.');
+  assert.equal(planLine('verified'), 'On the marketplace with the basics, 3 live services, just you, main shop only, and 2 GB.');
+  const page = code('app/for-suppliers/_components/supplier-front-page.tsx');
+  assert.match(page, /name: 'Free', line: planLine\('free'\)/, 'the Free card is a slogan again');
+  assert.match(page, /name: 'Verified', line: planLine\('verified'\)/, 'the Verified card is a slogan again');
+  const coord = code('app/(shell)/for-coordinators/page.tsx');
+  assert.match(coord, /\{planLine\('free'\)\}/);
+  assert.match(coord, /\{planLine\('verified'\)\}/);
 });

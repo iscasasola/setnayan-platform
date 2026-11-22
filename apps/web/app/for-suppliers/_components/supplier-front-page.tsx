@@ -189,8 +189,9 @@ export function SupplierFrontPage({
   ];
 
   const planRows: PlanRow[] = [
-    { name: 'Free', line: 'Run the business you already have.', price: '₱0', per: 'always', cta: CTA },
-    { name: 'Verified', line: 'Be found on Discover and Find.', price: '₱0', per: 'always', cta: CTA },
+    // Free and Verified show what they hold too, never a slogan alone (owner via controller 22 Nov: "not just Memory Space").
+    { name: 'Free', line: planLine('free'), price: '₱0', per: 'always', cta: CTA },
+    { name: 'Verified', line: planLine('verified'), price: '₱0', per: 'always', cta: CTA },
     ...GROW_TIERS.map((t) => ({
       name: growName(t),
       line: planLine(t), // 💾 the size and what it adds, from TIER_CAPS (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE")

@@ -34,6 +34,7 @@ import {
   canBuyExtraSeats,
   TIER_LABEL,
   firstPlanWith,
+  isPaidSize,
   type TierCaps,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
@@ -115,10 +116,15 @@ export function growSpec(t: GrowTier): string {
 }
 
 /**
- * Each paid plan's one line on its card, from its caps (owner 2026-11-22: the plans are sizes with the same features).
- * The first plan with limits is the starter business; a no-limit plan says so; the top size is "the most room".
+ * Each plan's one line on its card, from its caps (owner 2026-11-22: the plans are sizes with the same features, and a
+ * plan is never shown as its size alone). A paid size leads with its role ("The starter business: …"); Free and Verified
+ * already carry their name on the card, so their line is the summary itself ("Run your own clients, … and 256 MB.").
  */
-export function planLine(t: GrowTier): string {
+export function planLine(t: VendorTier): string {
+  if (!isPaidSize(t)) {
+    const w = planSummaryWords(t);
+    return `${w.charAt(0).toUpperCase()}${w.slice(1)}.`;
+  }
   return `${planRole(t)}: ${planSummaryWords(t)}.`;
 }
 

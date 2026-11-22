@@ -1,0 +1,12 @@
+## 2026-11-22 · feat(suppliers): "unlimited" means one registered business
+
+Owner, 22 Nov ("Lock all three"; build spec § ★ I): Pro and Ultra give unlimited cards, people and branches to ONE registered business (one DTI/SEC number) and its own staff.
+
+- **One verified shop per registration number.** A shop can't become verified when another real shop is already verified under the same DTI/SEC number, including the same number written another way. The admin reads a plain sentence naming that shop, and nothing is written. All four ways in ask before they write: the application Approve (Work list and automatic approval included), the visibility Approve, and the vouch. The database refuses the same row on its own (trigger `vendor_profiles_one_verified_per_registration`, predicate `registration_number_verified_holder`). A pair verified before today keeps both badges. Demo shops never count.
+- **Every branch carries the shop's number.** A branch has no number of its own, so it is always the parent's business. A shop with no number can't open a branch: not new, not moved, not brought back from cancelled. Supplier › Branches says so in plain words, and the database refuses it too (`vendor_branches_carry_shop_registration`). Branches already open are untouched.
+- **One shop per person.** This already held (`vendor_profiles.user_id` UNIQUE: one account, one shop). A DB test now pins it.
+- **Admin › Supplier record** shows the registration number in the Verification fold, plus any other verified shop holding it, with a link. A new Branches fold lists each branch with the shop's number. The verify desk keeps listing both matched shops.
+
+Migration `20271359913146_one_registered_business_one_verified_shop.sql` (triggers + one service-role function + one partial index, no new table). Tests: `tests/db/one-registered-business-one-verified-shop.db.test.ts` (14, sabotage-checked) and `lib/one-registered-business.test.ts` (5). Six DB tests that open branches now give their shop a number first (`tests/db/shop-registration-fixture.ts`). Three that seed a same-number verified pair now seed it as a pre-rule pair.
+
+SPEC IMPACT: None. This builds § ★ I of `SUPPLIER_SUBSCRIPTIONS_BUILD_SPEC_2026-11-22.md` as ruled in DECISION_LOG 2026-11-22 "SUPPLIER PLAN ANTI-ABUSE RULES LOCKED". "One shop per person" is read as one account, one shop. Matching one person across several accounts (by phone, say) would be a new owner ruling.

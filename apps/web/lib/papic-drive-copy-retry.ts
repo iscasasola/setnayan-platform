@@ -66,6 +66,8 @@ export async function listStrandedDriveCopies(
   const { data, error } = await admin
     .from('drive_copy_artifacts')
     .select('event_id, artifact_type, file_name, attempt_count, last_error_text, last_error_at')
+    // The couple's Drive copies only — a shop's own copy (vendor_profile_id set) is retried by its own press.
+    .is('vendor_profile_id', null)
     .is('drive_file_id', null)
     .gte('attempt_count', DRIVE_COPY_RETRY_CEILING)
     .order('last_error_at', { ascending: false, nullsFirst: false })
@@ -101,6 +103,8 @@ export async function runDriveCopyRetrySweep(
   const { data: candidates } = await admin
     .from('drive_copy_artifacts')
     .select('event_id, attempt_count, last_error_at')
+    // The couple's Drive copies only — the sweep re-drives the couple's batch (lib/drive-copy.ts, no shopId).
+    .is('vendor_profile_id', null)
     .is('drive_file_id', null)
     .gte('attempt_count', 1)
     .lt('attempt_count', DRIVE_COPY_RETRY_CEILING)

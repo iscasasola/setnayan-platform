@@ -8,6 +8,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { giveShopARegistrationNumber } from './shop-registration-fixture';
 import { insertLiveCard } from './live-card-fixture';
 
 let replay: ReplayResult;
@@ -37,6 +38,7 @@ before(async () => {
     await db.query<{ v: string }>(`INSERT INTO public.vendor_profiles (user_id, business_name) VALUES ($1, 'Mesa Rentals') ON CONFLICT (user_id) DO UPDATE SET business_name = EXCLUDED.business_name RETURNING vendor_profile_id AS v`, [uid])
   ).rows[0]!.v;
   await db.query(`INSERT INTO public.vendor_team_members (vendor_profile_id, user_id, role) VALUES ($1, $2, 'admin') ON CONFLICT DO NOTHING`, [vendor, uid]);
+  await giveShopARegistrationNumber(db, vendor);
   branch = (
     await db.query<{ b: string }>(
       `INSERT INTO public.vendor_branches (parent_vendor_profile_id, branch_label, branch_city, branch_radius_km) VALUES ($1, 'Cebu', 'Cebu City', 30) RETURNING branch_id AS b`,

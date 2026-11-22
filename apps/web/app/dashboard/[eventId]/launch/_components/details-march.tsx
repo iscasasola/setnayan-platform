@@ -43,7 +43,8 @@ import type { MarchResult } from '@/lib/march-result';
 import type { HubDraftPatch } from '@/lib/hub-draft';
 import { ChevronRight, ChevronsDownUp, ChevronsUpDown, GripVertical, Play, RotateCcw, Square } from 'lucide-react';
 import { AddKindPick } from '../../guests/_components/add-kind-pick';
-import { AddPreviewLine } from '@/components/search-add-row';
+import { useRoleNames } from '../../guests/_components/role-names-context';
+import { marchCaption } from '@/lib/march-sections';
 import { normalizeSearchText } from '@/lib/guest-search';
 import { MARCH_PREVIEW_END_MS, MARCH_PREVIEW_STEP_MS, marchPreviewEnd, marchPreviewSteps, type MarchPreviewStep } from '@/lib/march-preview';
 import { useGuestsLens } from '../../guests/_components/guests-lens';
@@ -303,6 +304,8 @@ function MarchMakerBody({
   /* ⇅ R4 slice 1 — the Guests lens and the thumb row's own state (drawn below, as `marchThumb`); every hook here, above
      the empty march's early return. */
   const lens = useGuestsLens('march');
+  /* 🏷 The couple's own role words — § 7's caption under each walker (`marchCaption`). */
+  const roleNames = useRoleNames();
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
   /* ▶ The walk preview (owner 2026-10-29, prototype `startPreview`, `lib/march-preview.ts`): which walk is lit — its
      index into `playSteps`; `playSteps.length` is the closing card; null = not playing. A look, never a save. */
@@ -871,7 +874,8 @@ function MarchMakerBody({
     marchInput.current?.focus();
   };
   const walkAdds = marchAdding && marchQ ? outFor(marchQ) : [];
-  const walkPreview = walkAdds[0] ? `→ ${walkAdds[0].name} walks at the end of ${walkAdds[0].sectionLabel}` : null;
+  // Short enough for one phone line (≤ 12 words): "→ Engr. Lito Mendoza · end of Principal Sponsors".
+  const walkPreview = walkAdds[0] ? `→ ${walkAdds[0].name} · end of ${walkAdds[0].sectionLabel}` : null;
   const allOpen = shown.every((sec) => !folded.has(sec.key));
   const goToFoundWalker = (words: string) => {
     if (!lens) return;
@@ -981,16 +985,19 @@ function MarchMakerBody({
         )
       : null;
   /* 💬 One line above the box (§ 2): searching with words → "Drag the box right to add a walk"; adding → what Enter will
-     add ("→ Gabriel Castillo walks at the end of Groomsmen"), drawn in the thumb row's seat like the group toolbar, on the
-     row's own glass — the march scrolls behind it. */
+     add ("→ Gabriel Castillo · end of Groomsmen"), or — in the danger colour — that nobody by those words is out. Drawn
+     in the thumb row's seat like the group toolbar: an UNFRAMED line (it is not pressable) on a band of the page colour,
+     gutter to gutter, so the march never shows through; it wraps, never cut to "…" (Fable review, 22 Nov). */
   const marchBoxLine =
     guests && lens?.slot && !marchSel && marchQ
       ? createPortal(
-          <div className="sn-glass-row order-first mx-4 max-w-full self-start rounded-full px-3 py-1.5" data-march-box-line="">
+          <div className="order-first mx-4 bg-[var(--gs-paper,rgb(var(--color-cream)))] px-1 py-1.5" data-march-box-line="">
             {marchAdding ? (
-              <AddPreviewLine text={walkPreview ?? `Nobody called “${marchQ}” is out of the march`} className="text-mulberry" />
+              <p aria-live="polite" className={`text-sn-sm [overflow-wrap:anywhere] ${walkPreview ? 'text-mulberry' : 'text-danger-700'}`} data-add-preview="">
+                {walkPreview ?? `Nobody called “${marchQ}” is out of the march`}
+              </p>
             ) : (
-              <p className="flex items-center gap-1.5 text-sn-md text-ink/65" data-search-add-hint="">
+              <p className="flex items-center gap-1.5 text-sn-sm text-ink/65" data-search-add-hint="">
                 <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
                 Drag the box right to add a walk
               </p>
@@ -1119,7 +1126,7 @@ function MarchMakerBody({
            stays the one terracotta button, now in the Guests TOP ROW (a portal into `lens.toolsSlot`, the seat left of
            the ⚙); while it plays it reads Stop. 🔒 guests/the-march-is-a-numbered-line.test.ts */
         <>
-        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 px-1 text-[13.5px] text-ink/70" data-march-count-line="">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-sn-md text-ink/70" data-march-count-line="">
           <span>
             <b className="font-semibold text-ink">{formatCount(walks)}</b> {walks === 1 ? 'walk' : 'walks'}
           </span>
@@ -1131,7 +1138,7 @@ function MarchMakerBody({
           <button
             type="button"
             data-march-count-out=""
-            className="sn-press inline-flex min-h-11 items-center gap-1 text-ink/70 underline decoration-ink/25 underline-offset-4"
+            className="sn-press inline-flex min-h-11 items-center gap-1 text-ink/70"
             onClick={() => document.querySelector('[data-march-tray-slot]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
           >
             <b className="font-semibold text-ink">{outUnread ? '—' : formatCount(shownOut.length)}</b> not walking
@@ -1244,8 +1251,16 @@ function MarchMakerBody({
             className={`${
               /* 📌 R4 slice 4 — in Guests, a walk group's header sticks under the pinned row while its walks pass (the
                  prototype's `.acc-h` sticky); the Maker's own march keeps its plain line. */
-              guests ? 'sticky top-[calc(var(--gs-top,0px)+var(--gs-stick-h,60px))] z-[5] ml-10 bg-[var(--gs-paper,rgb(var(--color-cream)))] font-semibold ' : ''
-            }${marchSel === sec.key ? 'text-terracotta-800 underline decoration-2 underline-offset-4' : 'text-ink/70'} mt-3 flex min-h-11 items-baseline gap-2 rounded-lg px-1 pt-1 text-[12px] uppercase tracking-[0.18em] ${
+              guests ? 'sticky top-[calc(var(--gs-top,0px)+var(--gs-stick-h,60px))] z-[5] ml-10 bg-[var(--gs-paper,rgb(var(--color-cream)))] font-bold ' : ''
+            }${
+              /* § 7 (Guests): the heading sits ON the line right above its own walks — bold, the accent word, tight to
+                 them (it used to float in 44 px of air, grey). The Maker's march keeps its own. */
+              marchSel === sec.key
+                ? 'text-terracotta-800 underline decoration-2 underline-offset-4'
+                : guests
+                  ? 'text-mulberry'
+                  : 'text-ink/70'
+            } ${guests ? '-mt-3 items-end pb-1 text-sn-xs tracking-[0.12em]' : 'mt-3 items-baseline pt-1 text-[12px] tracking-[0.18em]'} flex min-h-11 gap-2 rounded-lg px-1 uppercase ${
               fixed ? '' : 'cursor-grab touch-pan-y [-webkit-touch-callout:none]'
             }${carried?.key === sectionKey ? ' ring-2 ring-ink' : ''}${ring(`section|${sec.key}`)}`}
           >
@@ -1349,17 +1364,27 @@ function MarchMakerBody({
                           data-march-card-open={card?.id === p.id && p.id ? '' : undefined}
                           data-march-dim={marchDim(p.id) ? '' : undefined}
                           className={`${NAME_CHIP}${slot} ${
-                            p.tag ? 'border-terracotta-700/60 bg-white dark:bg-raised' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
+                            /* § 7 (Guests): one frame per name, the SAME for everyone — the groom's gold border read as
+                               "selected". The Maker's march keeps its own two looks. */
+                            guests
+                              ? 'border-ink/10 bg-surface'
+                              : p.tag
+                                ? 'border-terracotta-700/60 bg-white dark:bg-raised'
+                                : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
                           } ${lifted === p.id ? 'border-dashed opacity-30' : marchDim(p.id) ? 'opacity-25' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${card?.id === p.id && p.id ? ' ring-2 ring-terracotta-700 ring-offset-1' : ''}${ring(zone)}`}
                         >
                           <span className="font-serif text-[15.5px] leading-tight text-ink [overflow-wrap:anywhere]">
                             {p.name}
                             {guests ? <GuestNick nick={p.nick} /> : null}
                           </span>
-                          {p.tag ? (
-                            /* § 7: in Guests the role is a small caption under the name, in sentence case. */
-                            <span data-march-role="" className={guests ? 'mt-0.5 text-[12px] leading-tight text-ink/70' : 'mt-0.5 text-[12px] uppercase tracking-[0.18em] text-terracotta-800'}>{p.tag}</span>
-                          ) : null}
+                          {(() => {
+                            /* § 7: in Guests the role is a small caption under the name, in sentence case — everyone's
+                               role (Groom · Maid of honor · Best man), never what the heading already says. */
+                            const caption = guests ? marchCaption(p, sec.label, roleNames) : (p.tag ?? null);
+                            return caption ? (
+                              <span data-march-role="" className={guests ? 'mt-0.5 text-[12px] leading-tight text-ink/70' : 'mt-0.5 text-[12px] uppercase tracking-[0.18em] text-terracotta-800'}>{caption}</span>
+                            ) : null;
+                          })()}
                         </div>
                       );
                     }

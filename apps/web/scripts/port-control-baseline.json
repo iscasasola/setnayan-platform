@@ -13699,6 +13699,7 @@
     "/papic/seat/[token]": {
       "files": [
         "papic/seat/[token]/_components/camera-bridge-panel.tsx",
+        "papic/seat/[token]/_components/papic-seat-capture.tsx",
         "papic/seat/[token]/loading.tsx",
         "papic/seat/[token]/page.tsx"
       ],
@@ -13707,17 +13708,27 @@
       ],
       "actions": [],
       "blocks": [
+        "Blob",
         "CameraBridgePanel",
+        "CameraPageLock",
         "DoorShell",
         "DslrPairingController",
-        "EventMonogram",
         "FormPageSkeleton",
+        "HTMLButtonElement",
         "HTMLCanvasElement",
+        "HTMLDivElement",
+        "InfoTip",
+        "Link",
+        "MediaRecorder",
         "MockBridge",
         "PairingState",
+        "PapicCameraControls",
+        "PapicExhaustionCause",
         "PapicGuestBuyPanel",
-        "PapicGuestCapture",
-        "PapicSinkDeps"
+        "PapicSeatCapture",
+        "PapicSinkDeps",
+        "PapicStyle",
+        "Shot"
       ]
     },
     "/pay/[reference]": {

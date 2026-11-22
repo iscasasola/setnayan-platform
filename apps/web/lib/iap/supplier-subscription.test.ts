@@ -25,7 +25,6 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // The server module opens with `import 'server-only'`; node resolves it to nothing here (the same shim as
 // lib/welcome-is-the-guests-own.test.ts), then the module is loaded lazily.
 {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Mod = require('node:module');
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {

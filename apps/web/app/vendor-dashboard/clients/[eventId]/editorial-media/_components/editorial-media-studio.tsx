@@ -10,7 +10,7 @@
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
-import { ImagePlus, Film, Trash2, Loader2, Send } from 'lucide-react';
+import { ImagePlus, Film, Info, Trash2, Loader2, Send } from 'lucide-react';
 import {
   bakeBoomerang,
   boomerangSupported,
@@ -19,9 +19,11 @@ import {
 } from '@/lib/boomerang-encoder';
 import { submitVendorEditorialMedia, deleteVendorEditorialMedia } from '../actions';
 import { MAX_PER_TYPE, type SubmitMediaItem } from '@/lib/editorial-vendor-media';
-import { ActionButton } from '@/components/action-button';
+import { ActionButton, EqualRow } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { PartNote, PartSec } from '@/app/vendor-dashboard/_components/set-two/parts';
+import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
-import { TEMPLATE_SUBLINE, TemplateSection } from '@/app/_components/template-rows';
 import { formatCount } from '@/lib/format-number';
 
 export type ExistingMedia = {
@@ -92,22 +94,30 @@ function StatusBadge({ m }: { m: ExistingMedia }) {
   const [label, tone]: readonly [string, BadgeTone] = m.hiddenByCouple
     ? ['Hidden by couple', 'quiet']
     : m.moderationState === 'clean'
-      ? ['Live on editorial', 'ok']
+      ? ['Live on their Story', 'ok']
       : m.moderationState === 'unscreened'
         ? ['Checking…', 'wait']
         : ['Removed', 'no'];
-  return <Badge tone={tone}>{label}</Badge>;
+  // A pill on the tile's corner (supplier pages set two, page 4): a word, never colour alone.
+  return (
+    <span className="absolute bottom-1.5 left-1.5 inline-flex rounded-full bg-[rgb(var(--sn-frame-bg))]">
+      <Badge tone={tone}>{label}</Badge>
+    </span>
+  );
 }
 
 export function EditorialMediaStudio({
   eventId,
   vendorProfileId,
   existing,
+  existingUnread = false,
 }: {
   eventId: string;
   /** SEC-1 lane #3 — the tenant segment of the upload prefix. */
   vendorProfileId: string;
   existing: ExistingMedia[];
+  /** C-5: the shop's own submissions were NOT read — the room left is unknown, so nothing new is offered. */
+  existingUnread?: boolean;
 }) {
   // Must match `editorialVendorMediaPolicy(vendorProfileId, eventId)` exactly —
   // the server refuses anything outside it, so a drift here is a broken upload,
@@ -124,8 +134,9 @@ export function EditorialMediaStudio({
   const existingClips = existing.filter((m) => m.type === 'clip').length;
   const stagedPhotos = staged.filter((s) => s.type === 'photo').length;
   const stagedClips = staged.filter((s) => s.type === 'clip').length;
-  const photoRoom = MAX_PER_TYPE - existingPhotos - stagedPhotos;
-  const clipRoom = MAX_PER_TYPE - existingClips - stagedClips;
+  // C-5: an unread list is not an empty one — room is unknown, so none is offered (never the full allowance).
+  const photoRoom = existingUnread ? 0 : MAX_PER_TYPE - existingPhotos - stagedPhotos;
+  const clipRoom = existingUnread ? 0 : MAX_PER_TYPE - existingClips - stagedClips;
 
   const supported = typeof window !== 'undefined' ? boomerangSupported() : true;
 
@@ -229,127 +240,147 @@ export function EditorialMediaStudio({
     setSaving(false);
   };
 
+  // C-7 (supplier audit 2026-11-17): a THROWN call left "Removing…" spinning with every button disabled, and an
+  // `{ ok: false }` was dropped silently. try/finally always frees the buttons; a refusal is said.
   const onDeleteExisting = async (mediaId: string) => {
     setBusy('Removing…');
-    await deleteVendorEditorialMedia(eventId, mediaId);
-    setBusy(null);
+    setError(null);
+    try {
+      const r = await deleteVendorEditorialMedia(eventId, mediaId);
+      if (r && r.ok === false) setError(r.error || 'Could not remove that one. Try again.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not remove that one. Try again.');
+    } finally {
+      setBusy(null);
+    }
   };
 
+  const roomWords = `${formatCount(photoRoom)} photo${photoRoom === 1 ? '' : 's'} and ${formatCount(clipRoom)} clip${clipRoom === 1 ? '' : 's'} left`;
+  const tile = 'relative aspect-[4/5] overflow-hidden rounded-[var(--m-r-md)] bg-[color:var(--m-paper-2)]';
+  const trash = 'absolute right-1.5 top-1.5 [&_.ab]:!min-h-8 [&_.ab]:!min-w-8 [&_.ab]:!bg-black/45 [&_.ab]:!text-white [&_.ab]:!border-0';
+
   return (
-    <div className="space-y-2">
-      {/* Existing submissions — rule 2: a section on the page, not a card. */}
+    <div data-editorial-studio="">
+      {/* Existing submissions — already on their Story */}
+      {existingUnread ? (
+        <PartNote tone="warn" icon={Info} role="status">
+          <span data-editorial-existing-unread="">Couldn&rsquo;t load what you already added. Refresh in a moment to try again.</span>
+        </PartNote>
+      ) : null}
       {existing.length > 0 ? (
-        <TemplateSection label="Already on their editorial" first>
-          <div className="mt-1 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <>
+          <PartSec>Already on their Story</PartSec>
+          <div className="grid grid-cols-2 gap-1.5 px-3 pt-2 tab:grid-cols-5 tab:px-0">
             {existing.map((m) => (
-              <figure key={m.mediaId} className="relative overflow-hidden rounded-lg border border-[color:var(--m-line)]">
-                <div className="relative aspect-[4/5] bg-[color:var(--m-paper-2)]">
+              <figure key={m.mediaId} className="m-0 min-w-0">
+                <div className={tile}>
                   {m.type === 'clip' && m.boomerangUrl ? (
                     // eslint-disable-next-line jsx-a11y/media-has-caption
                     <video src={m.boomerangUrl} poster={m.stillUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={m.stillUrl} alt={m.caption || 'Wedding editorial photo'} className="h-full w-full object-cover" />
+                    <img src={m.stillUrl} alt={m.caption || 'A photo on their Story'} className="h-full w-full object-cover" />
                   )}
-                </div>
-                <figcaption className="space-y-1 p-2">
                   <StatusBadge m={m} />
-                  {m.caption ? <p className={`truncate ${TEMPLATE_SUBLINE}`}>{m.caption}</p> : null}
-                  <ActionButton
-                    tone="danger"
-                    icon={Trash2}
-                    label="Remove"
-                    onClick={() => onDeleteExisting(m.mediaId)}
-                    disabled={!!busy}
-                  />
-                </figcaption>
+                  <span className={trash}>
+                    <ActionButton
+                      tone="danger"
+                      icon={Trash2}
+                      label="Remove"
+                      iconOnly
+                      onClick={() => onDeleteExisting(m.mediaId)}
+                      disabled={!!busy}
+                    />
+                  </span>
+                </div>
+                {m.caption ? <figcaption className="truncate px-0.5 pt-1.5 text-[13px] text-[color:var(--m-slate-2)]">{m.caption}</figcaption> : null}
               </figure>
             ))}
           </div>
-        </TemplateSection>
+        </>
       ) : null}
 
       {/* Add new */}
-      <TemplateSection
-        label="Add to the editorial"
-        first={existing.length === 0}
-        tip="Everything is checked automatically before it appears. The couple can hide anything they’d rather not show."
-        right={`${formatCount(photoRoom)} photo${photoRoom === 1 ? '' : 's'} and ${formatCount(clipRoom)} clip${clipRoom === 1 ? '' : 's'} left`}
+      <PartSec
+        end={roomWords}
       >
-        <input ref={photoInput} type="file" accept="image/*" multiple hidden onChange={onPickPhotos} />
-        <input ref={clipInput} type="file" accept="video/*" hidden onChange={onPickClip} />
+        <InfoTip label="Add to their Story">
+          Everything is checked automatically before it appears. The couple can hide anything they&rsquo;d rather not show.
+        </InfoTip>
+      </PartSec>
+      <input ref={photoInput} type="file" accept="image/*" multiple hidden onChange={onPickPhotos} />
+      <input ref={clipInput} type="file" accept="video/*" hidden onChange={onPickClip} />
 
-        <div className="mt-1 flex flex-wrap gap-3">
+      {staged.length > 0 ? (
+        <div className="grid grid-cols-2 gap-1.5 px-3 pt-2 tab:grid-cols-5 tab:px-0">
+          {staged.map((s) => (
+            <div key={s.key} className="min-w-0">
+              <div className={tile}>
+                {s.type === 'clip' ? (
+                  // eslint-disable-next-line jsx-a11y/media-has-caption
+                  <video src={s.previewUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={s.previewUrl} alt="Preview of a photo staged for their Story" className="h-full w-full object-cover" />
+                )}
+                <span className={trash}>
+                  <ActionButton tone="danger" icon={Trash2} label="Remove" iconOnly onClick={() => removeStaged(s.key)} />
+                </span>
+              </div>
+              <input
+                value={s.caption}
+                onChange={(e) => setCaption(s.key, e.target.value)}
+                maxLength={140}
+                placeholder="Caption (optional)"
+                aria-label="Caption (optional)"
+                className="mt-1.5 min-h-11 w-full rounded-full bg-[color:var(--m-paper-2)] px-3 text-[13px] text-ink outline-none placeholder:text-[color:var(--m-slate-2)] focus:ring-2 focus:ring-sn-accent"
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {busy ? (
+        <p className="inline-flex items-center gap-2 px-4 pt-3 text-[13px] text-[color:var(--m-slate-2)] tab:px-1">
+          <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> {busy}
+        </p>
+      ) : null}
+      {error ? (
+        <PartNote tone="danger" icon={Info} role="alert">
+          {error}
+        </PartNote>
+      ) : null}
+
+      {/* Add photos · Add a clip at equal width, then Submit — the thumb row (the shell's pinned bar from 701) */}
+      <SupplierThumbRow name="editorial-media" label="From your camera actions">
+        <EqualRow className="w-full">
           <ActionButton
-            tone="brand"
+            tone="neutral"
             icon={ImagePlus}
             label="Add photos"
             disabled={photoRoom <= 0 || !!busy}
             onClick={() => photoInput.current?.click()}
           />
           <ActionButton
-            tone="brand"
+            tone="neutral"
             icon={Film}
             label={`Add a clip (≤${MAX_CLIP_SECONDS}s)`}
             disabled={clipRoom <= 0 || !!busy}
             onClick={() => clipInput.current?.click()}
           />
-        </div>
-
-        {busy ? (
-          <p className={`mt-3 inline-flex items-center gap-2 ${TEMPLATE_SUBLINE}`}>
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> {busy}
-          </p>
-        ) : null}
-        {error ? (
-          <p role="alert" className="mt-3 text-[14px] font-semibold" style={{ color: 'rgb(var(--color-danger))' }}>
-            {error}
-          </p>
-        ) : null}
-
-        {/* Staged (not yet submitted) */}
+        </EqualRow>
         {staged.length > 0 ? (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {staged.map((s) => (
-              <div key={s.key} className="overflow-hidden rounded-lg border border-[color:var(--m-line)]">
-                <div className="relative aspect-[4/5] bg-[color:var(--m-paper-2)]">
-                  {s.type === 'clip' ? (
-                    // eslint-disable-next-line jsx-a11y/media-has-caption
-                    <video src={s.previewUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={s.previewUrl} alt="Preview of photo staged for the editorial" className="h-full w-full object-cover" />
-                  )}
-                  <span className="absolute right-1.5 top-1.5">
-                    <ActionButton tone="danger" icon={Trash2} label="Remove" iconOnly onClick={() => removeStaged(s.key)} />
-                  </span>
-                </div>
-                <input
-                  value={s.caption}
-                  onChange={(e) => setCaption(s.key, e.target.value)}
-                  maxLength={140}
-                  placeholder="Caption (optional)"
-                  aria-label="Caption (optional)"
-                  className="min-h-11 w-full border-t border-[color:var(--m-line)] bg-transparent px-2 py-1.5 text-[14px] text-ink outline-none"
-                />
-              </div>
-            ))}
-          </div>
+          <ActionButton
+            tone="brand"
+            main
+            icon={Send}
+            label={saving ? 'Submitting…' : `Submit ${staged.length} to their Story`}
+            disabled={saving || !!busy}
+            onClick={onSubmit}
+            className="w-full tab:w-auto"
+          />
         ) : null}
-
-        {staged.length > 0 ? (
-          <div className="mt-4 flex items-center justify-end">
-            <ActionButton
-              tone="brand"
-              main
-              icon={Send}
-              label={saving ? 'Submitting…' : `Submit ${staged.length} to their editorial`}
-              disabled={saving || !!busy}
-              onClick={onSubmit}
-            />
-          </div>
-        ) : null}
-      </TemplateSection>
+      </SupplierThumbRow>
     </div>
   );
 }

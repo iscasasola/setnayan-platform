@@ -16,9 +16,7 @@
  *   • a guest island / the couple's Event Hub never carries the attribute, so it is untouched.
  * The ground (`.sn-ambient`) and the main button's lift read `--sn-ambient` / `--sn-forward-lift` in globals.css.
  *
- * LIGHT ONLY, ON PURPOSE (owner 17 Nov): dark follows the person's Appearance setting, light by default, and ships in a
- * later slice after a sweep of every white surface. The drawing's dark set (amber #F2A93B for gold and warn) waits
- * for it.
+ * DARK is the block after this one (18 Nov 2026): it follows the person's Appearance setting, light by default.
  *
  * Values are the drawing's colour block (`supplier_shop_clean_2026-11-16`): page #EEF2F8 · titles #101B30 · body
  * #566275 · links #175AB9 · tiles, washes, pills and the band #DCE6F2 · ghost #E8F0FA · lines #E1E7F0 / #CFD9E6 ·
@@ -126,14 +124,11 @@ html:not(.dark):has([data-supplier-look]) {
   --m-orange-4: #dce6f2;
   --m-orange-deep: #1553b0;
   --m-ivory: #e8f0fa;
-  /* 🔒 HELD AS THEY PAINTED (18 Nov 2026, the one colour set). `--m-ink`, `--m-mulberry` and `--m-mulberry-2` became
-     pointers at `--color-ink` / `--color-mulberry` that day, and this scope re-points those two on <html> — so without
-     these three lines every `var(--m-ink)` on a supplier page would turn navy and every `var(--m-mulberry)` blue. They
-     were the warm ink and the terracotta before that change, and Light must not move a pixel in it. Whether they
-     SHOULD join the blue look is the owner's call, not a side effect. */
-  --m-ink: #2c2a29;
-  --m-mulberry: #c24e25;
-  --m-mulberry-2: #b04722;
+  /* 🔵 `--m-ink` AND `--m-mulberry` ARE THE BLUE LOOK'S TOO (owner 19 Nov 2026, "all recommended" — after "supplier
+     dashboard is the blue light color"). Both are pointers at `--color-ink` / `--color-mulberry` (the one colour set),
+     which this scope re-points above — so every `var(--m-ink)` on a supplier page is the navy ink #101B30 and every
+     `var(--m-mulberry)` the blue #2272E6, with no line needed here. Dark mode PR 1 had pinned them to the warm ink and
+     the terracotta they painted on main (172 reads) so that PR moved no Light pixel; this is the deliberate change. */
   --m-slate: #2e3a4f;
   --m-slate-2: #566275;
   --m-slate-3: #6b7789;
@@ -187,4 +182,133 @@ html:not(.dark):has([data-supplier-look]) .fd {
   html:not(.dark):has([data-supplier-look]) .fd {
     --fd-topglass: rgba(255, 255, 255, 0.96);
   }
+}
+
+/*
+ * 🌙 THE SAME LOOK IN DARK — THE NAVY (owner 16 Nov 2026, DECISION_LOG "SUPPLIER DASHBOARD = THE OWNER'S BLUE LOOK, LIGHT
+ * AND DARK": page #0D1626 · cards #172338 · tiles #1F2F4A · titles #EEF2F8 · body #9AA6B9 · links #7DB1FF · the main
+ * button #2272E6 with white labels · amber #F2A93B as the small accent; kept on 18 Nov 2026 — "all picks", pick 1
+ * "supplier navy kept", then "do supplier navy dark next" — on the drawing `prototypes/dark_mode_elite_2026-11-18_fable.html`).
+ *
+ * HOW: TOKENS ONLY, like the Light block above — it RE-POINTS the one colour set (globals.css "THE ONE COLOUR SET, BY
+ * JOB") while a supplier page is on screen in dark. Page → frame → raised → wash are the navy's four steps; the three
+ * text strengths are its cream-blues; the decision is the deep blue with WHITE words; the accent is amber. Everything
+ * that points at those (`--m-*`, `--sn-*`, `--fd-*`) follows by itself, so only the values that were written warm in
+ * the app's dark block are named here. The non-colour tokens of the look (label size, frame radius) are repeated,
+ * because the Light block's selector does not reach dark.
+ *
+ * Measured (WCAG 2): #EEF2F8 on page 16.12 · frame 14.01 · raised 11.95 · wash 10.18 — #B4BECE on frame 8.39 · raised
+ * 7.16 — #9AA6B9 on frame 6.39 · raised 5.45 · wash 4.64 — white on #2272E6 4.55 · on its hover #1B66D2 5.42 — the
+ * accent as a WORD #7DB1FF on frame 7.20 · raised 6.14 · wash 5.23 — amber on frame 7.88 — the hero's brightest glow
+ * (#1D4685): titles 8.25 · body 4.94 — sky on its tint 5.57. Held by `the-navy-is-readable.test.ts`.
+ */
+html.dark:has([data-supplier-look]) {
+  /* the four surface steps */
+  --color-page: 13 22 38; /* #0D1626 */
+  --color-raised: 23 35 56; /* #172338 — the card */
+  --color-raised-2: 31 47 74; /* #1F2F4A — a tile in a card */
+  --color-wash: 40 58 88; /* #283A58 — chips, the quiet pill, the active tab */
+  /* words */
+  --color-ink: 238 242 248; /* #EEF2F8 */
+  --color-ink-2: 180 190 206; /* #B4BECE */
+  --color-ink-3: 154 166 185; /* #9AA6B9 */
+  --color-link: 125 177 255; /* #7DB1FF */
+  --color-link-600: 165 200 255; /* #A5C8FF */
+  --m-slate-3: #8a97ab; /* 5.32 on the card */
+  --m-slate-4: #5e6b80; /* decorative only */
+  --sn-ink-300: #6e7b90;
+  --sn-ink-400: #8a97ab;
+  --sn-paper: #101b2e;
+
+  /* the decision — the deep blue, WHITE words (the drawing's one lit pill); toggles wear it (pick 4) */
+  --color-mulberry: 34 114 230; /* #2272E6 */
+  --color-mulberry-600: 27 102 210; /* #1B66D2 — the hover goes DEEPER, so white still reads (5.42) */
+  --color-mulberry-700: 125 177 255; /* words that act → the link blue */
+  --color-on-accent: 255 255 255;
+  /* …and the accent written as a WORD (`text-mulberry`, `text-sn-accent`): the link blue — #2272E6 reads 3.46 as text */
+  --color-mulberry-word: 125 177 255;
+  --sn-accent-word: 125 177 255;
+  --sn-forward-lift: 0 10px 22px -10px rgb(var(--color-mulberry) / 0.75);
+
+  /* the small accent — amber (icons, rings, the gold words) */
+  --color-terracotta: 242 169 59; /* #F2A93B */
+  --color-terracotta-600: 245 184 92;
+  --color-terracotta-700: 247 197 110; /* `text-terracotta` reads this — #F7C56E, 9.87 on the card */
+  --color-warn: 242 169 59;
+  --accent: #f2a93b;
+  --accent-deep: #f7c56e;
+  --accent-soft: #3a3838; /* amber at 16 % over the card */
+  --m-orange-2: #f7c56e;
+  --m-orange-3: #f2a93b;
+  --m-orange-4: #3a3838;
+  --m-orange-deep: #f9d595; /* 8.31 on the amber wash */
+  --m-nav-active: #7db1ff;
+  --sn-gold-100: #3a3838;
+  --sn-gold-300: #f2a93b;
+  --sn-gold-500: #f2a93b;
+  --sn-gold-600: #f5b85c;
+  --sn-gold-700: #f7c56e;
+  --sn-gold-800: #f9d595;
+  --ramp-gold: 242 169 59;
+  --ramp-gold-deep: 247 197 110;
+  --ramp-gold-dark: 249 213 149;
+
+  /* the hero band — a navy card lit blue from one corner (the glow itself is globals.css's, read from these) */
+  --color-band-from: 26 41 68; /* #1A2944 */
+  --color-band-to: 23 35 56; /* #172338 */
+
+  /* the calendar's day that is not offered — a navy cell, never the warm brown; the seat GREEN stays as it is (owner
+     14 Nov: "dark mode should still have the same green") */
+  --seat-off: #1f2f4a;
+  --seat-off-ink: #b4bece;
+  --seat-off-line: #2e4166;
+  --seat-off-hatch: #35496f;
+  --seat-out: #1f2f4a;
+  --seat-out-line: #35496f;
+  --seat-hot-line: #f2a93b;
+
+  /* private stays sky blue; its tint sits on the navy card */
+  --color-private-tint: 28 57 83; /* #1C3953 */
+
+  /* frames — the same floating cards, lit cool */
+  --sn-frame-radius: 16px;
+  --sn-frame-shadow: inset 0 1px 0 rgb(220 232 255 / 0.06), 0 14px 30px -14px rgb(0 0 0 / 0.85), 0 2px 6px -2px rgb(0 0 0 / 0.5);
+  --sn-frame-shadow-tile: inset 0 1px 0 rgb(220 232 255 / 0.05), 0 8px 18px -12px rgb(0 0 0 / 0.7);
+  --sn-cover-glow: transparent;
+
+  /* the ground: FLAT navy — no page-wide lights (DARK_MODE_STANDARD: the page is flat, the glow only on the band;
+     ship review 22 Nov). `.sn-ambient` falls back to rgb(var(--color-page)) when --sn-ambient-dark is unset. */
+
+  /* the section label — the look's own, as in Light */
+  --sn-label-size: 17px;
+  --sn-label-weight: 700;
+  --sn-label-track: 0;
+  --sn-label-case: none;
+  --sn-label-ink: rgb(var(--color-ink));
+  --sn-label-gap: 8px;
+  --sn-label-count-push: 0;
+  --sn-label-count-pad: 1px 10px;
+  --sn-label-count-bg: rgb(var(--color-ink) / 0.08);
+  --sn-label-count-ink: rgb(var(--color-ink));
+  --sn-label-count-weight: 600;
+  --sn-label-count-size: 13px;
+  --sn-label-font: var(--font-sans);
+  --sn-sec-size: 15px;
+  --sn-name-font: var(--font-sans);
+  --sn-name-size: 19px;
+  --sn-name-weight: 700;
+}
+
+/* The shell in the navy: its action is the light blue with the page's navy as its label (8.28:1) — `--fd-cream` is the
+   shell's ground in dark, so it cannot be white as it is in Light. */
+html.dark:has([data-supplier-look]) .fd {
+  --fd-gold: #7db1ff;
+  --fd-hi: #7db1ff;
+  --fd-gold-press: #a5c8ff;
+  --fd-m2: #8a97ab;
+  --fd-m3: #6e7b90;
+  --fd-wash: #122a50; /* the blue at 22 % over the page */
+  --fd-warm: #3a3838;
+  --fd-warm-ink: #f9d595;
+  --fd-warm-line: rgb(242 169 59 / 0.3);
 }

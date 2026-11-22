@@ -26,3 +26,13 @@ export const DecisionStepCard = dynamic(() => import(/* webpackChunkName: "threa
 export const AskChangeDoor = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './ask-change-card').then((m) => m.AskChangeDoor), { ssr: false, loading: wait });
 export const StreamLineCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './stream-line-card').then((m) => m.StreamLineCard), { ssr: false, loading: wait });
 export const NegotiateDraft = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './negotiate-cards').then((m) => m.NegotiateDraft), { ssr: false, loading: wait });
+// 🏷 The offer card (PR-4, owner 2026-11-12) — reachable since 19 Nov 2026: the (+)'s "Drop an offer" row and the card a drop draws in the stream.
+export const OfferDropCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './offer-card').then((m) => m.OfferDropCard), { ssr: false, loading: wait });
+export const DroppedOfferCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './offer-card').then((m) => m.DroppedOfferCard), { ssr: false, loading: wait });
+// 💬 One chat that holds everything (19 Nov 2026): the first inquiry as a card, and Every version with their ask beside it.
+export const InquiryCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './inquiry-card').then((m) => m.InquiryCard), { ssr: false, loading: wait });
+export const DealSheet = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './deal-sheet').then((m) => m.DealSheet), { ssr: false, loading: wait });
+// 🎂 A couple's "Cake design" (Cake Maker, DECISION_LOG 2026-11-21) — in the chat where it lands, and on the order.
+export const CakeDesignCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './cake-design-card').then((m) => m.CakeDesignCard), { ssr: false, loading: wait });
+// 🎂 The shop's "Design your cake for us" invite (Cake Maker v6) — Design your cake opens the designer.
+export const CakeInviteCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './cake-invite-card').then((m) => m.CakeInviteCard), { ssr: false, loading: wait });

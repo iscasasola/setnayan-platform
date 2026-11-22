@@ -59,6 +59,7 @@ const HEAVY = [
  * on-demand instead of on this list.
  */
 const LIGHT = new Map<string, string>([
+  ['app/_components/chat/chat-home.tsx', 'the chat’s home context (19 Nov 2026): one createContext and a slot — the strip’s own code is the client page’s'],
   ['app/_components/explain.tsx', 'the Hub screen’s ⓘ line (server-drawn Hub frame)'],
   ['app/_components/offline-ready/supplier-saved-strip.tsx', 'the Hub’s saved-for-no-signal strip, a few lines'],
   ['app/dashboard/[eventId]/guests/_components/undo-toast.tsx', 'the Hub’s undo toast host, a few lines'],

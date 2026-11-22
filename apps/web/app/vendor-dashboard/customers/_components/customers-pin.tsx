@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -8,6 +9,7 @@ import { usePinFold } from '@/app/_components/pinned-row/use-pin-fold';
 import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_LABEL, type CustomersSegment } from '../segments';
 import { CLIENTS_SHOWING_EVENT, CLIENTS_SHOW_EVENT } from '../clients-show-sort';
 import { SupplierOpenScope } from '../../_components/supplier-open-row';
+import { usePinTools } from '../../_components/supplier-thumb-row';
 import { PinDoor, PinDoors } from '@/app/_components/pinned-row/pin-door';
 import { CLIENTS_LET_GO_DAY_EVENT, CustomersCalendar } from './customers-calendar';
 
@@ -42,7 +44,7 @@ const QUICK_TINT: Record<'overdue' | 'unread', { color: string; background: stri
     borderColor: 'color-mix(in srgb, rgb(var(--color-danger)) 35%, transparent)',
   },
   unread: {
-    color: 'rgb(var(--sn-accent))',
+    color: 'rgb(var(--sn-accent-word, var(--sn-accent)))',
     background: 'color-mix(in srgb, rgb(var(--sn-accent)) 9%, transparent)',
     borderColor: 'color-mix(in srgb, rgb(var(--sn-accent)) 40%, transparent)',
   },
@@ -108,10 +110,11 @@ export function CustomersPin({
   month = null,
 }: {
   /**
-   * 📌 THE ONE CLIENTS SCREEN'S ROW (Build 2 row #43b, v113 `.pin`): "Clients · 6 booked · ₱48,000 to collect · ⚙" — the
-   * page word and its two figures, no ▾ (there is one view now). Null = the shipped selector row (Money keeps it).
+   * 📌 THE ONE CLIENTS SCREEN'S ROW: "Clients · ⚙", no ▾ (there is one view now). Null = the shipped selector row (Money
+   * keeps it). The figures that rode it ("6 booked · ₱48,000 to collect", v113 #43b) LEFT it on 19 Nov (owner "Yes, all
+   * three", DECISION_LOG "SUPPLIER CLIENTS, CLEANER"): the tiles right under it say the same two numbers.
    */
-  title?: { counts: string } | null;
+  title?: Record<string, never> | null;
   /**
    * 📅 THE MONTH ON TOP (Build 2 row #43a/#43c, v113): Clients is ONE screen — the month, then the tiles as their own row,
    * then Overdue / Unread, then the day-headed list. The month is the shipped `CustomersCalendar` (one part, never a
@@ -272,43 +275,62 @@ export function CustomersPin({
     (v113 `.on`); a press shows that list in place, pressing it again goes back to every client. No frame at rest — the
     fill says pressed (frames only on what you press, and the pressed one is filled).
   */
+  /*
+    🧹 ONE ROW, FIVE TILES (owner "Yes, all three", 19 Nov — DECISION_LOG "SUPPLIER CLIENTS, CLEANER", Q3): Booked · Asked ·
+    To collect, then Overdue and Unread in their own tints — they were a row of pills of their own under the tiles. The
+    meetings tile left the row (its list is Show & sort › Show › Schedules, `CLIENTS_SHOW`). A press shows that list in
+    place, pressing it again goes back to every client — the doors and the quick ones alike. Overdue / Unread are still
+    not drawn at a real 0, and a count the page could not read says so (a dash, its name says "couldn't load").
+  */
+  const tile = (t: { key: string; word: string; value: string | null; hot?: boolean; dot?: CustomersDoor['dot']; tint?: 'overdue' | 'unread'; quick?: boolean }) => {
+    const pressed = on === t.key;
+    const tint = t.tint && !pressed ? QUICK_TINT[t.tint] : undefined;
+    return (
+      <button
+        key={t.key}
+        type="button"
+        className={`sn-press min-h-11 min-w-0 flex-[0_1_auto] rounded-xl px-1.5 py-1 text-center transition-colors duration-sn-micro disabled:opacity-60 motion-reduce:transition-none ${
+          pressed ? 'bg-ink text-cream' : 'text-ink'
+        }`}
+        style={tint ? { color: tint.color, background: tint.background } : undefined}
+        aria-pressed={pressed}
+        aria-controls={`customers-list-${t.key}`}
+        aria-label={t.value === null ? `${t.word} couldn’t load` : undefined}
+        disabled={t.quick && t.value === null}
+        onClick={() => show(pressed ? null : t.key)}
+        data-customers-door={t.quick ? undefined : t.key}
+        data-customers-quick={t.quick ? t.key : undefined}
+      >
+        <span className={`block whitespace-nowrap text-[12.5px] ${pressed || tint ? '' : 'text-[color:var(--m-slate-2)]'}`}>
+          {t.dot ? (
+            <i aria-hidden className="mr-1 inline-block h-1.5 w-1.5 rounded-full align-[1px]" style={{ background: TILE_DOT[t.dot] }} />
+          ) : null}
+          {t.word.charAt(0).toUpperCase() + t.word.slice(1)}
+        </span>
+        <b
+          className={`block whitespace-nowrap text-[15px] font-bold tabular-nums ${t.hot && !pressed ? 'text-sn-accent' : ''}`}
+          data-customers-unread={t.hot ? '' : undefined}
+        >
+          {t.value ?? '—'}
+        </b>
+      </button>
+    );
+  };
   const tilesRow =
     title && doors ? (
-      <div className="-mx-1 mb-2 mt-3 flex justify-between gap-0.5" role="group" aria-label="Show" data-customers-tiles="">
-        {doors.map((d) => {
-          const pressed = on === d.key;
-          return (
-            <button
-              key={d.key}
-              type="button"
-              className={`sn-press min-h-11 min-w-0 flex-[0_1_auto] rounded-xl px-1.5 py-1.5 text-center transition-colors duration-sn-micro motion-reduce:transition-none ${
-                pressed ? 'bg-ink text-cream' : 'text-ink'
-              }`}
-              aria-pressed={pressed}
-              aria-controls={`customers-list-${d.key}`}
-              onClick={() => show(pressed ? null : d.key)}
-              data-customers-door={d.key}
-            >
-              <span className={`block whitespace-nowrap text-[13px] ${pressed ? '' : 'text-[color:var(--m-slate-2)]'}`}>
-                {d.dot ? (
-                  <i aria-hidden className="mr-1 inline-block h-1.5 w-1.5 rounded-full align-[1px]" style={{ background: TILE_DOT[d.dot] }} />
-                ) : null}
-                {d.word.charAt(0).toUpperCase() + d.word.slice(1)}
-              </span>
-              <b
-                className={`block whitespace-nowrap text-[15px] font-bold tabular-nums ${d.hot && !pressed ? 'text-sn-accent' : ''}`}
-                data-customers-unread={d.hot ? '' : undefined}
-              >
-                {d.value ?? '—'}
-              </b>
-            </button>
-          );
-        })}
+      <div className="-mx-1 mb-1 flex justify-between gap-0.5" role="group" aria-label="Show" data-customers-tiles="">
+        {doors.map((d) => tile(d))}
+        {(quick ?? [])
+          .filter((q) => !q.zero)
+          .map((q) => tile({ key: q.key, word: q.word, value: q.value, tint: q.key === 'overdue' ? 'overdue' : 'unread', quick: true }))}
       </div>
     ) : null;
 
   // The lists wait hidden while the month has a day picked (the month draws that day's rows).
-  const body = (
+  const body = title ? (
+    // 🧹 Clients, cleaner (19 Nov): Overdue and Unread are tiles in the ONE row now, so the one screen has no quick row.
+    tilesRow
+  ) : (
     <>
       {tilesRow}
       {/* The quick row waits hidden while a day is picked on the phone (the month draws that day); a computer keeps it
@@ -330,14 +352,16 @@ export function CustomersPin({
   const content = month ? (
     <>
       {/* `id="calendar"` is where every bare /vendor-dashboard/calendar link lands (`customers/anchors.ts`) — the month. */}
+      {/* 🧹 The tiles head the screen, right under "Clients ⚙" and over the week (Clients, cleaner — 19 Nov). */}
+      {body}
       <div id="calendar" className="scroll-mt-24">
-        <CustomersCalendar {...month} oneScreen between={body} onPicked={onPicked} after={rest} />
+        <CustomersCalendar {...month} oneScreen onPicked={onPicked} after={rest} />
       </div>
       {after}
     </>
   ) : (
     <>
-      {quickRow}
+      {title ? body : quickRow}
       {between}
       {lists}
       {after}
@@ -347,9 +371,12 @@ export function CustomersPin({
   if (title) {
     return (
       <>
+        {/* 🧹 NO EMPTY TOP (owner 19 Nov, "we do not want unwanted space on top"): the row sits flush under the app bar —
+            no padding above or below "Clients", no gap under it. From 701 the app's bar already says "Clients ▾", so this
+            row is not drawn there and its ⚙ moves up into the bar beside the thumb row's tools (`GearUp`). */}
         <div
           ref={pinRef}
-          className="sticky top-0 z-[5] -mx-4 mb-3 sn-pin-hair px-4 py-1.5 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+          className="sticky top-0 z-[5] -mx-4 mb-1 sn-pin-hair px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 tab:hidden"
           style={{ background: 'var(--sn-canvas)' }}
           data-customers-pin={seg}
           data-pin-fold=""
@@ -358,13 +385,10 @@ export function CustomersPin({
           data-tour="customers-segments"
         >
           <div className="flex min-h-11 items-center gap-2.5" role="group" aria-label="Clients">
-            <span className="shrink-0 text-[18px] font-bold text-ink" data-customers-title="">
+            <span className="min-w-0 flex-1 text-[18px] font-bold text-ink" data-customers-title="">
               Clients
             </span>
-            <span className="min-w-0 flex-1 truncate text-[13px] text-ink/65" data-customers-title-counts="">
-              {title.counts}
-            </span>
-            {gear}
+            <GearUp>{gear}</GearUp>
           </div>
         </div>
         {columns ? (
@@ -436,4 +460,14 @@ export function CustomersPin({
       )}
     </>
   );
+}
+
+/**
+ * ⚙ UP INTO THE BAR FROM 701 (Clients, cleaner — owner 19 Nov): the one Clients ⚙, portalled into the app bar's tools box
+ * (`[data-pin-tools]`, the same host the thumb row moves into — `usePinTools`) while the window is that wide; inline in
+ * the title row on a phone. ONE gear either way — never a second sheet.
+ */
+function GearUp({ children }: { children: ReactNode }) {
+  const box = usePinTools();
+  return box ? createPortal(children, box) : <>{children}</>;
 }

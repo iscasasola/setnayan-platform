@@ -151,37 +151,17 @@ export const metadata = {
   },
 };
 
-// ISR, unchanged from the 2026-07-02 perf sweep — the homepage is the
-// highest-traffic public URL and edge-caching it removes the per-visit function
-// invocation. revalidate=300 also keeps the three cron-free after() jobs below
-// firing on a bounded schedule; `home-carries-the-cron-free-jobs.test.ts`
-// asserts this number for exactly that reason.
+// ⚡ NO `revalidate` HERE, ON PURPOSE (speed pass 2026-11-18). This page used to export `revalidate = 300` for ISR, but
+// it AWAITS `searchParams` (`?q=` is a real filter, below) and the front door reads the session, so Next renders it per
+// request and the 300 never did anything: the response is `private, no-cache, no-store` (curl, live da4a079, 18 Nov). The three
+// cron-free `after()` jobs below therefore run on EVERY view, not every 5 minutes; each job throttles itself with
+// its own database claim. `home-carries-the-cron-free-jobs.test.ts` now asserts that the page is request-rendered (or,
+// if it is ever made static again, that it has a revalidation window), so the jobs can never be starved.
 //
-// ⚠ WHY THIS IS NOT `force-dynamic`, though the front door reads the session.
-// An earlier cut of this change set `force-dynamic`, which would have made the
-// page dynamic for BOTH branches — costing the CURRENTLY LIVE homepage its
-// caching during the whole flag-off window, for a page that does not read the
-// session at all. Instead the route stays ISR and Next's own dynamic bailout
-// handles it: `cookies()` is reached only inside <FrontDoor>, so it runs only
-// once the flag is on, and the route becomes dynamic then rather than now.
-//
-// ⏭ KNOWN FOLLOW-UP AT THE FLIP: with the flag on, this route renders
-// per-request. If that proves too expensive once there is real traffic, cache
-// the four feed reads behind `unstable_cache` so only the session lookup stays
-// per-request. Named now so it is a decision later, not a surprise.
-//
-// ⚡ THAT FOLLOW-UP, 2026-10-11 — PARTLY TAKEN. Measured: 27 database calls a
-// view, and one caller asking every 60 s. The page is still rendered per request
-// (it reads `searchParams` and the session, and the after() jobs below need a
-// request), but its same-for-everyone ROW reads are now remembered for 60 s —
-// `lib/home-public-reads-core.ts` lists them and what may never join them.
-// Round 2, the same day: the event types' public rows and the two facts a
-// Discover card's cover can turn on (does the event own Event Pro, is its
-// logo animation on) joined them, so a signed-out view no longer walks the
-// ownership chain card by card — it was most of the page's waiting.
-// ⚠ NOT taken, and still asked on every view: the consented editorials
-// (`loadPublishedShowcases` — consent-gated; its own docblock says why).
-export const revalidate = 300;
+// Making `/` cacheable for signed-out visitors is a real win (TTFB 0.7–0.8 s vs 0.2–0.3 s elsewhere), but it moves the
+// session read and the `?q=` answer to the client, which changes the signed-in path: an owner decision, not a speed fix.
+// Its same-for-everyone row reads are already remembered for 60 s (`lib/home-public-reads-core.ts`); the consented
+// editorials (`loadPublishedShowcases`) are still read on every view.
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -229,7 +209,7 @@ const softwareAppJsonLd = {
   // asked "what is Setnayan". It said "wedding platform" while sixteen other
   // event types were live and enabled.
   description:
-    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then choose Event Plus or Event Pro for an event — the Setnayan AI planner comes inside both — or add single services priced in PHP: Papic candid photo-and-video capture from the guests' own phones with QR-tagged Memories (free credits on your first event), Live Watch livestream on the event page, and a custom Music Maker song. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
+    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then choose Event Plus or Event Pro for an event — the Setnayan AI planner comes inside both — or add single services priced in PHP: Papic candid photo-and-video capture from the guests' own phones with QR-tagged Memories (free credits on your first event), and Live Watch livestream on the event page. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
   featureList: [
     // 🔑 REFRESHED 2026-09-26 (GEO audit) against shipped code, not docs.
     // "Free" appears only on tools the ₱0 tier includes — `FREE_FOR_ALL_SKUS`
@@ -240,7 +220,7 @@ const softwareAppJsonLd = {
     // code caps a list — and it is the one claim the Philippine rivals cannot
     // make (their free tiers stop at 30–50 guests).
     // ⚠ NO ROLE COUNT BEYOND "MORE THAN 30" — `GuestRole` has 35 values today.
-    // ⚠ PATIKTOK IS DELIBERATELY ABSENT until the owner settles booth vs reel.
+    // ⚠ PATIKTOK IS ABSENT — retired 2026-11-20 (lib/retired-products.ts).
     'Guest list with no guest limit and more than 30 Filipino ceremony roles — principal sponsors (ninong and ninang), candle, veil, cord and coin sponsors, bearers, the wedding party, and Nikah roles (free)',
     'RSVP with a personal QR code for every guest and a real-time headcount (free)',
     'Seat plan editor, and 3D Plan — walk your reception in 3D before the day, built from your seat plan (both free)',
@@ -253,8 +233,8 @@ const softwareAppJsonLd = {
     'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged Memories (free credits on your first event; credit packs for more)',
     'Memory lane — the guests’ photos live on a screen at the venue and on their own phones (free)',
     'Live Watch — day-of livestream to YouTube, embedded on the Event Hub (one camera included; multicam control room as an add-on)',
-    'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (comes with Event Plus and Event Pro)',
-    'Music Maker — a custom Filipino-style song produced for the couple (paid add-on)',
+    'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (comes with Event Pro and Event Ultra)',
+    // 🪦 Music Maker retired 2026-11-20 (lib/retired-products.ts) — its line left with it.
     'Logo Maker — your own event logo across invites, the Event Hub, and signage (free; Event Pro animates it)',
     'Groups — a standing group for your barkada, clan or parish: short stories that disappear after 24 hours, one group chat, and the events you plan together (free)',
     'Memories — every photo, video, and milestone from the day gathered into one place the host keeps',

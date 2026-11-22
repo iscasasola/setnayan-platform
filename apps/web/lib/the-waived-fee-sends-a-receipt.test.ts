@@ -391,7 +391,7 @@ test('a promo-waived booking gets a receipt that says WHY, and spends none of th
   const promo = waivedFeeReceiptCopy({ ...CHARGE, reason: 'promo', ordinal: 9 });
   assert.match(promo.title, /₱508\.50 — waived for Rosa & Ben/);
   assert.match(promo.body, /free-fee promotion/);
-  assert.match(promo.body, /did not use up any of your free bookings/);
+  assert.match(promo.body, /did not use a free booking fee ticket you hold/);
   assert.doesNotMatch(promo.body, /booking 9 of your first/, 'a promo booking claimed a free-5 position');
   assert.doesNotMatch(promo.body, /more free booking/);
 });
@@ -403,7 +403,10 @@ test('the fee hub and the receipt read the SAME waiver list as the collector', (
     'a waived-charge read still filters the free five alone — a promo waiver would be sent a ' +
       'receipt and then be missing from the hub',
   );
-  const reads = server.match(/\.in\('status', WAIVED_STATUSES\)/g) ?? [];
+  // ⚖ 20 NOV: the one list is the waived statuses PLUS Setnayan's every-Nth booking fee (a ₱0 `paid` flagged
+  // `free_by_platform_count`) — one filter, read by both the hub and the receipt.
+  const reads = server.match(/\.or\(WAIVED_FILTER\)/g) ?? [];
   assert.equal(reads.length, 2, `expected both waived reads on the one list, found ${reads.length}`);
+  assert.match(server, /WAIVED_FILTER = `status\.in\.\(\$\{WAIVED_STATUSES\.join\(','\)\}\),free_by_platform_count\.eq\.true`/);
   assert.ok(server.includes('[...WAIVED_FEE_RECEIPT_STATUSES]'), 'the hub list is not the receipt list');
 });

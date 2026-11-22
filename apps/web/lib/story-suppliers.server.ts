@@ -1,6 +1,9 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { signStoredRef } from '@/lib/supplier-file-sign.server';
+import { storyShareState } from '@/lib/today-wrap-up';
+import { readStorySilenceDays } from '@/lib/story-silence.server';
 import type { StorySupplierCard, UltraAlbum, UltraAlbumItem } from '@/app/[slug]/_components/editorial/data';
 
 /**
@@ -84,7 +87,12 @@ export async function readUltraAlbums(admin: Admin, eventId: string, ultras: rea
     console.error('[supabase-error] lib/story-suppliers.server.ts · from:vendor_event_album_shares.select', shares.error);
     return null;
   }
-  const sharedIds = new Set(((shares.data ?? []) as { vendor_profile_id: string }[]).map((r) => r.vendor_profile_id));
+  const albumIds = new Set(((shares.data ?? []) as { vendor_profile_id: string }[]).map((r) => r.vendor_profile_id));
+  // ✓ Today v3 part 3 — photos a supplier sent at wrap-up, photo by photo (kept on every plan; the Ultra re-check below
+  // still decides whether they SHOW). Accepted = Approve all, or the owner's days of silence; Hide leaves them out.
+  const accepted = await readAcceptedStoryShares(admin, eventId, ids);
+  if (accepted === null) return null;
+  const sharedIds = new Set([...albumIds, ...accepted.keys()]);
   // The plan, read now — only a CURRENT Supplier Ultra's share is shown.
   const stillUltra = await admin.from('vendor_profiles').select('vendor_profile_id, tier_state').in('vendor_profile_id', [...sharedIds]);
   if (stillUltra.error) {
@@ -98,6 +106,17 @@ export async function readUltraAlbums(admin: Admin, eventId: string, ultras: rea
   );
   const albums: UltraAlbum[] = [];
   for (const u of shown) {
+    const wrapped = accepted.get(u.vendorProfileId) ?? [];
+    if (!albumIds.has(u.vendorProfileId)) {
+      // Only wrap-up photos for this shop (its live album is not shared).
+      const items: UltraAlbumItem[] = [];
+      for (const ref of wrapped.slice(0, ULTRA_SCENE_ITEMS)) {
+        const stillUrl = await signStoredRef(ref, u.vendorProfileId).catch(() => null);
+        if (stillUrl) items.push({ stillUrl, videoUrl: null });
+      }
+      if (items.length) albums.push({ ...u, items, photos: wrapped.length, videos: 0 });
+      continue;
+    }
     const rows = await admin
       .from('vendor_papic_portfolio_photos')
       .select('r2_object_key, video_r2_key, media_kind')
@@ -134,8 +153,44 @@ export async function readUltraAlbums(admin: Admin, eventId: string, ultras: rea
       const videoUrl = r.media_kind === 'video' && r.video_r2_key ? await displayUrlForStoredAsset(r.video_r2_key).catch(() => null) : null;
       items.push({ stillUrl, videoUrl });
     }
+    for (const ref of wrapped.slice(0, Math.max(0, ULTRA_SCENE_ITEMS - items.length))) {
+      const stillUrl = await signStoredRef(ref, u.vendorProfileId).catch(() => null);
+      if (stillUrl) items.push({ stillUrl, videoUrl: null });
+    }
     if (items.length === 0) continue; // never an empty scene
-    albums.push({ ...u, items, photos: counts[0]!.count ?? 0, videos: counts[1]!.count ?? 0 });
+    albums.push({ ...u, items, photos: (counts[0]!.count ?? 0) + wrapped.length, videos: counts[1]!.count ?? 0 });
   }
   return albums;
+}
+
+/**
+ * ✓ The wrap-up photos the couple has ACCEPTED, per shop: the stored ref of each (`event_supplier_files.portfolio_ref`,
+ * else its stored copy). Accepted = 'approved', or 'waiting' past the owner's silence days (`storyShareState`).
+ * null = could not be read (the story then says nothing rather than drawing a scene short of photos).
+ */
+async function readAcceptedStoryShares(admin: Admin, eventId: string, shopIds: readonly string[]): Promise<Map<string, string[]> | null> {
+  const out = new Map<string, string[]>();
+  if (shopIds.length === 0) return out;
+  const r = await admin
+    .from('event_supplier_story_shares')
+    .select('vendor_profile_id, couple_decision, shared_at, event_supplier_files(portfolio_ref, supplier_media(r2_ref))')
+    .eq('event_id', eventId)
+    .in('vendor_profile_id', [...shopIds])
+    .neq('couple_decision', 'hidden')
+    .order('shared_at', { ascending: true })
+    .limit(400);
+  if (r.error) {
+    console.error('[supabase-error] lib/story-suppliers.server.ts · from:event_supplier_story_shares.select', r.error);
+    return null;
+  }
+  const silence = await readStorySilenceDays(admin).catch(() => null);
+  const now = Date.now();
+  type Row = { vendor_profile_id: string; couple_decision: string; shared_at: string; event_supplier_files: { portfolio_ref: string | null; supplier_media: { r2_ref: string | null } | null } | null };
+  for (const row of (r.data ?? []) as unknown as Row[]) {
+    if (storyShareState(row, now, silence) !== 'accepted') continue;
+    const ref = row.event_supplier_files?.portfolio_ref ?? row.event_supplier_files?.supplier_media?.r2_ref ?? null;
+    if (!ref) continue;
+    out.set(row.vendor_profile_id, [...(out.get(row.vendor_profile_id) ?? []), ref]);
+  }
+  return out;
 }

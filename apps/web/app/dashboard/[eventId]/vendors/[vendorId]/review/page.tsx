@@ -1,3 +1,5 @@
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import { shopHrefForEvent } from '@/lib/shop-back';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -81,9 +83,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
   const { eventId, vendorId } = await params;
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const { data: ev, error: evError } = await supabase
@@ -109,11 +109,12 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
   // after the vendor marks the service complete AND the couple confirms (or the
   // M=7d/N=30d/legacy paths). Mirrors the review-gate RLS (migration
   // 20270101000000) so the page and the DB agree.
-  const { data: evtRow, error: evtRowError } = await supabase
+  const { data: evtRow, error: evtRowError } = await eventRowOnce(supabase, eventId, 'event_date, display_name, event_type', () =>
+      supabase
     .from('events')
     .select('event_date, display_name, event_type')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   if (evtRowError) {
     logQueryError(
       'VendorReviewPage.event',

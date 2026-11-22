@@ -85,6 +85,12 @@ export const DARK_READY: readonly string[] = [
   '/dashboard/*/budget$',
   '/dashboard/*/guests$',
   '/dashboard/*/schedule$',
+  // B4, FIRST SLICE (18 Nov 2026 — owner: "do supplier navy dark next"): the supplier dashboard's dark is its own navy
+  // (`app/vendor-dashboard/_components/supplier-look.css`, tokens only; `the-navy-is-readable.test.ts`). ONLY the two
+  // supplier screens that were rendered in the navy are listed, each exactly: Clients and the customers list. The
+  // rest of the supplier tree stays Light until it is walked — the same rule as the event tree above.
+  '/vendor-dashboard/clients$',
+  '/vendor-dashboard/customers$',
   // …and the sign-in cards, whose dark rules were written 21–22 Oct. Signed-out is always Light (call 4), so
   // these paint dark only for a signed-in person who chose Dark and lands here (a re-auth, an add-account).
   '/login',

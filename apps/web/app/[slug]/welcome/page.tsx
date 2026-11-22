@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -146,9 +147,7 @@ export default async function WelcomePage({ params, searchParams }: Props) {
 
   // ── THE ONE ACCOUNT BUTTON — the same decision the Event Hub's card makes.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const account = guestAccountState({
     viewerUserId: user?.id ?? null,
     viewerEmail: user?.email ?? null,

@@ -69,19 +69,21 @@ export function openShopErrorWords(error: string): string {
 
 /** The step that owns a box — the redirect's `?step=` must agree with it (`four-steps.test.ts`). */
 export const OPEN_SHOP_FIELD_STEP: Readonly<Record<Exclude<OpenShopField, 'submit'>, 1 | 2 | 3 | 4 | 5>> = {
+  // 🚪 The supplier onboarding's five screens (owner 19 Nov, `lib/supplier-onboarding.ts` ONBOARDING_STEP):
+  // 1 · Open your shop — the name and the main service on one screen
   shop_name: 1,
-  service: 2,
-  events: 2,
-  extras: 2,
+  service: 1,
+  // 3 · Check your shop — each of these is a sheet over the list (`FIELD_FACT` names which)
+  events: 3,
+  extras: 3,
   location: 3,
-  // 4 · About you (prototype v16 ⑤)
-  contact_name: 4,
-  contact_phone: 4,
-  // 5 · Your account
-  contact_email: 5,
-  password: 5,
-  terms: 5,
-  way: 5,
+  contact_name: 3,
+  contact_phone: 3,
+  // 2 · Create your account — SECOND, never last
+  contact_email: 2,
+  password: 2,
+  terms: 2,
+  way: 2,
 };
 
 /**

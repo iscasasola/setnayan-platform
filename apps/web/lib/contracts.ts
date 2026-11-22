@@ -123,6 +123,28 @@ export async function fetchContract(
   return (data as VendorContractRow | null) ?? null;
 }
 
+/**
+ * The same read, said honestly (supplier pages set two, 21 Nov 2026, "Opened · the contract could not be read"): a
+ * refused read is `{ failed: true }` — the page says "We couldn’t load this contract right now." with Try again — and
+ * only a read that ANSWERED with no row is `{ contract: null }` (the page's not-found). `fetchContract` above folds the
+ * two together, which is why the opened contract used to show "not found" for a read that never happened.
+ */
+export async function readContract(
+  supabase: SupabaseClient,
+  contractId: string,
+): Promise<{ failed: true } | { failed: false; contract: VendorContractRow | null }> {
+  const { data, error } = await supabase
+    .from('vendor_contracts')
+    .select('*')
+    .eq('contract_id', contractId)
+    .maybeSingle();
+  if (error) {
+    console.error('[contracts] readContract:', error.message);
+    return { failed: true };
+  }
+  return { failed: false, contract: (data as VendorContractRow | null) ?? null };
+}
+
 /** Human-friendly status label for UI. */
 export function statusLabel(status: ContractStatus): string {
   switch (status) {

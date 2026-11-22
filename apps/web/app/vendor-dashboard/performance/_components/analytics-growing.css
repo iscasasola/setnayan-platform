@@ -245,7 +245,7 @@
 [data-growth] .ag-exc { position: absolute; top: 10px; right: 12px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: var(--m-r-full); background: color-mix(in srgb, var(--m-ink) 8%, transparent); color: var(--m-slate-2); }
 [data-growth] .ag-gtile.ag-ex .ag-th b { padding-right: 64px; }
 [data-growth] .ag-gtile.ag-ex .ag-ln { color: var(--m-slate-2); }
-[data-growth] .ag-dr { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; color: rgb(var(--color-mulberry)); font-weight: 600; font-size: 13.5px; }
+[data-growth] .ag-dr { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; color: rgb(var(--color-mulberry-word, var(--color-mulberry))); font-weight: 600; font-size: 13.5px; }
 [data-growth] .ag-dr svg { width: 16px; height: 16px; }
 
 /* pictures */
@@ -263,7 +263,7 @@
 [data-growth] .ag-acc { fill: rgb(var(--color-ok)); }
 [data-growth] .ag-rng { fill: none; stroke: color-mix(in srgb, var(--m-ink) 55%, transparent); stroke-width: 1.6; }
 [data-growth] .ag-leg { display: flex; gap: 14px; font-size: 12px; color: var(--m-slate-2); margin-top: 4px; }
-[data-growth] .ag-leg-mul { color: rgb(var(--color-mulberry)); }
+[data-growth] .ag-leg-mul { color: rgb(var(--color-mulberry-word, var(--color-mulberry))); }
 [data-growth] .ag-leg-ok { color: var(--m-orange-2); }
 /* the legend of the completed bar (.ag-cbar) — the same token, so the key matches its bar */
 [data-growth] .ag-leg-done { color: rgb(var(--color-ok)); }

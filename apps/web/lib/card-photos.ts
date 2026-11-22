@@ -24,6 +24,19 @@ export const CARD_SHOWCASE_MAX_PHOTOS = 5;
 /** Every photo a card may hold: the primary + the showcase photos (6). The grid's add tile hides at this. */
 export const CARD_MAX_PHOTOS = 1 + CARD_SHOWCASE_MAX_PHOTOS;
 
+/**
+ * 🖼 NEW PHOTOS STOP AT 5 (owner, card-maker drawing — Decided Q5). The database still allows 6 (the primary + 5), so a
+ * card that ALREADY holds 6 keeps them and can still be saved; it is only ADDING that stops at 5. A card opened with 6
+ * keeps a limit of 6 for that visit (delete one and you may put one back) — nothing is taken away from a saved card.
+ */
+export const CARD_NEW_PHOTO_LIMIT = 5;
+
+/** The grid's limit for this visit: 5, or what the card already held when it was opened (never past the CHECK's 6). */
+export function cardPhotoLimit(heldAtOpen: number): number {
+  const held = Number.isFinite(heldAtOpen) ? Math.max(0, Math.floor(heldAtOpen)) : 0;
+  return Math.min(CARD_MAX_PHOTOS, Math.max(CARD_NEW_PHOTO_LIMIT, held));
+}
+
 /** The grid's ordered list from the two stored fields: the primary first, then the showcase photos. No blanks, no repeats. */
 export function cardPhotoOrder(primary: string | null | undefined, showcase: readonly string[] | null | undefined): string[] {
   const out: string[] = [];
@@ -69,8 +82,8 @@ export function deleteCardPhoto(order: readonly string[], ref: string): { order:
  * The add tile shows only below the limit. `onTheWay` counts photos still uploading and failed tiles still on screen —
  * each holds a slot, exactly as the shipped uploader counts them (`items + inFlight`).
  */
-export function canAddCardPhoto(photos: number, onTheWay = 0): boolean {
-  return photos + onTheWay < CARD_MAX_PHOTOS;
+export function canAddCardPhoto(photos: number, onTheWay = 0, limit: number = CARD_NEW_PHOTO_LIMIT): boolean {
+  return photos + onTheWay < limit;
 }
 
 /**
@@ -84,7 +97,7 @@ export function mergeUploadedPhotos(order: readonly string[], uploaded: readonly
   return kept;
 }
 
-/** "N of 6 photos" — the grid's quiet count line. */
-export function cardPhotoCountLine(n: number): string {
-  return `${formatCount(n)} of ${formatCount(CARD_MAX_PHOTOS)} photos`;
+/** "N of 5 photos" — the grid's quiet count line (of 6 on a card opened with 6). */
+export function cardPhotoCountLine(n: number, limit: number = CARD_NEW_PHOTO_LIMIT): string {
+  return `${formatCount(n)} of ${formatCount(limit)} photos`;
 }

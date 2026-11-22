@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { bucketForPrefix } from '@/lib/bucket-routing';
+import { CHAT_VOICE_MIME } from '@/lib/chat-message-extras';
 import {
   CHAT_ATTACHMENT_ACCEPT,
   CHAT_ATTACHMENT_MIME,
@@ -92,7 +93,14 @@ test('🔑 3 · a file is judged against ITS OWN ceiling', () => {
 test('🔑 4 · the picker offers exactly what the server accepts', () => {
   // Derived, not hand-typed: the composer used to keep its own copy of this
   // list, which is how a picker comes to offer a type the server refuses.
+  // 🎤 Unichat H1: a voice note's audio types come ONLY from the mic in the text box — accepted, never offered by the
+  // file picker (`CHAT_VOICE_MIME`). Every other accepted type is offered, and nothing audio is.
+  const voice = new Set<string>(CHAT_VOICE_MIME);
   for (const m of CHAT_ATTACHMENT_MIME) {
+    if (voice.has(m)) {
+      assert.ok(!CHAT_ATTACHMENT_ACCEPT.includes(m), `${m} (a voice note) is offered by the file picker`);
+      continue;
+    }
     assert.ok(CHAT_ATTACHMENT_ACCEPT.includes(m), `${m} is accepted but not offered`);
   }
   const composer = read(COMPOSER);

@@ -20,6 +20,7 @@ import {
   homeWidgetFramed,
   nextHubStage,
   paymentsToSettle,
+  paysHeldByToday,
   shortDay,
   type HomeControlInput,
   type HomeControlKey,
@@ -552,7 +553,10 @@ function DetailCard({
       }
       const agreed = b.paidPhp + b.owingPhp;
       const pct = agreed > 0 ? Math.round((b.paidPhp / agreed) * 100) : null;
-      const pays = b.pays === 'unread' ? null : paymentsToSettle(b.pays);
+      // 🔁 NOW NEVER REPEATS BELOW, here too (Event Today drawing v3, part C · 3): the payment the card's strip holds and
+      // every payment Today's list shows as a red row leave this card's list — the same rule as its tile (`budgetTile`).
+      const held = new Set(paysHeldByToday(b.pays, homeControlTiles(input).today.holds?.pay));
+      const pays = b.pays === 'unread' ? null : paymentsToSettle(b.pays).filter((p) => !held.has(p.id));
       const listed = pays ? (pays.length > BUDGET_MAX_PAY_FACES ? pays.slice(0, BUDGET_MAX_PAY_FACES - 1) : pays) : [];
       const suppliers = pays ? new Set(pays.map((p) => p.vendorId ?? p.who)).size : 0;
       const payFace = (id: string) => tile.faces.find((f) => f.id === `pay-${id}`);

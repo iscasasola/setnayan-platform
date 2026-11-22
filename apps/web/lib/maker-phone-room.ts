@@ -81,7 +81,10 @@ export const MAKER_IN_THE_APP_CSS =
   'html:has([data-sheet]) [data-part-edges]{visibility:hidden!important}' +
   /* Each bar's own slide (the top bar's hide-on-scroll, the nav's keyboard slide) carries it — no motion of ours. */
   'html:has([data-maker-shell][data-stage-previewing]) .shell-topbar{transform:translateY(-100%)}' +
-  'html:has([data-maker-shell][data-stage-previewing]) [data-bottom-dock]{transform:translateY(100%)}';
+  'html:has([data-maker-shell][data-stage-previewing]) [data-bottom-dock]{transform:translateY(100%)}' +
+  /* 🫥 FULL SCREEN (20 Nov): with the app's top bar stepped away (phone, < 701 — `useChromeAway`) the Maker's own bar is
+     the top of the screen, so it keeps the notch's room itself — the room the app's bar used to keep. */
+  '@media (max-width:700.98px){html[data-chrome-away] [data-maker-shell] [data-maker-toolbar]{height:auto;min-height:calc(52px + env(safe-area-inset-top,0px));padding-top:env(safe-area-inset-top,0px)}}';
 
 /*
  * 📏 THE TOP NAV — ONE ROW AT 375 PX (owner 2026-10-05, the keynote chrome):
@@ -98,8 +101,8 @@ export const MAKER_IN_THE_APP_CSS =
  * the row up and fails it over 375, or a bar button under 44 px or unnamed.
  */
 export const MAKER_BAR_PHONE = {
-  /* top — ✕ Exit's 44 px left the row on 2026-10-30 (the app's nav is the way out); ⚙ took the same room at its end. */
-  undoTop: 'max-md:w-11',
+  /* top — ‹ leads the row (20 Nov 2026: the app's bars step away, so the Maker leads out itself); ↺ left the row for ⚙. */
+  leave: 'max-md:w-11',
   preview: 'max-md:w-11',
   applyTop: 'max-md:w-11',
   /** ⚙ Event Hub settings — the row's right end (`MenuSettingsButton`, the house 44 px icon-only button). */

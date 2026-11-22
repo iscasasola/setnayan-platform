@@ -34,6 +34,10 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
+import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
+import { bookedTelHref, bookedViberHref } from '@/lib/booked-handoff';
+import { readMyMute } from '@/lib/chat-mutes';
+import { getCurrentUser } from '@/lib/auth';
 import { manilaToday } from '@/lib/provisional-approval';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { feedsCrews } from '@/lib/crew-meals';
@@ -83,7 +87,8 @@ import { findBoardHref, type FindInspiration } from '@/lib/find-inspiration';
 import { FindInspirationRow, FindInspirationStrip } from '../../_components/find-inspiration';
 import { CoupleThreadBody } from '../../../messages/[threadId]/_components/couple-thread-body';
 import { PickedSupplierShell } from './_components/picked-supplier-shell';
-import { workColumnDefault } from '@/lib/client-next-step';
+import { coupleNextStep, workColumnDefault } from '@/lib/client-next-step';
+import { NextStepRow } from '@/app/_components/picked/next-step-row';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { PickedSupplierEmpty } from './_components/picked-supplier-empty';
 import { ReportSupplierPage } from './_components/report-supplier-page';
@@ -161,6 +166,7 @@ import { ShotListCard, type ShotListCardState } from './_components/shot-list-ca
 import { SupplierQuestionsCard } from './_components/supplier-questions-card';
 import { SupplierFormsCard } from './_components/supplier-forms-card';
 import { CouplePhotoApprovals } from './_components/couple-photo-approvals';
+import { CoupleStoryShares } from './_components/couple-story-shares';
 import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
@@ -356,9 +362,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const { eventId, vendorId } = await params;
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const relationshipShellEnabled = isRelationshipWorkspaceEnabled();
@@ -526,6 +530,18 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     pricing_basis?: string | null;
     pax_quote_base?: number | null;
   };
+
+  // 📞 Call · Viber under ⋯ (Unichat v3) — the ONE booking check, started here beside the page's other reads; the
+  // shop's number is read only once it says yes (`bookedCounterpartyPhone` answers null without it). Fails closed.
+  const shopId = ev.marketplace_vendor_id;
+  const bookedCallP: Promise<{ booked: boolean; phone: string | null }> = shopId
+    ? shopIsBookedOnEvent(eventId, shopId)
+        .then(async (booked) => ({
+          booked,
+          phone: await bookedCounterpartyPhone({ booked, viewer: 'couple', eventId, vendorProfileId: shopId }),
+        }))
+        .catch(() => ({ booked: false, phone: null }))
+    : Promise.resolve({ booked: false, phone: null });
 
   // 👥 AFTER THE CLAIM (20271343652941): a booking the couple priced per guest, now a claimed shop's, follows the
   // guest list. The one line under its Price says why the total is what it is. A refused read draws no line.
@@ -925,6 +941,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // STEPPER that replaces the flat PR-B installment list. Couple-RLS read (both
   // tables are the couple's own). Best-effort.
   let planProgress: PlanProgress = { steps: null, clearedAt: null };
+  // 🔎 The Next step row names an amount as DUE — so a plan it could not read is kept apart from "no plan".
+  let planProgressUnread = false;
   try {
     planProgress = await fetchPlanProgressForCouple({
       authedClient: supabase,
@@ -933,7 +951,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     });
   } catch {
     planProgress = { steps: null, clearedAt: null };
+    planProgressUnread = true;
   }
+  if (planProgress.readComplete === false) planProgressUnread = true;
 
   // 💸 B2-E · REFUNDS THIS SUPPLIER GAVE YOU (`event_vendor_refunds`, the couple's own RLS arm). The supplier records
   // them; nothing moves on Setnayan. ONE request. Refused → said in words, never "no refunds".
@@ -1001,6 +1021,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const chatThread = (chatThreadRes.data ?? null) as { thread_id: string } | null;
   // 🔴 The Chat tab's unread count (v8.3) — started now, awaited at the shell, so it waits on nothing below.
   const chatUnreadP = chatThread ? readThreadUnreadCount(supabase, user.id, chatThread.thread_id) : Promise.resolve(null);
+  // 🔕 Has the viewer muted this chat? Their own row (Pattern A). null = no chat, or the read failed → no ⋯ switch.
+  const myMuteP = chatThread ? readMyMute(supabase, chatThread.thread_id, user.id) : Promise.resolve(null);
 
   /*
     ── ONE CHAT BOX (owner, 2026-09-18) ────────────────────────────────────────
@@ -1326,6 +1348,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // never cross RLS). Mirrors VendorProposalsCard's query so we only ever offer
   // a "Log as service price" action for a proposal already visible to them.
   let proposalCandidates: QuoteCandidate[] = [];
+  // ➡ Next step: a sent quote nobody answered. null = the read was refused (the row then says nothing).
+  let quoteToDecide: boolean | null = false;
   if (ev.marketplace_vendor_id) {
     try {
       const { data: propRows, error: propRowsError } = await supabase
@@ -1340,6 +1364,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       // ⚠ couple's answer is invisible to them.
       if (propRowsError) {
         logQueryError('VendorWorkspacePage.propRows', propRowsError, { eventId }, 'graceful_degrade');
+        quoteToDecide = null;
+      } else {
+        const statuses = ((propRows ?? []) as Array<{ status: string | null }>).map((p) => p.status);
+        quoteToDecide = !statuses.includes('accepted') && statuses.some((st) => st === 'sent' || st === 'viewed');
       }
       proposalCandidates = ((propRows ?? []) as Array<{
         proposal_id: string;
@@ -1364,6 +1392,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         );
     } catch {
       proposalCandidates = [];
+      quoteToDecide = null;
     }
   }
 
@@ -3063,7 +3092,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       <div className="space-y-6" data-picked-supplier-page="files">
         {/* 📸 Piece 3b: the shop asks to show photos as from your day — only with your yes (FIVE GUARDS 4). */}
         {ev.marketplace_vendor_id ? (
-          <CouplePhotoApprovals eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
+          <>
+            <CouplePhotoApprovals eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
+            {/* ✓ Today v3 part 3: the photos the shop sent for your story at its wrap-up — Approve all · Hide some. */}
+            <CoupleStoryShares eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
+          </>
         ) : null}
         {/*
           📦 Delivery Handover — the vendor posted finished work (gallery link / proof image / note / sign-off); the couple
@@ -3101,6 +3134,23 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     ]),
   ) as Record<PickedSupplierPage, ReactNode>;
 
+  // ➡ THE NEXT STEP ROW ON TOP OF CHAT (owner 19 Nov 2026 — the host's mirror of the supplier's row). Every input is a
+  // read this page already made; a stage it could not read gives no row (`coupleNextStep`).
+  // 🔒 A coordinator without Budget & payments sees no peso figure and no quote on this page (`moneyHidden`) — so the
+  // row never names either for them. A plan the supplier marked cleared has nothing due.
+  const nextDueStep = planProgress.clearedAt ? null : (planProgress.steps?.find((st) => st.state === 'due') ?? null);
+  const hostNextStep = coupleNextStep({
+    todayIso: manilaTodayIso(),
+    eventDate: deliverEventDate,
+    isBooked: stage !== null,
+    quoteToDecide: moneyHidden ? false : quoteToDecide,
+    nextDue: moneyHidden ? null : planProgressUnread ? undefined : nextDueStep ? { amountPhp: nextDueStep.amount_php, dueDate: nextDueStep.due_date } : null,
+    handoverWaiting: handoverRowsError ? undefined : handovers.some((h) => h.status === 'delivered' && !h.couple_acknowledged_at),
+  });
+
+  const bookedCall = await bookedCallP;
+  const myMute = await myMuteP;
+
   return (
     <PickedSupplierShell
       eventId={eventId}
@@ -3113,7 +3163,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       initialPage={visiblePickedSupplierPage(rawLanding, pickedMenu)}
       landAt={pickedSupplierAnchorOf(rawLanding)}
       workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: deliverEventDate, isBooked: stage !== null })}
+      nextStep={hostNextStep ? <NextStepRow step={hostNextStep} /> : null}
       bodies={pickedPages}
+      call={{ tel: bookedTelHref(bookedCall.booked, bookedCall.phone), viber: bookedViberHref(bookedCall.booked, bookedCall.phone) }}
+      mute={chatThread && myMute !== null ? { threadId: chatThread.thread_id, muted: myMute } : null}
     />
   );
 }

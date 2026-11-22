@@ -78,8 +78,10 @@ test('2 · the shell takes no choice — no prop, and its context says `stagesSt
   /* (It followed ✕ Exit's pill; the ✕ is dropped — 2026-10-30 — so it now leads the bar, after the ✕'s note.) */
   assert.match(
     shell,
-    /<header\b[^>]*>[\s{}]*(?:\{printsPage \? \([\s\S]{0,600}?data-prints-page-title[\s\S]{0,500}?\) : \(\s*)?<div data-maker-tool="side"[^>]*>\s*<StageSwitch\b/,
-    'the stage pill is no longer drawn unconditionally, first in the bar',
+    /* ‹ leads the bar since 20 Nov (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (6)) — the stage pill is
+       the first item after it, still unconditional. */
+    /<header\b[^>]*>[\s{}]*<span data-maker-tool="leave"[^>]*>\s*<MakerLeave eventId=\{eventId\} \/>\s*<\/span>\s*(?:\{printsPage \? \([\s\S]{0,600}?data-prints-page-title[\s\S]{0,500}?\) : \(\s*)?<div data-maker-tool="side"[^>]*>\s*<StageSwitch\b/,
+    'the stage pill is no longer drawn unconditionally, first in the bar after ‹',
   );
   assert.match(shell, /<PickSheetContext\.Provider value=\{makerPickSheet\}>/, 'the one bottom sheet became conditional');
 });
@@ -110,7 +112,13 @@ test('4 · the old chrome is gone from the source', () => {
 async function paint(props: Record<string, unknown>): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerShell } = await import(`../${L}/_components/maker-shell`);
+  /* ‹ (20 Nov) is the house BackButton, whose return-in-place reads the router — the app always mounts one. */
+  const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
+  const ROUTER = { refresh() {}, push() {}, replace() {}, back() {}, forward() {}, prefetch() {} };
   return renderToStaticMarkup(
+    React.createElement(
+      AppRouterContext.Provider,
+      { value: ROUTER as never },
     React.createElement(
       MakerShell as unknown as React.ComponentType<Record<string, unknown>>,
       {
@@ -131,6 +139,7 @@ async function paint(props: Record<string, unknown>): Promise<string> {
         ...props,
       },
       React.createElement('div', { 'data-stub': 'work' }),
+    ),
     ),
   );
 }

@@ -88,9 +88,10 @@ test('2 · the stream draws the private look exactly when the message is private
   assert.deepEqual(privateOtherIds({ sender_user_id: 'a', recipient_user_ids: null, recipient_user_id: null }, 'a'), []);
   assert.match(s, /privateWith !== null\s*\?\s*PRIVATE_BUBBLE_FILL/);
   // 🤫 19 Nov: the same two pieces also take `whisper` (a private line to every co-host — lib/chat-whisper.ts).
-  assert.match(s, /<PrivateMark privateWith=\{privateWith\} whisper=\{whisper\} \/>/);
+  // Unichat part E: the strip's words by side ride as `label` — the private look itself is unchanged.
+  assert.match(s, /<PrivateMark privateWith=\{privateWith\} whisper=\{whisper\}(?: label=\{[^}]*\})? \/>/);
   assert.match(s, /\{privateWith !== null \? <PrivateTime at=\{m\.created_at\} alignEnd=\{mine\} whisper=\{whisper\} \/> : null\}/);
-  assert.match(s, /<PrivateMark privateWith=\{p\.privateTo \?\? null\} whisper=\{p\.whisper === true\} \/>/, 'a pending private message is drawn as a normal one');
+  assert.match(s, /<PrivateMark privateWith=\{p\.privateTo \?\? null\} whisper=\{p\.whisper === true\}(?: label=\{[^}]*\})? \/>/, 'a pending private message is drawn as a normal one');
   // No NORMAL bubble wears the private blue: the only place the stream names it is through PRIVATE_BUBBLE_FILL.
   assert.doesNotMatch(s, /--color-info|\b(?:bg|ring)-link\b|\bbg-info-/, 'a normal bubble uses the private blue');
   // The other person, as each side sees it.

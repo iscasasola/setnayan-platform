@@ -86,7 +86,8 @@ test('the screen draws from section-fold, and its taps write to it', () => {
   assert.ok(tap.length > 0, 'tapSection moved — re-anchor this test');
   assert.doesNotMatch(tap, /if \(q\) return/, 'a search makes its headings untappable again');
   assert.match(tap, /foldSections\(\[key\], opening\)/, 'the header tap no longer folds through foldSections');
-  assert.match(screen, /onClick: \(\) => foldSections\(sections\.map\(\(s\) => s\.key\), !allOpen\)/, '⇕ no longer folds a narrowed list');
+  // (👥 20 Nov: ⇕ Fold all moved from the thumb row to the last line of Show and sort — the same fold.)
+  assert.match(screen, /onToggle: \(\) => foldSections\(sections\.map\(\(s\) => s\.key\), !allOpen\)/, '⇕ no longer folds a narrowed list');
 });
 
 /**

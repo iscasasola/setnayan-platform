@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { CopyButton } from '@/app/_components/copy-button';
@@ -16,10 +17,28 @@ import { parseStage } from '@/lib/pay-stages';
 import { payAmount } from '@/lib/pay-amount';
 import { PayPanel, type ChannelInfo } from './_components/pay-panel';
 import { removeSetupExtras } from './actions';
-import { openAccounts } from '@/lib/payment-channels';
+import { SentScreen } from './_components/sent-screen';
+import { getMaxPaymentPhp } from '@/lib/max-payment.server';
+import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
+import { payerAccountsFor } from '@/lib/payment-channels';
+import { pickPayerRail } from '@/lib/gcash-allowance';
+import { getGcashGate } from '@/lib/gcash-allowance.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { storeShellRefusesPayable, STORE_SHELL_WEB_ONLY_PATH } from '@/lib/store-shell';
+import { MayaPayStage } from './_components/maya-pay-stage';
+import { MayaChecking } from './_components/maya-checking';
+import { mayaReceiptFor, readOpenMayaCheckout } from '@/lib/maya-checkout.server';
+import { PayCodeBox } from './_components/pay-code-box';
+import { payCodeBoxShown, payCodeErrorFor, payFreeRoute } from '@/lib/pay-code';
+import { paymentWasLogged } from '@/lib/payment-logged';
+import { PayFreeConfirm } from './_components/pay-free-confirm';
+import { isMayaPayment } from '@/lib/maya-checkout';
+import { formatManilaDateTime } from '@/lib/auto-verify-audit';
+import { mayaPayState } from './maya-return';
+import { cookies } from 'next/headers';
+import { MAYA_BUSY_COOKIE } from '@/lib/maya-checkout';
+import { payNextSteps } from '@/lib/pay-next-steps';
 
 /**
  * /pay/[reference] — THE payment page. One page for every purchase.
@@ -35,7 +54,7 @@ import { storeShellRefusesPayable, STORE_SHELL_WEB_ONLY_PATH } from '@/lib/store
  *   2. pay this exact amount (the QR carries the figure when it CAN — and
  *      every sentence about that comes from `lib/qr-amount-truth.ts`, never
  *      from a line typed here)
- *   3. after you pay (screenshot, kept on screen, + the last 6 digits)
+ *   3. after you pay (the receipt screenshot, kept on screen — nothing typed, owner 2026-11-17)
  *
  * Everything a buyer needs is HERE, so a buy button's whole job is to mint the
  * order and redirect to this address.
@@ -52,6 +71,11 @@ type Props = {
     setup?: string;
     /** Which of the three stages to paint — see lib/pay-stages.ts. */
     step?: string;
+    /** 💳 Back from Maya's hosted page: success | failure | cancel. */
+    maya?: string;
+    /** 🎟 The code box's answer: the code just applied, or why it was not. */
+    code?: string;
+    code_error?: string;
   }>;
 };
 
@@ -59,9 +83,7 @@ export default async function PayPage({ params, searchParams }: Props) {
   const { reference } = await params;
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login?next=' + encodeURIComponent(`/pay/${reference}`));
   // An anonymous draft session is not an account. Couple checkout already
   // refuses one before it will mint an order (it sends them to sign up), and a
@@ -71,7 +93,7 @@ export default async function PayPage({ params, searchParams }: Props) {
     redirect('/signup?next=' + encodeURIComponent(`/pay/${reference}`));
   }
 
-  const payable = await fetchPayableByReference(
+  let payable = await fetchPayableByReference(
     supabase,
     decodeURIComponent(reference),
     // Who is looking decides the way out — a shop paying its own booking fee
@@ -80,6 +102,21 @@ export default async function PayPage({ params, searchParams }: Props) {
   );
   // Not yours and not real are the same answer on purpose — see the resolver.
   if (!payable) notFound();
+
+  // 💳 MAYA, ONLY ONCE THE ORDER IS PROVEN THEIRS (ship review 21 Nov, item 3). Back from Maya — or any visit while
+  // this order has a Maya payment still open, whatever the switch says now (item 1) — the payment is re-verified
+  // with Maya's API (the webhook may be late). Confirmed → it was approved just now, so the order is read again and
+  // this very render paints Paid. Hints only — see ./maya-return.ts.
+  const maya = await mayaPayState({
+    reference: payable.reference,
+    orderId: payable.orderId,
+    param: search.maya,
+    busyFor: (await cookies()).get(MAYA_BUSY_COOKIE)?.value ?? null,
+    viewerId: user.id,
+  });
+  if (maya.settledNow) {
+    payable = (await fetchPayableByReference(supabase, decodeURIComponent(reference), user.id)) ?? payable;
+  }
 
   // 🔒 THE STORE SHELL PAYS ONLY FOR REAL-WORLD SERVICES. This page takes money
   // for every order — a supplier's booking fee AND every Setnayan digital SKU —
@@ -109,6 +146,14 @@ export default async function PayPage({ params, searchParams }: Props) {
   }
 
   const settings = await fetchPlatformSettings(supabase);
+  /**
+   * ⚖ THE MOST ONE PAYMENT TO SETNAYAN MAY BE (owner 2026-11-17): a bill above
+   * `platform_settings.max_payment_php` shows NO code and no account — the
+   * payer is told why and that nothing was charged. Exactly the ceiling is
+   * allowed. `submitPaymentProof` refuses the same bill on the server.
+   */
+  const maxPaymentPhp = await getMaxPaymentPhp(supabase);
+  const overCeiling = !paymentWithinCeiling(payable.amountPhp, maxPaymentPhp);
 
   // Have they already told us — and is that claim still standing?
   //
@@ -131,7 +176,7 @@ export default async function PayPage({ params, searchParams }: Props) {
   // is whether THEY have told us something: a picture, or a number.
   const { data: paymentRows, error: paymentsError } = await supabase
     .from('payments')
-    .select('payment_id,status,admin_resubmit_notice,screenshot_url,reference_number,created_at')
+    .select('payment_id,status,admin_resubmit_notice,screenshot_url,reference_number,created_at,channel')
     .eq('order_id', payable.orderId)
     .order('created_at', { ascending: false })
     .limit(1);
@@ -195,7 +240,15 @@ export default async function PayPage({ params, searchParams }: Props) {
   //
   // The rails are Setnayan's receiving-accounts LIST, narrowed by the ONE rule
   // (switch AND something to pay to — `openAccounts`), in the admin's order.
-  const open = openAccounts(settings);
+  // Over the ceiling ⇒ no rail at all, so no code is even drawn.
+  // ⚖ ONE QR (owner 2026-11-18): under the GCash line with room left in this
+  // month's GCash allowance ⇒ GCash; anything else, or anything unreadable ⇒ BDO.
+  // `submitPaymentProof` asks `pickPayerRail` the same question.
+  const railPick = pickPayerRail(
+    payable.amountPhp,
+    await getGcashGate({ excludeOrderId: payable.orderId }),
+  );
+  const open = overCeiling ? [] : payerAccountsFor(settings, railPick);
   const images = await Promise.all(
     open.map((a) => mintedQrImage(a.qrPayload, payable.amountPhp)),
   );
@@ -239,7 +292,35 @@ export default async function PayPage({ params, searchParams }: Props) {
    * ⚠ In the waiting state there are no stages at all — the page is the wait
    * (owner 2026-08-28) — so this is rendered directly instead.
    */
-  const summary = (
+  // 💳 Step 1 follows the route stage 2 will take (lib/pay-next-steps.ts): `mayaRoute` is the page's own `mayaOpen`
+  // (or the Maya "checking" page, which only a Maya payer reaches) — the BDO words only when Maya is closed.
+  /*
+   * 🎟 "Have a code?" (EVERY PAYMENT WALL TAKES A CODE, owner 2026-11-22) — only on an unpaid bill nobody has started
+   * paying, and never beside a Maya checkout already open at this price (an unread answer hides it too).
+   */
+  const codeBox = payCodeBoxShown({
+    awaitingPayment: payable.status === 'awaiting_payment',
+    // A bill's own empty placeholder row is not a payment — only something SENT closes the box (`paymentWasLogged`).
+    sentOrWaiting: waiting || (latestRow ? paymentWasLogged(latestRow) : false) || Boolean(paymentsError),
+    mayaCheckout: waiting ? 'none' : await readOpenMayaCheckout(payable.orderId),
+    codeApplied: Boolean(payable.code),
+    quoted: Boolean(payable.quoted),
+  });
+  const codeBlock =
+    !waiting && (codeBox || payable.code) ? (
+      <PayCodeBox reference={payable.reference} applied={payable.code ?? null} error={codeBox ? payCodeErrorFor(search.code_error) : null} />
+    ) : null;
+
+  // 🎟 ₱0 — a code covered the whole price: the pay stage is "Send for confirmation" alone (no Maya, no BDO upload).
+  const freeRoute = !waiting && payFreeRoute({ awaitingPayment: payable.status === 'awaiting_payment', amountPhp: payable.amountPhp, codeApplied: Boolean(payable.code) });
+
+  const summaryFor = (mayaRoute: boolean) => {
+    const next = payNextSteps({
+      maya: mayaRoute,
+      isVendorPlan: payable.isVendorPlan,
+      bdo: { scanStep: words.scanStep, note: words.note, activates },
+    });
+    return (
     /* ── ONCE THE PROOF IS IN, THE INSTRUCTIONS ARE OVER ──────────────
     Owner, 2026-08-28: *"After I paid, it should say we are currently
     verifying your purchase. kindly wait within 24 hours. (1) and (2) must
@@ -323,20 +404,25 @@ export default async function PayPage({ params, searchParams }: Props) {
         <CopyButton value={payable.reference} label="Copy" />
       </div>
     </div>
-    <p className="mt-2 text-xs text-ink/70">{words.note}</p>
+    {next.note ? <p className="mt-2 text-xs text-ink/70">{next.note}</p> : null}
+
+    {codeBlock}
 
     {!waiting && (
       <div className="mt-5 border-t border-ink/10 pt-4">
         <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)] mb-2">What happens next</p>
-        <Step n={1}>{words.scanStep}</Step>
-        <Step n={2}>Send us the screenshot and the last 6 digits of your reference number.</Step>
-        <Step n={3}>{activates}</Step>
+        <Step n={1}>{next.steps[0]}</Step>
+        <Step n={2}>{next.steps[1]}</Step>
+        <Step n={3}>{next.steps[2]}</Step>
       </div>
     )}
   </section>
-  );
+    );
+  };
+  const summary = summaryFor(false);
 
 
+  const mayaReceipt = payable.status === 'settled' ? await mayaReceiptFor(payable.orderId) : null;
   if (payable.status !== 'awaiting_payment') {
     return (
       <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6">
@@ -355,6 +441,28 @@ export default async function PayPage({ params, searchParams }: Props) {
               ? "This one is settled — there's nothing left to send. Thank you."
               : 'This order was cancelled, so please don’t send anything for it.'}
           </p>
+          {/* 💳 Paid through Maya: the receipt rows under the shipped line (v3 drawing); the order_paid notice is
+              on the email allowlist (lib/notification-emit.ts), so "a copy is in your email" is true. */}
+          {mayaReceipt ? (
+            <dl data-pay-maya-receipt="" className="mt-6 border-t border-ink/10 pt-4 text-left text-sm [&>div+div]:border-t [&>div+div]:border-ink/10">
+              <p className="mb-2 font-semibold text-ink">Receipt</p>
+              {(
+                [
+                  ['Amount', payAmount(mayaReceipt.amountPhp)],
+                  ['Paid with', mayaReceipt.paidWith ? `${mayaReceipt.paidWith} · through Maya` : 'Through Maya'],
+                  ['Reference', payable.reference],
+                  ['Paid on', formatManilaDateTime(mayaReceipt.paidAt)],
+                  ['Confirmed by', 'Maya · automatically'],
+                ] as const
+              ).map(([k, v]) => (
+                <div key={k} className="flex items-baseline justify-between gap-3 py-2">
+                  <dt className="text-ink/60">{k}</dt>
+                  <dd className="text-right tabular-nums text-ink">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+          {mayaReceipt ? <p className="mt-3 text-left text-xs text-ink/60">A copy is in your email.</p> : null}
           {payable.back && (
             <Link
               href={payable.back.href}
@@ -368,8 +476,62 @@ export default async function PayPage({ params, searchParams }: Props) {
     );
   }
 
+  /**
+   * ⚖ THE SENT SCREEN (owner 2026-11-17): straight after the receipt posts
+   * (`?sent=1`), the whole screen says it was sent and counts down to Home;
+   * a tap anywhere returns to where they came from (Gifts for a gift order).
+   * A later visit to the same address (no `?sent=1`) gets the waiting page
+   * below, which is still a way back — the screen is a moment, not a trap.
+   */
+  const justSent = search.sent === '1' && !needsBetterProof;
+
+  /**
+   * 💳 MAYA (owner 2026-11-21: "Maya is the main way to pay"; "BDO QR is not an option — only the safety route when
+   * Maya is off"). `checking` = back from Maya and not confirmed yet. `mayaOpen` = Maya IS the pay stage: switch on,
+   * both keys, within the ceiling, not busy. Otherwise the shipped BDO page, untouched.
+   */
+  const byMaya = isMayaPayment((latestRow as { channel?: string | null } | null)?.channel);
+
+  // 💳 BACK FROM MAYA, NOT CONFIRMED YET: what they bought and "Checking your payment…" — and NOTHING to pay with.
+  // Never a live QR beside a started payment (ship review 21 Nov, item 5). Its own early return, like "Couldn't
+  // check" above, so the shipped render below stays exactly as it is.
+  if (maya.phase === 'checking' && !waiting) {
+    return (
+      <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6" data-pay-maya-checking-page="">
+        {summaryFor(true)}
+        <MayaChecking />
+      </main>
+    );
+  }
+  // 🎟 ₱0 — A CODE COVERED THE WHOLE PRICE (controller 2026-11-22): the pay stage is "nothing to pay" and ONE button,
+  // "Send for confirmation". Its own early return, like "Checking…" above — so no Maya, no QR and no receipt form
+  // can be drawn beside it, and the shipped render below stays exactly as it is.
+  if (freeRoute && payable.code) {
+    return (
+      <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6" data-pay-free-page="">
+        <PayFreeConfirm reference={payable.reference} title={payable.title} who={payable.who ?? null} code={payable.code} error={payCodeErrorFor(search.code_error)} />
+      </main>
+    );
+  }
+  const mayaOpen = !waiting && !overCeiling && (await maya.railOpenFor(payable.amountPhp));
+  const meta = (user.user_metadata ?? {}) as { full_name?: unknown; name?: unknown };
+  const billedToName =
+    typeof meta.full_name === 'string' && meta.full_name.trim()
+      ? meta.full_name.trim()
+      : typeof meta.name === 'string' && meta.name.trim()
+        ? meta.name.trim()
+        : null;
+
   return (
-    <main className="mx-auto max-w-[560px] px-4 pb-32 pt-6">
+    // On a computer the Maya pay stage splits the way hosted checkouts do (v3); every other stage keeps one column.
+    <main className={`mx-auto max-w-[560px] px-4 pb-32 pt-6 ${mayaOpen ? 'md:max-w-3xl' : ''}`}>
+      {justSent && (
+        <SentScreen
+          homeHref={payable.home}
+          backHref={payable.back?.href ?? payable.home}
+          backLabel={payable.back?.label ?? 'Back to Setnayan'}
+        />
+      )}
       {setup ? (
         <p className="mb-4 rounded-[var(--m-r-lg)] bg-terracotta/[0.07] px-4 py-3 text-sm leading-relaxed text-ink">
           <span className="font-semibold">Last step.</span>{' '}
@@ -398,7 +560,8 @@ export default async function PayPage({ params, searchParams }: Props) {
       {waiting && (
         <section className="mt-5 rounded-card bg-[color:var(--m-paper-2)] p-6 text-center">
           <h2 className="text-lg font-semibold text-ink">
-            We&rsquo;re verifying your purchase
+            {/* 💳 A Maya payment that did not match waits here for a person (v3: "We're checking this by hand"). */}
+            {byMaya ? <>We&rsquo;re checking this by hand</> : <>We&rsquo;re verifying your purchase</>}
           </h2>
           <p className="mx-auto mt-2 max-w-sm text-sm text-ink/70">
             Please allow up to 24 hours.{' '}
@@ -406,6 +569,9 @@ export default async function PayPage({ params, searchParams }: Props) {
               You&rsquo;ll get an email the moment it&rsquo;s confirmed — there&rsquo;s nothing else for you to do.
             </InfoTip>
           </p>
+          {byMaya ? (
+            <p className="mt-3 text-sm text-ink/70">Your money is safe — nothing is lost while we check.</p>
+          ) : null}
           <p className="mt-4 text-xs text-ink/70">
             {activates}
           </p>
@@ -414,6 +580,9 @@ export default async function PayPage({ params, searchParams }: Props) {
 
       {search.error && (
         <p role="alert" className="mt-4 text-sm font-medium text-danger-700">{search.error}</p>
+      )}
+      {maya.line && !waiting && !mayaOpen && maya.phase !== 'busy' && (
+        <p role="status" data-pay-maya-line="" className="mt-4 text-sm text-ink/75">{maya.line}</p>
       )}
 
       {/*
@@ -508,7 +677,33 @@ export default async function PayPage({ params, searchParams }: Props) {
           </div>
         ) : null)}
 
-      {!waiting && (
+      {!waiting && overCeiling && summary}
+      {!waiting && overCeiling && (
+        <p role="status" data-pay-over-ceiling="" className="mt-5 px-1 text-sm font-medium text-ink">
+          {paymentOverCeilingMessage(maxPaymentPhp)}
+        </p>
+      )}
+
+      {/*
+        💳 MAYA IN TWO TAPS (owner 2026-11-22: *"why does it take 3 pay to enter maya. we want it quick and simple"*;
+        DECISION_LOG "MAYA IN TWO TAPS"). With Maya open the page OPENS on the approved v3 pay page — the amount, Order
+        summary, "Have a code?", Pay with, the pinned Pay ₱X — so it is buy → Pay ₱X → Maya's page. No step 1, no
+        Continue, no 1/2 stepper. Step 1 (and its BDO next steps) stays for the BDO route and the fallback only.
+      */}
+      {!waiting && !overCeiling && mayaOpen && (
+        <MayaPayStage
+          reference={payable.reference}
+          amountPhp={payable.amountPhp}
+          title={payable.title}
+          who={payable.who ?? null}
+          billedToName={billedToName}
+          billedToEmail={user.email ?? null}
+          line={maya.line}
+          code={codeBlock}
+        />
+      )}
+
+      {!waiting && !overCeiling && !mayaOpen && (
       <PayPanel
         /*
           Their second attempt carries `rechecked`, which tells the action to
@@ -526,13 +721,12 @@ export default async function PayPage({ params, searchParams }: Props) {
         setup={setup}
         proofSent={false}
         resubmitNotice={resubmitNotice}
-        requiresReference={payable.requiresReference}
         amountPhp={payable.amountPhp}
         reference={payable.reference}
         orderId={payable.orderId}
         rails={rails}
         activatesLine={activates}
-        summary={summary}
+        summary={summaryFor(false)}
         initialStage={parseStage(search.step)}
         /*
           ⚠ EVERY OTHER PARAMETER RIDES ALONG. `?setup=1` is what tells this
@@ -541,6 +735,7 @@ export default async function PayPage({ params, searchParams }: Props) {
           door and the set-up discount framing, and `?recheck=` is the only
           copy telling somebody what to fix.
         */
+        stage2Notice={maya.phase === 'busy' ? maya.line : null}
         carryQuery={{
           setup: search.setup,
           sent: search.sent,

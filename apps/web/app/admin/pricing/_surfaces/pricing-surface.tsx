@@ -18,6 +18,7 @@ import { saveBookingFeeSchedule, saveSignupDiscount } from '@/app/admin/pricing/
 import { SignupDiscountCard } from '@/app/admin/pricing/_components/signup-discount-card';
 import { familyForServiceCode } from '@/lib/onboarding-family-discount';
 import { BOOKING_FEE } from '@/lib/booking-fee';
+import { bundleListNote } from '@/lib/shop-gifts';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import { LegacyCatalogDisclosure } from '@/app/admin/pricing/_components/legacy-catalog';
@@ -62,6 +63,9 @@ type RetailRow = {
   replaced_by_service_code: string | null;
   updated_at: string;
   updated_by_admin_id: string | null;
+  /** 📦 On a supplier gift bundle (20271351048946): the pack it holds and how many. NULL on every other row. */
+  bundle_of_service_code: string | null;
+  bundle_quantity: number | null;
 };
 
 type BundleRow = {
@@ -143,7 +147,7 @@ export async function PricingSurface(_props: Props) {
     admin
       .from('platform_retail_catalog_v2')
       .select(
-        'service_code,title,description,retail_price_php,saas_overhead_cost_php,is_active,onboarding_price_php,billing_period,is_pax_priced,pax_floor,pax_floor_price_php,pax_increment_size,pax_increment_price_php,retired_at,retirement_reason,replaced_by_service_code,updated_at,updated_by_admin_id',
+        'service_code,title,description,retail_price_php,saas_overhead_cost_php,is_active,onboarding_price_php,billing_period,is_pax_priced,pax_floor,pax_floor_price_php,pax_increment_size,pax_increment_price_php,retired_at,retirement_reason,replaced_by_service_code,updated_at,updated_by_admin_id,bundle_of_service_code,bundle_quantity',
       )
       .order('is_active', { ascending: false })
       .order('retail_price_php', { ascending: true }),
@@ -164,7 +168,7 @@ export async function PricingSurface(_props: Props) {
     admin
       .from('platform_settings')
       .select(
-        'setnayan_pay_fee_pct, onboarding_discount_pct, booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php',
+        'setnayan_pay_fee_pct, onboarding_discount_pct, booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php, booking_fee_cap_php, booking_fee_free_every_nth, booking_fee_new_client_free_months',
       )
       .eq('id', 1)
       .maybeSingle(),
@@ -216,6 +220,9 @@ export async function PricingSurface(_props: Props) {
     booking_fee_rate_pct?: number | string | null;
     booking_fee_tail_rate_pct?: number | string | null;
     booking_fee_tier1_limit_php?: number | string | null;
+    booking_fee_cap_php?: number | string | null;
+    booking_fee_free_every_nth?: number | string | null;
+    booking_fee_new_client_free_months?: number | string | null;
   } | null;
   const bfFromDb =
     bfRow?.booking_fee_rate_pct != null && Number.isFinite(Number(bfRow.booking_fee_rate_pct));
@@ -229,6 +236,21 @@ export async function PricingSurface(_props: Props) {
       bfRow?.booking_fee_tier1_limit_php != null && Number.isFinite(Number(bfRow.booking_fee_tier1_limit_php))
         ? Number(bfRow.booking_fee_tier1_limit_php)
         : BOOKING_FEE.tier1LimitPhp,
+    // The lock and the every-Nth count (owner 2026-11-20). Null = unread: the form says so rather than print a default.
+    capPhp:
+      bfRow?.booking_fee_cap_php != null && Number.isFinite(Number(bfRow.booking_fee_cap_php))
+        ? Number(bfRow.booking_fee_cap_php)
+        : null,
+    freeEveryNth:
+      bfRow?.booking_fee_free_every_nth != null && Number.isFinite(Number(bfRow.booking_fee_free_every_nth))
+        ? Number(bfRow.booking_fee_free_every_nth)
+        : null,
+    // The new-client free window (owner 2026-11-16). Null = unread: said, never a default.
+    newClientFreeMonths:
+      bfRow?.booking_fee_new_client_free_months != null &&
+      Number.isInteger(Number(bfRow.booking_fee_new_client_free_months))
+        ? Number(bfRow.booking_fee_new_client_free_months)
+        : null,
     isFromDb: bfFromDb,
   };
 
@@ -244,10 +266,32 @@ export async function PricingSurface(_props: Props) {
     fetchPricingAuditHistory(admin, allCodes),
   ]);
 
+  // 📦 Supplier gift bundles (owner 2026-11-14): what each holds, read from its own row and the pack's row — never typed.
+  const retailByCode = new Map(retailRows.map((r) => [r.service_code, r]));
+  const giftBundleOf = (r: RetailRow): RetailRowProp['giftBundle'] => {
+    if (!r.bundle_of_service_code || !r.bundle_quantity) return undefined;
+    const pack = retailByCode.get(r.bundle_of_service_code);
+    const packTitle = pack?.title ?? r.bundle_of_service_code;
+    const packSrp = pack ? Math.round(Number(pack.retail_price_php) * 100) : 0;
+    return {
+      holds: `${packTitle} × ${r.bundle_quantity}`,
+      note:
+        packSrp > 0
+          ? bundleListNote({
+              pack: { title: packTitle, srpCentavos: packSrp },
+              quantity: r.bundle_quantity,
+              priceCentavos: Math.round(Number(r.retail_price_php) * 100),
+            })
+          : { ok: false, text: `${packTitle} has no list price — this bundle cannot be bought` },
+    };
+  };
+
   const rows: PriceRowProp[] = [
     ...retailRows.map((r): RetailRowProp => {
       const rm = !r.is_active ? removability.get(r.service_code) ?? null : null;
+      const giftBundle = giftBundleOf(r);
       return {
+        ...(giftBundle ? { giftBundle } : {}),
         kind: 'retail',
         code: r.service_code,
         title: r.title,
@@ -412,14 +456,17 @@ export async function PricingSurface(_props: Props) {
         <h2 className="mb-1 text-base font-semibold tracking-tight">Supplier booking fee</h2>
         <p className="mb-3 max-w-prose text-sm text-ink/60">
           What a supplier pays Setnayan for an introduction that turns into a booking. Owner-set:
-          the rate below the threshold, the threshold itself, and the rate above it. The minimum
-          and the no-cap rule are fixed.
+          the rate below the threshold, the threshold itself, and the rate above it. The minimum is
+          fixed; the lock, the every-Nth free booking fee and the new-client free window are shown under the form.
         </p>
         <BookingFeeForm
           action={saveBookingFeeSchedule}
           ratePct={bookingFee.ratePct}
           tailRatePct={bookingFee.tailRatePct}
           tier1LimitPhp={bookingFee.tier1LimitPhp}
+          capPhp={bookingFee.capPhp}
+          freeEveryNth={bookingFee.freeEveryNth}
+          newClientFreeMonths={bookingFee.newClientFreeMonths}
           minPhp={BOOKING_FEE.minPhp}
           isFromDb={bookingFee.isFromDb}
           enabled={isBookingFeeEnabled()}

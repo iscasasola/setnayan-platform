@@ -27,11 +27,14 @@ import Link from 'next/link';
 import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { ArrowDown, Paperclip, X } from 'lucide-react';
+import { ArrowDown, ChevronDown, ChevronUp, MoreHorizontal, Paperclip, Search, X } from 'lucide-react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { BADGE_CLASS, badgeStyle } from '@/app/_components/badge';
-import { PickedHeadContext } from '@/app/_components/picked/picked-nav';
+import { PickedHeadContext, PickedNavContext } from '@/app/_components/picked/picked-nav';
+import { ChatHomeTop, useChatHome } from './chat/chat-home';
+import { chatKindOf, countKinds, filterLine, isTalkRow, memberLineOf, paymentLineOf, talkLine, KIND_LABEL } from '@/lib/chat-kinds';
+import { patchKinds, useKinds } from '@/lib/chat-kind-store';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -96,7 +99,9 @@ import { HOSTS_ONLY } from '@/lib/money-mask';
 import { PLUS_CARD_TITLE, RISING_DRAFTS, type RunningTopic } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
-import { withThreadView, type ThreadView } from '@/lib/thread-view';
+import { isTalkView, legacyThreadView, parseThreadView, withThreadView, type TalkView, type ThreadKind, type ThreadView } from '@/lib/thread-view';
+import { CHAT_SEARCH_HIT, clearChatSearch, findInChat, paintChatSearch, searchCountLine, seenLine, stepHit } from '@/lib/chat-search';
+import { flushSync } from 'react-dom';
 import { ProofImage } from '@/app/_components/proof-image';
 import {
   buildThreadDecisions,
@@ -125,13 +130,25 @@ import { applyHeart, HEART_SELECT, heartsFrom, tapMeansHeart, type HeartRow, typ
 import { hostFirstName, hostForMessage, hostInitials, type ChatHost } from '@/lib/chat-hosts';
 import { latestPrivateReply, privateOtherIds } from '@/lib/chat-private';
 import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
-import { WHISPER_TYPING_WINDOW_EVENT, isWhisperLine, whisperingLine, type WhisperTyping } from '@/lib/chat-whisper';
+import { WHISPER_TYPING_WINDOW_EVENT, privateFilterLine, seenByWhoGotIt, whisperSideOfLine, whisperStrip, whisperingLine, type PrivateFilterWho, type WhisperTyping } from '@/lib/chat-whisper';
 import { readWhisper, sendWhisperTyping, subscribeWhisper } from '@/app/_components/chat/whisper-mode';
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
 import { FiledChip, FileToDecisionMenu, type FilingDone } from './chat/file-to-decision-menu';
 import { attachmentTap, bubbleTap, NO_TAP, type LastTap } from '@/lib/chat-double-tap';
 import { AttachmentBlock } from './chat/attachment-block';
+import { VoiceNote } from './chat/voice-note';
+import { MessageExtrasMenu } from './chat/message-extras-menu';
+import {
+  CHAT_EDITED_EVENT,
+  CHAT_EDIT_START_EVENT,
+  canOfferEdit,
+  canOfferUnsend,
+  isVoiceNote,
+  unsentLine,
+  type ChatEditStart,
+  type ChatEdited,
+} from '@/lib/chat-message-extras';
 import { MaybeChatFileSwipe, routeRemoveIO, type ChatFileRemoveIO, type ChatFileRemoved } from './chat/chat-file-swipe';
 import {
   CHAT_FILE_REMOVED_FOR_ME,
@@ -154,8 +171,8 @@ import { CHAT_READ_BROADCAST, countsAsUnreadFor, createReadDebouncer, latestRead
 import { markThreadRead } from '@/lib/chat-actions';
 import { isCoHostMessage, ownsBubble } from '@/lib/chat-bubble-owner';
 import { LIVE_LINE_REFRESH_MS, refreshesTheChat } from '@/lib/chat-live-refresh';
-import { answeredBookAsks, formLineTitle, streamLineKind } from '@/lib/chat-card-lines';
-import { AskChangeDoor, FormAnswerCard, StreamLineCard } from './chat/cards/lazy-cards';
+import { answeredBookAsks, cakeDesignAt, formLineTitle, isCakeInvite, streamLineKind } from '@/lib/chat-card-lines';
+import { AskChangeDoor, CakeDesignCard, CakeInviteCard, DealSheet, DroppedOfferCard, FormAnswerCard, InquiryCard, StreamLineCard } from './chat/cards/lazy-cards';
 import { StayForm } from '@/app/_components/stay-form';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
@@ -222,10 +239,16 @@ type Props = {
   shopLogoUrl?: string | null;
   /**
    * 🤫 The host's side only (DECISION_LOG 2026-11-19 "MESSAGE ⇄ WHISPER APPROVED"): the OTHER hosts in this chat now
-   * (`chat_thread_members`, the viewer and any shop login left out — the list a whisper is written to). A private line
-   * whose people are exactly them wears "Whisper · co-hosts only"; absent or empty → no line is ever drawn as a whisper.
+   * (`chat_thread_members`, the viewer and any shop login left out). Since Unichat part E a whisper carries its side
+   * (`whisper_side`) and needs no list; this labels only a whisper written BEFORE that column (exactly the co-hosts).
    */
   whisperCoHostIds?: readonly string[] | null;
+  /**
+   * 🔎 Who sees this side's whispers, for the Private filter line ("Private · 3 whispers · the hosts and Liza only") —
+   * the page's whisper read (`readHostsWhisper` · `readTeamWhisper`); `unread` = that read failed. Absent → the line
+   * stops after the count.
+   */
+  privateFilterWho?: PrivateFilterWho;
   /**
    * 🏪 Supplier side: the shop's own name, for the strip — a viewer who is ALSO a host of this event sees the shop's
    * face first and "You" as the host (owner, 11 Nov). Absent → the strip as before.
@@ -352,6 +375,22 @@ type Props = {
   blocker?: (Omit<ChatBlockerProps, 'onReturn' | 'threadId'> & { pinKey: string }) | null;
   /** Where a (+) card's Send lands (`return_to`) and the event its full-page doors open. */
   plus?: { eventId: string; returnPath: string } | null;
+  /**
+   * 💬 THIS CHAT HOLDS EVERYTHING (owner 19 Nov 2026, DECISION_LOG "THE CLIENT PAGE IS ONE CHAT THAT HOLDS EVERYTHING";
+   * drawing S9ScH2Ps v3) — passed ONLY by the supplier's thread page when it is drawn inside the picked client:
+   *   · the chips in the text box filter the stream to ONE kind (`chat-kind-store`; `?view=` names it) — so the head's
+   *     📎 and its Files panel are not drawn (Files is a chip);
+   *   · the page's summary strip is drawn first in the pinned stack (`ChatHomeTop`);
+   *   · the database's plain lines draw quiet and unframed (a payment logged, someone joined), an accepted quote
+   *     leaves its line, and each version says when it was sent;
+   *   · the couple's first inquiry draws as a card, and the strip's Deal box raises Every version here.
+   * Absent → the chat exactly as shipped (the routed thread page, the host's side until its own build).
+   */
+  oneChat?: boolean;
+  /** 💬 The inquiry card's last line: is their date open on the shop's calendar? null = unknown (says nothing). */
+  inquiryCalendar?: 'open' | 'busy' | null;
+  /** 💬 The inquiry is not answered yet: the page's own "Their ask" (Accept · Ask · Decline) carries it — no second card. */
+  inquiryPending?: boolean;
   /**
    * 🔒 THE SERVER SAYS THIS READER'S AMOUNTS ARE HIDDEN (`chat_money_hidden` — a coordinator without Budget &
    * payments, owner 2026-11-09 "₱ — hosts only" everywhere). The stream then reads messages, quotes and amendments
@@ -493,6 +532,7 @@ export function ChatMessageStream({
   fileExpiry = null,
   hosts,
   whisperCoHostIds,
+  privateFilterWho = null,
   shopLogoUrl = null,
   shopLabel = null,
   memberAdd = null,
@@ -509,6 +549,9 @@ export function ChatMessageStream({
   blocker = null,
   plus = null,
   moneyHidden = false,
+  oneChat = false,
+  inquiryCalendar = null,
+  inquiryPending = false,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -533,6 +576,9 @@ export function ChatMessageStream({
    * stream's own presence channel moves it while you look. It only ever moves forward.
    */
   const [theirRead, setTheirRead] = useState<string | null>(theirLastReadAt);
+  /** 👀 WHO has seen it (Unichat part D, 20 Nov 2026) — each reader's own latest read, as said on this chat's channel
+   *  while you look. The stored marker has no names, so a "Seen" that came with the page stays plain "Seen". */
+  const [seenBy, setSeenBy] = useState<ReadonlyMap<string, string>>(() => new Map());
   useEffect(() => {
     setTheirRead((prev) => latestRead(prev, theirLastReadAt));
   }, [theirLastReadAt]);
@@ -691,6 +737,80 @@ export function ChatMessageStream({
     [currentUserId],
   );
   const [filePick, setFilePick] = useState<string | null>(null);
+  // ⋯ UNICHAT H1 — Edit · Unsend · Remind me on one message (approved prototype v3, 20 Nov: "Hold your own new
+  // message: Edit or Unsend."). Opened by holding a bubble (touch), a right-click, or the ⋯ beside it. A tap is still
+  // a heart, and the 🔒 beside the message box is still the one private door — this menu carries neither.
+  const [extrasFor, setExtrasFor] = useState<string | null>(null);
+  const [extrasLine, setExtrasLine] = useState<{ messageId: string; text: string } | null>(null);
+  const extrasTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const extrasFrom = useRef<{ x: number; y: number } | null>(null);
+  // The hold opened the menu: the click that ends the same press must not also heart the bubble.
+  const extrasHeld = useRef(false);
+  const extrasPress = (messageId: string) => {
+    const stop = () => {
+      if (extrasTimer.current) clearTimeout(extrasTimer.current);
+      extrasTimer.current = null;
+      extrasFrom.current = null;
+    };
+    return {
+      onPointerDown: (e: React.PointerEvent) => {
+        extrasHeld.current = false;
+        if (e.pointerType === 'mouse') return; // a mouse right-clicks, or uses the ⋯
+        stop();
+        extrasFrom.current = { x: e.clientX, y: e.clientY };
+        extrasTimer.current = setTimeout(() => {
+          extrasTimer.current = null;
+          extrasHeld.current = true;
+          setExtrasLine(null);
+          setExtrasFor(messageId);
+        }, 450);
+      },
+      onPointerMove: (e: React.PointerEvent) => {
+        const from = extrasFrom.current;
+        // A scroll or a swipe is not a hold.
+        if (from && (Math.abs(e.clientX - from.x) > 10 || Math.abs(e.clientY - from.y) > 10)) stop();
+      },
+      onPointerUp: stop,
+      onPointerCancel: stop,
+      onPointerLeave: stop,
+      onContextMenu: (e: React.MouseEvent) => {
+        e.preventDefault();
+        stop();
+        setExtrasLine(null);
+        setExtrasFor(messageId);
+      },
+      // The click that ENDS a hold is swallowed here, in the capture phase, before the bubble's own tap sees it — so
+      // the bubble's onClick stays exactly the heart (lib/a-bubble-is-not-a-decision.test.ts) and a hold never hearts.
+      onClickCapture: (e: React.MouseEvent) => {
+        if (!extrasHeld.current) return;
+        extrasHeld.current = false;
+        e.stopPropagation();
+        e.preventDefault();
+      },
+    };
+  };
+  useEffect(
+    () => () => {
+      if (extrasTimer.current) clearTimeout(extrasTimer.current);
+    },
+    [],
+  );
+  // ✏️ The message box saved an edit: the bubble changes now; the row's own realtime UPDATE says the same after.
+  useEffect(() => {
+    const onEdited = (e: Event) => {
+      const d = (e as CustomEvent<ChatEdited>).detail;
+      if (!d || d.threadId !== threadId) return;
+      setMessages((prev) => prev.map((m) => (m.message_id === d.messageId ? { ...m, body: d.body, edited_at: d.editedAt } : m)));
+    };
+    window.addEventListener(CHAT_EDITED_EVENT, onEdited);
+    return () => window.removeEventListener(CHAT_EDITED_EVENT, onEdited);
+  }, [threadId]);
+  /** Hand a message's words to the message box. `false` = no box took them. */
+  const startEdit = (m: ChatMessageRow): boolean => {
+    const detail: ChatEditStart & { taken?: boolean } = { threadId, messageId: m.message_id, body: m.body ?? '' };
+    window.dispatchEvent(new CustomEvent(CHAT_EDIT_START_EVENT, { detail }));
+    return detail.taken === true;
+  };
   const [fileLine, setFileLine] = useState<{ messageId: string; text: string; undo?: () => Promise<unknown> } | null>(null);
   const lastTap = useRef<LastTap>(NO_TAP);
   // 📎 A single tap on a file waits DOUBLE_TAP_MS to see if a second one files it instead (attachmentTap).
@@ -1057,7 +1177,8 @@ export function ChatMessageStream({
   // All · Decisions · Files
   // ---------------------------------------------------------------------------
   // Decisions left the stream (Build 3): open ones are pins, closed ones Details › Decisions.
-  const [view, setViewState] = useState<ThreadView>(initialView === 'decisions' ? 'all' : initialView);
+  // A chat without the chips keeps its three shipped thirds: a chip-only kind in the address is the chat there.
+  const [view, setViewState] = useState<ThreadView>(initialView === 'decisions' ? 'all' : legacyThreadView(initialView));
   /**
    * 📌 INSIDE A PICKED SHELL (v8.3, approved 9 Nov) there is no Chat · Decisions · Files row: the head's 📎 opens Files
    * and Decisions as ONE panel inside the pinned stack, and the conversation stays under it. A link that names
@@ -1065,7 +1186,41 @@ export function ChatMessageStream({
    */
   const headSlot = useContext(PickedHeadContext);
   const inPicked = headSlot !== null;
-  const [filesOpen, setFilesOpen] = useState(initialView !== 'all');
+  const [filesPanel, setFilesOpen] = useState(initialView !== 'all');
+  // 💬 With the chips (`oneChat`) Files is a chip, never a panel in the pinned stack.
+  const filesOpen = filesPanel && !oneChat;
+  /* 💬 THE CHIPS' KIND (19 Nov 2026). The picked chip lives in the chat's own store (the chips are in the composer, a
+     sibling subtree); the address names it (`?view=`), so the page hands the first one in and a reload reopens it. */
+  const kinds = useKinds(threadId);
+  const [kindSeeded, setKindSeeded] = useState(false);
+  useEffect(() => {
+    // The page inside a client hands no `view` on (only notice params cross that boundary), so the address is read here.
+    let named: ThreadView = initialView;
+    try {
+      if (oneChat && named === 'all') named = parseThreadView(new URLSearchParams(window.location.search).get('view'));
+    } catch {
+      /* the chat shows everything */
+    }
+    if (oneChat && named !== 'all') patchKinds(threadId, { view: named });
+    setKindSeeded(true);
+    // Once: the address names the first chip; after that the chips do.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const kindNow: ThreadView = kindSeeded ? kinds.view : initialView;
+  // 💬 Chat · Private (Unichat part D, 20 Nov 2026) are not a kind of card: they show only what people typed.
+  const talkView: TalkView | null = oneChat && isTalkView(kindNow) ? kindNow : null;
+  const kindView: ThreadKind | null = oneChat && kindNow !== 'all' && !talkView ? (kindNow as ThreadKind) : null;
+  // 💬 Back to All — typing, sending or opening a tool does it — lands at the newest line (Unichat part D).
+  const lastKindRef = useRef<ThreadView>(kindNow);
+  useEffect(() => {
+    const was = lastKindRef.current;
+    lastKindRef.current = kindNow;
+    if (!oneChat || was === 'all' || kindNow !== 'all') return;
+    const el = listRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'auto' });
+  }, [kindNow, oneChat]);
+  const chatHome = useChatHome();
+  const pickedNav = useContext(PickedNavContext);
   const privateNow = usePrivateTo(threadId);
   // 🔭 The 📎 panel is a fold like any other: a press that opens it glides it into view (app-wide reveal-on-open).
   const filesPanelRef = useRef<HTMLElement | null>(null);
@@ -1188,6 +1343,40 @@ export function ChatMessageStream({
     },
     [extraPins, decisions, counterpartyLabel],
   );
+  /* 💬 WHAT THE CHIPS AND THE STRIP COUNT (19 Nov 2026) — published from the SAME rows and the SAME merge the stream
+     draws, so a chip's number is the cards it shows and the strip's Decisions is the list it opens. A message filed
+     under a pinned decision counts as that decision's. Cards that could not be loaded make the waiting count UNKNOWN
+     (null → "Couldn't load"), never 0. */
+  const kindCounts = useMemo(() => countKinds(messages, (m) => Boolean(filings?.byMessage.get((m as ChatMessageRow).message_id))), [messages, filings]);
+  const waitingOnYou = useMemo(() => {
+    const keys = new Set(decisions.filter((d) => d.now.needsYou).map((d) => d.key));
+    for (const p of pinFacts) if (p.kind === 'decision' && p.answerer === 'you') keys.add(p.key);
+    return keys.size;
+  }, [decisions, pinFacts]);
+  // 💬 The two chips that are not a kind: what people typed (Chat), and the private lines among them (Private).
+  const talkCounts = useMemo(() => {
+    let chat = 0;
+    let priv = 0;
+    for (const m of messages) {
+      if (!isTalkRow(m)) continue;
+      chat += 1;
+      if (privateOtherIds(m, currentUserId).length > 0) priv += 1;
+    }
+    return { chat, private: priv };
+  }, [messages, currentUserId]);
+  useEffect(() => {
+    if (oneChat) patchKinds(threadId, { counts: kindCounts, waiting: cardsDegraded ? null : waitingOnYou, talk: talkCounts });
+  }, [oneChat, threadId, kindCounts, waitingOnYou, cardsDegraded, talkCounts]);
+  // 🤝 The strip's Deal box raises Every version here (a tick in the store — the strip is another subtree).
+  const [dealOpen, setDealOpen] = useState(false);
+  const dealTick = useRef(kinds.deal);
+  useEffect(() => {
+    if (kinds.deal !== dealTick.current) {
+      dealTick.current = kinds.deal;
+      setDealOpen(true);
+    }
+  }, [kinds.deal]);
+
   const allPinBodies = useMemo(() => {
     const out: Record<string, React.ReactNode> = { ...(pinBodies ?? {}) };
     for (const e of decisions) {
@@ -1250,7 +1439,100 @@ export function ChatMessageStream({
         anchorId: PLUS_DRAFT_ANCHOR,
       }
     : sentTopic;
+  // 🧰 THE TOOL LIVES IN THE TEXT BOX (Unichat part B, 20 Nov 2026): what a (+) card needs is published for the composer
+  // that draws it. Where a composer holds it (`inBox`) the draft is not pinned as a Running topic — the box IS it.
+  const plusEventId = plus?.eventId ?? null;
+  const plusReturnPath = plus?.returnPath ?? null;
+  useEffect(() => {
+    patchPlus(threadId, { host: plusEventId && plusReturnPath ? { side: viewerRole, eventId: plusEventId, eventDate, returnPath: plusReturnPath } : null });
+    return () => patchPlus(threadId, { host: null });
+  }, [threadId, plusEventId, plusReturnPath, viewerRole, eventDate]);
+  const pinnedRunning: RunningTopic | null = plusState.draft && plusState.inBox ? sentTopic : running;
   const [blockerOpen, setBlockerOpen] = useState(true);
+
+  /* 🔎 SEARCH INSIDE THIS CHAT (Unichat part D, 20 Nov 2026 — `lib/chat-search.ts`). An icon until tapped (owner rule
+     19 Nov: "search is an icon until tapped"); one tap puts the box where the who's-here row was and the keyboard up
+     (the box is focused INSIDE the tap — a phone raises its keyboard only from a gesture). It looks through the lines
+     this chat is showing, under whichever chip is picked. */
+  const [search, setSearch] = useState<{ q: string; i: number } | null>(null);
+  const [searchHits, setSearchHits] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const openSearch = () => {
+    flushSync(() => setSearch({ q: '', i: 0 }));
+    searchInputRef.current?.focus();
+  };
+  const searchQ = search?.q ?? null;
+  const searchI = search?.i ?? 0;
+  useEffect(() => {
+    const list = listRef.current;
+    const clear = () => {
+      clearChatSearch();
+      list?.querySelectorAll(`[${CHAT_SEARCH_HIT}]`).forEach((el) => el.removeAttribute(CHAT_SEARCH_HIT));
+    };
+    if (!list || searchQ === null || !searchQ.trim()) {
+      setSearchHits(0);
+      return clear;
+    }
+    const hits = findInChat(list, searchQ);
+    setSearchHits(hits.length);
+    const at = stepHit(searchI, hits.length);
+    const cur = hits[at];
+    const tinted = paintChatSearch(hits, at);
+    if (cur) {
+      const line = cur.startContainer.parentElement?.closest('li') ?? null;
+      // No highlight in this browser: the line holding the match is outlined instead.
+      if (!tinted) line?.setAttribute(CHAT_SEARCH_HIT, 'cur');
+      const box = cur.getBoundingClientRect();
+      const frame = list.getBoundingClientRect();
+      list.scrollTo({ top: Math.max(0, list.scrollTop + (box.top - frame.top) - list.clientHeight / 2 + box.height / 2), behavior: 'auto' });
+    }
+    return clear;
+    // `messages` and the picked chip change what is on the page, so the matches are found again.
+  }, [searchQ, searchI, messages, kindNow]);
+  const stepSearch = (by: 1 | -1) => setSearch((was) => (was ? { ...was, i: stepHit(was.i + by, Math.max(searchHits, 1)) } : was));
+  const SEARCH_ICON_BUTTON = 'sn-press grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink hover:bg-ink/[0.05] disabled:text-[color:var(--m-slate-3)]';
+  const searchDoor = (
+    <button type="button" onClick={openSearch} aria-label="Search in this chat" className={SEARCH_ICON_BUTTON} data-chat-search-open="">
+      <Search aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+    </button>
+  );
+  const searchBar = search ? (
+    <div role="search" className="flex h-12 items-center gap-0.5 border-b border-ink/10 pl-1 pr-1" data-chat-search="">
+      <button type="button" onClick={() => setSearch(null)} aria-label="Close search" className={SEARCH_ICON_BUTTON} data-chat-search-close="">
+        <X aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+      </button>
+      <input
+        ref={searchInputRef}
+        type="search"
+        enterKeyHint="search"
+        autoComplete="off"
+        aria-label="Search in this chat"
+        placeholder="Search this chat"
+        value={search.q}
+        onChange={(e) => setSearch({ q: e.target.value, i: 0 })}
+        onKeyDown={(e) => {
+          // Enter steps to the next match, Shift+Enter to the one before; Escape puts the search away.
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            stepSearch(e.shiftKey ? -1 : 1);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setSearch(null);
+          }
+        }}
+        className="h-11 min-w-0 flex-1 border-0 bg-transparent px-1 text-[16px] text-ink outline-none placeholder:text-[color:var(--m-slate-3)]"
+      />
+      <span aria-live="polite" className="shrink-0 px-1 text-[12.5px] tabular-nums text-[color:var(--m-slate-2)]" data-chat-search-count="">
+        {searchCountLine(search.q, search.i, searchHits)}
+      </span>
+      <button type="button" onClick={() => stepSearch(-1)} disabled={searchHits === 0} aria-label="Previous match" className={SEARCH_ICON_BUTTON}>
+        <ChevronUp aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+      </button>
+      <button type="button" onClick={() => stepSearch(1)} disabled={searchHits === 0} aria-label="Next match" className={SEARCH_ICON_BUTTON}>
+        <ChevronDown aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+      </button>
+    </div>
+  ) : null;
 
   // In-app path back to THIS thread page — the return target for negotiation
   // server actions (appointment create / respond redirect + revalidate here).
@@ -1471,6 +1753,35 @@ export function ChatMessageStream({
     off-screen.
   */
   // 📮 A booking ask a later line answered reads its answer, never "Waiting for your answer" (owner, 17 Nov).
+  /* 💬 STEP LINES THE DATABASE DOES NOT WRITE (19 Nov 2026, drawing S9ScH2Ps screen 12 — "every step leaves a line"): an
+     accepted quote posts no line of its own (`respond_vendor_proposal` writes none), so the chat says it from the
+     quote's own row — who, which version, at the moment it was accepted — placed in time order. Money lines: they
+     follow the Money chip. Only with `oneChat`. */
+  const stepLines = useMemo(() => {
+    const before = new Map<string, { key: string; text: string }[]>();
+    const end: { key: string; text: string }[] = [];
+    if (!oneChat) return { before, end };
+    for (const m of messages) {
+      if (!m.proposal_id) continue;
+      const card = proposalCards[m.proposal_id];
+      if (!card || card.status !== 'accepted' || !card.resolvedAt) continue;
+      const at = Date.parse(card.resolvedAt);
+      if (!Number.isFinite(at)) continue;
+      const v = quoteVersions?.find((x) => x.proposalId === m.proposal_id)?.version ?? null;
+      const line = { key: `accepted:${m.proposal_id}`, text: `${viewerRole === 'vendor' ? counterpartyLabel : 'You'} accepted ${v ? `version ${v}` : 'the quote'}` };
+      const next = messages.find((x) => Date.parse(x.created_at) > at);
+      if (next) before.set(next.message_id, [...(before.get(next.message_id) ?? []), line]);
+      else end.push(line);
+    }
+    return { before, end };
+  }, [oneChat, messages, proposalCards, quoteVersions, viewerRole, counterpartyLabel]);
+  // 💬 The couple's first inquiry: the first words in the chat, when the hosts wrote them (drawing screen 10).
+  const inquiryMessageId = useMemo(() => {
+    if (!oneChat || inquiryPending) return null;
+    const first = messages.find((m) => m.sender_role !== 'system');
+    return first && first.sender_role === 'couple' ? first.message_id : null;
+  }, [oneChat, inquiryPending, messages]);
+
   const bookAskAnswers = useMemo(
     () => answeredBookAsks(messages.map((m) => ({ id: m.message_id, body: m.body, role: m.sender_role }))),
     [messages],
@@ -1563,7 +1874,7 @@ export function ChatMessageStream({
     let joined = false;
     const sayRead = (at: string) => {
       if (!joined) return;
-      void channel.send({ type: 'broadcast', event: CHAT_READ_BROADCAST, payload: { side: viewerRole, at } });
+      void channel.send({ type: 'broadcast', event: CHAT_READ_BROADCAST, payload: { side: viewerRole, at, by: currentUserId } });
     };
     sayReadRef.current = sayRead;
 
@@ -1571,12 +1882,20 @@ export function ChatMessageStream({
       .on('presence', { event: 'sync' }, recompute)
       .on('presence', { event: 'join' }, recompute)
       .on('presence', { event: 'leave' }, recompute)
-      .on('broadcast', { event: CHAT_READ_BROADCAST }, (msg: { payload?: { side?: unknown; at?: unknown } }) => {
+      .on('broadcast', { event: CHAT_READ_BROADCAST }, (msg: { payload?: { side?: unknown; at?: unknown; by?: unknown } }) => {
         const side = msg?.payload?.side;
         const at = msg?.payload?.at;
+        const by = msg?.payload?.by;
         // Only the OTHER side's read is "Seen" — a co-host reading is not the supplier reading.
         if (side === viewerRole || typeof at !== 'string' || Number.isNaN(Date.parse(at))) return;
         setTheirRead((prev) => latestRead(prev, at));
+        if (typeof by === 'string' && by && by !== currentUserId) {
+          setSeenBy((prev) => {
+            const was = prev.get(by);
+            if (was && Date.parse(was) >= Date.parse(at)) return prev;
+            return new Map(prev).set(by, at);
+          });
+        }
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -1819,7 +2138,11 @@ export function ChatMessageStream({
       <ChatPinnedStack
         fixed={
           <>
-            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} {...(stripWord ? { word: stripWord } : {})} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} shopLabel={shopLabel} calls={inPicked ? null : headCalls} note={headNote} /> : null}
+            {/* 💬 The page's summary strip — FIRST in the one pinned stack, above the who's-here strip and the pins. */}
+            {oneChat ? <ChatHomeTop /> : null}
+            {hosts !== undefined ? <ChatHostStrip tail={searchDoor} away={search !== null} hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} {...(stripWord ? { word: stripWord } : {})} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} shopLabel={shopLabel} calls={inPicked ? null : headCalls} note={headNote} /> : null}
+            {/* 🔎 The search box takes the who's-here row's place while it is open (the strip stays mounted, out of sight). */}
+            {searchBar}
             {/*
               📌 SUPPLIER BUILD 3 — the shipped "Chat · Decisions · Files" strip resolves as the approved prototype draws it:
               open decisions fold into the PINS (they stay pinned, outside the scroller, however deep the chat is),
@@ -1828,6 +2151,8 @@ export function ChatMessageStream({
             */}
             {inPicked ? null : (
             <div className="flex items-center justify-end px-1" data-chat-head-tools="">
+              {/* 🔎 With no who's-here row to carry it, the magnifier stands beside the paperclip. */}
+              {hosts === undefined && !search ? searchDoor : null}
               <button
                 type="button"
                 onClick={() => setView(view === 'files' ? 'all' : 'files')}
@@ -1869,7 +2194,7 @@ export function ChatMessageStream({
         facts={pinFacts}
         bodies={allPinBodies}
         onBlocker={() => setBlockerOpen(true)}
-        running={running}
+        running={pinnedRunning}
         talking={plusState.talking}
         onCloseTalking={() => patchPlus(threadId, { talking: null })}
         eventDate={eventDate}
@@ -1898,11 +2223,15 @@ export function ChatMessageStream({
       })()}
       </ChatPinnedStack>
 
-      {/* 📞 🎥 📎 — into the picked shell's head row (v8.3). Private messages are words only: the 📎 greys while private. */}
+      {/* 📎 — into the picked shell's head row (v8.3). Private messages are words only: the 📎 greys while private.
+          📞 🎥 are NOT here any more: the approved Unichat drawing v3 moves Call · Viber under the head's ⋯ (controller ruling
+          21 Nov 2026), so inside a picked shell the booked calls are ⋯ rows (`clientMoreRows` · `hostMoreRows`). Outside a
+          picked shell the strip still draws them (`calls={inPicked ? null : headCalls}`). */}
       {headSlot
         ? createPortal(
             <>
-              {headCalls}
+              {/* 💬 With the chips, Files is a chip in the text box — the head keeps the calls only. */}
+              {oneChat ? null : (
               <ActionButton
                 tone="neutral"
                 iconOnly
@@ -1916,6 +2245,7 @@ export function ChatMessageStream({
                 }}
                 data-testid="picked-files-open"
               />
+              )}
             </>,
             headSlot,
           )
@@ -1971,6 +2301,18 @@ export function ChatMessageStream({
           — reload to see them.
         </li>
       ) : null}
+      {kindView ? (
+        // 💬 One chip picked: only that kind's cards and lines; the chatter is hidden, and the line says so.
+        <li className="pb-1 pt-1 text-center text-[13px] text-[color:var(--m-slate-2)]" role="status" data-chat-filter-line={kindView}>
+          {kindCounts[kindView] > 0 ? filterLine(kindView, kindCounts[kindView]) : `Nothing under ${KIND_LABEL[kindView]} yet`}
+        </li>
+      ) : null}
+      {talkView ? (
+        // 💬 Chat or Private picked: only what people typed; the cards are hidden, and the line says so.
+        <li className="pb-1 pt-1 text-center text-[13px] text-[color:var(--m-slate-2)]" role="status" data-chat-filter-line={talkView}>
+          {talkView === 'private' ? privateFilterLine(talkCounts.private, privateFilterWho) : talkLine(talkView, talkCounts[talkView])}
+        </li>
+      ) : null}
       {messages.length === 0 ? (
         // Rule 6 · empty is one plain line, no dashed box.
         <li className="px-1 py-6 text-center text-[14px] text-[color:var(--m-slate-2)]">
@@ -1978,7 +2320,23 @@ export function ChatMessageStream({
         </li>
       ) : (
         messages.map((m, i) => {
+          // 💬 The chips (`oneChat`): a row of another kind is not drawn; a step line follows the Money chip.
+          if (talkView && !(isTalkRow(m) && (talkView === 'chat' || privateOtherIds(m, currentUserId).length > 0))) return null;
+          const preLines = (stepLines.before.get(m.message_id) ?? []).filter(() => !talkView && (!kindView || kindView === 'money'));
+          const preNodes = preLines.map((l) => (
+            <li key={l.key} className={STEP_LINE} data-step-line="accepted">
+              {l.text}
+            </li>
+          ));
+          if (kindView && chatKindOf(m, Boolean(filings?.byMessage.get(m.message_id))) !== kindView) {
+            return preNodes.length > 0 ? <Fragment key={m.message_id}>{preNodes}</Fragment> : null;
+          }
+          // 🎂 A couple's cake design (both sides see it — v6): the lead-in stays a bubble, the block is drawn as its card
+          // below. The shop's "Design your cake for us" invite is drawn as its card INSTEAD of a bubble.
+          const cakeAt = m.sender_role === 'couple' ? cakeDesignAt(m.body) : -1;
+          const cakeInvite = m.sender_role === 'vendor' && isCakeInvite(m.body);
           const node = (() => {
+          if (cakeInvite) return null;
           // Proposal cards — a vendor-sent structured proposal lands in the
           // thread. Render the card (title · price · status + a Review/View
           // link to the existing /proposals page) instead of a plain bubble;
@@ -2168,6 +2526,7 @@ export function ChatMessageStream({
                               vendorId={lockTarget.vendorId}
                               vendorName={counterpartyLabel}
                               isVerified={lockTarget.notYetVerified ? false : undefined}
+                              papersRenewing={lockTarget.papersRenewing === true}
                               label={
                                 isLockHandshakeEnabled()
                                   ? `Ask ${counterpartyLabel} to confirm your booking`
@@ -2389,6 +2748,19 @@ export function ChatMessageStream({
           // would leave the old chip-row behaviour live in production. The card
           // component fetches its own data and draws the message body until it
           // arrives, so a slow or refused resolve still reads as an offer.
+          // 🏷 A DROPPED OFFER is the card the hosts apply with one tap (PR-4's `DroppedOfferCard`, reachable since
+          // 19 Nov 2026) — on BOTH sides: the supplier sees where it stands, the hosts see Not now · Apply to my quote.
+          if (m.vendor_offer_id != null || m.offer_good_until) {
+            return (
+              <li key={m.message_id} data-offer-drop-card="">
+                <DroppedOfferCard
+                  messageId={m.message_id}
+                  viewer={viewerRole === 'vendor' ? 'supplier' : 'couple'}
+                  kicker={`${ownsBubble(m, viewerRole, currentUserId) ? 'You' : counterpartyLabel} · ${formatChatTimestamp(m.created_at)}`}
+                />
+              </li>
+            );
+          }
           if (m.offered_service_id) {
             /* A quote REPLACES an offer (owner 2026-09-22) — and the offer is
                kept as history rather than removed. One rule, in
@@ -2444,6 +2816,36 @@ export function ChatMessageStream({
                 </li>
               );
             }
+            // 💬 A STEP LEAVES A QUIET LINE (19 Nov 2026, drawing screen 12): centred, no frame — nothing here is a
+            // press except a payment's Receipt. The payment trigger's long line is said short; the rest keep their words.
+            if (oneChat) {
+              const pay = paymentLineOf(m.body);
+              const member = pay ? null : memberLineOf(m.body);
+              const words = pay
+                ? pay.verb === 'logged'
+                  ? `Payment logged${pay.amount ? ` · ${pay.amount}` : ''}`
+                  : pay.verb === 'confirmed'
+                    ? viewerRole === 'vendor'
+                      ? 'You confirmed it reached you'
+                      : `Payment confirmed${pay.amount ? ` · ${pay.amount}` : ''}`
+                    : (m.body ?? '').split(' · ').slice(0, 2).join(' · ')
+                : member
+                  ? `${member.name} ${member.verb === 'joined' ? 'joined' : 'left'}`
+                  : null;
+              return (
+                <li key={m.message_id} className={STEP_LINE} data-step-line={pay ? 'payment' : member ? 'member' : 'line'}>
+                  {words ?? renderPerkUnlock(m.body ?? '')}
+                  {pay?.hasProof && pickedNav ? (
+                    <>
+                      {' · '}
+                      <button type="button" onClick={() => pickedNav.select('payments')} className="sn-press -my-3 inline-flex min-h-11 items-center font-semibold text-sn-accent" data-step-line-receipt="">
+                        Receipt ›
+                      </button>
+                    </>
+                  ) : null}
+                </li>
+              );
+            }
             return (
               <li key={m.message_id} className="flex justify-center">
                 <div className="max-w-[90%] rounded-xl border border-mulberry/20 bg-mulberry/[0.06] px-3 py-2 text-center text-sm text-ink">
@@ -2483,7 +2885,11 @@ export function ChatMessageStream({
           const privateWithIds = privateOtherIds(m, currentUserId);
           const privateWith = privateWithIds.length === 0 ? null : privateWithIds.map((id) => personName(id));
           // 🤫 …and a private line to exactly the co-hosts in this chat is a WHISPER: its strip says so, with no lock.
-          const whisper = privateWith !== null && viewerRole === 'couple' && isWhisperLine(m, whisperCoHostIds, currentUserId);
+          // 🏪 Unichat part E: the side is STORED with the line (`whisper_side`) — the hosts' (with their coordinator) or the
+          // shop's own team — so the label never drops off; a line from before the column falls back to the 19 Nov rule.
+          const whisperSide =
+            privateWith !== null ? whisperSideOfLine(m, { viewerRole, coHostIds: whisperCoHostIds, viewerUserId: currentUserId }) : null;
+          const whisper = whisperSide !== null;
           // 👈 A file its sender removed (2026-11-13): for everyone, both sides draw who and when; for me, only this viewer
           // stops seeing it. The words, if any, stay. A file that left with no line to say who (a refused read) still says
           // a file was removed — never an empty bubble.
@@ -2497,9 +2903,39 @@ export function ChatMessageStream({
             : removal?.mine
               ? `${CHAT_FILE_REMOVED_FOR_ME} · ${formatChatTimestamp(removal.mine.at)}`
               : null;
+          // ↩ UNSENT (Unichat H1): the row stays, its words and voice note gone — everyone who could read it reads this
+          // quiet line in its place (the drawing's words). Before every file rule below: nothing of it is left to draw.
+          if (m.unsent_at) {
+            return (
+              <li key={m.message_id} className="flex justify-center py-1">
+                <p className="text-center text-[13px] text-[color:var(--m-slate-2)]" data-chat-unsent="">
+                  {unsentLine(mine ? 'you' : m.sender_user_id ? personName(m.sender_user_id) : counterpartyLabel)}
+                </p>
+              </li>
+            );
+          }
           const hasWords = (m.body ?? '').trim() !== '';
           const hasFile = !hiddenForMe && !!(m.attachment_r2_key || m.attachment_url);
-          const ownFile = mine && privateWith === null && hasFile;
+          // 🎤 A voice note plays in the bubble; it is unsent from the ⋯ (15 min), not swiped away like a photo.
+          const voice = hasFile && isVoiceNote(m);
+          const ownFile = mine && privateWith === null && hasFile && !voice;
+          const extrasOpen = extrasFor === m.message_id;
+          const moreButton = (
+            <button
+              type="button"
+              aria-label="More for this message"
+              aria-haspopup="dialog"
+              aria-expanded={extrasOpen}
+              onClick={() => {
+                setExtrasLine(null);
+                setExtrasFor(extrasOpen ? null : m.message_id);
+              }}
+              className="sn-press hidden h-11 w-11 shrink-0 place-items-center self-center rounded-full text-[color:var(--m-slate-2)] hover:bg-ink/[0.05] md:grid md:opacity-0 md:focus-visible:opacity-100 md:group-hover/msg:opacity-100 md:aria-expanded:opacity-100"
+              data-chat-more=""
+            >
+              <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={2} />
+            </button>
+          );
           // The ring's undo (marked, no for-everyone line): nothing is drawn — the approved "no line". With words, the
           // words stay as an ordinary bubble.
           if (!hasWords && m.file_removed_at && !removedLine) return null;
@@ -2520,7 +2956,7 @@ export function ChatMessageStream({
           return (
             <li
               key={m.message_id}
-              className={`flex flex-col ${mine ? 'items-end' : 'items-start'} ${run.first ? 'pt-1.5' : ''}`}
+              className={`group/msg flex flex-col ${mine ? 'items-end' : 'items-start'} ${run.first ? 'pt-1.5' : ''}`}
               data-chat-bubble={mine ? 'mine' : 'theirs'}
             >
               {staffName ? (
@@ -2574,10 +3010,12 @@ export function ChatMessageStream({
                   <span aria-hidden className="w-7 shrink-0" />
                 )
               ) : null}
+              {mine ? moreButton : null}
               <div
                 // ♥ ONE TAP on the bubble toggles your heart (v111) — never on a link, button or player inside it.
-                // 🔒 Holding a bubble opens nothing: the 🔒 beside the message box is the ONE door to a private
-                // message (owner-approved prototype, 11 Nov 2026 — the hold menu's "Reply privately" removed).
+                // 🔒 The 🔒 beside the message box is the ONE door to a private message (owner-approved prototype,
+                // 11 Nov 2026). ⋯ Holding a bubble opens Edit · Unsend · Remind me only (Unichat H1, 20 Nov).
+                {...extrasPress(m.message_id)}
                 onClick={(e) => {
                   if (tapMeansHeart(e.target as Element)) {
                     const tap = bubbleTap(lastTap.current, m.message_id, performance.now());
@@ -2588,7 +3026,7 @@ export function ChatMessageStream({
                 }}
                 data-chat-heartable=""
                 // Your own file bubble's 75% lives on its swipe (`OwnFileRow`), so the ↺ ring sits right beside it.
-                className={`${ownFile ? 'max-w-full' : 'max-w-[75%]'} rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${whisper ? 'overflow-hidden ' : ''}${
+                className={`${ownFile ? 'max-w-full' : 'max-w-[75%]'} rounded-2xl px-3 py-2 text-[15px] leading-snug [-webkit-touch-callout:none] [@media(pointer:coarse)]:select-none ${corner} ${whisper ? 'overflow-hidden ' : ''}${
                   privateWith !== null
                     ? PRIVATE_BUBBLE_FILL
                     : mine
@@ -2597,9 +3035,16 @@ export function ChatMessageStream({
                 }`}
                 {...(privateWith !== null ? { 'data-chat-private': '' } : {})}
               >
-                <PrivateMark privateWith={privateWith} whisper={whisper} />
+                <PrivateMark privateWith={privateWith} whisper={whisper} label={whisperSide ? whisperStrip(whisperSide, counterpartyLabel) : undefined} />
                 {m.body ? (
-                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                  <p className="whitespace-pre-wrap break-words">
+                    {cakeAt > 0 ? m.body.slice(0, cakeAt).trimEnd() : m.body}
+                    {m.edited_at ? (
+                      <span className={`ml-1.5 whitespace-nowrap text-[12px] ${mine || privateWith !== null ? 'opacity-80' : 'text-[color:var(--m-slate-2)]'}`} data-chat-edited="">
+                        edited
+                      </span>
+                    ) : null}
+                  </p>
                 ) : null}
                 {/* 🔒 NEVER THE STORED VALUE. Since 2026-09-09 the row carries a
                     PRIVATE stored-asset ref, not a public URL, so the file is
@@ -2608,7 +3053,10 @@ export function ChatMessageStream({
                     the legacy public column — no writer has set it since, and
                     prod never had a row that used it, but a stored value there
                     is still somebody's file, so it keeps a way in. */}
-                {hasFile ? (
+                {voice ? (
+                  // 🎤 The same private route as every chat file; nothing is fetched until Play.
+                  <VoiceNote url={`/api/chat/attachment/${m.message_id}`} seconds={m.voice_seconds ?? null} mine={mine && privateWith === null} />
+                ) : hasFile ? (
                   <AttachmentBlock
                     url={`/api/chat/attachment/${m.message_id}`}
                     name={m.attachment_name ?? null}
@@ -2652,8 +3100,35 @@ export function ChatMessageStream({
                   {mine ? 'You' : counterpartyLabel} · {formatChatTimestamp(m.created_at)}
                 </span>
               </div>
+              {!mine ? moreButton : null}
               </div>
               </MaybeChatFileSwipe>
+              {extrasOpen ? (
+                <MessageExtrasMenu
+                  messageId={m.message_id}
+                  side={viewerRole}
+                  alignEnd={mine}
+                  canEdit={mine && privateWith === null && canOfferEdit(m, currentUserId, Date.now())}
+                  canUnsend={mine && canOfferUnsend(m, currentUserId, Date.now())}
+                  onClose={() => setExtrasFor(null)}
+                  onEdit={() => startEdit(m)}
+                  onUnsent={(unsentAt) =>
+                    setMessages((prev) =>
+                      prev.map((x) =>
+                        x.message_id === m.message_id
+                          ? { ...x, body: '', unsent_at: unsentAt, attachment_r2_key: null, attachment_name: null, attachment_mime: null, attachment_size_bytes: null, voice_seconds: null }
+                          : x,
+                      ),
+                    )
+                  }
+                  onLine={(text) => setExtrasLine({ messageId: m.message_id, text })}
+                />
+              ) : null}
+              {extrasLine?.messageId === m.message_id ? (
+                <p role="status" className={`mt-1 text-[13px] text-[color:var(--m-slate-2)] ${mine ? 'self-end' : 'self-start pl-[38px]'}`} data-chat-extras-line="">
+                  {extrasLine.text}
+                </p>
+              ) : null}
               {removedLine ? (
                 <p className={`mt-0.5 text-[12px] text-[color:var(--m-slate-2)] ${mine ? 'self-end' : 'self-start pl-[38px]'}`} data-chat-file-removed="">
                   {removedLine}
@@ -2761,12 +3236,68 @@ export function ChatMessageStream({
             <Fragment key={m.message_id}>
               {/* The Running-topic pin's jump target (Build 3). */}
               <li id={`msg-${m.message_id}`} aria-hidden className="h-0 scroll-mt-3" />
+              {preNodes}
               {brk ? (
                 <li aria-hidden className="pb-1 pt-3 text-center text-[12px] tabular-nums text-[color:var(--m-slate-2)]" data-chat-time="">
                   {formatChatTimestamp(m.created_at)}
                 </li>
               ) : null}
+              {/* 💬 Each version says when it was sent (drawing screen 12: "Version 2 sent · ₱45,000") — above its card. */}
+              {oneChat && m.proposal_id
+                ? (() => {
+                    const v = quoteVersions?.find((x) => x.proposalId === m.proposal_id)?.version ?? null;
+                    const total = proposalCards[m.proposal_id]?.totalCentavos ?? null;
+                    return (
+                      <li className={STEP_LINE} data-step-line="version">
+                        {v ? `Version ${v} sent` : 'Quote sent'}
+                        {total != null && total > 0 ? ` · ${formatCentavos(total)}` : ''}
+                      </li>
+                    );
+                  })()
+                : null}
+              {/* 💬 The first inquiry is a card: what they asked for, and one button (drawing screen 10). */}
+              {inquiryMessageId === m.message_id && chatHome?.inquiry ? (
+                <li data-inquiry-card="">
+                  <InquiryCard
+                    threadId={threadId}
+                    body={m.body ?? ''}
+                    from={m.sender_user_id ? personName(m.sender_user_id) : counterpartyLabel}
+                    at={formatChatTimestamp(m.created_at)}
+                    facts={chatHome.inquiry}
+                    calendar={inquiryCalendar}
+                  />
+                </li>
+              ) : null}
               {node}
+              {cakeAt >= 0 ? (
+                <li data-cake-design-card="">
+                  <CakeDesignCard
+                    threadId={threadId}
+                    messageId={m.message_id}
+                    place="chat"
+                    eventDate={eventDate}
+                    stamp={`${viewerRole === 'vendor' ? 'Sent from the Cake Maker' : 'You · sent from the Cake Maker'} · ${formatChatTimestamp(m.created_at)}`}
+                    onChanged={() => {
+                      // one-render: keep (no-revalidate) — cakeAction's send revalidates nothing; the new design message must appear.
+                      router.refresh();
+                    }}
+                  />
+                </li>
+              ) : null}
+              {cakeInvite ? (
+                <li data-cake-invite-card="">
+                  <CakeInviteCard
+                    threadId={threadId}
+                    viewer={viewerRole === 'vendor' ? 'vendor' : 'couple'}
+                    shopName={viewerRole === 'vendor' ? 'Your shop' : counterpartyLabel}
+                    stamp={`${viewerRole === 'vendor' ? 'You' : counterpartyLabel} · ${formatChatTimestamp(m.created_at)}`}
+                    onSent={() => {
+                      // one-render: keep (no-revalidate) — cakeAction's send revalidates nothing; the sent design must appear.
+                      router.refresh();
+                    }}
+                  />
+                </li>
+              ) : null}
               {formTitle ? (
                 <li data-form-answer-card="">
                   <FormAnswerCard threadId={threadId} title={formTitle} returnPath={returnPathFor(m)} />
@@ -2776,11 +3307,16 @@ export function ChatMessageStream({
           );
         })
       )}
+      {(!talkView && (!kindView || kindView === 'money') ? stepLines.end : []).map((l) => (
+        <li key={l.key} className={STEP_LINE} data-step-line="accepted">
+          {l.text}
+        </li>
+      ))}
       {/* ⚡ Sent, not yet stored — your words at once, faded (prototype frame B). */}
       {pendings.map((p) => (
         <li key={p.tempId} className="sn-m-chat-send flex flex-col items-end" data-chat-pending={p.state}>
           <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${p.whisper ? 'overflow-hidden ' : ''}${p.privateTo || p.whisper ? PRIVATE_BUBBLE_FILL : 'bg-sn-accent text-white'} ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
-            <PrivateMark privateWith={p.privateTo ?? null} whisper={p.whisper === true} />
+            <PrivateMark privateWith={p.privateTo ?? null} whisper={p.whisper === true} label={whisperStrip(viewerRole === 'vendor' ? 'team' : 'hosts', counterpartyLabel)} />
             {p.body ? <p className="whitespace-pre-wrap break-words">{p.body}</p> : null}
             {p.fileName ? <p className="truncate text-[13px] text-white/85">📎 {p.fileName}</p> : null}
           </div>
@@ -2813,7 +3349,9 @@ export function ChatMessageStream({
         }
         return (
           <li className="pr-1 text-right text-[12px] text-[color:var(--m-slate-2)]" data-chat-last-line={line.kind}>
-            {LAST_LINE_WORDS[line.kind]}
+            {line.kind === 'seen' && ownLast
+              ? seenLine(LAST_LINE_WORDS.seen, seenByWhoGotIt(ownLast, [...seenBy].filter(([, at]) => Date.parse(at) >= Date.parse(ownLast.created_at)).map(([id]) => id)).map((id) => personName(id)))
+              : LAST_LINE_WORDS[line.kind]}
           </li>
         );
       })()}
@@ -2852,10 +3390,15 @@ export function ChatMessageStream({
             eventId={plus.eventId}
             eventDate={eventDate}
             returnPath={plus.returnPath}
+            part={plusState.inBox ? 'toast' : 'all'}
           />
         </li>
       ) : null}
     </ol>
+      {/* 🤝 Every version, their ask beside it (drawing screen 7) — raised by the strip's Deal box. */}
+      {oneChat && dealOpen ? (
+        <DealSheet threadId={threadId} versions={quoteVersions} counterpartyLabel={counterpartyLabel} onClose={() => setDealOpen(false)} />
+      ) : null}
 
       {/*
         ⤓ THE JUMP ROW (DECISION_LOG 2026-11-16 CHAT-09). "Jump to the quote" and "Latest messages" left the overlay over
@@ -2894,6 +3437,9 @@ export function ChatMessageStream({
     </div>
   );
 }
+
+/** 💬 A step's quiet line: centred, the dark grey, no frame (drawing S9ScH2Ps screen 12). */
+const STEP_LINE = 'px-3 py-1 text-center text-[13px] leading-snug text-[color:var(--m-slate-2)]';
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);

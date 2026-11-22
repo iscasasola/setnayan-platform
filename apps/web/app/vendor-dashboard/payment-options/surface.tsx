@@ -142,7 +142,7 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
       className={
         embedded
           ? 'w-full pb-2'
-          : 'mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8'
+          : 'mx-auto w-full tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8'
       }
     >
       {embedded ? null : <PageMasthead title="How clients pay you" />}
@@ -239,7 +239,7 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
                     {m.method_type === 'qr' ? (
                       <div className="flex items-start gap-3 pt-1">
                         {qrThumbnails[m.payment_method_id] ? (
-                          <span className="inline-flex h-16 w-16 shrink-0 overflow-hidden rounded-md border border-ink/10 bg-white/70">
+                          <span className="inline-flex h-16 w-16 shrink-0 overflow-hidden rounded-md border border-ink/10 bg-raised/70">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={qrThumbnails[m.payment_method_id]}
@@ -290,7 +290,7 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
                       <input type="hidden" name="payment_method_id" value={m.payment_method_id} />
                       <SubmitButton
                         pendingLabel="Saving…"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/75 transition-colors hover:border-ink/30 hover:text-ink"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-raised/70 px-3 py-1.5 text-xs font-medium text-ink/75 transition-colors hover:border-ink/30 hover:text-ink"
                       >
                         <Star aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                         Make primary
@@ -305,7 +305,7 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
                     <input type="hidden" name="is_shown" value={m.is_shown ? 'true' : 'false'} />
                     <SubmitButton
                       pendingLabel="Saving…"
-                      className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/75 transition-colors hover:border-ink/30 hover:text-ink"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-raised/70 px-3 py-1.5 text-xs font-medium text-ink/75 transition-colors hover:border-ink/30 hover:text-ink"
                     >
                       {m.is_shown ? (
                         <>

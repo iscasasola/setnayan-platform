@@ -1,9 +1,8 @@
 /**
  * Unit suite for the LOCK-path booking-fee helpers (owner 2026-07-24) — the
  * service_key round-trip, the free-booking boundary, and the pure decideLockFee
- * rule that the SQL RPC mirrors. Money code: the 1st-vs-2nd boundary (owner
- * 2026-10-23: "Your first booking is on us. Not 5." — it was 5th-vs-6th), the flag-off
- * no-op, and the confirmed-total fee base each get a direct assertion.
+ * rule that the SQL RPC mirrors. Money code: no free first booking (20 Nov), the
+ * flag-off no-op, and the confirmed-total fee base each get a direct assertion.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,6 +15,7 @@ import {
   isFreeBooking,
   decideLockFee,
 } from './booking-fee-lock';
+import { BOOKING_FEE } from './booking-fee';
 
 // ── service_key round-trip ───────────────────────────────────────────────────
 
@@ -36,12 +36,9 @@ test('non-booking-fee keys → null (no false match with other vendor_ keys)', (
 
 // ── free-booking boundary ────────────────────────────────────────────────────
 
-test('free-booking boundary: booking 1 free, 2+ charged', () => {
-  assert.equal(FREE_BOOKING_LIMIT, 1);
-  assert.equal(isFreeBooking(1), true); // the first is on us
-  assert.equal(isFreeBooking(2), false); // the 2nd pays
-  assert.equal(isFreeBooking(5), false); // the old five-booking rule is gone
-  assert.equal(isFreeBooking(6), false);
+test('20 Nov: no booking takes a free first place any more', () => {
+  assert.equal(FREE_BOOKING_LIMIT, 0);
+  for (const n of [1, 2, 5, 6]) assert.equal(isFreeBooking(n), false, `booking ${n} took a free place`);
 });
 
 test('free booking: a 0 / negative ordinal is not "free" (defensive)', () => {
@@ -52,51 +49,61 @@ test('free booking: a 0 / negative ordinal is not "free" (defensive)', () => {
 
 // ── decideLockFee — the pure rule the RPC mirrors ────────────────────────────
 
-test('flag OFF → no charge, no order (byte-identical to today)', () => {
-  const d = decideLockFee({ flagEnabled: false, verified: true, bookingOrdinal: 6, agreedTotalPhp: 100_000, businessFree: 'available' });
-  assert.deepEqual(d, { charge: false, free: false, feePhp: 0, createOrder: false });
+const SOURCED = {
+  flagEnabled: true,
+  onPlatform: true,
+  attribution: 'sourced',
+  shopVerified: true,
+  frozenFree: false,
+  launchOffer: false,
+  promoWindow: false,
+  schedule: BOOKING_FEE,
+  nextPlatformNumber: 7,
+  freeEveryNth: 100_000,
+  ticketWaiting: false,
+} as const;
+
+test('flag OFF → no charge, no order', () => {
+  const d = decideLockFee({ ...SOURCED, flagEnabled: false, agreedTotalPhp: 100_000 });
+  assert.equal(d.charge, false);
+  assert.equal(d.createOrder, false);
+  assert.equal(d.reason, 'off');
 });
 
-test('not verified (off-platform) → no charge even with flag on', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: false, bookingOrdinal: 6, agreedTotalPhp: 100_000, businessFree: 'available' });
-  assert.deepEqual(d, { charge: false, free: false, feePhp: 0, createOrder: false });
+test('off-platform (no marketplace shop) → no charge even with flag on', () => {
+  const d = decideLockFee({ ...SOURCED, onPlatform: false, agreedTotalPhp: 100_000 });
+  assert.equal(d.charge, false);
+  assert.equal(d.reason, 'off');
 });
 
-test('1st lock → free: a waived charge, no money, no order', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 1, agreedTotalPhp: 100_000, businessFree: 'available' });
-  assert.deepEqual(d, { charge: true, free: true, feePhp: 0, createOrder: false });
+test('the FIRST sourced booking is billed now (no free first booking)', () => {
+  const d = decideLockFee({ ...SOURCED, agreedTotalPhp: 100_000 });
+  assert.deepEqual(
+    { free: d.free, feePhp: d.feePhp, createOrder: d.createOrder, reason: d.reason },
+    { free: false, feePhp: 5_000, createOrder: true, reason: 'billed' },
+  );
 });
 
-test('6th lock → head-band 5% of a ₱100,000 confirmed total, order issued', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: 100_000, businessFree: 'available' });
-  // 5% × ₱100,000 = ₱5,000
-  assert.deepEqual(d, { charge: true, free: false, feePhp: 5_000, createOrder: true });
+test('fee base is the confirmed total: 5% then 3%, locked at the cap', () => {
+  assert.equal(decideLockFee({ ...SOURCED, agreedTotalPhp: 1_000_000 }).feePhp, 32_000);
+  assert.equal(decideLockFee({ ...SOURCED, agreedTotalPhp: 10_000_000 }).feePhp, 100_000);
 });
 
-test('fee base is the confirmed total, tapered, with no ceiling', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: 1_000_000, businessFree: 'available' });
-  // Taper (owner-locked 2026-07-25): 5% of the first ₱100,000 = ₱5,000, then
-  // 1% of the remaining ₱900,000 = ₱9,000 → ₱14,000. Uncapped, but no longer
-  // the punitive flat ₱50,000.
-  assert.equal(d.feePhp, 14_000);
-  assert.equal(d.createOrder, true);
-});
-
-test('6th lock with a ₱0 / barter total → charge cleared, NO order', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: 0, businessFree: 'available' });
-  assert.equal(d.free, false);
+test('a ₱0 / barter total → charge cleared, NO order', () => {
+  const d = decideLockFee({ ...SOURCED, agreedTotalPhp: 0 });
   assert.equal(d.feePhp, 0);
   assert.equal(d.createOrder, false);
+  assert.equal(d.reason, 'zero');
 });
 
-test('6th lock with a null total → no order (nothing to charge on)', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: null, businessFree: 'available' });
+test('a null total → no order (nothing to charge on)', () => {
+  const d = decideLockFee({ ...SOURCED, agreedTotalPhp: null });
   assert.equal(d.createOrder, false);
   assert.equal(d.feePhp, 0);
 });
 
-test('floor: a tiny 6th booking still floors at ₱50', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: 500, businessFree: 'available' });
+test('floor: a tiny booking still floors at ₱50', () => {
+  const d = decideLockFee({ ...SOURCED, agreedTotalPhp: 500 });
   assert.equal(d.feePhp, 50); // 5% × 500 = 25 → floored to ₱50
   assert.equal(d.createOrder, true);
 });

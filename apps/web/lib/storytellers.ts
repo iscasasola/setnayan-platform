@@ -576,6 +576,7 @@ export async function loadStorytellerCandidatesForAdmin(
       .from('creator_chapters')
       .select(FEATURED_FIELDS)
       .eq('status', 'published')
+      .eq('is_journal', false) // 📰 the Journal is Setnayan's articles, never a storyteller candidate
       .order('published_at', { ascending: false })
       .limit(limit);
     if (error) {

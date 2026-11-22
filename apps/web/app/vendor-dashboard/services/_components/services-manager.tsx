@@ -19,6 +19,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { readCardBadges } from '@/lib/card-badges.server';
 import { readShopSeals } from '@/lib/shop-seals.server';
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
+import { CardLockedMedals } from '@/app/_components/card-badges/card-locked-medals';
 import type { CardBadgesRead } from '@/lib/card-badges';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CardRecordSection } from '@/app/_components/card-record-section';
@@ -39,10 +40,11 @@ import {
 } from '@/lib/service-card-record';
 import {
   fetchVendorServices,
-  fetchDiscountsByService,
-  fetchInclusionsByService,
+  fetchDiscountsByServiceRead,
+  fetchInclusionsByServiceRead,
 } from '@/lib/vendor-services';
 import { fetchVendorBranches, branchIsUsable } from '@/lib/vendor-branches';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { tierCaps, planHasBranches } from '@/lib/vendor-tier-caps';
 import {
   VENDOR_CATEGORIES,
@@ -212,13 +214,20 @@ export async function VendorServicesManager({
   // ── Coverage-first rework: first-class coverages + the LIVE taxonomy tree ──
   // (parent → branch → leaf, read from the admin taxonomy so admin edits flow
   // through with no deploy). Each read fails soft to empty so the page renders.
-  const [vendorCoverages, coverageTree, coverageLabels, eventVocab] =
+  // 🔎 EXCEPT the shop's own categories (supplier dashboard audit, 2026-11-17): read as [] on a refusal, every card
+  // said "not in what you do" and the panel said "Nothing yet". `null` = unread, and the render says so instead.
+  const [vendorCoveragesRead, coverageTree, coverageLabels, eventVocab] =
     await Promise.all([
-      fetchVendorCoverages(supabase, profile.vendor_profile_id).catch(() => []),
+      fetchVendorCoverages(supabase, profile.vendor_profile_id).catch((e: unknown) => {
+        console.error('[services] fetchVendorCoverages failed:', e);
+        return null;
+      }),
       getCoverageTaxonomy().catch(() => []),
       resolveCoverageLabels().catch(() => null),
       getVendorServableEventTypes().catch(() => []),
     ]);
+  const coveragesUnread = vendorCoveragesRead === null;
+  const vendorCoverages = vendorCoveragesRead ?? [];
   const serviceCountByCoverage = services.reduce<Record<number, number>>(
     (m, s) => {
       if (s.coverage_id != null) m[s.coverage_id] = (m[s.coverage_id] ?? 0) + 1;
@@ -299,11 +308,16 @@ export async function VendorServicesManager({
   // Child-table lists (multi-discount + free inclusions + Fixed pax brackets ·
   // migration 20270502342558), grouped by service for the off-peak nudge, row
   // badge, and the Phase 3b list editors on each form. Batched into one round-trip.
-  const [discountsByService, inclusionsByService] =
+  // V-4 (supplier audit 2026-11-17): the outcomes are kept — a refused read drew every card with no "What's included"
+  // and no discount, which reads as "you never added any". Unread is said once over the cards.
+  const [discountsRead, inclusionsRead] =
     await Promise.all([
-      fetchDiscountsByService(supabase, serviceIdList),
-      fetchInclusionsByService(supabase, serviceIdList),
+      fetchDiscountsByServiceRead(supabase, serviceIdList),
+      fetchInclusionsByServiceRead(supabase, serviceIdList),
     ]);
+  const discountsByService = discountsRead.byService;
+  const inclusionsByService = inclusionsRead.byService;
+  const cardExtrasUnread = !discountsRead.ok || !inclusionsRead.ok;
 
   // Presigned display URLs for existing showcase media (Phase 3c) so the edit
   // forms render thumbnails of what's already uploaded. Only refs that exist;
@@ -340,7 +354,14 @@ export async function VendorServicesManager({
     .select('tier_state, verification_state, name_revealed_at, screen_name')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle()
-    .then((r) => r, () => ({ data: null }));
+    .then(
+      (r) => r,
+      (err: unknown) => ({ data: null, error: err }),
+    );
+  // V-3 (supplier audit 2026-11-17): the error was never read, so a REFUSED plan read hid every branch and relabelled
+  // each card "assigned to You" — the "silent lie" the branch comment below forbids. Bound, logged, and honoured.
+  const tierUnread = Boolean(tierProbeRes.error);
+  if (tierUnread) logQueryError('ServicesManager.tierProbe', tierProbeRes.error, { vendorProfileId: profile.vendor_profile_id }, 'graceful_degrade');
 
   // #1 multi-service-per-leaf: a category can now hold several listings, so we
   // track a COUNT per category (not just presence) to show on the picker.
@@ -382,7 +403,8 @@ export async function VendorServicesManager({
     // cannot see the order its owner paid, so without it every branch would
     // read as unpaid to them and the gate below would refuse a live branch.
     // Branches on Pro (included) and Ultra (included + bought) — owner 2026-11-04, "branches 0,0,3,10".
-    planHasBranches(tier)
+    // An unread plan still reads the branches: their LABELS must survive, or every card says "assigned to You".
+    planHasBranches(tier) || tierUnread
       ? (
           await fetchVendorBranches(
             supabase,
@@ -507,7 +529,7 @@ export async function VendorServicesManager({
           className="rounded-md border px-4 py-3 text-sm"
           style={{ borderColor: 'var(--m-blush-deep)', background: 'var(--m-blush)', color: 'var(--m-ink)' }}
         >
-          {decodeURIComponent(search.error)}
+          {safeDecode(search.error)}
         </p>
       ) : null}
       {/* A decision on one of their service requests they have not opened yet (owner ruling 4) — leaves once read. */}
@@ -710,6 +732,12 @@ export async function VendorServicesManager({
           // 🧾 EMPTY LOOKS FINISHED (Lane E): one line + New service — the shared part (`services-empty-card.tsx`).
           <ServicesEmptyCard />
         ) : (
+          <>
+          {cardExtrasUnread ? (
+            <p role="status" className="text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-shop-card-extras-unread="">
+              Couldn&rsquo;t load your cards&rsquo; inclusions and discounts. Nothing changed — refresh to try again.
+            </p>
+          ) : null}
           <ul className="space-y-5" data-shop-card-list="">
             {listedServices.map((svc, i) => {
               const showCovHeader = i === 0 || groupLabelOf(listedServices[i - 1]!) !== groupLabelOf(svc);
@@ -867,6 +895,12 @@ export async function VendorServicesManager({
                         <CardBadgeRow badges={cardBadges.byCard[svc.vendor_service_id]!} cardName={cardName} shopName={null} now={badgesNow} />
                       </div>
                     ) : null}
+                    {/* 🔒 The medals this card can still earn, in their real art with a small lock (owner 18 Nov, v36).
+                        The supplier's own list only — never a couple's card. Only on an honest read: an unread badge
+                        set draws nothing, never "everything locked". */}
+                    {cardBadges.kind === 'ok' ? (
+                      <CardLockedMedals held={cardBadges.byCard[svc.vendor_service_id] ?? []} />
+                    ) : null}
                     {/* ONE meta line (owner 17 Nov, "i see so many spaces"): the price basis · the branch · the
                         coverage · the reach this card's price is earning — on the card itself, every time the shop
                         looks at the list, not in a report they would have to go and find.
@@ -902,7 +936,7 @@ export async function VendorServicesManager({
                         extraCount={svcDiscountList.length - 1}
                       />
                     ) : null}
-                    {cardIsOutsideCoverage(svc.category, coveredLeaves, coveredLeafSet) ? (
+                    {!coveragesUnread && cardIsOutsideCoverage(svc.category, coveredLeaves, coveredLeafSet) ? (
                       <p className="text-[13px]" style={{ color: 'rgb(var(--color-warn))' }} data-card-outside="">
                         {NOT_IN_WHAT_YOU_DO}
                       </p>
@@ -926,6 +960,7 @@ export async function VendorServicesManager({
               );
             })}
           </ul>
+          </>
         )}
         {/* The one Undo toast for the cards' swipe-delete (`deleteWithUndo`); it dedupes, so once is enough. */}
         <UndoToastHost />
@@ -1022,6 +1057,7 @@ export async function VendorServicesManager({
           <CoveragePanel
             tree={coverageTree}
             coverages={coverageItems}
+            coveragesUnread={coveragesUnread}
             eventTypeOptions={eventTypeOptions}
             faithOptions={faithOptions}
             parentUsage={{ used: coveredParentCount, cap: caps.parentCategories }}
@@ -1446,4 +1482,17 @@ function DiscountBadge({
       {extraCount > 0 ? ` +${formatCount(extraCount)}` : ''}
     </span>
   );
+}
+
+/**
+ * `searchParams` arrive decoded already. A second `decodeURIComponent` threw a `URIError` on any message holding a
+ * bare `%` ("…between 0 and 100%."), and that broke the whole Shop page (supplier dashboard audit, 2026-11-17).
+ * The try keeps an older double-encoded link readable.
+ */
+function safeDecode(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
 }

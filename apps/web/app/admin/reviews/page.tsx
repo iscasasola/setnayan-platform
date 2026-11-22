@@ -1,6 +1,7 @@
 import { InfoTip } from '@/app/_components/info-tip';
-import { PillLink, PillTrack } from '@/app/_components/pill-track';
-import { Flag, Gavel, ShieldOff } from 'lucide-react';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
+import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateFail, TemplateSection } from '@/app/_components/template-rows';
+import { actionButtonClass } from '@/components/action-button-class';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -277,14 +278,14 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
   });
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       {/* The page starts at its content.
           ⚖ The sentence survives: this screen is THREE queues stacked, and
           which one you are looking at changes what a decision means — a vendor
           disputing a review, a blocked reviewer appealing, and the audit trail
           of overrides you yourself issued. */}
       <PageMasthead title="Review moderation" />
-      <div className="mb-6">
+      <div className="mb-2">
         <div>
           <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
             Three queues — <span className="font-medium">Supplier fake-review flags</span>{' '}
@@ -306,85 +307,55 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
       ) : null}
 
       {/* ── Vendor fake-review flags ──────────────────────────────────── */}
-      <section className="mb-10 space-y-4" aria-labelledby="vendor-fake-flags-heading">
-        <header className="space-y-0.5">
-          <h2
-            id="vendor-fake-flags-heading"
-            className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight"
-          >
-            <Flag aria-hidden className="h-4 w-4 text-danger-700" strokeWidth={1.75} />
-            Supplier fake-review flags
-            {!fakeFlagError && fakeFlags.length > 0 ? (
-              <span className="ml-1 inline-flex h-5 items-center rounded-full bg-danger-600 px-2 text-[12px] text-white tabular-nums">
-                {fakeFlags.length}
-              </span>
-            ) : null}
-          </h2>
-          <div>
-            <InfoTip label="About fake-review flags" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
-              Suppliers flag reviews they believe are fake or fraudulent. Dismiss to close, or
-            escalate to the two-admin override queue. SLA: 48 hours.
-            </InfoTip>
-          </div>
-        </header>
+      <TemplateSection
+        label="Supplier fake-review flags"
+        first
+        data="fake-flags"
+        right={!fakeFlagError && fakeFlags.length > 0 ? fakeFlags.length : undefined}
+        tip="Suppliers flag reviews they believe are fake or fraudulent. Dismiss to close, or escalate to the two-admin override queue. SLA: 48 hours."
+      >
 
         {fakeFlagError ? (
           <ReadFailed what="the fake-review flags" />
         ) : fakeFlags.length === 0 ? (
-          <div className="border-dashed py-8 text-center text-sm text-ink/55 border-t border-ink/10">
-            <Flag aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-            No pending fake-review flags.
-          </div>
+          <TemplateEmpty data="fake-flags">No pending fake-review flags.</TemplateEmpty>
         ) : (
-          <ul className="space-y-3">
+          <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
             {fakeFlags.map((f) => (
               <VendorFakeFlagCard key={f.flag_id} flag={f} />
             ))}
           </ul>
         )}
-      </section>
+      </TemplateSection>
 
       <GuestReviewsQueue read={await guestReviewsRead} />
 
-      <section className="space-y-4" aria-labelledby="self-review-appeals-heading">
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div className="space-y-0.5">
-            <h2
-              id="self-review-appeals-heading"
-              className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight"
-            >
-              <ShieldOff aria-hidden className="h-4 w-4 text-danger-700" strokeWidth={1.75} />
-              Self-review appeals
-            </h2>
-            <p className="text-xs text-ink/55">
-              Single-admin authority. SLA: 48 hours.
-            </p>
-          </div>
-          <PillTrack as="nav">
-            <FilterChip active={filter} target="pending" label="Pending" />
-            <FilterChip active={filter} target="decided" label="Decided" />
-            <FilterChip active={filter} target="all" label="All" />
-          </PillTrack>
-        </header>
-
+      <TemplateSection
+        label="Self-review appeals"
+        data="self-review-appeals"
+        tip="Single-admin authority. SLA: 48 hours."
+        right={
+          <LinkPickMenu
+            label="Show"
+            value={filter}
+            dataAttr="review-appeals-filter"
+            options={APPEAL_FILTERS.map((f) => ({ key: f.key, label: f.label, href: `/admin/reviews?filter=${f.key}` }))}
+          />
+        }
+      >
         {appealError ? (
-          <p className="rounded-md border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-800">
+          <TemplateFail retryHref="/admin/work?view=reviews" data="self-review-appeals">
             Review appeals couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
-          </p>
+          </TemplateFail>
         ) : null}
 
         {appealError ? null : appeals.length === 0 ? (
-          <div className="border-dashed py-8 text-center text-sm text-ink/55 border-t border-ink/10">
-            <Gavel
-              aria-hidden
-              className="mx-auto mb-2 h-6 w-6 text-ink/30"
-              strokeWidth={1.5}
-            />
+          <TemplateEmpty data="self-review-appeals">
             Nothing pending. Blocked reviewers can file an appeal from the disabled
             &ldquo;Leave a review&rdquo; CTA on their supplier card.
-          </div>
+          </TemplateEmpty>
         ) : (
-          <ul className="space-y-3">
+          <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
             {appeals.map((a) => (
               <AppealCard
                 key={a.appeal_id}
@@ -401,38 +372,25 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
             ))}
           </ul>
         )}
-      </section>
+      </TemplateSection>
 
-      <section
-        className="mt-12 space-y-4"
-        aria-labelledby="override-history-heading"
+      <TemplateSection
+        label="Admin override-published reviews"
+        data="override-history"
+        tip="Last 25 reviews where an admin override-published past the related-account gate."
       >
-        <header className="space-y-0.5">
-          <h2
-            id="override-history-heading"
-            className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight"
-          >
-            <Flag aria-hidden className="h-4 w-4 text-success-700" strokeWidth={1.75} />
-            Admin override-published reviews
-          </h2>
-          <p className="text-xs text-ink/55">
-            Last 25 reviews where an admin override-published past the related-account gate.
-          </p>
-        </header>
         {flaggedError ? (
           <ReadFailed what="the override history" />
         ) : flaggedReviews.length === 0 ? (
-          <div className="border-dashed py-6 text-center text-sm text-ink/55 border-t border-ink/10">
-            No override-publishes yet.
-          </div>
+          <TemplateEmpty data="override-history">No override-publishes yet.</TemplateEmpty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
             {flaggedReviews.map((r) => (
               <li
                 key={r.review_id}
-                className="space-y-1 border-success-200/70 bg-success-50/40 py-3 text-xs text-ink/70 border-t border-ink/10"
+                className="space-y-1 py-3 text-xs text-ink/70"
               >
-                <p className="text-success-900 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+                <p className={TEMPLATE_SUBLINE}>
                   {r.public_id} · {r.rating_overall}★ · {r.created_at.slice(0, 10)}
                 </p>
                 {r.body ? <p className="text-sm text-ink">&ldquo;{r.body}&rdquo;</p> : null}
@@ -443,31 +401,17 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
             ))}
           </ul>
         )}
-      </section>
+      </TemplateSection>
     </div>
   );
 }
 
-function FilterChip({
-  active,
-  target,
-  label,
-}: {
-  active: 'pending' | 'decided' | 'all';
-  target: 'pending' | 'decided' | 'all';
-  label: string;
-}) {
-  return (
-    <PillLink
-      on={active === target}
-      href={`/admin/reviews?filter=${target}`}
-      aria-current={active === target ? 'page' : undefined}
-      className="px-3"
-    >
-      {label}
-    </PillLink>
-  );
-}
+/** The appeals filter — the old Pending / Decided / All chips, now ONE dropdown (ADMIN CLEAN PORT, 19 Nov 2026). */
+const APPEAL_FILTERS: ReadonlyArray<{ key: 'pending' | 'decided' | 'all'; label: string }> = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'decided', label: 'Decided' },
+  { key: 'all', label: 'All' },
+];
 
 type AppealCardProps = {
   appeal: AppealRow;
@@ -504,15 +448,15 @@ function AppealCard({
     typeof payload['body'] === 'string' ? (payload['body'] as string) : null;
 
   return (
-    <li className="space-y-3 sn-tile p-4">
+    <li className="space-y-3 py-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className="inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+          <p className={`inline-flex items-center gap-2 ${TEMPLATE_SUBLINE}`}>
             {appeal.appeal_id.slice(0, 8)} · filed {appeal.submitted_at.slice(0, 10)}
           </p>
           <p className="text-sm">
             <span
-              className={`inline-block rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${
+              className={`inline-block rounded-full px-2 py-0.5 text-[12px] font-medium ${
                 SIGNAL_BADGE_TONE[appeal.matched_signal]
               }`}
             >
@@ -523,7 +467,7 @@ function AppealCard({
         </div>
         {decided && appeal.decision ? (
           <span
-            className={`rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${
+            className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${
               DECISION_TONE[appeal.decision]
             }`}
           >
@@ -558,7 +502,7 @@ function AppealCard({
       </dl>
 
       <div className="rounded-lg bg-ink/[0.04] p-3 text-xs">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+        <p className={TEMPLATE_SUBLINE}>
           Appeal reason
         </p>
         <p className="mt-1 whitespace-pre-wrap text-sm text-ink/80">
@@ -568,7 +512,7 @@ function AppealCard({
 
       {payloadRating !== null || payloadBody ? (
         <div className="rounded-lg border border-warn-200 bg-warn-50/60 p-3 text-xs">
-          <p className="text-warn-900 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+          <p className={TEMPLATE_SUBLINE}>
             Would-be review payload
           </p>
           {payloadRating !== null ? (
@@ -603,10 +547,7 @@ function AppealCard({
                 placeholder="Reason for override (logged on the review row + admin_audit_log)…"
                 className="input-field min-h-[60px] w-full py-2 text-xs"
               />
-              <SubmitButton
-                className="button-primary inline-flex items-center gap-1.5 text-xs"
-                pendingLabel="Publishing…"
-              >
+              <SubmitButton className={actionButtonClass('ok', { main: true })} pendingLabel="Publishing…">
                 Override-publish
               </SubmitButton>
             </form>
@@ -622,10 +563,7 @@ function AppealCard({
               placeholder="Reason the block stays in place…"
               className="input-field min-h-[60px] w-full py-2 text-xs"
             />
-            <SubmitButton
-              className="button-secondary inline-flex items-center gap-1.5 text-xs"
-              pendingLabel="Rejecting…"
-            >
+            <SubmitButton className={actionButtonClass('danger')} pendingLabel="Rejecting…">
               Reject appeal
             </SubmitButton>
           </form>
@@ -640,10 +578,7 @@ function AppealCard({
               placeholder="Why escalate? (Routes to two-admin queue)"
               className="input-field min-h-[60px] w-full py-2 text-xs"
             />
-            <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--sn-info-soft)] px-3 py-2 text-xs font-medium text-[color:var(--sn-info)] hover:bg-[var(--sn-info-soft)]"
-              pendingLabel="Escalating…"
-            >
+            <SubmitButton className={actionButtonClass('info')} pendingLabel="Escalating…">
               Escalate
             </SubmitButton>
           </form>
@@ -659,10 +594,10 @@ function AppealCard({
 
 function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
   return (
-    <li className="space-y-3 border-danger-200/60 bg-danger-50/30 py-4 border-t border-ink/10">
+    <li className="space-y-3 py-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-0.5">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+          <p className={TEMPLATE_SUBLINE}>
             Flag {flag.flag_id.slice(0, 8)} · {flag.created_at.slice(0, 10)}
           </p>
           <p className="text-sm font-medium text-ink">
@@ -679,7 +614,7 @@ function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
 
       {flag.review_rating_overall !== null || flag.review_body ? (
         <div className="rounded-lg bg-ink/[0.04] p-3 text-xs">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+          <p className={TEMPLATE_SUBLINE}>
             Flagged review
           </p>
           {flag.review_rating_overall !== null ? (
@@ -696,7 +631,7 @@ function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
       ) : null}
 
       <div className="rounded-lg border border-danger-200 bg-white/60 p-3 text-xs">
-        <p className="text-danger-900 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+        <p className={TEMPLATE_SUBLINE}>
           Supplier reason
         </p>
         <p className="mt-1 whitespace-pre-wrap text-sm text-ink/80">{flag.reason}</p>
@@ -712,10 +647,7 @@ function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
             placeholder="Dismiss note (optional — explain why the flag is unfounded)…"
             className="input-field min-h-[52px] w-full py-2 text-xs"
           />
-          <SubmitButton
-            className="button-secondary inline-flex items-center gap-1.5 text-xs"
-            pendingLabel="Dismissing…"
-          >
+          <SubmitButton className={actionButtonClass('neutral')} pendingLabel="Dismissing…">
             Dismiss flag
           </SubmitButton>
         </form>
@@ -736,7 +668,7 @@ function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
 function Cell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-0.5">
-      <dt className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+      <dt className={TEMPLATE_SUBLINE}>
         {label}
       </dt>
       <dd>{children}</dd>

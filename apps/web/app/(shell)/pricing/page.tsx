@@ -14,9 +14,11 @@ import { PASS_CARD_DESIGNS } from '@/lib/pass-card';
 import { PRO_THEMES } from '@/lib/invite-themes';
 import { TOURS } from '@/lib/tours';
 import { formatCount } from '@/lib/format-number';
+import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 import { readOurPrices, papicRungWords } from './_pricing-reads';
 // The client pieces — Event Pro's one dropdown, and the included group's "See all included ↓". Figures arrive formatted.
 import { HubProWays, IncludedGroup, PriceRowShell, type IncludedRow } from './_pricing-pickers';
+import { FEE_SCOPE_THIRD } from '@/lib/booking-fee-who-words';
 
 /**
  * /pricing — OURS ONLY, QUALITY-LED (owner 2026-10-25, verbatim: "Yes, build this pricing page and the questionnaire
@@ -41,13 +43,13 @@ import { HubProWays, IncludedGroup, PriceRowShell, type IncludedRow } from './_p
 export const metadata = {
   title: 'Pricing',
   description:
-    `The best place to build your event — beautifully made, for you and the people you know. Paid once, for the event and everyone on it, in Philippine peso. ${COMMISSION_PCT}% commission on supplier bookings — couples pay suppliers directly. Suppliers pay Setnayan a booking fee only on couples we introduce.`,
+    `The best place to build your event — beautifully made, for you and the people you know. Paid once, for the event and everyone on it, in Philippine peso. ${COMMISSION_PCT}% commission on supplier bookings — couples pay suppliers directly. Suppliers pay Setnayan a booking fee, ${FEE_SCOPE_THIRD}.`,
   alternates: { canonical: '/pricing' },
   openGraph: {
     images: BRAND_OG_IMAGES,
     title: 'Pricing · Setnayan',
     description:
-      `Crafted for every event — everything to plan is included, and what you add is paid once for the event. Couples pay suppliers directly — ${COMMISSION_PCT}% commission. Suppliers pay a booking fee only on couples we introduce.`,
+      `Crafted for every event — everything to plan is included, and what you add is paid once for the event. Couples pay suppliers directly — ${COMMISSION_PCT}% commission. Suppliers pay a booking fee, ${FEE_SCOPE_THIRD}.`,
     url: '/pricing',
     type: 'website',
     siteName: 'Setnayan',
@@ -56,7 +58,7 @@ export const metadata = {
     images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: 'Pricing · Setnayan',
-    description: `The best place to build your event · paid once per event · ${COMMISSION_PCT}% commission · suppliers pay a booking fee only on couples we introduce.`,
+    description: `The best place to build your event · paid once per event · ${COMMISSION_PCT}% commission · suppliers pay a booking fee, ${FEE_SCOPE_THIRD}.`,
   },
 };
 
@@ -172,9 +174,9 @@ export default async function PricingPage() {
   // rule (pricing-ours-only.test.ts) holds here too: the entry plan reads "No fee", never a zero or the giveaway word.
   const vendorPrice = (sku: string): number | null => vendorSkus.find((r) => r.sku_code === sku)?.price_php ?? null;
   const supplierPlans: { key: string; name: string; php: number | null; what: string }[] = [
-    { key: 'entry', name: TIER_LABEL.free, php: null, what: 'Your page, portfolio and the starter tools' },
+    { key: 'entry', name: TIER_LABEL.free, php: null, what: 'Your page, portfolio and the starter tools; the AI chatbot once Verified' },
     { key: 'plus', name: TIER_LABEL.solo, php: vendorPrice('solo_vendor_monthly'), what: 'All specialized tools' },
-    { key: 'pro', name: TIER_LABEL.pro, php: vendorPrice('pro_vendor_monthly'), what: 'Adds the AI chatbot' },
+    { key: 'pro', name: TIER_LABEL.pro, php: vendorPrice('pro_vendor_monthly'), what: 'Adds the smarter AI chatbot' },
     { key: 'ultra', name: TIER_LABEL.enterprise, php: vendorPrice('enterprise_vendor_monthly'), what: 'The highest limits and the smarter AI chatbot' },
   ];
   const papicFrom = prices.papicRungs[0] ?? null;
@@ -456,7 +458,7 @@ export default async function PricingPage() {
                         ◆
                       </i>
                       <InfoTip label="Event Pro" labelClassName="text-[16.5px] font-semibold tracking-[-0.005em]" align="start">
-                        {`${proThemes} Pro themes, your own photos, video and music, the cinematic reveal, your logo animated and on every QR, 500 MB of media, prints in your look${prices.plus != null ? ' — and everything in Event Plus, Setnayan AI included' : ''}. One unlock covers everyone on the event.`}
+                        {`${proThemes} Pro themes, your own photos, video and music, the cinematic reveal, your logo animated and on every QR, ${formatMakerMediaMB(coupleMediaCapBytes('pro'))} of media, prints in your look, and Setnayan AI${prices.plus != null ? ' — and everything in Event Plus' : ''}. One unlock covers everyone on the event.`}
                       </InfoTip>
                     </span>
                     <span className="whitespace-nowrap font-pahina text-xl text-terracotta-700">{peso(prices.pro.regular)}</span>
@@ -496,7 +498,7 @@ export default async function PricingPage() {
                   {prices.ultra != null ? (
                     <PriceRowShell
                       name="Event Ultra"
-                      tip={`Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months after the event instead of 3, Patiktok and ${prices.planCredits.ultra != null ? `${formatCount(prices.planCredits.ultra)} Papic credits` : 'more Papic credits'}. One unlock covers everyone on the event.`}
+                      tip={`Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months after the event instead of 3, and ${prices.planCredits.ultra != null ? `${formatCount(prices.planCredits.ultra)} Papic credits` : 'more Papic credits'}. One unlock covers everyone on the event.`}
                       what="Everything in Pro — and your day shared live and kept."
                       figure={<Figure php={prices.ultra} />}
                       action={<PlanBuyCta plan="ultra" />}
@@ -562,17 +564,18 @@ export default async function PricingPage() {
               </>
             ) : null}
 
-            {/* ⚖ Owner 2026-11-04 (final price sheet): Setnayan AI is no longer sold on its own — it comes inside Event
-                Plus and Event Pro. `prices.ai` is empty once SETNAYAN_AI is off sale (`_pricing-reads.ts`), so the row
-                below stops drawing; Event Plus, read from its own row, is where the planner is bought. */}
+            {/* ⚖ Owner 2026-11-04 (final price sheet): Setnayan AI is no longer sold on its own. 🎟 18 Nov re-cut: it
+                comes inside Event Pro and Event Ultra, no longer Event Plus (Plus works for events with no suppliers).
+                `prices.ai` is empty once SETNAYAN_AI is off sale (`_pricing-reads.ts`), so the AI row below stops
+                drawing; Event Plus, read from its own row, is the smaller paid plan. */}
             {prices.plus != null ? (
               <>
-                <Moment>Help planning</Moment>
+                <Moment>A nicer, bigger event</Moment>
                 <ul className="m-0 list-none p-0">
                   <PriceRowShell
                     name="Event Plus"
-                    tip={`Setnayan AI — suggests verified suppliers by fit, then watches your deadlines, budget and dates — with ${prices.planCredits.plus != null ? `${formatCount(prices.planCredits.plus)} Papic credits` : 'Papic credits'} for your guests’ cameras. Event Pro includes everything in Event Plus.`}
-                    what="Setnayan AI and Papic credits, for this event."
+                    tip={`${prices.planCredits.plus != null ? `${formatCount(prices.planCredits.plus)} Papic credits` : 'Papic credits'} for your guests’ cameras, ${formatMakerMediaMB(coupleMediaCapBytes('plus'))} of uploads, and one small “Made with Setnayan” mark instead of the watermark. Works for an event with no suppliers. Setnayan AI comes with Event Pro, which includes everything in Event Plus.`}
+                    what="Papic credits and more upload space, for this event."
                     figure={<Figure php={prices.plus} />}
                     action={<PlanBuyCta plan="plus" />}
                   />

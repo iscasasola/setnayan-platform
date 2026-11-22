@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -16,6 +17,7 @@ import type { CustomersSegment } from '../segments';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
 import { DatesRow } from './dates-row';
+import { bookingWindowOf } from '@/lib/booking-window';
 
 /** 🎟 The Booked QRs list — the QR codes page with its ledger open (Waiting · Used · Deleted). */
 export const BOOKED_QRS_HREF = '/vendor-dashboard/invite?mode=locked&ledger=1';
@@ -29,7 +31,7 @@ export const BOOKED_QRS_HREF = '/vendor-dashboard/invite?mode=locked&ledger=1';
  *
  *   GETTING PAID     the shop's payment options (`payment-options/surface.tsx`, the same editor Your details › How
  *                    clients pay you mounts), its saves coming back here (`return_to=customers`).
- *   TEAMS AND DAYS   Your halls · How many a day (each schedule's counter, its name and services, a new schedule) ·
+ *   TEAMS AND DAYS   How far away you take bookings (At least · At most, owner 2026-11-19) · Your halls · How many a day (each schedule's counter, its name and services, a new schedule) ·
  *                    Exact time slots · Phone calendar — the rows Dates used to fold (`DaysSettings`), moved.
  *   BOOKED QRs       one row (Supplier Build 2 lane E; prototype v118 `custSettings` "Booked QRs · One-time codes ·
  *                    waiting · used · deleted"): it opens the shipped Booked QRs list (the QR codes page, ledger open).
@@ -51,6 +53,8 @@ const GEAR_NOTICES: Record<string, { tone: 'ok' | 'note' | 'bad'; text: string }
   pool_saved: { tone: 'ok', text: 'Saved — those services share that schedule now.' },
   calendar_created: { tone: 'ok', text: 'Schedule made.' },
   calendar_saved: { tone: 'ok', text: 'Schedule saved.' },
+  booking_window_saved: { tone: 'ok', text: 'How far away you take bookings — saved.' },
+  bad_booking_window: { tone: 'bad', text: 'Pick At least and At most from the list. Nothing was saved.' },
   bad_name: { tone: 'bad', text: 'It needs a name. Nothing was saved.' },
   bad_capacity: { tone: 'bad', text: 'How many a day must be 1 or more. Nothing was saved.' },
   bad_pool: { tone: 'bad', text: 'Pick which schedule it belongs to. Nothing was saved.' },
@@ -66,9 +70,16 @@ function categoryLabel(key: string): string {
 export async function CustomersSettingsBody({
   seg,
   search,
+  daysTools = null,
 }: {
   seg: CustomersSegment;
   search: { m?: string; gnotice?: string; gmsg?: string; gerror?: string };
+  /**
+   * 🧹 The month's own tools — Not available · Waiting list · QR codes, the SHIPPED `DatesFolds` the Clients page draws
+   * from what it already read (owner "Yes, all three", 19 Nov, Q2: they left the foot of the page for here). Drawn under
+   * How many a day, inside Teams and days. Null on a ⚙ opened anywhere that has no month.
+   */
+  daysTools?: ReactNode;
 }) {
   const supabase = await createClient();
   const {
@@ -82,7 +93,7 @@ export async function CustomersSettingsBody({
   const thisMonth = manilaTodayIso().slice(0, 7);
   const month = /^\d{4}-\d{2}$/.test(search.m ?? '') ? (search.m as string) : thisMonth;
   const namedCalendars = process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED !== 'false';
-  const [pools, services, pickerServices, waitingRead] = await Promise.all([
+  const [pools, services, pickerServices, waitingRead, windowRead] = await Promise.all([
     fetchVendorPools(supabase, vendorProfileId),
     fetchVendorServices(supabase, vendorProfileId),
     namedCalendars ? fetchVendorServicesForPicker(supabase, vendorProfileId) : Promise.resolve([]),
@@ -91,7 +102,12 @@ export async function CustomersSettingsBody({
       .select('id', { count: 'exact', head: true })
       .eq('vendor_profile_id', vendorProfileId)
       .eq('status', 'pending'),
+    // 📅 How far away the shop takes bookings (owner 2026-11-19) — its own row, read through its own session.
+    supabase.from('vendor_profiles').select('booking_min_days, booking_max_months').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
   ]);
+  // ⚠ A refused read is not "Same day · 3 years" — the row then says it could not load.
+  if (windowRead.error) logQueryError('CustomersSettingsBody.bookingWindow', windowRead.error, { vendorProfileId }, 'graceful_degrade');
+  const bookingWindow = windowRead.error ? null : bookingWindowOf(windowRead.data as { booking_min_days: number | null; booking_max_months: number | null } | null);
   // ⚠ A refused count is not "0 waiting" — the row then carries no number at all.
   if (waitingRead.error) logQueryError('CustomersSettingsBody.bookedQrsWaiting', waitingRead.error, { vendorProfileId }, 'graceful_degrade');
   const waiting = waitingRead.error ? null : (waitingRead.count ?? null);
@@ -145,8 +161,10 @@ export async function CustomersSettingsBody({
         icsHref="/vendor-dashboard/customers/calendar.ics"
         approveFirst={isLockHandshakeEnabled()}
         venue={venue}
+        bookingWindow={bookingWindow}
         actions={{ updatePoolCapacity, createCalendar, editCalendar, reassignCategoryPool }}
       />
+      {daysTools}
 
       <p className="home-k2 pt-4" data-customers-settings-section="booked-qrs">
         Booked QRs

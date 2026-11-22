@@ -34,7 +34,6 @@ const ALLOWED_SHARE2: Record<string, string> = {
   'app/admin/_components/admin-nav-groups.tsx': 'the admin sidebar SECTION icon for "Social queue" — navigation, not a share action',
   'app/admin/studio/page.tsx': 'the admin Studio TAB icon for "Social queue" — navigation, not a share action',
   'lib/nav-icons.ts': 'the name→component registry the nav editor resolves lucideName "Share2" through (admin Social queue)',
-  'lib/route-meta.ts': 'route metadata icon for the admin Social queue page — a page identity, not a share action',
   'app/dashboard/[eventId]/_components/supplier-connect-panel.tsx':
     '"Create their link" / "Try again" MAKE a supplier link (no share sheet opens); its share buttons already wear Share',
 };
@@ -168,7 +167,7 @@ test('the share buttons the owner named wear Share (anchored per file)', () => {
     ['app/_components/qr-card.tsx', /data-qr-share="">\s*<Share aria-hidden/],
     ['app/[slug]/recap/_components/save-story-card-button.tsx', /<Share aria-hidden/],
     ['app/papic/me/[token]/_components/guest-story-maker.tsx', /<Share aria-hidden[^/]*\/>\s*Share my Story/],
-    ['app/vendor-dashboard/shop/_components/shop-cover.tsx', /<CoverIcon label="Share" icon=\{<Share aria-hidden/],
+    ['app/vendor-dashboard/shop/_components/shop-cover.tsx', /data-shop-cover-icon="share">\s*<Share aria-hidden/],
     ['app/vendor-dashboard/shop/_components/shop-cover.tsx', /shareShopLink\([\s\S]{0,300}?<Share aria-hidden[^/]*\/>\s*Share/],
     ['app/dashboard/[eventId]/studio/mood-board/_components/share-with-vendors-button.tsx', /<Share className="h-4 w-4" aria-hidden \/>\s*Share with suppliers/],
     ['app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx', /icon=\{Share\} label="Share with your supplier"/],

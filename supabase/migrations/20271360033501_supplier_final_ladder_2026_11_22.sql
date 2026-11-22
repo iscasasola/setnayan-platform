@@ -22,6 +22,7 @@
 --   3 · `enforce_included_branch_allowance`: a NULL allowance is no limit (it used to COALESCE NULL to 0);
 --   4 · `vendor_pro_tools_included`: Plus joins Pro and Ultra (owner: every tool on every paid size);
 --   5 · the plan rows' max_categories / max_sub_seats in the catalogue (NULL = no limit, the column's own meaning).
+--   6 · `offer_creator_reach_hold`: creator offers open on every paid size (owner 22 Nov "SAME FEATURES IN EVERY SIZE").
 --
 -- 🔑 NO PRICE IS WRITTEN, NO ROW IS RETIRED. Prices and the monthly-only catalogue are the next PR.
 -- GRANDFATHERED: lowering a number takes nothing away (only Plus's people 1 → 2 and cards 10 → 15 move, both up).
@@ -246,5 +247,114 @@ UPDATE public.vendor_billing_catalog
  WHERE vendor_billing_catalog.sku_code = v.sku_code
    AND (vendor_billing_catalog.max_categories IS DISTINCT FROM v.cats
         OR vendor_billing_catalog.max_sub_seats IS DISTINCT FROM v.seats);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 6 · Creator offers open on every paid size (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE"; was Pro and up).
+--     The function is the latest definition (20271121043599_creator_offers_free_no_token) with Plus added to the
+--     tier gate and nothing else changed — same signature, so its grants and comment carry over.
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.offer_creator_reach_hold(
+  p_vendor_profile_id uuid,
+  p_creator_user_id uuid,
+  p_creator_rate_terms text,
+  p_audience_rate_terms text DEFAULT NULL::text,
+  p_reach_tokens integer DEFAULT 1,
+  p_expires_at timestamp with time zone DEFAULT (now() + '14 days'::interval)
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_actor      UUID := auth.uid();
+  v_founder    UUID;
+  v_is_founder BOOLEAN;
+  v_tier       TEXT;
+  v_offer_id   UUID;
+  v_terms      TEXT := NULLIF(btrim(COALESCE(p_creator_rate_terms, '')), '');
+BEGIN
+  -- Answering-member gate (identical shape to unlock_vendor_event_hold).
+  IF NOT EXISTS (
+    SELECT 1 FROM public.vendor_team_members tm
+    WHERE tm.vendor_profile_id = p_vendor_profile_id
+      AND tm.user_id = v_actor
+      AND tm.role IN ('owner', 'admin', 'agent')
+  ) THEN
+    RAISE EXCEPTION 'FORBIDDEN: caller is not an answering member of this vendor';
+  END IF;
+
+  IF v_terms IS NULL THEN
+    RAISE EXCEPTION 'MISSING_TERMS: a creator-rate discount is required';
+  END IF;
+
+  SELECT user_id, tier_state INTO v_founder, v_tier
+    FROM public.vendor_profiles WHERE vendor_profile_id = p_vendor_profile_id;
+  v_is_founder := (v_actor = v_founder);
+
+  -- EVERY PAID SIZE (owner 2026-11-22, DECISION_LOG "SUPPLIER PLANS MIRROR ICLOUD+: SAME FEATURES IN EVERY
+  -- SIZE"; was Pro and up, 2026-07-16). The send is free, but it is still a paid-size capability. The error code
+  -- keeps its name: the app maps it.
+  IF v_tier IS NULL OR v_tier NOT IN ('solo', 'pro', 'enterprise', 'custom') THEN
+    RAISE EXCEPTION 'TIER_BELOW_PRO_NO_REACH: creator offers are a Pro-and-up feature';
+  END IF;
+
+  -- Self-offer guard: a vendor founder can't offer to their own creator profile.
+  IF p_creator_user_id = v_founder THEN
+    RAISE EXCEPTION 'SELF_OFFER: you cannot send a discount offer to yourself';
+  END IF;
+
+  -- Eligibility: the target is a creator (>=1 PUBLISHED chapter) on a PUBLIC
+  -- profile. Derived, user-native definition (no is_creator flag).
+  IF NOT EXISTS (
+    SELECT 1
+      FROM public.creator_chapters c
+      JOIN public.users u ON u.user_id = c.user_id
+     WHERE c.user_id = p_creator_user_id
+       AND c.status = 'published'
+       AND u.public_profile_enabled = TRUE
+  ) THEN
+    RAISE EXCEPTION 'NOT_A_CREATOR: target has no published chapter on a public profile';
+  END IF;
+
+  -- Creator solicitation opt-out (RA-10173 must-plan). The browse hides
+  -- opted-out creators; this is the server-side floor beneath it.
+  IF EXISTS (
+    SELECT 1 FROM public.users u
+     WHERE u.user_id = p_creator_user_id
+       AND u.creator_accepts_offers = FALSE
+  ) THEN
+    RAISE EXCEPTION 'CREATOR_OFFERS_OFF: this creator is not accepting vendor offers';
+  END IF;
+
+  -- One outstanding offer at a time (also enforced by the partial unique index).
+  -- ⚠ THIS IS NOW THE ONLY THING RATIONING SENDS. The token cost used to be the
+  -- economic brake; with the send free, this guard and the Pro-and-up gate are
+  -- what stop a vendor blanketing every creator. Do not relax either.
+  IF EXISTS (
+    SELECT 1 FROM public.vendor_creator_offers
+     WHERE vendor_id = p_vendor_profile_id
+       AND creator_user_id = p_creator_user_id
+       AND status = 'pending'
+  ) THEN
+    RAISE EXCEPTION 'OFFER_PENDING: you already have an outstanding offer to this creator';
+  END IF;
+
+  -- Open the offer. reach_tokens_held = 0 and escrowed_at stays NULL: nothing
+  -- was charged, so the sweep must not refund and respond must not settle.
+  INSERT INTO public.vendor_creator_offers
+    (vendor_id, creator_user_id, creator_rate_terms, audience_rate_terms,
+     status, reach_tokens_held, holder_user_id, is_founder_draw, expires_at)
+  VALUES
+    (p_vendor_profile_id, p_creator_user_id, v_terms,
+     NULLIF(btrim(COALESCE(p_audience_rate_terms, '')), ''),
+     'pending', 0, v_actor, v_is_founder, p_expires_at)
+  RETURNING vendor_creator_offers.offer_id INTO v_offer_id;
+
+  RETURN jsonb_build_object(
+    'ok', true, 'escrowed', false, 'offer_id', v_offer_id,
+    'tokens_charged', 0, 'creator_user_id', p_creator_user_id);
+END;
+$function$;
 
 COMMIT;

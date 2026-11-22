@@ -1,6 +1,7 @@
 import { formatCount } from '@/lib/format-number';
 import { FEE_FREE_CHIP } from './booking-fee-who-words';
-import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, TIER_LABEL, isPaidSize, type VendorTier } from '@/lib/vendor-tier-caps';
+import { storageWords } from '@/lib/downgrade-limits';
 
 /**
  * 🧺 MORE THAN ONE SERVICE AT SIGN-UP — the rules the /open-shop step 2 list runs (owner 2026-11-06, DECISION_LOG
@@ -118,7 +119,9 @@ export function planLadder(): { name: string; caps: string }[] {
     const c = TIER_CAPS[t];
     const cats = capWords(c.parentCategories, 'category', 'categories', 'every category');
     const per = capWords(c.serviceCardsTotal, 'service', 'services', 'no limit on services');
-    return [cats, per, SEARCH_WORDS[c.seoLevel]].join(' · ');
+    // A paid rung leads with its size: since 2026-11-22 the features are the same in every paid size, the room is not.
+    const size = isPaidSize(t) && c.storageBytes != null ? [storageWords(c.storageBytes)] : [];
+    return [...size, cats, per, SEARCH_WORDS[c.seoLevel]].join(' · ');
   };
   return [
     { name: 'Free · Verified', caps: rung('free') },

@@ -32,14 +32,15 @@ const ids = (r: RotatableVendor[]) => r.map((x) => x.vendorProfileId);
 
 // ── weight ───────────────────────────────────────────────────────────────────
 
-test('rotationWeight: Enterprise 3 · Pro 2 · Verified 1 · +1 for an ad boost', () => {
-  assert.equal(rotationWeight('enterprise', 0), 3);
+test('rotationWeight: every paid size 2 · Verified 1 · +1 for an ad boost (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE")', () => {
+  assert.equal(rotationWeight('enterprise', 0), 2);
   assert.equal(rotationWeight('pro', 0), 2);
+  assert.equal(rotationWeight('solo', 0), 2, 'Plus is a paid size like the others');
   assert.equal(rotationWeight('verified', 0), 1);
   assert.equal(rotationWeight('free', 0), 1);
   assert.equal(rotationWeight(null, 0), 1);
   // ad boost adds one on top of the tier
-  assert.equal(rotationWeight('enterprise', 5), 4);
+  assert.equal(rotationWeight('enterprise', 5), 3);
   assert.equal(rotationWeight(null, 5), 2);
 });
 
@@ -53,17 +54,17 @@ test('rankVendors: premium first (weight), then ad_rank, then stable id', () => 
     v({ vendorProfileId: 'ent', tier: 'enterprise' }),
     v({ vendorProfileId: 'verified-boosted', adRank: 9 }),
   ];
-  // ent(3) > verified-boosted(2) & pro(2) > verified(1)
-  // within weight-2: ad_rank desc → verified-boosted(9) before pro(0)
+  // ent(2) = pro(2) = verified-boosted(2) > verified(1) — every paid size weighs the same
+  // within weight-2: ad_rank desc → verified-boosted(9) first, then id asc → ent before pro
   // within weight-1: id asc → a-verified before z-verified
-  assert.deepEqual(ids(rankVendors(pool)), ['ent', 'verified-boosted', 'pro', 'a-verified', 'z-verified']);
+  assert.deepEqual(ids(rankVendors(pool)), ['verified-boosted', 'ent', 'pro', 'a-verified', 'z-verified']);
 });
 
 // ── ring ─────────────────────────────────────────────────────────────────────
 
 test('buildRotationRing: each vendor appears `weight` times, spread (not clustered)', () => {
   const ranked = rankVendors([
-    v({ vendorProfileId: 'ent', tier: 'enterprise' }), // 3
+    v({ vendorProfileId: 'ent', tier: 'enterprise', adRank: 1 }), // 2 + 1 for the ad boost
     v({ vendorProfileId: 'pro', tier: 'pro' }), // 2
     v({ vendorProfileId: 'ver' }), // 1
   ]);

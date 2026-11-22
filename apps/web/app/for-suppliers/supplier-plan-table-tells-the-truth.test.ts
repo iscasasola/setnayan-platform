@@ -135,7 +135,8 @@ test('the plan-feature rows are TIER_CAPS, the tools row is the unlock rule, gif
   // Verified, Plus is included, Pro and Ultra name the smarter level.
   const bot = row(g, 'tool:chatbot');
   assert.deepEqual(bot.cells.free, { kind: 'lock', text: 'Opens once Verified' });
-  assert.equal(bot.cells.solo.text, 'Included');
+  // 22 Nov "SAME FEATURES IN EVERY SIZE": the smarter level is on every paid size, Plus included.
+  assert.match(bot.cells.solo.text, /^Smarter level/);
   assert.match(bot.cells.pro.text, /^Smarter level/);
   assert.match(bot.cells.enterprise.text, /^Smarter level/);
   assert.equal(TABLE_TIERS.join(' · '), 'free · solo · pro · enterprise', 'Verified joins Free — four columns');

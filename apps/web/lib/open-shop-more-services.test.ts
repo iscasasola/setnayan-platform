@@ -88,9 +88,10 @@ test('the ladder (Free · Verified → Plus → Pro → Ultra adds) is composed 
   // The prototype's own words, rebuilt from the caps. No reach on any rung: reach is not a plan allowance (2026-11-19).
   assert.equal(l[0]!.caps, '1 category · 1 service · basic search listing');
   // A paid size with no limit says so in words, never "Infinity" or "—" (owner 2026-11-22).
-  assert.equal(l[1]!.caps, `every category · ${TIER_CAPS.solo.serviceCardsTotal} services · enhanced search`);
-  assert.equal(l[2]!.caps, 'every category · no limit on services · AI answers can quote your offers');
-  assert.match(l[3]!.caps, / · top search priority$/);
+  // Same features in every paid size (owner 2026-11-22): each paid rung leads with its size, the one thing that differs.
+  assert.equal(l[1]!.caps, `128 GB · every category · ${TIER_CAPS.solo.serviceCardsTotal} services · top search priority`);
+  assert.equal(l[2]!.caps, '500 GB · every category · no limit on services · top search priority');
+  assert.equal(l[3]!.caps, '1 TB · every category · no limit on services · top search priority');
   assert.doesNotMatch(JSON.stringify(l), /\bkm\b|nationwide/i);
   assert.doesNotMatch(JSON.stringify(l), /₱|PHP|\bpeso/i);
   const t = whatEachPlanHolds();

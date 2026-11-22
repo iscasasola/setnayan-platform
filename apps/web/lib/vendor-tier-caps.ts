@@ -604,22 +604,22 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     marketplaceSearchable: true,
     nameMode: 'true',
     slotsPerDay: Infinity, // no plan limit (2026-10-23; was 1)
-    slotsTimeBounded: false,
+    slotsTimeBounded: true, // owner 2026-11-22 "SAME FEATURES IN EVERY SIZE" (was Pro and up)
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: Infinity, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": no portfolio photo cap on a paid size — storage is the only limit
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
-    editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
-    // Supplier Plus buys ENHANCED SEO + GEO (§ 8): local/entity structured data on top of
-    // the free basic indexability. AEO stays Pro+.
-    seoLevel: 'enhanced',
+    editorialFeatures: true, // owner 2026-11-22 "SAME FEATURES IN EVERY SIZE" (was Pro and up)
+    // Every paid size has the same visibility (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE"): the top band, AEO
+    // included. Was ENHANCED for Plus, AEO for Pro, PRIORITY for Ultra.
+    seoLevel: 'priority',
     reviewStarsCounted: true,
     reviewCommentsViewable: true,
     website: 'custom',
     customWebsiteName: true, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": "website applies to solo as well" (was false)
-    premiumPage: false,
+    premiumPage: true, // owner 2026-11-22 "SAME FEATURES IN EVERY SIZE" (was Pro and up)
     inquireLink: true,
   },
   pro: {
@@ -657,9 +657,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true,
     editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
-    // Pro buys AEO — the machine-answerable offer graph AI answer engines quote
-    // — plus priority sitemap weight (§ 8).
-    seoLevel: 'aeo',
+    // Every paid size has the same visibility (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE"; was AEO).
+    seoLevel: 'priority',
     reviewStarsCounted: true,
     reviewCommentsViewable: true,
     website: 'custom',
@@ -704,8 +703,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true,
     editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
-    // Ultra buys the TOP sitemap priority band on top of AEO
-    // ("Priority + AEO" · § 8).
+    // Every paid size has the same visibility (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE").
     seoLevel: 'priority',
     reviewStarsCounted: true,
     reviewCommentsViewable: true,
@@ -765,6 +763,19 @@ export function isTierAtLeast(
   min: VendorTier,
 ): boolean {
   return tierRank(tier) >= TIER_RANK[min];
+}
+
+/**
+ * 💾 THE FIRST PAID SIZE — owner 2026-11-22, DECISION_LOG "SUPPLIER PLANS MIRROR ICLOUD+: ONE PRODUCT, SAME FEATURES IN
+ * EVERY SIZE": every paid size (Plus, Pro, Ultra) has every supplier feature; only storage differs (and Plus keeps its
+ * starter limits on live cards, people and branches, which TIER_CAPS holds). A feature that opened on Pro or Ultra
+ * opens here, so the next ladder change moves every gate at once.
+ */
+export const FIRST_PAID_SIZE: VendorTier = 'solo';
+
+/** Is this a paid size (Plus, Pro or Ultra — and anything above)? Every paid-only feature gate reads this. */
+export function isPaidSize(tier: string | null | undefined): boolean {
+  return isTierAtLeast(tier, FIRST_PAID_SIZE);
 }
 
 /**

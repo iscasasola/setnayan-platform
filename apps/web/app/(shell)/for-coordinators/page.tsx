@@ -59,6 +59,7 @@ import { TIER_PRICE_PHP } from '@/lib/vendor-tier-caps';
 import { shownWith, type ClaimSwitch } from './_claims';
 import { readClaimSwitches } from './_claims.server';
 import { FREE_HELPER_SEATS, GROW_TIERS, pctWords, pesoWords, planName, reachLadderSentence, type GrowTier } from './_facts';
+import { planLine } from '@/app/for-suppliers/_components/supplier-front-data';
 import { FcInfo } from './_fc-info';
 import { readCoordinatorPrices } from './_prices.server';
 
@@ -146,11 +147,11 @@ const TOOLS: readonly { src: string; alt: string; name: string; line: string }[]
 const MARCH_OFF = new Set([1, 8, 9, 15, 22, 23, 29]);
 const MARCH_POPULAR = new Set([14, 21, 28]);
 
-/** Each paid plan's one line, from the drawing. */
+/** Each paid plan's one line — the size and what it adds, the same words as /for-suppliers (owner 2026-11-22). */
 const PLAN_LINE: Readonly<Record<GrowTier, string>> = {
-  solo: 'Something to test on, with a small team.',
-  pro: 'The complete business package.',
-  enterprise: 'Expand: more people, cards and branches.',
+  solo: planLine('solo'),
+  pro: planLine('pro'),
+  enterprise: planLine('enterprise'),
 };
 
 type Fact = { term: string; line: string; needs?: ClaimSwitch };

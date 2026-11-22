@@ -47,7 +47,7 @@ test('allowances · the owner\'s 2026-11-22 FINAL LADDER, Free / Verified / Plus
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].storageBytes), [1, 5, 128, 500, 1000].map((gb) => gb * STORAGE_GB), 'storage: 1 GB / 5 GB / 128 GB / 500 GB / 1 TB');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].portfolioPhotos === Infinity), [false, false, true, true, true], 'no portfolio photo cap on a paid size');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].customWebsiteName), [false, false, true, true, true], 'own web address: Plus, Pro, Ultra');
-  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].premiumPage), [false, false, false, true, true], 'the Pro page parts stay Pro+');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].premiumPage), [false, false, true, true, true], 'the premium page parts are on every paid size (owner 2026-11-22 SAME FEATURES IN EVERY SIZE)');
 });
 
 test('tools · every tool on every paid size, none on the free plans (owner 2026-11-22 "FINAL LADDER")', () => {
@@ -213,11 +213,11 @@ test('locked matrix · GROW row — vendor favorites unlock at Supplier Plus and
   );
 });
 
-test('locked matrix · GROW row — editorial FEATURES are Pro+', () => {
+test('locked matrix · GROW row — editorial FEATURES are on every paid size (2026-11-22)', () => {
   const WANT: Record<VendorTier, boolean> = {
     free: false,
     verified: false,
-    solo: false,
+    solo: true,
     pro: true,
     enterprise: true,
   };

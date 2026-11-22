@@ -20,6 +20,7 @@
 // ============================================================================
 
 import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { Printer } from 'lucide-react';
 import { startAhead } from '@/lib/start-ahead';
 import { ServerTimer } from '@/lib/server-timing';
@@ -780,7 +781,7 @@ export async function EditorialContent({
     <div key={`ultra-${album.vendorProfileId}`} data-story-screen="">
       <UltraSupplierScene
         album={album}
-        supplier={supplierViews.find((v) => v.tier === 'enterprise' && v.name === album.name) ?? null}
+        supplier={supplierViews.find((v) => isPaidSize(v.tier) && v.name === album.name) ?? null}
         index={i + 1}
         of={ultraAlbums.length}
         names={data.firstNames}

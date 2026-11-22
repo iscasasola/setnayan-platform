@@ -19,6 +19,7 @@ import { stripComments } from '@/lib/strip-comments';
 import { TIER_CAPS, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 import { formatCount } from '@/lib/format-number';
+import { storageWords } from '@/lib/downgrade-limits';
 import {
   ADDON_TIERS,
   GROW_LINES,
@@ -70,9 +71,15 @@ test('each plan spec is its caps', () => {
     const spec = growSpec(t);
     // 🔓 Reach is not a plan allowance (owner 2026-11-19): no km and no "Nationwide" on any plan's spec.
     assert.doesNotMatch(spec, /\bkm\b|nationwide/i, `${t} still prints a reach: ${spec}`);
-    assert.ok(spec.includes(`${formatCount(c.parentCategories)} categor`), `${t}: ${spec}`);
-    assert.ok(spec.includes(`${formatCount(c.serviceCardsTotal)} service card`), `${t}: ${spec}`);
-    assert.ok(spec.includes(`${formatCount(c.agentAccounts)} team seat`), `${t}: ${spec}`);
+    // 22 Nov "SAME FEATURES IN EVERY SIZE": each spec leads with its size, then the caps — or "no limit" in words.
+    assert.ok(spec.startsWith(storageWords(c.storageBytes ?? 0)), `${t} does not lead with its size: ${spec}`);
+    assert.doesNotMatch(spec, /Infinity|—/, `${t} prints a no-limit cap as a symbol: ${spec}`);
+    if (Number.isFinite(c.serviceCardsTotal)) {
+      assert.ok(spec.includes(`${formatCount(c.serviceCardsTotal)} service card`), `${t}: ${spec}`);
+      assert.ok(spec.includes(`you and ${formatCount(c.agentAccounts)} more`), `${t}: ${spec}`);
+    } else {
+      assert.ok(spec.includes('no limit on cards, people or branches'), `${t}: ${spec}`);
+    }
   }
 });
 

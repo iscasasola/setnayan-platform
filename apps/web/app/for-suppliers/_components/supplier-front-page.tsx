@@ -40,7 +40,7 @@ import { ServiceFace, includesLineOf } from '@/app/_components/service-face';
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
 import type { CardBadgeView } from '@/lib/card-badges';
 import { FREE_FINDABLE } from './plan-table-data';
-import { GROW_TIERS, VERIFIED_PAPERS, growName, verifiedSpec } from './supplier-front-data';
+import { GROW_TIERS, VERIFIED_PAPERS, growName, planLine, verifiedSpec } from './supplier-front-data';
 import { FeeRuler, PlanRows, type FreeWhen, type PlanRow } from './supplier-front-client';
 import { Info } from './supplier-front-info';
 import { SupplierHowWeEarn } from './supplier-how-we-earn';
@@ -193,7 +193,7 @@ export function SupplierFrontPage({
     { name: 'Verified', line: 'Be found on Discover and Find.', price: '₱0', per: 'always', cta: CTA },
     ...GROW_TIERS.map((t) => ({
       name: growName(t),
-      line: { solo: 'Something to test on, with a small team.', pro: 'The complete business package.', enterprise: 'Expand: more people, cards and branches.' }[t],
+      line: planLine(t), // 💾 the size and what it adds, from TIER_CAPS (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE")
       price: { solo: prices.soloMonthly, pro: prices.proMonthly, enterprise: prices.enterpriseMonthly }[t],
       per: 'per 4 weeks',
       cta: `Start on ${growName(t)}`,

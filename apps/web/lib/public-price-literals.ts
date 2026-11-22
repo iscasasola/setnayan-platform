@@ -185,6 +185,13 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
       'A made-up receipt amount on a Waiting pin in the DEV-ONLY supplier chat lab (404 in production; Build 3 lane B) — a supplier’s own payment, not a Setnayan SKU.',
   },
   {
+    file: 'app/dev/unichat-f-lab/lab.tsx',
+    literal: '₱31,000',
+    sku: null,
+    reason:
+      'A made-up payment-due label on the schedule list in the DEV-ONLY Unichat F lab (404 in production; Unichat part F) — a supplier’s own payment, not a Setnayan SKU.',
+  },
+  {
     file: 'app/dev/_components/lab-picked-chat.tsx',
     literal: '₱40,000',
     sku: null,

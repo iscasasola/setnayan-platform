@@ -187,8 +187,10 @@ export async function PricingSurface(_props: Props) {
       .maybeSingle(),
     // 🧮 The 2026-11-21 price formula — its OWN read, so a failure here hides only the formula
     // suggestions and never the sign-up discount or booking-fee figures above.
+    // 🔒 Admin-only numbers (our markup): the one row of `pricing_formula_settings`, a service-role-only
+    // table (migration 20271356452488) — read here with the service-role client, below `requireAdmin()`.
     admin
-      .from('platform_settings')
+      .from('pricing_formula_settings')
       .select('pricing_opex_factor, pricing_margin_factor, pricing_fee_tax_cover, pricing_round_step_php')
       .eq('id', 1)
       .maybeSingle(),

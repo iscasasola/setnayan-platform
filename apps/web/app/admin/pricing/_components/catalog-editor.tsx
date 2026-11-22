@@ -206,7 +206,7 @@ export function PriceCatalogBrowser({
   formula,
 }: {
   rows: PriceRowProp[];
-  /** The 2026-11-21 price formula, read from `platform_settings`; null when the read failed. */
+  /** The 2026-11-21 price formula, read from the admin-only `pricing_formula_settings` row; null when the read failed. */
   formula: PricingFormulaSettings | null;
   /** Read from `papic_event_pool_config`; null when the read failed. */
   freeCreditsPerEvent: number | null;

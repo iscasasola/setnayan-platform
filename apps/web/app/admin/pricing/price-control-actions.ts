@@ -868,6 +868,13 @@ export async function recomputePapicPoolLearning(
  * hosting shape as admin/vendors/actions.ts (op=setnayan_gift) and
  * admin/colours/actions.ts (op=reset). The formula is a page-wide pricing
  * setting, which is what this file holds (see its docblock).
+ *
+ * 🔒 ADMIN-ONLY NUMBERS (controller ruling 2026-11-22). The four numbers are our
+ * markup, so they are NOT on `platform_settings` (every signed-in account can
+ * read that table). They are the one row of `pricing_formula_settings`
+ * (migration 20271356452488): RLS on, no policy, no grant to anon or
+ * authenticated — only the service-role client reaches it, and only below
+ * `requireAdminAction()` in `saveSignupDiscount`.
  */
 async function pricingFormulaOp(op: string, formData: FormData, adminUserId: string): Promise<RowActionState> {
   if (op === 'save') {
@@ -903,7 +910,7 @@ async function savePricingFormulaSettings(
   const next = validated.next;
 
   const { data: prior, error: readErr } = await admin
-    .from('platform_settings')
+    .from('pricing_formula_settings')
     .select('pricing_opex_factor, pricing_margin_factor, pricing_fee_tax_cover, pricing_round_step_php')
     .eq('id', 1)
     .maybeSingle();
@@ -919,8 +926,10 @@ async function savePricingFormulaSettings(
     return { ok: true, message: 'No changes to save.' };
   }
 
-  const { error } = await admin
-    .from('platform_settings')
+  // `.select('id')` so a save that matched no row is refused, never reported as saved (the one row is seeded by
+  // migration 20271356452488). No settings-cache tag to drop: these numbers are not in the cached platform settings.
+  const { data: written, error } = await admin
+    .from('pricing_formula_settings')
     .update({
       pricing_opex_factor: next.opexFactor,
       pricing_margin_factor: next.marginFactor,
@@ -928,15 +937,18 @@ async function savePricingFormulaSettings(
       pricing_round_step_php: next.roundStepPhp,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', 1);
-  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
+    .eq('id', 1)
+    .select('id');
   if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
+  if (!written || written.length === 0) {
+    return { ok: false, message: "Couldn't save — the formula settings row is missing. Nothing was changed." };
+  }
 
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'pricing_formula_edit',
     target_id: 'pricing_formula',
     actor_user_id: adminUserId,
-    metadata: { table: 'platform_settings', before, after: next },
+    metadata: { table: 'pricing_formula_settings', before, after: next },
   });
   if (auditErr) console.error('[price formula save] audit insert failed (non-fatal):', auditErr);
 
@@ -971,7 +983,7 @@ async function applyFormulaPrices(
 
   const [settingsRes, rowsRes] = await Promise.all([
     admin
-      .from('platform_settings')
+      .from('pricing_formula_settings')
       .select('pricing_opex_factor, pricing_margin_factor, pricing_fee_tax_cover, pricing_round_step_php')
       .eq('id', 1)
       .maybeSingle(),

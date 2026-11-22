@@ -89,7 +89,8 @@ export function formulaDifferenceLabel(formula: number, current: number): string
 }
 
 /**
- * Reads the four `platform_settings` columns. A missing or out-of-range value
+ * Reads the four columns of the admin-only `pricing_formula_settings` row
+ * (service-role only, migration 20271356452488). A missing or out-of-range value
  * is NOT silently replaced: the result says it could not be read (null), and
  * the screen then suggests nothing rather than a confident number from the
  * code defaults that may not be what the owner set.

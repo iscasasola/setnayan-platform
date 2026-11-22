@@ -15,6 +15,7 @@ import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { verifyAppleTransaction } from './apple-transaction';
 import { createPurchaseIntent, fulfilAppleTransaction, type FulfilOutcome } from './fulfil.server';
 import { startRefusal, type IapStartResult, type IapConfirmResult, type IapRestoreResult } from './iap-outcome';
+import { confirmSupplierPlanForUser } from './supplier-plan-confirm.server';
 
 /**
  * 🍎 THE THREE DOORS THE APP KNOCKS ON — before, after and instead of Apple's sheet.
@@ -160,6 +161,9 @@ async function signedInUserId(): Promise<string | null> {
 export async function confirmAppStorePurchase(input: { jws: string }): Promise<IapConfirmResult> {
   const userId = await signedInUserId();
   if (!userId) return { status: 'refused', reason: 'not_yours' };
+  // 🏪 A supplier plan (auto-renewable, the shop's own) has its own confirm; null = not one, the event path goes on.
+  const plan = await confirmSupplierPlanForUser(userId, typeof input.jws === 'string' ? input.jws : '');
+  if (plan) return plan;
   const verified = verifyAppleTransaction(typeof input.jws === 'string' ? input.jws : '');
   if (!verified.ok) return { status: 'invalid' };
   const outcome = await fulfilAppleTransaction(createMoneyWriterClient(), verified.tx, { expectUserId: userId });

@@ -55,6 +55,7 @@ import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-r
 import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 import { ShopNotice } from '../../_components/kit';
+import { readAppleShopPlan } from '@/lib/iap/supplier-subscription.server';
 
 
 /**
@@ -89,7 +90,7 @@ const NUMBER = new Intl.NumberFormat('en-PH');
  * of the MANILA day. It printed "Dec 11, 2026" (US order, the server's UTC day) beside the gift's "12 Dec 2026" for the
  * same moment: a plan that ends at 00:24 on 12 Dec in Manila is still 11 Dec in UTC.
  */
-function fmtDate(s: string) {
+export function fmtDate(s: string) {
   const ms = Date.parse(s);
   if (!Number.isFinite(ms)) return s;
   const manilaDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
@@ -380,7 +381,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // the current plan is the server's `vendor_unused_plan_value_php` (admin-only, called for THIS shop's own id); a
   // failed read is said on the row ("the exact amount shows on your order"), never guessed.
   const paywallOn = isVendorFeatureGateEnabled();
-  const [unusedPhp, papersRead, storeShell] = await Promise.all([
+  const [unusedPhp, papersRead, storeShell, applePlan] = await Promise.all([
     isPaid
       ? (async () => {
           const { data, error } = await createAdminClient().rpc('vendor_unused_plan_value_php', {
@@ -403,7 +404,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             return null;
           }),
     isStoreShellRequest(),
+    // 🍎 One channel at a time (owner 22 Nov): who bills this shop's live plan — read for THIS shop's own id.
+    readAppleShopPlan(createAdminClient(), profile.vendor_profile_id),
   ]);
+  const billedByApple = applePlan.status === 'ok' && applePlan.channel === 'app_store';
   const pickBy = new Map(plans.map((p) => [p.key, p]));
   // 📉 THE LIMITS SHEET (ruling 5683): what the shop has today that a LOWER plan does not hold — read once, only when
   // there is a lower plan to show (Free has none below it).
@@ -600,6 +604,12 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
                 it starts once we confirm the payment.
               </ShopNotice>
             )}
+            {billedByApple && !storeShell ? (
+              <ShopNotice tone="gold" role="status">
+                Your plan is billed by the App Store. Change or cancel it in the Setnayan app or in your iPhone&rsquo;s
+                Settings › Subscriptions; once it ends you can pay for a plan here.
+              </ShopNotice>
+            ) : null}
             {search.error && (
               <ShopNotice tone="gold" role="alert">
                 {search.error}

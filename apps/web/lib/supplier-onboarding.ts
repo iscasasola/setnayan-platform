@@ -58,6 +58,9 @@ export const ONBOARDING_STEP_NAMES = {
 /** PC4 — Door C's step 4 is their PAGE, drafted with the first card on it (owner: "we will also create their first page"). */
 export const YOUR_PAGE_HEAD = 'Your page';
 export const APPROVE_PAGE = 'Approve page';
+/** PC4 — under the page's address. Never "goes live when you open": the card shows only once the shipped switch puts it
+ *  on the page (publish gate + live-cards cap), which Today's welcome then says (review 20 Nov). */
+export const PAGE_LINK_LINE = 'your card shows here once it’s live';
 /** PC4 — the page's Trusted partners section before any shop joins. */
 export const PAGE_PARTNERS_EMPTY = 'Shops you invite show here.'
 
@@ -344,11 +347,55 @@ export function firstCardFrom(search: Record<string, string | string[] | undefin
   return { state, title, price, category, why, id };
 }
 
-/** What `?card=` says on its own — `live` / `skipped` / `draft` with no carried card (the claim door's other cards). */
-export function firstCardStateFrom(search: Record<string, string | string[] | undefined>): 'live' | 'skipped' | 'draft' | null {
+/** What `?card=` says on its own — `live` / `skipped` / `draft` / `refused` with no carried card (the claim door). */
+export function firstCardStateFrom(search: Record<string, string | string[] | undefined>): ClaimFirstCardState | null {
   const v = search[FIRST_CARD_PARAM.state];
-  return v === FIRST_CARD_LIVE || v === FIRST_CARD_SKIPPED || v === 'draft' ? v : null;
+  return v === FIRST_CARD_LIVE || v === FIRST_CARD_SKIPPED || v === 'draft' || v === 'refused' ? v : null;
 }
+
+/**
+ * ✓ The welcome's "and first card" tick, held to the database (review 20 Nov): `?card=live` is only a claim on the
+ * address — a reload or a hand-typed link can carry it. It ticks only when the shop has a live card NOW; an unread or
+ * empty answer drops it to the bare welcome (never a ✓ on a guess). Every other state passes through unchanged.
+ */
+export function confirmedCardState(state: ClaimFirstCardState | null, liveNow: boolean): ClaimFirstCardState | null {
+  return state === FIRST_CARD_LIVE && !liveNow ? null : state;
+}
+
+/**
+ * 🚪 THE CLAIM DOOR'S FIRST CARD, AS ITS FINISH FOUND IT (review 20 Nov) — carried THROUGH the shipped finalize to
+ * Today's welcome. The claim door's cards keep their own pricing (per guest · per hour · extras), so the welcome never
+ * re-makes one from a name and a price: it carries the state, the reason as a KEY (`lib/first-card-why.ts` — never a
+ * sentence on the address, ship review 21 Nov) and the card's id, and the Card Maker opens on THAT card.
+ */
+export type ClaimFirstCardState = 'live' | 'skipped' | 'draft' | 'refused';
+export type ClaimCardCarry = { state: ClaimFirstCardState; why: string | null; id: string | null };
+
+/** `card=…[&card_why=<key>][&card_id=…]`. */
+export function claimCardQuery(c: ClaimCardCarry): string {
+  const q = new URLSearchParams({ [FIRST_CARD_PARAM.state]: c.state });
+  if (c.why && FIRST_CARD_WHY_KEY.test(c.why)) q.set(FIRST_CARD_PARAM.why, c.why);
+  if (c.id && UUID.test(c.id)) q.set(FIRST_CARD_PARAM.id, c.id);
+  return q.toString();
+}
+
+/** Read it back — on finalize and on Today. Anything off on the address (anyone can type it) is dropped. */
+export function claimCardFrom(search: Record<string, string | string[] | undefined>): ClaimCardCarry | null {
+  const state = firstCardStateFrom(search);
+  if (!state) return null;
+  const one = (k: string) => (typeof search[k] === 'string' ? (search[k] as string).trim() : '');
+  const rawWhy = one(FIRST_CARD_PARAM.why);
+  const rawId = one(FIRST_CARD_PARAM.id);
+  const said = state === 'draft' || state === 'refused';
+  return {
+    state,
+    why: said && FIRST_CARD_WHY_KEY.test(rawWhy) ? rawWhy : null,
+    id: state === 'draft' && UUID.test(rawId) ? rawId : null,
+  };
+}
+
+/** Where finalize lands a claim: the claimed welcome, carrying what the door found about its first card. */
+export const claimedWelcomePath = (c: ClaimCardCarry | null) => (c ? `${WELCOME_CLAIMED_PATH}&${claimCardQuery(c)}` : WELCOME_CLAIMED_PATH);
 
 /** What the welcome says about a first card that is not on the page. */
 export const FIRST_CARD_CARRY_LINE: Readonly<Record<FirstCardState, string>> = {
@@ -374,6 +421,8 @@ export function firstCardLiveFrom(redirectUrl: string | null | undefined): { liv
 
 /** The draft card's button on the welcome — asks the shipped switch again (idempotent: no second card is made). */
 export const FIRST_CARD_RETRY = 'Put it on my page';
+/** P5 on the claim door — what happens to the cards it lists (made as drafts; Today says which went on the page). */
+export const CLAIM_CARDS_MADE_AS = 'made when you open — Today says which are on your page';
 /** A door that made cards as drafts with no single card to carry (the claim door's picks). */
 export const FIRST_CARD_DRAFTS_LINE = 'Your cards are made as drafts — put each on your page from the Card Maker.';
 

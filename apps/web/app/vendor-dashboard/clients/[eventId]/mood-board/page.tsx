@@ -1,5 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
+import { TheirEventLine } from '../_components/their-event-line';
 import { redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -76,10 +77,12 @@ type MoodBoardData = {
   inspirations: Array<{ slot_key: string; slot_position: number; image_url: string }>;
 };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ door?: string }> };
 
-export default async function VendorMoodBoardPage({ params }: Props) {
+export default async function VendorMoodBoardPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  // 🚪 Opened from "Their event" (owner 2026-11-21): the part alone, with the one line on top and ✕ Close.
+  const fromTheirEvent = (await searchParams)?.door === 'their-event';
   const supabase = await createClient();
 
   const user = await getCurrentUser();
@@ -334,6 +337,9 @@ export default async function VendorMoodBoardPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
+      {fromTheirEvent ? (
+        <TheirEventLine eventId={eventId} eventName={board.display_name} />
+      ) : (
       <Link
         href={`/vendor-dashboard/clients/${eventId}?tab=details`}
         className="inline-flex min-h-11 items-center gap-1.5 text-[14px] font-medium text-[color:var(--m-slate-2)] hover:text-ink"
@@ -341,6 +347,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
         <ArrowLeft aria-hidden className="h-4 w-4" />
         Back to event brief
       </Link>
+      )}
 
       <SupplierSuggestBoard
         eventId={eventId}

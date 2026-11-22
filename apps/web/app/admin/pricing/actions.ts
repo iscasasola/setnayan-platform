@@ -52,7 +52,12 @@ function round2(n: number): number {
 // `useActionState` initial values live in `_components/action-state.ts`, NOT
 // here — a `'use server'` file may export only async functions (Next fails
 // the production build on anything else); see that file's docblock.
-export type RowActionState = { ok: boolean; message: string | null };
+export type RowActionState = {
+  ok: boolean;
+  message: string | null;
+  /** Set only by `saveRetailRow` when a price change was parked for a second admin (§ 9.1) — read by the price formula's apply (price-control-actions.ts). */
+  approvalOpened?: true;
+};
 
 function revalidateCatalogSurfaces() {
   revalidatePath('/pricing');
@@ -201,6 +206,7 @@ export async function saveRetailRow(
     revalidateCatalogSurfaces();
     return {
       ok: false,
+      approvalOpened: true,
       message: `Everything except the price was saved. Changing what customers pay needs a second admin (Vendor Agreement § 9.1) — the request is open in /admin/approvals: ${summary}`,
     };
   }

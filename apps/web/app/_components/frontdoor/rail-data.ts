@@ -309,6 +309,8 @@ async function loadRailAccount(user: NonNullable<Awaited<ReturnType<typeof getCu
         ? (roles.vendorProfiles[0]?.business_name ?? 'Your shop')
         : null,
       shopLogoUrl,
+      // 🏪 The app's "Open your shop" row (owner 22 Nov) — the switcher's own gate; `false` on a failed read.
+      canOpenShop: roles.canOpenShop,
       // A FAILED READ MUST NOT GRANT THE ROW — a rejected query hides HQ rather
       // than offering a door that then refuses. The opposite direction from the
       // counts, and the right one: a missing row is a nuisance, an

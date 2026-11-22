@@ -215,6 +215,9 @@
 @keyframes ag-slide { from { left: 0; } }
 [data-growth] .ag-pop { animation: ag-pop 450ms cubic-bezier(0.215, 0.61, 0.355, 1) both; }
 [data-growth] .ag-slide { animation: ag-slide 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 100ms both; }
+/* A card's picture is drawn before it is seen (so the carousel never changes height); its pop and slide wait, paused at
+   their first frame, until Reanimate adds .perf-play. 🔒 shop/the-analytics-carousel-never-changes-height.test.ts */
+[data-growth] .perf-reanim:not(.perf-play) .ag-pop, [data-growth] .perf-reanim:not(.perf-play) .ag-slide { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
   [data-growth] .ag-pop, [data-growth] .ag-slide { animation: none; }
 }
@@ -306,10 +309,11 @@
 [data-growth] .ag-fig b, [data-growth] .ag-fig .ag-fig-n { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
 [data-growth] .ag-fig small { font-size: 12px; color: var(--m-slate-2); }
 [data-growth] .ag-card .ag-gp { display: block; min-height: 64px; }
-[data-growth] .ag-card .ag-gp-wait { display: block; min-height: 64px; }
 [data-growth] .ag-card .ag-ln { margin: auto 0 0; font-size: 13px; color: var(--m-slate); line-height: 1.35; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); padding-top: 8px; }
 [data-growth] .ag-card.ag-ex .ag-gp { opacity: 0.32; filter: saturate(0.4); }
 [data-growth] .ag-card .ag-exc { position: absolute; top: 10px; right: 40px; }
+/* …and an example card's title keeps clear of that chip (it ran under it at 375: "Compared with similar suppliers"). */
+[data-growth] .ag-card.ag-ex .ag-open b { padding-right: 70px; }
 [data-growth] .ag-card .ag-dr { position: relative; z-index: 1; font-size: 13px; font-weight: 600; color: var(--m-orange-deep, rgb(var(--color-mulberry))); display: inline-flex; align-items: center; gap: 2px; }
 [data-growth] .ag-card .ag-dr svg { width: 15px; height: 15px; }
 [data-growth] .ag-lockcard { display: flex; flex-direction: column; justify-content: center; }

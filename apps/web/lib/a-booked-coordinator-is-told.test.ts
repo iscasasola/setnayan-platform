@@ -57,9 +57,11 @@ test('the grant tells the coordinator on a NEW invite, with the written token, i
   assert.doesNotMatch(allow, /'coordinator_invited'/, 'coordinator_invited is on the email allowlist');
 });
 
-test('the paid-booking caller passes the booked shop through', () => {
-  const action = read('app/dashboard/[eventId]/vendors/actions.ts');
-  assert.match(action, /autoInviteCoordinator\([\s\S]{0,300}shopProfileId: prevRow\.marketplace_vendor_id/);
+test('the booking door passes the booked shop through', () => {
+  // The ONE caller since 22 Nov 2026 (every booking door goes through it — the-coordinators-seat-follows-the-booking).
+  const src = read('lib/coordinator-grant.ts');
+  const door = src.slice(src.indexOf('export async function openTheCoordinatorsSeatForBooking('), src.indexOf('async function autoInviteCoordinator('));
+  assert.match(door, /autoInviteCoordinator\([\s\S]{0,500}shopProfileId: row\.marketplace_vendor_id/);
 });
 
 test('the enum value exists in a migration of its own', () => {

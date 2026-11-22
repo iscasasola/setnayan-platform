@@ -1,5 +1,6 @@
 'use server';
 
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { CHECK_INBOX_FLAG, parkSentTo } from '@/lib/open-shop-sent-to';
 import { parseSupplierPlan, planOfferPath } from '@/lib/supplier-plan-offer';
 import { fairPresentationRefusal } from '@/lib/fair-presentation.server';
@@ -435,7 +436,9 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   const cardPrice = parseCardPrice(formData.get(FIRST_CARD_FIELD.price));
   const cardCategory = pickedLeaf ?? coarseService ?? null;
   const cardDrafted = cardChoice && cardChoice !== 'skip' && cardTitle && cardPrice && cardCategory ? true : false;
-  const plan = parseSupplierPlan(formData.get('plan'));
+  // 📱 Inside the iPhone app the door names no plan (Apple: no paid offer outside in-app purchase) — a hand-made
+  // `plan=` is ignored there too, not only hidden (ship review 22 Nov).
+  const plan = (await isStoreShellRequest()) ? null : parseSupplierPlan(formData.get('plan'));
   // 🚪 DOOR C (owner 19 Nov): a coordinator's door goes through "Invite shops you trust" — their own QR — wherever it
   // lands next, on EVERY way: the session path, a refused card, and the Email way's confirm link (review 19 Nov: an
   // Email-way coordinator never reached the invite).

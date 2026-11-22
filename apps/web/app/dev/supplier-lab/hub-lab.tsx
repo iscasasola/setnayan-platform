@@ -107,6 +107,8 @@ const runRow = (e: HubEvent): EventYouRun => ({
   needs: '',
   anchor: { event_type: 'wedding', event_date: e.date, date_candidates: null, date_window_start: null, created_at: null },
   href: e.runHref ?? `/dashboard/${e.eventId}`,
+  chatsHref: `/vendor-dashboard/clients/${e.eventId}?tab=chat`,
+  hubHref: `/dashboard/${e.eventId}/launch`,
   rank: 0,
   date: e.date,
 });

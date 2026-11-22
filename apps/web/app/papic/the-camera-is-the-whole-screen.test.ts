@@ -42,7 +42,10 @@ import { stripComments } from '@/lib/strip-comments';
 const WEB = join(__dirname, '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const GUEST = read('app/papic/guest/_components/papic-guest-capture.tsx');
-const SEAT = read('app/papic/seat/[token]/_components/papic-seat-capture.tsx');
+// 📷 ONE CAMERA (owner 2026-11-22: "we only have one camera interface and that should be it"): the seat page mounts
+// the guest camera in seat mode — there is no second camera source to read.
+const SEAT_PAGE = read('app/papic/seat/[token]/page.tsx');
+const SEAT_MODE = { seat: { token: 'seat-token', geoEnabled: false } };
 
 async function guestCamera(extra: Record<string, unknown> = {}) {
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -73,7 +76,12 @@ test('1 · both cameras are a fixed stage the browser sizes, with nothing to scr
   for (const cls of ['fixed', 'inset-0', 'h-[100dvh]', 'overflow-hidden', 'overscroll-none']) {
     assert.ok(main.includes(cls), `the guest camera is not a fixed stage (no ${cls})`);
   }
-  assert.match(SEAT, /<main data-seat-camera="" className="fixed inset-0 z-30 h-\[100dvh\] overflow-hidden overscroll-none bg-ink text-cream">/, 'the seat camera is not a fixed stage');
+  const seatMain = /<main\b[^>]*>/.exec(await guestCamera(SEAT_MODE))?.[0] ?? '';
+  for (const cls of ['fixed', 'inset-0', 'h-[100dvh]', 'overflow-hidden', 'overscroll-none']) {
+    assert.ok(seatMain.includes(cls), `the seat camera is not a fixed stage (no ${cls})`);
+  }
+  assert.match(SEAT_PAGE, /<PapicGuestCapture\b[\s\S]{0,200}embedded=\{false\}/, 'the seat page does not open the one camera full screen');
+  assert.doesNotMatch(SEAT_PAGE, /papic-seat-capture/, 'the seat page opens a second camera again');
   // Embedded in the Event Hub, the camera keeps the hub's page — no stage, no lock.
   const hub = await guestCamera({ embedded: true, exitTo: null });
   assert.doesNotMatch(/<main\b[^>]*>/.exec(hub)?.[0] ?? '', /\bfixed\b/);
@@ -81,7 +89,7 @@ test('1 · both cameras are a fixed stage the browser sizes, with nothing to scr
 
 test('2 · the document behind each camera is held still while it is open, and let go on leave', () => {
   assert.match(GUEST, /\{fullScreen \? <CameraPageLock \/> : null\}/, 'the document behind the guest camera can scroll');
-  assert.match(SEAT, /<CameraPageLock \/>/, 'the document behind the seat camera can scroll');
+  // The seat page mounts the same camera full screen (above), so the same lock holds the page behind it.
   const lock = read('app/papic/_components/camera-page-lock.tsx');
   assert.match(lock, /useEffect\(\(\) => \{\s*lockPageScroll\(\);\s*return \(\) => unlockPageScroll\(\);\s*\}, \[\]\);/, 'the lock is not taken on open and released on leave');
   const overlay = read('lib/overlay-lock.ts');
@@ -92,7 +100,7 @@ test('2 · the document behind each camera is held still while it is open, and l
 });
 
 test('3 · the picture is the 9:16 box; the top row and the controls lie over it, inside the safe areas', () => {
-  for (const [name, src] of [['guest', GUEST], ['seat', SEAT]] as const) {
+  for (const [name, src] of [['camera', GUEST]] as const) {
     assert.match(src, /\[container-type:size\]/, `${name}: the 9:16 box is not sized to the stage`);
     assert.match(src, /width: frameSideways \? 'min\(100cqw, 100cqh \* 16 \/ 9\)' : 'min\(100cqw, 100cqh \* 9 \/ 16\)'/, `${name}: the box is not as large as the screen allows`);
     assert.match(src, /ref=\{topBarRef\}\s*data-camera-top=""/, `${name}: no top row over the picture`);
@@ -116,6 +124,13 @@ test('4 · the guest camera: the hint is in an ⓘ, the consent is a compact tog
   assert.match(GUEST, /const \[sharePublicly, setSharePublicly\] = useState\(false\);/, 'the consent default changed');
   const shell = read('app/papic/_components/papic-buy-shell.tsx');
   assert.match(shell, /data-papic-add-credits=""[\s\S]{0,120}fixed bottom-\[max\(1rem,env\(safe-area-inset-bottom\)\)\] right-\[max\(1rem,var\(--sn-safe-r\)\)\][^"]*min-h-11/, 'Add credits is not the 44 px button at the bottom-right corner the camera keeps clear');
-  // The seat camera keeps its last row clear for the same button.
-  assert.match(SEAT, /buyOffered \? 'pb-\[4\.75rem\]' : 'pb-4'/);
+});
+
+test('5 · 📷 a seat on the one camera: no guest-only rows — no consent line, no challenge pill, no face step', async () => {
+  const html = await guestCamera(SEAT_MODE);
+  assert.doesNotMatch(html, /data-camera-share=""/, 'the guest consent line draws on a seat camera');
+  assert.doesNotMatch(html, /data-tour="camera-challenge"/, 'the guest challenge pill draws on a seat camera');
+  assert.doesNotMatch(html, /Add your face so your photos find you/, 'the guest face step draws on a seat camera');
+  assert.match(html, /aria-label="How the shutter works"/, 'the seat camera lost the shutter ⓘ');
+  assert.match(html, /data-camera-exit=""/, 'the seat camera has no ✕');
 });

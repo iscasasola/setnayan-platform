@@ -7,7 +7,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
-import { PapicSeatCapture } from '@/app/papic/seat/[token]/_components/papic-seat-capture';
 import { PapicBuyShell } from '@/app/papic/_components/papic-buy-shell';
 import { buyWaitCopy } from '@/lib/papic-buy-urgency';
 import { PapicCaptureController } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/papic-capture-controller';
@@ -88,7 +87,7 @@ export function LabCamera({ lane, pro = false, buy = false, chapter = false, cei
     const poster = await posterOf(clip);
     await saveShot({
       id: newClientCaptureId(),
-      lane: lane === 'vendor' ? 'vendor' : 'guest',
+      lane,
       eventId: LAB_EVENT_ID,
       media: 'clip',
       capturedAtMs: Date.now(),
@@ -96,6 +95,7 @@ export function LabCamera({ lane, pro = false, buy = false, chapter = false, cei
       consent: lane === 'vendor' ? true : undefined,
       primary: new Blob([clip], { type: 'video/mp4' }),
       poster,
+      ...(lane === 'seat' ? { ownerTag: 'lab-seat' } : {}),
     });
   };
 
@@ -115,17 +115,27 @@ export function LabCamera({ lane, pro = false, buy = false, chapter = false, cei
     <div className="bg-ink">
       {buy && lane !== 'vendor' ? <PapicBuyShell offers={LAB_OFFERS} returnTo="/dev/papic-camera-lab" wait={buyWaitCopy(false)} /> : null}
       {lane === 'seat' ? (
-        <PapicSeatCapture
-          token="lab-seat"
-          seatIndex={1}
+        /* 📷 ONE CAMERA (owner 2026-11-22): a seat is the guest camera in seat mode — the page's own props. */
+        <PapicGuestCapture
+          guestName=""
+          eventName="Lab Event"
           eventId={LAB_EVENT_ID}
-          initialPhotos={0}
-          initialClips={0}
-          isAnon
+          uploadOwner={null}
+          initialRemaining={0}
+          total={0}
+          termsAccepted
+          needsFaceEnroll={false}
+          canKwento={false}
+          capApplies={false}
+          sponsorShare={false}
           eventStyle="ORIG"
           faceMode="mode_b"
-          buyOffered={buy}
+          embedded={false}
+          exitTo={{ slug: 'lab', tab: null }}
+          dress={pro ? { pro: true, tint: LAB_TINT, logo: LAB_LOGO } : { pro: false, tint: '#FFFFFF', logo: null }}
+          photoMark={pro ? { kind: 'monogram', svg: null, text: 'A&B', ink: LAB_TINT } : { kind: 'setnayan' }}
           chapter={chapter ? LAB_CHAPTER : null}
+          seat={{ token: 'lab-seat', geoEnabled: false }}
         />
       ) : lane === 'guest' ? (
         <PapicGuestCapture

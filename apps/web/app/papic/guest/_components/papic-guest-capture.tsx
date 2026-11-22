@@ -384,7 +384,7 @@ export function PapicGuestCapture({
   faceTaggingWish = null,
   canKwento = false,
   capApplies,
-  poolLow = false,
+  poolLow: poolLowAtOpen = false,
   poolEmpty: poolEmptyAtOpen = false,
   sponsorShare,
   eventStyle,
@@ -465,6 +465,9 @@ export function PapicGuestCapture({
 
   const [busy, setBusy] = useState(false);
   const [remaining, setRemaining] = useState(initialRemaining);
+  // The pot's soft-stop STATE (never its figure — PRIV-1): set at open, and raised by a recorded shot's answer (a seat's
+  // record step reports `poolLow` when the event's pool crosses its own line, as the old seat screen warned).
+  const [poolLow, setPoolLow] = useState(poolLowAtOpen);
   // Clip recording phase + elapsed (for the 5s countdown ring).
   const [recording, setRecording] = useState(false);
   const [recElapsed, setRecElapsed] = useState(0);
@@ -992,8 +995,9 @@ export function PapicGuestCapture({
     return uploader.on((e) => {
       if (e.shot.lane !== lane || e.shot.eventId !== eventId) return;
       if (e.type === 'recorded') {
-        const b = e.body as { remaining?: number; captureId?: string | null };
+        const b = e.body as { remaining?: number; captureId?: string | null; poolLow?: boolean };
         setAdded((n) => n + 1);
+        if (b.poolLow === true) setPoolLow(true);
         if (typeof b.remaining === 'number') {
           // The server's figure, less what this phone has shot but not yet sent.
           const unsent = uploader
@@ -1991,7 +1995,7 @@ export function PapicGuestCapture({
             choose Snippet on purpose. Hold-to-record still works in Photo. */}
         <div className="order-4 flex items-center justify-between gap-2">
           {/* 🏆 "Challenge · … ▾" — the event's running challenges as one dropdown (owner prototype 2026-10-24). */}
-          {!exhausted ? <span className="inline-flex" data-tour="camera-challenge"><ChallengePill c={challenges} /></span> : null}
+          {!exhausted && !seat ? <span className="inline-flex" data-tour="camera-challenge"><ChallengePill c={challenges} /></span> : null}
           <div role="group" aria-label="Photo or snippet" data-tour="camera-mode" className="ml-auto flex shrink-0 gap-0.5 rounded-full bg-cream/10 p-[3px]">
             {(['photo', 'snippet'] as const).map((m) => (
               <button

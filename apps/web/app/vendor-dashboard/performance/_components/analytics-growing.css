@@ -101,12 +101,15 @@
 [data-growth] .ag-ghost-t { font-size: 12.5px; color: var(--ag-ink-45); }
 
 /* §1 source bars */
-[data-growth] .ag-sb .ag-sbr { display: grid; grid-template-columns: 124px 1fr auto; align-items: center; gap: 10px; margin: 0 0 8px; font-size: 13.5px; }
-[data-growth] .ag-sb .ag-sbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
-[data-growth] .ag-sb .ag-track { height: 22px; border-radius: var(--m-r-sm); }
-[data-growth] .ag-sb .ag-track > .meter-fill { border-radius: var(--m-r-sm); }
-[data-growth] .ag-sb .ag-sbn { min-width: 34px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
-[data-growth] .ag-sb .ag-ghostrow .ag-sbn { font-weight: 400; color: var(--ag-ink-45); font-size: 12px; min-width: 0; }
+/* 📐 Sources (one shape): label and count on one row, a 6-px track under them — four rows fit the 144-px box. */
+[data-growth] .ag-sb { display: grid; gap: 10px; align-content: start; padding-top: 2px; }
+[data-growth] .ag-sb .ag-sbr { display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; column-gap: 8px; margin: 0; font-size: 12px; line-height: 16px; }
+[data-growth] .ag-sb .ag-sbl { grid-row: 1; grid-column: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+[data-growth] .ag-sb .ag-sbn { grid-row: 1; grid-column: 2; text-align: right; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+[data-growth] .ag-sb .ag-track { grid-row: 2; grid-column: 1 / -1; height: 6px; border-radius: var(--m-r-full); }
+[data-growth] .ag-sb .ag-track > .meter-fill { border-radius: var(--m-r-full); }
+[data-growth] .ag-sb .ag-track.ag-dashed { height: 0; border: 0; border-top: 2px dashed var(--ag-ink-22); margin-top: 2px; }
+[data-growth] .ag-sb .ag-ghostrow .ag-sbl, [data-growth] .ag-sb .ag-ghostrow .ag-sbn { font-weight: 500; color: var(--ag-ink-45); font-size: 12px; }
 
 /* §3 funnel */
 [data-growth] .ag-funnel ul { padding: 0; margin: 4px 0 0; list-style: none; }
@@ -138,18 +141,23 @@
 [data-growth] .ag-dot.ag-on { background: rgb(var(--color-ok)); }
 
 /* §4 calendar strip */
-[data-growth] .ag-cal-m { display: grid; grid-template-columns: repeat(13, 1fr); gap: 3px; font-size: 12px; color: var(--ag-ink-55); margin: 0 0 4px; font-weight: 600; }
-[data-growth] .ag-cal { display: grid; grid-template-columns: repeat(13, 1fr); grid-template-rows: repeat(7, 1fr); grid-auto-flow: column; gap: 3px; }
-[data-growth] .ag-cc { aspect-ratio: 1; border-radius: var(--m-r-xs); background: var(--ag-ink-6); position: relative; }
+/* 📐 The next 13 weeks — square 13-px days, the key on the right (one shape, 21 Nov 2026). The "couples asked" ring is
+ * INK, so it still shows on a booked (blue) day. */
+[data-growth] .ag-cal-wrap { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; min-width: 0; }
+[data-growth] .ag-cal-wrap > p { flex-basis: 100%; margin: 0 !important; }
+[data-growth] .ag-cal-m { display: grid; grid-template-columns: repeat(13, 13px); column-gap: 3px; height: 16px; margin: 0 0 4px; font-size: 11px; font-weight: 600; line-height: 16px; color: var(--ag-ink-55); white-space: nowrap; }
+[data-growth] .ag-cal { display: grid; grid-template-columns: repeat(13, 13px); grid-template-rows: repeat(7, 13px); grid-auto-flow: column; gap: 3px; }
+[data-growth] .ag-cc { border-radius: 3px; background: var(--ag-ink-6); position: relative; }
 [data-growth] .ag-cc.ag-on { background: var(--m-orange); }
-[data-growth] .ag-cc.ag-on2 { background: var(--m-orange-2); }
-[data-growth] .ag-cc.ag-wait::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; border: 2.2px solid rgb(var(--sn-accent)); }
-[data-growth] .ag-cc.ag-today::before { content: ''; position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: rgb(var(--sn-accent)); }
-[data-growth] .ag-cal-k { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ag-ink-55); margin-top: 8px; }
-[data-growth] .ag-cal-k i { display: inline-block; width: 10px; height: 10px; border-radius: var(--m-r-xs); background: var(--m-orange); vertical-align: -1px; margin-right: 5px; }
-[data-growth] .ag-cal-k i.ag-w { background: none; border: 2px solid rgb(var(--sn-accent)); border-radius: 50%; }
-[data-growth] .ag-cal-k i.ag-t { background: none; position: relative; }
-[data-growth] .ag-cal-k i.ag-t::before { content: ''; position: absolute; left: 3px; bottom: 0; width: 4px; height: 4px; border-radius: 50%; background: rgb(var(--sn-accent)); }
+[data-growth] .ag-cc.ag-on2 { background: var(--m-orange-2); box-shadow: inset 0 0 0 2px var(--m-orange); }
+[data-growth] .ag-cc.ag-wait::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; border: 2px solid var(--m-ink); }
+[data-growth] .ag-cc.ag-today::before { content: ''; position: absolute; left: 50%; bottom: 2px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--m-ink); }
+[data-growth] .ag-cal-k { flex: 1 1 0; min-width: 0; display: grid; gap: 6px; padding-top: 20px; font-size: 12px; line-height: 15px; color: var(--ag-ink-62); }
+[data-growth] .ag-cal-k span { display: flex; gap: 6px; align-items: flex-start; }
+[data-growth] .ag-cal-k i { flex: none; position: relative; width: 11px; height: 11px; margin-top: 1px; border-radius: 3px; background: var(--m-orange); }
+[data-growth] .ag-cal-k i.ag-w { background: none; border: 2px solid var(--m-ink); border-radius: 50%; }
+[data-growth] .ag-cal-k i.ag-t { background: var(--ag-ink-6); }
+[data-growth] .ag-cal-k i.ag-t::before { content: ''; position: absolute; left: 50%; bottom: 1px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--m-ink); }
 
 /* §5 stars + rings · §6 ring + rail */
 [data-growth] .ag-rep { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
@@ -296,32 +304,118 @@
 /* ── 🎠 ONE ANALYTICS = THE SHOP CAROUSEL (owner 11 Nov 2026; prototype analytics_option_b_2026-11-11 option 3) ──
  * Each card: title (the one button, stretched over the card) · the control row (its number · its window switch or
  * fixed label) · the picture · one line. The whole card presses; the switch sits above the stretched button. */
-[data-growth] .ag-card { height: 100%; }
-[data-growth] .ag-card-in { position: relative; height: 100%; display: flex; flex-direction: column; gap: 8px; border-radius: var(--m-r-md); background: var(--m-paper); padding: 14px 14px 12px; border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
-[data-growth] .ag-card .ag-open { display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; min-height: 0; }
-[data-growth] .ag-card .ag-open b { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.2; }
+/* 📐 ONE SHAPE (owner 21 Nov 2026: *"make all graphs consistent"* → *"graphs look better and balance"*; drawing
+ * prototypes/analytics_one_shape_2026-11-21). EVERY card is 340 × 320: head 24 · number row 44 · picture 144 · line 36,
+ * gaps 12, padding 18 — so every picture starts 110 px down and is exactly 144 tall, at 375 px and at desktop alike.
+ * The picture box never grows with the card's width; plots stretch sideways only. No 1-px border, no hairline above the
+ * line. 🔒 performance/every-card-is-one-shape.test.ts */
+[data-growth] .ag-carousel { --sc-peek: max(18px, calc((100% - 340px) / 2 - 8px)); }
+[data-growth] .ag-card { height: 100%; transition: transform var(--sn-m-release) var(--sn-m-spring); }
+[data-growth] .ag-card:active { transform: scale(0.985); transition-duration: var(--sn-m-tap); }
+[data-growth] .ag-card-in { position: relative; height: 320px; display: flex; flex-direction: column; gap: 12px; border-radius: var(--m-r-md); background: var(--m-paper); padding: 18px; box-shadow: var(--sn-frame-shadow); }
+[data-growth] .ag-card-in[data-graph] { display: grid; grid-template-rows: 24px 44px 144px 36px; row-gap: 12px; align-content: start; min-width: 0; }
+[data-growth] .ag-card .ag-open { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; text-align: left; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; min-height: 0; }
+[data-growth] .ag-card .ag-open b { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 [data-growth] .ag-card .ag-open::after { content: ''; position: absolute; inset: 0; border-radius: var(--m-r-md); }
 [data-growth] .ag-card .ag-open:focus-visible::after { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
 [data-growth] .ag-card .ag-chev { width: 18px; height: 18px; flex: none; color: var(--m-slate-3); }
-[data-growth] .ag-ctlrow { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
+[data-growth] .ag-ctlrow { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; min-width: 0; }
+[data-growth] .ag-card .ag-ctlrow { height: 44px; }
 [data-growth] .ag-when { font-size: 12px; color: var(--m-slate-3); white-space: nowrap; }
 [data-growth] .ag-fig { display: flex; flex-direction: column; line-height: 1.1; }
-[data-growth] .ag-fig b, [data-growth] .ag-fig .ag-fig-n { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+[data-growth] .ag-fig b, [data-growth] .ag-fig .ag-fig-n { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 [data-growth] .ag-fig small { font-size: 12px; color: var(--m-slate-2); }
-[data-growth] .ag-card .ag-gp { display: block; min-height: 64px; }
-[data-growth] .ag-card .ag-ln { margin: auto 0 0; font-size: 13px; color: var(--m-slate); line-height: 1.35; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); padding-top: 8px; }
+/* The picture box — FIXED 144 px; whatever is inside fills it, nothing inside may push it. */
+[data-growth] .ag-card .ag-gp { display: block; position: relative; height: 144px; min-width: 0; overflow: hidden; }
+[data-growth] .ag-card .ag-gp > * { max-height: 144px; }
+/* The line — at most two lines of 18 px, never a hairline above it. */
+[data-growth] .ag-card .ag-ln { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 36px; margin: 0; padding: 0; border: 0; font-size: 13px; line-height: 18px; color: var(--m-slate); }
+/* A refused read says so where the picture would be — the shape holds, and nothing reads as a zero. */
+[data-growth] .ag-card-in[data-graph-state='unread'] .ag-ln { grid-area: 3 / 1; display: flex; align-items: center; justify-content: center; height: 144px; border-radius: var(--m-r-sm); background: color-mix(in srgb, var(--m-ink) 4%, transparent); color: var(--m-slate-2); }
+/* Example (empty): the same 144 box, faded; its line takes one line and its door the second. */
 [data-growth] .ag-card.ag-ex .ag-gp { opacity: 0.32; filter: saturate(0.4); }
-[data-growth] .ag-card .ag-exc { position: absolute; top: 10px; right: 40px; }
-[data-growth] .ag-card .ag-dr { position: relative; z-index: 1; font-size: 13px; font-weight: 600; color: var(--m-orange-deep, rgb(var(--color-mulberry))); display: inline-flex; align-items: center; gap: 2px; }
+[data-growth] .ag-card .ag-exc { position: absolute; top: 18px; right: 44px; z-index: 1; line-height: 18px; padding-block: 1px; }
+[data-growth] .ag-card.ag-ex .ag-open b { padding-right: 72px; }
+[data-growth] .ag-card.ag-ex .ag-ln { grid-area: 4 / 1; -webkit-line-clamp: 1; height: 18px; align-self: start; }
+[data-growth] .ag-card .ag-dr { grid-area: 4 / 1; align-self: end; justify-self: start; position: relative; z-index: 1; height: 18px; margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--m-orange-deep, rgb(var(--color-mulberry))); display: inline-flex; align-items: center; gap: 2px; }
 [data-growth] .ag-card .ag-dr svg { width: 15px; height: 15px; }
 [data-growth] .ag-lockcard { display: flex; flex-direction: column; justify-content: center; }
 /* Motion: the line draws, the area fades, the bars grow — once the card is seen (Reanimate adds .perf-play). */
 @keyframes ag-draw-k { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes ag-grow-k { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes ag-fade-k { from { opacity: 0; } to { opacity: 0.9; } }
-[data-growth] .perf-play .ag-draw { stroke-dasharray: 1; animation: ag-draw-k 900ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+[data-growth] .perf-play .ag-draw { stroke-dasharray: 1; animation: ag-draw-k var(--sn-m-rise) var(--sn-m-settle) both; }
 [data-growth] .perf-play .ag-fade-in { animation: ag-fade-k 700ms ease-out 200ms both; }
-[data-growth] .perf-play .ag-grow { transform-box: fill-box; transform-origin: bottom; animation: ag-grow-k 600ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+[data-growth] .perf-play .ag-grow { transform-box: fill-box; transform-origin: bottom; animation: ag-grow-k var(--sn-m-rise) var(--sn-m-spring) both; }
 @media (prefers-reduced-motion: reduce) {
   [data-growth] .perf-play .ag-draw, [data-growth] .perf-play .ag-fade-in, [data-growth] .perf-play .ag-grow { animation: none; }
 }
+/* 📐 THE PICTURE BOX (one shape, 21 Nov 2026): a plot that stretches sideways over a 20-px row of axis words. The plot's
+ * strokes never thicken (non-scaling-stroke); its words are page text at 11 px. */
+[data-growth] .ag-pic { display: grid; grid-template-rows: minmax(0, 1fr) 20px; height: 144px; min-width: 0; }
+[data-growth] .ag-plot { position: relative; display: block; min-height: 0; border-bottom: 1px solid var(--ag-ink-10); }
+[data-growth] .ag-plot > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+[data-growth] .ag-plot .ag-vline { vector-effect: non-scaling-stroke; }
+[data-growth] .ag-axis { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; font-size: 11px; font-weight: 500; line-height: 14px; color: var(--ag-ink-55); white-space: nowrap; }
+[data-growth] .ag-ly path { fill: none; stroke: var(--m-slate-2); stroke-width: 1.5; stroke-dasharray: 4 3; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+[data-growth] .ag-key { position: absolute; top: 0; left: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--m-slate); }
+[data-growth] .ag-key b { font-weight: 700; }
+[data-growth] .ag-key b.ag-up { color: rgb(var(--color-ok)); }
+[data-growth] .ag-key b.ag-down { color: var(--m-ink); }
+[data-growth] .ag-key .ag-dash { display: inline-block; width: 18px; border-top: 1.5px dashed var(--m-slate-2); }
+/* The line draws in left to right — a cover in the card's own colour slides off it (Rise 700 · Settle). */
+[data-growth] .ag-reveal { position: absolute; top: -4px; bottom: 0; left: -2px; right: -4px; background: var(--m-paper); transform-origin: right; transform: scaleX(0); pointer-events: none; }
+@keyframes ag-reveal-k { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes ag-ly-k { from { opacity: 0; } to { opacity: 1; } }
+[data-growth] .perf-play .ag-reveal { animation: ag-reveal-k var(--sn-m-rise) var(--sn-m-settle) backwards; }
+[data-growth] .perf-play .ag-ly, [data-growth] .perf-play .ag-key { animation: ag-ly-k var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-rise) backwards; }
+@media (prefers-reduced-motion: reduce) {
+  [data-growth] .perf-play .ag-reveal, [data-growth] .perf-play .ag-ly, [data-growth] .perf-play .ag-key { animation: none; }
+}
+[data-growth] .ag-gbig .ag-pic { height: 220px; }
+/* 📐 Dates you lost — HTML columns (one shape): count above, day below, closed grey over full blue, the legend inside. */
+[data-growth] .ag-lost { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; min-height: 0; }
+[data-growth] .ag-lc { display: grid; grid-template-rows: 14px minmax(0, 1fr) 14px; gap: 3px; min-width: 0; min-height: 0; }
+[data-growth] .ag-lc em { font-style: normal; font-size: 11px; font-weight: 600; line-height: 14px; text-align: center; color: var(--ag-ink-62); }
+[data-growth] .ag-lc > span { font-size: 11px; line-height: 14px; text-align: center; color: var(--ag-ink-45); }
+[data-growth] .ag-lc > span.ag-d { color: var(--ag-ink-62); font-weight: 600; }
+[data-growth] .ag-col { position: relative; display: block; border-radius: 4px; background: var(--ag-ink-6); overflow: hidden; }
+[data-growth] .ag-col > i { position: absolute; left: 0; right: 0; display: block; }
+[data-growth] .ag-col .ag-full { bottom: 0; background: var(--m-orange); }
+[data-growth] .ag-col .ag-closed { background: var(--ag-closed, var(--m-slate-3)); }
+[data-growth] .ag-leg2 { display: flex; align-items: flex-end; gap: 14px; font-size: 12px; line-height: 14px; color: var(--ag-ink-62); white-space: nowrap; }
+[data-growth] .ag-leg2 i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 3px; vertical-align: -1px; }
+[data-growth] .ag-leg2 .ag-s-c { background: var(--ag-closed, var(--m-slate-3)); }
+[data-growth] .ag-leg2 .ag-s-f { background: var(--m-orange); }
+/* 📐 The same colour words as the SVG pictures, for the HTML ones (one shape: words are page text, so bars are HTML). */
+[data-growth] i.ag-ok2, [data-growth] .ag-leg2 .ag-s-b { background: var(--m-orange-2); }
+[data-growth] i.ag-mul, [data-growth] .ag-leg2 .ag-s-a { background: rgb(var(--color-mulberry)); }
+[data-growth] i.ag-pale, [data-growth] .ag-leg2 .ag-s-p { background: var(--m-orange-4); }
+[data-growth] i.ag-gr { background: color-mix(in srgb, var(--m-ink) 9%, transparent); }
+[data-growth] i.ag-wait2 { background: var(--m-slate-4); }
+[data-growth] i.ag-exp { background: rgb(var(--color-danger) / 0.55); }
+[data-growth] i.ag-acc { background: rgb(var(--color-ok)); }
+/* A picture that is not a plot: rows from the top, its legend or caption on the box's last line. */
+[data-growth] .ag-pic.ag-pic-free { grid-template-rows: minmax(0, 1fr) auto; }
+[data-growth] .ag-pic.ag-pic-cols { grid-template-rows: minmax(0, 1fr); }
+/* Which card sells — name + counts on one line, a 3-px bar each; three rows in the card's box, all of them when opened. */
+[data-growth] .ag-cs { display: grid; gap: 8px; align-content: start; min-height: 0; overflow: hidden; }
+[data-growth] .ag-cs-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; column-gap: 8px; font-size: 12px; line-height: 16px; }
+[data-growth] .ag-card .ag-cs-row:nth-child(n + 4) { display: none; }
+[data-growth] .ag-cs-n { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; color: var(--m-ink); }
+[data-growth] .ag-cs-row em { font-style: normal; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ag-ink-62); }
+[data-growth] .ag-cs-b { grid-column: 1 / -1; display: grid; gap: 2px; }
+[data-growth] .ag-cs-b i { display: block; height: 3px; border-radius: var(--m-r-full); }
+/* Slow months — the Lost columns, twelve of them; an empty month a dashed outline, a thin month pale. */
+[data-growth] .ag-lost.ag-slow { gap: 4px; }
+[data-growth] .ag-col.ag-col-none { background: none; border: 1.5px dashed var(--ag-ink-45); }
+[data-growth] .ag-col .ag-thin { background: var(--m-orange-4); }
+/* Quotes waiting — one strip, the states as page text under it, the caption on the last line. */
+[data-growth] .ag-qs { grid-template-rows: 28px auto minmax(0, 1fr); row-gap: 10px; }
+[data-growth] .ag-qs-strip { display: flex; gap: 2px; height: 28px; border-radius: var(--m-r-sm); overflow: hidden; }
+[data-growth] .ag-qs-strip i { display: block; flex-basis: 0; min-width: 4px; }
+[data-growth] .ag-qs-k { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; line-height: 16px; color: var(--ag-ink-62); }
+[data-growth] .ag-qs-k i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 3px; vertical-align: -1px; }
+[data-growth] .ag-qs-k b { font-weight: 600; color: var(--m-ink); font-variant-numeric: tabular-nums; }
+[data-growth] .ag-qs .ag-cap { align-self: end; margin: 0; font-size: 12px; line-height: 16px; }
+@media (max-width: 420px) { [data-growth] .ag-cal-k { padding-top: 4px; } }

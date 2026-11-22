@@ -206,7 +206,7 @@ export function AnalyticsCarousel(props: Props) {
         </span>
       </div>
       {/* No auto-advance and no dots (spec §9 #4) — the loop stays (owner 27 Oct). */}
-      <SnapCarousel cards={cards} label="Analytics" advanceMs={0} dots={false} />
+      <SnapCarousel cards={cards} label="Analytics" advanceMs={0} dots={false} className="ag-carousel" />
       {/* 🏅 Under the carousel, as drawn (badge-unlock_v6 `.more`): the head, then one plain line per badge whose graphs
           are still shut — and, for a badge we could not read, its line says "Couldn’t load" (never "locked", never 0). */}
       {(() => {

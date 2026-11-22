@@ -37,14 +37,17 @@ export function CalendarStrip({
   });
   const empty = booked.length === 0 && waiting.length === 0;
   return (
-    <div data-calendar-strip="">
-      <div className="ag-cal-m">
-        {months.map((m, i) => (
-          <span key={i}>{m}</span>
-        ))}
-      </div>
-      <div className="ag-cal" aria-hidden>
-        {cells}
+    <div data-calendar-strip="" className="ag-cal-wrap">
+      {/* 📐 One shape (21 Nov 2026): square 13-px days, the key on the RIGHT — the strip fits the card's 144-px box. */}
+      <div>
+        <div className="ag-cal-m">
+          {months.map((m, i) => (
+            <span key={i}>{m}</span>
+          ))}
+        </div>
+        <div className="ag-cal" aria-hidden>
+          {cells}
+        </div>
       </div>
       <div className="ag-cal-k">
         <span>

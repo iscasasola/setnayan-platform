@@ -224,7 +224,7 @@ const LAB_TEAM_RECORD: ClaimDoorRecord = {
 export default async function OpenShopLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ card?: string; kind?: string; basis?: string; step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string; as?: string; error?: string; signed?: string; way?: string; from?: string; start?: string }>;
+  searchParams: Promise<{ card?: string; kind?: string; basis?: string; step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string; as?: string; error?: string; signed?: string; way?: string; from?: string; start?: string; app?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -346,7 +346,9 @@ export default async function OpenShopLabPage({
       guest={guest}
       coordinator={q.as === 'coordinator'}
       oauth={{ show: true, desktop: false, native: false }}
-      planCategories={categoryLadder()}
+      // 🍎 `?app=1` draws the wizard as the iPhone app asks for it (the store shell: no plan, no price — 22 Nov).
+      storeShell={q.app === '1'}
+      planCategories={q.app === '1' ? [] : categoryLadder()}
       specialties={LAB_SPECIALTIES}
       emailTaken={q.taken === '1'}
       error={q.taken === '1' ? OPEN_SHOP_ACCOUNT_ERRORS.emailTaken : (q.error ?? undefined)}

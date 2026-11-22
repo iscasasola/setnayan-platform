@@ -16,3 +16,8 @@ Guard: `apps/web/app/vendor-dashboard/shop/the-analytics-carousel-never-changes-
 the stand-in — turns 3 of 4 checks red).
 
 SPEC IMPACT: None
+
+**22 Nov follow-up:** an example card's title keeps clear of its "Example" chip — at 375 px "Compared with similar
+suppliers" ran under it (`.ag-card.ag-ex .ag-open b` now reserves the chip's room, as the tile form already did).
+Proof in `build-sessions/shots-graphs-hold-still/`: 19 cards swiped at 375 and 1280, light and dark — the carousel's
+height never changes (403 px · 593 px).

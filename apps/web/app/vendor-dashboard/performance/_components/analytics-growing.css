@@ -312,6 +312,8 @@
 [data-growth] .ag-card .ag-ln { margin: auto 0 0; font-size: 13px; color: var(--m-slate); line-height: 1.35; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); padding-top: 8px; }
 [data-growth] .ag-card.ag-ex .ag-gp { opacity: 0.32; filter: saturate(0.4); }
 [data-growth] .ag-card .ag-exc { position: absolute; top: 10px; right: 40px; }
+/* …and an example card's title keeps clear of that chip (it ran under it at 375: "Compared with similar suppliers"). */
+[data-growth] .ag-card.ag-ex .ag-open b { padding-right: 70px; }
 [data-growth] .ag-card .ag-dr { position: relative; z-index: 1; font-size: 13px; font-weight: 600; color: var(--m-orange-deep, rgb(var(--color-mulberry))); display: inline-flex; align-items: center; gap: 2px; }
 [data-growth] .ag-card .ag-dr svg { width: 15px; height: 15px; }
 [data-growth] .ag-lockcard { display: flex; flex-direction: column; justify-content: center; }

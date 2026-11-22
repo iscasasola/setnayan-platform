@@ -26,6 +26,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { tokenHex } from './css-colour-tokens';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CSS = readFileSync(join(HERE, '..', 'app', 'globals.css'), 'utf8');
@@ -75,14 +76,6 @@ function rgbToken(name: string): string {
       .join('')
       .toUpperCase()
   );
-}
-
-/** `--m-x: #FDFBF7;` → `#FDFBF7`. Hex form. */
-function hexToken(name: string): string {
-  const m = blockDefining(name).match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})\\s*;`));
-  const hex = m?.[1];
-  assert.ok(hex, `--${name} is defined but not as a 6-digit hex`);
-  return hex.toUpperCase();
 }
 
 /** WCAG 2.x relative luminance + contrast ratio. */
@@ -167,16 +160,24 @@ test('palette · the CTA and the accent are DIFFERENT colours', () => {
 test('palette · the two token families have not drifted apart', () => {
   // `--color-*` drives app chrome, `--m-*` drives marketing. They describe the
   // same palette and have silently diverged before.
-  assert.equal(hexToken('m-paper'), PAGE, '--m-paper has drifted from --color-cream');
-  assert.equal(hexToken('m-ink'), INK, '--m-ink has drifted from --color-ink');
-  assert.equal(hexToken('m-mulberry'), CTA, '--m-mulberry has drifted from --color-mulberry');
+  // Since the one colour set (18 Nov 2026) the `--m-*` twins POINT at their `--color-*` token, so they cannot drift:
+  // the pointer is asserted, and the value it resolves to is still compared.
+  const points = (name: string, at: string) =>
+    assert.match(blockDefining(name), new RegExp(`--${name}:\\s*rgb\\(var\\(--${at}\\)\\)\\s*;`), `--${name} no longer points at --${at}`);
+  points('m-paper', 'color-raised');
+  points('m-ink', 'color-ink');
+  points('m-mulberry', 'color-mulberry');
+  assert.equal(tokenHex('m-paper', 'light')?.toUpperCase(), PAGE, '--m-paper has drifted from --color-cream');
+  assert.equal(tokenHex('m-ink', 'light')?.toUpperCase(), INK, '--m-ink has drifted from --color-ink');
+  assert.equal(tokenHex('m-mulberry', 'light')?.toUpperCase(), CTA, '--m-mulberry has drifted from --color-mulberry');
 });
 
 test('palette · the marketing CTA clears AA against its own hard-coded #fff label', () => {
   // `.m-btn-primary` sets `color: #fff` literally, so it is checked against
   // white — unlike `.button-primary`, which uses cream. Different label,
   // different floor; both must hold.
-  const marketingCta = hexToken('m-mulberry');
+  const marketingCta = tokenHex('m-mulberry', 'light')?.toUpperCase() ?? '';
+  assert.match(marketingCta, /^#[0-9A-F]{6}$/, '--m-mulberry did not resolve to a colour');
   const r = contrast('#FFFFFF', marketingCta);
   assert.ok(
     r >= 4.5,

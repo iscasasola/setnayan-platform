@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { countUnread } from '@/lib/notifications';
+import { deliverDueChatReminders } from '@/lib/chat-reminders.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
@@ -48,15 +49,19 @@ export const getDashboardShell = cache(async (userId: string) => {
         canOpenShop: false,
       } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
     }),
-    countUnread(supabase, userId).catch((err: unknown) => {
-      logQueryError(
-        'getDashboardShell(unread)',
-        err instanceof Error ? err : new Error(String(err)),
-        { user_id: userId },
-        'graceful_degrade',
-      );
-      return 0;
-    }),
+    // ⏰ A "Remind me" that came due lands in the bell on THIS render (Unichat H1; cron-free — `lib/chat-reminders.server.ts`,
+    // which never throws): one small own-rows read first, then the count that includes whatever it delivered.
+    deliverDueChatReminders(supabase, userId)
+      .then(() => countUnread(supabase, userId))
+      .catch((err: unknown) => {
+        logQueryError(
+          'getDashboardShell(unread)',
+          err instanceof Error ? err : new Error(String(err)),
+          { user_id: userId },
+          'graceful_degrade',
+        );
+        return 0;
+      }),
   ]);
   return { events, roles, unreadCount };
 });

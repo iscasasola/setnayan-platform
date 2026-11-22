@@ -119,15 +119,25 @@ test('the shop row is lifted ABOVE the stretched doorway, not inside it', () => 
   // `relative z-10` is what makes the sibling ordering work — the same trick
   // the showcase clip already uses. Without it the full-card overlay, which is
   // the LAST child, paints over the logo and eats its clicks.
-  assert.match(
-    cardView,
-    /<span className="relative z-10[^"]*" data-service-face-shop="">/,
+  // Card 14 (20 Nov): the row has two looks (row · mall), so its class is a two-way choice — BOTH must lift.
+  const shopRow = cardView.match(/<span\s+className=\{\s*mall\s*\?\s*'([^']*)'\s*:\s*'([^']*)'\s*\}\s*data-service-face-shop=""/);
+  assert.ok(
+    shopRow?.[1]?.startsWith('relative z-10') === true && shopRow[2]?.startsWith('relative z-10') === true,
     'the shop row lost its z-10 lift — the stretched doorway now covers the logo',
   );
   // And the doorway must still be the last child of the card.
-  const doorwayAt = cardView.lastIndexOf('absolute inset-0 rounded-2xl');
-  const shopAt = cardView.indexOf('<ShopLine');
-  assert.ok(shopAt !== -1 && doorwayAt > shopAt, 'the shop row is no longer above the doorway');
+  // Card 14 (20 Nov): the doorway is built ONCE (`doorEl`) and placed in both looks — so the claim is about
+  // where `{doorEl}` is placed: after the shop row (row look) and after the body that draws it (mall look).
+  assert.match(cardView, /const doorEl =[\s\S]*?absolute inset-0 rounded-2xl/, 'the doorway lost its full-card stretch');
+  const rowShopAt = cardView.indexOf('<ShopLine shop={shop} />');
+  const doorPlaces = [...cardView.matchAll(/\{doorEl\}/g)].map((m) => m.index ?? -1);
+  const mallBodyAt = cardView.indexOf('<MallFaceBody');
+  assert.ok(cardView.includes('<ShopLine shop={shop} mall />'), 'the mall body no longer draws the shop row');
+  assert.ok(
+    rowShopAt !== -1 && mallBodyAt !== -1 && doorPlaces.length === 2 &&
+      doorPlaces.some((d) => d > mallBodyAt && d < rowShopAt) && doorPlaces.some((d) => d > rowShopAt),
+    'the shop row is no longer above the doorway',
+  );
 });
 
 test('the shop logo link carries an accessible name', () => {

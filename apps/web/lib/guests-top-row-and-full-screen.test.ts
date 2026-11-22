@@ -171,10 +171,12 @@ test('(5) every view wears the SAME one row — one ▾ naming the view, no segm
     const after = html.slice(html.indexOf('data-guests-view-rounds', at));
     assert.ok(after.indexOf('data-menu-settings') > -1, `${v.name}: the ⚙ does not end the row`);
   }
-  // The ▾ lists every view — Guests: List · Map, Seats: List · 2D · 3D, March — and a pick goes there from any view.
+  // ⚠ AMENDED 20 Nov 2026 (Guests redesign § 8, owner "Yes, your picks"): the ▾ lists the three PLACES — Guests · Seats ·
+  // March — and each opens on its last look; the looks (List · Map, List · 2D · 3D) are the thumb row's look round
+  // (guests/the-view-menu-is-places-and-looks.test.ts). Every view is still reachable in two taps from any view.
   const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(screen, /const pinMenuOptions: PickOption\[\] = \[\s*\.\.\.guestModes\.map[^]*?seatModes\.map[^]*?key: 'march'/, 'the ▾ does not list every view');
-  assert.match(screen, /if \(k === 'march'\) pickView\('march'\);\s*else if \(k\.startsWith\('seats:'\)\) chooseSeat\(k\.slice\(6\) as SeatMode\);\s*else pickView\(k\.slice\(7\) as GuestsView\);/, 'a ▾ pick does not switch view');
+  assert.match(screen, /const pinMenuOptions: PickOption\[\] = \[\s*\{ key: 'guests'[^]*?key: 'seats'[^]*?key: 'march'/, 'the ▾ does not list every place');
+  assert.match(screen, /if \(k === 'march'\) pickView\('march'\);\s*else if \(k === 'seats'\) chooseSeat\(seatMode\);\s*else pickView\(/, 'a ▾ pick does not switch view');
   assert.deepEqual([...SEAT_MODES], ['list', '2d', '3d']);
 });
 

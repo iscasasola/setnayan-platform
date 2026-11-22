@@ -7,6 +7,7 @@ import {
   proposeAdminMotion,
   removeVendorTeamMember,
   setVendorAgentServices,
+  setVendorRoleNames,
   stepDownSelf,
   updateVendorTeamMember,
   voteAdminMotion,
@@ -20,6 +21,12 @@ import { kind, type Door } from './_door';
  */
 const SUP_TEAM_WORDS: StayWords = { within: [supplierScreen('team'), supplierScreen('shop')], refuse: (q) => q.get('error') };
 const supTeam = kind(SUP_TEAM_WORDS, false);
+/**
+ * Team › Roles — Save names lands back on `/vendor-dashboard/team/roles`; the d–h writes that ride the same action
+ * (Keep · Give · Handled by ▾ · Adjust · Reset) land on Clients, Who gets new inquiries, or Team (their `return_to`).
+ */
+const ROLES_WITHIN = [supplierScreen('team/roles'), supplierScreen('team/roles/inquiries'), supplierScreen('customers'), supplierScreen('team')];
+const supTeamRoles = kind({ within: ROLES_WITHIN, refuse: (q) => q.get('error') }, false);
 
 export const SUP_TEAM: Readonly<Record<SupTeamStayDoor, Door>> = {
   'supTeam.inviteVendorTeamMember': supTeam(inviteVendorTeamMember),
@@ -30,4 +37,5 @@ export const SUP_TEAM: Readonly<Record<SupTeamStayDoor, Door>> = {
   'supTeam.voteAdminMotion': supTeam(voteAdminMotion),
   'supTeam.cancelAdminMotion': supTeam(cancelAdminMotion),
   'supTeam.stepDownSelf': supTeam(stepDownSelf),
+  'supTeam.setVendorRoleNames': supTeamRoles(setVendorRoleNames),
 };

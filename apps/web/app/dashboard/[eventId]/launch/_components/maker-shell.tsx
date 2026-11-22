@@ -7,6 +7,7 @@ import type { MakerLate } from '@/lib/maker-late';
 import { MakerLateBridge } from './maker-late';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
 import { Check, Eye } from 'lucide-react';
+import { useChromeAway } from '@/app/_components/nav/use-chrome-away';
 import type { TourKey } from '@/lib/tours';
 import { SPOTLIGHT_REPLAY_EVENT } from '@/app/_components/spotlight-mount';
 import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
@@ -92,11 +93,12 @@ import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { needsLandingStage } from '@/lib/event-needs';
 import { PRINTS_PAGE_LABEL, printsPageHref } from '@/lib/prints-page-href';
 import { usePrintsForward } from './prints-forward';
-import { type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
+import { MAKER_OPEN_LOOK_EVENT, MAKER_PREVIEW_EVENT, type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
+import { useBackCloses } from '@/lib/use-back-closes';
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { EditorFieldFocus, HubSettingsGear, LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, PrintsPageDesk, StageSwitch, StageTools, StudioTool } from './details-lazy';
+import { EditorFieldFocus, HubSettingsGear, LowerThirdGrab, MakerLeave, MakerSheet, MakerTour, MakerUpdating, PrintsPageDesk, StageSwitch, StageTools, StudioTool } from './details-lazy';
 import { MAKER_IN_THE_APP_CSS, MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import type { LookSection } from '@/lib/maker-look-sections';
@@ -496,6 +498,12 @@ export function MakerShell({
     );
   }, []);
   useTheAppsRoom(shellRef);
+  /* 🫥 THE MAKER IS FULL SCREEN (owner 20 Nov 2026 — *"chat goes full screen. same to event hub"* · *"or hide everything
+     and use the full screen?"*; DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED" (6), amending 30 Oct's
+     "THE APP'S NAV STAYS"): while the Maker is open the app's top bar and bottom nav step away — the app's one mechanism
+     (`useChromeAway`, the picked client's), never a second. The shell still sits in the room they leave
+     (`useTheAppsRoom` follows them as they slide), so it fills the screen; ‹ on the bar is the way out. */
+  useChromeAway(true);
 
   /* 🧷 A MAKER SAVE NEVER REMOUNTS THE MAKER (owner 2026-09-28: *"a lot of
      times. it reloads the whole page. which shouldn't"*). Every Maker panel
@@ -589,8 +597,25 @@ export function MakerShell({
       {(close) => previewRows(close)}
     </ToolMenu>
   );
-  /* 🧭 A phone's top nav has no 👁 (`MAKER_TOOLBAR_STAGES_STUDIO`) — a desktop keeps it. */
-  const previewMenu = <span className="contents max-lg:hidden">{previewTool}</span>;
+  /* 👁 THE ONE PREVIEW, ON A PHONE TOO (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (5): ‹ · Stage ▾ ·
+     👁 · ✓ Apply · ⚙ — it replaces holding ▶). A phone's eye shows the page as a guest gets it, with "See as" and "Exit
+     preview" (`stage-tools.tsx`, `MAKER_PREVIEW_EVENT`); a desktop keeps its menu of how the page is seen. */
+  const previewMenu = (
+    <>
+      <span className="contents max-lg:hidden">{previewTool}</span>
+      {side === 'stages' ? (
+        <button
+          type="button"
+          aria-label="Preview as a guest"
+          data-maker-preview-phone=""
+          onClick={() => window.dispatchEvent(new Event(MAKER_PREVIEW_EVENT))}
+          className={`${MAKER_BAR_ICON} lg:hidden`}
+        >
+          <Eye aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+        </button>
+      ) : null}
+    </>
+  );
 
   const openDoor = selection?.kind === 'tool' ? makerOpenTool(selection.key, detailsItem) : null;
   /* 🧰 THE LOWER THIRD'S PICK (phone) — one of the menu's two groups: a stage,
@@ -831,6 +856,8 @@ export function MakerShell({
     setDetailsDoor((n) => n + 1);
     select({ kind: 'tool', key: 'details' });
   };
+  const openStudioRef = useRef(openStudio);
+  openStudioRef.current = openStudio;
   /* ⚙ LOOK, FROM THE HUB'S ⚙ (owner 2026-10-30 — DECISION_LOG 2026-10-27 "LOOK MOVES TO EVENT HUB SETTINGS"): the shipped
      Look editor, opened on the section picked — the same page its Studio card opened (`openStudio('look')`), on that
      section rather than the one last seen. */
@@ -897,6 +924,20 @@ export function MakerShell({
     if (selection?.kind === 'tool' && selection.key === 'details') return;
     select({ kind: 'tool', key: 'details' });
   }, [studioFull, printsPage, studioTile, selection, select]);
+  /* ← BACK CLOSES EXPAND FIRST (owner 20 Nov 2026, DECISION_LOG "MAKER · WAY BACK + BUILT-IN GUEST PAGES": *"phone Back
+     (closes Expand first, then the toolbar)"*). The risen editor takes over the toolbar's history entry (the app's one
+     mechanism, `useBackCloses`), so one Back returns to the part with its toolbar up, and the next lets the part go. */
+  useBackCloses(studioOn && !printsPage && !wide, () => {
+    setStudioFrom(null);
+    pickSide('stages');
+  });
+  /* 🎨 LOOK ON THE RESTING BAR (20 Nov) — the Whole Event Hub: the shipped Look editor (theme, colours, font, buttons,
+     background, music), the same page ⚙ › Look opens. */
+  useEffect(() => {
+    const on = () => openStudioRef.current('look');
+    window.addEventListener(MAKER_OPEN_LOOK_EVENT, on);
+    return () => window.removeEventListener(MAKER_OPEN_LOOK_EVENT, on);
+  }, []);
   /** Back to the stage (✕, a stage picked). Nothing leads to a Studio side of its own any more — an editor opens from
       its scene (`openStudio`). */
   const pickSide = (next: MakerSide) => {
@@ -1071,7 +1112,10 @@ export function MakerShell({
           'html.sn-maker-open .sn-vt-page,.sn-vt-page:has([data-maker-shell]){view-transition-name:none}' +
           MAKER_IN_THE_APP_CSS +
           /* 🧭 A Studio tool full screen: its editor takes the whole width — no lower-third column beside it. */
-          '@media (max-width:1023.98px){[data-maker-studio-full] [data-phone-chrome="panel"]{left:4px}}'}
+          '@media (max-width:1023.98px){[data-maker-studio-full] [data-phone-chrome="panel"]{left:4px}}' +
+          /* ⤢ AN EXPANDED EDITOR'S BAR IS ITS OWN HEAD (20 Nov (2), the drawing's full screen): its name and ✓ Done — ‹, ✓ Apply
+             and ⚙ step aside until it is minimized (they never move; they are the same bar's). */
+          '@media (max-width:1023.98px){[data-maker-expanded] [data-maker-toolbar]>:is([data-maker-tool="leave"],[data-maker-apply-slot],[data-maker-tool="settings"]){display:none}}'}
       </style>
       <div
         ref={shellRef}
@@ -1084,6 +1128,7 @@ export function MakerShell({
         className="fixed z-[40] flex flex-col bg-cream text-ink"
         data-maker-shell=""
         data-maker-studio-full={studioFull ? '' : undefined}
+        data-maker-expanded={studioFull && !printsPage && studioTile ? '' : undefined}
         /* 🧰 The lower third's height — every phone tool is sized from it (`MAKER_LT_TOOL`).
            🧭 The new Maker: as dragged (↕), and half the screen for a Studio tool's editor. */
         style={{ ['--maker-lt-h' as string]: studioFull ? MAKER_LT_HALF : ltPx !== null ? `${ltPx}px` : MAKER_LT_HEIGHT }}
@@ -1114,6 +1159,12 @@ export function MakerShell({
           {/* 🧭 THE STAGE PILL where the screen's name was (Build 6 Lane F, 2026-11-10 — the Studio half is gone): ● the
               stage ▾ opens the five stages' one list; while a scene's editor is risen the same place reads ✕ · its
               name, and ✕ falls back into the scene (`StageSwitch`). A desktop shows it too (`maker-desk.tsx`). */}
+          {/* ‹ THE WAY OUT (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (6)): the app's
+              bars step away while the Maker is open, so the bar leads out itself — to the event's Home, the door the
+              bottom nav's Home tab opened. The draft stays as it is (every edit is already saved to it). */}
+          <span data-maker-tool="leave" data-bar-item="Leave" className={`inline-flex h-11 w-11 shrink-0 ${MAKER_BAR_PHONE.leave}`}>
+            <MakerLeave eventId={eventId} />
+          </span>
           {printsPage ? (
             /* 🖨 The Prints page names itself where the stage pill stands — it has no stage to switch to. */
             <h1 data-maker-tool="side" data-bar-item="Prints" data-bar-fill="" data-prints-page-title="" className={`flex min-w-0 flex-1 items-center justify-center truncate text-[16px] font-semibold text-ink ${MAKER_BAR_PHONE.side}`}>
@@ -1173,6 +1224,7 @@ export function MakerShell({
               <HubSettingsGear
                 open={moreOpen}
                 onOpenChange={setMoreOpen}
+                eventId={eventId}
                 doors={{
                   look: openLook,
                   hub: hubSettings,
@@ -1181,6 +1233,8 @@ export function MakerShell({
                   gifts: giftsTile ? { line: giftsTile.status, open: () => openStudio('gifts') } : null,
                   /* 🖨 Prints moved in (Build 6 Lane F, pick B): the shipped Prints page. */
                   prints: { href: printsPageHref(eventId) },
+                  /* ↺ History moved in from the bar (20 Nov) — the draft bar registered it (`MakerDraftDoor.history`). */
+                  history: draft?.history ?? null,
                 }}
               >
                 {/* The work area's own extras for Your Event Hub (the Event Pro line), and what the page hands in. */}
@@ -1207,7 +1261,7 @@ export function MakerShell({
               role="status"
               data-maker-first-hint=""
               data-tour="maker-hint"
-              className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/90 px-3.5 py-1.5 text-[13px] font-semibold text-ink/75 shadow-sm ring-1 ring-ink/10"
+              className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-raised/90 px-3.5 py-1.5 text-[13px] font-semibold text-ink/75 shadow-sm ring-1 ring-ink/10"
             >
               Tap anything to change it
             </p>
@@ -1359,9 +1413,13 @@ function useTheAppsRoom(shellRef: { current: HTMLDivElement | null }) {
     for (const x of [bar, dock, column]) if (x) ro?.observe(x);
     const mo = new MutationObserver(later);
     for (const x of [bar, dock]) if (x) mo.observe(x, { attributes: true, attributeFilter: ['data-hidden', 'style', 'class'] });
-    /* A bar's slide ends where it rests — read once it has (only the two bars' own slides). */
+    /* 🫥 …and the chrome stepping away or back (`useChromeAway`, 20 Nov) — an attribute on <html>, whose slide moves the
+       bar's WRAPPER (`.fd-topwrap`), not the bar. */
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-chrome-away', 'data-chrome-back'] });
+    /* A bar's slide ends where it rests — read once it has (the two bars' own slides, or a box that carries one). */
     const slid = (e: Event) => {
-      if (e.target === bar || e.target === dock) later();
+      const t = e.target;
+      if (t === bar || t === dock || (t instanceof Node && ((bar && t.contains(bar)) || (dock && t.contains(dock))))) later();
     };
     window.addEventListener('resize', later);
     document.addEventListener('transitionend', slid, true);
@@ -1446,7 +1504,7 @@ function ToolMenu({
           aria-label={label}
           data-maker-tool-menu={tool}
           style={{ position: 'fixed', top: at.top, left: at.left, width: Math.min(260, typeof window === 'undefined' ? 260 : window.innerWidth - 16) }}
-          className="z-50 flex max-h-[70dvh] flex-col overflow-y-auto rounded-xl bg-white p-1 ring-1 ring-ink/10 shadow-[0_24px_48px_-20px_rgba(30,26,18,.45)]"
+          className="z-50 flex max-h-[70dvh] flex-col overflow-y-auto rounded-xl bg-raised p-1 ring-1 ring-ink/10 shadow-[0_24px_48px_-20px_rgba(30,26,18,.45)]"
         >
           <OneOpenScope id={oneOpenId}>{children(close)}</OneOpenScope>
         </span>

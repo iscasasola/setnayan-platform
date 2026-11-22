@@ -280,7 +280,7 @@ export function TagSheet({
                 <button
                   type="button"
                   onClick={stopScanner}
-                  className="absolute bottom-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-ink shadow"
+                  className="absolute bottom-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-raised/90 px-4 py-2 text-sm font-medium text-ink shadow"
                 >
                   <CameraOff className="h-4 w-4" /> Stop scanning
                 </button>
@@ -311,7 +311,7 @@ export function TagSheet({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search a guest’s name…"
-              className="w-full rounded-xl border border-ink/15 bg-white py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-ink/40 focus:border-terracotta/50"
+              className="w-full rounded-xl border border-ink/15 bg-raised py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-ink/40 focus:border-terracotta/50"
             />
           </div>
           {matches.length > 0 ? (
@@ -372,7 +372,7 @@ export function TagSheet({
                 }}
                 placeholder="e.g. Tita Baby’s barkada"
                 maxLength={80}
-                className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-terracotta/50"
+                className="min-w-0 flex-1 rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm outline-none focus:border-terracotta/50"
               />
               <button
                 type="button"

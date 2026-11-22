@@ -123,7 +123,7 @@ function LensChip({ href, active, label }: { href: string; active: boolean; labe
       className={`rounded-full px-3 py-1 text-xs font-medium ${
         active
           ? 'bg-ink text-cream'
-          : 'border border-ink/15 bg-white text-ink/70 hover:text-ink'
+          : 'border border-ink/15 bg-raised text-ink/70 hover:text-ink'
       }`}
     >
       {label}

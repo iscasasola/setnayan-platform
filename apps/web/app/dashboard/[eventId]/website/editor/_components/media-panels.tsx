@@ -39,6 +39,9 @@ import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const AUDIO_TYPES = ['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav'];
+/** Look › Edit › Music's upload row — the approved drawing v17's words. */
+export const MAKER_UPLOAD_SONG_LABEL = 'Upload your own song ◆';
+export const MAKER_UPLOAD_SONG_HINT = 'MP3 or M4A from your phone or computer';
 
 function ReturnTo({ eventId, rowKey }: { eventId: string; rowKey: string }) {
   return (
@@ -218,7 +221,9 @@ export function SiteChromePanel({
               dataAttr="data-music-source-pick"
               options={[
                 { key: 'ours', label: 'Our music', hint: 'Setnayan’s own songs, by mood · free to use' },
-                { key: 'yours', label: 'Upload your own', hint: 'A song from your phone' },
+                /* 🎵 "Upload your own song ◆" (owner 20 Nov 2026, DECISION_LOG "MAKER: … UPLOAD YOUR OWN SONG IS ◆" (2)): part of
+                   the full Event Hub — tried by anyone, asked at ✓ Apply. The same upload, never a second store. */
+                { key: 'yours', label: MAKER_UPLOAD_SONG_LABEL, hint: MAKER_UPLOAD_SONG_HINT },
               ]}
               onPick={(k) => setSource(k === 'ours' ? 'ours' : 'yours')}
             />
@@ -357,7 +362,7 @@ export function VisibilityPanel({
         ).map(([value, label, hint]) => (
           <label
             key={value}
-            className="mb-1 flex cursor-pointer items-start gap-2 rounded-lg bg-white px-2.5 py-2"
+            className="mb-1 flex cursor-pointer items-start gap-2 rounded-lg bg-raised px-2.5 py-2"
           >
             <input
               type="radio"
@@ -392,7 +397,7 @@ export function VisibilityPanel({
               Where to get tickets <span className="font-normal text-ink/75">(optional)</span>
             </span>
             <input
-              className="mt-1 block min-h-[44px] w-full rounded-lg border border-ink/15 bg-white px-3 text-base text-ink placeholder:text-ink/35 sm:text-sm"
+              className="mt-1 block min-h-[44px] w-full rounded-lg border border-ink/15 bg-raised px-3 text-base text-ink placeholder:text-ink/35 sm:text-sm"
               type="url"
               name="ticket_url"
               inputMode="url"
@@ -632,7 +637,7 @@ export function RsvpBackdropPanel({
           <select
             name="intensity"
             defaultValue={activeIntensity}
-            className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-xs text-ink"
+            className="mt-1 w-full rounded-lg border border-ink/15 bg-raised px-2.5 py-1.5 text-xs text-ink"
           >
             {(['subtle', 'standard', 'lavish'] as const).map((i) => (
               <option key={i} value={i}>

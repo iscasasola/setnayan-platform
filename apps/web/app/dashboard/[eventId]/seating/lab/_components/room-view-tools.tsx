@@ -34,7 +34,7 @@ import type { SeatRoomLock } from '@/app/dashboard/[eventId]/seating/_components
 
 /** One round glass tool: 44 px, a frame because it is pressable. */
 const TOOL =
-  'pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-black/45 px-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-black/60 aria-pressed:bg-white aria-pressed:text-ink';
+  'pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-black/45 px-3 text-sm font-medium text-white backdrop-blur-md transition hover:bg-black/60 aria-pressed:bg-raised aria-pressed:text-ink';
 /** The main row's tools: one size each, icon and word. */
 const MAIN = `${TOOL} min-w-0 flex-1 basis-0 whitespace-nowrap`;
 

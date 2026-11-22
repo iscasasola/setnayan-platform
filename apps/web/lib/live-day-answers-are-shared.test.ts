@@ -436,10 +436,12 @@ test('2b · the phone asks only while visible on the day, spaced, and a broken p
 });
 
 test('2b · the guests’ day-of pages use the pulse; the 45 s re-render runs only without a baseline', () => {
+  // (No `hub/page.tsx` / hub shell stage frame: one bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to the
+  //  event page's tab (`dayHubLanding`), so it holds no phone and polls nothing. Neither may start polling again:)
   const shell = read('app/[slug]/_components/hub/hub-shell.tsx');
-  assert.match(shell, /useEventPulse\(slug, eventDate, pulse, \(\) => router\.refresh\(\)\);\s*useDayOfLiveTick\(slug && pulse \? null : eventDate, \(\) => router\.refresh\(\)\);/);
+  assert.doesNotMatch(shell, /useDayOfLiveTick\(/, 'the hub shell re-renders on a 45 s tick again — it has no stage frame to refresh');
   const hub = read('app/[slug]/hub/page.tsx');
-  assert.match(hub, /slug=\{event\.slug \?\? slug\}\s*pulse=\{await pulseAhead\}/, 'the hub no longer hands its phone a baseline — back to a full render every 45 s');
+  assert.doesNotMatch(hub, /useDayOfLiveTick|LiveRefresher|pulseBaseline/, 'the hub draws a live page of its own again');
   const refresher = read('app/_components/live-refresher.tsx');
   assert.match(refresher, /useDayOfLiveTick\(pulsed \? null : eventDate,/);
   for (const page of ['app/[slug]/seat/page.tsx', 'app/[slug]/find-my-table/page.tsx']) {

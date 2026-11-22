@@ -24,8 +24,9 @@ const GRAPH = stripComments(
 );
 
 test('the card is mounted', () => {
-  // Since 2026-10-31 the Memories keepsake row hands it the page's one read (`state={flash}`, `readLifeFlashCard`).
-  assert.ok(/<LifeFlashCard eventId=\{eventId\} state=\{flash\} \/>/.test(PAGE),
+  // Since 2026-10-31 the Memories keepsake row hands it the page's one read (`state={flash}`, `readLifeFlashCard`); since
+  // 2026-11-20 in its sheet seat (`seat="sheet"` — the keepsake sheet's head says its title once).
+  assert.ok(/<LifeFlashCard eventId=\{eventId\} state=\{flash\} seat="sheet" \/>/.test(PAGE),
     'A card that ships unmounted is this repo\'s most repeated defect.');
 });
 

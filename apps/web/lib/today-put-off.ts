@@ -19,6 +19,8 @@
 export const PUT_OFF_KEY = /^[A-Za-z0-9_-]{1,120}$/;
 /** An admin Focus row key (`<queue>:<item id>` · `<queue>:queue`) — the same shape `admin_focus_put_offs` allows. */
 export const FOCUS_PUT_OFF_KEY = /^[A-Za-z0-9_:.-]{1,160}$/;
+/** An event Today row key (`pay:<line item>` · `task:<id>` · `ask:<what>`) — the same shape `event_today_put_offs` allows. */
+export const EVENT_PUT_OFF_KEY = /^[A-Za-z0-9_:.-]{1,160}$/;
 
 /** The words the drawing uses (V3 · 2 · 2b), in one place. */
 export const PUT_OFF_WORDS = {

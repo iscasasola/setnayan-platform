@@ -6,10 +6,12 @@
  *
  * 🚦 A LINE SHIPS ONLY WHEN ITS BUILD IS LIVE (owner, 20 Nov 2026). Where the drawing names something the app does
  * not do yet, this page says what the app does TODAY, and never "Coming":
- *   · the fee: the drawing's rates, its ceiling ("locks there") and "every 100,000th fee is on us" are NOT built — the
- *     page places the LIVE schedule (`bookingFeeFigures`, `bookingFeePhp`) and draws no ceiling and no such switch;
- *   · who books free: the drawing's "first supplier brought onto the event" is not built — the switches are the free
- *     bookings that are live (a client you bring; your first booking from Setnayan; a badge's free booking fee ticket);
+ *   · the fee: the LIVE schedule (`bookingFeeFigures`, `bookingFeePhp`) with its ₱100,000 lock (`bookingFeeCapAmount`,
+ *     PR #8061) — the lede, the "Never more than" line and the ruler's lock; "every 100,000th fee is on us" is live in
+ *     billing but this page does not read its N yet, so it is not a switch;
+ *   · who books free: the switches are the free bookings that are live (you bring the event first; a client you brought
+ *     onto Setnayan; a badge's free booking fee ticket). A first booking from Setnayan is NOT free since 20 Nov
+ *     ("BILLING MUST FOLLOW THE RETIRED COPY", PR #8061);
  *   · the fee is charged when the client agrees to book (`BOOKING_FEE_CHARGED_WHEN`), not with the first payment;
  *   · the gift with every booking (drawn "Coming") is not built, so its section is not drawn at all;
  *   · Plans: the Ultra Add-on and storage are not live, so the ⓘ names only the live caps (`TIER_CAPS`), and the fine
@@ -25,8 +27,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { bookingFeeFigures, bookingFeeMinimumAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { BOOKING_FEE_CHARGED_WHEN, FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { Lock } from 'lucide-react';
+import { bookingFeeCapAmount, bookingFeeFigures, bookingFeeMinimumAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
+import { BOOKING_FEE_CHARGED_WHEN } from '@/lib/booking-fee-lock';
 import { FEE_FREE_CHIP, FEE_SCOPE, SUPPLIER_FREE_BOOKING_LINE } from '@/lib/booking-fee-who-words';
 import { TIER_CAPS, type VendorTier } from '@/lib/vendor-tier-caps';
 import { countNoun, formatCount } from '@/lib/format-number';
@@ -182,7 +185,6 @@ export function SupplierFrontPage({
   const freeWhen: FreeWhen[] = [
     { label: 'You bring the event first', hint: FEE_FREE_CHIP },
     { label: 'A couple you brought onto Setnayan', hint: SUPPLIER_FREE_BOOKING_LINE },
-    { label: 'It is your first booking from Setnayan', hint: FIRST_BOOKING_ON_US },
     { label: 'You have a free booking fee ticket', hint: 'Your ticket is used on your next booking, automatically.' },
   ];
 
@@ -368,7 +370,8 @@ export function SupplierFrontPage({
                 {bookingFeeMinimumAmount(fee.schedule)}.
               </p>
               <p>
-                <b>How much.</b> {f.head} of the first {f.band} of a booking, then {f.tail} of the rest.
+                <b>How much.</b> {f.head} of the first {f.band} of a booking, then {f.tail} of the rest. Once the fee
+                reaches {bookingFeeCapAmount(fee.schedule)} it locks there, however big the booking.
               </p>
             </>
           ) : (
@@ -380,9 +383,6 @@ export function SupplierFrontPage({
           )}
           <p>
             <b>Who books you free.</b> {SUPPLIER_FREE_BOOKING_LINE}
-          </p>
-          <p>
-            <b>Your first booking.</b> {FIRST_BOOKING_ON_US}
           </p>
           <p>
             <b>Free booking fee tickets.</b> A ticket you already hold is applied automatically to your next booking that
@@ -402,6 +402,12 @@ export function SupplierFrontPage({
                 <span className={s.feeCap}>{f.tail} after that</span>
               </p>
             </div>
+            <p className={s.feeLock}>
+              <Lock aria-hidden className={s.fxLk} strokeWidth={2.2} />
+              <span>
+                Never more than <b>{bookingFeeCapAmount(fee.schedule)}</b>
+              </span>
+            </p>
             <FeeRuler schedule={fee.schedule} freeWhen={freeWhen} />
             {tapers ? <p className={s.fbSay}>The bigger you grow, the smaller our share.</p> : null}
             <p className={s.feeWhen}>{BOOKING_FEE_CHARGED_WHEN}</p>

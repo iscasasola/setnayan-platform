@@ -94,7 +94,8 @@ test('/pay hands down the SERVER-drawn code, and nothing for a browser to draw',
  * and the subscription tile offered nowhere to say you had paid at all.
  */
 const SECOND_SURFACES = [
-  'app/vendor-dashboard/booking-fees/[orderId]/page.tsx',
+  // Set two (21 Nov 2026): the fee page reads, its body draws — the body is where a code would be drawn.
+  'app/vendor-dashboard/booking-fees/[orderId]/fee-body.tsx',
   'app/vendor-dashboard/subscription/_components/plan-screen.tsx', // the Plan screen (2026-10-31: the page mounts it)
 ] as const;
 

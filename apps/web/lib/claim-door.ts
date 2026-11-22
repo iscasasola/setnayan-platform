@@ -260,6 +260,11 @@ export type ClaimDoorAnswers = {
   price: number | null;
   /** In the record's order (`ClaimDoorRecord.payWays`) — the server re-reads the record and pairs them by index. */
   payWays?: ClaimDoorPayAnswer[];
+  /**
+   * 🚪 The first service card's way (supplier onboarding, owner 19 Nov): Approve · Edit (the shipped Card Maker once the
+   * shop is open) · Skip (the first card is not made; the booking stays in Clients). Absent on an older draft = Approve.
+   */
+  firstCard?: 'approve' | 'edit' | 'skip';
 };
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -356,6 +361,7 @@ export function parseClaimDoorAnswers(raw: unknown): ClaimDoorAnswers | null {
     specialties,
     price: num(d.price),
     ...(payWays.length ? { payWays } : {}),
+    ...(d.firstCard === 'approve' || d.firstCard === 'edit' || d.firstCard === 'skip' ? { firstCard: d.firstCard } : {}),
   };
 }
 

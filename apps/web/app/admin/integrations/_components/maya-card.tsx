@@ -1,14 +1,20 @@
-import { KeyRound, ShieldAlert } from 'lucide-react';
+import { KeyRound, ShieldAlert, Webhook } from 'lucide-react';
 import { saveMayaConfig, clearMayaSecrets } from '../actions';
+import { mayaEnvironment, MAYA_WEBHOOK_EVENTS, MAYA_WEBHOOK_SOURCE_IPS } from '@/lib/maya-checkout';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { SwitchTrack, SWITCH_BUTTON } from '@/app/_components/switch-track';
 import { PasswordField } from '@/app/_components/password-field';
 import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 // Integration Activation Console — PR4c. Bespoke card for Maya/PayMaya: TWO
 // secrets (public + secret key form the Basic-auth pair) + one config (checkout
 // endpoint). Server component; secrets are masked + never echoed (blank = keep).
-// ⚠ Branch B activation ALSO needs NEXT_PUBLIC_MAYA_STATUS=APPROVED (build-time)
-// → that flip still requires a redeploy; this card only sets the credentials.
+// 💳 2026-11-21 (owner, "MAYA CHECKOUT — BUILD IT"): the build-time
+// NEXT_PUBLIC_MAYA_STATUS gate is RETIRED. The rail is on when the admin switch
+// (Settings › Payment methods) is ON and both keys here are set. This card adds
+// "Register webhooks" and, at its top, the "Payers see Maya" switch — its one
+// home (DECISION_LOG v2/v3 drawing rows) — both `intent`s on saveMayaConfig, no
+// new server action; and says whether the saved endpoint is SANDBOX or PRODUCTION.
 
 export function MayaCard({
   publicInDb,
@@ -17,7 +23,10 @@ export function MayaCard({
   secretInEnv,
   endpointValue,
   endpointFromEnv,
-  statusApproved,
+  webhookUrl,
+  webhookNotice,
+  payersSeeMaya,
+  payersSeeMayaUnread,
 }: {
   publicInDb: boolean;
   secretInDb: boolean;
@@ -25,9 +34,18 @@ export function MayaCard({
   secretInEnv: boolean;
   endpointValue: string;
   endpointFromEnv: boolean;
-  statusApproved: boolean;
+  /** Our webhook address, as it will be registered with Maya. */
+  webhookUrl: string;
+  /** The result of the last "Register webhooks" press, from the redirect. */
+  webhookNotice: { ok: boolean; text: string } | null;
+  /** The "Payers see Maya" switch (`maya_checkout_enabled`). */
+  payersSeeMaya: boolean;
+  /** TRUE when the switch could not be read — the card says so and the switch is not pressable. */
+  payersSeeMayaUnread: boolean;
 }) {
   const keysReady = (publicInDb || publicInEnv) && (secretInDb || secretInEnv);
+  const secretReady = secretInDb || secretInEnv;
+  const env = mayaEnvironment(endpointValue || 'https://pg-sandbox.paymaya.com');
   return (
     <section className={`${ADMIN_FRAME} space-y-4 p-5`}>
       <div className="flex items-center justify-between gap-2">
@@ -37,20 +55,52 @@ export function MayaCard({
         </h3>
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-            keysReady && statusApproved
+            keysReady
               ? 'bg-emerald-100 text-emerald-900'
               : 'bg-ink/10 text-ink/70'
           }`}
         >
-          {keysReady ? (statusApproved ? 'Live' : 'Keys set · not approved') : 'No keys'}
+          {keysReady ? `Keys set · ${env === 'sandbox' ? 'Sandbox' : 'Production'}` : 'No keys'}
         </span>
       </div>
 
+      {/* 💳 PAYERS SEE MAYA — the switch's one home (v3 drawing). One tap saves it; next page load takes it. */}
+      <form action={saveMayaConfig} className="flex items-center justify-between gap-3 border-b border-ink/10 pb-4" data-maya-switch="">
+        <input type="hidden" name="intent" value="payers_see_maya" />
+        <input type="hidden" name="enabled" value={payersSeeMaya ? '0' : '1'} />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink">Payers see Maya</p>
+          <p className="text-xs text-ink/60">
+            {payersSeeMayaUnread
+              ? 'Couldn’t read this switch just now — refresh to see it.'
+              : payersSeeMaya
+              ? keysReady
+                ? 'On — QR Ph, wallet, card and ShopeePay lead the pay page.'
+                : 'On, but hidden — a Maya key is missing. Payers see the BDO QR.'
+              : 'Off — every payer sees only the BDO QR.'}
+          </p>
+        </div>
+        <SubmitButton
+          role="switch"
+          aria-checked={payersSeeMaya}
+          aria-label="Payers see Maya"
+          pendingLabel=""
+          overlay={false}
+          disabled={payersSeeMayaUnread}
+          className={SWITCH_BUTTON}
+        >
+          {/* The house switch — one drawing everywhere (app/_components/switch-track.tsx). */}
+          <SwitchTrack on={payersSeeMaya} />
+        </SubmitButton>
+      </form>
+
       <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-        PayMaya automated checkout (Branch B). Both keys form the Basic-auth pair.
-        {statusApproved
-          ? ''
-          : ' Activation also requires NEXT_PUBLIC_MAYA_STATUS=APPROVED, which is build-time — that flip still needs a redeploy.'}
+        Both keys form the Basic-auth pair.
+      </p>
+      <p className="text-xs text-ink/60" data-maya-env={env}>
+        {env === 'sandbox'
+          ? 'Sandbox — test payments, no money moves.'
+          : 'Production — real money.'}
       </p>
 
       <form action={saveMayaConfig} className="space-y-3 border-t border-ink/10 pt-4">
@@ -103,6 +153,31 @@ export function MayaCard({
           className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
         >
           Save
+        </SubmitButton>
+      </form>
+
+      <form action={saveMayaConfig} className="space-y-2 border-t border-ink/10 pt-4">
+        <input type="hidden" name="intent" value="register_webhooks" />
+        <p className="inline-flex items-center gap-1.5 text-sm font-medium text-ink">
+          <Webhook aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Webhooks
+        </p>
+        <p className="break-all font-mono text-[11px] text-ink/60">{webhookUrl}</p>
+        <p className="text-xs text-ink/55">
+          Registers {MAYA_WEBHOOK_EVENTS.join(', ')} with Maya ({env}). Maya sends from{' '}
+          {MAYA_WEBHOOK_SOURCE_IPS[env].join(' and ')}.
+        </p>
+        {webhookNotice ? (
+          <p role="status" className={`text-xs ${webhookNotice.ok ? 'text-success-800' : 'text-danger-700'}`}>
+            {webhookNotice.text}
+          </p>
+        ) : null}
+        <SubmitButton
+          pendingLabel="Registering…"
+          disabled={!secretReady}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 text-sm font-medium text-ink/80 transition-colors hover:border-ink/30"
+        >
+          Register webhooks
         </SubmitButton>
       </form>
 

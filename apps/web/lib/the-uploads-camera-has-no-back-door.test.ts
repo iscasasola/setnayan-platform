@@ -80,7 +80,14 @@ test('🚨 the provisioner is called only from COUPLE-CHECKED RENDERS — the Pa
     .sort();
   assert.deepEqual(
     callers,
-    ['app/dashboard/[eventId]/memories/page.tsx', 'app/dashboard/[eventId]/studio/papic/_components/papic-self-heal.tsx'],
+    // 2026-11-22 (owner, priority live fix — a host's Event Hub camera was a dead end): the THIRD minter is the host's
+    // door on the guest-camera page, `lib/papic-host-door.server.ts`. Held to the same two facts by the test below: it
+    // mints only AFTER the viewer's own couple membership is read on their own session, for the viewer's own id.
+    [
+      'app/dashboard/[eventId]/memories/page.tsx',
+      'app/dashboard/[eventId]/studio/papic/_components/papic-self-heal.tsx',
+      'lib/papic-host-door.server.ts',
+    ],
     'the Uploads camera is minted somewhere new. This is a SERVICE-ROLE write: a caller that takes a ' +
       'client-supplied event id lets a signed-in stranger mint a live seat on somebody else\'s wedding ' +
       'and claim it — and every gate downstream checks claimer identity and nothing else.',
@@ -110,6 +117,29 @@ test('🚨 Memories mints it only inside the host branch, from the route\'s even
   assert.match(call, /validFrom: win\.startIso/, 'the Memories mint no longer takes the event window');
   assert.match(call, /validUntil: win\.endIso/, 'the Memories mint no longer takes the event window');
   assert.ok(!/validFrom: null/.test(call), 'a null window makes this the only seat exempt from the dates the couple picked');
+});
+
+test('🚨 the host door mints only AFTER the viewer\'s own couple check, for the viewer\'s own id — a slug in a link mints nothing', () => {
+  const door = readFileSync(join(WEB, 'lib/papic-host-door.server.ts'), 'utf8');
+  // The link names an event; WHO may mint on it is the viewer's own membership, read on their own session.
+  assert.match(door, /if \(!user \|\| user\.is_anonymous\) return \{ kind: 'not_host' \};/, 'a signed-out or anonymous visitor reaches the mint');
+  assert.match(
+    door,
+    /await supabase\s*\.from\('event_members'\)[\s\S]{0,200}\.eq\('event_id', row\.event_id\)\s*\.eq\('user_id', user\.id\)\s*\.eq\('member_type', 'couple'\)/,
+    'the host is no longer read from the viewer\'s own couple membership',
+  );
+  const check = door.indexOf("if (!membership) return { kind: 'not_host' };");
+  const mint = door.indexOf('provisionUploadsCameraAdmin(');
+  assert.ok(check > 0, 'a non-host is no longer turned away');
+  assert.ok(mint > check, 'the host camera is minted BEFORE the couple check — a stranger with a slug mints a seat');
+  assert.equal(door.split('provisionUploadsCameraAdmin(').length - 1, 1, 'a second mint appeared in the host door');
+  const call = /provisionUploadsCameraAdmin\([\s\S]{0,200}?\}(?:, [\w.]+)?\)/.exec(door)?.[0] ?? '';
+  assert.match(call, /provisionUploadsCameraAdmin\(admin, row\.event_id,/, 'the mint takes an event id that is not the checked row\'s');
+  assert.match(call, /\}, user\.id\)$/, 'the host door no longer mints the viewer\'s OWN camera');
+  assert.match(call, /validFrom: win\.startIso/);
+  assert.match(call, /validUntil: win\.endIso/);
+  // The membership read must use the session client, never the service role (which would skip RLS on the check itself).
+  assert.doesNotMatch(door, /admin\s*\.from\('event_members'\)/, 'the couple check is read with the service role');
 });
 
 test('🚨 there is no server action wrapper for it', () => {

@@ -59,7 +59,7 @@ function roots(html: string, marker: string): Array<{ key: string; cls: string[]
     cls: (/\bclass="([^"]*)"/.exec(m[0])?.[1] ?? '').split(/\s+/),
   }));
 }
-const FRAMES = ['hc-tile', 'sg-row', 'home-tile', 'home-card'];
+const FRAMES = ['hc-tile', 'sg-row', 'home-tile', 'home-card', 'sn-frame'];
 const framed = (cls: string[]) => cls.some((c) => FRAMES.includes(c)) && !cls.includes('hc-plain');
 
 function home(): string {
@@ -103,9 +103,10 @@ test('3 · Papic is a card; Who’s here, Prints and Your services sit on the pa
   const whosRoot = /<section className="([^"]*)" data-home-whos-here=/.exec(whos)?.[1]?.split(/\s+/) ?? [];
   assert.ok(whosRoot.length > 0, 'Who’s here has no root to read');
   assert.equal(framed(whosRoot), false, 'Who’s here is framed');
-  // Papic: its one card keeps the frame.
+  // Papic: its one card keeps the frame — since 2026-11-20 the house frame (`sn-frame`, the approved Memories block:
+  // white, rounded, lifted), and its body is a press (it rises the settings).
   const papic = stripComments(readFileSync(join(HERE, '_components/papic-home-card.tsx'), 'utf8'));
-  const papicRoot = /<div className="([^"]*\bsg-row\b[^"]*)" \{\.\.\.marker\}>/.exec(papic)?.[1]?.split(/\s+/) ?? [];
+  const papicRoot = /<div className="([^"]*\b(?:sg-row|sn-frame)\b[^"]*)"[^>]*\{\.\.\.marker\}>/.exec(papic)?.[1]?.split(/\s+/) ?? [];
   assert.equal(framed(papicRoot), ACTING.has('papic'), 'Papic is not a card');
 });
 

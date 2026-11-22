@@ -10,43 +10,46 @@
 /dashboard/[eventId]/studio/editorial-pro	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dashboard/[eventId]/studio/live-studio-control/setup	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dashboard/[eventId]/studio/playlist	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
-/dev/account-lab	# first run 2026-11-12 · internal (dev, prototypes) · lane 6 (plan D5) account-chrome lab; 404 in production, reached only by typing its address
+/dev/account-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/add-your-own-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/admin-catalogue-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/admin-money-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/admin-people-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/admin-shell-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/admin-supplier-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/admin-people-lab	# 2026-11-14 · internal (dev lab, 404 in production) · the four People records on fixtures; reached by typing its address
-/dev/articles-lab	# 2026-11-17 · internal (dev lab, 404 in production) · the articles feed, an article and the Write sheet on the drawing's sample rows; reached by typing its address
-/dev/admin-shell-lab	# 2026-11-13 · internal (dev lab, 404 in production) · the admin five-tab shell on fixtures; reached by typing its address
-/dev/admin-catalogue-lab	# 2026-11-14 · internal (dev lab, 404 in production) · the admin Catalogue screens on fixtures; reached by typing its address
-/dev/admin-money-lab	# 2026-11-14 · internal (dev lab, 404 in production) · Admin › Money's inner screens on fixtures; reached by typing its address
 /dev/art-kit-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/articles-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/avatar-sheet-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/award-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/bar-lab/[[...path]]	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/billing-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/booking-ask-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/booth-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/budget-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/bundle-maker-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/cake-maker-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/card-maker-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/card-moderation-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/categories-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/chapters-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/chat-cards-lab	# first run 2026-11-09 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/chat-cards-c-lab	# first run 2026-11-09 · internal (dev, prototypes) · lane C card lab; 404 in production, reached only by typing its address
+/dev/chat-cards-c-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/chat-cards-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/chat-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/check-a-date-lab	# 2026-11-14 · internal (dev, prototypes) · SHOP-02 v7 Check a date over a drawn shop, fixture data; 404 in production, reached only by typing its address
-/dev/clients-lab	# first run 2026-11-08 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/collapsing-top-lab	# first run 2026-11-08 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/check-a-date-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/clients-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/collapsing-top-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/create-for-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/customer-money-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/date-sheet-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/details-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/empty-looks-lab	# first run 2026-11-10 · internal (dev, prototypes) · Build 5 Lane H empty-look lab; 404 in production, reached only by typing its address
-/dev/event-group-chat-lab	# 2026-11-12 · internal (dev, prototypes) · a page nobody can reach without typing its address — event group chats on fixture data, 404 in production
+/dev/empty-looks-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/event-group-chat-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/favorites-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/fee-rulings-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/files-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/find-lock-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/for-suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/files-lab	# first run 2026-11-12 · internal (dev lab, Piece 3b) · a page nobody can reach without typing its address
-/dev/forms-lab	# first run 2026-11-08 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/forms-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/group-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/guests-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/hero-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -56,41 +59,51 @@
 /dev/maker-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/maker-lab/guest	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/maker-lab/guest/scrub	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/mall-card-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/me-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/memories-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/motion-screens-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/motion-screens-lab/deeper	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/notifications-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/offer-card-lab	# 2026-11-12 · internal (dev) · PR-4 offer card + side-by-side lab; 404 in production, reached only by typing its address
-/dev/offer-maker-lab	# 2026-11-12 · internal (dev, prototypes) · a page nobody can reach without typing its address — the Offer Maker on fixture data (Build 6 Lane D), 404 in production
+/dev/offer-card-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/offer-maker-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/onboarding-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/open-shop-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/papers-renewal-lab	# 2026-11-16 · internal (dev, prototypes) · a dev-only lab for the papers renewal shots; 404 in production
+/dev/papers-renewal-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/papic-camera-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/pay-maya-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/people-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/personal-invite-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/photo-privacy-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/pro-parts-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/pro-tools-lock-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/profile-photo-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/questions-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/receipt-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/review-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/rise-route-lab	# first run 2026-11-13 · internal (dev, prototypes) · the batch-3 rise lab (build-sessions/RISE-AUDIT-2026-11-13.md § H); 404 in production, reached only by typing its address
+/dev/rise-route-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/schedule-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/search-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/selfie-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/service-card-row-lab	# 2026-11-11 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/service-requests-lab	# first run 2026-11-13 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/service-card-row-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/service-requests-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-back-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/shop-card-lab	# 2026-11-10 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/shop-card-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/shop-end-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-layout-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/shop-end-lab	# 2026-11-14 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-page-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-plan-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-preview-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/signature-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/spotlight-lab/[[...page]]	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/story-suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-chat-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-plan-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-print-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/supplier-set-two-day-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/supplier-set-two-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/supplier-tools-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/clients	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/on-the-day	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -99,6 +112,7 @@
 /dev/swipe-rows-lab/sponsors	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/suppliers	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/thumb-row-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/unichat-a-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/venue-check-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/verify-desk-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/visits-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -107,9 +121,4 @@
 /papic/lightcheck	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
 /sample/[...rest]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
-/dev/award-lab	# 2026-11-15 · internal (dev lab, 404 in production) · the shared award kit (badge, reward tickets, seal plaque, story video) on sample data; reached by typing its address
-/dev/motion-screens-lab	# first run 2026-11-18 · internal (dev, prototypes) · the motion standard's Phase 3 lab (Tuck, Highlight, the full-screen map, Push); 404 in production
-/dev/motion-screens-lab/deeper	# first run 2026-11-18 · internal (dev, prototypes) · the lab's one deeper page — reached from the lab itself by a built address; 404 in production
-/dev/signature-lab	# first run 2026-11-19 · internal (dev, prototypes) · the motion standard's six signature moments on the shipped parts (§ 9); 404 in production
-/dev/story-suppliers-lab	# first run 2026-11-13 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/rooms-seating-lab	# first run 2026-11-18 · internal (dev, prototypes) · a page nobody can reach without typing its address

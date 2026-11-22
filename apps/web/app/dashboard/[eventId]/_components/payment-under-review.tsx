@@ -14,9 +14,9 @@ import { Clock } from 'lucide-react';
  */
 export function PaymentUnderReview({ feature }: { feature: string }) {
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50/60 px-5 py-4">
-      <Clock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" strokeWidth={2} />
-      <p className="text-sm text-amber-800">
+    <div className="flex items-start gap-3 rounded-2xl border border-amber-300 dark:border-[rgb(var(--color-warn)/0.4)] bg-amber-50/60 dark:bg-[rgb(var(--color-warn)/0.14)] px-5 py-4">
+      <Clock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-[rgb(var(--color-warn))]" strokeWidth={2} />
+      <p className="text-sm text-amber-800 dark:text-[rgb(var(--color-warn))]">
         <span className="font-medium">Payment under review.</span> Your {feature} goes live the
         moment our team confirms your payment — usually within a day.
       </p>

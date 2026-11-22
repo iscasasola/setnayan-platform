@@ -111,7 +111,7 @@ export function UnsortedTray({
         {remaining.map((entry) => (
           <li
             key={entry.songId}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/60 px-3 py-2"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-raised/60 px-3 py-2"
           >
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-ink">{entry.title}</span>

@@ -95,7 +95,7 @@ export function EmceeScriptButton({ eventId, coupleName, variant = 'button' }: P
           type="button"
           onClick={() => generate(includePrivate)}
           disabled={pending}
-          className="inline-flex items-center gap-2 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 disabled:opacity-60"
         >
           <ScrollText aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {pending ? 'Generating…' : 'Generate emcee script'}
@@ -140,7 +140,7 @@ export function EmceeScriptButton({ eventId, coupleName, variant = 'button' }: P
                   readOnly
                   value={script ?? ''}
                   rows={18}
-                  className="w-full resize-none rounded-lg border border-ink/10 bg-white p-3 font-mono text-xs leading-relaxed text-ink"
+                  className="w-full resize-none rounded-lg border border-ink/10 bg-raised p-3 font-mono text-xs leading-relaxed text-ink"
                 />
               )}
             </div>
@@ -164,7 +164,7 @@ export function EmceeScriptButton({ eventId, coupleName, variant = 'button' }: P
                   type="button"
                   onClick={copy}
                   disabled={!script}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 disabled:opacity-50"
                 >
                   {copied ? (
                     <Check aria-hidden className="h-4 w-4 text-success-600" strokeWidth={1.75} />

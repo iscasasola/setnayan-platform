@@ -96,7 +96,8 @@ function settled(server: IapConfirmResult): boolean {
  * The whole purchase, start to finish. Resolves to the ONE screen the sheet
  * shows next — never throws, never shows Apple's raw error text.
  */
-export async function buyWithApple(input: { eventId: string; productId: string }): Promise<IapScreen> {
+/** `eventId` names the couple's event; a shop's gift (`gift_*`) has none — it lands in the shop's own gift stock. */
+export async function buyWithApple(input: { eventId?: string; productId: string }): Promise<IapScreen> {
   if (!nativeStoreAvailable()) return { kind: 'refused', message: 'This is not available in the app right now.' };
 
   let started: Awaited<ReturnType<typeof startAppStorePurchase>>;

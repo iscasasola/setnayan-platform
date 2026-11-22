@@ -80,7 +80,10 @@ export type IapProductKind =
   | 'live-watch'
   | 'papic-credits'
   /** 🍎 23 Oct: one unlock for the CURRENT event, never sold twice. None is on sale now: Setnayan AI and Thank You retired, Music Maker and Patiktok retired 2026-11-20. */
-  | 'event-unlock';
+  | 'event-unlock'
+  /** 💝 A SHOP's gift (owner 2026-11-04, "they can purchase inside apple as well"): lands in the shop's gift stock exactly
+   *  like a web gift — never a couple's purchase. Only `IAP_SUPPLIER_GIFT_PRODUCTS` carry it. */
+  | 'supplier-gift';
 
 export type IapProduct = {
   /** The App Store Connect product id. */
@@ -178,33 +181,27 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
 ]);
 
 /**
- * 💝 THE SUPPLIER GIFT PRODUCTS (owner 2026-11-04, *"they can purchase inside apple as well"*): what a SUPPLIER pays to
- * gift one of the couple's products, sold in the iPhone app through Apple. 📦 Since 2026-11-14 the price is the row's
- * LIST price (`retail_price_php`, never typed here) — one price per gift, `gift_price_php` is not a price anywhere; in
- * App Store Connect each is set to the Philippine price point equal to that figure (an OWNER action — the 4 Nov price
- * points were set from the retired gift price; build-sessions/APPLE-IAP-PRICES-2026-11-04.md).
+ * 💝 THE SUPPLIER GIFT PRODUCTS (owner 2026-11-04, *"they can purchase inside apple as well"*): what a SHOP pays, in the
+ * iPhone app, for ONE gift into its gift stock — the same stock a web gift lands in (`shop_gift_stock_entries`), given
+ * to a couple the same way (Agree / a quote, out when their first payment clears). 📦 The price is the row's LIST price
+ * (`retail_price_php`, never typed here; owner 14 Nov "Yes, at list price", 17 Nov "they all pay regular price") — in
+ * App Store Connect each is the Philippine price point equal to that figure (build-sessions/APPLE-PRODUCTS-2026-11-22.md).
+ * Apple sells a consumable ONE at a time, so the app sells single gifts; the 10 + 1 bundles stay on the web.
  *
- * ⚠ DELIBERATELY NOT IN `IAP_PRODUCTS`, so NOT in `IAP_PRODUCT_IDS` and NOT answered by `iapProductById`: the purchase
- * path (`startAppStorePurchase`) is a COUPLE's — event-scoped and coordinator-checked — and has no supplier buyer, no
- * recipient event and no gift delivery. Listing these there would let a couple buy their own product through a gift product.
- * They join the sellable list only together with a supplier-buyer intent + delivery (not built — PR body). Ids are
- * FOREVER once created in App Store Connect.
+ * ⚠ DELIBERATELY NOT IN `IAP_PRODUCTS`, so NOT in `IAP_PRODUCT_IDS` and NOT answered by `iapProductById`: a COUPLE's
+ * purchase (event-scoped, coordinator-checked) can never reach a gift product. Only the shop branch of
+ * `startAppStorePurchase` sells one (`iapSupplierGiftProductById`), and only the transaction reader delivers one
+ * (`iapProductForDelivery`). The catalogue code is `serviceKey`; the ORDER is `vendor_gift__<code>` (`shopGiftServiceKey`).
+ * Ids are FOREVER once created in App Store Connect.
  */
-export type IapSupplierGiftProduct = {
-  productId: string;
-  /** The couple product gifted — its catalogue row carries the list price (`retail_price_php`) this product is priced from. */
-  serviceKey: string;
-  appleType: 'consumable';
-  appStoreName: string;
-  /** Papic packs: the credits gifted (re-checked against `papic_pass_tiers` exactly as `papicCreditsMatch`). */
-  credits: number | null;
-};
+export type IapSupplierGiftProduct = IapProduct & { kind: 'supplier-gift' };
 
 export const IAP_SUPPLIER_GIFT_PRODUCTS: readonly IapSupplierGiftProduct[] = Object.freeze([
   ...PAPIC_PACKS.map(
     ([credits, serviceKey]): IapSupplierGiftProduct => ({
       productId: `${PREFIX}gift_papic_pack_${credits}`,
       serviceKey,
+      kind: 'supplier-gift',
       appleType: 'consumable',
       appStoreName: `Gift · Papic ${credits}`,
       credits,
@@ -227,12 +224,25 @@ export const IAP_SUPPLIER_GIFT_PRODUCTS: readonly IapSupplierGiftProduct[] = Obj
     ([id, serviceKey, name]): IapSupplierGiftProduct => ({
       productId: `${PREFIX}${id}`,
       serviceKey,
+      kind: 'supplier-gift',
       appleType: 'consumable',
       appStoreName: name,
       credits: null,
     }),
   ),
 ]);
+
+/** 💝 The shop gift a product id sells — the ONE lookup the shop branch of the purchase path uses. */
+export function iapSupplierGiftProductById(productId: string | null | undefined): IapSupplierGiftProduct | null {
+  if (!productId) return null;
+  return IAP_SUPPLIER_GIFT_PRODUCTS.find((p) => p.productId === productId) ?? null;
+}
+
+/** 💝 The shop gift that sells this catalogue code (`EVENT_PLUS` → `gift_event_plus`) — what the gift sheet offers. */
+export function iapSupplierGiftProductForCode(code: string | null | undefined): IapSupplierGiftProduct | null {
+  if (!code) return null;
+  return IAP_SUPPLIER_GIFT_PRODUCTS.find((p) => p.serviceKey === code) ?? null;
+}
 
 /**
  * A pack bought again and again (Papic credits): never refused as "owned", and left out of Restore's list of things
@@ -329,7 +339,8 @@ export function appStorePriceMatchesWeb(
  * `tierPoints` null = the tier is missing or retired → not on sale.
  */
 export function papicCreditsMatch(product: IapProduct, tierPoints: number | null): boolean {
-  if (product.kind !== 'papic-credits') return true;
+  // 💝 A Papic GIFT promises its credits too ("Gift · Papic 150").
+  if (product.kind !== 'papic-credits' && !(product.kind === 'supplier-gift' && product.credits !== null)) return true;
   return tierPoints !== null && product.credits === tierPoints;
 }
 

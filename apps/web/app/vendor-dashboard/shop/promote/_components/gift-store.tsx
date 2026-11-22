@@ -33,6 +33,7 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 import { GiftTicketArt, GiftTicketPile } from './gift-ticket-art';
 import { GIFT_AT_LEAST_ONE, GIFT_HOLD_RULE, bundleShape, giftSheetGrow, giftSheetWords, giftStoreCapLine } from './gift-store-copy';
 import s from './gift-store.module.css';
+import { IapGiftBuy } from '@/app/_components/iap/iap-gift-buy';
 
 /**
  * 🛒 THE GIFT STORE — the owner-approved prototype `gifts-interactive` v16 (2026-11-17, "build it"), translated:
@@ -70,6 +71,7 @@ export function GiftTicketSheet({
   bundles,
   maxPaymentPhp,
   canBuy,
+  appleProductId = null,
   onClose,
   onAdd,
 }: {
@@ -82,6 +84,11 @@ export function GiftTicketSheet({
   maxPaymentPhp: number;
   /** Buying is offered (Papic on, not the App Store shell, a rail open). */
   canBuy: boolean;
+  /**
+   * 💝 Inside the iPhone app with StoreKit: THIS gift's Apple product. The sheet keeps everything else and swaps only the
+   * pay step — one Apple purchase of one gift instead of Add 1 / Add 10 + 1. Null on the web.
+   */
+  appleProductId?: string | null;
   onClose: () => void;
   onAdd: (code: string) => void;
 }) {
@@ -141,6 +148,7 @@ export function GiftTicketSheet({
           </div>
         ) : null}
         {canBuy && grow ? <p className="mt-2 text-[12.5px] text-ink/60">{grow}</p> : null}
+        {!canBuy && appleProductId ? <IapGiftBuy productId={appleProductId} /> : null}
       </div>
     </Sheet>
   );

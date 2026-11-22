@@ -246,10 +246,11 @@ test('🗑 Setnayan AI is sold by no product (2026-11-04) — the tier lookup an
   assert.equal(iapPriceRowFor(iapProductForServiceKey('LIVE_STUDIO')!), 'LIVE_STUDIO', 'a product with no tier is checked against its own code');
 });
 
-test('💝 the nine supplier gift products exist, are unique, and are NOT sellable through the couple path', () => {
+test('💝 the six supplier gift products exist, are unique, are a SHOP\'s only, and deliver as a shop gift', () => {
   assert.deepEqual(
     IAP_SUPPLIER_GIFT_PRODUCTS.map((p) => p.serviceKey),
     // One code per line: several catalogue codes on one line read as a key to the secret scan.
+    // Live Watch, Music Maker and Patiktok are not gifts (lib/iap/a-shop-gift-is-bought-like-a-web-gift.test.ts).
     [
       'PAPIC_GUEST_150',
       'PAPIC_GUEST_1K',
@@ -257,18 +258,16 @@ test('💝 the nine supplier gift products exist, are unique, and are NOT sellab
       'EVENT_PLUS',
       COUPLE_WEBSITE_PRO_SERVICE_KEY,
       'EVENT_ULTRA',
-      'LIVE_STUDIO',
-      'PAKANTA',
-      'PATIKTOK_COMPILER',
     ],
   );
   const ids = IAP_SUPPLIER_GIFT_PRODUCTS.map((p) => p.productId);
-  assert.equal(new Set(ids).size, 9); // 💎 + gift_event_ultra (owner 2026-11-13)
+  assert.equal(new Set(ids).size, 6);
   for (const id of ids) {
-    // A couple must never reach the gift price: no gift id is asked of StoreKit or resolved for a purchase.
-    assert.equal(IAP_PRODUCT_IDS.includes(id), false, `${id} is in the sellable list`);
+    // A couple must never reach a gift product: no gift id is asked of StoreKit for an event or resolved for one.
+    assert.equal(IAP_PRODUCT_IDS.includes(id), false, `${id} is in the couple's sellable list`);
     assert.equal(iapProductById(id), null, `${id} resolves for the couple purchase path`);
     assert.equal(RETIRED_IAP_PRODUCT_IDS.includes(id), false, `${id} reuses a retired id`);
-    assert.equal(iapProductForDelivery(id), null, `${id} delivers — no supplier gift delivery is built`);
+    // 💝 22 Nov: the shop's Apple gift is built — the transaction reader delivers it, AS a shop gift.
+    assert.equal(iapProductForDelivery(id)?.kind, 'supplier-gift', `${id} does not deliver as a shop gift`);
   }
 });

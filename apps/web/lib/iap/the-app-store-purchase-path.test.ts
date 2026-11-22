@@ -86,7 +86,11 @@ test('the promote is conditional and counted, and ONLY the call that promoted ac
   const revoke = src.slice(src.indexOf('export async function revokeAppleTransaction'));
   assert.ok(revoke.indexOf(".in('status', ['paid', 'fulfilled'])") < revoke.indexOf('deactivateOrderSku('));
   // Identity from the intent row, through the house helpers.
-  assert.match(src, /orderRowFor\(\s*\{ userId: row\.user_id, eventId, vendorProfileId: null \}/);
+  assert.match(src, /orderRowFor\(\s*\{ userId: row\.user_id, eventId, vendorProfileId: giftShop \}/);
+  // 💝 A shop is named on the order ONLY for a gift product, and a gift has no event (22 Nov).
+  assert.match(src, /const giftShop = gift \? row\.vendor_profile_id : null;/);
+  assert.match(src, /const eventId = gift \? null : row\.event_id;/);
+  assert.match(src, /if \(!gift && row\.vendor_profile_id\) return \{ status: 'refused', reason: 'product_mismatch' \};/);
   assert.match(src, /paymentRowFor\(\s*\{ userId: row\.user_id, verifiedOrderId: order\.order_id \}/);
 });
 
@@ -111,6 +115,7 @@ test('the app shows no web price, no GCash/BDO, no web link on an Apple surface'
     'app/_components/iap/iap-papic-sheet.tsx',
     'app/_components/iap/iap-live-watch-sheet.tsx',
     'app/_components/iap/iap-unlock-sheet.tsx',
+    'app/_components/iap/iap-gift-buy.tsx',
     'lib/iap/setnayan-ai-in-app.server.ts',
     'app/_components/iap/restore-purchases-row.tsx',
     'app/_components/iap/apple-pro-screen.tsx',

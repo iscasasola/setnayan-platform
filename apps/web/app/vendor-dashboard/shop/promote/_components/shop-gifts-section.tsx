@@ -32,6 +32,8 @@ import {
 import { bump, canAdd, type GiftCart } from '@/lib/shop-gift-cart';
 import type { GiftHistoryRow } from '@/lib/shop-gift-history';
 import { GiftHistory, GiftStore, GiftTicketSheet } from './gift-store';
+import { AppStoreTransactions } from '@/app/_components/iap/app-store-transactions';
+import { iapSupplierGiftProductForCode } from '@/lib/iap/products';
 import { GiftReturnBanner } from './gift-return-banner';
 import { useSearchParams } from 'next/navigation';
 import { GiftTicketArt } from './gift-ticket-art';
@@ -88,8 +90,13 @@ export type ShopGiftsSectionData = {
   /** 💳 The most in one payment — the admin setting (`getMaxPaymentPhp`), never typed here. */
   maxPaymentPhp: number;
   openRails: OpenRail[];
-  /** Papic on, and not inside the App Store shell (supplier purchases stay on the web). */
+  /** Papic on, and not inside the App Store shell (the web's Buy: BDO, the cart, the 10 + 1 bundles). */
   canBuy: boolean;
+  /**
+   * 💝 Inside the iPhone app with StoreKit (`getIapGate().iap`): each ticket's sheet buys ONE gift through Apple instead
+   * of Add 1 / Add 10 + 1 — Apple's price on the button, never ours. Absent ⇒ false.
+   */
+  appleGifts?: boolean;
   /**
    * 🏅 Badge rewards (owner 2026-11-05) — what each badge gave, kept in this same stock and marked "Badge reward", plus
    * the free booking fee. Absent ⇒ the section reads as before. `granted: null` ⇒ could not be read (never "none").
@@ -188,6 +195,8 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
   // 💎 Every gift is in the store — Event Ultra too, at its list price (owner 2026-11-17).
   const buyPacks = packs.filter((p) => shopGiftBuyable(p.code));
   const canOffer = data.canBuy && stock !== null && buyPacks.length > 0;
+  // 💝 In the iPhone app: each ticket's sheet buys ONE gift through Apple (`IapGiftBuy`) — never the web's cart.
+  const appleOffer = Boolean(data.appleGifts) && !data.canBuy && stock !== null;
   const rewards = data.rewards;
   const granted = rewards?.granted ?? null;
   const fee = granted ? freeFeeSummary(granted) : null;
@@ -436,6 +445,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
         bundles={bundles}
         maxPaymentPhp={data.maxPaymentPhp}
         canBuy={canOffer}
+        appleProductId={appleOffer && sheetTile ? (iapSupplierGiftProductForCode(sheetTile.pack.code)?.productId ?? null) : null}
         onClose={() => setSheetCode(null)}
         onAdd={addFromSheet}
       />
@@ -455,6 +465,8 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
         />
       ) : null}
       <GiftHistory open={view === 'history'} onClose={() => setView(null)} rows={history} />
+      {/* 💝 The net under an Apple gift: a purchase that finished while the app was closed lands when the shop looks. */}
+      {appleOffer ? <AppStoreTransactions /> : null}
     </section>
   );
 }

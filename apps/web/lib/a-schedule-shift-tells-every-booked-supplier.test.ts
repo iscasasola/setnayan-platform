@@ -29,7 +29,7 @@ const CHANGE = 'lib/change-the-schedule.server.ts';
 const SHEETS = 'app/dashboard/[eventId]/schedule/_components/day-sheets.tsx';
 const RAIL = 'app/dashboard/[eventId]/schedule/_components/day-rail.tsx';
 const NOTIFY = 'lib/schedule-shift-notify.server.ts';
-const HUB = 'app/vendor-dashboard/on-the-day/live/[eventId]/page.tsx';
+const HUB_BODY = 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/event-day-body.tsx';
 
 function body(src: string, name: string): string {
   const at = src.search(new RegExp(`(?:async\\s+)?function\\s+${name}\\s*[(<]`));
@@ -73,8 +73,10 @@ test('⓶ it opens the live console’s schedule on the day, and the customer ca
   assert.equal(isOnTheDay('2026-12-18', null, '2026-12-17'), false);
   assert.equal(isOnTheDay(null, null, '2026-12-18'), false);
   // the fragment lands on a block the console ALWAYS draws (a fragment to a missing id fails in silence)
-  const hub = read(HUB);
-  assert.match(hub, /<div id="schedule" className="scroll-mt-4">/);
+  // (The console's page reads; its body draws — supplier pages set two, page 8, 21 Nov 2026. The anchor sits on the
+  // dark focal, drawn on The Day whether or not the couple's program could be read.)
+  const hub = read(HUB_BODY);
+  assert.match(hub, /<div id="schedule" className=\{`scroll-mt-4 \$\{setTwo\.dayClockSlot\}`\}>/);
 });
 
 test('⓷ once per shift — after the write loop, never inside it; Running late asks for it, a drag does not', () => {

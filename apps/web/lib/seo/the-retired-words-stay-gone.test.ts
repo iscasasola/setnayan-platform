@@ -28,6 +28,7 @@ import { INPUT_FOR_GUARDS } from '../llms-txt-guard-input';
 import { BOOKING_FEE } from '../booking-fee';
 import { stripComments } from '../strip-comments';
 import { aiAnswers, featuresFaqAnswers, SUPPLIER_FREE_BOOKING_LINE } from './ai-answers';
+import { FEE_FREE_RULE_THIRD } from '@/lib/booking-fee-who-words';
 import { ALL_HELP_ARTICLES } from '../help';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -203,7 +204,7 @@ test('the patterns are live — each one catches the words it was written for', 
     for (const t of lines) assert.match(t, row.pattern, `${what} misses the paraphrase: ${t}`);
   }
   // …and the replacement lines are not convicted.
-  for (const t of [SUPPLIER_FREE_BOOKING_LINE, 'Setnayan AI comes inside Event Pro and Event Ultra']) {
+  for (const t of [SUPPLIER_FREE_BOOKING_LINE, FEE_FREE_RULE_THIRD, 'Setnayan AI comes inside Event Pro and Event Ultra']) {
     assert.ok(!REMOVE_NOW.some((r) => r.pattern.test(t)), `a retired pattern convicts the replacement line: ${t}`);
   }
   for (const r of REMOVE_NOW) {
@@ -218,7 +219,7 @@ test('what replaced them is said: the 19 Nov free booking, "let\'s get that set"
   assert.match(llms, /Plan it[\s\S]*Live it[\s\S]*Keep it/, 'llms.txt is no longer grouped Plan it · Live it · Keep it');
   assert.ok(!llmsFeatureRoutes().some((r) => /real-stories/.test(r)), 'llms.txt links the retired Real Stories page');
   const commission = withFee('true', () => aiAnswers({ bookingFee: BOOKING_FEE }).find((a) => a.id === 'commission')!.answer);
-  assert.ok(commission.includes(SUPPLIER_FREE_BOOKING_LINE), 'the commission answer lost the 19 Nov free-booking sentence');
+  assert.ok(commission.includes(FEE_FREE_RULE_THIRD), 'the commission answer lost the free-booking rule (lib/booking-fee-who-words.ts)');
   const layout = stripComments(readFileSync(join(WEB, 'app/layout.tsx'), 'utf8'));
   assert.match(layout, /let's get that set/, 'the Organization JSON-LD no longer gives the meaning of Set na \'yan');
 });

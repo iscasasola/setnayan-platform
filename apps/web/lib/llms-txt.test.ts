@@ -28,7 +28,7 @@ import {
   llmsFeatureRoutes,
 } from './llms-txt';
 import { KNOWN_PUBLIC_ROUTES } from './seo/health-checks';
-import { SUPPLIER_FREE_BOOKING_LINE } from './seo/ai-answers';
+import { FEE_FREE_RULE_THIRD } from './booking-fee-who-words';
 import { BOOKING_FEE, bookingFeeScheduleSummary } from './booking-fee';
 
 import { RETAIL, VENDOR, INPUT_FOR_GUARDS as INPUT } from './llms-txt-guard-input';
@@ -360,15 +360,16 @@ test('the launch offer is named from the passed cap only, and absent when the of
   assert.doesNotMatch(feeOff, /Launch offer/, 'no fee is billed while it is switched off, so no waiver is promised');
 });
 
-// ⚖ INVERTED 20 Nov (PR #8041). This test used to REQUIRE "…their own invite, their own booking QR or their own link
-// never carries the fee". The owner's 19 Nov ruling (DECISION_LOG 2026-11-19 "PROMOTION PAGES — SEVEN ANSWERS", item 4)
-// retires the own-clients claim everywhere; the free booking is said only in his words, SUPPLIER_FREE_BOOKING_LINE.
-// What the code bills (`SUPPLIER_BROUGHT_SOURCES`, lib/booking-fee-gate.ts) is unchanged — only the public promise is.
-// SABOTAGE: put the old clause back → RED (here and in lib/seo/the-retired-words-stay-gone.test.ts).
-test('llms.txt makes no own-clients fee promise, and says the 19 Nov free-booking line instead', () => {
+// ⟲ Owner 2026-11-16 (d4899cd5 · 9fe95ebe · answer 3): a supplier-brought couple is free only when the supplier is the
+// FIRST to bring the event (or the import brought the couple onto Setnayan — no length named on a public page, 19 Nov
+// PROMOTION PAGES (4)). The free rule is said in lib/booking-fee-who-words.ts's third-person words (FEE_FREE_RULE_THIRD),
+// never the retired own-clients promise ("… never carries the fee"; #8041). SABOTAGE: drop the clause → RED.
+test('llms.txt says when a supplier-brought couple (own QR, invite or link) carries no fee — and that the rest pay', () => {
   const body = withFeeFlag('true', () => renderLlmsTxt(INPUT));
-  assert.doesNotMatch(body, /never carr(?:y|ies) (?:a |the |any )?(?:booking )?fee/i);
-  assert.ok(supplierSection(body).includes(SUPPLIER_FREE_BOOKING_LINE), 'the supplier section lost the 19 Nov free-booking line');
+  assert.match(body, /the first supplier to bring an event onto Setnayan/);
+  assert.match(body, /their own invite, their own booking QR or their own link; every other booking carries the fee/);
+  assert.ok(supplierSection(body).includes(FEE_FREE_RULE_THIRD), 'the supplier section lost the free-booking rule');
+  assert.doesNotMatch(body, /never carr(?:y|ies) (?:a |the |any )?(?:booking )?fee/i, 'the retired "own clients never pay" promise is back');
 });
 
 // W1-B20 (2026-11-16): the bare /v/ directory is a 404 — shops live at setnayan.com/{shop}. SABOTAGE: put

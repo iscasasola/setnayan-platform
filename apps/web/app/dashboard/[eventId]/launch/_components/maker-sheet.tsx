@@ -288,7 +288,7 @@ export function MakerHalfSheet({
             onBlur={peekOff}
             onContextMenu={(e) => e.preventDefault()}
             className={`sn-press inline-flex h-11 shrink-0 touch-none select-none items-center rounded-full px-3.5 text-[12px] font-semibold tracking-wide ring-1 [-webkit-touch-callout:none] lg:hidden ${
-              state.peeking ? 'bg-ink text-cream ring-ink' : 'bg-white text-ink/75 ring-ink/15'
+              state.peeking ? 'bg-ink text-cream ring-ink' : 'bg-raised text-ink/75 ring-ink/15'
             }`}
           >
             Peek

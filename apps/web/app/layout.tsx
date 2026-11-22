@@ -19,6 +19,7 @@ import './_components/collapsing-top/collapsing-top.css';
 import './_components/fold.css';
 import './service-icons.css';
 import './signature-moments.css';
+import './_components/chat-tools.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { StoreShellLinkGuard } from './_components/store-shell-link-guard';
 import { NativeBridge } from './_components/native-bridge';

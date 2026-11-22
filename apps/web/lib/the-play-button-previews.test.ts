@@ -111,16 +111,19 @@ test('(2) the toolbar asks for the phase on screen only while Animate’s rows a
   assert.match(bridge, /only === 'in' \|\| only === 'act' \|\| only === 'out' \? only : undefined,/);
 });
 
-test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exit returns to the part and the page held', () => {
-  /* THE PRESS: a timer; a release before it is a tap; the release after it is not. */
-  assert.match(tools, /hold\.current\.timer = window\.setTimeout\(\(\) => \{\s*hold\.current\.timer = null;\s*hold\.current\.fired = true;\s*enterPreview\(\);\s*\}, STAGE_HOLD_MS\);/);
-  assert.match(tools, /const play = \(\) => \{\s*if \(hold\.current\.fired\) \{\s*hold\.current\.fired = false;\s*return;\s*\}/, 'the release of a hold also plays');
+test('(3) 👁 is the whole page as a guest — it lets go of nothing, and Exit returns to the part and the page held', () => {
+  /* 🔁 RE-AIMED 20 Nov 2026 (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (5) and "What this removes" 9): holding ▶ is
+     gone — the ONE preview is the top bar's 👁, on a phone too. ▶ is a plain tap that plays (Animate's tab). */
+  const shell = read(`${L}/maker-shell.tsx`);
+  assert.match(shell, /data-maker-preview-phone=""\s*onClick=\{\(\) => window\.dispatchEvent\(new Event\(MAKER_PREVIEW_EVENT\)\)\}/, 'the phone’s 👁 does not ask for the preview');
+  assert.match(tools, /const on = \(\) => \{\s*if \(!previewingRef\.current\) enterPreview\(\);\s*\};\s*window\.addEventListener\(MAKER_PREVIEW_EVENT, on\);/, 'the toolbar does not answer the 👁');
+  assert.match(tools, /const play = \(\) => \{\s*if \(playing\) return stopPlay\(\);/);
   const bAt = tools.indexOf("aria-label={playing ? 'Stop'");
-  const button = tools.slice(bAt, tools.indexOf('className={`${STAGE_ICON_BUTTON}', bAt));
+  const button = tools.slice(bAt, tools.indexOf('className={STAGE_ICON_BUTTON}', bAt));
   assert.ok(bAt > 0 && button.includes('data-stage-play=""'), 'anti-vacuity: ▶ was found');
-  for (const h of ['onClick={play}', 'onPointerDown={holdStart}', 'onPointerUp={holdEnd}', 'onPointerLeave={holdEnd}', 'onPointerCancel={holdEnd}']) assert.ok(button.includes(h), `▶ lost ${h}`);
-  assert.match(button, /hold, or press Shift and Enter, to preview the whole page/, 'a screen reader is not told of the hold');
-  assert.doesNotMatch(button, /\sdisabled\b/);
+  assert.ok(button.includes('onClick={play}'));
+  assert.doesNotMatch(button, /onPointerDown|holdStart|\sdisabled\b/, '▶ is held again — the preview is the 👁');
+  assert.doesNotMatch(tools, /STAGE_HOLD_MS|STAGE_HOLD_HINT|holdHintSaid/, 'the hold is back');
   /* ENTERING lets go of nothing; the canvas is told. */
   const enter = /const enterPreview = useCallback\(\(\) => \{([\s\S]*?)\}, \[\]\);/.exec(tools)?.[1] ?? '';
   assert.match(enter, /before\.current = \{ picked: pickedRef\.current, page: where\.current\.shownPage \?\? null \};/);
@@ -132,10 +135,10 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
   assert.match(tools, /if \(playing \|\| typing \|\| previewing \|\| held\) \{\s*onPx\(0\);/);
   assert.match(tools, /const open = \(openTool !== null \|\| revealOpen \|\| cameraOpen\) && !typing && !playing && !previewing;/);
   assert.match(tools, /picked: open && !cameraOpen \? picked : null,/, 'anti-vacuity: the frame follows `open`');
-  assert.match(tools, /parts\.length === 0 \|\| typing \|\| playing \|\| previewing\) return;/, 'arriving on a page picks a part during the preview');
+  assert.match(tools, /parts\.length === 0 \|\| typing \|\| playing \|\| previewing\) return;/, 'arriving on a page lets a part go during the preview');
   assert.match(tools, /if \(tab && held && !previewingRef\.current && /, 'turning a page lets the held part go during the preview');
   /* (A tap on the ground puts the toolbar away since 2026-10-30 — the part stays picked; never in the preview.) */
-  assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) stowRef\.current\(\);/);
+  assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) closeRef\.current\(\);/);
   assert.match(tools, /if \(!previewing\) askPage\(p\.key\);/);
   assert.match(tools, /\{guestBarHost && \(!away \|\| previewing\)/, 'the guests’ pages cannot be turned in the preview');
   /* EXIT PREVIEW — the ONE ActionButton, clear of the home bar and of the guests' bar. */
@@ -154,10 +157,7 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
      preview") — hidden whenever the toolbar's root is away, by the root's own `aria-hidden`. */
   assert.match(tools, /aria-hidden=\{away \|\| undefined\}/, 'anti-vacuity: the toolbar’s root says when it is away');
   assert.ok(tools.includes(`'[data-maker-shell]:has([data-stage-tools][aria-hidden="true"]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}'`), 'the work area’s tool stays on the page while the toolbar is away');
-  /* ⌨ THE KEYBOARD: Shift + Enter (or Space) on ▶ goes in; the one button takes the focus; Esc comes out. */
-  assert.match(button, /aria-keyshortcuts="Shift\+Enter"/);
-  assert.match(button, /onKeyDown=\{\(e\) => \{\s*if \(!e\.shiftKey \|\| \(e\.key !== 'Enter' && e\.key !== ' '\)\) return;\s*e\.preventDefault\(\);\s*hold\.current\.fired = true;\s*enterPreview\(\);/);
-  assert.match(button, /press Shift and Enter/);
+  /* ⌨ THE KEYBOARD: the 👁 is a button (Enter and Space press it); the one button takes the focus; Esc comes out. */
   assert.match(tools, /document\.querySelector<HTMLElement>\('\[data-stage-exit-preview\] button'\)\?\.focus\(\{ preventScroll: true \}\)/);
   assert.match(tools, /if \(e\.key === 'Escape'\) exitPreview\(\);/);
   /* 🧨 SEEN ON THE REVIEW COPY: every toast of the toolbar was in the page and INVISIBLE while the toolbar was away —
@@ -177,9 +177,6 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
   assert.match(leave, /if \(page\) goToPageRef\.current\(page\.key, page\.option\);/);
   assert.match(leave, /if \(was\.picked\) window\.setTimeout\(\(\) => pickPartRef\.current\(was\.picked as MakerPartKey\)/);
   assert.match(tools, /useEffect\(\(\) => \(\) => postToCanvas\(\{ source: 'setnayan-editor', t: 'guest', on: false \}\), \[\]\);/, 'leaving the toolbar mid-preview leaves the canvas deaf');
-  /* THE TWIN: the first tap says the hold exists — once. */
-  assert.match(tools, /export const STAGE_HOLD_HINT = 'Hold ▶ to preview the whole page\.';/);
-  assert.match(tools, /if \(!holdHintSaid\) \{\s*holdHintSaid = true;\s*setWhyRef\.current\(STAGE_HOLD_HINT\);\s*\}/);
 });
 
 test('(4) in the preview the canvas takes no tap — and a link that leaves, or a form being sent, is refused and said', () => {

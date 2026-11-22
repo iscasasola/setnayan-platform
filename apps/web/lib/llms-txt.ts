@@ -38,7 +38,7 @@ import { isBookingFeeEnabled } from './booking-fee-gate';
 import { formatLaunchCap } from './launch-offer';
 import { FEATURE_GROUPS, FEATURE_PAGES, featurePaths } from './feature-pages';
 import { RETIRED_PRODUCT_NAMES } from './retired-products';
-import { aiAnswers, SUPPLIER_FREE_BOOKING_LINE } from './seo/ai-answers';
+import { aiAnswers } from './seo/ai-answers';
 // Event Plus / Event Pro say exactly what the front door's plan cards say (Lane J made those true to what an order
 // unlocks) — one sentence, two readers.
 import { PLUS_MORE, PRO_PEEK } from '@/app/_components/frontdoor/front-door-landing-data';
@@ -54,7 +54,7 @@ import {
   tableTierName,
   type PlanTablePrices,
 } from '@/app/for-suppliers/_components/plan-table-data';
-import { FEE_SCOPE_THIRD } from '@/lib/booking-fee-who-words';
+import { FEE_FREE_RULE_THIRD, FEE_SCOPE_THIRD } from '@/lib/booking-fee-who-words';
 
 export type RetailRow = {
   service_code: string;
@@ -595,12 +595,13 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
   // a model asked "what does Setnayan charge vendors?" answered "nothing".
   // Derived from the same sources the bill uses — never hand-typed — and gated
   // on the same flag that decides whether anyone is billed.
-  // 🔑 THE FREE BOOKING IS THE OWNER'S 19 NOV SENTENCE (SUPPLIER_FREE_BOOKING_LINE), not the retired "first booking
+  // 🔑 THE FREE BOOKING IS THE OWNER'S 19 NOV RULE, in main's one fee source's third-person words (FEE_FREE_RULE_THIRD,
+  // lib/booking-fee-who-words.ts), not the retired "first booking
   // from Setnayan is on us" (not a rule, DECISION_LOG 2026-11-19) nor the own-clients claim in any wording — 19 Nov
   // "PROMOTION PAGES" item 4 retires it everywhere, so no "clients a supplier brings are free" lead-in and no "never
   // carries the fee" sentence (held by lib/seo/the-retired-words-stay-gone.test.ts).
   const supplierFee = isBookingFeeEnabled()
-    ? `Separately, suppliers pay Setnayan a booking fee${input.bookingFee ? ` of ${bookingFeeScheduleSummary(input.bookingFee)}` : ''}, only on clients Setnayan brings them. It is billed to the supplier, never added to what a couple pays. ${SUPPLIER_FREE_BOOKING_LINE}${launchOfferSentence(input.launchOfferCap ?? null)}`
+    ? `Separately, suppliers pay Setnayan a booking fee${input.bookingFee ? ` of ${bookingFeeScheduleSummary(input.bookingFee)}` : ''}, ${FEE_SCOPE_THIRD}. ${FEE_FREE_RULE_THIRD} That holds whether the supplier brings the couple through their own invite, their own booking QR or their own link; every other booking carries the fee. It is billed to the supplier, never added to what a couple pays.${launchOfferSentence(input.launchOfferCap ?? null)}`
     : 'No booking fee is charged while it is switched off.';
 
   // 📄 THE PROSE BELOW IS THE ONE SOURCE'S WORDS (owner 20 Nov 2026: "Yes, send it") — specs

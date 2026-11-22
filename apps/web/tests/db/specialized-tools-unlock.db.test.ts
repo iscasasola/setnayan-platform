@@ -19,7 +19,7 @@
  *   · `AND NOT COALESCE(e.is_sample, FALSE)` removed from the claim → 3b RED alone.
  *   · the host-is-the-shop NOT EXISTS removed → 3c RED alone (the co-host case).
  *   · the business EXISTS made to never match → 3e RED alone.
- *   · the `OR public.vendor_specialized_tools_unlocked(…)` arm dropped from vendor_papic_challenge_entitled → 2d RED.
+ *   · (2d since 20271356215288: the unlock must NOT open the photo challenge or the booth — Pro and up, owner 20 Nov.)
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -224,10 +224,11 @@ test('2c · an unverified shop or a Free tier gets nothing from a window', async
   // (`custom` cannot be written any more — vendor_profiles_tier_state_not_custom — so it needs no case.)
 });
 
-test('2d · the two shipped gates read the unlock — Papic challenge and the branded booth', async () => {
+test('2d · the unlock no longer opens the photo challenge or the branded booth — they come with Pro and up (owner 20 Nov)', async () => {
+  // Before 20271356215288 the unlock opened both; now it opens every OTHER paid tool. The new gate, its
+  // grandfathering and its TS mirror are tests/db/pro-tools-come-with-pro.db.test.ts.
   const { vpid } = await newShop({ tier: 'verified' });
   const { eventId } = await newBooking(vpid);
-  // The booking took the trial; spend it on another event so only the window can open this one.
   await db.query(
     `UPDATE public.vendor_specialized_tools_access SET trial_ends_at = NOW() - INTERVAL '1 day' WHERE vendor_profile_id = $1`,
     [vpid],
@@ -237,16 +238,14 @@ test('2d · the two shipped gates read the unlock — Papic challenge and the br
   const branded = async () =>
     (await db.query<{ id: string }>(`SELECT public.event_branded_booth_vendor_ids($1) AS id`, [eventId])).rows.map((r) => r.id);
 
-  assert.equal(await entitled(), false);
-  assert.deepEqual(await branded(), []);
   await setWindow(vpid, FUTURE());
-  assert.equal(await entitled(), true, 'the unlock opens Papic challenge');
-  // The booth RPC is service_role-only — ask it the way lib/seating.ts does (the service-role JWT).
+  assert.equal(await unlocked(vpid, eventId), true, 'the unlock is still live for the other paid tools');
+  assert.equal(await entitled(), false, 'but it does not open the photo challenge');
   await db.exec('BEGIN');
   try {
     await db.query(`SELECT set_config('request.jwt.claim.role', 'service_role', true)`);
     await db.exec('SET LOCAL ROLE service_role');
-    assert.deepEqual(await branded(), [vpid], 'the unlock brands the booth at this event');
+    assert.deepEqual(await branded(), [], 'nor brand the booth');
   } finally {
     await db.exec('ROLLBACK');
   }

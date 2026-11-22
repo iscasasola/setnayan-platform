@@ -16,7 +16,6 @@
  */
 import { papicPointCurrencyTerms } from '@/lib/papic-tier-copy';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
-import { SUPPLIER_FREE_BOOKING_LINE } from '@/lib/seo/ai-answers';
 import { mobileAppAnswer, mobileAppAnswerInApp } from '@/lib/where-setnayan-runs';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 import { DAY_OF_ENDS_PLAIN, DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
@@ -26,6 +25,7 @@ import { countNoun } from '@/lib/format-number';
 import { PHONE_CLIP_MAX_MS, PHONE_CLIP_MIN_MS } from '@/lib/papic-phone-uploads';
 import { HELP_NOT_IN_THE_APP } from './not-in-the-app';
 import type { HelpTopic } from '@/lib/help';
+import { FEE_FREE_RULE_THIRD, FEE_SCOPE_THIRD } from '@/lib/booking-fee-who-words';
 
 /**
  * The Papic shot currency, DERIVED — `papicPointCurrencyTerms()` interpolates
@@ -372,8 +372,8 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       {
         slug: 'what-do-suppliers-pay-setnayan',
         title: 'What does Setnayan charge suppliers?',
-        appBody: `No commission — couples pay you directly and Setnayan never touches that money. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces. It is billed to the supplier, never added to what a couple pays. ${SUPPLIER_FREE_BOOKING_LINE}`,
-        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces. It is billed to the supplier, never added to what a couple pays. ${SUPPLIER_FREE_BOOKING_LINE} Current rates are on setnayan.com/for-suppliers.`,
+        appBody: `No commission — couples pay you directly and Setnayan never touches that money. Separately, a supplier pays Setnayan a booking fee, ${FEE_SCOPE_THIRD}. ${FEE_FREE_RULE_THIRD} The fee is never added to what a couple pays.`,
+        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee, ${FEE_SCOPE_THIRD}. ${FEE_FREE_RULE_THIRD} The fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
       },
     ],
   },

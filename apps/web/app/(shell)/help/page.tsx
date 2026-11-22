@@ -85,12 +85,17 @@ function isHelpRole(value: string | undefined): value is HelpRole {
 }
 
 type Props = {
-  searchParams: Promise<{ submitted?: string; error?: string; role?: string; q?: string; refer?: string }>;
+  searchParams: Promise<{ submitted?: string; error?: string; role?: string; q?: string; refer?: string; subject?: string; body?: string; topic?: string }>;
 };
 
 export default async function HelpPage({ searchParams }: Props) {
   const search = await searchParams;
   const role: HelpRole | undefined = isHelpRole(search.role) ? search.role : undefined;
+  // ✍ A door that already knows what the note is about opens it prefilled (the Card Maker's "Need your own form?" row:
+  // "Custom form request · [card] · [category]:"). Plain text, capped to the fields' own limits; the person still sends.
+  const prefillSubject = typeof search.subject === 'string' ? search.subject.slice(0, 160) : '';
+  const prefillBody = typeof search.body === 'string' ? search.body.slice(0, 4000) : '';
+  const prefillTopic = ['couple', 'vendor', 'guest', 'billing', 'bug', 'feature', 'other'].includes(search.topic ?? '') ? search.topic! : null;
   const referEvent = typeof search.refer === 'string' && /^[A-Za-z0-9-]{1,64}$/.test(search.refer) ? search.refer : null;
 
   // 🍎 In the iPhone app every answer is the app's own (no price, no purchase,
@@ -167,7 +172,7 @@ export default async function HelpPage({ searchParams }: Props) {
           <select
             id="topic"
             name="topic"
-            defaultValue={role ?? ''}
+            defaultValue={prefillTopic ?? role ?? ''}
             className="input-field"
           >
             <option value="">Choose one (optional)</option>
@@ -187,6 +192,7 @@ export default async function HelpPage({ searchParams }: Props) {
             name="subject"
             required
             maxLength={160}
+            defaultValue={prefillSubject}
             placeholder="One sentence about what's up"
             className="input-field"
           />
@@ -199,6 +205,7 @@ export default async function HelpPage({ searchParams }: Props) {
             required
             rows={6}
             maxLength={4000}
+            defaultValue={prefillBody}
             placeholder="Anything that helps us help you — event ID, exact URL you were on, what you expected vs. what happened."
             className="input-field min-h-[140px] py-2"
           />

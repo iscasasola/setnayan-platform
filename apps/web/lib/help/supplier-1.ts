@@ -21,8 +21,8 @@
  */
 import type { HelpTopic } from '@/lib/help';
 import { HELP_NOT_IN_THE_APP } from './not-in-the-app';
-import { SUPPLIER_FREE_BOOKING_LINE } from '@/lib/seo/ai-answers';
 import { SHOP_NAME_MAX } from '@/lib/business-slug';
+import { FEE_FREE_RULE } from '@/lib/booking-fee-who-words';
 
 /*
  * H1 · 2026-11-14 — every answer below was checked against origin/main. The code that proves each one is named in the
@@ -209,9 +209,7 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         // lib/supplier-qr-codes.ts `OWN_LINK_SRC = 'own'`, `ownPageUrl`; lib/booking-fee-disclosure.ts own clients
         slug: 'supplier-your-own-link',
         title: 'Suppliers: does a couple who comes from my own QR count as Setnayan’s?',
-        // The fee half (the retired promise that a supplier's own clients pay no booking fee) is retired everywhere (DECISION_LOG 2026-11-19
-        // "PROMOTION PAGES", item 4); the free booking is said only in the 19 Nov words, SUPPLIER_FREE_BOOKING_LINE.
-        body: 'No. Your QR from setup and the links you share from your page are marked as yours, so a couple who reaches you through them is your own client.',
+        body: 'No. Your QR from setup and the links you share from your page are marked as yours, so a couple who reaches you through them is brought by you. ' + FEE_FREE_RULE,
       },
     ],
   },
@@ -268,11 +266,10 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         appBody: "They ask · you agree · the fee · they are told. A couple asks you from your page or their event. You agree on the details in your chat and send your quote. When both of you agree, the booking is made, and the couple is told it is confirmed.",
       },
       {
-        // The free booking in the owner's 19 Nov words (SUPPLIER_FREE_BOOKING_LINE, lib/seo/ai-answers.ts) — not the retired
-        // "Your first booking from Setnayan is on us" (DECISION_LOG 2026-11-19 "WEBSITE CONTENT", item 5). Slug kept: links.
+        // lib/booking-fee-who-words.ts FEE_FREE_RULE — 20 Nov: there is no free first booking any more
         slug: 'supplier-first-booking-free',
         title: 'Suppliers: is my first booking free?',
-        body: SUPPLIER_FREE_BOOKING_LINE,
+        body: `No — not since 20 November 2026. ${FEE_FREE_RULE} Every other booking carries the fee. A free booking fee ticket from a badge pays your next fee by itself.`,
       },
       {
         // app/vendor-dashboard/booking-fees/page.tsx title="Booking fees", "Due", "Nothing to pay yet.", "Waived — nothing owed"; supplier-today-screen.tsx `<BookingFeeBills`

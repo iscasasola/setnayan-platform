@@ -179,7 +179,7 @@ function CountRuleSheet({
                     <span
                       aria-hidden
                       className={`grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md border-[1.5px] ${
-                        on ? 'border-sn-accent bg-sn-accent text-white' : 'border-ink/25'
+                        on ? 'border-sn-accent bg-sn-accent text-cream' : 'border-ink/25'
                       }`}
                     >
                       {on ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}

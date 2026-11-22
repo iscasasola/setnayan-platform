@@ -26,14 +26,14 @@ import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/bookin
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { DAILY_CAPACITY_MAX } from '@/lib/vendor-tier-caps';
 import { mobileAppAnswer } from '@/lib/where-setnayan-runs';
+import { FEE_FREE_RULE_THIRD, FEE_SCOPE_THIRD, SUPPLIER_FREE_BOOKING_LINE } from '@/lib/booking-fee-who-words';
 
 /**
- * 🔑 THE FREE BOOKING, IN THE OWNER'S 19 NOV WORDS (DECISION_LOG 2026-11-19 "PROMOTION PAGES — SEVEN ANSWERS", item 4).
- * It replaces both retired lines — the "first booking from Setnayan" one (not a rule: DECISION_LOG 2026-11-19
- * "WEBSITE CONTENT", item 5) and the retired promise that a supplier's own clients book free. No number of months is named. Exported so
- * /llms.txt says the same sentence.
+ * 🔑 THE FREE BOOKING, IN THE OWNER'S 19 NOV WORDS (DECISION_LOG 2026-11-19 "PROMOTION PAGES — SEVEN ANSWERS", item 4),
+ * and the third-person rule beside it, come from main's ONE fee source, `lib/booking-fee-who-words.ts` — never a copy
+ * here. Re-exported so the readers that already import it from this file keep working.
  */
-export const SUPPLIER_FREE_BOOKING_LINE = "New to Setnayan, or you're the first to bring their event? They book you free.";
+export { SUPPLIER_FREE_BOOKING_LINE };
 
 export type AiAnswerContext = {
   /** The LIVE booking-fee schedule (never the code default). `null` = unread → the fee is named without a rate. */
@@ -72,8 +72,8 @@ function whoPaysWhat(ctx: AiAnswerContext): string {
   }
   return (
     `Couples pay no commission: they pay suppliers directly, to the supplier's GCash or bank, and Setnayan adds nothing to the price. ` +
-    `Suppliers pay Setnayan ${feeClause(ctx)}, only on clients Setnayan brings them. It is billed to the supplier, never added to what a couple pays. ` +
-    SUPPLIER_FREE_BOOKING_LINE +
+    `Suppliers pay Setnayan ${feeClause(ctx)}, ${FEE_SCOPE_THIRD}. ` +
+    `${FEE_FREE_RULE_THIRD} It is billed to the supplier, never added to what a couple pays.` +
     // Unread schedule (a static page): the rate is not guessed — the reader is pointed at the page that reads it live.
     (ctx.bookingFee ? '' : ' The current rate is on the For Suppliers page.')
   );

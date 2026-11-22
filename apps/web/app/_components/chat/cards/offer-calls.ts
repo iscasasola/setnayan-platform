@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client';
 import { offerFromRow, VENDOR_OFFER_SELECT, type Offer, type VendorOfferRow } from '@/lib/offers';
 import { orderQuoteVersions, QUOTE_VERSION_SELECT, type QuoteVersion, type QuoteVersionRow } from '@/lib/quote-versions';
 import { appliedVersion, priceWordsFor, type DropLine } from '@/lib/offer-drop';
+import { PLUS_NEEDS_VERIFIED } from '@/lib/shop-plus-gate';
 
 type Fail = { ok: false };
 function refused(where: string, reason: { code?: string; message?: string } | null | undefined): Fail {
@@ -102,6 +103,7 @@ export async function dropOfferIntoChat(input: { threadId: string; rowId: number
   });
   if (error) {
     console.warn('[offer-card] drop refused:', error.code || error.message);
+    if ((error.message ?? '').includes('PLUS_NEEDS_VERIFIED')) return { ok: false, message: PLUS_NEEDS_VERIFIED };
     if ((error.message ?? '').includes('OFFER_NEEDS_GOOD_UNTIL')) return { ok: false, message: 'Pick a Good until day — today or later.' };
     if ((error.message ?? '').includes('OFFER_NOT_YOURS') || (error.message ?? '').includes('CARD_NOT_THIS_CONVERSATION')) {
       return { ok: false, message: 'Only your own shop’s offers can be dropped here.' };

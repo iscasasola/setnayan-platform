@@ -34,6 +34,7 @@ import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
 import { parseBundlePlan } from '@/lib/bundle-sums';
 import { readBundleCards, readLockShop } from '@/lib/bundle-cards.server';
 import { quoteSeedFromBundle, type QuoteBundleSeed } from '@/lib/quote-from-bundle';
+import { threadPlusGate } from '@/lib/shop-plus-gate.server';
 
 // The builder imports the seed-line shape from here; it is now defined once,
 // in the pure module both seeds share.
@@ -87,6 +88,10 @@ export async function sendProposalFromChat(formData: FormData) {
   const supabase = await createClient();
   const threadId = String(formData.get('thread_id') ?? '');
   const back = supplierThreadPageHref(threadId);
+
+  // 🪪 A ＋ tool needs a verified shop — a quote from a saved package too, asked BEFORE anything is written.
+  const plusGate = await threadPlusGate(supabase, threadId);
+  if (plusGate !== 'open') redirect(`${back}?notice=proposal_plus_${plusGate}`);
 
   const totalPhpRaw = Number(formData.get('total_php'));
   const result = await sendProposalCore(supabase, {
@@ -557,6 +562,10 @@ export async function sendCustomProposalFromChat(formData: FormData) {
   } catch {
     redirect(`${back}?notice=proposal_failed`);
   }
+
+  // 🪪 A ＋ tool needs a verified shop — asked BEFORE anything is written; a refused read refuses too.
+  const plusGate = await threadPlusGate(supabase, threadId);
+  if (plusGate !== 'open') redirect(`${back}?notice=proposal_plus_${plusGate}`);
 
   const result = await sendCustomProposalCore(supabase, {
     threadId,

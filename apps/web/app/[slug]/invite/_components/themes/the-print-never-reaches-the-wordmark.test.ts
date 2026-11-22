@@ -36,6 +36,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
+import { tokenHex } from '@/lib/css-colour-tokens';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..', '..', '..');
@@ -137,7 +138,8 @@ test('over a pure black photo the wordmark still clears AA at the lowest it has 
   assert.ok(kraft, 'the kraft token is gone from BOTH the skin stylesheet and globals.css');
   // The wordmark takes its colour from `--m-ink`; Velvet rebinds that token for
   // its own page and Abaca deliberately does not, so this is the real value.
-  const ink = /--m-ink:\s*(#[0-9a-f]{6})/i.exec(globals)?.[1];
+  // Followed through its pointer: `--m-ink` is `rgb(var(--color-ink))` since the one colour set (18 Nov 2026).
+  const ink = tokenHex('--m-ink', 'light');
   assert.ok(ink, '--m-ink is gone from globals.css — the wordmark’s colour is no longer knowable here');
 
   const fraction = WORDMARK_FOOT * 100;

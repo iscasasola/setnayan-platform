@@ -1,34 +1,4 @@
 /**
- * THE SHOP SIDE OF A CONVERSATION — the pure rule `lib/chat-shop-people.server.ts` reads into (chat gaps, 8 Nov).
- *
- * Mirrors `chat_messages_member_insert` (unchanged, never widened): the owner; every owner/admin team member; a team
- * member below admin only when one of their assigned services serves THIS event. A deactivated member is out — so the
- * list can only be narrower than the database, never wider.
- */
-
-export type ShopMemberRow = {
-  vendor_team_member_id: string;
-  user_id: string | null;
-  role: string;
-  deactivated_at: string | null;
-};
-
-export function shopChatPeopleFrom(args: {
-  ownerUserId: string | null;
-  team: readonly ShopMemberRow[];
-  /** `vendor_team_member_id`s whose assigned service this event booked. */
-  servingMemberIds: ReadonlySet<string>;
-}): string[] {
-  const out = new Set<string>();
-  if (args.ownerUserId) out.add(args.ownerUserId);
-  for (const m of args.team) {
-    if (!m.user_id || m.deactivated_at) continue;
-    if (m.role === 'owner' || m.role === 'admin' || args.servingMemberIds.has(m.vendor_team_member_id)) out.add(m.user_id);
-  }
-  return [...out];
-}
-
-/**
  * Who a message is told to — never its writer, never twice. Pure, so the fan-out's rules are one tested function.
  *
  *   · a HOST writes → `shopOwner` (the notice that already existed, as it ships), `shopTeam` (the shop's other people
@@ -82,13 +52,14 @@ export function shopSideIds(owner: string | null, team: ReadonlyArray<string | n
  *
  * Mirrors `current_thread_ids()` (20271352461498): a live `chat_thread_members` seat counts only while its person is
  * still a host ('couple') of the event — a removed co-host is never listed, so is never told about a message they
- * could not open. Every coordinator of the event is in every supplier conversation (no seat needed). If the event's
+ * could not open. Every coordinator of the event is in every supplier conversation (no seat needed). `eventHosts` is
+ * every host of the event, seated or not — never on the shop's team side here (`teamSideOf`). If the event's
  * people could not be read, nobody is listed — narrower than the database, never wider.
  */
 export function threadHostPeopleFrom(args: {
   seats: ReadonlyArray<{ user_id: string | null; left_at: string | null }>;
   eventPeople: ReadonlyArray<{ user_id: string | null; member_type: string }>;
-}): { members: string[]; coordinators: string[] } {
+}): { members: string[]; coordinators: string[]; eventHosts: string[] } {
   const hosts = new Set<string>();
   const coordinatorIds = new Set<string>();
   for (const p of args.eventPeople) {
@@ -102,5 +73,6 @@ export function threadHostPeopleFrom(args: {
   }
   const coordinators = new Set<string>();
   for (const id of coordinatorIds) if (!members.has(id)) coordinators.add(id);
-  return { members: [...members], coordinators: [...coordinators] };
+  // Every host of the event, seated here or not — on the hosts' side whatever their shop role (`teamSideOf`).
+  return { members: [...members], coordinators: [...coordinators], eventHosts: [...hosts] };
 }

@@ -48,9 +48,29 @@ export type PayBackInput = {
   ownerUserId: string | null;
   /** Who is looking at the page right now. */
   viewerUserId: string | null;
+  /**
+   * A shop's GIFT order (`vendor_gift__…`). Owner 2026-11-17, on the sent
+   * screen: *"tap to return to Gifts."* — a shop that bought a gift goes back to
+   * its Gifts, not to the top of its dashboard. Optional: absent reads as false.
+   */
+  isShopGift?: boolean;
 };
 
+/** Where a shop's gifts live — the Promote sheet's `#gifts` section. */
+export const SHOP_GIFTS_HREF = '/vendor-dashboard/shop/promote#gifts';
+
 export type PayBackLink = { label: string; href: string };
+
+/**
+ * HOME for whoever is paying — where the sent screen's countdown lands (owner
+ * 2026-11-17: "Returning to home in 5 seconds"). A shop's home is its
+ * dashboard; everybody else's is theirs. Derived from the SAME lane as the way
+ * back, so the two never name different people's homes.
+ */
+export function payHomeHref(input: PayBackInput): string {
+  const lane = orderLane(input).kind;
+  return lane === 'vendor' || lane === 'vendor-booking-fee' ? '/vendor-dashboard' : '/dashboard';
+}
 
 /**
  * Where "back" goes, and what it is called.
@@ -75,7 +95,9 @@ export function payBackLink(input: PayBackInput): PayBackLink {
         href: `/vendor-dashboard/booking-fees/${input.orderId}`,
       };
     case 'vendor':
-      return { label: 'Back to your shop', href: '/vendor-dashboard' };
+      return input.isShopGift
+        ? { label: 'Back to Gifts', href: SHOP_GIFTS_HREF }
+        : { label: 'Back to your shop', href: '/vendor-dashboard' };
     case 'event':
       return { label: 'Back to your event', href: `/dashboard/${input.eventId}` };
     default:

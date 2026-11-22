@@ -1,6 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
 import { formatCount } from '@/lib/format-number';
+import {
+  CARD_EDIT_UNREAD,
+  CARD_IN_USE_LOCK,
+  cardEditLockOf,
+  dayMonthYear,
+  openBookingLines,
+  type CardBookings,
+  type CardEditLock,
+  type OpenBooking,
+} from '@/lib/card-edit-lock';
+
+// Re-exported: the pure words live in a client-safe module (the Card Maker draws them; this file reads the database).
+export { CARD_EDIT_UNREAD, CARD_IN_USE_LOCK, cardEditLockOf, dayMonthYear, openBookingLines } from '@/lib/card-edit-lock';
+export type { CardBookings, CardEditLock, OpenBooking } from '@/lib/card-edit-lock';
 
 /**
  * 🔒 A CARD WITH AN OPEN BOOKING CANNOT BE DELETED OR TURNED OFF (owner 10 Nov on PR #7464, verbatim: *"You cannot
@@ -23,25 +37,8 @@ import { formatCount } from '@/lib/format-number';
  */
 export const OPEN_BOOKING_STATUSES = BOOKED_EVENT_VENDOR_STATUSES.filter((s) => s !== 'complete');
 
-export type OpenBooking = { eventName: string; eventDate: string | null };
 
-/** What the shop's cards carry: how many couples ever picked it (the delete-or-hide question) and which are open. */
-export type CardBookings = { picked: number; open: OpenBooking[] };
 
-/**
- * "14 Dec 2026" — the calendar day as stored (a DATE column), never shifted by the reader's timezone. Exported for the
- * Share picker's event rows (`lib/service-share-targets.server.ts`), which name the same events the same way.
- */
-export function dayMonthYear(iso: string | null): string {
-  const m = iso ? /^(\d{4})-(\d{2})-(\d{2})/.exec(iso) : null;
-  if (!m) return '';
-  return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
-}
 
 /**
  * The line under the row (or in the Card Maker's delete sheet) — the approved prototype's frame E: the count, then
@@ -172,4 +169,41 @@ export function deleteWarningLines(picked: number): string[] {
     'Its reviews and stats leave the card. They stay on your shop.',
     'Those events can’t move to a new card — events sync only to the card that was booked. There is no manual upload.',
   ];
+}
+
+/** The save's refusal for a locked card: the Problem, each open booking, then the Solution. `null` = free to edit. */
+export function cardEditLockRefusal(lock: CardEditLock): string | null {
+  if (lock.state === 'free') return null;
+  if (lock.state === 'unread') return CARD_EDIT_UNREAD;
+  return [`${CARD_IN_USE_LOCK.problem} Nothing was saved.`, ...openBookingLines(lock.open), CARD_IN_USE_LOCK.solution].join('\n');
+}
+
+/**
+ * THE SERVER GATE — every card save calls this BEFORE it writes, and refuses with what it returns (`null` = may save).
+ * Fails CLOSED: a refused ownership read or bookings read is `CARD_EDIT_UNREAD`, never a save.
+ *
+ * Ownership is proved FIRST on the shop's own session (the refusal names the couples' events); a card that is not this
+ * shop's returns `null` here so the action's own ownership check says "not found" in its own words. Only then is the
+ * ADMIN client used — `event_vendors` admits no shop (see `readCardBookings`).
+ */
+export async function refuseEditOfBookedCard(
+  session: SupabaseClient,
+  admin: SupabaseClient,
+  vendorProfileId: string,
+  serviceId: string,
+): Promise<string | null> {
+  const { data: own, error } = await session
+    .from('vendor_services')
+    .select('vendor_service_id')
+    .eq('vendor_service_id', serviceId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error('[supabase-error] card edit lock: own card read', error);
+    return CARD_EDIT_UNREAD;
+  }
+  if (!own) return null;
+  const bookings = (await readCardBookings(admin, [serviceId]))?.get(serviceId) ?? null;
+  return cardEditLockRefusal(cardEditLockOf(bookings));
 }

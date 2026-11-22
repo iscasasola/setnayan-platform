@@ -141,7 +141,7 @@ export default async function OurPhotosEditorPage({
         {error ? (
           <div
             role="alert"
-            className="rounded-md border border-red-300/60 bg-red-50 px-3 py-2 text-sm text-red-800"
+            className="rounded-md border border-red-300/60 dark:border-[rgb(var(--color-danger)/0.4)] bg-red-50 dark:bg-[rgb(var(--color-danger)/0.14)] px-3 py-2 text-sm text-red-800 dark:text-[rgb(var(--color-danger))]"
           >
             {error}
           </div>

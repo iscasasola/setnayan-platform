@@ -46,8 +46,8 @@ export function DressCodeFields({
     ? 'block text-[0.7rem] font-semibold text-ink/70'
     : 'sn-eye block';
   const input = compact
-    ? 'block w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus-visible:border-ink/40 focus-visible:outline-none'
-    : 'block w-full min-h-[44pt] rounded-md border border-ink/15 bg-white px-3 py-2 text-base text-ink placeholder:text-ink/35 focus-visible:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
+    ? 'block w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus-visible:border-ink/40 focus-visible:outline-none'
+    : 'block w-full min-h-[44pt] rounded-md border border-ink/15 bg-raised px-3 py-2 text-base text-ink placeholder:text-ink/35 focus-visible:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
   const hint = compact ? 'text-[0.7rem] text-ink/70' : 'text-xs text-ink/70';
 
   /*

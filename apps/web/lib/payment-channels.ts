@@ -31,6 +31,8 @@
  * never the list directly and never the old columns.
  */
 
+import { isGcashRail } from './gcash-allowance';
+
 /** A rail is one of Setnayan's receiving accounts, named by its id. */
 export type PayChannel = string;
 
@@ -202,7 +204,49 @@ function payableAccount(a: ReceivingAccount): boolean {
  * number and no QR would render a payment panel with nothing to pay to.
  */
 export function openAccounts(s: ChannelSettings): ReceivingAccount[] {
-  return receivingAccounts(s).filter((a) => a.enabled && payableAccount(a));
+  return receivingAccounts(s).filter(
+    (a) => a.enabled && payableAccount(a) && isPayerRail(a),
+  );
+}
+
+/**
+ * ⚖ BDO ONLY, FOR EVERY PAYER (owner 2026-11-17, DECISION_LOG, verbatim):
+ * *"we will make all our transactions enter BDO Account. So we show them QRPH
+ * with the exact data. Show QR."* So GCash — and any other account in the list —
+ * is offered NOWHERE a payer starts a payment: /pay, booking fees, gifts, plans,
+ * the couple's checkout. This supersedes every earlier GCash limit.
+ *
+ * 🔑 DORMANT, NOT DELETED. The GCash account stays in `receivingAccounts` (the
+ * admin list, the monthly-cap meter, every `payments.channel = 'gcash'` already
+ * written) and keeps its own `gcash_enabled` / `enabled` switch. Re-opening it is
+ * this one predicate, and it is the ONE place: every payer surface asks
+ * `openAccounts` (through `openChannels`, `resolveChannel`, `openRailOptions`,
+ * `openRailDetails`, `isChannelOpen`, `receivingAccountsPhrase`).
+ *
+ * A BDO account is the migrated `'bdo'` rail, or one the admin added whose label
+ * names BDO (a second BDO account must not be shut out by its id).
+ */
+export function isPayerRail(a: Pick<ReceivingAccount, 'id' | 'label'>): boolean {
+  return a.id === 'bdo' || /^bdo\b/i.test(a.label.trim());
+}
+
+/**
+ * ⚖ THE ONE QR A PAYER SEES (owner 2026-11-18: "we only offer 1 QR Code. The
+ * rule is use GCash for the first 100,000 transactions under 1,000 every month.
+ * and the rest goes to BDO."). `pick` comes from `pickPayerRail`
+ * (lib/gcash-allowance.ts) — this only turns it into an account.
+ *
+ * 'gcash' ⇒ the first OPEN GCash account (switch on, something to pay to); if
+ * GCash is switched off or empty, BDO as always. 'bdo' ⇒ the first open BDO
+ * account. Never more than ONE account — there is no choice on screen. A
+ * surface that does not know the amount keeps calling `openAccounts` (BDO).
+ */
+export function payerAccountsFor(s: ChannelSettings, pick: 'gcash' | 'bdo'): ReceivingAccount[] {
+  if (pick === 'gcash') {
+    const g = receivingAccounts(s).find((a) => a.enabled && payableAccount(a) && isGcashRail(a));
+    if (g) return [g];
+  }
+  return openAccounts(s).slice(0, 1);
 }
 
 /**

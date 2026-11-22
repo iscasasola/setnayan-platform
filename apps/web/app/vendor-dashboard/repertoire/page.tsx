@@ -1,27 +1,14 @@
 import { getCurrentUser } from '@/lib/auth';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Music, Plus, Search, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { SubmitButton } from '@/app/_components/submit-button';
-import {
-  fetchVendorSongs,
-  searchSongs,
-  fetchCuratedSongs,
-  isMusicVendor,
-  type Song,
-} from '@/lib/songs';
-import { addRepertoireSong, setPerformanceLink } from './actions';
-import { SetList } from './_components/set-list';
-import { ShopNotice } from '../_components/kit';
-import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
-import { StayForm } from '@/app/_components/stay-form';
+import { fetchVendorSongs, searchSongs, fetchCuratedSongs, isMusicVendor } from '@/lib/songs';
+import { RepertoireNotMusic, RepertoireView } from './_components/repertoire-view';
 
 export const metadata = { title: 'Your repertoire · Supplier' };
 
 type Props = {
-  searchParams: Promise<{ q?: string; saved?: string; error?: string }>;
+  searchParams: Promise<{ q?: string; saved?: string; error?: string; own?: string }>;
 };
 
 export default async function RepertoirePage({ searchParams }: Props) {
@@ -36,215 +23,20 @@ export default async function RepertoirePage({ searchParams }: Props) {
 
   // Not a music act → explain the surface rather than 404 (best-UX over a
   // silent redirect). Nav-level hiding for non-music vendors is a follow-up.
-  if (!isMusicVendor(profile.services)) {
-    return (
-      <section className="mx-auto w-full max-w-2xl space-y-4 px-4 py-16 sm:px-6 lg:px-8">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-          <Music aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        </span>
-        <h1 className="text-3xl font-semibold tracking-tight">Your repertoire</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          This is for music acts — bands, singers, orchestras, choirs, and DJs. Add a
-          music service to your profile and your set list will appear here, so couples
-          whose chosen songs you play see you as a better match.
-        </p>
-        {/* Same dead end as the Shop's Create button: this renders for an act
-            that has NO music service yet, which is the state that lands on
-            Coverage with the picker shut. */}
-        <Link href={SERVICE_MAKER_HREF} className="button-primary inline-flex w-fit">
-          Add a music service
-        </Link>
-      </section>
-    );
-  }
+  if (!isMusicVendor(profile.services)) return <RepertoireNotMusic />;
 
-  // The vendor's own repertoire + the browse/search results are independent
-  // (results keys off `query`, not the repertoire) — one parallel batch instead
-  // of two serial reads (owner perf pass 2026-06-03).
   const [repertoire, results] = await Promise.all([
     fetchVendorSongs(supabase, profile.vendor_profile_id),
     query ? searchSongs(supabase, query) : fetchCuratedSongs(supabase),
   ]);
-  const repertoireIds = new Set(repertoire.map((s) => s.song_id));
 
   return (
-    <section className="mx-auto w-full tab:max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <header className="space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-            <Music aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <span className="rounded-full bg-ink/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            {repertoire.length} {repertoire.length === 1 ? 'song' : 'songs'}
-          </span>
-        </div>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your repertoire</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          The songs you perform. When a couple&apos;s chosen songs overlap your set list,
-          you rank as a <strong className="text-ink/80">better match</strong> for their
-          wedding — we promote you, never hide anyone else.
-        </p>
-      </header>
-
-      {sp.error ? (
-        <ShopNotice tone="gold" role="alert">
-          {decodeURIComponent(sp.error)}
-        </ShopNotice>
-      ) : null}
-      {sp.saved ? (
-        <ShopNotice tone="success" role="status">
-          Repertoire updated.
-        </ShopNotice>
-      ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* ── Add songs ── */}
-        <div className="space-y-4 sn-tile p-4">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Add from the song library
-          </h2>
-          <form method="get" action="/vendor-dashboard/repertoire" className="flex gap-2">
-            <div className="relative flex-1">
-              <Search
-                aria-hidden
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
-                strokeWidth={1.75}
-              />
-              <input
-                type="search"
-                name="q"
-                defaultValue={query}
-                placeholder="Search by title…"
-                className="input-field w-full pl-9"
-              />
-            </div>
-            <SubmitButton className="button-primary">Search</SubmitButton>
-          </form>
-
-          <ul className="space-y-1.5">
-            {results.length === 0 ? (
-              <li className="px-1 py-2 text-sm text-ink/50">
-                {query ? 'No songs match — add it below.' : 'No songs yet.'}
-              </li>
-            ) : (
-              results.map((song) => {
-                const added = repertoireIds.has(song.song_id);
-                return (
-                  <li
-                    key={song.song_id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl px-2 py-1.5"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-ink/90">
-                        {song.title}
-                      </span>
-                      {song.artist ? (
-                        <span className="block truncate text-xs text-ink/55">{song.artist}</span>
-                      ) : null}
-                    </span>
-                    {added ? (
-                      <span className="inline-flex shrink-0 items-center gap-1 px-2 py-1 text-xs text-success-700">
-                        <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Added
-                      </span>
-                    ) : (
-                      <StayForm door="svRepertoire.addRepertoireSong" action={addRepertoireSong} className="shrink-0">
-                        <input type="hidden" name="song_id" value={song.song_id} />
-                        <input type="hidden" name="q" value={query} />
-                        <SubmitButton className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700">
-                          <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Add
-                        </SubmitButton>
-                      </StayForm>
-                    )}
-                  </li>
-                );
-              })
-            )}
-          </ul>
-
-          {/* Not in the library → add your own (joins the master catalogue). */}
-          {/* Keyed on the set list's size: a song that lands re-draws the list in place and starts this form empty. */}
-          <StayForm
-            key={`add-own-${repertoire.length}`}
-            door="svRepertoire.addRepertoireSong"
-            action={addRepertoireSong}
-            className="space-y-2 border-t border-ink/10 pt-4"
-          >
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Not listed? Add your own
-            </p>
-            <input type="hidden" name="q" value={query} />
-            <input name="title" required placeholder="Song title" className="input-field w-full" />
-            <input name="artist" placeholder="Artist (optional)" className="input-field w-full" />
-            <SubmitButton className="button-primary inline-flex items-center gap-1">
-              <Plus aria-hidden className="h-4 w-4" strokeWidth={2} /> Add to my set list
-            </SubmitButton>
-          </StayForm>
-        </div>
-
-        {/* ── Your set list ── */}
-        <div className="space-y-3 sn-tile p-4">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Your set list ({repertoire.length})
-          </h2>
-          {repertoire.length === 0 ? (
-            <p className="px-1 py-2 text-sm text-ink/50">
-              Add the songs you perform — search the library or type your own. The more
-              complete your set list, the more couples you match.
-            </p>
-          ) : (
-            <SetList
-              songs={repertoire}
-              links={Object.fromEntries(
-                repertoire.map((song) => [song.song_id, <PerformanceLinkForm key={song.song_id} song={song} query={query} />]),
-              )}
-            />
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/*
-  Owner 2026-08-18: a band picks what it can play AND links a
-  video of itself playing it. Saying "I can play this" and not
-  being able to show it leaves a couple choosing between three
-  bands who all claim the same song with nothing to compare.
-
-  Full width on its own row, because a link is long and this is
-  edited on a phone. Empty clears it — taking a video down must
-  be as easy as putting one up. Drawn here and handed to the set
-  list (each row is a swipe, a client component).
-*/
-function PerformanceLinkForm({ song, query }: { song: { song_id: number; title: string; performance_url: string | null }; query: string }) {
-  return (
-    <StayForm door="svRepertoire.setPerformanceLink" action={setPerformanceLink} className="mt-1 flex w-full items-center gap-2 basis-full">
-      <input type="hidden" name="song_id" value={song.song_id} />
-      <input type="hidden" name="q" value={query} />
-      <input
-        type="url"
-        name="performance_url"
-        defaultValue={song.performance_url ?? ''}
-        placeholder="Link a video of you playing it (optional)"
-        aria-label={`Video of you performing ${song.title}`}
-        className="input-field h-8 min-w-0 flex-1 text-xs"
-      />
-      <SubmitButton
-        overlay={false}
-        className="shrink-0 rounded-full border border-ink/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55 hover:bg-ink/5 hover:text-ink"
-      >
-        Save
-      </SubmitButton>
-      {song.performance_url ? (
-        <a
-          href={song.performance_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 text-xs text-link underline underline-offset-2"
-        >
-          Watch
-        </a>
-      ) : null}
-    </StayForm>
+    <RepertoireView
+      repertoire={repertoire}
+      results={results}
+      query={query}
+      own={sp.own === '1'}
+      notice={{ error: sp.error ? decodeURIComponent(sp.error) : null, saved: Boolean(sp.saved) }}
+    />
   );
 }

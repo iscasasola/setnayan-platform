@@ -187,14 +187,18 @@ test('⑦ an ACCEPTED guest’s card offers Delete in its Delete group; the coup
   // RE-AIMED 2026-10-26: the group is "Reset · Delete" — Delete (and Reset) for a guest, neither for the couple.
   const accepted = await paintCard({ rsvp_status: 'attending' }, { withMenu: true });
   // The button leads with its icon, so an <svg> may sit before the words (and the words in the button's label).
-  assert.match(accepted, /data-guest-delete="">\s*<button[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span class="lbl">)?Delete guest</, 'an attending guest’s card has no Delete');
-  assert.ok(accepted.indexOf('data-guest-delete=""') > accepted.indexOf('>Access<'), 'Delete is not the card’s last group');
+  /* RE-AIMED 2026-11-20 (the approved drawing `guests_redesign_2026-11-20_fable.html` § 3): Reset and Delete are ONE dropdown —
+     "Reset or delete ⓘ · Choose ▾" — the last row of More. Its two lines (Reset first) are not in a static render, so they are
+     read from the control; that a guest has it and the couple has not is still read off the drawn card. */
+  assert.match(accepted, /data-guest-reset-or-delete="">\s*<button[^>]*aria-label="Reset or delete [^"]*: Choose"[^>]*aria-haspopup="listbox"/, 'an attending guest’s card has no Reset or delete');
+  assert.ok(accepted.indexOf('data-guest-reset-or-delete=""') > accepted.indexOf('>Access<'), 'Reset or delete is not the card’s last row');
+  assert.ok(accepted.indexOf('data-guest-reset-or-delete=""') > accepted.indexOf('data-fold="card-more"'), 'Reset or delete is not inside More');
   const couple = await paintCard({ role: 'bride', rsvp_status: 'attending' }, { withMenu: true });
-  assert.doesNotMatch(couple, /data-guest-delete=""/, 'the couple’s card offers a Delete that can only fail');
-  /* 🔄 Reset (2026-10-26) sits beside Delete for a guest — and is never offered on the couple's own rows. */
-  assert.match(accepted, /data-guest-reset="">\s*<button[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span class="lbl">)?Reset</, 'an attending guest’s card has no Reset');
-  assert.ok(accepted.indexOf('data-guest-reset=""') < accepted.indexOf('data-guest-delete=""'), 'Reset is not first');
-  assert.doesNotMatch(couple, /data-guest-reset=""/, 'the couple’s card offers a Reset');
+  assert.doesNotMatch(couple, /data-guest-delete=""|data-guest-reset-or-delete=""|data-guest-delete-control=""/, 'the couple’s card offers a Delete or a Reset that can only fail');
+  const control = read('_components', 'guest-ticket-parts.tsx');
+  const options = control.slice(control.indexOf('const RESET_OR_DELETE'), control.indexOf('export function GuestDeleteControl('));
+  assert.ok(options.indexOf("label: 'Reset'") > 0 && options.indexOf("label: 'Delete guest'") > options.indexOf("label: 'Reset'"), 'Reset is not first, or Delete guest is gone');
+  assert.match(control, /onPick=\{\(k\) => \(k === 'reset' \? setConfirmReset\(true\) : setConfirmDelete\(true\)\)\}/, 'a pick does not ask first');
 });
 
 test('⑦ the list and the card both go through the one warning and the one delete with Undo', () => {
@@ -359,11 +363,16 @@ test('⑫ every block under the title is one flex column with ONE gap — no per
 });
 
 // ── ⑬ the row's ⋯ opens where it can be seen ────────────────────────────────
-test('⑬ a phone row’s ⋯ list is drawn on the page, not clipped inside the row (RAGE_TAP "More for …")', () => {
+/* RE-AIMED 2026-11-20 (the approved drawing `guests_redesign_2026-11-20_fable.html` § 3): there is no ⋯ list any more — NFC ·
+   New QR · Unlink are labelled buttons inside the opened ticket. The defect this held (RAGE_TAP "More for …": a list opened,
+   invisibly, inside a row that clips) cannot come back the same way; what is held now is where the buttons ARE drawn: in the
+   ticket's view, which is the house pop-up on the page itself (`GuestPopup` portals to <body>), never in a clipped row. */
+test('⑬ the ticket’s buttons are drawn in the opened ticket — a pop-up on the page, never clipped inside a row', () => {
   const menu = read('_components', 'guest-ticket-parts.tsx');
-  const body = menu.slice(menu.indexOf('export function GuestMoreMenu('));
-  assert.match(body, /portal \? createPortal\(node, portal\) : node/, 'the ⋯ list renders inside the row again');
-  assert.match(body, /portalled\(\s*<div\s+ref=\{menuRef\}/, 'the ⋯ list is not the portalled element');
-  assert.match(body, /className="fixed z-\[96\]/, 'the ⋯ list is not pinned to the screen');
-  assert.match(body, /menuRef\.current\?\.contains\(t\)/, 'a tap inside the list counts as "outside" and closes it first');
+  const thumb = menu.slice(menu.indexOf('export function GuestTicketThumb('), menu.indexOf('export function GuestMoreMenu('));
+  const view = thumb.slice(thumb.indexOf('<GuestPopup'), thumb.indexOf('</GuestPopup>'));
+  assert.match(view, /data-guest-ticket-tools="">\s*\{tools\}/, 'the buttons are not inside the opened ticket');
+  assert.match(read('_components', 'guest-popup.tsx'), /return createPortal\(/, 'the pop-up is drawn inside its opener again');
+  const body = menu.slice(menu.indexOf('export function GuestMoreMenu('), menu.indexOf('export function GuestDeleteControl('));
+  assert.doesNotMatch(body, /role="menu"|className="fixed z-\[96\]/, 'a hand-placed list is back');
 });

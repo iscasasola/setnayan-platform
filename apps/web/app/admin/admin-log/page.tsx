@@ -4,7 +4,7 @@ import { ADMIN_AREA_LIST, adminAreaLabel, auditRowArea, isAdminArea } from '@/li
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ActionButton } from '@/components/action-button';
-import { Filter } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ErrorState } from '@/app/_components/states/error-state';
 import { NoteField, PickField } from '@/app/admin/team/_components/team-fields';
@@ -154,7 +154,7 @@ export default async function AdminLogPage({
           <NoteField fieldName="action" name="Action" empty="All actions" placeholder="refund" maxLength={80} initial={action} data="admin-log-action" />
         </div>
         <div className="sm:col-span-3">
-          <ActionButton tone="neutral" type="submit" icon={<Filter aria-hidden />} label="Show" />
+          <ActionButton tone="neutral" type="submit" icon={<SlidersHorizontal aria-hidden />} label="Show" />
         </div>
       </form>
 

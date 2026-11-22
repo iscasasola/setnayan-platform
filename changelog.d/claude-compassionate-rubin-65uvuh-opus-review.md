@@ -29,3 +29,10 @@ second admin.
   it goes red with the old `public.users` read.
 
 SPEC IMPACT: None. The owner rule (§ 10a: this address AND `is_internal`) is unchanged; only where the address is read changed.
+
+## 2026-11-22 · fix(admin): the Admin log's Show button wears SlidersHorizontal
+
+Main's 19 Nov rule (`lib/sort-icon-is-sliders.test.ts`) says every sort, show or filter control uses lucide
+`SlidersHorizontal`. The new `/admin/admin-log` page used `Filter`. The icon is swapped; no other change.
+
+SPEC IMPACT: None.

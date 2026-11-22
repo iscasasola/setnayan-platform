@@ -10,9 +10,8 @@ import ManpowerSurface from './surface';
  */
 export default async function VendorManpowerPage() {
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-6" data-manpower-page="">
-      <h1 className="sr-only">Manpower</h1>
+    <div data-manpower-page="">
       <ManpowerSurface />
-    </section>
+    </div>
   );
 }

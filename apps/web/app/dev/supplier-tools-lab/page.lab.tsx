@@ -8,6 +8,7 @@
  *   ?p=track-record  &s=rows | empty | fail
  *   ?p=disputes      &s=rows | empty | partial
  *   ?p=creators      &s=rows | empty
+ *   ?p=manpower      &s=rows | fail | empty
  *   ?p=attributes    &s=rows | saved | empty | fail
  *   ?p=repertoire    &s=rows | search | notmusic
  *   ?p=recommend     &s=rows | empty
@@ -26,6 +27,8 @@ import type { VendorRepostFlag } from '@/lib/vendor-theft-watch';
 import type { VendorTrackRecordRow } from '@/app/vendor-dashboard/_components/vendor-track-record-panel';
 import type { EligibleCreator, VendorSentOffer } from '@/lib/creator-offers';
 import type { VendorCreatorRoiRow } from '@/lib/creator-analytics';
+import { ManpowerView } from '@/app/vendor-dashboard/manpower/_components/manpower-view';
+import type { ManpowerGigRow } from '@/app/vendor-dashboard/manpower/actions';
 import { AttributesUnread, AttributesView } from '@/app/vendor-dashboard/attributes/_components/attributes-view';
 import { RepertoireNotMusic, RepertoireView } from '@/app/vendor-dashboard/repertoire/_components/repertoire-view';
 import { RecommendationsPanel, type LeafGroup } from '@/app/vendor-dashboard/recommendations/_panel';
@@ -96,6 +99,14 @@ const CREATORS = [
   { userId: 'lab-c3', displayName: 'Bea & Migs', slug: null, followersCount: 3800, viewCount: 21000, chapterCount: 11, inquiriesDriven: 31 },
 ] as unknown as EligibleCreator[];
 
+const gig = (id: string, label: string, php: number, status: string, extra: Record<string, unknown> = {}) =>
+  ({ gig_id: id, gig_label: label, cash_amount_php_centavos: php * 100, status, notes: null, accepted_at: status === 'pending' ? null : ago(9), completed_at: null, cancellation_reason: null, ...extra }) as unknown as ManpowerGigRow;
+const GIGS_OPEN = [gig('g1', 'Extra lights crew, 2 people', 3500, 'pending')];
+const GIGS_MINE = [
+  gig('g2', 'Sound tech, 6 hours', 2000, 'accepted'),
+  gig('g3', 'Usher team, 4 people', 4000, 'completed', { completed_at: ago(19) }),
+  gig('g4', 'Generator watch', 1500, 'cancelled', { cancellation_reason: 'host moved the date' }),
+];
 
 const GOWNS: ResolvedSchema = {
   canonical_service: 'bridal_gowns', display_name_en: 'Bridal gowns', display_name_tl: 'Damit pangkasal', schema_version: 3,
@@ -210,6 +221,16 @@ export default async function SupplierToolsLab({
     );
   }
 
+  if (p === 'manpower') {
+    screen = (
+      <ManpowerView
+        openGigs={s === 'empty' ? [] : GIGS_OPEN}
+        openEmpty="No gigs yet · open gigs appear here once a host you serve posts one."
+        openNote={null}
+        mine={s === 'fail' ? null : s === 'empty' ? [] : GIGS_MINE}
+      />
+    );
+  }
   if (p === 'attributes') {
     screen =
       s === 'fail' ? (

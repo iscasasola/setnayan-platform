@@ -381,7 +381,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; times?: string; schedule?: string; moved?: string; page?: string; empty?: string; tomorrow?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; times?: string; schedule?: string; moved?: string; page?: string; empty?: string; tomorrow?: string; es?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -764,6 +764,8 @@ export default async function HomeLab({
         control={labControl}
         needs={labNeeds ? { ...labNeeds, switchOn: switchOnRows(labNeeds, { marketplace: true }) } : null}
         papicLeft={papicNow.count}
+        /* 🛒 The door on Today (Event services, v4 frame 12) — the lab's words; the page reads the plan (`readEventPlanHeld`). */
+        eventServices={q.es === 'pro' ? 'Event Pro · 860 photos left' : 'Free plan · 150 photos left'}
         papicSizes={LAB_SIZES}
         hubPick={unread ? { ok: false, reason: 'unread' } : LAB_HUB_PICK}
         /* 🖨 The Prints line (R8) — the couple's, where the event needs its Event Hub details; `&prints=0` drops it. */

@@ -199,10 +199,10 @@ export function SampleShopPage({
             {d.verified ? (
               <div id={id('about')} data-shop-section="" className="scroll-mt-14">
                 {d.personalize ? (
-                  /* the page's About (Solo+), in the verified look's large serif */
+                  /* the page's About (Solo+) — the app's own type, read as a paragraph (owner 21 Nov: the large italic serif "feels lost from the design") */
                   <section data-sample-about="" className="space-y-3 border-b border-ink/10 py-8">
                     <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">About</p>
-                    <p className="max-w-3xl font-serif text-[1.75rem] italic leading-[1.18] tracking-[-0.005em] text-ink">
+                    <p className="max-w-2xl whitespace-pre-line text-sn-xl leading-relaxed text-ink" data-shop-about-text="">
                       {SAMPLE.about}
                     </p>
                   </section>

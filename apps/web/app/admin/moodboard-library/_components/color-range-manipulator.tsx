@@ -23,7 +23,7 @@
 
 import { ActionButton } from '@/components/action-button';
 import { Eye, Save } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   buildMatchMask,
   palettePreviewToEdits,
@@ -45,6 +45,12 @@ type Props = {
   onChange?: (next: ColorRangeMap) => void;
   /** When provided, render-preview tab will substitute slot colors → palette hexes */
   previewPalette?: PalettePreview;
+  /**
+   * Drawn right under the picture, before the sampling controls — the supplier's editor puts the photo's name, where it
+   * sits and a refusal's reason there, so the picture leads and the reason is never below the controls (tool pages
+   * redraw v3 § 10). Absent → exactly as it was (the admin console passes nothing).
+   */
+  afterPicture?: ReactNode;
 };
 
 // ---- component ----
@@ -52,7 +58,7 @@ type Props = {
 const SLOT_COUNT = 6;
 const PREVIEW_SCALE = 1; // 1.0 = full resolution; reduce for very large images
 
-export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, previewPalette }: Props) {
+export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, previewPalette, afterPicture }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -264,6 +270,8 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
           </div>
         )}
       </div>
+
+      {afterPicture}
 
       {/* Sample readout */}
       <div className="flex flex-wrap items-center gap-3 text-sm">

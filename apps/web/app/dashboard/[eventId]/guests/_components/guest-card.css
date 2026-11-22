@@ -90,3 +90,19 @@
   color: rgb(var(--sn-accent));
   font-weight: 600;
 }
+/* 🔴 A READ THAT FAILED IS NOT A VALUE (Fable review of the built card, 22 Nov 2026): "Couldn’t read their seat" wears the
+ * warn colour, so it never passes for a seat. */
+[data-card-row-unread] > [data-fold] > [data-fold-pinbox] [data-fold-sub],
+[data-card-row-unread] > [data-fold] > [data-fold-pinbox] [data-fold-head] > span.truncate {
+  color: rgb(var(--color-warn));
+  font-weight: 600;
+}
+/* 🩶 AS DRAWN (§ 3): the group labels — About · For the event · More — are grey caps, never gold (house standard: gold is
+ * for marks only, never small text), and the rows' chevrons are grey, so only what is MISSING speaks in colour. */
+[data-card-group] { color: color-mix(in srgb, var(--sn-ink-900) 55%, transparent); }
+[data-card-row] [data-fold-chevron] { color: color-mix(in srgb, var(--sn-ink-900) 45%, transparent); }
+/* ✕ The close keeps its round in dark (Fable review, 22 Nov): the shared round's fill is a fixed dark tint that vanishes on
+ * a dark page; here it is the ink token's wash, which turns with the theme. */
+html.dark .sn-inspector-head:has([data-guest-card-avatar='head']) .sn-inspector-close {
+  background: color-mix(in srgb, var(--sn-ink-900) 10%, transparent);
+}

@@ -60,7 +60,7 @@ export const GUESTS_SORTS: readonly { key: GuestsSort; label: string }[] = [
   { key: 'table', label: 'Table' },
 ];
 
-const REPLY_FILTERS: readonly ReplyFilter[] = ['attending', 'declined', 'none', 'toinvite'];
+const REPLY_FILTERS: readonly ReplyFilter[] = ['attending', 'declined', 'none', 'toinvite', 'maybe'];
 
 function isReplyFilter(v: string | null | undefined): v is ReplyFilter {
   return REPLY_FILTERS.includes(v as ReplyFilter);

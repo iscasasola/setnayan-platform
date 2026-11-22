@@ -1269,6 +1269,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
         {wordDoor('declined', stats.no, 'gs-no', RSVP_LIST_WORDS.declined.toLowerCase(), 'no')}
         <span aria-hidden> · </span>
         {wordDoor('none', stats.none, 'gs-none', RSVP_LIST_WORDS.pending.toLowerCase(), 'wait')}
+        {/* 🤷 "· 2 maybe" — only when someone still holds a Maybe from before it was retired, so the words add up to
+            "N guests". The same door as the others: a tap shows exactly them. */}
+        {stats.maybe > 0 ? (
+          <>
+            <span aria-hidden> · </span>
+            {wordDoor('maybe', stats.maybe, 'gs-maybe', RSVP_LIST_WORDS.maybe.toLowerCase(), 'wait')}
+          </>
+        ) : null}
       </div>
       {/* One extra line, only when there is something to say (drawing: "+1s" and "Asking to join" stay in Show and sort). */}
       {plusAll > 0 || requests > 0 ? (
@@ -1920,8 +1928,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
               >
                 {/* 🏷 Headings are text only (Guests redesign §1, 20 Nov: the grey circle icon per heading is gone). */}
                 <span className={styles.lab}>{sec.label}</span>
+                {/* "BRIDE & GROOM  2" — a plain count after the label, no dot (drawing v4 § 1). */}
                 <span className={styles.n}>
-                  · <Count value={sec.guests.length} id={`gs-n-${sec.key}`} />
+                  <Count value={sec.guests.length} id={`gs-n-${sec.key}`} />
                 </span>
                 {selectMode ? (
                   <span className={styles.note}>
@@ -2300,7 +2309,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             ) : null}
             {/* 💬 "› Drag the box right to add a guest" — one line above the box while it searches with words (pick 1). */}
             {gview === 'list' && !selectMode && !writesOff && q && addMode === 'search' ? (
-              <p className={`${styles.dragHint} sn-glass-row`} data-search-add-hint="">
+              <p className={styles.dragHint} data-search-add-hint="">
                 <ChevronRight aria-hidden strokeWidth={2} />
                 Drag the box right to add a guest
               </p>
@@ -2673,7 +2682,16 @@ function GuestRowLine({
   );
   // 👈 The row's delete (owner 2026-11-03): none in select mode — a row is a thing to tick there.
   const del = selectMode ? null : verbs.includes('remove') ? 'remove' : verbs.includes('release') ? 'release' : null;
-  if (!del) return row;
+  /* 🖱 ONE RIGHT EDGE ON A COMPUTER (Fable review of the built page, 22 Nov): a row that can be removed keeps a 44 px column
+     for its hover Delete (`SwipeToDelete`); a row that cannot (the couple) keeps the same empty column, so ticks and pills
+     line up down the list. A touch screen has neither column. */
+  if (!del)
+    return selectMode ? row : (
+      <div className="flex items-stretch">
+        <div className="min-w-0 flex-1">{row}</div>
+        <span aria-hidden className="hidden w-11 shrink-0 [@media(hover:hover)_and_(pointer:fine)]:block" data-row-delete-room="" />
+      </div>
+    );
   return (
     <SwipeToDelete
       label={del === 'remove' ? `Remove ${name}` : `Release seat ${name}`}

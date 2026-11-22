@@ -43,6 +43,7 @@ export function TodayWelcome({
   shopName,
   card = null,
   cardState = null,
+  cardNote = null,
   claimed = null,
   shop,
   editUnread = false,
@@ -58,6 +59,8 @@ export function TodayWelcome({
   card?: FirstCardCarry | null;
   /** `?card=` — the ticked row names the card ONLY when it is `live` (`welcomeDoneRow`); a bare welcome names the shop. */
   cardState?: ReturnType<typeof firstCardStateFrom>;
+  /** The claim door's carry with no card to redraw — the reason as a KEY and the card's id (`claimCardFrom`). */
+  cardNote?: { why: string | null; id: string | null } | null;
   /** P6 — the couple whose invite this was, and their event's word; null names nobody. */
   claimed?: { couple: string; eventWord: string } | null;
   /** Door A: Edit was picked on the first card but the card could not be found to open — said, with the way to the cards. */
@@ -129,6 +132,27 @@ export function TodayWelcome({
             </SubmitButton>
           </div>
         </form>
+      ) : cardState === 'refused' || (cardState === 'draft' && (cardNote?.id || cardNote?.why)) ? (
+        // The claim door's FIRST card, as its finish found it (review 20 Nov) — made but not on the page (the switch's
+        // own sentence, drawn from its key; the Card Maker on THAT card), or not made at all. Said, never a ✓.
+        <p
+          className={`flex items-start gap-1.5 border-y border-ink/10 py-3 text-sm ${cardState === 'refused' ? 'text-mulberry-deep' : 'text-ink'}`}
+          data-today-welcome-card={cardState}
+          role={cardState === 'refused' ? 'alert' : undefined}
+        >
+          <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <span>
+            {FIRST_CARD_CARRY_LINE[cardState]}
+            {firstCardWhySentence(cardNote?.why) ? ` ${firstCardWhySentence(cardNote?.why)}` : null}{' '}
+            <Link
+              href={cardNote?.id ? `/vendor-dashboard/services/${cardNote.id}` : '/vendor-dashboard/services'}
+              className="font-medium text-mulberry underline-offset-2 hover:underline"
+              data-today-welcome-card-open=""
+            >
+              {cardNote?.id ? 'Open it in the Card Maker' : 'Open your cards'}
+            </Link>
+          </span>
+        </p>
       ) : cardState === 'draft' ? (
         // The claim door's cards are made as drafts — said, with the way to them, never a ✓ (review 20 Nov).
         <p className="flex items-start gap-1.5 border-y border-ink/10 py-3 text-sm text-ink" data-today-welcome-card="draft">

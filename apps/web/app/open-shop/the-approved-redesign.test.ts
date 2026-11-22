@@ -111,7 +111,8 @@ test('five screens in the approved order, the account SECOND (supplier onboardin
   assert.doesNotMatch(WIZARD, /<FileUpload\b|in_business_since_year/);
   // No role LIST either: the ONE dropdown on the door is Door C's coordination service (owner 19 Nov).
   assert.equal((WIZARD.match(/<PickMenu\b/g) ?? []).length, 1, 'a second dropdown appeared on the door');
-  assert.match(WIZARD, /data-onboarding-coordination="">\s*<PickMenu\s+label="Your main coordination service"/);
+  // PC1 (20 Nov): the "What you do · Coordination · Picked" row sits above it — a row, not a second control.
+  assert.match(WIZARD, /data-onboarding-coordination="">\s*(?:\{\s*\}\s*)?<span[^>]*data-onboarding-coordination-picked=""[^]*?<\/span>\s*<\/span>\s*<PickMenu\s+label="Your main coordination service"/);
   assert.match(WIZARD, /contact: 'Who couples will talk to\.'/);
   assert.match(WIZARD, /2: guest \? ONBOARDING_HEADS\.account : \['Your shop’s email', 'Where couples and Setnayan reach your shop\.'\]/);
   // Five segments in the step bar.

@@ -345,3 +345,25 @@ export async function readNextEventFacts(
   });
   return out;
 }
+
+/**
+ * ✓ Does this shop have a card on its page NOW? (review 20 Nov) — the welcome's "and first card" tick is held to this,
+ * never to `?card=live` on the address. A refused or failed read answers false: no ✓ on a guess.
+ * 🔒 lib/supplier-onboarding.test.ts
+ */
+export async function readHasLiveCard(supabase: SupabaseClient, vendorProfileId: string): Promise<boolean> {
+  try {
+    const { count, error } = await supabase
+      .from('vendor_services')
+      .select('vendor_service_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('is_active', true);
+    if (error) {
+      console.error('[supabase-error] today: read whether a card is live', error);
+      return false;
+    }
+    return (count ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}

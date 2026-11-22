@@ -14,22 +14,24 @@ import { revalidateShopPage } from '@/lib/shop-page-cache';
 export async function readInviter(
   client: SupabaseClient,
   rawSlug: unknown,
-): Promise<{ vendorProfileId: string; businessName: string; slug: string; logoRef: string | null } | null | 'unreadable'> {
+): Promise<{ vendorProfileId: string; businessName: string; slug: string; logoRef: string | null; mainService: string | null } | null | 'unreadable'> {
   const slug = cleanInviteSlug(rawSlug);
   if (!slug) return null;
   const { data, error } = await client
     .from('vendor_profiles')
-    .select('vendor_profile_id, business_name, business_slug, logo_url')
+    .select('vendor_profile_id, business_name, business_slug, logo_url, services')
     .eq('business_slug', slug)
     .maybeSingle();
   if (error) {
     logQueryError('readInviter', error, { slug }, 'graceful_degrade');
     return 'unreadable';
   }
-  const row = data as { vendor_profile_id: string; business_name: string | null; business_slug: string; logo_url: string | null } | null;
+  const row = data as { vendor_profile_id: string; business_name: string | null; business_slug: string; logo_url: string | null; services: string[] | null } | null;
   const name = row?.business_name?.trim();
   if (!row || !name) return null;
-  return { vendorProfileId: row.vendor_profile_id, businessName: name, slug: row.business_slug, logoRef: row.logo_url ?? null };
+  // PC7 (owner 20 Nov): the door names the inviter's main service ("Lia Events · Coordination") — the first of `services`.
+  const mainService = (row.services ?? []).find((s) => typeof s === 'string' && s.trim()) ?? null;
+  return { vendorProfileId: row.vendor_profile_id, businessName: name, slug: row.business_slug, logoRef: row.logo_url ?? null, mainService };
 }
 
 /**

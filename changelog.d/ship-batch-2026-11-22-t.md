@@ -8,6 +8,7 @@ Tier 2 (owner 22 Nov: the App Store shots come from the live app and change only
 - **#8156** @ 4d1bb2b0e4: a guest's seat number counts from 1 on the ticket, the print and the seat pass.
 - **#7908** @ 8813827a86: the Check-in desk in three parts. Migration `20271357880360` → f8cb9bfa1f (controller GO).
 - **#7920** @ 15e9de4609: suppliers Find · Build · Book. Migrations `20271355381662` → 5349f7475f and `20271355916558` → 28d9e4a28f (controller GO).
+- **#8176** @ 916c397cb3: every booking door asks the shop's booking window and the card's order lead through one helper (`lib/booking-window.server.ts`; a failed read degrades open). The days strip stops dating month-only events. Its red was only the stale screens map.
 
 Conflict: `lib/table-words.ts` got a seat-counts-from-1 helper from both #8152 (`seatWords`) and #8156 (`seatNumberWords`). Both are kept, with one `formatCount` import.
 

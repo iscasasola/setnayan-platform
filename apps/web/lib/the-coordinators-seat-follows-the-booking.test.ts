@@ -83,7 +83,7 @@ test('2 · the ONE shared door: a fresh read, BOOKED and a coordinator’s or no
   assert.ok(trade > booked, 'the coordinator rule is asked before (or instead of) the booked check');
   assert.ok(open > trade, 'the seat is opened before the two checks');
   // The seat carries the booking that opened it; a booked SHOP is handed through even with no contact email.
-  assert.match(door, /eventVendorId: p\.eventVendorId,/, 'the seat no longer carries the booking that opened it');
+  assert.match(door, /eventVendorId: p\.hostsOwnAnswer \? null : p\.eventVendorId,/, 'the seat no longer carries the booking that opened it (or the hosts\' own answer is stamped)');
   assert.match(door, /shopProfileId: row\.marketplace_vendor_id \?\? null,/);
   assert.match(door, /email: row\.contact_email \?\? '',/);
   // The inviter is the host who booked; a supplier-side door hands none and the row's own asker is used, else NULL.
@@ -110,7 +110,7 @@ const VENDORS = 'app/dashboard/[eventId]/vendors/actions.ts';
  * write: the shared call must come AFTER it (the function reads the row the write just made). `actor` is what the door
  * hands as the inviter — the host who pressed; `null` at the one door a host does not press.
  */
-const DOORS: ReadonlyArray<{ name: string; file: string; decl: string; after: string; actor: string }> = [
+const DOORS: ReadonlyArray<{ name: string; file: string; decl: string; after: string; actor: string; hostsOwnAnswer?: true }> = [
   { name: 'updateVendorStatus (a host moves the status)', file: VENDORS, decl: 'async function updateVendorStatus(', after: '.update({ status, updated_at:', actor: 'user.id' },
   { name: 'finalizeVendor (Book / Lock)', file: VENDORS, decl: 'export async function finalizeVendor(', after: 'status: LOCKED_STATUS,', actor: 'user.id' },
   { name: 'recordDeposit (a host logs the payment)', file: VENDORS, decl: 'export async function recordDeposit(', after: 'deposit_recorded_at: ev.deposit_recorded_at ??', actor: 'user.id' },
@@ -120,7 +120,7 @@ const DOORS: ReadonlyArray<{ name: string; file: string; decl: string; after: st
   { name: 'the wizard’s marketplace pick', file: 'app/dashboard/[eventId]/wizard-actions.ts', decl: 'async function completeVendorPickFromMarketplace(', after: "status: handshakeAsk ? 'considering' : 'contracted',", actor: 'user.id' },
   { name: 'the wizard’s own supplier', file: 'app/dashboard/[eventId]/wizard-actions.ts', decl: 'async function completeVendorPickFromCustom(', after: '.insert(insertPayload)', actor: 'user.id' },
   { name: 'lockDeal (the chat’s Book)', file: 'app/_components/negotiation-actions.ts', decl: 'export async function lockDeal(', after: 'await bookVendorAtChatLock(', actor: 'ctx.userId' },
-  { name: 'answerClaimAccess (the couple approves a supplier from their link)', file: 'app/dashboard/[eventId]/access-requests/actions.ts', decl: 'async function answerClaimAccess(', after: "rpc('answer_claim_access_request'", actor: 'user.id' },
+  { name: 'answerClaimAccess (the couple approves a supplier from their link)', file: 'app/dashboard/[eventId]/access-requests/actions.ts', decl: 'async function answerClaimAccess(', after: "rpc('answer_claim_access_request'", actor: 'user.id', hostsOwnAnswer: true },
 ];
 
 test('3 · EVERY booking door opens the seat through the one shared function, after its own write', () => {
@@ -135,8 +135,11 @@ test('3 · EVERY booking door opens the seat through the one shared function, af
     assert.ok(call > write, `${d.name}: the seat is asked for BEFORE the booking is written — it would read an unbooked row`);
     // ONE line, no copied logic: the booking's id and the actor, nothing else.
     const line = body.slice(call, body.indexOf('\n', call));
-    assert.match(line, /^openTheCoordinatorsSeatForBooking\((?:createAdminClient\(\)|admin), \{ eventVendorId(?:: [\w.?]+)?, actorUserId: [\w.]+ \}\);$/, `${d.name}: the door is more than one plain call — ${line}`);
-    assert.ok(line.includes(`actorUserId: ${d.actor} }`), `${d.name}: the actor is no longer ${d.actor} — ${line}`);
+    assert.match(line, /^openTheCoordinatorsSeatForBooking\((?:createAdminClient\(\)|admin), \{ eventVendorId(?:: [\w.?]+)?, actorUserId: [\w.]+(?:, hostsOwnAnswer: true)? \}\);$/, `${d.name}: the door is more than one plain call — ${line}`);
+    // ✋ Only the hosts' own answer to a claim makes a hand-added seat (controller ruling, 22 Nov 2026); every other
+    // door's seat carries its booking and closes when that booking is cancelled.
+    const tail = d.hostsOwnAnswer ? ', hostsOwnAnswer: true }' : ' }';
+    assert.ok(line.includes(`actorUserId: ${d.actor}${tail}`), `${d.name}: the actor is no longer ${d.actor}, or the hand-added mark is wrong — ${line}`);
     // No door decides who is a coordinator, or opens a seat, by itself.
     assert.doesNotMatch(body, /bookingIsACoordinators\(|autoInviteCoordinator\(/, `${d.name}: the door carries its own copy of the rule`);
   }

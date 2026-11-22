@@ -69,3 +69,5 @@ SPEC IMPACT: None. These enforce the 21 Nov rulings "BOOKED COORDINATOR — WHAT
 - Merge of `main`: the chat ＋ keeps main's final tray; "Ask for access" stays off it (DECISION_LOG 21 Nov, the row after "CHAT ＋ FINAL").
 
 SPEC IMPACT: None. Enforces the owner's 2026-08-27 staff/owner ruling and the 2026-11-21 "ACCESS IS AUTOMATIC" row, per the controller's rulings of 22 Nov.
+
+- **Controller rulings, 22 Nov 2026.** (a) The seat opens at the supplier's yes even while the booking fee is unpaid; no new fee gate (unchanged code). (b) A seat made when the hosts approve a supplier's claim (`answer_claim_access_request`) is their own answer: hand-added, no `opened_by_event_vendor_id` stamp, so cancelling that booking never closes it (`hostsOwnAnswer` on `openTheCoordinatorsSeatForBooking`, guarded in `the-coordinators-seat-follows-the-booking.test.ts`). No migration changed.

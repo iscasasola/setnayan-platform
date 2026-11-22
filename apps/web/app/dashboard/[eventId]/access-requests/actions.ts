@@ -225,7 +225,8 @@ async function answerClaimAccess(
   // 🚪 The approval may have BOOKED the row and bonded it to a shop: the one shared door, by the shop's services (the
   // RPC seats a coordinator by the couple's category; this covers a coordinator filed under another one). Idempotent —
   // a seat the RPC just made is found and left as it is.
-  if (approve && result.granted) await openTheCoordinatorsSeatForBooking(admin, { eventVendorId: result.booking_vendor_id, actorUserId: user.id });
+  // ✋ The hosts' own answer: the seat is hand-added (no booking stamp), so cancelling the booking never closes it.
+  if (approve && result.granted) await openTheCoordinatorsSeatForBooking(admin, { eventVendorId: result.booking_vendor_id, actorUserId: user.id, hostsOwnAnswer: true });
 
   // ✏️ THE COUPLE'S LIST TAKES THE SUPPLIER'S CORRECTIONS (DECISION_LOG 2026-11-07). Contact details only — a price
   // or a service on their purchase is never taken here (it reaches them as an amendment). Fail-soft: the approval is

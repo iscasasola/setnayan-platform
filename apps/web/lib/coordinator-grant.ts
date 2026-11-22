@@ -57,7 +57,16 @@ export type SeatForBookingOutcome =
  */
 export async function openTheCoordinatorsSeatForBooking(
   admin: SupabaseClient,
-  p: { eventVendorId: string | null | undefined; actorUserId: string | null },
+  p: {
+    eventVendorId: string | null | undefined;
+    actorUserId: string | null;
+    /**
+     * ✋ THE HOSTS' OWN ANSWER (controller ruling, 22 Nov 2026): a seat made when the hosts approve a supplier's claim
+     * (`answer_claim_access_request`) is treated as HAND-ADDED — no `opened_by_event_vendor_id` stamp, so it survives a
+     * cancel of that booking like any seat the hosts added themselves.
+     */
+    hostsOwnAnswer?: boolean;
+  },
 ): Promise<SeatForBookingOutcome> {
   try {
     if (!p.eventVendorId) return 'no_booking';
@@ -91,8 +100,9 @@ export async function openTheCoordinatorsSeatForBooking(
       invitedByUserId: p.actorUserId ?? row.lock_requested_by_user_id ?? null,
       // 🧭 A booked SHOP needs no contact email: its owner's account gets the seat, accepted (owner 2026-11-21).
       shopProfileId: row.marketplace_vendor_id ?? null,
-      // 🔒 The booking that opens the seat — the database closes that seat when this booking is cancelled.
-      eventVendorId: p.eventVendorId,
+      // 🔒 The booking that opens the seat — the database closes that seat when this booking is cancelled. Not on the
+      // hosts' own answer to a claim: that seat is theirs and is never closed by the database.
+      eventVendorId: p.hostsOwnAnswer ? null : p.eventVendorId,
     });
     return created ? 'opened' : 'unchanged';
   } catch (e) {

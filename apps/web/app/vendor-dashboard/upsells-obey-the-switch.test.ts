@@ -84,7 +84,7 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // event_branded_booth_vendor_ids → vendor_pro_tools_included (Pro and up, owner 20 Nov; specs 66ae2cce, 21 Nov),
   // so the switch cannot lift it — the section says so ("Included in Pro · Upgrade") instead of selling it below Pro.
   'clients/[eventId]/_components/booth-event-section.tsx': 'maps the database’s own Pro floor (vendor_pro_tools_included) for the branded booth',
-  'clients/[eventId]/booth-event-actions.ts': 'refuses the per-event booth below Pro — the database’s own floor (vendor_pro_tools_included) would never brand it',
+  'clients/[eventId]/booth-event-actions.ts': 'refuses the per-event booth below Plus — the database’s own floor (vendor_pro_tools_included) would never brand it',
   // Day-of tools lapse with a paid Papic/day-of order, not the plan tier.
   'on-the-day/page.tsx': 'a lapsed day-of purchase, not the plan tier',
   'team/actions.ts':

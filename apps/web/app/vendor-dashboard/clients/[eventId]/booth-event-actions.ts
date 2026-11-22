@@ -112,9 +112,10 @@ export async function buyBoothBrandingForEvent(
     verification_state?: string | null;
     booth_addon_expires_at?: string | null;
   } | null;
-  // ⚖ Owner 20/21 Nov (specs 66ae2cce): Pro and up only — the effective plan, as the Special tools read it.
+  // ⚖ Every paid size, from Plus (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE"; was Pro and up) — the effective plan,
+  // as the Special tools read it (PRO_TOOLS_MIN_TIER).
   if (!isTierAtLeast(await resolveVendorTier(supabase, vendorProfileId), PRO_TOOLS_MIN_TIER)) {
-    return err('Your branded 3D booth is included in Pro. Upgrade to Pro to brand it.');
+    return err('Your branded 3D booth comes with every paid plan, from Plus. Upgrade to Plus to brand it.');
   }
   if (gate?.verification_state !== 'verified') {
     return err('Get your shop verified first — 3D Booth branding unlocks once you’re verified.');

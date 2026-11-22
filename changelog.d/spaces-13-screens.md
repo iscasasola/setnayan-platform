@@ -23,3 +23,24 @@ built to specs `prototypes/spaces_final_screens_2026-11-19.html`:
 SPEC IMPACT: None to the corpus wording. The build follows the approved drawing; its parity gaps and the four open
 questions are in the PR's STATUS (Your halls move, Uses-pick "add the first", room numbers readable through the pools'
 public-read policy, Start from this hall).
+
+## 2026-11-22 · fix(spaces): the ship review's findings, and "add the first" on a venue card
+
+- **A way in (finding 1).** A venue card with no hall shows the drawing's screen-8 row "Uses · None yet ▾" →
+  "＋ Add a hall · For your shop" / "＋ Add something else"; the Spaces sheet opens in place (loaded on the pick) and
+  the Spaces tile appears once the first is saved. A hall made in Clients ⚙ › Teams and days (`createCalendar`) is now
+  `space_kind = 'hall'`, so it shows on Spaces at once.
+- **Rentals stay out of the halls and schedules (finding 2).** One filter, `SCHEDULE_OR_HALL_POOLS`
+  (`lib/schedule-pool-kinds.ts`), on every pre-Spaces reader: a venue card's halls pick, `setServiceHalls`, moving a
+  category onto a schedule, Teams and days, a card's Schedule pick, Today, a chat's day answer and Check a date. They
+  keep a team schedule, a hall and a room, as before Spaces.
+- **Migration** `20271356372536`: `SET LOCAL lock_timeout = '5s'` (finding 3). Still needs SHIP + GO.
+- **Hall size** follows the 21 Nov ruling: the space row is the truth; `vendor_profiles.venue_*` is only read, as the
+  first hall's prefill. No code in this train writes it.
+- **Low findings:** "Connects to" also frees whoever pointed at the new hall; a typed name's `%` and `_` are matched
+  literally; removing a space says when the unlink fails. Every update and delete asks which rows changed and says
+  "You can't change this" on zero (#7968's review, finding 2, fixed here where its actions now live); a refused re-read
+  refuses a table move instead of skipping the plan check.
+- Guards: `lib/schedule-pool-kinds.test.ts` (3) · `spaces/the-locks-are-on-the-server.test.ts` (+4).
+
+SPEC IMPACT: None — implements the 19 Nov drawing's screen 8 "add the first" and the 21 Nov hall-size ruling.

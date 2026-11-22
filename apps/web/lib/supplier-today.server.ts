@@ -31,6 +31,7 @@ import type { RosMetaMap } from '@/lib/schedule-ros';
 import { readEventCover } from '@/lib/discover-events';
 import { homeCoverOf } from '@/lib/home-cover';
 import type { NextEventFacts } from '@/lib/supplier-today-next-events';
+import { SCHEDULE_OR_HALL_POOLS } from '@/lib/schedule-pool-kinds';
 
 export type TodayShopRow = {
   verified: boolean;
@@ -138,6 +139,7 @@ export async function readTodaySchedules(
       .select(`pool_id, pool_label, calendar_name, daily_booking_capacity, vendor_calendar_blocks(block_id, block_source, blocked_at, blocked_until, client_name, ${NOT_AVAILABLE_COLUMNS})`)
       .eq('vendor_profile_id', vendorProfileId)
       .eq('is_active', true)
+      .or(SCHEDULE_OR_HALL_POOLS)
       .in('vendor_calendar_blocks.block_source', ['manual', 'external_client'])
       // 🪤 A repeat (every Sunday …) stores only its FIRST day, so `blocked_until >= today` alone dropped every repeat
       // that began before today (supplier batch walk, W2). The ONE rule's window: a one-off not over, or any repeat —

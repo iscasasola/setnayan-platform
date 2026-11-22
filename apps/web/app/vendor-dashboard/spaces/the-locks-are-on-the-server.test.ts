@@ -61,3 +61,29 @@ test('the two Spaces locks say problem and solution, open at Pro, and name this 
 test('the 18 Nov Rooms & seating page is gone (owner 19 Nov: reworked into Spaces, not kept beside it)', () => {
   assert.ok(!existsSync(join(HERE, '../rooms-seating/page.tsx')), '/vendor-dashboard/rooms-seating came back');
 });
+
+/* ── Ship review 21 Nov: a refused write never reads as saved, and no link is left one way ───────────────────── */
+
+test('every update and delete asks which rows changed, and zero rows is said, never "saved"', () => {
+  for (const fn of ['updateSpace', 'removeSpace', 'updateTable', 'deleteTable', 'lineUpTables', 'deleteDoor', 'placeTable']) {
+    const b = body(fn);
+    assert.match(b, /\.select\('(pool_id|unit_id|door_id)'\)/, `${fn} does not ask which rows it changed`);
+    assert.match(b, /if \(changedNothing\((saved|gone|data)\)\) return NOT_YOURS;/, `${fn} reads a 0-row write as saved`);
+  }
+});
+
+test('"Connects to" lets go of BOTH old links, and removing a space says when that fails', () => {
+  const b = body('connectBothWays');
+  assert.match(b, /\.eq\('connects_to_pool_id', id\)\.neq\('pool_id', to \?\? id\)/, 'the old link to this hall is kept');
+  assert.match(b, /\.eq\('connects_to_pool_id', to\)\.neq\('pool_id', id\)/, 'whoever pointed at the new hall keeps a one-way link');
+  assert.match(body('removeSpace'), /const e = await connectBothWays\(s, id, null\);\s*if \(e\) return \{ ok: false, error: e \};/, 'a refused unlink is swallowed');
+});
+
+test('a typed name is matched as typed: % and _ are not wildcards', () => {
+  assert.match(body('updateSpace'), /\.ilike\('calendar_name', likeExactly\(name\)\)/);
+  assert.match(SRC, /function likeExactly\(name: string\): string \{\s*return name\.replace\(\/\[\\\\%_\]\/g/);
+});
+
+test('a refused re-read refuses the move instead of skipping the plan check', () => {
+  assert.match(body('placeTable'), /if \(!now\) return \{ ok: false, error: 'Couldn’t check the plan just now\. Nothing was moved\.' \};/);
+});

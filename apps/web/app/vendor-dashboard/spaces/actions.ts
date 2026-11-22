@@ -70,6 +70,17 @@ async function fresh(s: Shop, date: string): Promise<SpacesResult> {
 
 const NO_SHOP: SpacesResult = { ok: false, error: 'Sign in to your shop first.' };
 
+/** A write that matched no row (RLS, or a stale id) changed nothing: it must never read as saved (ship review 21 Nov). */
+const NOT_YOURS: SpacesResult = { ok: false, error: 'You can’t change this. Open the page again.' };
+function changedNothing(data: unknown): boolean {
+  return !Array.isArray(data) || data.length === 0;
+}
+
+/** `ilike` treats % and _ as wildcards: a name is matched as it is typed, never as a pattern. */
+function likeExactly(name: string): string {
+  return name.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 /** Words for a database refusal — never the raw message. */
 function said(error: { code?: string; message?: string } | null): string {
   if (!error) return '';
@@ -147,14 +158,20 @@ function columnsOf(input: Omit<SpaceInput, 'howMany' | 'run'>): { cols: Record<s
   return { cols: out };
 }
 
-/** "Connects to" is saved both ways: the other hall points back, and whoever it pointed at before lets go. */
+/**
+ * "Connects to" is saved both ways: the other hall points back, and whoever pointed at either of them before lets go —
+ * so no hall is left pointing one way at a hall that now connects elsewhere (ship review 21 Nov).
+ */
 async function connectBothWays(s: Shop, id: string, to: string | null): Promise<string> {
   const v = s.profile.vendor_profile_id;
   const { error: a } = await s.supabase.from('vendor_schedule_pools').update({ connects_to_pool_id: null }).eq('vendor_profile_id', v).eq('connects_to_pool_id', id).neq('pool_id', to ?? id);
   if (a) return said(a);
   if (!to) return '';
-  const { error: b } = await s.supabase.from('vendor_schedule_pools').update({ connects_to_pool_id: id }).eq('vendor_profile_id', v).eq('pool_id', to);
-  return b ? said(b) : '';
+  const { error: c } = await s.supabase.from('vendor_schedule_pools').update({ connects_to_pool_id: null }).eq('vendor_profile_id', v).eq('connects_to_pool_id', to).neq('pool_id', id);
+  if (c) return said(c);
+  const { data, error: b } = await s.supabase.from('vendor_schedule_pools').update({ connects_to_pool_id: id }).eq('vendor_profile_id', v).eq('pool_id', to).select('pool_id');
+  if (b) return said(b);
+  return changedNothing(data) ? 'That hall is no longer here. Open the page again.' : '';
 }
 
 async function addSpaces(input: SpaceInput, date: string): Promise<SpacesResult> {
@@ -208,14 +225,15 @@ async function updateSpace(input: Omit<SpaceInput, 'howMany' | 'run'> & { id: st
   if (name !== undefined && name !== (was.calendar_name ?? '')) {
     if (!(await proOpen(s))) return { ok: false, error: 'Renaming comes with Pro.' };
     if (!name || name.length > MAX_SPACE_NAME) return { ok: false, error: `A name, up to ${MAX_SPACE_NAME} letters.` };
-    const { data: same } = await s.supabase.from('vendor_schedule_pools').select('pool_id').eq('vendor_profile_id', s.profile.vendor_profile_id).eq('is_active', true).ilike('calendar_name', name).neq('pool_id', input.id).limit(1);
+    const { data: same } = await s.supabase.from('vendor_schedule_pools').select('pool_id').eq('vendor_profile_id', s.profile.vendor_profile_id).eq('is_active', true).ilike('calendar_name', likeExactly(name)).neq('pool_id', input.id).limit(1);
     if ((same ?? []).length > 0) return { ok: false, error: `${name} is already a name in your shop.` };
     // Renaming never breaks a booking: a booking holds the space's id, never its name.
     patch.calendar_name = name;
     patch.pool_label = name;
   }
-  const { error } = await s.supabase.from('vendor_schedule_pools').update(patch).eq('pool_id', input.id).eq('vendor_profile_id', s.profile.vendor_profile_id);
+  const { data: saved, error } = await s.supabase.from('vendor_schedule_pools').update(patch).eq('pool_id', input.id).eq('vendor_profile_id', s.profile.vendor_profile_id).select('pool_id');
   if (error) return { ok: false, error: said(error) };
+  if (changedNothing(saved)) return NOT_YOURS;
   const e = await connectBothWays(s, input.id, (cols.connects_to_pool_id as string | null) ?? null);
   if (e) return { ok: false, error: e };
   revalidateShopPage(s.profile.vendor_profile_id, s.profile.business_slug);
@@ -235,9 +253,12 @@ async function removeSpace(id: string, date: string): Promise<SpacesResult> {
   if ((held.count ?? 0) > 0) return { ok: false, error: 'It is booked. Close its dates instead; it can’t be removed.' };
   if ((uses.count ?? 0) > 0) return { ok: false, error: 'A service card uses it. Take it off the card first.' };
   // Soft, as every schedule is: is_active off. Its tables and doors go with it from the screen.
-  const { error } = await s.supabase.from('vendor_schedule_pools').update({ is_active: false, connects_to_pool_id: null, updated_at: new Date().toISOString() }).eq('pool_id', id).eq('vendor_profile_id', s.profile.vendor_profile_id);
+  const { data: gone, error } = await s.supabase.from('vendor_schedule_pools').update({ is_active: false, connects_to_pool_id: null, updated_at: new Date().toISOString() }).eq('pool_id', id).eq('vendor_profile_id', s.profile.vendor_profile_id).select('pool_id');
   if (error) return { ok: false, error: said(error) };
-  await connectBothWays(s, id, null);
+  if (changedNothing(gone)) return NOT_YOURS;
+  // Whoever connected to it lets go too; a refusal here is said, never swallowed.
+  const e = await connectBothWays(s, id, null);
+  if (e) return { ok: false, error: e };
   revalidateShopPage(s.profile.vendor_profile_id, s.profile.business_slug);
   return fresh(s, date);
 }
@@ -283,20 +304,23 @@ async function updateTable(input: { id: string; name: string; shape: TableShape;
   if (!one.ok || one.names.length !== 1 || one.names[0] !== name) return { ok: false, error: 'Give it one name or number.' };
   const t = tableFields(input.shape, input.chairs, input.ends);
   if ('error' in t) return { ok: false, error: t.error };
-  const { error } = await s.supabase
+  const { data, error } = await s.supabase
     .from('vendor_units')
     .update({ name, table_shape: t.shape, chairs: t.chairs, chairs_at_ends: t.ends })
     .eq('unit_id', input.id)
-    .eq('vendor_profile_id', s.profile.vendor_profile_id);
+    .eq('vendor_profile_id', s.profile.vendor_profile_id)
+    .select('unit_id');
   if (error) return { ok: false, error: said(error) };
+  if (changedNothing(data)) return NOT_YOURS;
   return fresh(s, date);
 }
 
 async function deleteTable(id: string, date: string): Promise<SpacesResult> {
   const s = await shop();
   if (!s) return NO_SHOP;
-  const { error } = await s.supabase.from('vendor_units').delete().eq('unit_id', id).eq('vendor_profile_id', s.profile.vendor_profile_id);
+  const { data, error } = await s.supabase.from('vendor_units').delete().eq('unit_id', id).eq('vendor_profile_id', s.profile.vendor_profile_id).select('unit_id');
   if (error) return { ok: false, error: said(error) };
+  if (changedNothing(data)) return NOT_YOURS;
   return fresh(s, date);
 }
 
@@ -308,8 +332,9 @@ async function lineUpTables(spaceId: string, date: string): Promise<SpacesResult
   if (!now) return { ok: false, error: 'Couldn’t read your tables just now. Try again.' };
   const ids = lineUp(now.tables.units.filter((u) => u.groupId === spaceId)).get(spaceId) ?? [];
   for (let i = 0; i < ids.length; i++) {
-    const { error } = await s.supabase.from('vendor_units').update({ sort_order: i }).eq('unit_id', ids[i]!).eq('vendor_profile_id', s.profile.vendor_profile_id);
+    const { data, error } = await s.supabase.from('vendor_units').update({ sort_order: i }).eq('unit_id', ids[i]!).eq('vendor_profile_id', s.profile.vendor_profile_id).select('unit_id');
     if (error) return { ok: false, error: said(error) };
+    if (changedNothing(data)) return NOT_YOURS;
   }
   return fresh(s, date);
 }
@@ -332,8 +357,9 @@ async function addDoor(input: { spaceId: string; kind: DoorKind; wall: Wall; alo
 async function deleteDoor(id: string, date: string): Promise<SpacesResult> {
   const s = await shop();
   if (!s) return NO_SHOP;
-  const { error } = await s.supabase.from('vendor_unit_doors').delete().eq('door_id', id).eq('vendor_profile_id', s.profile.vendor_profile_id);
+  const { data, error } = await s.supabase.from('vendor_unit_doors').delete().eq('door_id', id).eq('vendor_profile_id', s.profile.vendor_profile_id).select('door_id');
   if (error) return { ok: false, error: said(error) };
+  if (changedNothing(data)) return NOT_YOURS;
   return fresh(s, date);
 }
 
@@ -347,19 +373,22 @@ async function placeTable(id: string, x: number, y: number, rotationDeg: number,
   // ONE check before a save (ADAPTER.md §5): the engine's validatePlan — a supplier floor refuses exactly what an
   // event floor refuses. Only this table's overlap / outside refuses the move.
   const now = await readSpaces(s.supabase, s.profile.vendor_profile_id, date);
-  const unit = now?.tables.units.find((u) => u.id === id);
-  if (now && unit) {
-    const moved = { ...now.tables, units: now.tables.units.map((u) => (u.id === id ? { ...u, x, y, rotationDeg } : u)) };
-    const area = shopPlanOf(moved, unit.groupId);
-    const bad = area ? validatePlan(planFromShopPlan(area)).find((p) => (p.kind === 'overlap' || p.kind === 'outside') && p.tableId === id) : undefined;
-    if (bad) return { ok: false, error: bad.words };
-  }
-  const { error } = await s.supabase
+  // A refused re-read never skips the check (ship review 21 Nov): the move is refused instead.
+  if (!now) return { ok: false, error: 'Couldn’t check the plan just now. Nothing was moved.' };
+  const unit = now.tables.units.find((u) => u.id === id);
+  if (!unit) return NOT_YOURS;
+  const moved = { ...now.tables, units: now.tables.units.map((u) => (u.id === id ? { ...u, x, y, rotationDeg } : u)) };
+  const area = shopPlanOf(moved, unit.groupId);
+  const bad = area ? validatePlan(planFromShopPlan(area)).find((p) => (p.kind === 'overlap' || p.kind === 'outside') && p.tableId === id) : undefined;
+  if (bad) return { ok: false, error: bad.words };
+  const { data, error } = await s.supabase
     .from('vendor_units')
     .update({ x_pos: x, y_pos: y, rotation_deg: Math.round(rotationDeg) })
     .eq('unit_id', id)
-    .eq('vendor_profile_id', s.profile.vendor_profile_id);
+    .eq('vendor_profile_id', s.profile.vendor_profile_id)
+    .select('unit_id');
   if (error) return { ok: false, error: said(error) };
+  if (changedNothing(data)) return NOT_YOURS;
   return fresh(s, date);
 }
 

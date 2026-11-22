@@ -33,6 +33,9 @@
 --
 -- No couple-facing read is added here. vendor_schedule_pools keeps its two shipped policies.
 BEGIN;
+-- vendor_schedule_pools is on the booking path: its ALTERs, CHECK scans, FK and trigger fail fast rather than queue
+-- every booking behind them (ship review 21 Nov).
+SET LOCAL lock_timeout = '5s';
 
 -- ── 1 · the Spaces columns ──────────────────────────────────────────────────────────────────────────────────────────
 ALTER TABLE public.vendor_schedule_pools

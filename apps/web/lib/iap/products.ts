@@ -17,7 +17,7 @@ import { AI_TIER_SKU, type AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
  *         `RETIRED_IAP_PRODUCT_IDS`, never reused.
  *       ↳ The eleven Event Pro PART products (`hub_part_*`, 2026-10-22) were RETIRED before any was sold (owner
  *         2026-10-26, "just have the upgrade Event Pro") — Event Pro is sold whole; their ids are listed in
- *         `RETIRED_HUB_PART_PRODUCT_IDS` and never reused.
+ *         `RETIRED_IAP_PRODUCT_IDS` and never reused.
  *   (2) Pro is offered in the app ONLY at ✓ Apply.
  *   (3) Pro and Live Watch are ONE purchase for the CURRENT event — a
  *       CONSUMABLE applied to that event, never a subscription and never a
@@ -103,29 +103,6 @@ export type IapProduct = {
 };
 
 const PREFIX = 'com.setnayan.app.';
-
-/**
- * 🗑 EVENT PRO, PART BY PART — RETIRED, NEVER OFFERED (owner 2026-10-26: "and just have the upgrade Event Pro"
- * … "i mean no more by part as well on the website"). The eleven part products of 2026-10-22 were made in App Store
- * Connect but never attached to a version and never sold; Event Pro (`event_hub_pro`) is the one Event Hub product.
- * They are OUT of `IAP_PRODUCTS` — so StoreKit is never asked for them, `iapProductById` answers null and the server
- * refuses one by name — and kept HERE, the way `mood_board_renders_50` is kept in a comment, only so an id is never
- * reused (ids are forever). Spelled here, not derived from `lib/hub-parts.ts`'s table, so a renamed part can never
- * change one; `products.test.ts` holds the two lists equal.
- */
-const RETIRED_HUB_PART_PRODUCTS: ReadonlyArray<readonly [part: string, serviceKey: string, name: string]> = [
-  ['reveal', 'COUPLE_HUB_PART_REVEAL', 'Reveal'],
-  ['background', 'COUPLE_HUB_PART_BACKGROUND', 'Background'],
-  ['photos', 'COUPLE_HUB_PART_PHOTOS', 'Photos'],
-  ['style', 'COUPLE_HUB_PART_STYLE', 'Style'],
-  ['motion', 'COUPLE_HUB_PART_MOTION', 'Motion'],
-  ['logo_qr', 'COUPLE_HUB_PART_LOGO_QR', 'Logo & QR'],
-  ['music', 'COUPLE_HUB_PART_MUSIC', 'Music'],
-  ['prints', 'COUPLE_HUB_PART_PRINTS', 'Prints'],
-  ['post_event', 'COUPLE_HUB_PART_POST_EVENT', 'Post Event'],
-  ['own_scenes', 'COUPLE_HUB_PART_OWN_SCENES', 'Your own scenes'],
-  ['address', 'COUPLE_HUB_PART_ADDRESS', 'Custom address'],
-];
 
 /**
  * 📸 THE THREE PAPIC PACKS (owner 2026-11-03): `[credits, catalogue code]`. Prices are NOT here — App Store Connect
@@ -241,8 +218,8 @@ export const IAP_SUPPLIER_GIFT_PRODUCTS: readonly IapSupplierGiftProduct[] = Obj
       // price point equal to the EVENT_ULTRA row's list price; not sellable until the supplier path is.
       ['gift_event_ultra', 'EVENT_ULTRA', 'Gift · Event Ultra'],
       ['gift_live_watch', 'LIVE_STUDIO', 'Gift · Live Watch'],
-      ['gift_music_maker', 'PAKANTA', 'Gift · Music Maker'],
-      ['gift_patiktok', 'PATIKTOK_COMPILER', 'Gift · Patiktok'],
+      // 🗑 `gift_music_maker` (PAKANTA) and `gift_patiktok` (PATIKTOK_COMPILER) left with their products (owner 2026-11-20,
+      // "Retire Patiktok and Music Maker") — ids in RETIRED_IAP_PRODUCT_IDS, never reused.
     ] as const
   ).map(
     ([id, serviceKey, name]): IapSupplierGiftProduct => ({
@@ -263,21 +240,21 @@ export function iapProductIsRepeatable(product: IapProduct | null | undefined): 
   return product?.kind === 'papic-credits';
 }
 
-/** 🗑 The eleven retired part products' ids, in the parts' own order — never sold, never reused. */
-export const RETIRED_HUB_PART_PRODUCT_IDS: readonly string[] = RETIRED_HUB_PART_PRODUCTS.map(([part]) => `${PREFIX}hub_part_${part}`);
-
-/** The catalogue code each retired part product would have sold — `products.test.ts` holds them to the parts table. */
-export const RETIRED_HUB_PART_SERVICE_KEYS: readonly string[] = RETIRED_HUB_PART_PRODUCTS.map(([, serviceKey]) => serviceKey);
-
 /**
  * 🗑 App Store products made in App Store Connect and RETIRED — never sold, never asked of StoreKit, never reused
  * (ids are forever). `mood_board_renders_50` predates this list and stays named in comments above.
  */
 export const RETIRED_IAP_PRODUCT_IDS: readonly string[] = Object.freeze([
-  // The eleven Event Pro parts — Event Pro is sold whole (owner 2026-10-26).
-  ...RETIRED_HUB_PART_PRODUCT_IDS,
+  // The eleven Event Pro parts (`hub_part_<part>`, made 2026-10-22, never attached to a version, never sold) — Event Pro is
+  // sold whole (owner 2026-10-26). Plain ids only: the parts table they once mirrored is gone (22 Nov clean-up).
+  ...['reveal', 'background', 'photos', 'style', 'motion', 'logo_qr', 'music', 'prints', 'post_event', 'own_scenes', 'address'].map(
+    (part) => `${PREFIX}hub_part_${part}`,
+  ),
   // The Thank-You Video went free for every event (owner 2026-10-26, "make it free for now").
   `${PREFIX}papic_thank_you`,
+  // The Music Maker and Patiktok GIFTS left with their products (owner 2026-11-20, "Retire Patiktok and Music Maker").
+  `${PREFIX}gift_music_maker`,
+  `${PREFIX}gift_patiktok`,
   // The five `papic_credits_*` products retired 2026-11-03, and `event_hub_pro` + the four Setnayan AI products retired
   // 2026-11-04, are listed in lib/iap/products-delivery.ts (RETIRED_PAPIC_CREDIT_PRODUCT_IDS ·
   // RETIRED_EVENT_PRODUCT_IDS) — they still DELIVER an already-charged transaction, and are kept out of this

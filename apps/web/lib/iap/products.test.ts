@@ -19,9 +19,7 @@ import {
   iapProductForServiceKey,
   papicCreditsMatch,
   IAP_PRODUCT_IDS,
-  RETIRED_HUB_PART_PRODUCT_IDS,
   RETIRED_IAP_PRODUCT_IDS,
-  RETIRED_HUB_PART_SERVICE_KEYS,
   iapPriceRowFor,
   iapSetnayanAiProductForTier,
   iapProductIsRepeatable,
@@ -29,7 +27,6 @@ import {
 } from './products';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
 import { RETIRED_EVENT_PRODUCT_IDS, RETIRED_PAPIC_CREDIT_PRODUCT_IDS, iapProductForDelivery } from './products-delivery';
-import { HUB_PARTS } from '../hub-parts';
 import { hasNativeStore, iapAvailable, NATIVE_STORE_UA_MARKER } from './iap-gate';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -38,7 +35,7 @@ test('💰 2026-11-04 final sheet — Event Plus, Event Pro, three Papic packs, 
   const keys = IAP_PRODUCTS.map((p) => p.serviceKey).sort();
   assert.deepEqual(keys, [
     // 🗑 The eleven Event Pro PART products (2026-10-22) are retired, never sold (owner 2026-10-26, "just have the
-    // upgrade Event Pro") — Event Pro is the one Event Hub product. See RETIRED_HUB_PART_PRODUCT_IDS.
+    // upgrade Event Pro") — Event Pro is the one Event Hub product. Their ids are in RETIRED_IAP_PRODUCT_IDS.
     // 💰 Event Pro (`event_pro`, replaces `event_hub_pro`) and Event Plus (`event_plus`) — owner 2026-11-02 / 2026-11-04.
     'COUPLE_WEBSITE_PRO',
     'EVENT_PLUS',
@@ -105,7 +102,6 @@ test('🗑 Thank You is sold by no product — free for every event — and its 
     assert.equal(iapProductById(id), null, `${id} is retired and sold again`);
     assert.ok(!IAP_PRODUCT_IDS.includes(id), `${id} is asked of StoreKit`);
   }
-  assert.ok(RETIRED_HUB_PART_PRODUCT_IDS.every((id) => RETIRED_IAP_PRODUCT_IDS.includes(id)), 'a retired part id is missing from the one retired list');
 });
 
 test('ruling 3 — every product is a CONSUMABLE (one purchase for the current event)', () => {
@@ -232,15 +228,10 @@ test('🗑 2026-11-04 — event_hub_pro and the four Setnayan AI products (and 2
 });
 
 test('🗑 the eleven part products are retired — sold by nothing, their ids kept so none is ever reused (owner 2026-10-26)', () => {
-  /* "and just have the upgrade Event Pro" … "i mean no more by part as well on the website." Held against the parts
-     table, so the retired list stays the one that was made in App Store Connect: one id a part, never drifted. */
-  assert.deepEqual(RETIRED_HUB_PART_SERVICE_KEYS, HUB_PARTS.map((p) => p.sku));
-  assert.deepEqual(RETIRED_HUB_PART_PRODUCT_IDS, HUB_PARTS.map((p) => `com.setnayan.app.hub_part_${p.id}`), 'a retired part id drifted — ids are forever');
-  for (const id of RETIRED_HUB_PART_PRODUCT_IDS) {
-    assert.equal(iapProductById(id), null, `${id} is sold again — Event Pro is sold whole`);
-    assert.ok(!IAP_PRODUCT_IDS.includes(id), `${id} is asked of StoreKit`);
-  }
-  for (const key of RETIRED_HUB_PART_SERVICE_KEYS) assert.equal(iapProductForServiceKey(key), null, `${key} has an App Store product again`);
+  /* "and just have the upgrade Event Pro" … "i mean no more by part as well on the website." */
+  const parts = RETIRED_IAP_PRODUCT_IDS.filter((id) => id.includes('.hub_part_'));
+  assert.equal(parts.length, 11, 'a retired part id is missing — ids are forever');
+  for (const id of parts) assert.ok(!IAP_PRODUCT_IDS.includes(id), `${id} is asked of StoreKit`);
   assert.ok(!IAP_PRODUCTS.some((p) => /hub_part|COUPLE_HUB_PART/.test(p.productId + p.serviceKey)), 'a part product is back');
 });
 

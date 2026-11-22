@@ -69,7 +69,11 @@ test('the server-stored shop files record their size; a delete releases it', () 
   const pub = read('lib/supplier-photo-publish.server.ts');
   assert.match(pub, /deps\.counted\?\.\(vendorProfileId, ORIGINALS, originalKey/);
   assert.match(pub, /deps\.counted\?\.\(vendorProfileId, MEDIA, publicKey/);
-  assert.match(read('lib/r2.ts'), /keyMayBeLedgered\(args\.key\)[\s\S]{0,300}releaseShopUpload/);
+  const exec = read('lib/cleanup-delete.ts');
+  assert.match(exec, /await executor\.executeCleanupDelete\(target\);\s*await releaseDeletedShopUpload\(target\.bucket, target\.key\);/);
+  assert.match(exec, /outcome === 'deleted'[\s\S]{0,200}releaseDeletedShopUpload\(stored\.bucket, stored\.key\)/);
+  assert.match(read('lib/storage.ts'), /await releaseDeletedShopUpload\(r2\.bucket, r2\.key\);\s*return \{ ok: true, outcome: 'deleted' \}/);
+  assert.doesNotMatch(read('lib/r2.ts'), /supplier-storage|supabase\/admin/, 'the R2 primitive must not reach a database client');
   assert.equal(keyMayBeLedgered('vendors/abc/logo/x.jpg'), true);
   assert.equal(keyMayBeLedgered('handovers/ev/x.pdf'), true);
   assert.equal(keyMayBeLedgered('inspiration/ev/suggestions/slot/x.jpg'), true);

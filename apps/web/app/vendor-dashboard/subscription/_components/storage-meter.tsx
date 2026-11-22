@@ -75,6 +75,11 @@ export function StorageMeter({ tier, read }: { tier: string; read: StorageBreakd
   const notice = storageNotice(state);
   const over = used > allowance;
   const base = over ? used : allowance;
+  // Photos full but the plan not: the free part is the room, kept for chat and documents — never "8 GB free" alone.
+  const usedLine =
+    state.mediaPct >= 100 && !over
+      ? `${meterWords(used)} of ${storageWords(allowance)} used · the rest is kept for chat and documents`
+      : storageUsedLine(tier, used);
   const free = Math.max(0, allowance - used);
   const label = [
     ...STORAGE_KINDS.map((k) => `${k.name} ${meterWords(b[k.key])}`),
@@ -118,9 +123,7 @@ export function StorageMeter({ tier, read }: { tier: string; read: StorageBreakd
       </div>
 
       <p className="mt-3 text-sn-lg font-semibold tabular-nums text-ink" data-plan-storage-used="">
-        {state.mediaPct >= 100 && !over
-          ? `${meterWords(used)} of ${storageWords(allowance)} used · the rest is kept for chat and documents`
-          : storageUsedLine(tier, used)}
+        {usedLine}
       </p>
 
       <div className="mt-3 border-t border-ink/10 pt-3" data-plan-storage-room={roomLevel}>

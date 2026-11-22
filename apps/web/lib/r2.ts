@@ -315,20 +315,6 @@ export async function r2Delete(args: {
   await client.send(
     new DeleteObjectCommand({ Bucket: args.bucket, Key: args.key }),
   );
-  // 📏 A shop's deleted upload stops counting on its storage meter (supplier_stored_files.released_at). Best-effort:
-  // never throws, and only for keys the ledger can hold, so bulk sweeps of other folders add no database call.
-  try {
-    const { keyMayBeLedgered } = await import('./supplier-storage');
-    if (keyMayBeLedgered(args.key)) {
-      const [{ createAdminClient }, { releaseShopUpload }] = await Promise.all([
-        import('./supabase/admin'),
-        import('./supplier-storage.server'),
-      ]);
-      await releaseShopUpload(createAdminClient(), `r2://${args.bucket}/${args.key}`);
-    }
-  } catch (e) {
-    console.error('[r2] delete not released from the storage meter', args.key, e instanceof Error ? e.message : e);
-  }
 }
 
 /**

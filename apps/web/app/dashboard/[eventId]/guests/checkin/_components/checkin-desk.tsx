@@ -22,7 +22,7 @@ import { parseGuestQrPayload, guestInitials } from '@/lib/checkin';
 import { guestTokenFromTag, nfcReadFailureCopy } from '@/lib/nfc-tag';
 import { useNfcEnabled } from '@/app/_components/use-nfc-enabled';
 import { useNfcTagReader } from '@/app/_components/use-nfc-tag-reader';
-import { checkInGuest, checkTicketLive, undoCheckIn, type CheckinMethod, type TicketCheck } from '../actions';
+import { changeDesk, checkInGuest, checkTicketLive, type CheckinMethod, type TicketCheck, type UndoActionResult } from '../actions';
 import { DOOR_WORDS } from '@/lib/request-key';
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
@@ -420,9 +420,9 @@ export function CheckinDesk({
           setNotice('Undo needs signal — try again when you’re back online.');
           return;
         }
-        let result: Awaited<ReturnType<typeof undoCheckIn>>;
+        let result: UndoActionResult;
         try {
-          result = await undoCheckIn(eventId, guestId);
+          result = await changeDesk(eventId, { kind: 'undo', guestId });
         } catch {
           setOnline(false);
           setNotice('Undo needs signal — try again when you’re back online.');

@@ -191,13 +191,11 @@ export async function checkInGuest(
   return { ok: true, checkedInAt: inserted.checked_in_at };
 }
 
-/** Undo a check-in (mis-scan at the door). */
-export async function undoCheckIn(
+/** Undo a check-in (mis-scan at the door). Reached through `changeDesk` (below), which asks the helper gate first. */
+async function undoCheckIn(
   eventId: string,
   guestId: string,
 ): Promise<UndoActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
-  if (helperRefusal) return { ok: false, error: helperRefusal };
   let crew;
   try {
     crew = await assertDoorCrew(eventId);
@@ -297,11 +295,9 @@ export type SaveDeskAccessResult = { ok: true; access: DeskAccess } | { ok: fals
  * couple member or a full co-host seat (`readDeskViewer` → role `host`). The supplier at the door must hold a live
  * supplier seat (`wedding_planner_external`) on THIS event — a typed or stale account id is refused, never stored.
  * Written through the service role (the column has no user grant — migration 20271357880360). The sheet updates in
- * place from what comes back; nothing reloads.
+ * place from what comes back; nothing reloads. Reached through `changeDesk` (below), which asks the helper gate first.
  */
-export async function saveDeskAccess(eventId: string, next: unknown): Promise<SaveDeskAccessResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
-  if (helperRefusal) return { ok: false, error: helperRefusal };
+async function saveDeskAccess(eventId: string, next: unknown): Promise<SaveDeskAccessResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: 'Sign in again to change who runs the desk.' };
   if (typeof eventId !== 'string' || !/^[0-9a-f-]{36}$/i.test(eventId)) return { ok: false, error: 'That event could not be found.' };
@@ -351,4 +347,22 @@ export async function saveDeskAccess(eventId: string, next: unknown): Promise<Sa
     .eq('event_id', eventId);
   if (error) return { ok: false, error: 'Couldn’t save that just now — try again.' };
   return { ok: true, access };
+}
+
+/**
+ * ONE door for the desk's two writes besides a check-in (owner 16 Nov 2026): `undo` a mis-scan, and the hosts' ⚙ `access`
+ * save. One export, not two — every exported server action is a Vercel route and the count sits at its ceiling
+ * (scripts/lint-server-action-budget.mjs, "fold, never raise"). Both are guest-list writes, so the limited-helper gate is
+ * asked once, here, before either runs.
+ */
+export type DeskChange = { kind: 'undo'; guestId: string } | { kind: 'access'; next: unknown };
+type DeskChangeAnswer<C> = C extends { kind: 'access' } ? SaveDeskAccessResult : UndoActionResult;
+
+export async function changeDesk<C extends DeskChange>(eventId: string, change: C): Promise<DeskChangeAnswer<C>> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
+  if (helperRefusal) return { ok: false, error: helperRefusal } as DeskChangeAnswer<C>;
+  const answer = change?.kind === 'access' ? await saveDeskAccess(eventId, change.next)
+    : change?.kind === 'undo' ? await undoCheckIn(eventId, String(change.guestId ?? ''))
+    : ({ ok: false, error: 'That change isn’t one the desk knows.' } as const);
+  return answer as DeskChangeAnswer<C>;
 }

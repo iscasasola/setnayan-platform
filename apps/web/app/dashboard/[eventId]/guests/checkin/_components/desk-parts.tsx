@@ -25,7 +25,7 @@ import {
   type DeskAccess,
   type DeskPart,
 } from '@/lib/checkin-desk';
-import { saveDeskAccess } from '../actions';
+import { changeDesk } from '../actions';
 
 export type DoorCandidate = { userId: string; name: string };
 
@@ -128,7 +128,7 @@ function WhoRunsTheDesk({
     setAccess(next);
     setNote(null);
     start(async () => {
-      const res = await saveDeskAccess(eventId, serializeDeskAccess(next));
+      const res = await changeDesk(eventId, { kind: 'access', next: serializeDeskAccess(next) });
       if (res.ok) {
         setAccess(res.access);
         setNote('Saved');

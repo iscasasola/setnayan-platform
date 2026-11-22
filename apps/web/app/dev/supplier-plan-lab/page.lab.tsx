@@ -762,6 +762,9 @@ function giftsFixture(fail: boolean, inApp = false, sent = false) {
         maxPaymentPhp: 100_000,
         openRails: [{ id: 'bdo', label: 'BDO' }],
         canBuy: !inApp,
+        // 💝 In the app a ticket's sheet buys ONE gift through Apple (22 Nov). StoreKit is not in a browser, so the lab's
+        // button shows the store's honest "not answering" state and no price — never a web price.
+        appleGifts: inApp,
         // 🏅 Badge rewards (2026-11-05): some of the stock is badge reward, a free booking fee used and one waiting.
         rewards: {
           left: fail ? null : { papic: 300, event_plus: 1, event_pro: 0, event_ultra: 0, packs: {} },

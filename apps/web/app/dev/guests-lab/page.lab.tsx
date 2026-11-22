@@ -22,6 +22,7 @@
  *                   &seats=2 a guest who brings TWO +1s (one named, one not yet) — every seat a line (2026-10-22);
  *                   &seatread=empty the card as origin/main's `.maybeSingle()` loader drew that guest (the read erred → []),
  *                   &seatread=fail a refused seat read ("Couldn’t read …", never the empty state)
+ *                   &seatrow=fail the guest's OWN seat read refused — Seat says "Couldn’t read their seat", never "Not seated"
  *   ?part=host      the bride's card — a host, ⋯ only
  *   ?part=rows      (retired with the old GuestListMultiselect — redirects to part=screen)
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
@@ -295,6 +296,8 @@ function cardData(g: GuestRow, isCouple: boolean): GuestCardData {
     plusOneGuestId: null,
     initialInvited: [],
     seatedAt: isCouple ? 'Sweetheart Table' : 'Entourage',
+    // 🪑 Their chair, counted from 0 — Daniel at Entourage reads "Entourage · Seat 2" (drawing § 3).
+    seatNumber: isCouple ? 0 : 1,
     customGroups: [],
     recordedAt: null,
     access: null,
@@ -873,7 +876,7 @@ export default async function GuestsLabPage({
         <GuestCard
           frame={panelFrame ? 'panel' : 'page'}
           eventId={EVENT}
-          data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...linkedData, ...proxyData, ...notCountedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
+          data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...(sp.seatrow === 'fail' ? { seatUnread: true, seatedAt: null, seatNumber: null, tables: null } : {}), ...linkedData, ...proxyData, ...notCountedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
           invitationBase="https://www.setnayan.com/maria-and-jose"
           photoDisplayUrl={null}
           returnTo={labBack}

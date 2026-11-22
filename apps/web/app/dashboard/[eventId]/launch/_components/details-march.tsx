@@ -41,7 +41,10 @@ import {
 } from '@/lib/march-drag';
 import type { MarchResult } from '@/lib/march-result';
 import type { HubDraftPatch } from '@/lib/hub-draft';
-import { ChevronsDownUp, ChevronsUpDown, GripVertical, Play, RotateCcw, Square } from 'lucide-react';
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, GripVertical, Play, RotateCcw, Square } from 'lucide-react';
+import { AddKindPick } from '../../guests/_components/add-kind-pick';
+import { AddPreviewLine } from '@/components/search-add-row';
+import { normalizeSearchText } from '@/lib/guest-search';
 import { MARCH_PREVIEW_END_MS, MARCH_PREVIEW_STEP_MS, marchPreviewEnd, marchPreviewSteps, type MarchPreviewStep } from '@/lib/march-preview';
 import { useGuestsLens } from '../../guests/_components/guests-lens';
 import { guestsFilterMenu } from '../../guests/_components/guests-filter-menu';
@@ -311,6 +314,10 @@ function MarchMakerBody({
   /* 🏷 A group of the couple's own, just made (＋ Group): its toolbar opens with the name box up (prototype v13). */
   const [renameNow, setRenameNow] = useState<string | null>(null);
   const [marchQ, setMarchQ] = useState('');
+  /* 👉 The box searches or adds a walk (Guests redesign § 2 + § 7, 20 Nov: "Orange ＋ (New group) → drag the search box
+     right; 'Walk ▾'") — told by the shared row (`field.onMode`). */
+  const [marchAdding, setMarchAdding] = useState(false);
+  const marchInput = useRef<HTMLInputElement | null>(null);
   const marchQTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (marchQTimer.current) clearTimeout(marchQTimer.current);
@@ -829,7 +836,42 @@ function MarchMakerBody({
      Search guests (dims who it leaves out; Enter goes to the first found) · ⇅ (the shared Show — a name it leaves out is
      drawn faint) · ＋ Add a walk ▾ — the "Not walking" names: one picked walks alone at the end of their own section,
      the SAME move as dragging them out of the tray (`planMove` → `run`), Undo and all. Nothing new is written. */
-  const marchDim = (id: string): boolean => Boolean(lens) && Boolean(id) && (!lens!.shows(id) || (marchFound !== null && !marchFound.has(id)));
+  // While the box ADDS, its words name someone not walking — they never dim the march.
+  const marchDim = (id: string): boolean =>
+    Boolean(lens) && Boolean(id) && (!lens!.shows(id) || (!marchAdding && marchFound !== null && !marchFound.has(id)));
+  /* 👉 ADD A WALK FROM THE BOX (§ 2 "March · Search a name · drag right adds a walk"): the typed words find the "Not
+     walking" names (every word starts a word of their name); Enter or ＋ adds the first — the SAME move as picking them in
+     "Walk ▾" or dragging them out of the tray (`planMove` → `run`), Undo and all. Nothing new is written. */
+  const outFor = (v: string): MarchOut[] => {
+    const words = normalizeSearchText(v).split(' ').filter(Boolean);
+    if (outUnread || words.length === 0) return [];
+    return shownOut.filter((o) => {
+      const name = normalizeSearchText(o.name).split(' ');
+      return words.every((w) => name.some((n) => n.startsWith(w)));
+    });
+  };
+  const addWalkOf = (id: string) => {
+    const o = shownOut.find((x) => x.id === id);
+    if (!o) return;
+    const sec = shown.find((x) => x.key === o.section);
+    run(planMove(shown, shownPrinted, { kind: 'out', id }, { kind: 'gap', section: o.section, index: sec ? sec.rows.length : 0 }, shownOut));
+  };
+  const addTypedWalk = (typed: string) => {
+    const v = typed.trim();
+    if (!v) return;
+    const hit = outFor(v)[0];
+    if (!hit) {
+      say({ said: outUnread ? 'The Not walking names couldn’t load — Retry' : `Nobody called “${v}” is out of the march`, undo: false, before: null, refused: true });
+      return;
+    }
+    addWalkOf(hit.id);
+    if (marchInput.current) marchInput.current.value = '';
+    if (marchQTimer.current) clearTimeout(marchQTimer.current);
+    setMarchQ('');
+    marchInput.current?.focus();
+  };
+  const walkAdds = marchAdding && marchQ ? outFor(marchQ) : [];
+  const walkPreview = walkAdds[0] ? `→ ${walkAdds[0].name} walks at the end of ${walkAdds[0].sectionLabel}` : null;
   const allOpen = shown.every((sec) => !folded.has(sec.key));
   const goToFoundWalker = (words: string) => {
     if (!lens) return;
@@ -851,7 +893,32 @@ function MarchMakerBody({
           <lens.ThumbRow
             name="guests-march"
             field={{
-              placeholder: 'Search guests',
+              placeholder: 'Search a name',
+              inputRef: marchInput,
+              /* 👉 DRAG THE BOX RIGHT TO ADD A WALK (§ 2 + § 7): Enter or ＋ adds the first "Not walking" name the words
+                 find; "Walk ▾" at the box's right end holds what the orange ＋ ▾ held — New group, then the names. The
+                 shipped tap 🔍 → ＋ is the second way in (the shared row's own). */
+              ...(guests
+                ? {
+                    onAdd: addTypedWalk,
+                    query: marchQ,
+                    matches: marchFound === null || marchFound.size > 0,
+                    onMode: (m: 'search' | 'add') => setMarchAdding(m === 'add'),
+                    dragAdd: {
+                      kind: (
+                        <AddKindPick
+                          word="Walk"
+                          options={[
+                            { key: NEW_GROUP, label: 'New group', group: 'Groups' },
+                            ...(outUnread ? [] : shownOut.map((o) => ({ key: o.id, label: o.name, group: o.sectionLabel }))),
+                          ]}
+                          onPick={(id) => (id === NEW_GROUP ? addGroup(marchSel) : addWalkOf(id))}
+                          dataAttr="data-march-add-kind"
+                        />
+                      ),
+                    },
+                  }
+                : {}),
               input: {
                 defaultValue: marchQ,
                 enterKeyHint: 'search',
@@ -863,6 +930,8 @@ function MarchMakerBody({
                 },
                 onKeyDown: (e) => {
                   if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                  // Adding: the shared row's Enter adds the walk (`field.onAdd`) — the search's Enter stays out of its way.
+                  if (marchAdding) return;
                   e.preventDefault();
                   const v = e.currentTarget.value.trim();
                   setMarchQ(v);
@@ -905,30 +974,28 @@ function MarchMakerBody({
                 },
               }),
             ]}
-            action={
-              /* 🏷 ＋ ▾ = Add walk · New group (prototype v13 `thWalk`): a group of the couple's own, first; then the
-                 "Not walking" names. A walk to add needs a name, so with nobody out the menu holds New group alone. */
-              guests
-                ? {
-                    menu: [
-                      { key: NEW_GROUP, label: 'New group', group: 'Groups' },
-                      ...(outUnread ? [] : shownOut.map((o) => ({ key: o.id, label: o.name, group: o.sectionLabel }))),
-                    ],
-                    // The shipped words stay where the menu still adds a walk; only the ＋ that is new (nobody out) has its own.
-                    label: outUnread || shownOut.length === 0 ? 'Add a group' : 'Add a walk — someone not walking',
-                    value: null,
-                    mark: 'data-march-add-walk',
-                    onPick: (id) => {
-                      if (id === NEW_GROUP) return addGroup(marchSel);
-                      const o = shownOut.find((x) => x.id === id);
-                      if (!o) return;
-                      const sec = shown.find((x) => x.key === o.section);
-                      run(planMove(shown, shownPrinted, { kind: 'out', id }, { kind: 'gap', section: o.section, index: sec ? sec.rows.length : 0 }, shownOut));
-                    },
-                  }
-                : null
-            }
+            /* 🟠 The orange ＋ ▾ is gone (§ 7: "Orange ＋ (New group) → drag the search box right; 'Walk ▾'") — its New
+               group and "Not walking" names live in the box's "Walk ▾", above. */
           />,
+          lens.slot,
+        )
+      : null;
+  /* 💬 One line above the box (§ 2): searching with words → "Drag the box right to add a walk"; adding → what Enter will
+     add ("→ Gabriel Castillo walks at the end of Groomsmen"), drawn in the thumb row's seat like the group toolbar, on the
+     row's own glass — the march scrolls behind it. */
+  const marchBoxLine =
+    guests && lens?.slot && !marchSel && marchQ
+      ? createPortal(
+          <div className="sn-glass-row order-first mx-4 max-w-full self-start rounded-full px-3 py-1.5" data-march-box-line="">
+            {marchAdding ? (
+              <AddPreviewLine text={walkPreview ?? `Nobody called “${marchQ}” is out of the march`} className="text-mulberry" />
+            ) : (
+              <p className="flex items-center gap-1.5 text-sn-md text-ink/65" data-search-add-hint="">
+                <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                Drag the box right to add a walk
+              </p>
+            )}
+          </div>,
           lens.slot,
         )
       : null;
@@ -1075,7 +1142,7 @@ function MarchMakerBody({
               <span data-march-preview="" className="inline-flex shrink-0">
                 <ActionButton
                   tone="brand"
-                  filled
+                  main
                   icon={play === null ? Play : Square}
                   label={play === null ? 'Preview' : 'Stop'}
                   name={walks === 0 ? 'Preview — nobody walks yet' : play === null ? 'Play the march, one walk at a time' : 'Stop the preview'}
@@ -1345,6 +1412,7 @@ function MarchMakerBody({
       ) : null}
       {marchThumb}
       {marchHeadTools}
+      {marchBoxLine}
       {slot
         ? createPortal(
             <MarchTray

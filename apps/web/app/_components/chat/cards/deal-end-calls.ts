@@ -106,10 +106,11 @@ export async function loadDayCrew(threadId: string): Promise<DayCrewRead> {
   const startOf = new Map<string, string | null>();
   const blockIds = [...new Set(tasks.map((t) => t.block_id))];
   if (blockIds.length > 0) {
-    const { data: blocks, error: bErr } = await supabase.from('event_schedule_blocks').select('block_id, start_at').in('block_id', blockIds);
+    const { data: blocks, error: bErr } = await supabase.from('event_schedule_blocks').select('block_id, start_at, time_tba').in('block_id', blockIds);
     // A task with no call time arrives with its moment: without the moments the arrival would be a guess.
     if (bErr) return refused('crew · moments', bErr);
-    for (const r of (blocks ?? []) as { block_id: string; start_at: string | null }[]) startOf.set(r.block_id, r.start_at);
+    // A Time-TBA moment keeps a placeholder midnight in `start_at` — it has no time yet, so it gives no arrival.
+    for (const r of (blocks ?? []) as { block_id: string; start_at: string | null; time_tba: boolean | null }[]) startOf.set(r.block_id, r.time_tba === true ? null : r.start_at);
   }
   const rows: CrewTaskRow[] = tasks.map((t) => ({ crew: t.crew, what: t.what, call_at: t.call_at, moment_start: startOf.get(t.block_id) ?? null, sort_order: t.sort_order }));
   return { ok: true, eventId: b.eventId, ...dayCrew(rows) };

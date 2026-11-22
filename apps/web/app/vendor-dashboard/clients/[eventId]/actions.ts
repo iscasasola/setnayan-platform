@@ -907,12 +907,14 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   if (blockId) {
     const { data: block } = await supabase
       .from('event_schedule_blocks')
-      .select('label, start_at')
+      .select('label, start_at, time_tba')
       .eq('block_id', blockId)
       .eq('event_id', eventId)
       .maybeSingle();
     blockLabel = (block as { label: string | null } | null)?.label ?? null;
-    blockStartIso = (block as { start_at: string | null } | null)?.start_at ?? null;
+    // A Time-TBA moment's `start_at` is a placeholder midnight: the ask's card then names the new time only, never "12:00 AM →".
+    const b = block as { start_at: string | null; time_tba: boolean | null } | null;
+    blockStartIso = b?.time_tba === true ? null : (b?.start_at ?? null);
   }
 
   // + My moment / My moment (the Schedule view's sheet): a chapter, a clock, minutes and crew — not the old

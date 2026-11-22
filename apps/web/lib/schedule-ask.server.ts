@@ -51,7 +51,7 @@ export async function askSupplierToChange(
       .maybeSingle(),
     supabase.from('event_members').select('user_id').eq('event_id', eventId).eq('user_id', userId).eq('member_type', 'couple').maybeSingle(),
     admin.from('users').select('display_name').eq('user_id', userId).maybeSingle(),
-    supabase.from('event_schedule_blocks').select('label, start_at').eq('block_id', blockId).eq('event_id', eventId).maybeSingle(),
+    supabase.from('event_schedule_blocks').select('label, start_at, time_tba').eq('block_id', blockId).eq('event_id', eventId).maybeSingle(),
   ]);
   if (bookingRes.error) {
     logQueryError('askSupplierToChange.booking', bookingRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -120,7 +120,8 @@ export async function askSupplierToChange(
     const body = timeAskLine({
       by: 'host',
       label: moment,
-      fromIso: (blockRes.data as { start_at?: string | null } | null)?.start_at ?? null,
+      // A Time-TBA moment's `start_at` is a placeholder midnight — the card names the new time only, never "12:00 AM →".
+      fromIso: ((b) => (b?.time_tba === true ? null : (b?.start_at ?? null)))(blockRes.data as { start_at?: string | null; time_tba?: boolean | null } | null),
       toIso: start,
     });
     if (body) await postThreadSystemLine(admin, { eventId, vendorProfileId: booking.marketplace_vendor_id, body });

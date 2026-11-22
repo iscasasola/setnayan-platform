@@ -107,8 +107,9 @@ export function clientAgenda(input: {
     let heading: string;
     if (eventDay && r.day >= eventDay) {
       key = 'after';
-      // One closing group: "On the day" while it holds only the day itself, "After the event" once anything is later.
-      heading = r.day === eventDay ? 'On the day' : 'After the event';
+      // One closing group: "The Day" while it holds only the day itself (owner d25: the stage's name, never the
+      // drawing's older head), "After the event" once anything is later.
+      heading = r.day === eventDay ? 'The Day' : 'After the event';
     } else {
       const monday = mondayOf(r.day);
       const weeks = daysBetween(thisMonday, monday) / 7;

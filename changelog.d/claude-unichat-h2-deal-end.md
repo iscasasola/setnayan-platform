@@ -84,5 +84,13 @@ Unichat parts H2 (#8080), F (#8046) and the supplier-payment receipt document (#
   it. Held by `the-card-kinds-are-readable` test 3, which is what caught it.
 - The part F shot script set dark mode before the page hydrated, so its "dark" shots came out light. It now sets it
   after, and stops if it did not hold. Both shot sets were re-shot on the combined branch.
+- A Time-TBA moment (its `start_at` is a placeholder midnight) no longer reads as 12:00 AM in three new reads: the
+  crew card's arrival (`deal-end-calls.ts`), and the "from" time of a time-change ask sent by a supplier
+  (`clients/[eventId]/actions.ts`) or by a host (`schedule-ask.server.ts`). Each now reads `time_tba`; a TBA moment
+  gives no arrival and no "from" time. Held by `a-tba-chapter-is-never-midnight`.
+- The crew card's schedule read is classed in `the-guests-schedule-has-one-fence` (hosts and the booked supplier, never
+  a guest); the receipt document's back is on the back map (`page-home.ts`, worked out by the page: the chat it was
+  opened from); the F lab's made-up ₱31,000 label is declared in `public-price-literals.ts`; the supplier's schedule
+  list heads the event day's group "The Day" (owner d25), not "On the day".
 
 SPEC IMPACT: None

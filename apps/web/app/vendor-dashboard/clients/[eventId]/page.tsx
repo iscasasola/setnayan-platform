@@ -187,6 +187,8 @@ import { detailsNumbers } from './_components/details-numbers';
 import { OPEN_MEETING_STATUSES, openMeetingsWindow } from '../../customers/clients-tiles';
 import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
+import { YourBookingCard } from './_components/your-booking-card';
+import { HOSTS_PLANNED_LABEL, HOSTS_PLANNED_NOTE, yourBookingView } from '@/lib/your-booking';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
@@ -2856,6 +2858,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : 0,
       })
     : null;
+  // 🧾 The agreed quotation (Details › Your booking names what it covers): the newest accepted one.
+  const agreedQuote = [...proposals]
+    .filter((p) => p.status === 'accepted')
+    .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
   const stripAsksRes = stripAsksP ? await stripAsksP : null;
   const stripAsks = stripAsksRes && !stripAsksRes.error ? ((stripAsksRes.data ?? []) as DealAskDbRow[]).map(dealAskOf) : null;
   if (stripAsksRes?.error) logQueryError('vendorClientCard.stripAsks', stripAsksRes.error, { eventId }, 'graceful_degrade');
@@ -3508,33 +3514,37 @@ function OverviewTab(props: {
           </Link>
         </Card>
 
-        {/* Budget — couple opt-in range for THIS vendor's category (PR-5).
-         *  Rendered at both stages; it's a quote input, most useful at inquiry.
-         *  Present → a rounded range; absent → the couple hasn't opted in (or has
-         *  no allocation for this category). Never an exact figure. */}
-        <Card>
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
-            <Wallet aria-hidden className="h-4 w-4 text-terracotta" /> Budget
-          </h2>
-          {brief.budget_band ? (
-            <>
-              <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums">
-                {fmtPesoCentavos(brief.budget_band.lo_centavos)}
-                <span className="mx-1.5 text-ink/40">–</span>
-                {fmtPesoCentavos(brief.budget_band.hi_centavos)}
-              </p>
-              <p className="mt-2 text-xs text-ink/55">
-                Shared by the couple · for your category. A range to quote against —
-                never their exact number.
-              </p>
-            </>
-          ) : (
-            <p className="mt-3 flex items-center gap-2 rounded-lg bg-raised/70 px-3 py-2.5 text-sm text-ink/55">
-              <Info aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> Not shared —
-              the couple hasn&rsquo;t opted into budget sharing.
+        {/* 🧾 YOUR BOOKING (owner 21 Nov 2026 — "the quotation, payment plan, status"): where "Budget" stood, the
+         *  supplier's OWN booking money, view only — never the hosts' budget. The hosts' planned range is one line,
+         *  drawn ONLY while they share it (`events.share_budget_band`, off by default); not shared draws nothing,
+         *  not even a hint. Before a booking there is no booking money: only that shared line, when there is one. */}
+        {isBooked && stripPay ? (
+          <Card>
+            <YourBookingCard
+              eventId={eventId}
+              view={yourBookingView({
+                pay: stripPay,
+                quoteLines: proposalRowsError ? null : agreedQuote ? quoteLinesOf(agreedQuote.line_items).map((l) => l.label) : undefined,
+                plannedBand: brief.budget_band
+                  ? { lo: fmtPesoCentavos(brief.budget_band.lo_centavos), hi: fmtPesoCentavos(brief.budget_band.hi_centavos) }
+                  : null,
+                peso: (php) => fmtPeso(php),
+              })}
+            />
+          </Card>
+        ) : brief.budget_band ? (
+          <Card>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
+              <Wallet aria-hidden className="h-4 w-4 text-terracotta" /> {HOSTS_PLANNED_LABEL}
+            </h2>
+            <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums" data-hosts-planned="">
+              {fmtPesoCentavos(brief.budget_band.lo_centavos)}
+              <span className="mx-1.5 text-ink/40">–</span>
+              {fmtPesoCentavos(brief.budget_band.hi_centavos)}
             </p>
-          )}
-        </Card>
+            <p className="mt-2 text-xs text-ink/70">{HOSTS_PLANNED_NOTE}</p>
+          </Card>
+        ) : null}
       </div>
 
       {/* Seat plan — status + size at every stage; the floor plan itself opens once booked. */}

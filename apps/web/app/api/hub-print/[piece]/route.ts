@@ -459,7 +459,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       return new NextResponse(
         storeShell
           ? 'Not available here.'
-          : `The print-ready file in ${INVITE_THEMES[theme].name} comes with Event Pro. Free prints are plain white; your Event Hub look on paper is Event Pro.`,
+          : `The print-ready file in ${INVITE_THEMES[theme].name} comes with Event Plus. Free prints are plain white; your Event Hub look on paper is Event Plus.`,
         { status: 403 },
       );
     }

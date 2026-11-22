@@ -75,7 +75,9 @@ const ORIGINAL = join(__dirname, '..', 'app', '[slug]', '_lib', 'hub-look.ts');
 /** sha-256 of the two originals, comments stripped and whitespace collapsed. */
 // RE-PINNED 2026-10-22 (part by part): the originals ask `hubPartActiveFor(…, 'style' | 'background')`; this copy is
 // handed each part's answer by its caller (`CoverOwnership`), so the rule here did not change.
-const PINNED = '80ef9165b0186c18bd4ae8f4306141f7ef3ca3f1ef345e37e9b4fabc26091ff8';
+// RE-PINNED 2026-11-19 (rulings 34/36): the theme now asks the GATE — `hubGateActiveFor(…, '13')`, which Event Plus
+// also passes; this copy is handed that answer as `CoverOwnership.style` (coverOwnershipFrom → ownsHubGate(own, '13')).
+const PINNED = '3912c177063e3bd43c663e4f00fbb185f4f283fdcb40dd5b6528801985cc2c5a';
 
 test('2 · the originals have not moved since this copy of their rule was taken', () => {
   const src = stripComments(readFileSync(ORIGINAL, 'utf8'));

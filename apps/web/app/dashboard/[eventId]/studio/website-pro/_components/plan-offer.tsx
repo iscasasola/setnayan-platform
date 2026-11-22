@@ -5,9 +5,10 @@ import { PLUS_MORE, plusPeek, ULTRA_PEEK, ultraMore } from '@/app/_components/fr
 
 /**
  * 💰 THE IN-APP PLAN OFFER (Controller F-W2-29, 2026-11-13): inside the app a couple is offered the SAME plans /pricing
- * and the front door offer — Free · Event Plus · Event Pro — each price and its included Papic credits READ from the
- * catalogue (`lib/event-plans.ts`, the front door's own helpers). Event Pro is the page's "Everything" card; `PlanOffer`
- * draws Free and Event Plus above it and `UltraOffer` draws Event Ultra (#7601) below it. Nothing typed: an unread row names no price and no count.
+ * and the front door offer — Free · Event Plus · Event Pro · Event Ultra — each price and its included Papic credits
+ * READ from the catalogue (`lib/event-plans.ts`, the front door's own helpers). Since the owner's 20 Nov ruling Event
+ * Plus is the whole Event Hub — the page's "Everything" card; `ProPlanCard` and `UltraOffer` (#7601) are plain plan
+ * cards below it. Nothing typed: an unread row names no price and no count.
  *
  * Event Plus counts toward Event Pro — `eventHubOwnership` already adds a paid Plus to `paidPhp`, so the Pro card asks
  * only the difference.
@@ -71,11 +72,13 @@ export function PlanOffer({
       {showPlus ? (
         <div
           id="plan-plus"
-          className={`rounded-3xl bg-ink/[0.04] p-5 ${focus === 'plus' ? 'ring-2 ring-terracotta/50' : ''}`}
+          className={`rounded-3xl bg-ink/[0.04] p-5 ${focus === 'plus' || facts.plus === 'buy' ? 'ring-2 ring-terracotta/50' : ''}`}
           data-event-plan="plus"
+          data-pro-everything={facts.plus}
           data-event-plan-state={facts.plus}
         >
           <p className="flex items-baseline justify-between gap-3">
+            {/* 🏛 Event Plus is the whole Event Hub (owner 20 Nov) — the page's "Everything" card; its first line says so. */}
             <span className="text-lg font-semibold text-ink">Event Plus</span>
             {facts.plus === 'buy' && facts.plusPhp !== null ? (
               <span className="font-mono text-lg font-bold text-ink">{formatPhp(facts.plusPhp)}</span>
@@ -106,7 +109,61 @@ export function PlanOffer({
 }
 
 /**
- * 💎 EVENT ULTRA (#7601, owner 2026-11-13) — the third plan, after Event Pro. Its lines are the front door's
+ * 💎 EVENT PRO, A PLAIN PLAN CARD (owner 2026-11-19, "Event plans part 2 (#8004) — four calls" (4)): "Everything in Plus ·
+ * Setnayan AI · no Setnayan mark · N credits", N read from `included_papic_credits` (never typed). Since 20 Nov Plus is the
+ * whole Event Hub, so Pro is Plus + Setnayan AI. `restPhp` is Pro's row less what the event paid toward it (Plus), as the
+ * drawer bills.
+ */
+export function ProPlanCard({
+  facts,
+  state,
+  restPhp,
+  proDrawer,
+  focus = false,
+}: {
+  facts: PlanOfferFacts;
+  /** What this event holds of the Pro PLAN (`holdsProPlan`): approved · paid and under review · neither. */
+  state: 'yours' | 'review' | 'buy';
+  /** Pro's price for this event — null when unread (then nothing is sold). */
+  restPhp: number | null;
+  proDrawer: (php: number) => React.ReactNode;
+  focus?: boolean;
+}) {
+  if (facts.ultra !== 'buy') return null;
+  if (state === 'buy' && restPhp === null) return null;
+  return (
+    <div
+      id="plan-pro"
+      className={`rounded-3xl bg-ink/[0.04] p-5 ${focus ? 'ring-2 ring-terracotta/50' : ''}`}
+      data-event-plan="pro"
+      data-event-plan-state={state}
+    >
+      <p className="flex items-baseline justify-between gap-3">
+        <span className="text-lg font-semibold text-ink">Event Pro</span>
+        {state === 'buy' && restPhp !== null ? <span className="font-mono text-lg font-bold text-ink">{formatPhp(restPhp)}</span> : null}
+      </p>
+      <p className="mt-1 text-sm leading-snug text-ink/65" data-pro-plan-lines="">
+        {`Everything in Plus · Setnayan AI · no Setnayan mark${facts.proCredits !== null && facts.proCredits > 0 ? ` · ${formatCount(facts.proCredits)} credits` : ''}`}
+      </p>
+      <div className="mt-3">
+        {state === 'yours' ? (
+          <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-success-800">
+            <Check aria-hidden className="h-4 w-4" strokeWidth={2.4} /> Yours
+          </p>
+        ) : state === 'review' ? (
+          <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-mulberry">
+            <Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Payment under review
+          </p>
+        ) : restPhp !== null ? (
+          proDrawer(restPhp)
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 💎 EVENT ULTRA (#7601, owner 2026-11-13) — the top plan, a plain card after Pro. Its lines are the front door's
  * (`ULTRA_PEEK`, `ultraMore`), its price and credits the `EVENT_ULTRA` row. An event that already paid toward Plus or Pro
  * pays only the difference: the checkout drawer asks the server for that figure (`readUltraUpgradeCharge`, the reader the
  * charge uses), so this card shows the row's price and says the difference applies — it never computes one itself.
@@ -122,11 +179,8 @@ export function UltraOffer({
   focus?: boolean;
 }) {
   if (facts.ultra === 'buy' && facts.ultraPhp === null) return null;
-  const lines = [
-    'Everything in Event Pro',
-    ...ULTRA_PEEK,
-    ...ultraMore({ plusCredits: facts.plusCredits, proCredits: facts.proCredits, ultraCredits: facts.ultraCredits, freePapic: facts.freePapic }),
-  ];
+  const more = ultraMore({ plusCredits: facts.plusCredits, proCredits: facts.proCredits, ultraCredits: facts.ultraCredits, freePapic: facts.freePapic });
+  const lines = ['Everything in Event Pro', ...ULTRA_PEEK, ...more];
   return (
     <div
       id="plan-ultra"
@@ -147,7 +201,7 @@ export function UltraOffer({
       </ul>
       {facts.ultra === 'buy' && facts.paidTowardAPlan ? (
         <p className="mt-2 text-sm font-medium text-ink/75" data-ultra-pays-the-difference="">
-          You&rsquo;ve paid toward a plan — upgrading asks only the difference.
+          You&rsquo;ve paid toward a plan, so upgrading asks only the difference.
         </p>
       ) : null}
       <div className="mt-3">
@@ -166,3 +220,4 @@ export function UltraOffer({
     </div>
   );
 }
+

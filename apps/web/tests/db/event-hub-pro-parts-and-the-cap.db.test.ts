@@ -3,11 +3,12 @@
  * BY PART"; migration 20271282742262).
  *
  *   · the eleven parts are catalogue rows at the owner's prices (BIG ₱1,000 · SMALL ₱500), on sale, with NO sign-up
- *     price (onboarding keeps its one offer), and Full Pro is the one price ₱5,690 (Event Pro, owner's final sheet 2026-11-04; was ₱6,590), no sign-up override;
+ *     price (onboarding keeps its one offer), and Event Pro is ₱5,490 (owner 20 Nov 2026, `Pricing.md` §1.1; was ₱5,690), no sign-up override;
  *   · THE CAP, measured on real rows: the event's paid part orders — read the way the render reads them
- *     (`event_entitlement_facts`) — priced from the catalogue, fed to the one cap function (`hubOwnershipFrom`):
- *     ₱4,500 paid is not everything; ₱5,000 is everything ONLY for parts bought before the old-cap cutover (owner
- *     2026-10-28, "Keep their full Pro") — the same total after it is not; a refunded order counts for nothing; a part paid twice counts once;
+ *     (`event_entitlement_facts`) — priced from the catalogue, fed to the one cap function (`hubOwnershipFrom`).
+ *     🏛 Since 20 Nov the whole Event Hub is Event Plus, so EVERYTHING's price is the EVENT_PLUS row (read here, never
+ *     typed): parts below it are not everything, parts reaching it are; the old ₱5,000 cap (owner 2026-10-28) sits
+ *     above it, so it can only ever widen; a refunded order counts for nothing; a part paid twice counts once;
  *     a still-submitted order owns nothing yet (the handshake) but counts toward the buy surface's rest.
  *
  * Run: pnpm --filter @setnayan/web test:db
@@ -17,7 +18,7 @@ import assert from 'node:assert/strict';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import {
-  FULL_PRO_SKU,
+  EVERYTHING_SKU,
   HUB_PARTS,
   HUB_PART_SKUS,
   HUB_PART_PAID_CODES,
@@ -48,12 +49,12 @@ async function prices(): Promise<{ parts: Map<string, number>; full: number | nu
   const r = await db.query<{ code: string; php: string }>(
     `SELECT service_code AS code, retail_price_php::text AS php FROM public.platform_retail_catalog_v2
       WHERE service_code = ANY($1::text[])`,
-    [[...HUB_PART_SKUS, FULL_PRO_SKU]],
+    [[...HUB_PART_SKUS, EVERYTHING_SKU]],
   );
   const parts = new Map<string, number>();
   let full: number | null = null;
   for (const row of r.rows) {
-    if (row.code === FULL_PRO_SKU) full = Number(row.php);
+    if (row.code === EVERYTHING_SKU) full = Number(row.php);
     else parts.set(row.code, Number(row.php));
   }
   return { parts, full };
@@ -80,13 +81,19 @@ test('the eleven parts keep the owner’s prices but are OFF SALE — Event Pro 
   for (const p of HUB_PARTS) assert.ok(r.rows.some((x) => x.code === p.sku), `${p.name} has no catalogue row`);
 });
 
-test('Full Pro (Event Pro) is the one price ₱5,690, with no sign-up override (2026-11-04)', async () => {
-  const r = await db.query<{ php: string; signup: string | null }>(
-    `SELECT retail_price_php::text AS php, onboarding_price_php::text AS signup FROM public.platform_retail_catalog_v2
+test('Event Pro is ₱5,490, with no sign-up override (owner 20 Nov 2026; was ₱5,690)', async () => {
+  const r = await db.query<{ php: string; signup: string | null; gift: string | null; credits: number | null }>(
+    `SELECT retail_price_php::text AS php, onboarding_price_php::text AS signup, gift_price_php::text AS gift,
+            included_papic_credits AS credits
+       FROM public.platform_retail_catalog_v2
       WHERE service_code = 'COUPLE_WEBSITE_PRO'`,
   );
-  assert.equal(Number(r.rows[0]!.php), 5690);
+  assert.equal(Number(r.rows[0]!.php), 5490);
   assert.equal(r.rows[0]!.signup, null);
+  // Ruling 36: Event Pro = 3,000 Papic credits — pinned on the catalogue row the activation hook reads.
+  assert.equal(r.rows[0]!.credits, 3000, 'Event Pro carries 3,000 Papic credits');
+  // Controller relay, PR #8004 (20 Nov): Pro's supplier-gift price follows ₱5,490.
+  assert.equal(Number(r.rows[0]!.gift), 5490, 'Event Pro gift price is ₱5,490');
 });
 
 /** A fresh event with these part orders. */
@@ -152,23 +159,47 @@ async function capOf(eventId: string, mode: 'active' | 'owned') {
   }
 }
 
-test('₱4,500 of parts is not everything; the rest is the one price less it (₱5,690 − ₱4,500 = ₱1,190)', async () => {
+/** Everything's price — the EVENT_PLUS row since 20 Nov — read from the replay, never typed. */
+async function everythingPhp(): Promise<number> {
+  const p = await prices();
+  assert.ok(p.full !== null && p.full > 0, 'the Event Plus row is missing — the cap is measured against nothing');
+  return p.full!;
+}
+
+test('🏛 ₱2,000 of parts is not everything; the rest is Event Plus less it', async () => {
+  const id = await eventWith([
+    { part: 'reveal', status: 'paid' },
+    { part: 'background', status: 'fulfilled' },
+  ]);
+  const o = await capOf(id, 'active');
+  const all = await everythingPhp();
+  assert.ok(all > 2000, `Event Plus (₱${all}) is no longer above ₱2,000 — re-pick the parts`);
+  assert.equal(o.paidPhp, 2000);
+  assert.equal(o.full, false);
+  assert.equal(hubRestToEverything(o), all - 2000);
+  assert.equal(o.parts.has('motion'), false);
+});
+
+test('🏛 parts reaching Event Plus’s price are the whole Event Hub — and a refund below it takes it back', async () => {
   const id = await eventWith([
     { part: 'reveal', status: 'paid' },
     { part: 'background', status: 'paid' },
     { part: 'photos', status: 'paid' },
-    { part: 'style', status: 'paid' },
-    { part: 'music', status: 'fulfilled' },
   ]);
+  const all = await everythingPhp();
+  assert.ok(all <= 3000, `Event Plus (₱${all}) is above ₱3,000 — re-pick the parts`);
   const o = await capOf(id, 'active');
-  assert.equal(o.paidPhp, 4500);
-  assert.equal(o.full, false);
-  assert.equal(hubRestToEverything(o), 1190);
-  assert.equal(o.parts.has('motion'), false);
+  assert.equal(o.paidPhp, 3000);
+  assert.equal(o.full, true, 'parts paid up to Event Plus’s price were not the whole Event Hub');
+  assert.equal(o.parts.size, 11);
+  await db.query(`UPDATE public.orders SET status = 'refunded' WHERE event_id = $1 AND service_key = $2`, [id, hubPart('photos').sku]);
+  const after = await capOf(id, 'active');
+  assert.equal(after.paidPhp, 2000);
+  assert.equal(after.full, false, 'a refunded part still counted toward everything');
 });
 
-test('⚖ a ₱5,000 part-holder from 22–26 Oct KEEPS everything — footer included — and a refund takes it back', async () => {
-  // Owner 2026-10-28, "Keep their full Pro": parts that reached the OLD ₱5,000 cap before the cutover stay everything.
+test('⚖ the old ₱5,000 cap (22–26 Oct) still reads — and it can only widen: today’s everything is lower', async () => {
+  // Owner 2026-10-28, "Keep their full Pro": parts that reached the OLD cap before the cutover stay everything.
   const id = await eventWith(
     [
       { part: 'reveal', status: 'paid' },
@@ -183,41 +214,19 @@ test('⚖ a ₱5,000 part-holder from 22–26 Oct KEEPS everything — footer in
   const o = await capOf(id, 'active');
   assert.equal(o.paidPhp, 5000);
   assert.equal(o.full, true, 'a part-holder of 22–26 Oct lost the everything they paid ₱5,000 for');
-  assert.equal(o.parts.size, 11);
-  await db.query(`UPDATE public.orders SET status = 'refunded' WHERE event_id = $1 AND service_key = $2`, [id, hubPart('prints').sku]);
-  const after = await capOf(id, 'active');
-  assert.equal(after.paidPhp, 4500);
-  assert.equal(after.full, false, 'a refunded part still counted toward the old cap');
+  assert.ok((await everythingPhp()) <= 5000, 'the old cap is now below everything — it would take something away');
 });
 
-test('⚖ the SAME ₱5,000 of parts bought AFTER the cutover is not everything — new buyers need the one price', async () => {
-  const id = await eventWith([
-    { part: 'reveal', status: 'paid' },
-    { part: 'background', status: 'paid' },
-    { part: 'photos', status: 'paid' },
-    { part: 'style', status: 'paid' },
-    { part: 'music', status: 'paid' },
-    { part: 'prints', status: 'paid' },
-  ]);
-  const o = await capOf(id, 'active');
-  assert.equal(o.paidPhp, 5000);
-  assert.equal(o.full, false, 'a part total after the cutover was measured against the old cap');
-  assert.equal(hubRestToEverything(o), 690);
-});
-
-test('⚖ an old-week order still under review owns nothing yet — the old cap follows the same status rule', async () => {
+test('⚖ an order still under review owns nothing yet — the cap follows the same status rule', async () => {
   const id = await eventWith(
     [
       { part: 'reveal', status: 'paid' },
       { part: 'background', status: 'paid' },
-      { part: 'photos', status: 'paid' },
-      { part: 'style', status: 'paid' },
-      { part: 'music', status: 'paid' },
-      { part: 'prints', status: 'submitted' },
+      { part: 'photos', status: 'submitted' },
     ],
     PARTS_WEEK,
   );
-  assert.equal((await capOf(id, 'active')).full, false, 'an unapproved part reached the old cap');
+  assert.equal((await capOf(id, 'active')).full, false, 'an unapproved part reached the cap');
   assert.equal((await capOf(id, 'owned')).full, true, 'the buy surface would ask a part-holder to pay again');
 });
 
@@ -248,5 +257,47 @@ test('🪄 the retired Animated Monogram reads as Logo & QR — owned, and count
   const o = await capOf(id, 'active');
   assert.equal(o.parts.has('logo_qr'), true, 'a monogram owner does not own Logo & QR');
   assert.equal(o.paidPhp, 1500, 'the monogram did not count at Logo & QR’s web value');
-  assert.equal(hubRestToEverything(o), 4190);
+  assert.equal(hubRestToEverything(o), (await everythingPhp()) - 1500);
+});
+
+/* 💳 A PAID EVENT PLUS COUNTS TOWARD PRO AND ULTRA (ship-controller review of #8004, 20 Nov; owner 2026-11-04 "upgrade for
+   the difference" and 2026-11-13 "Pay the difference"). Since 20 Nov a Plus holds the whole Hub — and `eventHubOwnership`
+   carries the PAID Plus in `paidPhp` (lib/couple-website-pro.ts, step 1), so the charge sells Pro at Pro's row less Plus,
+   and Ultra at Ultra's row less Plus. Every price is the replayed catalogue's; the expected figures are the review's.
+   Step 1's source is held by lib/event-plans-recut-part2.test.ts (H); this holds the figures it must produce. */
+test('💳 a paid Event Plus buys Pro for ₱2,500 and Ultra for ₱7,000 — the difference, never the full price', async () => {
+  const { hubPartsCharge } = await import('../../lib/hub-parts');
+  const { ultraUpgradeCharge } = await import('../../lib/event-ultra');
+  const r = await db.query<{ code: string; php: string }>(
+    `SELECT service_code AS code, retail_price_php::text AS php FROM public.platform_retail_catalog_v2
+      WHERE service_code IN ('EVENT_PLUS', 'COUPLE_WEBSITE_PRO', 'EVENT_ULTRA')`,
+  );
+  const row = (c: string) => Number(r.rows.find((x) => x.code === c)?.php ?? NaN);
+  const plus = row('EVENT_PLUS');
+  const pro = row('COUPLE_WEBSITE_PRO');
+  const ultra = row('EVENT_ULTRA');
+  assert.ok(plus > 0 && pro > 0 && ultra > 0, 'a plan row is missing from the replay — the check is blind');
+  // What `eventHubOwnership` step 1 returns for a PAID Plus (the same call, the same inputs).
+  const owned = hubOwnershipFrom({
+    fullHeld: true,
+    partHeld: () => true,
+    paidParts: [],
+    prices: new Map([['EVENT_PLUS', plus], ['COUPLE_WEBSITE_PRO', pro]]),
+    fullPrice: plus,
+    plusPaid: true,
+  });
+  assert.equal(owned.full, true);
+  assert.equal(owned.paidPhp, plus, 'a paid Plus is not carried as paid toward the next plan');
+  assert.equal(owned.proPlan, undefined, 'a Plus was read as the Pro plan');
+  // Pro: the server's `hubPartsCharge('full')` against Pro's row.
+  const proCharge = hubPartsCharge({ parts: 'full', owned, prices: new Map(), fullPrice: pro });
+  assert.deepEqual(proCharge, { ok: true, php: pro - plus, capped: false }, 'a paid Plus is refused Pro, or charged it in full');
+  assert.equal(pro - plus, 2500);
+  // Ultra: `readUltraUpgradeCharge` hands `ultraUpgradeCharge` exactly this.
+  const ultraCharge = ultraUpgradeCharge({ ultraPhp: ultra, proPaid: false, proPhp: pro, plusPaid: true, plusPhp: plus, paidTowardProPhp: owned.paidPhp });
+  assert.deepEqual(ultraCharge, { ok: true, php: ultra - plus, creditPhp: plus, from: 'plus' }, 'Plus → Ultra is not the difference');
+  assert.equal(ultra - plus, 7000);
+  // …and a Pro plan already held is never sold again.
+  const proHeld = hubOwnershipFrom({ fullHeld: true, partHeld: () => true, paidParts: [], prices: new Map(), fullPrice: null, proPlan: true });
+  assert.deepEqual(hubPartsCharge({ parts: 'full', owned: proHeld, prices: new Map(), fullPrice: pro }), { ok: false, why: 'already_owned' });
 });

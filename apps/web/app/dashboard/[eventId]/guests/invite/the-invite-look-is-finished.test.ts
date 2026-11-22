@@ -216,7 +216,9 @@ test('the DOOR asks only for Pro — the one rule that protects an already-saved
   assert.doesNotMatch(look, /resolveWeddingOnlyParts|proThemeGate/, 'the resolver asks the wedding fence again');
   // …and it costs a House event nothing: the ownership read sits behind `wantsPro`.
   // 💎 RE-AIMED 2026-10-22: a Pro theme is the Style part's (gate 13) — still behind `wantsPro`.
-  assert.match(look, /wantsPro \? await hubPartActiveFor\(event\.event_id, 'style'\)/);
+  // 💎 RE-AIMED 2026-11-19 (rulings 34/36): gate 13 also passes on Event Plus, so the door asks the GATE
+  //    (`ownsHubGate` via hubGateActiveFor), never the Style part alone — still behind `wantsPro`.
+  assert.match(look, /wantsPro \? await hubGateActiveFor\(event\.event_id, '13'\)/);
 });
 
 test('the theme rule is not a second copy of the reveal’s timing', () => {

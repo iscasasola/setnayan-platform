@@ -140,7 +140,7 @@ const SERVICE_LABELS: Record<string, string> = {
   CUSTOM_QR_GUEST: 'Custom Guest QR',
   // EDITORIAL_PRO + STD_PREMIUM_OPENINGS are bundle-only (2026-07-22 · via Website
   // PRO). Kept here so existing/bundle owners still get a clean "Powered by" label.
-  EDITORIAL_PRO: 'Editorial PRO',
+  EDITORIAL_PRO: 'Story Maker',
   EVENT_WEBSITE: 'Event Hub',
   // LIVE_BACKGROUND removed 2026-08-11 with the LED wall backdrop itself. No
   // order was ever placed under it, so no "Powered by" label loses its name.

@@ -75,7 +75,7 @@ function shim(id: string, exports: unknown): string {
 }
 const SHIMS: Record<string, string> = {
   'server-only': shim('server_only', {}),
-  './hub-look': shim('hub_look', { websiteProActiveFor: async () => PRO }),
+  './hub-look': shim('hub_look', { websiteProActiveFor: async () => PRO, proPlanActiveFor: async () => PRO }),
   '@/lib/schedule-release.server': shim('release', { releasePro: async () => RELEASE_PRO }),
   '@/lib/supabase/server': shim('server', { createClient: async () => memoryClient() }),
   '@/lib/host-gate': shim('host_gate', { limitedHelperRefusal: async () => null, refuseLimitedHelper: async () => undefined }),

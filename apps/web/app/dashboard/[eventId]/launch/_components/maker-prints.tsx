@@ -213,7 +213,7 @@ export function allInOneFile(
   const mark = makerProMark({ owns: input.ownsPro, storeShell: input.storeShell });
   if (mark === null) return null;
   if (mark === 'unlocked') return { kind: 'save', ...save, icon: <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'the full Event Hub')} /> };
-  return { kind: 'door', href: `/dashboard/${input.eventId}/studio/website-pro`, label: save.label, icon: <PaidMark state={mark} label={paidMarkLabel(mark, 'the full Event Hub')} />, note };
+  return { kind: 'door', href: `/dashboard/${input.eventId}/studio/website-pro`, label: save.label, icon: <PaidMark state={mark} word="PLUS" label={paidMarkLabel(mark, 'the full Event Hub')} />, note };
 }
 /**
  * 🎟 A FREE ALL-GUESTS FILE (owner 2026-10-22, DECISION_LOG "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE QR SHEET ARE FREE";
@@ -787,8 +787,8 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
         — 3 mm bleed and crop marks, no watermark.{' '}
         {input.storeShell ? null : (
           <>
-            <PaidMark state={input.ownsPro ? 'unlocked' : 'try'} label={paidMarkLabel(input.ownsPro ? 'unlocked' : 'try', 'the full Event Hub')} className="mr-1 align-middle" />
-            Your Event Hub look on paper is Event Pro.{' '}
+            <PaidMark state={input.ownsPro ? 'unlocked' : 'try'} word="PLUS" label={paidMarkLabel(input.ownsPro ? 'unlocked' : 'try', 'the full Event Hub')} className="mr-1 align-middle" />
+            Your Event Hub look on paper is Event Plus.{' '}
           </>
         )}
         {!themed || freeTheme ? null : access.printReady ? (
@@ -809,7 +809,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
       </p>
       {!freeTheme && access.offerPro ? (
         <p data-prints-go-pro="" className="text-sm font-medium text-mulberry">
-          <PaidMark state="try" label={paidMarkLabel('try', 'the full Event Hub')} className="mr-1 align-middle" />
+          <PaidMark state="try" word="PLUS" label={paidMarkLabel('try', 'the full Event Hub')} className="mr-1 align-middle" />
           Go Pro to print in {t.name}.
         </p>
       ) : null}

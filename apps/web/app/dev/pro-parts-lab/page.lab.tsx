@@ -14,6 +14,8 @@ import { PLAN_NAME } from '@/lib/plan-buy-doors';
  *   ?frame=sheet-held                                       — 📵 the app with no Apple Pro: "◆ 2 waiting for Pro" + Remove Pro changes
  *   ?frame=line-free · line-paid · line-yours                 — the quiet line (frame 3)
  *   ?frame=parts-free · parts-owned                           — the parts page (frame 4)
+ *   ?frame=plans-free · plans-plus                            — 🏛 the plan cards (owner 20 Nov 2026: Event Plus is the
+ *                                                               whole Event Hub; Pro and Ultra are plain cards after it)
  *   ?frame=address-free · address-pick · address-kept         — the custom address (frame 5)
  *   ?frame=sheet-apple · apple · apple-on                     — 🍎 the iPhone app: the one-unlock sheet, Apple's page
  *                                                               selling Event Pro whole (owner 2026-10-26)
@@ -22,14 +24,17 @@ import { PLAN_NAME } from '@/lib/plan-buy-doors';
  *   any surface, exactly as production draws them once the catalogue rows are inactive. Without it: the 2026-10-22
  *   part-by-part frames, kept for the record.
  *
- * ⚠ THE FIGURES ARE THE PROTOTYPE'S SAMPLE (₱1,000 / ₱500 / ₱5,000), typed HERE ONLY — a dev page that 404s in
+ * ⚠ THE FIGURES ARE SAMPLES (₱1,000 / ₱500 / ₱2,990 — the prototype's ₱5,000 "everything" became the Plus sample on 20 Nov), typed HERE ONLY — a dev page that 404s in
  * production. The shipped surfaces read `platform_retail_catalog_v2`.
  */
 const SAMPLE_BIG = 1000;
 const SAMPLE_SMALL = 500;
-const SAMPLE_FULL = 5000;
+/** 🏛 Everything is Event Plus since 20 Nov — the sample "everything" is the Plus sample below (was the prototype's ₱5,000). */
+const SAMPLE_FULL = 2990;
 /** Apple's `displayPrice` string as StoreKit would hand it — SAMPLE only: one price everywhere (2026-10-28), so it is the lab's web figure. */
 const SAMPLE_APPLE_FULL = formatPhp(SAMPLE_FULL);
+/** 🏛 The plan cards' facts — SAMPLE only (the shipped page reads each from its catalogue row). */
+const SAMPLE_PLANS = { plusPhp: 2990, plusCredits: 1000, proPhp: 5490, proCredits: 3000, ultraPhp: 9990, ultraCredits: 6000 };
 
 export default async function ProPartsLab({ searchParams }: { searchParams: Promise<{ frame?: string; buy?: string; from?: string; sale?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
@@ -57,6 +62,42 @@ export default async function ProPartsLab({ searchParams }: { searchParams: Prom
           eventId="00000000-0000-4000-8000-000000000000"
           back="/dev/pro-parts-lab"
           sample={{ screen: frame === 'apple-on' ? { kind: 'on' } : null, price: SAMPLE_APPLE_FULL }}
+        />
+      </div>
+    );
+  }
+  if (frame.startsWith('plans')) {
+    const plusHeld = frame === 'plans-plus';
+    const whole = { full: plusHeld, parts: plusHeld ? HUB_PARTS.map((p) => p.id) : [], paidPhp: plusHeld ? SAMPLE_PLANS.plusPhp : 0, fullPricePhp: SAMPLE_PLANS.plusPhp };
+    return (
+      <div className="min-h-dvh bg-cream">
+        <ProPartsBody
+          planName={PLAN_NAME.pro}
+          everythingName={PLAN_NAME.plus}
+          everythingPhp={SAMPLE_PLANS.plusPhp}
+          eventId="00000000-0000-4000-8000-000000000000"
+          title="Plans for this event"
+          back={{ href: '/dev/pro-parts-lab', label: 'Back to the Maker' }}
+          fromMaker
+          hubHref="/dev/pro-parts-lab"
+          active={whole}
+          owned={whole}
+          partPricePhp={{}}
+          fullPhp={SAMPLE_PLANS.proPhp}
+          buy={q.buy}
+          settings={{ bdo_account_name: null, bdo_account_number: null, bdo_qr_url: null, gcash_account_name: null, gcash_number: null, gcash_qr_url: null }}
+          vatRatePct={0}
+          plans={{
+            plusPhp: SAMPLE_PLANS.plusPhp,
+            plusCredits: SAMPLE_PLANS.plusCredits,
+            proCredits: SAMPLE_PLANS.proCredits,
+            freePapic: null,
+            plus: plusHeld ? 'yours' : 'buy',
+            ultraPhp: SAMPLE_PLANS.ultraPhp,
+            ultraCredits: SAMPLE_PLANS.ultraCredits,
+            ultra: 'buy',
+            paidTowardAPlan: plusHeld,
+          }}
         />
       </div>
     );

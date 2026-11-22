@@ -41,19 +41,24 @@ const read = (p: string) => readFileSync(p, 'utf8');
 
 import { INVITE_THEMES, INVITE_THEME_IDS } from '@/lib/invite-themes';
 import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
-import { HUB_PARTS } from '@/lib/hub-parts';
+import { plusPeek } from '@/app/_components/frontdoor/front-door-landing-data';
 
 const SKU = 'COUPLE_WEBSITE_PRO';
-const GATE = 'eventCoupleWebsiteProActive';
+/* 💎 2026-11-19: what THIS SKU withholds from guests is the Pro PLAN's (`eventProPlanActive`); everything
+   (`eventCoupleWebsiteProActive`) is Event Plus's since the owner's 20 Nov ruling. */
+const GATE = 'eventProPlanActive';
 
 /** The customer-facing sentences that describe this upgrade, all three of them. */
 function claimSurfaces(): Array<{ where: string; text: string }> {
-  /* 💎 RE-AIMED 2026-10-22 ("Event Pro, part by part"): the buy page is the PARTS page now — its claims are the
-     Everything card's sentence and each part's one line (`HUB_PARTS[].blurb`, the prototype's frame-4 words). */
-  const body = read(join(HERE, '_components', 'pro-parts-body.tsx'));
-  const everything = /`(All \$\{HUB_PARTS\.length\} parts, and the "Powered by Setnayan" footer[^`]*)`/.exec(body);
-  assert.ok(everything, 'the Everything card sentence was not found — the scan is blind');
-  const benefits = [everything[0], everything[1]! + ' ' + HUB_PARTS.map((p) => `${p.name}: ${p.blurb}`).join(' ')] as const;
+  /* 💎 RE-AIMED 2026-11-19 (owner, "Event plans part 2 — four calls") and 20 Nov (Event Plus is the whole Event Hub): Event
+     Pro's buy page claim is its PLAN CARD — the owner's words, "Everything in Plus · Setnayan AI · no Setnayan mark" —
+     and "Everything in Plus" is the Plus card's own lines (`plusPeek`), read from the same file the page draws. */
+  const offer = read(join(HERE, '_components', 'plan-offer.tsx'));
+  const card = /`(Everything in Plus · Setnayan AI · no Setnayan mark)\$\{/.exec(offer);
+  assert.ok(card, 'the Pro card sentence was not found — the scan is blind');
+  const plus = plusPeek({ plusCredits: null, proCredits: null, freePapic: null }).join(' · ');
+  assert.ok(plus.length > 20, 'the Plus lines scanned empty');
+  const benefits = [card[0], `${card[1]!} — ${plus}`] as const;
 
   const catalog = read(join(WEB, 'lib/add-ons-catalog.ts'));
   const entry = /key: 'website-pro',[\s\S]*?blurb: '([^']*)'/.exec(catalog);
@@ -170,6 +175,8 @@ const ADVERTISED_GUEST_GATES: ReadonlyArray<{ under: string; claim: RegExp; what
     migration, so widening the copy needs one — and this branch deliberately
     carries no schema change. Owner's call.
   */
+  // 💎 2026-11-19: the Pro PLAN's footer reader — the Setnayan mark off the guest pages.
+  { under: 'app/[slug]/_lib/hub-look.ts', claim: /Setnayan mark|watermark/i, what: 'the Setnayan mark taken off' },
   // 💎 2026-10-22: the parts page names the themes as the Style part's "Pro themes" (the prototype's words).
   { under: 'app/[slug]/', claim: /invite link|Pro themes/i, what: 'a Pro theme for the invite link' },
 ];
@@ -217,15 +224,17 @@ test('the copy does not promise RSVP or the on-the-day page', () => {
   }
 });
 
-test('the reveal — the one real exclusive — is still aliased to this SKU', () => {
+test('the reveal is still aliased to this SKU (and, since 2026-11-19, to Event Plus too)', () => {
   const src = read(join(WEB, 'lib/entitlements.ts'));
   const aliases = /SKU_OWNERSHIP_ALIASES[\s\S]*?\}\);/.exec(src);
   assert.ok(aliases, 'SKU_OWNERSHIP_ALIASES not found — the scan is blind');
   assert.match(
     aliases[0]!,
     // 💎 Event Ultra (owner 2026-11-13) includes Event Pro whole, so it confers the reveal too — still never sold alone.
-    new RegExp(`STD_PREMIUM_OPENINGS: Object\\.freeze\\(\\['${SKU}'(, EVENT_ULTRA_SKU)?\\]\\)`),
-    'the cinematic reveal is no longer granted by Event Pro — the copy claims it is the only way to get it',
+    // 💎 2026-11-19 (rulings 34/36): Event Plus confers the Cinematic Reveal openings too, so the description no
+    //    longer calls it Pro's exclusive (migration 20271356433378 drops "comes only with this").
+    new RegExp(`STD_PREMIUM_OPENINGS: Object\\.freeze\\(\\['${SKU}'(, EVENT_ULTRA_SKU)?(, 'EVENT_PLUS')?\\]\\)`),
+    'the cinematic reveal is no longer granted by Event Pro',
   );
 });
 

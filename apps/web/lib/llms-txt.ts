@@ -41,7 +41,7 @@ import { RETIRED_PRODUCT_NAMES } from './retired-products';
 import { aiAnswers } from './seo/ai-answers';
 // Event Plus / Event Pro say exactly what the front door's plan cards say (Lane J made those true to what an order
 // unlocks) — one sentence, two readers.
-import { PLUS_MORE, PRO_PEEK } from '@/app/_components/frontdoor/front-door-landing-data';
+import { EVERYTHING_PEEK, PLUS_MORE } from '@/app/_components/frontdoor/front-door-landing-data';
 import { PAPIC_FREE_CREDIT_CONDITION } from './papic-free-credit-promise';
 import { DAILY_CAPACITY_MAX, TIER_LABEL, type VendorTier } from './vendor-tier-caps';
 // Build 6 Lane K — the supplier plans are the SAME table /for-suppliers draws (Lane J's one pure module), so what an
@@ -793,9 +793,9 @@ Use these names, so every engine names things the same way. Plain words first, b
 ## Planning tiers (couple-side)
 
 - **Free** — ₱0. Browse the marketplace, see a personalized match preview, and plan with the free workspace: schedule, budget, guest list, seat plan, mood board. No card required.
-- **Event Plus** — ${R('EVENT_PLUS')} one-time per event. Papic credits for the guests' cameras, 500 MB of uploads, and one small "Made with Setnayan" mark instead of the watermark. Works for an event with no suppliers. ${PLUS_MORE.join(' ')}.
-- **Event Pro** — ${R('COUPLE_WEBSITE_PRO')} one-time per event. Everything in Event Plus with more Papic credits, plus Setnayan AI (supplier matchmaking plus the guided planning workspace that tells you what's next and flags what's at risk) and 1 GB of uploads. ${PRO_PEEK.join('. ')}. No Setnayan watermark on the Event Hub page.
-- **Event Ultra** — ${R('EVENT_ULTRA')} one-time per event. Everything in Event Pro with the most Papic credits, plus Live Watch for one day, 2 GB of uploads and full-size originals kept 12 months after the event instead of 3.
+- **Event Plus** — ${R('EVENT_PLUS')} one-time per event. Papic credits for the guests' cameras. ${EVERYTHING_PEEK.join('. ')}. A cinematic opening for the Save the Date, 500 MB of uploads, and one small "Made with Setnayan" mark instead of the watermark. Works for an event with no suppliers. ${PLUS_MORE.join(' ')}.
+- **Event Pro** — ${R('COUPLE_WEBSITE_PRO')} one-time per event. Everything in Event Plus with more Papic credits, plus Setnayan AI (supplier matchmaking plus the guided planning workspace that tells you what's next and flags what's at risk) and 1 GB of uploads. No Setnayan watermark on the Event Hub page.
+- **Event Ultra** — ${R('EVENT_ULTRA')} one-time per event. Everything in Event Pro with the most Papic credits, plus Live Watch for one day, 2 GB of uploads and full-size originals kept 12 months after the event.
 - Setnayan AI is not sold on its own — it comes with Event Pro and Event Ultra. Beyond these three plans everything is à la carte.
 
 ## Customer software services (à la carte)

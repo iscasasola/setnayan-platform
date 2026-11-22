@@ -522,7 +522,9 @@ function DetailCard({
                         {p.what} <span className="hc-due">· {dueWords(p, true)}</span>
                       </span>
                     </span>
-                    <b className="hc-pay-amt">{formatPhpRounded(p.owedPhp)}</b>
+                    <b className="hc-pay-amt">
+                      <Count value={p.owedPhp} format="peso" id={`home-pay-${p.id}${countKey}`} />
+                    </b>
                     <ActionButton tone={late ? 'brand' : 'ok'} main={late} icon={<ArrowRight aria-hidden="true" strokeWidth={1.9} />} label="Pay" name={`Pay ${formatPhpRounded(p.owedPhp)} to ${p.who}`} href={href} />
                   </div>
                 );

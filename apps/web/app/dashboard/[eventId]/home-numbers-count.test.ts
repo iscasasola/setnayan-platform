@@ -28,29 +28,34 @@ test('every numeric face, and the cards’ money, render through Count — each 
   const html = draw();
   const value = (id: string) => html.match(new RegExp(`data-count="${id}"[^>]*>([^<]*)<`))?.[1] ?? null;
   assert.equal(value('home-count'), '51', 'days to go');
-  assert.equal(value('home-guests-coming'), '96');
-  assert.equal(value('home-guests-noreply'), '35');
-  assert.equal(value('home-guests-declined'), '4');
-  assert.equal(value('home-paid'), '₱120,450');
-  assert.equal(value('home-owing'), '₱44,550');
-  assert.equal(value('home-paid-pct'), '73%');
-  // 🎴 The late ₱8,000 is Now's (Home redraw 2026-11-02, "Now never repeats below") — the next payment face counts.
-  assert.equal(value('home-pay-li-2'), '₱22,275', 'a payment face');
-  // Every face that HAS a number counts it; the words-only faces ("Couldn't load", "Invitation") do not.
+  // 🌐 23 Nov 2026 (owner, v5 drawing in the website look): the board's cards are the ONE copy of the widgets at every
+  // width, and they count under their own ids (`-board`, components/count.tsx plays once per id).
+  assert.equal(value('home-guests-coming-board'), '96');
+  assert.equal(value('home-guests-noreply-board'), '35');
+  assert.equal(value('home-guests-declined-board'), '4');
+  assert.equal(value('home-paid-board'), '₱120,450');
+  assert.equal(value('home-owing-board'), '₱44,550');
+  assert.equal(value('home-paid-pct-board'), '73%');
+  // 🎴 The late ₱8,000 is Now's (Home redraw 2026-11-02, "Now never repeats below") — the next payment row counts.
+  assert.equal(value('home-pay-li-2-board'), '₱22,275', 'a payment row’s amount does not count');
+  // Every face that HAS a number counts it; the words-only faces ("Couldn't load", "Invitation") do not. Only the
+  // Schedule is still drawn as a tile (its faces); every other widget states its figures on its board card (above).
   const { tiles } = homeControlTiles(fixtureControl('e1'));
   for (const t of tiles) for (const f of t.faces) {
     if (/^[₱+\d]/.test(f.big) && f.id !== 'pay-more') assert.ok(f.count, `${t.key}/${f.id}: "${f.big}" is a number that does not count`);
-    if (f.count) assert.equal(count(html, `data-count="home-${f.id}"`) >= 1, true, `${t.key}/${f.id}: not drawn through Count`);
+    if (f.count && t.key === 'sched') assert.equal(count(html, `data-count="home-${f.id}"`) >= 1, true, `${t.key}/${f.id}: not drawn through Count`);
   }
 });
 function draw(): string {
   return drawHome();
 }
 
-test('the paid bar stands for the share paid (the shipped meter)', () => {
+test('the share paid is stated, counted, and true', () => {
+  // 🌐 23 Nov 2026 (owner, v5 drawing): the Budget's paid bar is gone — the share paid is a word on the section's one
+  // fine line ("Paid ₱… · still owing ₱… · 25% paid of ₱… agreed"), drawn through Count with its true value.
   const html = drawHome({ control: fixtureControl('e1', { budget: { paidPhp: 250_000, owingPhp: 750_000, pays: [] } }) });
-  assert.match(html, /role="meter" aria-label="Paid"[^>]*aria-valuenow="25"/, 'the Budget card’s bar does not stand for 25% paid');
-  assert.match(html, /<i style="width:25%"><\/i>/, 'the Budget tile’s thin bar does not stand for 25% paid');
+  assert.match(html, /data-count="home-paid-pct-board"[^>]*>25%</, 'the Budget card does not state 25% paid');
+  assert.match(html, /data-home-money=""[\s\S]*?25%<\/span> paid of ₱1,000,000 agreed/, 'the share paid is not said against what was agreed');
 });
 
 test('the Home takes Count from the ONE shared engine — no second counter', () => {

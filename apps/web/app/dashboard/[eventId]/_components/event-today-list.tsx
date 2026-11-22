@@ -270,7 +270,8 @@ export function EventTodayUnreadRow({ row }: { row: EventTodayRow }) {
   const reload = () => router?.refresh();
   const inner = (
     <>
-      <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full" style={{ background: 'var(--sn-warning-soft)', color: 'var(--sn-warning-deep)' }}>
+      {/* 🌐 A failed read keeps its warning colour on the glyph — no disc behind it (the website look, 23 Nov). */}
+      <span aria-hidden className="et-ico grid h-9 w-9 shrink-0 place-items-center" style={{ color: 'var(--sn-warning-deep)' }}>
         <RotateCw className="h-[18px] w-[18px]" strokeWidth={1.8} />
       </span>
       <span className="grid min-w-0 flex-1 text-left">

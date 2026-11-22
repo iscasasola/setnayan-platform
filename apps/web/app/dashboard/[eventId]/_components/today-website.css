@@ -211,7 +211,7 @@ html:not(.dark):has([data-home-first-screen]) {
   color: var(--web-m2);
   fill: none;
 }
-[data-home-first-screen] .et-ico {
+[data-home-first-screen] .et-ico:not([style]) {
   color: var(--web-m1);
 }
 [data-home-first-screen] .et-line {
@@ -234,9 +234,6 @@ html:not(.dark):has([data-home-first-screen]) {
 [data-home-first-screen] .et-more > span:first-child {
   background: none;
   color: var(--web-m1);
-}
-[data-home-first-screen] .et-unread > span:first-child {
-  background: none;
 }
 [data-home-first-screen] .et-front {
   background: rgb(var(--sn-page-bg));

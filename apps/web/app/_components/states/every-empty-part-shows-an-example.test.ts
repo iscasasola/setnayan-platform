@@ -234,22 +234,17 @@ test('👻 Event · Today — an empty event draws every widget\'s Example; a re
   const { drawHome, loadHome, slice } = await import('@/app/dashboard/[eventId]/home-render.harness');
   await loadHome();
   const empty = drawHome({ control: fixtureControlEmpty('e1') });
-  const compact = slice(empty, 'data-home-control="compact"', ['data-home-control="detail"']);
-  const KEYS = ['guests', 'hub', 'sup', 'budget', 'sched'] as const;
-  for (const key of KEYS) {
-    const tile = slice(compact, `data-home-tile="${key}"`, KEYS.filter((k) => k !== key).map((k) => `data-home-tile="${k}"`).concat('data-home-todo'));
-    assert.ok(tile.length > 0, `Today: the ${key} tile is not drawn on an empty event`);
-    assertIsExample(tile, `Today · ${key}`);
-  }
-  const todo = slice(empty, 'data-home-todo', ['data-home-your-event']);
+  const todo = slice(empty, 'data-home-todo', ['data-home-control="board"']);
   assertIsExample(todo, 'Today · To do');
-  // 🖥 THE DESKTOP DETAIL CARDS (md+, Lane H leftover) — each card draws the same sample face under "Example".
-  const detail = slice(empty, 'data-home-control="detail"', ['data-home-todo', 'data-home-your-event']);
-  const CARDS = ['guests', 'hub', 'sup', 'budget'] as const;
-  for (const key of CARDS) {
-    const card = slice(detail, `data-home-card-key="${key}"`, CARDS.filter((k) => k !== key).map((k) => `data-home-card-key="${k}"`).concat('data-home-card-key="plan"', 'data-home-tile="sched"'));
-    assert.ok(card.length > 0, `Today (desktop): the ${key} card is not drawn on an empty event`);
-    assertIsExample(card, `Today (desktop) · ${key}`);
+  // 🌐 23 Nov 2026 (owner, v5 drawing in the website look): the phone's tiles and the md copy are retired — the board's
+  // cards (and the Schedule, its one tile) are the ONE copy at every width, and each draws its sample under "Example".
+  assert.equal(empty.split('data-home-control="compact"').length + empty.split('data-home-control="detail"').length - 2, 0, 'a retired copy of the widgets is back');
+  const board = slice(empty, 'data-home-control="board"', ['data-home-services']);
+  const MARKS = ['data-home-card-key="guests"', 'data-home-card-key="budget"', 'data-home-tile="sched"', 'data-home-card-key="sup"', 'data-home-card-key="hub"'] as const;
+  for (const mark of MARKS) {
+    const part = slice(board, mark, MARKS.filter((m) => m !== mark));
+    assert.ok(part.length > 0, `Today: the ${mark} widget is not drawn on an empty event`);
+    assertIsExample(part, `Today · ${mark}`);
   }
   assert.doesNotMatch(drawHome({ control: fixtureControlUnread('e1') }), /data-example/, 'a REFUSED read drew an Example — it would pass a sample off as the event');
   assert.doesNotMatch(drawHome({ control: fixtureControl('e1') }), /data-example/, 'a FULL event still draws an Example');

@@ -52,16 +52,28 @@ test('📐 every Home Example sits where that rule reaches it: beside direct-chi
   await loadHome();
   const html = drawHome({ control: fixtureControlEmpty('e1') });
 
+  // 🌐 RE-AIMED 23 Nov 2026 (owner, v5 drawing in the website look): the phone's compact tiles — the Event Hub tile with
+  // its corner buttons, where the bug lived — are retired. The board's cards are the ONE copy at every width: their
+  // buttons sit in the card's own row (`.sg-acts`), never pinned in a corner, so a card's Example cannot run under them.
+  // The Schedule is the one tile left; the rule still holds for any tile that draws an Example beside corner buttons.
+  assert.equal(html.split('data-home-tile="hub"').length - 1, 0, 'the retired Event Hub tile is back — re-arm the hub checks');
+  const cards = [...html.matchAll(/<article class="sg-row hc-card[^"]*"[^>]*data-home-card-key="([a-z]+)"/g)].map((m) => m[1]);
+  assert.ok(cards.length >= 3, `premise: the board's cards are drawn — found ${cards.length}`);
+  const board = html.slice(html.indexOf('data-home-control="board"'), html.indexOf('data-home-services'));
+  for (const piece of board.split(/(?=<article class="sg-row hc-card)/).slice(1)) {
+    const key = piece.match(/data-home-card-key="([a-z]+)"/)?.[1] ?? '?';
+    const own = piece.slice(0, piece.indexOf('</article>'));
+    assert.doesNotMatch(own, /class="hc-(acts|side)"/, `the ${key} card pins its buttons in a corner, where an Example can run under them`);
+  }
+
   const tiles = topLevelTiles(html);
   const withExample = tiles.filter((t) => t.children.some((c) => /\bhc-example\b/.test(c.cls)));
-  assert.ok(withExample.length >= 3, `expected the Guests, Event Hub and Suppliers Examples at least — found ${withExample.length}`);
-  assert.ok(withExample.some((t) => t.key === 'hub'), 'the Event Hub tile drew no Example on an empty event');
+  assert.ok(withExample.length >= 1, `anti-vacuity: the Schedule tile drew no Example on an empty event — found ${withExample.length}`);
 
   for (const t of withExample) {
     const ex = t.children.find((c) => /\bhc-example\b/.test(c.cls))!;
     const buttons = t.children.some((c) => /(^|\s)hc-(acts|side)(\s|$)/.test(c.cls));
     const nested = /class="hc-(acts|side)"/.test(t.html);
-    if (t.key === 'hub') assert.ok(nested, 'the Event Hub tile lost its corner buttons — this guard no longer tests the bug it was written for');
     if (nested) assert.ok(buttons, `the ${t.key} tile's corner buttons are no longer a direct child of .hc-tile — the rule cannot see them`);
     if (buttons) assert.match(ex.html, /class="hc-sm"/, `the ${t.key} Example sits beside corner buttons but has no small line to take their row`);
   }

@@ -363,7 +363,7 @@ export function InquireSheet({
                 {note ? (
                   <p
                     role={noteFailed ? 'alert' : 'status'}
-                    className={`mt-2 text-[13px] ${noteFailed ? 'font-semibold text-danger' : 'text-ink/70'}`}
+                    className={`mt-2 text-[13px] ${noteFailed ? 'font-semibold text-danger-700' : 'text-ink/70'}`}
                     data-inquire-note={noteFailed ? 'failed' : ''}
                   >
                     {note}

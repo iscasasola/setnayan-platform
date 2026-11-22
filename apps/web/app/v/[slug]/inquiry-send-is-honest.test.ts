@@ -159,7 +159,7 @@ for (const [name, src, step] of [
     // A failure is drawn as one, and the catch says the same sentence.
     assert.match(src, /setNoteFailed\(true\);\s*setNote\(outcome\.note\);/);
     assert.match(src, /catch \{\s*setStep\('event'\);\s*setNoteFailed\(true\);\s*setNote\(INQUIRY_NOT_SENT\);/);
-    assert.match(src, /text-danger/);
+    assert.match(src, /font-semibold text-danger-700/, `${name}: a failure is drawn like the house form-row problem line`);
     // "Sent ✓" is only the heading when a message posted.
     assert.match(src, /sent\?\.posted === false \? 'In your chat ✓' : 'Sent ✓'/);
   });

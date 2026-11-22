@@ -556,7 +556,10 @@ test('wiring: the vendor side shows no plan upsell, add-on price or pack in the 
 test('wiring: couple-side upsells and web-bought features stay out of the store shell', () => {
   assert.match(src('app/dashboard/[eventId]/studio/save-the-date/page.tsx'), /\) : storeShell \? null \/\*/);
   assert.match(src('app/dashboard/[eventId]/monogram/page.tsx'), /owned=\{ownsAnimated && !storeShell\}/);
-  assert.match(src('app/papic/seat/[token]/page.tsx'), /buyOffered=\{canReloadOwnCamera && !storeShell\}/);
+  // 📷 The seat page (one camera, seat mode — owner 2026-11-22) withholds the whole buy panel in the store shell; the
+  // camera itself offers no purchase of its own.
+  assert.match(src('app/papic/seat/[token]/page.tsx'), /\{!storeShell && \(\s*<PapicGuestBuyPanel\b/);
+  assert.doesNotMatch(src('app/papic/seat/[token]/page.tsx'), /buyOffered=/, 'the seat camera grew its own purchase doorway again');
 });
 
 test('/for-suppliers — the supplier price-ladder marketing page — is a refused doorway (2026-09-25 drawer-footer audit)', () => {

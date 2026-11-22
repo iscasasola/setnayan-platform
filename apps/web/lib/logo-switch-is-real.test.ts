@@ -160,6 +160,7 @@ const READERS: Record<string, readonly [kind: 'carries' | 'via' | 'host' | 'edit
   'app/panood/control/[eventId]/page.tsx': ['carries', 'the Panood control (what goes on air)'],
   'app/panood/program/[eventId]/page.tsx': ['carries', 'the Panood program output'],
   'app/papic/guest/page.tsx': ['carries', "the guest camera's Pro dress (the logo on the shutter)"],
+  'app/papic/seat/[token]/page.tsx': ['carries', "a seat on the one camera wears the same Pro dress (the logo on the shutter) — owner 2026-11-22, one camera"],
   'app/wall/[eventId]/page.tsx': ['carries', 'the Live Photo Wall masthead'],
   'lib/discover-events.ts': ['via', 'discovery cards draw rows selected with coverColumns() (lib/home-public-reads-core.ts)'],
   'lib/event-cover-given.ts': ['via', 'discovery covers draw CoverRow (lib/home-public-reads-core.ts COVER_COLUMNS)'],

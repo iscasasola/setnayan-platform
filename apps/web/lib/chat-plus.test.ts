@@ -65,8 +65,9 @@ import { CHAT_TOPICS } from './topic-icons';
 test('1 · ＋ FINAL — supplier tiles in their fixed places: the quote first · money · time & files · questions · the tools that wait for booking · Every version last', () => {
   // Owner 21 Nov 2026, "CHAT ＋ FINAL — APPROVED" (frozen drawing `chat_plus_final_v1_fable.html`). The drawing draws
   // neither Drop an offer nor Camera and lists no removal, so both are KEPT in fixed places by the same order. Partner
-  // card is drawn between Ask for access and Every version once its card exists — never a dead tile.
-  const FINAL = ['Change quote', 'Drop an offer', 'Payment plan', 'Ask for a payment', 'Dates & times', 'Photos & files', 'Camera', 'Decision', 'Poll', 'Form', 'Ask for access', 'Every version'];
+  // card is drawn before Every version once its card exists — never a dead tile. Ask for access LEFT the ＋ (the later
+  // 21 Nov row, "NO 'ASK FOR ACCESS' TILE ON THE CHAT ＋"): asking lives in the Their event list.
+  const FINAL = ['Change quote', 'Drop an offer', 'Payment plan', 'Ask for a payment', 'Dates & times', 'Photos & files', 'Camera', 'Decision', 'Poll', 'Form', 'Every version'];
   for (const opts of [{ paid: false }, { paid: true }, { paid: false, booked: true }, { paid: false, pollOpen: true }, { paid: false, verified: false }]) {
     assert.deepEqual(supplierPlusRows(opts).map((r) => r.label), FINAL, `places moved for ${JSON.stringify(opts)}`);
   }
@@ -130,7 +131,7 @@ test('1b · ＋ FINAL — the host’s tray is two jobs, Ask and Share; no Every
 
 test('1c · a tool that waits for booking is a normal tile, dimmed, with “After booking” under its name — never hidden', () => {
   const shut = supplierPlusRows({ paid: false }).filter((r) => r.shutUntilAgreement);
-  assert.deepEqual(shut.map((r) => r.key), ['payment', 'form', 'access']);
+  assert.deepEqual(shut.map((r) => r.key), ['payment', 'form']);
   for (const r of shut) assert.equal(r.shutUntilAgreement!.reason, AFTER_BOOKING);
   assert.equal(AFTER_BOOKING, 'After booking');
   assert.deepEqual(hostPlusRows({ canLogPayment: true }).find((r) => r.key === 'logpay')!.shutUntilAgreement, { reason: AFTER_BOOKING });
@@ -229,7 +230,7 @@ test('6 · the slash list IS the (+): the same card rows, order, words and reaso
   }
   // The words the ruling names (M14 + /meeting /decision /poll), Negotiate's first (12 Nov: /quote · /plan; the hosts' /ask · /counter).
   assert.deepEqual(slashRows(supplierPlusRows({ paid: false }), true).map((r) => `/${r.word}`), [
-    '/quote', '/offer', '/plan', '/payment', '/meeting', '/file', '/decision', '/poll', '/form', '/access',
+    '/quote', '/offer', '/plan', '/payment', '/meeting', '/file', '/decision', '/poll', '/form',
   ]);
   assert.deepEqual(slashRows(hostPlusRows({ canLogPayment: true }), true).slice(0, 2).map((r) => `/${r.word}`), ['/counter', '/plan']); // no /ask — ruling 6076
   // "/p" → Payment plan (its word /plan) · Ask for a payment · Photos & files · Poll.

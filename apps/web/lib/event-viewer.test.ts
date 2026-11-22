@@ -66,8 +66,9 @@ test('a delegate granted only the seat plan gets the notice on the guest list', 
 test('the default coordinator grant sees the guest list, so the notice stays out of the way', () => {
   assert.equal(isDelegateWithoutArea(COORDINATOR, 'guest_list'), false);
   assert.equal(viewerAreaLevel(COORDINATOR, 'guest_list'), 'edit');
-  // The two the coordinator template deliberately withholds still notice.
-  assert.equal(isDelegateWithoutArea(COORDINATOR, 'budget'), true);
+  // Budget is View (owner 2026-11-21); Memories (photos) is the one part the coordinator template withholds.
+  assert.equal(isDelegateWithoutArea(COORDINATOR, 'budget'), false);
+  assert.equal(viewerAreaLevel(COORDINATOR, 'budget'), 'view');
   assert.equal(isDelegateWithoutArea(COORDINATOR, 'photos'), true);
 });
 

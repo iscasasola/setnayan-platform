@@ -29,6 +29,7 @@
  * `SheetFoot`), and the button is the bar's MAIN answer (frame 12: Save quiet on the left, Book on the right).
  * 🔒 lib/the-build-is-the-approved-frame.test.ts
  */
+import { useViewerBooks } from './viewer-books';
 import { createContext, useContext, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
@@ -53,7 +54,12 @@ const BAR_FLEX = 'max-tab:!flex-1 lg:!flex-1';
 
 type Row = { pick: BookPick; outcome: BookOutcome | null };
 
-export function BookThisBuild({
+/** 🔒 Only a host books (owner 2026-11-21): the coordinator's Build has no "Book this build". */
+export function BookThisBuild(props: Parameters<typeof BookThisBuildBody>[0]) {
+  return useViewerBooks() ? <BookThisBuildBody {...props} /> : null;
+}
+
+function BookThisBuildBody({
   eventId,
   picks,
   inBuild,

@@ -4,6 +4,7 @@ import { SupplierThreadBody } from '@/app/vendor-dashboard/messages/[threadId]/_
 import { SUPPLIER_CHATS_HREF } from '@/app/vendor-dashboard/customers/anchors';
 import { ChatHomeTop } from '@/app/_components/chat/chat-home';
 import type { PickedPageProps } from './context';
+import { TheirEventList } from '../_components/their-event-list';
 
 /**
  * CHAT — the picked client's page (THE ONE BUILD, v111 "Chat lives in the client"; spec plans/supplier_one_build_2026-11-08
@@ -34,7 +35,14 @@ export function ChatPage({ ctx }: PickedPageProps) {
       </div>
     );
   }
+  const theirEvent = ctx.theirEventRows && ctx.theirEventRows.length > 0 ? (
+    <div className="px-4 pt-3">
+      <TheirEventList eventId={ctx.eventId} rows={ctx.theirEventRows} />
+    </div>
+  ) : null;
   return (
+    <>
+    {theirEvent}
     <Suspense
       fallback={
         <div data-picked-client-page="chat">
@@ -47,6 +55,7 @@ export function ChatPage({ ctx }: PickedPageProps) {
     >
       <SupplierThreadBody threadId={threadId} view="chat" search={ctx.threadSearch} />
     </Suspense>
+    </>
   );
 }
 

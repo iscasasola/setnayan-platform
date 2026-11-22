@@ -30,3 +30,42 @@ desktop discover    pinnedRows 1  pickLeft 264    (Discover's row spans the cont
 
 **For the controller.** On desktop Discover the thumb row's round search icon sits on the rail's edge (top left of
 the content). That is the thumb row's placement, which open PR #8091 changes (search icon dead centre).
+
+## §4 proof (BUILD_RULES) — hand-off 22 Nov
+
+1. **Shots**: above (375 light · 375 dark forced · desktop). Stub data, not production — the session cannot reach Supabase.
+2. **Drawing parity** (`prototypes/user_dashboard_clean_2026-11-17/…_fable.html`): one bar for both pages, kept across
+   the tap (measured `barKept: true`). Differences: on desktop Home's pinned row sits in its centred column (x = 392)
+   while Discover's spans the content column (x = 264) — main's Home column, not changed here. "N new" is not drawn
+   (its source, New uploads, was retired 16 Nov).
+3. **Ways in walked** (signed-in couple, the only role this touches): bottom bar Home ↔ Discover (bar kept); the
+   Discover pinned row's picker, "upcoming" and Following (`/?following=1`); ⚙ → `/dashboard/profile`. Signed-out `/`
+   is drawn by `FrontDoor` as before (guard `3a`). Notifications and admin rows were not walked: none link anywhere new.
+4. **Preflight from `apps/web`**, full run on `e64255967` (wall 39m 46s, 3 files at a time):
+
+| check | result |
+|---|---|
+| 44 cheap CI guards | PASS |
+| Lint port keeps every control | FAIL → fixed in the next commit, re-run PASS (see below) |
+| Unit-test the feature register check | FAIL — environment only, see below |
+| eslint on changed files (121) | PASS |
+| tsc (121 changed files; importers did not fit in 3072 MB) | PASS |
+| tests that name or import a changed file — 316 files, 2,734 tests | PASS |
+| whole-tree guard tests — 732 files, 5,017 tests | PASS |
+| DB tests that scan source — 34 files, 219 tests | PASS |
+
+   - **Port lint**: main's Unichat part C (`23b2c4cd2`) stopped drawing `NegotiationQuote`, `QuoteSteps`, `LineRows`,
+     `Cur`; this PR's baseline key had been renamed `/` → `/(hub)`, so git could not carry that removal across. Four
+     lines removed by hand in `port-control-baseline.json` (a merge resolution, not a regeneration). Re-run: 45 guards PASS.
+   - **Feature register test 24** reads the specs corpus when it is on disk (a sibling `../setnayan-specs` clone here;
+     CI has none and skips it). It fails on main's own tree too (23 routes, 18 pointers). This PR adds exactly two
+     stale pointers there: `FEATURE_REGISTER.md` names `app/page.tsx` and `app/dashboard/(launcher)/page.tsx`, which
+     move to `app/(hub)/page.tsx` and `app/(hub)/dashboard/page.tsx`. **Specs-repo edit needed after merge.**
+   - Left to CI: full typecheck, full unit suite, DB replay, build, bundle, lighthouse, e2e, secret scan.
+5. **Overlapping open PRs**: #7935 `front-door.tsx` (+3 copy guards) · #8041 three copy guards · #8087
+   `marketplace-view.tsx` · #8094 `every-logo-plays.test.ts` · #8080 `there-is-one-info-dot.test.ts` · #7868
+   `face-tagging-rules.test.ts` · #7585 `home-carries-the-cron-free-jobs.test.ts` **and `app/page.tsx`**, which this
+   PR moves — whichever lands second takes a rename conflict.
+6. **§2 rules not followed**: Home's "Search events" is a full field, not a round icon (main's `HomeFindRow`, only
+   re-imported here). Dark: `/` and `/dashboard` are not in `DARK_READY`, so neither page is dark yet (not this PR's
+   slice). "Following" is drawn filled while off — a look call for the drawing session, left as built.

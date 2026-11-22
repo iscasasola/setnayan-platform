@@ -133,7 +133,7 @@ export function ApplyProSheet({
         <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15 lg:hidden" />
         <div className="flex items-center gap-2 px-4 pt-3">
           <p id={titleId} className="min-w-0 flex-1 text-lg font-bold tracking-tight text-ink">
-            {none ? 'Ready to apply' : grouped ? `Apply needs ${grouped.parts.length === 1 ? '1 Pro part' : `${formatCount(grouped.parts.length)} Pro parts`}` : 'Apply needs the full Event Hub'}
+            {none ? 'Ready to apply' : grouped ? `Apply needs ${grouped.parts.length === 1 ? '1 Plus part' : `${formatCount(grouped.parts.length)} Plus parts`}` : 'Apply needs the full Event Hub'}
           </p>
           {none ? null : (
             <InfoTip label="" ariaLabel="About the full Event Hub’s changes" align="end">

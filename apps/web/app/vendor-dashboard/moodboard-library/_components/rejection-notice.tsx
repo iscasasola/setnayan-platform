@@ -40,7 +40,7 @@ export function RejectionNotice({ rejectedAt, reason }: RejectionNoticeProps) {
     <div
       role="status"
       data-testid="rejection-notice"
-      className="rounded-[var(--m-r-lg)] bg-[rgb(var(--color-danger)/0.08)] px-4 py-3 text-sm text-ink"
+      className="px-0.5 text-[14px] text-ink"
     >
       {/* 🛑 A REJECTION WITH NO READABLE REASON STILL SAYS SOMETHING. The DB
           CHECK makes a blank reason unrepresentable, but a render that depends

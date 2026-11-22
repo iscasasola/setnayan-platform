@@ -88,6 +88,9 @@
 !/.claude/settings.json
 !/.claude/hooks/
 !/.claude/commands/
+# Added 2026-11-22 with the shared brain: the auto-loaded guardrails and the mandatory skill.
+!/.claude/rules/
+!/.claude/skills/
 .claude/settings.local.json
 
 # --- project documentation at the root ---

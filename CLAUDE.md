@@ -1,698 +1,177 @@
-# Setnayan Platform — Claude Code Project Context
-
-> Loaded automatically by Claude Code at session start. Read first, before any code.
-
-## ▶▶▶ NEWEST — 2026-09-29 · THE EVENT HUB PLAN OF RECORD · ORDER A → C → E → D → B (APPLE CHECK LAST)
-
-**Read first:** corpus `WHATS_NEXT_HANDOFF_2026-09-29.md`, then `EVENT_HUB_BUILD_PLAN_2026-09-28.md`
-top section "⭐ FINAL BUILD SEQUENCE" (everything below it in that file is history). **The Apple check is
-no longer Thursday 1 Oct** — owner, verbatim: *"Finish all Event Hub first then Apple Check · So Stage
-A,C,E · Then D · Then B"*.
-
-- **Approved references (open, never redraw):** `prototypes/event_hub_maker_blueprint_2026-09-29.html`
-  (moved-not-invented ledger · the 23 new rules · how the Maker is presented) ·
-  `prototypes/details_themes_page_2026-09-28.html` (Details + the 19-step guided flow) ·
-  `prototypes/event_hub_sequence_2026-09-29.html`. DECISION_LOG rows 2026-09-28 → 29 are the rulings.
-- **The model:** Details is the ONE place a couple types facts; stages are look and motion; tapping a
-  fact on a stage opens the same field. Prints & Tickets, Logo, Hero, Reveal, Mood Board, Love Story,
-  Schedule, RSVP, Seat plan, Wedding march and the date finder MOVE into Details — moved, not re-invented.
-- **Rules for every builder prompt:** no "Edit in X ↗" link-outs (the field sits where you are) · ◆ marks
-  Pro and never blocks; there are no padlocks; Apply is the gate ("Unlock Pro and Apply") · free themes
-  = Classic, Modern, Cyber Neon · only **Papic** and **Patiktok** keep custom names (Music Maker, Group,
-  Memories, Loved ones) · the Maker never slow (≤100 ms per tap, saves in the background) · the event menu
-  becomes Home · Guest list · Your Team · Event Hub Maker · Our Services — LAST, after every piece moved.
-- **Traps measured 2026-09-28/29:** ~10 builders queue for ONE heavy-lock slot — give each the one-command
-  form `LOCK=~/Documents/Claude/Projects/heavy-lock.sh; $LOCK acquire <l> && ( <job> ); rc=$?; $LOCK release <l>`
-  (a hold > 1 h is treated as stale) · fold ready PRs into ONE train so the port baseline regenerates once ·
-  the deploy cron skips runs — dispatch `deploy-prod.yml` and confirm with `wait-served.sh` · the preview
-  launcher cannot read `~/Documents` and `file://` prototypes render inner iframes blank — serve a
-  scratchpad copy ("setnayan-prototypes" in `.claude/launch.json`).
-- **Usage:** zip at ~90% and ~97% weekly; **stop all builders at 98%** (owner).
-
----
-
-## ▶▶ PREVIOUS — 2026-09-28 · THE EVENT HUB REDESIGN WEEKEND · APPLE CHECK THU 1 OCT ON A NEW ACCOUNT
-
-**Read first:** the corpus handoff `WHATS_NEXT_HANDOFF_2026-09-28.md` (spec corpus, `~/Documents/Claude/Projects/Setnayan/`)
-and `~/Documents/Claude/Projects/setnayan-handoff-src/CURRENT-STATE.md` (newest section on top). The
-DECISION_LOG rows dated 2026-09-26 → 2026-09-28 are the owner's rulings for the Event Hub Maker — **do
-not re-ask them**. `STATUS.md` (refreshed 2026-09-28) has the measured production state.
-
-🪤 **Traps that each cost real time this weekend — each one is re-measurable:**
-- **Every PR regenerates `apps/web/scripts/port-control-baseline.json`**, so whichever sibling merges
-  first turns the rest DIRTY, and each re-sync costs a full `typecheck + lint` run (its "Data-layer
-  guards (DB replay)" step alone takes most of an hour). With several builders in flight: pause the
-  siblings (`gh pr merge <N> --disable-auto`) or fold them into ONE merge train branch and regenerate
-  the baseline once.
-- **Something on the shared GitHub account arms or merges PRs that no session asked to**
-  (auto-merge switched ON on a PR whose builder only ran `gh pr create`; a PR merged into a train
-  30 s after its push). After opening ANY PR, read `gh pr view <N> --json autoMergeRequest` — never
-  trust a report that says "off".
-- **The owner's account is internal (§10a, `eventHostIsInternal` in `lib/entitlements.ts`), so
-  cale-ice is fully Pro** — no Pro CTA, no payment. Test the FREE flow on `testnayan1`.
-- **Test on the owner's real event cale-ice, but never press Apply, Undo or Restore there and never
-  type into it** — those change the owner's real draft. (Its undo history was trimmed on 2026-09-27 and
-  measured EMPTY on 2026-09-28, so the old "M & J" logo step is gone.) Measure drafts with
-  `event_site_drafts.updated_at` before and after.
-- **Builders must never drive the owner's signed-in Browser pane** — one moved his tab and dropped
-  his session. Test on a harness or a separate tab the controller owns.
-- **A bracketed test path (`app/[slug]/…`, `app/dashboard/[eventId]/…`) passed alone runs ZERO
-  tests** (the brackets are a glob). Run the full unit suite before calling a train green — a guard
-  in an UNTOUCHED file can read the file you changed.
-- **One watcher only.** Five builders each polling GitHub produced ~30 loops on the same PRs.
-
-📐 **Owner rules for the Maker (DECISION_LOG 2026-09-27/28):** any set of choices is ONE `PickMenu`
-dropdown · a tap on a scene only SELECTS it (the only way out is an explicit "Open … editor") · each
-event's Maker uses ITS event's details, never sample content · a scene is as tall as its content ·
-FREE = design pick, text, size, colour, background colour; PRO = themes + media backgrounds · Fable
-designs and plans, Opus builds · every build reaches the owner as a CHECK CARD after the controller
-tested it in the browser himself.
-
-## ▶▶ OLDER — 2026-08-20 · HANDOFF FOR A NEW ACCOUNT (read before `WHAT_IS_LEFT.md`, which is 13 days older)
-
-Full handoff lives in the spec corpus as `WHATS_NEXT_HANDOFF_2026-08-20.md`
-(remote: `github.com/iscasasola/Setnayan-specs`) — it supersedes the 2026-08-19 one, whose build
-list is COMPLETE and one of whose owner recommendations was false. **The essentials are inlined here because
-that corpus is "a second repo you may not have" — as the block below says of itself.**
-
-🛑 **THE TRAP THAT COSTS A WHOLE SESSION: `/Users/icecasasola` IS A CHECKOUT OF THIS REPO AND IS
-749 COMMITS BEHIND `origin/main`** (sits on the #4287 merge; holds ZERO commits main lacks, so
-there is nothing in it to rescue). On 2026-08-19 a subagent fan-out was aimed at it and returned
-a **coherent, fully control-flow-traced, completely wrong** finding — real line numbers, from a
-file whose code had since been **deleted**; the only surviving match was a comment.
-✅ **Never read code from `~`, and never give a subagent that path.** Use
-`git worktree add --detach /tmp/wt-read origin/main` and hand subagents *that*. A fresh worktree
-has no `node_modules`, so tsc/tests/lint there "pass" while resolving nothing — reuse a worktree
-that has them, or install first.
-
-**ONE DISEASE SHIPPED SEVEN FIXES (PRs #4579 · #4580 · #4581 · #4582 · #4583 · #4584 · #4585 —
-all merged, all live, do NOT rebuild): a failure that renders identically to success or to
-emptiness.** An upload that *stops* fires no event at all — no `error`, no `abort`, no `load` —
-so the chip sat at 0% forever and "still working" looked exactly like "dead". A refused guest
-read returned `[]` and the page then said *"No guests yet. Start by adding the couple's first
-invite."* to a couple with 180 names, **byte-identical** to a genuinely new event. A monogram
-sliced off a *status string* drew **"C"** for "Camera off".
-🔑 **A LOG LINE NEVER CHANGED A PIXEL** — the guest error was already bound and already in
-Sentry, and the couple was still told their wedding was empty. **The measurement must reach the
-RENDER.**
-
-⏭ **THE IMMEDIATE BUILD — 11 confirmed, MONEY FIRST.** Same disease, still live: the Budget tile
-can read **"₱0 committed"** against a real target; a supplier workspace can read **"Paid ₱0"**
-and bill the couple the full amount as still owing; `lib/roles.ts` tells a supplier **who already
-has a shop** to *"Create your shop"*. Full list with file:line in the corpus handoff §2.
-📐 **The pattern to copy is IN THIS REPO — read it first, do not invent a new shape:**
-`apps/web/app/vendor-dashboard/reads-are-honest.test.ts` (supplier side, 2026-08-18) and
-`apps/web/lib/guests.ts` + `apps/web/lib/guests-read-is-honest.test.ts` (couple side, today).
-⚠ `actions.ts` files are OUT OF SCOPE — there an absence DENIES, and failing closed is correct.
-
-✅ **THE 11-ITEM BUILD LIST FROM THAT SWEEP IS COMPLETE** (#4583 → #4594). Nothing is open on it.
-✅ **AND THE TWO ITEMS THIS FILE LISTED AS "WHAT IS LEFT" ARE DONE TOO — re-measured against
-`origin/main` on 2026-08-31.** Both are now fenced by a guard, so they stay done:
-
-- the wedding-onboarding gate no longer posts `public_summary_consent` as a hidden field —
-  `onboarding-shell.tsx` carries a `🔒 NO HIDDEN CONSENT` marker, held by
-  `apps/web/app/signup/consent-is-affirmative.test.ts`;
-- `guests.invitation_sent_at` now HAS a writer (`apps/web/app/dashboard/[eventId]/sponsors/actions.ts`),
-  held by `apps/web/lib/the-invite-step-counts-what-is-true.test.ts` — so the guest list's
-  "N to send" can decrease.
-
-🔑 **THIS PARAGRAPH IS ITSELF THE LESSON.** For an unknown stretch of sessions, this file's own
-"what is left" — the passage at the TOP, which every session reads first — pointed at two jobs that
-were already finished and fenced. **A handoff decays fastest exactly where it is read most.**
-Re-measure with the greppable anchors above before acting on any line in this block, including this
-one.
-
-🔎 **READY? Measured 2026-08-20: 9 accounts · 8 events · 2 shops (1 published) · 2 services ·
-0 packages** · ~~**0 ORDERS EVER**~~ ⚠ **CORRECTED 2026-08-30 (C10/C10b): 6 orders as of
-2026-08-29** — four paid and receipted (₱2,499 GCash · ₱2,899 GCash · ₱147 GCash · ₱49 BDO), two
-cancelled; most recent completed 2026-08-29. Re-measure with `select count(*) from orders`, never
-trust this line as current. Marketplace search WORKS (verified live) — it is **empty, not
-broken**. **Packages WORK and are switched ON.**
-🛑 **THAT LAST ONE WAS REPORTED TO THE OWNER AS "SWITCHED OFF", FROM THE CODE DEFAULT, AND HE
-CAUGHT IT.** 🔑 **A FLAG'S DEFAULT IN CODE IS NOT ITS VALUE IN PRODUCTION — open the page; it takes
-thirty seconds.** `NEXT_PUBLIC_*` also inlines into the prod bundle and is readable; server-side
-vars (`RESEND_API_KEY`) are **not readable from a session at all** — say so rather than guess.
-
-💳 **THE OWNER IS NOW TOLD WHEN SOMEBODY PAYS** (#4595). Order submission had notified admins
-in-app since June; the moment a customer LOGGED A PAYMENT notified nobody, and the existing
-notification was **not on the email allowlist** — a tray badge reaching nobody away from the
-console. 🔑 **The notification and the allowlist are two halves of one mechanism; having one is
-indistinguishable from having neither.** The daily digest is the net UNDERNEATH, not a substitute.
-⚠ Both send **nothing, silently**, if `RESEND_API_KEY` is unset in Vercel.
-
-🪤 **Traps that each cost real time today:** a guard's lookahead `(?!\s*\?)` **could not match
-the line it was written to catch** (`g.photo_url ?? null` — the `??` slipped through), so it
-shipped inert in the same commit as its fix · a mutation run **overwrote the guest list with the
-Patiktok booth** because backups were keyed on `basename` and both files are `page.tsx` — **key
-on the full path, and commit before you mutate** · a file-level match **cannot say which
-component** still holds a flag (sabotage landed 2→1 and stayed green — anchor per component and
-print the count) · the upload watchdog was verified with a **171 KB file**, the one size whose
-tail is instant and which therefore *could not* exhibit the bug it shipped with · an **unsigned**
-R2 probe "proved" a CORS fault that did not exist (a real presigned PUT returned 200) · a
-**CONFLICTING PR runs NO CI** and reports zero failing *and* zero running — count the checks ·
-`PIPESTATUS` is **bash-only** (empty in zsh, so the exit check is vacuous) · run unit tests from
-`apps/web`, or every `@/…` import dies including the repo's own guards.
-
----
-
-## 📋 START HERE — [`WHAT_IS_LEFT_2026-09-21.md`](WHAT_IS_LEFT_2026-09-21.md)
-
-**The current register of what still has to be finished before a real supplier and a real couple can
-use this product**, carried INTO THIS REPO because `~/.claude/.../memory/` does not travel between
-accounts and the spec corpus is a second repo you may not have. Four parallel read-only audits
-against `origin/main` + the live prod DB; their raw output is in `docs/handoff-2026-09-21/`.
-
-It also carries what would otherwise be lost on an account change: **the owner decisions already
-made — do not re-ask them** (§5), the decisions still open (§6), what is fixed and must not be
-rebuilt (§7), the environment traps that have each cost a whole session (§8), and an explicit list
-of what nobody could verify (§10).
-
-🛑 **The three facts that frame every row in it:** no wedding has ever happened · both shops on the
-platform are the owner's, and the supplier verification path has never been walked end to end by
-anybody · exactly one real booking fee has ever been collected. **So most rows are a measured
-ABSENCE of evidence, not a measured defect.** A row marked NEVER EXERCISED is not broken and is not
-working — nobody knows, and saying either would be an invention.
-
-⏹ **Superseded:** [`WHAT_IS_LEFT.md`](WHAT_IS_LEFT.md) (2026-08-07) and the corpus
-`WHATS_NEXT_HANDOFF_2026-08-20.md`. Both of their build lists are complete. Read them only for history.
-
-⚠ **A HANDOFF IS NOT EVIDENCE — including that one.** It cites no line numbers, only greppable
-strings and re-measuring SQL. Run them before you act.
-
----
-
-## 🛑 RULE 0 — FIND IT BEFORE YOU BUILD IT (owner-locked 2026-07-27)
-
-**This project is ~2 years of design and code. Almost nothing you are asked for is new.**
-The owner has paid, more than once, to have a page recreated that already existed. Assume what
-you are about to build **already exists** and your job is to *locate it and extend it*.
-
-**Before writing ANY code, prototype, migration, or design, run this and paste the results into
-your reply:**
-
-```bash
-# 1. THE SHIPPED COMPONENT — what does the app already do?
-grep -rln "<the feature noun>" apps/web/app apps/web/lib --include="*.tsx" --include="*.ts" | head
-# 2. THE DESIGN — open the file whose NAME matches the task, not the ones near it
-ls ~/Documents/Claude/Projects/Setnayan/Design_*/ ; ls ~/Documents/Claude/Projects/Setnayan/*.md
-# 3. THE DECISION — is it already settled?
-grep -n "<the feature noun>" ~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md | tail -20
-```
-
-Then state, in one line each, **what exists · what is missing · the delta you will build.**
-If you cannot name the existing component and the existing design, **you have not searched enough
-— do not start.**
-
-### The rules that follow from it
-
-1. **Extend, never re-draw.** Open the shipped component and reproduce its real copy and
-   structure. Your output shows only the DELTA. Recreating a working screen is a defect, not a
-   deliverable.
-2. **Read the owner's phrasing as an instruction about an existing thing.** "their package will
-   show completely… *then* at the bottom a line… *then* a checkbox" = **append one section.**
-   Words like *then · at the bottom · also · as well* signal an addition, never a new screen.
-3. **A flag/filter flip beats new schema.** Before adding a column, ask which existing column
-   already encodes it (`is_default_included`, `is_required`, `pricing_basis`, `is_active`).
-   Worked example: "catalogue picker" turned out to be `vendor_package_items` rows with
-   `is_default_included = false`, which vendors already author and `lock-modal.tsx` deliberately
-   hides.
-4. **A dated `*_LOCKED_*.md` / `*_BUILD_SPEC_*.md` outranks any handoff.** Handoffs go stale;
-   locked docs are the decision. Check both before asking the owner anything.
-5. **If it already exists, say where — do not build a demo to prove the point.**
-6. **Never ask the owner a question the corpus answers.** Grep first; cite what you checked.
-7. **An anchor is a string, never a number.** Never write a line number or an occurrence count into
-   a document as if it were a stable fact — both rot the moment the tree changes, and a "corrected"
-   line number can itself be the error (a citation moved from `:1719` to `:1533` and the second
-   number was the wrong one; an `emitNotification` call-site count was re-measured three times —
-   108/61, then 186/55, then 223/69 — across one week). Cite a **greppable symbol** or the exact
-   command that re-measures it (`grep -n <symbol> <path>`, `select count(*) from …`), never the
-   number itself.
-8. **RULE 0 APPLIES TO THE WORK IN FLIGHT, NOT ONLY TO `main`.** Grepping `origin/main` answers
-   "does this ship"; it does not answer "is somebody building this right now". Before starting a
-   feature, also run:
-
-   ```bash
-   gh pr list --state open --limit 40 --json number,title,headRefName   # who is mid-flight
-   git worktree list                                                    # what this machine is building
-   git log origin/main --oneline -15                                    # what landed in the last hours
-   ```
-
-   Measured 2026-08-31, one session, twice in a row: a comeback-offer feature was rebuilt from
-   scratch while another session had **already opened a better version as a PR** (theirs had caught
-   a hard-coded rate the rebuild reproduced); and a `guests.papic_excluded` migration was one step
-   from being written when `papic_guest_spend_ceilings` — shipped the day before — already expressed
-   exactly that, with `ceiling_points = 0` as the documented "may not spend". That column would have
-   become a **second, competing source of truth for one fact.**
-
-   🔑 **THE NEAR-MISS IS THE POINT: both were caught by looking, and neither would have been caught
-   by a test.** Two mechanisms that disagree about the same fact each pass their own suite.
-
-9. **"I flagged it" does not make a guessed number safe.** Owner, 2026-08-31, on a
-   `DEFAULT_CAPTURE_MIX` shipped as an owner-tunable default: **"don't guess."** It was labelled a
-   guess in the code, the changelog and the PR body, and shipping it was still wrong — it sized a
-   **top-up recommendation**, i.e. it told couples how much money to spend, and nobody had measured
-   it. The real answer was already in the tree: `papic_event_pool_config`, admin-editable, live
-   since migration `20270826385580`. If a number governs money and you cannot cite where it came
-   from, find its existing home or stop — do not annotate the invention and ship it.
-
-## 🔌 WIRING STANDARD — house rules (owner, 2026-11-18)
-
-Full map + current audit: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Checks: `/verify-wiring`
-(hardcoded data, raw routes, dead handlers) and `/audit` (build configs, page layers, buttons/themes).
-`.claude/settings.json` hooks: a warning when an edit writes TODO/FIXME/localhost/dummy/mockData into
-app code, and a block on a production build while a dev server runs **in the same checkout**.
-Nothing in that file asks or stops a builder mid-flow — builds and pushes run freely; only the Read
-tool is denied `.env*`, `secrets/**` and `~/.ssh`. Per the permissions docs those rules also cover
-`cat`/`head`/`tail`/`sed`/`tee` on those files, but not `cp` — so a lab's `cp apps/web/.env.local <wt>/apps/web/` still works.
-Measured 2026-11-19: `set -a; source .env.local; set +a` and `node --env-file=.env.local` still load the
-values under the deny; `cat` and Read on the file are refused. A dev server in a `.claude/worktrees/*`
-builder never blocks the main checkout's build.
-
-1. **One source of truth.** Never create `v2`, `-copy`, `-old`, `-new` or backup files/folders, and
-   keep no backup folders in the workspace — change the shipped file; git keeps the history.
-2. **One way to make each primitive.** A button is `ActionButton` (`apps/web/components/action-button.tsx`;
-   `actionButtonClass()` for a link). Inputs and modals reuse the shared ones in `apps/web/components/`
-   and `apps/web/app/_components/` (e.g. `sheet.tsx`). No new standalone button/input/modal primitive.
-3. **No hard-coded colour or skin override in feature files** — no hex, `rgb(`, `[#…]` or numbered
-   palette class (`bg-red-500`). Use the tokens in `apps/web/app/globals.css` (`--color-*`, `--sn-*`)
-   through their Tailwind names. Couple-picked event themes (invite, save-the-date, guest site) are
-   product data and keep their own maps in `lib/`.
-4. **Folders have one job each** (this repo has no `src/`):
-   | Job | Lives in |
-   |---|---|
-   | UI (presentational) | `apps/web/app/**/_components/`, `apps/web/components/` |
-   | Page entry — reads once, passes props | `apps/web/app/**/page.tsx`, `layout.tsx` |
-   | Mutations (server actions) | `apps/web/app/**/actions.ts` |
-   | Reads, services, config, constants | `apps/web/lib/` |
-   | Types | next to their module (`lib/<area>/types.ts`) or `apps/web/types/` |
-   | Prices / plans / taxonomy | the database (`platform_retail_catalog_v2`, vendor billing catalog, taxonomy tables) — never a literal |
-5. **No hardcoding inside UI:** no data arrays, prices, URLs, API keys or business rules. Routes come
-   from `apps/web/lib/routes.ts` builders, never `"/dashboard"`.
-6. **Flat pages:** under 3 nesting levels between a page and its content, no pass-through wrappers
-   (a component that only forwards props to one child), one batched read per screen (`Promise.all`).
-7. **Clean build outputs before a production build:** `rm -rf apps/web/.next` first, so a stale
-   cache never masks a real failure and two outputs never pile up.
-8. **A no-op handler must be deliberate.** `() => {}` only for a required callback the screen does not
-   use — never on a control the user can press.
-9. Exempt: tests, `apps/web/app/dev/**`, `*.lab.tsx` (dev labs may use sample data).
-
-## What this repo is
-
-The Setnayan V1 implementation. **All product specs and decision logs live OUTSIDE this repo** at `~/Documents/Claude/Projects/Setnayan/`. Read that folder's `CLAUDE.md` for the canonical decision log before any iteration work.
-
-## Documentation contract — four living docs in this repo
-
-| File | Purpose |
-|---|---|
-| `changelog.d/` | Per-PR changelog **fragments** — one new file per change. The conflict-free per-PR unit; `CHANGELOG.md` is generated from these. See `changelog.d/README.md`. |
-| `CHANGELOG.md` | The collected running log. **Generated** from `changelog.d/` via `scripts/changelog-collect.mjs` — do NOT edit it directly in a feature PR. |
-| `STATUS.md` | Snapshot of where the project is — current sprint, last completed step, what's next. A refreshed snapshot, updated on its own, NOT appended once per PR. |
-| `COWORK_INBOX.md` | Active worklist of pending spec-corpus updates the owner must apply via Cowork. Items removed once actioned. |
-| `CLAUDE.md` (this file) | Persistent instructions for future Claude Code sessions. |
-
-### Rules for every session
-
-**After ANY non-trivial code change you must:**
-
-1. Add a changelog **fragment** — a NEW file `changelog.d/<branch-slug>.md` containing a dated `## YYYY-MM-DD · type(scope): summary` block with a `SPEC IMPACT:` line (even if "None"). **Do NOT edit `CHANGELOG.md` or `STATUS.md` directly in a feature PR** — a unique fragment file can never conflict, so the PR goes `BEHIND` (auto-mergeable, since branch protection is non-strict) instead of `CONFLICTING`. (`node scripts/changelog-collect.mjs` folds fragments into `CHANGELOG.md` at release; see `changelog.d/README.md`.)
-2. If `SPEC IMPACT` is **not** "None", apply the spec edit **directly** in the corpus at `~/Documents/Claude/Projects/Setnayan/` (per the 2026-06-04 direct-edit authorization — see "Cowork — the spec-update boundary" below), following the `COWORK.md` sequence. No longer append `[PENDING]` to `COWORK_INBOX.md`.
-3. `STATUS.md` is a refreshed snapshot, not a per-PR log — update it in place only when the project's current state genuinely changes, in its own commit/PR, NOT appended in every feature PR (that was the other half of the merge-conflict treadmill).
-4. **If your PR touches `supabase/migrations/`, the Ugat map must keep up.** Two required db-tests enforce it, so you will be told rather than expected to remember: `ugat-schema-claims.db.test.ts` fails if the map *states* anything untrue about the schema, and `ugat-concept-coverage.db.test.ts` fails if a new *subsystem* appears with no home. When the latter fires you have exactly two honest answers — add a node to `UGAT_TYPES` in `apps/web/lib/ugat/graph.ts` (with joints and their REQUIRED `claims`), or add one reasoned line to `apps/web/tests/db/ugat-concept.baseline.txt`. Never weaken or delete the check to go green; if it is too noisy, raise its thresholds. Why this rule exists: the Samahan subsystem shipped **invisible to the map for three weeks**, and 6 of 9 health findings went stale in 25 days — both silently.
-4. Commit the fragment + any spec/corpus notes in the same commit as the code change.
-5. **Before EVERY push, run `pnpm preflight` — and paste its table into the PR body.** Owner, verbatim, 2026-10-08: *"we create locally, then when you go to github you do not make it properly and we end up repeating again."* Measured that day: seven draft PRs each failed the required check for a one-line mechanical fault — a bare number, a hand-typed select, a `children` prop, one word, a typed peso figure — and one PR took THREE CI rounds for two one-line faults, because the first hid the second. Nobody had run the checks locally, because the full suite does not fit on the dev machine; so GitHub was where faults were found, one per round.
-   - **What it runs** (`scripts/preflight.mjs`, for the files your branch changed vs `origin/main` plus anything uncommitted): every cheap guard step of `.github/workflows/ci.yml` exactly as CI words it · eslint on the changed files · a `tsc` of the changed files and the files that import them · the unit tests that name or import a changed file · every whole-tree guard test (the ones that walk `app/` and `lib/`) · the DB tests that scan source — and the schema pins when a migration changed. It never stops at the first failure and ends with ONE table: check · result · first failing line · the exact command to re-run it.
-   - 🔑 **A green preflight is not a green CI, and it says so itself.** The full typecheck, the full unit suite, the full DB replay, the production build, Lighthouse and e2e are printed under `LEFT TO CI` on every run. Never report "preflight passed" as "the checks pass".
-   - **It is gentle on purpose, and it is still not free.** It takes no heavy lock (nothing in it is a full `tsc`, a build or a full suite), runs at low priority, and runs TWO test files at a time — ONE when the 1-minute load is already above 80% of the cores — and prints which. Measured 2026-10-08: two test fan-outs at four files each took the load average to 37 and the owner's local review copy needed four minutes to draw a page. Do not raise `--jobs` on a machine someone is using, and never run two preflights at once.
-   - **What it costs, measured 2026-10-08 (re-measure: the last line of its own output is the wall time).** On this Mac, one test file at a time: 31 min for a whole run — 1 min of guards, 1 min of woken tests, **23 min for the ~390 whole-tree guard tests**, 6 min for the 21 DB tests that scan source. Four at a time on a loaded machine: 10 min. On a 4-core GitHub runner: 10–17 min. The whole-tree guards are the price and cannot be made cheaper without weakening them — they are also what failed seven of that day's eleven faults.
-   - **While you iterate, run the quick half:** `pnpm preflight --only guards,lint,types,pins` (seconds to a couple of minutes). The slow half is `tree` (every whole-tree guard test) and `db`. Fix one red row with that row's own re-run command. Then run it WHOLE once before the push — a `--only` run prints `PARTIAL RUN` and is not a preflight.
-   - **A stacked branch** diffs against its parent: `pnpm preflight --base origin/<parent-branch>`.
-   - **A generated baseline that is behind is REGENERATED** with the command the table prints under `fix:` — never hand-merged.
-   - **Adding a step to `ci.yml`?** preflight reads that file instead of keeping its own list, so `scripts/preflight.test.mjs` (a required CI step) fails until `classifyStep` in `scripts/lib/preflight-core.mjs` says what preflight does with the new step. Re-measure the list with `pnpm preflight --inventory`, never from memory.
-
-## Cowork — the spec-update boundary
-
-The specs at `~/Documents/Claude/Projects/Setnayan/` are the canonical product corpus. The repo and the spec folder must NEVER silently diverge.
-
-**Owner authorization (2026-06-04 · standing):** Claude Code is **permanently authorized to edit the spec corpus directly**, superseding the prior "do NOT edit the corpus / flag for Cowork / append `[PENDING]` to `COWORK_INBOX.md`" rule. The project has moved past formal Cowork spec-design into rapid prototype/build iteration.
-
-**How to apply a spec-impacting change:**
-
-- Edit the affected corpus files directly, following the **`COWORK.md` decision-update sequence**: `DECISION_LOG.md` row → affected iteration `.md` → regenerate the `.docx` mirror via pandoc → update memory + `MEMORY.md`.
-- Still log the impact in the corresponding `CHANGELOG.md` entry (file path + reason) so repo history stays complete.
-- **Surface — don't silently change — load-bearing or uncertain decisions** (locked SKUs, schema renames, retired features, branding): flag them for owner sign-off in your response even as you apply the edit.
-- The **code repos keep their worktree + PR workflow.** Direct corpus-edit authorization does NOT extend to repo code.
-
-`COWORK_INBOX.md` is retained only as a historical worklist of pre-authorization pending items; new spec deltas land directly in the corpus, not as `[PENDING]` rows.
-
-## ⛔ FALSE BELIEF ABOUT MIGRATION PREFIXES — kill it on sight
-
-**"A migration whose 14-digit prefix sits below prod's applied head merges green and creates
-NOTHING."** **THIS IS FALSE.** Both `.github/workflows/deploy-prod.yml` and
-`.github/workflows/supabase-migrations.yml` run `supabase db push --include-all --yes` (confirm
-with `grep -n "db push --include-all" .github/workflows/*.yml` — do not cite a line number, it has
-already drifted once: `:184`/`:203` were the lines when this was first written and now read
-`:201`/`:220`, proof of exactly the rot rule 7 above warns about), and `--include-all` exists
-precisely to apply migrations dated before the remote head.
-
-**Measured 13 ways (2026-08-04):** 12 migrations were historically added out of order and **all 12
-are applied in prod**; and `20271102765509` applied while sitting **two prefixes below the head**.
-It was also already tested and disproven once, on 2026-07-27 — and then re-invented a week later.
-
-🦠 **It spreads, and this file is where the spreaders were looking.** It is written into **six**
-applied migration headers — `20271102603681` · `20271102765509` · `20271102810371` ·
-`20271103100614` · `20271104090000` · `20271106090000` — one of which was authored *after* the
-correction merged. **Applied migrations are never edited, so those comments stay wrong. Do not
-treat a migration comment as evidence.**
-
-🔑 **Where it comes from:** a `count(*) WHERE version = <prefix>` on an **unmerged** PR returns `0`,
-which reads as *"it will be skipped."* Zero is because the PR has not merged. Correct fact,
-invented consequence.
-
-✅ **What IS true:** the PGlite replay (`apps/web/tests/db/replay-migrations.ts`) applies in
-**filename order**, so a low prefix that depends on a higher-prefixed, already-merged migration
-fails every `*.db.test.ts` while prod is fine. Allocate forward with `pnpm migration:new` for
-**that** reason and for the UNIQUE rule — never because "it won't apply."
-`scripts/check-migration-timestamps.mjs` enforces UNIQUE + not-hand-typed-round; its own docblock
-says **"NOT A RULE — ORDERING."**
-
-## ⛔ NEVER APPLY A MIGRATION DIRECTLY TO PRODUCTION — let the pipeline push the committed file
-
-**On 2026-09-02, a migration applied straight to prod outside the pipeline stranded SEVEN merged
-PRs (#5078 → #5084) for over three hours.** `.github/workflows/deploy-prod.yml` runs
-`supabase db push --include-all --yes` **before** it triggers the Vercel deploy hook, fail-closed —
-when `db push` refuses, the hook never fires and no build is created. A direct apply (a local
-`db push` from a feature worktree, an MCP `apply_migration` call, a raw `db query`) stamps the prod
-ledger with a version that has **no corresponding file on `main`** — the ORPHAN class
-`scripts/migration-doctor.mjs` diagnoses — which then makes `supabase db push` refuse for
-**every subsequent merge**, not just the one that caused it.
-
-**Measured:** the orphaned version was `20260902023553`. Every `deploy-prod` run from
-`03:16:09Z` to `05:31:46Z` failed with `Remote migration versions not found in local migrations` —
-5 failed runs in a row, each one green-looking from the PR side (CI never runs the deploy step) and
-each auto-merging normally. Production kept serving an old commit while `origin/main` moved SEVEN
-merges ahead of it, undetected, because **nothing compared what Vercel was actually serving against
-`origin/main`** — the only place the truth existed was the Actions tab for `deploy-prod`, which
-nobody reads when every PR says green. Fixed by an owner-run
-`supabase migration repair --status reverted 20260902023553` (the fix itself is deliberately an
-OWNER action — see `.github/workflows/deploy-drift-monitor.yml` and
-`scripts/deploy-drift-doctor.mjs`, which now catch this class going forward by diffing the Vercel
-production deployment's commit against `origin/main`, independent of whether `deploy-prod` even
-ran).
-
-🔑 **The repair command REWRITES the production migration ledger. A session must never run it, and
-must never hand-delete the row via SQL as a shortcut either** — a hand-edited ledger is what caused
-this in the first place. Surface it to the owner and stop.
-
-🔑 **Same shape as the migration-prefix belief above, different direction.** That section is about a
-migration that reaches the ledger via the pipeline being safe regardless of its number. This one is
-about a migration that reaches the ledger WITHOUT the pipeline at all — the number was never the
-risk; bypassing `db push --include-all`'s single, ordered application path is.
-
-## 💸 VERCEL COST — the bill is 100% BUILD MINUTES, and previews are opt-in
-
-**Measured 2026-09-23 from the owner's own usage page, not inferred.** One billing cycle
-(20th → 20th), three days in:
-
-```
-Build CPU Minutes    740 hours    $155.51   ← the entire bill
-Fast Data Transfer   873 MB of 1 TB  $0.00
-Edge Requests        29.6K of 10M    $0.00
-Image Optimization                   $0.00
-ALL Vercel Functions combined        $0.47
-Pro seat                            $20.00
-```
-
-**Nothing but builds costs anything.** Bandwidth, images, functions and edge requests are all
-inside the free allowance and are not worth one minute of anyone's time. History:
-**~$1,200 · ~$800 · on track for ~$1,500.** The owner's words, 2026-09-23: *"we want to finish
-this this month. but I want to spend less."* **Do not slow shipping down to save build minutes —
-cut waste, not work.**
-
-### Where the builds come from (measured over 0.84 days)
-
-```
-64 builds actually ran:  51 PREVIEW  ·  13 production (merges to main)
-```
-
-🔑 **Previews are FOUR TIMES the cost of merges.** Wave-bundling merges is real but it only
-attacks the 13. The 51 is the bill, and it is generated by sessions pushing branches so somebody
-*could* look at a preview that nobody opens.
-
-### The rule — `apps/web/vercel.json` `ignoreCommand`
-
-```
-main        → BUILD  (production; fired by the deploy hook, since git deploys for main are off)
-preview/*   → build IF apps/web|package.json|lock|workspace|turbo|tsconfig changed
-*           → SKIP — no build, no CPU minutes
-```
-
-**To get the owner a preview, push the branch as `preview/<name>`. That is the ONLY prefix that
-builds one.** Do it when he asks to look at something, or when a question genuinely cannot be
-answered without seeing the deployed page — not by default, and never to "check CI".
-
-⚠ **This is safe and it is proven, not assumed: the Vercel check is NOT one of the 13 required
-checks** (they are all GitHub Actions — `typecheck + lint`, `production build`, `secret scan`,
-`playwright e2e`, `lighthouse`, `bundle size check`, the lint guards, `lint exposure baseline`,
-`migration timestamp guard`). Re-measure with
-`gh api repos/iscasasola/setnayan-platform/branches/main/protection --jq '.required_status_checks.checks[]?.context'`.
-**175 of the last 200 merged PRs were `claude/*`, which already skipped the Vercel build, and
-they all merged normally.** Skipping a preview cannot stall a merge.
-
-### The other rules that follow
-
-1. **Push once, when green.** Every push to a building branch is a build. Run the guards, the
-   unit suite and the DB replay locally first. A red round trip costs a build AND an hour.
-   (The controller force-pushed one wave trunk three times in a day — three full builds.)
-2. **Bundle merges.** Every merge to `main` is a full production build. ~1,126 merges landed in
-   the Aug→Sep cycle; five-into-one waves turn that into ~225.
-3. **A failed build still bills.** 7 of 100 deployments in one sample were `ERROR`. They burn CPU
-   up to the point they die.
-4. **GitHub Actions is FREE — the repo is public.** Never move work off CI to "save money"; CI is
-   the cheap place. Verify with `gh repo view --json visibility`. A session once told the owner
-   Actions was the bigger cost; he corrected it.
-
-### Merging and PUBLISHING are separate events (2026-09-23)
-
-`deploy-prod.yml` no longer runs on every push to `main`. It runs **12×/day, every 2 hours**
-(`cron: '7 */2 * * *'`, owner 2026-11-20 — it was 6×/day, `7 */4`) plus `workflow_dispatch`. Sessions
-merge as fast as CI allows; the site publishes in batches, at most 12 production builds/day (a run with
-no new commits builds nothing).
-
-🔑 **Nothing waits for "its own" deploy.** Every run publishes EVERYTHING merged since the last
-one, so a merge rides the next cadence instead of queuing for a build of its own. **Unmerged work
-is completely unaffected** — PRs merge the moment their checks are green, exactly as before. The
-only thing that changed is when the live site catches up.
-
-**Migrations batch the same way and stay ordered.** `supabase db push --include-all` applies every
-pending file in prefix order, once, *before* the single deploy. Code still never outruns its
-schema — both lag together, which is the safe direction.
-
-**`workflow_dispatch` is the "publish now" button.** Use it whenever the wait is not acceptable:
-a fix the owner is waiting on, anything user-visible, anything he asked to see live.
-
-Two guards make this safe, and both fail in the direction that keeps the site fresh:
-
-- **`deployed-prod` tag** — the commit the last successful run published. A scheduled run with no
-  new commits skips the build entirely. ⚠ **A MISSING tag means DEPLOY, never SKIP** — the first
-  run has no marker, and failing closed there would freeze production with nothing red anywhere.
-  The tag moves *only* after the hook is accepted; moving it on a failed run would silently drop
-  that batch.
-- **`--grace-min 165`** on `deploy-drift-doctor.mjs` (was the default 20; 285 while deploys ran every
-  4 hours). 120 min between runs +
-  build + hook latency. Left at 20 it would alarm every single cycle, and **an alarm that always
-  fires stops being an alarm** — which is worse than no monitor at all.
-
-⚠ **This is a GITHUB ACTIONS schedule, not an application cron.** The repo's "no scheduler"
-decision covers Postgres `cron.job` and Vercel crons — the 22 periodic jobs that ride request
-traffic through `claim_periodic_job`. Workflow schedules are in-pattern;
-`deploy-drift-monitor.yml` already uses one. Do not "fix" this as a violation.
-
-### 🪤 `preview/<name>` IS A HALF-RULE — three more gates, all silent
-
-All three were found by sessions after the rule landed, and **every one fails as a preview that
-never appears rather than an error.** The branch pushes, checks go green, and the URL simply does
-not exist — the same shape as a CONFLICTING PR reporting zero failing and zero running.
-
-**1 · The tip commit must touch a watched path.** `preview/*` does not build unconditionally; it
-falls through to
-`git diff --quiet HEAD^ HEAD -- apps/web package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json`.
-So a branch carrying only a prototype under `build-sessions/prototypes/` builds **nothing**. And it
-is `HEAD^ HEAD` — **the last commit only, not the branch** — so real work in commit 1 with a
-changelog fragment as commit 2 also builds nothing. ⚠ **Adding the fragment last is exactly what the
-doc contract asks for**, which makes this easy to do by accident.
-
-**2 · Vercel keys deployments on the COMMIT, not the branch.** Re-pushing an already-deployed SHA
-under a `preview/` name produces **no deployment at all** — not skipped, nothing; the branch name is
-never evaluated. **An empty commit does not fix it** either: it exits the changed-paths test clean
-and is skipped. What works:
-
-```bash
-git checkout -B preview/<name> <sha> && git commit --amend --no-edit   # new SHA, same content+parent
-git push --force-with-lease origin "HEAD:refs/heads/preview/<name>"
-```
-
-**3 · The `ignoreCommand` comes from each deployment's OWN commit, not from `main`.** Branches cut
-before `7a6191b8e` carry the OLD rule and **keep building previews** until they merge or rebase. So
-the saving phases in; it is not instant, and which half of the fleet is migrated depends on when
-each branch was cut. Check with
-`git show origin/<branch>:apps/web/vercel.json | grep -c 'preview/\*'`.
-
-### ✅ A branch push fires NO GitHub checks — but `preview/*` still costs
-
-`ci.yml` is `push: branches:[main]` + `pull_request` + `workflow_dispatch`. Verified against a real
-branch: `gh run list --branch rd/…` → **0 runs**. **Checks begin when the PR opens.**
-
-```
-push rd/* or claude/*  → 0 GitHub runs · Vercel CANCELED   = free
-push preview/*         → 0 GitHub runs · Vercel BUILDING   = a build, the expensive kind
-open a PR              → full CI (free, public repo)
-merge to main          → a production build
-```
-
-🔑 **"Push freely" is true for `rd/*` and FALSE for `preview/*`** — and `preview/*` is the prefix
-anyone reaches for when they want to show the owner something. State it that way round or the cost
-fix gets undone by the advice that follows it.
-
-### ⏭ Merged is not applied, now that publishing is batched
-
-Once production publishes on a schedule, **"merged" and "applied" come apart.** Any task shaped
-*"regenerate X from prod after Y merges"* — `prod-schema.snapshot.txt` above all — must wait for the
-publish or trigger `deploy-prod` by hand. **The honest gate is to ask prod whether the object is
-actually there**, never to infer it from a green merge:
-`select to_regclass('public.<thing>')`.
-
-### ⏭ OPEN, NOT DONE — the build machine
-
-`resourceConfig.buildMachineSelection` is **`elastic`** (measured via
-`list_projects buildMachineTypes=elastic`, which returns this project; `default` returns none).
-Elastic lets Vercel pick a larger machine, and **Build CPU Minutes bill cores × time** — ~740
-CPU-hours against a 7.5-minute production build implies a very large machine whose cores a
-Next.js build cannot all use.
-
-🛑 **Do NOT force it small without checking why it scaled up.** The API's own
-`buildMachineElasticReason` enum includes `oom-failure`, `high-peak-memory` and
-`build-timeout-failure` — and this build IS memory-hungry (`typecheck` needs
-`--max-old-space-size=7168`). Forcing a small machine could OOM every build, which costs money
-*and* stops shipping. Sequence it second: take the preview cut first, measure a day, then test a
-fixed machine and watch the per-build cost.
-
-### ⏭ OPEN — the owner's brake
-
-Spend Management shows **On-Demand Budget $15, usage 907%, "Pause Projects: OFF"** — so the
-budget only notifies, nothing stops. Turning it on is an OWNER action; surface it, never change
-billing settings on his behalf.
-
-## Locked decisions you must respect
-
-> 🔎 **EVERY RULE BELOW SAYS WHO CHECKS IT.** Added 2026-09-07 after each was tested the only
-> way a rule can be tested — by breaking it and seeing whether anything failed.
-> **✅ CHECKED BY** names a test that provably goes red. **⚠ NOBODY IS CHECKING THIS** means
-> exactly that: break it and the build stays green, so it holds only as long as somebody
-> remembers it. Owner ruled (2026-09-07) that unenforceable rules stay, *labelled*, rather than
-> being deleted — but the label must stay honest. **Do not write ✅ without a test that fails.**
+# Setnayan Platform: the shared brain
+
+> Every Claude Code session loads this file automatically, local or cloud. It is short on purpose.
+> The long history, traps and dated hand-overs it used to hold now live in [`docs/HISTORY.md`](docs/HISTORY.md),
+> which is still true and still worth a grep, but no longer the first read.
 >
-> Why: on 2026-09-07 an SMS sender was added to `lib/` and the full 13,619-test suite went
-> green. Four separate registers had already gone stale that week for the same reason — prose
-> cannot fail.
+> **Read order for any task:** this file → [`.claude/rules/design-and-wiring.md`](.claude/rules/design-and-wiring.md)
+> (auto-loaded) → the `think-and-build` skill (`.claude/skills/think-and-build/SKILL.md`) → the specs
+> corpus files the skill names. Controller sessions also read [`docs/CONTROLLER_BRAIN.md`](docs/CONTROLLER_BRAIN.md).
+>
+> The guardrails are imported here so every session loads them even where `.claude/rules/` is not read:
+> @.claude/rules/design-and-wiring.md
+>
+> **Where the truth lives (owner ruling 22 Nov 2026: one source, never two copies).**
+> The product decisions live in the **specs corpus**, repo `iscasasola/Setnayan-specs`, checked out at
+> `~/Documents/Claude/Projects/Setnayan`. Read it with `git -C <corpus> fetch -q origin && git -C <corpus> show origin/main:<file>`,
+> because the local checkout lags. A cloud session without it runs `gh api repos/iscasasola/Setnayan-specs/contents/<file>`.
+> This file only summarises the corpus and points into it. **If this file and the corpus disagree, the corpus wins.** Fix this file in the same PR.
+> The **code** truth is the code plus its guard tests, and the connection map is generated from code (see §4).
 
-Mirror of the most load-bearing locks from the spec's `CLAUDE.md` decision log. If any of these is at risk, **stop and surface the question** rather than silently changing direction.
+---
 
-- ⚠ **NOBODY IS CHECKING THIS** (architectural, not mechanically testable) · **Web-first V1, single Next.js codebase.** Distributed to web (Vercel) · desktop (Tauri macOS + Windows) · installable PWA (iPhone / Android / iPad). Native iOS/Android Papic + DSLR pairing are Phase 2.
-- ✅ **CHECKED BY `apps/web/lib/token-economy-is-retired.test.ts`** (verified 2026-09-07: writing a live `token_grant_count` fails it) · **Apply-then-pay payment flow.** Token wallet is RETIRED (2026-05-11). PHP-direct pricing.
-  ⚠ **CHARM ENDINGS ARE NO LONGER THE RULE.** This line said "charm pricing (-1 endings)" for months,
-  but the owner's 2026-08-27 price sheet (`DECISION_LOG.md`) rounded three SKUs OFF their -1 endings in
-  one day — `LIVE_STUDIO` ₱2,999 → **₱3,000**, `PAPIC_ADDON_THANK_YOU` ₱2,499 → ₱2,500, and the custom
-  catalogue's `reachNationwide` — owner, verbatim: *"make the whole number 500, 2500"*. Some SKUs still
-  end in -1 and that is fine; there is no convention to enforce either way.
-  🔑 **NEVER derive a price from this file or from a code comment — read
-  `platform_retail_catalog_v2`, which is admin-managed and is the only price a customer is charged.**
-- ❓ **NOT YET TESTED** (2026-09-07 sweep ran out of scope before this one — do not assume either way) · **Canonical entity IDs:** `S89<TYPE>-<10-char Crockford>` random body. Generator function: `public.generate_public_id(type_letter)`. Internal joins use hidden `bigserial`.
-- ❓ **NOT YET TESTED** (2026-09-07 sweep ran out of scope before this one) · **RLS canonical patterns.** 8 patterns + 4 helper functions (`is_admin`, `current_event_ids`, `current_vendor_ids`, `current_thread_ids`). No invented patterns. RLS enabled at `CREATE TABLE` time.
-- ✅ **CHECKED BY `apps/web/lib/one-mark-everywhere.test.ts`** (verified 2026-09-07 twice: renaming the brand in the watermark AND in an ordinary lib module both fail it) · **Brand:** SETNAYAN (full spelling, never STNYN). Domain `setnayan.com`. ⚠ **WE DO NOT OWN
-  `setnayan.ph`** — owner, verbatim, 2026-08-11: *"we do not have setnayan.ph"*. This line
-  claimed both for months and sent sessions looking for DNS that was never ours. It is
-  unregistered, so anyone can take it; whether to buy it is an open owner call, not a fact.
-  ⚠ **`brand.config.ts` DOES NOT EXIST.** This line said "Brand strings centralized in
-  `brand.config.ts`" until 2026-09-07; `git ls-tree origin/main` finds no such file anywhere in
-  the repo. Brand lives in `apps/web/lib/brand-*.ts`: `brand-settings.ts` (`getBrandSettings()`,
-  the admin-managed brand row), `brand-constants.ts` (default mark/icon paths), `brand-words.ts`
-  (`brandWords()`, the spelling rule) — re-measure with `git ls-files 'apps/web/lib/brand-*'`.
-- ⚠ **NOBODY IS CHECKING THIS** — and nobody here can: it describes the spec corpus, a different repository · **Five-file iteration folder pattern** in the spec corpus (`.md` + `.html` + `.docx` + `tests.md` + `fixtures.json`).
-- ⚠ **NOBODY IS CHECKING THIS.** Verified 2026-09-07: a video-editor page was added and the full suite stayed green on the rule. (A top-level one trips the reserved-slug guard and a nested one trips the one-`<main>` guard — both incidental, neither is this rule.) **It cannot be guarded until somebody defines what counts as a "manual video editor"** · **No manual video editor in V1.** All renders template-driven via Remotion + Lottie + LUTs.
-- ✅ **CHECKED BY `apps/web/lib/no-sms-in-v1.test.ts`** (written 2026-09-07 *because* breaking this rule changed nothing; catches an SMS provider dependency and an SMS-sending symbol, and deliberately does NOT fire on copy that mentions SMS) · **No SMS in V1.** Email-only via Resend.
-- ⚠ **NOBODY IS CHECKING THIS.** Verified 2026-09-07: an unauthenticated public `GET /api/public/v1/events` was added and nothing failed. **It cannot be guarded until somebody defines what separates a "public API endpoint" from the 111 `/api` routes the app already serves itself** · **No public API endpoints in V1.** Iteration 0033 plumbs the gateway only.
+## 1 · What Setnayan is (North Star)
 
-See spec corpus `CLAUDE.md` for the full decision log.
+**Setnayan is the home of every Filipino celebration: plan it · live it · keep it.**
+Source: corpus `North_Star_Home_of_Every_Filipino_Celebration_2026-11-19.md`.
 
-## Build order
+- **Planning is free and is the way in. The guest moment is the growth engine. The lifetime Memories record is the moat.** Charge for the day, not for planning.
+- **The USP:** the only place where the host, the guests and the suppliers share one event, from the first idea to the memories.
+- **Zero friction:**
+  - A host starts an event with **no account**. The account is asked for at save.
+  - A guest **never logs in**: one Event Hub link plus a QR pass.
+  - Everything a guest needs works from that link.
+- **Roles:**
+  - Host (and co-hosts and helpers)
+  - Guest
+  - Supplier, with team roles: Shop Manager · Branch Manager · Account Manager
+  - Coordinator
+  - Photographer
+  - Admin
+- **Money is ₱ PHP, read, never typed.**
+  - Couples' prices come from `platform_retail_catalog_v2`; suppliers' from `vendor_billing_catalog`. Both are admin-managed.
+  - Never write a price into code, a comment, a doc or a drawing.
+  - Format money only through `apps/web/lib/php.ts` (`formatPhp`, `formatPhpRounded`).
+  - A failed read shows "Couldn't read", never ₱0, "Free" or empty.
+- **Plans:**
+  - Suppliers: **Free · Plus · Pro · Ultra**. Verified is part of Free. Code tiers: `free · verified · solo(=Plus) · pro · enterprise(=Ultra)`, in `apps/web/lib/vendor-tier-caps.ts`. Special tools are on Pro and Ultra only (`lib/specialized-tools-access.ts`).
+  - Couples: **Free · Event Plus · Event Pro · Event Ultra** (`apps/web/lib/event-plans.ts`).
+  - No "Max", no "Enterprise" and no "Supplier Plus" in any word a person reads.
+- **Words:**
+  - **Supplier**, never "vendor". **Event Hub**, never "website".
+  - The app says "event"; brand lines say "celebration".
+  - Email only, no SMS.
 
-See `STATUS.md` "What comes after Sprint 0" for the canonical iteration sequence. Don't reorder without owner sign-off.
+## 2 · Who does what (owner rulings, 20–22 Nov 2026)
 
-## Deployment surfaces (live now)
+| Session | Does | Never |
+|---|---|---|
+| **Controller** ("Setnayan controller setup") | Decides what gets built, gives builders non-overlapping scopes, combines related work into fewer PRs, answers the owner, gives migration GOs (only after Ship's SHIP, pinned to a blob). Protocol: `docs/CONTROLLER_BRAIN.md`. | Merges; builds features itself. |
+| **Ship controller** | The ONLY PR watcher. Reviews, fixes CI and FIX-FIRSTs, regenerates baselines once per batch, batches, merges, deploys, confirms live. | Starts features. |
+| **Builders** (local or cloud) | Build one scope, run the full preflight, hand over (local: SendMessage `#N @ sha · what we did · overlapping files`; cloud: one PR comment `STATUS: handed-over` + `gh pr ready`), then never touch that PR again. | Merge, regenerate baselines (`screens.generated.json`, `*.baseline.txt`, exposure surface), touch another builder's files. |
 
-- **DNS + registrar: GoDaddy** (`ns09/ns10.domaincontrol.com`) — verified 2026-08-05.
-  ⚠ **CLOUDFLARE IS STORAGE ONLY.** `setnayan.com` is NOT a Cloudflare zone and no traffic is
-  proxied through Cloudflare — the Domains list on that account is **empty**. Anything sold as a
-  "free Cloudflare feature" that works on proxied traffic (the CSAM Scanning Tool, WAF, Bot
-  Management, cache rules) is **UNAVAILABLE** without migrating DNS off GoDaddy, which is a real
-  infrastructure change and NOT worth doing for one feature.
-  🔑 **Storing files with a vendor is not routing traffic through them.** Assuming otherwise from
-  "media is on R2, R2 is Cloudflare" sent the owner into that dashboard twice looking for a page
-  that could never exist for us (2026-08-04/05).
-- **Web:** auto-deploys on push to `main` via Vercel · `https://setnayan-platform-web.vercel.app`
-- **Desktop:** `.github/workflows/build-desktop.yml` produces `.dmg` + `.msi` on push to `main`
-- **Database:** Supabase Singapore · migrations via `supabase db push --db-url "$SUPABASE_DB_URL"`
-- **Object storage:** 5 Cloudflare R2 buckets in APAC — `setnayan-media` (the only PUBLIC one, served from its `r2.dev` dev URL; no custom domain, `media.setnayan.com` does not resolve and is not being set up per the 2026-09-05 owner ruling) · `thread-files` · `vendor-contracts` · `vendor-verification` · `samples`, all private and presigned-only
+- **Models.** Fable (`claude-fable-5-2`) only designs and plans: drawings, prototypes, specs. **Opus 5.5 (`claude-opus-5-5`) builds and fixes everything.** Owner, 22 Nov.
+- **Order:** suppliers + payments → couples + guests → admin. Build and fix only; nothing new without the owner's word.
+- **"Live"** means `curl -sL https://setnayan.com/api/health` shows the commit. Merged is not live.
 
-Owner sign-up email: `iscasasolaii@gmail.com` (hardcoded in the `on_auth_user_created` trigger for `is_internal=TRUE` per § 10a).
+## 3 · The canonical design system: one of each, extend, never re-make
 
-## Per-iteration workflow
+Full values: corpus `HOUSE_DESIGN_STANDARD_2026-11-20.md` (it outranks anything here on values) plus `HOUSE_TEMPLATES.md`,
+`MOTION_STANDARD_2026-11-18.md`, `DARK_MODE_STANDARD_2026-11-20.md`. Token map: [`docs/design-token-map.md`](docs/design-token-map.md).
 
-For each `NNNN` iteration in the spec corpus:
+| Job | The one piece (path from `apps/web/`) | Rule |
+|---|---|---|
+| Page shell | `app/_components/frontdoor/app-rail-shell.tsx`; the event layout's single `<main class="sn-vt-page">` | One shell, one `<main>`. The guest Event Hub (`app/[slug]`) is the only self-styled surface. |
+| Page title | `app/_components/page-masthead.tsx` (`PageMasthead`) | Every page; held by `lint:masthead`. |
+| Top bar | `app/_components/frontdoor/front-door-account-bar.tsx` | One top bar (`one-top-bar.test.ts`). |
+| Bottom nav | `app/_components/nav/bottom-nav.tsx` | All four wrappers delegate to it (`lint:botnav`). At most 5 cells. |
+| Button | `components/action-button.tsx` (`ActionButton`); `actionButtonClass()` for a link | Icon + word, 40 px paint in a 44 px press, `tone` required. One main verb per screen. `.button-primary` and per-page `.btn` are legacy: do not add more. |
+| Card / frame | `.sn-frame` (`bg-frame shadow-sn-frame`); `.sn-tile` / `.sn-row` inside it; `collection-card.tsx` for collections | No hand-typed `rounded-* border` frames (`lint:no-card`). |
+| Floating surface | `app/_components/sheet.tsx` (`Sheet`); `RiseScreen` for full screen | Opens at half on a phone. No new hand-rolled `aria-modal`. Confirm only for the irreversible. |
+| Form row / input | `form-row.tsx` + `.input-field` | `.sn-input` and `shopInputClass` are legacy. Buttons live inside the box. |
+| Choices | `PickMenu` (3+), `PillSelector` (2–3 views), switch (yes/no) | Any set of choices is a dropdown. |
+| Tools at the thumb / search | `components/thumb-row.tsx` (`ThumbRow`), `search-add` / `search-box`, `SortFace` | Search is an icon until tapped. |
+| Empty / error | `app/_components/states/empty-state.tsx`, `error-state.tsx`, `ReadFailed` | Empty, loading and failure never look alike. |
+| Loading | `components/skeletons/index.tsx` (`Sk`, `Ghost`) | The skeleton draws only what the page draws. No `animate-pulse`, no spinners. |
+| Toast | `app/_components/toast` | Success is a small toast; failure gives a plain reason plus Try again. |
+| Icons | `lucide-react` only; topics via `lib/topic-icons.ts` | One icon per topic. Sort is `SlidersHorizontal`. |
+| Colour | `--color-*` "ONE COLOUR SET, BY JOB" in `app/globals.css` | Never a hex, `rgb(`, `bg-white`, or a numbered palette class in a component. Light and dark are paired. |
+| Type | `text-sn-*` scale: 9 · 10 · 11 · 12 · 13 · 14 · 15 · 17 · 19 · 22 · 30 | Never `text-[Npx]`, never half pixels. |
+| Spacing / radius | 4 · 8 · 12 · 16 · 24 / `--m-r-*`: 4 · 8 · 14 · 22 · 999 | `--sn-r-*`, `rounded-tile`, `rounded-card` and `rounded-[..]` are legacy. |
+| Motion | 5 speeds (100 · 200 · 280 · 320 · 700 ms) + one 1400 ms loop, 2 easings | Transform and opacity only. Controls don't dance. |
 
-1. Read all 5 files in the iteration folder before coding (`NNNN_*.md`, `.html`, `.docx`, `tests.md`, `fixtures.json`)
-2. Honor every "**Locked**" claim — surface a question rather than silently changing it
-3. Schema migrations land FIRST (before feature code), with RLS at `CREATE TABLE` time
-4. Apply the matching RLS pattern from `02_Specifications/RLS_Policy_Pattern.md` § 5 mapping table
-5. Translate the `.html` prototype into React components (don't reinterpret)
-6. Pass every checkbox in `tests.md` before opening a PR
-7. Add a `changelog.d/` fragment before committing (do NOT edit `CHANGELOG.md`/`STATUS.md` directly in a feature PR — see the doc contract above)
+**Legacy counts may only go down.** Ratchet guards hold raw hex, typed px sizes, hand-made frames and the other legacy forms.
+A build that touches a file moves it to the canonical piece. Nobody restyles the whole app in one go.
 
-## PR workflow — auto-merge is the default
+## 4 · The master connection graph
 
-### 🛑 NEVER MERGE UNTIL EVERY CHECK HAS CLEARED (owner-locked 2026-09-29)
+**The machine-checked map is the Ugat graph:** `apps/web/lib/ugat/graph.ts` (`UGAT_TYPES`, `UGAT_JOINTS` with `claims`)
+plus the generated `apps/web/lib/ugat/screens.generated.json` (every screen's reads, writes and doors).
+CI (`pnpm ugat:screens:check`, the root-map ratchet, `ugat-both-ends`, `ugat-schema-claims`, `ugat-concept-coverage`) fails a page with
+no door, a broken door, a table with no writer or reader, or a new subsystem with no home. The draft audit is [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Below is the human summary. **Every number shown to a person comes from the ONE reader named here.** A second reader is a bug.
 
-Owner, verbatim: **"never allow merge until everything is cleared"** and **"apply the same rule to the
-other sessions as well"**. So, for every session and every account:
+| Entity (tables) | One reader / writer | Feeds |
+|---|---|---|
+| **Event** (`events`, `events_host`, `event_members`) | `app/onboarding/_shared/commit-event.ts` creates it | Every page under `/dashboard/[eventId]`, the guest Event Hub `/[slug]`, the supplier's client view `/vendor-dashboard/clients/[eventId]`, admin. |
+| **Guest** (`guests`, `guest_groups`, `guest_checkins`) | `lib/guests.ts`: `countsTowardEvent`, `computeGuestStats`, `headcountForBasis` | RSVP (`app/[slug]/actions.ts`) → seat plan → door check-in (`lib/checkin.ts`) → caterer sheet → supplier pax (`events.headcount_basis`) → after-summary → Memories audience. **Check-in "expected" = attending only.** Pending guests hold seats until a person releases them. |
+| **Seat** (`event_tables`, `event_seat_assignments`, `event_floor_*`) | `lib/seating.ts`, `lib/seat-plan-engine/` | Guests view (`guests?gview=seats`, 2D and 3D), `/[slug]/seat` and `find-seat`, caterer export, Spaces (shared plan maker). A decline frees the seat (`free_seat_on_decline`). |
+| **Budget** (`events_host.estimated_budget_centavos` = target; `event_vendors` + `event_vendor_line_items` = agreed; `event_vendor_payments` = paid; `event_costs`, `orders`) | **`lib/budget-truth.ts` → `resolveEventMoney`** (committed + overpaid = paid + stillOwed). Amounts only via the `event_vendor_money_read` RPC (`lib/event-vendor-money.ts`) | Budget page, Home budget tile, checklist, preparation, AI snapshot, supplier client view, a year's budgets. A hidden amount draws "—". |
+| **Supplier booking / quote** (`event_vendors`, chat cards, `event_vendor_payment_plan`) | Booked = **`BOOKED_EVENT_VENDOR_STATUSES`** (`lib/vendor-funnel.ts`; SQL twin `booked_event_vendor_statuses()`). Chat cards: `lib/chat-cards.ts`. Lock: `lib/chat-lock-booking.server.ts` | Budget agreed and paid, the coordinator's seat (opens on every way into booked), supplier Event Details ("Your booking": its own money only), badges, trust (served together), reviews, compare (`/explore/compare`). **Only a host books or pays.** |
+| **Payment** (`payments`, `orders`, receipts) | `app/pay/[reference]`, Maya (`lib/maya-checkout.ts`; the webhook is only a hint, approval comes from asking Maya's API), ₱0 codes go to admin confirmation | Receipts, the admin payments desk, the owner's paid notice, entitlements. |
+| **Photo credit** (`papic_event_pool_config`, `papic_event_point_grants`, `papic_event_pool_usage`) | `lib/papic-event-pool.ts` (one event pool; the per-camera hand-out is retired) | Papic cameras, live wall, Memories (Papic block on top), recap, the guest's own Memories. |
+| **Plan tier** (`vendor_profiles.tier_state`; plan SKUs in `vendor_billing_catalog` / `platform_retail_catalog_v2`) | Suppliers: `lib/vendor-tier-caps.ts` (`VENDOR_TIERS`, `TIER_CAPS`; SQL twin `vendor_tier_limit`). Couples: `lib/event-plans.ts` (`PLAN_PRICE_CODES`) | Every 🔒 gate, special tools, active cards and members limits, plan pages, `/for-suppliers` table, checkout doors (`every-plan-has-a-checkout-door.test.ts`). |
+| **Navigation** | Couple: `lib/customer-menu.ts` (`buildEventMenuSections`). Supplier: `app/vendor-dashboard/_components/vendor-nav-destinations.ts` + `lib/supplier-console-routes.ts`. Admin: `app/admin/_components/admin-destinations.ts`. Names and icons: `lib/nav-registry-defaults.ts`. Route builders: `lib/routes.ts` | A new page is registered in its area's menu AND reachable (the Ugat no-door check). |
 
-- A PR merges ONLY through auto-merge, AFTER every required check has PASSED. **Never `gh pr merge --admin`,
-  never bypass branch protection, and never merge because a LOCAL typecheck or test run was clean.** A
-  local run is not the CI suite.
-- **This holds even when the owner says "merge now" / "merge it".** Say which checks are still pending and
-  roughly how long they have left, keep auto-merge armed, and report when it lands. If CI is stuck (runners
-  queued), say so plainly. Do not offer to skip it.
-- If the owner wants something LIVE sooner, the lever is the **deploy** after a clean merge, never the merge.
-- A fix for a broken `main` is a PR like any other: it waits for its checks too. If there is no time, the
-  answer is a revert PR, which also waits.
+## 5 · Hard rules (each has cost real time; detail in `docs/HISTORY.md`)
 
-🔑 **Why:** on 2026-09-29 two PRs (#6140, #6134) were admin-merged while GitHub's runners were queued and
-their checks had not even started; #6134 was 2,400 lines that had never been typechecked anywhere. A broken
-`main` breaks every other session's PRs and the batched prod deploy.
+1. **RULE 0: find it before you build it.**
+   - Grep the shipped component, the corpus design file (`Design_*`, `prototypes/`) and `DECISION_LOG.md`.
+   - Then check work in flight: `gh pr list --state open`, `git worktree list`, `git log origin/main -15`.
+   - State in one line each: **exists · missing · delta**. Extend; never re-draw.
+   - A flag or column flip beats new schema. Never ask the owner what the corpus answers.
+2. **An anchor is a string, never a number.** Cite a greppable symbol, not a line number or a count.
+3. **Never guess a number that governs money.** Find its home (a catalog, `platform_settings`, `papic_event_pool_config`) or stop.
+4. **Honest states.** A failed read never renders as zero, empty or success. The measurement must reach the render. Copy `lib/guests-read-is-honest.test.ts`. (`actions.ts` failing closed is correct.)
+5. **Migrations.**
+   - Allocate with `pnpm migration:new`.
+   - The pipeline applies them with `supabase db push --include-all`, so a low prefix still applies. Order matters only for the PGlite replay.
+   - **Never apply a migration to prod by hand** (no local `db push`, MCP `apply_migration` or raw SQL). It orphans the ledger and stalls every deploy.
+   - **Never run `migration repair`**; that is the owner's.
+   - Prod is SELECT-only for sessions. RLS is on at `CREATE TABLE`, using the 8 patterns and 4 helpers only.
+   - A PR touching `supabase/migrations/` keeps the Ugat map honest: add a `UGAT_TYPES` node or a reasoned line in `apps/web/tests/db/ugat-concept.baseline.txt`.
+6. **Merging.**
+   - Merge commits only. No rebase, force-push, `git stash` or `pkill`.
+   - A PR merges only after every required check passes. Never `--admin`, even if asked.
+   - Migration PRs carry `do-not-auto-merge`.
+   - Server actions are capped (fold, never raise the ceiling).
+7. **CI and cost.**
+   - Push once, when green.
+   - Only `preview/*` branches build a Vercel preview. The bill is build minutes, and GitHub Actions is free.
+   - CI runs at most 40 jobs. A CONFLICTING PR runs no CI.
+   - Read every failure in one run before pushing a fix.
+8. **Machine.**
+   - 16 GB Mac, at most 4 builders plus Ship.
+   - **Never read code from `/Users/icecasasola`** (a stale checkout). Use a worktree of `origin/main`.
+   - Prune a worktree once its PR merges. Clear `.next`.
+   - `grep` is a ugrep shim: quote bracketed paths.
+   - Run unit tests from `apps/web`.
+9. **Changelog.** One new fragment `changelog.d/<branch-slug>.md` per PR, with a `SPEC IMPACT:` line. Never edit `CHANGELOG.md` or `STATUS.md` in a feature PR. When SPEC IMPACT is not None, edit the corpus directly (DECISION_LOG row first) and surface load-bearing changes to the owner.
 
-Immediately after `gh pr create` on this repo, enable auto-merge:
+## 6 · Locked decisions (who checks each: see `docs/HISTORY.md` § Locked decisions)
 
-```bash
-gh pr merge <PR#> --auto --merge
-```
+- Web-first, one Next.js codebase: Vercel web + Tauri desktop + installable PWA.
+- Apply-then-pay. The token wallet is retired.
+- IDs are `S89<TYPE>-<10 Crockford>` from `public.generate_public_id`.
+- Brand is SETNAYAN, domain `setnayan.com` (we do NOT own `setnayan.ph`).
+- No manual video editor. No SMS. No public API endpoints in V1.
 
-- Use `--merge` (merge commit) to match the existing history pattern. Don't switch to `--squash` or `--rebase` unless the owner explicitly asks.
-- Auto-merge waits for required CI checks (typecheck + lint, secret scan, production build, Lighthouse, Vercel preview). If any required check fails, the merge is paused — investigate the failure rather than overriding.
-- The `build (windows-latest)` job from `build-desktop.yml` is NOT a required check; auto-merge can (and will) fire while it's still in progress. That's expected.
-- This is the standing default — never ask "should I auto-merge?" Owner locked 2026-05-15.
-- **One CI run shows EVERY failure — read all of them before you push a fix (2026-10-08).** The required check `typecheck + lint` used to be one job that stopped at its first failing step, so a unit-guard failure hid a DB-test failure behind it and each cost its own round. It is now a GATE over jobs that run side by side — `guards` · `typecheck` · `eslint` · `unit tests (n/3)` · `DB replay (n/6)` — and it is red unless every one of them is exactly `success` (skipped and cancelled are red). After a red run: `gh pr checks <PR#>`, open EVERY red job, fix them together, push once. Each red test job names its failing tests in the run summary and as annotations on the PR.
-  - **The 40-job limit (2026-11-18).** GitHub Pro runs at most 40 jobs at once on this account, so `source guards` and eight seconds-long REQUIRED jobs (`secret scan`, `migration timestamp guard`, six `lint …` checks) are now STEPS of `guards`. Its last step posts those eight back under their exact required names through the Checks API (`scripts/ci-report-checks.mjs`), so branch protection is unchanged. Likewise `bundle size check` is no longer a second `next build`: its budgets read the `build` job's build and that job posts the name. ci.yml runs exactly ONE production build — `ci-gate.test.mjs` fails on a second. A new tiny check is a step in `guards`, never a new job; a new REQUIRED name reported this way is one line in that step's `REPORT:` block.
-  - A new single-file guard is a **step in the `guards` job** (with its `id`, `continue-on-error: true` and its line in the aggregator). A new **job** blocks nothing until the gate's `needs:` lists it — `scripts/lint-ci-gate.mjs` fails the build when one is left out, when a required name is renamed, or when a shard list has a hole.
-  - Pushing again to a PR **cancels that PR's run in progress** (only on pull requests; a push to `main` always runs to the end). A cancelled run is not a result — wait for the new one.
-  - Never rename a job that branch protection requires by name. The list is mirrored in `scripts/lib/ci-shape.mjs` (`REQUIRED_CONTEXTS`); re-measure it with `gh api repos/iscasasola/setnayan-platform/branches/main/protection --jq '.required_status_checks.contexts'`.
+## 7 · Deployment surfaces
 
-**Prune each worktree once its PR merges (owner-locked 2026-07-24).** After confirming a PR is MERGED (or pushed + auto-merge armed and no longer needed locally), remove its worktree immediately — `git worktree remove <path> --force` (fall back to `rm -rf <path>`), then `git worktree prune`. In a multi-PR session, prune AS YOU GO — never batch cleanup to the end. Each worktree is ~1–2 GB (`node_modules` + `.next`); left to pile up they fill the disk to 100%, and at zero free bytes the harness can't write a command's output file, so **every Bash call fails with `ENOSPC` — including the `rm` needed to recover** (this deadlocked a session on 2026-07-24). Also clear `.next` from any worktree you keep (`rm -rf <wt>/apps/web/.next`).
+- **Web:** Vercel. `deploy-prod.yml` publishes merged `main` in batches (cron every 2 h + dispatch). `/api/health` reports the served commit.
+- **Database:** Supabase Singapore, migrations only through the pipeline.
+- **Object storage:** 5 Cloudflare R2 buckets in APAC: `setnayan-media` (public, served from its r2.dev URL) · `thread-files` · `vendor-contracts` · `vendor-verification` · `samples` (private, presigned). Cloudflare is storage only: DNS is GoDaddy, nothing is proxied.
+- **Desktop:** `.github/workflows/build-desktop.yml` builds `.dmg` and `.msi`.
+
+## 8 · Living docs in this repo
+
+| File | Job |
+|---|---|
+| `changelog.d/` → `CHANGELOG.md` | Per-PR fragments; the changelog is generated (`scripts/changelog-collect.mjs`). |
+| `STATUS.md` | A snapshot, refreshed on its own, never per PR. |
+| `docs/HISTORY.md` | The old CLAUDE.md: dated hand-overs, every trap, the full locked-decisions audit. |
+| `docs/ARCHITECTURE.md` | Draft wiring audit and folder jobs. |
+| `docs/CONTROLLER_BRAIN.md` | The controller's operating protocol. |
+| `docs/SETNAYAN_MASTER_BRIEF.md` | The portable brief to upload into Claude Chat for planning. |
+| `.claude/rules/design-and-wiring.md` | The guardrails every build obeys (auto-loaded). |
+| `.claude/skills/think-and-build/SKILL.md` | The mandatory 4-step thought process. |

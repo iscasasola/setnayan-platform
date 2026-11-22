@@ -23,6 +23,8 @@
  *                  guests agreed · ₱30,000 for 5 hours agreed), with how to pay them as recorded (fake numbers)
  *                  chosen · &taken=1 / &check_inbox=<email> its two refusals · &from=setnayan Setnayan's personal invite
  *                  (a staged shop + "Your offer") · &start=account opens on the account slide
+ *   ?screen=invite  another supplier's invite door (`/i/<slug>`, PC7) as a signed-out supplier sees it, with the inviter's
+ *                  category under their name. Its buttons go nowhere real.
  */
 import { LAB_FAIR_WORDS } from '../lab-fair-words';
 import { TodayWelcome } from '@/app/vendor-dashboard/_components/today-welcome';
@@ -49,6 +51,9 @@ import {
 import { categoryLadder } from '@/lib/vendor-tier-caps';
 import { DEFAULT_LOGO_FRAME } from '@/lib/open-shop-logo';
 import { siteOrigin } from '@/lib/site-origin';
+import { SupplierInviteDoor } from '@/app/vendor/claim/[token]/_components/claim-parts';
+import { ActionButton } from '@/components/action-button';
+import '@/app/vendor-dashboard/_components/supplier-look.css';
 import { claimDatePhrase } from '@/lib/claim-invite-words';
 
 export const dynamic = 'force-dynamic';
@@ -264,6 +269,19 @@ export default async function OpenShopLabPage({
         frame={q.framed === '1' ? { x: 70, y: 35, zoom: 140 } : DEFAULT_LOGO_FRAME}
         saveAction={labSaveLogo}
       />
+    );
+  }
+  if (q.screen === 'invite') {
+    // 🤝 PC7 — the /i door on a fixture inviter (no database): the name, then its main service named.
+    return (
+      <div data-supplier-look="">
+        <SupplierInviteDoor
+          inviterName="Maria Santos Events"
+          category="Coordination"
+          createHref="/dev/open-shop-lab?step=1"
+          existing={<ActionButton tone="neutral" label="I already have a shop" href="/dev/open-shop-lab?screen=invite" />}
+        />
+      </div>
     );
   }
   if (q.screen === 'claim') {

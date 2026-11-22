@@ -448,3 +448,18 @@ test('10 · Door C — coordination pre-picked in ONE dropdown, then "Invite sho
     assert.doesNotMatch(read(f), /marketplace listing|Marketplace exposure/, `${f} still promises the marketplace`);
   }
 });
+
+test('13 · Door C makes no "goes live" promise; PC1 says Coordination is picked; the invite has Later (20 Nov)', async () => {
+  const sb = await import('./supplier-onboarding');
+  const INVITE = read('app/open-shop/invite/page.tsx');
+  assert.doesNotMatch(WIZARD, /goes live when you open/);
+  assert.match(WIZARD, /setnayan\.com\/\{slug\} · \{PAGE_LINK_LINE\}/);
+  assert.match(sb.PAGE_LINK_LINE, /once it’s live/);
+  assert.match(WIZARD, /data-onboarding-coordination-picked=""[\s\S]{0,400}Coordination[\s\S]{0,400}Picked/);
+  assert.match(INVITE, /label="Later" href=\{done\}/);
+  assert.match(INVITE, /label="Done" href=\{done\}/);
+  // PC7 (owner 20 Nov): the /i door names the inviter's main service, by its admin-managed name.
+  assert.match(read('lib/supplier-invite.server.ts'), /\.select\('vendor_profile_id, business_name, business_slug, logo_url, services'\)/);
+  assert.match(read('app/i/[slug]/page.tsx'), /serviceLabelOf\(await readServiceLabels\(\), inviter\.mainService\)/);
+  assert.match(read('app/vendor/claim/[token]/_components/claim-parts.tsx'), /data-supplier-invite-category="">  · \{category\}|data-supplier-invite-category=""> · \{category\}/);
+});

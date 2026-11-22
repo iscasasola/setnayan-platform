@@ -18,6 +18,7 @@ import { isCoordinatorTrade } from './coordinator-trade';
 export { answeredBookAsks, bookRequestFromLine, changeAskFromLine, formLineTitle, guestCountFromLine, streamLineKind, type BookRequestState } from './chat-card-lines';
 import type { AskSubject } from './chat-card-lines';
 import { resolveSchedule, type AutoBalanceMeta, type InstallmentDraft, type ResolvedSchedule } from './proposal-payment-schedule';
+import { PLUS_NEEDS_VERIFIED } from './shop-plus-gate';
 
 // ── Change quote ──────────────────────────────────────────────────────────────
 
@@ -509,6 +510,7 @@ export function planProposalOptions(input: {
 /** The words the server's counter / plan / accept refusals arrive as → what the card says. */
 export function negotiateRefusalWords(message: string | null | undefined): string {
   const m = message ?? '';
+  if (m.includes('PLUS_NEEDS_VERIFIED')) return PLUS_NEEDS_VERIFIED;
   if (m.includes('COUNTER_EXPIRED')) return 'This one expired — ask again.';
   if (m.includes('ITEM_LOCKED')) return 'The supplier made this final.';
   if (m.includes('QUOTE_MOVED')) return 'The quote changed since — look at the new one.';

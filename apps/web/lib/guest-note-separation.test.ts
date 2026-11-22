@@ -117,10 +117,15 @@ test('each drawer row names what is actually behind it', () => {
   const summaries = [...page.matchAll(/summary="([^"]+)"/g)].map((m) => m[1]);
   assert.ok(summaries.length >= 3, `the drawer rows are gone — found ${summaries.length}`);
 
-  assert.ok(
-    summaries.some((t) => /private note/i.test(t ?? '')),
-    "the drawer must say whose note it holds — 'notes' alone reads to a host as the guest's message",
-  );
+  /* RE-AIMED 2026-11-20 (owner-approved drawing `guests_redesign_2026-11-20_fable.html` § 3, "Yes, build it": "Note for them ·
+     Private note → Notes"). The row's TITLE is "Notes" now, so the title alone no longer says whose note it holds — the same
+     property is held where the host reads it instead: the closed row's own SUMMARY says which notes are in it ("A note for
+     them" · "A private note"), and each box inside names its reader. A bare "Notes" with neither would be the old defect. */
+  assert.ok(summaries.includes('Notes'), 'the Notes row is gone');
+  assert.match(page, /const notesSummary = \[guest\.host_note_for_guest\?\.trim\(\) \? 'A note for them' : null, guest\.notes\?\.trim\(\) \? 'A private note' : null\]/, "the closed Notes row must say whose notes it holds — 'Notes' alone reads to a host as the guest's message");
+  assert.match(page, /<K\.Fold summary="Notes" handle="Note for them · Private note" value=\{notesSummary\}/, 'the Notes row does not wear that summary');
+  assert.match(page, /label="Note for them · they see it"/, 'the box the guest reads does not say so');
+  assert.match(page, /label="Private note · only you"/, 'the host’s own box does not say it is private');
   for (const t of summaries) {
     assert.doesNotMatch(t ?? '', /·\s*tags\s*·/, 'the custom-tags input was retired in 2026-05');
   }

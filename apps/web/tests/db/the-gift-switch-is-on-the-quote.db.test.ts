@@ -23,6 +23,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { asRaisedBeforeTheRetirement } from './a-charge-from-before-the-photo-gift-retired';
 
 let db: ReplayResult['db'];
 let n = 0;
@@ -162,6 +163,8 @@ test('6 · the BILL sizes the gift from the same answer — a switched-on quote 
      RETURNING charge_id`,
     [ledgerId, b.eventId, b.vendorProfileId, b.eventVendorId, FEE_ON_20K],
   );
+  // 🎁 A charge raised BEFORE the photo gift retired (2026-11-15) — the only kind the switch still sizes.
+  await asRaisedBeforeTheRetirement(db, chargeId);
   const row = await db.query<{ offered: boolean; credits: number; centavos: string | number }>(
     `SELECT setnayan_gift_offered AS offered, gift_credits AS credits, gift_centavos AS centavos
        FROM public.booking_fee_charges WHERE charge_id = $1`,
@@ -187,6 +190,8 @@ test('6 · the BILL sizes the gift from the same answer — a switched-on quote 
      RETURNING charge_id`,
     [ledger2, c.eventId, c.vendorProfileId, c.eventVendorId, FEE_ON_20K],
   );
+  // 🎁 A charge raised BEFORE the photo gift retired (2026-11-15) — the only kind the switch still sizes.
+  await asRaisedBeforeTheRetirement(db, charge2);
   const row2 = await db.query<{ offered: boolean; credits: number }>(
     `SELECT setnayan_gift_offered AS offered, gift_credits AS credits FROM public.booking_fee_charges WHERE charge_id = $1`,
     [charge2],

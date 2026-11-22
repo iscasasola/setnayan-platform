@@ -197,7 +197,7 @@ export function DetailsBoundField({
         rows={4}
         maxLength={DETAILS_OVERRIDE_MAX}
         placeholder="A heartfelt note to everyone joining you…"
-        className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-[16px] leading-relaxed text-ink"
+        className="w-full rounded-md border border-ink/15 bg-raised px-3 py-2 text-[16px] leading-relaxed text-ink"
       />
       {onStartingPoint && startingHint ? <p className="text-[12px] text-ink/75">{startingHint}</p> : null}
 
@@ -218,7 +218,7 @@ export function DetailsBoundField({
             data-details-choice="here"
             onClick={() => answer('here')}
             disabled={pending || blank}
-            className="sn-press flex min-h-11 w-full items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-ink shadow-[inset_0_0_0_1px_rgba(0,0,0,.12)] transition-colors duration-300 ease-in-out hover:bg-ink/5 disabled:opacity-50"
+            className="sn-press flex min-h-11 w-full items-center justify-center rounded-full bg-raised px-4 text-sm font-semibold text-ink shadow-[inset_0_0_0_1px_rgba(0,0,0,.12)] transition-colors duration-300 ease-in-out hover:bg-ink/5 disabled:opacity-50"
           >
             Just this scene
           </button>

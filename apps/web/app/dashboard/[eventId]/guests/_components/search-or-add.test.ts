@@ -118,7 +118,8 @@ test('the same ways — ONE list, the imported openers — at the List’s empty
   // 18–19 Nov 2026 (owner: "so we also do no need an add button because. our text box is search / add feature"): the
   // List's ＋ Add ▾ is gone. Type a name = the field (🔍 → ＋, `field.onAdd`); the other ways stand above the EMPTY field
   // while it has the cursor (`data-empty-ways`, the same `TypedWays` → `AddDoors`) and in the typed results.
-  assert.match(SCREEN, /right=\{\[\{ node: filterSheet \}\]\}\s*\/>/, 'the List’s thumb row seats something after Show & sort');
+  // 🎚 20 Nov (Guests redesign § 8): the look round may sit BEFORE Show & sort — nothing ever after it.
+  assert.match(SCREEN, /right=\{lookMenu \? \[lookMenu, \{ node: filterSheet \}\] : \[\{ node: filterSheet \}\]\}\s*\/>/, 'the List’s thumb row seats something after Show & sort');
   assert.match(SCREEN, /onAdd: writesOff \|\| gview !== 'list' \? undefined : addTypedOrSheet,/, 'the field is not the add');
   assert.match(SCREEN, /\{fieldOn && !q && gview === 'list' && !selectMode && !writesOff \? \(\s*<div className=\{styles\.emptyWays\} data-empty-ways="" onPointerDown=\{holdFocus\} onMouseDown=\{holdFocus\}>\s*<TypedWays eventId=\{eventId\}/, 'the empty field does not offer the other ways');
   assert.match(SCREEN, /<AddDoors eventId=\{eventId\} rows \/>/, 'the ways are not the shipped doors');

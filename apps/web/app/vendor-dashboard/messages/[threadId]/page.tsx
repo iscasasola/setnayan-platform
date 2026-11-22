@@ -9,6 +9,7 @@ import { CalendarDays, CircleCheck, MessageCircle, Send, Undo2, Wallet, X } from
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { WHISPER_AUDIENCE_UNREAD, readTeamWhisper, type WhisperAudience } from '@/lib/chat-whisper.server';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
@@ -49,6 +50,7 @@ import {
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { fetchShopVerified } from '@/lib/own-clients.server';
 import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
 import { EventLinesBody, InquiryAnswers } from '../../_components/event-lines';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -108,7 +110,7 @@ import {
   forecastForBooking,
   resolveBookingFeeStanding,
 } from '@/lib/booking-fee-disclosure.server';
-import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { lockAgreeFeeHeld, lockAgreeGiftBuy, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
 import { customerCardHref, supplierThreadForward, supplierThreadNoticeSearch, supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
@@ -163,6 +165,8 @@ import { QuickReplies, quickRepliesFor, ThreadAnswerLine, ThreadAskRow } from '.
 import { PickedHeadLine } from '@/app/_components/picked/picked-head-line';
 import { BlockerChangeRow } from '@/app/_components/chat/blocker-change-row';
 import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-ask-panel';
+import { fetchAgreeGiftBasis } from '@/lib/agree-gifts.server';
+import { agreeGiftOutcomeLine } from '@/lib/agree-gifts';
 import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
 import { threadDayIsOpen, type ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { manilaDate } from '@/lib/vendor-schedule';
@@ -191,6 +195,7 @@ import {
 } from '@/lib/inquiry-attribution';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { formatCount } from '@/lib/format-number';
+import { PLUS_GATE_UNKNOWN, PLUS_NEEDS_VERIFIED } from '@/lib/shop-plus-gate';
 
 export const metadata = { title: 'Thread · Supplier' };
 
@@ -204,6 +209,10 @@ type Props = {
     lock_agree?: string;
     /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
     fee?: string;
+    /** 🎁 What happened to the gift picked with the yes (`vendorAgreeToLock` → `booking_gift_pick`). */
+    gift?: string;
+    /** 🎁 `gift_needed` — the store door with the way back (`lockAgreeGiftBuy`). */
+    gift_buy?: string;
     lock_decline?: string;
     /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
     taken?: string;
@@ -244,6 +253,9 @@ const PROPOSAL_NOTICE: Record<string, string> = {
   // 🧪 The demo rule (lib/demo-scope.ts) — the same sentences the rule itself uses, plus "nothing was sent".
   proposal_demo_shop: `${DEMO_SHOP_CANNOT_BE_BOOKED} Quotes from a demo shop go only to demo events — nothing was sent.`,
   proposal_demo_event: `${DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY} Nothing was sent.`,
+  // 🪪 UNICHAT ＋ P1 — a ＋ tool needs a verified shop (lib/shop-plus-gate.ts).
+  proposal_plus_unverified: `${PLUS_NEEDS_VERIFIED} Nothing was sent.`,
+  proposal_plus_unknown: `${PLUS_GATE_UNKNOWN} Nothing was sent.`,
   proposal_lock_requested:
     'The couple has asked to lock at the quote they accepted. Agree or decline that request on your Today page first — a new quote can’t replace it while it’s open.',
   // Won & Lost Reasons capture (Wave 6) — its words live in `_lib/outcome-notice.ts`, shared with the stay door.
@@ -318,14 +330,18 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       feeHeld: lockAgreeFeeHeld(sp?.fee),
       // RW-38: the live gate, so the notice claims a gate only when there is one.
       feeLocksEvent: lockAgreeFeeHeld(sp?.fee) ? await resolveFeeEnforcement() : false,
-      halls: lockAgreeHalls(sp?.taken, sp?.free),
+      halls: lockAgreeHalls(sp?.taken, sp?.free), giftBuy: lockAgreeGiftBuy(sp?.gift_buy), storeShell: await isStoreShellRequest(),
     }) ?? lockDeclineNotice(sp?.lock_decline);
+  const giftOutcome = agreeGiftOutcomeLine(sp?.gift);
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
+  // 🪪 ＋ FINAL: is this shop verified? Started here and awaited where the ＋ is drawn — never a waterfall. Null = the
+  // read failed: the tray draws open and the server's gate (`lib/shop-plus-gate.server.ts`) still decides each send.
+  const shopVerifiedRead = fetchShopVerified(supabase, profile.vendor_profile_id);
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
@@ -411,6 +427,18 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   const feeWordsOnlyRead = readWordsOnlyTopUp(profile.vendor_profile_id, thread.event_id, manilaTodayYmd()).then((o) =>
     o ? TOP_UP_WORDS.toolGated(o.amountPhp) : null,
   );
+  // 🤫 THE TEAM'S WHISPER (Unichat part E — owner 19 Nov: "supplier whispers to co suppliers on the chat. and
+  // coordinators and hosts do not see it"; "Own shop team"). Who a whisper from this box reaches: the shop's own people
+  // who may chat here, this login left out. NULL = this login is not on the team here → no whisper offered. A FAILED
+  // read is `unread` — the box says it could not load, never "no one". The send core reads again; the database decides.
+  const teamWhisperRead: Promise<WhisperAudience> = readTeamWhisper(createAdminClient(), {
+    eventId: thread.event_id,
+    vendorProfileId: profile.vendor_profile_id,
+    viewerId: user.id,
+  }).catch((e: unknown) => {
+    console.error('[supplier thread] team whisper read failed', e);
+    return WHISPER_AUDIENCE_UNREAD('team');
+  });
   const composerFeeStandingRead = resolveBookingFeeStanding(createAdminClient(), {
     vendorProfileId: profile.vendor_profile_id,
     eventId: thread.event_id,
@@ -881,6 +909,17 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       : null;
   })();
 
+  // 🎁 GIFT FOR SERVICES (owner 2026-11-15): the picker above Agree, read beside the forecast. Null when no bill.
+  const agreeGiftBasisRead = (async () => {
+    const lockHandshake = await lockHandshakeRead;
+    return lockHandshake?.eventVendorId
+      ? await fetchAgreeGiftBasis(paxAdmin, {
+          vendorProfileId: profile.vendor_profile_id,
+          eventVendorId: lockHandshake.eventVendorId,
+        })
+      : null;
+  })();
+
   // THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`) — the ask's day read through the SAME capacity
   // rule the yes enforces (`vendor_day_check`). The supplier's own session: the RPC is DEFINER and carries the yes's
   // ownership gate. Read only while an ask is open; a refused read is `failed`, said on screen, never "0 booked".
@@ -1184,6 +1223,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     eventFileDayRead,
   ]);
   const heldAskService = await heldServiceRead;
+  const agreeGiftBasis = await agreeGiftBasisRead;
   const chatPins = await chatPinsRead;
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
@@ -1515,6 +1555,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           dayCheck={dayCheck}
           waitlistAsk={vendorWaitlistTheAsk}
           heldService={heldAskService}
+          giftBasis={agreeGiftBasis}
         />
       ) : null,
     'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
@@ -1751,6 +1792,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     read from the STAGE VALUE through the exhaustive map, never from the stage pill's label beside it: the pill is
     display text, and "Your call time" / "Ask for a payment" open only once they book you.
   */
+  const shopVerified = await shopVerifiedRead;
   const toolsState = {
     hasAgreement: THREAD_STAGE_HAS_AGREEMENT[railStage],
     askOpen,
@@ -1999,6 +2041,17 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   ) : null}
                 </p>
               ) : null}
+              {giftOutcome ? (
+                <p
+                  role={giftOutcome.tone === 'refused' ? 'alert' : 'status'}
+                  className={`border-b border-ink/10 px-3.5 py-2 text-[13px] ${
+                    giftOutcome.tone === 'refused' ? 'bg-danger-50/60 text-danger-900' : 'bg-mulberry/[0.06] text-ink'
+                  }`}
+                  data-agree-gift-outcome=""
+                >
+                  {giftOutcome.text}
+                </p>
+              ) : null}
               {embedded ? <PickedHeadLine>{answerInHead(true)}</PickedHeadLine> : null}
               {askRow}
               {embedded ? null : <ChatPrivacyNotice inBox viewer="vendor" />}
@@ -2191,7 +2244,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                 <ChatSendForm
                   threadId={threadId}
                   sendAction={sendChatMessage}
-                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} threadId={threadId} hasQuote={dealEntry.offerDeal} />}
+                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} threadId={threadId} hasQuote={dealEntry.offerDeal} verified={shopVerified} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
                   userId={user.id}
                   // 🏪 The shop's composer: this login may also host the event — here it speaks as the shop.
@@ -2199,6 +2252,12 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   wordsOnly={await feeWordsOnlyRead}
                   // 💬 Inside the client page the chat holds everything (19 Nov 2026): the chips and the suggested step.
                   kinds={embedded}
+                  // 🤫 Drag the box right to whisper to your own team — the hosts and the coordinator never see it (19 Nov).
+                  whisper={await teamWhisperRead.then((t) =>
+                    t ? { supplierName: 'the hosts', coHosts: t.ids.length, unread: t.unread, side: 'team' as const, reach: t.reach } : null,
+                  )}
+                  // 🎤 An empty box: Send is a mic — hold to record a voice note (Unichat H1, 20 Nov).
+                  voice
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (
@@ -2406,6 +2465,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             initialMessages={initialMessages}
             currentUserId={user.id}
             viewerRole="vendor"
+            // 🔎 The Private filter line names who sees the team's whispers — the same read as the box's reach line.
+            privateFilterWho={await teamWhisperRead.then((t) => (t ? { who: t.filterWho, unread: t.unread } : null))}
             counterpartyLabel={coupleLabel}
             eventDate={event?.event_date ?? null}
             standing={threadStanding}

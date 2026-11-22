@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 332 jobs, 218 of them form-driven, as of 52e7232312.
+// that performs it. 332 jobs, 218 of them form-driven, as of 32899799c.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -2610,7 +2610,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "launch_offer_cycle_days",
       "booking_fee_free_from",
       "booking_fee_free_until",
-      "booking_fee_free_reason"
+      "booking_fee_free_reason",
+      "special_tools_paid_from"
     ],
     "refusedWhenEmpty": [
       "booking_fee_free_reason"
@@ -2658,6 +2659,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/integrations",
     "resolvedPath": "/admin/integrations",
     "fields": [
+      "intent",
+      "enabled",
       "maya_checkout_endpoint",
       "maya_public_api_key",
       "maya_secret_api_key"
@@ -2734,7 +2737,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "intent",
       "gcash_monthly_cap_php",
-      "bdo_monthly_cap_php"
+      "bdo_monthly_cap_php",
+      "gcash_max_php",
+      "gcash_allowance_php"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -3522,6 +3527,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/vendors",
     "resolvedPath": "/admin/vendors",
     "fields": [
+      "op",
       "vendor_id",
       "tier_state",
       "reason",

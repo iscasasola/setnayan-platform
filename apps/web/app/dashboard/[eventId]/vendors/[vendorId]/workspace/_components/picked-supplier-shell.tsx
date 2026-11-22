@@ -21,12 +21,16 @@ import {
   Heart,
   Info,
   MessageSquare,
+  Phone,
+  Video,
+  BellOff,
   ReceiptText,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { PickedShell, type PickedMoreRow } from '@/app/_components/picked/picked-shell';
 import { TOPIC_ICON } from '@/lib/topic-icons';
+import { MuteChatRow, MutedMark } from '@/app/_components/chat/mute-chat-row';
 import { pickedSupplierAnchorOf, pickedSupplierLists, pickedSupplierPageOf, type PickedSupplierMenuEntry, type PickedSupplierPage } from './picked-supplier-menu';
 
 const PAGE_ICON: Record<PickedSupplierPage, LucideIcon> = {
@@ -44,10 +48,25 @@ const PAGE_ICON: Record<PickedSupplierPage, LucideIcon> = {
 
 /**
  * ⋯ THE HOST'S MORE (Unichat part G, owner 20 Nov 2026 — "Report a problem" left the (+) and lives under ⋯ on BOTH
- * sides). One row: the shipped Report page under its drawn words. Report stays a tab too until the host's own one-chat
+ * sides). The shipped Report page under its drawn words, LAST. Report stays a tab too until the host's own one-chat
  * build takes the tab row away — the row is the place the (+) used to offer, not a second page.
+ *
+ * 📞 **Call · Viber** before it (drawing v3: "Call · Viber moved under ⋯"), as the two hand-offs themselves: this ⋯ has
+ * no chat-as-home to open a page of its own over (the shell drops a `body` row here), so each is a plain link. The hrefs
+ * come ONLY from `lib/booked-handoff.ts` (null without the booking or a saved number) — null, no row; never a dead one.
  */
-const HOST_MORE: readonly PickedMoreRow<PickedSupplierPage>[] = [{ id: 'report', label: 'Report a problem', icon: TOPIC_ICON.report, page: 'report' }];
+export function hostMoreRows(
+  call: { tel: string | null; viber: string | null } = { tel: null, viber: null },
+  mute: ReactNode = null,
+): PickedMoreRow<PickedSupplierPage>[] {
+  const rows: PickedMoreRow<PickedSupplierPage>[] = [];
+  if (call.tel) rows.push({ id: 'call', label: 'Call', icon: Phone, href: call.tel });
+  if (call.viber) rows.push({ id: 'viber', label: 'Video call on Viber', icon: Video, href: call.viber });
+  // 🔕 The host's own Mute this chat switch, before Report (drawing v3) — only when their mute was read.
+  if (mute) rows.push({ id: 'mute', label: 'Mute this chat', icon: BellOff, control: mute });
+  rows.push({ id: 'report', label: 'Report a problem', icon: TOPIC_ICON.report, page: 'report' });
+  return rows;
+}
 
 export function PickedSupplierShell({
   eventId,
@@ -60,6 +79,8 @@ export function PickedSupplierShell({
   workDefault = 'details',
   landAt = null,
   nextStep = null,
+  call = { tel: null, viber: null },
+  mute = null,
 }: {
   eventId: string;
   /** `event_vendors.vendor_id` — the workspace's route key. */
@@ -76,6 +97,10 @@ export function PickedSupplierShell({
   landAt?: string | null;
   /** ➡ The Next step row pinned on top of Chat (`NextStepRow`), or null when nothing needs the host. */
   nextStep?: ReactNode;
+  /** 📞 The ⋯ hand-offs (`bookedTelHref` · `bookedViberHref`), each null when the shop is not booked or saved no number. */
+  call?: { tel: string | null; viber: string | null };
+  /** 🔕 The viewer's own mute: `MuteChatRow` under ⋯ and the bell-off after the name. Null = no chat, or unread. */
+  mute?: { threadId: string; muted: boolean } | null;
 }) {
   return (
     <PickedShell<PickedSupplierPage>
@@ -84,6 +109,7 @@ export function PickedSupplierShell({
       badges={{ chat: chatUnread }}
       pickedId={eventVendorId}
       title={supplierName}
+      titleMark={mute?.muted ? <MutedMark /> : null}
       menu={menu}
       icons={PAGE_ICON}
       initialPage={initialPage}
@@ -100,7 +126,7 @@ export function PickedSupplierShell({
       // when there is a conversation — without one Chat is not in the menu and the page stays one column.
       sideChat={menu.some((m) => m.id === 'chat') ? { page: 'chat', workDefault } : null}
       chatTop={nextStep}
-      more={HOST_MORE}
+      more={hostMoreRows(call, mute ? <MuteChatRow threadId={mute.threadId} muted={mute.muted} /> : null)}
     />
   );
 }

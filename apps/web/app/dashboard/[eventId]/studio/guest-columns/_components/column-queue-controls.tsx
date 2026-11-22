@@ -90,7 +90,7 @@ export function ColumnQueueControls({ eventId, rows }: { eventId: string; rows: 
                     maxLength={200}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="Optional note to the guest (why it's coming back)"
-                    className="w-full max-w-md rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-xs text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
+                    className="w-full max-w-md rounded-md border border-ink/15 bg-raised px-2.5 py-1.5 text-xs text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
                   />
                   <button
                     type="button"

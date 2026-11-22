@@ -603,7 +603,7 @@ export function StdBuilderClient({
             ) : null}
 
             {/* Editable fields */}
-            <div className="space-y-5 rounded-2xl border border-ink/10 bg-white/70 p-5">
+            <div className="space-y-5 rounded-2xl border border-ink/10 bg-raised/70 p-5">
 
               {/* Wedding date — chosen from the couple's onboarding dates (or the
                   single locked/priority date). Never free-typed (owner 2026-06-19). */}
@@ -612,7 +612,7 @@ export function StdBuilderClient({
                   Wedding date
                 </label>
                 {dateOptions.length === 0 ? (
-                  <p className="mt-1.5 rounded-lg border border-ink/10 bg-white/60 px-3 py-2.5 text-sm text-ink/60">
+                  <p className="mt-1.5 rounded-lg border border-ink/10 bg-raised/60 px-3 py-2.5 text-sm text-ink/60">
                     Pick your wedding date in{' '}
                     <Link href={`/dashboard/${eventId}/date-selection`} className="font-medium text-terracotta hover:underline">
                       Date Selection
@@ -621,7 +621,7 @@ export function StdBuilderClient({
                   </p>
                 ) : dateOptions.length === 1 ? (
                   <>
-                    <p className="mt-1.5 rounded-lg border border-ink/10 bg-white/60 px-3 py-2.5 text-sm text-ink">
+                    <p className="mt-1.5 rounded-lg border border-ink/10 bg-raised/60 px-3 py-2.5 text-sm text-ink">
                       {formatEventDate(dateOptions[0]!)}
                     </p>
                     <p className={helperCls}>Your chosen wedding date. Change it in Date Selection.</p>
@@ -754,7 +754,7 @@ export function StdBuilderClient({
             </div>
 
             {/* Non-editable status items */}
-            <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white/70">
+            <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-raised/70">
               {/* Names & monogram — core event data, edit via dashboard */}
               <li className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
                 <div className="min-w-0">
@@ -826,7 +826,7 @@ export function StdBuilderClient({
               role="switch"
               aria-checked={effects.music}
               onClick={() => toggleEffect('music')}
-              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-white/70 px-4 py-3.5 text-left transition-colors hover:border-ink/25 sm:px-5"
+              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-raised/70 px-4 py-3.5 text-left transition-colors hover:border-ink/25 sm:px-5"
             >
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-ink/85">Play music in your film</span>
@@ -839,7 +839,7 @@ export function StdBuilderClient({
 
             {/* Your song — inline upload (single-source: this sets the couple's
                 website song, which the film plays). Status + Pakanta route. */}
-            <div className="space-y-2.5 rounded-2xl border border-ink/10 bg-white/70 p-4 sm:p-5">
+            <div className="space-y-2.5 rounded-2xl border border-ink/10 bg-raised/70 p-4 sm:p-5">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-medium text-ink/85">Your song</p>
                 {siteMusicKey || initialContent.musicUrl ? (

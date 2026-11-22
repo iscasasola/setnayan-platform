@@ -113,21 +113,25 @@ test('4 · the summary strip is FIRST in the chat’s one pinned stack, fed only
 });
 
 test('5 · ONE switch, in the text box: the sliders raise the chips; the old 📎 is not drawn beside them', () => {
-  assert.match(SEND, /import \{ Camera, ImageIcon, Lock, Paperclip, SlidersHorizontal, X \} from 'lucide-react';/, 'the show control is not the app’s one sliders icon');
+  assert.match(SEND, /import \{ ArrowLeft, Camera, ImageIcon, Lock, Paperclip, Plus, SlidersHorizontal, X \} from 'lucide-react';/, 'the show control is not the app’s one sliders icon');
   const box = SEND.slice(SEND.indexOf('data-chat-one-box=""'));
-  const sliders = box.indexOf('data-chat-kind-open=""');
-  const send = box.indexOf('aria-label="Send"');
+  const sliders = box.indexOf('data-chat-kind-open=');
+  // Unichat H1: mid-edit the same button says "Save your edit" — still the one Send, after the sliders.
+  const send = box.indexOf("aria-label={editing ? 'Save your edit' : 'Send'}");
   const field = box.indexOf('<textarea');
   assert.ok(field >= 0 && field < sliders && sliders < send, 'the sliders button is not inside the box, between the field and Send');
-  assert.ok(SEND.indexOf('data-chat-kind-chips=""') < SEND.indexOf('data-chat-one-box=""'), 'the chips are not raised above the box');
-  assert.match(SEND, /\{KIND_CHIPS\.map\(\(c\) => \{/);
-  assert.match(SEND, /onClick=\{\(\) => \{\s*pickKind\(threadId, c\.key\);/);
+  assert.ok(SEND.indexOf('data-chat-kind-chips=') < SEND.indexOf('data-chat-one-box=""'), 'the chips are not raised above the box');
+  // 20 Nov 2026 (Unichat part D): the chips float above the box, and one rule picks a chip (`pickChip` — Private also
+  // turns the box to Whisper where it can; the picked chip again folds the row). Held by the-tool-lives-in-the-text-box.
+  assert.match(SEND, /\{KIND_CHIPS\.map\(\(c, i\) => \{/);
+  assert.match(SEND, /onClick=\{\(\) => pickChip\(c\.key\)\}/);
+  assert.match(SEND, /pickKind\(threadId, key\);/);
   // The suggested step: inside the box, left of the field, gone once a word is typed (and never while words-only).
   const suggested = box.indexOf('data-chat-suggested=');
   assert.ok(suggested >= 0 && suggested < field, 'the suggested step is not inside the box, left of "Message"');
   assert.match(SEND, /const suggestOn = kinds && Boolean\(home\?\.suggest\) && !hasDraft && !wordsMode && !feeWordsOnly;/, 'the suggested step stays while typing, or shows in a words-only box');
   assert.match(SEND, /\{suggestOn && home\?\.suggest \? \(/);
-  assert.match(SEND, /patchPlus\(threadId, \{ draft: \{ kind: card, startedAt: Date\.now\(\) \} \}\);/, 'the suggested step does not open the (+)’s own card');
+  assert.match(SEND, /patchPlus\(threadId, \{ draft: \{ kind: card, startedAt: Date\.now\(\) \}, picker: false \}\);/, 'the suggested step does not open the (+)’s own card');
   // In the stream: the picked chip filters, and the head's 📎 / Files panel are not drawn with the chips.
   assert.match(STREAM, /if \(kindView && chatKindOf\(m, Boolean\(filings\?\.byMessage\.get\(m\.message_id\)\)\) !== kindView\) \{/);
   assert.match(STREAM, /\{oneChat \? null : \(\s*<ActionButton\s+tone="neutral"\s+iconOnly\s+icon=\{Paperclip\}/, 'the 📎 is drawn beside the chips — two switches for one thing');
@@ -141,7 +145,7 @@ test('6 · only the supplier’s client page: the routed thread and the host’s
   assert.doesNotMatch(HOST_THREAD, /\boneChat\b|\bkinds=/, 'the host’s chat picked up the supplier’s one-chat parts before its own build');
   assert.doesNotMatch(HOST_SHELL, /chatHome/, 'the host’s picked supplier lost its tabs before its own build');
   assert.match(STREAM, /oneChat = false,/);
-  assert.match(SEND, /kinds = false \}: Props\)/);
+  assert.match(SEND, /kinds = false(?:, voice = false)? \}: Props\)/);
   // A chat without the chips keeps its three shipped thirds.
   assert.match(STREAM, /useState<ThreadView>\(initialView === 'decisions' \? 'all' : legacyThreadView\(initialView\)\)/);
 });

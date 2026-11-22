@@ -30,6 +30,8 @@ import {
   goodUntilWords,
   makeQuoteGoodUntil,
   makeQuoteLines,
+  makeQuoteExtrasCentavos,
+  type MakeQuoteExtraLine,
   makeQuoteOfferStart,
   makeQuoteRefusal,
   type MakeQuoteCardOption,
@@ -49,6 +51,7 @@ export function MakeQuoteCard({
   onClose,
   onSent,
   seed,
+  prefill,
   frame = 'card',
 }: {
   threadId: string;
@@ -59,6 +62,12 @@ export function MakeQuoteCard({
   seed?: { cards: MakeQuoteCardOption[]; picked?: string[]; itemised?: boolean };
   /** `bare` = hosted inside the text box (the composer owns the title and the ✕). */
   frame?: EditorFrame;
+  /**
+   * 🎂 Opened from a couple's "Cake design" (Cake Maker ruling 8): the card it was made on, the estimate as the offer
+   * and the design as the note. Every field stays the supplier's to change before Send quote. v6 §03: `lines` are the
+   * design's priced picks, one quote line each after the card's own line (the card's line is the offer less them).
+   */
+  prefill?: { picked: string[]; offerCentavos: number; note: string; lines?: MakeQuoteExtraLine[] };
 }) {
   const [read, setRead] = useState<Read<MakeQuoteCardOption[]>>(seed ? { at: 'ok', data: seed.cards } : { at: 'loading' });
   const load = useCallback(() => {
@@ -83,7 +92,18 @@ export function MakeQuoteCard({
         <FullQuotation onClose={onClose} />
       </div>
     ) : (
-      <MakeQuoteForm cards={read.data} threadId={threadId} eventDate={eventDate} onClose={onClose} onSent={onSent} startPicked={seed?.picked} startItemised={seed?.itemised} />
+      <MakeQuoteForm
+        cards={read.data}
+        threadId={threadId}
+        eventDate={eventDate}
+        onClose={onClose}
+        onSent={onSent}
+        startPicked={prefill ? prefill.picked.filter((id) => read.data.some((c) => c.id === id)) : seed?.picked}
+        startItemised={seed?.itemised}
+        startOffer={prefill && prefill.offerCentavos > 0 ? prefill.offerCentavos : null}
+        startNote={prefill?.note ?? ''}
+        extras={prefill?.lines ?? []}
+      />
     ),
   );
 }
@@ -112,6 +132,9 @@ function MakeQuoteForm({
   onSent,
   startPicked,
   startItemised = false,
+  startOffer = null,
+  startNote = '',
+  extras = [],
 }: {
   cards: MakeQuoteCardOption[];
   threadId: string;
@@ -120,6 +143,10 @@ function MakeQuoteForm({
   onSent?: () => void;
   startPicked?: string[];
   startItemised?: boolean;
+  startOffer?: number | null;
+  startNote?: string;
+  /** 🎂 A cake design's priced picks — listed under the offer and sent as their own lines. */
+  extras?: MakeQuoteExtraLine[];
 }) {
   const formId = useId();
   const today = manilaTodayIsoFor(Date.now());
@@ -127,13 +154,13 @@ function MakeQuoteForm({
   const [picked, setPicked] = useState<string[]>(startPicked ?? (cards.length === 1 ? [cards[0]!.id] : []));
   const chosen = cards.filter((c) => picked.includes(c.id));
   // The offer follows the picked cards until the supplier types their own.
-  const [typed, setTyped] = useState<string | null>(null);
+  const [typed, setTyped] = useState<string | null>(startOffer != null ? String(startOffer / 100) : null);
   // 🧾 Itemised: the receipt is the quote. Null = the one-price card, exactly as it was.
   const [draft, setDraft] = useState<ReceiptDraft | null>(() => (startItemised ? receiptFromCards(cards.filter((c) => (startPicked ?? []).includes(c.id))) : null));
   const receipt = useMemo(() => (draft ? receiptMoney(draft) : null), [draft]);
   const offerC = receipt ? receipt.net : typed == null ? makeQuoteOfferStart(chosen) : Math.round(Number(typed.replace(/[^\d.]/g, '')) * 100) || 0;
   const [validUntil, setValidUntil] = useState<string | null>(() => makeQuoteGoodUntil(today, eventDate));
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(startNote.slice(0, 500));
   const [sending, setSending] = useState(false);
   const plans = useMemo(() => receiptPlanChoices(null, false), []);
   const [planKey, setPlanKey] = useState(plans[0]!.key);
@@ -153,10 +180,10 @@ function MakeQuoteForm({
   }, [itemised, threadId]);
   const refusal =
     (draft && receipt ? (chosen.length === 0 ? null : (receiptRefusal(draft, receipt) ?? receiptPlanProblem(plan, receipt, []))) : null) ??
-    makeQuoteRefusal({ picked: chosen.length, offerCentavos: offerC, validUntil, todayIso: today, eventDate });
+    makeQuoteRefusal({ picked: chosen.length, offerCentavos: offerC, validUntil, todayIso: today, eventDate, extrasCentavos: makeQuoteExtrasCentavos(extras) });
 
   const payload = JSON.stringify({
-    lineItems: makeQuoteLines(chosen, offerC),
+    lineItems: makeQuoteLines(chosen, offerC, extras),
     validUntil,
     title: chosen.map((c) => c.name).join(' · ').slice(0, 120) || 'Quote',
     note: note.trim() || null,
@@ -230,7 +257,20 @@ function MakeQuoteForm({
             onKeep={(v) => setTyped(v)}
             data="make-quote-offer"
           />
-          {chosen.length > 0 ? (
+          {extras.length > 0 ? (
+            <ul className="grid gap-1 rounded-xl bg-ink/[0.04] px-3 py-2 text-[13px] text-ink/75" aria-label="In your offer" data-make-quote-extras="">
+              {extras.map((x, i) => (
+                <li key={i} className="flex items-baseline gap-2">
+                  <span className="min-w-0 flex-1">{x.label}</span>
+                  <span className="font-mono text-[12px]">+{formatCentavosPhp(x.centavos)}</span>
+                </li>
+              ))}
+              <li className="text-[12px] text-ink/55">Each one is its own line on the quote; your card’s line is the rest of your offer.</li>
+            </ul>
+          ) : null}
+          {/* Itemise builds the receipt from the cards alone, so with a cake design's lines on the offer it would drop them
+              silently (ship review 22 Nov). Those quotes stay as the offer with its own lines. */}
+          {chosen.length > 0 && extras.length === 0 ? (
             <div className="flex">
               {/* Same parts, your price: a typed offer under the cards' own prices opens as a Discount on the receipt. */}
               <ActionButton

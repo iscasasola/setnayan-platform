@@ -166,9 +166,10 @@ export function resolveRoomLinks(input: RoomLinksInput): RoomLink[] {
     all.push({ key: 'gifts', label: 'E-Gifts', href: `${base}/pabuya` });
   }
 
-  // The live hub — only while the event is running or has just finished.
+  // The live hub — only while the event is running or has just finished. 🧭 Since 20 Nov 2026 (one bar per stage)
+  // it is the event page's own Live tab, not the `/hub` second screen.
   if (input.liveHubOpen) {
-    all.push({ key: 'hub', label: 'Happening now', href: `${base}/hub` });
+    all.push({ key: 'hub', label: 'Happening now', href: `${base}?tab=live` });
   }
 
   // The story afterwards — THE shared rule, so this footer, the live hub and

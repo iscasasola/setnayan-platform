@@ -247,6 +247,20 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     reason:
       'A made-up Shop wallet balance in the DEV-ONLY Shop tab lab (404 in production; Build 2 B) — a fixture balance, not a Setnayan SKU.',
   },
+  {
+    file: 'app/dev/_components/lab-picked-chat.tsx',
+    literal: '₱42,000',
+    sku: null,
+    reason:
+      'A made-up host budget cap in a whisper bubble in the DEV-ONLY Unichat lab (404 in production; Unichat part E) — a couple/supplier budget line, not a Setnayan SKU.',
+  },
+  {
+    file: 'app/dev/_components/lab-picked-chat.tsx',
+    literal: '₱42,500',
+    sku: null,
+    reason:
+      'A made-up supplier counter-offer in a whisper bubble in the DEV-ONLY Unichat lab (404 in production; Unichat part E) — a couple/supplier budget line, not a Setnayan SKU.',
+  },
 ];
 
 /** '₱1,000' → 1000. Returns null for anything unparseable. */

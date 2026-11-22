@@ -194,10 +194,10 @@ test('price parity: chat lock bills the TAPER on the NEGOTIATED total, not the s
   const charge = await openLockCharge(evId);
   assert.equal(charge.is_free, false, '6th booking is billable');
   assert.equal(charge.status, 'pending');
-  // Taper on the NEGOTIATED ₱120,000 = ₱5,000 + 1% of ₱20,000 = ₱5,200 = 520,000c
+  // Taper on the NEGOTIATED ₱120,000 = ₱5,000 + 3% of ₱20,000 = ₱5,600 = 560,000c
   // — NOT computed off the stale ₱50k.
-  assert.equal(charge.computed_fee_centavos, 520_000, 'fee = taper on the negotiated total');
-  assert.equal(charge.amount_charged_centavos, 520_000);
+  assert.equal(charge.computed_fee_centavos, 560_000, 'fee = taper on the negotiated total');
+  assert.equal(charge.amount_charged_centavos, 560_000);
 
   // The charge base equals the exact number a thread would freeze
   // (agreed_price_centavos = round(negotiated * 100) = 12,000,000c).
@@ -218,7 +218,7 @@ test('cross entry-point: vendor-finalize then chat re-lock → ONE charge, never
   await chatLockWrite(evId, eventId, 200_000); // finalize's negotiated total
   const first = await openLockCharge(evId);
   assert.equal(first.reused, false, 'finalize mints the charge');
-  assert.equal(first.computed_fee_centavos, 600_000, 'taper on ₱200,000 = ₱6,000');
+  assert.equal(first.computed_fee_centavos, 800_000, 'taper on ₱200,000 = ₱8,000');
 
   // Entry point #2 — the couple ALSO hits chat lock. bookVendorAtChatLock sees an
   // already-'contracted' row → refresh_fee_only → NO rewrite in the CORE. Here we
@@ -233,8 +233,8 @@ test('cross entry-point: vendor-finalize then chat re-lock → ONE charge, never
   assert.equal(second.charge_id, first.charge_id, 'same charge id — no second charge');
   assert.equal(
     second.computed_fee_centavos,
-    1_399_999,
-    'pending fee RE-DERIVED to the taper on ₱999,999 — not doubled, not stale',
+    3_199_997,
+    'pending fee RE-DERIVED to the taper on ₱999,999 (₱5,000 + 3% of ₱899,999) — not doubled, not stale',
   );
 
   const count = await db.query<{ c: number }>(

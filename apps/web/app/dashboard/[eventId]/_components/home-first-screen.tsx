@@ -44,15 +44,19 @@ export type PapicCardInput = {
   settings: ReactNode;
   /** The head switch beside the › — closed and open (owner 2026-10-26): Papic on/off, or "Let everybody shoot now" once Papic is on (owner 2026-10-30, `PapicHeadControl`). */
   headControl?: ReactNode;
-  /** The line under the card's title (owner 2026-10-30: what "Let everybody shoot now" has saved); null = the brand line. */
+  /** The line under the card's title — since 2026-11-20 the ONE state line (`papicGuestCamerasLines().now`); null = the brand line. */
   headLine?: ReactNode;
+  /** The state line for each line the head's switch says (`papicGuestCamerasLines().byHead`, 2026-11-20). */
+  lineFor?: Record<string, string> | null;
   /** 🔢 Total · Taken · Remaining on the card's face (owner 2026-10-26) — the pot Home already read. */
   counts?: { total: number | null; left: number | null } | null;
+  /** "Add photos" on the face — the main button (`MemoriesAddPhotosButton`, 2026-11-20); null = not offered. */
+  add?: ReactNode;
   /** "Add more" on the face — the one buy sheet for this platform; null = not offered. */
   buy?: ReactNode;
-  /** Open on arrival — a save's outcome or a purchase error is said inside the open card. */
+  /** Open on arrival — a save's outcome or a purchase error is said inside the risen settings. */
   defaultOpen?: boolean;
-  /** 📷 The chapter Papic shoots into (owner 2026-11-01) — `PapicChapterRow`, under the counts; null = not drawn. */
+  /** 📷 The chapter Papic shoots into (owner 2026-11-01) — `PapicChapterRow`, the risen settings' first row; null = not drawn. */
   chapter?: ReactNode;
 };
 
@@ -528,7 +532,7 @@ export function YourServices({
  */
 /**
  * 📷 THE ONE PAPIC CARD, wherever it is drawn — Memories since 2026-11-08 (THE ONE BUILD: *"Papic + Thank You into
- * Memories"*), under the keepsake row. The same `PapicHomeCard` Today drew, unchanged; only the seat moved.
+ * Memories"*), FIRST on that page since 2026-11-20 (the Papic block, its settings risen full screen).
  */
 export function PapicCard({
   card,
@@ -551,7 +555,9 @@ export function PapicCard({
       settings={card.settings}
       headControl={card.headControl ?? null}
       headLine={card.headLine ?? null}
+      lineFor={card.lineFor ?? null}
       counts={card.counts ?? null}
+      add={card.add ?? null}
       buy={card.buy ?? null}
       chapter={card.chapter ?? null}
       defaultOpen={card.defaultOpen ?? false}

@@ -20,8 +20,12 @@
  *     Chapter · Hide · Delete, each only for whom it was already theirs; Report and Stop this guest shooting in its ⋯;
  *     ‹ › and a swipe walk the photos in the order the grid draws them. An Event Hub file is shown and shared, never
  *     managed here ("Used on your Event Hub").
- *   · THE KEEPSAKE ROW (owner 2026-10-31, "Build both"; hosts only): Magazine · Recap · Flash · Thank You, directly
- *     under the top row — `keepsakes`, drawn by the server (`memories-keepsake-row.tsx`).
+ *   · THE TOP OF THE PAGE (owner 2026-11-20, "memories approved" — `prototypes/memories_redesign_2026-11-20/`; hosts
+ *     only): PAPIC FIRST (`papic`, the one card), then THE KEEPSAKE ROW (Magazine · Recap · Flash · Thank You —
+ *     `keepsakes`, `memories-keepsake-row.tsx`), then the top row above the photos it filters, then the grid. Until
+ *     20 Nov the top row led and Papic sat under the keepsakes. 🔒 `memories-papic-is-on-top.test.ts`.
+ *   · ＋ THE PAPIC BLOCK'S "Add photos" opens the phone's picker in the same tap (`memories-add-photos.tsx`): the files
+ *     it picks are handed to the ONE uploader in the ONE Add photos sheet — never a second uploader.
  *   · THE THUMB ROW: the shared `ThumbRow` — "Search memories" (who took it, the challenge, the Hub's place) and
  *     + Add photos. ＋ THE ADD CELL (owner 2026-10-31; hosts only) is the grid's first tile in All and Your uploads —
  *     a SECOND DOOR TO THE SAME UPLOADER: both call `openAdding`, and both open the ONE Add photos sheet below.
@@ -67,6 +71,7 @@ import {
   type ZoomScale,
 } from '@/lib/gallery-zoom';
 import { useGridPinch } from './use-grid-pinch';
+import { MemoriesAddPhotosContext, type MemoriesAddPhotos } from './memories-add-photos';
 import { ExamplePreview } from '@/app/_components/states/empty-state';
 import { SAMPLE_MEMORIES } from '@/lib/empty-look-samples';
 
@@ -143,6 +148,7 @@ export function EventMemoriesGallery({
   settings = null,
   addPhotos = null,
   addCell = null,
+  addPicksAtOnce = false,
   keepsakes = null,
   papic = null,
   blockedGuests = [],
@@ -177,10 +183,13 @@ export function EventMemoriesGallery({
   addPhotos?: ReactNode;
   /** ＋ The Add cell's words (`addCellWords`) — the grid's first tile opens the SAME sheet as the thumb row. Null = no cell. */
   addCell?: { line: string; tip: string } | null;
+  /** ＋ The Papic block's "Add photos" opens the phone's picker in the same tap — true where `addPhotos` is the uploader
+   *  (adding by hand is open); false where it is the turn-on choice, which the press then opens in the one sheet. */
+  addPicksAtOnce?: boolean;
   /** The keepsake row (Magazine · Recap · Flash · Thank You), drawn by the server — the host's. */
   keepsakes?: ReactNode;
   /** 📷 The ONE Papic card (THE ONE BUILD, owner 8 Nov 2026: Papic moved into Memories), drawn by the server — the
-   *  host's, under the keepsake row and before the grid (v112/v113). Null = not drawn for this viewer. */
+   *  host's, FIRST on the page since 20 Nov (above the keepsakes and the top row). Null = not drawn for this viewer. */
   papic?: ReactNode;
   blockedGuests?: string[];
   suppliers?: MemoriesSupplier[];
@@ -204,6 +213,27 @@ export function EventMemoriesGallery({
      (`the-keepsakes-are-a-row.test.ts`). */
   const [adding, setAdding] = useState(false);
   const openAdding = useCallback(() => setAdding(true), []);
+  /* ＋ THE PAPIC BLOCK'S PRESS — the picker in the same tap; what it picks waits here for the one uploader to take. */
+  const pickInput = useRef<HTMLInputElement>(null);
+  const handedRef = useRef<File[] | null>(null);
+  const [handedFiles, setHandedFiles] = useState<File[] | null>(null);
+  const addBridge = useMemo<MemoriesAddPhotos>(
+    () => ({
+      pickNow: () => {
+        if (addPicksAtOnce && pickInput.current) pickInput.current.click();
+        else openAdding();
+      },
+      handed: {
+        files: handedFiles,
+        take: () => {
+          const files = handedRef.current;
+          handedRef.current = null;
+          return files;
+        },
+      },
+    }),
+    [addPicksAtOnce, openAdding, handedFiles],
+  );
 
   useEffect(() => {
     const a = readLocal(ALBUM_KEY);
@@ -375,8 +405,35 @@ export function EventMemoriesGallery({
   const albumOptions = MEMORIES_ALBUMS.map((a) => ({ key: a.key, label: a.label }));
 
   return (
+    <MemoriesAddPhotosContext.Provider value={addBridge}>
     <section data-event-memories="" data-memories-columns={cols} data-memories-album={album} className="pb-24">
       <h1 className="sr-only">Memories</h1>
+
+      {/* 📷 PAPIC FIRST (owner 2026-11-20, "memories approved"): the one card, above the keepsakes and the top row. The
+          Memories tour's Papic stop lights this slot (`customer_memories_v2` → `memories-papic`). */}
+      {host && papic ? <div data-tour="memories-papic">{papic}</div> : null}
+      {/* THE KEEPSAKE ROW — under Papic, above the top row (the host's; the server draws it inside its host branch too). */}
+      {host ? keepsakes : null}
+      {host && addPhotos && addPicksAtOnce ? (
+        <input
+          ref={pickInput}
+          type="file"
+          multiple
+          accept="image/*,video/*"
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+          data-memories-pick-input=""
+          onChange={(e) => {
+            const files = e.target.files ? Array.from(e.target.files) : [];
+            e.target.value = '';
+            if (files.length === 0) return;
+            handedRef.current = files;
+            setHandedFiles(files);
+            openAdding();
+          }}
+        />
+      ) : null}
 
       {/* TOP ROW — Albums ▾ · the count · Needs a look · (− / + on a desktop) · ⚙. */}
       <div className="flex min-h-[48px] items-center gap-2 pb-2.5" data-memories-top="" data-first-row="">
@@ -443,11 +500,6 @@ export function EventMemoriesGallery({
           </MenuSettingsButton>
         ) : null}
       </div>
-      {/* THE KEEPSAKE ROW — directly under the top row, the host's (the server draws it inside its host branch too). */}
-      {host ? keepsakes : null}
-      {/* 📷 PAPIC — ONE card, under the keepsakes, before the grid (2026-11-08: it left Today for Memories). */}
-      {/* 📷 The Memories tour's Papic stop lights this slot (`customer_memories_v2` → `memories-papic`). */}
-      {host && papic ? <div data-tour="memories-papic">{papic}</div> : null}
       {needsLook ? (
         <p className="pb-1.5 text-[13px] text-ink/60">Only photos to review — screened or reported. Tap one to approve, hide, report or stop that guest shooting.</p>
       ) : null}
@@ -510,6 +562,7 @@ export function EventMemoriesGallery({
       ) : null}
 
     </section>
+    </MemoriesAddPhotosContext.Provider>
   );
 }
 

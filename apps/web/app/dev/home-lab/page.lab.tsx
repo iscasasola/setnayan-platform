@@ -292,17 +292,15 @@ const STATES: Record<string, HomeNextInput> = {
 /* 📷 PAPIC'S CARD (owner 2026-10-26, "a quick on off button and expand for more settings") — `?card=1[&cardphase=before|live|after]`:
    the REAL card on fixture dates — closed, the head and the switch; open, the REAL camera settings (in a lab with no
    database they say "couldn't load" — the failed-read state, drawn as it ships).
-   📷 `&head=off|eventday|now|offwait|onwait|unread` (owner 2026-10-30): the head's ONE dropdown — Off · On — event day ·
-   On — everyone, now — in each position, `offwait` = Off picked but not applied (Papic still live), `onwait` = On picked
-   but not applied, `unread` = the facts could not be read; with its line under the title. `&save=fail` refuses the lab's
+   📷 `&head=off|eventday|now|unread` (owner 2026-10-30; live since 2026-11-22 — no "waiting for Apply" positions): the
+   head's ONE dropdown — Off · On — event day · On — everyone, now — in each position, `unread` = the facts could not be
+   read; with its line under the title. `&save=fail` refuses the lab's
    picks (default: they save, with no server). Absent: On — event day. */
 const LAB_HEAD: Record<string, PapicHeadFacts> = {
-  off: { live: false, draftOn: false, early: false },
-  eventday: { live: true, draftOn: true, early: false },
-  now: { live: true, draftOn: true, early: true },
-  offwait: { live: true, draftOn: false, early: false },
-  onwait: { live: false, draftOn: true, early: false },
-  unread: { live: true, draftOn: true, early: null },
+  off: { live: false, early: false },
+  eventday: { live: true, early: false },
+  now: { live: true, early: true },
+  unread: { live: true, early: null },
 };
 /* 📷 PAPIC SHOOTS INTO A CHAPTER (owner 2026-11-01) — `?card=1&chapter=now|picked|soon|whole|unread|none`: the REAL
    chapter row on fixture chapters, at a fixed "now" (Tue 10 Nov 2026, 3 PM Manila).

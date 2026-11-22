@@ -49,6 +49,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tokenHex } from './css-colour-tokens';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, '..', 'app');
@@ -108,9 +109,10 @@ const SOURCES: Source[] = ROUTES.flatMap(sourcesUnder);
  *  `.sn-sidebar` fork re-points tokens to `var(...)`, not to a hex, and is
  *  scoped to dashboard chrome that these public routes never render inside. */
 function token(name: string): string {
-  const m = CSS.match(new RegExp(`--${name}:\\s*(#[0-9A-Fa-f]{6})\\s*;`));
-  assert.ok(m?.[1], `token --${name} is not defined as a hex in globals.css — renamed or deleted?`);
-  return m[1]!.toUpperCase();
+  // Followed through its pointer: since the one colour set (18 Nov 2026) `--m-slate-2` is `rgb(var(--color-ink-3))`.
+  const hex = tokenHex(name, 'light');
+  assert.ok(hex, `token --${name} does not resolve to one colour in globals.css — renamed or deleted?`);
+  return hex.toUpperCase();
 }
 
 function relativeLuminance(hex: string): number {

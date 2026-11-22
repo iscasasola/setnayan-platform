@@ -10,3 +10,16 @@ The owner said "ok" (19 Nov) to the drawing "Money screens: now and proposed" (a
 SPEC IMPACT: DECISION_LOG.md row "2026-11-19 | 🧹 ADMIN CLEAN PORT — THE MONEY DRAWING IS APPROVED…" (already pushed to the specs repo, commit 3745f051). No other spec change.
 
 **Review fix (controller):** while the AI prices screen cannot read every price, its warning stays a visible line ("don't save from here until it loads cleanly"), not an ⓘ, and every Save and Move on that editor is switched off. This is pinned by `app/admin/pricing/ai-prices-cannot-save-while-unreadable.test.ts`, which is sabotage-checked three ways.
+
+## 2026-11-22 · chore(admin): Money port caught up with main for hand-off
+
+- Merged origin/main. Four screens conflicted. Each keeps the clean template and takes main's newer copy and money
+  facts: the booking fee's lock, every-Nth free fee and new-client months; Launch offer's "Special tools · Pro and
+  up" date; and the gift bundle line. No price was moved or retyped.
+- Generated baselines were merged key by key, not regenerated. Where both sides changed a key, the lower count wins.
+- `admin/gifts/page.tsx`: each search hit's "Comp this …" button now writes `href` before `icon`. The shared comment
+  stripper (`lib/strip-comments.ts`) reads `strokeWidth={1.9} />} … href={\`…\`}` as a regex literal. Every guard that
+  strips comments then misread the rest of the file, and the gift-limit guard flagged a "40%" inside a comment. The
+  stripper itself is unchanged; fixing it is a separate task.
+
+SPEC IMPACT: None.

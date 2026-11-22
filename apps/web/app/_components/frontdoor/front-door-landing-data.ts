@@ -418,8 +418,9 @@ export const PRO_PEEK: readonly string[] = ['Everything in Event Plus', 'Setnaya
  * and find-my-table pages still print "Powered by Setnayan" (Lane L builds the marks by plan). Says what is true now.
  */
 export function proMore(f: PlanFacts): readonly string[] {
-  // 🎟 Setnayan AI moved here from Event Plus in the 18 Nov re-cut (now in `PRO_PEEK`); 1 GB of uploads (`eventCoupleMediaPlan`).
-  return ['No Setnayan watermark on your Event Hub', `${formatMakerMediaMB(coupleMediaCapBytes('pro'))} of uploads`, ...creditsLine(f.proCredits)];
+  // 🎟 Setnayan AI moved here from Event Plus in the 18 Nov re-cut (now in `PRO_PEEK`); 1 GB of uploads (`eventCoupleMediaPlan`);
+  // originals kept 6 months (the Pro row's keep days, migration 20271356433378 — owner's table, 21 Nov).
+  return ['No Setnayan watermark on your Event Hub', 'Your full-size photos kept 6 months after the event', `${formatMakerMediaMB(coupleMediaCapBytes('pro'))} of uploads`, ...creditsLine(f.proCredits)];
 }
 
 /** 🏛 What the whole Event Hub opens — Event Plus's since 20 Nov (Pro and Ultra include it). */

@@ -51,3 +51,9 @@ DECISION_LOG 2026-11-19 "four calls" and 2026-11-20 "Event Plus = 1,000 Papic cr
 - Migration § 2c: `EVENT_PLUS.gift_price_php` = its own `retail_price_php` (₱2,690 → ₱2,990, read from the row, guarded to the old value). DECISION_LOG 14 Nov "EVERYONE PAYS THE REGULAR PRICE" and 16 Nov "every shop pays the list price for a bought gift".
 - DB test `every-plan-gift-is-its-list-price.db.test.ts`: red on the old line (₱2,690 ≠ ₱2,990), green on the fix (2/2).
 SPEC IMPACT: None (the rulings are already in DECISION_LOG).
+
+- **Ship review, 22 Nov (ship controller).** /features' Event Pro column still listed Plus's items (themes, reveals,
+  your own media, prints — and "tickets", which are free). It now says only what Pro adds, from the owner's 21 Nov
+  table: Setnayan AI · full-size photos kept 6 months · 1 GB, no Setnayan mark; the front page's Pro card says the
+  6 months too. Guard: `lib/the-pro-column-says-only-what-pro-adds.test.ts`. Prod has no single hub-part orders, so no
+  old part-holder is affected by the re-cut. No migration changed.

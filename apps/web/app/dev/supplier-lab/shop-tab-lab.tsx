@@ -16,6 +16,10 @@ import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import type { ProfileFieldData } from '@/app/vendor-dashboard/shop/_components/editable-row';
 import { ShopBadgeRow } from '@/app/vendor-dashboard/shop/_components/shop-badge-row';
 import { ShopMakers } from '@/app/vendor-dashboard/shop/_components/shop-makers';
+import { ShopTemplates } from '@/app/vendor-dashboard/shop/_components/shop-templates';
+import { ShopFormsMaker } from '@/app/vendor-dashboard/forms/_components/forms-page-body';
+import type { ShopForm } from '@/lib/vendor-forms.server';
+import type { PlanTemplatesRead } from '@/lib/pay-plan-templates';
 import { ShopSettingsRows } from '@/app/vendor-dashboard/shop/_components/shop-settings-rows';
 import { AnalyticsCarousel } from '@/app/vendor-dashboard/performance/_components/analytics-carousel';
 import { labCarouselProps } from './analytics-lab';
@@ -57,6 +61,43 @@ const bar = (
     <CoordLabBar />
   </BottomDock>
 );
+
+/** 🗂 Card Maker part 4 — Shop › Makers › Templates on sample forms and plans (`?maker=templates` opens it). */
+function labTemplates(fail: boolean, none: boolean) {
+  const form = (id: string, title: string, used: number): ShopForm => ({
+    formId: id, title, items: [], serviceIds: [], usedWith: used, sizeLine: '4 questions', updatedAt: '2026-11-18T00:00:00Z', inLibrary: true, forEventId: null,
+  });
+  const pay = (seq: number, label: string, p: { percent?: number; php?: number; anchor: 'on_lock' | 'before_event'; days: number }) => ({
+    seq, label, amount_kind: p.percent != null ? ('percent' as const) : ('fixed' as const), percent: p.percent ?? null, amount_php: p.php ?? null,
+    due_anchor: p.anchor, due_offset_days: p.days, cancellation_terms: null, downpayment_non_refundable: false, refund_window_days: null, no_show_forfeit: false,
+  });
+  const plans: PlanTemplatesRead = fail
+    ? { status: 'unread' }
+    : {
+        status: 'ok',
+        plans: none
+          ? []
+          : [
+              { id: 'lab-plan-1', name: 'My 3-step plan', cardCount: 2, items: [pay(0, 'Reservation', { percent: 30, anchor: 'on_lock', days: 0 }), pay(1, 'Second payment', { percent: 40, anchor: 'before_event', days: 60 }), pay(2, 'Balance', { percent: 30, anchor: 'before_event', days: 14 })] },
+              { id: 'lab-plan-2', name: 'Half now, half later', cardCount: 0, items: [pay(0, 'Reservation', { php: 10000, anchor: 'on_lock', days: 0 }), pay(1, 'Balance', { percent: 50, anchor: 'before_event', days: 7 })] },
+            ],
+      };
+  return (
+    <ShopTemplates
+      forms={
+        <ShopFormsMaker
+          library={fail ? null : none ? [] : [form('lab-f1', 'Wedding day details', 3), form('lab-f2', 'Song requests', 1)]}
+          cards={[]}
+          suggestions={{ status: 'ok', serviceLabel: 'Live Band', groupLabel: null, own: [], alsoUseful: [] }}
+          locks={{ media: null, video: null }}
+          returnPath="/dev/supplier-lab"
+          shopId="lab-shop"
+        />
+      }
+      plans={plans}
+    />
+  );
+}
 
 function shopLab(fail: boolean, none: boolean) {
   const facts: TrackerFacts | null = fail
@@ -140,16 +181,19 @@ function shopLab(fail: boolean, none: boolean) {
             )}
           />
         </div>
-        {/* 📊🎠 Analytics — THE carousel, the one Analytics (owner 11 Nov 2026), on the analytics lab's own fixtures. */}
-        <AnalyticsCarousel {...labCarouselProps({ shop: none ? 'new' : 'sample', fail, locked: false })} />
-        <ShopBadgeRow tiles={tiles} shopName="SetnaProd" />
+        {/* Templates, then Specialized tools, ABOVE the numbers (owner 19 Nov 2026) — the page's own order. */}
         <ShopMakers
           scanners={fail ? null : none ? [] : [{ coverageId: 1, label: 'Photography', choice: 'once' }, { coverageId: 2, label: 'Photo booth', choice: 'off' }]}
           formsBody={null}
+          templatesBody={labTemplates(fail, none)}
+          offers={{ verified: true, running: fail ? null : none ? 0 : 1, total: fail ? null : none ? 0 : 2, papers: '2 of 2' }}
           categories={none ? [] : ['Live Band', 'Photo Booth']}
           services={none ? [] : ['live_band']}
           booked={fail ? null : none ? [] : [{ eventId: 'ev-santos', eventName: 'Santos – Dela Cruz wedding', bookedDate: '2026-11-14' }, { eventId: 'ev-cruz', eventName: 'Cruz debut', bookedDate: '2026-11-21' }]}
         />
+        {/* 📊🎠 Analytics — THE carousel, the one Analytics (owner 11 Nov 2026), on the analytics lab's own fixtures. */}
+        <AnalyticsCarousel {...labCarouselProps({ shop: none ? 'new' : 'sample', fail, locked: false })} />
+        <ShopBadgeRow tiles={tiles} shopName="SetnaProd" />
         <section className="px-4 pt-3" id="services" aria-labelledby="shop-services-h" data-shop-services="">
           <ShopServicesHead
             line={none ? 'Bundles first, then every service you do, by category' : 'Bundles first, then every service you do, by category · 1 bundle · 2 cards · 1 live'}

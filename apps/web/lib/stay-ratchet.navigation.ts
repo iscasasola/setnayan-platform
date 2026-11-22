@@ -46,6 +46,7 @@ export const STAY_NAVIGATION: Readonly<Record<string, string>> = {
   "app/live/actions.ts › pairLiveScreen": "pair screen → /live/screen",
   "app/login/actions.ts › signInWithPassword": "sign-in → destination",
   "app/onboarding/simple/actions.ts › commitSimpleEvent": "onboarding commit → dashboard",
+  "app/open-shop/actions.ts › approveFirstCard": "Today's welcome card → the card is made, Today without the carried card (or its refusal, said)",
   "app/open-shop/actions.ts › becomeVendor": "Open-shop wizard step → next step / Today",
   "app/panood/actions.ts › claimPanoodCamera": "claim camera → camera",
   "app/papic/actions.ts › claimPapicSeat": "claim seat → camera",

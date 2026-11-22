@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Share } from 'lucide-react';
@@ -17,9 +18,7 @@ type Props = { params: Promise<{ eventId: string; contractId: string }> };
 export default async function CustomerContractDetailPage({ params }: Props) {
   const { eventId, contractId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // RLS gives this row to event members only when contract.status <> 'draft'.

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -116,7 +117,7 @@ export default async function EditorialEditorPage({
   if (!gate.open) {
     return (
       <div className="mx-auto max-w-2xl tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="rounded-2xl border border-ink/12 bg-white/60 p-6 sm:p-8">
+        <div className="rounded-2xl border border-ink/12 bg-raised/60 p-6 sm:p-8">
           {/*
             NO EYEBROW. A "Not yet" kicker above this headline only repeats the
             headline, and page eyebrows are owner-retired (2026-08-xx: a page
@@ -159,9 +160,7 @@ export default async function EditorialEditorPage({
     'public') as LandingVisibility;
   let showcaseOptedIn = false;
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (user) {
       const admin = createAdminClient();
       const { data: me, error: meError } = await admin

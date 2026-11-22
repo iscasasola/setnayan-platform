@@ -27,7 +27,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'As a rough market guide for 2026, full-service wedding catering in the Philippines often runs anywhere from around ₱900 to ₱2,500 per head, with Metro Manila and premium plated service sitting at the higher end and provincial buffets at the lower. Treat any figure far below that range with healthy curiosity — it usually means something has been left out of the quote, and that the missing pieces will reappear as add-ons later. Settle your guest range and venue first, then ask each caterer to quote against the same numbers, so you are comparing genuinely like for like rather than guessing where the gaps are.',
+        text: 'Full-service wedding catering is priced per head, with Metro Manila and premium plated service at the higher end and provincial buffets at the lower. Ask 3 suppliers for a quote, and treat a figure far below the others with healthy curiosity — it usually means something has been left out of the quote, and that the missing pieces will reappear as add-ons later. Settle your guest range and venue first, then ask each caterer to quote against the same numbers, so you are comparing genuinely like for like rather than guessing where the gaps are.',
       },
       {
         type: 'h2',
@@ -273,7 +273,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'As a rough 2026 market guide, mobile bar packages in the Philippines often start in the low-to-mid thousands of pesos for a few hours of mocktails and climb well beyond that for full open bars with premium spirits and longer hours. The bigger trap is corkage. If you want to supply your own alcohol — a case of beer, a bottle of something special, leftover stock from the family — check whether your venue or caterer charges corkage on it. Sometimes bringing your own plus corkage costs more than the bar package.',
+        text: 'Mobile bar packages cost far less for a few hours of mocktails than for a full open bar with premium spirits and longer hours, so ask 3 suppliers for a quote on the same hours and menu. The bigger trap is corkage. If you want to supply your own alcohol — a case of beer, a bottle of something special, leftover stock from the family — check whether your venue or caterer charges corkage on it. Sometimes bringing your own plus corkage costs more than the bar package.',
       },
       {
         type: 'ul',
@@ -435,7 +435,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'As a rough 2026 market guide, wedding cakes in the Philippines range from a few thousand pesos for a simple styled display to well into five figures for elaborate custom designs with multiple real tiers, sugar flowers, and hand-painted detail. Spend where it shows — the cutting tier, the silhouette, and the design that lands in your photos — and save quietly where it does not, on the upper tiers no one will taste. The best wedding cake is not the tallest or the most expensive; it is the one that looks like you, tastes good to the people who actually eat it, and is still standing, beautiful and upright, by the time you cut it.',
+        text: 'A simple styled display costs far less than an elaborate custom design with multiple real tiers, sugar flowers and hand-painted detail, so ask 3 suppliers for a quote on the same design. Spend where it shows — the cutting tier, the silhouette, and the design that lands in your photos — and save quietly where it does not, on the upper tiers no one will taste. The best wedding cake is not the tallest or the most expensive; it is the one that looks like you, tastes good to the people who actually eat it, and is still standing, beautiful and upright, by the time you cut it.',
       },
       {
         type: 'cta',
@@ -733,7 +733,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'As a rough 2026 market guide, professional wedding hosts in the Philippines range from a few thousand pesos for a newer talent to a premium for sought-after personalities and celebrity hosts. Whatever you spend, the brief matters as much as the budget: give your host your love story, the correct pronunciations, the order of the program, and the moments that matter most to you. The better they know your wedding, the more it will feel like it was hosted by someone who truly knew you.',
+        text: 'A newer host costs less than a sought-after personality or a celebrity host, so ask 3 suppliers for a quote on the same program length. Whatever you spend, the brief matters as much as the budget: give your host your love story, the correct pronunciations, the order of the program, and the moments that matter most to you. The better they know your wedding, the more it will feel like it was hosted by someone who truly knew you.',
       },
       {
         type: 'cta',

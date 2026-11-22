@@ -37,3 +37,28 @@ the close with the sample shop "Setnayan Weddings". Every call to action opens `
 
 SPEC IMPACT: None — this ports `prototypes/for_coordinators_2026-11-06/` (corpus) as approved; the
 differences are listed in the PR.
+
+- fix: the Invites line says the per-tier rule ("Each Invites tier you reach pays a reward. Free.") instead of "Every one who books earns you a reward"; the drawing's third access row ("The budget — it stays with the hosts until they share it.") is restored, drawn only while `COORDINATOR_AREAS.budget` defaults to off. Both guarded in `for-coordinators-says-what-ships.test.ts`.
+
+- fix: the sample service card is the live `ServiceFace` + `CardBadgeRow`, exactly as main draws it, instead of a hand-drawn copy (controller, 20 Nov: use the live card; card 14 is held by the scope freeze). The hand card's CSS and its three medal images are removed; guarded in `for-coordinators-says-what-ships.test.ts`.
+
+- fix: the page guard names the old Hub plan without spelling it, so the whole-tree old-name guard stays green.
+
+- merge: main (#8014 reach is not a plan allowance). The Your shop ⓘ now reads "No plan limits bookings or reach. Only a Verified shop is shown in search: …", quoting `reachLadderSentence` as main does; the generated files are regenerated.
+
+## 2026-11-20 · fix(for-coordinators): no months on the public page; the motion guard encodes row 43 and the tokens
+
+- Controller ruling (20 Nov): the client part's ⓘ and the shop part's ⓘ say `SUPPLIER_FREE_BOOKING_LINE`, the owner's
+  19 Nov line (DECISION_LOG 2026-11-19 "PROMOTION PAGES", item 4), instead of `FEE_FREE_RULE` ("…for a year"), which
+  stays for the in-app client card only. The line lives once in `lib/booking-fee-who-words.ts`, the same edit as #8050.
+  `lib/no-fee-wording.test.ts` and the page's own guard pin it and refuse "for a year".
+- `lib/the-website-moves-by-the-standard.test.ts`: the same guard as #8050 — every animation and transition on an
+  adopted public sheet reads the `--sn-*` tokens, and the only loop is a Drift of 20 s+, `ease-in-out` (MOTION_STANDARD
+  row 43). Its old premise (≥ 3 loops) already failed on this head. It also refuses a page's own easing alias
+  (`var(--fc-ease)`), keeping stagger counters (`var(--i, 0)`). /features' `nowline` goes from 6 s to 20 s. Main's
+  pre-redraw /for-suppliers sheet is exempt until #8050 lands.
+- Seen RED once each: a page alias in this sheet, and "for a year" back on the page.
+- Merge note: after #8050 lands, `PUBLIC_PAGES` (no-fee-wording) becomes both pages and `TOKENS_LATER` (motion guard)
+  becomes empty — a one-line union in each.
+
+SPEC IMPACT: None — the 19 Nov ruling and MOTION_STANDARD row 43 are already in the corpus.

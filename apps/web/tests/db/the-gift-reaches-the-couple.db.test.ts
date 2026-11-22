@@ -40,6 +40,7 @@ import {
   type GiftTierRow,
 } from '../../lib/setnayan-gift';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { asRaisedBeforeTheRetirement } from './a-charge-from-before-the-photo-gift-retired';
 
 /** The top Papic pack on sale (owner 2026-11-03) — the cap the gift reaches. Its PRICE is always read from the catalog. */
 const TOP_PACK_CREDITS = 3_000;
@@ -141,10 +142,13 @@ async function newBooking(
 ): Promise<string> {
   const r = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors
-       (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id, service_id)
-     VALUES ($1, 'photographer', 'Gift Test Vendor', $4::vendor_status, $2, $3, $5)
+       (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id, service_id, source)
+     VALUES ($1, 'photographer', 'Gift Test Vendor', $4::vendor_status, $2, $3, $5, $6)
      RETURNING vendor_id`,
-    [eventId, totalPhp, vendorProfileId, opts.status ?? 'contracted', opts.serviceId ?? null],
+    // ⟲ Owner 2026-11-16 (answer 3): nothing imported now pays — a not-sourced booking is recorded as the supplier's
+    // own import (the Locked QR), the way the app records a client the supplier brought.
+    [eventId, totalPhp, vendorProfileId, opts.status ?? 'contracted', opts.serviceId ?? null,
+     opts.sourced === false ? 'vendor_locked_qr' : null],
   );
   if (opts.sourced !== false) {
     await db.query(
@@ -158,11 +162,17 @@ async function newBooking(
 
 type OpenResult = { charge_id?: string; status?: string; skipped?: string };
 
+/**
+ * 🎁 Every charge this file opens stands in for one raised BEFORE the photo gift retired (2026-11-15): the file pins
+ * how such a charge is sized, billed, frozen and granted, which is exactly what still happens to them. A NEW charge is
+ * never offered the photo gift — `a-gift-is-picked-when-the-supplier-agrees.db.test.ts` ① pins that.
+ */
 async function openCharge(evId: string): Promise<OpenResult> {
   const r = await db.query<{ result: OpenResult }>(
     `SELECT public.booking_fee_open_lock_charge($1) AS result`,
     [evId],
   );
+  await asRaisedBeforeTheRetirement(db, r.rows[0]!.result?.charge_id);
   return r.rows[0]!.result;
 }
 
@@ -591,18 +601,25 @@ test('⑦ the quote names a count only when the bill will carry it', async () =>
   // so its card-off quote is `free_booking` — `card_says_no` is the one arm the
   // quote's own switch can turn into a promise, and a free booking must not
   // reach it. The card-off case is asked past the five, below.
+  // ⚖ 20 Nov: no booking takes a free place now — the free booking here is a place FROZEN free before the change.
   const eNoFree = await newEvent('quote-no-free');
   await newBooking(eNoFree, vendorProfileId, 50_000, { serviceId: no, status: 'considering' });
+  await db.query(
+    `INSERT INTO public.booking_fee_ledger
+       (vendor_profile_id, event_id, source, attribution, attribution_frozen_at, booking_ordinal, is_free_booking)
+     VALUES ($1, $2, 'lock', 'sourced', NOW(), 1, TRUE)`,
+    [vendorProfileId, eNoFree],
+  );
   assert.equal(await ask(eNoFree), 'free_booking');
 
   const eImport = await newEvent('quote-import');
   await newBooking(eImport, vendorProfileId, 50_000, { serviceId: yes, status: 'considering', sourced: false });
   assert.equal(await ask(eImport), 'not_sourced');
 
-  // A brand-new supplier: the next booking is one of the first five → free → no gift.
+  // ⚖ 20 Nov: a brand-new supplier's next booking carries a fee — so the gift is real.
   const eFirst = await newEvent('quote-first');
   await newBooking(eFirst, vendorProfileId, 50_000, { serviceId: yes, status: 'considering' });
-  assert.equal(await ask(eFirst), 'free_booking');
+  assert.equal(await ask(eFirst), 'applies');
 
   // Past the five → the gift is real.
   await warmPastFree5(vendorProfileId, 'quote');

@@ -37,6 +37,7 @@ import { activeRailKey } from '@/app/_components/frontdoor/rail-active';
 import { resolveVendorDestinations, vendorRailCandidates } from './vendor-nav-destinations';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
+import type { VendorDuty } from '@/lib/vendor-duties';
 import { TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 import { formatCount } from '@/lib/format-number';
 
@@ -66,6 +67,7 @@ const CAPTION: Record<string, string> = {
 export function VendorRailContext({
   shopName,
   role,
+  duty = null,
   navSlots,
   bookingsBadge = 0,
   threadsBadge = 0,
@@ -93,6 +95,8 @@ export function VendorRailContext({
   */
   /** This person's team role; gates WHICH rows they get. Null = not staff. */
   role: VendorTeamRole | null;
+  /** The person's supplier role (six roles, owner 19 Nov 2026) — a plain string, serializable. Null = the rank rule. */
+  duty?: VendorDuty | null;
   /** The admin nav registry's serializable slot map — labels + icon descriptors. */
   navSlots?: Record<string, NavSlotLite>;
   /** Pending-inquiry count. Real layout data; 0 omits the badge. */
@@ -117,6 +121,7 @@ export function VendorRailContext({
   */
   const destinations = resolveVendorDestinations({
     role,
+    duty,
     navSlots,
     bookingsBadge,
     threadsBadge,

@@ -21,6 +21,8 @@
  * component both import it.
  */
 
+import { perUnitPriceLine } from './per-unit-price';
+
 export type Snapshot = {
   name: string;
   priceText: string;
@@ -87,6 +89,14 @@ export function readSnapshot(fd: FormData): Snapshot {
       priceText = minPax
         ? `from ${php(rate * minPax)} · ${php(rate)}/${perPaxUnit}`
         : `from ${php(rate)} / ${perPaxUnit}`;
+    }
+  } else if (basis === 'per_unit') {
+    // 📦 Card Maker part 7 — the base covers the initial units; the line is lib/per-unit-price.ts's.
+    const base = num(fd.get('unit_base_php'));
+    if (base != null) {
+      anchor = base;
+      const w = fd.get('unit_word');
+      priceText = `from ${perUnitPriceLine({ base, initial: num(fd.get('initial_units')), extra: num(fd.get('extra_unit_php')), word: typeof w === 'string' ? w : null })}`;
     }
   } else if (basis === 'per_hour') {
     const base = num(fd.get('hour_base_php'));
@@ -175,6 +185,10 @@ export type StoredServiceCard = {
   hour_base_php?: number | null;
   min_hours?: number | string | null;
   extra_hour_php?: number | null;
+  unit_word?: string | null;
+  unit_base_php?: number | null;
+  initial_units?: number | null;
+  extra_unit_php?: number | null;
   crew_meal_included?: boolean | null;
   transport_included?: boolean | null;
   transport_flat_fee_php?: number | null;
@@ -232,6 +246,10 @@ export function snapshotFromService(
   put(fd, 'hour_base_php', card.hour_base_php);
   put(fd, 'min_hours', card.min_hours);
   put(fd, 'extra_hour_php', card.extra_hour_php);
+  put(fd, 'unit_word', card.unit_word);
+  put(fd, 'unit_base_php', card.unit_base_php);
+  put(fd, 'initial_units', card.initial_units);
+  put(fd, 'extra_unit_php', card.extra_unit_php);
   put(fd, 'transport_flat_fee_php', card.transport_flat_fee_php);
   put(fd, 'exclusive_perk_text', card.exclusive_perk_text);
   put(fd, 'primary_photo_r2_key', card.primary_photo_r2_key);

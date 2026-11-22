@@ -182,8 +182,9 @@ function nameSectionText(html: string): string {
   const at = html.indexOf('data-guest-card-name');
   assert.ok(at > 0, 'the card has no NAME section');
   /* RE-AIMED 2026-10-23: the name is the Basic Info group now (owner's groups) — it ends where the next group, Details, begins. */
-  const end = html.indexOf('>Details<', at);
-  assert.ok(end > at, 'the Details group no longer follows the name (the probe would read the whole card)');
+  /* (20 Nov 2026, the approved drawing § 3: Details reads "Role and group" — the same group.) */
+  const end = html.indexOf('>Role and group<', at);
+  assert.ok(end > at, 'the Role and group group no longer follows the name (the probe would read the whole card)');
   return decode(html.slice(at, end).replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ');
 }
 

@@ -148,15 +148,17 @@ test('(1) four rows of the one grid in every phase — nothing is a fifth row an
   assert.deepEqual(users.sort(), [`${L}/stage-panel/kit.tsx`, `${L}/stage-panel/stage-animate.tsx`], 'Animate’s classes are imported by a file that may load first');
 });
 
+/* 🔁 RE-AIMED 20 Nov 2026 (DECISION_LOG "MAKER TABS REVISITED" (3)): the phases read Arrives · While showing · Leaves,
+   and Build in's drive (Plays) reads "With the scroll" (`lib/maker-animate-words.ts`). Keys and writes unchanged. */
 test('(2) row 4 by phase — Build in: Movement ◆ · Plays · Rows / Delay; Action: nothing; Build out: Movement ◆ · Leaves ◆, no Delay', async () => {
-  assert.deepEqual(smalls(rowOf(await draw('in', ALL), 4)), ['Movement ◆', 'Plays ◆', 'Rows ◆', 'Delay ◆']); // 💎 RE-AIMED 2026-10-18: every Animate control wears ◆ (owner 2026-10-16)
-  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null }), 4)), ['Movement ◆', 'Plays ◆', 'Delay ◆'], 'a part: Movement ◆ · Plays ◆ · Delay ◆');
-  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { delay: null }), 4)), ['Movement ◆', 'Plays ◆', 'Rows ◆'], 'a scene of rows: Movement ◆ · Plays ◆ · Rows ◆');
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL), 4)), ['Movement ◆', 'With the scroll ◆', 'Rows ◆', 'Delay ◆']); // 💎 RE-AIMED 2026-10-18: every Animate control wears ◆ (owner 2026-10-16)
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null }), 4)), ['Movement ◆', 'With the scroll ◆', 'Delay ◆'], 'a part: Movement ◆ · Plays ◆ · Delay ◆');
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { delay: null }), 4)), ['Movement ◆', 'With the scroll ◆', 'Rows ◆'], 'a scene of rows: Movement ◆ · Plays ◆ · Rows ◆');
   /* ✨ A cover part's Words ▾ / Reveal ▾ (owner-approved 2026-10-16, prototype "Movement ◆ · Words ▾ · Delay"): Plays
      stands beside it only while it is the way back from the scroll. */
   const arrive = { small: 'Words', value: 'word', options: [{ key: 'all', label: 'All at once' }, { key: 'word', label: 'Word by word ◆' }], onPick: noop };
   assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null, arrive, plays: { value: 'arrival', onPick: noop } }), 4)), ['Movement ◆', 'Words ◆', 'Delay ◆'], 'a cover word: Movement ◆ · Words ◆ · Delay ◆');
-  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null, arrive }), 4)), ['Movement ◆', 'Plays ◆', 'Words ◆', 'Delay ◆'], 'on the scroll Plays is the way back');
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null, arrive }), 4)), ['Movement ◆', 'With the scroll ◆', 'Words ◆', 'Delay ◆'], 'on the scroll Plays is the way back');
   assert.equal(rowOf(await draw('act', ALL), 4), '', 'Action has a row 4');
   assert.deepEqual(smalls(rowOf(await draw('out', ALL), 4)), ['Movement ◆', 'Leaves ◆'], 'Build out has NO Delay (decision 8)');
   assert.deepEqual(smalls(rowOf(await draw('out', ALL, { leaves: null }), 4)), ['Movement ◆'], 'the stage’s last scene has no next one');
@@ -195,7 +197,7 @@ test('(4) row 2 — four that are each on or off, and a press writes the shipped
     /* 🧩 A DIFFERENT KIND LOOKS DIFFERENT (seen on the review copy 2026-10-09: four on/offs in one grey track read as a
        single choice with nothing picked): they are the app's CHIPS — each its own bordered pill, filled when on —
        and never a pill selector's segments. */
-    assert.match(row, new RegExp(`role="group" aria-label="Build ${end}" data-chips="${end}-effects"`));
+    assert.match(row, new RegExp(`role="group" aria-label="${end === 'in' ? 'Arrives' : 'Leaves'}" data-chips="${end}-effects"`));
     assert.doesNotMatch(row, /data-pill-selector|data-seg=|sn-pill-thumb|data-seg-thumb/, 'row 2 is a selector’s track again');
     const chips = [...row.matchAll(/<button type="button" aria-pressed="(true|false)" data-chip="(\w+)" class="([^"]*)"><span[^>]*>([^<]*)</g)];
     assert.deepEqual(chips.map((m) => `${m[4]}:${m[1]}`), ['Fade ◆:true', 'Blur ◆:false', 'Move ◆:true', 'Size ◆:false']); // 💎 RE-AIMED 2026-10-18: each effect wears ◆

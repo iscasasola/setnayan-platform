@@ -199,7 +199,7 @@ export function CoverStep({
             writes the same stored ref and the same path prefix, so the two
             controls are two doors to one room rather than two covers quietly
             competing for the top of the story. */}
-        <div className="col-span-2 rounded-md border border-dashed border-ink/25 bg-white/60 p-3 sm:col-span-1">
+        <div className="col-span-2 rounded-md border border-dashed border-ink/25 bg-raised/60 p-3 sm:col-span-1">
           <span className={eyebrow}>Upload another</span>
           <div className="mt-2">
             <FileUpload

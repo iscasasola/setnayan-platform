@@ -32,6 +32,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from '@/lib/strip-comments';
 import { SERVICE_NAMES } from '@/lib/service-names';
 import { EVERY_ADD_ON, ADD_ONS, type AddOnEntry } from '@/lib/add-ons-catalog';
+import { isRetiredAddOn } from '@/lib/retired-products';
 import {
   HOME_PAID_CARD,
   HOME_PAID_KEYS,
@@ -146,6 +147,9 @@ test('2 · every combination → exactly one state per service, and exactly one 
                   const r = READS[readName];
                   let want: HomePaidState;
                   if (!isOffered) want = 'absent';
+                  // 🪦 Music Maker and Patiktok are retired (owner 2026-11-20): drawn only for an event that already
+                  // has one (owned or pending) — never offered, never "unread", never an Add line.
+                  else if (entry && isRetiredAddOn(entry) && !(r?.active || r?.pending)) want = 'absent';
                   // Setnayan AI with no price for this kind is not offered unless already theirs (the More menu's rule).
                   else if (key === 'ai' && !aiSellable && !(r?.active || r?.pending)) want = 'absent';
                   else if (!r || r.active === null) want = 'unread';
@@ -252,6 +256,11 @@ test('5 · nothing added: one "Not added" heading, each service ONE slim line wi
   assert.equal(hub?.status, '◆ Free', 'the Event Hub does not say ◆ Free');
   assert.doesNotMatch(html, /data-home-service="hub"[^>]*data-slim/, 'the Event Hub is a slim Add line');
   for (const key of SKU_KEYS.filter((k) => k !== 'hub')) {
+    // 🪦 Retired (owner 2026-11-20) — an event that does not have one draws no row at all, not an Add line.
+    if (key === 'music' || key === 'booth') {
+      assert.ok(!html.includes(`data-home-service="${key}"`), `${key} is retired but Home still offers it`);
+      continue;
+    }
     const row = tagOf(html, key);
     assert.match(row, /data-slim=""/, `${key} is not the slim line`);
     if (key === 'ai') {

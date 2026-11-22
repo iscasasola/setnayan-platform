@@ -217,7 +217,7 @@ export function IStepper({
       role="group"
       aria-label={label}
       data-stepper={data}
-      className="inline-flex shrink-0 items-stretch overflow-hidden rounded-md border border-ink/15 bg-white"
+      className="inline-flex shrink-0 items-stretch overflow-hidden rounded-md border border-ink/15 bg-raised"
     >
       <button
         type="button"
@@ -293,7 +293,7 @@ export function IButton({
       disabled={disabled}
       data-inspector-button={data}
       className={`sn-press inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full px-4 text-[13px] font-semibold transition-colors duration-sn-control ease-sn disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-9 ${
-        fill ? 'bg-ink text-cream hover:bg-ink/90' : 'bg-white text-ink shadow-[inset_0_0_0_1px_rgba(0,0,0,.12)] hover:bg-ink/5'
+        fill ? 'bg-ink text-cream hover:bg-ink/90' : 'bg-raised text-ink shadow-[inset_0_0_0_1px_rgba(0,0,0,.12)] hover:bg-ink/5'
       }`}
     >
       {children}

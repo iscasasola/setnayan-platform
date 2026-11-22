@@ -12,8 +12,8 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
 
-test('reach comes from shopReach over the effective tier and the shop\'s own ring', () => {
-  assert.match(PAGE, /shopReach\(\{\s*verified: vendor\.verification_state === 'verified',\s*tier: effectiveTierState,/);
+test('reach comes from shopReach over verification and the shop\'s own ring — never the plan (owner 2026-11-19)', () => {
+  assert.match(PAGE, /shopReach\(\{\s*verified: vendor\.verification_state === 'verified',\s*declaredOuterKm: vendor\.outer_radius_km \?\? null,\s*\}\)/);
   assert.match(PAGE, /<ShopReachLine reach=\{reach\}/);
   assert.match(PAGE, /<ShopReachMap\s+reach=\{reach\}/);
   assert.doesNotMatch(PAGE, /serviceRadiusKm/, 'the page reads a radius cap itself — use lib/shop-page-plan.ts');

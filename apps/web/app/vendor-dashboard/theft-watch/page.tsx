@@ -1,63 +1,36 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import Image from 'next/image';
-import { ShieldAlert, ShieldCheck } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRole, resolveVendorStanding, canManageVendor } from '@/lib/vendor-role';
+import { RoleLock } from '@/app/vendor-dashboard/_components/role-lock';
 import { canSeeTheftWatch } from '@/lib/vendor-tier-caps';
 import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
-import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { VendorTierGate } from '../_components/tier-gate';
-import {
-  fetchVendorReposts,
-  type RepostFlagStatus,
-  type RepostSurface,
-} from '@/lib/vendor-theft-watch';
-import { Badge, type BadgeTone } from '@/app/_components/badge';
-import {
-  TEMPLATE_SUBLINE,
-  TemplateEmpty,
-  TemplateRow,
-  TemplateRows,
-  TemplateSection,
-} from '@/app/_components/template-rows';
+import { fetchVendorReposts } from '@/lib/vendor-theft-watch';
+import { TheftWatchView } from './_components/theft-watch-view';
 
 export const metadata = { title: 'Theft Watch · Supplier' };
 
-const STATUS: Record<RepostFlagStatus, { label: string; tone: BadgeTone }> = {
-  open: { label: 'Under review', tone: 'wait' },
-  escalated: { label: 'Escalated to our team', tone: 'wait' },
-  confirmed_theft: { label: 'Confirmed repost', tone: 'no' },
-  dismissed: { label: 'Cleared — no theft', tone: 'quiet' },
-};
-
-const SURFACE_LABEL: Record<RepostSurface, string> = {
-  service_primary: 'Service cover photo',
-  portfolio: 'Portfolio photo',
-  moodboard_library: 'Inspiration photo',
-  service_showcase: 'Service card photo',
-};
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-PH', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
 export default async function VendorTheftWatchPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
   const role = await resolveVendorRole(supabase, user.id);
-  if (!canManageVendor(role)) redirect('/vendor-dashboard');
+  // 🔒 A role that does not open the shop's numbers is TOLD so — Problem and Solution — never bounced in silence.
+  if (!canManageVendor(role)) {
+    return (
+      <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6" data-role-locked-page="insights">
+        <h1 className="sn-h1">Theft Watch</h1>
+        <RoleLock duty={(await resolveVendorStanding(supabase, user.id).catch(() => null))?.duty ?? null} capability="insights" className="mt-4" />
+      </section>
+    );
+  }
 
   const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
   if (isVendorFeatureGateEnabled() && !canSeeTheftWatch(tier)) {
@@ -71,63 +44,8 @@ export default async function VendorTheftWatchPage() {
     );
   }
 
+  // null = the read did not run (refused, or no key) — said as such, never as a clean result (controller 21 Nov).
   const reposts = await fetchVendorReposts(profile.vendor_profile_id);
 
-  return (
-    <section className="mx-auto max-w-3xl space-y-2 px-4 py-4">
-      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
-      <h1 className="sr-only">Theft Watch</h1>
-
-      <TemplateSection
-        label="Reposts flagged"
-        first
-        tip="We fingerprint every photo you upload and scan the marketplace for copies. Our team reviews each match."
-      >
-        {reposts.length === 0 ? (
-          <TemplateEmpty data="theft-watch">
-            <ShieldCheck aria-hidden className="mr-1.5 inline-block h-4 w-4 align-[-2px]" style={{ color: 'rgb(var(--color-ok))' }} strokeWidth={1.75} />
-            No reposts flagged — your work is clean. We&rsquo;ll keep watching.
-          </TemplateEmpty>
-        ) : (
-          <TemplateRows label="Reposts flagged">
-            {reposts.map((flag) => {
-              const status = STATUS[flag.status];
-              // `source_r2_ref` carries whichever shape its surface stored — an
-              // `r2://` ref for a service cover, a portfolio entry for the other.
-              // Null means "not addressable"; the tile stays an empty swatch
-              // rather than a broken image, and the row still names the flag.
-              const thumbUrl = publicUrlForStoredAsset(flag.r2Ref);
-              return (
-                <TemplateRow
-                  key={flag.publicId}
-                  data={flag.publicId}
-                  lead={
-                    <span className="relative block h-12 w-12 overflow-hidden rounded-xl bg-[color:var(--m-paper-2)]">
-                      {thumbUrl ? (
-                        <Image
-                          src={thumbUrl}
-                          alt="Your photo that was reposted"
-                          fill
-                          sizes="48px"
-                          className="object-cover"
-                        />
-                      ) : null}
-                    </span>
-                  }
-                  title={`${SURFACE_LABEL[flag.surface]} reposted`}
-                  line={`Flagged ${formatDate(flag.createdAt)}`}
-                  right={<Badge tone={status.tone}>{status.label}</Badge>}
-                />
-              );
-            })}
-          </TemplateRows>
-        )}
-      </TemplateSection>
-
-      <p className={`pt-2 ${TEMPLATE_SUBLINE}`}>
-        Only you and our review team can see these flags. We never name another supplier on an
-        unconfirmed match — reposts are adjudicated by our team, not automatically.
-      </p>
-    </section>
-  );
+  return <TheftWatchView reposts={reposts} />;
 }

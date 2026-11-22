@@ -131,7 +131,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // only ever emitted for a genuine public showcase.
   const ogImage = `${SITE_URL}/api/og/u/${canonicalSlug}`;
   return {
-    title: `${name} · Setnayan`,
+    // The document title goes through the root layout's `template: '%s · Setnayan'` — it carries the name alone
+    // ("Ice Casasola · Setnayan · Setnayan" read the brand twice, logged-out crawl #20). The share card keeps the brand.
+    title: name === 'Setnayan' ? { absolute: 'Setnayan' } : name,
     // Aggregation surface — the individual event pages carry the real SEO. Keep
     // this out of the index to avoid thin-content duplication, but allow follow
     // so the (public) chapter links are crawled.

@@ -56,6 +56,8 @@ import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/event
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
 import { orderIsTooSoon, orderTooSoonMessage } from '@/lib/availability-styles';
+import { readBookingWindow } from '@/lib/check-a-date.server';
+import { bookingWindowMessage, outsideBookingWindow, windowToday } from '@/lib/booking-window';
 import { phTodayIso } from '@/lib/vendor-day-picker';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
@@ -164,6 +166,7 @@ import { geocodeAddressWithCity } from '@/lib/geo';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 import { readOneBookingMoney } from '@/lib/event-vendor-money';
 import { bookingCostWrite } from '@/lib/booking-cost-write';
+import { pieceBookingIdsOf } from '@/lib/piece-seats';
 import {
   AGREED_COUNT_FIELD,
   PRICE_BASIS_FIELD,
@@ -728,6 +731,10 @@ export type FinalizeVendorResult =
       vendorName: string;
       /** ISO. Mirrors the deadline the trigger materialized on the row. */
       expiresAt: string;
+      /** 🪑 The card rents by the piece (owner Q2, 20 Nov: no couple picker) — the ask went with no number and the
+       *  supplier says how many they can give. FALSE when not, or when the read was refused (logged; the plain
+       *  "sent" line is still true). */
+      byThePiece?: boolean;
     }
   // Locking this vendor narrows the couple's remaining candidate dates to a
   // single day — so confirming the lock also finalizes the wedding date. The
@@ -1716,6 +1723,24 @@ export async function finalizeVendor(
   //      CAPACITY) because the couple's own session cannot see other couples'
   //      bookings. Day-precise events only.
   // Both degrade OPEN on missing data so a lock is never wrongly blocked.
+  // 📅 HOW FAR AWAY THE SHOP TAKES BOOKINGS (owner 2026-11-19, "AT LEAST AND AT MOST, EMPTY AT MOST = 3 YEARS"):
+  // every card of the shop — the slot path AND the daily-capacity path — the same window Check a date and Find showed
+  // the couple. It sits ABOVE the slot/#2 split on purpose (ship review of #8058: a card with time slots was asked with
+  // no window check). A card's own "Order at least N days" (#2 below) can only be stricter. Day-precise events only;
+  // a refused read degrades OPEN, logged, like every capacity read here.
+  if (targetVendor.marketplace_vendor_id) {
+    const { data: windowDay } = await supabase
+      .from('events')
+      .select('event_date, event_date_precision')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const wd = windowDay as { event_date?: string | null; event_date_precision?: string | null } | null;
+    if (wd?.event_date_precision === 'day' && wd.event_date) {
+      const shopWindow = await readBookingWindow(createAdminClient(), targetVendor.marketplace_vendor_id);
+      const outside = shopWindow ? outsideBookingWindow(wd.event_date, windowToday(), shopWindow) : null;
+      if (shopWindow && outside) return { status: 'error', message: bookingWindowMessage(outside, shopWindow) };
+    }
+  }
   let slotPathLocked = false;
   if (targetVendor.marketplace_vendor_id && targetVendor.service_id) {
     const { count: slotCount } = await supabase
@@ -1723,6 +1748,10 @@ export async function finalizeVendor(
       .select('slot_id', { count: 'exact', head: true })
       .eq('vendor_service_id', targetVendor.service_id)
       .eq('is_active', true);
+
+    // 🪑 RENTED BY THE PIECE (owner Q2, 20 Nov: NO): the couple's ask carries no number — the supplier says how many
+    // they can give at the yes (`vendor_agree_to_lock` refuses a piece yes with no number: `pieces_needed`). A couple
+    // never sees, and never states against, the stock.
 
     let useSlotPath = false;
     if ((slotCount ?? 0) > 0) {
@@ -2244,12 +2273,16 @@ export async function finalizeVendor(
       );
     }
 
+    const piece = await pieceBookingIdsOf(supabase, [vendorId]);
+    if (piece.error) console.error('[finalizeVendor] piece-card read failed', piece.error.message);
+
     revalidatePath(`/dashboard/${eventId}/vendors`);
     return {
       status: 'lock_requested',
       vendorId,
       vendorName: targetVendor.vendor_name as string,
       expiresAt,
+      byThePiece: piece.ids?.has(vendorId) ?? false,
     };
   }
 

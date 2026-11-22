@@ -33,13 +33,16 @@ function body(src: string, fn: string): string {
 
 test('the invite asks the one rule, as an invite, and counts no heads of its own', () => {
   const invite = body(ACTIONS, 'inviteVendorTeamMember');
-  assert.match(invite, /canSeat\(\{[\s\S]*?change:\s*\{\s*kind:\s*'invite',\s*role\s*\}/);
+  // 🧑‍🤝‍🧑 Six roles (owner 19 Nov 2026): the invite names the role too — the free seat is the Helper ROLE, not its rank.
+  assert.match(invite, /canSeat\(\{[\s\S]*?change:\s*\{\s*kind:\s*'invite',\s*role,\s*duty\s*\}/);
   assert.doesNotMatch(invite, /count:\s*'exact',\s*head:\s*true/, 'a head-count of members is back — it cannot see the free Helper');
 });
 
 test('a Helper moving to a role that counts asks the rule; nothing else pays the reads', () => {
   const update = body(ACTIONS, 'updateVendorTeamMember');
-  assert.match(update, /target\.role === FREE_HELPER_ROLE && role !== FREE_HELPER_ROLE/);
+  // The free Helper is the Helper ROLE (`duty`); a row read before the six falls back to the rank, as before.
+  assert.match(update, /const wasHelper = isVendorDuty\(target\.duty\) \? target\.duty === 'helper' : target\.role === FREE_HELPER_ROLE;/);
+  assert.match(update, /if \(wasHelper && duty !== 'helper'\) \{/);
   assert.match(update, /canSeat\(\{[\s\S]*?kind:\s*'role'/);
 });
 

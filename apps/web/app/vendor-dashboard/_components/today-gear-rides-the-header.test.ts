@@ -63,7 +63,9 @@ test('1 · exactly one ⚙ on Today, top-right on the header', async () => {
   const { cover, pin } = parts(html);
   assert.ok(cover.length > 0 && pin.length > 0, 'anti-vacuity: the cover or the pinned Needs-you row did not render');
   assert.equal([...html.matchAll(GEAR)].length, 1, 'not exactly one ⚙ on Today');
-  assert.match(cover, /data-supplier-hero-gear=""[\s\S]*aria-label="Today settings"/, 'the ⚙ is not in the header’s top-right slot');
+  // RE-AIMED ON PURPOSE (owner 19 Nov, on live Today: "remove the photo of that header" · "it was suppose to look like focus"; Today v3 part 1): the header is the mast now, and the ⚙ sits in
+  // the mast's own slot (`data-today-cover-gear`) — still the ONE ⚙ on Today, still top-right.
+  assert.match(cover, /data-today-cover-gear=""[\s\S]*aria-label="Today settings"/, 'the ⚙ is not in the header’s top-right slot');
 });
 
 test('2 · the pinned Needs-you row never holds a ⚙ — no slot for one', async () => {
@@ -83,7 +85,8 @@ const read = (rel: string) => stripComments(readFileSync(join(SUPPLIER, rel), 'u
 
 test('3 · Today hands the header its ⚙, and the first screen none — no ride', () => {
   const src = read('_components/supplier-today-screen.tsx');
-  assert.match(src, /<TodayCover[\s\S]*?gear=\{setup \? null : <TodaySettings cover \/>\}/, 'the header no longer gets the ⚙');
+  // The mast sits on the page's own ground, so the ⚙ no longer wears the photo cover's ink (`cover`).
+  assert.match(src, /<TodayCover[\s\S]*?gear=\{setup \? null : <TodaySettings \/>\}/, 'the header no longer gets the ⚙');
   const first = src.slice(src.indexOf('<SupplierTodayFirstScreen'), src.indexOf('/>', src.indexOf('<SupplierTodayFirstScreen')));
   assert.ok(first.length > 0, 'anti-vacuity: Today no longer mounts the first screen');
   assert.doesNotMatch(first, /\bgear=/, 'the first screen is handed a ⚙ again');

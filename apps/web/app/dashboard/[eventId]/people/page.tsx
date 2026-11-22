@@ -1,3 +1,4 @@
+import { eventDelegateGrantOnce } from '@/lib/event-delegate-once';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowRight, Users } from 'lucide-react';
@@ -59,14 +60,8 @@ export default async function EventPeoplePage({ params }: Props) {
       .eq('event_id', eventId)
       .eq('user_id', user.id)
       .maybeSingle(),
-    supabase
-      .from('event_moderators')
-      .select('permissions_json')
-      .eq('event_id', eventId)
-      .eq('user_id', user.id)
-      .not('accepted_at', 'is', null)
-      .is('removed_at', null)
-      .maybeSingle(),
+    // The render's one delegate-grant read (lib/event-delegate-once.ts).
+    eventDelegateGrantOnce(supabase, eventId, user.id),
   ]);
   // ⚠ WHO THE VIEWER IS. Refused, they read as neither couple nor delegate and
   // ⚠ the page lists nothing — the safe direction here, because every row is a

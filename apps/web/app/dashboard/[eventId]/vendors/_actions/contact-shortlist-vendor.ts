@@ -74,7 +74,7 @@ async function resolveActiveServiceForVendor(
 }
 
 /** `event_vendors.source` values that mean the SUPPLIER brought this couple — never Setnayan-sourced. */
-const SUPPLIER_BROUGHT_SOURCES: ReadonlySet<string> = new Set(['vendor_invite', 'vendor_locked_qr', 'reuse_accept']);
+const SUPPLIER_BROUGHT_SOURCES: ReadonlySet<string> = new Set(['vendor_invite', 'vendor_locked_qr', 'reuse_accept', 'vendor_shortlist_qr']);
 function rowWasBroughtBySupplier(source: unknown): boolean {
   return typeof source === 'string' && SUPPLIER_BROUGHT_SOURCES.has(source);
 }

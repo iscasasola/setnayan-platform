@@ -103,6 +103,14 @@ const FILES = scannedFiles();
  */
 const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
   [
+    'lib/papers-renewal.ts',
+    { count: 1, why: 'coupleShopRenewing / renewalBucket (papers renewal build): "was this shop verified before its papers lapsed?" — it picks the renewing WORDS for a lapsed shop (ruling 4) and the admin Renewals chip, never a rendered Verified badge (the badge stays hasVerifiedBadge).' },
+  ],
+  [
+    'lib/papers-renewal.server.ts',
+    { count: 1, why: 'readRenewalView: a never-verified shop has no renewal at all, so the renewal notices and the verification-page state card are only computed for a verified shop. It decides which renewal words to say, never whether a badge is drawn.' },
+  ],
+  [
     'lib/bundle-cards.server.ts',
     { count: 1, why: "readLockShop (Build 6 Lane D): the shop's OWN feature gate — whether canUse('bundleMaker') lets this shop make bundles (lib/locks.ts, the same question every lock asks). Feeds the lock row and savePackage's refusal, never a rendered Verified badge." },
   ],
@@ -113,6 +121,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
   [
     'lib/shop-seals.server.ts',
     { count: 1, why: "readPoolFacts (badge build J2): who may COMPETE for a yearly seal — the listed-verified pool of the monthly Spotlight awards the seals replace (spotlight-awards.ts reads verification_state = 'verified' the same way). Never a rendered Verified badge: Setnayan Verified on a shop is hasVerifiedBadge, read in the same file (readPartnerFacts)." },
+  ],
+  [
+    'lib/vendor-ai-level.ts',
+    { count: 1, why: 'planChatbotLevel (owner 21 Nov "AI Chatbot is for verified and up"): a Free shop whose papers are approved reads as the PLAN STATE "verified" for the chatbot gate (approval does not rewrite tier_state) — the inbox gate and the 🔒, the same read as endedPlanReadsFree; never a rendered Verified badge.' },
   ],
   ['lib/vendor-tier-lapse.ts', { count: 1, why: 'endedPlanReadsFree: an ended paid plan falls back to the PLAN STATE "verified" vs "free" (the tier the gates enforce), not a rendered Verified badge' }],
   [

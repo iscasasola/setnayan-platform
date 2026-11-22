@@ -36,9 +36,14 @@ import { HomeTodayItem, TodaySheetItem } from './home-parts';
  * A server component: forms post to `hubDraftAction` (intent `date_change`) or
  * `updateEventDate`, each of which re-renders Home — no client JS.
  */
-export async function DateChangeDoorway({ eventId }: { eventId: string }) {
-  const supabase = await createClient();
-  const read = await readOpenDateChange(supabase, eventId);
+/** The open date change's one read (`readOpenDateChange`) — Home's first screen runs it once for its Today list. */
+export type DateChangeRead = Awaited<ReturnType<typeof readOpenDateChange>>;
+export async function readDateChange(eventId: string): Promise<DateChangeRead> {
+  return readOpenDateChange(await createClient(), eventId);
+}
+
+export async function DateChangeDoorway({ eventId, read: given }: { eventId: string; read?: DateChangeRead }) {
+  const read = given ?? (await readDateChange(eventId));
   if (!read.ok) {
     return (
       <HomeTodayItem
@@ -53,12 +58,7 @@ export async function DateChangeDoorway({ eventId }: { eventId: string }) {
   const view = read.view;
   if (!view) return null;
 
-  const now = Date.now();
-  const action = hubDraftAction.bind(null, eventId) as unknown as (formData: FormData) => Promise<void>;
-  const useDate = updateEventDate as unknown as (formData: FormData) => Promise<void>;
   const to = dateChangeWhen(view.proposedDate, view.proposedPrecision);
-  const from = view.fromDate ? dateChangeWhen(view.fromDate, view.fromPrecision) : 'your current date';
-
   return (
     <TodaySheetItem
       words={dateChangeHomeLine(view)}
@@ -67,6 +67,24 @@ export async function DateChangeDoorway({ eventId }: { eventId: string }) {
       title="Date change"
       dataAttr={['data-date-change-home', '']}
     >
+      <DateChangeBody eventId={eventId} view={view} />
+    </TodaySheetItem>
+  );
+}
+
+/**
+ * The date change's own body — who answered, keep waiting · drop, use the date, withdraw. ONE body, held by the house
+ * Sheet (the day-of and after-the-day screens) and by the open card of its row on Home's Today list (owner 20 Nov 2026).
+ */
+export function DateChangeBody({ eventId, view }: { eventId: string; view: NonNullable<Extract<DateChangeRead, { ok: true }>['view']> }) {
+  const now = Date.now();
+  const action = hubDraftAction.bind(null, eventId) as unknown as (formData: FormData) => Promise<void>;
+  const useDate = updateEventDate as unknown as (formData: FormData) => Promise<void>;
+  const to = dateChangeWhen(view.proposedDate, view.proposedPrecision);
+  const from = view.fromDate ? dateChangeWhen(view.fromDate, view.fromPrecision) : 'your current date';
+
+  return (
+    <>
       {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 7 · 13): the explaining line is behind the ⓘ, each supplier is one
           hairline row, the presses are the shared pills (grey Keep waiting · red Drop · the one terracotta Use), no pale ink. */}
       <section className="flex flex-col gap-3" aria-label="Date change">
@@ -151,6 +169,6 @@ export async function DateChangeDoorway({ eventId }: { eventId: string }) {
           </SubmitButton>
         </form>
       </section>
-    </TodaySheetItem>
+    </>
   );
 }

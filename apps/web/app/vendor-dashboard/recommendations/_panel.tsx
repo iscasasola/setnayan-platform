@@ -1,19 +1,16 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  Sparkles,
-  Lightbulb,
-  Check,
-  ThumbsDown,
-  Plus,
-  ChevronDown,
-  Send,
-} from 'lucide-react';
+import { useId, useState } from 'react';
+import { ThumbsDown, Plus, ChevronDown, Send, Power } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { setOptIn, flagFeedback } from './actions';
 import { suggestToCouple } from './share-actions';
-import { ShopEmpty, ShopNotice } from '../_components/kit';
+import { ActionButton } from '@/components/action-button';
+import { Fold } from '@/app/_components/fold';
+import { InfoTip } from '@/app/_components/info-tip';
+import { Sheet } from '@/app/_components/sheet';
+import { SupplierToast } from '../_components/supplier-toast';
+import { ToolChip, ToolEmpty, ToolFail, ToolPage, ToolPin, ToolSection } from '../_components/tool-page';
 import { StayForm } from '@/app/_components/stay-form';
 
 /**
@@ -96,77 +93,41 @@ export function RecommendationsPanel({
 }) {
   const suggestedSet = new Set(suggestedKeys);
   return (
-    <section className="mx-auto w-full tab:max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <header className="space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-            <Sparkles aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <span className="rounded-full bg-ink/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Recommend
-          </span>
-        </div>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Recommend to your couples
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Hand-picked add-ons that make <em>your</em> work shine — the Setnayan
-          services we&rsquo;d pair with what you do. Browse them here, switch on
-          the ones you want to stand behind, and tell us when something doesn&rsquo;t
-          fit or when you&rsquo;d add another.
-        </p>
-      </header>
+    <ToolPage name="recommend">
+      {/* The redraw (v3, 21 Nov 2026): the sparkles tile, the mono chip and the three-line intro are one line + ⓘ. */}
+      <ToolPin
+        route="/vendor-dashboard/recommendations"
+        title="Recommend"
+        sub={
+          <InfoTip label="Add-ons we’d pair with what you do." align="start">
+            Recommend to your couples. Hand-picked add-ons that make <em>your</em> work shine — the Setnayan services
+            we&rsquo;d pair with what you do. Browse them here, switch on the ones you want to stand behind, and tell us
+            when something doesn&rsquo;t fit or when you&rsquo;d add another.
+          </InfoTip>
+        }
+      />
 
-      {errorFlash ? (
-        <ShopNotice tone="gold" role="alert">
-          {errorFlash}
-        </ShopNotice>
-      ) : null}
-      {savedFlash ? (
-        <ShopNotice tone="success" role="status">
-          Saved.
-        </ShopNotice>
-      ) : null}
-      {flaggedFlash ? (
-        <ShopNotice tone="success" role="status">
-          Thanks — we&rsquo;ll review your note and get back to you.
-        </ShopNotice>
-      ) : null}
-      {suggestedFlash ? (
-        <ShopNotice tone="success" role="status">
-          Suggested — the couple will see it in their Studio.
-        </ShopNotice>
-      ) : null}
+      {errorFlash ? <ToolFail data="recommend" title={errorFlash} /> : null}
+      {savedFlash ? <SupplierToast tone="ok" text="Saved." line={false} /> : null}
+      {flaggedFlash ? <SupplierToast tone="ok" text="Thanks — we’ll review your note and get back to you." line={false} /> : null}
+      {suggestedFlash ? <SupplierToast tone="ok" text="Suggested — the couple will see it in their Studio." line={false} /> : null}
 
       {groups.length === 0 ? (
-        <ShopEmpty>
-          <Sparkles
-            aria-hidden
-            className="mx-auto mb-2 h-6 w-6 text-ink/30"
-            strokeWidth={1.5}
-          />
-          <p className="text-sm font-medium text-ink">
-            No recommendations for your categories yet.
-          </p>
-          <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
-            As we curate add-ons that pair with what you do, they&rsquo;ll show up
-            here. Add the services you offer on the Services tab to unlock matches.
-          </p>
-        </ShopEmpty>
+        <ToolEmpty data="recommend">
+          No recommendations for your categories yet. Add the services you offer to unlock matches.
+        </ToolEmpty>
       ) : (
-        <div className="space-y-8">
-          {groups.map((group) => (
-            <LeafSection
-              key={group.tileId}
-              group={group}
-              suggestSkuOptions={suggestSkuOptions}
-              connectedCouples={connectedCouples}
-              suggestedSet={suggestedSet}
-            />
-          ))}
-        </div>
+        groups.map((group) => (
+          <LeafSection
+            key={group.tileId}
+            group={group}
+            suggestSkuOptions={suggestSkuOptions}
+            connectedCouples={connectedCouples}
+            suggestedSet={suggestedSet}
+          />
+        ))
       )}
-    </section>
+    </ToolPage>
   );
 }
 
@@ -181,186 +142,106 @@ function LeafSection({
   connectedCouples: ConnectedCouple[];
   suggestedSet: Set<string>;
 }) {
+  // Always-on + the vendor's enabled opt-ins first, then the overlap offers they can turn on — the shipped order.
+  const rows = [...group.active, ...group.offers];
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-ink">{group.leafLabel}</h2>
-        <SuggestControl
-          tileId={group.tileId}
-          options={suggestSkuOptions}
-          alreadyFlagged={group.suggestFlagged}
-        />
-      </div>
-
-      {/* Active recommendations — always-on + the vendor's enabled opt-ins. */}
-      {group.active.length > 0 ? (
-        <ul className="space-y-3">
-          {group.active.map((rec) => (
+    <ToolSection
+      label={group.leafLabel}
+      right={<SuggestControl tileId={group.tileId} options={suggestSkuOptions} alreadyFlagged={group.suggestFlagged} />}
+      data={`recommend-${group.tileId}`}
+    >
+      {rows.length === 0 ? (
+        <ToolEmpty data="recommend-leaf">Nothing to recommend under this category right now.</ToolEmpty>
+      ) : (
+        <ul className="sn-frame px-4 py-1">
+          {rows.map((rec) => (
             <li key={`${rec.tileId}:${rec.serviceCode}`}>
-              <ActiveRecCard
-                rec={rec}
-                connectedCouples={connectedCouples}
-                suggestedSet={suggestedSet}
-              />
+              <RecRow rec={rec} offer={group.offers.includes(rec)} connectedCouples={connectedCouples} suggestedSet={suggestedSet} />
             </li>
           ))}
         </ul>
-      ) : null}
-
-      {/* Opt-in offers — overlap-risk SKUs the vendor can turn on. */}
-      {group.offers.length > 0 ? (
-        <ul className="space-y-3">
-          {group.offers.map((rec) => (
-            <li key={`${rec.tileId}:${rec.serviceCode}`}>
-              <OptInOfferCard
-                rec={rec}
-                connectedCouples={connectedCouples}
-                suggestedSet={suggestedSet}
-              />
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {group.active.length === 0 && group.offers.length === 0 ? (
-        <p className="text-sm text-ink/55">
-          Nothing to recommend under this category right now.
-        </p>
-      ) : null}
-    </div>
+      )}
+    </ToolSection>
   );
 }
 
-/** An active recommendation card — title, price, "Why this helps you", and the
- *  "Not a fit for me" affordance. */
-function ActiveRecCard({
+/**
+ * One add-on — a row that opens in place (the shared `Fold`, one at a time). Shut: its title, its catalogue price (hidden
+ * in the app-store shell) and its state (On · Overlaps your work · Flagged — pending review). Open: the overlap note,
+ * "Why this helps you", Turn on / Turn off, Suggest to a couple and Not a fit for me — the same forms and actions.
+ */
+function RecRow({
   rec,
+  offer,
   connectedCouples,
   suggestedSet,
 }: {
   rec: RecCard;
+  /** An overlap offer the shop has not turned on (the old sky-blue card). */
+  offer: boolean;
   connectedCouples: ConnectedCouple[];
   suggestedSet: Set<string>;
 }) {
+  const on = rec.isOptIn && rec.optInEnabled;
   return (
-    <div className="sn-tile p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-0.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-base font-semibold text-ink">{rec.title}</p>
-            {rec.isOptIn && rec.optInEnabled ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
-                <Check className="h-3 w-3" strokeWidth={2.5} />
-                On
-              </span>
-            ) : null}
-          </div>
-          {rec.priceLabel ? (
-            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-              {rec.priceLabel}
-            </p>
-          ) : null}
-        </div>
-        {rec.isOptIn && rec.optInEnabled ? (
-          <StayForm door="svRecommendations.setOptIn" action={setOptIn} className="shrink-0">
-            <input type="hidden" name="tile_id" value={rec.tileId} />
-            <input type="hidden" name="service_code" value={rec.serviceCode} />
-            <input type="hidden" name="enabled" value="false" />
-            <SubmitButton
-              className="inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-xs font-medium text-ink hover:border-ink/40"
-              pendingLabel="Turning off…"
-            >
-              Turn off
-            </SubmitButton>
-          </StayForm>
-        ) : null}
-      </div>
-
-      {rec.rationale ? (
-        <div className="mt-3 rounded-xl border border-ink/10 bg-ink/[0.02] p-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-            Why this helps you
+    <Fold
+      title={rec.title}
+      wrap
+      lineWrap
+      line={rec.priceLabel ?? undefined}
+      aside={on && !rec.flaggedNotAFit ? <ToolChip tone="ok">On</ToolChip> : undefined}
+      between={
+        rec.flaggedNotAFit || offer ? (
+          // The drawing's longer chips sit under the price line (`.rs .chip`), never squeezing the add-on's name.
+          <span className="-mt-1 flex pb-2">
+            {rec.flaggedNotAFit ? <ToolChip tone="wait">Flagged — pending review</ToolChip> : <ToolChip tone="info">Overlaps your work</ToolChip>}
+          </span>
+        ) : undefined
+      }
+      data="recommend-row"
+    >
+      <div className="flex flex-col gap-2 pb-4 pt-1 text-[14px]">
+        {offer ? (
+          <p className="text-[color:var(--m-slate-2)]">
+            This one can overlap your own service. Turn it on only if you&rsquo;re happy to recommend it alongside what you
+            offer.
           </p>
-          <p className="mt-1 text-sm text-ink/75">{rec.rationale}</p>
-        </div>
-      ) : null}
-
-      {rec.addonKey ? (
-        <div className="mt-3 border-t border-ink/10 pt-3">
-          <SuggestToCoupleControl
-            addonKey={rec.addonKey}
-            connectedCouples={connectedCouples}
-            suggestedSet={suggestedSet}
-          />
-        </div>
-      ) : null}
-
-      <div className="mt-3">
-        <NotAFitControl rec={rec} />
-      </div>
-    </div>
-  );
-}
-
-/** An opt-in offer card — frames the overlap honestly and offers a toggle to
- *  turn the recommendation on. */
-function OptInOfferCard({
-  rec,
-  connectedCouples,
-  suggestedSet,
-}: {
-  rec: RecCard;
-  connectedCouples: ConnectedCouple[];
-  suggestedSet: Set<string>;
-}) {
-  return (
-    <div className="rounded-2xl border border-sky-300/60 bg-sky-50 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-0.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-base font-semibold text-ink">{rec.title}</p>
-            <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-sky-800">
-              Overlaps your work
-            </span>
+        ) : null}
+        {rec.rationale ? (
+          <div>
+            <p className="font-bold text-ink">Why this helps you</p>
+            <p className="text-[color:var(--m-slate-2)]">{rec.rationale}</p>
           </div>
-          {rec.priceLabel ? (
-            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-              {rec.priceLabel}
-            </p>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          {offer ? (
+            <StayForm door="svRecommendations.setOptIn" action={setOptIn}>
+              <input type="hidden" name="tile_id" value={rec.tileId} />
+              <input type="hidden" name="service_code" value={rec.serviceCode} />
+              <input type="hidden" name="enabled" value="true" />
+              <SubmitButton className="button-primary inline-flex items-center gap-1.5 text-sm" pendingLabel="Turning on…">
+                <Power aria-hidden className="h-4 w-4" strokeWidth={1.8} /> Turn on
+              </SubmitButton>
+            </StayForm>
+          ) : on ? (
+            <StayForm door="svRecommendations.setOptIn" action={setOptIn}>
+              <input type="hidden" name="tile_id" value={rec.tileId} />
+              <input type="hidden" name="service_code" value={rec.serviceCode} />
+              <input type="hidden" name="enabled" value="false" />
+              <SubmitButton className="button-secondary inline-flex items-center gap-1.5 text-sm" pendingLabel="Turning off…">
+                <Power aria-hidden className="h-4 w-4" strokeWidth={1.8} /> Turn off
+              </SubmitButton>
+            </StayForm>
+          ) : null}
+          {rec.addonKey ? (
+            <SuggestToCoupleControl addonKey={rec.addonKey} title={rec.title} connectedCouples={connectedCouples} suggestedSet={suggestedSet} />
           ) : null}
         </div>
-        <StayForm door="svRecommendations.setOptIn" action={setOptIn} className="shrink-0">
-          <input type="hidden" name="tile_id" value={rec.tileId} />
-          <input type="hidden" name="service_code" value={rec.serviceCode} />
-          <input type="hidden" name="enabled" value="true" />
-          <SubmitButton className="button-primary h-9 px-3 text-xs" pendingLabel="Turning on…">
-            Turn on
-          </SubmitButton>
-        </StayForm>
-      </div>
-
-      <p className="mt-2 text-xs text-ink/65">
-        This one can overlap your own service. Turn it on only if you&rsquo;re happy
-        to recommend it alongside what you offer.
-      </p>
-      {rec.rationale ? (
-        <p className="mt-2 text-sm text-ink/75">{rec.rationale}</p>
-      ) : null}
-
-      {rec.addonKey ? (
-        <div className="mt-3 border-t border-sky-300/40 pt-3">
-          <SuggestToCoupleControl
-            addonKey={rec.addonKey}
-            connectedCouples={connectedCouples}
-            suggestedSet={suggestedSet}
-          />
+        <div>
+          <NotAFitControl rec={rec} />
         </div>
-      ) : null}
-
-      <div className="mt-3">
-        <NotAFitControl rec={rec} />
       </div>
-    </div>
+    </Fold>
   );
 }
 
@@ -376,19 +257,23 @@ function OptInOfferCard({
  */
 function SuggestToCoupleControl({
   addonKey,
+  title,
   connectedCouples,
   suggestedSet,
 }: {
   addonKey: string;
+  /** The add-on's name — the sheet says what is being suggested. */
+  title: string;
   connectedCouples: ConnectedCouple[];
   suggestedSet: Set<string>;
 }) {
   const [open, setOpen] = useState(false);
+  const headId = useId();
 
   // No connected couples → nothing to suggest to yet.
   if (connectedCouples.length === 0) {
     return (
-      <p className="text-xs text-ink/45">
+      <p className="text-[14px] text-[color:var(--m-slate-2)]">
         Connect with a couple first to suggest this.
       </p>
     );
@@ -402,80 +287,65 @@ function SuggestToCoupleControl({
 
   if (remaining.length === 0) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
-        <Check className="h-3 w-3" strokeWidth={2.5} />
-        Suggested&nbsp;&#10003;
-      </span>
-    );
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta-700 hover:text-terracotta-700"
-      >
-        <Send className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-        Suggest to a couple
-      </button>
+      <ToolChip tone="ok">Suggested&nbsp;&#10003;</ToolChip>
     );
   }
 
   return (
-    <form
-      action={suggestToCouple}
-      className="w-full max-w-md space-y-2 sn-row p-3"
-    >
-      <input type="hidden" name="addon_key" value={addonKey} />
-      <p className="text-xs font-medium text-ink/75">
-        Suggest this to one of your couples
-      </p>
-      <div className="relative">
-        <select
-          name="event_id"
-          required
-          defaultValue=""
-          className="input-field cursor-pointer appearance-none pr-9"
-        >
-          <option value="" disabled>
-            Pick a couple…
-          </option>
-          {remaining.map((c) => (
-            <option key={c.eventId} value={c.eventId}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          aria-hidden
-          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
-          strokeWidth={1.75}
-        />
-      </div>
-      <textarea
-        name="note"
-        rows={2}
-        maxLength={280}
-        placeholder="Add a short note for the couple (optional)"
-        className="input-field resize-none text-sm"
-      />
-      <div className="flex items-center justify-end gap-3">
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="text-xs text-ink/55 hover:text-ink"
-        >
-          Cancel
-        </button>
-        <SubmitButton
-          className="button-primary h-8 px-3 text-[11px]"
-          pendingLabel="Suggesting…"
-        >
-          Suggest
-        </SubmitButton>
-      </div>
-    </form>
+    <>
+      <ActionButton tone="neutral" icon={Send} label="Suggest to a couple" onClick={() => setOpen(true)} />
+      <Sheet open={open} onClose={() => setOpen(false)} labelledById={headId}>
+          <form
+            action={suggestToCouple}
+            className="flex flex-col gap-2.5 px-5 pb-6 pt-5"
+          >
+            <input type="hidden" name="addon_key" value={addonKey} />
+            <div>
+              <h2 id={headId} className="sn-sheet-name pr-12 text-ink">
+                Suggest to a couple
+              </h2>
+              <p className="text-[14px] text-[color:var(--m-slate-2)]">{title} · they see it in their Studio</p>
+            </div>
+            <div className="relative">
+              <select
+                name="event_id"
+                required
+                defaultValue=""
+                className="input-field cursor-pointer appearance-none pr-9"
+              >
+                <option value="" disabled>
+                  Pick a couple…
+                </option>
+                {remaining.map((c) => (
+                  <option key={c.eventId} value={c.eventId}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                aria-hidden
+                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
+                strokeWidth={1.75}
+              />
+            </div>
+            <textarea
+              name="note"
+              rows={2}
+              maxLength={280}
+              placeholder="Add a short note for the couple (optional)"
+              className="input-field resize-none text-sm"
+            />
+            <div className="flex items-center justify-end gap-3">
+              <SubmitButton
+                className="button-primary inline-flex w-full items-center justify-center gap-1.5"
+                pendingLabel="Suggesting…"
+              >
+                Suggest
+              </SubmitButton>
+            </div>
+          </form>
+      </Sheet>
+    </>
   );
 }
 
@@ -483,64 +353,50 @@ function SuggestToCoupleControl({
  *  pending flag already exists, shows the "pending review" pill instead. */
 function NotAFitControl({ rec }: { rec: RecCard }) {
   const [open, setOpen] = useState(false);
+  const headId = useId();
 
   if (rec.flaggedNotAFit) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-warn-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-warn-900">
-        <ThumbsDown className="h-3 w-3" strokeWidth={2} />
-        Flagged — pending review
-      </span>
-    );
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/55 hover:text-ink"
-      >
-        <ThumbsDown className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-        Not a fit for me
-      </button>
+      <ToolChip tone="wait">Flagged — pending review</ToolChip>
     );
   }
 
   return (
-    <StayForm
-      door="svRecommendations.flagFeedback"
-      action={flagFeedback}
-      className="space-y-2 sn-row p-3"
-    >
-      <input type="hidden" name="feedback_type" value="not_a_fit" />
-      <input type="hidden" name="tile_id" value={rec.tileId} />
-      <input type="hidden" name="service_code" value={rec.serviceCode} />
-      <p className="text-xs font-medium text-ink/75">
-        Tell us why this doesn&rsquo;t fit (optional)
-      </p>
-      <textarea
-        name="note"
-        rows={2}
-        maxLength={1000}
-        placeholder="e.g. I already include this · it competes with my package · not relevant to my couples"
-        className="input-field resize-none text-sm"
-      />
-      <div className="flex items-center justify-end gap-3">
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="text-xs text-ink/55 hover:text-ink"
+    <>
+      <ActionButton tone="neutral" quiet icon={ThumbsDown} label="Not a fit for me" onClick={() => setOpen(true)} />
+      <Sheet open={open} onClose={() => setOpen(false)} labelledById={headId}>
+        <StayForm
+          door="svRecommendations.flagFeedback"
+          action={flagFeedback}
+          className="flex flex-col gap-2.5 px-5 pb-6 pt-5"
         >
-          Cancel
-        </button>
-        <SubmitButton
-          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40"
-          pendingLabel="Sending…"
-        >
-          Send flag
-        </SubmitButton>
-      </div>
-    </StayForm>
+          <input type="hidden" name="feedback_type" value="not_a_fit" />
+          <input type="hidden" name="tile_id" value={rec.tileId} />
+          <input type="hidden" name="service_code" value={rec.serviceCode} />
+          <div>
+            <h2 id={headId} className="sn-sheet-name pr-12 text-ink">
+              Not a fit for me
+            </h2>
+            <p className="text-[14px] text-[color:var(--m-slate-2)]">{rec.title} · Tell us why this doesn&rsquo;t fit (optional)</p>
+          </div>
+          <textarea
+            name="note"
+            rows={2}
+            maxLength={1000}
+            placeholder="e.g. I already include this · it competes with my package · not relevant to my couples"
+            className="input-field resize-none text-sm"
+          />
+          <div className="flex items-center justify-end gap-3">
+            <SubmitButton
+              className="button-primary inline-flex w-full items-center justify-center gap-1.5"
+              pendingLabel="Sending…"
+            >
+              Send flag
+            </SubmitButton>
+          </div>
+        </StayForm>
+      </Sheet>
+    </>
   );
 }
 
@@ -556,81 +412,64 @@ function SuggestControl({
   alreadyFlagged: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const headId = useId();
 
   if (alreadyFlagged) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-warn-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-warn-900">
-        <Lightbulb className="h-3 w-3" strokeWidth={2} />
-        Suggestion pending review
-      </span>
-    );
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/55 hover:text-ink"
-      >
-        <Plus className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-        Suggest a service to recommend
-      </button>
+      <ToolChip tone="wait">Suggestion pending review</ToolChip>
     );
   }
 
   return (
-    <StayForm
-      door="svRecommendations.flagFeedback"
-      action={flagFeedback}
-      className="w-full max-w-md space-y-2 sn-row p-3"
-    >
-      <input type="hidden" name="feedback_type" value="suggest_add" />
-      <input type="hidden" name="tile_id" value={tileId} />
-      <p className="text-xs font-medium text-ink/75">
-        Suggest a service we should recommend here
-      </p>
-      <div className="relative">
-        <select
-          name="service_code"
-          defaultValue=""
-          className="input-field cursor-pointer appearance-none pr-9"
+    <>
+      <ActionButton tone="neutral" quiet icon={Plus} label="Suggest a service" name="Suggest a service to recommend" onClick={() => setOpen(true)} />
+      <Sheet open={open} onClose={() => setOpen(false)} labelledById={headId}>
+        <StayForm
+          door="svRecommendations.flagFeedback"
+          action={flagFeedback}
+          className="flex flex-col gap-2.5 px-5 pb-6 pt-5"
         >
-          <option value="">Pick a service (optional)…</option>
-          {options.map((o) => (
-            <option key={o.serviceCode} value={o.serviceCode}>
-              {o.priceLabel ? `${o.title} · ${o.priceLabel}` : o.title}
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          aria-hidden
-          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
-          strokeWidth={1.75}
-        />
-      </div>
-      <textarea
-        name="note"
-        rows={2}
-        maxLength={1000}
-        placeholder="Why would this pair well with your work? (optional)"
-        className="input-field resize-none text-sm"
-      />
-      <div className="flex items-center justify-end gap-3">
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="text-xs text-ink/55 hover:text-ink"
-        >
-          Cancel
-        </button>
-        <SubmitButton
-          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40"
-          pendingLabel="Sending…"
-        >
-          Send suggestion
-        </SubmitButton>
-      </div>
-    </StayForm>
+          <input type="hidden" name="feedback_type" value="suggest_add" />
+          <input type="hidden" name="tile_id" value={tileId} />
+          <h2 id={headId} className="sn-sheet-name pr-12 text-ink">
+            Suggest a service we should recommend here
+          </h2>
+          <div className="relative">
+            <select
+              name="service_code"
+              defaultValue=""
+              className="input-field cursor-pointer appearance-none pr-9"
+            >
+              <option value="">Pick a service (optional)…</option>
+              {options.map((o) => (
+                <option key={o.serviceCode} value={o.serviceCode}>
+                  {o.priceLabel ? `${o.title} · ${o.priceLabel}` : o.title}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              aria-hidden
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
+              strokeWidth={1.75}
+            />
+          </div>
+          <textarea
+            name="note"
+            rows={2}
+            maxLength={1000}
+            placeholder="Why would this pair well with your work? (optional)"
+            className="input-field resize-none text-sm"
+          />
+          <div className="flex items-center justify-end gap-3">
+            <SubmitButton
+              className="button-primary inline-flex w-full items-center justify-center gap-1.5"
+              pendingLabel="Sending…"
+            >
+              Send suggestion
+            </SubmitButton>
+          </div>
+        </StayForm>
+      </Sheet>
+    </>
   );
 }

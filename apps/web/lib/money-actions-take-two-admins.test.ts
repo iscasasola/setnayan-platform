@@ -194,13 +194,21 @@ test('the refund REQUEST path refunds nothing above the threshold', () => {
       'after the money was already recorded as returned, which is a receipt, not a gate.',
   );
 
-  // And the gated branch must open an approval rather than fall through.
+  // And the gated branch must open an approval rather than fall through. Since 2026-11-22 the by-hand refund and
+  // the Maya one share `openLargeRefundApproval` (one request shape for both), so the branch either opens it inline
+  // or calls that helper — and then the HELPER must open the request and end in a throw, never fall through.
   const gated = body.slice(gateAt, applyAt);
-  assert.match(
-    gated,
-    /action_type: 'approve_large_refund'/,
-    'the over-threshold branch does not open an approve_large_refund request',
-  );
+  const inline = /action_type: 'approve_large_refund'/.test(gated);
+  const viaHelper = /await openLargeRefundApproval\(/.test(gated);
+  assert.ok(inline || viaHelper, 'the over-threshold branch does not open an approve_large_refund request');
+  if (viaHelper) {
+    const helperAt = src.indexOf('async function openLargeRefundApproval(');
+    assert.ok(helperAt >= 0, 'openLargeRefundApproval is called but not defined here');
+    const helper = src.slice(helperAt, src.indexOf('\n}', helperAt));
+    assert.match(helper, /action_type: 'approve_large_refund'/, 'openLargeRefundApproval no longer opens the request');
+    assert.match(src, /async function openLargeRefundApproval\([\s\S]*?\): Promise<never> \{/, 'openLargeRefundApproval may fall through to the refund');
+    assert.equal(/applyRefund\(/.test(helper), false, 'openLargeRefundApproval performs the refund itself');
+  }
 });
 
 test('the refund EXECUTOR is reachable only from the approvals dispatcher', () => {

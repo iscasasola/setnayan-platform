@@ -71,6 +71,9 @@ export type CardFoldProps = {
   handle?: string;
   /** 🎨 Its summary is something still MISSING ("Add a mobile") — drawn in the accent; a filled summary stays grey. */
   missing?: boolean;
+  /** 🔴 Its summary says a read FAILED ("Couldn’t read their seat") — drawn in the warn colour, so it never reads as a
+   *  value (Fable review, 22 Nov: the honest words looked like any other grey summary). */
+  unread?: boolean;
   children: ReactNode;
 };
 export type CardPickProps = {

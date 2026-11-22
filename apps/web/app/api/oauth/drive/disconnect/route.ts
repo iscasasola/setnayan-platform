@@ -5,6 +5,10 @@ import {
   getDriveOAuthConfig,
   revokeDriveToken,
 } from '@/lib/papic-drive';
+import { openStoredToken } from '@/lib/oauth-token-vault';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { SUPPLIER_DRIVE_PROVIDER, shopDriveBackPath, withParam } from '@/lib/supplier-drive-copy';
+import { forgetShopDriveCopies } from '@/lib/supplier-drive-copy.server';
 
 // Iteration 0012 Papic — Google Drive OAuth disconnect.
 //
@@ -29,26 +33,30 @@ export const dynamic = 'force-dynamic';
 
 async function readForm(
   req: NextRequest,
-): Promise<{ eventId: string | null; slot: string | null }> {
+): Promise<{ eventId: string | null; slot: string | null; forShop: boolean; back: string | null }> {
   // Support both <form action="..."> POSTs (multipart/url-encoded) and
   // programmatic JSON callers from a future client-component disconnect UX.
   // `slot=overflow` targets the 2nd Drive (provider='drive_overflow').
   const contentType = req.headers.get('content-type') ?? '';
   if (contentType.includes('application/json')) {
     const body = (await req.json().catch(() => null)) as
-      | { event_id?: string; slot?: string }
+      | { event_id?: string; slot?: string; for?: string; back?: string }
       | null;
-    return { eventId: body?.event_id ?? null, slot: body?.slot ?? null };
+    return { eventId: body?.event_id ?? null, slot: body?.slot ?? null, forShop: body?.for === 'shop', back: body?.back ?? null };
   }
   const form = await req.formData().catch(() => null);
   return {
     eventId: (form?.get('event_id') as string | null) ?? null,
     slot: (form?.get('slot') as string | null) ?? null,
+    forShop: form?.get('for') === 'shop',
+    back: (form?.get('back') as string | null) ?? null,
   };
 }
 
 export async function POST(req: NextRequest) {
-  const { eventId, slot } = await readForm(req);
+  const { eventId, slot, forShop, back } = await readForm(req);
+  // ☁️ for=shop — a supplier letting go of the shop's own Drive (owner 2026-11-22, "Copy this event to Google Drive").
+  if (forShop) return disconnectShopDrive(req, { eventId, back });
   if (!eventId) {
     return NextResponse.json({ error: 'event_id required' }, { status: 400 });
   }
@@ -159,4 +167,45 @@ export async function POST(req: NextRequest) {
   const target = new URL(`/dashboard/${eventId}/memories`, req.url); // Drive lives in Memories (the Papic page is gone, 2026-10-26)
   target.searchParams.set('drive_disconnected', '1');
   return NextResponse.redirect(target);
+}
+
+/**
+ * ☁️ The shop's own Drive: the same three-field wipe as the couple's (refresh_token '' · access_token null ·
+ * revoked_at now) after a best-effort Google revoke, and the shop's copy bookkeeping is forgotten (a later connect
+ * starts clean). The files already in the supplier's Drive are theirs and are not touched. 303 so the form's POST
+ * lands on the page as a GET.
+ */
+async function disconnectShopDrive(req: NextRequest, input: { eventId: string | null; back: string | null }) {
+  const backPath = shopDriveBackPath(input.back, input.eventId);
+  const go = (key: string, value: string) => NextResponse.redirect(new URL(withParam(backPath, key, value), req.url), 303);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.redirect(new URL('/login', req.url), 303);
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return go('drive_error', 'not_a_supplier');
+
+  const admin = createAdminClient();
+  const { data: grant, error } = await admin
+    .from('oauth_grants')
+    .select('grant_id, refresh_token')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .eq('provider', SUPPLIER_DRIVE_PROVIDER)
+    .is('revoked_at', null)
+    .maybeSingle();
+  if (error) return go('drive_error', 'disconnect_failed');
+  if (grant) {
+    const config = await getDriveOAuthConfig();
+    const refresh = openStoredToken(grant.refresh_token as string | null);
+    if (config.ready && refresh) await revokeDriveToken(refresh).catch(() => undefined);
+    const { error: wipeErr } = await admin
+      .from('oauth_grants')
+      .update({ refresh_token: '', access_token: null, revoked_at: new Date().toISOString() })
+      .eq('grant_id', grant.grant_id);
+    if (wipeErr) return go('drive_error', 'disconnect_failed');
+  }
+  await forgetShopDriveCopies(profile.vendor_profile_id);
+  return go('drive_disconnected', '1');
 }

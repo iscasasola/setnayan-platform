@@ -2,6 +2,8 @@ import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { type OwnShopServe } from '@/lib/free-shop-files';
+import { ownShopFileUrl } from '@/lib/supplier-file-sign.server';
 import { readShopBadgeFacts } from '@/lib/shop-badges.server';
 import { readPrintBadgeList } from '@/lib/print-badges-v84.server';
 import type { PrintBadge } from '@/lib/print-badges-v84';
@@ -56,12 +58,12 @@ export type VendorCardFacts = {
   allRead: boolean;
 };
 
-export async function readVendorCardFacts(vendor: VendorCardRow): Promise<VendorCardFacts> {
+export async function readVendorCardFacts(vendor: VendorCardRow, own: OwnShopServe): Promise<VendorCardFacts> {
   const isDemo = vendor.is_demo === true;
   const [proofAndBadges, coverUrl] = await Promise.all([
     // A refused read is not "nothing earned": the card is drawn without seal, proof and badges, and cached briefly.
     isDemo ? null : readProofAndBadges(vendor).catch(() => 'unread' as const),
-    readCoverUrl(vendor),
+    readCoverUrl(vendor, own),
   ]);
   if (!proofAndBadges || proofAndBadges === 'unread') {
     const none = { rating: null, reviews: null, events: null };
@@ -85,8 +87,10 @@ async function readProofAndBadges(vendor: VendorCardRow): Promise<Omit<VendorCar
   return { proof, badges, allRead: allRead && facts.trusted !== null && facts.completedEvents !== null };
 }
 
-async function readCoverUrl(vendor: VendorCardRow): Promise<string | null> {
+async function readCoverUrl(vendor: VendorCardRow, own: OwnShopServe): Promise<string | null> {
   if (isShopNameWithheld(vendor)) return null;
+  // 🔒 FREE FILES STAY PRIVATE (spec § ★ J): the share card is a stranger's view — an unverified shop's photos are withheld.
+  if (own.serve === 'withheld') return null;
   try {
     const admin = createAdminClient();
     const [microsite, unlisted] = await Promise.all([
@@ -105,7 +109,7 @@ async function readCoverUrl(vendor: VendorCardRow): Promise<string | null> {
     ];
     // In order, the first that resolves — the page's hero, else its first shown portfolio photo.
     for (const key of keys) {
-      const url = await displayUrlForStoredAsset(key).catch(() => null);
+      const url = await ownShopFileUrl(key, own, (v) => displayUrlForStoredAsset(v)).catch(() => null);
       if (url) return url;
     }
     return null;

@@ -73,6 +73,10 @@ test('1 · each count IS its filter’s rows — and the search words for the sa
     none: ['no reply', 'pending', 'waiting'],
     // 🎠 The carousel's fourth door (2026-10-27): "To invite" filters to the rows its number counts.
     toinvite: ['to invite', 'not invited'],
+    // 🤷 22 Nov 2026: the summary names a kept Maybe ("· 2 maybe"); its count IS its door's rows (asserted below). No
+    // search-word claim: the word "maybe" also finds a Maybe who does not count toward the event (asking to join,
+    // passed away) — the search's own rule, older than this door — while the door, like its siblings, counts who counts.
+    maybe: [],
   };
   for (let n = 0; n < 6; n++) {
     const r = roster(n);
@@ -82,6 +86,7 @@ test('1 · each count IS its filter’s rows — and the search words for the sa
     assert.equal(stats.no, by('declined').length, `roster ${n}: not coming`);
     assert.equal(stats.none, by('none').length, `roster ${n}: no reply`);
     assert.equal(stats.toInvite, by('toinvite').length, `roster ${n}: to invite`);
+    assert.equal(stats.maybe, by('maybe').length, `roster ${n}: maybe`);
     assert.ok(n === 0 || stats.toInvite > 0, `roster ${n} has nobody to invite — the to-invite door is untested`);
     for (const f of Object.keys(words) as ReplyFilter[]) {
       for (const w of words[f]) {

@@ -883,6 +883,9 @@ export async function lockDeal(formData: FormData): Promise<void> {
     if (outcome.status === 'date_closed') {
       failBack(CLOSED_DAY_COUPLE_MESSAGE);
     }
+    if (outcome.status === 'outside_window') {
+      failBack(outcome.message);
+    }
     if (outcome.status === 'hard_single_blocked') {
       failBack(
         'You already booked another supplier in this category. Switch them from the supplier page first, then book this deal.',

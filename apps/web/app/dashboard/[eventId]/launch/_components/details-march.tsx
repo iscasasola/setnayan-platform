@@ -41,7 +41,11 @@ import {
 } from '@/lib/march-drag';
 import type { MarchResult } from '@/lib/march-result';
 import type { HubDraftPatch } from '@/lib/hub-draft';
-import { ChevronsDownUp, ChevronsUpDown, GripVertical, Play, RotateCcw, Square } from 'lucide-react';
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, GripVertical, Play, RotateCcw, Square } from 'lucide-react';
+import { AddKindPick } from '../../guests/_components/add-kind-pick';
+import { useRoleNames } from '../../guests/_components/role-names-context';
+import { marchCaption } from '@/lib/march-sections';
+import { normalizeSearchText } from '@/lib/guest-search';
 import { MARCH_PREVIEW_END_MS, MARCH_PREVIEW_STEP_MS, marchPreviewEnd, marchPreviewSteps, type MarchPreviewStep } from '@/lib/march-preview';
 import { useGuestsLens } from '../../guests/_components/guests-lens';
 import { guestsFilterMenu } from '../../guests/_components/guests-filter-menu';
@@ -300,6 +304,8 @@ function MarchMakerBody({
   /* ⇅ R4 slice 1 — the Guests lens and the thumb row's own state (drawn below, as `marchThumb`); every hook here, above
      the empty march's early return. */
   const lens = useGuestsLens('march');
+  /* 🏷 The couple's own role words — § 7's caption under each walker (`marchCaption`). */
+  const roleNames = useRoleNames();
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
   /* ▶ The walk preview (owner 2026-10-29, prototype `startPreview`, `lib/march-preview.ts`): which walk is lit — its
      index into `playSteps`; `playSteps.length` is the closing card; null = not playing. A look, never a save. */
@@ -311,6 +317,10 @@ function MarchMakerBody({
   /* 🏷 A group of the couple's own, just made (＋ Group): its toolbar opens with the name box up (prototype v13). */
   const [renameNow, setRenameNow] = useState<string | null>(null);
   const [marchQ, setMarchQ] = useState('');
+  /* 👉 The box searches or adds a walk (Guests redesign § 2 + § 7, 20 Nov: "Orange ＋ (New group) → drag the search box
+     right; 'Walk ▾'") — told by the shared row (`field.onMode`). */
+  const [marchAdding, setMarchAdding] = useState(false);
+  const marchInput = useRef<HTMLInputElement | null>(null);
   const marchQTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (marchQTimer.current) clearTimeout(marchQTimer.current);
@@ -829,7 +839,43 @@ function MarchMakerBody({
      Search guests (dims who it leaves out; Enter goes to the first found) · ⇅ (the shared Show — a name it leaves out is
      drawn faint) · ＋ Add a walk ▾ — the "Not walking" names: one picked walks alone at the end of their own section,
      the SAME move as dragging them out of the tray (`planMove` → `run`), Undo and all. Nothing new is written. */
-  const marchDim = (id: string): boolean => Boolean(lens) && Boolean(id) && (!lens!.shows(id) || (marchFound !== null && !marchFound.has(id)));
+  // While the box ADDS, its words name someone not walking — they never dim the march.
+  const marchDim = (id: string): boolean =>
+    Boolean(lens) && Boolean(id) && (!lens!.shows(id) || (!marchAdding && marchFound !== null && !marchFound.has(id)));
+  /* 👉 ADD A WALK FROM THE BOX (§ 2 "March · Search a name · drag right adds a walk"): the typed words find the "Not
+     walking" names (every word starts a word of their name); Enter or ＋ adds the first — the SAME move as picking them in
+     "Walk ▾" or dragging them out of the tray (`planMove` → `run`), Undo and all. Nothing new is written. */
+  const outFor = (v: string): MarchOut[] => {
+    const words = normalizeSearchText(v).split(' ').filter(Boolean);
+    if (outUnread || words.length === 0) return [];
+    return shownOut.filter((o) => {
+      const name = normalizeSearchText(o.name).split(' ');
+      return words.every((w) => name.some((n) => n.startsWith(w)));
+    });
+  };
+  const addWalkOf = (id: string) => {
+    const o = shownOut.find((x) => x.id === id);
+    if (!o) return;
+    const sec = shown.find((x) => x.key === o.section);
+    run(planMove(shown, shownPrinted, { kind: 'out', id }, { kind: 'gap', section: o.section, index: sec ? sec.rows.length : 0 }, shownOut));
+  };
+  const addTypedWalk = (typed: string) => {
+    const v = typed.trim();
+    if (!v) return;
+    const hit = outFor(v)[0];
+    if (!hit) {
+      say({ said: outUnread ? 'The Not walking names couldn’t load — Retry' : `Nobody called “${v}” is out of the march`, undo: false, before: null, refused: true });
+      return;
+    }
+    addWalkOf(hit.id);
+    if (marchInput.current) marchInput.current.value = '';
+    if (marchQTimer.current) clearTimeout(marchQTimer.current);
+    setMarchQ('');
+    marchInput.current?.focus();
+  };
+  const walkAdds = marchAdding && marchQ ? outFor(marchQ) : [];
+  // Short enough for one phone line (≤ 12 words): "→ Engr. Lito Mendoza · end of Principal Sponsors".
+  const walkPreview = walkAdds[0] ? `→ ${walkAdds[0].name} · end of ${walkAdds[0].sectionLabel}` : null;
   const allOpen = shown.every((sec) => !folded.has(sec.key));
   const goToFoundWalker = (words: string) => {
     if (!lens) return;
@@ -851,7 +897,32 @@ function MarchMakerBody({
           <lens.ThumbRow
             name="guests-march"
             field={{
-              placeholder: 'Search guests',
+              placeholder: 'Search a name',
+              inputRef: marchInput,
+              /* 👉 DRAG THE BOX RIGHT TO ADD A WALK (§ 2 + § 7): Enter or ＋ adds the first "Not walking" name the words
+                 find; "Walk ▾" at the box's right end holds what the orange ＋ ▾ held — New group, then the names. The
+                 shipped tap 🔍 → ＋ is the second way in (the shared row's own). */
+              ...(guests
+                ? {
+                    onAdd: addTypedWalk,
+                    query: marchQ,
+                    matches: marchFound === null || marchFound.size > 0,
+                    onMode: (m: 'search' | 'add') => setMarchAdding(m === 'add'),
+                    dragAdd: {
+                      kind: (
+                        <AddKindPick
+                          word="Walk"
+                          options={[
+                            { key: NEW_GROUP, label: 'New group', group: 'Groups' },
+                            ...(outUnread ? [] : shownOut.map((o) => ({ key: o.id, label: o.name, group: o.sectionLabel }))),
+                          ]}
+                          onPick={(id) => (id === NEW_GROUP ? addGroup(marchSel) : addWalkOf(id))}
+                          dataAttr="data-march-add-kind"
+                        />
+                      ),
+                    },
+                  }
+                : {}),
               input: {
                 defaultValue: marchQ,
                 enterKeyHint: 'search',
@@ -863,6 +934,8 @@ function MarchMakerBody({
                 },
                 onKeyDown: (e) => {
                   if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                  // Adding: the shared row's Enter adds the walk (`field.onAdd`) — the search's Enter stays out of its way.
+                  if (marchAdding) return;
                   e.preventDefault();
                   const v = e.currentTarget.value.trim();
                   setMarchQ(v);
@@ -905,30 +978,31 @@ function MarchMakerBody({
                 },
               }),
             ]}
-            action={
-              /* 🏷 ＋ ▾ = Add walk · New group (prototype v13 `thWalk`): a group of the couple's own, first; then the
-                 "Not walking" names. A walk to add needs a name, so with nobody out the menu holds New group alone. */
-              guests
-                ? {
-                    menu: [
-                      { key: NEW_GROUP, label: 'New group', group: 'Groups' },
-                      ...(outUnread ? [] : shownOut.map((o) => ({ key: o.id, label: o.name, group: o.sectionLabel }))),
-                    ],
-                    // The shipped words stay where the menu still adds a walk; only the ＋ that is new (nobody out) has its own.
-                    label: outUnread || shownOut.length === 0 ? 'Add a group' : 'Add a walk — someone not walking',
-                    value: null,
-                    mark: 'data-march-add-walk',
-                    onPick: (id) => {
-                      if (id === NEW_GROUP) return addGroup(marchSel);
-                      const o = shownOut.find((x) => x.id === id);
-                      if (!o) return;
-                      const sec = shown.find((x) => x.key === o.section);
-                      run(planMove(shown, shownPrinted, { kind: 'out', id }, { kind: 'gap', section: o.section, index: sec ? sec.rows.length : 0 }, shownOut));
-                    },
-                  }
-                : null
-            }
+            /* 🟠 The orange ＋ ▾ is gone (§ 7: "Orange ＋ (New group) → drag the search box right; 'Walk ▾'") — its New
+               group and "Not walking" names live in the box's "Walk ▾", above. */
           />,
+          lens.slot,
+        )
+      : null;
+  /* 💬 One line above the box (§ 2): searching with words → "Drag the box right to add a walk"; adding → what Enter will
+     add ("→ Gabriel Castillo · end of Groomsmen"), or — in the danger colour — that nobody by those words is out. Drawn
+     in the thumb row's seat like the group toolbar: an UNFRAMED line (it is not pressable) on a band of the page colour,
+     gutter to gutter, so the march never shows through; it wraps, never cut to "…" (Fable review, 22 Nov). */
+  const marchBoxLine =
+    guests && lens?.slot && !marchSel && marchQ
+      ? createPortal(
+          <div className="order-first mx-4 bg-[var(--gs-paper,rgb(var(--color-cream)))] px-1 py-1.5" data-march-box-line="">
+            {marchAdding ? (
+              <p aria-live="polite" className={`text-sn-sm [overflow-wrap:anywhere] ${walkPreview ? 'text-mulberry' : 'text-danger-700'}`} data-add-preview="">
+                {walkPreview ?? `Nobody called “${marchQ}” is out of the march`}
+              </p>
+            ) : (
+              <p className="flex items-center gap-1.5 text-sn-sm text-ink/65" data-search-add-hint="">
+                <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                Drag the box right to add a walk
+              </p>
+            )}
+          </div>,
           lens.slot,
         )
       : null;
@@ -1052,7 +1126,7 @@ function MarchMakerBody({
            stays the one terracotta button, now in the Guests TOP ROW (a portal into `lens.toolsSlot`, the seat left of
            the ⚙); while it plays it reads Stop. 🔒 guests/the-march-is-a-numbered-line.test.ts */
         <>
-        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 px-1 text-[13.5px] text-ink/70" data-march-count-line="">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-sn-md text-ink/70" data-march-count-line="">
           <span>
             <b className="font-semibold text-ink">{formatCount(walks)}</b> {walks === 1 ? 'walk' : 'walks'}
           </span>
@@ -1064,7 +1138,7 @@ function MarchMakerBody({
           <button
             type="button"
             data-march-count-out=""
-            className="sn-press inline-flex min-h-11 items-center gap-1 text-ink/70 underline decoration-ink/25 underline-offset-4"
+            className="sn-press inline-flex min-h-11 items-center gap-1 text-ink/70"
             onClick={() => document.querySelector('[data-march-tray-slot]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
           >
             <b className="font-semibold text-ink">{outUnread ? '—' : formatCount(shownOut.length)}</b> not walking
@@ -1075,7 +1149,7 @@ function MarchMakerBody({
               <span data-march-preview="" className="inline-flex shrink-0">
                 <ActionButton
                   tone="brand"
-                  filled
+                  main
                   icon={play === null ? Play : Square}
                   label={play === null ? 'Preview' : 'Stop'}
                   name={walks === 0 ? 'Preview — nobody walks yet' : play === null ? 'Play the march, one walk at a time' : 'Stop the preview'}
@@ -1177,8 +1251,16 @@ function MarchMakerBody({
             className={`${
               /* 📌 R4 slice 4 — in Guests, a walk group's header sticks under the pinned row while its walks pass (the
                  prototype's `.acc-h` sticky); the Maker's own march keeps its plain line. */
-              guests ? 'sticky top-[calc(var(--gs-top,0px)+var(--gs-stick-h,60px))] z-[5] ml-10 bg-[var(--gs-paper,rgb(var(--color-cream)))] font-semibold ' : ''
-            }${marchSel === sec.key ? 'text-terracotta-800 underline decoration-2 underline-offset-4' : 'text-ink/70'} mt-3 flex min-h-11 items-baseline gap-2 rounded-lg px-1 pt-1 text-[12px] uppercase tracking-[0.18em] ${
+              guests ? 'sticky top-[calc(var(--gs-top,0px)+var(--gs-stick-h,60px))] z-[5] ml-10 bg-[var(--gs-paper,rgb(var(--color-cream)))] font-bold ' : ''
+            }${
+              /* § 7 (Guests): the heading sits ON the line right above its own walks — bold, the accent word, tight to
+                 them (it used to float in 44 px of air, grey). The Maker's march keeps its own. */
+              marchSel === sec.key
+                ? 'text-terracotta-800 underline decoration-2 underline-offset-4'
+                : guests
+                  ? 'text-mulberry'
+                  : 'text-ink/70'
+            } ${guests ? '-mt-3 items-end pb-1 text-sn-xs tracking-[0.12em]' : 'mt-3 items-baseline pt-1 text-[12px] tracking-[0.18em]'} flex min-h-11 gap-2 rounded-lg px-1 uppercase ${
               fixed ? '' : 'cursor-grab touch-pan-y [-webkit-touch-callout:none]'
             }${carried?.key === sectionKey ? ' ring-2 ring-ink' : ''}${ring(`section|${sec.key}`)}`}
           >
@@ -1282,17 +1364,27 @@ function MarchMakerBody({
                           data-march-card-open={card?.id === p.id && p.id ? '' : undefined}
                           data-march-dim={marchDim(p.id) ? '' : undefined}
                           className={`${NAME_CHIP}${slot} ${
-                            p.tag ? 'border-terracotta-700/60 bg-white dark:bg-raised' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
+                            /* § 7 (Guests): one frame per name, the SAME for everyone — the groom's gold border read as
+                               "selected". The Maker's march keeps its own two looks. */
+                            guests
+                              ? 'border-ink/10 bg-surface'
+                              : p.tag
+                                ? 'border-terracotta-700/60 bg-white dark:bg-raised'
+                                : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
                           } ${lifted === p.id ? 'border-dashed opacity-30' : marchDim(p.id) ? 'opacity-25' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${card?.id === p.id && p.id ? ' ring-2 ring-terracotta-700 ring-offset-1' : ''}${ring(zone)}`}
                         >
                           <span className="font-serif text-[15.5px] leading-tight text-ink [overflow-wrap:anywhere]">
                             {p.name}
                             {guests ? <GuestNick nick={p.nick} /> : null}
                           </span>
-                          {p.tag ? (
-                            /* § 7: in Guests the role is a small caption under the name, in sentence case. */
-                            <span data-march-role="" className={guests ? 'mt-0.5 text-[12px] leading-tight text-ink/70' : 'mt-0.5 text-[12px] uppercase tracking-[0.18em] text-terracotta-800'}>{p.tag}</span>
-                          ) : null}
+                          {(() => {
+                            /* § 7: in Guests the role is a small caption under the name, in sentence case — everyone's
+                               role (Groom · Maid of honor · Best man), never what the heading already says. */
+                            const caption = guests ? marchCaption(p, sec.label, roleNames) : (p.tag ?? null);
+                            return caption ? (
+                              <span data-march-role="" className={guests ? 'mt-0.5 text-[12px] leading-tight text-ink/70' : 'mt-0.5 text-[12px] uppercase tracking-[0.18em] text-terracotta-800'}>{caption}</span>
+                            ) : null;
+                          })()}
                         </div>
                       );
                     }
@@ -1345,6 +1437,7 @@ function MarchMakerBody({
       ) : null}
       {marchThumb}
       {marchHeadTools}
+      {marchBoxLine}
       {slot
         ? createPortal(
             <MarchTray

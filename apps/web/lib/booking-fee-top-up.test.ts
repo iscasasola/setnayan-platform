@@ -251,9 +251,10 @@ test('the public shop page leaves out the review, page photos, hero and featured
   assert.match(page, /fetchReviewsForVendorWithCouple\(admin, vendor\.vendor_profile_id, \{ limit, offset: 0, excludeEventIds: \[\.\.\.unlistedEvents\] \}\)/);
   assert.match(page, /if \(pinnedOutsideWindow\?\.event_id && unlistedEvents\.has\(pinnedOutsideWindow\.event_id\)\) pinnedOutsideWindow = null;/);
   // The page photos and the hero go through the ONE cover rule (lib/shop-cover-photo.ts, held by its own test), handed
-  // the unlisted refs — the shop's share card reads through the same rule.
-  assert.match(page, /resolvePortfolioPhotos\(shopPortfolioKeys\(vendor\.portfolio_r2_keys, unlistedPageRefs\)\)/);
+  // the unlisted refs — the shop's share card reads through the same rule. Both follow the shop's own file serve.
+  assert.match(page, /resolvePortfolioPhotos\(shopPortfolioKeys\(vendor\.portfolio_r2_keys, unlistedPageRefs\), ownShop\)/);
   assert.match(page, /shopCoverChoice\(\{ heroPhotoKey: microsite\.heroPhotoKey, proPicksRender, showPortfolio, unlisted: unlistedPageRefs \}\)/);
+  assert.match(page, /resolvePortfolioUrls\(\[cover\.heroKey\], ownShop\)/);
   assert.match(page, /\.filter\(\(id\) => !unlistedEvents\.has\(id\)\)/);
   const sheet = read('lib/supplier-sheet-read.ts');
   assert.match(sheet, /excludeEventIds: \[\.\.\.unlisted\]/);

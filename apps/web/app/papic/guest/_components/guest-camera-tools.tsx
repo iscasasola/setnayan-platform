@@ -12,8 +12,8 @@
  *     phone has no 2× of its own), 0.5× only on the main camera where an
  *     ultra-wide is reachable. One step per tap.
  *
- * The seat and supplier cameras keep `PapicCameraControls` (flip icon + 0.5/1)
- * — they are different components and this build leaves them as shipped.
+ * Every seat camera wears these too since 2026-11-22 (one camera — the seat screen and its
+ * `PapicCameraControls` are retired). The supplier's capture controller keeps its own tools.
  *
  * 👆 Every control presses at ≥ 44 px: the drawings are the prototype's 36 px,
  * and an invisible `after:` halo reaches the floor without growing the drawing.

@@ -67,6 +67,12 @@ export const EventFilesBoard = onDemand(
   <Quiet what="this event’s files" />,
 );
 
+// ☁️ "Copy to Google Drive" for this event (owner 2026-11-22) — drawn under the board on Files.
+export const CopyEventToDrive = onDemand(
+  () => import(/* webpackChunkName: "picked-pages" */ '@/app/vendor-dashboard/_components/copy-event-to-drive').then((m) => m.CopyEventToDrive),
+  null,
+);
+
 // ── Report ───────────────────────────────────────────────────────────────────────────────────────────────────────
 export const ReportForm = onDemand(() => import(/* webpackChunkName: "picked-pages" */ './report-form').then((m) => m.ReportForm), <Quiet what="the report" />);
 
@@ -88,6 +94,7 @@ export function warmPickedPages(): void {
     () => import(/* webpackChunkName: "picked-pages" */ '@/app/vendor-dashboard/forms/_components/forms-page-body'),
     () => import(/* webpackChunkName: "picked-pages" */ './files-finder'),
     () => import(/* webpackChunkName: "picked-pages" */ '../_components/event-files-board'),
+    () => import(/* webpackChunkName: "picked-pages" */ '@/app/vendor-dashboard/_components/copy-event-to-drive'),
     () => import(/* webpackChunkName: "picked-pages" */ './report-form'),
     () => import(/* webpackChunkName: "picked-pages" */ '../_components/client-refunds'),
     () => import(/* webpackChunkName: "picked-pages" */ '@/components/thumb-row'),

@@ -195,7 +195,7 @@ import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
 import { ScheduleDays } from './_components/schedule-days';
-import { clientScheduleDays, scheduleDaysUnread, unreadDaysLine } from '@/lib/schedule-days';
+import { clientScheduleDays, eventDayForStrip, scheduleDaysUnread, unreadDaysLine } from '@/lib/schedule-days';
 import { clientAgenda, dayMonthWords } from '@/lib/client-agenda';
 import { DetailsDecisions } from './_components/details-decisions';
 import { ClientChatStrip } from './_components/client-chat-strip';
@@ -936,7 +936,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle(),
       Promise.all([
-        admin.from('events').select('supplier_requests_auto_agree, event_date').eq('event_id', eventId).maybeSingle(),
+        admin.from('events').select('supplier_requests_auto_agree, event_date, event_date_precision').eq('event_id', eventId).maybeSingle(),
         admin
           .from('event_vendors')
           .select('vendor_id, category, status, vendor_name')
@@ -1725,7 +1725,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         // 🔒 CHANGE LOCK (audit D7): their part is locked — the host's changes are refused until they unlock.
         lockedAt: (myMarksRes.data as { locked_at: string | null } | null)?.locked_at ?? null,
       };
-  const factsRow = (factsEvent.data ?? null) as { supplier_requests_auto_agree: boolean | null; event_date: string | null } | null;
+  const factsRow = (factsEvent.data ?? null) as { supplier_requests_auto_agree: boolean | null; event_date: string | null; event_date_precision?: string | null } | null;
   // 🚗 ONE CREW, TWO EVENTS (slice 5, owner 2026-11-04): their crews' moments here, against the same crews on their
   // other events that day. Only when this event's crews were read — an unread crew list is never "no clash".
   const timedHere = new Map(blocksWithAClock(everyBlock).map((b) => [b.block_id, b]));
@@ -2949,7 +2949,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         })
         .findIndex((p) => p.proposal_id === sentQuote.proposal_id) + 1
     : 0;
-  const agendaEventDate = brief.event.event_date ?? null;
+  // 📅 A month- or year-only event is stored on the 1st; the days strip must not draw that placeholder as the event day
+  // (walk 22 Nov 2026). The precision rides the page's own events read above (no new read); an unread row keeps the date.
+  const agendaEventDate = eventDayForStrip(brief.event.event_date ?? null, factsEvent.error || !factsRow ? undefined : (factsRow.event_date_precision ?? null));
   const stripAgenda = {
     eventId,
     eventDate: agendaEventDate,

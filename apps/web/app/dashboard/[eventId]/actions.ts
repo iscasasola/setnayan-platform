@@ -248,7 +248,7 @@ export async function updateEventDate(formData: FormData): Promise<EventDateSave
         : {}),
       // "I have a date" replaces the options being considered — the date is exact now.
       ...(clearOptions && eventDate && newPrecision === 'day'
-        ? { date_mode: 'specific', date_candidates: null, date_window_start: null, date_window_end: null }
+        ? { date_mode: 'specific', date_candidates: null, date_window_start: null, date_window_end: null, date_months: null }
         : {}),
     })
     .eq('event_id', eventId)
@@ -357,6 +357,8 @@ async function saveEventDateOptions(formData: FormData): Promise<EventDateSaveRe
       date_candidates: mode === 'specific' ? sorted : null,
       date_window_start: windowStart,
       date_window_end: windowEnd,
+      // 🗓 Dates or a range replace "Some months" (the mode moves off 'months'; the months go with it).
+      date_months: null,
       event_days: Math.floor(days),
       // Options leave the exact date EMPTY — a booking makes it exact.
       event_date: null,

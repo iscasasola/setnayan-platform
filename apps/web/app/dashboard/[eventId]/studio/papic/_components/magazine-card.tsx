@@ -1,4 +1,5 @@
 import { BookHeart } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button-class';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
@@ -69,7 +70,7 @@ export async function MagazineCard({ eventId, state, seat = 'page' }: { eventId:
       <InfoTip
         labelAs="p"
         label="Your day as a keepsake magazine"
-        labelClassName={inSheet ? 'text-[15px] text-ink/70' : 'text-sm text-ink/70'}
+        labelClassName={inSheet ? 'text-sn-lg text-ink/70' : 'text-sm text-ink/70'}
         className={inSheet ? undefined : 'mt-1'}
         align="start"
       >
@@ -79,7 +80,7 @@ export async function MagazineCard({ eventId, state, seat = 'page' }: { eventId:
       </InfoTip>
       <a
         href={`/dashboard/${eventId}/studio/papic/magazine`}
-        className={inSheet ? 'ab ab-brand ab-main h-12 w-full text-[15px]' : 'ab ab-brand ab-main mt-4'}
+        className={actionButtonClass('brand', { main: true, extra: inSheet ? 'h-12 w-full text-sn-lg' : 'mt-4' })}
       >
         <BookHeart aria-hidden className="h-4 w-4" strokeWidth={2} />
         Download your magazine (PDF)

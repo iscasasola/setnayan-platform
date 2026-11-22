@@ -71,7 +71,8 @@ test('the logo is read through the public-bucket-only signer, never a raw ref', 
   const src = read(ROUTE);
   assert.match(
     src,
-    /displayUrlForStoredAsset\(vendor\.logo_url\)/,
+    // 🔒 …under the Free-files rule: a verified shop's logo through that signer, a Free shop's never (spec § ★ J)
+    /ownShopFileUrl\(vendor\.logo_url, own, \(v\) => displayUrlForStoredAsset\(v\)\)/,
     'a logo ref naming a private bucket must be refused, not signed — displayUrlForStoredAsset ' +
       'routes through lib/site-media-ref.ts\'s publicBucketServeRef for exactly this reason',
   );
@@ -123,7 +124,7 @@ test('the shop page points og:image, twitter:image and the structured-data image
 
 test('v2: every fact on the card is the page\'s and the prints\' own read — no new number', () => {
   const route = read(ROUTE);
-  assert.match(route, /readVendorCardFacts\(vendor\)/, 'the facts come from the one card reader');
+  assert.match(route, /readVendorCardFacts\(vendor, own\)/, 'the facts come from the one card reader');
   assert.match(route, /composeVendorTradeLine\(vendor\)/, 'what they do · city');
   assert.match(route, /cardResponse\(jpeg, facts\.allRead\)/, 'a card drawn without an unread part is cached briefly');
   const facts = read('lib/social/vendor-card-facts.server.ts');

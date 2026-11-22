@@ -283,6 +283,7 @@ export function rosterStats(guests: readonly GuestRow[]): {
   yes: number;
   no: number;
   none: number;
+  maybe: number;
   toInvite: number;
 } {
   const counted = guests.filter((g) => countsTowardEvent(g));
@@ -292,6 +293,8 @@ export function rosterStats(guests: readonly GuestRow[]): {
     yes: guests.filter((g) => replyFilterMatches(g, 'attending')).length,
     no: guests.filter((g) => replyFilterMatches(g, 'declined')).length,
     none: guests.filter((g) => replyFilterMatches(g, 'none')).length,
+    // 🤷 The Maybes kept from before Maybe was retired — without them the words fell short of the total (32 vs 30).
+    maybe: guests.filter((g) => replyFilterMatches(g, 'maybe')).length,
     // The carousel's "To invite" door leaves exactly these rows (`replyFilterMatches(g, 'toinvite')` reads `isToInvite`).
     toInvite: counted.filter((g) => isToInvite(g)).length,
   };
@@ -318,7 +321,9 @@ export function toInviteNames(guests: readonly GuestRow[], max = 6): string[] {
  * typed word and the number can never disagree. A guest who is not counted (a request, the passed-away) is in none.
  * 🔒 guests/_components/the-counts-filter-what-they-count.test.ts
  */
-export type ReplyFilter = 'attending' | 'declined' | 'none' | 'toinvite';
+/** `maybe` (22 Nov 2026): a guest who answered Maybe before it was retired (owner 2026-09-30) is kept as they said it —
+ *  the summary names them, so its words always add up to "N guests" (Fable review of the built page). */
+export type ReplyFilter = 'attending' | 'declined' | 'none' | 'toinvite' | 'maybe';
 
 /**
  * 🎠 `toinvite` (owner 2026-10-27, "APPROVED — GUESTS CAROUSEL STYLE A"): the carousel's fourth count, "To invite", is a

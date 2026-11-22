@@ -1,6 +1,8 @@
 import { type NextRequest } from 'next/server';
 
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { ownShopFileUrl } from '@/lib/supplier-file-sign.server';
+import { ownShopServe } from '@/lib/free-shop-files';
 import { fetchVendor } from '@/app/v/[slug]/page';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { resolveVendorDisplayName } from '@/lib/vendors';
@@ -111,9 +113,12 @@ export async function GET(
     // Same r2:// trap as every other read of a shop's logo — resolved through
     // the public-bucket-only signer (lib/site-media-ref.ts), swallowed on
     // failure so a broken logo degrades the card instead of breaking the share.
+    // 🔒 FREE FILES STAY PRIVATE (spec § ★ J): a link preview is a stranger's view at a permanent address, so a shop
+    // Setnayan has not verified yet gets the wordmark card — its logo and cover photo are never drawn here (lib/free-shop-files.ts).
+    const own = ownShopServe(vendor.vendor_profile_id, vendor.verification_state, { signedIn: false });
     const [facts, logoUrl] = await Promise.all([
-      readVendorCardFacts(vendor),
-      displayUrlForStoredAsset(vendor.logo_url).catch(() => null),
+      readVendorCardFacts(vendor, own),
+      ownShopFileUrl(vendor.logo_url, own, (v) => displayUrlForStoredAsset(v)).catch(() => null),
     ]);
 
     const jpeg = await renderVendorOgJpeg({

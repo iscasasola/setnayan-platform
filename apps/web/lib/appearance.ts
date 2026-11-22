@@ -85,6 +85,13 @@ export const DARK_READY: readonly string[] = [
   '/dashboard/*/budget$',
   '/dashboard/*/guests$',
   '/dashboard/*/schedule$',
+  // 📸 MEMORIES (22 Nov 2026 — the drawing the owner approved 20 Nov, "memories approved", carries its dark tokens;
+  // DECISION_LOG "EVENT › MEMORIES — PAPIC ON TOP + FIVE OPENED PAGES": dark defers to DARK_MODE_STANDARD). EXACTLY the
+  // tab: the Papic block (the top block — the one glow), the keepsake row and its four sheets, the filter row, the grid,
+  // the viewer, ⚙ and the Add more sheet were rendered dark at 375 px; every file the risen Papic settings draw was swept
+  // for light-only colours. Its sub-pages (Thank-You Video, Download all) stay Light until they are walked.
+  // 🔒 `app/dashboard/[eventId]/memories/memories-goes-dark.test.ts`.
+  '/dashboard/*/memories$',
   // B4, FIRST SLICE (18 Nov 2026 — owner: "do supplier navy dark next"): the supplier dashboard's dark is its own navy
   // (`app/vendor-dashboard/_components/supplier-look.css`, tokens only; `the-navy-is-readable.test.ts`). ONLY the two
   // supplier screens that were rendered in the navy are listed, each exactly: Clients and the customers list. The

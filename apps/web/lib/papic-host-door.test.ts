@@ -35,6 +35,10 @@ test('1 · every refusal is a title, a sentence and a way on — never the guest
   }
   assert.match(hostCameraRefusal('adding_off').words, /Turn it on in Memories/);
   assert.equal(hostCameraHref('a b/c'), '/papic/seat/a%20b%2Fc');
+  // ↩️ The Hub tab rides along (owner 2026-11-22, "back to where they were last") — a tab key only, never a URL.
+  assert.equal(hostCameraHref('tok', 'gallery'), '/papic/seat/tok?back=gallery');
+  assert.equal(hostCameraHref('tok', null), '/papic/seat/tok');
+  assert.equal(hostCameraHref('tok', 'https://evil.example'), '/papic/seat/tok', 'a URL rode along as the tab');
 });
 
 test('2 · the guest-camera page asks about a host BEFORE the guest’s dead end, and sends them to the existing camera', () => {
@@ -44,7 +48,7 @@ test('2 · the guest-camera page asks about a host BEFORE the guest’s dead end
   const deadEnd = page.indexOf('title="Open your invitation first."');
   assert.ok(noSession > 0 && deadEnd > noSession, 'premise: the guest’s door is still there for a guest');
   assert.ok(hostAsk > noSession && hostAsk < deadEnd, 'a host still lands on "Open your invitation first." — the dead camera is back');
-  assert.match(page, /if \(host\.kind === 'camera'\) redirect\(hostCameraHref\(host\.token\)\);/, 'a host with a camera is not sent to it');
+  assert.match(page, /if \(host\.kind === 'camera'\) redirect\(hostCameraHref\(host\.token, backTab\)\);/, 'a host with a camera is not sent to it — or not with the tab they came from');
   assert.match(page, /if \(host\.kind === 'refused'\) \{[\s\S]{0,700}title=\{host\.title\}[\s\S]{0,200}sub=\{host\.words\}[\s\S]{0,400}\/memories`\}/, 'a refused host gets no words or no way on');
   // Only a link that names its event can be a host's: a bare visit asks nothing.
   assert.match(page, /const host = backSlug \? await hostCameraDoor\(backSlug\) : \(\{ kind: 'not_host' \} as const\);/);

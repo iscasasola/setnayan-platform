@@ -21,6 +21,7 @@ import {
   type VendorTier,
 } from '../../lib/vendor-tier-caps';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { giveShopARegistrationNumber } from './shop-registration-fixture';
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
@@ -58,6 +59,7 @@ async function newVendor(label: string, tier: VendorTier): Promise<string> {
       )
     ).rows[0]!.vendor_profile_id;
   await db.query(`UPDATE public.vendor_profiles SET tier_state = $2 WHERE vendor_profile_id = $1`, [vendorProfileId, tier]);
+  await giveShopARegistrationNumber(db, vendorProfileId);
   return vendorProfileId;
 }
 

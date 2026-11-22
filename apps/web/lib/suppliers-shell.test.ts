@@ -73,11 +73,40 @@ test('T1 · every bus key opens exactly one body, and each body owns one key', (
   assert.equal(isModeTab('compare'), false);
 });
 
-test('T1 · the words are Find · Build · Booked — never Picks, never vendor', () => {
+test('T1 · the words are Find · Build · Book (owner 2026-11-17, "the find build book") — never Picks, never vendor', () => {
   assert.deepEqual(
     SUPPLIERS_MODES.map((m) => SUPPLIERS_MODE_LABEL[m]),
-    ['Find', 'Build', 'Booked'],
+    ['Find', 'Build', 'Book'],
   );
+});
+
+/* ── 🛒 · 📦 the cart and orders badges are READ, never typed (owner 2026-11-17, Q10/Q13) ────────────────────── */
+
+test('the cart badge counts picks in the build that are neither booked nor already asked — and moves at the press', async () => {
+  const { cartCount } = await import('./suppliers-shell');
+  const base = {
+    children: [
+      { groupId: 'catering', picks: [pick('cv', 'considering', 950), pick('mk', 'considering', null)], buildPickVendorIds: ['cv', 'mk'] },
+      { groupId: 'photo', picks: [pick('ls', 'contracted', 45000)], buildPickVendorIds: ['ls'] },
+      { groupId: 'flowers', picks: [pick('mf', 'considering', 38000)], buildPickVendorIds: ['mf'] },
+      { groupId: 'booth', picks: [pick('sb', 'considering', null)], buildPickVendorIds: [] },
+    ],
+    askedVendorIds: ['mf'],
+  };
+  const drawn = (_v: string, _g: string, d: boolean) => d;
+  assert.equal(cartCount(base, drawn), 2, 'cv + mk: ls is booked, mf is asked, sb is not in the build');
+  // Add to build answers in place: the badge moves with the bench's store, no page render.
+  assert.equal(cartCount(base, (v, g, d) => (v === 'sb' ? true : drawn(v, g, d))), 3, 'a press adds one');
+  assert.equal(cartCount({ children: [], askedVendorIds: [] }, drawn), 0, 'an empty cart is 0 — the shell draws no badge');
+});
+
+test('the orders badge counts what waits on the couple — a first payment to make — from the rows Book draws', async () => {
+  const { ordersWaitingCount } = await import('./suppliers-shell');
+  assert.equal(
+    ordersWaitingCount([{ action: { kind: 'pay' } }, { action: null }, { action: { kind: 'nudge' } }, { action: { kind: 'pay' } }]),
+    2,
+  );
+  assert.equal(ordersWaitingCount([]), 0);
 });
 
 /* ── T2 / T3 · Build N/M and the build's money ───────────────────────────── */

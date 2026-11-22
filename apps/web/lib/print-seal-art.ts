@@ -89,3 +89,18 @@ export function sealPrintSvg(seal: string, year: number, uid: string, size = SEA
     .replace('{{YEAR}}', sealYearOutlines(key, year))
     .replace('width="200" height="190"', `width="${r3(size)}" height="${r3((size * SEAL_ART_H) / SEAL_ART_W)}"`);
 }
+
+/**
+ * One seal's v84 art with NO year on its ribbon — for a mark too small to read one: the Verified Partner seal on the
+ * corner of a shop's logo on its share card (48 px; drawing `shop_share_card_v2_fable.html`, "without its year at
+ * this size"). Same art, same ids rule, same null for a seal with no art (No. 1, or an unknown key).
+ */
+export function sealArtSvgNoYear(seal: string, uid: string, size = SEAL_ART_W): string | null {
+  const u = uid.replace(/[^A-Za-z0-9_-]/g, '') || 'sl';
+  const key = Object.hasOwn(SEAL_ART_OF, seal) ? SEAL_ART_OF[seal as keyof typeof SEAL_ART_OF] : undefined;
+  if (!key) return null;
+  return PRINT_SEAL_SVG[key]
+    .replace(/§/g, `${u}_`)
+    .replace('{{YEAR}}', '')
+    .replace('width="200" height="190"', `width="${r3(size)}" height="${r3((size * SEAL_ART_H) / SEAL_ART_W)}"`);
+}

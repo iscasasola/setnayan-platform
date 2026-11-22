@@ -46,6 +46,8 @@ export type GraphSpec = {
   details?: ReactNode;
   /** The door when no rule fired (and the empty state's start). */
   door: { label: string; href: string };
+  /** 📈 "Three years" — the count cards' risen view only, drawn under the graph and before the recommendation. */
+  years?: ReactNode;
 };
 
 function RecBox({ g }: { g: GraphSpec }) {
@@ -111,25 +113,21 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
               Couldn’t load.
             </span>
           ) : (
-            <>
-              {/* 📐 THE PICTURE IS DRAWN FROM THE FIRST PAINT, AT ITS FINAL SIZE (owner 21 Nov 2026: *"the graphs when
-                  scrolled goes up and down"* · *"when i arrived here the graph size increased"*). It used to wait behind
-                  a 64-px stand-in until the card was swiped into view; every slide stretches to the tallest, so the
-                  first swipe to a tall card (The next 13 weeks) grew the whole carousel — 340 → 593 px at 969 px wide,
-                  261 → 403 px at 375 — and pushed everything under it down. The motion still waits for the card to be
-                  seen: `useTween` holds its values and analytics-growing.css pauses the CSS motion until `.perf-play`.
-                  🔒 shop/the-analytics-carousel-never-changes-height.test.ts */}
-              <span className="ag-gp" aria-hidden={g.state === 'empty' ? true : undefined}>
-                {g.pic}
-              </span>
-              <span className="ag-ln">{g.line}</span>
-            </>
+            /* 📐 THE PICTURE IS DRAWN FROM THE FIRST PAINT, IN ITS FIXED 144-PX BOX (owner 21 Nov 2026: *"the graphs when
+               scrolled goes up and down"* · *"graphs look better and balance"*). Every card is one shape — head 24 ·
+               number row 44 · picture 144 · line 36 — so no card can stretch the carousel, seen or not. The motion still
+               waits for the card to be seen: `useTween` holds its values and analytics-growing.css pauses the CSS
+               motion until `.perf-play`. 🔒 shop/the-analytics-carousel-never-changes-height.test.ts */
+            <span className="ag-gp" aria-hidden={g.state === 'empty' ? true : undefined}>{g.pic}</span>
           )}
-          {g.state === 'empty' ? (
-            <span className="ag-dr">
-              {g.door.label} <ChevronRight aria-hidden strokeWidth={1.9} />
-            </span>
-          ) : null}
+          <span className="ag-foot">
+            {g.state === 'unread' ? null : <span className="ag-ln">{g.line}</span>}
+            {g.state === 'empty' ? (
+              <span className="ag-dr">
+                {g.door.label} <ChevronRight aria-hidden strokeWidth={1.9} />
+              </span>
+            ) : null}
+          </span>
         </div>
       </Reanimate>
       {open ? (
@@ -160,6 +158,7 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
                 </>
               )}
             </div>
+            {g.years ?? null}
             <RecBox g={g} />
             {g.details ? <div className="ag-body">{g.details}</div> : null}
             <p className="ag-cap">{g.state === 'empty' ? 'The picture is a sample, faded — it goes with your first real row.' : 'One recommendation per graph · never advice on a number we do not have.'}</p>

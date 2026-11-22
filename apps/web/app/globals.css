@@ -166,6 +166,18 @@
     --color-cat-schedule: 47 109 181; /* #2F6DB5 */
     --color-cat-asked: 201 71 26; /* #C9471A */
     --color-cat-collect: 162 69 126; /* #A2457E */
+    /* 📈 CHARTS BY MEANING (owner 22 Nov 2026, never the theme colour): opened · asked · booked · last year · quiet ·
+     * five source hues. Light ≥ 3:1 on the card, dark ≥ 3.5:1 on both dark cards — docs/design-token-map.md. */
+    --color-chart-opened: 11 111 164;
+    --color-chart-asked: 178 107 0;
+    --color-chart-booked: 35 130 79;
+    --color-chart-last: 107 118 134;
+    --color-chart-quiet: 132 142 156;
+    --color-chart-src-1: 91 79 196;
+    --color-chart-src-2: 14 124 134;
+    --color-chart-src-3: 176 58 134;
+    --color-chart-src-4: 180 83 31;
+    --color-chart-src-5: 139 94 60;
     --color-cream: 255 255 255;        /* page + card → WHITE #FFFFFF (owner 2026-08-20, reversing the 2026-07-13 move to cream #FDFBF7). Token NAME kept: renaming it would churn every `bg-cream`/`text-cream` call site in the app for no behaviour change — the same reason `mulberry` and `terracotta` kept theirs. */
     --color-ink: 44 42 41;             /* primary text → espresso #2C2A29 · 13.82:1 AAA */
     --color-terracotta: 169 131 75;    /* accent → Atelier gold #A9834B (kit gold-500) — UNCHANGED */
@@ -419,6 +431,16 @@
     --color-cat-schedule: 127 175 232; /* #7FAFE8 */
     --color-cat-asked: 240 130 90; /* #F0825A */
     --color-cat-collect: 217 138 192; /* #D98AC0 */
+    --color-chart-opened: 92 184 240;
+    --color-chart-asked: 242 180 76;
+    --color-chart-booked: 93 211 154;
+    --color-chart-last: 163 174 192;
+    --color-chart-quiet: 110 122 140;
+    --color-chart-src-1: 167 157 245;
+    --color-chart-src-2: 76 201 210;
+    --color-chart-src-3: 238 139 203;
+    --color-chart-src-4: 243 154 104;
+    --color-chart-src-5: 214 162 122;
     --sn-band-angle: 160deg;
     --sn-frame-shadow: inset 0 1px 0 rgb(255 244 228 / 0.06), 0 14px 30px -14px rgb(0 0 0 / 0.85), 0 2px 6px -2px rgb(0 0 0 / 0.5); /* depth from light */
     --color-cream: var(--color-page); /* the page (and the dark words on a light fill) → #121110 */

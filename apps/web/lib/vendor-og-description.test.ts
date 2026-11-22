@@ -1,105 +1,32 @@
 /**
- * vendor-og-description.test.ts — E1 (2026-09-11).
+ * vendor-og-description.test.ts — the share card's "what they do · city" line (shop share card v2, 21 Nov 2026).
  *
- * The share card's one descriptive line must never print a fabricated fact:
- * the shop's own tagline when it has one, otherwise only the parts that are
- * actually true (category, city, Verified) — never a "0" or an empty claim,
- * the same row-3838 rule D2 enforces on the public page itself.
+ * Only the parts that are true — never a "0", a raw null or an empty claim (row-3838). The v2 card drops the tagline
+ * (it shows under the picture) and the word "Verified" (the seal and the top line say it).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { composeVendorOgDescription } from './vendor-og-description';
+import { composeVendorTradeLine } from './vendor-og-description';
 
-test('a tagline wins over everything else', () => {
-  assert.equal(
-    composeVendorOgDescription({
-      tagline: '  Making your day unforgettable.  ',
-      services: ['live_band'],
-      location_city: 'Cebu City',
-      verification_state: 'verified',
-    }),
-    'Making your day unforgettable.',
-    'the tagline must be trimmed and used as-is when present',
-  );
+test('category · city, in that order', () => {
+  const line = composeVendorTradeLine({ services: ['live_band'], location_city: ' Cebu City ' });
+  assert.ok(line);
+  assert.match(line, / · Cebu City$/, 'the city is trimmed and comes last');
+  assert.doesNotMatch(line, /\bundefined\b|\bnull\b/);
 });
 
-test('no tagline: falls back to category · city · Verified', () => {
-  const result = composeVendorOgDescription({
-    tagline: null,
-    services: ['live_band'],
-    location_city: 'Cebu City',
-    verification_state: 'verified',
-  });
-  assert.match(result, /Cebu City/, 'must include the city');
-  assert.match(result, /Verified$/, 'Verified must be the last segment when true');
-  assert.doesNotMatch(result, /\bundefined\b|\bnull\b/, 'must never print a raw undefined/null');
+test('the v2 line never says "Verified" — the seal and the top line say it now', () => {
+  const line = composeVendorTradeLine({ services: ['dj'], location_city: 'Davao City' });
+  assert.doesNotMatch(line ?? '', /Verified/);
 });
 
-test('an unverified shop with no city still prints something true, never empty', () => {
-  const result = composeVendorOgDescription({
-    tagline: null,
-    services: ['live_band'],
-    location_city: null,
-    verification_state: null,
-  });
-  assert.notEqual(result.trim(), '', 'must never be empty');
-  assert.doesNotMatch(result, /Verified/, 'must not claim Verified when it is not true');
+test('a missing part is left out, not printed empty', () => {
+  assert.equal(composeVendorTradeLine({ services: [], location_city: 'Davao City' }), 'Davao City');
+  const noCity = composeVendorTradeLine({ services: ['dj'], location_city: '   ' });
+  assert.ok(noCity && !noCity.includes('·'), 'no city → the category alone, no dangling dot');
 });
 
-test('a shop with literally nothing true to say still prints something, not a blank line', () => {
-  const result = composeVendorOgDescription({
-    tagline: '   ',
-    services: [],
-    location_city: null,
-    verification_state: null,
-  });
-  assert.notEqual(result.trim(), '', 'a whitespace-only tagline and no other facts must not render blank');
-});
-
-test('a whitespace-only tagline is treated as no tagline, not printed verbatim', () => {
-  const result = composeVendorOgDescription({
-    tagline: '   ',
-    services: ['dj'],
-    location_city: 'Davao City',
-    verification_state: null,
-  });
-  assert.match(result, /Davao City/, 'must fall through to the category · city composition');
-});
-
-// ── Q4/Q5 (owner 2026-09-11) — "Verified" follows the badge deadline, not
-// verification_state alone ───────────────────────────────────────────────
-
-test('verified with no deadline recorded still says Verified (today\'s behaviour, unchanged)', () => {
-  const result = composeVendorOgDescription({
-    tagline: null,
-    services: ['live_band'],
-    location_city: 'Cebu City',
-    verification_state: 'verified',
-    next_renewal_due_at: null,
-  });
-  assert.match(result, /Verified$/);
-});
-
-test('verified with a FUTURE deadline still says Verified', () => {
-  const result = composeVendorOgDescription({
-    tagline: null,
-    services: ['live_band'],
-    location_city: 'Cebu City',
-    verification_state: 'verified',
-    next_renewal_due_at: '2099-01-01T00:00:00Z',
-  });
-  assert.match(result, /Verified$/);
-});
-
-test('verified with a PAST deadline no longer says Verified — the share card must not keep advertising a lapsed badge', () => {
-  const result = composeVendorOgDescription({
-    tagline: null,
-    services: ['live_band'],
-    location_city: 'Cebu City',
-    verification_state: 'verified',
-    next_renewal_due_at: '2020-01-01T00:00:00Z',
-  });
-  assert.doesNotMatch(result, /Verified/, `got: ${result}`);
-  assert.match(result, /Cebu City/, 'the rest of the description still renders');
+test('nothing true to say → no line at all (null), never a stand-in', () => {
+  assert.equal(composeVendorTradeLine({ services: null, location_city: null }), null);
 });

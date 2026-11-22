@@ -123,7 +123,37 @@ export async function checkInGuest(
   scannedAt?: string,
 ): Promise<CheckinActionResult> {
   const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
-  if (helperRefusal) return { ok: false, error: helperRefusal, refused: true };
+  if (helperRefusal) {
+    return (await theDoorSupplierHolds(eventId, 'guests'))
+      ? checkInAtTheDesk(eventId, guestId, method, scannedAt)
+      : { ok: false, error: helperRefusal, refused: true };
+  }
+  return checkInAtTheDesk(eventId, guestId, method, scannedAt);
+}
+
+/**
+ * 🛂 THE SUPPLIER AT THE DOOR (owner 16 Nov 2026, "Yes, as drawn": *"the coordinator, helpers and one supplier at the
+ * door each get the parts you choose"*). A booked supplier who is not the coordinator proposes and never writes through
+ * the hosts' screens (8 Nov) — so the helper gate refuses them. The ONE exception is the supplier the HOSTS picked for
+ * the door in ⚙ Who runs the desk, for the part the hosts gave them: that pick is the hosts' own yes. Asked only after
+ * the gate said no; a read that does not answer is a no (`deskPartsFor` gives nothing on an unread). The database
+ * already admits the write (guest_checkins_member_manage: any couple or coordinator member; the supplier's seat is one).
+ */
+async function theDoorSupplierHolds(eventId: string, part: DeskPart): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user || typeof eventId !== 'string' || !/^[0-9a-f-]{36}$/i.test(eventId)) return false;
+  const supabase = await createClient();
+  const desk = await readDeskViewer(supabase, eventId, user.id, { isCouple: false, isCoordinatorMember: true });
+  return !desk.unread && desk.role === 'supplier' && desk.parts.includes(part);
+}
+
+/** The check-in itself, once the helper gate (or the hosts' door pick) has said yes. */
+async function checkInAtTheDesk(
+  eventId: string,
+  guestId: string,
+  method: CheckinMethod,
+  scannedAt?: string,
+): Promise<CheckinActionResult> {
   let user;
   try {
     user = await assertDoorCrew(eventId);
@@ -360,7 +390,12 @@ type DeskChangeAnswer<C> = C extends { kind: 'access' } ? SaveDeskAccessResult :
 
 export async function changeDesk<C extends DeskChange>(eventId: string, change: C): Promise<DeskChangeAnswer<C>> {
   const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
-  if (helperRefusal) return { ok: false, error: helperRefusal } as DeskChangeAnswer<C>;
+  if (helperRefusal) {
+    // The door supplier may undo a mis-scan on the part the hosts gave them; ⚙ stays the hosts' (saveDeskAccess asks).
+    return (change?.kind === 'undo' && (await theDoorSupplierHolds(eventId, 'guests'))
+      ? await undoCheckIn(eventId, String(change.guestId ?? ''))
+      : { ok: false, error: helperRefusal }) as DeskChangeAnswer<C>;
+  }
   const answer = change?.kind === 'access' ? await saveDeskAccess(eventId, change.next)
     : change?.kind === 'undo' ? await undoCheckIn(eventId, String(change.guestId ?? ''))
     : ({ ok: false, error: 'That change isn’t one the desk knows.' } as const);

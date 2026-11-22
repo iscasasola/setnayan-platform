@@ -175,3 +175,20 @@ test('(6) an unread desk choice refuses the write — it never falls back to the
   assert.ok(unread > 0 && allowed > 0, 'both checks must be in deskPartRefusal');
   assert.ok(unread < allowed, 'the unread check must come first: an unread choice parses to the defaults');
 });
+
+test('(7) the supplier the hosts picked for the door works the part they were given — and only that supplier', () => {
+  const actions = readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/guests/checkin/actions.ts'), 'utf8');
+  // The exception is ONE helper, asked only after the helper gate said no, and it needs the read to have answered.
+  const door = actions.slice(actions.indexOf('async function theDoorSupplierHolds'), actions.indexOf('async function checkInAtTheDesk'));
+  assert.match(door, /return !desk\.unread && desk\.role === 'supplier' && desk\.parts\.includes\(part\);/);
+  const checkIn = actions.slice(actions.indexOf('export async function checkInGuest'), actions.indexOf('async function theDoorSupplierHolds'));
+  assert.match(checkIn, /if \(helperRefusal\) \{\s*return \(await theDoorSupplierHolds\(eventId, 'guests'\)\)/);
+  // ⚙ stays the hosts': the door path in the one desk dispatcher opens `undo` only, never the `access` save.
+  const change = actions.slice(actions.indexOf('export async function changeDesk'));
+  assert.match(change, /change\?\.kind === 'undo' && \(await theDoorSupplierHolds\(eventId, 'guests'\)\)/);
+  // The pure rule behind it: a supplier holds parts only as THE picked door supplier.
+  const picked = { ...DEFAULT_DESK_ACCESS, door: { userId: U1, parts: ['guests' as const] } };
+  assert.deepEqual(deskPartsFor('supplier', picked, U1, false), ['guests']);
+  assert.deepEqual(deskPartsFor('supplier', picked, U2, false), []);
+  assert.deepEqual(deskPartsFor('supplier', picked, U1, true), []);
+});

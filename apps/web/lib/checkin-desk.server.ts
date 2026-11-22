@@ -76,3 +76,24 @@ export async function readDeskViewer(
     unread,
   };
 }
+
+/**
+ * 🛂 THE SUPPLIER AT THE DOOR'S WAY IN (owner 16 Nov 2026; BUILD_RULES "every capability has one reachable place per
+ * role"). A booked supplier who is not the coordinator has no "Events you run" row, so their Event Hub's Scanner view
+ * asks this instead: the parts the hosts gave THIS person as the supplier at the door — or none. Read with the service
+ * role (the column has no user grant), and it answers only about the caller: another person's pick reads as none.
+ * `null` = the read did not answer (the Hub says nothing rather than a door that may not open).
+ */
+export async function readMyDeskDoorParts(eventId: string, userId: string): Promise<DeskPart[] | null> {
+  const { data, error } = await createAdminClient()
+    .from('events')
+    .select('checkin_desk_access')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (error) {
+    logQueryError('readMyDeskDoorParts', error, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
+  const door = parseDeskAccess((data as { checkin_desk_access?: unknown } | null)?.checkin_desk_access ?? null).door;
+  return door && door.userId === userId ? [...door.parts] : [];
+}

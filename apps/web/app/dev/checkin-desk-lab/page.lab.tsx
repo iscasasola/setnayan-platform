@@ -8,7 +8,8 @@ import { LabGuestsDesk } from './lab-guests-desk';
  * /dev/checkin-desk-lab — 🛂 the Check-in desk's three parts on fixture data, no sign-in and no database (owner 16 Nov
  * 2026, "Yes, as drawn"). DEV-ONLY: production builds 404 it. The REAL DeskParts, SuppliersPart, TeamPart and Guests
  * desk; the board and team rows come from the REAL pure rules (lib/checkin-desk.ts).
- *   `?as=host` (default) · `?as=coordinator` · `?as=helper` (Guests only, no picker, no ⚙).
+ *   `?as=host` (default) · `?as=coordinator` · `?as=helper` (Guests only, no picker, no ⚙) · `?as=supplier` (the
+ *   supplier the hosts picked for the door, given Guests · Suppliers).
  */
 const E = '00000000-0000-4000-8000-000000000001';
 const ME = '00000000-0000-4000-8000-00000000000a';
@@ -18,7 +19,7 @@ const BEN = '00000000-0000-4000-8000-00000000000c';
 export default async function CheckinDeskLab({ searchParams }: { searchParams: Promise<{ as?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const { as } = await searchParams;
-  const role: DeskRole = as === 'coordinator' ? 'coordinator' : as === 'helper' ? 'helper' : 'host';
+  const role: DeskRole = as === 'coordinator' ? 'coordinator' : as === 'helper' ? 'helper' : as === 'supplier' ? 'supplier' : 'host';
   const now = Date.now();
   const min = (m: number) => new Date(now - m * 60_000).toISOString();
   const hhmm = (msAgo: number) => {
@@ -70,7 +71,8 @@ export default async function CheckinDeskLab({ searchParams }: { searchParams: P
     ]),
     nowMs: now,
   });
-  const parts = partsForRole(role, DEFAULT_DESK_ACCESS, ME);
+  const access = role === 'supplier' ? { ...DEFAULT_DESK_ACCESS, door: { userId: ME, parts: ['guests' as const, 'suppliers' as const] } } : DEFAULT_DESK_ACCESS;
+  const parts = partsForRole(role, access, ME);
   return (
     <div className="mx-auto w-full max-w-2xl tab:max-w-3xl px-4 py-6 sm:px-6">
       <h1 className="text-2xl font-semibold tracking-tight">Check-in desk</h1>
@@ -82,7 +84,7 @@ export default async function CheckinDeskLab({ searchParams }: { searchParams: P
         eventId={E}
         parts={parts}
         isHost={role === 'host'}
-        access={DEFAULT_DESK_ACCESS}
+        access={access}
         doorCandidates={[{ userId: '00000000-0000-4000-8000-00000000000d', name: 'Lumière Studio · Paolo' }]}
         guests={<LabGuestsDesk eventId={E} viewer={ME} />}
         suppliers={<SuppliersPart lines={board.lines} here={board.here} unread={false} />}

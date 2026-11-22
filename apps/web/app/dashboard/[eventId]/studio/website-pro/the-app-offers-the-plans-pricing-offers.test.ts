@@ -115,3 +115,36 @@ test('the page reads its packs through the one reader, priced by the charge auth
   assert.deepEqual(planPricesFrom(rows), { plus: 10, pro: 30, ultra: 50 });
   assert.deepEqual(planCreditsFrom(rows), { plusCredits: 20, proCredits: 40, ultraCredits: 60 });
 });
+
+/* ── 🍎 THE iPHONE APP (v4 frames 08 · 08f) ─────────────────────────────── */
+
+const appleKit = (state: 'ready' | 'silent' = 'ready') => ({
+  products: { EVENT_PLUS: 'p.plus', COUPLE_WEBSITE_PRO: 'p.pro', EVENT_ULTRA: 'p.ultra', LIVE_STUDIO: 'p.live', PAPIC_GUEST_1K: 'p.1k' },
+  prices: { state, display: new Map(state === 'ready' ? [['p.pro', 'APPLE-PRO'], ['p.live', 'APPLE-LIVE'], ['p.1k', 'APPLE-1K']] : []) },
+  buy: async () => ({ kind: 'on' as const }),
+  refresh: () => {},
+});
+const drawApple = (f: EventServicesFacts, initialPick?: EventServicesPick, state: 'ready' | 'silent' = 'ready') =>
+  renderToStaticMarkup(
+    React.createElement(EventServicesView, { eventId: 'EVENT', facts: f, ordersHref: '/o', initialPick, initialOpen: true, apple: appleKit(state) }),
+  );
+
+test('🍎 the app shows Apple’s prices only — no web figure, no web saving, no Event Hub or Setnayan AI alone', () => {
+  const html = drawApple(facts(), { pack: 'pro', singles: [], photos: 'PAPIC_GUEST_1K' });
+  assert.match(html, /APPLE-PRO/);
+  assert.match(html, /APPLE-LIVE/);
+  for (const web of ['₱1,234', '₱2,345', '₱3,333', '₱444', 'Save ₱']) assert.doesNotMatch(html, new RegExp(web), `a web figure in the app: ${web}`);
+  assert.doesNotMatch(html, /data-event-services-single="hub"|data-event-services-single="ai"/, 'a single with no Apple product is shown');
+  assert.match(html, /Apple’s prices · 2 Apple payments/, 'the bar says how many Apple payments follow');
+});
+
+test('🍎 the App Store not answering is said, with Try again', () => {
+  assert.match(drawApple(facts(), undefined, 'silent'), /data-event-services-apple-silent=""[\s\S]*The App Store isn’t answering right now/);
+});
+
+test('🍎 the page strips every web peso before the app’s browser sees it', () => {
+  const page = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+  assert.match(page, /const facts = appleProducts \? withoutWebFigures\(read\) : read;/);
+  assert.match(page, /packs: f\.packs\.map\(\(p\) => \(\{ \.\.\.p, php: null, savePhp: null \}\)\)/);
+  assert.match(page, /if \(gate\.storeShell && !gate\.iap\) redirect/);
+});

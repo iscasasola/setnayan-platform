@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { EventServicesAppleLab } from './event-services-apple-lab';
 import { EventServicesBody } from '@/app/dashboard/[eventId]/studio/website-pro/_components/event-services-body';
 import { formatCount } from '@/lib/format-number';
 import { packSavingPhp, type EventServicesFacts, type EventServicesPick, type PackFact, type PackKey } from '@/lib/event-services';
@@ -18,6 +19,7 @@ import { LabFrame } from './lab-client';
  *          services-pro — 🛒 EVENT SERVICES (owner 2026-11-23, v4 approved), frames 01 · 02 · 03 · 04 · 04b · 05 · 09 of
  *          `prototypes/buy_event_services_one_place_2026-11-23/frames_v4_clean_warm/` — the page the plans page became.
  *          Its pay page (06 · 07) is `/dev/pay-maya-lab`; Today's row (11 · 12) the home lab.
+ *   ?frame=iphone · iphone-cancel · iphone-silent — 🍎 the iPhone app (frames 08 · 08b · 08c · 08e · 08f): press Pay.
  *   ?frame=address-free · address-pick · address-kept         — the custom address (frame 5)
  *   ?frame=sheet-apple · apple · apple-on                     — 🍎 the iPhone app: the one-unlock sheet, Apple's page
  *                                                               selling Event Pro whole (owner 2026-10-26)
@@ -114,6 +116,41 @@ export default async function ProPartsLab({ searchParams }: { searchParams: Prom
           eventId="00000000-0000-4000-8000-000000000000"
           back="/dev/pro-parts-lab"
           sample={{ screen: frame === 'apple-on' ? { kind: 'on' } : null, price: SAMPLE_APPLE_FULL }}
+        />
+      </div>
+    );
+  }
+  if (frame.startsWith('iphone')) {
+    // 🍎 v4 frames 08 · 08b/08c (press Pay) · 08e (`iphone-cancel`, press Pay) · 08f (`iphone-silent`). The web figures
+    // are stripped exactly as the page strips them; the Apple strings are SAMPLES of what StoreKit hands back.
+    const web = esSampleFacts(false);
+    const facts: EventServicesFacts = {
+      ...web,
+      packs: web.packs.map((p) => ({ ...p, php: null, savePhp: null })),
+      singles: web.singles.map((x) => ({ ...x, php: null })),
+      photos: web.photos ? web.photos.map((x) => ({ ...x, php: 0 })) : null,
+    };
+    const products: Record<string, string> = {
+      EVENT_PLUS: 'com.setnayan.app.event_plus',
+      COUPLE_WEBSITE_PRO: 'com.setnayan.app.event_pro',
+      EVENT_ULTRA: 'com.setnayan.app.event_ultra',
+      LIVE_STUDIO: 'com.setnayan.app.live_watch',
+      PAPIC_GUEST_150: 'com.setnayan.app.papic_150',
+      PAPIC_GUEST_1K: 'com.setnayan.app.papic_1000',
+      PAPIC_GUEST: 'com.setnayan.app.papic_3000',
+    };
+    const prices: Record<string, string> = Object.fromEntries(
+      Object.values(products).map((id, i) => [id, `₱${['2,990.00', '5,490.00', '9,990.00', '3,990.00', '99.00', '499.00', '999.00'][i]}`]),
+    );
+    return (
+      <div className="min-h-dvh bg-page" data-lab-frame={frame}>
+        <EventServicesAppleLab
+          facts={facts}
+          products={products}
+          prices={prices}
+          silent={frame === 'iphone-silent'}
+          second={frame === 'iphone-cancel' ? 'cancelled' : 'on'}
+          initialPick={frame === 'iphone-silent' ? { pack: null, singles: [], photos: null } : { pack: 'pro', singles: [], photos: 'PAPIC_GUEST_1K' }}
         />
       </div>
     );

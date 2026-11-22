@@ -11376,6 +11376,7 @@
       ],
       "blocks": [
         "ActionButton",
+        "AppleCtx.Provider",
         "CapizLight",
         "Chips",
         "Dock",
@@ -11383,6 +11384,7 @@
         "EventServicesPick",
         "EventServicesView",
         "HTMLElement",
+        "IapScreen",
         "Icon",
         "InfoTip",
         "Link",

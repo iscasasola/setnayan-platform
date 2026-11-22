@@ -1238,7 +1238,7 @@ export default async function EventHomePage({
       control={homeControl}
       services={homeServiceRowAll}
       papicLeft={papicNow.count}
-      eventServices={storeShell ? null : eventServicesTodayLine(eventPlanHeld, papicNow.count)}
+      eventServices={storeShell && !appleFacts ? null : eventServicesTodayLine(eventPlanHeld, papicNow.count)}
       papicInMemories={papicInMemories}
       whosHere={whosHereCard}
       serviceCards={serviceCards}
@@ -1553,7 +1553,7 @@ export default async function EventHomePage({
               services={homeServiceRowAll.filter((s) => s.key !== 'papic')}
               papicLeft={papicNow.count}
               cards={serviceCards}
-              eventServices={storeShell ? null : eventServicesTodayLine(eventPlanHeld, papicNow.count)}
+              eventServices={storeShell && !appleFacts ? null : eventServicesTodayLine(eventPlanHeld, papicNow.count)}
             />
           </div>
 
@@ -1619,7 +1619,7 @@ export default async function EventHomePage({
               services={homeServiceRowAll.filter((s) => !(papicInMemories && s.key === 'papic'))}
               papicLeft={papicNow.count}
               cards={serviceCards}
-              eventServices={storeShell ? null : eventServicesTodayLine(eventPlanHeld, papicNow.count)}
+              eventServices={storeShell && !appleFacts ? null : eventServicesTodayLine(eventPlanHeld, papicNow.count)}
             />
           </div>
 

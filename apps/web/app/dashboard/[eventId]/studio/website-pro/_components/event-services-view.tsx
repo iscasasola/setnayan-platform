@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useId, useMemo, useRef, useState, useTransition, type ComponentType, type ReactNode } from 'react';
-import { Camera, Check, ChevronDown, ChevronRight, ChevronUp, Gem, LayoutTemplate, Radio, Sparkles, Wallet, X } from 'lucide-react';
+import { createContext, useContext, useId, useMemo, useRef, useState, useTransition, type ComponentType, type ReactNode } from 'react';
+import { Camera, Check, RotateCw, ChevronDown, ChevronRight, ChevronUp, Gem, LayoutTemplate, Radio, Sparkles, Wallet, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { Chips } from '@/app/_components/chips';
@@ -10,6 +10,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { formatPhp } from '@/lib/php';
 import { routes } from '@/lib/routes';
+import { IAP_COPY, pendingLine, type IapScreen } from '@/lib/iap/iap-outcome';
 import { formatCount } from '@/lib/format-number';
 import {
   EMPTY_PICK,
@@ -66,6 +67,49 @@ export type SubmitEventServices = (
   fd: FormData,
 ) => Promise<{ ok: true; reference_code: string } | { ok: false; reason: string; needsAccount?: true }>;
 
+/**
+ * 🍎 THE iPHONE APP (drawing v4 frames 08 · 08b · 08c · 08e · 08f): the same page with Apple's prices only — no web
+ * price, no saving worked from web prices, no link out — and Event Hub and Setnayan AI alone hidden (no Apple product).
+ * Pay runs Apple's own sheet once per ticked item, in order: the plan first, then the rest ("1 of 2 · Event Pro").
+ * Handed in by the page's body (`event-services-body.tsx`), which owns StoreKit.
+ */
+export type AppleKit = {
+  /** Catalogue code → App Store product id — only the products Apple sells (`lib/iap/products.ts`). */
+  products: Readonly<Record<string, string>>;
+  /** StoreKit's prices: 'silent' = the App Store did not answer, and the page says so. */
+  prices: { state: 'loading' | 'ready' | 'silent'; display: ReadonlyMap<string, string> };
+  /** One Apple payment — its one true outcome (`buyWithApple`). */
+  buy: (productId: string) => Promise<IapScreen>;
+  /** Read the event again (a purchase that landed changes "Your plan" and the packs). */
+  refresh: () => void;
+};
+
+/** The facts as the app shows them: Apple's rows only, no web figure (a row Apple prices is tickable at 0 — never drawn). */
+function appleFacts(f: EventServicesFacts, apple: AppleKit): EventServicesFacts {
+  const has = (code: string) => Boolean(apple.products[code]);
+  const priced = (code: string): number | null => {
+    const id = apple.products[code];
+    return id && apple.prices.display.has(id) ? 0 : null;
+  };
+  return {
+    ...f,
+    packs: f.packs.map((p) => ({ ...p, php: p.state === 'buy' ? priced(p.code) : null, savePhp: null, upgrade: false })),
+    singles: f.singles.filter((x) => has(x.code)).map((x) => ({ ...x, php: x.state === 'buy' ? priced(x.code) : null })),
+    photos: f.photos ? f.photos.filter((x) => has(x.code)).map((x) => ({ ...x, php: 0 })) : null,
+  };
+}
+
+/** A pick less the lines Apple already confirmed. */
+function withoutLines(pick: EventServicesPick, done: readonly { code: string }[], facts: EventServicesFacts): EventServicesPick {
+  const gone = new Set(done.map((d) => d.code));
+  const pack = pick.pack && gone.has(facts.packs.find((p) => p.key === pick.pack)?.code ?? '') ? null : pick.pack;
+  const singles = pick.singles.filter((k) => !gone.has(facts.singles.find((x) => x.key === k)?.code ?? ''));
+  return { pack, singles, photos: pick.photos && gone.has(pick.photos) ? null : pick.photos };
+}
+
+/** Apple's price for a catalogue code — StoreKit's own string, or the honest word. */
+const AppleCtx = createContext<((code: string) => string | null) | null>(null);
+
 /** Where the cart bar stands — the thumb dock on the page (`event-services-body.tsx`); a plain block in a unit test. */
 export type CartDock = ComponentType<{ children: ReactNode }>;
 const PlainDock: CartDock = ({ children }) => <div data-event-services-dock="">{children}</div>;
@@ -73,7 +117,16 @@ const PlainDock: CartDock = ({ children }) => <div data-event-services-dock="">{
 const ICON: Record<SingleKey, typeof Gem> = { hub: LayoutTemplate, ai: Sparkles, live: Radio };
 
 /** A price, or the honest word when it was not read. */
-function Price({ php, className = '' }: { php: number | null; className?: string }) {
+function Price({ php, code, className = '' }: { php: number | null; code?: string; className?: string }) {
+  const apple = useContext(AppleCtx);
+  if (apple) {
+    const label = code ? apple(code) : null;
+    return label === null ? (
+      <span className={`text-sn-md text-ink/55 ${className}`}>Apple’s price</span>
+    ) : (
+      <span className={`whitespace-nowrap text-sn-xl font-bold text-mulberry ${className}`}>{label}</span>
+    );
+  }
   return php === null ? (
     <span className={`text-sn-md text-ink/55 ${className}`}>Couldn’t read</span>
   ) : (
@@ -106,7 +159,6 @@ function StateWord({ state }: { state: 'yours' | 'review' | 'plan' }) {
 
 export function EventServicesView({
   eventId,
-  facts,
   ordersHref,
   initialPick = EMPTY_PICK,
   initialOpen = false,
@@ -115,12 +167,19 @@ export function EventServicesView({
   back = null,
   Dock = PlainDock,
   submit,
-}: EventServicesBodyProps & { Dock?: CartDock; submit?: SubmitEventServices }) {
+  apple = null,
+  facts: shippedFacts,
+}: Omit<EventServicesBodyProps, 'facts'> & { facts: EventServicesFacts; Dock?: CartDock; submit?: SubmitEventServices; apple?: AppleKit | null }) {
+  /* 🍎 In the app every row is priced by Apple: a row Apple prices can be ticked (its web figure is never handed in —
+     the page strips them), the others cannot; Event Hub and Setnayan AI alone have no Apple product and are not shown. */
+  const facts = useMemo(() => (apple ? appleFacts(shippedFacts, apple) : shippedFacts), [shippedFacts, apple]);
   const [pick, setPick] = useState<EventServicesPick>(initialPick);
   const [open, setOpen] = useState(initialOpen || (facts.plan !== null && facts.plan !== 'free'));
   const [info, setInfo] = useState<PackFact | null>(() => (initialInfo ? facts.packs.find((p) => p.key === initialInfo) ?? null : null));
   const [failed, setFailed] = useState<string | null>(null);
   const [paying, startPaying] = useTransition();
+  const [step, setStep] = useState<{ at: number; of: number; label: string } | null>(null);
+  const [appleNote, setAppleNote] = useState<{ tone: 'warn' | 'note'; text: string; retry: boolean } | null>(null);
   const infoHead = useId();
   // The singles grow in place and the page brings them into view on a press (the house reveal, never a hand-rolled one).
   const singlesRef = useRef<HTMLElement>(null);
@@ -143,7 +202,53 @@ export function EventServicesView({
     setPick((p) => ({ ...p, singles: p.singles.includes(k) ? p.singles.filter((s) => s !== k) : [...p.singles, k] }));
   const pickPhotos = (code: string, next: boolean) => setPick((p) => ({ ...p, photos: next ? code : null }));
 
+  /* 🍎 Apple's sheet once per item, in the cart's order (plan first). Each item switches on as Apple confirms it; the
+     first that does not go through stops the run — what landed stays, what did not stays picked, nothing more is
+     charged (frames 08b · 08c · 08e). */
+  const payWithApple = async () => {
+    if (!apple || lab) return;
+    setAppleNote(null);
+    const lines = cart.lines.filter((l) => apple.products[l.code]);
+    const done: typeof lines = [];
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i]!;
+      setStep({ at: i + 1, of: lines.length, label: line.label });
+      let screen: IapScreen;
+      try {
+        screen = await apple.buy(apple.products[line.code]!);
+      } catch {
+        screen = { kind: 'failed' };
+      }
+      if (screen.kind === 'on') {
+        done.push(line);
+        continue;
+      }
+      setStep(null);
+      // What landed leaves the cart; what did not stays picked.
+      setPick((p) => withoutLines(p, done, facts));
+      const kept = done.length > 0 ? `${done.map((d) => d.label).join(' + ')} ${done.length === 1 ? 'is' : 'are'} yours. ` : '';
+      const rest = lines.slice(i).map((l) => l.label).join(' + ');
+      setAppleNote(
+        screen.kind === 'pending'
+          ? { tone: 'note', text: `${kept}${screen.askToBuy ? IAP_COPY.askToBuy : pendingLine(line.label, false)}`, retry: false }
+          : screen.kind === 'refused'
+            ? { tone: 'warn', text: `${kept}${screen.message}`, retry: true }
+            : { tone: 'warn', text: `${kept}${rest} not bought. ${IAP_COPY.cancelled}`, retry: true },
+      );
+      if (done.length > 0) apple.refresh();
+      return;
+    }
+    setStep(null);
+    setPick(EMPTY_PICK);
+    setAppleNote({ tone: 'note', text: `${lines.map((l) => l.label).join(' + ')} ${lines.length === 1 ? 'is' : 'are'} on this event. ${IAP_COPY.receipt}`, retry: false });
+    apple.refresh();
+  };
+
   const pay = () => {
+    if (apple) {
+      void payWithApple();
+      return;
+    }
     if (lab || !submit || cart.totalPhp === null) return;
     setFailed(null);
     startPaying(async () => {
@@ -179,8 +284,15 @@ export function EventServicesView({
         : { word: 'You have', n: facts.photosLeft };
   const photoSize = pick.photos ? facts.photos?.find((p) => p.code === pick.photos) ?? null : null;
 
+  const appleLabel = useMemo(
+    () => (apple ? (code: string) => (apple.products[code] ? (apple.prices.display.get(apple.products[code]!) ?? null) : null) : null),
+    [apple],
+  );
+  const appleCount = apple ? cart.lines.filter((l) => apple.products[l.code]).length : 0;
+
   return (
-    <section className="mx-auto w-full max-w-[760px] pb-8" data-event-services="" data-event-services-plan={facts.plan ?? 'unread'}>
+    <AppleCtx.Provider value={appleLabel}>
+    <section className="mx-auto w-full max-w-[760px] pb-8" data-event-services="" data-event-services-apple={apple ? '' : undefined} data-event-services-plan={facts.plan ?? 'unread'}>
       {/* ── the peach band: the event's line and the one title ── */}
       <div className="sn-band -mt-2 px-4 pb-4 pt-3 sm:rounded-b-2xl" data-event-services-band="">
         {facts.eyebrow ? <p className="text-sn-md text-ink/60">{facts.eyebrow}</p> : null}
@@ -190,6 +302,25 @@ export function EventServicesView({
       </div>
 
       <div className="space-y-6 px-4 pt-2">
+        {/* 🍎 The honest states, in amber (frames 08e · 08f): the App Store not answering, or a payment that did not go
+            through — what landed is said, what did not stays picked, and Try again picks up where it stopped. */}
+        {apple && apple.prices.state === 'silent' ? (
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-warn-50 p-3 text-warn-900" role="alert" data-event-services-apple-silent="">
+            <p className="text-sn-md">{IAP_COPY.storeSilent}</p>
+            <ActionButton tone="neutral" icon={RotateCw} label="Try again" onClick={() => window.location.reload()} />
+          </div>
+        ) : null}
+        {appleNote ? (
+          <div
+            className={`flex items-center justify-between gap-3 rounded-xl p-3 ${appleNote.tone === 'warn' ? 'bg-warn-50 text-warn-900' : 'bg-success-50 text-success-900'}`}
+            role={appleNote.tone === 'warn' ? 'alert' : 'status'}
+            data-event-services-apple-note={appleNote.tone}
+          >
+            <p className="text-sn-md">{appleNote.text}</p>
+            {appleNote.retry && cart.lines.length > 0 ? <ActionButton tone="neutral" icon={RotateCw} label="Try again" onClick={pay} /> : null}
+          </div>
+        ) : null}
+
         {/* ── Your plan ── */}
         <div className="sn-frame" data-event-services-your-plan="">
           <p className="text-sn-md text-ink/60">Your plan</p>
@@ -258,8 +389,8 @@ export function EventServicesView({
                       <span className="pointer-events-none flex shrink-0 flex-col items-end gap-1 pt-1">
                         {p.state === 'buy' ? (
                           <>
-                            <Price php={p.php} />
-                            {next && p.php !== null ? (
+                            <Price php={p.php} code={p.code} />
+                            {apple ? null : next && p.php !== null ? (
                               <span className="text-sn-sm text-ink/55">pay the difference</span>
                             ) : p.savePhp !== null ? (
                               <span className="whitespace-nowrap text-sn-sm font-bold text-success-700">Save {formatPhp(p.savePhp)}</span>
@@ -333,7 +464,7 @@ export function EventServicesView({
                       'Photos left: couldn’t read'
                     )}
                   </span>
-                  {photoSize ? <Price php={photoSize.php} className="!text-sn-lg" /> : null}
+                  {photoSize ? <Price php={photoSize.php} code={photoSize.code} className="!text-sn-lg" /> : null}
                 </p>
               </div>
             </div>
@@ -365,6 +496,17 @@ export function EventServicesView({
         </Link>
       </div>
 
+      {/* 🍎 "1 of 2 · Event Pro" — Apple's own payment sheet opens over this; we only name the step (frames 08b · 08c). */}
+      {step ? (
+        <div className="sn-frame fixed inset-x-4 top-24 z-40 mx-auto max-w-[480px] text-center" role="status" aria-live="polite" data-event-services-apple-step={`${step.at}/${step.of}`}>
+          <p className="text-sn-md text-ink/60">
+            {step.at} of {step.of}
+          </p>
+          <p className="mt-1 text-sn-2xl font-bold text-ink">{step.label}</p>
+          <p className="mt-2 text-sn-md text-ink/60">Apple’s own payment sheet opens now.</p>
+        </div>
+      ) : null}
+
       {/* ── the cart bar: ONE order, ONE Pay ── */}
       {cart.lines.length > 0 ? (
         <Dock>
@@ -372,7 +514,9 @@ export function EventServicesView({
               <span className="min-w-0 flex-1">
                 <span className="line-clamp-2 block text-sn-md font-semibold leading-snug text-ink">{cart.label}</span>
                 <span className="block text-sn-sm text-ink/60">
-                  {failed ? (
+                  {apple ? (
+                    appleCount === 1 ? `Apple’s price · ${IAP_COPY.billedByApple}` : `Apple’s prices · ${appleCount} Apple payments`
+                  ) : failed ? (
                     <span className="text-warn-800">{failed}</span>
                   ) : cart.totalPhp === null ? (
                     'A price couldn’t be read'
@@ -386,7 +530,7 @@ export function EventServicesView({
                 main
                 icon={failed ? X : Wallet}
                 label={failed ? 'Try again' : 'Pay'}
-                waiting={paying || cart.totalPhp === null}
+                waiting={apple ? step !== null || apple.prices.state !== 'ready' : paying || cart.totalPhp === null}
                 onClick={pay}
                 data-event-services-pay=""
               />
@@ -428,6 +572,7 @@ export function EventServicesView({
         ) : null}
       </Sheet>
     </section>
+    </AppleCtx.Provider>
   );
 }
 
@@ -453,7 +598,7 @@ function SingleRow({ s, inPlan, picked, onToggle }: { s: SingleFact; inPlan: boo
           <span className="block text-sn-md leading-snug text-ink/65">{words.line}</span>
         </span>
         <span className="shrink-0 pt-0.5">
-          {inPlan ? <StateWord state="plan" /> : s.state !== 'buy' ? <StateWord state={s.state} /> : <Price php={s.php} className="!text-sn-lg" />}
+          {inPlan ? <StateWord state="plan" /> : s.state !== 'buy' ? <StateWord state={s.state} /> : <Price php={s.php} code={s.code} className="!text-sn-lg" />}
         </span>
       </button>
     </li>

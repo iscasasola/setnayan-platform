@@ -2,10 +2,12 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { routes } from '@/lib/routes';
 import { getIapGate } from '@/lib/request-platform';
+import { iapProductForServiceKey, IAP_PAPIC_PRODUCTS } from '@/lib/iap/products';
 import { CapizLight } from '@/app/_components/signature/capiz-light';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { readEventServices } from '@/lib/event-services.server';
-import { PACK_KEYS, SINGLE_KEYS, singleTickable, singlesInPlan, type EventServicesPick, type PackKey, type SingleKey } from '@/lib/event-services';
+import { PACK_KEYS, SINGLE_CODES, SINGLE_KEYS, singleTickable, singlesInPlan, type EventServicesFacts, type EventServicesPick, type PackKey, type SingleKey } from '@/lib/event-services';
+import { PLAN_PRICE_CODES } from '@/lib/event-plans';
 import { EventServicesBody } from './_components/event-services-body';
 import { UNLOCK_AND_APPLY_PARAM } from '@/lib/hub-pro-effects';
 
@@ -40,12 +42,15 @@ export default async function EventServicesPage({ params, searchParams }: Props)
   const search = (await searchParams) ?? {};
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  /* 🍎 The App Store shell never sees a web price or a way to pay on the web (Apple's rule). Until the iPhone half of
-     Event services lands, the app keeps its shipped Apple screen; without Apple, Today. */
+  /* 🍎 THE iPHONE APP (drawing v4 frames 08 · 08b · 08c · 08e · 08f): the same page, Apple's prices only. The store
+     shell never receives a web figure — every peso the read produced is stripped HERE, before anything reaches the
+     browser — and without Apple's shop (an old build, Apple off) it offers nothing: Today. */
   const gate = await getIapGate();
-  if (gate.storeShell) redirect(gate.iap ? `/dashboard/${eventId}/apple-pro` : `/dashboard/${eventId}`);
+  if (gate.storeShell && !gate.iap) redirect(`/dashboard/${eventId}`);
+  const appleProducts = gate.storeShell ? appleProductsFor() : null;
 
-  const facts = await readEventServices(eventId);
+  const read = await readEventServices(eventId);
+  const facts = appleProducts ? withoutWebFigures(read) : read;
   /* 💎 From the Maker's Apply sheet (`?from=maker`, owner 2026-09-28): the way back is the Maker, where the draft waits
      untouched; "Unlock … and Apply" (`then=apply`) comes back with `?apply=1`, which applies the draft once its parts
      are active (`unlockAndApplyOnReturn`). A closed value, never a URL from the request. */
@@ -61,7 +66,8 @@ export default async function EventServicesPage({ params, searchParams }: Props)
       : search.buy === 'full'
         ? 'plus'
         : null;
-  const pack = wantPack && facts.packs.some((p) => p.key === wantPack && p.state === 'buy' && p.php !== null) ? wantPack : null;
+  // In the app no web figure is handed in, so a pack Apple sells can be picked on arrival without one.
+  const pack = wantPack && facts.packs.some((p) => p.key === wantPack && p.state === 'buy' && (appleProducts !== null || p.php !== null)) ? wantPack : null;
   const add = typeof search.add === 'string' && (ADD_KEYS as readonly string[]).includes(search.add) ? search.add : null;
   const addSingle = add && add !== 'photos' ? (add as SingleKey) : null;
   const single = addSingle ? facts.singles.find((s) => s.key === addSingle) : undefined;
@@ -82,7 +88,30 @@ export default async function EventServicesPage({ params, searchParams }: Props)
         initialPick={initialPick}
         initialOpen={add !== null}
         back={back}
+        appleProducts={appleProducts}
       />
     </>
   );
+}
+
+/** 🍎 What Apple sells on this page: the three plans, Live Watch and the photo packs — catalogue code → product id.
+ *  Event Hub and Setnayan AI have no Apple product, so the app does not show them (no link out to the web). */
+function appleProductsFor(): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const code of [...Object.values(PLAN_PRICE_CODES), SINGLE_CODES.live]) {
+    const p = iapProductForServiceKey(code);
+    if (p) out[code] = p.productId;
+  }
+  for (const p of IAP_PAPIC_PRODUCTS) out[p.serviceKey] = p.productId;
+  return out;
+}
+
+/** 🍎 Every web peso out of the facts before they reach the app's browser (Apple's rule: no web price in the app). */
+function withoutWebFigures(f: EventServicesFacts): EventServicesFacts {
+  return {
+    ...f,
+    packs: f.packs.map((p) => ({ ...p, php: null, savePhp: null })),
+    singles: f.singles.map((x) => ({ ...x, php: null })),
+    photos: f.photos ? f.photos.map((x) => ({ ...x, php: 0 })) : null,
+  };
 }

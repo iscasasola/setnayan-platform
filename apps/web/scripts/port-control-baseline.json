@@ -661,7 +661,6 @@
         "(shell)/papic/_papic-sections.tsx",
         "(shell)/papic/loading.tsx",
         "(shell)/papic/page.tsx",
-        "papic/_components/camera-controls.tsx",
         "papic/_components/camera-page-lock.tsx",
         "papic/_components/papic-buy-shell.tsx",
         "papic/_components/papic-guest-buy-panel.tsx",
@@ -7931,6 +7930,7 @@
       "files": [
         "dashboard/[eventId]/guests/_components/add-from-people-sheet.tsx",
         "dashboard/[eventId]/guests/_components/add-guest-sheet.tsx",
+        "dashboard/[eventId]/guests/_components/add-kind-pick.tsx",
         "dashboard/[eventId]/guests/_components/capture-bar.tsx",
         "dashboard/[eventId]/guests/_components/card-fields.tsx",
         "dashboard/[eventId]/guests/_components/dock-follows-column.ts",
@@ -8064,6 +8064,7 @@
         "AddFromPeopleResult",
         "AddFromPeopleSheet",
         "AddGuestSheet",
+        "AddKindPick",
         "AddPicks",
         "AddPreviewLine",
         "Animation",
@@ -8333,6 +8334,8 @@
     "/dashboard/[eventId]/guests/checkin": {
       "files": [
         "dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx",
+        "dashboard/[eventId]/guests/checkin/_components/desk-parts-board.tsx",
+        "dashboard/[eventId]/guests/checkin/_components/desk-parts.tsx",
         "dashboard/[eventId]/guests/checkin/actions.ts",
         "dashboard/[eventId]/guests/checkin/page.tsx"
       ],
@@ -8345,21 +8348,35 @@
       "blocks": [
         "ActionButton",
         "Badge",
+        "C",
         "CheckinActionResult",
         "CheckinDesk",
         "CheckinMethod",
+        "DeskAccess",
+        "DeskPart",
+        "DeskParts",
         "DeskSavedMark",
         "GuestAvatar",
         "HTMLVideoElement",
+        "InfoTip",
+        "Initials",
         "Link",
         "LiveRefresher",
         "MediaStream",
         "NotSharedWithYou",
         "OfflineQueue",
+        "PartsPick",
+        "PickMenu",
         "ReadRefusedNotice",
         "RoleNamesProvider",
+        "Row",
+        "SaveDeskAccessResult",
+        "SidePanel",
+        "SuppliersPart",
+        "TeamPart",
         "TicketCheck",
-        "UndoActionResult"
+        "UndoActionResult",
+        "WhoRunsTheDesk"
       ]
     },
     "/dashboard/[eventId]/guests/claims": {
@@ -8818,7 +8835,9 @@
         "A",
         "About",
         "ActionButton",
+        "AddKindPick",
         "AddPartSheet",
+        "AddPreviewLine",
         "AddWish",
         "AddressField",
         "AddressPinField",
@@ -10522,21 +10541,6 @@
         "AddOnDetailView"
       ]
     },
-    "/dashboard/[eventId]/studio/editorial-pro": {
-      "files": [
-        "dashboard/[eventId]/studio/editorial-pro/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/[seg]/orders"
-      ],
-      "actions": [],
-      "blocks": [
-        "InlineCheckoutDrawer",
-        "Link",
-        "PageMasthead",
-        "StudioBuyHero"
-      ]
-    },
     "/dashboard/[eventId]/studio/guest-columns": {
       "files": [
         "dashboard/[eventId]/studio/guest-columns/_components/column-queue-controls.tsx",
@@ -11407,6 +11411,7 @@
         "PaidMark",
         "PlanOffer",
         "ProPartsBody",
+        "ProPlanCard",
         "UltraOffer"
       ]
     },
@@ -11533,7 +11538,6 @@
         "BookOutcome",
         "BookPricesCtx.Provider",
         "BookSheet",
-        "BookThisBuild",
         "BookThisBuildBody",
         "BookedBody",
         "BookedCountRule",
@@ -11593,12 +11597,11 @@
         "Count",
         "CountMode",
         "CountRuleSheet",
-        "CoverBar",
         "CoverCatalogRead",
-        "CoverCount",
         "CoverRing",
         "CoverRingContext.Provider",
         "CoverRingProvider",
+        "CoveredLine",
         "Ctx",
         "DateBody",
         "DateCalendar",
@@ -13733,7 +13736,6 @@
     "/papic/seat/[token]": {
       "files": [
         "papic/seat/[token]/_components/camera-bridge-panel.tsx",
-        "papic/seat/[token]/_components/papic-seat-capture.tsx",
         "papic/seat/[token]/loading.tsx",
         "papic/seat/[token]/page.tsx"
       ],
@@ -13742,27 +13744,17 @@
       ],
       "actions": [],
       "blocks": [
-        "Blob",
         "CameraBridgePanel",
-        "CameraPageLock",
         "DoorShell",
         "DslrPairingController",
+        "EventMonogram",
         "FormPageSkeleton",
-        "HTMLButtonElement",
         "HTMLCanvasElement",
-        "HTMLDivElement",
-        "InfoTip",
-        "Link",
-        "MediaRecorder",
         "MockBridge",
         "PairingState",
-        "PapicCameraControls",
-        "PapicExhaustionCause",
         "PapicGuestBuyPanel",
-        "PapicSeatCapture",
-        "PapicSinkDeps",
-        "PapicStyle",
-        "Shot"
+        "PapicGuestCapture",
+        "PapicSinkDeps"
       ]
     },
     "/pay/[reference]": {
@@ -18090,6 +18082,7 @@
     },
     "/vendor-dashboard/shop/promote": {
       "files": [
+        "vendor-dashboard/shop/promote/_components/apple-gift-cart.tsx",
         "vendor-dashboard/shop/promote/_components/gift-return-banner.tsx",
         "vendor-dashboard/shop/promote/_components/gift-store-copy.ts",
         "vendor-dashboard/shop/promote/_components/gift-store-sizes.ts",
@@ -18113,6 +18106,8 @@
       "blocks": [
         "ActionButton",
         "AddButton",
+        "AppStoreTransactions",
+        "AppleGiftCartFoot",
         "Art",
         "ArtBase.Provider",
         "BadgeRead",
@@ -18144,6 +18139,7 @@
         "Hidden.Provider",
         "HistoryFilter",
         "HistoryItem",
+        "IapGiftBuy",
         "InfoTip",
         "Link",
         "NfcTapTest",

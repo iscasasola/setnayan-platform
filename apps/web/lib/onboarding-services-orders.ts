@@ -73,8 +73,8 @@ import { resolveOrderChargeCentavos } from '@/lib/order-charge-authority';
 import { SETNAYAN_AI_SKU } from '@/lib/setnayan-ai-event-pricing';
 import {
   COUPLE_WEBSITE_PRO_SERVICE_KEY,
-  eventCoupleWebsiteProActive,
-  eventOwnsCoupleWebsitePro,
+  eventOwnsProPlan,
+  eventProPlanActive,
 } from '@/lib/couple-website-pro';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { hubProBillLine } from '@/lib/onboarding-hub-pro';
@@ -185,8 +185,9 @@ async function eventHasEventHub(admin: SupabaseClient, eventId: string): Promise
  */
 async function eventAlreadyHasHubPro(admin: SupabaseClient, eventId: string): Promise<boolean> {
   try {
-    if (await eventOwnsCoupleWebsitePro(admin, eventId)) return true;
-    return await eventCoupleWebsiteProActive(admin, eventId);
+    // 💎 The Pro PLAN (owner 2026-11-19): a Pro bought from 19 Nov holds the plan, not everything — and is not sold twice.
+    if (await eventOwnsProPlan(admin, eventId)) return true;
+    return await eventProPlanActive(admin, eventId);
   } catch {
     return true;
   }

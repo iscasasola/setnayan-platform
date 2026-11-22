@@ -24,7 +24,7 @@ import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { InfoTip } from '@/app/_components/info-tip';
 
 export const ALBUM_SHARE_TIP =
-  'On, everyone who opens this event’s story sees this album in your own scene, with your shop name, your Supplier Ultra badge and a button to your shop. Off, the album stays private. You can switch it any time.';
+  'On, everyone who opens this event’s story sees this album in your own scene, with your shop name, your Ultra badge and a button to your shop. Off, the album stays private. You can switch it any time.';
 
 export function AlbumShareSwitch({
   eventId,
@@ -83,7 +83,7 @@ export function AlbumShareSwitch({
               Share this album to the event’s story
             </b>
             <small className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Supplier Ultra shares its album to the event story
+              Ultra shares its album to the event story
             </small>
           </span>
         </summary>
@@ -91,10 +91,10 @@ export function AlbumShareSwitch({
           <b>Problem.</b> Your plan lists you in the story, with no scene of your own.
         </p>
         <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-          <b>Solution.</b> Move to Supplier Ultra. Your album then fills your own scene.
+          <b>Solution.</b> Move to Ultra. Your album then fills your own scene.
         </p>
         <Link href={upgradeHref} className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--m-slate-1)' }}>
-          See Supplier Ultra
+          See Ultra
         </Link>
       </details>
     );

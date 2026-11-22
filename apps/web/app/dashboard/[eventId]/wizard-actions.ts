@@ -75,6 +75,7 @@ import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
+import { bookingWindowRefusal } from '@/lib/booking-window.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { isMoodboardSlotPosition, MOODBOARD_SLOT_POSITIONS } from '@/lib/moodboard-slots';
@@ -540,6 +541,11 @@ async function completeVendorPickFromMarketplace(
       .eq('event_id', eventIdRaw)
       .maybeSingle();
     const d = dayRow as { event_date?: string | null; event_date_precision?: string | null } | null;
+    // 📅 The shop's At least · At most — the same helper every booking door asks (`lib/booking-window.server.ts`).
+    if (d?.event_date_precision === 'day') {
+      const windowWords = await bookingWindowRefusal({ vendorProfileId: marketplaceVendorIdRaw, day: d.event_date });
+      if (windowWords) throw new Error(windowWords);
+    }
     if (
       d?.event_date_precision === 'day' &&
       (await closedDayRefusal({ vendorProfileId: marketplaceVendorIdRaw, serviceId: null, day: d.event_date })) === 'closed'

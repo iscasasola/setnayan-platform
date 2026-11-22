@@ -202,10 +202,12 @@ test('(5b) the march read is the entourage read plus the walk row’s group — 
   assert.notEqual(MARCH_GUEST_FIELDS, ENTOURAGE_COLUMNS);
 });
 
-test('(7) the Guests march offers ＋ Group — the thumb row’s ＋ ▾ and the selected group’s toolbar', () => {
+test('(7) the Guests march offers ＋ Group — the box’s Walk ▾ and the selected group’s toolbar', () => {
   const src = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/launch/_components/details-march.tsx'), 'utf8'));
-  assert.match(src, /\{ key: NEW_GROUP, label: 'New group', group: 'Groups' \}/, 'the thumb row’s ＋ ▾ has no New group');
-  assert.match(src, /if \(id === NEW_GROUP\) return addGroup\(marchSel\);/);
+  // 22 Nov 2026 (drawing v4 § 7: "Orange ＋ (New group) → drag the search box right; 'Walk ▾'"): New group moved from the
+  // ＋ ▾ into the box's Walk ▾ — the same option, the same `addGroup(marchSel)`.
+  assert.match(src, /\{ key: NEW_GROUP, label: 'New group', group: 'Groups' \}/, 'the box’s Walk ▾ has no New group');
+  assert.match(src, /onPick=\{\(id\) => \(id === NEW_GROUP \? addGroup\(marchSel\) : addWalkOf\(id\)\)\}/);
   assert.match(src, /onAddGroup=\{\(\) => addGroup\(selSec\.key\)\}/, 'the selected group’s toolbar has no ＋ Group');
   assert.match(src, /run\(planGroupAdd\(shown, shownPrinted, shownOut, key, newOwnGroupLabel\(shown\), at\)\);/);
   assert.match(src, /data-march-own-empty=""/, 'an empty own group has nowhere to drop a name');

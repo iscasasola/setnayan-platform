@@ -116,7 +116,8 @@ test('the editorial skips BOTH database reads for a sample', () => {
     'the masthead monogram read is no longer gated — a sample id is not a uuid',
   );
   assert.match(
-    nearestGuardAbove(src, 'eventCoupleWebsiteProActive('),
+    // 💎 2026-11-19: the colophon's watermark is the Pro PLAN's perk (`eventProPlanActive`).
+    nearestGuardAbove(src, 'eventProPlanActive('),
     /^if \(!isSample\)/,
     'the paid-perk probe is no longer gated — it looks a sample up in orders',
   );

@@ -160,7 +160,7 @@ test('(c) as shipped — dark reaches ONLY the couple’s /dashboard area + the 
     }
   }
   assert.ok(!DARK_READY.includes('/dashboard'), '"/dashboard" as one prefix opens the whole event tree — the Maker, the Studio and the rest are not swept');
-  for (const e of ['/dashboard/*$', '/dashboard/*/budget$', '/dashboard/*/guests$', '/dashboard/*/schedule$']) assert.ok(DARK_READY.includes(e), `${e} left the ready-list`);
+  for (const e of ['/dashboard/*$', '/dashboard/*/budget$', '/dashboard/*/guests$', '/dashboard/*/schedule$', '/dashboard/*/memories$']) assert.ok(DARK_READY.includes(e), `${e} left the ready-list`);
   // `*` is an id: it must hold a digit — and no static folder under /dashboard does, so `*` can never be one of them.
   const statics = ['(account)', '(launcher)'].flatMap((g) => readdirSync(join(WEB, 'app/dashboard', g), { withFileTypes: true }).filter((d) => d.isDirectory() && !/^[_@(]/.test(d.name)).map((d) => d.name));
   assert.ok(statics.length >= 10, 'anti-vacuity: the static dashboard folders were not read');

@@ -69,6 +69,7 @@ import { ThumbRow, type ThumbField, type ThumbMenu } from '@/components/thumb-ro
 import { Count } from '@/components/count';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { AddKindPick } from './add-kind-pick';
 import { InspectorColumn, useInspectorSelect } from '@/app/_components/inspector/inspector-column';
 import { GuestCardAvatar, guestCardEyebrow, guestCardNick, guestCardReply, guestCardTitle } from './guest-card-head';
 import type { GuestCardData } from './guest-card-data';
@@ -1662,22 +1663,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       writesOff || gview !== 'list'
         ? undefined
         : {
-            kind: (
-              <PickMenu
-                label="What to add"
-                value="guest"
-                options={[{ key: 'guest', label: 'Guest', group: 'Add' }, ...addWays]}
-                onPick={(k) => void pickedAddWay(k)}
-                dataAttr="data-guests-add-kind"
-                buttonText="Guest"
-                trigger={
-                  <span data-kind-face="">
-                    Guest
-                    <ChevronDown aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
-                  </span>
-                }
-              />
-            ),
+            kind: <AddKindPick word="Guest" options={addWays} onPick={(k) => void pickedAddWay(k)} dataAttr="data-guests-add-kind" />,
           },
     onMode: setAddMode,
     input: {
@@ -1894,6 +1880,13 @@ export function GuestsScreen(props: GuestsScreenProps) {
         <div className={styles.typedAdd} data-typed-add="" data-search-result="">
           <SearchAddRow query={q} as="a guest" onAdd={addTypedOrSheet} preview={typedPreview} />
           <TypedWays eventId={eventId} />
+        </div>
+      ) : null}
+      {/* 🔎 "2 FOUND" (Guests redesign § 2, "one tap, searching"): how many guests the words found, in the headings' own
+          words, above them — counted off the very rows drawn below (`visible`), never a second count. */}
+      {q && !noMatch ? (
+        <div className={`${styles.lab} ${styles.found}`} data-search-found="" aria-live="polite">
+          <Count value={visible.length} id="gs-found" /> found
         </div>
       ) : null}
       {(empty && !q ? [] : sections).map((sec) => {
@@ -2314,7 +2307,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             ) : null}
             {/* 💬 "› Drag the box right to add a guest" — one line above the box while it searches with words (pick 1). */}
             {gview === 'list' && !selectMode && !writesOff && q && addMode === 'search' ? (
-              <p className={styles.dragHint} data-search-add-hint="">
+              <p className={`${styles.dragHint} sn-glass-row`} data-search-add-hint="">
                 <ChevronRight aria-hidden strokeWidth={2} />
                 Drag the box right to add a guest
               </p>

@@ -395,7 +395,14 @@ export function RevealOverlay({
       it. Writing the mark from a render branch instead would have recorded
       "seen" for guests who were shown nothing.
     */
-    if (showing && oncePerVisit === 'record') markRevealSeen(window.sessionStorage, seenEventId);
+    /*
+      ↩️ AND THE EVENT HUB RECORDS TOO (owner 2026-11-22: *"when we return to the event hub. we don't want them to
+      start at the reveal. we want them back to where they were last"*). The Hub used only to READ the mark, so a
+      guest who had watched the Hub's own opening and stepped out to the camera (or anywhere) got the whole opening
+      again on the way back. Both sides of the hand-off now write it once a guest has actually SEEN an opening; the
+      Hub still stands aside for a mark it finds. A new visit (a new tab) plays as before.
+    */
+    if (showing && (oncePerVisit === 'record' || oncePerVisit === 'defer')) markRevealSeen(window.sessionStorage, seenEventId);
     return () => {
       (window as Window & { __stdRevealActive?: boolean }).__stdRevealActive = false;
       document.documentElement.removeAttribute(REVEAL_UP_ATTR);

@@ -83,7 +83,7 @@ export function PresetTiles({
                 </span>
                 <span className="flex items-center gap-1 pr-7 text-[12px] font-semibold leading-tight text-ink">
                   {/* ◆ marks what Pro covers — the diamond, never a padlock: the tap still places it (2026-09-29). */}
-                  {mark ? <PaidMark state={mark} size="xs" label={paidMarkLabel(mark, 'Event Pro')} /> : null}
+                  {mark ? <PaidMark state={mark} size="xs" word="PLUS" label={paidMarkLabel(mark, 'Event Plus')} /> : null}
                   {p.name}
                 </span>
                 <span className="text-[12px] leading-tight text-ink/75">{p.fields}</span>

@@ -91,7 +91,7 @@ export async function fetchInquiryCustomerFacts(
     const { rows: data, error } = await readInChunks(ids, (part) =>
       admin
         .from('events')
-        .select('event_id, display_name, event_date, event_type, region, date_candidates, date_window_start, date_window_end')
+        .select('event_id, display_name, event_date, event_type, region, date_candidates, date_window_start, date_window_end, date_mode, date_months')
         .in('event_id', part),
     );
     if (error) logQueryError('fetchInquiryCustomerFacts', error, { ids: ids.length }, 'graceful_degrade');
@@ -104,6 +104,8 @@ export async function fetchInquiryCustomerFacts(
       date_candidates?: unknown;
       date_window_start?: string | null;
       date_window_end?: string | null;
+      date_mode?: string | null;
+      date_months?: string[] | null;
     }>;
     for (const row of rows) {
       out.set(row.event_id, {
@@ -119,6 +121,7 @@ export async function fetchInquiryCustomerFacts(
               candidates: row.date_candidates,
               windowStart: row.date_window_start ?? null,
               windowEnd: row.date_window_end ?? null,
+              months: row.date_mode === 'months' ? row.date_months : null, // 🗓 "Some months"
             }),
       });
     }

@@ -207,7 +207,8 @@ test('8 · exactly three things record a capture — a fourth must answer for th
   const known = [
     'app/dashboard/[eventId]/studio/papic/_components/add-to-library.tsx',
     'app/papic/seat/[token]/_components/camera-bridge-panel.tsx',
-    'app/papic/seat/[token]/_components/papic-seat-capture.tsx',
+    // 📷 ONE CAMERA (owner 2026-11-22): the seat camera's lane on the one camera — every seat shot records here.
+    'app/api/papic/seat-capture/route.ts',
   ];
 
   const found = execFileSync(

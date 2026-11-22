@@ -155,7 +155,7 @@ test('no string the app can show steers to the web (every app/ and lib/ file rea
   assert.deepEqual(
     offenders,
     [],
-    'Words that send the app’s reader to the web. Say it neutrally (the held Pro line: "◆ N waiting for Pro"), mark it data-web-only, or — only if the app truly can never show it — list it in NEVER_IN_THE_APP with its gate:\n  ' +
+    'Words that send the app’s reader to the web. Say it neutrally (the held line: "◆ N waiting for Plus"), mark it data-web-only, or — only if the app truly can never show it — list it in NEVER_IN_THE_APP with its gate:\n  ' +
       offenders.join('\n  '),
   );
   for (const [rel, { gate }] of NEVER_IN_THE_APP) {
@@ -182,20 +182,20 @@ test('the pattern catches the shapes it exists for, and passes the words that ar
   ]) {
     assert.ok(STEERS.test(bad), `missed: ${bad}`);
   }
-  for (const ok of ['◆ 2 waiting for Pro', 'Remove Pro changes', 'Your Event Hub', 'is waiting for Pro — it stays in your draft', 'hello@setnayan.com']) {
+  for (const ok of ['◆ 2 waiting for Plus', 'Remove Plus changes', 'Your Event Hub', 'is waiting for Plus — it stays in your draft', 'hello@setnayan.com']) {
     assert.ok(!STEERS.test(ok), `false hit: ${ok}`);
   }
 });
 
-test('the held Pro line in the app is the ruled one — "◆ N waiting for Pro" + "Remove Pro changes"', () => {
+test('the held Pro line in the app is the ruled one — "◆ N waiting for Plus" + "Remove Plus changes" (the plan named Plus since 20 Nov)', () => {
   const sheet = src('app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx');
-  assert.match(sheet, /\{formatCount\(heldForPro\)\} waiting for Pro/);
-  assert.match(sheet, /onClick=\{onRemoveHeld\}[\s\S]{0,300}Remove Pro changes/);
+  assert.match(sheet, /\{formatCount\(heldForPro\)\} waiting for Plus/);
+  assert.match(sheet, /onClick=\{onRemoveHeld\}[\s\S]{0,300}Remove Plus changes/);
   const bar = src('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
   assert.match(bar, /heldForPro=\{storeShell \? summary\.proCount : 0\}/);
   assert.match(bar, /onRemoveHeld=\{storeShell \? \(\) => run\(\{ intent: 'drop', effect: HUB_DROP_ALL_PRO \}\) : undefined\}/);
-  assert.match(bar, /\{formatCount\(summary\.proCount\)\} waiting for Pro/);
-  assert.match(bar, /waits_for_pro: 'is waiting for Pro — it stays in your draft'/);
+  assert.match(bar, /\{formatCount\(summary\.proCount\)\} waiting for Plus/);
+  assert.match(bar, /waits_for_pro: 'is waiting for Plus — it stays in your draft'/);
   // The action takes every held Pro effect off in one step, recomputed on the draft as the write lands.
   const action = src('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   assert.match(action, /if \(id === HUB_DROP_ALL_PRO\) \{[\s\S]{0,300}const next = dropAllHubProEffects\(cur \?\? emptyHubDraft\(\), live, by\);/);

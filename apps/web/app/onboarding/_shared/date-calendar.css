@@ -117,3 +117,12 @@
 .sn-datecal .datechip .ab.rm{color:var(--cal-paper);background:none;border-color:transparent;opacity:.8;}
 .sn-datecal .datechip .ab.rm:hover{opacity:1;}
 .sn-datecal .refuse-offer{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 4px;}
+/* 🗓 "Some months" / "Not sure yet" (owner 2026-11-17, drawing v15) — one row per month, 44 px+, the picked ones filled. */
+.sn-datecal .sn-datemonths{margin:10px 0 4px;}
+.sn-datecal .sn-datemonths-head{font-size:13px;font-weight:600;color:var(--cal-ink);margin:0 0 6px;}
+.sn-datecal .sn-datemonths-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:340px;overflow:auto;}
+.sn-datecal .sn-datemonth{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 10px;width:100%;min-height:52px;padding:8px 14px;border-radius:var(--m-r-md);border:1px solid var(--cal-ink-faint);background:var(--cal-paper);color:var(--cal-ink);text-align:left;}
+.sn-datecal .sn-datemonth b{font-size:14.5px;font-weight:600;}
+.sn-datecal .sn-datemonth small{grid-column:1;font-size:12px;opacity:.75;}
+.sn-datecal .sn-datemonth span{grid-row:1/3;grid-column:2;font-weight:700;}
+.sn-datecal .sn-datemonth.on{background:var(--cal-ink);color:var(--cal-paper);border-color:var(--cal-ink);}

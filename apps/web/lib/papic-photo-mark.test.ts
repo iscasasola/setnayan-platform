@@ -83,7 +83,12 @@ test('4 · both camera mounts ask the one resolver, with the Logo & QR part', ()
   assert.match(read('app/[slug]/_components/site-body.tsx'), /photoMark=\{papicGuest\.photoMark\}/);
   // Every guest shot hands its mark to the queue (photo and clip).
   const cam = read('app/papic/guest/_components/papic-guest-capture.tsx');
-  assert.equal((cam.match(/ownerTag: uploadOwner,\s*mark,/g) ?? []).length, 2);
+  assert.equal((cam.match(/ownerTag: shotOwner,\s*mark,/g) ?? []).length, 2);
+  // 📷 …and the seat page (one camera, seat mode — owner 2026-11-22) asks the SAME resolver for the same dress.
+  const seat = read('app/papic/seat/[token]/page.tsx');
+  assert.match(seat, /cameraProFor\(admin, seat\.event_id as string\)/);
+  assert.match(seat, /photoMark=\{photoMarkOfEvent\(dressRow, pro\)\}/);
+  assert.match(seat, /tint: cameraDressTintOfEvent\(pro, dressRow\)/);
 });
 
 test('5 · the Event Hub’s inline camera wears the SAME Pro dress as /papic/guest — one entitlement, one tint rule', () => {

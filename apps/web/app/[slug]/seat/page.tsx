@@ -30,6 +30,7 @@ import { theDayFor } from '@/lib/event-clock.server';
 import { ArrivalBloom } from './_components/arrival-bloom';
 import { GuestPushPrompt } from './_components/guest-push-prompt';
 import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
+import { seatNumberWords } from '@/lib/table-words';
 
 export const metadata = { title: 'Your seat pass' };
 
@@ -502,7 +503,7 @@ async function PersonalPass({
               <span className="text-gild">{targetTable.table_label}</span>
               {seatNumber !== null ? (
                 <span className="ml-2 align-middle text-base font-medium text-ink/70">
-                  · Seat {seatNumber}
+                  · Seat {seatNumberWords(seatNumber)}
                 </span>
               ) : null}
             </h1>

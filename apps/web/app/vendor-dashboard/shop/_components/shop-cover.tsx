@@ -23,6 +23,7 @@ import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { YOUR_PAGE_HREF } from './shop-gear-sections';
 import { ImageBadge } from '@/app/_components/image-badge';
 import { badgeImageOf } from '@/lib/shop-badge-row';
+import { VIEW_SHOP_CLOSE, viewShopSrc } from '@/lib/view-shop-frame';
 import { verifiedBadge, type ShopBadge } from '@/lib/shop-badges';
 
 /** The cover's "★ · N reviews" — Your page › Reviews and stories (its `Fold anchor="reviews"` opens on the hash). */
@@ -513,12 +514,26 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
  */
 function ViewShopScreen({ path, live, shareUrl, onClose }: { path: string; live: boolean; shareUrl: string | null; onClose: () => void }) {
   const where = shareUrl ? shareUrl.replace(/^https?:\/\/(www\.)?/, '') : path;
+  // ↩ The page carries "came from Shop" (its Back reads Back → Shop, in a new tab too), and inside this frame its Back
+  // closes the frame — the supplier is on Shop as they left it (owner 21 Nov: "back should go back to their last screen
+  // before they viewed it"). 🔒 lib/back-from-view-shop-returns-to-shop.test.ts
+  const src = viewShopSrc(path);
+  const frame = useRef<HTMLIFrameElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    const el = frame.current;
+    if (!el) return;
+    const onBack = () => close.current();
+    el.addEventListener(VIEW_SHOP_CLOSE, onBack);
+    return () => el.removeEventListener(VIEW_SHOP_CLOSE, onBack);
+  }, []);
   return (
     <ShopDoorScreen
       title="Your page"
       line={`${where} · ${live ? 'as couples see it' : 'a preview for your team'}`}
       actions={
-        <a href={path} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 rounded-full border border-ink/15 bg-raised px-3 text-[13px] font-medium text-ink" data-view-shop-browser="">
+        <a href={src} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 rounded-full border border-ink/15 bg-raised px-3 text-[13px] font-medium text-ink" data-view-shop-browser="">
           Open in browser
           <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         </a>
@@ -527,7 +542,7 @@ function ViewShopScreen({ path, live, shareUrl, onClose }: { path: string; live:
       onClose={onClose}
       data="shop-view"
     >
-      <iframe src={path} title={live ? 'Your shop, as couples see it' : 'Your shop, a preview for your team'} className="min-h-0 w-full flex-1 border-0 bg-cream" data-view-shop-frame="" />
+      <iframe ref={frame} src={src} title={live ? 'Your shop, as couples see it' : 'Your shop, a preview for your team'} className="min-h-0 w-full flex-1 border-0 bg-cream" data-view-shop-frame="" />
     </ShopDoorScreen>
   );
 }

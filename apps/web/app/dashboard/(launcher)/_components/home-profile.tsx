@@ -134,20 +134,23 @@ export function HomeProfile({
                     {personPath(handle.slug)}
                   </Link>
                   {handle.publicOn === false ? ' · off' : null}
-                  {/* 🔗 Said ONCE (lib/home-profile.server.ts `justMade`): the username Setnayan made from their name. */}
-                  {handle.justMade ? (
-                    <span data-home-username-made="">
-                      {' '}
-                      · We made this from your name.{' '}
-                      <Link href="/dashboard/profile#url-slug" className="inline-flex min-h-11 items-center underline">Change it</Link>
-                    </span>
-                  ) : null}
                 </>
               ) : (
                 <Link href="/dashboard/profile#url-slug" data-home-public-page="">
                   Choose your @handle
                 </Link>
               )
+            }
+            /* 🔗 Said ONCE (lib/home-profile.server.ts `justMade`): the username Setnayan made from their name. Its own
+               line, never the handle's tail: the handle line is one ellipsised row, so at 375 px the tail was cut to
+               "…" and the notice was stamped seen without being seen. */
+            line={
+              handle.slug && handle.justMade ? (
+                <span data-home-username-made="">
+                  We made this from your name.{' '}
+                  <Link href="/dashboard/profile#url-slug" className="inline-flex min-h-11 items-center underline">Change it</Link>
+                </span>
+              ) : null
             }
             rule={false}
           />

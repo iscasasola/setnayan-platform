@@ -14,5 +14,7 @@
   a dropped result is a fault even when the fallback is safe).
 - `the-day-hub-follows-the-stage.test.ts` re-anchored to the helper-built venue-map door; the rule (the door stands
   beside the seat block) is unchanged.
+- Home's once-only "We made this from your name. Change it" moves to its own line under the name. At the tail of
+  the one-row handle line, it was cut to "…" at 375 px and then stamped seen unread.
 
 SPEC IMPACT: None

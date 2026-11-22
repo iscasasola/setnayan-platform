@@ -1,35 +1,32 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 
 /**
- * Consent-SCOPED coordinator money authority (owner decision 2026-07-19 #5).
+ * 🔒 ONLY A HOST BOOKS OR PAYS (owner 2026-11-21, DECISION_LOG "BOOKED COORDINATOR ON BUILD: FIND + RECOMMEND +
+ * SHORTLIST, NO BOOKING, NO PAYING" — verbatim *"no booking, no paying"* — and "COORDINATOR: DUE PAYMENTS VIEWABLE +
+ * 'REMIND THE HOSTS', NOT LOGGABLE").
  *
- * The absolute "money wall" (a coordinator can never touch payments) is
- * superseded: coordinators MAY lock vendors and handle the payment process,
- * but ONLY upon the couple's approval of the coordinator's access
- * limitations. The couple grants the optional scopes when they send the
- * coordinator host invite (consent modal toggles, default OFF) and the grant
- * is recorded in public.coordinator_access_consents.scopes:
+ * ── WHAT THIS REPLACED ──────────────────────────────────────────────────────
+ * Since 2026-07-19 (#5) a coordinator could book ('vendor_lock') and pay ('checkout') when the hosts ticked those
+ * scopes at invite time (`coordinator_access_consents.scopes`) — and, worse, the whole check sat behind the
+ * `coordinator_consent_money` Data Privacy control, which defaults INACTIVE, so in practice it answered TRUE for every
+ * event member. A coordinator could submit the couple's orders, upload payment proof and record deposits.
  *
- *   • 'vendor_lock' — may lock (finalize) vendors directly.
- *   • 'checkout'    — may handle payments: submit orders, upload payment
- *                     proof, record vendor deposits.
+ * ── WHAT IS TRUE NOW ────────────────────────────────────────────────────────
+ * One rule, no control, no opt-in: the caller is a `couple` member of the event (a host — the creator, a partner, a
+ * co-host the hosts made). Everybody else — a coordinator, a helper, a booked supplier, a stranger, and a failed read —
+ * is refused. The hosts' opt-in scopes are retired; the scope names stay as the callers' words for WHICH act was
+ * refused.
  *
- * Control posture — the `coordinator_consent_money` Data Privacy control
- * (admin-approved at /admin/data-privacy; default INACTIVE):
- *   • INACTIVE → returns true unconditionally. Inactive behavior is EXACTLY
- *     today's (membership-only guards) — no reads, no new denials.
- *   • ACTIVE   → couple members are always allowed; any non-couple caller is
- *     allowed only when an un-revoked consent row for one of their live
- *     moderator rows grants the requested scope. Everything else — no
- *     moderator row, no consent row, revoked consent, scope not granted,
- *     or a read error — DENIES (fail-closed).
- *
- * Callers pass an admin (service-role) client: the consent row belongs to the
- * couple's event scope, not the coordinator's own RLS view, and the check must
- * not depend on what the caller can read.
+ * Callers pass an admin (service-role) client: the membership row must be read whatever the caller's own RLS view is.
+ * 🔒 `lib/only-a-host-books-or-pays.test.ts` (every call site, every outcome).
  */
 export type CoordinatorMoneyScope = 'vendor_lock' | 'checkout';
+
+/** The words a refused booking says — the coordinator's three verbs instead (drawing, Suppliers frame). */
+export const ONLY_A_HOST_BOOKS =
+  'Only a host can book. You can find a shop, recommend a partner, or add it to the shortlist — the hosts book.';
+/** The words a refused payment says — the coordinator reminds instead. */
+export const ONLY_A_HOST_PAYS = 'Only a host can log or pay. You can see what is due and remind the hosts.';
 
 export async function coordinatorMoneyScopeAllowed(
   admin: SupabaseClient,
@@ -37,60 +34,31 @@ export async function coordinatorMoneyScopeAllowed(
   userId: string,
   scope: CoordinatorMoneyScope,
 ): Promise<boolean> {
-  // Control INACTIVE → exact current behavior (permissive; membership guards
-  // upstream remain the only gate). Short-circuits before any DB read.
-  if (!(await isCoordinatorConsentGateEnabled())) return true;
   return coordinatorMoneyScopeGranted(admin, eventId, userId, scope);
 }
 
 /**
- * The gate-free core: assumes the coordinator_consent_money control is active,
- * and resolves whether this caller holds the requested money scope on this
- * event — couple → always; coordinator → an un-revoked consent row grants it;
- * everything else fail-closed. Split out so unit tests exercise the scope logic
- * without the DB-backed control (the wrapper above is a thin gate).
+ * The rule itself — exported for the unit tests (the stub client). `scope` no longer changes the answer: no scope
+ * can be granted to anybody who is not a host.
  */
 export async function coordinatorMoneyScopeGranted(
   admin: SupabaseClient,
   eventId: string,
   userId: string,
-  scope: CoordinatorMoneyScope,
+  _scope: CoordinatorMoneyScope,
 ): Promise<boolean> {
-  // Couple members always hold full money authority over their own event.
-  const { data: member } = await admin
+  void _scope;
+  if (!eventId || !userId) return false;
+  const { data: member, error } = await admin
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', userId)
     .maybeSingle();
-  if ((member as { member_type?: string } | null)?.member_type === 'couple') {
-    return true;
+  // A refused read is never a host (fail-closed: money) — and the reason is said in the log, never swallowed.
+  if (error) {
+    console.error('[coordinatorMoneyScope] membership unread — refusing:', error.message, { event_id: eventId });
+    return false;
   }
-
-  // Non-couple caller (coordinator / other host) → resolve their live
-  // moderator row(s) on this event…
-  const { data: moderators } = await admin
-    .from('event_moderators')
-    .select('moderator_id')
-    .eq('event_id', eventId)
-    .eq('user_id', userId)
-    .is('removed_at', null);
-  const moderatorIds = (moderators ?? [])
-    .map((m) => (m as { moderator_id?: string }).moderator_id)
-    .filter((id): id is string => typeof id === 'string' && id.length > 0);
-  if (moderatorIds.length === 0) return false;
-
-  // …then require an un-revoked consent row that grants the scope. Missing
-  // key / '{}' scopes = not granted (fail-closed).
-  const { data: consents } = await admin
-    .from('coordinator_access_consents')
-    .select('scopes')
-    .eq('event_id', eventId)
-    .in('moderator_id', moderatorIds)
-    .is('revoked_at', null);
-  return (consents ?? []).some((row) => {
-    const scopes = (row as { scopes?: unknown }).scopes;
-    if (!scopes || typeof scopes !== 'object') return false;
-    return (scopes as Record<string, unknown>)[scope] === true;
-  });
+  return (member as { member_type?: string } | null)?.member_type === 'couple';
 }

@@ -37,8 +37,6 @@ export function ConsentGatedInviteForm({
   const formRef = useRef<HTMLFormElement>(null);
   const bypassRef = useRef(false);
   const consentRef = useRef<HTMLInputElement>(null);
-  const scopeVendorLockRef = useRef<HTMLInputElement>(null);
-  const scopeCheckoutRef = useRef<HTMLInputElement>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [label, setLabel] = useState<string | null>(coordinatorLabel);
 
@@ -70,21 +68,13 @@ export function ConsentGatedInviteForm({
       );
     }
     if (consentRef.current) consentRef.current.value = '';
-    if (scopeVendorLockRef.current) scopeVendorLockRef.current.value = '';
-    if (scopeCheckoutRef.current) scopeCheckoutRef.current.value = '';
     setModalOpen(true);
   }
 
-  function confirmConsent(scopes: { vendorLock: boolean; checkout: boolean }) {
+  // 🔒 The money opt-ins are RETIRED (owner 2026-11-21, *"no booking, no paying"*): only a host books or pays, so the
+  // sheet asks for the privacy consent alone.
+  function confirmConsent() {
     if (consentRef.current) consentRef.current.value = '1';
-    // Owner 2026-07-19 #5 — the couple's optional money-authority grants,
-    // recorded into coordinator_access_consents.scopes by inviteHost.
-    if (scopeVendorLockRef.current) {
-      scopeVendorLockRef.current.value = scopes.vendorLock ? '1' : '';
-    }
-    if (scopeCheckoutRef.current) {
-      scopeCheckoutRef.current.value = scopes.checkout ? '1' : '';
-    }
     bypassRef.current = true;
     setModalOpen(false);
     formRef.current?.requestSubmit();
@@ -99,18 +89,6 @@ export function ConsentGatedInviteForm({
     >
       {children}
       <input ref={consentRef} type="hidden" name="coordinator_consent" defaultValue="" />
-      <input
-        ref={scopeVendorLockRef}
-        type="hidden"
-        name="consent_scope_vendor_lock"
-        defaultValue=""
-      />
-      <input
-        ref={scopeCheckoutRef}
-        type="hidden"
-        name="consent_scope_checkout"
-        defaultValue=""
-      />
       {modalOpen ? (
         <ConsentModal
           coordinatorLabel={label}
@@ -134,13 +112,10 @@ function ConsentModal({
   onDismiss,
 }: {
   coordinatorLabel: string | null;
-  onConfirm: (scopes: { vendorLock: boolean; checkout: boolean }) => void;
+  onConfirm: () => void;
   onDismiss: () => void;
 }) {
   const [agreed, setAgreed] = useState(false);
-  // Owner 2026-07-19 #5 — optional money-authority scopes, BOTH default OFF.
-  const [lockVendors, setLockVendors] = useState(false);
-  const [handlePayments, setHandlePayments] = useState(false);
   const titleId = useId();
 
   const who = coordinatorLabel?.trim() || 'your coordinator';
@@ -162,7 +137,7 @@ function ConsentModal({
               main
               icon={UserCheck}
               label="Agree & invite"
-              onClick={() => onConfirm({ vendorLock: lockVendors, checkout: handlePayments })}
+              onClick={() => onConfirm()}
               waiting={!agreed}
             />
           </EqualRow>
@@ -204,37 +179,10 @@ function ConsentModal({
             </li>
           </ul>
           <p className="border-t border-ink/10 pt-2 text-ink/70">
-            <strong className="text-ink">Your budget and payments stay private by default</strong> — a coordinator can
-            only act on money matters if you allow it below. You can remove their access anytime.
+            <strong className="text-ink">Only you book and pay</strong> — {who} can look at your budget and what is due,
+            and remind you; they never book a supplier, log a payment or pay. Memories stay yours. You can switch their
+            access off anytime.
           </p>
-        </div>
-
-        <div className="space-y-1 text-sm text-ink">
-          <p className={`mt-[18px] ${CAP}`}>Optional — extra permissions (both off unless you allow them)</p>
-          <label className="flex min-h-11 items-start gap-2 py-1.5">
-            <input
-              type="checkbox"
-              checked={lockVendors}
-              onChange={(e) => setLockVendors(e.target.checked)}
-              className={CHECK}
-            />
-            <span>
-              <strong>Can book suppliers</strong> — {who} may book a supplier on your behalf, which commits your
-              booking and starts its payment schedule.
-            </span>
-          </label>
-          <label className="flex min-h-11 items-start gap-2 border-t border-ink/10 py-1.5">
-            <input
-              type="checkbox"
-              checked={handlePayments}
-              onChange={(e) => setHandlePayments(e.target.checked)}
-              className={CHECK}
-            />
-            <span>
-              <strong>Can handle payments</strong> — {who} may submit orders, upload payment proof, and record supplier
-              payments for this event.
-            </span>
-          </label>
         </div>
 
         <label className="flex min-h-11 items-start gap-2 border-t border-ink/10 pt-3 text-sm text-ink">

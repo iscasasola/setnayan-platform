@@ -2,18 +2,14 @@ import type { ReactNode } from 'react';
 import { routes } from '@/lib/routes';
 import { formatCount } from '@/lib/format-number';
 import { claimAsksDoorwayTitle } from '@/lib/claim-access-asks';
-import { levelTodayWords } from '@/lib/coordinator-access-level';
 import { changesTodayWords, suggestionsTodayWords } from '@/lib/mood-board-changes';
 import { dateChangeHomeLine, dateChangeWhen } from '@/lib/date-change';
 import { dateFinderHref } from '@/lib/home-date-finder';
-import { peopleWithAccessHref } from '@/lib/people-with-access-href';
 import { deadlineUrgency, type EventTodayAsk } from '@/lib/event-today';
 import type { PutOffRecord } from '@/lib/today-put-off';
 import type { createClient } from '@/lib/supabase/server';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import type { AccessAsksRead } from './access-requests-doorway';
-import type { CoordinatorLevelRead } from './coordinator-level-card';
-import { CoordinatorLevelAnswer } from './coordinator-level-ask';
 import type { MoodBoardAsksRead } from './mood-board-asks-doorway';
 import { MoodBoardAsks } from './mood-board-asks';
 import { DateChangeBody, type DateChangeRead } from './date-change-doorway';
@@ -25,7 +21,6 @@ import { DateChangeBody, type DateChangeRead } from './date-change-doorway';
  * inside its open card (`bodies`, by row key) — the SHIPPED part each time, never a second flow:
  *
  *   access requests ........ the door to the requests page (its answers live there)
- *   the coordinator's access  Limited · Full access, the Sheet's own two rows and write (`CoordinatorLevelAnswer`)
  *   Mood Board ............. the photos to Keep · Decline / the changes to Undo (`MoodBoardAsks`, inline)
  *   a date change .......... who answered, keep waiting · drop, use the date, withdraw (`DateChangeBody`)
  *   event day soon ......... "Prepare for event day" — an offer: listed, never counted
@@ -36,7 +31,6 @@ import { DateChangeBody, type DateChangeRead } from './date-change-doorway';
 export function eventTodayAsks(i: {
   eventId: string;
   access: AccessAsksRead;
-  coordinator: CoordinatorLevelRead;
   mood: MoodBoardAsksRead;
   dateChange: DateChangeRead;
   /** "Prepare for event day" is on offer (`isInPrepWindow`, and the day has not been). */
@@ -46,17 +40,6 @@ export function eventTodayAsks(i: {
   const e = i.eventId;
   const asks: EventTodayAsk[] = [];
   const bodies: Record<string, ReactNode> = {};
-
-  /* 🔑 The coordinator's access — one row per connected coordinator the hosts have not answered for. */
-  const accessHref = peopleWithAccessHref(e);
-  if (i.coordinator?.unread) {
-    asks.push({ key: 'ask:coordinator', title: 'We couldn’t check your coordinator’s access', line: 'Open who has access', icon: 'warn', href: accessHref, unread: true });
-  }
-  for (const ask of i.coordinator?.unread ? [] : (i.coordinator?.asks ?? [])) {
-    const key = `ask:coordinator:${ask.moderatorId}`;
-    asks.push({ key, title: 'Pick your coordinator’s access', line: levelTodayWords(ask.shop), icon: 'person', href: accessHref });
-    bodies[key] = <CoordinatorLevelAnswer eventId={e} ask={ask} />;
-  }
 
   /* 🔑 Access requests — the page that answers them is the door. */
   const requestsHref = routes.dashboard.accessRequests(e);

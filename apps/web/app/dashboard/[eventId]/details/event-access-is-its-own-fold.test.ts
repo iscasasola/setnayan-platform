@@ -107,20 +107,27 @@ test('the coordinator is ONE switch on the same per-area grant — YES by defaul
   const fresh = areaCells({ edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false, areas: { ...COORDINATOR_AREAS } });
   assert.equal(coordinatorHasHostAccess(fresh), true, 'a new coordinator seat does not start with the switch ON');
   assert.deepEqual(coordinatorSwitchWrites(fresh, true), [], 'turning ON a default seat writes something');
-  // OFF: every settable area to Off, the fixed ones untouched; Budget/Photos never raised by ON.
+  // OFF (owner 2026-11-21: the hosts keep ONE off switch): every settable area to its lowest — Off, Mood Board View
+  // (it has no Off) — Event Hub untouched; ON puts back exactly the ruled grant (Budget and Payments at View, Memories
+  // never), so Off → On never hands over less, or more, than booking did.
   const off = coordinatorSwitchWrites(fresh, false);
-  assert.deepEqual(off.map((w) => w.area), ['guest_list', 'seat_plan', 'schedule', 'vendors']);
-  assert.ok(off.every((w) => w.choice === 'off'));
-  const allOff = fresh.map((c) => (c.choices ? { ...c, choice: 'off' as const } : c));
+  assert.deepEqual(
+    off.map((w) => `${w.area}:${w.choice}`),
+    ['guest_list:off', 'seat_plan:off', 'schedule:off', 'vendors:off', 'mood_board:view', 'budget:off', 'payments:off'],
+  );
+  const allOff = fresh.map((c) => {
+    const lowest = c.choices ? (c.choices.includes('off') ? ('off' as const) : ('view' as const)) : c.choice;
+    return { ...c, choice: lowest };
+  });
   assert.equal(coordinatorHasHostAccess(allOff), false);
-  assert.deepEqual(coordinatorSwitchWrites(allOff, true).map((w) => `${w.area}:${w.choice}`), ['guest_list:edit', 'seat_plan:edit', 'schedule:edit', 'vendors:edit']);
-  // The row draws the switch, not per-area toggles, and saves through the one action.
-  // 2026-10-29: the switch shows until the hosts answer Limited · Full access (owner "only TWO levels"); a recorded
-  // level replaces it with the level pick (`CoordinatorLevelPick`).
-  assert.match(SECTION, /row\.kind === 'coordinator' && !row\.isViewer \? \(\s*row\.coordinatorLevel === 'unanswered' \|\| row\.coordinatorLevel === undefined \? \(\s*<CoordinatorSwitch /);
-  // 🖼 2026-10-30: a LIMITED coordinator ("changes only what you allow") gets the per-part toggles — where the hosts
-  // give her Mood Board Edit. Full access is a co-host seat and draws none.
-  assert.match(SECTION, /row\.coordinatorLevel === 'limited' && row\.areas \? \([\s\S]{0,400}?<AreaPicks /, 'a Limited coordinator has nowhere to be given a part');
+  assert.deepEqual(
+    coordinatorSwitchWrites(allOff, true).map((w) => `${w.area}:${w.choice}`),
+    ['guest_list:edit', 'seat_plan:edit', 'schedule:edit', 'vendors:edit', 'mood_board:edit', 'budget:view', 'payments:view'],
+  );
+  assert.ok(!coordinatorSwitchWrites(allOff, true).some((w) => w.area === 'photos'), 'ON opens Memories');
+  // The row draws the ONE switch — Limited · Full retired 2026-11-21, so no level pick and no per-part toggles.
+  assert.match(SECTION, /row\.kind === 'coordinator' && !row\.isViewer \? \([\s\S]{0,400}?<CoordinatorSwitch eventId=\{eventId\} row=\{row\} readOnly=\{readOnly\} \/>/);
+  assert.doesNotMatch(SECTION, /CoordinatorLevelPick|coordinatorLevel/, 'the retired Limited · Full pick is back');
   const sw = SECTION.slice(SECTION.indexOf('function CoordinatorSwitch('), SECTION.indexOf('function AccessPick('));
   assert.match(sw, /role="switch"/);
   assert.match(sw, /setDelegateArea\(eventId, moderatorId, w\.area, w\.choice\)/);

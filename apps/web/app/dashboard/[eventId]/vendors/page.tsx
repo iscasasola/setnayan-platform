@@ -187,6 +187,8 @@ import {
 } from '@/lib/vendor-availability';
 import { CONFIRMED_VENDOR_STATUSES, formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ViewerBooksProvider } from './_components/viewer-books';
+import { HelpTheHostsChoose } from './_components/help-the-hosts-choose';
 import { BOOKED_SCHEDULE_PART, YOUR_TEAM_BUDGET_PART, budgetPageHref, schedulePageHref } from '@/lib/pillar-parts';
 import { openDashboardEventRow } from '@/lib/event-row-once';
 
@@ -3075,7 +3077,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
          was MEASURED to get here. The Budget part (`?part=budget`, returned
          earlier) is never kept, the takeover's Budget and Plans sections carry
          `data-money`, and every peso figure is masked (lib/last-seen). */
-      <>
+      <ViewerBooksProvider books={viewer.isCouple}>
+      {/* 🧭 The coordinator helps the hosts choose; the hosts book and pay (owner 2026-11-21). */}
+      {viewer.isCouple ? null : (
+        <div className="sn-col sn-col-wide mb-4">
+          <HelpTheHostsChoose eventId={eventId} />
+        </div>
+      )}
       <LastSeenCapture page="suppliers">
         <ServicesTakeover
           eventId={eventId}
@@ -3167,7 +3175,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       ) : null}
       {/* 🔦 First visit only — the page's own spotlight, after the host journey (owner 2026-10-25). */}
       <Spotlight tourKey={HOST_PAGE_TOURS.suppliers} after={HOST_PAGE_TOURS_AFTER} replay="page" />
-      </>
+      </ViewerBooksProvider>
     );
   }
 

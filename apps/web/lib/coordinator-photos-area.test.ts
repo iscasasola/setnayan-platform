@@ -144,7 +144,10 @@ test('both photo tables gained a read policy routed through the one gate', () =>
 test('the database gate itself was not rewritten', () => {
   // Its ELSE NULL is the fail-closed behaviour and its first branch already
   // honours an explicit key. Editing it would risk the one part that is right.
-  const s = sql();
+  // ⚖ ONE deliberate exception (owner 2026-11-21, controller call (3) "the cap"): the SUPPLIER branch names photos to
+  // take it AWAY — `AND p_area IN ('payments', 'photos') AND supplier_proposes_only_for(…) THEN NULL`. That narrows,
+  // never widens; it is removed before the check, so any OTHER mention of photos still turns this red.
+  const s = sql().replace(/AND p_area IN \('payments', 'photos'\)\s+AND public\.supplier_proposes_only_for\(p_event_id, s\.user_id\)\s+THEN NULL/g, 'THEN NULL');
   assert.ok(
     !/CREATE OR REPLACE FUNCTION public\.moderator_area_level[\s\S]{0,400}photos/.test(s),
     'moderator_area_level was rewritten to name photos. It does not need to — ' +

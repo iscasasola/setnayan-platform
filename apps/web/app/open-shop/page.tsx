@@ -13,7 +13,7 @@ import { OpenShopWizard } from './_components/open-shop-wizard';
 import { getServicePickerSpecialties, getServicePickerTree } from '@/lib/service-picker-tree.server';
 import { readBookingFeeJoinSchedule } from '@/lib/booking-fee-disclosure.server';
 import { bookingFeeJoinDisclosure } from '@/lib/booking-fee-disclosure';
-import { getOAuthGate } from '@/lib/request-platform';
+import { getOAuthGate, isStoreShellRequest } from '@/lib/request-platform';
 import { OAUTH_FLAGS } from '@/app/_components/oauth-button-row';
 import { categoryLadder } from '@/lib/vendor-tier-caps';
 import { readClaimDoor } from '@/lib/claim-door.server';
@@ -54,7 +54,7 @@ export default async function OpenShopPage({
 }: {
   searchParams: Promise<{ plan?: string; error?: string; step?: string; next?: string; taken?: string; check_inbox?: string; after?: string; as?: string; claim?: string; way?: string }>;
 }) {
-  const { plan, error, step, next, taken, check_inbox: checkInbox, after, as: arrivedAs, claim, way } = await searchParams;
+  const { plan: askedPlan, error, step, next, taken, check_inbox: checkInbox, after, as: arrivedAs, claim, way } = await searchParams;
   const claimToken = typeof claim === 'string' && claim.trim() ? claim.trim().slice(0, 200) : null;
   // Where a person who ALREADY has a shop is sent (e.g. "Get your invite link"
   // on /for-suppliers → `?next=/vendor-dashboard/shop/promote`). Same-origin by
@@ -71,6 +71,11 @@ export default async function OpenShopPage({
   // OAuth visibility by shell — the same gate /login applies (see login-data.ts):
   // web + desktop show the buttons; the phone app only its native variant.
   const gate = await getOAuthGate(OAUTH_FLAGS);
+  // 🍎 THE APP'S DOOR (controller 22 Nov, drawing `app_supplier_door_2026-11-22`): asked for by the App Store / Play
+  // Store shell, the setup sells no plan and shows no price — `?plan=` is dropped (no plan offer, no hidden field), the
+  // plan ladder is not read, and the wizard holds the picks to Free. Held by `the-app-supplier-door-names-no-price.test.ts`.
+  const storeShell = await isStoreShellRequest();
+  const plan = storeShell ? undefined : askedPlan;
 
   // Own-row read passes RLS. A shop that has a NAME finished onboarding.
   const { data: owned, error: ownedError } = user ? await supabase
@@ -282,7 +287,8 @@ export default async function OpenShopPage({
       // W1-B3: a fresh stamp per server render carrying a refusal — the wizard shows it even when not remounted.
       refusalStamp={error ? Date.now() : 0}
       plan={parseSupplierPlan(plan)}
-      planCategories={categoryLadder()}
+      storeShell={storeShell}
+      planCategories={storeShell ? [] : categoryLadder()}
       specialties={specialties}
       // A8: the submit was refused because the email has an account → step 4 signs in, right there.
       emailTaken={taken === '1'}

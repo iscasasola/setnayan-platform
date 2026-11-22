@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 /**
  * THE ONE ANSWER TO "IS THIS SHOP A COORDINATOR?" (2026-10-19).
  *
@@ -37,6 +38,25 @@ export const COORDINATOR_TRADE_SERVICES: readonly string[] = [
 
 const COORDINATOR_TRADE_SET: ReadonlySet<string> = new Set(COORDINATOR_TRADE_SERVICES);
 
+/**
+ * 🚪 The coordinator door's PRE-PICK (Door C, owner 19 Nov): the coordination service a new coordinator most likely
+ * is — the one EARLIEST in `COORDINATOR_TRADE_SERVICES` (coordinator · planner first), never the first in the service
+ * tree's order. Tree order put "Despedida" first, so every coordinator opened as a despedida planner (walk 22 Nov).
+ * The dropdown itself keeps the tree's order and words; only the default is chosen here. Null = no coordination leaf.
+ */
+export function firstCoordinationPick<T extends { key: string }>(leaves: readonly T[]): T | null {
+  let best: T | null = null;
+  let bestAt = Infinity;
+  for (const l of leaves) {
+    const at = COORDINATOR_TRADE_SERVICES.indexOf(l.key);
+    if (at >= 0 && at < bestAt) {
+      best = l;
+      bestAt = at;
+    }
+  }
+  return best;
+}
+
 /** True when any of the shop's services is the coordinator trade, under any of its names. */
 export function isCoordinatorTrade(services: readonly string[] | null | undefined): boolean {
   return (services ?? []).some((s) => COORDINATOR_TRADE_SET.has(s));
@@ -44,6 +64,11 @@ export function isCoordinatorTrade(services: readonly string[] | null | undefine
 
 /** The four `event_vendors.status` values that mean BOOKED — the set `current_coordinator_booked_event_ids()` reads. */
 export const BOOKED_EVENT_VENDOR_STATUSES: readonly string[] = ['contracted', 'deposit_paid', 'delivered', 'complete'];
+
+/** Is this `event_vendors.status` one of the four that mean BOOKED? Total: null, undefined and any other word are not. */
+export function isBookedEventVendorStatus(status: string | null | undefined): boolean {
+  return typeof status === 'string' && BOOKED_EVENT_VENDOR_STATUSES.includes(status);
+}
 
 /**
  * 🧭 THE BOOKED COORDINATOR (owner 8 Nov 2026: *"only coordinator and hosts has the final say"*) — the TS mirror of
@@ -90,4 +115,28 @@ export function bookedSupplierFacts(
     }
   }
   return out;
+}
+
+/**
+ * 🧭 IS THIS BOOKING A COORDINATOR'S? — the ONE rule, the database's (`public.services_make_a_coordinator`, mirrored
+ * by `isCoordinatorTrade`; ship review 21 Nov 2026: the grant was keyed on `category` alone while the DB decides by
+ * the shop's services). A shop on Setnayan is a coordinator when its SERVICES are the coordinator trade — exactly what
+ * `is_booked_coordinator` reads. A supplier with no shop has only the couple's category, read through the same list.
+ * A shop whose services cannot be read is NOT a coordinator (said in the log): access is never opened on a guess.
+ */
+export async function bookingIsACoordinators(
+  admin: SupabaseClient,
+  row: { category: string | null | undefined; marketplaceVendorId: string | null | undefined },
+): Promise<boolean> {
+  if (!row.marketplaceVendorId) return isCoordinatorTrade(row.category ? [row.category] : []);
+  const { data, error } = await admin
+    .from('vendor_profiles')
+    .select('services')
+    .eq('vendor_profile_id', row.marketplaceVendorId)
+    .maybeSingle();
+  if (error) {
+    console.error('[bookingIsACoordinators] shop services unread — no seat opened:', error.message);
+    return false;
+  }
+  return isCoordinatorTrade((data as { services: string[] | null } | null)?.services ?? []);
 }

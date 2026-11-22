@@ -49,14 +49,18 @@ test('1 · Your access is the hosts’ own row for this person — role word, ce
   // The SAME cells the hosts' row draws for this seat — never a second reading of the grant.
   assert.deepEqual(coordinator.areas, areaCells(coordinatorGrant), 'Your access reads the grant differently from the hosts’ row');
   assert.equal(coordinator.areas.find((c) => c.area === 'guest_list')?.choice, 'edit');
-  assert.equal(coordinator.areas.find((c) => c.area === 'budget')?.choice, 'off');
+  // 🧭 Owner 2026-11-21: the booked coordinator sees the budget and what is due; Memories stay shut.
+  assert.equal(coordinator.areas.find((c) => c.area === 'budget')?.choice, 'view');
+  assert.equal(coordinator.areas.find((c) => c.area === 'payments')?.choice, 'view');
+  assert.equal(coordinator.areas.find((c) => c.area === 'photos')?.choice, 'off');
 
   const limited = ownAccessOf({
     roleSubtype: 'wedding_planner_external',
     permissions: perms({ ...LIMITED_AREAS }, { access_level: 'limited' }),
     window: DAY,
   });
-  assert.equal(limited.roleWord, 'Coordinator · Limited', 'the hosts’ Limited answer is not said to the coordinator');
+  // 🔁 Limited · Full retired 2026-11-21 — no level word is said any more, whatever an old seat still carries.
+  assert.equal(limited.roleWord, 'Coordinator');
 
   // Seven days after the event (`delegateAccessLastDay`); no day-precise date → no "until".
   assert.equal(helper.lastDay, '2026-12-25');

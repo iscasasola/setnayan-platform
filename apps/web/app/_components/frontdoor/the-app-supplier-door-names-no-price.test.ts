@@ -183,3 +183,8 @@ test('② nothing in the sign-up links a paid page', () => {
     for (const p of PAID_PAGES) assert.ok(!src.includes(`'${p}`) && !src.includes(`"${p}`) && !src.includes(`\`${p}`), `${f} links ${p}`);
   }
 });
+
+test('② the server ignores a hand-made plan= from the app — not only the page hides it', () => {
+  const a = stripComments(read('app/open-shop/actions.ts'));
+  assert.match(a, /const plan = \(await isStoreShellRequest\(\)\) \? null : parseSupplierPlan\(formData\.get\('plan'\)\);/, 'becomeVendor honours a plan sent from inside the app');
+});

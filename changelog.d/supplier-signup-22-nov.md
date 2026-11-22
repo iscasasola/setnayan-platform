@@ -22,3 +22,5 @@ It now pre-picks the first service of `COORDINATOR_TRADE_SERVICES`, via `firstCo
 
 SPEC IMPACT: None. The rulings are the controller's 22 Nov calls on the specs drawing `app_supplier_door_2026-11-22`
 (specs `e73ba0f621`).
+
+**Ship controller (22 Nov):** the lab passes the LogIn icon as an element (server-file guard); and `becomeVendor` ignores `plan=` when the request comes from the app (`isStoreShellRequest`), so a hand-made request cannot carry a plan offer either. Guarded in `the-app-supplier-door-names-no-price.test.ts` (sabotage-checked).

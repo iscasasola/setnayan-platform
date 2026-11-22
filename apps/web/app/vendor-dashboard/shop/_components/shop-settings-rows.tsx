@@ -59,7 +59,7 @@ export function ShopSettingsRows({
 }) {
   const docsChecking = docs.row.state === 'checking';
   return (
-    <div className="px-4" data-shop-settings-body="">
+    <div data-shop-settings-body="">
       <SettingsSection title="Your page" data="shop-your-page">
       <div data-shop-gear-page="">
         <DatesRow

@@ -155,7 +155,9 @@ export async function submitEventServicesOrder(formData: FormData): Promise<Even
     .insert(cart.lines.map((l) => ({ order_id: orderId, service_code: l.code, quantity: 1, unit_price_php: l.php })));
   if (itemsErr) {
     console.error('[event-services-orders] lines failed, cancelling the bill:', { orderId, message: itemsErr.message });
-    await createMoneyWriterClient().from('orders').update({ status: 'cancelled' }).eq('order_id', orderId);
+    const { error: cancelErr } = await createMoneyWriterClient().from('orders').update({ status: 'cancelled' }).eq('order_id', orderId);
+    // A bill that could not be cancelled is a bill with no lines: said loudly, so the payments desk can void it.
+    if (cancelErr) console.error('[event-services-orders] could not cancel the lineless bill:', { orderId, message: cancelErr.message });
     return { ok: false, reason: 'We could not create your order. Nothing was charged. Please try again.' };
   }
   return { ok: true, order_id: orderId, reference_code: referenceCode };

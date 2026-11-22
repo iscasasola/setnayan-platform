@@ -907,8 +907,8 @@ export default async function EventHomePage({
     homeSuppliers,
     homeChecklist,
     homeHub,
-    homeSchedule,
     eventPlanHeld,
+    homeSchedule,
   ] = await Promise.all([
     guestsRead,
     afterSummaryRead,
@@ -924,9 +924,9 @@ export default async function EventHomePage({
     homeSuppliersRead,
     homeChecklistRead,
     homeHubRead,
-    homeScheduleRead,
     // 🛒 The door on Today (Event services, owner 2026-11-23): the plan held, for its one row.
     readEventPlanHeld(eventId),
+    homeScheduleRead,
   ]);
 
   /*

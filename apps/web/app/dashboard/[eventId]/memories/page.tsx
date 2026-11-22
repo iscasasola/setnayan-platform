@@ -306,7 +306,7 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       // arrival when a purchase answered with an error or `?buy=1`. Beside "Add photos" (the main button) since 20 Nov.
       const cardBuy = iap.iap ? (
         <IapPapicSheet eventId={eventId} left={now.count} label="Add more" />
-      ) : iap.storeShell ? null : (
+      ) : (
         // 🛒 One place to buy (owner 2026-11-23): the web's "Add more" is Event services, photo sizes open.
         <ActionButton tone="neutral" icon={<Plus aria-hidden strokeWidth={1.9} />} label="Add more" href={routes.dashboard.eventServices(eventId, 'photos')} />
       );

@@ -78,7 +78,8 @@ test('the selling pages are found by what they RENDER, not by a word in a commen
   // its Add more is the card's on Home. Never lower this for any other reason.
   // 4 → 3 on 2026-11-22: the Editorial PRO buy page was REMOVED (no door since 2026-07-22; it forwards to the Story
   // Maker, lib/legacy-redirects.ts) — not missed.
-  assert.ok(selling.length >= 3, `only ${selling.length} selling pages — the sweep found nothing.`);
+  // 🛒 2026-11-23: the plans page (`website-pro`) is Event services now and left this sweep (its own masthead names it).
+  assert.ok(selling.length >= 2, `only ${selling.length} selling pages — the sweep found nothing.`);
   assert.ok(
     !selling.includes('indoor-blueprint'),
     'indoor-blueprint is a retired SKU with no checkout; if it sells again, that is a decision.',

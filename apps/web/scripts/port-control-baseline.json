@@ -6997,6 +6997,7 @@
         "nowAction",
         "planNextYearEvent",
         "routes.dashboard.accessRequests",
+        "routes.dashboard.eventServices",
         "savePatiktokBoothTemplates",
         "updatePaxSettings",
         "useDate"
@@ -7250,7 +7251,6 @@
         "PaidAtAdd",
         "PaidMark",
         "PaidServiceRow",
-        "PapicBuySheet",
         "PapicChapterRow",
         "PapicCounts",
         "PapicHeadContext.Provider",
@@ -9375,8 +9375,11 @@
       "destinations": [
         "/dashboard/[seg]/memories/download-all"
       ],
-      "actions": [],
+      "actions": [
+        "routes.dashboard.eventServices"
+      ],
       "blocks": [
+        "ActionButton",
         "AddToLibrary",
         "DriveCopyCard",
         "EventMemoriesGallery",
@@ -9392,7 +9395,6 @@
         "MemoriesAddPhotosButton",
         "MemoriesKeepsakeRow",
         "MemoriesSettings",
-        "PapicBuySheet",
         "PapicCameraHelp",
         "PapicCameraSettings",
         "PapicCard",
@@ -9577,6 +9579,7 @@
       "actions": [
         "clearStudioAction",
         "clearUploadedMarkAction",
+        "routes.dashboard.eventServices",
         "saveStudioAction"
       ],
       "blocks": [
@@ -9690,7 +9693,9 @@
         "dashboard/[eventId]/orders/new/page.tsx"
       ],
       "destinations": [],
-      "actions": [],
+      "actions": [
+        "routes.dashboard.eventServices"
+      ],
       "blocks": []
     },
     "/dashboard/[eventId]/pabuya": {
@@ -10543,8 +10548,11 @@
         "/api/oauth/youtube/start?event_id=[seg]",
         "/privacy"
       ],
-      "actions": [],
+      "actions": [
+        "routes.dashboard.eventServices"
+      ],
       "blocks": [
+        "ActionButton",
         "AddOnStateCta",
         "AppStoreLayout",
         "ChoosePlanSheet",
@@ -11338,11 +11346,13 @@
       "destinations": [
         "/dashboard/[seg]/vendors"
       ],
-      "actions": [],
+      "actions": [
+        "routes.dashboard.eventServices"
+      ],
       "blocks": [
+        "ActionButton",
         "IapUnlockSheet",
         "InfoTip",
-        "InlineCheckoutDrawer",
         "Link",
         "PageMasthead",
         "PaidMark",
@@ -11372,7 +11382,9 @@
         "EventServicesBody",
         "EventServicesPick",
         "EventServicesView",
+        "HTMLElement",
         "Icon",
+        "InfoTip",
         "Link",
         "Mark",
         "PackFact",

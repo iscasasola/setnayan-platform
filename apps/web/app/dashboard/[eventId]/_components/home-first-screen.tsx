@@ -621,10 +621,10 @@ function PapicServiceRow({
           doors.whileNext?.buy ? (
             /* NEVER TWICE, only while the card that offers it is on screen (walk-b6 F1). */
             <span data-while-next="" className="contents">
-              <ActionButton tone="brand" icon={<Plus aria-hidden strokeWidth={1.9} />} label="Buy more" href={routes.dashboard.eventServices(eventId, 'photos')} />
+              <ActionButton tone="brand" icon={<Plus aria-hidden strokeWidth={1.9} />} label="Buy more" href={routes.dashboard.eventServices(eventId, 'photos')} data-web-only="" />
             </span>
           ) : (
-            <ActionButton tone="brand" icon={<Plus aria-hidden strokeWidth={1.9} />} label="Buy more" href={routes.dashboard.eventServices(eventId, 'photos')} />
+            <ActionButton tone="brand" icon={<Plus aria-hidden strokeWidth={1.9} />} label="Buy more" href={routes.dashboard.eventServices(eventId, 'photos')} data-web-only="" />
           )
         ) : null}
         {/* The photos live on the event bar's Memories tab now (owner 2026-10-23) — the door opens it. */}

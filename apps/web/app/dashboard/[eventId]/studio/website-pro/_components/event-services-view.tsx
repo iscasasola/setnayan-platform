@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useId, useMemo, useState, useTransition, type ComponentType, type ReactNode } from 'react';
-import { Camera, Check, ChevronDown, ChevronRight, ChevronUp, Gem, Info, LayoutTemplate, Radio, Sparkles, Wallet, X } from 'lucide-react';
+import { useId, useMemo, useRef, useState, useTransition, type ComponentType, type ReactNode } from 'react';
+import { Camera, Check, ChevronDown, ChevronRight, ChevronUp, Gem, LayoutTemplate, Radio, Sparkles, Wallet, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { Chips } from '@/app/_components/chips';
 import { InfoTip } from '@/app/_components/info-tip';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { formatPhp } from '@/lib/php';
 import { routes } from '@/lib/routes';
 import { formatCount } from '@/lib/format-number';
@@ -121,6 +122,9 @@ export function EventServicesView({
   const [failed, setFailed] = useState<string | null>(null);
   const [paying, startPaying] = useTransition();
   const infoHead = useId();
+  // The singles grow in place and the page brings them into view on a press (the house reveal, never a hand-rolled one).
+  const singlesRef = useRef<HTMLElement>(null);
+  const revealSingles = useRevealOnOpen(open, () => ({ head: singlesRef.current }));
 
   const { title: packsTitle, packs } = useMemo(() => shownPacks(facts), [facts]);
   const onPlan = facts.plan !== null && facts.plan !== 'free';
@@ -231,14 +235,18 @@ export function EventServicesView({
                       <span className="pointer-events-none min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
                           <span className="text-sn-xl font-semibold text-ink">{p.name}</span>
+                          {/* The house ⓘ's look, token for token (`there-is-one-info-dot.test.ts` lists this site): it opens the
+                              pack's full list in the page's one sheet, which <InfoTip>'s hover note cannot hold. */}
                           <button
                             type="button"
-                            className="sn-press sn-hit pointer-events-auto relative z-10 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-ink/50 hover:text-ink"
+                            className="sn-press sn-press-ring sn-dot-btn pointer-events-auto relative z-10 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
                             aria-label={`What’s in ${p.name}`}
+                            aria-haspopup="dialog"
+                            aria-expanded={info?.key === p.key}
                             onClick={() => setInfo(p)}
                             data-event-services-info-open={p.key}
                           >
-                            <Info className="h-4 w-4" strokeWidth={1.9} aria-hidden />
+                            <span aria-hidden="true">i</span>
                           </button>
                         </span>
                         <span className="mt-0.5 block text-sn-base leading-snug text-ink/75">
@@ -270,7 +278,7 @@ export function EventServicesView({
         ) : null}
 
         {/* ── the singles: the quieter second choice ── */}
-        <section aria-labelledby={`${infoHead}-singles`} data-event-services-singles={open ? 'open' : 'closed'}>
+        <section ref={singlesRef} aria-labelledby={`${infoHead}-singles`} data-event-services-singles={open ? 'open' : 'closed'}>
           <div className="flex items-center justify-between gap-3">
             <h2 id={`${infoHead}-singles`} className="text-sn-lg font-medium text-ink/70">
               {singlesTitle}
@@ -280,7 +288,10 @@ export function EventServicesView({
               icon={open ? ChevronUp : ChevronDown}
               label={open ? 'Hide' : 'Show'}
               aria-expanded={open}
-              onClick={() => setOpen((o) => !o)}
+              onClick={() => {
+                if (!open) revealSingles();
+                setOpen((o) => !o);
+              }}
             />
           </div>
           {open ? (

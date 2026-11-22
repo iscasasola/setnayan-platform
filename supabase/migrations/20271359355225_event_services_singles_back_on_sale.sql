@@ -43,7 +43,7 @@ UPDATE public.platform_retail_catalog_v2
        retirement_reason   = NULL,
        updated_at          = NOW()
  WHERE service_code = 'SETNAYAN_AI'
-   AND (retail_price_php IS DISTINCT FROM 2790.00 OR is_active IS DISTINCT FROM TRUE OR retired_at IS NOT NULL);
+   AND NOT (retail_price_php = 2790.00 AND is_active AND retired_at IS NULL);
 
 -- ── 2 · the Event Hub single (new) ──────────────────────────────────────────
 -- Unlocks what Event Plus unlocks, minus Plus's Papic credits: every theme and

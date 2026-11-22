@@ -66,11 +66,17 @@ async function bookedCount(db: SupabaseClient, eventId: string): Promise<number 
     .select('event_id', { count: 'exact', head: true })
     .eq('event_id', eventId)
     .in('status', [...BOOKED_EVENT_VENDOR_STATUSES]);
-  return error ? null : (count ?? 0);
+  if (error) {
+    // "Fits" then marks nothing — a count that could not be read never reads as zero suppliers.
+    console.error('[event-services] booked count read failed:', error.message);
+    return null;
+  }
+  return count ?? 0;
 }
 
 async function eventLine(db: SupabaseClient, eventId: string): Promise<string | null> {
   const { data, error } = await db.from('events').select('display_name, event_date').eq('event_id', eventId).maybeSingle();
+  if (error) console.error('[event-services] event line read failed:', error.message);
   if (error || !data) return null;
   const row = data as { display_name?: string | null; event_date?: string | null };
   const name = (row.display_name ?? '').trim();

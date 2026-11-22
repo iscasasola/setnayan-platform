@@ -245,3 +245,7 @@ ac766664b4da8102328f0c052cb1f59e653454ae:apps/web/tests/db/a-supplier-gift-lands
 # introducing commit, like the ac766664 rows above.
 99e2eb0e92a9115459eaa506cb582abe05c9eaae:apps/web/lib/shop-gifts.test.ts:generic-api-key:224
 99e2eb0e92a9115459eaa506cb582abe05c9eaae:apps/web/lib/badge-rewards.test.ts:generic-api-key:475
+# flagged the catalogue SKU code 'PAPIC_GUEST_150' inside a SQL example in the
+# Apple products build note — a product identifier, not a credential. Pinned by
+# the introducing commit, like the 99e2eb0e rows above.
+7511a21863d01f4b6fb189e60c5472aebdb88696:build-sessions/APPLE-PRODUCTS-2026-11-22.md:generic-api-key:10

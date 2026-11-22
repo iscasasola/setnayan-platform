@@ -37,3 +37,5 @@ the controller: the in-app gift cart pays LINE BY LINE, one Apple payment per ca
 
 SPEC IMPACT: None in the corpus text — implements the 4 Nov "SUPPLIERS CAN BUY GIFTS INSIDE THE IPHONE APP TOO" row as
 amended by the 14 / 17 Nov gift-price rows (list price), the 21 Nov #8004 approval and the 22 Nov line-by-line ruling.
+
+Ship fix: `.gitleaksignore` pins the secret-scan false positive on the catalogue code `PAPIC_GUEST_150` in `build-sessions/APPLE-PRODUCTS-2026-11-22.md` (a product identifier, not a credential).

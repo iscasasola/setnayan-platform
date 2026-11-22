@@ -76,9 +76,10 @@ test('3 · ONLY the Add-photos door says "added" — on the presign and on the r
     'the Add-photos record no longer says the file was added — an added photo is charged the camera price',
   );
   assert.match(code('lib/upload-send.ts'), /\.\.\.\(job\.papicAdded === true \? \{ papicAdded: true \} : \{\}\)/);
-  // Every camera lane: the seat camera, its offline drain, the camera bridge (page + offline handler + sink).
+  // Every camera lane: the seat camera's lane on the one camera (its route — owner 2026-11-22, one camera), the old
+  // seat queue's offline drain, the camera bridge (page + offline handler + sink).
   for (const lane of [
-    'app/papic/seat/[token]/_components/papic-seat-capture.tsx',
+    'app/api/papic/seat-capture/route.ts',
     'app/papic/seat/[token]/_components/camera-bridge-panel.tsx',
     'lib/offline/service-handlers/papic-drain.ts',
     'lib/offline/service-handlers/camera-bridge-handler.ts',

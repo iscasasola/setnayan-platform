@@ -154,7 +154,7 @@ const CAMERA_FILES = [
   'app/papic/guest/_components/guest-camera-tools.tsx',
   'app/papic/guest/_components/tag-scanner-overlay.tsx',
   'app/papic/guest/_components/my-shots-sheet.tsx',
-  'app/papic/_components/camera-controls.tsx',
+  // (app/papic/_components/camera-controls.tsx deleted 2026-11-22 — only the retired seat screen drew it: one camera)
   'lib/use-papic-camera.ts',
 ];
 

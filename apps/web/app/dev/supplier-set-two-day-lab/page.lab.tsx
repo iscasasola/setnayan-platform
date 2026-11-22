@@ -75,7 +75,7 @@ const FRAME = buildDayOfFrame({
   genericModuleIds: ['run_of_show', 'pax_headcount', ...TOOL_IDS, 'live_reviews'],
 });
 
-function day(view: 'day' | 'scanner', programUnread: boolean) {
+function day(view: 'day' | 'scanner', programUnread: boolean, deskDoor = false) {
   const blocks = programUnread ? [] : BLOCKS;
   return (
     <EventDayBody
@@ -102,7 +102,7 @@ function day(view: 'day' | 'scanner', programUnread: boolean) {
       tools={TOOLS}
       reviews={<LiveReviews vendorProfileId="lab-shop" initial={[]} />}
       desk={<SpecializationSlot model={FRAME} eventId={EVENT_ID} vendorProfileId="lab-shop" coupleName={COUPLE} blocks={blocks} bookedCategories={['band']} />}
-      otherView={view === 'scanner' ? <EventHubScanner eventId={EVENT_ID} run={null} floorIsYours={false} scan={[]} /> : null}
+      otherView={view === 'scanner' ? <EventHubScanner eventId={EVENT_ID} run={null} floorIsYours={false} scan={[]} deskDoorParts={deskDoor ? ['guests', 'suppliers'] : []} /> : null}
     />
   );
 }
@@ -152,6 +152,11 @@ const STATES: Record<string, { label: string; page: string; draw: () => ReactNod
     draw: () => day('day', true),
   },
   scanner: { label: 'Scanner view (PickMenu)', page: '/vendor-dashboard/on-the-day', draw: () => day('scanner', false) },
+  'scanner-desk-door': {
+    label: 'Scanner view · the hosts picked you for the Check-in desk’s door (new)',
+    page: '/vendor-dashboard/on-the-day',
+    draw: () => day('scanner', false, true),
+  },
   'papic-consent': { label: 'Papic · before you shoot', page: '/vendor-dashboard/on-the-day', draw: () => papic({ isEventDay: true }) },
   'papic-camera': { label: 'Papic · the camera (press Agree)', page: '/vendor-dashboard/on-the-day', draw: () => papic({ isEventDay: true }) },
   'papic-not-the-day': { label: 'Papic · not the event day', page: '/vendor-dashboard/on-the-day', draw: () => papic({ isEventDay: false }) },

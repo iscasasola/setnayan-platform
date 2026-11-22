@@ -1,6 +1,7 @@
 import { ScanLine } from 'lucide-react';
 import { AnnounceButton } from '@/app/dashboard/[eventId]/schedule/_components/announce-button';
-import { CheckinDeskRows } from '../../../../_components/events-you-run-rows';
+import { CheckinDeskRows, checkinDeskHref } from '../../../../_components/events-you-run-rows';
+import { partsWords, type DeskPart } from '@/lib/checkin-desk';
 import { HubDoorRow, HubEyebrow } from '../../../_components/hub-screen';
 import type { EventYouRun } from '@/lib/events-you-run';
 import type { CoordinatorBroadcastItem } from '@/lib/coordinator-broadcasts';
@@ -27,7 +28,10 @@ export function EventHubScanner({
   scan = [],
   scanAnswer = null,
   scanNumbers = null,
+  deskDoorParts = [],
 }: {
+  /** 🛂 The parts the hosts gave this person as the supplier at the Check-in desk's door (owner 16 Nov) — or none. */
+  deskDoorParts?: readonly DeskPart[];
   /** The dev lab's "Your numbers" (its frames only). */
   scanNumbers?: ScanNumberRow[] | null;
   eventId: string;
@@ -39,7 +43,9 @@ export function EventHubScanner({
   scanAnswer?: ScanAnswer | null;
 }) {
   const claims = scan !== 'unreadable' && scan.length > 0;
-  const any = floorIsYours || run != null || claims;
+  // The coordinator's desk row already opens the desk; the door supplier's row shows only when they have no such row.
+  const door = run == null && deskDoorParts.length > 0;
+  const any = floorIsYours || run != null || claims || door;
   return (
     <div data-event-hub-scanner="">
       <HubEyebrow about="A guest's invitation QR, scanned at the door or on the floor. Each scan asks Setnayan for one answer — never the guest list.">
@@ -55,6 +61,9 @@ export function EventHubScanner({
         <HubDoorRow href={`${eventHubViewHref(eventId, 'day')}#seat-finder`} label="Find a guest’s seat" line="Scan their pass — their table shows" data="seat-finder" />
       ) : null}
       {run ? <CheckinDeskRows events={[run]} /> : null}
+      {door ? (
+        <HubDoorRow href={checkinDeskHref(eventId)} label="Check-in desk" line={`The hosts gave you ${partsWords(deskDoorParts)}`} data="checkin-door" />
+      ) : null}
       {any || scan === 'unreadable' ? null : (
         <div className="flex items-start gap-3 py-3" data-event-hub-no-scanner="">
           <ScanLine aria-hidden className="mt-0.5 h-5 w-5 flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.8} />

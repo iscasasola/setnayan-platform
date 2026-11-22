@@ -36,6 +36,7 @@ import type { DateSheetData, FactSheetData, FactSheetKey, PlaceSheetData } from 
 import { loadYourEvent } from '../../launch/_components/details-your-event-load';
 import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { regionLabel } from '@/lib/region-source';
+import { cleanDateMonths } from '@/lib/event-date-options';
 
 const NOT_OPENED = 'This could not be opened just now. Nothing was changed — close it and try again in a moment.';
 const PRECISIONS = new Set(['day', 'month', 'year']);
@@ -110,7 +111,7 @@ export async function openFactSheet(
     const [row, vendors, liveTime, change, dateExempt] = await Promise.all([
       supabase
         .from('events_host')
-        .select('event_date, event_date_precision, event_end_date, event_days, date_mode, date_candidates, date_window_start, date_window_end')
+        .select('event_date, event_date_precision, event_end_date, event_days, date_mode, date_candidates, date_window_start, date_window_end, date_months')
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchEventVendors(supabase, eventId),
@@ -132,6 +133,7 @@ export async function openFactSheet(
       date_candidates: string[] | null;
       date_window_start: string | null;
       date_window_end: string | null;
+      date_months: string[] | null;
     };
     const date = live.event_date ?? null;
     const rawPrecision = String(live.event_date_precision ?? 'day');
@@ -178,10 +180,12 @@ export async function openFactSheet(
         days: Math.max(1, Number(live.event_days ?? 1) || 1),
         maxDays: profile.maxDays,
         options: {
-          mode: live.date_mode === 'window' ? 'window' : 'specific',
+          // 🗓 "Some months" stays months — read as 'specific' it showed an empty pick and lost what the couple chose.
+          mode: live.date_mode === 'window' ? 'window' : live.date_mode === 'months' ? 'months' : 'specific',
           candidates: Array.isArray(live.date_candidates) ? live.date_candidates.filter((d): d is string => typeof d === 'string') : [],
           windowStart: live.date_window_start ?? null,
           windowEnd: live.date_window_end ?? null,
+          months: cleanDateMonths(live.date_months),
         },
         dateExempt,
       },

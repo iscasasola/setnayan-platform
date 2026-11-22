@@ -20,7 +20,7 @@ import {
   type GuestSide,
   type MealPreference,
   type RsvpStatus,
-  RSVP_ROW_WORDS,
+  RSVP_LIST_WORDS,
   replyMarkedByHost,
   PLUS_ONE_CHOICES,
   A_PLUS_ONE_BRINGS_NO_ONE,
@@ -75,7 +75,7 @@ import { THIS_IS_ME_REFUSAL_COPY } from '@/lib/creator-couple-row';
 import type { GuestCardData } from './guest-card-data';
 import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[guestId]/actions';
 import { invitationLinkOn } from '@/lib/invitation-link';
-import { tableWords } from '@/lib/table-words';
+import { seatWords, tableWords } from '@/lib/table-words';
 import { GuestSeatPreview } from './guest-seat-preview';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 import { COUNTED_FOR_ALL, NOT_COUNTED_ABOUT, NOT_COUNTED_FIELD, NOT_COUNTED_POSTED } from '@/lib/guest-not-counted';
@@ -162,7 +162,10 @@ const MEAL_OPTIONS: MealPreference[] = [
 const RSVP_OPTIONS: RsvpStatus[] = ['attending', 'pending', 'maybe', 'declined'];
 
 /** The card's words for an answer (owner 2026-09-30: "no reply" / "not coming"). */
-const CARD_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_ROW_WORDS;
+/* 💬 THE CARD SAYS WHAT THE LIST SAYS (Guests redesign drawing § 3, 20 Nov: the card reads "✓ Coming" and Reply
+   "Coming"; § 1's summary and rows already speak `RSVP_LIST_WORDS`). One set of words for one answer, so the row a guest
+   was opened from and their card can never disagree ("Coming" on the row, "Attending" on the card). */
+const CARD_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_LIST_WORDS;
 
 
 /* 🪪 The card's head — eyebrow · name · reply and the face — lives in its own small module (`guest-card-head.tsx`) so the
@@ -315,6 +318,8 @@ export function GuestCardBody({
     initialInvited,
     inviteChapters,
     seatedAt,
+    seatNumber,
+    seatUnread,
     customGroups,
     recordedAt,
     access,
@@ -410,7 +415,7 @@ export function GuestCardBody({
         ? 'None · a +1 brings no one'
         : 'None';
   const rsvpSummary = isCouple
-    ? 'Attending · always'
+    ? `${CARD_RSVP_WORDS.attending} · always`
     : representedBy
       ? representedByWords(representedBy.name)
       : [
@@ -441,13 +446,17 @@ export function GuestCardBody({
         : papicRow.ceiling === undefined
           ? faceWords
           : [guestCameraSummary(papicRow.ceiling), guest.faceblock_enabled ? 'Blurred' : null].filter(Boolean).join(' · ');
+  /* 🪑 "Entourage · Seat 2" (drawing § 3) — the table, then their chair. 🔴 A REFUSED seat read says so: it used to fall
+     to "Not seated", telling the couple a seated guest had no seat (the honest read, guests-read-is-honest.test.ts). */
   const seatSummary = representedBy
     ? `${representedBy.name} sits in their seat`
-    : seatedAt
-      ? tableWords(seatedAt)
-      : guest.rsvp_status === 'declined' && !proxy?.namedByGuest
-        ? 'Not coming'
-        : 'Not seated';
+    : seatUnread
+      ? 'Couldn’t read their seat'
+      : seatedAt
+        ? [tableWords(seatedAt), typeof seatNumber === 'number' ? seatWords(seatNumber) : null].filter(Boolean).join(' · ')
+        : guest.rsvp_status === 'declined' && !proxy?.namedByGuest
+          ? CARD_RSVP_WORDS.declined
+          : 'Not seated';
   const notesSummary = [guest.host_note_for_guest?.trim() ? 'A note for them' : null, guest.notes?.trim() ? 'A private note' : null].filter(Boolean).join(' · ') || null;
   const accessSummary = [
     linked === null ? null : linked ? 'Linked' : 'Not linked',

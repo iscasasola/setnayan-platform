@@ -7,7 +7,7 @@ import { HelpGuideView } from './guide-view';
 
 /*
   ⚠ NO loading.tsx BESIDE THIS PAGE: it calls notFound() for a guide this help does not have, and a loading boundary
-  commits HTTP 200 before the body runs (the soft-404 trap, see app/(shell)/help/loading.tsx).
+  commits HTTP 200 before the body runs (the soft-404 trap, see app/(shell)/help/loading.tsx — and why these pages sit in the (help-pages) group, outside that folder).
 */
 
 type Props = {

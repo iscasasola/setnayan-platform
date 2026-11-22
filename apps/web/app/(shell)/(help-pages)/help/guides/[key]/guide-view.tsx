@@ -52,7 +52,7 @@ export function HelpGuideView({ place, guide }: { place: HelpPlace; guide: HelpG
                     width={460}
                     height={972}
                     sizes="(min-width: 640px) 320px, 70vw"
-                    className="mt-4 h-auto w-full max-w-xs rounded-2xl shadow-sn-frame"
+                    className="mt-4 h-48 w-full rounded-2xl object-cover object-top shadow-sn-frame"
                     data-guide-shot=""
                   />
                 ) : null}

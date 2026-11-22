@@ -74,7 +74,7 @@ export default async function CheckinDeskLab({ searchParams }: { searchParams: P
   const access = role === 'supplier' ? { ...DEFAULT_DESK_ACCESS, door: { userId: ME, parts: ['guests' as const, 'suppliers' as const] } } : DEFAULT_DESK_ACCESS;
   const parts = partsForRole(role, access, ME);
   return (
-    <div className="mx-auto w-full max-w-2xl tab:max-w-3xl px-4 py-6 sm:px-6">
+    <div className="mx-auto w-full max-w-2xl tab:max-w-3xl xl:max-w-5xl px-4 py-6 sm:px-6">
       <h1 className="text-2xl font-semibold tracking-tight">Check-in desk</h1>
       <p className="text-sm text-ink/60">
         Scan a guest&rsquo;s QR (or search their name) as they arrive — you&rsquo;ll see their table and party at a glance,

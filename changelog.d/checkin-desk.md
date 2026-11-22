@@ -15,7 +15,21 @@ parts)"). The shipped desk becomes one desk with three parts picked from one dro
 
 Every part stays mounted (switching never reloads; the scanner keeps its state). The new reads join the page's one
 `Promise.all`. `checkInGuest` / `undoCheckIn` ask the same reader (`readDeskViewer`) at the write — a couple member
-skips it. One new action (`saveDeskAccess`), one new column (`events.checkin_desk_access`, service role only).
+skips it. No new server action: the ⚙ save and the undo share ONE export, `changeDesk` (the count stays at its
+ceiling, 1251). One new column (`events.checkin_desk_access`, service role only).
 
 SPEC IMPACT: None — implements the approved drawing; no decision changed. Migration `20271357880360_checkin_desk_access`
 (one nullable jsonb column on `events`, no user grant; listed in `lint-events-column-grants.mjs` NO_GRANT_NEEDED).
+
+### 2026-11-22 · catch-up and finish (cloud builder)
+
+- Merged `origin/main` in; the migration moved to `20271357880360` (51 migrations landed after its old prefix).
+- `saveDeskAccess` + `undoCheckIn` folded into one export, `changeDesk(eventId, { kind: 'undo' | 'access' })`.
+- **The supplier at the door works their part.** The 16 Nov row ("one supplier at the door each get the parts you
+  choose") is newer than the 8 Nov "a supplier proposes" rule. The helper gate now gives way ONLY for the supplier the
+  hosts picked in ⚙, and only for the Guests part they gave (check in + undo). ⚙ stays hosts-only. The database already
+  admitted the write (`guest_checkins_member_manage`).
+- **Their way in:** Event Hub › Scanner shows "Check-in desk · The hosts gave you …" (`readMyDeskDoorParts`). Before,
+  only the hosts' coordinator had a Hub row.
+- **Two columns from 1280** (owner "Yes, all 8", item 1): headcount, Scan and name search left; the arriving guest and
+  recent arrivals right. The phone keeps one column in the same order. Undo in Recent arrivals presses at 44 px.

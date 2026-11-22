@@ -280,7 +280,7 @@ export default async function OpenShopLabPage({
           inviterName="Maria Santos Events"
           category="Coordination"
           createHref="/dev/open-shop-lab?step=1"
-          existing={<ActionButton tone="neutral" icon={LogIn} label="I already have a shop" href="/dev/open-shop-lab?screen=invite" />}
+          existing={<ActionButton tone="neutral" icon={<LogIn aria-hidden strokeWidth={1.75} />} label="I already have a shop" href="/dev/open-shop-lab?screen=invite" />}
         />
       </div>
     );

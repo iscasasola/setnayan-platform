@@ -81,7 +81,8 @@ test('the app hands the Apply sheet no part pricing — it is the one-unlock she
   assert.equal(applySheetButtons(null, null), null);
   const sheet = code('app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx');
   assert.doesNotMatch(sheet, /appleStore|everythingOffered/, 'the sheet still has an Apple parts branch');
-  assert.match(sheet, /Unlock Plus and Apply/);
+  // 20 Nov 2026 ("MAKER PAYWALL"): the one unlock reads "◆ Get the full Event Hub and apply".
+  assert.match(sheet, /◆ Get the full Event Hub and apply/);
 });
 
 /* ── 3 · the server refuses ─────────────────────────────────────────────── */

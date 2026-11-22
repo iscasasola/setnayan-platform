@@ -79,13 +79,13 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
         { q: 'What are the five stages?', a: 'Save the Date, RSVP, Invitation, The Day and Post Event. Each one shows guests what matters at that time, from one address.' },
         { q: 'Do I need to design or code anything?', a: 'No. Fill in your details and it composes itself. Change anything in the Maker, preview it, and press Apply.' },
         { q: 'Can my partner and I edit at the same time?', a: 'Yes. Your saves merge, a note tells you when the other host changed something, and Undo only takes back your own steps.' },
-        { q: 'Is it free?', a: 'You can start free with three themes, your words, colours and RSVP. The optional ◆ Pro upgrade is priced in the live catalogue and covers everyone on your event.' },
+        { q: 'Is it free?', a: 'You can start free with three themes, your words, colours and RSVP. The optional ◆ Pro upgrade covers everyone on your event; today’s price is on our Pricing page.' },
       ],
       tl: [
         { q: 'Ano ang limang stage?', a: 'Save the Date, RSVP, Invitation, The Day at Post Event. Ipinapakita ng bawat isa ang mahalaga sa bisita sa panahong iyon, mula sa iisang address.' },
         { q: 'Kailangan ko bang mag-design o mag-code?', a: 'Hindi. Punan ang detalye at bubuo ito nang mag-isa. Baguhin ang kahit ano sa Maker, i-preview, at pindutin ang Apply.' },
         { q: 'Puwede ba kaming sabay mag-edit ng partner ko?', a: 'Puwede. Pinagsasama ang mga save ninyo, may note kapag may binago ang isa pang host, at ang sarili mo lang na hakbang ang binabawi ng Undo.' },
-        { q: 'Libre ba ito?', a: 'Puwedeng magsimula nang libre na may tatlong theme, sariling salita, kulay at RSVP. Ang optional na ◆ Pro upgrade ay nasa live catalogue ang presyo at para sa lahat ng nasa event mo.' },
+        { q: 'Libre ba ito?', a: 'Puwedeng magsimula nang libre na may tatlong theme, sariling salita, kulay at RSVP. Ang optional na ◆ Pro upgrade ay para sa lahat ng nasa event mo; nasa Pricing page namin ang presyo ngayon.' },
       ],
     },
     keywords: {
@@ -478,12 +478,12 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
     faq: {
       en: [
         { q: 'What can I build?', a: 'A logo from text, image and frame layers, in the studio’s typefaces and your colours.' },
-        { q: 'What does the upgrade add?', a: 'The animation: each layer drawing on, rising or fading in on your Event Hub. It comes with Event Pro, priced in the live catalogue.' },
+        { q: 'What does the upgrade add?', a: 'The animation: each layer drawing on, rising or fading in on your Event Hub. It comes with Event Pro; today’s price is on our Pricing page.' },
         { q: 'Do I need design skills?', a: 'No. Type your initials, pick a frame, and choose how each layer moves.' },
       ],
       tl: [
         { q: 'Ano ang puwede kong buuin?', a: 'Logo mula sa text, image at frame layers, sa mga typeface ng studio at sa kulay mo.' },
-        { q: 'Ano ang idinadagdag ng upgrade?', a: 'Ang animation: ang pag-draw on, pag-angat o pag-fade in ng bawat layer sa Event Hub mo. Kasama ito sa Event Pro, nasa live catalogue ang presyo.' },
+        { q: 'Ano ang idinadagdag ng upgrade?', a: 'Ang animation: ang pag-draw on, pag-angat o pag-fade in ng bawat layer sa Event Hub mo. Kasama ito sa Event Pro; nasa Pricing page namin ang presyo ngayon.' },
         { q: 'Kailangan ba ng design skills?', a: 'Hindi. I-type ang initials, pumili ng frame, at piliin kung paano gagalaw ang bawat layer.' },
       ],
     },

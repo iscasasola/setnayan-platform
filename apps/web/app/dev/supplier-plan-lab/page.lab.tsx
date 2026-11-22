@@ -5,11 +5,13 @@
  * `HelpersView`, `SettingsView`, `NotificationsView`, `BusinessDoing` and the Help rows — so what it shows
  * is what ships. Every write is the SHIPPED action; with no session each one refuses, nothing is written.
  *
- *   ?s=plan            the Plan (who=parish · caterer · studio)       &unverified=1 · &fail=1 (receipts + fee unread)
+ *   ?s=plan            the Plan (who=parish · caterer · studio)       &unverified=1 · &ticket=1 · &fail=1 (receipts + fee unread)
  *   ?s=lock            🔒 the shared lock explainer (&lock=<key> · &plan=pro for a plan lock)
  *   ?s=plan&who=studio&limits=1   📉 the limits sheet on a lower plan (ruling 5683) · &floor=1 the storage floor (lab allowance)
  *   ?s=limit           ⤴ Door 1 — past a plan limit (&tier=solo &key=bookingsPerDate &want=2 · &unverified=1)
  *   ?s=helpers         Helpers (who=parish: owner + a free Helper · studio: admins, team members, an open vote)
+ *   ?s=team            🧑‍🤝‍🧑 Team with the SIX ROLES (owner 19 Nov 2026) — a three-location styling shop, renamed roles
+ *                      &bm=1 (as its Makati Branch Manager) · ?s=roles Team › Roles (&bm=1 read-only) · ?s=rolelock a 🔒
  *   ?s=settings        Settings (&staff=1 — a scoped team member)
  *   ?s=notifs          Notifications › Recent (incl. "Someone else was booked")      &empty=1
  *   ?s=help            Help
@@ -17,7 +19,7 @@
  *   ?s=march           Event Hub › the Wedding March, read-only (band · coordinator)   &unread=1
  *   ?s=gifts           Shop › Promote › Your gifts (supplier gift stock, 2026-11-04; on Plan until 2026-11-05; packs + bundles 2026-11-14)  &fail=1 (unread)
  *                      &app=1 (the iPhone app: stock + Bought, no Buy)
- *                      &buy=1 opens nothing by itself — press "Buy gifts"
+ *                      &sent=1 (a payment sent, waiting for approval) · press "Buy more" for the store, ⟲ for History
  *   ?s=gifts-couple    the couple's quote note "Gift from <shop> 🎁"    &given=1 (after the first payment) · &unlock=1 (+ Event Plus)
  *   ?s=gifts-admin     Admin › Gifts & comps › Supplier gifts             &fail=1 (both reads refused)
  *   ?s=prints          Shop › Promote › Prints (2026-11-05) — the REAL section; its pictures come from the lab's twin of
@@ -29,6 +31,9 @@ import { verifiedV84Svg } from '@/lib/verified-v84-art';
 import { badgeArtSrc } from '@/lib/shop-badge-shelf';
 import { GIFT_LIMIT_PCT_DEFAULT } from '@/lib/setnayan-gift';
 import { notFound } from 'next/navigation';
+import { dutyOfRank, type VendorDuty, type VendorRoleNames } from '@/lib/vendor-duties';
+import { RoleLock } from '@/app/vendor-dashboard/_components/role-lock';
+import { RolesForm } from '@/app/vendor-dashboard/team/roles/roles-form';
 import { PlanRows } from '@/app/vendor-dashboard/subscription/_components/plan-rows';
 import { PlanSheet, type PlanPick, type SheetPlan } from '@/app/vendor-dashboard/subscription/_components/plan-sheet';
 import { changeKind, limitAsk, payToday, planChanges, planDirection, planRowLine, sheetPlans, type PlanLimitKey } from '@/lib/plan-sheet';
@@ -48,6 +53,7 @@ import {
   proposeAdminMotion,
   removeVendorTeamMember,
   setVendorAgentServices,
+  setVendorRoleNames,
   stepDownSelf,
   updateVendorTeamMember,
   voteAdminMotion,
@@ -178,7 +184,7 @@ const LAB_STORAGE_ALLOWANCE = 5_000_000_000;
 const LAB_SHEET_NOW = Date.parse('2026-11-10T02:00:00Z');
 const LAB_EXPIRES_AT: Record<string, string | null> = { free: null, solo: '2026-12-08T15:59:59Z', pro: '2027-10-03T15:59:59Z' };
 
-function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { floor: boolean } | null = null) {
+function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { floor: boolean } | null = null, ticket = false) {
   const shop = SHOPS[who];
   const plans: PlanPick[] = [
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(shop.tier, 'free', shop.expires) },
@@ -190,11 +196,18 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
       pickLine: planPickLine(shop.tier, t, shop.expires),
     })),
   ];
+  // ⚖ 20 Nov: there is no free first booking — every new booking is billable (flat for an unverified shop). `&ticket=1`
+  // shows a held free booking fee ticket. A frozen free place is a ledger fact, not a Plan state, so it is not drawn here.
   const standing = fail
     ? ({ kind: 'unreadable' } as const)
-    : shop.feeKind === 'free'
-      ? ({ kind: 'free', ordinal: shop.used + 1, ordinalIsFrozen: false, schedule: BOOKING_FEE } as const)
-      : ({ kind: 'billable', ordinal: 9, ordinalIsFrozen: false, schedule: BOOKING_FEE } as const);
+    : ({
+        kind: 'billable',
+        ordinal: shop.feeKind === 'free' ? shop.used + 1 : 9,
+        ordinalIsFrozen: false,
+        schedule: BOOKING_FEE,
+        unverified,
+        ...(ticket ? { badgeReward: 'next' as const } : {}),
+      } as const);
   const price = shop.tier in LAB_PRICES ? LAB_PRICES[shop.tier]![shop.cycle] : null;
   return (
     <PlanRows
@@ -280,7 +293,7 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
           }
         />
       }
-      feeRow={bookingFeeRow({ kind: 'free', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE } as const, 0)}
+      feeRow={bookingFeeRow({ kind: 'billable', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE } as const, 0)}
       gives={planGivesLines(tier, false)}
       receipts={[]}
       papicPackPrice={99}
@@ -299,18 +312,99 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
 }
 
 const ME = 'u-owner';
-const member = (id: string, name: string, role: VendorTeamMemberWithUser['role'], label: string | null = null): VendorTeamMemberWithUser => ({
+const member = (
+  id: string,
+  name: string,
+  role: VendorTeamMemberWithUser['role'],
+  label: string | null = null,
+  duty: VendorDuty = dutyOfRank(role),
+  branchId: string | null = null,
+): VendorTeamMemberWithUser => ({
   vendor_team_member_id: id,
   public_id: id,
   vendor_profile_id: 'vp',
   user_id: id === 'm0' ? ME : `u-${id}`,
   role,
+  duty,
+  branch_id: branchId,
   team_label: label,
   created_at: '2026-09-01',
   updated_at: '2026-09-01',
   email: `${name.split(' ')[0]!.toLowerCase()}@example.com`,
   display_name: name,
 });
+
+/** 🧑‍🤝‍🧑 The six-role shop of the #8013 drawing: Blooms & Co. Styling — Main · Quezon City, Makati, Cebu. */
+const SIX_ROLE_NAMES: VendorRoleNames = { shop_manager: 'COO', account_manager: 'Lead Stylist', marketing: 'CMO', branch_manager: 'Branch Head' };
+
+function sixRolesFixture(asBranchManager: boolean) {
+  const team = [
+    member('m0', 'Ana Reyes', 'admin', null, 'shop_manager'),
+    member('m1', 'Bea Santos', 'agent', 'Front desk', 'account_manager', 'b-makati'),
+    member('m2', 'Dina Lim', 'viewer', null, 'marketing'),
+    member('m3', 'Rico Garcia', 'agent', null, 'branch_manager', 'b-makati'),
+    member('m4', 'Carlo Cruz', 'viewer', null, 'helper', 'b-cebu'),
+    member('m5', 'Joy Tan', 'viewer', null, 'event_crew', 'b-makati'),
+  ];
+  const me = asBranchManager ? 'u-m3' : ME;
+  const visible = asBranchManager ? team.filter((m) => m.user_id === me || (m.branch_id === 'b-makati' && ['account_manager', 'event_crew', 'helper'].includes(m.duty))) : team;
+  return (
+    <HelpersView
+      userId={me}
+      founderUserId={ME}
+      enriched={visible}
+      motionData={{ motions: [], votes: [] }}
+      services={[
+        { vendor_service_id: 's1', category: 'styling', is_active: true, title: 'Wedding Styling', branch_id: 'b-makati' },
+        { vendor_service_id: 's2', category: 'styling', is_active: true, title: 'Debut Styling', branch_id: 'b-makati' },
+        { vendor_service_id: 's3', category: 'styling', is_active: true, title: 'Corporate Stage Design', branch_id: null },
+      ]}
+      assignments={{ m1: ['s1', 's2'], m3: ['s1', 's2'] }}
+      branchScope={{
+        locations: [
+          { key: 'main', label: 'Main · Quezon City' },
+          { key: 'b-makati', label: 'Makati branch' },
+          { key: 'b-cebu', label: 'Cebu branch' },
+        ],
+        wholeKeys: { m3: ['b-makati'] },
+      }}
+      seatsLine={seatLine(teamSeats(team, ME), 5)}
+      canBuySeats={false}
+      storeShell={false}
+      extraSeats={0}
+      seatFeePhp={0}
+      search={{}}
+      manager={asBranchManager ? { duty: 'branch_manager', branchId: 'b-makati' } : { duty: 'shop_manager', branchId: null }}
+      roleNames={SIX_ROLE_NAMES}
+      actions={{
+        update: updateVendorTeamMember,
+        remove: removeVendorTeamMember,
+        buySeat: buyExtraSeat,
+        vote: voteAdminMotion,
+        cancelMotion: cancelAdminMotion,
+        propose: proposeAdminMotion,
+        stepDown: stepDownSelf,
+        invite: inviteVendorTeamMember,
+        setServices: setVendorAgentServices,
+      }}
+    />
+  );
+}
+
+function rolesFixture(asBranchManager: boolean) {
+  return (
+    <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6" data-team-roles="">
+      <h1 className="sn-h1">Roles</h1>
+      <p className="text-[14px] text-ink/65">What each role can do. Give it your shop’s own name — it shows on every card of that role.</p>
+      <p className="mt-3 text-[13.5px] text-[color:var(--m-slate-2)]">Pro · Main · Quezon City + Makati branch + Cebu branch · 1 Helper free</p>
+      {asBranchManager ? (
+        <RoleLock duty="branch_manager" names={SIX_ROLE_NAMES} capability="role_names" className="mt-4" />
+      ) : (
+        <RolesForm names={SIX_ROLE_NAMES} action={setVendorRoleNames} />
+      )}
+    </section>
+  );
+}
 
 function helpersFixture(who: Who) {
   const team =
@@ -443,7 +537,7 @@ export default async function SupplierPlanLabPage({
     body =
       sp.gift === 'running' || sp.gift === 'soon' || sp.gift === 'ended'
         ? giftPlanFixture(sp.gift, sp.photos === '100')
-        : planFixture(who, sp.unverified === '1', sp.fail === '1', sp.limits === '1' ? { floor: sp.floor === '1' } : null);
+        : planFixture(who, sp.unverified === '1', sp.fail === '1', sp.limits === '1' ? { floor: sp.floor === '1' } : null, sp.ticket === '1');
   }
   // 🔒 ?s=lock&lock=quotation (any key in lib/locks.ts) — the shared lock's explainer, risen; &plan=pro = a plan lock.
   else if (s === 'lock') {
@@ -478,6 +572,15 @@ export default async function SupplierPlanLabPage({
     );
   }
   else if (s === 'helpers') return helpersFixture(who);
+  else if (s === 'team') return sixRolesFixture(sp.bm === '1');
+  else if (s === 'roles') return rolesFixture(sp.bm === '1');
+  else if (s === 'rolelock')
+    return (
+      <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6">
+        <h1 className="sn-h1">Your plan</h1>
+        <RoleLock duty="account_manager" names={SIX_ROLE_NAMES} capability="plan" className="mt-4" />
+      </section>
+    );
   else if (s === 'settings')
     body = (
       <SettingsView
@@ -513,7 +616,7 @@ export default async function SupplierPlanLabPage({
       </>
     );
 
-  else if (s === 'gifts') body = giftsFixture(sp.fail === '1', sp.app === '1');
+  else if (s === 'gifts') body = giftsFixture(sp.fail === '1', sp.app === '1', sp.sent === '1');
   else if (s === 'prints')
     body = (
       <ShopPrintsSection
@@ -588,14 +691,28 @@ function labUpgrades(tier: string): BadgeUpgradeRow[] {
   ];
 }
 
+/** Lab-only: the biggest Papic pack. Held apart from the Event rows below so its credit count is never read as a price. */
+const LAB_BIGGEST_PAPIC = { code: 'PAPIC_GUEST', title: 'Papic 3000', credits: 3000, pricePhp: 999 };
+
 /** Lab-only stand-in packs — the page reads `platform_retail_catalog_v2`; these never reach a supplier. */
 const LAB_GIFT_PACKS = shopGiftPacksFrom([
   { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
   { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499 },
+  LAB_BIGGEST_PAPIC,
   // 💎 Slice 2 — the price sheet's figures (20271308555594), copied for the lab only.
   { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990 },
   { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690 },
+  { code: 'EVENT_ULTRA', title: 'Event Ultra', credits: 1, pricePhp: 9990 },
 ]);
+
+/** 📦 Lab-only 10 + 1 bundles, one per gift — the page reads the catalogue's GIFT_BUNDLE_* rows (seeded 10 × list). */
+const LAB_GIFT_BUNDLES = LAB_GIFT_PACKS.map((p) => ({
+  code: `GIFT_BUNDLE_${p.code}`,
+  title: `11 × ${p.title}`,
+  pack: p,
+  quantity: 11,
+  priceCentavos: p.srpCentavos * 10,
+}));
 
 /** A lab badge reward row (`GrantedReward`) — fixture only. */
 function labReward(
@@ -610,7 +727,7 @@ function labReward(
 
 /** `inApp` — `&app=1`: the section as the iPhone app (store shell) draws it — the stock and Bought show, Buy does not
  * (`canBuy` is false there; `shop-gifts-data.ts`). */
-function giftsFixture(fail: boolean, inApp = false) {
+function giftsFixture(fail: boolean, inApp = false, sent = false) {
   return (
     <ShopGiftsSection
       data={{
@@ -620,27 +737,30 @@ function giftsFixture(fail: boolean, inApp = false) {
               papic: { balance: 2150, held: 1150 },
               event_plus: { balance: 3, held: 1 },
               event_pro: { balance: 1, held: 0 },
-              event_ultra: { balance: 0, held: 0 },
-              packs: { PAPIC_GUEST_150: { balance: 3, held: 1 }, PAPIC_GUEST_1K: { balance: 11, held: 0 } },
+              event_ultra: { balance: 1, held: 0 },
+              packs: { PAPIC_GUEST_150: { balance: 4, held: 1 }, PAPIC_GUEST_1K: { balance: 3, held: 1 }, PAPIC_GUEST: { balance: 0, held: 0 } },
             },
         packs: LAB_GIFT_PACKS,
-        // 📦 Lab-only bundle — the page reads the catalogue's GIFT_BUNDLE_* rows.
-        bundles: LAB_GIFT_PACKS[1]
-          ? [{ code: 'GIFT_BUNDLE_PAPIC_1K', title: '11 × Papic 1000', pack: LAB_GIFT_PACKS[1], quantity: 11, priceCentavos: 499_000 }]
-          : [],
-        bought: fail
+        bundles: LAB_GIFT_BUNDLES,
+        // 🧾 History (prototype v16): bought orders and gifts given. `&sent=1` — a payment sent, waiting for approval.
+        history: fail
           ? null
           : [
-              { orderId: 'o4', title: 'Event Plus', quantity: 3, paidPhp: 8070, createdAt: '2026-11-05T05:00:00Z', state: 'checking' },
-              { orderId: 'o3', title: 'Papic 150', quantity: 1, paidPhp: 90, createdAt: '2026-11-04T05:00:00Z', state: 'checking' },
-              { orderId: 'o5', title: 'Papic 1000', quantity: 1, packs: 11, bundleNote: 'Buy 10, get 1 free', paidPhp: 4990, createdAt: '2026-11-06T05:00:00Z', state: 'in_stock' },
-              { orderId: 'o2', title: 'Papic 1000', quantity: 2, paidPhp: 898, createdAt: '2026-11-02T05:00:00Z', state: 'in_stock' },
-              { orderId: 'o1', title: 'Papic 150', quantity: 1, paidPhp: 90, createdAt: '2026-10-30T05:00:00Z', state: 'in_stock' },
-            ],
-        openRails: [
-          { id: 'gcash', label: 'GCash' },
-          { id: 'bank', label: 'Bank transfer' },
-        ],
+              ...(sent
+                ? [{ kind: 'bought' as const, key: 'b-o9', orderId: 'o9', referenceCode: 'SNLAB0009', createdAt: '2026-11-17T09:00:00Z', title: 'You bought · 2 items', items: 'Papic 150 ×2 · Papic 1000 10 + 1', paidPhp: 5188, tickets: 13, state: 'sent' as const }]
+                : []),
+              { kind: 'bought' as const, key: 'b-o8', orderId: 'o8', referenceCode: 'SNLAB0008', createdAt: '2026-11-16T12:10:00Z', title: 'You bought · Event Pro', items: 'Event Pro', paidPhp: 5690, tickets: 1, state: 'unpaid' as const },
+              { kind: 'given' as const, key: 'g-1', createdAt: '2026-11-14T07:42:00Z', giftTitle: 'Papic 1000', count: 1, eventName: 'Wedding · Ana & Miguel' },
+              { kind: 'given' as const, key: 'g-2', createdAt: '2026-11-10T01:05:00Z', giftTitle: 'Event Plus', count: 1, eventName: 'Debut · Bea' },
+              { kind: 'bought' as const, key: 'b-o4', orderId: 'o4', referenceCode: 'SNLAB0004', createdAt: '2026-11-02T02:30:00Z', title: 'You bought · Event Plus', items: 'Event Plus', paidPhp: 2990, tickets: 1, state: 'in_stock' as const },
+              { kind: 'bought' as const, key: 'b-o1', orderId: 'o1', referenceCode: 'SNLAB0001', createdAt: '2026-10-15T08:05:00Z', title: 'You bought · Papic 150', items: 'Papic 150 ×5', paidPhp: 495, tickets: 5, state: 'in_stock' as const },
+              { kind: 'given' as const, key: 'g-3', createdAt: '2026-10-19T03:20:00Z', giftTitle: 'Papic 150', count: 1, eventName: 'Birthday · Tess' },
+            ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
+        onTheWay: sent ? { PAPIC_GUEST_150: 2, PAPIC_GUEST_1K: 11 } : {},
+        givenTotal: fail ? null : 12,
+        // 💳 The admin setting's seeded value (owner 2026-11-17) — the page reads platform_settings.max_payment_php.
+        maxPaymentPhp: 100_000,
+        openRails: [{ id: 'bdo', label: 'BDO' }],
         canBuy: !inApp,
         // 🏅 Badge rewards (2026-11-05): some of the stock is badge reward, a free booking fee used and one waiting.
         rewards: {

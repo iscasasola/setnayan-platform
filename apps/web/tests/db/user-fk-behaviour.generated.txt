@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 291 single-column FKs onto auth.users / public.users
-# CASCADE=78  RESTRICT=1  SET NULL=212
+# 302 single-column FKs onto auth.users / public.users
+# CASCADE=82  RESTRICT=1  SET NULL=219
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -35,6 +35,7 @@ booking_fee_disputes.decided_by_user_id                   SET NULL     nullable 
 booking_fee_disputes.opened_by_user_id                    SET NULL     nullable  -> users
 budget_allocation_decisions.recorded_by                   SET NULL     nullable  -> auth.users
 budget_builds.created_by                                  SET NULL     nullable  -> auth.users
+cake_designs.created_by                                   SET NULL     nullable  -> auth.users
 canonical_service_aliases.reviewed_by                     SET NULL     nullable  -> auth.users
 card_claim_word_allowances.granted_by                     SET NULL     nullable  -> users
 card_claim_words.created_by                               SET NULL     nullable  -> users
@@ -47,6 +48,8 @@ chat_file_removals.user_id                                CASCADE      NOT NULL 
 chat_message_flags.reviewed_by                            SET NULL     nullable  -> users
 chat_message_flags.sender_user_id                         SET NULL     nullable  -> users
 chat_message_hearts.user_id                               CASCADE      NOT NULL  -> auth.users
+chat_message_reminders.user_id                            CASCADE      NOT NULL  -> auth.users
+chat_message_revisions.changed_by                         SET NULL     nullable  -> auth.users
 chat_messages.recipient_user_id                           CASCADE      nullable  -> users
 chat_messages.sender_user_id                              SET NULL     nullable  -> users
 chat_poll_votes.voter_user_id                             CASCADE      NOT NULL  -> auth.users
@@ -54,6 +57,7 @@ chat_polls.asked_by_user_id                               SET NULL     nullable 
 chat_polls.closed_by_user_id                              SET NULL     nullable  -> auth.users
 chat_thread_members.added_by_user_id                      SET NULL     nullable  -> users
 chat_thread_members.user_id                               CASCADE      NOT NULL  -> users
+chat_thread_mutes.user_id                                 CASCADE      NOT NULL  -> users
 chat_thread_reads.user_id                                 CASCADE      NOT NULL  -> users
 chat_threads.created_by_user_id                           SET NULL     nullable  -> users
 communities.created_by                                    SET NULL     nullable  -> auth.users
@@ -129,6 +133,7 @@ event_schedule_tasks.created_by                           SET NULL     nullable 
 event_sponsors.created_by_user_id                         SET NULL     nullable  -> auth.users
 event_stage_notes.author_user_id                          SET NULL     nullable  -> auth.users
 event_supplier_story_shares.shared_by                     SET NULL     nullable  -> auth.users
+event_today_put_offs.user_id                              CASCADE      NOT NULL  -> auth.users
 event_type_requests.user_id                               CASCADE      NOT NULL  -> users
 event_vendor_booth_posters.updated_by                     SET NULL     nullable  -> auth.users
 event_vendors.deposit_declined_by_user_id                 SET NULL     nullable  -> auth.users
@@ -172,6 +177,7 @@ live_studio_encoder_claims.requested_by                   CASCADE      NOT NULL 
 live_studio_encoder_tokens.requested_by                   CASCADE      NOT NULL  -> auth.users
 manpower_gigs.posted_by_user_id                           SET NULL     nullable  -> users
 marketing_share_consents.customer_id                      CASCADE      NOT NULL  -> users
+maya_checkouts.user_id                                    CASCADE      NOT NULL  -> users
 media_web_copies.made_by                                  SET NULL     nullable  -> auth.users
 moodboard_library_assets.uploaded_by                      SET NULL     nullable  -> users
 moodboard_part_finalizations.answered_by_user_id          SET NULL     nullable  -> users
@@ -228,6 +234,7 @@ samahan_stories.user_id                                   CASCADE      NOT NULL 
 scan_events.scanner_user_id                               SET NULL     nullable  -> auth.users
 seating_editor_locks.holder_user_id                       CASCADE      NOT NULL  -> auth.users
 seo_suggestions.reviewed_by                               SET NULL     nullable  -> auth.users
+service_included_templates.updated_by                     SET NULL     nullable  -> users
 setnayan_pay_methods.updated_by_user_id                   SET NULL     nullable  -> users
 site_widgets.updated_by_admin_id                          SET NULL     nullable  -> users
 slug_change_log.changed_by                                SET NULL     nullable  -> auth.users
@@ -259,6 +266,7 @@ vendor_admin_motion_votes.voter_user_id                   CASCADE      NOT NULL 
 vendor_admin_motions.proposed_by                          SET NULL     nullable  -> auth.users
 vendor_admin_motions.target_user_id                       CASCADE      NOT NULL  -> auth.users
 vendor_billing_catalog.retired_by_admin_id                SET NULL     nullable  -> auth.users
+vendor_cake_makers.updated_by                             SET NULL     nullable  -> auth.users
 vendor_contracts.cancelled_by_user_id                     SET NULL     nullable  -> users
 vendor_contracts.uploaded_by_user_id                      SET NULL     nullable  -> users
 vendor_correction_requests.resolved_by                    SET NULL     nullable  -> users
@@ -276,6 +284,7 @@ vendor_guest_deliveries.delivered_by                      SET NULL     nullable 
 vendor_guest_reviews.hidden_by_user_id                    SET NULL     nullable  -> auth.users
 vendor_ig_oauth_state.initiated_by                        CASCADE      NOT NULL  -> auth.users
 vendor_image_flags.reviewed_by                            SET NULL     nullable  -> users
+vendor_inquiry_split_cuts.adjusted_by                     SET NULL     nullable  -> auth.users
 vendor_invites.claimed_by_user_id                         SET NULL     nullable  -> auth.users
 vendor_invites.invited_by_user_id                         SET NULL     nullable  -> auth.users
 vendor_lock_proposals.proposed_by_user_id                 SET NULL     nullable  -> auth.users
@@ -289,6 +298,7 @@ vendor_plan_contents.confirmed_by                         SET NULL     nullable 
 vendor_profiles.created_by_admin_user_id                  SET NULL     nullable  -> users
 vendor_profiles.user_id                                   CASCADE      nullable  -> users
 vendor_proposal_lowest.updated_by                         SET NULL     nullable  -> auth.users
+vendor_push_tokens.user_id                                SET NULL     nullable  -> users
 vendor_qr_media_flags.reviewed_by                         SET NULL     nullable  -> users
 vendor_recommendations.recommended_by_user_id             SET NULL     nullable  -> auth.users
 vendor_reuse_requests.requested_by_user_id                SET NULL     nullable  -> users
@@ -297,6 +307,7 @@ vendor_review_appeals.reviewer_user_id                    CASCADE      NOT NULL 
 vendor_review_flags.reviewed_by_admin_id                  SET NULL     nullable  -> auth.users
 vendor_reviews.couple_user_id                             SET NULL     nullable  -> auth.users
 vendor_reviews.override_admin_id                          SET NULL     nullable  -> users
+vendor_role_names.updated_by                              SET NULL     nullable  -> auth.users
 vendor_subscriptions.holder_user_id                       SET NULL     nullable  -> auth.users
 vendor_team_members.user_id                               CASCADE      NOT NULL  -> auth.users
 vendor_tier_history.admin_user_id                         SET NULL     nullable  -> users

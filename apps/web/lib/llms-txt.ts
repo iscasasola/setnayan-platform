@@ -35,7 +35,6 @@
 import { AI_TIER_SKU, AI_TIER_FALLBACK_PHP, type AiPriceTier } from './setnayan-ai-type-pricing';
 import { bookingFeeScheduleSummary, type BookingFeeSchedule } from './booking-fee';
 import { isBookingFeeEnabled } from './booking-fee-gate';
-import { FIRST_BOOKING_ON_US_CLAUSE } from './booking-fee-lock';
 import { formatLaunchCap } from './launch-offer';
 import { FEATURE_GROUPS, FEATURE_PAGES, featurePaths } from './feature-pages';
 import { RETIRED_PRODUCT_NAMES } from './retired-products';
@@ -580,7 +579,7 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
   // Derived from the same sources the bill uses — never hand-typed — and gated
   // on the same flag that decides whether anyone is billed.
   const supplierFee = isBookingFeeEnabled()
-    ? `Separately, suppliers pay Setnayan a booking fee${input.bookingFee ? ` of ${bookingFeeScheduleSummary(input.bookingFee)}` : ''}, ${FEE_SCOPE_THIRD} — ${FIRST_BOOKING_ON_US_CLAUSE.replace(/^your/, "a supplier's")}. ${FEE_FREE_RULE_THIRD} That holds whether the supplier brings the couple through their own invite, their own booking QR or their own link; every other booking carries the fee. It is billed to the supplier, never added to what a couple pays.${launchOfferSentence(input.launchOfferCap ?? null)}`
+    ? `Separately, suppliers pay Setnayan a booking fee${input.bookingFee ? ` of ${bookingFeeScheduleSummary(input.bookingFee)}` : ''}, ${FEE_SCOPE_THIRD}. ${FEE_FREE_RULE_THIRD} That holds whether the supplier brings the couple through their own invite, their own booking QR or their own link; every other booking carries the fee. It is billed to the supplier, never added to what a couple pays.${launchOfferSentence(input.launchOfferCap ?? null)}`
     : 'No booking fee is charged while it is switched off.';
 
   return `# Setnayan

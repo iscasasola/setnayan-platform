@@ -33,7 +33,7 @@ test('F-W1-30 · the Booking fees page names the launch offer while it runs — 
   assert.equal(launchOfferFeesLine(offer({ cap: null }), now), null);
   assert.equal(launchOfferFeesLine(offer({ used: 2000 }), now), null);
   assert.equal(launchOfferFeesLine(null, now), null);
-  const page = code('app/vendor-dashboard/booking-fees/page.tsx');
+  const page = code('app/vendor-dashboard/booking-fees/page.tsx') + '\n' + code('app/vendor-dashboard/booking-fees/booking-fees-body.tsx'); // set two: the body draws it
   assert.match(page, /launchOfferFeesLine\(await readLaunchOffer\(createAdminClient\(\)\)/);
   assert.match(page, /data-fees-launch-offer=""/);
   assert.doesNotMatch(page, /first 2,?000 bookings/, 'the cap is never typed into the page');

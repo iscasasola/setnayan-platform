@@ -194,7 +194,7 @@ test('5 · no adopted list still seats a separate ＋ Add beside the search — 
   assert.match(CLIENTS_PAGE, /<OutsideClientAdd\s+trigger=\{false\}/, 'the Clients add sheet draws its own ＋ Add again');
   assert.match(CLIENTS_ADD, /\{trigger \? \(\s*<ActionButton tone="brand" main icon=\{Plus\}/);
   assert.deepEqual(Object.keys(KEPT), ['guests-map']);
-  assert.match(GUESTS, /name="guests-map"\s+field=\{field\}\s+right=\{\[arrangeMenu\]\}\s+action=\{writesOff \? null : \{ icon: Plus, label: 'Add guest'/);
+  assert.match(GUESTS, /name="guests-map"\s+field=\{field\}\s+right=\{lookMenu \? \[lookMenu, arrangeMenu\] : \[arrangeMenu\]\}\s+action=\{writesOff \? null : \{ icon: Plus, label: 'Add guest'/);
   assert.match(GUESTS, /gview !== 'list' \? undefined : addTypedOrSheet/, 'the Map’s field adds AND keeps its ＋');
 });
 

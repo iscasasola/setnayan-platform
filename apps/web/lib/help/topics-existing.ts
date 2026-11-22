@@ -16,7 +16,6 @@
  */
 import { papicPointCurrencyTerms } from '@/lib/papic-tier-copy';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
-import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
 import { mobileAppAnswer, mobileAppAnswerInApp } from '@/lib/where-setnayan-runs';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 import { DAY_OF_ENDS_PLAIN, DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
@@ -373,8 +372,8 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       {
         slug: 'what-do-suppliers-pay-setnayan',
         title: 'What does Setnayan charge suppliers?',
-        appBody: `No commission — couples pay you directly and Setnayan never touches that money. Separately, a supplier pays Setnayan a booking fee, ${FEE_SCOPE_THIRD}. ${FIRST_BOOKING_ON_US} ${FEE_FREE_RULE_THIRD} The fee is never added to what a couple pays.`,
-        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee, ${FEE_SCOPE_THIRD}. ${FIRST_BOOKING_ON_US} ${FEE_FREE_RULE_THIRD} The fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
+        appBody: `No commission — couples pay you directly and Setnayan never touches that money. Separately, a supplier pays Setnayan a booking fee, ${FEE_SCOPE_THIRD}. ${FEE_FREE_RULE_THIRD} The fee is never added to what a couple pays.`,
+        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee, ${FEE_SCOPE_THIRD}. ${FEE_FREE_RULE_THIRD} The fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
       },
     ],
   },

@@ -75,7 +75,7 @@ function PayStep() {
   const { pending } = useFormStatus();
   return (
     <p className="sg-step" aria-live="polite">
-      {pending ? 'Taking you to GCash, card or bank — one order, never two.' : ''}
+      {pending ? 'Taking you to the BDO QR — one order, never two.' : ''}
     </p>
   );
 }

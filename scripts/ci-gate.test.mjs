@@ -189,7 +189,7 @@ test('a step the split dropped is caught, one by one', () => {
 });
 
 test('🚨 a shard list with a hole in it is caught — a slice of the suite that never runs', () => {
-  mentions(problemsOf(broken('shard: [1, 2, 3, 4, 5, 6]', 'shard: [1, 2, 3, 4, 5]')), /"db-replay": the shards are \[1, 2, 3, 4, 5\] but the flag deals the suite into 6/);
+  mentions(problemsOf(broken('shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]', 'shard: [1, 2, 3, 4, 5, 6, 7, 8, 9]')), /"db-replay": the shards are \[1, 2, 3, 4, 5, 6, 7, 8, 9\] but the flag deals the suite into 10/);
   mentions(problemsOf(broken('shard: [1, 2, 3]\n', 'shard: [1, 2, 4]\n')), /"unit-tests": the shards are/);
   mentions(problemsOf(broken('--test-shard=${{ matrix.shard }}/3', '--test-shard=${{ matrix.shard }}/4')), /deals the suite into 4/);
 });

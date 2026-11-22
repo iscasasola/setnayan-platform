@@ -1913,31 +1913,48 @@ export const loadGuestContext = cache(
 
     // Guest Hub Card — seat assignment for THIS guest only (one targeted query;
     // the hub card needs the table label without loading the full floor plan).
-    // Graceful-degrade: if the join fails or no assignment exists, tableLabel
-    // stays null and the card shows "Not yet assigned" — safe for every event
-    // regardless of whether the seating editor has been used.
+    // A read that ANSWERED with no assignment leaves tableLabel null — "not
+    // seated yet" — safe for every event whether or not the seating editor has
+    // been used.
+    //
+    // 🔌 A REFUSED read is NOT "not seated yet" (the honest-read rule —
+    // lib/guests.ts): both errors are bound and raise `guestSeatUnreadable`, and
+    // the seat surfaces (SeatDoorLine on Details and on Me) say "Couldn't load
+    // your seat" with a Reload instead of drawing what a guest with no table
+    // sees. This is the honest state the /hub seat tile carried (2026-11-02,
+    // audit #34) before /hub folded into the event page's tabs.
     //
     // 🪑 Read ONLY when guests may see their seats (`doorway.seatingPublished`
     // is `guestsMaySeeSeatsFor` — on the event's day, or early by the couple's
     // switch). Every reader of `tableLabel` downstream (the hub card's seat
     // tile, YourSeatBlock, the door line, the keepsake) then withholds the
-    // table before the day without each having to ask.
+    // table before the day without each having to ask — and an unread seat is
+    // only ever reported where a seat may be shown.
     let guestTableLabel: string | null = null;
     let guestTableId: string | null = null;
+    let guestSeatUnreadable = false;
     if (doorway.seatingPublished) try {
-      const { data: assignmentRow } = await admin
+      const { data: assignmentRow, error: seatAssignmentErr } = await admin
         .from('event_seat_assignments')
         .select('table_id')
         .eq('event_id', event.event_id)
         .eq('guest_id', guest.guest_id)
         .maybeSingle();
+      if (seatAssignmentErr) {
+        guestSeatUnreadable = true;
+        logQueryError('loadGuestContext.seatAssignment', seatAssignmentErr, { event_id: event.event_id }, 'graceful_degrade');
+      }
       if (assignmentRow?.table_id) {
         guestTableId = assignmentRow.table_id as string;
-        const { data: tableRow } = await admin
+        const { data: tableRow, error: seatTableErr } = await admin
           .from('event_tables')
           .select('table_label, link_group_label')
           .eq('table_id', assignmentRow.table_id)
           .maybeSingle();
+        if (seatTableErr) {
+          guestSeatUnreadable = true;
+          logQueryError('loadGuestContext.seatTable', seatTableErr, { event_id: event.event_id }, 'graceful_degrade');
+        }
         if (tableRow) {
           // Prefer the linked group label (e.g. "VIP Section") over the
           // individual table label when the table is part of a linked unit.
@@ -1949,8 +1966,11 @@ export const loadGuestContext = cache(
       }
     } catch {
       // Graceful degrade — seating tables may not exist yet on all installs.
+      // (Never a throw: the invitation still draws. But a throw is a failed
+      // read too, so it says "couldn't load" — never "not seated yet".)
       guestTableLabel = null;
       guestTableId = null;
+      guestSeatUnreadable = true;
     }
 
     // Day-of arrival — has THIS guest scanned in at the door yet? A row in
@@ -2036,6 +2056,7 @@ export const loadGuestContext = cache(
         `${guest.first_name} ${guest.last_name}`.trim(),
       rsvpStatus: guest.rsvp_status,
       tableLabel: guestTableLabel,
+      seatUnreadable: guestSeatUnreadable,
       seatsOpen: seatPassActive,
       mealPreference: guest.meal_preference,
       dietaryRestrictions: guest.dietary_restrictions,

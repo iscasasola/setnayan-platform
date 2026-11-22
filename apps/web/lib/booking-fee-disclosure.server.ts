@@ -27,7 +27,7 @@ import {
   waivedFeeReasonOf,
   withGiftOnTheBill,
 } from '@/lib/booking-fee-disclosure';
-import { bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
+import { bookingFeePhpFor, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { isBookingFeeFreeWindowActive } from '@/lib/booking-fee-free-window';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
 import { launchOfferIsOpen } from '@/lib/launch-offer';
@@ -88,7 +88,11 @@ export async function resolveBookingFeeStanding(
       logQueryError('booking-fee-disclosure: attribution', aErr);
       return { kind: 'unreadable' };
     }
-    if (attribution === 'import') return { kind: 'not_sourced' };
+    if (attribution === 'import') {
+      // 📅 The window's length for the notice's words — the same remembered settings read every fee screen makes.
+      const months = (await getBookingFeeSchedule(admin)).newClientFreeMonths;
+      return months ? { kind: 'not_sourced', newClientFreeMonths: months } : { kind: 'not_sourced' };
+    }
   }
 
   // The frozen ordinal for THIS booking, if the ledger already holds one.
@@ -144,6 +148,18 @@ export async function resolveBookingFeeStanding(
   // launch place says so; a booking with no frozen place says the offer is
   // open, when it is. A refused read is `unreadable` — never "free", never
   // "billable" — because either guess could be wrong about money.
+  // ⚖ 20 NOV: an UNVERIFIED shop pays the flat rate on the whole booking — the same
+  // `booking_fee_shop_verified_since` the charge (`booking_fee_centavos_for`) asks. A refused read is `unreadable`:
+  // the two schedules price differently, and guessing one would quote a fee the bill may not match.
+  const verifiedRead = await admin.rpc('booking_fee_shop_verified_since', {
+    p_vendor_profile_id: args.vendorProfileId,
+  });
+  if (verifiedRead.error) {
+    logQueryError('booking-fee-disclosure: shop verified since', verifiedRead.error);
+    return { kind: 'unreadable' };
+  }
+  const unverified = verifiedRead.data == null;
+
   if (isLaunchBooking || ordinal === null) {
     const offer = await readLaunchOffer(admin);
     if (!offer) return { kind: 'unreadable' };
@@ -155,6 +171,7 @@ export async function resolveBookingFeeStanding(
         papicCredits: offer.papicCredits,
         isFrozen: isLaunchBooking,
         number: launchNumber,
+        ...(unverified ? { unverified: true } : {}),
       };
     }
   }
@@ -196,7 +213,7 @@ export async function resolveBookingFeeStanding(
     // A frozen place already carries its answer and is never re-asked.
     // 🔒 A refused read, or anything but the two known words, is `unreadable`:
     // never promise a free booking we could not check.
-    if (ordinalIsFrozen) return { kind: 'free', ordinal, ordinalIsFrozen, schedule };
+    if (ordinalIsFrozen) return { kind: 'free', ordinal, ordinalIsFrozen, schedule, ...(unverified ? { unverified: true } : {}) };
     const { data: biz, error: bizErr } = await admin.rpc('booking_fee_business_free_standing', {
       p_vendor_profile_id: args.vendorProfileId,
     });
@@ -204,7 +221,7 @@ export async function resolveBookingFeeStanding(
       logQueryError('booking-fee-disclosure: business free standing', bizErr);
       return { kind: 'unreadable' };
     }
-    if (businessMayTakeFreeBooking(biz)) return { kind: 'free', ordinal, ordinalIsFrozen, schedule };
+    if (businessMayTakeFreeBooking(biz)) return { kind: 'free', ordinal, ordinalIsFrozen, schedule, ...(unverified ? { unverified: true } : {}) };
     if (readBusinessFreeStanding(biz) !== 'used_by_business') return { kind: 'unreadable' };
     freeHeldBack = 'business_already_used';
   }
@@ -237,7 +254,7 @@ export async function resolveBookingFeeStanding(
     until: (win as { booking_fee_free_until?: string | null } | null)?.booking_fee_free_until ?? null,
   };
   if (isBookingFeeFreeWindowActive(window, new Date())) {
-    return { kind: 'promo_window', ordinal, ordinalIsFrozen, schedule, endsAt: window.until, freeHeldBack };
+    return { kind: 'promo_window', ordinal, ordinalIsFrozen, schedule, endsAt: window.until, freeHeldBack, ...(unverified ? { unverified: true } : {}) };
   }
 
   // 🏅 A FREE BOOKING FEE (badge reward, owner 2026-11-05) — it sits BELOW the free first booking and the promotion,
@@ -245,10 +262,48 @@ export async function resolveBookingFeeStanding(
   // 'this' = this booking's charge was paid by one; 'next' = the shop holds one waiting, so if this booking is agreed
   // before any other it reads ₱0. A refused read says nothing extra — the booking is still billable, and saying so
   // can only over-warn, never under-bill.
-  const badgeReward = await readBadgeFeeStanding(admin, args.vendorProfileId, args.eventId ?? null);
-  return badgeReward
-    ? { kind: 'billable', ordinal, ordinalIsFrozen, schedule, freeHeldBack, badgeReward }
-    : { kind: 'billable', ordinal, ordinalIsFrozen, schedule, freeHeldBack };
+  // 🎁 SETNAYAN'S EVERY-NTH BOOKING FEE (owner 2026-11-20) sits ABOVE the ticket in the RPC: a booking whose charge
+  // was the Nth says so, and the ticket is not claimed for it. It cannot be promised before the yes — the number is
+  // taken at the lock — so only a charge that already holds it is named.
+  const platformFree = args.eventId ? await readPlatformFreeNumber(admin, args.vendorProfileId, args.eventId) : null;
+  const badgeReward = platformFree == null
+    ? await readBadgeFeeStanding(admin, args.vendorProfileId, args.eventId ?? null)
+    : null;
+  return {
+    kind: 'billable',
+    ordinal,
+    ordinalIsFrozen,
+    schedule,
+    freeHeldBack,
+    ...(badgeReward ? { badgeReward } : {}),
+    ...(unverified ? { unverified: true } : {}),
+    ...(platformFree != null ? { platformFree } : {}),
+  };
+}
+
+/**
+ * This booking's place in Setnayan's count of fee bookings when it was the free Nth one, else null. A refused read
+ * says nothing extra (null): the booking then reads as billable, which can only over-warn, never under-bill.
+ */
+async function readPlatformFreeNumber(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+  eventId: string,
+): Promise<number | null> {
+  const { data, error } = await admin
+    .from('booking_fee_charges')
+    .select('platform_fee_number')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('event_id', eventId)
+    .eq('kind', 'primary')
+    .eq('free_by_platform_count', true)
+    .limit(1);
+  if (error) {
+    logQueryError('booking-fee-disclosure: every-Nth free charge', error);
+    return null;
+  }
+  const n = Number((data?.[0] as { platform_fee_number?: number | string | null } | undefined)?.platform_fee_number);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /** Whether a free booking fee paid this booking ('this') or one is waiting for the shop's next booking ('next'). */
@@ -354,6 +409,7 @@ export async function forecastForBooking(
       forecast &&
       standing.kind === 'billable' &&
       !standing.badgeReward &&
+      standing.platformFree == null &&
       eventId &&
       args.vendorProfileId &&
       Number.isFinite(total) &&
@@ -366,7 +422,11 @@ export async function forecastForBooking(
         quoteSwitch: null,
       });
       if (gift && !gift.freeWithBadge && gift.chargeCentavos > 0) {
-        return withGiftOnTheBill(forecast, Math.round(bookingFeePhp(total, standing.schedule) * 100), gift.chargeCentavos);
+        return withGiftOnTheBill(
+          forecast,
+          Math.round(bookingFeePhpFor(total, standing.schedule, { verified: !standing.unverified }) * 100),
+          gift.chargeCentavos,
+        );
       }
     }
     return forecast;
@@ -421,10 +481,16 @@ export async function forecastsForBookings(
  * count computed on this side (owner, 2026-09-20).
  */
 const WAIVED_CHARGE_SELECT =
-  'charge_id,status,event_id,computed_fee_centavos,created_at,ledger:booking_fee_ledger!inner(booking_ordinal,launch_offer_number)';
+  'charge_id,status,event_id,computed_fee_centavos,created_at,platform_fee_number,free_by_platform_count,ledger:booking_fee_ledger!inner(booking_ordinal,launch_offer_number)';
 
 /** Every waiver a supplier is shown and sent a receipt for — one list. */
 const WAIVED_STATUSES = [...WAIVED_FEE_RECEIPT_STATUSES];
+
+/**
+ * The PostgREST filter for "a waived charge": a status on the list, OR Setnayan's every-Nth booking fee (owner
+ * 2026-11-20), which is a ₱0 `paid` charge flagged `free_by_platform_count` (the badge reward's settled shape).
+ */
+const WAIVED_FILTER = `status.in.(${WAIVED_STATUSES.join(',')}),free_by_platform_count.eq.true`;
 
 type WaivedChargeRow = {
   charge_id: string;
@@ -432,6 +498,8 @@ type WaivedChargeRow = {
   event_id: string | null;
   computed_fee_centavos: number | string | null;
   created_at: string | null;
+  platform_fee_number?: number | string | null;
+  free_by_platform_count?: boolean | null;
   ledger:
     | { booking_ordinal: number | null; launch_offer_number?: number | null }
     | Array<{ booking_ordinal: number | null; launch_offer_number?: number | null }>
@@ -456,7 +524,7 @@ function toWaivedFeeCharge(
   const centavos = Number(r.computed_fee_centavos);
   return {
     chargeId: r.charge_id,
-    reason: waivedFeeReasonOf(r.status),
+    reason: waivedFeeReasonOf(r.status, r.free_by_platform_count === true),
     eventId: r.event_id ?? null,
     coupleName,
     // ⚠ A NON-FINITE COLUMN IS NULL, NEVER 0. The copy then prints no number.
@@ -468,6 +536,9 @@ function toWaivedFeeCharge(
         ? led.launch_offer_number
         : null,
     launchCredits,
+    platformNumber: Number.isFinite(Number(r.platform_fee_number)) && r.platform_fee_number != null
+      ? Number(r.platform_fee_number)
+      : null,
   };
 }
 
@@ -508,7 +579,7 @@ export async function fetchWaivedFeeCharges(
     .from('booking_fee_charges')
     .select(WAIVED_CHARGE_SELECT)
     .eq('vendor_profile_id', vendorProfileId)
-    .in('status', WAIVED_STATUSES)
+    .or(WAIVED_FILTER)
     .order('created_at', { ascending: false });
   if (error) {
     logQueryError('booking-fee-disclosure: waived charges', error);
@@ -566,7 +637,7 @@ export async function fetchWaivedFeeCharge(
     .from('booking_fee_charges')
     .select(WAIVED_CHARGE_SELECT)
     .eq('charge_id', chargeId)
-    .in('status', WAIVED_STATUSES)
+    .or(WAIVED_FILTER)
     .maybeSingle();
   if (error) {
     logQueryError('booking-fee-disclosure: waived charge', error, { chargeId });

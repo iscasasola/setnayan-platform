@@ -994,7 +994,7 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
         </PeekToast>
       ) : null}
       {error ? (
-        <p role="alert" data-part-error="" className="fixed left-[max(0.75rem,var(--sn-safe-l))] right-[max(0.75rem,var(--sn-safe-r))] top-16 z-[87] rounded-xl bg-white px-3 py-2 text-[13px] font-semibold text-[rgb(var(--color-danger))] shadow lg:hidden">
+        <p role="alert" data-part-error="" className="fixed left-[max(0.75rem,var(--sn-safe-l))] right-[max(0.75rem,var(--sn-safe-r))] top-16 z-[87] rounded-xl bg-raised px-3 py-2 text-[13px] font-semibold text-[rgb(var(--color-danger))] shadow lg:hidden">
           {error}
         </p>
       ) : null}
@@ -1238,7 +1238,7 @@ function AddPartSheet({
           <section data-add-part-own="">
             <p className="flex items-center gap-1.5 px-3 pb-1 pt-3 text-[11px] font-bold uppercase tracking-[0.12em] text-ink/45">
               A scene of your own
-              {proMark ? <PaidMark state={proMark} word="PLUS" label={paidMarkLabel(proMark, 'Event Plus')} tone="auto" /> : null}
+              {proMark ? <PaidMark state={proMark} word="PLUS" label={paidMarkLabel(proMark, 'the full Event Hub')} tone="auto" /> : null}
               <span className="font-semibold normal-case tracking-normal" data-own-left={left}>· {makerOwnScenesLine(used)}</span>
             </p>
             {'action' in own ? (
@@ -1376,7 +1376,7 @@ export function RevealPlay({ stage, onDone }: { stage: RevealStage; onDone: () =
         type="button"
         aria-label="Stop"
         onClick={onDone}
-        className="sn-press absolute right-3 top-[max(12px,env(safe-area-inset-top))] inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-ink"
+        className="sn-press absolute right-3 top-[max(12px,env(safe-area-inset-top))] inline-flex h-11 w-11 items-center justify-center rounded-full bg-raised/90 text-ink"
       >
         <X aria-hidden className="h-5 w-5" strokeWidth={2.2} />
       </button>

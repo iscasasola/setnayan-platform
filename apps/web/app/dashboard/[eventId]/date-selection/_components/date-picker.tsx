@@ -172,7 +172,7 @@ export function DatePicker({
             setError(null);
             setSelected(e.target.value);
           }}
-          className="mt-2 w-full max-w-sm rounded-lg border border-ink/20 bg-white px-4 py-3 text-lg text-ink shadow-sm focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+          className="mt-2 w-full max-w-sm rounded-lg border border-ink/20 bg-raised px-4 py-3 text-lg text-ink shadow-sm focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
           aria-describedby="phase0-date-hint"
         />
         <p id="phase0-date-hint" className="mt-2 text-xs text-ink/70">

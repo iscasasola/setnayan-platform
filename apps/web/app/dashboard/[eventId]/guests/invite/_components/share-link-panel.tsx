@@ -226,7 +226,7 @@ export async function ShareLinkPanel({
       </Link>
 
       {joinUrl && inviteLink.usable ? (
-        <div className="mt-6 rounded-xl border border-ink/10 bg-white p-5 shadow-sm sm:p-6">
+        <div className="mt-6 rounded-xl border border-ink/10 bg-raised p-5 shadow-sm sm:p-6">
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:gap-8">
             {qrSvg ? (
               <div

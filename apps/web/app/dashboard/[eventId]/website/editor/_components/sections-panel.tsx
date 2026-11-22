@@ -780,7 +780,7 @@ export function SectionsPanel({
                         <span>Its words and layout go with it.</span>
                         <button
                           type="submit"
-                          className="inline-flex h-7 items-center rounded-full bg-danger-600 px-3 text-[12px] font-semibold text-white transition-colors hover:bg-danger-700"
+                          className="inline-flex h-7 items-center rounded-full bg-danger-600 px-3 text-[12px] font-semibold text-cream transition-colors hover:bg-danger-700"
                         >
                           Remove for good
                         </button>
@@ -839,7 +839,7 @@ export function SectionsPanel({
                             maxLength={CUSTOM_COLUMN_TITLE_MAX}
                             defaultValue={title}
                             placeholder={makerPart && !askBody ? 'Add a heading' : 'Heading (optional)'}
-                            className="min-h-[36px] w-full rounded-md border border-ink/15 bg-white px-2 text-[12px] text-ink placeholder:text-ink/40"
+                            className="min-h-[36px] w-full rounded-md border border-ink/15 bg-raised px-2 text-[12px] text-ink placeholder:text-ink/40"
                           />
                         </>
                       ) : null}
@@ -864,7 +864,7 @@ export function SectionsPanel({
                             maxLength={CUSTOM_COLUMN_BODY_MAX}
                             defaultValue={body}
                             placeholder="Your own words — this section stays hidden until you write something."
-                            className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-[12px] leading-relaxed text-ink placeholder:text-ink/40"
+                            className="w-full rounded-md border border-ink/15 bg-raised px-2 py-1.5 text-[12px] leading-relaxed text-ink placeholder:text-ink/40"
                           />
                         </>
                       )}

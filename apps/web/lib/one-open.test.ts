@@ -124,7 +124,8 @@ test('a closed opener is not listening', () => {
 const WIRED: ReadonlyArray<{ file: string; scope: boolean; calls?: number }> = [
   { file: 'app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx', scope: false },
   { file: 'app/dashboard/[eventId]/guests/_components/overlay-primitives.tsx', scope: true },
-  { file: 'app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx', scope: false },
+  /* (guest-ticket-parts.tsx left this list on 20 Nov 2026: its ⋯ list — the one opener it owned — is gone; Unlink is a
+     labelled button inside the opened ticket, and its Reset-or-delete dropdown is the shared PickMenu, wired above.) */
   { file: 'app/dashboard/[eventId]/seating/_components/seating-frame.tsx', scope: true },
   { file: 'app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx', scope: true },
   { file: 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx', scope: false, calls: 2 },
@@ -149,7 +150,9 @@ const WIRED: ReadonlyArray<{ file: string; scope: boolean; calls?: number }> = [
 const read = (rel: string) => stripComments(readFileSync(join(process.cwd(), ...rel.split('/')), 'utf8'));
 
 test('the shared openers call the one hook (and the containers mark their children)', () => {
-  assert.ok(WIRED.length >= 20, 'the wired list shrank — re-check before trusting a green');
+  /* The floor is the list's own length: 19 since 20 Nov 2026, when the guest card's ⋯ list — an opener — was retired with the
+     approved drawing (see the note in WIRED). A list shorter than this lost an opener nobody retired. */
+  assert.ok(WIRED.length >= 19, 'the wired list shrank — re-check before trusting a green');
   for (const { file, scope, calls = 1 } of WIRED) {
     const src = read(file);
     assert.match(src, /from '@\/lib\/one-open'/, `${file} no longer imports lib/one-open`);

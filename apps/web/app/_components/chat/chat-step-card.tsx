@@ -13,11 +13,13 @@
  * kind passes its steps and its own Send. Lane C: build Quote · Payment · Form · Photos & files · Decision · Log a
  * payment by passing `steps` — see `meeting-step-card.tsx` for the worked example.
  */
-import { useCallback, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useContext, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Send, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { TOPIC_ICON, type ChatTopic } from '@/lib/topic-icons';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
+import { ChatToolFrame } from './chat-tool-frame';
 
 export type ChatCardStep = {
   title: string;
@@ -48,6 +50,15 @@ export function ChatCardShell({
 }) {
   const Icon = TOPIC_ICON[topic];
   const place = tone === 'mine' ? 'ml-[8%]' : tone === 'theirs' ? 'mr-[8%]' : '';
+  const inBox = useContext(ChatToolFrame);
+  if (inBox) {
+    // 🧰 Inside the text box: no frame, no head, no ✕ — the box wears them (its row names the tool; ← closes it).
+    return (
+      <section id={anchorId} data-chat-card={topic} data-chat-card-in-box="" aria-label={title} className="text-[15px] text-ink">
+        {children}
+      </section>
+    );
+  }
   return (
     <section
       id={anchorId}
@@ -129,6 +140,7 @@ export function ChatStepCard({
   const st = steps[s]!;
   const last = s === n - 1;
   const ref = useRef<HTMLDivElement>(null);
+  const toolFrame = useContext(ChatToolFrame);
 
   const next = useCallback(() => {
     if (!st.ok) return;
@@ -207,6 +219,18 @@ export function ChatStepCard({
           {st.sub ? <p className="text-[14px] text-ink/65">{st.sub}</p> : null}
         </div>
         {st.body}
+        {toolFrame?.sendSlot ? (
+          // 🧰 In the text box: Next / Send goes to the box's own Send place; the steps keep only their count and Back.
+          <>
+            {n > 1 ? (
+              <div className="flex items-center gap-2 pt-1" data-chat-step-foot="in-box">
+                {stepOf}
+                {s > 0 ? <ActionButton tone="neutral" quiet icon={ChevronLeft} label="Back" onClick={() => onStep(s - 1)} /> : null}
+              </div>
+            ) : null}
+            {createPortal(last ? sendButton : <ActionButton tone="brand" main icon={ChevronRight} label="Next" onClick={next} waiting={!st.ok} />, toolFrame.sendSlot)}
+          </>
+        ) : (
         <div className="flex items-center gap-2 border-t border-ink/10 pt-3">
           {stepOf}
           {s > 0 ? (
@@ -218,6 +242,7 @@ export function ChatStepCard({
             <ActionButton tone="brand" main icon={ChevronRight} label="Next" onClick={next} waiting={!st.ok} />
           )}
         </div>
+        )}
       </div>
     </ChatCardShell>
   );

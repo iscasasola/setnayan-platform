@@ -761,7 +761,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     address: (
       <section
         data-details-page-address=""
-        className="flex flex-col items-center gap-3 rounded-md bg-white/80 p-4 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)] sm:flex-row sm:text-left"
+        className="flex flex-col items-center gap-3 rounded-md bg-raised/80 p-4 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)] sm:flex-row sm:text-left"
       >
         {qrSrc ? (
           <span className={`shrink-0 bg-white p-1${qrPlate}`} data-qr-plate="">
@@ -799,7 +799,7 @@ export function MakerDetails(props: MakerDetailsProps) {
         )}
         <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
           Your QR code
-          {qrMark ? <PaidMark state={qrMark} word="PLUS" label={paidMarkLabel(qrMark, 'Event Plus')} text="Event Pro" size="xs" /> : null}
+          {qrMark ? <PaidMark state={qrMark} word="PLUS" label={paidMarkLabel(qrMark, 'the full Event Hub')} text="Full Event Hub" size="xs" /> : null}
         </p>
         {theme.tour ? <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} /> : null}
       </section>
@@ -1610,7 +1610,7 @@ export function Toggle({
         <input id={id} form={form} type="checkbox" role="switch" name={name} defaultChecked={on} disabled={disabled} className="peer sr-only" />
         <span
           aria-hidden
-          className="sn-switch sn-press-ring relative h-6 w-11 shrink-0 rounded-full after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry peer-disabled:opacity-40"
+          className="sn-switch sn-press-ring relative h-6 w-11 shrink-0 rounded-full after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-raised after:shadow after:transition-transform peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-mulberry peer-disabled:opacity-40"
         />
       </label>
       {note ? <div className="text-xs text-ink/60">{note}</div> : null}
@@ -1638,7 +1638,7 @@ function Segmented({ form, name, value, options }: { form: string; name: string;
       {options.map(([v, label]) => (
         <label key={v} className="cursor-pointer">
           <input form={form} type="radio" name={name} value={v} defaultChecked={value === v} className="peer sr-only" />
-          <span className="inline-flex min-h-9 items-center rounded-full px-3 text-[13px] font-medium text-ink/65 peer-checked:bg-white peer-checked:text-ink peer-checked:shadow-sm">
+          <span className="inline-flex min-h-9 items-center rounded-full px-3 text-[13px] font-medium text-ink/65 peer-checked:bg-raised peer-checked:text-ink peer-checked:shadow-sm">
             {label}
           </span>
         </label>
@@ -1670,7 +1670,7 @@ function KindlyReplyField({
         data-same-field="rsvp_choice"
         defaultValue={choice}
         aria-label="Who guests reply to"
-        className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+        className="rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm text-ink"
       >
         <option value="">Choose…</option>
         {hosts.map((h) => (
@@ -1689,7 +1689,7 @@ function KindlyReplyField({
         maxLength={160}
         aria-label="Reply line, typed in"
         placeholder="If you chose “Type it in”: e.g. Reply by Nov 18 · Claire, 0917 …"
-        className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+        className="rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm text-ink"
       />
     </>
   );
@@ -1702,7 +1702,7 @@ function WordsCard({ text, note, live }: { text: string | null; note: string; li
     /* ⚡ Its editor types INTO this card as it saves (`special-message-field.tsx`):
        both lines are always drawn, one hidden, so the words can arrive. */
     return (
-      <section data-details-words-card="" data-live-words={live} className="flex flex-col items-center gap-3 rounded-md bg-white/80 px-5 py-8 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)]">
+      <section data-details-words-card="" data-live-words={live} className="flex flex-col items-center gap-3 rounded-md bg-raised/80 px-5 py-8 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)]">
         <p data-live-words-text="" hidden={!words} className="max-w-prose whitespace-pre-line font-serif text-xl leading-relaxed text-ink">
           {words}
         </p>
@@ -1714,7 +1714,7 @@ function WordsCard({ text, note, live }: { text: string | null; note: string; li
     );
   }
   return (
-    <section data-details-words-card="" className="flex flex-col items-center gap-3 rounded-md bg-white/80 px-5 py-8 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)]">
+    <section data-details-words-card="" className="flex flex-col items-center gap-3 rounded-md bg-raised/80 px-5 py-8 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)]">
       {words ? (
         <p className="max-w-prose whitespace-pre-line font-serif text-xl leading-relaxed text-ink">{words}</p>
       ) : (

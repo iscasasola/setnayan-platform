@@ -111,8 +111,11 @@ test('4 · each row seats exactly ONE control after the search — never two pil
     assert.ok(at >= 0, `the row “${start.replace(/\s+/g, ' ')}” moved — re-aim this guard`);
     return src.slice(at, src.indexOf('\n', src.indexOf('right=', at)));
   };
-  assert.match(seats(SCREEN, '<ThumbRow\n        name="guests"\n'), /right=\{\[\{ node: filterSheet \}\]\}/, 'Guests › List seats more than its one button');
-  assert.match(seats(SCREEN, '<ThumbRow\n        name="guests-map"'), /right=\{\[arrangeMenu\]\}/, 'Guests › Map seats more than its one button');
+  // 🎚 Amended 20 Nov 2026 (Guests redesign § 8, owner "Yes, your picks"): Guests' row gains ONE look round before the
+  // button — *"Thumb row gains one round on Guests and Seats: search · (zoom on 2D) · look · Show and sort. This amends the
+  // approved row in section 2."* Still exactly one Show-and-sort control; the look round is the only other seat.
+  assert.match(seats(SCREEN, '<ThumbRow\n        name="guests"\n'), /right=\{lookMenu \? \[lookMenu, \{ node: filterSheet \}\] : \[\{ node: filterSheet \}\]\}/, 'Guests › List seats more than its look round and its one button');
+  assert.match(seats(SCREEN, '<ThumbRow\n        name="guests-map"'), /right=\{lookMenu \? \[lookMenu, arrangeMenu\] : \[arrangeMenu\]\}/, 'Guests › Map seats more than its look round and its one button');
   assert.match(seats(FIND_ROW, '<ThumbRow\n        name="suppliers-find"'), /right=\{sortMenu \? \[sortMenu\] : \[\]\}/, 'Suppliers › Find seats more than its one button');
   const at = CLIENTS_PAGE.indexOf('<ThumbRow\n            name="customers"');
   const row = CLIENTS_PAGE.slice(at, CLIENTS_PAGE.indexOf('\n          />', at));

@@ -165,7 +165,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
             Show it on our Event Hub
           </a>
           {p.inMaker ? null : (
-            <Link href={p.makerHref} className="inline-flex min-h-11 items-center rounded-full px-3 text-[color:var(--ls-heading)] hover:bg-black/5">
+            <Link href={p.makerHref} className="inline-flex min-h-11 items-center rounded-full px-3 text-[color:var(--ls-heading)] hover:bg-black/5 dark:hover:bg-white/10">
               Open in Event Hub Maker ↗
             </Link>
           )}
@@ -324,7 +324,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                                   <Pencil aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Edit
                                 </>
                               }
-                              triggerClassName="inline-flex min-h-11 items-center gap-1 rounded-full px-2.5 hover:bg-black/5"
+                              triggerClassName="inline-flex min-h-11 items-center gap-1 rounded-full px-2.5 hover:bg-black/5 dark:hover:bg-white/10"
                             />
                             <SafeForm action={p.action}>
                               <HubDraftField />
@@ -332,7 +332,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                               <input type="hidden" name="intent" value="arrange" />
                               <input type="hidden" name="id" value={m.id} />
                               {m.hidden ? null : <input type="hidden" name="hidden" value="on" />}
-                              <button type="submit" className="inline-flex min-h-11 items-center gap-1 rounded-full px-2.5 hover:bg-black/5">
+                              <button type="submit" className="inline-flex min-h-11 items-center gap-1 rounded-full px-2.5 hover:bg-black/5 dark:hover:bg-white/10">
                                 {m.hidden ? (
                                   <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                                 ) : (
@@ -346,7 +346,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                               <InMakerReturnTo />
                               <input type="hidden" name="intent" value="delete" />
                               <input type="hidden" name="id" value={m.id} />
-                              <button type="submit" className="inline-flex min-h-11 items-center gap-1 rounded-full px-2.5 hover:bg-black/5">
+                              <button type="submit" className="inline-flex min-h-11 items-center gap-1 rounded-full px-2.5 hover:bg-black/5 dark:hover:bg-white/10">
                                 <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Remove
                               </button>
                             </SafeForm>

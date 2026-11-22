@@ -16,6 +16,9 @@ export function papicWaitsForTheDayWords(ev: Record<string, unknown>): string {
     windowStart: ev.date_window_start,
     windowEnd: ev.date_window_end,
     days: ev.event_days,
+    months: ev.date_months, // 🗓 "Some months" (owner 2026-11-17)
   });
-  return open ? `Switches on when you pick the day · you’re considering ${open}` : 'Switches on when you pick the day';
+  // "in Feb · Apr 2027" reads as "considering Feb · Apr 2027" after "considering".
+  const said = ev.date_mode === 'months' && open?.startsWith('in ') ? open.slice(3) : open;
+  return said ? `Switches on when you pick the day · you’re considering ${said}` : 'Switches on when you pick the day';
 }

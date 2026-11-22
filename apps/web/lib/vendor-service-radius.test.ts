@@ -266,7 +266,8 @@ test('rendered badge · a DECLARATION beats the tier inference, all three states
     {
       source: 'declared',
       verdict: 'outside_range',
-      text: 'Outside their range',
+      // 🧭 owner 2026-11-17 (drawing v15): past their reach reads "Beyond reach", with the distance read.
+      text: 'Beyond reach · 45 km away',
       tone: 'warn',
       inRange: false,
     },
@@ -292,7 +293,7 @@ test('rendered badge · FALLBACK path 1 — inner undeclared reproduces today’
       reachesVenue: false,
       serviceRadiusKm: 50,
     }),
-    { source: 'tier', text: 'Beyond 50km', tone: 'warn', inRange: false },
+    { source: 'tier', text: 'Beyond reach · 90 km away', tone: 'warn', inRange: false },
   );
 });
 
@@ -316,7 +317,7 @@ test('rendered badge · FALLBACK path 2 — outer undeclared reproduces today’
       reachesVenue: false,
       serviceRadiusKm: null,
     }),
-    { source: 'tier', text: 'Travel fee likely', tone: 'warn', inRange: false },
+    { source: 'tier', text: 'Beyond reach · 90 km away', tone: 'warn', inRange: false },
   );
 });
 
@@ -364,7 +365,7 @@ test('rendered badge · declared rings but UNKNOWN distance falls back, never cl
 test('rendered badge · EDGE inner === outer renders free/outside and never a fee', () => {
   const rings = { innerKm: 20, outerKm: 20, reachesVenue: true, serviceRadiusKm: 20 };
   assert.equal(resolveReachBadge({ ...rings, distanceKm: 20 })?.text, 'No travel fee');
-  assert.equal(resolveReachBadge({ ...rings, distanceKm: 21 })?.text, 'Outside their range');
+  assert.equal(resolveReachBadge({ ...rings, distanceKm: 21 })?.text, 'Beyond reach · 21 km away');
   for (const d of [0, 5, 19, 20, 25, 80]) {
     assert.notEqual(
       resolveReachBadge({ ...rings, distanceKm: d })?.text,

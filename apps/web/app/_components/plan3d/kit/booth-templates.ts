@@ -630,6 +630,17 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     signText: 'Ceremony Essentials',
     cardKind: 'inclusions',
   },
+  footwear: {
+    chassis: 'DISPLAY',
+    // A shoe shop is a display stand too — the same glass cases as the jeweller.
+    props: [
+      { kind: 'glass_case', position: [-0.45, 0, 0.62] },
+      { kind: 'glass_case', position: [0.15, 0, 0.6], scale: 0.85 },
+    ],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Shoes',
+    cardKind: 'inclusions',
+  },
   // ── BOOTHS ─────────────────────────────────────────────────────────────────
   mocktail: {
     chassis: 'COUNTER',
@@ -839,6 +850,14 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     ],
     staff: { outfit: 'uniform', idle: 'wave', count: 1 },
     signText: 'Medic / First-aid',
+    cardKind: 'inclusions',
+  },
+  event_staffing: {
+    chassis: 'DESK',
+    // An usher's registration desk — one clipboard, someone in uniform.
+    props: [{ kind: 'clipboard_board', position: [0, 0.79, 0.05] }],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Staff, Security & Registration',
     cardKind: 'inclusions',
   },
   /*

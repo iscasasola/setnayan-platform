@@ -81,22 +81,15 @@ const KNOWN_UNFILLABLE: Record<string, string> = {
   // the redundant leaf override, or append gala_night to it) — deliberately not
   // bundled into the date/hangout PR that added this guard, because widening
   // another event type's reach is its own reviewable change.
-  'av_production:gala_night':
-    "leaf av_production is scoped ['corporate','wedding','debut']; its tile also claims gala_night.",
+  // T1 (2026-11-13) filled three of them with new services that inherit their tile's scope —
+  // av_production + speaker_talent at gala_night, kids_entertainer at christening — so those
+  // entries were removed, as this guard's self-cleaning test requires.
   'event_insurance:gala_night':
     'leaf event_insurance predates gala_night; its tile claims it.',
   'personal_accident_insurance:gala_night':
     'leaf personal_accident_insurance predates gala_night; its tile claims it.',
   'event_medic:gala_night':
     "leaf event_medic is scoped ['tournament','wedding','corporate']; its tile also claims gala_night.",
-  'speaker_talent:gala_night':
-    "leaf speaker_talent is scoped ['corporate']; its tile also claims gala_night.",
-
-  // ── kids_entertainer: the tile serves birthday + christening, the leaf only
-  // birthday. A christening host sees "Kids' Entertainer" and no vendor can
-  // ever fill it.
-  'kids_entertainer:christening':
-    "leaf kids_entertainer is scoped ['birthday']; its tile also claims christening.",
 
   // ── editorial: ZERO canonicals — already tracked, with its owner sign-off,
   // in lib/taxonomy-tile-reachability.test.ts KNOWN_DEAD_TILES. Listed here

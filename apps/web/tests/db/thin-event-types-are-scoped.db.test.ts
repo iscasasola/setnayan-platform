@@ -76,6 +76,11 @@ const WEDDING_CATEGORIES_2026_10_02 = [
   'jewelleries_accessories',
   // Added deliberately 2026-11-07 (owner: "add that to the taxonomy") — migration 20271321738256.
   'ceremony_essentials',
+  // Added deliberately 2026-11-13 (T1, TAXONOMY_PH_FULL_2026-11-07, owner "add all that we can") —
+  // migration 20271341706505: Shoes (scope copied from Women's attire) and Staff, Security &
+  // Registration (scope copied from Medic / First-aid).
+  'footwear',
+  'event_staffing',
   'mobile_bar',
   'coffee_espresso',
   'mocktail',

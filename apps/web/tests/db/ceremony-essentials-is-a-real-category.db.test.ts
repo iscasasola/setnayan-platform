@@ -163,7 +163,8 @@ test('the photoman sits under Photo booth with its siblings\' flags, inherits th
   const x = r.rows[0]!;
   assert.equal(x.tile_id, 'photo_booth');
   assert.equal(x.folder_id, 'booths');
-  assert.equal(x.name, 'Photoman (instant prints)');
+  // T1 (2026-11-13, migration 20271341706505) renamed it to the spec's words — still one named row.
+  assert.equal(x.name, 'Photoman (roving, instant prints)');
   assert.equal(x.t, null, 'photoman overrides the category scope — it must inherit, as its siblings do');
   assert.equal(x.phase, x.sib_phase);
   assert.equal(x.faith, null);

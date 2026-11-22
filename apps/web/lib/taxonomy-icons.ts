@@ -171,6 +171,7 @@ export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
   wellness_fitness: Dumbbell,
   jewelleries_accessories: Gem,
   ceremony_essentials: HeartHandshake,
+  footwear: Footprints,
   // BOOTHS
   mobile_bar: Martini,
   coffee_espresso: Coffee,
@@ -204,6 +205,7 @@ export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
   // LOGISTICS & SAFETY
   referee_official: ClipboardCheck,
   event_medic: Stethoscope,
+  event_staffing: ShieldCheck,
   // The fallback tile. `Boxes` reads as "assorted", not as a trade — this tile
   // holds whatever the couple typed in, so its icon must not imply a category.
   everything_else: Boxes,
@@ -265,6 +267,7 @@ export const WEDDING_FOLDER_ICON: Record<WeddingFolder, LucideIcon> = {
   look: Shirt,
   booths: Tent,
   prints: Mail,
+  gifts_giveaways: Gift,
   transport: Car,
   experience: Compass,
   dining: Utensils,

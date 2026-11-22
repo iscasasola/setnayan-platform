@@ -114,6 +114,8 @@ export const BRANCH_TO_VENDOR_CATEGORY: Readonly<Record<string, VendorCategory>>
   wellness_fitness: 'wellness_fitness',
   jewelleries_accessories: 'rings',
   ceremony_essentials: 'rings',
+  // T1 (2026-11-13): shoes are attire — filed with the gowns, the nearest enum value.
+  footwear: 'gown_designer',
 
   // ── Booths ───────────────────────────────────────────────────────────────
   // Drinks and food booths belong with the trade that supplies them; the rest
@@ -152,6 +154,8 @@ export const BRANCH_TO_VENDOR_CATEGORY: Readonly<Record<string, VendorCategory>>
   restaurant_reservation: 'restaurant_reservation',
   referee_official: 'referee_official',
   event_medic: 'event_medic',
+  // T1 (2026-11-13): ushers and guards — `security`, as the motorcycle escort already is.
+  event_staffing: 'security',
   event_insurance: 'event_insurance',
   personal_accident_insurance: 'personal_accident_insurance',
   travel_insurance: 'travel_insurance',

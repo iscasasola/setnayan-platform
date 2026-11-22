@@ -152,7 +152,7 @@ test('once that shop replies, its next nameless card carries the name', async ()
   );
 });
 
-test('host_mc is named from the taxonomy tree — "Host / MC", not "Host Mc" (H2)', async () => {
+test('host_mc is named from the taxonomy tree — "Host" (T1, was "Host / MC"), never "Host Mc" (H2)', async () => {
   // `host_mc` is one of the two live production kinds and it has NO row in
   // `canonical_service_schemas` (measured 2026-09-10) — so until H2 it fell to
   // the humanised key and a blank host card read "Host Mc by …". The taxonomy
@@ -160,7 +160,9 @@ test('host_mc is named from the taxonomy tree — "Host / MC", not "Host Mc" (H2
   // app's own tiles use), and the name now reads it (migration 20271222415682).
   const id = await liveCard(SHOP_OPEN, 'host_mc', null);
   const title = await titleOf(id);
-  assert.equal(title, 'Host / MC by Saysay Live Band');
+  // T1 (2026-11-13, migration 20271341706505) renamed the category to the Philippine word, "Host" —
+  // the title follows the tree, which is the point of this test.
+  assert.equal(title, 'Host by Saysay Live Band');
   assert.ok(!(title ?? '').includes('host_mc'), 'a raw database key reached a card title');
 });
 

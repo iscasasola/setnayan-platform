@@ -45,6 +45,8 @@ export const TILE_HINTS: Readonly<Record<string, string>> = {
     "Magician, mascot, face painting, a games corner — the small guests stay delighted while the adults linger. Book 1-2 months out.",
   av_production:
     "Sound, lights, LED wall, mics — so every speech lands in the back row. Ask your venue what is in-house before you rent.",
+  event_staffing:
+    "Ushers, usherettes, marshals and security guards — they seat guests, hold the line and keep the doors calm.",
   event_medic:
     "A nurse or paramedic quietly on standby at outdoor, sports, or large events. Many venues and tournaments require one.",
   everything_else:
@@ -84,6 +86,7 @@ export const TILE_HINTS: Readonly<Record<string, string>> = {
   outdoor: "Tents, canopies, cooling, ground cover, and wet-weather back-up. At a Philippine wedding this is the plan that saves the day.",
   chairs_tents: "Monobloc chairs, tables, tents and lights by the dozen — for a home wake or a backyard party.",
   // The fallback copy of service_categories.hint_en (migration 20271321738256) — Admin's text wins.
+  footwear: "Custom-made bridal and entourage shoes, shoe rental, and a repair when a heel gives on the day.",
   ceremony_essentials: "The unity cord, unity veil, arrhae coins, candles, Bible, rosary and bearer pillows for a Filipino church wedding — most suppliers sell them as one set.",
   fireworks: "Cold sparks, fountains, or a full sky display for the send-off. Check what your venue and the barangay allow first.",
   digital_services: "Your wedding website, e-invites, QR codes, and a digital guestbook — the paperless half of the invitation.",
@@ -126,7 +129,8 @@ export const FOLDER_HINTS: Readonly<Record<WeddingFolder, string>> = {
     "Photographers, videographers, drone crews, same-day edit. How you'll relive it in twenty years.",
   look: "Gowns, suits, barong, hair, make-up. What you wear, and the hands that get you ready.",
   booths: "Photo booths, food carts, coffee and cocktail bars. Where guests drift, between courses and conversations.",
-  prints: "Invitations, signage, menus, giveaways. What guests hold, read, and keep in a drawer.",
+  prints: "Invitations, signage, missalettes, menus. What guests hold and read on the day.",
+  gifts_giveaways: "Souvenirs, ninong and ninang gifts, hampers, raffle prizes, loot bags. Ready-made, for anyone, any event.",
   transport: "Bridal cars, shuttles, vans, coaches. Everyone arrives on time and gets home safely.",
   experience:
     "Performers, games, activity corners, special effects. The parts guests join in, not just watch.",

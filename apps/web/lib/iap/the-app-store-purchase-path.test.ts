@@ -168,7 +168,10 @@ test('every Apple surface is mounted ONLY behind the three-part gate', () => {
   // Owned is never sold twice: an event with Pro goes straight back to apply.
   // 💎 Part by part (2026-10-22): "owned" is Full Pro (or the cap reached) through the one ownership read.
   assert.match(code('app/dashboard/[eventId]/apple-pro/page.tsx'), /if \(own\?\.full\) redirect\(`\$\{back\}\?apply=1`\);/);
-  assert.match(code('lib/iap/iap-actions.ts'), /const \{ iap \} = await getIapGate\(\);\s*if \(!iap\) return startRefusal\('unavailable'\);/);
+  // The gift branch also needs `iapQuantity` (a build whose plugin passes a quantity, `SetnayanIAP/3`); the switch
+  // still refuses first, before anything else is read.
+  assert.match(code('lib/iap/iap-actions.ts'), /const \{ iap, iapQuantity \} = await getIapGate\(\);\s*if \(!iap\) return startRefusal\('unavailable'\);/);
+  assert.match(code('lib/iap/iap-actions.ts'), /if \(!iapQuantity \|\| !appleGiftQuantityOk\(quantity\)\) return startRefusal\('unavailable'\);/);
 });
 
 test('✦ the app picks Setnayan AI’s tier the way the web charges it — no second event-type → tier map', () => {

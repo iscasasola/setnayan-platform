@@ -7,7 +7,13 @@ import { appendLedger } from '@/lib/ledger';
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { formatPhp } from '@/lib/php';
-import { APP_STORE_CHANNEL_KEY, appStorePriceMatchesWeb, iapPriceRowFor, type IapProduct } from './products';
+import {
+  APP_STORE_CHANNEL_KEY,
+  appStorePriceMatchesWeb,
+  iapPriceRowFor,
+  isIapSupplierGiftProduct,
+  type IapProduct,
+} from './products';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { computeVatFromBase } from '@/lib/receipts';
 import { chargedPhp, type AppleTransaction } from './apple-transaction';
@@ -102,7 +108,7 @@ export async function createPurchaseIntent(
       event_id: 'eventId' in input ? input.eventId : null,
       vendor_profile_id: shop,
       product_id: input.product.productId,
-      service_key: input.product.kind === 'supplier-gift' ? appleGiftOrderKey(input.product) : input.product.serviceKey,
+      service_key: isIapSupplierGiftProduct(input.product) ? appleGiftOrderKey(input.product) : input.product.serviceKey,
     })
     .select('app_account_token')
     .maybeSingle();
@@ -204,7 +210,7 @@ export async function fulfilAppleTransaction(
   if (row.product_id !== tx.product.productId) return { status: 'refused', reason: 'product_mismatch' };
   if (row.transaction_id && row.transaction_id !== tx.transactionId) return { status: 'refused', reason: 'token_reused' };
   // 💝 A gift product lands ONLY in a shop's stock, and a shop intent buys ONLY a gift — never one for the other.
-  const gift = tx.product.kind === 'supplier-gift' ? tx.product : null;
+  const gift = isIapSupplierGiftProduct(tx.product) ? tx.product : null;
   if (!gift && row.vendor_profile_id) return { status: 'refused', reason: 'product_mismatch' };
   // A shop that was deleted after it bought (`ON DELETE SET NULL`) has nowhere for the gift to land.
   if (gift && !row.vendor_profile_id) return { status: 'refused', reason: 'no_shop' };

@@ -196,6 +196,11 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
  */
 export type IapSupplierGiftProduct = IapProduct & { kind: 'supplier-gift' };
 
+/** `kind` is a plain field of `IapProduct`, so comparing it does not narrow the product — this guard does. */
+export function isIapSupplierGiftProduct(p: IapProduct): p is IapSupplierGiftProduct {
+  return p.kind === 'supplier-gift';
+}
+
 export const IAP_SUPPLIER_GIFT_PRODUCTS: readonly IapSupplierGiftProduct[] = Object.freeze([
   ...PAPIC_PACKS.map(
     ([credits, serviceKey]): IapSupplierGiftProduct => ({

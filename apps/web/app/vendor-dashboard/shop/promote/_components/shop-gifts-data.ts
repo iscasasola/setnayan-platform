@@ -63,8 +63,9 @@ export async function loadShopGiftsSection(supabase: SupabaseClient, vendorProfi
     maxPaymentPhp,
     openRails: openRailOptions(settings),
     canBuy: !gate.storeShell,
-    // 💝 In the iPhone app with StoreKit (the three-part gate: the flag, the store shell, a build that sells), a gift is
-    // bought through Apple instead — one at a time, Apple's price on the button (owner 2026-11-04).
+    // 💝 In the iPhone app with StoreKit (the three-part gate: the flag, the store shell, a build that sells) AND a build
+    // whose plugin passes a quantity (`SetnayanIAP/3`), a gift is bought through Apple instead — line by line, each cart
+    // line its own Apple purchase, Apple's price on every button (owner 2026-11-04, 2026-11-22).
     appleGifts: gate.iapQuantity,
     rewards: { left: rewardFreeByKind(rewardStock, freeByKind(stock)), granted: rewardsGranted, names: rewardNames },
   };

@@ -149,8 +149,26 @@ Two read-only audits of the PR head found six things. Each fix has a test that w
   asks for `paid`). The header of `20271351415438` no longer claims its prefix sorts after every migration.
   `renewBranch`'s refusal no longer says single branches are "sold with Ultra only" (none is sold; one already paid
   for renews on Ultra).
-- Not decided here (open with the controller): more than one add-on per shop, the renewal rule, the retroactive 28-day
-  window on older "+1" orders, a yearly add-on row. No price, limit or period was changed. No server action was added.
-  Generated baselines were NOT regenerated (the ship controller's).
+- **The four open calls, closed by the controller and the owner on 22 Nov, and what was built for them:**
+  - *Renewal* stands as built (a renewal extends its own add-on from its own end + 28 days; a refund takes exactly 28
+    back). *The retroactive 28-day window on paid "+1" orders* stands as built.
+  - **The single extra seat lasts 28 days per payment too** (controller: "fix the single extra seat the same way").
+    `extra_agent_seats` counted every paid `vendor_extra_seat__<shop>` order with no window. Now the hook stamps each
+    seat order's own window through the ONE shared stamp (`stampAddOnWindow`), `recomputeVendorExtraSeats` counts paid
+    orders whose window covers now (and throws on an unread count instead of writing 0), migration `20271351415438`
+    §5a gives older paid seat orders their window and §5b's `recount_vendor_count_addons()` lowers a lapsed seat.
+    ⚠ To know: there is no seat renewal in the app and no seat is sold, so a held seat runs out 28 days after it was
+    approved; for the same reason seat orders are left out of the renewal reminder. On apply, a seat approved more
+    than 28 days ago stops counting at once — re-measure `select count(*) from vendor_profiles where
+    extra_agent_seats > 0` before the pipeline applies it (the controller's figure on 22 Nov: no shop holds one).
+    Guards: `a-paid-seat-lasts-28-days.test.ts`, DB `vendor-plan-allowances` ("A PAID SINGLE SEAT…").
+  - **No yearly Ultra Add-on row.** None existed in the code, copy or migrations; a guard now holds it (unit + DB:
+    the catalogue has exactly one `vendor_ultra_addon` row, per 4 weeks).
+  - **Add-ons stack** (owner: "Yes, they can stack"). As built: every reader multiplies by the live count (the two
+    database gates, `applyAddOnExtras`, `extraPeopleHeld`, `storageAllowanceBytes`, Where you work); a guard holds it
+    for 1, 2 and 3. The Plan page says the words per add-on ("Each Ultra Add-on adds") above one numbered row per
+    add-on held.
+- No price, limit or period was changed. No server action was added. Generated baselines were NOT regenerated (the ship
+  controller's).
 
 SPEC IMPACT: None — no ruling is changed; the rulings applied are the corpus DECISION_LOG rows of 19–22 Nov.

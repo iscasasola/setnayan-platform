@@ -46,7 +46,13 @@
 --     purchase; the rows stay active for renewals only.
 --
 -- RLS unchanged · no new table or column · no subscription row is written. Section 5 writes only `orders.expires_at` on
--- paid "+1" add-on orders that had none, and re-counts those add-ons' stored counts from the live windows.
+-- paid "+1" add-on and single-extra-seat orders that had none, and re-counts their stored counts from the live windows.
+-- 4b · THE SINGLE EXTRA SEAT LASTS 28 DAYS PER PAYMENT TOO (controller ruling on PR #8019, 22 Nov: "fix the single extra
+--     seat the same way: a 28-day window per paid order"). `vendor_profiles.extra_agent_seats` counted every paid
+--     `vendor_extra_seat__<id>` order with no expiry, so one payment kept a seat for good. Section 5 gives those orders
+--     their window and the recount lowers the stored count when it lapses. No seat renewal exists in the app and no new
+--     seat is sold, so a held seat simply runs out 28 days after it was approved; its orders are left out of the
+--     renewal reminder (section 6) for that reason. The catalogue row is untouched.
 -- 7 · RENEWING ONE ADD-ON EXTENDS THAT ONE (controller ruling on PR #8019, 20 Nov, option A): two service-role
 --     functions, `ultra_addon_apply_renewal` / `ultra_addon_reverse_renewal`, over a renewal order keyed
 --     `vendor_ultra_addon_renew__<the add-on's order_id>`; the reminder (section 6) skips renewal orders.
@@ -345,13 +351,16 @@ $$;
 
 REVOKE ALL ON FUNCTION public.enforce_supplier_storage_allowance() FROM PUBLIC, anon, authenticated;
 
--- ── 5 · the "+1" add-ons last 28 days per payment too ───────────────────────
+-- ── 5 · the "+1" add-ons and the single extra seat last 28 days per payment too ──
 -- Review 2026-11-19: `recomputeVendorAddOnCount` counted EVERY paid "+1" add-on order (category · service card · wait
 -- list · booking per date — ₱ per 4 weeks, owner 2026-11-06), with no expiry, so one payment raised the allowance
 -- forever. Now each order carries its window like the Ultra Add-on (the activation hook stamps approval + 28 days) and
 -- the count is the paid orders whose window covers now().
 --
--- 5a · every paid "+1" order approved before this shipped gets its window: its first `service_activated` ledger row
+-- (The single extra seat, `vendor_extra_seat__<id>` → `vendor_profiles.extra_agent_seats`, is the same shape and is
+-- handled with them below: controller ruling on PR #8019, 22 Nov.)
+--
+-- 5a · every paid "+1" or seat order approved before this shipped gets its window: its first `service_activated` ledger row
 --      (the approval) + 28 days, or — with no such row — the order's own created_at + 28 days (earlier than any
 --      approval, so it withholds rather than grants). An order that already has a window is never moved.
 UPDATE public.orders o
@@ -367,7 +376,8 @@ UPDATE public.orders o
    AND (o.service_key LIKE 'vendor\_extra\_category\_\_%'
         OR o.service_key LIKE 'vendor\_extra\_service\_card\_\_%'
         OR o.service_key LIKE 'vendor\_extra\_waitlist\_\_%'
-        OR o.service_key LIKE 'vendor\_extra\_booking\_per\_date\_\_%');
+        OR o.service_key LIKE 'vendor\_extra\_booking\_per\_date\_\_%'
+        OR o.service_key LIKE 'vendor\_extra\_seat\_\_%');
 
 -- 5b · THE RECOUNT — a window that lapses fires no order event, so the stored counts are re-counted from the live
 --      windows. Service role only (the `count-addon-recount` job, hourly); it only touches shops holding a count, and
@@ -394,23 +404,30 @@ BEGIN
                AND o.status = 'paid' AND o.expires_at > now())::int AS wait,
            (SELECT count(*) FROM public.orders o
              WHERE o.service_key = 'vendor_extra_booking_per_date__' || vp.vendor_profile_id::text
-               AND o.status = 'paid' AND o.expires_at > now())::int AS bpd
+               AND o.status = 'paid' AND o.expires_at > now())::int AS bpd,
+           -- The single extra seat (controller ruling on PR #8019, 22 Nov): the same 28 days per payment.
+           (SELECT count(*) FROM public.orders o
+             WHERE o.service_key = 'vendor_extra_seat__' || vp.vendor_profile_id::text
+               AND o.status = 'paid' AND o.expires_at > now())::int AS seat
       FROM public.vendor_profiles vp
      WHERE COALESCE(vp.extra_parent_categories, 0) > 0
         OR COALESCE(vp.extra_services_per_leaf, 0) > 0
         OR COALESCE(vp.extra_waitlist_acceptances, 0) > 0
         OR COALESCE(vp.extra_bookings_per_date, 0) > 0
+        OR COALESCE(vp.extra_agent_seats, 0) > 0
   )
   UPDATE public.vendor_profiles vp
      SET extra_parent_categories    = live.cat,
          extra_services_per_leaf    = live.card,
          extra_waitlist_acceptances = live.wait,
-         extra_bookings_per_date    = live.bpd
+         extra_bookings_per_date    = live.bpd,
+         extra_agent_seats          = live.seat
     FROM live
    WHERE vp.vendor_profile_id = live.vendor_profile_id
      AND (COALESCE(vp.extra_parent_categories, 0), COALESCE(vp.extra_services_per_leaf, 0),
-          COALESCE(vp.extra_waitlist_acceptances, 0), COALESCE(vp.extra_bookings_per_date, 0))
-         IS DISTINCT FROM (live.cat, live.card, live.wait, live.bpd);
+          COALESCE(vp.extra_waitlist_acceptances, 0), COALESCE(vp.extra_bookings_per_date, 0),
+          COALESCE(vp.extra_agent_seats, 0))
+         IS DISTINCT FROM (live.cat, live.card, live.wait, live.bpd, live.seat);
   GET DIAGNOSTICS v_rows = ROW_COUNT;
   RETURN v_rows;
 END;
@@ -420,7 +437,7 @@ REVOKE ALL ON FUNCTION public.recount_vendor_count_addons() FROM PUBLIC, anon, a
 GRANT EXECUTE ON FUNCTION public.recount_vendor_count_addons() TO service_role;
 
 COMMENT ON FUNCTION public.recount_vendor_count_addons() IS
-  'Re-counts the four "+1" add-on counts on vendor_profiles (extra_parent_categories · extra_services_per_leaf · extra_waitlist_acceptances · extra_bookings_per_date) from the paid orders whose 28-day window (orders.expires_at) still covers now — a payment buys 28 days, never forever (review 2026-11-19). Run hourly by the count-addon-recount job (service role); returns the shops whose count changed.';
+  'Re-counts the four "+1" add-on counts and the single extra seats on vendor_profiles (extra_parent_categories · extra_services_per_leaf · extra_waitlist_acceptances · extra_bookings_per_date · extra_agent_seats) from the paid orders whose 28-day window (orders.expires_at) still covers now — a payment buys 28 days, never forever (review 2026-11-19). Run hourly by the count-addon-recount job (service role); returns the shops whose count changed.';
 
 -- 5c · the same once now, so a lapsed window from before this shipped stops counting at once.
 SELECT public.recount_vendor_count_addons();
@@ -430,8 +447,9 @@ SELECT public.recount_vendor_count_addons();
 -- sender — the daily `renewal-reminders` job (`runRenewalReminders`, lib/daily-email-jobs.ts) over this function: paid
 -- orders whose prepaid window ends within p_days. Every paid Ultra Add-on order now has its window (section 3), so it is
 -- already selected; the app names it and links the Plan page (lib/renewal-reminder-products.ts).
--- The ONE change: the four retired "+1" add-ons are left out. They are no longer sold, and section 5 gave their orders
--- windows for the first time — without this they would start receiving "renew" emails for something nobody can buy.
+-- The ONE change: the four retired "+1" add-ons and the single extra seat are left out. They are no longer sold, and
+-- section 5 gave their orders windows for the first time — without this they would start receiving "renew" emails for
+-- something nobody can buy.
 -- Same signature, same body otherwise; CREATE OR REPLACE keeps the service-role-only grant of 20271028837115.
 CREATE OR REPLACE FUNCTION public.subscriptions_due_for_renewal_reminder(p_days INT DEFAULT 7)
 RETURNS TABLE (
@@ -458,6 +476,8 @@ AS $$
     AND o.service_key NOT LIKE 'vendor\_extra\_service\_card\_\_%'
     AND o.service_key NOT LIKE 'vendor\_extra\_waitlist\_\_%'
     AND o.service_key NOT LIKE 'vendor\_extra\_booking\_per\_date\_\_%'
+    -- The single extra seat: not sold and not renewable in the app, so "renew" would point at nothing (section 4b).
+    AND o.service_key NOT LIKE 'vendor\_extra\_seat\_\_%'
     -- A renewal order's window is a COPY of the add-on it extended (section 7) — the add-on itself is reminded.
     AND o.service_key NOT LIKE 'vendor\_ultra\_addon\_renew\_\_%'
     AND NOT EXISTS (

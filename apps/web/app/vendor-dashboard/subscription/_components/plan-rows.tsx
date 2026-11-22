@@ -82,7 +82,8 @@ export function PlanRows({
    * 📱 TWO ROWS, SO NOTHING IS CUT OFF AT 375 px (fix pass on PR #8019, 22 Nov). One row held everything — "+1 branch ·
    * +15 live cards · +3 people · +50 GB · ₱… every 4 weeks · you have N" beside the Add button — and a row's line never
    * wraps, so a phone showed "+1 branch · +15 live cards · +3 p…": the PRICE and the +50 GB were the part lost.
-   *   · `gives` — what one add-on adds (`ultraAddOnGivesWords`), on a row with NO control, so it has the whole width;
+   *   · `gives` — what EACH add-on adds (`ultraAddOnGivesWords`), on a row with NO control, so it has the whole width.
+   *              A shop may hold more than one at once (owner 22 Nov: "Yes, they can stack"), so the title says "Each";
    *   · `buy`   — the PRICE first, as the title of the row that holds the Add control, and how many the shop holds.
    *              null = no readable price: no figure and no Add control (never a fallback).
    */
@@ -174,7 +175,7 @@ export function PlanRows({
           <DatesRow data="plan-deep-search" lead={ic(Search)} title="Deep Search" line={deepSearch.line} href="/vendor-dashboard/deep-search" />
         ) : null}
         {ultraAddOn ? (
-          <DatesRow data="plan-ultra-addon" lead={ic(Users)} title="Ultra Add-on" line={ultraAddOn.gives} />
+          <DatesRow data="plan-ultra-addon" lead={ic(Users)} title="Each Ultra Add-on adds" line={ultraAddOn.gives} />
         ) : null}
         {ultraAddOn?.buy ? (
           <DatesRow data="plan-ultra-addon-buy" lead={ic(Users)} title={ultraAddOn.buy.price} line={ultraAddOn.buy.line} end={ultraAddOn.buy.end} />

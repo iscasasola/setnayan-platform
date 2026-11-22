@@ -19,6 +19,7 @@ import {
   renewalPeriodSentence,
   renewalReminderProduct,
 } from './renewal-reminder-products';
+import { SEAT_SERVICE_KEY_PREFIX } from './vendor-seats';
 import { COUNT_ADDONS } from './vendor-ultra-addons';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -59,7 +60,7 @@ test('ONE SENDER: the daily renewal job sends it through sendEmail, with the pro
   }
 });
 
-test('the retired "+1" add-ons are never told to renew — the SQL leaves out the same four prefixes', () => {
+test('the retired "+1" add-ons and the single extra seat are never told to renew — the SQL leaves out the same prefixes', () => {
   const sql = readFileSync(join(HERE, '../../../supabase/migrations/20271351415438_ultra_addon_and_the_19_nov_plan_numbers.sql'), 'utf8');
   const fn = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.subscriptions_due_for_renewal_reminder'));
   for (const prefix of RENEWAL_NOT_REMINDED_PREFIXES) {
@@ -71,7 +72,8 @@ test('the retired "+1" add-ons are never told to renew — the SQL leaves out th
   // a copy of the add-on's) are left out, or the shop would be told twice.
   assert.ok(!body.includes('vendor\\_ultra\\_addon\\_\\_'), 'the Ultra Add-on was left out of the reminder');
   assert.ok(body.includes("NOT LIKE 'vendor\\_ultra\\_addon\\_renew\\_\\_%'"), 'a renewal order would be reminded as well as its add-on');
-  // The four are exactly the stored-count add-ons (everything but the Ultra Add-on).
-  const stored = Object.values(COUNT_ADDONS).filter((d) => d.column !== null).map((d) => d.servicePrefix).sort();
+  // They are exactly the stored-count add-ons (everything but the Ultra Add-on) and the single extra seat — every
+  // order shape that has a 28-day window and nothing to renew it with (the seat: controller ruling, 22 Nov).
+  const stored = [...Object.values(COUNT_ADDONS).filter((d) => d.column !== null).map((d) => d.servicePrefix), SEAT_SERVICE_KEY_PREFIX].sort();
   assert.deepEqual([...RENEWAL_NOT_REMINDED_PREFIXES].sort(), stored);
 });

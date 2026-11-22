@@ -12,8 +12,9 @@
  * like every other prepaid order; this names it, says "four weeks" (not "a year"), and links to the Plan page where it
  * is bought again.
  *
- * ⛔ The four retired "+1" add-ons are NOT reminded: they are not sold any more (2026-11-14 / 2026-11-19), so "renew"
- * would point at nothing. The SQL leaves them out (`RENEWAL_NOT_REMINDED_PREFIXES` mirrors that list).
+ * ⛔ The four retired "+1" add-ons and the single extra seat are NOT reminded: they are not sold any more (2026-11-14 /
+ * 2026-11-19), so "renew" would point at nothing. The SQL leaves them out (`RENEWAL_NOT_REMINDED_PREFIXES` mirrors
+ * that list).
  */
 
 export type RenewalPeriod = 'year' | 'four weeks';
@@ -30,12 +31,17 @@ export type RenewalReminderProduct = {
 /** The Ultra Add-on's order prefix — the same as `COUNT_ADDONS.ultra.servicePrefix` (lib/vendor-ultra-addons.ts). */
 export const ULTRA_ADDON_ORDER_PREFIX = 'vendor_ultra_addon__';
 
-/** The retired "+1" add-ons — never reminded (the SQL excludes the same four prefixes). */
+/**
+ * The retired "+1" add-ons and the single extra seat — never reminded (the SQL excludes the same prefixes). The seat
+ * joined them on 22 Nov, when its orders got a 28-day window (controller ruling on PR #8019): it is not sold and the
+ * app has no way to renew one, so "renew before then" would point at nothing.
+ */
 export const RENEWAL_NOT_REMINDED_PREFIXES: readonly string[] = Object.freeze([
   'vendor_extra_category__',
   'vendor_extra_service_card__',
   'vendor_extra_waitlist__',
   'vendor_extra_booking_per_date__',
+  'vendor_extra_seat__',
 ]);
 
 /** The words and link for one paid order's reminder. The default is the scaffold's original copy, unchanged. */

@@ -564,10 +564,11 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
                 })),
         }
       : null;
-  // A single extra seat already paid for is kept and renews (2026-11-19: no existing subscriber's limits move until the
-  // owner rules on existing subscribers) — said as a held row, never offered as a new buy.
+  // A single extra seat already paid for counts while its paid 28 days run (controller ruling on PR #8019, 22 Nov: a
+  // seat payment buys 28 days like every add-on — it is not kept for good) — said as a held row in the "+1" rows' own
+  // words, never offered as a new buy.
   const heldSeatsRow = extraSeats !== null && extraSeats > 0
-    ? { key: 'held-seats', title: `${NUMBER.format(extraSeats)} extra ${extraSeats === 1 ? 'seat' : 'seats'}, bought`, line: 'Kept on top of your plan · no new single seats are sold' }
+    ? { key: 'held-seats', title: `${NUMBER.format(extraSeats)} extra ${extraSeats === 1 ? 'seat' : 'seats'}, bought`, line: 'Counts on top of your plan until it runs out' }
     : null;
   // Item 11 — what this shop bought before the fold, while it still runs.
   const bought: { key: string; title: string; line: string }[] = heldSeatsRow ? [heldSeatsRow] : [];

@@ -16,6 +16,14 @@ import { holdsBoughtExtras, holdsExtraSeats, ULTRA_ADDON_GIVES } from './vendor-
  * extra_agent_seats (idempotent, ledger-guarded) → the seat is usable
  * immediately. PR-B folds the count into the Enterprise renewal amount and adds
  * the downgrade/lapse "admin picks who to drop" reconcile.
+ *
+ * ⏳ SUPERSEDED IN TWO WAYS (2026-11-19 → 22). (1) No single seat is SOLD on any plan since 2026-11-19 — the Ultra
+ * Add-on (+3 people) is the one add-on. (2) A seat already paid for is NOT a count that lasts for good: by the
+ * controller's ruling on PR #8019 (22 Nov, "a 28-day window per paid order") each paid seat order carries its own
+ * window (`orders.expires_at` = approval + 28 days), the stored count is the paid orders whose window covers now
+ * (`recomputeVendorExtraSeats`, lib/sku-activation.ts), and `recount_vendor_count_addons()` lowers it when a window
+ * lapses. PR-B (folding seats into the plan renewal) was never built and there is no seat renewal in the app, so a
+ * held seat runs out 28 days after it was approved. 🔒 lib/a-paid-seat-lasts-28-days.test.ts
  */
 
 /*

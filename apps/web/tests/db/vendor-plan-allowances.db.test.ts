@@ -267,6 +267,50 @@ test('A "+1" ADD-ON COUNTS ONLY THE PAID PERIODS THAT STILL COVER TODAY — the 
   assert.equal(after2.rows[0]!.c, 2);
 });
 
+test('A PAID SINGLE SEAT LASTS 28 DAYS, NOT FOREVER — the recount lowers a lapsed seat (controller ruling, 22 Nov)', async () => {
+  // The single extra seat had the "+1"s' fault: `extra_agent_seats` counted every paid `vendor_extra_seat__<shop>`
+  // order with no window. Now each paid order covers its own 28 days.
+  // SABOTAGE THAT TURNS THIS RED (run once, 22 Nov): drop `extra_agent_seats = live.seat` (or the seat sub-select) from
+  // `recount_vendor_count_addons()` in 20271351415438 → the stored 5 stays 5 and the first assertion fails.
+  const ultra = await newVendor('seat-recount', 'enterprise');
+  await plusOneOrder(ultra, 'vendor_extra_seat__', 20); // live
+  await plusOneOrder(ultra, 'vendor_extra_seat__', 1); // live — one day left
+  await plusOneOrder(ultra, 'vendor_extra_seat__', -1); // ⏳ ran out — must not count
+  await plusOneOrder(ultra, 'vendor_extra_seat__', 20, 'refunded'); // refunded — must not count
+  await plusOneOrder(ultra, 'vendor_extra_seat__', null); // no window — grants nothing
+  // What the old recompute stored: every paid order, forever.
+  await db.query(`ALTER TABLE public.vendor_profiles DISABLE TRIGGER USER`);
+  try {
+    await db.query(`UPDATE public.vendor_profiles SET extra_agent_seats = 5 WHERE vendor_profile_id = $1`, [ultra]);
+  } finally {
+    await db.query(`ALTER TABLE public.vendor_profiles ENABLE TRIGGER USER`);
+  }
+  const changed = await db.query<{ n: number }>(`SELECT public.recount_vendor_count_addons() AS n`);
+  assert.ok(changed.rows[0]!.n >= 1, 'the recount changed no shop — a shop holding only seats is not recounted');
+  const seats = async () =>
+    (await db.query<{ s: number }>(`SELECT extra_agent_seats AS s FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [ultra])).rows[0]!.s;
+  assert.equal(await seats(), 2, 'a lapsed, refunded or window-less seat order still counted');
+  // Idempotent.
+  await db.query(`SELECT public.recount_vendor_count_addons()`);
+  assert.equal(await seats(), 2);
+  // When the last windows lapse, the seats are gone — with no order event at all.
+  await db.query(`UPDATE public.orders SET expires_at = now() - interval '1 hour' WHERE service_key = $1 AND status = 'paid' AND expires_at > now()`, [`vendor_extra_seat__${ultra}`]);
+  await db.query(`SELECT public.recount_vendor_count_addons()`);
+  assert.equal(await seats(), 0, 'a seat whose 28 days ended is still held');
+  // And a seat order is never told to renew (nothing sells or renews one) — even one due inside the window.
+  await plusOneOrder(ultra, 'vendor_extra_seat__', 3);
+  const due = await db.query<{ service_key: string }>(`SELECT service_key FROM public.subscriptions_due_for_renewal_reminder(7)`);
+  assert.ok(!due.rows.some((r) => r.service_key.startsWith('vendor_extra_seat__')), 'a seat order would be emailed "renew"');
+});
+
+test('NO YEARLY ULTRA ADD-ON ROW (controller ruling, 22 Nov): the catalogue holds exactly one, per 4 weeks', async () => {
+  const rows = await db.query<{ sku_code: string; offering_type: string }>(
+    `SELECT sku_code, offering_type FROM public.vendor_billing_catalog
+      WHERE sku_code LIKE 'vendor\_ultra\_addon%' OR offering_type = 'ultra_addon' ORDER BY sku_code`,
+  );
+  assert.deepEqual(rows.rows, [{ sku_code: 'vendor_ultra_addon', offering_type: 'ultra_addon' }]);
+});
+
 test('the "+1" recount is the service role\'s alone — a signed-in shop cannot raise or reset its own count', async () => {
   const shop = await newVendor('plus-one-recount-auth', 'enterprise');
   const owner = await db.query<{ user_id: string }>(`SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [shop]);

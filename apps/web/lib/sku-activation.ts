@@ -11,6 +11,7 @@ import { chargeIdFromBookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
 import { purchaseIdFromVendorSubscriptionServiceKey } from '@/lib/vendor-subscription-service-key';
 import { settleBookingFeeCharge } from '@/lib/booking-fee-charge';
 import {
+  SEAT_SKU_CODE,
   seatServiceKey,
   vendorProfileIdFromSeatServiceKey,
   extraSeatsFromPaidCount,
@@ -2088,23 +2089,33 @@ async function activateBundleChildren(ctx: ActivationContext): Promise<void> {
 
 /**
  * Recompute vendor_profiles.extra_agent_seats = the number of PAID
- * vendor_extra_seat orders for this vendor, and write it. RECOMPUTE (not an
+ * vendor_extra_seat orders for this vendor WHOSE 28-DAY WINDOW STILL COVERS NOW,
+ * and write it. RECOMPUTE (not an
  * increment/decrement) so it is self-healing + idempotent: on ACTIVATION the
  * just-paid order is counted in; on REVERSAL the refunded/cancelled order has
  * already left the 'paid' set (deactivate runs AFTER the status flip), so the
  * same recompute LOWERS the seat count. Shared by the activation prefix hook and
  * the deactivation path so the two can never drift. Throws on the write so the
  * caller's outer catch logs + reports it (recoverable).
+ *
+ * ⏳ ONE PAYMENT BUYS 28 DAYS, NEVER FOREVER (controller ruling on PR #8019, 22 Nov: "fix the single extra seat the
+ * same way: a 28-day window per paid order"). This counted EVERY paid seat order with no expiry, so one payment kept
+ * a seat for good — the fault the "+1" add-ons had ({@link recomputeVendorAddOnCount}). Now a seat order carries its
+ * own window (`orders.expires_at` = approval + 28 days, stamped by the hook through {@link stampAddOnWindow}); a
+ * lapsed one, or one with no window, is not counted; `recount_vendor_count_addons()` lowers the stored count when a
+ * window lapses with no order event. An UNREAD count throws — it never writes a 0 over a paid seat.
  */
 async function recomputeVendorExtraSeats(
   admin: SupabaseClient,
   vendorProfileId: string,
 ): Promise<number> {
-  const { count } = await admin
+  const { count, error: readErr } = await admin
     .from('orders')
     .select('order_id', { count: 'exact', head: true })
     .eq('service_key', seatServiceKey(vendorProfileId))
-    .eq('status', 'paid');
+    .eq('status', 'paid')
+    .gt('expires_at', new Date().toISOString());
+  if (readErr) throw new Error(`vendor_extra_seat live count read failed: ${readErr.message}`);
   const paidSeats = extraSeatsFromPaidCount(count);
   const { error } = await admin
     .from('vendor_profiles')
@@ -2114,6 +2125,35 @@ async function recomputeVendorExtraSeats(
     throw new Error(`vendor_extra_seat seat recompute write failed: ${error.message}`);
   }
   return paidSeats;
+}
+
+/**
+ * ⏳🔒 STAMP ONE ADD-ON ORDER'S OWN 28-DAY WINDOW — `orders.expires_at` = approval + 28 days, the paid branch's
+ * pattern. The ONE implementation, for every "a payment buys 28 days" order: the Ultra Add-on, the four "+1" add-ons
+ * and the single extra seat (controller ruling on PR #8019, 22 Nov).
+ *
+ * 🔒 A WINDOW FOUND ON A NEVER-ACTIVATED ORDER IS NOT TRUSTED (ship review of PR #8019, 22 Nov). "Stamp only where
+ * empty" on every run kept whatever sat on the unpaid order — a date the buyer could type on their own submitted row —
+ * so one payment kept the add-on for as long as they wrote. The FIRST activation (no `service_activated` ledger row
+ * yet; only the service role can write one) OVERWRITES; only a re-approval keeps a window already there, so a
+ * renewal's extension is never reset ({@link addOnWindowStamp}). An unread ledger throws: guessing "first" would
+ * reset a renewed window, guessing "again" would keep a planted one. Returns the window it computed.
+ */
+async function stampAddOnWindow(ctx: ActivationContext, sku: string): Promise<string> {
+  const { data: priorActivation, error: priorErr } = await ctx.admin
+    .from('order_ledger')
+    .select('order_id')
+    .eq('order_id', ctx.orderId)
+    .eq('event_type', 'service_activated')
+    .limit(1)
+    .maybeSingle();
+  if (priorErr) throw new Error(`${sku} prior-activation read failed: ${priorErr.message}`);
+  const expiresAt = addOnWindowEnd(Date.now());
+  const stamp = ctx.admin.from('orders').update({ expires_at: expiresAt }).eq('order_id', ctx.orderId);
+  const { error: stampErr } =
+    addOnWindowStamp(Boolean(priorActivation)) === 'only-if-empty' ? await stamp.is('expires_at', null) : await stamp;
+  if (stampErr) throw new Error(`${sku} window stamp failed: ${stampErr.message}`);
+  return expiresAt;
 }
 
 /**
@@ -2451,6 +2491,9 @@ const PREFIX_HOOKS: ReadonlyArray<{
       if (!vendorProfileId) return;
       // SEC-4b: the key names the vendor directly — the order must be theirs.
       await assertOrderOwnsVendorTarget(ctx, vendorProfileId);
+      // ⏳ A SEAT PAYMENT BUYS 28 DAYS TOO (controller ruling on PR #8019, 22 Nov): THIS order gets its own window
+      // before the count is taken, so the recompute below — paid AND in window — counts it in.
+      const expiresAt = await stampAddOnWindow(ctx, SEAT_SKU_CODE);
       const paidSeats = await recomputeVendorExtraSeats(ctx.admin, vendorProfileId);
       await appendLedger(ctx.admin, {
         order_id: ctx.orderId,
@@ -2461,6 +2504,7 @@ const PREFIX_HOOKS: ReadonlyArray<{
           service_key: ctx.serviceKey,
           vendor_profile_id: vendorProfileId,
           extra_agent_seats: paidSeats,
+          expires_at: expiresAt,
         },
       });
     },
@@ -2501,26 +2545,8 @@ const PREFIX_HOOKS: ReadonlyArray<{
       // (the database's `vendor_live_ultra_addons` reads the windows live); the "+1" counts are recomputed from the
       // windows that still cover now
       // ({@link recomputeVendorAddOnCount}), and `recount_vendor_count_addons()` lowers them when a window lapses.
-      //
-      // 🔒 A WINDOW FOUND ON A NEVER-ACTIVATED ORDER IS NOT TRUSTED (ship review of PR #8019, 22 Nov). "Stamp only
-      // where empty" on every run kept whatever sat on the unpaid order — a date the buyer could type on their own
-      // submitted row — so one payment kept the add-on for as long as they wrote. The FIRST activation (no
-      // `service_activated` ledger row yet; only the service role can write one) OVERWRITES; only a re-approval
-      // keeps a window already there, so a renewal's extension is never reset ({@link addOnWindowStamp}). An unread
-      // ledger throws: guessing "first" would reset a renewed window, guessing "again" would keep a planted one.
-      const { data: priorActivation, error: priorErr } = await ctx.admin
-        .from('order_ledger')
-        .select('order_id')
-        .eq('order_id', ctx.orderId)
-        .eq('event_type', 'service_activated')
-        .limit(1)
-        .maybeSingle();
-      if (priorErr) throw new Error(`${COUNT_ADDONS[target.kind].sku} prior-activation read failed: ${priorErr.message}`);
-      const expiresAt = addOnWindowEnd(Date.now());
-      const stamp = ctx.admin.from('orders').update({ expires_at: expiresAt }).eq('order_id', ctx.orderId);
-      const { error: stampErr } =
-        addOnWindowStamp(Boolean(priorActivation)) === 'only-if-empty' ? await stamp.is('expires_at', null) : await stamp;
-      if (stampErr) throw new Error(`${COUNT_ADDONS[target.kind].sku} window stamp failed: ${stampErr.message}`);
+      // 🔒 The stamp — and what it does with a window already on the order — is {@link stampAddOnWindow}.
+      const expiresAt = await stampAddOnWindow(ctx, COUNT_ADDONS[target.kind].sku);
       if (target.kind === 'ultra') {
         await appendLedger(ctx.admin, {
           order_id: ctx.orderId,

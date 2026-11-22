@@ -13,6 +13,8 @@
  *        storage." line and the Ultra Add-on line; the built page drew neither. Both are drawn now — the numbers from
  *        `TIER_CAPS` / `ULTRA_ADDON_GIVES`, the price from the catalogue row (unread → the line is not drawn).
  *   E4 · `buyMoreLine` had no reader on the 20 Nov page: deleted (`ultraAddOnInfoLine` is the line the drawing has).
+ *   + the two rulings of 22 Nov that closed the open calls: add-ons STACK (every reader sums the live count; the Plan
+ *     page says the words per add-on), and there is NO yearly Ultra Add-on row.
  *
  * ⚠ NOT SEEN IN A BROWSER: this machine could not run the app on 22 Nov. What is held here is the structure and the
  * words; the pixel check at 375 px is the ship controller's.
@@ -30,8 +32,10 @@ import { join } from 'node:path';
 import { branchesAndStorageLine, ultraAddOnInfoLine } from '../app/for-suppliers/_components/supplier-front-data';
 import { planTable } from '../app/for-suppliers/_components/plan-table-data';
 import { stripComments } from './strip-comments';
-import { STORAGE_GB, TIER_CAPS, ULTRA_ADDON_GIVES } from './vendor-tier-caps';
-import { COUNT_ADDONS, ultraAddOnGivesWords, ultraAddOnSku } from './vendor-ultra-addons';
+import { storageAllowanceBytes } from './supplier-storage';
+import { extraPeopleHeld } from './vendor-seats';
+import { STORAGE_GB, TIER_CAPS, ULTRA_ADDON_GIVES, includedBranchesLeft } from './vendor-tier-caps';
+import { COUNT_ADDONS, NO_EXTRAS, applyAddOnExtras, ultraAddOnGivesWords, ultraAddOnSku } from './vendor-ultra-addons';
 
 const WEB = join(__dirname, '..');
 const raw = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
@@ -85,7 +89,8 @@ test('E1 · on a phone nothing is cut off: what it gives has a row to itself; th
   // The words are longer than a phone shows beside a button — which is WHY they may not share a row with one.
   assert.ok(ultraAddOnGivesWords().length > CHARS_BESIDE_A_BUTTON_AT_375, 'the words now fit beside a button — this guard should be re-justified');
   const gives = rows.match(/<DatesRow data="plan-ultra-addon" [^>]*\/>/)?.[0] ?? '';
-  assert.match(gives, /title="Ultra Add-on" line=\{ultraAddOn\.gives\}/);
+  // "Each": a shop may hold more than one at once (owner 22 Nov, "Yes, they can stack") — the words are per add-on.
+  assert.match(gives, /title="Each Ultra Add-on adds" line=\{ultraAddOn\.gives\}/);
   assert.doesNotMatch(gives, /\bend=/, 'a control sits beside the add-on’s words again — they are cut off at 375 px');
   assert.doesNotMatch(gives, /\bhref=/);
   // The price comes first: it is the TITLE of the row that holds the Add control.
@@ -140,6 +145,59 @@ test('E3 · For Suppliers › Plans ⓘ draws the drawing’s two lines — numb
   }
   // The header no longer says the two are not live.
   assert.doesNotMatch(raw('app/for-suppliers/_components/supplier-front-page.tsx'), /Ultra Add-on and storage are not live/);
+});
+
+test('STACKABLE (owner 22 Nov, "Yes, they can stack"): every reader SUMS the live add-ons — two give twice, never 0 or 1', () => {
+  const g = ULTRA_ADDON_GIVES;
+  const ultra = TIER_CAPS.enterprise;
+  for (const n of [1, 2, 3]) {
+    // The allowance every create gate reads (live cards · people · branches · storage).
+    const caps = applyAddOnExtras(ultra, { ...NO_EXTRAS, ultra: n });
+    assert.equal(caps.serviceCardsTotal, ultra.serviceCardsTotal + n * g.liveCards, `${n} add-ons · live cards`);
+    assert.equal(caps.agentAccounts, ultra.agentAccounts + n * g.people, `${n} add-ons · people`);
+    assert.equal(caps.branchesIncluded, ultra.branchesIncluded + n * g.branches, `${n} add-ons · branches`);
+    assert.equal(caps.storageBytes, (ultra.storageBytes ?? 0) + n * g.storageGb * STORAGE_GB, `${n} add-ons · storage`);
+    // The Team cap / invite gate / seat-pause rule, the upload check's allowance, and Where you work's branches left.
+    assert.equal(extraPeopleHeld('enterprise', 0, n), n * g.people);
+    assert.equal(storageAllowanceBytes('enterprise', n), (ultra.storageBytes ?? 0) + n * g.storageGb * STORAGE_GB);
+    assert.equal(includedBranchesLeft('enterprise', 0, n * g.branches), ultra.branchesIncluded + n * g.branches);
+  }
+  // The database's two gates multiply by the live count as well (never a 0/1 flag).
+  const sql = raw('../../supabase/migrations/20271351415438_ultra_addon_and_the_19_nov_plan_numbers.sql');
+  assert.match(sql, /\+ CASE WHEN v_tier = 'enterprise' THEN GREATEST\(v_addons, 0\) ELSE 0 END;/);
+  assert.match(sql, /v_gb := v_gb \+ 50 \* GREATEST\(v_addons, 0\);/);
+  assert.match(sql, /SELECT count\(\*\)::int\s+FROM public\.orders o\s+WHERE o\.service_key = 'vendor_ultra_addon__' \|\| p_vendor_profile_id::text/);
+  // The Plan page: one numbered row per add-on held, each with its own end and its own Renew.
+  const page = src('app/vendor-dashboard/subscription/_components/plan-screen.tsx');
+  assert.match(page, /liveUltraAddOns\.map\(\(a, i\) => \(\{\s*key: a\.orderId,\s*title: `Ultra Add-on \$\{NUMBER\.format\(i \+ 1\)\}`,\s*line: `Until \$\{fmtDate\(a\.expiresAt\)\}`,/);
+  // "Add one" stays beside any number already held — holding one never hides the way to a second.
+  assert.doesNotMatch(page, /ultraAddOnCount\s*(===|>=|>)\s*\d+\s*\?\s*null\s*:\s*\{\s*price/);
+});
+
+test('NO YEARLY ULTRA ADD-ON (controller ruling 22 Nov): one row, four weeks — "a year = 10×" covers plans only', () => {
+  // Nothing in the PR's migrations, the add-on module, its purchase action or the public plan data names a yearly
+  // Ultra Add-on, and the only catalogue row it creates is `vendor_ultra_addon` (4 weeks).
+  const places = [
+    raw('../../supabase/migrations/20271351415438_ultra_addon_and_the_19_nov_plan_numbers.sql'),
+    raw('../../supabase/migrations/20271358646819_special_tools_pro_and_ultra_only.sql'),
+    raw('../../supabase/migrations/20271358916247_orders_expires_at_is_the_servers.sql'),
+    src('lib/vendor-ultra-addons.ts'),
+    src('app/vendor-dashboard/subscription/ultra-addon-actions.ts'),
+    src('app/for-suppliers/_components/plan-table-data.ts'),
+    src('app/for-suppliers/_components/supplier-front-data.ts'),
+    src('lib/renewal-reminder-products.ts'),
+  ];
+  for (const text of places) {
+    assert.doesNotMatch(text, /vendor_ultra_addon_(annual|year)/i, 'a yearly Ultra Add-on SKU is named');
+    assert.doesNotMatch(text, /ultra add-on[^.\n]{0,60}\b(1 year|per year|a year|yearly|annual)\b/i, 'a yearly Ultra Add-on is offered in words');
+  }
+  const skus = [...raw('../../supabase/migrations/20271351415438_ultra_addon_and_the_19_nov_plan_numbers.sql').matchAll(/\('(vendor_ultra_addon[a-z_]*)',/g)].map((m) => m[1]);
+  assert.deepEqual(skus, ['vendor_ultra_addon'], 'the migration inserts a second Ultra Add-on row');
+  // The Plans table's yearly row is the PLANS': the add-on's own row carries one price, every 4 weeks.
+  const table = planTable({ paywallOn: true, prices: { monthly: {}, annual: {}, bySku: { [ultraAddOnSku('ultra')]: 'PRICE' } } });
+  const addOnCells = table.flatMap((grp) => grp.rows).flatMap((r) => Object.values(r.cells).map((c) => c.text)).filter((t) => t.includes('PRICE'));
+  assert.ok(addOnCells.length > 0);
+  for (const t of addOnCells) assert.match(t, /^PRICE every 4 weeks · /);
 });
 
 test('E4 · `buyMoreLine` is gone — it had no reader on the approved page', () => {

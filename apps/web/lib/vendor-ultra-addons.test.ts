@@ -160,15 +160,19 @@ test('🔒 A WINDOW FOUND ON A NEVER-ACTIVATED ORDER IS NOT TRUSTED — the firs
   // the add-on for as long as the buyer had typed. (The database refuses that write too: 20271358916247 and
   // tests/db/orders-expires-at-is-the-servers.db.test.ts.)
   // SABOTAGE THAT TURNS THIS RED (run once, 22 Nov): in lib/sku-activation.ts make the stamp unconditional
-  // `.is('expires_at', null)` again (drop the `addOnWindowStamp(…) === 'only-if-empty' ?` choice) → the third and
-  // fourth assertions fail; return 'only-if-empty' for both arms of addOnWindowStamp → the first one fails.
+  // `.is('expires_at', null)` again (drop the `addOnWindowStamp(…) === 'only-if-empty' ?` choice) → the
+  // "stamp trusts a window" assertion fails; return 'only-if-empty' for both arms of addOnWindowStamp → the first fails.
   assert.equal(addOnWindowStamp(false), 'overwrite', 'a first activation kept whatever window sat on the unpaid order');
   assert.equal(addOnWindowStamp(true), 'only-if-empty', 'a re-approval would reset a window a renewal had extended');
 
   const src = stripComments(readFileSync(join(HERE, 'sku-activation.ts'), 'utf8'));
-  const from = src.indexOf('const target = parseCountAddOnServiceKey(ctx.serviceKey);');
-  const hook = src.slice(from, src.indexOf("if (target.kind === 'ultra') {", from));
-  assert.ok(from > 0 && hook.length > 0, 'the count add-on hook was not found — this test reads nothing');
+  // The ONE stamp, shared by every "a payment buys 28 days" order (the count add-ons and the single extra seat).
+  const from = src.indexOf('async function stampAddOnWindow(');
+  const hook = src.slice(from, src.indexOf('async function recomputeVendorAddOnCount(', from));
+  assert.ok(from > 0 && hook.length > 0, 'the window stamp was not found — this test reads nothing');
+  // …and the count add-on hook goes through it, before the Ultra early return.
+  assert.match(src, /const target = parseCountAddOnServiceKey\(ctx\.serviceKey\);[\s\S]{0,1600}?const expiresAt = await stampAddOnWindow\(ctx, COUNT_ADDONS\[target\.kind\]\.sku\);\s*if \(target\.kind === 'ultra'\) \{/);
+  assert.equal((src.match(/\.update\(\{ expires_at: expiresAt \}\)/g) ?? []).length, 1, 'a second add-on window stamp exists beside the shared one');
   // It asks the ledger whether THIS order was activated before — the service-role-only marker — and an unread answer throws.
   assert.match(
     hook,

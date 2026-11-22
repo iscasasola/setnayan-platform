@@ -4,7 +4,8 @@ import 'server-only';
  * ⏳ A "+1" ADD-ON'S 28 DAYS END EVEN WHEN NOTHING HAPPENS TO ITS ORDER (review 2026-11-19: "one payment keeps the
  * add-on forever").
  *
- * The four "+1" add-ons (category · service card · wait list · booking per date) keep a STORED count on
+ * The four "+1" add-ons (category · service card · wait list · booking per date) and the single extra seat
+ * (`extra_agent_seats` — controller ruling on PR #8019, 22 Nov) keep a STORED count on
  * `vendor_profiles`, recomputed by the activation hook from the paid orders whose window covers now. A window that
  * lapses with no refund and no new payment fires no hook — so without this run the stored count would keep granting
  * room nobody is paying for. `recount_vendor_count_addons()` re-counts every shop that holds one and writes the live

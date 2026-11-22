@@ -809,6 +809,8 @@ export function canBuyExtraBranches(_tier: string | null | undefined): boolean {
  * ⚠ A SEAT OR BRANCH ALREADY PAID FOR is not taken away (owner 2026-11-19: no existing subscriber's price or limits move
  * until the owner rules on existing subscribers). Ultra — the only plan that could buy them — keeps counting paid extra
  * seats and may RENEW a paid branch at its catalogue price. These are about what a shop HOLDS, never a new sale.
+ * ⏳ "Holds" is not "for good": since 22 Nov (controller ruling on PR #8019) a paid seat order covers its own 28 days,
+ * like every add-on — the stored count is the paid seat orders whose window covers now (lib/sku-activation.ts).
  */
 export function holdsExtraSeats(tier: string | null | undefined): boolean {
   return isTierAtLeast(tier, 'enterprise');

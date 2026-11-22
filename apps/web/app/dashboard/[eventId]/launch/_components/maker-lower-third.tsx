@@ -255,7 +255,7 @@ export function MakerLowerThird({
                 aria-label={`${tool.name} — back to the navigator`}
                 className="sn-press flex w-full flex-col items-center gap-1 rounded-xl px-0 py-1"
               >
-                <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-lg bg-white font-serif text-[15px] text-ink ring-1 ring-ink/10">
+                <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-lg bg-raised font-serif text-[15px] text-ink ring-1 ring-ink/10">
                   {tool.name.slice(0, 1)}
                 </span>
                 {/* ✂ NEVER A MID-WORD BREAK (owner 2026-10-05: "Backgro / und"): words
@@ -421,7 +421,7 @@ export function LowerThirdTileButton({ tile, part = false, group = part ? 'parts
 export const LOWER_THIRD_TILE =
   'sn-press flex h-full w-24 shrink-0 flex-col overflow-hidden rounded-xl ring-1 transition-shadow duration-sn-control ease-sn';
 /** A scene or an item: white. */
-export const LOWER_THIRD_TILE_PLAIN = 'bg-white ring-ink/10';
+export const LOWER_THIRD_TILE_PLAIN = 'bg-raised ring-ink/10';
 /** A PART of the pick (a stage's page, the RSVP's screens, Theme's sections): the gold wash (frame 6). */
 export const LOWER_THIRD_TILE_PART = 'bg-gild/10 ring-gild/40';
 /** The tile that is on: the Setnayan terracotta ring. */

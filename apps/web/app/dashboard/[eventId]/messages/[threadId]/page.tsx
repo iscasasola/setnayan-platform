@@ -1,10 +1,12 @@
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { ChatHost } from '@/lib/chat-hosts';
 import { readCoupleChatStripPeople } from '@/lib/chat-strip-people.server';
-import { readWhisperCoHostIds } from '@/lib/chat-whisper.server';
+import { WHISPER_AUDIENCE_UNREAD, readHostsWhisper, type WhisperAudience } from '@/lib/chat-whisper.server';
 import { fetchCoupleThreads, fetchMessages, fetchMessagesMasked, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import { buildCoupleConversationRows, readStandingExtras } from '@/lib/conversation-list';
@@ -36,7 +38,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
 import { NotYetVerifiedThreadLine } from '@/app/_components/chat/not-yet-verified-line';
-import { readThreadShopNotYetVerified } from '@/lib/not-yet-verified.server';
+import { readThreadShopVerifiedNote } from '@/lib/not-yet-verified.server';
 import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
 import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { BackButton } from '@/app/_components/back-button';
@@ -97,9 +99,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   const embedded = sp?.__embed === 'chat';
   const { eventId, threadId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const thread = await fetchThreadById(supabase, threadId);
@@ -125,11 +125,12 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
 
   // Event date bounds the meeting-request picker (today → day before the event).
   const eventDateRead = (async () => {
-    const { data: eventRow, error: eventRowError } = await supabase
+    const { data: eventRow, error: eventRowError } = await eventRowOnce(supabase, eventId, 'event_date', () =>
+      supabase
       .from('events')
       .select('event_date')
       .eq('event_id', eventId)
-      .maybeSingle();
+      .maybeSingle());
     if (eventRowError) {
       logQueryError(
         'CoupleThreadPage.event',
@@ -143,11 +144,12 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
 
   // 🗂 The chat-files rule (C2) counts from the event's LAST day and only from a real day — its precision and end.
   const eventDayRead = (async () => {
-    const { data, error } = await supabase
+    const { data, error } = await eventRowOnce(supabase, eventId, 'event_date_precision, event_end_date', () =>
+      supabase
       .from('events')
       .select('event_date_precision, event_end_date')
       .eq('event_id', eventId)
-      .maybeSingle();
+      .maybeSingle());
     if (error) logQueryError('CoupleThreadPage.eventDay', error, { event_id: eventId }, 'graceful_degrade');
     return (data ?? null) as { event_date_precision?: string | null; event_end_date?: string | null } | null;
   })();
@@ -535,8 +537,9 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
 
   // 💬 "This shop is not yet verified by Setnayan" — DECISION_LOG 2026-11-07 ruling (4), the chat half. In-app only,
   // never an email. The state and demo flag only (never the name), on the admin client; an unreadable row draws
-  // nothing (lib/not-yet-verified.server.ts).
-  const shopNotYetVerifiedRead = readThreadShopNotYetVerified(decisionAdmin, thread.vendor_profile_id);
+  // nothing (lib/not-yet-verified.server.ts). 📄 A shop whose papers lapsed reads "Renewing their papers with Setnayan"
+  // instead (owner 16 Nov "11.yes").
+  const shopVerifiedNoteRead = readThreadShopVerifiedNote(decisionAdmin, thread.vendor_profile_id);
 
   // 👥 WHO IS IN THIS CHAT — the picked supplier's Chat (Build 3 · Lane A) draws the SAME shipped `ChatHostStrip` the
   // supplier's picked client does, under the pinned row: one source (`event_chat_hosts`, service_role only, so the admin
@@ -557,17 +560,19 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       })
     : Promise.resolve(undefined);
 
-  // 🤫 MESSAGE ⇄ WHISPER (DECISION_LOG 2026-11-19): the OTHER hosts in this chat now — who a whisper would reach. NULL =
-  // this viewer is not a host in the chat (a coordinator, a host who left) or the read failed → no whisper is offered.
+  // 🤫 MESSAGE ⇄ WHISPER (DECISION_LOG 2026-11-19): who a whisper would reach — the OTHER hosts in this chat now AND the
+  // event's coordinators (Unichat part E, owner 20 Nov: "host and coordinator can whisper to each other"); a coordinator
+  // whispers too. NULL = this viewer is on no side here (a host who left) → no whisper is offered. A FAILED read is
+  // `unread`, and the box says it could not load — never "no co-host is in this chat" (a failure is not emptiness).
   // Only what is drawn: the send core reads the list again at Send, and the database decides who can read the line.
-  const whisperCoHostsRead: Promise<string[] | null> = readWhisperCoHostIds(decisionAdmin, {
+  const whisperCoHostsRead: Promise<WhisperAudience> = readHostsWhisper(decisionAdmin, {
     threadId,
     eventId: thread.event_id,
     vendorProfileId: thread.vendor_profile_id,
     viewerId: user.id,
   }).catch((e: unknown) => {
     console.error('[couple thread] whisper co-hosts read failed', e);
-    return null;
+    return WHISPER_AUDIENCE_UNREAD('hosts');
   });
 
   // 📌 THE PINS' OWN FACTS (Build 3 round 2), read as this host / coordinator: payment due · call time · access ask ·
@@ -610,7 +615,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     shopBooked,
     shopPhone,
     hosts,
-    shopNotYetVerified,
+    shopVerifiedNote,
   ] = await Promise.all([
     eventDateRead,
     blockStateRead,
@@ -630,12 +635,19 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     shopBookedRead,
     shopPhoneRead,
     hostsRead,
-    shopNotYetVerifiedRead,
+    shopVerifiedNoteRead,
   ]);
+  const shopNotYetVerified = shopVerifiedNote !== null;
+  const shopPapersRenewing = shopVerifiedNote === 'renewing';
   // Owner 16 Nov: the Book confirm on the quote card tells the couple, never blocks (`AccordionLockButton`).
-  if (quoteLockTarget) quoteLockTarget.notYetVerified = shopNotYetVerified;
+  if (quoteLockTarget) {
+    quoteLockTarget.notYetVerified = shopNotYetVerified;
+    quoteLockTarget.papersRenewing = shopPapersRenewing;
+  }
   const chatPins = await chatPinsRead;
-  const whisperCoHostIds = await whisperCoHostsRead;
+  const whisperCoHosts = await whisperCoHostsRead;
+  // The stream labels whispers only from a list that was really read.
+  const whisperCoHostIds = whisperCoHosts && !whisperCoHosts.unread ? whisperCoHosts.legacyCoHostIds : null;
   const shopLogoUrl = await shopLogoRead;
   // 🚦 The host's one blocker this page answers: a coordinator / planner's Agree, once a payment is on record without it;
   // or a change the supplier asked for, within a week of the day (its key `adjustment:<id>` is the server's, so its
@@ -719,8 +731,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // exactly ONE follow-up nudge (1); past that the form re-disables until the
   // vendor accepts. Mirrors `countCoupleMessages` (lib/chat.ts) behind the
   // server gate in sendChatMessage so the UI and the no-JS form path agree.
+  // 🗣 The hosts' side shares one allowance — the couple's lines and the coordinator's (Unichat part E, 20 Nov), as the
+  // send core counts them (countCoupleMessages + countCoordinatorMessages).
   const coupleMsgCount = initialMessages.filter(
-    (m) => m.sender_role === 'couple',
+    (m) => m.sender_role === 'couple' || m.sender_role === 'coordinator',
   ).length;
   const canFollowUpWhilePending = coupleMsgCount <= 1;
 
@@ -834,7 +848,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 </>
               }
               // 💬 DECISION_LOG 2026-11-07 (4): one quiet line, the details in its ⓘ — an unverified shop only.
-              below={shopNotYetVerified ? <NotYetVerifiedThreadLine /> : null}
+              below={shopNotYetVerified ? <NotYetVerifiedThreadLine renewing={shopPapersRenewing} /> : null}
               actions={
                 <>
                 <BookedCallButtons booked={shopBooked} phone={shopPhone} who={vendorLabel} />
@@ -856,6 +870,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                           { href: `${workspaceHref}?tab=files`, label: 'Files', icon: 'files' },
                           { href: `${workspaceHref}?tab=schedule`, label: 'Schedule', icon: 'schedule' },
                           { href: `${workspaceHref}?tab=details`, label: 'Booking details', icon: 'details' },
+                          // 🚩 Report a problem left the host's (+) for ⋯ (Unichat part G): the workspace's Report page.
+                          { href: `${workspaceHref}?tab=report`, label: 'Report a problem', icon: 'problem' },
                         ]
                       : []
                   }
@@ -889,8 +905,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                   lead={<CoupleThreadToolsSheet dealReveal={dealOpen ? dealEntry.composer.reveal : null} eventId={eventId} threadId={threadId} booked={THREAD_STAGE_HAS_AGREEMENT[threadStage]} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
                   userId={user.id}
-                  // 🤫 Drag the box right to whisper to the co-hosts — a host in this chat only (19 Nov).
-                  whisper={whisperCoHostIds ? { supplierName: vendorLabel, coHosts: whisperCoHostIds.length } : null}
+                  // 🤫 Drag the box right to whisper to the co-hosts and the coordinator — a host in this chat or the coordinator (19–20 Nov).
+                  whisper={whisperCoHosts ? { supplierName: vendorLabel, coHosts: whisperCoHosts.ids.length, unread: whisperCoHosts.unread, side: 'hosts', reach: whisperCoHosts.reach } : null}
+                  // 🎤 An empty box: Send is a mic — hold to record a voice note (Unichat H1, 20 Nov).
+                  voice
                 />
               </div>
             ) : thread.inquiry_status === 'pending' ? (
@@ -985,6 +1003,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             viewerRole="couple"
             {...(hosts !== undefined ? { hosts } : {})}
             whisperCoHostIds={whisperCoHostIds}
+            privateFilterWho={whisperCoHosts ? { who: whisperCoHosts.filterWho, unread: whisperCoHosts.unread } : null}
             counterpartyLabel={vendorLabel}
             shopLogoUrl={shopLogoUrl}
             eventDate={eventDate}

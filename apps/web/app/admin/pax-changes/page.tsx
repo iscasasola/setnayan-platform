@@ -4,6 +4,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { InfoTip } from '@/app/_components/info-tip';
+import { TemplateFail } from '@/app/_components/template-rows';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { formatCount } from '@/lib/format-number';
@@ -105,7 +107,7 @@ export default async function AdminPaxChangesPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <div className="mx-auto w-full max-w-[760px] space-y-4 px-4 pb-8 pt-2 sm:px-6">
       <PageMasthead
         title="Pax-driven cost changes"
       />
@@ -113,14 +115,12 @@ export default async function AdminPaxChangesPage() {
       {/* Fails toward the caveat: a row that cannot name its supplier must not
           read as a row whose supplier is unknown to the platform. */}
       {labelsUnread ? (
-        <p
-          role="alert"
-          className="border-t-[3px] bg-mulberry/5 py-4 text-sm text-ink/70 border-t border-ink/10"
-        >
-          <strong className="text-ink">Names could not be read.</strong> Rows below
-          show a dash instead of the supplier and the wedding. The amounts and the
-          dates are accurate — the labels are missing, not the records.
-        </p>
+        <TemplateFail retryHref="/admin/work?view=pax-changes" data="pax-labels">
+          <InfoTip label="Names could not be read." align="start">
+            Rows below show a dash instead of the supplier and the wedding. The amounts and the dates are accurate — the
+            labels are missing, not the records.
+          </InfoTip>
+        </TemplateFail>
       ) : null}
 
       <ConsoleTable
@@ -204,6 +204,6 @@ export default async function AdminPaxChangesPage() {
           },
         ]}
       />
-    </section>
+    </div>
   );
 }

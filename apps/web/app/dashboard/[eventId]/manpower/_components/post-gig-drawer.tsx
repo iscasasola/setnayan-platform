@@ -30,7 +30,7 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p
-                className="m-eyebrow uppercase text-slate-500"
+                className="m-eyebrow uppercase text-slate-500 dark:text-ink/60"
                 style={{ letterSpacing: '0.2em', fontSize: '11px' }}
               >
                 Post a gig
@@ -43,7 +43,7 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close"
-              className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
+              className="rounded-md p-1.5 text-slate-500 dark:text-ink/60 hover:bg-slate-100 dark:hover:bg-ink/[0.06]"
             >
               <X className="h-4 w-4" strokeWidth={1.75} />
             </button>
@@ -54,7 +54,7 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
 
             <label className="block">
               <span
-                className="m-label-mono mb-1 block uppercase text-slate-500"
+                className="m-label-mono mb-1 block uppercase text-slate-500 dark:text-ink/60"
                 style={{ letterSpacing: '0.2em', fontSize: '11px' }}
               >
                 Gig label
@@ -66,16 +66,16 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
                 minLength={4}
                 maxLength={200}
                 required
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
+                className="w-full rounded-md border border-slate-300 dark:border-ink/20 bg-raised px-3 py-2 text-sm text-slate-900 dark:text-ink placeholder:text-slate-400 dark:placeholder:text-ink/50 focus:border-slate-500 dark:focus:border-ink/35 focus:outline-none"
               />
-              <span className="mt-1 block text-xs text-slate-500">
+              <span className="mt-1 block text-xs text-slate-500 dark:text-ink/60">
                 A short headline suppliers will see on the gig board.
               </span>
             </label>
 
             <label className="block">
               <span
-                className="m-label-mono mb-1 block uppercase text-slate-500"
+                className="m-label-mono mb-1 block uppercase text-slate-500 dark:text-ink/60"
                 style={{ letterSpacing: '0.2em', fontSize: '11px' }}
               >
                 Cash amount (₱)
@@ -88,9 +88,9 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
                 placeholder="Amount you will pay the crew"
                 min={0}
                 step={100}
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
+                className="w-full rounded-md border border-slate-300 dark:border-ink/20 bg-raised px-3 py-2 text-sm text-slate-900 dark:text-ink placeholder:text-slate-400 dark:placeholder:text-ink/50 focus:border-slate-500 dark:focus:border-ink/35 focus:outline-none"
               />
-              <span className="mt-1 block text-xs text-slate-500">
+              <span className="mt-1 block text-xs text-slate-500 dark:text-ink/60">
                 You pay this directly to the crew on the day. Setnayan never
                 touches the money.
               </span>
@@ -98,7 +98,7 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
 
             <label className="block">
               <span
-                className="m-label-mono mb-1 block uppercase text-slate-500"
+                className="m-label-mono mb-1 block uppercase text-slate-500 dark:text-ink/60"
                 style={{ letterSpacing: '0.2em', fontSize: '11px' }}
               >
                 Notes (optional)
@@ -108,7 +108,7 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
                 rows={3}
                 maxLength={2000}
                 placeholder="Venue, call time, parking, what to bring..."
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
+                className="w-full rounded-md border border-slate-300 dark:border-ink/20 bg-raised px-3 py-2 text-sm text-slate-900 dark:text-ink placeholder:text-slate-400 dark:placeholder:text-ink/50 focus:border-slate-500 dark:focus:border-ink/35 focus:outline-none"
               />
             </label>
 
@@ -116,7 +116,7 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-md border border-slate-300 dark:border-ink/20 bg-raised px-3 py-2 text-sm font-medium text-slate-700 dark:text-ink/80 hover:bg-slate-50 dark:hover:bg-ink/[0.06]"
               >
                 Cancel
               </button>

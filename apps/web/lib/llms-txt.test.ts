@@ -96,7 +96,7 @@ test('RETIRED products never appear — the 2026-07-31 drift cases', () => {
   assert.ok(!body.includes('₱1,999'), 'Papic Pool 6k is ₱2,000 now, not ₱1,999');
 });
 
-test('Setnayan AI is never quoted a price of its own — it comes with Event Plus, Event Pro and Event Ultra', () => {
+test('Setnayan AI is never quoted a price of its own — it comes with Event Pro and Event Ultra', () => {
   /*
     ⚖ Owner 2026-11-04 (final price sheet): "Setnayan ai no separate purchase will be part of event plus and event
     pro". Until that day this test proved the four-rung AI ladder rendered; the ladder is no longer for sale, so the
@@ -118,7 +118,10 @@ test('Setnayan AI is never quoted a price of its own — it comes with Event Plu
   }
   assert.ok(!/priced by event type/i.test(body), 'llms.txt still sells Setnayan AI by event type');
   // Re-pointed 2026-11-13: Event Ultra is the third plan and carries the AI too (AI_INCLUDED_PLAN_SKUS, lib/sku-activation.ts).
-  assert.match(body, /Setnayan AI is not sold on its own — it comes with Event Plus, Event Pro and Event Ultra/);
+  // Re-pointed 2026-11-18 (the re-cut): Event Plus no longer carries it for new buyers — Event Pro and Event Ultra do.
+  assert.match(body, /Setnayan AI is not sold on its own — it comes with Event Pro and Event Ultra/);
+  assert.doesNotMatch(body, /- \*\*Event Plus\*\*[^\n]*Setnayan AI/, 'llms.txt still sells Setnayan AI inside Event Plus');
+  assert.match(body, /- \*\*Event Pro\*\*[^\n]*Setnayan AI/, 'llms.txt no longer names Setnayan AI inside Event Pro');
   assert.ok(body.includes(peso(Number(RETAIL.find((r) => r.service_code === 'EVENT_PLUS')!.retail_price_php))), 'Event Plus is not priced');
   // The ladder primitive still resolves (other callers price from it); it is simply not rendered here.
   assert.equal(aiLadder(buildPriceBook(INPUT)).length, 4);
@@ -153,21 +156,23 @@ test('a missing SKU refuses to render, and names EVERY missing code at once', ()
     to PABATI, which went free hours later for the same reason and was retired
     out of the product the same day. It was PAKANTA + PATIKTOK_COMPILER until
     2026-09-27, when Patiktok became UNLISTED_UNTIL_PROVEN (still on sale, no
-    longer required here) — the fourth move, for the same reason. It is
-    PAKANTA + LIVE_STUDIO now.
+    longer required here) — the fourth move, for the same reason. It was
+    PAKANTA + LIVE_STUDIO until 2026-11-20, when Music Maker was retired (owner:
+    "Retire Patiktok and Music Maker") — the fifth move. It is EVENT_PLUS +
+    LIVE_STUDIO now.
 
     🔑 PICK CODES THAT ARE STILL REQUIRED, and check that when you touch this.
     A vacuous assertion here does not fail; it just stops testing half of what
     it says it tests.
   */
   const stripped = RETAIL.filter(
-    (r) => r.service_code !== 'PAKANTA' && r.service_code !== 'LIVE_STUDIO',
+    (r) => r.service_code !== 'EVENT_PLUS' && r.service_code !== 'LIVE_STUDIO',
   );
   assert.throws(
     () => renderLlmsTxt({ ...INPUT, retail: stripped }),
     (err: unknown) => {
       assert.ok(err instanceof MissingSkuError);
-      assert.deepEqual([...err.codes].sort(), ['LIVE_STUDIO', 'PAKANTA']);
+      assert.deepEqual([...err.codes].sort(), ['EVENT_PLUS', 'LIVE_STUDIO']);
       return true;
     },
     'a catalog missing a named SKU must throw rather than emit a half-true file',
@@ -176,11 +181,13 @@ test('a missing SKU refuses to render, and names EVERY missing code at once', ()
 
 test('a reprice propagates without touching this repo', () => {
   const repriced = RETAIL.map((r) =>
-    r.service_code === 'PAKANTA' ? { ...r, retail_price_php: 3200 } : r,
+    // Was PAKANTA until 2026-11-20 (Music Maker retired) — LIVE_STUDIO_HOSTED_CHANNEL is prose-priced and on sale.
+    r.service_code === 'LIVE_STUDIO_HOSTED_CHANNEL' ? { ...r, retail_price_php: 3217 } : r,
   );
+  const before = renderLlmsTxt(INPUT);
   const body = renderLlmsTxt({ ...INPUT, retail: repriced });
-  assert.ok(body.includes('₱3,200'), 'a catalog reprice must appear in llms.txt with no code change');
-  assert.ok(!body.includes('₱2,500 . Custom Filipino'), 'the old Pakanta price must be gone');
+  assert.ok(!before.includes('₱3,217'), 'premise: the test figure is not already in the file');
+  assert.ok(body.includes('₱3,217'), 'a catalog reprice must appear in llms.txt with no code change');
 });
 
 // ─── A RETIRED SKU MUST STOP BEING ADVERTISED ──────────────────────────────
@@ -243,15 +250,16 @@ test('advertising a SKU that is off sale REFUSES to render', () => {
   const retired = {
     ...INPUT,
     retail: INPUT.retail.map((r) =>
-      // 2026-10-22: ANIMATED_MONOGRAM was retired (the Logo & QR part sells it) — PAKANTA is prose-priced and on sale.
-      r.service_code === 'PAKANTA' ? { ...r, is_active: false } : r,
+      // 2026-10-22: ANIMATED_MONOGRAM was retired; 2026-11-20: PAKANTA (Music Maker) was retired —
+      // LIVE_STUDIO_HOSTED_CHANNEL is prose-priced and on sale.
+      r.service_code === 'LIVE_STUDIO_HOSTED_CHANNEL' ? { ...r, is_active: false } : r,
     ),
   };
   assert.throws(
     () => renderLlmsTxt(retired),
     (err: unknown) => {
       assert.ok(err instanceof RetiredSkuError, `expected RetiredSkuError, got ${err}`);
-      assert.match((err as Error).message, /PAKANTA/);
+      assert.match((err as Error).message, /LIVE_STUDIO_HOSTED_CHANNEL/);
       return true;
     },
     'A SKU named in the prose was taken off sale and llms.txt rendered anyway — ' +
@@ -351,11 +359,14 @@ test('the launch offer is named from the passed cap only, and absent when the of
   assert.doesNotMatch(feeOff, /Launch offer/, 'no fee is billed while it is switched off, so no waiver is promised');
 });
 
-// The supplier's own clients — brought through their own invite, booking QR or link — never carry the fee
-// (`SUPPLIER_BROUGHT_SOURCES` in lib/booking-fee-gate.ts). SABOTAGE: drop the clause → RED.
-test('llms.txt says a supplier-brought couple (own QR, invite or link) carries no fee', () => {
+// ⟲ Owner 2026-11-16 (d4899cd5 · 9fe95ebe · answer 3): a supplier-brought couple is free only when the supplier is the
+// FIRST to bring the event (or the import brought the couple onto Setnayan — no length named on a public page, 19 Nov
+// PROMOTION PAGES (4)). SABOTAGE: drop the clause → RED.
+test('llms.txt says when a supplier-brought couple (own QR, invite or link) carries no fee — and that the rest pay', () => {
   const body = withFeeFlag('true', () => renderLlmsTxt(INPUT));
-  assert.match(body, /their own invite, their own booking QR or their own link never carries the fee/);
+  assert.match(body, /the first supplier to bring an event onto Setnayan/);
+  assert.match(body, /their own invite, their own booking QR or their own link; every other booking carries the fee/);
+  assert.doesNotMatch(body, /never carries the fee/, 'the retired "own clients never pay" promise is back');
 });
 
 // W1-B20 (2026-11-16): the bare /v/ directory is a 404 — shops live at setnayan.com/{shop}. SABOTAGE: put

@@ -30,11 +30,22 @@ type SaveArgs = {
  */
 type SaveApnsArgs = { apnsToken: string };
 
+/**
+ * 🔕 MUTE THIS CHAT (Unichat drawing v3 · controller ruling 21 Nov 2026) — a phone-notice preference for ONE chat, for
+ * ONE person: `muted: true` writes the viewer's own `chat_thread_mutes` row, `false` removes it (Pattern A — RLS holds
+ * user_id = auth.uid(), so nobody can mute for someone else). Folded into this action, not a new one: the server-action
+ * budget is at its ceiling. The bell row and unread counts are untouched; only the buzz stops (lib/chat-mutes.ts).
+ */
+type MuteChatArgs = { muteThreadId: string; muted: boolean };
+
 export type PushActionResult = { ok: true } | { ok: false; error: string };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function savePushSubscription(
-  sub: SaveArgs | SaveApnsArgs,
+  sub: SaveArgs | SaveApnsArgs | MuteChatArgs,
 ): Promise<PushActionResult> {
+  if (sub && 'muteThreadId' in sub) return muteChat(sub);
   const apns = sub && 'apnsToken' in sub;
   if (apns) {
     if (!isApnsDeviceToken(sub.apnsToken)) return { ok: false, error: 'bad_token' };
@@ -64,6 +75,27 @@ export async function savePushSubscription(
 
   if (error) {
     console.error('[push] savePushSubscription failed:', error.message);
+    return { ok: false, error: 'save_failed' };
+  }
+  return { ok: true };
+}
+
+async function muteChat({ muteThreadId, muted }: MuteChatArgs): Promise<PushActionResult> {
+  if (typeof muteThreadId !== 'string' || !UUID_RE.test(muteThreadId) || typeof muted !== 'boolean') {
+    return { ok: false, error: 'bad_request' };
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'not_authenticated' };
+  const { error } = muted
+    ? await supabase
+        .from('chat_thread_mutes')
+        .upsert({ thread_id: muteThreadId, user_id: user.id }, { onConflict: 'thread_id,user_id', ignoreDuplicates: true })
+    : await supabase.from('chat_thread_mutes').delete().eq('thread_id', muteThreadId).eq('user_id', user.id);
+  if (error) {
+    console.error('[push] mute chat failed:', error.message);
     return { ok: false, error: 'save_failed' };
   }
   return { ok: true };

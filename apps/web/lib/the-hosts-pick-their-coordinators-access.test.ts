@@ -116,8 +116,15 @@ test('4 · Home: owners only, self-hiding, a refused read said; Access keeps it 
   assert.match(card, /if \(\(me as \{ member_type\?: string \| null \} \| null\)\?\.member_type !== 'couple'\) return null;/, 'shown to someone who is not an owner');
   assert.match(card, /\(s\) => seatAsksForLevel\(s\) && s\.user_id !== userId/);
   assert.match(card, /if \(seats\.length === 0\) return null;/);
-  assert.match(card, /unread accessHref=/, 'a refused read is silent');
-  assert.match(src('app/dashboard/[eventId]/page.tsx'), /<CoordinatorLevelCard eventId=\{eventId\} userId=\{user\.id\} \/>/);
+  // RE-AIMED 20 Nov 2026 (Event Today, Focus shape): the page reads the ask ONCE (`readCoordinatorLevelAsks`) and hands
+  // the same answer to the doorway and to the Today list. A refused read is still said — by the doorway's line and by
+  // the list's "couldn't check" row — and a read that throws is unread, never "nothing waits".
+  assert.match(card, /if \(error\) \{[\s\S]{0,200}?return \{ unread: true, asks: \[\] \};/, 'a refused read is silent');
+  assert.match(card, /unread=\{got\.unread\} accessHref=/, 'a refused read is silent');
+  const page = src('app/dashboard/[eventId]/page.tsx');
+  assert.match(page, /<CoordinatorLevelCard eventId=\{eventId\} userId=\{user\.id\} read=\{coordinatorAsks\} \/>/);
+  assert.match(page, /readCoordinatorLevelAsks\(eventId, user\.id\)\.catch\(\(\): CoordinatorLevelRead => \(\{ unread: true, asks: \[\] \}\)\)/, 'a read that throws reads as nothing waiting');
+  assert.match(src('app/dashboard/[eventId]/_components/event-today-asks.tsx'), /if \(i\.coordinator\?\.unread\) \{\s*asks\.push\(\{[^}]*unread: true \}\);/, 'the list hides a refused read');
   const ask = src('app/dashboard/[eventId]/_components/coordinator-level-ask.tsx');
   assert.match(ask, /setDelegateArea\(eventId, ask\.moderatorId, ACCESS_LEVEL_AREA, level\)/);
   assert.match(ask, /setDelegateArea\(eventId, ask\.moderatorId, ACCESS_LEVEL_AREA, ACCESS_LEVEL_UNDO\)/);

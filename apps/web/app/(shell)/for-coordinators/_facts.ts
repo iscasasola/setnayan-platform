@@ -25,6 +25,7 @@ import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
+import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
   PORTFOLIO_FREE_BASE,
   TIER_CAPS,
@@ -45,10 +46,11 @@ function many(n: number, one: string, more: string): string {
   return `${formatCount(n)} ${n === 1 ? one : more}`;
 }
 
-/** "20 km" — or "Nationwide" for a plan whose reach is `Infinity` (Ultra since 2026-11-04). */
-export function reachWords(km: number, nationwide = 'Nationwide'): string {
-  return Number.isFinite(km) ? `${formatCount(km)} km` : nationwide;
-}
+/**
+ * 🔓 REACH IS NOT A PLAN ALLOWANCE (owner 2026-11-19: *"ok unlock the range. not plan dependend anymore."* · *"Free
+ * Unverified account will have a range of 0km."*). The SAME words /for-suppliers says (`VERIFIED_REACH`).
+ */
+export const VERIFIED_REACH = 'You set your own reach';
 
 /** The name a person reads for a tier — "Verified", not "Free · Verified"; "Ultra", never "enterprise". */
 export function planName(t: VendorTier): string {
@@ -69,19 +71,20 @@ export function freeSpec(): string {
   return `${many(c.parentCategories, 'category', 'categories')} · ${many(c.serviceCardsTotal, 'service card', 'service cards')} live · ${FREE_FINDABLE}`;
 }
 
-/** Verified's spec line — "20 km around you · the Verified seal · get paid in the app". */
+/** Verified's spec line — "You set your own reach · the Verified seal · get paid in the app". */
 export function verifiedSpec(): string {
-  return `${reachWords(TIER_CAPS.verified.serviceRadiusKm)} around you · the Verified seal · get paid in the app`;
+  // 💬 Owner 21 Nov: "AI Chatbot is for verified and up" — the same words as /for-suppliers, read from the gate's table.
+  const chatbot = (PLAN_CHATBOT_LEVEL.verified ?? 'none') !== 'none' ? ' · the AI chatbot' : '';
+  return `${VERIFIED_REACH} · the Verified seal · get paid in the app${chatbot}`;
 }
 
 /**
- * A paid plan's spec line, e.g. Pro: "100 km · 8 categories · 20 service cards live · 5 team seats · 2 branches". A cap of 0
- * is left out (Plus has no branches). The waiting list has no plan limit since 2026-11-18, so it is not a part.
+ * A paid plan's spec line, e.g. Pro: "8 categories · 20 service cards live · 5 team seats · 2 branches". A cap of 0
+ * is left out (Plus has no branches). The waiting list (2026-11-18) and reach (2026-11-19) are not plan limits.
  */
 export function growSpec(t: GrowTier): string {
   const c: TierCaps = TIER_CAPS[t];
   const parts = [
-    reachWords(c.serviceRadiusKm),
     many(c.parentCategories, 'category', 'categories'),
     // Cards are unlimited to MAKE; the plan counts the LIVE ones (owner 19 Nov 2026, lib/live-cards-cap.ts). Bookings a
     // day are not a plan limit — the same words as /for-suppliers (lib/the-two-supplier-pages-say-the-same-caps.test.ts).
@@ -92,11 +95,9 @@ export function growSpec(t: GrowTier): string {
   return parts.join(' · ');
 }
 
-/** "20 km around you, 30 km on Supplier Plus, 100 km on Pro, nationwide on Ultra" — the search reach, plan by plan. */
+/** The search reach in one sentence — the same on every plan (2026-11-19), the same words as /for-suppliers. */
 export function reachLadderSentence(): string {
-  const head = `${reachWords(TIER_CAPS.verified.serviceRadiusKm)} around you`;
-  const rest = GROW_TIERS.map((t) => `${reachWords(TIER_CAPS[t].serviceRadiusKm, 'nationwide')} on ${planName(t)}`);
-  return [head, ...rest.slice(0, -1)].join(', ') + `, ${rest[rest.length - 1]}`;
+  return 'until then you are found by your own link and QR; once verified, you set how far you go, on every plan';
 }
 
 /** The pill a plan-gated line wears: "Supplier Plus and up" / "Pro+" — or the bare name at the top of the ladder. */
@@ -144,11 +145,8 @@ export function foldGroups(): readonly FoldGroup[] {
         { text: 'Your public page, auto-built, ready for Google', tag: FREE },
         { text: `${formatCount(PORTFOLIO_FREE_BASE)} portfolio photos`, tag: FREE },
         { text: 'Six QR codes: Shortlist, Check a date, My page, Booked, Crew, Review', tag: FREE },
-        {
-          text: `Shown in search ${reachWords(TIER_CAPS.verified.serviceRadiusKm)} around you`,
-          tag: { kind: 'ver', text: 'Verified' },
-        },
-        { text: 'Wider search reach as you grow', tag: plan((c) => c.serviceRadiusKm > TIER_CAPS.verified.serviceRadiusKm) },
+        { text: 'Shown in search, as far as you go', tag: { kind: 'ver', text: 'Verified' } },
+        { text: 'Your own reach on every plan — you set it', tag: { kind: 'ver', text: 'Verified' } },
         { text: 'Your own web address', tag: plan((c) => c.customWebsiteName) },
         { text: 'Featured in Stories, editorial spotlights', tag: plan((c) => c.editorialFeatures) },
         { text: 'NFC tags, door sticker, ready-made printed pieces', tag: FREE },

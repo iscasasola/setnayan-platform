@@ -77,7 +77,7 @@ export function MomentVoicesFields({
                 className={`grid h-[22px] w-[22px] place-items-center rounded-full font-sans text-[11px] font-semibold tracking-normal ${
                   studio
                     ? slot === 'a'
-                      ? 'bg-terracotta text-white'
+                      ? 'bg-terracotta text-cream'
                       : 'bg-ink text-cream'
                     : slot === 'a'
                       ? 'bg-[color:var(--ls-accent)] text-[color:var(--ls-accent-ink)]'

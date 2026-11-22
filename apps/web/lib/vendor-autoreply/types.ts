@@ -23,7 +23,8 @@ export type Intent =
   | 'booking'
   | 'unknown';
 
-export type PricingBasis = 'fixed' | 'per_pax' | 'per_hour';
+/** 'per_unit' (Card Maker part 7): the reply states the synced "starts at" price only — no per-unit words are composed here. */
+export type PricingBasis = 'fixed' | 'per_pax' | 'per_hour' | 'per_unit';
 
 export type StoreDiscount = {
   type: string; // vendor_service_discounts.discount_type

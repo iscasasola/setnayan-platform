@@ -3,9 +3,13 @@
  * server-only match stamp, the link's "first opened", and the date a claim does
  * NOT hold. Migration 20271267252894 (+ 20271268117342).
  *
- *   1 · `booking_fee_attribution_for` answers EVERY case of `FEE_RULE_B_CASES`
- *       exactly as `bookingFeeAttributionFromFacts` does (the drift guard: SQL decides
- *       what is charged, TS what the app believes — they may never disagree);
+ *   1 · `booking_fee_attribution_for_event` — the PER-EVENT facts rule — answers EVERY case of
+ *       `FEE_RULE_B_CASES` exactly as `bookingFeeAttributionFromFacts` does (the drift guard: the
+ *       two readings of one event's facts may never disagree). ⟲ Since the owner's 16 Nov answers
+ *       the BILL (`booking_fee_attribution_for`) adds what one event's facts cannot say — the free
+ *       year, the event's one free import slot, the verified gate, and "nothing imported pays"
+ *       (answer 3) — so it is held by `imported-clients-free-one-year-or-first-import.db.test.ts`,
+ *       not by this per-event mirror;
  *   2 · `platform_settings.fee_leak_price_tolerance` is the owner's 0.10;
  *   3 · a couple's own session cannot write or clear the match stamp, the
  *       service role can;
@@ -40,7 +44,7 @@ async function newShop(): Promise<string> {
   const uid = await newUser('shop');
   const r = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, $2, 'Manila', ARRAY['catering']::text[], 'verified', NOW()) RETURNING vendor_profile_id`,
+     VALUES ($1, $2, 'Manila', ARRAY['catering']::text[], 'verified', TIMESTAMPTZ '2020-01-01') RETURNING vendor_profile_id`,
     [uid, `Kusina ${n}`],
   );
   return r.rows[0]!.vendor_profile_id;
@@ -114,7 +118,7 @@ async function sqlAnswer(c: FeeRuleBCase): Promise<string> {
       d.thread,
     ]);
   }
-  const r = await db.query<{ a: string }>(`SELECT public.booking_fee_attribution_for($1, $2) AS a`, [shop, eventId]);
+  const r = await db.query<{ a: string }>(`SELECT public.booking_fee_attribution_for_event($1, $2) AS a`, [shop, eventId]);
   return r.rows[0]!.a;
 }
 

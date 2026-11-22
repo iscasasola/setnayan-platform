@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Heart } from 'lucide-react';
@@ -12,6 +13,8 @@ import { ServiceWizard } from '../../_components/service-wizard';
 import { CanvasMaker } from '../../_components/canvas-maker';
 import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
 import { loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
+import { loadCardMakerLibrary } from '@/lib/card-maker-library.server';
+import { canonicalServiceForVendorCategory } from '@/lib/service-customization-draft';
 import { RefinementsEditor } from '../../_components/refinements-editor';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
@@ -105,9 +108,7 @@ export default async function NewServicePage({
   const cat = category as VendorCategory;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
@@ -139,10 +140,14 @@ export default async function NewServicePage({
   // The vendor's OTHER offered categories → the "comes with" link options.
   // ONE loader for every door into the maker (lib/service-card-maker.server.ts). The kind is fixed by the address,
   // so the kind list is not read.
-  const ctx = await loadMakerContext(supabase, profile.vendor_profile_id, {
-    fixedCategory: category,
-    withKindList: false,
-  });
+  const [ctx, library] = await Promise.all([
+    loadMakerContext(supabase, profile.vendor_profile_id, {
+      fixedCategory: category,
+      withKindList: false,
+    }),
+    // 📚 Card Maker HYBRID part 2 — saved pay plans, the shop's other cards, Setnayan's starting lists for this service.
+    loadCardMakerLibrary(supabase, profile.vendor_profile_id, canonicalServiceForVendorCategory(category)),
+  ]);
   const otherCategories = ctx.otherCategories;
   const coverageOptions = ctx.coverages;
 
@@ -212,8 +217,10 @@ export default async function NewServicePage({
       ) : null}
       {canvas ? (
         <CanvasMaker
+          library={library}
           categoryValue={cat}
           categoryLabel={kindLabel(cat)}
+          categoryPath={ctx.kindPath(cat)}
           otherCategories={otherCategories}
           coverages={coverageOptions}
           vendorProfileId={profile.vendor_profile_id}

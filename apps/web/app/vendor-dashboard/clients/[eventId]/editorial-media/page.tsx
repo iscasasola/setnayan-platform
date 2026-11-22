@@ -1,16 +1,16 @@
-import Link from 'next/link';
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { getEditorialEligibility, MAX_PER_TYPE } from '@/lib/editorial-vendor-media';
+import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { EditorialMediaStudio, type ExistingMedia } from './_components/editorial-media-studio';
+import type { ExistingMedia } from './_components/editorial-media-studio';
+import { EditorialMediaBody, type EditorialEligibilityView } from './editorial-media-body';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 
-export const metadata = { title: 'Editorial media · Supplier' };
+export const metadata = { title: 'From your camera · Supplier' };
 
 /**
  * Vendor "From Your Vendors" submit surface (iteration 0046, Inc 2). Visible
@@ -26,9 +26,7 @@ export default async function VendorEditorialMediaPage({
 }) {
   const { eventId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
@@ -46,7 +44,7 @@ export default async function VendorEditorialMediaPage({
   const admin = createAdminClient();
   // ⏱ ONE ROUND TRIP: the eligibility and the event's name ask nothing of each other. Only the eligibility can throw,
   // and it was the first of the two, so the batch rejects exactly when, and with what, it did alone.
-  const [eligibility, { data: ev }] = await Promise.all([
+  const [eligibility, { data: ev, error: evErr }] = await Promise.all([
     getEditorialEligibility(admin, eventId, profile.vendor_profile_id),
     admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
   ]);
@@ -54,19 +52,25 @@ export default async function VendorEditorialMediaPage({
   // booking is the couple's recommended pick AND confirmed complete.
   const eventVendorId = eligibility.eligible ? eligibility.eventVendorId : null;
 
-  const eventName = (ev?.display_name as string | null) ?? 'this wedding';
+  if (evErr) console.error('[supabase-error] editorial-media: event name read', evErr);
 
   // Existing submissions by this vendor on this event (any moderation state —
   // the vendor sees their own pending/blocked rows with a status).
   let existing: ExistingMedia[] = [];
+  // C-5 (supplier audit 2026-11-17): a REFUSED read hid "Already on their editorial" and showed the full allowance.
+  let existingUnread = false;
   if (eventVendorId) {
-    const { data: rows } = await admin
+    const { data: rows, error: rowsErr } = await admin
       .from('editorial_vendor_media')
       .select('media_id, media_type, still_r2_key, boomerang_r2_key, caption, moderation_state, hidden_by_couple')
       .eq('event_id', eventId)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
+    if (rowsErr) {
+      console.error('[supabase-error] editorial-media: own submissions read', rowsErr);
+      existingUnread = true;
+    }
     existing = await Promise.all(
       ((rows ?? []) as Array<Record<string, unknown>>).map(async (r) => ({
         mediaId: String(r.media_id),
@@ -83,56 +87,17 @@ export default async function VendorEditorialMediaPage({
     );
   }
 
+  const view: EditorialEligibilityView = eventVendorId
+    ? { kind: 'open', existing, existingUnread }
+    : eligibility.isRecommendedPick
+      ? { kind: 'almost', disputed: Boolean(eligibility.isDisputed) }
+      : { kind: 'not-recommended' };
   return (
-    <section className="mx-auto w-full tab:max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <Link
-        href={`/vendor-dashboard/clients/${eventId}?tab=details`}
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-4 w-4" /> Event brief
-      </Link>
-
-      <header className="space-y-3">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-          <Sparkles aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        </span>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">From your camera</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Add a few of your favourite shots from {eventName} — up to <strong>{MAX_PER_TYPE} photos</strong> and{' '}
-          <strong>{MAX_PER_TYPE} short clips</strong>. They appear in a “From your suppliers” strip on the couple’s
-          editorial, credited to you. Clips loop as a seamless boomerang.
-        </p>
-      </header>
-
-      {eventVendorId ? (
-        <EditorialMediaStudio
-          eventId={eventId}
-          vendorProfileId={profile.vendor_profile_id}
-          existing={existing}
-        />
-      ) : eligibility.isRecommendedPick ? (
-        // Recommended pick, but the service isn't confirmed complete yet —
-        // Stage-10 gate. Show a clear pending/locked state, not "unavailable".
-        <div className="sn-tile p-6">
-          <h2 className="text-lg font-semibold">
-            {eligibility.isDisputed ? 'On hold for this event' : 'Almost there'}
-          </h2>
-          <p className="mt-2 text-sm text-ink/65">
-            {eligibility.isDisputed
-              ? `${eventName} reported a problem with the delivery. Once that’s sorted out, you’ll be able to add a photo or a 5-second clip to their story.`
-              : `Once ${eventName} marks your service complete, you can add a photo or a 5-second clip to their story. Mark your service complete on the event brief, then confirm with them.`}
-          </p>
-        </div>
-      ) : (
-        <div className="sn-tile p-6">
-          <h2 className="text-lg font-semibold">Not available for this event yet</h2>
-          <p className="mt-2 text-sm text-ink/65">
-            “From your suppliers” is open to the couple’s recommended supplier for a category. Once
-            you’re the couple’s confirmed pick here, you’ll be able to add your photos and clips to
-            their editorial.
-          </p>
-        </div>
-      )}
-    </section>
+    <EditorialMediaBody
+      eventId={eventId}
+      eventName={evErr ? null : ((ev?.display_name as string | null) ?? null)}
+      vendorProfileId={profile.vendor_profile_id}
+      view={view}
+    />
   );
 }

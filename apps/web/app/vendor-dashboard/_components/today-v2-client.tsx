@@ -1,12 +1,17 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Check } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { ActionButton } from '@/components/action-button';
+import { PeekToast, type PeekToastTone } from '@/app/_components/toast/peek-toast';
+import { TwoWayPanes, useTodayDrag } from '@/app/_components/two-way-drag';
+import { todayPutOff } from '@/app/_actions/today-put-off-actions';
 import { SupplierToast } from './supplier-toast';
 import { TODAY_ASIDE_COOKIE, readTodayAside, setAside } from '@/lib/today-aside';
+import { PUT_OFF_WORDS, canPutOff } from '@/lib/today-put-off';
 
 /**
  * 📋 TODAY v2 — THE QUICK ROWS, ANSWERED ON THE ROW (owner 18 Nov, `Today, one task` v2).
@@ -19,7 +24,14 @@ import { TODAY_ASIDE_COOKIE, readTodayAside, setAside } from '@/lib/today-aside'
  * 🔒 app/vendor-dashboard/_components/today-is-one-task.test.ts
  */
 
-type Group = { openKey: string | null; setOpen: (key: string | null) => void };
+type Group = {
+  openKey: string | null;
+  setOpen: (key: string | null) => void;
+  /** ⏭ v3 part 2 — "Do it tomorrow" (drag left, or the open card's link). Says the outcome with Undo. */
+  putOff: (key: string) => void;
+  /** 🔴 A red row dragged left: it springs back and the toast says why. */
+  refuse: () => void;
+};
 const QuickGroup = createContext<Group | null>(null);
 
 /** The word the toast says after a row of this kind is answered (drawing part 8, "Done"). */
@@ -34,12 +46,21 @@ const DONE_WORD: Readonly<Record<string, string>> = {
 export function TodayQuickGroup({ rows, children }: { rows: ReadonlyArray<{ key: string; kind: string }>; children: ReactNode }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [toast, setToast] = useState<{ n: number; text: string } | null>(null);
+  // ⏭ The drag's own toasts (v3 part 2): "Moved to tomorrow · Undo", "Urgent · can't go to tomorrow", a failure.
+  const [peek, setPeek] = useState<{ n: number; text: string; tone: PeekToastTone; undo: string | null } | null>(null);
+  const [, startTransition] = useTransition();
+  const moving = useRef<string | null>(null);
   const prev = useRef(rows);
   useEffect(() => {
     const before = prev.current;
     prev.current = rows;
     if (!openKey) return;
     if (rows.some((r) => r.key === openKey)) return;
+    // A row put off to tomorrow left on purpose — it was not answered: no "next of its kind", no "✓ Saved".
+    if (moving.current === openKey) {
+      moving.current = null;
+      return setOpenKey(null);
+    }
     // The open row left the list — it was answered. Open the next of its kind, if one is still waiting.
     const gone = before.find((r) => r.key === openKey);
     if (!gone) return setOpenKey(null);
@@ -47,22 +68,67 @@ export function TodayQuickGroup({ rows, children }: { rows: ReadonlyArray<{ key:
     setOpenKey(next ? next.key : null);
     setToast((t) => ({ n: (t?.n ?? 0) + 1, text: DONE_WORD[gone.kind] ?? '✓ Saved' }));
   }, [rows, openKey]);
-  const value = useMemo(() => ({ openKey, setOpen: setOpenKey }), [openKey]);
+  const say = useCallback((text: string, tone: PeekToastTone, undo: string | null = null) => setPeek((t) => ({ n: (t?.n ?? 0) + 1, text, tone, undo })), []);
+  const run = useCallback(
+    (op: 'put' | 'undo', key: string) => {
+      if (op === 'put') moving.current = key;
+      startTransition(async () => {
+        const r = await todayPutOff({ op, key }).catch(() => ({ ok: false, message: PUT_OFF_WORDS.failed }));
+        // 🔑 A refusal is SAID, and the row stays (the server re-draws nothing on a failed write) — never a silent no-op.
+        if (!r.ok) {
+          moving.current = null;
+          return say(r.message, 'bad');
+        }
+        // The action revalidated Today, so its answer already carries the re-drawn list — no second render.
+        say(r.message, 'ok', op === 'put' ? key : null);
+      });
+    },
+    [say],
+  );
+  const value = useMemo(
+    () => ({ openKey, setOpen: setOpenKey, putOff: (key: string) => run('put', key), refuse: () => say(PUT_OFF_WORDS.refused, 'note') }),
+    [openKey, run, say],
+  );
   return (
     <QuickGroup.Provider value={value}>
       {children}
       {toast ? <SupplierToast key={toast.n} text={toast.text} tone="ok" line={false} /> : null}
+      {peek && typeof document !== 'undefined'
+        ? createPortal(
+            <PeekToast
+              key={peek.n}
+              tone={peek.tone}
+              data="today-put-off"
+              onGone={() => setPeek(null)}
+              action={peek.undo ? { label: PUT_OFF_WORDS.undo, onPress: () => run('undo', peek.undo!) } : undefined}
+            >
+              {peek.text}
+            </PeekToast>,
+            document.body,
+          )
+        : null}
     </QuickGroup.Provider>
   );
 }
 
-/** One quick row: the shared fold, controlled by its group so only one is ever open. */
+/** The level's colour on the row's round icon (drawing V3 · 3 `.u.red .ico` · `.u.amb .ico`). */
+const URGENT_ICON = {
+  red: '[&_[data-row-icon]]:!bg-[rgb(var(--color-danger))] [&_[data-row-icon]]:!text-white',
+  amber: '[&_[data-row-icon]]:!bg-[rgb(var(--color-warn))] [&_[data-row-icon]]:!text-white',
+} as const;
+
+/** One task row: the shared fold, controlled by its group so only one is ever open — and, closed, it drags both ways. */
 export function TodayQuickRow({
   rowKey,
   title,
   line,
   lead,
   aside,
+  urgency = null,
+  foot = null,
+  href = null,
+  attrs,
+  below = null,
   children,
 }: {
   rowKey: string;
@@ -70,25 +136,104 @@ export function TodayQuickRow({
   line: string;
   lead: ReactNode;
   aside: ReactNode;
+  /** v3: the row's level — a tint and an edge while closed, the edge on the card's frame while open. */
+  urgency?: 'red' | 'amber' | null;
+  /** v3: the open card's small links under the answer ("Open in page ›"). */
+  foot?: ReactNode;
+  /** v3 part 2: the task's own page — where a drag right goes (the same link as "Open in page ›"). */
+  href?: string | null;
+  /** Extra data attributes on the row (a fee bill's `data-fee-bill-today`, so Today's search finds it as a payment). */
+  attrs?: Record<`data-${string}`, string>;
+  /**
+   * Drawn UNDER the row's line, shut or open (drawing V3 · 3 `.bg`: the badge tag sits under the line, so at 390 px the
+   * line is not squeezed by a pill and a tag side by side). Fold's own `between` slot.
+   */
+  below?: ReactNode;
   children: ReactNode;
 }) {
   const g = useContext(QuickGroup);
+  const router = useRouter();
   const open = g ? g.openKey === rowKey : undefined;
+  const red = urgency === 'red';
+  const { tx, dragging, handlers, armed } = useTodayDrag({
+    enabled: Boolean(g && href && !open),
+    red,
+    // one-render: keep (navigation) — a drag right opens the task's own page, like "Open in page ›"
+    onOpen: () => (href ? router.push(href) : undefined),
+    onTomorrow: () => g?.putOff(rowKey),
+    onRefuse: () => g?.refuse(),
+  });
+  const edge = urgency === 'red' ? 'rgb(var(--color-danger))' : urgency === 'amber' ? 'rgb(var(--color-warn))' : null;
+  const tint = urgency === 'red' ? 'var(--sn-danger-soft)' : urgency === 'amber' ? 'var(--sn-warning-soft)' : undefined;
+  const moved = tx !== 0 || dragging;
   return (
-    <div data-today-quick-row={rowKey} className="border-t border-ink/10 first:border-t-0">
-      <Fold
-        title={title}
-        line={line}
-        wrap
-        lead={lead}
-        aside={aside}
-        data="today-quick"
-        open={open}
-        onOpenChange={g ? (next) => g.setOpen(next ? rowKey : null) : undefined}
+    <div
+      {...attrs}
+      data-today-quick-row={rowKey}
+      data-today-urgency={urgency ?? undefined}
+      data-today-card={open ? 'open' : undefined}
+      data-today-swipe={href && !open ? (red ? 'right-only' : 'both') : undefined}
+      // 🃏 TAPPED, THE ROW BECOMES A CARD IN PLACE (owner 19 Nov: "just expand it and it becomes a card" · "no pop up"):
+      // the shared frame fades in around the SAME row; a closed row stays a flat list row with its divider and its tint.
+      className={`relative isolate ${
+        open
+          ? '-mx-2.5 my-2 rounded-[var(--sn-frame-radius)] bg-frame px-2.5 shadow-sn-frame'
+          : urgency
+            ? // Drawing V3 · 3 `.u`: no divider, 4 px apart, the edge on the left and the round on the right; the row's
+              // icon wears the level's colour (`.u.red .ico` / `.u.amb .ico`). `overflow-hidden` clips the drag panes.
+              `-mx-2.5 mt-1 overflow-hidden rounded-r-xl px-2.5 ${urgency === 'red' ? URGENT_ICON.red : URGENT_ICON.amber}`
+            : 'overflow-hidden border-t border-ink/10 first:border-t-0'
+      }`}
+      style={{ ...(edge ? { borderLeft: `4px solid ${edge}` } : {}), ...(!open && tint ? { background: tint } : {}) }}
+    >
+      {/* The two panes behind a closed row — drawn only while it moves, so a still row shows no colour at its edges.
+          Each is a ready-coloured layer that fades in past halfway (motion "Status change", Quick). */}
+      {moved && !open ? <TwoWayPanes tx={tx} armed={armed} red={red} /> : null}
+      <div
+        {...handlers}
+        data-today-drag-front=""
+        className={moved && !open ? 'relative z-10 bg-page' : 'relative'}
+        style={{
+          ...(moved && !open && tint ? { background: `linear-gradient(${tint}, ${tint}), rgb(var(--sn-page-bg))` } : {}),
+          // No transform at rest (a transform frames every `position: fixed` inside the row). The snap back is the
+          // shipped Release: 220 ms on Settle.
+          transform: tx === 0 && !dragging ? undefined : `translateX(${tx}px)`,
+          transition: dragging ? 'none' : 'transform var(--sn-m-swipe-snap) var(--sn-m-settle)',
+          touchAction: 'pan-y',
+        }}
       >
-        <div className="pb-3 pl-[48px] max-[380px]:pl-0">{children}</div>
-      </Fold>
+        <Fold
+          title={title}
+          line={line}
+          wrap
+          lead={lead}
+          aside={aside}
+          data="today-quick"
+          between={below ? <div className="-mt-2.5 pb-2.5 pl-[44px]">{below}</div> : undefined}
+          open={open}
+          onOpenChange={g ? (next) => g.setOpen(next ? rowKey : null) : undefined}
+        >
+          <div className="pb-3 pl-[48px] max-[380px]:pl-0">
+            {children}
+            {foot ? <div className="mt-1 flex flex-wrap gap-x-5" data-today-card-foot="">{foot}</div> : null}
+          </div>
+        </Fold>
+      </div>
     </div>
+  );
+}
+
+/**
+ * ⏭ "Do it tomorrow" as a plain link at the end of an open card — for people who do not swipe (ruled 19 Nov). Never
+ * drawn on a red card (`canPutOff`): an urgent task cannot go to tomorrow.
+ */
+export function TodayTomorrowLink({ rowKey, level }: { rowKey: string; level: 'red' | 'amber' | null }) {
+  const g = useContext(QuickGroup);
+  if (!g || !canPutOff(level)) return null;
+  return (
+    <button type="button" data-today-do-it-tomorrow="" onClick={() => g.putOff(rowKey)} className="inline-flex min-h-11 items-center text-[13px] font-semibold text-sn-accent">
+      {PUT_OFF_WORDS.link}
+    </button>
   );
 }
 

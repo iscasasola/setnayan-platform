@@ -462,8 +462,9 @@ export async function resolveTikTokAccessToken(): Promise<string | null> {
 // DB-first / env-fallback resolver for Maya's Basic-auth credential pair + the
 // checkout base URL. BOTH keys are secrets (the "public" key is a server-only
 // merchant credential). UNCACHED; byte-identical to the env reads when the DB
-// columns are empty. The build-time activation gate (NEXT_PUBLIC_MAYA_STATUS)
-// is NOT resolved here — it stays redeploy-gated.
+// columns are empty. The build-time gate NEXT_PUBLIC_MAYA_STATUS is RETIRED
+// (owner 2026-11-21): the rail is the DB switch `maya_checkout_enabled` plus
+// these keys — see lib/maya-checkout.ts `mayaRailState`.
 const MAYA_CHECKOUT_ENDPOINT_DEFAULT =
   'https://pg-sandbox.paymaya.com/checkout/v1/checkouts';
 

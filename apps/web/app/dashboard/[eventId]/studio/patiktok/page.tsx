@@ -1,3 +1,6 @@
+import { redirectUnlessEventKeepsRetired } from '@/lib/retired-products.server';
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
@@ -131,16 +134,17 @@ export default async function PatiktokGallery({
   const boothOther = otherParam ? findPatiktokTemplate(otherParam)?.slug ?? null : null;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
+  // 🪦 RETIRED (owner 2026-11-20) — an event that does not already have it goes to its dashboard.
+  await redirectUnlessEventKeepsRetired(eventId, 'PATIKTOK_COMPILER');
 
-  const { data: event, error: eventError } = await supabase
+  const { data: event, error: eventError } = await eventRowOnce(supabase, eventId, 'display_name, event_date', () =>
+      supabase
     .from('events')
     .select('display_name, event_date')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   // ⚠ the event record. Degrades rather than claiming.
   if (eventError) {
     logQueryError('PatiktokPage.event', eventError, { eventId }, 'graceful_degrade');

@@ -1,7 +1,7 @@
 /**
  * the-templated-card-holds-no-hand-made-control.test.ts — STEP 4D: THE AUDIT OF THE GUEST CARD, LIKE SETUP'S (2026-10-09).
  *
- * Renders the card the way the Guests pages draw it (the kit handed in; the real Invite pair, ticket and ⋯ handed in too) over its
+ * Renders the card the way the Guests pages draw it (the kit handed in; the real Invite pair, ticket and its buttons handed in too) over its
  * states — a guest and the couple · unclaimed and claimed by an account · a guest who has not replied (the Give-this-spot form) ·
  * +1 · "This is me" offered · a finalized list's guest who passed away · a refused save (`errorMessage`) and a flash — and asserts
  * that every control on it is one the templates draw:
@@ -129,13 +129,15 @@ for (const [name, state] of Object.entries(STATES)) {
   });
 }
 
-test('the states really cover the buttons: Share · New QR, ⋯, give-the-spot, take-back, this-is-me, partner link, the save line', async () => {
+test('the states really cover the buttons: Send invite · Seat, the ticket row, give-the-spot, take-back, this-is-me, partner link, the save line', async () => {
   const all = (await Promise.all(Object.values(STATES).map(paint))).join('\n');
   for (const [what, re] of [
-    /* 🎟 The ticket row since 2026-10-28: Share · NFC · New QR as neutral icon buttons, then ⋯ (only while linked). */
-    ['Share (the ticket row, neutral icon)', /class="ab ab-neutral[^"]*"[^>]*aria-label="Share [^"]*invitation|aria-label="Share [^"]*invitation[^>]*class="ab ab-neutral/],
-    ['New QR (the ticket row, neutral icon)', /aria-label="Make a new QR for /],
-    ['the ⋯', /aria-label="More for Ana Cruz"/],
+    /* 🪪 The card's top since the 20 Nov 2026 drawing (§ 3): the quick row — Send invite, the one filled step, then the
+       neutral Add mobile · Seat · Note — and "Their ticket" as one row. NFC · New QR · Unlink are inside the opened ticket
+       (not in a static render; held by the-ticket-row-is-three-icons.test.ts § 4). */
+    ['Send invite (the quick row, filled)', /class="ab ab-brand[^"]*ab-main[^"]*"[^>]*aria-label="Send invite to [^"]*"|aria-label="Send invite to [^"]*"[^>]*class="ab ab-brand[^"]*ab-main/],
+    ['Seat (the quick row, neutral)', /class="ab ab-neutral[^"]*"[^>]*aria-label="Seat — |aria-label="Seat — [^"]*"[^>]*class="ab ab-neutral/],
+    ['Their ticket (one row)', /data-guest-ticket-thumb="[^"]*"[\s\S]{0,1200}?>Their ticket</],
     // 🔁 Give opens on a tap (owner 2026-11-02) — its door is on the audited state; its filled Give is behind the tap.
     ['Give this spot… (the door that opens it)', /data-give-spot-open=""[^>]*>Give this spot…|>Give this spot…</],
     ['Take this seat back', /Take this seat back/],

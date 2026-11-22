@@ -33,6 +33,9 @@ type EventRow = {
   claimed_at: string | null;
 };
 
+/** The `shop_badge_rewards.badge` a Setnayan gift's stock lands under (`setnayan_shop_gift_claim`). */
+const SETNAYAN_GIFT_BADGE = 'setnayan_gift';
+
 type ShopRow = {
   ref_id: string;
   reward_key: string;
@@ -111,7 +114,10 @@ export async function readShopGiftMoments(
     console.error('[gift-moment] shop read failed', error.message);
     return null;
   }
-  return ((data ?? []) as ShopRow[]).map((r) =>
+  // 🎁 Gift stock Setnayan SENT the shop lands through the badge-reward door too (badge 'setnayan_gift', G3). Its moment
+  // already played — opened and claimed through `setnayan_shop_gift_claim` — so it is not a badge, and never a second
+  // moment for the same gift.
+  return ((data ?? []) as ShopRow[]).filter((r) => r.badge !== SETNAYAN_GIFT_BADGE).map((r) =>
     badgeRewardMomentView(
       {
         ref: r.ref_id,

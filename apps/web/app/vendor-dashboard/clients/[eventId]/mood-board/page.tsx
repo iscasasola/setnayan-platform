@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
@@ -81,9 +82,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
   const { eventId } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
@@ -358,6 +357,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
             to answer. */}
         <VendorPartSignoff
           rows={signoffs}
+          unread={Boolean(signoffError)}
           agreeAction={vendorAgreeToPart}
           declineAction={vendorDeclinePart}
           answerReopenAction={vendorAnswerPartReopen}

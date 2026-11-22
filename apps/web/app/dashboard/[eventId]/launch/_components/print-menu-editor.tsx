@@ -118,13 +118,13 @@ export function PrintMenuEditor({
           <input type="hidden" name="menu_json" value={payload} />
           <ol className="flex flex-col gap-3">
             {moments.map((m, i) => (
-              <li key={i} data-print-menu-moment={i} className="flex flex-col gap-2 rounded-xl bg-white/60 p-2 ring-1 ring-ink/10">
+              <li key={i} data-print-menu-moment={i} className="flex flex-col gap-2 rounded-xl bg-raised/60 p-2 ring-1 ring-ink/10">
                 <Row
                   open={open === `m${i}`}
                   onToggle={() => setOpen(open === `m${i}` ? null : `m${i}`)}
                   what={m.title || `moment ${i + 1}`}
                   input={
-                    <input className="min-h-11 w-full min-w-0 rounded-lg border border-ink/15 bg-white px-3 text-[15px] font-semibold text-ink placeholder:font-normal placeholder:text-ink/40"
+                    <input className="min-h-11 w-full min-w-0 rounded-lg border border-ink/15 bg-raised px-3 text-[15px] font-semibold text-ink placeholder:font-normal placeholder:text-ink/40"
                       value={m.title}
                       maxLength={MENU_TITLE_MAX}
                       aria-label={`Moment ${i + 1}`}
@@ -146,7 +146,7 @@ export function PrintMenuEditor({
                         onToggle={() => setOpen(open === `d${i}-${j}` ? null : `d${i}-${j}`)}
                         what={d || `dish ${j + 1}`}
                         input={
-                          <input className="min-h-11 w-full min-w-0 rounded-lg border border-ink/10 bg-white px-3 text-[15px] text-ink placeholder:text-ink/40"
+                          <input className="min-h-11 w-full min-w-0 rounded-lg border border-ink/10 bg-raised px-3 text-[15px] text-ink placeholder:text-ink/40"
                             value={d}
                             maxLength={MENU_DISH_MAX}
                             aria-label={`Dish ${j + 1} of ${m.title || `moment ${i + 1}`}`}

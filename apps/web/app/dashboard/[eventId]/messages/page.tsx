@@ -21,6 +21,7 @@
  * `lib/couple-inbox.ts` — the one rule the Suppliers header's badge also reads,
  * so the badge and the dots cannot disagree.
  */
+import { eventRowOnce } from '@/lib/event-row-once';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Plus } from 'lucide-react';
@@ -87,7 +88,8 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   // couple with five suppliers to "add a supplier first" — `teamReadFailed`
   // reaches the render and says what actually happened.
   // The event line every row carries (owner 2026-10-28, "i want isolation per event") — its name and date.
-  const eventRowRead = supabase.from('events').select('display_name, event_date').eq('event_id', eventId).maybeSingle();
+  const eventRowRead = eventRowOnce(supabase, eventId, 'display_name, event_date', () =>
+      supabase.from('events').select('display_name, event_date').eq('event_id', eventId).maybeSingle());
   const teamRes = await supabase
     .from('event_vendors')
     .select('vendor_id, marketplace_vendor_id')

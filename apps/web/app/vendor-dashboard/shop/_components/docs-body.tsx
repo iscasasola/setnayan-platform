@@ -87,7 +87,7 @@ export function DocsBody({
       <div className="space-y-2">
         <p
           className="font-mono text-[10px] uppercase tracking-[0.15em]"
-          style={{ color: '#6E6A62' }}
+          style={{ color: 'rgb(var(--color-ink-3))' }}
         >
           Optional — these strengthen your shop, none of them hold you up
         </p>

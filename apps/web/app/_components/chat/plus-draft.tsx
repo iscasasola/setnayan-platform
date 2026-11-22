@@ -15,7 +15,7 @@ import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-s
 import { openPlusDoor, plusDoor } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
 import { ChatCardShell } from './chat-step-card';
 import { MeetingStepCard } from './meeting-step-card';
-import { AccessStepCard, DecisionStepCard, FilesStepCard, FormStepCard, LogPaymentCard, NegotiateDraft, PaymentStepCard, PollStepCard, QuoteStepCard } from './cards/lazy-cards';
+import { AccessStepCard, DecisionStepCard, FilesStepCard, FormStepCard, LogPaymentCard, NegotiateDraft, OfferDropCard, PaymentStepCard, PollStepCard, QuoteStepCard } from './cards/lazy-cards';
 
 export function PlusDraft({
   threadId,
@@ -23,14 +23,24 @@ export function PlusDraft({
   eventId,
   eventDate,
   returnPath,
+  part = 'all',
 }: {
   threadId: string;
   side: 'vendor' | 'couple';
   eventId: string;
   eventDate: string | null;
   returnPath: string;
+  /**
+   * 🧰 Unichat part B (20 Nov 2026): where a composer holds the tool, the STREAM draws only the (+)'s one-line toast
+   * (`'toast'`) and the COMPOSER draws the card (`'draft'`, inside its box or the third column). `'all'` is the chat
+   * with no such composer — the card at the foot of the conversation, exactly as before.
+   */
+  part?: 'all' | 'toast' | 'draft';
 }) {
-  const { draft, toast } = usePlus(threadId);
+  const state = usePlus(threadId);
+  const toast = part === 'draft' ? null : state.toast;
+  // A draft that rises full screen (poll · decision) is nobody's box: whoever is asked for the card draws it.
+  const draft = part === 'toast' && !(state.draft && RISING_DRAFTS.has(state.draft.kind)) ? null : part === 'draft' && state.draft && RISING_DRAFTS.has(state.draft.kind) ? null : state.draft;
   const close = () => patchPlus(threadId, { draft: null, toast: null });
   const sent = () => patchPlus(threadId, { draft: null, toast: null });
   // 🗳 A new draft is SEEN: its card is a lazy chunk, so the opener's one jump (60 ms after the pick) can land before the
@@ -39,7 +49,8 @@ export function PlusDraft({
   const startedAt = draft?.startedAt ?? null;
   const rises = draft ? RISING_DRAFTS.has(draft.kind) : false;
   useEffect(() => {
-    if (startedAt == null || rises || typeof ResizeObserver === 'undefined') return;
+    // In the text box the card is already in the thumb zone — nothing to bring into view.
+    if (startedAt == null || rises || part === 'draft' || typeof ResizeObserver === 'undefined') return;
     const el = document.getElementById(PLUS_DRAFT_ANCHOR);
     if (!el) return;
     jumpTo(PLUS_DRAFT_ANCHOR);
@@ -50,7 +61,7 @@ export function PlusDraft({
       window.clearTimeout(stop);
       ro.disconnect();
     };
-  }, [startedAt, rises]);
+  }, [startedAt, rises, part]);
   useEffect(() => {
     if (!toast) return;
     const id = window.setTimeout(() => patchPlus(threadId, { toast: null }), 3200);
@@ -83,6 +94,9 @@ export function PlusDraft({
             <DecisionStepCard threadId={threadId} onClose={close} onSent={sent} />
           ) : draft.kind === 'counter' || draft.kind === 'plan' || (draft.kind === 'ask' && side === 'couple') ? (
             <NegotiateDraft threadId={threadId} kind={draft.kind} viewer={side} supplierName="The supplier" returnPath={returnPath} onClose={close} onSent={sent} />
+          ) : draft.kind === 'offer' && side === 'vendor' ? (
+            // 🏷 Drop an offer — the shipped card (PR-4); the drop itself lands as a card in the stream.
+            <OfferDropCard threadId={threadId} onClose={close} onDropped={sent} />
           ) : draft.kind === 'poll' ? (
             <PollStepCard threadId={threadId} onClose={close} onSent={sent} />
           ) : (

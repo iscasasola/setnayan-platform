@@ -105,6 +105,14 @@ const config: Config = {
         // Tailwind 3 accepts a function colour at runtime (withAlphaValue /
         // withAlphaVariable call it) but its Config type does not say so.
         ink: { DEFAULT: inkText as unknown as string },
+        // 🌙 THE ACCENT AS A WORD (supplier navy dark, owner 18 Nov 2026). On the navy the main button is a deep blue
+        // with white words (#2272E6, 4.55:1) — and that same blue written as a WORD on the navy card reads 3.46:1. No
+        // one blue can be both (white-on-it ≥ 4.5 needs it dark; it-on-navy ≥ 4.5 needs it light), so TEXT may read
+        // its own token: `--color-mulberry-word` / `--sn-accent-word`. Unset everywhere else, so each falls back to
+        // exactly the token it read before — no pixel moves in Light, or in the couple's dark. Text only: fills,
+        // rings and borders keep the accent itself (the `text-terracotta` precedent above).
+        mulberry: { DEFAULT: 'rgb(var(--color-mulberry-word, var(--color-mulberry)) / <alpha-value>)' },
+        sn: { accent: 'rgb(var(--sn-accent-word, var(--sn-accent)) / <alpha-value>)' },
       },
       // Single radius source of truth — every `rounded-*` class resolves to the
       // --m-r-* token scale in globals.css (Approach B "softer corners", owner-
@@ -402,6 +410,28 @@ const config: Config = {
           schedule: 'rgb(var(--sn-cat-schedule) / <alpha-value>)',
           asked: 'rgb(var(--sn-cat-asked) / <alpha-value>)',
           collect: 'rgb(var(--sn-cat-collect) / <alpha-value>)',
+        },
+        // 🎨 The nine chat-card kind colours (Unichat part A, 20 Nov 2026): `text-kind-quote`, `bg-kind-quote-bg`,
+        // `border-kind-quote`. Values + dark pairs live in globals.css (`--sn-kind-*`); `card-bits.tsx` is the one reader.
+        kind: {
+          quote: 'rgb(var(--sn-kind-quote) / <alpha-value>)',
+          'quote-bg': 'rgb(var(--sn-kind-quote-bg) / <alpha-value>)',
+          counter: 'rgb(var(--sn-kind-counter) / <alpha-value>)',
+          'counter-bg': 'rgb(var(--sn-kind-counter-bg) / <alpha-value>)',
+          offer: 'rgb(var(--sn-kind-offer) / <alpha-value>)',
+          'offer-bg': 'rgb(var(--sn-kind-offer-bg) / <alpha-value>)',
+          meeting: 'rgb(var(--sn-kind-meeting) / <alpha-value>)',
+          'meeting-bg': 'rgb(var(--sn-kind-meeting-bg) / <alpha-value>)',
+          decision: 'rgb(var(--sn-kind-decision) / <alpha-value>)',
+          'decision-bg': 'rgb(var(--sn-kind-decision-bg) / <alpha-value>)',
+          payment: 'rgb(var(--sn-kind-payment) / <alpha-value>)',
+          'payment-bg': 'rgb(var(--sn-kind-payment-bg) / <alpha-value>)',
+          form: 'rgb(var(--sn-kind-form) / <alpha-value>)',
+          'form-bg': 'rgb(var(--sn-kind-form-bg) / <alpha-value>)',
+          file: 'rgb(var(--sn-kind-file) / <alpha-value>)',
+          'file-bg': 'rgb(var(--sn-kind-file-bg) / <alpha-value>)',
+          plain: 'rgb(var(--sn-kind-plain) / <alpha-value>)',
+          'plain-bg': 'rgb(var(--sn-kind-plain-bg) / <alpha-value>)',
         },
         'surface-soft': 'var(--surface-soft)',
         // ─────────────────────────────────────────────────────────────────

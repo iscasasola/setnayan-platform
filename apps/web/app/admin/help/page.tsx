@@ -103,7 +103,7 @@ async function AdminHelpPage({ searchParams }: Props) {
   const openId = search.m ?? null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       {/* The page starts at its content. Replies to a signed-in person reach them IN THE APP
           (help_ticket_replied); this slice adds no email. */}
       <PageMasthead title="Messages" />

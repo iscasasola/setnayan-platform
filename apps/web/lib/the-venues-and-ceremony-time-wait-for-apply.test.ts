@@ -170,7 +170,10 @@ test('the ceremony’s own pin reaches the venue list — and closes until the g
   assert.equal(shut.ceremony_venue_latitude, null, 'the ceremony pin leaks before the reply');
   assert.equal(shut.ceremony_venue_longitude, null);
   assert.equal(shut.venues?.[0]?.latitude, null);
-  for (const f of ['app/[slug]/_lib/loaders.ts', 'app/[slug]/hub/page.tsx', 'lib/guest-reminder-emails.ts']) {
+  for (const f of ['app/[slug]/_lib/loaders.ts', 'lib/guest-reminder-emails.ts']) {
     assert.match(read(f), /ceremony_venue_latitude, ceremony_venue_longitude/, `${f} does not read the ceremony pin`);
   }
+  // (No `hub/page.tsx`: one bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to the event page's tab
+  //  (`dayHubLanding`), whose venue list is `loaders.ts`'s above. It must not start drawing a venue list of its own.)
+  assert.doesNotMatch(read('app/[slug]/hub/page.tsx'), /ceremony_venue_latitude|resolveEventVenues/, 'the hub draws a venue list of its own again');
 });

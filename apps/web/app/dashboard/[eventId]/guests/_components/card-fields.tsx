@@ -101,7 +101,7 @@ export function FormPick({
         picked={picked}
         buttonText={multiText ?? (unlisted && current === unlisted.key ? unlisted.text : undefined)}
         dataAttr={dataAttr}
-        className="w-full justify-between border border-ink/15 !bg-white/80 font-medium"
+        className="w-full justify-between border border-ink/15 !bg-raised/80 font-medium"
       />
       {/* 🔴 CONTROLLED — `value={current}`, NEVER `defaultValue={value}`
           (owner, live iPhone test 2026-10-02: the card's Reply set to "No reply"
@@ -229,7 +229,7 @@ export function FormSplitPick({
         picked={picked}
         buttonText={splitPickText(kind, picked, options) || emptyText}
         doneNote={doneNote}
-        className="w-full justify-between border border-ink/15 !bg-white/80 font-medium"
+        className="w-full justify-between border border-ink/15 !bg-raised/80 font-medium"
       />
       {inputs}
     </div>

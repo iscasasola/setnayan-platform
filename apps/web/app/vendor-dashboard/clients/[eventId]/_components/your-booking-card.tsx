@@ -14,7 +14,7 @@ import { usePickedNav } from './picked-client-nav';
  * "Open payments" — to the shipped Book & Budget page (switched in place, no request), where the plan and its actions
  * live. Every word and figure is decided in `lib/your-booking.ts`; this only draws them.
  *
- * Never the hosts' plan: their planned amount is not drawn here, shared or not (controller, 22 Nov 2026).
+ * Not the hosts' plan in this build (their amount behind the share switch is allowed — a later follow-up; specs edeb9284).
  */
 export function YourBookingCard({ eventId, view }: { eventId: string; view: YourBookingView }) {
   const nav = usePickedNav();

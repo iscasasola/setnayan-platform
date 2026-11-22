@@ -9,9 +9,10 @@ payment plan, status"*.
 - **No second computation.** Every figure is `clientPaymentView`'s — the same fold the Payment page and the couple's
   Pay sheet read (`lib/your-booking.ts`). A figure nobody measured is "—" and said; never ₱0, never "All paid" with
   no amount set.
-- **Never the hosts' plan.** Details no longer draws the hosts' range at all — not while their sharing switch is on,
-  and the old "Not shared — the couple hasn't opted into budget sharing" hint is gone (controller, 22 Nov, on the
-  ruling above). Before a booking there is no booking money, so there is no card in that place.
+- **The hosts' plan is not on this card (this build).** Details no longer draws the hosts' range, and the old
+  "Not shared — the couple hasn't opted into budget sharing" hint is gone. The owner's 21 Nov correction ("YES THAT
+  ONE", specs edeb9284) allows the hosts' planned amount while their share switch is on, view only — putting it back
+  on Details behind that switch is a follow-up; the chat's first-inquiry card keeps it as it is. Before a booking there is no booking money, so there is no card in that place.
 - No migration, no new server action, no new read (the page already had every input).
 - Lab: `/dev/customer-money-lab?booking=1&s=due|waiting|received|noplan|unread`.
 - Tests: `lib/your-booking.test.ts` (5).

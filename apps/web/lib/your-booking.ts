@@ -18,9 +18,10 @@
  * 🛑 A FIGURE NOBODY MEASURED IS NOT ₱0: a refused read says "couldn't load" and draws "—"; no amount set says so;
  * "All paid" needs a real agreed amount with nothing left — never "nothing owed because nothing was set".
  *
- * 🔒 NEVER THE HOSTS' PLAN (controller, 22 Nov 2026, on the ruling above): this card holds the supplier's own booking
- * money and nothing else — the hosts' planned amount is not drawn here, not even behind their sharing switch. The view
- * has no field for it, so no caller can pass one in.
+ * 🔒 NOT THE HOSTS' PLAN, IN THIS BUILD: this card holds the supplier's own booking money and nothing else, and the view
+ * has no field for the hosts' planned amount, so no caller can pass one in. ⚠ The owner's same-day correction (21 Nov,
+ * "YES THAT ONE"; DECISION_LOG, specs edeb9284) ALLOWS that amount here while the hosts' share switch is on, view only —
+ * leaving it out is the safe side; adding it behind the switch is a later follow-up, not a rule against it.
  *
  * 🔒 lib/your-booking.test.ts
  */

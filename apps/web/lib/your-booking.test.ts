@@ -101,7 +101,7 @@ test('3 · a figure nobody measured is "—" and said — never ₱0, never "All
   assert.equal(coversLine([]), null);
 });
 
-test('4 · the hosts’ planned amount is never drawn on Details — shared or not, and no hint of it', () => {
+test('4 · the hosts’ planned amount is not drawn on Details in this build (a switch-gated follow-up may add it), and no hint of it', () => {
   // The view has no field for it: only the supplier's own booking money can reach the card.
   assert.deepEqual(Object.keys(yourBookingView({ ...base, pay: payOf(PLAN) })).sort(), ['covers', 'figures', 'next', 'note']);
   const PAGE = read('app/vendor-dashboard/clients/[eventId]/page.tsx');

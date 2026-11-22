@@ -1,8 +1,8 @@
 /**
  * Per-event Save-the-Date reveal effect toggles (events.std_reveal_effects).
  * Couple-facing controls on the opening:
- *   - butterflies → envelope openings (four-flap / two-flap-*)
- *   - petals      → church doors + sheer veil
+ *   - butterflies → (stored, no longer drawn: the retired envelopes' particle layer went with them, 23 Nov 2026)
+ *   - petals      → the sheer veil's falling petals
  *   - music       → whether the song plays on the Save-the-Date
  *   - veilColor   → tulle colour override (veil) — null inherits the Mood Board
  *   - petalColor  → petal colour override (veil) — null inherits the Mood Board
@@ -16,9 +16,11 @@
  * The wax seal is NOT an effect — it's the structural open-gate, always on for
  * envelopes (owner-locked 2026-06-18).
  */
+import { REVEAL_SPEEDS, snapRevealSpeed } from './reveal-motion';
 import {
   DEFAULT_EFFECTS_LOOK,
   DEFAULT_VEIL_LOOK,
+  REVEAL_TEMPLATE_IDS,
   mergeRevealConfig,
   type RevealEffectsLook,
   type VeilLook,
@@ -93,13 +95,13 @@ export type RevealEffects = {
    stored value can never leave the range the engine was tuned for.
 
    Only the knobs the opening's engine actually reads are offered for it:
-   the veil reads `feather` (lift time), `wind` and `petalsDensity`; church
-   doors read the petal knobs; envelopes the butterfly knobs
-   (`reveal-particles.tsx`). The veil's own petals have no size or fall knob.
+   EVERY reveal reads `speed` (⏱ 9 · 12 · 16 s hands-free, `lib/reveal-motion.ts` — owner 23 Nov 2026: one speed,
+   no reveal has timing of its own); the veil also reads `petalsDensity`. The petal / butterfly knobs of the
+   retired rigid openings resolve still (stored tunes stay readable) but no reveal offers them.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export type RevealTuneKey =
-  | 'feather'
+  | 'speed'
   | 'wind'
   | 'petalsDensity'
   | 'petalDensity'
@@ -126,11 +128,13 @@ export type RevealTuneKnob = {
   min: number;
   max: number;
   step: number;
+  /** A knob that is a CHOICE, not a slider (⏱ speed: 9 · 12 · 16) — drawn as a dropdown, resolved to the nearest. */
+  choices?: readonly number[];
 };
 
 /** The ranges are `mergeLook` / `mergeEffects`' own clamps (held by a test). */
 export const REVEAL_TUNE_KNOBS: Record<RevealTuneKey, RevealTuneKnob> = {
-  feather: { key: 'feather', look: 'veil', label: 'Speed', lo: 'Quick', hi: 'Slow', min: 2, max: 8, step: 0.5 },
+  speed: { key: 'speed', look: 'veil', label: 'Speed', lo: 'Quick', hi: 'Slow', min: REVEAL_SPEEDS[0], max: REVEAL_SPEEDS[REVEAL_SPEEDS.length - 1]!, step: 1, choices: REVEAL_SPEEDS },
   wind: { key: 'wind', look: 'veil', label: 'Sway', lo: 'Still', hi: 'Breezy', min: 0, max: 100, step: 1 },
   petalsDensity: { key: 'petalsDensity', look: 'veil', label: 'Petal amount', lo: 'Few', hi: 'Many', min: 0, max: 100, step: 1 },
   petalDensity: { key: 'petalDensity', look: 'effects', label: 'Petal amount', lo: 'Few', hi: 'Many', min: 0, max: 100, step: 1 },
@@ -144,18 +148,14 @@ export const REVEAL_TUNE_KNOBS: Record<RevealTuneKey, RevealTuneKnob> = {
   gust: { key: 'gust', look: 'veil', label: 'Gusts', lo: 'Even', hi: 'Gusty', min: 0, max: 100, step: 1 },
 };
 
-const ENVELOPE_OPENINGS = new Set(['four-flap', 'two-flap-vertical', 'two-flap-horizontal']);
-
 /** The knobs THIS opening's engine reads, given what the couple has switched on. */
 export function revealTuneKnobsFor(opening: string, effects: Pick<RevealEffects, 'petals' | 'butterflies'>): RevealTuneKnob[] {
   const K = REVEAL_TUNE_KNOBS;
   /* 🌬 The veil's wind is Wind ▾ on Cover Scene › Style now (owner 2026-10-17, `lib/veil-style.ts` — Still · Breeze ·
      Gusty onto this same `tune.wind`): one control for it, so the old Sway slider is not offered beside it. */
-  if (opening === 'veil-sheer') return effects.petals ? [K.feather, K.petalsDensity] : [K.feather];
-  if (opening === 'church-doors') return effects.petals ? [K.petalDensity, K.petalSize, K.petalFall] : [];
-  if (ENVELOPE_OPENINGS.has(opening)) {
-    return effects.butterflies ? [K.butterflyCount, K.butterflySpeed, K.butterflySize] : [];
-  }
+  if (opening === 'veil-sheer') return effects.petals ? [K.speed, K.petalsDensity] : [K.speed];
+  /* ⏱ Every other reveal: its speed alone (the drawing's scenes have no knob of their own). */
+  if ((REVEAL_TEMPLATE_IDS as readonly string[]).includes(opening)) return [K.speed];
   return [];
 }
 
@@ -183,6 +183,10 @@ export function resolveRevealTune(raw: unknown): RevealTune {
   for (const knob of Object.values(REVEAL_TUNE_KNOBS)) {
     const v = o[knob.key];
     if (typeof v !== 'number' || !Number.isFinite(v)) continue;
+    if (knob.choices) {
+      out[knob.key] = snapRevealSpeed(v);
+      continue;
+    }
     const snapped = Math.round(v / knob.step) * knob.step;
     out[knob.key] = Math.min(knob.max, Math.max(knob.min, Number(snapped.toFixed(2))));
   }
@@ -240,20 +244,6 @@ export function resolveRevealEffects(raw: unknown): RevealEffects {
     };
   }
   return { ...DEFAULT_REVEAL_EFFECTS };
-}
-
-/**
- * The rigid-family particle effect for a given opening + toggles.
- * Veil returns null here (it renders petals via its own WebGL `features.petals`,
- * not the rigid canvas-2D layer).
- */
-export function rigidEffectFor(
-  template: string,
-  effects: RevealEffects,
-): 'butterflies' | 'petals' | null {
-  if (template === 'veil-sheer') return null;
-  if (template === 'church-doors') return effects.petals ? 'petals' : null;
-  return effects.butterflies ? 'butterflies' : null; // envelopes
 }
 
 /**

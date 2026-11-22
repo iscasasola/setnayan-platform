@@ -24,7 +24,6 @@ import type { RevealEffects } from '@/lib/std-reveal-effects';
 import { REVEAL_NEEDS_PRO } from '@/lib/reveal-access';
 import { useSaveLoader } from '@/components/sd-loader';
 
-const ENVELOPES: RevealTemplate[] = ['four-flap', 'two-flap-vertical', 'two-flap-horizontal'];
 
 /** Compact checkbox toggle (veil control block). */
 function EffectToggle({
@@ -155,14 +154,7 @@ export function RevealPreviewCard({
   // Only offer openings the admin left enabled (Reveal Studio · config.templates).
   const library = REVEAL_LIBRARY.filter((t) => allowed[t.id] !== false);
   const isNoReveal = previewing === NO_REVEAL;
-  const isEnvelope = !isNoReveal && ENVELOPES.includes(previewing as RevealTemplate);
   const isVeil = previewing === 'veil-sheer';
-  const effectKey: 'butterflies' | 'petals' = isEnvelope ? 'butterflies' : 'petals';
-  const effectLabel = isEnvelope ? 'Add butterflies' : 'Add falling petals';
-  const effectHint = isEnvelope
-    ? 'Butterflies flutter out as the flaps open.'
-    : 'Rose petals drift down through the reveal.';
-  const effectOn = effects[effectKey];
   const [chosen, setChosen] = useState<RevealChoice | null>(chosenTemplate);
   const [pending, startTransition] = useTransition();
   /* 🔎 A REFUSED SAVE SAYS SO (Maker Phase 6). `chooseRevealTemplate` answers
@@ -278,12 +270,10 @@ export function RevealPreviewCard({
         </p>
       ) : null}
 
-      {/* Per-opening controls. Hidden for No Reveal (nothing to decorate). The
-          wax seal is NOT here — it's the structural open-gate, always on for
-          envelopes (owner-locked). The veil gets its own four controls (owner
-          2026-06-18): music · petals · veil + petal colour. Envelopes / doors
-          keep their single decorative toggle. */}
-      {isNoReveal ? null : isVeil ? (
+      {/* Per-opening controls. Only the veil has its own (owner 2026-06-18): music · petals · veil + petal colour.
+          The other eight reveals of 23 Nov 2026 are drawn whole — the retired envelopes' butterflies and the old
+          doors' petals went with them; each reveal's speed is the Maker's Speed ▾. */}
+      {isVeil ? (
         <div className="space-y-3.5 rounded-xl border border-ink/10 bg-cream/60 p-3.5">
           <EffectToggle
             label="Add music"
@@ -313,35 +303,7 @@ export function RevealPreviewCard({
             onReset={() => onSetColor('petalColor', null)}
           />
         </div>
-      ) : (
-        <div className="space-y-2 rounded-xl border border-ink/10 bg-cream/60 p-3.5">
-          <button
-            type="button"
-            onClick={() => onToggleEffect(effectKey)}
-            aria-pressed={effectOn}
-            className="flex w-full items-center gap-3 text-left"
-          >
-            <span
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-                effectOn
-                  ? 'border-mulberry bg-mulberry text-cream'
-                  : 'border-ink/30 bg-raised text-transparent'
-              }`}
-            >
-              <Check aria-hidden className="h-3 w-3" strokeWidth={3} />
-            </span>
-            <span>
-              <span className="block text-sm font-medium text-ink">{effectLabel}</span>
-              <span className="block text-xs text-ink/55">{effectHint}</span>
-            </span>
-          </button>
-          {isEnvelope ? (
-            <p className="pl-8 text-[11px] text-ink/45">
-              Your wax seal is always part of the envelope — guests swipe it to open.
-            </p>
-          ) : null}
-        </div>
-      )}
+      ) : null}
 
       {/* Commit */}
       <div>

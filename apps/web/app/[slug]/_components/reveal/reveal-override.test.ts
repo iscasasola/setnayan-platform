@@ -45,11 +45,17 @@ test('the paid veil specifically cannot be summoned by URL', () => {
 test('preview builds keep every alias working exactly as before', () => {
   assert.equal(resolveRevealOverride('veil-sheer', PREVIEW), 'veil-sheer');
   assert.equal(resolveRevealOverride('veil', PREVIEW), 'veil-sheer');
-  assert.equal(resolveRevealOverride('envelope', PREVIEW), 'four-flap');
-  assert.equal(resolveRevealOverride('church-doors', PREVIEW), 'church-doors');
-  assert.equal(resolveRevealOverride('doors', PREVIEW), 'church-doors');
-  assert.equal(resolveRevealOverride('two-flap-v', PREVIEW), 'two-flap-vertical');
-  assert.equal(resolveRevealOverride('two-flap-h', PREVIEW), 'two-flap-horizontal');
+  assert.equal(resolveRevealOverride('envelope', PREVIEW), 'envelope-classic');
+  assert.equal(resolveRevealOverride('gatefold', PREVIEW), 'envelope-gatefold');
+  assert.equal(resolveRevealOverride('doors', PREVIEW), 'cathedral-doors');
+  assert.equal(resolveRevealOverride('smoke', PREVIEW), 'smoke');
+  // ↪️ the retired ids still demo — as the reveal they now play (23 Nov 2026)
+  assert.equal(resolveRevealOverride('church-doors', PREVIEW), 'cathedral-doors');
+  assert.equal(resolveRevealOverride('four-flap', PREVIEW), 'envelope-classic');
+  assert.equal(resolveRevealOverride('two-flap-v', PREVIEW), 'envelope-gatefold');
+  assert.equal(resolveRevealOverride('two-flap-h', PREVIEW), 'envelope-classic');
+  // 🎁 the held gift box is not an opening
+  assert.equal(resolveRevealOverride('gift', PREVIEW), null);
 });
 
 test('unknown / empty / hostile values resolve null on either side', () => {

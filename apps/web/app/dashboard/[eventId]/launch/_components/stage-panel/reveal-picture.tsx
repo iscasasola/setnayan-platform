@@ -1,9 +1,9 @@
 /**
  * 🎭 THE REVEAL'S PICTURE — the prototype's `.rv-box` (owner 2026-10-07, on the
  * prototype's Reveal part: *"this is the reveal"*): a 150 × 96 card in the event's
- * colours, drawn as the chosen opening — Four-flap envelope · Two-flap side open ·
- * Two-flap top open · Church doors · Sheer veil (the shipped kinds,
- * `app/[slug]/_components/reveal/reveal-templates.ts`). ONE source, two uses: the
+ * colours, drawn as the chosen opening — the nine reveals of 23 Nov 2026 (Veil · Beach curtains ·
+ * Envelope classic + gatefold · Fabric · Scratch · Smoke · Cathedral doors · Petals · Fireworks,
+ * `app/[slug]/_components/reveal/reveal-templates.ts`), each in the event's own colours. ONE source, two uses: the
  * Cover Scene › Style's cards (`RevealPicture`) — the tile above the cover is gone (2026-10-16).
  *
  * Inline styles only: the canvas is the guest page, whose stylesheet the Maker does
@@ -66,16 +66,31 @@ export function revealPictureHtml(kind: string, c: RevealColours, w: number = RE
     case 'none':
       /* 🚫 No opening: the cover itself, with nothing over it. */
       return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral}"></span>`;
-    case 'two-flap-vertical':
-      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral}">${piece(`${d}opacity:.85;left:0;top:0;width:50%;height:100%`)}${piece(`${d}opacity:.6;right:0;top:0;width:50%;height:100%`)}</span>`;
-    case 'two-flap-horizontal':
-      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral}">${piece(`${d}opacity:.85;left:0;top:0;width:100%;height:50%`)}${piece(`${d}opacity:.6;left:0;bottom:0;width:100%;height:50%`)}</span>`;
-    case 'church-doors':
+    case 'envelope-gatefold':
+      /* two panels meeting at the middle, a band across them */
+      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral}">${piece(`${d}opacity:.85;left:0;top:0;width:50%;height:100%`)}${piece(`${d}opacity:.6;right:0;top:0;width:50%;height:100%`)}${piece(`background:${c.accent};left:0;top:44%;width:100%;height:9%`)}</span>`;
+    case 'beach-curtains':
+      /* two sheer curtains hung on a rod, their folds in stripes */
+      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.supporting}">${piece(`left:0;top:0;width:52%;height:100%;background:repeating-linear-gradient(90deg,${c.neutral} 0 7px,${c.supporting} 7px 9px)`)}${piece(`right:0;top:0;width:52%;height:100%;background:repeating-linear-gradient(90deg,${c.neutral} 0 7px,${c.supporting} 7px 9px)`)}${piece(`background:${c.accent};left:0;top:3%;width:100%;height:3%`)}</span>`;
+    case 'fabric':
+      /* one satin drape laid over the cover, folding on the diagonal */
+      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:repeating-linear-gradient(135deg,${c.supporting} 0 14px,${c.neutral} 14px 30px)">${piece(`${d}opacity:.25;inset:0`)}</span>`;
+    case 'scratch':
+      /* foil with a corner already rubbed away */
+      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral}">${piece(`background:${c.accent};inset:0;clip-path:polygon(0 0,100% 0,100% 62%,70% 78%,44% 66%,18% 92%,0 80%)`)}</span>`;
+    case 'smoke':
+      /* white fog, thinning in a ring */
+      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:radial-gradient(circle at 50% 55%,${c.supporting} 0 22%,${c.neutral} 38%,${c.neutral} 100%)">${piece(`inset:0;background:radial-gradient(circle at 50% 55%,transparent 0 30%,${c.neutral} 46%)`)}</span>`;
+    case 'cathedral-doors':
       return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.supporting}">${piece(`background:${c.accent};left:6%;top:8%;width:42%;height:92%;border-radius:40px 0 0 0`)}${piece(`background:${c.accent};right:6%;top:8%;width:42%;height:92%;border-radius:0 40px 0 0`)}</span>`;
-    case 'veil-sheer':
-      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:linear-gradient(180deg,${c.supporting},${c.neutral})">${piece('inset:0;background:rgba(255,255,255,.55);backdrop-filter:blur(2px)')}</span>`;
+    case 'petals':
+      /* the cover under petals */
+      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral};background-image:radial-gradient(ellipse 5px 7px at 20% 30%,${c.supporting} 98%,transparent),radial-gradient(ellipse 6px 4px at 70% 20%,${c.accent} 98%,transparent),radial-gradient(ellipse 4px 6px at 45% 65%,${c.supporting} 98%,transparent),radial-gradient(ellipse 6px 5px at 80% 75%,${c.supporting} 98%,transparent);background-size:34px 30px"></span>`;
+    case 'fireworks':
+      /* a night sky with one burst */
+      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.dominant}">${piece(`inset:0;background:radial-gradient(circle at 60% 35%,${c.accent} 0 3%,transparent 4%),repeating-conic-gradient(from 0deg at 60% 35%,${c.accent} 0 2deg,transparent 2deg 20deg);-webkit-mask:radial-gradient(circle at 60% 35%,black 0 28%,transparent 30%);mask:radial-gradient(circle at 60% 35%,black 0 28%,transparent 30%)`)}</span>`;
     default:
-      /* Four-flap envelope — and any opening without its own picture. */
+      /* Envelope · classic (the four flaps) — and any opening without its own picture. */
       return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral}">${piece(`${d}opacity:.85;left:0;top:0;width:100%;height:50%;clip-path:polygon(0 0,100% 0,50% 100%)`)}${piece(`${d}opacity:.55;left:0;top:0;width:50%;height:100%;clip-path:polygon(0 0,100% 50%,0 100%)`)}${piece(`${d}opacity:.55;right:0;top:0;width:50%;height:100%;clip-path:polygon(100% 0,0 50%,100% 100%)`)}${piece(`${d}opacity:.7;left:0;bottom:0;width:100%;height:50%;clip-path:polygon(0 100%,100% 100%,50% 0)`)}</span>`;
   }
 }

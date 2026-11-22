@@ -10,7 +10,17 @@ import { eventIsOver } from '@/lib/event-is-over.server';
 import { eventOwnsSku } from '@/lib/entitlements';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
-import { iapProductById, iapProductIsRepeatable, papicCreditsMatch } from './products';
+import {
+  iapProductById,
+  iapProductIsRepeatable,
+  iapSupplierGiftProductById,
+  papicCreditsMatch,
+  type IapSupplierGiftProduct,
+} from './products';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
+import { appleGiftOnSale } from './supplier-gift.server';
+import { appleGiftQuantityOk } from './apple-gift-lines';
 import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { verifyAppleTransaction } from './apple-transaction';
 import { createPurchaseIntent, fulfilAppleTransaction, type FulfilOutcome } from './fulfil.server';
@@ -47,11 +57,28 @@ const DAY_OF_ONLY_KEYS = new Set(
 );
 
 export async function startAppStorePurchase(input: {
-  eventId: string;
+  /** The couple's event. A shop's gift names no event — it lands in the shop's gift stock. */
+  eventId?: string;
   productId: string;
+  /**
+   * 💝 A shop's gift cart line: how many of the gift ONE Apple purchase buys (1–10; owner 2026-11-22, "pays line by
+   * line"). Absent ⇒ 1. A couple product is always 1.
+   */
+  quantity?: number;
 }): Promise<IapStartResult> {
-  const { iap } = await getIapGate();
+  const { iap, iapQuantity } = await getIapGate();
   if (!iap) return startRefusal('unavailable');
+  const quantity = input.quantity ?? 1;
+
+  // 💝 A SHOP's gift (owner 2026-11-04, "they can purchase inside apple as well") has its own checks — the web gift
+  // buy's — and never reaches the couple checks below, which are about an event. Only a build whose plugin passes a
+  // quantity (`SetnayanIAP/3`+) buys gifts: an older one would charge for one while the line said more.
+  const gift = iapSupplierGiftProductById(input.productId);
+  if (gift) {
+    if (!iapQuantity || !appleGiftQuantityOk(quantity)) return startRefusal('unavailable');
+    return startShopGiftPurchase(gift, quantity);
+  }
+  if (quantity !== 1) return startRefusal('unavailable');
 
   const product = iapProductById(input.productId);
   const eventId = typeof input.eventId === 'string' ? input.eventId.trim() : '';
@@ -131,13 +158,15 @@ export async function startAppStorePurchase(input: {
     product,
   });
   if (!intent.ok) return startRefusal('try_again');
-  return { ok: true, token: intent.token, productId: product.productId };
+  return { ok: true, token: intent.token, productId: product.productId, quantity: 1 };
 }
 
 function outcomeToResult(o: FulfilOutcome): IapConfirmResult {
   switch (o.status) {
     case 'on':
-      return { status: 'on', eventId: o.eventId, serviceKey: o.serviceKey };
+      return o.vendorProfileId
+        ? { status: 'on', eventId: null, vendorProfileId: o.vendorProfileId, serviceKey: o.serviceKey }
+        : { status: 'on', eventId: o.eventId, serviceKey: o.serviceKey };
     case 'refunded':
       return { status: 'refunded' };
     case 'refused':
@@ -148,6 +177,43 @@ function outcomeToResult(o: FulfilOutcome): IapConfirmResult {
       // honest word is "switching it on", never "failed".
       return { status: 'pending' };
   }
+}
+
+/**
+ * 💝 THE SHOP GIFT'S START — the web gift buy's own gate (`buyVendorPapicPortfolioPack`, `for=gift`), then the intent.
+ * The shop is the caller's OWN shop, read here (never sent by the phone); only its owner or an admin buys, as on the
+ * web; the gift must be on sale through the SAME catalogue reads (and, for Papic, the Papic switch and the tier). The
+ * intent names the shop and no event: the gift waits in the shop's stock until the shop gives it, exactly like a gift
+ * bought on the web. No payment ceiling or rail check — those are the web rails' rules; Apple charges one gift.
+ */
+async function startShopGiftPurchase(gift: IapSupplierGiftProduct, quantity: number): Promise<IapStartResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || user.is_anonymous) return startRefusal('sign_in');
+
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return startRefusal('not_shop_owner');
+  const vendorProfileId = profile.vendor_profile_id;
+  // Scoped to THIS shop, not the caller's highest role anywhere — the web gift buy's reasoning.
+  const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
+  if (!canManageVendor(role)) return startRefusal('not_shop_owner');
+
+  const onSale = await appleGiftOnSale(createAdminClient(), gift);
+  if (onSale === 'error') return startRefusal('try_again');
+  if (onSale !== 'on_sale') return startRefusal('not_on_sale');
+
+  const intent = await createPurchaseIntent(createMoneyWriterClient(), { userId: user.id, vendorProfileId, product: gift });
+  if (!intent.ok) return startRefusal('try_again');
+  return { ok: true, token: intent.token, productId: gift.productId, quantity };
+}
+
+/** Where a fulfilled purchase shows: the couple's event, or the shop's gifts. */
+function revalidateOn(o: FulfilOutcome): void {
+  if (o.status !== 'on') return;
+  if (o.vendorProfileId) revalidatePath('/vendor-dashboard/shop/promote');
+  else if (o.eventId) revalidatePath(`/dashboard/${o.eventId}`, 'layout');
 }
 
 async function signedInUserId(): Promise<string | null> {
@@ -167,7 +233,7 @@ export async function confirmAppStorePurchase(input: { jws: string }): Promise<I
   const verified = verifyAppleTransaction(typeof input.jws === 'string' ? input.jws : '');
   if (!verified.ok) return { status: 'invalid' };
   const outcome = await fulfilAppleTransaction(createMoneyWriterClient(), verified.tx, { expectUserId: userId });
-  if (outcome.status === 'on') revalidatePath(`/dashboard/${outcome.eventId}`, 'layout');
+  revalidateOn(outcome);
   return outcomeToResult(outcome);
 }
 
@@ -181,15 +247,19 @@ export async function restoreAppStorePurchases(input: { jwsList: string[] }): Pr
   const writer = createMoneyWriterClient();
   const on: Array<{ eventId: string; serviceKey: string }> = [];
   let pending = 0;
+  let gifts = false;
   for (const jws of list) {
     const verified = verifyAppleTransaction(typeof jws === 'string' ? jws : '');
     if (!verified.ok) continue;
     // Restore matches only THIS person's intents; another account's purchase on
     // the same Apple ID is theirs to restore, signed in as them.
     const o = await fulfilAppleTransaction(writer, verified.tx, { expectUserId: userId });
-    if (o.status === 'on') on.push({ eventId: o.eventId, serviceKey: o.serviceKey });
+    if (o.status === 'on' && o.eventId) on.push({ eventId: o.eventId, serviceKey: o.serviceKey });
+    // 💝 A shop's gift landed in its stock — nothing to name on Profile's event list, but the gifts page re-reads.
+    else if (o.status === 'on' && o.vendorProfileId) gifts = true;
     else if (o.status === 'error') pending += 1;
   }
+  if (gifts) revalidatePath('/vendor-dashboard/shop/promote');
   if (on.length === 0) return { ok: true, restored: [], pending };
 
   // Name each event — read with the admin client, scoped to the ids just fulfilled for this user.

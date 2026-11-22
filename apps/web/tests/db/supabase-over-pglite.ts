@@ -150,6 +150,9 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
   /** `.in(col, values)` and `.is(col, null)` — added 2026-10-18 for lib/iap/fulfil.server.ts's conditional writes. */
   private ins: Array<[string, readonly unknown[]]> = [];
   private nulls: string[] = [];
+  /** `.not(col, 'is', null)` → IS NOT NULL, and `.like(col, pattern)` → LIKE — added 2026-11-22 for the gift catalogue readers. */
+  private notNulls: string[] = [];
+  private likes: Array<[string, string]> = [];
   private limitN: number | null = null;
   private orderBy: Array<{ column: string; ascending: boolean }> = [];
   private rangeWin: { from: number; to: number } | null = null;
@@ -190,6 +193,20 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
     assertModelled(this.op !== 'insert' && this.op !== 'upsert', `.is() on an ${this.op} into ${this.table}`);
     assertModelled(IDENT.test(column) && value === null, `.is() column ${column} (only IS NULL is modelled)`);
     this.nulls.push(column);
+    return this;
+  }
+
+  not(column: string, operator: 'is', value: null): this {
+    assertModelled(this.op !== 'insert' && this.op !== 'upsert', `.not() on an ${this.op} into ${this.table}`);
+    assertModelled(IDENT.test(column) && operator === 'is' && value === null, `.not() column ${column} (only IS NOT NULL is modelled)`);
+    this.notNulls.push(column);
+    return this;
+  }
+
+  like(column: string, pattern: string): this {
+    assertModelled(this.op === 'select', `.like() on a ${this.op} of ${this.table}`);
+    assertModelled(IDENT.test(column) && typeof pattern === 'string', `.like() column ${column}`);
+    this.likes.push([column, pattern]);
     return this;
   }
 
@@ -333,7 +350,9 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
   private async run(): Promise<{ data: Row[] | null; error: PgError; count?: number | null }> {
     const params: unknown[] = [];
     const where = () => {
-      if (this.eqs.length === 0 && this.ins.length === 0 && this.nulls.length === 0) return '';
+      if (this.eqs.length === 0 && this.ins.length === 0 && this.nulls.length === 0 && this.notNulls.length === 0 && this.likes.length === 0) {
+        return '';
+      }
       const parts = this.eqs.map(([c, v]) => {
         params.push(v);
         return `"${c}" = $${params.length}`;
@@ -350,6 +369,11 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
         parts.push(`"${c}"::text IN (${ph.map((x) => `${x}::text`).join(', ')})`);
       }
       for (const c of this.nulls) parts.push(`"${c}" IS NULL`);
+      for (const c of this.notNulls) parts.push(`"${c}" IS NOT NULL`);
+      for (const [c, pattern] of this.likes) {
+        params.push(pattern);
+        parts.push(`"${c}" LIKE $${params.length}`);
+      }
       return ` WHERE ${parts.join(' AND ')}`;
     };
 

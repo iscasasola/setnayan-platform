@@ -118,21 +118,11 @@ export function LineRows({
  * each button names its own form, so neither write changed.
  */
 function LineOpen({ line, activities }: { line: ShownLine; activities: readonly LineActivity[] | null }) {
-  const [body, setBody] = useState(line.body);
-  const [tie, setTie] = useState(line.activity_id ?? '');
   const editForm = useId();
   const tieForm = useId();
   return (
     <div className="flex flex-col gap-2.5 pb-4 pt-1">
-      <StayForm id={editForm} door="supLines.updateLine" action={updateLine} className="flex flex-col gap-2">
-        <input type="hidden" name="line_id" value={line.line_id} />
-        <TypedRow name="Your line" value={body} empty="Your line" long boxed required maxLength={2000} fieldName="body" onType={setBody} onKeep={(t) => setBody(t)} data="line-body" />
-        <p className={TEMPLATE_SUBLINE}>
-          {line.slots.length > 0
-            ? `Blanks filled per wedding: ${line.slots.map((s) => `⟨${s}⟩`).join(' · ')}`
-            : 'No blanks in this one — it reads the same at every wedding.'}
-        </p>
-      </StayForm>
+      <LineEdit line={line} formId={editForm} />
 
       {/* rung 2 → rung 1: make a by-name guess into an exact match. */}
       {activities === null ? (
@@ -142,18 +132,7 @@ function LineOpen({ line, activities }: { line: ShownLine; activities: readonly 
           <ActionButton tone="neutral" icon={<RotateCcw aria-hidden />} label="Try again" href="/vendor-dashboard/lines" prefetch={false} />
         </div>
       ) : activities.length > 0 ? (
-        <StayForm id={tieForm} door="supLines.attachLineToActivity" action={attachLineToActivity} className="flex flex-col gap-2">
-          <input type="hidden" name="line_id" value={line.line_id} />
-          <input type="hidden" name="activity_id" value={tie} />
-          <ChosenRow
-            name="Tied to"
-            label="Attach to one of your segments"
-            value={tie}
-            options={[{ key: '', label: 'Not tied to a segment' }, ...activities.map((a) => ({ key: a.activity_id, label: a.label }))]}
-            onPick={setTie}
-            data="line-tie"
-          />
-        </StayForm>
+        <LineTie line={line} activities={activities} formId={tieForm} />
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2" data-line-buttons="">
@@ -161,5 +140,40 @@ function LineOpen({ line, activities }: { line: ShownLine; activities: readonly 
         <ActionButton type="submit" form={editForm} tone="brand" main icon={<Check aria-hidden />} label="Save" />
       </div>
     </div>
+  );
+}
+
+/** The line's edit box — the same `updateLine`, the same `body` field (2,000 characters). Its Save is in the button row. */
+function LineEdit({ line, formId }: { line: ShownLine; formId: string }) {
+  const [body, setBody] = useState(line.body);
+  return (
+    <StayForm id={formId} door="supLines.updateLine" action={updateLine} className="flex flex-col gap-2">
+      <input type="hidden" name="line_id" value={line.line_id} />
+      <TypedRow name="Your line" value={body} empty="Your line" long boxed required maxLength={2000} fieldName="body" onType={setBody} onKeep={(t) => setBody(t)} data="line-body" />
+      <p className={TEMPLATE_SUBLINE}>
+        {line.slots.length > 0
+          ? `Blanks filled per wedding: ${line.slots.map((s) => `⟨${s}⟩`).join(' · ')}`
+          : 'No blanks in this one — it reads the same at every wedding.'}
+      </p>
+    </StayForm>
+  );
+}
+
+/** "Tied to" — one of his segments, or none; the same `attachLineToActivity` and `activity_id` field. Its button is in the row. */
+function LineTie({ line, activities, formId }: { line: ShownLine; activities: readonly LineActivity[]; formId: string }) {
+  const [tie, setTie] = useState(line.activity_id ?? '');
+  return (
+    <StayForm id={formId} door="supLines.attachLineToActivity" action={attachLineToActivity} className="flex flex-col gap-2">
+      <input type="hidden" name="line_id" value={line.line_id} />
+      <input type="hidden" name="activity_id" value={tie} />
+      <ChosenRow
+        name="Tied to"
+        label="Attach to one of your segments"
+        value={tie}
+        options={[{ key: '', label: 'Not tied to a segment' }, ...activities.map((a) => ({ key: a.activity_id, label: a.label }))]}
+        onPick={setTie}
+        data="line-tie"
+      />
+    </StayForm>
   );
 }

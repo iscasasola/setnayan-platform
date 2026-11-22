@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ChevronRight, Wallet } from 'lucide-react';
 import { BADGE } from '@/app/_components/price-summary';
 import { customerCardHref } from '@/lib/upcoming-schedule-door';
-import { HOSTS_PLANNED_LABEL, HOSTS_PLANNED_NOTE, YOUR_BOOKING_DOOR, YOUR_BOOKING_TITLE, type YourBookingView } from '@/lib/your-booking';
+import { HOSTS_PLANNED_LABEL, HOSTS_PLANNED_NOTE, YOUR_BOOKING_COVERS_UNREAD, YOUR_BOOKING_DOOR, YOUR_BOOKING_TITLE, type YourBookingView } from '@/lib/your-booking';
 import { usePickedNav } from './picked-client-nav';
 
 /**
@@ -54,7 +54,12 @@ export function YourBookingCard({ eventId, view }: { eventId: string; view: Your
           </span>
         </p>
       ) : null}
-      {view.covers ? (
+      {view.covers === YOUR_BOOKING_COVERS_UNREAD ? (
+        // The quotes read was refused: said as that, never as a quotation that covers nothing.
+        <p role="status" className="mt-2 text-sm text-ink/70" data-your-booking-covers="unread">
+          {view.covers}
+        </p>
+      ) : view.covers ? (
         <p className="mt-2 text-sm text-ink/70 [overflow-wrap:anywhere]" data-your-booking-covers="">
           <span className="text-ink/70">Covers: </span>
           <span className="text-ink">{view.covers}</span>

@@ -126,6 +126,8 @@ test('5 · the card stands where "Budget" stood, booked only, view only, and ope
   // One door, to the shipped page: switched in place, or its own address with no script.
   assert.match(CARD, /nav\.select\('payments'\)/);
   assert.match(CARD, /customerCardHref\(eventId, 'payments'\)/);
+  // A refused quotes read is said as a sentence of its own — never "Covers: couldn't load".
+  assert.match(CARD, /view\.covers === YOUR_BOOKING_COVERS_UNREAD \? \(/);
   // View only: no form, no input, no action in the card.
   assert.doesNotMatch(CARD, /<form\b|<input\b|action=|useActionState|'use server'/);
 });

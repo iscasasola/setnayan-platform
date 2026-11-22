@@ -217,7 +217,9 @@ export const IAP_SUPPLIER_GIFT_PRODUCTS: readonly IapSupplierGiftProduct[] = Obj
       // 💎 Event Ultra as a gift (owner 2026-11-13, "Gifting Ultra: yes"). The OWNER creates it in App Store Connect at the
       // price point equal to the EVENT_ULTRA row's list price; not sellable until the supplier path is.
       ['gift_event_ultra', 'EVENT_ULTRA', 'Gift · Event Ultra'],
-      ['gift_live_watch', 'LIVE_STUDIO', 'Gift · Live Watch'],
+      // 🗑 No `gift_live_watch`: Live Watch is not a gift on the web (`ShopGiftKind` is Papic · Plus · Pro · Ultra, and the
+      // 17 Nov "Gift prices" row lists only those), so an app gift could never be delivered "exactly like a web gift".
+      // Dropped 22 Nov before it was created in App Store Connect.
       // 🗑 `gift_music_maker` (PAKANTA) and `gift_patiktok` (PATIKTOK_COMPILER) left with their products (owner 2026-11-20,
       // "Retire Patiktok and Music Maker") — ids in RETIRED_IAP_PRODUCT_IDS, never reused.
     ] as const

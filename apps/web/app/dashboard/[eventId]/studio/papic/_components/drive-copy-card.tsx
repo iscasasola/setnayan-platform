@@ -152,6 +152,7 @@ async function DriveConnectedPanel({
       .from('drive_copy_artifacts')
       .select('artifact_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
+      .is('vendor_profile_id', null)
       .is('drive_file_id', null)
       .gte('attempt_count', 5)
       .ilike('last_error_text', '%storageQuotaExceeded%'),

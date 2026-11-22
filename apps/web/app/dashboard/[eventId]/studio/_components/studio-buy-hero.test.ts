@@ -76,7 +76,9 @@ test('the selling pages are found by what they RENDER, not by a word in a commen
   */
   // 5 → 4 on 2026-10-26: the Papic page was REMOVED (owner: "place that on home and remove that page") — not missed;
   // its Add more is the card's on Home. Never lower this for any other reason.
-  assert.ok(selling.length >= 4, `only ${selling.length} selling pages — the sweep found nothing.`);
+  // 4 → 3 on 2026-11-22: the Editorial PRO buy page was REMOVED (no door since 2026-07-22; it forwards to the Story
+  // Maker, lib/legacy-redirects.ts) — not missed.
+  assert.ok(selling.length >= 3, `only ${selling.length} selling pages — the sweep found nothing.`);
   assert.ok(
     !selling.includes('indoor-blueprint'),
     'indoor-blueprint is a retired SKU with no checkout; if it sells again, that is a decision.',

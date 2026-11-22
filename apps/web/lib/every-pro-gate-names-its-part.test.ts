@@ -107,7 +107,6 @@ const EVERYTHING_ASKED_HERE: Record<string, string> = {
   'lib/couple-website-pro.ts': 'its definition, and the Editorial dual unlock (free for everyone)',
   'app/[slug]/_lib/hub-look.ts': '`websiteProActiveFor` — the guest look shell and the page ground',
   'app/[slug]/_lib/loaders.ts': 'the guest look shell (Pro colours and face)',
-  'app/dashboard/[eventId]/studio/editorial-pro/page.tsx': 'the Editorial buy surface, which Full Pro includes',
   'app/dashboard/[eventId]/launch/page.tsx': "the Maker's one Full Pro offer and its marks (PR2 moves the marks to parts)",
   'app/dashboard/[eventId]/website/our-story/page.tsx': 'the buy CTA on the legacy story page — Full Pro',
   'app/dashboard/[eventId]/website/editor/page.tsx': "the legacy editor's padlocks and its one Full Pro unlock button",

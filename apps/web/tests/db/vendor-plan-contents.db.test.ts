@@ -17,6 +17,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import { TIER_CAPS, VENDOR_TIERS } from '../../lib/vendor-tier-caps';
 import { EDITABLE_PLAN_KEYS, codeValue } from '../../lib/vendor-plan-contents';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { giveShopARegistrationNumber } from './shop-registration-fixture';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -113,6 +114,7 @@ test('the branch gate in the database obeys the edited number', async () => {
       )
     ).rows[0]!.vendor_profile_id;
   await db.query(`UPDATE public.vendor_profiles SET tier_state = 'pro' WHERE vendor_profile_id = $1`, [shop]);
+  await giveShopARegistrationNumber(db, shop);
   await db.query(`UPDATE public.vendor_plan_contents SET value = 1 WHERE plan = 'pro' AND key = 'branches_included'`);
 
   const add = async () =>

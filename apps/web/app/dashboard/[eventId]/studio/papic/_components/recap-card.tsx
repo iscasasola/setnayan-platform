@@ -1,4 +1,5 @@
 import { Sparkles } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button-class';
 import { loadRecapCoupleSummary, type RecapCoupleSummary } from '@/lib/auto-recap';
 import { RecapPrivacyPill } from './recap-privacy-pill';
 
@@ -22,7 +23,7 @@ export async function RecapCard({ eventId, state, seat = 'page' }: { eventId: st
       <InfoTip
         labelAs="p"
         label="Your day as a living recap"
-        labelClassName={inSheet ? 'text-[15px] text-ink/70' : 'text-sm text-ink/70'}
+        labelClassName={inSheet ? 'text-sn-lg text-ink/70' : 'text-sm text-ink/70'}
         className={inSheet ? undefined : 'mt-1'}
         align="start"
       >
@@ -34,7 +35,7 @@ export async function RecapCard({ eventId, state, seat = 'page' }: { eventId: st
       </InfoTip>
       <a
         href={`/dashboard/${eventId}/studio/papic/recap`}
-        className={inSheet ? 'ab ab-brand ab-main h-12 w-full text-[15px]' : 'ab ab-brand ab-main mt-4'}
+        className={actionButtonClass('brand', { main: true, extra: inSheet ? 'h-12 w-full text-sn-lg' : 'mt-4' })}
       >
         <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />
         {isPublished ? 'Manage your recap' : 'See your recap'}

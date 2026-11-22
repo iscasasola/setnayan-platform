@@ -36,7 +36,8 @@ test('1 · every section label on the card is the eyebrow style', () => {
   assert.match(CARD, /<K\.Fold summary="Name and contact" handle="Basic Info" value=\{guest\.mobile\?\.trim\(\) \? basicSummary : null\} emptyValue="Add a mobile"/, 'the name and mobile are not the Name and contact group');
   /* 🗂 The three groups' small headings (20 Nov 2026 drawing § 3: About · For the event · More) wear `.sn-eye`; "Their ticket"
      is the ticket row's own words now (a row, not a heading) and still titles its opened view in `.sn-eye` (below). */
-  assert.match(CARD, /<p className="sn-eye px-0\.5 pb-1 pt-4" data-card-group="about">\s*About\s*<\/p>/, '"About" is gone or not the eyebrow style');
+  // 22 Nov 2026: the About line also holds "✓ Saved" at its right (when the identity row is not drawn) — still .sn-eye.
+  assert.match(CARD, /<p className="sn-eye flex items-center px-0\.5 pb-1 pt-4" data-card-group="about">\s*About\s*[{<]/, '"About" is gone or not the eyebrow style');
   assert.match(CARD, /<p className="sn-eye px-0\.5 pb-1 pt-4" data-card-group="event">\s*For the event\s*<\/p>/, '"For the event" is gone or not the eyebrow style');
   assert.match(CARD, /<p className="sn-eye">\s*\{guestCardEyebrow\(/, 'the card\'s own eyebrow left .sn-eye');
   assert.doesNotMatch(CARD, /font-mono[^"]*uppercase|uppercase[^"]*font-mono/, 'a mono caps label is back on the card');

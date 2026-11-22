@@ -25,6 +25,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { seededBeforeTheOneVerifiedShopRule } from './shop-registration-fixture';
 import {
   SPECIALIZED_TOOL_KEYS,
   specializedToolsUnlockFrom,
@@ -369,7 +370,8 @@ test('3e · ONE trial per BUSINESS — a second shop of the same business gets n
   await newBooking(first.vpid);
   assert.ok((await access(first.vpid))?.trial_used_at);
 
-  const again = await newShop({ tier: 'verified', reg: 'dti 7788 1234' });
+  // A second VERIFIED shop under one number exists only from before 22 Nov 2026 (one verified shop per number).
+  const again = await seededBeforeTheOneVerifiedShopRule(db, () => newShop({ tier: 'verified', reg: 'dti 7788 1234' }));
   await newBooking(again.vpid);
   assert.equal(await access(again.vpid), null, 'no trial written for the second shop');
   assert.equal((await claim(again.vpid)).status, 'used_by_business');

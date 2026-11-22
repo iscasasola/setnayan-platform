@@ -20,7 +20,7 @@ import {
   type GuestSide,
   type MealPreference,
   type RsvpStatus,
-  RSVP_ROW_WORDS,
+  RSVP_LIST_WORDS,
   replyMarkedByHost,
   PLUS_ONE_CHOICES,
   A_PLUS_ONE_BRINGS_NO_ONE,
@@ -75,7 +75,7 @@ import { THIS_IS_ME_REFUSAL_COPY } from '@/lib/creator-couple-row';
 import type { GuestCardData } from './guest-card-data';
 import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[guestId]/actions';
 import { invitationLinkOn } from '@/lib/invitation-link';
-import { tableWords } from '@/lib/table-words';
+import { seatWords, tableWords } from '@/lib/table-words';
 import { GuestSeatPreview } from './guest-seat-preview';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 import { COUNTED_FOR_ALL, NOT_COUNTED_ABOUT, NOT_COUNTED_FIELD, NOT_COUNTED_POSTED } from '@/lib/guest-not-counted';
@@ -162,7 +162,10 @@ const MEAL_OPTIONS: MealPreference[] = [
 const RSVP_OPTIONS: RsvpStatus[] = ['attending', 'pending', 'maybe', 'declined'];
 
 /** The card's words for an answer (owner 2026-09-30: "no reply" / "not coming"). */
-const CARD_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_ROW_WORDS;
+/* 💬 THE CARD SAYS WHAT THE LIST SAYS (Guests redesign drawing § 3, 20 Nov: the card reads "✓ Coming" and Reply
+   "Coming"; § 1's summary and rows already speak `RSVP_LIST_WORDS`). One set of words for one answer, so the row a guest
+   was opened from and their card can never disagree ("Coming" on the row, "Attending" on the card). */
+const CARD_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_LIST_WORDS;
 
 
 /* 🪪 The card's head — eyebrow · name · reply and the face — lives in its own small module (`guest-card-head.tsx`) so the
@@ -315,6 +318,8 @@ export function GuestCardBody({
     initialInvited,
     inviteChapters,
     seatedAt,
+    seatNumber,
+    seatUnread,
     customGroups,
     recordedAt,
     access,
@@ -410,7 +415,7 @@ export function GuestCardBody({
         ? 'None · a +1 brings no one'
         : 'None';
   const rsvpSummary = isCouple
-    ? 'Attending · always'
+    ? `${CARD_RSVP_WORDS.attending} · always`
     : representedBy
       ? representedByWords(representedBy.name)
       : [
@@ -441,13 +446,17 @@ export function GuestCardBody({
         : papicRow.ceiling === undefined
           ? faceWords
           : [guestCameraSummary(papicRow.ceiling), guest.faceblock_enabled ? 'Blurred' : null].filter(Boolean).join(' · ');
+  /* 🪑 "Entourage · Seat 2" (drawing § 3) — the table, then their chair. 🔴 A REFUSED seat read says so: it used to fall
+     to "Not seated", telling the couple a seated guest had no seat (the honest read, guests-read-is-honest.test.ts). */
   const seatSummary = representedBy
     ? `${representedBy.name} sits in their seat`
-    : seatedAt
-      ? tableWords(seatedAt)
-      : guest.rsvp_status === 'declined' && !proxy?.namedByGuest
-        ? 'Not coming'
-        : 'Not seated';
+    : seatUnread
+      ? 'Couldn’t read their seat'
+      : seatedAt
+        ? [tableWords(seatedAt), typeof seatNumber === 'number' ? seatWords(seatNumber) : null].filter(Boolean).join(' · ')
+        : guest.rsvp_status === 'declined' && !proxy?.namedByGuest
+          ? CARD_RSVP_WORDS.declined
+          : 'Not seated';
   const notesSummary = [guest.host_note_for_guest?.trim() ? 'A note for them' : null, guest.notes?.trim() ? 'A private note' : null].filter(Boolean).join(' · ') || null;
   const accessSummary = [
     linked === null ? null : linked ? 'Linked' : 'Not linked',
@@ -516,6 +525,8 @@ export function GuestCardBody({
       />
     ) : null;
 
+  /** The identity block has something the sheet's header does not already say. */
+  const identityShown = !headerShown || isCouple || (seats > 0 && !isCouple) || Boolean(standingInFor);
   return (
     <div className="space-y-4" data-guest-card-root="">
       {errorMessage ? (
@@ -540,7 +551,10 @@ export function GuestCardBody({
       ) : null}
 
       {/* ══ 1 · PROFILE · QR · BASIC INFO ═══════════════════════════════════════════════════════════════════════════════
-          Identity — who, whose side, and the answer at a glance. */}
+          Identity — who, whose side, and the answer at a glance. Over the Guest list the sheet's header already says who
+          and their reply; this block is drawn only when it has more to say (+N seats · Host · Proxy for…), never as a row
+          that holds nothing but "✓ Saved" (drawing v4 § 3: the quick actions sit right under the head). */}
+      {identityShown ? (
       <div className="flex items-center gap-3">
         {/* 👤 Over the Guest list the face is in the sticky header, LEFT of the name (owner 2026-10-26: "Move profile photo
             beside the name on the top? Left side") — `GuestCard` hands it to `InspectorColumn`'s `lead`. The standalone page
@@ -586,6 +600,7 @@ export function GuestCardBody({
           </p>
         </div>
       </div>
+      ) : null}
 
       {/* ── TOP · WHAT YOU DO MOST (owner-approved drawing `guests_redesign_2026-11-20_fable.html` § 3, "Yes, build it" 20 Nov
           2026): four quick actions with words — Send invite · Call · Seat · Note — then "Their ticket", ONE row you tap to
@@ -671,8 +686,11 @@ export function GuestCardBody({
               kept their handles (`handle`) and every field inside them; only their words changed: Basic Info → Name and
               contact · Details → Role and group · Additional Guests → Plus-ones · RSVP Status → Reply · Seat Plan → Seat ·
               Papic → Photos · Note for them · Private note → Notes. */}
-          <p className="sn-eye px-0.5 pb-1 pt-4" data-card-group="about">
+          <p className="sn-eye flex items-center px-0.5 pb-1 pt-4" data-card-group="about">
             About
+            {/* ✓ Saved (owner-approved 2026-10-23) — here, at the head of the rows that save themselves, when the identity
+                block above is not drawn. One slot either way. */}
+            {identityShown ? null : <span id={`${formId}-saved`} className="ml-auto normal-case tracking-normal" data-guest-card-save-slot="" />}
           </p>
           {/* 🎨 Missing shows in colour: with no mobile the row says "Add a mobile", in the accent; filled, it is grey. */}
           <K.Fold summary="Name and contact" handle="Basic Info" value={guest.mobile?.trim() ? basicSummary : null} emptyValue="Add a mobile" missing={!guest.mobile?.trim()}>
@@ -1033,7 +1051,7 @@ export function GuestCardBody({
           </K.Fold>
 
           {/* ══ 6 · SEAT PLAN — the table, in place (never "go edit elsewhere") ════════════════════════════════════════ */}
-          <K.Fold summary="Seat" handle="Seat Plan" value={seatSummary}>
+          <K.Fold summary="Seat" handle="Seat Plan" value={seatSummary} unread={seatUnread === true}>
             {representedBy ? (
               /* 🧍 The role's seat moved to the proxy (`the_proxy_takes_the_seat`) — the holder is not seated twice. */
               <p className="text-sm text-ink/70" data-guest-seat-is-the-proxys="">

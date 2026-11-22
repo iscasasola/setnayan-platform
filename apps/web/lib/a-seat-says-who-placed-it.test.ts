@@ -94,7 +94,8 @@ test('4 · read where a seat is shown: Seats › List faces and the guest card',
   assert.match(faces, /\$\{g\.placed \? `, \$\{g\.placed\}` : ''\}`\}/, 'a seat row\'s face no longer says who placed it');
   assert.match(faces, /`Seat \$\{formatCount\(where\.seat \+ 1\)\}\$\{g\.placed \? ` · \$\{g\.placed\}` : ''\}`/, 'a seat row\'s line no longer says who placed it');
   const data = src('app/dashboard/[eventId]/guests/_components/guest-card-data.ts');
-  assert.match(data, /\.select\('table_id, placed_by, placed_at, event_tables\(table_label\)'\)/);
+  // 22 Nov 2026: the card also reads the chair (`seat_number`, "Entourage · Seat 2" — drawing v4 § 3).
+  assert.match(data, /\.select\('table_id, seat_number, placed_by, placed_at, event_tables\(table_label\)'\)/);
   const body = src('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
   assert.match(body, /\{seatTableId && data\.seatPlaced \? \(\s*<p className="text-xs text-ink\/60" data-guest-seat-placed-by=\{data\.seatPlaced\.by\}>\s*\{seatWhyWords\(/);
 });

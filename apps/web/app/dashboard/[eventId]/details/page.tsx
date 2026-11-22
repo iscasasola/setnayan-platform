@@ -157,7 +157,7 @@ export default async function EventDetailsPage({
     .select(
       'event_id, display_name, event_type, archived, slug, bride_name, groom_name, region, ' +
         'ceremony_type, secondary_ceremony_type, event_date, event_date_precision, date_mode, date_candidates, ' +
-        'date_window_start, date_window_end, estimated_pax, venue_setting, ceremony_venue_setting, ' +
+        'date_window_start, date_window_end, date_months, estimated_pax, venue_setting, ceremony_venue_setting, ' +
         'guest_list_edit_deadline, adaptive_pricing_mode, monogram_text, invite_theme, role_palette, ' +
         'site_font_key, site_button_style, site_button_color, site_bg_music_r2_key, site_bg_music_enabled, landing_page_hero_image_url, ' +
         'setnayan_ai_active, planning_mode, rsvp_ask_config, love_story, dress_code_config, special_message, ' +

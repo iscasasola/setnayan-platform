@@ -36,15 +36,9 @@ import { stripComments } from './strip-comments';
 /** Strip block + line comments so prose that QUOTES a banned string can't pass
  *  or fail a check about the code. */
 const ROUTE = join(process.cwd(), 'app', 'api', 'upload', 'route.ts');
-const SEAT = join(
-  process.cwd(),
-  'app',
-  'papic',
-  'seat',
-  '[token]',
-  '_components',
-  'papic-seat-capture.tsx',
-);
+// 📷 ONE CAMERA (owner 2026-11-22): a seat shoots on the guest camera in seat mode — that is the seat's screen now.
+const SEAT = join(process.cwd(), 'app', 'papic', 'guest', '_components', 'papic-guest-capture.tsx');
+const CHIP = join(process.cwd(), 'app', 'papic', '_components', 'upload-chip.tsx');
 
 // ── 1 · the discriminator ──────────────────────────────────────────────────
 
@@ -270,14 +264,12 @@ test('no sentence implies a guest has credits held back for her', () => {
   assert.doesNotMatch(`${t.headline} ${t.detail}`, /your credits/i);
 });
 
-test('and the seat screen says the same thing to a screen reader', () => {
+test('and the seat screen says the same thing — the shared pot is never "your credits"', () => {
   const src = stripComments(readFileSync(SEAT, 'utf8'));
-  assert.doesNotMatch(
-    src,
-    /'Not saved — your credits ran out'/,
-    'the refused-shot label must not call a shared pot her credits',
-  );
-  assert.match(src, /'Not saved — the credits ran out'/);
+  assert.doesNotMatch(src, /your credits ran out/i, 'a seat (or guest) refused for the shared pot is told it was HER credits');
+  assert.match(src, /This event&rsquo;s credits have run out — the hosts can add more\./, 'the camera no longer says whose credits ran out');
+  // A seat's exhaustion is the shared pot's sentence: every non-quota credit refusal turns the camera to it.
+  assert.match(src, /if \(e\.code === 'quota_exhausted'\) \{[\s\S]{0,200}\} else \{\s*setPoolEmpty\(true\);/);
 });
 
 test('a refused shot is never called saved', () => {
@@ -292,55 +284,20 @@ test('a refused shot is never called saved', () => {
   }
 });
 
-test('the seat screen mounts the tally and badges a refused shot', () => {
-  const src = stripComments(readFileSync(SEAT, 'utf8'));
+test('a shot refused for credits is KEPT and counted — never drawn as saved (the one camera)', () => {
   /*
-    ⚠ AND NOT MERELY "arrivalTally IS CALLED". `arrivalTally(landedCount, 0)`
-    returns null forever, the panel silently falls back to the celebratory
-    branch, and every assertion about the copy stays green — which is exactly the
-    cheapest off-switch a future edit would reach for ("the numbers confuse
-    people"). Pin BOTH counters into the call.
+    The old seat screen badged a refused thumbnail and tallied "N landed, M refused", because a refused shot was
+    LOST there. On the one camera a credit refusal is a HOLD: the shot stays on the phone and sends when the hosts
+    add more, and the status chip counts what waits. Pin both halves, so "kept" can never quietly read as "saved".
   */
-  assert.match(
-    src,
-    /arrivalTally\(\s*landedCount\s*,\s*refusedCount\s*\)/,
-    'the tally must be computed from the refusal counter, not from a constant',
-  );
-  // And those counters must actually move, at the arrival, where a credit is spent.
-  assert.match(src, /setLandedCount\(\(n\) => n \+ 1\)/);
-  assert.match(src, /setRefusedCount\(\(n\) => n \+ 1\)/);
-
-  /*
-    ⚠ COUNTING THE OCCURRENCES OF `shot.status === 'capped'` IS NOT ENOUGH, and
-    this guard shipped that way for one round. Deleting the OVERLAY's condition
-    left the `disabled` test and the aria-label branch behind — still two
-    matches, still green, and a refused photograph back to drawing nothing. A
-    file-level match cannot say WHICH site went. So each site is anchored to
-    what it actually does.
-  */
-  assert.match(
-    src,
-    /shot\.status === 'capped' && \([\s\S]{0,400}?<Ban\b/,
-    'a refused shot must draw a visible badge — before this it drew NOTHING, a ' +
-      'bare thumbnail indistinguishable from a photograph that was kept',
-  );
-  assert.match(
-    src,
-    /shot\.status === 'capped'\s*\?\s*'[^']*the credits ran out'/,
-    'a refused shot must say so to a screen reader too',
-  );
-  assert.match(
-    src,
-    /disabled=\{[\s\S]{0,200}?shot\.status === 'capped'/,
-    'a refused shot must not be tappable as if it could be retried',
-  );
-
-  // And the panel must not congratulate her over refused shots.
-  assert.match(
-    src,
-    /arrivalNote \?/,
-    'the exhausted panel must branch on whether anything was actually refused',
-  );
+  const schedule = stripComments(readFileSync(join(process.cwd(), 'lib', 'papic-upload', 'schedule.ts'), 'utf8'));
+  assert.match(schedule, /if \(shots\.every\(\(s\) => s\.hold === 'credits'\)\) return \{ kind: 'credits', waiting \};/);
+  assert.match(schedule, /if \(waiting === 0\) return doneThisVisit > 0 \? \{ kind: 'saved' \} : \{ kind: 'idle' \};/, '"All saved" is no longer reserved for an empty queue');
+  const chip = stripComments(readFileSync(CHIP, 'utf8'));
+  assert.match(chip, /case 'credits':\s*return 'The event’s credits ran out, so these shots are kept on this phone\./);
+  // The seat's money refusals reach that hold (lib/papic-seat-lane.ts → classifyAnswer 'credits').
+  const lane = stripComments(readFileSync(join(process.cwd(), 'lib', 'papic-seat-lane.ts'), 'utf8'));
+  assert.match(lane, /case 'camera_points_exhausted':\s*case 'camera_photo_cap':\s*case 'camera_video_cap':\s*return \{ status: 402, error: 'camera_points_exhausted' \};/);
 });
 
 test('the comment stripper is not itself the reason these pass', () => {

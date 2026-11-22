@@ -22,6 +22,7 @@
  *                   &seats=2 a guest who brings TWO +1s (one named, one not yet) — every seat a line (2026-10-22);
  *                   &seatread=empty the card as origin/main's `.maybeSingle()` loader drew that guest (the read erred → []),
  *                   &seatread=fail a refused seat read ("Couldn’t read …", never the empty state)
+ *                   &seatrow=fail the guest's OWN seat read refused — Seat says "Couldn’t read their seat", never "Not seated"
  *   ?part=host      the bride's card — a host, ⋯ only
  *   ?part=rows      (retired with the old GuestListMultiselect — redirects to part=screen)
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
@@ -295,6 +296,8 @@ function cardData(g: GuestRow, isCouple: boolean): GuestCardData {
     plusOneGuestId: null,
     initialInvited: [],
     seatedAt: isCouple ? 'Sweetheart Table' : 'Entourage',
+    // 🪑 Their chair, counted from 0 — Daniel at Entourage reads "Entourage · Seat 2" (drawing § 3).
+    seatNumber: isCouple ? 0 : 1,
     customGroups: [],
     recordedAt: null,
     access: null,
@@ -695,7 +698,8 @@ export default async function GuestsLabPage({
     const titled: Partial<GuestRow> =
       sp.title === 'atty'
         ? { first_name: 'Eufemia', last_name: 'Dela Cruz', role: 'groom_parents', group_category: 'family', name_prefix: 'Atty.', gender: pickedGender }
-        : {};
+        : /* Daniel is the best man on the lab's List — his card says the same ("Best man · Groom's side", drawing § 3). */
+          { role: 'best_man' };
     /* 🏷 `&role=bride_immediate_family` — a sibling of the bride (stand-in name), for "Rename this section";
        `&vip=1` — the event's words with Immediate Family renamed "VIP" (owner 2026-10-19). The lab has no event: a keep
        is refused by the host fence, so the after-state is drawn from these fixture words. */
@@ -873,7 +877,7 @@ export default async function GuestsLabPage({
         <GuestCard
           frame={panelFrame ? 'panel' : 'page'}
           eventId={EVENT}
-          data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...linkedData, ...proxyData, ...notCountedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
+          data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...(sp.seatrow === 'fail' ? { seatUnread: true, seatedAt: null, seatNumber: null, tables: null } : {}), ...linkedData, ...proxyData, ...notCountedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
           invitationBase="https://www.setnayan.com/maria-and-jose"
           photoDisplayUrl={null}
           returnTo={labBack}
@@ -1040,7 +1044,7 @@ export default async function GuestsLabPage({
                       but still a flex item — so the screen starts a `gap-6` further down, exactly as on the real page.
                       Without it the lab drew the screen 24 px higher than the app and hid the band under the pinned row
                       (2026-10-30, Seats › List). */}
-                  <div className="flex flex-col gap-4" data-guests-title-group="">
+                  <div className="contents" data-guests-title-group="">
                     <h1 className="sr-only">Guests</h1>
                   </div>
                   <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs} openCard={labOpenCard}>

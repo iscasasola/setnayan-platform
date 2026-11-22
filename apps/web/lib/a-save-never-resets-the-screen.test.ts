@@ -219,7 +219,6 @@ const RELOAD_ALLOWED: Readonly<Record<string, string>> = {
   'app/global-error.tsx': 'the error screen: a new deployment or a stale bundle',
   'app/open-shop/_components/open-shop-wizard.tsx': '"Tap Reload to keep going" on a new build — the draft is saved first',
   'app/papic/guest/_components/papic-guest-capture.tsx': '"Try again" when the camera failed to start',
-  'app/papic/seat/[token]/_components/papic-seat-capture.tsx': '"Try again" when the camera failed to start',
   'app/vendor-dashboard/shop/_components/portfolio-form.tsx': '"Retry" on an unread shop wallet (moved, unchanged, out of gallery-media.tsx)',
   'lib/stale-bundle.ts': 'recoverStaleTab(): an out-of-date tab hit a missing chunk — reload once onto the new build (every error boundary)',
   'lib/stylesheet-recovery.ts': 'a stylesheet failed to load — the page is unstyled',

@@ -2,7 +2,8 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { signStoredRef } from '@/lib/supplier-file-sign.server';
+import { ownShopFileUrl, signStoredRef } from '@/lib/supplier-file-sign.server';
+import type { OwnShopServe } from '@/lib/free-shop-files';
 import {
   cardAlbums,
   shopWorkAlbums,
@@ -32,7 +33,13 @@ type PairRow = { vendor_service_id: string; event_id: string; delivered: boolean
 
 export async function readShopWork(
   admin: SupabaseClient,
-  args: { vendorProfileId: string; serviceIds?: readonly string[]; now?: Date },
+  args: {
+    vendorProfileId: string;
+    serviceIds?: readonly string[];
+    now?: Date;
+    /** 🔒 The shop's public page passes how ITS files are served (Free files stay private, lib/free-shop-files.ts). */
+    own?: OwnShopServe;
+  },
 ): Promise<ShopWork | null> {
   const { vendorProfileId } = args;
   const cardsRes = await admin
@@ -128,7 +135,10 @@ export async function readShopWork(
       return {
         photoId: n.photo_id,
         eventId: n.event_id,
-        url: await displayUrlForStoredAsset(n.page_ref).catch(() => null),
+        url: await (args.own
+          ? ownShopFileUrl(n.page_ref, args.own, (v) => displayUrlForStoredAsset(v))
+          : displayUrlForStoredAsset(n.page_ref)
+        ).catch(() => null),
         noticedAt: n.noticed_at,
         publicFrom: n.public_from,
         publishedAt: n.published_at,
@@ -145,7 +155,7 @@ export async function readShopWork(
         fileId: f.file_id,
         eventId: f.event_id,
         serviceId: f.vendor_service_id,
-        url: m ? await signStoredRef(m.r2_ref, vendorProfileId) : null,
+        url: m ? await (args.own ? ownShopFileUrl(m.r2_ref, args.own, (v) => signStoredRef(v, vendorProfileId)) : signStoredRef(m.r2_ref, vendorProfileId)) : null,
         at: f.decided_at ?? m?.created_at ?? '',
       };
     }),

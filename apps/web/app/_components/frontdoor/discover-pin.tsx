@@ -58,7 +58,10 @@ export function DiscoverPinnedRow({ upcoming, following }: { upcoming: number | 
     />
   );
   return (
-    <CollapsingTop rowAtRest data={{ 'discover-top': '' }} row={row}>
+    // ↔ The row wears the page's own gutter (16 px, 24 from 1024 — the `px-4 lg:px-6` Discover's content carries):
+    // `.sn-ct-row` is absolute at left 0 / right 0, so without it "Discover ▾" sat on the screen edge (BUILD_RULES §2,
+    // "left and right gutters equal, at least 16 px"; measured x = 0 at 390 px, 19 Nov).
+    <CollapsingTop rowAtRest data={{ 'discover-top': '' }} row={<div className="w-full min-w-0 px-4 lg:px-6">{row}</div>}>
       {/* The room the row is drawn over at rest — the row's own 44 + a breath, as Home reserves it. */}
       <div style={{ height: 'var(--sn-pin-h, 44px)', marginTop: 8 }} aria-hidden />
     </CollapsingTop>

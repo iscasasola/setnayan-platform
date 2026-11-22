@@ -89,6 +89,10 @@ test('3d · inside the hub, Discover keeps the side gutter `.fd-main` used to gi
   const fd = code(join(APP, '_components', 'frontdoor', 'front-door.tsx'));
   const page = fd.slice(fd.indexOf('data-fd-page=""'), fd.indexOf('{MarketplaceView ?'));
   assert.match(page, /hubShell\s*\?\s*`px-4 lg:px-6/, 'Discover lost its side gutter inside the hub layout');
+  // The pinned row sits outside that div, in `.sn-ct-row` (absolute, left 0 / right 0): it carries the same gutter
+  // itself — measured "Discover ▾" at x = 0 at 390 px without it. Sabotage: pass `row={row}` bare.
+  const pin = code(join(APP, '_components', 'frontdoor', 'discover-pin.tsx'));
+  assert.match(pin, /row=\{<div className="[^"]*\bpx-4 lg:px-6\b[^"]*">\{row\}<\/div>\}/, 'the Discover pinned row sits on the screen edge');
 });
 
 test('3b · ONE question decides who draws the shell, asked by both halves', () => {

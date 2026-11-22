@@ -2294,7 +2294,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         steps: planStepRows?.steps ?? null,
         clearedAt: planStepRows?.clearedAt ?? null,
         ledgerMoney,
-        ledgerUnreadable,
+        // ⚖ A plan read cut short (bookings, plans or payments refused) is not a booking with nothing paid: the whole
+        // view says "couldn't load" — the same rule the Details tiles follow (`plan: !planReadComplete ? 'unread'`).
+        ledgerUnreadable: ledgerUnreadable || !planReadComplete,
         refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : 0,
       })
     : null;

@@ -127,6 +127,9 @@ test('5 · the card stands where "Budget" stood, booked only, view only, and ope
   assert.ok(PAGE.indexOf('const yourBooking = stripPay') < PAGE.indexOf('const overviewNode = ('), 'the view is built before the Details node that draws it');
   assert.match(PAGE, /yourBooking=\{yourBooking\}/);
   assert.match(PAGE, /pay: stripPay,/, 'the figures are the Payment page’s own view — no second read');
+  // A plan read cut short (planReadComplete false) must reach the fold as unread — else a refused payments read draws
+  // "Paid ₱0" and the whole price as Left (ship review, 22 Nov).
+  assert.match(stripComments(PAGE), /ledgerUnreadable: ledgerUnreadable \|\| !planReadComplete,/, 'an incomplete plan read must say "couldn’t load", never ₱0 paid');
   assert.doesNotMatch(PAGE, /<Wallet aria-hidden className="h-4 w-4 text-terracotta" \/> Budget/);
   // One door, to the shipped page: switched in place, or its own address with no script.
   assert.match(CARD, /nav\.select\('payments'\)/);

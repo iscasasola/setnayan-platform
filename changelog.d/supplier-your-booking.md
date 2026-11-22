@@ -22,3 +22,5 @@ parts · New for you. Left as shipped and NOT touched here: the first-inquiry ca
 their per-event switch (`events.share_budget_band`) is on.
 
 SPEC IMPACT: None — builds the 21 Nov DECISION_LOG rows as written.
+
+**Ship controller (22 Nov):** a plan read cut short (bookings, plans or payments refused) now reaches the fold as unread, so "Your booking" and the chat strip say "couldn’t load" instead of "Paid ₱0" with the whole price as Left. Guarded in `lib/your-booking.test.ts` (sabotage-checked).

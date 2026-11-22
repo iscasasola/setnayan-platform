@@ -7,9 +7,9 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1979
+# ledger: 1982
 # tables: 539
-# columns: 6464
+# columns: 6468
 # notnull: 3893
 [ledger]
 20260512000000
@@ -1965,9 +1965,11 @@
 20271354727518
 20271355036188
 20271355258231
+20271355381662
 20271355512715
 20271355746081
 20271355899662
+20271355916558
 20271356061492
 20271356173915
 20271356196197
@@ -1987,6 +1989,7 @@
 20271357625672
 20271357741892
 20271357859993
+20271357880360
 20271357924837
 20271358270977
 20271358554489
@@ -3751,9 +3754,11 @@ event_type_onboarding.reveal_overrides
 event_type_onboarding.updated_at
 event_type_profiles.budget_taxonomy_key
 event_type_profiles.camera_default
+event_type_profiles.core_categories
 event_type_profiles.created_at
 event_type_profiles.enabled_surfaces
 event_type_profiles.event_class
+event_type_profiles.event_size
 event_type_profiles.event_type
 event_type_profiles.gifts_mode
 event_type_profiles.guest_word
@@ -4066,6 +4071,7 @@ events.ceremony_venue_latitude
 events.ceremony_venue_longitude
 events.ceremony_venue_setting
 events.chapters_peek
+events.checkin_desk_access
 events.cleared_at
 events.cleared_by_user_id
 events.community_id
@@ -4084,6 +4090,7 @@ events.created_at
 events.date_candidates
 events.date_forced_by_lock_of
 events.date_mode
+events.date_months
 events.date_status
 events.date_window_end
 events.date_window_start

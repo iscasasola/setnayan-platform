@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS public.vendor_app_store_subscriptions (
   status                  TEXT NOT NULL DEFAULT 'active'
                             CHECK (status IN ('active', 'billing_retry', 'expired', 'refunded', 'revoked')),
   expires_at              TIMESTAMPTZ,
-  auto_renew              BOOLEAN,
+  will_auto_renew         BOOLEAN,
   auto_renew_product_id   TEXT,
   billing_failed_at       TIMESTAMPTZ,
   grace_period_expires_at TIMESTAMPTZ,
@@ -89,6 +89,12 @@ CREATE TABLE IF NOT EXISTS public.vendor_app_store_subscriptions (
 );
 
 ALTER TABLE public.vendor_app_store_subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Reach: a shop's admins READ their own row (the policy below); nobody else, and no client ever writes. Supabase's
+-- default table grants would hand anon and authenticated every privilege (RLS would still refuse the writes) — taken
+-- back here so the exposure surface carries only what is used.
+REVOKE ALL ON public.vendor_app_store_subscriptions FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.vendor_app_store_subscriptions FROM authenticated;
 
 CREATE INDEX IF NOT EXISTS vendor_app_store_subscriptions_vendor_idx
   ON public.vendor_app_store_subscriptions (vendor_profile_id);
@@ -407,7 +413,7 @@ BEGIN
          grace_period_expires_at = CASE
            WHEN p_status = 'active' THEN NULL
            ELSE COALESCE(p_grace_expires_at, grace_period_expires_at) END,
-         auto_renew            = COALESCE(p_auto_renew, auto_renew),
+         will_auto_renew       = COALESCE(p_auto_renew, will_auto_renew),
          auto_renew_product_id = COALESCE(p_auto_renew_product_id, auto_renew_product_id),
          last_notification     = p_notification,
          last_notification_at  = now(),
@@ -485,7 +491,7 @@ BEGIN
            WHEN p_status = 'refunded' AND NOT v_dropped AND status IN ('active', 'billing_retry') THEN status
            WHEN p_status = 'expired' AND status IN ('refunded', 'revoked') THEN status
            ELSE p_status END,
-         auto_renew           = CASE WHEN p_status = 'refunded' AND NOT v_dropped THEN auto_renew ELSE FALSE END,
+         will_auto_renew      = CASE WHEN p_status = 'refunded' AND NOT v_dropped THEN will_auto_renew ELSE FALSE END,
          last_notification    = p_notification,
          last_notification_at = now(),
          updated_at           = now()

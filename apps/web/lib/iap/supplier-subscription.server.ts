@@ -274,7 +274,7 @@ export async function readAppleShopPlan(admin: SupabaseClient, vendorId: string)
       admin.rpc('vendor_plan_billing_channel', { p_vendor_id: vendorId }),
       admin
         .from('vendor_app_store_subscriptions')
-        .select('product_id, status, expires_at, auto_renew, auto_renew_product_id, billing_failed_at')
+        .select('product_id, status, expires_at, will_auto_renew, auto_renew_product_id, billing_failed_at')
         .eq('vendor_profile_id', vendorId)
         .order('updated_at', { ascending: false })
         .limit(1)
@@ -286,7 +286,7 @@ export async function readAppleShopPlan(admin: SupabaseClient, vendorId: string)
       product_id: string;
       status: 'active' | 'billing_retry' | 'expired' | 'refunded' | 'revoked';
       expires_at: string | null;
-      auto_renew: boolean | null;
+      will_auto_renew: boolean | null;
       auto_renew_product_id: string | null;
       billing_failed_at: string | null;
     } | null;
@@ -298,7 +298,7 @@ export async function readAppleShopPlan(admin: SupabaseClient, vendorId: string)
             productId: row.product_id,
             status: row.status,
             expiresAt: row.expires_at,
-            autoRenew: row.auto_renew,
+            autoRenew: row.will_auto_renew,
             autoRenewProductId: row.auto_renew_product_id,
             billingFailedAt: row.billing_failed_at,
           }

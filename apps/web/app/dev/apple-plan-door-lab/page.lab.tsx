@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ApplePlanDoor, type ApplePlanDoorState } from '@/app/vendor-dashboard/subscription/_components/apple-plan-door';
 
@@ -30,6 +31,7 @@ const STATES: Record<string, { tier: string; state: ApplePlanDoorState; ends: st
 };
 
 export default async function ApplePlanDoorLab({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const pick = STATES[sp.state ?? 'new'] ?? STATES.new!;
   return (

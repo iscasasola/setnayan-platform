@@ -606,8 +606,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             )}
             {billedByApple && !storeShell ? (
               <ShopNotice tone="gold" role="status">
-                Your plan is billed by the App Store. Change or cancel it in the Setnayan app or in your iPhone&rsquo;s
-                Settings › Subscriptions; once it ends you can pay for a plan here.
+                Your plan is billed by the App Store. Change or cancel it there; once it ends, you can pay here.
               </ShopNotice>
             ) : null}
             {search.error && (

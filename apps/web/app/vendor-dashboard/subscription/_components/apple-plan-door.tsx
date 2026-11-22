@@ -165,10 +165,11 @@ export function ApplePlanDoor({
           {message}
         </p>
       ) : null}
-      <p className="pt-2 text-[13px] text-[color:var(--m-slate-2)]" data-apple-plan-terms="">
-        {IAP_COPY.billedByApple} Each plan is one month and renews every month until you cancel. A higher plan starts now;
-        a lower one when the month you paid for ends. Cancel any time in Settings › Apple ID › Subscriptions.
-      </p>
+      <div className="pt-2 text-[13px] text-[color:var(--m-slate-2)]" data-apple-plan-terms="">
+        <p>{IAP_COPY.billedByApple} One month at a time, renewing until you cancel.</p>
+        <p>A higher plan starts now; a lower one when the month you paid for ends.</p>
+        <p>Cancel any time in Settings › Apple ID › Subscriptions.</p>
+      </div>
       {/* Guideline 3.1.2: a subscription's buy screen links its Terms of Use and Privacy Policy. */}
       <p className="pt-1 text-[13px] text-[color:var(--m-slate-2)]" data-apple-plan-legal="">
         <Link href={routes.terms()} className="underline underline-offset-2">

@@ -57,6 +57,7 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // The plan page itself — it is where a supplier chooses to buy.
   'subscription/actions.ts': 'the Plans checkout — buying is its job',
   'subscription/_components/plan-sheet.tsx': 'the Plans page’s own plan rows (Build 5 Lane B) — buying a plan is its job; hiding Upgrade behind the paywall switch would leave the Plan page with nothing to buy',
+  'subscription/_components/apple-plan-door.tsx': 'the Plan sheet’s twin in the iPhone app (Shop ⚙ › Plan and billing, supplier subscriptions §3, owner-locked 22 Nov) — Subscribe / Upgrade / Switch through Apple is buying a plan, not a paywall; hiding it behind the switch would leave the app with no way to buy one',
   'subscription/ai-addon-actions.ts': 'Vendor AI add-on checkout',
   // The gate component: it only ever renders where a caller asked the switch
   // (property 2 below checks every mount).

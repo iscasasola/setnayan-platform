@@ -205,7 +205,13 @@ export function CopyEventToDrive({ eventId, eventName, drive, copied, back }: Co
     busy
       ? { tone: 'info', icon: CloudUpload, label: 'Copying…', waiting: true }
       : driveNow.status === 'unread'
-        ? { tone: 'info', icon: RefreshCw, label: 'Try again', onPress: () => router.refresh() }
+        ? {
+            tone: 'info',
+            icon: RefreshCw,
+            label: 'Try again',
+            // one-render: keep (retry) — the Drive's state could not be read on the server; Try again re-reads it, nothing is written
+            onPress: () => router.refresh(),
+          }
         : driveNow.status === 'not_configured'
           ? { tone: 'info', icon: CloudUpload, label: 'Copy', waiting: true }
           : driveNow.status === 'not_connected'

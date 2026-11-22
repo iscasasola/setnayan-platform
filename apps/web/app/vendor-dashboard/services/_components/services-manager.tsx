@@ -88,6 +88,7 @@ import { ShowcaseMediaFields } from './showcase-media-fields';
 import { ServiceCardLivePreview } from './service-card-live-preview';
 import { ServiceCardView } from '@/app/_components/service-card-view';
 import { toServiceCard } from '@/lib/service-card-view-model';
+import { ownShopMall } from '@/lib/mall-card';
 import { RefinementsEditor } from './refinements-editor';
 import {
   fetchCategoryChipRefinementsMany,
@@ -797,6 +798,24 @@ export async function VendorServicesManager({
               // Maker, the same door as Edit. 🔒 ../the-card-menu-row-is-edit-share-go-online.test.ts
               const editHref = `/vendor-dashboard/services/${svc.vendor_service_id}`;
               const cardName = svc.title?.trim() || displayServiceLabel(svc.category);
+              const shopCard = toServiceCard(
+                svc,
+                svcInclusions,
+                svcDiscountList,
+                undefined,
+                {
+                  photos: (svc.showcase_photo_r2_keys ?? [])
+                    .map((k) => showcaseDisplayUrls[k])
+                    .filter((u): u is string => !!u),
+                  videoUrl: svc.showcase_video_r2_key ? (showcaseDisplayUrls[svc.showcase_video_r2_key] ?? null) : null,
+                },
+                false,
+                null,
+                cardListNow,
+                null,
+                null,
+                false,
+              );
               return (
                 <Fragment key={svc.vendor_service_id}>
                   {showCovHeader ? (
@@ -838,26 +857,9 @@ export async function VendorServicesManager({
                           gated on `detailsEnabled`, so it renders inert without
                           a client wrapper existing only to satisfy a type. */}
                       <ServiceCardView
-                        card={toServiceCard(
-                          svc,
-                          svcInclusions,
-                          svcDiscountList,
-                          undefined,
-                          {
-                            photos: (svc.showcase_photo_r2_keys ?? [])
-                              .map((k) => showcaseDisplayUrls[k])
-                              .filter((u): u is string => !!u),
-                            videoUrl: svc.showcase_video_r2_key
-                              ? showcaseDisplayUrls[svc.showcase_video_r2_key] ?? null
-                              : null,
-                          },
-                          false,
-                          null,
-                          cardListNow,
-                          null,
-                          null,
-                          false,
-                        )}
+                        card={shopCard}
+                        // 🃏 Card 14, the one card everywhere (owner 20 Nov), as Find draws it (`ownShopMall`).
+                        mall={ownShopMall(svc, shopCard)}
                         detailsEnabled={false}
                         path={displayServiceLabel(svc.category)}
                         coverUrl={svc.primary_photo_r2_key ? showcaseDisplayUrls[svc.primary_photo_r2_key] ?? null : null}

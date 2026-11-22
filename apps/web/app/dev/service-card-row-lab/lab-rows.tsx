@@ -12,6 +12,7 @@ import { CardLockedMedals } from '@/app/_components/card-badges/card-locked-meda
 import Link from 'next/link';
 import { ChevronRight, Copy } from 'lucide-react';
 import { ServiceCardView } from '@/app/_components/service-card-view';
+import { ownShopMall } from '@/lib/mall-card';
 import type { ServiceCard } from '@/lib/service-card-view-model';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { CardRecordSection } from '@/app/_components/card-record-section';
@@ -73,7 +74,13 @@ export function LabRows({ cards, now, targets }: { cards: LabCard[]; now: boolea
               nameLower={c.name.toLowerCase()}
               face={
                 <div className="relative" data-card-face={c.id}>
-                  <ServiceCardView card={c.card} detailsEnabled={false} footer={<ServiceCardItemFooter />} />
+                  <ServiceCardView
+                    card={c.card}
+                    detailsEnabled={false}
+                    // 🃏 Card 14, as the shipped Shop › Services list draws it (`ownShopMall`). Lab samples are flat, priced cards.
+                    mall={ownShopMall({ starting_price_php: c.card.priceLabel ? 1 : 0 }, c.card)}
+                    footer={<ServiceCardItemFooter />}
+                  />
                   <Link href="#" aria-label={`Open ${c.name} in the Card Maker`} className="absolute inset-0 rounded-xl" data-card-face-opens="" />
                 </div>
               }

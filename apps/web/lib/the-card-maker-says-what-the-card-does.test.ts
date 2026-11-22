@@ -54,3 +54,32 @@ test('3 · the stored schedule still rides the save when the row is hidden', () 
   assert.ok(hidden, 'the hidden schedule_choice input exists');
   assert.doesNotMatch(hidden[1], /cardIsNeverCounted|\?/, 'it is not behind a condition');
 });
+
+// ── C · Supplier › Shop draws Card 14 (owner 23 Nov: "the suppliers>shop has the service card wrong") ──────────────
+// Card 14 is "the one service card everywhere" (DECISION_LOG 20 Nov, CARD 14 v4 APPROVED). The shop's own list drew the
+// OLD side-photo row face. Fails if:
+//   4 · the Shop › Services list stops passing Card 14 (`mall={ownShopMall(…)}`) to its `ServiceCardView`;
+//   5 · `ownShopMall` invents an event fact (a guest total, a distance, a venue ask) or drops the card's own price.
+const MANAGER = stripComments(
+  readFileSync(join(here, '..', 'app', 'vendor-dashboard', 'services', '_components', 'services-manager.tsx'), 'utf8'),
+);
+
+test('4 · Supplier › Shop draws every service card as Card 14', () => {
+  const views = MANAGER.match(/<ServiceCardView[\s\S]*?\/>/g) ?? [];
+  assert.ok(views.length >= 1, 'the shop list still draws its cards through ServiceCardView');
+  for (const v of views) assert.match(v, /mall=\{ownShopMall\(/, `a shop card without Card 14: ${v.slice(0, 120)}`);
+});
+
+test('5 · ownShopMall: the card’s own price, no event facts', async () => {
+  const { ownShopMall } = await import('@/lib/mall-card');
+  const flat = ownShopMall({ pricing_basis: 'fixed', starting_price_php: 45000 }, { priceLabel: 'from ₱45,000', priceDetail: null });
+  assert.deepEqual(flat, { price: { big: 'from ₱45,000', you: null, note: null }, distance: null, askVenue: false });
+  const perGuest = ownShopMall(
+    { pricing_basis: 'per_pax', per_pax_price_php: 650, min_pax: 50, starting_price_php: 32500 },
+    { priceLabel: 'from ₱32,500', priceDetail: null },
+  );
+  assert.equal(perGuest.price?.you, null, 'no guest count on the shop’s own list');
+  assert.match(perGuest.price?.big ?? '', /\/ guest/);
+  const unpriced = ownShopMall({ starting_price_php: 0 }, { priceLabel: 'Price on request', priceDetail: null });
+  assert.equal(unpriced.price, null, '"Price on request" is the band’s quiet voice, not a price');
+});

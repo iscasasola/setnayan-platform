@@ -115,3 +115,32 @@ export function aboutKmLine(km: number | null | undefined): string | null {
 const MALL_SAVE_LOOK =
   'grid h-11 w-11 place-items-center rounded-full bg-black/45 bg-clip-content p-1 text-white backdrop-blur-[8px] transition-transform active:scale-95';
 export const MALL_SAVE_ON_PHOTO = { className: MALL_SAVE_LOOK, savedClassName: MALL_SAVE_LOOK };
+
+/**
+ * 🃏 CARD 14 ON THE SHOP'S OWN LIST (Supplier › Shop › Services, owner 23 Nov: "the suppliers>shop has the service card
+ * wrong"). Card 14 is "the one service card everywhere" (DECISION_LOG 20 Nov), so the shop sees its cards as Find draws
+ * them. There is no event here, so: no guest-count total (a per-guest card shows its rate and its minimum, as Find does
+ * with no event), no distance and no venue ask. The supplier sees its own price even when the shop hides prices.
+ */
+export function ownShopMall(
+  row: {
+    pricing_basis?: string | null;
+    per_pax_price_php?: number | null;
+    min_pax?: number | null;
+    category?: string | null;
+    starting_price_php?: number | string | null;
+  },
+  card: { priceLabel: string; priceDetail: string | null },
+): { price: MallPrice | null; distance: null; askVenue: false } {
+  return {
+    price: mallPrice({
+      perGuest: perGuestPriceOf(row, false),
+      guests: null,
+      // "Price on request" is not a price: the face says it in the band's quiet voice (`priceMissing`), as on Find.
+      price: Number(row.starting_price_php ?? 0) > 0 ? card.priceLabel : null,
+      priceNote: card.priceDetail,
+    }),
+    distance: null,
+    askVenue: false,
+  };
+}

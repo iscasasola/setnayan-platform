@@ -60,7 +60,9 @@ export const GUESTS_SORTS: readonly { key: GuestsSort; label: string }[] = [
   { key: 'table', label: 'Table' },
 ];
 
-const REPLY_FILTERS: readonly ReplyFilter[] = ['attending', 'declined', 'none', 'toinvite', 'maybe'];
+// `maybe` is NOT here: Maybe was retired (owner 2026-09-30); the summary's "· 2 maybe" door narrows the list in place and
+// a reload shows everyone again — never a Maybe filter carried in the address (lib/guests-filter.test.ts).
+const REPLY_FILTERS: readonly ReplyFilter[] = ['attending', 'declined', 'none', 'toinvite'];
 
 function isReplyFilter(v: string | null | undefined): v is ReplyFilter {
   return REPLY_FILTERS.includes(v as ReplyFilter);

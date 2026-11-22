@@ -45,7 +45,8 @@ test('1 · the summary words add up to the total — a kept Maybe is named, not 
   assert.equal(s.yes + s.no + s.none + s.maybe, s.total, 'the summary’s words no longer add up to "N guests"');
   const SCREEN = read(join(HERE, 'guests-screen.tsx'));
   assert.match(SCREEN, /\{stats\.maybe > 0 \? \(\s*<>\s*<span aria-hidden> · <\/span>\s*\{wordDoor\('maybe', stats\.maybe, 'gs-maybe'/, 'the Maybe word is gone from the summary');
-  assert.match(read(join(WEB, 'lib', 'guests-filter.ts')), /'toinvite', 'maybe'\]/, 'a Maybe tap cannot survive a reload (?show=maybe)');
+  // Maybe is retired as a filter (owner 2026-09-30): the door narrows in place, the address never carries it.
+  assert.match(read(join(WEB, 'lib', 'guests-filter.ts')), /const REPLY_FILTERS: readonly ReplyFilter\[\] = \['attending', 'declined', 'none', 'toinvite'\];/);
 });
 
 test('2 · March captions: everyone’s role, never the heading twice, never on the print', () => {

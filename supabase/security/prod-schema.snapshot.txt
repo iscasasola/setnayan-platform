@@ -7,9 +7,9 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1976
+# ledger: 1977
 # tables: 539
-# columns: 6463
+# columns: 6464
 # notnull: 3893
 [ledger]
 20260512000000
@@ -1986,6 +1986,7 @@
 20271357625672
 20271357741892
 20271357859993
+20271358270977
 20271358554489
 20271359080029
 [columns]
@@ -2139,6 +2140,7 @@ app_store_purchases.service_key
 app_store_purchases.transaction_id
 app_store_purchases.updated_at
 app_store_purchases.user_id
+app_store_purchases.vendor_profile_id
 app_store_purchases.verified_at
 app_telemetry_logs.build_sha
 app_telemetry_logs.created_at

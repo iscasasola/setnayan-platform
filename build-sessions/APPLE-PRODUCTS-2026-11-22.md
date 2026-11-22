@@ -27,8 +27,23 @@ equal to the website figure. The app never shows a typed price; it shows what St
 
 **The code list** is `apps/web/lib/iap/products.ts`.
 
-⚠ **Event Pro timing.** Each App Store sale is checked against the catalogue (`appStorePriceMatchesWeb`). If ASC is set
-to ₱5,490 before #8004 is live, every Event Pro sale is logged as a price fault until it is. The sale still completes.
+⚠ **Event Pro timing (controller, 22 Nov: owner's call).** The owner types Event Pro AND Gift · Event Pro as ₱5,490 in
+App Store Connect NOW. In-app purchases stay OFF until the new build is approved, and #8004 is live before the switch
+is turned on (the submit order below), so no sale ever sees ₱5,490 against a ₱5,690 catalogue. (Each App Store sale is
+checked against the catalogue, `appStorePriceMatchesWeb`; a mismatch would be logged as a price fault, the sale still
+completing.)
+
+**13 Apple products:** 7 couple + 6 gifts (no `gift_live_watch`).
+
+## Submit order
+
+1. This PR merges (its migration: Ship's SHIP, then the controller's GO).
+2. Build 9 is archived and uploaded (the owner confirms the last uploaded number first; see Build number).
+3. The 13 products are in App Store Connect at the prices below and attached to the version; the detach list is done.
+4. Submit for review.
+5. **#8004 is LIVE** (Event Pro ₱5,490 and its gift in the production catalogue; `GIFT_BUNDLE_EVENT_PRO` = 10 × Event Pro
+   by its own migration, or that one bundle is simply not offered in the app).
+6. Only then: **switch `NEXT_PUBLIC_APPLE_IAP_ENABLED` on**, after the build is approved.
 
 ## Couple products (on sale)
 

@@ -25,7 +25,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { REVEAL_MOTION, REVEAL_REDUCED_FADE_MS, handsFreeTarget, pushedZ, readGesture, revealDt, snapRevealSpeed, stepLift } from '@/lib/reveal-motion';
-import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config-pure';
+import { DEFAULT_REVEAL_CONFIG, REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config-pure';
 import { claimVeilHold, primeUnveilPress } from '@/lib/hub-veil';
 import { CAMZ, FOV, FZ, LEGACY_FOV, LEGACY_H, disposeScene, logoMask, seeded, type ArtName, type Ctx, type Pt, type Scene, type SceneState } from './scenes/kit';
 
@@ -359,7 +359,7 @@ export default function SceneReveal(props: Props) {
           }),
         logo,
         names: cb.current.monogram,
-        veilColor: cb.current.veilColor ?? '#f3ece1',
+        veilColor: cb.current.veilColor ?? DEFAULT_REVEAL_CONFIG.veilColorDefault,
         open: (nx, ny) => {
           if (still) return stillOpen(false);
           if (state !== 'closed') return;

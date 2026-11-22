@@ -11,6 +11,7 @@
  */
 import { COVER_PAPER } from '@/lib/cover-scene';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
+import type { RevealTemplateId } from '@/lib/reveal-config-pure';
 
 export type RevealColours = { dominant: string; supporting: string; accent: string; neutral: string };
 
@@ -40,6 +41,9 @@ export function coverPaperAsInk(color: string, inkChannels: string): string {
   if ([m[1], m[2], m[3]].some((v, i) => Number(v) !== PAPER[i])) return color;
   return m[4] === undefined ? `rgb(${ink.join(', ')})` : `rgba(${ink.join(', ')}, ${m[4]})`;
 }
+
+/** The Fireworks REVEAL's id (`REVEAL_LIBRARY`) — a reveal, not the supplier service of the same word. */
+const FIREWORKS_REVEAL: RevealTemplateId = 'fireworks';
 
 const piece = (css: string) => `<i style="position:absolute;display:block;${css}"></i>`;
 
@@ -86,7 +90,7 @@ export function revealPictureHtml(kind: string, c: RevealColours, w: number = RE
     case 'petals':
       /* the cover under petals */
       return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral};background-image:radial-gradient(ellipse 5px 7px at 20% 30%,${c.supporting} 98%,transparent),radial-gradient(ellipse 6px 4px at 70% 20%,${c.accent} 98%,transparent),radial-gradient(ellipse 4px 6px at 45% 65%,${c.supporting} 98%,transparent),radial-gradient(ellipse 6px 5px at 80% 75%,${c.supporting} 98%,transparent);background-size:34px 30px"></span>`;
-    case 'fireworks':
+    case FIREWORKS_REVEAL:
       /* a night sky with one burst */
       return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.dominant}">${piece(`inset:0;background:radial-gradient(circle at 60% 35%,${c.accent} 0 3%,transparent 4%),repeating-conic-gradient(from 0deg at 60% 35%,${c.accent} 0 2deg,transparent 2deg 20deg);-webkit-mask:radial-gradient(circle at 60% 35%,black 0 28%,transparent 30%);mask:radial-gradient(circle at 60% 35%,black 0 28%,transparent 30%)`)}</span>`;
     default:

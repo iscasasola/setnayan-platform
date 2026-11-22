@@ -353,15 +353,17 @@ test('the reveal: "No reveal" is free, every opening is Pro — both answers of 
       { events: { std_reveal_template: live }, widgets: [] },
       ownsPro,
     );
-  for (const opening of ['four-flap', 'two-flap-vertical', 'two-flap-horizontal', 'church-doors', 'veil-sheer']) {
+  for (const opening of ['veil-sheer', 'beach-curtains', 'envelope-classic', 'envelope-gatefold', 'fabric', 'scratch', 'smoke', 'cathedral-doors', 'petals', 'fireworks']) {
     assert.equal(plan(opening, false).refused.length, 1, `${opening} applied for a free couple`);
     assert.equal(plan(opening, true).apply.length, 1, `${opening} refused for an owning couple`);
   }
   assert.equal(plan('none', false).apply.length, 1, '"No reveal" must be free');
   assert.equal(plan('none', false).refused.length, 0);
-  assert.equal(plan(null, false, 'four-flap').refused.length, 0, 'clearing a reveal is free');
+  assert.equal(plan(null, false, 'envelope-classic').refused.length, 0, 'clearing a reveal is free');
   // An unknown opening never lands in a draft.
   assert.equal('std_reveal_template' in sanitizeHubDraft({ events: { std_reveal_template: 'gold-monogram' } }).events, false);
+  // ↪️ …nor a retired one (23 Nov 2026: a stored one still PLAYS, as its successor, but none is newly chosen), nor the held gift box.
+  for (const old of ['four-flap', 'church-doors', 'gift-box']) assert.equal('std_reveal_template' in sanitizeHubDraft({ events: { std_reveal_template: old } }).events, false, old);
 });
 
 test('the logo autosave: the studio mark is sanitised like saveStudioAction, and is free to apply', () => {
@@ -389,11 +391,11 @@ test('Reset — even "all" — never erases the hero photo, the reveal or the lo
 
 test('the host preview shows the drafted hero, reveal and logo (the overlay is by column)', () => {
   const d = mergeHubDraft(emptyHubDraft(), {
-    events: { landing_page_hero_image_url: HERO_REF, std_reveal_template: 'four-flap' },
+    events: { landing_page_hero_image_url: HERO_REF, std_reveal_template: 'envelope-classic' },
   });
   const row = overlayHubDraftEvent({ landing_page_hero_image_url: null, std_reveal_template: null, x: 1 }, d);
   assert.equal(row.landing_page_hero_image_url, HERO_REF);
-  assert.equal(row.std_reveal_template, 'four-flap');
+  assert.equal(row.std_reveal_template, 'envelope-classic');
   assert.equal(row.x, 1);
 });
 

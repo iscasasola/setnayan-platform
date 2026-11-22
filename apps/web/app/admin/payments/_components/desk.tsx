@@ -63,6 +63,7 @@ import {
   type ReceivingAccount,
 } from '@/lib/payment-channels';
 import { isMayaPayment } from '@/lib/maya-checkout';
+import { MAYA_NO_LONGER_LINE, MAYA_UNREACHABLE_LINE, type MayaReversalRead } from '@/lib/maya-reversal';
 
 import { canLogPaymentAgainstOrder } from '@/lib/order-promotion-rule';
 import { randomUUID } from 'node:crypto';
@@ -796,6 +797,7 @@ export function OpenedPayment({
   remedyDesk,
   channelSettings,
   query,
+  mayaReversal = null,
 }: {
   payment: PaymentJoined | null;
   readFailed: 'queue' | 'search' | null;
@@ -811,6 +813,8 @@ export function OpenedPayment({
   remedyDesk: RemedyDesk;
   channelSettings: ChannelSettings;
   query: string;
+  /** 💳 A Maya-paid order: what Maya allows NOW, read live by the page (null = not read: not Maya, not paid). */
+  mayaReversal?: MayaReversalRead | null;
 }) {
   const backLink = (
     <Link href={back} prefetch={false} className="ab ab-neutral quiet mt-1" data-payment-back="">
@@ -1004,11 +1008,19 @@ export function OpenedPayment({
             query={query}
             closed={false}
           />
-          <RefundForm
-            orderId={p.order_id}
-            orderPublicId={p.order.public_id}
-            defaultAmountPhp={p.order.confirmed_total_php ?? p.order.requested_total_php}
-          />
+          {isMayaPayment(p.channel) ? (
+            <MayaReversalForm
+              orderId={p.order_id}
+              orderPublicId={p.order.public_id}
+              read={mayaReversal ?? { kind: 'error' }}
+            />
+          ) : (
+            <RefundForm
+              orderId={p.order_id}
+              orderPublicId={p.order.public_id}
+              defaultAmountPhp={p.order.confirmed_total_php ?? p.order.requested_total_php}
+            />
+          )}
         </TemplateSection>
       ) : p.order && p.order.status === 'lapsed' ? (
         // Switched off — show what was done with it, no actions.
@@ -1379,6 +1391,64 @@ export function RefundForm({
         </label>
         <SubmitButton className="ab ab-danger ab-main w-full" pendingLabel="Recording refund…">
           Record refund · notify couple
+        </SubmitButton>
+      </ConfirmForm>
+    </Fold>
+  );
+}
+
+/**
+ * 💳 MayaReversalForm — a Maya-paid order is handed back THROUGH MAYA, for as long as Maya allows it
+ * (owner 2026-11-22 · specs DECISION_LOG 86f20253 · lib/maya-reversal.ts).
+ *
+ * ONE button: "Void" while Maya allows a void, otherwise "Refund" while it allows a refund — the whole payment,
+ * never part. Maya allowing neither draws no button, only the line. A failed read says so ("Couldn't reach Maya"),
+ * never "not refundable". Maya already showing it handed back draws "Record Maya's refund" — nothing is sent again.
+ * Posts to refundOrder with intent 'maya_reverse' (no new action); only Maya's yes is recorded.
+ */
+export function MayaReversalForm({
+  orderId,
+  orderPublicId,
+  read,
+}: {
+  orderId: string;
+  orderPublicId: string;
+  read: MayaReversalRead;
+}) {
+  if (read.kind === 'error' || read.kind === 'neither') {
+    return (
+      <p className={`mt-2 ${TEMPLATE_SUBLINE}`} data-maya-reversal={read.kind}>
+        {read.kind === 'error' ? MAYA_UNREACHABLE_LINE : MAYA_NO_LONGER_LINE}
+      </p>
+    );
+  }
+  const word = read.kind === 'void' ? 'Void' : read.kind === 'refund' ? 'Refund' : 'Record Maya’s refund';
+  const amount = formatPhp(read.amountPhp);
+  const line =
+    read.kind === 'void'
+      ? `Maya hands back ${amount} today — voids close at midnight`
+      : read.kind === 'refund'
+        ? `Maya hands back ${amount} to the card or wallet`
+        : `Maya already shows ${amount} handed back — record it here`;
+  return (
+    <Fold title={`${word} order ${orderPublicId} through Maya`} line={line} data="payment-maya-reversal" danger>
+      <ConfirmForm
+        action={refundOrder}
+        title={read.kind === 'already' ? 'Record Maya’s refund?' : `${word} ${amount} through Maya?`}
+        confirmLabel={read.kind === 'already' ? 'Record · notify couple' : `${word} · notify couple`}
+        message={
+          read.kind === 'already'
+            ? 'Maya already returned this payment. This marks the order refunded, revokes any access it granted, writes an audit row, and notifies the couple.'
+            : `Maya returns the whole ${amount}. Only when Maya says yes is the order marked refunded, its access revoked, an audit row written and the couple notified. This can't be undone.`
+        }
+        className="mt-2 space-y-2"
+      >
+        <input type="hidden" name="intent" value="maya_reverse" />
+        <input type="hidden" name="order_id" value={orderId} />
+        {/* The ONE Field template, posting `reason` (the server checks the 20 characters again). */}
+        <RemedyReasonRow placeholder="E.g. Couple paid twice through Maya on June 4 — returning the second payment." />
+        <SubmitButton className="ab ab-danger ab-main w-full" pendingLabel="Asking Maya…">
+          {word}
         </SubmitButton>
       </ConfirmForm>
     </Fold>

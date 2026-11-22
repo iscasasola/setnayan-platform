@@ -150,3 +150,29 @@ it('a plan / change ask refused by the trigger reads as the ＋ gate’s words, 
   const { negotiateRefusalWords } = await import('./chat-cards');
   assert.equal(negotiateRefusalWords('PLUS_NEEDS_VERIFIED: Chat tools open once your shop is verified.'), PLUS_NEEDS_VERIFIED);
 });
+
+/**
+ * 🎂 The Cake Maker's "Ask for a cake design" (`runCakeAction` op `invite`) is a ＋ tool the shop sends. Hiding its tile
+ * for an unverified shop is not a check — the op itself asks the gate, before the invite line is written, and returns
+ * the gate's own refusal for BOTH non-open verdicts (unverified · the read failed). `plusGateRefusal` and `shopPlusGate`
+ * are proved on a fake client above; this pins that the op uses them and cannot send first.
+ * SABOTAGE (22 Nov 2026): the two gate lines deleted from the invite block → RED ("never asks"); the gate moved below
+ * `sendChatMessageCore(` → RED ("AFTER"); `if (plusRefusal) return fail(plusRefusal);` deleted → RED ("does not refuse").
+ */
+it('the Cake Maker invite asks the gate before it sends, and refuses on unverified AND on a failed read', () => {
+  const s = src('app/_components/cake-maker/cake-actions.ts');
+  const at = s.indexOf('// invite');
+  assert.ok(at >= 0, 'the invite block moved — repoint this guard');
+  const block = s.slice(at, s.indexOf("if (op === 'status')", at));
+  const g = block.indexOf('plusGateRefusal(await shopPlusGate(');
+  const r = block.indexOf('if (plusRefusal) return fail(plusRefusal);');
+  const w = block.indexOf('sendChatMessageCore(');
+  assert.ok(g >= 0, 'the Cake Maker invite never asks the ＋ gate');
+  assert.ok(r > g, 'the Cake Maker invite asks the gate but does not refuse on its answer');
+  assert.ok(w >= 0, 'the invite no longer sends through sendChatMessageCore — repoint this guard');
+  assert.ok(r < w, 'the Cake Maker invite asks the gate AFTER it sends');
+  // Both non-open verdicts carry words, so `if (plusRefusal)` refuses both; 'open' carries none.
+  assert.equal(plusGateRefusal('unverified'), PLUS_NEEDS_VERIFIED);
+  assert.equal(plusGateRefusal('unknown'), PLUS_GATE_UNKNOWN);
+  assert.equal(plusGateRefusal('open'), null);
+});

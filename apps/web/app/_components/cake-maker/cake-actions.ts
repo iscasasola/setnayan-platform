@@ -22,6 +22,8 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { canManageVendor, resolveVendorRoleForProfile } from '@/lib/vendor-role';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendChatMessageCore } from '@/lib/chat-send';
+import { plusGateRefusal } from '@/lib/shop-plus-gate';
+import { shopPlusGate } from '@/lib/shop-plus-gate.server';
 import { resolveMonogram } from '@/lib/monogram';
 import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-columns';
 import { galleryImageUrl } from '@/lib/moodboard-gallery';
@@ -147,6 +149,11 @@ export async function runCakeAction(input: CakeActionInput): Promise<CakeActionR
     if (thread.error || options.status === 'unread') return fail();
     if (!thread.data) return fail('This chat is not your shop’s.');
     if (options.status !== 'ok') return fail('Set up your Cake Maker first — Shop › Specialized tools › Cake Maker.');
+    // 🪪 A ＋ tool needs a verified shop (owner 21 Nov 2026) — asked HERE, at the server, before the invite is written:
+    // hiding the tile is not a check. A refused read refuses too ('unknown'), never lets the invite through. Read with
+    // the service client for the same reason as the options above (an Account Manager cannot read the shop row).
+    const plusRefusal = plusGateRefusal(await shopPlusGate(admin, shop));
+    if (plusRefusal) return fail(plusRefusal);
     const sent = await sendChatMessageCore(supabase, { threadId, body: CAKE_INVITE_BODY, asSide: 'vendor' });
     return sent.ok ? { ok: true, op } : fail('The invite didn’t send — try again.');
   }

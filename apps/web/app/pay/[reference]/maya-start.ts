@@ -64,6 +64,9 @@ export async function startMayaCheckout(formData: FormData): Promise<never> {
   if (mayaEnvironment(config.checkoutEndpoint) === 'sandbox' && !(await isInternalUser(user.id))) {
     redirect(`/pay/${encodeURIComponent(reference)}?step=2`);
   }
+  // 🎟 ₱0 — a code covered the whole price: there is nothing for Maya to collect. Back to the page, which offers
+  // "Send for confirmation" instead (controller 2026-11-22). A ₱0 bill NEVER opens a Maya checkout.
+  if (!(payable.amountPhp > 0)) redirect(`/pay/${encodeURIComponent(reference)}`);
   // ⚖ Owner 2026-11-17: no single payment to Setnayan above the admin's `max_payment_php` (₱100,000 ruled).
   if (!paymentWithinCeiling(payable.amountPhp, await getMaxPaymentPhp(supabase))) {
     back('This bill is above the most we take in one payment. Please message us.');

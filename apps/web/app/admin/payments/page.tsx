@@ -55,6 +55,9 @@ import FeesOwedPage from '../booking-fees/page';
 import PaymentOptionsPage from '../payment-options/page';
 import SubscriptionsPage from '../subscriptions/page';
 import { mountView, type SearchParamsRecord } from '@/app/admin/_components/merged-view';
+import { isMayaPayment } from '@/lib/maya-checkout';
+import { readMayaReversalLive } from '@/lib/maya-reversal.server';
+
 export const metadata = { title: 'Payments · Admin' };
 
 type Props = {
@@ -299,6 +302,18 @@ async function AdminPaymentsPage({ searchParams }: Props) {
   // prints "—", never ₱0 or 0 (T28/T29).
   const nums = openId || filter === 'orders_needing_quote' ? null : await readDeskNums(admin);
 
+  // 💳 The opened payment, if Maya took it and the order is still paid: what Maya allows NOW (one live read, only
+  // on the opened card — never for the list). lib/maya-reversal.ts.
+  const opened = openId ? (payments[0] ?? null) : null;
+  const mayaReversal =
+    opened &&
+    isMayaPayment(opened.channel) &&
+    opened.reference_number &&
+    opened.order &&
+    (opened.order.status === 'paid' || opened.order.status === 'fulfilled')
+      ? await readMayaReversalLive(opened.reference_number)
+      : null;
+
   const here: DeskAddress = { filter, platform: platformFilter, q: qDisplay };
 
   return (
@@ -335,6 +350,7 @@ async function AdminPaymentsPage({ searchParams }: Props) {
           remedyDesk={remedyDesk}
           channelSettings={channelSettings}
           query={qDisplay}
+          mayaReversal={mayaReversal}
         />
       ) : (
         <>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { CloudUpload, RefreshCw, Settings2, Unplug, UserRoundCog } from 'lucide-react';
+import { CloudUpload, RefreshCw, Settings, Unplug, UserRoundCog } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { DriveConnectCard, DriveReconnectBanner, DriveSafetyPanel } from '@/app/_components/drive-connect-card';
@@ -182,7 +182,7 @@ export function CopyEventToDrive({ eventId, eventName, drive, copied, back }: Co
           disabled={busy}
         />
         {canCopy || drive.status === 'needs_reconnect' ? (
-          <ActionButton tone="neutral" quiet iconOnly icon={Settings2} label="Google Drive settings" onClick={() => setSheet('settings')} />
+          <ActionButton tone="neutral" quiet iconOnly icon={Settings} label="Google Drive settings" onClick={() => setSheet('settings')} />
         ) : null}
       </div>
       {quiet ? (

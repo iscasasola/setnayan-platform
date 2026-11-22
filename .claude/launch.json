@@ -4,8 +4,34 @@
     {
       "name": "pa3d-preview",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "apps/web", "dev", "--port", "3462"],
+      "runtimeArgs": [
+        "--dir",
+        "apps/web",
+        "dev",
+        "--port",
+        "3462"
+      ],
       "port": 3462
+    },
+    {
+      "name": "unichat-f-lab",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "/private/tmp/claude-501/-Users-icecasasola-Documents-Claude-Projects-setnayan-platform--claude-worktrees-practical-newton-76209d/4161f32a-6db3-4586-8284-639c51714c41/scratchpad/lab.sh",
+        "/Users/icecasasola/Documents/Claude/Projects/setnayan-platform/.claude/worktrees/practical-newton-76209d",
+        "3481"
+      ],
+      "port": 3481
+    },
+    {
+      "name": "unichat-mute-lab",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "/private/tmp/claude-501/-Users-icecasasola-Documents-Claude-Projects-setnayan-platform--claude-worktrees-practical-newton-76209d/4161f32a-6db3-4586-8284-639c51714c41/scratchpad/lab.sh",
+        "/private/tmp/claude-501/-Users-icecasasola-Documents-Claude-Projects-setnayan-platform--claude-worktrees-practical-newton-76209d/4161f32a-6db3-4586-8284-639c51714c41/scratchpad/wt2",
+        "3482"
+      ],
+      "port": 3482
     }
   ]
 }

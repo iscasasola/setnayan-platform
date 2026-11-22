@@ -58,6 +58,7 @@ import {
   welcomeFrom,
 } from './supplier-onboarding';
 import { OPEN_SHOP_FIELD_STEP } from './open-shop-error-field';
+import { firstCoordinationPick } from './coordinator-trade';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 const WIZARD = read('app/open-shop/_components/open-shop-wizard.tsx');
@@ -401,9 +402,18 @@ test('14 · the ✓ survives only what is true now (20 Nov review)', async () =>
 });
 
 test('10 · Door C — coordination pre-picked in ONE dropdown, then "Invite shops you trust", "Trusted partners" everywhere', () => {
-  // Coordination pre-picked: the first coordination service, ONE dropdown of COORDINATOR_TRADE_SERVICES' leaves.
-  assert.match(WIZARD, /import \{ COORDINATOR_TRADE_SERVICES \} from '@\/lib\/coordinator-trade'/);
-  assert.match(WIZARD, /if \(coordinator && !service && coordinationLeaves\[0\]\) \{\s*setService\(coordinationLeaves\[0\]\.key\);/);
+  // Coordination pre-picked: the service EARLIEST in COORDINATOR_TRADE_SERVICES (walk 22 Nov: tree order pre-picked
+  // "Despedida"), ONE dropdown of the constant's leaves.
+  assert.match(WIZARD, /import \{ COORDINATOR_TRADE_SERVICES, firstCoordinationPick \} from '@\/lib\/coordinator-trade'/);
+  assert.match(WIZARD, /const pick = firstCoordinationPick\(coordinationLeaves\);\s*if \(coordinator && !service && pick\) \{\s*setService\(pick\.key\);/);
+  const treeOrder = [
+    { key: 'despedida_planner', label: 'Despedida' },
+    { key: 'wedding_coordination', label: 'Wedding coordination' },
+    { key: 'planner_coordinator', label: 'Coordinators & Planners' },
+  ];
+  assert.equal(firstCoordinationPick(treeOrder)?.key, 'planner_coordinator');
+  assert.equal(firstCoordinationPick([{ key: 'despedida_planner' }])?.key, 'despedida_planner');
+  assert.equal(firstCoordinationPick([{ key: 'florist' }]), null);
   assert.match(WIZARD, /<PickMenu\s+label="Your main coordination service"/);
   // The shop opens on the coordinator's own invite QR, then Done → the first card's landing.
   assert.match(WIZARD, /\{coordinating \? <input type="hidden" name="as" value="coordinator" \/> : null\}/);

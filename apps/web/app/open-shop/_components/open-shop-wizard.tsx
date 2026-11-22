@@ -97,7 +97,7 @@ import { fairRefusal, findFairHits } from '@/lib/fair-presentation';
 import type { ClaimWord } from '@/lib/service-card-checks';
 import { FairNote } from '@/app/_components/fair-note';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { COORDINATOR_TRADE_SERVICES } from '@/lib/coordinator-trade';
+import { COORDINATOR_TRADE_SERVICES, firstCoordinationPick } from '@/lib/coordinator-trade';
 // 🔵 The supplier blue look (owner 19 Nov: the onboarding wears it) — the dashboard's own token scope, re-used.
 import '@/app/vendor-dashboard/_components/supplier-look.css';
 
@@ -363,10 +363,12 @@ export function OpenShopWizard({
     return out;
   }, [serviceTree]);
   useEffect(() => {
-    // Pre-picked once: the first coordination service, unless one is already chosen (a re-run, a restored draft).
-    if (coordinator && !service && coordinationLeaves[0]) {
-      setService(coordinationLeaves[0].key);
-      setPickedLabel(coordinationLeaves[0].label);
+    // Pre-picked once: the coordination service earliest in COORDINATOR_TRADE_SERVICES (coordinator · planner — not
+    // the tree's first, which was "Despedida"), unless one is already chosen (a re-run, a restored draft).
+    const pick = firstCoordinationPick(coordinationLeaves);
+    if (coordinator && !service && pick) {
+      setService(pick.key);
+      setPickedLabel(pick.label);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the coordinator door opens
   }, []);

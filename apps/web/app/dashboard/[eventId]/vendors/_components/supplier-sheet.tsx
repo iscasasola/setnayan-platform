@@ -109,9 +109,9 @@ type Said = { tone: 'ok' | 'error'; text: string; retry?: () => void; key?: numb
 const SHEET_CSS = [
   // 44 px, never 40 (owner 2026-10-12, look call 3) — a link is not floored by globals.css, so it is set here.
   '[data-supplier-sheet] .ab{height:44px;min-height:44px}',
-  'html.dark [data-supplier-sheet]{--m-paper:#232019;--m-paper-2:#2A2620;--m-line:rgba(251,250,247,.16);--m-line-soft:rgba(251,250,247,.1);' +
-    '--m-ink:#FBFAF7;--m-slate:#E8E5DD;--m-slate-2:#B6B1A6;--m-slate-3:#9C978C;--m-orange-2:#E2B968;--m-orange-4:rgba(226,185,104,.14);' +
-    '--m-orange-deep:#E2B968;--m-sage:rgba(123,199,154,.18);--m-sage-deep:#7BC79A}',
+  'html.dark [data-supplier-sheet]{--m-paper:rgb(var(--color-raised));--m-paper-2:rgb(var(--color-raised-2));--m-line:rgb(var(--color-ink) / .16);--m-line-soft:rgb(var(--color-ink) / .1);' +
+    '--m-ink:rgb(var(--color-ink));--m-orange-2:rgb(var(--ramp-gold-deep));--m-orange-4:rgba(226,185,104,.14);' +
+    '--m-orange-deep:rgb(var(--ramp-gold-deep));--m-sage:rgba(123,199,154,.18);--m-sage-deep:rgb(var(--color-ok))}',
 ].join('');
 
 export default function SupplierSheet({

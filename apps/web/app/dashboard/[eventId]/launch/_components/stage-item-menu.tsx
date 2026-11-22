@@ -6,9 +6,9 @@ import { CalendarDays, Check, ChevronDown, CircleCheck, CircleX, Clock, FileText
 import type { LucideIcon } from 'lucide-react';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { RSVP_STAGE_SCENES, type RsvpStageScene } from '@/lib/rsvp-stage';
-import { MAKER_STAGE_KEYS, type MakerStageKey } from '@/lib/maker-parts';
+import { MAKER_STAGE_MENU_KEYS, type MakerStageKey } from '@/lib/maker-parts';
 import { makerStagesPages } from '@/lib/maker-stage-filing';
-import { STAGE_ITEM_BUTTON, STAGE_PANEL_VARS, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
+import { STAGE_ITEM_BUTTON, STAGE_PANEL_VARS, STAGE_PANEL_VARS_DARK, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
 import { useOneOpen } from '@/lib/one-open';
 import { MakerSheet } from './stages-studio-parts';
 import { makerPagePick, makerStageLabel } from './maker-bar';
@@ -106,7 +106,7 @@ export function StageItemMenu({
 
   const label = makerStageLabel(stage as never);
   /* 🧭 STAGES ONLY (owner 2026-10-06: *"if we are having this, then we don't need the expand on the drop down"*;
-     side-by-side M4): the sheet lists the five stages — icon · name · its pages in a grey line · HERE ✓ on the one
+     side-by-side M4): the sheet lists the four stages — icon · name · its pages in a grey line · HERE ✓ on the one
      on screen. A page is picked from the guest's tab bar under the page, never from here. */
   const STAGE_ICON: Record<string, LucideIcon> = { save_the_date: CalendarDays, [RSVP_STAGE_KEY]: Reply, rsvp: FileText, event: Clock, editorial: Heart };
   return (
@@ -128,9 +128,10 @@ export function StageItemMenu({
       {open && typeof document !== 'undefined' ? createPortal(
         <MakerSheet label="Stages" onClose={() => setOpen(false)}>
           {/* From Studio the Stages panel is not drawn, and its colours go with it: the bar's list carries them itself. */}
-          {bar ? <style>{`[data-stage-menu]{${STAGE_PANEL_VARS}}`}</style> : null}
+          {bar ? <style>{`[data-stage-menu]{${STAGE_PANEL_VARS}}html.dark [data-stage-menu]{${STAGE_PANEL_VARS_DARK}}`}</style> : null}
           <ul className="flex flex-col gap-0.5 pb-1" data-stage-menu="">
-            {MAKER_STAGE_KEYS.map((s) => {
+            {/* 📖 Four stages — Post Event left the Event Hub (20 Nov), so it is never listed here. */}
+            {MAKER_STAGE_MENU_KEYS.map((s) => {
               /* 🚪 A stage Page ▾ does not list (this event does not need it — `needsHidesStage`) is not listed here. */
               if (options[0] && !options.some((o) => o.key.split(':')[0] === s)) return null;
               const pages = pagesOf(s);

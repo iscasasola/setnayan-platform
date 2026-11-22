@@ -18,7 +18,8 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
-import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
+import { resolveVendorTier } from '@/lib/vendor-feature-gate';
+import { planWord } from '@/lib/vendor-plan-change-words';
 import { isVendor3dBoothActive, fetchVendor3dBoothPricePhp } from '@/lib/vendor-3d-booth-pricing';
 import {
   fetchVendor3dBoothEventPricePhp,
@@ -27,6 +28,8 @@ import {
 import { ShopCard } from '../../../_components/kit';
 import { BoothEventBuyForm } from './booth-event-buy-form';
 import { isStoreShellRequest } from '@/lib/request-platform';
+import { LockedFeature } from '@/app/_components/lock/locked-feature';
+import { PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
 
 function peso(n: number): string {
   return `₱${n.toLocaleString('en-PH')}`;
@@ -47,7 +50,7 @@ export async function BoothEventSection({
   if (await isStoreShellRequest()) return null;
   const supabase = await createClient();
   const admin = createAdminClient();
-  const [gateRead, orderState, eventPricePhp, cyclePricePhp, settings] = await Promise.all([
+  const [gateRead, orderState, eventPricePhp, cyclePricePhp, settings, includedRead, planTier] = await Promise.all([
     supabase
       .from('vendor_profiles')
       .select('tier_state, verification_state, booth_addon_expires_at')
@@ -75,19 +78,35 @@ export async function BoothEventSection({
     fetchVendor3dBoothEventPricePhp(supabase),
     fetchVendor3dBoothPricePhp(supabase),
     fetchPlatformSettings(supabase),
+    // 🎁 Owner 20 Nov: the branded booth comes with Pro and up (or a shop grandfathered when that shipped) — the SAME
+    // gate event_branded_booth_vendor_ids brands the couple's room with. Admin client: service role only.
+    admin.rpc('vendor_pro_tools_included', { p_vendor_profile_id: vendorProfileId, p_event_id: eventId }).then(
+      (r) => {
+        if (r.error) console.error('[supabase-error] booth-event-section: vendor_pro_tools_included', r.error);
+        return { unread: !!r.error, included: r.data === true };
+      },
+      (err: unknown) => {
+        console.error('[supabase-error] booth-event-section: vendor_pro_tools_included', err);
+        return { unread: true, included: false };
+      },
+    ),
+    // ⚖ Owner 20/21 Nov (specs 66ae2cce): the branded booth is a Pro-and-up benefit, not sold below it — the same
+    // effective plan the Special tools gate on (promotions applied), so a Plus shop never meets the buy form.
+    resolveVendorTier(supabase, vendorProfileId),
   ]);
   // The rails the owner has left ON — the buy form offers only these.
   const openRails = openRailOptions(settings);
 
   const gateRow = gateRead.row;
-  const gateUnread = gateRead.unread;
-  const tierOk = isTierAtLeast(gateRow?.tier_state ?? null, BOOTH_BRANDING_MIN_TIER);
+  const gateUnread = gateRead.unread || includedRead.unread;
+  const included = includedRead.included;
+  const tierOk = isTierAtLeast(planTier, PRO_TOOLS_MIN_TIER);
   const verified = gateRow?.verification_state === 'verified';
   const cycleActive = isVendor3dBoothActive(gateRow?.booth_addon_expires_at ?? null);
   const cycleUntil = gateRow?.booth_addon_expires_at
     ? new Date(gateRow.booth_addon_expires_at).toLocaleDateString('en-PH', { day: 'numeric', month: 'short' })
     : null;
-  const branded = cycleActive || orderState === 'active';
+  const branded = cycleActive || orderState === 'active' || included;
 
   return (
     <ShopCard pad="roomy">
@@ -102,7 +121,11 @@ export async function BoothEventSection({
         ) : null}
       </h3>
 
-      {cycleActive ? (
+      {included && !cycleActive && orderState !== 'active' ? (
+        <p className="mt-1 text-xs text-ink/55" data-booth-included="">
+          Comes with your plan — your logo and poster are on in the couple&rsquo;s room. Nothing to buy.
+        </p>
+      ) : cycleActive ? (
         <p className="mt-1 text-xs text-ink/55">
           Your 3D Booth cycle covers this event{cycleUntil ? ` until ${cycleUntil}` : ''} — logo and
           poster are on in the couple&rsquo;s room. Nothing more to buy here.
@@ -122,33 +145,18 @@ export async function BoothEventSection({
         <p className="mt-1 text-xs text-ink/55">
           Payment under review. Your booth brands the moment it&rsquo;s confirmed — usually within 24 hours.
         </p>
-      ) : !tierOk ? (
-        <p className="mt-1 text-xs text-ink/55">
-          Right now the couple sees a plain booth with your name. Branding it — your logo and poster — comes
-          with a paid plan (Supplier Plus, Supplier Pro or Supplier Ultra).{' '}
-          <Link href="/vendor-dashboard/subscription" className="font-semibold text-terracotta-700 underline-offset-2 hover:underline">
-            See plans
-          </Link>
-        </p>
-      ) : !verified ? (
-        <p className="mt-1 text-xs text-ink/55">
-          Right now the couple sees a plain booth with your name. Get your shop verified and you can brand it
-          with your logo and poster.
-        </p>
-      ) : eventPricePhp == null ? (
-        /* CHAT-30 (walk 16 Nov 2026): "Per-event branding is temporarily unavailable" sat on a client's Details as a
-           broken notice. Nothing is broken — no per-event price is set, so there is nothing to buy here and no
-           number is guessed. Say what the couple sees; the 4-week cycle stays offered where it has a price. */
+      ) : !tierOk || !verified || eventPricePhp == null ? (
+        /* 🎁 Owner 20 Nov: the branded booth comes with Pro and up and is not sold on its own — the shared 🔒
+           (Problem → Solution → Upgrade). Replaces "comes with a paid plan (Supplier Plus …)", now untrue. */
         <>
           <p className="mt-1 text-xs text-ink/55">Right now the couple sees a plain booth with your name.</p>
-          {cyclePricePhp != null && cyclePricePhp > 0 ? (
-            <p className="mt-2 text-[11px] text-ink/45">
-              The 3D Booth cycle brands every client&rsquo;s room for {peso(cyclePricePhp)} / 4 weeks.{' '}
-              <Link href="/vendor-dashboard/subscription" className="font-semibold text-terracotta-700 underline-offset-2 hover:underline">
-                See plans
-              </Link>
-            </p>
-          ) : null}
+          <div className="mt-3" data-booth-locked="">
+            <LockedFeature
+              lock="boothBranding"
+              need={{ kind: 'plan', plan: PRO_TOOLS_MIN_TIER, price: null, href: '/vendor-dashboard/subscription' }}
+              line={`Included in ${planWord(PRO_TOOLS_MIN_TIER)} · Upgrade`}
+            />
+          </div>
         </>
       ) : (
         <>

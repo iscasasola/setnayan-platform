@@ -189,7 +189,14 @@ test('6 · Home: "Date change: n of N suppliers answered", the 3-day choices onl
   const overdueBranch = door.slice(door.indexOf('{s.overdue ? ('), door.indexOf(') : null}', door.indexOf('{s.overdue ? (')));
   assert.doesNotMatch(overdueBranch, /value="withdraw"/);
   assert.match(door, /name="action" value="withdraw"/);
-  assert.match(code('app/dashboard/[eventId]/page.tsx'), /<DateChangeDoorway eventId=\{eventId\} \/>/);
+  // RE-AIMED 20 Nov 2026 (Event Today, Focus shape): Home reads the date change ONCE and hands it to the doorway (day-of
+  // and after screens) and to the Today list's row, whose open card is this same body (`DateChangeBody`).
+  const page = code('app/dashboard/[eventId]/page.tsx');
+  assert.match(page, /<DateChangeDoorway eventId=\{eventId\} read=\{dateChange\} \/>/);
+  assert.match(page, /readDateChange\(eventId\)\.catch\(\(\): DateChangeRead => \(\{ ok: false \}\)\)/, 'a read that throws reads as no date change');
+  const asks = code('app/dashboard/[eventId]/_components/event-today-asks.tsx');
+  assert.match(asks, /bodies\['ask:date-change'\] = <DateChangeBody eventId=\{e\} view=\{view\} \/>;/, 'the list row does not hold the shipped date-change body');
+  assert.match(door, /export function DateChangeBody\(/);
 });
 
 test('7 · budget never filters: no date-change code reads a price, a plan total or a budget', () => {

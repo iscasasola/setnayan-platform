@@ -48,6 +48,7 @@ export function ClientsShowSort({
   clients,
   seats,
   agent,
+  hasBranches = false,
   shown,
   keep,
   schedules = [],
@@ -63,6 +64,8 @@ export function ClientsShowSort({
   /** The team's seats; null = the team could not be read. */
   seats: readonly { key: string; label: string }[] | null;
   agent: boolean;
+  /** The shop has two or more locations — Group by offers Branch (#8013 (f)). */
+  hasBranches?: boolean;
   /** How many events the list holds now — "Show N clients". */
   shown: number;
   /** Every other param of the address, kept (`?q=` …). */
@@ -201,7 +204,7 @@ export function ClientsShowSort({
             name="Group by"
             line="The headings of the list"
             value={choice.group}
-            options={CLIENTS_GROUP.filter((g) => g.key !== 'seat' || (!agent && seats !== null && seats.length > 0))}
+            options={CLIENTS_GROUP.filter((g) => (g.key !== 'seat' || (!agent && seats !== null && seats.length > 0)) && (g.key !== 'branch' || hasBranches))}
             onPick={(k) => go({ ...choice, group: k as ClientsChoice['group'] })}
             dataAttr="data-clients-group"
           />

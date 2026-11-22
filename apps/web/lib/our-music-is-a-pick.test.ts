@@ -180,7 +180,9 @@ test('7 · Source ▾ is one dropdown that writes nothing, and the list is not i
   assert.match(source, /<PickMenu\s+label="Music source"\s+value=\{source\}/);
   assert.match(source, /\{ key: 'ours', label: 'Our music', hint: 'Setnayan’s own songs, by mood · free to use' \}/);
   // The owner's own words for the second source (2026-10-08): "Pick a music from our listing or upload your own".
-  assert.match(source, /\{ key: 'yours', label: 'Upload your own', hint: 'A song from your phone' \}/);
+  /* 20 Nov 2026 (DECISION_LOG "UPLOAD YOUR OWN SONG IS ◆"): the same source, its v17 words. */
+  assert.match(source, /\{ key: 'yours', label: MAKER_UPLOAD_SONG_LABEL, hint: MAKER_UPLOAD_SONG_HINT \}/);
+  assert.match(panel, /MAKER_UPLOAD_SONG_LABEL = 'Upload your own song ◆'/);
   assert.doesNotMatch(source, /label: 'Your music'/);
   assert.match(source, /onPick=\{\(k\) => setSource\(k === 'ours' \? 'ours' : 'yours'\)\}/, 'a source pick only changes what is drawn');
   assert.doesNotMatch(source, /draftNow|requestSubmit/);

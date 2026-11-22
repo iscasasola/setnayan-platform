@@ -48,6 +48,13 @@ const THIS = relative(WEB, fileURLToPath(import.meta.url));
  * cream #17160F.
  */
 const ALLOW: Record<string, { count: number; why: string }> = {
+  'app/dashboard/[eventId]/schedule/_components/moment-inspector.tsx|dark:text-cream': {
+    count: 1,
+    why:
+      '"Release to couple" sets ink words on bg-terracotta-300. Deleted, text-ink is #F7F4EE in dark on the mirrored ' +
+      'terracotta-300 (#A88340) → 3.23:1 (the dark-contrast record held it as a known failure until 18 Nov 2026). With ' +
+      'dark:text-cream (the page colour #121110) → 5.42:1.',
+  },
   'app/dashboard/(account)/life-flash/_components/flash.tsx|dark:bg-raised': {
     count: 1,
     why:

@@ -26,14 +26,19 @@ test('the supplier chat mounts the booking ask in its blocker layout', () => {
   assert.match(page, /<LockRequestAnswer\s+layout="blocker"/);
 });
 
-test('the (+) is a filled 40-px brand circle with a white ＋, grey when shut', () => {
+test('the (+) is a filled 40-px brand circle with the accent’s own ink for the ＋; as ← (a tool is open) it is quiet', () => {
   const src = read('vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx');
   const at = src.indexOf('data-plus-circle');
   assert.ok(at > 0, 'the circle is drawn');
   const tag = src.slice(at, at + 260);
   assert.match(tag, /h-10 w-10 place-items-center rounded-full/);
-  assert.match(tag, /bg-sn-accent text-white/);
-  // Grey when shut — the template's warm surface and mid grey (tokens, 2026-11-14), was ink at 6 % / 35 %.
-  assert.match(tag, /bg-\[color:var\(--m-paper-2\)\] text-\[color:var\(--m-slate-3\)\]/);
+  // Words and glyphs on the accent fill use its own ink token (house rule), never a literal white.
+  assert.match(tag, /bg-sn-accent text-sn-on-accent/);
+  assert.ok(!/bg-sn-accent text-white/.test(tag), 'the ＋ is a literal white on the accent again');
+  // 20 Nov 2026 (Unichat part B): the (+) never shuts any more — while a tool is open the SAME button is ←, drawn
+  // quiet (no fill, ink), and it holds both glyphs so one turns into the other.
+  assert.match(tag, /back \? 'bg-transparent text-ink'/);
+  assert.match(src, /<Plus aria-hidden className="sn-chat-plus-a /);
+  assert.match(src, /<ArrowLeft aria-hidden className="sn-chat-plus-b /);
   assert.ok(!/PlusCircle/.test(src), 'the outlined ⊕ is gone');
 });

@@ -63,9 +63,11 @@ test('2 · a service grows IN PLACE — its phone tile opens the card, its door 
   const region = card.slice(card.indexOf('data-home-card-settings='));
   assert.ok(region.indexOf('{settings}') < region.indexOf('data-home-card-door'), 'the "Open … ›" door is not last inside the card');
   const papic = read('_components/papic-home-card.tsx');
-  // 📷 Papic has no phone tile (owner 2026-10-26: one card, the head and its switch, on every width) — its HEAD grows it.
+  // 📷 Papic has no phone tile (owner 2026-10-26: one card, the head and its switch, on every width) — its HEAD opens it.
+  // 🔁 2026-11-20 (owner, "memories approved"): the card lives in Memories, and its head RISES the settings full screen
+  // (`RiseScreen`) instead of growing them in place — `papic-opens-in-memories.test.ts` holds the rise.
   assert.doesNotMatch(papic, /hc-svc-tile/, 'Papic has its own phone tile again');
-  assert.match(papic, /<button\s+type="button"\s+aria-expanded=\{open\}\s+aria-controls=\{regionId\}\s+onClick=\{\(\) => setOpen\(\(v\) => !v\)\}/, 'the Papic head does not grow its card in place');
+  assert.match(papic, /<button\s+type="button"\s+aria-haspopup="dialog"\s+aria-expanded=\{open\}\s+onClick=\{\(\) => setOpen\(true\)\}/, 'the Papic head does not open its settings');
 });
 
 test('3 · one service open at a time', () => {

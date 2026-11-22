@@ -137,7 +137,8 @@ test('🌐 the web has no More either — five tabs, no More Services row in the
     }
   }
   assert.equal(n, 24, 'premise: the shape sweep shrank');
-  assert.ok(servicesFor(false).length >= 4, 'premise: the web still has the paid services to place');
+  // ≥4 → ≥3 on 2026-11-20: Music Maker and Patiktok were retired (lib/retired-products.ts).
+  assert.ok(servicesFor(false).length >= 3, 'premise: the web still has the paid services to place');
 });
 
 /** Home › Your services on the web, built as the event page builds it (the same `offered` rule). */

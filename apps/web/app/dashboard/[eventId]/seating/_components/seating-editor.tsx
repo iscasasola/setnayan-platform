@@ -20,8 +20,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  ChevronsDownUp,
-  ChevronsUpDown,
   CircleDot,
   GripVertical,
   Lock,
@@ -5295,7 +5293,7 @@ export function SeatingEditor({
             {count > 0 ? (
               <span
                 className={`rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${
-                  warm ? 'bg-danger-100 text-danger-700' : active ? 'bg-white/25 text-white' : 'bg-ink/8 text-ink/70'
+                  warm ? 'bg-danger-100 text-danger-700' : active ? 'bg-sn-on-accent/25 text-sn-on-accent' : 'bg-ink/8 text-ink/70'
                 }`}
               >
                 {formatCount(count)}
@@ -7431,8 +7429,6 @@ export function SeatingEditor({
       setHighlightId(g.seated_table_id);
     }
   };
-  const faceKeys = [SEAT_LIST_UNSEATED, ...faceUnits.map((u) => u.key)];
-  const facesAllOpen = faceKeys.every((k) => faceOpen.has(k));
   const seatAddOptions: PickOption[] = [
     { key: 'table', label: 'New table…', disabledNote: canEdit ? undefined : 'Tap Edit first' },
     { key: 'entrance', label: 'Entrance', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : entrance.enabled ? 'Already on the plan' : undefined },
@@ -7564,19 +7560,8 @@ export function SeatingEditor({
             {seatPop ?? tableBar ?? seatTray}
             <lens.ThumbRow
               name="guests-seats"
-              left={
-                view === 'list' && !in3d
-                  ? [
-                      {
-                        icon: facesAllOpen ? ChevronsDownUp : ChevronsUpDown,
-                        label: facesAllOpen ? 'Collapse all' : 'Expand all',
-                        expanded: facesAllOpen,
-                        onClick: () => setFaceOpen(facesAllOpen ? new Set() : new Set(faceKeys)),
-                        testId: 'seats-expand',
-                      },
-                    ]
-                  : []
-              }
+              /* 👥 Guests redesign pick 5 (20 Nov): Seats › List is table cards, each rising on its own — there are no
+                 headers left to expand or fold, so the ⇕ left the row. */
               field={{
                 placeholder: 'Search guests',
                 input: {
@@ -7603,6 +7588,8 @@ export function SeatingEditor({
                 },
               }}
               right={[
+                /* 🎚 Guests redesign § 8: the look round (List · 2D floor plan · 3D room), opening upward, before Show. */
+                ...(lens.lookRound ? [lens.lookRound] : []),
                 guestsFilterMenu({
                   view: 'seats',
                   filter: lens.filter,
@@ -10516,7 +10503,7 @@ function BoothPickerPanel({
           maxLength={280}
           rows={2}
           placeholder="e.g. Espresso martinis & mocktails"
-          className="w-full resize-none rounded-lg border border-ink/15 bg-white/80 px-2 py-1.5 text-sm text-ink placeholder:text-ink/50 focus:border-terracotta focus:outline-none"
+          className="w-full resize-none rounded-lg border border-ink/15 bg-raised/80 px-2 py-1.5 text-sm text-ink placeholder:text-ink/50 focus:border-terracotta focus:outline-none"
         />
         <div className="mt-0.5 flex items-center justify-between">
           <span className="text-xs text-ink/70">Guests see this on the 3D venue walk.</span>

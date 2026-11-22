@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Camera, Images, LayoutGrid } from 'lucide-react';
+import { Camera, Images } from 'lucide-react';
 
 // Public event-day hub bar (owner 2026-06-28). The richer guest hub bar
 // (guest-hub-bar.tsx) only renders on the IDENTIFIED-guest path — it needs a
@@ -23,48 +23,32 @@ import { Camera, Images, LayoutGrid } from 'lucide-react';
 export function PublicEventDayBar({
   candidCameraActive,
   photosHref,
-  hubHref,
   menuOn,
 }: {
   /** Couple's PAPIC_GUEST candid camera is open → show the center Camera. */
   candidCameraActive: boolean;
   /** Public album destination (Live Wall / recap), or null when none exists. */
   photosHref: string | null;
-  /** When set (event-day live/post), a top-left chip opens the fullscreen
-   *  no-scroll hub (public panels only for a no-guest viewer). */
-  hubHref?: string | null;
   /**
    * Is the five-tab site menu rendering on this page? (PR11, 2026-08-05.)
    *
    * This bar is `fixed bottom-0 z-40` and the menu is `z-30`, so wherever both
    * render this one covers the menu whole — every tab untappable. The menu
    * resolves Camera and Photos for every viewer, so those two controls go.
-   * The "Live hub" chip does NOT: the nav resolver has no hub slot, and the
-   * chip is top-left chrome that was never in the bar's way. Retiring it here
-   * would delete the only day-of doorway a visitor without an invitation has.
+   *
+   * 🧭 THE "Live hub" CHIP IS GONE TOO (20 Nov 2026, one bar per stage —
+   * DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED"). It
+   * opened `/[slug]/hub`, a second screen with a second bar; `/hub` now sends
+   * its visitor back to this very page's Live, so the chip would be a door to
+   * the room it stands in. The day's Live content is on this page.
    */
   menuOn?: boolean;
 }) {
   const showBar = !menuOn && (candidCameraActive || Boolean(photosHref));
-  if (!showBar && !hubHref) return null;
+  if (!showBar) return null;
 
   return (
     <>
-      {/* Top-left "Live hub" entry (event-day only) — public panels only for a
-          no-guest viewer (candid Camera + public Photos), mirroring this bar. */}
-      {hubHref ? (
-        <div className="fixed left-[max(0.75rem,var(--sn-safe-l))] top-3 z-40 [padding-top:env(safe-area-inset-top)]">
-          <Link
-            href={hubHref}
-            aria-label="Open the live hub"
-            className="inline-flex h-11 items-center gap-1.5 rounded-full bg-ink px-3.5 text-sm font-semibold text-cream shadow-sm transition hover:bg-ink/90"
-          >
-            <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={2} />
-            <span>Live hub</span>
-          </Link>
-        </div>
-      ) : null}
-
       {showBar ? (
         <nav
           aria-label="Event controls"

@@ -41,9 +41,13 @@ import {
   CHAT_DOCUMENT_MAX_MB,
   CHAT_VIDEO_MAX_MB,
 } from '@/lib/chat-file-rules';
+import { CHAT_VOICE_MIME } from '@/lib/chat-message-extras';
 
-/** Every MIME a conversation accepts. The SERVER enforces this list. */
-export const CHAT_ATTACHMENT_MIME = [
+/**
+ * What the PICKER offers — every file type a person chooses from their phone. A voice note is recorded with the mic
+ * in the text box (Unichat H1), never picked, so its audio types are on the server's list below and not on this one.
+ */
+const CHAT_PICKED_MIME = [
   'image/png',
   'image/jpeg',
   'image/webp',
@@ -59,13 +63,20 @@ export const CHAT_ATTACHMENT_MIME = [
   ...CHAT_VIDEO_MIME,
 ] as const;
 
+/** Every MIME a conversation accepts. The SERVER enforces this list. */
+export const CHAT_ATTACHMENT_MIME = [
+  ...CHAT_PICKED_MIME,
+  // 🎤 Voice notes (Unichat H1, approved prototype v3): what a phone's own recorder makes — `lib/chat-message-extras.ts`.
+  ...CHAT_VOICE_MIME,
+] as const;
+
 /**
  * What the OS file dialog offers. DERIVED from the list above plus the file
  * extensions some browsers need, so the picker can no longer offer a type the
  * server refuses.
  */
 export const CHAT_ATTACHMENT_ACCEPT = [
-  ...CHAT_ATTACHMENT_MIME,
+  ...CHAT_PICKED_MIME,
   '.pdf',
   '.doc',
   '.docx',

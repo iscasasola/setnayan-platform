@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
@@ -200,6 +201,8 @@ async function addSpaces(input: SpaceInput, date: string): Promise<SpacesResult>
     if (e) return { ok: false, error: e };
   }
   revalidateShopPage(s.profile.vendor_profile_id, s.profile.business_slug);
+  // A card's "add the first" (screen 8) is answered with the card's own Uses row, in this same response.
+  revalidatePath('/vendor-dashboard/services/[serviceId]', 'page');
   return fresh(s, date);
 }
 

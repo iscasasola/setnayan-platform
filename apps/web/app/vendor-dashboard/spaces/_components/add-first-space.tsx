@@ -15,7 +15,6 @@
  */
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { MapPin } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { KIND_MENU, type KindChoice } from '@/lib/spaces';
@@ -36,7 +35,6 @@ export function AddFirstSpace({
   /** The shop's shipped Room size & capacity — the first hall opens filled from it. */
   firstHall: { widthM: number | null; lengthM: number | null; seated: number | null } | null;
 }) {
-  const router = useRouter();
   const [choice, setChoice] = useState<KindChoice | null>(null);
   const [said, setSaid] = useState<string | null>(null);
   const somethingElse = KIND_MENU.find((k) => k.key !== 'hall')!.key;
@@ -49,8 +47,7 @@ export function AddFirstSpace({
     }
     setSaid(null);
     setChoice(null);
-    // The card's Uses row now lists the new hall, and the Shop's Spaces tile appears.
-    router.refresh();
+    // No refresh: the action revalidated this card's route, so its answer already carries the new Uses row.
     return true;
   };
 

@@ -17,6 +17,7 @@ import {
   receiptFromLine,
   reviewAskFromLine,
   scheduleChangeFromLine,
+  timeAskFromLine,
 } from '@/lib/chat-card-lines';
 import { PollCard } from './poll-card';
 import { BookRequestCard } from './book-request-card';
@@ -27,6 +28,7 @@ import { ScheduleChangeCard } from './schedule-change-card';
 import { ReceiptCard } from './receipt-card';
 import { CrewDayCard } from './crew-day-card';
 import { HandoverCard, ReviewAskCard } from './handover-card';
+import { ScheduleTimeAskCard } from './schedule-time-ask-card';
 
 export function StreamLineCard({
   body,
@@ -92,5 +94,9 @@ export function StreamLineCard({
   }
   if (reviewAskFromLine(body)) return <ReviewAskCard threadId={threadId} viewer={viewer} supplierName={supplierName} />;
   if (dayCrewFromLine(body)) return <CrewDayCard threadId={threadId} viewer={viewer} supplierName={supplierName} />;
+  // 🗓 A time-change ASK, either way (Unichat part F): the supplier's request the hosts answer, or the hosts' ask the
+  // supplier answers — the row's own state, read back by the card.
+  const timeAsk = timeAskFromLine(body);
+  if (timeAsk) return <ScheduleTimeAskCard threadId={threadId} createdAt={createdAt} line={timeAsk} viewer={viewer} supplierName={supplierName} />;
   return null;
 }

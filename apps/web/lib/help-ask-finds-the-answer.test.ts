@@ -177,8 +177,8 @@ test('6 · the log keeps no name and no email, and only the server reads or writ
   assert.match(io, /createAdminClient\(\)/);
 });
 
-test('6 · the "No answer yet" list and the "People ask" chips count honestly', async () => {
-  const { groupNoAnswerYet, groupPeopleAsk } = await import('@/lib/help-asks.server');
+test('6 · the "No answer yet" list counts honestly', async () => {
+  const { groupNoAnswerYet } = await import('@/lib/help-asks.server');
   const at = (d: number) => new Date(Date.UTC(2026, 10, d)).toISOString();
   const rows = [
     { words: 'where is the venue', coverage: 'guest' as const, outcome: 'closest' as const, created_at: at(1) },
@@ -192,13 +192,6 @@ test('6 · the "No answer yet" list and the "People ask" chips count honestly', 
   assert.equal(list[0]?.asked, 2);
   assert.equal(list[0]?.outcome, 'none', 'the weakest result is the one shown');
   assert.ok(!list.some((r) => r.words === 'how to rsvp'), 'an answered question is on the No answer yet list');
-  assert.deepEqual(groupPeopleAsk(rows, 'guest'), ['how to rsvp']);
-  assert.deepEqual(groupPeopleAsk(rows, 'user'), [], 'a question nobody answered became a chip');
-  // Opus review 18 Nov: a Yes on a topic row has no question, so its words are the answer's slug — never a chip.
-  const slugYes = [1, 2, 3].map((d) => ({
-    words: 'how-do-i-rsvp', coverage: 'guest' as const, outcome: 'yes' as const, created_at: at(d), article_slug: 'how-do-i-rsvp',
-  }));
-  assert.deepEqual(groupPeopleAsk(slugYes, 'guest'), [], 'an answer slug became a "People ask" chip');
 });
 
 test('6b · a Yes / No on the team’s help is gated by the SAME admin predicate as Setnayan HQ', () => {

@@ -17,6 +17,7 @@ export function AnswerFeedback({
   coverage,
   askAgainHref,
   messageHref,
+  question = 'Did this answer it?',
 }: {
   slug: string;
   /** The question asked; empty when the answer was opened from a topic. */
@@ -24,6 +25,8 @@ export function AnswerFeedback({
   coverage: string;
   askAgainHref: string;
   messageHref: string;
+  /** The line over Yes / No — a guide asks "Did this help?" (Guide & Help drawing, screen 5). */
+  question?: string;
 }) {
   const [vote, setVote] = useState<'yes' | 'no' | null>(null);
   const [, start] = useTransition();
@@ -59,7 +62,7 @@ export function AnswerFeedback({
   }
   return (
     <div className="mt-3" data-help-feedback="">
-      <p className="text-sm text-ink/70">Did this answer it?</p>
+      <p className="text-sm text-ink/70">{question}</p>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <ActionButton tone="neutral" icon={Check} label="Yes" onClick={() => send('yes')} />
         <ActionButton tone="neutral" icon={X} label="No" onClick={() => send('no')} />

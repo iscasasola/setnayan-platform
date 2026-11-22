@@ -180,6 +180,11 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // 🤝 Another supplier's invite link (Invite a supplier v3): a door reached from a shared link or QR — like the
   // supplier claim door, its way out is signing in.
   '/i/[slug]': { home: '/login' },
+  // 📘 Help's topic and guide pages (Guide & Help drawing, approved 21 Nov 2026) go back to Help — in place, so a guide
+  // opened from a topic or a page's ⓘ returns there; cold, to Help.
+  '/help/topics': { home: '/help', label: 'Help' },
+  '/help/topics/[key]': { home: '/help', label: 'Help' },
+  '/help/guides/[key]': { home: '/help', label: 'Help' },
 
   /* ── sign in ──────────────────────────────────────────────────────────────────────────────────────── */
   // A password reset belongs to signing in (audit ✅).

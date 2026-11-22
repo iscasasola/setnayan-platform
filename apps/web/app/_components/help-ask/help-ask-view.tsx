@@ -1,4 +1,4 @@
-import { ArrowRight, ChevronDown, MessageSquare, RotateCcw } from 'lucide-react';
+import { ArrowRight, BookOpen, ChevronDown, MessageSquare, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import type { AskHit, AskResult } from '@/lib/help-ask-core';
 import type { HelpDoor } from './help-ask-places';
@@ -32,6 +32,25 @@ function Door({ door, main }: { door: HelpDoor | null; main?: boolean }) {
   );
 }
 
+/**
+ * Under the best answer: Take me there (the one main button) and, when its topic has a guide, Full guide beside it —
+ * equal widths (the drawing's screen 2). No door and no guide: nothing.
+ */
+function BestWays({ hit, ctx }: { hit: AskHit; ctx: AnswerCtx }) {
+  const door = hit.notInApp ? null : ctx.doorFor(hit.topicKey);
+  const guide = ctx.guideFor?.(hit.topicKey) ?? null;
+  if (!guide) return <Door door={door} main />;
+  return (
+    <div className="mt-3" data-help-best-ways="">
+      <div className="grid grid-cols-2 gap-2">
+        {door ? <ActionButton tone="brand" main icon={<ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label="Take me there" href={door.href} /> : null}
+        <ActionButton tone="neutral" icon={<BookOpen aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label="Full guide" href={guide} />
+      </div>
+      {door ? <p className="mt-1 text-xs text-ink/60">Opens {door.opens}.</p> : null}
+    </div>
+  );
+}
+
 export type AnswerCtx = {
   /** The question asked ('' when the answer was opened from a topic). */
   words: string;
@@ -39,6 +58,8 @@ export type AnswerCtx = {
   askAgainHref: string;
   messageHref: string;
   doorFor: (topicKey: string) => HelpDoor | null;
+  /** 📘 The guide over this answer's topic ("Full guide" beside Take me there — Guide & Help drawing, screen 2), or null. */
+  guideFor?: (topicKey: string) => string | null;
   /** The tag's first word — "Help" (default), "Team guide" in Setnayan HQ. */
   kind?: string;
 };
@@ -51,7 +72,7 @@ export function BestAnswer({ hit, ctx }: { hit: AskHit; ctx: AnswerCtx }) {
       <Tag>Best answer · {ctx.kind ?? 'Help'} · {hit.topicLabel}</Tag>
       <h2 className="mt-2 text-lg font-semibold leading-snug text-ink">{hit.title}</h2>
       <p className="mt-2 whitespace-pre-line text-base text-ink/80">{hit.lead}</p>
-      {hit.notInApp ? null : <Door door={ctx.doorFor(hit.topicKey)} main />}
+      <BestWays hit={hit} ctx={ctx} />
       {whole ? (
         <details className="group mt-3">
           <summary className="inline-flex min-h-11 cursor-pointer list-none items-center text-sm font-semibold text-terracotta [&::-webkit-details-marker]:hidden">
@@ -74,6 +95,7 @@ export function AnswerRows({
   group,
   ctx,
   tag = true,
+  open = null,
 }: {
   hits: ReadonlyArray<Pick<AskHit, 'slug' | 'title' | 'body' | 'lead' | 'topicKey' | 'topicLabel' | 'notInApp'>>;
   /** The accordion's name — one per list. */
@@ -81,12 +103,14 @@ export function AnswerRows({
   ctx: AnswerCtx;
   /** Draw the "Help · <topic>" tag (off inside a topic page, where the topic is the head). */
   tag?: boolean;
+  /** The answer drawn already open — a page's ⓘ sheet links to its answer on the topic page (`?open=<slug>`). */
+  open?: string | null;
 }) {
   return (
     <ul className="divide-y divide-ink/10">
       {hits.map((h) => (
         <li key={h.slug} id={h.slug} className="scroll-mt-20">
-          <details name={group} className="group py-3" data-help-row={h.slug}>
+          <details name={group} open={h.slug === open || undefined} className="group py-3" data-help-row={h.slug}>
             <summary className="flex min-h-11 cursor-pointer list-none items-start gap-3 [&::-webkit-details-marker]:hidden">
               <span className="min-w-0 flex-1">
                 {tag ? <Tag>{ctx.kind ?? 'Help'} · {h.topicLabel}</Tag> : null}

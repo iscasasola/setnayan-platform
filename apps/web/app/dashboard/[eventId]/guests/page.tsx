@@ -96,6 +96,7 @@ import { loadInviteSetup } from './_components/invite-message-setup';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
 import { isUuid } from '@/lib/is-uuid';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { PageInfo } from '@/app/_components/help-ask/page-info';
 // The Guest list's two other parts are the SHIPPED pages, rendered whole in
 // this page's body (owner 2026-09-29) — never a second copy of either.
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
@@ -1120,6 +1121,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const guestsScreen = (
     <GuestsScreen
       eventId={eventId}
+      info={<PageInfo pageKey="guests" eventId={eventId} />}
       roleSetKey={guestRoleSetKey}
       gview={gview}
       seat={gview === 'seats' ? parseSeatView(typeof search.seat === 'string' ? search.seat : null) : null}

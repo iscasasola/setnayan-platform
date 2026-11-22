@@ -166,3 +166,17 @@ test('rejection and retirement stay DIFFERENT columns', () => {
   );
   assert.ok(!/rejected_at/.test(retire));
 });
+
+// Ship review 22 Nov 2026: on a phone the upload form and the risen editor are sheets OVER the page, so a refusal drawn
+// only at the page root (a full allowance, a QR found, "Save failed", "Delete failed") was never seen.
+// SABOTAGE (run once, red, restored): `{said}` removed from the upload sheet → 1; from the editor sheet → 2.
+test('what an action said is drawn inside both phone sheets, not only behind them', () => {
+  const src = read(EDITOR);
+  const said = windowOf(src, 'const said = (', /\n  \);/);
+  assert.match(said, /\{actionError \? \(/, 'the refusal left the shared piece');
+  assert.match(said, /role="alert"/, 'the refusal is no longer announced');
+  assert.match(said, /\{notice \? \(/, 'the success line left the shared piece');
+  assert.match(src, /<ToolAddSheet name="moodboard-library"[^>]*>\s*\{said\}\s*\{uploadSection\}/, 'the upload sheet no longer says what the upload answered');
+  assert.match(src, /<div className="space-y-4 px-4 pb-6 pt-1">\s*\{said\}\s*\{editorPane\}/, 'the risen editor no longer says what Save or Delete answered');
+  assert.match(src, /\{dialog\}\s*\{said\}/, 'the page root lost the line (the computer has no sheet)');
+});

@@ -585,14 +585,6 @@ export function StylistLibraryEditor({
               <span>{RIGHTS_WARRANTY_TEXT}</span>
             </label>
 
-            <button
-              type="submit"
-              disabled={isPending || !rightsWarranted || quotaExhausted}
-              className={actionButtonClass('brand', { main: true, extra: 'w-full !min-h-11 disabled:opacity-50' })}
-            >
-              {isPending ? 'Uploading…' : 'Upload + tag'}
-            </button>
-
             {isGalleryUpload ? (
               <p className="text-[12px] text-[color:var(--m-slate-2)]">
                 {backCatalogueCap === 0
@@ -601,13 +593,13 @@ export function StylistLibraryEditor({
               </p>
             ) : null}
 
-            <p className="text-[12px] text-[color:var(--m-slate-2)]">
-              We watermark every photo with SETNAYAN on our side before storing
-              it, and check it for QR codes and your own contact details —
-              couples reach you through the credit under the photo, so those
-              only take them off Setnayan. Submissions appear as drafts;
-              Setnayan reviews them before couples see them.
-            </p>
+            <button
+              type="submit"
+              disabled={isPending || !rightsWarranted || quotaExhausted}
+              className={actionButtonClass('brand', { main: true, extra: 'w-full !min-h-11 disabled:opacity-50' })}
+            >
+              {isPending ? 'Uploading…' : 'Upload + tag'}
+            </button>
           </form>
         </section>
   );
@@ -708,8 +700,7 @@ export function StylistLibraryEditor({
         {importableEditorialFailed ? (
           <ShopNotice tone="warn" role="status" className="text-sm">
             We couldn’t load your photos from events you worked just now.
-            They aren’t gone — reload in a moment, or upload from your own files
-            below.
+            They aren’t gone — reload in a moment.
           </ShopNotice>
         ) : null}
 
@@ -768,35 +759,45 @@ export function StylistLibraryEditor({
     </>
   );
 
+  // 🔴 WHAT AN ACTION SAID — the success line and the refusal (a full allowance, a QR found, "Save failed", "Delete
+  // failed"). Drawn at the page root AND inside each phone sheet: the upload form and the risen editor cover the page,
+  // so a refusal drawn only behind them was never seen (ship review 22 Nov — a failure must not look like nothing).
+  // 🔒 moodboard-library/_components/a-rejection-reaches-the-vendor.test.ts
+  const said = (
+    <>
+    {notice ? (
+      <ShopNotice tone="success" role="status" className="mb-4 flex items-start justify-between gap-3">
+        <span>{notice}</span>
+        <button
+          type="button"
+          onClick={() => setNotice(null)}
+          className={actionButtonClass('neutral', { quiet: true })}
+          aria-label="Dismiss message"
+        >
+          Dismiss
+        </button>
+      </ShopNotice>
+    ) : null}
+    {actionError ? (
+      <ShopNotice tone="gold" role="alert" className="mb-4 flex items-start justify-between gap-3">
+        <span>{actionError}</span>
+        <button
+          type="button"
+          onClick={() => setActionError(null)}
+          className={actionButtonClass('neutral', { quiet: true })}
+          aria-label="Dismiss error"
+        >
+          Dismiss
+        </button>
+      </ShopNotice>
+    ) : null}
+    </>
+  );
+
   return (
     <>
       {dialog}
-      {notice ? (
-        <ShopNotice tone="success" role="status" className="mb-4 flex items-start justify-between gap-3">
-          <span>{notice}</span>
-          <button
-            type="button"
-            onClick={() => setNotice(null)}
-            className={actionButtonClass('neutral', { quiet: true })}
-            aria-label="Dismiss message"
-          >
-            Dismiss
-          </button>
-        </ShopNotice>
-      ) : null}
-      {actionError ? (
-        <ShopNotice tone="gold" role="alert" className="mb-4 flex items-start justify-between gap-3">
-          <span>{actionError}</span>
-          <button
-            type="button"
-            onClick={() => setActionError(null)}
-            className={actionButtonClass('neutral', { quiet: true })}
-            aria-label="Dismiss error"
-          >
-            Dismiss
-          </button>
-        </ShopNotice>
-      ) : null}
+      {said}
     {/* The redraw (v3, 21 Nov 2026): uploads first, as the house photo grid; then the photos from events you worked. On a
         phone the upload form is the thumb row's ＋ (a sheet) and a tapped photo rises the editor full screen; from 1024
         the shipped two panes stay — the upload form and the grid on the left, the editor on the right. */}
@@ -820,6 +821,7 @@ export function StylistLibraryEditor({
               {assets.map((a) => {
                 const on = wide && selectedId === a.asset_id;
                 const state = a.rejected_at ? 'rejected' : a.approved_at ? (a.retired_at ? 'retired' : 'live') : 'draft';
+                const stateWord = PHOTO_STATE_WORD[state];
                 return (
                   <li key={a.asset_id} className="relative aspect-square">
                     <button
@@ -828,7 +830,8 @@ export function StylistLibraryEditor({
                         setSelectedId(a.asset_id);
                         if (!wide) setEditorOpen(true);
                       }}
-                      aria-label={`${a.label || 'Moodboard photo'} · ${assetWhere(a, gallerySlots)}`}
+                      aria-label={`${a.label || 'Moodboard photo'} · ${assetWhere(a, gallerySlots)} · ${stateWord}`}
+                      title={stateWord}
                       aria-pressed={on}
                       className={`sn-press absolute inset-0 overflow-hidden rounded-xl ${on ? 'ring-2 ring-[rgb(var(--color-mulberry))] ring-offset-2' : ''}`}
                     >
@@ -865,6 +868,7 @@ export function StylistLibraryEditor({
     {!wide ? (
       <>
         <ToolAddSheet name="moodboard-library" label="Upload a photo" title="Upload your design">
+          {said}
           {uploadSection}
         </ToolAddSheet>
         <Sheet
@@ -884,6 +888,7 @@ export function StylistLibraryEditor({
           foot={<div className="px-4 pb-1 pt-2.5">{editorButtons}</div>}
         >
           <div className="space-y-4 px-4 pb-6 pt-1">
+            {said}
             {editorPane}
           </div>
         </Sheet>
@@ -897,7 +902,9 @@ export function StylistLibraryEditor({
  * The state ON a photo (the drawing's pill): a solid pill on the card's own ground, so it reads over any picture, light
  * and dark; the word carries the state's colour. It never grows past its tile — a long word is cut, not spilled.
  */
-function PhotoState({ state }: { state: 'rejected' | 'live' | 'retired' | 'draft' }) {
+const PHOTO_STATE_WORD = { rejected: 'Not published', live: 'Live', retired: 'Retired', draft: 'Draft' } as const;
+
+function PhotoState({ state }: { state: keyof typeof PHOTO_STATE_WORD }) {
   const color = state === 'rejected' ? 'rgb(var(--color-danger))' : state === 'live' ? 'rgb(var(--color-ok))' : 'var(--m-slate-2)';
   return (
     <span
@@ -907,7 +914,7 @@ function PhotoState({ state }: { state: 'rejected' | 'live' | 'retired' | 'draft
     >
       {state === 'live' ? <Check aria-hidden className="h-3 w-3 flex-none" strokeWidth={2.5} /> : null}
       {state === 'rejected' ? <X aria-hidden className="h-3 w-3 flex-none" strokeWidth={2.5} /> : null}
-      <span className="truncate">{state === 'rejected' ? 'Not published' : state === 'live' ? 'Live' : state === 'retired' ? 'Retired' : 'Draft'}</span>
+      <span className="truncate">{PHOTO_STATE_WORD[state]}</span>
     </span>
   );
 }

@@ -161,7 +161,7 @@ export default async function StylistMoodboardLibraryPage() {
       <ToolPin
         route="/vendor-dashboard/moodboard-library"
         title="Moodboard library"
-        right={assets.length > 0 ? formatCount(assets.length) : undefined}
+        right={assets.length > 0 ? `${formatCount(assets.length)} ${assets.length === 1 ? 'upload' : 'uploads'}` : undefined}
         sub={
           <InfoTip label="Your real work, credited, on couples’ mood boards." align="start">
             Upload photos of your real work, tag the color regions, and Setnayan will review them for the shared

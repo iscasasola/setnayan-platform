@@ -51,9 +51,11 @@ class Aisle {
     streak.position.set(0, YB + 0.006, -L / 2 - 1.2);
     s.add(streak);
     for (const sd of [-1, 1]) {
-      const wall = new THREE.Mesh(new THREE.PlaneGeometry(L + 3, 4.6), basic({ color: 0x8f7a5e }));
+      /* 🖥 the side walls start at the doorway (the drawing's ran 1.5 in front of it — off a phone's screen, but two
+         brown slabs beside the doors on a wide one) */
+      const wall = new THREE.Mesh(new THREE.PlaneGeometry(L + 1.15, 4.6), basic({ color: 0x8f7a5e }));
       wall.rotation.y = (-sd * Math.PI) / 2;
-      wall.position.set(sd * 1.8, YB + 2.3, -L / 2 - 0.2);
+      wall.position.set(sd * 1.8, YB + 2.3, -0.35 - (L + 1.15) / 2);
       s.add(wall);
       /* two rows of flowers along each side */
       for (const r of [
@@ -70,9 +72,9 @@ class Aisle {
         s.add(b);
       }
     }
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(3.6, L + 3), basic({ color: 0x7a664c }));
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(3.6, L + 1.15), basic({ color: 0x7a664c }));
     ceil.rotation.x = Math.PI / 2;
-    ceil.position.set(0, YB + 4.5, -L / 2 - 0.2);
+    ceil.position.set(0, YB + 4.5, -0.35 - (L + 1.15) / 2);
     s.add(ceil);
     const at = texOf(art.arch);
     const dt = texOf(art.drape);

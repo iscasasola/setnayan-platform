@@ -241,8 +241,9 @@ export default async function HelpPage({ searchParams }: Props) {
             {ACCOUNT_LINE[coverage]}
             {coverage === 'public' ? (
               <>
-                {' · '}
-                <Link href="/login?next=/help" className="inline-flex min-h-11 items-center font-medium text-terracotta underline-offset-2 hover:underline">
+                {/* The link wraps to its own line on a phone; the dot only joins the two on one line. */}
+                <span className="hidden sm:inline">{' · '}</span>
+                <Link href="/login?next=/help" className="flex min-h-11 w-fit items-center sm:inline-flex font-medium text-terracotta underline-offset-2 hover:underline">
                   Sign in for your own event or shop
                 </Link>
               </>

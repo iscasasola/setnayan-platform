@@ -634,8 +634,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     shopBooked,
     shopPhone,
     hosts,
-    shopVerifiedNote,
     wholeDay,
+    shopVerifiedNote,
   ] = await Promise.all([
     eventDateRead,
     blockStateRead,
@@ -655,8 +655,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     shopBookedRead,
     shopPhoneRead,
     hostsRead,
-    shopVerifiedNoteRead,
     wholeDayRead,
+    shopVerifiedNoteRead,
   ]);
   const shopNotYetVerified = shopVerifiedNote !== null;
   const shopPapersRenewing = shopVerifiedNote === 'renewing';
@@ -898,6 +898,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                       : []
                   }
                 />
+                {/* 📅 The ⋯ menu's Schedule (`?day=1`) rises "The whole day" over this chat — inside the box's slot. */}
+                {wholeDay ? <WholeDayFromMenu whole={wholeDay} chatHref={`/dashboard/${eventId}/messages/${threadId}`} /> : null}
                 </>
               }
             />
@@ -1078,7 +1080,6 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       }
     >
         {chatBox}
-        {wholeDay ? <WholeDayFromMenu whole={wholeDay} chatHref={`/dashboard/${eventId}/messages/${threadId}`} /> : null}
     </ChatThreadFrame>
   );
 }

@@ -182,11 +182,20 @@ export async function postDeclinedLine(args: { eventId: string; suggestionId: st
       .eq('event_id', args.eventId)
       .maybeSingle();
     const ask = row as { vendor_profile_id: string | null; block_id: string | null; kind: string; proposed_label: string | null } | null;
-    if (error || !ask?.vendor_profile_id) return;
+    if (error) {
+      console.error('[postDeclinedLine] ask read failed:', error.message);
+      return;
+    }
+    if (!ask?.vendor_profile_id) return;
     let label = ask.proposed_label;
     let fromIso: string | null = null;
     if (ask.block_id) {
-      const { data: block } = await admin.from('event_schedule_blocks').select('label, start_at, time_tba').eq('block_id', ask.block_id).maybeSingle();
+      const { data: block, error: blockError } = await admin.from('event_schedule_blocks').select('label, start_at, time_tba').eq('block_id', ask.block_id).maybeSingle();
+      // A refused read must not post a line that says the moment "stays as it is" when it has a time: say nothing.
+      if (blockError) {
+        console.error('[postDeclinedLine] moment read failed:', blockError.message);
+        return;
+      }
       const b = block as { label: string | null; start_at: string | null; time_tba: boolean | null } | null;
       label = b?.label ?? label;
       fromIso = b?.time_tba === true ? null : (b?.start_at ?? null);

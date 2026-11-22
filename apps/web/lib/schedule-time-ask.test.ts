@@ -141,7 +141,7 @@ test('5 · the v3 card: "· 18 Dec · 30 min", the note and the reason; a No say
   const server = read('lib/schedule-ask.server.ts');
   assert.match(server, /if \(r === 'done' && why\) await postDeclinedLine\(/, 'the supplier\'s No does not say why in the chat');
   const poster = server.slice(server.indexOf('export async function postDeclinedLine'));
-  assert.match(poster, /select\('label, start_at, time_tba'\)[\s\S]{0,400}time_tba === true \? null/, 'a Time-TBA moment would be said as 12:00 AM');
+  assert.match(poster, /select\('label, start_at, time_tba'\)[\s\S]{0,800}time_tba === true \? null/, 'a Time-TBA moment would be said as 12:00 AM');
   assert.match(read('app/dashboard/[eventId]/schedule/actions.ts'), /if \(why\) await postDeclinedLine\(\{ eventId, suggestionId, reason: why \}\)/, 'the hosts\' No does not say why in the chat');
   // The card asks for the reason before a No is sent, on both doors.
   const card = read('app/_components/chat/cards/schedule-time-ask-card.tsx');

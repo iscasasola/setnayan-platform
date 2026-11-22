@@ -114,7 +114,7 @@ export function WholeDayRise({ whole, onClose, lab = false }: { whole: WholeDay;
             <DayHead>The whole day</DayHead>
             <Link
               href={`/dashboard/${eventId}/schedule`}
-              className="sn-press mb-2 flex min-h-11 items-center gap-3 rounded-xl bg-raised px-3 py-2 shadow-[0_0_0_1px_rgb(var(--color-ink)/0.08)]"
+              className="sn-row sn-press mb-2 flex min-h-11 items-center gap-3 px-3 py-2"
               data-whole-day-edit=""
             >
               <span className="min-w-0 flex-1">

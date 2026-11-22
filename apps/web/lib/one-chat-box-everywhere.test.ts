@@ -195,13 +195,20 @@ test("6 · each frame's ⋮ carries the embedding page's sections", () => {
   assert.equal(count(supplierThread, /clients\/\$\{thread\.event_id\}`,/g), 0, "the supplier's ⋮ links the client page with no ?tab — that redirects back here");
   // `workspaceHref`, not `quoteLockHref`: since 2026-09-19 the lock link opens
   // the bench (lib/lock-door.ts) and the workspace route is the ⋮'s base only.
-  for (const tab of ['quote', 'payments', 'files', 'schedule', 'details']) {
+  for (const tab of ['quote', 'payments', 'files', 'details']) {
     assert.equal(
       count(coupleThread, new RegExp(`\\$\\{workspaceHref\\}\\?tab=${tab}`, 'g')),
       1,
       `the couple's ⋮ lost the workspace's ${tab} section`,
     );
   }
+  // 📅 Unichat part F (22 Nov, drawing `unichat_live_v3_2026-11-20.html`): the hosts' Schedule raises "The whole day"
+  // over this chat (`?day=1`) instead of leaving for the workspace; the event Schedule is one tap inside it.
+  assert.equal(
+    count(coupleThread, /href: `\/dashboard\/\$\{eventId\}\/messages\/\$\{threadId\}\?day=1`, label: 'Schedule'/g),
+    1,
+    "the couple's ⋮ lost its Schedule — the whole day risen over the chat",
+  );
 });
 
 test('7 · the supplier reads a notice addressed to the supplier; the couple’s canonical string is untouched', () => {

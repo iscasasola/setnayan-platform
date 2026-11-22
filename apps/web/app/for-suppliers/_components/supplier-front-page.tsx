@@ -19,7 +19,15 @@
  *
  * WHERE EVERY NUMBER COMES FROM: plan prices → `prices` (`getVendorPrices`, the catalog; "—" when unread) · the fee
  * → `fee.schedule` (the LIVE schedule) · caps → `TIER_CAPS` · the papers → `VERIFIED_PAPERS` · the sample cards'
- * prices are formatted from numbers, and the section says they are samples.
+ * prices are formatted from numbers (`mallPrice`), and the section says they are samples.
+ *
+ * 🔁 REDRAWN 23 Nov 2026 (owner-approved `prototypes/for_suppliers_redraw_2026-11-23/for_suppliers_redraw_fable.html`):
+ *   · § 5 is the live cards (`SupplierLiveCards`): the real Check a date month and Card 14, played on native scroll;
+ *   · § 7 is the plans as growth stairs (`PlanStairs`, facts from `planStair`), replacing the plan rows;
+ *   · a new specialized-tools part under Plans: each paid tool's chip reads its own live gate — the Cake Maker's from
+ *     the special tools' start date (`readSpecialToolsPaidFrom` → `specialToolsOpenToAll`), the Papic challenge and
+ *     3D plan from the plan gate (`PRO_TOOLS_MIN_TIER`); the on-the-day tools are `SPECIALIZED_TOOLS`.
+ *   Held by `the-redraw-plays-what-ships.test.ts`.
  *
  * The shell (`app/(shell)/layout.tsx`) draws the top bar and the footer: the drawing's header and footer are not drawn
  * here (`for-suppliers-wears-the-shell.test.ts`).
@@ -27,7 +35,23 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Lock } from 'lucide-react';
+import {
+  Check,
+  Flag,
+  Library,
+  ListOrdered,
+  Lock,
+  Mic,
+  Music,
+  Radio,
+  ScanLine,
+  Users,
+  Wrench,
+  type LucideIcon,
+} from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button-class';
+import { specialToolsOpenToAll } from '@/lib/special-tools';
+import type { SpecializedToolKey } from '@/lib/specialized-tools';
 import { bookingFeeCapAmount, bookingFeeFigures, bookingFeeMinimumAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { BOOKING_FEE_CHARGED_WHEN } from '@/lib/booking-fee-lock';
 import { FEE_FREE_CHIP, FEE_SCOPE, SUPPLIER_FREE_BOOKING_LINE } from '@/lib/booking-fee-who-words';
@@ -36,14 +60,24 @@ import { countNoun, formatCount } from '@/lib/format-number';
 import { formatPeso } from '@/lib/v2-catalog-pure';
 import { CARD_MEDALS } from '@/lib/public-badges';
 import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
-import { ServiceFace } from '@/app/_components/service-face';
-import { aboutKmLine } from '@/lib/mall-card';
-import { SampleDateFit } from './sample-card-date-fit';
-import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
-import type { CardBadgeView } from '@/lib/card-badges';
 import { FREE_FINDABLE } from './plan-table-data';
-import { GROW_TIERS, VERIFIED_PAPERS, growName, planLine, verifiedSpec } from './supplier-front-data';
-import { FeeRuler, PlanRows, type FreeWhen, type PlanRow } from './supplier-front-client';
+import {
+  EVERY_PLAN_TOOLS,
+  FIRST_TOOLS_TIER,
+  GROW_TIERS,
+  PAID_TOOL_TILES,
+  STAIR_TIERS,
+  VERIFIED_PAPERS,
+  growName,
+  liveCardsMonth,
+  paidToolChip,
+  planStair,
+  stairHasTools,
+  verifiedSpec,
+  type GrowTier,
+} from './supplier-front-data';
+import { FeeRuler, PlanStairs, type FreeWhen, type StairCard } from './supplier-front-client';
+import { SupplierLiveCards } from './supplier-live-cards';
 import { Info } from './supplier-front-info';
 import { SupplierHowWeEarn } from './supplier-how-we-earn';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
@@ -75,86 +109,86 @@ const CTA = 'Open your shop free';
 const FREE_LINE = 'Free to start. Free to stay. No card needed.';
 const A = '/marketing/2026-11-20/for-suppliers';
 
-/** "Free 1 · Verified 3 · Plus 10 · …" — one cap across every plan, read from `TIER_CAPS`. */
-const ALL_TIERS: readonly VendorTier[] = ['free', 'verified', ...GROW_TIERS];
-const tierName = (t: VendorTier) => (t === 'free' ? 'Free' : t === 'verified' ? 'Verified' : growName(t));
-function capLine(read: (t: VendorTier) => number, from: readonly VendorTier[] = ALL_TIERS): string {
-  return from
-    .filter((t) => read(t) > 0)
-    .map((t) => `${tierName(t)} ${formatCount(read(t))}`)
-    .join(' · ');
+/** A Grow tier (a paid size) — the code keys whose prices the catalog sells. */
+const isGrowTier = (t: VendorTier): t is GrowTier => (GROW_TIERS as readonly VendorTier[]).includes(t);
+
+/** The sample shop's peso in the chat bubble — formatted from a number, never typed as a figure. */
+const peso = (n: number) => `₱${formatPeso(n)}`;
+
+/** Today in Manila ("YYYY-MM-DD") — Check a date's own "today" for the sample month. */
+function manilaToday(nowMs: number): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(nowMs);
 }
 
-/** The sample cards' prices — formatted from numbers, never typed as figures. */
-const peso = (n: number) => `₱${formatPeso(n)}`;
-const SAMPLE_CARDS: ReadonlyArray<{
-  name: string;
-  path: string;
-  cover: string;
-  shop: string;
-  /** Where the shop works, said after its name. */
-  city: string;
-  price: number;
-  /** The card's own note under its price. */
-  priceNote: string;
-  /** Reviews come only from completed bookings; a sample shows what a reviewed card looks like. */
-  rating: { avg: number; count: number };
-  /** Straight-line km to the couple's venue (`aboutKmLine`). */
-  km: number;
-  includes: readonly string[];
-  notIncluded: readonly string[];
-  badges: readonly CardBadgeView[];
-}> = [
-  {
-    name: 'Full-day photo & video',
-    path: 'Photographers · Photo & video',
-    cover: `${A}/c-photo.webp`,
-    shop: 'Lumen Studio',
-    city: 'Quezon City',
-    price: 45999,
-    priceNote: 'whole day, 2 shooters',
-    rating: { avg: 4.9, count: 128 },
-    km: 12,
-    includes: ['2 shooters', 'Online album', 'Same-day edit'],
-    notIncluded: ['crew meal'],
-    badges: [
-      { key: 'trending_now', since: null },
-      { key: 'verified', since: null },
-    ],
-  },
-  {
-    name: 'Bridal make-up and hair',
-    path: 'Hair & make-up · Bridal',
-    cover: `${A}/c-makeup.webp`,
-    shop: 'Blush by Ria',
-    city: 'Makati',
-    price: 18999,
-    priceNote: 'bride + 1, with trial',
-    rating: { avg: 4.8, count: 86 },
-    km: 6,
-    includes: ['Trial session', 'Airbrush', 'Touch-ups'],
-    notIncluded: [],
-    badges: [
-      { key: 'quick_responder', since: null },
-      { key: 'rave_reviews', since: null },
-      { key: 'verified', since: null },
-    ],
-  },
-  {
-    name: 'Event highlights film',
-    path: 'Videographers · Highlights',
-    cover: `${A}/c-video.webp`,
-    shop: 'Reel Day Films',
-    city: 'Pasig',
-    price: 35999,
-    priceNote: '4-minute film',
-    rating: { avg: 5.0, count: 41 },
-    km: 9,
-    includes: ['4-minute film', 'Drone shots', 'Raw files'],
-    notIncluded: [],
-    badges: [{ key: 'hot_booking', since: null }],
-  },
-];
+/** The on-the-day tools' icons, one per tool key (lucide only). A key with none draws the wrench. */
+const DAY_TOOL_ICON: Partial<Record<SpecializedToolKey, LucideIcon>> = {
+  scanner: ScanLine,
+  song_bank: Library,
+  song_desk: Music,
+  emcee_script: Mic,
+  floor_command: Flag,
+  run_of_show: ListOrdered,
+  headcount: Users,
+  live_watch: Radio,
+};
+
+/** The three paid tools as pictures (the drawing's art, on the page's tokens). Decoration: the name says what it is. */
+function ToolArt({ k }: { k: SpecializedToolKey }) {
+  if (k === 'cake_tool') {
+    return (
+      <svg className={s.pic} viewBox="0 0 200 150" aria-hidden="true">
+        <ellipse className={s.picS} cx="100" cy="132" rx="74" ry="8" />
+        <rect className={`${s.picC} ${s.d1}`} x="40" y="96" width="120" height="34" rx="6" />
+        <rect className={`${s.picA} ${s.d2}`} x="58" y="64" width="84" height="32" rx="6" />
+        <rect className={`${s.picC} ${s.d3}`} x="76" y="36" width="48" height="28" rx="6" />
+        <circle className={`${s.picG} ${s.d3}`} cx="100" cy="28" r="6" />
+        <circle className={s.picA} cx="22" cy="40" r="7" />
+        <circle className={s.picG} cx="22" cy="60" r="7" />
+        <circle className={s.picK} cx="22" cy="80" r="7" />
+      </svg>
+    );
+  }
+  if (k === 'papic_challenge') {
+    return (
+      <svg className={s.pic} viewBox="0 0 200 150" aria-hidden="true">
+        <g transform="rotate(-14 100 130)">
+          <g className={s.f1}>
+            <rect className={s.picC} x="66" y="34" width="68" height="84" rx="5" />
+            <rect className={s.picS} x="72" y="40" width="56" height="52" rx="3" />
+          </g>
+        </g>
+        <g transform="rotate(14 100 130)">
+          <g className={s.f3}>
+            <rect className={s.picC} x="66" y="34" width="68" height="84" rx="5" />
+            <rect className={s.picS} x="72" y="40" width="56" height="52" rx="3" />
+          </g>
+        </g>
+        <g className={s.f2}>
+          <rect className={s.picC} x="66" y="30" width="68" height="84" rx="5" />
+          <rect className={s.picA} x="72" y="36" width="56" height="52" rx="3" />
+          <circle className={s.picOk} cx="124" cy="102" r="7" />
+          <path className={s.picTick} d="m120.5 102 2.5 2.5 4.5-4.5" />
+          <rect className={s.picS} x="74" y="98" width="34" height="6" rx="3" />
+        </g>
+      </svg>
+    );
+  }
+  return (
+    <svg className={s.pic} viewBox="0 0 200 150" aria-hidden="true">
+      <path className={s.picC} d="M100 40 184 84 100 128 16 84z" />
+      <path className={s.picL} d="M58 62 142 106M142 62 58 106" />
+      <ellipse className={s.picS} cx="72" cy="84" rx="14" ry="7" />
+      <ellipse className={s.picS} cx="100" cy="100" rx="14" ry="7" />
+      <ellipse className={s.picS} cx="100" cy="68" rx="14" ry="7" />
+      <g className={s.d2}>
+        <path className={s.picK} d="M124 70 148 82v20l-24-12z" />
+        <path className={s.picG} d="M148 82 166 73v20l-18 9z" />
+        <path className={s.picA} d="M124 70 142 61l24 12-18 9z" />
+        <circle className={s.picC} cx="136" cy="86" r="5" />
+      </g>
+    </svg>
+  );
+}
 
 function SecHead({ id, children }: { id: string; children: ReactNode }) {
   return (
@@ -181,13 +215,22 @@ const TOOLS: ReadonlyArray<{ img?: string; alt?: string; b: string; t: string; c
   { img: 't-price', alt: 'A caterer plating a dish', b: 'Your prices', t: 'Per guest, per hour, by size or one price.' },
 ];
 
+/** The special tools' start date as the page read it (`readSpecialToolsPaidFrom`, the reader the gate itself uses). */
+export type SupplierFrontSpecialTools = { status: 'ok'; paidFrom: string | null } | { status: 'unread' };
+
 export function SupplierFrontPage({
   prices,
   fee,
   afterPlans,
   giftFrom = null,
+  specialTools = { status: 'unread' },
+  nowMs = Date.now(),
 }: {
   prices: SupplierFrontPrices;
+  /** The special tools' start date; unread → the Cake Maker's chip says nothing (never "open", never "locked"). */
+  specialTools?: SupplierFrontSpecialTools;
+  /** The server's clock: the sample month, Check a date's today, and the special tools' gate. */
+  nowMs?: number;
   /** Papic 150's catalogue LIST price, formatted ("₱…"), for the "How Setnayan earns" gift row; null when unread. */
   giftFrom?: string | null;
   fee: SupplierFrontFee;
@@ -210,19 +253,22 @@ export function SupplierFrontPage({
     { label: 'You have a free booking fee ticket', hint: 'Your ticket is used on your next booking, automatically.' },
   ];
 
-  const planRows: PlanRow[] = [
-    // Free and Verified show what they hold too, never a slogan alone (owner via controller 22 Nov: "not just Memory Space").
-    { name: 'Free', line: planLine('free'), price: '₱0', per: 'always', cta: CTA },
-    { name: 'Verified', line: planLine('verified'), price: '₱0', per: 'always', cta: CTA },
-    ...GROW_TIERS.map((t) => ({
-      name: growName(t),
-      line: planLine(t), // 💾 the size and what it adds, from TIER_CAPS (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE")
-      price: { solo: prices.soloMonthly, pro: prices.proMonthly, enterprise: prices.enterpriseMonthly }[t],
-      per: 'per 4 weeks',
-      cta: `Start on ${growName(t)}`,
-      href: openShopWithPlanHref(t),
-    })),
-  ];
+  /** The growth stairs: every fact read (`planStair`), every price the catalog's, one door each. */
+  const growPrice = (t: GrowTier) => ({ solo: prices.soloMonthly, pro: prices.proMonthly, enterprise: prices.enterpriseMonthly })[t];
+  const stairs: StairCard[] = STAIR_TIERS.map((t) => {
+    const step = planStair(t);
+    if (!isGrowTier(t)) {
+      return { ...step, price: '₱0', per: 'always', cta: t === 'free' ? CTA : 'Get Verified free', href: OPEN_SHOP, main: t === 'free' };
+    }
+    return { ...step, price: growPrice(t), per: 'per 4 weeks', cta: `Start on ${step.name}`, href: openShopWithPlanHref(t), main: false };
+  });
+  /** The tools' door: the first plan that carries them all, its catalog price and its checkout door. */
+  const toolsDoor =
+    FIRST_TOOLS_TIER && isGrowTier(FIRST_TOOLS_TIER)
+      ? { name: growName(FIRST_TOOLS_TIER), price: growPrice(FIRST_TOOLS_TIER), href: openShopWithPlanHref(FIRST_TOOLS_TIER) }
+      : null;
+  /** The Cake Maker's live gate: open to every plan before the admin's date; null when the date could not be read. */
+  const specialOpen = specialTools.status === 'ok' ? specialToolsOpenToAll(specialTools.paidFrom, nowMs) : null;
 
   return (
     <div className={s.root}>
@@ -353,36 +399,18 @@ export function SupplierFrontPage({
         <p className={s.say}>No fakes on Setnayan. Reviews come only from completed bookings.</p>
       </section>
 
-      {/* 5 · YOUR SERVICE CARDS */}
+      {/* 5 · YOUR SERVICE CARDS — the live cards (redraw 23 Nov): four Card 14 samples answer a couple's date, guests and
+          venue, played by the scroll and by a tap (`supplier-live-cards.tsx`). */}
       <section className={s.part} id="cards" aria-labelledby="sf-h-cards" data-rv="">
         <SecHead id="sf-h-cards">Your service cards</SecHead>
+        <p className={s.ledeText}>One card. It fits every couple.</p>
+        <SupplierLiveCards month={liveCardsMonth(nowMs)} today={manilaToday(nowMs)} />
         <Lede text="Medals are earned from real bookings. Never bought.">
           <p>
             {CARD_MEDALS.length === 6 ? 'Six' : formatCount(CARD_MEDALS.length)} medals can sit on a card:{' '}
             {CARD_MEDALS.map((m) => m.name).join(', ')}. Your shop also earns badges and seals. None can be paid for.
           </p>
         </Lede>
-        <ul className={`${s.row} ${s.cards}`}>
-          {SAMPLE_CARDS.map((c) => (
-            <li key={c.name} className={s.card}>
-              {/* Card 14, the agreed service card (owner 20 Nov "card 14 approved"; shipped #8070): the mall face Find and
-                  Discover draw. Includes / Not included live in the opened card, never on this face. */}
-              <ServiceFace
-                layout="mall"
-                name={c.name}
-                coverUrl={c.cover}
-                shop={{ name: c.shop, href: null, logoUrl: null, verified: c.badges.some((b) => b.key === 'verified') }}
-                city={c.city}
-                rating={c.rating}
-                price={peso(c.price)}
-                priceNote={c.priceNote}
-                medals={<CardBadgeRow badges={c.badges} cardName={c.name} shopName={c.shop} now={0} />}
-                lines={<SampleDateFit />}
-                distance={aboutKmLine(c.km)}
-              />
-            </li>
-          ))}
-        </ul>
         <p className={s.fine}>Sample cards. The same card shows in Find, on your shop page and in chats.</p>
       </section>
 
@@ -454,25 +482,76 @@ export function SupplierFrontPage({
         />
       </section>
 
-      {/* 7 · PLANS */}
+      {/* 7 · PLANS — growth stairs, Free → Ultra (redraw 23 Nov). Every fact is `planStair` (TIER_CAPS); every price the
+          catalog's, "—" when unread; each card one door (Free and Verified open a shop; a paid size opens a shop with that
+          plan picked — `every-plan-has-a-checkout-door.test.ts`). */}
       <section className={s.part} id="plans" aria-labelledby="sf-h-plans" data-rv="">
-        {/* The drawing's "Compare →" is not drawn: no public page compares the supplier plans yet (/pricing is the
-            couples' page, and the return leg to it is `afterPlans`). */}
         <SecHead id="sf-h-plans">Plans</SecHead>
-        <Lede text="Upgrade only to manage more.">
-          <p>
-            <b>Live cards.</b> {capLine(cards)}.
-          </p>
-          <p>
-            <b>People.</b> {capLine((t) => TIER_CAPS[t].agentAccounts + 1)}.
-          </p>
-          <p>
-            <b>Branches.</b> {capLine((t) => TIER_CAPS[t].branchesIncluded)}.
-          </p>
-        </Lede>
-        <PlanRows rows={planRows} href={OPEN_SHOP} />
+        <p className={s.ledeText}>Start free. Grow when your business does.</p>
+        <PlanStairs plans={stairs} />
+        <p className={`${s.fine} ${s.same}`}>Same tools in every paid size. Only the room grows.</p>
         <p className={s.fine}>No plan limits your inquiries.</p>
         {afterPlans ? <div className={s.after}>{afterPlans}</div> : null}
+      </section>
+
+      {/* SPECIALIZED TOOLS — under Plans (redraw 23 Nov). The three that come with a paid size, each chip from its OWN live
+          gate (`paidToolChip`): the Papic challenge and the 3D plan are Plus and up always (`PRO_TOOLS_MIN_TIER`); the Cake
+          Maker is open to every plan until the admin's start date (`special_tools_paid_from`), and says so. Then the
+          on-the-day tools every shop has. Names and lines are `SPECIALIZED_TOOLS`. */}
+      <section className={s.part} id="special" aria-labelledby="sf-h-special" data-rv="">
+        <SecHead id="sf-h-special">Specialized tools</SecHead>
+        <p className={s.ledeText}>Built for your craft. In every paid size.</p>
+        <ul className={s.strip} aria-label="Which plans carry the specialized tools">
+          {STAIR_TIERS.map((t) => (
+            <li key={t} className={stairHasTools(t) ? s.stripYes : undefined}>
+              {stairHasTools(t) ? <Check aria-label="has them" className={s.stripIc} strokeWidth={2.4} /> : <Lock aria-label="locked" className={s.stripIc} strokeWidth={2} />}
+              {planStair(t).name}
+            </li>
+          ))}
+        </ul>
+        <ul className={`${s.row} ${s.shelf}`}>
+          {PAID_TOOL_TILES.map((t) => {
+            const chip = paidToolChip(t.key, specialOpen);
+            return (
+              <li key={t.key} className={s.tool}>
+                <div className={s.art}>
+                  {chip ? (
+                    <span className={s.inc} data-tool-chip={chip.locked ? 'locked' : 'open'}>
+                      {chip.locked ? <Lock aria-hidden className={s.incIc} strokeWidth={2} /> : <Check aria-hidden className={s.incIc} strokeWidth={2.4} />}
+                      {chip.words}
+                    </span>
+                  ) : null}
+                  <ToolArt k={t.key} />
+                </div>
+                <b>{t.title}</b>
+                <span>{t.line}</span>
+              </li>
+            );
+          })}
+        </ul>
+        {toolsDoor ? (
+          <div className={s.gate}>
+            <p className={s.stairPrice}>
+              <b>{toolsDoor.price ?? '—'}</b>
+              <small>per 4 weeks, with {toolsDoor.name}</small>
+            </p>
+            <Link className={actionButtonClass('brand', { main: false })} href={toolsDoor.href}>
+              <span className="lbl">Start on {toolsDoor.name}</span>
+            </Link>
+          </div>
+        ) : null}
+        <h3 className={s.sub}>On the day, in every plan</h3>
+        <ul className={s.dayTools}>
+          {EVERY_PLAN_TOOLS.map((t) => {
+            const Icon = DAY_TOOL_ICON[t.key] ?? Wrench;
+            return (
+              <li key={t.key}>
+                <Icon aria-hidden className={s.dayIc} strokeWidth={2} />
+                {t.title}
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       {/* 8 · CLOSE */}

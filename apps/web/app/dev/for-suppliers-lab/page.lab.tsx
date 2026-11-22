@@ -38,10 +38,19 @@ const LAB_PRICES = {
   bySku: new Proxy({} as Record<string, string | null>, { get: () => '₱ · · ·' }),
 };
 
-export default async function ForSuppliersLabPage({ searchParams }: { searchParams: Promise<{ paywall?: string }> }) {
+export default async function ForSuppliersLabPage({ searchParams }: { searchParams: Promise<{ paywall?: string; tools?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   // `?paywall=1` draws the table as it reads with the plan paywall ON; the default is production's switch, OFF.
-  const paywallOn = (await searchParams).paywall === '1';
+  const q = await searchParams;
+  const paywallOn = q.paywall === '1';
+  // `?tools=paid` draws the specialized tools after the admin's start date (Free and Verified locked), `?tools=unread` a
+  // refused read; the default is "never set" — open to every plan, as production is until the admin sets the date.
+  const specialTools =
+    q.tools === 'paid'
+      ? ({ status: 'ok', paidFrom: new Date(0).toISOString() } as const)
+      : q.tools === 'unread'
+        ? ({ status: 'unread' } as const)
+        : ({ status: 'ok', paidFrom: null } as const);
   const origin = siteOrigin();
   const page = myPageUrl(origin, SAMPLE_SHOP.slug);
   const urls = {
@@ -59,7 +68,13 @@ export default async function ForSuppliersLabPage({ searchParams }: { searchPara
   };
   return (
     <main style={{ ['--fd-bar' as string]: '0px' }}>
-      <SupplierFrontPage prices={LAB_PRICES} fee={{ schedule: BOOKING_FEE, enabled: true }} codes={codes} paywallOn={paywallOn} />
+      <SupplierFrontPage
+        prices={LAB_PRICES}
+        fee={{ schedule: BOOKING_FEE, enabled: true }}
+        codes={codes}
+        paywallOn={paywallOn}
+        specialTools={specialTools}
+      />
     </main>
   );
 }

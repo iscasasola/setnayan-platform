@@ -3,7 +3,7 @@ import 'server-only';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import satori from 'satori';
-import sharp from 'sharp';
+import sharp, { type OverlayOptions } from 'sharp';
 import { cardPhotoSignal } from '@/lib/social/card-photo-fetch';
 import { resolvePrintBadgeArt } from '@/lib/print-badge-art';
 import { sealArtSvgNoYear } from '@/lib/print-seal-art';
@@ -336,7 +336,7 @@ export async function renderVendorOgJpeg(input: VendorCardInput): Promise<Buffer
     height: OG_HEIGHT,
     fonts: SATORI_FONTS,
   });
-  const layers: sharp.OverlayOptions[] = [{ input: await sharp(Buffer.from(words)).png().toBuffer(), top: 0, left: 0 }];
+  const layers: OverlayOptions[] = [{ input: await sharp(Buffer.from(words)).png().toBuffer(), top: 0, left: 0 }];
 
   if (tile) {
     const t = await withShadow(tile, { dy: 6, blur: 24, alpha: 0.35 });

@@ -218,8 +218,8 @@ export interface TierCaps {
    */
   /**
    * SERVICE CARDS IN TOTAL, across every category the shop covers (owner 2026-11-18, DECISION_LOG "SUPPLIER PLANS
-   * REBUILT" + ruling 39 "MAX 80, ULTRA 200": *"max 80 cards / ultra 200 cards"*) — Free 1 · Verified 3 · Plus 10 · Pro
-   * 20 · Max 80 · Ultra 200. Replaces the per-category allowance (`servicesPerLeaf`, retired): cards are counted like
+   * REBUILT"; the numbers are the 2026-11-19 approved table, "MAX BECOMES ULTRA" — five plans, no Max) — Free 1 ·
+   * Verified 3 · Plus 10 · Pro 27 · Ultra 68. Replaces the per-category allowance (`servicesPerLeaf`, retired): cards are counted like
    * Fiverr counts gigs, categories are capped separately ({@link TierCaps.parentCategories}). Counts every card but a "Copy to another branch".
    * GRANDFATHERED: a shop already above its total keeps every card; only a NEW card past it is refused. Admin-editable
    * as `vendor_plan_contents.key = 'service_cards_total'`. Infinity = no limit.
@@ -232,9 +232,10 @@ export interface TierCaps {
   /** Agent (sub) seats beyond the main holder. Infinity = unlimited, 0 = none. */
   agentAccounts: number;
   /**
-   * BRANCHES INCLUDED beyond the main shop (owner 2026-11-04, DECISION_LOG "BRANCHES PER PLAN", verbatim:
-   * *"branches 0,0,3,10"*) — Free·Verified 0 · Supplier Plus 0 · Pro 3 · Ultra 6 (trimmed the same day, "WITH TRIMMED ALLOWANCES"). An included branch is live without a branch
-   * fee. Only Ultra may BUY more — {@link canBuyExtraBranches}. The SQL twin is
+   * BRANCHES INCLUDED beyond the main shop — owner 2026-11-19 (approved table): Free·Verified 0 · Plus 0 · Pro 1 ·
+   * Ultra 3, +1 per Ultra Add-on (lib/vendor-ultra-addons.ts). An included branch is live without a branch fee. A
+   * single extra branch is no longer sold (owner: *"they only buy the … pack"*) — {@link canBuyExtraBranches} is false;
+   * one already paid for still renews ({@link canRenewExtraBranches}). The SQL twin is
    * `vendor_tier_limit(…,'branches_included')`, held in step by `vendor-plan-allowances.db.test.ts`.
    */
   branchesIncluded: number;
@@ -247,7 +248,7 @@ export interface TierCaps {
    * own daily-capacity setting is what governs; the database's CHECK (1..500) is the only ceiling on that setting.
    */
   slotsPerDay: number;
-  /** Slots are time-bounded (am/pm split → effective slots double). */
+  /** Slots are time-bounded (am/pm split → effective slots double). TRUE on every plan since 2026-11-19 (owner: *"we do not limit the potential of a card"*). */
   slotsTimeBounded: boolean;
   /** In-app customer inquiries the vendor may answer per rolling week — `Infinity` on every plan (owner 2026-10-23; the inbox has been ungated since 2026-07-24). */
   inAppCustomersPerWeek: number;
@@ -360,14 +361,13 @@ export interface TierCaps {
   reviewCommentsViewable: boolean;
   website: WebsiteMode;
   /**
-   * The shop's OWN web address (its own domain → its Setnayan page). Supplier Plus · Pro · Ultra (owner 2026-11-04, "SUPPLIER
-   * PLAN ALLOWANCES": *"website applies to solo as well"*). Until then it was Pro+ and ALSO stood in for the Pro page
-   * parts — those now read {@link TierCaps.premiumPage}, so giving Supplier Plus its address does not give it the Pro page.
+   * The shop's OWN web address (its own domain → its Setnayan page). EVERY plan since 2026-11-19 (owner: *"shop page also
+   * is 1 for all already"* — the same shop page on every plan, the best one). Was Plus · Pro · Ultra (2026-11-04).
    */
   customWebsiteName: boolean;
   /**
    * The Pro page parts on the public shop page: the chosen cover photo, the pinned review, editorial picks and the
-   * two-column layout. Pro+. Split out of `customWebsiteName` 2026-11-04 (see above) with the SAME values it had.
+   * two-column layout. EVERY plan since 2026-11-19 (the same shop page for all, see above). Was Pro+.
    */
   premiumPage: boolean;
   /** Inquire link surfaced. True for all tiers. */
@@ -452,18 +452,18 @@ export interface TierCaps {
    * Cards already made are kept when a shop drops a plan.
    */
   cardMakerDetailed: boolean;
-  /** Card maker units view: Floor plan (rooms and tables) — Pro · Max · Ultra (ruling 35). Grid is on every plan. */
+  /** Card maker units view: Floor plan (rooms and tables) — Pro · Ultra (ruling 35). Grid is on every plan. */
   floorPlanUnits: boolean;
   /**
    * 🎂 SPECIAL TOOLS — the Cake Maker and every special tool after it (owner, specs DECISION_LOG "SPECIAL TOOLS ARE
-   * INCLUDED IN SUPPLIER PRO AND UP"): a plan benefit of Pro · Max · Ultra, never a separate fee. Until the admin
+   * INCLUDED IN SUPPLIER PRO AND UP"): a plan benefit of Pro · Ultra, never a separate fee. Until the admin
    * start date (`specialToolsOpenToAll`, lib/special-tools.ts) every shop may use them. A shop that drops below Pro
    * keeps its saved options and designs; the tool locks and comes back on upgrade.
    */
   specialTools: boolean;
   /**
-   * STORAGE — the stored files a shop may keep, in bytes (owner 2026-11-13, specs DECISION_LOG commit ce2d0a8 "plan
-   * storage": *Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB*, included in the plan). `null` = NO ALLOWANCE: Free and Free ·
+   * STORAGE — the stored files a shop may keep, in bytes (owner 2026-11-19 approved table: Plus 5 GB · Pro 10 GB · Ultra
+   * 20 GB, +50 GB per Ultra Add-on; first ruled 2026-11-13, specs commit ce2d0a8). `null` = NO ALLOWANCE: Free and Free ·
    * Verified were not given one and keep what they had before the ruling — no limit, nothing drawn.
    *
    * GB are 1,000,000,000 bytes — the GB the supplier reads (`storageWords`, lib/downgrade-limits.ts) — so "5 GB" on the
@@ -483,19 +483,19 @@ export const STORAGE_GB = 1_000_000_000;
 
 export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   free: {
-    storageBytes: null, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": storage — · — · 5 · 10 · 20 · 50 GB (Free · Verified: no allowance)
+    storageBytes: null, // owner 2026-11-19: storage — · — · 5 · 10 · 20 GB (Free · Verified: no allowance, unchanged)
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 — same on every plan (was 1)
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
-    serviceCardsTotal: 1, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" + ruling 39: cards IN TOTAL 1 · 3 · 10 · 20 · 80 · 200 (was per category)
+    serviceCardsTotal: 1, // owner 2026-11-19 (approved table, "this is good"): LIVE cards 1 · 3 · 10 · 27 · 68 (make as many as you like; only these are live)
     chat: 'chat', // 2026-10-23 — every plan answers couples (the inbox was ungated 2026-07-24)
     parentCategories: 1, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": main categories 1 · 1 · 2 · 8 · all 12 · all 12
-    agentAccounts: 0, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": seats incl. the owner 1 · 1 · 2 · 6 · 12 · 30 — this field counts seats BEYOND the owner
-    branchesIncluded: 0, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": branches besides the main shop 0 · 0 · 0 · 2 · 5 · 20
+    agentAccounts: 0, // owner 2026-11-19 (approved table, "this is good"): people incl. the owner 1 · 1 · 2 · 5 · 16 — this field counts seats BEYOND the owner
+    branchesIncluded: 0, // owner 2026-11-19 (approved table, "this is good"): branches besides the main shop 0 · 0 · 0 · 1 · 3
     scheduling: 'manual',
     marketplaceSearchable: true, // once verified — the queries gate on verification_state (2026-10-23)
     nameMode: 'verified', // real name once verified (2026-10-23) — see NameMode
     slotsPerDay: Infinity, // no plan limit — the supplier's own daily capacity governs (2026-10-23)
-    slotsTimeBounded: false,
+    slotsTimeBounded: true, // owner 2026-11-19: "we do not limit the potential of a card" — morning + afternoon slots on every plan
     inAppCustomersPerWeek: Infinity, // no weekly limit (2026-10-23)
     inAppGated: false,
     importCustomerTokenCost: 0,
@@ -506,19 +506,19 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": basic graphs from Verified; unverified Free sees none
     performanceAdvanced: false,
     soloBusinessTools: false,
-    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Max · Ultra
+    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Ultra only (the old Max; owner 19 Nov "MAX BECOMES ULTRA")
     cardMakerDetailed: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
-    floorPlanUnits: false, // ruling 35: units Floor plan view Pro · Max · Ultra; Grid for all
-    specialTools: false, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Max · Ultra
-    formVideoLinks: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Max · Ultra
+    floorPlanUnits: false, // ruling 35: units Floor plan view Pro · Ultra; Grid for all
+    specialTools: false, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Ultra
+    formVideoLinks: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Ultra
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
     seoLevel: 'basic', // basic indexability is free for all (§ 8)
     reviewStarsCounted: true,
     reviewCommentsViewable: true,
-    website: 'basic',
-    customWebsiteName: false,
-    premiumPage: false,
+    website: 'custom', // owner 2026-11-19: "shop page also is 1 for all already" — the same shop page on every plan
+    customWebsiteName: true, // owner 2026-11-19: the same shop page on every plan (the best one) — own web address included
+    premiumPage: true, // owner 2026-11-19: the same shop page on every plan (the best one) — the Pro page parts included
     inquireLink: true,
   },
   // Verified — legacy FREE tier kept for backward compatibility. RETUNED
@@ -529,7 +529,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // cap and the 2-per-category edge are GONE (owner 2026-10-23, "plans price reach,
   // not income"): Supplier Plus is better on reach and tools, never on how much a shop may sell.
   verified: {
-    storageBytes: null, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": storage — · — · 5 · 10 · 20 · 50 GB (Free · Verified: no allowance)
+    storageBytes: null, // owner 2026-11-19: storage — · — · 5 · 10 · 20 GB (Free · Verified: no allowance, unchanged)
     // OWNER 2026-08-29 — verified gets its OWN pair, 2 / 1. It used to clone the
     // FREE numbers (1 / 0) because the 2026-08-09 grid gave four numbers for five
     // tiers and `verified` was the row the build had to invent. Asked directly, the
@@ -538,11 +538,11 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     // waitlist is also 1), which the ladder test asserts.
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 — same on every plan (was 2)
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
-    serviceCardsTotal: 3, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" + ruling 39: cards IN TOTAL 1 · 3 · 10 · 20 · 80 · 200 (was per category)
+    serviceCardsTotal: 3, // owner 2026-11-19 (approved table, "this is good"): LIVE cards 1 · 3 · 10 · 27 · 68 (make as many as you like; only these are live)
     chat: 'chat',
     parentCategories: 1, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": main categories 1 · 1 · 2 · 8 · all 12 · all 12
-    agentAccounts: 0, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": seats incl. the owner 1 · 1 · 2 · 6 · 12 · 30 — this field counts seats BEYOND the owner
-    branchesIncluded: 0, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": branches besides the main shop 0 · 0 · 0 · 2 · 5 · 20
+    agentAccounts: 0, // owner 2026-11-19 (approved table, "this is good"): people incl. the owner 1 · 1 · 2 · 5 · 16 — this field counts seats BEYOND the owner
+    branchesIncluded: 0, // owner 2026-11-19 (approved table, "this is good"): branches besides the main shop 0 · 0 · 0 · 1 · 3
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     // NAME IS NEVER GATED (owner "open it up" lock · Vendor_Subscription_Ladder_
@@ -557,13 +557,13 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": basic graphs from Verified; unverified Free sees none
     performanceAdvanced: false,
     soloBusinessTools: false,
-    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Max · Ultra
+    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Ultra only (the old Max; owner 19 Nov "MAX BECOMES ULTRA")
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
-    floorPlanUnits: false, // ruling 35: units Floor plan view Pro · Max · Ultra; Grid for all
-    specialTools: false, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Max · Ultra
-    formVideoLinks: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Max · Ultra
+    floorPlanUnits: false, // ruling 35: units Floor plan view Pro · Ultra; Grid for all
+    specialTools: false, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Ultra
+    formVideoLinks: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Ultra
     slotsPerDay: Infinity, // no plan limit (2026-10-23; was 1)
-    slotsTimeBounded: false,
+    slotsTimeBounded: true, // owner 2026-11-19: "we do not limit the potential of a card" — morning + afternoon slots on every plan
     inAppCustomersPerWeek: Infinity, // no weekly limit (2026-10-23; was 10)
     inAppGated: true,
     importCustomerTokenCost: 0,
@@ -574,9 +574,9 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     seoLevel: 'basic', // basic indexability is free for all (§ 8)
     reviewStarsCounted: true,
     reviewCommentsViewable: true,
-    website: 'custom',
-    customWebsiteName: false,
-    premiumPage: false,
+    website: 'custom', // owner 2026-11-19: "shop page also is 1 for all already" — the same shop page on every plan
+    customWebsiteName: true, // owner 2026-11-19: the same shop page on every plan (the best one) — own web address included
+    premiumPage: true, // owner 2026-11-19: the same shop page on every plan (the best one) — the Pro page parts included
     inquireLink: true,
   },
   // Supplier Plus — ₱999/28d entry-level paid tier (price from vendor_billing_catalog).
@@ -584,29 +584,29 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // Token-burn model same as Pro/Enterprise (inAppGated = true). One agent seat
   // (owner 2026-07-02 — Supplier Plus now sits one seat above Free · Verified's 0).
   solo: {
-    storageBytes: 5 * STORAGE_GB, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": storage — · — · 5 · 10 · 20 · 50 GB (Free · Verified: no allowance)
+    storageBytes: 5 * STORAGE_GB, // owner 2026-11-19: storage — · — · 5 · 10 · 20 GB (Free · Verified: no allowance); +50 GB per Ultra Add-on
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 3)
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
-    serviceCardsTotal: 10, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" + ruling 39: cards IN TOTAL 1 · 3 · 10 · 20 · 80 · 200 (was per category)
+    serviceCardsTotal: 10, // owner 2026-11-19 (approved table, "this is good"): LIVE cards 1 · 3 · 10 · 27 · 68 (make as many as you like; only these are live)
     marketIntel: false,
     theftWatch: false,
     performanceTrends: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": basic graphs from Verified; unverified Free sees none
     performanceAdvanced: false,
     soloBusinessTools: true,
-    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Max · Ultra
+    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Ultra only (the old Max; owner 19 Nov "MAX BECOMES ULTRA")
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
-    floorPlanUnits: false, // ruling 35: units Floor plan view Pro · Max · Ultra; Grid for all
-    specialTools: false, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Max · Ultra
-    formVideoLinks: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Max · Ultra
+    floorPlanUnits: false, // ruling 35: units Floor plan view Pro · Ultra; Grid for all
+    specialTools: false, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Ultra
+    formVideoLinks: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Ultra
     chat: 'chat',
     parentCategories: 2, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": main categories 1 · 1 · 2 · 8 · all 12 · all 12
-    agentAccounts: 1, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": seats incl. the owner 1 · 1 · 2 · 6 · 12 · 30 — this field counts seats BEYOND the owner
-    branchesIncluded: 0, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": branches besides the main shop 0 · 0 · 0 · 2 · 5 · 20
+    agentAccounts: 1, // owner 2026-11-19 (approved table, "this is good"): people incl. the owner 1 · 1 · 2 · 5 · 16 — this field counts seats BEYOND the owner
+    branchesIncluded: 0, // owner 2026-11-19 (approved table, "this is good"): branches besides the main shop 0 · 0 · 0 · 1 · 3
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     nameMode: 'true',
     slotsPerDay: Infinity, // no plan limit (2026-10-23; was 1)
-    slotsTimeBounded: false,
+    slotsTimeBounded: true, // owner 2026-11-19: "we do not limit the potential of a card" — morning + afternoon slots on every plan
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
     importCustomerTokenCost: 0,
@@ -619,13 +619,13 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     seoLevel: 'enhanced',
     reviewStarsCounted: true,
     reviewCommentsViewable: true,
-    website: 'custom',
-    customWebsiteName: true, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": "website applies to solo as well" (was false)
-    premiumPage: false,
+    website: 'custom', // owner 2026-11-19: "shop page also is 1 for all already" — the same shop page on every plan
+    customWebsiteName: true, // owner 2026-11-19: the same shop page on every plan (the best one) — own web address included
+    premiumPage: true, // owner 2026-11-19: the same shop page on every plan (the best one) — the Pro page parts included
     inquireLink: true,
   },
   pro: {
-    storageBytes: 10 * STORAGE_GB, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": storage — · — · 5 · 10 · 20 · 50 GB (Free · Verified: no allowance)
+    storageBytes: 10 * STORAGE_GB, // owner 2026-11-19: storage — · — · 5 · 10 · 20 GB (Free · Verified: no allowance); +50 GB per Ultra Add-on
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS,
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
     // Market intel (cross-business Demand Radar + Price-Position) is PRO-AND-UP
@@ -637,21 +637,21 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": basic graphs from Verified; unverified Free sees none
     performanceAdvanced: true,
     soloBusinessTools: true,
-    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Max · Ultra
+    formMediaUploads: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Ultra only (the old Max; owner 19 Nov "MAX BECOMES ULTRA")
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
-    floorPlanUnits: true, // ruling 35: units Floor plan view Pro · Max · Ultra; Grid for all
-    specialTools: true, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Max · Ultra
-    formVideoLinks: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Max · Ultra
-    serviceCardsTotal: 20, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" + ruling 39: cards IN TOTAL 1 · 3 · 10 · 20 · 80 · 200 (was per category)
+    floorPlanUnits: true, // ruling 35: units Floor plan view Pro · Ultra; Grid for all
+    specialTools: true, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Ultra
+    formVideoLinks: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Ultra
+    serviceCardsTotal: 27, // owner 2026-11-19 (approved table, "this is good"): LIVE cards 1 · 3 · 10 · 27 · 68 (make as many as you like; only these are live)
     chat: 'chat',
     parentCategories: 8, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": main categories 1 · 1 · 2 · 8 · all 12 · all 12
-    agentAccounts: 5, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": seats incl. the owner 1 · 1 · 2 · 6 · 12 · 30 — this field counts seats BEYOND the owner
-    branchesIncluded: 2, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": branches besides the main shop 0 · 0 · 0 · 2 · 5 · 20
+    agentAccounts: 4, // owner 2026-11-19 (approved table, "this is good"): people incl. the owner 1 · 1 · 2 · 5 · 16 — this field counts seats BEYOND the owner
+    branchesIncluded: 1, // owner 2026-11-19 (approved table, "this is good"): branches besides the main shop 0 · 0 · 0 · 1 · 3
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     nameMode: 'true',
     slotsPerDay: Infinity, // no plan limit (2026-10-23; was 3)
-    slotsTimeBounded: true,
+    slotsTimeBounded: true, // owner 2026-11-19: "we do not limit the potential of a card" — morning + afternoon slots on every plan
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
     importCustomerTokenCost: 0,
@@ -664,9 +664,9 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     seoLevel: 'aeo',
     reviewStarsCounted: true,
     reviewCommentsViewable: true,
-    website: 'custom',
-    customWebsiteName: true,
-    premiumPage: true,
+    website: 'custom', // owner 2026-11-19: "shop page also is 1 for all already" — the same shop page on every plan
+    customWebsiteName: true, // owner 2026-11-19: the same shop page on every plan (the best one) — own web address included
+    premiumPage: true, // owner 2026-11-19: the same shop page on every plan (the best one) — the Pro page parts included
     inquireLink: true,
   },
   // Enterprise is now a BOUNDED "larger range", not truly unlimited (owner
@@ -676,7 +676,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // app 2026-11-06 — Ultra's add-ons are the way past Ultra.) Left unbounded: parentCategories ("all
   // categories" — taxonomy-bounded already) + servicesPerLeaf + inApp volume.
   enterprise: {
-    storageBytes: 20 * STORAGE_GB, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": storage — · — · 5 · 10 · 20 · 50 GB (Free · Verified: no allowance)
+    storageBytes: 20 * STORAGE_GB, // owner 2026-11-19: storage — · — · 5 · 10 · 20 GB (Free · Verified: no allowance); +50 GB per Ultra Add-on
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 10)
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
     marketIntel: true,
@@ -684,21 +684,21 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": basic graphs from Verified; unverified Free sees none
     performanceAdvanced: true,
     soloBusinessTools: true,
-    formMediaUploads: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Max · Ultra
+    formMediaUploads: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): photo uploads Ultra only (the old Max; owner 19 Nov "MAX BECOMES ULTRA")
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
-    floorPlanUnits: true, // ruling 35: units Floor plan view Pro · Max · Ultra; Grid for all
-    specialTools: true, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Max · Ultra
-    formVideoLinks: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Max · Ultra
-    serviceCardsTotal: 80, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" + ruling 39: cards IN TOTAL 1 · 3 · 10 · 20 · 80 · 200 (was per category)
+    floorPlanUnits: true, // ruling 35: units Floor plan view Pro · Ultra; Grid for all
+    specialTools: true, // owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP": Pro · Ultra
+    formVideoLinks: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 26): video links Pro · Ultra
+    serviceCardsTotal: 68, // owner 2026-11-19 (approved table, "this is good"): LIVE cards 1 · 3 · 10 · 27 · 68 (make as many as you like; only these are live)
     chat: 'chat',
     parentCategories: 12, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": main categories 1 · 1 · 2 · 8 · all 12 · all 12
-    agentAccounts: 11, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": seats incl. the owner 1 · 1 · 2 · 6 · 12 · 30 — this field counts seats BEYOND the owner
-    branchesIncluded: 5, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": branches besides the main shop 0 · 0 · 0 · 2 · 5 · 20
+    agentAccounts: 15, // owner 2026-11-19 (approved table, "this is good"): people incl. the owner 1 · 1 · 2 · 5 · 16 — this field counts seats BEYOND the owner
+    branchesIncluded: 3, // owner 2026-11-19 (approved table, "this is good"): branches besides the main shop 0 · 0 · 0 · 1 · 3
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     nameMode: 'true',
     slotsPerDay: Infinity, // no plan limit (2026-10-23; was 8)
-    slotsTimeBounded: true,
+    slotsTimeBounded: true, // owner 2026-11-19: "we do not limit the potential of a card" — morning + afternoon slots on every plan
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
     importCustomerTokenCost: 0,
@@ -711,9 +711,9 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     seoLevel: 'priority',
     reviewStarsCounted: true,
     reviewCommentsViewable: true,
-    website: 'custom',
-    customWebsiteName: true,
-    premiumPage: true,
+    website: 'custom', // owner 2026-11-19: "shop page also is 1 for all already" — the same shop page on every plan
+    customWebsiteName: true, // owner 2026-11-19: the same shop page on every plan (the best one) — own web address included
+    premiumPage: true, // owner 2026-11-19: the same shop page on every plan (the best one) — the Pro page parts included
     inquireLink: true,
   },
 };
@@ -734,7 +734,8 @@ export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: numbe
   // 💰 SIMPLER SUPPLIER PLANS (owner 2026-11-14): Plus ₱1,490 · Pro ₱4,990 · Ultra ₱9,990 per 4 weeks; a year = 10×.
   // A fallback that lags the catalogue is how an unreadable read shows a superseded price — it moves with the rows.
   solo: { monthly: 1490, annual: 14900 },
-  pro: { monthly: 4990, annual: 49900 },
+  // 💰 Owner 2026-11-19: Pro ₱3,990 per 4 weeks; a year = 10× (the standing 2026-11-04 rule, derived in the migration).
+  pro: { monthly: 3990, annual: 39900 },
   enterprise: { monthly: 9990, annual: 99900 },
 };
 
@@ -777,28 +778,53 @@ export function isTierAtLeast(
 }
 
 /**
- * May this tier buy paid EXTRA team seats beyond its base cap? Ultra
- * (`enterprise`) only. Enforced server-side in team/actions.ts
- * (`buyExtraSeat`) + the invite guard's "at cap" hint.
+ * 🛒 THE ONE THING A SHOP BUYS ON TOP OF A PLAN — the ULTRA ADD-ON (owner 2026-11-19: *"just 1 pack"* · *"Ultra Addon"* ·
+ * *"they only buy the … pack"*): +1 branch · +15 live cards · +3 people · +50 GB per 28 days, Ultra only, and it may
+ * be bought more than once. Its price is the live `vendor_ultra_addon` catalogue row, never typed here; what it adds
+ * is lib/vendor-ultra-addons.ts.
  */
-export function canBuyExtraSeats(tier: string | null | undefined): boolean {
+/** What ONE Ultra Add-on adds (owner 2026-11-19, verbatim: *"1 branch, 15 cards, 3 people, 50Gb"*). */
+export const ULTRA_ADDON_GIVES = Object.freeze({ branches: 1, liveCards: 15, people: 3, storageGb: 50 });
+
+export function canBuyTheUltraAddOn(tier: string | null | undefined): boolean {
   return isTierAtLeast(tier, 'enterprise');
 }
 
 /**
- * May this tier BUY branches beyond its included ones? Ultra only — owner
- * 2026-11-04, "BRANCHES PER PLAN": *"branches 0,0,3,10"*, and only Ultra buys more. The fee is the live
- * `vendor_additional_branch` catalogue price (`fetchBranchFeePhp`), never typed here.
+ * May this tier buy a NEW single extra team seat? NO plan, since 2026-11-19 (owner: the only add-on is the Ultra
+ * Add-on). Enforced server-side in team/actions.ts (`buyExtraSeat`).
  */
-export function canBuyExtraBranches(tier: string | null | undefined): boolean {
+export function canBuyExtraSeats(_tier: string | null | undefined): boolean {
+  return false;
+}
+
+/**
+ * May this tier BUY a new single extra branch? NO plan, since 2026-11-19 (the Ultra Add-on carries +1 branch).
+ */
+export function canBuyExtraBranches(_tier: string | null | undefined): boolean {
+  return false;
+}
+
+/**
+ * ⚠ A SEAT OR BRANCH ALREADY PAID FOR is not taken away (owner 2026-11-19: no existing subscriber's price or limits move
+ * until the owner rules on existing subscribers). Ultra — the only plan that could buy them — keeps counting paid extra
+ * seats and may RENEW a paid branch at its catalogue price. These are about what a shop HOLDS, never a new sale.
+ * ⏳ "Holds" is not "for good": since 22 Nov (controller ruling on PR #8019) a paid seat order covers its own 28 days,
+ * like every add-on — the stored count is the paid seat orders whose window covers now (lib/sku-activation.ts).
+ */
+export function holdsExtraSeats(tier: string | null | undefined): boolean {
+  return isTierAtLeast(tier, 'enterprise');
+}
+
+export function canRenewExtraBranches(tier: string | null | undefined): boolean {
   return isTierAtLeast(tier, 'enterprise');
 }
 
 /*
  * ULTRA ADD-ONS — RETIRED AS PURCHASES (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS", item 3): Ultra's
  * higher limits are built in (all 16 categories · 30 cards each · 10 bookings a day per service · waiting list 3), so
- * +1 category · +1 service card · +1 waiting-list place · +1 booking per date are no longer sold on ANY plan. Only the
- * extra seat and the extra branch stay (Ultra only, `canBuyExtraSeats` / `canBuyExtraBranches` above).
+ * +1 category · +1 service card · +1 waiting-list place · +1 booking per date are no longer sold on ANY plan. Since
+ * 2026-11-19 the extra seat and the extra branch are not sold either — only the Ultra Add-on (above).
  * ⚠ A shop that ALREADY bought one keeps it until it runs out (item 11) — that is {@link holdsBoughtExtras}, never these.
  */
 
@@ -832,11 +858,11 @@ export function holdsBoughtExtras(tier: string | null | undefined): boolean {
 }
 
 /**
- * Does this plan have branches at all — included ones (Pro, Ultra) or ones it may buy (Ultra)? What decides whether
+ * Does this plan have branches at all — included ones (Pro, Ultra), ones the Ultra Add-on brings, or paid ones it holds? What decides whether
  * a branch picker / manager is worth reading for. Owner 2026-11-04, "BRANCHES PER PLAN".
  */
 export function planHasBranches(tier: string | null | undefined): boolean {
-  return tierCaps(tier).branchesIncluded > 0 || canBuyExtraBranches(tier);
+  return tierCaps(tier).branchesIncluded > 0 || canBuyTheUltraAddOn(tier) || canRenewExtraBranches(tier);
 }
 
 /**
@@ -844,8 +870,10 @@ export function planHasBranches(tier: string | null | undefined): boolean {
  * already holds. Never negative: a shop already over a lowered allowance keeps every branch it has (they stay live —
  * owner 2026-11-04, "shops already over the limit keep their branches, but can't add more") and simply has 0 left.
  */
-export function includedBranchesLeft(tier: string | null | undefined, includedInUse: number): number {
-  return Math.max(0, tierCaps(tier).branchesIncluded - Math.max(0, includedInUse));
+export function includedBranchesLeft(tier: string | null | undefined, includedInUse: number, fromAddOns = 0): number {
+  // `fromAddOns` = +1 per Ultra Add-on the shop holds (owner 2026-11-19), the same the database gate adds.
+  const extra = Number.isFinite(fromAddOns) && fromAddOns > 0 ? Math.floor(fromAddOns) : 0;
+  return Math.max(0, tierCaps(tier).branchesIncluded + extra - Math.max(0, includedInUse));
 }
 
 /**

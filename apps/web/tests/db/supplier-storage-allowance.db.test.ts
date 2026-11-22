@@ -132,13 +132,37 @@ test('Solo: files up to exactly 5 GB, and the next new byte is refused with stor
   assert.equal(await used(s.shop), 5 * GB, 'the refused file was counted');
 });
 
-test('Pro holds 10 GB and Max (enterprise) 20 GB — owner 2026-11-18', async () => {
+test('Pro holds 10 GB and Ultra (enterprise) 20 GB — owner 2026-11-19', async () => {
   const pro = await newShop('pro');
   assert.equal((await file(pro, await store(pro, 10 * GB))).error, null);
   assert.match((await file(pro, await store(pro, 1))).error ?? '', /storage_allowance/);
   const ultra = await newShop('enterprise');
   assert.equal((await file(ultra, await store(ultra, 20 * GB))).error, null);
   assert.match((await file(ultra, await store(ultra, 1))).error ?? '', /storage_allowance/);
+});
+
+/** One Ultra Add-on payment as the activation hook leaves it: paid, with its own window (`endsInDays` < 0 = ran out). */
+async function ultraAddOnOrder(s: Shop, endsInDays: number): Promise<void> {
+  await asOwner();
+  await db.query(
+    `INSERT INTO public.orders (user_id, vendor_profile_id, service_key, description, requested_total_php, status, reference_code, expires_at)
+     VALUES ($1, $2, $3, 'Ultra Add-on', 2490, 'paid', 'SN' || upper(substr(md5(random()::text), 1, 8)), now() + make_interval(days => $4))`,
+    [s.uid, s.shop, `vendor_ultra_addon__${s.shop}`, endsInDays],
+  );
+}
+
+test('THE ULTRA ADD-ON (owner 2026-11-19): +50 GB per LIVE add-on on Ultra; a lapsed one gives nothing', async () => {
+  const ultra = await newShop('enterprise');
+  await ultraAddOnOrder(ultra, 20);
+  await ultraAddOnOrder(ultra, 5);
+  await ultraAddOnOrder(ultra, -1); // ⏳ ran out — 28 days per payment, never forever
+  assert.equal((await file(ultra, await store(ultra, 120 * GB))).error, null, 'Ultra 20 GB + 2 live × 50 GB must fit 120 GB');
+  assert.match((await file(ultra, await store(ultra, 1))).error ?? '', /storage_allowance/, 'a byte past 120 GB was let in');
+  // A live add-on on a plan that is not Ultra adds nothing.
+  const pro = await newShop('pro');
+  await ultraAddOnOrder(pro, 20);
+  assert.equal((await file(pro, await store(pro, 10 * GB))).error, null);
+  assert.match((await file(pro, await store(pro, 1))).error ?? '', /storage_allowance/, 'a Pro shop was given Ultra Add-on storage');
 });
 
 test('Free and Verified keep what they had: no allowance, never refused', async () => {

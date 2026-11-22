@@ -17,7 +17,7 @@ import type { PlanLine, PlanRowBadge } from '@/lib/vendor-plan-rows';
  *   Booking fee — the live schedule · "N of 5 used" / Waived   (`bookingFeeRow`)
  *   What <plan> gives you ▾ — read from the plan table         (`planGivesLines`)
  *   Receipts ▾ — paid plan orders, each to /receipts/<id>
- *   Deep Search › (every plan) · Extra seats and branches › (Ultra) · what was bought before the 2026-11-14 fold,
+ *   Deep Search › (every plan) · the Ultra Add-on (Ultra, 2026-11-19) · what was bought before the 2026-11-14 fold,
  *   while it runs · Papic credits › (Event Hub) · Featured by Setnayan ·
  *   Cancel the plan (nothing renews by itself). (The "Custom plan ›" row went 2026-11-06 with the Custom plan.)
  *
@@ -44,7 +44,7 @@ export function PlanRows({
   photosLine = null,
   storageLine = null,
   deepSearch = null,
-  extras = null,
+  ultraAddOn = null,
   bought = [],
   titled = true,
 }: {
@@ -75,8 +75,23 @@ export function PlanRows({
   storageLine?: string | null;
   /** 💳 Deep Search, the one thing every plan still buys (2026-11-14): its catalogue price; null = not drawn. */
   deepSearch?: { line: string } | null;
-  /** 💳 Ultra's extra seats and branches (2026-11-14); null on every other plan. */
-  extras?: { line: string } | null;
+  /**
+   * 🛒 The Ultra Add-on (owner 2026-11-19, the ONE add-on), built by the page. null = not drawn (not Ultra, or not on
+   * sale). It replaces the "Extra seats and branches" row — single extras are not sold any more.
+   *
+   * 📱 TWO ROWS, SO NOTHING IS CUT OFF AT 375 px (fix pass on PR #8019, 22 Nov). One row held everything — "+1 branch ·
+   * +15 live cards · +3 people · +50 GB · ₱… every 4 weeks · you have N" beside the Add button — and a row's line never
+   * wraps, so a phone showed "+1 branch · +15 live cards · +3 p…": the PRICE and the +50 GB were the part lost.
+   *   · `gives` — what EACH add-on adds (`ultraAddOnGivesWords`), on a row with NO control, so it has the whole width.
+   *              A shop may hold more than one at once (owner 22 Nov: "Yes, they can stack"), so the title says "Each";
+   *   · `buy`   — the PRICE first, as the title of the row that holds the Add control, and how many the shop holds.
+   *              null = no readable price: no figure and no Add control (never a fallback).
+   */
+  ultraAddOn?: {
+    gives: string;
+    buy: { price: string; line: string | null; end: ReactNode } | null;
+    held?: readonly { key: string; title?: string; line: string; end: ReactNode }[];
+  } | null;
   /** 💳 Add-ons bought before they folded into the plans, while they still run (item 11). */
   bought?: readonly { key: string; title: string; line: string }[];
   /** False inside the Shop ⚙'s "Plan and billing" fold — the fold names it (2026-10-31). */
@@ -154,14 +169,20 @@ export function PlanRows({
         </div>
 
         {/* 💳 The "Add-ons" row became what is left to buy (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS",
-            drawing § 3): Deep Search on every plan; on Ultra, extra seats and branches. The chatbot, specialized tools,
+            drawing § 3): Deep Search on every plan; on Ultra, the Ultra Add-on (2026-11-19). The chatbot, specialized tools,
             3D booth and Papic Challenges are not bought any more — they are under "What <plan> gives you". */}
         {deepSearch ? (
           <DatesRow data="plan-deep-search" lead={ic(Search)} title="Deep Search" line={deepSearch.line} href="/vendor-dashboard/deep-search" />
         ) : null}
-        {extras ? (
-          <DatesRow data="plan-extras" lead={ic(Users)} title="Extra seats and branches" line={extras.line} href="/vendor-dashboard/team" />
+        {ultraAddOn ? (
+          <DatesRow data="plan-ultra-addon" lead={ic(Users)} title="Each Ultra Add-on adds" line={ultraAddOn.gives} />
         ) : null}
+        {ultraAddOn?.buy ? (
+          <DatesRow data="plan-ultra-addon-buy" lead={ic(Users)} title={ultraAddOn.buy.price} line={ultraAddOn.buy.line} end={ultraAddOn.buy.end} />
+        ) : null}
+        {(ultraAddOn?.held ?? []).map((h) => (
+          <DatesRow key={h.key} data="plan-ultra-addon-held" lead={ic(Users)} title={h.title ?? 'Ultra Add-on'} line={h.line} end={h.end} />
+        ))}
         {bought.map((b) => (
           <DatesRow key={b.key} data="plan-bought" lead={ic(Store)} title={b.title} line={b.line} />
         ))}

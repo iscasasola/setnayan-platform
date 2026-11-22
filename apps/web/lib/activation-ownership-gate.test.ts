@@ -50,7 +50,9 @@ const HOOKS = [
   {
     name: 'extra seat',
     extract: 'const vendorProfileId = vendorProfileIdFromSeatServiceKey(ctx.serviceKey);',
-    firstEffect: 'recomputeVendorExtraSeats(',
+    // Since 22 Nov (controller ruling on PR #8019: a seat payment buys 28 days) the first write is the order's own
+    // window stamp — the shared `stampAddOnWindow` — then the recompute.
+    firstEffect: 'await stampAddOnWindow(ctx, SEAT_SKU_CODE)',
   },
   // (The 'custom plan' hook was DELETED 2026-11-06 with the Custom supplier plan — owner: "from the app".)
   {
@@ -83,10 +85,13 @@ const HOOKS = [
   },
   {
     // Added 2026-11-06 with the ULTRA ADD-ONS (owner, "ULTRA ADD-ON PRICES"): the key names the buying shop, exactly
-    // like the extra seat — the paying order must be that shop's before its paid count is recomputed.
+    // like the extra seat — the paying order must be that shop's before its paid count is recomputed. Since the
+    // 28-day review fix (2026-11-19) the first write is the order's own window stamp, then the recompute. The stamp
+    // moved into the shared `stampAddOnWindow` on 22 Nov (it also serves the single seat), so the hook's first effect
+    // is its call.
     name: 'ultra add-on count',
     extract: 'const target = parseCountAddOnServiceKey(ctx.serviceKey);',
-    firstEffect: 'recomputeVendorAddOnCount(ctx.admin',
+    firstEffect: 'await stampAddOnWindow(ctx, COUNT_ADDONS[target.kind].sku)',
   },
   {
     // Added 2026-11-18 with the gift STORE's cart (owner-approved v16): the order's lines name the buying shop, so the

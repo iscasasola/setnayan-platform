@@ -16,10 +16,10 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { liveTierState } from '@/lib/vendor-tier-lapse';
-import { asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/lib/vendor-tier-caps';
+import { asVendorTier, entryTierAllowance, holdsBoughtExtras } from '@/lib/vendor-tier-caps';
 import { applyPlanContents, type PlanContentRow } from '@/lib/vendor-plan-contents';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
-import { effectiveSeatCap } from '@/lib/vendor-seats';
+import { effectiveSeatCap, extraPeopleHeld } from '@/lib/vendor-seats';
 import { seatsToPauseAndResume, type PauseMember } from '@/lib/seat-pause';
 import { pickForCard } from '@/lib/inquiry-routing';
 import { memberChatName, readRoutingInput } from '@/lib/inquiry-routing.server';
@@ -62,7 +62,7 @@ export async function reconcileSeatPauses(admin: SupabaseClient, shopId: string)
     // 🛑 A REFUSED READ NEVER PAUSES ANYONE (ship review 22 Nov, HIGH). Pausing is a destructive write that locks people
     // out, so the cap it uses must be MEASURED: the plan's contents and the paid extra seats both come from reads that
     // succeeded. Any failure aborts the reconcile — nobody is paused or resumed on a guess (fetchLiveTierCaps falls back
-    // to the code values and fetchExtraAgentSeats answers 0 on a failure, so neither is used here).
+    // to the code values and the soft add-on reads answer 0 on a failure, so neither is used here).
     const { data: planRows, error: planErr } = await admin.from('vendor_plan_contents').select('plan, key, value').eq('plan', tier);
     if (planErr) {
       logQueryError('seat-pause: plan read', planErr, { shop: shopId }, 'graceful_degrade');
@@ -70,9 +70,24 @@ export async function reconcileSeatPauses(admin: SupabaseClient, shopId: string)
     }
     const planCaps = applyPlanContents(tier, (planRows ?? []) as PlanContentRow[]);
     const base = vendorAllowance(planCaps.agentAccounts, entryTierAllowance('agentAccounts'));
-    const bought = Number(s.extra_agent_seats);
-    const extra = canBuyExtraSeats(tier) ? (Number.isFinite(bought) && bought > 0 ? Math.floor(bought) : 0) : 0;
-    const cap = effectiveSeatCap(base, extra);
+    // 🧮 WHAT THE SHOP HOLDS ON TOP OF ITS PLAN, not what it may BUY (fix pass on PR #8019, 22 Nov, HIGH). This read
+    // `canBuyExtraSeats(tier)`, which is false on every plan since 2026-11-19 (no single seat is sold), and never
+    // counted Ultra Add-on people — so an Ultra shop's paid single seats and the +3 people of each live add-on would
+    // have been PAUSED: people locked out of seats the shop pays for. The allowance is the plan's people + the single
+    // seats the shop still holds + 3 per live Ultra Add-on — `extraPeopleHeld` (lib/vendor-seats.ts), the one rule the
+    // Team page's cap and the invite gate read too.
+    let liveAddOns = 0;
+    if (holdsBoughtExtras(tier)) {
+      // MEASURED, like everything above: an unread add-on count aborts — it is never a 0 that pauses three people.
+      const { data: live, error: liveErr } = await admin.rpc('vendor_live_ultra_addons_for', { p_vendor_profile_id: shopId });
+      const n = typeof live === 'number' ? live : typeof live === 'string' ? Number(live) : NaN;
+      if (liveErr || !Number.isFinite(n) || n < 0) {
+        logQueryError('seat-pause: live Ultra Add-ons read', liveErr ?? new Error(`malformed count: ${String(live)}`), { shop: shopId }, 'graceful_degrade');
+        return null;
+      }
+      liveAddOns = Math.floor(n);
+    }
+    const cap = effectiveSeatCap(base, extraPeopleHeld(tier, s.extra_agent_seats, liveAddOns));
     const members: PauseMember[] = ((rows ?? []) as Array<{ vendor_team_member_id: string; user_id: string; role: string; duty: string | null; created_at: string; deactivated_at: string | null; paused_by_plan_at: string | null }>).map((r) => ({
       memberId: r.vendor_team_member_id,
       userId: r.user_id,

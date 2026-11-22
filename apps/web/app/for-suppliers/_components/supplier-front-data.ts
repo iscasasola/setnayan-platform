@@ -24,9 +24,10 @@ import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/spec
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
   PORTFOLIO_FREE_BASE,
+  STORAGE_GB,
   TIER_CAPS,
-  canBuyExtraBranches,
-  canBuyExtraSeats,
+  canBuyTheUltraAddOn,
+  ULTRA_ADDON_GIVES,
   TIER_LABEL,
   firstPlanWith,
   type TierCaps,
@@ -369,18 +370,43 @@ export function helperLine(): string | null {
   return `Every plan, Free included, comes with ${helpers} for the event day.`;
 }
 
-/** The plans that may buy an extra branch AND an extra seat (today only Ultra) — `canBuyExtra*` in vendor-tier-caps. */
-export const ADDON_TIERS: GrowTier[] = GROW_TIERS.filter((t) => canBuyExtraBranches(t) && canBuyExtraSeats(t));
+/** The plans that may buy the Ultra Add-on (only Ultra, owner 2026-11-19) — `canBuyTheUltraAddOn` in vendor-tier-caps. */
+export const ADDON_TIERS: GrowTier[] = GROW_TIERS.filter((t) => canBuyTheUltraAddOn(t));
 
 /**
- * The one line under the plan cards that replaced the add-ons box (drawing § 1): "Deep Search is ₱499 a search on any
- * plan. On Ultra, you can also add a seat or a branch." The price is the catalogue row the search CHARGES; unread → the
- * sentence names no figure. The plan that may add seats and branches is `ADDON_TIERS` (canBuyExtra*).
+ * The Plans ⓘ's "Branches and storage." line (approved drawing `prototypes/for_suppliers_2026-11-20/site/index.html`:
+ * "Plus 5 GB · Pro 1 branch, 10 GB · Ultra 3 branches, 20 GB") — every plan that has a branch or a storage allowance,
+ * each with its own numbers from `TIER_CAPS` (`branchesIncluded` · `storageBytes`). A plan with neither is left out.
  */
-export function buyMoreLine(deepSearchPrice: string | null): string {
-  const deep = deepSearchPrice ? `Deep Search is ${deepSearchPrice} a search on any plan.` : 'Deep Search is bought one search at a time, on any plan.';
-  if (ADDON_TIERS.length === 0) return deep;
-  return `${deep} On ${ADDON_TIERS.map(planName).join(' and ')}, you can also add a seat or a branch.`;
+export function branchesAndStorageLine(tiers: readonly VendorTier[] = ['free', 'verified', ...GROW_TIERS]): string {
+  return tiers
+    .map((t) => {
+      const c = TIER_CAPS[t];
+      const parts = [
+        c.branchesIncluded > 0 ? countNoun(c.branchesIncluded, 'branch', 'branches') : null,
+        c.storageBytes !== null ? `${formatCount(c.storageBytes / STORAGE_GB)} GB` : null,
+      ].filter((x): x is string => x !== null);
+      return parts.length > 0 ? `${planName(t)} ${parts.join(', ')}` : null;
+    })
+    .filter((x): x is string => x !== null)
+    .join(' · ');
+}
+
+/**
+ * The Plans ⓘ's Ultra Add-on line (the same drawing: "On Ultra, the Ultra Add-on is ₱2,490 per 4 weeks: one more
+ * branch, 15 cards, 3 people and 50 GB."). `price` is the catalogue row the purchase CHARGES, formatted by the page
+ * (`prices.bySku[vendor_ultra_addon]`) — NEVER typed. No readable price → `null`: the line is not drawn (a promise
+ * with no figure, or with a remembered one, is not made). The plan that may buy it is `ADDON_TIERS`
+ * (`canBuyTheUltraAddOn`); what it gives is `ULTRA_ADDON_GIVES`.
+ *
+ * (It replaces `buyMoreLine`, which was written for the 6 Nov page's line under the plan cards and had no reader on
+ * the 20 Nov page.)
+ */
+export function ultraAddOnInfoLine(price: string | null): string | null {
+  if (!price || ADDON_TIERS.length === 0) return null;
+  const g = ULTRA_ADDON_GIVES;
+  const branches = g.branches === 1 ? 'one more branch' : `${formatCount(g.branches)} more branches`;
+  return `On ${ADDON_TIERS.map(planName).join(' and ')}, the Ultra Add-on is ${price} per 4 weeks: ${branches}, ${countNoun(g.liveCards, 'card', 'cards')}, ${countNoun(g.people, 'person', 'people')} and ${formatCount(g.storageGb)} GB.`;
 }
 
 /** The Free card's words (drawing § 1, desktop): what Free gives, and that Verified joins it. */

@@ -18,7 +18,19 @@
  * PURE: no I/O, no env. 🔒 lib/supplier-storage.test.ts
  */
 import { storageWords } from './downgrade-limits';
-import { TIER_CAPS, VENDOR_TIERS, asVendorTier, tierCaps, tierRank, type VendorTier } from './vendor-tier-caps';
+import { formatCount } from './format-number';
+import {
+  STORAGE_GB,
+  TIER_CAPS,
+  ULTRA_ADDON_GIVES,
+  VENDOR_TIERS,
+  asVendorTier,
+  canBuyTheUltraAddOn,
+  holdsBoughtExtras,
+  tierCaps,
+  tierRank,
+  type VendorTier,
+} from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
 
 /** The machine-readable half of a refusal (the sentence is `storageFullMessage`). */
@@ -27,7 +39,7 @@ export const STORAGE_FULL_CODE = 'supplier_storage_full';
 /** Where "move to a plan that holds more" goes — the shop's Plan. */
 export const STORAGE_UPGRADE_HREF = '/vendor-dashboard/subscription';
 
-/** The Plan row's line when what the shop stores could not be read — said, never a 0. */
+/** The Plan row's line when what the shop stores — or the storage it holds — could not be read: said, never a 0. */
 export const STORAGE_UNREAD = 'Couldn’t read what you store just now — nothing is lost';
 
 /** The refusal when the allowance could not be checked — fail CLOSED, plain reason + try again. */
@@ -37,8 +49,13 @@ export const STORAGE_CHECK_FAILED = 'We couldn’t check your storage just now. 
  * The storage a plan holds, in bytes — READ FROM `TIER_CAPS`. Null = the plan has no allowance (Free · Verified).
  * (Re-exported by lib/downgrade-limits.server.ts, where the limits sheet has always asked for it.)
  */
-export function storageAllowanceBytes(plan: string | null | undefined): number | null {
-  return tierCaps(plan).storageBytes;
+export function storageAllowanceBytes(plan: string | null | undefined, ultraAddOns = 0): number | null {
+  const base = tierCaps(plan).storageBytes;
+  if (base === null) return null;
+  // 🛒 +50 GB per Ultra Add-on (owner 2026-11-19), on a plan that holds bought extras (Ultra) — the same sum the
+  // database's `enforce_supplier_storage_allowance` makes from vendor_live_ultra_addons() (paid orders whose 28-day window covers now).
+  const packs = holdsBoughtExtras(plan) && Number.isFinite(ultraAddOns) && ultraAddOns > 0 ? Math.floor(ultraAddOns) : 0;
+  return base + packs * ULTRA_ADDON_GIVES.storageGb * STORAGE_GB;
 }
 
 /** Bytes in the words a supplier reads — "0 MB" for nothing (storageWords floors at 1 MB). */
@@ -46,7 +63,7 @@ function words(bytes: number): string {
   return bytes <= 0 ? '0 MB' : storageWords(bytes);
 }
 
-/** The next plan up that holds more than this one, or null (Ultra — the packs are not on sale). */
+/** The next plan up that holds more than this one, or null (Ultra — its way up is the Ultra Add-on, +50 GB each). */
 export function nextStoragePlan(plan: string | null | undefined): VendorTier | null {
   const current = asVendorTier(plan);
   const have = TIER_CAPS[current].storageBytes;
@@ -63,14 +80,20 @@ export function nextStoragePlan(plan: string | null | undefined): VendorTier | n
  * The Plan's "Storage" row. Null = the row is not drawn (a plan with no allowance — the screen stays as it was).
  *   ok      "1.2 GB of 5 GB used" · "5 GB of 5 GB used · full" · "6.1 GB of 5 GB used · over — new files wait for room"
  *   unread  `STORAGE_UNREAD` — never "0 MB of 5 GB used".
+ * `ultraAddOns` is the live Ultra Add-on count, or `null` when it could NOT BE READ. On a plan that holds bought extras
+ * (Ultra) an unread count makes the allowance itself unknown, so the line is `STORAGE_UNREAD` — never "20 GB of 20 GB
+ * used · full" to a shop that pays for 50 GB more (ship review of PR #8019, 22 Nov). Below Ultra the count is not part
+ * of the allowance, so an unread one changes nothing.
  */
 export function storageRowLine(
   plan: string | null | undefined,
   read: { status: 'ok'; bytes: number } | { status: 'unread' },
+  ultraAddOns: number | null = 0,
 ): string | null {
-  const allowance = storageAllowanceBytes(plan);
+  const allowance = storageAllowanceBytes(plan, ultraAddOns ?? 0);
   if (allowance === null) return null;
   if (read.status !== 'ok') return STORAGE_UNREAD;
+  if (ultraAddOns === null && holdsBoughtExtras(plan)) return STORAGE_UNREAD;
   const base = `${words(read.bytes)} of ${storageWords(allowance)} used`;
   if (read.bytes > allowance) return `${base} · over — new files wait for room`;
   if (read.bytes === allowance) return `${base} · full`;
@@ -81,12 +104,16 @@ export function storageRowLine(
  * The plain reason an upload is refused, with the way up. Names THIS plan's number; the next plan's number when there
  * is one. Nothing already stored is touched, and the sentence never says otherwise.
  */
-export function storageFullMessage(plan: string | null | undefined, usedBytes: number, incomingBytes: number): string {
-  const allowance = storageAllowanceBytes(plan) ?? 0;
+export function storageFullMessage(plan: string | null | undefined, usedBytes: number, incomingBytes: number, ultraAddOns = 0): string {
+  const allowance = storageAllowanceBytes(plan, ultraAddOns) ?? 0;
   const name = planWord(asVendorTier(plan));
   const left = Math.max(0, allowance - Math.max(0, usedBytes));
   const next = nextStoragePlan(plan);
-  const up = next ? ` or move to ${planWord(next)} for ${storageWords(TIER_CAPS[next].storageBytes ?? 0)}` : '';
+  const up = next
+    ? ` or move to ${planWord(next)} for ${storageWords(TIER_CAPS[next].storageBytes ?? 0)}`
+    : canBuyTheUltraAddOn(plan)
+      ? `, or add the Ultra Add-on (+${formatCount(ULTRA_ADDON_GIVES.storageGb)} GB) on your Plan page`
+      : '';
   const reason =
     left < 1e6
       ? `Your ${name} plan’s ${storageWords(allowance)} of storage is full.`
@@ -95,8 +122,8 @@ export function storageFullMessage(plan: string | null | undefined, usedBytes: n
 }
 
 /** Does `incomingBytes` more fit? `null` allowance = no limit on this plan. */
-export function storageFits(plan: string | null | undefined, usedBytes: number, incomingBytes: number): boolean {
-  const allowance = storageAllowanceBytes(plan);
+export function storageFits(plan: string | null | undefined, usedBytes: number, incomingBytes: number, ultraAddOns = 0): boolean {
+  const allowance = storageAllowanceBytes(plan, ultraAddOns);
   if (allowance === null) return true;
   return Math.max(0, usedBytes) + Math.max(0, incomingBytes) <= allowance;
 }

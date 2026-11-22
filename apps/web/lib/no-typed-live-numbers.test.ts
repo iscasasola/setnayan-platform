@@ -48,12 +48,13 @@ test('the DSLR line types no price — CAMERA_BRIDGE is retired, so it offers no
   assert.doesNotMatch(help, /₱|formatPhp\(/, 'the DSLR help types a price');
 });
 
-test('the seat-limit message reads the live seat fee', () => {
+test('the seat-limit message names no typed fee — and no single seat any more (2026-11-19)', () => {
   const src = code('app/vendor-dashboard/team/actions.ts');
   assert.ok(!/Add a seat \(₱/.test(src), 'the seat fee is typed in the message');
-  // 2026-11-13: the fee is read once into `seatFee` — the catalogue row or null (then the hint names no figure).
-  assert.match(src, /const seatFee = [^;]*await fetchSeatFeePhp\(supabase\)/);
-  assert.match(src, /Add a seat \(\$\{formatPhp\(seatFee\)\}/);
+  // 2026-11-19 (owner: the only add-on is the Ultra Add-on): the "at cap" seat-fee hint is gone; the way past the cap
+  // is the Ultra Add-on, whose number is read from ULTRA_ADDON_GIVES, never typed.
+  assert.doesNotMatch(src, /Add a seat/, 'the at-cap hint offers a single seat again');
+  assert.match(src, /The Ultra Add-on adds \$\{formatCount\(ULTRA_ADDON_GIVES\.people\)\} people/);
 });
 
 test('the onboarding promo is the ONE admin number — no typed constant anywhere (owner d18)', () => {

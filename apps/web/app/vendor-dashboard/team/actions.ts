@@ -8,8 +8,8 @@ import { railForNewOrder } from '@/lib/rail-for-new-order';
 import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { formatCount } from '@/lib/format-number';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { formatPhp } from '@/lib/php';
 import { revokeAllSessions } from '@/lib/force-logout';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
@@ -31,16 +31,15 @@ import {
   isVendorDuty,
   type VendorDuty,
 } from '@/lib/vendor-duties';
-import { asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/lib/vendor-tier-caps';
+import { asVendorTier, canBuyExtraSeats, canBuyTheUltraAddOn, entryTierAllowance, ULTRA_ADDON_GIVES } from '@/lib/vendor-tier-caps';
 import { fetchLiveTierCaps } from '@/lib/vendor-plan-contents';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import { FREE_HELPER_ROLE, FREE_HELPER_SEATS, canSeat, type SeatMember } from '@/lib/vendor-free-helper';
 import {
   effectiveSeatCap,
-  fetchExtraAgentSeats,
+  readExtraPeople,
   fetchSeatFeePhp,
   seatServiceKey,
-  SEAT_PERIOD_DAYS,
 } from '@/lib/vendor-seats';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { MAIN_BRANCH_KEY, keyOfBranchId } from '@/lib/branch-copy';
@@ -135,19 +134,29 @@ async function ensureAdmin() {
   return { supabase, ctx, currentUserId: user.id };
 }
 
-/** The plan's effective seat cap — base allowance (flag-aware) + paid extra seats. */
+/** The refusal when the seats a shop holds could not be read — said as that, never as "your plan is full". */
+const SEATS_CHECK_FAILED = 'We couldn’t check your team’s seats just now. Please try again.';
+
+/**
+ * The plan's effective seat cap — base allowance (flag-aware) + what the shop holds on top (`extraPeopleHeld`: paid
+ * single seats + 3 per live Ultra Add-on). `null` = that could not be MEASURED: the caller refuses with
+ * {@link SEATS_CHECK_FAILED}. Before the 22 Nov fix pass an unread count was 0, so an Ultra shop holding an add-on was
+ * told "You've reached your plan's limit" when the read, not the plan, had failed.
+ */
 async function seatCapFor(
   supabase: Awaited<ReturnType<typeof createClient>>,
   ctx: { tierState: string | null; vendorProfileId: string },
-): Promise<number> {
+): Promise<number | null> {
   // 🧮 The plan's seats as the admin last set them (vendor_plan_contents, owner 2026-11-13), the code value when unread.
   const planCaps = await fetchLiveTierCaps(supabase, asVendorTier(ctx.tierState ?? 'free'));
   const baseCap = vendorAllowance(
     planCaps.agentAccounts,
     entryTierAllowance('agentAccounts'),
   );
-  const extraSeats = await fetchExtraAgentSeats(supabase, ctx.vendorProfileId);
-  return effectiveSeatCap(baseCap, extraSeats);
+  // No cap to add to: nothing bought can matter, so nothing is read.
+  if (!Number.isFinite(baseCap)) return baseCap;
+  const held = await readExtraPeople(supabase, ctx.vendorProfileId, ctx.tierState);
+  return held.status === 'ok' ? effectiveSeatCap(baseCap, held.extra) : null;
 }
 
 /** Every member with their role — what `canSeat` counts. `null` = the read failed (refuse, never guess a seat free). */
@@ -214,17 +223,15 @@ export async function inviteVendorTeamMember(formData: FormData) {
   // is the one rule; the read below names the role so it can be applied (the
   // same one request the head-count used to be).
   const seatCap = await seatCapFor(supabase, ctx);
+  if (seatCap === null) return err(SEATS_CHECK_FAILED);
   if (seatCap !== Infinity) {
     const members = await readSeatMembers(supabase, ctx.vendorProfileId);
-    if (members === null) return err('We couldn’t check your team’s seats just now. Please try again.');
+    if (members === null) return err(SEATS_CHECK_FAILED);
     if (!canSeat({ members, founderUserId: ctx.founderUserId, cap: seatCap, change: { kind: 'invite', role, duty } })) {
-      // The fee is the live catalogue price (`vendor_extra_seat`), read the same
-      // way the buy-a-seat action and the Team page read it — never typed here.
-      const seatFee = canBuyExtraSeats(ctx.tierState) ? await fetchSeatFeePhp(supabase) : null;
-      const moreHint = canBuyExtraSeats(ctx.tierState)
-        ? seatFee !== null
-          ? `Add a seat (${formatPhp(seatFee)}/${SEAT_PERIOD_DAYS}d) for more.`
-          : 'Add a seat for more.'
+      // 🛒 No single seat is sold any more (owner 2026-11-19 — the "at cap" seat-fee hint is gone). On Ultra the way
+      // past the cap is the Ultra Add-on (+3 people each, bought on the Plan page); below Ultra, a bigger plan.
+      const moreHint = canBuyTheUltraAddOn(ctx.tierState)
+        ? `The Ultra Add-on adds ${formatCount(ULTRA_ADDON_GIVES.people)} people — on your Plan page.`
         : 'Upgrade for more.';
       const helperHint =
         duty !== 'helper' && FREE_HELPER_SEATS > 0
@@ -332,9 +339,10 @@ export async function updateVendorTeamMember(formData: FormData) {
   const wasHelper = isVendorDuty(target.duty) ? target.duty === 'helper' : target.role === FREE_HELPER_ROLE;
   if (wasHelper && duty !== 'helper') {
     const seatCap = await seatCapFor(supabase, ctx);
+    if (seatCap === null) return err(SEATS_CHECK_FAILED);
     if (seatCap !== Infinity) {
       const members = await readSeatMembers(supabase, ctx.vendorProfileId);
-      if (members === null) return err('We couldn’t check your team’s seats just now. Please try again.');
+      if (members === null) return err(SEATS_CHECK_FAILED);
       if (
         !canSeat({
           members,
@@ -344,7 +352,12 @@ export async function updateVendorTeamMember(formData: FormData) {
         })
       ) {
         return err(
-          `Your plan has no seat for another ${VENDOR_DUTY_NAME[duty]} — this person is your free Helper. Add a seat or pick a plan with more.`,
+          // 2026-11-19: no single seat is sold — the way past the cap is a bigger plan, or on Ultra the Ultra Add-on.
+          `Your plan has no seat for another ${VENDOR_DUTY_NAME[duty]} — this person is your free Helper. ${
+            canBuyTheUltraAddOn(ctx.tierState)
+              ? `The Ultra Add-on adds ${formatCount(ULTRA_ADDON_GIVES.people)} people — on your Plan page.`
+              : 'Pick a plan with more.'
+          }`,
         );
       }
     }
@@ -535,8 +548,10 @@ function generateSeatReferenceCode(): string {
 export async function buyExtraSeat(formData: FormData) {
   const { supabase, ctx, currentUserId } = await ensureAdmin();
 
+  // 🛒 Single extra seats are not sold since 2026-11-19 (owner: the only add-on is the Ultra Add-on, +3 people each).
+  // `canBuyExtraSeats` answers false on every plan; seats already bought keep counting (`extraPeopleHeld`, lib/vendor-seats.ts).
   if (!canBuyExtraSeats(ctx.tierState)) {
-    return err('Extra team seats are a Supplier Ultra add-on. Upgrade to Supplier Ultra first.');
+    return err(`Single extra seats are not sold any more. On Ultra, the Ultra Add-on adds ${formatCount(ULTRA_ADDON_GIVES.people)} people — on your Plan page.`);
   }
 
   // The rail is CHOSEN ON THE PAYMENT PAGE now, where the QR that carries it is

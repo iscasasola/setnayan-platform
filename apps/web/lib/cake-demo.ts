@@ -40,5 +40,8 @@ export function cakeDemoOptions(): CakeShopOptions {
   };
 }
 
-/** The words on the demo's calm bar, in place of Send. */
-export const CAKE_DEMO_BAR_WORDS = 'This special tool is available on Pro, Max and Ultra';
+/**
+ * The words on the demo's calm bar, in place of Send; the Upgrade button sits beside them. Five plans, no Max (owner
+ * 22 Nov, DECISION_LOG "CORRECTION — THERE IS NO MAX PLAN"): special tools come with Pro and Ultra.
+ */
+export const CAKE_DEMO_BAR_WORDS = 'This special tool is available on Pro and Ultra';

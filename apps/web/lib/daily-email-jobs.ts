@@ -34,6 +34,7 @@ import { runGuestReminderEmails } from '@/lib/guest-reminder-emails';
 import { runVerifiedBadgeDeadlineSweep } from '@/lib/verified-badge-sweep';
 import { eventWordsFor, type EventWords } from '@/app/[slug]/_lib/event-words';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { renewalReminderProduct } from '@/lib/renewal-reminder-products';
 
 /**
  * CRON-FREE daily email jobs — the anniversary digest, subscription-renewal
@@ -388,16 +389,6 @@ export async function runGodchildBirthdayReminders(): Promise<{ scanned: number;
 // ── Subscription renewal reminders ───────────────────────────────────────────
 const REMINDER_DAYS = 7;
 
-function productTitleFor(serviceKey: string): string {
-  if (serviceKey === 'EVENT_SUBDOMAIN' || serviceKey === 'vendor_subdomain') return 'Custom Subdomain';
-  if (serviceKey === 'vendor_ai_addon') return 'Vendor AI';
-  if (serviceKey === 'vendor_3d_booth') return '3D Booth';
-  if (serviceKey === 'vendor_specialized_tools' || serviceKey === 'vendor_specialized_tools_annual') {
-    return 'Specialized tools';
-  }
-  return 'Setnayan subscription';
-}
-
 type RenewalCandidate = {
   order_id: string;
   service_key: string;
@@ -438,11 +429,15 @@ export async function runRenewalReminders(): Promise<{ scanned: number; sent: nu
         continue;
       }
 
+      // The words and link per product (lib/renewal-reminder-products.ts) — the Ultra Add-on says four weeks and
+      // opens the Plan page (owner 2026-11-19, ad44b079: its buyers get this reminder).
+      const product = renewalReminderProduct(c.service_key);
       const email = buildRenewalReminderEmail({
         name: c.buyer_name,
-        productTitle: productTitleFor(c.service_key),
+        productTitle: product.title,
         expiresAt: new Date(c.expires_at),
-        renewUrl: `${APP_URL}/pricing`,
+        renewUrl: `${APP_URL}${product.renewPath}`,
+        period: product.period,
       });
       const result = await sendEmail({
         to: c.buyer_email,

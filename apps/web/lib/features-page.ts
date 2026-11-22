@@ -34,6 +34,7 @@ import type { CatalogueRow } from '@/lib/feature-pages/price';
 import { FEE_SCOPE } from '@/lib/booking-fee-who-words';
 import { formatCount } from '@/lib/format-number';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
+import { featuresSupplierToolsLine, type PaidSupplierTier } from '@/lib/supplier-plan-public-words';
 
 export type RowStatus = 'live' | 'coming';
 export type RowPrice = 'free' | 'free-plus' | 'paid' | 'credits' | 'per-day';
@@ -371,12 +372,24 @@ export const EVENT_PLANS: readonly PlanColumn[] = [
   { name: 'Event Ultra', tag: 'Shared live, kept longer.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_ULTRA'] }, lines: ['Everything in Pro, the most Papic credits', 'Live Watch for one day', 'Full-size photos kept 12 months', `${formatMakerMediaMB(coupleMediaCapBytes('ultra'))} of uploads`], credits: { index: 0, said: (n) => `Everything in Pro, ${n} Papic credits` } },
 ];
 
+/**
+ * 🧰 THE SPECIALIZED-TOOLS LINE IS PLACED BY THE GATE, never typed on a plan (fix pass on PR #8019, 22 Nov). It was
+ * typed on Plus ("All specialized tools included") and stayed there after the owner moved the tools to Pro and Ultra
+ * (DECISION_LOG 21 / 22 Nov). `featuresSupplierToolsLine` reads `SPECIALIZED_TOOLS_INCLUDED_TIERS`: the first plan
+ * that includes them carries the line, a paid plan below it says what it really has (the Plan page's own words), and
+ * a plan above repeats nothing ("Everything in Pro"). 🔒 lib/public-plan-surfaces-follow-the-tools-gate.test.ts
+ */
+const withTools = (tier: PaidSupplierTier, lines: readonly string[]): readonly string[] => {
+  const tools = featuresSupplierToolsLine(tier);
+  return tools ? [...lines, tools] : lines;
+};
+
 export const SUPPLIER_PLANS: readonly PlanColumn[] = [
   { name: 'Free', tag: 'Open and sell.', price: { kind: 'free' }, lines: ['Shop page, cards, bundles', 'Chat, quotes, payment plans', 'Full basic dashboard'] },
   { name: 'Verified', tag: 'Trusted.', price: { kind: 'free' }, lines: ['The badge on every card', 'Unlimited live cards', 'AI chatbot included', 'Everything in Free'] },
-  { name: 'Plus', tag: 'One person, no friction.', price: { kind: 'paid', catalogue: 'supplier', codes: ['solo_vendor_monthly'] }, lines: ['Everything in Verified', 'Operate the business alone, smoothly', 'All specialized tools included'] },
-  { name: 'Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: ['Team seats', 'Performance insights', 'The smarter AI chatbot included'] },
-  { name: 'Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Branches and a bigger team', 'Everything in Pro'] },
+  { name: 'Plus', tag: 'One person, no friction.', price: { kind: 'paid', catalogue: 'supplier', codes: ['solo_vendor_monthly'] }, lines: withTools('solo', ['Everything in Verified', 'Operate the business alone, smoothly']) },
+  { name: 'Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: withTools('pro', ['Team seats', 'Performance insights', 'The smarter AI chatbot included']) },
+  { name: 'Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: withTools('enterprise', ['Branches and a bigger team', 'Everything in Pro']) },
 ];
 
 /** RW-12 · a plan's lines with its credits line naming the catalogue's count, when the row is read and active. */

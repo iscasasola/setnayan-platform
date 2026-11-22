@@ -40,7 +40,7 @@ test('the demo reads nothing, saves nothing, sends nothing — and shows no pric
   assert.doesNotMatch(bar, /doSend|cakeAction|Send to|Make a quote/, 'the demo bar must carry no Send');
   assert.match(bar, /CAKE_DEMO_BAR_WORDS/);
   assert.match(bar, /label="Upgrade" href=\{SPECIAL_TOOLS_UPGRADE_HREF\}/);
-  assert.equal(CAKE_DEMO_BAR_WORDS, 'This special tool is available on Pro, Max and Ultra');
+  assert.equal(CAKE_DEMO_BAR_WORDS, 'This special tool is available on Pro and Ultra', 'five plans, no Max (owner 22 Nov)');
   // Fully playable, and never a guessed price: every part on, every extra ₱0.
   const o = cakeDemoOptions();
   assert.ok(sanitizeCakeShopOptions(o).ok, 'the demo options must be valid options');

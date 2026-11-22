@@ -11,7 +11,7 @@
  *     March · Live Watch — every supplier, no purchase.
  *
  * Everything above the last section is PURE. The database is the gate
- * (`vendor_specialized_tools_unlocked` in migration 20271331982978); {@link specializedToolsUnlockFrom} is
+ * (`vendor_specialized_tools_unlocked`, last written by migration 20271358646819); {@link specializedToolsUnlockFrom} is
  * its mirror, held in step by `tests/db/specialized-tools-unlock.db.test.ts`. The last section holds the two
  * database reads (re-exported from `lib/entitlements.ts`); they take a client and import nothing server-only,
  * because `lib/vendor-photo-challenge.ts` is bundled into client components.
@@ -119,8 +119,12 @@ export function toolNeedsUnlock(tool: string): boolean {
 
 /** The floor for buying the unlock and for the trial: Verified and up (owner 2026-11-09). */
 export const SPECIALIZED_TOOLS_MIN_TIER: VendorTier = 'verified';
-/** The plans that INCLUDE the unlock — no purchase (Pro/Ultra owner 2026-11-09; Plus owner 2026-11-14 "SIMPLER SUPPLIER PLANS"). */
-export const SPECIALIZED_TOOLS_INCLUDED_TIERS: readonly VendorTier[] = ['solo', 'pro', 'enterprise'];
+/**
+ * The plans that INCLUDE the unlock — no purchase: Pro and Ultra (owner 2026-11-09). Plus was added 2026-11-14 and
+ * dropped again by the owner's 21 Nov "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP" + the 22 Nov correction
+ * (five plans, no Max; tier keys `pro`, `enterprise`). The database half is migration 20271358646819.
+ */
+export const SPECIALIZED_TOOLS_INCLUDED_TIERS: readonly VendorTier[] = ['pro', 'enterprise'];
 
 /** The facts the decision reads — the same columns the SQL reads. */
 export type SpecializedToolsFacts = {
@@ -251,7 +255,8 @@ export type SpecializedToolsEligibility =
   | { ok: false; reason: SpecializedToolsDenyReason };
 
 /**
- * Who may BUY the unlock (owner 2026-11-09): a verified shop on Verified or Supplier Plus. Pro and Ultra are
+ * Who may BUY the unlock (owner 2026-11-09): a verified shop on Verified or Supplier Plus. (The unlock is off sale
+ * since 2026-11-14 — this stays the floor the approval hook re-asserts for a window already bought.) Pro and Ultra are
  * refused because their plan already includes it — taking ₱499 for something they hold is the
  * defect. Buying while a window runs is allowed: it stacks.
  */

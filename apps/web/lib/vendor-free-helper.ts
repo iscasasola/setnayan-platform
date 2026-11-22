@@ -108,6 +108,9 @@ export function canSeat(args: {
   return after <= cap || after <= before;
 }
 
+/** The seats line when what the shop holds on top of its plan could not be read — said, never the smaller number. */
+export const SEATS_UNREAD = 'Couldn’t load your seats just now — nothing is lost';
+
 /**
  * The Helpers screen's one line — the SEATS and the FREE HELPER said as two separate facts, so neither can read as
  * contradicting the other (supplier batch walk R5: "0 of 1 used · your free Helper is in use" read as "nothing used,
@@ -116,8 +119,12 @@ export function canSeat(args: {
  *   "0 of 1 seats used · plus 1 free Helper you can invite" none yet
  *   "No team seats on your plan · plus 1 free Helper …"    a plan with no seats
  *   "2 with you · no seat limit · plus your free Helper"   unlimited
+ *   `SEATS_UNREAD`                                          the cap is `null` — it could not be measured
  */
-export function seatLine(seats: TeamSeats, cap: number): string {
+export function seatLine(seats: TeamSeats, cap: number | null): string {
+  // 🔑 The cap could not be MEASURED (the seats or Ultra Add-ons the shop holds were unread): say so. Drawing the
+  // plan's bare number would read "16 of 16 seats used" to a shop that pays for three more.
+  if (cap === null) return SEATS_UNREAD;
   const free =
     FREE_HELPER_SEATS > 0
       ? seats.freeHelpers > 0

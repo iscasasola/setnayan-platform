@@ -75,7 +75,17 @@ type Props = {
    * does not open it. Off → the form says more branches are Ultra's; the server refuses it too (`branches/actions.ts`).
    */
   canBuyMore?: boolean;
+  /**
+   * 🔑 The Ultra Add-ons the shop holds could not be read, so how many branches are left is UNKNOWN (ship review of
+   * PR #8019, 22 Nov). The line under Add then says it couldn't load — never "N of M left" or "all in use" made from
+   * the plan's bare number. The database still decides when the branch is added.
+   */
+  allowanceUnread?: boolean;
 };
+
+/** The line under Add when the allowance could not be read — said, never a count. */
+export const BRANCH_ALLOWANCE_UNREAD =
+  'Couldn’t load your Ultra Add-ons just now, so the branches you have left aren’t shown — nothing is lost. We check again when you add one.';
 
 export function BranchManager({
   branches,
@@ -86,6 +96,7 @@ export function BranchManager({
   includedLeft = 0,
   includedTotal = 0,
   canBuyMore = false,
+  allowanceUnread = false,
 }: Props) {
   const toast = useToast();
   const [adding, setAdding] = useState(false);
@@ -119,6 +130,7 @@ export function BranchManager({
             includedLeft={includedLeft}
             includedTotal={includedTotal}
             canBuyMore={canBuyMore}
+            allowanceUnread={allowanceUnread}
             onDone={() => {
               setAdding(false);
               setFormKey((k) => k + 1);
@@ -199,6 +211,7 @@ function AddBranchForm({
   includedLeft,
   includedTotal,
   canBuyMore,
+  allowanceUnread,
   onDone,
   toastSuccess,
   toastError,
@@ -211,6 +224,7 @@ function AddBranchForm({
   includedLeft: number;
   includedTotal: number;
   canBuyMore: boolean;
+  allowanceUnread: boolean;
   onDone: () => void;
   toastSuccess: (m: string) => void;
   toastError: (m: string) => void;
@@ -339,8 +353,10 @@ function AddBranchForm({
           <SubmitButton className="button-primary w-full" pendingLabel="Adding…">
             Add branch · included in your plan
           </SubmitButton>
-          <p className="text-center text-[11px] text-ink/45">
-            {formatCount(includedLeft)} of {formatCount(includedTotal)} included {includedTotal === 1 ? 'branch' : 'branches'} left · no fee — it is live once added.
+          <p className="text-center text-[11px] text-ink/45" data-branch-allowance={allowanceUnread ? 'unread' : 'left'} role={allowanceUnread ? 'status' : undefined}>
+            {allowanceUnread
+              ? BRANCH_ALLOWANCE_UNREAD
+              : `${formatCount(includedLeft)} of ${formatCount(includedTotal)} included ${includedTotal === 1 ? 'branch' : 'branches'} left · no fee — it is live once added.`}
           </p>
         </>
       ) : !canBuyMore ? (
@@ -348,10 +364,12 @@ function AddBranchForm({
           <SubmitButton className="button-primary w-full" pendingLabel="Checking…">
             Add branch
           </SubmitButton>
-          <p className="text-center text-[11px] text-ink/45">
-            {includedTotal > 0
-              ? `Your plan’s ${formatCount(includedTotal)} included branches are in use — more branches are part of Supplier Ultra.`
-              : 'Branches come with Supplier Pro and Supplier Ultra.'}
+          <p className="text-center text-[11px] text-ink/45" data-branch-allowance={allowanceUnread ? 'unread' : 'used'} role={allowanceUnread ? 'status' : undefined}>
+            {allowanceUnread
+              ? BRANCH_ALLOWANCE_UNREAD
+              : includedTotal > 0
+                ? `Your plan’s ${formatCount(includedTotal)} included branches are in use — more branches are part of Supplier Ultra.`
+                : 'Branches come with Supplier Pro and Supplier Ultra.'}
           </p>
         </>
       ) : openRails.length > 0 ? (

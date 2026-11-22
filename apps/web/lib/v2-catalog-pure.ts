@@ -108,7 +108,9 @@ export type V2VendorSku = {
     | 'category'
     | 'service_card'
     | 'waitlist'
-    | 'booking_per_date';
+    | 'booking_per_date'
+    // The Ultra Add-on (migration 20271351415438, owner 2026-11-19).
+    | 'ultra_addon';
   token_grant_count: number | null;
   max_categories: number | null;
   max_sub_seats: number | null;

@@ -110,16 +110,25 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     {
       key: 'tools',
       title: 'Specialized tools',
-      // 🎁 Owner 20 Nov: Papic Challenges and the branded 3D booth left the unlock for Pro and up — so a plan below
-      // Pro that includes the unlock must not say "All included".
-      line: SPECIALIZED_TOOLS_INCLUDED_TIERS.includes(tier)
-        ? isTierAtLeastPro(tier)
-          ? 'All included'
-          : `Included · Papic Challenges and the 3D booth come with ${TIER_LABEL[PRO_TOOLS_MIN_TIER]}`
-        : `The free set · all of them from ${TIER_LABEL[SPECIALIZED_TOOLS_INCLUDED_TIERS[0] ?? 'solo']}`,
+      line: specializedToolsLine(tier),
     },
     { key: 'chatbot', title: 'AI chatbot', line: chatbotLine(tier) },
   ];
+}
+
+/**
+ * The Plan page's words for one plan's specialized tools — read from the gate (`SPECIALIZED_TOOLS_INCLUDED_TIERS`), so
+ * moving a plan in or out of that list moves this sentence with it. Also the words `/features` uses for a paid plan
+ * below the gate (lib/supplier-plan-public-words.ts).
+ * 🎁 Owner 20 Nov: Papic Challenges and the branded 3D booth left the unlock for Pro and up — so a plan below Pro that
+ * includes the unlock must not say "All included".
+ */
+export function specializedToolsLine(tier: VendorTier): string {
+  return SPECIALIZED_TOOLS_INCLUDED_TIERS.includes(tier)
+    ? isTierAtLeastPro(tier)
+      ? 'All included'
+      : `Included · Papic Challenges and the 3D booth come with ${TIER_LABEL[PRO_TOOLS_MIN_TIER]}`
+    : `The free set · all of them from ${TIER_LABEL[SPECIALIZED_TOOLS_INCLUDED_TIERS[0] ?? 'solo']}`;
 }
 
 /** Is this plan at or above the tier the Pro-only tools open on? Order = `VENDOR_TIERS`. */
@@ -188,7 +197,7 @@ export function bookingFeeRow(
   }
 }
 
-/** Ultra may buy branches past the included ones — `canBuyExtraBranches`, kept rank-local so this file stays pure. */
+/** Ultra may add branches past the included ones — through the Ultra Add-on (`canBuyTheUltraAddOn`, 2026-11-19), kept rank-local so this file stays pure. */
 function canBuyMoreBranches(tier: VendorTier): boolean {
   return RANK[tier] >= RANK.enterprise;
 }

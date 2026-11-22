@@ -14,7 +14,7 @@
  *                  2026-11-18 — not a plan limit) (branches 0/0/0/2/5 by plan — Free and Verified have none). Included branches over a lower plan are
  *                  KEPT, never removed — the shop "can't add more" (owner 2026-11-04 "BRANCHES PER PLAN"). Team seats
  *                  over a lower plan PAUSE, newest first (owner 21 Nov — overturns ruling 5683; `lib/seat-pause.ts`).
- *                  Paid extra seats only count on a plan that may buy them (`canBuyExtraSeats`).
+ *                  Paid extra seats only count on a plan that holds them (`holdsExtraSeats`, Ultra).
  *   · reach      → NOT A ROW since 2026-11-19: reach is not a plan allowance (owner, "unlock the range. not plan
  *                  dependend anymore"), so moving plans never changes how far a shop goes.
  *   · storage    → THE FLOOR: a plan whose storage holds less than the shop already stores cannot be picked until some
@@ -35,7 +35,7 @@ import { formatCount } from './format-number';
 import { capsOf, defaultKeep, keptFits, planHoldsWords, type PlanCard } from './service-plan-hold';
 import { limitOf } from './plan-sheet';
 import { badgeDeadline, deadlineLabel, hasVerifiedBadge, type BadgeFacts } from './verified-badge';
-import { canBuyExtraSeats, tierRank, type VendorTier } from './vendor-tier-caps';
+import { holdsExtraSeats, tierRank, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
 import type { TeamSeats } from './vendor-free-helper';
 
@@ -154,7 +154,7 @@ export function downgradeFit(
     rows.push({ key: 'teamSeats', title: 'Team seats', line: 'Couldn’t read your helpers just now', state: 'unread', fix: null });
   } else {
     const base = limitOf(plan, 'teamSeats', opts.paywallOn);
-    const cap = base + (canBuyExtraSeats(plan) ? Math.max(0, facts.extraSeats) : 0);
+    const cap = base + (holdsExtraSeats(plan) ? Math.max(0, facts.extraSeats) : 0);
     if (Number.isFinite(cap) && facts.seats.counted > cap) {
       rows.push({
         key: 'teamSeats',

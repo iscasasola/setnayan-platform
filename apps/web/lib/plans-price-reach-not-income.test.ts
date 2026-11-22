@@ -73,16 +73,16 @@ function readersOf(key: string): string[] {
 // ── 1 · service cards IN TOTAL, by plan (owner 2026-11-18) ─────────────────────
 
 test('1 · every plan can put up a card; the totals are the owner\'s', () => {
-  // Owner 2026-11-18, DECISION_LOG "SUPPLIER PLANS REBUILT" + "SUPPLIER CARDS: MAX 80, ULTRA 200", verbatim: "max 80
-  // cards / ultra 200 cards". Cards are counted IN TOTAL across categories (supersedes the per-category allowance).
+  // Owner 2026-11-19, the approved table ("this is good"): LIVE cards 1 · 3 · 10 · 27 · 68 (make as many as you like;
+  // only these are live). Counted IN TOTAL across categories. Supersedes 2026-11-18's 20 · 80.
   for (const t of VENDOR_TIERS) {
     assert.ok(TIER_CAPS[t].serviceCardsTotal >= 1, `${t} allows ${TIER_CAPS[t].serviceCardsTotal} cards — a shop could not be booked at all`);
   }
   assert.equal(TIER_CAPS.free.serviceCardsTotal, 1);
   assert.equal(TIER_CAPS.verified.serviceCardsTotal, 3);
   assert.equal(TIER_CAPS.solo.serviceCardsTotal, 10);
-  assert.equal(TIER_CAPS.pro.serviceCardsTotal, 20);
-  assert.equal(TIER_CAPS.enterprise.serviceCardsTotal, 80); // Max (today's top plan, renamed by the owner 2026-11-18)
+  assert.equal(TIER_CAPS.pro.serviceCardsTotal, 27);
+  assert.equal(TIER_CAPS.enterprise.serviceCardsTotal, 68); // Ultra (the old Max numbers, renamed 2026-11-19)
 });
 
 // ── 2 · no per-day booking cap, no weekly answering cap ────────────────────────

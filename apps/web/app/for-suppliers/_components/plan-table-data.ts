@@ -11,13 +11,11 @@ import { LOCKS, LOCK_KEYS, canUse, type LockDef, type LockKey } from '@/lib/lock
 import { PLAN_LIMITS, limitOf, limitWords, type PlanLimitKey } from '@/lib/plan-sheet';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
 import { vendorAddonSkuCode } from '@/lib/vendor-addon-tier-pricing';
-import { BRANCH_SKU_CODE } from '@/lib/vendor-branches';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
-import { SEAT_SKU_CODE } from '@/lib/vendor-seats';
 import { allowance } from '@/lib/vendor-plan-rows';
-import { TIER_CAPS, TIER_LABEL, canBuyExtraBranches, canBuyExtraSeats, WAITLIST_SETTING_MAX, type VendorTier } from '@/lib/vendor-tier-caps';
-import { ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnSku, type UltraAddOnKind } from '@/lib/vendor-ultra-addons';
+import { TIER_CAPS, TIER_LABEL, WAITLIST_SETTING_MAX, type VendorTier } from '@/lib/vendor-tier-caps';
+import { COUNT_ADDONS, ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnGivesWords, ultraAddOnSku, type UltraAddOnKind } from '@/lib/vendor-ultra-addons';
 
 /**
  * Free's search line: the 15 Nov rule the database applies (`vendor_profiles.is_findable`, lib/findable-shop.ts) — an
@@ -49,12 +47,12 @@ function planName(t: VendorTier): string {
  *     flag-aware `allowance`, so while the plan paywall (`VENDOR_TIER_FEATURE_GATE`) is off the table prints what the
  *     actions actually let a shop do, not a cap nobody enforces;
  *   · plan features → `TIER_CAPS` (lib/vendor-tier-caps.ts);
- *   · the tools unlock → `SPECIALIZED_TOOLS_INCLUDED_TIERS` (included from Plus since 2026-11-14 — no longer sold);
+ *   · the tools unlock → `SPECIALIZED_TOOLS_INCLUDED_TIERS` (Pro and Ultra — owner 21/22 Nov; no longer sold);
  *   · the chatbot → `PLAN_CHATBOT_LEVEL` (lib/vendor-ai-level.ts — the same table the inbox's gate reads);
  *   · gifts → the SAME list price on every plan (📦 2026-11-14 / 2026-11-17: one price per gift; the buy-10-get-1
  *     bundles are open to every shop — lib/shop-gifts.ts), so no plan buys gifts for less;
  *   · Deep Search → the SKU each plan is CHARGED from (`vendorAddonSkuCode`), priced by the catalogue;
- *   · Ultra's extra seat and branch → `canBuyExtraSeats` / `canBuyExtraBranches` + the SKU each one charges;
+ *   · the Ultra Add-on (the ONE add-on, 2026-11-19) → `canBuyUltraAddOn('ultra', t)` + the SKU it charges;
  *   · the locks → `LOCKS` + `canUse` (lib/locks.ts). ⚠ ONLY a lock whose server gate exists (`server !== null`) is
  *     printed: a ruled lock the app does not apply yet would be a promise the shop can walk straight through. The rest
  *     join the table by themselves the day their gate lands (the guard lists them).
@@ -190,12 +188,12 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
     { key: 'tool:theft', label: 'Reverse-image theft watch', cells: each((t) => has(TIER_CAPS[t].theftWatch)) },
   ];
 
-  const seatOrBranch = (t: VendorTier): TableCell => {
-    if (!(canBuyExtraSeats(t) && canBuyExtraBranches(t))) return no('Not sold on this plan');
-    const seat = prices.bySku[SEAT_SKU_CODE];
-    const branch = prices.bySku[BRANCH_SKU_CODE];
-    if (!seat || !branch) return words(DASH);
-    return words(seat === branch ? `${seat} each, every 4 weeks` : `Seat ${seat} · branch ${branch}, every 4 weeks`);
+  // 🛒 The ONE add-on (owner 2026-11-19): the Ultra Add-on — no single seat or branch is sold. Its price is the SKU the
+  // purchase CHARGES (`vendor_ultra_addon`); unread → a dash, never a typed figure.
+  const ultraAddOnCell = (t: VendorTier): TableCell => {
+    if (!canBuyUltraAddOn('ultra', t)) return no('Not sold on this plan');
+    const price = prices.bySku[ultraAddOnSku('ultra')];
+    return price ? words(`${price} every 4 weeks · ${ultraAddOnGivesWords()}`) : words(DASH);
   };
   const buy: TableRow[] = [
     {
@@ -203,7 +201,7 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
       label: 'Deep Search',
       cells: each((t) => words(per(vendorAddonSkuCode('deep_search_about_you', t), ' a search'))),
     },
-    { key: 'buy:seatbranch', label: 'Extra seat · extra branch', cells: each(seatOrBranch) },
+    { key: 'buy:ultra-addon', label: 'Ultra Add-on', cells: each(ultraAddOnCell) },
     { key: 'money:gift', label: 'Setnayan gifts you buy', cells: each(() => words('List price')) },
   ];
 
@@ -246,6 +244,7 @@ export function addonLines(bySku: Readonly<Record<string, string | null>>): { ki
 
 /** Ultra's add-ons as the table names them — the add-on module's own purchase labels. */
 const ULTRA_ADDON_LABEL: Record<UltraAddOnKind, string> = {
+  ultra: COUNT_ADDONS.ultra.label,
   category: '+1 category',
   service_card: '+1 service card',
   seat: '+1 team seat',

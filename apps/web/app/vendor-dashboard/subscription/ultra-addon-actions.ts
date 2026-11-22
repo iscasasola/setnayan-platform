@@ -19,11 +19,14 @@ import {
   fetchCapsWithAddOns,
   fetchCountAddOnPricePhp,
   isCountAddOnKind,
+  ultraAddOnRenewalServiceKey,
 } from '@/lib/vendor-ultra-addons';
+import { isUuid } from '@/lib/is-uuid';
 
 /**
- * BUY ONE ULTRA ADD-ON — owner 2026-11-06, DECISION_LOG "ULTRA ADD-ON PRICES" (*"seat, branch + 990 / the rest is
- * +199"*): +1 category · +1 service card · +1 wait list · +1 booking per date, per 4 weeks, Ultra only.
+ * BUY THE ULTRA ADD-ON — owner 2026-11-19 (*"just 1 pack"* · *"Ultra Addon"* · *"2490"*): +1 branch · +15 live cards ·
+ * +3 people · +50 GB per 4 weeks, Ultra only, and it may be bought more than once (each purchase is one more order and
+ * one more on the paid count). It is the ONLY add-on on sale; the four "+1" add-ons of 2026-11-06 refuse here.
  *
  * The shipped add-on purchase flow, exactly the extra seat's (`buyExtraSeat`, app/vendor-dashboard/team/actions.ts):
  * apply-then-pay — an `orders` row keyed `<prefix><vendor_profile_id>` + a pending `payments` row, so it lands in
@@ -81,8 +84,9 @@ export async function buyUltraAddOn(formData: FormData): Promise<void> {
   const tier = (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null;
 
   if (!canBuyUltraAddOn(kind, tier)) {
-    // 2026-11-14 ("SIMPLER SUPPLIER PLANS"): none of the four is sold any more — Ultra's higher limits are built in.
-    back(`${TIER_LABEL.enterprise}'s higher limits are built in now — there is nothing to add on.`);
+    if (kind === 'ultra') back(`The Ultra Add-on is for ${TIER_LABEL.enterprise} shops. Pick ${TIER_LABEL.enterprise} on this page first.`);
+    // 2026-11-14 ("SIMPLER SUPPLIER PLANS"): none of the four "+1" add-ons is sold any more — the Ultra Add-on is the one.
+    back(`${TIER_LABEL.enterprise}'s higher limits are built in now — the Ultra Add-on is the one add-on.`);
   }
 
   // A wait list can hold at most the column's own ten places a date — a place past it could be paid for and never
@@ -103,6 +107,31 @@ export async function buyUltraAddOn(formData: FormData): Promise<void> {
   const channel = await railForNewOrder(supabase, formData.get('channel'));
   if (!channel) back(PAYMENTS_PAUSED_MESSAGE);
 
+  // 🔁 RENEW ONE ADD-ON (controller ruling on PR #8019, 20 Nov, option A). The Plan page's Renew button posts the
+  // add-on's order id: if that order is this shop's live, paid Ultra Add-on, this order RENEWS it — on approval the
+  // database moves that add-on's window to its own end + 28 days (`ultra_addon_apply_renewal`), so no paid day is lost.
+  // No id, or an add-on that has already lapsed → a NEW add-on, exactly as "Add one". An id that is not this shop's
+  // add-on is refused, never quietly sold as something else.
+  let renewOrderId: string | null = null;
+  const renewRaw = formData.get('renew');
+  if (kind === 'ultra' && typeof renewRaw === 'string' && renewRaw.trim() !== '') {
+    const id = renewRaw.trim().toLowerCase();
+    if (!isUuid(id)) back('That add-on is not one of yours, so nothing was ordered.');
+    // Service role: a co-admin may renew an add-on the owner paid for, and the session could not read that order. The
+    // filter is this shop's own key (the shop comes from the session above), so no other shop's order can match.
+    const { data: target, error: tErr } = await createMoneyWriterClient()
+      .from('orders')
+      .select('order_id, status, expires_at')
+      .eq('order_id', id)
+      .eq('service_key', countAddOnServiceKey('ultra', vendorProfileId))
+      .maybeSingle();
+    if (tErr) back('We could not read that add-on just now, so nothing was ordered. Try again in a moment.');
+    if (!target) back('That add-on is not one of yours, so nothing was ordered.');
+    const t = target as { order_id: string; status: string; expires_at: string | null };
+    const live = t.status === 'paid' && t.expires_at !== null && Date.parse(t.expires_at) > Date.now();
+    renewOrderId = live ? t.order_id : null;
+  }
+
   const referenceCode = generateReferenceCode();
   const def = COUNT_ADDONS[kind];
 
@@ -116,8 +145,10 @@ export async function buyUltraAddOn(formData: FormData): Promise<void> {
       orderRowFor(
         { userId: user.id, eventId: null, vendorProfileId },
         {
-          service_key: countAddOnServiceKey(kind, vendorProfileId),
-          description: `${def.label} (4 weeks · ${TIER_LABEL.enterprise})`,
+          service_key: renewOrderId ? ultraAddOnRenewalServiceKey(renewOrderId) : countAddOnServiceKey(kind, vendorProfileId),
+          description: renewOrderId
+            ? `${def.label} renewal (4 more weeks · ${TIER_LABEL.enterprise})`
+            : `${def.label} (4 weeks · ${TIER_LABEL.enterprise})`,
           requested_total_php: pricePhp,
           status: 'submitted',
           reference_code: referenceCode,

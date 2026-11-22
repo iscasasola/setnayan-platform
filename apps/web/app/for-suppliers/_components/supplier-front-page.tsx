@@ -14,8 +14,11 @@
  *     ("BILLING MUST FOLLOW THE RETIRED COPY", PR #8061);
  *   · the fee is charged when the client agrees to book (`BOOKING_FEE_CHARGED_WHEN`), not with the first payment;
  *   · the gift with every booking (drawn "Coming") is not built, so its section is not drawn at all;
- *   · Plans: the Ultra Add-on and storage are not live, so the ⓘ names only the live caps (`TIER_CAPS`), and the fine
- *     line claims only what is true on every plan (inquiries are never limited).
+ *   · Plans: the ⓘ is the drawing's — live cards · people · "Branches and storage" (`branchesAndStorageLine`, from
+ *     `TIER_CAPS`) · the Ultra Add-on line (`ultraAddOnInfoLine`: its price is the catalogue row
+ *     `vendor_ultra_addon`, read by the page; unread → the line is not drawn). Storage per plan has been live since
+ *     13 Nov; the Ultra Add-on is live with PR #8019. The fine line claims only what is true on every plan
+ *     (inquiries are never limited).
  *
  * WHERE EVERY NUMBER COMES FROM: plan prices → `prices` (`getVendorPrices`, the catalog; "—" when unread) · the fee
  * → `fee.schedule` (the LIVE schedule) · caps → `TIER_CAPS` · the papers → `VERIFIED_PAPERS` · the sample cards'
@@ -40,11 +43,12 @@ import { ServiceFace, includesLineOf } from '@/app/_components/service-face';
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
 import type { CardBadgeView } from '@/lib/card-badges';
 import { FREE_FINDABLE } from './plan-table-data';
-import { GROW_TIERS, VERIFIED_PAPERS, growName, verifiedSpec } from './supplier-front-data';
+import { GROW_TIERS, VERIFIED_PAPERS, branchesAndStorageLine, growName, ultraAddOnInfoLine, verifiedSpec } from './supplier-front-data';
 import { FeeRuler, PlanRows, type FreeWhen, type PlanRow } from './supplier-front-client';
 import { Info } from './supplier-front-info';
 import { SupplierHowWeEarn } from './supplier-how-we-earn';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
+import { ultraAddOnSku } from '@/lib/vendor-ultra-addons';
 import s from './supplier-front.module.css';
 
 export type SupplierFrontPrices = {
@@ -181,6 +185,8 @@ export function SupplierFrontPage({
   const words = { figures: f };
   const tapers = fee.schedule ? fee.schedule.tailRate < fee.schedule.rate : false;
   const cards = (t: VendorTier) => TIER_CAPS[t].serviceCardsTotal;
+  /** The Plans ⓘ's Ultra Add-on line — its price is the catalogue row the purchase charges; unread → not drawn. */
+  const ultraAddOnLine = ultraAddOnInfoLine(prices.bySku[ultraAddOnSku('ultra')] ?? null);
 
   const freeWhen: FreeWhen[] = [
     { label: 'You bring the event first', hint: FEE_FREE_CHIP },
@@ -438,9 +444,10 @@ export function SupplierFrontPage({
           <p>
             <b>People.</b> {capLine((t) => TIER_CAPS[t].agentAccounts + 1)}.
           </p>
-          <p>
-            <b>Branches.</b> {capLine((t) => TIER_CAPS[t].branchesIncluded)}.
+          <p data-sf-plans-info="branches-storage">
+            <b>Branches and storage.</b> {branchesAndStorageLine()}.
           </p>
+          {ultraAddOnLine ? <p data-sf-plans-info="ultra-addon">{ultraAddOnLine}</p> : null}
         </Lede>
         <PlanRows rows={planRows} href={OPEN_SHOP} />
         <p className={s.fine}>No plan limits your inquiries.</p>

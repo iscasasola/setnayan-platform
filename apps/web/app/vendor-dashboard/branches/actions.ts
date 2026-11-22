@@ -19,8 +19,8 @@ import {
   fetchBranchFeePhp,
 } from '@/lib/vendor-branches';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
-import { TIER_LABEL, canBuyExtraBranches, planHasBranches } from '@/lib/vendor-tier-caps';
-import { fetchLiveTierCaps } from '@/lib/vendor-plan-contents';
+import { TIER_LABEL, ULTRA_ADDON_GIVES, canBuyExtraBranches, canBuyTheUltraAddOn, canRenewExtraBranches, planHasBranches } from '@/lib/vendor-tier-caps';
+import { fetchCapsWithAddOns, readLiveUltraAddOns } from '@/lib/vendor-ultra-addons';
 import { reverseGeocodeNominatim } from '@/lib/geo';
 import { formatCount } from '@/lib/format-number';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -261,8 +261,9 @@ export async function createBranch(
     .is('cancelled_at', null);
   if (includedErr) return err('We could not check your plan’s branches just now. Please try again in a moment.');
   // 🧮 The plan's branches as the admin last set them (vendor_plan_contents, owner 2026-11-13) — the same number the
-  // database gate reads through vendor_tier_limit(); the code value when unread.
-  const planCaps = await fetchLiveTierCaps(supabase, tier);
+  // database gate reads through vendor_tier_limit(); the code value when unread — PLUS +1 per Ultra Add-on (owner
+  // 2026-11-19; the gate adds the same live count, vendor_live_ultra_addons()).
+  const planCaps = await fetchCapsWithAddOns(supabase, vendorProfileId, tier);
   if (Math.max(0, planCaps.branchesIncluded - Math.max(0, includedInUse ?? 0)) > 0) {
     const { error: incErr } = await supabase.from('vendor_branches').insert({
       parent_vendor_profile_id: vendorProfileId,
@@ -281,15 +282,23 @@ export async function createBranch(
     revalidateBranchSurfaces();
     return { status: 'success', kind: 'created', message: `${label} added — included in your plan.` };
   }
-  // ⚖ Past the included ones, only Ultra may BUY more — ULTRA ONLY, ALWAYS (owner 2026-11-05, verbatim
-  // "Ultra only, always"; price sheet 2026-11-04 "Extra branch 1990 (applies for ultra only)"). A price rule is not a
-  // try-first paywall, so VENDOR_TIER_FEATURE_GATE does not open it.
+  // 🛒 Past the included ones, no single branch is sold since 2026-11-19 (owner: the only add-on is the Ultra Add-on,
+  // +1 branch each). `canBuyExtraBranches` answers false on every plan; the paid path below stays for the record.
   if (!canBuyExtraBranches(tier)) {
+    // 🔑 "ALL IN USE" IS A MEASURED SENTENCE (ship review of PR #8019, 22 Nov). `fetchCapsWithAddOns` withholds an
+    // unread Ultra Add-on count (it reads as 0), which is right for the gate above and wrong for the words below: an
+    // Ultra shop holding an add-on would be told its branches are all in use because a read failed. Asked only on
+    // this refusal, only on the plan that can hold an add-on.
+    if (canBuyTheUltraAddOn(tier) && (await readLiveUltraAddOns(supabase, vendorProfileId)).status !== 'ok') {
+      return err('We couldn’t check your Ultra Add-ons just now. Nothing was added — try again in a moment.');
+    }
     const total = planCaps.branchesIncluded;
     return err(
-      total > 0
-        ? `Your plan includes ${formatCount(total)} branches and they are all in use. More branches are part of ${TIER_LABEL.enterprise}.`
-        : `Branches come with Supplier Pro and ${TIER_LABEL.enterprise}.`,
+      canBuyTheUltraAddOn(tier)
+        ? `Your plan includes ${formatCount(total)} branches and they are all in use. The Ultra Add-on adds ${formatCount(ULTRA_ADDON_GIVES.branches)} more — on your Plan page.`
+        : total > 0
+          ? `Your plan includes ${formatCount(total)} branches and they are all in use. More branches come with ${TIER_LABEL.enterprise}.`
+          : `Branches come with Pro and ${TIER_LABEL.enterprise}.`,
     );
   }
 
@@ -383,9 +392,13 @@ export async function renewBranch(
   if ((branch as { included_in_plan?: boolean | null }).included_in_plan === true) {
     return err('This branch is included in your plan — there is nothing to renew.');
   }
-  // ⚖ Renewing a bought branch is a purchase — ULTRA ONLY, ALWAYS (owner 2026-11-05), whatever the switch says.
-  if (!canBuyExtraBranches(tier)) {
-    return err(`Extra branches are sold with ${TIER_LABEL.enterprise} only. Pick ${TIER_LABEL.enterprise} on the Plans page to renew this one.`);
+  // ⚖ Renewing a branch ALREADY bought stays open on Ultra (owner 2026-11-19: no existing subscriber's limits move
+  // until the owner rules on existing subscribers) — a renewal, never a new single branch.
+  if (!canRenewExtraBranches(tier)) {
+    // ✏️ Fix pass, 22 Nov: this said "Extra branches are sold with Ultra only". No single branch is SOLD on any plan
+    // since 2026-11-19/20 (DECISION_LOG "SINGLE SEAT AND BRANCH ADD-ONS ARE NOT SOLD"); a branch already paid for
+    // RENEWS on Ultra until it lapses (§C item 3). The words now say that.
+    return err(`A branch you already paid for renews on ${TIER_LABEL.enterprise} only. Pick ${TIER_LABEL.enterprise} on the Plans page to renew this one.`);
   }
   const label = (branch as { branch_label: string }).branch_label;
 

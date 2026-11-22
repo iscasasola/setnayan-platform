@@ -472,6 +472,11 @@ test('all nine cron-free sweeps still ride on this layout', () => {
     */
     'maybeRunTopUpUnlist',
     /*
+      ⏳ The "+1" add-on recount (review 2026-11-19). A paid 28-day window that lapses fires no order event; drop this
+      and a lapsed add-on keeps raising the plan's allowance for a shop that stopped paying.
+    */
+    'maybeRecountLapsedAddOns',
+    /*
       🎁 A gifted supplier plan says "ends soon" 7 days and 1 day before it ends (owner 14 Nov 2026). Fleet-wide, like
       the credit warning: the shop that needs telling is the one not opening this page. Drop it and no notice or email
       goes, and the gift ends with nothing said.
@@ -506,7 +511,8 @@ test('all nine cron-free sweeps still ride on this layout', () => {
     // 13 since 2026-11-12: `maybeRunTopUpUnlist` (the booking-fee top-up unlist; named above).
     // 14 since 2026-11-14: `maybeSweepPlanGiftEndingNotices` (a gifted plan's "ends soon"; named above).
     // 15 since 2026-11-21: `maybeReconcileSeatPauses` (a smaller plan pauses the extra seats; named above).
-    15,
+    // 16 with `maybeRecountLapsedAddOns` (the "+1" add-on recount, 2026-11-19; named above).
+    16,
     'the count of post-response jobs changed',
   );
 });

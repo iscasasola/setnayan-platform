@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { ownWebAddress, pinnedQuote, shopHasWhere, shopReach, shopReachLine } from '@/lib/shop-page-plan';
 import { TIER_CAPS } from '@/lib/vendor-tier-caps';
+import { micrositeCan } from '@/lib/vendor-microsite';
 
 /** Supplier website by plan (owner-approved 2026-10-30) — the card column's plan pieces, read off the shipped caps. */
 
@@ -30,17 +31,18 @@ test('verified with no ring says the city only — never "0 km"', () => {
   assert.equal(shopReachLine({ kind: 'ring', km: 20 }, 'Tagaytay'), 'Serves up to 20 km around Tagaytay');
 });
 
-test('the own web address shows on Supplier Plus and up for a verified domain only (owner 2026-11-04)', () => {
+test('the own web address shows for a verified domain only — on EVERY plan since 2026-11-19 ("shop page also is 1 for all")', () => {
   assert.equal(ownWebAddress({ planAllows: true, domain: 'SampaguitaTable.com', verifiedAt: '2026-10-01' }), 'sampaguitatable.com');
   assert.equal(ownWebAddress({ planAllows: true, domain: 'https://shop.example.ph/', verifiedAt: '2026-10-01' }), 'shop.example.ph');
   assert.equal(ownWebAddress({ planAllows: true, domain: 'sampaguitatable.com', verifiedAt: null }), null);
   assert.equal(ownWebAddress({ planAllows: false, domain: 'sampaguitatable.com', verifiedAt: '2026-10-01' }), null);
   assert.equal(ownWebAddress({ planAllows: true, domain: 'not a domain', verifiedAt: '2026-10-01' }), null);
-  assert.equal(TIER_CAPS.solo.customWebsiteName && TIER_CAPS.pro.customWebsiteName && TIER_CAPS.enterprise.customWebsiteName, true);
-  assert.equal(TIER_CAPS.verified.customWebsiteName || TIER_CAPS.free.customWebsiteName, false);
-  // The Pro page parts did NOT move down with the address — they read `premiumPage`.
-  assert.equal(TIER_CAPS.solo.premiumPage, false);
-  assert.equal(TIER_CAPS.pro.premiumPage && TIER_CAPS.enterprise.premiumPage, true);
+  // The same shop page on every plan (owner 2026-11-19, the best one): the own address and the Pro page parts for all.
+  for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise'] as const) {
+    assert.equal(TIER_CAPS[t].customWebsiteName, true, `${t} · own web address`);
+    assert.equal(TIER_CAPS[t].premiumPage, true, `${t} · Pro page parts`);
+    assert.equal(TIER_CAPS[t].website, 'custom', `${t} · page`);
+  }
 });
 
 test('the pinned quote keeps whole words and never invents text', () => {
@@ -60,4 +62,11 @@ test('a shop with no pin, no address and no city has no "Where" (re-walk 2026-11
   assert.equal(shopHasWhere({ ...none, latitude: 14.1, longitude: 120.9 }), true, 'a pin draws the map');
   assert.equal(shopHasWhere({ ...none, address: '12 Rizal St' }), true, 'an address gets the search');
   assert.equal(shopHasWhere({ ...none, city: 'Tagaytay' }), true, 'a city gets the reach line and the search');
+});
+
+test('ONE SHOP PAGE FOR EVERY PLAN — personalising, the Pro parts and the Films layer (owner ruled 2026-11-19)', () => {
+  // "shop page also is 1 for all already" + §C item 5, "Films layer opens to every plan".
+  for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise', null] as const) {
+    assert.deepEqual(micrositeCan(t), { canPersonalize: true, canPremium: true, isEnterprise: true }, String(t));
+  }
 });

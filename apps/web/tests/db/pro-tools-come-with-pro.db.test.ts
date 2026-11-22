@@ -169,12 +169,13 @@ test('1 · live Pro and Ultra get both tools; a lapsed Pro does not', async () =
   assert.deepEqual(await branded(eventId), []);
 });
 
-test('2 · Plus, and a window bought after the ship, get neither — the unlock still opens the other tools', async () => {
+test('2 · Plus, and a window bought after the ship, get neither — a bought window still opens the other tools', async () => {
   const plus = await newShop({ tier: 'solo', tierExpires: FUTURE() });
   const e1 = await newBooking(plus);
   await spendTrial(plus);
-  assert.equal(await unlocked(plus, e1), true, 'Plus still includes the Specialized tools unlock');
-  assert.equal(await challenge(plus, e1), false, 'but not the photo challenge');
+  // Owner 21/22 Nov (migration 20271358646819): the unlock comes with Pro and Ultra only — Plus no longer includes it.
+  assert.equal(await unlocked(plus, e1), false, 'Plus no longer includes the Specialized tools unlock');
+  assert.equal(await challenge(plus, e1), false, 'nor the photo challenge');
   assert.deepEqual(await branded(e1), [], 'nor the branded booth');
 
   const verified = await newShop({ tier: 'verified' });

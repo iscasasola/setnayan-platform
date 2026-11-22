@@ -1,4 +1,4 @@
-import { iapProductById, type IapProduct } from './products';
+import { iapProductById, iapSupplierGiftProductById, type IapProduct } from './products';
 
 /*
  * Kept OUT of lib/iap/products.ts on purpose: that file is read by the iPhone app's client sheets, so anything added
@@ -98,6 +98,8 @@ export function iapProductForDelivery(productId: string | null | undefined): Iap
     iapProductById(productId) ??
     RETIRED_PAPIC_CREDIT_PRODUCTS.find((p) => p.productId === productId) ??
     RETIRED_EVENT_PRODUCTS.find((p) => p.productId === productId) ??
+    // 💝 A shop's gift (22 Nov) — delivered into the shop's gift stock; the fulfilment holds it to a SHOP intent.
+    iapSupplierGiftProductById(productId) ??
     null
   );
 }

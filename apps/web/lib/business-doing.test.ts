@@ -88,7 +88,9 @@ test('the Analytics page keeps the stats read’s refusal apart from a missing r
   assert.match(read, /measured:\s*true/, 'a read that happened must say so, row or no row');
 
   // Every consumer that states something about the shop's data branches on the measurement.
-  assert.match(page, /ratingLine\(\s*statsRead\s*\)/, 'ratingLine must receive the measured read, not a bare row');
+  // ⭐ 13 Nov 2026 (supplier walk): the rating is the TRUSTED stat now — the cover's and the badge's — and a refused
+  // badge-facts read reaches it as `null`, which `trustedRating` says as "Couldn’t load", never "No reviews yet".
+  assert.match(page, /trustedRating\(\s*badgeFacts \? badgeFacts\.trusted : null\s*\)/, 'the rating must receive the trusted read, null when refused');
   assert.match(page, /const\s+health\s*=\s*statsRead\.measured\s*\?/, 'health must say "Couldn’t load" only when refused');
   assert.match(page, /const\s+replyVerdict\s*=\s*statsRead\.measured\s*\?/, 'the reply verdict must not be computed from a refused read');
 });

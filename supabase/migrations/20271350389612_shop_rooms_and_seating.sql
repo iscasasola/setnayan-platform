@@ -51,6 +51,8 @@
 -- ============================================================================
 
 BEGIN;
+-- The FKs below take a SHARE ROW EXCLUSIVE lock on vendor_profiles (ship review 21 Nov): fail fast, never queue reads.
+SET LOCAL lock_timeout = '5s';
 
 -- ── 1 · FLOORS AND DINING AREAS ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.vendor_unit_groups (

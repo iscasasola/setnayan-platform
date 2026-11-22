@@ -1,0 +1,555 @@
+/*
+ * today-website.css — THE EVENT'S TODAY IN THE WEBSITE'S LOOK (owner 23 Nov 2026, "Yes, approve" — specs DECISION_LOG
+ * "EVENT SERVICES v5 (WEBSITE TEMPLATE) APPROVED, WITH THE TODAY DOOR"; drawing
+ * `prototypes/buy_event_services_one_place_2026-11-23/strip-v5-today.jpg` + `frames_v5_website/12-today-proposed*.png`).
+ *
+ * LOOK ONLY. Every row, count, button and door is the live #8066 page's; this sheet re-dresses them in the website
+ * template (HOUSE_DESIGN_STANDARD Part H, built from the shipped website: `front-door.css` `.fd-sechead` · `.fd-chip`
+ * · `.fd-btn-terra`, `globals.css --m-*`):
+ *
+ *   a white page · the event card on the page (no peach band) · "Title  See all →" section heads (19/700) · rows split
+ *   by hairlines (no floating cards, no tints, no coloured edges) · outlined OVERDUE / SOON tags · round outlined pills
+ *   · 32 px chips · ONE terracotta button (the card's strip).
+ *
+ * Every colour is an existing token by its job (no new value): ink `--color-ink` · second words `--sn-ink-500` (Part H
+ * m1) · third words `--m-slate-3` (m2) · hairline `--m-line` · chip and note `--m-orange-4` (light) / the raised steps
+ * (dark) · accent `--color-mulberry`. Sizes stay on the house scale (Part H's half sizes round to it).
+ *
+ * Scoped to `[data-home-first-screen]` (Today's one section) and imported by the event layout — never a global rule,
+ * and never in a unit-rendered part (no CSS loader under tsx). Held by
+ * app/dashboard/[eventId]/the-today-wears-the-website-look.test.ts.
+ */
+
+[data-home-first-screen] {
+  --web-ink: rgb(var(--color-ink));
+  --web-m1: var(--sn-ink-500);
+  --web-m2: var(--m-slate-3);
+  --web-line: var(--m-line);
+  --web-chip: var(--m-orange-4);
+  --web-note: var(--m-orange-4);
+  --web-acc: rgb(var(--color-mulberry));
+  --web-mono: var(--font-mono, ui-monospace, monospace);
+  --web-gap: 26px;
+  color: var(--web-ink);
+}
+html.dark [data-home-first-screen] {
+  --web-chip: rgb(var(--color-raised-2));
+  --web-note: rgb(var(--color-raised));
+}
+
+/* ── The page is white (Part H `--page`): Today only; dark keeps the dark page. ── */
+html:not(.dark):has([data-home-first-screen]) {
+  --sn-page-bg: var(--color-raised);
+}
+
+/* ── The event card, on the page ───────────────────────────────────────────── */
+[data-home-first-screen] .hc-ecard-plain {
+  background: rgb(var(--sn-page-bg));
+  color: var(--web-ink);
+  border-radius: 0;
+}
+[data-home-first-screen] .hc-ecard-kick {
+  font-family: var(--web-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--web-m2);
+  opacity: 1;
+}
+[data-home-first-screen] .hc-ecard-plain .hc-ecard-name {
+  margin-top: 8px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.022em;
+}
+[data-home-first-screen] .hc-ecard-plain .hc-ecard-cd {
+  display: block;
+  min-height: 0;
+  margin-top: 6px;
+  padding: 0;
+}
+[data-home-first-screen] .hc-ecard-plain .hc-ecard-n {
+  display: block;
+  font-size: 34px;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+}
+[data-home-first-screen] .hc-ecard-plain .hc-ecard-n.hc-ecard-word {
+  font-size: 28px;
+}
+[data-home-first-screen] .hc-ecard-plain .hc-ecard-w {
+  display: block;
+  margin-top: 2px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--web-m1);
+  opacity: 1;
+}
+[data-home-first-screen] .hc-ecard-plain .hc-ecard-need {
+  margin-top: 2px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--web-m1);
+  opacity: 1;
+}
+[data-home-first-screen] .hc-ecard-plain .hc-ecard-need b {
+  font-weight: 700;
+  color: var(--web-ink);
+}
+
+/* The strip: a `--note` box (Part H ⓘ detail box), its level an outlined tag, the ONE terracotta button. */
+[data-home-first-screen] .hc-ecard-plain .hc-now {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 4px;
+  min-height: 0;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--m-r-md);
+  background: var(--web-note);
+  color: var(--web-ink);
+}
+[data-home-first-screen] .hc-ecard-plain .hc-now > .hc-now-k,
+[data-home-first-screen] .hc-ecard-plain .hc-now > .hc-now-t {
+  grid-column: 1;
+}
+[data-home-first-screen] .hc-ecard-plain .hc-now > :last-child:not(.hc-now-t) {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+[data-home-first-screen] .hc-ecard-plain .hc-now.hc-calm > .hc-now-t {
+  grid-column: 1 / -1;
+}
+[data-home-first-screen] .hc-ecard-plain .hc-now-k,
+[data-home-first-screen] .et-tag {
+  justify-self: start;
+  display: inline-block;
+  padding: 3px 5px;
+  border: 1px solid currentColor;
+  border-radius: var(--m-r-xs);
+  background: transparent;
+  font-family: var(--web-mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 1;
+  color: var(--web-m2);
+}
+[data-home-first-screen] .hc-ecard-plain .hc-now-k.hc-now-lv,
+[data-home-first-screen] .et-tag {
+  color: var(--web-acc);
+}
+[data-home-first-screen] .hc-ecard-plain .hc-now-t {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--web-m1);
+}
+[data-home-first-screen] .hc-ecard-plain .hc-now-m {
+  font-weight: 700;
+  color: var(--web-ink);
+}
+[data-home-first-screen] .hc-ecard-plain .hc-now-w {
+  font-size: 13px;
+  opacity: 1;
+}
+[data-home-first-screen] .hc-now .ab svg {
+  display: none;
+}
+
+/* ── Section heads: "Needs you today 7" · "Guests  See all →" (`.fd-sechead`, 19/700) ── */
+[data-home-first-screen] [data-event-today] {
+  margin-top: 14px;
+}
+[data-home-first-screen] .hc-k2.et-pin {
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  background: rgb(var(--sn-page-bg));
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--web-ink);
+}
+[data-home-first-screen] .hc-k2.et-pin em {
+  margin-left: 0;
+  padding: 0;
+  background: none;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--web-m2);
+}
+
+/* ── Needs you today: hairline rows, a plain ring or glyph, the tag in the line ── */
+[data-home-first-screen] [data-event-today-list] > li {
+  border-bottom: 0;
+}
+[data-home-first-screen] [data-event-today-list] > li + li {
+  border-top: 1px solid var(--web-line);
+}
+[data-home-first-screen] [data-event-today-list] [data-event-today-tick],
+[data-home-first-screen] [data-event-today-list] .et-ico {
+  width: 24px;
+  height: 24px;
+}
+[data-home-first-screen] .et-ring {
+  border: 1.5px solid var(--web-m2);
+}
+/* The shipped tick wears the same quiet ring on a late row: the level is the tag's job now, not the ring's. */
+[data-home-first-screen] [data-event-today-tick] [data-planning-tick]:not([aria-pressed='true']) svg {
+  color: var(--web-m2);
+  fill: none;
+}
+[data-home-first-screen] .et-ico {
+  color: var(--web-m1);
+}
+[data-home-first-screen] .et-line {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--web-m1);
+}
+[data-home-first-screen] .et-tag {
+  margin-right: 6px;
+  padding: 2px 4px;
+  font-size: 9px;
+  vertical-align: 1px;
+}
+[data-home-first-screen] :is(.et-open, .et-more, .et-unread) > svg,
+[data-home-first-screen] .hc-todoline-chev,
+[data-home-first-screen] .hc-memline-chev {
+  color: var(--web-m2);
+}
+[data-home-first-screen] .et-more > span:first-child {
+  background: none;
+  color: var(--web-m1);
+}
+[data-home-first-screen] .et-unread > span:first-child {
+  background: none;
+}
+[data-home-first-screen] .et-front {
+  background: rgb(var(--sn-page-bg));
+}
+/* A row opened in place sits in the website's detail box (Part H ⓘ → `--note`), never a floating card. */
+[data-home-first-screen] .et-row-open {
+  margin: 8px 0;
+  padding: 0 12px;
+  border-radius: var(--m-r-md);
+  background: var(--web-note);
+}
+[data-home-first-screen] [data-event-today-list] > .et-row-open,
+[data-home-first-screen] [data-event-today-list] > .et-row-open + li {
+  border-top: 0;
+}
+/* "62% of the plan done · All 1 this week ›" — the website's closing row (`.ask`). */
+[data-home-first-screen] .hc-todoline {
+  min-height: 48px;
+  padding: 0;
+  border-top: 1px solid var(--web-line);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--web-ink);
+}
+[data-home-first-screen] .hc-todoline b {
+  font-weight: inherit;
+}
+
+/* ── The widgets: sections on the page (no frame, no shadow, no mark) ───────── */
+[data-home-first-screen] [data-home-control] {
+  gap: 0;
+}
+[data-home-first-screen] .sg-row.hc-card,
+html.dark [data-home-first-screen] .sg-row.hc-card {
+  display: block;
+  padding: var(--web-gap) 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+[data-home-first-screen] .hc-card .sg-mark {
+  display: none;
+}
+[data-home-first-screen] .hc-card .sg-head {
+  gap: 10px;
+  min-height: 0;
+}
+[data-home-first-screen] .hc-card .hc-card-name,
+[data-home-first-screen] .hc-card .sg-name,
+[data-home-first-screen] .hc-see-all {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--web-ink);
+}
+[data-home-first-screen] .hc-see-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+[data-home-first-screen] .hc-card .sg-brand {
+  display: inline;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--web-m1);
+}
+/* The section's first status joins its grey line after a "·" (the drawing's one line). */
+[data-home-first-screen] .hc-card .sg-brand + .hc-dotline {
+  display: inline;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--web-m1);
+}
+[data-home-first-screen] .hc-card .sg-brand + .hc-dotline > span:not(.sg-dot) {
+  display: inline;
+}
+[data-home-first-screen] .hc-card .sg-brand + .hc-dotline::before {
+  content: ' · ';
+}
+[data-home-first-screen] .hc-card .hc-dotline .sg-dot {
+  display: none;
+}
+[data-home-first-screen] .hc-card .sg-status {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--web-m2);
+}
+[data-home-first-screen] .hc-card .sg-status b {
+  font-weight: inherit;
+}
+[data-home-first-screen] .hc-card.hc-card-bad .sg-status,
+[data-home-first-screen] .hc-card .sg-status[data-mood='gone'] {
+  color: rgb(var(--color-danger));
+}
+[data-home-first-screen] [data-home-card-key='hub'] .sg-brand + .hc-dotline {
+  display: flex;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--web-m2);
+}
+[data-home-first-screen] [data-home-card-key='hub'] .sg-brand + .hc-dotline::before {
+  content: none;
+}
+[data-home-first-screen] [data-home-card-key='hub'] .sg-brand + .hc-dotline b {
+  font-weight: inherit;
+}
+
+/* Chips: the figures that open their list (`.fd-chip`, 32 px paint, 8 px corner) inside a 44 px press. */
+[data-home-first-screen] .hc-card .hc-figs {
+  gap: 8px;
+  margin-top: 8px;
+}
+[data-home-first-screen] .hc-card .hc-fig {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--m-r-sm);
+  background: var(--web-chip);
+  font-size: 13px;
+  color: var(--web-ink);
+  text-decoration: none;
+}
+[data-home-first-screen] .hc-card .hc-figs .hc-sep {
+  display: none;
+}
+
+/* Quiet pills (`.qb` — hairline, no fill): every button in Today's sections and rows. The strip's Pay stays the ONE
+   terracotta. Four `.ab`s outweigh the tone and main rules on purpose (`html.dark :is(button, a).ab.ab-brand.ab-main`). */
+[data-home-first-screen] :is([data-home-control], [data-event-today], [data-home-services]) :is(button, a).ab.ab.ab.ab {
+  --ab-tone: var(--color-ink);
+  --ab-word: var(--color-ink);
+  border: 1px solid var(--web-line);
+  background: transparent;
+  box-shadow: none;
+  font-weight: 600;
+  color: var(--web-ink);
+}
+[data-home-first-screen] .hc-card .sg-acts {
+  gap: 8px;
+  margin-top: 10px;
+}
+/* The drawing's word-only pills: Pay, the Event Hub's three, Later. */
+[data-home-first-screen] :is([data-event-today-pay], .hc-pay .ab, [data-home-card-key='hub'] .sg-acts .ab, [data-testid='home-today-later']) svg {
+  display: none;
+}
+
+/* Budget: the website's plan rows — who + line left, the amount right (17/700), then Pay. */
+[data-home-first-screen] .hc-card .hc-pays {
+  margin-top: 6px;
+  border-top: 0;
+}
+[data-home-first-screen] .hc-card .hc-pay {
+  gap: 12px;
+  min-height: 64px;
+  padding: 11px 0;
+  border-bottom: 0;
+}
+[data-home-first-screen] .hc-card .hc-pay + .hc-pay {
+  border-top: 1px solid var(--web-line);
+}
+[data-home-first-screen] .hc-card .hc-pay b {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--web-ink);
+}
+[data-home-first-screen] .hc-card .hc-pay-s {
+  font-size: 13px;
+  color: var(--web-m1);
+}
+[data-home-first-screen] .hc-card .hc-pay .hc-pay-amt {
+  flex: none;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+[data-home-first-screen] .hc-card .hc-pay.hc-late :is(b, .hc-due) {
+  color: var(--web-ink);
+}
+[data-home-first-screen] .hc-card .hc-pay.hc-late .hc-due {
+  color: var(--web-acc);
+}
+[data-home-first-screen] .hc-card .hc-pay.hc-more {
+  min-height: 44px;
+  font-size: 13px;
+  color: var(--web-m1);
+}
+
+/* Event Hub: the four stages as the website's step rail (3 px rules, mono words, the live one terracotta). */
+[data-home-first-screen] .hc-card .hc-rail {
+  display: none;
+}
+[data-home-first-screen] .hc-card .hc-railw {
+  gap: 6px;
+  margin-top: 10px;
+}
+[data-home-first-screen] .hc-card .hc-railw > span {
+  padding-top: 6px;
+  border-top: 3px solid var(--web-line);
+  font-family: var(--web-mono);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--web-m2);
+}
+[data-home-first-screen] .hc-card .hc-railw > span.live {
+  border-top-color: var(--web-acc);
+  color: var(--web-ink);
+}
+
+/* Schedule: its tile, unframed — the label is the section head, its doors are chips. */
+[data-home-first-screen] [data-home-control='board'] .hc-tile.hc-sched {
+  padding: var(--web-gap) 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+[data-home-first-screen] [data-home-control='board'] .hc-tile.hc-sched {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: center;
+}
+[data-home-first-screen] [data-home-control='board'] .hc-sched > * {
+  grid-column: 1 / -1;
+}
+[data-home-first-screen] [data-home-control='board'] .hc-sched > :is(.hc-lab-tip, .hc-lab) {
+  grid-column: 1;
+  height: auto;
+  max-width: none;
+}
+[data-home-first-screen] [data-home-control='board'] .hc-sched > .hc-see-all {
+  grid-column: 2;
+  justify-self: start;
+}
+[data-home-first-screen] [data-home-control='board'] .hc-sched :is(.hc-lab, .hc-lab-tip) {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--web-ink);
+}
+[data-home-first-screen] [data-home-control='board'] .hc-sched .hc-sdoors :is(a, button).ab.ab.ab.ab {
+  min-height: 32px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--m-r-sm);
+  background: var(--web-chip);
+  font-weight: 400;
+  color: var(--web-ink);
+}
+
+/* ── Your services · Prints · Memories: hairline rows, state words right ───── */
+[data-home-first-screen] [data-home-services] {
+  padding-top: var(--web-gap);
+  border-top: 0;
+}
+[data-home-first-screen] [data-home-services] > .home-k2 {
+  margin: 0 0 2px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--web-ink);
+}
+[data-home-first-screen] .home-svc.hc-plain-list > *:not(:first-child) {
+  border-top: 1px solid var(--web-line);
+}
+[data-home-first-screen] .home-svc :is(.sg-row, .home-tile) {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+[data-home-first-screen] .home-svc .sg-mark {
+  width: 24px;
+  height: 24px;
+  background: none;
+  color: var(--web-m1);
+}
+[data-home-first-screen] .home-svc .sg-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+[data-home-first-screen] .home-svc .sg-brand {
+  font-size: 13px;
+  color: var(--web-m1);
+}
+[data-home-first-screen] .sg-arrow {
+  color: var(--web-m2);
+}
+[data-home-first-screen] .hc-ruled {
+  border-top-color: var(--web-line);
+}
+[data-home-first-screen] .hc-memline-mark {
+  width: 24px;
+  height: 24px;
+  background: none;
+  color: var(--web-m1);
+}
+[data-home-first-screen] .hc-memline-k {
+  font-size: 15px;
+  font-weight: 600;
+}
+[data-home-first-screen] .hc-memline-v {
+  font-size: 13px;
+  color: var(--web-m1);
+}

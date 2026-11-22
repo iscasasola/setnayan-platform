@@ -4729,6 +4729,7 @@
         "admin/pricing/_components/papic-ladder-editor.tsx",
         "admin/pricing/_components/papic-rest-editor.tsx",
         "admin/pricing/_components/papic-type-sizing-editor.tsx",
+        "admin/pricing/_components/pricing-formula-card.tsx",
         "admin/pricing/_components/signup-discount-card.tsx",
         "admin/pricing/_surfaces/ai-prices-surface.tsx",
         "admin/pricing/_surfaces/free-windows-actions.ts",
@@ -4753,6 +4754,7 @@
         "/admin/pricing?tab=pricing"
       ],
       "actions": [
+        "applyAction",
         "bandFormAction",
         "createFreeWindow",
         "deleteFreeWindow",
@@ -4766,6 +4768,7 @@
         "requestPlanContentsChange",
         "retireFormAction",
         "save",
+        "saveAction",
         "saveBookingFeeSchedule",
         "savePriceAction",
         "saveSignupDiscount",
@@ -4780,6 +4783,7 @@
         "BookingFeeForm",
         "CardBody",
         "CardFooter",
+        "ChosenRow",
         "ConsoleTable",
         "CreditLadderRow",
         "EmptyState",
@@ -4787,6 +4791,8 @@
         "Family",
         "Field",
         "FieldLabel",
+        "FormRows",
+        "FormulaLine",
         "FreeWindowsSurface",
         "GridPageSkeleton",
         "HeldByPanel",
@@ -4795,6 +4801,7 @@
         "LegacyCatalogDisclosure",
         "Link",
         "MoneyField",
+        "NumberBox",
         "PageMasthead",
         "PapicLadderEditor",
         "PapicLadderSurface",
@@ -4806,6 +4813,9 @@
         "PostedFieldRow",
         "PriceBandsSurface",
         "PriceCatalogBrowser",
+        "PricingFormulaCard",
+        "PricingFormulaContext.Provider",
+        "PricingFormulaSettings",
         "PricingSurface",
         "ProductRow",
         "ReadFailed",
@@ -15262,6 +15272,7 @@
         "vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-part-signoff.tsx",
         "vendor-dashboard/clients/[eventId]/_components/waitlist-form.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/your-booking-card.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/chat.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/context.ts",
         "vendor-dashboard/clients/[eventId]/_pages/details.tsx",
@@ -15526,7 +15537,8 @@
         "VenueWindowBar",
         "WaitingRow",
         "WaitlistForm",
-        "WaivedFeeRows"
+        "WaivedFeeRows",
+        "YourBookingCard"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/challenge-photos": {

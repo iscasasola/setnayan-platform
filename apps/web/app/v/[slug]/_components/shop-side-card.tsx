@@ -9,6 +9,9 @@ import { SeatMonths } from '../dates/_components/seat-months';
 import { checkDateStateOf } from '@/lib/check-a-date';
 import { SIDE_CARD_WORDS } from '@/lib/shop-side-card';
 import { shopQuoteSummary, subscribeShopQuote } from './shop-quote-store';
+import { NotYetVerifiedTag } from './not-yet-verified-tag';
+import { NOT_YET_VERIFIED_SIDE_LIST } from '@/lib/not-yet-verified-markings';
+import { RENEWING_COUPLE_MARK } from '@/lib/papers-renewal';
 
 /**
  * 🗂 THE VERIFIED SHOP'S SIDE CARD — its booking half, on a computer (v16 S4; prototype `<aside><div class="bk">`;
@@ -20,7 +23,8 @@ import { shopQuoteSummary, subscribeShopQuote } from './shop-quote-store';
  *     full calendar). A green day opens Check a date on that day; "See every month →" opens it on the first;
  *   · the quote (v16 S3's), once the couple has added a service — on a phone the S3 tray carries it instead.
  * It is ONE Check a date per screen: on a computer this month is the way in, so the action row's Check a date shows on a
- * phone only. Never shown on the unverified page (the drawing's `nvbk` is S6).
+ * phone only. On an unverified shop (v16 S6, the drawing's `nvbk`): the tag + its three lines in place of the Verified
+ * line, and no month — Check a date is verified only.
  */
 export type SideCardMonth = { kind: 'unreadable' } | { kind: 'ok'; today: string; to: string; notBookable: string[] };
 
@@ -29,13 +33,17 @@ export function ShopSideCard({
   verifiedLine,
   month,
   datesHref,
+  renewing = false,
 }: {
   price: { from: string; offer: string | null } | null;
-  verifiedLine: string;
+  /** null = not verified yet (v16 S6 `nvbk`): the tag + the drawing's three lines instead. */
+  verifiedLine: string | null;
   /** null = the shop takes no date checks (Check a date is verified and bookable only). */
   month: SideCardMonth | null;
   /** Check a date over the shop (`?dates=1`), keeping where the visit came from. */
   datesHref: string;
+  /** 📄 Papers renewal ruling (2), DECISION_LOG 2026-11-16: a lapsed shop says it is renewing ALONE — no not-verified list. */
+  renewing?: boolean;
 }) {
   const router = useRouter();
   const quote = useSyncExternalStore(subscribeShopQuote, shopQuoteSummary, () => null);
@@ -48,10 +56,25 @@ export function ShopSideCard({
           {price.offer ? <small className="text-right text-xs text-ink/60">{price.offer}</small> : null}
         </p>
       ) : null}
-      <p className="flex items-center gap-1.5 text-sm text-ink/75" data-side-card-verified="">
-        <BadgeCheck aria-hidden className="h-[18px] w-[18px] shrink-0 text-sn-accent" strokeWidth={2} />
-        {verifiedLine}
-      </p>
+      {verifiedLine !== null ? (
+        <p className="flex items-center gap-1.5 text-sm text-ink/75" data-side-card-verified="">
+          <BadgeCheck aria-hidden className="h-[18px] w-[18px] shrink-0 text-sn-accent" strokeWidth={2} />
+          {verifiedLine}
+        </p>
+      ) : renewing ? (
+        <p className="text-sm text-ink/80" data-side-card-renewing="">
+          {RENEWING_COUPLE_MARK}
+        </p>
+      ) : (
+        <div data-side-card-not-verified="">
+          <NotYetVerifiedTag />
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-ink/75">
+            {NOT_YET_VERIFIED_SIDE_LIST.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {month ? (
         <div data-side-card-month="">
           <h4 className="mb-2 mt-4 text-xs font-extrabold uppercase tracking-[0.1em] text-ink/55">{SIDE_CARD_WORDS.heading}</h4>

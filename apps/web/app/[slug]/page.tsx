@@ -2235,6 +2235,14 @@ async function invitationBody({
           guestsArriveBy: guestsArriveTime(scheduleBlocks),
         }).catch((): YourScheduleRead => ({ kind: 'unread' })),
       );
+  /* ⚡ Speed pass (2026-11-18): two more of this guest's reads that need nothing from the ones below — the 7-day
+     supplier notice and "Who made the day?" (after the day only) — start here and are awaited where they always were.
+     Same conditions, asked once; never in the Maker's canvas. */
+  const supplierPageNoticesAhead = isEditorCanvas ? null : startAhead(readGuestSupplierPageNotices(event.event_id));
+  const whoMadeTheDayAhead =
+    !isEditorCanvas && isAfterTheDay(event.event_date, manilaToday())
+      ? startAhead(readWhoMadeTheDay(admin, event.event_id, guest.guest_id))
+      : null;
 
   // Invite/Join v2: offer an accountless guest a "claim your account by email"
   // prompt on the lifecycle site (RSVP/Event/Editorial). A signed-in account-
@@ -2258,7 +2266,7 @@ async function invitationBody({
   // 📣 The 7-day guest notice (owner 2026-10-03): suppliers who will show photos from this event on their own page.
   // Read on the service role only because the guest-session cookie already proved this event (loadGuestContext);
   // never in the Maker's canvas, which is the couple editing, not a guest arriving. null = the read failed.
-  const supplierPageNotices = isEditorCanvas ? [] : await readGuestSupplierPageNotices(event.event_id);
+  const supplierPageNotices = supplierPageNoticesAhead ? await supplierPageNoticesAhead : [];
 
   // (eventVendorCredits — "vendors who made this day" — now resolves inside
   // loadGuestContext, destructured above.)
@@ -2574,7 +2582,7 @@ async function invitationBody({
     {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
         (4)) — the same line the Details scene carries; never a bar slot. */}
     {seatPassActive ? (
-      <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} className="mb-3" />
+      <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} unreadable={guestHubData.seatUnreadable} className="mb-3" />
     ) : null}
     {/* 🎟 The same "Your number" card Live carries, on Me (supplier scan prototype frame E). */}
     <YourNumberCard eventId={event.event_id} guestId={guest.guest_id} className="mb-6" />
@@ -2688,10 +2696,7 @@ async function invitationBody({
   /* 🚪 "WHO MADE THE DAY?" (prototype 6 Nov § 8, door 2) — after the day only, and only for a guest the door checked in
      with at least one delivered supplier on this event (`readWhoMadeTheDay`); otherwise absent. Read only after the
      day, so every page before it pays nothing. Never in the Maker's canvas. */
-  const whoMadeTheDay =
-    !isEditorCanvas && isAfterTheDay(event.event_date, manilaToday())
-      ? await readWhoMadeTheDay(admin, event.event_id, guest.guest_id)
-      : null;
+  const whoMadeTheDay = whoMadeTheDayAhead ? await whoMadeTheDayAhead : null;
   const afterDayNode = whoMadeTheDay ? <WhoMadeTheDay eventId={event.event_id} suppliers={whoMadeTheDay} /> : null;
   timer.flush();
   return wearDraft(
@@ -2774,12 +2779,7 @@ async function invitationBody({
         papicGuestActive={papicGuestActive && !partsOffHere.has('camera')}
         hasAccount={Boolean(viewerAccount)}
         galleryCount={galleryCountHere}
-        hubHref={
-          // 📱 A page whose tabs ARE the day needs no door to a second hub.
-          !guestPageTabbed && (dayOfPhase === 'live' || dayOfPhase === 'post')
-            ? `/${event.slug}/hub`
-            : null
-        }
+        // 🧭 No "Live hub" chip (20 Nov 2026, one bar per stage): `/hub` sends a guest to this page's Live.
         selfRotateEnabled={envFlagEnabled(process.env.GUEST_QR_SELF_ROTATE)}
         dayOfLive={dayOfPhase === 'live'}
         slug={event.slug ?? slug}

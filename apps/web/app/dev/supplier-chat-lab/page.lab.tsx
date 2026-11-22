@@ -25,7 +25,8 @@
  *                (sample hosts; the first is the fixture couple sender)
  *   ?m=chats     the supplier's Chats (✉): one row per event, Messenger order — "Unread · pinned", then "Recent"; two rows
  *                carry Lane B's 🚦 "needs you" dot (fixture levels: one blocker, one due-now)
- *     &pick=<id>&page=chat|details|…   Build 3 · Lane A — a row opens the picked client OVER the still-drawn list, on Chat
+ *     &pick=<id>&page=chat|details|…   (&one=booked also fills ⋯: Song list · Crew for 18 Dec · calendar — Unichat G)
+ *                                      Build 3 · Lane A — a row opens the picked client OVER the still-drawn list, on Chat
  *                (the real `PickedClientShell`; its Chat body is `LabPickedChat`; the other pages are lab lines)
  *
  *   — Supplier Build 3 · lane B —
@@ -82,6 +83,8 @@ import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggl
 import { PickedClientShell } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell';
 import { PICKED_CLIENT_PAGES, pickedMenuFor, type PickedClientPage } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 import { LabPickedChat, type LabChatMode } from '@/app/dev/_components/lab-picked-chat';
+import { ClientChatStrip } from '@/app/vendor-dashboard/clients/[eventId]/_components/client-chat-strip';
+import { chatStrip, suggestedStep } from '@/lib/client-chat-strip';
 import type { ChatsRowNeedsYou } from '@/lib/chats-by-event';
 import { LabPlusSeed } from '@/app/dev/_components/lab-plus-seed';
 import type { PinFact } from '@/lib/chat-pins';
@@ -89,6 +92,7 @@ import { decisionPinBodies } from '@/app/_components/chat/decision-pin-bodies';
 import { schedulePinBodies } from '@/app/_components/chat/schedule-pin-bodies';
 import { filedAttachmentOf, type FiledMessage } from '@/lib/chat-decisions';
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
+import { BookedCallChoices } from '@/app/_components/chat/booked-call-choices';
 
 /** &decide=media — the filed rows (sample files: nothing real; hrefs through `chatAttachmentHref` only). */
 function labMediaFiled(): FiledMessage[] {
@@ -157,6 +161,28 @@ function labPickedClientBodies(threadId: string, name: string, mode: LabChatMode
   const bodies = Object.fromEntries(PICKED_CLIENT_PAGES.map((p) => [p.id, later(p.label)])) as Record<PickedClientPage, React.ReactNode>;
   bodies.chat = <LabPickedChat threadId={threadId} side="vendor" counterpartyLabel={name} actions={{ send: labChatSend }} {...mode} />;
   return bodies;
+}
+
+/** 💬 The one-chat lab's strip, suggested step and inquiry facts — sample figures through the REAL rules. */
+function labOneChat(stage: 'booked' | 'asking' | 'failed', threadId: string) {
+  const peso = (php: number) => `₱${php.toLocaleString('en-PH')}`;
+  const booked = stage !== 'asking';
+  const boxes = chatStrip({
+    isBooked: booked,
+    todayIso: '2026-11-23',
+    peso,
+    // `failed`: the ledger read was refused — the Paid box must SAY so, never ₱0.
+    paid: stage === 'failed' ? null : booked ? { paidPhp: 18000, agreedPhp: 45000, next: { amountPhp: 13500, dueText: 'Due Dec 3', check: false, late: false } } : null,
+    quote: booked ? undefined : { totalPhp: 45000, sentAt: '2026-11-12T03:00:00Z', validUntil: '2026-11-26' },
+    theirAsk: booked ? undefined : 40000,
+    next: booked ? { title: 'Tasting', day: '2026-12-03' } : { title: 'Ocular', day: '2026-11-24' },
+    forms: booked ? { open: 2, sent: 3 } : null,
+  });
+  return {
+    strip: <ClientChatStrip boxes={boxes} threadId={threadId} />,
+    suggest: suggestedStep({ hasThread: true, isBooked: booked, peso, hasQuote: true, hasMeetingAhead: true, nextDue: booked && stage !== 'failed' ? { amountPhp: 13500 } : stage === 'failed' ? undefined : null }),
+    inquiry: { date: '2026-12-18', guests: '~230', venue: 'Fernwood Gardens, QC', budget: null, hasQuote: booked },
+  };
 }
 
 const LAB_THREAD = '00000000-0000-4000-8000-0000000000aa';
@@ -251,7 +277,24 @@ export default async function SupplierChatLabPage({
             eventName={picked.name}
             menu={pickedMenuFor(true)}
             initialPage={page}
-            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall', ...(sp.self === 'vendor' || sp.self === 'couple' ? { selfShop: sp.self } : {}) })}
+            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall', ...(sp.self === 'vendor' || sp.self === 'couple' ? { selfShop: sp.self } : {}), ...(sp.one === 'booked' || sp.one === 'asking' || sp.one === 'failed' ? { oneChat: sp.one } : {}) , ...(sp.whisper === '1' ? { whisper: 'on' as const } : sp.whisper === 'fail' ? { whisper: 'fail' as const } : {}) })}
+            // 💬 `&one=booked|asking|failed` — the one chat that holds everything (19 Nov 2026), on sample facts: the
+            // REAL strip rules (`chatStrip`) and the real strip, the suggested step and the inquiry facts.
+            {...(sp.one === 'booked' || sp.one === 'asking' || sp.one === 'failed' ? labOneChat(sp.one, picked.threadId) : {})}
+            // ⋯ `&one=booked` — the drawn ⋯ (Unichat part G): a music act's Song list, Crew for the day, the calendar file.
+            // Lab lines stand in for the pages; the rows themselves are the real `clientMoreRows`.
+            more={
+              sp.one === 'booked'
+                ? {
+                    songs: <p className="py-6 text-sm text-ink/70">Lab — the shipped Song Desk draws here on the real page.</p>,
+                    crewHref: '/dev/supplier-chat-lab?m=chats',
+                    crewDay: '18 Dec',
+                    // 📞 Call · Viber (Unichat v3) — the real `BookedCallChoices` on the lab's dummy number (no real person).
+                    call: <BookedCallChoices booked phone="0917 000 0000" who={picked.name} />,
+                    calendar: { href: 'data:text/calendar;charset=utf-8,BEGIN%3AVCALENDAR%0AEND%3AVCALENDAR', filename: 'schedule-lab.ics' },
+                  }
+                : undefined
+            }
             settingsLine={{ line: 'This client only', tip: 'Lab.' }}
             settings={null}
             // 🔴 A lab sample for the Chat tab's badge (the real page reads `readThreadUnreadCount`); none on an empty chat.
@@ -284,20 +327,26 @@ export default async function SupplierChatLabPage({
             ? {
                 // Lab-only stand-in packs — the page reads the catalogue.
                 packs: shopGiftPacksFrom([
-                  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
-                  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499, giftPricePhp: 449 },
+                  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+                  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499 },
                   // 💎 Slice 2 — the price sheet's figures (20271308555594), copied for the lab only.
-                  { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
-                  { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
+                  { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990 },
+                  { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690 },
                 ]),
                 schedule: BOOKING_FEE,
                 limitPct: GIFT_LIMIT_PCT_DEFAULT,
-                free: { papic: sp.gifts === 'short' ? 400 : 2150, event_plus: 2, event_pro: 1, event_ultra: 0 },
+                free: {
+                  papic: sp.gifts === 'short' ? 400 : 2150,
+                  event_plus: 2,
+                  event_pro: 1,
+                  event_ultra: 0,
+                  packs: sp.gifts === 'short' ? { PAPIC_GUEST_150: 2 } : { PAPIC_GUEST_150: 1, PAPIC_GUEST_1K: 2 },
+                },
                 eventHas: sp.gifts === 'plus' ? 'plus' : sp.gifts === 'pro' ? 'pro' : 'none',
               }
             : null
         }
-        shopGiftsBuy={sp.gifts ? { paysGiftPrice: true, openRails: [{ id: 'gcash', label: 'GCash' }] } : null}
+        shopGiftsBuy={sp.gifts ? { bundles: [], openRails: [{ id: 'gcash', label: 'GCash' }] } : null}
         labGiftCodes={sp.gifts === 'over' ? ['PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K'] : sp.gifts === 'plus' || sp.gifts === 'pro' ? ['PAPIC_GUEST_150', 'EVENT_PLUS'] : sp.gifts ? ['PAPIC_GUEST_1K', 'PAPIC_GUEST_150'] : undefined}
         savedQuotes={[{ id: 'tpl-garden', name: 'Garden wedding 150' }]}
         askedCardId="card-buffet"

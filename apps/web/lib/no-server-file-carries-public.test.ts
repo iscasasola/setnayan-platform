@@ -75,6 +75,9 @@ const ALLOWED_PUBLIC: Record<string, readonly string[]> = {
   // server-side. `isCompositableDecorHref` admits only `/moodboard-seed/…`.
   // ~9.2 MB, 64 files (2026-09-10).
   'lib/reception-decor-layers-server.ts': ['apps/web/public/moodboard-seed/'],
+  // The print badges: the 35 approved v84 tier pictures every print embeds (owner 15 Nov, the only badges).
+  // `badgeArtSrc` admits only `/badges/v84/<family>-<1..7>.webp`. ~0.45 MB, 35 files (2026-11-18).
+  'lib/print-badge-art.ts': ['apps/web/public/badges/'],
 };
 
 /**

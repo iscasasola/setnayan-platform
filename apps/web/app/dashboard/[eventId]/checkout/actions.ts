@@ -42,13 +42,20 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { channelLabel, resolveChannel, PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import { channelLabel, payerAccountsFor, resolveChannel, PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import { GCASH_PROOF_REFUSED_MESSAGE, isGcashRail, pickPayerRail } from '@/lib/gcash-allowance';
+import { getGcashGate } from '@/lib/gcash-allowance.server';
+import { getMaxPaymentPhp } from '@/lib/max-payment.server';
+import { loggedFromPhone, phoneReceiptRead, readReferenceToLog, receiptPaidOnToLog } from '@/lib/payment-receipt-read';
+import { ON_PHONE_READER_NAME } from '@/lib/on-phone-reader';
+import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
 import { parseClientRef, inlineCheckoutProofPolicy } from '@/lib/r2-client-ref';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
@@ -76,6 +83,7 @@ import { HUB_PARTS_ORDER_KEY, hubPart, parseHubPartsField } from '@/lib/hub-part
 import { hubPartPrices } from '@/lib/couple-website-pro';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { EVENT_ULTRA_SKU, type UltraUpgradeFrom } from '@/lib/event-ultra';
+import { siteOrigin } from '@/lib/site-origin';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -373,13 +381,21 @@ export async function submitOrderAction(
   // does. See lib/payment-channels.ts + migration 20271028100000.
   const channelSettings = await fetchPlatformSettings(supabase);
   const openChannel = resolveChannel(channel, channelSettings);
-  if (!openChannel) {
+  // ⚖ ONE QR (owner 2026-11-18): GCash is not in the BDO-only open list, but the
+  // drawer DOES draw it for an amount under the GCash line with allowance left.
+  // A posted GCash is therefore let past this switch check only when a GCash
+  // account is really open, and is judged below — once the amount is known — by
+  // `pickPayerRail`, the same rule the drawer and /pay draw their one code from.
+  const postedGcash =
+    typeof channel === 'string' &&
+    payerAccountsFor(channelSettings, 'gcash').some((a) => a.id === channel && isGcashRail(a));
+  if (!openChannel && !postedGcash) {
     return {
       ok: false,
       reason: PAYMENTS_PAUSED_MESSAGE,
     };
   }
-  if (openChannel !== channel) {
+  if (openChannel !== channel && !postedGcash) {
     // The posted rail is closed. Refuse rather than silently rebooking onto a
     // different account: the couple is looking at the QR and details for the
     // rail they picked, and quietly moving them would mean paying the wrong
@@ -815,6 +831,23 @@ export async function submitOrderAction(
     await getEffectiveVatRatePct(supabase),
   ).gross;
 
+  // ⚖ THE MOST ONE PAYMENT TO SETNAYAN MAY BE (owner 2026-11-17). This drawer is
+  // pay-then-mint, so the refusal happens BEFORE the order exists — an over-
+  // ceiling checkout leaves nothing in the admin queue. Exactly the ceiling is
+  // allowed; the number is the admin setting, never typed here.
+  const maxPaymentPhp = await getMaxPaymentPhp(supabase);
+  if (!paymentWithinCeiling(finalAmountForPayment, maxPaymentPhp)) {
+    return { ok: false, reason: paymentOverCeilingMessage(maxPaymentPhp) };
+  }
+
+  // ⚖ A GCASH PAYMENT ONLY WHERE THE RULE CHOSE GCASH (owner 2026-11-18): under
+  // the GCash line AND within this month's GCash allowance. ₱1,000 and up, an
+  // allowance already spent, or anything unreadable ⇒ BDO, and a GCash proof is
+  // refused here — before the order exists — rather than filed.
+  if (postedGcash && pickPayerRail(finalAmountForPayment, await getGcashGate()) !== 'gcash') {
+    return { ok: false, reason: GCASH_PROOF_REFUSED_MESSAGE };
+  }
+
   // Existing schema uses NUMERIC(12,2) requested_total_php · we land
   // the ORIGINAL price in that field (consistent with the legacy createOrder
   // flow where requested_total_php is the quote · admin confirms to
@@ -937,6 +970,23 @@ export async function submitOrderAction(
     }
   }
 
+  // ── THE RECEIPT IS READ ON THEIR PHONE, NOT TYPED (owner 2026-11-17/19) ───
+  // *"the don't have to type. we detect after they sent it and log the data for
+  // the admin"*; 19 Nov (specs DECISION_LOG): "BDO buyer receipts are read on
+  // the phone; the outside AI call is removed". The drawer read the screenshot
+  // on the couple's phone (lib/on-phone-reader.ts) and posted only the text and
+  // the four fields they confirmed; the same pure parser reads it here. No
+  // picture is fetched or sent anywhere to be read.
+  // ⚠ ADVISORY: it fills the lookup keys of THIS pending payment and nothing
+  // else — never a status, never an order. Approval stays the admin's.
+  const phoneRead = phoneReceiptRead({
+    form: formData,
+    typed: referenceNumberClean,
+    expectedPhp: finalAmountForPayment,
+    channel: typeof channel === 'string' ? channel : null,
+  });
+  const phoneLogged = loggedFromPhone(formData, phoneRead);
+
   // payments row · this carries the screenshot. The drawer always includes
   // a screenshot at submit-time so we never have an orphan "no payment yet"
   // state · the order lands directly ready for admin reconciliation.
@@ -952,9 +1002,11 @@ export async function submitOrderAction(
     {
       amount_php: finalAmountForPayment,
       channel,
-      reference_number: referenceNumberClean,
+      // 🚨 Gated like /pay (`readReferenceToLog`, `receiptPaidOnToLog`).
+      reference_number:
+        referenceNumberClean ?? readReferenceToLog(phoneLogged.reference, referenceCode),
       screenshot_url: screenshotUrl,
-      paid_at: new Date().toISOString().slice(0, 10),
+      paid_at: receiptPaidOnToLog(phoneLogged.paidOn) ?? new Date().toISOString().slice(0, 10),
     },
   );
   if (idempotencyKey) {
@@ -984,6 +1036,15 @@ export async function submitOrderAction(
     };
   }
   const paymentId = paymentRow.payment_id as string;
+
+  // File what the phone read for the admin's card — AFTER the response, so the
+  // couple never waits on a note about their payment.
+  if (phoneRead) {
+    after(async () => {
+      const { recordPaymentReceiptRead } = await import('@/lib/payment-receipt-read.server');
+      await recordPaymentReceiptRead(moneyWriter, paymentId, { ...phoneRead, model: ON_PHONE_READER_NAME });
+    });
+  }
 
   // discount_code_redemptions row IF voucher applied. UNIQUE (order_id)
   // from PR #594 + UNIQUE (discount_code_id, couple_user_id) from PR #595
@@ -1107,7 +1168,7 @@ export async function submitOrderAction(
   // prints the open ones from the accounts list). Email failure NEVER blocks
   // the order — the row is the truth · this email is the convenience surface.
   try {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const appUrl = siteOrigin();
     // Eventless subscription orders have no event route — link to the dashboard.
     const orderUrl = eventIdClean
       ? `${appUrl}/dashboard/${eventIdClean}/orders/${orderId}`

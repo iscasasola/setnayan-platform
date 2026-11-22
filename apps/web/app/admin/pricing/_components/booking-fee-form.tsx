@@ -35,6 +35,9 @@ export function BookingFeeForm({
   ratePct,
   tailRatePct,
   tier1LimitPhp,
+  capPhp,
+  freeEveryNth,
+  newClientFreeMonths = null,
   minPhp,
   isFromDb,
   enabled,
@@ -43,6 +46,15 @@ export function BookingFeeForm({
   ratePct: number;
   tailRatePct: number;
   tier1LimitPhp: number;
+  /** `platform_settings.booking_fee_cap_php` — the lock (owner 2026-11-20). Null = could not be read. */
+  capPhp: number | null;
+  /** `platform_settings.booking_fee_free_every_nth` — every Nth fee on Setnayan is free. Null = could not be read. */
+  freeEveryNth: number | null;
+  /**
+   * `platform_settings.booking_fee_new_client_free_months` — a client whose account a shop's import made books that
+   * shop free this many months (owner 2026-11-16). Null = could not be read.
+   */
+  newClientFreeMonths?: number | null;
   minPhp: number;
   isFromDb: boolean;
   enabled: boolean;
@@ -67,7 +79,7 @@ export function BookingFeeForm({
     Number.isFinite(bandN) && bandN > 0;
 
   const schedule = usable
-    ? { rate: rateN / 100, tailRate: tailN / 100, tier1LimitPhp: bandN, minPhp }
+    ? { rate: rateN / 100, tailRate: tailN / 100, tier1LimitPhp: bandN, minPhp, ...(capPhp != null ? { capPhp } : {}) }
     : null;
 
   // ⚠ The one that protects the model: a tail ABOVE the head turns the taper
@@ -75,7 +87,7 @@ export function BookingFeeForm({
   // schedule exists to remove.
   const inverted = usable && tailN > rateN;
 
-  const examples = [60_000, 300_000, 1_000_000, 10_000_000];
+  const examples = [50_000, 100_000, 250_000, 1_000_000, 10_000_000];
 
   // 📐 Admin clean port (owner 19 Nov 2026): the card's three labelled boxes became three rows of the design template —
   // name on the left, the number on the right — over the same live sentence, examples, warning and fine print.
@@ -158,13 +170,41 @@ export function BookingFeeForm({
         </div>
       )}
 
-      <p className={`pt-2 ${TEMPLATE_SUBLINE}`}>
-        The <strong>{formatPhp(minPhp)}</strong> minimum and <strong>no upper cap</strong> are fixed.
-      </p>
+      {/* The lock and the every-Nth count (owner 2026-11-20) — set in platform settings, shown here so the owner reads
+          what bills. Null = unread: said, never a default. */}
+      <ul className={`space-y-0.5 pt-2 ${TEMPLATE_SUBLINE}`}>
+        <li>
+          {capPhp != null ? (
+            <>A fee is locked at <strong>{formatPhp(capPhp)}</strong>, verified or not.</>
+          ) : (
+            'The fee’s lock could not be read just now.'
+          )}
+        </li>
+        <li>
+          {freeEveryNth != null ? (
+            <>Every <strong>{freeEveryNth.toLocaleString('en-PH')}th</strong> booking fee on Setnayan is free.</>
+          ) : (
+            'The every-Nth free booking fee count could not be read just now.'
+          )}
+        </li>
+        <li>
+          {newClientFreeMonths != null ? (
+            <>
+              A client new to Setnayan through a shop books it free for{' '}
+              <strong>
+                {newClientFreeMonths} {newClientFreeMonths === 1 ? 'month' : 'months'}
+              </strong>
+              .
+            </>
+          ) : (
+            'The new-client free window could not be read just now.'
+          )}
+        </li>
+        <li>Unverified shops pay the first rate on the whole booking.</li>
+      </ul>
       <p className={TEMPLATE_SUBLINE}>
-        {isFromDb ? 'Set in platform settings.' : 'Falling back to the built-in schedule — save once to store it.'}
-      </p>
-      <p className={TEMPLATE_SUBLINE}>
+        The <strong>{formatPhp(minPhp)}</strong> minimum is fixed.{' '}
+        {isFromDb ? 'Set in platform settings.' : 'Falling back to the built-in schedule — save once to store it.'}{' '}
         {enabled
           ? 'The booking fee is switched ON — changes bill real suppliers.'
           : 'The booking fee is switched off, so nothing is being billed yet.'}

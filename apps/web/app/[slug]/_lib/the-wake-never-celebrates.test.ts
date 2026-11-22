@@ -211,26 +211,10 @@ const TONE_SITES: Array<[string, string, string]> = [
     "'wrapped up'",
     "'has ended'",
   ],
-  [
-    'hub/page.tsx',
-    "'The event is underway — enjoy every moment.'",
-    "'The gathering is underway. Thank you for being here.'",
-  ],
-  [
-    'hub/page.tsx',
-    "'The event has wrapped. Thank you for being part of the day.'",
-    "'The gathering has ended. Thank you for standing with the family.'",
-  ],
-  [
-    'hub/page.tsx',
-    "'The event is almost here. We can’t wait to see you.'",
-    "'The gathering is near. It will mean a great deal to have you close.'",
-  ],
-  [
-    'hub/page.tsx',
-    'The digital money dance — straight to {words.theOrganizer}.',
-    'A gift of sympathy — straight to {words.theOrganizer}.',
-  ],
+  /* (20 Nov 2026) The four `hub/page.tsx` rows LEFT the bill: one bar per stage — /hub draws nothing, it redirects
+     to the event page's tab (`dayHubLanding`), so its status line and its gift door are gone with it. The day's own
+     page carries its tone through `day-of-banner.tsx` (above) and the gift door through `guest-doorway-strip.tsx`
+     (below), both still pinned here. */
   [
     '_components/guest-doorway-strip.tsx',
     'The digital money dance — straight to ${words.theOrganizer}.',
@@ -266,7 +250,7 @@ test('every tone site keeps its celebratory literal AND carries its solemn arm',
   }
   assert.deepEqual(failures, [], failures.join('\n'));
   // Pin the count: deleting a row to go green must itself be visible.
-  assert.equal(TONE_SITES.length, 15, 'a pinned tone site was removed from this bill');
+  assert.equal(TONE_SITES.length, 11, 'a pinned tone site was removed from this bill (15 → 11 on 20 Nov 2026: the four /hub rows, with the page)');
 });
 
 // ── 6 · NO PITCH ON A MEMORIAL PAGE ─────────────────────────────────────────

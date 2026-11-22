@@ -22,10 +22,12 @@
  *
  * 🔒 apps/web/lib/supplier-today-v2.test.ts
  */
-import { PERMIT_PAPERS_HREF, type TodayNeed, type TodayRowIcon } from '@/lib/supplier-today';
+import { shortDay, type TodayNeed, type TodayRowIcon } from '@/lib/supplier-today';
+import { RENEW_PAPERS_HREF } from '@/lib/papers-renewal';
 import type { DemandRadar } from '@/lib/demand-radar';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
 import { formatCount } from '@/lib/format-number';
+import { feeDueStage } from '@/lib/booking-fee-disclosure';
 
 /* ─── MODES ───────────────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -106,8 +108,119 @@ export function isRecommendedKey(key: string): boolean {
   return key === 'renewal' || key.startsWith('door-');
 }
 
+/* ─── URGENCY (Today v3 part 1 — owner 19 Nov, "Yes, all your picks"; drawing V3 · 3) ────────────────────────────────
+ *
+ * ONE LIST, MOST URGENT FIRST: red, then amber, then the rest. A level always wears a WORD — colour is never the only
+ * sign. Only deadlines the code ALREADY has decide a level (the drawing's table): a date change's `dueAt`, a booking
+ * fee's `dueOn`. Everything else is normal. The windows that need a number nobody has set yet ("soon" for an inquiry or
+ * a booking ask · an event beyond tomorrow) are admin settings of a later part — nothing here guesses them.
+ * A dispute keeps its red line but wears no level (the drawing's small call).
+ */
+export type TodayUrgency = { level: 'red' | 'amber'; word: 'Overdue' | 'Today' | 'Soon' };
+
+/**
+ * A desk card's level, from its own deadline. `null` = normal.
+ * v3 part 5: a booking ask (`lock_request`) wears amber "Soon" when its window (`expiresAt`, enforced by the guard
+ * trigger) closes within the owner's `soonAskHours` (Admin › Settings). Not set → never coloured.
+ */
+export function taskUrgency(card: WhatsNewCard | null, now: number, soonAskHours: number | null = null): TodayUrgency | null {
+  // ⚖ DECISION_LOG 2026-11-20 "SEVEN CONTROLLER PICKS" item 3: an UNANSWERED inquiry turns amber once it has waited the
+  // owner's hours (Admin › Settings, ruled 24). It has only its arrival time, so that is what is counted from.
+  if (card?.kind === 'inquiry') {
+    if (soonAskHours === null) return null;
+    const waited = now - new Date(card.createdAt).getTime();
+    return Number.isFinite(waited) && waited >= soonAskHours * 3_600_000 ? { level: 'amber', word: 'Soon' } : null;
+  }
+  if (card?.kind === 'lock_request') {
+    if (soonAskHours === null || !card.expiresAt) return null;
+    const left = new Date(card.expiresAt).getTime() - now;
+    return Number.isFinite(left) && left > 0 && left <= soonAskHours * 3_600_000 ? { level: 'amber', word: 'Soon' } : null;
+  }
+  if (!card || card.kind !== 'date_change') return null;
+  const ms = new Date(card.dueAt).getTime() - now;
+  if (!Number.isFinite(ms)) return null;
+  if (ms <= 0) return { level: 'red', word: 'Overdue' };
+  if (ms < 24 * 3_600_000) return { level: 'red', word: 'Today' };
+  return { level: 'amber', word: 'Soon' };
+}
+
+const URGENCY_RANK = { red: 0, amber: 1 } as const;
+const rankOf = (u: TodayUrgency | null) => (u ? URGENCY_RANK[u.level] : 2);
+
+/** Red, then amber, then the rest — each level keeping the order its rows arrived in (stable). */
+export function orderByUrgency<T extends { urgency: TodayUrgency | null }>(rows: readonly T[]): T[] {
+  return rows.map((r, i) => [r, i] as const).sort((a, b) => rankOf(a[0].urgency) - rankOf(b[0].urgency) || a[1] - b[1]).map((x) => x[0]);
+}
+
+/** ONE bill's level (`feeDueStage`): past due → red Overdue · its last day → red Today · not yet due → amber Soon. */
+export function feeUrgency(dueOn: string | null, todayIso: string): TodayUrgency {
+  const stage = feeDueStage(dueOn, todayIso);
+  if (stage === 'overdue') return { level: 'red', word: 'Overdue' };
+  if (stage === 'last_day') return { level: 'red', word: 'Today' };
+  return { level: 'amber', word: 'Soon' };
+}
+
+/**
+ * A fee bill's closed-row line, under its level word (drawing V3 · 3: "Overdue · since Sat 14 Nov"). The amount and
+ * how to pay are in its open card (`feeRowCopy` detail) — the closed row never says "overdue" twice.
+ */
+export function feeRowLine(bill: { dueOn: string | null }, todayIso: string, detail: string): string {
+  const stage = feeDueStage(bill.dueOn, todayIso);
+  const when = bill.dueOn ? shortDay(bill.dueOn) : null;
+  if (stage === 'overdue') return when ? `since ${when}` : detail;
+  if (stage === 'last_day') return detail.replace(/ · due today$/, '');
+  return when ? `due ${when}` : detail;
+}
+
+/**
+ * The business permit's level — from the SAME rule that already tints its line (`permitNeed`: `danger` when it lapsed,
+ * `warn` at 7 days or fewer; drawing V3 · 3 "a permit with 7 days or fewer" · "a business permit that expired"). A
+ * permit further out than 7 days has no level: it stays under "Also for your badges and your page".
+ */
+export function permitUrgency(need: Pick<TodayNeed, 'key' | 'lineTone'>): TodayUrgency | null {
+  if (need.key !== 'renewal') return null;
+  if (need.lineTone === 'danger') return { level: 'red', word: 'Overdue' };
+  if (need.lineTone === 'warn') return { level: 'amber', word: 'Soon' };
+  return null;
+}
+
+/** A booked event's level — the day the Next card already knows (`run_day` · `tomorrow`): today red, tomorrow amber. */
+export function eventUrgency(inDays: number): TodayUrgency | null {
+  if (!Number.isFinite(inDays)) return null;
+  if (inDays <= 0) return { level: 'red', word: 'Today' };
+  if (inDays === 1) return { level: 'amber', word: 'Soon' };
+  return null;
+}
+
+/**
+ * 📅 "This week: N events" (DECISION_LOG 2026-11-20 "SEVEN CONTROLLER PICKS" item 3): the booked events beyond tomorrow
+ * and within the owner's days (Admin › Settings, ruled 7) are ONE line that opens the calendar — never a row each, never
+ * counted. Today's and tomorrow's events are rows of their own (`eventUrgency`). Not set → no line.
+ */
+export function thisWeekLine(events: ReadonlyArray<{ inDays: number }>, soonEventDays: number | null): { label: string; count: number } | null {
+  if (soonEventDays === null || !Number.isFinite(soonEventDays)) return null;
+  const n = events.filter((e) => Number.isFinite(e.inDays) && e.inDays >= 2 && e.inDays <= soonEventDays).length;
+  return n > 0 ? { count: n, label: `This week: ${formatCount(n)} ${n === 1 ? 'event' : 'events'}` } : null;
+}
+
+export const THIS_WEEK_HREF = '/vendor-dashboard/calendar';
+
+/** A booked event on today's list (the page's `upcoming`, `lib/vendor-overview.ts`). */
+export type TodayEventDay = { id: string; eventName: string; date: string; inDays: number; place: string | null; href: string };
+
+/** The event row's words (drawing V3 · 3: "Santos wedding is tomorrow" · "Soon · Sat 12 Dec · see the day"). */
+export function eventRowWords(e: TodayEventDay): { label: string; line: string } {
+  const today = e.inDays <= 0;
+  return {
+    label: `${e.eventName} is ${today ? 'today' : 'tomorrow'}`,
+    line: [today ? e.place : shortDay(e.date), today ? 'run the day' : 'see the day'].filter(Boolean).join(' · '),
+  };
+}
+
 export type TodayTaskRow = TodayNeed & {
   mode: TodayTaskMode;
+  /** v3: the row's level in the one list (null = normal). */
+  urgency: TodayUrgency | null;
   tag: TodayBadgeTag | null;
   /** The desk card behind the row (null for the "couldn't load" row). */
   card: WhatsNewCard | null;
@@ -116,8 +229,22 @@ export type TodayTaskRow = TodayNeed & {
 export type TodaySplit = {
   quick: TodayTaskRow[];
   screen: TodayTaskRow[];
+  /** v3: EVERY task in ONE list, most urgent first (no Quick / Longer groups). `quick` + `screen` are the same rows. */
+  list: TodayTaskRow[];
+  /**
+   * ⏭ v3 part 2 — the tasks put off with "Do it tomorrow" (`lib/today-put-off.ts`): listed under "Tomorrow", NOT in
+   * `list`, not counted today. A red row is never here — an urgent task ignores its record and stays on Today.
+   */
+  tomorrow: TodayTaskRow[];
+  /** v3 part 2 — the put-off keys this split was made with, so the one list holds off a bill, the permit or an event too. */
+  putOff?: ReadonlySet<string> | null;
   /** "Some answers couldn’t load" — never a task, never counted. */
   unread: TodayNeed | null;
+  /**
+   * v3: the business permit when it wears a level (expired, or 7 days or fewer — `permitUrgency`). It is then a task in
+   * the one list and counted (drawing V3 · 3); further out it stays a recommended row. Null otherwise.
+   */
+  permit: (TodayNeed & { urgency: TodayUrgency }) | null;
   recommended: Array<TodayNeed & { tag: TodayBadgeTag | null }>;
 };
 
@@ -130,13 +257,25 @@ export function splitTodayNeeds(args: {
   cards: readonly WhatsNewCard[];
   completedToGo: string | null;
   aside: ReadonlySet<string>;
+  /** v3: the clock the deadlines are read against. Absent → no row wears a level (the list keeps the desk's order). */
+  now?: number;
+  /** v3 part 2: the keys put off until a later day ("Do it tomorrow"). Absent/unread → nothing is held off. */
+  putOff?: ReadonlySet<string>;
+  /** v3 part 5: the owner's "Soon" window for a booking ask, in hours (null = not set). */
+  soonAskHours?: number | null;
 }): TodaySplit {
   const byId = new Map(args.cards.map((c) => [c.id, c] as const));
-  const out: TodaySplit = { quick: [], screen: [], unread: null, recommended: [] };
+  const out: TodaySplit = { quick: [], screen: [], list: [], tomorrow: [], putOff: args.putOff ?? null, unread: null, permit: null, recommended: [] };
+  const arrived: TodayTaskRow[] = [];
   for (const n of args.needs) {
     if (args.aside.has(n.key)) continue;
     if (n.key === 'unread') {
       out.unread = n;
+      continue;
+    }
+    const permitLevel = args.now === undefined ? null : permitUrgency(n);
+    if (permitLevel) {
+      out.permit = { ...n, urgency: permitLevel };
       continue;
     }
     if (isRecommendedKey(n.key)) {
@@ -145,10 +284,79 @@ export function splitTodayNeeds(args: {
     }
     const card = byId.get(n.key) ?? null;
     const mode = card ? TODAY_TASK_MODE[card.kind] : 'screen';
-    const row: TodayTaskRow = { ...n, mode, tag: card ? todayBadgeTag(card.kind, args.completedToGo) : null, card };
+    const row: TodayTaskRow = { ...n, mode, urgency: args.now === undefined ? null : taskUrgency(card, args.now, args.soonAskHours ?? null), tag: card ? todayBadgeTag(card.kind, args.completedToGo) : null, card };
+    // ⏭ Put off to tomorrow — unless it is red now: an urgent task is never hidden (ruled 19 Nov "yes. except urgent").
+    if (args.putOff?.has(n.key) && row.urgency?.level !== 'red') {
+      out.tomorrow.push(row);
+      continue;
+    }
     (mode === 'quick' ? out.quick : out.screen).push(row);
+    arrived.push(row);
   }
+  out.list = orderByUrgency(arrived);
   return out;
+}
+
+/**
+ * 📋 THE ONE LIST, WHOLE (drawing V3 · 3): the desk's tasks, EACH fee bill, the permit when it wears a level and each
+ * booked event today or tomorrow — every one its own row with its own level, red first, then amber, then the rest.
+ * Inside a level the order is as it arrived: the desk's, then the bills, the permit, the events.
+ */
+export type TodayListEntry<B> =
+  | { type: 'task'; key: string; urgency: TodayUrgency | null; row: TodayTaskRow }
+  | { type: 'bill'; key: string; urgency: TodayUrgency; bill: B }
+  | { type: 'permit'; key: string; urgency: TodayUrgency; need: TodayNeed }
+  | { type: 'event'; key: string; urgency: TodayUrgency; event: TodayEventDay };
+
+export function todayOneList<B extends { orderId: string; dueOn: string | null }>(args: {
+  split: Pick<TodaySplit, 'list' | 'permit'> & { putOff?: ReadonlySet<string> | null };
+  bills: readonly B[];
+  events: readonly TodayEventDay[];
+  todayIso: string;
+}): Array<TodayListEntry<B>> {
+  // ⏭ v3 part 2: a bill, the permit or an event put off with "Do it tomorrow" is not in the list (a red one always is).
+  return holdOffEntries(allTodayEntries(args), args.split.putOff ?? null).now;
+}
+
+/** What "Tomorrow" lists beside the put-off tasks: the bills, the permit and the events held off (`holdOffEntries`). */
+export function todayHeldOff<B extends { orderId: string; dueOn: string | null }>(args: Parameters<typeof todayOneList<B>>[0]): Array<{ key: string; label: string; icon: TodayRowIcon }> {
+  return holdOffEntries(allTodayEntries(args), args.split.putOff ?? null).later;
+}
+
+function allTodayEntries<B extends { orderId: string; dueOn: string | null }>(args: Parameters<typeof todayOneList<B>>[0]): Array<TodayListEntry<B>> {
+  const entries: Array<TodayListEntry<B>> = [
+    ...args.split.list.map((row) => ({ type: 'task' as const, key: row.key, urgency: row.urgency, row })),
+    ...args.bills.map((bill) => ({ type: 'bill' as const, key: `fee-${bill.orderId}`, urgency: feeUrgency(bill.dueOn, args.todayIso), bill })),
+    ...(args.split.permit ? [{ type: 'permit' as const, key: args.split.permit.key, urgency: args.split.permit.urgency, need: args.split.permit }] : []),
+    ...args.events.flatMap((event) => {
+      const urgency = eventUrgency(event.inDays);
+      return urgency ? [{ type: 'event' as const, key: `event-${event.id}`, urgency, event }] : [];
+    }),
+  ];
+  return orderByUrgency(entries);
+}
+
+/**
+ * ⏭ v3 part 2, on the one list: a fee bill, the permit and a booked event can go to tomorrow too (drawing V3 · 2's
+ * table: "Do it tomorrow · red: can't") — each held off by its own record, a RED one never. Tasks are already held off
+ * in `splitTodayNeeds`; this does the rest. `later` is what the "Tomorrow" block lists.
+ */
+export function holdOffEntries<B>(entries: ReadonlyArray<TodayListEntry<B>>, putOff: ReadonlySet<string> | null): {
+  now: Array<TodayListEntry<B>>;
+  later: Array<{ key: string; label: string; icon: TodayRowIcon }>;
+} {
+  const now: Array<TodayListEntry<B>> = [];
+  const later: Array<{ key: string; label: string; icon: TodayRowIcon }> = [];
+  for (const e of entries) {
+    if (e.type === 'task' || !putOff?.has(e.key) || e.urgency.level === 'red') {
+      now.push(e);
+      continue;
+    }
+    if (e.type === 'bill') later.push({ key: e.key, label: 'Booking fee', icon: 'peso' });
+    else if (e.type === 'permit') later.push({ key: e.key, label: e.need.label, icon: e.need.icon });
+    else later.push({ key: e.key, label: eventRowWords(e.event).label, icon: 'calendar' });
+  }
+  return { now, later };
 }
 
 /* ─── DONE TODAY ──────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -205,6 +413,7 @@ export function doneTodayTotal(done: DoneTodayCounts | null, gotIt: number): num
 /** The honest notes for a read that was refused — drawn in place of the thing they could not count. */
 export const DONE_UNREAD_LINE = 'Couldn’t load what you finished today';
 export const BILLS_UNREAD_LINE = 'Couldn’t load your booking fees just now';
+export const EVENTS_UNREAD_LINE = 'Couldn’t load your bookings just now';
 
 /**
  * The cover's words. `left` = real to-dos still listed (quick + screen + unpaid fee bills); null = the desk could not be
@@ -289,7 +498,7 @@ export function growStage(i: GrowInput): GrowStage | null {
       title: GROW_STAGE_TITLES[0],
       why: 'While Setnayan checks your shop',
       moves: [
-        move({ key: 'g-docs', label: 'Send your documents', line: 'Setnayan checks them', tag: badge('Setnayan Verified'), href: PERMIT_PAPERS_HREF, button: 'Send', icon: 'file' }),
+        move({ key: 'g-docs', label: 'Send your documents', line: 'Setnayan checks them', tag: badge('Setnayan Verified'), href: RENEW_PAPERS_HREF, button: 'Send', icon: 'file' }),
         move({ key: 'g-qr', label: 'Download your QR', line: 'Put it on your photos, posts and cards', tag: PAGE, href: PAGE_QR_HREF, button: 'Open QR', icon: 'scan' }),
       ],
     };
@@ -325,7 +534,7 @@ export function growStage(i: GrowInput): GrowStage | null {
   const moves: GrowMove[] = [];
   if (i.hasMarkComplete) moves.push(move({ key: 'g-done', label: 'I delivered this service', line: 'After each event', tag: badge(i.completedToGo ? `Completed bookings · ${i.completedToGo}` : 'Completed bookings'), href: '#today-quick', button: 'Open', icon: 'check' }));
   moves.push(move({ key: 'g-review-qr', label: 'Show the review QR on the day', line: 'Guests scan and rate what they saw', tag: PAGE, href: REVIEW_QR_HREF, button: 'Open QR', icon: 'star' }));
-  if (i.permitDue) moves.push(move({ key: 'g-permit', label: 'Renew your permit', line: 'Keep your Verified badge', tag: badge('Setnayan Verified'), href: PERMIT_PAPERS_HREF, button: 'Upload', icon: 'file' }));
+  if (i.permitDue) moves.push(move({ key: 'g-permit', label: 'Renew your permit', line: 'Keep your Verified badge', tag: badge('Setnayan Verified'), href: RENEW_PAPERS_HREF, button: 'Upload', icon: 'file' }));
   return { n: 5, title: GROW_STAGE_TITLES[4], why: null, moves: moves.slice(0, 3) };
 }
 

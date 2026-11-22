@@ -53,7 +53,7 @@ test('2 · the redirect’s flag IS the hold: written from `feeBilledUnpaid`, th
   assert.match(body, /feeBilledUnpaid \? \{ emit: async \(\) => \{\} \} : undefined/, 'the "booking confirmed" notice is no longer held by it');
   // …and the supplier's sentence reads the SAME value.
   assert.match(body, /const feeHeld = flag === 'ok' && feeBilledUnpaid \? `&fee=\$\{LOCK_AGREE_FEE_HELD\}` : '';/);
-  assert.match(body, /redirect\(`\$\{back\}\?lock_agree=\$\{flag\}\$\{competing\}\$\{feeHeld\}`\);/);
+  assert.match(body, /redirect\(`\$\{back\}\?lock_agree=\$\{flag\}\$\{competing\}\$\{feeHeld\}\$\{gift\}`\);/);
 });
 
 test('3 · every page that says the answer reads the flag back (Today · the customer card · the thread); the thread draws the Pay door', () => {

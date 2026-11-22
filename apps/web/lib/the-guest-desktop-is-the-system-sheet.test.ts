@@ -79,7 +79,9 @@ test('3 · the sheet’s pieces: the top bar, the 64-rem stage, 440-px panels, t
   assert.ok(css.includes('[data-sticky-top]>div,[data-page-column]{max-width:min(64rem,calc(100vw - 64px))!important}'), 'the stage is not 64 rem');
   assert.doesNotMatch(css, /76rem/, 'the 76-rem ceiling is back');
   assert.ok(css.includes(`${GUEST_SHEETS.shared}{width:440px!important`), 'the shared sheet is not a 440-px panel');
-  for (const k of ['openInBrowser', 'more', 'storyMoment'] as const) assert.ok(css.includes(GUEST_SHEETS[k]), `${k} is not a side panel`);
+  for (const k of ['openInBrowser', 'storyMoment'] as const) assert.ok(css.includes(GUEST_SHEETS[k]), `${k} is not a side panel`);
+  // (No 'more': the hub's "More event functions" sheet went with /hub's own bar — one bar per stage, 20 Nov 2026.)
+  assert.ok(!('more' in GUEST_SHEETS), 'a side-panel rule for the retired hub "More" sheet is back');
   assert.match(css, /:hover\{box-shadow:0 0 0 2px #A9834B\}/, 'no gold hover ring');
   assert.match(css, /:focus-visible[^{]*\{outline:none!important;box-shadow:0 0 0 2px #F7F2EC,0 0 0 4px #2C2A29\}/, 'no ink focus ring');
 });
@@ -92,7 +94,8 @@ test('4 · the rules still find the shipped pieces', () => {
   assert.match(bar, /fixed inset-x-0 bottom-\[calc\(3\.5rem/, 'the locked-slot note lost its anchor');
   assert.match(read('app/_components/sheet.tsx'), /data-sheet-panel/);
   assert.match(read('app/[slug]/_components/copy-my-link.tsx'), /aria-labelledby="open-in-browser-title"/);
-  assert.match(read('app/[slug]/_components/hub/hub-shell.tsx'), /aria-label="More event functions"/);
+  // (No hub "More event functions" sheet to find: /hub draws nothing since 20 Nov 2026 — and it must not come back.)
+  assert.doesNotMatch(read('app/[slug]/_components/hub/hub-shell.tsx'), /aria-label="More event functions"/);
   assert.match(read('app/[slug]/_components/story/story-clock.tsx'), /role="dialog"[\s\S]{0,600}sm:w-\[26rem\]/);
   assert.match(read('app/[slug]/_components/invitation-shell.tsx'), /<header data-sticky-top className="sticky top-0 z-20/);
 });

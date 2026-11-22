@@ -24,10 +24,12 @@ export const DATES_NOTICES: Readonly<Record<string, { tone: SupplierOutcomeTone;
   day_state_cleared: { tone: 'ok', text: 'Day reopened — it’s bookable again.' },
   calendar_created: { tone: 'ok', text: 'Schedule made.' },
   calendar_saved: { tone: 'ok', text: 'Schedule saved.' },
+  booking_window_saved: { tone: 'ok', text: 'How far away you take bookings — saved.' },
   bad_dates: { tone: 'bad', text: 'Those dates don’t work. Check the first and last day.', retry: true },
   bad_name: { tone: 'bad', text: 'It needs a name. Nothing was saved.', retry: true },
   bad_pool: { tone: 'bad', text: 'Pick which schedule it belongs to. Nothing was saved.', retry: true },
   bad_capacity: { tone: 'bad', text: 'How many a day must be 1 or more. Nothing was saved.', retry: true },
+  bad_booking_window: { tone: 'bad', text: 'Pick At least and At most from the list. Nothing was saved.', retry: true },
   save_failed: { tone: 'bad', text: 'That did not go through. Nothing changed — please try again.', retry: true },
 };
 

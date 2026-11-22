@@ -257,7 +257,9 @@ test('chat_threads: every OTHER column stays selectable by a signed-in session (
     `SELECT column_name AS c, has_column_privilege('authenticated', 'public.chat_threads', column_name, 'SELECT') AS ok
        FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'chat_threads' ORDER BY ordinal_position`);
   const closed = cols.filter((x) => !x.ok).map((x) => x.c);
-  assert.deepEqual(closed, ['agreed_price_centavos'],
+  // Withheld ON PURPOSE: the frozen total (20271333705710), and who handles a client (20271356599293 — the couple
+  // never learns which Account Manager, hand-over or cover is theirs; the server reads these, never a session).
+  assert.deepEqual(closed, ['agreed_price_centavos', 'handled_by_member_id', 'handled_by_set_at', 'hand_over_member_id', 'covering_member_id'],
     'a chat_threads column is not selectable by authenticated — since 20271333705710 SELECT is granted per column; grant the new one');
 });
 

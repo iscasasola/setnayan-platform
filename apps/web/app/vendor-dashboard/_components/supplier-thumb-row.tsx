@@ -205,7 +205,7 @@ const UP_QUERY = '(min-width: 701px)';
  * The pinned row's tools box, while the window is wide enough for the row to live there — else null (the row floats).
  * Re-read when the width crosses the line, so turning a tablet moves the row with it.
  */
-function usePinTools(): HTMLElement | null {
+export function usePinTools(): HTMLElement | null {
   const [box, setBox] = useState<HTMLElement | null>(null);
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return;

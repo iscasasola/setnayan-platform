@@ -43,6 +43,9 @@ export const CLIENTS_GROUP = [
   { key: 'status', label: 'Status' },
   { key: 'day', label: 'Day' },
   { key: 'seat', label: 'Handled by' },
+  // 👤 Supplier roles d–h (#8013 (f)): a shop with branches and cards groups by where the client's card is filed.
+  { key: 'branch', label: 'Branch' },
+  { key: 'card', label: 'Card' },
 ] as const;
 export type ClientsGroup = (typeof CLIENTS_GROUP)[number]['key'];
 /**
@@ -185,8 +188,11 @@ export function groupKeyOf(
   group: ClientsGroup,
   ctx: Pick<ClientsContext, 'seatsOf'>,
   seatName: (id: string) => string,
+  where?: { branchOf: (eventId: string) => string | null; cardOf: (eventId: string) => string | null },
 ): ((r: PipelineCustomer) => string) | null {
   if (group === 'day') return (r) => clientFilingDate(r) ?? 'No date yet';
+  if (group === 'branch') return (r) => where?.branchOf(r.eventId) ?? 'No card yet';
+  if (group === 'card') return (r) => where?.cardOf(r.eventId) ?? 'No card yet';
   if (group === 'seat')
     return (r) => {
       const seats = ctx.seatsOf(r.eventId);

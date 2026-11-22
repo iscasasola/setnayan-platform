@@ -50,7 +50,6 @@ import { SuppliersList } from '@/app/vendor-dashboard/clients/[eventId]/_compone
 import { supplierRows } from '@/app/vendor-dashboard/clients/[eventId]/_components/suppliers-rows';
 import { LabDetailsDecisions } from './lab-decisions';
 import { LabAskingPick } from './lab-asking';
-import { NextStepRow } from '@/app/_components/picked/next-step-row';
 import { ScheduleDays, type AllClientsMonth } from '@/app/vendor-dashboard/clients/[eventId]/_components/schedule-days';
 import { clientScheduleDays, type ScheduleDayInputs } from '@/lib/schedule-days';
 import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule';
@@ -415,7 +414,6 @@ export default async function ClientsLabPage({ searchParams }: Props) {
           settingsLine={{ line: 'This client only', tip: 'Lab.' }}
           settings={null}
           workDefault="details"
-          nextStep={<NextStepRow step={{ line: `${peso(242830)} due Wed, Dec 9`, page: 'quote', anchor: 'payments' }} />}
         />
       </div>
     );
@@ -450,13 +448,13 @@ export default async function ClientsLabPage({ searchParams }: Props) {
   };
   return (
     <div className="min-h-screen bg-cream" data-clients-lab="events">
-      <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 tab:max-w-none">
+      <main className="mx-auto w-full max-w-3xl px-4 pb-6 pt-0 sm:px-6 tab:pt-3 lg:px-8 tab:max-w-none">
         <div className="pb-24">
           <div id="customers" className="min-w-0 scroll-mt-24" data-customers-events="">
             <CustomersPin
               seg="events"
               hrefs={{ events: '/dev/clients-lab', dates: '/dev/supplier-lab?s=dates', money: '/dev/supplier-lab?s=money' }}
-              title={{ counts: `4 booked · ${peso(18000)} to collect` }}
+              title={{}}
               month={{
                 initialDayStates: LAB_CALENDAR.dayStates,
                 initialWaitlist: LAB_CALENDAR.waitlist,

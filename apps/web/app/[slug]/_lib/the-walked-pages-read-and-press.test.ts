@@ -98,7 +98,8 @@ const READ: Array<[string, string]> = [
   ['everyone/page.tsx', 'Back to the invitation'],
   ['seat/page.tsx', '{body}</p>'],
   ['find-my-table/page.tsx', '{body}</p>'],
-  ['hub/page.tsx', "withDayNote('Your table shows here on the day.'"],
+  // (`hub/page.tsx`'s seat line left 20 Nov 2026 — one bar per stage: /hub draws nothing, it redirects to the event
+  // page's tab, `dayHubLanding`.)
   // 2026-10-12 · the rest of N22 as the live re-walk of d2e38b7 listed it (and what the 375×812 sweep found beside it).
   ['_components/save-the-date.tsx', 'Full invitation to follow.'],
   ['_components/save-the-date.tsx', 'Save the date\n          </p>\n          <h1'],

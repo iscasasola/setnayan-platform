@@ -1,0 +1,44 @@
+## 2026-11-18 · feat(theme): the supplier dashboard opens to dark, in its navy
+
+Owner, 18 Nov 2026: **"do supplier navy dark next"** (after "all picks" — pick 1, "supplier navy kept" — on the
+drawing `prototypes/dark_mode_elite_2026-11-18_fable.html`; the navy itself is the 16 Nov ruling "SUPPLIER
+DASHBOARD = THE OWNER'S BLUE LOOK, LIGHT AND DARK"). Stacked on dark mode PR 1 (the one colour set).
+
+- **The navy is a scope, tokens only.** `app/vendor-dashboard/_components/supplier-look.css` gains
+  `html.dark:has([data-supplier-look])`, which re-points the one colour set while a supplier page is on screen in
+  dark: page `#0D1626` · card `#172338` · tile `#1F2F4A` · wash `#283A58` · words `#EEF2F8` / `#B4BECE` /
+  `#9AA6B9` · links `#7DB1FF` · the main button `#2272E6` with white words · amber `#F2A93B` as the small accent ·
+  the hero a navy card lit blue from one corner · the same three soft lights on the ground. Everything that
+  points at the set (`--m-*`, `--sn-*`, `--fd-*`) follows by itself.
+- **The accent as a word.** The button's deep blue cannot also be text on the navy (3.46:1), and no single blue
+  can be both. `text-mulberry` and `text-sn-accent` now read `--color-mulberry-word` / `--sn-accent-word` first
+  (`tailwind.config.ts`, text only — the `text-terracotta` precedent). They are set only in the navy scope (the
+  link blue, 7.20:1); unset everywhere else, so Light and the couple's dark paint exactly what they did.
+- **Two supplier screens are on `DARK_READY`,** each exactly — Clients and the customers list, the two that were
+  rendered in the navy (`/vendor-dashboard/clients$`, `/vendor-dashboard/customers$`). The rest of the supplier
+  tree stays Light until it is walked. Swept across the whole tree first: solid `bg-white` → `bg-raised` (100 uses, the
+  same pixels in Light), `text-cream` on the main button → `text-sn-on-accent`, stock-palette colours given a
+  status-token dark partner. The dark-contrast record fell from 101 to 88 unreadable uses, zero under
+  `app/vendor-dashboard`.
+- **Guards:** `the-navy-is-readable.test.ts` (the ruled values · every text/surface pair at AA with the scope
+  layered over the app's dark tokens · the word tokens · the ready-list) and a down-only raw-hex ratchet for the
+  supplier tree (`raw-hex-only-goes-down.test.ts`, 86 today — 70 of them the look's own token file). The counter
+  moved to `lib/raw-hex-ratchet.ts`, shared with the couple's ratchet.
+- `html.dark .sn-ambient` reads `--sn-ambient-dark` (unset = the plain page), so a look can light its dark ground
+  with a token instead of a component rule.
+
+**A deliberate Light change on supplier pages (owner 19 Nov 2026, "all recommended").** `--m-ink` and
+`--m-mulberry` became pointers in PR 1, which pinned them on supplier pages to the warm ink and terracotta they
+painted on main. This PR removes those three pins, so on supplier pages every `var(--m-ink)` is the blue look's
+navy ink `#101B30` and every `var(--m-mulberry)` its blue `#2272E6` — 172 reads across `app/vendor-dashboard` and
+the shared pieces. Before/after at 390 px on three screens that read them (card maker, offer maker, shop plan)
+in `build-sessions/shots-dark-mode-pr2-supplier/light-warm-to-blue-*.jpg`. The visible change is mostly text
+moving from warm near-black to navy near-black.
+
+**Not verified:** only the supplier screens with a lab were rendered in dark; the rest need a signed-in walk.
+The contrast lint judges dark with the app's warm dark tokens, not the navy scope — the navy's own pairs are
+held by `the-navy-is-readable.test.ts`, token against token, not per class use.
+
+SPEC IMPACT: None new — the navy and the approval are already in the corpus (16 Nov and 18 Nov rows).
+
+- 21 Nov: Words painted in the accent now read the navy word token: `--sn-accent-word` and `--color-mulberry-word` (#7DB1FF, readable on the navy). Before, these spots used the bare blue (3.46:1). There are nine: the four from review (Clients pin and "Add", Performance draft link and legend) and five in main's `set-two.module.css`. The guard `the-accent-word-reads-on-the-navy.test.ts` fails on any new one.

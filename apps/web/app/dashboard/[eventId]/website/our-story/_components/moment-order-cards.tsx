@@ -217,7 +217,7 @@ const isRedirect = (e: unknown) => typeof (e as { digest?: unknown } | null)?.di
 
 const SQUARE = 'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl';
 const QUIET_BUTTON = 'sn-press inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-cream px-3.5 text-[13px] font-semibold text-ink ring-1 ring-ink/15 disabled:opacity-40';
-const WORDS_BOX = 'min-h-[76px] w-full resize-none rounded-2xl bg-white px-3.5 py-2.5 text-[15px] leading-snug text-ink outline-none ring-1 ring-inset ring-ink/20 placeholder:text-ink/40 focus:ring-2 focus:ring-ink/40';
+const WORDS_BOX = 'min-h-[76px] w-full resize-none rounded-2xl bg-raised px-3.5 py-2.5 text-[15px] leading-snug text-ink outline-none ring-1 ring-inset ring-ink/20 placeholder:text-ink/40 focus:ring-2 focus:ring-ink/40';
 
 type Action = (formData: FormData) => void | Promise<void>;
 

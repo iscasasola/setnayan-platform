@@ -60,9 +60,10 @@ test('2 · every door names the Memories address — the catalogue, Home’s App
   assert.match(home, /open: thankYouVideoHref\(eventId\)/, 'Home’s App row does not open the Memories page');
   const page = read('app/dashboard/[eventId]/memories/thank-you/page.tsx');
   assert.match(page, /redirect\(`\/login\?next=\$\{thankYouVideoHref\(eventId\)\}`\)/, 'signing in returns to the old address');
-  // The keepsake row on Memories draws the door it read — the Thank You button opens it.
+  // The keepsake row on Memories draws the door it read — the Thank You button opens it (since 2026-11-20 in its sheet
+  // seat: the line and "Open your Thank-You Video", to the same address).
   const memories = read('app/dashboard/[eventId]/memories/page.tsx');
-  assert.match(memories, /'thank-you': <ServiceParts eventId=\{eventId\} service="papic" door=\{thankYou\} \/>/);
+  assert.match(memories, /'thank-you': <ServiceParts eventId=\{eventId\} service="papic" door=\{thankYou\} seat="sheet" \/>/);
 });
 
 test('3 · nothing outside the forward map names /studio/thank-you', () => {

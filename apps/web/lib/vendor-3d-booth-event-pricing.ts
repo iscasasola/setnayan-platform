@@ -68,7 +68,9 @@ export function boothBrandedAtEvent(input: { cycleActive: boolean; eventOrderAct
   return input.cycleActive === true || input.eventOrderActive === true;
 }
 
-export type BoothEventOrderState = 'none' | 'pending' | 'active';
+/** `unread` = the orders read was REFUSED. It is NOT `none`: a refusal read as `none` offered a supplier who had
+ *  already paid the buy form again, and let the buy action mint a second order (supplier audit 2026-11-17, C-1). */
+export type BoothEventOrderState = 'none' | 'pending' | 'active' | 'unread';
 
 /** Pure: collapse a vendor's per-event order rows on one event to one state.
  *  `active` wins over `pending` (a re-submitted order beside an approved one
@@ -157,7 +159,7 @@ export async function fetchVendorBoothEventOrderState(
     .eq('service_key', VENDOR_3D_BOOTH_EVENT_SKU_CODE);
   if (error) {
     console.error('[supabase-error] vendor-3d-booth-event-pricing: booth order state', error);
-    return 'none';
+    return 'unread';
   }
   return boothEventOrderState(((data ?? []) as { status: string | null }[]).map((r) => r.status));
 }

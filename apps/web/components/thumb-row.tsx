@@ -44,10 +44,10 @@
  * the page column pads by it (`lib/thumb-room.ts`, `lib/a-thumb-row-leaves-room.test.ts`) — a host never adds its own
  * bottom padding for the row.
  */
-import { useCallback, useId, useRef, type FocusEvent, type InputHTMLAttributes, type KeyboardEvent, type MouseEvent, type ReactNode, type Ref } from 'react';
+import { useCallback, useEffect, useId, useRef, type FocusEvent, type PointerEvent as ReactPointerEvent, type InputHTMLAttributes, type KeyboardEvent, type MouseEvent, type ReactNode, type Ref } from 'react';
 import { CalendarDays, Plus, Search } from 'lucide-react';
 import { ClearButton, clearTyped } from '@/components/clear-field';
-import { SearchAddIcon, useSearchAdd } from '@/components/search-add';
+import { SEARCH_ADD_DRAG_FOLLOW_PX, SearchAddIcon, searchAddDrag, useSearchAdd } from '@/components/search-add';
 import { ActionButton, actionButtonClass, type ActionButtonProps } from '@/components/action-button';
 import { rowRides, useRidingRow } from '@/app/_components/typing-band';
 import { useThumbRoom } from '@/lib/thumb-room';
@@ -92,6 +92,8 @@ export type ThumbMenu = {
   face?: ReactNode;
   /** 📏 The open list's floor width (`PickMenuProps.menuMinWidth`) — so a menu's rows stay on one line at 390 px. */
   menuMinWidth?: number;
+  /** ⬆ Open the list above the round whenever it fits (Guests redesign § 8: the look round opens upward, within reach). */
+  opensUp?: boolean;
 };
 
 /**
@@ -136,6 +138,14 @@ export type ThumbField = {
   matches?: boolean;
   /** With `onAdd`: 🔦 a spotlight tour's anchor on the 🔍 → ＋ icon itself. */
   addTour?: string;
+  /**
+   * 👉 With `onAdd`: the box can be DRAGGED RIGHT to add (owner 20 Nov 2026, Guests redesign pick 1). `kind` is the small
+   * pick at the box's right end while it adds — "Guest ▾" (pick 2), holding the other ways to add.
+   */
+  dragAdd?: { kind?: ReactNode };
+  /** 👉 Told when the box switches between searching and adding — the host draws its own lines above the box (the
+      "Drag the box right to add a guest" hint while searching; the other ways while adding). */
+  onMode?: (mode: 'search' | 'add') => void;
 };
 
 /** A shipped control in a round seat — a PickMenu (drawn as the 44 round, its option's icon the face) or an icon
@@ -253,6 +263,9 @@ export function ThumbRow({
     ride.rowProps.onBlur(e);
     const seat = e.currentTarget;
     if (rowRef.current && !seat.contains(e.relatedTarget as Node | null)) playSearchGrows(rowRef.current, seat, false, forceShape('open'));
+    // 👉 Left EMPTY, a box dragged into adding goes back to searching ("drag it back, or clear it") — an empty box has
+    // no ✕ to press, and must never be stranded in Add.
+    if (ownInput.current && ownInput.current.value.trim() === '' && !e.currentTarget.contains(e.relatedTarget as Node | null)) searchAdd.forget();
   };
   const onFieldClick = (e: MouseEvent<HTMLElement>) => focusSearchNow(e.currentTarget);
   /* 📌 The words changed → the first result is pinned (`lib/search-pin.ts`, through the one riding row). */
@@ -264,6 +277,51 @@ export function ThumbRow({
   const ownField = field && !('node' in field) ? field : null;
   const adds = ownField?.onAdd && ownField.kind !== 'date' ? { onAdd: ownField.onAdd, query: ownField.query ?? '', matches: ownField.matches ?? true } : null;
   const searchAdd = useSearchAdd(adds);
+  /* 👉 THE DRAG (owner 20 Nov 2026, Guests redesign pick 1): a finger or a mouse carries the box sideways; it follows a
+     short way (`SEARCH_ADD_DRAG_FOLLOW_PX`, written straight to the DOM — no render per move) and, let go past
+     `SEARCH_ADD_DRAG_PX`, right adds and left searches again. A vertical move is a scroll and is left alone. The ✕ and
+     the icon keep their own presses. */
+  const dragAdd = adds && ownField?.dragAdd ? ownField.dragAdd : null;
+  const dragAt = useRef<{ x: number; y: number; id: number } | null>(null);
+  const onModeRef = useRef(ownField?.onMode);
+  onModeRef.current = ownField?.onMode;
+  useEffect(() => {
+    onModeRef.current?.(searchAdd.mode);
+  }, [searchAdd.mode]);
+  const dragProps = dragAdd
+    ? {
+        onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
+          // The box's own buttons (✕, the 🔍 → ＋ icon, "Guest ▾") keep their presses — a drag starts on the box itself.
+          if ((e.target as HTMLElement).closest('button')) return;
+          dragAt.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+        },
+        onPointerMove: (e: ReactPointerEvent<HTMLElement>) => {
+          const d = dragAt.current;
+          if (!d || d.id !== e.pointerId) return;
+          const dx = e.clientX - d.x;
+          if (Math.abs(e.clientY - d.y) > Math.abs(dx)) return;
+          // Once it is a drag, the box keeps the pointer — a finger or mouse that leaves it still ends the drag here.
+          if (Math.abs(dx) > 8 && !e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.setPointerCapture(e.pointerId);
+          const follow = Math.max(-SEARCH_ADD_DRAG_FOLLOW_PX, Math.min(SEARCH_ADD_DRAG_FOLLOW_PX, dx * 0.5));
+          e.currentTarget.style.translate = `${follow}px 0`;
+        },
+        onPointerUp: (e: ReactPointerEvent<HTMLElement>) => {
+          const d = dragAt.current;
+          dragAt.current = null;
+          e.currentTarget.style.translate = '';
+          if (!d || d.id !== e.pointerId) return;
+          const to = searchAddDrag(e.clientX - d.x, e.clientY - d.y);
+          if (!to) return;
+          searchAdd.drag(to === 'add');
+          // Dragged into adding: the cursor goes into the box so the name can be typed at once.
+          if (to === 'add') focusSearchNow(e.currentTarget);
+        },
+        onPointerCancel: (e: ReactPointerEvent<HTMLElement>) => {
+          dragAt.current = null;
+          e.currentTarget.style.translate = '';
+        },
+      }
+    : null;
   const hostKeyDown = ownField?.input?.onKeyDown;
   /* ⏎ As ＋, Enter adds what was typed. They ASKED for the add (tapped 🔍 over matches) → Enter is the add outright;
      nothing matched → the host's own Enter first (Guests' one-Enter grammar already adds, its own way), and the add
@@ -311,7 +369,8 @@ export function ThumbRow({
               {field.node}
             </span>
           ) : field ? (
-            <label htmlFor={inputId} data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-search-mode={adds ? searchAdd.mode : undefined} data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onClick={onFieldClick} onInput={onFieldInput}>
+            <label htmlFor={inputId} data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-search-mode={adds ? searchAdd.mode : undefined} data-drag-add={dragAdd ? '' : undefined} data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onClick={onFieldClick} onInput={onFieldInput} {...dragProps}>
+
               {adds ? (
                 <SearchAddIcon mode={searchAdd.mode} onPress={() => searchAdd.press(ownInput.current)} place={field.placeholder.replace(/^Search\s+/i, '')} tour={field.addTour} />
               ) : (
@@ -335,6 +394,12 @@ export function ThumbRow({
                   raises the keyboard (an empty, focused Find box opens "Go to a category"), and never drops it while
                   typing. The search hears the empty words through the input's own event, and a host that waits after the
                   last letter hears `onClear` at once. It is the ONE shared ✕ (`components/clear-field.tsx`). */}
+              {/* ▾ While adding, the box's right end says WHAT is added — "Guest ▾" (pick 2), the other ways inside it. */}
+              {dragAdd?.kind && searchAdd.mode === 'add' ? (
+                <span className={styles.kind} data-search-add-kind="" onPointerDown={(e) => e.stopPropagation()}>
+                  {dragAdd.kind}
+                </span>
+              ) : null}
               {field.kind === 'date' ? null : (
                 <ClearButton
                   label="Clear the search"
@@ -346,6 +411,8 @@ export function ThumbRow({
                     if (!el) return;
                     clearTyped(el);
                     field.onClear?.();
+                    // ✕ also ends an add the box was dragged into — "drag it back, or clear it, to search again".
+                    searchAdd.forget();
                   }}
                 />
               )}
@@ -366,6 +433,7 @@ export function ThumbRow({
                   buttonText={r.buttonText}
                   trigger={r.face}
                   menuMinWidth={r.menuMinWidth}
+                  opensUp={r.opensUp}
                   className={r.face ? 'inline-flex items-center justify-center rounded-full text-ink' : undefined}
                 />
               </span>

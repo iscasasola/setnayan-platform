@@ -69,7 +69,9 @@ test('2 · a pop-up layer: portaled to <body>, the --sn-z-pop token, a modal dia
   assert.match(shell, /aria-modal="true"/);
   // Integration (8 Nov): Esc through the house modal contract (`useModalA11y` — focus in, Tab trapped, only the top layer
   // answers Esc), which `lib/modal-a11y-adoption.test.ts` requires of every aria-modal overlay.
-  assert.match(shell, /useModalA11y\(\{ open: Boolean\(host\), onClose: close, containerRef: rootRef/, 'Esc must close (the house modal contract)');
+  // Unichat G (20 Nov): with the ⋯ menu open, Esc peels that one layer first; otherwise it closes the screen as before.
+  assert.match(shell, /useModalA11y\(\{ open: Boolean\(host\), onClose: escClose, containerRef: rootRef/, 'Esc must close (the house modal contract)');
+  assert.match(shell, /const escClose = useCallback\(\(\) => \(moreOpen \? closeMore\(\) : close\(\)\)/, 'Esc no longer reaches the screen’s close');
   assert.match(shell, /data-testid="picked-close"/, 'the ✕ is the one close');
 });
 
@@ -86,7 +88,7 @@ test('3 · the close is the open played backwards', () => {
   assert.match(motion, /export function pickedMotion\(/);
   const shell = read(SHELL);
   assert.equal((shell.match(/pickedMotion\(/g) ?? []).length, 2, 'open and close must both come from pickedMotion');
-  assert.match(shell, /if \(m\) el\.animate\(m\.frames, m\.timing\);/, 'the open plays the frames forwards');
+  assert.match(shell, /if \(m\) (?:onItsOwnLayer\(el, )?el\.animate\(m\.frames, m\.timing\)\)?;/, 'the open plays the frames forwards');
   assert.match(
     shell,
     /el\.animate\(m\.frames, \{ \.\.\.m\.timing, direction: 'reverse', fill: 'forwards' \}\)/,
@@ -108,6 +110,8 @@ test('4 · a page switch costs no request', () => {
   assert.match(shell, /overflow-x-hidden overscroll-contain \[overscroll-behavior-x:none\]/);
   // 19 Nov 2026: not even the Script fold — a landing and an in-page door share ONE vertical scroll of the body's own scroller.
   assert.equal((stripComments(shell).match(/scrollIntoView\(/g) ?? []).length, 0, 'scrollIntoView is back — it moves the body sideways (§10 #26)');
-  assert.equal((shell.match(/scrollToPart\(/g) ?? []).length, 4, 'a landing and nav.select no longer share the one scroll path');
+  // (19 Nov 2026: a fifth call — a door to a part of a page that RISES over the chat finds the part again once the
+  // risen screen has landed on <body>; still the ONE function.)
+  assert.equal((shell.match(/scrollToPart\(/g) ?? []).length, 5, 'a landing and nav.select no longer share the one scroll path');
   assert.match(shell, /function scrollToPart\(id: string\): boolean \{[\s\S]{0,400}scroller\.scrollTo\(\{ top,/);
 });

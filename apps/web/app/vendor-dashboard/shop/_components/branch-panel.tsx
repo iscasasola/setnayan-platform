@@ -2,7 +2,7 @@ import { Building2 } from 'lucide-react';
 import { formatCount } from '@/lib/format-number';
 
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { TIER_LABEL, asVendorTier, canBuyExtraBranches, includedBranchesLeft, nextPlanReach, planHasBranches, reachLadderWords, tierCaps } from '@/lib/vendor-tier-caps';
+import { canBuyExtraBranches, includedBranchesLeft, planHasBranches, tierCaps } from '@/lib/vendor-tier-caps';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { isVendorSearchGateEnabled } from '@/lib/vendor-search-gate';
 import type { VendorBranchView } from '@/lib/vendor-branches';
@@ -64,8 +64,7 @@ export async function BranchPanel({
   // (lib/vendor-search-gate.ts). Off — production today — a plan with no ring
   // is UNSCOPED: category-search admits it at any distance. Saying otherwise
   // told findable shops they were hidden.
-  const reachHidden = !hasRing && isVendorSearchGateEnabled();
-  const reachPaywall = vendorPaywallApplies(false) && !storeShell;
+  const reachHidden = !(reachKm > 0) && isVendorSearchGateEnabled();
   // The plan ask: a plan with no branches at all (Free · Verified · Solo) while the switch is on. A Pro shop at its
   // included three is told the same — more is Ultra's.
   const branchPaywall = vendorPaywallApplies(planHasBranches(tier) && (includedLeft > 0 || canBuyExtraBranches(tier)));
@@ -74,11 +73,13 @@ export async function BranchPanel({
   const canBuyMore = canBuyExtraBranches(tier);
   const from = city ?? 'your headquarters';
   // The shipped sentence, word for word — now the ⓘ of How far you go (house rule: one line visible, the rest in ⓘ).
+  // 🔓 Reach is not a plan allowance (owner 2026-11-19): `reachKm` is the verification ceiling — ∞ for a verified shop
+  // (no distance limit of the plan's), 0 for an unverified one (whose card shows the locked row, not this note).
   const reachNote = hasRing
-    ? `Your plan reaches about ${reachKm} km from ${from}. Couples searching farther still find you under “Show farther,” flagged “travel fee likely.”`
+    ? `You reach about ${reachKm} km from ${from}. Couples searching farther still find you under “Show farther,” flagged “travel fee likely.”`
     : reachHidden
-      ? `Your shop isn’t shown in couples’ searches yet.${reachPaywall ? ' A paid plan puts you on the map and sets your coverage radius.' : ''}`
-      : 'Couples searching anywhere can find you — your plan has no distance limit.';
+      ? 'Your shop isn’t shown in couples’ searches yet.'
+      : 'Couples searching anywhere can find you — no plan sets a distance limit.';
   // Where the branch pin map opens: the vendor's HQ, or Metro Manila as a
   // sensible national fallback when the HQ hasn't been geocoded yet.
   const branchMapCenter =
@@ -107,24 +108,21 @@ export async function BranchPanel({
         </div>
       </div>
 
-      {/* ── Coverage reach — the radius couples' Services search gates on, and
-           (2026-07-27 · §17) the CEILING on the two distances the vendor
-           declares for themselves. 📍 Shop › Details › Where you work
+      {/* ── Coverage reach — the two distances the vendor declares for
+           themselves (2026-07-27 · §17), under the verification ceiling only
+           (owner 2026-11-19: reach is not a plan allowance). 📍 Shop › Details › Where you work
            (2026-10-29, v13): the map, the pin, the two rings and the −/＋
            steppers are ONE client part (`ServiceRadiusFields`) so the rings
            move as the distances do; the shipped sentence below is its ⓘ. */}
       <ServiceRadiusFields
         initialInnerKm={innerRadiusKm}
         initialOuterKm={outerRadiusKm}
-        tierCapKm={reachKm}
+        reachCeilingKm={reachKm}
         lat={hasCoords ? hqLat : null}
         lng={hasCoords ? hqLng : null}
         city={city}
         isVerified={isVerified}
-        tierMeasured={tierMeasured}
-        planName={TIER_LABEL[asVendorTier(tier)]}
-        nextReach={nextPlanReach(tier)}
-        ladder={reachLadderWords()}
+        measured={tierMeasured}
         reachNote={reachNote}
       />
 

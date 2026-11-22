@@ -67,4 +67,17 @@ export const LAB_MESSAGES: ChatMessageRow[] = [
     attachment_mime: 'application/pdf',
     attachment_size_bytes: 482_000,
   } as ChatMessageRow,
+  // 💬 Unichat H1 — a voice note, an edited message, an unsent one, and one of YOURS sent a minute ago (so its ⋯
+  // offers Edit · Unsend · Remind me; the lab has no storage, so Play says it could not play).
+  {
+    ...row(10, 'vendor', '', at(10, 40)),
+    attachment_r2_key: `r2://setnayan-thread-files/chat/${LAB_THREADS[0].id}/${LAB_STAFF}/voice-note.webm`,
+    attachment_name: 'Voice note.webm',
+    attachment_mime: 'audio/webm',
+    attachment_size_bytes: 41_000,
+    voice_seconds: 7,
+  } as ChatMessageRow,
+  { ...row(11, 'couple', 'See you Saturday at 10 then', at(10, 42)), edited_at: at(10, 44) } as ChatMessageRow,
+  { ...row(12, 'vendor', '', at(10, 45)), unsent_at: at(10, 46) } as ChatMessageRow,
+  row(13, 'couple', 'Can we add a second shooter?', new Date(Date.now() - 60_000).toISOString()),
 ];

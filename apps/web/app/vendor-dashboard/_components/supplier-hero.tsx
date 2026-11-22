@@ -39,6 +39,7 @@ export function SupplierHero({
   picture,
   caption = null,
   upload = null,
+  photoDoor = null,
   data,
 }: {
   eyebrow: ReactNode;
@@ -55,11 +56,19 @@ export function SupplierHero({
   caption?: ReactNode;
   /** Where Upload goes while the hero is a placeholder (omit for no door). */
   upload?: SupplierHeroUpload | null;
+  /**
+   * 🖼 THE PHOTO IS THE BUTTON (owner 19 Nov 2026: "cover photo should not be an icon but the actual cover photo tap
+   * that"): a door laid over the whole picture, UNDER the hero's own lines. With one, the lines stop taking the press
+   * themselves and only their links and buttons do — so a tap anywhere else on the photo reaches the door.
+   */
+  photoDoor?: ReactNode;
   /** The tab's own marker on the root (`{ 'portfolio-top': '' }`). */
   data?: Record<string, string>;
 }) {
   const pic = picture ?? { url: HERO_PLACEHOLDER_FILE, kind: 'placeholder' as const };
   const sample = pic.kind === 'placeholder';
+  // With a photo door the lines sit above it and let the press through, except on their own links and buttons.
+  const over = photoDoor ? 'relative z-[1] pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_label]:pointer-events-auto' : '';
   const attrs = Object.fromEntries(Object.entries(data ?? {}).map(([k, v]) => [`data-${k}`, v]));
   // 🔒 NOTHING OVERLAPS (W1 F3, 18 Nov — "Shop · setnayan.com/…" drawn over the shop name, "Sample photo · Upload yours"
   // over "Get verified · 0 of 3 papers"): the rows are IN FLOW — eyebrow + ⚙ · the chip row · the title block pinned to
@@ -80,14 +89,15 @@ export function SupplierHero({
         className="absolute inset-0 -z-10"
         style={{ background: 'linear-gradient(to top, rgba(20,18,14,.86) 0%, rgba(20,18,14,.45) 48%, rgba(20,18,14,.12) 100%)' }}
       />
-      <div className="flex min-h-10 items-center justify-between gap-3 text-[12.5px]" data-supplier-hero-top="">
+      {photoDoor ? <div className="absolute inset-0 z-0" data-supplier-hero-door="">{photoDoor}</div> : null}
+      <div className={`flex min-h-10 items-center justify-between gap-3 text-[12.5px] ${over}`} data-supplier-hero-top="">
         <span className="min-w-0 truncate opacity-95" data-supplier-hero-eyebrow="">
           {eyebrow}
         </span>
         {gear ? <span className="shrink-0" data-supplier-hero-gear="">{gear}</span> : null}
       </div>
       {sample ? (
-        <div className="mt-2 flex items-center justify-between gap-2" data-supplier-hero-chips="">
+        <div className={`mt-2 flex items-center justify-between gap-2 ${over}`} data-supplier-hero-chips="">
           <span className="min-w-0 truncate rounded-full bg-black/45 px-2.5 py-1 font-mono text-xs tracking-[0.06em] backdrop-blur" data-supplier-hero-sample="">
             Sample photo · Upload yours
           </span>
@@ -103,13 +113,13 @@ export function SupplierHero({
           ) : null}
         </div>
       ) : caption ? (
-        <div className="mt-2 flex justify-end" data-supplier-hero-chips="">
+        <div className={`mt-2 flex justify-end ${over}`} data-supplier-hero-chips="">
           <span className="max-w-[60%] truncate rounded-full bg-black/45 px-2.5 py-1 font-mono text-xs tracking-[0.06em] backdrop-blur" data-supplier-hero-caption="">
             {caption}
           </span>
         </div>
       ) : null}
-      <div className="mt-auto pt-2" data-supplier-hero-foot="">
+      <div className={`mt-auto pt-2 ${over}`} data-supplier-hero-foot="">
         <p className="line-clamp-2 font-[family-name:var(--font-display)] text-[28px] font-semibold leading-[1.1]" {...(titleData ? { [`data-${titleData}`]: '' } : {})}>
           {title}
         </p>

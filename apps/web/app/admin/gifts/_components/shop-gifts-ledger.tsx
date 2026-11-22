@@ -40,8 +40,8 @@ export function ShopGiftsLedger({
       tip={
         <>
           A shop&rsquo;s gifts on one booking are capped at {giftLimitPct}% of that booking&rsquo;s fee, at the
-          price couples pay — the same share as the Setnayan gift. The smallest Papic pack is always allowed. Gift prices
-          are the catalogue&rsquo;s.
+          price couples pay — the same share as the Setnayan gift. The smallest Papic pack is always allowed. Every gift is
+          at its catalogue list price; the only way to pay less is a buy-10-get-1 Papic bundle, which lands as packs.
         </>
       }
       data="shop-gifts"
@@ -85,7 +85,11 @@ export function ShopGiftsLedger({
             header: 'Gift',
             mono: true,
             align: 'right',
-            cell: (r) => `${r.delta > 0 ? '+' : '−'}${giftWord(r.giftKind, Math.abs(r.delta))}`,
+            // 🔢 Papic counted in packs (2026-11-14): "+11 Papic 1000"; a row from before packs says its credits.
+            cell: (r) =>
+              r.giftKind === 'papic' && r.packCode && r.packs
+                ? `${r.packs > 0 ? '+' : '−'}${formatCount(Math.abs(r.packs))} ${r.packTitle ?? r.packCode}`
+                : `${r.delta > 0 ? '+' : '−'}${giftWord(r.giftKind, Math.abs(r.delta))}`,
           },
         ]}
       />

@@ -1,4 +1,5 @@
 import { Gift } from 'lucide-react';
+import { SETNAYAN_PHOTO_GIFT_RETIRED } from '@/lib/setnayan-gift';
 
 /**
  * THE SETNAYAN GIFT LINE — the one sentence a service card says about the gift.
@@ -25,8 +26,10 @@ import { Gift } from 'lucide-react';
  * maker and the couple's card use two different palettes, and the WORDS are the
  * part that must not differ.
  */
-export const SETNAYAN_GIFT_CARD_COPY =
-  'Includes a Setnayan gift — free Papic photos for your event, sized to the booking';
+/** What the gift IS, in the one wording — quoted by the card line below and by the front page's gift row. */
+export const SETNAYAN_GIFT_PHOTOS = 'free Papic photos for your event';
+
+export const SETNAYAN_GIFT_CARD_COPY = `Includes a Setnayan gift — ${SETNAYAN_GIFT_PHOTOS}, sized to the booking`;
 
 export function SetnayanGiftLine({
   className,
@@ -35,6 +38,8 @@ export function SetnayanGiftLine({
   className?: string;
   style?: React.CSSProperties;
 }) {
+  // 🎁 Retired 2026-11-15: the card no longer promises free photos — the supplier picks the gift when they agree.
+  if (SETNAYAN_PHOTO_GIFT_RETIRED) return null;
   return (
     <p className={className} style={style} data-testid="service-card-setnayan-gift">
       <Gift aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.75} />

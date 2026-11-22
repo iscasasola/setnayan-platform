@@ -14,7 +14,7 @@
  * The old page is preserved at page.flat-list.bak.tsx.txt (not compiled).
  */
 
-import { FINDABLE_SHOP_GATE, threadShowsNotYetVerified } from '@/lib/findable-shop';
+import { FINDABLE_SHOP_GATE, shopVerifiedNote, threadShowsNotYetVerified } from '@/lib/findable-shop';
 import { readOnePerEventGroups } from '@/lib/one-per-event';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
@@ -64,8 +64,8 @@ import { FindCategoryList } from './_components/find-category-list';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { readUnreadChatCountsByThread } from '@/lib/vendor-unread-threads';
 import { benchUnreadFrom } from '@/lib/bench-unread';
-import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
-import { resolveDeclaredRings } from '@/lib/vendor-service-radius';
+import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { isVerifiedForReach, reachCeilingKm, resolveDeclaredRings } from '@/lib/vendor-service-radius';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
 import { fetchPlanGroupScope } from '@/lib/plan-groups-by-event-type';
 import { depositStepOf, type DepositStep } from '@/lib/deposit-pay-step';
@@ -99,6 +99,8 @@ import {
 } from '@/lib/budget-build';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { haversineKm } from '@/lib/distance';
+import { nearestKm, pinOf } from '@/lib/mall-card';
+import { readBranchPins } from '@/lib/supplier-places.server';
 import { readNearAnchors } from '@/lib/find-near-anchors.server';
 import { nearRows, type NearPin } from '@/lib/find-sort-choices';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
@@ -314,6 +316,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // type a door that re-opened Home — the dead-tab shape the owner removed from the app's More
   // (#6725). So the page answers in its own place, in the words Find a supplier already uses, and still
   // renders NO bench and NO upsell.
+  // ⚡ Wave 5 speed pass (2026-11-15): who this viewer is does not depend on the event type's profile, so it is read
+  // BESIDE it instead of after it — one round trip fewer before anything is drawn. It is awaited at the same line as
+  // before, so a refused read still throws from there. (On the rare event type with no marketplace it is one read the
+  // early return below never uses.)
+  const supabaseRead = createClient();
+  const viewerRead = startRead(supabaseRead.then((sb) => fetchEventViewer(sb, eventId, user.id)));
   const profile = await resolveProfileByEvent(eventId);
   if (profile.marketplaceEnabled !== true) {
     return (
@@ -324,7 +332,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     );
   }
 
-  const supabase = await createClient();
+  const supabase = await supabaseRead;
   // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts): the layout's chrome, the menu's
   // needs, the access window and the head count are each a few columns of it — one request for all.
   openDashboardEventRow(supabase, eventId);
@@ -332,7 +340,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // 👥 People with access (owner 2026-10-03): Suppliers is its own area. A
   // delegate the host set to Off reads no bookings (20271262573732 closed the
   // door) — say so, never draw an empty team.
-  const viewer = await fetchEventViewer(supabase, eventId, user.id);
+  const viewer = await viewerRead;
   if (isDelegateWithoutArea(viewer, 'vendors')) {
     return <NotSharedWithYou title="Suppliers" thing="supplier list" />;
   }
@@ -478,6 +486,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     taxonomyRead.then((t) => (someCategoryNeedsItsServicesNamed(t) ? readServiceLabels() : {})),
   );
   const planGroupScopeRead = startRead(fetchPlanGroupScope(supabase));
+  // ⚡ Wave 5 speed pass (2026-11-15): the saved plan was already started on every path, just late — it now
+  // leaves with the page's other early reads, and is awaited where it always was.
+  const savedPlanRead = startRead(fetchSavedAllocationPlan(supabase, eventId));
   const buildPicksRead = startRead(
     supabase.from('event_build_picks').select('plan_group_id, vendor_id').eq('event_id', eventId),
   );
@@ -672,7 +683,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // the unpinned suggestion from the couple's own typed budget, weddings
   // only — so one category can never read two amounts on two pages.
   const isWeddingPlan = (ev?.event_type ?? 'wedding') === 'wedding';
-  const savedPlanPromise = fetchSavedAllocationPlan(supabase, eventId);
+  const savedPlanPromise = savedPlanRead;
   let suggestedPlan = new Map<string, number | null>();
   // PRICE DECIDES REACH: the gate now also opens for a couple who chose a
   // budget FEEL and a guest count but never typed a figure — the resolver
@@ -730,7 +741,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // chat_threads read stays on the couple RLS client — it's the couple's own
     // event's threads, correctly RLS-scoped, not the public vendor row.
     const enrichmentAdmin = createAdminClient();
-    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes, claimAsksRes, bookedRes] = await Promise.all([
+    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes, claimAsksRes, bookedRes, branchPinsByProfile] = await Promise.all([
       enrichmentAdmin
         .from('vendor_market_stats')
         .select(
@@ -740,7 +751,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentAdmin
         .from('vendor_profiles')
         .select(
-          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at, is_demo',
+          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at, is_demo, papers_current',
         )
         .in('vendor_profile_id', marketplaceIds),
       // Accept-gate state (#1c, CLAUDE.md 2026-06-02) — the chat thread per
@@ -821,6 +832,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .select('marketplace_vendor_id')
         .in('marketplace_vendor_id', marketplaceIds)
         .in('status', [...CONFIRMED_VENDOR_STATUSES]),
+      // 🃏 Card 14 (owner 20 Nov, "straight line, about X km"): the shop's live branches, so the distance is from its
+      // NEAREST place — HQ or branch. Same round trip; fails soft to "no branches" (the HQ still measures).
+      readBranchPins(enrichmentAdmin, marketplaceIds),
     ]);
     // A refused read is UNKNOWN (null), never 0 — 0 would call an established shop "New".
     if (bookedRes.error) logQueryError('dashboard/[eventId]/vendors/page.tsx: booked counts', bookedRes.error, { event_id: eventId });
@@ -857,6 +871,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       /** Q7 — the Verified badge's own deadline (lib/verified-badge.ts). */
       next_renewal_due_at: string | null;
       is_demo: boolean | null;
+      /** 📄 Generated `papers_lapsed_at IS NULL` — false once the papers lapsed after 30 March. */
+      papers_current: boolean | null;
     };
 
     if (statsRes.error) {
@@ -986,15 +1002,24 @@ export default async function VendorsPage({ params, searchParams }: Props) {
 
       const rating =
         s.avg_rating_overall != null ? Number(s.avg_rating_overall) : null;
-      const distanceKm = kmFrom(anchors.reception, s.hq_latitude, s.hq_longitude);
+      // 📍 The nearest of the HQ and the live branches (card 14). No branches → exactly the HQ distance, as before.
+      const branchPins = branchPinsByProfile.get(pid) ?? [];
+      const distanceKm =
+        branchPins.length > 0 && anchors.reception
+          ? nearestKm({ lat: anchors.reception.latitude, lng: anchors.reception.longitude }, [
+              pinOf(s.hq_latitude, s.hq_longitude),
+              ...branchPins,
+            ])
+          : kmFrom(anchors.reception, s.hq_latitude, s.hq_longitude);
       const ceremonyDistanceKm = kmFrom(anchors.ceremony, s.hq_latitude, s.hq_longitude);
 
-      // Fit-badge · service-radius reach (2026-07-09). Same tier-cap + fail-open
-      // rule the category-search overlay uses (vendor-tier-caps · serviceRadiusKm):
-      // Verified 20km · Pro 50km reach iff distance ≤ radius; Free (0 = unscoped)
-      // + Enterprise (∞) + unknown distance are admitted (within). Null distance /
-      // no finite radius → within=null (badge hidden, never a false "out of range").
-      const radiusKm = tierCaps(asVendorTier(a?.tier_state ?? null)).serviceRadiusKm;
+      // Fit-badge · service-radius reach (2026-07-09). Same ceiling + fail-open
+      // rule the category-search overlay uses (`reachCeilingKm`): since 2026-11-19
+      // reach is NOT a plan allowance (owner: "unlock the range. not plan dependend
+      // anymore"), so the ceiling is ∞ for a verified shop and 0 for an unverified
+      // one — both unscoped, so within=null and the shop's OWN declared rings below
+      // (`resolveDeclaredRings`) are the only distance claim. Never a false "out of range".
+      const radiusKm = reachCeilingKm(isVerifiedForReach(a?.verification_state ?? null));
       const hasFiniteRadius = Number.isFinite(radiusKm) && radiusKm > 0;
       const withinRadius =
         distanceKm == null || !hasFiniteRadius
@@ -1002,9 +1027,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           : distanceKm <= radiusKm;
 
       // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · §17). The vendor's own
-      // declaration, TIER-CLAMPED HERE so a lapsed subscription can never keep
-      // buying reach through a stale column: a vendor who declared 50 km on Pro
-      // and dropped to Verified reads 20 km, with no backfill job. Either ring
+      // declaration, CLAMPED HERE to the verification ceiling (never the plan, owner
+      // 2026-11-19) so an un-verified shop's stale column reads 0. Either ring
       // resolving null → the bench keeps the tier-derived `within_radius` badge
       // above, unchanged — a blank is never a penalty and never a claim.
       //
@@ -1019,7 +1043,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       const { innerKm: effectiveInnerKm, outerKm: declaredOuterKm } = resolveDeclaredRings({
         declaredInnerKm: declaredRings?.inner_radius_km ?? null,
         declaredOuterKm: declaredRings?.outer_radius_km ?? null,
-        tier: a?.tier_state ?? null,
+        verified: isVerifiedForReach(a?.verification_state ?? null),
       });
 
       // Positive faith match only (true) — a non-match / serves-all / non-wedding
@@ -1044,6 +1068,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // 🛡 Owner 2026-11-16 (36d74d48): a couple is always told when a supplier is not yet verified — the same test as
         // the chat head's line (`threadShowsNotYetVerified`). Drawn from a READ state only; an unread row draws nothing.
         not_yet_verified: threadShowsNotYetVerified(a),
+        // 📄 …and the line reads "Renewing their papers with Setnayan" for a shop whose papers lapsed (owner 16 Nov).
+        papers_renewing: shopVerifiedNote(a) === 'renewing',
         distance_km: distanceKm,
         ceremony_distance_km: ceremonyDistanceKm,
         within_radius: withinRadius,
@@ -2327,6 +2353,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         quoteWaitingOnCouple: standingsByVendorId[row.vendor_id]?.needsYou === true,
         isVerified: where?.isVerified,
         notYetVerified: ext?.not_yet_verified === true,
+        papersRenewing: ext?.papers_renewing === true,
       };
     });
     return teamRows(facts, { eventId, lockHandshakeEnabled: isLockHandshakeEnabled() });
@@ -2370,6 +2397,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         inspiration={findInspiration}
         // Owner 13 Nov 2026 — a supplier taken on the committed day reads "Taken on Dec 12" (the prototype's words).
         takenOnLabel={planPrecision === 'day' ? takenOnWords(planDate) : null}
+        // 🃏 Card 14 (owner 20 Nov): the per-guest total reads the event's estimated guest count; the distance line asks
+        // for a venue when the event has none (the reception anchor is the venue the distances measure from).
+        mallEvent={{
+          guests: Number.isInteger(ev?.estimated_pax) && (ev?.estimated_pax ?? 0) > 0 ? (ev?.estimated_pax ?? null) : null,
+          askVenue: (await nearAnchorsRead).reception == null,
+        }}
         // Pairs, not a Map — this component's own `teamCalendar` prop states the
         // rule: a Set/Map "crosses to the client as an array and is rebuilt there
         // rather than trusted to survive the boundary".

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -49,9 +50,7 @@ function timeAgo(iso: string): string {
 export default async function AdminApprovalsPage() {
   await requireAdmin();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const meId = user?.id ?? '';
 
   const admin = createAdminClient();

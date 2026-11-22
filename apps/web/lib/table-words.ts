@@ -1,5 +1,3 @@
-import { formatCount } from '@/lib/format-number';
-
 /**
  * table-words.ts — how a table's name is written next to a guest.
  *

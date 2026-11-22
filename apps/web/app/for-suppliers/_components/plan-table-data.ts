@@ -140,7 +140,7 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
   /** "₱499 a search" — or just "—" when the row could not be read (never a suffix on nothing). */
   const per = (code: string, tail: string): string => (prices.bySku[code] ? `${prices.bySku[code]}${tail}` : DASH);
 
-  // 💾 Storage first — what the plans are sold by (owner 2026-11-22 "FINAL LADDER"). Verified joins Free: its 5 GB is said
+  // 💾 Storage first — what the plans are sold by (owner 2026-11-22 "FINAL LADDER"). Verified joins Free: its 2 GB is said
   // in the Free cell, like every other limit where the verified step differs.
   const storageCell = (t: VendorTier): TableCell => {
     const w = (b: number | null) => (b === null ? DASH : storageWords(b));

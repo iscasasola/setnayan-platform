@@ -108,10 +108,10 @@ test('every limit cell is the entitlement code — in both states of the plan pa
   assert.equal(cards.cells.solo.text, formatCount(TIER_CAPS.solo.serviceCardsTotal));
   assert.equal(cards.cells.pro.text, 'No limit');
   assert.equal(cards.cells.enterprise.text, 'No limit');
-  // Storage is the first limit — the plans are storage sizes; Verified's 5 GB is said in the Free cell.
+  // Storage is the first limit — the plans are storage sizes; Verified's 2 GB is said in the Free cell.
   const storage = row(g, 'limit:storage');
   assert.equal(g.find((gr) => gr.rows.some((r) => r.key === 'limit:storage'))!.rows[0]!.key, 'limit:storage');
-  assert.deepEqual(TABLE_TIERS.map((t) => storage.cells[t].text), ['1 GB; 5 GB once Verified', '128 GB', '500 GB', '1 TB']);
+  assert.deepEqual(TABLE_TIERS.map((t) => storage.cells[t].text), ['1 GB; 2 GB once Verified', '128 GB', '500 GB', '1 TB']);
   assert.equal(g.flatMap((gr) => gr.rows).some((r) => r.key === 'limit:bookingsPerDate'), false, 'a bookings-a-day row is back');
 });
 

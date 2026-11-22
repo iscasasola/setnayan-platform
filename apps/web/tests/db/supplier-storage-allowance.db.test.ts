@@ -2,7 +2,7 @@
  * 💾 THE PLAN HOLDS STORAGE — covers 20271342883073_supplier_plan_storage_allowance and the numbers of
  * 20271360033501_supplier_final_ladder_2026_11_22.
  *
- * Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes — Free 1 GB · Verified 5 GB · Plus 128 GB · Pro 500 GB ·
+ * Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes — Free 1 GB · Verified 2 GB ("verified is 2Gb only") · Plus 128 GB · Pro 500 GB ·
  * Ultra 1 TB (sizes re-cut 22 Nov, "PLUS CUT TO 128 GB"). Every plan has an allowance (Free and Verified had none before).
  *
  *   · PARITY derives from the TypeScript side (`TIER_CAPS[t].storageBytes`), so editing one side alone turns CI red;
@@ -123,14 +123,14 @@ test('vendor_tier_limit(…,storage_gb) says exactly what TIER_CAPS says — eve
   assert.equal(r.rows[0]!.b ?? Infinity, TIER_CAPS.pro.branchesIncluded);
 });
 
-test('Verified: files up to exactly 5 GB, and the next new byte is refused with storage_allowance', async () => {
+test('Verified: files up to exactly 2 GB, and the next new byte is refused with storage_allowance', async () => {
   const s = await newShop('verified');
-  assert.equal((await file(s, await store(s, 3 * GB))).error, null);
-  assert.equal((await file(s, await store(s, 2 * GB))).error, null, 'exactly 5 GB must fit');
-  assert.equal(await used(s.shop), 5 * GB);
+  assert.equal((await file(s, await store(s, 1.5 * GB))).error, null);
+  assert.equal((await file(s, await store(s, 0.5 * GB))).error, null, 'exactly 2 GB must fit');
+  assert.equal(await used(s.shop), 2 * GB);
   const over = await file(s, await store(s, 1));
-  assert.match(over.error ?? '', /storage_allowance/, 'a byte past 5 GB was let in');
-  assert.equal(await used(s.shop), 5 * GB, 'the refused file was counted');
+  assert.match(over.error ?? '', /storage_allowance/, 'a byte past 2 GB was let in');
+  assert.equal(await used(s.shop), 2 * GB, 'the refused file was counted');
 });
 
 test('Plus holds 128 GB, Pro 500 GB and Ultra (enterprise) 1 TB — owner 2026-11-22', async () => {
@@ -149,15 +149,15 @@ test('Free holds 1 GB now — the next new byte past it is refused (owner 2026-1
 
 test('a link to a copy already counted adds nothing and is never refused — even at full', async () => {
   const s = await newShop('verified');
-  const m = await store(s, 5 * GB);
+  const m = await store(s, 2 * GB);
   assert.equal((await file(s, m)).error, null);
   assert.equal((await file(s, m, s.ev2)).error, null, 'the same copy on a second event was refused');
-  assert.equal(await used(s.shop), 5 * GB, 'one copy on two events counted twice');
+  assert.equal(await used(s.shop), 2 * GB, 'one copy on two events counted twice');
 });
 
 test('removing a file makes room; the stored copy is not deleted; re-linking it past the allowance is refused', async () => {
   const s = await newShop('verified');
-  const a = await store(s, 4 * GB);
+  const a = await store(s, 1.5 * GB);
   const fa = await file(s, a);
   assert.equal(fa.error, null);
   await asUser(s.uid);
@@ -166,8 +166,8 @@ test('removing a file makes room; the stored copy is not deleted; re-linking it 
   assert.equal(await used(s.shop), 0, 'a copy no file points at still counts — the shop could never make room');
   const kept = await db.query(`SELECT 1 FROM public.supplier_media WHERE media_id = $1`, [a]);
   assert.equal(kept.rows.length, 1, 'the stored copy was deleted');
-  assert.equal((await file(s, await store(s, 3 * GB))).error, null, 'the room was not given back');
-  assert.match((await file(s, a)).error ?? '', /storage_allowance/, 'a re-link of 4 GB on top of 3 GB was let in');
+  assert.equal((await file(s, await store(s, 1 * GB))).error, null, 'the room was not given back');
+  assert.match((await file(s, a)).error ?? '', /storage_allowance/, 'a re-link of 1.5 GB on top of 1 GB was let in');
 });
 
 test('GRANDFATHERED: a shop over a lowered allowance keeps every file; only the next new bytes are refused', async () => {

@@ -5,7 +5,7 @@ Owner, 22 Nov 2026, "FINAL LADDER" + "STARTER BUSINESS", with the sizes re-cut t
 | Plan | Storage | Live cards | People beyond the owner | Branches | Categories |
 |---|---|---|---|---|---|
 | Free | 1 GB | 1 | 0 | 0 | 1 |
-| Verified | 5 GB | 3 | 0 | 0 | 1 |
+| Verified | 2 GB | 3 | 0 | 0 | 1 |
 | Plus (`solo`) | 128 GB | 15 | 2 | 0 | no limit |
 | Pro | 500 GB | no limit | no limit | no limit | no limit |
 | Ultra (`enterprise`) | 1 TB | no limit | no limit | no limit | no limit |
@@ -25,7 +25,7 @@ Owner, 22 Nov 2026, "FINAL LADDER" + "STARTER BUSINESS", with the sizes re-cut t
 - **Words.** Storage reads "500 GB" / "1 TB" (`storageWords` prints TB from 1,000 GB). A no-limit plan says "No limit", "every category" or "as many … as you like", never "Infinity", "—" or "up to No limit". The public plan table leads with a Storage row. Storage refusals point Free and Verified at Plus.
 - **Migration `20271360033501_supplier_final_ladder_2026_11_22`** (do-not-auto-merge):
   - `vendor_plan_contents` rows set to the ladder, with NULL meaning no limit;
-  - `vendor_tier_limit` returns storage_gb 1 · 5 · 128 · 500 · 1000, and honours a stored NULL for `branches_included`;
+  - `vendor_tier_limit` returns storage_gb 1 · 2 · 128 · 500 · 1000 (Verified 2 GB: owner, 22 Nov, "verified is 2Gb only"), and honours a stored NULL for `branches_included`;
   - `enforce_included_branch_allowance` treats NULL as no limit;
   - the finite-keys CHECK no longer covers `branches_included`;
   - `vendor_pro_tools_included` opens from Plus;
@@ -33,6 +33,6 @@ Owner, 22 Nov 2026, "FINAL LADDER" + "STARTER BUSINESS", with the sizes re-cut t
   - `offer_creator_reach_hold` opens from Plus (every paid size).
 
   It writes no price and retires no row.
-- **Not in this PR (next):** monthly-only prices and retiring the yearly / add-on SKUs, with their words on the price pages, llms.txt, `suppliers-b.ts` and `help/supplier-1.ts` (after #8150); retiring `vendor_deep_search` (the tool stays, with one run a month on Plus/Pro/Ultra from an admin setting, none on Free/Verified) and its purchase path and words; then the storage ledger and chat room (A, K).
+- **Not in this PR (next):** monthly-only prices and retiring the yearly / add-on SKUs, with their words on the price pages, llms.txt, `suppliers-b.ts` and `help/supplier-1.ts` (after #8150); retiring `vendor_deep_search` (the tool stays, with one run a month on Plus/Pro/Ultra from an admin setting, none on Free/Verified) and its purchase path and words; then the storage ledger and chat room (A, K): the room for chat and documents (Free 0.5 · Verified 1 · Plus 10 · Pro 50 · Ultra 100 GB), and the meter that counts everything a shop owns — every file and every data record by its stored size, shown as Photos & video · Files · Records, with words, quotes, contracts, receipts and proofs counted but never blocked (owner, 22 Nov: "we want them to achieve limits asap"). Today's meter counts filed event files only.
 
 SPEC IMPACT: None. This builds the ruled spec § ★ B; the corpus already says it.

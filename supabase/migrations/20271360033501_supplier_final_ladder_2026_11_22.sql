@@ -7,7 +7,7 @@
 --
 --   plan (code)          storage   live cards   people beyond owner   branches beyond main shop   categories
 --   Free     (free)       1 GB      1            0                     0                           1
---   Verified (verified)   5 GB      3            0                     0                           1
+--   Verified (verified)   2 GB      3            0                     0                           1
 --   Plus     (solo)       128 GB    15           2                     0                           no limit
 --   Pro      (pro)        500 GB    no limit     no limit              no limit                    no limit
 --   Ultra    (enterprise) 1 TB      no limit     no limit              no limit                    no limit
@@ -17,7 +17,7 @@
 --
 -- This is the DATA half of `TIER_CAPS` (apps/web/lib/vendor-tier-caps.ts), which moves in the same PR:
 --   1 · the admin-editable `vendor_plan_contents` rows (NULL = no limit, as the app reads them);
---   2 · `vendor_tier_limit()`: storage_gb 1 · 5 · 128 · 500 · 1000 (Free and Verified had none), branches no limit on
+--   2 · `vendor_tier_limit()`: storage_gb 1 · 2 · 128 · 500 · 1000 (Verified 2 GB: owner 22 Nov "verified is 2Gb only") (Free and Verified had none), branches no limit on
 --       Pro and Ultra — and a stored NULL for `branches_included` now MEANS no limit instead of falling back;
 --   3 · `enforce_included_branch_allowance`: a NULL allowance is no limit (it used to COALESCE NULL to 0);
 --   4 · `vendor_pro_tools_included`: Plus joins Pro and Ultra (owner: every tool on every paid size);
@@ -110,7 +110,7 @@ AS $$
       WHEN 'storage_gb' THEN
         CASE t.plan
           WHEN 'free'       THEN 1              -- owner 2026-11-22 "FINAL LADDER": the plans are storage sizes
-          WHEN 'verified'   THEN 5
+          WHEN 'verified'   THEN 2              -- owner 2026-11-22 "verified is 2Gb only"
           WHEN 'solo'       THEN 128
           WHEN 'pro'        THEN 500
           WHEN 'enterprise' THEN 1000           -- 1 TB (decimal, as the supplier reads it)
@@ -126,7 +126,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.vendor_tier_limit(text, text) IS
-  'Per-plan limits. Reads public.vendor_plan_contents first (admin-editable since 2026-11-13, two-admin approval), falling back to the code values when no row exists. Keys: whitelist_per_date · waitlist_acceptances · branches_included · storage_gb (the table also holds service_cards_total · parent_categories · agent_accounts, which the app reads). branches_included: NULL = no limit (Pro and Ultra since 2026-11-22), and a stored NULL row is honoured. storage_gb: 1 · 5 · 128 · 500 · 1000 (owner 2026-11-22 "FINAL LADDER", sizes re-cut by "PLUS CUT TO 128 GB"). An unknown TIER reads as Free; an unknown KEY returns NULL on purpose. Fallback mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts.';
+  'Per-plan limits. Reads public.vendor_plan_contents first (admin-editable since 2026-11-13, two-admin approval), falling back to the code values when no row exists. Keys: whitelist_per_date · waitlist_acceptances · branches_included · storage_gb (the table also holds service_cards_total · parent_categories · agent_accounts, which the app reads). branches_included: NULL = no limit (Pro and Ultra since 2026-11-22), and a stored NULL row is honoured. storage_gb: 1 · 2 · 128 · 500 · 1000 (owner 2026-11-22 "FINAL LADDER", sizes re-cut by "PLUS CUT TO 128 GB" and "verified is 2Gb only"). An unknown TIER reads as Free; an unknown KEY returns NULL on purpose. Fallback mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts.';
 
 -- ── 3 · the branch gate: NULL = no limit ───────────────────────────────────
 -- The body of 20271307996183 with ONE change: a NULL allowance lets the branch through (was COALESCE(…, 0)).

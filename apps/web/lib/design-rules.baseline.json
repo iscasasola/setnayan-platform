@@ -73,7 +73,6 @@
   "app/u/[userSlug]/c/[chapterId]/page.tsx": 1,
   "app/vendor-dashboard/clients/[eventId]/mood-board/page.tsx": 1,
   "app/vendor-dashboard/clients/[eventId]/page.tsx": 1,
-  "app/vendor-dashboard/moodboard-library/page.tsx": 1,
   "app/vendor-dashboard/services/[serviceId]/page.tsx": 1,
   "app/vendor-dashboard/services/new/[category]/page.tsx": 1,
   "app/vendor-dashboard/services/new/page.tsx": 1,
@@ -348,6 +347,7 @@
   "app/tour/budget/_components/tour-budget-planner.tsx": 5,
   "app/tour/budget/_components/tour-vendor-itemization.tsx": 6,
   "app/vendor-dashboard/bookings/surface.tsx": 2,
+  "app/vendor-dashboard/manpower/surface.tsx": 6,
   "app/wall/[eventId]/_components/wall-projection.tsx": 1
  },
  "select": {
@@ -401,7 +401,6 @@
   "app/papic/order/[token]/page.tsx": 1,
   "app/vendor-dashboard/_components/branch-manager.tsx": 1,
   "app/vendor-dashboard/attributes/_components/attribute-field-renderer.tsx": 1,
-  "app/vendor-dashboard/lines/page.tsx": 1,
   "app/vendor-dashboard/partnerships/page.tsx": 2,
   "app/vendor-dashboard/proposals/surface.tsx": 4,
   "app/vendor-dashboard/recommendations/_panel.tsx": 2,

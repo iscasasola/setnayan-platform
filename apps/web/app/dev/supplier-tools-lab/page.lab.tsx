@@ -13,6 +13,8 @@
  *   ?p=repertoire    &s=rows | search | notmusic
  *   ?p=recommend     &s=rows | empty
  *   ?p=activities    &s=rows | fail
+ *   ?p=lines         &s=rows | segfail | fail | empty
+ *   ?p=moodboard     &s=rows | empty
  * The forms post the REAL actions; pressing them here needs a session (the lab draws, it does not save).
  * Names are samples: nobody real.
  */
@@ -38,6 +40,10 @@ import { TemplateFail } from '@/app/_components/template-rows';
 import type { ResolvedSchema, VendorAttributePayload } from '@/lib/vendor-service-attributes';
 import type { VendorActivity } from '@/lib/vendor-activities';
 import type { VendorQuestion } from '@/lib/emcee-questions';
+import { LinesView } from '@/app/vendor-dashboard/lines/_components/lines-view';
+import type { LineRow } from '@/app/vendor-dashboard/lines/_components/line-rows';
+import { StylistLibraryEditor, type StylistAsset } from '@/app/vendor-dashboard/moodboard-library/_components/stylist-library-editor';
+import { ToolPin } from '@/app/vendor-dashboard/_components/tool-page';
 
 const DAY = 86_400_000;
 const NOW = Date.UTC(2026, 10, 21, 2, 0);
@@ -189,6 +195,29 @@ const QUESTIONS: VendorQuestion[] = [
   { question_id: 'q4', vendor_profile_id: 'lab', prompt: 'Do you want a moment of silence?', hint: null, is_asked: false, display_order: 40 },
 ];
 
+const line = (id: string, body: string, extra: Partial<LineRow>): LineRow => ({
+  line_id: id, activity_id: null, label_key: null, block_type: null, body, is_private_note: false, use_count: 0, last_used_at: null, ...extra,
+});
+const LINES: LineRow[] = [
+  line('l1', 'Ladies and gentlemen, please rise as we welcome, for the very first time as husband and wife, ⟨couple⟩!', { activity_id: 'a2', use_count: 9 }),
+  line('l2', 'May we invite ⟨couple⟩ to the floor for their first dance.', { label_key: 'First dance', use_count: 6 }),
+  line('l3', 'Dinner is served — enjoy, everyone.', { block_type: 'dinner', use_count: 4 }),
+  line('l4', 'Thank you to ⟨venue⟩ for having us tonight.', {}),
+  line('l5', 'Check the mic battery before the march.', { is_private_note: true }),
+  line('l6', 'Groom’s lola is hard of hearing — face her side.', { is_private_note: true }),
+];
+const MB_PHOTO = (id: string, label: string, state: 'live' | 'draft' | 'rejected' | 'retired'): StylistAsset =>
+  ({
+    asset_id: id, asset_type: 'tablescapes', asset_subtype: null, label, storage_path: `lab/${id}.jpg`,
+    approved_at: state === 'live' || state === 'retired' ? ago(5) : null, retired_at: state === 'retired' ? ago(1) : null,
+    rejected_at: state === 'rejected' ? ago(2) : null, rejection_reason: state === 'rejected' ? 'This photo shows a phone number.' : null,
+    created_at: ago(9), source_event_id: null, from_suggestion: false,
+    // A sample picture at a real size (a flat gradient, nobody's photo), so the editor's "picture leads" is seen.
+    public_url: 'data:image/png;base64,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',
+    color_ranges: {},
+  }) as unknown as StylistAsset;
+const PHOTOS = [MB_PHOTO('p1', 'Garden arch, Tagaytay', 'live'), MB_PHOTO('p2', 'Sweetheart table', 'draft'), MB_PHOTO('p3', 'Reception aisle', 'live'), MB_PHOTO('p4', 'Welcome sign', 'rejected'), MB_PHOTO('p5', 'Centrepiece', 'draft'), MB_PHOTO('p6', 'Cake table', 'retired')];
+
 export default async function SupplierToolsLab({
   searchParams,
 }: {
@@ -288,6 +317,36 @@ export default async function SupplierToolsLab({
         }
         questions={<QuestionsSectionBody measured all={QUESTIONS} starters={[{ prompt: 'Should the host speak in Tagalog, English or both?', hint: '' }, { prompt: 'Any names that are hard to pronounce?', hint: '' }] as never} />}
       />
+    );
+  }
+
+  if (p === 'lines') {
+    screen = (
+      <LinesView
+        lines={s === 'empty' || s === 'fail' ? [] : LINES}
+        activities={s === 'segfail' ? null : [{ activity_id: 'a2', label: 'Grand entrance' }, { activity_id: 'a3', label: 'The shoe game' }]}
+        linesRead={s !== 'fail'}
+        error={null}
+      />
+    );
+  }
+  if (p === 'moodboard') {
+    const photos = s === 'empty' ? [] : PHOTOS;
+    screen = (
+      <div className="mx-auto w-full tab:max-w-3xl px-4 pb-16 sm:px-6">
+        <ToolPin route="/vendor-dashboard/moodboard-library" title="Moodboard library" right={photos.length > 0 ? String(photos.length) : undefined} sub={<span>Your real work, credited, on couples’ mood boards.</span>} />
+        <StylistLibraryEditor
+          initialAssets={photos}
+          gallerySlots={[{ key: 'tablescapes', label: 'Tablescapes' }, { key: 'arches', label: 'Arches' }]}
+          startSlot="tablescapes"
+          shopPhotos={[]}
+          shopPhotosFailed={false}
+          backCatalogueCap={5}
+          importableEditorial={s === 'empty' ? [] : ([{ mediaId: 'm1', caption: 'Day-of photo', alreadyImported: false }, { mediaId: 'm2', caption: 'Sweetheart table', alreadyImported: true }] as never)}
+          importableEditorialFailed={false}
+          cardsByPart={null}
+        />
+      </div>
     );
   }
 

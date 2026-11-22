@@ -23,6 +23,7 @@ import { applyFreeTransportToQuote } from '@/lib/vendor-free-transport';
 import { resolveThreadFreeTransport } from '@/lib/vendor-free-transport.server';
 import { resolveQuoteTotalCentavos } from '@/lib/quote-total';
 import { writeQuoteShopGifts } from '@/lib/shop-gifts.server';
+import { quoteTermsFromCards } from '@/lib/deal-end';
 
 /**
  * Shared CORE for the in-chat vendor proposal (a "quote" is simply a proposal
@@ -108,6 +109,35 @@ export interface SendProposalInput {
  * The draft INSERT failed. The trigger `refuse_demo_cross_booking` is the backstop for the demo rule — its refusal gets
  * its own sentence; anything else is logged with its Postgres code (the generic notice alone hid the cause, 13 Nov).
  */
+/**
+ * The terms of the cards a quote is built from, as one text (`quoteTermsFromCards`, lib/deal-end.ts). '' = the cards
+ * state none, or the quote was built from no card. null = the read was refused — never treated as "no terms".
+ * Only the shop's OWN cards are read, whatever ids the wire sent.
+ */
+async function termsForQuoteCards(supabase: SupabaseClient, vendorProfileId: string, serviceCardIds: readonly string[] | null): Promise<string | null> {
+  const ids = [...new Set((serviceCardIds ?? []).filter((x) => typeof x === 'string' && x.length > 0))].slice(0, 40);
+  if (ids.length === 0) return '';
+  const [cards, rows] = await Promise.all([
+    supabase.from('vendor_services').select('vendor_service_id, title').eq('vendor_profile_id', vendorProfileId).in('vendor_service_id', ids),
+    supabase
+      .from('vendor_service_payment_schedules')
+      .select('vendor_service_id, seq, label, cancellation_terms, downpayment_non_refundable, refund_window_days, no_show_forfeit')
+      .eq('vendor_profile_id', vendorProfileId)
+      .in('vendor_service_id', ids)
+      .order('seq', { ascending: true }),
+  ]);
+  if (cards.error || rows.error) {
+    console.error('[proposal-send] the quote’s terms were not read:', (cards.error ?? rows.error)?.message);
+    return null;
+  }
+  type TermRow = { vendor_service_id: string; seq: number; label: string; cancellation_terms: string | null; downpayment_non_refundable: boolean; refund_window_days: number | null; no_show_forfeit: boolean };
+  const byCard = new Map<string, TermRow[]>();
+  for (const r of (rows.data ?? []) as TermRow[]) byCard.set(r.vendor_service_id, [...(byCard.get(r.vendor_service_id) ?? []), r]);
+  const titleOf = new Map(((cards.data ?? []) as { vendor_service_id: string; title: string | null }[]).map((c) => [c.vendor_service_id, c.title]));
+  // In the order the quote names its cards; a card that is not this shop's is simply not in `titleOf`.
+  return quoteTermsFromCards(ids.filter((id) => titleOf.has(id)).map((id) => ({ title: titleOf.get(id) ?? null, rows: byCard.get(id) ?? [] })));
+}
+
 function insertRefusal(insErr: { code?: string; message?: string } | null): { ok: false; code: SendProposalError; message: string } {
   const demo = demoRefusalFromDbError(insErr);
   if (demo) return { ok: false, code: 'demo_scope', message: demo };
@@ -709,6 +739,15 @@ export async function sendCustomProposalCore(
     if (refusal) return { ok: false, code: 'needs_valid_until', message: refusal };
   }
 
+  // 📜 TERMS AT ACCEPT (Unichat part H2, 20 Nov 2026). The supplier's own reservation terms — written on the service
+  // card (seq 0 of its payment schedule) — are FROZEN onto this quote, so what the hosts accept is the terms as they
+  // stood when it was sent, whatever the card says later. A refused read stops the send: a quote that silently drops
+  // its terms would read exactly like a supplier who has none.
+  const quoteTerms = await termsForQuoteCards(supabase, profile.vendor_profile_id, input.serviceCardIds ?? null);
+  if (quoteTerms == null) {
+    return { ok: false, code: 'failed', message: 'Couldn’t read your service card’s terms just now, so nothing was sent. Please try again.' };
+  }
+
   // Insert as draft, then flip to sent (mirrors the package path's freeze).
   const { data: inserted, error: insErr } = await supabase
     .from('vendor_proposals')
@@ -724,7 +763,7 @@ export async function sendCustomProposalCore(
         ...quotePaxSnapshot(input.pax),
       },
       rendered_body: renderedBody,
-      rendered_terms: '',
+      rendered_terms: quoteTerms,
       line_items: lineItems,
       total_centavos: totalCentavos,
       payment_schedule: resolvedSchedule ?? {},

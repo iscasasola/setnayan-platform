@@ -23,14 +23,18 @@ export type IapStartRefusal =
   | 'not_on_sale'
   | 'event_over'
   | 'owned'
-  | 'try_again';
+  | 'try_again'
+  /** 💝 A shop's gift: only the shop's owner or an admin buys gifts, as on the web. */
+  | 'not_shop_owner';
 
 export type IapStartResult =
-  | { ok: true; token: string; productId: string }
+  /** `quantity` — how many StoreKit is asked for: 1 for a couple product; a gift cart line's 1–10. */
+  | { ok: true; token: string; productId: string; quantity: number }
   | { ok: false; reason: IapStartRefusal; message: string };
 
 export type IapConfirmResult =
-  | { status: 'on'; eventId: string; serviceKey: string }
+  /** `eventId` null = a shop's gift, landed in the shop's gift stock (`vendorProfileId`). */
+  | { status: 'on'; eventId: string | null; vendorProfileId?: string; serviceKey: string }
   | { status: 'pending' }
   | { status: 'refunded' }
   | { status: 'invalid' }
@@ -50,6 +54,7 @@ const START_COPY: Record<IapStartRefusal, string> = {
   event_over: 'Your day is over — this can no longer be added.',
   owned: 'Your event already has this.',
   try_again: 'We couldn’t start that. Nothing was charged — please try again.',
+  not_shop_owner: 'Only the shop’s owner or an admin can buy gifts.',
 };
 
 export function startRefusal(reason: IapStartRefusal): IapStartResult {
@@ -113,6 +118,9 @@ export function screenFor(sheet: IapSheetResult, server: IapConfirmResult | null
 export function refusedLine(reason: string): string {
   if (reason === 'not_yours') {
     return 'This purchase belongs to a different Setnayan account. Sign in as the account that started it, then open Profile › Restore purchases.';
+  }
+  if (reason === 'no_shop') {
+    return 'The shop this gift was bought for no longer exists, so nothing was added. Apple can refund it from your Apple account’s purchase history.';
   }
   if (reason === 'no_event') {
     return 'The event this was bought for no longer exists, so nothing was switched on. Apple can refund it from your Apple account’s purchase history.';

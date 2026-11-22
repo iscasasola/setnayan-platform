@@ -168,7 +168,8 @@ test('A5 · the hint, with the categories per plan read from TIER_CAPS', () => {
   // 🔁 Retargeted 2026-11-06 to the approved redesign's words (the prototype's `planHint2`), the ⓘ now the label's.
   assert.match(WIZARD, /label="Add more later\. How many categories you can run depends on your plan"/);
   assert.match(WIZARD, /ariaLabel="Categories per plan"/);
-  assert.match(PAGE, /planCategories=\{categoryLadder\(\)\}/);
+  // 🍎 22 Nov: inside the iPhone app the ladder is not read (the app names no plan — the-app-supplier-door-names-no-price).
+  assert.match(PAGE, /planCategories=\{storeShell \? \[\] : categoryLadder\(\)\}/);
   const ladder = categoryLadder();
   assert.ok(ladder.length >= 3);
   const solo = ladder.find((l) => l.plan === 'Plus')!;

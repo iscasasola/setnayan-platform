@@ -63,6 +63,30 @@ export function pickNextPayment(lines: readonly MoneyLine[]): NextPayment | null
 }
 
 /**
+ * 💸 WHAT IS DUE, ONE ROW PER SUPPLIER (owner 2026-11-21, DECISION_LOG "COORDINATOR: DUE PAYMENTS VIEWABLE + 'REMIND THE
+ * HOSTS', NOT LOGGABLE") — the booked coordinator's "Payments due" on the Budget page, each with "Remind the hosts".
+ * The same lines `pickNextPayment` reads (agreed money only, dated, still owed); per supplier the EARLIEST, soonest
+ * first. A cost with no supplier is the hosts' own expense — nothing to remind about, so it is left out.
+ */
+export function pickDuePayments(lines: readonly MoneyLine[]): Array<NextPayment & { vendorId: string }> {
+  const bySupplier = new Map<string, MoneyLine>();
+  for (const l of lines) {
+    if (l.kind !== 'committed' || !l.dueDate || !(l.stillOwedPhp > 0) || !l.vendorId) continue;
+    const had = bySupplier.get(l.vendorId);
+    if (!had || l.dueDate < had.dueDate!) bySupplier.set(l.vendorId, l);
+  }
+  return [...bySupplier.values()]
+    .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!) || (a.vendorName ?? a.label).localeCompare(b.vendorName ?? b.label))
+    .map((l) => ({
+      amountPhp: l.stillOwedPhp,
+      name: l.vendorName ?? l.label,
+      dueDate: l.dueDate!,
+      vendorId: l.vendorId!,
+      costId: null,
+    }));
+}
+
+/**
  * The meter under the summary: green = paid, gold = agreed, track = target,
  * a red tail when agreed runs past the target. Widths are percentages of
  * whichever is larger, target or agreed — so the bar is never longer than its

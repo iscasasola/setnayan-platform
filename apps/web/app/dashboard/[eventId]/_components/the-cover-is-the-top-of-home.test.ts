@@ -27,13 +27,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
-import { levelTodayWords } from '@/lib/coordinator-access-level';
 
 const WEB = join(__dirname, '../../../..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const DIR = 'app/dashboard/[eventId]/_components';
 
-const ASKS = ['CoordinatorLevelCard', 'AccessRequestsDoorway', 'DateChangeDoorway', 'EventDayPrepCta'] as const;
+// 🔁 The coordinator's Limited · Full ask RETIRED 2026-11-21 (booked = the ruled access): three prompts remain.
+const ASKS = ['AccessRequestsDoorway', 'DateChangeDoorway', 'EventDayPrepCta'] as const;
 
 /** Drawn before the phase branch, and why each may be: none of them puts a box above the cover. */
 const NO_BOX_OR_NO_COVER: Readonly<Record<string, string>> = {
@@ -67,7 +67,7 @@ test('1 · the first screen opens on the cover; Now rides it; the asks sit under
   assert.ok(asks > coverEnd, 'the asks render inside or above the event card');
 });
 
-test('2 · Home draws nothing above the cover; the four prompts live only in todayAsks', () => {
+test('2 · Home draws nothing above the cover; the prompts live only in todayAsks', () => {
   const page = src('app/dashboard/[eventId]/page.tsx');
   const ret = page.slice(page.indexOf('<LastSeenCapture page="home"'));
   // 🖥 The phase branch opens on the day's large-screen wrapper (tablet/desktop lane 4, 2026-11-13): the day-of console
@@ -92,13 +92,13 @@ test('2 · Home draws nothing above the cover; the four prompts live only in tod
     assert.equal(page.split(`<${a} `).length - 1, 1, `<${a}> is drawn more than once`);
     assert.ok(block.includes(`<${a} `), `<${a}> left the Today asks`);
   }
-  assert.ok(block.indexOf('<CoordinatorLevelCard ') < block.indexOf('<AccessRequestsDoorway '), 'the coordinator’s access is not first');
+  assert.doesNotMatch(page, /CoordinatorLevelCard|coordinatorAsks/, 'the retired Limited · Full ask is back on Home');
   // RE-AIMED 20 Nov 2026: before the day the SAME asks are rows of the first screen's one list — worded from the very
   // reads the doorways above take (`eventTodayAsks`), handed in as `todayList`; the lines themselves are drawn only
   // where there is no cover.
   assert.match(page, /todayList=\{\{ asks: todayRows\.asks, bodies: todayRows\.bodies, putOffs: todayPutOffs, todayIso, inviteNames: toInviteNames\(guests\) \}\}/, 'the asks are not handed to the first screen as rows');
-  assert.match(page, /eventTodayAsks\(\{\s*eventId,\s*access: accessAsks,\s*coordinator: coordinatorAsks,\s*mood: moodAsks,\s*dateChange,/, 'the list’s asks are not the doorways’ own reads');
-  for (const [door, read] of [['CoordinatorLevelCard', 'coordinatorAsks'], ['AccessRequestsDoorway', 'accessAsks'], ['MoodBoardAsksDoorway', 'moodAsks'], ['DateChangeDoorway', 'dateChange']] as const) {
+  assert.match(page, /eventTodayAsks\(\{\s*eventId,\s*access: accessAsks,\s*mood: moodAsks,\s*dateChange,/, 'the list’s asks are not the doorways’ own reads');
+  for (const [door, read] of [['AccessRequestsDoorway', 'accessAsks'], ['MoodBoardAsksDoorway', 'moodAsks'], ['DateChangeDoorway', 'dateChange']] as const) {
     assert.match(block, new RegExp(`<${door} [^>]*read=\\{${read}\\}`), `<${door}> reads again instead of taking the page's one read`);
   }
   // Drawn where there is no cover: the day-of console, the after summary, and (as before lane 4) an After phase whose
@@ -112,7 +112,6 @@ test('2 · Home draws nothing above the cover; the four prompts live only in tod
 
 test('3 · each prompt IS a Today line, never a tile of its own', () => {
   const files: Record<string, RegExp> = {
-    [`${DIR}/coordinator-level-ask.tsx`]: /<HomeTodayItem\b/,
     [`${DIR}/access-requests-doorway.tsx`]: /<HomeTodayItem\b/,
     [`${DIR}/date-change-doorway.tsx`]: /<TodaySheetItem\b/,
     'app/_components/event-day-prep-cta.tsx': /<HomeTodayItem\b/,
@@ -123,22 +122,12 @@ test('3 · each prompt IS a Today line, never a tile of its own', () => {
     assert.doesNotMatch(s, /className="sn-tile/, `${f} still draws a tile`);
   }
   // The answer opens the house Sheet — the shared one.
-  assert.match(src(`${DIR}/coordinator-level-ask.tsx`), /import \{ Sheet \} from '@\/app\/_components\/sheet';/);
   assert.match(src(`${DIR}/home-parts.tsx`), /import \{ Sheet \} from '@\/app\/_components\/sheet';/);
 });
 
-test('4 · the coordinator’s line names the SHOP that joined, found from every couple-readable source', () => {
-  assert.equal(levelTodayWords('The Wedding Project'), 'The Wedding Project joined as your coordinator');
-  assert.match(levelTodayWords(null), /^A supplier joined/, 'a missing name falls back to a bare role word');
-  const ask = src(`${DIR}/coordinator-level-ask.tsx`);
-  assert.match(ask, /words=\{levelTodayWords\(ask\.shop\)\}/, 'the Today line does not name the shop');
-  assert.match(ask, /logoUrl=\{openFor\.logoUrl\}/, 'the sheet lost the shop’s logo');
-  const card = src(`${DIR}/coordinator-level-card.tsx`);
-  assert.match(
-    card,
-    /shop: s\.display_label\?\.trim\(\) \|\| shop\?\.name \|\| askedName\.get\(s\.user_id!\) \|\| null,/,
-    'the shop name is not sought label → shop → its access request',
-  );
-  assert.match(card, /\.from\('event_access_requests'\)/, 'the shop’s own request is not read — the live seat has no label');
-  assert.match(card, /\.from\('event_vendors'\)/, 'the shop’s booking name is not read');
+test('4 · the retired coordinator ask is gone from the code, not just hidden', () => {
+  for (const f of ['coordinator-level-ask.tsx', 'coordinator-level-card.tsx']) {
+    assert.throws(() => readFileSync(join(WEB, DIR, f), 'utf8'), `${f} came back`);
+  }
+  assert.doesNotMatch(src(`${DIR}/event-today-asks.tsx`), /CoordinatorLevel|levelTodayWords/, 'the Today list asks Limited · Full again');
 });

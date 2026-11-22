@@ -87,8 +87,9 @@ export function chatKindOf(m: ChatKindRow, filed = false): ThreadKind | null {
   const body = m.body ?? '';
   if (m.sender_role === 'system') {
     const line = streamLineKind(body);
-    if (line === 'negotiate' || line === 'rise' || line === 'fall') return 'money';
-    if (line === 'schedule') return 'dates';
+    if (line === 'negotiate' || line === 'rise' || line === 'fall' || line === 'receipt') return 'money';
+    if (line === 'schedule' || line === 'crew') return 'dates';
+    if (line === 'handover') return 'files';
     if (line) return 'decisions';
     if (paymentLineOf(body)) return 'money';
     if (ACCESS_LINE.test(body.trim())) return 'decisions';

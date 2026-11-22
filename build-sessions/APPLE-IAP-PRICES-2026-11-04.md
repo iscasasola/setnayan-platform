@@ -1,5 +1,9 @@
 # Apple in-app purchases — prices for the next build (4 Nov 2026)
 
+> ⚠ **SUPERSEDED (22 Nov 2026) by [`APPLE-PRODUCTS-2026-11-22.md`](APPLE-PRODUCTS-2026-11-22.md).** The gift prices below
+> are retired (a gift costs the list price), Music Maker and Patiktok are retired, there is no Live Watch gift, and
+> the supplier gifts are now sold in the app. Read this file for history only.
+
 Source: owner's final price sheet, 4 Nov 2026 — *"same price for both"* (DECISION_LOG
 "FINAL PRICE SHEET — ONE PRICE, APPLE AND WEBSITE"). The App Store price of each product
 is the SAME figure as the website price in Admin › catalogue (`platform_retail_catalog_v2`).

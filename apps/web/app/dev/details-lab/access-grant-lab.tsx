@@ -38,7 +38,6 @@ export const ACCESS_LAB_ROWS: PersonRow[] = [
     name: 'Styled by Bea',
     roleWord: 'Coordinator',
     moderatorId: '00000000-0000-4000-8000-0000000b0001',
-    coordinatorLevel: 'limited',
     lastDay: '2026-12-19',
     areas: areaCells({ ...NARROW, areas: { ...LIMITED_AREAS, mood_board: 'edit' } }),
   }),

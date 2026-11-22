@@ -137,6 +137,35 @@ export function scheduleChangeFromLine(
 }
 
 /**
+ * 🗓 A TIME-CHANGE ASK, EITHER WAY (Unichat part F, 2026-11-20; written by `timeAskLine` in `lib/schedule-time-ask.ts`):
+ *   · "Time change asked · Sound check · 3:30 PM → 3:00 PM"      a supplier asks to move its moment
+ *   · "New moment asked · Crew call · 12:00 PM"                   a supplier asks to add one
+ *   · "Host asks a new time · Detail shots · 10:00 AM → 9:30 AM"  the host or coordinator asks the supplier
+ * Exact words, never guessed; anything else is null (the plain line it always was).
+ */
+export type TimeAskBy = 'supplier' | 'host';
+export type TimeAskLine = { by: TimeAskBy; add: boolean; label: string; from: string | null; to: string };
+
+export const TIME_ASK_HEADS = {
+  move: 'Time change asked',
+  add: 'New moment asked',
+  host: 'Host asks a new time',
+} as const;
+
+export function timeAskFromLine(body: string | null | undefined): TimeAskLine | null {
+  const text = (body ?? '').trim();
+  const m = /^(Time change asked|New moment asked|Host asks a new time) · (.+) · (?:([^·→]+?) → )?([^·→]+?)$/.exec(text);
+  if (!m) return null;
+  const clock = /^\d{1,2}:\d{2} (AM|PM)$/;
+  const from = m[3] ?? null;
+  const to = m[4]!;
+  if (!clock.test(to) || (from !== null && !clock.test(from))) return null;
+  const head = m[1]!;
+  if (head === TIME_ASK_HEADS.add && from !== null) return null;
+  return { by: head === TIME_ASK_HEADS.host ? 'host' : 'supplier', add: head === TIME_ASK_HEADS.add, label: m[2]!, from, to };
+}
+
+/**
  * ✉ The service an inquiry names — its own last line, as `startServiceInquiry` writes it (`inquiryServicesLine`):
  * "Service: Reception Lights & Sound" → that name; "Services: A · B" → "A · B"; no such line → null (the inquiry card
  * then says "Not given", never a guess).
@@ -146,8 +175,58 @@ export function inquiryServiceOf(body: string | null | undefined): string | null
   return m ? m[1]!.trim() || null : null;
 }
 
+// ── The deal's end (Unichat part H2, 20 Nov 2026) — four lines the database writes, each one a card ───────────────
+
+/**
+ * 🧾 A CONFIRMED payment's own line, as the ledger trigger writes it (`tg_vendor_payments_chat_record`, migration
+ * 20271329937802): "First payment confirmed · ₱9,000" · "Payment confirmed · ₱9,000" · a supplier-recorded one,
+ * "Payment recorded · ₱9,000 · GCash · confirmed". The receipt card reads the payment ROW for every figure it shows;
+ * `amountWords` is only the ₱ text as the database printed it, used to find that row — never re-parsed into a price.
+ */
+export function receiptFromLine(body: string | null | undefined): { first: boolean; amountWords: string } | null {
+  const m = /^(First payment|Payment) (?:confirmed · (₱\d{1,3}(?:,\d{3})*(?:\.\d{2})?)|recorded · (₱\d{1,3}(?:,\d{3})*(?:\.\d{2})?)(?: · [^·]+)? · confirmed)$/.exec(
+    (body ?? '').trim(),
+  );
+  return m ? { first: m[1] === 'First payment', amountWords: (m[2] ?? m[3])! } : null;
+}
+
+export type HandoverKind = 'gallery_link' | 'file' | 'note' | 'signoff';
+/** The shipped kinds' own words (`handover-inbox.tsx` KIND_META) — the line says them, the card reads them back. */
+export const HANDOVER_KIND_WORD: Record<HandoverKind, string> = {
+  gallery_link: 'Album link',
+  file: 'Sample / proof',
+  note: 'Note',
+  signoff: 'All delivered',
+};
+
+/**
+ * 📦 "Handover · Album link" (optionally " · <the supplier's label>") — written when a supplier posts a delivery
+ * (`tg_booking_handovers_chat_record`, migration `the_deals_end_is_said_in_the_chat`). "Handover received · Album
+ * link" is the hosts' confirmation: `received` true, and it stays one settled line.
+ */
+export function handoverFromLine(body: string | null | undefined): { kind: HandoverKind; received: boolean } | null {
+  const m = /^Handover( received)? · (Album link|Sample \/ proof|Note|All delivered)(?: · .+)?$/s.exec((body ?? '').trim());
+  if (!m) return null;
+  const kind = (Object.keys(HANDOVER_KIND_WORD) as HandoverKind[]).find((k) => HANDOVER_KIND_WORD[k] === m[2]);
+  return kind ? { kind, received: Boolean(m[1]) } : null;
+}
+
+/** ⭐ The review ask — one line per chat, written when the hosts confirm the first handover (same migration). */
+export const REVIEW_ASK_LINE = 'Review asked · how did it go?';
+export function reviewAskFromLine(body: string | null | undefined): boolean {
+  return (body ?? '').trim() === REVIEW_ASK_LINE;
+}
+
+/** 👷 Crew for the day — one line per chat, written the first time the supplier's crew is named on the schedule. */
+export const DAY_CREW_LINE = 'Crew named for the day';
+export function dayCrewFromLine(body: string | null | undefined): boolean {
+  return (body ?? '').trim() === DAY_CREW_LINE;
+}
+
 /** Which lane-C card a SYSTEM line is, or null (the stream then draws the plain Setnayan line it always drew). */
-export function streamLineKind(body: string | null | undefined): 'book' | 'ask' | 'guests' | 'rise' | 'fall' | 'poll' | 'negotiate' | 'schedule' | null {
+export function streamLineKind(
+  body: string | null | undefined,
+): 'book' | 'ask' | 'guests' | 'rise' | 'fall' | 'poll' | 'negotiate' | 'schedule' | 'receipt' | 'handover' | 'review' | 'crew' | null {
   if (bookRequestFromLine(body)) return 'book';
   if (negotiationFromLine(body)) return 'negotiate';
   if (pollFromLine(body)) return 'poll';
@@ -156,6 +235,12 @@ export function streamLineKind(body: string | null | undefined): 'book' | 'ask' 
   if (quoteRiseFromLine(body)) return 'rise';
   if (quoteFallFromLine(body)) return 'fall';
   if (scheduleChangeFromLine(body)) return 'schedule';
+  if (receiptFromLine(body)) return 'receipt';
+  if (handoverFromLine(body)) return 'handover';
+  if (reviewAskFromLine(body)) return 'review';
+  if (dayCrewFromLine(body)) return 'crew';
+  // 🗓 A time-change ASK, either way (Unichat part F) — the same lazy card chunk draws it.
+  if (timeAskFromLine(body)) return 'schedule';
   return null;
 }
 

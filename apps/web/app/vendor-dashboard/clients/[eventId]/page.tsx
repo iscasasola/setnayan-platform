@@ -70,6 +70,8 @@ import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { SupplierCountTile } from './_components/supplier-count-tile';
 import { QuoteTopLines } from './_components/quote-top-lines';
+import { YourBookingCard } from './_components/your-booking-card';
+import { yourBookingView, type YourBookingView } from '@/lib/your-booking';
 import { quotePlanLine } from '@/lib/quote-top-lines';
 import { ruleRoleLabels, ruleWords } from '@/lib/supplier-count';
 import {
@@ -187,11 +189,14 @@ import { detailsNumbers } from './_components/details-numbers';
 import { OPEN_MEETING_STATUSES, openMeetingsWindow } from '../../customers/clients-tiles';
 import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
+import { TheirEventList } from './_components/their-event-list';
+import { readTheirEvent } from '@/lib/their-event.server';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
 import { ScheduleDays } from './_components/schedule-days';
-import { clientScheduleDays, scheduleDaysUnread } from '@/lib/schedule-days';
+import { clientScheduleDays, scheduleDaysUnread, unreadDaysLine } from '@/lib/schedule-days';
+import { clientAgenda, dayMonthWords } from '@/lib/client-agenda';
 import { DetailsDecisions } from './_components/details-decisions';
 import { ClientChatStrip } from './_components/client-chat-strip';
 import { chatStrip, nextDated, suggestedStep } from '@/lib/client-chat-strip';
@@ -784,6 +789,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Only what the host has not already shared — asking for what you hold
   // spends the host's attention on nothing.
   const askableAreas = FLOOR_REQUESTABLE_AREAS.filter((a) => !myGrants[a]) as DelegateArea[];
+  // 🚪 "THEIR EVENT" (owner 2026-11-21): a booked supplier who is NOT the coordinator gets a short list of links to only
+  // their parts — here and in the chat. The coordinator has the hosts' dashboard instead ("Open their event").
+  const theirEvent =
+    isBooked && !theBookedCoordinator && feeGate.stage === 'unlocked'
+      ? await readTheirEvent(supabase, {
+          eventId,
+          vendorProfileId: profile.vendor_profile_id,
+          services: (profile as { services?: string[] | null }).services ?? null,
+          grants: myGrants,
+          monogramSvg: brief.monogram?.custom_svg ?? null,
+          tables: brief.seat_plan?.table_count ?? null,
+        })
+      : null;
+  const theirEventNode = theirEvent ? <TheirEventList eventId={eventId} rows={theirEvent.rows} /> : null;
 
   const admin = createAdminClient();
   const clientTimer = new ServerTimer('vendor-dashboard/customer-card');
@@ -923,6 +942,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           .select('vendor_id, category, status, vendor_name')
           .eq('event_id', eventId)
           .eq('marketplace_vendor_id', profile.vendor_profile_id)
+          .is('archived_at', null),
+        // 🏛 Unichat F: the VENUE bookings on this event, by name — the one that holds a chapter's hours is said under
+        // its bar ("Set by Fernwood Gardens · confirmed by the hosts"). Only that name is passed on (`hoursHeldBy`).
+        admin
+          .from('event_vendors')
+          .select('vendor_id, vendor_name')
+          .eq('event_id', eventId)
+          .in('category', [...VENUE_CATEGORIES])
           .is('archived_at', null),
       ]),
       // 📇 Task contacts (4 additions (3), migration 20271303218631): RLS hands a supplier ONLY those on moments they
@@ -1623,7 +1650,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       }));
 
   // 🤝 Their part of the day (Step 4b) — one pass over the reads above (`lib/supplier-schedule.ts`).
-  const [factsEvent, factsBookings] = myScheduleFacts;
+  const [factsEvent, factsBookings, factsVenues] = myScheduleFacts;
   const myBookingIds = ((factsBookings.data ?? []) as { vendor_id: string }[]).map((b) => b.vendor_id);
   if (eventVendorId && !myBookingIds.includes(eventVendorId)) myBookingIds.push(eventVendorId);
   const supplierDay = liveBlocks
@@ -1654,6 +1681,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         venueBookingIds: ((factsBookings.data ?? []) as { vendor_id: string; category: string | null }[])
           .filter((b) => VENUE_CATEGORIES.has(b.category ?? ''))
           .map((b) => b.vendor_id),
+        // A refused read gives no names — the line then says "Set by the venue", never a wrong or blank name.
+        venueNames: factsVenues.error ? null : ((factsVenues.data ?? []) as { vendor_id: string; vendor_name: string | null }[]),
         tasks: (myTasksRes.data ?? []) as SupplierTaskRow[],
         requests: suggestions,
         contacts: myContactsRes.error ? [] : ((myContactsRes.data ?? []) as SupplierContactRow[]),
@@ -2234,7 +2263,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
    * drift again.
    */
   const askBlock = isBooked ? (
-    <div className="mt-4 space-y-4">
+    <div id="ask-access" className="mt-4 scroll-mt-20 space-y-4">
       <AskAccess
         eventId={eventId}
         askable={askableAreas}
@@ -2285,8 +2314,35 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     </div>
   );
 
+  // 💳 THE BOOKING'S MONEY, folded ONCE (`clientPaymentView`) — the chat strip and Details › Your booking both read it.
+  // Built before `overviewNode`, which is drawn eagerly below. Every input is a read above.
+  const stripPay = isBooked
+    ? clientPaymentView({
+        steps: planStepRows?.steps ?? null,
+        clearedAt: planStepRows?.clearedAt ?? null,
+        ledgerMoney,
+        // ⚖ A plan read cut short (bookings, plans or payments refused) is not a booking with nothing paid: the whole
+        // view says "couldn't load" — the same rule the Details tiles follow (`plan: !planReadComplete ? 'unread'`).
+        ledgerUnreadable: ledgerUnreadable || !planReadComplete,
+        refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : 0,
+      })
+    : null;
+  // 🧾 The agreed quotation (Details › Your booking names what it covers): the newest accepted one.
+  const agreedQuote = [...proposals]
+    .filter((p) => p.status === 'accepted')
+    .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
+  // 🧾 Details › Your booking — the supplier's OWN booking money, never the hosts' plan (owner 21 Nov · controller 22 Nov).
+  const yourBooking = stripPay
+    ? yourBookingView({
+        pay: stripPay,
+        quoteLines: proposalRowsError ? null : agreedQuote ? quoteLinesOf(agreedQuote.line_items).map((l) => l.label) : undefined,
+        peso: (php) => fmtPeso(php),
+      })
+    : null;
+
   const overviewNode = (
     <OverviewTab
+      yourBooking={yourBooking}
       eventId={eventId}
       brief={brief}
       headcountRule={headcountRule}
@@ -2410,6 +2466,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     feeUnlocked,
     eventVendorId,
     eventDate: brief.event.event_date,
+    theirEventRows: theirEvent?.rows ?? null,
     threadSearch: supplierThreadNoticeSearch(search as Readonly<Record<string, string | string[] | undefined>>),
     // 🧾 Details › Agreed now, as drawn (part G, 20 Nov): Venue · Hosts · Coordinator · Supplier · Stage — every one a
     // fact this page already read; the Event row is the card's own (it reads the event's type). No new read here.
@@ -2605,6 +2662,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             {/* Item 2 of the ruling — "the request to access features". The
                 panel above already says why, so this withholds rather than
                 repeating it. */}
+            {tab === 'overview' && feeUnlocked ? theirEventNode : null}
             {tab === 'overview' && feeUnlocked ? askBlock : null}
             {/* Item 1 — the brief itself. Rendered at every stage, but from the
                 REDACTED payload: a quoting supplier still prices the job. */}
@@ -2847,15 +2905,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Every input is a read above, plus its two own (`stripAsksP` · `stripFormsP`). A refused read reaches the strip as
   // `null` and is SAID ("Couldn't load · tap to retry") — never ₱0, never "0 open".
   const stripToday = manilaTodayIso();
-  const stripPay = isBooked
-    ? clientPaymentView({
-        steps: planStepRows?.steps ?? null,
-        clearedAt: planStepRows?.clearedAt ?? null,
-        ledgerMoney,
-        ledgerUnreadable,
-        refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : 0,
-      })
-    : null;
   const stripAsksRes = stripAsksP ? await stripAsksP : null;
   const stripAsks = stripAsksRes && !stripAsksRes.error ? ((stripAsksRes.data ?? []) as DealAskDbRow[]).map(dealAskOf) : null;
   if (stripAsksRes?.error) logQueryError('vendorClientCard.stripAsks', stripAsksRes.error, { eventId }, 'graceful_degrade');
@@ -2887,6 +2936,35 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     forms: stripForms && stripForms.status === 'ok' ? { open: stripForms.open, sent: stripForms.sent } : null,
     step: nextStep ? { line: nextStep.line, page: nextStep.page } : null,
   });
+  // 📅 Unichat F — the dated list the Next box raises: the same days the Schedule's strip draws (meetings, payment due
+  // days), plus the live quote's good-until until booking locks it. Its version is its place among this shop's SENT
+  // quotes for the event, oldest first (`orderQuoteVersions`' rule). A refused read is said on the list, never hidden.
+  const agendaQuoteVersion = sentQuote
+    ? [...proposals]
+        .filter((p) => p.status !== 'draft')
+        .sort((a, b) => {
+          const ta = Date.parse(a.sent_at ?? a.created_at ?? '') || 0;
+          const tb = Date.parse(b.sent_at ?? b.created_at ?? '') || 0;
+          return ta !== tb ? ta - tb : a.proposal_id < b.proposal_id ? -1 : 1;
+        })
+        .findIndex((p) => p.proposal_id === sentQuote.proposal_id) + 1
+    : 0;
+  const agendaEventDate = brief.event.event_date ?? null;
+  const stripAgenda = {
+    eventId,
+    eventDate: agendaEventDate,
+    eventDayWords: dayMonthWords(agendaEventDate),
+    unreadLine: unreadDaysLine(scheduleDaysUnread({ meetingsRead: !appointmentsReadFailed, paymentsRead: planReadComplete })),
+    agenda: clientAgenda({
+      todayIso: stripToday,
+      eventDate: agendaEventDate,
+      days: clientScheduleDays({ eventDate: agendaEventDate, chapters: [], meetings: appointmentViews, payments: planRowsAll.flatMap((p) => p.steps ?? []) }),
+      quote: isBooked || proposalRowsError || !sentQuote ? null : { version: agendaQuoteVersion || null, validUntil: sentQuote.valid_until ?? null },
+    }),
+    day: supplierPart.day,
+    autoAgree: supplierPart.autoAgree,
+    tasksRead: supplierPart.tasksRead,
+  };
   const stripSuggest = suggestedStep({
     hasThread: Boolean(threadId),
     isBooked,
@@ -3003,7 +3081,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       bodies={bodies}
       landAt={wantsScriptFold(rawTab) ? (showScript ? SCRIPT_FOLD_ID : null) : pickedAnchorOf(rawTab)}
       workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: brief.event.event_date ?? null, isBooked })}
-      strip={<ClientChatStrip boxes={stripBoxes} threadId={threadId} />}
+      strip={<ClientChatStrip boxes={stripBoxes} threadId={threadId} agenda={stripAgenda} />}
       suggest={stripSuggest}
       inquiry={inquiryFacts}
       settingsLine={{
@@ -3193,6 +3271,8 @@ function ReturningMarker({ returningFlag }: { returningFlag: ReturningClientFlag
 function OverviewTab(props: {
   eventId: string;
   brief: Brief;
+  /** 🧾 Details › Your booking — the supplier's own booking money, decided once on the page. null = not booked. */
+  yourBooking: YourBookingView | null;
   /** 🧮 Their count and its why (owner 2026-11-04) — null for a flat-priced service or a refused read. */
   headcountRule: SupplierHeadcount | null;
   /** The couple's words for roles, for the rule's line. */
@@ -3291,6 +3371,7 @@ function OverviewTab(props: {
     isVendorMarked,
     hideCompletion,
     search,
+    yourBooking,
   } = props;
 
   return (
@@ -3508,33 +3589,14 @@ function OverviewTab(props: {
           </Link>
         </Card>
 
-        {/* Budget — couple opt-in range for THIS vendor's category (PR-5).
-         *  Rendered at both stages; it's a quote input, most useful at inquiry.
-         *  Present → a rounded range; absent → the couple hasn't opted in (or has
-         *  no allocation for this category). Never an exact figure. */}
-        <Card>
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
-            <Wallet aria-hidden className="h-4 w-4 text-terracotta" /> Budget
-          </h2>
-          {brief.budget_band ? (
-            <>
-              <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums">
-                {fmtPesoCentavos(brief.budget_band.lo_centavos)}
-                <span className="mx-1.5 text-ink/40">–</span>
-                {fmtPesoCentavos(brief.budget_band.hi_centavos)}
-              </p>
-              <p className="mt-2 text-xs text-ink/55">
-                Shared by the couple · for your category. A range to quote against —
-                never their exact number.
-              </p>
-            </>
-          ) : (
-            <p className="mt-3 flex items-center gap-2 rounded-lg bg-raised/70 px-3 py-2.5 text-sm text-ink/55">
-              <Info aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> Not shared —
-              the couple hasn&rsquo;t opted into budget sharing.
-            </p>
-          )}
-        </Card>
+        {/* 🧾 YOUR BOOKING (owner 21 Nov 2026 — "the quotation, payment plan, status"): where "Budget" stood, the
+         *  supplier's OWN booking money, view only — never the hosts' plan, not even while they share it (controller,
+         *  22 Nov 2026). Before a booking there is no booking money, so there is no card here at all. */}
+        {isBooked && yourBooking ? (
+          <Card>
+            <YourBookingCard eventId={eventId} view={yourBooking} />
+          </Card>
+        ) : null}
       </div>
 
       {/* Seat plan — status + size at every stage; the floor plan itself opens once booked. */}

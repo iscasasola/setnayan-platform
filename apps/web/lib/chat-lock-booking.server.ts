@@ -5,6 +5,7 @@ import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { planChatLockBooking } from '@/lib/chat-lock-booking';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { closedDayRefusal } from '@/lib/closed-day.server';
+import { bookingWindowRefusal } from '@/lib/booking-window.server';
 
 /**
  * `bookVendorAtChatLock` — the SHARED lock primitive behind the couple's chat
@@ -40,6 +41,9 @@ export type ChatLockBookingOutcome =
   // ⬜ The event's day is one the supplier CLOSED (owner 2026-11-14, "Grey: no ask, no book" —
   // `lib/closed-day.server.ts`) → nothing asked, booked or billed.
   | { status: 'date_closed' }
+  // 📅 The event's day is outside the shop's At least · At most (owner 2026-11-19, `lib/booking-window.server.ts`) →
+  // nothing asked, booked or billed. `message` is the couple's words, naming the shop's window.
+  | { status: 'outside_window'; message: string }
   // First lock committed at the negotiated total; fee attempted (`feeCharged` =
   // a 6th+ paid order was minted, vs free-5 / flag-off / off-platform).
   // `priceLanded` — did `total_cost_php` ACTUALLY receive the negotiated total?
@@ -77,6 +81,8 @@ export async function bookVendorAtChatLock(
   deps: { bookingsOpen: () => Promise<boolean> } = { bookingsOpen: areBookingsOpen },
   /** ⬜ The closed-day read — injectable for the same reason; production reads the date sheet's own source. */
   closedDay: typeof closedDayRefusal = closedDayRefusal,
+  /** 📅 The booking-window read — injectable for the same reason; production asks the one helper every door asks. */
+  windowRefusal: typeof bookingWindowRefusal = bookingWindowRefusal,
 ): Promise<ChatLockBookingOutcome> {
   const { eventId, eventVendorId, marketplaceVendorId, agreedTotalPhp } = args;
 
@@ -140,6 +146,11 @@ export async function bookVendorAtChatLock(
       })) === 'closed'
     ) {
       return { status: 'date_closed' };
+    }
+    // 📅 A day outside the shop's At least · At most: no ask, no book — the day Check a date showed as Not bookable.
+    if (d?.event_date_precision === 'day') {
+      const windowWords = await windowRefusal({ vendorProfileId: marketplaceVendorId, day: d.event_date, admin });
+      if (windowWords) return { status: 'outside_window', message: windowWords };
     }
   }
 

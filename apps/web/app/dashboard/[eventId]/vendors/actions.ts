@@ -56,8 +56,7 @@ import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/event
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
 import { orderIsTooSoon, orderTooSoonMessage } from '@/lib/availability-styles';
-import { readBookingWindow } from '@/lib/check-a-date.server';
-import { bookingWindowMessage, outsideBookingWindow, windowToday } from '@/lib/booking-window';
+import { bookingWindowRefusal } from '@/lib/booking-window.server';
 import { phTodayIso } from '@/lib/vendor-day-picker';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
@@ -1726,9 +1725,24 @@ export async function finalizeVendor(
       .maybeSingle();
     const wd = windowDay as { event_date?: string | null; event_date_precision?: string | null } | null;
     if (wd?.event_date_precision === 'day' && wd.event_date) {
-      const shopWindow = await readBookingWindow(createAdminClient(), targetVendor.marketplace_vendor_id);
-      const outside = shopWindow ? outsideBookingWindow(wd.event_date, windowToday(), shopWindow) : null;
-      if (shopWindow && outside) return { status: 'error', message: bookingWindowMessage(outside, shopWindow) };
+      // ONE helper for every door that asks or books (`lib/booking-window.server.ts`, walk 22 Nov 2026).
+      const outside = await bookingWindowRefusal({ vendorProfileId: targetVendor.marketplace_vendor_id, day: wd.event_date });
+      if (outside) return { status: 'error', message: outside };
+      // 🗓 MADE TO ORDER — "Order at least N days before the date they need it" (Availability plan step 3, owner
+      // 2026-11-19). A hard rule, asked of ONE server-only definer (`service_card_order_lead_days`, NULL unless the card
+      // is Made to order with a rule). ABOVE the slot / #2 split (walk 22 Nov 2026): it sat only on the no-slot path, so
+      // a Made-to-order card that kept time slots was asked with no lead check. A refused read degrades OPEN, like every
+      // capacity read here — never silently.
+      if (targetVendor.service_id) {
+        const { data: leadRaw, error: leadErr } = await createAdminClient().rpc('service_card_order_lead_days', {
+          p_service_id: targetVendor.service_id,
+        });
+        if (leadErr) console.error('[finalizeVendor] order-lead read failed', leadErr.message);
+        const lead = typeof leadRaw === 'number' ? leadRaw : null;
+        if (lead !== null && orderIsTooSoon(phTodayIso(), wd.event_date, lead)) {
+          return { status: 'error', message: orderTooSoonMessage(lead) };
+        }
+      }
     }
   }
   let slotPathLocked = false;
@@ -1898,20 +1912,7 @@ export async function finalizeVendor(
         ) {
           return { status: 'error', message: CLOSED_DAY_COUPLE_MESSAGE };
         }
-        // 🗓 MADE TO ORDER — "Order at least N days before the date they need it" (Availability plan step 3, owner
-        // 2026-11-19). A hard rule, asked of ONE server-only definer (`service_card_order_lead_days`, NULL unless the card
-        // is Made to order with a rule). Day-precise events only, like the closed day. A refused read degrades OPEN,
-        // like every capacity read here — never silently.
-        if (d?.event_date_precision === 'day' && d.event_date) {
-          const { data: leadRaw, error: leadErr } = await createAdminClient().rpc('service_card_order_lead_days', {
-            p_service_id: targetVendor.service_id,
-          });
-          if (leadErr) console.error('[finalizeVendor] order-lead read failed', leadErr.message);
-          const lead = typeof leadRaw === 'number' ? leadRaw : null;
-          if (lead !== null && orderIsTooSoon(phTodayIso(), d.event_date, lead)) {
-            return { status: 'error', message: orderTooSoonMessage(lead) };
-          }
-        }
+        // 🗓 The Made-to-order lead is asked above the slot / #2 split (every card, not only this path).
       }
       // The card's own "Bookings per day" INSIDE its plan (owner 2026-11-06, "BOOKINGS PER DATE PER SERVICE IS A PLAN
       // ALLOWANCE" — Solo 1 · Pro 3 · Ultra 5, plus a bought "+1 booking per date"; Free · Verified 1 each, like Solo,

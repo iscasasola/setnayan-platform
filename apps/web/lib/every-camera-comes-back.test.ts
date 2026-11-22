@@ -97,7 +97,9 @@ test('every Papic camera holds its reopen while a clip is recording', () => {
     }
     return out;
   });
-  assert.ok(calls.length >= 3, `only ${calls.length} usePapicCamera calls found — the walk is broken`);
+  // 2 since 2026-11-22: the seat screen retired into the guest camera ("we only have one camera interface") — the
+  // guest camera (guests AND seats) and the supplier's capture controller are the two that open a stream.
+  assert.ok(calls.length >= 2, `only ${calls.length} usePapicCamera calls found — the walk is broken`);
   const unheld = calls.filter((c) => !/\bholdRestart\s*:/.test(c.args)).map((c) => c.rel);
   assert.deepEqual(unheld, [], `these Papic cameras could be reopened mid-clip:\n  ${unheld.join('\n  ')}`);
 });

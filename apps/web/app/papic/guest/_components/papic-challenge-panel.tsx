@@ -66,6 +66,8 @@ type Input = {
   lastCaptureKind?: 'photo' | 'clip' | null;
   /** Reports the armed challenge (or null) so the capture stage can show it. */
   onArmedChange?: (armed: ArmedChallenge | null) => void;
+  /** True on a SEAT camera: nothing is fetched or drawn (Challenges are a guest's game). */
+  off?: boolean;
 };
 
 export type GuestChallenges = ReturnType<typeof useGuestChallenges>;
@@ -75,8 +77,10 @@ export type GuestChallenges = ReturnType<typeof useGuestChallenges>;
  * NEXT_PUBLIC_PAPIC_GAMES_V1 off nothing is fetched and `ready` stays false, so
  * neither the pill nor the follow-up line draws.
  */
-export function useGuestChallenges({ lastCaptureId, lastCaptureKind, onArmedChange }: Input) {
-  const enabled = papicGamesEnabled();
+export function useGuestChallenges({ lastCaptureId, lastCaptureKind, onArmedChange, off = false }: Input) {
+  // 📷 `off` — a SEAT camera on the one camera: Challenges are a guest's game (their missions and points live on the
+  // guest session), so a seat never fetches or draws them.
+  const enabled = papicGamesEnabled() && !off;
   // Name the last shot: "photo" / "video" once taken, generic "shot" before.
   const shotNoun =
     lastCaptureKind === 'clip' ? 'video' : lastCaptureKind === 'photo' ? 'photo' : 'shot';

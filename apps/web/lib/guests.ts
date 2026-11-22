@@ -603,8 +603,9 @@ export const RSVP_ROW_WORDS: Record<RsvpStatus, string> = {
 
 /**
  * 👥 THE GUEST LIST'S OWN WORDS FOR A REPLY (owner 20 Nov 2026, Guests redesign §1 — the drawing's summary "32 coming ·
- * 0 can't come · 2 no reply" and its row state). The list speaks plainer words than the card and the filters
- * (`RSVP_ROW_WORDS`): "Coming", "Can’t come". One list, so the summary and the rows can never say two things.
+ * 0 can't come · 2 no reply" and its row state). The list speaks plainer words than the filters (`RSVP_ROW_WORDS`):
+ * "Coming", "Can’t come". One list, so the summary and the rows can never say two things — and since 22 Nov the guest
+ * card speaks them too (drawing § 3: "✓ Coming"), so a row and the card it opens agree.
  */
 export const RSVP_LIST_WORDS: Record<RsvpStatus, string> = {
   attending: 'Coming',

@@ -27,6 +27,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BranchActionState } from './branch-types';
 import { parseCoordPair } from '@/lib/parse-coord';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { branchNeedsRegistrationRefusal } from '@/lib/one-registered-business.server';
 
 function err(message: string): BranchActionState {
   return { status: 'error', message };
@@ -247,6 +248,12 @@ export async function createBranch(
   }
   // Coords are stored as a pair or not at all (a lone axis is meaningless).
   const hasCoords = lat !== null && lng !== null;
+
+  // 🔒 EVERY BRANCH CARRIES THE SHOP'S DTI/SEC NUMBER (owner 2026-11-22, "UNLIMITED = ONE REGISTERED BUSINESS"): a
+  // branch has no number of its own, so a shop with none cannot open one. The database refuses the same insert
+  // (`vendor_branches_carry_shop_registration`); this is the plain answer first.
+  const needsNumber = await branchNeedsRegistrationRefusal(vendorProfileId);
+  if (needsNumber) return err(needsNumber);
 
   // ── 📐 INCLUDED IN THE PLAN (owner 2026-11-04, "branches 0,0,3,10") ─────────────────────────────────────────────
   // Pro includes 3 branches and Ultra 6 (trimmed the same day), fee-free. Counted from the shop's own LIVE included branches (a cancelled

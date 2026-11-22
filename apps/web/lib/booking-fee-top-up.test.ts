@@ -250,7 +250,7 @@ test('the public shop page leaves out the review, page photos, hero and featured
   assert.match(page, /const unlistedEvents = await readOverdueTopUpEventIds\(vendor\.vendor_profile_id, /);
   assert.match(page, /fetchReviewsForVendorWithCouple\(admin, vendor\.vendor_profile_id, \{ limit, offset: 0, excludeEventIds: \[\.\.\.unlistedEvents\] \}\)/);
   assert.match(page, /if \(pinnedOutsideWindow\?\.event_id && unlistedEvents\.has\(pinnedOutsideWindow\.event_id\)\) pinnedOutsideWindow = null;/);
-  assert.match(page, /resolvePortfolioPhotos\(\(vendor\.portfolio_r2_keys \?\? \[\]\)\.filter\(\(k: string\) => !unlistedPageRefs\.has\(k\)\)\)/);
+  assert.match(page, /resolvePortfolioPhotos\(\(vendor\.portfolio_r2_keys \?\? \[\]\)\.filter\(\(k: string\) => !unlistedPageRefs\.has\(k\)\), ownShop\)/);
   assert.match(page, /unlistedPageRefs\.has\(microsite\.heroPhotoKey\)/);
   assert.match(page, /\.filter\(\(id\) => !unlistedEvents\.has\(id\)\)/);
   const sheet = read('lib/supplier-sheet-read.ts');

@@ -16,6 +16,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { giveShopARegistrationNumber } from './shop-registration-fixture';
 import { insertLiveCard } from './live-card-fixture';
 
 let replay: ReplayResult;
@@ -102,6 +103,7 @@ before(async () => {
      VALUES ($1, $2, 0, 'Old first payment', 'percent', 5000)`,
     [F.foreign, F.otherVendor],
   );
+  await giveShopARegistrationNumber(db, F.vendor);
   F.cebu = (
     await db.query<{ b: string }>(
       `INSERT INTO public.vendor_branches (parent_vendor_profile_id, branch_label, branch_city, branch_radius_km)

@@ -38,7 +38,9 @@ test('2 · Preview is the one terracotta button, in the Guests top row', () => {
   assert.notEqual(at, -1, 'Preview left the top row’s seat');
   const btn = MARCH.slice(at, at + 1100);
   assert.match(btn, /createPortal\(\s*<span data-march-preview=""[\s\S]*?<\/span>,\s*lens\.toolsSlot,\s*\)/, 'Preview is not drawn into the top row');
-  assert.match(btn, /tone="brand"\s+filled/);
+  // 22 Nov 2026 (drawing v4 § 7 draws "▷ Preview" with its word): `main`, never `filled` — a `filled` button is one the
+  // row's fit pass may shrink to its icon, which is how it shipped (a bare ▷ round). The main verb keeps its word.
+  assert.match(btn, /tone="brand"\s+main/);
   assert.match(btn, /label=\{play === null \? 'Preview' : 'Stop'\}/);
   assert.equal((MARCH.match(/data-march-preview=""/g) ?? []).length, 1, 'there are two Previews');
   assert.equal((MARCH.match(/tone="brand"/g) ?? []).length, 1, 'March has a second terracotta button');

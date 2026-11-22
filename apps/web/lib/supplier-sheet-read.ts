@@ -19,6 +19,8 @@ import { isFollowingVendor } from '@/lib/follow';
 import { isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
+import { shopFileUrls } from '@/lib/supplier-file-sign.server';
+import { ownShopServe } from '@/lib/free-shop-files';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 
 /* ─── THE SHEET'S ONE REQUEST (owner 2026-10-08 · the minimum-request rules) ──
@@ -101,9 +103,16 @@ export async function readSupplierSheet(
     reviews,
     work: sheetWork(completed),
     workTotal: completed.length,
+    // 🔒 FREE FILES STAY PRIVATE (spec § ★ J): the couple is signed in, so a shop Setnayan has not verified yet shows
+    // its photos as 15-minute links — never the permanent public address (lib/free-shop-files.ts).
     photos:
       profile && revealed
-        ? (profile.portfolio_r2_keys ?? []).map((k) => publicUrlForStoredAsset(k)).filter((u): u is string => Boolean(u))
+        ? await shopFileUrls(
+            profile.portfolio_r2_keys ?? [],
+            new Map(),
+            publicUrlForStoredAsset,
+            ownShopServe(vendorProfileId, profile.verification_state, { signedIn: true }),
+          )
         : null,
     others: services
       ? sheetOthers(

@@ -214,8 +214,10 @@ for (const shape of SHAPES) {
 // ═════════════════════════════════════════════════════════════════════════
 
 test('the seat camera warns without naming the balance', () => {
-  const S = 'the seat camera (/papic/seat/[token])';
-  const s = src('app', 'papic', 'seat', '[token]', '_components', 'papic-seat-capture.tsx');
+  // 📷 ONE CAMERA (owner 2026-11-22): a seat shoots on the guest camera; its warning is read off the record step's
+  // answer by the seat route, which may pass on the soft-stop STATE and nothing else.
+  const S = 'the seat lane (app/api/papic/seat-capture)';
+  const s = src('app', 'api', 'papic', 'seat-capture', 'route.ts');
 
   // The soft-stop branch is still here — exactly one of it.
   assert.equal(
@@ -224,36 +226,13 @@ test('the seat camera warns without naming the balance', () => {
     `${S}: expected exactly 1 soft-stop branch — the warning must stay, and two ` +
       'branches means one of them is unreviewed',
   );
-
-  // Nothing may reach for a figure off the signal. (The shape test above makes
-  // this unconstructible; this says so at the READ site too, because that is
-  // where a reviewer looks.)
+  // It passes a boolean, never a figure.
+  assert.match(s, /\.\.\.\(result\.eventPool\?\.soft \? \{ poolLow: true \} : \{\}\)/, `${S}: the warning is no longer a bare boolean`);
   const reaches = s.match(/eventPool[\s\S]{0,40}?\.(remaining|total)\b/g) ?? [];
-  assert.deepEqual(
-    reaches,
-    [],
-    `${S}: reads a pool figure off the capture result (${reaches.join(' · ')}) — PRIV-1`,
-  );
-
-  // The sentence itself: every notice it sets is a fixed string with no
-  // interpolation and no digits. This is the assertion the sabotage faces.
-  const notices = callArgs(s, 'setPoolNotice').filter((a) => a.trim() !== 'null');
-  assert.ok(
-    notices.length >= 1,
-    `${S}: nothing sets a pool notice any more — the warning was removed, not the figure`,
-  );
-  for (const arg of notices) {
-    assert.doesNotMatch(
-      arg,
-      /\$\{/,
-      `${S}: a pool notice interpolates a value — PRIV-1 forbids a figure here: ${arg.trim()}`,
-    );
-    assert.doesNotMatch(
-      arg,
-      /\d/,
-      `${S}: a pool notice contains a digit — PRIV-1 forbids a figure here: ${arg.trim()}`,
-    );
-  }
+  assert.deepEqual(reaches, [], `${S}: reads a pool figure off the capture result (${reaches.join(' · ')}) — PRIV-1`);
+  // …and the camera takes it as the same boolean state it opens with.
+  const cam = src('app', 'papic', 'guest', '_components', 'papic-guest-capture.tsx');
+  assert.match(cam, /if \(b\.poolLow === true\) setPoolLow\(true\);/, 'the camera drops the seat\'s running-low warning');
 });
 
 test('the guest camera warns without naming the balance', () => {
@@ -354,7 +333,7 @@ test('no pool figure exists in either state, so absence is not an answer', () =>
       `got ${poolInputs.length}: ${poolInputs.join(' · ')}`,
   );
 
-  const seat = src('app', 'papic', 'seat', '[token]', '_components', 'papic-seat-capture.tsx');
+  const seat = src('app', 'api', 'papic', 'seat-capture', 'route.ts');
   const signal = block(
     src('app', 'papic', 'actions.ts'),
     /export type EventPoolSignal = \{/,

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
-import { Layers, Pencil, ShieldCheck, Users, Wallet } from 'lucide-react';
+import { Building2, Layers, Pencil, ShieldCheck, Users, Wallet } from 'lucide-react';
 import { Badge } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
 import {
@@ -37,6 +37,7 @@ import { renewalDayWords, renewalStage } from '@/lib/papers-renewal';
 import { RenewalRecordFacts } from './_components/renewal-record';
 import { ServiceCardsSection, type AdminServiceCard } from './_components/service-cards-section';
 import { SampleShopSwitch } from './_components/sample-shop-switch';
+import { verifiedElsewhere } from '@/lib/one-registered-business.server';
 
 export const metadata = { title: 'Supplier · Admin', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -76,6 +77,15 @@ export const dynamic = 'force-dynamic';
 
 const PAYOUT_CAP = 10;
 const CARD_CAP = 50;
+const BRANCH_CAP = 100;
+
+type BranchRow = {
+  branch_id: string;
+  branch_label: string | null;
+  branch_city: string | null;
+  cancelled_at: string | null;
+  included_in_plan: boolean | null;
+};
 
 const PUBLIC_ID_RE = /^S89V-[0-9A-Za-z]{10}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -153,7 +163,7 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
   const shopRead = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id, public_id, user_id, business_name, business_slug, location_city, public_visibility, verification_state, tier_state, tier_expires_at, is_demo, created_at, next_renewal_due_at, papers_lapsed_at, last_verified_at',
+      'vendor_profile_id, public_id, user_id, business_name, business_slug, location_city, public_visibility, verification_state, tier_state, tier_expires_at, is_demo, created_at, next_renewal_due_at, papers_lapsed_at, last_verified_at, registration_number_raw, registration_number_needs_review',
     )
     .eq(byPublicId ? 'public_id' : 'vendor_profile_id', id)
     .maybeSingle();
@@ -173,6 +183,40 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
   if (!shop) notFound();
   const shopId = shop.vendor_profile_id as string;
   const ownerId = (shop.user_id as string | null) ?? null;
+
+  // ── 🔒 one registered business (owner 2026-11-22) ─────────────────────────
+  // The shop's DTI/SEC number, any OTHER shop verified under it (the ONE predicate the approval asks,
+  // `registration_number_verified_holder`), and its branches — each carries this number, never its own.
+  const [branchRead, numberHolder] = await Promise.all([
+    admin
+      .from('vendor_branches')
+      .select('branch_id, branch_label, branch_city, cancelled_at, included_in_plan')
+      .eq('parent_vendor_profile_id', shopId)
+      .order('created_at', { ascending: true })
+      .limit(BRANCH_CAP),
+    verifiedElsewhere(shopId, admin),
+  ]);
+  if (branchRead.error) logQueryError('admin/vendors/[vendorProfileId]:branches', branchRead.error);
+  const registrationNumber = (shop.registration_number_raw as string | null)?.trim() || null;
+  const registrationCell = registrationNumber
+    ? `${registrationNumber}${shop.registration_number_needs_review ? ' · flagged: on another shop too' : ''}`
+    : 'None yet';
+  const branches = branchRead.error ? null : ((branchRead.data ?? []) as BranchRow[]);
+  const openBranches = (branches ?? []).filter((b) => !b.cancelled_at).length;
+  const branchSummary =
+    branches === null
+      ? COULD_NOT_LOAD
+      : branches.length === 0
+        ? 'No branches'
+        : `${formatCount(openBranches)} open${branches.length > openBranches ? ` · ${formatCount(branches.length - openBranches)} cancelled` : ''}`;
+  const holderCell: ReactNode | null =
+    numberHolder.kind === 'unreadable' ? (
+      COULD_NOT_LOAD
+    ) : numberHolder.kind === 'held' ? (
+      <Link href={`/admin/vendors/${numberHolder.holderId}`} className={RECORD_LINK}>
+        {numberHolder.holderName?.trim() || 'A shop without a name'} ›
+      </Link>
+    ) : null;
 
   // ── who runs it ─────────────────────────────────────────────────────────
   const ownerRead = ownerId
@@ -354,8 +398,17 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
             items={[
               ['State', VERIFICATION_STATE_LABEL[verification]],
               ['Latest application', applicationCell],
+              ['Registration number', registrationCell],
+              ...(holderCell ? ([['Verified under this number', holderCell]] as const) : []),
             ]}
           />
+          {numberHolder.kind === 'held' ? (
+            <RecordNote>
+              One registered business has one verified shop (owner, 22 Nov 2026). {verification === 'verified'
+                ? 'Both shops were verified before that rule; neither badge is taken back.'
+                : 'This shop cannot be verified while that shop holds the number.'}
+            </RecordNote>
+          ) : null}
           <div className="mt-3">
             <ActionButton tone="brand" icon={<ShieldCheck aria-hidden strokeWidth={1.9} />} label="Verification queue" href="/admin/verify" />
           </div>
@@ -455,6 +508,30 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
               ]}
             />
           </RecordSection>
+        </RecordFold>
+
+        <RecordFold title="Branches" anchor="branches" summary={branchSummary}>
+          <ConsoleTable
+            rows={branches}
+            readPermitted
+            readError={branchRead.error}
+            reads="this supplier's branches"
+            cap={BRANCH_CAP}
+            label="This supplier's branches"
+            minWidth="18rem"
+            rowKey={(b) => b.branch_id}
+            empty={{ Icon: Building2, title: 'No branches', blurb: 'This shop has not opened a branch.' }}
+            columns={[
+              { header: 'Branch', cell: (b) => b.branch_label?.trim() || 'Branch without a name' },
+              { header: 'City', hideBelow: 'md', cell: (b) => b.branch_city?.trim() || '—' },
+              { header: 'Registration number', mono: true, cell: () => registrationNumber ?? 'None yet' },
+              {
+                header: 'Status',
+                cell: (b) => (b.cancelled_at ? 'Cancelled' : b.included_in_plan ? 'Open · in the plan' : 'Open'),
+              },
+            ]}
+          />
+          <RecordNote>A branch carries its shop&rsquo;s DTI or SEC registration number; it never has one of its own.</RecordNote>
         </RecordFold>
 
         <RecordFold title="Team" anchor="team" summary={teamCell}>

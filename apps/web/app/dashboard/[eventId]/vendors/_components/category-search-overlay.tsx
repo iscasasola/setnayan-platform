@@ -37,6 +37,7 @@ import type { FacetDimension, FacetSelection } from '@/lib/vendor-facets';
 import { isSmartSortEnabled } from '@/lib/smart-sort-flag';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { formatCount } from '@/lib/format-number';
+import { aboutKmLine, SET_YOUR_VENUE_LINE } from '@/lib/mall-card';
 import { Check, ChevronDown, Plus, SlidersHorizontal, Sparkles, Wallet, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Chips } from '@/app/_components/chips';
@@ -194,6 +195,8 @@ export function CategorySearchOverlay({
   const [maxKm, setMaxKm] = useState<number | null>(null);
   const [results, setResults] = useState<CategoryVendorResult[]>([]);
   const [hasCoords, setHasCoords] = useState(false);
+  // 🃏 Card 14's distance words need to know WHAT the km were measured from: the venue, or the Region's centre.
+  const [fromVenue, setFromVenue] = useState(false);
   /**
    * MB10 — TRUE when `searchCategoryVendors` could not read the saved-photo
    * tally, so every row's count is `null`. Said ONCE, here, instead of a
@@ -282,6 +285,7 @@ export function CategorySearchOverlay({
         if (seq !== reqSeq.current) return; // a newer request superseded this
         setResults(res.results);
         setHasCoords(res.hasReceptionCoords);
+        setFromVenue(res.distanceFromVenue === true);
         setSavedTallyFailed(res.savedPhotoTallyFailed === true);
         setLastMinuteLocked(res.isLastMinuteLocked === true);
         setUnreadable(res.unreadable === true);
@@ -520,13 +524,18 @@ export function CategorySearchOverlay({
               // unmeasured shop.
               <span className="stars">{NEW_TO_SETNAYAN_LABEL}</span>
             ) : null}
-            {r.distanceKm !== null ? (
+            {/* 🃏 Card 14's distance line (owner 20 Nov, "straight line, about X km"): "about N km from your venue",
+                the words Find's cards say (`lib/mall-card.ts`). Measured from the Region's centre (no venue yet) →
+                no number; ask for the venue instead, as the cards do. The reach note stays. */}
+            {r.distanceKm !== null && fromVenue ? (
               <span className={r.withinRadius ? undefined : 'faraway'}>
-                {r.distanceKm} km
+                {aboutKmLine(r.distanceKm)}
                 {!r.withinRadius && r.serviceRadiusKm
                   ? ` · beyond their ${r.serviceRadiusKm} km range · travel fee likely`
                   : ''}
               </span>
+            ) : r.distanceKm !== null ? (
+              <span>{SET_YOUR_VENUE_LINE}</span>
             ) : r.city ? (
               <span>{r.city}</span>
             ) : null}

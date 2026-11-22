@@ -1,5 +1,6 @@
 'use client';
 
+import { WithdrawAskButton } from './withdraw-ask-button';
 import { piecesAskSentLine } from '@/lib/pieces-ask-words';
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import {
@@ -496,11 +497,14 @@ export function AccordionLockButton({
   if (state.kind === 'requested') {
     return (
       <div className={wrapperClassName}>
+        {/* ↩ Undo — the shipped withdraw (`withdrawVendorLockRequest`), the same one the bench's "Take it back" uses.
+            Its gap is `ml-1`, not a `{' '}`, so the line stays one short paragraph (template-score-ratchet). */}
         <p role="status" className="text-xs text-ink/70">
           {/* 🪑 By the piece (owner Q2, 20 Nov): the ask carries no number — never the stock, only who says how many. */}
           {state.byThePiece
             ? piecesAskSentLine(state.vendorName)
             : <>Booking requested — waiting for {state.vendorName} to agree.</>}
+          <WithdrawAskButton vendorId={vendorId} vendorName={state.vendorName} label="Undo" className="ml-1 underline" />
         </p>
       </div>
     );
@@ -528,7 +532,11 @@ export function AccordionLockButton({
           ) : (
             copy.body
           );
-          if (!(await confirm({ ...copy, body }))) return;
+          // 👆 ASK = ONE TAP (owner 2026-11-17, Q11 — supersedes the 16 Nov EB-175 confirm for an ask; Undo sits on
+          // the answer below). The one exception keeps the 16 Nov rule "A COUPLE IS ALWAYS TOLD WHEN A SUPPLIER IS NOT
+          // YET VERIFIED": that line has no other home before the ask, so a shop we read as not yet verified still
+          // asks once, with the line under it.
+          if (notYetVerified && !(await confirm({ ...copy, body }))) return;
           requestLock();
         }}
       >

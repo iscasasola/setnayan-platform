@@ -146,6 +146,8 @@ export interface NewShot {
   chapterId?: string | null;
   /** 📲 Added from the phone's gallery (see QueuedShot.source). */
   source?: 'phone' | null;
+  /** 📍 Seat lane: the location at the shutter (see QueuedShot.geo). */
+  geo?: QueuedShot['geo'];
 }
 
 /** A 'kept' shot is asked again on this beat (and on every wake). */
@@ -364,6 +366,7 @@ export class PapicUploader {
       mark: input.mark ?? null,
       chapterId: input.chapterId ?? null,
       source: input.source === 'phone' ? 'phone' : null,
+      ...(input.lane === 'seat' && input.geo ? { geo: input.geo } : {}),
     };
     const type = input.primary.type || (input.media === 'clip' ? 'video/mp4' : 'image/jpeg');
     const kept = this.memBlobs.size;
@@ -477,7 +480,9 @@ export class PapicUploader {
         const original = await this.getBlob(shot.id, 'original');
         if (!original) return this.lose(shot, 'lost_on_phone');
         // 🏷 The mark goes on the COPIES only; `original` is stored and sent as taken.
-        const pieces = await prepare.photoPieces(original, shot.mark ?? null);
+        // 📷 A SEAT sends its original alone: `recordSeatCapture` records one object and the server makes the
+        // copies, exactly as the seat camera always has — so the original IS its first (record) step.
+        const pieces = shot.lane === 'seat' ? null : await prepare.photoPieces(original, shot.mark ?? null);
         shot.copiesMarked = !!pieces && !!shot.mark;
         if (pieces) {
           for (const tier of ['thumb', 'tile', 'display'] as const) {

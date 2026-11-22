@@ -34,6 +34,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { applyShopStatus } from '@/lib/shop-status.server';
 import { shopStatusRefusalForAdmin } from '@/lib/shop-status';
 import { plainRefusal } from '@/lib/admin/plain-refusal';
+import { verifyRefusalFor } from '@/lib/one-registered-business.server';
 import { safeNext } from '@/lib/safe-next';
 import { pickedReason, workBackHref } from '@/lib/admin/supplier-work';
 import {
@@ -146,6 +147,12 @@ async function transitionVendorVisibility(opts: {
   const shouldVerify = opts.nextVisibility === 'verified';
   const toState: VerificationState = shouldVerify ? 'verified' : fromState;
   const stateChanges = shouldVerify && toState !== fromState;
+
+  // 🔒 ONE VERIFIED SHOP PER REGISTRATION NUMBER (owner 2026-11-22): asked before the audit row and the update.
+  if (shouldVerify) {
+    const oneBusiness = await verifyRefusalFor(opts.vendorProfileId, fromState, admin);
+    if (oneBusiness) return { ok: false, error: oneBusiness };
+  }
 
   // 🔴 THIS IS THE ONE-CLICK THAT HAS GRANTED EVERY BADGE PRODUCTION HAS EVER
   // ISSUED, AND IT NEVER READ A DOCUMENT. Measured 2026-09-09: prod holds two

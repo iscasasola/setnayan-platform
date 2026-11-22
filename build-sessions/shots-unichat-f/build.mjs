@@ -22,8 +22,14 @@ async function open(mode, q, ready) {
   await page.goto(B + q, { waitUntil: 'domcontentloaded', timeout: 600000 });
   await page.waitForSelector(ready, { timeout: 600000 });
   await page.addStyleTag({ content: 'nextjs-portal{display:none!important}' });
-  if (mode.dark) await page.evaluate(() => document.documentElement.classList.add('dark'));
+  // The app's dark mode is the `dark` class on <html>. Set it AFTER the page has hydrated: set before, React puts the
+  // server's class list back and the "dark" shot comes out light (the shots before 22 Nov did).
   await page.waitForTimeout(1500);
+  if (mode.dark) {
+    await page.evaluate(() => document.documentElement.classList.add('dark'));
+    await page.waitForTimeout(600);
+    if (!(await page.evaluate(() => document.documentElement.classList.contains('dark')))) throw new Error('dark mode did not hold');
+  }
   return { ctx, page };
 }
 const measure = (page, sel) =>

@@ -72,3 +72,17 @@ document exists), crew, handover")
 cards read shipped records; Book it waits for Availability step 4, #8012).
 
 **The terms line wears the house ⓘ (2026-11-21).** Not a lucide `<Info>`: InfoTip's drawn circle, class for class, with a SITES entry in `there-is-one-info-dot` (the whole `<summary>` line stays the press).
+
+## 2026-11-22 · chore(chat): one PR for the deal's end, the schedule from the chat and the receipt document
+
+Unichat parts H2 (#8080), F (#8046) and the supplier-payment receipt document (#8107) now ship as ONE pull request
+(#8080); the other two are closed and point here. Merge commits only.
+
+- The time-change ask card (`schedule-time-ask-card.tsx`, part F) now wears the one card look (`KindCard`, the meeting
+  kind) like every other card in the stream: an open ask is the whole card with "Your turn" on the copy that has the
+  buttons; an answered one folds to its settled line (accepted ticked, declined or taken back struck) and a press opens
+  it. Held by `the-card-kinds-are-readable` test 3, which is what caught it.
+- The part F shot script set dark mode before the page hydrated, so its "dark" shots came out light. It now sets it
+  after, and stops if it did not hold. Both shot sets were re-shot on the combined branch.
+
+SPEC IMPACT: None

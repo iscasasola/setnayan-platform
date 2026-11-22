@@ -16,8 +16,9 @@
  * `suggestScheduleChange` (`answer` · `take_back`, the supplier Schedule's). A row that cannot be read is said; a line
  * whose request is gone says so — never the state of a different request.
  *
- * LOOK: the same `ChatCardShell` + type sizes as the schedule card, on purpose — Unichat part A restyles the cards'
- * look; this file holds the data and the flow.
+ * LOOK: the one card look (`KindCard`, the meeting kind — the same as the schedule card beside it). An ask still open
+ * is the whole card, "Your turn" on the copy that has the buttons; an answered one folds to its settled line (accepted
+ * ticked, declined or taken back struck), and a press on the line opens what the card held.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Check, Undo2, X } from 'lucide-react';
@@ -26,8 +27,7 @@ import { createClient } from '@/lib/supabase/client';
 import { TIME_ASK_CARD_READ, TIME_ASK_LINE_SLACK_MS, findTimeAsk, timeAskSettledWords, timeAskTurn, type TimeAskLine, type TimeAskRow } from '@/lib/schedule-time-ask';
 import { resolveScheduleSuggestion } from '@/app/dashboard/[eventId]/schedule/actions';
 import { suggestScheduleChange } from '@/app/vendor-dashboard/clients/[eventId]/actions';
-import { ChatCardShell } from '../chat-step-card';
-import { EqualRow, Problem } from './card-bits';
+import { EqualRow, KindCard, Problem } from './card-bits';
 
 type Ask = { eventId: string; suggestionId: string; status: string };
 type Read = { at: 'loading' } | { at: 'failed' } | { at: 'gone' } | { at: 'ok'; ask: Ask };
@@ -134,7 +134,15 @@ export function ScheduleTimeAskCard({
   const title = line.add ? 'New moment' : 'Time change';
   const settled = ask && ask.status !== 'open' ? timeAskSettledWords(line, ask.status) : null;
   return (
-    <ChatCardShell topic="schedule" kicker="Schedule" title={title} tone="auto">
+    <KindCard
+      kind="meeting"
+      topic="schedule"
+      kicker="Schedule"
+      title={title}
+      turn={settled ? (ask?.status === 'accepted' ? 'done' : 'old') : ask && (turn === 'approve' || turn === 'accept') ? 'me' : 'wait'}
+      // The fold line's own tick is KindCard's — the words drop theirs so an accepted ask is ticked once.
+      settled={settled ? settled.replace(/^✓ /, '') : undefined}
+    >
       <div className="grid gap-2" data-schedule-time-ask={ask ? ask.status : read.at} data-time-ask-turn={turn}>
         <p className="text-[15px] font-semibold text-ink">{line.label}</p>
         <p className="text-[14px] tabular-nums text-ink/70">
@@ -194,6 +202,6 @@ export function ScheduleTimeAskCard({
         )}
         <Problem text={problem} />
       </div>
-    </ChatCardShell>
+    </KindCard>
   );
 }

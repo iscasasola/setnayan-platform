@@ -49,7 +49,7 @@ import type { ReactNode } from 'react';
  * an `<li>` in a roster, an `<article>` in a mapped list. `ShopCard` composes
  * this same constant, so the recipe exists exactly once.
  */
-export const shopCardClass = 'rounded-2xl border border-ink/10 bg-white';
+export const shopCardClass = 'rounded-2xl border border-ink/10 bg-raised';
 
 const CARD_PAD = {
   /** The dominant spelling (24 of the 34 shipped instances). */
@@ -216,4 +216,4 @@ export function ShopEmpty({
  * wrapper to earn its keep, and a class constant converges the spelling
  * without changing a single element's behaviour.
  * ────────────────────────────────────────────────────────────────────────── */
-export const shopInputClass = 'rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm';
+export const shopInputClass = 'rounded-lg border border-ink/20 bg-raised px-3 py-1.5 text-sm';

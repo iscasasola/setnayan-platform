@@ -150,6 +150,8 @@ export function LabCamera({ lane, pro = false, buy = false, chapter = false, cei
       ) : (
         <div className="bg-cream px-4">
           <PapicCaptureController
+            backHref="/dev/papic-camera-lab"
+            backLabel="Back to the lab"
             eventId={LAB_EVENT_ID}
             uploadOwner={null}
             coupleName="Lab Couple"

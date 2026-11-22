@@ -38,6 +38,8 @@ export type UploadJob = {
        * bucket and no prefix are sent. Its refusals carry a `code` (`camera_points_exhausted`, `uploads_closed`, …).
        */
       papicSeatToken: string;
+      /** 📤 Added by hand (the Add-photos door) — the route prices its gate at the upload rate on a host camera. */
+      papicAdded?: boolean;
       bucket?: undefined;
       pathPrefix?: undefined;
     }
@@ -105,7 +107,13 @@ export const sendToStorage: UploadSend = (job, hooks, env = {}) => {
   const { file, contentType } = job;
   const presignBody =
     job.papicSeatToken !== undefined
-      ? { papicSeatToken: job.papicSeatToken, filename: file.name, contentType, sizeBytes: file.size }
+      ? {
+          papicSeatToken: job.papicSeatToken,
+          ...(job.papicAdded === true ? { papicAdded: true } : {}),
+          filename: file.name,
+          contentType,
+          sizeBytes: file.size,
+        }
       : { bucket: job.bucket, pathPrefix: job.pathPrefix, filename: file.name, contentType, sizeBytes: file.size };
 
   let settled = false;

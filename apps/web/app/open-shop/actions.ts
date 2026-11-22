@@ -17,6 +17,7 @@ import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
 import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import { FIRST_CARD_NOT_LIVE, putFirstCardLive } from '@/lib/first-card-live.server';
+import { FIRST_CARD_MADE_UNREAD, FIRST_CARD_NOT_MADE, firstCardWhyKey } from '@/lib/first-card-why';
 import { getOpenShopServiceTree, resolvePickedLeaf, type PickerLeaf } from '@/lib/open-shop-service-tree';
 import {
   clipBusinessSlug,
@@ -899,7 +900,7 @@ export async function approveFirstCard(formData: FormData): Promise<void> {
   // The shop on screen, through the ONE resolver (lib/active-shop.ts) — and only when this login OWNS it: the card is
   // made with the admin client, so a helper standing in somebody else's shop is told why, never given a write.
   const shop = await resolveOwnedActiveShop(supabase, user.id);
-  if (!shop.ok) redirect(firstCardCarryPath(welcome, { ...card, state: 'refused', why: shop.error }));
+  if (!shop.ok) redirect(firstCardCarryPath(welcome, { ...card, state: 'refused', why: firstCardWhyKey(shop.error, 'refused') }));
   const made = await makeFirstCard(createAdminClient(), shop.vendorProfileId, card);
   revalidatePath('/vendor-dashboard');
   redirect(firstCardOutcomePath(welcome, card, made));
@@ -915,9 +916,9 @@ function firstCardOutcomePath(
   card: { title: string; price: number; category: string },
   made: FirstCardMade,
 ): string {
-  if (made.ok === false) return firstCardCarryPath(welcome, { ...card, state: 'refused', why: made.why });
+  if (made.ok === false) return firstCardCarryPath(welcome, { ...card, state: 'refused', why: firstCardWhyKey(made.why, 'refused') });
   if (made.live) return firstCardLivePath(welcome);
-  return firstCardCarryPath(welcome, { ...card, state: 'draft', why: made.why, id: made.id });
+  return firstCardCarryPath(welcome, { ...card, state: 'draft', why: firstCardWhyKey(made.why, 'draft'), id: made.id });
 }
 
 /**
@@ -971,7 +972,12 @@ async function makeFirstCard(
       }
     }
     const after = await findMade();
-    if (after.error) console.error('[supabase-error] app/open-shop/actions.ts · from:vendor_services.select', after.error.message);
+    // Ship review 21 Nov: a failed re-read is said as a failed read — the maker answered, so the card was likely made;
+    // it is not "made, not live" with no id. The welcome sends them to their cards to finish.
+    if (after.error) {
+      console.error('[supabase-error] app/open-shop/actions.ts · from:vendor_services.select', after.error.message);
+      return { ok: true, id: null, live: false, why: FIRST_CARD_MADE_UNREAD };
+    }
     id = (after.data as { vendor_service_id?: string } | null)?.vendor_service_id ?? null;
   }
   // 🃏 The maker makes every card as a DRAFT. "On your page" is true only when the SHIPPED switch says so (review
@@ -982,4 +988,3 @@ async function makeFirstCard(
 }
 
 /** Said when the maker failed without a sentence of its own. */
-const FIRST_CARD_NOT_MADE = 'Something went wrong making it. Please try again.';

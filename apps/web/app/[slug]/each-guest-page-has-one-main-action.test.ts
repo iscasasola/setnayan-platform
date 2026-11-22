@@ -189,7 +189,9 @@ test('Post Event · no phase ribbon repeating the footer, and no link to its own
   const ed = read('_components/editorial/editorial-content.tsx');
   assert.doesNotMatch(ed, /PhaseRibbon|aria-label="Site phases"/, 'the phase ribbon is back over the story');
   assert.doesNotMatch(ed, /href=\{`\/\$\{slug\}`\}/, 'a link from the story to its own address is back');
-  assert.equal((ed.match(/href=\{`\/\$\{slug\}\/hub`\}/g) ?? []).length, 1, 'the Day’s link is drawn more than once');
+  // 🧭 20 Nov 2026 — one bar per stage: /hub draws nothing, it redirects to the event page's tab (`dayHubLanding`), and
+  // after the day that page IS the story — so a link to `/hub` from here is a link to its own address too.
+  assert.equal((ed.match(/\/\$\{slug\}\/hub/g) ?? []).length, 0, 'a link from the story to /hub (its own address after the day) is back');
 });
 
 test('The host’s own hub · no host strip, so no Preview ▾ over the page (owner 2026-10-15: "Remove it")', () => {

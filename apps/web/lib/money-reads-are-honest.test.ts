@@ -117,8 +117,9 @@ function all(hay: string, needle: string): number[] {
 
 const RENDERS: { file: string; guard: string; empty: string }[] = [
   {
-    file: 'app/vendor-dashboard/booking-fees/page.tsx',
-    guard: '{unreadable ? (',
+    // Set two (21 Nov 2026): the page reads (an unread list is handed on as `orders={null}`), the body draws.
+    file: 'app/vendor-dashboard/booking-fees/booking-fees-body.tsx',
+    guard: '{orders === null ? (',
     // ⚠ WAS "No booking fees yet." (2026-09-20). The page now also lists the
     // WAIVED free-5 charges, which are booking fees — computed, recorded and
     // owed nothing on. Claiming a shop with five of them has "no booking fees"

@@ -56,7 +56,7 @@ test('1 · the SEND — every supplier path says it is the shop’s; the host’
     'the supplier’s quick replies no longer speak as the shop',
   );
   assert.match(read('app/api/vendor/chat/[threadId]/send/route.ts'), /asSide: 'vendor'/, 'the supplier app’s endpoint lost its side');
-  assert.match(read('lib/chat-actions.ts'), /sentAsFromForm\(formData\.get\(CHAT_SENT_AS_FIELD\)\)[\s\S]*?asSide \}\)/, 'the form’s side never reaches the core');
+  assert.match(read('lib/chat-actions.ts'), /sentAsFromForm\(formData\.get\(CHAT_SENT_AS_FIELD\)\)[\s\S]*?sendChatMessageCore\(supabase, \{[^}]*\basSide\b[^}]*\}\)/, 'the form’s side never reaches the core');
 
   const core = read('lib/chat-send.ts');
   assert.match(core, /if \(asSide === 'vendor'\) \{[\s\S]*?senderRole = 'vendor';/, 'the core still tests couple first for a shop send');

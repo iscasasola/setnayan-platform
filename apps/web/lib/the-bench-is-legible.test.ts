@@ -35,6 +35,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { colourHex, tokenHex } from './css-colour-tokens';
 
 const WEB = join(import.meta.dirname, '..');
 const BENCH = 'app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx';
@@ -80,7 +81,8 @@ function flatten(colour: string, bg: string): string {
  * about still passes, in both themes, whatever the colours become.
  */
 const LIGHT_CARD = '#ffffff';
-const DARK_CARD = '#2A2E36';
+// The dark card is the app's frame token (`--card:rgb(var(--color-raised))` in the bench's dark block) — read, not typed.
+const DARK_CARD = tokenHex('--color-raised', 'dark') ?? '#000000';
 
 /**
  * ⚠ COLOURS ARE READ OUT OF THE STYLESHEET, NEVER HAND-TYPED HERE.
@@ -115,6 +117,10 @@ function resolve(value: string, theme: 'light' | 'dark'): string | null {
   const lightBlock = src.slice(src.indexOf('.slcat{'), src.indexOf('.slcat{') + 1400);
   const inLight = new RegExp(`${varName}:\\s*([^;}]+)`).exec(lightBlock);
   if (inLight) return resolve(inLight[1]!.trim(), theme);
+  // An APP token (`rgb(var(--ramp-gold-deep))`, `rgb(var(--color-ok))` — the bench's dark values since the one colour
+  // set, 18 Nov 2026) is not declared in the bench: follow it through globals.css.
+  const app = colourHex(value, theme);
+  if (app) return app;
   // A `var(--x, #hex)` fallback IS the value when --x is defined elsewhere in
   // the app; taking it is right, and returning null here would silently score
   // the pairing against black.
@@ -238,7 +244,7 @@ test('🔑 the gold that carries TEXT is the one globals.css nominated', () => {
 
 test('🔑 dark mode re-points the golds — the omission that cost 2.22:1', () => {
   assert.ok(
-    /html\.dark \.slcat\{--gold:#E2B968;--gold-deep:#E2B968;--gold-text:#E2B968/.test(src),
+    /html\.dark \.slcat\{--gold:rgb\(var\(--ramp-gold-deep\)\);--gold-deep:rgb\(var\(--ramp-gold-deep\)\);--gold-text:rgb\(var\(--ramp-gold-deep\)\)/.test(src),
     'the dark block forgot the golds again — every gold label goes back to ~2.2:1 on the dark card',
   );
 });

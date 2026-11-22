@@ -83,7 +83,9 @@ test('team seats and branches are KEPT over a lower plan — the line says so', 
   const s = f.rows.find((r) => r.key === 'teamSeats');
   assert.ok(b && s);
   assert.match(b.line, /You keep them; you can’t add more\./);
-  assert.match(s.line, /Everyone stays; you can’t add more\./);
+  // Owner 21 Nov (overturns ruling 5683): the newest seats pause on a smaller plan — never "everyone stays".
+  assert.match(s.line, /The newest \d+ (person waits|people wait) for a plan that covers them — nothing is deleted\./);
+  assert.doesNotMatch(s.line, /Everyone stays/);
   assert.equal(b.fix?.href, FIX_HREF.branches);
 });
 

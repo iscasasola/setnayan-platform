@@ -114,10 +114,11 @@ const FD = tokens('app/_components/frontdoor/front-door.css', /^\.fd$/, /^html\.
 
 test('the readers find what they are meant to find (a zero is a measurement, not a silence)', () => {
   // Fixed points that must be read, or the scan has gone blind.
-  assert.equal(G.light.get('m-paper'), '#FFFFFF', 'globals.css --m-paper not read at :root');
+  assert.equal(G.light.get('m-paper'), 'rgb(var(--color-raised))', 'globals.css --m-paper not read at :root');
+  assert.equal(G.light.get('color-raised'), '255 255 255', 'globals.css --color-raised not read at :root');
   assert.equal(G.light.get('color-cream'), '255 255 255', 'globals.css --color-cream not read at :root');
   assert.ok(G.dark.has('color-cream'), 'the html.dark block of --color-cream was not read');
-  assert.equal(FD.light.get('fd-cream'), '#ffffff', 'front-door.css .fd --fd-cream not read');
+  assert.equal(FD.light.get('fd-cream'), 'rgb(var(--color-raised))', 'front-door.css .fd --fd-cream not read');
   const colourTokens = [...G.light].filter(([, v]) => COLOUR.test(v)).length;
   assert.ok(colourTokens > 150, `only ${colourTokens} colour tokens read at :root in globals.css — the parser broke`);
 });

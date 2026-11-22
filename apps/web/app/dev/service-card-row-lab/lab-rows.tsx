@@ -8,6 +8,7 @@
  * NOW is the row as it drew on origin/main (side copy icon · side Online/Offline switch · "Edit · every field"), frozen
  * here for the side-by-side ONLY.
  */
+import { CardLockedMedals } from '@/app/_components/card-badges/card-locked-medals';
 import Link from 'next/link';
 import { ChevronRight, Copy } from 'lucide-react';
 import { ServiceCardView } from '@/app/_components/service-card-view';
@@ -98,6 +99,8 @@ export function LabRows({ cards, now, targets }: { cards: LabCard[]; now: boolea
                   </p>
                   {/* SAMPLE record (booked 2×) — the shipped compact medal line, as Shop › Services draws it. */}
                   {c.live ? <CardRecordSection record={LAB_RECORD} variant="vendor" compact /> : null}
+                  {/* SAMPLE: holds Hot Booking only — the other four are drawn locked, as Shop › Services draws them. */}
+                  {c.live ? <CardLockedMedals held={[{ key: 'hot_booking' }]} /> : null}
                 </>
               }
             />

@@ -91,6 +91,7 @@ import {
   serializeOpenShopDraft,
 } from '@/lib/open-shop-draft';
 import { formatCount } from '@/lib/format-number';
+import { FirstCardDraft } from './first-card-draft';
 import { PasswordField } from '@/app/_components/password-field';
 import { fairRefusal, findFairHits } from '@/lib/fair-presentation';
 import type { ClaimWord } from '@/lib/service-card-checks';
@@ -1896,50 +1897,32 @@ export function OpenShopWizard({
                   </span>
                 </div>
               ) : null}
-              {/* PB4 — the drafted card, as couples will see it: its category, its name, its price or "No price yet". */}
-              <div className="grid gap-1.5 border-y py-4" style={{ borderColor: 'var(--m-line)' }} data-onboarding-card-face="">
-                <span className="text-xs font-medium" style={{ color: 'var(--m-mulberry)' }}>
-                  {categoryLabels[0] ?? serviceLabel ?? 'Your service'}
-                </span>
-                <b className="text-[17px] font-semibold" style={{ color: 'var(--m-ink)' }}>
-                  {cardTitle.trim() || serviceLabel || 'Your service'}
-                </b>
-                <span className="text-sm tabular-nums" style={{ color: cardPriceNumber ? 'var(--m-ink)' : 'var(--m-slate-3)' }}>
-                  {cardPriceNumber ? `From ₱${formatCount(cardPriceNumber)}` : 'No price yet'}
-                </span>
-                <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                  Add what&rsquo;s included in the Card Maker.
-                </span>
-              </div>
-              {coordinating ? (
-                <div className="grid gap-0.5 text-[13.5px]" data-onboarding-page-partners="">
-                  <b style={{ color: 'var(--m-ink)' }}>{TRUSTED_PARTNERS}</b>
-                  <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                    {PAGE_PARTNERS_EMPTY}
-                  </span>
-                </div>
-              ) : null}
-              {/* "Built from what you typed" — where each part of the draft came from. */}
-              <div className="grid gap-1.5 text-[13.5px]" data-onboarding-card-source="">
-                <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                  Built from what you typed
-                </span>
-                {[
+              {/* PB4 — the drafted card, as couples will see it (its category, its name, its price or "No price yet"),
+                  then "Built from what you typed": where each part of the draft came from. Shared with Door A's P4. */}
+              <FirstCardDraft
+                category={categoryLabels[0] ?? serviceLabel ?? 'Your service'}
+                name={cardTitle.trim() || serviceLabel || 'Your service'}
+                price={cardPriceNumber || null}
+                lines={[]}
+                between={
+                  coordinating ? (
+                    <div className="grid gap-0.5 text-[13.5px]" data-onboarding-page-partners="">
+                      <b style={{ color: 'var(--m-ink)' }}>{TRUSTED_PARTNERS}</b>
+                      <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                        {PAGE_PARTNERS_EMPTY}
+                      </span>
+                    </div>
+                  ) : null
+                }
+                sourceHead="Built from what you typed"
+                sources={[
                   ['Category', categoryLabels[0] ?? '—', 'you picked it'],
                   ['Service', serviceLabel ?? '—', 'you named it'],
                   ['Price', cardPriceNumber ? `₱${formatCount(cardPriceNumber)}` : 'Not set', cardPriceNumber ? 'you typed it' : 'type yours'],
-                ].map(([k, v, why]) => (
-                  <span key={k} className="flex items-baseline gap-2">
-                    <span className="w-[72px] shrink-0" style={{ color: 'var(--m-slate-3)' }}>
-                      {k}
-                    </span>
-                    <span className="min-w-0 font-medium [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
-                      {v}
-                    </span>
-                    <small style={{ color: 'var(--m-slate-3)' }}>{why}</small>
-                  </span>
-                ))}
-              </div>
+                ]}
+                faceAttr="data-onboarding-card-face"
+                sourceAttr="data-onboarding-card-source"
+              />
               <label className="block space-y-1">
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   From (PHP)
@@ -1977,10 +1960,12 @@ export function OpenShopWizard({
                   ? 'Edit any time. No client is booked on it yet.'
                   : 'Edit opens the Card Maker once your shop is open.'}
               </p>
-              <div className="grid grid-cols-3 gap-2 [&>.ab]:w-full [&>.ab]:justify-center" data-onboarding-card-ways="">
+              {/* PB4 as drawn: Approve full width on top, Edit · Skip for now side by side under it (three in one row
+                  ran past the right gutter at 375 px). */}
+              <div className="grid grid-cols-2 gap-2 [&>.ab]:w-full [&>.ab]:justify-center" data-onboarding-card-ways="">
+                <ActionButton tone="brand" main icon={Check} label={coordinating ? APPROVE_PAGE : 'Approve card'} className="col-span-2" onClick={() => chooseCard('approve')} data-testid="onboarding-card-approve" />
                 <ActionButton tone="neutral" icon={PenLine} label="Edit" onClick={() => chooseCard('edit')} data-testid="onboarding-card-edit" />
                 <ActionButton tone="neutral" icon={SkipForward} label="Skip for now" onClick={() => chooseCard('skip')} data-testid="onboarding-card-skip" />
-                <ActionButton tone="brand" main icon={Check} label={coordinating ? APPROVE_PAGE : 'Approve card'} onClick={() => chooseCard('approve')} data-testid="onboarding-card-approve" />
               </div>
             </div>
 
@@ -2094,7 +2079,7 @@ export function OpenShopWizard({
                   <ActionButton
                     tone="neutral"
                     icon={continueIcon}
-                    label={step === 1 && !service ? 'Pick a service to continue' : 'Continue'}
+                    label="Continue"
                     className="ml-auto"
                     onClick={go}
                     data-busy={moving ? '' : undefined}

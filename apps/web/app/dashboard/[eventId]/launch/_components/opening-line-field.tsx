@@ -44,7 +44,7 @@ export function OpeningLineField({
       maxLength={240}
       aria-label="Opening line"
       placeholder={studio ? 'Write your own, or start from one' : 'Pick one above, or write your own…'}
-      className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+      className="rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm text-ink"
     />
   );
   if (studio) {

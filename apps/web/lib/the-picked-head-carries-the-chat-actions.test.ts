@@ -6,7 +6,7 @@
  * (+) · 🔒 · box · Send with the camera and photo inside the (+). This guard holds each of those:
  *
  *   1. the shell draws an action slot in its pinned row between the title and ⚙ and hands it down (`PickedHeadContext`);
- *   2. inside a picked shell the stream portals the booked calls and the 📎 into that slot, takes the calls OFF the host
+ *   2. inside a picked shell the stream portals the 📎 into that slot (the calls moved under ⋯, Unichat v3), takes the calls OFF the host
  *      strip, draws no Chat · Decisions · Files switch, and opens Files + Decisions as a panel INSIDE the pinned stack;
  *   3. a picked chat draws no notice row — the privacy words sit behind the strip's ⓘ (`headNote` → `ChatPrivacyTip`);
  *   4. a composer with a (+) clips its 📷 · 🖼 shortcuts and the (+) sheet's Camera / Photo rows click their inputs;
@@ -62,7 +62,9 @@ test('2 · inside a picked shell the calls and 📎 go to the head; no head-tool
   assert.match(STREAM, /const headSlot = useContext\(PickedHeadContext\);\s*const inPicked = headSlot !== null;/);
   assert.match(STREAM, /<ChatHostStrip\b[^>]*\bcalls=\{inPicked \? null : headCalls\}/, 'the calls are drawn on the strip inside a picked page (v8.3: the head)');
   const portal = STREAM.slice(STREAM.indexOf('createPortal('), STREAM.indexOf('headSlot,', STREAM.indexOf('createPortal(')));
-  assert.match(portal, /\{headCalls\}/, 'the head slot lost the calls');
+  // Unichat v3 (controller ruling 21 Nov 2026): 📞 🎥 moved under ⋯ — the head keeps the 📎 only
+  // (lib/every-chat-head-has-its-calls.test.ts round 3 holds where they went).
+  assert.doesNotMatch(portal, /\{headCalls\}/, 'the head slot draws the calls again (Unichat v3 moved them under ⋯)');
   assert.match(portal, /icon=\{Paperclip\}[\s\S]*label="Files in this chat"[\s\S]*disabled=\{privateNow !== null\}/, 'the head lost the 📎, or it opens while private (words only)');
   // Integration (Build 3 A × B): lane B retired the Chat · Decisions · Files switch for the 📎 head-tools row (open
   // decisions are pins, closed ones Details › Decisions) — outside a picked shell only; inside, the head carries the 📎.

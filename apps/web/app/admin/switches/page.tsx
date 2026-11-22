@@ -247,12 +247,8 @@ async function AdminSwitchesPage({
         <TemplateRows>
           <SettingRow data="env-package-credit" name="Package credit" line="env · NEXT_PUBLIC_PACKAGE_CREDIT" right={<SettingValue>{packageCreditEnabled() ? 'On' : 'Off'}</SettingValue>} />
           <SettingRow data="env-live-roam" name="Live Watch channel pool" line="env · NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED" right={<SettingValue>{liveStudioRoamEnabled() ? 'On' : 'Off'}</SettingValue>} />
-          <SettingRow
-            data="env-maya"
-            name="Maya automated checkout"
-            line="env · NEXT_PUBLIC_MAYA_STATUS"
-            right={<SettingValue>{process.env.NEXT_PUBLIC_MAYA_STATUS === 'APPROVED' ? 'Approved' : 'Not approved'}</SettingValue>}
-          />
+          {/* 💳 NEXT_PUBLIC_MAYA_STATUS is retired (owner 2026-11-21): Maya Checkout is the DB switch in
+              Settings › Payment methods plus the keys in Integrations — no redeploy. */}
           <SettingRow
             data="env-paywall"
             name="AI paywall environment default"

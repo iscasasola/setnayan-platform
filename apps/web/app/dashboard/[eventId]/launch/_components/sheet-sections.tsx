@@ -70,7 +70,7 @@ export function SheetSections({
           onClick={(e) => {
             if ((e.target as HTMLElement).closest('button')) setOpen(false);
           }}
-          className="absolute right-0 top-full z-40 mt-1 flex max-h-[40dvh] w-[min(18rem,calc(100vw-2rem))] flex-col gap-0.5 overflow-y-auto rounded-xl bg-white p-1 shadow-sn-md ring-1 ring-ink/10 [&_[data-details-piece]]:w-full [&_[data-details-piece]]:self-stretch [&_[data-details-piece]]:rounded-lg"
+          className="absolute right-0 top-full z-40 mt-1 flex max-h-[40dvh] w-[min(18rem,calc(100vw-2rem))] flex-col gap-0.5 overflow-y-auto rounded-xl bg-raised p-1 shadow-sn-md ring-1 ring-ink/10 [&_[data-details-piece]]:w-full [&_[data-details-piece]]:self-stretch [&_[data-details-piece]]:rounded-lg"
         >
           {pieces ? <div className="flex flex-col gap-0.5">{pieces}</div> : null}
           {others.length > 0 ? (

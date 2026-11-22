@@ -21,6 +21,12 @@
  * TO FABLE'S FIVE"): Recap · Film · Suppliers · Gallery · Me. The camera stays
  * on the list only for the COUPLE — `resolveSiteNav` draws no guest or stranger
  * camera after the day (answer 2, "no more camera since that event is done").
+ * Left as shipped on 20 Nov 2026: DECISION_LOG "POST EVENT LEAVES THE EVENT HUB" (2) supersedes the same day's
+ * call on this bar, so it stays as it is here.
+ *
+ * 🧭 ONE BAR ON THE DAY (controller under owner delegation, 20 Nov 2026 — DECISION_LOG "EVENT HUB MAKER — ONE
+ * TOOLBAR, FULL SCREEN, APPROVED"): The Day keeps ONE bar, Live · Home · Camera · Memories · Me — the `/hub`
+ * second bar is gone (`hub/page.tsx` forwards to the matching tab here) and Watch lives inside Live.
  */
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { DayOfPhase } from '@/lib/day-of-mode';

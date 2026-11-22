@@ -24,7 +24,8 @@ import {
   type TodaySchedules,
   type TodayShopRow,
 } from '@/lib/supplier-today.server';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRole, resolveVendorStanding, canManageVendor } from '@/lib/vendor-role';
+import { VENDOR_DUTY_DETAIL, VENDOR_DUTY_LINE, VENDOR_DUTY_NAME, type VendorDuty } from '@/lib/vendor-duties';
 import {
   fetchVendorOverviewData,
   fetchVendorEarningsSummary,
@@ -49,16 +50,22 @@ import { ClaimWaitLines } from './_components/claim-wait-lines';
 import { readClaimWaits } from '@/lib/claim-access-wait.server';
 import { PapersRenewalLine } from './_components/papers-renewal-line';
 import { StayOnTodayLine } from './_components/stay-on-today-line';
+import { SetnayanShopGiftLines } from './_components/setnayan-shop-gift-lines';
+import { readShopGifts } from '@/lib/setnayan-shop-gift.server';
+import { readPersonalInvitePlanPrices } from '@/lib/personal-invite-prices.server';
 import { manilaToday } from '@/lib/std-views';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   lockAgreeFeeHeld,
+  lockAgreeGiftBuy,
   lockAgreeHalls,
   lockAgreeNotice,
   lockDeclineNotice,
   type LockAnswerNotice,
 } from '@/lib/lock-answer-notice';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { GiftReturnBanner } from '@/app/vendor-dashboard/shop/promote/_components/gift-return-banner';
 import {
   shopFindability,
   findabilityNotice,
@@ -73,7 +80,8 @@ import {
 } from '@/lib/booking-fee-disclosure';
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
 import { TodayWelcome } from './_components/today-welcome';
-import { firstCardFrom, firstCardStateFrom, welcomeFrom } from '@/lib/supplier-onboarding';
+import { readClaimedWelcome } from '@/lib/claimed-welcome.server';
+import { FIRST_CARD_EDIT_UNREAD, firstCardFrom, firstCardStateFrom, welcomeFrom } from '@/lib/supplier-onboarding';
 import { SupplierToast } from './_components/supplier-toast';
 import { TodayNextEvents } from './_components/today-next-events';
 import { TodayThumbRow } from './_components/today-thumb-row';
@@ -99,6 +107,9 @@ import { forecastForBooking } from '@/lib/booking-fee-disclosure.server';
 import { TODAY_ASIDE_COOKIE, readTodayAside } from '@/lib/today-aside';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { buildTodayV2 } from './_components/today-v2-assemble';
+import { readStorySilenceDays, readWrapUpFacts } from '@/lib/today-wrap-up.server';
+import type { WrapUpFacts } from '@/lib/today-wrap-up';
+import { readGuestReviewsForVendor } from '@/lib/guest-reviews';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -134,19 +145,34 @@ import { buildTodayV2 } from './_components/today-v2-assemble';
 
 export const metadata = { title: 'Today' };
 
-function AgentHome() {
+/**
+ * 🧑‍🤝‍🧑 A teammate's Today (six roles, owner 19 Nov 2026): which role they hold and what it opens — the same words as
+ * Team › Roles — so nobody lands on a page that only says "ask your owner". The per-role Today (each role's own tasks)
+ * is the later Today-scoping PR; this says what is true now. With the role unread, the shipped line.
+ */
+function AgentHome({ duty }: { duty: VendorDuty | null }) {
   return (
     <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         titleNode={
           <>
-            You&apos;re on the team
+            {duty ? `You’re on the team · ${VENDOR_DUTY_NAME[duty]}` : 'You’re on the team'}
           </>
         }
       />
-      <div className="sn-tile p-5 text-sm text-ink/65">
-        Need access to something now? Ask your supplier owner to assign you to the
-        services you&apos;ll be managing.
+      <div className="sn-tile p-5 text-sm text-ink/65" data-agent-home-duty={duty ?? ''}>
+        {duty ? (
+          <>
+            <p className="font-medium text-ink">{VENDOR_DUTY_LINE[duty]}.</p>
+            <p className="mt-1">{VENDOR_DUTY_DETAIL[duty]}</p>
+            <p className="mt-2">Need something your role doesn&apos;t open? Ask a Shop Manager — they can change your role on Team.</p>
+          </>
+        ) : (
+          <>
+            Need access to something now? Ask your supplier owner to assign you to the
+            services you&apos;ll be managing.
+          </>
+        )}
       </div>
     </div>
   );
@@ -206,6 +232,8 @@ export default async function VendorOverviewPage({
     lock_decline?: string;
     /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
     taken?: string;
+    /** 🎁 `gift_needed` — the store door with the way back (`lockAgreeGiftBuy`). */
+    gift_buy?: string;
     free?: string;
     competing?: string;
     date_answer?: string;
@@ -223,6 +251,8 @@ export default async function VendorOverviewPage({
     card_price?: string;
     card_category?: string;
     card_why?: string;
+    /** `unread` — Door A: Edit was picked on the first card, but the card could not be found to open (ship review 21 Nov). */
+    card_edit?: string;
   }>;
 }) {
   const search = (await searchParams) ?? {};
@@ -251,7 +281,7 @@ export default async function VendorOverviewPage({
       feeHeld: lockAgreeFeeHeld(search.fee),
       // RW-38: the live gate, so the notice claims a gate only when there is one.
       feeLocksEvent: lockAgreeFeeHeld(search.fee) ? await resolveFeeEnforcement() : false,
-      halls: lockAgreeHalls(search.taken, search.free),
+      halls: lockAgreeHalls(search.taken, search.free), giftBuy: lockAgreeGiftBuy(search.gift_buy), storeShell: await isStoreShellRequest(),
     }) ?? lockDeclineNotice(search.lock_decline);
   // ⚡ The layout already asked the auth server who this is (`getCurrentUser`,
   // remembered per request) — asking again here was a second auth round trip on
@@ -271,7 +301,8 @@ export default async function VendorOverviewPage({
     fetchOwnVendorProfile(supabase, user.id),
   ]);
   if (vendorRole && !canManageVendor(vendorRole)) {
-    return <AgentHome />;
+    const standing = await resolveVendorStanding(supabase, user.id).catch(() => null);
+    return <AgentHome duty={standing?.duty ?? null} />;
   }
 
   // No profile yet (fresh team-member without an owned shop) — a light landing
@@ -321,8 +352,16 @@ export default async function VendorOverviewPage({
   const eventsYouRunP = readEventsYouRunWithNeeds(supabase, user.id).catch(() => ({ events: [], measured: false }));
   // 🔗 Joined from a couple's link and still waiting for their Approve (audit G3) — said on Today, never silent.
   const claimWaitsP = readClaimWaits(user.id).catch(() => ({ ok: false }) as const);
+  // 🚪 P6: the claimed welcome names the couple — read only on `?claimed=1`, null on any refusal.
+  const claimedWelcomeP = welcome === 'claimed' ? readClaimedWelcome(createAdminClient(), user.id).catch(() => null) : Promise.resolve(null);
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
+  // 🎁 Setnayan's gifts to this shop (owner 14 Nov 2026) — waiting to be opened, or a plan gift running; the Stay
+  // price is the catalogue's. Started here, read at the end; a refusal is drawn as a refusal, never as "no gift".
+  const shopGiftsP = readPersonalInvitePlanPrices()
+    .catch(() => null)
+    .then((prices) => readShopGifts(createAdminClient(), vendorProfileId, Date.now(), prices))
+    .catch(() => ({ ok: false }) as const);
   // 🎗 Arrived from a card-badge Today line ("Congratulations, your [card] service card earned [badge]"): its
   // congratulations opens, only for a card of THIS shop holding that badge now. No link = no read.
   // 📋 TODAY v2's reads (done today · covers · the Trending hold · Completed bookings · the radar · the grow lines) —
@@ -530,7 +569,10 @@ export default async function VendorOverviewPage({
     : null;
   // 🎁 A plan Setnayan gave (prototype supplier_personal_invite_2026-10-23 B6 · C2): the Shop line names it, and in
   // its last week a door row says when it ends. Off the same one shop-row read; a failed read says nothing.
-  const gift = shopRow
+  // A Setnayan plan gift running now draws its own line and notice (`SetnayanShopGiftLines`) — the comp words below
+  // would say the same plan twice, so they stand down while it runs.
+  const shopGifts = await shopGiftsP;
+  const gift = shopRow && !(shopGifts.ok && shopGifts.running)
     ? planGiftOf(
         { tier_state: shopRow.tierState, tier_source: shopRow.tierSource, tier_expires_at: shopRow.tierExpiresAt },
         Date.now(),
@@ -616,6 +658,7 @@ export default async function VendorOverviewPage({
     // couldn't load — may be missing … a payment" and drops the count.
     deskIncomplete: deskIncomplete || feeBillsRead === FEE_BILLS_UNREADABLE,
     upcoming,
+    bookingsComplete: data.bookingsComplete,
     schedules,
     firstSteps,
     verified: shopRow ? shopRow.verified : firstSteps == null,
@@ -717,7 +760,7 @@ export default async function VendorOverviewPage({
     quick rows answered on the row · rows that open ONE focused screen · the shop's own gaps (recommended, never
     counted) — plus Done today, the Next badge card, the grow stage and What's trending. 🔒 today-is-one-task.test.ts
   */
-  const [v2r, aside, feeForecasts] = await Promise.all([
+  const [v2r, aside, feeForecasts, wrapUps] = await Promise.all([
     v2ReadsP,
     asideP,
     Promise.all(
@@ -726,6 +769,22 @@ export default async function VendorOverviewPage({
         .slice(0, 5)
         .map(async (c) => [c.eventVendorId, await forecastForBooking(createAdminClient(), { vendorProfileId, eventVendorId: c.eventVendorId }).catch(() => null)] as const),
     ).then((pairs) => Object.fromEntries(pairs) as Record<string, FeeDisclosure | null>),
+    // ✓ Today v3 part 3 — each finished event's wrap-up facts (photos · reviews · plan · silence days). One guest-review
+    // read for the shop, filtered per event. Unread → null → that row keeps v2's quick "I delivered" (never "no photos").
+    (async (): Promise<Record<string, WrapUpFacts | null>> => {
+      const doneCards = needsAnswer.filter((c): c is Extract<typeof c, { kind: 'mark_complete' }> => c.kind === 'mark_complete').slice(0, 3);
+      if (doneCards.length === 0) return {};
+      const admin = createAdminClient();
+      const [guestReviews, silenceDays] = await Promise.all([
+        readGuestReviewsForVendor(admin, vendorProfileId, { limit: 100 }).catch(() => ({ state: 'refused' }) as const),
+        readStorySilenceDays(admin).catch(() => null),
+      ]);
+      const ultra = shopRow ? shopRow.tierState === 'enterprise' : null;
+      const pairs = await Promise.all(
+        doneCards.map(async (c) => [c.id, await readWrapUpFacts({ supabase, admin, vendorProfileId, card: c, guestReviews, ultra, silenceDays }).catch(() => null)] as const),
+      );
+      return Object.fromEntries(pairs);
+    })().catch(() => ({})),
   ]);
 
   // 🧩 The library door reads the live parts (③0-b) — the same snapshot the real upload gate reads.
@@ -740,6 +799,7 @@ export default async function VendorOverviewPage({
     reads: v2r,
     aside,
     feeForecasts,
+    wrapUps,
     payoutReadiness,
     setupDrawn: setup !== null,
     verified: shopRow ? shopRow.verified : firstSteps == null,
@@ -770,8 +830,14 @@ export default async function VendorOverviewPage({
           shopName={profile.business_name ?? null}
           card={firstCardFrom(search)}
           cardState={firstCardStateFrom(search)}
+          claimed={await claimedWelcomeP}
+          shop={shopRow ? { tierState: shopRow.tierState ?? null, verified: shopRow.verified } : null}
+          editUnread={search.card_edit === FIRST_CARD_EDIT_UNREAD}
         />
       ) : null}
+      {/* 🎁 Back from buying a gift for a booking (#7823): the pay page's exit for a gift order lands here. */}
+      <GiftReturnBanner className="mb-3" />
+      <SetnayanShopGiftLines read={shopGifts} now={renderNow} />
       <ClaimWaitLines read={await claimWaitsP} />
       <StayOnTodayLine supabase={supabase} vendorProfileId={vendorProfileId} />
       <PapersRenewalLine supabase={supabase} vendorProfileId={vendorProfileId} />

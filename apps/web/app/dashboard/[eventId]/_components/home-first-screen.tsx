@@ -21,7 +21,10 @@ import { HomeControlBoardColumn, HomeControlRow } from './home-control-row';
 import { HomeDateFinder } from './home-date-finder';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { countdownDoor, homeNowAction, homeToday, homeWaiting, type HomeControlInput } from './home-control-faces';
-import { HomeMemoriesLine, HomeTodoList } from './home-todo-list';
+import { HomeMemoriesLine, HomeTodayList } from './home-todo-list';
+import { buildEventToday, eventTodayNeedWords, type EventTodayAsk } from '@/lib/event-today';
+import type { PutOffRecord } from '@/lib/today-put-off';
+import { manilaToday } from '@/lib/chat-cards';
 import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
 import { IapLiveWatchSheet } from '@/app/_components/iap/iap-live-watch-sheet';
@@ -41,15 +44,19 @@ export type PapicCardInput = {
   settings: ReactNode;
   /** The head switch beside the › — closed and open (owner 2026-10-26): Papic on/off, or "Let everybody shoot now" once Papic is on (owner 2026-10-30, `PapicHeadControl`). */
   headControl?: ReactNode;
-  /** The line under the card's title (owner 2026-10-30: what "Let everybody shoot now" has saved); null = the brand line. */
+  /** The line under the card's title — since 2026-11-20 the ONE state line (`papicGuestCamerasLines().now`); null = the brand line. */
   headLine?: ReactNode;
+  /** The state line for each line the head's switch says (`papicGuestCamerasLines().byHead`, 2026-11-20). */
+  lineFor?: Record<string, string> | null;
   /** 🔢 Total · Taken · Remaining on the card's face (owner 2026-10-26) — the pot Home already read. */
   counts?: { total: number | null; left: number | null } | null;
+  /** "Add photos" on the face — the main button (`MemoriesAddPhotosButton`, 2026-11-20); null = not offered. */
+  add?: ReactNode;
   /** "Add more" on the face — the one buy sheet for this platform; null = not offered. */
   buy?: ReactNode;
-  /** Open on arrival — a save's outcome or a purchase error is said inside the open card. */
+  /** Open on arrival — a save's outcome or a purchase error is said inside the risen settings. */
   defaultOpen?: boolean;
-  /** 📷 The chapter Papic shoots into (owner 2026-11-01) — `PapicChapterRow`, under the counts; null = not drawn. */
+  /** 📷 The chapter Papic shoots into (owner 2026-11-01) — `PapicChapterRow`, the risen settings' first row; null = not drawn. */
   chapter?: ReactNode;
 };
 
@@ -112,11 +119,13 @@ export type HomeFirstScreenProps = {
   /** 🎛 Every upper widget's facts, already read (`home-control-faces.ts` words them). */
   control: HomeControlInput;
   /**
-   * ☀ THE TODAY ASKS (owner 2026-10-29: *"The popup for the access and other popups above the header can be presented
-   * better"*) — every prompt that waits on the hosts, as `HomeTodayItem` lines, drawn FIRST in the Today list under the
-   * cover; each self-hides. Nothing renders above the cover: the cover is the top of Home. Absent = none (a lab).
+   * ☀ THE ONE LIST'S OWN FACTS (owner 20 Nov 2026, Event Today, Focus shape — it replaces the Today pill lines of
+   * 2026-10-29): every ask that waits on the hosts, already read and worded as a row (`asks`), the shipped answer that
+   * goes inside each open card (`bodies`, by row key), THIS PERSON'S "Do it tomorrow" records on this event (`putOffs`;
+   * null = they could not be read — then nothing is held off), and Manila's day. Nothing renders above the cover: the
+   * cover is the top of Home. Absent = no asks, no records (a lab).
    */
-  asks?: ReactNode;
+  todayList?: { asks?: readonly EventTodayAsk[]; bodies?: Record<string, ReactNode>; putOffs: readonly PutOffRecord[] | null; todayIso: string; inviteNames?: readonly string[] };
   /** Papic · Setnayan AI · … with their status — already filtered (store shell). */
   services: HomeService[];
   /**
@@ -193,7 +202,7 @@ export function HomeFirstScreen({
   cover,
   next,
   control,
-  asks = null,
+  todayList,
   services,
   eventSettings = false,
   helperSettings = false,
@@ -216,6 +225,9 @@ export function HomeFirstScreen({
   const today = homeToday(next, control.guests, homeWaiting(control));
   const nowAction = homeNowAction(today, control);
   const c = control.countdown;
+  // ☀ The event's Today as ONE list (owner 20 Nov 2026): what Home already read, ordered by urgency; the strip's item
+  // is left out, and this person's put-offs sit under "Tomorrow".
+  const list = buildEventToday({ control, today, asks: todayList?.asks, putOffs: todayList ? todayList.putOffs : [], todayIso: todayList?.todayIso ?? manilaToday(), inviteNames: todayList?.inviteNames });
   return (
     /* 📅 "Later" beside a widget's verb folds Now for today, on this device (owner 2026-10-23). */
     <HomeTodayFold eventId={eventId} kind={next.kind}>
@@ -234,21 +246,20 @@ export function HomeFirstScreen({
           days: c.hasDate && /^\d/.test(c.value) ? c.days : null,
           label: c.hasDate ? c.label : 'No date yet',
           line: [c.long, c.placeLine].filter(Boolean).join(' · ') || null,
+          short: c.short ?? null,
+          place: c.placeLine,
           href: c.door ?? countdownDoor(eventId),
           turnFor: c.hasDate && /to go$/.test(c.label) ? eventId : undefined,
         }}
-        now={<HomeToday target={today.target} words={today.words} tail={today.tail} calm={today.calm} action={nowAction} eventId={eventId} />}
+        need={eventTodayNeedWords(list)}
+        now={<HomeToday target={today.target} words={today.words} tail={today.tail} calm={today.calm} action={nowAction} eventId={eventId} level={today.calm ? null : list.nowUrgency} />}
       />
 
         <div data-home-column className="mx-auto flex w-full max-w-xl flex-col gap-3 md:max-w-none">
-          {/* ✅ THE ONE TO DO — under the card: the three soonest tasks with their tick, then the plan's state (round 3).
-              The task Now holds is not repeated. */}
-          <HomeTodoList eventId={eventId} checklist={control.checklist} holds={today.holds?.task ?? null} />
-
-          {/* ☀ WHAT WAITS ON THE HOSTS — the access and date asks, each its own line (they join the Requests card next). */}
-          <div className="contents" data-home-today-asks="">
-            {asks}
-          </div>
+          {/* ☀ NEEDS YOU TODAY — ONE list under the card, by urgency (owner 20 Nov 2026, Event Today, Focus shape): the
+              late and due-soon payments, the plan's three soonest tasks with their tick, and every ask — each a row
+              that opens as a card where it sits. The item the card's strip holds is not repeated. */}
+          <HomeTodayList eventId={eventId} today={list} bodies={todayList?.bodies} />
 
           {/* 🎛 YOUR EVENT — the widgets; tap a name to open its page. */}
           <p className="hc-k2 xl:hidden" data-home-your-event="">
@@ -521,7 +532,7 @@ export function YourServices({
  */
 /**
  * 📷 THE ONE PAPIC CARD, wherever it is drawn — Memories since 2026-11-08 (THE ONE BUILD: *"Papic + Thank You into
- * Memories"*), under the keepsake row. The same `PapicHomeCard` Today drew, unchanged; only the seat moved.
+ * Memories"*), FIRST on that page since 2026-11-20 (the Papic block, its settings risen full screen).
  */
 export function PapicCard({
   card,
@@ -544,7 +555,9 @@ export function PapicCard({
       settings={card.settings}
       headControl={card.headControl ?? null}
       headLine={card.headLine ?? null}
+      lineFor={card.lineFor ?? null}
       counts={card.counts ?? null}
+      add={card.add ?? null}
       buy={card.buy ?? null}
       chapter={card.chapter ?? null}
       defaultOpen={card.defaultOpen ?? false}

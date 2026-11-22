@@ -174,9 +174,9 @@ export default async function PricingPage() {
   // rule (pricing-ours-only.test.ts) holds here too: the entry plan reads "No fee", never a zero or the giveaway word.
   const vendorPrice = (sku: string): number | null => vendorSkus.find((r) => r.sku_code === sku)?.price_php ?? null;
   const supplierPlans: { key: string; name: string; php: number | null; what: string }[] = [
-    { key: 'entry', name: TIER_LABEL.free, php: null, what: 'Your page, portfolio and the starter tools' },
+    { key: 'entry', name: TIER_LABEL.free, php: null, what: 'Your page, portfolio and the starter tools; the AI chatbot once Verified' },
     { key: 'plus', name: TIER_LABEL.solo, php: vendorPrice('solo_vendor_monthly'), what: 'All specialized tools' },
-    { key: 'pro', name: TIER_LABEL.pro, php: vendorPrice('pro_vendor_monthly'), what: 'Adds the AI chatbot' },
+    { key: 'pro', name: TIER_LABEL.pro, php: vendorPrice('pro_vendor_monthly'), what: 'Adds the smarter AI chatbot' },
     { key: 'ultra', name: TIER_LABEL.enterprise, php: vendorPrice('enterprise_vendor_monthly'), what: 'The highest limits and the smarter AI chatbot' },
   ];
   const papicFrom = prices.papicRungs[0] ?? null;
@@ -498,7 +498,7 @@ export default async function PricingPage() {
                   {prices.ultra != null ? (
                     <PriceRowShell
                       name="Event Ultra"
-                      tip={`Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months after the event instead of 3, Patiktok and ${prices.planCredits.ultra != null ? `${formatCount(prices.planCredits.ultra)} Papic credits` : 'more Papic credits'}. One unlock covers everyone on the event.`}
+                      tip={`Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months after the event instead of 3, and ${prices.planCredits.ultra != null ? `${formatCount(prices.planCredits.ultra)} Papic credits` : 'more Papic credits'}. One unlock covers everyone on the event.`}
                       what="Everything in Pro — and your day shared live and kept."
                       figure={<Figure php={prices.ultra} />}
                       action={<PlanBuyCta plan="ultra" />}

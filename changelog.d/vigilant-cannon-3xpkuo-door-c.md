@@ -28,16 +28,8 @@ FEATURE_REGISTER row in the corpus (flagged).
 - **Reverted:** the Shop › "Partnerships" tab keeps its shipped word (title, masthead, Shop tile). "Trusted partners" stays for the tie and the page section, as ruled.
 SPEC IMPACT: None — builds the approved 19 Nov drawing.
 
-## 2026-11-20 · fix(onboarding): Door C takes Door B's first-card truth; PC1 Picked row; Later on the invite
+## 2026-11-21 · fix(onboarding): caught up with #8028's 375 px fix
 
-- Door B's fix is merged in. The coordinator's first card goes through the shipped switch. Every landing (live, draft, refused, Edit) still passes through `/open-shop/invite`.
-- PC4: the page link no longer says "goes live when you open". It now says "your card shows here once it's live".
-- PC1: a "What you do · Coordination · ✓ Picked" row above the coordination dropdown.
-- PC7: "Later" beside Done on the invite screen. Both go where the first card lands.
-- PC7 (owner 20 Nov): the `/i/<slug>` card names the inviter's main service ("Lia Events · Coordination"). `readInviter` now reads `services` and `serviceLabelOf` gives the admin-managed name.
-- Tests: `lib/supplier-onboarding.test.ts` 13, and test 10's landing count is now 3.
+Caught up with #8028 + `main` (merge only); PB4's Approve keeps Door C's "Approve page" label. Shot: `build-sessions/shots-onboarding-375/c1-start-375.jpg`.
 
 SPEC IMPACT: None.
-
-- PC7 shop card → rows on white (owner 20 Nov, option a): a frame only on what you press; clears the template ratchet for vendor/claim/[token].
-- Lab: `/dev/open-shop-lab?screen=invite` draws the /i invite door on a fixture inviter (for the §4 light/dark shots).

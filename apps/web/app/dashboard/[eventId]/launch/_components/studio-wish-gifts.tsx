@@ -59,7 +59,7 @@ import { FIELD, FOOT, LABEL, WishSheet } from './studio-wish-sheet';
  * imports no server action. Lazy: it rides the `maker-details` chunk.
  */
 
-const THUMB = 'flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-ink/10 bg-white px-0.5 text-center text-[12px] leading-tight text-ink/70';
+const THUMB = 'flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-ink/10 bg-raised px-0.5 text-center text-[12px] leading-tight text-ink/70';
 
 /**
  * The small frame at the head of a row: a mark that a screenshot was added, or
@@ -273,7 +273,7 @@ export function OpenGift({
         ) : null
       }
     >
-      <div data-gift-open-shot={shot.state} className="mt-3 flex min-h-24 flex-col items-center justify-center gap-2 overflow-hidden rounded-md border border-ink/10 bg-white">
+      <div data-gift-open-shot={shot.state} className="mt-3 flex min-h-24 flex-col items-center justify-center gap-2 overflow-hidden rounded-md border border-ink/10 bg-raised">
         {shot.state === 'shown' ? (
           // eslint-disable-next-line @next/next/no-img-element -- a signed, host-only address of the guest's screenshot
           <img

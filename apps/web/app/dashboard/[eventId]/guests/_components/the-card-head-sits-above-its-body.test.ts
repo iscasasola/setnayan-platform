@@ -115,14 +115,17 @@ test('4 · InspectorColumn: header first, the face at its left, the pin slot bef
 });
 
 test('5 · the face is in the header over the panel, and only on the page in the body', () => {
-  assert.match(CARD, /lead=\{<GuestCardAvatar guest=\{guest\} photoDisplayUrl=\{photoDisplayUrl\} size="head" \/>\}/);
+  /* 🔵 Since the 20 Nov 2026 drawing (§ 3) the header's face also wears the side dot — still the ONE avatar, at `size="head"`. */
+  assert.match(CARD, /lead=\{\s*<GuestCardAvatar\s+guest=\{guest\}\s+photoDisplayUrl=\{photoDisplayUrl\}\s+size="head"\s+sideDot=\{data\.hasSides \? \(data\.plusOneOf\?\.side \?\? guest\.side\) : null\}\s*\/>\s*\}/);
   assert.match(CARD, /\bpinSlot\b/, 'GuestCard must open the header’s pin slot');
   assert.match(BODY, /\{headerShown \? null : <GuestCardAvatar guest=\{guest\} photoDisplayUrl=\{photoDisplayUrl\} \/>\}/, 'over the panel the body must not draw the face a second time');
   assert.equal((BODY.match(/<GuestCardAvatar\b/g) ?? []).length, 1, 'the body draws the face in one place');
   const HEAD = read(`${G}/guest-card-head.tsx`);
   const av = HEAD.slice(HEAD.indexOf('export function GuestCardAvatar('));
-  assert.match(av.slice(0, 1400), /photoDisplayUrl \?[\s\S]*<img src=\{photoDisplayUrl\}[\s\S]*guestInitials\(guest\)/, 'the face is their photo, else their initials');
-  assert.match(av.slice(0, 1400), /size === 'head' \? 'h-11 w-11'/, 'the header’s face is 44px');
+  assert.match(av, /const face = <GuestCardFace guest=\{guest\} photoDisplayUrl=\{photoDisplayUrl\} size=\{size\} \/>;\s*if \(!sideDot\) return face;/, 'without a side the avatar is the face alone');
+  const face = HEAD.slice(HEAD.indexOf('function GuestCardFace('));
+  assert.match(face.slice(0, 1400), /photoDisplayUrl \?[\s\S]*<img src=\{photoDisplayUrl\}[\s\S]*guestInitials\(guest\)/, 'the face is their photo, else their initials');
+  assert.match(face.slice(0, 1400), /size === 'head' \? 'h-11 w-11'/, 'the header’s face is 44px');
 });
 
 test('6a · pinned ⇔ scrolled up under the header (the one decision, executed)', () => {
@@ -166,6 +169,7 @@ test('7 · on a phone the pinned Invite is a 44px round button (glyph + ▾), na
   // The SAME button: it keeps its word for its name, and its caret.
   const portal = CELL.slice(CELL.indexOf('createPortal(') - 40, CELL.indexOf('pin.slot,') + 9);
   assert.match(portal, /name=\{shareName\}/, 'its name still says who it is for');
-  assert.match(CELL, /const shareName = sentAt \? `Share \$\{guest\.fullName\}’s invitation — sent \$\{sentDay\}` : `Share \$\{guest\.fullName\}’s invitation`;/);
-  assert.match(portal, /label="Share"/);
+  /* "Send invite" since the 20 Nov 2026 drawing — the pinned copy of the quick row's first action, still one icon on a phone. */
+  assert.match(CELL, /const shareName = sentAt \? `Send invite to \$\{guest\.fullName\} — sent \$\{sentDay\}` : `Send invite to \$\{guest\.fullName\}`;/);
+  assert.match(portal, /label="Send invite"/);
 });

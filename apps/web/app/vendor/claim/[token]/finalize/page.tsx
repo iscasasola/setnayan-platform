@@ -1,6 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { FIRST_CARD_EDIT_UNREAD, WELCOME_CLAIMED_PATH, firstCardLanding, welcomeEditUnreadPath } from '@/lib/supplier-onboarding';
+import { FIRST_CARD_EDIT_UNREAD, WELCOME_CLAIMED_PATH, claimCardFrom, claimedWelcomePath, firstCardLanding, welcomeEditUnreadPath } from '@/lib/supplier-onboarding';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -39,10 +39,14 @@ type Props = { params: Promise<{ token: string }> };
  *      to the shop only on Approve), and insert vendor_follows for the couple.
  *   3. Redirect to /vendor-dashboard.
  */
-export default async function FinalizeClaimPage({ params, searchParams }: Props & { searchParams?: Promise<{ edit?: string }> }) {
+export default async function FinalizeClaimPage({ params, searchParams }: Props & { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const { token } = await params;
+  const search = (await searchParams) ?? {};
   // 🚪 Edit on the door's first card (supplier onboarding, owner 19 Nov): after the consent, the shipped Card Maker.
-  const editCard = firstCardToEdit((await searchParams)?.edit);
+  const editCard = firstCardToEdit(typeof search.edit === 'string' ? search.edit : undefined);
+  // 🃏 …and what the door found about that card (live · draft · refused · skipped) — re-read here, passed on to Today's
+  // welcome (review 20 Nov). A bare finalize carries nothing, so the welcome names the shop alone.
+  const cardCarry = claimCardFrom(search);
 
   const supabase = await createClient();
   const user = await getCurrentUser();
@@ -287,7 +291,7 @@ export default async function FinalizeClaimPage({ params, searchParams }: Props 
       ? welcomeEditUnreadPath(WELCOME_CLAIMED_PATH)
       : editCard
         ? firstCardLanding({ choice: 'edit', cardId: editCard, category: null })
-        : WELCOME_CLAIMED_PATH,
+        : claimedWelcomePath(cardCarry),
   );
 }
 

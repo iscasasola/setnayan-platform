@@ -38,6 +38,25 @@ export const COORDINATOR_TRADE_SERVICES: readonly string[] = [
 
 const COORDINATOR_TRADE_SET: ReadonlySet<string> = new Set(COORDINATOR_TRADE_SERVICES);
 
+/**
+ * 🚪 The coordinator door's PRE-PICK (Door C, owner 19 Nov): the coordination service a new coordinator most likely
+ * is — the one EARLIEST in `COORDINATOR_TRADE_SERVICES` (coordinator · planner first), never the first in the service
+ * tree's order. Tree order put "Despedida" first, so every coordinator opened as a despedida planner (walk 22 Nov).
+ * The dropdown itself keeps the tree's order and words; only the default is chosen here. Null = no coordination leaf.
+ */
+export function firstCoordinationPick<T extends { key: string }>(leaves: readonly T[]): T | null {
+  let best: T | null = null;
+  let bestAt = Infinity;
+  for (const l of leaves) {
+    const at = COORDINATOR_TRADE_SERVICES.indexOf(l.key);
+    if (at >= 0 && at < bestAt) {
+      best = l;
+      bestAt = at;
+    }
+  }
+  return best;
+}
+
 /** True when any of the shop's services is the coordinator trade, under any of its names. */
 export function isCoordinatorTrade(services: readonly string[] | null | undefined): boolean {
   return (services ?? []).some((s) => COORDINATOR_TRADE_SET.has(s));

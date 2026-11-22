@@ -48,6 +48,7 @@ import {
   OPEN_YOUR_SHOP_FREE_LINE,
   OPEN_YOUR_SHOP_HEAD,
   APPROVE_PAGE,
+  PAGE_LINK_LINE,
   PAGE_PARTNERS_EMPTY,
   TRUSTED_PARTNERS,
   YOUR_PAGE_HEAD,
@@ -96,7 +97,7 @@ import { fairRefusal, findFairHits } from '@/lib/fair-presentation';
 import type { ClaimWord } from '@/lib/service-card-checks';
 import { FairNote } from '@/app/_components/fair-note';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { COORDINATOR_TRADE_SERVICES } from '@/lib/coordinator-trade';
+import { COORDINATOR_TRADE_SERVICES, firstCoordinationPick } from '@/lib/coordinator-trade';
 // 🔵 The supplier blue look (owner 19 Nov: the onboarding wears it) — the dashboard's own token scope, re-used.
 import '@/app/vendor-dashboard/_components/supplier-look.css';
 
@@ -176,6 +177,7 @@ export function OpenShopWizard({
   error,
   refusalStamp = 0,
   plan = null,
+  storeShell = false,
   feeNotice = null,
   initialStep = 1,
   guest = false,
@@ -268,6 +270,14 @@ export function OpenShopWizard({
   refusalStamp?: number;
   /** W1-B21 — `?plan=` from /for-suppliers' "Start on Plus / Pro / Ultra" (whitelisted by `parseSupplierPlan`). */
   plan?: string | null;
+  /**
+   * 🍎 IN-APP SUPPLIER DOOR (controller 22 Nov, drawing `app_supplier_door_2026-11-22`): the page was asked for by the
+   * App Store / Play Store shell (`isStoreShellRequest`). The app sells no plan and shows no price, so the wizard holds
+   * the picks to what Free allows (one service — `freeOnly` on the cards), never opens the plan explainer, says only
+   * "Add more later." at the pick, and keeps step 5's fee line with no ⓘ and no number. Held by
+   * `the-app-supplier-door-names-no-price.test.ts`.
+   */
+  storeShell?: boolean;
   /** The signed-in account's own name. Shown READ-ONLY when present (owner
    *  2026-08-10: "your name (automatic from their account)") — presented, not
    *  asked. Falls back to an editable input when the account has none, because
@@ -362,10 +372,12 @@ export function OpenShopWizard({
     return out;
   }, [serviceTree]);
   useEffect(() => {
-    // Pre-picked once: the first coordination service, unless one is already chosen (a re-run, a restored draft).
-    if (coordinator && !service && coordinationLeaves[0]) {
-      setService(coordinationLeaves[0].key);
-      setPickedLabel(coordinationLeaves[0].label);
+    // Pre-picked once: the coordination service earliest in COORDINATOR_TRADE_SERVICES (coordinator · planner — not
+    // the tree's first, which was "Despedida"), unless one is already chosen (a re-run, a restored draft).
+    const pick = firstCoordinationPick(coordinationLeaves);
+    if (coordinator && !service && pick) {
+      setService(pick.key);
+      setPickedLabel(pick.label);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the coordinator door opens
   }, []);
@@ -480,7 +492,7 @@ export function OpenShopWizard({
   /** Every picked service, the main first (`PickedService` — key + name). */
   const picked: PickedService[] = service ? [{ key: service, label: serviceLabel ?? service }, ...added] : [];
   /** ② The picks hold more than Free does — Continue explains the plans first. */
-  const overFree = holdsMoreThanFree(
+  const overFree = !storeShell && holdsMoreThanFree(
     picked.map((p) => ({ categoryId: places.get(p.key)?.categoryId ?? p.key, categoryLabel: '' })),
   );
   /** ④ The services left on for NO ticked event — Continue (and the server) refuse them. */
@@ -869,7 +881,8 @@ export function OpenShopWizard({
       setPickedLabel(d.serviceLabel);
     }
     if (d.events.length) setEvents(d.events);
-    if (d.added?.length) setAdded(d.added.map((a) => ({ key: a.key, label: a.label })));
+    // 🍎 The app's door holds the picks to what Free allows — a draft begun on the web brings back its main service only.
+    if (d.added?.length && !storeShell) setAdded(d.added.map((a) => ({ key: a.key, label: a.label })));
     if (d.evOff) setEvOff(d.evOff);
     if (d.specialties) setPicks(d.specialties);
     if (d.planAgreed) setPlanAgreed(true);
@@ -1379,6 +1392,19 @@ export function OpenShopWizard({
                     {coordinating && step === 1 && coordinationLeaves.length > 0 ? (
                       // 🚪 Door C: Coordination pre-picked — ONE dropdown for the main service (owner 19 Nov).
                       <span className="grid gap-2" data-onboarding-coordination="">
+                        {/* PC1: what you do is already picked — Coordination — and the dropdown names which kind. */}
+                        <span className="flex min-h-11 items-center gap-3 text-[14px]" data-onboarding-coordination-picked="">
+                          <span className="w-[88px] shrink-0 text-[13px]" style={{ color: 'var(--m-slate-3)' }}>
+                            What you do
+                          </span>
+                          <b className="min-w-0 flex-1 font-medium" style={{ color: 'var(--m-ink)' }}>
+                            Coordination
+                          </b>
+                          <span className="inline-flex items-center gap-1 text-[13px] font-medium" style={{ color: 'rgb(var(--color-ok))' }}>
+                            <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                            Picked
+                          </span>
+                        </span>
                         <PickMenu
                           label="Your main coordination service"
                           value={service}
@@ -1419,6 +1445,7 @@ export function OpenShopWizard({
                         onOpenSpecialty={setOpenSpecialty}
                         adding={adding}
                         onAddingChange={setAdding}
+                        freeOnly={storeShell}
                       />
                     ) : (
                       <ServicePicker
@@ -1463,7 +1490,10 @@ export function OpenShopWizard({
                     numbers. */}
                 {service || coordinating ? null : (
                   <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }} data-open-shop-plan-hint="">
-                    {planCategories.length > 0 ? (
+                    {/* 🍎 In the app: the one plain line — no ⓘ, no plan names (controller call 3, 22 Nov). */}
+                    {storeShell ? (
+                      'Add more later.'
+                    ) : planCategories.length > 0 ? (
                       <InfoTip
                         label="Add more later. How many categories you can run depends on your plan"
                         labelClassName="text-xs"
@@ -1938,7 +1968,7 @@ export function OpenShopWizard({
                   the shop is open (it needs the shop); until then the price above is the whole draft. */}
               {coordinating && slug ? (
                 <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-onboarding-page-link="">
-                  setnayan.com/{slug} · goes live when you open
+                  setnayan.com/{slug} · {PAGE_LINK_LINE}
                 </p>
               ) : null}
               <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-onboarding-card-note="">
@@ -2010,7 +2040,7 @@ export function OpenShopWizard({
                   numbers inside the ⓘ — `feeNotice` is composed by `bookingFeeJoinDisclosure` from the LIVE
                   schedule, never a rate typed here. (v16 dropped the prototype's "on us" footnote; this line is the
                   shipped disclosure the owner's 2026-09-20 ruling keeps, held by the-fee-finds-the-supplier.test.ts.) */}
-              {feeNotice ? (
+              {feeNotice && !storeShell ? (
                 <p data-testid="open-shop-fee-disclosure" className="max-w-[620px] text-sm" style={{ color: 'var(--m-slate)' }}>
                   <InfoTip
                     label="Free to open, free to run. You pay only when a couple books you through Setnayan."
@@ -2021,6 +2051,11 @@ export function OpenShopWizard({
                     <span className="block font-semibold">{feeNotice.headline}</span>
                     <span className="mt-0.5 block">{feeNotice.detail}</span>
                   </InfoTip>
+                </p>
+              ) : feeNotice ? (
+                /* 🍎 In the app the line stays and its ⓘ goes: no number, no rate (controller call 4, 22 Nov). */
+                <p data-open-shop-fee-plain="" className="max-w-[620px] text-sm" style={{ color: 'var(--m-slate)' }}>
+                  Free to open, free to run. You pay only when a couple books you through Setnayan.
                 </p>
               ) : null}
               {/* The plan, when their picks are more than Free holds (its tick inside); else PB5's tick on its own. */}

@@ -18073,6 +18073,7 @@
     },
     "/vendor-dashboard/shop/promote": {
       "files": [
+        "vendor-dashboard/shop/promote/_components/apple-gift-cart.tsx",
         "vendor-dashboard/shop/promote/_components/gift-return-banner.tsx",
         "vendor-dashboard/shop/promote/_components/gift-store-copy.ts",
         "vendor-dashboard/shop/promote/_components/gift-store-sizes.ts",
@@ -18096,6 +18097,8 @@
       "blocks": [
         "ActionButton",
         "AddButton",
+        "AppStoreTransactions",
+        "AppleGiftCartFoot",
         "Art",
         "ArtBase.Provider",
         "BadgeRead",
@@ -18127,6 +18130,7 @@
         "Hidden.Provider",
         "HistoryFilter",
         "HistoryItem",
+        "IapGiftBuy",
         "InfoTip",
         "Link",
         "NfcTapTest",

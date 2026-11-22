@@ -3237,7 +3237,7 @@ export async function SiteBody({
             {isEditorCanvas || !seatPassActive ? null : (
               <p className="mt-2 text-center">
                 <Link
-                  href={`/${event.slug}/find-my-table`}
+                  href={`${publicEventPath(event.slug)}/find-my-table`}
                   className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-ink/80 underline decoration-ink/30 underline-offset-4 hover:text-ink"
                 >
                   See the venue map

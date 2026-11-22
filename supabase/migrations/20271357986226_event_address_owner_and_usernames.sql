@@ -189,6 +189,10 @@ BEGIN
 END
 $backfill$;
 
+-- (22 Nov 2026) This file was re-allocated forward from 20271350564435 when origin/main was merged in: main's
+-- 20271355258231 had since added 'articles' to this function, and a CREATE OR REPLACE sorting below it would have
+-- dropped that word in the replay, and in prod (where this file applies last) erased it. The body below is
+-- 20271355258231's, word for word, plus this move's words.
 -- ── 5 · The reserved words ──────────────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.business_slug_is_reserved(p_slug text)
  RETURNS boolean
@@ -277,7 +281,11 @@ AS $function$
       -- prod (a builder session reads no production data) — owner check:
       -- select count(*) from vendor_profiles where lower(business_slug)='for-coordinators';
       'for-coordinators',
-      -- ⬇ ADDED 2026-11-16 by 20271350564435 (the address move, owner 2026-11-15, specs DECISION_LOG
+      -- ⬇ ADDED 2026-11-17 (Build 2, 20271355258231). Discover's articles live at /articles/{slug}; a shop
+      -- called "Articles" would hold this word forever. NOT verified in prod (a builder reads no production
+      -- data) — owner check: select count(*) from vendor_profiles where lower(business_slug)='articles';
+      'articles',
+      -- ⬇ ADDED 2026-11-16 by 20271357986226 (the address move, owner 2026-11-15, specs DECISION_LOG
       -- d7910b5d). The words that sit UNDER a person or a shop — `/{user}/c/{id}` (a chapter),
       -- `/{shop}/invite`, `/{shop}/dates` · `booth` · `review` · `guest-review`, and the cached copies
       -- (`cached`) — so `/{x}/{y}` never needs a guess. Mirrored by DB_MIRRORED_RESERVED_SLUGS in

@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1970
-# tables: 538
-# columns: 6455
-# notnull: 3887
+# ledger: 1976
+# tables: 539
+# columns: 6463
+# notnull: 3893
 [ledger]
 20260512000000
 20260513000000
@@ -1973,15 +1973,21 @@
 20271356196197
 20271356215288
 20271356402294
+20271356452488
+20271356585725
 20271356599293
 20271356623783
 20271356665317
 20271356877338
 20271356969132
 20271356998019
+20271357113669
 20271357547732
 20271357625672
+20271357741892
 20271357859993
+20271358554489
+20271359080029
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -3394,6 +3400,7 @@ event_moderators.invitation_sent_at
 event_moderators.invitation_token
 event_moderators.invited_by_user_id
 event_moderators.moderator_id
+event_moderators.opened_by_event_vendor_id
 event_moderators.permissions_json
 event_moderators.removal_reason
 event_moderators.removed_at
@@ -4465,6 +4472,7 @@ guest_group_memberships.group_id
 guest_group_memberships.guest_id
 guest_groups.created_at
 guest_groups.event_id
+guest_groups.event_vendor_id
 guest_groups.group_id
 guest_groups.label
 guest_groups.public_id
@@ -6029,6 +6037,12 @@ platform_settings.vendor_validate_email
 platform_settings.vendor_validate_phone
 platform_settings.youtube_oauth_client_id
 platform_settings.youtube_oauth_redirect_uri
+pricing_formula_settings.id
+pricing_formula_settings.pricing_fee_tax_cover
+pricing_formula_settings.pricing_margin_factor
+pricing_formula_settings.pricing_opex_factor
+pricing_formula_settings.pricing_round_step_php
+pricing_formula_settings.updated_at
 promo_free_windows.audience_params
 promo_free_windows.audience_type
 promo_free_windows.blurb
@@ -10812,6 +10826,12 @@ platform_settings.updated_at
 platform_settings.vendor_addon_tiered_pricing_enabled
 platform_settings.vendor_tier_pipeline_caps_enabled
 platform_settings.vendor_validate_email
+pricing_formula_settings.id
+pricing_formula_settings.pricing_fee_tax_cover
+pricing_formula_settings.pricing_margin_factor
+pricing_formula_settings.pricing_opex_factor
+pricing_formula_settings.pricing_round_step_php
+pricing_formula_settings.updated_at
 promo_free_windows.audience_params
 promo_free_windows.audience_type
 promo_free_windows.covered_service_keys

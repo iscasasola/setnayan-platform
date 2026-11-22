@@ -164,6 +164,16 @@ export function windowSetByWords(heldBy: string | null | undefined): string {
   return `Set by ${heldBy ?? 'the venue'} · confirmed by the hosts`;
 }
 
+/**
+ * 🏛 The same line as the HOSTS read it (drawing `riseBody('next')`, hosts' side): the set-by words, then who changes
+ * them — "Set by Fernwood Gardens · confirmed by the hosts. Fernwood Gardens sets these on its card; you confirm on the
+ * event Schedule." A chapter the hosts hold themselves needs no second sentence.
+ */
+export function hostsWindowWords(heldBy: string | null | undefined): string {
+  if (heldBy === null) return windowSetByWords(null);
+  return `${windowSetByWords(heldBy)}. ${heldBy ?? 'The venue'} sets these on its card; you confirm on the event Schedule.`;
+}
+
 /* ── The bar ─────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
 const HOUR = 3_600_000;

@@ -43,7 +43,8 @@ export function AskSupplierSection({
   /** The button's words — "Ask Blue Leaf to change" on a chapter a venue holds (2026-11-04). */
   askLabel?: string;
   moment: Pick<ChapterMoment, 'block_id' | 'start_at' | 'end_at' | 'vendor_ids'>;
-  chapter: Chapter;
+  /** Only its hours are read (a typed time lands inside them, `momentStartFrom`) — the chat's whole day passes just those. */
+  chapter: Pick<Chapter, 'start_at' | 'end_at' | 'ingress_minutes_before' | 'egress_minutes_after'>;
   /** The event's BOOKED suppliers (booking id + shop name). */
   suppliers: readonly { id: string; name: string }[];
   /** Every ask on the event; null = they could not be read; undefined = not read here (the Maker). */

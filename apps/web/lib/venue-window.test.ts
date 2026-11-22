@@ -32,6 +32,7 @@ import {
   venueWindowWords,
   windowAxis,
   windowSetByWords,
+  hostsWindowWords,
   windowBands,
   type WindowChapter,
 } from '@/lib/venue-window';
@@ -53,7 +54,7 @@ test('1 · the window is the chapter’s own hours, in the drawing’s words', (
   const bare = venueWindowOf(NO_HOURS)!;
   assert.equal(bare.hasIngress || bare.hasEgress, false);
   assert.equal(venueWindowWords(bare), 'Event 4:00–9:30 PM', 'a setup or pack-up time was invented');
-  assert.equal(venueWindowWords(venueWindowOf({ ...NO_HOURS, start_at: T('03:00'), end_at: T('06:00') })!), 'Event 11:00 AM – 2:00 PM', 'across noon each clock keeps its own AM/PM');
+  assert.equal(venueWindowWords(venueWindowOf({ ...NO_HOURS, start_at: T('11:00'), end_at: T('14:00') })!), 'Event 11:00 AM – 2:00 PM', 'across noon each clock keeps its own AM/PM');
 });
 
 test('1 · the bar: three bands in order, inside 0–100, ends in words', () => {
@@ -177,4 +178,13 @@ test('5 · who set the window: the venue by name, confirmed by the hosts — nev
   assert.equal(windowSetByWords('Fernwood Gardens'), 'Set by Fernwood Gardens · confirmed by the hosts');
   assert.equal(windowSetByWords(undefined), 'Set by the venue · confirmed by the hosts', 'an unread name was drawn blank');
   assert.equal(windowSetByWords(null), 'Set by the hosts');
+});
+
+test('6 · the hosts read who set it AND who changes it (drawing, hosts side)', () => {
+  assert.equal(
+    hostsWindowWords('Fernwood Gardens'),
+    'Set by Fernwood Gardens · confirmed by the hosts. Fernwood Gardens sets these on its card; you confirm on the event Schedule.',
+  );
+  assert.equal(hostsWindowWords(undefined), 'Set by the venue · confirmed by the hosts. The venue sets these on its card; you confirm on the event Schedule.');
+  assert.equal(hostsWindowWords(null), 'Set by the hosts', 'a chapter the hosts hold grew a venue sentence');
 });

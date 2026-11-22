@@ -96,7 +96,11 @@ test('3 · a full-screen modal on the pop layer; bars away; the house modal cont
   assert.match(SCREEN, /window\.addEventListener\(TAB_RESELECT_EVENT, on\)/, 'a tab re-tap no longer gets past an open screen');
   // The head: ✕ first (left), the title over its one line, the ⓘ last (the settings prototype's `.fs-head`).
   // (the JSX attributes — the grow's helpers name the same parts as selectors higher up the file)
-  const head = SCREEN.slice(SCREEN.indexOf('data-rise-head=""'), SCREEN.indexOf('data-rise-body=""'));
+  // The row is written ONCE (`headRow`) and worn by both heads — the house head (✕) and a screen risen from a chat
+  // (‹ Back to chat, Unichat v3) — so it is read where it is written, and each head must wear it.
+  const head = SCREEN.slice(SCREEN.indexOf('const headRow'), SCREEN.indexOf('data-rise-body=""'));
+  assert.ok(head.indexOf('data-rise-close') >= 0, 'the head row lost its way out');
+  assert.equal([...SCREEN.matchAll(/data-rise-head="(?:back)?">\s*\{headRow\}/g)].length, 2, 'a head no longer wears the one head row');
   assert.ok(head.indexOf('data-rise-close') < head.indexOf('{title ?'), '✕ is not at the head’s left');
   assert.ok(head.indexOf('{title ?') < head.indexOf('data-rise-info-button'), 'ⓘ is not at the head’s right');
 });

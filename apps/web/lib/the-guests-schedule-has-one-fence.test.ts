@@ -123,6 +123,8 @@ const NOT_GUEST_FACING: Record<string, string> = {
     'host and booked supplier — the chat’s Crew for the day card (Unichat H2) reads the start of the moments this shop’s crew tasks sit on, for each member’s arrival, on the reader’s own session inside a supplier chat; a guest is in no supplier chat, so no guest door reaches it',
   'lib/schedule-ask.server.ts':
     'host — a host or the coordinator asks a booked supplier to change their times (D2); reads the moment’s name for the ask, never for a guest',
+  'lib/hosts-whole-day.server.ts':
+    'host — "The whole day" risen from the hosts’ chat with one shop (Unichat F): every moment of their own day, read on the host’s own session when their ⋯ Schedule is pressed; never a guest',
   'lib/moment-follow.server.ts':
     'host — the Schedule’s write doors ask which moment a "right after" moment follows (its siblings’ order keys), on the host’s own session; never a guest',
   'lib/supplier-part-notify.server.ts':

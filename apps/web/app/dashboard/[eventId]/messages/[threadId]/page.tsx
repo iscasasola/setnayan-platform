@@ -32,6 +32,10 @@ import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
+import { WholeDayFromMenu } from '@/app/_components/chat/whole-day-rise';
+import { loadHostsWholeDay } from '@/lib/hosts-whole-day.server';
+import { wholeDayUnread, type WholeDay } from '@/lib/hosts-whole-day';
+import { manilaTodayIso } from '@/lib/supplier-night-before-email-core';
 import { ChatPrivacyTip, ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -83,6 +87,8 @@ type Props = {
      * (no conversation column, no full-screen head — the picked page's pinned row is the head). One body, one read path.
      */
     __embed?: string;
+    /** 📅 `?day=1` — the ⋯ menu's Schedule: "The whole day" risen over this chat (Unichat part F, hosts' side). */
+    day?: string;
   }>;
 };
 
@@ -97,6 +103,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   const composeMode = sp?.compose === 'deal' ? 'deal' : null;
   // 🪞 Inside the host's picked supplier (Build 3 · Lane A): the conversation alone, marked read only while shown.
   const embedded = sp?.__embed === 'chat';
+  const wantWholeDay = !embedded && sp?.day === '1';
   const { eventId, threadId } = await params;
   const supabase = await createClient();
   const user = await getCurrentUser();
@@ -595,6 +602,18 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     return { facts: [], masked: false, streamMasked: false, expiredQuoteId: null };
   });
 
+  // 📅 The whole day (Unichat part F, hosts' side): read only when the ⋯ menu's Schedule asked for it (`?day=1`).
+  const wholeDayRead: Promise<WholeDay | null> = wantWholeDay
+    ? Promise.all([eventDateRead, vendorLabelRead]).then(([d, label]) =>
+        loadHostsWholeDay(supabase, { eventId, vendorProfileId: thread.vendor_profile_id, eventDate: d ?? null, shopName: label || 'The supplier' }).catch(
+          (e: unknown) => {
+            console.error('[couple thread] whole day read failed', e);
+            return wholeDayUnread({ eventId, shopName: label || 'The supplier', eventDate: d ?? null, todayIso: manilaTodayIso() });
+          },
+        ),
+      )
+    : Promise.resolve(null);
+
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
   const [
     eventDate,
@@ -616,6 +635,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     shopPhone,
     hosts,
     shopVerifiedNote,
+    wholeDay,
   ] = await Promise.all([
     eventDateRead,
     blockStateRead,
@@ -636,6 +656,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     shopPhoneRead,
     hostsRead,
     shopVerifiedNoteRead,
+    wholeDayRead,
   ]);
   const shopNotYetVerified = shopVerifiedNote !== null;
   const shopPapersRenewing = shopVerifiedNote === 'renewing';
@@ -868,7 +889,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                           { href: `${workspaceHref}?tab=quote`, label: 'Quote', icon: 'quote' },
                           { href: `${workspaceHref}?tab=payments`, label: 'Payments', icon: 'payments' },
                           { href: `${workspaceHref}?tab=files`, label: 'Files', icon: 'files' },
-                          { href: `${workspaceHref}?tab=schedule`, label: 'Schedule', icon: 'schedule' },
+                          // 📅 Schedule rises "The whole day" over this chat (Unichat part F); the event Schedule is one tap in.
+                          { href: `/dashboard/${eventId}/messages/${threadId}?day=1`, label: 'Schedule', icon: 'schedule' },
                           { href: `${workspaceHref}?tab=details`, label: 'Booking details', icon: 'details' },
                           // 🚩 Report a problem left the host's (+) for ⋯ (Unichat part G): the workspace's Report page.
                           { href: `${workspaceHref}?tab=report`, label: 'Report a problem', icon: 'problem' },
@@ -1056,6 +1078,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       }
     >
         {chatBox}
+        {wholeDay ? <WholeDayFromMenu whole={wholeDay} chatHref={`/dashboard/${eventId}/messages/${threadId}`} /> : null}
     </ChatThreadFrame>
   );
 }

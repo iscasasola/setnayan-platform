@@ -95,8 +95,10 @@ test('3 · a card in the stream wears the one look; the old frame is only a draf
   assert.ok(worn >= 12, `only ${worn} cards wear KindCard`);
   const bits = stripComments(read(`${CARDS}/card-bits.tsx`));
   // Ruled 20 Nov ("match the drawing"): ⇄ counter · ≡ plan · ₱ quote, and the review ask's ☆ (it borrows the quote's
-  // colour in the drawing, never its ₱); every other kind keeps its topic's glyph.
-  assert.match(bits, /DEAL_MARK[^=]*= \{ counter: ArrowLeftRight, plan: List, quote: PhilippinePeso, review: Star \}/, 'the drawing\'s deal marks');
+  // colour in the drawing, never its ₱), and the time-change ask's ⏱ (Unichat F v3: `KIC.time`, not the schedule's
+  // calendar); every other kind keeps its topic's glyph.
+  assert.match(bits, /DEAL_MARK[^=]*= \{ counter: ArrowLeftRight, plan: List, quote: PhilippinePeso, review: Star, time: Timer \}/, 'the drawing\'s deal marks');
+  assert.match(stripComments(read(`${CARDS}/schedule-time-ask-card.tsx`)), /kind="meeting"\s+topic="schedule"\s+mark="time"/, 'the time-change ask lost the drawing\'s stopwatch');
   assert.match(stripComments(read(`${CARDS}/handover-card.tsx`)), /kind="quote"\s+mark="review"/, 'the review ask wears the drawing\'s ☆, not the quote\'s ₱');
   assert.match(bits, /: TOPIC_ICON\[topic\];/, 'every other card keeps its topic\'s icon');
   assert.match(stripComments(read(`${CARDS}/negotiate-cards.tsx`)), /mark=\{kind === 'plan' \? 'plan' : undefined\}/, 'a payment plan wears the plan mark');

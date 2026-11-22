@@ -117,7 +117,9 @@ test('🔑 the reader returns only switched-on cards, and null — never {} — 
   assert.match(READER, /fetchVendorsHidingPricesPublicly\(admin, shopIds\)/);
   assert.match(READER, /hidePrices: hiding\.has\(row\.vendor_profile_id\)/);
   // Media is a stored ref — resolved, never handed to an <img> raw.
-  assert.match(READER, /coverUrl: publicUrlForStoredAsset\(row\.primary_photo_r2_key\)/);
+  // 🔒 …through the Free-files rule, with the public resolver for a verified shop (lib/free-shop-files.ts, spec § ★ J).
+  assert.match(READER, /shopFileUrl\(row\.primary_photo_r2_key, serves, publicUrlForStoredAsset\)/);
+  assert.match(READER, /\n\s+coverUrl,\n/);
   assert.ok(!/createAdminClient/.test(READER), 'the reader mints its own admin client — pass it in');
 });
 

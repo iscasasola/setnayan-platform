@@ -239,6 +239,9 @@ import {
 } from '@/lib/vendor-service-attributes';
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { ownShopFileUrl, readShopFileServes, shopFileUrl } from '@/lib/supplier-file-sign.server';
+import { ownShopServe, type OwnShopServe, type ShopFileServe } from '@/lib/free-shop-files';
+import { shopIsVerified } from '@/lib/own-clients';
 import { recordShopViewWith } from '@/lib/shop-view-count';
 import { readShopViewContext } from '@/lib/shop-view-context';
 import { ShopViewBeacon } from './_components/shop-view-beacon';
@@ -577,12 +580,20 @@ export const fetchVendor = cache(async function fetchVendor(slug: string): Promi
  * back to the vendor's initials. Taking a whole public shop page down because an
  * R2 signature could not be minted would be a worse outcome than no picture.
  */
-async function resolveDisplayUrl(value: string | null | undefined): Promise<string | null> {
+async function resolveDisplayUrl(value: string | null | undefined, own: OwnShopServe): Promise<string | null> {
   try {
-    return await displayUrlForStoredAsset(value);
+    // 🔒 Free files stay private (spec § ★ J): a not-yet-verified shop's file is a 15-minute link for a signed-in
+    // viewer and nothing for a stranger (`ownShopFileUrl`, lib/supplier-file-sign.server.ts); a verified shop's is today's.
+    return await ownShopFileUrl(value, own, (v) => displayUrlForStoredAsset(v));
   } catch {
     return null;
   }
+}
+
+/** A real account is looking (an anonymous session, the cached stranger copy and a crawler are not). */
+async function viewerIsSignedIn(): Promise<boolean> {
+  const u = await getCurrentUser();
+  return u !== null && !(u.is_anonymous ?? false);
 }
 
 // Named, slug-resolved so the bare-root dispatcher (app/[slug]/page.tsx) can
@@ -824,16 +835,19 @@ async function fetchVendorHidesPricesPublicly(
   }
 }
 
-async function resolvePortfolioUrls(keys: string[] | null): Promise<string[]> {
-  return (await resolvePortfolioPhotos(keys)).map((p) => p.url);
+async function resolvePortfolioUrls(keys: string[] | null, own: OwnShopServe): Promise<string[]> {
+  return (await resolvePortfolioPhotos(keys, own)).map((p) => p.url);
 }
 
 /** 👁 The portfolio's photos WITH their stored keys — a tap opens one and counts its view (Lane E item 11). */
-async function resolvePortfolioPhotos(keys: string[] | null): Promise<{ key: string; url: string }[]> {
+async function resolvePortfolioPhotos(
+  keys: string[] | null,
+  own: OwnShopServe,
+): Promise<{ key: string; url: string }[]> {
   if (!keys || keys.length === 0) return [];
   try {
     const shown = keys.slice(0, 12);
-    const resolved = await Promise.all(shown.map((k) => displayUrlForStoredAsset(k)));
+    const resolved = await Promise.all(shown.map((k) => ownShopFileUrl(k, own, (v) => displayUrlForStoredAsset(v))));
     return shown.flatMap((key, i) => (resolved[i] ? [{ key, url: resolved[i]! }] : []));
   } catch {
     return [];
@@ -851,6 +865,7 @@ async function resolvePortfolioPhotos(keys: string[] | null): Promise<{ key: str
  */
 async function resolveServiceShowcaseMedia(
   services: ReadonlyArray<VendorServiceRow>,
+  own: OwnShopServe,
 ): Promise<Map<string, ServiceShowcaseMedia>> {
   const out = new Map<string, ServiceShowcaseMedia>();
   await Promise.all(
@@ -859,8 +874,8 @@ async function resolveServiceShowcaseMedia(
       if (photoKeys.length === 0 && !s.showcase_video_r2_key) return;
       try {
         const [photoUrls, videoUrl] = await Promise.all([
-          Promise.all(photoKeys.map((k) => displayUrlForStoredAsset(k))),
-          displayUrlForStoredAsset(s.showcase_video_r2_key),
+          Promise.all(photoKeys.map((k) => ownShopFileUrl(k, own, (v) => displayUrlForStoredAsset(v)))),
+          ownShopFileUrl(s.showcase_video_r2_key, own, (v) => displayUrlForStoredAsset(v)),
         ]);
         // 🃏 The refs ride along, paired with the URLs that resolved — a hide per card is keyed on the ref.
         const { photos, photoRefs } = pairPhotoRefs(photoKeys, photoUrls);
@@ -909,13 +924,14 @@ async function resolveServiceShowcaseMedia(
  */
 async function resolveServiceCoverUrls(
   services: ReadonlyArray<VendorServiceRow>,
+  own: OwnShopServe,
 ): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   await Promise.all(
     services.map(async (s) => {
       if (!s.primary_photo_r2_key) return;
       try {
-        const url = await displayUrlForStoredAsset(s.primary_photo_r2_key);
+        const url = await ownShopFileUrl(s.primary_photo_r2_key, own, (v) => displayUrlForStoredAsset(v));
         if (url) out.set(s.vendor_service_id, url);
       } catch {
         // The card renders without its cover — never without the page.
@@ -1088,7 +1104,13 @@ export async function renderVendorBySlug({
   // `image` below both consume it. See resolveDisplayUrl: the stored value is
   // an `r2://` reference, not something an <img> can load.
   // ⚡ Started here, awaited after the unlisted-events reads below, which it no longer waits for.
-  const logoDisplayRead = startAhead(resolveDisplayUrl(vendor.logo_url));
+  // 🔒 FREE FILES STAY PRIVATE (owner-locked 22 Nov, spec § ★ J): how THIS shop's own files are served on this render —
+  // a verified shop's exactly as before; a not-yet-verified shop's only to a signed-in viewer, as 15-minute links, and
+  // never on the cached stranger copy (lib/free-shop-files.ts). The viewer is read only when it decides something.
+  const ownShop = ownShopServe(vendor.vendor_profile_id, vendor.verification_state, {
+    signedIn: shopIsVerified(vendor.verification_state) ? false : await viewerIsSignedIn(),
+  });
+  const logoDisplayRead = startAhead(resolveDisplayUrl(vendor.logo_url, ownShop));
 
   const pageRaw = Number(search.reviewsPage ?? '1');
   const reviewsPage = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
@@ -1426,8 +1448,8 @@ export async function renderVendorBySlug({
     fetchCoveragesByIdPublic(admin, coverageIds),
     // Fail-soft by contract (falls back to the hardcoded roster on error).
     getEventTypeVocab(),
-    resolveServiceShowcaseMedia(activeServices),
-    resolveServiceCoverUrls(activeServices),
+    resolveServiceShowcaseMedia(activeServices, ownShop),
+    resolveServiceCoverUrls(activeServices, ownShop),
     resolveTileByCardKind(activeServices),
     // 📸 Couples' own photos the shop APPROVED, per card — the one public door (approved only), in the same batch.
     fetchServiceCardCouplePhotos(admin, activeServiceIds),
@@ -1456,7 +1478,7 @@ export async function renderVendorBySlug({
   // ⚡ The shop's work and the card records need only the live services — asked together (speed pass 2026-11-14).
   const shopWorkP = cardRecordEnabled()
     ? startRead(
-        readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: activeServiceIds }).catch(() => null),
+        readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: activeServiceIds, own: ownShop }).catch(() => null),
       )
     : undefined;
   const cardRecordByService = cardRecordEnabled()
@@ -1527,7 +1549,7 @@ export async function renderVendorBySlug({
   // Per-category attribute details + portfolio gallery (iteration 0044).
   const [attributeDetails, portfolioPhotos, microsite, igMedia, repertoire] = await Promise.all([
     fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
-    resolvePortfolioPhotos((vendor.portfolio_r2_keys ?? []).filter((k: string) => !unlistedPageRefs.has(k))),
+    resolvePortfolioPhotos((vendor.portfolio_r2_keys ?? []).filter((k: string) => !unlistedPageRefs.has(k)), ownShop),
     // Microsite curation (My Shop → Website editor). Defensive read — an
     // un-curated vendor / not-yet-applied migration degrades to the
     // auto-composed baseline.
@@ -1597,7 +1619,7 @@ export async function renderVendorBySlug({
     proPicksRender && microsite.heroPhotoKey
       ? unlistedPageRefs.has(microsite.heroPhotoKey)
         ? null
-        : ((await resolvePortfolioUrls([microsite.heroPhotoKey]))[0] ?? null)
+        : ((await resolvePortfolioUrls([microsite.heroPhotoKey], ownShop))[0] ?? null)
       : null;
   // Solo accent — retint the microsite's accent ramp (undefined = default).
   const accentVars = canPersonalizePage
@@ -1829,6 +1851,11 @@ export async function renderVendorBySlug({
   });
   // 🖼 Each partner's round shop photo — its logo signed the way this page signs its own (`resolveDisplayUrl`), or its
   // initials. Words and order are `lib/vendor-partnership-kinds.ts`'s (strongest first, sorted by the read).
+  // 🔒 A partner is another shop: its logo follows ITS verification (one read for the row, `readShopFileServes`).
+  const partnerServes =
+    showTrustedBy && trustedBy.some((v) => v.logoRef)
+      ? await readShopFileServes(trustedBy.map((v) => v.logoRef), { signedIn: await viewerIsSignedIn() })
+      : new Map<string, ShopFileServe>();
   const trustedByTiles: TrustedByTile[] = showTrustedBy
     ? await Promise.all(
         trustedBy.map(async (v) => ({
@@ -1838,7 +1865,7 @@ export async function renderVendorBySlug({
           // 🤝 The ⓘ tag is where the tie came from (Invite a supplier v3, owner 16 Nov): Worked together · Added · Invited.
           kindLabel: ORIGIN_TAG[v.origin],
           kindHint: trustedByHint({ origin: v.origin, shop: displayLabel, other: v.displayName, direction: v.direction, events: v.events }),
-          logoUrl: v.logoRef ? await resolveDisplayUrl(v.logoRef) : null,
+          logoUrl: v.logoRef ? await shopFileUrl(v.logoRef, partnerServes, (r) => displayUrlForStoredAsset(r)).catch(() => null) : null,
           initials: shopInitials(v.displayName, 2, 'SN'),
         })),
       )

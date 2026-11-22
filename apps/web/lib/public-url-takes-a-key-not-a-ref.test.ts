@@ -195,7 +195,8 @@ test('the resolver is what the fixed call sites actually use', () => {
     ['app/(shell)/explore/_lib/marketplace-view.tsx', /publicUrlForStoredAsset\(svc\.photoR2Key\)/], // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
     [
       'app/dashboard/[eventId]/vendors/page.tsx',
-      /publicUrlForStoredAsset\(row\.primary_photo_r2_key\)/,
+      // 🔒 through the Free-files rule, with this resolver for a verified shop (lib/free-shop-files.ts, spec § ★ J)
+      /shopFileUrl\(row\.primary_photo_r2_key, svcServes, publicUrlForStoredAsset\)/,
     ],
     ['lib/wizard-recommendations.ts', /publicUrlForStoredAsset\(firstPhotoKey\)/],
     [

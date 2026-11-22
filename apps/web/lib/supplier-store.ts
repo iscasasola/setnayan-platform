@@ -2,22 +2,27 @@
  * 🛍 THE SUPPLIER STORE — tools, graphs and badges for the shop, as words and states (owner 23 Nov 2026).
  *
  * ⚖ DECISION_LOG 2026-11-23 (specs 5a8c6bf3 · eb51e640 · d019ce12 · 1aaedb5e · 022681cf · 6be18189 · 6a7db142 · 85bcb51a ·
- *   46690f6d). Drawing: specs `prototypes/supplier_store_graphs_badges_2026-11-23/` v10 (F1 Store · F2 Tools shelf ·
- *   F3 item · F4/F5 Graphs shelf · F7/F8 graph item · F9 Badges shelf).
+ *   46690f6d · 060467d5 · 14827167). Drawing: specs `prototypes/supplier_store_graphs_badges_2026-11-23/` v12 (Shop ·
+ *   Edit per row · Store · Tools shelf with tags · item · Graphs shelf · graph item · Badges shelf · Badges page).
  *
  *   · THREE SHELVES — Specialized Tools · Graphs · Badges. A [+] tile on the Shop opens the Store at that shelf.
  *   · TOOLS: free forever = Scanner · Headcount · Run of show · Emcee script · Song Desk · Floor Command + March · Live
  *     Watch. Paid = Cake Maker · Song bank · Papic challenge · 3D plan, each ONE-TIME, owned forever (never re-locks).
  *     The price is the `vendor_billing_catalog` row `vendor_tool_<key>`, never typed here; a row with no usable price says
  *     "Price not set yet", never ₱0. 30 days free from the day the shop became Verified (tools only).
- *   · GRAPHS: all free. The shop picks which show on its Analytics and their order (`vendor_profiles.store_graphs`);
- *     a graph a badge opens says "Opens with <badge> · Bronze · N to go" until then (lib/graph-unlocks.ts decides).
- *   · BADGES: earned, never sold. Follow up to three on the Shop (`vendor_profiles.store_badges`); none followed = the
- *     three closest to done.
+ *   · GRAPHS: all free. The shop picks which show on its Analytics and their order; a graph a badge opens says
+ *     "Opens with <badge> · Bronze · N to go" until then (lib/graph-unlocks.ts decides).
+ *   · BADGES: earned, never sold. The Shop row shows the badges the shop chose, any number, in its order; never chosen
+ *     = the three closest to done.
+ *   · ONE LAYOUT for the three Shop rows (owner via the controller, 23 Nov): add ([+] → Store), remove (off the page
+ *     only — a bought tool stays owned) and reorder, all in `vendor_profiles.store_layout`, written by one action op.
  *
  * PURE — no I/O, no clock (the caller passes `nowMs`). Reads: `lib/supplier-store.server.ts`. 🔒 lib/supplier-store.test.ts
  */
-import { SPECIALIZED_TOOLS, specializedToolsFor, type SpecializedTool, type SpecializedToolKey } from './specialized-tools';
+import { SPECIALIZED_TOOLS, specializedToolsFor, suggestedFor, type SpecializedTool, type SpecializedToolKey } from './specialized-tools';
+import { HUB_TOOLS_SEED, nameKey } from './hub-tools';
+import { isCakeKind } from './cake-maker';
+import { isMusicToolCategory } from './songs';
 import { CARD_ORDER, FIXED_WINDOW, type CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { BADGE_GRAPHS, BADGE_NAME, type GraphUnlocks, type UnlockBadge } from './graph-unlocks';
 import { SHOP_BADGE_KEYS, type ShopBadgeKey } from './badge-tiers';
@@ -81,12 +86,67 @@ export type ToolFacts = {
   planOpen: Partial<Record<PaidStoreTool, boolean | null>>;
   /** Each paid tool's catalog price. The whole map null = the catalog could not be read. */
   prices: Partial<Record<PaidStoreTool, ToolPrice>> | null;
-  /** The free tools the shop added, in order (`vendor_profiles.store_tools`); null = never picked (the default set). */
+  /** Your tools in the shop's order (`store_layout.tools`, free and paid keys); null = never arranged (the default set). */
   picked: readonly string[] | null;
+  /** Paid tools the shop took off its page (`store_layout.tools_off`) — still owned, just not shown. */
+  toolsOff: readonly string[];
   categoryLabels: readonly string[];
   services: readonly string[];
+  /** An admin's saved hub tools per category (the tags' source beside the seed). Absent / empty = the seed alone. */
+  hubOverrides?: HubOverrides;
   nowMs: number;
 };
+
+// ── TOOL TAGS (owner via the controller, 23 Nov: "which supplier types it is for") ──────────────────────────
+//
+// Read ONLY from the one per-category table — `HUB_TOOLS_SEED` (lib/hub-tools.ts), with an admin's saved switches
+// (`category_hub_settings` + `category_hub_tool_switches`) replacing a category's seed row — and the rules
+// `suggestedFor` already uses for the three tools that have no hub key (Scanner: every service; Cake Maker: the cake
+// kinds; Song bank: the music kinds). No category is typed here. A tag is a SUGGESTION, never a gate (2026-10-28):
+// every shop can get every tool, whatever its tags say.
+
+/** The categories an admin saved, by `nameKey(label)` → the hub tools switched on for it (replacing its seed row). */
+export type HubOverrides = ReadonlyMap<string, readonly string[]>;
+
+export type ToolTag = { label: string; group: string | null };
+
+/** Scanner's one tag: it suits every shop. */
+export const EVERY_SERVICE_TAG: ToolTag = { label: 'Every service', group: null };
+
+/** A seed category's service kind, the way the kind keys are spelt ("Live Band" → live_band). */
+const kindOf = (category: string) => nameKey(category).replace(/ /g, '_');
+
+/** Which supplier types this tool is for, in the table's order. */
+export function toolTags(tool: SpecializedTool, overrides: HubOverrides = new Map()): ToolTag[] {
+  if (tool.key === 'scanner') return [EVERY_SERVICE_TAG];
+  const fits = (category: string, tools: readonly string[]): boolean => {
+    if (tool.key === 'cake_tool') return isCakeKind(kindOf(category));
+    if (tool.key === 'song_bank') return isMusicToolCategory([kindOf(category)]);
+    return tool.hubKeys.some((k) => tools.includes(k));
+  };
+  return HUB_TOOLS_SEED.filter((r) => fits(r.category, overrides.get(nameKey(r.category)) ?? r.tools)).map((r) => ({ label: r.category, group: r.group }));
+}
+
+/**
+ * "For you": the tool is suggested for this shop (`suggestedFor`) or tagged with one of the shop's own categories.
+ * Order only — never a gate.
+ */
+export function toolIsForYou(tool: SpecializedTool, tags: readonly ToolTag[], f: Pick<ToolFacts, 'categoryLabels' | 'services'>): boolean {
+  if (suggestedFor(tool, f.categoryLabels, f.services)) return true;
+  const mine = new Set(f.categoryLabels.map(nameKey));
+  return tags.some((t) => mine.has(nameKey(t.label)));
+}
+
+/** The chip a group filters by (`data-store-show` takes space-free tokens). */
+export function groupChipKey(group: string): string {
+  return `g-${nameKey(group).replace(/ /g, '-')}`;
+}
+
+/** The chip row on the Tools shelf: All · For you · each seed group some tool is tagged with, in the table's order. */
+export function toolChipGroups(tagsOf: (tool: SpecializedTool) => readonly ToolTag[]): string[] {
+  const used = new Set(SPECIALIZED_TOOLS.flatMap((t) => tagsOf(t).map((x) => x.group)).filter((g): g is string => !!g));
+  return [...new Set(HUB_TOOLS_SEED.map((r) => r.group))].filter((g) => used.has(g));
+}
 
 export type ToolStatus =
   | { kind: 'owned' }
@@ -152,20 +212,44 @@ export function toolIsYours(s: ToolStatus): boolean {
   return s.kind === 'owned' || s.kind === 'plan' || s.kind === 'trial' || (s.kind === 'free' && s.added);
 }
 
-export type StoreToolRow = { tool: SpecializedTool; status: ToolStatus; suggested: boolean };
+export type StoreToolRow = { tool: SpecializedTool; status: ToolStatus; suggested: boolean; tags: ToolTag[]; forYou: boolean };
 
-/** Every tool, suggested first (Scanner leads), each with its state — the Tools shelf's order. */
+/** Every tool, suggested first (Scanner leads), each with its state and tags — the Tools shelf's order. */
 export function storeToolRows(f: ToolFacts): StoreToolRow[] {
-  return specializedToolsFor(f.categoryLabels, f.services).map(({ tool, suggested }) => ({ tool, suggested, status: toolStatus(tool.key, f) }));
+  return specializedToolsFor(f.categoryLabels, f.services).map(({ tool, suggested }) => {
+    const tags = toolTags(tool, f.hubOverrides);
+    return { tool, suggested, status: toolStatus(tool.key, f), tags, forYou: toolIsForYou(tool, tags, f) };
+  });
 }
 
-/** Your tools on the Shop: the free tools in the shop's order, then the paid tools it holds (owned, plan, trial). */
+/** The Tools shelf's three groups (v12): For you first, then Yours, then More tools. */
+export function toolShelfGroups(rows: readonly StoreToolRow[]): { forYou: StoreToolRow[]; yours: StoreToolRow[]; more: StoreToolRow[] } {
+  const forYou = rows.filter((r) => r.forYou);
+  const rest = rows.filter((r) => !r.forYou);
+  return { forYou, yours: rest.filter((r) => toolIsYours(r.status)), more: rest.filter((r) => !toolIsYours(r.status)) };
+}
+
+/**
+ * Your tools on the Shop, in the shop's order. Never arranged = the free tools added, then the paid ones it holds (owned,
+ * plan, trial). Arranged = the shop's list (a paid key shows only while held); a paid tool held since and not taken off
+ * joins at the end — a new buy lands last.
+ */
 export function yourTools(f: ToolFacts): StoreToolRow[] {
   const rows = storeToolRows(f);
   const byKey = new Map(rows.map((r) => [r.tool.key, r]));
-  const free = addedFreeTools(f).map((k) => byKey.get(k)!).filter(Boolean);
-  const paid = rows.filter((r) => isPaidStoreTool(r.tool.key) && toolIsYours(r.status));
-  return [...free, ...paid];
+  const held = rows.filter((r) => isPaidStoreTool(r.tool.key) && toolIsYours(r.status));
+  if (f.picked === null) return [...addedFreeTools(f).map((k) => byKey.get(k)!).filter(Boolean), ...held];
+  const seen = new Set<string>();
+  const out: StoreToolRow[] = [];
+  for (const k of f.picked) {
+    const r = byKey.get(k as SpecializedToolKey);
+    if (!r || seen.has(r.tool.key)) continue;
+    if (isPaidStoreTool(r.tool.key) && !toolIsYours(r.status)) continue;
+    seen.add(r.tool.key);
+    out.push(r);
+  }
+  for (const r of held) if (!seen.has(r.tool.key) && !f.toolsOff.includes(r.tool.key)) out.push(r);
+  return out;
 }
 
 /** The drawing's foot line for a tool tile/row. */
@@ -303,17 +387,17 @@ export function cleanGraphPicks(raw: readonly unknown[], unlocks: Pick<GraphUnlo
 
 // ── BADGES ──────────────────────────────────────────────────────────────────
 
-/** At most three badges follow on the Shop (owner 23 Nov, specs 5a8c6bf3). */
-export const MAX_FOLLOWED_BADGES = 3;
+/** How many badges a shop that never chose gets on its Shop: the three closest to done. Choosing has no cap (23 Nov). */
+export const DEFAULT_SHOP_BADGES = 3;
 
 export function isShopBadgeKey(v: unknown): v is ShopBadgeKey {
   return typeof v === 'string' && (SHOP_BADGE_KEYS as readonly string[]).includes(v);
 }
 
-/** A badge list the shop sent, cleaned: known tiered badges, once each, at most three. */
+/** A badge list the shop sent, cleaned: known tiered badges, once each, in its order. */
 export function cleanBadgePicks(raw: readonly unknown[]): ShopBadgeKey[] {
   const out: ShopBadgeKey[] = [];
-  for (const k of raw) if (isShopBadgeKey(k) && !out.includes(k) && out.length < MAX_FOLLOWED_BADGES) out.push(k);
+  for (const k of raw) if (isShopBadgeKey(k) && !out.includes(k)) out.push(k);
   return out;
 }
 
@@ -324,13 +408,66 @@ export function closestBadges(tiles: readonly ShelfTile[]): ShopBadgeKey[] {
   const rest = tiered.filter((t) => !climbing.includes(t));
   const order = new Map(SHOP_BADGE_KEYS.map((k, i) => [k, i]));
   climbing.sort((a, b) => b.pct - a.pct || order.get(a.key)! - order.get(b.key)!);
-  return [...climbing, ...rest].slice(0, MAX_FOLLOWED_BADGES).map((t) => t.key);
+  return [...climbing, ...rest].slice(0, DEFAULT_SHOP_BADGES).map((t) => t.key);
 }
 
-/** The badges on the Shop: the followed ones (in the shop's order), or the three closest when none are followed. */
+/**
+ * The badges on the Shop: the ones the shop chose, in its order (any number — an empty choice shows none, only the
+ * [+]); never chosen (null) = the three closest to done.
+ */
 export function followedBadges(picked: readonly string[] | null, tiles: readonly ShelfTile[]): { keys: ShopBadgeKey[]; pinned: boolean } {
-  const pins = picked ? cleanBadgePicks(picked) : [];
-  return pins.length > 0 ? { keys: pins, pinned: true } : { keys: closestBadges(tiles), pinned: false };
+  return picked === null ? { keys: closestBadges(tiles), pinned: false } : { keys: cleanBadgePicks(picked), pinned: true };
+}
+
+// ── THE SHOP'S LAYOUT (one column for the three rows) ──────────────────────
+
+export const LAYOUT_ROWS = ['graphs', 'badges', 'tools'] as const;
+export type LayoutRow = (typeof LAYOUT_ROWS)[number];
+
+export function isLayoutRow(v: unknown): v is LayoutRow {
+  return typeof v === 'string' && (LAYOUT_ROWS as readonly string[]).includes(v);
+}
+
+/** `vendor_profiles.store_layout`, read. A row that is null was never arranged (its default is drawn). */
+export type StoreLayout = { graphs: string[] | null; badges: string[] | null; tools: string[] | null; toolsOff: string[] };
+
+export const NO_LAYOUT: StoreLayout = { graphs: null, badges: null, tools: null, toolsOff: [] };
+
+/** The column's jsonb as the app reads it — anything malformed reads as never arranged, never as "nothing chosen". */
+export function readLayout(raw: unknown): StoreLayout {
+  const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const list = (v: unknown): string[] | null => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : null);
+  return { graphs: list(o.graphs), badges: list(o.badges), tools: list(o.tools), toolsOff: list(o.tools_off) ?? [] };
+}
+
+/** At most this many keys in one row (the column's size check backs it). */
+const MAX_ROW_KEYS = 40;
+
+/** One row's list as the shop sent it, cleaned to known keys, once each, in its order. */
+export function cleanLayoutRow(row: LayoutRow, raw: readonly unknown[]): string[] {
+  const out: string[] = [];
+  for (const k of raw) {
+    if (typeof k !== 'string' || out.includes(k) || out.length >= MAX_ROW_KEYS) continue;
+    const known = row === 'graphs' ? isGraphKey(k) : row === 'badges' ? isShopBadgeKey(k) : storeToolOf(k) !== null;
+    if (known) out.push(k);
+  }
+  return out;
+}
+
+/**
+ * The layout after one row is set: its new order, and (tools) the paid tools taken off — a removed paid tool goes into
+ * `tools_off` so a later purchase elsewhere never puts it back by itself; adding it again takes it out.
+ */
+export function withLayoutRow(prev: StoreLayout, row: LayoutRow, keys: readonly string[], off: readonly string[] = []): StoreLayout {
+  if (row !== 'tools') return { ...prev, [row]: [...keys] };
+  const removed = off.filter((k) => isPaidStoreTool(k) && !keys.includes(k));
+  const toolsOff = [...new Set([...prev.toolsOff.filter((k) => !keys.includes(k)), ...removed])];
+  return { ...prev, tools: [...keys], toolsOff };
+}
+
+/** The layout as the column stores it. */
+export function layoutColumn(l: StoreLayout): { graphs: string[] | null; badges: string[] | null; tools: string[] | null; tools_off: string[] } {
+  return { graphs: l.graphs, badges: l.badges, tools: l.tools, tools_off: l.toolsOff };
 }
 
 /** The ring's two short lines on the Shop: "60 to go" · "Bronze next" (or the tier reached / the honest state). */

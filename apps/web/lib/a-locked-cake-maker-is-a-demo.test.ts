@@ -31,7 +31,7 @@ test('a Verified shop after the start date is locked; before it, and on Pro, it 
 test('the locked Cake Maker is tried in the Store — the couple’s designer as a demo — never its settings', () => {
   const client = read('app/vendor-dashboard/shop/store/_components/store-client.tsx');
   assert.match(client, /<CakeDesigner threadId="" demo onClose=/, 'the demo is not the couple’s own designer');
-  const item = read('app/vendor-dashboard/shop/store/[shelf]/[item]/page.tsx');
+  const item = read('app/vendor-dashboard/shop/store/_components/store-screens.tsx');
   assert.match(item, /tool\.key === 'cake_tool' \?[\s\S]{0,200}label="Try it first"[\s\S]{0,300}<CakeDemoButton \/>/, 'the Cake Maker item lost its demo');
   const page = read('app/vendor-dashboard/shop/page.tsx');
   assert.match(page, /mine: yourTools\(toolFacts\)/, 'Your tools is not the tools the shop holds');

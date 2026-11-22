@@ -3,7 +3,8 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Gift, Lock, Plus } from 'lucide-react';
-import { followLines } from '@/lib/supplier-store';
+import { followLines, goalWords } from '@/lib/supplier-store';
+import { ArrangeEdit } from '@/app/vendor-dashboard/shop/store/_components/store-client';
 import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { BadgeFullscreen } from '@/app/_components/award/badge-fullscreen';
@@ -38,25 +39,41 @@ export function ShopBadgeRow({
 }: {
   tiles: ShelfTile[] | null;
   shopName?: string;
-  /** 🛍 The Store remaster (owner 23 Nov 2026): "See all" → the Badges page; the row then shows the three followed
-   *  badges (the caller picks them, `followedBadges`) with "N to go" · "<Tier> next" under each. */
+  /** 🛍 The Store remaster (owner 23 Nov 2026, drawing v12): "See all" → the Badges page; the row then shows the badges
+   *  the shop chose, any number, in its order (the caller picks them, `followedBadges`) with "N to go" · "<Tier> next"
+   *  under each, and the head's "Edit" opens "Arrange Badges" (reorder · remove). */
   seeAllHref?: string;
-  /** The [+] tile at the row's end → the Store's Badges shelf ("Follow another"). */
+  /** The [+] tile at the row's end → the Store's Badges shelf ("Add a badge"). */
   addHref?: string;
 }) {
   const [open, setOpen] = useState<{ tile: ShelfTile; from: HTMLElement | null } | null>(null);
   const close = () => setOpen(null);
   return (
     <section aria-labelledby="shop-badges-h" data-shop-badges="" data-tour="shop-badges" className="scroll-mt-24" id="badges">
-      <div className="flex items-baseline justify-between px-4 pb-2 pt-5">
-        <h2 id="shop-badges-h" className="home-k2 !my-0">
-          Badges
-        </h2>
+      <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-5">
+        <span className="flex items-center gap-2">
+          <h2 id="shop-badges-h" className="home-k2 !my-0">
+            Badges
+          </h2>
+          {seeAllHref && tiles ? (
+            <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" aria-label={`${tiles.length} on your Shop`} data-shop-badges-count="">
+              {tiles.length}
+            </span>
+          ) : null}
+        </span>
         {seeAllHref ? (
-          <Link href={seeAllHref} className="sn-press inline-flex min-h-11 items-center gap-0.5 text-sn-base font-semibold text-[rgb(var(--color-link))]" data-shop-badges-all="">
-            See all
-            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </Link>
+          <span className="flex items-center gap-4">
+            <Link href={seeAllHref} className="sn-press inline-flex min-h-11 items-center gap-0.5 text-sn-base font-semibold text-[rgb(var(--color-link))]" data-shop-badges-all="">
+              See all
+              <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </Link>
+            {tiles ? (
+              <ArrangeEdit
+                row="badges"
+                items={tiles.map((t) => ({ key: t.key, title: t.title, sub: goalWords(t) ?? t.sub, art: <BadgeArt tile={t} size={44} /> }))}
+              />
+            ) : null}
+          </span>
         ) : (
           <span className="text-xs text-ink/70">Tap a badge to see how it&rsquo;s earned</span>
         )}
@@ -100,7 +117,7 @@ export function ShopBadgeRow({
                 <span aria-hidden className="grid h-[68px] w-[68px] place-items-center rounded-full border-2 border-dashed border-[color:var(--m-line)] text-[color:var(--m-slate-2)]">
                   <Plus className="h-6 w-6" strokeWidth={1.8} />
                 </span>
-                <b className="text-sn-sm font-semibold leading-tight text-ink">Follow another</b>
+                <b className="text-sn-sm font-semibold leading-tight text-ink">Add a badge</b>
               </Link>
             </li>
           ) : null}

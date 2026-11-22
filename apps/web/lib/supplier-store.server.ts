@@ -11,7 +11,8 @@ import { shopBadgeShelf, type ShelfTile } from '@/lib/shop-badge-shelf';
 import { readGraphUnlockFacts } from '@/lib/graph-unlocks.server';
 import { graphUnlocks, type GraphUnlocks } from '@/lib/graph-unlocks';
 import { readShopSpecialToolsAllowed } from '@/lib/cake-maker.server';
-import { PAID_STORE_TOOLS, STORE_TOOL_SKUS, toolOfSku, type PaidStoreTool, type ToolFacts, type ToolPrice } from '@/lib/supplier-store';
+import { PAID_STORE_TOOLS, STORE_TOOL_SKUS, readLayout, toolOfSku, type PaidStoreTool, type HubOverrides, type StoreLayout, type ToolFacts, type ToolPrice } from '@/lib/supplier-store';
+import { nameKey } from '@/lib/hub-tools';
 
 /**
  * 🛍 THE SUPPLIER STORE'S READS (owner 23 Nov 2026 — `lib/supplier-store.ts` holds the words and the states).
@@ -21,21 +22,14 @@ import { PAID_STORE_TOOLS, STORE_TOOL_SKUS, toolOfSku, type PaidStoreTool, type 
  * client the buy and the gates use, so the Store and the gate can never disagree about one shop.
  */
 
-export type StorePicks = { graphs: string[] | null; badges: string[] | null; tools: string[] | null };
-
-/** The shop's own picks; null = the row could not be read. */
-export async function readStorePicks(client: SupabaseClient, vendorProfileId: string): Promise<StorePicks | null> {
-  const { data, error } = await client
-    .from('vendor_profiles')
-    .select('store_graphs, store_badges, store_tools')
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
+/** The shop's layout of its three Store rows (`vendor_profiles.store_layout`); null = the row could not be read. */
+export async function readStoreLayout(client: SupabaseClient, vendorProfileId: string): Promise<StoreLayout | null> {
+  const { data, error } = await client.from('vendor_profiles').select('store_layout').eq('vendor_profile_id', vendorProfileId).maybeSingle();
   if (error || !data) {
-    if (error) logQueryError('readStorePicks', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+    if (error) logQueryError('readStoreLayout', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
     return null;
   }
-  const row = data as { store_graphs?: string[] | null; store_badges?: string[] | null; store_tools?: string[] | null };
-  return { graphs: row.store_graphs ?? null, badges: row.store_badges ?? null, tools: row.store_tools ?? null };
+  return readLayout((data as { store_layout?: unknown }).store_layout);
 }
 
 /** The shop's service labels (Scanner + suggested tools are decided from them). Empty on a refused read: order only. */
@@ -55,6 +49,37 @@ async function readCategoryLabels(client: SupabaseClient, vendorProfileId: strin
   } catch (err) {
     logQueryError('readStoreCategoryLabels', err, { vendor_profile_id: vendorProfileId });
     return [];
+  }
+}
+
+/**
+ * An admin's saved hub tools per category (`category_hub_settings` = saved, `category_hub_tool_switches` = what is on),
+ * keyed by the category's name the table's own way. A refused read falls back to the seed alone — tags only order and
+ * suggest, they never lock a tool, so the seed is a safe answer.
+ */
+export async function readHubOverrides(admin: SupabaseClient): Promise<HubOverrides> {
+  try {
+    const [set, sw] = await Promise.all([
+      admin.from('category_hub_settings').select('category_id'),
+      admin.from('category_hub_tool_switches').select('category_id, tool_key'),
+    ]);
+    if (set.error || sw.error) {
+      logQueryError('readHubOverrides', set.error ?? sw.error, {}, 'graceful_degrade');
+      return new Map();
+    }
+    const ids = ((set.data ?? []) as { category_id: string }[]).map((r) => r.category_id);
+    if (ids.length === 0) return new Map();
+    const cats = await admin.from('service_categories').select('id, label_en').in('id', ids);
+    if (cats.error) {
+      logQueryError('readHubOverrides.categories', cats.error, {}, 'graceful_degrade');
+      return new Map();
+    }
+    const on = new Map<string, string[]>(ids.map((id) => [id, []]));
+    for (const r of (sw.data ?? []) as { category_id: string; tool_key: string }[]) on.get(r.category_id)?.push(r.tool_key);
+    return new Map(((cats.data ?? []) as { id: string; label_en: string | null }[]).filter((c) => c.label_en).map((c) => [nameKey(c.label_en!), on.get(c.id) ?? []]));
+  } catch (err) {
+    logQueryError('readHubOverrides', err, {});
+    return new Map();
   }
 }
 
@@ -131,14 +156,15 @@ export async function readStoreToolFacts(
   admin: SupabaseClient,
   vendorProfileId: string,
   services: readonly string[],
-  picked: readonly string[] | null,
+  layout: StoreLayout | null,
 ): Promise<ToolFacts> {
-  const [orders, trialEndsAt, planOpen, prices, categoryLabels] = await Promise.all([
+  const [orders, trialEndsAt, planOpen, prices, categoryLabels, hubOverrides] = await Promise.all([
     readToolOrders(admin, vendorProfileId),
     readStoreTrialEndsAt(admin, vendorProfileId),
     readPlanOpen(admin, vendorProfileId),
     readStoreToolPrices(admin),
     readCategoryLabels(client, vendorProfileId),
+    readHubOverrides(admin),
   ]);
   return {
     owned: orders ? orders.owned : null,
@@ -146,9 +172,11 @@ export async function readStoreToolFacts(
     trialEndsAt,
     planOpen,
     prices,
-    picked,
+    picked: layout?.tools ?? null,
+    toolsOff: layout?.toolsOff ?? [],
     categoryLabels,
     services,
+    hubOverrides,
     nowMs: Date.now(),
   };
 }

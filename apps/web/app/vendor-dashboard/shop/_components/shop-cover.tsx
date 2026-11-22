@@ -439,9 +439,9 @@ export function ShopCover({
   );
 }
 
-/** Share · Promote, beside View shop: 48 px white pills, the same height as View shop. */
+/** Share and Promote: an icon over its word, a small 48 px square beside View shop (Store drawing v12, F0). */
 const SHARE_PILL =
-  'sn-press inline-flex min-h-12 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[rgb(var(--sn-frame-bg))] px-3.5 text-sn-base font-semibold text-ink shadow-[var(--sn-frame-shadow-tile)] disabled:opacity-40';
+  'sn-press inline-flex min-h-12 w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl bg-[rgb(var(--sn-frame-bg))] py-1.5 text-sn-xs font-semibold text-ink shadow-[var(--sn-frame-shadow-tile)] disabled:opacity-40'; // no-card-ok: a press (the Share and Promote buttons), not a frame
 
 /** The plan chip's words — the plan, or that it could not be read (never "Free" on a refused read). */
 function chipWord(plan: string | null): string {

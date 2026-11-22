@@ -1,6 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
-import { readStorePicks, readStoreToolFacts, type StorePicks } from '@/lib/supplier-store.server';
-import { followedBadges, storageMeter, trialDaysLeft, yourTools, type StorageMeter } from '@/lib/supplier-store';
+import { readStoreLayout, readStoreToolFacts } from '@/lib/supplier-store.server';
+import { followedBadges, storageMeter, trialDaysLeft, yourTools, type StorageMeter, type StoreLayout } from '@/lib/supplier-store';
 import { readStoredBytes } from '@/lib/supplier-storage.server';
 import { nextStoragePlan } from '@/lib/supplier-storage';
 import { readPayPlanTemplates } from '@/lib/pay-plan-templates.server';
@@ -160,8 +160,8 @@ type ShopData = {
   formsSaved: number | null;
   /** 🏷 The Offer Maker tile: Verified (the lock), how many offers run, and the papers line for the lock. */
   offerTile: OfferTileFacts;
-  /** 🛍 The shop's Store picks (graphs · followed badges · free tools); null = unread (the defaults are drawn). */
-  picks: StorePicks | null;
+  /** 🛍 The shop's layout of its three Store rows (graphs · badges · tools); null = unread (the defaults are drawn). */
+  layout: StoreLayout | null;
   /** 🧰 Your tools, in order (`yourTools`): the free tools added and the paid ones held, with trial days. */
   mine: MyTool[];
   /** 💾 The cover's Storage row: the meter and the next plan that holds more. */
@@ -399,17 +399,20 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // 📂 The Upload doors (hero · Cover · Logo menus): the uploader's free room and wallet, beside the batch.
   const uploadFactsRead = readPortfolioUploadFacts(supabase, vendorId, portfolio, ownRead.then((own) => own?.tier_state ?? null));
 
-  // 🛍 THE STORE'S PICKS (Store drawing v10, owner 23 Nov 2026): which graphs the Analytics shows, the three badges the
-  // shop follows, the free tools it added — and each paid tool's state (bought · plan · trial · price), the storage
+  // 🛍 THE STORE'S LAYOUT (Store drawing v12, owner 23 Nov 2026): the Shop's three rows in one column (which graphs,
+  // badges and tools, in the shop's order) — and each paid tool's state (bought · plan · trial · price), the storage
   // meter and the saved payment plans. Started here, awaited in the one wait below.
   const storeAdmin = createAdminClient();
-  const picksRead = readStorePicks(supabase, vendorId);
-  const toolFactsRead = picksRead.then((p) => readStoreToolFacts(supabase, storeAdmin, vendorId, (profile.services ?? []) as string[], p?.tools ?? null));
+  const layoutRead = readStoreLayout(supabase, vendorId);
+  const toolFactsRead = layoutRead.then((l) => readStoreToolFacts(supabase, storeAdmin, vendorId, (profile.services ?? []) as string[], l));
   const storedRead = readStoredBytes(storeAdmin, vendorId);
-  const plansRead = readPayPlanTemplates(supabase, vendorId).catch(() => ({ status: 'unread' as const }));
+  const plansRead = readPayPlanTemplates(supabase, vendorId).catch((err: unknown) => {
+    logQueryError('shop.readPayPlanTemplates', err, { vendor_profile_id: vendorId });
+    return { status: 'unread' as const };
+  });
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
-  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, coverUrl, hero, booked, uploadFacts, picks, toolFacts, stored, plans] = await Promise.all([
+  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, coverUrl, hero, booked, uploadFacts, layout, toolFacts, stored, plans] = await Promise.all([
     ownRead,
     verifyAppRead,
     logoRead,
@@ -421,7 +424,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     heroRead,
     bookedRead,
     uploadFactsRead,
-    picksRead,
+    layoutRead,
     toolFactsRead,
     storedRead,
     plansRead,
@@ -505,7 +508,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     logoFields: logoFieldData(profile, logoUrl),
     uploadFacts,
     formsSaved: own && Array.isArray(own.vendor_forms) ? own.vendor_forms.length : null,
-    picks,
+    layout,
     mine: yourTools(toolFacts).map((r) => ({
       key: r.tool.key,
       trialDays: r.status.kind === 'trial' ? (trialDaysLeft(toolFacts.trialEndsAt, toolFacts.nowMs) ?? null) : null,
@@ -580,9 +583,9 @@ function AnalyticsPlaceholder() {
   );
 }
 
-/** 🏅 The badges on the Shop: the followed three in the shop's order, else the three closest (`followedBadges`). */
-function followedTiles(tiles: ShelfTile[], picks: StorePicks | null): ShelfTile[] {
-  const { keys } = followedBadges(picks?.badges ?? null, tiles);
+/** 🏅 The badges on the Shop: the ones the shop chose, in its order (any number), else the three closest (`followedBadges`). */
+function followedTiles(tiles: ShelfTile[], layout: StoreLayout | null): ShelfTile[] {
+  const { keys } = followedBadges(layout?.badges ?? null, tiles);
   return keys.map((k) => tiles.find((t) => t.key === k)).filter((t): t is ShelfTile => !!t);
 }
 
@@ -764,13 +767,13 @@ async function ShopHome({
             months switch; tap = it rises with ONE recommendation. Owners and admins only. Streamed: the cover draws
             first, the carousel arrives in place of a same-height placeholder; the badge row stays directly under it. */}
         <Suspense fallback={<AnalyticsPlaceholder />}>
-          <OneAnalyticsSection {...data.analytics} store={{ graphs: data.picks?.graphs ?? null, addHref: routes.vendorDashboard.shop.store.shelf('graphs') }} />
+          <OneAnalyticsSection {...data.analytics} store={{ graphs: data.layout?.graphs ?? null, addHref: routes.vendorDashboard.shop.store.shelf('graphs') }} />
         </Suspense>
 
         {/* 🏅 BADGES — the three the shop follows (or the three closest to their next step), each with what is left;
-            "See all" opens the Badges page, "Follow another" the Store's Badges shelf (Store drawing v10, F0). */}
+            "See all" opens the Badges page, "Add a badge" the Store’s Badges shelf, "Edit" arranges them (Store drawing v12). */}
         <ShopBadgeRow
-          tiles={data.badges ? followedTiles(data.badges, data.picks) : null}
+          tiles={data.badges ? followedTiles(data.badges, data.layout) : null}
           shopName={data.businessName}
           seeAllHref={routes.vendorDashboard.shop.badges()}
           addHref={routes.vendorDashboard.shop.store.shelf('badges')}

@@ -11,17 +11,22 @@ import {
   STORE_GRAPHS,
   goalWords,
   graphWindowWords,
+  groupChipKey,
   toolFootWords,
   toolIsYours,
   type GraphStatus,
   type StoreToolRow,
+  type ToolTag,
 } from '@/lib/supplier-store';
 import type { ShelfTile } from '@/lib/shop-badge-shelf';
 import type { CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { StoreOp } from './store-client';
+import { GraphArt } from './graph-art';
+
+export { GraphArt };
 
 /**
- * 🛍 THE STORE'S ROWS AND TILES (drawing `supplier_store_graphs_badges_2026-11-23` v10, F1 · F2 · F4 · F9) — server-drawn;
+ * 🛍 THE STORE'S ROWS AND TILES (drawing `supplier_store_graphs_badges_2026-11-23` v12, F1 · F2 · F4 · F9) — server-drawn;
  * each press is a `StoreOp` (client) or a door. Tokens only.
  */
 
@@ -55,11 +60,14 @@ export function StoreTile({
   pill,
   data,
   show,
+  tags,
 }: {
   href: string;
   art: ReactNode;
   title: string;
   line: string;
+  /** The tool's tag chips under its line (v12). */
+  tags?: ReactNode;
   foot: ReactNode;
   pill?: ReactNode;
   data: string;
@@ -71,6 +79,7 @@ export function StoreTile({
         <span className="mb-1">{art}</span>
         <b className="text-sn-lg font-semibold leading-tight text-ink">{title}</b>
         <span className="line-clamp-2 text-sn-md leading-snug text-[color:var(--m-slate-2)]">{line}</span>
+        {tags}
         <span className="mt-auto flex items-center justify-between gap-2 pt-2">
           <span className="min-w-0 text-sn-sm font-semibold leading-tight text-[color:var(--m-slate-2)]">{foot}</span>
           {pill}
@@ -89,19 +98,30 @@ export function ToolArt({ toolKey }: { toolKey: StoreToolRow['tool']['key'] }) {
   );
 }
 
-/** A graph's small picture — a plain bar sketch in the link blue (the Store shows WHAT a graph is, never numbers). */
-export function GraphArt({ size = 40, wide = false }: { size?: number; wide?: boolean }) {
-  const w = wide ? size * 3 : size;
-  const bars = wide ? [0.35, 0.55, 0.45, 0.7, 0.6, 0.85, 0.5, 0.75, 0.95, 0.65, 0.8, 0.9] : [0.4, 0.65, 0.5, 0.9];
-  const gap = w / (bars.length * 3);
-  const bw = (w - gap * (bars.length + 1)) / bars.length;
+/** "✓ On your page" / "✓ Earned" — a row's settled state, in the ok green (v12 F12 · F15). */
+export function OnPage({ children = 'On your page' }: { children?: ReactNode }) {
   return (
-    <svg aria-hidden width={w} height={size} viewBox={`0 0 ${w} ${size}`} className="block text-[rgb(var(--color-link))]">
-      <rect width={w} height={size} rx={8} className="fill-[color:var(--surface-soft)]" />
-      {bars.map((h, i) => (
-        <rect key={i} x={gap + i * (bw + gap)} y={size - 6 - (size - 12) * h} width={bw} height={(size - 12) * h} rx={2} fill="currentColor" opacity={0.85} />
+    <span className="inline-flex min-h-11 flex-none items-center gap-1 text-sn-base font-semibold text-[rgb(var(--color-ok))]" data-store-on-page="">
+      <Check aria-hidden className="h-4 w-4" strokeWidth={2.4} />
+      {children}
+    </span>
+  );
+}
+
+/** A tool's supplier-type tags (v12): the first `max`, then "+N". Words only — a tag never locks anything. */
+export function TagChips({ tags, max = 2 }: { tags: readonly ToolTag[]; max?: number }) {
+  if (tags.length === 0) return null;
+  const shown = tags.slice(0, max);
+  const rest = tags.length - shown.length;
+  return (
+    <span className="mt-1 flex flex-wrap gap-1" data-tool-tags={tags.map((t) => t.label).join('|')}>
+      {shown.map((t) => (
+        <span key={t.label} className="rounded-md bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-medium text-[color:var(--m-slate-2)]">
+          {t.label}
+        </span>
       ))}
-    </svg>
+      {rest > 0 ? <span className="rounded-md bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-medium text-[color:var(--m-slate-2)]">+{rest}</span> : null}
+    </span>
   );
 }
 
@@ -123,6 +143,7 @@ export function StoreToolTile({ row }: { row: StoreToolRow }) {
       art={<ToolArt toolKey={row.tool.key} />}
       title={row.tool.title}
       line={row.tool.line}
+      tags={<TagChips tags={row.tags} max={1} />}
       foot={foot}
       pill={pill}
       data={`tool:${row.tool.key}`}
@@ -131,11 +152,13 @@ export function StoreToolTile({ row }: { row: StoreToolRow }) {
   );
 }
 
-/** Show & sort tags for a tool row: yours · free · paid. */
+/** Show & sort tokens for a tool row: yours · free · paid, plus the chips it answers (For you · each tag's group). */
 export function toolShowTags(row: StoreToolRow): string {
   const tags = [toolIsYours(row.status) ? 'yours' : 'more'];
   tags.push(row.status.kind === 'free' ? 'free' : 'paid');
-  return tags.join(' ');
+  if (row.forYou) tags.push('foryou');
+  for (const t of row.tags) if (t.group) tags.push(groupChipKey(t.group));
+  return [...new Set(tags)].join(' ');
 }
 
 /** The graph's tile on the Store front (F1). */
@@ -155,7 +178,7 @@ export function StoreGraphTile({ k, status }: { k: CardKey; status: GraphStatus 
   );
 }
 
-/** The badge's tile on the Store front (F1): earned only, never sold — Track / ✓ Tracking. */
+/** The badge's tile on the Store front (F1): earned only, never sold — ✓ On page, or Add. */
 export function StoreBadgeTile({ tile, following }: { tile: ShelfTile; following: boolean }) {
   return (
     <StoreTile
@@ -175,10 +198,10 @@ export function StoreBadgeTile({ tile, following }: { tile: ShelfTile; following
         ) : following ? (
           <Pill tone="done">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.4} />
-            Tracking
+            On page
           </Pill>
         ) : (
-          <Pill>Track</Pill>
+          <Pill>Add</Pill>
         )
       }
       data={`badge:${tile.key}`}
@@ -197,15 +220,16 @@ export function StoreShelfRow({ title, count, href, children, data }: { title: s
           <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
         </Link>
       </h2>
-      <ul className="sn-glide-x -mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none]" data-store-list="">
+      <ul className="sn-glide-x -mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none]" data-store-list="">
         {children}
       </ul>
     </section>
   );
 }
 
-/** A tool row on the Tools shelf (F2): icon · name · line + foot · its one press. */
-export function ToolShelfRow({ row, picksRead }: { row: StoreToolRow; picksRead: boolean }) {
+/** A tool row on the Tools shelf (F2): icon · name · line + foot · its tags · its one press. `yours` = the keys in
+ *  Your tools now (a Get adds to the end of them); null = the layout could not be read. */
+export function ToolShelfRow({ row, yours }: { row: StoreToolRow; yours: readonly string[] | null }) {
   const s = row.status;
   const k = row.tool.key;
   const item = shop.store.item('tools', k);
@@ -213,8 +237,15 @@ export function ToolShelfRow({ row, picksRead }: { row: StoreToolRow; picksRead:
   if (toolIsYours(s)) {
     right = <ActionButton tone="info" icon={<ChevronRight aria-hidden strokeWidth={2} />} label="Open" href={toolOpenHref(k)} />;
   } else if (s.kind === 'free') {
-    right = picksRead ? (
-      <StoreOp op="tool_add" fields={{ tool: k }} tone="info" icon={<Plus aria-hidden strokeWidth={2} />} label="Get" landTo={`${shop.index()}?added=${encodeURIComponent(`tool:${k}`)}#tools`} />
+    right = yours ? (
+      <StoreOp
+        op="layout"
+        fields={{ row: 'tools', intent: 'add', key: [...yours, k] }}
+        tone="info"
+        icon={<Plus aria-hidden strokeWidth={2} />}
+        label="Get"
+        landTo={`${shop.index()}?added=${encodeURIComponent(`tool:${k}`)}#tools`}
+      />
     ) : (
       <ToolChip tone="wait">Couldn’t load</ToolChip>
     );
@@ -237,26 +268,29 @@ export function ToolShelfRow({ row, picksRead }: { row: StoreToolRow; picksRead:
             {row.tool.title}
           </Link>
         }
-        lines={[s.kind === 'buy' ? `${row.tool.line} · one-time` : row.tool.line, foot]}
+        lines={[s.kind === 'buy' ? `${row.tool.line} · one-time` : row.tool.line, foot, <TagChips key="tags" tags={row.tags} />]}
         right={right}
       />
   );
 }
 
-/** A graph row on the Graphs shelf (F4): its picture · name · question · Get, or the badge that opens it. */
-export function GraphShelfRow({ k, status, picksRead }: { k: CardKey; status: GraphStatus; picksRead: boolean }) {
+/** A graph row on the Graphs shelf (F12): its picture · name · question · ✓ On your page / Get, or the badge that opens
+ *  it. `on` = the graphs on the Analytics now (a Get adds to their end); `layoutRead` false = the layout was refused. */
+export function GraphShelfRow({ k, status, on, layoutRead }: { k: CardKey; status: GraphStatus; on: readonly CardKey[]; layoutRead: boolean }) {
   const g = STORE_GRAPHS[k];
   const right =
     status.kind === 'locked' ? (
       <Lock aria-label="Locked" className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={2} />
-    ) : !picksRead ? (
+    ) : status.kind === 'on' ? (
+      <OnPage />
+    ) : !layoutRead ? (
       <ToolChip tone="wait">Couldn’t load</ToolChip>
     ) : (
-      <StoreOp op="graph_add" fields={{ graph: k }} tone="info" icon={<Plus aria-hidden strokeWidth={2} />} label="Get" />
+      <StoreOp op="layout" fields={{ row: 'graphs', intent: 'add', key: [...on, k] }} tone="info" icon={<Plus aria-hidden strokeWidth={2} />} label="Get" />
     );
   return (
       <ToolRow
-        attrs={{ 'data-store-row': '', 'data-store-name': g.title, 'data-store-show': status.kind === 'locked' ? 'locked' : 'off', 'data-store-graph': k }}
+        attrs={{ 'data-store-row': '', 'data-store-name': g.title, 'data-store-show': status.kind, 'data-store-graph': k }}
         lead={<GraphArt />}
         title={
           <Link href={shop.store.item('graphs', k)} className="hover:underline">
@@ -264,7 +298,7 @@ export function GraphShelfRow({ k, status, picksRead }: { k: CardKey; status: Gr
           </Link>
         }
         lines={[
-          g.asks,
+          status.kind === 'on' ? null : g.asks,
           status.kind === 'locked' ? (
             <span>
               Opens with <b className="font-semibold text-ink">{status.badgeName} · Bronze</b>

@@ -24,6 +24,9 @@ import { BRONZE_LINES, LOCKED_HEAD, lockedLine, type GiftsRecFacts, type GiftsTo
 import { COULDNT_LOAD } from '@/lib/shop-badge-row';
 import { giftsSpec } from './gifts-graph';
 import { invitesSpec } from './invites-graph';
+import { STORE_GRAPHS, graphWindowWords } from '@/lib/supplier-store';
+import { ArrangeEdit } from '@/app/vendor-dashboard/shop/store/_components/store-client';
+import { GraphArt } from '@/app/vendor-dashboard/shop/store/_components/graph-art';
 import type { InviteMonth } from '@/lib/graph-unlocks';
 
 /**
@@ -160,9 +163,9 @@ type Props =
   | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined; unlocks?: undefined; gifts?: undefined; giftsRecFacts?: undefined; invites?: undefined };
 
 /**
- * 🛍 THE SHOP'S PICKS (owner 23 Nov 2026 — Store drawing v10, F0): `order` = the graphs the shop picked, in its order
- * (`analyticsGraphs`, lib/supplier-store.ts — open ones only); `addHref` = the dashed "Add a graph" tile at the end, into
- * the Store's Graphs shelf. With the Store, a shut graph lives on its shelf ("Opens with …"), so the lines under the
+ * 🛍 THE SHOP'S PICKS (owner 23 Nov 2026 — Store drawing v12, F0 + "Edit · Analytics"): `order` = the graphs the shop
+ * picked, in its order (`analyticsGraphs`, lib/supplier-store.ts — open ones only); `addHref` = the dashed "Add a graph"
+ * tile at the end, into the Store's Graphs shelf; the head's "Edit" opens "Arrange Analytics" (reorder · remove). With the Store, a shut graph lives on its shelf ("Opens with …"), so the lines under the
  * carousel step aside. Without them (Performance), the carousel is exactly as before.
  */
 type Picks = { order?: readonly CardKey[]; addHref?: string };
@@ -250,14 +253,25 @@ export function AnalyticsCarousel(props: Props & Picks) {
 
   return (
     <section aria-labelledby="shop-analytics-h" data-shop-analytics="" data-tour="shop-analytics" id="analytics" className="scroll-mt-24" data-growth="" data-analytics-carousel={props.locked ? 'locked' : 'full'}>
-      <div className="flex items-baseline justify-between px-4 pb-2 pt-5">
-        <h2 id="shop-analytics-h" className="home-k2 !my-0">
-          Analytics
-        </h2>
+      <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-5">
+        <span className="flex items-center gap-2">
+          <h2 id="shop-analytics-h" className="home-k2 !my-0">
+            Analytics
+          </h2>
+          {props.addHref ? (
+            <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" aria-label={`${graphCount} ${graphCount === 1 ? 'graph' : 'graphs'}`} data-analytics-count="">
+              {formatCount(graphCount)}
+            </span>
+          ) : null}
+        </span>
         {props.addHref ? (
-          <span className="rounded-full bg-[color:var(--surface-soft)] px-2.5 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" data-analytics-count="">
-            {formatCount(graphCount)} {graphCount === 1 ? 'graph' : 'graphs'}
-          </span>
+          <ArrangeEdit
+            row="graphs"
+            items={cards.slice(0, graphCount).map((c) => {
+              const k = c.key as CardKey;
+              return { key: k, title: STORE_GRAPHS[k].title, sub: graphWindowWords(k), art: <GraphArt size={44} /> };
+            })}
+          />
         ) : (
           <span className="text-xs text-ink/70">
             {formatCount(cards.length)} {cards.length === 1 ? 'card' : 'cards'}

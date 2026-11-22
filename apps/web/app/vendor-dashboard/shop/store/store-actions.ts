@@ -13,21 +13,18 @@ import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { routes } from '@/lib/routes';
 import {
-  addedFreeTools,
-  analyticsGraphs,
-  cleanBadgePicks,
-  cleanGraphPicks,
-  isGraphKey,
+  cleanLayoutRow,
+  isLayoutRow,
   isPaidStoreTool,
-  isShopBadgeKey,
-  MAX_FOLLOWED_BADGES,
+  layoutColumn,
   storeToolOf,
   storeToolSku,
   toolStatus,
+  withLayoutRow,
+  type LayoutRow,
   type PaidStoreTool,
 } from '@/lib/supplier-store';
-import { readStoreGraphUnlocks, readStorePicks, readStoreToolFacts } from '@/lib/supplier-store.server';
-import { readShopTrackerFacts } from '@/lib/shop-badges.server';
+import { readStoreLayout, readStoreToolFacts } from '@/lib/supplier-store.server';
 
 /**
  * 🛍 THE STORE'S ONE SERVER ACTION (owner 23 Nov 2026; drawing specs `prototypes/supplier_store_graphs_badges_2026-11-23/`).
@@ -35,12 +32,10 @@ import { readShopTrackerFacts } from '@/lib/shop-badges.server';
  * ONE export on purpose: every exported action is one Vercel route and the budget sits at its ceiling
  * (`scripts/lint-server-action-budget.mjs`); the slot was freed by folding the Suggested coverage pair into one.
  *
- *   op=graphs        the Analytics order (repeated `graph`), cleaned to open graphs   → vendor_profiles.store_graphs
- *   op=graph_add     one graph to the end of the Analytics                             → store_graphs
- *   op=graph_remove  one graph off the Analytics                                       → store_graphs
- *   op=badge_follow  follow one badge (refused at three: unfollow one first)          → store_badges
- *   op=badge_unfollow                                                                   → store_badges
- *   op=tool_add      a FREE tool into Your tools                                       → store_tools
+ *   op=layout        ONE row of the Shop set at once — `row` (graphs · badges · tools), its keys in the new order
+ *                    (repeated `key`), and for tools the paid ones taken off (repeated `off`). Add ([+] → Store: the
+ *                    list + the new key), remove (the list without it) and reorder (the Edit sheet's Done) are all
+ *                    this one write → vendor_profiles.store_layout. `intent` (add · remove · order) only picks the toast.
  *   op=buy           a PAID tool, once: apply-then-pay — a 'submitted' order + a pending payment, then the one pay page.
  *                    The price is the `vendor_billing_catalog` row `vendor_tool_<tool>`; the form sends the tool and the
  *                    pay channel only, never a price. Approval needs no hook: the paid order IS the ownership
@@ -93,51 +88,31 @@ export async function storeAction(_prev: StoreActionState, formData: FormData): 
 
   if (op === 'buy') return buyTool(formData, { userId: user.id, shopId, services: (profile.services ?? []) as string[] });
 
-  const picks = await readStorePicks(admin, shopId);
-  if (!picks) return err('Couldn’t read your shop just now. Nothing was changed — try again.');
+  if (op !== 'layout') return err('Nothing to do.');
+  const row = formData.get('row');
+  if (!isLayoutRow(row)) return err('Nothing to do.');
+  const keys = cleanLayoutRow(row, formData.getAll('key'));
+  const off = row === 'tools' ? cleanLayoutRow('tools', formData.getAll('off')) : [];
 
-  const write = async (patch: Record<string, string[] | null>, done: string): Promise<StoreActionState> => {
-    const { error } = await admin.from('vendor_profiles').update(patch).eq('vendor_profile_id', shopId);
-    if (error) {
-      logQueryError('storeAction.write', error, { vendor_profile_id: shopId, op });
-      return err('Couldn’t save that just now. Try again.');
-    }
-    revalidateStore();
-    return ok(done);
-  };
-
-  if (op === 'graphs' || op === 'graph_add' || op === 'graph_remove') {
-    const unlocks = await readStoreGraphUnlocks(admin, shopId, readShopTrackerFacts(shopId).catch(() => null));
-    const on = analyticsGraphs(picks.graphs, unlocks);
-    if (op === 'graphs') return write({ store_graphs: cleanGraphPicks(formData.getAll('graph'), unlocks) }, 'Saved');
-    const key = String(formData.get('graph') ?? '');
-    if (!isGraphKey(key)) return err('That graph is not in the Store.');
-    if (op === 'graph_remove') return write({ store_graphs: on.filter((k) => k !== key) }, 'Taken off your Analytics');
-    if (unlocks.hidden.has(key)) return err('This graph opens with its badge’s Bronze.');
-    if (on.includes(key)) return ok('Already on your Analytics');
-    return write({ store_graphs: [...on, key] }, 'On your Analytics');
+  // The other two rows are kept as they are: read the column first, so one row's save never resets another's.
+  const layout = await readStoreLayout(admin, shopId);
+  if (!layout) return err('Couldn’t read your shop just now. Nothing was changed — try again.');
+  const next = withLayoutRow(layout, row, keys, off);
+  const { error } = await admin.from('vendor_profiles').update({ store_layout: layoutColumn(next) }).eq('vendor_profile_id', shopId);
+  if (error) {
+    logQueryError('storeAction.layout', error, { vendor_profile_id: shopId, row });
+    return err('Couldn’t save that just now. Try again.');
   }
+  revalidateStore();
+  return ok(layoutToast(row, String(formData.get('intent') ?? 'order')));
+}
 
-  if (op === 'badge_follow' || op === 'badge_unfollow') {
-    const key = String(formData.get('badge') ?? '');
-    if (!isShopBadgeKey(key)) return err('That badge is not in the Store.');
-    const now = cleanBadgePicks(picks.badges ?? []);
-    if (op === 'badge_unfollow') return write({ store_badges: now.filter((k) => k !== key) }, 'Unfollowed');
-    if (now.includes(key)) return ok('Already following');
-    if (now.length >= MAX_FOLLOWED_BADGES) return err('You follow three already. Unfollow one first.');
-    return write({ store_badges: [...now, key] }, 'Following on your Shop');
-  }
+const ADDED: Readonly<Record<LayoutRow, string>> = { graphs: 'On your Analytics', badges: 'On your Shop', tools: 'In your tools' };
 
-  if (op === 'tool_add') {
-    const key = String(formData.get('tool') ?? '');
-    const tool = storeToolOf(key);
-    if (!tool || isPaidStoreTool(tool.key)) return err('That tool is not a free tool.');
-    const now = addedFreeTools({ picked: picks.tools, categoryLabels: [], services: (profile.services ?? []) as string[] });
-    if (now.includes(tool.key)) return ok('Already in your tools');
-    return write({ store_tools: [...now, tool.key] }, `${tool.title} is in your tools`);
-  }
-
-  return err('Nothing to do.');
+function layoutToast(row: LayoutRow, intent: string): string {
+  if (intent === 'add') return ADDED[row];
+  if (intent === 'remove') return row === 'tools' ? 'Taken off your Shop. It stays yours in the Store.' : 'Taken off your Shop';
+  return 'Saved';
 }
 
 async function buyTool(formData: FormData, who: { userId: string; shopId: string; services: string[] }): Promise<StoreActionState> {

@@ -1,13 +1,13 @@
 -- ============================================================================
--- supplier_store_tools_graphs_badges — the supplier Store: tools bought once, graphs and badges picked (23 Nov 2026)
+-- supplier_store_tools_graphs_badges — the supplier Store: tools bought once, graphs and badges laid out (23 Nov 2026)
 --
 -- ⚖ DECISION_LOG 2026-11-23 (specs 5a8c6bf3 · eb51e640 · d019ce12 · 1aaedb5e · 022681cf · 6be18189 · 6a7db142 ·
 --   85bcb51a · 46690f6d). Owner, verbatim: *"each specialized tools would be 499 pesos to unlock? so it is Free or
 --   Paid."* · *"Yes, one-time"* · *"they have 30 days free trial for all the services once verified."* · *"Tools only"*.
---   Drawing: specs `prototypes/supplier_store_graphs_badges_2026-11-23/` (v10).
+--   Drawing: specs `prototypes/supplier_store_graphs_badges_2026-11-23/` (v12: Edit per row, tool tags).
 --
 -- WHAT CHANGES
---   1 · FOUR CATALOG ROWS — one per paid tool (Cake Maker · Song bank · Papic challenge · 3D plan), ₱499 each: the
+--   1 · FOUR CATALOG ROWS — one per paid tool (Cake Maker · Song bank · Papic challenge · 3D plan), at the
 --       owner's own number (specs 1aaedb5e), editable in admin like every other `vendor_billing_catalog` row. The app
 --       reads the price from the row and never types it. A ONE-TIME purchase: no period, no renewal, no expiry.
 --   2 · OWNED = A PAID ORDER. A shop owns a paid tool while it has an order for that tool's SKU in `paid` or
@@ -19,10 +19,14 @@
 --   4 · `vendor_store_tool_open(shop, tool, event)` — THE answer for one paid tool: owned, or the trial still running,
 --       or (never lock mid-event) the event falls on or before the trial's last day and has not ended yet.
 --       The photo challenge and the branded 3D booth now ask it too (bodies from 20271356215288, one arm added each).
---   5 · THE SHOP'S PICKS on `vendor_profiles` (the shop's own row, written by its owner like every Shop setting):
---         store_graphs — the Analytics graphs, in the shop's order (NULL = every graph it has, in the shipped order)
---         store_badges — the badges it follows on the Shop, at most 3 (NULL = the three closest to done)
---         store_tools  — the free tools in its Your tools row, in order (NULL = Scanner + the tools suggested for it)
+--   5 · THE SHOP'S LAYOUT — ONE column, `vendor_profiles.store_layout` (jsonb), for all three Shop rows (owner via
+--       the controller, 23 Nov: add · remove · reorder, "in one place for all three rows"). Shape:
+--         { "graphs": [...] | null, "badges": [...] | null, "tools": [...] | null, "tools_off": [...] }
+--       Each row's list is its keys in the shop's order. A row that is absent or null = that row's default:
+--         graphs — every graph the shop has, in the shipped order
+--         badges — the three closest to done (no cap once chosen: the row shows what the shop picked, in its order)
+--         tools  — Scanner + the tools suggested for its services, then the paid ones it holds
+--       `tools_off` = paid tools taken off the page; a bought tool stays owned (removing never refunds or locks).
 --
 -- 🛑 NEVER APPLIED BY HAND. The pipeline pushes this file (CLAUDE.md §5), on the controller's go.
 -- Idempotent: IF NOT EXISTS / CREATE OR REPLACE / ON CONFLICT DO NOTHING / guarded backfill.
@@ -198,46 +202,32 @@ COMMENT ON FUNCTION public.event_branded_booth_vendor_ids(UUID) IS
 REVOKE ALL ON FUNCTION public.event_branded_booth_vendor_ids(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.event_branded_booth_vendor_ids(UUID) TO service_role;
 
--- ── 5 · THE SHOP'S PICKS ────────────────────────────────────────────────────
+-- ── 5 · THE SHOP'S LAYOUT (one column for the three rows) ──────────────────
 ALTER TABLE public.vendor_profiles
-  ADD COLUMN IF NOT EXISTS store_graphs TEXT[],
-  ADD COLUMN IF NOT EXISTS store_badges TEXT[],
-  ADD COLUMN IF NOT EXISTS store_tools  TEXT[];
+  ADD COLUMN IF NOT EXISTS store_layout JSONB;
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'vendor_profiles_store_badges_three') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'vendor_profiles_store_layout_shape') THEN
     ALTER TABLE public.vendor_profiles
-      ADD CONSTRAINT vendor_profiles_store_badges_three CHECK (store_badges IS NULL OR cardinality(store_badges) <= 3);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'vendor_profiles_store_picks_short') THEN
-    ALTER TABLE public.vendor_profiles
-      ADD CONSTRAINT vendor_profiles_store_picks_short CHECK (
-        (store_graphs IS NULL OR cardinality(store_graphs) <= 40)
-        AND (store_tools IS NULL OR cardinality(store_tools) <= 20));
+      ADD CONSTRAINT vendor_profiles_store_layout_shape CHECK (
+        store_layout IS NULL
+        OR (jsonb_typeof(store_layout) = 'object' AND pg_column_size(store_layout) <= 8192));
   END IF;
 END $$;
 
-COMMENT ON COLUMN public.vendor_profiles.store_graphs IS
-  'Owner 23 Nov 2026 (specs 5a8c6bf3): the graphs this shop picked for its Shop Analytics, in its order. NULL = every graph it has, in the shipped order (CARD_ORDER). Written by the Store (storeAction op graphs); read by lib/supplier-store.ts.';
-COMMENT ON COLUMN public.vendor_profiles.store_badges IS
-  'Owner 23 Nov 2026 (specs 5a8c6bf3): up to three badges this shop follows on its Shop. NULL = the three closest to done. Written by the Store (storeAction op badges); read by lib/supplier-store.ts.';
-COMMENT ON COLUMN public.vendor_profiles.store_tools IS
-  'Owner 23 Nov 2026 (specs eb51e640): the free specialized tools this shop added to Your tools, in order. NULL = Scanner + the tools suggested for its services. Paid tools join by purchase, plan or trial, never by this column. Written by the Store (storeAction op tools); read by lib/supplier-store.ts.';
+COMMENT ON COLUMN public.vendor_profiles.store_layout IS
+  'Owner 23 Nov 2026 (specs 5a8c6bf3 · b6ff3e4c): the Shop''s three Store rows in one place — {graphs, badges, tools, tools_off}, each an ordered list of keys. Absent/null row = its default (graphs: every graph it has; badges: the three closest to done; tools: Scanner + suggested + paid held). tools_off = paid tools taken off the page (still owned). Written ONLY by storeAction op layout (service role, after the shop-manager check); read by lib/supplier-store.server.ts readStoreLayout.';
 
 -- Born readable by the shop (and its console) the way every post-lockdown column is (20271217955839's column
 -- allowlist — lint-vendor-profiles-column-grants.mjs): a SELECT grant to `authenticated`, none to anon (the public shop
--- page never reads the picks). Written by the Store's action on the service-role client after the shop-manager check,
+-- page never reads the layout). Written by the Store's action on the service-role client after the shop-manager check,
 -- so no UPDATE grant is added.
-GRANT SELECT (store_graphs) ON public.vendor_profiles TO authenticated;
-GRANT SELECT (store_badges) ON public.vendor_profiles TO authenticated;
-GRANT SELECT (store_tools) ON public.vendor_profiles TO authenticated;
-REVOKE SELECT (store_graphs) ON public.vendor_profiles FROM anon;
-REVOKE SELECT (store_badges) ON public.vendor_profiles FROM anon;
-REVOKE SELECT (store_tools) ON public.vendor_profiles FROM anon;
+GRANT SELECT (store_layout) ON public.vendor_profiles TO authenticated;
+REVOKE SELECT (store_layout) ON public.vendor_profiles FROM anon;
 
 -- ── The shop's own view re-projected (its projection is frozen at CREATE) ──
--- The 20271354345662 block verbatim, with the three picks columns added to its anti-vacuity check.
+-- The 20271354345662 block verbatim, with the layout column added to its anti-vacuity check.
 DROP VIEW IF EXISTS public.vendor_profiles_self;
 
 DO $$
@@ -256,8 +246,8 @@ BEGIN
      OR position('papers_lapsed_at' IN cols) = 0 OR position('papers_current' IN cols) = 0
      OR position('paused_at' IN cols) = 0 OR position('paused_by' IN cols) = 0
      OR position('booking_min_days' IN cols) = 0 OR position('booking_max_months' IN cols) = 0
-     OR position('store_graphs' IN cols) = 0 OR position('store_badges' IN cols) = 0 OR position('store_tools' IN cols) = 0 THEN
-    RAISE EXCEPTION 'ANTI-VACUITY FAILED: vendor_profiles_self would not carry the find-lock, video-title, papers, pause, booking-window or Store picks columns';
+     OR position('store_layout' IN cols) = 0 THEN
+    RAISE EXCEPTION 'ANTI-VACUITY FAILED: vendor_profiles_self would not carry the find-lock, video-title, papers, pause, booking-window or Store layout columns';
   END IF;
   EXECUTE format($v$
     CREATE VIEW public.vendor_profiles_self

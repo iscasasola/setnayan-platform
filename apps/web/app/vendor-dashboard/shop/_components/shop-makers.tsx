@@ -3,12 +3,14 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowUpRight, CalendarDays, ChevronRight, ClipboardList, FileText, Lock, Plus, ReceiptText, Tag, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, ClipboardList, FileText, Lock, Plus, ReceiptText, Tag, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
 import type { ScannerChoice } from '@/lib/supplier-scan';
 import { onTheDayHref, specializedToolsFor, type SpecializedTool, type SpecializedToolKey } from '@/lib/specialized-tools';
 import { toolIcon } from './specialized-tool-icon';
+import { isPaidStoreTool } from '@/lib/supplier-store';
+import { ArrangeEdit } from '@/app/vendor-dashboard/shop/store/_components/store-client';
 import { BodyPanel } from '../../_components/body-panel';
 import { ServiceScannerPick } from './service-scanner-pick';
 import { LockExplainer } from '@/app/_components/lock/locked-feature';
@@ -187,21 +189,46 @@ export function ShopMakers({
           this shop uses, in its order — the free ones it added and the paid ones it holds (bought · with its plan · on
           the 30-day trial). A row opens that tool into the body; "Add a tool" opens the Store's Tools shelf. */}
       <section aria-labelledby="shop-tools-h" data-specialized-tools="" data-your-tools="" id="tools" className="scroll-mt-24">
-        <div className="flex items-baseline justify-between gap-3 px-4 pb-2 pt-5">
-          <h2 id="shop-tools-h" className="home-k2 !my-0">
-            Your tools
-          </h2>
-          <span className="rounded-full bg-[color:var(--surface-soft)] px-2.5 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" data-your-tools-count="">
-            {formatCount(myTools.length)} {myTools.length === 1 ? 'tool' : 'tools'}
+        <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-5">
+          <span className="flex items-center gap-2">
+            <h2 id="shop-tools-h" className="home-k2 !my-0">
+              Your tools
+            </h2>
+            <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" aria-label={`${myTools.length} ${myTools.length === 1 ? 'tool' : 'tools'}`} data-your-tools-count="">
+              {formatCount(myTools.length)}
+            </span>
           </span>
+          {addToolHref ? (
+            <ArrangeEdit
+              row="tools"
+              items={myTools.flatMap(({ key }) => {
+                const t = tools.find((x) => x.tool.key === key)?.tool;
+                if (!t) return [];
+                const Icon = toolIcon(t.key);
+                return [
+                  {
+                    key: t.key,
+                    title: t.title,
+                    sub: t.line,
+                    paid: isPaidStoreTool(t.key),
+                    art: (
+                      <span className="grid h-11 w-11 place-items-center rounded-xl bg-[color:var(--surface-soft)] text-ink">
+                        <Icon className="h-5 w-5" strokeWidth={1.75} />
+                      </span>
+                    ),
+                  },
+                ];
+              })}
+            />
+          ) : null}
         </div>
-        <ul className="sn-frame sn-frame-flush mx-4 px-4" data-tool-list="">
+        <ul className="sn-glide-x flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-tool-list="">
           {myTools.map(({ key, trialDays }) => {
             const t = tools.find((x) => x.tool.key === key)!.tool;
             const Icon = toolIcon(t.key);
             const isNew = addedTool === t.key;
             return (
-              <li key={t.key} data-tool-row={t.key} data-tool-new={isNew ? '' : undefined}>
+              <li key={t.key} className="w-[150px] flex-none snap-start" data-tool-row={t.key} data-tool-new={isNew ? '' : undefined}>
                 <button
                   ref={(el) => {
                     toolTiles.current[t.key] = el;
@@ -210,33 +237,32 @@ export function ShopMakers({
                   onClick={() => setTool(t.key)}
                   aria-expanded={t.key === picked?.key}
                   aria-haspopup="dialog"
-                  className="sn-press flex min-h-16 w-full items-center gap-3 py-2.5 text-left"
+                  className="sn-press sn-frame flex h-full min-h-[128px] w-full flex-col items-start gap-1 p-3 text-left"
                   data-tool-tile={t.key}
                 >
                   <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-[color:var(--surface-soft)] text-ink">
                     <Icon className="h-5 w-5" strokeWidth={1.75} />
                   </span>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <b className="flex items-center gap-1.5 text-sn-lg font-semibold leading-tight text-ink">
+                  <span className="mt-1 flex min-w-0 flex-col">
+                    <b className="flex flex-wrap items-center gap-1.5 text-sn-lg font-semibold leading-tight text-ink">
                       {t.title}
                       {isNew ? <span className="rounded-full bg-[rgb(var(--color-link))] px-1.5 py-px text-sn-2xs font-bold text-[color:var(--m-paper)]">New</span> : null}
                     </b>
-                    <span className="mt-0.5 text-sn-md leading-snug text-[color:var(--m-slate-2)]">{t.line}</span>
+                    <span className="mt-0.5 line-clamp-2 text-sn-md leading-snug text-[color:var(--m-slate-2)]">{t.line}</span>
                     {trialDays ? (
                       <span className="mt-0.5 text-sn-sm font-semibold text-[rgb(var(--color-ok))]" data-tool-trial="">
                         Free trial · {trialDays} {trialDays === 1 ? 'day' : 'days'} left
                       </span>
                     ) : null}
                   </span>
-                  <ChevronRight aria-hidden className="h-4 w-4 flex-none text-[color:var(--m-slate-2)]" strokeWidth={2} />
                 </button>
               </li>
             );
           })}
           {addToolHref ? (
-            <li>
-              <Link href={addToolHref} className="sn-press flex min-h-14 items-center gap-3 py-2.5 text-sn-lg font-semibold text-ink" data-tool-add="">
-                <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-xl border-2 border-dashed border-[color:var(--m-line)] text-[color:var(--m-slate-2)]">
+            <li className="w-[150px] flex-none snap-start">
+              <Link href={addToolHref} className="sn-press flex h-full min-h-[128px] flex-col items-start gap-2 rounded-2xl border-2 border-dashed border-[color:var(--m-line)] p-3 text-sn-lg font-semibold text-ink" data-tool-add="">
+                <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full bg-[color:var(--surface-soft)] text-[color:var(--m-slate-2)]">
                   <Plus className="h-5 w-5" strokeWidth={2} />
                 </span>
                 Add a tool
@@ -254,10 +280,10 @@ export function ShopMakers({
               Templates
             </h2>
           </div>
-          <div className="grid grid-cols-2 gap-2 px-4" data-maker-row="">
+          <ul className="sn-glide-x flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-maker-row="">
             {list.map((t) => (
+              <li key={t.id} className="w-[150px] flex-none snap-start">
               <button
-                key={t.id}
                 ref={(el) => {
                   tiles.current[t.id] = el;
                 }}
@@ -269,7 +295,7 @@ export function ShopMakers({
                 }}
                 aria-expanded={open === t.k && from === t.id}
                 aria-haspopup="dialog" // the Maker opens the in-body panel OVER the page (BodyPanel) — a popup surface, not an in-place fold
-                className="sn-press flex min-h-16 items-center gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-3 py-2.5 text-left" // no-card-ok: a Maker tile is a <button> (it opens the Maker into the body) — frames only on what you press
+                className="sn-press sn-frame flex h-full min-h-[112px] w-full flex-col items-start gap-2 p-3 text-left"
                 data-maker={t.k}
                 data-template-tile={t.id}
               >
@@ -284,8 +310,9 @@ export function ShopMakers({
                   <small className="text-sn-sm leading-tight text-[color:var(--m-slate-2)]">{t.sub}</small>
                 </span>
               </button>
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
       ) : null}
 

@@ -5,15 +5,15 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { readStoreBadges, readStoreGraphUnlocks, readStorePicks, readStoreToolFacts, type StorePicks } from '@/lib/supplier-store.server';
-import { analyticsGraphs, type ToolFacts } from '@/lib/supplier-store';
+import { readStoreBadges, readStoreGraphUnlocks, readStoreLayout, readStoreToolFacts } from '@/lib/supplier-store.server';
+import { analyticsGraphs, type StoreLayout, type ToolFacts } from '@/lib/supplier-store';
 import type { GraphUnlocks } from '@/lib/graph-unlocks';
 import type { ShelfTile } from '@/lib/shop-badge-shelf';
 import type { CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 
 export type StoreData = {
-  /** null = the shop's picks could not be read (every "yours / on / following" is then said as unread). */
-  picks: StorePicks | null;
+  /** The shop's layout of its three rows; null = it could not be read (the defaults are drawn). */
+  layout: StoreLayout | null;
   tools: ToolFacts;
   /** null = the badges could not be read. */
   badges: ShelfTile[] | null;
@@ -23,8 +23,8 @@ export type StoreData = {
 };
 
 /**
- * 🛍 THE STORE'S ONE READ — every shelf's facts in one batch (house rule 16: one batched read per screen). The picks
- * feed the tool facts; the badge facts feed the graph gates; everything else starts at once.
+ * 🛍 THE STORE'S ONE READ — every shelf's facts in one batch (house rule 16: one batched read per screen). The layout
+ * feeds the tool facts; the badge facts feed the graph gates; everything else starts at once.
  */
 export async function loadStore(): Promise<StoreData> {
   const user = await getCurrentUser();
@@ -36,11 +36,11 @@ export async function loadStore(): Promise<StoreData> {
   const admin = createAdminClient();
   const services = (profile.services ?? []) as string[];
 
-  const picksRead = readStorePicks(supabase, id);
+  const layoutRead = readStoreLayout(supabase, id);
   const badgesRead = readStoreBadges(admin, id);
-  const [picks, tools, badges, unlocks] = await Promise.all([
-    picksRead,
-    picksRead.then((p) => readStoreToolFacts(supabase, admin, id, services, p?.tools ?? null)),
+  const [layout, tools, badges, unlocks] = await Promise.all([
+    layoutRead,
+    layoutRead.then((l) => readStoreToolFacts(supabase, admin, id, services, l)),
     badgesRead,
     readStoreGraphUnlocks(
       admin,
@@ -48,5 +48,5 @@ export async function loadStore(): Promise<StoreData> {
       badgesRead.then((b) => b.facts),
     ),
   ]);
-  return { picks, tools, badges: badges.tiles, unlocks, on: analyticsGraphs(picks?.graphs ?? null, unlocks) };
+  return { layout, tools, badges: badges.tiles, unlocks, on: analyticsGraphs(layout?.graphs ?? null, unlocks) };
 }

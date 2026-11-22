@@ -382,7 +382,7 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
       const { data: plan, error: planErr } = await supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', shop).maybeSingle();
       if (planErr || !plan) return { status: 'error', message: 'We couldn’t check your plan just now. Nothing changed — please try again.' };
       if ((plan as { tier_state: string | null }).tier_state !== 'enterprise') {
-        return { status: 'error', message: 'Sharing your album to the event’s story comes with Supplier Ultra.', href: ALBUM_SHARE_UPGRADE_HREF };
+        return { status: 'error', message: 'Sharing your album to the event’s story comes with Ultra.', href: ALBUM_SHARE_UPGRADE_HREF };
       }
     }
     const now = new Date().toISOString();

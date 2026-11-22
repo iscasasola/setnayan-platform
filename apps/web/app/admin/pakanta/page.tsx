@@ -248,7 +248,8 @@ export default async function AdminPakantaPage() {
         <InfoTip label="What this page shows" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
           Each couple’s custom-song brief, auto-composed from the love story they told in
         onboarding plus any Music Maker preferences. Copy the brief into Suno to write the
-        song — no re-interview needed.
+        song — no re-interview needed. Music Maker is retired and no longer sold, so this queue holds
+        only songs already paid for.
         </InfoTip>
       </div>
 

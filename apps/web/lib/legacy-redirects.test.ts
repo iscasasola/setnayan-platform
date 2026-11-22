@@ -66,6 +66,8 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   [`/dashboard/${EID}/studio/papic`, `/dashboard/${EID}/memories?papic=open#papic`],
   // 🎬 R3 · THE THANK-YOU VIDEO MOVED TO MEMORIES (owner 2026-10-27; "all mapping will be kept", 2026-10-28).
   [`/dashboard/${EID}/studio/thank-you`, `/dashboard/${EID}/memories/thank-you`],
+  // 📖 The Editorial PRO buy page (no door since 2026-07-22; "fix the 'Editorial PRO' copy", 2026-09-25 E4) — to the Story Maker.
+  [`/dashboard/${EID}/studio/editorial-pro`, `/dashboard/${EID}/story`],
   // 🔑 F-W3-01 (walk 13 Nov 2026): the two spellings people type for sign-in were a 404.
   ['/signin', '/login'],
   ['/sign-in', '/login'],
@@ -104,6 +106,7 @@ const DELETED_PAGES: readonly string[] = [
   'dashboard/[eventId]/website/dress-code/page.tsx',
   'dashboard/[eventId]/studio/papic/page.tsx',
   'dashboard/[eventId]/studio/thank-you/page.tsx',
+  'dashboard/[eventId]/studio/editorial-pro/page.tsx', // 2026-11-22 — the Editorial PRO buy page, forwarded to the Story Maker
   'signin/page.tsx', // never a page — a forward (F-W3-01)
   'sign-in/page.tsx',
   'vendor-dashboard/real-stories/page.tsx',

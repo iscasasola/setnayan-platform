@@ -34,7 +34,7 @@ import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventProPlanActive } from '@/lib/couple-website-pro';
 import { loadStoryPages, type DrawnSheet } from '@/lib/story-pages';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventWordsFor } from '../_lib/event-words';
@@ -286,7 +286,7 @@ export default async function EditorialPrintPage({
   // same way editorial-content.tsx does.
   let hideWatermark = false;
   try {
-    hideWatermark = await eventCoupleWebsiteProActive(createAdminClient(), event.event_id);
+    hideWatermark = await eventProPlanActive(createAdminClient(), event.event_id); // 💎 the Pro PLAN's perk (2026-11-19)
   } catch {
     hideWatermark = false;
   }

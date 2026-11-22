@@ -389,7 +389,7 @@ function Choice({
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 text-[13px] font-semibold">
           {label}
-          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" tone="current" /> : null}
+          {mark ? <PaidMark state={mark} word="PLUS" label={paidMarkLabel(mark, 'Event Plus')} size="xs" tone="current" /> : null}
         </span>
         {note ? <span className={`block text-[12px] ${on ? 'text-cream/80' : 'text-ink/75'}`}>{note}</span> : null}
       </span>

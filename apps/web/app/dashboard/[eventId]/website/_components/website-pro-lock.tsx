@@ -68,7 +68,8 @@ export async function WebsiteProLock({
   /* 🏷 The plan's NAME is the catalogue's own title (RW-306, 2026-11-14 — "read it from platform_retail_catalog_v2,
      never type it"). `hubPartPrices` is the render's ONE read of those rows (`askedOnce`), already asked by every
      Maker and Pro page; an unread title falls back to the plan list's name, never a blank button. */
-  const planName = (await hubPartPrices(createAdminClient()).catch(() => null))?.fullTitle ?? PLAN_NAME.pro;
+  // 🏛 A locked Hub part is Event Plus's — the whole Event Hub (owner 20 Nov) — by Plus's own title.
+  const planName = (await hubPartPrices(createAdminClient()).catch(() => null))?.everythingTitle ?? PLAN_NAME.plus;
 
   const card = (
     <div className="rounded-card bg-[var(--m-paper-2)] p-4 sm:p-6">

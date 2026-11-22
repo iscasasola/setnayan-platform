@@ -181,15 +181,18 @@ import { MARCH_DRAFT_PLACE, sanitizeMarchMoves } from '@/lib/march-draft';
 import { cleanRoleName, sanitizeDraftedSectionWords, withDraftedSectionWords } from '@/lib/role-names';
 import type { MarchStep } from '@/lib/march-drag';
 import {
+  HUB_EVENT_COLUMN_GATE,
   HUB_EVENT_COLUMN_PART,
   asHubOwnership,
   canvasFacetPart,
+  ownsHubGate,
   ownsHubPart,
   partsWriteAllowed,
   rsvpFieldPart,
   stylePreferencesPartOf,
   type HubOwnershipLike,
   type HubPartId,
+  type HubPlanGate,
 } from '@/lib/hub-parts';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
@@ -2912,6 +2915,21 @@ export function hubDraftItemParts(item: HubDraftItem, live: HubLiveState): HubPa
 }
 
 /**
+ * 🎟 The ONE plan gate a drafted item is (owner 2026-11-18): the theme (13) or the Save the Date's opening (1) — the two
+ * columns Event Plus passes outside their part (`HUB_EVENT_COLUMN_GATE`). Null for everything else.
+ */
+export function hubDraftItemGate(item: HubDraftItem): HubPlanGate | null {
+  return item.kind === 'event' ? (HUB_EVENT_COLUMN_GATE[item.column] ?? null) : null;
+}
+
+/** May this Pro item go live for what the event owns? A plan-gate item asks its gate; every other item its parts. */
+function hubDraftItemAllowed(item: HubDraftItem, live: HubLiveState, own: ReturnType<typeof asHubOwnership>): boolean {
+  const gate = hubDraftItemGate(item);
+  if (gate) return item.change === 'none' || item.change === 'remove' || ownsHubGate(own, gate);
+  return partsWriteAllowed(own, hubDraftItemParts(item, live), item.change);
+}
+
+/**
  * THE GATE, as a plan. What the event owns is measured by the caller
  * (admin-client read, `hubOwnershipForWrite`) — the old boolean still means
  * "everything" or "nothing"; this decides with the one rule, asked of the parts
@@ -2929,7 +2947,7 @@ export function planHubDraftApply(
   const apply: HubDraftItem[] = [];
   const refused: HubDraftItem[] = [];
   for (const item of items) {
-    const allowed = item.pro ? partsWriteAllowed(own, hubDraftItemParts(item, live), item.change) : true;
+    const allowed = item.pro ? hubDraftItemAllowed(item, live, own) : true;
     (allowed ? apply : refused).push(item);
     /* 💎 A HELD SCENE STILL GETS ITS FREE EDITS (the 2026-09-28 redraw). The
        canvas is one item, so a colour drafted beside a Pro font would otherwise
@@ -3227,6 +3245,8 @@ export type HubDraftChangeLine = {
    * some parts would still hold (`hubSummaryFor`).
    */
   parts?: HubPartId[];
+  /** 🎟 The ONE plan gate this change is (the theme 13, the opening 1) — it goes live on that gate (`ownsHubGate`). */
+  gate?: HubPlanGate;
 };
 
 /**

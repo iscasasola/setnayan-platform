@@ -1982,7 +1982,6 @@ export default function PrivacyPage() {
               Payment receipts are not sent: they are read on your own phone
               (see &ldquo;Reading your payment receipt&rdquo; above).
             </li>
-            <li>Suno (AI music generation for Music Maker and rendered videos · United States · no guest or personal data is sent)</li>
             <li>
               Google (YouTube Data API — used for any event broadcast through
               Live Watch, under either the couple&rsquo;s own connected channel

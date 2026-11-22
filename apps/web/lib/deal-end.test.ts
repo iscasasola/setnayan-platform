@@ -191,7 +191,10 @@ test('⭐ the review ⓘ says what happens to a review in ≤ 12 words, from eac
     assert.match(line, /reply once/, 'the supplier replies once — say so');
   }
   const card = src('app/_components/chat/cards/receipt-card.tsx');
-  assert.doesNotMatch(card, /PDF|S89R/, 'no PDF press or receipt number until a supplier-payment receipt document exists');
+  // The supplier-payment receipt document now exists (`/receipts/payment/[paymentId]`): PDF goes there and only there,
+  // only for a host and a found payment — and still no S89R, which is the reviews' and referrals' type letter.
+  assert.doesNotMatch(card, /S89R/, 'a receipt printed a review’s number shape');
+  assert.match(card, /read\.data\.isHost \? \{ label: 'PDF', href: `\/receipts\/payment\/\$\{r\.paymentId\}`/, 'PDF is not the hosts’ press to the receipt document');
   const handover = src('app/_components/chat/cards/handover-card.tsx');
   assert.match(handover, /action=\{link \?/, 'Open beside the title only when there is a real link');
 });

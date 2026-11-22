@@ -42,14 +42,20 @@ async function bookingOf(supabase: Client, threadId: string, where: string): Pro
 
 // ── The receipt (hosts and their coordinator; the supplier's side draws its own short line) ───────────────────────
 
-export type ReceiptRead = { ok: true; receipt: Receipt | null; eventId: string; vendorId: string | null } | Fail;
+/**
+ * `isHost` — the reader is a HOST of the event (`event_members.member_type = 'couple'`), so the card may offer "PDF"
+ * (the drawing: the coordinator sees the card, only the hosts get the PDF). A refused read is `false`: the button is
+ * left out rather than offered and then not found — the receipt itself still shows.
+ */
+export type ReceiptRead = { ok: true; receipt: Receipt | null; eventId: string; vendorId: string | null; isHost: boolean } | Fail;
 
 export async function loadReceipt(input: { threadId: string; lineAt: string; amountWords: string; first: boolean }): Promise<ReceiptRead> {
   const supabase = createClient();
   const b = await bookingOf(supabase, input.threadId, 'receipt');
   if ('ok' in b) return b;
-  if (!b.vendorId) return { ok: true, receipt: null, eventId: b.eventId, vendorId: null };
-  const [pay, quote] = await Promise.all([
+  if (!b.vendorId) return { ok: true, receipt: null, eventId: b.eventId, vendorId: null, isHost: false };
+  const me = (await supabase.auth.getSession()).data.session?.user.id ?? null;
+  const [pay, quote, host] = await Promise.all([
     supabase
       .from('event_vendor_payments')
       .select('payment_id, amount_php, paid_at, method, reference, is_deposit_record, vendor_confirmed_at, payment_refused_at')
@@ -64,6 +70,9 @@ export async function loadReceipt(input: { threadId: string; lineAt: string; amo
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    me
+      ? supabase.from('event_members').select('user_id').eq('event_id', b.eventId).eq('user_id', me).eq('member_type', 'couple').maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
   // A refused quote read must not pass as "no quote" — the receipt would then silently drop what is left.
   if (pay.error || quote.error) return refused('receipt · rows', pay.error ?? quote.error);
@@ -72,6 +81,7 @@ export async function loadReceipt(input: { threadId: string; lineAt: string; amo
     ok: true,
     eventId: b.eventId,
     vendorId: b.vendorId,
+    isHost: !host.error && Boolean(host.data),
     receipt: receiptFor({ payments: (pay.data ?? []) as PaymentRow[], lineAt: input.lineAt, amountWords: input.amountWords, first: input.first, agreedCentavos: agreed }),
   };
 }

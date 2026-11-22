@@ -37,3 +37,30 @@ push" guard in `app/_components/auth/seam-invariants.test.ts`, which now allows 
 Not changed (open question for the owner): the app **opening already signed in** on `/` still shows Discover.
 
 SPEC IMPACT: DECISION_LOG row 2026-11-22 "A SIGN-IN STARTS ON THE PROFILE PAGE" (corpus `DECISION_LOG.md`).
+
+## 2026-11-22 · fix(auth): the phone app's Google sign-in sheet names setnayan.com, not the database address
+
+Owner screenshot, iPhone app: the sheet read *"Setnayan" Wants to Use "njrupjnvkjkitfctetvi.supabase.co" to Sign In* —
+a raw database address at the front door of sign-up. iOS's `ASWebAuthenticationSession` names the host of the FIRST
+URL, and `lib/native-oauth.ts` handed `SetnayanAuth.openAuthSession` the Supabase authorize URL.
+
+- **New route `/auth/go`** (`app/auth/go/route.ts`): answers 302 to `https://<ref>.supabase.co/auth/v1/authorize`
+  with the query it was given, or 400. The target is built ONLY from `NEXT_PUBLIC_SUPABASE_URL`, and only when that is
+  exactly `https://<ref>.supabase.co` (no port, no userinfo). The route never reads a host or path from the request,
+  so no query can move it — not an open redirect (`lib/oauth-front-door.ts`).
+- **The app opens `www.setnayan.com/auth/go?…`** instead of the raw URL. If the authorize URL is not this project's,
+  it refuses — it never falls back to the raw one. Android's Custom Tab uses the same `systemBrowser` call.
+- **PKCE unchanged:** the verifier stays in the app web view's cookies where `signInWithOAuth` stored it; the hop
+  carries `code_challenge`, `code_challenge_method` and `redirect_to` through unchanged (tested).
+- **No app rebuild:** the URL is built in the web bundle, which the app loads from www.setnayan.com
+  (`apps/mobile/capacitor.config.ts`, remote-URL pattern). No paid Supabase custom domain.
+
+Guard: `lib/a-phone-sign-in-opens-on-our-address.test.ts`. Sabotage, each RED then restored: a lookalike host
+accepted (`/supabase\.co$/`); `openAuthSession` back to `url: data.url`. Updated: `lib/native-sign-in.test.ts` test 4
+(the URL is now `frontDoor`); `app/open-shop/the-approved-redesign.test.ts` (the shared panel's only push is to the
+handed `landing`).
+
+⚠ **Not tested on a real iPhone or Android phone** (no device here): that the sheet now reads "setnayan.com", and
+that Google sign-in completes end to end through the 302. Both need one tap on a phone after deploy.
+
+SPEC IMPACT: same DECISION_LOG row 2026-11-22 (addendum line "THE PHONE SIGN-IN SHEET NAMES SETNAYAN.COM").

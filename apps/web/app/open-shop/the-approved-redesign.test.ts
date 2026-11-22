@@ -320,5 +320,8 @@ test('"Sign in" opens the ONE sign-in panel as the third pane (SidePanel ≥768,
   assert.match(LINK, /openSignIn\(pane \? \{ pane: true \} : undefined\)/);
   assert.match(PANE, /if \(options\.pane\) \{[\s\S]*?<SidePanel[\s\S]*?size="wide"[\s\S]*?phone="sheet"/);
   assert.match(PANE, /router\.refresh\(\)/);
-  assert.doesNotMatch(PANE, /router\.push/);
+  // In place: the panel's ONLY push is to the profile page a `/` sign-in is handed (22 Nov 2026, "start on their
+  // profile page" — lib/a-sign-in-starts-on-the-profile-page.test.ts). The open-shop door's `next` is never `/`, so
+  // here it still only refreshes.
+  assert.deepEqual(PANE.match(/router\.push\([^)]*\)/g) ?? [], ['router.push(landing)']);
 });

@@ -99,12 +99,16 @@ test('2 · the core decides who hears a whisper and REFUSES one nobody can hear 
   assert.match(core, /\.\.\.\(privateTo \? \(privateTo\.length === 1 \? \{ \[CHAT_PRIVATE_RECIPIENT_COLUMN\]: privateTo\[0\] \} : \{ \[CHAT_PRIVATE_RECIPIENTS_COLUMN\]: privateTo \}\) : \{\}\)/);
   // A private line never wakes the auto-reply and only its people are told — a whisper is one.
   assert.match(core, /senderRole === 'couple' && !privateTo && vendorAutoReplyEnabled\(\)/);
-  // The action: the field is a yes/no, and a refused whisper THROWS (the composer says "Not sent") — it is not one of
-  // the codes that return quietly, which the box would paint as sent.
+  // The action: the field is a yes/no, and a refused whisper is never painted as sent. Since the chat walk (22 Nov) the
+  // refusals hand their reason BACK to the composer (`{ ok: false, reason }`, said on the bubble) instead of returning
+  // quietly — a whisper_refused among them is said in its own words, never shown as sent.
   const action = read('lib/chat-actions.ts');
   assert.match(action, /const whisper = whisperFromForm\(formData\.get\(CHAT_WHISPER_FIELD\)\);/);
   const quiet = action.slice(action.indexOf("result.code === 'attachment_invalid'"), action.indexOf('throw new Error(result.message);'));
-  assert.doesNotMatch(quiet, /whisper_refused/, 'a refused whisper returns quietly — the box would show it as sent');
+  if (/whisper_refused/.test(quiet)) {
+    assert.match(quiet, /return \{ ok: false, reason: result\.message \};/, 'a refused whisper returns quietly — the box would show it as sent');
+    assert.doesNotMatch(quiet.slice(quiet.indexOf('}', quiet.indexOf('redirect('))), /\breturn;/, 'a refused whisper returns quietly — the box would show it as sent');
+  }
 });
 
 test('3 · while whispering, typing never rides the chat’s channel — only the event team’s private one', () => {

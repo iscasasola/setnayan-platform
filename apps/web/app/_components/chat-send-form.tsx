@@ -135,7 +135,8 @@ const SHORTCUT = 'inline-flex h-11 w-11 shrink-0 cursor-pointer items-center jus
 
 type Props = {
   threadId: string;
-  sendAction: (formData: FormData) => Promise<void>;
+  /** Resolves with `{ ok: false, reason }` when the server refused the send — the bubble says that reason. */
+  sendAction: (formData: FormData) => Promise<void | { ok: false; reason: string }>;
   /**
    * ONE control at the start of the row, always shown — the supplier's grey ＋ that opens the Tools sheet (simpler
    * supplier dashboard step 4, 2026-10-14: "＋ · message · Send"). It must be a `type="button"`, never a form.
@@ -679,8 +680,10 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       formData.set('attachment_ref', up.ref);
       formData.set('attachment_ref_name', up.name);
     }
+    let refused: string | null = null;
     try {
-      await sendAction(formData);
+      const r = await sendAction(formData);
+      if (r && r.ok === false) refused = r.reason;
     } catch (err) {
       console.error('sendChatMessage failed', err);
       void trackFailure({
@@ -692,6 +695,12 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       });
       again();
       settle(false);
+      return;
+    }
+    // 🚫 The server said no (a rule, not a fault): say its reason on the bubble — a Try again would only be refused again.
+    if (refused) {
+      forgetRetry(pending.tempId);
+      settle(false, refused);
       return;
     }
     forgetRetry(pending.tempId);

@@ -7,7 +7,6 @@
 /[slug]/everyone	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
 /[slug]/seat	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
 /dashboard/[eventId]/guests/quick	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
-/dashboard/[eventId]/studio/editorial-pro	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dashboard/[eventId]/studio/live-studio-control/setup	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dashboard/[eventId]/studio/playlist	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dev/account-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

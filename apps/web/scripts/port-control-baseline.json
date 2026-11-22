@@ -5574,7 +5574,12 @@
         "PageMasthead",
         "SearchParams",
         "SearchParamsRecord",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/vendor-recommendations": {
@@ -5596,11 +5601,13 @@
         "ConfirmForm",
         "FeedbackCard",
         "FieldPick",
-        "InfoTip",
         "PageMasthead",
         "RecommendationRow",
-        "Stat",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateNums",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/vendors": {
@@ -5790,7 +5797,12 @@
         "ConfirmForm",
         "Group",
         "PageMasthead",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/verify": {

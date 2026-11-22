@@ -10069,6 +10069,7 @@
         "UndoToastHost",
         "VendorMeetingsSection",
         "VendorSuggestionsQueue",
+        "VenueWindowBar",
         "ViewAsBody",
         "ViewAsMenu",
         "ViewLens",
@@ -13833,6 +13834,21 @@
         "ShareReceiptButton"
       ]
     },
+    "/receipts/payment/[paymentId]": {
+      "files": [
+        "receipts/payment/[paymentId]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/vendors/[seg]/workspace?tab=chat"
+      ],
+      "actions": [],
+      "blocks": [
+        "ReceiptPage",
+        "ReceiptSlip",
+        "SaveAsPdfButton",
+        "ShareReceiptButton"
+      ]
+    },
     "/reset-password": {
       "files": [
         "reset-password/actions.ts",
@@ -15190,6 +15206,7 @@
     },
     "/vendor-dashboard/clients/[eventId]": {
       "files": [
+        "vendor-dashboard/clients/[eventId]/_components/agenda-rise.tsx",
         "vendor-dashboard/clients/[eventId]/_components/agree-gift-picker.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booking-money-summary.tsx",
@@ -15307,6 +15324,7 @@
       "blocks": [
         "ActionButton",
         "ActivityFeed",
+        "AgendaRise",
         "AgreeGiftPicker",
         "AgreedNow",
         "AppointmentsSection",
@@ -15336,6 +15354,7 @@
         "ChangeOp",
         "ChangeRequestsQueue",
         "ChapterSection",
+        "ChapterWindow",
         "ChatHome",
         "ChatHomeProvider",
         "ChatHomeTop",
@@ -15443,6 +15462,7 @@
         "ReservationLine",
         "Result",
         "ReturningMarker",
+        "RiseScreen",
         "Row",
         "RunOfShowHeader",
         "SaveFileLink",
@@ -15497,6 +15517,7 @@
         "VendorOnTheDayPage",
         "VendorPaymentLive",
         "VenueHoursSheet",
+        "VenueWindowBar",
         "WaitingRow",
         "WaitlistForm",
         "WaivedFeeRows"

@@ -436,6 +436,7 @@ const STILL: Record<string, string> = {
   'app/_components/qr-card.tsx': 'a QR code (kind 24), not the couple’s logo',
   'app/monogram/public-monogram-studio.tsx': 'the public monogram tool’s download (an export), not a couple’s saved logo',
   'app/dev/hero-lab/page.lab.tsx': 'a dev-only lab',
+  'app/dev/their-event-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` is the stand-in href of the Logo DOWNLOAD row — no logo is drawn on the screen',
   'app/dev/art-kit-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` is a drawn stand-in QR on the sample bank card — not the couple’s saved logo',
   'app/dev/memories-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are drawn gradient stand-ins for kept frames — not the couple’s saved logo',
   'app/dev/photo-privacy-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are gradient stand-ins for a supplier’s album photos — not the couple’s saved logo',

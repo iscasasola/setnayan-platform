@@ -5,7 +5,7 @@
  * strip, an equal-width choice row, a refusal line. Loaded only with a card (each card is its own lazy chunk).
  */
 import type { ReactNode } from 'react';
-import { ArrowLeftRight, Check, List, PhilippinePeso, RotateCcw, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, Check, List, PhilippinePeso, RotateCcw, Star, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCentavosPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
@@ -42,7 +42,7 @@ const KIND: Record<CardKind, { edge: string; chip: string; ink: string; fill: st
 
 /** 🔣 The drawing's own marks for the deal cards (`.k-counter` ⇄ · plan ≡ · `.k-quote` ₱) — ruled 20 Nov: "match the
  * drawing". A counter and a quote wear theirs by KIND; a payment plan says `mark="plan"` (a plan is a payment kind). */
-const DEAL_MARK: { counter: LucideIcon; plan: LucideIcon; quote: LucideIcon } = { counter: ArrowLeftRight, plan: List, quote: PhilippinePeso };
+const DEAL_MARK: { counter: LucideIcon; plan: LucideIcon; quote: LucideIcon; review: LucideIcon } = { counter: ArrowLeftRight, plan: List, quote: PhilippinePeso, review: Star };
 
 const HOT = 'transition-shadow duration-sn-pill data-[hot]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--sn-accent)_35%,transparent)]';
 /** Phone: the chat's own width. Computer: a bubble's width — mine to the right, the rest to the left. */
@@ -60,6 +60,7 @@ export function KindCard({
   tone = 'auto',
   anchorId,
   info,
+  action,
   warn = false,
   mark,
   children,
@@ -82,13 +83,19 @@ export function KindCard({
    * HERE, in the shared part, so a card file never hand-draws it (`lane-c-cards.test.ts` 🔘). `data` rides on the button.
    */
   info?: { onOpen: () => void; data?: Record<`data-${string}`, string | undefined> };
+  /**
+   * The drawing's action beside the title (the handover's "Open", Unichat part H2) — the house ActionButton, drawn HERE
+   * so a card file never hand-draws it. Only for a press with a real destination: a card with nowhere to go gets none.
+   */
+  action?: { label: string; href: string; icon: LucideIcon; external?: boolean };
   /** The kicker is a warning (the counter's "Under your lowest") — the warn colour, one weight up. */
   warn?: boolean;
-  /** A payment plan wears the drawing's plan mark (≡) instead of the payment topic's glyph. */
-  mark?: 'plan';
+  /** A payment plan wears the drawing's plan mark (≡) instead of the payment topic's glyph; the review ask wears the
+   *  drawing's ☆ (it borrows the quote's colour, never the quote's ₱). */
+  mark?: 'plan' | 'review';
   children?: ReactNode;
 }) {
-  const Icon = mark === 'plan' ? DEAL_MARK.plan : kind === 'counter' ? DEAL_MARK.counter : kind === 'quote' ? DEAL_MARK.quote : TOPIC_ICON[topic];
+  const Icon = mark === 'plan' ? DEAL_MARK.plan : mark === 'review' ? DEAL_MARK.review : kind === 'counter' ? DEAL_MARK.counter : kind === 'quote' ? DEAL_MARK.quote : TOPIC_ICON[topic];
   const k = KIND[kind];
   const label = typeof title === 'string' ? title : kicker;
   if (settled != null && (turn === 'done' || turn === 'old')) {
@@ -123,7 +130,7 @@ export function KindCard({
       data-card-kind={kind}
       data-card-turn={turn}
       aria-label={label}
-      className={`my-2 grid scroll-mt-3 ${info ? 'grid-cols-[36px_minmax(0,1fr)_auto]' : 'grid-cols-[36px_minmax(0,1fr)]'} items-center gap-3 rounded-[var(--sn-frame-radius)] border-l-[length:var(--sn-border-w-edge)] bg-frame p-3 ${k.edge} ${turn === 'me' ? 'shadow-sn-frame' : 'shadow-sn-hair'} ${HOT} ${place(tone)}`}
+      className={`my-2 grid scroll-mt-3 ${info && action ? 'grid-cols-[36px_minmax(0,1fr)_auto_auto]' : info || action ? 'grid-cols-[36px_minmax(0,1fr)_auto]' : 'grid-cols-[36px_minmax(0,1fr)]'} items-center gap-3 rounded-[var(--sn-frame-radius)] border-l-[length:var(--sn-border-w-edge)] bg-frame p-3 ${k.edge} ${turn === 'me' ? 'shadow-sn-frame' : 'shadow-sn-hair'} ${HOT} ${place(tone)}`}
     >
       {chip ?? (
         <span aria-hidden className={`grid h-9 w-9 place-items-center rounded-md ${k.chip}`}>
@@ -144,6 +151,9 @@ export function KindCard({
           </span>
         </span>
       </span>
+      {action ? (
+        <ActionButton tone="neutral" icon={action.icon} label={action.label} href={action.href} target={action.external ? '_blank' : undefined} data-card-action="" />
+      ) : null}
       {info ? (
         <button
           type="button"

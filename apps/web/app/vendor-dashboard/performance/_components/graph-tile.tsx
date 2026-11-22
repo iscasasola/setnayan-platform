@@ -6,7 +6,7 @@ import { ArrowRight, ChevronRight } from 'lucide-react';
 import type { GrowthRec } from '@/lib/vendor-growth-recs';
 import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
 import { impactChipStyle } from './growth-recs-card';
-import { Reanimate, useReanimate } from './reanimate';
+import { Reanimate } from './reanimate';
 
 /**
  * 📈🎠 EVERY GRAPH IS A CARD OF THE ONE ANALYTICS CAROUSEL, AND A CARD RISES TO OUR RECOMMENDATION (Build 6 Lane I —
@@ -14,7 +14,7 @@ import { Reanimate, useReanimate } from './reanimate';
  * the carousel."*, the window *"inside each card"*; prototype `analytics_option_b_2026-11-11`, option 3).
  *
  *   CARD    title (the whole card is the button) · its number and its OWN window switch (or a fixed-window label) ·
- *           the picture, animated when the card is swiped into view (`Reanimate` + `WhenSeen`) · one line in words.
+ *           the picture, drawn at its final size from the first paint, animated when the card is swiped into view (`Reanimate`) · one line in words.
  *   RISE    THE one Rise full screen (`RiseScreen`, Build 5 Lane A — out of the tapped card, the reverse on ✕, the bars
  *           away; the same window switch rides its head, the one door its thumb zone): the graph larger, then ONE
  *           recommendation — Problem (the graph's own number) → Solution → one door — only when its rule fired in
@@ -76,16 +76,6 @@ function RecBox({ g }: { g: GraphSpec }) {
 }
 
 /**
- * Draws its picture only once the card has been SEEN (the `Reanimate` around it says so), so the bars grow, the lines
- * draw and the counts tick when the supplier swipes to it — never finishing off-screen while it waited in the carousel.
- * Reduced motion: the CSS keeps everything still (the house rules in globals.css / analytics-growing.css).
- */
-function WhenSeen({ children }: { children: ReactNode }) {
-  const seen = useReanimate();
-  return seen === false ? <span className="ag-gp-wait" aria-hidden /> : <>{children}</>;
-}
-
-/**
  * 🎠 ONE CARD OF THE ANALYTICS CAROUSEL (owner 11 Nov: *"Analytics should be the carousel"* · *"inside each card"* ·
  * *"Sliding switch"*; prototype `analytics_option_b_2026-11-11` option 3). The whole card opens it — its title is the one
  * button, stretched over the card — and the window switch inside it is its own control (never a button inside a button).
@@ -122,8 +112,15 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
             </span>
           ) : (
             <>
+              {/* 📐 THE PICTURE IS DRAWN FROM THE FIRST PAINT, AT ITS FINAL SIZE (owner 21 Nov 2026: *"the graphs when
+                  scrolled goes up and down"* · *"when i arrived here the graph size increased"*). It used to wait behind
+                  a 64-px stand-in until the card was swiped into view; every slide stretches to the tallest, so the
+                  first swipe to a tall card (The next 13 weeks) grew the whole carousel — 340 → 593 px at 969 px wide,
+                  261 → 403 px at 375 — and pushed everything under it down. The motion still waits for the card to be
+                  seen: `useTween` holds its values and analytics-growing.css pauses the CSS motion until `.perf-play`.
+                  🔒 shop/the-analytics-carousel-never-changes-height.test.ts */}
               <span className="ag-gp" aria-hidden={g.state === 'empty' ? true : undefined}>
-                <WhenSeen>{g.pic}</WhenSeen>
+                {g.pic}
               </span>
               <span className="ag-ln">{g.line}</span>
             </>

@@ -119,6 +119,8 @@ const NOT_GUEST_FACING: Record<string, string> = {
   'app/dashboard/[eventId]/schedule/actions.ts': 'host — the Schedule’s own writes and their re-reads',
   'app/admin/events/[eventId]/page.tsx':
     'admin — Admin › Events › one event › Suppliers’ schedule reads the chapters to say each supplier’s Where (2026-11-04); behind the admin gate, never a guest',
+  'app/_components/chat/cards/deal-end-calls.ts':
+    'host and booked supplier — the chat’s Crew for the day card (Unichat H2) reads the start of the moments this shop’s crew tasks sit on, for each member’s arrival, on the reader’s own session inside a supplier chat; a guest is in no supplier chat, so no guest door reaches it',
   'lib/schedule-ask.server.ts':
     'host — a host or the coordinator asks a booked supplier to change their times (D2); reads the moment’s name for the ask, never for a guest',
   'lib/moment-follow.server.ts':

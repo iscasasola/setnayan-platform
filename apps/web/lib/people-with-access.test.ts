@@ -4,7 +4,7 @@
  *
  * What it holds:
  *   1. Every area offers ONLY the levels something enforces (`areaChoices`):
- *      four areas Edit · View · Off, Budget & payments and Photos View · Off,
+ *      four areas Edit · View · Off, Budget, Payments and Photos View · Off,
  *      Event Hub and Mood Board not settable (no reader asks for them).
  *   2. The rows: co-hosts first (every area, Edit, no dropdowns), then
  *      coordinators and helpers (a cell per area, read from their own grant
@@ -53,7 +53,7 @@ const seat = (over: Partial<SeatInput>): SeatInput => ({
 test('the owner’s area names, in the owner’s order', () => {
   assert.deepEqual(
     DELEGATE_AREAS.map((a) => DELEGATE_AREA_LABEL[a]),
-    ['Guest list', 'Seat plan', 'The Day', 'Suppliers', 'Event Hub', 'Mood Board', 'Budget & payments', 'Photos'],
+    ['Guests', 'Seats', 'Schedule', 'Suppliers', 'Hub', 'Mood Board', 'Budget', 'Payments', 'Memories'],
   );
 });
 
@@ -61,7 +61,8 @@ test('each area offers only the levels something enforces', () => {
   for (const a of ['guest_list', 'seat_plan', 'schedule', 'vendors'] as const) {
     assert.deepEqual(areaChoices(a), ['edit', 'view', 'off'], a);
   }
-  assert.deepEqual(areaChoices('budget'), ['view', 'off'], 'Budget & payments is never Edit (locked D1)');
+  assert.deepEqual(areaChoices('budget'), ['view', 'off'], 'Budget is never Edit (locked D1)');
+  assert.deepEqual(areaChoices('payments'), ['view', 'off'], 'Payments is never Edit — nobody but a host logs or pays (owner 2026-11-21)');
   assert.deepEqual(areaChoices('photos'), ['view', 'off'], 'Photos is never Edit');
   assert.equal(areaChoices('invitations'), null, 'Event Hub offers a dropdown nothing enforces');
   // 🖼 Owner 2026-10-30: the hosts give Mood Board access per person — Edit (its photos) or View. No Off: every
@@ -95,8 +96,10 @@ test('a coordinator’s defaults read back as the owner set them', () => {
     schedule: 'edit',
     vendors: 'edit',
     invitations: 'view', // not settable yet — every delegate can open it, no one but a host edits it
-    mood_board: 'view',
-    budget: 'off',
+    // 🧭 Owner 2026-11-21: the booked coordinator's grant — Mood Board Edit, Budget and Payments View, Memories shut.
+    mood_board: 'edit',
+    budget: 'view',
+    payments: 'view',
     photos: 'off',
   });
 });

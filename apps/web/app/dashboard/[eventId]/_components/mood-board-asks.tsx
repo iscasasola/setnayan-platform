@@ -47,7 +47,7 @@ const NOT_SAVED = 'We couldn’t save that just now — please try again.';
  *   · "Coordinator <name> changed the Mood Board · Stage" → the Sheet lists the last 24 hours of changes by someone who
  *     is not an owner, each with Undo and the time it has left. The owners' alone — the server says so again.
  *
- * The same pattern as the coordinator's access line beside it (`coordinator-level-ask.tsx`): the Today line is the
+ * The same pattern as the coordinator's access line beside it (retired 2026-11-21): the Today line is the
  * press, a choice saves in place (the row leaves at once, the toast says what happened), a refusal is said in words
  * and the row comes back. Both lists come from ONE read (`mood_board_home_asks`), done by the server doorway.
  */

@@ -20,7 +20,8 @@ import { Count } from '@/components/count';
 import { formatPhp } from '@/lib/php';
 import { priceDueText, type PriceBadgeTone, type PriceSummary as PriceSummaryData } from '@/lib/price-summary';
 
-const BADGE: Record<PriceBadgeTone, string> = {
+/** The badge's colours per tone — exported so a summary of this plan (`YourBookingCard`) wears the same pill. */
+export const BADGE: Record<PriceBadgeTone, string> = {
   ok: 'bg-[rgb(var(--color-ok)_/_0.12)] text-[rgb(var(--color-ok))]',
   warn: 'bg-[rgb(var(--color-warn)_/_0.12)] text-[rgb(var(--color-warn))]',
   soft: 'bg-ink/5 text-ink/70',

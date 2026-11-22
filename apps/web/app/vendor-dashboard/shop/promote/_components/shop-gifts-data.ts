@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate } from '@/lib/request-platform';
 import {
   fetchShopGiftBundles,
   fetchShopGiftGivenTotal,
@@ -34,7 +34,7 @@ export async function loadShopGiftsSection(supabase: SupabaseClient, vendorProfi
   // the free booking fee's history — read with the service role, keyed on the shop's own id.
   // 🛒 The store (prototype v16, 2026-11-17): the History screen's rows, the top row's Given, and the most in one
   // payment (the admin setting the store's caps are drawn from — never a typed number).
-  const [stock, history, givenTotal, maxPaymentPhp, packs, papicOn, storeShell, settings, rewardStock, rewardsGranted, rewardNames] =
+  const [stock, history, givenTotal, maxPaymentPhp, packs, papicOn, gate, settings, rewardStock, rewardsGranted, rewardNames] =
     await Promise.all([
       fetchShopGiftStock(supabase, vendorProfileId, null),
       fetchShopGiftHistory(supabase, vendorProfileId),
@@ -42,7 +42,7 @@ export async function loadShopGiftsSection(supabase: SupabaseClient, vendorProfi
       getMaxPaymentPhp(giftsAdmin),
       fetchShopGiftPacks(giftsAdmin),
       isVendorPapicCaptureEnabled(),
-      isStoreShellRequest(),
+      getIapGate(),
       fetchPlatformSettings(supabase),
       fetchShopGiftRewardStock(supabase, vendorProfileId, null),
       readGrantedRewards(giftsAdmin, vendorProfileId),
@@ -62,7 +62,11 @@ export async function loadShopGiftsSection(supabase: SupabaseClient, vendorProfi
     givenTotal,
     maxPaymentPhp,
     openRails: openRailOptions(settings),
-    canBuy: !storeShell,
+    canBuy: !gate.storeShell,
+    // 💝 In the iPhone app with StoreKit (the three-part gate: the flag, the store shell, a build that sells) AND a build
+    // whose plugin passes a quantity (`SetnayanIAP/3`), a gift is bought through Apple instead — line by line, each cart
+    // line its own Apple purchase, Apple's price on every button (owner 2026-11-04, 2026-11-22).
+    appleGifts: gate.iapQuantity,
     rewards: { left: rewardFreeByKind(rewardStock, freeByKind(stock)), granted: rewardsGranted, names: rewardNames },
   };
 }

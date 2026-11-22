@@ -17,7 +17,7 @@ import { AI_TIER_SKU, type AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
  *         `RETIRED_IAP_PRODUCT_IDS`, never reused.
  *       ↳ The eleven Event Pro PART products (`hub_part_*`, 2026-10-22) were RETIRED before any was sold (owner
  *         2026-10-26, "just have the upgrade Event Pro") — Event Pro is sold whole; their ids are listed in
- *         `RETIRED_HUB_PART_PRODUCT_IDS` and never reused.
+ *         `RETIRED_IAP_PRODUCT_IDS` and never reused.
  *   (2) Pro is offered in the app ONLY at ✓ Apply.
  *   (3) Pro and Live Watch are ONE purchase for the CURRENT event — a
  *       CONSUMABLE applied to that event, never a subscription and never a
@@ -80,7 +80,10 @@ export type IapProductKind =
   | 'live-watch'
   | 'papic-credits'
   /** 🍎 23 Oct: one unlock for the CURRENT event, never sold twice. None is on sale now: Setnayan AI and Thank You retired, Music Maker and Patiktok retired 2026-11-20. */
-  | 'event-unlock';
+  | 'event-unlock'
+  /** 💝 A SHOP's gift (owner 2026-11-04, "they can purchase inside apple as well"): lands in the shop's gift stock exactly
+   *  like a web gift — never a couple's purchase. Only `IAP_SUPPLIER_GIFT_PRODUCTS` carry it. */
+  | 'supplier-gift';
 
 export type IapProduct = {
   /** The App Store Connect product id. */
@@ -103,29 +106,6 @@ export type IapProduct = {
 };
 
 const PREFIX = 'com.setnayan.app.';
-
-/**
- * 🗑 EVENT PRO, PART BY PART — RETIRED, NEVER OFFERED (owner 2026-10-26: "and just have the upgrade Event Pro"
- * … "i mean no more by part as well on the website"). The eleven part products of 2026-10-22 were made in App Store
- * Connect but never attached to a version and never sold; Event Pro (`event_hub_pro`) is the one Event Hub product.
- * They are OUT of `IAP_PRODUCTS` — so StoreKit is never asked for them, `iapProductById` answers null and the server
- * refuses one by name — and kept HERE, the way `mood_board_renders_50` is kept in a comment, only so an id is never
- * reused (ids are forever). Spelled here, not derived from `lib/hub-parts.ts`'s table, so a renamed part can never
- * change one; `products.test.ts` holds the two lists equal.
- */
-const RETIRED_HUB_PART_PRODUCTS: ReadonlyArray<readonly [part: string, serviceKey: string, name: string]> = [
-  ['reveal', 'COUPLE_HUB_PART_REVEAL', 'Reveal'],
-  ['background', 'COUPLE_HUB_PART_BACKGROUND', 'Background'],
-  ['photos', 'COUPLE_HUB_PART_PHOTOS', 'Photos'],
-  ['style', 'COUPLE_HUB_PART_STYLE', 'Style'],
-  ['motion', 'COUPLE_HUB_PART_MOTION', 'Motion'],
-  ['logo_qr', 'COUPLE_HUB_PART_LOGO_QR', 'Logo & QR'],
-  ['music', 'COUPLE_HUB_PART_MUSIC', 'Music'],
-  ['prints', 'COUPLE_HUB_PART_PRINTS', 'Prints'],
-  ['post_event', 'COUPLE_HUB_PART_POST_EVENT', 'Post Event'],
-  ['own_scenes', 'COUPLE_HUB_PART_OWN_SCENES', 'Your own scenes'],
-  ['address', 'COUPLE_HUB_PART_ADDRESS', 'Custom address'],
-];
 
 /**
  * 📸 THE THREE PAPIC PACKS (owner 2026-11-03): `[credits, catalogue code]`. Prices are NOT here — App Store Connect
@@ -201,33 +181,32 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
 ]);
 
 /**
- * 💝 THE SUPPLIER GIFT PRODUCTS (owner 2026-11-04, *"they can purchase inside apple as well"*): what a SUPPLIER pays to
- * gift one of the couple's products, sold in the iPhone app through Apple. 📦 Since 2026-11-14 the price is the row's
- * LIST price (`retail_price_php`, never typed here) — one price per gift, `gift_price_php` is not a price anywhere; in
- * App Store Connect each is set to the Philippine price point equal to that figure (an OWNER action — the 4 Nov price
- * points were set from the retired gift price; build-sessions/APPLE-IAP-PRICES-2026-11-04.md).
+ * 💝 THE SUPPLIER GIFT PRODUCTS (owner 2026-11-04, *"they can purchase inside apple as well"*): what a SHOP pays, in the
+ * iPhone app, for ONE gift into its gift stock — the same stock a web gift lands in (`shop_gift_stock_entries`), given
+ * to a couple the same way (Agree / a quote, out when their first payment clears). 📦 The price is the row's LIST price
+ * (`retail_price_php`, never typed here; owner 14 Nov "Yes, at list price", 17 Nov "they all pay regular price") — in
+ * App Store Connect each is the Philippine price point equal to that figure (build-sessions/APPLE-PRODUCTS-2026-11-22.md).
+ * Apple sells a consumable ONE at a time, so the app sells single gifts; the 10 + 1 bundles stay on the web.
  *
- * ⚠ DELIBERATELY NOT IN `IAP_PRODUCTS`, so NOT in `IAP_PRODUCT_IDS` and NOT answered by `iapProductById`: the purchase
- * path (`startAppStorePurchase`) is a COUPLE's — event-scoped and coordinator-checked — and has no supplier buyer, no
- * recipient event and no gift delivery. Listing these there would let a couple buy their own product through a gift product.
- * They join the sellable list only together with a supplier-buyer intent + delivery (not built — PR body). Ids are
- * FOREVER once created in App Store Connect.
+ * ⚠ DELIBERATELY NOT IN `IAP_PRODUCTS`, so NOT in `IAP_PRODUCT_IDS` and NOT answered by `iapProductById`: a COUPLE's
+ * purchase (event-scoped, coordinator-checked) can never reach a gift product. Only the shop branch of
+ * `startAppStorePurchase` sells one (`iapSupplierGiftProductById`), and only the transaction reader delivers one
+ * (`iapProductForDelivery`). The catalogue code is `serviceKey`; the ORDER is `vendor_gift__<code>` (`shopGiftServiceKey`).
+ * Ids are FOREVER once created in App Store Connect.
  */
-export type IapSupplierGiftProduct = {
-  productId: string;
-  /** The couple product gifted — its catalogue row carries the list price (`retail_price_php`) this product is priced from. */
-  serviceKey: string;
-  appleType: 'consumable';
-  appStoreName: string;
-  /** Papic packs: the credits gifted (re-checked against `papic_pass_tiers` exactly as `papicCreditsMatch`). */
-  credits: number | null;
-};
+export type IapSupplierGiftProduct = IapProduct & { kind: 'supplier-gift' };
+
+/** `kind` is a plain field of `IapProduct`, so comparing it does not narrow the product — this guard does. */
+export function isIapSupplierGiftProduct(p: IapProduct): p is IapSupplierGiftProduct {
+  return p.kind === 'supplier-gift';
+}
 
 export const IAP_SUPPLIER_GIFT_PRODUCTS: readonly IapSupplierGiftProduct[] = Object.freeze([
   ...PAPIC_PACKS.map(
     ([credits, serviceKey]): IapSupplierGiftProduct => ({
       productId: `${PREFIX}gift_papic_pack_${credits}`,
       serviceKey,
+      kind: 'supplier-gift',
       appleType: 'consumable',
       appStoreName: `Gift · Papic ${credits}`,
       credits,
@@ -240,20 +219,35 @@ export const IAP_SUPPLIER_GIFT_PRODUCTS: readonly IapSupplierGiftProduct[] = Obj
       // 💎 Event Ultra as a gift (owner 2026-11-13, "Gifting Ultra: yes"). The OWNER creates it in App Store Connect at the
       // price point equal to the EVENT_ULTRA row's list price; not sellable until the supplier path is.
       ['gift_event_ultra', 'EVENT_ULTRA', 'Gift · Event Ultra'],
-      ['gift_live_watch', 'LIVE_STUDIO', 'Gift · Live Watch'],
-      ['gift_music_maker', 'PAKANTA', 'Gift · Music Maker'],
-      ['gift_patiktok', 'PATIKTOK_COMPILER', 'Gift · Patiktok'],
+      // 🗑 No `gift_live_watch`: Live Watch is not a gift on the web (`ShopGiftKind` is Papic · Plus · Pro · Ultra, and the
+      // 17 Nov "Gift prices" row lists only those), so an app gift could never be delivered "exactly like a web gift".
+      // Dropped 22 Nov before it was created in App Store Connect.
+      // 🗑 `gift_music_maker` (PAKANTA) and `gift_patiktok` (PATIKTOK_COMPILER) left with their products (owner 2026-11-20,
+      // "Retire Patiktok and Music Maker") — ids in RETIRED_IAP_PRODUCT_IDS, never reused.
     ] as const
   ).map(
     ([id, serviceKey, name]): IapSupplierGiftProduct => ({
       productId: `${PREFIX}${id}`,
       serviceKey,
+      kind: 'supplier-gift',
       appleType: 'consumable',
       appStoreName: name,
       credits: null,
     }),
   ),
 ]);
+
+/** 💝 The shop gift a product id sells — the ONE lookup the shop branch of the purchase path uses. */
+export function iapSupplierGiftProductById(productId: string | null | undefined): IapSupplierGiftProduct | null {
+  if (!productId) return null;
+  return IAP_SUPPLIER_GIFT_PRODUCTS.find((p) => p.productId === productId) ?? null;
+}
+
+/** 💝 The shop gift that sells this catalogue code (`EVENT_PLUS` → `gift_event_plus`) — what the gift sheet offers. */
+export function iapSupplierGiftProductForCode(code: string | null | undefined): IapSupplierGiftProduct | null {
+  if (!code) return null;
+  return IAP_SUPPLIER_GIFT_PRODUCTS.find((p) => p.serviceKey === code) ?? null;
+}
 
 /**
  * A pack bought again and again (Papic credits): never refused as "owned", and left out of Restore's list of things
@@ -263,21 +257,21 @@ export function iapProductIsRepeatable(product: IapProduct | null | undefined): 
   return product?.kind === 'papic-credits';
 }
 
-/** 🗑 The eleven retired part products' ids, in the parts' own order — never sold, never reused. */
-export const RETIRED_HUB_PART_PRODUCT_IDS: readonly string[] = RETIRED_HUB_PART_PRODUCTS.map(([part]) => `${PREFIX}hub_part_${part}`);
-
-/** The catalogue code each retired part product would have sold — `products.test.ts` holds them to the parts table. */
-export const RETIRED_HUB_PART_SERVICE_KEYS: readonly string[] = RETIRED_HUB_PART_PRODUCTS.map(([, serviceKey]) => serviceKey);
-
 /**
  * 🗑 App Store products made in App Store Connect and RETIRED — never sold, never asked of StoreKit, never reused
  * (ids are forever). `mood_board_renders_50` predates this list and stays named in comments above.
  */
 export const RETIRED_IAP_PRODUCT_IDS: readonly string[] = Object.freeze([
-  // The eleven Event Pro parts — Event Pro is sold whole (owner 2026-10-26).
-  ...RETIRED_HUB_PART_PRODUCT_IDS,
+  // The eleven Event Pro parts (`hub_part_<part>`, made 2026-10-22, never attached to a version, never sold) — Event Pro is
+  // sold whole (owner 2026-10-26). Plain ids only: the parts table they once mirrored is gone (22 Nov clean-up).
+  ...['reveal', 'background', 'photos', 'style', 'motion', 'logo_qr', 'music', 'prints', 'post_event', 'own_scenes', 'address'].map(
+    (part) => `${PREFIX}hub_part_${part}`,
+  ),
   // The Thank-You Video went free for every event (owner 2026-10-26, "make it free for now").
   `${PREFIX}papic_thank_you`,
+  // The Music Maker and Patiktok GIFTS left with their products (owner 2026-11-20, "Retire Patiktok and Music Maker").
+  `${PREFIX}gift_music_maker`,
+  `${PREFIX}gift_patiktok`,
   // The five `papic_credits_*` products retired 2026-11-03, and `event_hub_pro` + the four Setnayan AI products retired
   // 2026-11-04, are listed in lib/iap/products-delivery.ts (RETIRED_PAPIC_CREDIT_PRODUCT_IDS ·
   // RETIRED_EVENT_PRODUCT_IDS) — they still DELIVER an already-charged transaction, and are kept out of this
@@ -350,7 +344,8 @@ export function appStorePriceMatchesWeb(
  * `tierPoints` null = the tier is missing or retired → not on sale.
  */
 export function papicCreditsMatch(product: IapProduct, tierPoints: number | null): boolean {
-  if (product.kind !== 'papic-credits') return true;
+  // 💝 A Papic GIFT promises its credits too ("Gift · Papic 150").
+  if (product.kind !== 'papic-credits' && !(product.kind === 'supplier-gift' && product.credits !== null)) return true;
   return tierPoints !== null && product.credits === tierPoints;
 }
 

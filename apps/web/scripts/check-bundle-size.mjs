@@ -47,7 +47,7 @@ const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NEXT_DIR = join(WEB_ROOT, '.next');
 
 // CEILING_PLACEHOLDER
-export const MAX_SHARED_FIRST_LOAD_GZIP = 0;
+export const MAX_SHARED_FIRST_LOAD_GZIP = 221.5 * 1024;
 
 /** A page must name at least this many app HTML files, or the scan is blind (a build that prerendered nothing). */
 export const MIN_APP_PAGES = 5;

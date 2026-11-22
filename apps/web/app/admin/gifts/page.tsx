@@ -76,6 +76,11 @@ type VendorGiftRow =
   | ({ kind: 'vendor' } & CompedVendorRow)
   | ({ kind: 'window' } & VendorDealRow);
 
+/** A search hit's one action. Built here, not inline after `{1.9} />}`, because `lib/strip-comments.ts` reads that
+ *  sequence as a regex literal and every guard that strips comments then mis-reads the rest of this file. */
+const grantVendorHref = (id: string) => `/admin/gifts?grant_vendor=${id}`;
+const grantUserHref = (id: string) => `/admin/gifts?grant_user=${id}`;
+
 /** The "Applies to" dropdown's every-event choice — posts an EMPTY `event_id`, as the select's `<option value="">` did. */
 const EVERY_EVENT = '__every_event__';
 
@@ -387,7 +392,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
                   data={v.vendor_profile_id}
                   title={v.business_name}
                   line={v.public_id}
-                  right={<ActionButton tone="brand" icon={<Store aria-hidden strokeWidth={1.9} />} label="Comp this supplier" href={`/admin/gifts?grant_vendor=${v.vendor_profile_id}`} />}
+                  right={<ActionButton tone="brand" icon={<Store aria-hidden strokeWidth={1.9} />} label="Comp this supplier" href={grantVendorHref(v.vendor_profile_id)} />}
                 />
               ))}
             </TemplateRows>
@@ -986,7 +991,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
                   key={u.user_id}
                   data={u.user_id}
                   title={u.display_name ?? u.email ?? u.user_id}
-                  right={<ActionButton tone="brand" icon={<Ticket aria-hidden strokeWidth={1.9} />} label="Comp this user" href={`/admin/gifts?grant_user=${u.user_id}`} />}
+                  right={<ActionButton tone="brand" icon={<Ticket aria-hidden strokeWidth={1.9} />} label="Comp this user" href={grantUserHref(u.user_id)} />}
                 />
               ))}
             </TemplateRows>

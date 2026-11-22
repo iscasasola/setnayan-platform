@@ -14,7 +14,7 @@ import {
   HandHeart,
   Heart,
   HeartHandshake,
-  ListFilter,
+  SlidersHorizontal,
   Network,
   Pencil,
   Plus,
@@ -570,7 +570,7 @@ export function PeopleRosterView({
           label="People — show, or work the list"
           value={picker.view}
           options={[
-            ...picker.options.map((o) => ({ ...o, group: 'Show', icon: <ListFilter className="h-5 w-5" strokeWidth={1.9} /> })),
+            ...picker.options.map((o) => ({ ...o, group: 'Show', icon: <SlidersHorizontal className="h-5 w-5" strokeWidth={1.9} /> })),
             ...(nobody
               ? []
               : [

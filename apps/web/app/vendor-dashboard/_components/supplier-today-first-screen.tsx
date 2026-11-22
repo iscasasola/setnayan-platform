@@ -24,7 +24,8 @@ import {
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
-import { PERMIT_PAPERS_HREF, type ShopPill, type SupplierNextTarget, type TodayNeed, type TodayRowIcon } from '@/lib/supplier-today';
+import { RENEW_PAPERS_HREF } from '@/lib/papers-renewal';
+import { type ShopPill, type SupplierNextTarget, type TodayNeed, type TodayRowIcon } from '@/lib/supplier-today';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
 import { customerCardHref, supplierChatHref } from '@/lib/upcoming-schedule-door';
@@ -248,6 +249,8 @@ export type SupplierTodayFirstScreenProps = {
   alsoToday?: ReadonlyArray<{ id: string; label: string; line: string | null; href: string; icon: TodayRowIcon }>;
   /** The next three booked events, Setnayan and outside, already worded. */
   comingUp: readonly TodayComingUpRow[];
+  /** T-3: the bookings read was refused or short — an empty list is "Couldn't load", never "No bookings yet". */
+  comingUpUnread?: boolean;
   /** 🗂 "Events you run" — empty for everyone but a coordinator. */
   eventsYouRun?: readonly EventYouRun[];
   /** 💸 The unpaid booking fees (`<BookingFeeBills today>`), drawn by the page; counted in `needsCount`. */
@@ -304,6 +307,7 @@ export function SupplierTodayFirstScreen({
   outcome = null,
   alsoToday = [],
   comingUp,
+  comingUpUnread = false,
   eventsYouRun = [],
   bills = null,
   hasBills = false,
@@ -323,16 +327,6 @@ export function SupplierTodayFirstScreen({
       {/* 🧰 A NEW SHOP: the six steps, done in place — the top of Today (owner 2026-10-28; no cover row, as shipped). */}
       {setup}
       {setup ? null : cover}
-      {/* 🖥 From 1280 these two move into the side pane (the drawing's `.ne-top` → `.ne-side`); below it this wrapper
-          draws nothing of its own. */}
-      {setup ? null : (
-        <div data-today-top-only="">
-          {nextBadge}
-          {nextEvents}
-          {stats}
-        </div>
-      )}
-
       {/* THE ANSWER'S STATUS LINE — the whole sentence of an answer that redirected here, with the door it asks for. */}
       {outcome ? (
         <div
@@ -414,6 +408,20 @@ export function SupplierTodayFirstScreen({
         </p>
       </div>
 
+      {/* 📋 THE LIST COMES FIRST (Today v3 part 1, owner 19 Nov: "it was suppose to look like focus" — the mast, then the
+          list): the Next badge card, Next events and the five numbers now sit UNDER Needs you today, each still its own
+          block (they are not removed — where they finally live is the owner's open call). */}
+      {/* 🖥 From 1280 these two move into the side pane (the drawing's `.ne-top` → `.ne-side`); below it this wrapper
+          draws nothing of its own. */}
+      {setup ? null : (
+        <div data-today-top-only="">
+          {nextBadge}
+          {nextEvents}
+          {stats}
+        </div>
+      )}
+
+
       {grow}
 
       {/* 🌑 ALSO TODAY — on an event day, the day's own rows (Schedule · the Event Hub's tools). */}
@@ -441,7 +449,11 @@ export function SupplierTodayFirstScreen({
       {/* ③ COMING UP — the next three booked events (Setnayan and outside), each opening its day. */}
       <div data-today-coming-up data-tour="today-coming-up">
         <TodayEyebrow door={{ label: 'All dates', href: '/vendor-dashboard/customers?seg=dates' }}>Coming up</TodayEyebrow>
-        {comingUp.length === 0 ? (
+        {comingUp.length === 0 && comingUpUnread ? (
+          <div className="[&>a:first-child]:border-t-0">
+            <TodayRow href="/vendor-dashboard" label="Couldn’t load your bookings" line="Refresh in a moment to try again" rowIcon="calendar" marker="coming-up-unread" />
+          </div>
+        ) : comingUp.length === 0 ? (
           <div className="[&>a:first-child]:border-t-0">
             <TodayRow href="/vendor-dashboard/customers?add=outside" label="No bookings yet" line="Add the ones you already have" rowIcon="calendar" marker="coming-up-empty" />
           </div>
@@ -501,7 +513,7 @@ export function SupplierTodayFirstScreen({
           they are being checked the Shop row already says so, and nothing here claims more. */}
       {shop.pill === 'Checking' || shop.pill === 'Not sent' ? null : (
         <div data-today-side-verified="" className="[&>a]:border-t-0">
-          <TodayRow href={PERMIT_PAPERS_HREF} label="Setnayan Verified" line="Couples can book you" pill={<span className="text-[13px] font-medium text-sn-accent">See it</span>} marker="verified" rowIcon="check" />
+          <TodayRow href={RENEW_PAPERS_HREF} label="Setnayan Verified" line="Couples can book you" pill={<span className="text-[13px] font-medium text-sn-accent">See it</span>} marker="verified" rowIcon="check" />
         </div>
       )}
       </aside>

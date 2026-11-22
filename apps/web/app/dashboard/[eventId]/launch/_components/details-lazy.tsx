@@ -177,6 +177,10 @@ export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "make
 export const StageSwitch = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StageSwitch), {
   loading: () => <span aria-hidden className="block h-11 w-full rounded-lg bg-ink/[0.06]" />,
 });
+/* ‹ The full-screen Maker's way out (20 Nov) — the house back, lazy; its 44-px place is held until it arrives. */
+export const MakerLeave = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.MakerLeave), {
+  loading: () => <span aria-hidden className="block h-11 w-11 rounded-full bg-ink/[0.06]" />,
+});
 /* 🖨 The Prints page's desktop columns (it has no stage pill to mount them — `PrintsPageDesk`). */
 export const PrintsPageDesk = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.PrintsPageDesk), { loading: () => null });
 /* 🎓 "About the Maker" (Page ▾) — the tour is drawn only when the couple asks for it, never on a first open, so its

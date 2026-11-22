@@ -53,6 +53,22 @@ permissions:
   pull-requests: write
 
 jobs:
+  # ── THIS WORKFLOW NEVER ENDS ALL-SKIPPED (2026-11-21) ──────────────────────
+  # 🚨 Measured on batch PR #8098: opened WITH the hold label, both jobs below
+  # skip, so this workflow's check suite concluded "skipped". It was the FIRST
+  # github-actions suite on the head commit, and GitHub filed the nine required
+  # checks that `scripts/ci-report-checks.mjs` posts (secret scan, the six lints,
+  # migration timestamp guard, bundle size check) into it. Branch protection does
+  # not count runs in a skipped suite, so the PR sat BLOCKED with every check
+  # green ("9 of 13 required status checks are expected"), and re-running the
+  # reporter only re-filed them into the same suite. One job that always runs
+  # makes the suite conclude "success". It does nothing else.
+  suite-is-never-skipped:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Keep this workflow's check suite from concluding "skipped"
+        run: echo "auto-merge.yml ran for ${{ github.event.action }} — the arming and disarming jobs decide on their own."
+
   # ── THE HOLD LABEL DISARMS, AT ANY TIME ────────────────────────────────────
   # 🚨 WHY THIS JOB EXISTS. The label hold added earlier on 2026-08-07 only ever
   # protected a PR that already CARRIED the label at the moment it was opened —

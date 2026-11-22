@@ -17,6 +17,8 @@ import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
 import { ActionButton } from '@/components/action-button';
 import { ageShort } from '@/lib/admin/queue-counts';
 import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
+import { TemplateFail, TemplateSection } from '@/app/_components/template-rows';
 
 export type HelpThread = {
   message_id: string;
@@ -97,26 +99,26 @@ export function HelpMessenger({
   };
   return (
     <div data-help-messenger="">
-      <p className="mb-3 text-sm text-ink/70">Shops’ “Message Setnayan” and the Help page — the same chat as the app.</p>
-      <nav aria-label="Filter messages" className="mb-3 flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <Link
-            key={f.key}
-            href={link({ status: f.key })}
-            aria-current={filter === f.key ? 'page' : undefined}
-            className={`sn-press inline-flex min-h-10 items-center rounded-full border px-3.5 text-[13px] font-semibold ${
-              filter === f.key ? 'border-ink bg-ink text-cream' : 'border-ink/15 bg-white text-ink dark:bg-raised'
-            }`}
-            data-help-filter={f.key}
-          >
-            {f.label}
-          </Link>
-        ))}
-      </nav>
+      {/* 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): the line about which messages land here moved
+          behind the ⓘ, and the five filter chips are ONE dropdown going to the same addresses. */}
+      <TemplateSection
+        label="Messages"
+        first
+        data="help-messages"
+        tip="Shops’ “Message Setnayan” and the Help page — the same chat as the app."
+        right={
+          <LinkPickMenu
+            label="Show"
+            value={filter}
+            dataAttr="data-help-filter"
+            options={FILTERS.map((f) => ({ key: f.key, label: f.label, href: link({ status: f.key }) }))}
+          />
+        }
+      >
       {failed ? (
-        <p role="alert" className="mb-3 rounded-card bg-[var(--sn-warning-soft)] p-3 text-sm text-ink">
+        <TemplateFail data="help-messages">
           Couldn’t load the messages — refresh in a moment. This is not an empty inbox.
-        </p>
+        </TemplateFail>
       ) : null}
       <div className={`${ADMIN_FRAME} grid overflow-hidden md:h-[560px] md:grid-cols-[300px_1fr]`}>
         <ul className={`${open ? 'hidden md:block' : ''} overflow-y-auto border-ink/10 md:border-r`} aria-label="Conversations" data-help-list="">
@@ -207,7 +209,7 @@ export function HelpMessenger({
             >
               <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto py-3" data-chat-flow="">
                 {open.origin ? (
-                  <p className="self-start text-xs text-ink/70" data-help-report-origin="">
+                  <div className="self-start text-xs text-ink/70" data-help-report-origin="">
                     Report from{' '}
                     <Link href={`/admin/vendors/${open.origin.vendor_profile_id}`} className="text-sn-accent hover:underline">
                       {open.origin.shop_name ?? 'a shop'}
@@ -222,7 +224,7 @@ export function HelpMessenger({
                       </>
                     ) : null}
                     {open.origin.page_words ? ` · ${open.origin.page_words}` : ''}
-                  </p>
+                  </div>
                 ) : null}
                 <p className="max-w-[78%] self-start whitespace-pre-wrap rounded-2xl bg-ink/[0.06] px-3 py-2 text-[14px] text-ink">
                   {open.subject && open.subject !== open.body ? <strong className="block">{open.subject}</strong> : null}
@@ -241,6 +243,7 @@ export function HelpMessenger({
           )}
         </section>
       </div>
+      </TemplateSection>
     </div>
   );
 }

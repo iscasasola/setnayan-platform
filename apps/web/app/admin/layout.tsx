@@ -1,3 +1,4 @@
+import { getUserRow } from '@/lib/user-row';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
@@ -28,6 +29,8 @@ import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { maybeRunPhotoDeliveryDrain } from '@/lib/photo-delivery-drain';
 import { maybeRunEmailDeliveryCheck } from '@/lib/email-delivery.server';
 import { maybeRunBadgeRewardSweep } from '@/lib/badge-earned.server';
+import { maybeReleaseReceivedHolds } from '@/app/admin/payments/received-auto';
+import { approvePaymentCore } from '@/app/admin/payments/actions';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
@@ -138,13 +141,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   };
 
   const [{ data: profile }, unreadCount, switcherData] = await Promise.all([
-    supabase
-      .from('users')
-      .select(
-        'display_name, email, account_type, is_internal, is_team_member, tour_seen_keys, terms_version',
-      )
-      .eq('user_id', user.id)
-      .maybeSingle(),
+    // ⚡ The render's one read of this row (`lib/user-row.ts`) — the account switcher beside it reads the same promise.
+    getUserRow(user.id),
     countUnread(supabase, user.id),
     getSwitcherData(user.id).catch((err: unknown) => {
       logQueryError(
@@ -297,6 +295,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // A supplier's event photo goes on its page once the guests' 7-day notice has passed (owner 2026-10-03) —
   // CRON-FREE, dual-mounted with the supplier layout; hourly claim; never throws.
   after(() => maybeRunSupplierPagePublish().catch(() => {}));
+  // 💳 BDO matches that happened by themselves (owner 2026-11-17, "Hold 30 min, then pay"): once a hold's
+  // 30-minute Undo window is over, the SAME approvePaymentCore a Match press runs. CRON-FREE, 5-min claim.
+  after(() => maybeReleaseReceivedHolds(approvePaymentCore).catch(() => {}));
 
   // Setup — admin-of-admin under the avatar (admin reorg v7: Team · Switches & delivery · Business, keys & privacy ·
   // Help). A page another PR is still building (Team, #7585) has no address yet and is not drawn.

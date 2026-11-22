@@ -1,7 +1,7 @@
 import { InfoTip } from '@/app/_components/info-tip';
 import { FieldPick } from '@/app/admin/_components/field-pick';
 import { ActionButton } from '@/components/action-button';
-import { Gavel, Filter, ShieldCheck, PackageCheck } from 'lucide-react';
+import { Gavel, SlidersHorizontal, ShieldCheck, PackageCheck } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
@@ -461,7 +461,7 @@ function FilterStrip({
       aria-label="Dispute filters"
     >
       <div className="flex items-center gap-2 text-ink/60">
-        <Filter aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        <SlidersHorizontal aria-hidden className="h-4 w-4" strokeWidth={1.9} />
         <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Filter</span>
       </div>
       <label className="flex flex-1 flex-col gap-1 text-xs text-ink/60 sm:flex-row sm:items-center sm:gap-2">
@@ -472,7 +472,7 @@ function FilterStrip({
         <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Category</span>
         <FieldPick name="category" label="Category" defaultValue={category} options={CATEGORY_FILTER_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} />
       </label>
-      <ActionButton tone="neutral" type="submit" icon={<Filter aria-hidden />} label="Apply" className="self-start sm:self-auto" />
+      <ActionButton tone="neutral" type="submit" icon={<SlidersHorizontal aria-hidden />} label="Apply" className="self-start sm:self-auto" />
     </form>
   );
 }

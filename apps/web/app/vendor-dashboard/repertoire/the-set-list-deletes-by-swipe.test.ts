@@ -13,7 +13,8 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (f: string) => stripComments(readFileSync(join(HERE, f), 'utf8'));
 const list = read('_components/set-list.tsx');
-const page = read('page.tsx');
+// The redraw (v3, 21 Nov 2026): the screen is `repertoire-view.tsx`; the page only reads.
+const page = read('_components/repertoire-view.tsx');
 const actions = read('actions.ts');
 
 test('each song row is the one SwipeToDelete, named for its song — no visible trash on the page', () => {

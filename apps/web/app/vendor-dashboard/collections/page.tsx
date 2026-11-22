@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -44,9 +45,7 @@ export default async function YourCollectionsPage({
   searchParams: Promise<{ ig_connected?: string; ig_error?: string }>;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   // No shop resolved (or the read failed): back to the dashboard, whose layout tells the two apart — never to

@@ -10,6 +10,7 @@ import { PillSelector } from '@/app/_components/pill-selector';
 import { MOTION_SIZE_LABEL, motionArrow, motionDirLabel, motionDirName, withMotionFx, type MotionDir, type MotionFx } from '@/lib/motion-effects';
 import { ANIMATE_FEEL_LABEL, ANIMATE_FEELS, FEEL_OFF, type AnimateFeel } from '@/lib/animate-feel';
 import { SP_ANIMATE_CHIPS, SP_ANIMATE_HALF, SP_ANIMATE_LINE } from '@/lib/maker-animate-rows';
+import { MAKER_ANIMATE_WORDS, playPickedSoon } from '@/lib/maker-animate-words';
 import { SP_ROWS, SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
 import { Dd, PanelSwitch, Phases } from './kit';
@@ -88,8 +89,8 @@ export type AnimatePlays = { value: 'arrival' | 'scroll'; onPick: (drive: 'arriv
 
 const FEEL_OPTIONS = ANIMATE_FEELS.map((f) => ({ key: f, label: ANIMATE_FEEL_LABEL[f] }));
 const PLAYS_OPTIONS = [
-  { key: 'arrival', label: 'On arrival' },
-  { key: 'scroll', label: 'On scroll' },
+  { key: 'arrival', label: 'Scrolls normally' },
+  { key: 'scroll', label: 'Plays with the scroll ◆' },
 ] as const;
 
 export type StageAnimateProps = Parameters<typeof AnimateRows>[0];
@@ -184,7 +185,12 @@ export function AnimateRows({
   const at: AnimatePhase = only ?? forced ?? phase;
   const end = at === 'act' ? null : at;
   const fx = end === 'in' ? inFx : end === 'out' ? outFx : null;
-  const keep = end === 'in' ? onIn : onOut;
+  /* ▶ Picking a motion plays it on the page at once (20 Nov "MAKER TABS REVISITED" (3)); ▶ Play stays a button. */
+  const keepRaw = end === 'in' ? onIn : onOut;
+  const keep = (next: MotionFx | null) => {
+    keepRaw(next);
+    playPickedSoon();
+  };
   const set = (part: keyof MotionFx, value: string | boolean | null) => keep(withMotionFx(fx, part, value));
   const verb = end === 'in' ? 'in' : 'out';
   /* On arrival there is no Build out at all (the page has no timed exit; a part's is dropped) — say so. */
@@ -198,9 +204,9 @@ export function AnimateRows({
           label="Animate"
           value={at}
           options={[
-            ['in', 'Build in'],
-            ['act', 'Action'],
-            ['out', 'Build out'],
+            ['in', MAKER_ANIMATE_WORDS.in],
+            ['act', MAKER_ANIMATE_WORDS.act],
+            ['out', MAKER_ANIMATE_WORDS.out],
           ]}
           onPick={only ? () => {} : setPhase}
           off={only ? (k) => (k === only ? null : () => setWhy((w) => ({ words: onlyWhy ?? '', n: (w?.n ?? 0) + 1 }))) : undefined}
@@ -217,7 +223,7 @@ export function AnimateRows({
         <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-effects={end}>
           {/* Four that are each on or off — the app's CHIPS (filled when on, plain when off), never segments of a
               track: a different kind of control from row 1's one-of-three, so it looks different. */}
-          <Chips even={false} className={SP_ANIMATE_CHIPS} label={`Build ${verb}`} data={`${end}-effects`} value={EFFECTS.filter((e) => Boolean(fx?.[e.key])).map((e) => e.key)} options={EFFECTS} onToggle={(e) => keep(toggleMotionFx(fx, end, e))} />
+          <Chips even={false} className={SP_ANIMATE_CHIPS} label={verb === 'in' ? MAKER_ANIMATE_WORDS.in : MAKER_ANIMATE_WORDS.out} data={`${end}-effects`} value={EFFECTS.filter((e) => Boolean(fx?.[e.key])).map((e) => e.key)} options={EFFECTS} onToggle={(e) => keep(toggleMotionFx(fx, end, e))} />
         </div>
       ) : does ? (
         <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-does="">
@@ -225,9 +231,9 @@ export function AnimateRows({
               ✨ Three or more (a text part: Still · Drift · Shimmer — owner 2026-10-16) → ONE dropdown, the house rule
               ("any set of choices is a dropdown"). */}
           {does.options.length >= 3 ? (
-            <Dd small={animatePro('While on screen')} label="While on screen" data="does" value={does.value} options={does.options} onPick={does.onPick} />
+            <Dd small={animatePro(MAKER_ANIMATE_WORDS.act)} label={MAKER_ANIMATE_WORDS.act} data="does" value={does.value} options={does.options} onPick={does.onPick} />
           ) : (
-            <PillSelector label="While on screen" data="does" value={does.options.some((o) => o.key === does.value) ? does.value : null} options={does.options.map((o) => ({ key: o.key, label: o.label }))} onPick={(k) => k !== does.value && does.onPick(k)} />
+            <PillSelector label={MAKER_ANIMATE_WORDS.act} data="does" value={does.options.some((o) => o.key === does.value) ? does.value : null} options={does.options.map((o) => ({ key: o.key, label: o.label }))} onPick={(k) => k !== does.value && does.onPick(k)} />
           )}
         </div>
       ) : null}
@@ -301,7 +307,7 @@ export function AnimateRows({
           {/* ✨ Beside Words ▾ / Reveal ▾ the row holds the prototype's three — Movement · Words · Delay — so Plays stands
               here only while it is the way BACK from the scroll (On arrival is the default; Build out's own "Follow the
               scroll" switch is the way in). */}
-          {end === 'in' && plays && (!arrive || plays.value === 'scroll') ? <Dd stacked small={animatePro('Plays')} label="Build in plays" data="plays" value={plays.value} options={PLAYS_OPTIONS} onPick={(d) => plays.onPick(d as 'arrival' | 'scroll')} /> : null}
+          {end === 'in' && plays && (!arrive || plays.value === 'scroll') ? <Dd stacked small={animatePro(MAKER_ANIMATE_WORDS.scroll)} label={MAKER_ANIMATE_WORDS.scroll} data="plays" value={plays.value} options={PLAYS_OPTIONS} onPick={(d) => plays.onPick(d as 'arrival' | 'scroll')} /> : null}
           {end === 'in' && rows ? <Dd stacked small={animatePro('Rows')} label="How its rows arrive" data="rows" value={rows.value} options={rows.options} onPick={rows.onPick} /> : null}
           {/* ✨ Words ▾ / Reveal ▾ — the slot Rows ▾ has on a scene (a part has no rows). */}
           {end === 'in' && arrive ? <Dd stacked small={animatePro(arrive.small ?? 'Words')} label={`How it arrives — ${arrive.small ?? 'Words'}`} data="arrive" value={arrive.value} options={arrive.options} onPick={arrive.onPick} /> : null}

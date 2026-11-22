@@ -144,6 +144,8 @@ export async function fetchPublishedChaptersResult(
     .select(CHAPTER_FIELDS)
     .eq('user_id', userId)
     .eq('status', 'published')
+    // 📰 The Journal is Setnayan's, not its owner's (PR #7919 review): never listed as a person's chapter.
+    .eq('is_journal', false)
     .order('published_at', { ascending: false });
   if (error) {
     console.error('[creator-public] published chapters read failed', error);
@@ -174,6 +176,7 @@ export async function fetchPublishedChapterByPublicId(
     .eq('user_id', userId)
     .eq('public_id', publicId)
     .eq('status', 'published')
+    .eq('is_journal', false) // 📰 a Journal post is an article, never a person's chapter
     .maybeSingle();
   if (!data) return null;
   const chapter = mapRow(data as Record<string, unknown>);
@@ -220,6 +223,7 @@ export async function fetchPublishedChapterForShare(
     .select(`${CHAPTER_FIELDS}, user_id`)
     .eq('public_id', publicId)
     .eq('status', 'published')
+    .eq('is_journal', false) // 📰 a Journal post never shares as its owner's chapter
     .maybeSingle();
   if (error) {
     console.error('[creator-public] chapter share read failed', publicId, error);

@@ -81,11 +81,19 @@ test('5 · the block is used up before it ever reaches the paid range', () => {
   assert.ok(!isHostCameraSeatIndex(PAPIC_CAMERA_INDEX_BASE), 'a paid camera reads as a host camera');
 });
 
-test('6 · 🪙 nothing is free: every host camera is metered as an upload, exactly as seat 150 always was', () => {
+// UPDATED ON PURPOSE 2026-11-22 (owner, "Make it 1." — specs DECISION_LOG "A HOST'S LIVE PHOTOS FROM THE EVENT HUB CAMERA
+// COST 1×"): nothing is free still holds — every host camera is metered — but what it is metered AT now depends on
+// what the capture was: a file added by hand stays the upload price, a live shot is the camera price.
+test('6 · 🪙 nothing is free: on every host camera an ADDED file is metered as an upload, a LIVE shot as a camera shot', () => {
   for (const i of [PAPIC_UPLOADS_CAMERA_INDEX, 151, PAPIC_HOST_CAMERA_LAST_INDEX]) {
-    assert.equal(papicSeatCaptureSource(i), 'upload', `host camera ${i} is not charged as an upload`);
+    assert.equal(papicSeatCaptureSource(i, true), 'upload', `a file added on host camera ${i} is not charged as an upload`);
+    assert.equal(papicSeatCaptureSource(i), 'camera', `a live shot on host camera ${i} is charged as an upload`);
+    assert.equal(papicSeatCaptureSource(i, false), 'camera');
   }
-  for (const i of [100, 110, 200, null]) assert.equal(papicSeatCaptureSource(i), 'camera');
+  for (const i of [100, 110, 200, null]) {
+    assert.equal(papicSeatCaptureSource(i), 'camera');
+    assert.equal(papicSeatCaptureSource(i, true), 'camera', '"added" raised the price off a host camera');
+  }
 });
 
 test('7 · 🚨 no reader pins the single Uploads seat again — the page and the claim both ask readHostCamera', () => {

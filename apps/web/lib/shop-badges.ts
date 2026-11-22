@@ -180,15 +180,11 @@ export function cardBadges(f: ShopBadgeFacts): ShopBadge[] {
   return shopBadges(f).slice(0, CARD_BADGE_CAP);
 }
 
-/**
- * 🖨 THE PRINT PIPELINE'S ONE QUESTION — what goes on a card or a tarp. The print renderers call this with facts READ
- * AT PRINT TIME (`readShopBadgeFacts`), never with a value saved when the design was made: a medal un-earned since
- * then is not printed, and one earned since is. The QR on that print lands on the shop's page, which draws
- * `shopBadges` from today's reads — so the scan always shows today's badges.
+/*
+ * 🖨 PRINTS DO NOT WEAR THESE. `badgesForPrint` (the retired pills on cards, tarps and the door sticker) is gone: a
+ * print wears ONLY the approved v84 badges — `printBadgesV84` (`lib/print-badges-v84.ts`), owner 15 Nov "THE BADGES IN
+ * THE APPROVED PROTOTYPE ARE THE ONLY BADGES". 🔒 lib/prints-wear-only-v84-badges.test.ts
  */
-export function badgesForPrint(shop: ShopBadgeFacts): ShopBadge[] {
-  return shopBadges(shop);
-}
 
 /* ── The tracker (Shop › Page › Awards and badges) ─────────────────────────────────────────────────────────── */
 

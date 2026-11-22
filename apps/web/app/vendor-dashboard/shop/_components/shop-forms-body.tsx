@@ -27,13 +27,18 @@ export async function ShopFormsBody() {
     supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', shop).maybeSingle(),
   ]);
   const caps = tierCaps(asVendorTier((tierRes.data as { tier_state: string | null } | null)?.tier_state));
+  // C-3 (supplier audit 2026-11-17): a REFUSED plan read is not Free — it told a paid shop "Media files come with Pro".
+  // Unread draws no lock; the save still re-checks the plan on the server.
+  const tierUnread = Boolean(tierRes.error);
+  if (tierUnread) console.error('[supabase-error] shop-forms-body: plan read', tierRes.error);
   const lock = (has: boolean, pick: (c: ReturnType<typeof tierCaps>) => boolean) => {
-    if (has) return null;
+    if (has || tierUnread) return null;
     const plan = firstPlanWith(pick);
     return plan ? TIER_LABEL[plan] : 'a higher plan';
   };
   const lib = library.status === 'ok' ? library : null;
-  const suggestions = await readFormSuggestions(supabase, lib?.cards.map((c) => c.category) ?? []);
+  // F-1: no library read = no categories to suggest for — "unread", never "No suggested forms for this service yet".
+  const suggestions = lib ? await readFormSuggestions(supabase, lib.cards.map((c) => c.category)) : ({ status: 'unread' } as const);
   return (
     <ShopFormsMaker
       library={lib ? lib.forms : null}

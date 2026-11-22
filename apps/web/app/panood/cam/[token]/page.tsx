@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { Video, LogIn, CircleAlert, Radio } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -51,9 +52,7 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
   const { state } = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   // ---- Post-claim: if this user already owns this camera, show the live
   //      publish view. Checked first so re-opening the link (or the ?state=joined

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Share, ListFilter } from 'lucide-react';
+import { Share, SlidersHorizontal } from 'lucide-react';
 import type { LinkPickOption } from '@/app/_components/link-pick-menu';
 import { PinnedRow } from '@/app/_components/pinned-row/pinned-row';
 import { HomeFindRow, HomeGear, homeSegOptions } from '@/app/dashboard/(launcher)/_components/home-pin';
@@ -72,7 +72,7 @@ export function MemoriesThumb({
       ...(o.key === showValue && events ? { trail: { text: 'showing', tone: 'ok' as const } } : {}),
     })),
     ...(download ? [{ key: 'download', label: 'Download all', group: 'This event', href: download, icon: <Share className="h-5 w-5" strokeWidth={1.9} /> }] : []),
-  ].map((o) => ({ ...o, icon: o.icon ?? <ListFilter className="h-5 w-5" strokeWidth={1.9} /> }));
+  ].map((o) => ({ ...o, icon: o.icon ?? <SlidersHorizontal className="h-5 w-5" strokeWidth={1.9} /> }));
 
   const home = homeSegOptions(homeSegs, useHomeSegCounts());
   const all = [...home, ...options];

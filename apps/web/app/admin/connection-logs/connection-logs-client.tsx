@@ -21,7 +21,7 @@ import {
   Clock3,
   Database,
   EyeOff,
-  Filter as FilterIcon,
+  SlidersHorizontal,
   Inbox,
   MousePointerClick,
   Square,
@@ -304,7 +304,7 @@ export function ConnectionLogsClient({
           className="m-card flex flex-wrap items-center gap-2 px-4 py-3"
         >
           <span className="flex items-center gap-1.5 text-xs uppercase tracking-[0.18em] text-[#8A6B39]">
-            <FilterIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden="true" />
             Type
           </span>
           {FILTERS.map((f) => (

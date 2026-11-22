@@ -12,14 +12,13 @@
  *
  * Held by `lib/vendor-plan-rows.test.ts`.
  */
-import { bookingFeeScheduleSummary } from './booking-fee';
-import type { BookingFeeStanding } from './booking-fee-disclosure';
-import { FIRST_BOOKING_ON_US_CLAUSE } from './booking-fee-lock';
+import { bookingFeeScheduleSummary, unverifiedBookingFeeScheduleSummary } from './booking-fee';
+import { ordinalWord, type BookingFeeStanding } from './booking-fee-disclosure';
 import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
 import { STORAGE_GB, TIER_CAPS, TIER_LABEL, VENDOR_TIERS, WAITLIST_SETTING_MAX, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
-import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from './specialized-tools-access';
+import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from './specialized-tools-access';
 import { PLAN_CHATBOT_LEVEL } from './vendor-ai-level';
 
 export type PlanRowBadge = { tone: 'ok' | 'wait' | 'no' | 'quiet'; word: string };
@@ -54,12 +53,6 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
   const seats = allowance(c.agentAccounts, 'agentAccounts', paywallOn);
   const waitlist = allowance(c.waitlistAcceptances, 'waitlistAcceptances', paywallOn);
   const free = FREE_HELPER_SEATS > 0 ? ` + ${formatCount(FREE_HELPER_SEATS)} free Helper` : '';
-  // Nationwide is Ultra's `Infinity` (owner 2026-11-04) — never a km threshold: Pro reaches 100 km and is not nationwide.
-  const reach = !Number.isFinite(c.serviceRadiusKm)
-    ? 'Nationwide'
-    : c.serviceRadiusKm > 0
-      ? `${formatCount(c.serviceRadiusKm)} km around you`
-      : 'Not in couples’ search on this plan';
   const webPlan = firstPlanWith((x) => x.customWebsiteName);
   const branches = c.branchesIncluded > 0
     ? `${formatCount(c.branchesIncluded)} included${canBuyMoreBranches(tier) ? ' · more can be added' : ''}`
@@ -97,7 +90,8 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
       title: 'Asking for a date · couples at once',
       line: `${n(c.whitelistPerDate)} a date`,
     },
-    { key: 'reach', title: 'How far you reach', line: reach },
+    // ⛔ No "How far you reach" line since 2026-11-19 — reach is not a plan allowance (owner: "unlock the range. not plan
+    // dependend anymore"); once verified, every plan sets its own.
     { key: 'branches', title: 'Branches beyond your main shop', line: branches },
     {
       // 💾 Owner 2026-11-13 "plan storage": Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB. Free · Verified were given none and keep
@@ -116,12 +110,21 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     {
       key: 'tools',
       title: 'Specialized tools',
+      // 🎁 Owner 20 Nov: Papic Challenges and the branded 3D booth left the unlock for Pro and up — so a plan below
+      // Pro that includes the unlock must not say "All included".
       line: SPECIALIZED_TOOLS_INCLUDED_TIERS.includes(tier)
-        ? 'All included'
+        ? isTierAtLeastPro(tier)
+          ? 'All included'
+          : `Included · Papic Challenges and the 3D booth come with ${TIER_LABEL[PRO_TOOLS_MIN_TIER]}`
         : `The free set · all of them from ${TIER_LABEL[SPECIALIZED_TOOLS_INCLUDED_TIERS[0] ?? 'solo']}`,
     },
     { key: 'chatbot', title: 'AI chatbot', line: chatbotLine(tier) },
   ];
+}
+
+/** Is this plan at or above the tier the Pro-only tools open on? Order = `VENDOR_TIERS`. */
+function isTierAtLeastPro(tier: VendorTier): boolean {
+  return VENDOR_TIERS.indexOf(tier) >= VENDOR_TIERS.indexOf(PRO_TOOLS_MIN_TIER);
 }
 
 /** The chatbot a plan includes, in words — `PLAN_CHATBOT_LEVEL`, the table the inbox's gate reads. */
@@ -137,6 +140,13 @@ function chatbotLine(tier: VendorTier): string {
  * The Booking fee row — from the LIVE standing for the shop's NEXT Setnayan booking (eventId null), plus how many
  * bills are waiting. `null` = render no row (the fee system is off). An unread standing says so; it never reads as free.
  */
+/** The schedule a shop is priced on — the taper when verified, the flat rate when not (owner 2026-11-20). */
+function scheduleLine(standing: Extract<BookingFeeStanding, { schedule: unknown; unverified?: boolean }>): string {
+  return standing.unverified
+    ? unverifiedBookingFeeScheduleSummary(standing.schedule)
+    : bookingFeeScheduleSummary(standing.schedule);
+}
+
 export function bookingFeeRow(
   standing: BookingFeeStanding,
   dueCount: number,
@@ -146,32 +156,35 @@ export function bookingFeeRow(
     case 'silent':
       return due ? { line: 'Bills waiting', badge: due } : null;
     case 'not_sourced':
-      return { line: 'Only on couples Setnayan brings you · your own clients are free', badge: due };
+      return { line: 'Free when you bring the event first · every other booking carries the fee', badge: due };
     case 'unreadable':
       return { line: 'Couldn’t check your fee just now — nothing changed', badge: due };
     case 'launch_offer':
       return { line: 'Setnayan launch offer · your next booking’s fee is waived', badge: due ?? { tone: 'ok', word: 'Waived' } };
     case 'promo_window':
-      return { line: `${bookingFeeScheduleSummary(standing.schedule)} · waived while a Setnayan promotion runs`, badge: due ?? { tone: 'ok', word: 'Waived' } };
-    // ⚖ ONE FREE BOOKING (owner 2026-10-23: "Your first booking is on us. Not 5.").
-    // The badge says whether it is still to come — never a count of free ones.
+      return { line: `${scheduleLine(standing)} · waived while a Setnayan promotion runs`, badge: due ?? { tone: 'ok', word: 'Waived' } };
+    // ⚖ A booking frozen free before 20 Nov keeps its waiver; no booking made now takes a free place.
     case 'free':
       return {
-        line: `${bookingFeeScheduleSummary(standing.schedule)} · ${FIRST_BOOKING_ON_US_CLAUSE}`,
-        badge: due ?? { tone: 'quiet', word: 'First booking free' },
+        line: `${scheduleLine(standing)} · this booking stays free`,
+        badge: due ?? { tone: 'ok', word: 'Waived' },
       };
     case 'billable':
       // 🏅 A free booking fee waiting (badge reward, owner 2026-11-05) — the next booking with a fee reads ₱0.
       if (standing.badgeReward === 'next') {
         return {
-          line: `${bookingFeeScheduleSummary(standing.schedule)} · your next one is free · Badge reward`,
-          badge: due ?? { tone: 'ok', word: 'Badge reward' },
+          line: `${scheduleLine(standing)} · a free booking fee ticket pays your next one by itself`,
+          badge: due ?? { tone: 'ok', word: 'Ticket waiting' },
         };
       }
-      return {
-        line: `${bookingFeeScheduleSummary(standing.schedule)} · locked until settled`,
-        badge: due ?? { tone: 'quiet', word: 'Free booking used' },
-      };
+      // 🎁 Setnayan's every-Nth booking fee (owner 2026-11-20) — this booking was the Nth, so it is free.
+      if (typeof standing.platformFree === 'number') {
+        return {
+          line: `${scheduleLine(standing)} · Setnayan's ${ordinalWord(standing.platformFree)} booking fee — free`,
+          badge: due ?? { tone: 'ok', word: 'Waived' },
+        };
+      }
+      return { line: scheduleLine(standing), badge: due };
   }
 }
 

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ExternalLink, Trash2, Send } from 'lucide-react';
@@ -47,9 +48,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
   const { eventId, orderId } = await params;
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const order = await fetchOrderById(supabase, orderId);
@@ -193,7 +192,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             Here&rsquo;s what the Setnayan team flagged:
           </p>
           {resubmitRequested.notice ? (
-            <p className="whitespace-pre-wrap rounded-md bg-white/70 p-3 text-sm text-warn-900">
+            <p className="whitespace-pre-wrap rounded-md bg-raised/70 p-3 text-sm text-warn-900">
               {resubmitRequested.notice}
             </p>
           ) : null}

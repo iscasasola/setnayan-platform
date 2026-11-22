@@ -14,9 +14,19 @@ import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import { shopPapicPackServiceKey } from '@/lib/vendor-papic-credits';
 import { formatCount } from '@/lib/format-number';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
-import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
-import { giftUnitPrice, shopGiftKindOf, shopGiftPacksFrom, shopGiftServiceKey, SHOP_GIFT_MAX_QUANTITY } from '@/lib/shop-gifts';
-import { fetchShopGiftUnlockRows } from '@/lib/shop-gifts.server';
+import {
+  isShopGiftBundleCode,
+  shopGiftKindOf,
+  shopGiftPacksFrom,
+  shopGiftServiceKey,
+  SHOP_GIFT_CART_CODE,
+  SHOP_GIFT_MAX_QUANTITY,
+} from '@/lib/shop-gifts';
+import { fetchShopGiftBundles, fetchShopGiftPacks, fetchShopGiftUnlockRows } from '@/lib/shop-gifts.server';
+import { priceCart } from '@/lib/shop-gift-cart';
+import { withinMaxPayment } from '@/lib/max-payment';
+import { getMaxPaymentPhp } from '@/lib/max-payment.server';
+import { formatPhp } from '@/lib/php';
 
 /**
  * 🛍 2026-11-04 — THE SHOP BUYS THE COUPLE'S PACKS (owner, "SIX OWNER ANSWERS" (4)). The form names a pack
@@ -51,12 +61,28 @@ import { fetchShopGiftUnlockRows } from '@/lib/shop-gifts.server';
  * 🎁 2026-11-04 — THE SAME DOOR BUYS GIFTS (owner, "SUPPLIER GIFTS: BOUGHT IN QUANTITY, KEPT AS STOCK"). `for=gift`
  * mints `vendor_gift__<code>` for `quantity` packs into the shop's GIFT STOCK (`shop_gift_stock_entries`, landed on
  * approval from the `shop_gift_purchases` row written here — `orders` has no quantity). The unit price is the
- * pack's `gift_price_php` for a Verified-and-up shop and its list price for Free ("GIFT PRICES"), both READ here.
+ * pack's LIST price for every shop (📦 2026-11-14: "we only have the 10+1" — `gift_price_php` is not a price anywhere).
+ *
+ * 📦 2026-11-14 — BUY 10, GET 1 FREE: `pack` may also name a gift BUNDLE (`GIFT_BUNDLE_*`, an admin-managed catalogue
+ * row). Its price, which pack it holds and how many are READ from the catalogue (`fetchShopGiftBundles`); the order is
+ * `vendor_gift__<bundle code>` and approval lands `quantity × bundle_quantity` packs. Every shop may buy one (owner's
+ * pick 4). Same export, no new server action.
  * One export for both on purpose: the server-action budget is at its ceiling (lint-server-action-budget.mjs).
  *
  * 💎 2026-11-05 — SLICE 2: `for=gift` also buys EVENT PLUS and EVENT PRO (`pack` = `EVENT_PLUS` · `COUPLE_WEBSITE_PRO`),
  * counted in units (`credits_each` = 1). Their list and gift prices are read from the same couple catalogue
  * (`fetchShopGiftUnlockRows`). They are not Papic, so the Papic switch does not gate them.
+ */
+
+/*
+ * 🛒 2026-11-17 — THE GIFT STORE (owner-approved prototype `gifts-interactive` v16, "build it"): `for=gift_cart` buys
+ * ANY MIX of single gifts and 10 + 1 bundles in ONE order, paid once. The form posts `cart` = `CODE:qty,…` — codes and
+ * counts only; every price is re-read from the catalogue here (`priceCart`), the order is `vendor_gift__GIFT_CART` and
+ * what it bought is its `shop_gift_order_lines` rows (approval lands every line once: `shop_gift_grant_order_lines`).
+ *
+ * 💳 THE MOST IN ONE PAYMENT (owner 2026-11-17: "We do not allow transactions above 100,000.") — every order minted by
+ * this action, cart or not, is refused above `platform_settings.max_payment_php` (`getMaxPaymentPhp`, an admin
+ * setting). Server-side, so a hand-made form cannot pass it.
  */
 
 export type BuyVendorPapicPortfolioPackState =
@@ -106,12 +132,23 @@ export async function buyVendorPapicPortfolioPack(
     return err('Only the owner or an admin can buy Papic credits.');
   }
 
+  if (String(formData.get('for') ?? '') === 'gift_cart') {
+    return mintShopGiftCart(supabase, user.id, vendorProfileId, formData);
+  }
+
   const forGift = String(formData.get('for') ?? '') === 'gift';
   const asked = String(formData.get('pack') ?? '').trim();
-  const askedKind = shopGiftKindOf(asked);
-  const unlockGift = forGift && (askedKind === 'event_plus' || askedKind === 'event_pro');
+  const bundleGift = forGift && isShopGiftBundleCode(asked);
+  const admin = createAdminClient();
+  // 📦 A bundle names the gift it holds in the catalogue — a Papic pack or (2026-11-17, "10 + 1 bundles for ALL
+  // gifts") an Event Plus / Pro / Ultra unlock — so it is resolved first, against every gift on sale.
+  const allPacks = bundleGift ? await fetchShopGiftPacks(admin) : null;
+  const bundle = bundleGift ? ((await fetchShopGiftBundles(admin, allPacks ?? []))?.find((b) => b.code === asked) ?? null) : null;
+  if (bundleGift && !bundle) return err('That bundle is not on sale right now. Please try again later.');
+  const askedKind = bundle ? bundle.pack.kind : shopGiftKindOf(asked);
+  const unlockGift = forGift && (askedKind === 'event_plus' || askedKind === 'event_pro' || askedKind === 'event_ultra');
 
-  // Owner 2026-10-25: "No. Papic needs to be on." — for Papic packs. Event Plus / Pro gifts are not Papic.
+  // Owner 2026-10-25: "No. Papic needs to be on." — for Papic packs. Event Plus / Pro / Ultra gifts are not Papic.
   if (!unlockGift) {
     if (!(await isVendorPapicCaptureEnabled())) {
       return err('Papic credit packs are not on sale right now.');
@@ -120,9 +157,8 @@ export async function buyVendorPapicPortfolioPack(
 
   // Re-read the authoritative price + credits from the admin-managed catalog — the
   // client names a pack, never a price. `null` covers missing/inactive/unreadable.
-  const admin = createAdminClient();
   const packs = unlockGift ? await fetchShopGiftUnlockRows(admin) : await fetchShopPapicPacks(admin);
-  const pack = packs?.find((p) => p.code === asked) ?? null;
+  const pack = packs?.find((p) => p.code === (bundle ? bundle.pack.code : asked)) ?? null;
   if (!pack) {
     return err(unlockGift ? 'That gift is not on sale right now. Please try again later.' : 'That Papic pack is not on sale right now. Please try again later.');
   }
@@ -133,8 +169,19 @@ export async function buyVendorPapicPortfolioPack(
   }
   const giftPack = forGift ? shopGiftPacksFrom([pack])[0] ?? null : null;
   if (forGift && !giftPack) return err('That gift is not on sale right now. Please try again later.');
-  const giftUnit = giftPack ? giftUnitPrice(giftPack, await fetchVendorPaysGiftPrice(admin, vendorProfileId)) : null;
+  // ONE price per gift (the list price), or the bundle's own catalogue price — never a gift price.
+  const giftUnit = giftPack
+    ? bundle
+      ? { centavos: bundle.priceCentavos, basis: 'bundle' as const, packsEach: bundle.quantity }
+      : { centavos: giftPack.srpCentavos, basis: 'list' as const, packsEach: 1 }
+    : null;
   const pricePhp = giftUnit ? (giftUnit.centavos * quantity) / 100 : pack.pricePhp;
+
+  // 💳 Never one payment above the most (owner 2026-11-17) — the admin setting, read here, not the browser's word.
+  const maxPhp = await getMaxPaymentPhp(admin);
+  if (!withinMaxPayment(Math.round(pricePhp * 100), maxPhp)) {
+    return err(`${formatPhp(maxPhp)} is the most in one payment. Choose fewer.`);
+  }
 
   // The rail kill switch (lib/rail-for-new-order.ts): never mint an order
   // nobody can pay into. A free grant needs no rail; only a paid mint gets here.
@@ -149,10 +196,12 @@ export async function buyVendorPapicPortfolioPack(
       orderRowFor(
         { userId: user.id, eventId: null, vendorProfileId },
         {
-          service_key: forGift ? shopGiftServiceKey(pack.code) : shopPapicPackServiceKey(pack.code),
+          service_key: forGift ? shopGiftServiceKey(bundle ? bundle.code : pack.code) : shopPapicPackServiceKey(pack.code),
           // The /pay page's title (lib/payable-by-reference.ts reads
           // orders.description) — the pack's own name.
-          description: unlockGift
+          description: bundle
+            ? `Gifts for your couples — ${formatCount(quantity)} × ${bundle.title} (${formatCount(quantity * bundle.quantity)} × ${pack.title})`
+            : unlockGift
             ? `Gifts for your couples — ${formatCount(quantity)} × ${pack.title}`
             : forGift
               ? `Gifts for your couples — ${quantity} × ${pack.title} (${formatCount(pack.credits * quantity)} credits)`
@@ -185,7 +234,10 @@ export async function buyVendorPapicPortfolioPack(
       service_code: pack.code,
       gift_kind: giftPack?.kind ?? 'papic',
       quantity,
-      credits_each: pack.credits,
+      // A bundle's one unit is `packsEach` packs: its credits and its packs are both per unit.
+      credits_each: pack.credits * giftUnit.packsEach,
+      packs_each: giftUnit.packsEach,
+      bundle_code: bundle ? bundle.code : null,
       unit_price_php: giftUnit.centavos / 100,
       price_basis: giftUnit.basis,
       created_by: user.id,
@@ -217,5 +269,116 @@ export async function buyVendorPapicPortfolioPack(
   // 🎁 Gifts live on Shop › Promote since 2026-11-05 (they left the Plan page).
   if (forGift) revalidatePath('/vendor-dashboard/shop/promote');
   if (fromEventId) revalidatePath(`/vendor-dashboard/on-the-day/live/${fromEventId}/papic`);
+  redirect(payPath(referenceCode));
+}
+
+/**
+ * 🛒 Mint ONE gift STORE order for the whole cart (prototype v16): one `orders` row, one `shop_gift_order_lines` row
+ * per item (its catalogue price snapshotted), one pending `payments` row — then `/pay/<reference>`. Not exported: the
+ * one server action above is the door (the server-action budget is at its ceiling).
+ */
+async function mintShopGiftCart(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  vendorProfileId: string,
+  formData: FormData,
+): Promise<BuyVendorPapicPortfolioPackState> {
+  const admin = createAdminClient();
+  const [allPacks, maxPhp, papicOn] = await Promise.all([
+    fetchShopGiftPacks(admin),
+    getMaxPaymentPhp(admin),
+    isVendorPapicCaptureEnabled(),
+  ]);
+  if (!allPacks) return err('Gifts are not on sale right now. Please try again later.');
+  // Owner 2026-10-25: "No. Papic needs to be on." — a Papic single or bundle is off sale while the switch is off.
+  const packs = papicOn ? allPacks : allPacks.filter((p) => p.kind !== 'papic');
+  const bundles = await fetchShopGiftBundles(admin, packs);
+  if (!bundles) return err('Gifts are not on sale right now. Please try again later.');
+
+  const priced = priceCart(formData.get('cart'), packs, bundles, maxPhp);
+  if (!priced.ok) {
+    return err(
+      priced.reason === 'over_max'
+        ? `${formatPhp(maxPhp)} is the most in one payment. Take some out and try again.`
+        : priced.reason === 'not_on_sale'
+          ? 'Something in your order is not on sale right now. Reload and try again.'
+          : 'Pick at least one gift.',
+    );
+  }
+  const { summary } = priced;
+  const totalPhp = summary.totalCentavos / 100;
+
+  const channel = await railForNewOrder(supabase, formData.get('channel'));
+  if (!channel) return err(PAYMENTS_PAUSED_MESSAGE);
+  const referenceCode = generateReferenceCode();
+  const moneyWriter = createMoneyWriterClient();
+
+  const what = summary.lines
+    .map((l) => `${formatCount(l.qty)} × ${l.bundle ? l.bundle.title : l.pack.title}`)
+    .join(', ');
+  const { data: orderRow, error: oErr } = await moneyWriter
+    .from('orders')
+    .insert(
+      orderRowFor(
+        { userId, eventId: null, vendorProfileId },
+        {
+          service_key: shopGiftServiceKey(SHOP_GIFT_CART_CODE),
+          // The /pay page's title (lib/payable-by-reference.ts reads orders.description).
+          description: `Gifts for your couples — ${formatCount(summary.tickets)} tickets (${what})`.slice(0, 480),
+          requested_total_php: totalPhp,
+          status: 'submitted',
+          reference_code: referenceCode,
+        },
+      ),
+    )
+    .select('order_id')
+    .maybeSingle();
+  if (oErr || !orderRow) return err('Could not start the order. Please try again.');
+  const orderId = (orderRow as { order_id: string }).order_id;
+  const undoOrder = async (why: string) => {
+    const { error: undoErr } = await moneyWriter.from('orders').delete().eq('order_id', orderId);
+    if (undoErr) console.error(`[shop-gift-cart] could not take back order ${orderId} after ${why}:`, undoErr.message);
+  };
+
+  // What this order bought, line by line — approval reads these to land each line once.
+  const { error: lErr } = await moneyWriter.from('shop_gift_order_lines').insert(
+    summary.lines.map((l, i) => ({
+      order_id: orderId,
+      line_no: i + 1,
+      vendor_profile_id: vendorProfileId,
+      service_code: l.pack.code,
+      gift_kind: l.pack.kind,
+      bundle_code: l.bundle ? l.bundle.code : null,
+      quantity: l.qty,
+      packs_each: l.bundle ? l.bundle.quantity : 1,
+      credits_per_pack: l.pack.credits,
+      unit_price_php: l.unitCentavos / 100,
+      price_basis: l.bundle ? 'bundle' : 'list',
+      created_by: userId,
+    })),
+  );
+  if (lErr) {
+    await undoOrder('the order lines failed');
+    return err('Could not start the order. Please try again.');
+  }
+
+  const { error: pErr } = await moneyWriter.from('payments').insert(
+    paymentRowFor(
+      { userId, verifiedOrderId: orderId },
+      {
+        amount_php: totalPhp,
+        channel,
+        reference_number: null,
+        screenshot_url: null,
+        paid_at: new Date().toISOString().slice(0, 10),
+      },
+    ),
+  );
+  if (pErr) {
+    await undoOrder('the payment row failed');
+    return err('Could not start the payment. Please try again.');
+  }
+
+  revalidatePath('/vendor-dashboard/shop/promote');
   redirect(payPath(referenceCode));
 }

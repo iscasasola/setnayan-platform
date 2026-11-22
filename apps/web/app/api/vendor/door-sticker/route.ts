@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { readShopBadgeFacts } from '@/lib/shop-badges.server';
-import { badgesForPrint } from '@/lib/shop-badges';
+import { readPrintBadges } from '@/lib/print-badges-v84.server';
+import { resolvePrintBadgeArt } from '@/lib/print-badge-art';
 import { siteOrigin } from '@/lib/site-origin';
 import { ownDatesUrl, ownPageUrl } from '@/lib/supplier-qr-codes';
 import { doorStickerCodeOf, doorStickerFileName, doorStickerFormatOf, doorStickerSizeOf } from '@/lib/door-sticker';
@@ -19,7 +20,7 @@ export const dynamic = 'force-dynamic';
  *
  *   · The code is the shop's OWN permanent code — My page (`/v/<slug>`) or Check a date (`/v/<slug>/dates`), the SAME
  *     addresses the QR card shows. A scan opens a page that already exists; there is no sticker page.
- *   · The badges are READ NOW (`readShopBadgeFacts` → `badgesForPrint`), exactly as `/api/vendor/badges` reads them, so
+ *   · The badges are READ NOW (`readPrintBadges` — only the approved v84 badges), exactly as `/api/vendor/badges` reads them, so
  *     the file carries the badges the shop wears on the day it is saved. A shop with none prints without the row.
  *
  * Own shop only: the signed-in user's shop (`fetchOwnVendorProfile`). A shop without a web address yet is refused in
@@ -43,8 +44,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const url = code === 'dates' ? ownDatesUrl(siteOrigin(), slug) : ownPageUrl(siteOrigin(), slug); // 💳 ?src=own
   const shopName = (profile as { business_name?: string | null }).business_name?.trim() || 'Our shop';
 
-  const facts = await readShopBadgeFacts(createAdminClient(), (profile as { vendor_profile_id: string }).vendor_profile_id);
-  const input = { shopName, url, code, size, badges: badgesForPrint(facts) };
+  const admin = createAdminClient();
+  const vendorProfileId = (profile as { vendor_profile_id: string }).vendor_profile_id;
+  const facts = await readShopBadgeFacts(admin, vendorProfileId);
+  const input = { shopName, url, code, size, badges: await resolvePrintBadgeArt(await readPrintBadges(admin, vendorProfileId, facts), 'door') };
   const filename = doorStickerFileName(code, size, format);
   const headers = { 'content-disposition': `attachment; filename="${filename}"`, 'cache-control': 'private, no-store' };
 

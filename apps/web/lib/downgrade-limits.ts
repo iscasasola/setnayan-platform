@@ -10,11 +10,13 @@
  *                  one "Which services stay on" applies, so the sheet and the picker cannot count two different things.
  *                  What does not fit GOES ON HOLD when the lower plan starts (owner 2026-11-06, "A DOWNGRADE PUTS EXTRA
  *                  SERVICES ON HOLD"), and the supplier picks which stay on.
- *   · team seats · branches · reach → `limitOf` (`lib/plan-sheet.ts`), i.e. `TIER_CAPS` (no bookings-a-day row since
- *                  2026-11-18 — not a plan limit) (branches 0/0/0/2/5 by plan — Free and Verified have none). Seats and included branches over a lower
- *                  plan are KEPT, never removed — the shop "can't add more" (owner 2026-11-04 "BRANCHES PER PLAN";
- *                  `canSeat` in lib/vendor-free-helper.ts: "a shop already over its seats after a downgrade … just
- *                  cannot grow"). Paid extra seats only count on a plan that may buy them (`canBuyExtraSeats`).
+ *   · team seats · branches → `limitOf` (`lib/plan-sheet.ts`), i.e. `TIER_CAPS` (no bookings-a-day row since
+ *                  2026-11-18 — not a plan limit) (branches 0/0/0/2/5 by plan — Free and Verified have none). Included branches over a lower plan are
+ *                  KEPT, never removed — the shop "can't add more" (owner 2026-11-04 "BRANCHES PER PLAN"). Team seats
+ *                  over a lower plan PAUSE, newest first (owner 21 Nov — overturns ruling 5683; `lib/seat-pause.ts`).
+ *                  Paid extra seats only count on a plan that may buy them (`canBuyExtraSeats`).
+ *   · reach      → NOT A ROW since 2026-11-19: reach is not a plan allowance (owner, "unlock the range. not plan
+ *                  dependend anymore"), so moving plans never changes how far a shop goes.
  *   · storage    → THE FLOOR: a plan whose storage holds less than the shop already stores cannot be picked until some
  *                  is removed. The plan's allowance is the CALLER's (`storageAllowanceBytes`); no plan storage
  *                  allowance exists in code yet (the storage rows in `vendor_billing_catalog` are priced and inactive,
@@ -31,7 +33,7 @@
  */
 import { formatCount } from './format-number';
 import { capsOf, defaultKeep, keptFits, planHoldsWords, type PlanCard } from './service-plan-hold';
-import { limitOf, limitWords } from './plan-sheet';
+import { limitOf } from './plan-sheet';
 import { badgeDeadline, deadlineLabel, hasVerifiedBadge, type BadgeFacts } from './verified-badge';
 import { canBuyExtraSeats, tierRank, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
@@ -42,7 +44,6 @@ export const FIX_HREF = {
   services: '/vendor-dashboard/services',
   teamSeats: '/vendor-dashboard/team',
   branches: '/vendor-dashboard/profile#where',
-  reach: '/vendor-dashboard/profile#where',
   /** A supplier's stored files sit with the bookings they were filed for (Piece 3b, `event_supplier_files`). */
   storage: '/vendor-dashboard/clients',
   badge: '/vendor-dashboard/profile#docs',
@@ -63,8 +64,6 @@ export type DowngradeFacts = {
   seats: TeamSeats | null;
   /** Paid extra seats the shop holds today. */
   extraSeats: number;
-  /** `vendor_profiles.outer_radius_km`; null = not set or unread (no row — nothing to compare). */
-  reachKm: number | null;
   /** Bytes the shop stores (`supplier_media.size_bytes`); null = unread. */
   storedBytes: number | null;
   /** The badge facts; null = unread. */
@@ -148,7 +147,9 @@ export function downgradeFit(
     // never puts a service over one.
   }
 
-  // ── Team seats — kept over a lower plan; the team just cannot grow ──
+  // ── Team seats — over a lower plan the newest seats PAUSE (owner 21 Nov, DECISION_LOG "YES TO ALL" item 3 — overturns
+  //    ruling 5683 "everyone stays"): they can't sign in to the shop, nothing is deleted, and they come back when a plan
+  //    that covers them is active (`lib/seat-pause.ts`; the founder and the free Helper always stay). ──
   if (facts.seats === null) {
     rows.push({ key: 'teamSeats', title: 'Team seats', line: 'Couldn’t read your helpers just now', state: 'unread', fix: null });
   } else {
@@ -158,7 +159,7 @@ export function downgradeFit(
       rows.push({
         key: 'teamSeats',
         title: 'Team seats',
-        line: `${plural(facts.seats.counted, 'person', 'people')} with you · ${name} holds ${cap <= 0 ? 'no team seats' : plural(cap, 'seat', 'seats')}. Everyone stays; you can’t add more.`,
+        line: `${plural(facts.seats.counted, 'person', 'people')} with you · ${name} holds ${cap <= 0 ? 'no team seats' : plural(cap, 'seat', 'seats')}. The newest ${plural(facts.seats.counted - cap, 'person waits', 'people wait')} for a plan that covers them — nothing is deleted.`,
         state: 'over',
         fix: { label: 'Open Helpers', href: FIX_HREF.teamSeats },
       });
@@ -179,18 +180,6 @@ export function downgradeFit(
         fix: { label: 'Open your branches', href: FIX_HREF.branches },
       });
     }
-  }
-
-  // ── Reach — the shop's own radius against the plan's ──
-  const reach = limitOf(plan, 'reach', opts.paywallOn);
-  if (facts.reachKm !== null && Number.isFinite(reach) && facts.reachKm > reach) {
-    rows.push({
-      key: 'reach',
-      title: 'Reach',
-      line: `You reach ${limitWords('reach', facts.reachKm)} · ${name}: ${limitWords('reach', reach)}.`,
-      state: 'over',
-      fix: { label: 'Set your reach', href: FIX_HREF.reach },
-    });
   }
 
   // ── Storage — THE FLOOR: never below what the shop already stores ──

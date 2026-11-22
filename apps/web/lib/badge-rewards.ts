@@ -26,7 +26,7 @@
  * 💎 BLACK DIAMOND GIVES THE REAL EVENT ULTRA (owner 15 Nov, "Event ultra"). The plan approved 13 Nov
  * (`EVENT_ULTRA_SKU`, lib/event-ultra.ts) lands in the shop's gift stock as one 'event_ultra' unlock, goes on a quote
  * like Event Pro, and at the couple's first payment unlocks EVENT_ULTRA on their event with the catalogue row's included
- * Papic credits (migration 20271348181787). It is earned only — a shop cannot buy it (`shopGiftBuyable`).
+ * Papic credits (migration 20271348181787). A shop can also BUY it at its list price (owner 2026-11-17).
  *
  * 🔑 NO PRICE AND NO PACK SIZE LIVES HERE. "Papic 150" is the SMALLEST Papic pack on the live catalogue
  * (`alwaysAllowedPack`, `lib/shop-gifts.ts`); "Papic 1000" and "Papic 3000" are the catalogue packs NAMED by their
@@ -538,6 +538,10 @@ export function rewardSourceWords(key: string): string {
       const month = d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('en-PH', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : '';
       return month ? `${word} · ${month}` : word;
     }
+    // 🎁 Gift stock Setnayan sent the shop (Admin › Gifts › Send a gift to a shop) lands through the same door,
+    // keyed `setnayan_gift:<gift_id>` (`lib/setnayan-shop-gift.ts`), so the ledger names it for what it is.
+    case 'setnayan_gift':
+      return 'A gift from Setnayan';
     default:
       return 'Badge reward';
   }

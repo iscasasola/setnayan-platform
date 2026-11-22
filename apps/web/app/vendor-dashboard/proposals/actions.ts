@@ -11,6 +11,8 @@ import { emitNotification } from '@/lib/notification-emit';
 import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { isQuoteAnswer, quoteAnswerNotice, type QuoteAnswer } from '@/lib/quote-answer-notice';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import type { PlusGate } from '@/lib/shop-plus-gate';
+import { shopPlusGate } from '@/lib/shop-plus-gate.server';
 import { resolveTokens, type ProposalLineItem } from '@/lib/vendor-proposals';
 import {
   resolveProposalValues,
@@ -204,12 +206,18 @@ export async function sendProposal(formData: FormData) {
   // draft→sent flip, so a refused send leaves the draft intact and nothing
   // half-sent. Same rule the in-chat send paths ask (`vendor_may_requote`).
   {
-    const { data: draft } = await supabase
+    const { data: draft, error: draftErr } = await supabase
       .from('vendor_proposals')
       .select('event_id, vendor_profile_id, valid_until')
       .eq('proposal_id', proposalId)
       .eq('status', 'draft')
       .maybeSingle();
+    if (draftErr) console.error('[supabase-error] app/vendor-dashboard/proposals/actions.ts · from:vendor_proposals.select', draftErr);
+    // 🪪 A QUOTE NEEDS A VERIFIED SHOP on this door too (supplier launch walk 22 Nov, step 8): the SAME gate the
+    // chat's quote doors ask (`lib/shop-plus-gate`), BEFORE the draft→sent flip. It fails closed — a refused draft
+    // read, or no draft to read, is never a pass: the draft's own shop is the shop that would be sending.
+    const plusGate: PlusGate = draft && !draftErr ? await shopPlusGate(supabase, draft.vendor_profile_id) : 'unknown';
+    if (plusGate !== 'open') redirect(`/proposals/${publicId}?notice=send_plus_${plusGate}`);
     // 📅 No lifetime quotation (2026-11-09): a draft may be blank; sending it may not. The draft is kept.
     if (draft && validUntilRefusal((draft as { valid_until?: string | null }).valid_until ?? null, manilaTodayIsoFor(Date.now()), null)) {
       redirect(`/proposals/${publicId}?notice=send_needs_valid_until`);

@@ -175,7 +175,7 @@ test('the public shop page draws every one of its own files through the rule', (
     /resolveServiceShowcaseMedia\(activeServices, ownShop\)/,
     /resolveServiceCoverUrls\(activeServices, ownShop\)/,
     /resolvePortfolioPhotos\([^;]*, ownShop\)/,
-    /resolvePortfolioUrls\(\[microsite\.heroPhotoKey\], ownShop\)/,
+    /resolvePortfolioUrls\(\[cover\.heroKey\], ownShop\)/,
     /readShopWork\(admin, \{[^}]*own: ownShop \}\)/,
     /readShopFileServes\(trustedBy\.map\(\(v\) => v\.logoRef\)/,
   ]) {
@@ -193,6 +193,12 @@ test('a link preview (a stranger, a permanent address) never draws a Free shop�
   const og = code('app/api/og/v/[slug]/route.tsx');
   assert.match(og, /ownShopServe\(vendor\.vendor_profile_id, vendor\.verification_state, \{ signedIn: false \}\)/);
   assert.match(og, /ownShopFileUrl\(vendor\.logo_url, own,/);
+  // The share card's cover photo (shop share card v2) follows the same serve: withheld for a Free shop.
+  assert.match(og, /readVendorCardFacts\(vendor, own\)/);
+  const facts = code('lib/social/vendor-card-facts.server.ts');
+  assert.match(facts, /if \(own\.serve === 'withheld'\) return null;/);
+  assert.match(facts, /ownShopFileUrl\(key, own,/);
+  assert.doesNotMatch(facts, /await displayUrlForStoredAsset\(key\)/);
 });
 
 test('the couple’s signed-in screens never hand out a Free shop’s permanent address', () => {

@@ -28,6 +28,8 @@
  * it. Here they can be EXECUTED.
  */
 
+import { homeSegHref } from './home-segments';
+
 /**
  * OTP types `/auth/confirm` will accept.
  *
@@ -142,10 +144,25 @@ export const DEAD_LINK_WORDS = {
 } as const;
 
 /**
- * W1-B25 (walk 2, 16 Nov 2026) — where an email link lands when it names no destination of its own (`/`): a supplier
- * account goes to its shop, never the Events board (whose empty state used to bounce it into /dashboard/create-event).
- * A real destination is honoured exactly as given.
+ * 🏠 WHERE A SIGN-IN LANDS WHEN IT NAMES NO DESTINATION OF ITS OWN (`/`) — THE ONE RULE, FOR EVERY DOOR.
+ *
+ * Owner, 22 Nov 2026, verbatim: *"when i log in. don't start on discovery. start on their profile page"*.
+ * The profile page is **Home** (DECISION_LOG 2026-11-11 "ONE PROFILE PAGE v2 APPROVED: IT IS CALLED HOME" and
+ * "HOME PAGE v3 APPROVED" — "the supplier's Home opening on Shop with one 'Open the Shop dashboard' door"):
+ *   · a host / guest / admin → Home on its Events section, `?hub=1` — so the board's auto-jump into a single
+ *     wedding and its empty-console bounce never carry them off the profile page;
+ *   · a supplier (a coordinator is a supplier account) → Home on its Shop section.
+ * Both addresses are Home's own (`homeSegHref`), never spelled here.
+ *
+ * Every door goes through this: the password sign-in (`signInDestination`, lib/sign-in-landing.ts, which delegates
+ * here), the in-place panel (its `landing`), the Google / Apple / magic-link return (app/auth/callback) and the
+ * any-device email link (app/auth/confirm). A REAL destination (`?next=/v/shop`, an invitation, a deep link) is
+ * honoured exactly as given — only the bare `/` means "nowhere of my own".
+ *
+ * W1-B25 (16 Nov) sent a supplier's link to /vendor-dashboard to keep it off the Events board's empty state; Home on
+ * Shop keeps that (the Shop section never runs the board) and is the profile page the 22 Nov ruling names.
  */
 export function landingForAccount(next: string, accountType: string | null | undefined): string {
-  return next === '/' && accountType === 'vendor' ? '/vendor-dashboard' : next;
+  if (next !== '/') return next;
+  return accountType === 'vendor' ? homeSegHref('shop') : homeSegHref('events');
 }

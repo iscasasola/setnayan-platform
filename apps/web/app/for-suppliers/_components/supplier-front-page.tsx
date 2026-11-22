@@ -37,6 +37,8 @@ import { formatPeso } from '@/lib/v2-catalog-pure';
 import { CARD_MEDALS } from '@/lib/public-badges';
 import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
 import { ServiceFace } from '@/app/_components/service-face';
+import { aboutKmLine } from '@/lib/mall-card';
+import { SampleDateFit } from './sample-card-date-fit';
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
 import type { CardBadgeView } from '@/lib/card-badges';
 import { FREE_FINDABLE } from './plan-table-data';
@@ -90,7 +92,15 @@ const SAMPLE_CARDS: ReadonlyArray<{
   path: string;
   cover: string;
   shop: string;
+  /** Where the shop works, said after its name. */
+  city: string;
   price: number;
+  /** The card's own note under its price. */
+  priceNote: string;
+  /** Reviews come only from completed bookings; a sample shows what a reviewed card looks like. */
+  rating: { avg: number; count: number };
+  /** Straight-line km to the couple's venue (`aboutKmLine`). */
+  km: number;
   includes: readonly string[];
   notIncluded: readonly string[];
   badges: readonly CardBadgeView[];
@@ -100,7 +110,11 @@ const SAMPLE_CARDS: ReadonlyArray<{
     path: 'Photographers · Photo & video',
     cover: `${A}/c-photo.webp`,
     shop: 'Lumen Studio',
+    city: 'Quezon City',
     price: 45999,
+    priceNote: 'whole day, 2 shooters',
+    rating: { avg: 4.9, count: 128 },
+    km: 12,
     includes: ['2 shooters', 'Online album', 'Same-day edit'],
     notIncluded: ['crew meal'],
     badges: [
@@ -113,7 +127,11 @@ const SAMPLE_CARDS: ReadonlyArray<{
     path: 'Hair & make-up · Bridal',
     cover: `${A}/c-makeup.webp`,
     shop: 'Blush by Ria',
+    city: 'Makati',
     price: 18999,
+    priceNote: 'bride + 1, with trial',
+    rating: { avg: 4.8, count: 86 },
+    km: 6,
     includes: ['Trial session', 'Airbrush', 'Touch-ups'],
     notIncluded: [],
     badges: [
@@ -127,7 +145,11 @@ const SAMPLE_CARDS: ReadonlyArray<{
     path: 'Videographers · Highlights',
     cover: `${A}/c-video.webp`,
     shop: 'Reel Day Films',
+    city: 'Pasig',
     price: 35999,
+    priceNote: '4-minute film',
+    rating: { avg: 5.0, count: 41 },
+    km: 9,
     includes: ['4-minute film', 'Drone shots', 'Raw files'],
     notIncluded: [],
     badges: [{ key: 'hot_booking', since: null }],
@@ -350,8 +372,13 @@ export function SupplierFrontPage({
                 name={c.name}
                 coverUrl={c.cover}
                 shop={{ name: c.shop, href: null, logoUrl: null, verified: c.badges.some((b) => b.key === 'verified') }}
+                city={c.city}
+                rating={c.rating}
                 price={peso(c.price)}
+                priceNote={c.priceNote}
                 medals={<CardBadgeRow badges={c.badges} cardName={c.name} shopName={c.shop} now={0} />}
+                lines={<SampleDateFit />}
+                distance={aboutKmLine(c.km)}
               />
             </li>
           ))}

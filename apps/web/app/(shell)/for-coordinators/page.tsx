@@ -45,6 +45,9 @@ import Link from 'next/link';
 
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
 import { ServiceFace } from '@/app/_components/service-face';
+import { SampleDateFit } from '@/app/for-suppliers/_components/sample-card-date-fit';
+import { aboutKmLine } from '@/lib/mall-card';
+import { formatPhpRounded } from '@/lib/php';
 import type { CardBadgeView } from '@/lib/card-badges';
 
 import { TIERS } from '@/lib/badge-tiers';
@@ -439,6 +442,12 @@ export default async function ForCoordinatorsPage() {
                 name="On-the-day coordination"
                 coverUrl={`${SHOT}/c-coord.webp`}
                 shop={{ name: 'Amihan Events', href: null, logoUrl: null, verified: true }}
+                city="Taguig"
+                rating={{ avg: 4.9, count: 64 }}
+                price={formatPhpRounded(24999)}
+                priceNote="2 coordinators, 12 hours"
+                lines={<SampleDateFit />}
+                distance={aboutKmLine(8)}
                 medals={
                   <CardBadgeRow
                     badges={SAMPLE_BADGES}

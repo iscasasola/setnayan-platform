@@ -152,5 +152,9 @@ test('owner 23 Nov "this is not our agreed service card": the samples wear Card 
     assert.equal((src.match(/<ServiceFace\b/g) ?? []).length, faces.length, `${rel}: a sample card has no layout — the old row face`);
     for (const f of faces) assert.match(f, /layout="mall"/, `${rel}: a sample is not Card 14`);
     assert.doesNotMatch(src, /includesLineOf|notIncluded=/, `${rel}: Includes / Not included live in the opened card, not on the face`);
+    // Owner 23 Nov: "load up the sample cards. we want to show if the details were complete." — every Card 14 slot.
+    for (const slot of ['city=', 'rating=', 'price=', 'priceNote=', 'medals=', 'lines={<SampleDateFit />}', 'distance={aboutKmLine(']) {
+      assert.ok(src.includes(slot), `${rel}: a sample card is missing ${slot}`);
+    }
   }
 });

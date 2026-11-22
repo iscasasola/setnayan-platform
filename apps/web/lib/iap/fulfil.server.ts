@@ -11,7 +11,7 @@ import { APP_STORE_CHANNEL_KEY, appStorePriceMatchesWeb, iapPriceRowFor, type Ia
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { computeVatFromBase } from '@/lib/receipts';
 import { chargedPhp, type AppleTransaction } from './apple-transaction';
-import { appleGiftOrderKey, appleGiftPurchaseRow } from './supplier-gift.server';
+import { appleGiftDeliveryFor, appleGiftOrderKey, appleGiftPurchaseRow } from './supplier-gift.server';
 
 /**
  * 🍎 APPLE SAID YES → THE SAME ORDER, THE SAME ACTIVATION.
@@ -150,7 +150,8 @@ async function orderAmountPhp(
     .maybeSingle();
   if (error) console.error('[iap] could not read the catalogue price (Apple’s PHP figure is used when present):', error.message);
   const raw = (data as { retail_price_php?: number | string | null } | null)?.retail_price_php;
-  const catalogPhp = raw === null || raw === undefined || error ? null : Number(raw);
+  // 💝 A gift line is the gift × the quantity Apple signed (a 10 + 1 bundle row is 10 × list — one price everywhere).
+  const catalogPhp = raw === null || raw === undefined || error ? null : Number(raw) * tx.quantity;
   const php = chargedPhp(tx);
   if (php !== null) return { ok: true, amount: php, note: null, catalogPhp };
   // Not charged in pesos (another storefront): we do not invent an exchange
@@ -222,6 +223,10 @@ export async function fulfilAppleTransaction(
   const eventId = gift ? null : row.event_id;
   // The order's key: the web gift's own (`vendor_gift__<code>`) for a gift, the product's catalogue code otherwise.
   const orderKey = gift ? appleGiftOrderKey(gift) : tx.product.serviceKey;
+  // 💝 What the gift line lands — by the quantity APPLE SIGNED (owner 2026-11-22): singles, or the 10 + 1 bundle whose
+  // paid count it equals (its catalogue count lands, 11). A read failure is an error: Apple re-delivers.
+  const giftDelivery = gift ? await appleGiftDeliveryFor(admin, gift, tx.quantity) : null;
+  if (gift && !giftDelivery) return { status: 'error', where: 'gift_delivery' };
 
   // 1 · Stamp what Apple said onto the intent (first writer wins; a repeat is a no-op).
   if (!row.transaction_id) {
@@ -261,7 +266,10 @@ export async function fulfilAppleTransaction(
           { userId: row.user_id, eventId, vendorProfileId: giftShop },
           {
             service_key: orderKey,
-            description: gift ? `Gifts for your couples — 1 × ${gift.appStoreName.replace(/^Gift · /, '')} · App Store` : `${tx.product.appStoreName} · App Store`,
+            description:
+              gift && giftDelivery
+                ? `Gifts for your couples — ${giftDelivery.bundleCode ? `${tx.quantity} + ${giftDelivery.packsEach - tx.quantity} free` : tx.quantity} × ${gift.appStoreName.replace(/^Gift · /, '')} · App Store`
+                : `${tx.product.appStoreName} · App Store`,
             requested_total_php: amount.amount,
             reference_code: referenceCode,
             platform: 'ios',
@@ -307,8 +315,15 @@ export async function fulfilAppleTransaction(
 
   // 💝 What a gift order bought — the row a web gift order carries, read by approval to land the gift in the shop's
   // stock. Written BEFORE the promote (activation reads it); the order is its key, so a repeat delivery is a no-op.
-  if (gift && giftShop) {
-    const giftRow = appleGiftPurchaseRow({ orderId: order.order_id, vendorProfileId: giftShop, userId: row.user_id, product: gift, chargedPhp: amount.amount });
+  if (gift && giftShop && giftDelivery) {
+    const giftRow = appleGiftPurchaseRow({
+      orderId: order.order_id,
+      vendorProfileId: giftShop,
+      userId: row.user_id,
+      product: gift,
+      delivery: giftDelivery,
+      chargedPhp: amount.amount,
+    });
     if (!giftRow) return { status: 'error', where: 'gift_row' };
     const { error: giftErr } = await admin.from('shop_gift_purchases').insert(giftRow);
     if (giftErr && giftErr.code !== '23505') return { status: 'error', where: 'gift_row' };
@@ -503,7 +518,10 @@ export async function revokeAppleTransaction(
     // The buyer whose purchase Apple refunded — the actor is Apple ('system').
     actor_user_id: row.user_id,
     actor_role: 'system',
-    amount_centavos: tx.currency === 'PHP' && tx.priceMilliunits !== null ? Math.round(tx.priceMilliunits / 10) : null,
+    amount_centavos: (() => {
+      const php = chargedPhp(tx);
+      return php === null ? null : Math.round(php * 100);
+    })(),
     metadata: {
       service_key: row.service_key,
       channel: APP_STORE_CHANNEL,

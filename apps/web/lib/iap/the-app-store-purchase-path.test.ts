@@ -116,6 +116,8 @@ test('the app shows no web price, no GCash/BDO, no web link on an Apple surface'
     'app/_components/iap/iap-live-watch-sheet.tsx',
     'app/_components/iap/iap-unlock-sheet.tsx',
     'app/_components/iap/iap-gift-buy.tsx',
+    'app/vendor-dashboard/shop/promote/_components/apple-gift-cart.tsx',
+    'lib/iap/apple-gift-lines.ts',
     'lib/iap/setnayan-ai-in-app.server.ts',
     'app/_components/iap/restore-purchases-row.tsx',
     'app/_components/iap/apple-pro-screen.tsx',
@@ -133,8 +135,9 @@ test('the iOS build announces the plugin it carries — and Android never claims
   const cfg = raw(join(MOBILE, 'capacitor.config.ts'));
   const ios = /ios:\s*\{[\s\S]*?appendUserAgent:\s*'([^']+)'/.exec(cfg);
   assert.ok(ios, 'the iOS block must declare its own appendUserAgent');
-  /* RE-AIMED 2026-10-21 (owner): the build that sells is 1.1, `SetnayanIAP/2` — `/1` is build 5's and never sells. */
-  assert.match(ios[1]!, /\bSetnayanIAP\/2\b/);
+  /* RE-AIMED 2026-10-21 (owner): the build that sells is 1.1, `SetnayanIAP/2` — `/1` is build 5's and never sells.
+     RE-AIMED 2026-11-22 (owner, the gift cart pays line by line): build 9's plugin passes a quantity → `SetnayanIAP/3`. */
+  assert.match(ios[1]!, /\bSetnayanIAP\/3\b/);
   assert.match(ios[1]!, /\bSetnayanApp\b/, 'the iOS UA still reads as the store shell');
   assert.match(ios[1]!, /\bSetnayanSignIn\/1\b/, 'the iOS UA still announces native sign-in');
   const global = /\n {2}appendUserAgent:\s*'([^']+)'/.exec(cfg);

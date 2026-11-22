@@ -13,12 +13,16 @@
  *       event or a couple product for a shop. A shop deleted after it bought is refused as 'no_shop', never landed.
  *   5 · Every gift product is a LIVE catalogue row the web gift store sells (active, not retired) — and a Papic gift's
  *       credits are its tier's.
+ *   6 · The in-app cart pays LINE BY LINE (owner 2026-11-22): a line of 3 is ONE Apple purchase that lands 3; a line
+ *       bought as the bundle's paid count lands the bundle's WHOLE catalogue count (buy 10, get 1 free), recorded as a
+ *       bundle exactly as the web store records one; Apple's refund takes all of it back. The price is the catalogue's.
  *
  * Apple is not called: the transaction is the fixture's VERIFIED transaction (lib/iap/apple-jws-fixture.ts) with this
  * test's product and token — the verification itself is held by an-app-store-purchase-is-one-order.db.test.ts.
  *
  * 🛡 Sabotaged 2026-11-22, each red then restored (PR body): dropping the `shop_gift_purchases` insert from the
- * fulfilment turns 1 red (no stock lands); writing the order with `vendorProfileId: null` turns 1 red.
+ * fulfilment turns 1 red (no stock lands); writing the order with `vendorProfileId: null` turns 1 red; delivering the
+ * phone's quantity as singles only (no bundle) turns 6 red.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -74,7 +78,7 @@ async function newShop(): Promise<{ userId: string; shop: string }> {
 }
 
 /** The fixture's verified transaction, as THIS product, THIS token and a fresh transaction id, at `php` pesos. */
-function giftTx(code: string, token: string, php: number): AppleTransaction {
+function giftTx(code: string, token: string, php: number, quantity = 1): AppleTransaction {
   const v = verifyAppleTransaction(fixtureJws('txPapic'), FIXTURE_ROOTS);
   assert.ok(v.ok, 'the fixture must verify against the test root');
   const product = iapSupplierGiftProductForCode(code);
@@ -86,6 +90,7 @@ function giftTx(code: string, token: string, php: number): AppleTransaction {
     appAccountToken: token,
     transactionId: id,
     originalTransactionId: id,
+    quantity,
     priceMilliunits: php * 1000,
     currency: 'PHP',
     revocationDate: null,
@@ -217,4 +222,69 @@ test('5 · every gift product is a LIVE catalogue row the web gift store sells, 
       assert.equal(Number(t.rows[0]?.points), p.credits, `${p.productId} promises ${p.credits} credits; the tier grants ${t.rows[0]?.points}`);
     }
   }
+});
+
+test('6 · a cart line is ONE Apple purchase with a quantity: 3 land 3; the bundle’s paid count lands its whole count', async () => {
+  // The catalogue's own figures — the list price and the 10 + 1 bundle of Event Plus — never typed here.
+  const list = Number(
+    (await db.query<{ p: string }>(`SELECT retail_price_php::text AS p FROM public.platform_retail_catalog_v2 WHERE service_code = $1`, [PLUS])).rows[0]!.p,
+  );
+  const b = (
+    await db.query<{ code: string; qty: number; price: string }>(
+      `SELECT service_code AS code, bundle_quantity AS qty, retail_price_php::text AS price
+         FROM public.platform_retail_catalog_v2 WHERE bundle_of_service_code = $1 AND is_active AND retired_at IS NULL`,
+      [PLUS],
+    )
+  ).rows[0];
+  assert.ok(list > 0 && b, 'the replayed catalogue has no Event Plus price or bundle');
+  const paid = Math.ceil(Number(b.price) / list);
+
+  // A line of 3 singles.
+  const three = await newShop();
+  const t3 = giftTx(PLUS, await shopIntent(three.userId, three.shop, PLUS), list, 3);
+  const o3 = await fulfil.fulfilAppleTransaction(admin, t3, { expectUserId: three.userId });
+  assert.equal(o3.status, 'on', JSON.stringify(o3));
+  assert.equal(await unitBalance(three.shop, 'event_plus'), 3);
+  const r3 = await db.query<{ quantity: number; packs_each: number; basis: string; bundle: string | null }>(
+    `SELECT quantity, packs_each, price_basis AS basis, bundle_code AS bundle FROM public.shop_gift_purchases WHERE vendor_profile_id = $1`,
+    [three.shop],
+  );
+  assert.deepEqual(r3.rows[0], { quantity: 3, packs_each: 1, basis: 'list', bundle: null });
+
+  // The bundle line: Apple's quantity is the bundle's paid count; the bundle's whole count lands.
+  const ten = await newShop();
+  const t10 = giftTx(PLUS, await shopIntent(ten.userId, ten.shop, PLUS), list, paid);
+  const o10 = await fulfil.fulfilAppleTransaction(admin, t10, { expectUserId: ten.userId });
+  assert.equal(o10.status, 'on', JSON.stringify(o10));
+  assert.equal(await unitBalance(ten.shop, 'event_plus'), b.qty, 'buy 10, get 1 free — the free one did not land');
+  const r10 = await db.query<{ quantity: number; packs_each: number; basis: string; bundle: string | null }>(
+    `SELECT quantity, packs_each, price_basis AS basis, bundle_code AS bundle FROM public.shop_gift_purchases WHERE vendor_profile_id = $1`,
+    [ten.shop],
+  );
+  assert.deepEqual(r10.rows[0], { quantity: 1, packs_each: b.qty, basis: 'bundle', bundle: b.code });
+  const amount = await db.query<{ total: string }>(`SELECT requested_total_php::text AS total FROM public.orders WHERE vendor_profile_id = $1`, [ten.shop]);
+  assert.equal(Number(amount.rows[0]!.total), list * paid, 'the order records what Apple charged: the unit price × the quantity');
+
+  // Apple's refund takes the whole bundle back.
+  const rev = await fulfil.revokeAppleTransaction(admin, { ...t10, revocationDate: new Date(), revocationReason: 1 }, 'REFUND');
+  assert.deepEqual(rev, { status: 'revoked' });
+  assert.equal(await unitBalance(ten.shop, 'event_plus'), 0);
+
+  // A Papic bundle: the same rule, counted in packs.
+  const pList = Number(
+    (await db.query<{ p: string }>(`SELECT retail_price_php::text AS p FROM public.platform_retail_catalog_v2 WHERE service_code = $1`, [P150])).rows[0]!.p,
+  );
+  const pb = (
+    await db.query<{ code: string; qty: number; price: string }>(
+      `SELECT service_code AS code, bundle_quantity AS qty, retail_price_php::text AS price
+         FROM public.platform_retail_catalog_v2 WHERE bundle_of_service_code = $1 AND is_active AND retired_at IS NULL`,
+      [P150],
+    )
+  ).rows[0];
+  assert.ok(pList > 0 && pb, 'the replayed catalogue has no Papic 150 price or bundle');
+  const papic = await newShop();
+  const tp = giftTx(P150, await shopIntent(papic.userId, papic.shop, P150), pList, Math.ceil(Number(pb.price) / pList));
+  const op = await fulfil.fulfilAppleTransaction(admin, tp, { expectUserId: papic.userId });
+  assert.equal(op.status, 'on', JSON.stringify(op));
+  assert.equal(await packBalance(papic.shop, P150), pb.qty, 'the Papic bundle did not land its whole count of packs');
 });

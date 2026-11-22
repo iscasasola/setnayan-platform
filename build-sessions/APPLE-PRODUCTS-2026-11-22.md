@@ -61,6 +61,20 @@ it is not in App Store Connect yet: type Consumable, at ₱9,990.
 ⚠ **No `gift_live_watch`.** Live Watch is not a gift on the web (gifts are Papic, Plus, Pro and Ultra only), so the
 app cannot sell one. Do not create it. If it already exists, detach it.
 
+### How a shop pays in the app: line by line (owner, 22 Nov)
+
+- The in-app gift cart pays **one Apple payment per cart line**. Each line is ONE purchase of its `gift_*` product with
+  a **quantity of 1–10** (StoreKit's limit). Face ID once per line. The website cart stays one payment.
+- A **10 + 1 bundle** is its gift bought with **quantity 10**. Setnayan delivers the catalogue's `bundle_quantity` (11).
+  There are **no Apple products for bundles**, so nothing more to create in App Store Connect.
+- Apple charges the product's price × the quantity. A bundle row in the catalogue is already 10 × the list price, so the
+  two agree. This needs one Sandbox purchase of quantity 2 or more to confirm that Apple's signed `price` is per unit; if it
+  is the total, the "App Store price differs" fault log fires and the gift still lands.
+- Only build 9 and later (`SetnayanIAP/3`) is shown the gift store. Build 8 and older still sell the couple products.
+- ⚠ **`GIFT_BUNDLE_EVENT_PRO` must become 10 × Event Pro when Event Pro goes to ₱5,490** (#8004 does not change the
+  bundle). Until then its paid count is not 10, so the app does not offer that one bundle (single Event Pro gifts are
+  unaffected). That is a catalogue change by migration, flagged to Ship, not typed here.
+
 ⚠ **Apple price points are not verified here.** Nobody in a session can see Apple's PH price list. In App Store
 Connect, with the Philippines as the base country, each figure above must be offered exactly. If one is not, stop and
 say which; never pick a nearby point (one price everywhere means the website would change instead).

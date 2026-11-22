@@ -65,7 +65,7 @@ export async function loadShopGiftsSection(supabase: SupabaseClient, vendorProfi
     canBuy: !gate.storeShell,
     // 💝 In the iPhone app with StoreKit (the three-part gate: the flag, the store shell, a build that sells), a gift is
     // bought through Apple instead — one at a time, Apple's price on the button (owner 2026-11-04).
-    appleGifts: gate.iap,
+    appleGifts: gate.iapQuantity,
     rewards: { left: rewardFreeByKind(rewardStock, freeByKind(stock)), granted: rewardsGranted, names: rewardNames },
   };
 }

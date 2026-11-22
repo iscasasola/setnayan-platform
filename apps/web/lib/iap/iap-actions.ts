@@ -20,6 +20,7 @@ import {
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { appleGiftOnSale } from './supplier-gift.server';
+import { appleGiftQuantityOk } from './apple-gift-lines';
 import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { verifyAppleTransaction } from './apple-transaction';
 import { createPurchaseIntent, fulfilAppleTransaction, type FulfilOutcome } from './fulfil.server';
@@ -58,14 +59,25 @@ export async function startAppStorePurchase(input: {
   /** The couple's event. A shop's gift names no event — it lands in the shop's gift stock. */
   eventId?: string;
   productId: string;
+  /**
+   * 💝 A shop's gift cart line: how many of the gift ONE Apple purchase buys (1–10; owner 2026-11-22, "pays line by
+   * line"). Absent ⇒ 1. A couple product is always 1.
+   */
+  quantity?: number;
 }): Promise<IapStartResult> {
-  const { iap } = await getIapGate();
+  const { iap, iapQuantity } = await getIapGate();
   if (!iap) return startRefusal('unavailable');
+  const quantity = input.quantity ?? 1;
 
   // 💝 A SHOP's gift (owner 2026-11-04, "they can purchase inside apple as well") has its own checks — the web gift
-  // buy's — and never reaches the couple checks below, which are about an event.
+  // buy's — and never reaches the couple checks below, which are about an event. Only a build whose plugin passes a
+  // quantity (`SetnayanIAP/3`+) buys gifts: an older one would charge for one while the line said more.
   const gift = iapSupplierGiftProductById(input.productId);
-  if (gift) return startShopGiftPurchase(gift);
+  if (gift) {
+    if (!iapQuantity || !appleGiftQuantityOk(quantity)) return startRefusal('unavailable');
+    return startShopGiftPurchase(gift, quantity);
+  }
+  if (quantity !== 1) return startRefusal('unavailable');
 
   const product = iapProductById(input.productId);
   const eventId = typeof input.eventId === 'string' ? input.eventId.trim() : '';
@@ -145,7 +157,7 @@ export async function startAppStorePurchase(input: {
     product,
   });
   if (!intent.ok) return startRefusal('try_again');
-  return { ok: true, token: intent.token, productId: product.productId };
+  return { ok: true, token: intent.token, productId: product.productId, quantity: 1 };
 }
 
 function outcomeToResult(o: FulfilOutcome): IapConfirmResult {
@@ -173,7 +185,7 @@ function outcomeToResult(o: FulfilOutcome): IapConfirmResult {
  * intent names the shop and no event: the gift waits in the shop's stock until the shop gives it, exactly like a gift
  * bought on the web. No payment ceiling or rail check — those are the web rails' rules; Apple charges one gift.
  */
-async function startShopGiftPurchase(gift: IapSupplierGiftProduct): Promise<IapStartResult> {
+async function startShopGiftPurchase(gift: IapSupplierGiftProduct, quantity: number): Promise<IapStartResult> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -193,7 +205,7 @@ async function startShopGiftPurchase(gift: IapSupplierGiftProduct): Promise<IapS
 
   const intent = await createPurchaseIntent(createMoneyWriterClient(), { userId: user.id, vendorProfileId, product: gift });
   if (!intent.ok) return startRefusal('try_again');
-  return { ok: true, token: intent.token, productId: gift.productId };
+  return { ok: true, token: intent.token, productId: gift.productId, quantity };
 }
 
 /** Where a fulfilled purchase shows: the couple's event, or the shop's gifts. */

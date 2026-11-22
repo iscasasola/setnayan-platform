@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useId, useRef, useState } from 'react';
+import { useActionState, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Award, Gift, ShoppingBag, Ticket } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { Counter } from '@/app/_components/counter';
@@ -33,7 +33,9 @@ import { bump, canAdd, type GiftCart } from '@/lib/shop-gift-cart';
 import type { GiftHistoryRow } from '@/lib/shop-gift-history';
 import { GiftHistory, GiftStore, GiftTicketSheet } from './gift-store';
 import { AppStoreTransactions } from '@/app/_components/iap/app-store-transactions';
-import { iapSupplierGiftProductForCode } from '@/lib/iap/products';
+import { IAP_SUPPLIER_GIFT_PRODUCTS, iapSupplierGiftProductForCode } from '@/lib/iap/products';
+import { appleCanAdd, appleMostOf } from '@/lib/iap/apple-gift-lines';
+import { useAppStorePrices } from '@/lib/iap/use-app-store-prices';
 import { GiftReturnBanner } from './gift-return-banner';
 import { useSearchParams } from 'next/navigation';
 import { GiftTicketArt } from './gift-ticket-art';
@@ -93,8 +95,8 @@ export type ShopGiftsSectionData = {
   /** Papic on, and not inside the App Store shell (the web's Buy: BDO, the cart, the 10 + 1 bundles). */
   canBuy: boolean;
   /**
-   * 💝 Inside the iPhone app with StoreKit (`getIapGate().iap`): each ticket's sheet buys ONE gift through Apple instead
-   * of Add 1 / Add 10 + 1 — Apple's price on the button, never ours. Absent ⇒ false.
+   * 💝 Inside the iPhone app with StoreKit AND a build that passes a quantity (`getIapGate().iapQuantity`): the same
+   * store, its cart paid LINE BY LINE through Apple — Apple's price only, never ours (owner 2026-11-22). Absent ⇒ false.
    */
   appleGifts?: boolean;
   /**
@@ -110,6 +112,8 @@ export type ShopGiftsSectionData = {
 };
 
 const IDLE: BuyVendorPapicPortfolioPackState = { status: 'idle' };
+/** 💝 Every gift's Apple product — Apple's prices for the in-app store are read once, for all of them. */
+const APPLE_GIFT_IDS = IAP_SUPPLIER_GIFT_PRODUCTS.map((p) => p.productId);
 const icFee = <Ticket aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
 const icReward = <Award aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
 const ic = <Gift aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
@@ -195,7 +199,8 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
   // 💎 Every gift is in the store — Event Ultra too, at its list price (owner 2026-11-17).
   const buyPacks = packs.filter((p) => shopGiftBuyable(p.code));
   const canOffer = data.canBuy && stock !== null && buyPacks.length > 0;
-  // 💝 In the iPhone app: each ticket's sheet buys ONE gift through Apple (`IapGiftBuy`) — never the web's cart.
+  // 💝 In the iPhone app (a build that passes a quantity): the same store, its cart paid LINE BY LINE through Apple — one
+  // Apple purchase per line, Apple's price only (owner 2026-11-22; `apple-gift-cart.tsx`). Never the web's BDO order.
   const appleOffer = Boolean(data.appleGifts) && !data.canBuy && stock !== null;
   const rewards = data.rewards;
   const granted = rewards?.granted ?? null;
@@ -221,8 +226,26 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
     ? list.reduce((acc, t) => ({ available: acc.available + (free(t) ?? 0), held: acc.held + (t.stock?.held ?? 0) }), { available: 0, held: 0 })
     : null;
   // null ⇒ the bundle list could not be read (#7678): the store says so; the singles stay on sale.
-  const bundles = data.bundles ?? [];
+  const webBundles = data.bundles ?? [];
   const bundlesUnread = data.bundles === null;
+  // 💝 What the app's store sells: the gifts that have an Apple product, and the bundles one Apple purchase can buy.
+  const storePacks = appleOffer ? buyPacks.filter((p) => iapSupplierGiftProductForCode(p.code)) : buyPacks;
+  const bundles = appleOffer
+    ? webBundles.filter((b) => storePacks.some((p) => p.code === b.pack.code) && appleMostOf(b.code, webBundles) > 0)
+    : webBundles;
+  const appleStore = appleOffer && storePacks.length > 0;
+  const storeOn = canOffer || appleStore;
+  const appleRead = useAppStorePrices(APPLE_GIFT_IDS, appleStore);
+  const applePrices = useMemo(() => {
+    const out = new Map<string, string>();
+    for (const g of IAP_SUPPLIER_GIFT_PRODUCTS) {
+      const p = appleRead.products.get(g.productId)?.displayPrice;
+      if (p) out.set(g.serviceKey, p);
+    }
+    return out;
+  }, [appleRead]);
+  const verdict = (c: GiftCart, code: string) =>
+    appleStore ? appleCanAdd(c, code, storePacks, bundles) : canAdd(c, code, storePacks, bundles, data.maxPaymentPhp);
   const sent = (history ?? []).some((r) => r.kind === 'bought' && r.state === 'sent');
   const sheetTile = list.find((t) => t.pack.code === sheetCode) ?? null;
   const bundleOf = (code: string) => bundles.find((b) => b.pack.code === code) ?? null;
@@ -230,21 +253,24 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
   const askedGift = useSearchParams().get('gift');
   const opened = useRef(false);
   useEffect(() => {
-    if (opened.current || !askedGift || !canOffer) return;
+    if (opened.current || !askedGift || !storeOn) return;
     opened.current = true;
-    if (canAdd({}, askedGift, buyPacks, bundles, data.maxPaymentPhp) !== 'ok') return;
+    const ok = appleStore
+      ? appleCanAdd({}, askedGift, storePacks, bundles)
+      : canAdd({}, askedGift, storePacks, bundles, data.maxPaymentPhp);
+    if (ok !== 'ok') return;
     setCart(bump({}, askedGift, 1));
     setFlash({ code: askedGift, n: 1 });
     setView('store');
-  }, [askedGift, canOffer, buyPacks, bundles, data.maxPaymentPhp]);
+  }, [askedGift, storeOn, appleStore, storePacks, bundles, data.maxPaymentPhp]);
 
   /** Add from a ticket's sheet: into the order, then the store opens on THAT row (prototype v16 — no "Just added" box). */
   const addFromSheet = (code: string) => {
-    if (canAdd(cart, code, buyPacks, bundles, data.maxPaymentPhp) !== 'ok') return;
+    if (verdict(cart, code) !== 'ok') return;
     const next = bump(cart, code, 1);
     setCart(next);
     const b = bundles.find((x) => x.code === code);
-    const title = b ? `${b.pack.title} · ${bundleShape(b).label}` : (buyPacks.find((p) => p.code === code)?.title ?? code);
+    const title = b ? `${b.pack.title} · ${bundleShape(b).label}` : (storePacks.find((p) => p.code === code)?.title ?? code);
     const n = next[code] ?? 0;
     setSheetCode(null);
     setFlash({ code, n });
@@ -347,7 +373,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
           })}
         </div>
 
-        {canOffer ? (
+        {storeOn ? (
           <div className="mt-3">
             <ActionButton
               tone="brand"
@@ -441,32 +467,33 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
         bundle={sheetTile ? bundleOf(sheetTile.pack.code) : null}
         available={sheetTile ? free(sheetTile) : null}
         cart={cart}
-        packs={buyPacks}
+        packs={storePacks}
         bundles={bundles}
         maxPaymentPhp={data.maxPaymentPhp}
         canBuy={canOffer}
-        appleProductId={appleOffer && sheetTile ? (iapSupplierGiftProductForCode(sheetTile.pack.code)?.productId ?? null) : null}
+        apple={appleStore && sheetTile && iapSupplierGiftProductForCode(sheetTile.pack.code) ? applePrices : null}
         onClose={() => setSheetCode(null)}
         onAdd={addFromSheet}
       />
-      {canOffer ? (
+      {storeOn ? (
         <GiftStore
           open={view === 'store'}
           onClose={() => setView(null)}
           cart={cart}
           setCart={setCart}
-          packs={buyPacks}
+          packs={storePacks}
           bundles={bundles}
           bundlesUnread={bundlesUnread}
           maxPaymentPhp={data.maxPaymentPhp}
           openRails={data.openRails}
           flash={flash}
           toast={toast}
+          apple={appleStore ? { prices: applePrices, silent: appleRead.state === 'silent' } : null}
         />
       ) : null}
       <GiftHistory open={view === 'history'} onClose={() => setView(null)} rows={history} />
       {/* 💝 The net under an Apple gift: a purchase that finished while the app was closed lands when the shop looks. */}
-      {appleOffer ? <AppStoreTransactions /> : null}
+      {appleStore ? <AppStoreTransactions /> : null}
     </section>
   );
 }

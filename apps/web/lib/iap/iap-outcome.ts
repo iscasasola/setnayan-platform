@@ -28,7 +28,8 @@ export type IapStartRefusal =
   | 'not_shop_owner';
 
 export type IapStartResult =
-  | { ok: true; token: string; productId: string }
+  /** `quantity` — how many StoreKit is asked for: 1 for a couple product; a gift cart line's 1–10. */
+  | { ok: true; token: string; productId: string; quantity: number }
   | { ok: false; reason: IapStartRefusal; message: string };
 
 export type IapConfirmResult =

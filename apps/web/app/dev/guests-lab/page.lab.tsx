@@ -698,7 +698,8 @@ export default async function GuestsLabPage({
     const titled: Partial<GuestRow> =
       sp.title === 'atty'
         ? { first_name: 'Eufemia', last_name: 'Dela Cruz', role: 'groom_parents', group_category: 'family', name_prefix: 'Atty.', gender: pickedGender }
-        : {};
+        : /* Daniel is the best man on the lab's List — his card says the same ("Best man · Groom's side", drawing § 3). */
+          { role: 'best_man' };
     /* 🏷 `&role=bride_immediate_family` — a sibling of the bride (stand-in name), for "Rename this section";
        `&vip=1` — the event's words with Immediate Family renamed "VIP" (owner 2026-10-19). The lab has no event: a keep
        is refused by the host fence, so the after-state is drawn from these fixture words. */
@@ -1043,7 +1044,7 @@ export default async function GuestsLabPage({
                       but still a flex item — so the screen starts a `gap-6` further down, exactly as on the real page.
                       Without it the lab drew the screen 24 px higher than the app and hid the band under the pinned row
                       (2026-10-30, Seats › List). */}
-                  <div className="flex flex-col gap-4" data-guests-title-group="">
+                  <div className="contents" data-guests-title-group="">
                     <h1 className="sr-only">Guests</h1>
                   </div>
                   <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs} openCard={labOpenCard}>

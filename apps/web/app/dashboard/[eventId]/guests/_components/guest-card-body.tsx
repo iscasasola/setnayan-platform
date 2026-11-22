@@ -525,6 +525,8 @@ export function GuestCardBody({
       />
     ) : null;
 
+  /** The identity block has something the sheet's header does not already say. */
+  const identityShown = !headerShown || isCouple || (seats > 0 && !isCouple) || Boolean(standingInFor);
   return (
     <div className="space-y-4" data-guest-card-root="">
       {errorMessage ? (
@@ -549,7 +551,10 @@ export function GuestCardBody({
       ) : null}
 
       {/* ══ 1 · PROFILE · QR · BASIC INFO ═══════════════════════════════════════════════════════════════════════════════
-          Identity — who, whose side, and the answer at a glance. */}
+          Identity — who, whose side, and the answer at a glance. Over the Guest list the sheet's header already says who
+          and their reply; this block is drawn only when it has more to say (+N seats · Host · Proxy for…), never as a row
+          that holds nothing but "✓ Saved" (drawing v4 § 3: the quick actions sit right under the head). */}
+      {identityShown ? (
       <div className="flex items-center gap-3">
         {/* 👤 Over the Guest list the face is in the sticky header, LEFT of the name (owner 2026-10-26: "Move profile photo
             beside the name on the top? Left side") — `GuestCard` hands it to `InspectorColumn`'s `lead`. The standalone page
@@ -595,6 +600,7 @@ export function GuestCardBody({
           </p>
         </div>
       </div>
+      ) : null}
 
       {/* ── TOP · WHAT YOU DO MOST (owner-approved drawing `guests_redesign_2026-11-20_fable.html` § 3, "Yes, build it" 20 Nov
           2026): four quick actions with words — Send invite · Call · Seat · Note — then "Their ticket", ONE row you tap to
@@ -680,8 +686,11 @@ export function GuestCardBody({
               kept their handles (`handle`) and every field inside them; only their words changed: Basic Info → Name and
               contact · Details → Role and group · Additional Guests → Plus-ones · RSVP Status → Reply · Seat Plan → Seat ·
               Papic → Photos · Note for them · Private note → Notes. */}
-          <p className="sn-eye px-0.5 pb-1 pt-4" data-card-group="about">
+          <p className="sn-eye flex items-center px-0.5 pb-1 pt-4" data-card-group="about">
             About
+            {/* ✓ Saved (owner-approved 2026-10-23) — here, at the head of the rows that save themselves, when the identity
+                block above is not drawn. One slot either way. */}
+            {identityShown ? null : <span id={`${formId}-saved`} className="ml-auto normal-case tracking-normal" data-guest-card-save-slot="" />}
           </p>
           {/* 🎨 Missing shows in colour: with no mobile the row says "Add a mobile", in the accent; filled, it is grey. */}
           <K.Fold summary="Name and contact" handle="Basic Info" value={guest.mobile?.trim() ? basicSummary : null} emptyValue="Add a mobile" missing={!guest.mobile?.trim()}>
@@ -1042,7 +1051,7 @@ export function GuestCardBody({
           </K.Fold>
 
           {/* ══ 6 · SEAT PLAN — the table, in place (never "go edit elsewhere") ════════════════════════════════════════ */}
-          <K.Fold summary="Seat" handle="Seat Plan" value={seatSummary}>
+          <K.Fold summary="Seat" handle="Seat Plan" value={seatSummary} unread={seatUnread === true}>
             {representedBy ? (
               /* 🧍 The role's seat moved to the proxy (`the_proxy_takes_the_seat`) — the holder is not seated twice. */
               <p className="text-sm text-ink/70" data-guest-seat-is-the-proxys="">

@@ -382,7 +382,7 @@ test('12 · Door A carries the first card through finalize — the claimed welco
   assert.match(TODAY, /cardNote=\{claimCardFrom\(search\)\}/);
   // P5's Cards row is never ticked — the cards are drafts until the switch says otherwise.
   assert.match(DOOR, /\$\{CLAIM_CARDS_MADE_AS\}`[^\n]*ok: false \}/);
-  assert.match(sb.CLAIM_CARDS_MADE_AS, /drafts/);
+  assert.match(sb.CLAIM_CARDS_MADE_AS, /^made when you open — Today says/);
 });
 
 test('14 · the ✓ survives only what is true now (20 Nov review)', async () => {

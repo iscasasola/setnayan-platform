@@ -419,7 +419,7 @@ export function firstCardLiveFrom(redirectUrl: string | null | undefined): { liv
 /** The draft card's button on the welcome — asks the shipped switch again (idempotent: no second card is made). */
 export const FIRST_CARD_RETRY = 'Put it on my page';
 /** P5 on the claim door — what happens to the cards it lists (made as drafts; Today says which went on the page). */
-export const CLAIM_CARDS_MADE_AS = 'made when you open, as drafts; Today says which are on your page';
+export const CLAIM_CARDS_MADE_AS = 'made when you open — Today says which are on your page';
 /** A door that made cards as drafts with no single card to carry (the claim door's picks). */
 export const FIRST_CARD_DRAFTS_LINE = 'Your cards are made as drafts — put each on your page from the Card Maker.';
 

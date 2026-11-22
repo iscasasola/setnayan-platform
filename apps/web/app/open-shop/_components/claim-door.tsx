@@ -1189,7 +1189,7 @@ export function ClaimDoor({
       { key: 'shop', name: 'Shop', value: d.name.trim() || record.business, ok: true },
       // 🃏 No ✓ on Cards (review 20 Nov, as Door B's PB5): they are made when the shop opens, as drafts, and only the
       // shipped switch puts the first on the page — Today says which are.
-      { key: 'cards', name: 'Cards', value: cardNames.length ? `${cardNames.join(' · ')} — ${CLAIM_CARDS_MADE_AS}` : team ? 'None yet — add one from Today' : 'None yet — the booking stays in Clients', ok: false },
+      { key: 'cards', name: 'Cards', value: cardNames.length ? `${cardNames.join(' · ')} · ${CLAIM_CARDS_MADE_AS}` : team ? 'None yet — add one from Today' : 'None yet — the booking stays in Clients', ok: false },
       ...(team ? [] : [{ key: 'client', name: 'Client', value: record.inviterName, ok: true }]),
     ];
     body = (

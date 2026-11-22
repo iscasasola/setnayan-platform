@@ -13,7 +13,7 @@ main did not have. Door B already works this way; Door A now does too.
   welcome never re-makes it.
 - **The ✓ is held to the database.** "Your shop and first card" is ticked only when a live card is read back now
   (`readHasLiveCard`, read only on `?card=live`); a reload or a hand-typed `?card=live` cannot fake it.
-- **P5's Cards row has no ✓** and says the cards are made as drafts when the shop opens.
+- **P5's Cards row has no ✓** and says the cards are made when the shop opens; Today says which are on the page.
 - Lab: `/dev/open-shop-lab?screen=welcome&kind=claimed|opened&card=…` draws the welcome on fixtures.
 - Tests: `lib/supplier-onboarding.test.ts` 12 and 14 (new), 11 and `the-claim-door.test.ts` 4 (pins follow).
 

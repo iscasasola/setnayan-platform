@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useId, useRef, useState } from 'react';
-import { Award, Gift, ShoppingBag, Sparkles, Ticket } from 'lucide-react';
+import { Award, Gift, ShoppingBag, Ticket } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { Counter } from '@/app/_components/counter';
 import { Fold } from '@/app/_components/fold';
@@ -17,16 +17,25 @@ import { formatPhp } from '@/lib/php';
 import type { OpenRail } from '@/lib/payment-channels';
 import {
   SHOP_GIFT_MAX_QUANTITY,
+  bundleFreePacks,
   SHOP_GIFT_UNLOCK_KINDS,
+  freeCredits,
   giftCount,
-  giftUnitPrice,
   shopGiftBuyable,
-  stockSubline,
   type FreeByKind,
+  type ShopGiftBundle,
   type ShopGiftKind,
   type ShopGiftPack,
+  type ShopGiftStock,
   type ShopGiftStocks,
 } from '@/lib/shop-gifts';
+import { bump, canAdd, type GiftCart } from '@/lib/shop-gift-cart';
+import type { GiftHistoryRow } from '@/lib/shop-gift-history';
+import { GiftHistory, GiftStore, GiftTicketSheet } from './gift-store';
+import { GiftReturnBanner } from './gift-return-banner';
+import { useSearchParams } from 'next/navigation';
+import { GiftTicketArt } from './gift-ticket-art';
+import { GIFT_PAYMENT_SENT, bundleShape } from './gift-store-copy';
 import {
   FREE_FEE_SUBLINE,
   FREE_FEE_TITLE,
@@ -48,6 +57,10 @@ export type ShopGiftBoughtLine = {
   kind?: ShopGiftKind;
   quantity: number;
   paidPhp: number;
+  /** 📦 Packs this order landed — a bundle lands its whole count. Absent ⇒ `quantity`. */
+  packs?: number;
+  /** 📦 "Buy 10, get 1 free" on a bundle order. */
+  bundleNote?: string | null;
   createdAt: string;
   state: 'in_stock' | 'checking' | 'refunded';
 };
@@ -57,10 +70,23 @@ export type ShopGiftsSectionData = {
   stock: ShopGiftStocks | null;
   /** null ⇒ the catalogue could not be read; [] ⇒ nothing on sale. */
   packs: ShopGiftPack[] | null;
-  /** Verified-and-up pays the catalogue's gift price (`vendor_pays_gift_price`). */
-  paysGiftPrice: boolean;
-  /** null ⇒ the purchases could not be read. */
-  bought: ShopGiftBoughtLine[] | null;
+  /**
+   * 📦 BUY 10, GET 1 FREE bundles on sale (owner 2026-11-14), from the catalogue. Every shop may buy them. [] ⇒ none on
+   * sale; null ⇒ the bundles could not be read (the Buy sheet says so — never "no bundles"). The singles stay on sale
+   * either way. ONE price per single gift: its list price.
+   */
+  bundles: ShopGiftBundle[] | null;
+  /**
+   * 🧾 Transaction history (prototype v16, 2026-11-17): bought orders and gifts given, newest first
+   * (`fetchShopGiftHistory`). null ⇒ could not be read — never "nothing bought".
+   */
+  history: GiftHistoryRow[] | null;
+  /** 🚚 Tickets a SENT payment will land once approved, per gift code ("+N on the way"). */
+  onTheWay: Readonly<Record<string, number>>;
+  /** 🎁 Every ticket given to a couple's event. null ⇒ could not be read. */
+  givenTotal: number | null;
+  /** 💳 The most in one payment — the admin setting (`getMaxPaymentPhp`), never typed here. */
+  maxPaymentPhp: number;
   openRails: OpenRail[];
   /** Papic on, and not inside the App Store shell (supplier purchases stay on the web). */
   canBuy: boolean;
@@ -77,15 +103,10 @@ export type ShopGiftsSectionData = {
 };
 
 const IDLE: BuyVendorPapicPortfolioPackState = { status: 'idle' };
-const ic = <Gift aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
-const icUnlock = <Sparkles aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
 const icFee = <Ticket aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
 const icReward = <Award aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
+const ic = <Gift aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
 
-/**
- * The "🏅 300" chip on a stock row when some of it is badge reward — the mark that tells it apart from bought stock,
- * kept short so the row's own line still fits a phone (the ⓘ says what 🏅 means; the Badge rewards fold lists each).
- */
 /** A plan's name when its catalogue row could not be read — the catalogue's own titles. */
 const UNLOCK_FALLBACK_TITLE: Readonly<Record<(typeof SHOP_GIFT_UNLOCK_KINDS)[number], string>> = {
   event_plus: 'Event Plus',
@@ -93,10 +114,42 @@ const UNLOCK_FALLBACK_TITLE: Readonly<Record<(typeof SHOP_GIFT_UNLOCK_KINDS)[num
   event_ultra: 'Event Ultra',
 };
 
-function rewardChip(left: FreeByKind | null | undefined, k: ShopGiftKind): { tone: 'ok'; word: string } | null {
-  const n = left?.[k] ?? 0;
-  return n > 0 ? { tone: 'ok', word: `🏅 ${giftCount(n)}` } : null;
+/** One ticket in "Available": a gift on sale, or one the shop still holds that is no longer on sale. */
+type Tile = { pack: ShopGiftPack; onSale: boolean; stock: ShopGiftStock | null };
+
+/**
+ * The tickets, in the store's order: every Papic pack (smallest first) then Event Plus / Pro / Ultra — each on sale or
+ * held. A gift neither on sale nor held draws no ticket (never a tile for nothing).
+ */
+function tiles(packs: readonly ShopGiftPack[], stock: ShopGiftStocks | null): Tile[] {
+  const out: Tile[] = [];
+  const papic = packs.filter((p) => p.kind === 'papic');
+  papic.forEach((p) => out.push({ pack: p, onSale: true, stock: stock ? (stock.packs[p.code] ?? { balance: 0, held: 0 }) : null }));
+  for (const [code, st] of Object.entries(stock?.packs ?? {})) {
+    if (out.some((t) => t.pack.code === code) || (st.balance === 0 && st.held === 0)) continue;
+    // Held but off sale: its title is its code (the catalogue no longer names it); 1 credit so the Papic ticket prints.
+    out.push({ pack: { code, title: code, kind: 'papic', credits: 1, srpCentavos: 0 }, onSale: false, stock: st });
+  }
+  for (const k of SHOP_GIFT_UNLOCK_KINDS) {
+    const pack = packs.find((p) => p.kind === k);
+    const st = stock?.[k] ?? null;
+    if (!pack && !(st && (st.balance !== 0 || st.held > 0))) continue;
+    out.push({
+      pack: pack ?? { code: k, title: UNLOCK_FALLBACK_TITLE[k], kind: k, credits: 1, srpCentavos: 0 },
+      onSale: !!pack,
+      stock: stock ? (st ?? { balance: 0, held: 0 }) : null,
+    });
+  }
+  return out;
 }
+
+const HISTORY_ICON = (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M12 7v5l4 2" />
+  </svg>
+);
 
 function day(iso: string): string {
   const d = new Date(iso);
@@ -105,34 +158,34 @@ function day(iso: string): string {
     : d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
 }
 
-const STATE_WORD: Record<ShopGiftBoughtLine['state'], string | null> = {
-  in_stock: null,
-  checking: 'Checking',
-  refunded: 'Refunded',
-};
+/** How long the "Added to your order" toast stays (its fade-out starts at 2 s, gift-store.module.css). */
+const GIFT_TOAST_MS = 2400;
 
 /**
- * 🎁 YOUR GIFTS — the supplier's gift stock (owner 2026-11-04, prototype supplier dashboard v59 "Your gifts").
+ * 🎁 YOUR GIFTS — the supplier's gift stock and its STORE (owner-approved prototype `gifts-interactive` v16, 2026-11-17,
+ * "build it"; first drawn as prototype supplier dashboard v59 "Your gifts", 2026-11-04).
  *
- *   Your gifts ⓘ                      (title; everything else in the ⓘ)
- *   Papic credits · N free to offer · M on sent quotes          [balance]
- *   Event Plus · Event Pro — the same row, as COUNTS (slice 2, 2026-11-05), each once it is on sale or in stock
- *   [Buy gifts]                        → the Buy sheet: Gift ▾ · How many − n + · Total · Pay with ▾ · Pay ₱X
- *   Bought ▾                           qty × title · date · ₱ (Checking / Refunded when so)
- *   the quiet line                     where gifts go, in one sentence
+ *   Your gifts ⓘ
+ *   [ Total · Available · Held · Given · ⟲ History ]   one card, five cells (Total = available + held)
+ *   ✓ Payment sent. We're checking it. …              while a sent payment waits for approval
+ *   Available                                          (no count chip)
+ *   ticket ticket                                      two per row: the ticket, "N available", "M held on a quote",
+ *   ticket ticket                                      "+N on the way" — tap one → its sheet (Add 1 · Add 10 + 1)
+ *   [Buy more]                                         → the store (singles − n +, then 10 + 1 bundles; one order)
+ *   Free booking fee · Next event with us · Badge rewards ▾ · the quiet line — unchanged from the shipped section
  *
- * 📣 HOME: Shop › Promote (owner 2026-11-05, "one Promote place for every marketing tool") — moved here from the Plan page
- * unchanged; its reads moved with it (`shop-gifts-data.ts`). `#gifts` is its address (the pinned row's gifts figure).
+ * ⟲ History is its own screen (‹ Your gifts): bought orders (Waiting for approval / In your gifts) and gifts given. It
+ * replaces the old "Bought" fold and carries every row that fold had.
  *
- * Presentational: every value arrives read. The ONE write is the shipped buy action (`for=gift`), which mints the order
- * and its quantity; the stock moves only when the payment is approved (`grantShopGiftPurchase`).
+ * 📣 HOME: Shop › Promote (owner 2026-11-05) — `#gifts` is its address. Presentational: every value arrives read. The
+ * ONE write is the shipped buy action: `for=gift_cart` (the store) or `for=gift` (the quote's Buy sheet), which mints the
+ * order; the stock moves only when an ADMIN approves the payment (`lib/sku-activation.ts`).
  */
 export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
-  const [buying, setBuying] = useState(false);
   const headingId = useId();
-  const { stock, bought } = data;
+  const { stock, history } = data;
   const packs = data.packs ?? [];
-  // 💎 Event Ultra is earned (Black Diamond), never bought — its row shows the count, the buy sheet leaves it out.
+  // 💎 Every gift is in the store — Event Ultra too, at its list price (owner 2026-11-17).
   const buyPacks = packs.filter((p) => shopGiftBuyable(p.code));
   const canOffer = data.canBuy && stock !== null && buyPacks.length > 0;
   const rewards = data.rewards;
@@ -140,51 +193,150 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
   const fee = granted ? freeFeeSummary(granted) : null;
   const stockRewards = granted?.filter((g) => g.kind !== 'fee_waiver') ?? [];
 
+  const [cart, setCart] = useState<GiftCart>({});
+  const [view, setView] = useState<'store' | 'history' | null>(null);
+  const [sheetCode, setSheetCode] = useState<string | null>(null);
+  const [flash, setFlash] = useState<{ code: string; n: number } | null>(null);
+  const [toast, setToast] = useState<{ label: string; n: number; key: number } | null>(null);
+  // The "Added to your order" toast leaves on its own (gift-store.module.css fades it out at 2 s) — and is taken off the
+  // screen here, so with reduced motion (no fade) it still shows, then goes, rather than never showing or never going.
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), GIFT_TOAST_MS);
+    return () => window.clearTimeout(t);
+  }, [toast]);
+
+  const list = tiles(packs, stock);
+  const free = (t: Tile) => (t.stock ? freeCredits(t.stock) ?? 0 : null);
+  const totals = stock
+    ? list.reduce((acc, t) => ({ available: acc.available + (free(t) ?? 0), held: acc.held + (t.stock?.held ?? 0) }), { available: 0, held: 0 })
+    : null;
+  // null ⇒ the bundle list could not be read (#7678): the store says so; the singles stay on sale.
+  const bundles = data.bundles ?? [];
+  const bundlesUnread = data.bundles === null;
+  const sent = (history ?? []).some((r) => r.kind === 'bought' && r.state === 'sent');
+  const sheetTile = list.find((t) => t.pack.code === sheetCode) ?? null;
+  const bundleOf = (code: string) => bundles.find((b) => b.pack.code === code) ?? null;
+  // 🎁 Sent here from a booking's Agree step ("0 left · Buy more ›", #7823): the store opens with THAT gift in the order.
+  const askedGift = useSearchParams().get('gift');
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current || !askedGift || !canOffer) return;
+    opened.current = true;
+    if (canAdd({}, askedGift, buyPacks, bundles, data.maxPaymentPhp) !== 'ok') return;
+    setCart(bump({}, askedGift, 1));
+    setFlash({ code: askedGift, n: 1 });
+    setView('store');
+  }, [askedGift, canOffer, buyPacks, bundles, data.maxPaymentPhp]);
+
+  /** Add from a ticket's sheet: into the order, then the store opens on THAT row (prototype v16 — no "Just added" box). */
+  const addFromSheet = (code: string) => {
+    if (canAdd(cart, code, buyPacks, bundles, data.maxPaymentPhp) !== 'ok') return;
+    const next = bump(cart, code, 1);
+    setCart(next);
+    const b = bundles.find((x) => x.code === code);
+    const title = b ? `${b.pack.title} · ${bundleShape(b).label}` : (buyPacks.find((p) => p.code === code)?.title ?? code);
+    const n = next[code] ?? 0;
+    setSheetCode(null);
+    setFlash({ code, n });
+    setToast({ label: title, n, key: Date.now() });
+    setView('store');
+  };
+
+  const cell = (n: number | null, word: string, dataName: string) => (
+    <div className="grid min-h-16 content-center justify-items-center gap-0.5 px-0.5 py-3 text-center" data-gift-stat={dataName}>
+      <b className="text-[20px] leading-tight text-ink tabular-nums">{n === null ? '—' : formatCount(n)}</b>
+      <span className="text-[11.5px] text-ink/60">{word}</span>
+    </div>
+  );
+
   return (
     <section id="gifts" className="mt-8 scroll-mt-24" data-shop-gifts="" aria-labelledby={headingId}>
       <InfoTip label="Your gifts" labelAs="h2" labelClassName="sn-sec" labelId={headingId} align="start">
         Bought ahead, for your couples. Put them on a quote; they leave your stock only when that couple&rsquo;s first
         payment clears, and land on their event. Never cashed out. Every badge you earn adds its reward here too, marked
-        Badge reward (🏅 on a row is how much of it is): it never expires and sits outside a booking&rsquo;s gift limit. A free booking fee is used by
+        Badge reward (🏅 on a ticket is how much of it is): it never expires and sits outside a booking&rsquo;s gift limit. A free booking fee is used by
         itself on your next booking that would carry a fee.
       </InfoTip>
 
+      <GiftReturnBanner className="mt-2" />
       <div className="mt-2">
-        <DatesRow
-          data="shop-gifts-papic"
-          lead={ic}
-          title="Papic credits"
-          line={stockSubline(stock?.papic ?? null)}
-          strong={stock ? formatCount(stock.papic.balance) : null}
-          badge={stock ? rewardChip(rewards?.left, 'papic') : null}
-        />
-        {SHOP_GIFT_UNLOCK_KINDS.map((k) => {
-          const pack = packs.find((p) => p.kind === k);
-          const s = stock?.[k] ?? null;
-          // A count is shown once the product is on sale or the shop holds some — never a row for nothing.
-          if (!pack && !(s && (s.balance !== 0 || s.held > 0))) return null;
-          return (
-            <DatesRow
-              key={k}
-              data={`shop-gifts-${k.replace('_', '-')}`}
-              lead={icUnlock}
-              title={pack?.title ?? UNLOCK_FALLBACK_TITLE[k]}
-              line={stockSubline(s)}
-              strong={stock ? formatCount(s?.balance ?? 0) : null}
-              badge={stock ? rewardChip(rewards?.left, k) : null}
-            />
-          );
-        })}
-
-        {rewards ? (
-          <DatesRow
-            data="shop-gifts-free-fee"
-            lead={icFee}
-            title={FREE_FEE_TITLE}
-            line={fee === null ? 'Couldn’t read your badge rewards right now' : FREE_FEE_SUBLINE}
-            strong={fee ? formatCount(fee.waiting) : null}
-          />
+        {/* 🔢 One card, five cells (prototype v16): Total (available + held) · Available · Held · Given · History. */}
+        <div
+          className="grid grid-cols-5 divide-x divide-ink/[0.08] rounded-2xl bg-frame shadow-sn-frame"
+          data-gift-stats=""
+        >
+          {cell(totals ? totals.available + totals.held : null, 'Total', 'total')}
+          {cell(totals ? totals.available : null, 'Available', 'available')}
+          {cell(totals ? totals.held : null, 'Held', 'held')}
+          {cell(data.givenTotal, 'Given', 'given')}
+          <button
+            type="button"
+            onClick={() => setView('history')}
+            aria-label="Transaction history"
+            className="sn-press grid min-h-16 content-center justify-items-center gap-0.5 px-0.5 py-3 text-sn-accent"
+            data-testid="shop-gifts-history"
+          >
+            {HISTORY_ICON}
+            <span className="text-[11.5px] font-semibold">History</span>
+          </button>
+        </div>
+        {stock === null ? (
+          <p className="mt-2 text-[13.5px] text-ink/70" role="status">
+            Couldn&rsquo;t read your gifts right now. Reload to try again — nothing has changed.
+          </p>
         ) : null}
+
+        {sent ? (
+          <div className="mt-3 flex items-center gap-2 rounded-xl bg-frame px-3.5 py-3 shadow-sn-frame text-[14px] text-ink" role="status" data-gift-payment-sent="">
+            <span aria-hidden className="text-success-700">✓</span>
+            <span>
+              <b>{GIFT_PAYMENT_SENT.lead}</b>
+              {GIFT_PAYMENT_SENT.rest}
+            </span>
+          </div>
+        ) : null}
+
+        <p className="mt-4 text-[17px] font-bold text-ink">Available</p>
+        <div className="mt-2 grid grid-cols-2 gap-2.5" data-gift-tiles="">
+          {list.map((t) => {
+            const n = free(t);
+            const chip = rewardChipOf(rewards?.left, t.pack);
+            const onWay = data.onTheWay[t.pack.code] ?? 0;
+            const tappable = t.onSale;
+            const inner = (
+              <>
+                <GiftTicketArt pack={t.pack} className={`mx-auto h-auto w-full ${n === 0 ? 'opacity-55 grayscale-[35%]' : ''}`} />
+                <div className="mt-0.5 flex items-baseline justify-center gap-1.5 border-t border-ink/10 pt-2">
+                  <b className="text-[20px] leading-none text-ink tabular-nums">{n === null ? '—' : formatCount(n)}</b>
+                  <i className="text-[12.5px] not-italic text-ink/60">available</i>
+                </div>
+                {t.stock && t.stock.held > 0 ? (
+                  <p className="text-center text-[11.5px] font-semibold text-sn-accent">{formatCount(t.stock.held)} held on a quote</p>
+                ) : null}
+                {onWay > 0 ? <p className="text-center text-[11.5px] font-bold text-success-700">+{formatCount(onWay)} on the way</p> : null}
+                {chip ? <p className="text-center text-[11.5px] text-ink/60">{chip}</p> : null}
+                <span className="sr-only">{t.pack.title}</span>
+              </>
+            );
+            return tappable ? (
+              <button
+                key={t.pack.code}
+                type="button"
+                onClick={() => setSheetCode(t.pack.code)}
+                aria-label={`${t.pack.title}: ${n === null ? 'unread' : `${formatCount(n)} available`}`}
+                className="sn-press grid min-w-0 content-start gap-1.5 rounded-2xl bg-frame px-2.5 pb-3 pt-2.5 text-left shadow-sn-frame-tile"
+                data-gift-tile={t.pack.code}
+              >
+                {inner}
+              </button>
+            ) : (
+              <div key={t.pack.code} className="grid min-w-0 content-start gap-1.5 rounded-2xl bg-frame px-2.5 pb-3 pt-2.5 shadow-sn-frame-tile" data-gift-tile={t.pack.code}>
+                {inner}
+              </div>
+            );
+          })}
+        </div>
 
         {canOffer ? (
           <div className="mt-3">
@@ -192,9 +344,14 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
               tone="brand"
               main
               icon={ShoppingBag}
-              label="Buy gifts"
-              onClick={() => setBuying(true)}
+              label="Buy more"
+              onClick={() => {
+                setFlash(null);
+                setToast(null);
+                setView('store');
+              }}
               aria-haspopup="dialog"
+              className="w-full"
               data-testid="shop-gifts-buy"
             />
           </div>
@@ -204,52 +361,26 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
           </p>
         ) : null}
 
-        {/* 🎁 NEXT EVENT WITH US (prototype 6 Nov § 6, "one new row") — what a couple who booked you gets when they book
-            you again. NOTHING CAN BE SET YET (coordinator, 6 Nov: show the state honestly, invent no gift): there is no
-            offer store and no claim on a later booking, so the row says so instead of opening a sheet that saves
-            nowhere. The host thank-you (§ 3) draws no offer block for the same reason. */}
-        <div className="mt-3" data-shop-gifts-next-event="">
-          <DatesRow
-            data="shop-gifts-next-event"
-            lead={ic}
-            title="Next event with us"
-            line="Not set · can’t be set here yet"
-          />
-        </div>
+        {rewards ? (
+          <div className="mt-3">
+            <DatesRow
+              data="shop-gifts-free-fee"
+              lead={icFee}
+              title={FREE_FEE_TITLE}
+              line={fee === null ? 'Couldn’t read your badge rewards right now' : FREE_FEE_SUBLINE}
+              strong={fee ? formatCount(fee.waiting) : null}
+            />
+          </div>
+        ) : null}
 
-        <div className="mt-3 border-t border-ink/10" data-plan-fold="gifts-bought">
-          <Fold
-            title="Bought"
-            line={bought === null ? 'Couldn’t load — nothing is lost' : bought.length > 0 ? `${formatCount(bought.length)}` : 'None yet'}
-            data="shop-gifts-bought"
-          >
-            <div className="pb-3">
-              {bought === null ? (
-                <p className="py-2 text-[13.5px] text-ink/70" role="status">
-                  Your gift purchases couldn&rsquo;t load. Reload to try again — nothing you bought has changed.
-                </p>
-              ) : bought.length === 0 ? (
-                <p className="py-2 text-[13.5px] text-ink/60">Nothing bought yet.</p>
-              ) : (
-                bought.map((b) => {
-                  const word = STATE_WORD[b.state];
-                  return (
-                    <DatesRow
-                      key={b.orderId}
-                      data="shop-gifts-bought-row"
-                      title={`${formatCount(b.quantity)} × ${b.title}`}
-                      line={`${day(b.createdAt)} · ${formatPhp(b.paidPhp)}`}
-                      badge={word ? { tone: 'quiet', word } : null}
-                    />
-                  );
-                })
-              )}
-            </div>
-          </Fold>
+        {/* 🎁 NEXT EVENT WITH US (prototype 6 Nov § 6, "one new row") — NOTHING CAN BE SET YET (coordinator, 6 Nov: show
+            the state honestly, invent no gift): there is no offer store and no claim on a later booking. */}
+        <div className="mt-3" data-shop-gifts-next-event="">
+          <DatesRow data="shop-gifts-next-event" lead={ic} title="Next event with us" line="Not set · can’t be set here yet" />
         </div>
 
         {rewards ? (
-          <div className="border-t border-ink/10" data-plan-fold="gifts-badge-rewards">
+          <div className="mt-3 border-t border-ink/10" data-plan-fold="gifts-badge-rewards">
             <Fold
               title="Badge rewards"
               line={granted === null ? 'Couldn’t load — nothing is lost' : granted.length > 0 ? `${formatCount(granted.length)}` : 'None yet'}
@@ -296,43 +427,83 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
         </p>
       </div>
 
+      <GiftTicketSheet
+        pack={sheetTile?.pack ?? null}
+        bundle={sheetTile ? bundleOf(sheetTile.pack.code) : null}
+        available={sheetTile ? free(sheetTile) : null}
+        cart={cart}
+        packs={buyPacks}
+        bundles={bundles}
+        maxPaymentPhp={data.maxPaymentPhp}
+        canBuy={canOffer}
+        onClose={() => setSheetCode(null)}
+        onAdd={addFromSheet}
+      />
       {canOffer ? (
-        <BuyGiftsSheet
-          open={buying}
-          onClose={() => setBuying(false)}
+        <GiftStore
+          open={view === 'store'}
+          onClose={() => setView(null)}
+          cart={cart}
+          setCart={setCart}
           packs={buyPacks}
-          paysGiftPrice={data.paysGiftPrice}
+          bundles={bundles}
+          bundlesUnread={bundlesUnread}
+          maxPaymentPhp={data.maxPaymentPhp}
           openRails={data.openRails}
+          flash={flash}
+          toast={toast}
         />
       ) : null}
+      <GiftHistory open={view === 'history'} onClose={() => setView(null)} rows={history} />
     </section>
   );
 }
 
-/** The Buy sheet — the shipped pack-buy pair (Pack ▾ · Pay with ▾ · Submit) plus "How many". */
+/**
+ * The "🏅 N" line on a ticket when some of its stock is badge reward. Papic is kept PER PACK (#7678: a Gold reward is a
+ * Papic 1000, a Ruby a Papic 3000 — never six Papic 150s), so each Papic ticket reads its own pack's reward packs.
+ */
+function rewardChipOf(left: FreeByKind | null | undefined, pack: ShopGiftPack): string | null {
+  const n = pack.kind === 'papic' ? Math.floor(left?.packs?.[pack.code] ?? 0) : Math.floor(left?.[pack.kind] ?? 0);
+  return n > 0 ? `🏅 ${giftCount(n)} badge reward` : null;
+}
+
+/**
+ * The Buy sheet — the shipped pack-buy pair (Gift ▾ · Pay with ▾ · Submit) plus "How many". 📦 Since 2026-11-14 the Gift
+ * menu opens with the BUY 10, GET 1 FREE bundles, then each single gift at its ONE price (the list price) — Event Ultra
+ * beside Plus and Pro. No second price is drawn: every price is the price couples pay.
+ */
 export function BuyGiftsSheet({
   open,
   onClose,
   packs,
-  paysGiftPrice,
+  bundles: bundlesRead = [],
   openRails,
   initialCode,
+  note,
 }: {
+  /** One more quiet line under "Lands in your gifts…" — Add a client's "Buy and add" (Own clients v4). */
+  note?: string;
   open: boolean;
   onClose: () => void;
   packs: ShopGiftPack[];
-  paysGiftPrice: boolean;
+  /** null ⇒ the bundles could not be read: a line says so, the singles stay on sale. */
+  bundles?: ShopGiftBundle[] | null;
   openRails: OpenRail[];
   initialCode?: string | null;
 }) {
+  const bundles = bundlesRead ?? [];
+  const bundlesUnread = bundlesRead === null;
   const headingId = useId();
   const toast = useToast();
   const [state, formAction] = useActionState(buyVendorPapicPortfolioPack, IDLE);
   const handled = useRef<BuyVendorPapicPortfolioPackState | null>(null);
-  const [code, setCode] = useState<string | null>(initialCode ?? packs[0]?.code ?? null);
+  const [code, setCode] = useState<string | null>(initialCode ?? bundles[0]?.code ?? packs[0]?.code ?? null);
   const [qty, setQty] = useState(1);
   const [rail, setRail] = useState<string | null>(openRails[0]?.id ?? null);
-  const pack = packs.find((p) => p.code === code) ?? packs[0] ?? null;
+  const bundle = bundles.find((b) => b.code === code) ?? null;
+  const pack = bundle ? null : (packs.find((p) => p.code === code) ?? (bundles.length === 0 ? packs[0] : null) ?? null);
+  const picked = bundle ?? pack ?? bundles[0] ?? packs[0] ?? null;
 
   useEffect(() => {
     if (state === handled.current) return;
@@ -340,10 +511,11 @@ export function BuyGiftsSheet({
     if (state.status === 'error') toast.error(state.message);
   }, [state, toast]);
 
-  if (!pack) return null;
-  const unit = giftUnitPrice(pack, paysGiftPrice);
-  const totalPhp = (unit.centavos * qty) / 100;
-  const srpTotalPhp = (pack.srpCentavos * qty) / 100;
+  if (!picked) return null;
+  const isBundle = 'pack' in picked;
+  const unitCentavos = isBundle ? picked.priceCentavos : picked.srpCentavos;
+  const totalPhp = (unitCentavos * qty) / 100;
+  const free = isBundle ? bundleFreePacks(picked) : 0;
 
   return (
     <Sheet open={open} onClose={onClose} labelledById={headingId} rise>
@@ -351,25 +523,42 @@ export function BuyGiftsSheet({
         <h2 id={headingId} className="pr-12 text-[18px] font-semibold text-ink">
           Buy gifts
         </h2>
-        <p className="mt-1 text-[13.5px] text-ink/60">Lands in your gifts when the payment is approved.</p>
+        <p className="mt-1 text-[13.5px] text-ink/60">Lands in your gifts when the payment is approved.{note ? ` ${note}` : ''}</p>
 
         {openRails.length === 0 ? (
           <PaymentsPausedNote className="mt-4" />
         ) : (
           <form action={formAction} className="mt-4 space-y-4">
+            {bundlesUnread ? (
+              <p data-gift-bundles-unread="" role="status" className="text-sm text-ink/70">
+                Couldn’t load the Buy 10, get 1 free bundles just now — reload to see them.
+              </p>
+            ) : null}
             <input type="hidden" name="for" value="gift" />
-            <input type="hidden" name="pack" value={pack.code} />
+            <input type="hidden" name="pack" value={picked.code} />
             <input type="hidden" name="quantity" value={qty} />
             <input type="hidden" name="channel" value={rail ?? ''} />
 
             <PickMenu
               label="Gift"
-              value={pack.code}
+              value={picked.code}
               className="!min-h-11 w-full"
-              options={packs.map((p) => ({
-                key: p.code,
-                label: `${p.title} · ${formatPhp(giftUnitPrice(p, paysGiftPrice).centavos / 100)} each`,
-              }))}
+              options={[
+                ...bundles.map((b) => {
+                  const f = bundleFreePacks(b);
+                  return {
+                    key: b.code,
+                    label: `${b.title} · ${formatPhp(b.priceCentavos / 100)}`,
+                    hint: `${formatCount(b.quantity)} × ${b.pack.title} in your gifts`,
+                    group: f > 0 ? `Buy ${formatCount(b.quantity - f)}, get ${formatCount(f)} free` : 'Bundles',
+                  };
+                }),
+                ...packs.map((p) => ({
+                  key: p.code,
+                  label: `${p.title} · ${formatPhp(p.srpCentavos / 100)} each`,
+                  group: bundles.length > 0 ? 'One at a time' : undefined,
+                })),
+              ]}
               onPick={(key) => setCode(key)}
               dataAttr="data-shop-gifts-pack"
             />
@@ -393,13 +582,15 @@ export function BuyGiftsSheet({
               <p className="flex justify-between">
                 <span className="text-ink/70">You get</span>
                 <span className="tabular-nums">
-                  {pack.kind === 'papic' ? `${formatCount(pack.credits * qty)} credits` : `${formatCount(qty)} × ${pack.title}`}
+                  {isBundle
+                    ? `${formatCount(picked.quantity * qty)} × ${picked.pack.title}`
+                    : `${formatCount(qty)} × ${picked.title}`}
                 </span>
               </p>
-              {unit.basis === 'gift' ? (
-                <p className="flex justify-between" data-shop-gifts-srp="">
-                  <span className="text-ink/70">Price couples pay</span>
-                  <s className="tabular-nums text-ink/50">{formatPhp(srpTotalPhp)}</s>
+              {isBundle && free > 0 ? (
+                <p className="flex justify-between" data-shop-gifts-free="">
+                  <span className="text-ink/70">Free in {qty > 1 ? 'these bundles' : 'this bundle'}</span>
+                  <span className="tabular-nums">{`${formatCount(free * qty)} × ${picked.pack.title}`}</span>
                 </p>
               ) : null}
               <p className="flex justify-between font-semibold">

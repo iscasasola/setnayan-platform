@@ -7,7 +7,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { Badge } from '@/app/_components/badge';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
-import { safeNext } from '@/lib/auth';
+import { safeNext, getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { resolveActiveShopId } from '@/lib/active-shop';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -30,6 +30,7 @@ import { getInPlanningWedding } from './wedding-guard';
 import { readPlanTogether } from '@/lib/plan-together.server';
 import { EventTypePicker } from './_components/event-type-picker';
 import { NewEventHead } from './_components/new-event-head';
+import { FoilArm } from '@/app/_components/signature/foil-glint';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
    V2 has no Concierge choice card on create-event; every new event
    lands in DIY by default. */
@@ -151,9 +152,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // of the form. A SETTLED wedding (archived, or completed) does NOT block — so
   // remarriage works. The server action re-checks authoritatively.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const inPlanningWedding = user ? await getInPlanningWedding(supabase, user.id) : null;
   // 🚪 A brand-new account's FIRST screen after the You card (owner 2026-10-21, prototype
   // first_run_you_and_next_steps P2): there is no board behind it yet, so no "Back to events". A count, not the
@@ -404,6 +403,8 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8 [[data-create-event-in-panel]_&]:pt-4">
+      {/* 🕯 Foil glint (motion standard § 9 ②): this visit is creating an event — the one it lands on glints once. */}
+      <FoilArm />
       <NewEventHead nothingBehind={nothingBehind} samahan={samahan} />
 
       <EventTypePicker

@@ -421,6 +421,7 @@ const STILL_DRAWS: RegExp[] = [
 
 /** Still ON PURPOSE — each with the reason it is not a screen showing the saved logo. */
 const STILL: Record<string, string> = {
+  'app/dev/cake-maker-lab/lab.tsx': 'a dev lab’s placeholder inspiration PHOTOS (a drawn cake stand-in as an svg data URI) — no logo at all',
   'app/_components/bespoke-monogram-mark.tsx': 'the still renderer itself — every playing surface hands it in as its `still`',
   'app/_components/gold-monogram-reveal.tsx': 'a reveal animation of its own; the mark is its mask',
   'app/[slug]/_components/reveal/wax-seal.tsx': 'the mark PRESSED INTO wax (a canvas/WebGL die) — a material impression inside the reveal',
@@ -444,6 +445,7 @@ const STILL: Record<string, string> = {
   'app/dev/review-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are drawn gradient stand-ins for a shop’s card cover and a guest’s Papic shot — not the couple’s saved logo',
   'app/dev/shop-card-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are drawn stand-ins for SHOPS’ logos on the Discover shop card (no R2 in a lab) — not the couple’s saved logo',
   'app/dev/open-shop-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` is a drawn stand-in payment QR (renderUrlQrSvg of an example.test URL) on the sample claim door’s pay way — a QR code, not the couple’s saved logo',
+  'app/dev/supplier-plan-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` URI is the v84 Setnayan Verified (lib/verified-v84-art.ts) a fixture shop\u2019s Prints sheet lists as a print badge — a shop badge, not the couple\u2019s saved logo',
   'app/dev/supplier-lab/page-lab.tsx': 'a dev-only lab: its `data:image/svg+xml` URIs are the badges’ PRINT FILE (lib/shop-badge-print.ts) handed to Save to print so the lab saves with no session — a shop’s badge pill, not the couple’s saved logo',
   'app/papic/decorate/_components/kwento-decorator.tsx': 'a flat colour swatch beside each caption-colour option in a dropdown — not a logo',
 };

@@ -46,7 +46,9 @@ test('cold ?select=to-invite: the RENDERED list is in Select mode and shows only
   const picked = await renderGuestsScreen({ guests: ROSTER, initialSelect: true });
   assert.deepEqual(drawnIds(picked).sort(), want, 'Pick who drew guests who are not To invite');
   assert.match(picked, /data-thumb="select"/, 'Pick who did not turn Select on');
-  assert.match(picked, /aria-pressed="true"[^>]*data-reply-filter="toinvite"/, 'the To invite door is not shown as the filter');
+  // 👥 20 Nov (Guests redesign §1): To invite is the summary's "Send N invites", not a count door — the narrowing is
+  // said by the summary's own "N of M shown · × Clear" line.
+  assert.match(picked, /data-roster-shown=""[\s\S]{0,400}data-roster-clear-filter=""/, 'the To invite narrowing is not said, or cannot be cleared');
 });
 
 test('in place: Pick who closes the sheet, turns Select on and narrows to To invite — no navigation', () => {

@@ -54,7 +54,7 @@ export function FindInspirationRow({ board, href }: { board: FindInspiration; hr
             covers.map((src, i) => (
               <span
                 key={src + i}
-                className="absolute top-0 h-11 w-9 overflow-hidden rounded-lg bg-ink/10 shadow-sm ring-2 ring-white"
+                className="absolute top-0 h-11 w-9 overflow-hidden rounded-lg bg-ink/10 shadow-sm ring-2 ring-raised"
                 style={{ left: `${i * 16}px`, zIndex: 3 - i }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -124,7 +124,7 @@ export function FindInspirationStrip({
           </Link>
         ) : null}
       </div>
-      <ul className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1" role="list">
+      <ul className="sn-glide-x -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1" role="list">
         {parts.map((p) => (
           <li key={p.slotKey} className="w-[104px] shrink-0 snap-start" data-find-inspiration-part={p.slotKey}>
             <Link href={href} scroll={false} className="block rounded-xl p-1 hover:bg-ink/[0.04]">
@@ -199,7 +199,7 @@ export function FindLikedIdeas({
           {likedEmptyLine(label)}
         </p>
       ) : (
-        <ul className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1" role="list">
+        <ul className="sn-glide-x -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1" role="list">
           {liked.map((p) => {
             const from = likedFromLine(p);
             return (

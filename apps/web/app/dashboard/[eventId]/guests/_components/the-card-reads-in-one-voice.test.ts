@@ -32,10 +32,12 @@ const OVERLAY = read('overlay-primitives.tsx');
 test('1 · every section label on the card is the eyebrow style', () => {
   /* RE-AIMED 2026-10-23 (owner's groups): "Name · mobile" is no longer a heading — the name and the mobile are the Basic Info
      group, a row like every other (its label is the fold's own), CLOSED with the mobile in its summary. */
-  assert.match(CARD, /<K\.Fold summary="Basic Info" value=\{basicSummary\}/, 'the name and mobile are not the Basic Info group');
-  /* 🎟 "Their ticket" is the eyebrow of an ⓘ since 2026-10-28 (its "What they see on their phone." moved inside it —
-     prototype `send_run_simple_2026-10-27` frame card): the InfoTip's label wears `.sn-eye`. */
-  assert.match(CARD, /<InfoTip label="Their ticket" labelAs="p" labelClassName="sn-eye"/, '"Their ticket" is gone or not the eyebrow style');
+  /* RE-WORDED 2026-11-20 (the approved drawing § 3): the group reads "Name and contact"; its handle stays `card-basic-info`. */
+  assert.match(CARD, /<K\.Fold summary="Name and contact" handle="Basic Info" value=\{guest\.mobile\?\.trim\(\) \? basicSummary : null\} emptyValue="Add a mobile"/, 'the name and mobile are not the Name and contact group');
+  /* 🗂 The three groups' small headings (20 Nov 2026 drawing § 3: About · For the event · More) wear `.sn-eye`; "Their ticket"
+     is the ticket row's own words now (a row, not a heading) and still titles its opened view in `.sn-eye` (below). */
+  assert.match(CARD, /<p className="sn-eye px-0\.5 pb-1 pt-4" data-card-group="about">\s*About\s*<\/p>/, '"About" is gone or not the eyebrow style');
+  assert.match(CARD, /<p className="sn-eye px-0\.5 pb-1 pt-4" data-card-group="event">\s*For the event\s*<\/p>/, '"For the event" is gone or not the eyebrow style');
   assert.match(CARD, /<p className="sn-eye">\s*\{guestCardEyebrow\(/, 'the card\'s own eyebrow left .sn-eye');
   assert.doesNotMatch(CARD, /font-mono[^"]*uppercase|uppercase[^"]*font-mono/, 'a mono caps label is back on the card');
   assert.match(PARTS, /<p id=\{titleId\} className="sn-eye">/, 'the full ticket view titles itself in another style');
@@ -98,36 +100,32 @@ test('3 · on a 375×667 phone with the ticket row low, the menu never flips ove
   assert.equal(menuWidthIn(296, null), 296);
 });
 
-test('3 · both menus measure at the narrowed width and bring the row up rather than flip', () => {
-  const menu = PARTS.slice(PARTS.indexOf('export function GuestMoreMenu('));
-  assert.match(menu, /menuEl\.style\.width = `\$\{menuWidthIn\(/, 'the ⋯ list is measured at the wrong width');
-  assert.match(menu, /nudgeUp\(btn, by\)/, 'the ⋯ list no longer brings a low row up');
-  assert.match(menu, /Date\.now\(\) - nudgedAt\.current < 500/, 'our own nudge closes the ⋯ list');
-  assert.match(menu, /maxHeight: at\.maxHeight, overflowY: 'auto'/, 'a long ⋯ list cannot scroll inside itself');
+/* (The ⋯ list left the card on 20 Nov 2026 — its lines are labelled buttons inside the opened ticket — so the placement
+   rules below are held for the ONE list the card's top still opens: the Invite list.) */
+test('3 · the Invite list measures at the narrowed width and brings the row up rather than flip', () => {
   assert.match(OVERLAY, /el\.style\.width = `\$\{menuWidthIn\(width, room\)\}px`;\s*const height = el\.offsetHeight;/, 'the Invite list is measured before it is narrowed');
   assert.match(OVERLAY, /nudgeUp\(anchor, by\)/, 'the Invite list no longer brings a low row up');
   assert.match(OVERLAY, /maxHeight: pos\.maxHeight, overflowY: 'auto'/, 'a long Invite list cannot scroll inside itself');
 });
 
-test('3 · the card marks its row, and both menus ask for the box', () => {
+test('3 · the card marks its top, and the Invite list asks for the box', () => {
   assert.match(CARD, /data-guest-card-top="" data-menus-open-below=""/, 'the card top no longer marks itself as the box');
-  const menu = PARTS.slice(PARTS.indexOf('export function GuestMoreMenu('));
-  assert.match(menu, /let room = menuRoomOf\(btn\);/, 'the ⋯ list ignores the card');
-  assert.match(menu, /width: at\.width,/, 'the ⋯ list is not drawn at its placed width');
   assert.match(OVERLAY, /menuRoomOf\(anchor\)/, 'the Invite list ignores the card');
   assert.match(OVERLAY, /width: pos\?\.width \?\? width/, 'the Invite list is not drawn at its placed width');
 });
 
-test('4 · every line of the ⋯ list carries an icon', () => {
-  const menu = PARTS.slice(PARTS.indexOf('export function GuestMoreMenu('));
-  const items = menu.split('role="menuitem"').slice(1).map((s) => s.slice(0, s.indexOf('</button>')));
-  /* Delete left the ⋯ for the card's own last group (owner 2026-10-23, `GuestDeleteControl`); NFC and New QR left it for the
-     ticket row's icon buttons (owner 2026-10-27, "GUEST CARD TICKET ROW = THREE ICON BUTTONS") — Unlink remains. */
-  assert.ok(items.length >= 1, `expected Unlink, found ${items.length}`);
-  for (const it of items) {
-    const words = it.slice(it.lastIndexOf('/>') + 2).trim();
-    assert.match(it, /<[A-Z]\w+ aria-hidden className="h-3\.5 w-3\.5"/, `"${words}" has no icon`);
+test('4 · every button inside the opened ticket carries an icon and its word', () => {
+  const menu = PARTS.slice(PARTS.indexOf('export function GuestMoreMenu('), PARTS.indexOf('export function GuestDeleteControl('));
+  /* NFC · New QR · Unlink account — labelled buttons since the 20 Nov 2026 drawing (they were icons on the ticket row, and a ⋯
+     of one line). Each is THE BUTTON with an icon and a word; none is icon-only. */
+  const buttons = menu.split('<ActionButton').slice(1).map((b) => b.slice(0, b.indexOf('/>')));
+  const tools = buttons.filter((b) => /label="(?:New QR|Unlink account)"/.test(b));
+  assert.equal(tools.length, 2, `expected New QR and Unlink account, found ${tools.length}`);
+  for (const b of tools) {
+    assert.match(b, /icon=\{[A-Z]\w+\}/, `a ticket button has no icon: ${b.slice(0, 80)}`);
+    assert.doesNotMatch(b, /iconOnly/, `a ticket button lost its word: ${b.slice(0, 80)}`);
   }
-  // Write to NFC brings its own (the shared button).
-  assert.match(readFileSync(join(HERE, '..', '..', '..', '..', '_components', 'nfc-write-button.tsx'), 'utf8'), /<Nfc aria-hidden/);
+  // Write to NFC brings its own (the shared button), with its word.
+  assert.match(menu, /<NfcWriteButton url=\{nfcUrl\} worded /);
+  assert.match(readFileSync(join(HERE, '..', '..', '..', '..', '_components', 'nfc-write-button.tsx'), 'utf8'), /iconOnly=\{!worded\}\s*icon=\{Nfc\}/);
 });

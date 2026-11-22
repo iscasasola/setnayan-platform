@@ -69,6 +69,11 @@ const REQUIRED_MARKERS = [
   "boxShadow: 'var(--sn-dock-lift)'",
   "background: 'var(--sn-dock-pill)'",
   "background: 'var(--sn-dock-press)'",
+  // ⏱ 18 Nov 2026 (owner: "move bottom nav to 0.7s"; specs MOTION_STANDARD_2026-11-18.md § 5 Highlight): the duration
+  // knob reads the standard's Rise (700 ms, `--sn-m-rise`) and the pill travels on the standard's Spring. A raw number
+  // or a private curve here would take the bar out of the one Highlight every other chosen tab uses.
+  "'--bn-dur': 'var(--sn-m-rise)'",
+  "transition: 'transform var(--bn-dur) var(--sn-m-spring)'",
 ];
 
 // 🌗 The dock's surfaces, as tokens (dark B1, 2026-10-23). LIGHT is pinned to the

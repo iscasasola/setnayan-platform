@@ -1,3 +1,5 @@
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
@@ -98,16 +100,15 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
   const sp = searchParams ? await searchParams : {};
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const { data: event } = await supabase
+  const { data: event } = await eventRowOnce(supabase, eventId, 'event_id', () =>
+      supabase
     .from('events')
     .select('event_id')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   if (!event) notFound();
 
   // ✅ HAS THIS PERSON ALREADY CONFIRMED THEIR YOUTUBE CHANNEL IS LIVE-READY?
@@ -618,7 +619,7 @@ function YoutubeChannelPanel({
           2026-10-02 the action refuses the pool to an event without the hosted
           channel (owner ruling 2026-09-14), so the predicate takes ownership too. */}
       {mayBroadcastOnSharedChannel(ownsHostedChannel) ? (
-        <p className="max-w-prose rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-sm text-ink/80">
+        <p className="max-w-prose rounded-xl border border-amber-200/80 dark:border-[rgb(var(--color-warn)/0.4)] bg-amber-50/60 dark:bg-[rgb(var(--color-warn)/0.14)] px-4 py-3 text-sm text-ink/80">
           {POOL_CHANNEL_SHARED_STRIKE_NOTICE}
         </p>
       ) : null}

@@ -220,7 +220,7 @@ export function SceneSlotsPanel({
           {Array.from({ length: blockCount }, (_, i) => {
             const slot = slots[i] ?? {};
             return (
-              <SafeForm key={i} action={saveAction} className="space-y-1 rounded-md border border-ink/10 bg-white/60 p-2">
+              <SafeForm key={i} action={saveAction} className="space-y-1 rounded-md border border-ink/10 bg-raised/60 p-2">
                 {hiddenInputs({ ...base, intent: 'slot', slot: String(i) })}
                 <HubDraftField />
                 <label className="sr-only" htmlFor={`slot-head-${row.widget_id}-${i}`}>
@@ -233,7 +233,7 @@ export function SceneSlotsPanel({
                   maxLength={HUB_SLOT_HEAD_MAX}
                   defaultValue={slot.head ?? ''}
                   placeholder={`${blockWords.head} ${i + 1}`}
-                  className="min-h-[34px] w-full rounded-md border border-ink/15 bg-white px-2 text-[12px] text-ink placeholder:text-ink/40"
+                  className="min-h-[34px] w-full rounded-md border border-ink/15 bg-raised px-2 text-[12px] text-ink placeholder:text-ink/40"
                 />
                 <label className="sr-only" htmlFor={`slot-text-${row.widget_id}-${i}`}>
                   {blockWords.text} {i + 1}
@@ -245,7 +245,7 @@ export function SceneSlotsPanel({
                   maxLength={HUB_SLOT_TEXT_MAX}
                   defaultValue={slot.text ?? ''}
                   placeholder={blockWords.text}
-                  className="w-full rounded-md border border-ink/15 bg-white px-2 py-1 text-[12px] leading-relaxed text-ink placeholder:text-ink/40"
+                  className="w-full rounded-md border border-ink/15 bg-raised px-2 py-1 text-[12px] leading-relaxed text-ink placeholder:text-ink/40"
                 />
                 <button type="submit" className="ab ab-brand">
                   Save

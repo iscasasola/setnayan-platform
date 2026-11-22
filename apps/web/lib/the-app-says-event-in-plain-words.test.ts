@@ -98,8 +98,9 @@ const NOUN_ALLOWED_STRINGS: Record<string, string[]> = {
   'lib/sample-event/hub.ts': ['celebration'],
   // event-type keys / tags
   'lib/checklist-event-type-defs.ts': ['celebration'],
-  // the KEY of the roster row whose shown word becomes "Other events" on the supplier door (walk 13 Nov, F-W1-06)
-  'app/open-shop/_components/event-tiles.tsx': ['celebration'],
+  // the KEY of the roster row whose shown word becomes "Other events" — the supplier door (walk 13 Nov, F-W1-06) and
+  // Discover's Occasion filter (walk 18 Nov, R7)
+  'lib/event-type-shown-words.ts': ['celebration'],
   'lib/event-anchor.ts': ['celebration'],
   'lib/event-brief.ts': ['celebration'],
   'lib/onboarding/type-questions.ts': ['celebration'],
@@ -114,6 +115,11 @@ const NOUN_ALLOWED_STRINGS: Record<string, string[]> = {
   'lib/moodboard-gallery-upload.ts': ['CELEBRATION'],
   // a music mood's name in the App Store demo card
   'app/_components/app-store/studio-card-demo.tsx': ['Joyful celebration'],
+  // BRAND LINES, not a name for the thing (owner 19 Nov: tagline, hero, share and email footer say "celebration";
+  // every heading and button says "event"). The 20 Nov front page's headline and its closing line — held by name
+  // in `the-front-door-says-event.test.ts` too.
+  'app/_components/frontdoor/front-door-anchor.tsx': ['The home of every Filipino celebration.'],
+  'app/_components/frontdoor/front-door-landing.tsx': ['Every celebration, all in one place, for life.'],
 };
 
 const T_OFFSET_ALLOWED_PATHS: Record<string, string> = {

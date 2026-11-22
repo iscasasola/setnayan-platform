@@ -87,7 +87,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
     return (
       <>
         <meta name="robots" content="noindex, nofollow" />
-        <VendorInvitePage params={params} searchParams={searchParams as Promise<{ status?: string; et?: string; cat?: string }>} />
+        <VendorInvitePage params={params} searchParams={searchParams as Promise<{ status?: string; et?: string; cat?: string; ci?: string }>} />
       </>
     );
   }

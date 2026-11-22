@@ -1,4 +1,5 @@
 import { publicEventPath } from '@/lib/public-event-url';
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { notFound, redirect } from 'next/navigation';
@@ -44,9 +45,7 @@ export default async function CoupleRecapPage({
   const { eventId } = await params;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const { data: event } = await supabase
     .from('events')

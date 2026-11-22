@@ -110,6 +110,7 @@ import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { NavGroup, NavItem, NavBadge } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
+import type { VendorDuty } from '@/lib/vendor-duties';
 import { filterVendorNavGroups } from '@/lib/vendor-role';
 import { vendorCustomersBadge } from '@/lib/nav-badges';
 import type { RailMatchRow } from '@/app/_components/frontdoor/rail-active';
@@ -240,11 +241,14 @@ export function vendorNavGroups(): NavGroup[] {
  */
 export function resolveVendorDestinations({
   role,
+  duty = null,
   navSlots,
   bookingsBadge = 0,
   threadsBadge = 0,
 }: {
   role: VendorTeamRole | null;
+  /** The person's supplier role (six roles, owner 19 Nov 2026). Null = the rank rule. */
+  duty?: VendorDuty | null;
   navSlots?: Record<string, NavSlotLite>;
   /** Pending-inquiry count. Real layout data; 0 omits the badge. */
   bookingsBadge?: number;
@@ -258,7 +262,7 @@ export function resolveVendorDestinations({
     `filterVendorNavGroups` gates on the key against the scoped-keys set, which
     is the same rule the phone's bottom bar uses.
   */
-  const scoped = filterVendorNavGroups(vendorNavGroups(), role);
+  const scoped = filterVendorNavGroups(vendorNavGroups(), role, duty);
   const items = [...(scoped[0]?.items ?? [])];
 
   /*

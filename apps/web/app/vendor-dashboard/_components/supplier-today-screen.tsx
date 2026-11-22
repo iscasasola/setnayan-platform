@@ -49,8 +49,8 @@ export function SupplierTodayScreen({
   library = false,
   eventsYouRun = [],
   setup = null,
-  hero = null,
   earned = null,
+  v2 = null,
 }: {
   view: SupplierTodayView;
   outcome: TodayOutcome | null;
@@ -71,8 +71,6 @@ export function SupplierTodayScreen({
   eventsYouRun?: readonly EventYouRun[];
   /** 🧰 A new shop's six steps, done in place (`SupplierSetupScreen`) — drawn by the page while the shop is not live. */
   setup?: ReactNode;
-  /** 🖼 The shared hero's picture (Lane E item 11) — read by the page; the lab draws the placeholder. */
-  hero?: Parameters<typeof TodayCover>[0]['hero'];
   /**
    * 🏅 The "You earned …" line (`<BadgeEarnedLine />`) — drawn UNDER the Today photo, never above it (owner 13 Nov,
    * live shot: the line sat between the top bar and the photo and made the header look cut; *"Under the Today
@@ -80,6 +78,8 @@ export function SupplierTodayScreen({
    * 🔒 app/vendor-dashboard/_components/the-earned-line-sits-under-the-photo.test.ts
    */
   earned?: ReactNode;
+  /** 📋 Today v2 (owner 18 Nov, `Today, one task`): the cover's line, the Next badge card, the rows and the grow parts. */
+  v2?: { sub: ReactNode; nextBadge: ReactNode; needsRows: ReactNode; grow: ReactNode } | null;
 }) {
   /*
     📌 ONE PINNED ROW, AND IT IS "NEEDS YOU TODAY" (owner 10 Nov on the Supplier Menu Plan, Today scrolled: *"Needs you
@@ -100,8 +100,8 @@ export function SupplierTodayScreen({
       tasks={view.needsCount}
       todayIso={todayIso}
       now={now}
-      hero={hero}
-      gear={setup ? null : <TodaySettings cover />}
+      gear={setup ? null : <TodaySettings />}
+      {...(v2 ? { sub: v2.sub } : {})}
     />
   );
   const statsTop = <TodayStats stats={view.stats} />;
@@ -121,6 +121,7 @@ export function SupplierTodayScreen({
         outcome={outcome}
         alsoToday={view.alsoToday}
         comingUp={view.comingUp}
+        comingUpUnread={view.comingUpUnread}
         eventsYouRun={eventsYouRun}
         shop={view.shop}
         business={view.business}
@@ -135,6 +136,9 @@ export function SupplierTodayScreen({
         }
         thumb={thumb}
         minis={<TodayShopMinis stats={view.stats} />}
+        needsRows={v2?.needsRows ?? null}
+        nextBadge={v2?.nextBadge ?? null}
+        grow={v2?.grow ?? null}
         // WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its own Pay (owner 2026-09-20: "i never saw the
         // payment screen to pay us"), as rows of Needs you today, and the lock said once under them. Renders nothing
         // when there is no unpaid fee, and nothing when the read failed — an unread bill list is not "you owe nothing".

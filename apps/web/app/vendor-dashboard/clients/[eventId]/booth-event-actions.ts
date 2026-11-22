@@ -12,7 +12,8 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
-import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
+import { resolveVendorTier } from '@/lib/vendor-feature-gate';
+import { PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
 import { isVendor3dBoothActive } from '@/lib/vendor-3d-booth-pricing';
 import {
   VENDOR_3D_BOOTH_EVENT_SKU_CODE,
@@ -100,7 +101,7 @@ export async function buyBoothBrandingForEvent(
     return err('You can brand a booth once the couple has booked you for this event.');
   }
 
-  // 4 · the floor — paid plan AND verified
+  // 4 · the floor — Pro and up AND verified
   const { data: gateRow } = await supabase
     .from('vendor_profiles')
     .select('tier_state, verification_state, booth_addon_expires_at')
@@ -111,8 +112,9 @@ export async function buyBoothBrandingForEvent(
     verification_state?: string | null;
     booth_addon_expires_at?: string | null;
   } | null;
-  if (!isTierAtLeast(gate?.tier_state ?? null, BOOTH_BRANDING_MIN_TIER)) {
-    return err('3D Booth branding comes with a paid plan — Plus, Pro or Ultra. Move up to add it.');
+  // ⚖ Owner 20/21 Nov (specs 66ae2cce): Pro and up only — the effective plan, as the Special tools read it.
+  if (!isTierAtLeast(await resolveVendorTier(supabase, vendorProfileId), PRO_TOOLS_MIN_TIER)) {
+    return err('Your branded 3D booth is included in Pro. Upgrade to Pro to brand it.');
   }
   if (gate?.verification_state !== 'verified') {
     return err('Get your shop verified first — 3D Booth branding unlocks once you’re verified.');
@@ -132,6 +134,10 @@ export async function buyBoothBrandingForEvent(
   }
   const existing = await fetchVendorBoothEventOrderState(admin, vendorProfileId, eventId);
   if (existing === 'active') return err('Your booth is already branded at this event.');
+  // C-1: a refused orders read is NOT "no order" — fail closed, or a supplier who already paid is charged twice.
+  if (existing === 'unread') {
+    return err('We couldn’t check whether this event is already paid for. Nothing was charged — try again in a moment.');
+  }
   if (existing === 'pending') {
     return err('Your payment for this event is still being checked — no need to pay again.');
   }

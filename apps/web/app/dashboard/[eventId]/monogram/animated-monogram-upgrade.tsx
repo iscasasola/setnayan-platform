@@ -434,13 +434,13 @@ async function UnownedView({
             {bespokeSvg ? (
               <>
                 Every reveal previews free above. This makes {revealLabel} play for
-                real — on your website, your invitation, your save-the-date and the
+                real — on your Event Hub, your invitation, your save-the-date and the
                 screens on the day.
               </>
             ) : (
               <>
                 Every reveal previews free above. This makes your monogram draw
-                itself in for real — on your website, your invitation, your
+                itself in for real — on your Event Hub, your invitation, your
                 save-the-date and the screens on the day.
               </>
             )}
@@ -515,7 +515,7 @@ async function UnownedView({
         </header>
 
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col items-center gap-3 rounded-xl border border-ink/10 bg-white/60 p-5 text-center">
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-ink/10 bg-raised/60 p-5 text-center">
             {/* Static side — exactly what the hero renders WITHOUT the upgrade:
                 the couple's own mark (BespokeMonogramMark) when one exists, else
                 the h-20 initials circle. */}
@@ -534,7 +534,7 @@ async function UnownedView({
             <p className="text-xs text-ink/55">Appears the moment the page loads.</p>
           </div>
 
-          <div className="relative flex flex-col items-center gap-3 rounded-xl border border-terracotta/30 bg-white/60 p-5 text-center">
+          <div className="relative flex flex-col items-center gap-3 rounded-xl border border-terracotta/30 bg-raised/60 p-5 text-center">
             <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-terracotta">
               <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
               Upgrade

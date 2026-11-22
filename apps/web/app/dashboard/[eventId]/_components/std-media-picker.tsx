@@ -276,7 +276,7 @@ export function StdMediaPicker({
               "give them an option how the video plays … place a toggle next to
               upload video". Shows once a video exists. Writes std_media.fit. */}
           {value.videoKey ? (
-            <div className="space-y-1.5 rounded-xl border border-ink/10 bg-white/60 p-2.5">
+            <div className="space-y-1.5 rounded-xl border border-ink/10 bg-raised/60 p-2.5">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[11px] font-medium text-ink/70">How the video plays</span>
                 {/* The app's ONE pill selector (owner 2026-10-08). Worn straight from `pill-selector.tsx` — which the

@@ -77,6 +77,8 @@ test('the mark is never cropped off and every colour is a token', () => {
 
 // Sabotage: render the gallery for the sample frame / drop the single-photo fallback → red.
 test('without a gallery (one photo, the sample frame) the hero is exactly as before', () => {
-  assert.match(HERO, /\{gallery \?\? \(\s*<div className=\{`absolute inset-x-0 -bottom-\[6%\] -top-\[6%\] -z-20 \$\{m\.heroDrift\}`\}>/);
+  // The photo's own parallax (`m.heroDrift`) was retired by the motion standard, Phase 5 (MOTION_STANDARD_2026-11-18.md
+  // § 6: one Drift per page; the hero settles and scrolls away instead), so the frame no longer carries it.
+  assert.match(HERO, /\{gallery \?\? \(\s*<div className=\{`absolute inset-x-0 -bottom-\[6%\] -top-\[6%\] -z-20`\}>/);
   assert.match(HERO, /sample \? '' : mosaic \? .* : 'lg:h-\[640px\]'/);
 });

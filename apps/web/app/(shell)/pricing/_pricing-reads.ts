@@ -14,6 +14,7 @@ import { fetchV2CustomerCatalog, type V2CustomerSku } from '@/lib/v2-catalog';
 import { resolveAiPrices } from '@/app/_components/home/pricing-data';
 import { HUB_PARTS, HUB_PART_SKUS } from '@/lib/hub-parts';
 import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
+import { isRetiredProductCode } from '@/lib/retired-products';
 
 /**
  * The rows /pricing reads that `fetchV2CustomerCatalog` leaves out ON PURPOSE: the eleven Event Pro parts (listed
@@ -101,7 +102,8 @@ function twoPrices(row: { retail_price_php: number | null; onboarding_price_php:
 
 /** Build `OurPrices` from the two reads — pure, so a test can hand it rows. */
 export function ourPricesFrom(customerSkus: readonly V2CustomerSku[], extras: readonly PricingExtraRow[]): OurPrices {
-  const row = (code: string) => customerSkus.find((s) => s.service_code === code);
+  // 🪦 A RETIRED product (lib/retired-products.ts) is never priced here, even before its row's retirement is applied.
+  const row = (code: string) => (isRetiredProductCode(code) ? undefined : customerSkus.find((s) => s.service_code === code));
   const php = (code: string): number | null => {
     const r = row(code);
     const n = r ? Number(r.retail_price_php) : NaN;

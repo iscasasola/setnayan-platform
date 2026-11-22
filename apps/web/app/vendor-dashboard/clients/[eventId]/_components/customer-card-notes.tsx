@@ -145,7 +145,7 @@ export function ClientNotes({
           maxLength={2000}
           rows={2}
           placeholder={`Add a note about this ${clientNoun}…`}
-          className="w-full resize-y rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+          className="w-full resize-y rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
         />
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <label className="inline-flex items-center gap-1.5 text-xs text-ink/70">
@@ -153,7 +153,7 @@ export function ClientNotes({
             <input
               type="date"
               name="remind_at"
-              className="h-11 rounded-lg border border-ink/15 bg-white px-3 text-[13px] text-ink focus:border-terracotta focus:outline-none"
+              className="h-11 rounded-lg border border-ink/15 bg-raised px-3 text-[13px] text-ink focus:border-terracotta focus:outline-none"
             />
           </label>
           <AskSubmit tone="brand" icon={<Check aria-hidden className="h-4 w-4" />} label="Save note" pendingLabel="Saving…" className="ml-auto" />

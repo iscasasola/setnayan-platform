@@ -167,7 +167,10 @@ test('4 · Today RENDERS the greeting · the task count · ⚙ — no count tile
     React.createElement(TodayCover, { shopName: 'SetnaProd', tasks: 9, todayIso: '2026-11-07', now, gear: React.createElement('button', { 'data-menu-settings': 'today' }) }),
   );
   const text = cover.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  assert.match(text, /Today · Sat 7 Nov (?:Sample photo · Upload yours )?Good morning, SetnaProd 9 tasks today/, `the cover does not greet the shop with its day and count: ${text}`);
+  // RE-AIMED ON PURPOSE (owner 19 Nov, on live Today: "remove the photo of that header" · "it was suppose to look like focus"; Today v3 part 1): the mast reads "Good morning, <Shop> · <date>"
+  // over the count — and never a sample photo or an Upload door.
+  assert.match(text, /Today Good morning, SetnaProd · Sat 7 Nov 9 tasks today/, `the cover does not greet the shop with its day and count: ${text}`);
+  assert.doesNotMatch(text, /Sample photo|Upload/, 'the mast offers a photo upload again');
   assert.equal((cover.match(/<(?:a|button)\b/g) ?? []).length, 1, 'the cover holds another control besides its ⚙');
   assert.doesNotMatch(cover, /data-pin-door|aria-pressed/, 'a count tile or filter is back on Today’s top');
   const row = renderToStaticMarkup(React.createElement(TodayPinnedRow, { shopName: 'SetnaProd', tasks: 9, todayIso: '2026-11-07', now }));

@@ -38,6 +38,13 @@ export function NewServiceMaker({
         categoryValue=""
         categoryLabel=""
         categoryOptions={ctx.categoryOptions}
+        kindPaths={Object.fromEntries(
+          ctx.categoryOptions
+            .filter((g) => !g.key.startsWith('live-'))
+            .flatMap((g) => g.options)
+            .map((o) => [o.value, ctx.kindPath(o.value)] as const)
+            .filter((e): e is readonly [string, string] => typeof e[1] === 'string'),
+        )}
         tradeOptions={ctx.tradeOptions}
         firstCardEver={ctx.firstCardEver}
         coverageNames={ctx.coverageNames}
@@ -59,6 +66,7 @@ export function NewServiceMaker({
         giftPacks={ctx.giftPacks}
         giftFree={ctx.giftFree}
         bookingsPerDate={ctx.bookingsPerDate}
+        availabilityOf={ctx.availabilityOf}
         checkRules={ctx.checkRules}
         detailsKind={details ? ctx.onlyKind : null}
         detailsSlot={

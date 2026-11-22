@@ -14,6 +14,7 @@ import { stageBgSourcesOffered } from '@/lib/stage-bg-sources';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
 import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
+import type { EventMediaPlan } from '@/lib/event-plans';
 import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { uploadStill } from '@/lib/upload-still';
@@ -151,7 +152,7 @@ export function SceneBackgroundRow(props: Parameters<typeof SceneBackgroundRows>
         videoChoice={props.videoChoice}
         sceneUploads={props.sceneUploads}
         mediaUsedBytes={props.mediaUsedBytes}
-        mediaCapBytes={coupleMediaCapBytes(props.ownsPro)}
+        mediaCapBytes={coupleMediaCapBytes(props.mediaPlan ?? props.ownsPro)}
         proHref={props.ownsPro || props.storeShell ? null : `/dashboard/${props.eventId}/studio/website-pro`}
         loopPosters={props.loopPosters}
       />
@@ -173,6 +174,7 @@ function SceneBackgroundRows({
   videoChoice,
   sceneUploads,
   mediaUsedBytes,
+  mediaPlan,
   ownsPro,
   storeShell = false,
   loopPosters,
@@ -225,6 +227,8 @@ function SceneBackgroundRows({
   sceneUploads: readonly SceneUpload[];
   /** 💾 The event's settled `couple_media_bytes` — the plan's media meter under the upload. Absent = no meter. */
   mediaUsedBytes?: number;
+  /** 🎟 The event's upload plan (owner 2026-11-18) — the meter's number; absent reads the older Pro/Free answer. */
+  mediaPlan?: EventMediaPlan;
   ownsPro: boolean;
   /**
    * 💎 The app-store shell. On the web media behind a scene is TRIED without Pro
@@ -618,7 +622,7 @@ function SceneBackgroundRows({
             {typeof mediaUsedBytes === 'number' ? (
               <MakerMediaMeter
                 usedBytes={mediaUsedBytes}
-                capBytes={coupleMediaCapBytes(ownsPro)}
+                capBytes={coupleMediaCapBytes(mediaPlan ?? ownsPro)}
                 proHref={ownsPro || storeShell ? null : `/dashboard/${eventId}/studio/website-pro`}
                 className="pt-2"
               />
@@ -802,8 +806,8 @@ function SceneBackgroundRows({
               onClick={() => pick(c)}
               className={`sn-press flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-1.5 text-center text-[12px] font-semibold leading-tight ring-1 transition-colors duration-sn-control ease-sn ${
                 (c === 'media' ? showMedia : current === c)
-                  ? 'bg-white text-ink shadow-sm ring-ink'
-                  : 'bg-white/60 text-ink/75 ring-ink/12 hover:ring-ink/35'
+                  ? 'bg-raised text-ink shadow-sm ring-ink'
+                  : 'bg-raised/60 text-ink/75 ring-ink/12 hover:ring-ink/35'
               }`}
             >
               <span aria-hidden className="h-6 w-10 rounded border border-black/10" style={preview(c, tint, photoChoices[0]?.url)} />
@@ -870,7 +874,7 @@ function SceneBackgroundRows({
               setShown(next);
               save({ widgets: { [widgetType]: { canvas: next } } });
             }}
-            className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full border border-gild/60 bg-white px-3 text-[12.5px] font-semibold text-ink/70 lg:min-h-9"
+            className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full border border-gild/60 bg-raised px-3 text-[12.5px] font-semibold text-ink/70 lg:min-h-9"
           >
             Own background ·
             <RotateCcw aria-hidden className="h-3.5 w-3.5 text-ink" strokeWidth={2} />

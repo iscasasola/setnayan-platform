@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 import { InspectorColumn } from '@/app/_components/inspector/inspector-column';
 import type { GuestHelperCard } from '@/lib/guest-helper-card.server';
 import type { GuestPapicState } from '@/lib/papic-guest-camera';
-import { GuestCardAvatar, GuestCardBody, guestCardEyebrow, guestCardNick, guestCardReply, guestCardTitle, type GuestCardActions } from './guest-card-body';
+import { GuestCardAvatar, GuestCardBody, guestCardEyebrow, guestCardNick, guestCardTitle, type GuestCardActions } from './guest-card-body';
+import { GuestCardReplyBadge } from './guest-card-head';
+import { GuestCardRise } from './guest-card-rise';
 import { GuestNick } from '@/app/_components/guest-nick';
 import type { GuestCardData } from './guest-card-data';
 import type { InviteSetup } from './invite-message-setup';
@@ -110,12 +112,22 @@ export function GuestCard({
           <GuestNick nick={guestCardNick(guest, data.plusOneOf)} />
         </>
       }
-      badge={guestCardReply(guest, data.proxy)}
-      lead={<GuestCardAvatar guest={guest} photoDisplayUrl={photoDisplayUrl} size="head" />}
+      badge={<GuestCardReplyBadge guest={guest} proxy={data.proxy} />}
+      lead={
+        <GuestCardAvatar
+          guest={guest}
+          photoDisplayUrl={photoDisplayUrl}
+          size="head"
+          /* 🔵 Their side, as the list's dot on the photo — a +1 wears their guest's; a sideless event wears none. */
+          sideDot={data.hasSides ? (data.plusOneOf?.side ?? guest.side) : null}
+        />
+      }
       pinSlot
       swapKey={guest.guest_id}
       ariaLabel={`${title} details`}
     >
+      {/* ⤵ Drag the head down to close (drawing § 3) — a phone's gesture; ✕, Escape and Back stay. */}
+      <GuestCardRise />
       {body}
     </InspectorColumn>
   );

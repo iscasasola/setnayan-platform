@@ -9,6 +9,7 @@ import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-c
 import { formatCount } from '@/lib/format-number';
 import type { ShareYourWorkData } from './share-your-work-data';
 import { StoryNoteForm } from './story-note-form';
+import { CouldNotLoad } from '../../_components/could-not-load';
 import { storyPageHref } from '@/lib/ultra-story-pages';
 import type { ReactNode } from 'react';
 
@@ -120,7 +121,12 @@ export function ShareYourWork({ data }: { data: ShareYourWorkData }) {
                       filenameBase={`${s.slug}-story`}
                       data="story"
                       extra={
-                        ultra ? (
+                        ultra?.notes === null ? (
+                          // S-5: the notes were NOT read — no box, so a blank save can never delete a note nobody saw.
+                          <div className="mt-2" data-story-note-unread="">
+                            <CouldNotLoad what="your “In our words” note" />
+                          </div>
+                        ) : ultra ? (
                           <StoryNoteForm eventId={s.eventId} initial={ultra.notes[s.eventId] ?? ''} pageHref={storyPageHref(ultra.shopSlug, s.slug)} />
                         ) : undefined
                       }

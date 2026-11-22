@@ -69,6 +69,8 @@ export type OpenShopDraft = {
   specialties?: Record<string, Record<string, string[]>>;
   /** ② The plan explainer's box was ticked. Optional. */
   planAgreed?: boolean;
+  /** ④ The first service card (supplier onboarding, 19 Nov) — its name, its typed price, the way picked. Optional. */
+  card?: { title: string; price: string; choice: '' | 'approve' | 'edit' | 'skip' };
 };
 
 export type OpenShopDraftInput = Omit<OpenShopDraft, 'v' | 'at'>;
@@ -141,6 +143,7 @@ export function serializeOpenShopDraft(d: OpenShopDraftInput, now: number = Date
     ...(d.evOff && Object.keys(d.evOff).length ? { evOff: listMap(d.evOff) } : {}),
     ...(d.specialties && Object.keys(d.specialties).length ? { specialties: specialtyMap(d.specialties) } : {}),
     ...(d.planAgreed ? { planAgreed: true } : {}),
+    ...(d.card && (d.card.title || d.card.price || d.card.choice) ? { card: cardOf(d.card) } : {}),
   };
   return JSON.stringify(draft);
 }
@@ -186,7 +189,15 @@ export function parseOpenShopDraft(raw: string | null | undefined, now: number =
     ...(d.evOff && typeof d.evOff === 'object' ? { evOff: listMap(d.evOff) } : {}),
     ...(d.specialties && typeof d.specialties === 'object' ? { specialties: specialtyMap(d.specialties) } : {}),
     ...(d.planAgreed === true ? { planAgreed: true } : {}),
+    ...(d.card && typeof d.card === 'object' ? { card: cardOf(d.card) } : {}),
   };
+}
+
+/** The first card, shape-checked both ways — a name, digits for the price, one of the three ways. */
+function cardOf(v: unknown): NonNullable<OpenShopDraft['card']> {
+  const r = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  const choice = r.choice === 'approve' || r.choice === 'edit' || r.choice === 'skip' ? r.choice : '';
+  return { title: str(r.title, 80), price: str(r.price, 16).replace(/[^\d]/g, ''), choice };
 }
 
 /**

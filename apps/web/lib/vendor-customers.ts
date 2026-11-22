@@ -39,7 +39,7 @@ import { blockOnDay, type DayPart, type RepeatRule } from '@/lib/not-available';
  */
 export type CalendarBookingInput = Pick<
   PoolBookingEntry,
-  'poolId' | 'bookedDate' | 'eventName'
+  'poolId' | 'bookedDate' | 'eventName' | 'seat'
 > & {
   /**
    * The booked event's type (e.g. 'wedding' | 'debut'), for the calendar's
@@ -200,7 +200,9 @@ export function buildCustomerCalendarMonth(
   for (const b of bookings) {
     if (!poolIds.has(b.poolId)) continue;
     const st = acc.get(b.poolId)?.get(b.bookedDate);
-    if (st) {
+    // 🔢 A by-the-piece booking is LISTED (its label below) but never takes a seat (owner 2c) — the same rule as the
+    // database's `schedule_pool_taken_on`, so the calendar never calls a seat taken that the guard calls free.
+    if (st && b.seat !== false) {
       st.consumed += 1;
       // A pool booking is a client Setnayan brought. The `external_client` block
       // below also consumes capacity but is the vendor's own client, so it is

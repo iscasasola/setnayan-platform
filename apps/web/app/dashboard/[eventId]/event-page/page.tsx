@@ -1,4 +1,5 @@
 import { publicEventPath } from '@/lib/public-event-url';
+import { eventRowOnce } from '@/lib/event-row-once';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
@@ -56,11 +57,12 @@ export default async function HostEventPageRedirect({
       .eq('event_id', eventId)
       .eq('user_id', user.id)
       .maybeSingle(),
-    supabase
+    eventRowOnce(supabase, eventId, 'event_id, slug', () =>
+      supabase
       .from('events')
       .select('event_id, slug')
       .eq('event_id', eventId)
-      .maybeSingle(),
+      .maybeSingle()),
   ]);
 
   const { data: membership, error: membershipError } = membershipRes;

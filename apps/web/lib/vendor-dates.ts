@@ -25,10 +25,12 @@
  * schedule says "Not set" and is never told a day is free. A shop WITH a schedule hears the day's answer the
  * prototype draws — Free · Still has room · Full · Not available (`dayAnswerOf`) — because then it is true.
  */
+import type { AvailabilityStyle } from './availability-styles';
+import { countBarKind, countBarOf, freeWords, fullWords, type CountBar } from './day-count-bar';
 import type { CalendarDayState, CalendarDot } from './calendar-grid';
 import type { CustomerCalendarDay } from './vendor-customers';
 import { BOOKED_DATE_HELD_LINE } from './booking-ask-words';
-import { openClientHref } from './upcoming-schedule-door';
+import { clientScheduleDayHref } from './upcoming-schedule-door';
 import { blockOnDay, DAY_PART_SHORT, DAY_PART_WORDS, repeatWords, type DayPart, type RepeatRule } from './not-available';
 
 /** Kind 31's state for one day of the month, or null for a quiet one (drawn as a plain day). */
@@ -239,7 +241,8 @@ export function dayRowsOf(
         line: [b.hours ?? '', namePools ? poolLabel(b.poolId) : ''].filter(Boolean).join(' · ') || 'Booked here',
         line2: b.mine ?? null,
         ...(b.hoursUnread ? { unread: true } : {}),
-        ...(b.eventId ? { href: openClientHref(b.eventId, { booked: true, eventToday: day === today }) } : {}),
+        // 📅 Owner 18 Nov 2026: a day's client opens their Schedule with THIS day picked.
+        ...(b.eventId ? { href: clientScheduleDayHref(b.eventId, day) } : {}),
         badge: { tone: 'ok', word: 'Booked' },
       }),
     );
@@ -382,7 +385,10 @@ export function capacityLine(pools: readonly { capacity: number; label?: string 
 
 /* ── THE DAY'S ANSWER (prototype SCREENS.day: "Free · nothing on this day") ─────────────────────────────────── */
 
-export type DayAnswer = { tone: 'ok' | 'warn' | 'bad'; word: 'Free' | 'Still has room' | 'Full' | 'Not available'; line: string };
+export type DayAnswer = { tone: 'ok' | 'warn' | 'bad'; word: 'Free' | 'Still has room' | 'Full' | 'Not available' | 'Couldn\u2019t read'; line: string };
+
+/** 🔒 A refused count is never "Free" (review 2026-11-19): the day's answer when an open schedule's count could not be read. */
+export const DAY_UNREAD_ANSWER: DayAnswer = { tone: 'warn', word: 'Couldn\u2019t read', line: 'how much is booked on this day \u2014 open it again' };
 
 /**
  * The one line under the day's title — what a church helper needs first. Null when the shop has no schedule (then
@@ -427,12 +433,18 @@ export type DayGroupRow = {
 export type DayGroup = {
   poolId: string;
   label: string;
+  /** 🗓 The style its cards book by (step 4) — the heading's AV label tag; null = keeps today's look. */
+  style?: AvailabilityStyle | null;
+  /** 📊 The approved Day bar (orders in progress · pieces out); null = a group that is not Made to order or by the piece. */
+  bar?: CountBar | null;
   /** The group's right-hand word (prototype `.grp .r`): Full · Not available · "room for 1 more" · "Free all day". */
   right: { tone: 'ok' | 'bad' | 'warn'; word: string };
   rows: DayGroupRow[];
   /** Seats taken (Setnayan + outside) and the schedule's "how many a day". */
   taken: number;
   capacity: number;
+  /** 🔒 Its count was REFUSED (`vendor_day_pool_taken` or a pieces read) — `taken` is then not a number to trust. */
+  unread: boolean;
   /** An all-day closure (or the shop's hold) covers it. */
   closed: boolean;
   /** Its words when closed. */
@@ -449,8 +461,27 @@ export function dayGroupsOf(
   day: string,
   input: {
     today: string;
-    pools: readonly { poolId: string; label: string; capacity: number }[];
-    bookings: readonly { key: string; poolId: string; title: string; line: string; href: string | null }[];
+    /** `style` / `barName`: the style the schedule's cards book by and the bar's name (step 4); absent = as today. */
+    pools: readonly {
+      poolId: string;
+      label: string;
+      capacity: number;
+      style?: AvailabilityStyle | null;
+      barName?: string;
+      /**
+       * 🔒 The DATABASE's own count for the day, from `vendor_day_pool_taken`, read from the same function the matching
+       * guard refuses by: Made to order → `in_progress` (`schedule_pool_in_progress_on`); by the piece → `pieces_out`
+       * (`service_card_bookings_on`, the yes's count, each stock once). Each bar reads its own guard's count; they are
+       * different counts on purpose (seats vs pieces), never two counts of one thing. `null` = that read was refused
+       * (the bar says so). Absent = counted here from the rows (the lab, and groups without a bar).
+       */
+      dbTaken?: number | null;
+    }[];
+    /**
+     * `quantity`: the pieces a by-the-piece booking takes (`event_vendors.booked_quantity`, NULL = 1). `null` = that read
+     * was REFUSED — the bar then says so, never "0 out". Absent = 1.
+     */
+    bookings: readonly { key: string; poolId: string; title: string; line: string; href: string | null; quantity?: number | null; /** false = a by-the-piece booking: listed, never a seat (owner 2c). */ seat?: boolean }[];
     blocks: readonly (DatesBlock & { blockId?: string })[];
     /** The shop's own holds on the day (`locked` closes; `whitelist` is shown on the day, not here). */
     holds: readonly DatesHold[];
@@ -463,7 +494,13 @@ export function dayGroupsOf(
       .filter((b) => b.source === 'external_client' && b.poolId === p.poolId && blockOnDay(b, day))
       .sort((a, b) => (a.clientTime ?? '99').localeCompare(b.clientTime ?? '99'));
     const booked = input.bookings.filter((b) => b.poolId === p.poolId);
-    const taken = booked.length + outside.length;
+    // 🗓 A by-the-piece schedule counts PIECES (step 4): the sum of the bookings' quantities. Every other counts bookings.
+    const kind = countBarKind(p.style ?? null);
+    const fromDb = p.dbTaken !== undefined;
+    const unreadQty = fromDb ? p.dbTaken === null : kind === 'pieces' && booked.some((b) => b.quantity === null);
+    const taken = fromDb
+      ? (p.dbTaken ?? 0)
+      : (kind === 'pieces' ? booked.reduce((n, b) => n + (b.quantity ?? 1), 0) : booked.filter((b) => b.seat !== false).length) + outside.length;
     const allDay = closures.filter((b) => (b.dayPart ?? 'all_day') === 'all_day');
     const held = input.holds.some((h) => h.stateDate === day && h.dayState === 'locked' && mine(h.poolId));
     const closed = allDay.length > 0 || held;
@@ -493,25 +530,36 @@ export function dayGroupsOf(
         badge: { tone: 'quiet', word: 'Outside' },
       }),
     );
+    if (rows.length === 0 && unreadQty) {
+      rows.push({ key: 'nothing', kind: 'nothing', title: 'Couldn\u2019t read this day', line: 'Open it again to try once more', badge: { tone: 'wait', word: 'Not read' } });
+    }
     if (rows.length === 0) {
       rows.push({ key: 'nothing', kind: 'nothing', title: 'Nothing yet', line: `${plural(p.capacity, 'event fits', 'events fit')}`, badge: { tone: 'ok', word: 'Free' } });
     }
     const left = p.capacity - taken;
     const right: DayGroup['right'] = closed
       ? { tone: 'warn', word: 'Not available' }
-      : left <= 0
+      : unreadQty
+        ? { tone: 'warn', word: 'Couldn\u2019t read' }
+        : left <= 0
         ? { tone: 'bad', word: 'Full' }
         : taken > 0
           ? { tone: 'ok', word: `room for ${left} more` }
           : { tone: 'ok', word: 'Free all day' };
     const why = allDay[0]?.label?.trim();
+    const bar = kind
+      ? countBarOf({ kind, name: kind === 'orders' ? 'Orders in progress' : (p.barName ?? p.label), noun: p.label, taken: unreadQty ? null : taken, total: p.capacity })
+      : null;
     return {
       poolId: p.poolId,
       label: p.label,
+      style: p.style ?? null,
+      bar,
       right,
       rows,
       taken,
       capacity: p.capacity,
+      unread: unreadQty,
       closed,
       closedWhy: closed ? (why && why !== 'Unavailable' ? why : held && allDay.length === 0 ? 'held by you' : '') : null,
       parts,
@@ -523,7 +571,9 @@ export function dayGroupsOf(
 export function dayAnswerOfGroups(groups: readonly DayGroup[], asking: number): DayAnswer | null {
   const open = groups.filter((g) => !g.closed);
   const everyClosed = groups.length > 0 && open.length === 0;
-  return dayAnswerOf({
+  // 🔒 One open schedule whose count was refused makes the whole day unknown — never "Free", never "Still has room".
+  if (open.some((g) => g.unread)) return DAY_UNREAD_ANSWER;
+  const answer = dayAnswerOf({
     schedules: groups.length,
     capacity: open.reduce((n, g) => n + g.capacity, 0),
     taken: open.reduce((n, g) => n + g.taken, 0),
@@ -531,6 +581,17 @@ export function dayAnswerOfGroups(groups: readonly DayGroup[], asking: number): 
     closedWhy: everyClosed ? (groups.find((g) => g.closedWhy)?.closedWhy ?? '') : null,
     partWords: [...new Set(groups.flatMap((g) => g.parts))],
   });
+  // 📊 Step 4: when every open group draws a bar, the line SUMS what is free ("2 orders and 180 chairs free" — the schedule's own word).
+  if (answer && answer.word === 'Still has room') {
+    const free = freeWords(open.map((g) => g.bar ?? null));
+    if (free) return { ...answer, line: free };
+  }
+  // A full day of pieces or orders says so in their words, never "500 bookings already".
+  if (answer && answer.word === 'Full') {
+    const full = fullWords(open.map((g) => g.bar ?? null));
+    if (full) return { ...answer, line: full };
+  }
+  return answer;
 }
 
 /* ── SEATS ON A DATE, FOR THE ADD SHEET (prototype SHEETS.add: "That day is free" / "1 already · 1 more fits") ─── */

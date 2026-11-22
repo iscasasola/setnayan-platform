@@ -8,7 +8,7 @@
  * source". The facts are unchanged; the sentence now reads
  *
  *   **Your first booking through Setnayan is free.** After that: 5% up to
- *   ₱100,000, 1% above — only on couples who found you here. ⓘ
+ *   ₱100,000, 1% above — unless you are the first to bring the event. ⓘ
  *
  * and the ⓘ holds "Minimum fee ₱50 per booking. Bookings you bring in yourself
  * are never charged."
@@ -21,34 +21,42 @@ import type { CSSProperties } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   bookingFeeBandsLine,
+  bookingFeeCapAmount,
   bookingFeeMinimumAmount,
   type BookingFeeSchedule,
 } from '@/lib/booking-fee';
-import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
+import { FEE_FREE_CHIP, FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 
 /** Who the fee applies to — the visible label the ⓘ sits beside. */
-export const FEE_LINE_WHO = 'only on couples who found you here.';
+export const FEE_LINE_WHO = `${FEE_SCOPE}.`;
 /** The second sentence behind the ⓘ. */
-export const FEE_LINE_OWN_CLIENTS = 'No fee on clients you bring in yourself.';
+export const FEE_LINE_OWN_CLIENTS = FEE_FREE_RULE;
 
 export function BookingFeeLine({
   fee,
   leadStyle,
+  freeRule = FEE_LINE_OWN_CLIENTS,
 }: {
   /** The LIVE schedule, or null when it could not be read. */
   fee: BookingFeeSchedule | null;
   /** Style for the bold lead sentence (a page's own ink colour). */
   leadStyle?: CSSProperties;
+  /**
+   * Who books free, behind the ⓘ. Defaults to the PUBLIC words (no duration). The supplier's own pages pass
+   * `feeFreeRuleInApp(fee?.newClientFreeMonths)`, which names the new-client window's length from settings.
+   */
+  freeRule?: string;
 }) {
   return (
     <>
-      <b style={leadStyle}>{FIRST_BOOKING_FREE}</b> After that:{' '}
-      {fee ? bookingFeeBandsLine(fee) : 'a booking fee'} —{' '}
+      {/* ⚖ 20 Nov: the lead is the owner's own free rule (F1), not a free first booking — that rule is retired. */}
+      <b style={leadStyle}>{FEE_FREE_CHIP}.</b> Otherwise:{' '}
+      {fee ? `${bookingFeeBandsLine(fee)}, never more than ${bookingFeeCapAmount(fee)}` : 'a booking fee'} —{' '}
       <InfoTip label={FEE_LINE_WHO} ariaLabel="About the booking fee" align="end">
         {fee
           ? `The smallest fee is ${bookingFeeMinimumAmount(fee)} a booking.`
           : 'Its rate is shown in full before you agree to any booking.'}{' '}
-        {FEE_LINE_OWN_CLIENTS}
+        {freeRule}
       </InfoTip>
     </>
   );

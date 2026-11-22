@@ -32,6 +32,7 @@ import { isEmailBlacklisted } from '@/lib/blacklist';
 import { isPasswordLeaked } from '@/lib/leaked-password';
 import { isEmailVerificationRequired } from '@/lib/email-verification';
 import { OPEN_SHOP_ACCOUNT_ERRORS, signUpSaysEmailTaken } from './open-shop-account';
+import { siteOrigin } from '@/lib/site-origin';
 
 export type CreateVendorAccountResult =
   /** Signed in; `becomeVendor` continues as this user. */
@@ -44,7 +45,7 @@ export type CreateVendorAccountResult =
    */
   | { ok: 'check-email'; user: { id: string; email: string } }
   /** Refused, with the step that owns the field and the sentence to show. */
-  | { ok: false; step: 5; error: string; taken?: true };
+  | { ok: false; step: 2 | 5; error: string; taken?: true };
 
 export async function createVendorAccountForShop(input: {
   email: string;
@@ -77,13 +78,13 @@ export async function createVendorAccountForShop(input: {
   // ERROR_COPY). The breach check fails OPEN when the service is unreachable — by
   // design, see lib/leaked-password.ts.
   if ((await isPasswordLeaked(password)).leaked) {
-    return { ok: false, step: 5, error: OPEN_SHOP_ACCOUNT_ERRORS.passwordLeaked };
+    return { ok: false, step: 2, error: OPEN_SHOP_ACCOUNT_ERRORS.passwordLeaked };
   }
   if (await isEmailBlacklisted(email)) {
-    return { ok: false, step: 5, error: OPEN_SHOP_ACCOUNT_ERRORS.blacklisted };
+    return { ok: false, step: 2, error: OPEN_SHOP_ACCOUNT_ERRORS.blacklisted };
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = siteOrigin();
   const mustConfirm = isEmailVerificationRequired();
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
@@ -114,7 +115,7 @@ export async function createVendorAccountForShop(input: {
     // `taken` turns step 3's email box into a sign-in, right there (owner 2026-11-06: "what if they already have a
     // user account… can we detect it here?"). Said only on submit — never while typing, which would tell anybody
     // which addresses have accounts.
-    return { ok: false, step: 5, error: OPEN_SHOP_ACCOUNT_ERRORS.emailTaken, taken: true };
+    return { ok: false, step: 2, error: OPEN_SHOP_ACCOUNT_ERRORS.emailTaken, taken: true };
   }
   if (error || !data.user?.id) {
     console.warn('[open-shop] auth.signUp failed:', error?.message ?? 'no user returned');

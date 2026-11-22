@@ -731,7 +731,7 @@ export async function SiteBody({
     if (identity.kind === 'guest') {
       identity = {
         ...identity,
-        ...(partsOff.has('seat') ? { seatMap: null, seatPassActive: false, guestHubData: { ...identity.guestHubData, tableLabel: null, seatsOpen: false } } : {}),
+        ...(partsOff.has('seat') ? { seatMap: null, seatPassActive: false, guestHubData: { ...identity.guestHubData, tableLabel: null, seatUnreadable: false, seatsOpen: false } } : {}),
         ...(partsOff.has('camera') ? { papicGuest: null } : {}),
       };
     } else if (partsOff.has('camera') || partsOff.has('live')) {
@@ -2022,7 +2022,7 @@ export async function SiteBody({
           // send an unrecognised visitor BACK TO THIS INVITATION instead
           // of to Setnayan's homepage — which was the only way off it.
           camera: hostCameraOpen ? `/papic/guest?from=${event.slug}` : null,
-          watch: `${publicEventPath(event.slug)}/hub`,
+          watch: `${publicEventPath(event.slug)}?tab=live`,
           join: `${publicEventPath(event.slug)}/invite`,
         },
         stageSlots: STAGE_BAR[pageStage].slots,
@@ -2355,8 +2355,7 @@ export async function SiteBody({
                 `z-30`, so wherever both render this one covers the menu whole.
                 Its two bottom controls (camera · photos) are slots the menu
                 resolves for every viewer, so they go. Its day-of "Live hub"
-                chip is NOT — the resolver has no hub slot — and that chip is
-                top-left chrome that never touches the bar, so it stays. */}
+                chip went on 20 Nov 2026: `/hub` is this page's Live now. */}
             {isEditorCanvas ? null : (
             <PublicEventDayBar
               /* 🔒 Inside content — the camera, the photos, the day-of hub — is
@@ -2364,13 +2363,8 @@ export async function SiteBody({
                  three withheld the bar draws nothing at all. */
               candidCameraActive={insideAllowed && publicCandidCameraActive}
               photosHref={insideAllowed ? publicAlbumHref : null}
-              hubHref={
-                /* 📱 A page whose tabs ARE the day (Live · Welcome · Camera ·
-                   Gallery · Me) needs no door to a second hub. */
-                !tabs.on && insideAllowed && (dayOfPhase === 'live' || dayOfPhase === 'post')
-                  ? `${publicEventPath(event.slug)}/hub`
-                  : null
-              }
+              /* 🧭 No "Live hub" chip (20 Nov 2026, one bar per stage): `/hub` is no longer a second
+                 screen — it sends a visitor here, to Live. */
               menuOn={menuOn}
             />
             )}
@@ -3120,7 +3114,7 @@ export async function SiteBody({
         // Same reason as the anonymous tree: the address carries the event so a
         // refusal can hand them back their invitation (`guestCameraHref`).
         camera: guestCameraHref,
-        watch: `${publicEventPath(event.slug)}/hub`,
+        watch: `${publicEventPath(event.slug)}?tab=live`,
         join: `${publicEventPath(event.slug)}/invite`,
       },
     });
@@ -3236,6 +3230,21 @@ export async function SiteBody({
               formalName={placeCardName(guest, eventNameStyle)}
               nameStyle={hubElementInlineStyle(heroCanvas.elements?.names)}
             />
+            {/* 🧭 "See the venue map →" — the walk from the door to this table (`/find-my-table`). It lived only on
+                `/[slug]/hub`'s seat tile; one bar per stage (20 Nov 2026) took that screen away, so the door moves
+                here, beside the same table, rather than leaving the map unreachable. Not on the Maker's canvas, and
+                only behind the seat rule (`seatPassActive` — `guestsMaySeeSeatsFor`), never a door to a "not yet" page. */}
+            {isEditorCanvas || !seatPassActive ? null : (
+              <p className="mt-2 text-center">
+                <Link
+                  href={`/${event.slug}/find-my-table`}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-ink/80 underline decoration-ink/30 underline-offset-4 hover:text-ink"
+                >
+                  See the venue map
+                  <span aria-hidden>→</span>
+                </Link>
+              </p>
+            )}
           </>
     ) : null;
     /** 🎒 What to bring follows the entourage on the Invitation (`splitAroundEntourage`). */
@@ -4095,7 +4104,7 @@ export async function SiteBody({
                   (`page.tsx` `meSlotFor`), so where the seat is Me's and Me is drawn by the page, that ONE
                   line is it — never the same line twice on one page. */}
               {seatOnMe && typeof meSection === 'function' ? null : group(seatTab, <>{seatPassActive && !isMakerCanvas && !seatMap ? (
-                <SeatDoorLine slug={event.slug ?? ''} tableLabel={guestHubData.tableLabel} />
+                <SeatDoorLine slug={event.slug ?? ''} tableLabel={guestHubData.tableLabel} unreadable={guestHubData.seatUnreadable} />
               ) : null}</>, { chapters: true, className: 'space-y-12' })}
               {/* 🎬 Scroll · Scrub per section (owner 2026-09-24). Byte-identical
                   children unless a section scrubs AND the event owns Event

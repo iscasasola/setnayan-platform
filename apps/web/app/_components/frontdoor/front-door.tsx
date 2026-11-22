@@ -26,18 +26,18 @@ import { DiscoverThumbRow } from './front-door-lazy';
 // signed-in surfaces render the SAME rail from the SAME source. Behaviour is
 // byte-identical; see `rail-data.ts` for why one copy matters here.
 import { resolveRailAccount } from './rail-data';
+import { startAhead } from '@/lib/start-ahead';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveShellSearchContext, type ShellSearchContext } from './shell-search-context';
 import { getCurrentUser } from '@/lib/auth';
 import { getCreatableEventTypes, getEventTypeVocab, type EventTypeRow } from '@/lib/event-types-db';
-import { FrontDoorLanding, frontPageSample, planCreditsFrom, planPricesFrom, type PlanPrices } from './front-door-landing';
+import { FrontDoorLanding, frontPageTiles, planCreditsFrom, planPricesFrom, type PlanPrices } from './front-door-landing';
+import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import type { PlanFacts } from './front-door-landing-data';
 import { papicFreeCreditPromise } from '@/lib/papic-free-credit-promise';
 import { readPapicFreeGrantRead } from '@/lib/papic-tier-config-read';
 import type { PapicFreeGrantRead } from '@/lib/papic-tier-copy';
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
-import { specializationFreeWindowActive } from '@/lib/vendor-specialization-gate';
-import { vendorDayOfFreeUntilIso } from '@/lib/vendor-dayof-free-until';
 import { opensSupplierView } from '@/lib/discover-suppliers';
 import { marketplaceFaithOptions } from '@/lib/marketplace-faith-options';
 import { DiscoverCategoryButton, DiscoverFiltersButton } from './discover-supplier-controls';
@@ -57,6 +57,7 @@ import {
 import { resolveRailStudioEvent } from './rail-data';
 import { loadPublishedShowcasesResult } from '@/lib/showcase-db';
 import { editorialsToStories } from '@/lib/front-door-editorials';
+import { eventTypeShownWords } from '@/lib/event-type-shown-words';
 
 export async function FrontDoor({ q, params = {} }: { q?: string; params?: MarketplaceSearchParams }) {
   /*
@@ -84,8 +85,41 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
   const MarketplaceView = supplierView
     ? (await import('@/app/(shell)/explore/_lib/marketplace-view')).MarketplaceView
     : null;
+  /*
+    ⚡ THE SECOND ROUND STARTS THE MOMENT THE ACCOUNT IS KNOWN (speed pass 2026-11-18). Discover's signed-in shelves and
+    the signed-out front page's reads each need ONE answer from the first round — signed in or not — so they hang off
+    the account read alone instead of waiting for the slowest read beside it. Each starts only when the page will draw
+    it (the same conditions as below, a signed-out redirect included), so no request is added; each is awaited on the
+    line that always awaited it.
+  */
+  const accountRead = startAhead(resolveRailAccount());
+  const shelvesRead = startAhead(
+    accountRead.then((acct) => {
+      const feed = acct.signedIn && !searchQuery && !supplierView;
+      return Promise.all([
+        feed && !ownView ? loadDiscoverServiceCards(8) : null,
+        feed && view.kind !== 'stories'
+          ? loadDiscoverInspiration(view.kind === 'inspiration' ? 48 : 12, view.kind === 'inspiration' ? view.part : null)
+          : null,
+        feed && view.kind !== 'stories' ? resolveRailStudioEvent() : null,
+        feed && view.kind === 'stories' ? loadPublishedShowcasesResult(48).catch(() => null) : null,
+        feed && view.kind === 'stories' ? getEventTypeVocab() : [],
+      ]);
+    }),
+  );
+  const landingRead = startAhead(
+    accountRead.then((acct) =>
+      !acct.signedIn && !searchQuery && !supplierView && signedOutRedirect(params as Record<string, string | string[] | undefined>) === null
+        ? Promise.all([
+            getCreatableEventTypes(),
+            fetchV2CustomerCatalog().catch(() => []),
+            readPapicFreeGrantRead().catch((): PapicFreeGrantRead => ({ kind: 'unknown' })),
+          ])
+        : null,
+    ),
+  );
   const [account, data, commandItems, discover] = await Promise.all([
-    resolveRailAccount(),
+    accountRead,
     supplierView ? null : loadFrontDoorData(),
     /*
       💸 NAMED COST, AND ONLY FOR SOMEBODY SIGNED IN. This returns `[]` on the
@@ -122,16 +156,8 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
     already read by the rail). Event stories reuse the feed's own published-story read; their "See all" reads it
     once more with the event type.
   */
-  const feedShelves = account.signedIn && !searchQuery && !supplierView;
-  const [serviceCardShelf, inspirationShelf, studio, storyRead, storyOccasions] = await Promise.all([
-    feedShelves && !ownView ? loadDiscoverServiceCards(8) : null,
-    feedShelves && view.kind !== 'stories'
-      ? loadDiscoverInspiration(view.kind === 'inspiration' ? 48 : 12, view.kind === 'inspiration' ? view.part : null)
-      : null,
-    feedShelves && view.kind !== 'stories' ? resolveRailStudioEvent() : null,
-    feedShelves && view.kind === 'stories' ? loadPublishedShowcasesResult(48).catch(() => null) : null,
-    feedShelves && view.kind === 'stories' ? getEventTypeVocab() : [],
-  ]);
+  // Started the moment the account was known (`shelvesRead`, above) — each part only for a signed-in feed.
+  const [serviceCardShelf, inspirationShelf, studio, storyRead, storyOccasions] = await shelvesRead;
   const saveHref = studio ? moodBoardSaveHref(studio) : null;
 
   /*
@@ -174,13 +200,9 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
   const signedOut = !account.signedIn;
   const landing = signedOut && !searchQuery && !supplierView;
   // ONE catalogue read feeds both the plan prices and (Lane J) the credits each plan grants — never typed.
-  const [eventTypes, catalog, freeGrant] = landing
-    ? await Promise.all([
-        getCreatableEventTypes(),
-        fetchV2CustomerCatalog().catch(() => []),
-        readPapicFreeGrantRead().catch((): PapicFreeGrantRead => ({ kind: 'unknown' })),
-      ])
-    : [[], [], null];
+  // Started the moment the account was known (`landingRead`, above) — only for this same signed-out landing.
+  const landingReads = landing ? await landingRead : null;
+  const [eventTypes, catalog, freeGrant] = landingReads ?? [[], [], null];
   /*
     🛒 THE SHOPS SHELF'S TWO DOORS INTO THE SUPPLIER VIEW (2026-11-12 · the drawing's "All categories ▾" and
     "Filters" under the shelf heading). Drawn only when the shelf shows shops. 💸 No new request: the categories are
@@ -210,7 +232,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
           },
           sortOptions: [],
           faithOptions: marketplaceFaithOptions(),
-          eventTypeOptions: shelfOccasions.map((t) => ({ value: t.key, label: t.label })),
+          eventTypeOptions: eventTypeShownWords(shelfOccasions).map((t) => ({ value: t.key, label: t.label })),
           matchableEvent: null,
           hostVenueSetting: null,
           hostVenueLabel: null,
@@ -248,7 +270,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
         docblock for the fuller reasoning behind dropping the old always-on
         opening.
       */
-      heading={account.signedIn ? undefined : <FrontDoorAnchor />}
+      heading={account.signedIn ? undefined : <FrontDoorAnchor tiles={frontPageTiles(eventTypes, experienceQuizEnabled())} kinds={eventTypes.length} />}
       /*
         🧭 NO TOOL LISTS ON `/` (owner 2026-10-01, built 2026-10-23): the rail
         is Discover · Find suppliers · Features · How it works · Sign in signed
@@ -340,15 +362,8 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
           />
         )
       ) : signedOut ? (
-        /* The 4 Nov front page — the shipped shelves ride inside it, unchanged, as #shelves. */
-        <FrontDoorLanding
-          eventTypes={eventTypes}
-          planPrices={planPrices}
-          planFacts={planFacts}
-          /* The coordinator band says "Free" on the floor kit only while the paywall itself makes it free. */
-          floorKitFree={specializationFreeWindowActive(vendorDayOfFreeUntilIso(), Date.now())}
-          sample={frontPageSample(new Date())}
-        />
+        /* The 20 Nov front page (prototypes/front_page_home_2026-11-19 v5): see it as a guest, plan it, keep it, plans. */
+        <FrontDoorLanding planPrices={planPrices} planFacts={planFacts} />
       ) : (
         <>
           {view.kind === 'stories' ? (
@@ -366,7 +381,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
                     })()
                   : null
               }
-              occasions={storyOccasions.map((t) => ({ key: t.key, label: t.label }))}
+              occasions={eventTypeShownWords(storyOccasions).map((t) => ({ key: t.key, label: t.label }))}
               occasion={view.occasion}
               order={view.order}
             />

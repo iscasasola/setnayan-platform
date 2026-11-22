@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Trash2, Undo2 } from 'lucide-react';
 import { actionButtonClass } from '@/components/action-button-class';
@@ -31,9 +32,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function EventDeletionsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const { data: me } = await supabase

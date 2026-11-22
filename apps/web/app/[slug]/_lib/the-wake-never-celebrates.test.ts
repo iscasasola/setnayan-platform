@@ -211,26 +211,10 @@ const TONE_SITES: Array<[string, string, string]> = [
     "'wrapped up'",
     "'has ended'",
   ],
-  [
-    'hub/page.tsx',
-    "'The event is underway — enjoy every moment.'",
-    "'The gathering is underway. Thank you for being here.'",
-  ],
-  [
-    'hub/page.tsx',
-    "'The event has wrapped. Thank you for being part of the day.'",
-    "'The gathering has ended. Thank you for standing with the family.'",
-  ],
-  [
-    'hub/page.tsx',
-    "'The event is almost here. We can’t wait to see you.'",
-    "'The gathering is near. It will mean a great deal to have you close.'",
-  ],
-  [
-    'hub/page.tsx',
-    'The digital money dance — straight to {words.theOrganizer}.',
-    'A gift of sympathy — straight to {words.theOrganizer}.',
-  ],
+  /* (20 Nov 2026) The four `hub/page.tsx` rows LEFT the bill: one bar per stage — /hub draws nothing, it redirects
+     to the event page's tab (`dayHubLanding`), so its status line and its gift door are gone with it. The day's own
+     page carries its tone through `day-of-banner.tsx` (above) and the gift door through `guest-doorway-strip.tsx`
+     (below), both still pinned here. */
   [
     '_components/guest-doorway-strip.tsx',
     'The digital money dance — straight to ${words.theOrganizer}.',
@@ -266,7 +250,7 @@ test('every tone site keeps its celebratory literal AND carries its solemn arm',
   }
   assert.deepEqual(failures, [], failures.join('\n'));
   // Pin the count: deleting a row to go green must itself be visible.
-  assert.equal(TONE_SITES.length, 15, 'a pinned tone site was removed from this bill');
+  assert.equal(TONE_SITES.length, 11, 'a pinned tone site was removed from this bill (15 → 11 on 20 Nov 2026: the four /hub rows, with the page)');
 });
 
 // ── 6 · NO PITCH ON A MEMORIAL PAGE ─────────────────────────────────────────
@@ -456,8 +440,12 @@ test('🖨 the printed card reads "In loving memory of" at a wake — the cover�
     print.includes("eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'Celebrating',"),
     'print-set.server.ts lost one of the three eyebrow arms',
   );
-  assert.match(print, /const solemn = isWedding \? false : \(await eventWordsFor\(event\.event_type\)\)\.solemn;/,
-    'the printed eyebrow no longer reads the register from the event type');
+  // ⚡ The register is read beside the other reads (speed pass 2026-11-18) — still from the event type, never at a wedding.
+  assert.match(print, /const wordsRead = isWeddingEarly \? null : startAhead\(eventWordsFor\(event\.event_type\)\);/,
+    '🖨 the printed eyebrow no longer reads the register from the event type');
+  assert.match(print, /const isWeddingEarly = \(event\.event_type \?\? 'wedding'\) === 'wedding';/);
+  assert.match(print, /const solemn = isWedding \|\| !wordsRead \? false : \(await wordsRead\)\.solemn;/,
+    '🖨 the printed eyebrow no longer reads the register from the event type');
   // One phrase for one moment: the post-event cover's solemn kicker is the
   // source; the printed card is that phrase + "of".
   const kicker = /if \(f\.solemn\) return '([^']+)';/.exec(

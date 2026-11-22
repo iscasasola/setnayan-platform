@@ -38,6 +38,9 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ActionButton } from '@/components/action-button';
 import { PillLink, PillTrack } from '@/app/_components/pill-track';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
+import { TemplateEmpty, TemplateSection } from '@/app/_components/template-rows';
+import { actionButtonClass } from '@/components/action-button-class';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Integrity watch · Admin' };
@@ -308,33 +311,19 @@ export default async function AdminIntegrityWatchPage({
         : 'Rescan listings';
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       {/* The page starts at its content. 🔒 THE RESCAN CONTROL IS NOT THE
           PAGE NAME — it is the only way to re-run the screening from this
-          screen, so it moves into `actions`.
+          screen, so it sits in the page body beside the ⓘ.
           ⚖ The sentence survives: it says what each of the three tabs
           actually scores, and — on Inquiries — that THE VENDOR IS THE VICTIM.
           Reading that queue the other way round would get an innocent shop
-          punished. */}
-      <PageMasthead
-        title="Integrity watch"
-        className="mb-2"
-        actions={
-          hasRescan ? (
-            <form action={rescanAction}>
-              <SubmitButton
-                className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
-                pendingLabel="Rescanning…"
-              >
-                <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />{' '}
-                {rescanLabel}
-              </SubmitButton>
-            </form>
-          ) : null
-        }
-      />
-      <div className="mb-6">
-        <div>
+          punished.
+          📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): the status chips are one dropdown, the
+          closing paragraph moved behind the section's ⓘ, the empty line is the template's. Same reads, same actions. */}
+      <PageMasthead title="Integrity watch" />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="min-w-0 flex-1">
           <InfoTip label="How the screening works" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
             Deterministic integrity screening. <span className="font-medium">Reviews</span>{' '}
           scores every submitted review on velocity/burst, rating anomaly, and
@@ -346,7 +335,15 @@ export default async function AdminIntegrityWatchPage({
           review flag never auto-deletes the review, and a listing is only hidden
           on an explicit click. Demo suppliers are excluded.
           </InfoTip>
-        </div>
+        </span>
+        {hasRescan ? (
+          <form action={rescanAction}>
+            <SubmitButton className={actionButtonClass('neutral')} pendingLabel="Rescanning…">
+              <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />{' '}
+              {rescanLabel}
+            </SubmitButton>
+          </form>
+        ) : null}
       </div>
 
       {search.scanned !== undefined && (
@@ -384,20 +381,31 @@ export default async function AdminIntegrityWatchPage({
         )}
       </PillTrack>
 
-      {/* Status filters */}
-      <PillTrack className="mb-4">
-        {STATUS_FILTERS.map((f) => (
-          <PillLink
-            key={f.value}
-            on={status === f.value}
-            href={`/admin/integrity-watch?tab=${tab}&status=${f.value}`}
-            aria-current={status === f.value ? 'page' : undefined}
-            className="px-3"
-          >
-            {f.label}
-          </PillLink>
-        ))}
-      </PillTrack>
+      <TemplateSection
+        label="Flags"
+        data="integrity-flags"
+        tip={
+          <>
+            This desk watches for made-up reviews, shops that look active but never
+            answer, and one shop taking a suspicious share of another&rsquo;s enquiries
+            {pricesEnabled ? ', plus prices declared lower than they were charged' : ''}.
+            It only ever flags for a person to look at &mdash; it never acts on its own,
+            and the evidence it keeps never identifies anybody.
+          </>
+        }
+        right={
+          <LinkPickMenu
+            label="Status"
+            value={status}
+            dataAttr="data-integrity-status"
+            options={STATUS_FILTERS.map((f) => ({
+              key: f.value,
+              label: f.label,
+              href: `/admin/integrity-watch?tab=${tab}&status=${f.value}`,
+            }))}
+          />
+        }
+      >
 
       {listError && (
         <FormFlash tone="error">
@@ -407,7 +415,7 @@ export default async function AdminIntegrityWatchPage({
       )}
 
       {listError ? null : rows.length === 0 ? (
-        <p className="rounded-md border border-ink/10 bg-white/70 px-4 py-3 text-sm text-ink/65">
+        <TemplateEmpty data="integrity-flags">
           No flags in this view.
           {tab === 'listings'
             ? ' Use “Rescan listings” to sweep the marketplace.'
@@ -416,7 +424,7 @@ export default async function AdminIntegrityWatchPage({
               : tab === 'prices'
                 ? ' Use “Rescan prices” to sweep couple-confirmed locks for implausibly low declared prices. Couple-confirmation stays the anchor — this is a second layer for triage only, never an automated penalty.'
                 : ' Reviews are screened automatically on submit — use “Rescan reviews” to backfill historical ones.'}
-        </p>
+        </TemplateEmpty>
       ) : (
         <ul className="space-y-4">
           {rows.map((r) => {
@@ -519,13 +527,7 @@ export default async function AdminIntegrityWatchPage({
         </ul>
       )}
 
-      <p className="mt-6 text-sm text-ink/70">
-        This desk watches for made-up reviews, shops that look active but never
-        answer, and one shop taking a suspicious share of another&rsquo;s enquiries
-        {pricesEnabled ? ', plus prices declared lower than they were charged' : ''}.
-        It only ever flags for a person to look at &mdash; it never acts on its own,
-        and the evidence it keeps never identifies anybody.
-      </p>
+      </TemplateSection>
     </div>
   );
 }

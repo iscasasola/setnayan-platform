@@ -135,7 +135,7 @@ export function PhotoGroupHeader({
       ) : null}
       <div
         ref={rowRef}
-        className={`group sticky top-[var(--pgh-top,var(--pgh-bar,var(--fd-bar,0px)))] z-sn-sticky -mx-[var(--pgh-bleed,1rem)] flex h-[52px] items-center bg-[var(--pgh-bg,var(--sn-canvas))] px-[var(--pgh-bleed,1rem)] [transition:top_.3s_ease-out,box-shadow_.2s_ease-out] motion-reduce:transition-none data-[pinned]:shadow-[0_1px_0_rgb(var(--color-ink)/0.06)]${
+        className={`group sticky top-[var(--pgh-top,var(--pgh-bar,var(--fd-bar,0px)))] z-sn-sticky -mx-[var(--pgh-bleed,1rem)] flex h-[52px] items-center bg-[var(--pgh-bg,var(--sn-canvas))] px-[var(--pgh-bleed,1rem)] [transition:top_var(--sn-tuck-dur)_var(--sn-tuck-ease),box-shadow_.2s_ease-out] motion-reduce:transition-none data-[pinned]:shadow-[0_1px_0_rgb(var(--color-ink)/0.06)]${
           hasPhoto ? '' : ' mt-4'
         }`}
         data-photo-group-header=""

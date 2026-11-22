@@ -33,6 +33,7 @@
  * so a server page (admin, the supplier's client page) and a client card (the
  * couple's "Amount to pay") can both mount the same picture.
  */
+import { PHOTO_ARRIVES } from '@/lib/photo-arrives';
 import { ExternalLink } from 'lucide-react';
 
 /**
@@ -70,7 +71,7 @@ export function ProofImage({ url, alt = 'Payment proof', className }: ProofImage
     <div className={`space-y-1 ${className ?? ''}`}>
       <a href={url} target="_blank" rel="noopener noreferrer" className="block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={url} alt={alt} className={PROOF_IMAGE_CLASS} />
+        <img {...PHOTO_ARRIVES} src={url} alt={alt} className={PROOF_IMAGE_CLASS} />
       </a>
       <a
         href={url}

@@ -84,6 +84,12 @@ type RequestBody = {
    * with a free-form prefix" hole that login-free (anonymous) claim widens.
    */
   papicSeatToken?: string;
+  /**
+   * 📤 With `papicSeatToken`: this file was ADDED BY HAND (Memories' "Add photos") rather than shot. Counted only on
+   * a host camera's seat, where it prices the gate at the upload rate — the same answer the record step charges with
+   * (`papicSeatCaptureSource`; owner 2026-11-22: a host's live shot costs the camera price).
+   */
+  papicAdded?: boolean;
 };
 
 // Papic seat captures are images (photo / clip poster) + short clips only. A
@@ -458,7 +464,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // afford ANY clip at all.
         // 📤 ADDED BY HAND (the Uploads camera) = the camera price × PAPIC_UPLOAD_MULTIPLIER (owner 2026-10-26) — the
         // source is the seat this route resolved from the token, the same answer the record step charges with.
-        const captureSource = papicSeatCaptureSource(seat.seat_index as number | null);
+        const captureSource = papicSeatCaptureSource(seat.seat_index as number | null, body.papicAdded === true);
         const cost =
           cameraKind === 'clip'
             ? papicClipCostFloor(captureSource)
@@ -919,7 +925,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (reservation.kind === 'full') {
       return NextResponse.json(
         {
-          error: coupleMediaFullMessage(reservation.usedBytes, sizeBytes, reservation.isPro),
+          error: coupleMediaFullMessage(reservation.usedBytes, sizeBytes, reservation.plan),
           code: COUPLE_MEDIA_FULL_CODE,
         },
         { status: 413 },

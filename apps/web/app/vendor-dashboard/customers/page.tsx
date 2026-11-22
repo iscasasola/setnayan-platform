@@ -1,6 +1,11 @@
 import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { startAhead } from '@/lib/start-ahead';
+import { readHandledByForShop, currentHandlerOf } from '@/lib/handled-by.server';
+import { mayAnswerHandOver, mayMoveClient, type HandoverCaller } from '@/lib/client-handover';
+import { ClientHandling, type ClientHandlingView } from './_components/client-handling';
+import { setVendorRoleNames } from '../team/actions';
+import { dutyWorksAtABranch, roleNameOf, type VendorRoleNames } from '@/lib/vendor-duties';
 import { redirect } from 'next/navigation';
 import { Suspense, type ReactNode } from 'react';
 import { ClipboardList, FileSignature, FileText } from 'lucide-react';
@@ -17,6 +22,7 @@ import {
   fetchVendorMonthDayStates,
   fetchVendorPoolBookings,
   fetchVendorPools,
+  fetchVendorPoolsOrNull,
 } from '@/lib/vendor-schedule';
 import {
   asksByDate,
@@ -39,12 +45,13 @@ import { entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
 import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import { datesBlocksForWire, datesBookingsForWire } from './dates-wire';
 import { readBookedDayHours } from '@/lib/booked-day-hours.server';
-import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
+import { fetchVendorWaitlist, fetchVendorWaitlistRead } from '@/lib/vendor-waitlist';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import {
   fetchVendorTeam,
   enrichTeamWithUsers,
   fetchAgentServiceAssignments,
+  fetchVendorRoleNames,
 } from '@/lib/vendor-team';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
@@ -321,9 +328,17 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     },
     { pageSize: 1000 },
   ));
-  const [pools, bookings, blocksRead, threadsRead, paydayRes, meetingsRead, unreadRead] = await Promise.all([
-    // The schedules an outside client can hold a date on (the Add sheet).
-    fetchVendorPools(supabase, vendorProfileId),
+  // 👤 Who handles each client (d–h (f)) — the server's columns, started beside the roster read.
+  const handledByRead = startAhead(readHandledByForShop(rosterAdmin, vendorProfileId));
+  const rolesWhereRead = startAhead(
+    Promise.all([
+      rosterAdmin.from('vendor_branches').select('branch_id, branch_label').eq('parent_vendor_profile_id', vendorProfileId).is('cancelled_at', null),
+      fetchVendorRoleNames(rosterAdmin, vendorProfileId).catch(() => ({}) as VendorRoleNames),
+    ]),
+  );
+  const [poolsRead, bookings, blocksRead, threadsRead, paydayRes, meetingsRead, unreadRead] = await Promise.all([
+    // The schedules an outside client can hold a date on (the Add sheet). D-5: the HONEST read — null when refused.
+    fetchVendorPoolsOrNull(supabase, vendorProfileId),
     // LEFT ON THE POOL READ — CAPACITY, not the room: `poolBooked` below is the
     // floor that keeps a held date on the roster whatever else is missing.
     fetchVendorPoolBookings(supabase, vendorProfileId),
@@ -355,6 +370,10 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const [teamRead, assignmentsRead, servicesRead] = await teamReads;
 
   const threads = threadsRead.threads;
+  // D-5 (supplier audit 2026-11-17): a refused pools read is not "no schedules" — it told a shop that already has
+  // schedules to "Set how many events you take a day".
+  const pools = poolsRead ?? [];
+  const poolsUnread = poolsRead === null;
   // ⚡ The month on top no longer holds the list back: started here, awaited just before the page is drawn.
   const monthPartRead = startAhead(customersMonth({
     supabase,
@@ -363,6 +382,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     month,
     openFold: search.open === 'availability' ? 'capacity' : (search.open ?? null),
     pools,
+    poolsUnread,
     bookings,
     blocksRead,
     threads,
@@ -620,6 +640,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const choice = clientsChoiceOf(search as Record<string, string | undefined>);
   const meRow = teamRead?.find((m) => m.user_id === user.id) ?? null;
   const viewerIsAgent = meRow?.role === 'agent';
+  const handledBy = await handledByRead;
   const seatsByService = new Map<string, string[]>();
   for (const [memberId, serviceIds] of Object.entries(assignmentsRead ?? {})) {
     for (const sid of serviceIds) seatsByService.set(sid, [...(seatsByService.get(sid) ?? []), memberId]);
@@ -632,7 +653,10 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   };
   const clientsCtx: ClientsContext = {
     serviceOf: (eventId) => bookingByEvent.get(eventId)?.service_id ?? null,
+    // One client, one Account Manager (d–h (f)): the person handling the client, when known; else the card's people.
     seatsOf: (eventId) => {
+      const handler = currentHandlerOf(handledBy?.get(eventId));
+      if (handler) return [handler];
       const sid = bookingByEvent.get(eventId)?.service_id;
       return sid ? (seatsByService.get(sid) ?? []) : [];
     },
@@ -643,8 +667,63 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     today: todayIso,
   };
   const narrowed = teamKnown || !choice.who ? narrowClients(listed, choice, clientsCtx) : narrowClients(listed, { ...choice, who: null }, clientsCtx);
-  const groupKey = groupKeyOf(choice.group, clientsCtx, seatName);
+  // 👤 d–h (f): a Handled by heading is the role in the shop's own words, the person and their branch —
+  // "Lead Stylist · Bea Santos · Makati"; Branch and Card group by where the client's card is filed.
+  const [branchesRes, roleNames] = await rolesWhereRead;
+  const branchLabel = new Map(((branchesRes.data ?? []) as { branch_id: string; branch_label: string | null }[]).map((b) => [b.branch_id, b.branch_label?.trim() || 'Branch']));
+  const hasBranches = branchLabel.size > 0;
+  const whereOf = (branchId: string | null) => (branchId ? (branchLabel.get(branchId) ?? 'Branch') : 'Main');
+  const cardById = new Map((servicesRead ?? []).map((sv) => [sv.vendor_service_id, sv]));
+  const seatHeading = (id: string) => {
+    const m = teamRead?.find((t) => t.vendor_team_member_id === id);
+    if (!m) return seatName(id);
+    return [roleNameOf(roleNames, m.duty), seatName(id), hasBranches && dutyWorksAtABranch(m.duty) ? whereOf(m.branch_id) : null].filter(Boolean).join(' · ');
+  };
+  const cardOfEvent = (eventId: string) => {
+    const sid = bookingByEvent.get(eventId)?.service_id;
+    return sid ? (cardById.get(sid) ?? null) : null;
+  };
+  const groupKey = groupKeyOf(choice.group, clientsCtx, seatHeading, {
+    branchOf: (eventId) => {
+      const c = cardOfEvent(eventId);
+      return c ? whereOf((c as { branch_id?: string | null }).branch_id ?? null) : null;
+    },
+    cardOf: (eventId) => cardOfEvent(eventId)?.title?.trim() || null,
+  });
   const lanes = groupByLane(narrowed);
+  /*
+    👤 ONE CLIENT, ONE ACCOUNT MANAGER (d–h (f)) — each client's Hand over mark and "Handled by ▾". The caller is checked
+    again on the server; here it only decides which doors draw. Move-to lists the ACTIVE people of the card's branch.
+  */
+  const viewer: HandoverCaller | null = meRow ? { memberId: meRow.vendor_team_member_id, duty: meRow.duty, branchId: meRow.branch_id } : null;
+  const firstOf = (id: string) => seatName(id).split(/\s+/)[0] ?? seatName(id);
+  const handlingViews: Record<string, ClientHandlingView> = {};
+  for (const r of listed) {
+    if (!r.threadId || !handledBy || !teamRead) continue;
+    const h = handledBy.get(r.eventId);
+    const current = currentHandlerOf(h);
+    const card = cardOfEvent(r.eventId) as { branch_id?: string | null } | null;
+    const cardBranch = card?.branch_id ?? null;
+    const mayMove = viewer ? mayMoveClient(viewer, cardBranch) : false;
+    if (!current && !h?.handOver && !mayMove) continue;
+    const movable = teamRead.filter(
+      (m) =>
+        !m.deactivated_at &&
+        (m.duty === 'shop_manager' || ((m.duty === 'account_manager' || m.duty === 'branch_manager') && (m.branch_id ?? null) === cardBranch)),
+    );
+    handlingViews[r.eventId] = {
+      threadId: r.threadId,
+      handledByName: current ? seatHeading(current) : null,
+      handOver: h?.handOver && h.handledBy ? { keepFirst: firstOf(h.handledBy), giveFirst: firstOf(h.handOver) } : null,
+      mayAnswer: viewer ? mayAnswerHandOver(viewer, h?.handledBy ?? null, cardBranch) : false,
+      moveTo: mayMove ? { currentId: current, options: movable.map((m) => ({ key: m.vendor_team_member_id, label: seatHeading(m.vendor_team_member_id) })) } : null,
+    };
+  }
+  const handlingSlots: Record<string, ReactNode> = {};
+  for (const [eventId, view] of Object.entries(handlingViews)) {
+    handlingSlots[eventId] = <ClientHandling view={view} action={setVendorRoleNames} returnTo="/vendor-dashboard/customers" />;
+  }
+  const handling = { views: handlingViews, slots: handlingSlots };
   /*
     Computed over EVERY listed customer, never over the door on screen —
     filtering to a door must not make a date clash disappear. That is the
@@ -880,6 +959,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             lines={lines}
             list={k === 'all' ? null : k}
             groupOf={groupKey}
+            handling={handling}
           />
           {isBooked ? (
             <OutsideClientRows
@@ -1106,6 +1186,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                     clients={listed.map((r) => ({ key: r.eventId, label: r.title }))}
                     seats={teamKnown && seatNames ? teamRead.filter((m) => m.vendor_team_member_id !== meRow?.vendor_team_member_id).map((m) => ({ key: m.vendor_team_member_id, label: seatName(m.vendor_team_member_id) })) : null}
                     agent={clientsCtx.agent}
+                    hasBranches={hasBranches}
                     shown={narrowed.length}
                     keep={keepParamsFrom(sp, ['svc', 'st', 'client', 'who', 'group', 'sort', 'page', 'notice', 'add', 'gear'])}
                     schedules={scheduleScopeOptions(monthPart.month)}
@@ -1201,7 +1282,8 @@ function startMonthReads(
     fetchVendorMonthDayStates(supabase, vendorProfileId, month),
     // The month's waiting list (its marks) and every date ahead (the Waiting list fold).
     fetchVendorWaitlist(supabase, vendorProfileId, `${month}-01`),
-    fetchVendorWaitlist(supabase, vendorProfileId, todayIso),
+    // D-4: the fold's list keeps its outcome — a refused read is not "Nobody waiting."
+    fetchVendorWaitlistRead(supabase, vendorProfileId, todayIso),
     // ONE read for the plan and the waitlist settings (tier_state is excluded from the profile select).
     supabase
       .from('vendor_profiles')
@@ -1233,6 +1315,7 @@ async function customersMonth({
   month,
   openFold,
   pools,
+  poolsUnread = false,
   bookings,
   blocksRead,
   threads,
@@ -1246,6 +1329,8 @@ async function customersMonth({
   month: string;
   openFold: string | null;
   pools: Awaited<ReturnType<typeof fetchVendorPools>>;
+  /** D-5: the pools read was refused — say so, never "Set how many events you take a day". */
+  poolsUnread?: boolean;
   bookings: Awaited<ReturnType<typeof fetchVendorPoolBookings>>;
   blocksRead: Awaited<ReturnType<typeof fetchVendorBlocksDetailed>>;
   threads: Awaited<ReturnType<typeof fetchVendorThreadsDetailed>>['threads'];
@@ -1253,7 +1338,7 @@ async function customersMonth({
   teamRows: Awaited<ReturnType<typeof fetchVendorTeam>>;
   reads: ReturnType<typeof startMonthReads>;
 }) {
-  const [[monthDayStates, monthWaitlist, upcomingWaitlist, settingsRead, pickedRead], bookedHours] = await Promise.all([
+  const [[monthDayStates, monthWaitlist, upcomingWaitlistRead, settingsRead, pickedRead], bookedHours] = await Promise.all([
     reads,
     // 🗓 A booked day's hours and the shop's own times (part (b)) — a hall reads only its own chapter.
     readBookedDayHours(bookings, new Set(pools.filter((p) => p.isHall).map((p) => p.poolId)), todayIso),
@@ -1355,7 +1440,11 @@ async function customersMonth({
             here. Reload the page to try again.
           </p>
         ) : null}
-        {pools.length === 0 ? (
+        {poolsUnread ? (
+          <p className="mb-2 text-[13.5px] text-ink/70" data-dates-pools-unread="">
+            Couldn&rsquo;t load your schedules. Refresh in a moment to try again.
+          </p>
+        ) : pools.length === 0 ? (
           <p className="mb-2 text-[13.5px] text-ink/70" data-dates-no-calendar="">
             Set how many events you take a day so couples see if your date is open.{' '}
             <Link href={SET_HOW_MANY_A_DAY_HREF} className="font-semibold text-ink underline underline-offset-2" data-dates-set-it="">
@@ -1383,7 +1472,8 @@ async function customersMonth({
             grandfathered: !unlimited && storedCap > waitlistTierCap ? storedCap : 0,
             settingsMeasured: !settingsRead.error,
             pickedMeasured: !pickedRead.error,
-            dates: upcomingWaitlist.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
+            datesMeasured: upcomingWaitlistRead.ok,
+            dates: upcomingWaitlistRead.groups.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
           }}
           qrHref="/vendor-dashboard/invite?mode=locked"
           blockAdd={<BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />}

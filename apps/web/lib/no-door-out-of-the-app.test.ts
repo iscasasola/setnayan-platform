@@ -329,7 +329,8 @@ const BOOKED_HANDOFF_BILL: ReadonlyMap<string, { count: number; why: string; gat
       why:
         'A Call (tel:) and a Viber call (viber://chat?number=) between a couple and a shop, made ONLY when the booking ' +
         'check says the shop is booked on the event (owner 2026-11-04 "Viber and phone call booked suppliers"). Both ' +
-        'builders return null without it. Its one caller is the booked chat head (meetings are Jitsi only and dial nothing).',
+        'builders return null without it. Its callers are the booked chat head and the picked pages\' ⋯ Call · Viber rows ' +
+        '(meetings are Jitsi only and dial nothing).',
     },
   ],
 ]);

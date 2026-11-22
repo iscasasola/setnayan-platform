@@ -1,20 +1,18 @@
 import { getCurrentUser } from '@/lib/auth';
 import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
-import Link from 'next/link';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
-import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
+import { fetchVendorRoomEventsDetailed } from '@/lib/vendor-room-access';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { SponsoredShotsStrip } from '../_components/sponsored-shots-strip';
 import { fetchVendorPapicAllowance, fetchVendorPapicPortfolioCredits } from '@/lib/vendor-papic-grants';
-import { PapicCaptureController } from '../_components/papic-capture-controller';
+import { PapicDeskBody, PapicReadFailed } from '../_components/papic-desk-body';
 import { OwnCapturesStrip } from '../_components/own-captures-strip';
 import { PortfolioCreditsCard } from '../_components/portfolio-credits-card';
 import { PortfolioAlbumSection } from '../_components/portfolio-album-section';
@@ -46,16 +44,30 @@ export default async function VendorPapicCapturePage({
     redirect(`/login?next=${encodeURIComponent(`${back}/papic`)}`);
   }
 
+  // ── 🔒 A FAILED READ IS SAID; A REFUSAL STILL SENDS YOU BACK (supplier pages set two, page 8, 21 Nov 2026:
+  // "Papic · this event could not be read" — until now a failed read sent the supplier back to the floor with no
+  // word). Each read below answers one of three ways, and the FAILED answer is decided before the REFUSED one:
+  //   · failed  — the profile read threw (both projections refused), or the bookings read could not reach its end
+  //               (`complete: false`, or it threw) and this event is not among what it did read → the honest page;
+  //   · refused — the read answered and said no: no shop of your own, or not booked on this event → `redirect(back)`,
+  //               exactly as before (the counsel switch above and the fee lock below are refusals too, unchanged).
+  // None of these reads surfaces a SQLSTATE here (the profile read wraps its errors; the bookings read reports a
+  // completeness flag), so "answered with no row" vs "could not answer" is the whole distinction.
+
   // Capture writes under the vendor's RLS client (the insert policy requires the
   // caller's OWN vendor profile + a booked event), so this surface is the vendor
   // owner/admin path. A per-event grantee views the console but can't capture.
-  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  let profile: Awaited<ReturnType<typeof fetchOwnVendorProfile>>;
+  try {
+    profile = await fetchOwnVendorProfile(supabase, user.id);
+  } catch {
+    return <PapicReadFailed eventId={eventId} />;
+  }
   if (!profile) redirect(back);
 
-  const booking =
-    (await fetchVendorRoomEvents(supabase, profile.vendor_profile_id)).find(
-      (b) => b.eventId === eventId,
-    ) ?? null;
+  const room = await fetchVendorRoomEventsDetailed(supabase, profile.vendor_profile_id).catch(() => null);
+  const booking = room?.events.find((b) => b.eventId === eventId) ?? null;
+  if (!booking && (room === null || !room.complete)) return <PapicReadFailed eventId={eventId} />;
   // Not booked on this event at all ⇒ nothing here is theirs. That check stays.
   if (!booking) redirect(back);
 
@@ -122,83 +134,57 @@ export default async function VendorPapicCapturePage({
   const canPutOnPage = canManageVendor(await resolveVendorRoleForProfile(supabase, user.id, profile.vendor_profile_id));
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
-      <div className="flex items-center justify-between gap-3">
-        <Link
-          href={backHref}
-          className="inline-flex items-center gap-1.5 text-sm font-medium"
-          style={{ color: 'var(--m-slate-2)' }}
-        >
-          <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />{' '}
-          {isEventDay ? 'Back to the floor' : 'Back to the Hub'}
-        </Link>
-        <span className="font-mono text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--m-slate-3)' }}>
-          {isEventDay ? 'Papic capture' : 'What you shot'}
-        </span>
-      </div>
-
-      {isEventDay && allowance ? (
-        <PapicCaptureController
+    <PapicDeskBody
+      eventId={eventId}
+      isEventDay={isEventDay}
+      backHref={backHref}
+      coupleName={booking.eventName ?? 'this event'}
+      capture={
+        isEventDay && allowance
+          ? {
+              uploadOwner: papicOwnerTag('vendor', profile.vendor_profile_id, eventId),
+              tier: allowance.tier,
+              allowVideo: allowance.allowVideo,
+              pointsCap: allowance.pointsCap,
+              pointsSpent: allowance.pointsSpent,
+            }
+          : null
+      }
+      // What they already shot, under the shutter — read with the vendor's OWN client so the RLS policy stays the
+      // boundary. After the day it is the whole point of the page.
+      shotStrip={<OwnCapturesStrip supabase={supabase} eventId={eventId} />}
+      // Papic credits + the pack upsell (G3) — reads the ONE-METER total, reduced by BOTH doors (on-the-day capture
+      // above, portfolio import below), so this number never disagrees with either.
+      walletCard={
+        <PortfolioCreditsCard
           eventId={eventId}
-          uploadOwner={papicOwnerTag('vendor', profile.vendor_profile_id, eventId)}
-          coupleName={booking.eventName ?? 'this event'}
-          tier={allowance.tier}
-          allowVideo={allowance.allowVideo}
-          pointsCap={allowance.pointsCap}
-          pointsSpent={allowance.pointsSpent}
+          credits={portfolioCredits.credits}
+          left={portfolioCredits.left}
+          // 🔒 No pack for sale in the App Store / Play Store shell (guideline
+          // 3.1.1; lib/store-shell.ts) — the credit count still shows.
+          offerPack={portfolioCredits.offerPack && !(await isStoreShellRequest())}
+          packs={portfolioCredits.packs}
+          openRails={openRails}
         />
-      ) : (
-        <p className="mt-4 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-          The camera runs on the day itself. These are the photos and clips you
-          shot at {booking.eventName ?? 'this event'} — they stay here for you to
-          check.
-        </p>
-      )}
-
-      {/* What they already shot, under the shutter — the question on a dark
-          reception floor is "did that upload?", and the answer belongs on the
-          same screen. After the day it is the whole point of the page. Read
-          with the vendor's OWN client so the RLS policy stays the boundary. */}
-      <OwnCapturesStrip supabase={supabase} eventId={eventId} />
-
-      {/* Papic credits + the pack upsell (G3) — reads the ONE-METER total,
-          reduced by BOTH doors (on-the-day capture above, portfolio import
-          below), so this number never disagrees with either. */}
-      <PortfolioCreditsCard
-        eventId={eventId}
-        credits={portfolioCredits.credits}
-        left={portfolioCredits.left}
-        // 🔒 No pack for sale in the App Store / Play Store shell (guideline
-        // 3.1.1; lib/store-shell.ts) — the credit count still shows.
-        offerPack={portfolioCredits.offerPack && !(await isStoreShellRequest())}
-        packs={portfolioCredits.packs}
-        openRails={openRails}
-      />
-
-      {/* The supplier's PRIVATE portfolio album — visibly its own section,
-          never the couple's to see, distinct storage prefix from both the
-          host gallery and the capture strip above. */}
-      <PortfolioAlbumSection
-        supabase={supabase}
-        eventId={eventId}
-        creditsLeft={portfolioCredits.left}
-        canPutOnPage={canPutOnPage}
-        vendorProfileId={profile.vendor_profile_id}
-        eventEnded={Boolean(booking.bookedDate) && String(booking.bookedDate) < phToday()}
-        coupleName={booking.eventName ?? 'the couple'}
-      />
-
-      {/* Shots guests took FOR this supplier's sponsored challenge — the only
-          guest photographs a supplier may ever see (owner 2026-08-26: "the host
-          will allow access. they only get shots from the sponsored papic
-          challenge"). Eight gates live in the reader and are pinned by
-          vendor-sponsored-shots-are-scoped.test.ts; it renders nothing when
-          there is nothing, so a supplier without an approved challenge never
-          meets an empty frame implying photographs sit behind it. */}
-      <SponsoredShotsStrip
-        vendorProfileId={profile.vendor_profile_id}
-        eventId={eventId}
-      />
-    </section>
+      }
+      // The supplier's PRIVATE portfolio album — visibly its own section, never the couple's to see, distinct storage
+      // prefix from both the host gallery and the capture strip above.
+      album={
+        <PortfolioAlbumSection
+          supabase={supabase}
+          eventId={eventId}
+          creditsLeft={portfolioCredits.left}
+          canPutOnPage={canPutOnPage}
+          vendorProfileId={profile.vendor_profile_id}
+          eventEnded={Boolean(booking.bookedDate) && String(booking.bookedDate) < phToday()}
+          coupleName={booking.eventName ?? 'the couple'}
+        />
+      }
+      // Shots guests took FOR this supplier's sponsored challenge — the only guest photographs a supplier may ever see
+      // (owner 2026-08-26: "the host will allow access. they only get shots from the sponsored papic challenge"). Eight
+      // gates live in the reader and are pinned by vendor-sponsored-shots-are-scoped.test.ts; it renders nothing when
+      // there is nothing, so a supplier without an approved challenge never meets an empty frame.
+      challenge={<SponsoredShotsStrip vendorProfileId={profile.vendor_profile_id} eventId={eventId} />}
+    />
   );
 }

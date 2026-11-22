@@ -1,0 +1,164 @@
+[
+  {
+    "name": "notice-import",
+    "size": "375-light",
+    "overflowPx": 0,
+    "months12": true,
+    "newClientLine": true,
+    "publicRule": false,
+    "windowAdmin": false
+  },
+  {
+    "name": "notice-import-unread",
+    "size": "375-light",
+    "overflowPx": 0,
+    "months12": false,
+    "newClientLine": false,
+    "publicRule": true,
+    "windowAdmin": false
+  },
+  {
+    "name": "fees",
+    "size": "375-light",
+    "overflowPx": 0,
+    "months12": true,
+    "newClientLine": true,
+    "publicRule": false,
+    "windowAdmin": false
+  },
+  {
+    "name": "fees-waived",
+    "size": "375-light",
+    "overflowPx": 0,
+    "months12": true,
+    "newClientLine": true,
+    "publicRule": false,
+    "windowAdmin": false
+  },
+  {
+    "name": "fees-unread",
+    "size": "375-light",
+    "overflowPx": 0,
+    "months12": false,
+    "newClientLine": false,
+    "publicRule": false,
+    "windowAdmin": false
+  },
+  {
+    "name": "admin",
+    "size": "375-light",
+    "overflowPx": 0,
+    "months12": true,
+    "newClientLine": false,
+    "publicRule": false,
+    "windowAdmin": true
+  },
+  {
+    "name": "notice-import",
+    "size": "375-dark",
+    "overflowPx": 0,
+    "months12": true,
+    "newClientLine": true,
+    "publicRule": false,
+    "windowAdmin": false
+  },
+  {
+    "name": "notice-import-unread",
+    "size": "375-dark",
+    "overflowPx": 0,
+    "months12": false,
+    "newClientLine": false,
+    "publicRule": true,
+    "windowAdmin": false
+  },
+  {
+    "name": "fees",
+    "size": "375-dark",
+    "overflowPx": 0,
+    "months12": true,
+    "newClientLine": true,
+    "publicRule": false,
+    "windowAdmin": false
+  },
+  {
+    "name": "fees-waived",
+    "size": "375-dark",
+    "overflowPx": 0,
+    "months12": true,
+    "newClientLine": true,
+    "publicRule": false,
+    "windowAdmin": false
+  },
+  {
+    "name": "fees-unread",
+    "size": "375-dark",
+    "overflowPx": 0,
+    "months12": false,
+    "newClientLine": false,
+    "publicRule": false,
+    "windowAdmin": false
+  },
+  {
+    "name": "admin",
+    "size": "375-dark",
+    "overflowPx": 0,
+    "months12": true,
+    "newClientLine": false,
+    "publicRule": false,
+    "windowAdmin": true
+  },
+  {
+    "name": "notice-import",
+    "size": "desktop",
+    "overflowPx": 0,
+    "months12": true,
+    "newClientLine": true,
+    "publicRule": false,
+    "windowAdmin": false
+  },
+  {
+    "name": "notice-import-unread",
+    "size": "desktop",
+    "overflowPx": 0,
+    "months12": false,
+    "newClientLine": false,
+    "publicRule": true,
+    "windowAdmin": false
+  },
+  {
+    "name": "fees",
+    "size": "desktop",
+    "overflowPx": 0,
+    "months12": true,
+    "newClientLine": true,
+    "publicRule": false,
+    "windowAdmin": false
+  },
+  {
+    "name": "fees-waived",
+    "size": "desktop",
+    "overflowPx": 0,
+    "months12": true,
+    "newClientLine": true,
+    "publicRule": false,
+    "windowAdmin": false
+  },
+  {
+    "name": "fees-unread",
+    "size": "desktop",
+    "overflowPx": 0,
+    "months12": false,
+    "newClientLine": false,
+    "publicRule": false,
+    "windowAdmin": false
+  },
+  {
+    "name": "admin",
+    "size": "desktop",
+    "overflowPx": 0,
+    "months12": true,
+    "newClientLine": false,
+    "publicRule": false,
+    "windowAdmin": true
+  }
+]

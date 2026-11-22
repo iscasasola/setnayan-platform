@@ -13,10 +13,10 @@ import { stripComments } from './strip-comments';
 
 const WEB = process.cwd();
 
-test('the eleven tiles, Scanner first, the owner’s list', () => {
+test('the twelve tiles, Scanner first, the owner’s list (Cake Maker joined 21 Nov)', () => {
   assert.deepEqual(
     SPECIALIZED_TOOLS.map((t) => t.title),
-    ['Scanner', 'Song bank', 'Song Desk', 'Emcee script', 'Floor Command + March', 'Run of show', 'Headcount', 'Live Watch', 'Papic challenge', '3D plan', 'Rooms & seating'],
+    ['Scanner', 'Cake Maker', 'Song bank', 'Song Desk', 'Emcee script', 'Floor Command + March', 'Run of show', 'Headcount', 'Live Watch', 'Papic challenge', '3D plan', 'Rooms & seating'],
   );
   for (const shop of [[], ['Live Band'], ['Catering'], ['Coordinator / Planner']]) {
     assert.equal(specializedToolsFor(shop, [])[0]!.tool.key, 'scanner', `Scanner is not first for ${shop.join(',') || 'a new shop'}`);

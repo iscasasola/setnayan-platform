@@ -79,6 +79,7 @@
  */
 
 import { unstable_isUnrecognizedActionError } from 'next/navigation';
+import { LOADED_BUILD_VERSION } from '@/lib/build-version';
 
 /** Error shapes a browser produces when the JS it wants is no longer deployed. */
 const STALE_PATTERNS = [
@@ -176,7 +177,7 @@ function isWebpackRuntimeMissingModule(e: { name?: unknown; message?: unknown; s
  * undefined when the id is not in this tab's bundle. Measured against the telemetry: every one of the five fired as
  * the crashing build's FIRST report, while other pages were still answering from the previous build — the cutover
  * moment of a deploy. Same disease as the shapes above (the tab and the server are different builds); one reload
- * picks up one build for both. Same one-per-session budget, so a real bug that happens to match shows the crash the
+ * picks up one build for both. Same one-per-build budget, so a real bug that happens to match shows the crash the
  * second time.
  *
  * ⚠ NARROW ON PURPOSE: the message must read exactly one of the three properties that loader reads, off undefined,
@@ -273,18 +274,46 @@ export const DEPLOYMENT_SKEW_FAILURE_KEY = 'setnayan:deployment-skew-failure';
 export function reloadForStaleBundle(
   storage: Pick<Storage, 'getItem' | 'setItem'>,
   reload: () => void,
+  build: string = LOADED_BUILD_VERSION,
 ): boolean {
-  if (storage.getItem(STALE_RELOAD_KEY)) return false;
-  storage.setItem(STALE_RELOAD_KEY, '1');
+  if (reloadBudgetSpent(storage, build)) return false;
+  spendReloadBudget(storage, build);
   reload();
   return true;
+}
+
+/**
+ * ── THE BUDGET IS ONE RELOAD PER BUILD, NOT PER SESSION (22 Nov 2026) ─────────
+ *
+ * Seen live: two production deploys five minutes apart, then a payer's tab on /pay showed the crash card mid-payment
+ * (Problems: PAGE_CRASH "crash global", the fifth shape above, the crashing build's first report). A once-per-SESSION
+ * marker is spent by the first cutover; if the second cutover lands before a page has rendered and cleared it, the
+ * payer gets the card for a site that is serving perfectly.
+ *
+ * So the marker records WHICH build reloaded (`NEXT_PUBLIC_BUILD_VERSION`, inlined per build). A tab whose marker
+ * names a different build is a new cutover and gets its own reload. The loop guard still holds: a real bug inside ONE
+ * build reloads once, comes back as that same build, finds its own name in the marker, and shows the card — every
+ * reload moves the tab to a newer build, and there are only so many of those.
+ *
+ * Unknown build (no version inlined, e.g. a local build): exactly the old rule — one reload per session. An old
+ * marker ('1', written before this change) names no build, so it never blocks a build-stamped tab.
+ */
+export function reloadBudgetSpent(storage: Pick<Storage, 'getItem'>, build: string = LOADED_BUILD_VERSION): boolean {
+  const marker = storage.getItem(STALE_RELOAD_KEY);
+  if (!marker) return false;
+  if (!build) return true;
+  return marker === build;
+}
+
+function spendReloadBudget(storage: Pick<Storage, 'setItem'>, build: string): void {
+  storage.setItem(STALE_RELOAD_KEY, build || '1');
 }
 
 /**
  * Reload once for a deployment-skew error, recording why first so the report
  * survives the reload (see `DEPLOYMENT_SKEW_FAILURE_KEY` above).
  *
- * Deliberately shares `reloadForStaleBundle`'s ONE-per-session budget
+ * Deliberately shares `reloadForStaleBundle`'s ONE-per-build budget
  * (`STALE_RELOAD_KEY`): whichever of the two shapes a tab hits first, it gets
  * exactly one automatic reload, not one of each. A tab that reloaded once for
  * a stale SCRIPT and then, on the fresh load, still somehow posts a stale
@@ -294,6 +323,7 @@ export function reloadForDeploymentSkew(
   storage: Pick<Storage, 'getItem' | 'setItem'>,
   reload: () => void,
   error: unknown,
+  build: string = LOADED_BUILD_VERSION,
 ): boolean {
   try {
     storage.setItem(
@@ -307,7 +337,7 @@ export function reloadForDeploymentSkew(
   } catch {
     // Storage disabled — the reload still happens; only the report is lost.
   }
-  return reloadForStaleBundle(storage, reload);
+  return reloadForStaleBundle(storage, reload, build);
 }
 
 /**
@@ -330,7 +360,7 @@ export function reloadForDeploymentSkew(
  *
  * 🔑 NOTHING IS WRONG WITH THE EVENT, AND THE PERSON IS TOLD THE OPPOSITE. The
  * write had either landed or not; a reload shows which. Same remedy as the
- * three shapes above, the same ONE-per-session budget.
+ * three shapes above, the same ONE-per-build budget.
  *
  * ⚠ MATCHED EXACTLY, NEVER AS A SUBSTRING. These are the WHOLE messages each
  * engine gives a `fetch` that failed at the network — a `TypeError` with
@@ -356,7 +386,7 @@ export function isInterruptedRequestError(error: unknown): boolean {
 /**
  * Reload once for a cut-off request — but not into an offline page: when the
  * browser says it is offline, the reload waits for it to be back (`whenOnline`).
- * Shares `STALE_RELOAD_KEY`'s one-per-session budget; the marker is written
+ * Shares `STALE_RELOAD_KEY`'s one-per-build budget; the marker is written
  * before anything waits, so a second failure while waiting cannot queue a
  * second reload.
  */
@@ -365,9 +395,10 @@ export function reloadForInterruptedRequest(
   reload: () => void,
   online: boolean,
   whenOnline: (go: () => void) => void,
+  build: string = LOADED_BUILD_VERSION,
 ): boolean {
-  if (storage.getItem(STALE_RELOAD_KEY)) return false;
-  storage.setItem(STALE_RELOAD_KEY, '1');
+  if (reloadBudgetSpent(storage, build)) return false;
+  spendReloadBudget(storage, build);
   if (online) reload();
   else whenOnline(reload);
   return true;
@@ -384,7 +415,7 @@ export function reloadForInterruptedRequest(
  * the console on that walk. A recovered stale tab sends nothing and draws no crash.
  *
  * Returns true when a reload is under way (the boundary should report nothing and draw as little as possible).
- * Same one-per-session budget (`STALE_RELOAD_KEY`) as before — a second failure shows the boundary's card.
+ * Same one-per-build budget (`STALE_RELOAD_KEY`) as before — a second failure shows the boundary's card.
  */
 export function recoverStaleTab(error: unknown): boolean {
   if (typeof window === 'undefined') return false;

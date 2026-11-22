@@ -269,7 +269,9 @@ test('the bench applies the arrangement to the SORTED rail, and the sink stays l
   // silently not working.
   assert.match(
     src,
-    /applyBenchArrangement\(\s*sortWithReasons\(/,
+    // 🔖 20 Nov · saved-first (`lib/saved-first.ts`) is a stable partition over the lens's answer, before the hand —
+    // the couple's pins still win over it. Allowed between the two, nothing else.
+    /applyBenchArrangement\(\s*(?:savedFirst\(\s*)?sortWithReasons\(/,
     'the arrangement is no longer applied to the sorted rail',
   );
   // 2026-09-11 · H5 — there are now TWO sinks, and BOTH still run over the

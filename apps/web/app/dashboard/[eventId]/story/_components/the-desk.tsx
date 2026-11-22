@@ -170,7 +170,7 @@ export function TheDesk({
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   rows={4}
-                  className="mt-2 w-full rounded-lg border border-ink/15 bg-white p-2 text-sm text-ink"
+                  className="mt-2 w-full rounded-lg border border-ink/15 bg-raised p-2 text-sm text-ink"
                 />
               ) : item.body ? (
                 <p className="mt-2 whitespace-pre-wrap text-sm text-ink/80">{item.body}</p>

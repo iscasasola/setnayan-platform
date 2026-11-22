@@ -47,7 +47,8 @@ test('1 · the late payment is Now’s — Pay opens it — and the Budget card 
   const c = fixtureControl('e1');
   const html = drawHome({ control: c });
   const card = slice(html, 'data-home-cover', ['data-home-column']);
-  assert.match(text(card), /Now ₱8,000 to Lumière Catering · 3 days late/, 'Now does not name the late payment');
+  // RE-AIMED 20 Nov 2026 (Event Today drawing: "The strip says why it is first: 'Overdue' in place of 'Now'").
+  assert.match(text(card), /Overdue ₱8,000 to Lumière Catering · 3 days late/, 'Now does not name the late payment');
   assert.ok(card.includes('href="/dashboard/e1/budget?pay=li-1"'), 'Now’s Pay does not open that payment');
   const budget = homeControlTiles(c).tiles.find((t) => t.key === 'budget')!;
   assert.deepEqual(
@@ -57,6 +58,11 @@ test('1 · the late payment is Now’s — Pay opens it — and the Budget card 
   );
   const grid = slice(html, 'data-home-control="compact"', ['data-home-control="detail"']);
   assert.doesNotMatch(text(grid), /₱8,000/, 'the ₱8,000 Now names is drawn again below');
+  // 20 Nov 2026 (Event Today drawing v3, part C · 3): the tablet and 1280 Budget CARDS leave it out too — they listed
+  // every payment while only the tile obeyed the rule.
+  const pays = [...html.matchAll(/data-home-pay="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(pays.length > 0, 'no Budget card drew its payments — the check below would be vacuous');
+  assert.ok(!pays.includes('li-1'), 'a Budget card repeats the payment Now holds');
 });
 
 test('2 · an overdue task is Now’s — ticked in place — and the To do list leaves it out', () => {
@@ -68,7 +74,8 @@ test('2 · an overdue task is Now’s — ticked in place — and the To do list
   assert.deepEqual(act?.tick, { kind: 'task', id: 'row-late-1', title: 'Book the church' }, 'Now does not tick the task’s own row');
   const html = drawHome({ control: c });
   const card = slice(html, 'data-home-cover', ['data-home-column']);
-  assert.match(text(card), /Now Book the church · due Jan 10 · overdue/);
+  // RE-AIMED 20 Nov 2026: the strip's level word says "Overdue" once — the tail no longer says it a second time.
+  assert.match(text(card), /Overdue Book the church · due Jan 10(?! · overdue)/);
   const todo = slice(html, 'data-home-todo=""', ['data-home-your-event']);
   assert.doesNotMatch(text(todo), /Book the church/, 'the To do list repeats the task Now holds');
   assert.equal((todo.match(/data-home-todo-row=/g) ?? []).length, 3, 'the list does not fill back to three');
@@ -86,8 +93,10 @@ test('3 · ONE To do under the card — three rows, each with the plan’s tick,
   const todo = slice(html, 'data-home-todo=""', ['data-home-your-event']);
   assert.equal((todo.match(/data-home-todo-row=/g) ?? []).length, 3, 'the To do list is not three rows');
   assert.match(text(todo), /62% of the plan done · All 1 this week/, 'the closing line is not the plan’s state');
-  const list = src('_components/home-todo-list.tsx');
-  assert.match(list, /<PlanningTick eventId=\{eventId\} kind=\{t\.tick\.kind\} id=\{t\.tick\.id\}/, 'the rows are not ticked by Planning Stage’s own tick');
+  // RE-AIMED 20 Nov 2026 (Event Today, Focus shape): the three task rows are rows of the one list now
+  // (`event-today-list.tsx`) — still ticked by Planning Stage's own tick.
+  const list = src('_components/event-today-list.tsx');
+  assert.match(list, /<PlanningTick eventId=\{g\.eventId\} kind=\{tick\.kind\} id=\{tick\.id\}/, 'the rows are not ticked by Planning Stage’s own tick');
   const keys = homeControlTiles(fixtureControl('e1')).tiles.map((t) => t.key);
   assert.ok(!keys.includes('plan'), 'a To do widget is back — the plan would be in two places');
   assert.ok(!keys.includes('count'), 'a Countdown widget is back — the card already carries it');

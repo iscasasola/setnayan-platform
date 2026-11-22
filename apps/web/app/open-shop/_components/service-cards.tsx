@@ -9,7 +9,8 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { FIRST_BOOKING_FREE_LABEL, coverageLine, holdsMoreThanFree, whatEachPlanHolds, type MeterService } from '@/lib/open-shop-more-services';
+import { FEE_FREE_CHIP } from '@/lib/booking-fee-who-words';
+import { coverageLine, holdsMoreThanFree, whatEachPlanHolds, type MeterService } from '@/lib/open-shop-more-services';
 import { tileIcon } from '@/lib/taxonomy-icons';
 import { ServicePicker, type PickerLeafView, type PickerParentView } from '@/app/_components/service-picker';
 
@@ -362,7 +363,7 @@ export function ServiceCards({
         <span className="relative flex items-start gap-1.5 text-xs" style={{ color: 'var(--m-slate-2)' }} data-open-shop-plan-note="">
           <LockOpen aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
           <InfoTip
-            label={`${FIRST_BOOKING_FREE_LABEL}. What each plan adds shows before you continue.`}
+            label={`${FEE_FREE_CHIP}. What each plan adds shows before you continue.`}
             labelClassName="text-xs"
             ariaLabel="What each plan adds"
             align="start"

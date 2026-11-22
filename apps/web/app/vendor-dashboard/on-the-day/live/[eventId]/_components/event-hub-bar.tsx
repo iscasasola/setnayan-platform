@@ -17,6 +17,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { Explain } from '@/app/_components/explain';
 import { usePinLeadSlot } from '../../../_components/hub-event-menu';
 import { EVENT_HUB_VIEWS, EVENT_HUB_VIEW_LABEL, eventHubViewHref, type EventHubView } from '@/lib/event-hub-views';
+import setTwo from '@/app/vendor-dashboard/_components/set-two/set-two.module.css';
 
 export function EventHubBar({
   eventId,
@@ -71,24 +72,29 @@ export function EventHubBar({
 /**
  * NOW · NEXT · COMING — the count row under the pinned row (prototype `tiles`). Now and Next are the run of show's own
  * (`deriveRunOfShow`, read by the page); Coming is the RSVP headcount — the arrival count is not something a supplier
- * can read yet, so the row says what it does know. A tile that goes nowhere is not framed.
+ * can read yet, so the row says what it does know.
+ *
+ * 🧾 The November look (supplier pages set two, page 8, 21 Nov 2026): the shared count tiles (`setTwo.tiles`) — a tile
+ * that opens the schedule is the tile itself, pressable. When the couple's program could not be read the page hands in
+ * the Coming tile alone (the note says the rest), drawn full width.
  */
 export function EventHubCounts({ tiles }: { tiles: readonly { key: string; value: string; word: string; href?: string; hot?: boolean }[] }) {
   return (
-    <div className="grid grid-cols-3 gap-2 pb-3" data-event-hub-counts="">
+    <div className={`${setTwo.tiles} ${tiles.length === 1 ? setTwo.tilesOne : ''}`} data-event-hub-counts="">
       {tiles.map((t) => {
+        const cls = `${setTwo.tile} ${t.hot ? setTwo.tileHot : ''}`;
         const inner = (
           <>
-            <span className={`block truncate text-lg font-bold tabular-nums ${t.hot ? 'text-sn-accent' : 'text-ink'}`}>{t.value}</span>
-            <span className="block truncate text-xs text-[color:var(--m-slate-2)]">{t.word}</span>
+            <b>{t.value}</b>
+            <span>{t.word}</span>
           </>
         );
         return t.href ? (
-          <a key={t.key} href={t.href} className="sn-press block min-h-14 rounded-2xl bg-[color:var(--m-paper-2)] px-3 py-2" data-event-hub-count={t.key}>
+          <a key={t.key} href={t.href} className={`sn-press ${cls}`} data-event-hub-count={t.key}>
             {inner}
           </a>
         ) : (
-          <div key={t.key} className="min-h-14 px-3 py-2" data-event-hub-count={t.key}>
+          <div key={t.key} className={cls} data-event-hub-count={t.key}>
             {inner}
           </div>
         );

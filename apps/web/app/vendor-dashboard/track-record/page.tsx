@@ -1,15 +1,14 @@
 import { getCurrentUser } from '@/lib/auth';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CalendarHeart } from 'lucide-react';
+import { Store } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
-import { PageMasthead } from '@/app/_components/page-masthead';
-import {
-  VendorTrackRecordPanel,
-  fetchVendorTrackRecord,
-} from '../_components/vendor-track-record-panel';
+import { resolveVendorRole, resolveVendorStanding, canManageVendor } from '@/lib/vendor-role';
+import { RoleLock } from '@/app/vendor-dashboard/_components/role-lock';
+import { ToolPage, ToolPin } from '../_components/tool-page';
+import { fetchVendorTrackRecord } from '../_components/vendor-track-record-panel';
+import { TrackRecordView } from './_components/track-record-view';
 
 export const metadata = { title: 'Track record · Supplier' };
 
@@ -29,66 +28,36 @@ export default async function VendorTrackRecordPage() {
 
   const role = await resolveVendorRole(supabase, user.id);
   if (!role || !canManageVendor(role)) {
-    // Agents/viewers: no aggregate reputation view. Send them home.
-    redirect('/vendor-dashboard');
+    // 🔒 Agents/viewers: no aggregate reputation view — said with the Problem and the Solution, never a silent bounce.
+    return (
+      <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6" data-role-locked-page="insights">
+        <h1 className="sn-h1">Track record</h1>
+        <RoleLock duty={(await resolveVendorStanding(supabase, user.id).catch(() => null))?.duty ?? null} capability="insights" className="mt-4" />
+      </section>
+    );
   }
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) {
     return (
-      <div className="mx-auto w-full tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Track record
-        </h1>
-        <p className="mt-4 text-base text-ink/65">
+      <ToolPage name="track-record">
+        <ToolPin route="/vendor-dashboard/track-record" title="Track record" />
+        <p className="mt-3 text-[15px] text-[color:var(--m-slate-2)]">
           Set up your supplier profile first — once couples mark your bookings
           delivered, your record across every kind of event shows up here.
         </p>
-        <Link
-          href="/vendor-dashboard/shop"
-          className="mt-6 inline-flex items-center rounded-full px-4 py-2 text-sm font-medium"
-          style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-        >
-          Go to my shop
-        </Link>
-      </div>
+        <div className="mt-4">
+          <ActionButton tone="brand" main icon={<Store aria-hidden />} label="Go to my shop" href="/vendor-dashboard/shop" />
+        </div>
+      </ToolPage>
     );
   }
 
+  // null = the read was refused — said as such, never as "No completed events yet" (controller 21 Nov).
   const rows = await fetchVendorTrackRecord(
     supabase,
     profile.vendor_profile_id,
   );
 
-  return (
-    <div className="mx-auto w-full tab:max-w-3xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-      <PageMasthead
-        title="Track record"
-      />
-
-      {rows.length > 0 ? (
-        <VendorTrackRecordPanel
-          supabase={supabase}
-          vendorProfileId={profile.vendor_profile_id}
-          rows={rows}
-        />
-      ) : (
-        <div className="rounded-2xl border border-dashed border-ink/15 p-8 text-center">
-          <CalendarHeart
-            className="mx-auto mb-2 h-6 w-6 text-ink/30"
-            strokeWidth={1.5}
-            aria-hidden
-          />
-          <p className="text-sm font-medium text-ink/65">
-            No completed events yet
-          </p>
-          <p className="mx-auto mt-1 max-w-md text-xs text-ink/45">
-            Once a couple marks one of your bookings delivered, it lands here —
-            grouped by the kind of event so your strengths across weddings,
-            debuts, and every other event are clear at a glance.
-          </p>
-        </div>
-      )}
-    </div>
-  );
+  return <TrackRecordView rows={rows} />;
 }

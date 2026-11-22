@@ -13,11 +13,12 @@ export type GroupGuest = { name: string; rsvp: string | null; diet: string | nul
 
 /**
  * The booking's one group (`supplier_booking_group`, migration 20271357741892): `null` = the read was REFUSED or
- * failed — said as "couldn't load", never as an empty group (reads-are-honest).
+ * failed — said as "couldn't load", never as an empty group (reads-are-honest). Its readers are the shop's owner, a
+ * live Shop Manager and the live seat that handles this client; anybody else on the team gets `not_your_client`.
  */
 export type BookingGroupRead =
   | { status: 'ok'; label: string; booked: number | null; guests: GroupGuest[] }
-  | { status: 'no_group' | 'not_booked' | 'is_host' | 'not_signed_in' }
+  | { status: 'no_group' | 'not_booked' | 'not_your_client' | 'is_host' | 'not_signed_in' }
   | null;
 
 export async function readBookingGroup(supabase: SupabaseClient, eventId: string): Promise<BookingGroupRead> {
@@ -31,7 +32,9 @@ export async function readBookingGroup(supabase: SupabaseClient, eventId: string
   if (r.status === 'ok') {
     return { status: 'ok', label: r.label ?? 'Your group', booked: typeof r.booked === 'number' ? r.booked : null, guests: Array.isArray(r.guests) ? r.guests : [] };
   }
-  if (r.status === 'no_group' || r.status === 'not_booked' || r.status === 'is_host' || r.status === 'not_signed_in') {
+  // 'not_your_client' (ship review, 22 Nov 2026): on the booked shop's team, but not its owner, a live Shop Manager or
+  // the live seat that handles this client — said as itself, never as "the hosts have not filled it yet".
+  if (r.status === 'no_group' || r.status === 'not_booked' || r.status === 'not_your_client' || r.status === 'is_host' || r.status === 'not_signed_in') {
     return { status: r.status };
   }
   return null;
@@ -81,6 +84,7 @@ export async function readTheirEvent(
     logoHref: logoDownloadHref(i.monogramSvg),
     tables: i.tables,
     group: group?.status === 'ok' ? { label: group.label, count: group.guests.length } : null,
+    groupNotYours: group?.status === 'not_your_client',
   });
   return { rows, group };
 }

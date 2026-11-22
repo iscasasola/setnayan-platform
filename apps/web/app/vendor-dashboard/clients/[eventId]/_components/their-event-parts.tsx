@@ -1,5 +1,5 @@
 import { formatCount } from '@/lib/format-number';
-import { groupDriftWords } from '@/lib/their-event';
+import { GROUP_NOT_YOURS, groupDriftWords } from '@/lib/their-event';
 import type { BookingGroupRead } from '@/lib/their-event.server';
 
 /**
@@ -38,6 +38,8 @@ export function GuestsPart({ group }: { group: BookingGroupRead }) {
         <h1 className="text-lg font-semibold text-ink">Guests · one group · view only</h1>
         {group === null ? (
           <p className="mt-2 text-sm text-terracotta-700" data-group-refused="">We couldn’t load your group. Reload to try again.</p>
+        ) : group.status === 'not_your_client' ? (
+          <p className="mt-2 text-sm text-ink/70" data-group-not-yours="">{GROUP_NOT_YOURS}</p>
         ) : group.status !== 'ok' ? (
           <p className="mt-2 text-sm text-ink/70">The hosts have not filled your group yet.</p>
         ) : (

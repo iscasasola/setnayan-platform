@@ -10,10 +10,16 @@
  *       booking makes none; booking again makes no second one; a host's own group of that name is never taken over;
  *   2 · the booked supplier reads ONLY their group — names, reply, diet — never another group's guest; a host is
  *       refused (is_host), a stranger is refused (not_booked), a booked supplier with no group gets no_group;
- *   3 · the cap: a supplier's seat holding Payments / Memories / Budget-at-edit resolves to nothing / nothing / view.
+ *   3 · the cap: a supplier's seat holding Payments / Memories / Budget-at-edit resolves to nothing / nothing / view;
+ *   4 · WHO ON THE SHOP'S TEAM reads the group (owner 2026-08-27: *"the staff who handles the event will handle the
+ *       event fully but the vendor owner also has access to oversight all their business"*; controller ruling 22 Nov
+ *       2026): the owner · a LIVE Shop Manager · the LIVE seat that handles this client (`chat_threads`
+ *       `covering_member_id`, else `handled_by_member_id` — #8114). Nobody else: a paused seat, a live Helper and a
+ *       live Account Manager with another client are each refused (`not_your_client`) and handed no guest.
  *
- * 🛡 Sabotage: drop the `JOIN public.guest_groups g ON g.event_vendor_id = ev.vendor_id` → test 2 red (another group's
- *    guest leaks); drop the cap's first WHEN → test 3 red.
+ * 🛡 Sabotage: answer `no_group` for a row WITH a group / read memberships without `gm.group_id = v_row.group_id` →
+ *    test 2 red (another group's guest leaks); drop the cap's first WHEN → test 3 red. Test 4 names its own, case by
+ *    case, beside each assert.
  *
  * Run: pnpm --filter @setnayan/web test:db
  */
@@ -25,6 +31,8 @@ import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrat
 let replay: ReplayResult;
 let db: PGlite;
 const W = { eventId: '', host: '', caterer: '', florist: '', stranger: '', catererShop: '', floristShop: '', catererRow: '', floristRow: '' };
+/** Test 4's people on the caterer's team: account ids, and the seats (`vendor_team_member_id`) of the ones routed to. */
+const T = { manager: '', pausedManager: '', handler: '', otherAm: '', helper: '', handlerSeat: '', otherAmSeat: '', thread: '' };
 
 async function one<T>(sql: string, params: unknown[] = []): Promise<T> {
   return (await db.query<{ v: T }>(sql, params)).rows[0]!.v;
@@ -62,6 +70,26 @@ async function guest(first: string, last: string, diet: string | null = null): P
     `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category, dietary_restrictions) VALUES ($1, $2, $3, 'both', 'friends', $4) RETURNING guest_id AS v`,
     [W.eventId, first, last, diet],
   );
+}
+/** A seat on the caterer's team. `vendor_team_duty_rank_trg` derives the rank from the duty. */
+async function seat(uid: string, duty: 'shop_manager' | 'account_manager' | 'helper'): Promise<string> {
+  return one<string>(
+    `INSERT INTO public.vendor_team_members (vendor_profile_id, user_id, role, duty) VALUES ($1, $2, 'viewer', $3) RETURNING vendor_team_member_id AS v`,
+    [W.catererShop, uid, duty],
+  );
+}
+type GroupRead = { status: string; guests?: Array<{ name: string }> };
+const readGroupAs = (uid: string) => asUser<GroupRead>(uid, `SELECT public.supplier_booking_group($1) AS v`, [W.eventId]);
+/** Refused AND handed nothing: the status, and not one guest's name anywhere in what came back. */
+async function assertRefused(uid: string, who: string): Promise<void> {
+  const r = await readGroupAs(uid);
+  assert.equal(r.status, 'not_your_client', `${who} read the booking's guest group: ${JSON.stringify(r)}`);
+  assert.ok(!/Reyes|Marco|Lorna/.test(JSON.stringify(r)), `${who} was handed a guest's name`);
+}
+async function assertReads(uid: string, who: string): Promise<void> {
+  const r = await readGroupAs(uid);
+  assert.equal(r.status, 'ok', `${who} does not read the booking's guest group: ${JSON.stringify(r)}`);
+  assert.deepEqual((r.guests ?? []).map((g) => g.name).sort(), ['Ana Reyes', 'Marco Go'], `${who} reads the wrong guests`);
 }
 async function groupsOf(vendorRow: string): Promise<Array<{ label: string }>> {
   return (await db.query<{ label: string }>(`SELECT label FROM public.guest_groups WHERE event_vendor_id = $1`, [vendorRow])).rows;
@@ -145,4 +173,72 @@ test('3 · the cap — a supplier’s seat never opens Payments or Memories, Bud
   const of = (area: string) => one<string | null>(`SELECT public.moderator_area_level_of($1, $2, $3) AS v`, [W.eventId, W.florist, area]);
   assert.equal(await of('payments'), null);
   assert.equal(await of('photos'), null);
+});
+
+test('4 · on the shop’s team, ONLY the owner, a live Shop Manager and the live seat that handles this client read the group', async () => {
+  for (const k of ['manager', 'pausedManager', 'handler', 'otherAm', 'helper'] as const) T[k] = await newUser(`beg-${k.toLowerCase()}@group.test`, 'vendor');
+  await seat(T.manager, 'shop_manager');
+  const pausedManagerSeat = await seat(T.pausedManager, 'shop_manager');
+  T.handlerSeat = await seat(T.handler, 'account_manager');
+  T.otherAmSeat = await seat(T.otherAm, 'account_manager');
+  await seat(T.helper, 'helper');
+  await db.query(`UPDATE public.vendor_team_members SET deactivated_at = now() WHERE vendor_team_member_id = $1`, [pausedManagerSeat]);
+  // The client = the (event, shop) conversation; #8114 routed it to ONE Account Manager.
+  T.thread = await one<string>(
+    `INSERT INTO public.chat_threads (event_id, vendor_profile_id, created_by_user_id) VALUES ($1, $2, $3) RETURNING thread_id AS v`,
+    [W.eventId, W.catererShop, W.host],
+  );
+  await db.query(`UPDATE public.chat_threads SET handled_by_member_id = $2, handled_by_set_at = now() WHERE thread_id = $1`, [T.thread, T.handlerSeat]);
+
+  // (a) THE OWNER reads it AS THE OWNER (`vendor_profiles.user_id`), not through a seat. The sign-up hands a founder a
+  //     Shop Manager seat as well, so that seat is paused for this one read — branch (b) cannot be what answers.
+  //     🛡 drop `vp.user_id = v_uid` from the reader rule → red.
+  const founderSeats = await db.query(
+    `UPDATE public.vendor_team_members SET deactivated_at = now() WHERE vendor_profile_id = $1 AND user_id = $2 RETURNING vendor_team_member_id`,
+    [W.catererShop, W.caterer],
+  );
+  await assertReads(W.caterer, 'the shop’s owner (their own seat paused)');
+  await db.query(`UPDATE public.vendor_team_members SET deactivated_at = NULL WHERE vendor_profile_id = $1 AND user_id = $2`, [W.catererShop, W.caterer]);
+  assert.ok(founderSeats.rows.length <= 1, 'the founder holds more than one seat on their own shop');
+  await assertReads(W.caterer, 'the shop’s owner');
+  // (b) A LIVE SHOP MANAGER reads it. 🛡 drop the `current_vendor_duty_ids('shop_manager')` line → red.
+  await assertReads(T.manager, 'a live Shop Manager');
+  // (c) THE HANDLER reads it. 🛡 drop the `chat_threads` EXISTS (branch c) → red.
+  await assertReads(T.handler, 'the Account Manager who handles this client');
+
+  // A LIVE member who is neither: a Helper, and an Account Manager with another client.
+  // 🛡 put back the old `OR EXISTS (SELECT 1 FROM vendor_team_members tm WHERE tm.vendor_profile_id = vp.vendor_profile_id
+  //    AND tm.user_id = v_uid)` (every team member reads) → both red.
+  await assertRefused(T.helper, 'a live Helper');
+  await assertRefused(T.otherAm, 'a live Account Manager who does not handle this client');
+
+  // A PAUSED Shop Manager. 🛡 replace the helper line with a bare `tm.duty = 'shop_manager'` EXISTS that forgets
+  //    `deactivated_at IS NULL` → red.
+  await assertRefused(T.pausedManager, 'a paused Shop Manager');
+
+  // THE HANDLER'S SEAT IS PAUSED, and nobody covers yet: the paused seat does not read it.
+  // 🛡 drop `AND tm.deactivated_at IS NULL` from the chat_threads EXISTS → red.
+  await db.query(`UPDATE public.vendor_team_members SET deactivated_at = now() WHERE vendor_team_member_id = $1`, [T.handlerSeat]);
+  await assertRefused(T.handler, 'the handler, while their seat is paused');
+
+  // …and the COVER reads it while the handler is away (#8013 (g)). 🛡 read `t.handled_by_member_id` alone instead of
+  //    `COALESCE(t.covering_member_id, t.handled_by_member_id)` → the cover's read turns red.
+  await db.query(`UPDATE public.chat_threads SET covering_member_id = $2 WHERE thread_id = $1`, [T.thread, T.otherAmSeat]);
+  await assertReads(T.otherAm, 'the Account Manager covering while the handler is paused');
+  await assertRefused(T.handler, 'the paused handler, while somebody covers');
+
+  // The handler returns: the cover is cleared (lib/seat-pause.server.ts) and reads no more; the handler reads again.
+  await db.query(`UPDATE public.vendor_team_members SET deactivated_at = NULL WHERE vendor_team_member_id = $1`, [T.handlerSeat]);
+  await db.query(`UPDATE public.chat_threads SET covering_member_id = NULL WHERE thread_id = $1`, [T.thread]);
+  await assertReads(T.handler, 'the handler, back from a pause');
+  await assertRefused(T.otherAm, 'the cover, after the handler is back');
+
+  // The client moves to the other Account Manager (Handled by ▾): the read moves with it.
+  await db.query(`UPDATE public.chat_threads SET handled_by_member_id = $2 WHERE thread_id = $1`, [T.thread, T.otherAmSeat]);
+  await assertReads(T.otherAm, 'the client’s new Account Manager');
+  await assertRefused(T.handler, 'the Account Manager the client was moved away from');
+
+  // Nobody outside the shop gained anything: a stranger is still not booked, a host is still a host.
+  assert.equal((await readGroupAs(W.stranger)).status, 'not_booked');
+  assert.equal((await readGroupAs(W.host)).status, 'is_host');
 });

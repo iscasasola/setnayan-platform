@@ -30,8 +30,10 @@
 -- ruled one (`mood_board: edit`, `budget: view`, `payments: view`) — ONLY on a
 -- seat whose map is exactly that old default (the switch was ON and nobody
 -- changed a part) AND whose holder's shop is booked on the event as a
--- coordinator. A seat the hosts switched Off or narrowed part by part is theirs
--- and is not touched.
+-- coordinator (its owner, or a LIVE team member — a paused seat,
+-- `deactivated_at`, is not in the shop since 20271356599293 and widens nothing).
+-- A seat the hosts switched Off or narrowed part by part is theirs and is not
+-- touched.
 --
 -- ── 3 · "REMIND THE HOSTS" ──────────────────────────────────────────────────
 -- `remind_the_hosts_of_a_payment(event, supplier_row)`: a delegate whose seat
@@ -100,7 +102,8 @@ UPDATE public.event_moderators m
         AND public.services_make_a_coordinator(vp.services)
         AND (vp.user_id = m.user_id
              OR EXISTS (SELECT 1 FROM public.vendor_team_members tm
-                         WHERE tm.vendor_profile_id = vp.vendor_profile_id AND tm.user_id = m.user_id))
+                         WHERE tm.vendor_profile_id = vp.vendor_profile_id AND tm.user_id = m.user_id
+                           AND tm.deactivated_at IS NULL))
    );
 
 -- ── 3 · Remind the hosts ────────────────────────────────────────────────────

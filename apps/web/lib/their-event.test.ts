@@ -21,6 +21,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   ASK_FOR_MORE,
+  GROUP_NOT_YOURS,
+  GROUP_NOT_YOURS_LINE,
   TRADE_PARTS,
   defaultParts,
   groupDriftWords,
@@ -93,6 +95,21 @@ test('3 · a part the server would refuse is never a door', () => {
   assert.ok(!parts({ category: 'transportation', grants: { seat_plan: 'view' } }).includes('seats'));
   const noGroup = theirEventRows(base({ category: 'catering', group: null })).find((r) => r.part === 'guests')!;
   assert.equal(noGroup.href, null, 'Guests with no group is drawn as a door');
+  assert.equal(noGroup.line, 'One group · the hosts have not filled it yet');
+  // 🔒 The group has three readers — the shop's owner, a Shop Manager, the person who handles this client (ship review,
+  // 22 Nov 2026). Anybody else on the team is TOLD so: never "the hosts have not filled it yet", never a door.
+  const notYours = theirEventRows(base({ category: 'catering', group: null, groupNotYours: true })).find((r) => r.part === 'guests')!;
+  assert.equal(notYours.href, null, 'a group that is not theirs to read is drawn as a door');
+  assert.equal(notYours.line, GROUP_NOT_YOURS_LINE);
+  assert.doesNotMatch(notYours.line, /not filled/);
+  const read = code('lib/their-event.server.ts');
+  assert.match(read, /r\.status === 'not_your_client'/, 'the read drops the refusal — it would then be said as "couldn’t load"');
+  assert.match(read, /groupNotYours: group\?\.status === 'not_your_client',/);
+  const page = code('app/vendor-dashboard/clients/[eventId]/_components/their-event-parts.tsx');
+  const refused = page.indexOf("group.status === 'not_your_client'");
+  assert.ok(refused > 0 && refused < page.indexOf("group.status !== 'ok'"), 'the Guests page says "not filled yet" to somebody who may not read the group');
+  assert.match(page.slice(refused, refused + 200), /\{GROUP_NOT_YOURS\}/);
+  assert.match(GROUP_NOT_YOURS, /owner.*Shop Manager.*handles this client/);
   const noLogo = theirEventRows(base({ logoHref: null })).find((r) => r.part === 'logo')!;
   assert.equal(noLogo.href, null);
 });

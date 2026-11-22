@@ -139,7 +139,16 @@ export type TheirEventInput = {
   tables: number | null;
   /** The booking group's label and live count, or null when this booking has none yet. */
   group: { label: string; count: number } | null;
+  /** The group is not this person's to read (`supplier_booking_group` → `not_your_client`) — said, never "not filled". */
+  groupNotYours?: boolean;
 };
+
+/**
+ * 🔒 The booking's group has three readers (owner 2026-08-27; controller ruling 22 Nov 2026): the shop's owner, a Shop
+ * Manager, and the person who handles this client. Anybody else on the team is told so — in the list and on the page.
+ */
+export const GROUP_NOT_YOURS_LINE = 'One group · open to whoever handles this client';
+export const GROUP_NOT_YOURS = 'This group opens for the shop’s owner, a Shop Manager and the person who handles this client.';
 
 /** The base of every part page — the supplier's customer page for this event. */
 export const theirEventPartHref = (eventId: string, part: TheirEventPart): string => {
@@ -191,7 +200,7 @@ export function theirEventRows(i: TheirEventInput): TheirEventRow[] {
         rows.push(
           i.group
             ? { part, name, line: `One group · ${i.group.label}`, trail: proposes('guest_list') ? 'Propose' : 'View', href }
-            : { part, name, line: 'One group · the hosts have not filled it yet', trail: '', href: null },
+            : { part, name, line: i.groupNotYours ? GROUP_NOT_YOURS_LINE : 'One group · the hosts have not filled it yet', trail: '', href: null },
         );
         break;
       case 'seats':

@@ -27,10 +27,26 @@
 --
 -- ── 3 · THE ONE GROUP, READ BY THE SUPPLIER ─────────────────────────────────
 -- `supplier_booking_group(event)`: a SECURITY DEFINER read for a booked
--- supplier (owner or team member of a shop booked here) — their booking's
--- group: its label, the booked count and its guests' names, reply and dietary
--- note. NOTHING else of the guest list: no other group, no contact details.
--- A host, a stranger, a booked supplier with no group: refused in words.
+-- supplier — their booking's group: its label, the booked count and its
+-- guests' names, reply and dietary note. NOTHING else of the guest list: no
+-- other group, no contact details.
+--
+-- WHO READS IT (owner 2026-08-27: "the staff who handles the event will handle
+-- the event fully but the vendor owner also has access to oversight all their
+-- business"; controller ruling 22 Nov 2026, ship review of #8094) — ONLY:
+--   (a) the shop's owner            — vendor_profiles.user_id;
+--   (b) a LIVE Shop Manager         — the top team role, the repo's own helper
+--       `current_vendor_duty_ids('shop_manager')` (20271351755368: duty =
+--       'shop_manager' on a seat whose deactivated_at IS NULL);
+--   (c) the LIVE seat that handles THIS client — #8114's routing
+--       (20271356599293): the client is the chat_threads row for (event, shop);
+--       its handler is handled_by_member_id, or covering_member_id while the
+--       handler is paused (`currentHandlerOf`, lib/handled-by.server.ts).
+-- Nobody else on the team. "Live" = vendor_team_members.deactivated_at IS NULL:
+-- a paused seat never reads it. The rule is written ONCE, in the one SELECT.
+-- A host (is_host), a stranger (not_booked), a member of the booked shop's team
+-- who is none of (a)(b)(c) (not_your_client), a reader whose booking has no
+-- group (no_group): each refused in its own words.
 --
 -- ── 4 · ONE SET OF NAMES ────────────────────────────────────────────────────
 -- `ask_hosts_for_more_access` names its parts with DELEGATE_AREA_LABEL, now the
@@ -208,32 +224,50 @@ BEGIN
     RETURN jsonb_build_object('status', 'is_host');
   END IF;
 
-  -- The caller's shop's BOOKED row on this event that has a group (owner or team member).
+  -- The caller's shop's BOOKED row on this event — and the caller must be one of its READERS. The reader rule is
+  -- written ONCE, here (owner 2026-08-27; controller ruling 22 Nov 2026):
+  --   (a) the shop's owner;
+  --   (b) a LIVE Shop Manager — `current_vendor_duty_ids('shop_manager')` (duty = 'shop_manager', deactivated_at NULL);
+  --   (c) the LIVE seat that handles THIS client — the (event, shop) chat_threads row's cover while the handler is
+  --       paused, else its handler (the app's `currentHandlerOf`).
+  -- A row WITH a group sorts first, so a shop with two bookings here reads the one that has a group.
   SELECT ev.vendor_id, ev.pax_quote_base, g.group_id, g.label
     INTO v_row
     FROM public.event_vendors ev
     JOIN public.vendor_profiles vp ON vp.vendor_profile_id = ev.marketplace_vendor_id
-    JOIN public.guest_groups g ON g.event_vendor_id = ev.vendor_id
+    LEFT JOIN public.guest_groups g ON g.event_vendor_id = ev.vendor_id
    WHERE ev.event_id = p_event_id
      AND ev.status::TEXT IN ('contracted', 'deposit_paid', 'delivered', 'complete')
      AND (vp.user_id = v_uid
-          OR EXISTS (SELECT 1 FROM public.vendor_team_members tm
-                      WHERE tm.vendor_profile_id = vp.vendor_profile_id AND tm.user_id = v_uid))
-   ORDER BY ev.created_at
+          OR vp.vendor_profile_id IN (SELECT public.current_vendor_duty_ids('shop_manager'))
+          OR EXISTS (SELECT 1
+                       FROM public.chat_threads t
+                       JOIN public.vendor_team_members tm
+                         ON tm.vendor_team_member_id = COALESCE(t.covering_member_id, t.handled_by_member_id)
+                      WHERE t.event_id = ev.event_id
+                        AND t.vendor_profile_id = vp.vendor_profile_id
+                        AND t.kind = 'supplier'
+                        AND tm.vendor_profile_id = vp.vendor_profile_id
+                        AND tm.user_id = v_uid
+                        AND tm.deactivated_at IS NULL))
+   ORDER BY (g.group_id IS NULL), ev.created_at
    LIMIT 1;
   IF NOT FOUND THEN
+    -- On the booked shop's team, but none of (a)(b)(c) — a paused seat, or a member who does not handle this client.
+    -- Said as itself, never as "not booked" and never as an empty group.
     IF EXISTS (
       SELECT 1 FROM public.event_vendors ev
-        JOIN public.vendor_profiles vp ON vp.vendor_profile_id = ev.marketplace_vendor_id
+        JOIN public.vendor_team_members tm ON tm.vendor_profile_id = ev.marketplace_vendor_id
        WHERE ev.event_id = p_event_id
          AND ev.status::TEXT IN ('contracted', 'deposit_paid', 'delivered', 'complete')
-         AND (vp.user_id = v_uid
-              OR EXISTS (SELECT 1 FROM public.vendor_team_members tm
-                          WHERE tm.vendor_profile_id = vp.vendor_profile_id AND tm.user_id = v_uid))
+         AND tm.user_id = v_uid
     ) THEN
-      RETURN jsonb_build_object('status', 'no_group');
+      RETURN jsonb_build_object('status', 'not_your_client');
     END IF;
     RETURN jsonb_build_object('status', 'not_booked');
+  END IF;
+  IF v_row.group_id IS NULL THEN
+    RETURN jsonb_build_object('status', 'no_group');
   END IF;
 
   RETURN jsonb_build_object(
@@ -261,7 +295,11 @@ GRANT EXECUTE ON FUNCTION public.supplier_booking_group(UUID) TO authenticated;
 COMMENT ON FUNCTION public.supplier_booking_group(UUID) IS
   'Their event · Guests (owner 2026-11-21, "YES TO ALL" (1)): a booked supplier reads ONLY their per-head booking''s '
   'own guest group — label, booked count (pax_quote_base), names, reply, dietary note. No other group, no contact '
-  'details. Hosts: is_host. Not booked: not_booked. Booked with no group: no_group.';
+  'details. READERS (owner 2026-08-27; controller 22 Nov 2026), and nobody else on the team: the shop''s owner; a '
+  'live Shop Manager (current_vendor_duty_ids(''shop_manager'')); the live seat that handles this client '
+  '(chat_threads.covering_member_id, else handled_by_member_id). Live = deactivated_at IS NULL — a paused seat never '
+  'reads it. Hosts: is_host. Not booked: not_booked. On the booked shop''s team but not a reader: not_your_client. '
+  'A reader whose booking has no group: no_group.';
 
 -- ── 4 · Ask the hosts speaks the hosts' tab names (controller call (6)) ───────
 CREATE OR REPLACE FUNCTION public.ask_hosts_for_more_access(

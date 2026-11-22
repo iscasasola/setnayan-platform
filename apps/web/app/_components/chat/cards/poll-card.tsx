@@ -40,6 +40,7 @@ import {
   voteForTap,
   type Poll,
 } from '@/lib/chat-polls';
+import { PLUS_NEEDS_VERIFIED } from '@/lib/shop-plus-gate';
 import { ChatStepCard, type ChatCardStep } from '../chat-step-card';
 import { CouldNotLoad, EqualRow, KindCard, Loading, Problem, type CardTurn } from './card-bits';
 
@@ -48,6 +49,7 @@ const OPEN_REFUSAL: Record<string, string> = {
   one_open: ONE_POLL_REASON,
   contact: 'Phone numbers, emails and outside-app contacts are not allowed in a conversation.',
   not_allowed: 'You are not in this chat.',
+  unverified: PLUS_NEEDS_VERIFIED,
   failed: 'Could not open the poll. Try again.',
 };
 

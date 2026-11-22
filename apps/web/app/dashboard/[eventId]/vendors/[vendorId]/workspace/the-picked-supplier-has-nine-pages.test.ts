@@ -144,8 +144,11 @@ test('3 · Report is on every menu, and it is the shipped Report a problem about
       .filter((r) => PLUS_ROW_PAGE[r.key] !== NEGOTIATE_GROUP)
       .map((r) => order.indexOf(PLUS_ROW_PAGE[r.key] as string));
     assert.ok(ranks.every((r) => r >= 0), 'a host (+) row sits under a page the picked supplier does not have');
-    for (let i = 1; i < ranks.length; i++) assert.ok(ranks[i]! >= ranks[i - 1]!, 'the host’s (+) runs against its menu’s order');
-    assert.equal(hostPlusRows({ canLogPayment }).at(-1)!.key, 'file');
+    // 🧺 CHAT ＋ FINAL (owner 21 Nov 2026, replaces "B, grouped"): the host's tray is two groups — Ask, then Share — and
+    // no longer runs in the menu's page order. Every Ask tile comes before every Share tile.
+    const trays = hostPlusRows({ canLogPayment }).map((r) => r.tray);
+    assert.ok(trays.every((t) => t === 'ask' || t === 'share'), 'a host (+) tile sits in neither Ask nor Share');
+    assert.ok(trays.lastIndexOf('ask') < trays.indexOf('share'), 'the host’s (+) mixes Ask and Share');
     assert.ok(!hostPlusRows({ canLogPayment }).some((r) => r.key === 'report'), 'Report a problem is back in the host’s (+) — it lives under ⋯');
   }
 });

@@ -30,7 +30,9 @@ import { MayaPayStage } from './_components/maya-pay-stage';
 import { MayaChecking } from './_components/maya-checking';
 import { mayaReceiptFor, readOpenMayaCheckout } from '@/lib/maya-checkout.server';
 import { PayCodeBox } from './_components/pay-code-box';
-import { payCodeBoxShown } from '@/lib/pay-code';
+import { payCodeBoxShown, payCodeErrorFor, payFreeRoute } from '@/lib/pay-code';
+import { paymentWasLogged } from '@/lib/payment-logged';
+import { PayFreeConfirm } from './_components/pay-free-confirm';
 import { isMayaPayment } from '@/lib/maya-checkout';
 import { formatManilaDateTime } from '@/lib/auto-verify-audit';
 import { mayaPayState } from './maya-return';
@@ -298,15 +300,19 @@ export default async function PayPage({ params, searchParams }: Props) {
    */
   const codeBox = payCodeBoxShown({
     awaitingPayment: payable.status === 'awaiting_payment',
-    sentOrWaiting: waiting || Boolean(latestPayment) || Boolean(paymentsError),
+    // A bill's own empty placeholder row is not a payment — only something SENT closes the box (`paymentWasLogged`).
+    sentOrWaiting: waiting || (latestRow ? paymentWasLogged(latestRow) : false) || Boolean(paymentsError),
     mayaCheckout: waiting ? 'none' : await readOpenMayaCheckout(payable.orderId),
     codeApplied: Boolean(payable.code),
     quoted: Boolean(payable.quoted),
   });
   const codeBlock =
     !waiting && (codeBox || payable.code) ? (
-      <PayCodeBox reference={payable.reference} applied={payable.code ?? null} error={codeBox ? (search.code_error ?? null) : null} />
+      <PayCodeBox reference={payable.reference} applied={payable.code ?? null} error={codeBox ? payCodeErrorFor(search.code_error) : null} />
     ) : null;
+
+  // 🎟 ₱0 — a code covered the whole price: the pay stage is "Send for confirmation" alone (no Maya, no BDO upload).
+  const freeRoute = !waiting && payFreeRoute({ awaitingPayment: payable.status === 'awaiting_payment', amountPhp: payable.amountPhp, codeApplied: Boolean(payable.code) });
 
   const summaryFor = (mayaRoute: boolean) => {
     const next = payNextSteps({
@@ -494,6 +500,16 @@ export default async function PayPage({ params, searchParams }: Props) {
       <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6" data-pay-maya-checking-page="">
         {summaryFor(true)}
         <MayaChecking />
+      </main>
+    );
+  }
+  // 🎟 ₱0 — A CODE COVERED THE WHOLE PRICE (controller 2026-11-22): the pay stage is "nothing to pay" and ONE button,
+  // "Send for confirmation". Its own early return, like "Checking…" above — so no Maya, no QR and no receipt form
+  // can be drawn beside it, and the shipped render below stays exactly as it is.
+  if (freeRoute && payable.code) {
+    return (
+      <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6" data-pay-free-page="">
+        <PayFreeConfirm reference={payable.reference} title={payable.title} who={payable.who ?? null} code={payable.code} error={payCodeErrorFor(search.code_error)} />
       </main>
     );
   }

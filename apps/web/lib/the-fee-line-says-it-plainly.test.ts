@@ -92,7 +92,7 @@ test('<BookingFeeLine> derives every number and keeps the minimum behind its ⓘ
 
 test('every surface that drew the old sentence draws the one line', () => {
   const OLD_SENTENCE = /first booking from Setnayan is on us|FIRST_BOOKING_ON_US_CLAUSE\} — after that/;
-  for (const rel of ['app/vendor-dashboard/booking-fees/page.tsx']) {
+  for (const rel of ['app/vendor-dashboard/booking-fees/booking-fees-body.tsx']) { // set two: the page's body draws the line
     const src = code(rel);
     assert.match(src, /<BookingFeeLine\b/, `${rel} does not draw <BookingFeeLine>`);
     assert.doesNotMatch(src, OLD_SENTENCE, `${rel} still says the old fee sentence`);

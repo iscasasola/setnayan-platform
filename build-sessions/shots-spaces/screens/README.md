@@ -19,5 +19,12 @@ The lab is wrapped in the `data-supplier-look` marker the `/vendor-dashboard` te
 | `12-day-unread-*` | — | the day's holders refused: a warning, and no "Free" on any tile |
 | `13-refused-*` | — | the spaces read refused: says so, Try again — never "no spaces yet" |
 | `14-empty-*` | — | a shop with none yet |
+| `15-card-add-first-*` | 8 | a venue CARD with no hall yet: "Uses · Which spaces this card books · None yet ▾" (`?state=first`) |
+| `16-card-add-first-menu-*` | 8 | the menu: "＋ Add a hall · For your shop" · "＋ Add something else · The six kinds" |
+| `17-card-add-first-sheet-*` | 8 · 4 | "Add a hall" opens the Spaces sheet in place, the first hall filled from Room size & capacity (300 seated) |
+
+**Re-taken 22 Nov after the train merged origin/main:** `01`, `02`, `14`, and the new `15`–`17`. The others are the 20 Nov
+takes; nothing they show changed in the merge. Dark is forced with the `dark` class: `/vendor-dashboard/spaces` is not
+on the dark ready-list (`lib/appearance.ts`), like the rest of Shop, so production paints it light today.
 
 Dark here is the EVENTS family (terracotta) because supplier navy is PR #7997, not on main.

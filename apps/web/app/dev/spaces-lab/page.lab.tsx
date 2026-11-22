@@ -8,12 +8,14 @@
  *   ?state=empty       a shop with no space yet (the tile is hidden on Shop; the page itself says how to add)
  *   ?state=refused     a refused read (says so, with Try again — never "no spaces yet")
  *   ?state=day         the day's holders could not be read (tiles say nothing about the day, never "Free")
+ *   ?state=first       a venue CARD with no hall yet: the Uses row's "None yet ▾ · add the first" (drawing screen 8)
  * Buttons post the REAL action; pressing them here needs a session (the lab draws, it does not save). Names are samples.
  */
 import { notFound } from 'next/navigation';
 import type { SpacesRead } from '@/lib/spaces.server';
 import type { Space } from '@/lib/spaces';
 import { SpacesScreen } from '@/app/vendor-dashboard/spaces/_components/spaces-screen';
+import { AddFirstSpace } from '@/app/vendor-dashboard/spaces/_components/add-first-space';
 
 const sp = (o: Partial<Space> & Pick<Space, 'id' | 'kind' | 'name'>): Space => ({
   seated: null, standing: null, widthM: null, lengthM: null, connectsTo: null, floor: null, count: null, inRepair: 0, details: {}, ...o,
@@ -57,6 +59,15 @@ export default async function SpacesLabPage({ searchParams }: { searchParams: Pr
   const pro = sp.plan !== 'plus';
   const data: SpacesRead | null =
     state === 'refused' ? null : state === 'empty' ? { spaces: [], tables: { groups: [], units: [], doors: [] }, day: { date: DAY, bookings: [], blocks: [] } } : state === 'day' ? { ...SAMPLE, day: null } : SAMPLE;
+  if (state === 'first') {
+    return (
+      <main className="mx-auto w-full max-w-2xl bg-cream px-4 pb-40 pt-4 lg:max-w-4xl" data-spaces-lab="">
+        <h1 className="text-[22px] font-semibold text-ink">Grand Hall</h1>
+        <p className="mt-1 text-[14px] text-ink/70">Service card · More settings</p>
+        <AddFirstSpace today={DAY} proOpen={pro} firstHall={{ widthM: 20, lengthM: 30, seated: 300 }} />
+      </main>
+    );
+  }
   const named: SpacesRead | null =
     data && !pro ? data : data && pro ? { ...data, spaces: data.spaces.map((s) => (s.id === 'h1' ? { ...s, name: 'Grand Ballroom' } : s.id === 'h2' ? { ...s, name: 'Garden Hall' } : s)) } : data;
   return (

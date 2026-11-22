@@ -201,9 +201,11 @@ test('the shop page draws the shipped BackButton at the top left, returning in p
   assert.match(page, /const shopTop = shopTopBack\(shopArrival, viewerSignedIn\)/);
   // 15 Nov 2026 ("SHOP WEBSITE TOP BAR, ONCE SCROLLED"): the ‹ lives in the sticky top bar — the full back before the
   // name scrolls under it, the chevron-only copy after. Both go to the same place and both return in place.
-  const btn = page.search(/back=\{<BackButton href=\{shopTop\.href\} label=\{shopTop\.label\}[^>]*\binPlace\b[^>]*\/>\}/);
+  // 21 Nov 2026: each is wrapped in `FramedBackCloses` (inside the Shop tab's View shop frame, Back closes the frame —
+  // lib/back-from-view-shop-returns-to-shop.test.ts); the BackButton itself is unchanged.
+  const btn = page.search(/back=\{\s*(?:<FramedBackCloses>\s*)?<BackButton href=\{shopTop\.href\} label=\{shopTop\.label\}[^>]*\binPlace\b[^>]*\/>/);
   assert.ok(btn > -1, 'the top-left ‹ is gone (or no longer returns in place)');
-  assert.match(page, /backCompact=\{<BackButton href=\{shopTop\.href\} label=\{shopTop\.label\} variant="chat" inPlace \/>\}/);
+  assert.match(page, /backCompact=\{\s*(?:<FramedBackCloses>\s*)?<BackButton href=\{shopTop\.href\} label=\{shopTop\.label\} variant="chat" inPlace \/>/);
   const bar = page.indexOf('<ShopTopBar');
   const article = page.indexOf('<article');
   assert.ok(bar > -1 && bar < btn, 'the ‹ left the top bar');

@@ -179,7 +179,8 @@ test('the front door add-on tiles never name or link a retired product', () => {
 
 test('the site description and the homepage structured data never name a retired product', () => {
   const layout = stripComments(read('app/layout.tsx'));
-  const desc = layout.match(/const SITE_DESCRIPTION =\s*\n?\s*'([^']*)'/)?.[1];
+  // Either quote: the 20 Nov ruled description has an apostrophe ("guests' phones"), so it is written in double quotes.
+  const desc = layout.match(/const SITE_DESCRIPTION =\s*\n?\s*(?:'([^']*)'|"([^"]*)")/)?.slice(1).find((v) => v !== undefined);
   assert.ok(desc, 'SITE_DESCRIPTION not found — update this guard to where it moved');
   assert.ok(!NAME_RE.test(desc), `SITE_DESCRIPTION names a retired product: ${desc}`);
   const jsonLdLines = layout.split('\n').filter((l) => /description:/.test(l) && NAME_RE.test(l));

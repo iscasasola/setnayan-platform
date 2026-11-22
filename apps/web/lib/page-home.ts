@@ -258,6 +258,9 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // One-link pages sent by email or QR — nothing behind them.
   '/receipts/[receiptId]': { none: 'token' },
   '/receipts/order/[orderId]': { none: 'token' },
+  // The supplier-payment receipt is opened from the hosts' chat with that supplier: its ‹ goes back to THAT chat,
+  // which only the payment's own row names — worked out per visit by the page.
+  '/receipts/payment/[paymentId]': { none: 'computed', by: 'app/receipts/payment/[paymentId]/page.tsx' },
   '/vendor-invite/[slug]': { none: 'token' },
   '/vendor/fit/[ref]': { none: 'token' },
   '/demo-capture/[slug]': { none: 'token' },

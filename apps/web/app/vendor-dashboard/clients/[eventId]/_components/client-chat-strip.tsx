@@ -15,12 +15,17 @@
  * 🔑 A box whose read failed says "Couldn't load · tap to retry" in the danger colour, and the tap reads again — never
  * ₱0, never "0 open", never a blank.
  */
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { decisionsBox, type StripBox, type StripTone } from '@/lib/client-chat-strip';
 import { raiseDeal, useKinds } from '@/lib/chat-kind-store';
 import { usePickedNav } from './picked-client-nav';
 import type { PickedClientPage } from './picked-client-menu';
+import type { AgendaRiseProps } from './agenda-rise';
+
+// 📅 Unichat F: the dated list rises over the chat from the Next box — its code loads on the press, never with the chat.
+const AgendaRise = dynamic(() => import('./agenda-rise').then((m) => m.AgendaRise), { ssr: false });
 
 const TONE: Record<StripTone, { className?: string; color?: string }> = {
   plain: { className: 'text-ink' },
@@ -34,13 +39,17 @@ const TONE: Record<StripTone, { className?: string; color?: string }> = {
 export function ClientChatStrip({
   boxes,
   threadId,
+  agenda = null,
 }: {
   /** Money · Next · Forms, as the page read them (`chatStrip`). */
   boxes: readonly StripBox[];
   /** The conversation whose chat counts the Decisions; null = no conversation yet (nothing can be waiting in it). */
   threadId: string | null;
+  /** 📅 The dated list the Next box raises (Unichat F). Absent: Next opens the Schedule page, as before. */
+  agenda?: AgendaRiseProps | null;
 }) {
   const nav = usePickedNav();
+  const [agendaOpen, setAgendaOpen] = useState(false);
   const router = useRouter();
   const [retrying, retry] = useTransition();
   const kinds = useKinds(threadId ?? '');
@@ -99,6 +108,10 @@ export function ClientChatStrip({
                 // A failed read is retried where it failed — the page reads again; nothing is guessed meanwhile.
                 // one-render: keep (retry) — nothing was written here; a refused read is asked again.
                 if (b.failed) return retry(() => router.refresh());
+                if (door === 'schedule' && agenda) {
+                  setAgendaOpen(true);
+                  return;
+                }
                 if (door === 'deal') {
                   if (threadId) raiseDeal(threadId);
                   else nav.select('quote');
@@ -112,6 +125,7 @@ export function ClientChatStrip({
           );
         })}
       </div>
+      {agendaOpen && agenda ? <AgendaRise {...agenda} onClose={() => setAgendaOpen(false)} /> : null}
     </div>
   );
 }

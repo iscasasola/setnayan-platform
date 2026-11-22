@@ -10062,6 +10062,7 @@
         "UndoToastHost",
         "VendorMeetingsSection",
         "VendorSuggestionsQueue",
+        "VenueWindowBar",
         "ViewAsBody",
         "ViewAsMenu",
         "ViewLens",
@@ -13833,6 +13834,21 @@
         "ShareReceiptButton"
       ]
     },
+    "/receipts/payment/[paymentId]": {
+      "files": [
+        "receipts/payment/[paymentId]/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/vendors/[seg]/workspace?tab=chat"
+      ],
+      "actions": [],
+      "blocks": [
+        "ReceiptPage",
+        "ReceiptSlip",
+        "SaveAsPdfButton",
+        "ShareReceiptButton"
+      ]
+    },
     "/reset-password": {
       "files": [
         "reset-password/actions.ts",
@@ -14218,6 +14234,7 @@
         "v/[slug]/_components/check-a-date-over-shop.tsx",
         "v/[slug]/_components/check-a-date-sheet.tsx",
         "v/[slug]/_components/events-by-kind.tsx",
+        "v/[slug]/_components/framed-back-closes.tsx",
         "v/[slug]/_components/inquire-sheet.tsx",
         "v/[slug]/_components/not-yet-verified-notice.tsx",
         "v/[slug]/_components/not-yet-verified-tag.tsx",
@@ -14296,6 +14313,7 @@
         "Failed",
         "FilterChip",
         "FormRows",
+        "FramedBackCloses",
         "GuestAtEventPill",
         "GuestReviewItem",
         "GuestReviewsGroup",
@@ -15189,6 +15207,7 @@
     },
     "/vendor-dashboard/clients/[eventId]": {
       "files": [
+        "vendor-dashboard/clients/[eventId]/_components/agenda-rise.tsx",
         "vendor-dashboard/clients/[eventId]/_components/agree-gift-picker.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booking-money-summary.tsx",
@@ -15310,6 +15329,7 @@
       "blocks": [
         "ActionButton",
         "ActivityFeed",
+        "AgendaRise",
         "AgreeGiftPicker",
         "AgreedNow",
         "AppointmentsSection",
@@ -15339,6 +15359,7 @@
         "ChangeOp",
         "ChangeRequestsQueue",
         "ChapterSection",
+        "ChapterWindow",
         "ChatHome",
         "ChatHomeProvider",
         "ChatHomeTop",
@@ -15446,6 +15467,7 @@
         "ReservationLine",
         "Result",
         "ReturningMarker",
+        "RiseScreen",
         "Row",
         "RunOfShowHeader",
         "SaveFileLink",
@@ -15501,6 +15523,7 @@
         "VendorOnTheDayPage",
         "VendorPaymentLive",
         "VenueHoursSheet",
+        "VenueWindowBar",
         "WaitingRow",
         "WaitlistForm",
         "WaivedFeeRows"
@@ -16298,27 +16321,43 @@
     },
     "/vendor-dashboard/lines": {
       "files": [
+        "vendor-dashboard/lines/_components/line-rows.tsx",
+        "vendor-dashboard/lines/_components/lines-view.tsx",
         "vendor-dashboard/lines/actions.ts",
         "vendor-dashboard/lines/loading.tsx",
         "vendor-dashboard/lines/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients"
+        "/vendor-dashboard/customers",
+        "/vendor-dashboard/lines"
       ],
       "actions": [
         "attachLineToActivity",
-        "deleteLine",
         "updateLine"
       ],
       "blocks": [
         "ActionButton",
-        "Badge",
+        "ChosenRow",
+        "Fold",
+        "LineEdit",
+        "LineOpen",
+        "LineRows",
+        "LineTie",
+        "LinesView",
         "Link",
         "ListPageSkeleton",
         "StayForm",
-        "TemplateEmpty",
-        "TemplateFail",
-        "TemplateSection"
+        "SwipeToDelete",
+        "ToolChip",
+        "ToolEmpty",
+        "ToolFail",
+        "ToolLead",
+        "ToolLine",
+        "ToolPage",
+        "ToolPin",
+        "ToolSection",
+        "TypedRow",
+        "UndoToastHost"
       ]
     },
     "/vendor-dashboard/locked-qr": {
@@ -16332,6 +16371,7 @@
     "/vendor-dashboard/manpower": {
       "files": [
         "vendor-dashboard/manpower/_components/gig-card.tsx",
+        "vendor-dashboard/manpower/_components/manpower-view.tsx",
         "vendor-dashboard/manpower/actions.ts",
         "vendor-dashboard/manpower/loading.tsx",
         "vendor-dashboard/manpower/page.tsx",
@@ -16344,11 +16384,21 @@
         "ActionButton",
         "CancelGigResult",
         "CompleteGigResult",
+        "Fold",
         "GigCard",
         "Group",
+        "InfoTip",
         "ManpowerGigRow",
         "ManpowerSurface",
-        "PageMasthead"
+        "ManpowerView",
+        "ToolChip",
+        "ToolEmpty",
+        "ToolFail",
+        "ToolLead",
+        "ToolPage",
+        "ToolPin",
+        "ToolRow",
+        "ToolSection"
       ]
     },
     "/vendor-dashboard/messages": {
@@ -16530,23 +16580,28 @@
         "vendor-dashboard/moodboard-library/loading.tsx",
         "vendor-dashboard/moodboard-library/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/collections"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ColorRangeManipulator",
         "GridPageSkeleton",
         "HTMLInputElement",
         "Image",
+        "InfoTip",
         "InspirationCardPick",
-        "Link",
         "PalettePreview",
+        "PhotoState",
         "PickMenu",
         "RejectionNotice",
+        "Sheet",
         "ShopNotice",
         "StylistLibraryActions",
         "StylistLibraryEditor",
+        "ToolAddSheet",
+        "ToolChip",
+        "ToolPin",
+        "ToolRow",
         "Uint8Array",
         "UploadStylistAssetResult"
       ]
@@ -17834,6 +17889,7 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
+        "HTMLIFrameElement",
         "HTMLInputElement",
         "HTMLLIElement",
         "HTMLSpanElement",

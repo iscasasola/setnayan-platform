@@ -82,6 +82,16 @@
 !/.claude/
 /.claude/*
 !/.claude/launch.json
+# Added 2026-11-18 with the wiring guardrails: the shared project settings (permissions +
+# hooks), the hook scripts and the /audit + /verify-wiring commands are project files.
+# settings.local.json stays personal and ignored.
+!/.claude/settings.json
+!/.claude/hooks/
+!/.claude/commands/
+# Added 2026-11-22 with the shared brain: the auto-loaded guardrails and the mandatory skill.
+!/.claude/rules/
+!/.claude/skills/
+.claude/settings.local.json
 
 # --- project documentation at the root ---
 !/*.md
@@ -98,6 +108,7 @@ node_modules
 dist/
 out/
 build/
+.cache/
 
 # Tauri
 src-tauri/target/
@@ -112,8 +123,7 @@ src-tauri/WixTools/
 
 # Environment
 .env
-.env.local
-.env.*.local
+.env.*
 !.env.example
 
 # Logs

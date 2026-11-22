@@ -360,9 +360,15 @@ async function tellTheAsker(eventId: string, s: SuggestionRow, decision: 'accept
  * once (admin client: the supplier may not write the schedule, the host's standing choice does). OFF (the default) or
  * unreadable: it WAITS for the host or coordinator. The decision itself is `settleSupplierRequest` (pure, guarded).
  */
-export async function settleAfterAsking(eventId: string, suggestionId: string): Promise<SettleOutcome> {
+export async function settleAfterAsking(
+  eventId: string,
+  suggestionId: string,
+  /** Set to say WHY it went in: `backstage` = the 20 Nov rule, not the host's Auto-agree (the caller words its notice). */
+  why?: { backstage: boolean },
+): Promise<SettleOutcome> {
   const admin = createAdminClient();
-  return settleSupplierRequest(
+  let backstage = false;
+  const outcome = await settleSupplierRequest(
     async () => {
       // ✏️ Their OWN item applies at once, whatever the event's switch (owner 2026-11-21 — `editsOwnItem`). Read from the
       // request row the database wrote (its block, its shop), never from the form.
@@ -390,7 +396,30 @@ export async function settleAfterAsking(eventId: string, suggestionId: string): 
         return 'waits';
       }
     },
+    async () => {
+      backstage = await readBackstageInWindow(admin, eventId, suggestionId);
+      return backstage;
+    },
   );
+  // Auto-agree ON never asks the third reader, so `backstage` stays false there: the host's own choice put it in.
+  if (why) why.backstage = backstage && outcome === 'applied';
+  return outcome;
+}
+
+/**
+ * 🎭 Is this request the supplier's own BACKSTAGE moment inside the venue's window (owner 2026-11-20)? The DATABASE says
+ * (`schedule_request_goes_in_at_once`, migration 20271356061492): it reads the request as RLS let it be written, its
+ * chapter and the moment as it is now — never what a screen posted — and the same table refuses an accept nobody
+ * pressed that the rule does not allow (`event_schedule_suggestions_auto_accept_guard`). Any refused read is `false`:
+ * it waits. `backstageAppliesAtOnce` (lib/venue-window.ts) is the same rule for a screen to SAY what will happen.
+ */
+async function readBackstageInWindow(admin: Db, eventId: string, suggestionId: string): Promise<boolean> {
+  const { data, error } = await admin.rpc('schedule_request_goes_in_at_once', { p_suggestion_id: suggestionId });
+  if (error) {
+    logQueryError('settleAfterAsking.backstage', error, { event_id: eventId }, 'graceful_degrade');
+    return false;
+  }
+  return data === true;
 }
 
 /** Does this open request change a moment that is the asking supplier's own? Any failed read = no (it waits). */

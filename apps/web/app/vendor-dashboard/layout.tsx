@@ -33,6 +33,7 @@ import { ServerTimer } from '@/lib/server-timing';
 import { PromoFreeWindowBannerVendor } from '@/app/_components/promo-free-window-banner-vendor';
 import type { VendorDealFacts } from '@/lib/promo-free-windows';
 import { GuidedTour } from '@/app/_components/guided-tour';
+import { ThemeFromAccount } from '@/app/_components/theme-provider';
 import { completeTour } from '@/lib/tour-actions';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 
@@ -198,7 +199,7 @@ export default async function VendorDashboardLayout({
     await timer.track('chrome', () => Promise.all([
       supabase
         .from('users')
-        .select('account_type, email, display_name, deleted_at, tour_seen_keys')
+        .select('account_type, email, display_name, deleted_at, tour_seen_keys, theme_preference')
         .eq('user_id', user.id)
         .maybeSingle(),
       countUnread(supabase, user.id),
@@ -578,6 +579,8 @@ export default async function VendorDashboardLayout({
       {/* Push notification opt-in banner. Client-only; renders null once the
           vendor has granted push permission or dismissed the prompt. */}
       <PushNotificationRegistrar />
+      {/* 🌙 The account's Light / Dark reaches this device (see ThemeFromAccount). */}
+      <ThemeFromAccount stored={profile?.theme_preference} />
       {/* Vendor welcome tour (W5-B 2026-08-24) — couple, admin and guest each
           had one; the vendor had none. Gated on the tour_seen_keys already
           fetched in this layout's batched users select, mirroring the couple

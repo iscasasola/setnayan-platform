@@ -55,6 +55,15 @@
  * There is no `prefers-color-scheme: dark` block and there must not be one.
  * The palette is a measured-contrast decision; a dark variant would be a new
  * design, not a port.
+ *
+ * 🌙 RE-AIMED 2026-10-11 (owner: "dark mode should work"). The first sentence
+ * still stands and is now held app-wide (lib/no-surface-ships-dark-by-accident
+ * .test.ts): the DEVICE's setting never turns a page dark. What changed is that
+ * a person can CHOOSE Dark in account settings, which puts `.dark` on <html>.
+ * This file's `--fd-*` values are literals, so the front door stays exactly as
+ * drawn under that class too — light — until its dark drawing is made, as a
+ * `html.dark .fd { --fd-…: … }` block of measured values. That is the "new
+ * design" the last sentence asks for; it is a later builder's, not a port.
  */
 
 .fd {

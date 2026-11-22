@@ -37,6 +37,10 @@
  * chosen as a token would be measured against one theme and rendered in the
  * other. The class is unreachable today (no `prefers-color-scheme` rule ships),
  * which is exactly why it would have gone unnoticed. Measured, then written.
+ * 🌙 2026-10-11 — THE CLASS IS REACHABLE NOW (owner: "dark mode should work"):
+ * a viewer who chose Dark in Appearance has `.dark` on <html>. That is the case
+ * this paragraph was written for, so nothing here changes — the two labels stay
+ * literal hex and the button reads the same in either theme.
  *
  * PURE — no React, no DOM, no I/O — so the test exercises the real arithmetic
  * rather than asserting a class name exists. The contrast maths is `story-

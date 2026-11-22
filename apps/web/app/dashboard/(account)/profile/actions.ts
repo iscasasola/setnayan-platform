@@ -1,7 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { THEME_COOKIE, THEME_COOKIE_MAX_AGE, appliedTheme } from '@/app/_components/theme-bootstrap-script';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
@@ -61,6 +63,25 @@ export async function updateThemePreference(formData: FormData) {
     .eq('user_id', user.id);
 
   if (error) throw new Error(error.message);
+
+  // 🌙 Remember it on THIS device with a real Set-Cookie (owner 2026-10-11, "dark mode should
+  // work"). The browser already wrote the same cookie the moment the choice was picked
+  // (ThemeProvider.setMode), but Safari caps a script-written cookie at seven days; one set by
+  // the server lasts its year. Only AFTER the save: a cookie for a choice the account does not
+  // hold would be undone by the next signed-in page (`ThemeFromAccount`). The cookie exists only
+  // while Dark is chosen — see app/_components/theme-bootstrap-script.ts.
+  const jar = await cookies();
+  if (appliedTheme(raw) === 'dark') {
+    jar.set(THEME_COOKIE, 'dark', {
+      path: '/',
+      maxAge: THEME_COOKIE_MAX_AGE,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: false, // the script in <head> reads it before first paint
+    });
+  } else {
+    jar.delete(THEME_COOKIE);
+  }
 
   revalidatePath('/dashboard', 'layout');
 }

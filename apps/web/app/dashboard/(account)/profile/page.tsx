@@ -30,6 +30,8 @@ import {
   signOutOtherDevices,
 } from '@/lib/account-security-actions';
 import { HapticsToggle } from './_components/haptics-toggle';
+import { AppearanceChoice } from './_components/appearance-choice';
+import { appliedTheme } from '@/app/_components/theme-bootstrap-script';
 import { PushToggle } from '@/app/_components/push-toggle';
 import { SHARE_ARTIFACT_LABEL, type ShareArtifactType } from '@/lib/social-sharing';
 import { resolvePublicProfile } from '@/lib/public-profile';
@@ -102,9 +104,12 @@ type Props = {
   }>;
 };
 
-// Light-locked 2026-06-04: the theme picker (Light · Dark · Auto) was removed —
-// Setnayan always renders light. `users.theme_preference` is left dormant. See
-// _components/theme-provider.tsx and CLAUDE.md decision-log.
+// 🌙 APPEARANCE IS BACK (owner 2026-10-11, "dark mode should work"; the control is the
+// "Appearance = Light · Dark" approved 2026-10-07): ONE dropdown in Preferences,
+// `_components/appearance-choice.tsx`. `users.theme_preference` is read below and
+// written by `updateThemePreference`. A stored 'auto' (the column's default) is Light.
+// (History: light-locked 2026-06-04 — the Light · Dark · Auto picker was removed and
+// the column left dormant. See _components/theme-bootstrap-script.ts.)
 
 export default async function ProfilePage({ searchParams }: Props) {
   const search = await searchParams;
@@ -134,7 +139,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, created_at',
+      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, theme_preference, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -1263,6 +1268,8 @@ export default async function ProfilePage({ searchParams }: Props) {
               { key: 'tl', label: 'Tagalog' },
             ]}
           />
+          {/* 🌙 Appearance — Light · Dark, one dropdown (owner 2026-10-07 / 2026-10-11). */}
+          <AppearanceChoice stored={appliedTheme(profile?.theme_preference)} />
         </div>
 
         <div className="sn-tile divide-y divide-ink/10">

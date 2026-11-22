@@ -28,6 +28,7 @@ import { countUnread } from '@/lib/notifications';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuidedTour } from '@/app/_components/guided-tour';
+import { ThemeFromAccount } from '@/app/_components/theme-provider';
 import { completeTour } from '@/lib/tour-actions';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { AdminRailContext } from './_components/admin-rail-context';
@@ -124,7 +125,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     supabase
       .from('users')
       .select(
-        'display_name, email, account_type, is_internal, is_team_member, tour_seen_keys',
+        'display_name, email, account_type, is_internal, is_team_member, tour_seen_keys, theme_preference',
       )
       .eq('user_id', user.id)
       .maybeSingle(),
@@ -471,6 +472,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {/* NAV-2 broken-out action — Payment requests (a sibling of the pill,
           never a tab). Hides itself when a docked SubNav is up. */}
       <AdminNavFab />
+      {/* 🌙 The account's Light / Dark reaches this device (see ThemeFromAccount). */}
+      <ThemeFromAccount stored={profile?.theme_preference} />
       {!(profile?.tour_seen_keys ?? []).includes('admin_welcome_v1') ? (
         <GuidedTour tourKey="admin_welcome_v1" completeAction={completeTour} />
       ) : null}

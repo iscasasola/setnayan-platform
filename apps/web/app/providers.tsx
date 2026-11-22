@@ -121,10 +121,11 @@ export function Providers({
 }: {
   children: React.ReactNode;
   /**
-   * SSR-resolved theme mode from `users.theme_preference` (or 'auto' for
-   * anonymous visitors). Wraps everything so client components can call
-   * `useTheme()` to read/write the current mode.
-   * 2026-05-22 brand pivot — see CLAUDE.md decision-log.
+   * A theme mode the server already knows. The root layout passes none (it must
+   * not read cookies — see _components/theme-bootstrap-script.ts), so this is
+   * 'auto', and 'auto' is LIGHT: nobody is dark unless they chose it. Wraps
+   * everything so client components can call `useTheme()` to read/write the mode.
+   * Owner 2026-10-11 "dark mode should work" (was light-locked 2026-06-04).
    */
   initialThemeMode?: ThemeMode;
   /**

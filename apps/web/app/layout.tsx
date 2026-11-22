@@ -535,12 +535,17 @@ const organizationJsonLd = {
   sameAs: orgSameAs(),
 };
 
-// Light-locked 2026-06-04 (owner: "just always keep it light theme"). One
-// theme-color matching the always-light app surface — Warm Alabaster #FBFBFA
-// (== `--m-paper` / `bg-cream`, and now == the PWA manifest) so iOS Safari +
-// Android Chrome tint the URL bar to the page with no seam. No
-// `prefers-color-scheme: dark` variant, so a device in OS dark mode no longer
-// gets a dark chrome that mismatches the light page.
+// The theme-color every page is SERVED with is the light one — Warm Alabaster
+// #FBFBFA (== the PWA manifest) so iOS Safari + Android Chrome tint the URL bar
+// to the page with no seam. No `prefers-color-scheme: dark` variant, so a device
+// in OS dark mode does not get a dark chrome over a light page.
+// 🌙 DARK (owner 2026-10-11 "dark mode should work"; this was light-locked from
+// 2026-06-04): light stays the default for everyone. Where the person CHOSE
+// Dark, the bootstrap script and ThemeProvider re-tint this same tag to the dark
+// ground (`THEME_COLOR` in _components/theme-bootstrap-script.ts) — it is not
+// decided here because this layout must not read cookies. ⚠ The installed PWA's
+// own splash and title bar come from public/manifest.json, which is one static
+// file and stays light.
 // PWA-1 (2026-06-21): was #FFFFFF (pure white) while the manifest was #FAF7F2
 // and the painted surface is #FBFBFA — three near-whites reconciled to one.
 // Native-app feel (owner directive 2026-06-15: "disable zoom on the whole app
@@ -604,16 +609,20 @@ export default async function RootLayout({
   return (
     <html
       lang="en-PH"
+      suppressHydrationWarning
       data-loader-variant={loaderConfig.variant}
       style={{ '--sd-veil': `${loaderConfig.veilOpacity}%` } as React.CSSProperties}
       className={`${cormorant.variable} ${fraunces.variable} ${manrope.variable} ${dmMono.variable} ${hanken.variable} ${spaceMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable} ${HUB_CHOICE_FACES_CLASS}`}
     >
       <head>
         {/*
-          FOUC-safe theme bootstrap — light-locked 2026-06-04. Runs
-          synchronously before first paint and strips any stale `.dark` class
-          from <html> (e.g. a cached shell from before the light lock) so the
-          app always paints light. See _components/theme-provider.tsx.
+          FOUC-safe theme bootstrap. Runs synchronously before first paint and
+          sets `.dark` on <html> ONLY when this device holds the `sn-theme=dark`
+          cookie (the person chose Dark in Appearance); otherwise it strips any
+          stale `.dark` (a cached shell), so the page paints light. The device's
+          own dark setting is not read. See _components/theme-bootstrap-script.ts.
+          `suppressHydrationWarning` on <html> is for this one class: the server
+          never renders it, the script adds it before React hydrates.
         */}
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         {/*

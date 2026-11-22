@@ -89,10 +89,20 @@
    *   Light  → Warm Alabaster surface (#FBFBFA) + Deep Obsidian text
    *            (#1E2229) + Royal Champagne Gold accent (#C5A059) + Rich
    *            Atelier gold CTAs (#A9834B). The ONLY mode (see LIGHT-LOCKED below).
-   *   Dark   → DISABLED 2026-06-04. The `html.dark` overrides below are kept
-   *            dormant (now unreachable) so re-enabling is a small revert.
+   *   Dark   → LIVE AGAIN 2026-10-11 (owner: "dark mode should work"), and only
+   *            for a person who chose it in Appearance — see the 🌙 note below.
+   *            It was DISABLED 2026-06-04; the `html.dark` overrides below were
+   *            kept dormant through that time so re-enabling was a small revert.
    *
-   * LIGHT-LOCKED 2026-06-04 (owner: "just always keep it light theme"): the
+   * 🌙 LIGHT IS THE DEFAULT, DARK IS A CHOICE (2026-10-11). `.dark` is put on
+   * <html> only by the `sn-theme=dark` cookie — written when the person picks
+   * Dark in account settings (app/_components/theme-bootstrap-script.ts). This
+   * file still carries NO `@media (prefers-color-scheme: dark)` rule and must
+   * not gain one: a phone set to dark is not handed a half-drawn dark app.
+   * Held by lib/no-surface-ships-dark-by-accident.test.ts. The paragraph below
+   * is the history it replaces.
+   *
+   * (history) LIGHT-LOCKED 2026-06-04 (owner: "just always keep it light theme"): the
    * Light/Dark/Auto switch + the OS `prefers-color-scheme` auto-follow were
    * removed. The ThemeProvider never adds `.dark` and the FOUC script strips
    * it, so with `darkMode: 'class'` (tailwind.config.ts) and NO
@@ -223,9 +233,11 @@
 
   html.dark {
     /*
-     * Dark mode — INERT. Kept coherent, not live.
+     * Dark mode — LIVE for a person who chose Dark (owner 2026-10-11, "dark mode
+     * should work"; see the 🌙 note above). The rest of this comment is from
+     * the time it was inert, and its measurements still hold.
      *
-     * ⚠ The app is LIGHT-LOCKED (owner 2026-06-04, "just always keep it light
+     * (history) ⚠ The app is LIGHT-LOCKED (owner 2026-06-04, "just always keep it light
      * theme"). ThemeProvider forces `resolvedTheme: 'light'`, `setMode` is a
      * no-op, and the bootstrap in layout.tsx strips `.dark` before first paint.
      * With `darkMode: 'class'` and no `prefers-color-scheme` rule in this file,
@@ -3114,7 +3126,8 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 }
 html.dark {
   /* Dark pairs ship with the tokens so they are not a trap for whoever turns
-     dark mode on. Nothing sets `html.dark` today (light lock 2026-06-04). */
+     dark mode on. (Written under the light lock of 2026-06-04; since 2026-10-11
+     `html.dark` is set for a person who chose Dark in Appearance.) */
   --sn-canvas: #17160F;
   --sn-glass-bg-raised: rgba(30,34,41,.86);
   /* The row's paper is `--color-cream` and its edge `--sn-glass-line`; both

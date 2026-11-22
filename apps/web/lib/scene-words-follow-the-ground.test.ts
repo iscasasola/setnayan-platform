@@ -187,6 +187,12 @@ test('A · the photo scrim the words are measured over IS the scrim the styleshe
   }
   // The words do not follow the phone's dark mode, so the scrim may not either.
   assert.doesNotMatch(CSS, /prefers-color-scheme:\s*dark\)\s*\{[^@]*hub-canvas-media/, 'a dark-mode scrim is back under light-ink words');
+  // 🌙 RE-AIMED 2026-10-11 (owner: "dark mode should work"). When this was written the app was light-locked and the
+  // phone's setting was the only way a page could turn dark. There is now a second way — the viewer CHOOSING Dark in
+  // Appearance, which puts `.dark` on <html> — and the guest's Event Hub follows neither: it wears the couple's Look.
+  // So the scrim may not key off the class either. (Both halves are needed: the first stays true only because no
+  // `prefers-color-scheme` rule ships at all — lib/no-surface-ships-dark-by-accident.test.ts.)
+  assert.doesNotMatch(CSS, /(?:html)?\.dark\b[^{}]*hub-(?:canvas-media|bg-snippet)[^{}]*\{/, 'a scrim that follows the viewer\'s Dark is under words that do not');
 });
 
 /* ══ B · THE RENDER ═════════════════════════════════════════════════════════ */

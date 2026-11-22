@@ -1,37 +1,30 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { appliedTheme, paintTheme, themeCookieString, themeFromCookie, themeToAdopt, type AppliedTheme } from './theme-bootstrap-script';
 
 /**
- * Theme Provider — LIGHT-LOCKED.
+ * Theme Provider — Light · Dark, and LIGHT UNLESS CHOSEN.
  *
- * WHY: Owner directive 2026-06-04 — "the app used to adjust automatic to light
- * and dark theme. disable this and just always keep it light theme." This
- * reverts the 2026-05-22 brand-pivot Light / Dark / Auto trio (CLAUDE.md
- * decision-log). Setnayan now renders in the light Clean-Editorial palette on
- * every dashboard / marketing surface, ignoring the OS `prefers-color-scheme`
- * AND any previously-stored `users.theme_preference` / `localStorage.theme`.
+ * Owner 2026-10-11: "dark mode should work." This file was LIGHT-LOCKED from 2026-06-04
+ * ("just always keep it light theme") until then: `setMode` was a no-op and an effect stripped
+ * `.dark`. It is real again. What decides the theme, and why nobody gets dark by accident, is
+ * written once in `./theme-bootstrap-script.ts` — read that first.
  *
- * WHY KEEP THE PROVIDER: ~7 components call `useTheme()` (site-editor, dashboard
- * layout, onboarding shell, a few vendor rows). Rather than refactor every
- * call-site, the provider + `useTheme()` API are KEPT but hard-locked: `mode`
- * and `resolvedTheme` are always `'light'`, and `setMode` is a no-op. The
- * `.dark` class is never applied (and is actively stripped on mount in case a
- * stale cached HTML shell shipped with it). Re-enabling Dark/Auto later is a
- * small revert of this file + the bootstrap script.
+ * WHAT THIS HOLDS: the theme the page is drawn in, and `setMode`, which draws the other one at
+ * once (the `.dark` class on <html>, the browser bar's tint) and remembers it on this device (the
+ * `sn-theme` cookie). `color-scheme` follows the class in globals.css.
  *
- * HOW IT STAYS LIGHT BY CONSTRUCTION: `darkMode: 'class'` in tailwind.config.ts
- * means every `dark:` variant + every `html.dark` token override in globals.css
- * keys off the `.dark` class on <html>. globals.css carries NO
- * `@media (prefers-color-scheme: dark)` rule, so with `.dark` never present,
- * all dark styling stays inert → light, regardless of the device setting.
+ * HOW DARK IS DRAWN: `darkMode: 'class'` in tailwind.config.ts — every `dark:` variant and every
+ * `html.dark` token in globals.css keys off the `.dark` class on <html>. globals.css carries NO
+ * `@media (prefers-color-scheme: dark)` rule, so the device's own setting changes nothing.
  *
- * DORMANT: the `users.theme_preference` column + its `updateThemePreference`
- * server action are left in place (unread) so the revert is trivial.
+ * THE FIRST PAINT is the inline script's, not this component's: it has already set the class from
+ * the same cookie before React runs. The effect below only reads what it did (and repaints the
+ * browser bar, whose tag the script may have run ahead of).
  *
- * COUPLE-LANDING PAGE OUT OF SCOPE: the wedding landing page chrome at
- * `app/[slug]/page.tsx` is driven by the couple's mood-board palette per
- * iteration 0010 + 0002 — never touched by this provider.
+ * THE GUEST'S EVENT HUB IS OUT OF SCOPE: `app/[slug]` wears the couple's Look whatever the
+ * viewer's theme — pinned in globals.css ("THE GUEST'S EVENT HUB TAKES NO THEME").
  */
 
 export type ThemeMode = 'light' | 'dark' | 'auto';
@@ -43,42 +36,42 @@ export function isThemeMode(value: unknown): value is ThemeMode {
 }
 
 interface ThemeContextValue {
-  mode: ThemeMode;
-  resolvedTheme: 'light' | 'dark';
+  /** What is drawn. Never 'auto': a stored 'auto' is light. */
+  mode: AppliedTheme;
+  resolvedTheme: AppliedTheme;
   setMode: (mode: ThemeMode) => void;
 }
-
-// Frozen light-locked context value. `setMode` is intentionally a no-op — the
-// app no longer exposes a way to switch modes (owner 2026-06-04).
-const LIGHT_LOCKED: ThemeContextValue = {
-  mode: 'light',
-  resolvedTheme: 'light',
-  setMode: () => {},
-};
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({
   children,
+  initialMode,
 }: {
   children: React.ReactNode;
   /**
-   * Retained for call-site compatibility (app/providers.tsx still passes the
-   * SSR-resolved mode). Ignored — the app is light-locked.
+   * A mode the SERVER already knows (app/providers.tsx passes it through). The root layout does
+   * not: it must not read cookies (that would make every marketing page dynamic), so there the
+   * first paint is the inline script's and this starts light, then reads the cookie on mount.
    */
   initialMode?: ThemeMode;
 }) {
-  // Defend against a stale `.dark` class from a previously-cached HTML shell
-  // (old service-worker response, bfcache restore, etc.). The bootstrap script
-  // in <head> already strips it before first paint; this is the post-hydration
-  // belt-and-suspenders pass.
+  const [theme, setTheme] = useState<AppliedTheme>(() => appliedTheme(initialMode));
+
   useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.documentElement.classList.remove('dark');
-    }
+    const drawn = themeFromCookie(document.cookie);
+    paintTheme(drawn, document);
+    setTheme(drawn);
   }, []);
 
-  const value = useMemo(() => LIGHT_LOCKED, []);
+  const setMode = useCallback((next: ThemeMode) => {
+    const chosen = appliedTheme(next);
+    paintTheme(chosen, document);
+    document.cookie = themeCookieString(chosen, window.location.protocol === 'https:');
+    setTheme(chosen);
+  }, []);
+
+  const value = useMemo(() => ({ mode: theme, resolvedTheme: theme, setMode }), [theme, setMode]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
@@ -91,3 +84,18 @@ export function useTheme(): ThemeContextValue {
   return ctx;
 }
 
+/**
+ * THE ACCOUNT'S CHOICE REACHES A NEW DEVICE. Mounted by the signed-in layouts with
+ * `users.theme_preference` read on the server. When this device's cookie disagrees with the
+ * account (a phone that has never seen the choice; a choice changed on another device), the
+ * account wins and the cookie is rewritten — so every later load is right from the first paint.
+ * `stored` undefined (the read failed) changes nothing: a failed read is not a choice of Light.
+ */
+export function ThemeFromAccount({ stored }: { stored: string | null | undefined }) {
+  const { setMode } = useTheme();
+  useEffect(() => {
+    const adopt = themeToAdopt(stored, document.cookie);
+    if (adopt) setMode(adopt);
+  }, [stored, setMode]);
+  return null;
+}

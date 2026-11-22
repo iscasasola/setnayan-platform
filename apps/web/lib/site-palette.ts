@@ -381,6 +381,11 @@ export function readableTextOn(bgHex: string): string {
  * dark mode is ever restored, this function is one of the places that must be
  * re-derived rather than re-themed — which is why the surface is a named
  * constant and not an inline literal.
+ * 🌙 2026-10-11 — DARK MODE IS RESTORED (owner: "dark mode should work"), so
+ * the sentence above is now a work order, not a hypothetical: for a viewer who
+ * chose Dark, `--color-cream` is #17160F and this still measures the label
+ * against white. NOT re-derived in the foundation change (it is a per-area
+ * sweep item — the dashboard's guest list); the constant is where to start.
  *
  * Returns null for a malformed hex so the caller keeps its existing fallback
  * class instead of rendering a chip with no tint at all.

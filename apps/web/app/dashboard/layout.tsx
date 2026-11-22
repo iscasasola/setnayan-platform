@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { GuidedTour } from '@/app/_components/guided-tour';
+import { ThemeFromAccount } from '@/app/_components/theme-provider';
 import { completeTour } from '@/lib/tour-actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SecureAccountBanner } from './_components/secure-account-banner';
@@ -59,12 +60,13 @@ export default async function DashboardLayout({
     tour_seen_keys?: string[] | null;
     terms_accepted_at?: string | null;
     created_at?: string | null;
+    theme_preference?: string | null;
   };
   let profile: ProfileShape | null = null;
   try {
     const fullRes = await supabase
       .from('users')
-      .select('account_type, deleted_at, tour_seen_keys, terms_accepted_at, created_at')
+      .select('account_type, deleted_at, tour_seen_keys, terms_accepted_at, created_at, theme_preference')
       .eq('user_id', user.id)
       .maybeSingle();
     if (
@@ -205,6 +207,9 @@ export default async function DashboardLayout({
       {/* Anon-draft safety net: only renders for a Supabase anonymous principal
           (their plan isn't yet tied to an email). Vanishes on convert. */}
       {user.is_anonymous ? <SecureAccountBanner /> : null}
+      {/* 🌙 The account's Light / Dark reaches this device (see ThemeFromAccount). A failed
+          profile read passes undefined, which changes nothing. */}
+      <ThemeFromAccount stored={profile?.theme_preference} />
       {/* Compose-first Inquire replay (owner 2026-07-02): if this couple composed
           an inquiry on a vendor profile before signing up, fire it now that
           they're a secured couple with an event. No-op when nothing is stashed

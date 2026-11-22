@@ -85,7 +85,7 @@ function offendersIn(rel: string, raw: string): string[] {
   }
   // (b) "Seat ${…}" in a template literal, or "Seat {…}" in JSX text, printing a seat number not counted from 1.
   for (const m of src.matchAll(/\b[Ss]eat\s*(?:#|[Nn]o\.?)?\s*\$?\{([^{}\n]*(?:\([^()\n]*\)[^{}\n]*)*)\}/g)) {
-    const expr = m[1].trim();
+    const expr = (m[1] ?? '').trim();
     if (!NAMES_SEAT_NUMBER.test(expr) || COUNTED.test(expr)) continue;
     if (ALREADY_WORDS[rel]?.expr === expr) continue;
     out.push(`${rel}: ${m[0]}`);

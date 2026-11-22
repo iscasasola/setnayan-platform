@@ -72,7 +72,12 @@ const REMOVE_NOW: readonly { what: string; pattern: RegExp; why: string; heldOn?
   {
     what: '"no booking commission" on the For Suppliers line',
     pattern: /no booking commission/i,
-    why: 'contradicts the booking fee suppliers pay on clients Setnayan brings',
+    why: 'contradicts the booking fee suppliers pay (lib/booking-fee-who-words.ts)',
+  },
+  {
+    what: '"suppliers pay only on clients Setnayan brings"',
+    pattern: /only on (?:the )?(?:clients|couples) Setnayan brings/i,
+    why: 'replaced on 16 Nov (lib/booking-fee-who-words.ts): every booking carries the fee unless the supplier is the first to bring the event',
   },
   {
     what: 'Pabuya',
@@ -179,6 +184,7 @@ test('the patterns are live — each one catches the words it was written for', 
     "a supplier's own clients are always free",
     'A couple the supplier brings through their own link never carries the fee.',
     'no listing fee, no booking commission',
+    'suppliers pay only on clients Setnayan brings',
     'give through Pabuya',
     'Set na \'yan — "that\'s all set"',
     'Event Plus, Event Pro or Event Ultra — all three carry Setnayan AI',

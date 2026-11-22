@@ -603,6 +603,10 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
   const supplierFee = isBookingFeeEnabled()
     ? `Separately, suppliers pay Setnayan a booking fee${input.bookingFee ? ` of ${bookingFeeScheduleSummary(input.bookingFee)}` : ''}, ${FEE_SCOPE_THIRD}. ${FEE_FREE_RULE_THIRD} That holds whether the supplier brings the couple through their own invite, their own booking QR or their own link; every other booking carries the fee. It is billed to the supplier, never added to what a couple pays.${launchOfferSentence(input.launchOfferCap ?? null)}`
     : 'No booking fee is charged while it is switched off.';
+  // "Against the market" names the fee in the same one source's words (FEE_SCOPE_THIRD), and only while it is charged.
+  // It used to say "suppliers pay only on clients Setnayan brings" — the rule lib/booking-fee-who-words.ts replaced on
+  // 16 Nov, and the opposite of the fee sentence above. 🔒 lib/seo/the-retired-words-stay-gone.test.ts
+  const marketFee = isBookingFeeEnabled() ? `; suppliers pay a booking fee, ${FEE_SCOPE_THIRD}` : '';
 
   // 📄 THE PROSE BELOW IS THE ONE SOURCE'S WORDS (owner 20 Nov 2026: "Yes, send it") — specs
   // `SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md`: §1 the entity card, §2 what Setnayan is, §3 who it is for, §4 the
@@ -725,7 +729,7 @@ Setnayan is compared here by the job a host needs done — what Setnayan itself 
 | An event website, invitation and RSVP | Filipino customs built in (ninang, entourage, faith paperwork, pesos); no guest limit; one guest list runs the invitation, seat, door, camera and album. |
 | Guest photos | Kept for life, a 720p copy free. Each photo finds the people in it. Papic lives inside the Event Hub guests already opened. |
 | A livestream | Guests' phones join as cameras by link, with no install; the stream plays on the event's own page. |
-| Finding and booking suppliers | Verified suppliers booked in writing inside the event; 0% commission for hosts; suppliers pay only on clients Setnayan brings. |
+| Finding and booking suppliers | Verified suppliers booked in writing inside the event; 0% commission for hosts${marketFee}. |
 | Keeping everyone on one page | One link that everyone in the room sees, and every photo in one album. |
 
 What Setnayan puts together: a guest list that becomes each guest's pass, seat, camera and photos; a livestream on the invitation's own page; suppliers booked in writing; and a family's events kept on one page for life.

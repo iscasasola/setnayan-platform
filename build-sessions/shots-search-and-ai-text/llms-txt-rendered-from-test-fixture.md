@@ -151,7 +151,7 @@ Setnayan is compared here by the job a host needs done — what Setnayan itself 
 | An event website, invitation and RSVP | Filipino customs built in (ninang, entourage, faith paperwork, pesos); no guest limit; one guest list runs the invitation, seat, door, camera and album. |
 | Guest photos | Kept for life, a 720p copy free. Each photo finds the people in it. Papic lives inside the Event Hub guests already opened. |
 | A livestream | Guests' phones join as cameras by link, with no install; the stream plays on the event's own page. |
-| Finding and booking suppliers | Verified suppliers booked in writing inside the event; 0% commission for hosts; suppliers pay only on clients Setnayan brings. |
+| Finding and booking suppliers | Verified suppliers booked in writing inside the event; 0% commission for hosts; suppliers pay a booking fee, unless the supplier is the first to bring the event. |
 | Keeping everyone on one page | One link that everyone in the room sees, and every photo in one album. |
 
 What Setnayan puts together: a guest list that becomes each guest's pass, seat, camera and photos; a livestream on the invitation's own page; suppliers booked in writing; and a family's events kept on one page for life.

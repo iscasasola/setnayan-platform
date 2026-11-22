@@ -393,7 +393,7 @@ test('title.default, openGraph and twitter all read the ONE title and descriptio
 // (Event Hub, Papic, Live Watch, Patiktok, Music Maker, Setnayan AI); the ruled line names none of them, so that
 // requirement became this exact pin — any drifted word now fails here.
 // "Hosts pay 0% commission": the zero is said to hosts only, never a bare "0% commission" a supplier could read as
-// theirs (suppliers pay the booking fee on clients Setnayan brings).
+// theirs (suppliers pay the booking fee — lib/booking-fee-who-words.ts).
 test('the default description is the ruled line, word for word', () => {
   const desc = layoutConst('SITE_DESCRIPTION');
   assert.equal(

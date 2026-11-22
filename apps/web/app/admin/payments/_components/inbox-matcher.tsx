@@ -165,7 +165,7 @@ export function InboxMatcher({ payments }: { payments: MatcherPayment[] }) {
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Paste from your GCash / BDO app — e.g. Received from Other Bank + PHP 2,999.43 · Reference number GXCHPHM2XXXB000000006991560"
+        placeholder="Paste from your GCash / BDO app — e.g. Received from Other Bank + PHP amount · Reference number GXCHPHM2XXXB000000006991560"
         rows={2}
         className="input-field mt-3 min-h-[60px] py-2 text-sm"
         aria-label="Paste a bank or GCash notification"

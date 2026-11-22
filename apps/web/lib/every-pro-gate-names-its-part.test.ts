@@ -105,21 +105,12 @@ test('(1) every part gate names a real part', () => {
  */
 const EVERYTHING_ASKED_HERE: Record<string, string> = {
   'lib/couple-website-pro.ts': 'its definition, and the Editorial dual unlock (free for everyone)',
-  'app/[slug]/_lib/hub-look.ts': '`websiteProActiveFor` — the footer reader (gate 37)',
-  'app/[slug]/_lib/loaders.ts': 'the footer (`proWatermarkHidden`, gate 37) and the guest look shell',
-  'lib/setnayan-mark-by-plan.server.ts': 'the Setnayan mark by plan — Event Pro (everything) takes every mark off (gate 37, DECISION_LOG 2026-11-04)',
-  'app/[slug]/print/page.tsx': 'the print page footer (gate 37)',
-  'app/[slug]/_components/editorial/editorial-content.tsx': 'the editorial colophon footer (gate 37)',
-  'app/dashboard/[eventId]/studio/editorial-pro/page.tsx': 'the Editorial buy surface, which Full Pro includes',
+  'app/[slug]/_lib/hub-look.ts': '`websiteProActiveFor` — the guest look shell and the page ground',
+  'app/[slug]/_lib/loaders.ts': 'the guest look shell (Pro colours and face)',
   'app/dashboard/[eventId]/launch/page.tsx': "the Maker's one Full Pro offer and its marks (PR2 moves the marks to parts)",
   'app/dashboard/[eventId]/website/our-story/page.tsx': 'the buy CTA on the legacy story page — Full Pro',
   'app/dashboard/[eventId]/website/editor/page.tsx': "the legacy editor's padlocks and its one Full Pro unlock button",
   'app/dashboard/[eventId]/website/widgets/page.tsx': "the legacy scenes page's Pro marks",
-  'lib/onboarding-services-orders.ts': 'onboarding sells ONE offer — Full Pro (owner 2026-10-22)',
-  'lib/schedule-release.server.ts': "the Schedule's Release — Pro by the owner's 1 Nov ruling (plan §3b), and not an Event Hub part",
-  'app/[slug]/_lib/your-schedule.server.ts': "the guest's Your schedule honours Release only on Pro (plan §3b) — not an Event Hub part",
-  'lib/schedule-view-as.server.ts': "the Schedule's View as a guest, a role or a supplier — Pro by the owner's 1 Nov ruling (plan §3b; Suppliers by time is Free, 2 Nov), and not an Event Hub part",
-  'app/api/schedule/[eventId]/export/route.ts': "one View as person's day as a PDF (POST) — Pro like the view it prints (owner 2026-11-04, slice 6), and not an Event Hub part",
 };
 
 test('(2) "everything" is asked only where everything is the answer', () => {
@@ -134,12 +125,41 @@ test('(2) "everything" is asked only where everything is the answer', () => {
   assert.deepEqual(stale, [], 'listed as asking for everything, but no longer does — remove it from the list');
 });
 
-test('(2) the footer is the one guest-page gate that asks for everything', () => {
+/**
+ * 💎 THE EVENT PRO PLAN (owner 2026-11-19, DECISION_LOG "Event plans part 2 (#8004) — four calls"): the plan's OWN perks
+ * stayed Event Pro's (and Ultra's) — the 11 Hub parts and Editorial are Event Plus's since the owner's 20 Nov ruling. Those ask the Pro PLAN
+ * (`eventProPlanActive` / `eventOwnsProPlan` / `proPlanActiveFor`), never everything and never a part — and only here.
+ */
+const PRO_PLAN_ASKED_HERE: Record<string, string> = {
+  'app/[slug]/_lib/hub-look.ts': '`proPlanActiveFor` — the footer reader (gate 37)',
+  'app/[slug]/_lib/loaders.ts': 'the footer (`proWatermarkHidden`, gate 37)',
+  'lib/setnayan-mark-by-plan.server.ts': 'the Setnayan mark by plan — Event Pro takes every mark off (gate 37, DECISION_LOG 2026-11-04)',
+  'app/[slug]/print/page.tsx': 'the print page footer (gate 37)',
+  'app/[slug]/_components/editorial/editorial-content.tsx': 'the editorial colophon footer (gate 37)',
+  'lib/onboarding-services-orders.ts': 'onboarding sells the Pro plan — never twice (owner 2026-10-22)',
+  'lib/schedule-release.server.ts': "the Schedule's Release — Pro by the owner's 1 Nov ruling (plan §3b), and not an Event Hub part",
+  'app/[slug]/_lib/your-schedule.server.ts': "the guest's Your schedule honours Release only on Pro (plan §3b) — not an Event Hub part",
+  'lib/schedule-view-as.server.ts': "the Schedule's View as a guest, a role or a supplier — Pro by the owner's 1 Nov ruling (plan §3b; Suppliers by time is Free, 2 Nov), and not an Event Hub part",
+  'app/api/schedule/[eventId]/export/route.ts': "one View as person's day as a PDF (POST) — Pro like the view it prints (owner 2026-11-04, slice 6), and not an Event Hub part",
+};
+
+test('(2b) the Pro PLAN is asked only for the plan’s own perks (owner 2026-11-19)', () => {
+  const asked = new Set([...callsOf('eventProPlanActive'), ...callsOf('eventOwnsProPlan'), ...callsOf('proPlanActiveFor')].map((c) => c.rel));
+  console.log(`[pro-gates] files asking for the Pro plan: ${asked.size}`);
+  assert.ok(asked.size >= 8, 'the scan found almost no Pro-plan askers — it is blind');
+  const stray = [...asked].filter((f) => !(f in PRO_PLAN_ASKED_HERE));
+  assert.deepEqual(stray, [], 'a gate asks for the Pro plan — is it the plan’s own perk, or a Hub part (Ultra)? List it with its reason');
+  const stale = Object.keys(PRO_PLAN_ASKED_HERE).filter((f) => !asked.has(f));
+  assert.deepEqual(stale, [], 'listed as asking for the Pro plan, but no longer does — remove it from the list');
+});
+
+test('(2) the footer is the Pro plan’s, and the guest look asks its parts', () => {
   const loaders = FILES.find((f) => f.rel === 'app/[slug]/_lib/loaders.ts')!.code;
-  assert.match(loaders, /proWatermarkHiddenAhead\s*=\s*startAhead\(websiteProActiveFor\(/, 'the footer stopped asking for everything');
+  assert.match(loaders, /proWatermarkHiddenAhead\s*=\s*startAhead\(proPlanActiveFor\(/, 'the footer stopped asking for the Pro plan');
   const look = FILES.find((f) => f.rel === 'app/[slug]/_lib/hub-look.ts')!.code;
   /* The theme and the page ground ask their parts, never everything. */
-  assert.match(look, /hubPartActiveFor\(event\.event_id, 'style'\)/);
+  /* 2026-11-19: the theme asks gate 13 (its home is Style; Event Plus passes it too) — one gate, still not everything. */
+  assert.match(look, /hubGateActiveFor\(event\.event_id, '13'\)/);
   assert.match(look, /hubPartActiveFor\(event\.event_id, 'background'\)/);
 });
 

@@ -380,8 +380,9 @@ test('an Event Pro line on the bill is what ownership finds', async () => {
   }
 });
 
-test('the Pro row the card and the mint price from: ₱5,690 regular, no sign-up override', async () => {
-  // Owner 2026-11-04 (FINAL PRICE SHEET): Event Pro ₱5,690, one price on the website and in the app.
+test('the Pro row the card and the mint price from: ₱5,490 regular, no sign-up override', async () => {
+  // Owner 20 Nov 2026 (`Pricing.md` §1.1): Event Pro ₱5,490 (was ₱5,690, FINAL PRICE SHEET 2026-11-04), one price on
+  // the website and in the app.
   // Owner 2026-10-28 ("THE ONE PRICE — APP STORE = WEBSITE"): ₱6,590, the App Store price; the row's own
   // sign-up override is cleared, so the house 40% dial prices it (setupPricePhp → ₱3,954).
   // Was — owner 2026-09-25: "make it 5000 with 40% off becoming 3000 on onboarding."
@@ -397,7 +398,7 @@ test('the Pro row the card and the mint price from: ₱5,690 regular, no sign-up
        FROM public.platform_retail_catalog_v2 WHERE service_code = 'COUPLE_WEBSITE_PRO'`,
   );
   assert.equal(r.rows.length, 1);
-  assert.equal(Number(r.rows[0]!.retail_price_php), 5690);
+  assert.equal(Number(r.rows[0]!.retail_price_php), 5490);
   assert.equal(r.rows[0]!.onboarding_price_php, null);
   assert.equal(r.rows[0]!.is_active, true);
 });

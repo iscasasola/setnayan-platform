@@ -40,7 +40,7 @@ export const FINALIZE_MILESTONES: FinalizeMilestoneDef[] = [
   },
   {
     key: 'seating_chart',
-    featureLabel: 'Seating Chart',
+    featureLabel: 'Seat plan',
     helper: 'Your reception venue is booked.',
     requiresDate: false,
     requiredGroupIds: ['reception_venue'],

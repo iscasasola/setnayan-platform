@@ -91,6 +91,7 @@ import { loadPeopleWithAccess } from '@/lib/people-with-access.server';
 import { eventSettingsHref } from '@/lib/people-with-access-href';
 import { readClaimAccessAsks } from '@/lib/claim-access-asks.server';
 import { accessFlashFrom, accessFoldSummary, areaCells, type PersonRow } from '@/lib/people-with-access';
+import { ownsHubGate } from '@/lib/hub-parts';
 
 export const dynamic = 'force-dynamic';
 
@@ -314,10 +315,11 @@ export default async function EventDetailsPage({
   const venuesWon = vendorsRead.ok ? pickVenueBookingRows(vendorsRead.v) : { ceremony: null, reception: null };
 
   // ── The look (as drafted) ─────────────────────────────────────────────────
-  // 💎 Part by part (owner 2026-10-22): "Event Pro · Active" is everything; a Pro theme is the Style part's (13).
+  // 💎 Part by part (owner 2026-10-22): "Event Pro · Active" is everything; a Pro theme is gate 13 — the Style part's,
+  // and 🎟 Event Plus's (owner 2026-11-18) — asked as the guest page asks it (`ownsHubGate`).
   const ownsPro = proRead.ok && proRead.v.full;
-  const ownsStyle = proRead.ok && (proRead.v.full || proRead.v.parts.has('style'));
-  const theme = INVITE_THEMES[resolveInviteTheme({ saved: shown.invite_theme, ownsPro: ownsStyle || (canEditHub && !storeShell) })];
+  const ownsProTheme = proRead.ok && ownsHubGate(proRead.v, '13');
+  const theme = INVITE_THEMES[resolveInviteTheme({ saved: shown.invite_theme, ownsPro: ownsProTheme || (canEditHub && !storeShell) })];
   const headingFontKey = sanitizeHubFontKey(shown.site_font_key);
   const headingFont = headingFontKey ? HUB_FONT_BY_KEY[headingFontKey].family : theme.fonts.heading;
   const storedPalette = sanitizeRolePalette(e.role_palette);

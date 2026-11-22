@@ -139,8 +139,8 @@ export function SendOfferButton({
           </InfoTip>
           {sendNeedsPro ? (
             <p className="inline-flex items-center gap-1.5 text-[14px] text-[color:var(--m-slate-2)]">
-              <PaidMark state="try" label="Part of Supplier Pro — draft it here; Send asks for Supplier Pro" size="xs" />
-              Sending an offer is part of Supplier Pro. Draft it here — Send asks for the plan.
+              <PaidMark state="try" label="Part of Pro — draft it here; Send asks for Pro" size="xs" />
+              Sending an offer is part of Pro. Draft it here — Send asks for the plan.
             </p>
           ) : null}
           <SubmitButton className="button-primary inline-flex w-full items-center justify-center gap-2" pendingLabel="Sending…">

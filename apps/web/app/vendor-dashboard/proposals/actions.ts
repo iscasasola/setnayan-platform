@@ -212,6 +212,7 @@ export async function sendProposal(formData: FormData) {
       .eq('proposal_id', proposalId)
       .eq('status', 'draft')
       .maybeSingle();
+    if (draftErr) console.error('[supabase-error] app/vendor-dashboard/proposals/actions.ts · from:vendor_proposals.select', draftErr);
     // 🪪 A QUOTE NEEDS A VERIFIED SHOP on this door too (supplier launch walk 22 Nov, step 8): the SAME gate the
     // chat's quote doors ask (`lib/shop-plus-gate`), BEFORE the draft→sent flip. It fails closed — a refused draft
     // read, or no draft to read, is never a pass: the draft's own shop is the shop that would be sending.

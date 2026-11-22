@@ -15,6 +15,8 @@
  * ends and gets no button. Unverified: the shared 🔒 (Get verified), the same as the Plan page.
  */
 import { useState } from 'react';
+import Link from 'next/link';
+import { routes } from '@/lib/routes';
 import { CreditCard, Gem, Sparkles } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { LockButton } from '@/app/_components/lock/locked-feature';
@@ -164,8 +166,18 @@ export function ApplePlanDoor({
         </p>
       ) : null}
       <p className="pt-2 text-[13px] text-[color:var(--m-slate-2)]" data-apple-plan-terms="">
-        {IAP_COPY.billedByApple} A higher plan starts now; a lower one when the month you paid for ends. Cancel any time in
-        Settings › Apple ID › Subscriptions.
+        {IAP_COPY.billedByApple} Each plan is one month and renews every month until you cancel. A higher plan starts now;
+        a lower one when the month you paid for ends. Cancel any time in Settings › Apple ID › Subscriptions.
+      </p>
+      {/* Guideline 3.1.2: a subscription's buy screen links its Terms of Use and Privacy Policy. */}
+      <p className="pt-1 text-[13px] text-[color:var(--m-slate-2)]" data-apple-plan-legal="">
+        <Link href={routes.terms()} className="underline underline-offset-2">
+          Terms of Use
+        </Link>
+        {' · '}
+        <Link href={routes.privacy()} className="underline underline-offset-2">
+          Privacy Policy
+        </Link>
       </p>
     </div>
   );

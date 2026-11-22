@@ -232,7 +232,7 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
     const what = full.length > 0 ? `${andList(full)} ${full.length === 1 ? 'is' : 'are'} already full that day` : 'A schedule this card uses is already full that day';
     return {
       tone: 'refused',
-      text: `${what}, so this booking cannot be taken. If your team can take more, raise how many a day in Dates; if not, turn this one down so the couple can look elsewhere.`,
+      text: `${what}, so this booking cannot be taken. If you can take more that day, raise how many a day it takes in Dates; if not, turn this one down so the couple can look elsewhere.`,
       door: { label: 'Dates', href: '/vendor-dashboard/customers?seg=dates' },
     };
   },

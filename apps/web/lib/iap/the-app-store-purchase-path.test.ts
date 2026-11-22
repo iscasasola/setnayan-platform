@@ -86,7 +86,11 @@ test('the promote is conditional and counted, and ONLY the call that promoted ac
   const revoke = src.slice(src.indexOf('export async function revokeAppleTransaction'));
   assert.ok(revoke.indexOf(".in('status', ['paid', 'fulfilled'])") < revoke.indexOf('deactivateOrderSku('));
   // Identity from the intent row, through the house helpers.
-  assert.match(src, /orderRowFor\(\s*\{ userId: row\.user_id, eventId, vendorProfileId: null \}/);
+  assert.match(src, /orderRowFor\(\s*\{ userId: row\.user_id, eventId, vendorProfileId: giftShop \}/);
+  // 💝 A shop is named on the order ONLY for a gift product, and a gift has no event (22 Nov).
+  assert.match(src, /const giftShop = gift \? row\.vendor_profile_id : null;/);
+  assert.match(src, /const eventId = gift \? null : row\.event_id;/);
+  assert.match(src, /if \(!gift && row\.vendor_profile_id\) return \{ status: 'refused', reason: 'product_mismatch' \};/);
   assert.match(src, /paymentRowFor\(\s*\{ userId: row\.user_id, verifiedOrderId: order\.order_id \}/);
 });
 
@@ -111,6 +115,9 @@ test('the app shows no web price, no GCash/BDO, no web link on an Apple surface'
     'app/_components/iap/iap-papic-sheet.tsx',
     'app/_components/iap/iap-live-watch-sheet.tsx',
     'app/_components/iap/iap-unlock-sheet.tsx',
+    'app/_components/iap/iap-gift-buy.tsx',
+    'app/vendor-dashboard/shop/promote/_components/apple-gift-cart.tsx',
+    'lib/iap/apple-gift-lines.ts',
     'lib/iap/setnayan-ai-in-app.server.ts',
     'app/_components/iap/restore-purchases-row.tsx',
     'app/_components/iap/apple-pro-screen.tsx',
@@ -128,8 +135,9 @@ test('the iOS build announces the plugin it carries — and Android never claims
   const cfg = raw(join(MOBILE, 'capacitor.config.ts'));
   const ios = /ios:\s*\{[\s\S]*?appendUserAgent:\s*'([^']+)'/.exec(cfg);
   assert.ok(ios, 'the iOS block must declare its own appendUserAgent');
-  /* RE-AIMED 2026-10-21 (owner): the build that sells is 1.1, `SetnayanIAP/2` — `/1` is build 5's and never sells. */
-  assert.match(ios[1]!, /\bSetnayanIAP\/2\b/);
+  /* RE-AIMED 2026-10-21 (owner): the build that sells is 1.1, `SetnayanIAP/2` — `/1` is build 5's and never sells.
+     RE-AIMED 2026-11-22 (owner, the gift cart pays line by line): build 9's plugin passes a quantity → `SetnayanIAP/3`. */
+  assert.match(ios[1]!, /\bSetnayanIAP\/3\b/);
   assert.match(ios[1]!, /\bSetnayanApp\b/, 'the iOS UA still reads as the store shell');
   assert.match(ios[1]!, /\bSetnayanSignIn\/1\b/, 'the iOS UA still announces native sign-in');
   const global = /\n {2}appendUserAgent:\s*'([^']+)'/.exec(cfg);
@@ -160,7 +168,10 @@ test('every Apple surface is mounted ONLY behind the three-part gate', () => {
   // Owned is never sold twice: an event with Pro goes straight back to apply.
   // 💎 Part by part (2026-10-22): "owned" is Full Pro (or the cap reached) through the one ownership read.
   assert.match(code('app/dashboard/[eventId]/apple-pro/page.tsx'), /if \(own\?\.full\) redirect\(`\$\{back\}\?apply=1`\);/);
-  assert.match(code('lib/iap/iap-actions.ts'), /const \{ iap \} = await getIapGate\(\);\s*if \(!iap\) return startRefusal\('unavailable'\);/);
+  // The gift branch also needs `iapQuantity` (a build whose plugin passes a quantity, `SetnayanIAP/3`); the switch
+  // still refuses first, before anything else is read.
+  assert.match(code('lib/iap/iap-actions.ts'), /const \{ iap, iapQuantity \} = await getIapGate\(\);\s*if \(!iap\) return startRefusal\('unavailable'\);/);
+  assert.match(code('lib/iap/iap-actions.ts'), /if \(!iapQuantity \|\| !appleGiftQuantityOk\(quantity\)\) return startRefusal\('unavailable'\);/);
 });
 
 test('✦ the app picks Setnayan AI’s tier the way the web charges it — no second event-type → tier map', () => {

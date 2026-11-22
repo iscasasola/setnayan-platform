@@ -23,6 +23,7 @@ import type { Album } from '@/app/dashboard/(account)/library/_data/photos-album
 import { LENSES, KEPT } from '@/app/dashboard/(account)/library/_data/library-views';
 import { EMPTY_WALL, type AlaalaWall, type WallItem } from '@/lib/alaala-wall';
 import { formatCount } from '@/lib/format-number';
+import { EventGalleryLab } from './event-gallery-lab';
 
 const TONES = [
   ['#D7B77C', '#9A7A3C'], ['#B9856A', '#6F4A33'], ['#E2D59C', '#A7A14B'], ['#6E8296', '#2E3F50'],
@@ -72,6 +73,8 @@ export default async function MemoriesLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  // ?gallery=event — the EVENT's Memories (the full-screen viewer's first caller), not the account page.
+  if (sp.gallery === 'event') return <EventGalleryLab host={sp.guest !== '1'} />;
   const kind = sp.fail === '1' ? 'fail' : sp.empty === '1' ? 'empty' : 'full';
   const list = albums(kind === 'full' ? 'full' : 'empty');
   const picked = typeof sp.event === 'string' ? list.find((a) => a.event.event_id === sp.event) ?? null : null;

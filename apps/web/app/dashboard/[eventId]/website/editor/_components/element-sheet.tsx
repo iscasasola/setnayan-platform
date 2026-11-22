@@ -313,7 +313,7 @@ export function ElementSheet({
   const proMark = makerProMark({ owns: ownsPro, storeShell: hideLocked });
   const hidePro = hideLocked && !ownsPro;
   const animateMark = proMark ? (
-    <PaidMark state={proMark} text="Event Pro" label={paidMarkLabel(proMark, 'Event Pro')} size="xs" />
+    <PaidMark state={proMark} text="Event Pro" word="PLUS" label={paidMarkLabel(proMark, 'Event Plus')} size="xs" />
   ) : null;
   /* 🔤 A part's Font ▾ is Event Pro again (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS
      ARE EVENT PRO ◆" — everything in Style): it wears the sheet's ONE mark, the same node Animate wears, and the

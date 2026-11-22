@@ -428,7 +428,7 @@ test('(9) the rest of the stage: Celebration ▾ in a Form row with the Pro mark
   assert.match(studioWeb, /data-rsvp-setting="celebration"[\s\S]*?>None</, 'a new event does not start on None');
   const pick = read(PICK);
   assert.match(pick, /if \(!makerProUsable\(\{ owns: ownsPro, storeShell \}\)\) return null;/);
-  assert.match(pick, /text: mark === 'try' \? '◆ Pro' : '◆'/);
+  assert.match(pick, /text: mark === 'try' \? '◆ Plus' : '◆'/);
   assert.match(pick, /: \{ text: 'Free', tone: 'muted' as const \}/);
   assert.match(pick, /if \(key !== value\) onPick\(key\);\s*announceCelebrate\(key\);/, 'a pick is not drafted, or not played');
   // NOTHING IS PRINTED ON THE AFTER-SCREENS' PANELS — each sentence is behind a row's ⓘ, word for word.

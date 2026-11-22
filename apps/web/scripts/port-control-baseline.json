@@ -10499,21 +10499,6 @@
         "AddOnDetailView"
       ]
     },
-    "/dashboard/[eventId]/studio/editorial-pro": {
-      "files": [
-        "dashboard/[eventId]/studio/editorial-pro/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/[seg]/orders"
-      ],
-      "actions": [],
-      "blocks": [
-        "InlineCheckoutDrawer",
-        "Link",
-        "PageMasthead",
-        "StudioBuyHero"
-      ]
-    },
     "/dashboard/[eventId]/studio/guest-columns": {
       "files": [
         "dashboard/[eventId]/studio/guest-columns/_components/column-queue-controls.tsx",
@@ -11384,6 +11369,7 @@
         "PaidMark",
         "PlanOffer",
         "ProPartsBody",
+        "ProPlanCard",
         "UltraOffer"
       ]
     },
@@ -18067,6 +18053,7 @@
     },
     "/vendor-dashboard/shop/promote": {
       "files": [
+        "vendor-dashboard/shop/promote/_components/apple-gift-cart.tsx",
         "vendor-dashboard/shop/promote/_components/gift-return-banner.tsx",
         "vendor-dashboard/shop/promote/_components/gift-store-copy.ts",
         "vendor-dashboard/shop/promote/_components/gift-store-sizes.ts",
@@ -18090,6 +18077,8 @@
       "blocks": [
         "ActionButton",
         "AddButton",
+        "AppStoreTransactions",
+        "AppleGiftCartFoot",
         "Art",
         "ArtBase.Provider",
         "BadgeRead",
@@ -18121,6 +18110,7 @@
         "Hidden.Provider",
         "HistoryFilter",
         "HistoryItem",
+        "IapGiftBuy",
         "InfoTip",
         "Link",
         "NfcTapTest",

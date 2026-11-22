@@ -87,12 +87,15 @@ import {
   HUB_EVENT_COLUMN_PART,
   asHubOwnership,
   canvasFacetPart,
+  HUB_EVENT_COLUMN_GATE,
+  ownsHubGate,
   ownsHubPart,
   rsvpFieldPart,
   stylePreferencesPartOf,
   type HubOwnership,
   type HubOwnershipLike,
   type HubPartId,
+  type HubPlanGate,
 } from '@/lib/hub-parts';
 
 /** Where "Go to" takes the couple in the Maker (a `MakerSelection`, plus a part). */
@@ -123,6 +126,8 @@ export type HubProEffect = {
   id: string;
   /** 💎 The ONE part it needs (owner 2026-10-22, `lib/hub-parts.ts`) — what the Apply sheet groups and prices it under. */
   part: HubPartId;
+  /** 🎟 The ONE plan gate it is (the theme 13, the opening 1) — Event Plus passes it outside its part (`ownsHubGate`). */
+  gate?: HubPlanGate;
   /** What it is — "Font", "Animation", "Photo background", "Theme". */
   what: string;
   /** Where it is — "Names on the Hero", "Schedule", "Velvet". */
@@ -440,10 +445,12 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
         continue;
       }
       const part = HUB_EVENT_COLUMN_PART[item.column] ?? 'style';
-      if (ownsHubPart(own, part)) continue;
+      const gate = HUB_EVENT_COLUMN_GATE[item.column];
+      if (gate ? ownsHubGate(own, gate) : ownsHubPart(own, part)) continue;
       push({
         id: `event:${item.column}`,
         part,
+        ...(gate ? { gate } : {}),
         ...eventEffect(item.column, item.value, draftAccents),
         // A Love Story's moments are words and photos in one value — putting the
         // live one back would throw the words away too, so it is never "removed"

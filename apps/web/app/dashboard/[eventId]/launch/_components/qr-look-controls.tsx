@@ -126,7 +126,7 @@ export function QrLookControls({
     <div className="flex min-h-11 items-center justify-between gap-3" data-qr-look-row={label.toLowerCase()}>
       <span className="flex items-center gap-1.5 text-sm text-ink">
         {label}
-        {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'the full Event Hub')} size="xs" /> : null}
+        {mark ? <PaidMark state={mark} word="PLUS" label={paidMarkLabel(mark, 'the full Event Hub')} size="xs" /> : null}
       </span>
       {children}
     </div>

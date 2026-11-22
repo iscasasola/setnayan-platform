@@ -11,13 +11,14 @@ import {
   HUB_PARTS_ORDER_KEY,
   HUB_PRO_GATES,
   hubPart,
+  holdsProPlan,
   hubPartsLabel,
   isHubPartId,
   type HubOwnershipView,
   type HubPartId,
 } from '@/lib/hub-parts';
 import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
-import { PlanOffer, UltraOffer, proCreditsLine, type PlanOfferFacts } from './plan-offer';
+import { PlanOffer, ProPlanCard, UltraOffer, type PlanOfferFacts } from './plan-offer';
 import type { PlanKey } from '@/lib/plan-buy-doors';
 
 /**
@@ -36,6 +37,10 @@ export type ProPartsBodyProps = {
   title: string;
   /** The plan's own name — `COUPLE_WEBSITE_PRO`'s catalogue title (RW-306), never typed here. */
   planName: string;
+  /** 💎 Everything's name — `EVENT_PLUS`'s catalogue title (owner 2026-11-20: Event Plus is the whole Event Hub). */
+  everythingName?: string;
+  /** 💎 Everything's price — the `EVENT_PLUS` row; the cap and the part buttons are measured against it. */
+  everythingPhp?: number | null;
   back: { href: string; label: string };
   fromMaker: boolean;
   hubHref: string;
@@ -52,12 +57,34 @@ export type ProPartsBodyProps = {
   focusPlan?: PlanKey | null;
 };
 
-export function ProPartsBody({ eventId, title, planName, back, fromMaker, hubHref, active, owned, partPricePhp, fullPhp, buy, settings, vatRatePct, plans, focusPlan = null }: ProPartsBodyProps) {
+export function ProPartsBody({
+  eventId,
+  title,
+  planName,
+  everythingName = 'Event Plus',
+  everythingPhp = null,
+  back,
+  fromMaker,
+  hubHref,
+  active,
+  owned,
+  partPricePhp,
+  fullPhp,
+  buy,
+  settings,
+  vatRatePct,
+  plans,
+  focusPlan = null,
+}: ProPartsBodyProps) {
   const HERO = { label: title };
   const has = (o: HubOwnershipView | null, id: HubPartId) => Boolean(o && (o.full || o.parts.includes(id)));
-  /* Everything you pay for parts counts toward everything — the rest, never below zero (the cap). */
+  /* Everything you pay for parts counts toward everything — the rest, never below zero (the cap). 💎 Everything is Event
+     Plus since the owner's 20 Nov ruling, so the rest is measured against Plus's row. Pro is a plan card: its row less
+     what the event paid toward it (Plus), exactly what `resolveHubProCharge` bills. */
   const paidPhp = owned?.paidPhp ?? 0;
-  const restPhp = fullPhp === null ? null : Math.max(0, fullPhp - paidPhp);
+  const restPhp = everythingPhp === null ? null : Math.max(0, everythingPhp - paidPhp);
+  const proState: 'yours' | 'review' | 'buy' = active && holdsProPlan(active) ? 'yours' : owned && holdsProPlan(owned) ? 'review' : 'buy';
+  const proRestPhp = fullPhp === null ? null : Math.max(0, fullPhp - paidPhp);
   const partPrice = (id: HubPartId): number | null => partPricePhp[id] ?? null;
   const stateOf = (id: HubPartId): 'yours' | 'review' | 'buy' =>
     has(active, id) ? 'yours' : has(owned, id) ? 'review' : 'buy';
@@ -67,7 +94,8 @@ export function ProPartsBody({ eventId, title, planName, back, fromMaker, hubHre
   const partsOnSale = HUB_PARTS.some((p) => partPrice(p.id) !== null);
 
   /* `?buy=` — the Apply sheet's pick, carried here: "style,motion" or "full". Unknown or owned parts are dropped. */
-  const buyFull = buy === 'full' || focusPlan === 'pro';
+  /* `?buy=full` — the whole Hub, which is Event Plus since 20 Nov. */
+  const buyFull = buy === 'full';
   const buyParts = buyFull
     ? []
     : (buy ?? '')
@@ -109,11 +137,11 @@ export function ProPartsBody({ eventId, title, planName, back, fromMaker, hubHre
       <header className="space-y-2">
         <h1 className="font-serif text-4xl text-ink">{HERO.label}</h1>
         <p className="text-[15px] leading-snug text-ink/65">
-          {paidPhp > 0 && !active?.full
+          {partsOnSale && paidPhp > 0 && !active?.full
             ? `You've paid ${formatPhp(paidPhp)} toward everything.`
             : partsOnSale
               ? 'Buy the parts you use, or everything at once. Each unlock is for this event and everyone on it.'
-              : 'One unlock for everything below — for this event and everyone on it.'}
+              : 'For this event and everyone on it. What you paid counts toward a bigger plan.'}
         </p>
       </header>
 
@@ -121,20 +149,37 @@ export function ProPartsBody({ eventId, title, planName, back, fromMaker, hubHre
       {plans ? (
         <PlanOffer
           facts={plans}
-          focus={focusPlan}
-          proHeld={Boolean(active?.full || owned?.full)}
+          focus={buyFull ? 'plus' : focusPlan}
+          proHeld={proState !== 'buy'}
           plusDrawer={(php) => drawer({ serviceKey: EVENT_PLUS_SKU, name: 'Event Plus', php, label: 'Get Event Plus' })}
         />
       ) : null}
 
-      {/* ── EVERYTHING — one tap, on top. ── */}
-      {active?.full ? (
+      {/* ── 💎 EVENT PRO, a plain plan card (owner 2026-11-19 (4)). ── */}
+      {plans ? (
+        <ProPlanCard
+          facts={plans}
+          state={proState}
+          restPhp={proRestPhp}
+          focus={focusPlan === 'pro'}
+          proDrawer={(php) => drawer({ serviceKey: FULL_PRO_SKU, name: planName, php, label: `Get ${planName}` })}
+        />
+      ) : null}
+
+      {/* ── 💎 EVENT ULTRA, a plain plan card (#7601). The whole Hub is Event Plus's card above (owner 20 Nov). ── */}
+      {plans ? (
+        <UltraOffer
+          facts={plans}
+          focus={focusPlan === 'ultra'}
+          ultraDrawer={(php) => drawer({ serviceKey: EVENT_ULTRA_SKU, name: 'Event Ultra', php, label: 'Unlock Event Ultra' })}
+        />
+      ) : active?.full ? (
         <div className="rounded-3xl bg-ink/[0.04] p-5" data-pro-everything="yours">
           <p className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-success-800">
-            <PaidMark state="unlocked" label={paidMarkLabel('unlocked', planName)} size="lg" tone="current" /> Unlocked
+            <PaidMark state="unlocked" label={paidMarkLabel('unlocked', everythingName)} size="lg" tone="current" /> Unlocked
           </p>
           <p className="text-sm text-ink/70">
-            Everything is on across your Event Hub{partsOnSale ? ` — all ${HUB_PARTS.length} parts —` : ''} and the &ldquo;Powered by Setnayan&rdquo; footer is off.
+            Everything is on across your Event Hub{partsOnSale ? ` — all ${HUB_PARTS.length} parts —` : ''}.
           </p>
           <Link
             href={fromMaker ? back.href : hubHref}
@@ -144,54 +189,15 @@ export function ProPartsBody({ eventId, title, planName, back, fromMaker, hubHre
             <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
           </Link>
         </div>
-      ) : owned?.full ? (
-        <div className="rounded-3xl bg-mulberry/5 p-5" data-pro-everything="review">
-          <p className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-mulberry">
-            <Clock aria-hidden className="h-5 w-5" strokeWidth={1.75} /> Payment under review
-          </p>
-          <p className="text-sm text-ink/70">
-            We&rsquo;ve received your {planName} order. Our team reconciles within one business day — everything unlocks
-            automatically once it is approved.
-          </p>
-          <Link href={`/dashboard/${eventId}/orders`} className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-mulberry underline underline-offset-2">
-            Track your order
-          </Link>
-        </div>
-      ) : restPhp !== null ? (
-        <div id="plan-pro" className={`rounded-3xl bg-ink/[0.04] p-5 ${buyFull ? 'ring-2 ring-terracotta/50' : ''}`} data-pro-everything="buy">
-          <p className="flex items-baseline justify-between gap-3">
-            <span className="text-lg font-semibold text-ink">Everything</span>
-            <span className="font-mono text-lg font-bold text-ink">{paidPhp > 0 ? `${formatPhp(restPhp)} more` : formatPhp(restPhp)}</span>
-          </p>
-          <p className="mt-1 text-sm leading-snug text-ink/65">
-            {paidPhp > 0
-              ? `The other parts, and the "Powered by Setnayan" footer comes off. ${formatPhp(fullPhp ?? 0)} in all — you've paid ${formatPhp(paidPhp)} of it.`
-              : partsOnSale
-                ? `All ${HUB_PARTS.length} parts, and the "Powered by Setnayan" footer comes off your Hub, invite, prints and story.`
-                : `Everything below, and the "Powered by Setnayan" footer comes off your Hub, invite, prints and story.`}
-            {plans && proCreditsLine(plans.proCredits) ? ` ${proCreditsLine(plans.proCredits)}` : ''}
-          </p>
-          <div className="mt-3">
-            {drawer({
-              serviceKey: FULL_PRO_SKU,
-              name: partsOnSale ? `${planName} · everything` : planName,
-              php: restPhp,
-              // The drawer's own trigger shows the figure beside the words — the label is words only.
-              label: paidPhp > 0 ? 'Unlock the rest' : partsOnSale ? 'Unlock everything' : `Unlock ${planName}`,
-            })}
-          </div>
-        </div>
-      ) : (
+      ) : restPhp === null ? (
         <p className="text-sm text-ink/65">Pricing loads from your catalog &mdash; please refresh in a moment.</p>
-      )}
+      ) : null}
 
-      {/* ── 💎 EVENT ULTRA (#7601) — after Event Pro; the drawer quotes the difference for a Plus/Pro event. ── */}
-      {plans ? (
-        <UltraOffer
-          facts={plans}
-          focus={focusPlan === 'ultra'}
-          ultraDrawer={(php) => drawer({ serviceKey: EVENT_ULTRA_SKU, name: 'Event Ultra', php, label: 'Get Event Ultra' })}
-        />
+      {/* A plan payment under review — the way to follow it (the old Everything card's link, kept). */}
+      {proState === 'review' || plans?.plus === 'review' || plans?.ultra === 'review' ? (
+        <Link href={`/dashboard/${eventId}/orders`} className="inline-flex min-h-11 items-center text-sm font-medium text-mulberry underline underline-offset-2">
+          Track your order
+        </Link>
       ) : null}
 
       {/* ── THE APPLY SHEET'S PICK (`?buy=`) — one order, one payment. ── */}
@@ -205,7 +211,7 @@ export function ProPartsBody({ eventId, title, planName, back, fromMaker, hubHre
           <div className="mt-3">
             {drawer({
               serviceKey: buyParts.length === 1 ? hubPart(buyParts[0]!).sku : HUB_PARTS_ORDER_KEY,
-              name: `${planName} · ${hubPartsLabel(buyParts)}`,
+              name: `${everythingName} · ${hubPartsLabel(buyParts)}`,
               php: chargeOf(buyPricePhp),
               label: `Unlock ${hubPartsLabel(buyParts)}`,
               ...(buyParts.length > 1 ? { hubParts: buyParts } : {}),
@@ -220,7 +226,7 @@ export function ProPartsBody({ eventId, title, planName, back, fromMaker, hubHre
             { title: 'Big parts', parts: big },
             { title: 'Small parts', parts: small },
           ]
-        : [{ title: `What ${planName} unlocks`, parts: HUB_PARTS }]
+        : [{ title: `What ${everythingName} opens`, parts: HUB_PARTS }]
       ).map((band) => (
         <section key={band.title} aria-label={band.title} data-pro-parts-band={band.title}>
           <p className="flex items-baseline justify-between border-b border-ink/15 pb-2 pt-2">
@@ -270,7 +276,7 @@ export function ProPartsBody({ eventId, title, planName, back, fromMaker, hubHre
                         <div className="mt-3">
                           {drawer({
                             serviceKey: p.sku,
-                            name: `${planName} · ${p.name}`,
+                            name: `${everythingName} · ${p.name}`,
                             php: chargeOf(php),
                             label: `Unlock ${p.name}`,
                           })}
@@ -289,7 +295,7 @@ export function ProPartsBody({ eventId, title, planName, back, fromMaker, hubHre
       ))}
 
       <p className="pt-2 text-center text-sm leading-snug text-ink/60">
-        {partsOnSale ? `Everything you pay here counts toward everything.${fullPhp !== null ? ` At ${formatPhp(fullPhp)}, it all unlocks.` : ''} ` : ''}Every
+        {partsOnSale ? `Everything you pay here counts toward everything.${everythingPhp !== null ? ` At ${formatPhp(everythingPhp)}, it all unlocks.` : ''} ` : ''}Every
         guest&rsquo;s ticket and the all-guests QR sheet are free for everyone.
       </p>
     </section>

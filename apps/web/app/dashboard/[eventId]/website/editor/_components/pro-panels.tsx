@@ -76,7 +76,7 @@ export function ProLockPanel({
     <div className="border-t border-dashed border-amber-300/60 dark:border-[rgb(var(--color-warn)/0.4)] bg-amber-50/60 dark:bg-[rgb(var(--color-warn)/0.14)] p-3">
       <p className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-900 dark:text-[rgb(var(--color-warn))]">
         {/* ◆ never a padlock (owner 2026-09-28: "remove padlock … the diamond icon"). */}
-        <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Pro')} size="xs" tone="current" />
+        <PaidMark state="try" bare word="PLUS" label={paidMarkLabel('try', 'Event Plus')} size="xs" tone="current" />
         {featureName} is part of Event Pro
       </p>
       <p className="mt-1 text-[12px] leading-relaxed text-ink/75">
@@ -163,7 +163,7 @@ export function ColorsPanel({
   /** 🔤 `events.site_roles`, the draft over live — the Headings · Text · Labels & buttons fonts (the Studio's Font part). */
   siteRoles?: unknown;
 }) {
-  const mark = proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Pro')} size="xs" /> : null;
+  const mark = proMark ? <PaidMark state={proMark} word="PLUS" label={paidMarkLabel(proMark, 'Event Plus')} size="xs" /> : null;
   /* 🌗 In the new Maker's Studio, Candlelight is Background › Shade ▾'s darkest step (owner 2026-10-08, the Look
      restudy § 3.1) whenever the main background's panel is there to hold it — one field, one place. This
      form then posts no `site_art_direction`, which the action reads as unchanged. */

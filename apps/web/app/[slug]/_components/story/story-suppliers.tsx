@@ -37,7 +37,7 @@ import { formatCount } from '@/lib/format-number';
 
 const EYEBROW = 'font-mono text-xs font-semibold uppercase tracking-[0.2em] text-ink/70';
 const ULTRA_SCENE_TIP =
-  'Every Supplier Ultra on this event gets its own scene, however many there are. The photos and videos are the ones the supplier shared from this event. Other supplier plans are listed in the story, with no scene.';
+  'Every Ultra shop on this event gets its own scene, however many there are. The photos and videos are the ones the supplier shared from this event. Other supplier plans are listed in the story, with no scene.';
 
 /* ── the frame every layer shares ────────────────────────────────────────── */
 
@@ -398,7 +398,7 @@ export function UltraSupplierScene({
         <div className="min-w-0">
           <h2 className="truncate font-serif text-3xl leading-tight text-ink">{album.name}</h2>
           <p className="text-sm text-ink/75">
-            <span className="mr-2 rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-cream">Supplier Ultra</span>
+            <span className="mr-2 rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-cream">Ultra</span>
             {service}
           </p>
         </div>
@@ -424,11 +424,11 @@ export function UltraSupplierScene({
             Visit the shop
           </Tap>
         ) : null}
-        <InfoTip label="Supplier Ultra" labelClassName="text-sm text-ink/75" ariaLabel="About this scene" align="end">
+        <InfoTip label="Ultra" labelClassName="text-sm text-ink/75" ariaLabel="About this scene" align="end">
           {ULTRA_SCENE_TIP}
         </InfoTip>
       </div>
-      <Layer open={open} onClose={() => setOpen(false)} title={album.name} eyebrow="Supplier Ultra · shared album" label={`${album.name} — shared album`}>
+      <Layer open={open} onClose={() => setOpen(false)} title={album.name} eyebrow="Ultra · shared album" label={`${album.name} — shared album`}>
         <p className="text-sm text-ink/70">
           {formatCount(album.photos)} {album.photos === 1 ? 'photo' : 'photos'}
           {album.videos > 0 ? ` · ${formatCount(album.videos)} ${album.videos === 1 ? 'video' : 'videos'}` : ''}

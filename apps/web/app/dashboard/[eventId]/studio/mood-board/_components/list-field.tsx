@@ -72,7 +72,7 @@ export function ListField({
               }}
               maxLength={ITEM_MAX}
               placeholder={style.placeholder}
-              className={`flex-1 min-h-[44pt] rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus-visible:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${style.ring}`}
+              className={`flex-1 min-h-[44pt] rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus-visible:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${style.ring}`}
             />
             {rows.length > 1 ? (
               <button

@@ -9,16 +9,18 @@
  *     never the code default; the stops themselves are example booking prices (`FEE_STOPS`), not prices;
  *   · each plan's price → the catalog (`getVendorPrices`), handed in by the page; one that could not be read shows "—".
  *
- * 🎚 THE DRAWING'S RULER, ON WHAT IS LIVE. The drawing locks the fee at a ceiling and frees "every 100,000th fee" and
- * "the first supplier on an event". None of those is built (2026-11-20): the live fee has a floor and no ceiling, so
- * the ruler draws no lock, and the switches are only the free bookings the app actually gives — handed in by the page
- * (`freeWhen`), never typed here.
+ * 🎚 THE DRAWING'S RULER, ON WHAT IS LIVE. 🔒 The ₱100,000 lock is live (PR #8061, `platform_settings.booking_fee_cap_php`),
+ * so the ruler draws it as the drawing does: a stop where the fee first reaches the lock (`feeRulerStops`, from the
+ * schedule), a tick on the bar there, a "₱100,000 lock" flag (`bookingFeeCapAmount`) and a lock on every stop at the cap.
+ * The switches are only the free bookings the app actually gives — handed in by the page (`freeWhen`), never typed here;
+ * "every 100,000th fee" is live in billing but its N is not read by this page yet, so it is not a switch.
  */
 import Link from 'next/link';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { SWITCH_TRACK } from '@/app/_components/switch-track';
-import { bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FEE_STOPS, FEE_STOP_START } from './supplier-front-data';
+import { Lock } from 'lucide-react';
+import { bookingFeeCapAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
+import { FEE_STOP_START, feeRulerStops } from './supplier-front-data';
 import s from './supplier-front.module.css';
 
 const PESO = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -29,18 +31,62 @@ const peso = (n: number) => PESO.format(n);
 export type FreeWhen = { label: string; hint: string };
 
 export function FeeRuler({ schedule, freeWhen }: { schedule: BookingFeeSchedule; freeWhen: readonly FreeWhen[] }) {
-  const stops = useMemo(() => FEE_STOPS.map((v) => ({ v, fee: bookingFeePhp(v, schedule) })), [schedule]);
+  const stops = useMemo(() => feeRulerStops(schedule), [schedule]);
+  /** Where the lock sits on the bar (0–1), or null when no stop reaches it. */
+  const lockAt = useMemo(() => {
+    const i = stops.findIndex((p) => p.lockPoint);
+    return i < 0 ? null : i / Math.max(1, stops.length - 1);
+  }, [stops]);
   const [at, setAt] = useState<number>(FEE_STOP_START);
   const [on, setOn] = useState<readonly boolean[]>(() => freeWhen.map(() => false));
   const sc = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  /** The stop a drag, tap or key sent the cards to — scroll events on the way there must not pull the dot back. */
+  const goingTo = useRef<number | null>(null);
   const id = useId();
+  const last = stops.length - 1;
 
-  // Open on the start stop, centred under the window.
-  useEffect(() => {
+  /** 🎚 The dot and the cards are ONE control: moving either moves the other. */
+  const go = (i: number, smooth: boolean) => {
+    const n = Math.max(0, Math.min(last, i));
+    setAt(n);
     const el = sc.current;
-    const stop = el?.children[FEE_STOP_START] as HTMLElement | undefined;
-    if (el && stop) el.scrollLeft = stop.offsetLeft - (el.clientWidth - stop.offsetWidth) / 2;
+    const stop = el?.children[n] as HTMLElement | undefined;
+    if (!el || !stop) return;
+    goingTo.current = n;
+    el.scrollTo({ left: stop.offsetLeft - (el.clientWidth - stop.offsetWidth) / 2, behavior: smooth ? 'smooth' : 'auto' });
+  };
+
+  // Open on the start stop, centred under the window — after layout, so a snap container that has not measured yet
+  // does not leave the cards on the first stop while the dot sits on the start stop (owner, 20 Nov: "stuck").
+  useEffect(() => {
+    const r = requestAnimationFrame(() => go(FEE_STOP_START, false));
+    return () => cancelAnimationFrame(r);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** The stop under a point on the bar. */
+  const stopAt = (clientX: number) => {
+    const r = bar.current?.getBoundingClientRect();
+    if (!r || r.width === 0) return at;
+    return Math.round(Math.max(0, Math.min(1, (clientX - r.left) / r.width)) * last);
+  };
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    go(stopAt(e.clientX), false);
+  };
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    const i = stopAt(e.clientX);
+    if (i !== at) go(i, false);
+  };
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -3, PageUp: 3 }[e.key];
+    const to = e.key === 'Home' ? 0 : e.key === 'End' ? last : step === undefined ? null : at + step;
+    if (to === null) return;
+    e.preventDefault();
+    go(to, true);
+  };
 
   const onScroll = () => {
     const el = sc.current;
@@ -56,6 +102,11 @@ export function FeeRuler({ schedule, freeWhen }: { schedule: BookingFeeSchedule;
         best = i;
       }
     });
+    // On the way to a stop the bar sent it to, the cards pass other stops: hold the dot until they arrive.
+    if (goingTo.current !== null) {
+      if (best === goingTo.current) goingTo.current = null;
+      return;
+    }
     if (best !== at) setAt(best);
   };
 
@@ -68,14 +119,35 @@ export function FeeRuler({ schedule, freeWhen }: { schedule: BookingFeeSchedule;
     <div className={s.fx} data-free={free ? '' : undefined}>
       <p className={s.fxTry}>Test it: drag the bar to see your fee.</p>
       <div className={s.fxRule}>
-        <div className={s.fxBar} aria-hidden="true">
-          {free ? <span className={s.fxFree}>Free · no booking fee</span> : null}
+        <div
+          ref={bar}
+          className={s.fxBar}
+          role="slider"
+          tabIndex={0}
+          aria-label="Booking price"
+          aria-valuemin={0}
+          aria-valuemax={last}
+          aria-valuenow={at}
+          aria-valuetext={`${peso(cur.v)} booking, ${free ? 'no booking fee' : `fee ${peso(cur.fee)}`}`}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onKeyDown={onKeyDown}
+        >
+          {free ? (
+            <span className={s.fxFree}>Free · no booking fee</span>
+          ) : lockAt !== null ? (
+            <span className={s.fxFlag}>
+              <Lock aria-hidden className={s.fxLk} strokeWidth={2.2} />
+              {bookingFeeCapAmount(schedule)} lock
+            </span>
+          ) : null}
+          {!free && lockAt !== null ? <i className={s.fxTick} style={{ left: `${lockAt * 100}%` }} aria-hidden="true" /> : null}
           <i className={s.fxTrack}>
             <i className={s.fxFill} style={{ transform: `scaleX(${share})` }} />
           </i>
-          <i className={s.fxThumb} style={{ left: `${share * 100}%` }} />
-          <span className={s.fxEnd}>{peso(stops[0]!.v)}</span>
-          <span className={`${s.fxEnd} ${s.fxEndR}`}>{peso(stops[stops.length - 1]!.v)}</span>
+          <i className={s.fxThumb} style={{ left: `${share * 100}%` }} aria-hidden="true" />
+          <span className={s.fxEnd} aria-hidden="true">{peso(stops[0]!.v)}</span>
+          <span className={`${s.fxEnd} ${s.fxEndR}`} aria-hidden="true">{peso(stops[stops.length - 1]!.v)}</span>
         </div>
         <div className={s.fxWin} aria-hidden="true" />
         <div
@@ -86,6 +158,10 @@ export function FeeRuler({ schedule, freeWhen }: { schedule: BookingFeeSchedule;
           aria-label={`Booking prices from ${peso(stops[0]!.v)} to ${peso(stops[stops.length - 1]!.v)}, each with its fee. Swipe sideways.`}
           aria-describedby={id}
           onScroll={onScroll}
+          // A hand on the cards takes over from a glide the bar started — the dot follows the cards again at once.
+          onPointerDown={() => (goingTo.current = null)}
+          onTouchStart={() => (goingTo.current = null)}
+          onWheel={() => (goingTo.current = null)}
         >
           {stops.map((p) => (
             <div key={p.v} className={s.fxP}>
@@ -101,6 +177,7 @@ export function FeeRuler({ schedule, freeWhen }: { schedule: BookingFeeSchedule;
                 <>
                   <span className={s.fxF}>
                     <small>Fee</small>
+                    {p.locked ? <Lock aria-label="locked" className={s.fxLk} strokeWidth={2.2} /> : null}
                     <b>{peso(p.fee)}</b>
                   </span>
                   <span className={s.fxPc}>

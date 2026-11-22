@@ -24,9 +24,24 @@ type State = {
   pollOpen: boolean;
   /** ⌨ The slash list = the (+)'s own card rows, as the (+) on this chat draws them (it publishes them here). */
   slash: readonly SlashRow[];
+  /**
+   * 🧰 THE TOOL LIVES IN THE TEXT BOX (Unichat part B, 20 Nov 2026). The stream knows what a card needs (whose side,
+   * which event, where to come back to) and publishes it here; a composer that can hold the tool says so with `inBox`,
+   * and then the draft is drawn inside the box (a phone) or in the third column (a computer) — never at the foot of
+   * the stream as well.
+   */
+  host: PlusHost | null;
+  inBox: boolean;
+  /** 🖥 On a computer the (+)'s tiles open as the third column, not a sheet — this is that column being open. */
+  picker: boolean;
+  /** 🖥 Where the (+) draws its tiles inside that column (the composer owns the column, the (+) owns its rows). */
+  tilesSlot: HTMLElement | null;
 };
 
-const EMPTY: State = { draft: null, sent: null, talking: null, toast: null, pollOpen: false, slash: [] };
+/** What a (+) card needs from the chat it is opened in — published by the stream, read by whoever draws the card. */
+export type PlusHost = { side: 'vendor' | 'couple'; eventId: string; eventDate: string | null; returnPath: string };
+
+const EMPTY: State = { draft: null, sent: null, talking: null, toast: null, pollOpen: false, slash: [], host: null, inBox: false, picker: false, tilesSlot: null };
 const states = new Map<string, State>();
 const listeners = new Map<string, Set<() => void>>();
 
@@ -48,7 +63,14 @@ export function patchPlus(threadId: string, patch: Partial<State>): void {
     next.talking?.key === prev.talking?.key &&
     next.toast === prev.toast &&
     next.pollOpen === prev.pollOpen &&
-    next.slash === prev.slash
+    next.slash === prev.slash &&
+    next.inBox === prev.inBox &&
+    next.picker === prev.picker &&
+    next.tilesSlot === prev.tilesSlot &&
+    next.host?.side === prev.host?.side &&
+    next.host?.eventId === prev.host?.eventId &&
+    next.host?.eventDate === prev.host?.eventDate &&
+    next.host?.returnPath === prev.host?.returnPath
   ) {
     return;
   }

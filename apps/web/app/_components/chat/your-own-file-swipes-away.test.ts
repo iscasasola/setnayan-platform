@@ -86,7 +86,8 @@ test('the approved words', () => {
 test('only YOUR file bubble gets the ring and the swipe — never words, never a private line, never theirs', () => {
   const s = read('app/_components/chat-message-stream.tsx');
   assert.equal((s.match(/<MaybeChatFileSwipe\b/g) ?? []).length, 1);
-  assert.match(s, /const ownFile = mine && privateWith === null && hasFile;/);
+  // Unichat H1: a voice note is a file too, but it leaves by Unsend in the hold menu — never the swipe.
+  assert.match(s, /const ownFile = mine && privateWith === null && hasFile && !voice;/);
   assert.match(s, /<MaybeChatFileSwipe\s+on=\{ownFile\}/);
   assert.match(s, /const hasFile = !hiddenForMe && !!\(m\.attachment_r2_key \|\| m\.attachment_url\)/);
   assert.match(s, /createdAt=\{m\.created_at\}/, 'the ring stopped reading the message’s own time');

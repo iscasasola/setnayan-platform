@@ -92,6 +92,8 @@ export type ThumbMenu = {
   face?: ReactNode;
   /** 📏 The open list's floor width (`PickMenuProps.menuMinWidth`) — so a menu's rows stay on one line at 390 px. */
   menuMinWidth?: number;
+  /** ⬆ Open the list above the round whenever it fits (Guests redesign § 8: the look round opens upward, within reach). */
+  opensUp?: boolean;
 };
 
 /**
@@ -433,6 +435,7 @@ export function ThumbRow({
                   buttonText={r.buttonText}
                   trigger={r.face}
                   menuMinWidth={r.menuMinWidth}
+                  opensUp={r.opensUp}
                   className={r.face ? 'inline-flex items-center justify-center rounded-full text-ink' : undefined}
                 />
               </span>

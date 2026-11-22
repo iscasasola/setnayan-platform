@@ -44,6 +44,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tokenHex } from '@/lib/css-colour-tokens';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, '..', '..'); // apps/web/app
@@ -116,8 +117,8 @@ function allSources(): Source[] {
 
 /** `--m-slate-2:  #6E6A62;` → `#6E6A62`. Throws rather than guessing. */
 function token(name: string): string {
-  const m = CSS.match(new RegExp(`--${name}:\\s*(#[0-9A-Fa-f]{6})\\s*;`));
-  const hex = m?.[1];
+  // Followed through its pointer: since the one colour set (18 Nov 2026) `--m-slate-2` is `rgb(var(--color-ink-3))`.
+  const hex = tokenHex(name, 'light')?.toUpperCase();
   assert.ok(hex, `token --${name} is not defined as a hex in globals.css — renamed or deleted?`);
   return hex.toUpperCase();
 }

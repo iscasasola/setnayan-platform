@@ -248,6 +248,7 @@ export const routes = {
     webhooks: {
       persona: () => `/api/webhooks/persona`,
       veriff: () => `/api/webhooks/veriff`,
+      maya: () => `/api/webhooks/maya`,
     },
     website: {
       qr: {

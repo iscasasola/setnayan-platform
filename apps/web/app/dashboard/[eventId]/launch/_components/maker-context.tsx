@@ -303,6 +303,20 @@ export type MakerDraftDoor = {
   restore: () => void;
   /** How many changes the draft holds that are not applied yet — the draft bar's own ✓ count (0: none). */
   count: number;
+  /**
+   * ↺ HISTORY IS ⚙'S FIRST GROUP (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (5)):
+   * the bar no longer draws ↺, so the draft bar hands the ⚙ its list and its one step back. `recent`: the newest edits
+   * waiting for ✓ Apply, newest first (at most four); null where the history could not be read (said, never empty).
+   */
+  /** ◆ This event does not own the full Event Hub — the toolbar marks its ◆ rows (20 Nov: ◆ for a Free couple only, never a lock or a grey; ◆ means "the full Event Hub", never "Event Pro"). */
+  proMarks?: boolean;
+  history?: {
+    recent: readonly string[] | null;
+    open: () => void;
+    canUndo: boolean;
+    undo: () => void;
+    busy: boolean;
+  };
 };
 
 /**
@@ -431,3 +445,24 @@ export const MAKER_STAGE_SAY_EVENT = 'maker:stage-say';
  * is always mounted and draws it, opens it.
  */
 export const MAKER_OPEN_GUESTS_SEE_EVENT = 'maker:open-guests-see';
+/**
+ * ⤡ CLOSE THE FULL-SCREEN EDITOR (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (2)): ✓ Done
+ * on top, ⤡ Minimize where ⤢ was, Esc and the browser's Back all close it the same way — the Stage pill (`StageSwitch`,
+ * always mounted) plays the reverse and falls back into the scene.
+ */
+export const MAKER_EDITOR_CLOSE_EVENT = 'maker:editor-close';
+
+/**
+ * 🧰 THE ONE-TOOLBAR DOORS (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED"; the
+ * approved drawing `maker_one_toolbar_expand_2026-11-20_fable.html` v17). The toolbar (`stage-tools.tsx`) asks; the
+ * always-mounted stage pill (`stages-studio-parts.tsx`) and the shell answer:
+ *   · ≡ PAGES — this stage's pages and their scenes, to open, hide, move and add (`maker-pages-sheet.tsx`), detail
+ *     `{ stage, page }`;
+ *   · 🎨 LOOK — the Whole Event Hub: one theme, colours, font, buttons, background, music (the shell's `openLook`);
+ *   · 👁 PREVIEW — the top bar's one eye: the page as a guest gets it, with See as (`stage-tools.tsx` `enterPreview`).
+ */
+export const MAKER_OPEN_PAGES_EVENT = 'maker:open-pages';
+export const MAKER_OPEN_LOOK_EVENT = 'maker:open-look';
+export const MAKER_PREVIEW_EVENT = 'maker:preview';
+/** ▶ Animate picked a motion — the toolbar plays the picked part at once (`lib/maker-animate-rows.ts` `playPickedSoon`). */
+export const MAKER_PLAY_PICKED_EVENT = 'maker:play-picked';

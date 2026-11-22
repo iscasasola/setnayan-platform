@@ -127,7 +127,7 @@ export function SpecialMessageField({
         onInput={(e) => type(e.currentTarget.value)}
         aria-label="Special message — your closing words to guests"
         placeholder="A heartfelt note to everyone joining you…"
-        className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+        className="rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm text-ink"
       />
       {/* ✍ It saves as it is typed — no caption, no status line under the box
           (owner 2026-10-05: no captions under controls; the ✓ Apply count rising

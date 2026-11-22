@@ -239,6 +239,13 @@ test('rule 3 · a FREE first booking stays free at ANY amended total — no top-
   // SABOTAGE: delete the `free_noop` arm from booking_fee_rederive_lock_fee → RED.
   const { vendorProfileId, userId } = await newVendor();
   const b = await newBooking(vendorProfileId, 100_000, await manilaDay(30)); // the shop's FIRST booking
+  // ⚖ 20 Nov: no booking takes a free place now; a place FROZEN free before the change is the free booking here.
+  await db.query(
+    `INSERT INTO public.booking_fee_ledger
+       (vendor_profile_id, event_id, source, attribution, attribution_frozen_at, booking_ordinal, is_free_booking)
+     VALUES ($1, $2, 'lock', 'sourced', NOW(), 1, TRUE)`,
+    [vendorProfileId, b.eventId],
+  );
   const first = await openLockCharge(b.evId);
   assert.equal(first.status, 'waived_free5', 'the first booking is free');
   for (const total of [250_000, 900_000, 5_000_000]) {

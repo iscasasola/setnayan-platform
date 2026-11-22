@@ -96,7 +96,7 @@ export function TitlesWaiting({
                     /* The sheet's heading already asks; the row's button names only the title to re-pick. */
                     unlisted={{ key: p.key, text: `${p.title ?? 'No title'} — pick` }}
                     onPicked={(key) => save(p.guestId, key)}
-                    className="w-full justify-between border border-ink/15 !bg-white/80 font-medium"
+                    className="w-full justify-between border border-ink/15 !bg-raised/80 font-medium"
                   />
                 </span>
               </li>

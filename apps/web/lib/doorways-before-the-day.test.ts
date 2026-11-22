@@ -244,6 +244,8 @@ test('an event with no date has not happened yet', () => {
 
 const BODY = stripComments(read('../app/[slug]/_components/site-body.tsx'));
 const PAGE = stripComments(read('../app/[slug]/page.tsx'));
+// (No HUB here any more: one bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to the event page's tab
+// (`dayHubLanding`), so the event page below is the ONE surface that draws the money-gift card.)
 const HUB = stripComments(read('../app/[slug]/hub/page.tsx'));
 const LOADERS = stripComments(read('../app/[slug]/_lib/loaders.ts'));
 const STRIP_SRC = read('../app/[slug]/_components/guest-doorway-strip.tsx');
@@ -331,10 +333,10 @@ test('the money-gift door asks the RAW visibility column, not the effective one'
   // 🚨 THE DEFECT THIS FILE EXISTS FOR. `resolveEffectiveVisibility` is what
   // this page renders under; `canViewSlugEvent` on the RAW column is what
   // /pabuya enforces. Drawing the card from the first produces a card that
-  // redirects. Asserted on BOTH surfaces that draw it.
+  // redirects. Asserted on the surface that draws it — since 20 Nov 2026 the ONLY one: the hub draws no card.
+  assert.ok(!HUB.includes('pabuya') && !HUB.includes('resolveGuestDoorways'), 'the hub draws the money-gift card again — assert the raw-column question there too');
   for (const [name, src] of [
     ['app/[slug]/page.tsx', PAGE],
-    ['app/[slug]/hub/page.tsx', HUB],
   ] as const) {
     assert.match(
       src,

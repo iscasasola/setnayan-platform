@@ -122,5 +122,9 @@ test("🔴 moderation says it couldn't check, and keeps its own capture list", (
   // saved value — or of the Event Hub draft — is null, which the head says as "Couldn’t check", never a position.
   const cams = read('_components', 'guest-cameras-choice.tsx');
   assert.match(cams, /const early = row \? row\.papic_guest_capture_early === true : null;/);
-  assert.match(cams, /readHubDraft\(supabase, eventId\)\.then\(\s*\(d\) => \(\{ ok: true as const, d \}\),\s*\(\) => \(\{ ok: false as const \}\),/);
+  // UPDATED ON PURPOSE 2026-11-22 (owner, "THE PAPIC DROPDOWN IN MEMORIES IS LIVE — NO APPLY"): the head reads the LIVE
+  // `papic_on` and no longer the Event Hub draft, so there is no draft read left to fail. What is held is unchanged in
+  // spirit: both facts reach the head as they were read — null when unread — never a position nobody measured.
+  assert.match(cams, /const facts: PapicHeadFacts = \{ live, early \};/);
+  assert.doesNotMatch(cams, /readHubDraft\(/, 'the head reads the draft again — it would show a position guests do not have');
 });

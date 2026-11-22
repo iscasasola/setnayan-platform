@@ -529,7 +529,7 @@ export function DetailsForm({
       ) : null}
 
       {error ? (
-        <p className="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+        <p className="rounded-xl border border-red-300 dark:border-[rgb(var(--color-danger)/0.4)] bg-red-50 dark:bg-[rgb(var(--color-danger)/0.14)] px-3 py-2 text-xs text-red-700 dark:text-[rgb(var(--color-danger))]">
           {error}
         </p>
       ) : null}

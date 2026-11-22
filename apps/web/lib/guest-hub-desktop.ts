@@ -52,8 +52,8 @@ export const GUEST_SHEETS = {
   shared: '[data-sheet] [data-sheet-panel]',
   /** "Open in your browser" (`copy-my-link.tsx`). */
   openInBrowser: '[role="dialog"][aria-labelledby="open-in-browser-title"]',
-  /** The hub's "More event functions" (`hub/hub-shell.tsx`). */
-  more: '[role="dialog"][aria-label="More event functions"]',
+  /* (The hub's "More event functions" sheet went with `/hub`'s own bar — one bar per stage, 20 Nov 2026: /hub draws
+     nothing, it redirects to the event page's tab, `dayHubLanding`. No selector for a dialog nothing draws.) */
   /** A story moment's sheet (`story/story-clock.tsx`) — a floating 26-rem card from `sm`. */
   storyMoment: '[role="dialog"][class~="sm:w-[26rem]"]',
 } as const;
@@ -87,8 +87,8 @@ export const GUEST_HUB_DESKTOP_CSS =
   `html:has([data-top-corner]) [data-sticky-top]>div{padding-right:calc(2rem + max(0px, 180px - (100vw - ${STAGE}) / 2))!important}` +
   /* ── 3 · THE SIDE PANEL: each sheet the phone raises from the bottom, as a 440-px panel from the right ── */
   `${GUEST_SHEETS.shared}{width:${GUEST_DESK_PANEL_PX}px!important;max-width:100vw!important}` +
-  `div:has(> ${GUEST_SHEETS.openInBrowser}),div:has(> ${GUEST_SHEETS.more}){${PANEL_HOLDER}}` +
-  `${GUEST_SHEETS.openInBrowser},${GUEST_SHEETS.more}{${PANEL};overflow-y:auto}` +
+  `div:has(> ${GUEST_SHEETS.openInBrowser}){${PANEL_HOLDER}}` +
+  `${GUEST_SHEETS.openInBrowser}{${PANEL};overflow-y:auto}` +
   `${GUEST_SHEETS.storyMoment}{top:0!important;bottom:0!important;right:0!important;left:auto!important;${PANEL}}` +
   /* A sheet's grab handle is a phone's (a panel is not dragged). */
   `${GUEST_SHEETS.openInBrowser}>div[aria-hidden]:first-child{display:none}` +

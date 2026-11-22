@@ -101,7 +101,7 @@ export function InvitedToChips({
 
   if (look === 'toggles') {
     return (
-      <div ref={boxes} className="divide-y divide-ink/[0.06] rounded-xl bg-white/60">
+      <div ref={boxes} className="divide-y divide-ink/[0.06] rounded-xl bg-raised/60">
         {INVITED_TO_BLOCKS.map((block) => (
           <label key={block} className="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 px-3 text-sm text-ink">
             {INVITED_TO_LABELS[block]}

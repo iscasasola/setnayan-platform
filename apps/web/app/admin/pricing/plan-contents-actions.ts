@@ -156,7 +156,9 @@ async function requestSupplierPlanChange(formData: FormData): Promise<void> {
     ? ''
     : over === null
       ? ' Shops over the new number were not counted for this allowance; they keep what they have.'
-      : ` ${over} shop${over === 1 ? '' : 's'} hold more than this today — they keep what they have and can’t add more.`;
+      : def.key === 'agent_accounts'
+        ? ` ${over} shop${over === 1 ? '' : 's'} hold more than this today — their newest seats pause until a plan covers them (owner 21 Nov); nothing is deleted.`
+        : ` ${over} shop${over === 1 ? '' : 's'} hold more than this today — they keep what they have and can’t add more.`;
 
   const { error: reqErr } = await admin.from('admin_approval_requests').insert({
     action_type: 'approve_plan_contents_change',

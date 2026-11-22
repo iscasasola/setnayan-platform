@@ -1,5 +1,6 @@
 'use client';
 
+import { SPECIAL_TOOLS_LOCKED_WORDS } from '@/lib/special-tools';
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -16,6 +17,9 @@ import type { OfferMakerStart } from '../../offers/_components/offer-maker';
 import { TemplatesOffersContext } from './shop-templates';
 
 // 📦 The Offer Maker is its own chunk, fetched on the first open — never in the Shop tab's first load.
+// 🎂 The Cake Maker's options editor — only fetched when its tile opens (none of it is in the Shop's first load).
+const CakeDesigner = lazy(() => import('@/app/_components/cake-maker/cake-designer').then((m) => ({ default: m.CakeDesigner })));
+const CakeMakerPanel = lazy(() => import('./cake-maker-panel').then((m) => ({ default: m.CakeMakerPanel })));
 const OfferMaker = lazy(() => import('../../offers/_components/offer-maker').then((m) => ({ default: m.OfferMaker })));
 
 /**
@@ -67,6 +71,7 @@ export function ShopMakers({
   services = [],
   booked = null,
   offers = null,
+  specialToolsLocked = false,
 }: {
   /** One line per service; null = the scanner settings could not be read (said so, never "Off"). */
   scanners: ScannerLine[] | null;
@@ -88,11 +93,16 @@ export function ShopMakers({
   booked?: readonly BookedDay[] | null;
   /** 🏷 The Offer Maker tile (Build 6 Lane D). null = not drawn (the lab rows that predate it). */
   offers?: OfferTileFacts | null;
+  /** 🎂 Special tools are Pro and up after the admin's start date — the Cake Maker tile then reads "Included in Pro". */
+  specialToolsLocked?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const inUrl = params.get('maker');
+  // 🎂 Locked (below Pro after the start date): the tile opens the couple's designer as a DEMO — sample options, nothing
+  // saved or sent; the settings stay Pro and up (owner ruling "A LOCKED SPECIAL TOOL SHOWS ITS FRONT-END EXPERIENCE").
+  const [cakeDemo, setCakeDemo] = useState(false);
   const [open, setOpen] = useState<MakerKey | null>(
     inUrl === 'forms' ? 'forms' : inUrl === 'templates' && templatesBody !== false ? 'templates' : inUrl === 'offers' && offers?.verified ? 'offers' : null,
   );
@@ -215,8 +225,8 @@ export function ShopMakers({
                     toolTiles.current[t.key] = el;
                   }}
                   type="button"
-                  onClick={() => setTool(t.key)}
-                  aria-expanded={on}
+                  onClick={() => (t.door.kind === 'cake_tool' && specialToolsLocked ? setCakeDemo(true) : setTool(t.key))}
+                  aria-expanded={t.door.kind === 'cake_tool' && specialToolsLocked ? cakeDemo : on}
                   aria-haspopup="dialog"
                   className="sn-press flex h-full min-h-[148px] w-full flex-col items-start gap-1 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-3 py-3 text-left" // no-card-ok: a carousel tile is a <button>
                   data-tool-tile={t.key}
@@ -225,9 +235,12 @@ export function ShopMakers({
                   <span aria-hidden className="grid h-9 w-9 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
                     <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
                   </span>
-                  <b className="pt-1 text-sm font-semibold leading-tight text-ink">{t.title}</b>
+                  <b className="inline-flex items-center gap-1 pt-1 text-sm font-semibold leading-tight text-ink">
+                    {t.title}
+                    {t.door.kind === 'cake_tool' && specialToolsLocked ? <Lock aria-label="Locked" className="h-3.5 w-3.5 flex-none text-ink/70" strokeWidth={2} /> : null}
+                  </b>
                   <small className="text-xs leading-snug text-ink/70">{t.line}</small>
-                  <small className="mt-auto pt-1 text-xs font-semibold leading-tight text-ink/75">{toolFoot(t, suggested, scannerSub, booked)}</small>
+                  <small className="mt-auto pt-1 text-xs font-semibold leading-tight text-ink/75">{t.door.kind === 'cake_tool' && specialToolsLocked ? SPECIAL_TOOLS_LOCKED_WORDS : toolFoot(t, suggested, scannerSub, booked)}</small>
                 </button>
               </li>
             );
@@ -278,12 +291,17 @@ export function ShopMakers({
         </BodyPanel>
       ) : null}
 
+      {cakeDemo ? (
+        <Suspense fallback={null}>
+          <CakeDesigner threadId="" demo onClose={() => setCakeDemo(false)} />
+        </Suspense>
+      ) : null}
       {picked && PickedIcon ? (
         <BodyPanel
           origin={toolTiles.current[picked.key] ?? null}
           frame={frame.current}
           title={picked.title}
-          sub={picked.line}
+          sub={picked.door.kind === 'cake_tool' ? 'Set once for your shop · Pro' : picked.line}
           lead={
             <span aria-hidden className="grid h-10 w-10 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
               <PickedIcon className="h-5 w-5" strokeWidth={1.75} />
@@ -325,7 +343,7 @@ function OfferLockPreview() {
 /** The tile's last line: the Scanner's count, the tool's own place, or how many booked events it runs on. */
 function toolFoot(t: SpecializedTool, suggested: boolean, scannerSub: string, booked: readonly BookedDay[] | null): string {
   if (t.door.kind === 'scanner') return scannerSub;
-  if (t.door.kind === 'page') return suggested ? 'For your services' : 'Open';
+  if (t.door.kind === 'page' || t.door.kind === 'cake_tool') return suggested ? 'For your services' : 'Open';
   if (booked === null) return 'Couldn’t load your events';
   if (booked.length === 0) return 'Runs on your booked events';
   return `Runs on ${formatCount(booked.length)} booked ${booked.length === 1 ? 'event' : 'events'}`;
@@ -355,6 +373,19 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
           </ul>
         )}
       </div>
+    );
+  }
+  if (tool.door.kind === 'cake_tool') {
+    return (
+      <Suspense
+        fallback={
+          <p role="status" className="py-4 text-[13.5px] text-ink/70" data-cake-maker-loading="">
+            Opening your Cake Maker…
+          </p>
+        }
+      >
+        <CakeMakerPanel />
+      </Suspense>
     );
   }
   if (tool.door.kind === 'page') {

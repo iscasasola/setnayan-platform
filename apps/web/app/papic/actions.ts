@@ -299,6 +299,9 @@ export async function recordSeatCapture(
   capturedAtMs?: number,
   /** 📷 The chapter the camera showed at the shutter (owner 2026-11-01). Optional and last: no chapter = event-wide. */
   chapterId?: string | null,
+  /** 📤 Added by hand — sent ONLY by Memories' "Add photos" (owner 2026-11-22: a host's LIVE shot costs the camera
+   *  price; a file added from the device stays × PAPIC_UPLOAD_MULTIPLIER). Counted only on a host camera's seat. */
+  addedByHand?: boolean,
 ): Promise<RecordSeatCaptureResult> {
   // RAW-ONLY record path (Papic storage PR-1): this writes the raw clip/photo row
   // with NULL clip_web columns. The small H.264 web copy is a separate, off-drain
@@ -576,11 +579,13 @@ export async function recordSeatCapture(
       // spoofable (see the clip_too_long check). papicSnippetCost bills an absent
       // or nonsense length at the TOP band, so the only thing a tampered client
       // can do by lying is pay MORE.
-      // 📤 Added by hand (the Uploads camera's seat) → the camera price × PAPIC_UPLOAD_MULTIPLIER (owner 2026-10-26).
+      // 📤 Added by hand (a host camera's seat AND the Add-photos door said so) → the camera price ×
+      // PAPIC_UPLOAD_MULTIPLIER (owner 2026-10-26). 📷 A host's LIVE shot on that same seat → the camera price
+      // (owner 2026-11-22, "Make it 1."). The split is `papicSeatCaptureSource`.
       meterCost = papicCaptureCost(
         kind === 'clip' ? 'clip' : 'photo',
         durationMs,
-        papicSeatCaptureSource(typeof seat.seat_index === 'number' ? seat.seat_index : null),
+        papicSeatCaptureSource(typeof seat.seat_index === 'number' ? seat.seat_index : null, addedByHand === true),
       );
     }
   }

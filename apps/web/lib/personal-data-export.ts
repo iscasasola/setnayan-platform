@@ -298,6 +298,7 @@ export async function buildPersonalDataExport(
     papicFreeGrantClaimsRes,
     userUnfollowsRes,
     inviteMutesRes,
+    chatMutesRes,
     eventTypeAsksRes,
     vendorReuseRequestsRes,
     workingNotesRes,
@@ -320,6 +321,7 @@ export async function buildPersonalDataExport(
     ownMoodBoardChangesRes,
     ownFeeDisputesRes,
     ownPollVotesRes,
+    ownCakeDesignsRes,
     ownFocusPutOffsRes,
     ownEventPutOffsRes,
   ] = await Promise.all([
@@ -593,6 +595,13 @@ export async function buildPersonalDataExport(
       .select('muted_user_id, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-11-21) — 🔕 "Mute this chat" (migration 20271356402294): the chats the subject muted, keyed to
+    // them (user_id), private (Pattern A) — their own stated preference; the other side is never told.
+    supabase
+      .from('chat_thread_mutes')
+      .select('thread_id, muted_at')
+      .eq('user_id', user.id)
+      .order('muted_at', { ascending: true }),
     // RA 10173 (2026-10-28) — the event types the subject ASKED us to add ("Can't find yours? Ask us to add
     // it", migration 20271294233183): their own words, keyed to them (user_id), readable under their own RLS.
     supabase
@@ -889,6 +898,14 @@ export async function buildPersonalDataExport(
       .select('poll_id, choice_id, thread_id, voted_at')
       .eq('voter_user_id', user.id)
       .order('voted_at', { ascending: true }),
+    // RA 10173 (2026-11-21) — THE CAKE DESIGNS THIS SUBJECT SENT from the chat's Cake Maker (migration 20271356877338).
+    // AUTHOR-scoped on created_by: the couple's own design (tiers, picks, words) and its estimate. The shop's options
+    // are the shop's, not the subject's, and stay out.
+    supabase
+      .from('cake_designs')
+      .select('design_id, thread_id, vendor_service_id, config, design, estimate_centavos, created_at')
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: true }),
     // RA 10173 (2026-11-19) — an admin's OWN "Do it tomorrow" on Focus (Today v3 part 4, migration 20271355036188).
     // Owner-scoped on user_id: which Focus item, until which day. Nobody else's record is in it.
     supabase
@@ -1223,6 +1240,7 @@ export async function buildPersonalDataExport(
   const papicFreeGrantClaims = listOutcome('papic_free_grant_claims', papicFreeGrantClaimsRes);
   const userUnfollows = listOutcome('user_unfollows', userUnfollowsRes);
   const inviteMutes = listOutcome('invite_mutes', inviteMutesRes);
+  const chatMutes = listOutcome('chat_thread_mutes', chatMutesRes);
   const eventTypeAsks = listOutcome('event_type_requests', eventTypeAsksRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const ownSuggestions = listOutcome('event_inspiration_suggestions', ownSuggestionsRes);
@@ -1232,6 +1250,7 @@ export async function buildPersonalDataExport(
   const ownMoodBoardChanges = listOutcome('mood_board_changes_made', ownMoodBoardChangesRes);
   const ownFeeDisputes = listOutcome('booking_fee_disputes_raised', ownFeeDisputesRes);
   const ownPollVotes = listOutcome('chat_poll_votes', ownPollVotesRes);
+  const ownCakeDesigns = listOutcome('cake_designs_sent', ownCakeDesignsRes);
   const ownFocusPutOffs = listOutcome('admin_focus_put_offs', ownFocusPutOffsRes);
   const ownEventPutOffs = listOutcome('event_today_put_offs', ownEventPutOffsRes);
   const workingNotes = listOutcome(
@@ -1392,6 +1411,7 @@ export async function buildPersonalDataExport(
     ownMoodBoardChanges,
     ownFeeDisputes,
     ownPollVotes,
+    ownCakeDesigns,
     ownFocusPutOffs,
     ownEventPutOffs,
     // ⚠ These ten were read and shipped but missing from this list until
@@ -1403,6 +1423,7 @@ export async function buildPersonalDataExport(
     papicFreeGrantClaims,
     userUnfollows,
     inviteMutes,
+    chatMutes,
     eventTypeAsks,
     vendorReuseRequests,
     ownSuggestions,
@@ -1529,6 +1550,7 @@ export async function buildPersonalDataExport(
     papic_free_grant_claims: papicFreeGrantClaims.rows,
     user_unfollows: userUnfollows.rows,
     invite_mutes: inviteMutes.rows,
+    chats_you_muted: chatMutes.rows,
     event_type_requests: eventTypeAsks.rows,
     vendor_reuse_requests: vendorReuseRequests.rows,
     // 🤝🖼 Photos the subject suggested to couples' boards as a booked supplier (author-scoped).
@@ -1567,6 +1589,8 @@ export async function buildPersonalDataExport(
     booking_fee_disputes_raised: ownFeeDisputes.rows,
     // 🗳 The votes the subject cast on chat polls (which choice, when). Author-scoped.
     chat_poll_votes: ownPollVotes.rows,
+    // 🎂 The cake designs the subject sent from the chat's Cake Maker (their picks and the estimate). Author-scoped.
+    cake_designs_sent: ownCakeDesigns.rows,
     // ⏭ An admin's own Focus items put off with "Do it tomorrow". Owner-scoped.
     admin_focus_put_offs: ownFocusPutOffs.rows,
     // ⏭ The subject's own event Today rows put off with "Do it tomorrow". Owner-scoped.

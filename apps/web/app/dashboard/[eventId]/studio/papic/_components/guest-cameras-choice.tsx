@@ -1,9 +1,8 @@
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
-import { readHubDraft } from '@/lib/hub-draft-store';
-import { papicIsOn } from '@/lib/event-answers';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { papicHeadLine, type PapicHeadFacts } from '@/lib/papic-shoot-now';
+import type { CamerasGateDates } from '@/lib/papic-guest-cameras-line';
 import {
   PAPIC_CAPTURE_GRACE_HOURS,
   formatCaptureCloseLabel,
@@ -33,33 +32,33 @@ import {
  *
  * `cache()` — the head's control, its line and the settings' ⓘ each ask; one render reads once.
  */
-export type PapicHeadState = PapicHeadFacts & { line: string; detail: string | null };
+export type PapicHeadState = PapicHeadFacts & {
+  line: string;
+  detail: string | null;
+  /** The dates the guest gate reads (`guestCaptureGate`), raw — for the Memories state line (2026-11-20). null = unread. */
+  dates: CamerasGateDates | null;
+};
 
 export const readPapicHead = cache(async (eventId: string, live: boolean | null): Promise<PapicHeadState> => {
   const supabase = await createClient();
-  const [read, draft] = await Promise.all([
-    supabase.from('events').select('papic_guest_capture_early, event_date, papic_window_end').eq('event_id', eventId).maybeSingle(),
-    /* 💾 `papic_on` as the couple is editing it — the Event Hub draft over live, the Maker's own overlay. A draft that
-       cannot be read is NOT "no change": the head says it could not check, never a position it did not measure. */
-    readHubDraft(supabase, eventId).then(
-      (d) => ({ ok: true as const, d }),
-      () => ({ ok: false as const }),
-    ),
-  ]);
+  // ⚡ Both facts are LIVE since 2026-11-22 ("THE PAPIC DROPDOWN IN MEMORIES IS LIVE — NO APPLY") — the Event Hub draft is
+  // no longer read here: the head shows what guests have now.
+  const read = await supabase.from('events').select('papic_guest_capture_early, event_date, papic_window_start, papic_window_end').eq('event_id', eventId).maybeSingle();
   // ⚠ Supabase resolves with { error } rather than throwing, and an RLS denial reads as an empty result. Either way the
   // saved value is NOT KNOWN — said so on the head ("Couldn’t check just now"), never drawn as an "off".
   // 🚨 For weeks `papic_guest_capture_early` carried no SELECT grant and this read was refused on every render (fixed by
   // 20271179873885) — the log is so the NEXT refusal leaves a trail instead of a blank space.
   if (read.error) logQueryError('readPapicHead.event', read.error, { eventId }, 'graceful_degrade');
-  const row = read.error ? null : (read.data as { papic_guest_capture_early: boolean | null; event_date: string | null; papic_window_end: string | null } | null);
+  const row = read.error
+    ? null
+    : (read.data as { papic_guest_capture_early: boolean | null; event_date: string | null; papic_window_start: string | null; papic_window_end: string | null } | null);
   const early = row ? row.papic_guest_capture_early === true : null;
-  const drafted = draft.ok ? ((draft.d?.events ?? {}) as Record<string, unknown>) : null;
-  const draftOn = live === null || drafted === null ? null : 'papic_on' in drafted ? papicIsOn(drafted.papic_on) : live;
-  const facts: PapicHeadFacts = { live, draftOn, early };
+  const facts: PapicHeadFacts = { live, early };
   return {
     ...facts,
     line: papicHeadLine(facts),
     detail: row && early !== null ? shootNowDetail(early, row.event_date, row.papic_window_end) : null,
+    dates: row ? { eventDate: row.event_date, windowStart: row.papic_window_start, windowEnd: row.papic_window_end } : null,
   };
 });
 

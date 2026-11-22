@@ -11,13 +11,13 @@
  * message SAY. Every number is read, never typed here:
  *   · plan prices — `vendor_billing_catalog` (`<tier>_vendor_monthly`), handed in; a plan with no catalogue row is
  *     named without a price, never given a guessed one;
- *   · the free booking — `FIRST_BOOKING_ON_US` (owner 2026-10-23, one booking, not five);
+ *   · the free booking — `FEE_FREE_RULE` (20 Nov: the free first booking is retired; the owner's free rule);
  *   · the launch offer — its cap from `platform_settings`, and only while `launchOfferIsOpen` says it runs;
  *   · the 100 — the owner's own number, `PERSONAL_INVITE_PHOTO_ALLOWANCE`.
  *
  * Held by `personal-invite-offer.test.ts`.
  */
-import { FIRST_BOOKING_ON_US } from './booking-fee-lock';
+import { FEE_FREE_RULE } from './booking-fee-who-words';
 import { formatPhp } from './php';
 import { planWord } from './vendor-plan-change-words';
 import { formatCount } from './format-number';
@@ -170,7 +170,7 @@ export function personalInviteMessage(input: {
     paras.push(`Your offer: ${gift.join(', and ')}.${after}`);
   }
 
-  const fee = [FIRST_BOOKING_ON_US];
+  const fee = [FEE_FREE_RULE];
   if (launchCapWords) fee.push(`While Setnayan's first ${launchCapWords} bookings run, there is no booking fee at all.`);
   paras.push(fee.join(' '));
 
@@ -195,8 +195,9 @@ export function offerFromInvite(row: StoredInviteOffer): PersonalInviteOffer {
   return { tier: tier && untilDay ? tier : null, untilDay: tier && untilDay ? untilDay : null, photos };
 }
 
-/** The short fee line on the door's offer rows (owner 2026-10-23: one free booking). */
-export const DOOR_FEE_LINE = 'Your first booking is on us';
+/** The short fee line on the door's offer rows. The free first booking is retired (DECISION_LOG 20 Nov "BILLING MUST FOLLOW
+ * THE RETIRED COPY"); the only free booking is the one you bring first (16 Nov import rule). */
+export const DOOR_FEE_LINE = 'No fee when you bring the event first';
 
 /**
  * The door's **Your offer** rows (frame B1), or null when the invite carries no offer. The note under them is said

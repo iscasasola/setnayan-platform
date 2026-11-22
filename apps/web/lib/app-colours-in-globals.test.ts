@@ -55,8 +55,11 @@ test('(4) the page behind everything is its own token', () => {
   const root = CSS.slice(CSS.indexOf(':root {'), CSS.indexOf('html.dark {'));
   // Owner 16 Nov 2026: "netural background color f7f5f4 / so framed can be white. ffffff" (DECISION_LOG "PAGE
   // BACKGROUND = NEUTRAL #F7F5F4", superseding 12 Nov "keep the background white").
-  assert.match(root, /--sn-page-bg: 247 245 244;/, 'the light page is not the neutral #F7F5F4');
-  assert.match(root, /--sn-frame-bg: 255 255 255;/, 'the frame is not white');
+  // Since the one colour set (18 Nov 2026) each is a POINTER at its `--color-*` token, which holds the value.
+  assert.match(root, /--color-page: 247 245 244;/, 'the light page is not the neutral #F7F5F4');
+  assert.match(root, /--sn-page-bg: var\(--color-page\);/, '--sn-page-bg no longer points at the page token');
+  assert.match(root, /--color-raised: 255 255 255;/, 'the frame is not white');
+  assert.match(root, /--sn-frame-bg: var\(--color-raised\);/, '--sn-frame-bg no longer points at the frame token');
   // …every screen except the guest Event Hub, which keeps its white page.
   assert.match(CSS, /html:not\(\.dark\) body:has\(\.sn-editorial\) \{\n\s*--sn-page-bg: 255 255 255;/, 'the guest Event Hub lost its white page');
 });

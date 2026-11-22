@@ -104,7 +104,7 @@ function Section({ s, isOpen, onToggle, children }: { s: AccordionSection; isOpe
           onToggle();
         }}
         aria-expanded={isOpen}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-white"
+        className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-raised"
       >
         {s.icon ? (
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">

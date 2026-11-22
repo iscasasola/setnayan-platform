@@ -5,7 +5,7 @@ import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { COMMITTED_BOOKING_STATUSES } from '@/lib/vendor-addon-first5-free';
 import { vendorBookingIsCommitted } from '@/app/[slug]/_lib/site-identity';
-import { shopsThisAccountMayActFor } from '@/lib/who-may-act-for-a-shop';
+import { dutyHandlesItsClients, shopsThisAccountMayActFor } from '@/lib/who-may-act-for-a-shop';
 
 /**
  * "IS THE SIGNED-IN VIEWER A SUPPLIER THIS COUPLE BOOKED ON THIS EVENT?" — the
@@ -116,7 +116,11 @@ export const loadVendorBooking = cache(
     // this in the same instant.
     const [ownedRes, teamRes, grantRes] = await Promise.all([
       admin.from('vendor_profiles').select('vendor_profile_id').eq('user_id', userId),
-      admin.from('vendor_team_members').select('vendor_profile_id, role').eq('user_id', userId),
+      admin
+        .from('vendor_team_members')
+        .select('vendor_team_member_id, vendor_profile_id, role, duty')
+        .eq('user_id', userId)
+        .is('deactivated_at', null),
       admin
         .from('vendor_event_access_grants')
         .select('vendor_profile_id')
@@ -124,6 +128,36 @@ export const loadVendorBooking = cache(
         .eq('grantee_user_id', userId)
         .is('revoked_at', null),
     ]);
+
+    // 🧑‍🤝‍🧑 SIX ROLES (owner 19 Nov 2026): the client's Account Manager and the card's Branch Manager reach the day
+    // without a grant — when THIS celebration booked a card they hold. Asked only for those seats, filtered to this
+    // event in SQL, like the grant. A refused read adds nobody (the soft-failure rule above).
+    const handlingSeats = ((teamRes.data ?? []) as { vendor_team_member_id: string; vendor_profile_id: string; duty: string | null }[]).filter(
+      (t) => dutyHandlesItsClients(t.duty),
+    );
+    let handlingProfileIds: string[] = [];
+    if (handlingSeats.length > 0) {
+      const { data: held } = await admin
+        .from('vendor_service_agents')
+        .select('vendor_service_id, vendor_team_member_id')
+        .in('vendor_team_member_id', handlingSeats.map((t) => t.vendor_team_member_id));
+      const heldRows = (held ?? []) as { vendor_service_id: string; vendor_team_member_id: string }[];
+      if (heldRows.length > 0) {
+        const { data: bookedCards } = await admin
+          .from('event_vendors')
+          .select('service_id')
+          .eq('event_id', eventId)
+          .in('status', [...COMMITTED_BOOKING_STATUSES])
+          .in('service_id', heldRows.map((h) => h.vendor_service_id));
+        const bookedSet = new Set(((bookedCards ?? []) as { service_id: string | null }[]).map((b) => b.service_id));
+        const shopOfSeat = new Map(handlingSeats.map((t) => [t.vendor_team_member_id, t.vendor_profile_id] as const));
+        handlingProfileIds = [
+          ...new Set(
+            heldRows.filter((h) => bookedSet.has(h.vendor_service_id)).map((h) => shopOfSeat.get(h.vendor_team_member_id) ?? ''),
+          ),
+        ].filter(Boolean);
+      }
+    }
 
     const actingFor = shopsThisAccountMayActFor({
       ownedProfileIds: ((ownedRes.data ?? []) as { vendor_profile_id: string }[]).map(
@@ -135,6 +169,7 @@ export const loadVendorBooking = cache(
       grantedProfileIds: ((grantRes.data ?? []) as { vendor_profile_id: string }[]).map(
         (g) => g.vendor_profile_id,
       ),
+      handlingProfileIds,
     });
     if (actingFor.length === 0) return null;
 

@@ -47,6 +47,9 @@ import { shiftWall } from '@/lib/schedule-chapters';
 import { crewFromText, momentMinutes, momentStartIn, timesRequests } from '@/lib/supplier-schedule';
 import { isOwnClock, supplierTimesNotice } from '@/lib/supplier-own-times';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { shopPlusGate } from '@/lib/shop-plus-gate.server';
+import { agreeGiftCodesOrPrefill, recordAgreeGifts } from '@/lib/agree-gifts.server';
+import { giftStoreHref } from '@/lib/agree-gifts';
 
 /**
  * Vendor Suggest flow on the shared day-of timeline — feature-access program
@@ -1462,6 +1465,33 @@ export async function vendorAgreeToLock(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // 🎁 A GIFT AGAIN, ON A BOOKING ALREADY AGREED (21 Nov, controller): its store payment was refused or refunded, so its
+  // pick was cleared and the booking reads "Needs at least 1 gift. Buy one ›". The same form, `regift=1`: only the
+  // shop that holds this booking, only once it is agreed; the SQL door writes the pick (or says why not). Folded into
+  // this action — no new server action.
+  if (formData.get('regift') === '1') {
+    const backTo = lockAnswerReturnTo(formData.get('return_to'));
+    const profile = await fetchOwnVendorProfile(supabase, user.id);
+    const admin = createAdminClient();
+    const { data: row } = await admin
+      .from('event_vendors')
+      .select('marketplace_vendor_id, lock_agreed_at')
+      .eq('vendor_id', eventVendorId)
+      .maybeSingle();
+    const booking = row as { marketplace_vendor_id?: string | null; lock_agreed_at?: string | null } | null;
+    if (!profile || !booking?.lock_agreed_at || booking.marketplace_vendor_id !== profile.vendor_profile_id) {
+      redirect(`${backTo}?lock_agree=error`);
+    }
+    const codes = await agreeGiftCodesOrPrefill(admin, formData);
+    const picked = await recordAgreeGifts(admin, { eventVendorId, codes });
+    if (picked.status === 'needs_stock' || picked.status === 'none') {
+      const code = picked.codes[0] ?? codes[0] ?? null;
+      redirect(`${backTo}?lock_agree=gift_needed&gift_buy=${encodeURIComponent(giftStoreHref(code, backTo))}`);
+    }
+    revalidatePath(backTo);
+    redirect(`${backTo}?gift=${encodeURIComponent(picked.status)}`);
+  }
+
   // 🚪 DOOR 6 · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`). The yes is what books, so a closed
   // platform refuses it here, before the RPC — nothing booked, no fee minted. The trigger
   // `event_vendors_require_bookings_open` refuses the same flip if anything reaches the RPC anyway.
@@ -1539,6 +1569,24 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
+  // 🎁 AT LEAST ONE GIFT, ASKED BEFORE THE YES (owner 20 Nov: "no exceptions for gift"; 21 Nov: out of a gift → buy it,
+  // then come back). The picker posts one `gift` per pack; a form with no picker (Today's card, the chat's blocker row)
+  // posts none and gets the PRE-FILL — the smallest Papic pack (owner's ruling). The SQL door judges it with a DRY RUN
+  // (nothing written): anything but `ok` refuses Agree with NOTHING booked. `needs_stock` hands the store's door with this
+  // page as the way back ("Every booking needs at least 1 gift. Buy one ›").
+  const giftCodes = await agreeGiftCodesOrPrefill(createAdminClient(), formData);
+  {
+    const backTo = lockAnswerReturnTo(formData.get('return_to'));
+    const judged = await recordAgreeGifts(createAdminClient(), { eventVendorId, codes: giftCodes, dryRun: true });
+    if (judged.status !== 'ok') {
+      const code = judged.codes[0] ?? giftCodes[0] ?? null;
+      const shortOf = judged.status === 'none' || judged.status === 'needs_stock' || judged.status === 'error';
+      redirect(
+        `${backTo}?lock_agree=${shortOf ? 'gift_needed' : 'gift_refused'}&gift_buy=${encodeURIComponent(giftStoreHref(code, backTo))}`,
+      );
+    }
+  }
+
   const { data, error } = await supabase.rpc('vendor_agree_to_lock', {
     p_event_vendor_id: eventVendorId,
   });
@@ -1591,6 +1639,16 @@ export async function vendorAgreeToLock(formData: FormData) {
     } catch (e) {
       console.error(`[vendorAgreeToLock] booking fee mint failed for vendor_id=${eventVendorId}:`, e);
     }
+  }
+
+  // ── 2b · 🎁 THE GIFT PICKED WITH THE YES (gift for services, owner 2026-11-15 → 21 Nov). The same codes the dry run
+  // passed, now written: the SQL door re-judges every one from a fresh read (the limit at list price, stock first, then
+  // a sent store payment) — AFTER the mint, because the limit is sized on the fee. Never on the bill (16 Nov). On `ok`
+  // only, never throws: the booking is made, and a gift lost to a race is said back on the card (`gift=`) and asked again
+  // by the booking's gift row.
+  let giftStatus: string | null = null;
+  if (!error && env.status === 'ok' && eventId) {
+    giftStatus = (await recordAgreeGifts(createAdminClient(), { eventVendorId, codes: giftCodes })).status;
   }
 
   // ── 3 · TELL THE COUPLE — on a FRESH agreement only (a re-call answers
@@ -1727,7 +1785,8 @@ export async function vendorAgreeToLock(formData: FormData) {
   // 🔑 ONE ANSWER: the SAME `feeBilledUnpaid` that held the couple's news back above tells the supplier so — and
   // that paying the fee is what lets the couple know (`lockAgreeNotice` · `ok` with `feeHeld`). Batch-5 audit F9.
   const feeHeld = flag === 'ok' && feeBilledUnpaid ? `&fee=${LOCK_AGREE_FEE_HELD}` : '';
-  redirect(`${back}?lock_agree=${flag}${competing}${feeHeld}`);
+  const gift = giftStatus && giftStatus !== 'none' ? `&gift=${encodeURIComponent(giftStatus)}` : '';
+  redirect(`${back}?lock_agree=${flag}${competing}${feeHeld}${gift}`);
 }
 
 /**
@@ -2064,7 +2123,9 @@ export async function vendorAskForPayment(formData: FormData): Promise<void> {
 }
 
 /** What a payment ask came to — every refusal NAMED. */
-export type PaymentAskOutcome = { ok: true } | { ok: false; code: 'event' | 'amount' | 'signin' | 'shop' | 'notbooked' | 'error' };
+export type PaymentAskOutcome =
+  | { ok: true }
+  | { ok: false; code: 'event' | 'amount' | 'signin' | 'shop' | 'notbooked' | 'unverified' | 'unknown' | 'error' };
 
 /**
  * The ask itself, with no redirect. NOT exported (each export is a Vercel route): `vendorAskForPayment` above is this
@@ -2086,6 +2147,12 @@ async function askForPaymentCore(formData: FormData): Promise<PaymentAskOutcome>
   if (!user) return { ok: false, code: 'signin' };
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { ok: false, code: 'shop' };
+  // 🪪 From the CHAT (`inline=1`) this is a ＋ tool, and a ＋ tool needs a verified shop (UNICHAT ＋ P1). The client
+  // page's own ask is not the ＋ and is not gated here. A refused read refuses ('unknown'), never lets it through.
+  if (formData.get('inline') === '1') {
+    const gate = await shopPlusGate(supabase, profile.vendor_profile_id);
+    if (gate !== 'open') return { ok: false, code: gate };
+  }
 
   const eventVendorId = await resolveOwnBookingId(eventId, profile.vendor_profile_id);
   if (!eventVendorId) return { ok: false, code: 'notbooked' };

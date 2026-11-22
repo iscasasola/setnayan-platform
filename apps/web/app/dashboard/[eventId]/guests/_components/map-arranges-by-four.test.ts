@@ -46,8 +46,9 @@ test('By side nests each side’s groups; the others are one level (executed)', 
 test('the map’s thumb row draws the arrange dropdown, not the list’s Sort', () => {
   const at = SCREEN.indexOf('name="guests-map"');
   assert.notEqual(at, -1, 'the Map row moved — re-aim this guard');
-  const row = SCREEN.slice(at, SCREEN.indexOf('/>', SCREEN.indexOf('right={[arrangeMenu]}', at)));
-  assert.match(row, /right=\{\[arrangeMenu\]\}/);
+  // 🎚 20 Nov (Guests redesign § 8): the look round (List · Map) sits before the arrange round — never in its place.
+  const row = SCREEN.slice(at, SCREEN.indexOf('/>', SCREEN.indexOf('right={lookMenu ? [lookMenu, arrangeMenu] : [arrangeMenu]}', at)));
+  assert.match(row, /right=\{lookMenu \? \[lookMenu, arrangeMenu\] : \[arrangeMenu\]\}/);
   assert.doesNotMatch(row, /sortMenu|left=/, 'the map carries the list’s controls (no expand/select on the canvas)');
   // ⇅ R4 slice 1 (owner 2026-10-29, prototype v12/v18): the map's round is the SHARED Show · Group by (the same state as
   // the List's — no "Grouped by" chip of its own), then the ways to add; the group-bys are the shipped four.

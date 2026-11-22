@@ -334,7 +334,7 @@ export function StudioPopup({ label, onClose, children }: { label: string; onClo
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className="relative flex max-h-[80dvh] w-full max-w-md flex-col rounded-t-3xl bg-white px-2 pb-4 pt-3 shadow-xl ring-1 ring-ink/10 focus:outline-none sm:rounded-3xl"
+        className="relative flex max-h-[80dvh] w-full max-w-md flex-col rounded-t-3xl bg-raised px-2 pb-4 pt-3 shadow-xl ring-1 ring-ink/10 focus:outline-none sm:rounded-3xl"
       >
         <p className="shrink-0 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/70">{label}</p>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>

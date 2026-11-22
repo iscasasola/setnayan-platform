@@ -40,6 +40,7 @@ import { formsAction } from '@/app/vendor-dashboard/forms/actions';
 import type { MakeQuoteCardOption } from '@/lib/make-a-quote';
 import { isAvailabilityStyle, type AvailabilityStyle } from '@/lib/availability-styles';
 import type { ProposalLineItem } from '@/lib/vendor-proposals';
+import { PLUS_GATE_UNKNOWN, PLUS_NEEDS_VERIFIED } from '@/lib/shop-plus-gate';
 
 type Fail = { ok: false };
 
@@ -76,7 +77,7 @@ export type QuoteForCard = {
   /** The plan rows a confirmed payment is attributed to — frozen on every face. */
   paidSeqs: number[];
   locks: ItemLocks;
-  extras: { id: string; label: string; qty: number; pricePhp: number }[];
+  extras: { id: string; label: string; qty: number; pricePhp: number; free: boolean }[];
   pax: number | null;
   /**
    * The shipped S5 gate (`vendor_may_requote`): a confirmed booking or an open lock request refuses a new version.
@@ -180,6 +181,8 @@ export async function loadQuoteForCard(threadId: string): Promise<QuoteRead> {
         label: x.label,
         qty: perPax ? Math.max(pax ?? 0, x.line.minPax || 0) || 1 : 1,
         pricePhp: perPax ? x.line.ratePhp : x.line.free ? 0 : x.line.basis === 'per_hour' ? x.line.basePhp : x.line.flatPhp,
+        // A free catalogue extra stays FREE on the quote — never a ₱0 line that reads "Amount not set".
+        free: !perPax && Boolean(x.line.free),
       };
     }),
     pax,
@@ -566,7 +569,7 @@ export async function openDecisionFromChat(formData: FormData): Promise<AskResul
   if (!threadId) return { ok: false, message: 'Name the topic first.' };
   const r = await openDecision(createClient(), threadId, topic);
   if (r.ok) return { ok: true };
-  return { ok: false, message: r.reason === 'empty' ? 'Name the topic first.' : r.reason === 'not_allowed' ? 'You are not in this chat.' : "Couldn't open it. Try again." };
+  return { ok: false, message: r.reason === 'empty' ? 'Name the topic first.' : r.reason === 'not_allowed' ? 'You are not in this chat.' : r.reason === 'unverified' ? PLUS_NEEDS_VERIFIED : "Couldn't open it. Try again." };
 }
 
 // ── Form · the shop's library ────────────────────────────────────────────────
@@ -672,6 +675,8 @@ const ASK_PAYMENT_WORDS: Record<string, string> = {
   notbooked: 'Opens once they book you.',
   signin: 'Please sign in again.',
   shop: "Couldn't find your shop.",
+  unverified: PLUS_NEEDS_VERIFIED,
+  unknown: PLUS_GATE_UNKNOWN,
   event: "Couldn't send that. Try again.",
   error: "Couldn't send that. Try again.",
 };

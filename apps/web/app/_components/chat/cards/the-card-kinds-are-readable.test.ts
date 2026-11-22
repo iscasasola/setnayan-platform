@@ -21,9 +21,22 @@ const CARDS = 'app/_components/chat/cards';
 const KINDS = ['quote', 'counter', 'offer', 'meeting', 'decision', 'payment', 'form', 'file', 'plain'] as const;
 
 const css = read('app/globals.css');
-/** Every declared value of one token, in file order: [light, dark]. */
+/**
+ * Every declared value of one token, in file order: [light, dark]. A value that POINTS at a job token
+ * (`--sn-frame-bg: var(--color-raised)`, the one colour set, 21 Nov 2026) is that token's value in the same theme.
+ */
 function triples(name: string): number[][] {
-  return [...css.matchAll(new RegExp(`^\\s*${name}:\\s*(\\d+) (\\d+) (\\d+);`, 'gm'))].map((m) => [Number(m[1]), Number(m[2]), Number(m[3])]);
+  const out: number[][] = [];
+  const seen = new Map<string, number>();
+  for (const m of css.matchAll(new RegExp(`^\\s*${name}:\\s*(?:(\\d+) (\\d+) (\\d+)|var\\((--[\\w-]+)\\));`, 'gm'))) {
+    if (m[4]) {
+      const i = seen.get(m[4]) ?? 0;
+      seen.set(m[4], i + 1);
+      const to = triples(m[4])[i];
+      if (to) out.push(to);
+    } else out.push([Number(m[1]), Number(m[2]), Number(m[3])]);
+  }
+  return out;
 }
 function luminance(rgb: number[]): number {
   const [r, g, b] = rgb.map((v) => {

@@ -63,6 +63,11 @@ test("no invented 'Statement' / 'Offset' family anywhere under apps/web", () => 
           const row = /\{ id: 'offset', name: 'Offset', [^\n]*\}/.exec(src);
           if (row && cd >= 0 && row.index > cd && row.index < next) src = src.replace(row[0], '');
         }
+        if (relative(WEB, p) === join('lib', 'cake-config.ts')) {
+          /* A cake's Offset ARRANGEMENT (tiers set off-centre — the owner's v6 Cake Maker drawing, 2026-11-21) is a cake
+             shape, not a scene-style family: that one row of CAKE_ARRANGEMENTS, nothing else in the file. */
+          src = src.replace(/\{ id: 'offset', label: 'Offset' \}/, '');
+        }
         if (/['"`](Statement|Offset)['"`]/.test(src)) hits.push(relative(WEB, p));
       }
     }

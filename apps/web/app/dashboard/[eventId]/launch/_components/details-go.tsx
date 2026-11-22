@@ -89,7 +89,7 @@ export function DetailsPieceButton({
       onClick={onPick}
       data-details-piece={data}
       className={`sn-press inline-flex min-h-11 shrink-0 items-center gap-2 self-center rounded-full px-3 text-left lg:self-auto text-[13px] font-medium transition-colors duration-sn-control ease-sn disabled:opacity-60 lg:w-full lg:rounded-md lg:px-2.5 ${
-        on ? 'bg-ink text-cream' : 'bg-white/70 text-ink/80 hover:bg-white lg:bg-transparent lg:hover:bg-ink/[0.05]'
+        on ? 'bg-ink text-cream' : 'bg-raised/70 text-ink/80 hover:bg-raised lg:bg-transparent lg:hover:bg-ink/[0.05]'
       }`}
     >
       {children}

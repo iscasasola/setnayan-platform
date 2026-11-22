@@ -34,7 +34,8 @@ test('F-W1-04 · Continue is drawn busy at once and takes one move per press', (
   assert.match(go, /if \(movingRef\.current\) return;/, 'a second press while moving must be ignored');
   assert.match(go, /blur/, 'the box being typed in must lose the focus, so letters do not land on the next step');
   assert.match(go, /requestAnimationFrame/, 'the busy button must be painted before the next step is drawn');
-  assert.match(WIZARD, /if \(step < TOTAL_STEPS\) go\(\);/, 'Enter must take the same path as Continue');
+  // 🚪 19 Nov: Continue exists up to Check your shop; the first card's three ways are buttons of their own.
+  assert.match(WIZARD, /if \(step < CARD_STEP\) go\(\);/, 'Enter must take the same path as Continue');
 });
 
 test('F-W1-13 · an untouched prefilled email is re-read from the account that submits', () => {
@@ -89,7 +90,8 @@ test('F-W1-07 / F-W1-08 / F-W1-12 · the map hint clears the credit; the logo sc
   assert.match(logo, /data-open-shop-segments=""/, 'the logo screen lost its step bars');
   assert.match(logo, /data-open-shop-bar=""/, 'the logo screen lost the sticky bottom bar');
   assert.doesNotMatch(logo, /items-center justify-center px-4 py-10/, 'the centred, re-centring card is back');
-  assert.match(WIZARD, /'Your shop’s email, then open your shop\.'/);
+  // 🚪 19 Nov: signed in, the account screen (second) still has its line under the title.
+  assert.match(WIZARD, /\['Your shop’s email', 'Where couples and Setnayan reach your shop\.'\]/);
   assert.match(WIZARD, /books you through Setnayan\."/);
 });
 

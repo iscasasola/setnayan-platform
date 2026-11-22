@@ -48,7 +48,8 @@ test('1 · the sheet: a GuestPopup mounted only while open, two topics, four dro
   assert.match(SHEET, /label="Clear all" disabled=\{applied === 0\} onClick=\{onClearAll\}/, 'Clear all is missing (or live with nothing applied)');
   assert.match(PANEL, /showLabel=\{`Show \$\{formatCount\(shown\)\} \$\{shown === 1 \? 'guest' : 'guests'\}`\}/, '"Show N guests" is missing');
   assert.match(FRAME, /label=\{showLabel\} onClick=\{onClose\}/, 'the frame does not draw the "Show N" it is given');
-  assert.match(SCREEN, /right=\{\[\{ node: filterSheet \}\]\}/, 'the List’s thumb row does not seat the sheet');
+  // 🎚 20 Nov (Guests redesign § 8): the look round may sit before the sheet.
+  assert.match(SCREEN, /right=\{lookMenu \? \[lookMenu, \{ node: filterSheet \}\] : \[\{ node: filterSheet \}\]\}/, 'the List’s thumb row does not seat the sheet');
 });
 
 test('2 · it only filters — no action inside', () => {

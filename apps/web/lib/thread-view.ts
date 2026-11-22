@@ -31,7 +31,20 @@
  * does not draw the chips (the routed thread page, the host's side until its own build) reads a new kind as the chat
  * (`legacyThreadView`), so an old `?view=decisions|files` link means exactly what it always did there.
  */
-export type ThreadView = 'all' | 'decisions' | 'files' | 'forms' | 'money' | 'dates';
+export type ThreadView = 'all' | 'decisions' | 'files' | 'forms' | 'money' | 'dates' | TalkView;
+
+/**
+ * 💬 TWO CHIPS THAT ARE NOT A KIND OF CARD (Unichat part D, 20 Nov 2026; approved drawing `UNICHAT-LIVE-2026-11-19.html`):
+ * **Chat** shows only the messages people typed (no cards), **Private** only the private lines the reader may see. They
+ * are a way of LOOKING, held for the visit — never an address: `parseThreadView` does not read them and
+ * `withThreadView` does not write them, so a reload or a shared link opens the whole chat.
+ */
+export const TALK_VIEWS = ['chat', 'private'] as const;
+export type TalkView = (typeof TALK_VIEWS)[number];
+
+export function isTalkView(v: unknown): v is TalkView {
+  return (TALK_VIEWS as readonly unknown[]).includes(v);
+}
 
 /** The kinds a chip filters to, in the chips' order (All is the absence of one). */
 export const THREAD_KINDS = ['decisions', 'forms', 'money', 'dates', 'files'] as const;
@@ -60,7 +73,7 @@ export function withThreadView(path: string, view: ThreadView): string {
   const pathname = qAt === -1 ? beforeHash : beforeHash.slice(0, qAt);
   const params = new URLSearchParams(qAt === -1 ? '' : beforeHash.slice(qAt + 1));
 
-  if (view === 'all') params.delete('view');
+  if (view === 'all' || isTalkView(view)) params.delete('view');
   else params.set('view', view);
 
   const q = params.toString();

@@ -253,7 +253,8 @@ test('11 · "on your page" only when the shipped switch said yes — a refusal i
   // The wizard's last screen never says "on your page" or ticks the card before it exists.
   assert.doesNotMatch(WIZARD, /· on your page`/);
   assert.match(WELCOME, /FIRST_CARD_RETRY/);
-  assert.match(TODAY, /cardState=\{firstCardStateFrom\(search\)\}/);
+  // …and since 20 Nov the tick is also held to a live card read back NOW (`confirmedCardState`, test 14).
+  assert.match(TODAY, /cardState=\{confirmedCardState\(firstCardStateFrom\(search\), await cardLiveNowP\)\}/);
 });
 
 test('9 · Door A (P1 · P3 · P5 · P6) speaks the drawing’s words, and the team door promises no Card Maker', async () => {
@@ -336,6 +337,67 @@ test('11d · ship review 21 Nov — a failed re-read after the maker answered is
   assert.match(maker, /const after = await findMade\(\);\s*\/\/[\s\S]{0,300}if \(after\.error\) \{[\s\S]{0,200}return \{ ok: true, id: null, live: false, why: FIRST_CARD_MADE_UNREAD \};/);
   // The welcome then sends them to their cards (the id is unknown), not to a new card.
   assert.match(WELCOME, /card\.why === 'made-unread'\s*\?\s*'\/vendor-dashboard\/services'/);
+});
+
+test('12 · Door A carries the first card through finalize — the claimed welcome never claims a card on a bare ?claimed=1 (20 Nov)', async () => {
+  const sb = await import('./supplier-onboarding');
+  const why = await import('./first-card-why');
+  const CLAIM_ACTION = read('app/open-shop/claim-actions.ts');
+  const FINALIZE = read('app/vendor/claim/[token]/finalize/page.tsx');
+  const DOOR = read('app/open-shop/_components/claim-door.tsx');
+  // Every state round-trips through the address; the reason rides as a KEY (never a sentence), the id only with a draft.
+  const id = '0b7e6c1a-3f1e-4c2b-9d5a-1a2b3c4d5e6f';
+  for (const state of ['live', 'skipped', 'draft', 'refused'] as const) {
+    const path = sb.claimedWelcomePath({ state, why: state === 'draft' ? 'needs-cover' : state === 'refused' ? 'not-made' : null, id: state === 'draft' ? id : null });
+    const q = Object.fromEntries(new URL(path, 'https://x.invalid').searchParams);
+    assert.equal(q.claimed, '1');
+    assert.equal(sb.firstCardStateFrom(q), state);
+    assert.equal(sb.welcomeDoneRow(sb.firstCardStateFrom(q)), state === 'live' ? sb.TODAY_WELCOME_DONE.withCard : sb.TODAY_WELCOME_DONE.shopOnly);
+    const back = sb.claimCardFrom(q);
+    assert.equal(back?.id, state === 'draft' ? id : null);
+    assert.equal(back?.why, state === 'draft' ? 'needs-cover' : state === 'refused' ? 'not-made' : null);
+  }
+  assert.equal(sb.claimedWelcomePath(null), sb.WELCOME_CLAIMED_PATH);
+  assert.equal(sb.welcomeDoneRow(sb.firstCardStateFrom({ claimed: '1' })), sb.TODAY_WELCOME_DONE.shopOnly);
+  // Anything off on the address is dropped — and a sentence never rides it (ship review 21 Nov).
+  assert.equal(sb.claimCardFrom({ card: 'made' }), null);
+  assert.equal(sb.claimCardFrom({ card: 'draft', card_id: '../x' })?.id, null);
+  assert.equal(sb.claimCardFrom({ card: 'live', card_why: 'needs-cover' })?.why, null);
+  assert.equal(sb.claimCardFrom({ card: 'draft', card_why: 'Free words from anybody.' })?.why, null);
+  assert.doesNotMatch(sb.claimCardQuery({ state: 'draft', why: 'Free words from anybody.', id: null }), /card_why/);
+  assert.ok(why.firstCardWhySentence('made-unread'), 'the lost-id key draws a sentence');
+  // The finish asks the SHIPPED switch only on Approve, writes the reason as a key, and finalize passes the carry on.
+  assert.match(CLAIM_ACTION, /const live = await putFirstCardLive\(firstId\);/);
+  assert.match(CLAIM_ACTION, /why: firstCardWhyKey\(live\.why, 'draft'\), id: firstId \}/);
+  assert.match(CLAIM_ACTION, /why: firstCardWhyKey\(firstCardRefusal, 'refused'\)/);
+  assert.match(CLAIM_ACTION, /claimCardQuery\(\{ state: 'draft', why: 'made-unread', id: null \}\)/);
+  assert.match(CLAIM_ACTION, /\(answers\.firstCard === 'skip' \|\| answers\.firstCard === 'approve'\)/);
+  assert.match(FINALIZE, /const cardCarry = claimCardFrom\(search\);/);
+  assert.match(FINALIZE, /: claimedWelcomePath\(cardCarry\),\s*\);/);
+  assert.doesNotMatch(FINALIZE, /: WELCOME_CLAIMED_PATH,\s*\);/);
+  // The welcome draws the sentence from the key, with the way to THAT card; refused is an alert.
+  assert.match(WELCOME, /cardState === 'refused' \|\| \(cardState === 'draft' && \(cardNote\?\.id \|\| cardNote\?\.why\)\)/);
+  assert.match(WELCOME, /firstCardWhySentence\(cardNote\?\.why\)/);
+  assert.match(WELCOME, /href=\{cardNote\?\.id \? `\/vendor-dashboard\/services\/\$\{cardNote\.id\}` : '\/vendor-dashboard\/services'\}/);
+  assert.match(TODAY, /cardNote=\{claimCardFrom\(search\)\}/);
+  // P5's Cards row is never ticked — the cards are drafts until the switch says otherwise.
+  assert.match(DOOR, /\$\{CLAIM_CARDS_MADE_AS\}`[^\n]*ok: false \}/);
+  assert.match(sb.CLAIM_CARDS_MADE_AS, /drafts/);
+});
+
+test('14 · the ✓ survives only what is true now (20 Nov review)', async () => {
+  const { confirmedCardState } = await import('./supplier-onboarding');
+  // ?card=live is a claim on the address: it ticks only when a live card is read back now.
+  assert.equal(confirmedCardState('live', true), 'live');
+  assert.equal(confirmedCardState('live', false), null);
+  for (const st of ['draft', 'refused', 'skipped'] as const) assert.equal(confirmedCardState(st, false), st);
+  assert.equal(confirmedCardState(null, true), null);
+  const reads = read('lib/supplier-today.server.ts');
+  const live = reads.slice(reads.indexOf('export async function readHasLiveCard('));
+  assert.match(live, /\.from\('vendor_services'\)[^;]*\.eq\('is_active', true\)/);
+  assert.match(live, /if \(error\) \{[^}]*return false;/);
+  assert.match(TODAY, /\? readHasLiveCard\(supabase, vendorProfileId\)/);
+  assert.match(TODAY, /cardState=\{confirmedCardState\(firstCardStateFrom\(search\), await cardLiveNowP\)\}/);
 });
 
 test('10 · Door C — coordination pre-picked in ONE dropdown, then "Invite shops you trust", "Trusted partners" everywhere', () => {

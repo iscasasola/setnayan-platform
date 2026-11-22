@@ -53,6 +53,7 @@ import { DEFAULT_LOGO_FRAME } from '@/lib/open-shop-logo';
 import { siteOrigin } from '@/lib/site-origin';
 import { SupplierInviteDoor } from '@/app/vendor/claim/[token]/_components/claim-parts';
 import { ActionButton } from '@/components/action-button';
+import { LogIn } from 'lucide-react';
 import '@/app/vendor-dashboard/_components/supplier-look.css';
 import { claimDatePhrase } from '@/lib/claim-invite-words';
 
@@ -279,7 +280,7 @@ export default async function OpenShopLabPage({
           inviterName="Maria Santos Events"
           category="Coordination"
           createHref="/dev/open-shop-lab?step=1"
-          existing={<ActionButton tone="neutral" label="I already have a shop" href="/dev/open-shop-lab?screen=invite" />}
+          existing={<ActionButton tone="neutral" icon={LogIn} label="I already have a shop" href="/dev/open-shop-lab?screen=invite" />}
         />
       </div>
     );

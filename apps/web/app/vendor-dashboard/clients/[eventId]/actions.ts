@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { openTheCoordinatorsSeatForBooking } from '@/lib/coordinator-grant';
 import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effects.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
@@ -1627,6 +1628,11 @@ export async function vendorAgreeToLock(formData: FormData) {
   });
   const env = (data ?? {}) as { status?: string; event_id?: string; competing?: number };
   const eventId = typeof env.event_id === 'string' ? env.event_id : null;
+
+  // ── 0 · 🚪 A COORDINATOR BOOKED BY THIS YES GETS THEIR SEAT (the one shared door, lib/coordinator-grant.ts). The
+  // supplier did not invite themselves, so no actor is handed in: the seat records the host who asked
+  // (`lock_requested_by_user_id`), else nobody. A no-op unless the row is now BOOKED and a coordinator's; never throws.
+  if (!error) await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId, actorUserId: null });
 
   // ── 1 · THE GIFT PROMISE IS CONFIRMED HERE — owner 2026-09-16, asked which
   // of the two lock moments freezes it: **"both. the supplier needs to pay us

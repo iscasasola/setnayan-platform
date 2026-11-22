@@ -64,6 +64,7 @@ import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import { deleteVendor } from '../actions';
 import { ANSWER_IN_PLACE_FIELD } from '@/lib/answer-in-place';
 import { BenchWritesStandInCtx, useBenchLocal } from './bench-local';
+import { HOST_ONLY_VERBS, useViewerBooks } from './viewer-books';
 import { haptic } from '@/lib/haptics';
 import { announceBuildAdded } from '@/lib/budget-build';
 import type { BenchCardActions } from '@/lib/bench-card-actions';
@@ -177,7 +178,11 @@ export function BenchVendorActions({
     actions.build && (actions.build.kind === 'add' || actions.build.kind === 'in_build')
       ? { ...actions, build: { kind: buildIn ? 'in_build' : 'add' } }
       : actions;
-  const verbs = cardVerbs({ actions: shown, booked, hasPrice, quoteIn, payDue: Boolean(payHref) });
+  // 🔒 Only a host books or pays (owner 2026-11-21): the coordinator's card never draws Book or Pay.
+  const viewerBooks = useViewerBooks();
+  const verbs = cardVerbs({ actions: shown, booked, hasPrice, quoteIn, payDue: Boolean(payHref) }).filter(
+    (v) => viewerBooks || !HOST_ONLY_VERBS.has(v.key),
+  );
   const threadHref =
     actions.inquiry?.kind === 'check' ? `/dashboard/${eventId}/messages/${actions.inquiry.threadId}` : null;
   const threadId = actions.inquiry?.kind === 'check' ? actions.inquiry.threadId : null;

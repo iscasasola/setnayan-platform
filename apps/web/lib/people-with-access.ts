@@ -31,7 +31,6 @@ import {
 } from './delegate-areas';
 import { delegateAccessHasExpired, delegateAccessLastDay } from './delegate-access-window';
 import { ACCESS_LEVEL_LABEL, CREATOR_WORD, guestAccessState, seatIsFullCohost, type GuestAccessState } from './guest-access';
-import { LEVEL_WORD, levelOf, type CoordinatorAccessLevel, type LevelledPermissions } from './coordinator-access-level';
 
 /** The hired planner's seat kind (`lib/planner-seats.ts` PLANNER_SEAT_ROLE). */
 const PLANNER_ROLE = 'wedding_planner_external';
@@ -94,12 +93,6 @@ export type PersonRow = {
   /** A booked planner nobody has invited to plan yet. */
   canInviteAsCoordinator: boolean;
   vendorId: string | null;
-  /**
-   * 🔑 The coordinator's level (owner 2026-10-29, "only TWO levels — Limited and Full"): the hosts' recorded answer,
-   * or 'unanswered' for a coordinator seat not asked yet. Absent for everyone who is not (or was not) the coordinator.
-   * Drives the Limited · Full access pick on the row — the place the Home card's answer stays changeable.
-   */
-  coordinatorLevel?: CoordinatorAccessLevel | 'unanswered';
   /**
    * 🪪 What this helper asked the hosts for in the last week ("Ask the hosts", owner 2026-10-31) — the parts and when
    * the latest ask went, read from the viewer's own `access_more_asked` notices (`asksBySeat`). Absent = none.
@@ -167,15 +160,12 @@ export function buildPeopleWithAccess(input: {
     const seat = seats.find((s) => s.userId === h.userId && seatIsFullCohost(s.roleSubtype));
     if (seat) used.add(seat.moderatorId);
     const guest = seat?.guestId ? seatGuests.get(seat.guestId) : undefined;
-    // 🔑 A coordinator the hosts gave FULL access sits on a co-host seat — still named their coordinator.
-    const wasCoordinator = seat ? levelOf({ permissions_json: seat.permissions as LevelledPermissions | null }) : null;
     rows.push({
       key: `host:${h.userId}`,
       kind: 'co_host',
       name: h.name,
       // The creator is the Host; everyone else here is a Co-host (owner 2026-10-04).
       roleWord: h.isCreator ? CREATOR_WORD : 'Co-host',
-      ...(wasCoordinator ? { coordinatorLevel: wasCoordinator, roleWord: 'Coordinator' } : null),
       moderatorId: seat?.moderatorId ?? null,
       guestId: guest?.guestId ?? null,
       access:
@@ -244,7 +234,6 @@ export function buildPeopleWithAccess(input: {
         kind: 'coordinator',
         name,
         roleWord: 'Coordinator',
-        coordinatorLevel: levelOf({ permissions_json: seat.permissions as LevelledPermissions | null }) ?? 'unanswered',
         moderatorId: seat.moderatorId,
         guestId: null,
         access: null,
@@ -400,11 +389,14 @@ export const FIXED_AREA_WHY = 'Every helper can view this for now. A per-person 
  * (owner 2026-08-06): ON never raises them.
  */
 export const COORDINATOR_ON_AREAS: readonly DelegateArea[] = DELEGATE_AREAS.filter(
-  (a) => COORDINATOR_AREAS[a] === 'edit' && (areaChoices(a)?.includes('edit') ?? false),
+  // The four planning parts that have an Off (Mood Board has none, so a seat written before 2026-11-21 with the board
+  // at View still reads ON — its switch did not move).
+  (a) => COORDINATOR_AREAS[a] === 'edit' && (areaChoices(a)?.includes('off') ?? false),
 );
 
-export const COORDINATOR_SWITCH_LABEL = 'Same access as you';
-export const COORDINATOR_SWITCH_WHY = 'On — can change details and build the schedule. Off — sees only what you first shared.';
+export const COORDINATOR_SWITCH_LABEL = 'Coordinator access';
+export const COORDINATOR_SWITCH_WHY =
+  'On — they plan with you: guests, seats, the schedule, suppliers, the Hub and the Mood Board. They can look at the budget and what is due, never pay, and never open Memories. Off — they see only what you first shared.';
 
 /** The switch's state, read from the grant the database enforces. */
 export function coordinatorHasHostAccess(cells: readonly AreaCell[] | null): boolean {
@@ -419,8 +411,14 @@ export function coordinatorSwitchWrites(cells: readonly AreaCell[], on: boolean)
   // would put the whole switch back.
   const lowest = (c: AreaCell): AreaChoice | null =>
     !c.choices ? null : c.choices.includes('off') ? 'off' : c.choices.includes('view') ? 'view' : null;
-  const want = (c: AreaCell): AreaChoice | null =>
-    on ? (COORDINATOR_ON_AREAS.includes(c.area) ? 'edit' : null) : lowest(c);
+  // ON puts every settable area back to the booked coordinator's grant (`COORDINATOR_AREAS`, owner 2026-11-21) —
+  // the planning parts at Edit, Budget and Payments at View — so Off → On restores what booking gave, never less.
+  const ruled = (c: AreaCell): AreaChoice | null => {
+    if (!c.choices) return null;
+    const want = choiceOfLevel(COORDINATOR_AREAS[c.area] ?? null);
+    return c.choices.includes(want) ? want : lowest(c);
+  };
+  const want = (c: AreaCell): AreaChoice | null => (on ? ruled(c) : lowest(c));
   return cells.flatMap((c) => {
     const next = want(c);
     return next && next !== c.choice ? [{ area: c.area, choice: next }] : [];
@@ -442,7 +440,7 @@ export const AREA_TOGGLE_ORDER: readonly AreaChoice[] = ['edit', 'off', 'view'];
  * Nothing here is a second rule — it only arranges the helper's own row for the helper.
  */
 export type OwnAccess = {
-  /** The hosts' word for this seat — "Coordinator · Limited" · "Coordinator" · "Limited helper". */
+  /** The hosts' word for this seat — "Coordinator" · "Co-host" · "Limited helper". */
   roleWord: string;
   /** One cell per area, as the hosts' row draws it — read-only here. */
   areas: AreaCell[];
@@ -466,12 +464,9 @@ export function ownAccessOf(input: {
   window: EventWindowInput;
 }): OwnAccess {
   const { roleSubtype, permissions, window: w } = input;
-  const level = roleSubtype === PLANNER_ROLE ? levelOf({ permissions_json: permissions as LevelledPermissions | null }) : null;
   const roleWord =
     roleSubtype === PLANNER_ROLE
-      ? level
-        ? `Coordinator · ${LEVEL_WORD[level]}`
-        : 'Coordinator'
+      ? 'Coordinator'
       : roleSubtype && seatIsFullCohost(roleSubtype)
         ? 'Co-host'
         : ACCESS_LEVEL_LABEL.limited_helper;

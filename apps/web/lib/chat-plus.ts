@@ -292,7 +292,7 @@ export function supplierPlusRows(opts: {
   // ⚠ KEPT, NOT REMOVED: the drawing draws neither Drop an offer nor Camera, and it lists no removal — so both stay, in
   // fixed places by the same order (an offer is a quote move; Camera sits with Photos & files), pending the controller's
   // call. Drop an offer is drawn in its place even before a quote, shut with its reason — places never move by stage.
-  // ⏳ Partner card (drawn between Ask for access and Every version) is not drawn until its card is built — never a
+  // ⏳ Partner card (drawn just before Every version) is not drawn until its card is built — never a
   // dead tile.
   const rows: PlusRow[] = [
     noQuoteYet
@@ -324,8 +324,9 @@ export function supplierPlusRows(opts: {
     { key: 'decision', label: 'Decision', line: 'One question, one clear answer', card: 'decision', door: null },
     pollRow(opts.pollOpen),
     { key: 'form', label: 'Form', line: 'Collect details you need for the day', card: 'form', door: 'questions-for-couple', ...afterBooking },
-    // 🔗 Every supplier and the coordinator (owner 8 Nov): booked on this event, so it waits for the booking.
-    { key: 'access', label: 'Ask for access', line: 'Ask to see their schedule or guests', card: 'access', door: null, ...afterBooking },
+    // ➖ "Ask for access" LEFT the ＋ (owner 21 Nov, DECISION_LOG "NO 'ASK FOR ACCESS' TILE ON THE CHAT ＋" — the row AFTER
+    // "CHAT ＋ FINAL", and it names the final tray: *"this means we do not need access request on +"*). Asking lives in
+    // ONE place: the "Their event" list's last row, "Ask for access to more" (lib/their-event.ts).
     {
       key: 'versions',
       label: 'Every version',

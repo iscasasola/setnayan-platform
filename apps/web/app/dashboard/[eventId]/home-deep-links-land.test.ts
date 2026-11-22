@@ -116,7 +116,7 @@ test('4 · a payment’s Pay opens that payment’s sheet', () => {
   // The address reaches the sheet: the Budget page reads `pay`, resolves it, the screen opens it. An OLD Suppliers address
   // (`?part=budget&pay=`) forwards with its `pay` intact.
   assert.match(src('vendors/page.tsx'), /redirect\(budgetPageHref\(eventId, \{ pay: sp\.pay \}\)\)/, 'the old Suppliers address drops ?pay= on the way to the Budget page');
-  assert.match(src('budget/page.tsx'), /initialPayVendorId=\{payTargetVendor\(moneyRead\?\.lines \?\? \[\], \(await searchParams\)\?\.pay, list\.suppliers\)\}/);
+  assert.match(src('budget/page.tsx'), /initialPayVendorId=\{\s*payTargetVendor\(moneyRead\?\.lines \?\? \[\], \(await searchParams\)\?\.pay, list\.suppliers\)/);
   const screen = src('budget/_components/budget-screen.tsx');
   assert.match(screen, /useState<BudgetSheetState>\(initialPayVendorId \? \{ kind: 'pay', vendorId: initialPayVendorId \} : null\)/, 'the Pay sheet does not open on arrival');
   assert.match(screen, /useState\(Boolean\(initialPayVendorId\)\)/, 'the sheet’s code is not loaded for an arrival that opens it');

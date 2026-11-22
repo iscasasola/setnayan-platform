@@ -71,7 +71,7 @@ import type { RoleNames } from '@/lib/role-names';
 import { SupplierCountTile } from './_components/supplier-count-tile';
 import { QuoteTopLines } from './_components/quote-top-lines';
 import { YourBookingCard } from './_components/your-booking-card';
-import { yourBookingView } from '@/lib/your-booking';
+import { yourBookingView, type YourBookingView } from '@/lib/your-booking';
 import { quotePlanLine } from '@/lib/quote-top-lines';
 import { ruleRoleLabels, ruleWords } from '@/lib/supplier-count';
 import {
@@ -2287,8 +2287,33 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     </div>
   );
 
+  // 💳 THE BOOKING'S MONEY, folded ONCE (`clientPaymentView`) — the chat strip and Details › Your booking both read it.
+  // Built before `overviewNode`, which is drawn eagerly below. Every input is a read above.
+  const stripPay = isBooked
+    ? clientPaymentView({
+        steps: planStepRows?.steps ?? null,
+        clearedAt: planStepRows?.clearedAt ?? null,
+        ledgerMoney,
+        ledgerUnreadable,
+        refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : 0,
+      })
+    : null;
+  // 🧾 The agreed quotation (Details › Your booking names what it covers): the newest accepted one.
+  const agreedQuote = [...proposals]
+    .filter((p) => p.status === 'accepted')
+    .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
+  // 🧾 Details › Your booking — the supplier's OWN booking money, never the hosts' plan (owner 21 Nov · controller 22 Nov).
+  const yourBooking = stripPay
+    ? yourBookingView({
+        pay: stripPay,
+        quoteLines: proposalRowsError ? null : agreedQuote ? quoteLinesOf(agreedQuote.line_items).map((l) => l.label) : undefined,
+        peso: (php) => fmtPeso(php),
+      })
+    : null;
+
   const overviewNode = (
     <OverviewTab
+      yourBooking={yourBooking}
       eventId={eventId}
       brief={brief}
       headcountRule={headcountRule}
@@ -2849,19 +2874,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Every input is a read above, plus its two own (`stripAsksP` · `stripFormsP`). A refused read reaches the strip as
   // `null` and is SAID ("Couldn't load · tap to retry") — never ₱0, never "0 open".
   const stripToday = manilaTodayIso();
-  const stripPay = isBooked
-    ? clientPaymentView({
-        steps: planStepRows?.steps ?? null,
-        clearedAt: planStepRows?.clearedAt ?? null,
-        ledgerMoney,
-        ledgerUnreadable,
-        refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : 0,
-      })
-    : null;
-  // 🧾 The agreed quotation (Details › Your booking names what it covers): the newest accepted one.
-  const agreedQuote = [...proposals]
-    .filter((p) => p.status === 'accepted')
-    .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
   const stripAsksRes = stripAsksP ? await stripAsksP : null;
   const stripAsks = stripAsksRes && !stripAsksRes.error ? ((stripAsksRes.data ?? []) as DealAskDbRow[]).map(dealAskOf) : null;
   if (stripAsksRes?.error) logQueryError('vendorClientCard.stripAsks', stripAsksRes.error, { eventId }, 'graceful_degrade');
@@ -3199,6 +3211,8 @@ function ReturningMarker({ returningFlag }: { returningFlag: ReturningClientFlag
 function OverviewTab(props: {
   eventId: string;
   brief: Brief;
+  /** 🧾 Details › Your booking — the supplier's own booking money, decided once on the page. null = not booked. */
+  yourBooking: YourBookingView | null;
   /** 🧮 Their count and its why (owner 2026-11-04) — null for a flat-priced service or a refused read. */
   headcountRule: SupplierHeadcount | null;
   /** The couple's words for roles, for the rule's line. */
@@ -3297,6 +3311,7 @@ function OverviewTab(props: {
     isVendorMarked,
     hideCompletion,
     search,
+    yourBooking,
   } = props;
 
   return (
@@ -3517,16 +3532,9 @@ function OverviewTab(props: {
         {/* 🧾 YOUR BOOKING (owner 21 Nov 2026 — "the quotation, payment plan, status"): where "Budget" stood, the
          *  supplier's OWN booking money, view only — never the hosts' plan, not even while they share it (controller,
          *  22 Nov 2026). Before a booking there is no booking money, so there is no card here at all. */}
-        {isBooked && stripPay ? (
+        {isBooked && yourBooking ? (
           <Card>
-            <YourBookingCard
-              eventId={eventId}
-              view={yourBookingView({
-                pay: stripPay,
-                quoteLines: proposalRowsError ? null : agreedQuote ? quoteLinesOf(agreedQuote.line_items).map((l) => l.label) : undefined,
-                peso: (php) => fmtPeso(php),
-              })}
-            />
+            <YourBookingCard eventId={eventId} view={yourBooking} />
           </Card>
         ) : null}
       </div>

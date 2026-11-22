@@ -14,6 +14,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { stripComments } from './strip-comments';
 import { join } from 'node:path';
 
 import { clientPaymentView } from './client-payment-view';
@@ -104,23 +105,27 @@ test('4 · the hosts’ planned amount is never drawn on Details — shared or n
   // The view has no field for it: only the supplier's own booking money can reach the card.
   assert.deepEqual(Object.keys(yourBookingView({ ...base, pay: payOf(PLAN) })).sort(), ['covers', 'figures', 'next', 'note']);
   const PAGE = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
-  const CARD = read('app/vendor-dashboard/clients/[eventId]/_components/your-booking-card.tsx').replace(/\/\*[\s\S]*?\*\//g, '');
-  const LIB = read('lib/your-booking.ts').replace(/\/\*[\s\S]*?\*\//g, '');
+  const CARD = stripComments(read('app/vendor-dashboard/clients/[eventId]/_components/your-booking-card.tsx'));
+  const LIB = stripComments(read('lib/your-booking.ts'));
   assert.doesNotMatch(CARD, /planned|budget_band|Not shared|not shared/i);
   assert.doesNotMatch(LIB, /planned|budget_band/i);
   // The old card said "Not shared — the couple hasn't opted into budget sharing": a hint. Gone from the supplier side.
   assert.doesNotMatch(PAGE, /opted into budget sharing|Not shared —|data-hosts-planned/);
   // Where "Budget" stood there is the booking card or nothing — no branch draws the hosts' range in its place.
-  const slot = PAGE.slice(PAGE.indexOf('{isBooked && stripPay ? ('));
+  const slot = PAGE.slice(PAGE.indexOf('{isBooked && yourBooking ? ('));
   const card = slot.slice(0, slot.indexOf(') : null}') + 9);
-  assert.ok(card.length > 100 && card.length < 900, 'the Your booking slot was found');
+  assert.ok(card.length > 50 && card.length < 900, 'the Your booking slot was found');
   assert.doesNotMatch(card, /budget_band/);
 });
 
 test('5 · the card stands where "Budget" stood, booked only, view only, and opens the shipped Payment page', () => {
   const PAGE = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
   const CARD = read('app/vendor-dashboard/clients/[eventId]/_components/your-booking-card.tsx');
-  assert.match(PAGE, /\{isBooked && stripPay \? \(\s*<Card>\s*<YourBookingCard/);
+  assert.match(PAGE, /\{isBooked && yourBooking \? \(\s*<Card>\s*<YourBookingCard eventId=\{eventId\} view=\{yourBooking\} \/>/);
+  // Folded ONCE on the page (before `overviewNode`, which is drawn eagerly) and handed to the Details tab.
+  assert.match(PAGE, /const yourBooking = stripPay\s*\?\s*yourBookingView\(\{/);
+  assert.ok(PAGE.indexOf('const yourBooking = stripPay') < PAGE.indexOf('const overviewNode = ('), 'the view is built before the Details node that draws it');
+  assert.match(PAGE, /yourBooking=\{yourBooking\}/);
   assert.match(PAGE, /pay: stripPay,/, 'the figures are the Payment page’s own view — no second read');
   assert.doesNotMatch(PAGE, /<Wallet aria-hidden className="h-4 w-4 text-terracotta" \/> Budget/);
   // One door, to the shipped page: switched in place, or its own address with no script.

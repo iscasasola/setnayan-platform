@@ -230,16 +230,16 @@ export function InquireSheet({
   };
 
   const hold = () => {
+    // A note from here on is a prompt, not a failure — until a send says otherwise.
+    setNoteFailed(false);
     // 🔇 OWN-02 (walk 13 Nov): with two or more events nothing is picked, and a press on Send did nothing at all — no
     // note, no movement. It now says what is missing, beside the button.
     if (!eventId) {
-      setNoteFailed(false);
       setNote('Pick which event this is for first.');
       return;
     }
     if (!general && chosen.length === 0) return;
     setNote(null);
-    setNoteFailed(false);
     setStep('sending');
     const until = Date.now() + INQUIRE_UNDO_MS;
     setLeft(Math.ceil(INQUIRE_UNDO_MS / 1000));
@@ -262,6 +262,14 @@ export function InquireSheet({
     setNoteFailed(false);
     setNote('Not sent.');
   };
+
+  // 📨 The Sent step's line — each part said only when it happened (see the heading below).
+  const sentLine = [
+    sent?.posted === false ? `You already have a chat with ${shop.name}. Your picks were added to it.` : `${shop.name} will reply in your chat.`,
+    sent?.listed ? 'They’re on your event’s Suppliers now.' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const messagePlaceholder = general
     ? `What would you like to ask ${shop.name}?`
@@ -400,12 +408,7 @@ export function InquireSheet({
             <h2 id="inquire-sheet-title" className="pr-12 text-[17px] font-bold" data-inquire-sent={sent?.posted === false ? 'in-chat' : ''}>
               {sent?.posted === false ? 'In your chat ✓' : 'Sent ✓'}
             </h2>
-            <p className="mb-2 text-[13px] text-ink/60">
-              {sent?.posted === false
-                ? `You already have a chat with ${shop.name}. Your picks were added to it.`
-                : `${shop.name} will reply in your chat.`}
-              {sent?.listed ? <> They&rsquo;re on your event&rsquo;s Suppliers now.</> : null}
-            </p>
+            <p className="mb-2 text-[13px] text-ink/60">{sentLine}</p>
             <div className="grid gap-2.5">
               {sent ? (
                 <ActionButton tone="info" main icon={MessageCircle} label="Open the chat" href={`/dashboard/${sent.eventId}/messages/${sent.threadId}`} className={MAIN} data-testid="inquire-open-chat" />

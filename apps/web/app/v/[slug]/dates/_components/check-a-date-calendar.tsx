@@ -209,6 +209,10 @@ export function CheckADateCalendar({
     setNote('Not sent.');
   };
 
+  // 📨 "Sent" only when a message posted; a chat already under way with nothing new says where the picks went.
+  const sentLine =
+    sent?.posted === false ? `You already have a chat with ${shop.name}. Your picks were added to it.` : `${shop.name} will reply in your chat.`;
+
   const eventWord = (e: CheckDateEvent) => `${e.name}${e.typeLabel ? ` · ${e.typeLabel}` : ''}`;
   const createHref = day
     ? `/dashboard/create-event?next=${encodeURIComponent(checkDateResumeHref(shop.slug, day, chosen))}`
@@ -395,9 +399,7 @@ export function CheckADateCalendar({
               <h2 id="check-date-sheet-title" className="pr-12 text-[17px] font-bold" data-check-date-sent={sent?.posted === false ? 'in-chat' : ''}>
                 {sent?.posted === false ? 'In your chat ✓' : 'Sent ✓'}
               </h2>
-              <p className="mb-2 text-[13px] text-ink/60">
-                {sent?.posted === false ? `You already have a chat with ${shop.name}. Your picks were added to it.` : `${shop.name} will reply in your chat.`}
-              </p>
+              <p className="mb-2 text-[13px] text-ink/60">{sentLine}</p>
               <div className="grid gap-2.5">
                 {sent ? (
                   <ActionButton tone="info" main icon={MessageCircle} label="Open the chat" href={`/dashboard/${sent.eventId}/messages/${sent.threadId}`} className={MAIN} data-testid="check-date-open-chat" />

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ChevronRight, Wallet } from 'lucide-react';
 import { BADGE } from '@/app/_components/price-summary';
 import { customerCardHref } from '@/lib/upcoming-schedule-door';
-import { HOSTS_PLANNED_LABEL, HOSTS_PLANNED_NOTE, YOUR_BOOKING_COVERS_UNREAD, YOUR_BOOKING_DOOR, YOUR_BOOKING_TITLE, type YourBookingView } from '@/lib/your-booking';
+import { YOUR_BOOKING_COVERS_UNREAD, YOUR_BOOKING_DOOR, YOUR_BOOKING_TITLE, type YourBookingView } from '@/lib/your-booking';
 import { usePickedNav } from './picked-client-nav';
 
 /**
@@ -14,7 +14,7 @@ import { usePickedNav } from './picked-client-nav';
  * "Open payments" — to the shipped Book & Budget page (switched in place, no request), where the plan and its actions
  * live. Every word and figure is decided in `lib/your-booking.ts`; this only draws them.
  *
- * The hosts' planned amount is ONE line, drawn only while they share it. Not shared → no line and no hint.
+ * Never the hosts' plan: their planned amount is not drawn here, shared or not (controller, 22 Nov 2026).
  */
 export function YourBookingCard({ eventId, view }: { eventId: string; view: YourBookingView }) {
   const nav = usePickedNav();
@@ -63,15 +63,6 @@ export function YourBookingCard({ eventId, view }: { eventId: string; view: Your
         <p className="mt-2 text-sm text-ink/70 [overflow-wrap:anywhere]" data-your-booking-covers="">
           <span className="text-ink/70">Covers: </span>
           <span className="text-ink">{view.covers}</span>
-        </p>
-      ) : null}
-      {view.planned ? (
-        <p className="mt-3 border-t border-ink/10 pt-3 text-sm" data-your-booking-planned="">
-          <span className="flex items-baseline justify-between gap-3">
-            <span className="text-ink/70">{HOSTS_PLANNED_LABEL}</span>
-            <b className="whitespace-nowrap font-semibold tabular-nums text-ink">{view.planned}</b>
-          </span>
-          <span className="mt-1 block text-xs text-ink/70">{HOSTS_PLANNED_NOTE}</span>
         </p>
       ) : null}
       <div className="mt-3">

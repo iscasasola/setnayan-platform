@@ -18,9 +18,9 @@
  * 🛑 A FIGURE NOBODY MEASURED IS NOT ₱0: a refused read says "couldn't load" and draws "—"; no amount set says so;
  * "All paid" needs a real agreed amount with nothing left — never "nothing owed because nothing was set".
  *
- * 🔒 THE HOSTS' PLANNED AMOUNT (same day's correction, "hosts MAY share their planned amount"): private unless the
- * hosts turn their own switch on (`events.share_budget_band`, off by default, hosts only — the brief returns the range
- * only while it is on). On → ONE line, a range, view only. Off → nothing at all, not even a hint that it exists.
+ * 🔒 NEVER THE HOSTS' PLAN (controller, 22 Nov 2026, on the ruling above): this card holds the supplier's own booking
+ * money and nothing else — the hosts' planned amount is not drawn here, not even behind their sharing switch. The view
+ * has no field for it, so no caller can pass one in.
  *
  * 🔒 lib/your-booking.test.ts
  */
@@ -33,8 +33,6 @@ export const YOUR_BOOKING_UNREAD = 'Part of this couldn’t load. Open payments 
 export const YOUR_BOOKING_NO_AMOUNT = 'No amount is set for this booking yet.';
 export const YOUR_BOOKING_ALL_PAID = 'All paid';
 export const YOUR_BOOKING_COVERS_UNREAD = 'What it covers couldn’t load.';
-export const HOSTS_PLANNED_LABEL = 'Hosts’ planned amount';
-export const HOSTS_PLANNED_NOTE = 'Shared by the hosts, for your category. A range, never their exact number.';
 /** How many of the quotation's lines the card names before "+N more". */
 export const YOUR_BOOKING_COVERS_MAX = 3;
 
@@ -47,8 +45,6 @@ export type YourBookingView = {
   next: { line: string; status: string; tone: PriceBadgeTone } | null;
   /** What the agreed quotation covers. Null = no agreed quotation on record (no line is drawn). */
   covers: string | null;
-  /** The hosts' planned range — ONLY while their switch is on. Null = not shared: nothing is drawn. */
-  planned: string | null;
 };
 
 export type YourBookingInput = {
@@ -59,8 +55,6 @@ export type YourBookingInput = {
    * (a claimed booking the couple recorded has none).
    */
   quoteLines: readonly string[] | null | undefined;
-  /** The brief's `budget_band` — non-null ONLY while the hosts share it. */
-  plannedBand: { lo: string; hi: string } | null;
   peso: (php: number) => string;
 };
 
@@ -101,6 +95,5 @@ export function yourBookingView(i: YourBookingInput): YourBookingView {
   }
 
   const covers = i.quoteLines === null ? YOUR_BOOKING_COVERS_UNREAD : i.quoteLines === undefined ? null : coversLine(i.quoteLines);
-  const planned = i.plannedBand ? `${i.plannedBand.lo} – ${i.plannedBand.hi}` : null;
-  return { figures, note, next, covers, planned };
+  return { figures, note, next, covers };
 }

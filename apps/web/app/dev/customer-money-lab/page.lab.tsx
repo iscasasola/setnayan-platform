@@ -18,8 +18,7 @@
  *   ?s=unread     no plan and the ledger read failed — said, never "nothing"
  *
  *   ?booking=1    Details › "Your booking" (owner 21 Nov 2026) over the SAME fixture and stage (`&s=` as above) — the
- *                 supplier's own Price · Paid · Left, the next payment and its status · `&shared=1` the hosts turned
- *                 on sharing their planned range (one more line; off draws nothing)
+ *                 supplier's own Price · Paid · Left, the next payment and its status (never the hosts' plan)
  *
  * The answer forms post the REAL actions; pressing them here needs a
  * supplier's session (the lab draws, it does not confirm). Names are samples.
@@ -129,7 +128,6 @@ export default async function CustomerMoneyLabPage({
             view={yourBookingView({
               pay,
               quoteLines: raw === 'unread' ? null : noPlan ? undefined : ['Plated dinner for 150', 'Dessert table', 'Coffee cart', 'Service crew'],
-              plannedBand: sp.shared === '1' ? { lo: formatPhp(180_000), hi: formatPhp(200_000) } : null,
               peso: (php) => formatPhp(php),
             })}
           />

@@ -1,15 +1,15 @@
 /**
  * lib/your-booking.test.ts — 🧾 THE SUPPLIER'S "YOUR BOOKING" ON DETAILS (owner 21 Nov 2026, DECISION_LOG "SUPPLIER
- * EVENT DETAILS — 'Budget' = their own booking money only" + the same day's "hosts MAY share their planned amount").
+ * EVENT DETAILS — 'Budget' = their own booking money only"; controller 22 Nov: never the hosts' plan, switch or not).
  *
  *   1. Price · Paid · Left are the Payment page's own figures (`clientPaymentView`) — one fold, two places.
  *   2. Status is said in the plan's own words: Due · Was due (overdue) · Waiting for you · All paid.
  *   3. A figure nobody measured is "—" and SAID — never ₱0, never "All paid" with no amount set.
- *   4. The hosts' planned amount is drawn only while they share it; not shared leaves no trace on the page.
+ *   4. The hosts' planned amount is never drawn on Details — not while they share it, and no hint that it exists.
  *   5. The card stands where "Budget" stood, booked only, and opens the shipped Payment page — no second money screen.
  *
  * SABOTAGE (each run once, each went red): `next` built from a second computation → 1; "All paid" allowed with
- * `agreedPhp` null → 3; the page drawing "Not shared" when the band is null → 4; the card drawn before a booking → 5.
+ * `agreedPhp` null → 3; the card given a `planned` line fed from `brief.budget_band` → 4; the card drawn before a booking → 5.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,7 +20,6 @@ import { clientPaymentView } from './client-payment-view';
 import { PRICE_BADGE } from './price-summary';
 import type { StepperInstallment } from './vendor-service-payment-schedules';
 import {
-  HOSTS_PLANNED_LABEL,
   YOUR_BOOKING_ALL_PAID,
   YOUR_BOOKING_COVERS_UNREAD,
   YOUR_BOOKING_NO_AMOUNT,
@@ -44,7 +43,7 @@ const PLAN = [
 ];
 const payOf = (steps: StepperInstallment[] | null, extra: Partial<Parameters<typeof clientPaymentView>[0]> = {}) =>
   clientPaymentView({ steps, clearedAt: null, ledgerMoney: NO_LEDGER as never, ledgerUnreadable: false, today: TODAY, ...extra });
-const base = { quoteLines: undefined, plannedBand: null, peso } as const;
+const base = { quoteLines: undefined, peso } as const;
 
 test('1 · Price · Paid · Left are the Payment page’s own figures', () => {
   const pay = payOf(PLAN);
@@ -101,20 +100,21 @@ test('3 · a figure nobody measured is "—" and said — never ₱0, never "All
   assert.equal(coversLine([]), null);
 });
 
-test('4 · the hosts’ planned amount shows only while they share it — off leaves no trace', () => {
-  const pay = payOf(PLAN);
-  assert.equal(yourBookingView({ ...base, pay }).planned, null);
-  assert.equal(yourBookingView({ ...base, pay, plannedBand: { lo: '₱250,000', hi: '₱300,000' } }).planned, '₱250,000 – ₱300,000');
+test('4 · the hosts’ planned amount is never drawn on Details — shared or not, and no hint of it', () => {
+  // The view has no field for it: only the supplier's own booking money can reach the card.
+  assert.deepEqual(Object.keys(yourBookingView({ ...base, pay: payOf(PLAN) })).sort(), ['covers', 'figures', 'next', 'note']);
   const PAGE = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
-  const CARD = read('app/vendor-dashboard/clients/[eventId]/_components/your-booking-card.tsx');
+  const CARD = read('app/vendor-dashboard/clients/[eventId]/_components/your-booking-card.tsx').replace(/\/\*[\s\S]*?\*\//g, '');
+  const LIB = read('lib/your-booking.ts').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(CARD, /planned|budget_band|Not shared|not shared/i);
+  assert.doesNotMatch(LIB, /planned|budget_band/i);
   // The old card said "Not shared — the couple hasn't opted into budget sharing": a hint. Gone from the supplier side.
-  assert.doesNotMatch(PAGE, /opted into budget sharing|Not shared —/);
-  assert.doesNotMatch(CARD.replace(/\/\*[\s\S]*?\*\//g, ''), /Not shared|not shared/);
-  assert.match(CARD, /\{view\.planned \? \(/);
-  // The page reads the band only off the brief — the range the database returns while the hosts' switch is on.
-  assert.match(PAGE, /plannedBand: brief\.budget_band\s*\?/);
-  assert.match(PAGE, /\) : brief\.budget_band \? \(\s*<Card>[\s\S]{0,300}\{HOSTS_PLANNED_LABEL\}/);
-  assert.equal(HOSTS_PLANNED_LABEL, 'Hosts’ planned amount');
+  assert.doesNotMatch(PAGE, /opted into budget sharing|Not shared —|data-hosts-planned/);
+  // Where "Budget" stood there is the booking card or nothing — no branch draws the hosts' range in its place.
+  const slot = PAGE.slice(PAGE.indexOf('{isBooked && stripPay ? ('));
+  const card = slot.slice(0, slot.indexOf(') : null}') + 9);
+  assert.ok(card.length > 100 && card.length < 900, 'the Your booking slot was found');
+  assert.doesNotMatch(card, /budget_band/);
 });
 
 test('5 · the card stands where "Budget" stood, booked only, view only, and opens the shipped Payment page', () => {

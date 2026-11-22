@@ -71,7 +71,7 @@ import type { RoleNames } from '@/lib/role-names';
 import { SupplierCountTile } from './_components/supplier-count-tile';
 import { QuoteTopLines } from './_components/quote-top-lines';
 import { YourBookingCard } from './_components/your-booking-card';
-import { HOSTS_PLANNED_LABEL, HOSTS_PLANNED_NOTE, yourBookingView } from '@/lib/your-booking';
+import { yourBookingView } from '@/lib/your-booking';
 import { quotePlanLine } from '@/lib/quote-top-lines';
 import { ruleRoleLabels, ruleWords } from '@/lib/supplier-count';
 import {
@@ -3515,9 +3515,8 @@ function OverviewTab(props: {
         </Card>
 
         {/* 🧾 YOUR BOOKING (owner 21 Nov 2026 — "the quotation, payment plan, status"): where "Budget" stood, the
-         *  supplier's OWN booking money, view only — never the hosts' budget. The hosts' planned range is one line,
-         *  drawn ONLY while they share it (`events.share_budget_band`, off by default); not shared draws nothing,
-         *  not even a hint. Before a booking there is no booking money: only that shared line, when there is one. */}
+         *  supplier's OWN booking money, view only — never the hosts' plan, not even while they share it (controller,
+         *  22 Nov 2026). Before a booking there is no booking money, so there is no card here at all. */}
         {isBooked && stripPay ? (
           <Card>
             <YourBookingCard
@@ -3525,24 +3524,9 @@ function OverviewTab(props: {
               view={yourBookingView({
                 pay: stripPay,
                 quoteLines: proposalRowsError ? null : agreedQuote ? quoteLinesOf(agreedQuote.line_items).map((l) => l.label) : undefined,
-                plannedBand: brief.budget_band
-                  ? { lo: fmtPesoCentavos(brief.budget_band.lo_centavos), hi: fmtPesoCentavos(brief.budget_band.hi_centavos) }
-                  : null,
                 peso: (php) => fmtPeso(php),
               })}
             />
-          </Card>
-        ) : brief.budget_band ? (
-          <Card>
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
-              <Wallet aria-hidden className="h-4 w-4 text-terracotta" /> {HOSTS_PLANNED_LABEL}
-            </h2>
-            <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums" data-hosts-planned="">
-              {fmtPesoCentavos(brief.budget_band.lo_centavos)}
-              <span className="mx-1.5 text-ink/40">–</span>
-              {fmtPesoCentavos(brief.budget_band.hi_centavos)}
-            </p>
-            <p className="mt-2 text-xs text-ink/70">{HOSTS_PLANNED_NOTE}</p>
           </Card>
         ) : null}
       </div>

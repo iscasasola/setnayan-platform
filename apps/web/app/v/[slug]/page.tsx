@@ -589,6 +589,9 @@ async function resolveDisplayUrl(value: string | null | undefined): Promise<stri
 // reuse the exact same vendor metadata when a bare slug resolves to a vendor.
 export async function vendorMetadataBySlug(slug: string) {
   const vendor = await fetchVendor(slug);
+  // 🔎 NO SHOP BY THIS NAME (logged-out crawl #12): `/faq`, `/contact`, any unknown top-level path lands here through
+  // `app/[slug]` and is a 404 — its tab must not read "Supplier · Setnayan" as if a shop were behind it.
+  if (!vendor) return { title: 'Page not found', robots: { index: false, follow: false } };
   // A page a stranger cannot open (lib/own-shop-preview.ts — not live, a demo shop, closed) gets the generic title
   // and is never indexed, even when its own team is the one rendering it: the team preview must not leak the name
   // to a crawler or a link preview, and must not be indexed if a crawler ever carries a team member's cookie.
@@ -4292,8 +4295,10 @@ function TrustedBySection({
   if (unreadable) {
     return (
       <section className="space-y-1.5 border-b border-ink/10 py-8">
+        {/* 🤝 "Trusted partners" (owner 19 Nov, COORDINATOR ONBOARDING) — renames the shipped "Trusted by" section. The
+            DB stays as is (`vendor_partnerships`); the "Trusted by" BADGE (clients who came back) is a different thing. */}
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Trusted by
+          Trusted partners
         </h2>
         <p className="text-sm text-ink/65">
           We couldn&rsquo;t load {businessName}&rsquo;s supplier endorsements right now.
@@ -4307,8 +4312,10 @@ function TrustedBySection({
   return (
     <section className="space-y-4 border-b border-ink/10 py-8" data-trusted-by="">
       <header className="space-y-1">
+        {/* 🤝 "Trusted partners" (owner 19 Nov, COORDINATOR ONBOARDING) — renames the shipped "Trusted by" section. The
+            DB stays as is (`vendor_partnerships`); the "Trusted by" BADGE (clients who came back) is a different thing. */}
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Trusted by
+          Trusted partners
         </h2>
         <p className="text-sm text-ink/65">{trustedByLine(businessName)}</p>
       </header>

@@ -10,5 +10,5 @@
 :global([data-thumb-up]) > .emptyAdd { left: auto; right: 0; bottom: auto; top: calc(100% + 6px); width: min(320px, 90vw); z-index: 1; }
 .addRow {
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0; border: 0; background: transparent;
-  text-align: left; font-size: 15px; font-weight: 600; color: rgb(var(--sn-accent)); cursor: pointer;
+  text-align: left; font-size: 15px; font-weight: 600; color: rgb(var(--sn-accent-word, var(--sn-accent))); cursor: pointer;
 }

@@ -310,7 +310,7 @@ function MarkTools({
   canRemove: boolean;
 }) {
   const ICON =
-    'inline-flex h-11 w-11 items-center justify-center rounded-lg border border-ink/15 bg-white text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-50';
+    'inline-flex h-11 w-11 items-center justify-center rounded-lg border border-ink/15 bg-raised text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-50';
   return (
     <div className="flex items-center gap-1.5">
       <button

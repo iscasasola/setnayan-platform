@@ -412,7 +412,8 @@ const GUEST_QR_SURFACES: Array<[file: string, call: RegExp]> = [
   ['app/api/guest/qr/route.ts', /renderInvitationQrPng\(\{[^}]*\blook\b/s],
   ['app/dashboard/[eventId]/invitation/page.tsx', /renderInvitationQrSvg\(\{[^}]*\blook\b/s],
   ['app/dashboard/[eventId]/invitation/print/page.tsx', /renderInvitationQrSvg\(\{[^}]*\blook\b/s],
-  ['app/[slug]/hub/page.tsx', /renderInvitationQrSvg\(\{[^}]*\blook\b/s],
+  // (`app/[slug]/hub/page.tsx` left this list: one bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to
+  // the event page's tab (`dayHubLanding`). The guest's code on the event page is `loaders.ts`, next.)
   ['app/[slug]/_lib/loaders.ts', /renderInvitationQrSvg\(\{[^}]*\blook\b/s],
   ['app/[slug]/invite/enter/page.tsx', /renderInvitationQrSvg\(\{[^}]*\blook\b/s],
   ['app/[slug]/_lib/plus-one-seats.server.ts', /renderInvitationQrSvg\(\{[^}]*\blook\b/s],
@@ -428,6 +429,8 @@ const GUEST_QR_SURFACES: Array<[file: string, call: RegExp]> = [
 ];
 
 test('every guest-facing QR surface hands the renderer the event\'s look', () => {
+  // The hub draws no code of its own any more — should it draw one again, it rejoins the list above.
+  assert.ok(!/renderInvitationQr/.test(read('app/[slug]/hub/page.tsx')), 'the hub draws a guest QR again — put it back on GUEST_QR_SURFACES');
   for (const [file, call] of GUEST_QR_SURFACES) {
     const src = read(file);
     assert.match(src, call, `${file}: a guest QR is drawn without the event's look`);

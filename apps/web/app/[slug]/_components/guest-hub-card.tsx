@@ -37,6 +37,10 @@ export type GuestHubData = {
   rsvpStatus: RsvpStatus;
   /** Table label (e.g. "Table 5") when the guest has a seat assignment. */
   tableLabel: string | null;
+  /** 🔌 The seat read FAILED (not "no seat yet"): the seat surfaces say "Couldn't load your seat"
+   *  with a Reload instead of what a guest with no table sees. Only ever true where a seat may be
+   *  shown (`seatsOpen`'s rule). Absent = the read answered. */
+  seatUnreadable?: boolean;
   /** 🪑 May guests see their seats yet? The one rule (lib/guests-may-see-seats.ts):
    *  on the event's day, or earlier by the couple's switch. False → the tile says
    *  "on the day" and no seat link shows. Absent = closed (the honest default). */

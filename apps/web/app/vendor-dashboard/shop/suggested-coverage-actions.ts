@@ -4,7 +4,7 @@ import { shopPath } from '@/lib/shop-address';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
+import { mayOnProfile } from '@/lib/vendor-role';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
@@ -45,9 +45,9 @@ async function loadCallerVendorProfile(): Promise<CallerVendorProfile> {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { error: 'No shop found for this account.' };
 
-  const role = await resolveVendorRoleForProfile(supabase, user.id, profile.vendor_profile_id);
-  if (!canManageVendor(role)) {
-    return { error: 'Only shop admins can change what your shop covers.' };
+  // 🧑‍🤝‍🧑 What the shop covers is shop-page work — a Shop Manager's or Marketing's (six roles, owner 19 Nov 2026).
+  if (!(await mayOnProfile(supabase, user.id, profile.vendor_profile_id, 'shop_page'))) {
+    return { error: 'Only a Shop Manager or Marketing can change what your shop covers.' };
   }
   return { supabase, profile };
 }

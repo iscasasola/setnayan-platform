@@ -14,7 +14,7 @@ import { Sheet } from '@/app/_components/sheet';
  */
 
 export const FIELD =
-  'mt-1.5 min-h-11 w-full scroll-mb-24 rounded-md border border-ink/15 bg-white px-3 py-2 text-[15px] text-ink placeholder:text-ink/45 focus:border-ink/40 focus:outline-none';
+  'mt-1.5 min-h-11 w-full scroll-mb-24 rounded-md border border-ink/15 bg-raised px-3 py-2 text-[15px] text-ink placeholder:text-ink/45 focus:border-ink/40 focus:outline-none';
 export const LABEL = 'flex items-center justify-between gap-2 text-[13px] text-ink/70';
 export const FOOT = 'sn-glass-row sticky bottom-0 -mx-5 mt-5 grid grid-cols-2 gap-2 px-5 py-3';
 

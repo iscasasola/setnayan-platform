@@ -76,13 +76,22 @@ test('2 · the core decides who hears a whisper and REFUSES one nobody can hear 
   const at = core.indexOf('if (input.whisper) {');
   assert.ok(at > 0, 'the send core no longer knows a whisper');
   const block = core.slice(at, core.indexOf('const privateList = (', at));
-  // Only a host, only words, and the list comes from the thread's own rows.
-  assert.match(block, /if \(senderRole !== 'couple' \|\| !coupleCheck\.data\) \{\s*return \{ ok: false, code: 'whisper_refused'/, 'someone who is not a host can whisper');
+  // Only someone on a side, only words, and the list comes from the thread's own rows. (Unichat part E, 19–20 Nov: the
+  // hosts' side is a host seated here OR the event's coordinator; the shop's side whispers to its own team.)
+  assert.match(block, /if \(!onHostsSide\) \{\s*return \{ ok: false, code: 'whisper_refused', message: WHISPER_HOSTS_ONLY_MESSAGE/, 'someone who is not on the hosts’ side can whisper there');
+  // #8071: one test for the page and Send — `isOnHostsSide` (a seated host; a coordinator not on the team side).
+  assert.match(block, /\(senderIsCoordinator \|\| Boolean\(coupleCheck\.data\)\) &&\s*isOnHostsSide\(\{ viewerId: user\.id, hostMemberIds: hostPeople\.members, coordinatorIds: hostPeople\.coordinators, teamSideIds: teamSide \}\)/, 'a host who is not seated in this chat can whisper');
+  assert.match(block, /if \(!team\.includes\(user\.id\)\) \{\s*return \{ ok: false, code: 'whisper_refused', message: WHISPER_TEAM_ONLY_MESSAGE/, 'someone off the shop’s team can team-whisper');
   assert.match(block, /if \(hasAttachment \|\| storedRef\) \{\s*return \{ ok: false, code: 'whisper_refused'/, 'a whisper can carry a file');
   assert.match(block, /readThreadHostPeople\(createAdminClient\(\), \{ threadId: thread\.thread_id, eventId: thread\.event_id \}\)/);
-  assert.match(block, /whisperTo = whisperRecipients\(\{\s*hostMemberIds: hostPeople\.members,\s*shopUserIds: \[\.\.\.shop\.userIds, \.\.\.\(shop\.ownerUserId \? \[shop\.ownerUserId\] : \[\]\)\],\s*senderUserId: user\.id,/, 'the whisper list is not the server’s');
-  // 🛑 The fence: nobody to hear it → refused. (Sabotage: delete this return and the next line makes it a shared message.)
-  assert.match(block, /if \(whisperTo\.length === 0\) \{\s*return \{ ok: false, code: 'whisper_refused', message: WHISPER_NO_COHOSTS_MESSAGE \};\s*\}/, 'a whisper nobody can hear is not refused — it would be sent to everyone');
+  assert.match(block, /const teamSide = teamSideOf\(\{ teamUserIds: shop\.userIds, eventHostIds: hostPeople\.eventHosts \}\);/, 'the hosts’ whisper does not take the ONE team side');
+  assert.match(block, /whisperTo = whisperRecipients\(\{\s*hostMemberIds: hostPeople\.members,\s*coordinatorIds: hostPeople\.coordinators,\s*shopUserIds: teamSide,\s*senderUserId: user\.id,/, 'the whisper list is not the server’s');
+  assert.match(block, /whisperTo = teamWhisperRecipients\(\{ teamUserIds: team, senderUserId: user\.id \}\);/, 'the team whisper list is not the server’s');
+  // 🛑 The fence, on BOTH sides: nobody to hear it → refused. (Sabotage: delete a return and that side's whisper goes to everyone.)
+  assert.match(block, /if \(whisperTo\.length === 0\) \{\s*return \{ ok: false, code: 'whisper_refused', message: WHISPER_NO_COHOSTS_MESSAGE \};\s*\}/, 'a hosts’ whisper nobody can hear is not refused — it would be sent to everyone');
+  assert.match(block, /if \(whisperTo\.length === 0\) \{\s*return \{ ok: false, code: 'whisper_refused', message: WHISPER_NO_TEAM_MESSAGE \};\s*\}/, 'a team whisper nobody can hear is not refused — it would be sent to everyone');
+  // The side rides with the row, so its label never drops off; the database re-judges it.
+  assert.match(core, /\.\.\.\(whisperSide && privateTo \? \{ \[CHAT_WHISPER_SIDE_COLUMN\]: whisperSide \} : \{\}\)/, 'the whisper’s side is not stored with the line');
   assert.doesNotMatch(block, /input\.privateTo/, 'a posted recipient can shape a whisper');
   // The whisper's list REPLACES the posted one — it is read first, and the posted list only when there is no whisper.
   assert.match(core, /const privateList = \(\s*whisperTo \?\? \(input\.privateTo == null/, 'a posted private_to can widen a whisper');
@@ -214,7 +223,8 @@ test('5 · the mis-send reminder: the line, and the one ask before the first Sen
   // Armed only when the box holds words as it leaves Whisper.
   assert.match(form, /setWhisper\(threadId, false\);\s*const typed = \(textareaRef\.current\?\.value \?\? ''\)\.trim\(\)\.length > 0;\s*setLeftWithWords\(typed\);/);
   // The ask stops the Send BEFORE the action runs (the words stay), once.
-  assert.match(form, /onSubmit=\{\(e\) => \{\s*if \(!leftWithWords \|\| askPassedRef\.current\) return;[\s\S]{0,160}e\.preventDefault\(\);\s*setAsking\(true\);/);
+  // (Unichat H1: a Send mid-edit saves the edit first and returns — the ask still precedes the action.)
+  assert.match(form, /onSubmit=\{\(e\) => \{(?:\s*\/\/[^\n]*)*\s*if \(editingRef\.current\) \{\s*e\.preventDefault\(\);\s*void saveEdit\(\);\s*return;\s*\}(?:\s*\/\/[^\n]*)*\s*if \(!leftWithWords \|\| askPassedRef\.current\) return;[\s\S]{0,160}e\.preventDefault\(\);\s*setAsking\(true\);/);
   assert.match(form, /title=\{LEFT_WHISPER_ASK\}[\s\S]{0,120}confirmLabel="Send"\s*cancelLabel="Cancel"/);
   // Cancel keeps the words: it sends nothing and clears nothing.
   const cancel = form.slice(form.indexOf('onCancel={() => {', form.indexOf('title={LEFT_WHISPER_ASK}')), form.indexOf('/>', form.indexOf('title={LEFT_WHISPER_ASK}')));
@@ -270,7 +280,7 @@ test('6 · the Send icon is the drawing’s two outlines and its order, on the m
   assert.match(block, /@media \(prefers-reduced-motion: reduce\) \{\s*\.sn-chat-onebox,\s*\.sn-whisper-send,\s*\.sn-chat-onebox-field \{ transition: none; \}/);
 });
 
-test('7 · a line is a whisper only when its people are exactly the co-hosts; its strip has no lock', () => {
+test('7 · a line is a whisper only when its people are exactly the co-hosts; its strip wears the drawing’s lock', () => {
   const co = ['b', 'c'];
   assert.equal(isWhisperLine({ sender_role: 'couple', sender_user_id: 'a', recipient_user_ids: ['b', 'c'] }, co, 'a'), true);
   assert.equal(isWhisperLine({ sender_role: 'couple', sender_user_id: 'b', recipient_user_ids: ['a', 'c'] }, co, 'a'), true, 'a co-host’s whisper does not read as one');
@@ -286,16 +296,20 @@ test('7 · a line is a whisper only when its people are exactly the co-hosts; it
   const strip = renderToStaticMarkup(h(PrivateMark, { privateWith: ['Ben', 'Cai'], whisper: true }));
   assert.match(strip, new RegExp(WHISPER_STRIP));
   assert.equal(WHISPER_STRIP, 'Whisper · co-hosts only');
-  assert.doesNotMatch(strip, /<svg|Private ·/, 'a whisper’s strip wears a lock or the private words');
+  // 🔒 20 Nov drawing (controller, owner delegation 20 Nov): the lock opens the strip — still never the private words.
+  assert.match(strip, /^<p[^>]*><svg[^>]*lucide-lock/, 'a whisper’s strip lost the drawing’s lock, or it is not first');
+  assert.doesNotMatch(strip, /Private ·/, 'a whisper’s strip wears the private words');
   assert.doesNotMatch(renderToStaticMarkup(h(PrivateTime, { at: '2026-11-19T02:05:00Z', alignEnd: true, whisper: true })), /<svg/, 'a whisper’s time row wears a lock');
   // A private line that is NOT a whisper keeps its lock and its names.
   assert.match(renderToStaticMarkup(h(PrivateMark, { privateWith: 'Jose' })), /Private · only you and Jose/);
-  // The stream only ever calls a line a whisper on the host's side.
+  // The stream reads the STORED side first (Unichat part E); only a line from before the column is inferred, and only
+  // on the host's side (`whisperSideOfLine` — guarded in lib/a-whisper-has-two-sides.test.ts).
   const stream = read('app/_components/chat-message-stream.tsx');
-  assert.match(stream, /const whisper = privateWith !== null && viewerRole === 'couple' && isWhisperLine\(m, whisperCoHostIds, currentUserId\);/);
-  // …and the supplier's page hands the stream no co-host list and the composer no whisper.
+  assert.match(stream, /privateWith !== null \? whisperSideOfLine\(m, \{ viewerRole, coHostIds: whisperCoHostIds, viewerUserId: currentUserId \}\) : null;/);
+  // …and the supplier's page offers only its TEAM's whisper: never the hosts' list, never the hosts' read.
   const supplierPage = read('app/vendor-dashboard/messages/[threadId]/page.tsx');
-  assert.doesNotMatch(supplierPage, /whisper/i, 'the supplier’s thread page knows about whisper');
+  assert.doesNotMatch(supplierPage, /whisperCoHostIds|readHostsWhisper|readWhisperCoHostIds/, 'the supplier’s thread page reads the hosts’ whisper list');
+  assert.match(supplierPage, /side: 'team' as const/, 'the supplier’s whisper is not the team’s');
 });
 
 test('8 · Chat send (motion #26): the sent line rises from the box in Move on Spring, fades on Settle, tokens only', () => {

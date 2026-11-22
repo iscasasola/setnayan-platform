@@ -40,13 +40,15 @@ test('anti-vacuity: the ⚙ copy and the Go live row were found', () => {
 
 test('1 · compact rows in the prototype’s order — switches and two dropdowns, no tall card, no fold', () => {
   assert.match(HUB, /if \(bare\) return compactRows;/, 'the ⚙ does not draw its own compact rows');
+  /* 20 Nov 2026 ("EVENT HUB SETTINGS REGROUPED" (1), v17 `gearSheet`): Live for guests · Address · Who can view · Which
+     version · Event Bar · Event QR. */
   const marks: Array<[string, RegExp]> = [
+    ['Live for guests switch', /<HubGoLiveRow /],
     ['address', /data-studio-hub-row="address"/],
-    ['QR switch', /<StudioQrShown eventId=\{eventId\} shown=\{qrShown\} line=/],
-    ['Go live switch', /<HubGoLiveRow /],
     ['Who can view ▾', /<ChosenRow\s+data="who-can-view"/],
     ['Which version ▾', /<ChosenRow\s+data="which-version"/],
     ['Event Bar switch', /<SwitchRow\s+data="event-bar"/],
+    ['QR switch', /<StudioQrShown eventId=\{eventId\} shown=\{qrShown\} line=/],
   ];
   let at = -1;
   for (const [name, re] of marks) {
@@ -65,7 +67,9 @@ test('1 · compact rows in the prototype’s order — switches and two dropdown
   }
   // The switches are the house switch (a frame only on what is pressed): QR and Event Bar `SwitchRow`, Go live too.
   assert.match(TOOLS, /export function StudioQrShown\([\s\S]{0,400}<SwitchRow[\s\S]{0,120}line=\{line\}/, 'the QR row is not the house switch with its line');
-  assert.match(GO_LIVE, /<SwitchRow\s+data="go-live"\s+name="Go live"\s+line=\{line\}/, 'Go live is not a switch row');
+  assert.match(GO_LIVE, /<SwitchRow\s+data="go-live"\s+name=\{HUB_LIVE_FOR_GUESTS\}\s+line=\{line\}/, 'Live for guests is not a switch row');
+  assert.match(GO_LIVE, /HUB_LIVE_FOR_GUESTS = 'Live for guests'/);
+  assert.match(GO_LIVE, /on: 'Guests can open it now', off: 'Hidden from guests'/);
 });
 
 test('2 · the address is the shipped field on ONE row — a small Save, never a full-width "Save address"', () => {

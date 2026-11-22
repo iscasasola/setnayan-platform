@@ -558,8 +558,8 @@ test('9 · the panel: the card’s Background is None · Plain · Frosted; a lin
     assert.match(html, /data-stage-animate-rows=""/, `${part}.${line}: not the toolbar’s Animate`);
     // 💎 RE-AIMED 2026-10-18 (owner 2026-10-16, "all animate, effects, styles, accents are pro"): each effect wears ◆.
     assert.deepEqual([...html.matchAll(/>(Fade|Blur|Move|Size) ◆</g)].map((m) => m[1]), ['Fade', 'Blur', 'Move', 'Size']);
-    assert.match(html, /<button type="button" aria-pressed="true" data-stage-phase="in"[^>]*>Build in</, 'Build in is not the phase on show');
-    for (const [k, words] of [['act', 'Action'], ['out', 'Build out']] as const) {
+    assert.match(html, /<button type="button" aria-pressed="true" data-stage-phase="in"[^>]*>Arrives</, 'Arrives (Build in) is not the phase on show'); // 🔁 20 Nov: "MAKER TABS REVISITED" (3) words
+    for (const [k, words] of [['act', 'While showing'], ['out', 'Leaves']] as const) {
       assert.match(html, new RegExp(`<button type="button" aria-pressed="false" aria-disabled="true" data-stage-phase="${k}"[^>]*>${words}<`), `${words}: a phase a reply page cannot play can be picked`);
     }
     assert.doesNotMatch(html, /data-stage-phase="(?:act|out)"[^>]*\sdisabled(?:=""|\s|>)/, 'a grey phase is a dead tap');

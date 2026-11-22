@@ -1,4 +1,4 @@
-import { guestInitials, guestNameWithNick, guestRoleLabel, RSVP_ROW_WORDS, SIDE_LABELS } from '@/lib/guests';
+import { guestInitials, guestNameWithNick, guestRoleLabel, RSVP_ROW_WORDS, SIDE_LABELS, type GuestSide } from '@/lib/guests';
 import { displayPersonName } from '@/lib/person-name-case';
 import { representedByWords } from '@/lib/guest-proxy';
 import type { GuestCardData } from './guest-card-data';
@@ -28,7 +28,9 @@ export function guestCardEyebrow(
   // 🤝 A +1 is "+1 of Rose Marie Buanhug", on their guest's side (lib/plus-one-of.ts) — never a plain "Guest".
   const of = isCouple ? null : (opts.plusOneOf ?? null);
   const side = of ? of.side : guest.side;
-  return [isCouple ? guestRoleLabel(guest.role, opts.roleNames) : (of?.of ?? 'Guest'), opts.hasSides && !isCouple ? SIDE_LABELS[side] : null]
+  /* 🪪 THE 20 NOV CARD (drawing § 3: "Best man · Groom's side"): the line under the name says their ROLE, in the couple's
+     own words — a plain guest still reads "Guest", a +1 still reads whose +1 they are. */
+  return [of?.of ?? guestRoleLabel(guest.role, opts.roleNames), opts.hasSides && !isCouple ? SIDE_LABELS[side] : null]
     .filter(Boolean)
     .join(' · ');
 }
@@ -48,7 +50,7 @@ export function guestCardNick(guest: Parameters<typeof guestNameWithNick>[0], pl
   return plusOneOf?.name ? null : guestNameWithNick(guest).nick;
 }
 export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>, proxy?: GuestCardData['proxy']): string {
-  if (guest.role === 'bride' || guest.role === 'groom') return '✓ Attending · always';
+  if (guest.role === 'bride' || guest.role === 'groom') return `✓ ${RSVP_ROW_WORDS.attending} · always`;
   // 🧍 A represented role holder's answer is their proxy's — the pair counts once, as them.
   if (proxy?.representedBy) return representedByWords(proxy.representedBy.name);
   return `${guest.rsvp_status === 'attending' ? '✓ ' : ''}${RSVP_ROW_WORDS[guest.rsvp_status]}`;
@@ -64,10 +66,46 @@ export function GuestCardAvatar({
   guest,
   photoDisplayUrl,
   size = 'body',
+  sideDot = null,
 }: {
   guest: Parameters<typeof guestInitials>[0];
   photoDisplayUrl: string | null;
   size?: 'head' | 'body';
+  /** 🔵 Their side as a small dot on the photo (drawing § 3, the list's own dot). Null — a sideless event, or not known — draws none. */
+  sideDot?: GuestSide | null;
+}) {
+  const face = <GuestCardFace guest={guest} photoDisplayUrl={photoDisplayUrl} size={size} />;
+  if (!sideDot) return face;
+  return (
+    <span className="relative inline-flex shrink-0" data-guest-card-side={sideDot}>
+      {face}
+      {/* The colours are the list's own (`.sn-guest-side-dot`, guest-card.css — one place, beside the card's other rules). */}
+      <span aria-hidden className="sn-guest-side-dot" data-side={sideDot} />
+    </span>
+  );
+}
+
+/**
+ * ✓ THE REPLY UNDER THE NAME — the same words as `guestCardReply`, marked with the answer so "Coming" wears the list's quiet
+ * green tick and nothing else takes a colour (drawing § 3; the row's rule, pick 4 of 20 Nov).
+ */
+export function GuestCardReplyBadge({ guest, proxy }: { guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>; proxy?: GuestCardData['proxy'] }) {
+  const coming = guest.role === 'bride' || guest.role === 'groom' || (guest.rsvp_status === 'attending' && !proxy?.representedBy);
+  return (
+    <span data-guest-card-reply={coming ? 'attending' : guest.rsvp_status} className={coming ? 'text-success-700' : undefined}>
+      {guestCardReply(guest, proxy)}
+    </span>
+  );
+}
+
+function GuestCardFace({
+  guest,
+  photoDisplayUrl,
+  size,
+}: {
+  guest: Parameters<typeof guestInitials>[0];
+  photoDisplayUrl: string | null;
+  size: 'head' | 'body';
 }) {
   const box = size === 'head' ? 'h-11 w-11' : 'h-12 w-12';
   return photoDisplayUrl ? (

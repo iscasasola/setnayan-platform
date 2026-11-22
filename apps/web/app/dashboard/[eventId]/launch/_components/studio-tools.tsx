@@ -475,6 +475,9 @@ function HubRow({ label, children, data }: { label: string; children: ReactNode;
 }
 
 /** Said ONCE at the head of the group — the rows under it that do not wait for ✓ Apply (owner: the address and access stay live). */
+/** ⚙ A group's name in Event Hub settings — a title of its own, never a small-caps label (20 Nov "REGROUPED"). */
+export const HUB_SETTINGS_GROUP = 'px-1 pb-1 pt-4 text-[14px] font-semibold text-ink';
+
 export const STUDIO_LIVE_LINE = 'These change your Event Hub right away — not on ✓ Apply: the address, Go live, who can view, which version guests see, and the Event Bar.';
 
 /**
@@ -567,63 +570,85 @@ export function StudioHubSettings({
      Which version ▾ · Event Bar (switch). EVERY WRITE IS THE ONE THE FOLD BELOW MAKES — only the drawing is shorter:
      the address is `SlugField`/`AddressField` `compact`, Go live is `HubGoLiveRow` (the shipped launch panel's three
      actions, its question and its schedule kept), the two pickers are the same `ChosenRow` (the house `PickMenu`). */
+  /* ⚙ EVENT HUB SETTINGS, REGROUPED (owner 20 Nov 2026, DECISION_LOG "MAKER: EVENT HUB SETTINGS REGROUPED" (1); the approved
+     drawing v17 `gearSheet`): only what changes right away, one row style, in this order —
+       SHARING · CHANGES RIGHT AWAY   Live for guests · Address · Who can view · Which version guests see
+       ON EVERY PAGE                  Event Bar
+       SHARE AND PRINT                Event QR (· Prints, the sheet's own row, drawn right after this group)
+     History and Event info 🔒 follow in the sheet (`hub-settings.tsx`). Every write is the shipped one, moved. */
+  const unread = (
+    <p role="alert" className="py-3 text-[13px] text-danger-700" data-studio-hub-unread="">
+      Your Event Hub settings could not be read just now. Nothing was changed — please reopen this in a moment.
+    </p>
+  );
   const compactRows = (
     <div data-studio-hub="" data-studio-hub-bare="" data-studio-hub-compact="" {...STUDIO_INFO_ROWS} className="flex flex-col pb-2">
-      <FormRows data="your-event-hub" width="short">
-        {address ? (
-          <div data-form-row="address" data-studio-hub-row="address" className={FORM_ROW_BAND}>
-            {address}
-          </div>
-        ) : null}
-        <StudioQrShown eventId={eventId} shown={qrShown} line="On the cover, the prints and the pass">
-          {/* The prototype's QR box: Copy · Share · Download first; the QR's look (Shape · Pattern · Colour) one quiet
-              row under it that opens in place — still mounted while shut, so nothing stops posting. */}
-          <StudioQrActions slug={slug} path={livePath} />
-          {qrLook ? <StudioQrLookRow>{qrLook}</StudioQrLookRow> : null}
-        </StudioQrShown>
-        {hub ? (
-          <>
-            <HubGoLiveRow eventId={eventId} initialLaunched={hub.launched} initialScheduledAt={hub.scheduledAt} onLaunched={() => setWho('public')} />
-            <ChosenRow
-              data="who-can-view"
-              name="Who can view"
-              line={WHO_CAN_VIEW.map((w) => w.label).join(' · ')}
-              value={who}
-              buttonText={WHO_CAN_VIEW.find((w) => w.key === who)?.label ?? 'Private'}
-              options={WHO_CAN_VIEW}
-              onPick={pickWho}
-              dataAttr="data-studio-who-pick"
-              attrs={{ 'data-studio-hub-row': 'who-can-view' }}
-            />
-            <ChosenRow
-              data="which-version"
-              name={WHICH_VERSION_LABEL}
-              line="Automatic follows the date"
-              value={version}
-              buttonText={whichVersionLabel(version)}
-              options={WHICH_VERSION_OPTIONS}
-              onPick={pickVersion}
-              dataAttr="data-studio-version-pick"
-              attrs={{ 'data-studio-hub-row': 'which-version' }}
-            />
-            {maker?.eventBar ? (
-              <SwitchRow
-                data="event-bar"
-                name="Event Bar"
-                line="The bar under the page for guests"
-                about={{ words: 'The bar at the foot of your Event Hub that takes guests from page to page.' }}
-                on={maker.eventBar.on}
-                onChange={() => maker.eventBar?.toggle()}
-                attrs={{ 'data-studio-switch': 'event-bar' }}
+      <section data-hub-settings-group="sharing">
+        <p className={HUB_SETTINGS_GROUP}>Sharing · changes right away</p>
+        <FormRows data="your-event-hub" width="short">
+          {hub ? <HubGoLiveRow eventId={eventId} initialLaunched={hub.launched} initialScheduledAt={hub.scheduledAt} onLaunched={() => setWho('public')} /> : null}
+          {address ? (
+            <div data-form-row="address" data-studio-hub-row="address" className={FORM_ROW_BAND}>
+              {address}
+            </div>
+          ) : null}
+          {hub ? (
+            <>
+              <ChosenRow
+                data="who-can-view"
+                name="Who can view"
+                line={WHO_CAN_VIEW.map((w) => w.label).join(' · ')}
+                value={who}
+                buttonText={WHO_CAN_VIEW.find((w) => w.key === who)?.label ?? 'Private'}
+                options={WHO_CAN_VIEW}
+                onPick={pickWho}
+                dataAttr="data-studio-who-pick"
+                attrs={{ 'data-studio-hub-row': 'who-can-view' }}
               />
-            ) : null}
-          </>
-        ) : (
-          <p role="alert" className="py-3 text-[13px] text-danger-700" data-studio-hub-unread="">
-            Your Event Hub settings could not be read just now. Nothing was changed — please reopen this in a moment.
-          </p>
-        )}
-      </FormRows>
+              <ChosenRow
+                data="which-version"
+                name={WHICH_VERSION_LABEL}
+                line="Automatic follows the date"
+                value={version}
+                buttonText={whichVersionLabel(version)}
+                options={WHICH_VERSION_OPTIONS}
+                onPick={pickVersion}
+                dataAttr="data-studio-version-pick"
+                attrs={{ 'data-studio-hub-row': 'which-version' }}
+              />
+            </>
+          ) : (
+            unread
+          )}
+        </FormRows>
+      </section>
+      {hub && maker?.eventBar ? (
+        <section data-hub-settings-group="every-page">
+          <p className={HUB_SETTINGS_GROUP}>On every page</p>
+          <FormRows data="hub-every-page" width="short">
+            <SwitchRow
+              data="event-bar"
+              name="Event Bar"
+              line="The bar under the page for guests"
+              about={{ words: 'The bar at the foot of your Event Hub that takes guests from page to page.' }}
+              on={maker.eventBar.on}
+              onChange={() => maker.eventBar?.toggle()}
+              attrs={{ 'data-studio-switch': 'event-bar' }}
+            />
+          </FormRows>
+        </section>
+      ) : null}
+      <section data-hub-settings-group="share-print">
+        <p className={HUB_SETTINGS_GROUP}>Share and print</p>
+        <FormRows data="hub-share-print" width="short">
+          <StudioQrShown eventId={eventId} shown={qrShown} line="On the cover, the prints and the pass">
+            {/* The prototype's QR box: Copy · Share · Download first; the QR's look (Shape · Pattern · Colour) one quiet
+                row under it that opens in place — still mounted while shut, so nothing stops posting. */}
+            <StudioQrActions slug={slug} path={livePath} />
+            {qrLook ? <StudioQrLookRow>{qrLook}</StudioQrLookRow> : null}
+          </StudioQrShown>
+        </FormRows>
+      </section>
       {error ? (
         <p role="alert" className="pt-1 text-[12.5px] font-semibold text-danger-700">
           {error}

@@ -1,0 +1,47 @@
+/* 🛒 The gift store's two motions (owner-approved prototype gifts-interactive v16, 2026-11-17), timed to the
+   Motion Standard 2026-11-18 — transform + opacity only, and every speed and curve READ from the `--sn-m-*` tokens
+   on the element's `animation` (globals.css), never typed (🔒 scripts/lint-motion-raw.mjs). The tokens sit on the
+   element, never inside a `@keyframes` block (§ 3.7 — Chrome runs a var() keyframe timing LINEAR):
+   • the row just added is HIGHLIGHTED: an accent ring that fades out over Rise 700 on Settle. The ring sits on a
+     pseudo-element and only its OPACITY moves, so nothing repaints a box-shadow every frame;
+   • "Added to your order" is a TOAST: in Move 320 on Spring, out Quick 200 on Settle after it has been read. The
+     section unmounts it a moment later (GIFT_TOAST_MS in shop-gifts-section.tsx).
+   Reduced motion: no animation, and the toast still SHOWS — it is the only "Added" confirmation on the screen. */
+.flash {
+  position: relative;
+  background: rgb(37 99 235 / 0.06);
+}
+.flash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px rgb(var(--sn-accent));
+  opacity: 0;
+  animation: giftRowHighlight var(--sn-m-rise) var(--sn-m-settle) backwards;
+}
+@keyframes giftRowHighlight {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.toast {
+  translate: -50% -50%;
+  /* How long the toast is READ before it fades: a wait, not a speed (the standard's waits are named the same way —
+     `--sn-m-load-wait`, `--sn-m-hold`). The section unmounts it at GIFT_TOAST_MS, after this wait + Quick. */
+  --gift-toast-read: 2000ms;
+  animation:
+    giftToastIn var(--sn-m-move) var(--sn-m-spring) backwards,
+    giftToastOut var(--sn-m-quick) var(--sn-m-settle) var(--gift-toast-read) forwards;
+}
+@keyframes giftToastIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes giftToastOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flash::after { animation: none; }
+  .toast { animation: none; }
+}

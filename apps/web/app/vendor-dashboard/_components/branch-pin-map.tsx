@@ -277,7 +277,7 @@ export function BranchPinMap({ value, onChange, initialCenter }: Props) {
         href="https://www.openstreetmap.org/copyright"
         target="_blank"
         rel="noreferrer"
-        className="absolute bottom-0 right-0 bg-white/75 px-1 text-xs leading-tight text-ink-on-light hover:underline"
+        className="absolute bottom-0 right-0 bg-raised/75 px-1 text-xs leading-tight text-ink-on-light hover:underline"
       >
         © OpenStreetMap
       </a>

@@ -11,6 +11,7 @@ import {
   TemplateSection,
 } from '@/app/_components/template-rows';
 import { formatPhp } from '@/lib/orders';
+import { REFUND_TWO_ADMIN_THRESHOLD_PHP } from '@/lib/two-admin-promise';
 import { refundDayWords, refundedTotalPhp } from '@/lib/client-refunds';
 
 /** One number, read by the query AND disclosed by the table. */
@@ -118,7 +119,7 @@ export function SupplierRefundsView({
         <TemplateSection
           label="Waiting · large refund"
           right={waiting ? String(waiting.length) : '—'}
-          tip="A refund over ₱25,000 (Vendor Agreement § 9.1) is not recorded straight away — it waits in Work › Approvals with the reason attached. Nothing has been refunded yet."
+          tip={`A refund over ${formatPhp(REFUND_TWO_ADMIN_THRESHOLD_PHP)} (Vendor Agreement § 9.1) is not recorded straight away — it waits in Work › Approvals with the reason attached. Nothing has been refunded yet.`}
           data="refunds-waiting"
         >
           {waiting === null ? (

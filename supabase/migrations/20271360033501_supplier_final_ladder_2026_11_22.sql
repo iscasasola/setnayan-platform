@@ -6,7 +6,7 @@
 -- SUPPLIER_SUBSCRIPTIONS_BUILD_SPEC_2026-11-22.md § ★ B. The plans ARE storage sizes:
 --
 --   plan (code)          storage   live cards   people beyond owner   branches beyond main shop   categories
---   Free     (free)       1 GB      1            0                     0                           1
+--   Free     (free)       256 MB    1            0                     0                           1
 --   Verified (verified)   2 GB      3            0                     0                           1
 --   Plus     (solo)       128 GB    15           2                     0                           no limit
 --   Pro      (pro)        500 GB    no limit     no limit              no limit                    no limit
@@ -17,12 +17,14 @@
 --
 -- This is the DATA half of `TIER_CAPS` (apps/web/lib/vendor-tier-caps.ts), which moves in the same PR:
 --   1 · the admin-editable `vendor_plan_contents` rows (NULL = no limit, as the app reads them);
---   2 · `vendor_tier_limit()`: storage_gb 1 · 2 · 128 · 500 · 1000 (Verified 2 GB: owner 22 Nov "verified is 2Gb only") (Free and Verified had none), branches no limit on
+--   2 · `vendor_tier_limit()`: 'storage_mb' (whole MB) 256 · 2,000 · 128,000 · 500,000 · 1,000,000 REPLACES 'storage_gb'
+--       (Free 256 MB: owner 23 Nov "free unverified is 256 MB"; whole GB cannot say it. Verified 2 GB: "verified is 2Gb only") (Free and Verified had none), branches no limit on
 --       Pro and Ultra — and a stored NULL for `branches_included` now MEANS no limit instead of falling back;
 --   3 · `enforce_included_branch_allowance`: a NULL allowance is no limit (it used to COALESCE NULL to 0);
 --   4 · `vendor_pro_tools_included`: Plus joins Pro and Ultra (owner: every tool on every paid size);
 --   5 · the plan rows' max_categories / max_sub_seats in the catalogue (NULL = no limit, the column's own meaning).
 --   6 · `offer_creator_reach_hold`: creator offers open on every paid size (owner 22 Nov "SAME FEATURES IN EVERY SIZE").
+--   7 · `enforce_supplier_storage_allowance`: reads 'storage_mb' and names the size in its own words ("256 MB", "2 GB", "1 TB").
 --
 -- 🔑 NO PRICE IS WRITTEN, NO ROW IS RETIRED. Prices and the monthly-only catalogue are the next PR.
 -- GRANDFATHERED: lowering a number takes nothing away (only Plus's people 1 → 2 and cards 10 → 15 move, both up).
@@ -107,13 +109,13 @@ AS $$
           WHEN 'enterprise' THEN NULL
           ELSE 0                                -- Free · Verified · Plus (and an unknown tier, read as Free)
         END
-      WHEN 'storage_gb' THEN
+      WHEN 'storage_mb' THEN                    -- whole MB (decimal, as the supplier reads it); replaces 'storage_gb'
         CASE t.plan
-          WHEN 'free'       THEN 1              -- owner 2026-11-22 "FINAL LADDER": the plans are storage sizes
-          WHEN 'verified'   THEN 2              -- owner 2026-11-22 "verified is 2Gb only"
-          WHEN 'solo'       THEN 128
-          WHEN 'pro'        THEN 500
-          WHEN 'enterprise' THEN 1000           -- 1 TB (decimal, as the supplier reads it)
+          WHEN 'free'       THEN 256            -- owner 2026-11-23 "free unverified is 256 MB"
+          WHEN 'verified'   THEN 2000           -- owner 2026-11-22 "verified is 2Gb only"
+          WHEN 'solo'       THEN 128000         -- owner 2026-11-22 "FINAL LADDER": the plans are storage sizes
+          WHEN 'pro'        THEN 500000
+          WHEN 'enterprise' THEN 1000000        -- 1 TB
         END
       ELSE NULL                                 -- unknown key: NULL, never a silent 0
     END AS value
@@ -126,7 +128,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.vendor_tier_limit(text, text) IS
-  'Per-plan limits. Reads public.vendor_plan_contents first (admin-editable since 2026-11-13, two-admin approval), falling back to the code values when no row exists. Keys: whitelist_per_date · waitlist_acceptances · branches_included · storage_gb (the table also holds service_cards_total · parent_categories · agent_accounts, which the app reads). branches_included: NULL = no limit (Pro and Ultra since 2026-11-22), and a stored NULL row is honoured. storage_gb: 1 · 2 · 128 · 500 · 1000 (owner 2026-11-22 "FINAL LADDER", sizes re-cut by "PLUS CUT TO 128 GB" and "verified is 2Gb only"). An unknown TIER reads as Free; an unknown KEY returns NULL on purpose. Fallback mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts.';
+  'Per-plan limits. Reads public.vendor_plan_contents first (admin-editable since 2026-11-13, two-admin approval), falling back to the code values when no row exists. Keys: whitelist_per_date · waitlist_acceptances · branches_included · storage_mb (the table also holds service_cards_total · parent_categories · agent_accounts, which the app reads). branches_included: NULL = no limit (Pro and Ultra since 2026-11-22), and a stored NULL row is honoured. storage_mb (whole MB, replaces storage_gb): 256 · 2000 · 128000 · 500000 · 1000000 (owner 2026-11-22 "FINAL LADDER", re-cut by "PLUS CUT TO 128 GB", "verified is 2Gb only" and 23 Nov "free unverified is 256 MB"). An unknown TIER reads as Free; an unknown KEY returns NULL on purpose. Fallback mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts.';
 
 -- ── 3 · the branch gate: NULL = no limit ───────────────────────────────────
 -- The body of 20271307996183 with ONE change: a NULL allowance lets the branch through (was COALESCE(…, 0)).
@@ -356,5 +358,71 @@ BEGIN
     'tokens_charged', 0, 'creator_user_id', p_creator_user_id);
 END;
 $function$;
+
+
+-- ── 7 · the storage backstop reads whole MB ('storage_mb') ─────────────────
+-- Body from 20271342883073 VERBATIM except: the key ('storage_gb' → 'storage_mb'), the byte sum (MB × 1,000,000) and the
+-- refusal's size words. Free is 256 MB (owner 2026-11-23), which a whole-GB number cannot hold.
+CREATE OR REPLACE FUNCTION public.enforce_supplier_storage_allowance()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_tier   text;
+  v_mb     int;
+  v_words  text;
+  v_size   bigint;
+  v_used   bigint;
+BEGIN
+  IF NEW.media_id IS NULL THEN
+    RETURN NEW;                                   -- a link, a portfolio pointer or a chat document: no stored bytes
+  END IF;
+  IF TG_OP = 'UPDATE' AND NEW.media_id IS NOT DISTINCT FROM OLD.media_id THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT vp.tier_state::text INTO v_tier
+    FROM public.vendor_profiles vp WHERE vp.vendor_profile_id = NEW.vendor_profile_id;
+  v_mb := public.vendor_tier_limit(v_tier, 'storage_mb');
+  IF v_mb IS NULL THEN
+    RETURN NEW;                                   -- no allowance known: never refuse on a guess
+  END IF;
+
+  -- One shop's filings in a row, so two uploads racing for the last megabytes cannot both get in.
+  PERFORM pg_advisory_xact_lock(hashtext('supplier_storage:' || NEW.vendor_profile_id::text));
+
+  -- These bytes are already counted (another file of this shop points at the same copy): a link adds nothing.
+  IF EXISTS (
+    SELECT 1 FROM public.event_supplier_files f
+     WHERE f.media_id = NEW.media_id
+       AND f.vendor_profile_id = NEW.vendor_profile_id
+       AND (TG_OP = 'INSERT' OR f.file_id <> NEW.file_id)
+  ) THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT COALESCE(m.size_bytes, 0) INTO v_size
+    FROM public.supplier_media m
+   WHERE m.media_id = NEW.media_id AND m.vendor_profile_id = NEW.vendor_profile_id;
+  v_used := public.vendor_storage_used_bytes(NEW.vendor_profile_id);
+
+  IF v_used + COALESCE(v_size, 0) > v_mb::bigint * 1000000 THEN
+    -- The size as the supplier reads it (lib/downgrade-limits.ts storageWords): "256 MB" · "2 GB" · "1 TB".
+    v_words := CASE
+      WHEN v_mb >= 1000000 AND v_mb % 1000000 = 0 THEN (v_mb / 1000000)::text || ' TB'
+      WHEN v_mb >= 1000 AND v_mb % 1000 = 0 THEN (v_mb / 1000)::text || ' GB'
+      ELSE v_mb::text || ' MB'
+    END;
+    RAISE EXCEPTION 'storage_allowance: this file does not fit the % your plan holds', v_words
+      USING ERRCODE = 'P0001',
+            HINT = 'Remove files from an event to make room, or move to a plan that holds more.';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.enforce_supplier_storage_allowance() FROM PUBLIC, anon, authenticated;
 
 COMMIT;

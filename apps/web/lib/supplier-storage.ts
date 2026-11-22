@@ -2,10 +2,10 @@
  * lib/supplier-storage.ts — THE PLAN HOLDS STORAGE, THE PURE HALF.
  *
  * Owner 2026-11-22 "FINAL LADDER" (specs SUPPLIER_SUBSCRIPTIONS_BUILD_SPEC § ★ B), sizes re-cut the same day ("SUPPLIER SIZES
- * RE-CUT" + "PLUS CUT TO 128 GB"): the plans ARE storage sizes — Free 1 GB · Verified 2 GB · Plus 128 GB · Pro 500 GB · Ultra 1 TB. Every plan has an allowance now (was: Plus 5 · Pro 10 · Ultra 20 GB,
+ * RE-CUT" + "PLUS CUT TO 128 GB"): the plans ARE storage sizes — Free 256 MB · Verified 2 GB · Plus 128 GB · Pro 500 GB · Ultra 1 TB. Every plan has an allowance now (was: Plus 5 · Pro 10 · Ultra 20 GB,
  * Free and Verified none).
  *
- *   · the number   — `TIER_CAPS[plan].storageBytes` (lib/vendor-tier-caps.ts), twin `vendor_tier_limit(…,'storage_gb')`.
+ *   · the number   — `TIER_CAPS[plan].storageBytes` (lib/vendor-tier-caps.ts), twin `vendor_tier_limit(…,'storage_mb')` (whole MB).
  *   · what counts  — each stored copy a filed event file still points at, once (`vendor_storage_used_bytes`, read by
  *                    `readStoredBytes` in lib/downgrade-limits.server.ts). Removing a file from its events makes room;
  *                    nothing is ever deleted by the allowance.
@@ -53,7 +53,7 @@ function words(bytes: number): string {
  * 📋 A PLAN IN ONE LINE — its account features WITH its size, never the size alone (owner 2026-11-22: "supplier plans is
  * not just Memory Space. but features for their account as well"; build-sessions/SUPPLIER-PLANS-EXPLAINED-2026-11-22.md).
  * Read from `TIER_CAPS`, so a cap change moves every surface that says it:
- *   Free      "run your own clients, 1 live service, just you, main shop only, and 1 GB"
+ *   Free      "run your own clients, 1 live service, just you, main shop only, and 256 MB"
  *   Verified  "on the marketplace with the basics, 3 live services, just you, main shop only, and 2 GB"
  *   Plus      "every tool, 15 live services, you and 2 more, main shop only, and 128 GB"
  *   Pro/Ultra "every tool, no limit on services, people or branches, and 500 GB" / "… and 1 TB"

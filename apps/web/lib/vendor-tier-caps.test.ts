@@ -16,6 +16,7 @@ import {
   canBuyExtraBranches,
   canBuyExtraSeats,
   STORAGE_GB,
+  STORAGE_MB,
   canBuyExtraCategories,
   canBuyExtraServiceCards,
   canBuyExtraWaitlist,
@@ -44,7 +45,7 @@ test('allowances · the owner\'s 2026-11-22 FINAL LADDER, Free / Verified / Plus
   assert.deepEqual(row('agentAccounts'), [0, 0, 2, Infinity, Infinity], 'people beyond the owner: 0 / 0 / 2 / no limit / no limit');
   assert.deepEqual(row('waitlistAcceptances'), [10, 10, 10, 10, 10], 'waitlist: no plan limit — the setting\'s own ceiling on every plan');
   assert.deepEqual(row('branchesIncluded'), [0, 0, 0, Infinity, Infinity], 'branches besides the main shop: 0 / 0 / 0 / no limit / no limit');
-  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].storageBytes), [1, 2, 128, 500, 1000].map((gb) => gb * STORAGE_GB), 'storage: 1 GB / 2 GB ("verified is 2Gb only") / 128 GB / 500 GB / 1 TB');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].storageBytes), [256 * STORAGE_MB, ...[2, 128, 500, 1000].map((gb) => gb * STORAGE_GB)], 'storage: 256 MB (free unverified is 256 MB. so they run out of space asap.) / 2 GB ("verified is 2Gb only") / 128 GB / 500 GB / 1 TB');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].portfolioPhotos === Infinity), [false, false, true, true, true], 'no portfolio photo cap on a paid size');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].customWebsiteName), [false, false, true, true, true], 'own web address: Plus, Pro, Ultra');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].premiumPage), [false, false, true, true, true], 'the premium page parts are on every paid size (owner 2026-11-22 SAME FEATURES IN EVERY SIZE)');

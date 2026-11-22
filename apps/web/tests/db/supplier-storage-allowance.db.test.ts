@@ -23,6 +23,7 @@ import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrat
 let replay: ReplayResult;
 let db: PGlite;
 const GB = STORAGE_GB;
+const MB = 1_000_000;
 
 async function asOwner(): Promise<void> {
   await db.exec(`RESET ROLE`).catch(() => {});
@@ -110,14 +111,17 @@ after(async () => {
   await db?.close();
 });
 
-test('vendor_tier_limit(…,storage_gb) says exactly what TIER_CAPS says — every tier', async () => {
+test('vendor_tier_limit(…,storage_mb) says exactly what TIER_CAPS says — every tier (whole MB since Free is 256 MB)', async () => {
   for (const tier of VENDOR_TIERS) {
-    const r = await db.query<{ gb: number | null }>(`SELECT public.vendor_tier_limit($1,'storage_gb') AS gb`, [tier]);
-    const gb = r.rows[0]!.gb;
-    assert.equal(gb === null ? null : gb * GB, TIER_CAPS[tier].storageBytes, `${tier} storage`);
+    const r = await db.query<{ mb: number | null }>(`SELECT public.vendor_tier_limit($1,'storage_mb') AS mb`, [tier]);
+    const mb = r.rows[0]!.mb;
+    assert.equal(mb === null ? null : mb * MB, TIER_CAPS[tier].storageBytes, `${tier} storage`);
   }
-  const unknown = await db.query<{ gb: number | null }>(`SELECT public.vendor_tier_limit(NULL,'storage_gb') AS gb`);
-  assert.equal(unknown.rows[0]!.gb, 1, 'an unknown tier reads as Free — 1 GB');
+  const unknown = await db.query<{ mb: number | null }>(`SELECT public.vendor_tier_limit(NULL,'storage_mb') AS mb`);
+  assert.equal(unknown.rows[0]!.mb, 256, 'an unknown tier reads as Free — 256 MB');
+  // The whole-GB key is gone (it could not say 256 MB): an unknown key answers NULL, never a stale number.
+  const old = await db.query<{ gb: number | null }>(`SELECT public.vendor_tier_limit('free','storage_gb') AS gb`);
+  assert.equal(old.rows[0]!.gb, null, 'storage_gb still answers — two keys for one number');
   // The branch arm still answers beside it: Pro has no limit (NULL), as TIER_CAPS' Infinity.
   const r = await db.query<{ b: number | null }>(`SELECT public.vendor_tier_limit('pro','branches_included') AS b`);
   assert.equal(r.rows[0]!.b ?? Infinity, TIER_CAPS.pro.branchesIncluded);
@@ -141,10 +145,10 @@ test('Plus holds 128 GB, Pro 500 GB and Ultra (enterprise) 1 TB — owner 2026-1
   }
 });
 
-test('Free holds 1 GB now — the next new byte past it is refused (owner 2026-11-22)', async () => {
+test('Free holds 256 MB — the next new byte past it is refused, in the supplier\'s words (owner 2026-11-23)', async () => {
   const s = await newShop('free');
-  assert.equal((await file(s, await store(s, GB))).error, null, 'exactly 1 GB must fit');
-  assert.match((await file(s, await store(s, 1))).error ?? '', /storage_allowance/);
+  assert.equal((await file(s, await store(s, 256 * MB))).error, null, 'exactly 256 MB must fit');
+  assert.match((await file(s, await store(s, 1))).error ?? '', /storage_allowance: this file does not fit the 256 MB your plan holds/);
 });
 
 test('a link to a copy already counted adds nothing and is never refused — even at full', async () => {

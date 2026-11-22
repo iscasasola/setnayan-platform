@@ -97,7 +97,7 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     // dependend anymore"); once verified, every plan sets its own.
     { key: 'branches', title: 'Branches beyond your main shop', line: branches },
     {
-      // 💾 Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes — 1 GB · 2 GB · 128 GB · 500 GB · 1 TB (re-cut 22 Nov), in the words
+      // 💾 Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes — 256 MB · 2 GB · 128 GB · 500 GB · 1 TB (re-cut 22 Nov), in the words
       // `storageWords` prints everywhere else (decimal GB / TB).
       key: 'storage',
       title: 'Storage for your files',

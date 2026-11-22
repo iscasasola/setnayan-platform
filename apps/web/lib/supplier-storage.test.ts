@@ -24,6 +24,8 @@ import {
   storageAllowanceBytes,
   storageFits,
   storageFullMessage,
+  planSummaryWords,
+  planRole,
   storageRowLine,
 } from './supplier-storage';
 import { downgradeFit, type DowngradeFacts } from './downgrade-limits';
@@ -94,17 +96,17 @@ test('storageFits: up to the allowance fits, one byte past does not — on every
 test('the refusal names the plan, what is left, the way to make room and the next plan up — and touches nothing', () => {
   const m = storageFullMessage('solo', 127.9 * GB, 200_000_000);
   assert.match(m, /This file is 200 MB, and your Plus plan has 100 MB of its 128 GB left\./);
-  assert.match(m, /Remove files from an event to make room or move to Pro for 500 GB\./);
+  assert.match(m, /Remove files from an event to make room or move to Pro: every tool, no limit on services, people or branches, and 500 GB\./);
   assert.match(m, /Nothing you stored was changed\./);
   const full = storageFullMessage('pro', 500 * GB, 1_000_000);
   assert.match(full, /Your Pro plan’s 500 GB of storage is full\./);
-  assert.match(full, /move to Ultra for 1 TB/);
+  assert.match(full, /move to Ultra: every tool, no limit on services, people or branches, and 1 TB/);
   // Ultra has no plan above it, and there are no packs: no "move to", never an invented offer.
   const ultra = storageFullMessage('enterprise', 1000 * GB, 1_000_000);
   assert.match(ultra, /Your Ultra plan’s 1 TB of storage is full\. Remove files from an event to make room\./);
   assert.doesNotMatch(ultra, /move to/);
   // Free and Verified point at the first PAID size — Verified is earned by verifying, never "moved to".
-  assert.match(storageFullMessage('free', GB, 1_000_000), /Your Free plan’s 1 GB of storage is full\. Remove files from an event to make room or move to Plus for 128 GB\./);
+  assert.match(storageFullMessage('free', GB, 1_000_000), /Your Free plan’s 1 GB of storage is full\. Remove files from an event to make room or move to Plus: every tool, 15 live services, you and 2 more, main shop only, and 128 GB\./);
   assert.equal(nextStoragePlan('free'), 'solo');
   assert.equal(nextStoragePlan('verified'), 'solo');
   assert.equal(nextStoragePlan('solo'), 'pro');
@@ -228,4 +230,21 @@ test('the limits sheet: Pro → Plus over 128 GB waits for room; an unread store
   assert.match(row?.line ?? '', /You store 135 GB · Plus holds 128 GB\. Remove 7 GB first\./);
   const blind = downgradeFit({ ...facts, storedBytes: null }, 'pro', 'solo', { paywallOn: true, storageAllowanceBytes: storageAllowanceBytes('solo'), now: new Date('2026-11-13') });
   assert.equal(blind.rows.find((r) => r.key === 'storage')?.state, 'unread');
+});
+
+// 📋 Owner 2026-11-22: "supplier plans is not just Memory Space. but features for their account as well" — a plan is never
+// shown as its size alone (build-sessions/SUPPLIER-PLANS-EXPLAINED-2026-11-22.md).
+test('a plan reads its account features WITH its size — never the size alone', () => {
+  assert.equal(planSummaryWords('free'), 'run your own clients, 1 live service, just you, main shop only, and 1 GB');
+  assert.equal(planSummaryWords('verified'), 'on the marketplace with the basics, 3 live services, just you, main shop only, and 5 GB');
+  assert.equal(planSummaryWords('solo'), `every tool, ${TIER_CAPS.solo.serviceCardsTotal} live services, you and ${TIER_CAPS.solo.agentAccounts} more, main shop only, and 128 GB`);
+  assert.equal(planSummaryWords('pro'), 'every tool, no limit on services, people or branches, and 500 GB');
+  assert.equal(planSummaryWords('enterprise'), 'every tool, no limit on services, people or branches, and 1 TB');
+  for (const p of VENDOR_TIERS) assert.doesNotMatch(planSummaryWords(p), /Infinity|—|NaN/, p);
+  assert.deepEqual(VENDOR_TIERS.map(planRole), ['Free', 'Verified', 'The starter business', 'The growing business', 'The big studio']);
+  // Every surface that shows a paid plan reads the one line — none prints its size alone.
+  const read = (f: string) => stripComments(readFileSync(join(process.cwd(), f), 'utf8'));
+  assert.match(read('app/for-suppliers/_components/supplier-front-data.ts'), /planSummaryWords\(t\)/, 'the /for-suppliers plan card');
+  assert.match(read('app/_components/home/vendor-benefits.ts'), /planSummaryWords\('solo'\)[\s\S]*planSummaryWords\('pro'\)[\s\S]*planSummaryWords\('enterprise'\)/, 'the Plans page taglines');
+  assert.match(read('lib/supplier-storage.ts'), /move to \$\{planWord\(next\)\}: \$\{planSummaryWords\(next\)\}/, 'the storage-full way up');
 });

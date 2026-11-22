@@ -13,6 +13,7 @@ import { formatCount } from '@/lib/format-number';
 import { supplierCommissionShort, supplierCommissionPromise } from '@/lib/commission-promise';
 import { PORTFOLIO_FREE_BASE, TIER_CAPS } from '@/lib/vendor-tier-caps';
 import { storageWords } from '@/lib/downgrade-limits';
+import { planRole, planSummaryWords } from '@/lib/supplier-storage';
 
 /** A plan's size in words. `null` is only the type's "unreadable row" — every plan has a size — so it never invents one. */
 const sizeWords = (bytes: number | null): string => (bytes == null ? 'Your storage' : storageWords(bytes));
@@ -149,7 +150,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
     // So every feature row lives here, under the first paid size, and Pro and Ultra add only room and no limits.
     tier: 'solo',
     name: 'Plus',
-    tagline: `${sizeWords(TIER_CAPS.solo.storageBytes)} · the starter business. Every feature, with room for your albums. Everything in Free, plus:`,
+    tagline: `${planRole('solo')}: ${planSummaryWords('solo')}. Everything in Free, plus:`,
     groups: [
       {
         h: 'Your size',
@@ -195,7 +196,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'pro',
     name: 'Pro',
-    tagline: `${sizeWords(TIER_CAPS.pro.storageBytes)} · no limit on cards, people or branches. Everything in Plus, plus:`,
+    tagline: `${planRole('pro')}: ${planSummaryWords('pro')}. Everything in Plus, plus:`,
     groups: [
       {
         items: [
@@ -210,7 +211,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'enterprise',
     name: 'Ultra',
-    tagline: `${sizeWords(TIER_CAPS.enterprise.storageBytes)} · the most room. Everything in Pro, plus:`,
+    tagline: `${planRole('enterprise')}: ${planSummaryWords('enterprise')}. Everything in Pro, plus:`,
     groups: [
       {
         items: [

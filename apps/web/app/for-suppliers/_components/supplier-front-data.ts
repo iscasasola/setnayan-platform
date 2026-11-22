@@ -20,6 +20,7 @@ import { countNoun, formatCount } from '@/lib/format-number';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { FREE_FINDABLE } from './plan-table-data';
 import { storageWords } from '@/lib/downgrade-limits';
+import { planRole, planSummaryWords } from '@/lib/supplier-storage';
 
 /** A plan's size in words. `null` is only the type's "unreadable row" — every plan has a size — so it never invents one. */
 const sizeWords = (bytes: number | null): string => (bytes == null ? 'Your storage' : storageWords(bytes));
@@ -118,12 +119,9 @@ export function growSpec(t: GrowTier): string {
  * The first plan with limits is the starter business; a no-limit plan says so; the top size is "the most room".
  */
 export function planLine(t: GrowTier): string {
-  const c: TierCaps = TIER_CAPS[t];
-  const size = sizeWords(c.storageBytes);
-  if (Number.isFinite(c.serviceCardsTotal)) return `${size} · the starter business, with every feature.`;
-  if (t === GROW_TIERS[GROW_TIERS.length - 1]) return `${size} · the most room, no limits.`;
-  return `${size} · no limit on cards, people or branches.`;
+  return `${planRole(t)}: ${planSummaryWords(t)}.`;
 }
+
 
 /** "Everything in Free, plus" — the plan below, by the Grow order (Verified joins Free, 2026-11-14). */
 export function growPlus(t: GrowTier): string {

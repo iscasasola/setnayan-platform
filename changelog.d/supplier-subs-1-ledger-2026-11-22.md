@@ -17,6 +17,7 @@ Owner, 22 Nov 2026, "FINAL LADDER" + "STARTER BUSINESS", with the sizes re-cut t
   - the shop: microsite parts, payment methods, API keys, creators' send, the social card and posting lanes;
   - the queue order in disputes and the demo-booth rotation weigh every paid size the same;
   - plan copy (Plans page, /for-suppliers, /for-coordinators, the open-shop ladder) leads each paid size with its storage and lists every feature once under Plus; Pro and Ultra add only room and no limits. /for-coordinators now reads the /for-suppliers spec builder instead of its own copy.
+- **A plan is never its size alone** (owner, 22 Nov: "supplier plans is not just Memory Space. but features for their account as well"). One line, `planSummaryWords` (lib/supplier-storage.ts), names the tools, live services, people and branches with the size, e.g. Plus "every tool, 15 live services, you and 2 more, main shop only, and 128 GB". The /for-suppliers plan cards, the Plans page taglines and the storage-full way up all read it.
 - **No add-ons.** `canBuyExtraSeats` / `canBuyExtraBranches` answer no on every plan, so the extra seat and branch rows leave the plan table, the Plan screen and llms.txt.
 - **Special tools** (the Cake Maker and after) open from Plus; the lock on Free and Verified reads "Included in Plus", read from the plan table (`SPECIAL_TOOLS_LOCKED_WORDS`). No unlock fee.
 - **The photo challenge and the branded 3D booth** open from Plus (`PRO_TOOLS_MIN_TIER = 'solo'`, SQL twin `vendor_pro_tools_included`).

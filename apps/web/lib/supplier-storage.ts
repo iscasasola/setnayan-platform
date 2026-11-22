@@ -19,7 +19,8 @@
  * PURE: no I/O, no env. 🔒 lib/supplier-storage.test.ts
  */
 import { storageWords } from './downgrade-limits';
-import { TIER_CAPS, VENDOR_TIERS, asVendorTier, tierCaps, tierRank, type VendorTier } from './vendor-tier-caps';
+import { TIER_CAPS, VENDOR_TIERS, asVendorTier, isPaidSize, tierCaps, tierRank, type VendorTier } from './vendor-tier-caps';
+import { formatCount } from './format-number';
 import { planWord } from './vendor-plan-change-words';
 
 /** The machine-readable half of a refusal (the sentence is `storageFullMessage`). */
@@ -46,6 +47,44 @@ export function storageAllowanceBytes(plan: string | null | undefined): number |
 /** Bytes in the words a supplier reads — "0 MB" for nothing (storageWords floors at 1 MB). */
 function words(bytes: number): string {
   return bytes <= 0 ? '0 MB' : storageWords(bytes);
+}
+
+/**
+ * 📋 A PLAN IN ONE LINE — its account features WITH its size, never the size alone (owner 2026-11-22: "supplier plans is
+ * not just Memory Space. but features for their account as well"; build-sessions/SUPPLIER-PLANS-EXPLAINED-2026-11-22.md).
+ * Read from `TIER_CAPS`, so a cap change moves every surface that says it:
+ *   Free      "run your own clients, 1 live service, just you, main shop only, and 1 GB"
+ *   Verified  "on the marketplace with the basics, 3 live services, just you, main shop only, and 5 GB"
+ *   Plus      "every tool, 15 live services, you and 2 more, main shop only, and 128 GB"
+ *   Pro/Ultra "every tool, no limit on services, people or branches, and 500 GB" / "… and 1 TB"
+ * The /for-suppliers plan cards, the Plans page taglines and the storage-full way up all say it.
+ */
+export function planSummaryWords(plan: string | null | undefined): string {
+  const t = asVendorTier(plan);
+  const c = TIER_CAPS[t];
+  const tools = isPaidSize(t) ? 'every tool' : t === 'verified' ? 'on the marketplace with the basics' : 'run your own clients';
+  const open = [c.serviceCardsTotal, c.agentAccounts, c.branchesIncluded].every((v) => !Number.isFinite(v));
+  const parts = [tools];
+  if (open) parts.push('no limit on services, people or branches');
+  else {
+    const n = c.serviceCardsTotal;
+    parts.push(Number.isFinite(n) ? `${formatCount(n)} live ${n === 1 ? 'service' : 'services'}` : 'no limit on services');
+    parts.push(!Number.isFinite(c.agentAccounts) ? 'no limit on people' : c.agentAccounts > 0 ? `you and ${formatCount(c.agentAccounts)} more` : 'just you');
+    parts.push(!Number.isFinite(c.branchesIncluded) ? 'no limit on branches' : c.branchesIncluded > 0 ? `${formatCount(c.branchesIncluded)} ${c.branchesIncluded === 1 ? 'branch' : 'branches'}` : 'main shop only');
+  }
+  if (c.storageBytes !== null) parts.push(storageWords(c.storageBytes));
+  return `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
+}
+
+/**
+ * A paid size's role in the plan-page copy (SUPPLIER-PLANS-EXPLAINED): the first one with limits is the starter business,
+ * the top size the big studio, the size between them the growing business. Free and Verified have no role line.
+ */
+export function planRole(plan: string | null | undefined): string {
+  const t = asVendorTier(plan);
+  if (!isPaidSize(t)) return t === 'verified' ? 'Verified' : 'Free';
+  if (Number.isFinite(TIER_CAPS[t].serviceCardsTotal)) return 'The starter business';
+  return t === VENDOR_TIERS[VENDOR_TIERS.length - 1] ? 'The big studio' : 'The growing business';
 }
 
 /**
@@ -91,7 +130,8 @@ export function storageFullMessage(plan: string | null | undefined, usedBytes: n
   const name = planWord(asVendorTier(plan));
   const left = Math.max(0, allowance - Math.max(0, usedBytes));
   const next = nextStoragePlan(plan);
-  const up = next ? ` or move to ${planWord(next)} for ${storageWords(TIER_CAPS[next].storageBytes ?? 0)}` : '';
+  // The way up names the plan's account features with its size, never the size alone (owner 2026-11-22).
+  const up = next ? ` or move to ${planWord(next)}: ${planSummaryWords(next)}` : '';
   const reason =
     left < 1e6
       ? `Your ${name} plan’s ${storageWords(allowance)} of storage is full.`

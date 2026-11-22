@@ -494,6 +494,10 @@ const AUDITED_DEFINER_READERS: string[] = [
   // 👈 20271342335343: EXECUTE revoked from every browser role; returns one boolean (is this file part of the booking).
   'chat_message_is_booking_file',
   'chat_poll_open', // inserts the poll's own system line; returns the poll id
+  // 🧾 20271354150744 (Unichat H2 · the deal's end said in the chat): EXECUTE revoked from every browser role (the
+  // handover / crew triggers call it). Matches only sender_role = 'system' lines of ONE event + shop thread against a
+  // fixed sentence the caller passes; returns one boolean — never a body, never a person's message.
+  'chat_record_line_exists',
   'chat_record_post_line', // finds the thread and inserts a system line; returns nothing
   'count_unread_message_threads', // filters recipient_user_id (20271329968207/20271330575424)
   // ✏️ 20271354347259 (Unichat H1 · edit / unsend your own message): each locks ONE row and acts only when the caller

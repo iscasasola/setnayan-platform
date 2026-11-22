@@ -5,6 +5,8 @@
  *   ?m=quote|payment|logpay|form|answer|files|decision|ask|askcard|counter|countercard|plan|plancard|recount|book   the card
  *   ?m=rose     "Quote rose to N pax · +₱X" as both sides' streams draw it (PR-2) · ?m=balance  the Final balance growing
  *   ?m=fell     "Quote fell to N pax · −₱X" as both sides' streams draw it · ?m=drop  the Final balance shrinking (paid stays)
+ *   ?m=dealend  🏁 The deal's end (Unichat part H2): terms at Accept · receipt · crew · handover · review, both sides
+ *               (&f=1: the hosts' cards unseeded, so each read is refused and draws its "Couldn't load" face)
  *   ?m=make     🧾 Make a quote (cut 7) — the short card a no-quote chat drops (&e=1: a shop with no card on)
  *   &e=1                                                                          its honest EMPTY state
  *   &step=N                                                                       open on step N (filled up to it)
@@ -24,8 +26,13 @@ import { GuestRecountCard } from '@/app/_components/chat/cards/guest-recount-car
 import { BookRequestCard } from '@/app/_components/chat/cards/book-request-card';
 import type { QuoteForCard } from '@/app/_components/chat/cards/card-calls';
 import { planLedger } from '@/lib/chat-cards';
+import { formatPhp } from '@/lib/php';
 import { StreamLineCard } from '@/app/_components/chat/cards/stream-line-card';
 import { followGuestCount } from '@/lib/quote-pax-follow';
+import { ReceiptCard } from '@/app/_components/chat/cards/receipt-card';
+import { CrewDayCard } from '@/app/_components/chat/cards/crew-day-card';
+import { HandoverCard, ReviewAskCard } from '@/app/_components/chat/cards/handover-card';
+import { QuoteTermsLine } from '@/app/_components/chat/cards/quote-terms-line';
 
 const THREAD = '00000000-0000-4000-8000-00000000c0de';
 const EVENT = '00000000-0000-4000-8000-0000000e0e0e';
@@ -329,6 +336,68 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
             <PaymentStepCard threadId={THREAD} eventId={EVENT} eventDate={EVENT_DAY} returnPath={BACK} seed={{ ledger: before, step: 0 }} />
             <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/50">After · {r.line}</p>
             <PaymentStepCard threadId={THREAD} eventId={EVENT} eventDate={EVENT_DAY} returnPath={BACK} seed={{ ledger: after, step: 0 }} />
+          </div>
+        );
+      }
+      case 'dealend': {
+        // 🏁 The deal's end (Unichat part H2): terms at Accept · receipt · crew for the day · handover · review.
+        // Seeded — no request is made. &e=1 draws each card's honest "nothing found / nothing yet" face.
+        const at = '2026-11-20T04:00:00Z';
+        const receipt = empty
+          ? null
+          : { paymentId: 'p1', amountCentavos: C(15_300), whatFor: 'First payment' as const, method: 'GCash', reference: '7781 2204', paidOn: '2026-11-20', confirmedAt: at, paidCentavos: C(15_300), agreedCentavos: C(51_000), leftCentavos: C(35_700) };
+        const crew = empty
+          ? { members: [], firstArrival: null }
+          : {
+              firstArrival: '2026-12-18T12:00:00Z',
+              members: [
+                { name: 'Jun Reyes', roles: ['Lights tech', 'Rigger'], arriveAt: '2026-12-18T12:00:00Z' },
+                { name: 'Paolo Cruz', roles: ['Sound engineer'], arriveAt: '2026-12-18T13:00:00Z' },
+                { name: 'Ben Tan', roles: ['Rigger'], arriveAt: null },
+              ],
+            };
+        if (sp.f === '1') {
+          // &f=1 — the hosts' cards with NO seed: each read really goes out, and the lab's dummy database refuses it,
+          // so every card draws its honest "Couldn't load" face (never an empty card, never ₱0).
+          return (
+            <div className="grid gap-1" data-dealend-lab="failed">
+              <div className="rounded-[var(--sn-frame-radius)] bg-frame p-3 shadow-sn-hair">
+                <p className="text-[15px] font-bold text-ink">{formatPhp(51_000)} · v2</p>
+                <QuoteTermsLine proposalId={QUOTE.proposalId} supplierName="Lumina Studio" />
+              </div>
+              <ReceiptCard threadId={THREAD} createdAt={at} amountWords={formatPhp(15_300)} first viewer="couple" supplierName="Lumina Studio" />
+              <CrewDayCard threadId={THREAD} viewer="couple" supplierName="Lumina Studio" />
+              <HandoverCard threadId={THREAD} createdAt={at} kind="gallery_link" viewer="couple" supplierName="Lumina Studio" />
+              <ReviewAskCard threadId={THREAD} viewer="couple" supplierName="Lumina Studio" />
+            </div>
+          );
+        }
+        const handover = (status: 'delivered' | 'acknowledged') =>
+          empty
+            ? { handover: null, eventId: EVENT }
+            : { eventId: EVENT, handover: { handover_id: 'h1', event_vendor_id: 'v1', kind: 'gallery_link' as const, label: 'Lighting photos · 24', payload: 'https://example.com/album', status, created_at: at, couple_acknowledged_at: status === 'acknowledged' ? at : null } };
+        return (
+          <div className="grid gap-4">
+            {(['couple', 'vendor'] as const).map((v) => {
+              const name = v === 'couple' ? 'Lumina Studio' : 'you';
+              return (
+                <div key={v} className="grid gap-1">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/50">{v === 'couple' ? 'The hosts’ chat' : 'The supplier’s chat'}</p>
+                  {v === 'couple' ? (
+                    <div className="rounded-[var(--sn-frame-radius)] bg-frame p-3 shadow-sn-hair">
+                      <p className="text-[15px] font-bold text-ink">{formatPhp(51_000)} · v2</p>
+                      <QuoteTermsLine proposalId={QUOTE.proposalId} supplierName="Lumina Studio" seed={{ terms: empty ? '' : 'First payment non-refundable · 50% back if cancelled 30+ days before', status: 'sent' }} />
+                    </div>
+                  ) : null}
+                  <ReceiptCard threadId={THREAD} createdAt={at} amountWords={formatPhp(15_300)} first viewer={v} supplierName={name} seed={{ receipt }} />
+                  <CrewDayCard threadId={THREAD} viewer={v} supplierName={name} seed={crew} />
+                  <HandoverCard threadId={THREAD} createdAt={at} kind="gallery_link" viewer={v} supplierName={name} seed={handover('delivered')} />
+                  <HandoverCard threadId={THREAD} createdAt={at} kind="gallery_link" viewer={v} supplierName={name} seed={handover('acknowledged')} />
+                  <ReviewAskCard threadId={THREAD} viewer={v} supplierName={name} seed={{ review: null, writeHref: v === 'couple' ? BACK : null }} />
+                  <ReviewAskCard threadId={THREAD} viewer={v} supplierName={name} seed={{ review: { rating: 4, body: empty ? null : 'On time, and the room looked lovely.' }, writeHref: null }} />
+                </div>
+              );
+            })}
           </div>
         );
       }

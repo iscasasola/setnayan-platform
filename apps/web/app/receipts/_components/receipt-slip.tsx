@@ -34,7 +34,8 @@ export function ReceiptSlip({
   legal,
 }: {
   kind: string;
-  number: string;
+  /** "No. …" under the kind. Null = the document has no number of its own yet (the supplier-payment receipt). */
+  number: string | null;
   stamp: ReceiptStampStatus | null;
   /** "Pay by <date>" on the AWAITING tag — only a real due date; none exists on orders today, so callers omit it. */
   payBy?: string | null;
@@ -53,7 +54,7 @@ export function ReceiptSlip({
       <style>{SLIP_CSS}</style>
       <p className="text-center text-[12.5px] font-bold tracking-[0.3em]">SETNAYAN</p>
       <p className="mt-[7px] text-center font-mono text-[9.5px] uppercase leading-none tracking-[0.22em] text-[#6E6A62]">{kind}</p>
-      <p className="mt-1.5 text-center font-mono text-[11px] leading-none text-[#6E6A62]">No. {number}</p>
+      {number ? <p className="mt-1.5 text-center font-mono text-[11px] leading-none text-[#6E6A62]">No. {number}</p> : null}
       {/* The stamp owns the top-right corner; the amount steps left to give it room (owner's pick 2026-10-25). Its
           own clipping box, so the PAID ink can run off the edge without clipping the slip's torn bottom. */}
       {stamp ? (
@@ -112,16 +113,25 @@ function SlipLineRow({ line }: { line: SlipLine }) {
 }
 
 /** The page around the slip: the back link, the slip, the actions — the page takes the dark set, the slip never. */
-export function ReceiptPage({ children, actions }: { children: ReactNode; actions: ReactNode }) {
+export function ReceiptPage({
+  children,
+  actions,
+  back = { href: '/dashboard/billing', label: 'Billing & receipts' },
+}: {
+  children: ReactNode;
+  actions: ReactNode;
+  /** Where ‹ goes — Billing for Setnayan's own receipts; the supplier-payment receipt goes back to its event's chat. */
+  back?: { href: string; label: string };
+}) {
   return (
     <main className="min-h-dvh bg-page px-4 pb-10 pt-3.5 print:bg-white print:p-0">
       <style>{PRINT_CSS}</style>
       <div className="mx-auto w-full max-w-[340px]">
         <Link
-          href="/dashboard/billing"
+          href={back.href}
           className="screen-only mb-3 inline-flex min-h-[44px] items-center text-[13px] font-semibold text-terracotta"
         >
-          ‹ Billing &amp; receipts
+          ‹ {back.label}
         </Link>
         {children}
         <div className="screen-only mt-7 flex items-center justify-center gap-[18px]">{actions}</div>

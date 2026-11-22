@@ -150,6 +150,28 @@
   }
 }
 
+/* 👻 THE SHOP GHOST (`shop/loading.tsx`, 21 Nov) takes the same layout A as the page it stands in for, so nothing
+   moves when the page replaces it. Below 1280 its wrappers draw nothing, like the page's. */
+[data-shop-ghost-desk],
+[data-shop-ghost-side] {
+  display: contents;
+}
+@media (min-width: 1280px) {
+  [data-shop-ghost-desk] {
+    display: grid;
+    grid-template-columns: var(--shop-desk-side) minmax(0, 1fr);
+    column-gap: var(--desk-gap);
+    align-items: start;
+  }
+  [data-shop-ghost-desk] > [data-shop-ghost-side] {
+    display: block;
+    min-width: 0;
+  }
+  [data-shop-ghost-desk] [data-shop-ghost-cards] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* ── 🖥 SHOP ON A COMPUTER — layout A (owner 16 Nov, the same approval, picks 3 · 4 · 5). The cover and its doors keep the
    full width; from 1280 the analytics, badges and Makers are a 400px side column (440 from 1600) beside the service
    cards; the analytics carousel lays out as a grid (pick 4) and the cards go 2 across, 3 from 1600 (pick 5). Same cards,

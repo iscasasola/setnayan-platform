@@ -28,7 +28,7 @@ test('1 · no section picker — one list', () => {
 
 test('2 · bundles first, then services grouped Group › Category', () => {
   const at = (re: RegExp) => PAGE.search(re);
-  assert.ok(at(/<ShopServicesHead\b/) < at(/<ShopBundles\b/) && at(/<ShopBundles\b/) < at(/<VendorServicesManager\b/), 'bundles do not come first');
+  assert.ok(at(/<ShopServicesHead\b/) < at(/<ShopBundles\b/) && at(/<ShopBundles\b/) < at(/\{servicesList\}/), 'bundles do not come first');
   assert.match(MANAGER, /const groupLabelOf = /);
   assert.match(MANAGER, /coverageLabels\.pathLabel\(/, 'the group is not read from the one taxonomy');
   assert.match(MANAGER, /data-shop-card-group-label=""/);
@@ -53,5 +53,7 @@ test('4 · the head compresses into one sticky row on the house motion', () => {
 
 test('5 · the services list draws its "Tools on every event" line, and the Tools view is gone', () => {
   assert.match(MANAGER, /Tools on every event · /);
-  assert.match(PAGE, /toolsByCoverage=\{toolsByCoverage\(data\)\}/);
+  // ⏱ 21 Nov: the list starts beside the batch; its lines arrive from the batch as a promise, awaited at its end.
+  assert.match(PAGE, /toolsByCoverage: dataRead\s*\.then\(\(d\) => \(d === 'no-vendor' \? \{\} : toolsByCoverage\(d\)\)\)/);
+  assert.match(MANAGER, /const toolsLines = await toolsByCoverage;/, 'the list no longer awaits its tools lines');
 });

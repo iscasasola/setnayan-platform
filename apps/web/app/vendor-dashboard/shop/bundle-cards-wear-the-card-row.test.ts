@@ -107,7 +107,7 @@ test('6 · the list is "Your bundles and services", bundles first', () => {
   assert.match(HEAD, />\s*Your bundles and services\s*</, 'the head no longer reads "Your bundles and services"');
   assert.doesNotMatch(HEAD, />\s*Your services\s*</, 'the head says "Your services" again');
   const bundles = PAGE.indexOf('<ShopBundles ');
-  const cards = PAGE.indexOf('<VendorServicesManager ');
+  const cards = PAGE.indexOf('{servicesList}'); // ⏱ started beside the batch, drawn here (21 Nov)
   assert.ok(bundles > 0 && cards > bundles, 'bundles are no longer listed first');
 });
 

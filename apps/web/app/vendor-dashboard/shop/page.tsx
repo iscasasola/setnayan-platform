@@ -45,7 +45,6 @@ import { shopBadges, type ShopBadge, type TrackerFacts } from '@/lib/shop-badges
 import { readBadgeRewardTracker } from '@/lib/badge-rewards.server';
 import { type TrackerRewardInput } from '@/lib/badge-rewards';
 import { shelfNextBadgeLine, shopBadgeShelf, type ShelfTile } from '@/lib/shop-badge-shelf';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatCount } from '@/lib/format-number';
 import type { ProfileFieldData } from './_components/editable-row';
 import { CoverPhotoMenu, LogoPhotoMenu } from './_components/photo-menus';
@@ -125,10 +124,12 @@ type ShopData = {
   reviews: string | null;
   events: string | null;
   /**
-   * 📊🎠 What ONE Analytics (the carousel) reads with — the shop's own session, user and row. The carousel STREAMS in
-   * its own <Suspense> (`OneAnalyticsSection`), so the cover never waits for its batch.
+   * ⏱ THE PARTS THAT DRAW FROM THE SHOP'S OWN ROW, ALREADY STARTED (21 Nov, owner: *"loading feels long … layers that
+   * are above each other that shouldn't be"*). ONE Analytics (the carousel) and the "Edit your name" notice used to
+   * start only after the batch below, each in its own <Suspense> — a second round of reads, and pieces that landed one
+   * by one, the notice pushing the page down. They start beside the batch now and land WITH the page, in one go.
    */
-  analytics: { supabase: SupabaseClient; userId: string; profile: VendorProfileRow };
+  started: { analytics: Part; fairSweep: Part };
   /** 🖼 The hero (Lane E 11–12): the cover photo, else the category placeholder — and its caption. */
   hero: { url: string; kind: 'photo' | 'placeholder' };
   heroCaption: string | null;
@@ -145,8 +146,6 @@ type ShopData = {
   /** The logo row's editor data (Your details' own close-save row). */
   logoItem: BusinessProfileItem | null;
   logoFields: ProfileFieldData;
-  /** 🚫 What the "Edit your name" sweep reads from the shop's own row (the cards and bundles it reads itself). */
-  fairSweep: { vendorId: string; shopName: string | null; tagline: string | null };
   /** 📂 What the Upload doors' uploader needs (the stored list · free room · wallet) — Portfolio's own three reads. */
   uploadFacts: PortfolioUploadFacts;
   /** 📋 How many live forms the shop has saved (the Forms Maker tile) — null = unread, said as "Couldn't load". */
@@ -157,6 +156,25 @@ type ShopData = {
 
 /** The badge facts were unread — the reward lines are then simply absent (a sentinel, never logged twice). */
 const FACTS_UNREAD = Symbol('badge facts unread');
+
+/** A part of the Shop whose render has already started (`startPart`). */
+type Part = Promise<JSX.Element | null>;
+
+/**
+ * ⏱ STARTS A PART'S RENDER NOW — beside the shop's own batch, never after it (21 Nov). The promise is drawn in place,
+ * with NO <Suspense> of its own, so the part arrives WITH the page (the Shop Ghost holds until then; `loading.tsx`).
+ * A part that fails draws `fallback` (its honest "Couldn't load …" or nothing) instead of taking the whole Shop down,
+ * and the failure is logged. A part's own redirect (signed out · no shop) draws nothing: the page's gate asks the same
+ * question first and redirects itself. So a part never rejects — one never drawn (the loader failed first) can never
+ * be an unhandled rejection. 🔒 the-shop-arrives-in-one-go.test.ts
+ */
+function startPart(name: string, run: () => Promise<JSX.Element | null>, fallback: JSX.Element | null): Part {
+  return run().catch((err: unknown) => {
+    const digest = (err as { digest?: unknown } | null)?.digest;
+    if (!(typeof digest === 'string' && digest.startsWith('NEXT_'))) logQueryError(`VendorShopPage.${name}`, err, {});
+    return fallback;
+  });
+}
 
 type VerifyStatus = 'draft' | 'pending_review' | 'in_review' | 'approved' | 'rejected' | 'withdrawn' | null;
 
@@ -170,6 +188,16 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
 
   const vendorId = profile.vendor_profile_id;
   const businessName = profile.business_name ?? 'Your shop';
+
+  // ⏱ The parts that need only the gate start HERE, beside the batch below (one round of reads, not two).
+  const started = {
+    analytics: startPart('analytics', () => OneAnalyticsSection({ supabase, userId: user.id, profile }), <CouldNotLoad what="your analytics" />),
+    fairSweep: startPart(
+      'fairSweep',
+      () => FairSweepNotice({ vendorProfileId: vendorId, shopName: profile.business_name ?? null, tagline: profile.tagline ?? null }),
+      null,
+    ),
+  };
 
   // ─── EVERY READ BELOW STARTS AT ONCE ─────────────────────────────────────
   // 🔑 The gate above runs first (who is signed in, which shop is theirs). Every read below is scoped to THAT
@@ -459,7 +487,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       : null,
     // 🔒 The header's next step IS the Completed bookings tile's goal (one ladder, one goal — lib/shop-badge-shelf.ts).
     nextBadge: shelfNextBadgeLine(badges),
-    analytics: { supabase, userId: user.id, profile },
+    started,
     hero,
     heroCaption:
       hero.kind === 'photo'
@@ -487,7 +515,6 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
           : null,
       papers: papersProgress(verifyUnread ? null : { done: countCompleteRequiredSlots(verifyUploads), of: REQUIRED_DOC_SLOT_KEYS.size }),
     },
-    fairSweep: { vendorId, shopName: profile.business_name ?? null, tagline: profile.tagline ?? null },
   };
 }
 
@@ -527,20 +554,6 @@ function SheetOpening({ line = 'Opening…' }: { line?: string }) {
   );
 }
 
-/** The streaming stand-in: the section's own heading and one card's height, so nothing jumps when the carousel lands. */
-function AnalyticsPlaceholder() {
-  return (
-    <section aria-busy="true" aria-label="Analytics, loading" data-shop-analytics-loading="" className="scroll-mt-24">
-      <div className="flex items-baseline justify-between px-4 pb-2 pt-5">
-        <span className="sn-eye">Analytics</span>
-      </div>
-      <div className="px-4">
-        <div className="h-[260px] animate-pulse rounded-2xl bg-ink/[0.05]" />
-      </div>
-    </section>
-  );
-}
-
 /** The services head's line — one plain sentence; the counts live in the pinned row. */
 const SERVICES_LINE = 'Your bundles first, then each service you offer.';
 /** "1 bundle · 2 cards · 1 live" — what the compressed row keeps. Unread and zero counts are left out, never "0 bundles". */
@@ -572,9 +585,32 @@ async function ShopHome({
 }: {
   searchParams: Promise<ServicesManagerSearch & Record<string, string | string[] | undefined>>;
 }) {
+  const sp = await searchParams;
+  // ⏱ ONE ROUND OF READS (21 Nov). Everything the Shop draws starts NOW, together: the shop's own batch, the service
+  // list (its reads never needed the batch — only its "Tools on every event" lines do, awaited at its very end) and
+  // the photos couples shared. Before, the list, Analytics and both notices started only once the batch had finished —
+  // a second round — and then landed one by one. 🔒 the-shop-arrives-in-one-go.test.ts
+  const dataRead = loadShopData();
+  const servicesList = startPart(
+    'servicesList',
+    () =>
+      VendorServicesManager({
+        search: sp,
+        basePath: '/vendor-dashboard/shop',
+        toolsByCoverage: dataRead
+          .then((d) => (d === 'no-vendor' ? {} : toolsByCoverage(d)))
+          .catch((err: unknown) => {
+            // The loader failed — the page draws "Couldn't load your shop" instead and never draws this list.
+            logQueryError('VendorShopPage.toolsLines', err, {});
+            return {};
+          }),
+      }),
+    <CouldNotLoad what="your services" />,
+  );
+  const couplePhotos = startPart('couplePhotos', () => CouplePhotosToAnswer(), null);
   let data: ShopData | 'no-vendor' | null;
   try {
-    data = await loadShopData();
+    data = await dataRead;
   } catch (err) {
     const digest = (err as { digest?: unknown } | null)?.digest;
     if (typeof digest === 'string' && digest.startsWith('NEXT_')) {
@@ -610,7 +646,6 @@ async function ShopHome({
 
   // Canonical vendor URL is the bare-root alias (www.setnayan.com/{slug}).
   const publicPath = data.slug ? `/${data.slug}` : null;
-  const sp = await searchParams;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const shareUrl = data.slug ? ownPageUrl(siteOrigin(), data.slug) : null; // 💳 shared BY the supplier: ?src=own
   const cover: CoverData = {
@@ -700,16 +735,13 @@ async function ShopHome({
         {/* 🧭 No loose rows under the cover (Build 2 §10 #31): Your page is the Shop ⚙'s first row, Your details is the
             top-right account sheet's, and the inspiration library's door is Portfolio's (its tab, `pageHome`). */}
 
-        {/* 📸 Photos couples shared for a service card, waiting for Approve — draws nothing when none. */}
+        {/* 📸 Photos couples shared for a service card, waiting for Approve — draws nothing when none. ⏱ Started with
+            the batch and drawn WITH the page (21 Nov): it no longer lands after the page and pushes it down. */}
         <div className="px-4">
-          <Suspense fallback={null}>
-            <CouplePhotosToAnswer />
-          </Suspense>
-          {/* 🚫 "Edit your name" — the fair-presentation sweep of this shop's live names (owner 2026-11-08). Streamed:
-              the cover never waits; draws nothing when every name is fine; never takes anything down. */}
-          <Suspense fallback={null}>
-            <FairSweepNotice vendorProfileId={data.fairSweep.vendorId} shopName={data.fairSweep.shopName} tagline={data.fairSweep.tagline} />
-          </Suspense>
+          {couplePhotos}
+          {/* 🚫 "Edit your name" — the fair-presentation sweep of this shop's live names (owner 2026-11-08). Draws
+              nothing when every name is fine; never takes anything down. Started beside the batch, drawn with the page. */}
+          {data.started.fairSweep}
         </div>
 
         {/* 🖥 SHOP ON A COMPUTER — layout A (owner 16 Nov, DECISION_LOG "SUPPLIER DESKTOP MAIN PAGES APPROVED", picks 3–5):
@@ -732,11 +764,9 @@ async function ShopHome({
 
         {/* 📊🎠 ANALYTICS — THE CAROUSEL, AND THE ONLY ANALYTICS (owner 11 Nov 2026: "Analytics should be the carousel" ·
             "one long carousel" · the window "inside each card"). Every graph once, each card with its own 30 days / 12
-            months switch; tap = it rises with ONE recommendation. Owners and admins only. Streamed: the cover draws
-            first, the carousel arrives in place of a same-height placeholder; the badge row stays directly under it. */}
-        <Suspense fallback={<AnalyticsPlaceholder />}>
-          <OneAnalyticsSection {...data.analytics} />
-        </Suspense>
+            months switch; tap = it rises with ONE recommendation. Owners and admins only. ⏱ Started beside the batch and
+            drawn WITH the page (21 Nov) — no placeholder swapped for the carousel; the badge row stays directly under it. */}
+        {data.started.analytics}
 
         {/* 🏅 BADGES — ONE row of the approved v84 badges: completed first, then in progress, then not yet (Lane E item 2). */}
         <ShopBadgeRow tiles={data.badges} shopName={data.businessName} />
@@ -759,7 +789,7 @@ async function ShopHome({
           <p hidden className="py-3 text-[14px] text-ink/65" data-shop-cards-none="">
             No services match that search.
           </p>
-          <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" toolsByCoverage={toolsByCoverage(data)} />
+          {servicesList}
         </section>
         </div>
       </div>
@@ -774,7 +804,7 @@ async function ShopHome({
  * 2026-10-21; and the LAST fold, Manpower, left on 2026-11-09 (Build 3 Lane E, owner: *"Remove manpower gigs lets not
  * deal with this first"* — no door anywhere for now; `/vendor-dashboard/manpower` and its data are untouched). So Shop
  * has no folds. Old `?open=…` links still land here; `#shop-folds` keeps its anchor. */
-import { Suspense } from 'react';
+import { Suspense, type JSX } from 'react';
 import { shopGearBodyAlways } from './_components/shop-settings-body';
 import { BadgeRewardSweep } from '../_components/badge-reward-sweep';
 import { shopFormsBody } from './_components/shop-forms-body';

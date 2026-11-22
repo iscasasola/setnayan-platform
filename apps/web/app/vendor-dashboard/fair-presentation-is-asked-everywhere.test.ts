@@ -175,9 +175,12 @@ test('every page that draws a supplier-written field reads the word list and han
   for (const [f, re] of pairs) assert.match(read(f), re, `${f} no longer hands the word list to its field`);
 });
 
-test('the sweep notice is on the Shop tab, streamed, and in-app only', () => {
+test('the sweep notice is on the Shop tab, started beside the batch, and in-app only', () => {
   const page = read('app/vendor-dashboard/shop/page.tsx');
-  assert.match(page, /<Suspense fallback=\{null\}>\s*<FairSweepNotice /, 'the "Edit your name" notice left the Shop tab (or stopped streaming)');
+  // 21 Nov: it no longer streams in after the page (it pushed the page down) — it starts with the batch and is drawn
+  // WITH the page (the-shop-arrives-in-one-go.test.ts).
+  assert.match(page, /fairSweep: startPart\(\s*'fairSweep',\s*\(\) => FairSweepNotice\(\{/, 'the "Edit your name" notice left the Shop tab (or stopped starting with the batch)');
+  assert.match(page, /\{data\.started\.fairSweep\}/, 'the "Edit your name" notice is started but never drawn');
 });
 
 test('no fair-presentation file names a law or an agency (owner: "remove the DTI statement")', () => {

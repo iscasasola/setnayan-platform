@@ -50,8 +50,10 @@ const count = (src: string, needle: string) => src.split(needle).length - 1;
  * — exactly how a mount gets lost in a restructure — left the guard green. The
  * trailing class is what makes the match a whole tag name.
  */
+// A mount is `<Component …>` — or, since 21 Nov, `Component({…})`: Shop STARTS a part's render beside its batch and
+// draws the promise in place (`startPart` in shop/page.tsx), which still mounts it exactly once.
 const mountCount = (src: string, component: string) =>
-  (src.match(new RegExp(`<${component}(?![A-Za-z0-9_])`, 'g')) ?? []).length;
+  (src.match(new RegExp(`<${component}(?![A-Za-z0-9_])|\\b${component}\\(\\{`, 'g')) ?? []).length;
 
 /**
  * Every component the shipped page mounted BEFORE G1, with the door the

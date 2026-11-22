@@ -35,7 +35,7 @@ test('1 · one scroll, in the ruled order', () => {
   // Analytics — the carousel, every graph a card — `shop/analytics-is-the-carousel.test.ts` holds its shape.
   // 🔁 RE-AIMED ON PURPOSE 2026-11-19 (owner, "Yes, all three"; drawing `shop_final_with_spaces_2026-11-19`): what you SET
   // UP comes before what you READ — Templates and Specialized tools (`<ShopMakers`) sit above Analytics and Badges.
-  const order = [at(/<ShopCover\b/), at(/<ShopMakers\b/), at(/<OneAnalyticsSection\b/), at(/<ShopBadgeRow\b/), at(/id="services"/)];
+  const order = [at(/<ShopCover\b/), at(/<ShopMakers\b/), at(/\{data\.started\.analytics\}/), at(/<ShopBadgeRow\b/), at(/id="services"/)];
   assert.ok(order.every((i) => i > 0), `a Shop part is missing: ${order.join(',')}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the Shop tab is out of the ruled order (cover · Templates + Specialized tools · Analytics · Badges · Services)');
   assert.doesNotMatch(PAGE, /data-shop-doors=""/, 'loose door rows are back under the cover (§10 #31)');

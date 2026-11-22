@@ -151,8 +151,12 @@ export async function VendorServicesManager({
 }: {
   search: ServicesManagerSearch;
   basePath?: string;
-  /** Each service's "Tools on every event" line (the Event Hub's own tools), by coverage id — drawn under its heading. */
-  toolsByCoverage?: Readonly<Record<number, string>>;
+  /**
+   * Each service's "Tools on every event" line (the Event Hub's own tools), by coverage id — drawn under its heading.
+   * ⏱ May arrive as a PROMISE: Shop starts this list BESIDE its own batch (one round of reads, not two — 21 Nov), and
+   * the lines come from that batch, so they are awaited only at the very end, after this list's own reads.
+   */
+  toolsByCoverage?: Readonly<Record<number, string>> | Promise<Readonly<Record<number, string>>>;
 }) {
   const supabase = await createClient();
   const {
@@ -514,6 +518,8 @@ export async function VendorServicesManager({
   // and its locked-kind reason (`PROPOSE_CATEGORY_HREF`), or coming back with `?requested=1`. The Coverage · Service
   // cards · Tools picker that used to land here is gone (Lane E item 7).
   const showProposeForm = search.requested || wantsCategoryForm;
+  // ⏱ Awaited last — every read above has already run beside Shop's own batch.
+  const toolsLines = await toolsByCoverage;
 
   return (
     <div className="space-y-6">
@@ -736,7 +742,7 @@ export async function VendorServicesManager({
                     ...new Set(
                       listedServices
                         .filter((x) => groupLabelOf(x) === covHeaderLabel && x.coverage_id != null)
-                        .flatMap((x) => (toolsByCoverage[x.coverage_id as number] ?? '').split(' · '))
+                        .flatMap((x) => (toolsLines[x.coverage_id as number] ?? '').split(' · '))
                         .filter(Boolean),
                     ),
                   ].join(' · ')

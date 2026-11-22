@@ -42,14 +42,16 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 const APP_FILES = walk(join(WEB, 'app')).filter((f) => !f.includes(join('app', 'dev')));
 
-test('1 · the Shop tab streams the one Analytics, with the badge row directly under it', () => {
+test('1 · the Shop tab draws the one Analytics WITH the page, with the badge row directly under it', () => {
   const render = PAGE.slice(PAGE.indexOf('<ShopCover'));
-  const analytics = render.indexOf('<OneAnalyticsSection');
+  // ⏱ 21 Nov (owner: "loading feels scattered"): started beside the batch, drawn in place — no placeholder swapped out.
+  assert.match(PAGE, /analytics: startPart\('analytics', \(\) => OneAnalyticsSection\(\{/, 'the Analytics carousel is not started beside the batch');
+  const analytics = render.indexOf('{data.started.analytics}');
   const badges = render.indexOf('<ShopBadgeRow');
   assert.ok(analytics > 0, 'the Shop tab does not draw the Analytics carousel');
   assert.ok(badges > analytics, 'the badge row is not under the carousel');
   assert.doesNotMatch(render.slice(analytics + 1, badges), /<(?!\/?Suspense\b)[A-Z]\w*/, 'something sits between the carousel and the badge row');
-  assert.match(render.slice(0, analytics), /<Suspense fallback=\{<AnalyticsPlaceholder \/>\}>\s*$/, 'the carousel no longer streams in its own Suspense');
+  assert.doesNotMatch(render.slice(0, analytics), /<Suspense[^>]*>\s*$/, 'the carousel streams in a Suspense of its own again — it lands after the page');
   assert.doesNotMatch(PAGE, /buildGrowthRecs|buildGrowthView|SnapCarousel|readNewGraphs/, 'the Shop page reads or draws analytics of its own');
 });
 

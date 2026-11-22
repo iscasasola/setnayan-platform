@@ -105,7 +105,9 @@ test('every page a Shop segment opens draws the Shop switcher with that segment 
 test('How it is going is the Shop tab’s own Analytics carousel — the old page only redirects onto it', () => {
   assert.equal(SHOP_SEGMENT_HREF.insights, '/vendor-dashboard/shop#analytics', 'How it is going no longer opens the carousel');
   const shop = stripComments(readFileSync(join(VD, 'shop', 'page.tsx'), 'utf8'));
-  assert.match(shop, /<OneAnalyticsSection\b/, 'the Shop tab lost its Analytics section');
+  // ⏱ Since 21 Nov the section is STARTED beside the shop's batch (`OneAnalyticsSection({…})`) and drawn in place.
+  assert.match(shop, /\bOneAnalyticsSection\(\{/, 'the Shop tab lost its Analytics section');
+  assert.match(shop, /\{data\.started\.analytics\}/, 'the Shop tab starts its Analytics but never draws it');
   const old = stripComments(readFileSync(join(VD, 'performance', 'page.tsx'), 'utf8'));
   assert.match(old, /redirect\('\/vendor-dashboard\/shop#analytics'\)/, 'the old address no longer lands on the carousel');
 });

@@ -23,7 +23,7 @@ const SHOP = CSS.slice(CSS.indexOf('[data-shop-desk],'));
 
 test('1 · the side column is Makers → Analytics → Badges, then the services, all in one wrapper', () => {
   const at = (s: string) => PAGE.indexOf(s);
-  const order = [at('data-shop-desk=""'), at('data-shop-desk-side=""'), at('<ShopMakers'), at('<OneAnalyticsSection'), at('<ShopBadgeRow'), at('data-shop-services=""')];
+  const order = [at('data-shop-desk=""'), at('data-shop-desk-side=""'), at('<ShopMakers'), at('{data.started.analytics}'), at('<ShopBadgeRow'), at('data-shop-services=""')];
   assert.ok(order.every((i) => i > 0), `a Shop part is missing: ${order.join(',')}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the Shop parts are out of the drawn order');
   const side = PAGE.slice(at('data-shop-desk-side=""'), at('data-shop-services=""'));

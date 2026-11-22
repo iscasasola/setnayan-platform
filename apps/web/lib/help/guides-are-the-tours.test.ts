@@ -106,7 +106,8 @@ test('4 · the ⓘ sheet: Show me only where the tour can replay · Guests mount
   assert.match(sheet, /<Sheet\b/, 'the ⓘ opens the house Sheet');
   assert.doesNotMatch(sheet, /Practice/, 'a Practice row is drawn with no practice frame behind it');
   const guests = code('app/dashboard/[eventId]/guests/page.tsx');
-  assert.match(guests, /info=\{<PageInfo pageKey="guests" eventId=\{eventId\} \/>\}/, 'Guests lost its ⓘ');
+  assert.match(guests, /const pageInfo = <PageInfo pageKey="guests" eventId=\{eventId\} \/>;/, 'Guests lost its ⓘ');
+  assert.match(guests, /info=\{pageInfo\}/, 'Guests does not hand its ⓘ to the screen');
   assert.match(code('app/dashboard/[eventId]/guests/_components/guests-screen.tsx'), /props\.info/, 'the Guests row does not draw its ⓘ');
 });
 
@@ -122,7 +123,7 @@ test('5 · Help reaches every new page through lib/routes.ts, and each has a hom
   for (const r of ['/help/topics', '/help/topics/[key]', '/help/guides/[key]']) {
     assert.ok(HOMES[r], `${r} has no home in lib/page-home.ts`);
   }
-  for (const f of ['app/(shell)/(help-pages)/help/topics/page.tsx', 'app/(shell)/(help-pages)/help/topics/[key]/page.tsx', 'app/(shell)/(help-pages)/help/guides/[key]/page.tsx']) {
+  for (const f of ['app/(shell)/(help-list)/help/topics/page.tsx', 'app/(shell)/(help-pages)/help/topics/[key]/page.tsx', 'app/(shell)/(help-pages)/help/guides/[key]/page.tsx']) {
     assert.ok(existsSync(join(WEB, f)), `${f} is missing`);
   }
   // Every Help page keeps the account it was opened in.
@@ -154,5 +155,8 @@ test('6 · the guides never reach the browser · topic and guide pages have no l
     assert.equal(existsSync(join(WEB, dir, 'loading.tsx')), false, `${dir}/loading.tsx would turn the topic and guide pages' notFound() into a soft 404`);
   }
   assert.equal(existsSync(join(WEB, 'app/(shell)/help/topics')), false, 'a topic page moved back under the /help loading boundary');
+  assert.equal(existsSync(join(WEB, 'app/(shell)/(help-pages)/help/topics/page.tsx')), false, 'All topics moved in beside the topic page — its boundary would wrap it');
+  assert.ok(existsSync(join(WEB, 'app/(shell)/(help-list)/help/topics/loading.tsx')), 'All topics lost its loading boundary (the press would hold the old page)');
+  assert.doesNotMatch(code('app/(shell)/(help-list)/help/topics/page.tsx'), /notFound\(/, 'All topics calls notFound() under a loading boundary');
   assert.equal(existsSync(join(WEB, 'app/(shell)/help/guides')), false, 'a guide page moved back under the /help loading boundary');
 });

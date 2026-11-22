@@ -109,7 +109,10 @@ test('2 · coverage is the active account — no picker, and a shop never sees a
   assert.equal(tileNameFromLabel('Suppliers: plans'), 'Plans');
   // The page reads the account from the sheet, not from a picker; the old role tiles are gone.
   const page = code('app/(shell)/help/page.tsx');
-  assert.match(page, /function coverageFor\(/);
+  // The reading moved to lib/help/help-place.ts (Guide & Help, 22 Nov) so every Help page — /help, a topic, a guide — keeps
+  // the same account; /help still reads it from the address, through that one function.
+  assert.match(page, /helpPlace\(search, signedIn\)/);
+  assert.match(code('lib/help/help-place.ts'), /export function coverageFor\(/);
   assert.doesNotMatch(page, /HELP_ROLES|aria-label="Help by role"/, 'the role picker is back on /help');
   assert.match(code('app/_components/account-switcher/account-switcher.tsx'), /supplierSheet \? '\/help\?for=shop'/);
 });
@@ -160,7 +163,10 @@ test('5 · in the iPhone app the ask keeps the "not included" line instead of a 
   assert.equal(r.best?.slug, notIn[0]!.slug, `"${q}" in the app was not answered with the app's line`);
   assert.equal(r.best?.notInApp, true);
   // The view draws no door for it.
-  assert.match(code('app/_components/help-ask/help-ask-view.tsx'), /hit\.notInApp \? null : <Door/);
+  // The best answer's doors (Take me there · Full guide — Guide & Help, 22 Nov) still draw no Take me there for a part
+  // the app does not include.
+  assert.match(code('app/_components/help-ask/help-ask-view.tsx'), /hit\.notInApp \? null : ctx\.doorFor\(/);
+  assert.match(code('app/_components/help-ask/help-ask-view.tsx'), /h\.notInApp \? null : <Door/);
 });
 
 test('6 · the log keeps no name and no email, and only the server reads or writes it', () => {

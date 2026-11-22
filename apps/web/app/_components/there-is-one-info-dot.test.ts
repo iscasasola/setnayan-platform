@@ -96,6 +96,9 @@ const SITES: Record<string, Site> = {
     why: 'the /for-coordinators ⓘ (approved drawing 2026-11-20) is a server-rendered <details> that opens its words IN the page under the line — the page ships no script',
   },
   'app/[slug]/_components/selfie-capture.tsx': { why: 'a 44-px button that opens the face-step details sheet' },
+  'app/_components/help-ask/page-info-sheet.tsx': {
+    why: 'a page’s ⓘ — a 44-px round in its pinned row that opens the page’s help SHEET (Show me · Answers · the guide; Guide & Help drawing, approved 21 Nov 2026), not a hover note or a centred popup',
+  },
   'app/_components/chat/cards/card-bits.tsx': { why: 'a chat card’s 44-px ⓘ button that opens that card’s details sheet (Unichat part C)' },
   'app/for-suppliers/_components/supplier-front-info.tsx': {
     why: 'the approved /for-suppliers page (2026-11-06) opens its ⓘ words IN the page under the section, from a labelled pill — not a hover note or a popup',

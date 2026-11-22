@@ -48,9 +48,9 @@ export default async function HelpLabPage({ searchParams }: { searchParams: Prom
   const covered = topicsForCoverage(helpTopicsFor(HELP_TOPICS, false), PLACE.coverage);
 
   if (screen === 'topic') {
-    const topic = covered.find((t) => t.key === (key ?? 'host-guest-list'));
+    const topic = topicsForCoverage(HELP_TOPICS, PLACE.coverage).find((t) => t.key === (key ?? 'host-guest-list'));
     if (!topic) notFound();
-    return <HelpTopicView place={PLACE} topic={topic} open={open ?? null} />;
+    return <HelpTopicView place={PLACE} topic={topic} storeShell={false} open={open ?? null} />;
   }
   if (screen === 'guide') {
     const guide = findGuide(key ?? 'guests');

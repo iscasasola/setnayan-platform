@@ -37,8 +37,10 @@ export async function generateMetadata({ params }: Props) {
 export default async function HelpTopicPage({ params, searchParams }: Props) {
   const [{ key }, search, user, storeShell] = await Promise.all([params, searchParams, getCurrentUser(), isStoreShellRequest()]);
   const place = helpPlace(search, Boolean(user && !user.is_anonymous));
-  const topic = topicsForCoverage(helpTopicsFor(HELP_TOPICS, storeShell), place.coverage).find((t) => t.key === key);
-  if (!topic) notFound();
+  // This help's topic, as written; the view picks the reader's words (the iPhone app's own). A topic whose every answer
+  // is about a part the app does not include is not in the app's help — a 404 there, as on /help's list.
+  const topic = topicsForCoverage(HELP_TOPICS, place.coverage).find((t) => t.key === key);
+  if (!topic || helpTopicsFor([topic], storeShell).length === 0) notFound();
 
-  return <HelpTopicView place={place} topic={topic} open={typeof search.open === 'string' ? search.open : null} />;
+  return <HelpTopicView place={place} topic={topic} storeShell={storeShell} open={typeof search.open === 'string' ? search.open : null} />;
 }

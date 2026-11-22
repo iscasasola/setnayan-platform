@@ -2,7 +2,8 @@
 
 /**
  * ⓘ — the round and its sheet (Guide & Help drawing, screen 6; the server half that reads the words is
- * `page-info.tsx`). "The ⓘ: 44 px round in the pinned row. Opens a Sheet." — THE floating surface (`Sheet`), which
+ * `page-info.tsx`). "The ⓘ: 44 px round in the pinned row. Opens a Sheet." — the round wears the pinned row's glass
+ * and the ONE house ⓘ mark (InfoTip's, class for class); it opens THE floating surface (`Sheet`), which
  * opens at half on a phone; inside, the drawing's rows in one white card: Show me · Answers · Read the full guide.
  *
  * Show me fires the shipped replay (`SPOTLIGHT_REPLAY_EVENT` with this page's tour key — the same event the account
@@ -11,7 +12,7 @@
  * page whose tour cannot run shows no dead row.
  */
 import { useId, useState } from 'react';
-import { BookOpen, Info, Play } from 'lucide-react';
+import { BookOpen, Play } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { SPOTLIGHT_REPLAY_EVENT } from '@/app/_components/spotlight-mount';
 import { HelpRow, HelpRows } from './help-rows';
@@ -50,10 +51,17 @@ export function PageInfoSheet({
         onClick={openSheet}
         aria-haspopup="dialog"
         aria-label={`Help for ${name}`}
-        className="sn-press grid h-11 w-11 flex-none place-items-center rounded-full bg-terracotta/10 text-terracotta-700"
+        className="sn-press group/info grid h-11 w-11 flex-none place-items-center rounded-full sn-glass-row"
         data-page-info={tourKey}
       >
-        <Info aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+        {/* The house ⓘ, class for class (`<InfoTip>`'s drawn circle — there-is-one-info-dot), inside this 44-px round of
+            the pinned row, which opens the page's ⓘ sheet. */}
+        <span
+          aria-hidden="true"
+          className="sn-press-ring inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn group-hover/info:border-terracotta group-hover/info:text-terracotta"
+        >
+          i
+        </span>
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId}>
         <div className="px-4 pb-6 pt-1" data-page-info-sheet="">

@@ -1,4 +1,4 @@
-import type { HelpTopic } from '@/lib/help';
+import { helpTopicsFor, type HelpTopic } from '@/lib/help';
 import { guideSteps, guidesInTopic, stepsLine } from '@/lib/help/guides';
 import { inHelp, type HelpPlace } from '@/lib/help/help-place';
 import { routes } from '@/lib/routes';
@@ -12,7 +12,20 @@ import { GuideRow, HelpRows, HelpSection } from '@/app/_components/help-ask/help
  * same view as a host, `app/dev/help-lab`). Guides on top, answers one open at a time; `open` is the answer drawn
  * already open (a page's ⓘ links to it).
  */
-export function HelpTopicView({ place, topic, open = null }: { place: HelpPlace; topic: HelpTopic; open?: string | null }) {
+export function HelpTopicView({
+  place,
+  topic: written,
+  storeShell,
+  open = null,
+}: {
+  place: HelpPlace;
+  /** The topic as written in lib/help — this view picks the reader's words. */
+  topic: HelpTopic;
+  /** 🍎 The iPhone app: every answer is the app's own, and one about a part the app does not include is left out. */
+  storeShell: boolean;
+  open?: string | null;
+}) {
+  const topic = helpTopicsFor([written], storeShell)[0] ?? { ...written, articles: [] };
   const [tile] = tilesFor(place.account, [topic]);
   const guides = guidesInTopic(topic.key, place.coverage);
   const help = routes.help.index();

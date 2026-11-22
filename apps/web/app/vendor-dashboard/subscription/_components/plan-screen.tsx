@@ -44,8 +44,8 @@ import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-wo
 import { formatPhp } from '@/lib/php';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { downgradeFit } from '@/lib/downgrade-limits';
-import { readDowngradeFacts, readStoredBytes, storageAllowanceBytes } from '@/lib/downgrade-limits.server';
-import { storageRowLine } from '@/lib/supplier-storage';
+import { readDowngradeFacts, storageAllowanceBytes } from '@/lib/downgrade-limits.server';
+import { readStorageBreakdown } from '@/lib/supplier-storage.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveBookingFeeStanding } from '@/lib/booking-fee-disclosure.server';
 import type { BookingFeeStanding } from '@/lib/booking-fee-disclosure';
@@ -496,20 +496,13 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       })
     : PORTFOLIO_ALLOWANCE_UNREAD;
 
-  // 💾 STORAGE (owner 2026-11-13 "plan storage": Solo 5 GB · Pro 10 GB · Ultra 15 GB) — "1.2 GB of 5 GB used", from the
-  // SAME read the limits sheet and the upload refusal use. A read that failed says so, never "0 MB". No allowance (Free ·
-  // Verified) = no row. The limits sheet above already read it for every paid plan; read again only if it did not.
-  const storageLine =
+  // 📏 THE STORAGE METER (owner 2026-11-23 "THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SHOP OWNS"): Photos &
+  // video · Files · Records and the chat & documents room, from the ONE breakdown read — the limits sheet above already
+  // read it (`downgradeFacts.storage`); read again only when it did not (Free has no sheet). A failed read says so.
+  const storageRead =
     storageAllowanceBytes(currentTier) === null
       ? null
-      : storageRowLine(
-          currentTier,
-          downgradeFacts
-            ? downgradeFacts.storedBytes === null
-              ? { status: 'unread' }
-              : { status: 'ok', bytes: downgradeFacts.storedBytes }
-            : await readStoredBytes(createAdminClient(), profile.vendor_profile_id),
-        );
+      : (downgradeFacts?.storage ?? (await readStorageBreakdown(createAdminClient(), profile.vendor_profile_id)));
 
   // 💳 The rows that replaced the add-on cards (drawing § 3). Deep Search's own route is web-only (lib/store-shell.ts),
   // so the row is not drawn in the store app.
@@ -639,7 +632,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         featured={featured}
         gift={gift ? { line: giftPlanLine(gift) } : giftEnded ? { line: giftEndedLine(giftEnded.plan, giftEnded.untilDay) } : null}
         photosLine={photosLine}
-        storageLine={storageLine}
+        storage={storageRead}
         deepSearch={deepSearchRow}
         extras={extrasRow}
         bought={bought}

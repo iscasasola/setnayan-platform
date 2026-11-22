@@ -40,8 +40,15 @@ import { tellTheCouplePapicPoolIsSpent } from '@/lib/papic-pool-spent-notice';
 import { captureWindowState } from '@/lib/papic-window';
 import { COUPLE_MEDIA_FULL_CODE, coupleMediaFullMessage, isCoupleMediaMeterPath } from '@/lib/couple-media-allowance';
 import { reserveCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
-import { STORAGE_CHECK_FAILED, STORAGE_FULL_CODE, STORAGE_UPGRADE_HREF } from '@/lib/supplier-storage';
-import { checkSupplierStorage } from '@/lib/supplier-storage.server';
+import {
+  STORAGE_CHECK_FAILED,
+  STORAGE_FULL_CODE,
+  STORAGE_UPGRADE_HREF,
+  isEvidenceUpload,
+  isMediaContentType,
+  uploadIsLedgered,
+} from '@/lib/supplier-storage';
+import { checkSupplierStorage, recordShopUpload } from '@/lib/supplier-storage.server';
 import { hubMusicUploadRefusal, hubMusicUploadRule } from '@/lib/hub-music';
 import { isAdminProfile } from '@/lib/admin/admin-predicate';
 
@@ -701,8 +708,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // exactly this population and nothing else (never Papic/guest captures,
   // never a vendor's own uploads, never a chat/order attachment).
   let coupleMediaEventId: string | null = null;
-  // 💾 Set below, only for a shop's own stored event files (`supplier-files/<shop>/…`, Piece 3b) — the bytes its plan's
-  // storage allowance counts (owner 2026-11-13: Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB; lib/supplier-storage.ts).
+  // 💾 Set below for EVERY upload into a shop's own folders (`vendors/`, `vendor-payment-qr/`, `vendor-originals/`,
+  // `supplier-files/` — lib/supplier-storage.ts SHOP_UPLOAD_ROOTS) and for a file the SHOP sends in its chat: the meter
+  // counts everything the shop owns (owner 2026-11-23, DECISION_LOG "THE SUPPLIER STORAGE METER COUNTS EVERYTHING").
   let supplierStorageShopId: string | null = null;
   if (!seatMode) {
     const tenancy = tenancyForPathPrefix(pathPrefix);
@@ -771,8 +779,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (tenancy.kind === 'event' && bucketKey === 'media' && isCoupleMediaMeterPath(pathPrefix, tenancy.id)) {
         coupleMediaEventId = tenancy.id;
       }
-      if (tenancy.kind === 'vendor' && bucketKey === 'threadFiles' && pathPrefix.split('/')[0] === 'supplier-files') {
+      if (tenancy.kind === 'vendor') {
         supplierStorageShopId = tenancy.id;
+      }
+      // A file sent in a chat by the SHOP's side counts for the shop (chat_messages.attachment_size_bytes); a file the
+      // couple sends counts for the couple. Its own shops come from the caller's session (current_vendor_profile_ids).
+      if (tenancy.kind === 'thread') {
+        const { data: thread } = await supabase
+          .from('chat_threads')
+          .select('vendor_profile_id')
+          .eq('thread_id', tenancy.id)
+          .maybeSingle();
+        const threadShop = (thread as { vendor_profile_id: string | null } | null)?.vendor_profile_id ?? null;
+        if (threadShop) {
+          const { data: mine } = await supabase.rpc('current_vendor_profile_ids');
+          if (((mine as string[] | null) ?? []).includes(threadShop)) supplierStorageShopId = threadShop;
+        }
       }
     }
   }
@@ -941,12 +963,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // ── 💾 THE PLAN HOLDS STORAGE (owner 2026-11-13) ─────────────────────────
+  // ── 💾 THE PLAN HOLDS STORAGE (owner 2026-11-13; counts everything since 2026-11-23) ─────────────────────────
   // Asked BEFORE the PUT is signed, so a file past the allowance never reaches storage. The shop was proven the
   // caller's by the tenancy check above. Nothing stored is touched; the database's backstop
   // (`enforce_supplier_storage_allowance`) refuses the same file on every other path. Fail CLOSED when blind.
+  // Photos and video fit the plan less the chat & documents room; a document fits the room; EVIDENCE (verification
+  // papers, contracts) is counted and never refused (spec § ★ K).
+  const shopUploadKind = { media: isMediaContentType(baseContentType), evidence: isEvidenceUpload(bucketKey) };
   if (supplierStorageShopId) {
-    const room = await checkSupplierStorage(createAdminClient(), supplierStorageShopId, sizeBytes);
+    const room = await checkSupplierStorage(createAdminClient(), supplierStorageShopId, sizeBytes, shopUploadKind);
     if (room.kind === 'full') {
       return NextResponse.json(
         { error: room.message, code: STORAGE_FULL_CODE, upgradeHref: STORAGE_UPGRADE_HREF },
@@ -975,6 +1000,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }),
       presignDisplayUrl(bucketName, objectKey),
     ]);
+    // 🧾 The size of a shop upload no other table records (lib/supplier-storage.ts SHOP_UPLOAD_ROOTS: `ledger`). The
+    // signed content-length binds the PUT to `sizeBytes`, so this is the real size. Never fails the upload.
+    if (supplierStorageShopId && uploadIsLedgered(pathPrefix)) {
+      await recordShopUpload(createAdminClient(), {
+        vendorProfileId: supplierStorageShopId,
+        objectRef: encodeR2Ref(bucketName, objectKey),
+        bytes: sizeBytes,
+        contentType: baseContentType,
+        evidence: shopUploadKind.evidence,
+      });
+    }
 
     return NextResponse.json(
       {

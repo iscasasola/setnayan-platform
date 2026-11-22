@@ -6,6 +6,7 @@
  * is what ships. Every write is the SHIPPED action; with no session each one refuses, nothing is written.
  *
  *   ?s=plan            the Plan (who=parish · caterer · studio)       &unverified=1 · &ticket=1 · &fail=1 (receipts + fee unread)
+ *                      📏 &meter=new · busy · near · full · room · unread — the storage meter (default: new on Free, busy on paid)
  *   ?s=lock            🔒 the shared lock explainer (&lock=<key> · &plan=pro for a plan lock)
  *   ?s=plan&who=studio&limits=1   📉 the limits sheet on a lower plan (ruling 5683) · &floor=1 the storage floor (lab allowance)
  *   ?s=limit           ⤴ Door 1 — past a plan limit (&tier=solo &key=bookingsPerDate &want=2 · &unverified=1)
@@ -71,7 +72,7 @@ import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-r
 import { giftEndedLine, giftEndsSoon, giftPlanLine, planGiftOf, portfolioPlanRowLine } from '@/lib/plan-gift';
 import { dayAfterWords } from '@/lib/personal-invite-offer';
 import { portfolioPhotoCap } from '@/lib/vendor-tier-caps';
-import { storageRowLine } from '@/lib/supplier-storage';
+import type { StorageBreakdownRead } from '@/lib/supplier-storage';
 import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 import type { VendorTeamMemberWithUser } from '@/lib/vendor-team';
@@ -184,7 +185,28 @@ const LAB_STORAGE_ALLOWANCE = 5_000_000_000;
 const LAB_SHEET_NOW = Date.parse('2026-11-10T02:00:00Z');
 const LAB_EXPIRES_AT: Record<string, string | null> = { free: null, solo: '2026-12-08T15:59:59Z', pro: '2027-10-03T15:59:59Z' };
 
-function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { floor: boolean } | null = null, ticket = false) {
+/**
+ * 📏 LAB-ONLY storage meter fixtures (`&meter=new|busy|near|full|room|unread`) — sample sizes for the screenshot, never
+ * a ruled figure. A new shop holds only its sign-up rows (a few KB, owner 23 Nov "No, real usage only"); a busy shop
+ * holds albums, cards, chat files, contracts and its data.
+ */
+function labMeter(kind: string | undefined, tier: string): StorageBreakdownRead {
+  const GB = 1e9;
+  const MB = 1e6;
+  const k = kind ?? (tier === 'free' ? 'new' : 'busy');
+  if (k === 'unread') return { status: 'unread' };
+  const b = (photosVideo: number, files: number, records: number, chat: number, evidence: number): StorageBreakdownRead => ({
+    status: 'ok',
+    breakdown: { photosVideo, files, records, room: files + chat, evidence, recordsMeasuredAt: '2026-11-23T19:23:00Z' },
+  });
+  if (k === 'new') return b(0, 0, 6_200, 0, 0);
+  if (k === 'near') return b(99 * GB, 1.1 * GB, 61 * MB, 24 * MB, 0.3 * GB);
+  if (k === 'full') return b(118.2 * GB, 1.4 * GB, 74 * MB, 30 * MB, 0.4 * GB);
+  if (k === 'room') return b(12.6 * GB, 9.95 * GB, 92 * MB, 48 * MB, 2.1 * GB);
+  return b(41.3 * GB, 620 * MB, 38 * MB, 22 * MB, 210 * MB);
+}
+
+function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { floor: boolean } | null = null, ticket = false, meter?: string) {
   const shop = SHOPS[who];
   const plans: PlanPick[] = [
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(shop.tier, 'free', shop.expires) },
@@ -227,6 +249,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
           papersProgress={papersProgress({ done: 2, of: REQUIRED_DOC_COUNT })}
         />
       }
+      storage={labMeter(meter, shop.tier)}
       feeRow={bookingFeeRow(standing, who === 'studio' ? 1 : 0)}
       gives={planGivesLines(shop.tier, false)}
       receipts={
@@ -306,7 +329,7 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
         giftUntilDay: gift ? gift.untilDay : null,
         giftEnded: mode === 'ended',
       })}
-      storageLine={storageRowLine(tier, { status: 'ok', bytes: 1_240_000_000 })}
+      storage={labMeter(undefined, tier)}
     />
   );
 }
@@ -537,7 +560,7 @@ export default async function SupplierPlanLabPage({
     body =
       sp.gift === 'running' || sp.gift === 'soon' || sp.gift === 'ended'
         ? giftPlanFixture(sp.gift, sp.photos === '100')
-        : planFixture(who, sp.unverified === '1', sp.fail === '1', sp.limits === '1' ? { floor: sp.floor === '1' } : null, sp.ticket === '1');
+        : planFixture(who, sp.unverified === '1', sp.fail === '1', sp.limits === '1' ? { floor: sp.floor === '1' } : null, sp.ticket === '1', sp.meter);
   }
   // 🔒 ?s=lock&lock=quotation (any key in lib/locks.ts) — the shared lock's explainer, risen; &plan=pro = a plan lock.
   else if (s === 'lock') {

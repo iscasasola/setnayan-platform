@@ -27,6 +27,8 @@ import {
   planSummaryWords,
   planRole,
   storageRowLine,
+  isEvidenceUpload,
+  uploadIsLedgered,
 } from './supplier-storage';
 import { downgradeFit, type DowngradeFacts } from './downgrade-limits';
 import { planGivesLines } from './vendor-plan-rows';
@@ -121,8 +123,11 @@ test('the database’s refusal is recognised by its code word', () => {
   assert.equal(isStorageRefusal(null), false);
 });
 
-/** A stub admin client: one `vendor_profiles` row and one `vendor_storage_used_bytes` answer. */
-function stub(opts: { tier?: string | null; tierError?: boolean; used?: unknown; usedError?: boolean; usedThrows?: boolean }) {
+/**
+ * A stub admin client: one `vendor_profiles` row and one `vendor_storage_breakdown` answer. `used` is the shop's photos
+ * and video (the space outside the chat & documents room); `room` is what the room holds (documents + chat words).
+ */
+function stub(opts: { tier?: string | null; tierError?: boolean; used?: unknown; room?: number; usedError?: boolean; usedThrows?: boolean }) {
   return {
     from: () => ({
       select: () => ({
@@ -136,33 +141,78 @@ function stub(opts: { tier?: string | null; tierError?: boolean; used?: unknown;
     }),
     rpc: () => {
       if (opts.usedThrows) return Promise.reject(new Error('network'));
-      return Promise.resolve(opts.usedError ? { data: null, error: { message: 'permission denied' } } : { data: opts.used, error: null });
+      if (opts.usedError) return Promise.resolve({ data: null, error: { message: 'permission denied' } });
+      const room = opts.room ?? 0;
+      return Promise.resolve({
+        data: [
+          { photos_video_bytes: opts.used, files_bytes: room, records_bytes: 0, room_bytes: room, evidence_bytes: 0, records_measured_at: null },
+        ],
+        error: null,
+      });
     },
   } as unknown as Parameters<typeof server.readStoredBytes>[0];
 }
 
-test('checkSupplierStorage: a Plus shop at 127.9 GB is refused a 200 MB file, with the sentence the supplier reads', async () => {
-  const r = await server.checkSupplierStorage(stub({ tier: 'solo', used: 127.9 * GB }), 'shop', 200_000_000);
+const MEDIA = { media: true, evidence: false };
+const DOC = { media: false, evidence: false };
+const EVIDENCE = { media: false, evidence: true };
+
+test('checkSupplierStorage: photos fit the plan LESS the chat & documents room — Plus holds 118 GB of photos (128 − 10)', async () => {
+  const r = await server.checkSupplierStorage(stub({ tier: 'solo', used: 117.9 * GB }), 'shop', 200_000_000, MEDIA);
   assert.equal(r.kind, 'full');
-  assert.equal(r.kind === 'full' && r.message, storageFullMessage('solo', 127.9 * GB, 200_000_000));
-  assert.equal((await server.checkSupplierStorage(stub({ tier: 'solo', used: 127.9 * GB }), 'shop', 50_000_000)).kind, 'fits');
+  assert.match(r.kind === 'full' ? r.message : '', /This file is 200 MB, and your Plus plan has 100 MB left for photos and video\. Remove files to make room or move to Pro/);
+  assert.equal((await server.checkSupplierStorage(stub({ tier: 'solo', used: 117.9 * GB }), 'shop', 50_000_000, MEDIA)).kind, 'fits');
   // A shop already over (grandfathered) keeps everything — and is refused only the next file.
   assert.equal((await server.checkSupplierStorage(stub({ tier: 'pro', used: 600 * GB }), 'shop', 1)).kind, 'full');
-  // Free · Verified have an allowance now too: counted, refused past it, and a blind read fails closed.
+  // Free · Verified: counted, refused past their photo space; a blind read fails closed.
   assert.equal((await server.checkSupplierStorage(stub({ tier: 'free', used: 0.9 * GB }), 'shop', 200_000_000)).kind, 'full');
-  assert.equal((await server.checkSupplierStorage(stub({ tier: 'verified', used: GB }), 'shop', GB)).kind, 'fits');
+  assert.equal((await server.checkSupplierStorage(stub({ tier: 'verified', used: 0.5 * GB }), 'shop', 0.5 * GB)).kind, 'fits', 'Verified: 2 GB less its 1 GB room');
+  assert.equal((await server.checkSupplierStorage(stub({ tier: 'verified', used: 0.5 * GB }), 'shop', 0.5 * GB + 1)).kind, 'full');
   assert.equal((await server.checkSupplierStorage(stub({ tier: 'free', usedError: true }), 'shop', 1)).kind, 'unavailable');
 });
 
-test('/api/upload asks BEFORE it signs the PUT, for the shop’s own stored files, and refuses with the way up', () => {
+test('a DOCUMENT fits the room; the room never borrows photo space and photos never borrow the room', async () => {
+  // Plus: 10 GB room. Photos empty, room at 9.99 GB: a 20 MB PDF waits; a 20 MB photo goes in.
+  const full = await server.checkSupplierStorage(stub({ tier: 'solo', used: 0, room: 9.99 * GB }), 'shop', 20 * MB, DOC);
+  assert.equal(full.kind, 'full');
+  assert.match(full.kind === 'full' ? full.message : '', /Your Plus plan’s 10 GB for chat and documents is full\. Contracts, receipts, payment proofs and your messages still go through\./);
+  assert.equal((await server.checkSupplierStorage(stub({ tier: 'solo', used: 0, room: 9.99 * GB }), 'shop', 20 * MB, MEDIA)).kind, 'fits');
+  // Photos full, room empty: a PDF still goes in.
+  assert.equal((await server.checkSupplierStorage(stub({ tier: 'solo', used: 118 * GB, room: 0 }), 'shop', 20 * MB, DOC)).kind, 'fits');
+});
+
+test('EVIDENCE is counted but NEVER refused — not when full, not when the read is blind (owner 22 Nov, spec § ★ K)', async () => {
+  assert.equal((await server.checkSupplierStorage(stub({ tier: 'free', used: 5 * GB, room: 5 * GB }), 'shop', 20 * MB, EVIDENCE)).kind, 'fits');
+  assert.equal((await server.checkSupplierStorage(stub({ tierError: true }), 'shop', 20 * MB, EVIDENCE)).kind, 'fits');
+  assert.equal((await server.checkSupplierStorage(stub({ tier: 'solo', usedError: true }), 'shop', 20 * MB, EVIDENCE)).kind, 'fits');
+  // The evidence buckets: verification papers and contracts.
+  assert.equal(isEvidenceUpload('vendorVerification'), true);
+  assert.equal(isEvidenceUpload('vendorContracts'), true);
+  assert.equal(isEvidenceUpload('media'), false);
+  assert.equal(isEvidenceUpload('threadFiles'), false);
+});
+
+test('/api/upload asks BEFORE it signs the PUT, for EVERY shop upload and a file the shop sends in chat, and refuses with the way up', () => {
   const src = read('app/api/upload/route.ts');
-  const ask = src.indexOf('checkSupplierStorage(createAdminClient(), supplierStorageShopId, sizeBytes)');
+  const ask = src.indexOf('checkSupplierStorage(createAdminClient(), supplierStorageShopId, sizeBytes, shopUploadKind)');
   const sign = src.indexOf('presignUploadUrl({');
   assert.ok(ask > 0, 'the upload route does not ask about storage');
   assert.ok(ask < sign, 'storage is checked after the PUT is signed — the bytes would already move');
-  assert.match(src, /tenancy\.kind === 'vendor' && bucketKey === 'threadFiles' && pathPrefix\.split\('\/'\)\[0\] === 'supplier-files'/);
+  // Every vendor root — not only supplier-files (owner 23 Nov: the meter counts everything).
+  assert.match(src, /if \(tenancy\.kind === 'vendor'\) \{\s*supplierStorageShopId = tenancy\.id;/);
+  assert.match(src, /tenancy\.kind === 'thread'[\s\S]{0,600}current_vendor_profile_ids[\s\S]{0,200}supplierStorageShopId = threadShop/);
+  assert.match(src, /shopUploadKind = \{ media: isMediaContentType\(baseContentType\), evidence: isEvidenceUpload\(bucketKey\) \}/);
   assert.match(src, /code: STORAGE_FULL_CODE, upgradeHref: STORAGE_UPGRADE_HREF/);
   assert.equal(STORAGE_UPGRADE_HREF, '/vendor-dashboard/subscription');
+  // The size of an upload no table records goes to the ledger, after the PUT is signed.
+  const rec = src.indexOf('recordShopUpload(createAdminClient()');
+  assert.ok(rec > sign, 'the ledger is written before the upload is signed (or not at all)');
+  assert.match(src, /supplierStorageShopId && uploadIsLedgered\(pathPrefix\)/);
+  assert.equal(uploadIsLedgered('vendors/x/logo'), true);
+  assert.equal(uploadIsLedgered('vendor-payment-qr/x'), true);
+  assert.equal(uploadIsLedgered('vendor-originals/x'), true);
+  assert.equal(uploadIsLedgered('supplier-files/x/e'), false, 'event files are sized on their stored copy — ledgering them would count twice');
+  assert.equal(uploadIsLedgered('chat/t/u'), false, 'chat files are sized on the message');
 });
 
 test('the files action turns the database’s refusal into the same sentence and the Plan link; the board shows it', () => {
@@ -204,15 +254,16 @@ test('the Plan’s Storage row: “X of Y used”, full, over — and a failed r
   assert.doesNotMatch(STORAGE_UNREAD, /\b0\b/);
 });
 
-test('the Plan screen draws the row from the honest read, and the limits sheet reads the same bytes', () => {
+test('the Plans page draws the METER from the one breakdown read — the limits sheet reads the same, once', () => {
   const screen = read('app/vendor-dashboard/subscription/_components/plan-screen.tsx');
-  assert.match(screen, /downgradeFacts\.storedBytes === null\s*\?\s*\{ status: 'unread' \}/);
-  assert.match(screen, /storageLine=\{storageLine\}/);
+  assert.match(screen, /downgradeFacts\?\.storage \?\? \(await readStorageBreakdown\(createAdminClient\(\), profile\.vendor_profile_id\)\)/);
+  assert.match(screen, /storage=\{storageRead\}/);
   const rows = read('app/vendor-dashboard/subscription/_components/plan-rows.tsx');
-  assert.match(rows, /data="plan-storage"[^>]*title="Storage" line=\{storageLine\}/);
+  assert.match(rows, /<StorageMeter tier=\{tier\} read=\{storage\} \/>/);
+  assert.doesNotMatch(rows, /data="plan-storage"/, 'the old Storage row is the meter now (drawing: "it became the top block")');
   const facts = read('lib/downgrade-limits.server.ts');
-  assert.match(facts, /readStoredBytes\(admin, vendorProfileId\)/);
-  assert.match(facts, /storedBytes: stored\.status === 'ok' \? stored\.bytes : null/);
+  assert.match(facts, /readStorageBreakdown\(admin, vendorProfileId\)/);
+  assert.match(facts, /storedBytes: stored\.status === 'ok' \? storageTotal\(stored\.breakdown\) : null/);
 });
 
 test('the limits sheet: Pro → Plus over 128 GB waits for room; an unread store says so, never “fits”', () => {

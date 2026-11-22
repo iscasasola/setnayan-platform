@@ -7,7 +7,8 @@ import { fetchVendorTeam } from '@/lib/vendor-team';
 import { fetchExtraAgentSeats } from '@/lib/vendor-seats';
 import { teamSeats } from '@/lib/vendor-free-helper';
 import type { DowngradeFacts, FitCard } from '@/lib/downgrade-limits';
-import { readStoredBytes } from '@/lib/supplier-storage.server';
+import { readStorageBreakdown } from '@/lib/supplier-storage.server';
+import { storageTotal } from '@/lib/supplier-storage';
 
 /**
  * downgrade-limits.server.ts — THE READS behind the limits sheet (`lib/downgrade-limits.ts` is the rule).
@@ -65,7 +66,7 @@ export async function readDowngradeFacts(
         (r) => r,
         () => ({ data: null, error: { message: 'threw' } }),
       ),
-    readStoredBytes(admin, vendorProfileId),
+    readStorageBreakdown(admin, vendorProfileId),
   ]);
 
   let cards: FitCard[] | null = null;
@@ -91,7 +92,8 @@ export async function readDowngradeFacts(
     includedBranches: branches.error || typeof branches.count !== 'number' ? null : branches.count,
     seats: team && owner ? teamSeats(team, owner) : null,
     extraSeats,
-    storedBytes: stored.status === 'ok' ? stored.bytes : null,
+    storedBytes: stored.status === 'ok' ? storageTotal(stored.breakdown) : null,
+    storage: stored,
     badge: row ? { verification_state: row.verification_state, next_renewal_due_at: row.next_renewal_due_at } : null,
   };
 }

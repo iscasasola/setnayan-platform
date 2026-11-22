@@ -150,3 +150,314 @@ export function storageFits(plan: string | null | undefined, usedBytes: number, 
 export function isStorageRefusal(message: string | null | undefined): boolean {
   return typeof message === 'string' && message.includes('storage_allowance');
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+ * 📏 THE METER COUNTS EVERYTHING THE SHOP OWNS (owner 2026-11-23, DECISION_LOG "THE SUPPLIER STORAGE METER COUNTS
+ * EVERYTHING THE SHOP OWNS — FILES AND DATA" + "THE METER SHOWS REAL USAGE ONLY"; spec § ★ A · H · K):
+ *   "we want them to achieve limits asap" · "their calendars schedule, website and every data compiled to them is
+ *   computed" · "No, real usage only".
+ *
+ *   · read     — `vendor_storage_breakdown` (migration 20271360925434), ONE batched read: every stored file, live, and
+ *                the shop's data as last measured (a nightly job; a new shop is measured on its first look).
+ *   · shown    — three kinds: Photos & video · Files · Records, then the chat & documents room's own line. No reserve,
+ *                no "System" block: a new shop reads its true few KB.
+ *   · refused  — media past the plan less the room; documents past the room. EVIDENCE (contracts, receipts, payment
+ *                proofs, verification papers) and words are counted but NEVER refused.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Is this content type MEDIA (photos, video, audio, archives — zip can hide photos), or a document (everything else)?
+ * Spec § ★ K: "Media (photos incl. RAW, video, audio/voice notes, zip/archives) counts in the rest … classify by
+ * content type, never the file name". An unknown type is media: the room is the smaller, reserved space and nothing
+ * unknown may hide in it. SQL twin: `supplier_storage_is_media` — parity held by
+ * tests/db/the-meter-counts-every-shop-table.db.test.ts.
+ */
+export function isMediaContentType(mime: string | null | undefined): boolean {
+  const t = (mime ?? '').split(';')[0]!.trim().toLowerCase();
+  if (!t) return true;
+  if (t.startsWith('image/') || t.startsWith('video/') || t.startsWith('audio/')) return true;
+  return MEDIA_ARCHIVE_TYPES.has(t);
+}
+const MEDIA_ARCHIVE_TYPES: ReadonlySet<string> = new Set([
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-7z-compressed',
+  'application/x-rar-compressed',
+  'application/vnd.rar',
+  'application/x-tar',
+  'application/gzip',
+  'application/x-gzip',
+  'application/octet-stream',
+]);
+
+/**
+ * 🗄 THE CHAT & DOCUMENTS ROOM, as ruled (owner 22 Nov "A RESERVED CHAT & DOCUMENTS ROOM INSIDE EVERY SUPPLIER PLAN";
+ * Verified's 1 GB from 23 Nov "VERIFIED SUPPLIER STORAGE IS 2 GB"; Plus 10 GB kept by "PLUS CUT TO 128 GB"). ONE
+ * constant map, switchable (spec § ★ K: "Sizes as ONE constant map … re-measure once real shops use it").
+ */
+export const DOCUMENTS_ROOM_RULED_BYTES: Readonly<Record<VendorTier, number>> = {
+  free: 0.5 * 1e9,
+  verified: 1 * 1e9,
+  solo: 10 * 1e9,
+  pro: 50 * 1e9,
+  enterprise: 100 * 1e9,
+};
+
+/**
+ * The room a plan keeps for chat and documents, in bytes. The ruled size — but never more than HALF the plan: the
+ * Verified row's own rule (23 Nov, "so the room never equals the whole plan", half of its storage, "the same share as
+ * Free's 0.5 of 1 GB"). Free was cut to 256 MB the same day, after the room was sized for a 1 GB Free, so its ruled
+ * 0.5 GB would be the whole plan and more; half keeps Free's share as ruled. 🚩 Flagged to the controller for a
+ * DECISION_LOG row. Null = the plan holds no allowance.
+ */
+export function documentsRoomBytes(plan: string | null | undefined): number | null {
+  const allowance = storageAllowanceBytes(plan);
+  if (allowance === null) return null;
+  return Math.min(DOCUMENTS_ROOM_RULED_BYTES[asVendorTier(plan)], Math.floor(allowance / 2));
+}
+
+/** What the shop stores, split as the meter shows it. Every number is bytes. */
+export type StorageBreakdown = {
+  /** Photos, video, audio and archives — every copy kept. */
+  photosVideo: number;
+  /** Every other file: PDFs, spreadsheets, contracts, papers. */
+  files: number;
+  /** The shop's data: calendar, cards, quotes, bookings, clients, chat messages… as last measured. */
+  records: number;
+  /** The chat & documents room's use: every non-media file + the chat messages. Inside the three above, not added. */
+  room: number;
+  /** Contracts and other kept papers — counted, never refused. Inside `files`. */
+  evidence: number;
+  /** When the records were last measured (ISO); null = never. */
+  recordsMeasuredAt: string | null;
+};
+
+export type StorageBreakdownRead = { status: 'ok'; breakdown: StorageBreakdown } | { status: 'unread' };
+
+/** The whole: the three kinds added. The room and evidence are inside them, never added twice. */
+export function storageTotal(b: StorageBreakdown): number {
+  return b.photosVideo + b.files + b.records;
+}
+
+/** The three kinds the meter shows, in the drawing's order (Photos & video first, the biggest by far for most shops). */
+export const STORAGE_KINDS = [
+  { key: 'photosVideo', name: 'Photos & video', line: 'Albums, cards, portfolio, logo, cover and posters' },
+  { key: 'files', name: 'Files', line: 'Contracts, quotes, receipts and every other paper' },
+  { key: 'records', name: 'Records', line: 'Calendar, cards, quotes, bookings, clients and chats' },
+] as const satisfies readonly { key: keyof StorageBreakdown; name: string; line: string }[];
+
+/**
+ * Bytes in the words the METER reads — real usage, so a new shop's few KB say KB, never "1 MB" and never "0 MB"
+ * (owner 23 Nov, "No, real usage only"). 1 MB and up read as everywhere else (`storageWords`).
+ */
+export function meterWords(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
+  if (bytes < 1e6) return `${formatCount(Math.max(1, Math.round(bytes / 1e3)))} KB`;
+  return storageWords(bytes);
+}
+
+/** Whole percent of the plan used, floored (99.6% is not "100%" — uploads still go in). Null = no allowance. */
+export function storagePercent(plan: string | null | undefined, usedBytes: number): number | null {
+  const allowance = storageAllowanceBytes(plan);
+  if (allowance === null || allowance <= 0) return null;
+  return Math.floor((Math.max(0, usedBytes) / allowance) * 100);
+}
+
+/** The meter's state: below 80% calm · 80% suggest moving up · 100% new uploads wait (spec § ★ F). */
+export function storageLevel(percent: number | null): 'ok' | 'near' | 'full' {
+  if (percent === null) return 'ok';
+  if (percent >= 100) return 'full';
+  if (percent >= 80) return 'near';
+  return 'ok';
+}
+
+/** "1.2 GB of 128 GB used · 126.8 GB free" — or "… · no room left", or "… stored · 12 MB above your 256 MB". */
+export function storageUsedLine(plan: string | null | undefined, usedBytes: number): string | null {
+  const allowance = storageAllowanceBytes(plan);
+  if (allowance === null) return null;
+  const used = Math.max(0, usedBytes);
+  if (used > allowance) return `${meterWords(used)} stored · ${meterWords(used - allowance)} above your ${storageWords(allowance)}`;
+  if (used === allowance) return `${meterWords(used)} of ${storageWords(allowance)} used · no room left`;
+  return `${meterWords(used)} of ${storageWords(allowance)} used · ${meterWords(allowance - used)} free`;
+}
+
+/** "Chat & documents · 0.3 GB of 10 GB kept for your chats" (spec § ★ H, the room's own line). Null = no allowance. */
+export function roomLine(plan: string | null | undefined, roomUsedBytes: number): string | null {
+  const room = documentsRoomBytes(plan);
+  if (room === null) return null;
+  return `Chat & documents · ${meterWords(roomUsedBytes)} of ${storageWords(room)} kept for your chats`;
+}
+
+/** What a new upload is, for the gate: media or a document, and whether it is evidence (never refused). */
+export type UploadKind = { media: boolean; evidence: boolean };
+
+/**
+ * May `incomingBytes` more go in? (spec § ★ K: "Media can never borrow the room and the room never borrows media
+ * space"; "100% ⇒ non-media uploads/sends stop; chat words, quotes, contracts, receipts, payment proofs never stop").
+ *   · evidence           — always fits (it still counts).
+ *   · media              — photos/video + the data outside the room must fit the plan LESS the room.
+ *   · document           — every non-media file + the chat messages must fit the room.
+ * No allowance on the plan = fits.
+ */
+export function storageFitsUpload(
+  plan: string | null | undefined,
+  b: StorageBreakdown,
+  incomingBytes: number,
+  kind: UploadKind,
+): { fits: true } | { fits: false; inRoom: boolean } {
+  if (kind.evidence) return { fits: true };
+  const allowance = storageAllowanceBytes(plan);
+  const room = documentsRoomBytes(plan);
+  if (allowance === null || room === null) return { fits: true };
+  const incoming = Math.max(0, incomingBytes);
+  if (kind.media) return mediaUsedBytes(b) + incoming <= allowance - room ? { fits: true } : { fits: false, inRoom: false };
+  return b.room + incoming <= room ? { fits: true } : { fits: false, inRoom: true };
+}
+
+/** What counts against the space OUTSIDE the room: photos and video, and the data that is not chat. */
+export function mediaUsedBytes(b: StorageBreakdown): number {
+  const chat = Math.max(0, b.room - b.files);
+  return b.photosVideo + Math.max(0, b.records - chat);
+}
+
+/**
+ * The plain reason a photo or video is refused, with the way up: what is left OUTSIDE the chat & documents room (the
+ * room is kept for chats and papers, so media never borrows it). Nothing already stored is touched.
+ */
+export function mediaFullMessage(plan: string | null | undefined, b: StorageBreakdown, incomingBytes: number): string {
+  const allowance = storageAllowanceBytes(plan) ?? 0;
+  const room = documentsRoomBytes(plan) ?? 0;
+  const name = planWord(asVendorTier(plan));
+  const left = Math.max(0, allowance - room - mediaUsedBytes(b));
+  const next = nextStoragePlan(plan);
+  const up = next ? ` or move to ${planWord(next)}: ${planSummaryWords(next)}` : '';
+  const reason =
+    left < 1e6
+      ? `Your ${name} plan’s ${storageWords(allowance)} is full for photos and video (${storageWords(room)} of it is kept for chat and documents).`
+      : `This file is ${meterWords(incomingBytes)}, and your ${name} plan has ${meterWords(left)} left for photos and video.`;
+  return `${reason} Remove files to make room${up}. Nothing you stored was changed.`;
+}
+
+/** The plain reason a document is refused because the chat & documents room is full, with the way up. */
+export function roomFullMessage(plan: string | null | undefined): string {
+  const room = documentsRoomBytes(plan) ?? 0;
+  const next = nextStoragePlan(plan);
+  const up = next ? ` or move to ${planWord(next)}: ${planSummaryWords(next)}` : '';
+  return `Your ${planWord(asVendorTier(plan))} plan’s ${storageWords(room)} for chat and documents is full. Contracts, receipts, payment proofs and your messages still go through. Remove files you sent to make room${up}. Nothing you stored was changed.`;
+}
+
+/**
+ * 🗂 WHERE A SHOP'S UPLOADS LIVE, AND HOW EACH IS COUNTED. Every root an upload can be written under is named here or
+ * in `NOT_SHOP_UPLOAD_ROOTS` with its reason — lib/the-meter-counts-every-upload-root.test.ts scans the repo and fails
+ * on a root in neither, so a new shop upload path cannot ship uncounted.
+ *   · `stored-copy`  — the size is on the stored copy (`supplier_media.size_bytes`), counted while an event file points
+ *                      at it. Not written to the ledger (it would count twice).
+ *   · `ledger`       — no other table records the size: `/api/upload` writes `supplier_stored_files` when it signs.
+ *   · `chat-message` — `chat_messages.attachment_size_bytes`, counted for the shop when the shop sent it.
+ *   · `contract`     — `vendor_contracts.file_size_bytes` (evidence).
+ *   · `portfolio`    — `vendor_papic_portfolio_photos.size_bytes` / `vendor_papic_captures.*_bytes`.
+ *   · `server-ledger`— written by the server action that stores it (handovers, mood-board suggestions, the marked
+ *                      public copy of a shop photo), through `recordShopUpload`.
+ */
+export const SHOP_UPLOAD_ROOTS = {
+  'supplier-files': 'stored-copy',
+  vendors: 'ledger',
+  'vendor-payment-qr': 'ledger',
+  'vendor-originals': 'ledger',
+  chat: 'chat-message',
+  'vendor-contracts': 'contract',
+  'papic-portfolio': 'portfolio',
+  handovers: 'server-ledger',
+  'inspiration-suggestions': 'server-ledger',
+  'supplier-photo-public': 'server-ledger',
+} as const;
+export type ShopUploadRoot = keyof typeof SHOP_UPLOAD_ROOTS;
+
+/**
+ * Roots that are never a shop's own storage, each with its reason. A root here is uploaded by a couple, a guest, the
+ * admin or Setnayan itself — it counts for whoever owns it (couples have their own meter), never for a shop.
+ */
+export const NOT_SHOP_UPLOAD_ROOTS: Readonly<Record<string, string>> = {
+  events: 'the couple’s event (the couple’s own media meter)',
+  inspiration: 'the couple’s mood board (a shop’s suggestion is its own root, counted)',
+  payments: 'a buyer’s payment screenshot for an order',
+  'deposit-proof': 'the couple’s deposit proof',
+  'force-majeure': 'the couple’s dispute papers',
+  'profile-photo': 'a person’s own profile photo',
+  samahan: 'a samahan’s photo',
+  papic: 'guest cameras at an event (the event’s Papic pool)',
+  'merchant-qr': 'Setnayan’s own receiving QR (admin)',
+  onboarding: 'Setnayan’s own background music (admin)',
+  'hub-music': 'Setnayan’s own Event Hub music (admin)',
+  'locked-qr-proof': 'a buyer’s proof for a locked QR order',
+  taxonomy: 'Setnayan’s category art (admin)',
+  refinements: 'Setnayan’s category art (admin)',
+  editorial: 'the couple’s event story',
+  'editorial-vendor': 'Setnayan’s editorial feature about a shop (admin)',
+  'pabuya-qr': 'the couple’s gift QR',
+  paperwork: 'the couple’s event paperwork',
+  'payment-proof': 'the couple’s proof of a payment to a supplier',
+  'payment-screenshots': 'the couple’s checkout screenshot',
+  'zone-walkthroughs': 'the couple’s venue walkthrough',
+};
+
+/** The evidence buckets: verification papers and contracts are counted, never refused (spec § ★ K). */
+export function isEvidenceUpload(bucketKey: string): boolean {
+  return bucketKey === 'vendorVerification' || bucketKey === 'vendorContracts';
+}
+
+/** Does `/api/upload` write this vendor-root upload to the ledger? Only where no other table records its size. */
+export function uploadIsLedgered(pathPrefix: string): boolean {
+  const root = pathPrefix.split('/')[0] ?? '';
+  return (SHOP_UPLOAD_ROOTS as Record<string, string>)[root] === 'ledger';
+}
+
+/** May this object key have a ledger row (so a delete must release it)? The `ledger` roots and the server-stored ones. */
+export function keyMayBeLedgered(key: string): boolean {
+  const k = key.replace(/^\/+/, '');
+  const root = k.split('/')[0] ?? '';
+  if ((SHOP_UPLOAD_ROOTS as Record<string, string>)[root] === 'ledger') return true;
+  return root === 'handovers' || /^inspiration\/[^/]+\/suggestions\//.test(k);
+}
+
+/**
+ * The meter's state in one place (the Plans page block and its tests read it): the whole plan's percent, and the level
+ * by whichever limit is CLOSER — the plan, or the space for photos and video (the plan less the room). A shop whose
+ * photos have filled their space reads "full" even when the room is empty, because new photos are refused.
+ */
+export function storageMeterState(
+  plan: string | null | undefined,
+  b: StorageBreakdown,
+): { pct: number; mediaPct: number; level: 'ok' | 'near' | 'full'; roomPct: number; roomLevel: 'ok' | 'near' | 'full' } | null {
+  const allowance = storageAllowanceBytes(plan);
+  const room = documentsRoomBytes(plan);
+  if (allowance === null || room === null || allowance <= 0) return null;
+  const pct = Math.floor((storageTotal(b) / allowance) * 100);
+  const mediaSpace = allowance - room;
+  const mediaPct = mediaSpace > 0 ? Math.floor((mediaUsedBytes(b) / mediaSpace) * 100) : 100;
+  const roomPct = room > 0 ? Math.floor((Math.max(0, b.room) / room) * 100) : 100;
+  return { pct, mediaPct, level: storageLevel(Math.max(pct, mediaPct)), roomPct, roomLevel: storageLevel(roomPct) };
+}
+
+/**
+ * The plain words under the meter at 80% and 100% (spec § ★ F · K): what stops, what never stops, the way up. Null =
+ * nothing to say. It names the space that is filling — photos and video, or the chat & documents room.
+ */
+export function storageNotice(state: NonNullable<ReturnType<typeof storageMeterState>>): { tone: 'warn' | 'danger'; words: string } | null {
+  const never = 'your messages, quotes, contracts, receipts and proofs still go through';
+  if (state.level === 'full') {
+    return { tone: 'danger', words: `New photos and videos wait for room. Nothing has been removed, and ${never}. Move up a plan below, or remove files.` };
+  }
+  if (state.roomLevel === 'full') {
+    return { tone: 'danger', words: `Your room for chat and documents is full. New documents wait for room; ${never}. Move up a plan below, or remove files you sent.` };
+  }
+  if (state.level === 'near') {
+    return state.mediaPct > state.pct
+      ? { tone: 'warn', words: `Your space for photos and video is ${state.mediaPct}% full. Move up a plan below before uploads pause.` }
+      : { tone: 'warn', words: `You’ve used ${state.pct}%. Move up a plan below before uploads pause.` };
+  }
+  if (state.roomLevel === 'near') {
+    return { tone: 'warn', words: `Your room for chat and documents is ${state.roomPct}% full. Move up a plan below before new documents pause.` };
+  }
+  return null;
+}

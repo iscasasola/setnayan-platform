@@ -317,10 +317,10 @@ export const SUPPLIER_2_TOPICS: HelpTopic[] = [
         body: 'Branches are added in Your details › Where you work, which shows how many branches your plan includes and what to do when they are all in use.',
       },
       {
-        // subscription/_components/plan-rows.tsx Storage row; lib/supplier-storage.ts storageRowLine
+        // subscription/_components/storage-meter.tsx StorageMeter; lib/supplier-storage.ts STORAGE_KINDS, roomLine (owner 23 Nov: the meter counts everything)
         slug: 'supplier-storage',
         title: 'Suppliers: how much storage do I have?',
-        body: 'Your Plan page has a Storage row showing how much of your space is used. How much you get depends on your plan.',
+        body: 'The top of your Plan page shows how much of your plan’s space you use, split into Photos & video, Files and Records — every photo, file and record your shop keeps counts. A part of it is kept for your chats and documents, shown on its own line. How much you get depends on your plan.',
         appBody: HELP_NOT_IN_THE_APP,
       },
     ],

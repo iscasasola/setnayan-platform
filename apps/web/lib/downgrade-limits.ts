@@ -66,6 +66,8 @@ export type DowngradeFacts = {
   extraSeats: number;
   /** Bytes the shop stores (`supplier_media.size_bytes`); null = unread. */
   storedBytes: number | null;
+  /** 📏 The same read, split as the Plans page meter shows it (`readStorageBreakdown`) — so the page reads it ONCE. */
+  storage?: import('./supplier-storage').StorageBreakdownRead;
   /** The badge facts; null = unread. */
   badge: BadgeFacts | null;
 };

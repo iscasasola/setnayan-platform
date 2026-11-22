@@ -17842,6 +17842,8 @@
         "ActionButton",
         "Amount",
         "AnalyticsPlaceholder",
+        "ApplePlanDoor",
+        "AppleShopPlanRead",
         "ApplicationStatus",
         "ArrangementsBody",
         "AutoReplyCard",
@@ -18173,6 +18175,7 @@
     },
     "/vendor-dashboard/subscription": {
       "files": [
+        "vendor-dashboard/subscription/_components/apple-plan-door.tsx",
         "vendor-dashboard/subscription/_components/badge-upgrades-data.ts",
         "vendor-dashboard/subscription/_components/badge-upgrades-section.tsx",
         "vendor-dashboard/subscription/_components/limits-sheet.tsx",
@@ -18201,6 +18204,8 @@
         "action",
         "cancelScheduledPlanChange",
         "formAction",
+        "routes.privacy",
+        "routes.terms",
         "startSubscriptionPurchase"
       ],
       "blocks": [

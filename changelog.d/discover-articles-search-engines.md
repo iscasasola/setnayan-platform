@@ -20,3 +20,12 @@ column); Discover's Articles "See all" opens Build 2's feed. No migration, no ne
   still filters removed posts and drafts (sabotage: dropping the clause, or bypassing the helper, each turns it red).
 
 SPEC IMPACT: None (the 2026-11-17 DECISION_LOG rows and the drawing already describe it; the 18 Nov rulings are on #7935).
+
+### 2026-11-22 · update — the llms.txt Articles words live in the one search-and-AI source (#8041)
+
+Controller, 22 Nov: "make #8041 the one source, and have #7935 read from it, never a second copy." This PR is now
+stacked on #8041 (merge #8041 first). `llmsArticlesSection`, `LLMS_ARTICLES_MAX` and the whose-words lines moved,
+unchanged, from `lib/articles-index.ts` into `lib/llms-txt.ts`, the template that carries the source's words
+(`SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md` §11: "Discover Articles (public, indexed)" is added the day it ships).
+`articles-index.ts` keeps only the data shaping. Guard 4 now also fails if `articles-index.ts` carries llms.txt words
+again (sabotage-tested). No change to what /llms.txt prints.

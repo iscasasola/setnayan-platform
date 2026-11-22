@@ -21,6 +21,8 @@ import {
   pickedSupplierMenuFor,
   type PickedSupplierPage,
 } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/picked-supplier-menu';
+import { NextStepRow } from '@/app/_components/picked/next-step-row';
+import { coupleNextStep } from '@/lib/client-next-step';
 import { LabPickedChat, type LabChatMode } from '@/app/dev/_components/lab-picked-chat';
 import { CoupleChatsEmpty } from '@/app/dashboard/[eventId]/messages/_components/couple-chats-empty';
 import { PickedSupplierEmpty } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/picked-supplier-empty';
@@ -118,6 +120,14 @@ export default async function ChatLabInboxPage({
   }));
   const picked = typeof sp.pick === 'string' ? LAB_THREADS.find((t) => t.id === sp.pick) ?? null : null;
   const page = ((PICKED_SUPPLIER_PAGE_IDS as readonly string[]).includes(String(sp.page)) ? sp.page : 'chat') as PickedSupplierPage;
+  const labNextStep = coupleNextStep({
+    todayIso: sp.next === 'handover' ? '2026-12-20' : '2026-11-18',
+    eventDate: '2026-12-18',
+    isBooked: sp.next !== 'quote',
+    quoteToDecide: sp.next === 'quote',
+    nextDue: sp.next === 'none' ? null : { amountPhp: 48000, dueDate: '2026-12-09' },
+    handoverWaiting: sp.next === 'handover',
+  });
   return (
     <LabShell eventId={LAB_EVENT}>
       <section className="mx-auto w-full max-w-2xl">
@@ -146,11 +156,13 @@ export default async function ChatLabInboxPage({
           eventId={LAB_EVENT}
           eventVendorId={`lab-${picked.id.slice(-2)}`}
           supplierName={picked.name}
-          menu={pickedSupplierMenuFor({ quote: true, chat: true })}
+          menu={pickedSupplierMenuFor({ chat: true })}
           initialPage={page}
-          bodies={labPickedSupplierBodies(picked.id, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall', ...(sp.self === 'vendor' || sp.self === 'couple' ? { selfShop: sp.self } : {}), ...(sp.logo === '1' ? { shopLogoUrl: '/marketing/2026-11-06/coordinators/sw-logo-round-dark.svg' } : {}) })}
+          bodies={labPickedSupplierBodies(picked.id, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall', ...(sp.self === 'vendor' || sp.self === 'couple' ? { selfShop: sp.self } : {}), ...(sp.logo === '1' ? { shopLogoUrl: '/marketing/2026-11-06/coordinators/sw-logo-round-dark.svg' } : {}) , ...(sp.whisper === '1' ? { whisper: 'on' as const } : sp.whisper === 'fail' ? { whisper: 'fail' as const } : {}) })}
           // 🔴 A lab sample for the Chat tab's badge (the real page reads `readThreadUnreadCount`); none on an empty chat.
           chatUnread={sp.msgs === '0' ? 0 : 2}
+          // ➡ The host's Next step row — the real rule on a sample booking (`?next=quote|handover|none` for the others).
+          nextStep={labNextStep ? <NextStepRow step={labNextStep} /> : null}
         />
       ) : null}
     </LabShell>

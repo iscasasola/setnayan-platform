@@ -37,6 +37,8 @@ export type LockAnswerNotice = {
    * with its Pay right under the sentence (`BookingFeeBills`), so they say the sentence and let that Pay be the door.
    */
   door?: { label: string; href: string };
+  /** Draw the door on EVERY surface, the customer card too — where no other control on the page goes there (the gift). */
+  doorEverywhere?: boolean;
 };
 
 /** Extra facts the RPC hands back alongside a refusal. */
@@ -65,7 +67,19 @@ export type LockAnswerContext = {
    * live by the customer card (`heldServiceOfAsk`). Unknown → the sentence says "the service they asked for".
    */
   heldService?: string | null;
+  /**
+   * 🎁 `gift_needed` (owner 20–21 Nov) — the "Your gifts" store with the gift chosen and the way back, built by the
+   * action (`giftStoreHref`) and read back through `lockAgreeGiftBuy`. Absent → the store with no way back.
+   */
+  giftBuy?: string | null;
+  /** The iPhone app (store shell) sells nothing: the gift door opens Your gifts without a Buy word. */
+  storeShell?: boolean;
 };
+
+/** The store door the action sent back (`&gift_buy=`), only if it is the store's own address. */
+export function lockAgreeGiftBuy(raw: unknown): string | null {
+  return typeof raw === 'string' && /^\/vendor-dashboard\/shop\/promote(\?[A-Za-z0-9_=&%.\-]*)?#gifts$/.test(raw) ? raw : null;
+}
 
 /** The redirect's hall names (`&taken=` · `&free=`), one spelling written by `vendorAgreeToLock` and read here. */
 export function lockAgreeHallsParam(halls: { taken: string[]; free: string[] }): string {
@@ -188,6 +202,17 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
     text: 'You closed this date on your calendar, so this booking cannot be taken. Open the date again in Dates if you can take it, or turn this one down so the couple can look elsewhere.',
     door: { label: 'Dates', href: '/vendor-dashboard/customers?seg=dates' },
   }),
+  // 📊 RENTED BY THE PIECE (Availability plan step 4, owner ruling 2): the supplier says how many pieces at the yes.
+  pieces_needed: () => ({
+    tone: 'refused',
+    text: 'This card rents by the piece, so say how many you can give. Open this client in Clients, type the number, then agree. Nothing was booked yet.',
+  }),
+  // The pieces asked would go past what the card has that day (`set_booked_quantity`, all or nothing).
+  pieces_full: () => ({
+    tone: 'refused',
+    text: 'You don’t have that many pieces free on that date, so this booking was not taken. Agree to fewer, or turn this one down.',
+    door: { label: 'Dates', href: '/vendor-dashboard/customers?seg=dates' },
+  }),
   hall_taken: (ctx) => {
     const taken = ctx.halls?.taken ?? [];
     const free = ctx.halls?.free ?? [];
@@ -199,6 +224,20 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
         (free.length > 0 ? `Offer ${orList(free)} instead — ${free.length === 1 ? 'it is' : 'they are'} free that day — or turn this one down.` : 'Every hall is taken that day — turn this one down so the couple can look elsewhere.'),
     };
   },
+  // 🎁 EVERY BOOKING NEEDS AT LEAST 1 GIFT (owner 20 Nov), and out of a gift you buy it then come back (21 Nov).
+  // Refused BEFORE the yes (a dry run), so nothing was booked.
+  gift_needed: (ctx) => ({
+    tone: 'refused',
+    text: 'Every booking needs at least 1 gift. Nothing was booked yet.',
+    door: ctx.storeShell
+      ? { label: 'Your gifts ›', href: '/vendor-dashboard/shop/promote#gifts' }
+      : { label: 'Buy one ›', href: ctx.giftBuy ?? '/vendor-dashboard/shop/promote#gifts' },
+    doorEverywhere: true,
+  }),
+  gift_refused: () => ({
+    tone: 'refused',
+    text: 'The gift you picked can’t go on this booking — pick another and agree again. Nothing was booked yet.',
+  }),
   error: () => ({
     tone: 'refused',
     text: 'That did not go through. Nothing changed — please try again.',

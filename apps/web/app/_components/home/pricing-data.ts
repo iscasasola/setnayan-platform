@@ -63,6 +63,12 @@ export type PricingData = {
    */
   plusPrice: string;
   plusPhp: number;
+  /**
+   * 🎟 Event Pro (COUPLE_WEBSITE_PRO) — where Setnayan AI is bought since the 18 Nov 2026 re-cut (Event Plus no longer
+   * carries it for new buyers). `''` / 0 when its row is not on sale or unreadable — no figure is drawn then.
+   */
+  aiPlanPrice: string;
+  aiPlanPhp: number;
   /** recurrence suffix for the AI tier (e.g. "/28 days" or "/mo") */
   aiPeriod: string;
   /** Vendor tier prices (28-day + annual), resolved from the live catalog —
@@ -177,9 +183,14 @@ export async function getHomePricingData(): Promise<PricingData> {
   const plusRow = catalog.find((s) => s.service_code === 'EVENT_PLUS');
   const plusPhp = plusRow && Number(plusRow.retail_price_php) > 0 ? Number(plusRow.retail_price_php) : 0;
 
+  const proRow = catalog.find((s) => s.service_code === 'COUPLE_WEBSITE_PRO');
+  const aiPlanPhp = proRow && Number(proRow.retail_price_php) > 0 ? Number(proRow.retail_price_php) : 0;
+
   return {
     plusPrice: plusPhp > 0 ? peso(plusPhp) : '',
     plusPhp,
+    aiPlanPrice: aiPlanPhp > 0 ? peso(aiPlanPhp) : '',
+    aiPlanPhp,
     aiPrice: regularPhp > 0 ? peso(regularPhp) : '',
     aiIntroPrice: introPhp > 0 ? peso(introPhp) : '',
     aiRegularPhp: regularPhp,

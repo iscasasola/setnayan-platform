@@ -152,7 +152,7 @@ describe('the one table is the ruling', () => {
     assert.equal(byName('Papic 3000'), PAPIC_PACK_CODE.papic_3000);
   });
 
-  it('the monthly awards, Verified, and the one badge with no counter yet (Invites)', () => {
+  it('the monthly awards, Verified, and every shop ladder counted (Invites since #7891)', () => {
     const a = BADGE_REWARDS.award;
     assert.equal(a.shape, 'period');
     if (a.shape === 'period') {
@@ -164,8 +164,8 @@ describe('the one table is the ruling', () => {
     }
     assert.deepEqual(BADGE_REWARDS.verified.shape === 'once' && BADGE_REWARDS.verified.reward, { kind: 'papic', units: 1 });
     const unmeasured = Object.values(BADGE_REWARDS).filter((r) => !r.measured && !r.retired).map((r) => r.badge).sort();
-    // Invites ships "Not counted yet": nothing records one supplier adding another (219fb192).
-    assert.deepEqual(unmeasured, ['invites']);
+    // Invites is counted since Invite a supplier v3 (#7891): the record is vendor_partnerships.brought_new_shop.
+    assert.deepEqual(unmeasured, []);
   });
 
   it('🏅 the five shop badges and their own steps, exactly (v86 · bc148e4e · 50566f42)', () => {
@@ -274,8 +274,12 @@ describe('what a shop is owed', () => {
     assert.deepEqual(rewardsOwed({ ...NONE, fiveStarReviews: 0, trustedBy: 0, giftPoints: 0, completedBookings: 0 }), []);
     // ✅ Completed bookings reads its OWN import-free count, never the public completed-events number (owner 16 Nov).
     assert.deepEqual(rewardsOwed({ ...NONE, completedEvents: 10_000, completedBookings: null }), []);
-    // Invites has no counter yet: even a count handed in pays nothing.
-    assert.deepEqual(rewardsOwed({ ...NONE, invites: SHOP_BADGE_STEPS.invites[SHOP_BADGE_STEPS.invites.length - 1]! }), []);
+    // Invites, unread or at zero, pays nothing; its first step pays once it is reached (#7891).
+    assert.deepEqual(rewardsOwed({ ...NONE, invites: 0 }), []);
+    assert.ok(
+      rewardsOwed({ ...NONE, invites: SHOP_BADGE_STEPS.invites[0]! }).length > 0,
+      'one supplier invited with a completed booking reaches Invites Bronze',
+    );
   });
 
   it('every reached tier, each paying the one ladder', () => {
@@ -441,11 +445,18 @@ describe('the gifts list', () => {
 
 describe('🏅 badge rewards sit outside the 40% gift limit; bought gifts keep it', () => {
   const PACKS = shopGiftPacksFrom([
-    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
-    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
-    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
+    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990 },
+    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690 },
   ]);
-  const F = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ papic, event_plus, event_pro, event_ultra });
+  // 🔢 Papic counted in packs (2026-11-14): `papic` credits of Papic 150 are that many / 150 packs.
+  const F = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({
+    papic,
+    event_plus,
+    event_pro,
+    event_ultra,
+    packs: { PAPIC_GUEST_150: Math.floor(papic / 150) },
+  });
   // A small booking: its 40% limit is far below Event Pro's price.
   const TOTAL = 2_000_000;
 
@@ -461,18 +472,32 @@ describe('🏅 badge rewards sit outside the 40% gift limit; bought gifts keep i
 
   it('reward stock pays whole lines, the most valuable first; the rest is measured', () => {
     // One Event Plus from rewards + one bought Event Plus: the bought one is measured, and is over.
-    const v = judgeQuoteGifts(['EVENT_PLUS', 'EVENT_PLUS'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(0, 2), 'none', F(0, 1));
+    const v = judgeQuoteGifts(['EVENT_PLUS', 'EVENT_PLUS'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(0, 2), 'none', F(0, 1), 9);
     assert.deepEqual(v.fromReward, [true, false]);
     assert.equal(v.state, 'over_limit');
     // 150 reward credits cover one Papic 150 line; a second one (bought) is still the always-allowed pack.
-    const p = judgeQuoteGifts(['PAPIC_GUEST_150', 'PAPIC_GUEST_150'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(300), 'none', F(150));
+    const p = judgeQuoteGifts(['PAPIC_GUEST_150', 'PAPIC_GUEST_150'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(300), 'none', F(150), 9);
     assert.deepEqual(p.fromReward, [true, false]);
     assert.equal(p.state, 'ok');
   });
 
   it('reward stock never counts for more than is free to offer, and an unread one counts as none', () => {
-    assert.deepEqual(rewardFreeByKind({ papic: { earned: 300, used: 0 }, event_plus: { earned: 1, used: 1 }, event_pro: { earned: 0, used: 0 }, event_ultra: { earned: 0, used: 0 } }, F(150, 3)), F(150, 0, 0));
+    assert.deepEqual(rewardFreeByKind({ papic: { earned: 300, used: 0 }, event_plus: { earned: 1, used: 1 }, event_pro: { earned: 0, used: 0 }, event_ultra: { earned: 0, used: 0 } }, F(150, 3)), { ...F(150, 0, 0), packs: {} });
     assert.equal(rewardFreeByKind(null, F(150)), null);
+    // 🔢 Per pack: what is left of a pack's reward, never more than that pack's free stock; a used-up pack is absent.
+    assert.deepEqual(
+      rewardFreeByKind(
+        {
+          papic: { earned: 1300, used: 0 },
+          event_plus: { earned: 0, used: 0 },
+          event_pro: { earned: 0, used: 0 },
+          event_ultra: { earned: 0, used: 0 },
+          packs: { PAPIC_GUEST_1K: { earned: 1, used: 0 }, PAPIC_GUEST_150: { earned: 2, used: 2 } },
+        },
+        { ...F(1300), packs: { PAPIC_GUEST_1K: 3, PAPIC_GUEST_150: 4 } },
+      )?.packs,
+      { PAPIC_GUEST_1K: 1 },
+    );
     const v = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(0, 0, 1), 'none', null);
     assert.equal(v.state, 'over_limit', 'an unread reward stock exempted a line');
   });

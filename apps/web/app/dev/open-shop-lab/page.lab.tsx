@@ -44,6 +44,8 @@ import {
 } from '@/lib/taxonomy';
 import { categoryLadder } from '@/lib/vendor-tier-caps';
 import { DEFAULT_LOGO_FRAME } from '@/lib/open-shop-logo';
+import { siteOrigin } from '@/lib/site-origin';
+import { claimDatePhrase } from '@/lib/claim-invite-words';
 
 export const dynamic = 'force-dynamic';
 
@@ -156,6 +158,9 @@ async function labSaveLogo(): Promise<{ ok: true }> {
   return { ok: true };
 }
 
+/** The sample date, through the SAME formatter the real claim record uses (`claimDatePhrase` → "on Sat, Dec 12, 2026"). */
+const LAB_DATE = claimDatePhrase('2026-12-12', 'day');
+
 /** The prototype v21 record (`REC`, `COUPLE`) — the couple's sample event, the prototype's photographer. */
 const LAB_CLAIM_RECORD: ClaimDoorRecord = {
   token: 'x7k2qp-sample',
@@ -165,7 +170,7 @@ const LAB_CLAIM_RECORD: ClaimDoorRecord = {
   hostNoun: 'couple',
   eventWord: 'wedding',
   eventType: 'wedding',
-  datePhrase: 'on 12 December 2026',
+  datePhrase: LAB_DATE ? `${LAB_DATE.preposition} ${LAB_DATE.label}` : null,
   business: 'Banawe Florals',
   contactPerson: 'Ana Reyes',
   contactPhone: '+639178888889',
@@ -214,8 +219,9 @@ export default async function OpenShopLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
-  const host = (await headers()).get('host') ?? 'localhost:3000';
-  const LAB_LOGO = `http://${host}${LAB_LOGO_PATH}`;
+  const host = (await headers()).get('host');
+  const labOrigin = host ? 'http://' + host : siteOrigin();
+  const LAB_LOGO = labOrigin + LAB_LOGO_PATH;
   if (q.screen === 'logo') {
     return (
       <AddYourLogo

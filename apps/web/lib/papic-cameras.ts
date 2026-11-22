@@ -200,12 +200,24 @@ export function hostCameraPick(rows: readonly HostCameraRow[], userId: string): 
 }
 
 /**
- * Was this capture added by hand? A host camera's seat is the one door for a file picked from a phone or laptop
- * (owner 2026-10-26: anything added costs the camera price × PAPIC_UPLOAD_MULTIPLIER — `papicCaptureCost`). Read off the SEAT the server
- * resolved from the token, never from anything the client says.
+ * Was this capture added by hand? Anything added from a phone or laptop costs the camera price ×
+ * PAPIC_UPLOAD_MULTIPLIER (owner 2026-10-26 — `papicCaptureCost`); a photo a camera TAKES costs the camera price.
+ *
+ * 📷 A HOST'S LIVE SHOT COSTS 1× (owner 2026-11-22, "Make it 1." — specs DECISION_LOG "A HOST'S LIVE PHOTOS FROM THE
+ * EVENT HUB CAMERA COST 1×"). Until then EVERY capture on a host camera's seat was priced as added by hand, because
+ * that seat was only ever the Memories file picker. Since the host's Event Hub camera opens the same seat (#8133), the
+ * seat alone no longer says which it was — so the split is made HERE, by two facts together:
+ *   · the SEAT (server-resolved from the token): only a host camera can be the hand-added door at all;
+ *   · `addedByHand`: declared by the ONE hand-added door (Memories' "Add photos" — `add-to-library.tsx`), on both the
+ *     presign and the record. Every camera lane (the seat camera, its offline drain, the camera bridge) declares
+ *     nothing and pays the camera price.
+ * ⚠ The declaration comes from the client, exactly as the guest path's `source: 'phone'` does
+ * (`app/api/papic/guest-capture/route.ts`): the server has no other way to know whether a file was shot or picked.
+ * A tampered uploader could therefore pay the camera price for a picked file — bounded at 1×, the price every other
+ * camera on the event pays; it can never go below it, and never applies off a host seat.
  */
-export function papicSeatCaptureSource(seatIndex: number | null | undefined): PapicCaptureSource {
-  return isHostCameraSeatIndex(seatIndex) ? 'upload' : 'camera';
+export function papicSeatCaptureSource(seatIndex: number | null | undefined, addedByHand?: boolean): PapicCaptureSource {
+  return isHostCameraSeatIndex(seatIndex) && addedByHand === true ? 'upload' : 'camera';
 }
 
 /**

@@ -72,7 +72,7 @@ export async function loadMapData(admin: Admin, cats: CategoriesData): Promise<M
   for (const r of cardRows) if (r.category) cardCount.set(r.category, (cardCount.get(r.category) ?? 0) + 1);
   const services: MapService[] = [...cats.services]
     .sort((a, b) => (order.get(a.canonical) ?? 0) - (order.get(b.canonical) ?? 0) || a.en.localeCompare(b.en))
-    .map((s) => ({ key: s.canonical, label: s.en, tileId: s.tileId, hidden: s.hidden, cards: cardCount.get(s.canonical) ?? 0 }));
+    .map((s) => ({ key: s.canonical, label: s.en, tileId: s.tileId, hidden: s.hidden, cards: cardCount.get(s.canonical) ?? 0, availability: s.availability }));
 
   // ── parts ───────────────────────────────────────────────────────────────────
   const partsRead = !partsRes.error && !linksRes.error;
@@ -132,5 +132,7 @@ export async function loadMapData(admin: Admin, cats: CategoriesData): Promise<M
     cardsRead,
     // `loadCategories` already read the services and named a refusal in `failed` — carried here so the map says it.
     servicesRead: !cats.failed.includes('services'),
+    // How a service books (plan step 2) — unread when the tree fell back or the column read was refused.
+    availabilityRead: !cats.failed.includes('the category tree') && !cats.failed.includes('service Availability'),
   };
 }

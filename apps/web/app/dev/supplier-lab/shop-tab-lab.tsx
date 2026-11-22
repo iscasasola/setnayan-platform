@@ -16,6 +16,10 @@ import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import type { ProfileFieldData } from '@/app/vendor-dashboard/shop/_components/editable-row';
 import { ShopBadgeRow } from '@/app/vendor-dashboard/shop/_components/shop-badge-row';
 import { ShopMakers } from '@/app/vendor-dashboard/shop/_components/shop-makers';
+import { ShopTemplates } from '@/app/vendor-dashboard/shop/_components/shop-templates';
+import { ShopFormsMaker } from '@/app/vendor-dashboard/forms/_components/forms-page-body';
+import type { ShopForm } from '@/lib/vendor-forms.server';
+import type { PlanTemplatesRead } from '@/lib/pay-plan-templates';
 import { ShopSettingsRows } from '@/app/vendor-dashboard/shop/_components/shop-settings-rows';
 import { AnalyticsCarousel } from '@/app/vendor-dashboard/performance/_components/analytics-carousel';
 import { labCarouselProps } from './analytics-lab';
@@ -57,6 +61,43 @@ const bar = (
     <CoordLabBar />
   </BottomDock>
 );
+
+/** 🗂 Card Maker part 4 — Shop › Makers › Templates on sample forms and plans (`?maker=templates` opens it). */
+function labTemplates(fail: boolean, none: boolean) {
+  const form = (id: string, title: string, used: number): ShopForm => ({
+    formId: id, title, items: [], serviceIds: [], usedWith: used, sizeLine: '4 questions', updatedAt: '2026-11-18T00:00:00Z', inLibrary: true, forEventId: null,
+  });
+  const pay = (seq: number, label: string, p: { percent?: number; php?: number; anchor: 'on_lock' | 'before_event'; days: number }) => ({
+    seq, label, amount_kind: p.percent != null ? ('percent' as const) : ('fixed' as const), percent: p.percent ?? null, amount_php: p.php ?? null,
+    due_anchor: p.anchor, due_offset_days: p.days, cancellation_terms: null, downpayment_non_refundable: false, refund_window_days: null, no_show_forfeit: false,
+  });
+  const plans: PlanTemplatesRead = fail
+    ? { status: 'unread' }
+    : {
+        status: 'ok',
+        plans: none
+          ? []
+          : [
+              { id: 'lab-plan-1', name: 'My 3-step plan', cardCount: 2, items: [pay(0, 'Reservation', { percent: 30, anchor: 'on_lock', days: 0 }), pay(1, 'Second payment', { percent: 40, anchor: 'before_event', days: 60 }), pay(2, 'Balance', { percent: 30, anchor: 'before_event', days: 14 })] },
+              { id: 'lab-plan-2', name: 'Half now, half later', cardCount: 0, items: [pay(0, 'Reservation', { php: 10000, anchor: 'on_lock', days: 0 }), pay(1, 'Balance', { percent: 50, anchor: 'before_event', days: 7 })] },
+            ],
+      };
+  return (
+    <ShopTemplates
+      forms={
+        <ShopFormsMaker
+          library={fail ? null : none ? [] : [form('lab-f1', 'Wedding day details', 3), form('lab-f2', 'Song requests', 1)]}
+          cards={[]}
+          suggestions={{ status: 'ok', serviceLabel: 'Live Band', groupLabel: null, own: [], alsoUseful: [] }}
+          locks={{ media: null, video: null }}
+          returnPath="/dev/supplier-lab"
+          shopId="lab-shop"
+        />
+      }
+      plans={plans}
+    />
+  );
+}
 
 function shopLab(fail: boolean, none: boolean) {
   const facts: TrackerFacts | null = fail
@@ -140,16 +181,19 @@ function shopLab(fail: boolean, none: boolean) {
             )}
           />
         </div>
-        {/* 📊🎠 Analytics — THE carousel, the one Analytics (owner 11 Nov 2026), on the analytics lab's own fixtures. */}
-        <AnalyticsCarousel {...labCarouselProps({ shop: none ? 'new' : 'sample', fail, locked: false })} />
-        <ShopBadgeRow tiles={tiles} shopName="SetnaProd" />
+        {/* Templates, then Specialized tools, ABOVE the numbers (owner 19 Nov 2026) — the page's own order. */}
         <ShopMakers
           scanners={fail ? null : none ? [] : [{ coverageId: 1, label: 'Photography', choice: 'once' }, { coverageId: 2, label: 'Photo booth', choice: 'off' }]}
           formsBody={null}
+          templatesBody={labTemplates(fail, none)}
+          offers={{ verified: true, running: fail ? null : none ? 0 : 1, total: fail ? null : none ? 0 : 2, papers: '2 of 2' }}
           categories={none ? [] : ['Live Band', 'Photo Booth']}
           services={none ? [] : ['live_band']}
           booked={fail ? null : none ? [] : [{ eventId: 'ev-santos', eventName: 'Santos – Dela Cruz wedding', bookedDate: '2026-11-14' }, { eventId: 'ev-cruz', eventName: 'Cruz debut', bookedDate: '2026-11-21' }]}
         />
+        {/* 📊🎠 Analytics — THE carousel, the one Analytics (owner 11 Nov 2026), on the analytics lab's own fixtures. */}
+        <AnalyticsCarousel {...labCarouselProps({ shop: none ? 'new' : 'sample', fail, locked: false })} />
+        <ShopBadgeRow tiles={tiles} shopName="SetnaProd" />
         <section className="px-4 pt-3" id="services" aria-labelledby="shop-services-h" data-shop-services="">
           <ShopServicesHead
             line={none ? 'Bundles first, then every service you do, by category' : 'Bundles first, then every service you do, by category · 1 bundle · 2 cards · 1 live'}
@@ -232,10 +276,18 @@ function portfolioLab(fail: boolean, none: boolean) {
             { eventId: 'ev-cruz', eventName: 'Cruz debut', bookedDate: '2026-10-18' },
             { eventId: 'ev-reyes', eventName: 'Reyes christening', bookedDate: '2026-09-27' },
           ],
-          { thisYear: 2026, albumHref: (id) => `/vendor-dashboard/on-the-day/live/${id}/papic#portfolio` },
+          {
+            thisYear: 2026,
+            albumHref: (id) => `/vendor-dashboard/on-the-day/live/${id}/papic#portfolio`,
+            // 📍 Sample venues (fixtures) — so Search by place can be tried here: type "tagaytay".
+            facts: new Map([
+              ['ev-santos', { venue: 'Taal Vista Hotel', address: 'Tagaytay City, Cavite', services: ['Wedding photo & video', 'Photo booth'] }],
+              ['ev-cruz', { venue: 'Club Punta Fuego', address: 'Nasugbu, Batangas', services: ['Photo booth'] }],
+            ]),
+          },
         ),
-        services: serviceAlbums(serviceCards),
-        inspiration: inspirationAlbums(looks),
+        services: serviceAlbums(serviceCards, new Map([['svc-photo', 'Taal Vista Hotel · Tagaytay City, Cavite'], ['svc-booth', 'Taal Vista Hotel · Tagaytay City, Cavite · Club Punta Fuego · Nasugbu, Batangas']])),
+        inspiration: inspirationAlbums(looks, new Map([['l0', 'Wedding · Taal Vista Hotel · Nov 2026']])),
         stories: [
           { eventId: 'ev-santos', slug: 'santos-delacruz', hostNames: 'Ana & Miguel', line: 'Tagaytay · Nov 2026' },
           { eventId: 'ev-cruz', slug: 'bea-cruz-18', hostNames: 'Bea Cruz', line: 'Batangas · Oct 2026' },
@@ -251,8 +303,6 @@ function portfolioLab(fail: boolean, none: boolean) {
           saved={saved}
           showAlbums={none ? {} : { page: { title: 'Photos on my page', urls: PHOTOS }, cards: { title: 'Service card photos', urls: PHOTOS.slice(3, 9) } }}
           photos={none ? 0 : 38}
-          videoLinks={none ? 0 : 12}
-          hero={none ? { url: '/placeholders/vendor.webp', kind: 'placeholder' } : { url: PHOTOS[9]!, kind: 'photo' }}
           moodboard={fail || none ? null : { looks: looks.length, declined: 0 }}
           songs={fail ? null : { count: none ? 0 : 24, withVideo: none ? 0 : 9 }}
           free={50}
@@ -265,9 +315,8 @@ function portfolioLab(fail: boolean, none: boolean) {
           videoLinkUrls={fail || none ? [] : ['https://www.youtube.com/watch?v=aqz-KE-bpKQ', 'https://vimeo.com/76979871', 'https://www.facebook.com/watch/?v=10153231379946729']}
           uploadFacts={{ vendorProfileId: 'lab', storedRefs: [], free: 50, allowanceUnread: fail, walletBalance: fail ? null : 128 }}
           gallery={<p className="py-3 text-[13px] text-ink/60">The shipped uploader (GalleryMedia) mounts here on the real page.</p>}
-          // ⭐ Your best work — sample views (fixtures, never a measured figure); `&unread=1` = the count refused.
-          best={fail ? null : none ? [] : [PHOTOS[4]!, PHOTOS[1]!, PHOTOS[7]!, PHOTOS[2]!].map((url, i) => ({ key: `lab-${i}`, url, views: [212, 96, 41, 12][i]! }))}
-          sectionOrder={null}
+          // 🖼 Row 1's numbers — sample figures (fixtures, never measured); `&unread=1` = every count refused.
+          albumStats={fail ? { serviceOpens: null, pageViews: null, opened: null } : { serviceOpens: Object.fromEntries((groups.services ?? []).map((a, i) => [a.key, [212, 41, 12][i] ?? 0])), pageViews: none ? 0 : 96, opened: {} }}
         />
         </LabPortfolioChats>
       </div>

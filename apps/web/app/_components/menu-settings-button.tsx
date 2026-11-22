@@ -39,11 +39,12 @@
  *     bf8998a1 (17 Nov) the picked client's ⚙ rises like the rest, so `inLayer` has NO caller today; it is kept for that
  *     in-place swap. `lib/settings-v2-one-shell.test.ts` (1) holds it at zero callers.
  */
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Settings } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
+import { usePortalHost } from '@/lib/use-portal-host';
 import { InfoTip } from '@/app/_components/info-tip';
 import { MENU_SETTINGS_TIP, SETTINGS_ENTRY, type SettingsMenu } from '@/lib/menu-settings';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
@@ -127,7 +128,7 @@ export function MenuSettingsButton({
 }
 
 function OnBody({ children }: { children: ReactNode }) {
-  const [host, setHost] = useState<HTMLElement | null>(null);
-  useEffect(() => setHost(document.body), []);
+  // The shared host: <body> in the tap's own render, so the sheet is not a frame late (lib/use-portal-host.ts).
+  const host = usePortalHost();
   return host ? createPortal(children, host) : null;
 }

@@ -151,6 +151,12 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // `for-suppliers` is.
   'for-coordinators',
 
+  // --- ⬇ ADDED 2026-11-17 -------------------------------------------------
+  // Discover's articles (/articles/{slug}, Build 2). A route folder, so the
+  // GENERATED half carries it too; here because the database mirrors THIS half
+  // (migration 20271355258231).
+  'articles',
+
 
   // --- Next.js internals / special files (defense-in-depth; can't be slugs
   //     anyway per the ^[a-z0-9-]{3,32}$ format, but reserved for safety) -----
@@ -178,6 +184,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'admin',
   'alaala',
   'api',
+  'articles',
   'auth',
   'budget',
   'claim',
@@ -196,6 +203,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'health',
   'help',
   'host',
+  'i',
   'join',
   'live',
   'login',

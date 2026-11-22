@@ -23,6 +23,7 @@ import { rosterSearchMatches, type RosterFacts } from '@/lib/guest-roster-view';
 import type { GuestRow } from '@/lib/guests';
 import { checklistTaskAnchor } from '@/lib/checklist-anchor';
 import { payTargetVendor } from '@/lib/budget-page-view';
+import { buildEventToday } from '@/lib/event-today';
 import { homeControlTiles, homeNowAction, homeToday, homeWaiting } from './_components/home-control-faces';
 import { drawHome, loadHome } from './home-render.harness';
 import { visiblePickedSupplierPage, pickedSupplierMenuFor } from './vendors/[vendorId]/workspace/_components/picked-supplier-menu';
@@ -55,9 +56,10 @@ test('2 · "1 quote to decide" opens that supplier’s quote', () => {
   // `?tab=quote` lands on Quotation.
   assert.match(ws, /initialPage=\{visiblePickedSupplierPage\(rawLanding, pickedMenu\)\}/, 'the workspace no longer opens on the tab its address names');
   assert.match(src('vendors/[vendorId]/workspace/_components/picked-supplier-menu.ts'), /PICKED_SUPPLIER_PAGE_IDS = \[[^\]]*'quote'/, 'Quote is no longer one of the picked pages');
-  assert.match(ws, /quote: hasQuotesToShow \? \(\s*<div data-picked-supplier-page="quote">/, 'the workspace lost its Quote tab');
+  // 18 Nov 2026 (seven tabs): `?tab=quote` is Book & Budget — the payments, then the quote.
+  assert.match(ws, /quote: \(\s*<div className="space-y-6" data-picked-supplier-page="quote">[\s\S]{0,900}<section id="quote"/, 'the workspace lost its Quote tab');
   // …and a ?tab= landing is not bounced anywhere else: `quote` opens Quotation whenever there is a quote to show.
-  assert.equal(visiblePickedSupplierPage('quote', pickedSupplierMenuFor({ quote: true, chat: true })), 'quote');
+  assert.equal(visiblePickedSupplierPage('quote', pickedSupplierMenuFor({ chat: true })), 'quote');
 });
 
 test('3 · a To do task opens itself in Planning Stage’s To do filter', () => {
@@ -66,21 +68,27 @@ test('3 · a To do task opens itself in Planning Stage’s To do filter', () => 
   assert.ok(first && first !== 'unread');
   const todo = '/dashboard/e1/schedule?view=preparation&filter=todo';
   // 🎴 The To do is ONE list under the event card now (Home redraw 2026-11-02): each row opens its own task.
+  // RE-AIMED 20 Nov 2026 (Event Today, Focus shape): a task is a row of the one list. A tap opens it as a card where
+  // it sits; its own address is where "Open in Schedule ›" and a drag right go — the row's `href`, from
+  // `lib/event-today.ts`, wired by the list (`event-today-list.tsx`).
   const list = drawHome();
-  const at = list.indexOf('data-home-todo=""');
-  assert.ok(at > -1, 'Home draws no To do list');
-  const rows = list.slice(at, list.indexOf('data-home-todo-line', at));
+  assert.ok(list.indexOf('data-home-todo=""') > -1, 'Home draws no To do list');
+  const c0 = fixtureControl('e1');
+  const rows = buildEventToday({ control: c0, today: homeToday(c0.next, c0.guests, homeWaiting(c0)), putOffs: [], todayIso: '2026-11-20' }).list;
   for (const t of first.next.slice(0, 3)) {
-    assert.ok(rows.includes(`href="${todo.replace(/&/g, '&amp;')}#${checklistTaskAnchor(t.id)}"`), `the To do row "${t.title}" does not open itself`);
+    assert.equal(rows.find((r) => r.key === `task:${t.id}`)?.href, `${todo}#${checklistTaskAnchor(t.id)}`, `the To do row "${t.title}" does not open itself`);
+    assert.ok(list.includes(`data-home-todo-row="${t.id}"`), `the To do row "${t.title}" is not drawn`);
   }
+  const rowSrc = src('_components/event-today-list.tsx');
+  assert.match(rowSrc, /onOpen: \(\) => \(row\.href \? g\?\.go\(row\.href\) : undefined\)/, 'a drag right does not open the row’s own page');
+  assert.match(rowSrc, /<Link href=\{row\.href\} [^>]*data-event-today-open-in-page="">\s*Open in \{row\.page\} ›/, 'the open card does not end with the row’s own page');
   assert.equal(checklistTaskAnchor('abc'), 'task-abc');
   // The row wears the very same id, so the browser lands on it (the filter shows it; nothing folds a task away).
   const view = src('schedule/_components/preparation-agenda.tsx');
   assert.match(view, /id=\{rowId \? checklistTaskAnchor\(rowId\) : undefined\}/, 'the Planning Stage row does not wear its address');
   assert.match(view, /scroll-mt-24/, 'a landed task hides under the top bar');
-  // The md+ card's task lines open their tasks too.
-  const html = drawHome();
-  assert.ok(html.includes(`href="${todo.replace(/&/g, '&amp;')}#task-t1"`), 'the To do card’s first task does not open itself');
+  // The plan's closing line still opens Planning Stage's To do filter.
+  assert.ok(list.includes(`href="${todo.replace(/&/g, '&amp;')}"`), 'the plan’s closing line does not open Planning Stage');
 });
 
 test('4 · a payment’s Pay opens that payment’s sheet', () => {

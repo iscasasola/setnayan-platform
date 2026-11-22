@@ -84,7 +84,11 @@ export const VENDOR_PROFILE_EXPORT_OMITTED: Record<string, string> = {};
  */
 export const VENDOR_PROFILE_EXPORT_SELECT =
   'absorbs_convenience_fee, ai_addon_expires_at, ai_addon_level, ai_addon_trial_used_at, ' +
-  'bir_service_category, booth_addon_expires_at, booth_addon_trial_used_at, business_name, ' +
+  'bir_service_category, ' +
+  // booking_min_days · booking_max_months (migration 20271354345662) — how far away the shop takes bookings (At least ·
+  // At most, Clients ⚙ › Teams and days). The shop's own setting, exported like the pause above.
+  'booking_max_months, booking_min_days, ' +
+  'booth_addon_expires_at, booth_addon_trial_used_at, business_name, ' +
   'business_owner_name, business_owner_position, business_slug, capacity_max, capacity_min, ' +
   'compatible_ceremony_types, compatible_venue_settings, contact_email, contact_phone, ' +
   'created_at, created_by_admin_user_id, demo_batch_id, demotion_count, event_types, ' +
@@ -119,6 +123,9 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   // papers_lapsed_at · papers_current (migration 20271348041863, PR #7624) — when the shop's papers lapsed after the
   // 30 March renewal, and whether they are current. The shop's own state, exported like find_lock_* above.
   'papers_current, papers_lapsed_at, ' +
+  // paused_at · paused_by (migration 20271350091032) — whether and by whom the shop is paused (Shop status). The
+  // shop's own state, exported like the papers stamp above.
+  'paused_at, paused_by, ' +
   'papic_challenge_expires_at, pending_tier, pending_tier_billing_cycle, ' +
   'pending_tier_period_days, ' +
   'pending_tier_purchase_id, pending_tier_scheduled_at, pending_tier_sku_code, ' +

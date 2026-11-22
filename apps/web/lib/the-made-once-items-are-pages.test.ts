@@ -57,7 +57,7 @@ test('Details is the bar’s one made-once item; Logo, Hero and Reveal are items
   /* 🧭 One Maker since 2026-10-25: its bar holds no made-once door at all — Studio opens them. */
   const { MAKER_TOOLBAR_STAGES_STUDIO, makerPressDoor } = await import(`../${L}/maker-bar`);
   assert.deepEqual(
-    (MAKER_TOOLBAR_STAGES_STUDIO as readonly string[]).filter((k) => !['side', 'history', 'preview', 'apply', 'settings'].includes(k)),
+    (MAKER_TOOLBAR_STAGES_STUDIO as readonly string[]).filter((k) => !['leave', 'side', 'history', 'preview', 'apply', 'settings'].includes(k)) /* ‹ leave: the full-screen way out (20 Nov), no made-once door */,
     [],
     'the bar holds a made-once door again',
   );
@@ -243,7 +243,7 @@ test('Details renders as a page in the Maker’s body, not a layer of its own', 
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerShell } = await import(`../${L}/maker-shell`);
   const html = renderToStaticMarkup(
-    React.createElement(MakerShell, {
+    React.createElement((await import('next/dist/shared/lib/app-router-context.shared-runtime')).AppRouterContext.Provider, { value: { refresh() {}, push() {}, replace() {}, back() {}, forward() {}, prefetch() {} } as never }, React.createElement(MakerShell, {
       eventId: 'ev-1',
       slug: 'ana-ben',
       liveStage: 'rsvp',
@@ -262,7 +262,7 @@ test('Details renders as a page in the Maker’s body, not a layer of its own', 
       },
     },
     React.createElement('div', { 'data-stub': 'work' }),
-    ),
+    )),
   );
   assert.match(html, /data-maker-page="details"/);
   assert.match(html, /data-maker-page-body=""[\s\S]*data-stub="details-page"/, 'what the details feed is the body');
@@ -327,7 +327,7 @@ test('RSVP is Details › RSVP — the guest’s RSVP as its picture, its settin
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerShell } = await import(`../${L}/maker-shell`);
   const html = renderToStaticMarkup(
-    React.createElement(MakerShell, {
+    React.createElement((await import('next/dist/shared/lib/app-router-context.shared-runtime')).AppRouterContext.Provider, { value: { refresh() {}, push() {}, replace() {}, back() {}, forward() {}, prefetch() {} } as never }, React.createElement(MakerShell, {
       eventId: 'ev-1',
       slug: 'ana-ben',
       liveStage: 'rsvp',
@@ -346,7 +346,7 @@ test('RSVP is Details › RSVP — the guest’s RSVP as its picture, its settin
       },
     },
     React.createElement('div', { 'data-stub': 'work' }),
-    ),
+    )),
   );
   assert.match(html, /data-maker-page="details"[\s\S]*data-stub="details-page"/, 'an RSVP ask opens Details');
   assert.doesNotMatch(html, /data-maker-page="rsvp-page"/, 'RSVP is still a page of its own');

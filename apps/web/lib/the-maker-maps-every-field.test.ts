@@ -41,7 +41,7 @@ function namesRead(src: string): string[] {
   return [...src.matchAll(/\b(?:formData|fd)\.(?:get|getAll)\(\s*'([a-z0-9_]+)'/g)].map((m) => m[1] ?? '');
 }
 
-/** Every `name="…"` the maker tree posts (the maker + the editors it imports, one level of relative imports). */
+/** Every `name="…"` / `fieldName="…"` the maker tree posts (the maker + the editors it imports, one level of relative imports). */
 function namesPosted(): Set<string> {
   const out = new Set<string>();
   const seen = new Set<string>();
@@ -51,7 +51,9 @@ function namesPosted(): Set<string> {
     if (seen.has(file)) continue;
     seen.add(file);
     const src = read(file);
-    for (const m of src.matchAll(/(?<![\w$.])name\s*=\s*"([^"]*)"/g)) out.add(m[1] ?? '');
+    // A `TypedRow`'s `fieldName="…"` posts too: its own hidden input carries the kept words under that name
+    // (form-row.tsx `fieldName`). Card Maker part 7's Per unit rows exist only as TypedRows.
+    for (const m of src.matchAll(/(?<![\w$.])(?:name|fieldName)\s*=\s*"([^"]*)"/g)) out.add(m[1] ?? '');
     for (const m of src.matchAll(/(?<![\w$.])name\s*=\s*\{`([^`]*)`\}/g)) out.add((m[1] ?? '').replace(/\$\{[^}]*\}/g, '${}'));
     for (const m of src.matchAll(/from\s+'(\.[^']*)'/g)) {
       const f = resolve(dirname(file), `${m[1]}.tsx`);
@@ -163,7 +165,8 @@ test('2 · every truth-table field has a home in the maker, and the home exists'
           ? /Picked up where you left off\?/
           : home.startsWith('sheet:')
             ? new RegExp(`id="canvas-${home.slice(6)}"`)
-            : new RegExp(`(?:data|data-maker-row)="${home}"|data-maker-row=\\{?"?${home}`);
+            : // 2026-11-17 (Card Maker HYBRID): a former fold is now a framed group (`<MakerGroup id="m-…">`) or a row of one.
+              new RegExp(`(?:data|data-maker-row|data-maker-group-row)="${home}"|data-maker-row=\\{?"?${home}|<MakerGroup id="${home}"`);
     const found =
       anchor.test(src) || (home === 'name' && /data-maker-row="name"/.test(src)) || (home === 'kind' && /data="kind"/.test(src));
     assert.ok(found, `truth-table row ${row} (${field}) points at "${home}", which the maker no longer has`);

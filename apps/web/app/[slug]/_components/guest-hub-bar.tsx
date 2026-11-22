@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   Camera,
   Images,
-  LayoutGrid,
   QrCode,
   RefreshCw,
   User,
@@ -47,7 +46,6 @@ export function GuestHubBar({
   papicGuestActive,
   hasAccount,
   galleryCount,
-  hubHref,
   selfRotateEnabled,
   dayOfLive,
   slug,
@@ -91,9 +89,6 @@ export function GuestHubBar({
   hasAccount: boolean;
   /** Count of photos this guest is tagged in (0 when none / not in window). */
   galleryCount: number;
-  /** When set (event-day live/post), a top-left chip opens the fullscreen
-   *  no-scroll guest hub at this href. Undefined outside the event day. */
-  hubHref?: string | null;
   /** GUEST_QR_SELF_ROTATE flag (server-resolved) — shows "Get a new QR". */
   selfRotateEnabled?: boolean;
   /** Event is inside the live day-of window (typed confirm required). */
@@ -152,22 +147,6 @@ export function GuestHubBar({
 
   return (
     <>
-      {/* Top-left "Live hub" entry (event-day only) — opens the fullscreen,
-          no-scroll toggle-menu hub. The hub is a separate route, so the long
-          event page stays intact; this is its doorway from the day-of bar. */}
-      {hubHref ? (
-        <div className="fixed left-[max(0.75rem,var(--sn-safe-l))] top-3 z-40 [padding-top:env(safe-area-inset-top)]">
-          <Link
-            href={hubHref}
-            aria-label="Open the live hub"
-            className="inline-flex h-11 items-center gap-1.5 rounded-full bg-ink px-3.5 text-sm font-semibold text-cream shadow-sm transition hover:bg-ink/90"
-          >
-            <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={2} />
-            <span>Live hub</span>
-          </Link>
-        </div>
-      ) : null}
-
       {/* Top-right account affordance. Fixed so it rides above the page chrome;
           safe-area inset keeps it clear of notches. */}
       <div data-top-corner className="fixed right-[max(0.75rem,var(--sn-safe-r))] top-3 z-40 flex items-start gap-2 [padding-top:env(safe-area-inset-top)]">

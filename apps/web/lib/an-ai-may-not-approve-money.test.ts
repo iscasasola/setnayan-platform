@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -40,6 +40,20 @@ const MONEY_GATES = [
   'lib/admin/green-payments.ts',
   'lib/admin/green-payments.server.ts',
   'app/admin/work/actions.ts',
+  // Received BDO screenshots (2026-11-17): the model transcribes them through
+  // the .server seam; a HUMAN press on Match approves via approvePaymentCore.
+  'app/admin/payments/received.ts',
+  // ⚠ AMENDED DELIBERATELY, CITING THE RULING (owner 2026-11-17, specs
+  // DECISION_LOG "Admin payment batch match: limits APPROVED, undo 30 minutes
+  // (closes the open conditions on 0f332b2f)": "an-ai-may-not-approve-money.test.ts
+  // is amended citing this row, never weakened silently"). The ONE exception to
+  // "the reader may prepare, never approve": the owner's OWN received BDO
+  // screenshots, matched by plain code (whole reference + exact amount + exactly
+  // one unpaid payment), held 30 minutes with Undo, then paid through the same
+  // approvePaymentCore. Both files join the gates, so every rule above still
+  // holds for them: no receipt reader, no advisory table, no model verdict.
+  'app/admin/payments/received-auto.ts',
+  'lib/admin/received-auto-match.ts',
 ] as const;
 
 test('no money gate imports the receipt reader', () => {
@@ -125,18 +139,13 @@ test('a mismatch is never the default — every verdict field can be null', () =
   );
 });
 
-test('the pay form does not silently truncate a pasted reference', () => {
-  // The field invites "paste the whole thing" and the server keeps 64
-  // characters. A small maxLength here throws the rest away with no error —
-  // it shipped that way once.
+test('the pay form asks for no typed reference — so nothing can truncate one', () => {
+  // ✏️ 2026-11-17: this guarded a maxLength that silently cut a pasted
+  // reference. The field itself is gone (owner: "the don't have to type") — the
+  // reference is read off the receipt and stored, advisory, for the admin. If a
+  // typed field ever returns, so must the maxLength ≥ 32 rule this held.
   const src = read('app/pay/[reference]/_components/pay-panel.tsx');
-  const field = src.slice(src.indexOf("name=\"reference_last6\""));
-  const maxLength = /maxLength=\{(\d+)\}/.exec(field.slice(0, 400));
-  assert.ok(maxLength, 'the reference field lost its maxLength entirely');
-  assert.ok(
-    Number(maxLength[1]) >= 32,
-    `the reference field truncates at ${maxLength[1]} while the copy invites a full paste`,
-  );
+  assert.doesNotMatch(src, /name="reference_last6"/, 'a typed reference field is back — restore the maxLength guard with it');
 });
 
 test('the buyer is asked at most once, and a "not sure" never asks', () => {
@@ -195,4 +204,72 @@ test('the message tells them to attach the picture again', () => {
     /formData\.get\('setup'\) === '1' \? '&setup=1'/,
     'a recheck now drops the buyer out of the set-up flow',
   );
+});
+
+/*
+ * ── ⚠ AMENDED DELIBERATELY: A GATEWAY MAY APPROVE — AN AI STILL MAY NOT ──────
+ * Owner 2026-11-21 (Setnayan-specs DECISION_LOG "MAYA CHECKOUT — BUILD IT",
+ * rule 5): a Maya Checkout payment approves itself ONLY when Maya's own API,
+ * called server-side with our SECRET key, confirms PAYMENT_SUCCESS for this
+ * order's exact reference and amount. That is a payment processor's ledger
+ * answering about money it holds — not a model reading a picture. So ONE
+ * allow-listed caller may pass `gateway: 'maya'` to `approvePaymentCore`, and
+ * every rule above still binds the whole Maya path: no receipt reader, no
+ * advisory table. Nothing here relaxes a single line above it.
+ */
+const GATEWAY_GATES = [
+  'lib/maya-checkout.ts', // judgeMayaPayment — the only "paid" verdict
+  'lib/maya-settle.ts', // the decision: verify → judge → approve or queue
+  'lib/maya-api.ts', // Maya's API, secret key
+  'lib/maya-checkout.server.ts', // the real wiring
+  'app/admin/payments/maya.ts', // the ONE gateway caller of approvePaymentCore
+  'app/api/webhooks/maya/route.ts', // hints only
+  'app/pay/[reference]/maya-return.ts', // hints only
+  'app/pay/[reference]/maya-start.ts', // re-settles the previous checkout before opening a new one — hints only
+] as const;
+
+/** The one file allowed to pass `gateway:` to approvePaymentCore. */
+const GATEWAY_CALLER = 'app/admin/payments/maya.ts';
+
+test('the Maya path is a money gate too — no receipt reader, no advisory table', () => {
+  for (const f of GATEWAY_GATES) {
+    const src = stripComments(read(f));
+    assert.equal(/payment-receipt-read/.test(src), false, `${f} reaches the receipt reader — a gateway approval must not depend on a model.`);
+    assert.equal(/payment_receipt_reads/.test(src), false, `${f} reads what a model saw.`);
+  }
+});
+
+test('only the allow-listed gateway caller passes `gateway:` to approvePaymentCore', () => {
+  const hits: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(join(WEB, dir))) {
+      if (name === 'node_modules' || name.startsWith('.')) continue;
+      const rel = `${dir}/${name}`;
+      if (statSync(join(WEB, rel)).isDirectory()) walk(rel);
+      else if (/\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name)) {
+        const src = stripComments(read(rel));
+        if (/\bgateway:\s*['"]/.test(src)) hits.push(rel);
+      }
+    }
+  };
+  walk('app');
+  walk('lib');
+  assert.deepEqual(hits, [GATEWAY_CALLER], `gateway approvals now come from ${hits.join(', ')}`);
+});
+
+test('the gateway caller approves only through the settle path, which asks Maya first', () => {
+  const caller = stripComments(read(GATEWAY_CALLER));
+  assert.match(caller, /settleMayaPayment\(/, 'the gateway caller no longer routes through settleMayaPayment');
+  const settle = stripComments(read('lib/maya-settle.ts'));
+  const verify = settle.indexOf('deps.verifyById(');
+  const judge = settle.indexOf('judgeMayaPayment(');
+  const approve = settle.indexOf('deps.approve(');
+  assert.ok(verify > 0 && judge > 0 && approve > 0, 'verify, judge and approve must all be in the settle path');
+  assert.ok(verify < approve && judge < approve, 'settle approves before it has asked Maya and judged the answer');
+  // The webhook and the return pass hints, never a verdict, and never reach the core themselves.
+  for (const door of ['app/api/webhooks/maya/route.ts', 'app/pay/[reference]/maya-return.ts', 'app/pay/[reference]/maya-start.ts']) {
+    const src = stripComments(read(door));
+    assert.equal(/approvePaymentCore/.test(src), false, `${door} calls approvePaymentCore directly`);
+    assert.match(src, /settleMaya\(/, `${door} no longer goes through settleMaya`);
+  }
 });

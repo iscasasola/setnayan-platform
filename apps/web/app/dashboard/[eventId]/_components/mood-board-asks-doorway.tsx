@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { readMoodBoardHomeAsks } from '@/lib/mood-board-changes';
+import { readMoodBoardHomeAsks, type MoodBoardHomeAsks } from '@/lib/mood-board-changes';
 import { HomeTodayItem } from './home-parts';
 import { MoodBoardAsks } from './mood-board-asks';
 
@@ -16,12 +16,25 @@ import { MoodBoardAsks } from './mood-board-asks';
  * ⛔ A REFUSED READ IS SAID: the line then says it could not check — never a quiet nothing that reads as "nothing to
  * approve".
  */
-export async function MoodBoardAsksDoorway({ eventId }: { eventId: string }) {
+/** The Mood Board asks' one read: `ok: false` = refused (said, never "nothing to approve"). */
+export type MoodBoardAsksRead = { ok: false } | { ok: true; asks: MoodBoardHomeAsks };
+
+/** ONE read — Home's first screen runs it once for its Today list's rows; the doorway below takes it or reads itself. */
+export async function readMoodBoardAsks(eventId: string): Promise<MoodBoardAsksRead> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('mood_board_home_asks', { p_event_id: eventId });
   const asks = error ? null : readMoodBoardHomeAsks(data);
   if (!asks) {
     if (error) logQueryError('MoodBoardAsksDoorway.read', error, { event_id: eventId }, 'graceful_degrade');
+    return { ok: false };
+  }
+  return { ok: true, asks };
+}
+
+export async function MoodBoardAsksDoorway({ eventId, read }: { eventId: string; read?: MoodBoardAsksRead }) {
+  const got = read ?? (await readMoodBoardAsks(eventId));
+  const asks = got.ok ? got.asks : null;
+  if (!asks) {
     return (
       <HomeTodayItem
         reload

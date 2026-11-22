@@ -1,6 +1,8 @@
+import { getCurrentUser } from '@/lib/auth';
 import { readSentTo } from '@/lib/open-shop-sent-to';
 import { parseSupplierPlan, planOfferPath } from '@/lib/supplier-plan-offer';
 import { redirect } from 'next/navigation';
+import { safeNext } from '@/lib/safe-next';
 
 import { createClient } from '@/lib/supabase/server';
 import { shopConsolePath } from '@/lib/shop-console-path';
@@ -19,6 +21,10 @@ import { claimDoorHref } from '@/lib/claim-door';
 import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
 import { ClaimDoor } from './_components/claim-door';
 import { loadClaimWordList } from '@/lib/fair-presentation.server';
+import { cookies } from 'next/headers';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { SUPPLIER_INVITE_COOKIE } from '@/lib/supplier-invite';
+import { readInviter } from '@/lib/supplier-invite.server';
 
 /**
  * /open-shop — the ONE smart entry point behind every "Register your business"
@@ -46,9 +52,9 @@ export const metadata = { title: 'Open your shop' };
 export default async function OpenShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ plan?: string; error?: string; step?: string; next?: string; taken?: string; check_inbox?: string; as?: string; claim?: string; way?: string }>;
+  searchParams: Promise<{ plan?: string; error?: string; step?: string; next?: string; taken?: string; check_inbox?: string; after?: string; as?: string; claim?: string; way?: string }>;
 }) {
-  const { plan, error, step, next, taken, check_inbox: checkInbox, as: arrivedAs, claim, way } = await searchParams;
+  const { plan, error, step, next, taken, check_inbox: checkInbox, after, as: arrivedAs, claim, way } = await searchParams;
   const claimToken = typeof claim === 'string' && claim.trim() ? claim.trim().slice(0, 200) : null;
   // Where a person who ALREADY has a shop is sent (e.g. "Get your invite link"
   // on /for-suppliers → `?next=/vendor-dashboard/shop/promote`). Same-origin by
@@ -56,9 +62,7 @@ export default async function OpenShopPage({
   // general-purpose redirector. Default: Today.
   const landing = shopConsolePath(next);
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   // Logged out is no longer a bounce (owner 2026-09-22): the wizard renders for a
   // stranger and step 4 creates the account with the shop. Every read below that
   // needs an account is guarded on `user`; the vocab reads are anon-readable, and
@@ -204,6 +208,12 @@ export default async function OpenShopPage({
   ]);
   const feeNotice = feeSchedule === 'off' ? null : bookingFeeJoinDisclosure(feeSchedule);
 
+  // 🤝 Arrived through another supplier's invite link (`/i/<slug>/join` left the cookie): the "Invited by" line. A link
+  // we cannot read, or that no longer opens a shop, draws no line — the setup is the same either way.
+  const invitedVia = (await cookies()).get(SUPPLIER_INVITE_COOKIE)?.value ?? null;
+  const inviter = invitedVia ? await readInviter(createAdminClient(), invitedVia) : null;
+  const invitedBy = inviter && inviter !== 'unreadable' ? inviter.businessName : null;
+
   // W1-B4 (walk 16 Nov 2026): `?check_inbox=1` only says the screen is due — the address is this browser's cookie
   // (`parkSentTo`). With no cookie (another browser) the screen still shows, naming no address.
   const sentTo = checkInbox ? ((await readSentTo()) ?? 'your email') : null;
@@ -238,6 +248,7 @@ export default async function OpenShopPage({
       // on record) — so an account change redraws the account's boxes, and the server re-reads an untouched prefill.
       accountKey={user?.id ?? 'guest'}
       prefilledAccountEmail={row?.contact_email ? null : (user?.email ?? null)}
+      invitedBy={invitedBy}
       existingSlug={row?.business_slug ?? null}
       savedServiceLabel={savedServiceLabel}
       eventTypeOptions={eventTypeOptions}
@@ -277,6 +288,8 @@ export default async function OpenShopPage({
       emailTaken={taken === '1'}
       // A1: the shop is open (`?check_inbox=`, never `?sent=` — that word is a global "Sent." toast) and the account waits for its link (verification on). Only ever the signed-out page.
       sentTo={guest ? sentTo : null}
+      // Where "sign in" on that screen lands — the same welcome the email link opens (safe, same-origin only).
+      sentToNext={guest && sentTo ? safeNext(after, '/vendor-dashboard') : null}
       initialStep={(['1', '2', '3', '4', '5'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4 | 5}
     />
   );

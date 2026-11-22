@@ -3,11 +3,14 @@
  * is ever blank (owner 11 Nov 2026: *"Clients side is not fixed also. There is also no report."*; the supplier's side is
  * PR #7483, held by `vendor-dashboard/clients/[eventId]/the-picked-client-has-nine-pages.test.ts`).
  *
- *   1. The order is DERIVED from the supplier's menu (`PICKED_CLIENT_PAGES`), with Inspiration where the supplier has Hub:
- *      Chat · Details · Quotation · Payment · Forms · Schedule · Files · Inspiration · Report — never hand-copied, so
- *      the two can never drift. The words of every shared page are the supplier's own.
+ *   🗂 SIX TABS SINCE 18 NOV 2026 (owner: *"Yes, mirror it"*; *"inspirations will be in the details as well"*) — the file
+ *      name is kept from the nine-page build.
+ *   1. The order is DERIVED from the supplier's menu (`PICKED_CLIENT_PAGES`) less Hub: Chat · Details · Book & Budget ·
+ *      Schedule · Files · Report — never hand-copied, so the two can never drift. The words of every page are the
+ *      supplier's own.
  *   2. A door that names no page opens the menu's FIRST page: Chat with a conversation, Details without one (a Chat
- *      that can only be blank is not offered). Every old `?tab=` still lands.
+ *      that can only be blank is not offered). Every old `?tab=` still lands — `payments` on Book & Budget at
+ *      `#payments`, `forms` and `inspiration` on Details at their parts.
  *   3. Report is on every menu, and it is the host's shipped Report a problem — the Disputes form (`NewFlagForm`, action
  *      `fileForceMajeureFlag`) drawn open and about this supplier; the (+)'s rows follow this menu's order too.
  *   4. Quotation and Forms never render nothing: each card hands back the page's empty line where it used to return
@@ -40,6 +43,7 @@ import {
   PICKED_SUPPLIER_PAGES,
   PICKED_SUPPLIER_PAGE_IDS,
   defaultPickedSupplierPage,
+  pickedSupplierAnchorOf,
   pickedSupplierMenuFor,
   visiblePickedSupplierPage,
   type PickedSupplierPage,
@@ -82,48 +86,44 @@ before(async () => {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'));
 
-const MENUS = [
-  pickedSupplierMenuFor({ quote: true, chat: true }),
-  pickedSupplierMenuFor({ quote: true, chat: false }),
-  pickedSupplierMenuFor({ quote: false, chat: true }),
-  pickedSupplierMenuFor({ quote: false, chat: false }),
-];
+const MENUS = [pickedSupplierMenuFor({ chat: true }), pickedSupplierMenuFor({ chat: false })];
 
-test('1 · the order is the supplier’s, Inspiration where the supplier has Hub — derived, never hand-copied', () => {
-  const mirrored = PICKED_CLIENT_PAGES.map((p) => (p.id === 'hub' ? 'inspiration' : p.id));
+test('1 · the order is the supplier’s, less Hub (seven tabs mirrored, 18 Nov) — derived, never hand-copied', () => {
+  const mirrored = PICKED_CLIENT_PAGES.filter((p) => p.id !== 'hub').map((p) => p.id);
   assert.deepEqual(PICKED_SUPPLIER_PAGES.map((p) => p.id), mirrored, 'the host’s picked supplier no longer follows the supplier’s menu');
-  assert.deepEqual([...PICKED_SUPPLIER_PAGE_IDS], mirrored, 'the page ids and the menu disagree');
-  assert.deepEqual(
-    PICKED_SUPPLIER_PAGES.map((p) => p.label),
-    ['Chat', 'Details', 'Quotation', 'Payment', 'Forms', 'Schedule', 'Files', 'Inspiration', 'Report'],
-  );
+  assert.deepEqual(PICKED_SUPPLIER_PAGES.map((p) => p.label), ['Chat', 'Details', 'Book & Budget', 'Schedule', 'Files', 'Report']);
   for (const p of PICKED_SUPPLIER_PAGES) {
     const theirs = PICKED_CLIENT_PAGES.find((c) => c.id === p.id);
-    if (theirs) assert.equal(p.label, theirs.label, `'${p.id}' is called something else on the supplier’s side`);
+    assert.ok(theirs, `'${p.id}' is not a supplier tab`);
+    assert.equal(p.label, theirs.label, `'${p.id}' is called something else on the supplier’s side`);
   }
+  for (const id of PICKED_SUPPLIER_PAGES.map((p) => p.id)) assert.ok((PICKED_SUPPLIER_PAGE_IDS as readonly string[]).includes(id));
   assert.equal(PICKED_SUPPLIER_PAGES.at(-1)!.id, 'report', 'Report is not the last page');
 });
 
-test('2 · a door that names no page opens the first one: Chat with a conversation, Details without', () => {
-  const full = MENUS[0]!;
-  const noChat = MENUS[1]!;
+test('2 · a door that names no page opens the first one: Chat with a conversation, Details without — and every old door lands', () => {
+  const [full, noChat] = MENUS as [ReturnType<typeof pickedSupplierMenuFor>, ReturnType<typeof pickedSupplierMenuFor>];
   assert.equal(defaultPickedSupplierPage(full), 'chat');
   assert.equal(defaultPickedSupplierPage(noChat), 'details');
   for (const menu of MENUS) assert.equal(defaultPickedSupplierPage(menu), menu[0]!.id, 'the default page is not the first tab');
   assert.equal(visiblePickedSupplierPage(null, full), 'chat');
   assert.equal(visiblePickedSupplierPage(undefined, full), 'chat');
   assert.equal(visiblePickedSupplierPage('nonsense', full), 'chat');
+  assert.equal(visiblePickedSupplierPage('constructor', full), 'chat', 'an inherited key is not an alias');
   assert.equal(visiblePickedSupplierPage(null, noChat), 'details');
   assert.equal(visiblePickedSupplierPage('chat', noChat), 'details', 'a Chat that can only be blank was drawn');
-  // Every old door still lands where it meant.
-  const lands: Array<[string, PickedSupplierPage]> = [
-    ['details', 'details'], ['overview', 'details'], ['call', 'chat'], ['quote', 'quote'], ['quotation', 'quote'],
-    ['payments', 'payments'], ['payment', 'payments'], ['forms', 'forms'], ['form', 'forms'], ['schedule', 'schedule'],
-    ['files', 'files'], ['documents', 'files'], ['inspiration', 'inspiration'], ['report', 'report'], ['disputes', 'report'],
+  const lands: Array<[string, PickedSupplierPage, string | null]> = [
+    ['details', 'details', null], ['overview', 'details', null], ['call', 'chat', null], ['quote', 'quote', null], ['quotation', 'quote', null],
+    ['payments', 'quote', 'payments'], ['payment', 'quote', 'payments'], ['forms', 'details', 'forms'], ['form', 'details', 'forms'],
+    ['schedule', 'schedule', null], ['files', 'files', null], ['documents', 'files', null], ['inspiration', 'details', 'inspiration'],
+    ['report', 'report', null], ['disputes', 'report', null],
   ];
-  for (const [tab, page] of lands) assert.equal(visiblePickedSupplierPage(tab, full), page, `?tab=${tab}`);
-  // Quotation for a supplier the host added themselves (no quote can come) → the first page, never a blank Quotation.
-  assert.equal(visiblePickedSupplierPage('quote', MENUS[3]!), 'details');
+  for (const [tab, page, anchor] of lands) {
+    assert.equal(visiblePickedSupplierPage(tab, full), page, `?tab=${tab}`);
+    assert.equal(pickedSupplierAnchorOf(tab), anchor, `?tab=${tab} lands on the wrong part`);
+  }
+  // Book & Budget is offered even for a supplier the host added themselves — its payments part is real there.
+  assert.equal(visiblePickedSupplierPage('quote', noChat), 'quote');
 });
 
 test('3 · Report is on every menu, and it is the shipped Report a problem about THIS supplier', () => {
@@ -135,7 +135,8 @@ test('3 · Report is on every menu, and it is the shipped Report a problem about
   const parts = stripComments(readFileSync(join(HERE, '..', '..', '..', 'disputes', '_components', 'dispute-parts.tsx'), 'utf8'));
   assert.match(parts, /action=\{fileForceMajeureFlag\}/, 'the form no longer files through the shipped action');
   assert.match(parts, /<input type="hidden" name="event_vendor_id" value=\{supplier\.id\} \/>/, 'the report is not pinned to the supplier');
-  // The host's (+) rows sit under pages of THIS menu, in its order, Report last.
+  // The host's (+) rows sit under pages of THIS menu, in its order, Photos & files last — Report left the (+) for the
+  // head's ⋯ (Unichat part G, 20 Nov: `hostMoreRows` in picked-supplier-shell.tsx), still the last page of the menu above.
   const order = PICKED_SUPPLIER_PAGES.map((p) => p.id as string);
   for (const canLogPayment of [true, false]) {
     // 🤝 The Negotiate group (12 Nov) heads the (+) above every page — it is not a page of this menu (chat-plus.test 8 holds it first).
@@ -143,8 +144,12 @@ test('3 · Report is on every menu, and it is the shipped Report a problem about
       .filter((r) => PLUS_ROW_PAGE[r.key] !== NEGOTIATE_GROUP)
       .map((r) => order.indexOf(PLUS_ROW_PAGE[r.key] as string));
     assert.ok(ranks.every((r) => r >= 0), 'a host (+) row sits under a page the picked supplier does not have');
-    for (let i = 1; i < ranks.length; i++) assert.ok(ranks[i]! >= ranks[i - 1]!, 'the host’s (+) runs against its menu’s order');
-    assert.equal(hostPlusRows({ canLogPayment }).at(-1)!.key, 'report');
+    // 🧺 CHAT ＋ FINAL (owner 21 Nov 2026, replaces "B, grouped"): the host's tray is two groups — Ask, then Share — and
+    // no longer runs in the menu's page order. Every Ask tile comes before every Share tile.
+    const trays = hostPlusRows({ canLogPayment }).map((r) => r.tray);
+    assert.ok(trays.every((t) => t === 'ask' || t === 'share'), 'a host (+) tile sits in neither Ask nor Share');
+    assert.ok(trays.lastIndexOf('ask') < trays.indexOf('share'), 'the host’s (+) mixes Ask and Share');
+    assert.ok(!hostPlusRows({ canLogPayment }).some((r) => r.key === 'report'), 'Report a problem is back in the host’s (+) — it lives under ⋯');
   }
 });
 
@@ -182,7 +187,8 @@ test('4 · Quotation and Forms never render nothing — the line and its one act
   const ws = read('page.tsx');
   assert.match(ws, /whenEmpty=\{quotationEmpty\}/, 'the Quotation page hands its card no empty line');
   assert.match(ws, /whenEmpty=\{formsCardFor\(ev\.marketplace_vendor_id, formsEmpty\)\}\s*>\s*\{formsCardFor\(ev\.marketplace_vendor_id, null\)\}/);
-  assert.match(ws, /\{formsPage \?\? \(/, 'the Forms page no longer draws the composed forms');
+  assert.match(ws, /const formsBody = formsPage \?\? \(/, 'the Forms part no longer draws the composed forms');
+  assert.match(ws, /id="forms"[\s\S]{0,200}\{formsBody\}/, 'Details no longer holds the Forms part (seven tabs, 18 Nov)');
   // The line: one sentence and one action that opens the chat — and no action without a chat.
   const withChat = renderToStaticMarkup(React.createElement(PickedSupplierEmpty, { page: 'quote', line: 'No quotation from Lumière yet.', ask: 'Ask for one in the chat' }));
   assert.match(withChat, /No quotation from Lumière yet\./);

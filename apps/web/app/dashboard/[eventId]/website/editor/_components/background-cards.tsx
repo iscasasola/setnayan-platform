@@ -335,7 +335,7 @@ export function BgCard({
       >
         {children}
         {looks.busy ? (
-          <span data-bg-card-busy="" aria-hidden className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white/85 text-ink">
+          <span data-bg-card-busy="" aria-hidden className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-raised/85 text-ink">
             <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" strokeWidth={2.25} />
           </span>
         ) : null}
@@ -356,7 +356,7 @@ export function BgCard({
           </span>
         ) : null}
         {moving ? (
-          <span aria-hidden className="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-white/85 text-ink">
+          <span aria-hidden className="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-raised/85 text-ink">
             <Play className="h-3 w-3" fill="currentColor" strokeWidth={0} />
           </span>
         ) : null}

@@ -244,12 +244,17 @@ test('6 · the guest card offers Unlink on every bound row, couple rows included
   // and drawn on the couple rows too, so the groom row can still be taken back.
   const card = code('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
   const at = card.indexOf('const more = MoreMenu ? (');
-  assert.ok(at > 0, 'the guest card no longer builds its ⋯');
-  assert.match(card.slice(at, at + 400), /<MoreMenu[\s\S]*linked=\{Boolean\(linkedAccount\)\}/, 'the ⋯ is not told who holds the invitation');
+  /* RE-AIMED 2026-11-20 (the approved drawing `guests_redesign_2026-11-20_fable.html` § 3): Unlink is no longer a ⋯ line — it is
+     a labelled button inside the opened ticket. The same property: the buttons are built ONCE, before the couple / non-couple
+     branch, and the ticket row that holds them is drawn on a host row too, so the groom row can still be taken back. */
+  assert.ok(at > 0, 'the guest card no longer builds the ticket’s buttons');
+  assert.match(card.slice(at, at + 400), /<MoreMenu[\s\S]*linked=\{Boolean\(linkedAccount\)\}/, 'the buttons are not told who holds the invitation');
   const foundation = card.indexOf('Foundation of the event');
   assert.ok(foundation > 0, 'the couple-row branch moved — re-anchor this guard');
-  assert.ok(at < foundation, 'the ⋯ moved inside the couple / non-couple branch — the groom row could not be taken back');
-  assert.match(card, /isCouple \? 'A host — nothing to send\.'[\s\S]*\{more\}/, 'a host row no longer draws the ⋯');
+  assert.ok(at < foundation, 'the buttons moved inside the couple / non-couple branch — the groom row could not be taken back');
+  const row = card.slice(card.indexOf('const ticketRow = '), card.indexOf('return (', card.indexOf('const ticketRow = ')));
+  assert.match(row, /away \? null : TicketThumb \? \(\s*<TicketThumb[\s\S]*?tools=\{more\}[\s\S]*?about=\{isCouple \? 'A host — nothing to send\.'/, 'the ticket row no longer carries the buttons (or is not drawn on a host row)');
+  assert.match(card, /const row = ticketRow\(words\);[\s\S]{0,600}?\{row\}/, 'a host row no longer draws its ticket row');
   const menu = code('app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx');
   assert.match(menu, /\{linked \? \([\s\S]{0,600}Unlink account/, 'Unlink is not offered on a bound row');
   assert.match(menu, /name="unlink_account" value="1"/);

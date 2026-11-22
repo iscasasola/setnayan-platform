@@ -50,7 +50,7 @@ import { type VendorPackageItemOptionRow } from '@/lib/vendor-packages';
 import { autoName, findVendorTextViolation } from '@/lib/service-text-integrity';
 import { fairPresentationRefusal } from '@/lib/fair-presentation.server';
 import { packageGiftColumns, PACKAGE_GIFT_SETNAYAN } from '@/lib/package-gift';
-import { freeByKind } from '@/lib/shop-gifts';
+import { freeByKind, freeOfPack } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { readBundleCards, readLockShop } from '@/lib/bundle-cards.server';
@@ -410,7 +410,8 @@ async function giftStockRefusal(
   const pack = packs.find((p) => p.code === gift);
   if (!pack) return 'That gift is not on sale right now. Pick another from the Gift list.';
   const free = freeByKind(stock);
-  if (!free || free[pack.kind] < pack.credits) {
+  // 🔢 Papic is counted in packs (2026-11-14): one of THIS pack must be free, not just enough credits.
+  if (!free || (freeOfPack(free, pack) ?? 0) < 1) {
     return 'Not enough of that gift in your stock — buy it first on Shop › Promote › Your gifts.';
   }
   return null;

@@ -88,6 +88,8 @@ Reply with ONE JSON object and nothing else, with exactly these keys:
   "city": the city or municipality that issued or is named on the paper, or null,
   "barangay": the barangay in the business address, as printed (without the word "Barangay"), or null,
   "tin": the Taxpayer Identification Number wherever it is printed on this paper, as printed, or null,
+  "issuer": the government office printed as ISSUING the paper (e.g. "Department of Trade and Industry", "Securities and Exchange Commission", "Bureau of Internal Revenue", "Office of the City Mayor, Pasig City"), as printed, or null when no issuing office is printed,
+  "markings": a list of every stamp, watermark, overprint or banner that says the paper is not a real one — e.g. "TEST", "SAMPLE", "SPECIMEN", "VOID", "NOT VALID", "DEMO" — as printed, or [] when there are none,
   "expiration_date": the date the document expires or is valid until, as YYYY-MM-DD, or null,
   "read_as": one short plain sentence saying what this paper is, e.g. "Read as a DTI business name certificate for ICASA ENTERPRISE.",
   "could_not_read": a list of the keys above whose value is printed but you could not make out,
@@ -98,6 +100,7 @@ Rules:
 - Copy values exactly as printed. Never correct, complete or guess a value.
 - "expiration_date" ONLY when the paper prints one. A BIR Form 2303 usually has no expiry: use null. Never use the issue date, the registration date, or the end of the year as an expiry.
 - If a value is not on the paper, use null. If it is on the paper but you cannot read it, use null AND list the key in "could_not_read".
+- "markings": list them even when they are faint or diagonal across the page. Do NOT list the paper's own standard fine print such as "Not valid without the dry seal".
 - Mark "confident" false for any value you had to guess at, even one character.`;
 
 /** What the model returned, after defensive parsing. */
@@ -117,6 +120,13 @@ export type ModelPaperRead = {
   couldNotRead: readonly string[];
   /** The TIN wherever it is printed, as printed. */
   tin: string | null;
+  /**
+   * The government office printed as issuing the paper, as printed (W1-B34). Optional only because reads stored
+   * before it existed lack it — a read without it is never Recognised (`lib/paper-recognised.ts`).
+   */
+  issuer?: string | null;
+  /** Stamps / watermarks that say the paper is not real ("TEST", "SPECIMEN", "VOID"…), as printed (W1-B34). */
+  markings?: readonly string[];
   /**
    * Keys that HAVE a value but the model did not mark `confident: true`. A
    * missing `confident` object makes every valued key unsure — silence is not
@@ -167,10 +177,10 @@ export function parseModelPaperJson(text: string): ModelPaperRead | null {
   }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const r = raw as Record<string, unknown>;
-  const registry =
-    typeof r.registry === 'string' && REGISTRY_SET.has(r.registry.toLowerCase())
-      ? (r.registry.toLowerCase() as ReadRegistry)
-      : 'unreadable';
+  // 🛂 W1-B34: a reply with no valid "registry" is not a read of the paper — it is a FAILED read (an error object, a
+  // refusal, a different shape). Null, so the caller says "could not read", never "not one of the three papers".
+  if (typeof r.registry !== 'string' || !REGISTRY_SET.has(r.registry.toLowerCase())) return null;
+  const registry = r.registry.toLowerCase() as ReadRegistry;
   const couldNotRead = Array.isArray(r.could_not_read)
     ? r.could_not_read.filter((k): k is string => typeof k === 'string').slice(0, 20)
     : [];
@@ -184,6 +194,7 @@ export function parseModelPaperJson(text: string): ModelPaperRead | null {
     city: r.city,
     barangay: r.barangay,
     expiration_date: r.expiration_date,
+    issuer: r.issuer,
   };
   const conf =
     r.confident && typeof r.confident === 'object' && !Array.isArray(r.confident)
@@ -195,6 +206,10 @@ export function parseModelPaperJson(text: string): ModelPaperRead | null {
   return {
     registry,
     tin: cleanValue(r.tin, 40),
+    issuer: cleanValue(r.issuer, 200),
+    markings: Array.isArray(r.markings)
+      ? r.markings.map((x) => cleanValue(x, 80)).filter((x): x is string => x !== null).slice(0, 20)
+      : [],
     unsure,
     accountName: cleanValue(r.account_name),
     ownerName: cleanValue(r.owner_name),

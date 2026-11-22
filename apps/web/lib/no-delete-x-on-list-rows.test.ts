@@ -43,7 +43,6 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/papic/decorate/_components/kwento-decorator.tsx', 'tile — a sticker on the photo being decorated'],
   ['app/_components/chat-send-form.tsx', 'chip — an attachment waiting in the composer'],
   ['app/dashboard/(account)/people/_components/dependents-section.tsx', 'chip — a ninong / ninang chip’s ✕ inside a loved one’s card'],
-  ['app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx', 'tile — a pinned photo’s ✕ in the board’s image grid'],
   ['app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx', 'confirm — the “Remove this photo?” box’s own Remove'],
   ['app/dashboard/[eventId]/studio/mood-board/_components/list-field.tsx', 'editor field — a Do / Don’t text input’s ✕ inside the dress-code form'],
   ['app/dashboard/[eventId]/studio/mood-board/_components/palette-section.tsx', 'editor field + chip — a custom role’s fields and its colour swatches inside the palette editor'],
@@ -84,6 +83,7 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/vendor-dashboard/packages/_components/package-editor.tsx', 'editor field — a draft inclusion / option made of inputs, written on the package’s Save'],
   ['app/vendor-dashboard/_components/video-links-editor.tsx', 'editor field — a video-link URL input inside the service form'],
   ['app/vendor-dashboard/attributes/_components/attribute-field-renderer.tsx', 'chip — a tag inside a multi_select_open tag field'],
+  ['app/vendor-dashboard/shop/_components/cake-maker-panel.tsx', 'chip — a colour swatch chip in the Cake Maker’s colour cloud (the shop’s own palette field)'],
   ['app/vendor-dashboard/services/_components/coverage-panel.tsx', 'chip — a coverage pill in the “who you serve” chip cloud (its own confirm stays)'],
 ]);
 

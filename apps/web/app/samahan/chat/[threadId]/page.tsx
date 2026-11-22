@@ -28,6 +28,7 @@ import {
   mayJoinGroup,
   readEventGroups,
   readGroupHead,
+  readGroupFormerMembers,
   readGroupMembers,
   readGroupPeople,
 } from '@/lib/chat-groups';
@@ -69,8 +70,9 @@ export default async function GroupChatPage({ params }: { params: Promise<{ thre
     );
   }
 
-  const [members, messages, groups, people] = await Promise.all([
+  const [members, former, messages, groups, people] = await Promise.all([
     readGroupMembers(supabase, threadId),
+    readGroupFormerMembers(supabase, threadId),
     fetchMessages(supabase, threadId),
     readEventGroups(supabase, head.event_id),
     canAddToGroup(head.my_kind, head.is_member) ? readGroupPeople(supabase, head.event_id) : Promise.resolve(null),
@@ -87,6 +89,7 @@ export default async function GroupChatPage({ params }: { params: Promise<{ thre
       <GroupChatView
         head={head}
         members={members}
+        former={former}
         messages={messages}
         youId={user.id}
         backHref={back.href}

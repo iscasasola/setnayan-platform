@@ -31,6 +31,7 @@ import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { ownLinkArrival } from '@/lib/own-clients.server';
 import { fetchUserEvents } from '@/lib/events';
 import { followVendor } from '@/lib/follow-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
@@ -56,6 +57,8 @@ import {
 } from '@/lib/inquiry-attribution';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
+import { after } from 'next/server';
+import { routeInquiry } from '@/lib/inquiry-routing.server';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import {
   eventVendorCategoryForCardKind,
@@ -473,6 +476,11 @@ export async function startServiceInquiry(input: {
       .eq('thread_id', threadId);
   }
 
+  // 👤 One client, one Account Manager (supplier roles d–h, #8013 (e)/(f)): a new client gets their person by the fair
+  // split; a returning one keeps theirs, or is marked "Hand over" when this card is someone else's. After the response,
+  // never blocking the inquiry; a failure leaves the client with the card's people, as before.
+  after(() => routeInquiry(admin, { eventId, vendorProfileId, serviceId: initialServiceId || null, senderUserId: user.id }).then(() => undefined));
+
   // ── Creator Economy PR-C · provenance stamp (brand-NEW threads only) ───────
   // CTA-click attribution lock: the chapter whose Book CTA STARTED the thread
   // gets the credit — a resumed thread keeps its original provenance untouched.
@@ -503,9 +511,23 @@ export async function startServiceInquiry(input: {
       input.inquirySource !== 'degree'
         ? input.inquirySource
         : null;
+    // 🔗🎁 OWN CLIENTS v4 (owner 2026-11-16, "a client who arrives through the supplier's own link is treated like an
+    // import"): a first ask through the shop's OWN link (`?src=own` → 'website') makes the couple its own client only
+    // with the link's Setnayan gift, given now from a VERIFIED shop's bought stock (once per shop + event). Measured "not
+    // own" (unverified, no gift, too little stock) → stamped as a visit to the shop's page on Setnayan ('shop_page' — the
+    // normal fee). A FAILED read is not evidence (controller audit, 16 Nov): the own-link stamp stays and the fee is left
+    // to the booking-fee logic — never charged on an unknown.
+    const arrival =
+      declaredSource === 'website' && !referral
+        ? await ownLinkArrival(admin, vendorProfileId, eventId).catch((e: unknown) => {
+            console.error('[own-clients] own-link arrival', e);
+            return 'unknown' as const;
+          })
+        : null;
+    const ownedSource = arrival === 'not_own' ? 'shop_page' : declaredSource;
     await stampThreadProvenance(threadId, {
       referringChapterId: referral?.chapterId ?? null,
-      inquirySource: referral ? 'influencer' : declaredSource,
+      inquirySource: referral ? 'influencer' : ownedSource,
       isReturning: returning,
     });
   }

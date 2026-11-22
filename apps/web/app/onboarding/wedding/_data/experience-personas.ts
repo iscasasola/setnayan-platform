@@ -160,7 +160,7 @@ export const EXP_PERSONAS: ExpPersona[] = [
     ideal: { for_whom: ['couple'], feel: ['intimate', 'midsize'], energy: ['calm', 'refined'], roots: ['modern', 'blend'], effort: ['balanced', 'simple'] },
     feel: 'modern',
     extras: ['stylist', 'florist', 'bride_attire'],
-    services: ['pakanta', 'animated_monogram', 'papic_seats'],
+    services: ['animated_monogram', 'papic_seats'], // pakanta left 2026-11-20 (retired)
     refinementSeeds: { photo_video: ['pv_cinematic', 'pv_fineart'], catering: ['cuisine_filipino'], stylist: ['Modern minimalist'] },
   },
   {
@@ -219,7 +219,7 @@ export const EXP_PERSONAS: ExpPersona[] = [
     ideal: { for_whom: ['guests', 'both'], feel: ['midsize', 'grand'], energy: ['calm', 'refined'], roots: ['tradition'], effort: ['balanced', 'simple'] },
     feel: 'filipiniana',
     extras: ['choir', 'filipiniana', 'host_mc', 'florist'],
-    services: ['panood', 'papic_seats', 'pakanta'],
+    services: ['panood', 'papic_seats'], // pakanta left 2026-11-20 (retired)
     refinementSeeds: { catering: ['cuisine_filipino'], photo_video: ['pv_classic'], filipiniana: ['Piña'], choir: ['Small choir'] },
   },
 ];

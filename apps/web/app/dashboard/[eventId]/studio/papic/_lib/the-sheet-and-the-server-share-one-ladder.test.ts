@@ -47,8 +47,14 @@ test('💰 an upload costs the camera price × 3, always (owner 2026-10-26: "So 
   assert.equal(papicCaptureCost('clip', null, 'upload'), 24, 'an unmeasured added clip costs the most, never the least');
   assert.equal(papicClipCostFloor('upload'), 6, 'the presign floor for an added clip');
   assert.equal(papicClipCostFloor('camera'), 2, 'the presign floor for a camera clip is unchanged');
-  assert.equal(papicSeatCaptureSource(PAPIC_UPLOADS_CAMERA_INDEX), 'upload');
-  for (const i of [0, 1, 100, 101, 102, 110, 200, null, undefined]) assert.equal(papicSeatCaptureSource(i), 'camera', `seat ${i}`);
+  // UPDATED ON PURPOSE 2026-11-22 (owner, "Make it 1."): the seat alone no longer says "added" — a host's LIVE shot on
+  // it costs the camera price. Added by hand = a host camera's seat AND the Add-photos door saying so.
+  assert.equal(papicSeatCaptureSource(PAPIC_UPLOADS_CAMERA_INDEX, true), 'upload');
+  assert.equal(papicSeatCaptureSource(PAPIC_UPLOADS_CAMERA_INDEX), 'camera', 'a host’s live shot is priced as an upload');
+  for (const i of [0, 1, 100, 101, 102, 110, 200, null, undefined]) {
+    assert.equal(papicSeatCaptureSource(i), 'camera', `seat ${i}`);
+    assert.equal(papicSeatCaptureSource(i, true), 'camera', `seat ${i} is not a host camera — "added" cannot raise its price`);
+  }
 });
 
 test('the sheet prices every file as an added one: a photo 3 · a snippet 6 / 9 / 15 / 24 by its length', () => {
@@ -67,8 +73,10 @@ test('a pick costs exactly what the server will charge for it, file by file', ()
     { kind: 'photo' as const },
     { kind: 'clip' as const, durationMs: 9_900 },
   ];
-  // The server's charge for the Uploads seat: the record step's own call, with the source it derives from the seat.
-  const source = papicSeatCaptureSource(PAPIC_UPLOADS_CAMERA_INDEX);
+  // The server's charge for a file the sheet adds: the record step's own call, with the source it derives from the
+  // seat AND the sheet's own "added by hand" (the sheet sends it on the presign and the record — pinned in
+  // lib/a-hosts-live-shot-costs-the-camera-price.test.ts).
+  const source = papicSeatCaptureSource(PAPIC_UPLOADS_CAMERA_INDEX, true);
   const server = pick.reduce((n, p) => n + papicCaptureCost(p.kind, 'durationMs' in p ? p.durationMs : null, source), 0);
   assert.equal(selectionCost(pick), server);
   assert.equal(server, 3 + 6 + 15 + 3 + 24);

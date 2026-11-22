@@ -55,16 +55,16 @@ const readCode = (rel: string) =>
  * `shortlist-categories.tsx` resolve it: raw stored columns → the shared
  * `resolveDeclaredRings` composer → `resolveReachBadge`.
  *
- * `reachesVenue` / `serviceRadiusKm` are the tier-derived fallback the bench
+ * `reachesVenue` / `serviceRadiusKm` are the fallback the bench
  * passes; they are set to the OPPOSITE of the declaration on purpose in the grid
- * below, so a badge that quietly fell through to the tier read instead of
+ * below, so a badge that quietly fell through to the fallback read instead of
  * honouring the declaration would be visible rather than coincidentally right.
  */
 function badgeText(v: {
   distanceKm: number | null;
   declaredInnerKm: number | null;
   declaredOuterKm: number | null;
-  tier: string | null;
+  verified: boolean | null;
 }): string | null {
   const badge = resolveReachBadge({
     distanceKm: v.distanceKm,
@@ -80,7 +80,7 @@ function enforcementZeroesTransport(v: {
   distanceKm: number | null;
   declaredInnerKm: number | null;
   declaredOuterKm: number | null;
-  tier: string | null;
+  verified: boolean | null;
 }): boolean {
   const decision = resolveFreeTransportDecision(v);
   const out = applyFreeTransportToQuote(
@@ -95,29 +95,29 @@ function enforcementZeroesTransport(v: {
 
 /** Every shape a vendor⇄venue pair can take, including the ones that must NOT lock. */
 const GRID = [
-  // Declared 15 free / 50 furthest, on Pro (cap 50) — the three live states.
-  { name: 'inside the free ring', distanceKm: 10, declaredInnerKm: 15, declaredOuterKm: 50, tier: 'pro' },
-  { name: 'exactly ON the free ring', distanceKm: 15, declaredInnerKm: 15, declaredOuterKm: 50, tier: 'pro' },
-  { name: 'a hair outside the free ring', distanceKm: 15.01, declaredInnerKm: 15, declaredOuterKm: 50, tier: 'pro' },
-  { name: 'in the travel-fee band', distanceKm: 35, declaredInnerKm: 15, declaredOuterKm: 50, tier: 'pro' },
-  { name: 'beyond the outer ring', distanceKm: 80, declaredInnerKm: 15, declaredOuterKm: 50, tier: 'pro' },
+  // Declared 15 free / 50 furthest, verified — the three live states.
+  { name: 'inside the free ring', distanceKm: 10, declaredInnerKm: 15, declaredOuterKm: 50, verified: true },
+  { name: 'exactly ON the free ring', distanceKm: 15, declaredInnerKm: 15, declaredOuterKm: 50, verified: true },
+  { name: 'a hair outside the free ring', distanceKm: 15.01, declaredInnerKm: 15, declaredOuterKm: 50, verified: true },
+  { name: 'in the travel-fee band', distanceKm: 35, declaredInnerKm: 15, declaredOuterKm: 50, verified: true },
+  { name: 'beyond the outer ring', distanceKm: 80, declaredInnerKm: 15, declaredOuterKm: 50, verified: true },
   // Free travel from the front door — inner 0 is a real declaration, not a blank.
-  { name: 'inner 0 · at the front door', distanceKm: 0, declaredInnerKm: 0, declaredOuterKm: 40, tier: 'pro' },
-  { name: 'inner 0 · one metre out', distanceKm: 0.001, declaredInnerKm: 0, declaredOuterKm: 40, tier: 'pro' },
+  { name: 'inner 0 · at the front door', distanceKm: 0, declaredInnerKm: 0, declaredOuterKm: 40, verified: true },
+  { name: 'inner 0 · one metre out', distanceKm: 0.001, declaredInnerKm: 0, declaredOuterKm: 40, verified: true },
   // inner === outer — "free where we go, and we go nowhere else".
-  { name: 'inner === outer, inside', distanceKm: 12, declaredInnerKm: 20, declaredOuterKm: 20, tier: 'pro' },
-  { name: 'inner === outer, outside', distanceKm: 21, declaredInnerKm: 20, declaredOuterKm: 20, tier: 'pro' },
+  { name: 'inner === outer, inside', distanceKm: 12, declaredInnerKm: 20, declaredOuterKm: 20, verified: true },
+  { name: 'inner === outer, outside', distanceKm: 21, declaredInnerKm: 20, declaredOuterKm: 20, verified: true },
   // Undeclared — either ring blank must fall back, never lock.
-  { name: 'nothing declared', distanceKm: 5, declaredInnerKm: null, declaredOuterKm: null, tier: 'pro' },
-  { name: 'only the inner declared', distanceKm: 5, declaredInnerKm: 15, declaredOuterKm: null, tier: 'pro' },
-  { name: 'only the outer declared', distanceKm: 5, declaredInnerKm: null, declaredOuterKm: 50, tier: 'pro' },
+  { name: 'nothing declared', distanceKm: 5, declaredInnerKm: null, declaredOuterKm: null, verified: true },
+  { name: 'only the inner declared', distanceKm: 5, declaredInnerKm: 15, declaredOuterKm: null, verified: true },
+  { name: 'only the outer declared', distanceKm: 5, declaredInnerKm: null, declaredOuterKm: 50, verified: true },
   // Unmeasurable — manual vendor / no HQ pin / no venue anchor.
-  { name: 'distance unknown', distanceKm: null, declaredInnerKm: 15, declaredOuterKm: 50, tier: 'pro' },
-  // Tier interactions — the clamp is the whole point (see the block below).
-  { name: 'free tier · cap 0 collapses the ring', distanceKm: 2, declaredInnerKm: 15, declaredOuterKm: 50, tier: 'free' },
-  { name: 'verified · declaration inside the cap', distanceKm: 5, declaredInnerKm: 10, declaredOuterKm: 20, tier: 'verified' },
-  { name: 'enterprise · wide and honoured', distanceKm: 70, declaredInnerKm: 80, declaredOuterKm: 100, tier: 'enterprise' },
-  { name: 'unknown tier string', distanceKm: 5, declaredInnerKm: 10, declaredOuterKm: 20, tier: 'not-a-tier' },
+  { name: 'distance unknown', distanceKm: null, declaredInnerKm: 15, declaredOuterKm: 50, verified: true },
+  // Verification interactions — the clamp is the whole point (see the block below). No plan is an input (2026-11-19).
+  { name: 'unverified · ceiling 0 collapses the ring', distanceKm: 2, declaredInnerKm: 15, declaredOuterKm: 50, verified: false },
+  { name: 'verified · a modest declaration', distanceKm: 5, declaredInnerKm: 10, declaredOuterKm: 20, verified: true },
+  { name: 'verified · wide and honoured (200 km, any plan)', distanceKm: 70, declaredInnerKm: 80, declaredOuterKm: 200, verified: true },
+  { name: 'verification unread', distanceKm: 5, declaredInnerKm: 10, declaredOuterKm: 20, verified: null },
 ] as const;
 
 test('THE INVARIANT · badge says "No travel fee" ⟺ enforcement zeroes the transport line', () => {
@@ -126,7 +126,7 @@ test('THE INVARIANT · badge says "No travel fee" ⟺ enforcement zeroes the tra
       distanceKm: c.distanceKm,
       declaredInnerKm: c.declaredInnerKm,
       declaredOuterKm: c.declaredOuterKm,
-      tier: c.tier as string | null,
+      verified: c.verified as boolean | null,
     };
     const promised = badgeText(v) === TRAVEL_FEE_BADGE.free_travel.text;
     const enforced = enforcementZeroesTransport(v);
@@ -146,7 +146,7 @@ test('THE INVARIANT · "Travel fee applies" ⟺ the vendor keeps their travel li
       distanceKm: c.distanceKm,
       declaredInnerKm: c.declaredInnerKm,
       declaredOuterKm: c.declaredOuterKm,
-      tier: c.tier as string | null,
+      verified: c.verified as boolean | null,
     };
     if (badgeText(v) !== TRAVEL_FEE_BADGE.travel_fee.text) continue;
     assert.equal(
@@ -158,49 +158,34 @@ test('THE INVARIANT · "Travel fee applies" ⟺ the vendor keeps their travel li
   }
 });
 
-test('THE CLAMP · a lapsed subscription moves the badge and the rule TOGETHER', () => {
-  // The scenario the salvage brief names. A vendor declares 30 km of free travel
-  // while on Pro (cap 50) and later lapses to Verified (cap 20). A venue 25 km
-  // out:
-  //   on Pro      → inside the declared 30 km free ring → "No travel fee", LOCKED
-  //   on Verified → both rings clamp to the 20 km cap   → out of range,  NOT locked
-  // If enforcement kept reading the DECLARED 30 it would go on forcing free
-  // travel for a vendor whose bench card no longer advertises any.
+test('THE CLAMP · un-verifying moves the badge and the rule TOGETHER', () => {
+  // A shop declares 30 km of free travel while verified, and is later un-verified (ceiling 0, owner 2026-11-19).
+  // A venue 25 km out:
+  //   verified     → inside the declared 30 km free ring → "No travel fee", LOCKED
+  //   not verified → both rings clamp to 0               → no badge,       NOT locked
+  // If enforcement kept reading the DECLARED 30 it would go on forcing free travel for a shop whose bench card no
+  // longer advertises any.
   const declared = { declaredInnerKm: 30, declaredOuterKm: 50, distanceKm: 25 };
 
-  const onPro = { ...declared, tier: 'pro' };
-  assert.equal(badgeText(onPro), TRAVEL_FEE_BADGE.free_travel.text);
-  assert.equal(enforcementZeroesTransport(onPro), true);
+  const verified = { ...declared, verified: true };
+  assert.equal(badgeText(verified), TRAVEL_FEE_BADGE.free_travel.text);
+  assert.equal(enforcementZeroesTransport(verified), true);
 
-  const lapsed = { ...declared, tier: 'verified' };
+  const unverified = { ...declared, verified: false };
+  assert.equal(badgeText(unverified), null, 'a zero ring says nothing rather than something wrong');
   assert.equal(
-    badgeText(lapsed),
-    TRAVEL_FEE_BADGE.outside_range.text,
-    'a downgrade can never land a venue in the travel-fee BAND: both rings clamp to ' +
-      'the same cap, so anything that falls out of the free ring falls out of range ' +
-      'with it. Noted here because it is surprising, not because it is wrong.',
-  );
-  assert.equal(
-    enforcementZeroesTransport(lapsed),
+    enforcementZeroesTransport(unverified),
     false,
-    'enforcement is reading the RAW declared 30 km, not the tier-clamped 20 km the ' +
-      'couple is actually shown',
+    'enforcement is reading the RAW declared 30 km, not the clamped 0 km the couple is shown',
   );
 });
 
-test('THE CLAMP · enforcement reads the clamped rings, proven against the raw ones', () => {
-  // Same stored row, same venue, only the tier moves. If enforcement read the
-  // declared columns the answer would be identical on every tier — it is not.
-  // (Pro's 50 km cap does not bite a 40 km inner ring, so Pro matches Enterprise
-  // here; Supplier Plus's 30 km cap (2026-10-23, was 20) does, and Free's 0 km cap collapses the pair entirely.)
-  const raw = { declaredInnerKm: 40, declaredOuterKm: 100, distanceKm: 35 };
-  assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'enterprise' }).transportLocked, true);
-  assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'pro' }).transportLocked, true);
-  assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'solo' }).transportLocked, false);
-  assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'free' }).transportLocked, false);
-  // …and the same row on Supplier Plus is not merely "unlocked", it is out of range —
-  // the vendor's own 100 km outer ring is not something Supplier Plus pays for.
-  assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'solo' }).verdict, 'outside_range');
+test('THE CLAMP · no plan moves the rule — only verification does (owner 2026-11-19)', () => {
+  // A verified shop's own 40 / 200 km ring is believed whole: there is no plan input that could clamp it.
+  const raw = { declaredInnerKm: 40, declaredOuterKm: 200, distanceKm: 35 };
+  assert.equal(resolveFreeTransportDecision({ ...raw, verified: true }).transportLocked, true);
+  assert.equal(resolveFreeTransportDecision({ ...raw, verified: false }).transportLocked, false);
+  assert.equal(resolveFreeTransportDecision({ ...raw, verified: null }).transportLocked, false);
 });
 
 test('UNDECLARED means NO ENFORCEMENT — we never invent a free ring', () => {
@@ -209,12 +194,12 @@ test('UNDECLARED means NO ENFORCEMENT — we never invent a free ring', () => {
     { declaredInnerKm: null, declaredOuterKm: 50 },
     { declaredInnerKm: 15, declaredOuterKm: null },
   ]) {
-    for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom', null]) {
-      const d = resolveFreeTransportDecision({ distanceKm: 1, ...rings, tier });
+    for (const verified of [true, false, null]) {
+      const d = resolveFreeTransportDecision({ distanceKm: 1, ...rings, verified });
       assert.equal(
         d.transportLocked,
         false,
-        `${JSON.stringify(rings)} on ${String(tier)} must not lock a fee nobody promised away`,
+        `${JSON.stringify(rings)} (verified ${String(verified)}) must not lock a fee nobody promised away`,
       );
       assert.equal(d.verdict, null);
     }
@@ -228,7 +213,7 @@ test('an unmeasurable venue never locks (manual vendor / no HQ pin / no anchor)'
         distanceKm,
         declaredInnerKm: 15,
         declaredOuterKm: 50,
-        tier: 'pro',
+        verified: true,
       }).transportLocked,
       false,
     );
@@ -480,7 +465,7 @@ test('the ring read is COLUMN-EXPLICIT and never hands a vendor row to a client'
   assert.doesNotMatch(src, /select\(\s*['"`]\*/, 'name the columns you actually need');
   assert.match(
     src,
-    /\.select\('tier_state,inner_radius_km,outer_radius_km,hq_latitude,hq_longitude'\)/,
+    /\.select\('verification_state,inner_radius_km,outer_radius_km,hq_latitude,hq_longitude'\)/,
     'the vendor read must stay pinned to exactly the five columns the resolver uses',
   );
   assert.match(src, /\.select\('venue_latitude,venue_longitude'\)/);

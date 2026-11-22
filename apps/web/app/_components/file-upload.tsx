@@ -22,6 +22,7 @@ import { formatCount } from '@/lib/format-number';
 import { uploadTypeOf } from '@/lib/upload-type-names';
 import { ownerFormOf } from '@/lib/portaled-fields-join-their-form';
 import { FramedImg } from './framed-img';
+import { UploadRing } from './upload-ring';
 import type { FrameShape, Framing } from '@/lib/photo-frame';
 import type { FramePreviews } from './frame-step';
 import dynamic from 'next/dynamic';
@@ -1587,17 +1588,9 @@ export function FileUpload({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={rowLocal} alt="" className="h-full w-full object-cover opacity-35" />
               ) : null}
-              {/* The circle IS the progress: a ring that fills with the upload. */}
-              <span
-                aria-hidden
-                className="absolute inset-0 rounded-full"
-                style={{
-                  background: `conic-gradient(#C24E25 ${flying!.progress}%, transparent 0)`,
-                  WebkitMask: 'radial-gradient(circle, transparent 31px, #000 32px)',
-                  mask: 'radial-gradient(circle, transparent 31px, #000 32px)',
-                }}
-              />
-              <Loader2 aria-hidden className="absolute h-[22px] w-[22px] animate-spin text-[#C24E25]" strokeWidth={1.75} />
+              {/* The circle IS the progress: the ONE upload ring (MOTION_STANDARD § 4 #25), filled by the upload's own
+                  measured figure — no spinner beside a measured figure. */}
+              <UploadRing pct={flying!.progress} size={72} stroke={5} className="!absolute inset-0" label={`Uploading ${flying!.filename}`} />
             </>
           ) : first && first.displayUrl && isImage(first.contentType) ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -1746,7 +1739,7 @@ export function FileUpload({
               ) : flying ? null : (
                 <ImagePlus aria-hidden className="h-6 w-6" strokeWidth={1.6} />
               )}
-              {flying ? <Loader2 aria-hidden className="absolute h-5 w-5 animate-spin text-terracotta" strokeWidth={1.75} /> : null}
+              {flying ? <UploadRing pct={flying.progress} size={36} className="!absolute" label={`Uploading ${flying.filename}`} /> : null}
               {fileInput}
             </label>
           )}
@@ -2127,18 +2120,12 @@ export function FileUpload({
               title={item.filename}
               className="relative flex aspect-square items-center justify-center rounded-xl border border-ink/10 bg-cream"
             >
-              {/* 🥧 ON ITS WAY: the 0–100 PIE, in the accent (owner 2026-10-08: "show a loading screen 0-100 pie to
-                  know how long til it uploads"; gallery § 21). The figure is the upload's own measured one — a
-                  state that steps with the bytes, the same under "reduce motion". No spinner beside it. */}
-              <span
-                data-upload-pie={item.progress}
-                className="flex h-11 w-11 items-center justify-center rounded-full"
-                style={{ background: `conic-gradient(rgb(var(--sn-accent)) ${item.progress}%, rgb(0 0 0 / 0.1) 0)` }}
-              >
-                <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white text-[10px] font-bold tabular-nums text-sn-accent">
-                  {item.progress}%
-                </span>
-              </span>
+              {/* ⭕ ON ITS WAY: the 0–100 RING with its figure on it (owner 2026-10-08: "show a loading screen 0-100
+                  pie to know how long til it uploads"; gallery § 21) — since 19 Nov 2026 the ONE upload ring every
+                  upload wears (MOTION_STANDARD § 4 #25, `upload-ring.tsx`). The figure is the upload's own measured
+                  one; under "reduce motion" the ring fills in quarter steps and the figure still counts. No spinner
+                  beside it. */}
+              <UploadRing pct={item.progress} size={44} stroke={5} showPct label={`Uploading ${item.filename}`} />
               <button type="button" onClick={() => cancelInFlight(item.id)} className={TILE_X} aria-label={`Cancel ${item.filename}`}>
                 <span className={TILE_X_DISC}>
                   <X className="h-3.5 w-3.5" strokeWidth={2} />
@@ -2221,19 +2208,13 @@ export function FileUpload({
               key={item.id}
               className="flex items-center gap-3 rounded-xl border border-ink/10 bg-cream p-3"
             >
-              <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-terracotta/10 text-terracotta">
-                <Loader2 className="h-5 w-5 animate-spin" strokeWidth={1.75} />
-              </span>
+              {/* The ONE upload ring (MOTION_STANDARD § 4 #25) — it replaced this row's spinner and its thin bar
+                  (a bar animates width; the ring turns). */}
+              <UploadRing pct={item.progress} size={48} stroke={5} label={`Uploading ${item.filename}`} />
               <div className="min-w-0 flex-1 space-y-1">
                 <p className="truncate text-sm font-medium text-ink">
                   {item.filename}
                 </p>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
-                  <span
-                    className="block h-full rounded-full bg-terracotta transition-all"
-                    style={{ width: `${item.progress}%` }}
-                  />
-                </div>
                 <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                   {item.progress}% · {bytesToHuman(item.size)}
                 </p>

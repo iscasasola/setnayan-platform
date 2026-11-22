@@ -17,9 +17,9 @@
  * hosted provider — the math here is provider-agnostic. OSM attribution is
  * required by their tile-usage policy and is rendered in-corner.
  *
- * The radius shown is the vendor's TIER reach (vendor-tier-caps · serviceRadiusKm)
- * — the same number the couple's Services search gates on. Read-only here; a
- * follow-up makes it vendor-settable up to the tier ceiling.
+ * The radius shown is the shop's reach under the verification ceiling (`reachCeilingKm`, never a plan's — owner
+ * 2026-11-19), bounded by MAX_DECLARABLE_RADIUS_KM. The supplier sets it with the steppers beside the map; a
+ * blank ring draws that bound.
  *
  * 📍 TWO RINGS AND THE PIN (owner 2026-10-29, Supplier dashboard v13 note 3 — *"where is the map locator?"*): when the
  * supplier has said how far they go, the map draws THEIR two distances — the inner ring (green) is "Free transpo", the

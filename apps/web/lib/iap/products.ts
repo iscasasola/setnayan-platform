@@ -75,11 +75,11 @@ export type IapProductKind =
   | 'event-hub-pro'
   /** 💰 Event Plus (owner 2026-11-04): one per event; never sold to an event that already has Pro. */
   | 'event-plus'
-  /** 💎 Event Ultra (owner 2026-11-13): one per event; everything in Pro + Live Watch + Patiktok + canvas + 12-month originals. */
+  /** 💎 Event Ultra (owner 2026-11-13): one per event; everything in Pro + Live Watch + canvas + 12-month originals (Patiktok left the copy 2026-11-20). */
   | 'event-ultra'
   | 'live-watch'
   | 'papic-credits'
-  /** 🍎 23 Oct: one unlock for the CURRENT event, never sold twice (Music Maker · Patiktok; Setnayan AI and Thank You retired). */
+  /** 🍎 23 Oct: one unlock for the CURRENT event, never sold twice. None is on sale now: Setnayan AI and Thank You retired, Music Maker and Patiktok retired 2026-11-20. */
   | 'event-unlock';
 
 export type IapProduct = {
@@ -187,47 +187,35 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
     }),
   ),
   /*
-   * 🍎 Music Maker and Patiktok (owner 2026-10-23, "five more Apple products"): CONSUMABLE, for the CURRENT event,
-   * activated by the web's own hook. The ids were named by the controller and are FOREVER.
+   * 🗑 NO ONE-PER-EVENT UNLOCKS ARE ON SALE ANY MORE. Music Maker (`music_maker`, PAKANTA) and Patiktok (`patiktok`,
+   * PATIKTOK_COMPILER) were the last (owner 2026-10-23, "five more Apple products") and were RETIRED 2026-11-20 (owner,
+   * *"Retire Patiktok and Music Maker ( we do not want to serve this anymore)"*) — delivery only, in
+   * lib/iap/products-delivery.ts `RETIRED_EVENT_PRODUCTS`. Never re-add them here, never reuse their ids.
    * 🗑 The four Setnayan AI products (`setnayan_ai`, `setnayan_ai_tier_b/c/d`) left sale 2026-11-04 — Setnayan AI comes
    * with Event Plus and Event Pro. They live in lib/iap/products-delivery.ts (delivery only); never re-add them here.
+   * 🗑 `papic_thank_you` (PAPIC_ADDON_THANK_YOU) is RETIRED — the Thank-You Video is free for every event (owner
+   * 2026-10-26). Kept in `RETIRED_IAP_PRODUCT_IDS`; never re-add it here, never reuse its id.
    */
-  ...(
-    [
-      ['music_maker', 'PAKANTA', 'Music Maker'],
-      ['patiktok', 'PATIKTOK_COMPILER', 'Patiktok'],
-      /* 🗑 `papic_thank_you` (PAPIC_ADDON_THANK_YOU) is RETIRED — the Thank-You Video is free for every event (owner
-         2026-10-26). Kept in `RETIRED_IAP_PRODUCT_IDS`; never re-add it here, never reuse its id. */
-    ] as const
-  ).map(
-    ([id, serviceKey, name]): IapProduct => ({
-      productId: `${PREFIX}${id}`,
-      serviceKey,
-      kind: 'event-unlock',
-      appleType: 'consumable',
-      appStoreName: name,
-      credits: null,
-    }),
-  ),
   /* 🗑 `mood_board_renders_50` ("Mood Board · 50 renders") is RETIRED with Mood Board renders (owner 2026-10-26,
      "mood board render is no longer available. can we delete that?"). Never re-add it, and never reuse its id. */
 ]);
 
 /**
- * 💝 THE SUPPLIER GIFT PRODUCTS (owner 2026-11-04, "GIFT PRICES" + *"they can purchase inside apple as well"*): what a
- * Verified-and-up SUPPLIER pays to gift one of the couple's products, sold in the iPhone app through Apple. The price
- * is the row's `gift_price_php` in `platform_retail_catalog_v2` (never typed here); in App Store Connect each is set to
- * the Philippine price point equal to that figure (build-sessions/APPLE-IAP-PRICES-2026-11-04.md).
+ * 💝 THE SUPPLIER GIFT PRODUCTS (owner 2026-11-04, *"they can purchase inside apple as well"*): what a SUPPLIER pays to
+ * gift one of the couple's products, sold in the iPhone app through Apple. 📦 Since 2026-11-14 the price is the row's
+ * LIST price (`retail_price_php`, never typed here) — one price per gift, `gift_price_php` is not a price anywhere; in
+ * App Store Connect each is set to the Philippine price point equal to that figure (an OWNER action — the 4 Nov price
+ * points were set from the retired gift price; build-sessions/APPLE-IAP-PRICES-2026-11-04.md).
  *
  * ⚠ DELIBERATELY NOT IN `IAP_PRODUCTS`, so NOT in `IAP_PRODUCT_IDS` and NOT answered by `iapProductById`: the purchase
  * path (`startAppStorePurchase`) is a COUPLE's — event-scoped and coordinator-checked — and has no supplier buyer, no
- * recipient event and no gift delivery. Listing these there would let a couple buy their own product at the gift price.
+ * recipient event and no gift delivery. Listing these there would let a couple buy their own product through a gift product.
  * They join the sellable list only together with a supplier-buyer intent + delivery (not built — PR body). Ids are
  * FOREVER once created in App Store Connect.
  */
 export type IapSupplierGiftProduct = {
   productId: string;
-  /** The couple product gifted — its catalogue row carries the `gift_price_php` this product is priced from. */
+  /** The couple product gifted — its catalogue row carries the list price (`retail_price_php`) this product is priced from. */
   serviceKey: string;
   appleType: 'consumable';
   appStoreName: string;
@@ -249,6 +237,9 @@ export const IAP_SUPPLIER_GIFT_PRODUCTS: readonly IapSupplierGiftProduct[] = Obj
     [
       ['gift_event_plus', 'EVENT_PLUS', 'Gift · Event Plus'],
       ['gift_event_pro', EVENT_HUB_PRO_SERVICE_KEY, 'Gift · Event Pro'],
+      // 💎 Event Ultra as a gift (owner 2026-11-13, "Gifting Ultra: yes"). The OWNER creates it in App Store Connect at the
+      // price point equal to the EVENT_ULTRA row's list price; not sellable until the supplier path is.
+      ['gift_event_ultra', 'EVENT_ULTRA', 'Gift · Event Ultra'],
       ['gift_live_watch', 'LIVE_STUDIO', 'Gift · Live Watch'],
       ['gift_music_maker', 'PAKANTA', 'Gift · Music Maker'],
       ['gift_patiktok', 'PATIKTOK_COMPILER', 'Gift · Patiktok'],

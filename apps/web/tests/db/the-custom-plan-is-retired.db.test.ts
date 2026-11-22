@@ -166,9 +166,15 @@ test('the Custom-only "no limit" axis is gone, and no limit has a Custom arm', a
   }
 
   // A stray 'custom' now reads the grid's ELSE — the Free row — never Ultra's.
-  const r = await db.query<{ wa: number; br: number }>(
-    `SELECT public.vendor_tier_limit('custom','waitlist_acceptances') AS wa,
-            public.vendor_tier_limit('custom','branches_included')    AS br`,
+  // (Compared with Free's own row, not typed numbers: the waitlist has no plan limit since 2026-11-18, so Free reads 10.)
+  const r = await db.query<{ wa: number; br: number; fwa: number; fbr: number; uwa: number; ubr: number }>(
+    `SELECT public.vendor_tier_limit('custom','waitlist_acceptances')     AS wa,
+            public.vendor_tier_limit('custom','branches_included')        AS br,
+            public.vendor_tier_limit('free','waitlist_acceptances')       AS fwa,
+            public.vendor_tier_limit('free','branches_included')          AS fbr,
+            public.vendor_tier_limit('enterprise','waitlist_acceptances') AS uwa,
+            public.vendor_tier_limit('enterprise','branches_included')    AS ubr`,
   );
-  assert.deepEqual([r.rows[0]!.wa, r.rows[0]!.br], [0, 0]);
+  assert.deepEqual([r.rows[0]!.wa, r.rows[0]!.br], [r.rows[0]!.fwa, r.rows[0]!.fbr], "a stray 'custom' must read the Free row");
+  assert.notDeepEqual([r.rows[0]!.wa, r.rows[0]!.br], [r.rows[0]!.uwa, r.rows[0]!.ubr], 'the check must tell Free from the top plan');
 });

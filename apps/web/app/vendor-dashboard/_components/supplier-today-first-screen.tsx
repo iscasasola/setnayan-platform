@@ -24,7 +24,8 @@ import {
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
-import { PERMIT_PAPERS_HREF, type ShopPill, type SupplierNextTarget, type TodayNeed, type TodayRowIcon } from '@/lib/supplier-today';
+import { RENEW_PAPERS_HREF } from '@/lib/papers-renewal';
+import { type ShopPill, type SupplierNextTarget, type TodayNeed, type TodayRowIcon } from '@/lib/supplier-today';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
 import { customerCardHref, supplierChatHref } from '@/lib/upcoming-schedule-door';
@@ -248,6 +249,8 @@ export type SupplierTodayFirstScreenProps = {
   alsoToday?: ReadonlyArray<{ id: string; label: string; line: string | null; href: string; icon: TodayRowIcon }>;
   /** The next three booked events, Setnayan and outside, already worded. */
   comingUp: readonly TodayComingUpRow[];
+  /** T-3: the bookings read was refused or short — an empty list is "Couldn't load", never "No bookings yet". */
+  comingUpUnread?: boolean;
   /** 🗂 "Events you run" — empty for everyone but a coordinator. */
   eventsYouRun?: readonly EventYouRun[];
   /** 💸 The unpaid booking fees (`<BookingFeeBills today>`), drawn by the page; counted in `needsCount`. */
@@ -265,6 +268,16 @@ export type SupplierTodayFirstScreenProps = {
   thumb?: ReactNode;
   /** 🖥 The side pane's three small cards (`TodayShopMinis`: Opened · Asked · Booked) — from the stats already read. */
   minis?: ReactNode;
+  /**
+   * 📋 TODAY v2 (owner 18 Nov, `Today, one task` v2): the Needs-you rows drawn by `TodayV2Needs` — quick rows answered
+   * in place, bigger ones opening ONE focused screen. Given → it replaces the jumping rows below; the pinned heading
+   * and its count stay. 🔒 today-is-one-task.test.ts
+   */
+  needsRows?: ReactNode;
+  /** 🏅 v2's Next badge card — under the cover, above the five stats. */
+  nextBadge?: ReactNode;
+  /** 🌱 v2's Grow your business · Also for your badges and your page · What's trending — under Needs you today. */
+  grow?: ReactNode;
 };
 
 const PILL_TONE: Record<ShopPill, BadgeTone> = { 'Not sent': 'quiet', Checking: 'wait', Live: 'ok', 'Not yet': 'wait' };
@@ -294,6 +307,7 @@ export function SupplierTodayFirstScreen({
   outcome = null,
   alsoToday = [],
   comingUp,
+  comingUpUnread = false,
   eventsYouRun = [],
   bills = null,
   hasBills = false,
@@ -303,6 +317,9 @@ export function SupplierTodayFirstScreen({
   setup = null,
   thumb = null,
   minis = null,
+  needsRows = null,
+  nextBadge = null,
+  grow = null,
 }: SupplierTodayFirstScreenProps) {
   const nothing = needs.length === 0 && !hasBills;
   return (
@@ -310,15 +327,6 @@ export function SupplierTodayFirstScreen({
       {/* 🧰 A NEW SHOP: the six steps, done in place — the top of Today (owner 2026-10-28; no cover row, as shipped). */}
       {setup}
       {setup ? null : cover}
-      {/* 🖥 From 1280 these two move into the side pane (the drawing's `.ne-top` → `.ne-side`); below it this wrapper
-          draws nothing of its own. */}
-      {setup ? null : (
-        <div data-today-top-only="">
-          {nextEvents}
-          {stats}
-        </div>
-      )}
-
       {/* THE ANSWER'S STATUS LINE — the whole sentence of an answer that redirected here, with the door it asks for. */}
       {outcome ? (
         <div
@@ -370,7 +378,8 @@ export function SupplierTodayFirstScreen({
           {needsCount ? <em data-today-needs-count="">{formatCount(needsCount)}</em> : null}
         </div>
         <div className="[&>*:first-child]:border-t-0" data-today-needs-rows="">
-          {needs.map((n) => (
+          {needsRows}
+          {needsRows ? null : needs.map((n) => (
             <TodayRow
               key={n.key}
               href={nextHref(n.target)}
@@ -383,14 +392,14 @@ export function SupplierTodayFirstScreen({
               pill={n.pill ? <Badge tone={n.pill.tone} data="today-need">{n.pill.word}</Badge> : undefined}
             />
           ))}
-          {hasBills ? (
+          {hasBills && !needsRows ? (
             /* 💸 Every unpaid booking fee, each with its own Pay (owner 2026-09-20: "i never saw the payment screen to
                pay us") — the shipped rows, kind "Payments" for Show. */
             <div data-today-need-bills="" data-today-need-kind="payments" className="[&>div]:border-t [&>div]:border-ink/10">
               {bills}
             </div>
           ) : null}
-          {nothing ? (
+          {nothing && !needsRows ? (
             <TodayNoteRow label="Nothing waiting on you" line="New asks land here first" rowIcon="check" marker="waiting-empty" />
           ) : null}
         </div>
@@ -398,6 +407,22 @@ export function SupplierTodayFirstScreen({
           Nothing waiting matches that search
         </p>
       </div>
+
+      {/* 📋 THE LIST COMES FIRST (Today v3 part 1, owner 19 Nov: "it was suppose to look like focus" — the mast, then the
+          list): the Next badge card, Next events and the five numbers now sit UNDER Needs you today, each still its own
+          block (they are not removed — where they finally live is the owner's open call). */}
+      {/* 🖥 From 1280 these two move into the side pane (the drawing's `.ne-top` → `.ne-side`); below it this wrapper
+          draws nothing of its own. */}
+      {setup ? null : (
+        <div data-today-top-only="">
+          {nextBadge}
+          {nextEvents}
+          {stats}
+        </div>
+      )}
+
+
+      {grow}
 
       {/* 🌑 ALSO TODAY — on an event day, the day's own rows (Schedule · the Event Hub's tools). */}
       {alsoToday.length > 0 ? (
@@ -424,7 +449,11 @@ export function SupplierTodayFirstScreen({
       {/* ③ COMING UP — the next three booked events (Setnayan and outside), each opening its day. */}
       <div data-today-coming-up data-tour="today-coming-up">
         <TodayEyebrow door={{ label: 'All dates', href: '/vendor-dashboard/customers?seg=dates' }}>Coming up</TodayEyebrow>
-        {comingUp.length === 0 ? (
+        {comingUp.length === 0 && comingUpUnread ? (
+          <div className="[&>a:first-child]:border-t-0">
+            <TodayRow href="/vendor-dashboard" label="Couldn’t load your bookings" line="Refresh in a moment to try again" rowIcon="calendar" marker="coming-up-unread" />
+          </div>
+        ) : comingUp.length === 0 ? (
           <div className="[&>a:first-child]:border-t-0">
             <TodayRow href="/vendor-dashboard/customers?add=outside" label="No bookings yet" line="Add the ones you already have" rowIcon="calendar" marker="coming-up-empty" />
           </div>
@@ -484,7 +513,7 @@ export function SupplierTodayFirstScreen({
           they are being checked the Shop row already says so, and nothing here claims more. */}
       {shop.pill === 'Checking' || shop.pill === 'Not sent' ? null : (
         <div data-today-side-verified="" className="[&>a]:border-t-0">
-          <TodayRow href={PERMIT_PAPERS_HREF} label="Setnayan Verified" line="Couples can book you" pill={<span className="text-[13px] font-medium text-sn-accent">See it</span>} marker="verified" rowIcon="check" />
+          <TodayRow href={RENEW_PAPERS_HREF} label="Setnayan Verified" line="Couples can book you" pill={<span className="text-[13px] font-medium text-sn-accent">See it</span>} marker="verified" rowIcon="check" />
         </div>
       )}
       </aside>

@@ -1,0 +1,14 @@
+/* ➕ The add way at the EMPTY Clients search (clients-search.tsx): a one-row menu floating at the field while it has the
+   cursor and holds nothing — above the row at the thumb, below it where the row lives in the pinned bar (from 701). */
+.emptyAdd {
+  display: none; position: absolute; left: max(16px, var(--sn-safe-l)); right: max(16px, var(--sn-safe-r)); bottom: 100%;
+  padding: 4px 12px; border-radius: var(--m-r-lg); background: var(--m-paper);
+  box-shadow: 0 -6px 28px rgba(0, 0, 0, 0.14), 0 0 0 1px rgb(var(--color-ink) / 0.1);
+}
+:global([data-supplier-thumb]):has(:global(input[data-search-input]):focus:placeholder-shown) > .emptyAdd { display: block; }
+:global([data-thumb-up]):has(> .emptyAdd) { position: relative; }
+:global([data-thumb-up]) > .emptyAdd { left: auto; right: 0; bottom: auto; top: calc(100% + 6px); width: min(320px, 90vw); z-index: 1; }
+.addRow {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0; border: 0; background: transparent;
+  text-align: left; font-size: 15px; font-weight: 600; color: rgb(var(--sn-accent-word, var(--sn-accent))); cursor: pointer;
+}

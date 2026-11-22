@@ -72,14 +72,25 @@ export const BAR_ROOTS = {
     '/vendor-dashboard/collections',
   ],
   // The five tabs' landings (owner 13 Nov 2026 — `lib/admin/admin-tabs.ts`).
-  admin: ['/admin', '/admin/payments', '/admin/accounts', '/admin/categories', '/admin/app-performance'],
+  admin: ['/admin', '/admin/payments', '/admin/accounts', '/admin/catalogue', '/admin/app-performance'],
 } as const;
 
 const ROOTS = new Set<string>(Object.values(BAR_ROOTS).flat());
 
+/**
+ * 🫥 A BAR TAB THAT HIDES ITS BAR CARRIES ITS OWN BACK (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR,
+ * FULL SCREEN, APPROVED" (6)): the Hub tab (the Maker) steps the app's top bar and bottom nav away while it is open, so
+ * the bar is no longer its way around — ‹ on its own bar goes to the bar's first tab, the event's Today. Still a tab of
+ * the event bar (`BAR_ROOTS`); only its back is answered here, before the bar-root rule.
+ */
+export const FULL_SCREEN_TABS: Readonly<Record<string, string>> = {
+  '/dashboard/[eventId]/launch': '/dashboard/[eventId]',
+};
+
 /** A home's own name, for a back link that is not given one. */
 const LABELS: Record<string, string> = {
   '/': 'Discover',
+  '/articles': 'Articles',
   '/dashboard': 'Home',
   '/dashboard?hub=1': 'Home',
   '/dashboard?seg=memories': 'Memories',
@@ -99,12 +110,15 @@ const LABELS: Record<string, string> = {
   '/vendor-dashboard/customers': 'Clients',
   '/vendor-dashboard/shop': 'Shop',
   '/vendor-dashboard/collections': 'Portfolio',
+  // Team › Roles (six supplier roles, owner 19 Nov 2026) goes back to the Team page.
+  '/vendor-dashboard/team': 'Team',
   // The supplier's Hub room is no tab any more (THE ONE BUILD) — its own heading's word ("Hub", never the couple's
   // "Event Hub" — owner 2026-11-05), for the live console's ‹.
   '/vendor-dashboard/on-the-day': 'Hub',
   '/admin': 'Work',
   '/admin/payments': 'Money',
   '/admin/accounts': 'People',
+  '/admin/catalogue': 'Catalogue',
   '/admin/categories': 'Catalogue',
   '/admin/app-performance': 'Insights',
   '/admin/more': 'All surfaces',
@@ -163,6 +177,9 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/u/[userSlug]/c/[chapterId]': { home: '/u/[userSlug]', label: 'Profile' },
   // The claim link is made and shared from People; the issuer who opens it lands back there (audit ⚠, kept).
   '/claim/[token]': { home: '/dashboard?seg=people' },
+  // 🤝 Another supplier's invite link (Invite a supplier v3): a door reached from a shared link or QR — like the
+  // supplier claim door, its way out is signing in.
+  '/i/[slug]': { home: '/login' },
 
   /* ── sign in ──────────────────────────────────────────────────────────────────────────────────────── */
   // A password reset belongs to signing in (audit ✅).
@@ -255,6 +272,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   /* ── the supplier ────────────────────────────────────────────────────────────────────────────────── */
   // A booking fee is paid from the plan page (audit ✅).
   '/vendor-dashboard/booking-fees': { home: '/vendor-dashboard/subscription', label: 'Plan' },
+  // One fee goes back to the list of fees (supplier pages set two, 21 Nov 2026: "Back to booking fees").
+  '/vendor-dashboard/booking-fees/[orderId]': { home: '/vendor-dashboard/booking-fees', label: 'Booking fees' },
   // Clients and Messages became folds of Customers; both old rooms are redirect stubs (audit ❌ ×2, fixed).
   '/vendor-dashboard/clients/[eventId]': { home: '/vendor-dashboard/customers' },
   // A supplier's chat is ONE EVENT's chat. ‹ returns IN PLACE to whichever list opened it (Chats or Customers › Events —
@@ -271,6 +290,19 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // the inspiration library is Portfolio's (spec A1 F-registry: it lights Portfolio, so ‹ goes there too).
   '/vendor-dashboard/on-the-day': { home: '/vendor-dashboard/customers' },
   '/vendor-dashboard/moodboard-library': { home: '/vendor-dashboard/collections' },
+  // 🧰 THE TOOL PAGES (owner-approved redraw v3, 21 Nov 2026 — `supplier_tools_redraw_v3_fable.html`): each pinned row's
+  // ‹ is the drawing's "‹ Shop" — their doors are Shop ⚙'s shelves (What couples see · Working with others · Protection).
+  // My lines' only door is an opened client's Script tab, so its ‹ is Clients'.
+  '/vendor-dashboard/attributes': { home: '/vendor-dashboard/shop' },
+  '/vendor-dashboard/repertoire': { home: '/vendor-dashboard/shop' },
+  '/vendor-dashboard/recommendations': { home: '/vendor-dashboard/shop' },
+  '/vendor-dashboard/creators': { home: '/vendor-dashboard/shop' },
+  '/vendor-dashboard/theft-watch': { home: '/vendor-dashboard/shop' },
+  '/vendor-dashboard/disputes': { home: '/vendor-dashboard/shop' },
+  '/vendor-dashboard/track-record': { home: '/vendor-dashboard/shop' },
+  '/vendor-dashboard/activities': { home: '/vendor-dashboard/shop' },
+  '/vendor-dashboard/manpower': { home: '/vendor-dashboard/shop' },
+  '/vendor-dashboard/lines': { home: '/vendor-dashboard/customers' },
 
   /* ── admin ───────────────────────────────────────────────────────────────────────────────────────── */
   // Both sit in the Root map menu (`admin-nav-groups.tsx` key `ugat`, hub `/admin/ugat`) (audit ❌ ×2).
@@ -331,6 +363,8 @@ export function parentRoute(route: string): string {
 
 /** Where a page's back link goes — or why it draws none. */
 export function pageHome(route: string): PageHome {
+  const full = FULL_SCREEN_TABS[route];
+  if (full) return { kind: 'home', home: full, label: LABELS[full] ?? 'Back' };
   if (ROOTS.has(route)) return { kind: 'none', reason: 'bar-root' };
   let best: Entry | null = null;
   let bestScore = -1;

@@ -551,10 +551,12 @@ test('screens: the Overview desk reads through the paged helpers and reports a s
   }
   assert.match(
     lib,
-    /const deskIncomplete =\s*!lockRead\.complete \|\|\s*!lockAgreementRead\.complete \|\|\s*!deletionRead\.complete \|\|\s*!declinedRead\.complete \|\|\s*!dateChangeRead\.complete;/,
+    // Supplier audit T-2 (2026-11-17): the threads, meetings and unsent-quotes reads joined the desk's short-read flag,
+    // ahead of the five below — every one of the original five is still pinned, in order.
+    /const deskIncomplete =\s*!threadsRead\.complete \|\|\s*meetingsRead === null \|\|\s*quotesRead === null \|\|\s*!lockRead\.complete \|\|\s*!lockAgreementRead\.complete \|\|\s*!deletionRead\.complete \|\|\s*!declinedRead\.complete \|\|\s*!dateChangeRead\.complete;/,
   );
   // 📸 + nextDay, bookedThisMonth (THE ONE BUILD A3/A4) — read off the same room read, no read of their own.
-  assert.match(lib, /return \{ whatsNew, ongoing, upcoming, deskIncomplete, inquiries28, askDayHolds, nextDay, bookedThisMonth \};/);
+  assert.match(lib, /return \{ whatsNew, ongoing, upcoming, deskIncomplete, bookingsComplete, inquiries28, askDayHolds, nextDay, bookedThisMonth \};/);
   const page = read('app/vendor-dashboard/page.tsx');
   // 🧩 Since the simpler Today (2026-10-14) the page hands the desk to the one drawing (`SupplierTodayScreen`),
   // which mounts the feed; the properties below are asserted where each now lives.
@@ -576,7 +578,13 @@ test('screens: the Overview desk reads through the paged helpers and reports a s
   // 🔁 THE ONE BUILD (8 Nov): the feed is retired from Today; the desk is ONE Needs-you list (`view.needs`). The same
   // properties, where they live now:
   //   1. the short-read flag REACHES the list — a partial read draws "Some answers couldn't load", never an empty desk;
-  assert.match(page, /needsAnswer,\s*closed: nothingToAnswer,\s*deskIncomplete,/, 'the page does not hand the short-read flag to the assembly');
+  // The flag may carry more than the desk's own reads: an unreadable fee-bill list is a short read too (supplier
+  // dashboard audit, 2026-11-17). What must hold is that `deskIncomplete` is still in it.
+  assert.match(
+    page,
+    /needsAnswer,\s*closed: nothingToAnswer,\s*(?:\/\/[^\n]*\n\s*)*deskIncomplete(?:: deskIncomplete \|\| feeBillsRead === FEE_BILLS_UNREADABLE)?,/,
+    'the page does not hand the short-read flag to the assembly',
+  );
   assert.match(view, /if \(input\.deskIncomplete\) \{\s*needs\.push\(\{\s*key: 'unread',/, 'a short read no longer reaches the list — it would render as an empty desk');
   //   2. BOTH halves are drawn — the asks and the closed lines, in one list;
   assert.match(view, /const needs: TodayNeed\[\] = askOrder\.map\(/, 'the asks are no longer rows');
@@ -609,11 +617,14 @@ test('screens: manpower pages the booked read and says when offers could not loa
 });
 
 test('screens: disputes page every dispute through the shared pager', () => {
+  // The tool pages redraw (v3, 21 Nov 2026): the page reads and pages; the screen (`disputes-view.tsx`) draws.
   const src = read('app/vendor-dashboard/disputes/page.tsx');
+  const view = read('app/vendor-dashboard/disputes/_components/disputes-view.tsx');
   assert.doesNotMatch(src, /\.limit\(/);
   assert.match(src, /const disputesPage = paginate\(rows, search\.dpage\);/);
-  assert.match(src, /\{disputesPage\.items\.map\(/);
-  assert.match(src, /<ListPager\s+paged=\{disputesPage\}\s+param="dpage"/);
-  assert.match(src, /\{incomplete \? \(\s*<ShopNotice[^>]*>\s*\{rows\.length === 0\s*\?\s*'Your disputes couldn\\u2019t load/);
-  assert.match(src, /\{rows\.length === 0 && !incomplete \? \(/);
+  assert.match(src, /paged=\{disputesPage\}/);
+  assert.match(view, /\{paged\.items\.map\(/);
+  assert.match(view, /<ListPager\s+paged=\{paged\}\s+param="dpage"/);
+  assert.match(view, /\{incomplete \? \(\s*rows\.length === 0 \? \(\s*<ToolFail[^>]*title="Your disputes couldn’t load/);
+  assert.match(view, /\{rows\.length === 0 && !incomplete \? \(/);
 });

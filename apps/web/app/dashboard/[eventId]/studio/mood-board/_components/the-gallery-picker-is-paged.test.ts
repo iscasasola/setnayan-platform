@@ -253,7 +253,8 @@ test('the picker asks for NOTHING until it is mounted by a tap', () => {
   // The component only exists while a slot is open, so drawing the inspiration
   // board costs zero gallery queries — the same "loads nothing until narrowed"
   // rule template-gallery.tsx follows.
-  assert.match(board, /openGallerySlot !== null &&/);
+  // 18 Nov (one + per part): the picker sits under ITS part's row, mounted only while that part is the open one.
+  assert.match(board, /\{galleryWired && openGallerySlot === slot\.k \? \(\s*<GalleryPicker/);
   assert.match(board, /setOpenGallerySlot\(\(prior\) => \(prior === slot\.k \? null : slot\.k\)\)/);
 });
 
@@ -276,12 +277,12 @@ test('⭐ THE GUARD · page.tsx hands the board the REAL actions, not a stub', (
 });
 
 test('⭐ THE GUARD · the board hands the picker the actions it was given', () => {
-  const mount = windowOf(read(BOARD), '<GalleryPicker', /\n            \/>/);
+  const mount = windowOf(read(BOARD), '<GalleryPicker', /\n\s*\/>/);
   assert.match(mount, /fetchAction=\{fetchGalleryAction!\}/);
   assert.match(mount, /applyAction=\{applyGalleryAction!\}/);
   assert.match(
     mount,
-    /emptyPositions=\{emptyPositionsFor\(openGallerySlot\)\}/,
+    /emptyPositions=\{freePositions\(slot\.k, tiles\)\}/,
     'free cells must be read off the same state the grid paints from',
   );
   assert.match(
@@ -307,9 +308,13 @@ test('⭐ THE GUARD · a saved supplier photo shows its credit on the BOARD tile
   const src = read(BOARD);
   // Otherwise the credit lasts exactly as long as the picker was open, and the
   // couple can never answer "whose bouquet was that?" a week later.
-  const tile = windowOf(src, '  if (tile) {', /\n  return \(\n    <label/);
-  assert.match(tile, /\{tile\.credit \?/, 'the tile must render its own credit');
-  assert.match(tile, /\{tile\.credit\}/);
+  // 18 Nov (one + per part): a 44 px tile cannot hold the words, so the credit is on the ROW ("2 of 3 · 1 from
+  // Bloom & Co."), named on the tile for a screen reader with a gold mark, and spelled out in the preview.
+  const tile = windowOf(src, 'function PhotoTile(', /\n}\n/);
+  assert.match(tile, /aria-label=\{photo\.credit \? `\$\{label\}, from \$\{photo\.credit\}` : label\}/, 'the tile must name its own credit');
+  assert.match(tile, /\{photo\.credit \? <span aria-hidden/, 'the tile lost its supplier mark');
+  assert.match(src, /const line = partLine\(saved\.length, uploading, credits\);/, 'the row no longer says whose photos');
+  assert.match(src, /sub=\{current\.photo\.credit \? `From \$\{current\.photo\.credit\}` : undefined\}/);
 });
 
 test('⭐ THE GUARD · page.tsx resolves the credit SERVER-side, through the library asset', () => {

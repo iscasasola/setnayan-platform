@@ -21,7 +21,7 @@ import { formProgress } from '@/lib/chat-cards';
 import { formatCount } from '@/lib/format-number';
 import { ChatCardShell, ChatStepCard, isStepEnter, type ChatCardStep } from '../chat-step-card';
 import { loadSentFormForAnswer, loadShopFormsForCard, type FormToAnswer } from './card-calls';
-import { CouldNotLoad, EmptyLine, Loading, Problem, type Read } from './card-bits';
+import { CouldNotLoad, EmptyLine, KindCard, Loading, Problem, ProgressRing, type Read } from './card-bits';
 import { AskChangeDoor } from './ask-change-card';
 
 type LibForm = { formId: string; title: string; questions: string[] };
@@ -63,7 +63,7 @@ export function FormStepCard({
         ) : read.at === 'failed' ? (
           <CouldNotLoad what="your forms" onRetry={load} />
         ) : (
-          <EmptyLine line="No saved forms yet — make one under Forms in your shop, then send it here." />
+          <EmptyLine line="No forms for this client yet. Your chat forms and the forms on the cards they asked about show here." />
         )}
       </ChatCardShell>
     );
@@ -133,10 +133,11 @@ export function FormAnswerCard({ threadId, title, returnPath, seed }: { threadId
     if (!seed) load();
   }, [load, seed]);
   if (read.at === 'ok' && !read.data) return null;
+  if (read.at === 'ok') return <Answering form={read.data!} threadId={threadId} returnPath={returnPath} />;
   return (
-    <ChatCardShell topic="forms" kicker="Form" title={title} tone="theirs">
-      {read.at === 'loading' ? <Loading /> : read.at === 'failed' ? <CouldNotLoad what="this form" onRetry={load} /> : <Answering form={read.data!} threadId={threadId} returnPath={returnPath} />}
-    </ChatCardShell>
+    <KindCard kind="form" topic="forms" kicker="Form" title={title} tone="theirs">
+      {read.at === 'loading' ? <Loading /> : <CouldNotLoad what="this form" onRetry={load} />}
+    </KindCard>
   );
 }
 
@@ -149,6 +150,21 @@ function Answering({ form, threadId, returnPath }: { form: FormToAnswer; threadI
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const n = form.questions.length;
+  // The form kind's signature: the ring fills as the answers land; all answered, the card folds to one ✓ line.
+  const card = (body: ReactNode) => (
+    <KindCard
+      kind="form"
+      topic="forms"
+      kicker="Form"
+      title={form.title}
+      tone="theirs"
+      chip={<ProgressRing kind="form" done={prog.answered} of={n} />}
+      turn={prog.done ? 'done' : form.locked ? 'wait' : 'me'}
+      settled={prog.done ? `${form.title} · All ${formatCount(n)} answered` : undefined}
+    >
+      {body}
+    </KindCard>
+  );
   const list = (
     <ol className="m-0 grid gap-1 pl-0" data-form-answers="">
       {form.questions.map((q, i) => (
@@ -171,9 +187,9 @@ function Answering({ form, threadId, returnPath }: { form: FormToAnswer; threadI
       ))}
     </ol>
   );
-  if (form.locked) return <div className="grid gap-2"><p className="text-[14px] text-ink/60">The supplier made this form final · {formatCount(prog.answered)} of {formatCount(n)} answered</p>{list}</div>;
+  if (form.locked) return card(<div className="grid gap-2"><p className="text-[14px] text-ink/60">The supplier made this form final · {formatCount(prog.answered)} of {formatCount(n)} answered</p>{list}</div>);
   if (at < 0 || paused) {
-    return (
+    return card(
       <div className="grid gap-2">
         <p className={`text-[14px] ${prog.done ? 'font-medium text-success-700' : 'text-ink/65'}`}>
           {prog.done ? `All ${formatCount(n)} answered · tap one to change it` : `${formatCount(prog.answered)} of ${formatCount(n)} answered`}
@@ -187,7 +203,7 @@ function Answering({ form, threadId, returnPath }: { form: FormToAnswer; threadI
         {/* ✋ Ruling 6076 · the ask starts from THIS form and carries it (its id, its title) — on the form's overview,
             never over a question being answered. A final form is not asked about (the branch above says so). */}
         <AskChangeDoor threadId={threadId} supplierName="the supplier" formId={form.formId} formTitle={form.title} locks={{ form: false }} returnPath={returnPath} />
-      </div>
+      </div>,
     );
   }
   const q = form.questions[at]!;
@@ -211,7 +227,7 @@ function Answering({ form, threadId, returnPath }: { form: FormToAnswer; threadI
     const p = formProgress(next);
     setAt(p.done ? -1 : p.at);
   };
-  return (
+  return card(
     <div
       className="grid grid-cols-[minmax(0,1fr)] gap-3"
       data-form-asking={`${at + 1}/${n}`}
@@ -235,7 +251,7 @@ function Answering({ form, threadId, returnPath }: { form: FormToAnswer; threadI
         {at > 0 ? <ActionButton tone="neutral" icon={ChevronLeft} label="Back" onClick={() => setAt(at - 1)} /> : null}
         <ActionButton tone="brand" main icon={ChevronRight} label={saving ? 'Saving…' : at === n - 1 ? 'Done' : 'Next'} onClick={() => void save()} waiting={!draft.trim() || saving} />
       </FitFoot>
-    </div>
+    </div>,
   );
 }
 

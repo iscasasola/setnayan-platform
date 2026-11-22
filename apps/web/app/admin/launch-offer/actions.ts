@@ -26,6 +26,9 @@ export type LaunchOfferActionState = { ok: boolean; message: string | null };
  *                reason is kept ONLY in `admin_audit_log.reason` — admins alone
  *                can read that table; `platform_settings` is readable by every
  *                signed-in user, so it never holds it (review 2026-10-23).
+ *   · `special_tools` — from when the special tools (the Cake Maker first) are Pro and up
+ *                (`special_tools_paid_from`; owner "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP"). Empty =
+ *                open to every plan. No fee anywhere — this is only the date the plan rule starts.
  *
  * 🔑 IT DECIDES NO BOOKING. Which booking is fee-free is decided in SQL at the
  * supplier's yes (`booking_fee_open_lock_charge`). This page only sets the
@@ -132,6 +135,18 @@ export async function saveLaunchOffer(
       return { ok: false, message: 'The window is saved, but its reason was not recorded — save it again.' };
     }
     return done(from || until ? 'Free-fee window saved.' : 'Free-fee window cleared.');
+  }
+
+  if (intent === 'special_tools') {
+    const raw = String(formData.get('special_tools_paid_from') ?? '').trim();
+    const at = raw ? manilaLocalToIso(raw) : null;
+    if (raw && !at) return { ok: false, message: 'The date could not be read.' };
+    const update = { special_tools_paid_from: at, updated_at: new Date().toISOString() };
+    const { error } = await admin.from('platform_settings').update(update).eq('id', 1);
+    revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
+    if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
+    await audit('special_tools_paid_from_edit', update);
+    return done(at ? 'Saved — from then, special tools are Pro and up.' : 'Cleared — special tools are open to every plan.');
   }
 
   return { ok: false, message: 'Nothing to do.' };

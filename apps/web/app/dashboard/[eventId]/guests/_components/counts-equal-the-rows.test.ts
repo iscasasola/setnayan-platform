@@ -110,7 +110,8 @@ function countsLine(html: string): string | null {
 function toInviteDoor(line: string): { href: string; words: string } | null {
   for (const a of line.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)) {
     const words = a[2]!.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-    if (/^Invite [\d,]+$/.test(words)) return { href: a[1]!.match(/href="([^"]*)"/)?.[1] ?? '', words };
+    // 👥 20 Nov (Guests redesign §1): the door says "Send N invites" — the drawing's words for the same run.
+    if (/^Send [\d,]+ invites?$/.test(words)) return { href: a[1]!.match(/href="([^"]*)"/)?.[1] ?? '', words };
   }
   return null;
 }
@@ -129,8 +130,8 @@ test('"N to invite" on the List is a door into the send run when N > 0 (rendered
     const line = countsLine(await renderGuestsScreen({ guests, gview }));
     assert.ok(line, `Guests › ${gview} drew no counts line for a measured list`);
     const door = toInviteDoor(line);
-    assert.ok(door, `Guests › ${gview}: "Invite 2" is not a link — there is no door to sending from here`);
-    assert.equal(door.words, 'Invite 2', 'the door\'s number is not the counts line\'s own');
+    assert.ok(door, `Guests › ${gview}: "Send 2 invites" is not a link — there is no door to sending from here`);
+    assert.equal(door.words, 'Send 2 invites', 'the door\'s number is not the counts line\'s own');
     assert.equal(door.href, '/dashboard/e1/guests/send');
   }
 });
@@ -141,13 +142,13 @@ test('with nobody to invite it is plain words, and a refused read draws no count
   const line = countsLine(await renderGuestsScreen({ guests: invited }));
   assert.ok(line, 'a measured list with everyone invited drew no counts line');
   assert.match(plain(line), /Everyone invited/, 'the words changed');
-  assert.equal(toInviteDoor(line), null, '"Invite 0" is a link — a dead door');
+  assert.equal(toInviteDoor(line), null, '"Send 0 invites" is a link — a dead door');
   assert.doesNotMatch(line, /guests\/send/, 'the counts line links to the send run with nobody to send to');
 
   // A REFUSED read: the rows are unknown, not empty — no "0 to invite", no door, no counts.
   const refused = await renderGuestsScreen({ guests: [], measured: false });
   assert.equal(countsLine(refused), null, 'an unmeasured read printed a counts line');
-  assert.doesNotMatch(plain(refused), /to invite|Invite \d|Everyone invited/, 'an unmeasured read says something about who is left to invite');
+  assert.doesNotMatch(plain(refused), /to invite|Invite \d|Send \d+ invite|Everyone invited/, 'an unmeasured read says something about who is left to invite');
 });
 
 test('the List\'s door opens the one send run (rendered) — the Guests ⚙ draws no second door (R4 slice 11)', async () => {

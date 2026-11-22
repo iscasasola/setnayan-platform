@@ -4,13 +4,20 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { PillThumb } from '@/app/_components/pill-selector';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { createPortal } from 'react-dom';
-import { Check, Play, Reply, RotateCw, Square, X, type LucideIcon } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, List, Maximize2, Palette, Play, Reply, RotateCw, Square, X, type LucideIcon } from 'lucide-react';
+import { useBackCloses } from '@/lib/use-back-closes';
+import type { MakerPagesAsk } from './maker-pages-sheet';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { RSVP_STAGE_SCENES, isRsvpStageScene, type RsvpStageScene } from '@/lib/rsvp-stage';
 import {
   MAKER_PARTS,
+  MAKER_PART_TABS,
+  MAKER_PART_TAB_LABEL,
   MAKER_PART_TOOLS,
-  MAKER_PART_TOOL_LABEL,
+  MAKER_PRO_TAB,
+  makerPartExpands,
+  makerTabOf,
+  type MakerPartTab,
   makerArrivalKeeps,
   makerArrivalPart,
   makerPartIsDrawn,
@@ -35,7 +42,8 @@ import {
   type MakerPartTool,
   type MakerStageKey,
 } from '@/lib/maker-parts';
-import { STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_BAR_LINE_ABOUT, STAGE_BAR_LINE_LEAD, STAGE_BAR_STOW_BUTTON, STAGE_BAR_STOW_GLIDE, STAGE_BAR_STOW_PX, STAGE_BAR_SWIPE_PX, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, stageEditingLine, partPickScroll } from '@/lib/maker-stage-room';
+import { STAGE_BAR_BAND_PX, STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE_LEAD, STAGE_BAR_STOW_BUTTON, STAGE_BAR_STOW_GLIDE, STAGE_BAR_STOW_PX, STAGE_BAR_SWIPE_PX, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_PANEL_VARS_DARK, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, STAGE_HEAD_NAME,
+  STAGE_REST_PX, STAGE_REST_WORDS, partPickScroll } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerCanvasKeyOf, makerOwnSceneType, makerPartRisesEditor, type MakerStudioTool, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
 import { STAGE_NOTHING_PICKED_WORDS, stageRowOneLine } from '@/lib/maker-edit-owns-content';
@@ -87,7 +95,7 @@ import { guestsSettingsHref } from '@/lib/event-settings-record';
 import { guestsViewHref } from '@/lib/guests-views';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
-import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_SAY_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
+import { MAKER_OPEN_LOOK_EVENT, MAKER_OPEN_PAGES_EVENT, MAKER_OPEN_PART_EVENT, MAKER_PLAY_PICKED_EVENT, MAKER_PREVIEW_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_SAY_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import type { StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
@@ -169,18 +177,13 @@ function safeBottomPx(): number {
 let lastTool: MakerPartTool = 'edit';
 /** How long the canvas is given to say it switched its page after a tap on the guests' bar. */
 const STAGE_PAGE_ASK_MS = 450;
-/** ▶ held this long is the long press: the whole page as a guest. A shorter press is a tap — it plays. */
-export const STAGE_HOLD_MS = 500;
 /** "Exit preview" sits this far above the screen's safe area — and above the guests' 44-px bar where there is one. */
 export const STAGE_EXIT_GAP_PX = 12;
 export const STAGE_EXIT_OVER_BAR_PX = 44 + STAGE_EXIT_GAP_PX;
 /** 🔘 Where "Exit preview" parks on a stage's pages: the right edge, a little above the middle — the cover's foot is the
  *  RSVP button's and the "Swipe up" hint's (owner 2026-10-16, prototype v2 `.exitp`). */
 export const STAGE_EXIT_EDGE_TOP = '36%';
-/** What ▶ says the first time it is tapped — the long press's twin for whoever never holds a button (once a visit). */
-export const STAGE_HOLD_HINT = 'Hold ▶ to preview the whole page.';
 export const STAGE_PREVIEW_REFUSED = { link: 'Links are switched off in preview.', send: 'Nothing is sent from a preview.' } as const;
-let holdHintSaid = false;
 /** Where Style's quiet row last took the couple — the panel picks the same part when they come back (‹). */
 let resumeAt: { stage: MakerStageKey; page: string | null; part: MakerPartKey } | null = null;
 /** 🧭 The tab that was on screen when this panel last stood — it is put back when the couple returns from Studio
@@ -465,8 +468,8 @@ export function StageTools({
      on the editing canvas (it plays over the cover), so its tile is the page map's own. ＋ A
      part the couple ADDED is a tile of the page it was added to (`makerPartsWithAdded`). */
   const revealStage = rsvpOpen ? null : revealStageOf(stage);
-  const tappableOn = useCallback(
-    (page: string | null): MakerPartKey[] => {
+  const tappableWith = useCallback(
+    (page: string | null, present: Set<string>): MakerPartKey[] => {
       /* …and only the parts the page DREW (`makerPartIsDrawn`): a cover with no invite line has no "Invite line". */
       const drawnHere = makerPartsWithAdded({ stage, page, pages: pages.map((p) => p.key), drawn: [...present], filed }).filter((k) => makerPartIsDrawn(k, present));
       const withReveal = revealStage && page && makerPartsOnPage(stage, page)[0] === 'reveal' ? (['reveal', ...drawnHere] as MakerPartKey[]) : drawnHere;
@@ -474,8 +477,9 @@ export function StageTools({
          tile is the page map's, and its rows are this panel's own (`CameraPartNote`). */
       return page && makerPartsOnPage(stage, page).includes('camera') && !withReveal.includes('camera') ? [...withReveal, 'camera'] : withReveal;
     },
-    [filed, pages, present, revealStage, stage],
+    [filed, pages, revealStage, stage],
   );
+  const tappableOn = useCallback((page: string | null): MakerPartKey[] => tappableWith(page, present), [present, tappableWith]);
   /** 🗳 The frame the stage's page is drawn in: the shown canvas — or, on the RSVP stage, the screen on show. */
   const frameSel = rsvpOpen ? rsvpStageFrameSelector(screen) : SHOWN_FRAME;
   /* 🗳 The RSVP stage's parts are the ones its screen DREW (its markers, and the masthead's named parts) — never a
@@ -693,6 +697,17 @@ export function StageTools({
   }, []);
   const deselectRef = useRef(deselect);
   deselectRef.current = deselect;
+  /**
+   * ✕ · ← BACK · ESC · A TAP OUTSIDE · THE HANDLE DRAGGED DOWN — THE WAY BACK TO THE RESTING BAR (owner 20 Nov 2026,
+   * DECISION_LOG "MAKER · WAY BACK + BUILT-IN GUEST PAGES"). A picked part pushes ONE history entry of its own (the app's
+   * one mechanism, `useBackCloses`), so the phone's Back closes the toolbar instead of leaving the Maker; every other way
+   * out steps back through that entry, so Back is never pressed twice. ⤢ Expand takes the entry over while it is up
+   * (`maker-shell.tsx`), so Back closes Expand first, then the toolbar. A desktop's tools column has no Back of its own.
+   */
+  const desktopWide = useIsDesktop('lg');
+  const closeBar = useBackCloses(picked !== null && !desktopWide, deselect);
+  const closeRef = useRef(closeBar);
+  closeRef.current = closeBar;
   /** The page's parts in their VISUAL order (measured on the canvas) — the order ↑ ↓ and the swipe walk. */
   const ordered = useCallback(() => partsInPageOrder(parts, (k) => makerPartTopOnScreen(stageKey, k, frameSel)), [frameSel, parts, stageKey]);
   /* A part tapped ON THE PAGE: the panel follows it (the work area has already opened its tools). */
@@ -751,16 +766,10 @@ export function StageTools({
         }
         setPicked(k);
         setTapped(typeof d.el === 'string' ? d.el : null);
-        /* 👆 A SCENE WHOSE PAGE USED TO BE STUDIO'S RISES ITS EDITOR ON A TAP (Build 6 Lane F, owner 2026-11-10: the ring →
-           the Logo Maker, Dress code → Palette + Dress Code, Love Story → its chapters; `makerPartRisesEditor`). The
-           part stays picked underneath, so ✕ comes back to it. Every other part is selected, as before — the rest of
-           the cover opens the cover's own tools. Never on the RSVP stage (its screens carry their own tools). */
-        const rises = rsvpOpenRef.current ? null : makerPartRisesEditor(k);
-        if (rises) {
-          setSlotAsk(null);
-          riseRef.current(k, rises);
-          return;
-        }
+        /* 👆 A TAP ALWAYS SELECTS (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED"
+           (2)): it used to rise the Logo Maker, the Love Story, the Schedule and E-Gifts full screen ("no way back" on
+           E-Gifts). Now every part is selected, and ⤢ Expand on its toolbar is the one door to full screen
+           (`makerPartExpands` → `rise`). */
         /* 🖼 A tap on one of a template scene's pictures (the bridge names its slot): Edit, with that picture's sheet
            open — `ScenePhotoRow` (owner 2026-10-18, "just make them work"). */
         const slot = (d as { slot?: unknown }).slot;
@@ -786,9 +795,10 @@ export function StageTools({
         const words = STAGE_PREVIEW_REFUSED[(d as { what?: unknown }).what === 'send' ? 'send' : 'link'];
         setWhyRef.current(words);
       }
-      /* A tap on the page's ground, between parts: the toolbar is put away — the part stays picked (owner 2026-10-30,
-         "hides on a tap on empty page"; it let the part go until then, 2026-10-07 — something is always picked). */
-      else if (d.t === 'tapOutside' && !previewingRef.current) stowRef.current();
+      /* A tap on the page's ground, between parts: back to the resting bar — "Tap any scene to edit it · Look · Pages"
+         (owner 20 Nov 2026, DECISION_LOG "MAKER · WAY BACK + BUILT-IN GUEST PAGES": *"Tap outside the scene"*). It only
+         put the toolbar away until then (2026-10-30). */
+      else if (d.t === 'tapOutside' && !previewingRef.current) closeRef.current();
       /* 🫥 The couple scrolls the page (a finger or a wheel — `editor-bridge.tsx`): the toolbar is put away. */
       else if (d.t === 'pageScroll' && !previewingRef.current) stowRef.current();
       else if (d.t === 'playSeq' && typeof d.phase === 'string') {
@@ -976,7 +986,9 @@ export function StageTools({
         newStage: was.stage !== null && was.stage !== stageKey,
         canvasSaidThePage: tabRef.current?.stage === stage || rsvpOpenRef.current,
       });
-      if (!keeps && pendingStep.current === null) pickPartRef.current(first);
+      /* 🛋 NOTHING IS PICKED ON ARRIVING ANY MORE (owner 20 Nov 2026, the approved drawing's resting bar: "Tap any scene
+         to edit it · Look · Pages"). A part held from another page is let go; the couple picks what to edit. */
+      if (!keeps && pendingStep.current === null && pickedRef.current !== null) deselectRef.current();
     }, 160);
     return () => window.clearTimeout(t);
   }, [parts, playing, previewing, shownPage, stage, stageKey, typing]);
@@ -1000,8 +1012,10 @@ export function StageTools({
     window.setTimeout(() => {
       if (where.current.shownPage === key) return;
       const on = tappableOnRef.current(key);
-      const first = makerArrivalPart(partsInPageOrder(on, (k) => makerPartTopOnScreen(where.current.stageKey, k)), hasEditRowRef.current);
-      if (first && pendingStep.current === null) pickPartRef.current(first);
+      /* The page did not switch and a part of another page is still held: it is let go (nothing is picked for the
+         couple any more — the resting bar, 20 Nov). */
+      const held = pickedRef.current;
+      if (held && !on.includes(held) && pendingStep.current === null) deselectRef.current();
     }, STAGE_PAGE_ASK_MS);
   }, []);
   /* ⌨ ↑ / ↓ step, Esc lets go — never while typing into a field or on the page. */
@@ -1117,36 +1131,28 @@ export function StageTools({
   }, [previewing, stage]);
   /* Leaving the stage, or the toolbar, while previewing: the canvas gets its taps back. */
   useEffect(() => () => postToCanvas({ source: 'setnayan-editor', t: 'guest', on: false }), []);
-  /** ▶'s press: a tap plays, a hold previews. The pressed look is the button's own, at once (`sn-press`). */
-  const hold = useRef<{ timer: number | null; fired: boolean }>({ timer: null, fired: false });
-  const holdEnd = () => {
-    if (hold.current.timer !== null) window.clearTimeout(hold.current.timer);
-    hold.current.timer = null;
-  };
-  const holdStart = () => {
-    holdEnd();
-    hold.current.fired = false;
-    if (playing) return;
-    hold.current.timer = window.setTimeout(() => {
-      hold.current.timer = null;
-      hold.current.fired = true;
-      enterPreview();
-    }, STAGE_HOLD_MS);
-  };
-  useEffect(() => holdEnd, []);
+  /* 👁 THE ONE PREVIEW IS THE TOP BAR'S 👁 (owner 20 Nov 2026, "What this removes" 9 — it replaces holding ▶): the shell's
+     eye asks for it (`MAKER_PREVIEW_EVENT`), and the same "Exit preview" · See as ▾ come back here. */
+  useEffect(() => {
+    const on = () => {
+      if (!previewingRef.current) enterPreview();
+    };
+    window.addEventListener(MAKER_PREVIEW_EVENT, on);
+    return () => window.removeEventListener(MAKER_PREVIEW_EVENT, on);
+  }, [enterPreview]);
+  /* ▶ PICKING A MOTION PLAYS IT AT ONCE (owner 20 Nov 2026, DECISION_LOG "MAKER TABS REVISITED" (3)): Animate asks
+     (`MAKER_PLAY_PICKED_EVENT`) and the picked part plays from where it is; ▶ Play stays a button beside the tabs. */
+  const playRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const on = () => {
+      if (!previewingRef.current) playRef.current();
+    };
+    window.addEventListener(MAKER_PLAY_PICKED_EVENT, on);
+    return () => window.removeEventListener(MAKER_PLAY_PICKED_EVENT, on);
+  }, []);
   const play = () => {
-    /* The release of a hold is not a tap. */
-    if (hold.current.fired) {
-      hold.current.fired = false;
-      return;
-    }
     if (playing) return stopPlay();
     setPlayRested(false);
-    /* The long press has a twin for whoever never holds a button: the first tap says it (once a visit). */
-    if (!holdHintSaid) {
-      holdHintSaid = true;
-      setWhyRef.current(STAGE_HOLD_HINT);
-    }
     /* 🎭 ▶ on the Reveal: it plays over the cover, once, as a guest meets it. */
     if (picked === 'reveal' && revealStage) return setRevealPlaying(true);
     /* 🎛 The Camera has nothing to play — its look is a still. */
@@ -1177,6 +1183,10 @@ export function StageTools({
     postToCanvas({ source: 'setnayan-editor', t: 'playStage' });
     setPlaying(true);
   };
+  playRef.current = () => {
+    if (!playing) play();
+  };
+
   /* While the stage plays — and while ▶ holds its end — one tap anywhere in the Maker stops it and returns to editing;
      a tap on the page lands on the catch laid over it (`data-stage-play-catch`, below), and Esc does the same. */
   useEffect(() => {
@@ -1426,6 +1436,8 @@ export function StageTools({
   const lock = lockShown ? makerPartToolLock(picked, lockShown, whyNot(lockShown)) : null;
   /** 📷 The Camera keeps ONE style (owner 2026-11-13): its Style is a locked tab too — drawn by `CameraPartNote`. */
   const tabLocked = (t: MakerPartTool) => !toolWorks(t) || (t === 'style' && cameraOpen);
+  /* ◆ for a couple without the full Event Hub (the draft bar knows — `MakerDraftDoor.proMarks`). */
+  const proMarks = maker?.draft?.proMarks === true;
   const pickTool = (t: MakerPartTool) => {
     /* 🔒 A LOCKED TAB OPENS ITS PROBLEM → SOLUTION IN THE ROWS (Maker Edit shell v3, owner-approved 2026-11-13) — it
        was a toast over rows left blank. With nothing picked every tool is live, so this is always a part's. */
@@ -1439,6 +1451,61 @@ export function StageTools({
        nothing of it is up (a part's Animate folded it). */
     if (open && makerWorkTool(t) === makerWorkTool(shownTool)) return;
     askTool(t, picked);
+  };
+  /* 🧰 THE THREE TABS (20 Nov): Edit · Style · Animate ◆. Style is the part's look AND its background — the tab works
+     where either does, and opens on the look (or on the background where the part has no look to pick). */
+  const tabWorks = (t: MakerPartTab) => (t === 'style' ? toolWorks('style') || toolWorks('bg') : toolWorks(t));
+  const tabLockedNow = (t: MakerPartTab) => (t === 'style' ? !tabWorks('style') || cameraOpen : tabLocked(t));
+  const pickTab = (t: MakerPartTab) => {
+    if (t !== 'style') return pickTool(t);
+    if (makerTabOf(shownTool) === 'style' && !lockShown) return;
+    pickTool(toolWorks('style') || !toolWorks('bg') ? 'style' : 'bg');
+  };
+  /* 🛋 Nothing picked: the resting bar (a phone's; a desktop's column lists the parts instead). */
+  const resting = picked === null && !rsvpOpen && !desktopWide;
+  /* ⤢ The picked part's full-screen editor (Logo, Love Story, Schedule, E-Gifts) — the old tap-to-rise, on a button now. */
+  const expandTile = picked && !rsvpOpen && makerPartExpands(picked) ? makerPartRisesEditor(picked) : null;
+  const expands = expandTile !== null;
+  const expand = () => {
+    if (picked && expandTile) riseRef.current(picked, expandTile);
+  };
+  /** 🎨 Look — the Whole Event Hub (the shell opens it; `MAKER_OPEN_LOOK_EVENT`). */
+  const openLook = () => window.dispatchEvent(new Event(MAKER_OPEN_LOOK_EVENT));
+  /** ≡ Pages — this stage's pages and their scenes (the shell's sheet; `MAKER_OPEN_PAGES_EVENT`). */
+  /* ≡ PAGES — this stage's pages, each with the scenes it draws, and the two doors the sheet needs: go to a page, and
+     pick a scene on it (the same `goToPage` / `askPage` / `pickPart` the desktop's parts column uses). */
+  const openPages = () => {
+    /* 🔎 The canvas read FRESH as Pages opens: on a phone's resting bar nothing is picked, and the last reading can be
+       one from before the page was laid out — the sheet then said "Nothing on this page yet" over a full Home (seen on
+       the lab, 20 Nov). A failure never reads like emptiness. */
+    const fresh = readPresent(frameSel);
+    setPresent(fresh);
+    const detail: MakerPagesAsk = {
+      stage: stageKey,
+      page: rsvpOpen ? screen : shownPage,
+      pages: pages.map((p) => ({
+        key: p.key,
+        label: p.label,
+        scenes: (rsvpOpen ? makerPartsTappable(RSVP_STAGE_KEY, p.key, fresh) : tappableWith(p.key, fresh))
+          .filter((k) => k !== 'closing')
+          .map((k) => ({ key: k, label: makerPartLabelOn(stageKey, k) })),
+      })),
+      goPage: (key) => {
+        if (rsvpOpen) {
+          deselect();
+          goToScreen(key as RsvpStageScene);
+          return;
+        }
+        const pg = pagesRef.current.find((p) => p.key === key);
+        if (pg) goToPageRef.current(pg.key, pg.option);
+        askPage(key);
+      },
+      pickScene: (page, key) => {
+        const away = page !== (rsvpOpen ? screen : where.current.shownPage);
+        window.setTimeout(() => pickPartRef.current(key), away ? STAGE_PAGE_ASK_MS : 0);
+      },
+    };
+    window.dispatchEvent(new CustomEvent(MAKER_OPEN_PAGES_EVENT, { detail }));
   };
   const away = typing || playing || previewing;
   /* 🧷 THE FIRST RENDER IN THE BROWSER IS THE SERVER'S. The guest bar is drawn into the Maker's shell, and the shell
@@ -1477,11 +1544,8 @@ export function StageTools({
     onPick: (part) => pickPartRef.current(part),
     /* ✋ The page takes a hold while it is the couple's to edit — never while it plays, is typed on or is a guest's. */
     dragOn: !rsvpOpen && !away,
-    /* 🗑 The last scene of the page left: what an arrival would pick is picked (never the toolbar on nothing). */
-    onRemoved: () => {
-      const first = makerArrivalPart(orderedRef.current(), hasEditRowRef.current);
-      if (first) pickPartRef.current(first);
-    },
+    /* 🗑 The picked scene left the page: back to the resting bar (20 Nov — nothing is picked for the couple). */
+    onRemoved: () => closeRef.current(),
   });
   sceneKey.current = (step) => {
     const go = step === 'up' ? edits.earlier : step === 'down' ? edits.later : edits.remove;
@@ -1526,7 +1590,8 @@ export function StageTools({
   const swipeTo = (y: number) => {
     if (swipe.current !== null && y - swipe.current > STAGE_BAR_SWIPE_PX) {
       swipe.current = null;
-      stowRef.current();
+      /* ↓ Dragged down: back to the resting bar (20 Nov "MAKER · WAY BACK" — it only stowed until then). */
+      closeRef.current();
     }
   };
   const [slide, setSlide] = useState<'away' | 'back' | null>(null);
@@ -1551,7 +1616,12 @@ export function StageTools({
       onPx(0);
       return;
     }
-    /* 🫥 Stowed: only its head — the handle and the "You're editing … ▴" line. */
+    /* 🛋 Nothing picked: the resting bar's one row (20 Nov). */
+    if (resting) {
+      onPx(STAGE_REST_PX);
+      return;
+    }
+    /* 🫥 Stowed: only its head — the handle and the part's own row. */
     if (stowed && !desk) {
       onPx(STAGE_BAR_STOW_PX);
       return;
@@ -1563,7 +1633,7 @@ export function StageTools({
     say();
     window.addEventListener('resize', say);
     return () => window.removeEventListener('resize', say);
-  }, [playing, previewing, typing, held, onPx, stowed, desk]);
+  }, [playing, previewing, typing, held, onPx, stowed, desk, resting]);
   useEffect(() => () => onPx(null), [onPx]);
   /* THE LINE UNDER THE TOOLS (row 4, where Earlier · Later · Remove stood — `scene-drag.tsx`). On Edit, and with
      nothing picked, the row is its own and the line stays as long as it has something to say. Under another tool the
@@ -1697,10 +1767,8 @@ export function StageTools({
     ) : null;
   /** The line under the tools is on screen: always on its own row (Edit, or nothing picked); for a moment under another tool. */
   const statusOn = edits.status !== null && (editOn || picked === null || statusFresh);
-  /* "You're editing · Stage › Page › Part" — the page only where the stage has several, the part once one is picked.
-     ✂ SHORTENED FROM THE FRONT while it does not fit, so the part's name is always whole (`stageEditingLine`): the
-     line is drawn, measured before the browser paints, and stepped a level down while it overflows. The whole path
-     stays what a screen reader hears. */
+  /* "You're editing · Stage › Page › Part" — what a screen reader hears, whole (the head shows the part and its page:
+     the approved drawing's name button, 20 Nov). */
   const linePieces = [makerStageLabel(stageKey as never), pageLabel && pages.length > 1 ? pageLabel : null, picked ? makerPartLabelOn(stageKey, picked) : null].filter(
     (x): x is string => Boolean(x),
   );
@@ -1712,34 +1780,9 @@ export function StageTools({
   }
   /* 🫧 A line inside a group says so, just before its own name: "RSVP › Form › Group › Question" (the prototype's path). */
   if (rsvpList.inGroup && rsvpLineName && picked) linePieces.splice(linePieces.length - 1, 0, 'Group');
-  const hasAbout = Boolean(useStagePanelNow().about);
-  const lineKey = `${linePieces.join('›')}|${hasAbout ? 1 : 0}`;
-  const [lineAt, setLineAt] = useState<{ key: string; level: number; n: number }>({ key: lineKey, level: 0, n: 0 });
-  const lineLevel = lineAt.key === lineKey ? lineAt.level : 0;
-  const lineRef = useRef<HTMLParagraphElement>(null);
-  useLayoutEffect(() => {
-    const el = lineRef.current;
-    if (el && el.scrollWidth > el.clientWidth + 0.5 && lineLevel < linePieces.length) setLineAt((l) => ({ key: lineKey, level: lineLevel + 1, n: l.n }));
-  }, [lineKey, lineLevel, linePieces.length, lineAt.n]);
-  /* …AND A LINE TOO WIDE BY LESS THAN A PIXEL IS STILL CUT. The browser rounds `scrollWidth` to a whole pixel, so words
-     0.16 px wider than their room read as fitting — and were drawn cut all the same (seen on the Maker lab,
-     2026-10-10, Post Event › Photo Notes beside its ⓘ: "PHOTO NOTE…"). The words themselves are measured, to the
-     fraction, against the room the line gives them. */
-  useLayoutEffect(() => {
-    const el = lineRef.current;
-    const words = el?.querySelector<HTMLElement>('span[aria-hidden]');
-    if (!el || !words || lineLevel >= linePieces.length || el.scrollWidth > el.clientWidth + 0.5) return;
-    const cs = getComputedStyle(el);
-    const room = el.clientWidth - (Number.parseFloat(cs.paddingLeft) || 0) - (Number.parseFloat(cs.paddingRight) || 0);
-    if (words.getBoundingClientRect().width > room + 0.05) setLineAt((l) => ({ key: lineKey, level: lineLevel + 1, n: l.n }));
-  }, [lineKey, lineLevel, linePieces.length, lineAt.n]);
-  /* Another width (the phone turned) starts from the whole line again, and measures again. */
-  useEffect(() => {
-    const again = () => setLineAt((l) => ({ key: l.key, level: 0, n: l.n + 1 }));
-    window.addEventListener('resize', again);
-    return () => window.removeEventListener('resize', again);
-  }, []);
-  const line = stageEditingLine(linePieces, lineLevel);
+  /* The head's name and its page: "Countdown · Home" (the approved drawing's `.namebtn`). */
+  const headName = rsvpLineName ?? (picked ? makerPartLabelOn(stageKey, picked) : '');
+  const headPage = pages.length > 1 ? pageLabel : null;
 
   return (
     <div
@@ -1751,6 +1794,9 @@ export function StageTools({
       data-stage-own-rows={blockRows || blockGround ? '' : undefined}
       /* 🎭 🎬 …and the Cover Scene's Opening and its one entrance: rows of this toolbar's own too. */
       data-stage-cover-rows={coverStyle || coverAnimate ? '' : undefined}
+      data-stage-resting={resting ? '' : undefined}
+      /* 🧰 The picked part HAS a background of its own: Style lists it under the look (`StageStyle`); none — not drawn. */
+      data-stage-bg-works={picked && toolWorks('bg') ? '' : undefined}
       data-stage-tool-now={shownTool}
       data-stage-locked={lockShown ? '' : undefined}
       data-stage-row4={lookOn ? '' : undefined}
@@ -1778,7 +1824,7 @@ export function StageTools({
           laid over exactly the FOUR ROWS: as tall as they are, standing on the room kept under the last row. On
           Edit the rows are this toolbar's own and the work area's tool waits under them, out of sight. */}
       <style>
-        {`html:has([data-stage-tools]){${STAGE_PANEL_VARS}}` +
+        {`html:has([data-stage-tools]){${STAGE_PANEL_VARS}}html.dark:has([data-stage-tools]){${STAGE_PANEL_VARS_DARK}}` +
           STAGE_BAR_ROW_VARS +
           /* 🔒 A locked tab: "🔒 Background" (Maker Edit shell v3, owner-approved 2026-11-13) — at EVERY width, so it sits
              outside the phone-only block below (it was inside it, and the desktop's tabs lost their lock — W1, 2026-11-14). */
@@ -1786,16 +1832,20 @@ export function StageTools({
           '@media (max-width:1023.98px){' +
           '[data-maker-lower-third]:has(>[data-stage-tools])>:not([data-stage-tools]){display:none}' +
           '[data-maker-lower-third]:has(>[data-stage-tools]){transition:height 240ms cubic-bezier(.16,1,.3,1);background:var(--sp-paper)!important;border-top:0!important;padding:0!important;gap:0!important;box-shadow:none!important}' +
-          `[data-maker-shell]:has([data-stage-tools]) [data-phone-chrome="panel"]{left:0!important;right:0!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--maker-lift,0px))!important;height:${STAGE_BAR_GRID_CSS}!important;outline:none!important;border-radius:0!important;box-shadow:none!important;background:var(--sp-page)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}` +
+          `[data-maker-shell]:has([data-stage-tools]) [data-phone-chrome="panel"]{left:0!important;right:0!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + ${STAGE_BAR_BAND_PX}px + var(--maker-lift,0px))!important;height:${STAGE_BAR_GRID_CSS}!important;outline:none!important;border-radius:0!important;box-shadow:none!important;background:var(--sp-page)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}` +
           '[data-maker-shell]:has([data-stage-tool-now="edit"]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
           /* 🧩 …except where Edit IS that tool's (a picked LINE of the RSVP stage: its words and its Start from ▾ are
              the stage's own panel — `data-stage-edit-own`). Written right under the rule it lifts, so the toolbar
              stepping away (below) still hides it. */
           '[data-maker-shell]:has([data-stage-tools][data-stage-edit-own]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto}' +
+          /* 🛋 THE RESTING BAR (20 Nov): nothing picked — only the handle and "Tap any scene to edit it · Look · Pages". */
+          '[data-maker-shell]:has([data-stage-tools][data-stage-resting]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
+          '[data-stage-tools][data-stage-resting] :is([data-stage-rows],[data-stage-row],[data-stage-caption],[data-stage-keys]){display:none!important}' +
+          '[data-maker-shell]:has([data-stage-tools]:not([data-stage-bg-works])) [data-stage-style-bg]{display:none}' +
           /* ⚙ …and where Edit is that tool's in rows 1–3 only (the RSVP form's card: its settings — `data-stage-edit-card`):
              in sight, three rows tall, standing on this toolbar's own row 4 (Earlier · Later · Remove) — the same
              measure Style's last row leaves it (`data-stage-row4`, below). */
-          `[data-maker-shell]:has([data-stage-tools][data-stage-edit-card]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto;height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}` +
+          `[data-maker-shell]:has([data-stage-tools][data-stage-edit-card]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto;height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + ${STAGE_BAR_BAND_PX}px + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}` +
           /* 🧱 …and the other way round: a fixed block's Animate is drawn HERE, in the toolbar's own rows
              (`BlockAnimateRows`), so the work area's tool stands aside for it as it does for Edit. */
           '[data-maker-shell]:has([data-stage-tools][data-stage-own-rows]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
@@ -1807,7 +1857,7 @@ export function StageTools({
              a toolbar that had gone, and covered "Exit preview". */
           '[data-maker-shell]:has([data-stage-tools][aria-hidden="true"]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
           /* 🎨 STYLE: this toolbar draws row 4 (Colour · Size) — the work area's tool is rows 1–3, standing on it. */
-          `[data-maker-shell]:has([data-stage-tools][data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}` +
+          `[data-maker-shell]:has([data-stage-tools][data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + ${STAGE_BAR_BAND_PX}px + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}` +
           /* …and the scene's Format under Style is laid in rows (`StageStyle` `rows`): the look cards take the rows
              left to them; a row under them (the Dress code's palette) and a save's error keep theirs; anything else
              of the part's Format — an editor of its content, its older rows — is not drawn here (it stays mounted):
@@ -1845,7 +1895,7 @@ export function StageTools({
           '[data-maker-shell]:has([data-stage-tools]):has([data-stage-guest-bar]:not([hidden])){--scene-bin-over:74px}' +
           /* The line under the tools, speaking under a tool whose rows are the work area's: that tool stands three
              rows tall on it for as long as it speaks (the measure Style's own row 4 leaves it). */
-          `[data-maker-shell]:has([data-stage-tools][data-stage-line]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}` +
+          `[data-maker-shell]:has([data-stage-tools][data-stage-line]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + ${STAGE_BAR_BAND_PX}px + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}` +
           /* 🫥 STOWED TO ITS HEAD (owner 2026-10-30): the lower third's room goes to the head's over the app's ONE pin
              glide (`STAGE_BAR_STOW_GLIDE`) and comes back over the same, so the page's room follows it — never a jump;
              the guests' bar rides it, the work area's tool leaves with the four rows, and what the head does not show
@@ -1857,8 +1907,6 @@ export function StageTools({
           '[data-stage-tools][data-stage-stow="away"]>:not([data-stage-handle],[data-stage-caption],[data-stage-show]){visibility:hidden;transition:visibility 0s linear var(--sn-pin-glide-ms,300ms)}' +
           '[data-stage-tools][data-stage-stow="away"] [data-stage-about]{visibility:hidden}' +
           '[data-stage-tools]:not([data-stage-stow="away"]) [data-stage-show]{display:none}' +
-          /* ▴ — the head says it opens upward (the prototype's "Editing · Top line ▴"), drawn by the rule set: the line's words stay its own. */
-          '[data-stage-tools][data-stage-stow="away"] [data-stage-caption]>span[aria-hidden]::after{content:"\\25B4";margin-left:5px;color:rgb(var(--sn-accent))}' +
           '}@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools][data-stage-stow]),[data-maker-shell]:has([data-stage-tools][data-stage-stow]) :is([data-stage-guest-bar],[data-phone-chrome="panel"]){transition:none!important}' +
           '[data-stage-tools][data-stage-stow="away"]>*{transition:none!important}}' +
           '@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools]),[data-maker-shell]:is([data-stage-playing],[data-stage-previewing]) [data-phone-chrome="bar"]{transition:none}' +
@@ -1899,26 +1947,61 @@ export function StageTools({
           )
         : null}
 
-      {/* ══ THE HANDLE — the prototype's 40 × 4 pill in a 14 px strip. Drawn: the toolbar is one height. ══ */}
+      {/* ══ THE HANDLE — the prototype's 40 × 4 pill in a 14 px strip. Dragged all the way down, it closes the toolbar
+          (owner 20 Nov 2026, "MAKER · WAY BACK": *"drag the toolbar handle all the way down"* — the swipe below). ══ */}
       <div aria-hidden data-stage-handle="" className={STAGE_BAR_HANDLE}>
         <span className="h-1 w-10 rounded-full bg-[var(--sp-line2)]" />
       </div>
 
-      {/* ══ YOU'RE EDITING · STAGE › PAGE › PART — under the handle, over the selector ══ */}
-      <p ref={lineRef} data-stage-caption="" data-stage-caption-level={lineLevel} className={`${STAGE_BAR_LINE} ${hasAbout ? STAGE_BAR_LINE_ABOUT : ''}`}>
+
+      {/* ══ THE HEAD — ‹ the part before · its name · its page ▾ (Pages) · the part after › · ✕ back to the resting bar
+          (the approved drawing's `.lt-head`). The name is what a screen reader hears whole ("You're editing · …"). ══ */}
+      <div data-stage-caption="" data-stage-head="" hidden={resting} className="relative flex h-11 shrink-0 items-center gap-0.5">
         <span className="sr-only">
           {STAGE_BAR_LINE_LEAD} · {linePieces.join(' › ')}
         </span>
-        <span aria-hidden>
-          {line.lead ? `${STAGE_BAR_LINE_LEAD} · ` : ''}
-          <b className="font-semibold text-[var(--sp-ink)]">{line.words}</b>
+        <button type="button" aria-label="The part before" data-stage-step="prev" onClick={() => stepRef.current(-1)} className={STAGE_ICON_BUTTON}>
+          <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
+        </button>
+        <button
+          type="button"
+          data-stage-name=""
+          aria-haspopup="dialog"
+          aria-label={`${headName}${headPage ? ` on the ${headPage} page` : ''} — open Pages`}
+          onClick={openPages}
+          className={STAGE_HEAD_NAME}
+        >
+          <span className="min-w-0 truncate">
+            {headName}
+            {headPage ? <small className="text-[13px] font-medium text-[var(--sp-mute)]"> · {headPage}</small> : null}
+          </span>
+          <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-[var(--sp-mute)]" strokeWidth={2.2} />
+        </button>
+        <button type="button" aria-label="The part after" data-stage-step="next" onClick={() => stepRef.current(1)} className={STAGE_ICON_BUTTON}>
+          <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2} />
+        </button>
+        {/* ⓘ — the part's ONE explanation, beside ✕ (nothing when the part has none). */}
+        <span className="relative h-11 w-11 shrink-0 empty:hidden [&>[data-stage-about]]:!static [&>[data-stage-about]]:!h-11">
+          <StageAbout />
         </span>
-      </p>
-      {/* ══ ⓘ — the toolbar's ONE explanation, at the right end of that line (nothing when the part has none) ══ */}
-      <StageAbout />
-      {/* ══ 🫥 THE HEAD, STOWED — the whole strip is the one button that brings the four rows back (owner 2026-10-30:
-          "a slim handle to bring it back"). Drawn only while stowed (the rule set hides it otherwise). ══ */}
-      {stowed && !desk ? (
+        <button type="button" aria-label="Close the toolbar" data-stage-close="" onClick={() => closeRef.current()} className={STAGE_ICON_BUTTON}>
+          <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+        </button>
+      </div>
+      {/* ══ 🛋 THE RESTING BAR — nothing picked: "Tap any scene to edit it" · 🎨 Look · ≡ Pages (owner 20 Nov 2026, the
+          approved drawing `maker_one_toolbar_expand_2026-11-20_fable.html` v17). Look opens the Whole Event Hub; Pages
+          lists every page of this stage and its scenes. The rule set hides everything else of the toolbar meanwhile. ══ */}
+      {resting ? (
+        <div data-stage-rest="" className="flex h-11 shrink-0 items-center justify-between gap-2 px-1">
+          <span className="min-w-0 truncate text-[13px] text-[var(--sp-ink2)]">{STAGE_REST_WORDS}</span>
+          <span className="flex shrink-0 gap-1.5">
+            <ActionButton tone="neutral" icon={Palette} label="Look" onClick={openLook} data-stage-rest-look="" />
+            <ActionButton tone="neutral" icon={List} label="Pages" onClick={openPages} aria-haspopup="dialog" data-stage-rest-pages="" />
+          </span>
+        </div>
+      ) : null}
+      {/* ══ 🫥 THE HEAD, STOWED — the whole strip is the one button that brings the rows back (owner 2026-10-30). ══ */}
+      {stowed && !desk && !resting ? (
         <button
           type="button"
           data-stage-show=""
@@ -1931,63 +2014,6 @@ export function StageTools({
       {/* ══ ⌨ THE TYPING BAR — only while a field of Edit is open (the rule set above): what is typed, and Done.
           Done is a tap outside the field, which KEEPS (the typed row's own rule) — the app's main button. ══ */}
       <TypingBand inline data-stage-keys="" className="-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent" place={picked ? makerPartLabelOn(stageKey, picked) : ''} />
-
-      {/* ══ THE SELECTOR — [ Edit | Style | Background | Animate ] · ▶ ══ */}
-      <div className={STAGE_ROW} data-stage-row="">
-        <span role="group" aria-label="Edit with" className={STAGE_TOOL_PILL} data-stage-tpill="">
-          {/* 🎚 ONE thumb that TRAVELS from tool to tool (owner 2026-10-08: "apply the same pill selector") — the app's
-              thumb, in the selector's one accent, lying 3 px inside the picked tool's box and as wide as its word. The
-              tools are the track's DIRECT children, so the thumb can find the picked one. */}
-          <PillThumb />
-          {MAKER_PART_TOOLS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              /* The thumb rests on the tool whose rows are on screen — never on one with nothing to set here. */
-              aria-pressed={(lockShown ?? shownTool) === t}
-              /* Grey, and it still hears a tap — the tap says why (`pickTool`). Never `disabled`: that is a dead tap. */
-              aria-disabled={toolWorks(t) ? undefined : true}
-              data-stage-tool={t}
-              /* 🔒 A locked tab wears the lock before its word (the rule set draws it — the button stays its word). */
-              data-stage-tool-locked={tabLocked(t) ? '' : undefined}
-              data-seg-inset={STAGE_TOOL_INSET}
-              onClick={() => pickTool(t)}
-              className={STAGE_TOOL_BUTTON}
-            >
-              {MAKER_PART_TOOL_LABEL[t]}
-            </button>
-          ))}
-        </span>
-        <button
-          type="button"
-          aria-label={playing ? 'Stop' : `${picked ? 'Play this scene' : 'Play the stage as guests see it'} — hold, or press Shift and Enter, to preview the whole page`}
-          data-stage-play=""
-          onClick={play}
-          /* 👁 HELD: the whole page as a guest. A tap never waits for the hold — it plays on release. */
-          /* ⌨ The hold's keyboard twin: Shift + Enter (or Shift + Space) on ▶. Plain Enter / Space still play. */
-          aria-keyshortcuts="Shift+Enter"
-          onKeyDown={(e) => {
-            if (!e.shiftKey || (e.key !== 'Enter' && e.key !== ' ')) return;
-            e.preventDefault();
-            hold.current.fired = true;
-            enterPreview();
-          }}
-          onKeyUp={(e) => {
-            /* The key's own click (Space fires it on release) is not a tap. */
-            if (e.shiftKey && e.key === ' ') e.preventDefault();
-          }}
-          onPointerDown={holdStart}
-          onPointerUp={holdEnd}
-          onPointerLeave={holdEnd}
-          onPointerCancel={holdEnd}
-          onContextMenu={(e) => e.preventDefault()}
-          className={`${STAGE_ICON_BUTTON} touch-manipulation select-none [-webkit-touch-callout:none]`}
-        >
-          <span className={STAGE_ICON_FACE}>
-            {playing ? <Square aria-hidden className="h-4 w-4" strokeWidth={2.2} /> : <Play aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />}
-          </span>
-        </button>
-      </div>
 
       {/* ══ 🖥 A desktop's ‹ Previous · Next › · ✕ Done and the part's caption (the phone swipes) ══ */}
       {desk ? <DeskStep stage={stageKey} picked={picked} order={desk && picked ? ordered() : []} onStep={(dir) => stepRef.current(dir)} onDone={deselect} /> : null}
@@ -2090,6 +2116,54 @@ export function StageTools({
         {/* 🃏 …and its own Background — None · Plain · Frosted, on the same save. */}
         {blockGround && groundBlock ? <BlockGroundRows key={groundBlock} block={groundBlock} /> : null}
       </div>
+      {/* ══ THE FOOT — [ Edit | Style | Animate ◆ ] · ▶ (Animate only) · ⤢ Expand (where the part needs room) — the
+          approved drawing's `.lt-foot` (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (1) (2) and
+          "What this removes" 4 · 5 · 9: Background is a row of Style, ▶ sits inside Animate, and the hold-▶ preview is
+          the one 👁 on the top bar). ══ */}
+      <div className={STAGE_ROW} data-stage-row="" hidden={resting}>
+        <span role="group" aria-label="Edit with" className={STAGE_TOOL_PILL} data-stage-tpill="">
+          {/* 🎚 ONE thumb that TRAVELS from tab to tab (owner 2026-10-08: "apply the same pill selector"). The tabs are the
+              track's DIRECT children, so the thumb can find the picked one. */}
+          <PillThumb />
+          {MAKER_PART_TABS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              /* The thumb rests on the tab whose rows are on screen (Background's rows are Style's). */
+              aria-pressed={makerTabOf(lockShown ?? shownTool) === t}
+              /* Grey, and it still hears a tap — the tap says why (`pickTab`). Never `disabled`: that is a dead tap. */
+              aria-disabled={tabWorks(t) ? undefined : true}
+              data-stage-tool={t}
+              /* 🔒 A locked tab wears the lock before its word (the rule set draws it — the button stays its word). */
+              data-stage-tool-locked={tabLockedNow(t) ? '' : undefined}
+              data-seg-inset={STAGE_TOOL_INSET}
+              onClick={() => pickTab(t)}
+              className={STAGE_TOOL_BUTTON}
+            >
+              {MAKER_PART_TAB_LABEL[t]}
+              {/* ◆ the full Event Hub's tab — tried by anyone, asked for at ✓ Apply. Never a padlock. */}
+              {t === MAKER_PRO_TAB && proMarks ? (
+                <span aria-label=", part of the full Event Hub" data-stage-pro-tab="" className="ml-1 text-[11px] text-[rgb(var(--sn-accent))] group-aria-pressed:text-inherit">
+                  ◆
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </span>
+        {/* ▶ PLAY — inside Animate, the only tab it belongs to: the picked part's motion, from where they are. */}
+        {makerTabOf(shownTool) === 'animate' && !lockShown ? (
+          <button type="button" aria-label={playing ? 'Stop' : picked ? 'Play this scene' : 'Play the stage as guests see it'} data-stage-play="" onClick={play} className={STAGE_ICON_BUTTON}>
+            <span className={STAGE_ICON_FACE}>
+              {playing ? <Square aria-hidden className="h-4 w-4" strokeWidth={2.2} /> : <Play aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />}
+            </span>
+          </button>
+        ) : null}
+        {/* ⤢ EXPAND — only on a part whose work needs room (`makerPartExpands`): its editor full screen, with ✓ Done on top
+            and ⤡ Minimize where this stood (`StageSwitch`). Never on the RSVP stage. */}
+        {expands ? (
+          <ActionButton tone="neutral" icon={Maximize2} label="Expand" name={`Expand ${headName} full screen`} onClick={expand} data-stage-expand="" className="shrink-0" />
+        ) : null}
+      </div>
       {revealPlaying && revealStage ? <RevealPlay stage={revealStage} onDone={() => setRevealPlaying(false)} /> : null}
       {/* ══ 🎛 THE CAMERA'S PAGE IS THE CAMERA (owner 2026-10-09: "Camera is a full screen design") — drawn on the canvas's
           own Camera page, edge to edge — the one camera, in its Pro dress where the event has it; picked on arriving,
@@ -2149,7 +2223,7 @@ export function StageTools({
                     setWhyRef.current(seeAsDrawingLine(next));
                   }}
                   dataAttr="data-stage-see-as"
-                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-white shadow-lg"
+                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-raised shadow-lg"
                 />
               ) : null}
               {/* 🎭 ROLE ▾ (owner 2026-10-17: "for example i want to view it as a father of the bride") — under See as,
@@ -2170,7 +2244,7 @@ export function StageTools({
                   }}
                   stickyGroups
                   dataAttr="data-stage-see-as-role"
-                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-white shadow-lg"
+                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-raised shadow-lg"
                 />
               ) : null}
             </div>,
@@ -2220,7 +2294,7 @@ export function StageTools({
               data-stage-guest-bar=""
               /* A stage that is one page has no bar (its one line, "You're editing", is the toolbar's now). */
               hidden={pages.length <= 1}
-              className={rsvpOpen ? 'relative border-t border-[var(--sp-line)] bg-white lg:hidden' : 'absolute inset-x-0 z-[25] border-t border-[var(--sp-line)] bg-white lg:hidden'}
+              className={rsvpOpen ? 'relative border-t border-[var(--sp-line)] bg-raised lg:hidden' : 'absolute inset-x-0 z-[25] border-t border-[var(--sp-line)] bg-raised lg:hidden'}
               /* It rides the toolbar's slide away and back (the same 240 ms), never across it. */
               style={rsvpOpen ? undefined : { bottom: 'calc(var(--maker-lt-h) + var(--maker-safe-b, env(safe-area-inset-bottom)))', transition: `bottom ${STAGE_PANEL_MS}ms cubic-bezier(.16,1,.3,1)` }}
             >

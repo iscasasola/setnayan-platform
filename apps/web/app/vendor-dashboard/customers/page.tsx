@@ -34,6 +34,7 @@ import {
 } from '@/lib/vendor-customers';
 import {
   customerLaneOf,
+  comparePipelineCustomers,
   groupByLane,
   holdingByDate,
   CUSTOMER_LANES,
@@ -592,6 +593,12 @@ async function CustomersPipeline({ searchParams, seg }: Props) {
       contact: k.clientContact,
       note: k.clientNote,
     });
+  }
+  // Soonest date first, among the booked and among the done — an outside client
+  // sits where its date puts it, not at the end of the lane.
+  if (outsideById.size > 0) {
+    lanes.booked.sort(comparePipelineCustomers);
+    lanes.finished.sort(comparePipelineCustomers);
   }
   /*
     Computed over EVERY derived customer, never over the page on screen —

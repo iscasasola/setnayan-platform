@@ -143,9 +143,12 @@ function closedDay(expiresAt: string | null): string | null {
 export function peopleRowView(r: PipelineCustomer, f: PeopleFacts, nowMs: number): PeopleRowView {
   const closedWindow = (expiresAt: string | null): PeopleRowView => {
     const day = closedDay(expiresAt);
+    // The pill still names the thing — the booking ask — in grey now, not the
+    // live ask's amber; the line says what happened to it. Short on purpose:
+    // the right column of a phone row is about nine words wide.
     return {
-      pill: { label: 'Closed', tone: 'quiet' },
-      line: day ? `booking window closed ${day}` : 'booking window closed',
+      pill: { label: 'Booking', tone: 'quiet' },
+      line: day ? `window closed ${day}` : 'window closed',
       lineTone: null,
       opens: 'card',
       closed: 'window',

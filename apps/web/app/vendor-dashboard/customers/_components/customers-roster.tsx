@@ -153,7 +153,7 @@ function RowBody({ r, tail }: { r: RosterRow; tail?: ReactNode }) {
           </span>
         ) : null}
       </span>
-      <span className="grid max-w-[9.75rem] justify-items-end gap-1 text-right">
+      <span className="grid max-w-[8.5rem] justify-items-end gap-1 text-right">
         <span className="flex items-center gap-1.5">
           <TodayPill tone={r.view.pill.tone}>{r.view.pill.label}</TodayPill>
           {tail}

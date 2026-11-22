@@ -129,8 +129,10 @@ test('2 · the three closed lines are the row’s own line — the SAME predicat
   // The fixture really is lapsed by the desk's rule (and not yet dropped).
   assert.equal(lockAskPhase(LAPSED.expiresAt, NOW), 'lapsed');
   const closed = peopleRowView(LAPSED, facts(), NOW);
-  assert.deepEqual([closed.pill.label, closed.pill.tone, closed.closed, closed.opens], ['Closed', 'quiet', 'window', 'card']);
-  assert.match(closed.line ?? '', /^booking window closed Oct 1$/, `said "${closed.line}"`);
+  // Still "Booking" — the same thing the live ask is called — but grey, and its line says the window closed.
+  assert.deepEqual([closed.pill.label, closed.pill.tone, closed.closed, closed.opens], ['Booking', 'quiet', 'window', 'card']);
+  assert.match(closed.line ?? '', /^window closed Oct 1$/, `said "${closed.line}"`);
+  assert.notDeepEqual(closed.pill, peopleRowView(ROLANDO, facts(), NOW).pill, 'a closed ask looks exactly like a live one');
   // Still closed long after the desk dropped the card: expiry is lazy, the row never says "asked to book" again.
   const old = peopleRowView({ ...LAPSED, expiresAt: ago(24 * 30) }, facts(), NOW);
   assert.equal(old.closed, 'window');
@@ -138,7 +140,7 @@ test('2 · the three closed lines are the row’s own line — the SAME predicat
   // ALREADY SWEPT to `expired`: the row is no longer a booking ask (it fell back to its thread's lane), so the
   // page hands the deadline in — the fact must not vanish the moment the sweep runs.
   const swept = peopleRowView(HOLDING, facts({ askClosedAt: ago(30) }), NOW);
-  assert.deepEqual([swept.pill.label, swept.line, swept.closed], ['Closed', 'booking window closed Oct 1', 'window']);
+  assert.deepEqual([swept.pill.label, swept.pill.tone, swept.line, swept.closed], ['Booking', 'quiet', 'window closed Oct 1', 'window']);
   assert.match(
     code('app/vendor-dashboard/customers/page.tsx'),
     /b\.lock_request_state === 'expired' && lockAskPhase\(b\.lock_request_expires_at, rosterNowMs\) === 'lapsed'/,
@@ -318,7 +320,7 @@ test('9 · rows, not a box of rows — one tap each; the closed lines are marked
   assert.match(items[0]!, /data-people-asked="">Photography · Videography</);
 
   // The closed lines, each on its customer's own row.
-  assert.match(items[1]!, /data-people-closed="window"[^>]*>booking window closed Oct 1</);
+  assert.match(items[1]!, /data-people-closed="window"[^>]*>window closed Oct 1</);
   assert.match(items[1]!, /href="\/vendor-dashboard\/clients\/jo\?tab=details"/);
   assert.match(items[2]!, /data-people-closed="delay"[^>]*>delay flagged</);
   assert.match(items[2]!, /href="\/vendor-dashboard\/messages\/t-jc"/, 'a flagged delay does not open the conversation it must be answered in');
@@ -410,6 +412,8 @@ test('12 · People is the list and nothing under it — and one list, not two', 
   assert.equal(existsSync(join(WEB, 'app/vendor-dashboard/clients/surface.tsx')), false, 'the second customer list is back');
   // Outside clients are folded into the SAME lanes the roster pages.
   assert.match(page, /if \(k\.source !== 'external_client'\) continue;[\s\S]{0,700}?lanes\[lane\]\.push\(/);
+  // …and sit where their date puts them, not at the end of the lane.
+  assert.match(page, /lanes\.booked\.sort\(comparePipelineCustomers\);\s*lanes\.finished\.sort\(comparePipelineCustomers\);/);
   // The Add sheet posts the shipped action — nothing new takes the client.
   assert.match(page, /<form action=\{importExternalClient\}/);
   assert.match(page, /addOpen=\{search\.add === 'outside' \|\| Boolean\(outsideNotice\?\.refused\)\}/);

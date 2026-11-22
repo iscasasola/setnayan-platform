@@ -78,7 +78,7 @@ export function isCardPickableStyle(v: unknown): v is AvailabilityStyle {
 /** The number question a card asks, by its style — the SAME `daily_capacity`, under a new name (drawing § What this removes). */
 export function cardCountQuestion(style: AvailabilityStyle | null, dayQuestion: string): { name: string; about: string; counts: string } {
   if (style === 'order') return { name: 'Orders for one day', about: 'how many you can finish for one date', counts: 'Orders for one day' };
-  if (style === 'piece') return { name: 'How many do you have', about: 'couples ask for how many they need', counts: 'How many you have' };
+  if (style === 'piece') return { name: 'How many do you have', about: 'you say how many a couple gets at your yes', counts: 'How many you have' };
   return { name: dayQuestion, about: '', counts: 'Events on the same day' };
 }
 

@@ -1556,6 +1556,10 @@ export function CanvasMaker({
                 )}
                 {cardStyle === 'order' ? <UsualPrepRow stored={storedPrep} /> : null}
                 {cardStyle === 'order' ? <OrderLeadRow stored={storedLead} onCount={setLeadDays} /> : null}
+                {/* Always available is never counted and never on the calendar (owner ruling 4), so a schedule pick would do
+                    nothing: the row hides like the count and slots rows. The stored schedule rides the hidden
+                    `schedule_choice` input unchanged. */}
+                {cardIsNeverCounted(cardStyle) ? null : (
                 <div data-maker-row="schedule">
                   <ChosenRow
                     name="Schedule"
@@ -1567,6 +1571,7 @@ export function CanvasMaker({
                     data="schedule"
                   />
                 </div>
+                )}
                 {cardIsNeverCounted(cardStyle) ? null : (
                 <div data-maker-row="slots">
                   <OpensRow
@@ -2393,7 +2398,7 @@ function SameDayRow({
       : style === 'order'
         ? 'A couple can order this card for a date while fewer than this many orders are due on it. Couples only ever see “available”.'
         : style === 'piece'
-          ? 'Couples ask for how many they need. A date closes when all of them are out. Couples only ever see “available”.'
+          ? 'Couples ask without a number: you say how many they get when you say yes. A date closes when all of them are out. Couples only ever see “available”.'
           : [`A couple can book this card for an event on a date while fewer than this many events are booked on it.`, bookingsPerDate?.help ?? null]
               .filter(Boolean)
               .join(' ');

@@ -58,7 +58,10 @@ export function WholeDayRise({ whole, onClose, lab = false }: { whole: WholeDay;
   const ask = useMemo(() => askDoor(eventId, lab), [eventId, lab]);
 
   const chapters = day?.chapters ?? [];
-  const head = chapters.find((c) => c.linked && venueWindowOf(c)) ?? chapters.find((c) => venueWindowOf(c)) ?? null;
+  // The day's head is the VENUE's window (drawing: "Setup from 12:00 PM · Event 4:00–9:30 PM · Out by 11:00 PM · Set by
+  // Fernwood Gardens"): the chapter a venue holds the hours of, else one this shop is on, else any with hours.
+  const head =
+    chapters.find((c) => c.hoursHeldBy !== null && venueWindowOf(c)) ?? chapters.find((c) => c.linked && venueWindowOf(c)) ?? chapters.find((c) => venueWindowOf(c)) ?? null;
   const w = head ? venueWindowOf(head) : null;
   const ticks = head ? head.moments.filter((m) => m.mine && !m.rightAfter && m.start_at).map((m) => ({ start: m.start_at as string, end: m.end_at })) : [];
   const openAsk = (blockId: string) => asks?.find((a) => a.block_id === blockId && a.status === 'open') ?? null;

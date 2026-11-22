@@ -248,7 +248,7 @@ export function ScheduleTimeAskCard({
                 name="Reason"
                 about={{ words: `Required. ${them === 'the hosts' ? 'The supplier' : supplierName} reads it beside the time.` }}
                 value={reason}
-                empty="The church moved the vows"
+                empty="The venue opens the hall later"
                 long
                 boxed
                 required

@@ -70,6 +70,8 @@ import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { SupplierCountTile } from './_components/supplier-count-tile';
 import { QuoteTopLines } from './_components/quote-top-lines';
+import { YourBookingCard } from './_components/your-booking-card';
+import { yourBookingView, type YourBookingView } from '@/lib/your-booking';
 import { quotePlanLine } from '@/lib/quote-top-lines';
 import { ruleRoleLabels, ruleWords } from '@/lib/supplier-count';
 import {
@@ -2312,8 +2314,35 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     </div>
   );
 
+  // 💳 THE BOOKING'S MONEY, folded ONCE (`clientPaymentView`) — the chat strip and Details › Your booking both read it.
+  // Built before `overviewNode`, which is drawn eagerly below. Every input is a read above.
+  const stripPay = isBooked
+    ? clientPaymentView({
+        steps: planStepRows?.steps ?? null,
+        clearedAt: planStepRows?.clearedAt ?? null,
+        ledgerMoney,
+        // ⚖ A plan read cut short (bookings, plans or payments refused) is not a booking with nothing paid: the whole
+        // view says "couldn't load" — the same rule the Details tiles follow (`plan: !planReadComplete ? 'unread'`).
+        ledgerUnreadable: ledgerUnreadable || !planReadComplete,
+        refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : 0,
+      })
+    : null;
+  // 🧾 The agreed quotation (Details › Your booking names what it covers): the newest accepted one.
+  const agreedQuote = [...proposals]
+    .filter((p) => p.status === 'accepted')
+    .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
+  // 🧾 Details › Your booking — the supplier's OWN booking money, never the hosts' plan (owner 21 Nov · controller 22 Nov).
+  const yourBooking = stripPay
+    ? yourBookingView({
+        pay: stripPay,
+        quoteLines: proposalRowsError ? null : agreedQuote ? quoteLinesOf(agreedQuote.line_items).map((l) => l.label) : undefined,
+        peso: (php) => fmtPeso(php),
+      })
+    : null;
+
   const overviewNode = (
     <OverviewTab
+      yourBooking={yourBooking}
       eventId={eventId}
       brief={brief}
       headcountRule={headcountRule}
@@ -2876,15 +2905,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Every input is a read above, plus its two own (`stripAsksP` · `stripFormsP`). A refused read reaches the strip as
   // `null` and is SAID ("Couldn't load · tap to retry") — never ₱0, never "0 open".
   const stripToday = manilaTodayIso();
-  const stripPay = isBooked
-    ? clientPaymentView({
-        steps: planStepRows?.steps ?? null,
-        clearedAt: planStepRows?.clearedAt ?? null,
-        ledgerMoney,
-        ledgerUnreadable,
-        refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : 0,
-      })
-    : null;
   const stripAsksRes = stripAsksP ? await stripAsksP : null;
   const stripAsks = stripAsksRes && !stripAsksRes.error ? ((stripAsksRes.data ?? []) as DealAskDbRow[]).map(dealAskOf) : null;
   if (stripAsksRes?.error) logQueryError('vendorClientCard.stripAsks', stripAsksRes.error, { eventId }, 'graceful_degrade');
@@ -3251,6 +3271,8 @@ function ReturningMarker({ returningFlag }: { returningFlag: ReturningClientFlag
 function OverviewTab(props: {
   eventId: string;
   brief: Brief;
+  /** 🧾 Details › Your booking — the supplier's own booking money, decided once on the page. null = not booked. */
+  yourBooking: YourBookingView | null;
   /** 🧮 Their count and its why (owner 2026-11-04) — null for a flat-priced service or a refused read. */
   headcountRule: SupplierHeadcount | null;
   /** The couple's words for roles, for the rule's line. */
@@ -3349,6 +3371,7 @@ function OverviewTab(props: {
     isVendorMarked,
     hideCompletion,
     search,
+    yourBooking,
   } = props;
 
   return (
@@ -3566,33 +3589,14 @@ function OverviewTab(props: {
           </Link>
         </Card>
 
-        {/* Budget — couple opt-in range for THIS vendor's category (PR-5).
-         *  Rendered at both stages; it's a quote input, most useful at inquiry.
-         *  Present → a rounded range; absent → the couple hasn't opted in (or has
-         *  no allocation for this category). Never an exact figure. */}
-        <Card>
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
-            <Wallet aria-hidden className="h-4 w-4 text-terracotta" /> Budget
-          </h2>
-          {brief.budget_band ? (
-            <>
-              <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums">
-                {fmtPesoCentavos(brief.budget_band.lo_centavos)}
-                <span className="mx-1.5 text-ink/40">–</span>
-                {fmtPesoCentavos(brief.budget_band.hi_centavos)}
-              </p>
-              <p className="mt-2 text-xs text-ink/55">
-                Shared by the couple · for your category. A range to quote against —
-                never their exact number.
-              </p>
-            </>
-          ) : (
-            <p className="mt-3 flex items-center gap-2 rounded-lg bg-raised/70 px-3 py-2.5 text-sm text-ink/55">
-              <Info aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> Not shared —
-              the couple hasn&rsquo;t opted into budget sharing.
-            </p>
-          )}
-        </Card>
+        {/* 🧾 YOUR BOOKING (owner 21 Nov 2026 — "the quotation, payment plan, status"): where "Budget" stood, the
+         *  supplier's OWN booking money, view only — never the hosts' plan, not even while they share it (controller,
+         *  22 Nov 2026). Before a booking there is no booking money, so there is no card here at all. */}
+        {isBooked && yourBooking ? (
+          <Card>
+            <YourBookingCard eventId={eventId} view={yourBooking} />
+          </Card>
+        ) : null}
       </div>
 
       {/* Seat plan — status + size at every stage; the floor plan itself opens once booked. */}

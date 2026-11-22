@@ -380,12 +380,10 @@ export async function fetchV2VendorCatalogRead(): Promise<{ rows: V2VendorSku[];
 export const getVendorPrices = cache(async () => {
   const rows = await fetchV2VendorCatalog();
   const price = (code: string) => rows.find((r) => r.sku_code === code)?.price_php ?? null;
+  // Monthly only (owner 2026-11-22: "no yearly for any supplier subscription. remove the annual subscription everywhere").
   const soloMo = price('solo_vendor_monthly');
-  const soloYr = price('solo_vendor_annual');
   const proMo = price('pro_vendor_monthly');
-  const proYr = price('pro_vendor_annual');
   const entMo = price('enterprise_vendor_monthly');
-  const entYr = price('enterprise_vendor_annual');
   /*
     🔴 THERE WERE TWO ACTIVE BRANCH ROWS AND THE PUBLIC READ THE WRONG ONE.
     `vendor_branch_28day` and `vendor_additional_branch` are both active and both
@@ -415,21 +413,12 @@ export const getVendorPrices = cache(async () => {
   // confidently stale one is not (the ₱499 that was five times off, 2026-08-13).
   const tokenUnit = pack && pack.token_grant_count ? pack.price_php / pack.token_grant_count : null;
   const fmt = (n: number | null): string | null => (n == null ? null : `₱${formatPeso(n)}`);
-  // 28d × 13 − annual: what paying annually saves against thirteen 28-day blocks.
-  const save = (mo: number | null, yr: number | null): string | null =>
-    mo != null && yr != null ? `₱${formatPeso(mo * 13 - yr)}` : null;
   // ✅ THE BRANCH IS READ FROM BRANCH_SKU_CODE — the row that CHARGES — so the
   // public figure tracks the price actually taken (see the block above).
   return {
     soloMonthly: fmt(soloMo),
-    soloAnnual: fmt(soloYr),
-    soloAnnualSave: save(soloMo, soloYr),
     proMonthly: fmt(proMo),
-    proAnnual: fmt(proYr),
-    proAnnualSave: save(proMo, proYr),
     enterpriseMonthly: fmt(entMo),
-    enterpriseAnnual: fmt(entYr),
-    enterpriseAnnualSave: save(entMo, entYr),
     branch: fmt(branch),
     seat: fmt(seat),
     tokenUnit: fmt(tokenUnit),
@@ -441,11 +430,8 @@ export const getVendorPrices = cache(async () => {
     // `null` = unreadable: the Offer is omitted, never priced from a guess.
     num: {
       soloMonthly: soloMo,
-      soloAnnual: soloYr,
       proMonthly: proMo,
-      proAnnual: proYr,
       enterpriseMonthly: entMo,
-      enterpriseAnnual: entYr,
     },
   };
 });

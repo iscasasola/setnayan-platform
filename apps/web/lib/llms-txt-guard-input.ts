@@ -214,14 +214,15 @@ export const RETAIL: RetailRow[] = [
 ];
 
 export const VENDOR = [
-  // 💰 Simpler supplier plans 2026-11-14: per 4 weeks / per year (year = 10×). Extra branch ₱990 since 2026-11-06 ("ULTRA ADD-ON PRICES"), Ultra only.
-  { sku_code: 'solo_vendor_monthly', title: 'Solo (28d)', price_php: 1490, is_active: true },
-  { sku_code: 'solo_vendor_annual', title: 'Solo (yr)', price_php: 14900, is_active: true },
+  // 💰 Owner 2026-11-22 "SUPPLIER PLAN PRICES, FINAL", monthly only (migration 20271360321657): the yearly rows and the
+  // extra branch are retired — kept here OFF sale so the guards prove a retired row is never quoted.
+  { sku_code: 'solo_vendor_monthly', title: 'Solo (28d)', price_php: 1990, is_active: true },
+  { sku_code: 'solo_vendor_annual', title: 'Solo (yr)', price_php: 14900, is_active: false },
   { sku_code: 'pro_vendor_monthly', title: 'Pro (28d)', price_php: 4990, is_active: true },
-  { sku_code: 'pro_vendor_annual', title: 'Pro (yr)', price_php: 49900, is_active: true },
-  { sku_code: 'enterprise_vendor_monthly', title: 'Ent (28d)', price_php: 9990, is_active: true },
-  { sku_code: 'enterprise_vendor_annual', title: 'Ent (yr)', price_php: 99900, is_active: true },
-  { sku_code: 'vendor_additional_branch', title: 'Branch', price_php: 990, is_active: true },
+  { sku_code: 'pro_vendor_annual', title: 'Pro (yr)', price_php: 49900, is_active: false },
+  { sku_code: 'enterprise_vendor_monthly', title: 'Ent (28d)', price_php: 8990, is_active: true },
+  { sku_code: 'enterprise_vendor_annual', title: 'Ent (yr)', price_php: 99900, is_active: false },
+  { sku_code: 'vendor_additional_branch', title: 'Branch', price_php: 990, is_active: false },
 ];
 
 export const INPUT_FOR_GUARDS: LlmsTxtInput = { retail: RETAIL, vendor: VENDOR, refreshedOn: '2026-07-31' };

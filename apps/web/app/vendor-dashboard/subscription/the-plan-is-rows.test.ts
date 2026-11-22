@@ -27,12 +27,14 @@ const PAGE = stripComments(readFileSync(join(HERE, '_components', 'plan-screen.t
 const PICKER = stripComments(readFileSync(join(HERE, '_components/plan-sheet.tsx'), 'utf8'));
 const ROWS = stripComments(readFileSync(join(HERE, '_components/plan-rows.tsx'), 'utf8'));
 
-test('the plans are rows that open in place, and the cycle is one switch', () => {
+test('the plans are rows that open in place, and there is no year switch', () => {
   // The shop's own plan opens first; W1-B21 also opens the plan picked on /for-suppliers (`offer`, lib/supplier-plan-offer.ts).
   assert.match(PICKER, /<Fold\b[\s\S]*?defaultOpen=\{isCurrent \|\| p\.key === offer\}/);
   assert.match(PICKER, /What changes/);
   assert.match(PICKER, /What you pay/);
-  assert.match(PICKER, /role="switch"[\s\S]*?aria-label="Pay for the year"[\s\S]*?<SwitchTrack on=\{cycle === 'annual'\} \/>/);
+  // Owner 2026-11-22: "no yearly for any supplier subscription. remove the annual subscription everywhere".
+  assert.doesNotMatch(PICKER, /Pay for the year|data-plan-cycle-switch|cycle === 'annual'|setCycle/, 'the year switch is back');
+  assert.match(PICKER, /export type Cycle = 'monthly';/);
   assert.doesNotMatch(PICKER, /<PickMenu\s+label="Your plan"/, 'the bare plan dropdown is back');
   assert.match(PICKER, /<LockButton\b[\s\S]*?lock="plans"/);
   assert.ok(!existsSync(join(HERE, '_components/subscription-cards.tsx')), 'the plan cards are back');

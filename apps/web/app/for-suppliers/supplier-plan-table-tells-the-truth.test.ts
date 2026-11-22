@@ -55,7 +55,6 @@ const SKUS = [
 ];
 const PRICES = {
   monthly: { solo: SENT('solo-mo'), pro: SENT('pro-mo'), enterprise: SENT('ent-mo') },
-  annual: { solo: SENT('solo-yr'), pro: SENT('pro-yr'), enterprise: SENT('ent-yr') },
   bySku: Object.fromEntries(SKUS.map((k) => [k, SENT(k)])),
 };
 
@@ -152,14 +151,14 @@ test('every price cell is the price the page read — or "—" when it read noth
     for (const m of c.match(/₱[^\s/]*/g) ?? []) assert.match(m, /^₱SENT:/, `a price cell prints ${m}, which the page never read`);
   }
   assert.equal(row(g, 'price:4w').cells.pro.text, SENT('pro-mo'));
-  assert.equal(row(g, 'price:yr').cells.enterprise.text, SENT('ent-yr'));
+  // Owner 2026-11-22 "no yearly for any supplier subscription": the table has no year row.
+  assert.equal(rowsOf(g).some((r) => r.key === 'price:yr' || /year/i.test(r.label)), false, 'a yearly price row is offered');
   for (const t of TABLE_TIERS) {
     assert.equal(row(g, 'buy:deep').cells[t].text, `${SENT(vendorAddonSkuCode('deep_search_about_you', t))} a search`);
     assert.equal(canBuyExtraSeats(t) || canBuyExtraBranches(t), false, `${t} may buy a seat or branch — the table has no row for it`);
   }
   assert.equal(rowsOf(g).some((r) => r.key === 'buy:seatbranch'), false, 'an extra seat or branch is offered (no add-ons since 2026-11-22)');
-  assert.equal(row(g, 'price:yr').cells.free.kind, 'no', 'Free has nothing to pay for a year');
-  const none = planTable({ paywallOn: true, prices: { monthly: {}, annual: {}, bySku: {} } });
+  const none = planTable({ paywallOn: true, prices: { monthly: {}, bySku: {} } });
   const blank = rowsOf(none).flatMap((r) => TABLE_TIERS.map((t) => r.cells[t].text)).filter((t) => t.includes('₱'));
   assert.deepEqual(blank, [], 'an unread catalogue still printed a peso');
   // Ultra's add-ons: every one the code lets a Grow plan buy, at the SKU it charges.

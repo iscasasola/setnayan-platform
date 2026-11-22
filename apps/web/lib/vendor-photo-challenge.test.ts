@@ -11,6 +11,7 @@ import {
   PHOTO_CHALLENGE_MIN_TIER,
   resolveVendorPhotoChallengePricePhp,
   PHOTO_CHALLENGE_DENY_MESSAGE,
+  fetchPhotoChallengeEntitled,
 } from './vendor-photo-challenge';
 
 /**
@@ -258,4 +259,33 @@ test('the not-subscribed sentence promises EVERY event, not this one', () => {
     /every other event/,
     'the whole product change is "unlimited"; the sentence has to say so',
   );
+});
+
+// ── the card asks the database's own gate (owner 20 Nov: Pro and up, grandfathered) ──
+
+function fakeRpc(answer: { data?: unknown; error?: unknown }) {
+  const calls: string[] = [];
+  const client = {
+    rpc: async (fn: string) => {
+      calls.push(fn);
+      return { data: answer.data ?? null, error: answer.error ?? null };
+    },
+  };
+  return { client: client as never, calls };
+}
+
+test('a Plus shop the database refuses is NOT entitled — the card never says "On" for a submit that fails', async () => {
+  const { client, calls } = fakeRpc({ data: false });
+  assert.equal(await fetchPhotoChallengeEntitled(client, 'ev', 'shop'), false);
+  assert.deepEqual(calls, ['vendor_papic_challenge_entitled'], 'one read of THE gate — and it claims no trial');
+});
+
+test('a Pro shop the database allows is entitled', async () => {
+  const { client } = fakeRpc({ data: true });
+  assert.equal(await fetchPhotoChallengeEntitled(client, 'ev', 'shop'), true);
+});
+
+test('a failed read is UNREAD (null), never "not entitled" — a Pro shop is not shown the upgrade lock', async () => {
+  const { client } = fakeRpc({ error: { message: 'boom' } });
+  assert.equal(await fetchPhotoChallengeEntitled(client, 'ev', 'shop'), null);
 });

@@ -44,8 +44,10 @@ const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 // and the parser it uses everywhere are still pinned, and the action still never moves a year a shop already has.
 test('1 · "In business since" is off the sign-up door; its choices are "Just starting" first, never a year twice', () => {
   const wizard = code('app/open-shop/_components/open-shop-wizard.tsx');
-  const step2 = wizard.slice(wizard.indexOf("step === 2 ? 'space-y-4'"), wizard.indexOf("step === 3 ? 'space-y-4'"));
-  assert.ok(step2.length > 500, 'anti-vacuity: step 2 not found in the wizard');
+  // 🚪 19 Nov: what you do is on the first screen ("Open your shop") — the services panel, read by its own hook.
+  const at = wizard.indexOf('data-onboarding-fact="categories"');
+  const step2 = wizard.slice(at, wizard.indexOf('data-onboarding-fact="events"'));
+  assert.ok(at > 0 && step2.length > 500, 'anti-vacuity: the What you do panel not found in the wizard');
   assert.doesNotMatch(wizard, /in_business_since_year|sinceChoices|In business since/, 'the year is back on the sign-up door');
 
   const choices = inBusinessSinceChoices(2026);

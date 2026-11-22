@@ -82,7 +82,8 @@ test('1 · Love Story › Add a moment: the app’s form on the Schedule’s she
   assert.match(src, /const studio = maker\?\.stagesStudio === true;/, 'the sheet does not know it is in the Studio');
   /* The app's tokens, never the event's palette, for the fields and their words. */
   const field = /const field = studio\s*\?\s*'([^']+)'/.exec(src)?.[1] ?? '';
-  assert.match(field, /bg-white/, 'the Studio’s fields are not white');
+  // `bg-raised` = the card token: white in Light, the frame in Dark (/dashboard opened to dark 18 Nov 2026).
+  assert.match(field, /bg-raised/, 'the Studio’s fields are not the card colour');
   assert.match(field, /text-ink/, 'the Studio’s fields are not ink');
   assert.match(field, /placeholder:text-ink\/45/, 'the Studio’s placeholders are not readable');
   assert.doesNotMatch(field, /--ls-/, 'the Studio’s fields wear the event’s palette');

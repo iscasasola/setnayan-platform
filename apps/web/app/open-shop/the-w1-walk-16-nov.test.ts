@@ -27,9 +27,10 @@ const PW = read('app/_components/password-field.tsx');
 test('W1-B3 · a breached-password refusal is drawn on the account step, whatever step the URL names', () => {
   const field = openShopErrorField(OPEN_SHOP_ACCOUNT_ERRORS.passwordLeaked);
   assert.equal(field, 'password');
-  for (const fromServer of [1, 2, 3, 4, 5, undefined]) assert.equal(refusalStep(field, fromServer), 5);
+  // 🚪 19 Nov: the account screen is SECOND.
+  for (const fromServer of [1, 2, 3, 4, 5, undefined]) assert.equal(refusalStep(field, fromServer), 2);
   // Every boxed refusal is drawn on its box's step; a sentence no box owns keeps the server's step.
-  assert.equal(refusalStep(openShopErrorField(OPEN_SHOP_ERRORS.contactName), 5), 4);
+  assert.equal(refusalStep(openShopErrorField(OPEN_SHOP_ERRORS.contactName), 5), 3);
   assert.equal(refusalStep(openShopErrorField(OPEN_SHOP_ACCOUNT_ERRORS.accountFailed), 5), 5);
   assert.equal(refusalStep(null, undefined), 1);
 });
@@ -42,8 +43,11 @@ test('W1-B3 · a refusal that arrives WITHOUT a remount is still shown — the p
   const body = effect.slice(0, effect.indexOf('}, [error, refusalStamp]);'));
   assert.ok(body.length > 0, 'the effect no longer re-runs on a new refusal');
   assert.match(body, /setBanner\(error\)/, 'the sentence is not put back under its box');
-  assert.match(body, /setStep\(refusalStep\(field, initialStep\)\)/, 'the step that owns the box is not shown');
-  assert.match(body, /setAcctEmail\(true\)/, 'the email + password boxes stay folded away');
+  assert.match(body, /const at = refusalStep\(field, initialStep\);\s*setStep\(at\);/, 'the step that owns the box is not shown');
+  // …and on Check your shop, the sheet that holds the box is opened (19 Nov).
+  assert.match(body, /setSheet\(at === CHECK_STEP \? sheetOf\(field\) : null\)/, 'the sheet that owns the box is not opened');
+  // 19 Nov (PB2): the email + password boxes are never folded away, so there is nothing to open on a refusal.
+  assert.doesNotMatch(WIZARD, /acctEmail/, 'the email + password boxes can be folded away again');
 });
 
 test('W1-B3 · the account step says the leak rule in /reset-password\'s words, red when the server refused it', () => {
@@ -108,7 +112,9 @@ test('W1-B21 · the plan picked on /for-suppliers rides through the door and is 
   assert.match(WIZARD, /\{plan \? <input type="hidden" name="plan" value=\{plan\} \/> : null\}/, 'the form no longer posts the plan');
   const actions = stripComments(read('app/open-shop/actions.ts'));
   assert.match(actions, /const plan = parseSupplierPlan\(formData\.get\('plan'\)\);/);
-  assert.match(actions, /redirect\(plan \? `\$\{OPEN_SHOP_LOGO_PATH\}\?plan=\$\{plan\}` : OPEN_SHOP_LOGO_PATH\);\s*redirect\(planOfferPath\(plan\) \?\? '\/vendor-dashboard'\);/);
+  // 🚪 19 Nov: the logo screen is no longer forced in between — the plan's offer comes first, Today's welcome otherwise
+  // (and Edit on the first card opens the Card Maker, the plan reachable from Today after it).
+  assert.match(actions, /redirect\(viaInvite\(planOfferPath\(plan\) \?\? firstCardLanding\(\{ choice: cardChoice, cardId, category: cardCategory \}\)\)\);/);
   const logo = read('app/open-shop/logo/page.tsx');
   assert.match(logo, /doneHref=\{offer \?\? '\/vendor-dashboard'\}/);
   const card = read('app/open-shop/logo/_components/add-your-logo.tsx');

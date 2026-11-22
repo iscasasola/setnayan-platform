@@ -1997,20 +1997,14 @@ function Colophon({
           Each is drawn only when its destination is really there: no slug means
           a curated sample with no event behind it, and an edition where the
           couple never broadcast has no film section to scroll to. A footer that
-          quietly gets shorter is honest; a link that does nothing is not. */}
-      {slug || watchFilmShown ? (
+          quietly gets shorter is honest; a link that does nothing is not.
+          🧭 "The day as it happened" (→ /[slug]/hub) went on 20 Nov 2026 — one bar per stage:
+          `/hub` is no longer a second screen, and after the day it sends a visitor to `/[slug]`,
+          which is THIS page; the day's programme is its own "As the Day Unfolded" chapter above. */}
+      {watchFilmShown ? (
         <div className="flex flex-wrap justify-center gap-5 font-mono text-xs uppercase tracking-[0.1em]">
           {/* (No "The Invitation (RSVP)" here: after the day `/[slug]` is THIS
               page — a link to itself. Owner 2026-10-03, one place each.) */}
-          {slug ? (
-            <a
-              href={`/${slug}/hub`}
-              className="border-b border-terracotta pb-0.5 text-ink no-underline"
-            >
-              {/* 🏷 Plain words after the day (F-W2-52): the day's page is a record now, never "(Live)". */}
-              The day as it happened
-            </a>
-          ) : null}
           {watchFilmShown ? (
             <a
               href={`#${WATCH_FILM_ANCHOR_ID}`}

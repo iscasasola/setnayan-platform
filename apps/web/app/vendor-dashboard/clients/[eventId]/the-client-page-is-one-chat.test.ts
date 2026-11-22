@@ -47,22 +47,26 @@ const STRIP = read('app/vendor-dashboard/clients/[eventId]/_components/client-ch
 
 test('1 · the chat is the page: no tab row on a phone, and the chat is the one body', () => {
   assert.match(CLIENT_SHELL, /chatHome=\{chatHome\}/, 'the client shell no longer makes the chat its home');
-  assert.match(CLIENT_SHELL, /page: 'chat' as const, line: `\$\{eventName\} · back to chat`, titleOpens: 'details' as const, more: MORE_PAGES/);
-  assert.match(CLIENT_SHELL, /const MORE_PAGES: readonly PickedClientPage\[\] = \['files', 'hub', 'report'\];/, 'Files · Hub · Report are not the pages behind ⋯');
-  // The tab row is drawn only from 1024 px (the computer keeps its tabs beside the always-open chat, owner 18 Nov).
-  assert.match(SHELL, /\$\{chatHome \? 'hidden lg:flex' : 'flex'\} gap-0\.5 overflow-x-auto[^`]*`\}\s*data-picked-menu=""/, 'the tab row is drawn on a phone again');
+  // ⋯ The rows behind More are `clientMoreRows` (part G, 20 Nov 2026 — held by `the-more-menu-holds-places-to-go.test.ts`).
+  assert.match(CLIENT_SHELL, /page: 'chat' as const, line: `\$\{eventName\} · back to chat`, titleOpens: 'details' as const, more: clientMoreRows\(more\)/);
+  // No tab row on a phone — and none on a computer either once a page opens beside the chat (`pane`, owner 20 Nov;
+  // a side without `pane` keeps its tabs from 1024 px, as 18 Nov ruled).
+  assert.match(SHELL, /\$\{chatHome \? \(panes \? 'hidden' : 'hidden lg:flex'\) : 'flex'\} gap-0\.5 overflow-x-auto[^`]*`\}\s*data-picked-menu=""/, 'the tab row is drawn on a phone again');
   // The chat is the body whatever page is named; nothing swaps it out.
   assert.match(SHELL, /const rises = homePage !== null && awake && !split;/);
   assert.match(SHELL, /const workPage: P = rises \? homePage! : /, 'another page takes the chat’s place — its scroll is lost');
   // No swipe between pages when there is no row of pages.
   assert.match(SHELL, /on = !\(homePage !== null && !split\) && !!t && !t\.closest\(PAGE_SWIPE_SKIP\)/);
-  // The name is the door to Details; ⋯ holds the rest, a phone only.
+  // The name is the door to Details; ⋯ holds the rest — a phone, and a computer whose pages open beside the chat.
   assert.match(SHELL, /onClick=\{\(\) => nav\.select\(chatHome\.titleOpens\)\}/);
-  assert.match(SHELL, /className="inline-flex shrink-0 lg:hidden" data-picked-more=""/);
+  assert.match(SHELL, /className=\{panes \|\| !chatHome \? 'inline-flex shrink-0' : 'inline-flex shrink-0 lg:hidden'\} data-picked-more=""/);
 });
 
 test('2 · every other page RISES over the chat through the one full screen, and closing it lands on the chat', () => {
-  const risen = SHELL.slice(SHELL.indexOf('{risenPage !== null && chatHome ? ('));
+  // (`!paneOn`: on a computer the same body opens in its own column beside the chat instead — part G, 20 Nov 2026.)
+  const at = SHELL.indexOf('{risenPage !== null && chatHome && !paneOn ? (');
+  assert.ok(at >= 0, 'the risen screen moved — re-anchor this guard');
+  const risen = SHELL.slice(at, SHELL.indexOf('{extra !== null && chatHome && !paneOn ? ('));
   assert.match(risen, /<RiseScreen\s+title=\{menu\.find\(\(m\) => m\.id === risenPage\)\?\.label \?\? title\}\s+line=\{chatHome\.line\}\s+data="picked-page"\s+onClose=\{landHome\}/, 'a page no longer rises through RiseScreen');
   assert.match(risen, /\{bodies\[risenPage\]\}/, 'the risen screen does not draw the shipped body');
   // The shipped body, unchanged — the same switch builds it (no second copy of a page for the risen screen).
@@ -109,21 +113,25 @@ test('4 · the summary strip is FIRST in the chat’s one pinned stack, fed only
 });
 
 test('5 · ONE switch, in the text box: the sliders raise the chips; the old 📎 is not drawn beside them', () => {
-  assert.match(SEND, /import \{ Camera, ImageIcon, Lock, Paperclip, SlidersHorizontal, X \} from 'lucide-react';/, 'the show control is not the app’s one sliders icon');
+  assert.match(SEND, /import \{ ArrowLeft, Camera, ImageIcon, Lock, Paperclip, Plus, SlidersHorizontal, X \} from 'lucide-react';/, 'the show control is not the app’s one sliders icon');
   const box = SEND.slice(SEND.indexOf('data-chat-one-box=""'));
-  const sliders = box.indexOf('data-chat-kind-open=""');
-  const send = box.indexOf('aria-label="Send"');
+  const sliders = box.indexOf('data-chat-kind-open=');
+  // Unichat H1: mid-edit the same button says "Save your edit" — still the one Send, after the sliders.
+  const send = box.indexOf("aria-label={editing ? 'Save your edit' : 'Send'}");
   const field = box.indexOf('<textarea');
   assert.ok(field >= 0 && field < sliders && sliders < send, 'the sliders button is not inside the box, between the field and Send');
-  assert.ok(SEND.indexOf('data-chat-kind-chips=""') < SEND.indexOf('data-chat-one-box=""'), 'the chips are not raised above the box');
-  assert.match(SEND, /\{KIND_CHIPS\.map\(\(c\) => \{/);
-  assert.match(SEND, /onClick=\{\(\) => \{\s*pickKind\(threadId, c\.key\);/);
+  assert.ok(SEND.indexOf('data-chat-kind-chips=') < SEND.indexOf('data-chat-one-box=""'), 'the chips are not raised above the box');
+  // 20 Nov 2026 (Unichat part D): the chips float above the box, and one rule picks a chip (`pickChip` — Private also
+  // turns the box to Whisper where it can; the picked chip again folds the row). Held by the-tool-lives-in-the-text-box.
+  assert.match(SEND, /\{KIND_CHIPS\.map\(\(c, i\) => \{/);
+  assert.match(SEND, /onClick=\{\(\) => pickChip\(c\.key\)\}/);
+  assert.match(SEND, /pickKind\(threadId, key\);/);
   // The suggested step: inside the box, left of the field, gone once a word is typed (and never while words-only).
   const suggested = box.indexOf('data-chat-suggested=');
   assert.ok(suggested >= 0 && suggested < field, 'the suggested step is not inside the box, left of "Message"');
   assert.match(SEND, /const suggestOn = kinds && Boolean\(home\?\.suggest\) && !hasDraft && !wordsMode && !feeWordsOnly;/, 'the suggested step stays while typing, or shows in a words-only box');
   assert.match(SEND, /\{suggestOn && home\?\.suggest \? \(/);
-  assert.match(SEND, /patchPlus\(threadId, \{ draft: \{ kind: card, startedAt: Date\.now\(\) \} \}\);/, 'the suggested step does not open the (+)’s own card');
+  assert.match(SEND, /patchPlus\(threadId, \{ draft: \{ kind: card, startedAt: Date\.now\(\) \}, picker: false \}\);/, 'the suggested step does not open the (+)’s own card');
   // In the stream: the picked chip filters, and the head's 📎 / Files panel are not drawn with the chips.
   assert.match(STREAM, /if \(kindView && chatKindOf\(m, Boolean\(filings\?\.byMessage\.get\(m\.message_id\)\)\) !== kindView\) \{/);
   assert.match(STREAM, /\{oneChat \? null : \(\s*<ActionButton\s+tone="neutral"\s+iconOnly\s+icon=\{Paperclip\}/, 'the 📎 is drawn beside the chips — two switches for one thing');
@@ -137,7 +145,7 @@ test('6 · only the supplier’s client page: the routed thread and the host’s
   assert.doesNotMatch(HOST_THREAD, /\boneChat\b|\bkinds=/, 'the host’s chat picked up the supplier’s one-chat parts before its own build');
   assert.doesNotMatch(HOST_SHELL, /chatHome/, 'the host’s picked supplier lost its tabs before its own build');
   assert.match(STREAM, /oneChat = false,/);
-  assert.match(SEND, /kinds = false \}: Props\)/);
+  assert.match(SEND, /kinds = false(?:, voice = false)? \}: Props\)/);
   // A chat without the chips keeps its three shipped thirds.
   assert.match(STREAM, /useState<ThreadView>\(initialView === 'decisions' \? 'all' : legacyThreadView\(initialView\)\)/);
 });

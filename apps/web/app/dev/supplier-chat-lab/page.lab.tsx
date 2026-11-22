@@ -25,7 +25,8 @@
  *                (sample hosts; the first is the fixture couple sender)
  *   ?m=chats     the supplier's Chats (✉): one row per event, Messenger order — "Unread · pinned", then "Recent"; two rows
  *                carry Lane B's 🚦 "needs you" dot (fixture levels: one blocker, one due-now)
- *     &pick=<id>&page=chat|details|…   Build 3 · Lane A — a row opens the picked client OVER the still-drawn list, on Chat
+ *     &pick=<id>&page=chat|details|…   (&one=booked also fills ⋯: Song list · Crew for 18 Dec · calendar — Unichat G)
+ *                                      Build 3 · Lane A — a row opens the picked client OVER the still-drawn list, on Chat
  *                (the real `PickedClientShell`; its Chat body is `LabPickedChat`; the other pages are lab lines)
  *
  *   — Supplier Build 3 · lane B —
@@ -91,6 +92,7 @@ import { decisionPinBodies } from '@/app/_components/chat/decision-pin-bodies';
 import { schedulePinBodies } from '@/app/_components/chat/schedule-pin-bodies';
 import { filedAttachmentOf, type FiledMessage } from '@/lib/chat-decisions';
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
+import { BookedCallChoices } from '@/app/_components/chat/booked-call-choices';
 
 /** &decide=media — the filed rows (sample files: nothing real; hrefs through `chatAttachmentHref` only). */
 function labMediaFiled(): FiledMessage[] {
@@ -275,10 +277,24 @@ export default async function SupplierChatLabPage({
             eventName={picked.name}
             menu={pickedMenuFor(true)}
             initialPage={page}
-            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall', ...(sp.self === 'vendor' || sp.self === 'couple' ? { selfShop: sp.self } : {}), ...(sp.one === 'booked' || sp.one === 'asking' || sp.one === 'failed' ? { oneChat: sp.one } : {}) })}
+            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall', ...(sp.self === 'vendor' || sp.self === 'couple' ? { selfShop: sp.self } : {}), ...(sp.one === 'booked' || sp.one === 'asking' || sp.one === 'failed' ? { oneChat: sp.one } : {}) , ...(sp.whisper === '1' ? { whisper: 'on' as const } : sp.whisper === 'fail' ? { whisper: 'fail' as const } : {}) })}
             // 💬 `&one=booked|asking|failed` — the one chat that holds everything (19 Nov 2026), on sample facts: the
             // REAL strip rules (`chatStrip`) and the real strip, the suggested step and the inquiry facts.
             {...(sp.one === 'booked' || sp.one === 'asking' || sp.one === 'failed' ? labOneChat(sp.one, picked.threadId) : {})}
+            // ⋯ `&one=booked` — the drawn ⋯ (Unichat part G): a music act's Song list, Crew for the day, the calendar file.
+            // Lab lines stand in for the pages; the rows themselves are the real `clientMoreRows`.
+            more={
+              sp.one === 'booked'
+                ? {
+                    songs: <p className="py-6 text-sm text-ink/70">Lab — the shipped Song Desk draws here on the real page.</p>,
+                    crewHref: '/dev/supplier-chat-lab?m=chats',
+                    crewDay: '18 Dec',
+                    // 📞 Call · Viber (Unichat v3) — the real `BookedCallChoices` on the lab's dummy number (no real person).
+                    call: <BookedCallChoices booked phone="0917 000 0000" who={picked.name} />,
+                    calendar: { href: 'data:text/calendar;charset=utf-8,BEGIN%3AVCALENDAR%0AEND%3AVCALENDAR', filename: 'schedule-lab.ics' },
+                  }
+                : undefined
+            }
             settingsLine={{ line: 'This client only', tip: 'Lab.' }}
             settings={null}
             // 🔴 A lab sample for the Chat tab's badge (the real page reads `readThreadUnreadCount`); none on an empty chat.

@@ -14,6 +14,14 @@
  *
  * Round 2 (v8.3): inside a picked shell the calls go to the picked head row, not the strip — test 1 holds both homes.
  *
+ * Round 3 (Unichat v3, controller ruling 21 Nov 2026 — "follow the approved Unichat drawing, which removes the phone and
+ * video icons now that Call · Viber lives in ⋯"; drawing `unichat_live_v3_2026-11-20.html`: "Call · Viber moved under ⋯
+ * to make room for search"): inside a picked shell the calls LEFT the head row and live under ⋯ — the supplier's
+ * `Call · Viber` row and the host's `Call` · `Video call on Viber` rows, held by
+ * `app/vendor-dashboard/clients/[eventId]/the-more-menu-holds-places-to-go.test.ts` rule 10. Test 1 now holds: the
+ * head row draws NO calls, the strip draws them only outside a picked shell, and BOTH picked pages hand ⋯ its call rows
+ * on the ONE booking check — so the calls moved, they were not dropped.
+ *
  * Sabotage (9 Nov 2026): `headCalls` dropped from the supplier thread page → 1 RED; `calls` dropped from the strip's
  * couldn't-load state → 2 RED.
  */
@@ -87,7 +95,15 @@ test('1 · every chat that draws the host strip also hands it the booked call bu
   // lib/the-picked-head-carries-the-chat-actions.test.ts), to the strip everywhere else. Never dropped.
   const stream = read('app/_components/chat-message-stream.tsx');
   assert.match(stream, /<ChatHostStrip\b[^>]*\bcalls=\{inPicked \? null : headCalls\}/, 'the stream drops the head calls off a picked page');
-  assert.match(stream, /createPortal\(\s*<>\s*\{headCalls\}/, 'the picked head row lost the calls');
+  const portal = stream.slice(stream.indexOf('createPortal('), stream.indexOf('headSlot,', stream.indexOf('createPortal(')));
+  assert.doesNotMatch(portal, /\{headCalls\}/, 'the picked head row draws 📞 🎥 again — the Unichat v3 drawing moved them under ⋯');
+  // …and they did move, not vanish: both picked pages hand ⋯ its call rows on the ONE booking check.
+  const client = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
+  assert.match(client, /shopIsBookedOnEvent\(eventId, profile\.vendor_profile_id\)/, 'the supplier’s ⋯ lost its booking check');
+  assert.match(client, /call: bookedCallReachable\(bookedCall\.booked, bookedCall\.phone\) \? \(\s*<BookedCallChoices\b/, 'the supplier’s ⋯ lost Call · Viber');
+  const host = read('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx');
+  assert.match(host, /shopIsBookedOnEvent\(eventId, shopId\)/, 'the host’s ⋯ lost its booking check');
+  assert.match(host, /call=\{\{ tel: bookedTelHref\(bookedCall\.booked, bookedCall\.phone\), viber: bookedViberHref\(bookedCall\.booked, bookedCall\.phone\) \}\}/, 'the host’s ⋯ lost Call · Viber');
 });
 
 test('2 · the strip draws the calls with the faces AND when who-is-here could not load', () => {

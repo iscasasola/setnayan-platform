@@ -50,6 +50,7 @@ import {
   FolderOpen,
   Hourglass,
   MessageCircle,
+  MoreHorizontal,
   Pencil,
   Plus,
   QrCode,
@@ -158,6 +159,8 @@ export function BenchVendorActions({
   const groupId = actions.lockGroupId;
   const buildGroupId = actions.buildGroupId;
   const [connectOpen, setConnectOpen] = useState(false);
+  // 🃏 Card 14's "More" seat (phone only — CSS hides it on a wide card, where every verb has a seat).
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // ── THE VERBS, BY STEP (`lib/supplier-card-verbs.ts`) ────────────────────
   // Which buttons, in what order and colour, is ONE table. Whether an action
@@ -393,6 +396,10 @@ export function BenchVendorActions({
     }
   };
 
+  // The verbs that actually draw (a verb whose door is missing draws nothing), so the seats count real buttons.
+  const drawn = verbs.map(draw).filter((n) => n !== null);
+  const seatMore = drawn.length >= 4;
+
   return (
     <div className="vacts">
       {confirmDialog}
@@ -458,8 +465,35 @@ export function BenchVendorActions({
       ) : null}
 
       {/* ── THE VERB ROW — one line, one fit state (icon + word → word → icon) */}
-      <div className="verbs" data-card-verbs={verbs.map((v) => v.key).join(' ')}>
-        {verbs.map(draw)}
+      <div
+        className="verbs"
+        data-card-verbs={verbs.map((v) => v.key).join(' ')}
+        data-seat-more={seatMore ? '1' : undefined}
+        data-more-open={seatMore && moreOpen ? '' : undefined}
+      >
+        {/* 🃏 Card 14 (DECISION_LOG "14 + buttons"): the first verb, then the second, then — when three or more remain —
+            "More", which opens the rest in place on a phone. The table's order, words and colours are untouched; the
+            rest are the same buttons, only wrapped so the column can fold them. Outside the one-screen column the
+            wrappers lay out as before (the CSS that folds them lives under `.fold.flat`). */}
+        {drawn.slice(0, 2)}
+        {seatMore ? (
+          <ActionButton
+            tone="neutral"
+            icon={MoreHorizontal}
+            label="More"
+            className="vmore"
+            aria-expanded={moreOpen}
+            name={`More for ${vendorName}: ${verbs.slice(2).map((v) => v.label).join(', ')}`}
+            onClick={() => setMoreOpen((o) => !o)}
+          />
+        ) : null}
+        {seatMore
+          ? drawn.slice(2).map((node, i) => (
+              <span key={`rest-${i}`} className="vmore-rest">
+                {node}
+              </span>
+            ))
+          : drawn.slice(2)}
         {/* [Connect] — the supplier's portal into their own account, for one
             the couple added themselves. It stays reachable at every step until
             the record sheet (PR2b) carries the claim link. Opening it only

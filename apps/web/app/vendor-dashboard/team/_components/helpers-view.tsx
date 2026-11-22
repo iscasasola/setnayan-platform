@@ -3,12 +3,8 @@ import { Badge } from '@/app/_components/badge';
 import { Fold } from '@/app/_components/fold';
 import { formatPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
-import { FREE_HELPER_ROLE } from '@/lib/vendor-free-helper';
 import {
   isVendorAdminRole,
-  VENDOR_TEAM_ROLE_BLURB,
-  VENDOR_TEAM_ROLE_LABEL,
-  VENDOR_TEAM_ROLE_PICK,
   type AssignableService,
   type VendorAdminMotion,
   type VendorAdminMotionVote,
@@ -18,6 +14,17 @@ import { ShopNotice } from '../../_components/kit';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { InviteHelperSheet, RolePick } from './helpers-controls';
+import { TeamMemberCard } from './member-card';
+import {
+  BRANCH_MANAGER_MAY_GIVE,
+  VENDOR_DUTIES,
+  dutyOfRank,
+  isVendorDuty,
+  roleNameOf,
+  roleOptionLabel,
+  type VendorDuty,
+  type VendorRoleNames,
+} from '@/lib/vendor-duties';
 import { StayForm } from '@/app/_components/stay-form';
 import { AgentServiceAssignment } from './who-works-what-services';
 import { keyOfBranchId, whoWorksWhatLine, type BranchScope, type ScopedService } from '@/lib/branch-copy';
@@ -60,7 +67,12 @@ function nameOf(members: VendorTeamMemberWithUser[], userId: string | null): str
 
 function motionLabel(m: VendorAdminMotion): string {
   if (m.kind === 'remove') return 'Remove from the shop';
-  return `Make a ${m.new_role === 'viewer' ? 'Helper' : 'Team member'}`;
+  return `Make ${m.new_role === 'viewer' ? 'a Helper' : 'an Account Manager'}`;
+}
+
+/** The member's role — the row's own, else the nearest role to its rank (a row read before the six landed). */
+function dutyOfMember(m: VendorTeamMemberWithUser): VendorDuty {
+  return isVendorDuty(m.duty) ? m.duty : dutyOfRank(m.role);
 }
 
 export function HelpersView({
@@ -79,7 +91,13 @@ export function HelpersView({
   search,
   actions,
   embedded = false,
+  manager = { duty: 'shop_manager', branchId: null },
+  roleNames = {},
 }: {
+  /** 🧑‍🤝‍🧑 Who is running the screen: a Shop Manager (the whole shop) or a Branch Manager (their branch). */
+  manager?: { duty: 'shop_manager' | 'branch_manager'; branchId: string | null };
+  /** The shop's own name for each role (Team › Roles); empty = the fixed names. */
+  roleNames?: VendorRoleNames;
   userId: string;
   /** 🏢 Whole branch (owner 2026-11-14, item 9) — the shop's locations and who holds which in full. Omitted = one location. */
   branchScope?: BranchScope;
@@ -109,27 +127,40 @@ export function HelpersView({
   }
 
   const me = enriched.find((m) => m.user_id === userId) ?? null;
-  const iAmAdmin = me ? isVendorAdminRole(me.role) : true;
-  const otherAdmins = enriched.filter((m) => m.user_id !== userId && isVendorAdminRole(m.role));
-  const agents = enriched.filter((m) => m.role === 'agent');
-  const roleOptions = VENDOR_TEAM_ROLE_PICK.map((o) => ({ key: o.key as string, label: o.label }));
+  const isShopManager = manager.duty === 'shop_manager';
+  const iAmAdmin = isShopManager && (me ? isVendorAdminRole(me.role) : true);
+  const otherAdmins = isShopManager ? enriched.filter((m) => m.user_id !== userId && isVendorAdminRole(m.role)) : [];
+  // Who works what: the Account Managers — they are set to service cards (owner 19 Nov). A Branch Manager holds their
+  // branch whole by role, so has no boxes to tick.
+  const agents = enriched.filter((m) => dutyOfMember(m) === 'account_manager' && m.user_id !== userId);
+  // 🧑‍🤝‍🧑 The role pick: the shop's name with the fixed role beside it (drawing (c)). A Branch Manager gives the roles
+  // at or below theirs only.
+  const givable: readonly VendorDuty[] = isShopManager ? VENDOR_DUTIES : BRANCH_MANAGER_MAY_GIVE;
+  const roleOptions = givable.map((d) => ({ key: d as string, label: roleOptionLabel(roleNames, d) }));
   // Who works what names each service by its card title, filed under its location (owner 2026-11-14, item 9).
-  const locations = branchScope?.locations ?? [];
+  const myBranchKey = keyOfBranchId(manager.branchId);
+  const allLocations = branchScope?.locations ?? [];
+  const locations = isShopManager ? allLocations : allLocations.filter((l) => l.key === myBranchKey);
+  const labelOfKey = new Map(allLocations.map((l) => [l.key, l.label] as const));
   const wholeKeys = branchScope?.wholeKeys ?? {};
-  const scoped: ScopedService[] = services.map((s) => ({
-    id: s.vendor_service_id,
-    name: s.title?.trim() || categoryLabel(s.category),
-    key: keyOfBranchId(s.branch_id),
-    active: s.is_active,
-  }));
+  const scoped: ScopedService[] = services
+    .map((s) => ({
+      id: s.vendor_service_id,
+      name: s.title?.trim() || categoryLabel(s.category),
+      key: keyOfBranchId(s.branch_id),
+      active: s.is_active,
+    }))
+    .filter((s) => isShopManager || s.key === myBranchKey);
+
+  const introLine = isShopManager
+    ? 'Each person has one role. Give each role your shop’s own name on Roles.'
+    : `You run ${labelOfKey.get(myBranchKey) ?? 'your branch'}’s team — Account Managers, Event Crew and Helpers.`;
 
   return (
     <section className={embedded ? 'pb-2' : 'mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6 sm:pt-10'} data-helpers-screen="">
       <header className="space-y-1">
-        {embedded ? null : <h1 className="sn-h1">Helpers</h1>}
-        <p className="text-[14px] text-ink/65">
-          Helpers and team members see Today and Clients only. Admins run the shop with you.
-        </p>
+        {embedded ? null : <h1 className="sn-h1">Team</h1>}
+        <p className="text-[14px] text-ink/65">{introLine}</p>
       </header>
 
       <div className="mt-3 space-y-2">
@@ -163,28 +194,38 @@ export function HelpersView({
       {/* ── WHO IS ON THE TEAM — one row each; a role is ONE dropdown ── */}
       <div className="mt-4" data-helpers-members="">
         {enriched.length === 0 ? (
-          <DatesRow data="helpers-none" title="Just you so far" line="Invite a helper — one Helper is free on every plan" />
+          <DatesRow data="helpers-none" title="Just you so far" line="Invite someone — one Helper is free on every plan" />
         ) : (
           enriched.map((m) => {
             const isSelf = m.user_id === userId;
             const isAdmin = isVendorAdminRole(m.role);
             const who = m.display_name?.trim() || m.email || 'Team member';
-            const line = [m.team_label, isSelf ? 'You' : m.email].filter(Boolean).join(' · ');
+            const duty = dutyOfMember(m);
+            const branchKey = keyOfBranchId(m.branch_id);
+            // A Branch Manager changes only the roles at or below theirs — the database refuses the rest anyway.
+            const canChange = !isSelf && !isAdmin && (isShopManager || BRANCH_MANAGER_MAY_GIVE.includes(duty));
             return (
-              <DatesRow
+              <TeamMemberCard
                 key={m.vendor_team_member_id}
-                data="helpers-member"
-                title={who}
-                line={line || VENDOR_TEAM_ROLE_BLURB[m.role]}
+                memberId={m.vendor_team_member_id}
+                name={who}
+                duty={duty}
+                names={roleNames}
+                branchLabel={labelOfKey.get(branchKey) ?? null}
+                cardCount={duty === 'account_manager' || duty === 'branch_manager' ? (assignments[m.vendor_team_member_id] ?? []).length : null}
+                teamLabel={m.team_label}
+                isSelf={isSelf}
                 end={
-                  !isSelf && !isAdmin ? (
-                    <span className="flex flex-none items-center gap-1">
+                  canChange ? (
+                    <span className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
                       <RolePick
                         memberId={m.vendor_team_member_id}
                         name={who}
-                        role={m.role}
+                        role={duty}
+                        branchKey={branchKey}
                         teamLabel={m.team_label}
                         options={roleOptions}
+                        locations={locations}
                         action={actions.update}
                       />
                       <StayForm door="supTeam.removeVendorTeamMember" action={actions.remove}>
@@ -198,11 +239,19 @@ export function HelpersView({
                         />
                       </StayForm>
                     </span>
-                  ) : (
-                    <Badge tone={isAdmin ? 'ok' : 'quiet'} data="helpers-role">
-                      {m.user_id === founderUserId ? 'Owner' : VENDOR_TEAM_ROLE_LABEL[m.role]}
+                  ) : null
+                }
+                aside={
+                  m.user_id === founderUserId ? (
+                    <Badge tone="ok" data="helpers-role">
+                      Owner
                     </Badge>
-                  )
+                  ) : m.paused_by_plan_at ? (
+                    // 👤 d–h (g), drawing (b): a seat a smaller plan paused — on the team, can't sign in to the shop.
+                    <Badge tone="wait" data="helpers-waiting-for-plan">
+                      Added · waiting for plan
+                    </Badge>
+                  ) : null
                 }
               />
             );
@@ -213,11 +262,17 @@ export function HelpersView({
       {/* ── THE PLAN, THE EDGES ── */}
       <div className="mt-5 border-t border-ink/10" data-helpers-rows="">
         <DatesRow
+          data="helpers-roles"
+          title="Roles"
+          line={`${VENDOR_DUTIES.map((d) => roleNameOf(roleNames, d)).slice(0, 3).join(' · ')} · and 3 more`}
+          href="/vendor-dashboard/team/roles"
+        />
+        <DatesRow
           data="helpers-plan"
-          title="Helpers on your plan"
+          title="Seats on your plan"
           line={seatsLine}
           badge={{ tone: 'quiet', word: 'Plan' }}
-          href={storeShell ? null : '/vendor-dashboard/subscription'}
+          href={storeShell || !isShopManager ? null : '/vendor-dashboard/subscription'}
         />
 
         {/* Extra seats — Ultra ₱/28d add-on, the live catalogue price. 🔒 Never in the store shell. */}
@@ -253,7 +308,6 @@ export function HelpersView({
                   <div key={m.vendor_team_member_id} className="border-t border-ink/10 pt-3 first:border-t-0 first:pt-0">
                     <StayForm door="supTeam.updateVendorTeamMember" action={actions.update} className="flex min-h-[60px] items-end gap-2">
                       <input type="hidden" name="vendor_team_member_id" value={m.vendor_team_member_id} />
-                      <input type="hidden" name="role" value={m.role} />
                       <label className="block min-w-0 flex-1 space-y-1">
                         <span className="block text-[13px] text-ink/60">
                           What {m.display_name?.trim() || m.email || 'this team member'} does{' '}
@@ -267,7 +321,7 @@ export function HelpersView({
                         pendingLabel="Saving…"
                       />
                     </StayForm>
-                    {m.role === 'agent' ? (
+                    {dutyOfMember(m) === 'account_manager' ? (
                       <AgentServiceAssignment
                         action={actions.setServices}
                         memberId={m.vendor_team_member_id}
@@ -365,7 +419,7 @@ export function HelpersView({
                           <SupplierSubmit
                             tone="neutral"
                             icon={<Gavel aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
-                            label="Ask to make them a Team member"
+                            label="Ask to make them an Account Manager"
                             pendingLabel="Starting…"
                           />
                         </StayForm>
@@ -404,7 +458,7 @@ export function HelpersView({
           <DatesRow
             data="helpers-step-down"
             title="Step down"
-            line={adminCount <= 1 ? 'You are the only admin — make someone else an admin first' : 'Leave the admin role · you stay as a Team member'}
+            line={adminCount <= 1 ? 'You are the only Shop Manager — make someone else a Shop Manager first' : 'Leave the Shop Manager role · you stay as an Account Manager'}
             end={
               adminCount <= 1 ? undefined : (
                 <StayForm door="supTeam.stepDownSelf" action={actions.stepDown}>
@@ -421,7 +475,14 @@ export function HelpersView({
         ) : null}
       </div>
 
-      <InviteHelperSheet options={roleOptions} defaultRole={FREE_HELPER_ROLE} action={actions.invite} seatLine={seatsLine} />
+      <InviteHelperSheet
+        options={roleOptions}
+        defaultRole="helper"
+        locations={locations}
+        defaultBranch={isShopManager ? 'main' : myBranchKey}
+        action={actions.invite}
+        seatLine={seatsLine}
+      />
     </section>
   );
 }

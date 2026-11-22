@@ -15,6 +15,8 @@ import { join } from 'node:path';
 
 import {
   CARD_MAX_PHOTOS,
+  CARD_NEW_PHOTO_LIMIT,
+  cardPhotoLimit,
   CARD_SHOWCASE_MAX_PHOTOS,
   canAddCardPhoto,
   cardPhotoCountLine,
@@ -78,17 +80,28 @@ test('Delete another photo promotes nobody; deleting the last photo leaves no pr
   assert.deepEqual(deleteCardPhoto(['r2://p'], 'r2://zz'), { order: ['r2://p'], promoted: null });
 });
 
-test('the add tile is HIDDEN at the limit (the primary + 5) and returns after a delete', () => {
-  for (let n = 0; n < CARD_MAX_PHOTOS; n++) assert.equal(canAddCardPhoto(n), true, `${n} photos: the add tile shows`);
-  assert.equal(canAddCardPhoto(CARD_MAX_PHOTOS), false, 'full: the add tile is gone');
-  assert.equal(canAddCardPhoto(CARD_MAX_PHOTOS - 1, 1), false, 'a photo on its way holds a slot');
-  const full = Array.from({ length: CARD_MAX_PHOTOS }, (_, i) => `r2://${i}`);
+test('NEW photos stop at 5 (Decided Q5): the add tile hides at 5 and returns after a delete', () => {
+  assert.equal(CARD_NEW_PHOTO_LIMIT, 5);
+  for (let n = 0; n < CARD_NEW_PHOTO_LIMIT; n++) assert.equal(canAddCardPhoto(n), true, `${n} photos: the add tile shows`);
+  assert.equal(canAddCardPhoto(CARD_NEW_PHOTO_LIMIT), false, 'five: the add tile is gone');
+  assert.equal(canAddCardPhoto(CARD_NEW_PHOTO_LIMIT - 1, 1), false, 'a photo on its way holds a slot');
+  const full = Array.from({ length: CARD_NEW_PHOTO_LIMIT }, (_, i) => `r2://${i}`);
   assert.equal(canAddCardPhoto(deleteCardPhoto(full, 'r2://3').order.length), true, 'delete one and it returns');
 });
 
-test('the count line is "N of 6 photos"', () => {
-  assert.equal(cardPhotoCountLine(3), `3 of ${CARD_MAX_PHOTOS} photos`);
-  assert.equal(cardPhotoCountLine(CARD_MAX_PHOTOS), `${CARD_MAX_PHOTOS} of ${CARD_MAX_PHOTOS} photos`);
+test('a card opened with 6 KEEPS them: its limit is 6 for that visit, never past the CHECK', () => {
+  assert.equal(cardPhotoLimit(0), 5);
+  assert.equal(cardPhotoLimit(5), 5);
+  assert.equal(cardPhotoLimit(6), 6, 'six held → six kept');
+  assert.equal(cardPhotoLimit(9), CARD_MAX_PHOTOS, 'never past the database CHECK');
+  assert.equal(cardPhotoLimit(Number.NaN), 5);
+  assert.equal(canAddCardPhoto(5, 0, cardPhotoLimit(6)), true, 'delete one of six and you may put one back');
+  assert.equal(canAddCardPhoto(6, 0, cardPhotoLimit(6)), false);
+});
+
+test('the count line is "N of 5 photos" (of 6 on a card opened with 6)', () => {
+  assert.equal(cardPhotoCountLine(3), '3 of 5 photos');
+  assert.equal(cardPhotoCountLine(6, cardPhotoLimit(6)), '6 of 6 photos');
 });
 
 test('the SERVER keeps a valid primary: showcase photos with no primary promote the first', () => {

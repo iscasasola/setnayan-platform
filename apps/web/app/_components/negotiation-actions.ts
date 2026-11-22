@@ -47,6 +47,8 @@ import { isSafeNext } from '@/lib/safe-next';
 import { demoBookingRefusal } from '@/lib/demo-scope';
 import { askRefusal, LOCK_REFUSAL_WORDS } from '@/lib/supplier-locks';
 import { acceptClaimChangeQuote } from '@/lib/supplier-purchase-change.server';
+import { plusGateRefusal } from '@/lib/shop-plus-gate';
+import { shopPlusGate } from '@/lib/shop-plus-gate.server';
 
 function str(v: FormDataEntryValue | null, max: number): string | null {
   if (typeof v !== 'string') return null;
@@ -145,6 +147,11 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
     }
     redirect(dest);
   };
+  // 🪪 A ＋ tool needs a verified shop — the SHOP's side only; a couple asking for a meeting is never gated.
+  if (role === 'vendor') {
+    const refusal = plusGateRefusal(await shopPlusGate(supabase, thread.vendor_profile_id));
+    if (refusal) failWindow(refusal);
+  }
   if ((date as string) < todayManila) failWindow('Pick a meeting date from today onward.');
   if (eventDate && (date as string) >= eventDate) {
     failWindow('Meetings must be scheduled before the event day.');

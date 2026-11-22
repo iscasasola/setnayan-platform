@@ -9,7 +9,8 @@ import { Sheet } from '@/app/_components/sheet';
 import { ActionButton } from '@/components/action-button';
 import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import {
-  CARD_MAX_PHOTOS,
+  CARD_NEW_PHOTO_LIMIT,
+  cardPhotoLimit,
   canAddCardPhoto,
   cardPhotoCountLine,
   cardPhotoOrder,
@@ -38,9 +39,13 @@ import { formatCount } from '@/lib/format-number';
  */
 
 /** The section's ⓘ (T17) — every help line the two uploaders used to print, in one place. */
-export const CARD_PHOTOS_TIP = `The first photo is the primary — the first thing couples see on the card. Tap a photo to make it primary or delete it. PNG, JPEG or WebP up to 5 MB each; the Setnayan mark is added as it uploads. Up to ${formatCount(CARD_MAX_PHOTOS)} photos.`;
-/** The ⓘ once the grid is full — why the add tile is gone. */
-export const CARD_PHOTOS_FULL_TIP = `A card holds the primary and ${formatCount(CARD_MAX_PHOTOS - 1)} more. Delete one to add another.`;
+export const CARD_PHOTOS_TIP = `The first photo is the primary — the first thing couples see on the card. Tap a photo to make it primary or delete it. PNG, JPEG or WebP up to 5 MB each; the Setnayan mark is added as it uploads. Up to ${formatCount(CARD_NEW_PHOTO_LIMIT)} photos.`;
+/** The ⓘ once the grid is full — why the add tile is gone (the primary and 4 more; and 5 more on a card opened with 6). */
+export function cardPhotosFullTip(limit: number = CARD_NEW_PHOTO_LIMIT): string {
+  return `A card holds the primary and ${formatCount(limit - 1)} more. Delete one to add another.`;
+}
+/** The ⓘ once a new card's grid is full. */
+export const CARD_PHOTOS_FULL_TIP = cardPhotosFullTip();
 /** Why "Set as primary" is greyed on the primary itself. */
 export const ALREADY_PRIMARY_TIP =
   'This is the first thing couples see on the card. Open another photo to make that one the primary instead.';
@@ -67,6 +72,8 @@ export function CardPhotoGallery({
   const headId = useId();
 
   const seed = cardPhotoOrder(primaryCurrent, showcaseCurrent);
+  // New photos stop at 5; a card opened with 6 keeps 6 for this visit (Decided Q5). Fixed at open, never re-counted.
+  const [limit] = useState(() => cardPhotoLimit(seed.length));
   const onUploaded = useCallback((v: string | string[] | null) => {
     const refs = Array.isArray(v) ? v : v ? [v] : [];
     setOrder((o) => mergeUploadedPhotos(o, refs));
@@ -105,7 +112,7 @@ export function CardPhotoGallery({
   }
 
   const n = order.length;
-  const full = !canAddCardPhoto(n);
+  const full = !canAddCardPhoto(n, 0, limit);
   const openIdx = open ? order.indexOf(open) : -1;
   const openIsPrimary = openIdx === 0;
   const openUrl = open ? (displayUrls?.[open] ?? null) : null;
@@ -122,7 +129,7 @@ export function CardPhotoGallery({
         bucket="media"
         pathPrefix={`vendors/${vendorProfileId}/services/showcase`}
         multiple
-        maxFiles={CARD_MAX_PHOTOS}
+        maxFiles={limit}
         maxSizeMB={5}
         acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
         mark="supplier"
@@ -140,7 +147,7 @@ export function CardPhotoGallery({
 
       {n > 0 ? (
         <p data-card-photos-count="" className="flex justify-end pb-1 pt-0.5 text-[12.5px] tabular-nums text-ink/55">
-          {cardPhotoCountLine(n)}
+          {cardPhotoCountLine(n, limit)}
         </p>
       ) : null}
 

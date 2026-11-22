@@ -40,6 +40,18 @@ export async function fetchVendorWaitlist(
   vendorProfileId: string,
   fromDate: string,
 ): Promise<WaitlistDateGroup[]> {
+  return (await fetchVendorWaitlistRead(supabase, vendorProfileId, fromDate)).groups;
+}
+
+/**
+ * The same read with its outcome kept — `ok: false` = REFUSED, not "nobody waiting". The Waiting list fold reads this:
+ * on `[]` it said "Nobody waiting." and hid the notify button from couples who were (supplier audit 2026-11-17, D-4).
+ */
+export async function fetchVendorWaitlistRead(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  fromDate: string,
+): Promise<{ groups: WaitlistDateGroup[]; ok: boolean }> {
   const { data, error } = await supabase
     .from('vendor_date_waitlist')
     .select('requested_date')
@@ -50,16 +62,17 @@ export async function fetchVendorWaitlist(
 
   if (error || !data) {
     if (error) console.error('[waitlist] fetchVendorWaitlist failed:', error.message);
-    return [];
+    return { groups: [], ok: !error };
   }
 
   const counts = new Map<string, number>();
   for (const row of data as { requested_date: string }[]) {
     counts.set(row.requested_date, (counts.get(row.requested_date) ?? 0) + 1);
   }
-  return [...counts.entries()]
+  const groups = [...counts.entries()]
     .map(([requestedDate, pendingCount]) => ({ requestedDate, pendingCount }))
     .sort((a, b) => a.requestedDate.localeCompare(b.requestedDate));
+  return { groups, ok: true };
 }
 
 /**

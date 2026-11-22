@@ -132,22 +132,27 @@ test('2 · every field the couple recorded pre-fills the door', () => {
   assert.deepEqual(claimDetailKeysOf({ ...REC, contactPerson: null, plan: [] }), ['name', 'phone', 'service', 'price', 'incl']);
 });
 
-test('2 · v21’s order: invited by → tick what is wrong → one detail per slide → one slide per card → (the couple’s pay details, 2026-11-13) → bundle → plan → account', () => {
-  assert.match(
-    DOOR,
-    /const order: Screen\[\] = \[\s*'invite',\s*'details',\s*\.\.\.editKeys\.map\(\(k\) => `ed:\$\{k\}` as Screen\),\s*\.\.\.d\.cards\.map\(\(_, i\) => `card:\$\{i\}` as Screen\),[\s\S]{0,240}?\.\.\.\(!team && \(record\.payWays\?\.length \?\? 0\) > 0 \? \(\['pay'\] as Screen\[\]\) : \[\]\),\s*\.\.\.\(team \? \[\] : \(\['bundle'\] as Screen\[\]\)\),\s*'plan',\s*'account',\s*\];/,
-  );
-  // Slide 1 wears the door's frame: one terracotta main verb — "Claim it" (owner 10 Nov; it was "Confirm — continue"),
-  // the grey pills for Sign in & claim and I'm not this supplier (one equal-width row: the-claim-it-fills-owner.test.ts).
-  assert.match(DOOR, /primary = \{\s*label: 'Claim it',/);
-  assert.match(DOOR, /<ActionButton tone="neutral" icon=\{LogIn\} label="Sign in & claim" href=\{signInHref\} \/>/);
-  assert.match(DOOR, /label="I’m not this supplier"/);
+test('2 · 🚪 19 Nov order: Accept → Create account (SECOND) → Check your shop (a sheet per fact) → the first card → You’re all set', () => {
+  // SUPERSEDES v21's slide order (DECISION_LOG 2026-11-19 "SUPPLIER CLAIM ONBOARDING (couple QR) APPROVED"): the old
+  // slides are the list's sheets — every one is still drawn, from the same branch, over "Check your shop".
+  assert.match(DOOR, /const order: Screen\[\] = \['invite', 'account', 'details', \.\.\.\(d\.cards\.length \? \(\['card:0'\] as Screen\[\]\) : \[\]\), 'plan'\];/);
+  for (const sheet of ["'ed:name'", "'ed:who'", "'ed:service'", "'ed:phone'", "'package'", "'pay'"]) {
+    assert.ok(DOOR.includes(`sheet: ${sheet}`), `"Check your shop" lost its ${sheet} sheet`);
+  }
+  assert.match(DOOR, /const sheetView = sheet \? slide\(sheet\) : null;/);
+  // The package sheet holds what the price / inclusions / payment plan slides and the bundle slide asked.
+  assert.match(DOOR, /\(\['price', 'incl', 'plan'\] as const\)\.filter\(\(k\) => detailKeys\.includes\(k\)\)\.map\(\(k\) => slide\(`ed:\$\{k\}`\)\.body\)/);
+  // Slide 1 wears the door's frame: the main verb is "Accept" (owner 19 Nov; it was "Claim it"),
+  assert.match(DOOR, /primary = \{\s*label: ACCEPT_LABEL,/);
+  // P1 (19 Nov): the grey pills became quiet links — I have an account · Not my business.
+  assert.match(DOOR, /<ActionButton tone="neutral" quiet icon=\{LogIn\} label="I have an account" href=\{signInHref\} \/>/);
+  assert.match(DOOR, /label=\{NOT_MY_BUSINESS\}/);
   // Specialties are optional — never in a Continue gate.
   assert.match(DOOR, /Specialties[\s\S]{0,400}optional/);
 });
 
 // The account slide's branch — the ONE place an email box may be (owner 7 Nov: "Yes" to Continue with Email).
-const ACCOUNT = DOOR.slice(DOOR.indexOf("title = 'Your account';"), DOOR.indexOf('primary = null;', DOOR.indexOf("title = 'Your account';")));
+const ACCOUNT = DOOR.slice(DOOR.indexOf('[title] = ONBOARDING_HEADS.account;'), DOOR.indexOf('signedInAs || (emailWay && !taken && !sentTo)', DOOR.indexOf('[title] = ONBOARDING_HEADS.account;')));
 const BEFORE_ACCOUNT = DOOR.replace(ACCOUNT, '');
 
 test('3 · NO EMAIL FIELD on the slides before the account — the record’s details never include an email', () => {
@@ -164,16 +169,23 @@ test('3 · NO EMAIL FIELD on the slides before the account — the record’s de
   assert.match(ACT, /const typed = String\(formData\.get\('contact_email'\) \?\? ''\)[^\n]*\n\s*const decision = decideOpenShopAccount\(/);
 });
 
-test('3 · the account slide: Google · Apple · Email — Email chosen hides the others, "Use another way" brings them back', () => {
+test('3 · the account slide (P2, drawing v4 19 Nov): Google · Apple, then "or", then the email boxes — all at once', () => {
   const ways = ACCOUNT.slice(ACCOUNT.indexOf('data-claim-door-ways=""'));
   const email = ACCOUNT.slice(ACCOUNT.indexOf('} else if (emailWay) {'), ACCOUNT.indexOf('data-claim-door-ways=""'));
   assert.ok(ways.length > 100 && email.length > 500, 'the two halves of the account slide could not be found');
-  // Not chosen: the shipped Google / Apple row, then Email in the same button shape.
+  // 🚪 Owner 19 Nov (drawing v4 P2, newer than v19's 7 Nov "Email chosen → the ways go"): the email boxes are open from
+  // the start, and Google · Apple sit ABOVE them with an "or" — outside the finish form, because the OAuth row is a
+  // form of its own and forms never nest. "Use another way" over the boxes is gone.
+  assert.match(DOOR, /const \[emailWay, setEmailWay\] = useState\(true\);/, 'the email boxes do not open from the start');
+  const above = DOOR.slice(DOOR.indexOf('key="ways-above"'), DOOR.indexOf('<form action={finishClaimDoor}'));
+  assert.ok(above.length > 200 && above.length < 2500, 'the ways above the boxes could not be found');
+  assert.match(above, /<OAuthButtonRow next=\{claimDoorHref\(record\.token\) \+ '&step=account'\}/);
+  assert.match(above, /data-claim-door-or=""[\s\S]{0,200}\bor\b/);
+  assert.doesNotMatch(email, /OAuthButtonRow|DesktopOAuthButtons|NativeOAuthButtons/, 'Google / Apple are drawn inside the finish form');
+  assert.doesNotMatch(email, /label="Use another way"/, '"Use another way" is back over the boxes');
+  // The no-Google fallback (and a taken address's "Use another way") still has Email in the ways' own button shape.
   assert.match(ways, /<OAuthButtonRow next=\{returnTo\}/);
   assert.match(ways, /className=\{OAUTH_BUTTON_CLASS\}[\s\S]{0,300}setEmailWay\(true\)[\s\S]{0,400}\{OAUTH_VERB\} Email/);
-  // Chosen: no Google / Apple at all, one grey "Use another way".
-  assert.doesNotMatch(email, /OAuthButtonRow|DesktopOAuthButtons|NativeOAuthButtons/, 'Email chosen still shows Google / Apple');
-  assert.match(email, /<ActionButton tone="neutral" icon=\{X\} label="Use another way" onClick=\{\(\) => setEmailWay\(false\)\}/);
   // The shipped boxes: one email, the shipped password field (quiet: one rule line), the Terms tick.
   assert.equal(email.match(/type="email"/g)?.length, 1);
   assert.equal(email.match(/name="contact_email"/g)?.length, 1);
@@ -192,9 +204,9 @@ test('3 · the account slide: Google · Apple · Email — Email chosen hides th
 test('3 · the email way IS the shipped /open-shop path, after the invite is known to be usable', () => {
   // The boxes post with the finish form, which carries the bot check (lib/captcha-is-wired.test.ts pairs them).
   const form = DOOR.slice(DOOR.indexOf('<form action={finishClaimDoor}'), DOOR.indexOf('</form>', DOOR.indexOf('<form action={finishClaimDoor}')));
-  assert.match(form, /\{emailForm \? <TurnstileField action="signup" \/> : null\}/);
-  assert.match(form, /\{emailForm \? \([\s\S]{0,120}\{body\}/, 'the email boxes are drawn outside the form that posts them');
-  assert.match(DOOR, /const emailForm = d\.screen === 'account' && !signedInAs && !sentTo && emailWay && !taken;/);
+  assert.match(form, /\{emailMounted && last \? <TurnstileField action="signup" \/> : null\}/);
+  assert.match(form, /\{emailMounted \? \([\s\S]{0,160}\{emailBody\}/, 'the email boxes are drawn outside the form that posts them');
+  assert.match(DOOR, /const emailMounted = !signedInAs && !sentTo && emailWay && !taken;/);
   // Server: the shipped decision + account maker, never a second signUp.
   assert.match(ACT, /decideOpenShopAccount\(\{/);
   assert.match(ACT, /createVendorAccountForShop\(\{/);
@@ -231,13 +243,15 @@ test('1 · 🎁 Setnayan’s invite: pre-filled from the staged shop, the offer 
 
 test('4 · only the screens changed — the consent is the shipped finalize', () => {
   assert.doesNotMatch(ACT, /applyClaimAutoLink\(|seatClaimedCoupleAsCustomer\(|claim_ask_for_access/, 'the door grew its own consent');
-  assert.match(ACT, /redirect\(`\/vendor\/claim\/\$\{encodeURIComponent\(token\)\}\/finalize`\);\s*\}\s*$/, 'the finish no longer ends on the shipped finalize');
+  // 🚪 19 Nov: Edit on the first card rides through finalize as `?edit=` — the consent still comes first.
+  // (Ship review 21 Nov: an Edit whose card cannot be found rides as `?edit=unread`, said on Today — test 4 below.)
+  assert.match(ACT, /redirect\(`\/vendor\/claim\/\$\{encodeURIComponent\(token\)\}\/finalize\$\{editParam \? `\?edit=\$\{editParam\}` : ''\}`\);\s*\}/, 'the finish no longer ends on the shipped finalize');
   assert.match(ACT, /await createVendorService\(fd\)/, 'the cards are no longer made by the shipped card maker');
   assert.match(ACT, /await savePackage\(\{/, 'the bundle is no longer made by the shipped package maker');
 });
 
-const BUNDLE_SLIDE = DOOR.slice(DOOR.indexOf("} else if (d.screen === 'bundle') {"), DOOR.indexOf("} else if (d.screen === 'plan') {"));
-const CARD_SLIDE = DOOR.slice(DOOR.indexOf("} else if (d.screen.startsWith('card:')) {"), DOOR.indexOf("} else if (d.screen === 'bundle') {"));
+const BUNDLE_SLIDE = DOOR.slice(DOOR.indexOf("} else if (view === 'bundle') {"), DOOR.indexOf("} else if (view === 'package') {"));
+const CARD_SLIDE = DOOR.slice(DOOR.indexOf("} else if (view.startsWith('card:')) {"), DOOR.indexOf("} else if (view === 'bundle') {"));
 
 test('5a · the bundle slide lists ONLY the services the couple recorded — an added one is named as the supplier’s own', () => {
   assert.ok(BUNDLE_SLIDE.length > 200, 'the bundle slide could not be found');
@@ -277,4 +291,68 @@ test('5d · an added service’s card slide: no "Part of the ₱… bundle", no 
   assert.match(CARD_SLIDE, /\{team \|\| added\s*\? null\s*: inBundle\s*\? band\(/, 'the "Part of the … bundle" band is no longer kept off an added service');
   assert.match(CARD_SLIDE, /\{inBundle \? \(\s*<span>\s*<ActionButton[^>]*label="Price it on its own"/, '"Price it on its own" is no longer kept off an added service');
   assert.doesNotMatch(CARD_SLIDE, /c\.bundled \?/, 'the card slide branches on c.bundled again — an added service could read as part of the bundle');
+});
+
+test('4 · P4 (drawing v4): the couple’s first card is DRAFTED — the card, then "Built from what <couple> recorded" — by the ONE piece Door B’s PB4 uses', () => {
+  const PIECE = src('app/open-shop/_components/first-card-draft.tsx');
+  const WIZARD = src('app/open-shop/_components/open-shop-wizard.tsx');
+  // One piece, two doors: neither door draws the card face by hand any more.
+  assert.match(PIECE, /export function FirstCardDraft\(/);
+  for (const [name, code] of [['claim door', DOOR], ['wizard', WIZARD]] as const) {
+    assert.equal(code.match(/<FirstCardDraft\b/g)?.length, 1, `the ${name} does not draw its first card with FirstCardDraft`);
+    assert.doesNotMatch(code, /data-(?:onboarding|claim-door)-card-face=""/, `the ${name} draws a card face by hand`);
+  }
+  // The claim door's draft: only the couple's own first card, its lines read-only on the face, and where each part came from.
+  assert.match(DOOR, /const drafted = i === 0 && !team && !added && !inBundle;/);
+  assert.match(DOOR, /sourceHead=\{`Built from what \$\{record\.inviterName\} recorded`\}/);
+  for (const why of ['they picked it', 'they booked you for', 'they logged it', 'add yours']) assert.ok(DOOR.includes(`'${why}'`), `the "${why}" source is gone`);
+  // No price is guessed: an unlogged price reads "Not logged" and the box asks for it; Approve still needs a price.
+  assert.match(DOOR, /cardPriceNum \? peso\(c\.price\) : 'Not logged'/);
+  assert.match(DOOR, /drafted \? 'From \(PHP\)' : 'Price'/);
+  assert.match(DOOR, /Type a price to approve this card — or Edit it, or Skip\./);
+  // The drafted body still carries the price box and the optional "Which one?" / specialties — nothing posted is dropped.
+  const drafted = DOOR.slice(DOOR.indexOf('const draftedBody = drafted ? ('), DOOR.indexOf(') : null;', DOOR.indexOf('const draftedBody = drafted ? (')));
+  assert.ok(drafted.length > 300, 'the drafted body could not be found');
+  assert.match(drafted, /\{priceBox\}\s*\{extras\}/);
+  assert.match(DOOR, /if \(draftedBody\) body = draftedBody;/);
+});
+
+test('1 · P1 (controller 21 Nov): the "Couple invite" label sits over every Door A title, and the date reads as the drawing does — "Sat, Dec 19, 2026"', async () => {
+  // The label: ONE header every screen draws, the host noun capitalised ("couple" → "Couple invite"), right over the h1.
+  const head = DOOR.slice(DOOR.indexOf('<div key={d.screen} className="os-in-r grid gap-[3px]">'), DOOR.indexOf('</h1>', DOOR.indexOf('<div key={d.screen} className="os-in-r grid gap-[3px]">')));
+  assert.ok(head.length > 100 && head.length < 900, 'the screen header could not be found');
+  assert.match(head, /\{team \? 'Your invite' : `\$\{record\.hostNoun\.charAt\(0\)\.toUpperCase\(\) \+ record\.hostNoun\.slice\(1\)\} invite`\}/);
+  assert.match(head, /<h1\b[\s\S]*\{title\}\s*$/);
+  assert.equal((DOOR.match(/ invite`\}/g) ?? []).length, 1, 'a second, hand-placed invite label');
+  // The date: the record's phrase comes from the couple's own date line (`suppliersDateFact`) — weekday, short month,
+  // day, year — and P1 drops the preposition: "For their wedding · Sat, Dec 19, 2026."
+  const { claimDatePhrase } = await import('../../lib/claim-invite-words');
+  assert.deepEqual(claimDatePhrase('2026-12-19', 'day'), { preposition: 'on', label: 'Sat, Dec 19, 2026' });
+  assert.deepEqual(claimDatePhrase('2026-12-01', 'month'), { preposition: 'in', label: 'December 2026' });
+  assert.match(DOOR, /`For their \$\{record\.eventWord\}\$\{record\.datePhrase \? ` · \$\{record\.datePhrase\.replace\(\/\^\(on\|in\) \/, ''\)\}` : ''\}\.`/);
+  const SERVER = src('lib/claim-door.server.ts');
+  assert.match(SERVER, /const date = claimDatePhrase\(event\?\.event_date, event\?\.event_date_precision\);/);
+  assert.match(SERVER, /datePhrase: date \? `\$\{date\.preposition\} \$\{date\.label\}` : null,/);
+  // The lab draws its sample through the same formatter, so the shots show the real format — no hand-typed date.
+  const LAB = src('app/dev/open-shop-lab/page.lab.tsx');
+  assert.match(LAB, /const LAB_DATE = claimDatePhrase\('2026-12-12', 'day'\);/);
+  assert.doesNotMatch(LAB, /datePhrase: '(?:on|in) /, 'the lab hand-types a date again');
+});
+
+test('4 · ship review 21 Nov — Edit picked but the card cannot be found is SAID on Today, never a silent welcome', async () => {
+  const ACT = src('app/open-shop/claim-actions.ts');
+  const FIN = src('app/vendor/claim/[token]/finalize/page.tsx');
+  const WEL = src('app/vendor-dashboard/_components/today-welcome.tsx');
+  const TOD = src('app/vendor-dashboard/page.tsx');
+  const mod = await import('../../lib/supplier-onboarding');
+  // The action: Edit with no id found → `?edit=unread` to finalize.
+  assert.match(ACT, /const editParam = editId \? encodeURIComponent\(editId\) : answers\.firstCard === 'edit' \? FIRST_CARD_EDIT_UNREAD : null;/);
+  assert.match(ACT, /finalize\$\{editParam \? `\?edit=\$\{editParam\}` : ''\}/);
+  // Finalize: `?edit=unread` → the claimed welcome carrying `card_edit=unread`.
+  assert.equal(mod.welcomeEditUnreadPath(mod.WELCOME_CLAIMED_PATH), '/vendor-dashboard?claimed=1&card_edit=unread');
+  assert.match(FIN, /editCard === FIRST_CARD_EDIT_UNREAD\s*\?\s*welcomeEditUnreadPath\(WELCOME_CLAIMED_PATH\)/);
+  assert.match(FIN, /if \(v === FIRST_CARD_EDIT_UNREAD\) return FIRST_CARD_EDIT_UNREAD;/);
+  // Today: the flag reaches the welcome, which says it and links the cards.
+  assert.match(TOD, /editUnread=\{search\.card_edit === FIRST_CARD_EDIT_UNREAD\}/);
+  assert.match(WEL, /\{editUnread \? \([\s\S]{0,300}\{FIRST_CARD_EDIT_UNREAD_LINE\}[\s\S]{0,200}href="\/vendor-dashboard\/services"/);
 });

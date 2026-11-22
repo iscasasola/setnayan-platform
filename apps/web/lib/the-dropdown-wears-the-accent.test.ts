@@ -88,7 +88,9 @@ test('(2) Tailwind emits the classes from the real config — and inside the gue
   const out = await postcss([tailwind({ ...config, content: [{ raw: used, extension: 'html' }] })]).process('@tailwind utilities;', { from: undefined });
   const css = out.css;
   // The accent, read from the ONE setting.
-  assert.match(css, /\.text-sn-accent\s*\{[^}]*color:\s*rgb\(var\(--sn-accent\) \/ var\(--tw-text-opacity[^)]*\)\)/, 'Tailwind does not emit text-sn-accent from the accent setting');
+  // As a WORD the accent may read its own token first (`--sn-accent-word`, set only by the supplier navy dark where the
+  // button's deep blue cannot also be text — 18 Nov 2026); everywhere else that is unset and the accent itself paints.
+  assert.match(css, /\.text-sn-accent\s*\{[^}]*color:\s*rgb\(var\(--sn-accent-word, var\(--sn-accent\)\) \/ var\(--tw-text-opacity[^)]*\)\)/, 'Tailwind does not emit text-sn-accent from the accent setting');
   // The exemption: a rule that only matches INSIDE `.sn-editorial`, and wins there (one class more than `.text-sn-accent`).
   const hub = /\.sn-editorial \.\\\[\\\.sn-editorial_\\&\\\]\\:text-inherit\s*\{\s*color:\s*inherit;?\s*\}/.exec(css);
   assert.ok(hub, `Tailwind does not emit the hub’s rule for the ▾ — it would be the app’s accent on a guest’s page:\n${css.slice(0, 600)}`);

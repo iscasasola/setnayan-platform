@@ -25,6 +25,7 @@ import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
+import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
   PORTFOLIO_FREE_BASE,
   TIER_CAPS,
@@ -72,7 +73,9 @@ export function freeSpec(): string {
 
 /** Verified's spec line — "You set your own reach · the Verified seal · get paid in the app". */
 export function verifiedSpec(): string {
-  return `${VERIFIED_REACH} · the Verified seal · get paid in the app`;
+  // 💬 Owner 21 Nov: "AI Chatbot is for verified and up" — the same words as /for-suppliers, read from the gate's table.
+  const chatbot = (PLAN_CHATBOT_LEVEL.verified ?? 'none') !== 'none' ? ' · the AI chatbot' : '';
+  return `${VERIFIED_REACH} · the Verified seal · get paid in the app${chatbot}`;
 }
 
 /**

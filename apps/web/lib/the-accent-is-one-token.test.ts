@@ -180,7 +180,7 @@ test('(2) the words on the accent read — 4.5:1 at least, from the numbers in t
   }
   // Today: the terracotta the old token holds, in both blocks.
   assert.deepEqual(triplet(resolve(LIGHT['--sn-accent']!, LIGHT)), [194, 78, 37]);
-  assert.deepEqual(triplet(resolve(DARK['--sn-accent']!, DARK)), [229, 121, 78]);
+  assert.deepEqual(triplet(resolve(DARK['--sn-accent']!, DARK)), [238, 132, 86]); // #EE8456 — the dark decision (owner 18 Nov)
   // The measure itself: white on the terracotta passes; white on a pale blue does NOT; a dark ink on it does.
   assert.ok(Math.abs(contrast([194, 78, 37], [255, 255, 255]) - 4.76) < 0.05);
   assert.ok(contrast([147, 197, 253], [255, 255, 255]) < 4.5, 'anti-vacuity: a pale accent under white words is let through');
@@ -190,12 +190,14 @@ test('(2) the words on the accent read — 4.5:1 at least, from the numbers in t
 
 /* ── (3) one line reaches every template ──────────────────────────────── */
 
-const THE_ONE_LINE = '--sn-accent: var(--color-mulberry);';
+// The toggle's ONE token since the one colour set (18 Nov 2026): `--sn-accent` points at `--color-toggle`, which is
+// set on this one line (a pointer at the decision colour — owner's pick 4, "toggles in the decision colour").
+const THE_ONE_LINE = '--color-toggle: var(--color-mulberry);';
 const BLUE = '37 99 235';
 
 test('(3) one line makes it blue — every template’s "on" colour resolves to the token, through the real Tailwind config', async () => {
   assert.equal(CSS.split(THE_ONE_LINE).length - 1, 1, 'the accent is set on more than one line (or none)');
-  const standIn = CSS.replace(THE_ONE_LINE, `--sn-accent: ${BLUE};`);
+  const standIn = CSS.replace(THE_ONE_LINE, `--color-toggle: ${BLUE};`);
   const blueVars = varsOf(standIn.slice(lightAt, standIn.indexOf('html.dark {')));
 
   const tw = (await import('../tailwind.config')).default as { theme: { extend: { colors: Record<string, unknown> } } };

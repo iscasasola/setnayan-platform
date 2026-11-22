@@ -11,6 +11,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tokenHex } from '@/lib/css-colour-tokens';
 
 import { stripComments } from '@/lib/strip-comments';
 
@@ -42,7 +43,11 @@ test('4 · the tour card is solid: one opaque token, no glass, no blur', () => {
   assert.ok(token, '--sn-spot-card is not the paper');
   // The paper itself is opaque in light and in dark — a hex with no alpha.
   const globals = read('app/globals.css');
-  const papers = [...globals.matchAll(/^\s*--m-paper:\s*([^;]+);/gm)].map((m) => m[1]!.trim());
-  assert.ok(papers.length >= 2, 'anti-vacuity: the light and dark paper were not found');
-  for (const p of papers) assert.match(p, /^#[0-9a-f]{6}$/i, `--m-paper is ${p} — the tour card would show the words under it`);
+  // Followed through its pointer (`--m-paper: rgb(var(--color-raised))` since the one colour set, 18 Nov 2026): one
+  // opaque colour in each theme, or the reader answers null.
+  assert.ok([...globals.matchAll(/^\s*--m-paper:\s*([^;]+);/gm)].length >= 2, 'anti-vacuity: the light and dark paper were not found');
+  for (const theme of ['light', 'dark'] as const) {
+    const p = tokenHex('--m-paper', theme);
+    assert.match(p ?? 'not opaque', /^#[0-9a-f]{6}$/i, `--m-paper is ${p} in ${theme} — the tour card would show the words under it`);
+  }
 });

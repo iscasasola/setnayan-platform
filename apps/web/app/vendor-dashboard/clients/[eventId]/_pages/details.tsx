@@ -12,6 +12,7 @@
  */
 import { AgreedNow } from '@/app/_components/chat/agreed-now';
 import { SupplierLocksSection } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-locks-section';
+import { CakeDesignOnOrder } from '@/app/vendor-dashboard/clients/[eventId]/_components/cake-design-on-order';
 import type { PickedPageProps } from './context';
 
 export function DetailsPage({ ctx, shipped }: PickedPageProps) {
@@ -26,8 +27,11 @@ export function DetailsPage({ ctx, shipped }: PickedPageProps) {
           viewerUserId={ctx.viewerUserId}
           threadId={ctx.threadId}
           isBooked={ctx.isBooked}
+          facts={ctx.agreedFacts}
         />
       </div>
+      {/* 🎂 The couple's cake design from the chat, and the order's making time (Cake Maker §03). Nothing when none. */}
+      <CakeDesignOnOrder ctx={ctx} />
       <SupplierLocksSection eventId={ctx.eventId} vendorProfileId={ctx.vendorProfileId} />
       {shipped ?? null}
     </>

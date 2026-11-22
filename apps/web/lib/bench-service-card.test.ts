@@ -132,30 +132,38 @@ test('🔑 the page reads cards only for the couple’s OWN picks, in the pass t
 test('🔑 the bench card wears the service card only on the one-screen page, and adds — never replaces', () => {
   assert.match(BENCH, /\(\) => \(\{ face: replan, cards: serviceCardByVendorId \}\)/);
   assert.match(BENCH, /const svc = look\.face \? \(look\.cards\?\.\[v\.vendorId\] \?\? null\) : null;/);
-  // The name leads; the supplier's own name is still printed under it.
-  const meta = BENCH.slice(BENCH.indexOf('<span className="meta">'), BENCH.indexOf('<CardStanding standing='));
-  assert.ok(meta.indexOf('className="sc-name"') > 0 && meta.indexOf('className="sc-name"') < meta.indexOf('<span className="vn">{v.name}</span>'));
-  assert.match(meta, /\{svc\?\.name \?\? tileLabel\}/);
-  for (const line of ['svc?.discountBadge', 'svc.priceText', 'svc.includesLine', "svc.notIncluded.join(' · ')"]) {
-    assert.ok(meta.includes(line), `the card stopped printing ${line}`);
-  }
+  // 🃏 Card 14 (owner 20 Nov, "card 14 approved"): on the one-screen page the bench card is the MALL face —
+  // `MallFaceBody`, the body Discover's card draws. The card's name leads, the supplier's own name is the shop line,
+  // the price goes through `mallPrice`, and the couple's own record still takes the price slot.
+  const mall = BENCH.slice(BENCH.indexOf('<MallFaceBody'), BENCH.indexOf('<span className="meta">'));
+  assert.ok(mall.length > 200, 'the one-screen bench card no longer draws MallFaceBody');
+  assert.match(mall, /name=\{svc\?\.name \?\? tileLabel\}/);
+  assert.match(mall, /shop=\{\{ name: v\.name,/);
+  assert.match(mall, /discount=\{hasRecordedPrice \? null : \(svc\?\.discountBadge \?\? null\)\}/);
+  assert.match(mall, /mallPrice\(\{ perGuest: svc\.perGuest \?\? null, guests: mallEvent\.guests, price: svc\.priceText/);
+  assert.match(mall, /priceSlot=\{recordedPrice\}/);
+  // Includes, Not included and the gift live in the OPENED card on the mall face (`service-face.tsx` docblock).
+  // The pre-replan bench keeps its shipped meta block, supplier name first.
+  const meta = BENCH.slice(BENCH.indexOf('<span className="meta">'), BENCH.indexOf('</InspectorTrigger>'));
+  assert.match(meta, /^<span className="meta">\s*<span className="vn">\{v\.name\}<\/span>/);
   // On this page every card has verbs, so it never takes the bare branch.
   assert.match(BENCH, /!actions \|\|\s*\(!look\.face &&\s*!actions\.build &&/);
 });
 
 test('🔑 "Price on request" is said only when the cards were READ, and never over a recorded price', () => {
-  const meta = BENCH.slice(BENCH.indexOf('<span className="meta">'), BENCH.indexOf('<CardStanding standing='));
-  assert.match(meta, /look\.face && !hasRecordedPrice && !v\.includedWith \?/);
-  assert.match(meta, /\) : look\.cards \? \(\s*<span className="sc-price none">\{PRICE_ON_REQUEST\}<\/span>\s*\) : null/);
-  // The marketplace card in "More to compare" obeys the same rule.
-  // 12 Nov 2026 (ONE SERVICE CARD, EVERYWHERE): that card is drawn by the one face, which says `priceMissing` only when
-  // it has no price — so the words still never sit over a recorded price.
+  assert.match(
+    BENCH,
+    /look\.face && !hasRecordedPrice && !v\.includedWith && !svc\?\.priceText\s*\?\s*selfAdded\s*\?\s*'No price recorded'\s*:\s*look\.cards\s*\?\s*PRICE_ON_REQUEST\s*:\s*null/,
+  );
+  assert.match(BENCH, /priceMissing=\{cardPriceMissing\}/);
+  // The marketplace card in "More to compare" obeys the same rule: the one face says `priceMissing` only when it has
+  // no price — so the words still never sit over a recorded price.
   assert.match(BENCH, /price=\{svc\?\.priceText \?\? null\}\s*priceMissing=\{cardsRead \? PRICE_ON_REQUEST : null\}/);
   assert.match(BENCH, /cardsRead=\{!cardsUnread && \(moreAll \? true : moreCards !== null\)\}/);
   // Find v4 (2026-10-29): a shop's other card in the category ("also …") — the third shape, said only over a card READ.
   assert.match(BENCH, /: c\.card \? <span className="sc-price none">\{PRICE_ON_REQUEST\}<\/span> : null/);
   assert.equal(
-    (BENCH.match(/PRICE_ON_REQUEST\}|cardsRead \? PRICE_ON_REQUEST : null/g) ?? []).length,
+    (BENCH.match(/look\.cards\s*\?\s*PRICE_ON_REQUEST|PRICE_ON_REQUEST\}|cardsRead \? PRICE_ON_REQUEST : null/g) ?? []).length,
     3,
     'one per card shape — no fourth, unguarded one',
   );
@@ -163,9 +171,11 @@ test('🔑 "Price on request" is said only when the cards were READ, and never o
 });
 
 test('the gift is the one shared sentence, gated on the yes', () => {
+  // Card 14: the couple's own card draws the mall face, which carries no gift line (it is in the opened card);
+  // the marketplace card hands it to the one face, which draws it in its row layout.
   const mounts = BENCH.match(/\{svc\?\.givesSetnayanGift \? <SetnayanGiftLine className="sc-gift" \/> : null\}/g) ?? [];
-  assert.equal(mounts.length, 2, 'both card shapes — the couple’s own and the marketplace one');
-  assert.equal((BENCH.match(/<SetnayanGiftLine\b/g) ?? []).length, 2, 'a gift line that is not gated on the yes');
+  assert.equal(mounts.length, 1, 'the marketplace card lost its gift line, or a second ungated one appeared');
+  assert.equal((BENCH.match(/<SetnayanGiftLine\b/g) ?? []).length, 1, 'a gift line that is not gated on the yes');
 });
 
 test('in a stacked list "earlier" is up — the arrange arrows and their hint say so', () => {

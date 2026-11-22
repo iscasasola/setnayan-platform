@@ -358,7 +358,7 @@ export function LiveStoryPanel({
     <form
       ref={formRef}
       data-love-story-live=""
-      className="rounded-md border border-ink/10 bg-white/70 p-3"
+      className="rounded-md border border-ink/10 bg-raised/70 p-3"
       onChange={onField}
       /* A milestone row added or removed is a click, not an input. */
       onClick={(e) => {

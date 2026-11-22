@@ -37,19 +37,35 @@ export function makeQuoteOfferStart(picked: readonly MakeQuoteCardOption[]): num
   return picked.reduce((sum, c) => sum + Math.max(0, c.fromCentavos ?? 0), 0);
 }
 
+/** A priced line a design adds after the card's own line (🎂 a cake design: one line per priced pick). */
+export type MakeQuoteExtraLine = { label: string; centavos: number };
+
 /**
  * The quote the card sends: ONE line at the offer, named for the picked cards (the server re-sums the total from the
- * lines, so the line IS the offer). A single card is named as the line's card, so a revision re-opens it from it.
+ * lines, so the lines ARE the offer). A single card is named as the line's card, so a revision re-opens it from it.
+ *
+ * 🎂 With `extras` (a cake design's priced picks, Cake Maker v6 §03): the card's line is the offer LESS the extras, then
+ * one line per extra — so the total is still exactly the offer the supplier typed.
  */
-export function makeQuoteLines(picked: readonly MakeQuoteCardOption[], offerCentavos: number): { label: string; detail: null; amount_centavos: number; card_id?: string }[] {
+export function makeQuoteLines(
+  picked: readonly MakeQuoteCardOption[],
+  offerCentavos: number,
+  extras: readonly MakeQuoteExtraLine[] = [],
+): { label: string; detail: null; amount_centavos: number; card_id?: string }[] {
   const label = picked.map((c) => c.name.trim()).filter(Boolean).join(' · ').slice(0, 160) || 'Your offer';
-  const line = { label, detail: null, amount_centavos: Math.max(0, Math.round(offerCentavos)) };
-  return picked.length === 1 ? [{ ...line, card_id: picked[0]!.id }] : [line];
+  const extra = extras.filter((x) => x.centavos > 0).map((x) => ({ label: x.label.slice(0, 160), detail: null, amount_centavos: Math.round(x.centavos) }));
+  const rest = extra.reduce((a, x) => a + x.amount_centavos, 0);
+  const line = { label, detail: null, amount_centavos: Math.max(0, Math.round(offerCentavos) - rest) };
+  return [picked.length === 1 ? { ...line, card_id: picked[0]!.id } : line, ...extra];
 }
 
+/** The extras alone — what the offer can't go below. */
+export const makeQuoteExtrasCentavos = (extras: readonly MakeQuoteExtraLine[]) => extras.reduce((a, x) => a + Math.max(0, Math.round(x.centavos)), 0);
+
 /** Null = it may be sent. Otherwise the one sentence the card shows (the shipped Good-until words for the date). */
-export function makeQuoteRefusal(input: { picked: number; offerCentavos: number; validUntil: string | null; todayIso: string; eventDate: string | null }): string | null {
+export function makeQuoteRefusal(input: { picked: number; offerCentavos: number; validUntil: string | null; todayIso: string; eventDate: string | null; extrasCentavos?: number }): string | null {
   if (input.picked === 0) return 'Pick at least one of your cards.';
   if (!(input.offerCentavos > 0)) return 'Type your offer.';
+  if (input.extrasCentavos && input.offerCentavos < input.extrasCentavos) return 'Your offer can’t be less than the extras listed.';
   return validUntilRefusal(input.validUntil, input.todayIso, input.eventDate);
 }

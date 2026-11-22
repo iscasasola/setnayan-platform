@@ -17,7 +17,7 @@
  * does not say "every plan".
  * 🔒 ../the-earn-block-says-what-was-ruled.test.ts
  */
-import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
+import { FEE_FREE_CHIP } from '@/lib/booking-fee-who-words';
 import { Info } from './supplier-front-info';
 import s from './supplier-front.module.css';
 import {
@@ -50,9 +50,9 @@ export function SupplierHowWeEarn({
 }) {
   const dash = (v: string | null) => v ?? '—';
   const feePrice = figures
-    ? `${figures.head} on the first ${figures.band} of a booking, ${figures.tail} after. ${FIRST_BOOKING_FREE}`
+    ? `${figures.head} on the first ${figures.band} of a booking, ${figures.tail} after. ${FEE_FREE_CHIP}.`
     : feeEnabled
-      ? `The rate is shown in full on the booking before you agree. ${FIRST_BOOKING_FREE}`
+      ? `The rate is shown in full on the booking before you agree. ${FEE_FREE_CHIP}.`
       : 'There is no booking fee while it is switched off.';
   return (
     <div className={s.earn} id="earn">

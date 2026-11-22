@@ -96,7 +96,8 @@ test('5 · the wiring: own-session read first, admin-gated decision, the form on
   assert.match(fn, /type: 'fee_dispute_answered'/);
   assert.match(act, /if \(formData\.get\('op'\) === 'decide'\) return decide\(formData\);/, 'decide only on its own op');
 
-  const page = read('app/vendor-dashboard/booking-fees/[orderId]/page.tsx');
+  // Set two (21 Nov 2026): the page decides `canDispute`, its body draws the form.
+  const page = read('app/vendor-dashboard/booking-fees/[orderId]/page.tsx') + '\n' + read('app/vendor-dashboard/booking-fees/[orderId]/fee-body.tsx');
   assert.match(page, /const canDispute = payable && Boolean\(chargeId\) && dispute === null;/);
   assert.match(page, /\{canDispute \? \(/);
   assert.match(read('app/admin/disputes/page.tsx'), /<BookingFeeDisputesSection /);

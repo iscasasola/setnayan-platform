@@ -893,7 +893,10 @@ button.ico {
   white-space: nowrap;
   flex: 0 0 auto;
   color: var(--gs-mute);
-  font-size: 13px;
+  /* The count speaks in the heading's own letters, 8 px after it (drawing v4 § 1: "BRIDE & GROOM  2"). */
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: -4px; /* the bar's 12 px gap → 8 */
 }
 .chev {
   margin-left: auto;
@@ -2064,19 +2067,18 @@ button.countsDoor[aria-pressed='true'] {
    sit right above the thumb row, in the page's muted words; the add line in the add colour. */
 .dragHint {
   position: absolute;
-  left: max(22px, calc(var(--sn-safe-l) + 6px));
-  right: auto;
-  max-width: calc(100% - 44px);
-  bottom: calc(100% + 4px);
+  /* An unframed line on a band of the page colour, gutter to gutter (22 Nov, Fable review of the built page: a framed
+     pill reads as pressable and still hid a result). The band keeps the rows behind it from showing through. */
+  left: max(16px, calc(var(--sn-safe-l) + 4px));
+  right: max(16px, calc(var(--sn-safe-r) + 4px));
+  bottom: 100%;
   display: flex;
   align-items: center;
   gap: 6px;
   margin: 0;
-  /* On the row's own glass (`sn-glass-row` on the element) — the list scrolls behind it and never shows through the
-     words (22 Nov, drawing v4 parity: the line sat on "Table 9"). March's line wears the same. */
-  padding: 6px 12px;
-  border-radius: var(--m-r-full);
-  font-size: 13px;
+  padding: 6px 4px;
+  background: var(--gs-paper);
+  font-size: 12px;
   color: var(--gs-mute);
   pointer-events: none;
 }

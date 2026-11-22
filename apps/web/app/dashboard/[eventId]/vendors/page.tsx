@@ -104,6 +104,7 @@ import { readBranchPins } from '@/lib/supplier-places.server';
 import { readNearAnchors } from '@/lib/find-near-anchors.server';
 import { nearRows, type NearPin } from '@/lib/find-sort-choices';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
+import { readShopFileServes, shopFileUrl } from '@/lib/supplier-file-sign.server';
 import {
   bucketVendorsByGroup,
   canonicalServiceToPlanGroupId,
@@ -3374,10 +3375,14 @@ async function fetchVendorPhotoMaps(
   // service_id → "starts at" price (budget-fit fallback basis). Resolved to
   // vendor_id in the same pass that maps service photos below.
   const startingPriceByServiceId = new Map<string, number>();
-  for (const row of (svcRes.data ?? []) as SvcRow[]) {
+  const svcRows = (svcRes.data ?? []) as SvcRow[];
+  // 🔒 FREE FILES STAY PRIVATE (spec § ★ J): a supplier Setnayan has not verified yet shows its cover here as a
+  // 15-minute link (the couple is signed in), never the permanent public address (lib/free-shop-files.ts).
+  const svcServes = await readShopFileServes(svcRows.map((r) => r.primary_photo_r2_key), { signedIn: true });
+  for (const row of svcRows) {
     // A ref we cannot address resolves to null — leave the entry OUT so the
     // card falls back to its placeholder rather than to a broken image.
-    const svcPhotoUrl = publicUrlForStoredAsset(row.primary_photo_r2_key);
+    const svcPhotoUrl = await shopFileUrl(row.primary_photo_r2_key, svcServes, publicUrlForStoredAsset);
     if (svcPhotoUrl) svcUrlByServiceId.set(row.vendor_service_id, svcPhotoUrl);
     if (typeof row.starting_price_php === 'number' && row.starting_price_php > 0) {
       startingPriceByServiceId.set(row.vendor_service_id, row.starting_price_php);

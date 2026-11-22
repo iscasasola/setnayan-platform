@@ -6,6 +6,13 @@ import {
   generateDriveStateToken,
   getDriveOAuthConfig,
 } from '@/lib/papic-drive';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import {
+  SHOP_DRIVE_BACK_COOKIE,
+  SUPPLIER_DRIVE_PROVIDER,
+  shopDriveBackPath,
+  withParam,
+} from '@/lib/supplier-drive-copy';
 
 // Iteration 0012 Papic — Google Drive OAuth start.
 //
@@ -41,6 +48,13 @@ export async function GET(req: NextRequest) {
   if (!user) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
+
+  // ☁️ ?for=shop — a SUPPLIER connecting the shop's own Drive to copy an event's files into it (owner 2026-11-22,
+  // "Copy this event to Google Drive"). Same consent, scope (drive.file) and callback; the grant belongs to the shop.
+  if (req.nextUrl.searchParams.get('for') === 'shop') {
+    return startShopDrive(req, { eventId, userId: user.id, supabase });
+  }
+
   const { data: membership } = await supabase
     .from('event_members')
     .select('member_type')
@@ -106,4 +120,50 @@ export async function GET(req: NextRequest) {
   });
 
   return NextResponse.redirect(authorizeUrl);
+}
+
+/**
+ * ☁️ The shop's own Drive: the signed-in person's shop (resolved from the session, never from the URL) gets a
+ * single-use state row tagged 'drive_supplier'. `event_id` is the event they pressed Copy on; `back` (a supplier-console
+ * path only) rides in a 10-minute cookie so the callback returns them to the same row.
+ */
+async function startShopDrive(
+  req: NextRequest,
+  ctx: { eventId: string; userId: string; supabase: Awaited<ReturnType<typeof createClient>> },
+) {
+  const back = shopDriveBackPath(req.nextUrl.searchParams.get('back'), ctx.eventId);
+  const fail = (reason: string) => NextResponse.redirect(new URL(withParam(back, 'drive_error', reason), req.url));
+
+  const profile = await fetchOwnVendorProfile(ctx.supabase, ctx.userId);
+  if (!profile) return fail('not_a_supplier');
+
+  const config = await getDriveOAuthConfig();
+  if (!config.ready) return fail('not_configured');
+
+  const state = generateDriveStateToken();
+  const { error } = await createAdminClient().from('oauth_state').insert({
+    state_token: state,
+    event_id: ctx.eventId,
+    provider: SUPPLIER_DRIVE_PROVIDER,
+    vendor_profile_id: profile.vendor_profile_id,
+    initiated_by: ctx.userId,
+  });
+  if (error) return fail('state_not_saved');
+
+  const res = NextResponse.redirect(
+    buildDriveAuthorizeUrl({
+      clientId: config.clientId,
+      redirectUri: config.redirectUri,
+      state,
+      forceAccountChooser: req.nextUrl.searchParams.get('switch') === '1',
+    }),
+  );
+  res.cookies.set(SHOP_DRIVE_BACK_COOKIE, back, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: true,
+    path: '/api/oauth/drive',
+    maxAge: 600,
+  });
+  return res;
 }

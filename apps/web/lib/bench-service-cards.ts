@@ -29,6 +29,7 @@ import 'server-only';
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
+import { readShopFileServes, shopFileUrl, shopFileUrls } from '@/lib/supplier-file-sign.server';
 import {
   fetchBracketsByService,
   fetchDiscountsByService,
@@ -85,15 +86,23 @@ async function cardsForRows(
   if (rows.length === 0) return out;
   const ids = rows.map((r) => r.vendor_service_id);
   const shopIds = [...new Set(rows.map((r) => r.vendor_profile_id))];
-  const [discounts, inclusions, brackets, hiding, slugs] = await Promise.all([
+  // 🔒 FREE FILES STAY PRIVATE (spec § ★ J): both callers are the couple's own dashboard (a signed-in viewer), so a
+  // not-yet-verified shop's photos are 15-minute links and a verified shop's stay the public address (lib/free-shop-files.ts).
+  const photoRefs = rows.flatMap((r) => [r.primary_photo_r2_key, ...(r.showcase_photo_r2_keys ?? []).slice(0, 5)]);
+  const [discounts, inclusions, brackets, hiding, slugs, serves] = await Promise.all([
     fetchDiscountsByService(admin, ids),
     fetchInclusionsByService(admin, ids),
     fetchBracketsByService(admin, ids),
     fetchVendorsHidingPricesPublicly(admin, shopIds),
     // 🃏 Only when the grown card is switched on — OFF costs not one extra query, and the card keeps the Find sheet.
     serviceDetailsEnabled() ? fetchShopSlugs(admin, shopIds) : Promise.resolve(new Map<string, string>()),
+    readShopFileServes(photoRefs, { signedIn: true }, admin),
   ]);
   for (const row of rows) {
+    const [coverUrl, photos] = await Promise.all([
+      shopFileUrl(row.primary_photo_r2_key, serves, publicUrlForStoredAsset),
+      shopFileUrls((row.showcase_photo_r2_keys ?? []).slice(0, 5), serves, publicUrlForStoredAsset),
+    ]);
     out.set(row.vendor_service_id, {
       serviceId: row.vendor_service_id,
       ...benchServiceCard({
@@ -102,12 +111,9 @@ async function cardsForRows(
         inclusions: inclusions.get(row.vendor_service_id) ?? [],
         brackets: brackets.get(row.vendor_service_id) ?? [],
         hidePrices: hiding.has(row.vendor_profile_id),
-        coverUrl: publicUrlForStoredAsset(row.primary_photo_r2_key),
+        coverUrl,
         // 🎞 The showcase photos the cover plays (≤5, the grown card's cap) — same read, no extra request.
-        photos: (row.showcase_photo_r2_keys ?? [])
-          .slice(0, 5)
-          .map((k) => publicUrlForStoredAsset(k))
-          .filter((u): u is string => Boolean(u)),
+        photos,
         now,
       }),
       // 🃏 SERVICE CARD GROWN (owner 2026-11-13, rejecting a Find-only drawing): the card opens THE shipped grown card

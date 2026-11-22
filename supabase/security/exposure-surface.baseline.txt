@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8275
+# facts: 8278
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     667
-#   col       5955
+#   col       5958
 #   policy    1215
 #   view      10
 #   func      424
@@ -1513,12 +1513,14 @@ col	public.drive_copy_artifacts.size_bytes	anon=- authenticated=SIU
 col	public.drive_copy_artifacts.source_ref	anon=- authenticated=SIU
 col	public.drive_copy_artifacts.source_table	anon=- authenticated=SIU
 col	public.drive_copy_artifacts.uploaded_at	anon=- authenticated=SIU
+col	public.drive_copy_artifacts.vendor_profile_id	anon=- authenticated=SIU
 col	public.drive_copy_folders.created_at	anon=- authenticated=SIU
 col	public.drive_copy_folders.drive_folder_id	anon=- authenticated=SIU
 col	public.drive_copy_folders.drive_provider	anon=- authenticated=SIU
 col	public.drive_copy_folders.event_id	anon=- authenticated=SIU
 col	public.drive_copy_folders.folder_row_id	anon=- authenticated=SIU
 col	public.drive_copy_folders.kind	anon=- authenticated=SIU
+col	public.drive_copy_folders.vendor_profile_id	anon=- authenticated=SIU
 col	public.earned_token_vouchers.expires_at	anon=- authenticated=SIU
 col	public.earned_token_vouchers.grant_metadata	anon=- authenticated=SIU
 col	public.earned_token_vouchers.grant_source	anon=- authenticated=SIU
@@ -3530,6 +3532,7 @@ col	public.oauth_state.event_id	anon=- authenticated=SIU
 col	public.oauth_state.initiated_by	anon=- authenticated=SIU
 col	public.oauth_state.provider	anon=- authenticated=SIU
 col	public.oauth_state.state_token	anon=- authenticated=SIU
+col	public.oauth_state.vendor_profile_id	anon=- authenticated=SIU
 col	public.onboarding_refinement_options.created_at	anon=SIU authenticated=SIU
 col	public.onboarding_refinement_options.emoji	anon=SIU authenticated=SIU
 col	public.onboarding_refinement_options.label_en	anon=SIU authenticated=SIU

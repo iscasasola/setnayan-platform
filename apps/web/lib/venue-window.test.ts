@@ -47,12 +47,13 @@ const NO_HOURS: WindowChapter = { start_at: T('16:00'), end_at: T('21:30'), time
 test('1 · the window is the chapter’s own hours, in the drawing’s words', () => {
   const w = venueWindowOf(FERNWOOD)!;
   assert.deepEqual([w.open, w.start, w.end, w.close], [T('12:00'), T('16:00'), T('21:30'), T('23:00')]);
-  assert.equal(venueWindowWords(w), 'Setup from 12:00 PM · Event 4:00 PM – 9:30 PM · Out by 11:00 PM');
+  assert.equal(venueWindowWords(w), 'Setup from 12:00 PM · Event 4:00–9:30 PM · Out by 11:00 PM');
   assert.equal(venueWindowOf({ ...FERNWOOD, time_tba: true }), null, 'a Time-TBA chapter drew a window');
   assert.equal(venueWindowOf({ ...FERNWOOD, start_at: null }), null);
   const bare = venueWindowOf(NO_HOURS)!;
   assert.equal(bare.hasIngress || bare.hasEgress, false);
-  assert.equal(venueWindowWords(bare), 'Event 4:00 PM – 9:30 PM', 'a setup or pack-up time was invented');
+  assert.equal(venueWindowWords(bare), 'Event 4:00–9:30 PM', 'a setup or pack-up time was invented');
+  assert.equal(venueWindowWords(venueWindowOf({ ...NO_HOURS, start_at: T('03:00'), end_at: T('06:00') })!), 'Event 11:00 AM – 2:00 PM', 'across noon each clock keeps its own AM/PM');
 });
 
 test('1 · the bar: three bands in order, inside 0–100, ends in words', () => {

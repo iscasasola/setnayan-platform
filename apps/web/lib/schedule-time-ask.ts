@@ -16,7 +16,8 @@
  *   · "Lumina set Crew call for 12:00 PM"
  * 🔒 lib/schedule-time-ask.test.ts
  */
-import { clockWords } from './schedule-chapters';
+import { clockWords, minutesBetween, wallDay } from './schedule-chapters';
+import { dayMonthWords } from './client-agenda';
 
 import { TIME_ASK_HEADS as HEADS, timeAskFromLine, type TimeAskBy, type TimeAskLine } from './chat-card-lines';
 
@@ -40,6 +41,20 @@ export function timeAskLine(args: { by: TimeAskBy; add?: boolean; label: string 
   return from && from !== to ? `${head} · ${label} · ${from} → ${to}` : `${head} · ${label} · ${to}`;
 }
 
+/**
+ * "Lights setup stays 12:00 PM · The church moved the vows" — the quiet line a No with a reason posts (the drawing's
+ * `addQuiet(label + ' stays ' + from + ' · ' + reason)`). A new moment that was declined "isn't added". A moment with no
+ * clock (Time TBA) says "stays as it is", never "stays 12:00 AM".
+ */
+export function timeAskDeclinedLine(args: { label: string | null; add?: boolean; fromIso: string | null; reason: string }): string | null {
+  const why = args.reason.replace(/\s+/g, ' ').trim();
+  if (!why) return null;
+  const label = lineLabel(args.label);
+  if (args.add) return `${label} isn’t added · ${why}`;
+  const from = clockWords(args.fromIso);
+  return `${label} stays ${from || 'as it is'} · ${why}`;
+}
+
 /** "Lumina set Crew call for 12:00 PM" — the quiet line for a backstage moment that applied at once. */
 export function backstageSetLine(args: { shop: string; label: string | null; toIso: string | null }): string | null {
   const to = clockWords(args.toIso);
@@ -50,7 +65,7 @@ export function backstageSetLine(args: { shop: string; label: string | null; toI
 /* ── The row behind a line ───────────────────────────────────────────────────────────────────────────────────────── */
 
 // The ask card's own narrow read — NOT the table's canonical column list (other reads of event_schedule_suggestions stay as they are).
-export const TIME_ASK_CARD_READ = 'suggestion_id, event_id, block_id, kind, direction, status, proposed_label, proposed_start_at, created_at';
+export const TIME_ASK_CARD_READ = 'suggestion_id, event_id, block_id, kind, direction, status, proposed_label, proposed_start_at, proposed_end_at, note, answer_note, created_at';
 
 export type TimeAskRow = {
   suggestion_id: string;
@@ -61,8 +76,31 @@ export type TimeAskRow = {
   status: string;
   proposed_label: string | null;
   proposed_start_at: string | null;
+  proposed_end_at?: string | null;
+  note?: string | null;
+  /** The reason a No carried. */
+  answer_note?: string | null;
   created_at: string;
 };
+
+/**
+ * What the card says beyond the line's own words (the drawing's "· 18 Dec · 30 min", and its ⓘ): the new time's day,
+ * how long it runs, the asker's note and the reason a No carried. Unknown is null, never a guessed day or length.
+ */
+export function timeAskFacts(row: Pick<TimeAskRow, 'proposed_start_at' | 'proposed_end_at' | 'note' | 'answer_note'>): {
+  day: string | null;
+  minutes: number | null;
+  note: string | null;
+  reason: string | null;
+} {
+  const mins = minutesBetween(row.proposed_start_at, row.proposed_end_at ?? null);
+  return {
+    day: dayMonthWords(wallDay(row.proposed_start_at) || null),
+    minutes: mins !== null && mins > 0 ? mins : null,
+    note: row.note?.trim() || null,
+    reason: row.answer_note?.trim() || null,
+  };
+}
 
 /** How long after its row a line may be written and still be that row's line (the insert, the settle, the post). */
 export const TIME_ASK_LINE_SLACK_MS = 120_000;

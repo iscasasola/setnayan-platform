@@ -8,7 +8,7 @@ import { clockWords } from './schedule-chapters';
 import { decideSuggestion, NOTHING_CHANGED } from './schedule-suggestion-decide.server';
 import { answerNote, askedAsFor, askNote } from './schedule-ask';
 import { postThreadSystemLine } from './chat-system-line.server';
-import { timeAskLine } from './schedule-time-ask';
+import { timeAskDeclinedLine, timeAskLine } from './schedule-time-ask';
 
 /**
  * 🗓 THE HOST — OR THE COORDINATOR — ASKS A BOOKED SUPPLIER TO CHANGE THEIR TIMES; THE SUPPLIER ANSWERS (owner
@@ -148,10 +148,12 @@ export async function answerScheduleAsk(
   }
   if (may !== true) return { ok: true, value: 'gone' };
   try {
+    const why = decision === 'decline' ? answerNote(reasonRaw) : null;
     const r = await decideSuggestion(createAdminClient(), userId, eventId, suggestionId, decision, false, {
       as: 'supplier',
-      answerNote: decision === 'decline' ? answerNote(reasonRaw) : null,
+      answerNote: why,
     });
+    if (r === 'done' && why) await postDeclinedLine({ eventId, suggestionId, reason: why });
     return { ok: true, value: r === 'done' ? 'done' : 'gone' };
   } catch (e) {
     const said = e instanceof Error ? e.message : '';
@@ -160,5 +162,38 @@ export async function answerScheduleAsk(
       ok: false,
       error: said === NOTHING_CHANGED ? 'That moment is gone, so there is nothing to change.' : 'That answer didn’t send — try again.',
     };
+  }
+}
+
+/**
+ * 💬 "Lights setup stays 12:00 PM · <reason>" — the quiet line a No with a reason leaves in the (event × shop) chat
+ * (Unichat F, drawing `unichat_live_v3_2026-11-20.html`: Decline asks for a reason and posts it). Either side's No: the
+ * supplier's answer (`answerScheduleAsk`) and the hosts' Decline on a supplier's request (`resolveScheduleSuggestion`).
+ * Best-effort, AFTER the answer is written: a line that could not be posted never undoes the answer. A Time-TBA moment's
+ * placeholder midnight is never said as a time (`timeAskDeclinedLine` then says "stays as it is").
+ */
+export async function postDeclinedLine(args: { eventId: string; suggestionId: string; reason: string }): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data: row, error } = await admin
+      .from('event_schedule_suggestions')
+      .select('vendor_profile_id, block_id, kind, proposed_label')
+      .eq('suggestion_id', args.suggestionId)
+      .eq('event_id', args.eventId)
+      .maybeSingle();
+    const ask = row as { vendor_profile_id: string | null; block_id: string | null; kind: string; proposed_label: string | null } | null;
+    if (error || !ask?.vendor_profile_id) return;
+    let label = ask.proposed_label;
+    let fromIso: string | null = null;
+    if (ask.block_id) {
+      const { data: block } = await admin.from('event_schedule_blocks').select('label, start_at, time_tba').eq('block_id', ask.block_id).maybeSingle();
+      const b = block as { label: string | null; start_at: string | null; time_tba: boolean | null } | null;
+      label = b?.label ?? label;
+      fromIso = b?.time_tba === true ? null : (b?.start_at ?? null);
+    }
+    const body = timeAskDeclinedLine({ label, add: ask.kind === 'new', fromIso, reason: args.reason });
+    if (body) await postThreadSystemLine(admin, { eventId: args.eventId, vendorProfileId: ask.vendor_profile_id, body });
+  } catch (e) {
+    console.error('[postDeclinedLine] failed:', e);
   }
 }

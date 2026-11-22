@@ -60,11 +60,23 @@ export function venueWindowOf(c: WindowChapter | null | undefined): VenueWindow 
   };
 }
 
-/** "Setup from 12:00 PM · Event 4:00 PM – 9:30 PM · Out by 11:00 PM" — only the parts that are set. */
+/**
+ * "4:00–9:30 PM" — two clocks on the same side of noon say AM/PM once (the drawing, Unichat v3 `riseBody('next')`);
+ * across noon each keeps its own ("11:00 AM – 2:00 PM").
+ */
+export function clockRangeWords(startIso: string, endIso: string): string {
+  const a = clockWords(startIso);
+  const b = clockWords(endIso);
+  const ma = /^(.*) (AM|PM)$/.exec(a ?? '');
+  const mb = /^(.*) (AM|PM)$/.exec(b ?? '');
+  return ma && mb && ma[2] === mb[2] ? `${ma[1]}–${b}` : `${a} – ${b}`;
+}
+
+/** "Setup from 12:00 PM · Event 4:00–9:30 PM · Out by 11:00 PM" — only the parts that are set. */
 export function venueWindowWords(w: VenueWindow): string {
   return [
     w.hasIngress ? `Setup from ${clockWords(w.open)}` : null,
-    `Event ${clockWords(w.start)}${w.end ? ` – ${clockWords(w.end)}` : ' onward'}`,
+    `Event ${w.end ? clockRangeWords(w.start, w.end) : `${clockWords(w.start)} onward`}`,
     w.hasEgress ? `Out by ${clockWords(w.close)}` : null,
   ]
     .filter(Boolean)

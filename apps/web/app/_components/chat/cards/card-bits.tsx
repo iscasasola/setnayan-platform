@@ -5,7 +5,7 @@
  * strip, an equal-width choice row, a refusal line. Loaded only with a card (each card is its own lazy chunk).
  */
 import type { ReactNode } from 'react';
-import { ArrowLeftRight, Check, List, PhilippinePeso, RotateCcw, Star, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, Check, List, PhilippinePeso, RotateCcw, Star, Timer, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCentavosPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
@@ -42,7 +42,7 @@ const KIND: Record<CardKind, { edge: string; chip: string; ink: string; fill: st
 
 /** 🔣 The drawing's own marks for the deal cards (`.k-counter` ⇄ · plan ≡ · `.k-quote` ₱) — ruled 20 Nov: "match the
  * drawing". A counter and a quote wear theirs by KIND; a payment plan says `mark="plan"` (a plan is a payment kind). */
-const DEAL_MARK: { counter: LucideIcon; plan: LucideIcon; quote: LucideIcon; review: LucideIcon } = { counter: ArrowLeftRight, plan: List, quote: PhilippinePeso, review: Star };
+const DEAL_MARK: { counter: LucideIcon; plan: LucideIcon; quote: LucideIcon; review: LucideIcon; time: LucideIcon } = { counter: ArrowLeftRight, plan: List, quote: PhilippinePeso, review: Star, time: Timer };
 
 const HOT = 'transition-shadow duration-sn-pill data-[hot]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--sn-accent)_35%,transparent)]';
 /** Phone: the chat's own width. Computer: a bubble's width — mine to the right, the rest to the left. */
@@ -67,7 +67,8 @@ export function KindCard({
 }: {
   kind: CardKind;
   topic: ChatTopic;
-  kicker: string;
+  /** The line under the title — words, or the time card's struck-from → to (Unichat F). */
+  kicker: ReactNode;
   title: ReactNode;
   /** The title is an amount — one size up (the drawing's `.ct.hero`). */
   hero?: boolean;
@@ -92,12 +93,12 @@ export function KindCard({
   warn?: boolean;
   /** A payment plan wears the drawing's plan mark (≡) instead of the payment topic's glyph; the review ask wears the
    *  drawing's ☆ (it borrows the quote's colour, never the quote's ₱). */
-  mark?: 'plan' | 'review';
+  mark?: 'plan' | 'review' | 'time';
   children?: ReactNode;
 }) {
-  const Icon = mark === 'plan' ? DEAL_MARK.plan : mark === 'review' ? DEAL_MARK.review : kind === 'counter' ? DEAL_MARK.counter : kind === 'quote' ? DEAL_MARK.quote : TOPIC_ICON[topic];
+  const Icon = mark === 'plan' ? DEAL_MARK.plan : mark === 'review' ? DEAL_MARK.review : mark === 'time' ? DEAL_MARK.time : kind === 'counter' ? DEAL_MARK.counter : kind === 'quote' ? DEAL_MARK.quote : TOPIC_ICON[topic];
   const k = KIND[kind];
-  const label = typeof title === 'string' ? title : kicker;
+  const label = typeof title === 'string' ? title : typeof kicker === 'string' ? kicker : undefined;
   if (settled != null && (turn === 'done' || turn === 'old')) {
     const line = (
       <>

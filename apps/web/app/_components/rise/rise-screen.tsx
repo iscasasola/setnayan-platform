@@ -30,7 +30,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Info, X } from 'lucide-react';
+import { ChevronLeft, Info, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { InSheet } from '@/app/_components/sheet';
 import { usePortalHost } from '@/lib/use-portal-host';
@@ -115,10 +115,16 @@ export type RiseScreenProps = {
    * (`InspectorSheet`), not this. 🔒 app/_components/rise/the-full-screen-map-is-the-standard.test.ts
    */
   kind?: RiseKind;
+  /**
+   * ‹ A SCREEN RISEN FROM A CHAT (Unichat v3, 20 Nov: `.rise` — "Back to chat"): the head's way out is a back chevron
+   * named for where it returns, the head is the white frame with a soft shadow under it, and the body is the page's
+   * grey. Opt-in: every other full screen keeps the settings prototype's ✕ (2026-11-10). The same close either way.
+   */
+  back?: string;
   children: ReactNode;
 };
 
-export function RiseScreen({ title, line, info, labelledById, actions, thumb, fill = false, onClose, busy = false, data, kind = 'grow', children }: RiseScreenProps) {
+export function RiseScreen({ title, line, info, labelledById, actions, thumb, fill = false, onClose, busy = false, data, kind = 'grow', back, children }: RiseScreenProps) {
   const host = usePortalHost();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const originRef = useRef<HTMLElement | null>(null);
@@ -214,16 +220,25 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
       aria-labelledby={labelled}
       data-rise-screen={data}
       data-rise-kind={kind}
-      className="fixed inset-0 z-sn-pop flex h-[100dvh] flex-col bg-cream text-ink outline-none"
+      className={`fixed inset-0 z-sn-pop flex h-[100dvh] flex-col ${back ? 'bg-page' : 'bg-cream'} text-ink outline-none`}
       // Stack lands on the Spring: for a few frames it stands ~5 % ABOVE its place. The same cream runs on below it, so
       // the page behind never shows through at the foot (a shadow paints; it is not animated).
       style={kind === 'stack' ? { boxShadow: '0 12vh 0 0 rgb(var(--color-cream))' } : undefined}
     >
       {/* 📌 The head: ✕ · the title over its one line · the screen's own action · ⓘ (settings prototype `.fs-head`). */}
-      <div className="shrink-0 border-b border-ink/10 bg-cream pt-[env(safe-area-inset-top)]" data-rise-head="">
+      <div
+        className={`relative z-[1] shrink-0 pt-[env(safe-area-inset-top)] ${back ? 'bg-raised shadow-[0_1px_0_rgb(var(--color-ink)/0.08),0_10px_16px_-14px_rgb(var(--color-ink)/0.35)]' : 'border-b border-ink/10 bg-cream'}`}
+        data-rise-head={back ? 'back' : ''}
+      >
         <div className="mx-auto flex min-h-[60px] w-full max-w-3xl items-center gap-2.5 px-4 py-2">
           <span className="inline-flex shrink-0" data-rise-close="">
-            <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={close} />
+            {back ? (
+              <button type="button" className="sn-press -ml-2 grid h-11 w-11 place-items-center rounded-full text-ink" aria-label={back} onClick={close} data-rise-back="">
+                <ChevronLeft aria-hidden className="h-6 w-6" strokeWidth={2} />
+              </button>
+            ) : (
+              <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={close} />
+            )}
           </span>
           <span className="min-w-0 flex-1" data-rise-title="">
             {title ? (

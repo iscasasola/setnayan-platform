@@ -56,7 +56,8 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
 import { userHostsEvent } from '@/lib/events';
 import { isCallLead, isMomentOp, isPhotoWhen, isPhotoWho } from '@/lib/schedule-chapters';
 import { runMomentOp } from '@/lib/schedule-chapters.server';
-import { askSupplierToChange } from '@/lib/schedule-ask.server';
+import { askSupplierToChange, postDeclinedLine } from '@/lib/schedule-ask.server';
+import { answerNote } from '@/lib/schedule-ask';
 import { runMomentMarch } from './moment-march-step';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
@@ -922,6 +923,9 @@ export async function resolveScheduleSuggestion(formData: FormData): Promise<Sch
     console.error('[resolveScheduleSuggestion] refused', e instanceof Error ? e.message : e, { event_id: eventId });
     return { ok: false, error: requestRefusalWords(e, decision) };
   }
+  // 💬 Decline · say why (Unichat F, the chat's time card): the reason goes to the supplier as a quiet line in the chat.
+  const why = decision === 'decline' ? answerNote(formData.get('reason')) : null;
+  if (why) await postDeclinedLine({ eventId, suggestionId, reason: why });
   // Already answered elsewhere (another host, Auto-agree) — the list is refreshed so it leaves the sheet; nothing failed.
   revalidateScheduleUnlessMaker(eventId, formData);
   return { ok: true };

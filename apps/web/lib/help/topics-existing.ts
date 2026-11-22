@@ -67,7 +67,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       {
         slug: 'what-is-setnayan',
         title: 'What is Setnayan?',
-        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan\" — \"that's all set\") is a Philippines-first platform for life's events: one free account to plan each one, run the day and keep it for life. It runs weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free with no guest limit, you book verified Filipino suppliers at 0% commission and pay them directly, and everything you make gathers into your Memories.",
+        body: "Setnayan (SET-na-yan, from Tagalog \"I-set na 'yan\": \"let's get that set\") is a Philippines-first platform for life's events: one free account to plan each one, run the day and keep it for life. It runs weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free with no guest limit, you book verified Filipino suppliers at 0% commission and pay them directly, and everything you make gathers into your Memories.",
       },
       {
         slug: 'how-much-does-setnayan-cost',
@@ -79,7 +79,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
         appBody: 'Yes. Planning in the app is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches.',
-        body: 'Starting is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches. Optional paid plans and services — Event Plus, Event Pro and Event Ultra (all three include Setnayan AI), the Live Watch multi-camera control room, Papic credit packs and more — are priced individually. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
+        body: 'Starting is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches. Optional paid plans and services — Event Plus, Event Pro and Event Ultra (Setnayan AI comes inside Event Pro and Event Ultra), the Live Watch multi-camera control room, Papic credit packs and more — are priced individually. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
       },
       {
         // NEW 2026-11-13 — the paid plans had no article (Event Ultra added the same day, #7601). Words from what an order unlocks today:
@@ -161,7 +161,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       {
         slug: 'how-does-setnayan-handle-privacy',
         title: 'How does Setnayan handle my privacy?',
-        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real stories publish 30 days after the event only with explicit couple consent. Setnayan sets essential cookies only — no analytics, advertising or tracking cookies — and lists every one at setnayan.com/cookies. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
+        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Setnayan sets essential cookies only — no analytics, advertising or tracking cookies — and lists every one at setnayan.com/cookies. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
       },
       {
         slug: 'how-to-contact-support',
@@ -190,7 +190,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'best-free-filipino-wedding-planner-app',
         title: 'What is the best free Filipino wedding planner app?',
         appBody: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly.',
-        body: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly. Optional paid plans — Event Plus, Event Pro and Event Ultra, all with the Setnayan AI planner — and services like the livestream are priced at setnayan.com/pricing.',
+        body: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly. Optional paid plans — Event Plus, Event Pro and Event Ultra (Setnayan AI comes inside Event Pro and Event Ultra) — and services like the livestream are priced at setnayan.com/pricing.',
       },
       {
         slug: 'guest-list-with-ninongs-and-ninangs',

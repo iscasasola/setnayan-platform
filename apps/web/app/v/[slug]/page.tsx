@@ -129,6 +129,7 @@ import { readShopSeals } from '@/lib/shop-seals.server';
 import { arrivalParams, SETNAYAN_HOME_URL, shopBackDoor, shopColdDoorShows, shopTopBack, withShopArrival } from '@/lib/shop-back';
 import { actionButtonClass } from '@/components/action-button-class';
 import { BackButton } from '@/app/_components/back-button';
+import { FramedBackCloses } from './_components/framed-back-closes';
 import {
   SHOP_ARTICLE_WIDTH,
   SHOP_CALLING_CARD_CLASS,
@@ -2663,8 +2664,16 @@ export async function renderVendorBySlug({
           heart (Add to event) join it only after the page's own buttons have scrolled away. */}
       <ShopTopBar
         widthClass={SHOP_ARTICLE_WIDTH}
-        back={<BackButton href={shopTop.href} label={shopTop.label} className="mb-0" inPlace />}
-        backCompact={<BackButton href={shopTop.href} label={shopTop.label} variant="chat" inPlace />}
+        back={
+          <FramedBackCloses>
+            <BackButton href={shopTop.href} label={shopTop.label} className="mb-0" inPlace />
+          </FramedBackCloses>
+        }
+        backCompact={
+          <FramedBackCloses>
+            <BackButton href={shopTop.href} label={shopTop.label} variant="chat" inPlace />
+          </FramedBackCloses>
+        }
         shopName={displayLabel}
         logo={<TopBarLogo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />}
         verified={vendor.verification_state === 'verified' && !renewing}
@@ -3132,7 +3141,7 @@ export async function renderVendorBySlug({
               About
             </h2>
             <p
-              className="max-w-3xl whitespace-pre-line font-serif text-[1.75rem] italic leading-[1.18] tracking-[-0.005em] text-ink lg:text-[2.3rem]"
+              className="max-w-2xl whitespace-pre-line text-sn-xl leading-relaxed text-ink" data-shop-about-text=""
             >
               {microsite.about}
             </p>

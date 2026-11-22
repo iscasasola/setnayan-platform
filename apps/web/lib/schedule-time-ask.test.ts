@@ -88,7 +88,12 @@ test('3 · whose press it waits for, and the settled words', () => {
   assert.equal(timeAskTurn({ by: 'host' }, 'couple'), 'waiting');
   const line = timeAskFromLine('Time change asked · Sound check · 3:30 PM → 3:00 PM')!;
   assert.equal(timeAskSettledWords(line, 'accepted'), '✓ Sound check → 3:00 PM');
-  assert.equal(timeAskSettledWords(line, 'declined'), 'Sound check → 3:00 PM · declined');
+  assert.equal(timeAskSettledWords(line, 'declined'), 'Sound check 3:30 → 3:00 PM · declined', 'a declined move drops the time it stays at');
+  assert.equal(
+    timeAskSettledWords(timeAskFromLine('Time change asked · Crew call · 11:30 AM → 12:30 PM')!, 'declined'),
+    'Crew call 11:30 AM → 12:30 PM · declined',
+  );
+  assert.equal(timeAskSettledWords(timeAskFromLine('New moment asked · Crew call · 12:00 PM')!, 'declined'), 'New · Crew call 12:00 PM · declined');
   assert.equal(timeAskSettledWords(line, 'withdrawn'), 'Sound check → 3:00 PM · taken back');
   assert.equal(timeAskSettledWords(line, 'open'), null);
   assert.equal(timeAskSettledWords(timeAskFromLine('New moment asked · Crew call · 12:00 PM')!, 'accepted'), '✓ New · Crew call 12:00 PM');
@@ -104,7 +109,7 @@ test('4 · the wiring: both writers post the line, the stream draws it, the card
   assert.match(stream, /timeAskFromLine\(body\)[\s\S]*?<ScheduleTimeAskCard /, 'the stream does not draw the time-change ask');
 
   const card = read('app/_components/chat/cards/schedule-time-ask-card.tsx');
-  assert.match(card, /resolveScheduleSuggestion\(fd\)/, 'the hosts’ Approve is not the Requests sheet’s door');
+  assert.match(card, /resolveScheduleSuggestion\(fd\)/, 'the hosts’ Accept is not the Requests sheet’s door');
   assert.match(card, /suggestScheduleChange\(fd\)/, 'the supplier’s answer is not the Schedule’s door');
   assert.match(card, /fd\.set\('request', 'take_back'\)/);
   assert.match(card, /fd\.set\('request', 'answer'\)/);

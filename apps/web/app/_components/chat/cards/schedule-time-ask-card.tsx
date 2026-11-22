@@ -5,7 +5,7 @@
  * `build-sessions/UNICHAT-LIVE-2026-11-19.html`, card type `time`) — the sibling of `schedule-change-card.tsx`: that
  * one says a move that already HAPPENED (Seen); this one is a move that is ASKED and still needs an answer.
  *
- *   · a supplier asks to move or add its moment → the hosts' copy has Decline · Approve; the supplier's own copy
+ *   · a supplier asks to move or add its moment → the hosts' copy has Decline · Accept (the drawing's word on every side); the supplier's own copy
  *     says "Waiting for the host" with Take back;
  *   · the host or coordinator asks the supplier → the supplier's copy has Decline · Accept; the hosts' copy says
  *     "Waiting for <shop>".
@@ -273,7 +273,7 @@ export function ScheduleTimeAskCard({
               tone="brand"
               main
               icon={Check}
-              label={busy === 'yes' ? 'Saving…' : turn === 'approve' ? 'Approve' : 'Accept'}
+              label={busy === 'yes' ? 'Saving…' : 'Accept'}
               disabled={busy !== null}
               onClick={() => void press('yes')}
               data-testid="time-ask-yes"

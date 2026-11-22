@@ -234,7 +234,7 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
     : null;
   const firstCardName = firstCard?.name ?? null;
   // The maker's own sentence when it refuses card 0 — carried to Today's welcome as a key (`lib/first-card-why.ts`).
-  let firstCardRefusal: string | null = null;
+  let makerSaidOfFirstCard: string | null = null;
   for (const card of [...theirs, ...added]) {
     if (card.bundled) continue;
     if (answers.firstCard === 'skip' && card === firstCard) continue;
@@ -256,7 +256,7 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
       const url = new URL(getURLFromRedirectError(e) ?? '', 'http://claim-door.local');
       if (url.searchParams.get('error')) {
         console.warn('[claim-door] a card was refused by the maker:', url.searchParams.get('error'));
-        if (card === firstCard) firstCardRefusal = url.searchParams.get('error');
+        if (card === firstCard) makerSaidOfFirstCard = url.searchParams.get('error');
         continue;
       }
     }
@@ -402,7 +402,7 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   let cardCarry: ClaimCardCarry | null = null;
   if (firstCard && !firstCard.bundled && (answers.firstCard === 'skip' || answers.firstCard === 'approve')) {
     if (answers.firstCard === 'skip') cardCarry = { state: 'skipped', why: null, id: null };
-    else if (!firstMade || !firstCardName) cardCarry = { state: 'refused', why: firstCardWhyKey(firstCardRefusal, 'refused'), id: null };
+    else if (!firstMade || !firstCardName) cardCarry = { state: 'refused', why: firstCardWhyKey(makerSaidOfFirstCard, 'refused'), id: null };
     else {
       const firstId = await firstCardIdOf(admin, vendorProfileId, firstCardName);
       // Made, but the read that finds it again failed or came back empty: said as that (`made-unread`), never "not live".

@@ -369,7 +369,7 @@ test('12 · Door A carries the first card through finalize — the claimed welco
   // The finish asks the SHIPPED switch only on Approve, writes the reason as a key, and finalize passes the carry on.
   assert.match(CLAIM_ACTION, /const live = await putFirstCardLive\(firstId\);/);
   assert.match(CLAIM_ACTION, /why: firstCardWhyKey\(live\.why, 'draft'\), id: firstId \}/);
-  assert.match(CLAIM_ACTION, /why: firstCardWhyKey\(firstCardRefusal, 'refused'\)/);
+  assert.match(CLAIM_ACTION, /why: firstCardWhyKey\(makerSaidOfFirstCard, 'refused'\)/);
   assert.match(CLAIM_ACTION, /claimCardQuery\(\{ state: 'draft', why: 'made-unread', id: null \}\)/);
   assert.match(CLAIM_ACTION, /\(answers\.firstCard === 'skip' \|\| answers\.firstCard === 'approve'\)/);
   assert.match(FINALIZE, /const cardCarry = claimCardFrom\(search\);/);

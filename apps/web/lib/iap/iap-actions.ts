@@ -106,7 +106,9 @@ export async function startAppStorePurchase(input: {
   // part-owner rule above). Such an event upgrades on the web until an upgrade product exists.
   if (product.kind === 'event-hub-pro') {
     const own = await eventHubOwnership(admin, eventId, 'owned');
-    if (own.full) return startRefusal('owned');
+    // 🏛 Since 20 Nov Event Plus holds the whole Hub (`own.full`), so "owned" means the Pro PLAN, never the Hub alone. An
+    // event with Plus is still refused below (it upgrades for the difference on the web).
+    if (own.proPlan) return startRefusal('owned');
     if (own.parts.size > 0 || own.paidPhp > 0) return startRefusal('not_on_sale');
     if (await eventOwnsSku(admin, eventId, 'EVENT_PLUS')) return startRefusal('not_on_sale');
   } else if (product.kind === 'event-ultra') {

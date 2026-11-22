@@ -174,6 +174,8 @@ test('Event Pro does not sell colours — every couple has them free', async () 
   );
   // …and it says what Pro adds in their place: media behind a scene or the page.
   assert.match(d, /photo or video behind/i, `the description does not name photo and video backgrounds: "${d}"`);
-  // The line the reveal has carried since it was first sold stays, word for word.
-  assert.match(d, /The cinematic reveal comes only with this\.$/);
+  // 🏛 Owner 20 Nov 2026 ("EVENT PLUS = 1,000 PAPIC CREDITS + THE WHOLE EVENT HUB"): the cinematic reveal is Event
+  // Plus's too, so the old closing line ("The cinematic reveal comes only with this.") would now be untrue.
+  assert.doesNotMatch(d, /comes only with this/i, `Event Pro's description still claims the reveal is Pro-only: "${d}"`);
+  assert.match(d, /Everything in Event Plus/, `Event Pro's description no longer says it includes Event Plus: "${d}"`);
 });

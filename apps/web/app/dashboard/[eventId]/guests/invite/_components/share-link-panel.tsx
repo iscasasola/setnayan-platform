@@ -20,6 +20,7 @@ import { buildGroupInviteMessage } from '@/lib/guest-invite-message';
 import { RegenerateQrButton } from './regenerate-qr-button';
 import { readWhoCanRsvp } from '@/lib/rsvp-ask';
 import { GUESTS_GET_IN_LABEL, guestsGetInLabel, readGuestsGetIn } from '@/lib/who-can-reply';
+import { ownsHubGate } from '@/lib/hub-parts';
 
 /**
  * share-link-panel.tsx — the invite link, its QR, and the look it opens in,
@@ -85,8 +86,9 @@ export async function ShareLinkPanel({
     lookAdmin.from('events').select(`invite_theme, event_type, ${QR_LOOK_COLUMNS}`).eq('event_id', eventId).maybeSingle(),
     eventHubOwnership(await eventEntitlementClient(eventId), eventId).catch(() => null),
   ]);
-  /* 💎 Part by part (owner 2026-10-22): a Pro theme is the Style part's (gate 13), the QR's look Logo & QR's (29). */
-  const ownsStyle = Boolean(ownership && (ownership.full || ownership.parts.has('style')));
+  /* 💎 Part by part (owner 2026-10-22): a Pro theme is gate 13 (the Style part's, and 🎟 Event Plus's since 2026-11-18 —
+     `ownsHubGate`), the QR's look Logo & QR's (29). */
+  const ownsStyle = Boolean(ownership && ownsHubGate(ownership, '13'));
   const ownsQr = Boolean(ownership && (ownership.full || ownership.parts.has('logo_qr')));
   if (lookError) {
     // Graceful: the picker falls back to House and the page still works — but the

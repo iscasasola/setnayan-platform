@@ -30,6 +30,7 @@ import {
   FIXED_STYLE_LABEL,
   canvasLookFacets,
   hubDraftCountedChanges,
+  hubDraftItemGate,
   hubDraftItemParts,
   planHubDraftApply,
   printDetailsKeysChanged,
@@ -48,7 +49,7 @@ import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { RSVP_CELEBRATION_LABEL, RSVP_CELEBRATION_NAME, readCelebrationKey } from '@/lib/rsvp-celebration';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
 import { MARCH_DRAFT_PLACE, marchChangesWord } from '@/lib/march-draft';
-import { HUB_EVENT_COLUMN_PART, type HubOwnershipLike } from '@/lib/hub-parts';
+import { HUB_EVENT_COLUMN_GATE, HUB_EVENT_COLUMN_PART, type HubOwnershipLike } from '@/lib/hub-parts';
 
 const LOOK = 'Look';
 /** The toolbar's Event Details (`MAKER_DETAILS_LABEL`, launch/_components/maker-bar.ts). */
@@ -356,7 +357,10 @@ export function hubDraftChangeLines(draft: HubDraftState | null, live: HubLiveSt
        the theme's board, held WITH a held Pro theme (`planHubDraftApply`, "A THEME'S COLOURS SHARE THE THEME'S FATE")
        — it needs what the theme needs. */
     const parts = item.pro ? hubDraftItemParts(item, live) : held ? [HUB_EVENT_COLUMN_PART.invite_theme!] : [];
-    return { ...hubDraftChangePlace(item, live, stage), pro: item.pro, held, ...(parts.length > 0 ? { parts } : {}) };
+    /* 🎟 …and the ONE plan gate it is (the theme 13, the opening 1 — Event Plus passes them, owner 2026-11-18); the
+       theme's held board shares the theme's gate as it shares its part. */
+    const gate = item.pro ? hubDraftItemGate(item) : held ? HUB_EVENT_COLUMN_GATE.invite_theme! : null;
+    return { ...hubDraftChangePlace(item, live, stage), pro: item.pro, held, ...(parts.length > 0 ? { parts } : {}), ...(gate ? { gate } : {}) };
   });
 }
 

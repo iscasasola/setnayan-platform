@@ -62,6 +62,9 @@ const EXEMPT: Record<string, string> = {
   // The purchase / confirmation panel on the maker itself. It asks "is it
   // owned?" to decide what to SELL, not whether guests see motion.
   'app/dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx': 'purchase panel — decides what to offer, not what guests see',
+  // 💎 2026-11-19: Panood setup's "Animated Monogram" pack card asks the same gate (the Logo & QR part reaches a kept
+  // Pro, not an undated alias) only to draw Owned vs its price — a purchase card, never what guests see.
+  'app/dashboard/[eventId]/studio/panood/setup/page.tsx': 'pack card — decides Owned vs the price, not what guests see',
   // The 3D seating lab uses ownership to gate an arrival BLOOM, a different
   // effect from the monogram reveal.
   'app/dashboard/[eventId]/seating/lab/page.tsx': 'gates the arrival bloom, not the mark reveal',

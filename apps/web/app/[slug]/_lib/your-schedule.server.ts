@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { chaptersFromBlocks, TASK_COLUMNS, type TaskRow } from '@/lib/schedule-chapters';
 import { yourSchedule, type YourMoment, type YourSchedule } from '@/lib/guest-your-schedule';
-import { websiteProActiveFor } from './hub-look';
+import { proPlanActiveFor } from './hub-look';
 
 /**
  * 📅 YOUR SCHEDULE — THE READ (Event Hub › Me; plan §3, §3b, §11b). The pure half, and every rule about whose lines a
@@ -76,7 +76,7 @@ export async function readYourSchedule(
     admin.from('guest_group_memberships').select('group_id').eq('guest_id', guestId),
     // ✉ The chapters the hosts took THIS guest off (owner 2026-11-02, "Invited to") — never drawn as theirs.
     admin.from('guest_chapter_not_invited').select('block_id').eq('guest_id', guestId),
-    websiteProActiveFor(eventId).catch(() => false),
+    proPlanActiveFor(eventId).catch(() => false), // 💎 the Pro PLAN's perk (owner 2026-11-19)
   ]);
   /* 📇 Task contacts (4 additions (3), migration 20271303218631). The service role reads them, so the fence is HERE:
      `yourSchedule` shows a contact only on a moment this guest has a task on (they are its crew). A refused read

@@ -582,7 +582,7 @@ test('the free-5 position comes off the ledger, not a local count', () => {
 test('every waived charge surface really mounts it', () => {
   // [drawn in, read in] — the same file, except Customers › Money (S-PR4: read in the segment, drawn in its view).
   const WAIVED_MOUNTS: Array<[string, string]> = [
-    ['app/vendor-dashboard/booking-fees/page.tsx', 'app/vendor-dashboard/booking-fees/page.tsx'],
+    ['app/vendor-dashboard/booking-fees/booking-fees-body.tsx', 'app/vendor-dashboard/booking-fees/page.tsx'], // set two: read in the page, drawn in its body
     ['app/vendor-dashboard/clients/[eventId]/page.tsx', 'app/vendor-dashboard/clients/[eventId]/page.tsx'],
     ['app/vendor-dashboard/customers/_components/money-view.tsx', 'app/vendor-dashboard/customers/_components/money-segment.tsx'],
   ];

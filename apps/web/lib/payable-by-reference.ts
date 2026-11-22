@@ -91,6 +91,14 @@ export type Payable = {
    * `true` — the app refuses rather than take web money for a digital gift; the web is unaffected.
    */
   carriesGift: boolean;
+  /**
+   * 🎟 The code on this order (`orders.voucher_code_applied`) and what it took off, or null. Optional so a hand-built
+   * Payable (tests) still compiles; the resolver always sets it. The pay page draws "Code … applied" from it and hides
+   * the code box (one code per order).
+   */
+  code?: { code: string; offPhp: number } | null;
+  /** An admin set this bill's price (`confirmed_total_php`) — a code can no longer change it. */
+  quoted?: boolean;
 };
 
 type OrderRow = {
@@ -105,10 +113,11 @@ type OrderRow = {
   event_id: string | null;
   vendor_profile_id: string | null;
   voucher_discount_centavos: number | string | null;
+  voucher_code_applied: string | null;
 };
 
 const SELECT =
-  'order_id,user_id,reference_code,description,service_key,requested_total_php,confirmed_total_php,status,event_id,vendor_profile_id,voucher_discount_centavos';
+  'order_id,user_id,reference_code,description,service_key,requested_total_php,confirmed_total_php,status,event_id,vendor_profile_id,voucher_discount_centavos,voucher_code_applied';
 
 /** Best-effort VAT rate: an unreadable setting must not inflate a bill. */
 async function effectiveVatRate(supabase: SupabaseClient): Promise<number> {
@@ -259,6 +268,8 @@ export async function fetchPayableByReference(
     requiresReference: isBookingFee,
     isBookingFee,
     carriesGift,
+    code: order.voucher_code_applied ? { code: order.voucher_code_applied, offPhp: num(order.voucher_discount_centavos) / 100 } : null,
+    quoted: order.confirmed_total_php != null,
   };
 }
 

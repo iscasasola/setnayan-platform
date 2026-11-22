@@ -44,7 +44,7 @@ const QUICK_TINT: Record<'overdue' | 'unread', { color: string; background: stri
     borderColor: 'color-mix(in srgb, rgb(var(--color-danger)) 35%, transparent)',
   },
   unread: {
-    color: 'rgb(var(--sn-accent))',
+    color: 'rgb(var(--sn-accent-word, var(--sn-accent)))',
     background: 'color-mix(in srgb, rgb(var(--sn-accent)) 9%, transparent)',
     borderColor: 'color-mix(in srgb, rgb(var(--sn-accent)) 40%, transparent)',
   },

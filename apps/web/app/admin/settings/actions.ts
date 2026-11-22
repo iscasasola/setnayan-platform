@@ -188,6 +188,9 @@ export async function saveBusinessIdentity(formData: FormData) {
     ['story_photo_silence_days', 'days of silence', 90],
     ['today_soon_ask_hours', '“Soon” hours', 720],
     ['today_soon_event_days', '“Soon” days', 60],
+    // 👤 Supplier roles d–h (e): how many own past clients a card needs before its fair split is cut from them
+    // (controller row 4). Blank = not set — every shop's split uses all Setnayan inquiries.
+    ['inquiry_split_own_enough', 'own-clients split', 100000],
   ] as const) {
     if (!formData.has(field)) continue;
     const raw = formData.get(field);

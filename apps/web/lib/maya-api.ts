@@ -9,6 +9,7 @@
  * lib/maya-checkout.server.ts, which IS server-only.
  */
 import type { MayaConfig } from '@/lib/integration-config';
+import { mayaReversalBody, mayaReversalPath, type MayaReversalKind } from '@/lib/maya-reversal';
 import {
   MAYA_WEBHOOK_EVENTS,
   mayaApiBase,
@@ -28,7 +29,7 @@ async function mayaCall(
   fetchImpl: FetchLike,
   url: string,
   init: { method: string; key: string; body?: unknown },
-): Promise<{ ok: true; status: number; json: unknown } | { ok: false; status: number | null }> {
+): Promise<{ ok: true; status: number; json: unknown } | { ok: false; status: number | null; json?: unknown }> {
   try {
     const res = await fetchImpl(url, {
       method: init.method,
@@ -41,7 +42,18 @@ async function mayaCall(
       signal: AbortSignal.timeout(MAYA_TIMEOUT_MS),
       cache: 'no-store',
     });
-    if (!res.ok) return { ok: false, status: res.status };
+    if (!res.ok) {
+      // Maya's refusal body carries its PY code (lib/maya-reversal.ts reads it). Best-effort: a body that is not
+      // JSON is simply absent, never a throw.
+      let json: unknown;
+      try {
+        const text = await res.text();
+        json = text ? (JSON.parse(text) as unknown) : undefined;
+      } catch {
+        json = undefined;
+      }
+      return { ok: false, status: res.status, json };
+    }
     const text = await res.text();
     return { ok: true, status: res.status, json: text ? (JSON.parse(text) as unknown) : null };
   } catch {
@@ -173,3 +185,32 @@ export async function registerMayaWebhooks(
   return { ok: true, registered, kept };
 }
 
+
+export type PostReversalResult =
+  | { ok: true }
+  | { ok: false; status: number | null; code: string | null; message: string | null };
+
+/**
+ * POST the void or the refund of one payment, for its FULL amount, with the SECRET key
+ * (owner 2026-11-22 · specs DECISION_LOG 86f20253). The route and body are in lib/maya-reversal.ts, with what the
+ * public docs do and do not confirm about them. Never throws; a refusal carries Maya's own code and message.
+ */
+export async function postMayaReversal(
+  config: MayaConfig,
+  input: { mayaPaymentId: string; kind: MayaReversalKind; amountPhp: number; reason: string },
+  fetchImpl: FetchLike = fetch,
+): Promise<PostReversalResult> {
+  const base = mayaApiBase(config.checkoutEndpoint);
+  if (!base || !config.secretKey.trim()) return { ok: false, status: null, code: null, message: null };
+  const res = await mayaCall(fetchImpl, `${base}${mayaReversalPath(input.mayaPaymentId, input.kind)}`, {
+    method: 'POST',
+    key: config.secretKey,
+    body: mayaReversalBody(input),
+  });
+  if (res.ok) return { ok: true };
+  const j = (res.json ?? {}) as { code?: unknown; message?: unknown; error?: { code?: unknown; message?: unknown } };
+  const code = typeof j.code === 'string' ? j.code : typeof j.error?.code === 'string' ? j.error.code : null;
+  const message =
+    typeof j.message === 'string' ? j.message : typeof j.error?.message === 'string' ? j.error.message : null;
+  return { ok: false, status: res.status, code, message };
+}

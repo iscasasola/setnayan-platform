@@ -262,7 +262,7 @@ function MonthPick({ onMonth, prompt, error, pending }: { onMonth: (month: strin
     <div className="flex flex-col gap-2 pt-1" data-find-date-month="">
       <p className="text-sm text-ink/70">{prompt}</p>
       <div className="flex flex-wrap items-center gap-2">
-        <input type="month" min={min} value={month} onChange={(e) => setMonth(e.target.value)} aria-label="The month you are considering" className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink" />
+        <input type="month" min={min} value={month} onChange={(e) => setMonth(e.target.value)} aria-label="The month you are considering" className="min-h-11 rounded-md border border-ink/15 bg-raised px-3 text-[16px] text-ink" />
         <ActionButton
           tone="brand"
           icon={CalendarSearch}

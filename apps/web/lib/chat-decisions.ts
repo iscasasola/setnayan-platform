@@ -14,7 +14,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isExpired } from './chat-file-rules';
 import { chatAttachmentHref } from './chat-shared-files';
 
-export type OpenDecision = { ok: true; topicId: string } | { ok: false; reason: 'empty' | 'not_allowed' | 'failed' };
+export type OpenDecision = { ok: true; topicId: string } | { ok: false; reason: 'empty' | 'not_allowed' | 'unverified' | 'failed' };
 
 /** The longest title the database keeps (`left(btrim(p_title), 120)`). */
 export const DECISION_TITLE_MAX = 120;
@@ -25,6 +25,8 @@ export async function openDecision(supabase: SupabaseClient, threadId: string, t
   const { data, error } = await supabase.rpc('chat_decision_open', { p_thread_id: threadId, p_title: clean });
   if (error) {
     console.warn('[openDecision] refused', error.code);
+    // 🪪 The ＋ gate's trigger (migration 20271357625672) refuses an unverified shop's side with its own word.
+    if ((error.message ?? '').includes('PLUS_NEEDS_VERIFIED')) return { ok: false, reason: 'unverified' };
     return { ok: false, reason: error.code === '42501' ? 'not_allowed' : 'failed' };
   }
   return typeof data === 'string' && data ? { ok: true, topicId: data } : { ok: false, reason: 'failed' };

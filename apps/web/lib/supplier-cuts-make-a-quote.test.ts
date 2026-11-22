@@ -46,11 +46,27 @@ test('(2) the offer starts at the cards’ own prices, and the one line is the o
   assert.ok(makeQuoteRefusal({ picked: 1, offerCentavos: 100, validUntil: null, todayIso: '2026-11-14', eventDate: null }), 'a quote sent with no Good until');
 });
 
+test('(2b) 🎂 a cake design’s priced picks are their own lines; the card line is the rest; the total is the offer', () => {
+  const cake = { id: 'c', name: 'Wedding cake', fromCentavos: 1_800_000 };
+  const lines = makeQuoteLines([cake], 2_500_000, [
+    { label: '5 tiers', centavos: 600_000 },
+    { label: 'Floating', centavos: 100_000 },
+    { label: 'Free pick', centavos: 0 },
+  ]);
+  assert.deepEqual(lines.map((l) => [l.label, l.amount_centavos]), [['Wedding cake', 1_800_000], ['5 tiers', 600_000], ['Floating', 100_000]]);
+  assert.equal(lines.reduce((a, l) => a + l.amount_centavos, 0), 2_500_000, 'the lines no longer add up to the offer');
+  assert.equal(lines[0]!.card_id, 'c');
+  assert.equal(
+    makeQuoteRefusal({ picked: 1, offerCentavos: 500_000, validUntil: '2026-11-28', todayIso: '2026-11-14', eventDate: null, extrasCentavos: 700_000 }),
+    'Your offer can’t be less than the extras listed.',
+  );
+});
+
 test('(3) it sends through the shipped writer — no new server action', () => {
   const card = read('app/_components/chat/cards/make-quote-card.tsx');
   assert.match(card, /await sendCustomProposalFromChat\(fd\)/);
   assert.doesNotMatch(card, /['"]use server['"]/);
-  assert.match(card, /lineItems: makeQuoteLines\(chosen, offerC\)/);
+  assert.match(card, /lineItems: makeQuoteLines\(chosen, offerC(, extras)?\)/);
   assert.match(card, /serviceCardIds: chosen\.map\(\(c\) => c\.id\)/);
   const calls = read('app/_components/chat/cards/card-calls.ts');
   assert.doesNotMatch(calls, /['"]use server['"]/, 'the card read became a server action');

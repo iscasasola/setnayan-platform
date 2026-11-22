@@ -78,7 +78,7 @@ test('RENDER: the two original ids keep their names, an admin-typed channel is s
 test('WIRED: the couple order page, the supplier fee page and the admin card print names', () => {
   for (const rel of [
     'app/dashboard/[eventId]/orders/[orderId]/page.tsx',
-    'app/vendor-dashboard/booking-fees/[orderId]/page.tsx',
+    'app/vendor-dashboard/booking-fees/[orderId]/fee-body.tsx',
   ]) {
     const s = src(rel);
     assert.match(s, /<PaymentChannelName\b[^>]*channel=\{p\.channel\}/, `${rel} must mount PaymentChannelName`);
@@ -170,7 +170,7 @@ test('the surfaces that hold the open rails SAY their names', () => {
     assert.match(src(rel), /ourAccountPhrase\(openRails\.map/, `${rel} does not read the list`);
   }
   assert.match(
-    src('app/vendor-dashboard/booking-fees/[orderId]/page.tsx'),
+    src('app/vendor-dashboard/booking-fees/[orderId]/fee-body.tsx'),
     /namesPhrase\(\s*openAccounts\(settings\)/,
   );
 });

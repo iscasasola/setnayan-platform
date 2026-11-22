@@ -79,7 +79,7 @@ export function RoleAttireField({
               maxLength={120}
               defaultValue={current?.note ?? ''}
               placeholder="Optional — e.g. ivory, not white"
-              className="min-h-[44px] w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+              className="min-h-[44px] w-full rounded-lg border border-ink/15 bg-raised px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
             />
           </div>
         );

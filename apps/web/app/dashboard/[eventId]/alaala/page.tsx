@@ -444,7 +444,7 @@ export default async function AlaalaPage({ params }: Props) {
         <Link
           href={`/dashboard/${eventId}/alaala/assignments`}
           className="mt-4 inline-flex items-center rounded-full px-4 py-2 text-[13px] font-medium transition"
-          style={{ background: 'var(--m-mulberry)', color: '#fff' }}
+          style={{ background: 'var(--m-mulberry)', color: 'rgb(var(--sn-on-accent))' }}
         >
           Manage assignments →
         </Link>
@@ -459,7 +459,7 @@ export default async function AlaalaPage({ params }: Props) {
           <Link
             href={studioHubHref(eventId)}
             className="inline-flex items-center rounded-full px-5 py-2.5 text-sm font-medium"
-            style={{ background: 'var(--m-mulberry)', color: '#fff' }}
+            style={{ background: 'var(--m-mulberry)', color: 'rgb(var(--sn-on-accent))' }}
           >
             Add to your Memories
           </Link>

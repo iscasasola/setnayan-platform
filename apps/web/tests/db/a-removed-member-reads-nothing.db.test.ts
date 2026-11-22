@@ -199,6 +199,18 @@ test('SABOTAGE: without 20271354552883’s policies a deactivated member reads t
   await db.exec(`DROP POLICY chat_messages_a_removed_member_reads_nothing ON public.chat_messages`);
   await db.exec(`DROP POLICY chat_messages_a_removed_member_writes_nothing ON public.chat_messages`);
   await db.exec(`DROP POLICY chat_threads_a_removed_member_reads_nothing ON public.chat_threads`);
+  // Since 20271356599293 `current_vendor_ids` ALSO leaves a deactivated seat out (a second lock on the same door), so
+  // "the schema before the fix" needs the helper's earlier body back too — 20260514010000's, copied exactly — or the
+  // sabotage would open nothing and this test could not see what the three policies close. Rolled back with the rest.
+  await db.exec(`
+    CREATE OR REPLACE FUNCTION public.current_vendor_ids(min_role TEXT DEFAULT 'viewer')
+    RETURNS SETOF UUID LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public AS $fn$
+      SELECT vendor_profile_id
+      FROM public.vendor_team_members
+      WHERE user_id = auth.uid()
+        AND CASE role WHEN 'owner' THEN 4 WHEN 'admin' THEN 3 WHEN 'agent' THEN 2 WHEN 'viewer' THEN 1 END
+          >= CASE min_role WHEN 'owner' THEN 4 WHEN 'admin' THEN 3 WHEN 'agent' THEN 2 WHEN 'viewer' THEN 1 ELSE 1 END;
+    $fn$`);
   const before = await as(w.teammate, async () => {
     const seen = (await db.query<{ lines: number; threads: number }>(READ_SQL, [line, w.threadId])).rows[0]!;
     let wrote = false;

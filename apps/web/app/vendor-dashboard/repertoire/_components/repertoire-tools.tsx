@@ -21,6 +21,8 @@ import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { addRepertoireSong, setPerformanceLink } from '../actions';
 
 const HERE = '/vendor-dashboard/repertoire';
+/** The "Add your own" section's anchor (a URL fragment, not a colour). */
+const ADD_OWN_ANCHOR = 'add-own';
 
 export function RepertoireSearch({ query, matches }: { query: string; matches: boolean }) {
   const router = useRouter();
@@ -29,7 +31,7 @@ export function RepertoireSearch({ query, matches }: { query: string; matches: b
     if (q.trim()) p.set('q', q.trim());
     if (own) p.set('own', '1');
     const s = p.toString();
-    router.push(s ? `${HERE}?${s}#add-own` : HERE);
+    router.push(s ? `${HERE}?${s}#${ADD_OWN_ANCHOR}` : HERE);
   };
   return (
     <SupplierThumbRow

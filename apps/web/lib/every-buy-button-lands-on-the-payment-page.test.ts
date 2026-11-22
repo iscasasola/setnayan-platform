@@ -217,7 +217,7 @@ test('the couple and the guest reach it too — the last three doors', () => {
   assert.doesNotMatch(bill, /action=\{logPayment\}|name="amount_php"/);
   assert.doesNotMatch(bill, /&ldquo;Log a payment&rdquo; form below/);
 
-  const fee = read('app/vendor-dashboard/booking-fees/[orderId]/page.tsx');
+  const fee = read('app/vendor-dashboard/booking-fees/[orderId]/page.tsx') + '\n' + read('app/vendor-dashboard/booking-fees/[orderId]/fee-body.tsx'); // set two: the body draws the door
   assert.match(fee, /payPath\(order\.reference_code\)/, 'the booking fee must lead to /pay');
 });
 

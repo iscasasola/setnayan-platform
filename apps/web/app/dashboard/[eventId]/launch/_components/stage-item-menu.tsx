@@ -8,7 +8,7 @@ import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { RSVP_STAGE_SCENES, type RsvpStageScene } from '@/lib/rsvp-stage';
 import { MAKER_STAGE_MENU_KEYS, type MakerStageKey } from '@/lib/maker-parts';
 import { makerStagesPages } from '@/lib/maker-stage-filing';
-import { STAGE_ITEM_BUTTON, STAGE_PANEL_VARS, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
+import { STAGE_ITEM_BUTTON, STAGE_PANEL_VARS, STAGE_PANEL_VARS_DARK, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
 import { useOneOpen } from '@/lib/one-open';
 import { MakerSheet } from './stages-studio-parts';
 import { makerPagePick, makerStageLabel } from './maker-bar';
@@ -128,7 +128,7 @@ export function StageItemMenu({
       {open && typeof document !== 'undefined' ? createPortal(
         <MakerSheet label="Stages" onClose={() => setOpen(false)}>
           {/* From Studio the Stages panel is not drawn, and its colours go with it: the bar's list carries them itself. */}
-          {bar ? <style>{`[data-stage-menu]{${STAGE_PANEL_VARS}}`}</style> : null}
+          {bar ? <style>{`[data-stage-menu]{${STAGE_PANEL_VARS}}html.dark [data-stage-menu]{${STAGE_PANEL_VARS_DARK}}`}</style> : null}
           <ul className="flex flex-col gap-0.5 pb-1" data-stage-menu="">
             {/* 📖 Four stages — Post Event left the Event Hub (20 Nov), so it is never listed here. */}
             {MAKER_STAGE_MENU_KEYS.map((s) => {

@@ -61,7 +61,8 @@ test('D-4 · exactly ONE filled action on the page, and it is the action colour'
   assert.equal(filled, 1, 'the only solid gold left is the PRIORITY badge, which is not an action');
   assert.match(
     focal,
-    /background: 'rgb\(var\(--color-mulberry\)\)', color: '#FFFFFF'/,
+    // Its words are the ink that reads ON the action colour (`--sn-on-accent`: white in Light, dark in Dark — 18 Nov 2026).
+    /background: 'rgb\(var\(--color-mulberry\)\)', color: 'rgb\(var\(--sn-on-accent\)\)'/,
     'the do-this-now action wears the action colour, not the decorative one',
   );
   assert.ok(

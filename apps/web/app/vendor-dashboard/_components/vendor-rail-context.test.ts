@@ -477,6 +477,12 @@ test('all nine cron-free sweeps still ride on this layout', () => {
       goes, and the gift ends with nothing said.
     */
     'maybeSweepPlanGiftEndingNotices',
+    /*
+      👤 A smaller plan pauses the extra seats (supplier roles d–h (g), owner 21 Nov — overturns ruling 5683). Nothing
+      else pauses a seat or brings one back when the shop upgrades; drop it and a shop on a smaller plan keeps every
+      seat signed in, and an upgraded shop's paused people never come back, with every screen still looking correct.
+    */
+    'maybeReconcileSeatPauses',
   ]) {
     assert.ok(
       new RegExp(`\\b${sweep}\\b`).test(src),
@@ -499,7 +505,8 @@ test('all nine cron-free sweeps still ride on this layout', () => {
     // 12 since 2026-10-28: `maybeRunSupplierPagePublish` (the 7-day guest notice; named above).
     // 13 since 2026-11-12: `maybeRunTopUpUnlist` (the booking-fee top-up unlist; named above).
     // 14 since 2026-11-14: `maybeSweepPlanGiftEndingNotices` (a gifted plan's "ends soon"; named above).
-    14,
+    // 15 since 2026-11-21: `maybeReconcileSeatPauses` (a smaller plan pauses the extra seats; named above).
+    15,
     'the count of post-response jobs changed',
   );
 });

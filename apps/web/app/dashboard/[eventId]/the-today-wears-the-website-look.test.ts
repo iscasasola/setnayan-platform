@@ -29,7 +29,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..');
 const read = (...rel: string[]) => readFileSync(join(WEB, ...rel), 'utf8');
 const SHEET_PATH = ['app', 'dashboard', '[eventId]', '_components', 'today-website.css'] as const;
-const sheet = () => read(...SHEET_PATH).replace(/\/\*[\s\S]*?\*\//g, '');
+const sheet = () => stripComments(read(...SHEET_PATH));
 
 test('1 · the sheet is Today’s alone, loaded where Today draws, and made of tokens', () => {
   const css = sheet();

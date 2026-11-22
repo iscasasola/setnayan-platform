@@ -34,6 +34,18 @@ export function hasNativeStore(ua: string | null | undefined): boolean {
   return /\bSetnayanIAP\/(?:[2-9]|[1-9]\d)/.test(ua ?? '');
 }
 
+/**
+ * 💝 The token a build whose plugin passes a QUANTITY to StoreKit announces — 1.0 (build 9) on, owner 2026-11-22: a shop's
+ * gift cart pays LINE BY LINE, each line one Apple purchase of 1–10. An older plugin ignores `quantity` and would charge
+ * for ONE while the line said more, so the gift store is drawn only for `/3`+ (`hasStoreQuantity`).
+ */
+export const NATIVE_STORE_QUANTITY_UA_MARKER = 'SetnayanIAP/3';
+
+/** `SetnayanIAP/3` or higher — `/3`–`/9`, then any two-or-more-digit version. */
+export function hasStoreQuantity(ua: string | null | undefined): boolean {
+  return /\bSetnayanIAP\/(?:[3-9]|[1-9]\d)/.test(ua ?? '');
+}
+
 export function iapAvailable(input: {
   storeShell: boolean;
   userAgent: string | null | undefined;

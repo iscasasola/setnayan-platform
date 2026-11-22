@@ -29,6 +29,9 @@ import StoreKit
  *              forwarded: the web says one true sentence ("nothing charged").
  *       `appAccountToken` is the UUID our server minted for this purchase; Apple
  *       signs it into the transaction, which is how the server knows the event.
+ *       `quantity` (optional, 1–10, build 9 on — `SetnayanIAP/3`): a shop's gift
+ *       cart line is ONE purchase of its gift with a quantity (owner 2026-11-22).
+ *       Apple signs the quantity it charged for; the server lands exactly that.
  *
  *   finish({ transactionId })  → finishes a transaction the SERVER confirmed.
  *       Never called before the server said "on": an unfinished transaction is
@@ -136,6 +139,12 @@ public class SetnayanStorePlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("A product and a purchase token are required.", "INVALID")
             return
         }
+        // StoreKit sells a consumable 1–10 at a time; anything else is refused, never clamped.
+        let quantity = call.getInt("quantity") ?? 1
+        guard (1...10).contains(quantity) else {
+            call.reject("A quantity from 1 to 10 is required.", "INVALID")
+            return
+        }
         Task { @MainActor in
             guard !self.purchasing else {
                 call.reject("A purchase is already open.", "BUSY")
@@ -153,7 +162,9 @@ public class SetnayanStorePlugin: CAPPlugin, CAPBridgedPlugin {
                     call.resolve(["result": "failed"])
                     return
                 }
-                let result = try await product.purchase(options: [.appAccountToken(token)])
+                var options: Set<Product.PurchaseOption> = [.appAccountToken(token)]
+                if quantity > 1 { options.insert(.quantity(quantity)) }
+                let result = try await product.purchase(options: options)
                 switch result {
                 case .success(let verification):
                     guard case .verified(let transaction) = verification else {

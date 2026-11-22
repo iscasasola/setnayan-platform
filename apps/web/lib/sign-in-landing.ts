@@ -27,6 +27,8 @@
  *
  * ─── WHAT THIS CHANGES, SAID PLAINLY ───────────────────────────────────────
  * Owner 2026-08-28: *"when you log in, you should go directly to Events"*.
+ * ⏩ REFINED 22 Nov 2026: *"don't start on discovery. start on their profile page"* — Events is now a section of
+ *    Home, the profile page, so a `/` sign-in lands on Home (`?hub=1`; a supplier's on Shop). See below.
  *
  * ⚠ THIS REVERSES THE 2026-08-13 BEHAVIOUR ON ONE ORIGIN ONLY, AND THE OWNER
  * ASKED FOR IT. That day the rule became "`next` is honoured for EVERY origin,
@@ -38,13 +40,19 @@
  * half of that decision this does not touch.
  */
 
+import { landingForAccount } from './auth-confirm-link';
+
 /**
- * The board a signed-in person starts on. Vendors are NOT special-cased here on
- * purpose: `app/dashboard/layout.tsx` already bounces a vendor account to
- * `/vendor-dashboard`, and a second copy of that rule in a second place is the
- * exact duplication this module exists to avoid.
+ * The page a signed-in person starts on when nothing says otherwise — their profile page, Home (owner 22 Nov 2026:
+ * *"when i log in. don't start on discovery. start on their profile page"*). The rule itself is
+ * `landingForAccount` (lib/auth-confirm-link.ts) — this is its answer for an account whose type the caller does not
+ * know, kept as a name because the front door's in-place panel falls back to it.
+ *
+ * (This used to say vendors were not special-cased because `app/dashboard/layout.tsx` bounced them to
+ * /vendor-dashboard. That bounce was removed — see the layout's "THE BOUNCE IS GONE" — so a supplier is now sent to
+ * Home on Shop by the one rule, not by a second hop.)
  */
-export const SIGNED_IN_LANDING = '/dashboard';
+export const SIGNED_IN_LANDING = landingForAccount('/', null);
 
 /**
  * Resolve where a completed sign-in should go.
@@ -53,7 +61,10 @@ export const SIGNED_IN_LANDING = '/dashboard';
  * path. Only the bare `/` is redirected: a real destination (including one that
  * merely starts with `/`, like `/vendors?q=cake`) is always honoured, because
  * somebody who was sent to sign in from a page is owed that page back.
+ *
+ * `accountType` (`users.account_type`) picks which section of Home a `/` sign-in opens on — a supplier's opens on
+ * Shop. ONE RULE: this delegates to `landingForAccount`, which the email-link door calls directly.
  */
-export function signInDestination(raw: string): string {
-  return raw === '/' ? SIGNED_IN_LANDING : raw;
+export function signInDestination(raw: string, accountType: string | null | undefined = null): string {
+  return landingForAccount(raw, accountType);
 }

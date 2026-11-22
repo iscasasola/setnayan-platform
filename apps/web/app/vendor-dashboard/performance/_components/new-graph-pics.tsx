@@ -11,38 +11,44 @@ import { WEEKDAYS, type CardSell, type LostDates, type MonthCount, type QuoteSta
 
 const W = 358;
 
-/** a · Dates you lost — a column per weekday: closed (mulberry) under full (gold), the count under it. */
+/**
+ * a · Dates you lost — a column per weekday, the count on top, the weekday under it (one shape, owner 21 Nov 2026: page
+ * text, columns that stretch sideways only). Colours by meaning (owner 22 Nov 2026): "closed" quiet grey, "full" amber —
+ * the same amber as "couples asked, you weren't free" on The next 13 weeks.
+ */
 export function LostPic({ l }: { l: LostDates }) {
   const max = Math.max(1, ...l.byWeekday.map((d) => d.closed + d.full));
-  const colW = W / 7;
-  const H = 48;
   return (
-    <>
-      <svg viewBox={`0 0 ${W} 66`} className="ag-svg" role="img" aria-label="Dates couples asked for that you could not take, by weekday" data-graph-pic="lost">
+    <span className="ag-lost" data-graph-pic="lost" role="img" aria-label="Dates couples asked for that you could not take, by weekday">
+      <span className="ag-lost-cols">
         {WEEKDAYS.map((d, i) => {
-          const x = i * colW + 6;
-          const bw = colW - 12;
           const v = l.byWeekday[i]!;
-          const hf = (v.full / max) * H;
-          const hc = (v.closed / max) * H;
           const n = v.closed + v.full;
+          const hf = (v.full / max) * 100;
+          const hc = (v.closed / max) * 100;
           return (
-            <g key={d}>
-              <rect className="ag-gr" x={x} y={0} width={bw} height={H} rx={3} />
-              {hc ? <rect className="ag-mul" x={x} y={H - hc - hf} width={bw} height={hc} rx={2} /> : null}
-              {hf ? <rect className="ag-ok2" x={x} y={H - hf} width={bw} height={hf} rx={2} /> : null}
-              <text className={n ? 'ag-bk ag-d' : 'ag-bk'} x={x + bw / 2} y={62} textAnchor="middle">
-                {n ? `${d} · ${n}` : d}
-              </text>
-            </g>
+            <span key={d} className="ag-lc">
+              <em>{n ? formatCount(n) : ''}</em>
+              <span className="ag-col">
+                {hf ? <i className="ag-full" style={{ height: `${hf}%` }} /> : null}
+                {hc ? <i className="ag-closed" style={{ height: `${hc}%`, bottom: `${hf}%` }} /> : null}
+              </span>
+              <span className={n ? 'ag-d' : undefined}>{d}</span>
+            </span>
           );
         })}
-      </svg>
-      <div className="ag-leg">
-        <span className="ag-leg-mul">▬ you were closed</span>
-        <span className="ag-leg-ok">▬ you were full</span>
-      </div>
-    </>
+      </span>
+      <span className="ag-leg">
+        <span>
+          <i className="ag-s-closed" />
+          you were closed
+        </span>
+        <span>
+          <i className="ag-s-full" />
+          you were full
+        </span>
+      </span>
+    </span>
   );
 }
 
@@ -84,7 +90,7 @@ export function CardSellPic({ c }: { c: readonly CardSell[] }) {
         })}
       </svg>
       <div className="ag-leg">
-        {withOpens ? <span>▬ opened</span> : null}
+        {withOpens ? <span className="ag-leg-opened">▬ opened</span> : null}
         <span className="ag-leg-mul">▬ asked</span>
         <span className="ag-leg-ok">▬ booked</span>
       </div>
@@ -134,7 +140,7 @@ export function SlowPic({ months }: { months: readonly MonthCount[] }) {
         return (
           <g key={m.key}>
             <rect className="ag-gr" x={x} y={0} width={bw} height={H} rx={2} />
-            {h ? <rect className={m.count <= 1 ? 'ag-pale' : 'ag-ok'} x={x} y={H - h} width={bw} height={h} rx={2} /> : <rect className="ag-rng" x={x + 0.8} y={0.8} width={bw - 1.6} height={H - 1.6} rx={2} />}
+            {h ? <rect className={m.count <= 1 ? 'ag-ok ag-thin-m' : 'ag-ok'} x={x} y={H - h} width={bw} height={h} rx={2} /> : <rect className="ag-rng" x={x + 0.8} y={0.8} width={bw - 1.6} height={H - 1.6} rx={2} />}
             <text className={m.count === 0 ? 'ag-bk ag-d' : 'ag-bk'} x={x + bw / 2} y={58} textAnchor="middle">
               {m.label}
             </text>
@@ -182,71 +188,102 @@ export function QuotesPic({ q }: { q: QuoteStates }) {
 }
 
 /**
- * 🎠 THE THREE COUNT CARDS' PICTURES (owner 11 Nov: Opened · Asked · Booked are cards of their own, each with its window
- * switch). Opened = the opens as a line over the window; Asked and Booked = bars, one per day (30 days) or month (12
- * months). The lanes' own classes (`.ag-lanes`), so the colours are the approved ones. The line draws in and the bars
- * grow once the card is seen (`.perf-play` from `Reanimate`); still under reduced motion.
+ * 🎠 THE THREE COUNT CARDS' PICTURE — ONE SHAPE (owner 21 Nov 2026, drawing `analytics_one_shape_2026-11-21`): Opened =
+ * a line over its area, Asked and Booked = bars, one per day (30 days) or month (12 months). The plot stretches
+ * SIDEWAYS only inside the fixed 144-px box (`preserveAspectRatio="none"`, strokes that never scale); its words — the
+ * three dates and the key — are page text on the type scale, so they never grow. The dashed "same days last year"
+ * line and the "+N% vs last year" key are drawn only when a percent is shown (lib/analytics-vs-last-year.ts). The line
+ * is uncovered left to right and the bars grow once the card is seen (`.perf-play` from `Reanimate`); still under
+ * reduced motion. Colours by meaning (owner 22 Nov 2026): the CSS paints opened blue · asked amber · booked green.
  */
-const CW = 300;
-function CountAxis({ labels, y }: { labels: readonly string[]; y: number }) {
-  if (labels.length === 0) return null;
-  const picks = [labels[0]!, labels[Math.floor((labels.length - 1) / 2)]!, labels[labels.length - 1]!];
-  return (
-    <>
-      <text className="ag-xl" x={0} y={y}>
-        {picks[0]}
-      </text>
-      <text className="ag-xl" x={CW / 2} y={y} textAnchor="middle">
-        {picks[1]}
-      </text>
-      <text className="ag-xl" x={CW} y={y} textAnchor="end">
-        {picks[2]}
-      </text>
-    </>
-  );
-}
+const PW = 300;
+const PH = 100;
 
-export function CountLinePic({ values, labels }: { values: readonly number[]; labels: readonly string[] }) {
-  const h = 70;
-  const n = Math.max(values.length, 2);
-  const max = Math.max(1, ...values);
-  const pts = values.map((v, i) => [(i * CW) / (n - 1), h - 2 - (v / max) * (h - 10)] as const);
-  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
-  const area = `${line} L${CW} ${h - 2} L0 ${h - 2} Z`;
-  return (
-    <svg viewBox={`0 0 ${CW} ${h + 14}`} className="ag-lanes" role="img" aria-label="Opens over the window" data-graph-pic="opened">
-      <path className="ag-varea ag-fade-in" d={area} />
-      <path className="ag-vline ag-draw" d={line} pathLength={1} />
-      <line className="ag-base" x1={0} x2={CW} y1={h - 2} y2={h - 2} />
-      <CountAxis labels={labels} y={h + 12} />
-    </svg>
-  );
-}
+/** The key over the plot: "+23% vs last year ----", or "Last year: couldn’t load". */
+export type CountKey = { word: string; dir: 'up' | 'down' | 'flat' } | { unread: true };
 
-export function CountBarsPic({ values, labels, kind }: { values: readonly number[]; labels: readonly string[]; kind: 'asked' | 'booked' }) {
-  const h = 70;
+export function CountPic({
+  kind,
+  values,
+  lastYear,
+  axis,
+  countKey,
+}: {
+  kind: 'opened' | 'asked' | 'booked';
+  values: readonly number[];
+  /** Last year's buckets, the same length — drawn dashed; null = no line. */
+  lastYear: readonly number[] | null;
+  /** First · middle · last label, page text. */
+  axis: readonly [string, string, string] | null;
+  countKey: CountKey | null;
+}) {
   const n = Math.max(values.length, 1);
+  const ly = lastYear && lastYear.length === values.length ? lastYear : null;
+  const max = Math.max(1, ...values, ...(ly ?? []));
+  // The top of the plot is left for the key, so the tallest point never runs under it.
+  const top = countKey ? 28 : 6;
+  const y = (v: number) => PH - (v / max) * (PH - top);
+  const xLine = (i: number) => (n === 1 ? PW / 2 : (i * PW) / (n - 1));
   const gap = n > 12 ? 3 : 8;
-  const bw = (CW - (n - 1) * gap) / n;
-  const max = Math.max(1, ...values);
+  const bw = (PW - (n - 1) * gap) / n;
+  const xBar = (i: number) => i * (bw + gap);
+  const path = (vals: readonly number[], x: (i: number) => number) => vals.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  const line = path(values, xLine);
+  // Over bars, last year is a step — one flat dash across each bar's own slot (the drawing's `stepPath`).
+  const lyPath = ly
+    ? kind === 'opened'
+      ? path(ly, xLine)
+      : ly.map((v, i) => `${i ? 'L' : 'M'}${xBar(i).toFixed(1)} ${y(v).toFixed(1)} H${(xBar(i) + bw).toFixed(1)}`).join(' ')
+    : null;
+  const label = kind === 'opened' ? 'Opens over the window' : kind === 'asked' ? 'Inquiries over the window' : 'Bookings over the window';
   return (
-    <svg viewBox={`0 0 ${CW} ${h + 14}`} className="ag-lanes" role="img" aria-label={kind === 'asked' ? 'Inquiries over the window' : 'Bookings over the window'} data-graph-pic={kind}>
-      <line className="ag-base" x1={0} x2={CW} y1={h - 2} y2={h - 2} />
-      {values.map((v, i) =>
-        v > 0 ? (
-          <rect
-            key={i}
-            className={`${kind === 'asked' ? 'ag-abar' : 'ag-bbar'} ag-grow`}
-            style={{ animationDelay: `${Math.min(i * 18, 500)}ms` }}
-            x={(i * (bw + gap)).toFixed(1)}
-            y={(h - 2 - Math.max(3, (v / max) * (h - 10))).toFixed(1)}
-            width={bw.toFixed(1)}
-            height={Math.max(3, (v / max) * (h - 10)).toFixed(1)}
-            rx={2}
-          />
-        ) : null,
-      )}
-      <CountAxis labels={labels} y={h + 12} />
-    </svg>
+    <span className="ag-pic" data-graph-pic={kind}>
+      <span className="ag-plot">
+        <svg viewBox={`0 0 ${PW} ${PH}`} preserveAspectRatio="none" role="img" aria-label={ly ? `${label}, with the same days last year dashed` : label}>
+          {kind === 'opened' ? (
+            <>
+              <path className="ag-area" d={`${line} L${PW} ${PH} L0 ${PH} Z`} />
+              <path className="ag-line" d={line} />
+            </>
+          ) : (
+            values.map((v, i) =>
+              v > 0 ? (
+                <rect
+                  key={i}
+                  className={`ag-bar-${kind} ag-bar-grow`}
+                  style={{ animationDelay: `${Math.min(i * 18, 500)}ms` }}
+                  x={xBar(i).toFixed(1)}
+                  y={y(v).toFixed(1)}
+                  width={bw.toFixed(1)}
+                  height={(PH - y(v)).toFixed(1)}
+                />
+              ) : null,
+            )
+          )}
+          {lyPath ? <path className="ag-ly" d={lyPath} data-last-year-line="" /> : null}
+        </svg>
+        {kind === 'opened' ? <span className="ag-reveal" aria-hidden /> : null}
+        {countKey ? (
+          'unread' in countKey ? (
+            <span className="ag-key" data-vs-last-year="unread">
+              Last year: couldn’t load
+            </span>
+          ) : (
+            <span className="ag-key" data-vs-last-year={countKey.dir}>
+              <b className={`ag-${countKey.dir}`}>{countKey.word}</b> vs last year <i className="ag-dash" aria-hidden />
+            </span>
+          )
+        ) : null}
+      </span>
+      <span className="ag-axis" aria-hidden>
+        {axis ? (
+          <>
+            <span>{axis[0]}</span>
+            <span>{axis[1]}</span>
+            <span>{axis[2]}</span>
+          </>
+        ) : null}
+      </span>
+    </span>
   );
 }

@@ -46,9 +46,10 @@ const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 const count = (haystack: string, needle: string) =>
   haystack.split(needle).length - 1;
 
-test('the bare front door becomes the Events board', () => {
-  assert.equal(SIGNED_IN_LANDING, '/dashboard');
-  assert.equal(signInDestination('/'), '/dashboard');
+test('the bare front door becomes the profile page, Home (22 Nov 2026: "start on their profile page")', () => {
+  assert.equal(SIGNED_IN_LANDING, '/dashboard?hub=1');
+  assert.equal(signInDestination('/'), '/dashboard?hub=1');
+  assert.equal(signInDestination('/', 'vendor'), '/dashboard?seg=shop', "a supplier's Home opens on Shop");
 });
 
 test('a real destination is always honoured, exactly as given', () => {

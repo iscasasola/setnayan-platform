@@ -430,6 +430,8 @@ const nextConfig: NextConfig = {
     // 🏅 The v84 tier pictures every print badge is drawn from (lib/print-badge-art.ts), read from disk by path.
     '/api/vendor/badges': ['./public/badges/v84/*.webp'],
     '/api/vendor/door-sticker': ['./public/badges/v84/*.webp'],
+    // 🎴 The shop share card wears the shop's earned badges (lib/social/vendor-card.tsx → the same art resolver).
+    '/api/og/v/[slug]': ['./public/badges/v84/*.webp'],
   },
   // `sharp` (native) is loaded server-side to decode uploaded vendor QR images
   // (lib/vendor-payment-methods.server.ts). Keep it external so it's required

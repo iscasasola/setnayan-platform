@@ -265,7 +265,8 @@ test('hasVerifiedBadge is reachable and the fixed sites actually call it', () =>
     'app/onboarding/wedding/actions.ts',
     'app/tour/vendors/page.tsx',
     'app/_components/frontdoor/data.ts',
-    'lib/vendor-og-description.ts',
+    // The shop share card's Verified (v2, 2026-11-21) is read through `readShopBadgeFacts` — the line no longer says it.
+    'lib/shop-badges.server.ts',
   ]) {
     const src = STRIPPED.get(f);
     assert.ok(src, `${f} is no longer scanned`);

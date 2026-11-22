@@ -17,6 +17,7 @@ import {
   type CheckDateEvent,
 } from '@/lib/check-a-date';
 import { startServiceInquiry } from '@/app/v/[slug]/inquiry-actions';
+import { INQUIRY_NOT_SENT, inquireSendOutcome } from '@/lib/shop-inquire';
 import { SeatMonths } from './seat-months';
 import { dayShines } from '@/lib/hot-date';
 
@@ -99,7 +100,9 @@ export function CheckADateCalendar({
   const [eventId, setEventId] = useState<string | null>(null);
   const [left, setLeft] = useState(0);
   const [note, setNote] = useState<string | null>(null);
-  const [sent, setSent] = useState<{ eventId: string; threadId: string } | null>(null);
+  // 📨 The note is a failure (the ask did not land) — drawn in the danger colour.
+  const [noteFailed, setNoteFailed] = useState(false);
+  const [sent, setSent] = useState<{ eventId: string; threadId: string; posted: boolean } | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const state = day ? checkDateStateOf(day, { notBookable: closed, today, to }) : null;
@@ -130,6 +133,7 @@ export function CheckADateCalendar({
   const pick = (d: string) => {
     setDay(d);
     setNote(null);
+    setNoteFailed(false);
     setSent(null);
     const open = services.filter((s) => serviceOpen(s.serviceId, d)).map((s) => s.serviceId);
     setChosen((cur) => {
@@ -160,28 +164,28 @@ export function CheckADateCalendar({
         requirements: { specialRequest: checkDateAskLine(day) },
         inquirySource,
       });
-      if (res.status === 'ok' || res.status === 'ok_build_not_sent') {
-        setSent({ eventId: res.eventId, threadId: res.threadId });
+      // 📨 The shop page's ONE reading of the result (`inquireSendOutcome`, shared with the Inquire pop-up): only a
+      // delivery is the Sent step; anything else comes back here with the reason.
+      const outcome = inquireSendOutcome(res, 'Sign in to send this — your date and services are kept.');
+      if (outcome.sent) {
+        setSent({ eventId: outcome.eventId, threadId: outcome.threadId, posted: outcome.posted });
         setStep('sent');
         return;
       }
       setStep('event');
-      setNote(
-        res.status === 'not_signed_in' || res.status === 'not_secured'
-          ? 'Sign in to send this — your date and services are kept.'
-          : res.status === 'no_event'
-            ? 'That event isn’t yours to ask from. Pick another.'
-            : res.message || 'It didn’t send. Try again.',
-      );
+      setNoteFailed(true);
+      setNote(outcome.note);
     } catch {
       setStep('event');
-      setNote('It didn’t send. Check your connection and try again.');
+      setNoteFailed(true);
+      setNote(INQUIRY_NOT_SENT);
     }
   };
 
   const hold = () => {
     if (!eventId || chosen.length === 0) return;
     setNote(null);
+    setNoteFailed(false);
     setStep('sending');
     const until = Date.now() + CHECK_DATE_UNDO_MS;
     setLeft(Math.ceil(CHECK_DATE_UNDO_MS / 1000));
@@ -201,8 +205,13 @@ export function CheckADateCalendar({
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
     setStep('event');
+    setNoteFailed(false);
     setNote('Not sent.');
   };
+
+  // 📨 "Sent" only when a message posted; a chat already under way with nothing new says where the picks went.
+  const sentLine =
+    sent?.posted === false ? `You already have a chat with ${shop.name}. Your picks were added to it.` : `${shop.name} will reply in your chat.`;
 
   const eventWord = (e: CheckDateEvent) => `${e.name}${e.typeLabel ? ` · ${e.typeLabel}` : ''}`;
   const createHref = day
@@ -361,7 +370,11 @@ export function CheckADateCalendar({
                     </div>
                   ) : null}
                   {note ? (
-                    <p role="status" className="mt-2 text-[13px] text-ink/70" data-check-date-note="">
+                    <p
+                      role={noteFailed ? 'alert' : 'status'}
+                      className={`mt-2 text-[13px] ${noteFailed ? 'font-semibold text-danger-700' : 'text-ink/70'}`}
+                      data-check-date-note={noteFailed ? 'failed' : ''}
+                    >
                       {note}
                     </p>
                   ) : null}
@@ -383,10 +396,10 @@ export function CheckADateCalendar({
             </>
           ) : step === 'sent' ? (
             <>
-              <h2 id="check-date-sheet-title" className="pr-12 text-[17px] font-bold" data-check-date-sent="">
-                Sent ✓
+              <h2 id="check-date-sheet-title" className="pr-12 text-[17px] font-bold" data-check-date-sent={sent?.posted === false ? 'in-chat' : ''}>
+                {sent?.posted === false ? 'In your chat ✓' : 'Sent ✓'}
               </h2>
-              <p className="mb-2 text-[13px] text-ink/60">{shop.name} will reply in your chat.</p>
+              <p className="mb-2 text-[13px] text-ink/60">{sentLine}</p>
               <div className="grid gap-2.5">
                 {sent ? (
                   <ActionButton tone="info" main icon={MessageCircle} label="Open the chat" href={`/dashboard/${sent.eventId}/messages/${sent.threadId}`} className={MAIN} data-testid="check-date-open-chat" />

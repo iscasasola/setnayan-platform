@@ -38,21 +38,21 @@ test('signed out with everything present → create the account with the shop', 
 
 test('a short password is refused ON STEP 3, with the same sentence /signup uses', () => {
   const d = decideOpenShopAccount({ ...base, password: 'short' });
-  assert.deepEqual(d, { kind: 'refuse', step: 5, error: OPEN_SHOP_ACCOUNT_ERRORS.password });
+  assert.deepEqual(d, { kind: 'refuse', step: 2, error: OPEN_SHOP_ACCOUNT_ERRORS.password });
   assert.equal(OPEN_SHOP_PASSWORD_MIN, 8);
   // The floor is the SAME as /signup's `password.length < 8`; a 7 is refused, an 8 passes.
   assert.equal(decideOpenShopAccount({ ...base, password: '1234567' }).kind, 'refuse');
   assert.equal(decideOpenShopAccount({ ...base, password: '12345678' }).kind, 'create');
 });
 
-test('a missing company email is a step-5 refusal, before the agreement is even looked at', () => {
+test('a missing company email is an account-screen (step 2) refusal, before the agreement is even looked at', () => {
   const d = decideOpenShopAccount({ ...base, email: null, termsAgreed: false });
-  assert.deepEqual(d, { kind: 'refuse', step: 5, error: OPEN_SHOP_ERRORS.contactEmail });
+  assert.deepEqual(d, { kind: 'refuse', step: 2, error: OPEN_SHOP_ERRORS.contactEmail });
 });
 
 test('no agreement → refused on STEP 4 with the agreement’s own sentence, never a re-worded one', () => {
   const d = decideOpenShopAccount({ ...base, termsAgreed: false });
-  assert.deepEqual(d, { kind: 'refuse', step: 5, error: TERMS });
+  assert.deepEqual(d, { kind: 'refuse', step: 2, error: TERMS });
 });
 
 test('"email taken" is read from both shapes Supabase uses', () => {

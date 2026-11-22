@@ -40,6 +40,7 @@ import {
 } from './card-badges';
 import { CARD_BADGE_ART } from './card-badges-art';
 import { stripComments } from './strip-comments';
+import { tokenHex } from './css-colour-tokens';
 
 const WEB = join(__dirname, '..');
 const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
@@ -180,7 +181,8 @@ test('7 · every label ink reads at 4.5:1 on the card, light and dark — and ev
   const dark = medals.slice(medals.indexOf('html.dark {'));
   const tok = (block: string, name: string) => new RegExp(`--${name}:\\s*(#[0-9A-Fa-f]{6})`).exec(block)?.[1];
   // The card's paper, as the app declares it: --m-paper / --m-paper-2, first in :root, then in html.dark.
-  const papers = (name: string) => [...css.matchAll(new RegExp(`--${name}:\\s*(#[0-9A-Fa-f]{6})`, 'g'))].map((m) => m[1]!);
+  // Followed through their pointers (`--m-paper: rgb(var(--color-raised))` since the one colour set, 18 Nov 2026).
+  const papers = (name: string) => [tokenHex(name, 'light'), tokenHex(name, 'dark')];
   const [p1Light, p1Dark] = papers('m-paper');
   const [p2Light, p2Dark] = papers('m-paper-2');
   assert.ok(p1Light && p1Dark && p2Light && p2Dark, 'the card paper tokens were not found in globals.css');
@@ -204,7 +206,7 @@ test('8 · the page, the gallery and the row keep their promises', () => {
   const page = strip(read('app/v/[slug]/page.tsx'));
   assert.match(
     page,
-    /const shopVerified = vendor\.verification_state === 'verified';[\s\S]{0,600}readCardBadges\(admin, \{\s*vendorProfileId: vendor\.vendor_profile_id,\s*shopVerified,/,
+    /const shopVerified = vendor\.verification_state === 'verified' && !renewing;[\s\S]{0,600}readCardBadges\(admin, \{\s*vendorProfileId: vendor\.vendor_profile_id,\s*shopVerified,/,
     'Verified on the card is the SAME fact as the blue check by the name',
   );
   // Verified Partner comes from the ONE seals read (J2), never typed — and a failed seals read is a failed badge read.

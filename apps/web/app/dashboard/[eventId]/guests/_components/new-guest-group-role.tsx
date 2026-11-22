@@ -14,7 +14,7 @@ import { useState } from 'react';
  * The Group starts with nothing ticked, as the old "Choose…" did: the form still asks for a group (`missing_group`).
  */
 
-const PICK = 'w-full justify-between border border-ink/15 !bg-white/80 font-medium';
+const PICK = 'w-full justify-between border border-ink/15 !bg-raised/80 font-medium';
 
 /** `hasSides`: "Your groups" follows the form's Side select (owner 2026-10-20, "THE GROUP LIST FOLLOWS THE GUEST'S SIDE"). */
 export function NewGuestGroupField({ eventId, standard, groups, hasSides = false }: { eventId: string; standard: readonly PickOption[]; groups: readonly OwnGroup[] | null; hasSides?: boolean }) {

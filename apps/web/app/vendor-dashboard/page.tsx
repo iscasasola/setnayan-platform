@@ -6,7 +6,7 @@ import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PAYMENT_OPTIONS_HREF } from './_components/payout-method-nudge';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, Plus } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -18,14 +18,14 @@ import {
   readEventDayFacts,
   readNextEventFacts,
   readTodaySchedules,
-  readTodayRenewal,
   readTodayShopRow,
   readTodayViews,
   type EventDayFacts,
   type TodaySchedules,
   type TodayShopRow,
 } from '@/lib/supplier-today.server';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRole, resolveVendorStanding, canManageVendor } from '@/lib/vendor-role';
+import { VENDOR_DUTY_DETAIL, VENDOR_DUTY_LINE, VENDOR_DUTY_NAME, type VendorDuty } from '@/lib/vendor-duties';
 import {
   fetchVendorOverviewData,
   fetchVendorEarningsSummary,
@@ -48,17 +48,24 @@ import { readCardBadgeCongrats } from '@/lib/card-badges.server';
 import { parseCardBadgeCongratsParam } from '@/lib/card-badges';
 import { ClaimWaitLines } from './_components/claim-wait-lines';
 import { readClaimWaits } from '@/lib/claim-access-wait.server';
+import { PapersRenewalLine } from './_components/papers-renewal-line';
 import { StayOnTodayLine } from './_components/stay-on-today-line';
+import { SetnayanShopGiftLines } from './_components/setnayan-shop-gift-lines';
+import { readShopGifts } from '@/lib/setnayan-shop-gift.server';
+import { readPersonalInvitePlanPrices } from '@/lib/personal-invite-prices.server';
 import { manilaToday } from '@/lib/std-views';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   lockAgreeFeeHeld,
+  lockAgreeGiftBuy,
   lockAgreeHalls,
   lockAgreeNotice,
   lockDeclineNotice,
   type LockAnswerNotice,
 } from '@/lib/lock-answer-notice';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { GiftReturnBanner } from '@/app/vendor-dashboard/shop/promote/_components/gift-return-banner';
 import {
   shopFindability,
   findabilityNotice,
@@ -72,18 +79,15 @@ import {
   type DueFeeBill,
 } from '@/lib/booking-fee-disclosure';
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
+import { TodayWelcome } from './_components/today-welcome';
+import { readClaimedWelcome } from '@/lib/claimed-welcome.server';
+import { FIRST_CARD_EDIT_UNREAD, firstCardFrom, firstCardStateFrom, welcomeFrom } from '@/lib/supplier-onboarding';
 import { SupplierToast } from './_components/supplier-toast';
 import { TodayNextEvents } from './_components/today-next-events';
 import { TodayThumbRow } from './_components/today-thumb-row';
 import { assembleSupplierToday } from '@/lib/supplier-today-view';
 import { assembleNextEvents, nextEventDay, type NextEventFacts } from '@/lib/supplier-today-next-events';
 import { readTodayPortfolioCount } from '@/lib/supplier-today-portfolio';
-import { heroPicture, readPortfolioPhotoViews } from '@/lib/supplier-hero.server';
-import { mostViewedPhotoKey, viewsOf } from '@/lib/supplier-hero';
-import { HERO_UPLOAD_PILL } from './_components/supplier-hero';
-import { PortfolioUploadDoor } from './_components/portfolio-upload';
-import { readPortfolioUploadFacts } from '@/lib/portfolio-upload-facts.server';
-import { formatCount } from '@/lib/format-number';
 import { displayServiceLabel } from '@/lib/vendors';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { SupplierSetupScreen } from './_components/supplier-setup-screen';
@@ -103,6 +107,9 @@ import { forecastForBooking } from '@/lib/booking-fee-disclosure.server';
 import { TODAY_ASIDE_COOKIE, readTodayAside } from '@/lib/today-aside';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { buildTodayV2 } from './_components/today-v2-assemble';
+import { readStorySilenceDays, readWrapUpFacts } from '@/lib/today-wrap-up.server';
+import type { WrapUpFacts } from '@/lib/today-wrap-up';
+import { readGuestReviewsForVendor } from '@/lib/guest-reviews';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -138,19 +145,34 @@ import { buildTodayV2 } from './_components/today-v2-assemble';
 
 export const metadata = { title: 'Today' };
 
-function AgentHome() {
+/**
+ * 🧑‍🤝‍🧑 A teammate's Today (six roles, owner 19 Nov 2026): which role they hold and what it opens — the same words as
+ * Team › Roles — so nobody lands on a page that only says "ask your owner". The per-role Today (each role's own tasks)
+ * is the later Today-scoping PR; this says what is true now. With the role unread, the shipped line.
+ */
+function AgentHome({ duty }: { duty: VendorDuty | null }) {
   return (
     <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         titleNode={
           <>
-            You&apos;re on the team
+            {duty ? `You’re on the team · ${VENDOR_DUTY_NAME[duty]}` : 'You’re on the team'}
           </>
         }
       />
-      <div className="sn-tile p-5 text-sm text-ink/65">
-        Need access to something now? Ask your supplier owner to assign you to the
-        services you&apos;ll be managing.
+      <div className="sn-tile p-5 text-sm text-ink/65" data-agent-home-duty={duty ?? ''}>
+        {duty ? (
+          <>
+            <p className="font-medium text-ink">{VENDOR_DUTY_LINE[duty]}.</p>
+            <p className="mt-1">{VENDOR_DUTY_DETAIL[duty]}</p>
+            <p className="mt-2">Need something your role doesn&apos;t open? Ask a Shop Manager — they can change your role on Team.</p>
+          </>
+        ) : (
+          <>
+            Need access to something now? Ask your supplier owner to assign you to the
+            services you&apos;ll be managing.
+          </>
+        )}
       </div>
     </div>
   );
@@ -210,6 +232,8 @@ export default async function VendorOverviewPage({
     lock_decline?: string;
     /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
     taken?: string;
+    /** 🎁 `gift_needed` — the store door with the way back (`lockAgreeGiftBuy`). */
+    gift_buy?: string;
     free?: string;
     competing?: string;
     date_answer?: string;
@@ -217,9 +241,22 @@ export default async function VendorOverviewPage({
     card_badge?: string;
     /** `1` — "I delivered this service" answered on a Today row (`vendorMarkServiceComplete`, Today v2). */
     completed?: string;
+    /** `1` — a couple's invite was accepted (Door A of the supplier onboarding): draw Today's welcome. */
+    claimed?: string;
+    /** `1` — the shop was just opened (Doors B and C): draw Today's welcome. */
+    opened?: string;
+    /** The door's first card when it is not made yet (`waiting` · `refused`) or was skipped — `lib/supplier-onboarding.ts`. */
+    card?: string;
+    card_title?: string;
+    card_price?: string;
+    card_category?: string;
+    card_why?: string;
+    /** `unread` — Door A: Edit was picked on the first card, but the card could not be found to open (ship review 21 Nov). */
+    card_edit?: string;
   }>;
 }) {
   const search = (await searchParams) ?? {};
+  const welcome = welcomeFrom(search);
   const depositAnswer = search.deposit_answer
     ? DEPOSIT_ANSWER_NOTICE[search.deposit_answer] ?? DEPOSIT_ANSWER_NOTICE.error
     : null;
@@ -244,7 +281,7 @@ export default async function VendorOverviewPage({
       feeHeld: lockAgreeFeeHeld(search.fee),
       // RW-38: the live gate, so the notice claims a gate only when there is one.
       feeLocksEvent: lockAgreeFeeHeld(search.fee) ? await resolveFeeEnforcement() : false,
-      halls: lockAgreeHalls(search.taken, search.free),
+      halls: lockAgreeHalls(search.taken, search.free), giftBuy: lockAgreeGiftBuy(search.gift_buy), storeShell: await isStoreShellRequest(),
     }) ?? lockDeclineNotice(search.lock_decline);
   // ⚡ The layout already asked the auth server who this is (`getCurrentUser`,
   // remembered per request) — asking again here was a second auth round trip on
@@ -264,7 +301,8 @@ export default async function VendorOverviewPage({
     fetchOwnVendorProfile(supabase, user.id),
   ]);
   if (vendorRole && !canManageVendor(vendorRole)) {
-    return <AgentHome />;
+    const standing = await resolveVendorStanding(supabase, user.id).catch(() => null);
+    return <AgentHome duty={standing?.duty ?? null} />;
   }
 
   // No profile yet (fresh team-member without an owned shop) — a light landing
@@ -314,8 +352,16 @@ export default async function VendorOverviewPage({
   const eventsYouRunP = readEventsYouRunWithNeeds(supabase, user.id).catch(() => ({ events: [], measured: false }));
   // 🔗 Joined from a couple's link and still waiting for their Approve (audit G3) — said on Today, never silent.
   const claimWaitsP = readClaimWaits(user.id).catch(() => ({ ok: false }) as const);
+  // 🚪 P6: the claimed welcome names the couple — read only on `?claimed=1`, null on any refusal.
+  const claimedWelcomeP = welcome === 'claimed' ? readClaimedWelcome(createAdminClient(), user.id).catch(() => null) : Promise.resolve(null);
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
+  // 🎁 Setnayan's gifts to this shop (owner 14 Nov 2026) — waiting to be opened, or a plan gift running; the Stay
+  // price is the catalogue's. Started here, read at the end; a refusal is drawn as a refusal, never as "no gift".
+  const shopGiftsP = readPersonalInvitePlanPrices()
+    .catch(() => null)
+    .then((prices) => readShopGifts(createAdminClient(), vendorProfileId, Date.now(), prices))
+    .catch(() => ({ ok: false }) as const);
   // 🎗 Arrived from a card-badge Today line ("Congratulations, your [card] service card earned [badge]"): its
   // congratulations opens, only for a card of THIS shop holding that badge now. No link = no read.
   // 📋 TODAY v2's reads (done today · covers · the Trending hold · Completed bookings · the radar · the grow lines) —
@@ -332,38 +378,10 @@ export default async function VendorOverviewPage({
     (`the-supplier-today-reads-together.test.ts`). An approved shop reads none of it.
   */
   const shopRowP = readTodayShopRow(supabase, vendorProfileId);
-  // 📄 The permit row's date — its own read off the shop's self view, beside the shop row (A9).
-  const renewalP = readTodayRenewal(supabase, vendorProfileId);
-  // 🖼 The Portfolio stat's count — C4's one read, started beside the renewal read (not after the page's other reads).
+  // 🖼 The Portfolio stat's count — C4's one read, started beside the shop row (not after the page's other reads).
   const portfolioP = readTodayPortfolioCount(vendorProfileId, supabase);
-  // 🖼 Lane E item 11: Today's hero = the most-viewed portfolio photo (ties → latest; no views → latest; no photo →
-  // the category placeholder). Started now, awaited once at the render — never another wait in this run.
-  const heroP = (async () => {
-    const keys = (profile.portfolio_r2_keys ?? []) as string[];
-    const views = keys.length > 0 ? await readPortfolioPhotoViews(supabase, vendorProfileId) : null;
-    const key = mostViewedPhotoKey(keys, views);
-    const n = viewsOf(key, views);
-    const picture = await heroPicture(key, profile.services as string[] | null);
-    // 📂 Upload opens the device's picker HERE (owner 9 Nov) — its facts read only while the hero is a placeholder.
-    const uploadFacts =
-      picture.kind === 'placeholder'
-        ? await readPortfolioUploadFacts(supabase, vendorProfileId, keys, shopRowP.then((row) => row?.tierState ?? null).catch(() => null))
-        : null;
-    return {
-      picture,
-      caption: picture.kind === 'photo' ? (n > 0 ? `Most viewed · ${formatCount(n)} ${n === 1 ? 'view' : 'views'}` : 'Latest photo') : null,
-      upload: uploadFacts
-        ? {
-            door: (
-              <PortfolioUploadDoor facts={uploadFacts} className={HERO_UPLOAD_PILL} data="supplier-hero-upload">
-                <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-                Upload
-              </PortfolioUploadDoor>
-            ),
-          }
-        : null,
-    };
-  })().catch(() => null);
+  // 🖼 NO HERO PHOTO (owner 19 Nov, looking at live Today: "remove the photo of that header" — supersedes the 9 Nov
+  // "Today shows the most-viewed"). Nothing is read for a picture any more; uploading stays on Portfolio.
   const settingUpP = shopRowP.then((row) => !row?.verified).catch(() => false);
   const setupDetailsP = settingUpP.then((yes) => (yes ? loadDetailsData(supabase, profile, { deepSearch: false }).catch(() => null) : null));
   // 🔦 Step 6's ✓ is the tour after it, on record (`SETUP_TOUR_KEY` in `users.tour_seen_keys`). A refused read is
@@ -551,7 +569,10 @@ export default async function VendorOverviewPage({
     : null;
   // 🎁 A plan Setnayan gave (prototype supplier_personal_invite_2026-10-23 B6 · C2): the Shop line names it, and in
   // its last week a door row says when it ends. Off the same one shop-row read; a failed read says nothing.
-  const gift = shopRow
+  // A Setnayan plan gift running now draws its own line and notice (`SetnayanShopGiftLines`) — the comp words below
+  // would say the same plan twice, so they stand down while it runs.
+  const shopGifts = await shopGiftsP;
+  const gift = shopRow && !(shopGifts.ok && shopGifts.running)
     ? planGiftOf(
         { tier_state: shopRow.tierState, tier_source: shopRow.tierSource, tier_expires_at: shopRow.tierExpiresAt },
         Date.now(),
@@ -637,6 +658,7 @@ export default async function VendorOverviewPage({
     // couldn't load — may be missing … a payment" and drops the count.
     deskIncomplete: deskIncomplete || feeBillsRead === FEE_BILLS_UNREADABLE,
     upcoming,
+    bookingsComplete: data.bookingsComplete,
     schedules,
     firstSteps,
     verified: shopRow ? shopRow.verified : firstSteps == null,
@@ -665,7 +687,6 @@ export default async function VendorOverviewPage({
     askDayHolds: data.askDayHolds,
     dayFacts,
     // 📄 The badge's papers deadline (A9), read off the self view beside the shop row — undefined when refused.
-    renewalDueAt: await renewalP,
     setupDrawn: setup !== null,
     bookedThisMonth: data.bookedThisMonth ?? null,
     portfolio: await portfolioP,
@@ -739,7 +760,7 @@ export default async function VendorOverviewPage({
     quick rows answered on the row · rows that open ONE focused screen · the shop's own gaps (recommended, never
     counted) — plus Done today, the Next badge card, the grow stage and What's trending. 🔒 today-is-one-task.test.ts
   */
-  const [v2r, aside, feeForecasts] = await Promise.all([
+  const [v2r, aside, feeForecasts, wrapUps] = await Promise.all([
     v2ReadsP,
     asideP,
     Promise.all(
@@ -748,6 +769,22 @@ export default async function VendorOverviewPage({
         .slice(0, 5)
         .map(async (c) => [c.eventVendorId, await forecastForBooking(createAdminClient(), { vendorProfileId, eventVendorId: c.eventVendorId }).catch(() => null)] as const),
     ).then((pairs) => Object.fromEntries(pairs) as Record<string, FeeDisclosure | null>),
+    // ✓ Today v3 part 3 — each finished event's wrap-up facts (photos · reviews · plan · silence days). One guest-review
+    // read for the shop, filtered per event. Unread → null → that row keeps v2's quick "I delivered" (never "no photos").
+    (async (): Promise<Record<string, WrapUpFacts | null>> => {
+      const doneCards = needsAnswer.filter((c): c is Extract<typeof c, { kind: 'mark_complete' }> => c.kind === 'mark_complete').slice(0, 3);
+      if (doneCards.length === 0) return {};
+      const admin = createAdminClient();
+      const [guestReviews, silenceDays] = await Promise.all([
+        readGuestReviewsForVendor(admin, vendorProfileId, { limit: 100 }).catch(() => ({ state: 'refused' }) as const),
+        readStorySilenceDays(admin).catch(() => null),
+      ]);
+      const ultra = shopRow ? shopRow.tierState === 'enterprise' : null;
+      const pairs = await Promise.all(
+        doneCards.map(async (c) => [c.id, await readWrapUpFacts({ supabase, admin, vendorProfileId, card: c, guestReviews, ultra, silenceDays }).catch(() => null)] as const),
+      );
+      return Object.fromEntries(pairs);
+    })().catch(() => ({})),
   ]);
 
   // 🧩 The library door reads the live parts (③0-b) — the same snapshot the real upload gate reads.
@@ -758,9 +795,11 @@ export default async function VendorOverviewPage({
     closed: nothingToAnswer,
     deskIncomplete,
     billsUnread: feeBillsRead === FEE_BILLS_UNREADABLE,
+    now: renderNow,
     reads: v2r,
     aside,
     feeForecasts,
+    wrapUps,
     payoutReadiness,
     setupDrawn: setup !== null,
     verified: shopRow ? shopRow.verified : firstSteps == null,
@@ -770,6 +809,9 @@ export default async function VendorOverviewPage({
     inquiries28: data.inquiries28 ?? null,
     bookedThisMonth: data.bookedThisMonth ?? null,
     todayIso,
+    // v3: an event today or tomorrow is a row in the one list (drawing V3 · 3).
+    events: upcoming,
+    eventsUnread: data.bookingsComplete === false,
     library: libraryOpen && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done'),
   });
   const { events: eventsYouRun } = await eventsYouRunP;
@@ -781,8 +823,24 @@ export default async function VendorOverviewPage({
           with no explanation. Its lasting status line is drawn by the screen, under the Next card. */}
       {outcome ? <SupplierToast text={outcome.text} tone={outcome.tone} retry={genericFailure.has(outcome.text)} line={false} /> : null}
 
+      {/* 🚪 The onboarding's last stop (owner 19 Nov): `?claimed=1` · `?opened=1` → the welcome and its three steps. */}
+      {welcome ? (
+        <TodayWelcome
+          kind={welcome}
+          shopName={profile.business_name ?? null}
+          card={firstCardFrom(search)}
+          cardState={firstCardStateFrom(search)}
+          claimed={await claimedWelcomeP}
+          shop={shopRow ? { tierState: shopRow.tierState ?? null, verified: shopRow.verified } : null}
+          editUnread={search.card_edit === FIRST_CARD_EDIT_UNREAD}
+        />
+      ) : null}
+      {/* 🎁 Back from buying a gift for a booking (#7823): the pay page's exit for a gift order lands here. */}
+      <GiftReturnBanner className="mb-3" />
+      <SetnayanShopGiftLines read={shopGifts} now={renderNow} />
       <ClaimWaitLines read={await claimWaitsP} />
       <StayOnTodayLine supabase={supabase} vendorProfileId={vendorProfileId} />
+      <PapersRenewalLine supabase={supabase} vendorProfileId={vendorProfileId} />
       <CardBadgeCongratsLink read={await cardBadgeCongratsP} />
       <SupplierTodayScreen
         view={viewV2}
@@ -793,7 +851,6 @@ export default async function VendorOverviewPage({
         now={renderNow}
         nextEvents={<TodayNextEvents next={nextEvents} />}
         thumb={<TodayThumbRow />}
-        hero={await heroP}
         earned={<BadgeEarnedLine />}
         eventsYouRun={eventsYouRun}
         setup={setup}

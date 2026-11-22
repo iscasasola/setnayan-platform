@@ -97,16 +97,33 @@ export async function resolveReport(formData: FormData) {
   }
 
   if (action === 'hide' && report.target_type === 'chapter') {
-    await admin
+    /*
+      📰 2026-11-17 (Build 2, Q6 "Report takes one down"): a chapter is now also an ARTICLE at
+      /articles/{slug}, readable by anyone. Unfeaturing alone would leave a reported article standing on
+      the public feed, so the hide also takes it DOWN (`removed_at`) — it leaves the public read, the
+      feed and the article sitemap. Its author still sees it in their own chapters.
+    */
+    const { error: hideError } = await admin
       .from('creator_chapters')
       .update({
         showcase_featured_at: null,
         showcase_feature_rank: null,
+        removed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq('public_id', report.target_id as string);
+    if (hideError) throw new Error(hideError.message);
     // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
     clearHomeShelf('stories');
+  }
+
+  // 📰 A reply under an article (Build 2): hide = take that reply down. It leaves the public read at once.
+  if (action === 'hide' && report.target_type === 'chapter_reply') {
+    const { error: hideError } = await admin
+      .from('creator_chapter_replies')
+      .update({ removed_at: new Date().toISOString() })
+      .eq('reply_id', report.target_id as string);
+    if (hideError) throw new Error(hideError.message);
   }
 
   if (action === 'block') {
@@ -180,7 +197,9 @@ export async function resolveReport(formData: FormData) {
   // "hide" that found no photograph says THAT, never "Content hidden".
   const actionNote =
     action === 'hide' && report.target_type === 'chapter'
-      ? 'Removed from the Real Stories Storytellers shelf by Setnayan moderator (stays on the creator’s own page).'
+      ? 'Taken down by a Setnayan moderator: off the articles and the Storytellers shelf (the author still sees it).'
+      : action === 'hide' && report.target_type === 'chapter_reply'
+        ? 'Reply taken down by a Setnayan moderator.'
       : action === 'hide' && report.target_type === 'photo' && !hiddenIn
         ? 'Nothing hidden — the reported photo was not found in this event.'
         : ACTION_NOTE[action];

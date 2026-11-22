@@ -187,7 +187,7 @@ test('the demo shop and its own rows go; shared parents and the other shop stay'
     [SHOP, F.shopCard, F.otherShop, F.otherCard],
   );
   await db.query(
-    `INSERT INTO public.vendor_team_members (vendor_profile_id, user_id, role) VALUES ($1, $2, 'owner')
+    `INSERT INTO public.vendor_team_members (vendor_profile_id, user_id, role, duty) VALUES ($1, $2, 'owner', 'shop_manager')
      ON CONFLICT DO NOTHING`,
     [SHOP, F.owner],
   );

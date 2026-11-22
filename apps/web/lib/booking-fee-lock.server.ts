@@ -181,8 +181,9 @@ async function sendWaivedFeeReceipt(admin: SupabaseClient, chargeId: string): Pr
  * When off it returns immediately without touching the DB, so finalizeVendor is
  * byte-behaviour-identical to today. It is ALSO a no-op for off-platform vendors
  * (no marketplace_vendor_id → the RPC returns skipped:'not_verified_vendor') and
- * for a verified vendor's first 5 booked customers (free-5 → a waived charge,
- * NO order). Only booking 6+ with a positive fee mints an order.
+ * for a booking with no fee to bill (an import, a frozen free place, the launch
+ * offer, a promotion, Setnayan's every-Nth booking fee, a ticket) — a waived or
+ * ₱0 charge, NO order. Only a billed booking with a positive fee mints an order.
  *
  * Idempotent by construction:
  *   • the RPC opens at most ONE live charge per (vendor × event) — a re-lock
@@ -278,6 +279,8 @@ export async function collectBookingFeeAtLock(
     status?: string;
     amount_charged_centavos?: number;
     booking_ordinal?: number;
+    /** Setnayan's every-Nth booking fee (owner 2026-11-20): a ₱0 `paid` charge that still gets its receipt. */
+    free_by_platform_count?: boolean;
   };
 
   if (res.skipped) return { status: 'skipped', reason: res.skipped };
@@ -293,7 +296,7 @@ export async function collectBookingFeeAtLock(
     // promo-waived booking used to land here and tell the supplier nothing —
     // during a promotion, that is every booking. The list is ONE list
     // (`WAIVED_FEE_RECEIPT_STATUSES`); an import, or a ₱0 `paid`, is not on it.
-    if (res.status && WAIVED_FEE_RECEIPT_STATUSES.has(res.status)) {
+    if ((res.status && WAIVED_FEE_RECEIPT_STATUSES.has(res.status)) || res.free_by_platform_count === true) {
       await sendWaivedFeeReceipt(admin, chargeId);
     }
     return { status: 'zero_fee', chargeId };

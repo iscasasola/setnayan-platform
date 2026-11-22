@@ -80,7 +80,7 @@ export function StoryRail({
               onClick={() => onSelect(s.key)}
               className={`min-h-[44px] whitespace-nowrap rounded-full border px-3.5 text-sm font-semibold transition ${
                 active === s.key
-                  ? 'border-ink/25 bg-white text-ink shadow-sm'
+                  ? 'border-ink/25 bg-raised text-ink shadow-sm'
                   : 'border-ink/12 bg-cream/60 text-ink/75'
               }`}
             >
@@ -106,7 +106,7 @@ export function StoryRail({
                 onClick={() => onSelect(s.key)}
                 className={`relative flex min-h-[44px] w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition ${
                   on
-                    ? 'bg-white font-semibold text-ink shadow-sm before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r before:bg-mulberry-600'
+                    ? 'bg-raised font-semibold text-ink shadow-sm before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r before:bg-mulberry-600'
                     : 'text-ink/75 hover:text-ink'
                 }`}
               >
@@ -114,7 +114,7 @@ export function StoryRail({
                 {s.chip ? (
                   <span
                     className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${
-                      s.hot ? 'bg-mulberry-600 text-white' : 'bg-ink/[0.06] text-ink/75'
+                      s.hot ? 'bg-mulberry-600 text-cream' : 'bg-ink/[0.06] text-ink/75'
                     }`}
                   >
                     {s.chip}

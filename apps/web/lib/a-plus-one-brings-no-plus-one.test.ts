@@ -90,11 +90,12 @@ const seatControls = (html: string) => html.match(/<(?:input|select|button)\b[^>
 const offersSeats = (html: string) => /(?:>|")\+[1-4](?:<|")/.test(html);
 /** The section of the card that holds the seats — the "Additional Guests" group (out of RSVP, owner 2026-10-23) up to the
  *  next group, RSVP Status. */
+/* (20 Nov 2026, the approved drawing § 3: the group reads "Plus-ones" and the next one "Reply" — the same two groups.) */
 const seatsAndFood = (html: string) => {
-  const at = html.indexOf('>Additional Guests<');
-  assert.ok(at > 0, 'the card lost its "Additional Guests" group (the probe would read nothing)');
-  const end = html.indexOf('>RSVP Status<', at);
-  assert.ok(end > at, 'the card’s RSVP Status group no longer follows Additional Guests (the probe would read past it)');
+  const at = html.indexOf('>Plus-ones<');
+  assert.ok(at > 0, 'the card lost its "Plus-ones" group (the probe would read nothing)');
+  const end = html.indexOf('>Reply<', at);
+  assert.ok(end > at, 'the card’s Reply group no longer follows Plus-ones (the probe would read past it)');
   return html.slice(at, end);
 };
 

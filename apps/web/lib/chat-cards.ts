@@ -18,6 +18,7 @@ import { isCoordinatorTrade } from './coordinator-trade';
 export { answeredBookAsks, bookRequestFromLine, changeAskFromLine, formLineTitle, guestCountFromLine, streamLineKind, type BookRequestState } from './chat-card-lines';
 import type { AskSubject } from './chat-card-lines';
 import { resolveSchedule, type AutoBalanceMeta, type InstallmentDraft, type ResolvedSchedule } from './proposal-payment-schedule';
+import { PLUS_NEEDS_VERIFIED } from './shop-plus-gate';
 
 // ── Change quote ──────────────────────────────────────────────────────────────
 
@@ -473,6 +474,14 @@ export const NEGOTIATE_PLAN_PRESETS: readonly { key: string; percent: number; la
   { key: 'full', percent: 100, label: 'Full when they book' },
 ];
 
+/** A preset as the schedule resolver's own draft — ONE spelling, read by the plan proposal and the chat's quote receipt. */
+export function negotiatePresetDraft(p: { percent: number }): { manual: InstallmentDraft[]; autoBalance: AutoBalanceMeta } {
+  return {
+    manual: [{ label: p.percent === 100 ? 'Full payment' : 'First payment', kind: 'percent', amountPhp: null, percent: p.percent, due: 'on_lock', offsetDays: 0 }],
+    autoBalance: { label: 'Final balance', due: 'before_event', offsetDays: 7 },
+  };
+}
+
 export function planProposalOptions(input: {
   totalCentavos: number;
   creditCentavos: number;
@@ -482,8 +491,7 @@ export function planProposalOptions(input: {
   const base = Math.max(0, Math.round(input.totalCentavos)) + Math.max(0, Math.round(input.creditCentavos));
   return NEGOTIATE_PLAN_PRESETS.map((p) => {
     const resolved = resolveSchedule({
-      manual: [{ label: p.percent === 100 ? 'Full payment' : 'First payment', kind: 'percent', amountPhp: null, percent: p.percent, due: 'on_lock', offsetDays: 0 }],
-      autoBalance: { label: 'Final balance', due: 'before_event', offsetDays: 7 },
+      ...negotiatePresetDraft(p),
       baseCentavos: base,
       creditCentavos: Math.max(0, Math.round(input.creditCentavos)),
     });
@@ -502,6 +510,7 @@ export function planProposalOptions(input: {
 /** The words the server's counter / plan / accept refusals arrive as → what the card says. */
 export function negotiateRefusalWords(message: string | null | undefined): string {
   const m = message ?? '';
+  if (m.includes('PLUS_NEEDS_VERIFIED')) return PLUS_NEEDS_VERIFIED;
   if (m.includes('COUNTER_EXPIRED')) return 'This one expired — ask again.';
   if (m.includes('ITEM_LOCKED')) return 'The supplier made this final.';
   if (m.includes('QUOTE_MOVED')) return 'The quote changed since — look at the new one.';

@@ -400,7 +400,7 @@ export function MakerRsvpStage({
             data-rsvp-stage-scene={s.key}
             onClick={() => pick(s.key)}
             className={`sn-press flex min-h-11 items-start gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors duration-sn-control ease-sn ${
-              scene === s.key ? 'bg-white shadow-sm' : 'hover:bg-ink/5'
+              scene === s.key ? 'bg-raised shadow-sm' : 'hover:bg-ink/5'
             }`}
           >
             <span className="mt-0.5 font-mono text-[11px] text-ink/50">{i + 1}</span>

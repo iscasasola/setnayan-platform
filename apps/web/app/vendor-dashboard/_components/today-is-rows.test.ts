@@ -405,9 +405,15 @@ test('8 · every tap mark is terracotta; states are Badges; no colour written by
   assert.ok(arrows.length >= 6, `anti-vacuity: only ${arrows.length} arrows`);
   for (const a of arrows) assert.match(a, /text-sn-accent/, `a tap mark is not terracotta: ${a}`);
   // 📊 THE ONE BUILD A4: the five stats are LINKS (they jump; the counts row that filtered in place is retired).
-  const stats = html.slice(html.indexOf('data-today-stats'), html.indexOf('data-today-needs='));
-  assert.equal((stats.match(/<a\b[^>]*data-today-stat=/g) ?? []).length, 5, 'a stat stopped being a link');
-  assert.doesNotMatch(stats, /aria-pressed/, 'a stat filters in place again');
+  // RE-AIMED ON PURPOSE (Today v3 part 1, owner 19 Nov "Keep them below"): the stats now sit UNDER the list, so the
+  // old slice (stats → needs) is empty. The claim is unchanged and is now read off the five stat tags themselves.
+  const stats = html.match(/<a\b[^>]*data-today-stat="[^>]*>/g) ?? [];
+  // The stats are drawn twice (the phone's block and the computer's side pane), so the five are counted by id.
+  const ids = new Set(stats.map((a) => /data-today-stat="([^"]*)"/.exec(a)?.[1]));
+  assert.equal(ids.size, 5, 'a stat stopped being a link');
+  assert.ok(html.indexOf('data-today-stats') > html.indexOf('data-today-needs='), 'the stats are back above the list');
+  for (const a of stats) assert.doesNotMatch(a, /aria-pressed/, 'a stat filters in place again');
+  assert.doesNotMatch(html, /<button\b[^>]*data-today-stat="/, 'a stat is a button that filters in place again');
   const first = code('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
   assert.doesNotMatch(first, /mulberry|text-ink\/45|#[0-9a-fA-F]{3,8}\b/, 'the first screen writes a colour by hand again');
   // (c) A STATE is the shared Badge (soft fill, no border) — this page draws no pill of its own.

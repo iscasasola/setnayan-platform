@@ -82,7 +82,7 @@ export function ScheduleModeToggle({
               {n > 0 ? (
                 <span
                   className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[10px] leading-none ${
-                    on ? 'bg-white/25 text-white' : 'bg-terracotta/15 text-terracotta'
+                    on ? 'bg-sn-on-accent/25 text-sn-on-accent' : 'bg-terracotta/15 text-terracotta'
                   }`}
                 >
                   {n}

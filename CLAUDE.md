@@ -473,9 +473,10 @@ they all merged normally.** Skipping a preview cannot stall a merge.
 
 ### Merging and PUBLISHING are separate events (2026-09-23)
 
-`deploy-prod.yml` no longer runs on every push to `main`. It runs **6×/day**
-(`cron: '7 */4 * * *'`) plus `workflow_dispatch`. Sessions merge as fast as CI allows; the site
-publishes in batches. ~15 production builds/day → ≤6.
+`deploy-prod.yml` no longer runs on every push to `main`. It runs **12×/day, every 2 hours**
+(`cron: '7 */2 * * *'`, owner 2026-11-20 — it was 6×/day, `7 */4`) plus `workflow_dispatch`. Sessions
+merge as fast as CI allows; the site publishes in batches, at most 12 production builds/day (a run with
+no new commits builds nothing).
 
 🔑 **Nothing waits for "its own" deploy.** Every run publishes EVERYTHING merged since the last
 one, so a merge rides the next cadence instead of queuing for a build of its own. **Unmerged work
@@ -496,7 +497,8 @@ Two guards make this safe, and both fail in the direction that keeps the site fr
   run has no marker, and failing closed there would freeze production with nothing red anywhere.
   The tag moves *only* after the hook is accepted; moving it on a failed run would silently drop
   that batch.
-- **`--grace-min 285`** on `deploy-drift-doctor.mjs` (was the default 20). 240 min between runs +
+- **`--grace-min 165`** on `deploy-drift-doctor.mjs` (was the default 20; 285 while deploys ran every
+  4 hours). 120 min between runs +
   build + hook latency. Left at 20 it would alarm every single cycle, and **an alarm that always
   fires stops being an alarm** — which is worse than no monitor at all.
 

@@ -57,7 +57,9 @@ test('(1) the app’s selector is a full pill in ONE colour — terracotta with 
   // "if we change our color to blue, it will be easy to change the button colors" — the template names the accent by
   // its JOB (`--sn-accent`), which holds the terracotta today; `the-accent-is-one-token.test.ts` holds the rest.)
   assert.equal(P.PILL_ON_CLASS, 'bg-sn-accent text-sn-on-accent');
-  assert.match(raw('app/globals.css'), /--sn-accent: var\(--color-mulberry\);/, 'the accent is no longer the terracotta token');
+  // `--sn-accent` → `--color-toggle` → `--color-mulberry` (the one colour set, 18 Nov 2026: toggles wear the decision colour).
+  assert.match(raw('app/globals.css'), /--sn-accent: var\(--color-toggle\);/, 'the accent no longer points at the toggle token');
+  assert.match(raw('app/globals.css'), /--color-toggle: var\(--color-mulberry\);/, 'the toggle is no longer the terracotta token');
   assert.match(raw('app/globals.css'), /--color-mulberry: 194 78 37;\s*\/\* CTA → #C24E25/, 'anti-vacuity: the terracotta token moved');
   assert.match(P.PILL_OFF_CLASS, /^text-ink\/\d\d hover:text-ink$/);
   for (const seg of [P.pillSegClass, K.iSegClass] as ((on: boolean, tone?: 'plain' | 'wine') => string)[]) {
@@ -408,12 +410,13 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
   assert.ok(has(STAGE_TOOL_BUTTON, `border-[${STAGE_TOOL_INSET}px]`) && has(STAGE_TOOL_BUTTON, 'border-transparent'), 'the thumb’s inset is not the tool’s own clear margin');
   const tools = read(`${L}/stage-tools.tsx`);
   const group = tools.slice(tools.indexOf('data-stage-tpill=""'), tools.indexOf('data-stage-play=""'));
-  assert.match(group, /^data-stage-tpill="">\s*(?:\{\s*\}\s*)?<PillThumb \/>\s*\{MAKER_PART_TOOLS\.map\(\(t\) => \(\s*<button\s+key=\{t\}/, 'the tool group does not wear the thumb, or its tools are not the track’s direct children');
-  assert.doesNotMatch(group, /className="contents"|<Fragment|<span/, 'a wrapper hides the tools from the thumb');
+  assert.match(group, /^data-stage-tpill="">\s*(?:\{\s*\}\s*)?<PillThumb \/>\s*\{MAKER_PART_TABS\.map\(\(t\) => \(\s*<button\s+key=\{t\}/, 'the tool group does not wear the thumb, or its tools are not the track’s direct children');
+  /* (What a tab draws INSIDE itself — the ◆ on Animate, 20 Nov 2026 — is not a wrapper: only what is outside the tabs is read.) */
+  assert.doesNotMatch(group.replace(/<button[\s\S]*?<\/button>/g, ''), /className="contents"|<Fragment|<span/, 'a wrapper hides the tools from the thumb');
   assert.doesNotMatch(group, /data-seg-fill|--sp-ink\)/, 'the tool group still has a colour of its own');
   assert.match(group, /data-seg-inset=\{STAGE_TOOL_INSET\}/, 'the thumb fills the whole 44-px button, not the 38-px pill inside it');
   // WORDS, never icons (owner 2026-10-09) — the word is the name a screen reader hears too.
-  assert.match(group, />\s*\{MAKER_PART_TOOL_LABEL\[t\]\}\s*<\/button>/);
+  assert.match(group, />\s*\{MAKER_PART_TAB_LABEL\[t\]\}\s*(?:\{\s*\}\s*)?(?:\{t === MAKER_PRO_TAB[\s\S]{0,400}?\) : null\}\s*)?<\/button>/);
   assert.doesNotMatch(group, /<SwatchBook\b|<ALargeSmall\b|<Orbit\b|<Brush\b|<Diamond\b|<Zap\b|>Aa</, 'a tool icon is still drawn');
 
   // A row where several may be on at once is not an either-or: no thumb.
@@ -528,7 +531,9 @@ function handDrawnTracks(source: string): string[] {
     const tag = m[0];
     if (!/(?:^|[\s"`])rounded-(?:md|lg|xl|2xl|full|\[)/.test(tag)) continue;
     if (!/(?:^|[\s"`])p-(?:0\.5|1|\[\dpx\])/.test(tag)) continue;
-    if (!/(?:^|[\s"`])bg-(?:ink\/|white\/|cream|\[rgba)/.test(tag)) continue;
+    // `bg-raised/` joined 18 Nov 2026: the dashboard's `bg-white/NN` tracks became `bg-raised/NN` (same pixels in Light)
+    // when /dashboard opened to dark — a hand-drawn track is still a hand-drawn track.
+    if (!/(?:^|[\s"`])bg-(?:ink\/|white\/|raised\/|cream|\[rgba)/.test(tag)) continue;
     if (!/aria-(?:pressed|selected|checked)=\{/.test(source.slice(m.index!, m.index! + 900))) continue;
     hits.push(tag.replace(/\s+/g, ' ').slice(0, 200));
   }

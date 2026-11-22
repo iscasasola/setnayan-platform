@@ -48,18 +48,18 @@ test('1 · fail closed — only `available` permits a free booking', () => {
   assert.equal(readFreeHeldBack('nope'), null);
 });
 
-test('2 · a second account of the same business is billed; a new business is not', () => {
-  const base = { flagEnabled: true, verified: true, bookingOrdinal: 1, agreedTotalPhp: 100_000 } as const;
-  const newBusiness = decideLockFee({ ...base, businessFree: 'available' });
-  assert.equal(newBusiness.free, true);
-  assert.equal(newBusiness.feePhp, 0);
-
-  for (const businessFree of ['used_by_business', 'unreadable'] as const) {
-    const d = decideLockFee({ ...base, businessFree });
-    assert.equal(d.free, false, `${businessFree}: a free booking was granted`);
-    assert.ok(d.feePhp > 0, `${businessFree}: no fee`);
-    assert.equal(d.createOrder, true, `${businessFree}: no bill issued`);
-  }
+test('2 · 20 Nov: no free first place is left to share — a new business and a second account are both billed', () => {
+  // The per-business check guarded a free first booking; the 20 Nov rulings removed that booking, so the lock decision
+  // no longer asks it. Both shops pay the same fee on the same booking.
+  const base = {
+    flagEnabled: true, onPlatform: true, attribution: 'sourced', shopVerified: true, frozenFree: false,
+    launchOffer: false, promoWindow: false, schedule: BOOKING_FEE, nextPlatformNumber: 3, freeEveryNth: 100_000,
+    ticketWaiting: false, agreedTotalPhp: 100_000,
+  } as const;
+  const d = decideLockFee(base);
+  assert.equal(d.free, false);
+  assert.equal(d.feePhp, 5_000);
+  assert.equal(d.createOrder, true);
 });
 
 test('3 · the supplier reads why — and never "was on us; this would be number 1"', () => {

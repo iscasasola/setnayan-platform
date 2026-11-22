@@ -1,17 +1,21 @@
 /**
- * the-ticket-row-is-three-icons.test.ts — THE GUEST CARD'S ONE SHARE BUTTON (owner 2026-10-28: "guest card still does not
- * ahve that one share button"; DECISION_LOG "GUEST CARD TICKET ROW = THREE ICON BUTTONS: SHARE · NFC · NEW QR" + "APPROVED —
- * ONE SEND BUTTON FOR EVERY INVITE"; prototype `send_run_simple_2026-10-27` frames card · newqr).
+ * the-ticket-row-is-three-icons.test.ts — THE GUEST CARD'S ONE SEND BUTTON, AND ITS TICKET ROW.
  *
- * The RENDERED card (the real `GuestCardBody` with the real Invite cell and ⋯ handed in, as the Guests pages draw it):
- *   1. beside the ticket: Share · (NFC) · New QR — neutral icon buttons, in that order, then ⋯ only while an account holds
- *      the invitation (Unlink is all the ⋯ has left); no big "Invite ▾" anywhere on the card; "Not sent yet · Not linked".
- *   2. Share is the ROW's one sender (`rowShare` → our own menu on every device, owner 2026-11-05), never a second share path.
+ * ⚠ THE NAME IS HISTORY. The 27–28 Oct ruling this file was written for ("GUEST CARD TICKET ROW = THREE ICON BUTTONS: SHARE ·
+ * NFC · NEW QR") was replaced by the owner-approved drawing `guests_redesign_2026-11-20_fable.html` § 3 ("Yes, build it",
+ * DECISION_LOG 2026-11-20 "GUESTS REDESIGN: BUILD IT"): *"Four quick actions with words: Send invite · Call · Seat · Note"* ·
+ * *"The ticket is one row you tap to view, with its state in words"* · *"NFC and New QR icons, ⋯ Unlink account → labelled
+ * buttons inside the opened ticket"* · *"Share icon on the ticket → the 'Send invite' quick action"*. What it holds now:
+ *
+ * The RENDERED card (the real `GuestCardBody` with the real Invite cell, ticket and its buttons handed in):
+ *   1. the quick row: Send invite (the ONE filled button) · Add mobile · Seat · Note, in that order; then "Their ticket", one
+ *      row wearing "Not sent yet · Not linked"; no NFC / New QR / ⋯ icon outside the ticket; no big "Invite ▾".
+ *   2. Send invite is the ROW's one sender (`rowShare` → our own menu on every device, owner 2026-11-05), never a second path.
  *   3. New QR asks first, in the ruled words, and posts the shipped `releaseGuestClaim` › `new_qr` door.
- *   4. NFC is the shipped writer (`NfcWriteButton`) as an icon — same sheet, same flag.
+ *   4. NFC · New QR · Unlink are labelled buttons, handed INTO the opened ticket — NFC the shipped writer, Unlink only while linked.
  *
- * SABOTAGE (seen red): draw the old brand "Invite" with caret in the card layout → test 1; drop the New QR icon → test 1;
- * point the card's Share at `invite('body')` → test 2.
+ * SABOTAGE (seen red): a second filled button in the quick row → test 1; drop the Seat quick action → test 1; point Send
+ * invite at `invite('body')` → test 2; `iconOnly` back on the NFC writer → test 4; stop handing `tools` to the ticket → test 4.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -44,7 +48,7 @@ const STUB = join(process.cwd(), '__server_only_stub_ticket_row__.js');
     return original.call(this, request, ...rest);
   };
 }
-// The shipped NFC writer is behind its flag; on for this render so its icon can be seen in the row.
+// The shipped NFC writer is behind its flag; on for this render.
 process.env.NEXT_PUBLIC_NFC_WRITE_ENABLED = 'true';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -69,7 +73,7 @@ const BASE = {
   tables: [], seatTableId: null, groupChoices: { options: [], memberIds: [] },
 };
 
-async function paint(data: Record<string, unknown> = {}): Promise<string> {
+async function paint(data: Record<string, unknown> = {}, over: Partial<GuestRow> = {}): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
   const { ToastProvider } = await import('@/app/_components/toast/toast-provider');
@@ -78,7 +82,7 @@ async function paint(data: Record<string, unknown> = {}): Promise<string> {
   const { GuestMoreMenu, GuestTicketThumb } = await import('./guest-ticket-parts');
   const { TEMPLATE_KIT } = await import('./guest-card-template-kit');
   const card = React.createElement(GuestCardBody as unknown as React.FC<Record<string, unknown>>, {
-    eventId: 'e1', data: { ...BASE, ...data, guest: guest() }, invitationBase: 'https://www.setnayan.com/cale-and-ice', photoDisplayUrl: null,
+    eventId: 'e1', data: { ...BASE, ...data, guest: guest(over) }, invitationBase: 'https://www.setnayan.com/cale-and-ice', photoDisplayUrl: null,
     variant: 'panel', headerShown: true, returnTo: '/dashboard/e1/guests', errorMessage: null, inviteFlash: null,
     inviteSetup: { facts: { hostsName: 'Cale & Ice', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' }, template: null, slug: 'x' },
     SendInvite: GuestInviteCell, TicketThumb: GuestTicketThumb, MoreMenu: GuestMoreMenu, kit: TEMPLATE_KIT,
@@ -86,36 +90,44 @@ async function paint(data: Record<string, unknown> = {}): Promise<string> {
   return renderToStaticMarkup(React.createElement(AppRouterContext.Provider, { value: ROUTER as never }, React.createElement(ToastProvider as React.FC<{ children: React.ReactNode }>, null, card)));
 }
 
-/** The ticket row's controls, in order, by their spoken names. */
-function rowNames(html: string): string[] {
-  const at = html.indexOf('data-guest-ticket-row=""');
-  assert.ok(at > 0, 'the card has no ticket row');
-  const row = html.slice(at, html.indexOf('data-guest-invite-status=', at));
-  return [...row.matchAll(/<button\b[^>]*aria-label="([^"]+)"[^>]*>/g)].map((m) => m[1]!);
+const BODY = stripComments(readFileSync(join(HERE, 'guest-card-body.tsx'), 'utf8'));
+
+/** The quick row's controls, in order, by their spoken names. */
+function quickRow(html: string): string {
+  const at = html.indexOf('data-guest-quick-actions=""');
+  assert.ok(at > 0, 'the card has no quick actions');
+  return html.slice(at, html.indexOf('data-guest-ticket-thumb=', at));
 }
+const names = (row: string) => [...row.matchAll(/<(?:button|a)\b[^>]*aria-label="([^"]+)"[^>]*>/g)].map((m) => m[1]!);
 
-test('1 · the RENDERED card: Share · NFC · New QR beside the ticket, ⋯ only while linked, no Invite ▾', async () => {
+test('1 · the RENDERED card: Send invite · Add mobile · Seat · Note, then "Their ticket" as one row with its state in words', async () => {
   const unlinked = await paint();
-  assert.deepEqual(rowNames(unlinked), ['Share Cita Ramos’s invitation', 'Write Cita Ramos’s link to NFC', 'Make a new QR for Cita Ramos']);
-  const row = unlinked.slice(unlinked.indexOf('data-guest-ticket-row=""'), unlinked.indexOf('data-guest-invite-status='));
-  for (const b of row.match(/<button\b[^>]*>/g) ?? []) assert.match(b, /class="ab ab-neutral\b/, `a ticket-row button is not the neutral icon button: ${b.slice(0, 120)}`);
-  assert.doesNotMatch(unlinked, /aria-label="Invite Cita Ramos|data-caret/, 'the big "Invite ▾" is still on the card');
-  assert.doesNotMatch(unlinked, /More for Cita Ramos/, 'an empty ⋯ is drawn');
-  assert.match(unlinked, /Not sent yet · Not linked/);
-
-  const linked = await paint({ linkedAccount: { email: 'c@x.com', memberType: 'guest' } });
-  assert.deepEqual(rowNames(linked).slice(-1), ['More for Cita Ramos'], 'the ⋯ (Unlink) is not last in the row once linked');
+  const row = quickRow(unlinked);
+  assert.deepEqual(names(row), ['Send invite to Cita Ramos', 'Add mobile for Cita Ramos', 'Seat — Cita Ramos', 'Note — Cita Ramos']);
+  const tags = row.match(/<(?:button|a)\b[^>]*>/g) ?? [];
+  assert.match(tags[0]!, /class="ab ab-brand[^"]*\bab-main\b/, 'Send invite is not the filled forward step');
+  for (const b of tags.slice(1)) assert.match(b, /class="ab ab-neutral\b/, `a quick action is not the neutral button: ${b.slice(0, 120)}`);
+  for (const word of ['Send invite', 'Add mobile', 'Seat', 'Note']) assert.match(row, new RegExp(`<span class="lbl">${word}</span>`), `"${word}" lost its word`);
+  // With a saved mobile the second action is the call itself.
+  assert.match(quickRow(await paint({}, { mobile: '+639171234567' })), /<a\b[^>]*href="tel:[^"]+"[^>]*aria-label="Call Cita Ramos"|aria-label="Call Cita Ramos"[^>]*href="tel:/, 'a saved mobile does not make it Call');
+  // The ticket: ONE row, a button, its state in words.
+  const ticket = unlinked.slice(unlinked.indexOf('data-guest-ticket-thumb='), unlinked.indexOf('data-guest-card-groups='));
+  assert.match(ticket, />Their ticket</);
+  assert.match(ticket, /data-guest-invite-status="">Not sent yet · Not linked</, 'the ticket row does not say its state in words');
+  assert.doesNotMatch(unlinked, /aria-label="Invite Cita Ramos|data-caret|data-guest-ticket-row=/, 'the old Invite ▾ / icon row is still on the card');
+  assert.doesNotMatch(unlinked, /More for Cita Ramos|aria-label="Make a new QR for|aria-label="Write Cita/, 'an NFC / New QR / ⋯ icon is still outside the ticket');
 });
 
-test('2 · Share is the row’s ONE sender — `rowShare` → our own menu (app rows + Copy) on every device', () => {
-  const card = CELL.slice(CELL.indexOf("if (layout === 'card') {"));
+test('2 · Send invite is the row’s ONE sender — `rowShare` → our own menu (app rows + Copy) on every device', () => {
+  const card = CELL.slice(CELL.lastIndexOf("if (layout === 'card') {"));
   const body = card.slice(0, card.indexOf('\n  }\n'));
-  assert.match(body, /icon=\{Share\}[\s\S]*?onClick=\{\(\) => rowShare\('body'\)\}/, 'the card’s Share does not run the row’s share');
-  assert.doesNotMatch(body, /invite\('body'\)|tone="brand"/, 'the card still opens the old Invite sheet / draws a filled Invite');
+  assert.match(body, /label="Send invite"[\s\S]*?onClick=\{\(\) => rowShare\('body'\)\}/, 'the card’s Send invite does not run the row’s share');
+  assert.equal((body.match(/\bmain\b/g) ?? []).length, 1, 'the quick row has more than one filled step');
+  assert.doesNotMatch(body, /invite\('body'\)|caret/, 'the card still opens the old Invite sheet / draws the Invite ▾');
   const fn = CELL.slice(CELL.indexOf('function rowShare('));
   const share = fn.slice(0, fn.indexOf('\n  }\n'));
-  assert.match(share, /invite\(at\);\s*setTouch\(false\);/, 'the card’s Share does not open our own menu');
-  assert.doesNotMatch(share, /shareInvite|navigator/, 'the card’s Share jumps to the system sheet (owner 2026-11-05: always our menu)');
+  assert.match(share, /invite\(at\);\s*setTouch\(false\);/, 'the card’s Send invite does not open our own menu');
+  assert.doesNotMatch(share, /shareInvite|navigator/, 'the card’s Send invite jumps to the system sheet (owner 2026-11-05: always our menu)');
   assert.match(CELL, /data-invite-apps=""/, 'the computer’s app rows are gone');
 });
 
@@ -127,8 +139,15 @@ test('3 · New QR asks first, in the ruled words, and posts the shipped new_qr d
   assert.match(menu, /const release = releaseGuestClaim\.bind\(null, eventId, guestId\);/, 'New QR left the shipped token-rotation door');
 });
 
-test('4 · NFC is the shipped writer, as an icon', () => {
-  const menu = PARTS.slice(PARTS.indexOf('export function GuestMoreMenu('));
-  assert.match(menu, /<NfcWriteButton url=\{nfcUrl\} iconOnly name=/);
-  assert.doesNotMatch(menu.slice(menu.indexOf('role="menu"')), /NfcWriteButton|data-guest-new-qr=""/, 'NFC / New QR are still ⋯ lines too');
+test('4 · NFC · New QR · Unlink are labelled buttons inside the opened ticket', () => {
+  const menu = PARTS.slice(PARTS.indexOf('export function GuestMoreMenu('), PARTS.indexOf('export function GuestDeleteControl('));
+  assert.match(menu, /<NfcWriteButton url=\{nfcUrl\} worded name=/, 'NFC is not the shipped writer with its word');
+  assert.doesNotMatch(menu, /iconOnly|role="menu"|MoreHorizontal/, 'an icon-only button or the ⋯ list is back');
+  assert.match(menu, /\{linked \? \([\s\S]*?label="Unlink account"[\s\S]*?onClick=\{\(\) => setConfirm\('unlink'\)\}/, 'Unlink is not a labelled button drawn only while linked');
+  // …and they are INSIDE the opened ticket: the card hands them to the ticket, which draws them in its view.
+  assert.match(BODY, /<TicketThumb[\s\S]*?tools=\{more\}/, 'the card does not hand the buttons to the ticket');
+  const thumb = PARTS.slice(PARTS.indexOf('export function GuestTicketThumb('), PARTS.indexOf('export function GuestMoreMenu('));
+  const view = thumb.slice(thumb.indexOf('<GuestPopup'));
+  assert.match(view, /data-guest-ticket-tools="">\s*\{tools\}/, 'the opened ticket does not draw the buttons');
+  assert.doesNotMatch(thumb.slice(0, thumb.indexOf('<GuestPopup')), /\{tools\}/, 'the buttons are drawn on the row, outside the opened ticket');
 });

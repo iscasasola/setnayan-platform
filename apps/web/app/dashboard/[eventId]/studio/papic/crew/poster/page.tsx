@@ -1,3 +1,5 @@
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -26,9 +28,7 @@ export default async function PapicPoolPosterPage({ params }: Props) {
   const { eventId } = await params;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const { data: membership } = await supabase
@@ -41,11 +41,12 @@ export default async function PapicPoolPosterPage({ params }: Props) {
     redirect(`/dashboard/${eventId}`);
   }
 
-  const { data: event, error: eventError } = await supabase
+  const { data: event, error: eventError } = await eventRowOnce(supabase, eventId, 'display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at', () =>
+      supabase
     .from('events')
     .select('display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   if (eventError) {
     logQueryError(
       'PapicCrewPoster.event',
@@ -103,23 +104,23 @@ export default async function PapicPoolPosterPage({ params }: Props) {
   const eventName = (event as { display_name?: string | null } | null)?.display_name ?? null;
 
   return (
-    <div className="mx-auto min-h-screen max-w-2xl bg-white px-8 py-12 text-center text-ink print:px-0 print:py-0">
-      <p className="text-xs uppercase tracking-[0.3em] text-ink/70">Be our photographer</p>
+    <div className="mx-auto min-h-screen max-w-2xl bg-white px-8 py-12 text-center text-ink-on-plate print:px-0 print:py-0">
+      <p className="text-xs uppercase tracking-[0.3em] text-ink-on-plate/70">Be our photographer</p>
       <h1 className="mt-3 text-4xl font-semibold tracking-tight">
         {eventName ?? 'Our event'}
       </h1>
-      <p className="mx-auto mt-4 max-w-md text-lg text-ink/70">
+      <p className="mx-auto mt-4 max-w-md text-lg text-ink-on-plate/70">
         Point your camera at the code. Your phone becomes a camera for the day —
         no app, no sign-up.
       </p>
 
       <div
         aria-hidden
-        className="mx-auto mt-8 w-fit rounded-2xl bg-white p-4 [&>svg]:h-[420px] [&>svg]:w-[420px]"
+        className="mx-auto mt-8 w-fit rounded-2xl bg-raised p-4 [&>svg]:h-[420px] [&>svg]:w-[420px]"
         dangerouslySetInnerHTML={{ __html: qrSvg }}
       />
 
-      <p className="mx-auto mt-6 max-w-md text-sm text-ink/70">
+      <p className="mx-auto mt-6 max-w-md text-sm text-ink-on-plate/70">
         Every photo lands in our Memories. Shoot anything — the candids are the
         ones we&rsquo;ll never get otherwise.
       </p>
@@ -127,9 +128,9 @@ export default async function PapicPoolPosterPage({ params }: Props) {
       {/* The URL in text, for anyone whose camera will not scan. Small, and the
           only place the capability appears in readable form — which is exactly
           why the poster should not be left anywhere it is not meant to be. */}
-      <p className="mt-8 break-all text-[12px] text-ink/35 print:mt-6">{joinUrl}</p>
+      <p className="mt-8 break-all text-[12px] text-ink-on-plate/35 print:mt-6">{joinUrl}</p>
 
-      <p className="mt-10 text-xs text-ink/70 print:hidden">
+      <p className="mt-10 text-xs text-ink-on-plate/70 print:hidden">
         Print this page, or save it as a PDF. One code — everyone scans the same
         one.
       </p>

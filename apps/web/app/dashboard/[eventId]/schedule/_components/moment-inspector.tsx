@@ -316,7 +316,7 @@ export function MomentInspector({
   const readOnly = !canEdit;
 
   return (
-    <div className={inSheet ? '' : 'px-5 pb-7 pt-3 lg:rounded-2xl lg:bg-white/80 lg:shadow-[-30px_0_60px_-40px_rgba(30,26,18,0.35)] lg:backdrop-blur'} data-moment-inspector={inSheet ? 'sheet' : 'panel'} ref={rootRef}>
+    <div className={inSheet ? '' : 'px-5 pb-7 pt-3 lg:rounded-2xl lg:bg-raised/80 lg:shadow-[-30px_0_60px_-40px_rgba(30,26,18,0.35)] lg:backdrop-blur'} data-moment-inspector={inSheet ? 'sheet' : 'panel'} ref={rootRef}>
       {/* 🪜 In the Maker's guided flow the step's sheet IS this moment's frame —
           one header row (step ▾ · Peek · ×) — so this row of its own steps aside
           there (owner 2026-10-05: one layout for every step). */}
@@ -676,7 +676,7 @@ export function MomentInspector({
                   ),
                 )
               }
-              className="inline-flex h-10 items-center gap-1.5 rounded-full bg-terracotta-300 px-4 text-[13px] font-semibold text-ink"
+              className="inline-flex h-10 items-center gap-1.5 rounded-full bg-terracotta-300 px-4 text-[13px] font-semibold text-ink dark:text-cream"
             >
               <Send aria-hidden className="h-3.5 w-3.5" /> Release to couple
             </button>
@@ -704,7 +704,7 @@ export function MomentInspector({
                   onClick={() =>
                     removeMoment()
                   }
-                  className="h-10 rounded-full bg-danger-700 px-3.5 text-[13px] font-semibold text-white"
+                  className="h-10 rounded-full bg-danger-700 px-3.5 text-[13px] font-semibold text-cream"
                 >
                   {parts.length > 0 ? `Delete it and its ${parts.length} part${parts.length === 1 ? '' : 's'}` : 'Delete it'}
                 </button>

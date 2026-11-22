@@ -22,6 +22,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { colourHex } from '@/lib/css-colour-tokens';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, '..', '..');
@@ -744,9 +745,12 @@ test('the terracotta sign-in card clears AA on its own greige', () => {
   const darkStart = css.indexOf('html.dark .home-reskin-ov:has(.sn-signin-terra)');
   assert.ok(darkStart > -1, 'the sign-in card has no dark rules');
   const dark = css.slice(darkStart).split('\n/*')[0] ?? '';
-  const darkBg = dark.match(/--hr-bg:\s*(#[0-9a-f]{6})/i)?.[1];
+  // The dark rules read the one colour set since 18 Nov 2026 (`--hr-bg: rgb(var(--color-raised-2))`), so each colour is
+  // followed to what it paints (`lib/css-colour-tokens.ts`) instead of being read as a literal.
+  const paints = (v: string | undefined) => (v ? colourHex(v.trim(), 'dark') : null);
+  const darkBg = paints(dark.match(/--hr-bg:\s*([^;]+);/i)?.[1]);
   if (!darkBg) throw new Error('the dark card colour must be readable');
-  const darkText = [...dark.matchAll(/\n\s*color:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1]!).filter(Boolean);
+  const darkText = [...dark.matchAll(/\n\s*color:\s*([^;]+);/gi)].map((m) => paints(m[1])).filter((c): c is string => Boolean(c));
   assert.ok(darkText.length >= 4, `expected the dark ink, quiet words, links and error colours, found ${darkText.length}`);
   for (const c of darkText) {
     const r = ratio(c, darkBg);

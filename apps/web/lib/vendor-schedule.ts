@@ -14,6 +14,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { lastDayOf } from '@/lib/event-date-floor';
 import { readAllPages, readInChunks } from '@/lib/read-all-pages';
+import { pieceBookingIdsOf } from '@/lib/piece-seats';
 import { NOT_AVAILABLE_COLUMNS, notAvailableFieldsOf, type DayPart, type RepeatRule } from '@/lib/not-available';
 
 export type SchedulePool = {
@@ -58,6 +59,8 @@ export type PoolBookingEntry = {
   threadId: string | null;
   /** 🗓 The booking row (`event_vendors.vendor_id`) this seat holds — the chapters and times are tagged with it. */
   eventVendorId?: string | null;
+  /** 🔢 false = a by-the-piece booking: listed on its day, never counted as a seat (`lib/piece-seats.ts`). */
+  seat?: boolean;
 };
 
 export type CalendarBlockEntry = {
@@ -393,6 +396,18 @@ export async function fetchVendorPoolBookings(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<PoolBookingEntry[]> {
+  return (await fetchVendorPoolBookingsDetailed(supabase, vendorProfileId)).bookings;
+}
+
+/**
+ * `fetchVendorPoolBookings`, plus whether the pool read reached the server's exact count (`complete`). A refused or
+ * short read keeps the rows it got and says `complete: false` — so a caller asking "is this shop booked HERE?" can
+ * tell "not booked" from "we could not look" (the Papic desk, supplier pages set two, 21 Nov 2026).
+ */
+export async function fetchVendorPoolBookingsDetailed(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<{ bookings: PoolBookingEntry[]; complete: boolean }> {
   // ⚠ PAGED TO THE SERVER'S COUNT, NOT ONE UN-RANGED SELECT. PostgREST caps a
   // single response (Supabase default 1000), so a busy shop's later bookings
   // fell off the calendar and the roster's booked floor with `error: null`.
@@ -427,13 +442,13 @@ export async function fetchVendorPoolBookings(
     booked_date: string;
     event_vendor_id?: string | null;
   }[];
-  if (bookings.length === 0) return [];
+  if (bookings.length === 0) return { bookings: [], complete: read.complete };
 
   const eventIds = [...new Set(bookings.map((b) => b.event_id))];
   const admin = createAdminClient();
   // Chunked: an `in.()` of ~700 UUIDs is refused 400 by the gateway, which
   // blanked every booking's name at once (`IN_LIST_CHUNK`).
-  const [{ rows: events }, { rows: threads }] = await Promise.all([
+  const [{ rows: events }, { rows: threads }, pieceRows] = await Promise.all([
     readInChunks<{ event_id: string; display_name: string }>(eventIds, (part) =>
       admin.from('events').select('event_id, display_name').in('event_id', part),
     ),
@@ -444,7 +459,11 @@ export async function fetchVendorPoolBookings(
         .eq('vendor_profile_id', vendorProfileId)
         .in('event_id', part),
     ),
+    pieceBookingIdsOf(admin, bookings.map((b) => b.event_vendor_id)),
   ]);
+  // A refused read counts every row as a seat (the fuller side) — and says so.
+  if (pieceRows.error) logQueryError('fetchVendorPoolBookings.pieceSeats', pieceRows.error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+  const pieceIds = pieceRows.ids ?? new Set<string>();
   const nameByEvent = new Map(
     ((events ?? []) as { event_id: string; display_name: string }[]).map((e) => [
       e.event_id,
@@ -458,7 +477,7 @@ export async function fetchVendorPoolBookings(
     ]),
   );
 
-  return bookings.map((b) => ({
+  const entries = bookings.map((b) => ({
     poolBookingId: b.pool_booking_id,
     poolId: b.pool_id,
     eventId: b.event_id,
@@ -466,7 +485,9 @@ export async function fetchVendorPoolBookings(
     eventName: nameByEvent.get(b.event_id) ?? 'A Setnayan event',
     threadId: threadByEvent.get(b.event_id) ?? null,
     eventVendorId: b.event_vendor_id ?? null,
+    ...(b.event_vendor_id && pieceIds.has(b.event_vendor_id) ? { seat: false } : {}),
   }));
+  return { bookings: entries, complete: read.complete };
 }
 
 /** All calendar blocks for the vendor, normalized to PH civil-day ranges. */

@@ -43,11 +43,11 @@
  *      `lib/erasure/coverage.ts`. A key typed inline into a `.update({ … })`
  *      literal in `purge.ts` is INVISIBLE here — the db test is the backstop.
  *   3. ⚠ THE ENFORCED TIER IS NOT A SUPERSET OF WHAT ERASURE MUST COVER.
- *      Seven tables this purge reaches carry NO subject column at all and are
+ *      Six tables this purge reaches carry NO subject column at all and are
  *      therefore invisible to the detector: guest_face_enrollments,
- *      vendor_push_tokens, vendor_verification_applications and the four
- *      *_oauth_state tables (couple_waitlist_signups was an eighth until it was
- *      DROPPED on 2026-09-18). They are keyed by event_id / vendor_profile_id /
+ *      vendor_verification_applications and the four *_oauth_state tables
+ *      (couple_waitlist_signups was an eighth until it was DROPPED on 2026-09-18;
+ *      vendor_push_tokens left the list on 2026-11-21 when it gained `user_id`). They are keyed by event_id / vendor_profile_id /
  *      guest_id / email. So a future table
  *      shaped like the old `oauth_grants` — personal data hung off an event with
  *      no user FK — will NOT be flagged by G3. That is the residual blind spot,
@@ -138,7 +138,6 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // Keyed by guest_id — when a guest last opened the Event Hub with their own pass (Who's here, 2026-10-29). No user
   // column, so the detector cannot see it; erasure deletes it through the subject's guest ids.
   'hub_guest_views',
-  'vendor_push_tokens', // keyed by vendor_profile_id
   // Keyed by (vendor_profile_id, event_id) — the shop's crew QR (2026-10-29). Its one person column is `created_by`
   // (the issuing admin, nulled as an actor stamp in AUTHOR_UUID_NULLS), which the `*_user_id` detector cannot see.
   'vendor_crew_codes',
@@ -167,6 +166,9 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // spot as the wallet; the stamp is nulled (AUTHOR_UUID_NULLS).
   'shop_gift_purchases',
   'shop_gift_stock_entries',
+  // The gift store's order lines (2026-11-17) — one row per item of a cart order, keyed by vendor_profile_id; its one
+  // user column is `created_by` (no FK). Same blind spot; the stamp is nulled (AUTHOR_UUID_NULLS).
+  'shop_gift_order_lines',
   // Badge rewards (2026-11-05) — what each badge gave a shop, keyed by vendor_profile_id; its one user column is
   // `revoked_by` (no FK), the admin who took back a free booking fee. Same blind spot; the stamp is nulled
   // (AUTHOR_UUID_NULLS).
@@ -195,6 +197,11 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-11-20 with the tables (Unichat H1, migration 20271354347259) ──
+  chat_message_revisions:
+    'What a chat message held before its sender edited or unsent it. It has no life of its own: message_id is NOT NULL ON DELETE CASCADE, so when erasure deletes the subject\'s authored chat_messages rows (purge.ts) every revision of them goes in the same statement; changed_by is nullable ON DELETE SET NULL and only ever names the message\'s own sender.',
+  chat_message_reminders:
+    'A person\'s own "Remind me" timer on a chat message. user_id is NOT NULL ON DELETE CASCADE, so the rows go with the account on their own; the row holds no content (a message id and a time).',
   // ── added 2026-11-13 with the table (migration 20271342335343) ──
   chat_file_removals:
     'A removal mark on a chat file. user_id is NOT NULL ON DELETE CASCADE, so the account holder\'s rows go with their account on their own; the mark holds no content (the file and its message are erased with chat_messages).',
@@ -277,6 +284,9 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // ── added 2026-10-18 with the table itself (Apple In-App Purchase, PR #6637) ──
   app_store_purchases:
     'Financial record — the Apple half of an order (its transaction id, environment and the price Apple charged), retained with the order it settled on the same BIR/bookkeeping basis, and needed to answer Apple’s own refund notifications. No profile data: user_id is the buyer, the rest is the transaction.',
+  // ── added 2026-11-21 with the table itself (Maya Checkout, owner "MAYA CHECKOUT — BUILD IT") ──
+  maya_checkouts:
+    'Financial record — the Maya half of an order (Maya’s checkout and payment ids, sandbox/production, the amount asked, why a payment was queued), retained with the order it settled on the same BIR/bookkeeping basis, and needed to answer Maya refunds and disputes. No profile data: user_id is the payer, the rest is the transaction.',
   receipts: 'BIR Official Receipt. issued_to_name/email/tin are the statutory content of the document; erasing them destroys the receipt.',
   order_refunds: 'Reconciliation decision attached to a retained financial record.',
   supplies_orders: 'Purchase record; delivery_address is part of the fulfilment evidence.',

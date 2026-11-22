@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import { nextHref } from './supplier-today-first-screen';
 import { TodayGrow, TodayNextBadge, TodayRecommended, TodayTrending, TodayV2Needs, TodayV2Sub } from './today-v2';
 import {
@@ -9,11 +8,16 @@ import {
   nextBadgeWords,
   roomToGrowRows,
   splitTodayNeeds,
+  todayOneList,
+  todayHeldOff,
+  thisWeekLine,
+  type TodayEventDay,
   todayProgress,
   trendingLines,
   type TodayBadgeTag,
 } from '@/lib/supplier-today-v2';
 import { asideKeys, gotItToday, type TodayAside } from '@/lib/today-aside';
+import { activePutOffs } from '@/lib/today-put-off';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
 import { shelfBadge } from '@/lib/shop-badge-shelf';
 import type { BadgeRewardFacts } from '@/lib/badge-rewards';
@@ -23,6 +27,7 @@ import type { TodayRowIcon } from '@/lib/supplier-today';
 import type { SupplierTodayView } from '@/lib/supplier-today-view';
 import type { TodayV2Reads } from '@/lib/supplier-today-v2.server';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
+import type { WrapUpFacts } from '@/lib/today-wrap-up';
 
 /**
  * 📋 TODAY v2, ASSEMBLED — ONE builder, so the Today page (its reads) and the dev lab (`/dev/supplier-lab?easy=…`, its
@@ -55,6 +60,21 @@ export type TodayV2Input = {
    * Today is never "done" and says the fees could not be loaded — never an empty list that reads as "nothing owed".
    */
   billsUnread: boolean;
+  /** v3: the clock the deadlines are read against (a date change's `dueAt`) — the page's render clock. */
+  now: number;
+  /** ✓ v3 part 3 — the finished events' wrap-up facts (`readWrapUpFacts`), keyed by desk card id. */
+  wrapUps?: Record<string, WrapUpFacts | null>;
+  /**
+   * v3: the booked events (the page's `upcoming`) — one TODAY or TOMORROW is a row in the one list with its level
+   * (drawing V3 · 3: "an event you run today" red · "a booked event tomorrow" amber). Absent → none.
+   */
+  events?: readonly TodayEventDay[];
+  /**
+   * 📅 The booked-events read did NOT reach its end (`bookingsComplete === false`). An event today (red) may be
+   * missing from the list, so the count is withheld, Today is never "done", and a "couldn't load" row says so — never
+   * a shorter list that reads as success.
+   */
+  eventsUnread?: boolean;
   /** 🌱🖼 The shop's trades supply a part (`moodboardLibraryAccessForProfile`) — the library row is a task. */
   library: boolean;
 };
@@ -76,11 +96,16 @@ export function buildTodayV2(i: TodayV2Input): {
   const deskCards = [...i.needsAnswer, ...i.closed];
   const tile = r && r.completedBookings !== null ? shelfBadge('completed_bookings', { counts: { completedBookings: r.completedBookings } as BadgeRewardFacts, verified: null, granted: null }) : null;
   const nextBadge = nextBadgeWords(tile?.nextShort ?? null);
-  const split = splitTodayNeeds({ needs: i.view.needs, cards: deskCards, completedToGo: nextBadge?.toGo ?? null, aside: asideKeys(i.aside) });
+  const split = splitTodayNeeds({ needs: i.view.needs, cards: deskCards, completedToGo: nextBadge?.toGo ?? null, aside: asideKeys(i.aside), now: i.now, putOff: activePutOffs(r?.putOffs ?? null, i.todayIso), soonAskHours: r?.cutoffs.soonAskHours ?? null });
   const deskKeys = deskCards.map((c) => c.id);
   const gotIt = gotItToday(i.aside, new Set(deskKeys));
   const doneCount = doneTodayTotal(r?.done ?? null, gotIt);
-  const left = i.deskIncomplete ? null : split.quick.length + split.screen.length + i.view.bills.length;
+  const list = todayOneList({ split, bills: i.view.bills, events: i.events ?? [], todayIso: i.todayIso });
+  // ⏭ A bill, the permit or an event put off with "Do it tomorrow" is listed under Tomorrow (a red one never is).
+  const later = todayHeldOff({ split, bills: i.view.bills, events: i.events ?? [], todayIso: i.todayIso });
+  // The count is the one list, as drawn (V3 · 3 "Needs you today 6"): every task, every bill, the permit when it wears a
+  // level, an event today or tomorrow.
+  const left = i.deskIncomplete || i.eventsUnread ? null : list.length;
   const progress = todayProgress(left, doneCount, { billsUnread: i.billsUnread });
   const stage = growStage({
     setupDrawn: i.setupDrawn,
@@ -97,7 +122,8 @@ export function buildTodayV2(i: TodayV2Input): {
     hasQuoteDraft: i.needsAnswer.some((c) => c.kind === 'quote_draft'),
     payoutNone: i.payoutReadiness === 'none',
     hasMarkComplete: i.needsAnswer.some((c) => c.kind === 'mark_complete'),
-    permitDue: i.view.needs.some((n) => n.key === 'renewal'),
+    // A permit already on the list (it wears a level) is not said again as a grow move.
+    permitDue: !split.permit && i.view.needs.some((n) => n.key === 'renewal'),
     completedToGo: nextBadge?.toGo ?? null,
   });
   // A gap the grow stage already shows as a move is not said twice.
@@ -128,13 +154,17 @@ export function buildTodayV2(i: TodayV2Input): {
       needsRows: (
         <TodayV2Needs
           split={split}
-          answers={{ payoutReadiness: i.payoutReadiness, feeForecasts: i.feeForecasts }}
+          list={list}
+          tomorrowMore={later}
+          thisWeek={thisWeekLine(i.events ?? [], r?.cutoffs.soonEventDays ?? null)}
+          billCopy={i.view.billCopy}
+          lockLine={i.view.lockLine}
+          answers={{ payoutReadiness: i.payoutReadiness, feeForecasts: i.feeForecasts, wrapUps: i.wrapUps ?? {} }}
           todayIso={i.todayIso}
           onDesk={deskKeys}
-          billCount={i.view.bills.length}
           billsUnread={i.billsUnread}
+          eventsUnread={i.eventsUnread ?? false}
           doneUnread={doneCount === null}
-          bills={<BookingFeeBills today bills={i.view.bills} copyFor={i.view.billCopy} />}
           done={doneTodayRows(r?.done ?? null, gotIt)}
           allDone={progress.allDone}
         />

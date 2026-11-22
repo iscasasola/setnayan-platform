@@ -10,8 +10,11 @@ import {
 import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 import { verificationEvidenceSnapshot } from '@/lib/verification-checks-server';
 import { deadlineAtApproval } from '@/lib/verified-badge';
+import { planBackAtRenewal } from '@/lib/papers-renewal';
+import { PAPERS_LAPSED_AUDIT_ACTION } from '@/lib/papers-lapse';
 import { plainRefusal } from '@/lib/admin/plain-refusal';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { grantVerificationPlanReward } from '@/lib/verification-plan-reward.server';
 
 /**
@@ -59,6 +62,42 @@ export type ApplicationDecisionInput = {
    server-actions file (one marked with the use-server directive), which made the badge's decision engine a public route with NO admin gate of its own. It now
    lives in this plain server module — importable by server code, never callable from a browser. Every caller checks
    who is asking: the admin actions (`requireAdmin`) and the automatic path (`runAutoVerifyOnSubmit`). */
+/**
+ * The plan a lapse held (ruling 2), from the lapse's own audit row — the service-role-only, append-only record the
+ * daily pass wrote (`papers-lapse.server.ts`, `held_tier` · `held_ms`). Nothing held → nothing changes. Never throws:
+ * an unread row gives back nothing rather than inventing a plan.
+ */
+async function heldPlanBack(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+  now: Date,
+): Promise<{ tier_state?: string; tier_expires_at?: string | null } | null> {
+  // 💸 null = THE READ FAILED. Never `{}`: an empty answer would let the approval clear the lapse with the paid plan's
+  // held days unread, and nothing reads the lapse row again — a Plus/Pro shop would come back on the free plan for good.
+  try {
+    const { data, error } = await admin
+      .from('admin_audit_log')
+      .select('metadata')
+      .eq('action', PAPERS_LAPSED_AUDIT_ACTION)
+      .eq('target_id', vendorProfileId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      logQueryError('verification-decision:held-plan', error);
+      return null;
+    }
+    const meta = ((data as { metadata?: Record<string, unknown> } | null)?.metadata ?? null) as
+      | { held_tier?: unknown; held_ms?: unknown }
+      | null;
+    const back = planBackAtRenewal(meta ? { tier: meta.held_tier, held_ms: meta.held_ms } : null, now);
+    return back ?? {};
+  } catch (e) {
+    logQueryError('verification-decision:held-plan', e);
+    return null;
+  }
+}
+
 export async function applyApplicationDecision(
   input: ApplicationDecisionInput,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -93,7 +132,8 @@ export async function applyApplicationDecision(
   let appDecision: 'approved' | 'rejected' | null = null;
   let approveSideEffects: {
     papers_lapsed_at?: null;
-    tier_state?: 'verified';
+    tier_state?: string;
+    tier_expires_at?: string | null;
     last_verified_at?: string;
     next_renewal_due_at?: string;
     public_visibility?: 'verified';
@@ -107,6 +147,14 @@ export async function applyApplicationDecision(
 
   switch (input.decision) {
     case 'approved': {
+      // ⏸ The paid plan's held days, read BEFORE anything is written: a failed read stops the approval (retry), never
+      // approves without them.
+      const heldBack = (vendor as { papers_lapsed_at?: string | null }).papers_lapsed_at
+        ? await heldPlanBack(admin, vendor.vendor_profile_id, new Date(now))
+        : {};
+      if (heldBack === null) {
+        return { ok: false, error: "Couldn't read the plan this shop had waiting — nothing was changed. Try again." };
+      }
       toState = 'verified';
       appStatus = 'approved';
       appDecision = 'approved';
@@ -123,6 +171,9 @@ export async function applyApplicationDecision(
         (vendor as { tier_state?: string | null }).tier_state === 'free'
           ? { tier_state: 'verified' as const }
           : {}),
+        // ⏸ RULING (2), 14 Nov "Fable's picks taken": a PAID plan's unused days WAITED during Free · Unverified —
+        // the lapse wrote what it held into its own audit row — and come back now, counted from this approval.
+        ...heldBack,
         last_verified_at: now,
         // The renewal day is 30 March (owner 12 Nov · "THE RENEWAL DAY IS 30 MARCH") for EVERY approval,
         // admin or automatic — never the permit's printed date (controller correction 2026-11-14).

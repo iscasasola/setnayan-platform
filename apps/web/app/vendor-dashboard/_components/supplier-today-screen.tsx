@@ -49,7 +49,6 @@ export function SupplierTodayScreen({
   library = false,
   eventsYouRun = [],
   setup = null,
-  hero = null,
   earned = null,
   v2 = null,
 }: {
@@ -72,8 +71,6 @@ export function SupplierTodayScreen({
   eventsYouRun?: readonly EventYouRun[];
   /** 🧰 A new shop's six steps, done in place (`SupplierSetupScreen`) — drawn by the page while the shop is not live. */
   setup?: ReactNode;
-  /** 🖼 The shared hero's picture (Lane E item 11) — read by the page; the lab draws the placeholder. */
-  hero?: Parameters<typeof TodayCover>[0]['hero'];
   /**
    * 🏅 The "You earned …" line (`<BadgeEarnedLine />`) — drawn UNDER the Today photo, never above it (owner 13 Nov,
    * live shot: the line sat between the top bar and the photo and made the header look cut; *"Under the Today
@@ -103,8 +100,7 @@ export function SupplierTodayScreen({
       tasks={view.needsCount}
       todayIso={todayIso}
       now={now}
-      hero={hero}
-      gear={setup ? null : <TodaySettings cover />}
+      gear={setup ? null : <TodaySettings />}
       {...(v2 ? { sub: v2.sub } : {})}
     />
   );
@@ -125,6 +121,7 @@ export function SupplierTodayScreen({
         outcome={outcome}
         alsoToday={view.alsoToday}
         comingUp={view.comingUp}
+        comingUpUnread={view.comingUpUnread}
         eventsYouRun={eventsYouRun}
         shop={view.shop}
         business={view.business}

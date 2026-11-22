@@ -180,7 +180,7 @@ function LocalIssuesLog({ eventId }: { eventId: string }) {
           }}
           maxLength={240}
           placeholder="Log an issue…"
-          className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+          className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
         />
         <ActionButton tone="brand" onClick={add} icon={Plus} label="Log" />
       </div>
@@ -199,9 +199,9 @@ function LocalIssuesLog({ eventId }: { eventId: string }) {
               word="Remove"
               onDelete={() => remove(i)}
               radiusClass="rounded-xl"
-              surfaceClass="bg-white"
+              surfaceClass="bg-raised"
             >
-            <div className="flex min-h-14 items-center gap-3 bg-white px-1 py-2.5" data-issue-row="">
+            <div className="flex min-h-14 items-center gap-3 bg-raised px-1 py-2.5" data-issue-row="">
               <button
                 type="button"
                 onClick={() => toggle(i.id)}
@@ -209,8 +209,8 @@ function LocalIssuesLog({ eventId }: { eventId: string }) {
                 aria-label={i.resolved ? `Reopen issue` : `Mark issue resolved`}
                 className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition ${
                   i.resolved
-                    ? 'border-success-400 bg-success-500 text-white'
-                    : 'border-ink/25 bg-white text-transparent hover:border-terracotta'
+                    ? 'border-success-400 bg-success-500 text-cream'
+                    : 'border-ink/25 bg-raised text-transparent hover:border-terracotta'
                 }`}
               >
                 <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />

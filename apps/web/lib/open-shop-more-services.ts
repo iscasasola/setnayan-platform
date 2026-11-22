@@ -1,4 +1,5 @@
 import { formatCount } from '@/lib/format-number';
+import { FEE_FREE_CHIP } from './booking-fee-who-words';
 import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 
 /**
@@ -19,11 +20,6 @@ import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
  * 10", and cards per `vendor_services.category`) — reconciling the two belongs to the hold build, not this file.
  */
 
-/**
- * The unlock line (the prototype's `UNLOCK_LABEL`, verbatim — v16, owner 6 Nov: *"their first booking free once
- * verified"*). Said once under the cards when the picks are more than Free holds, and as the lead of the plan sheet.
- */
-export const FIRST_BOOKING_FREE_LABEL = 'Your first booking is free once you’re verified';
 
 /** The plans the meter walks, smallest first. Verified holds more than Free since 2026-11-18 (3 service cards to 1). */
 const METER_PLANS: readonly VendorTier[] = ['free', 'verified', 'solo', 'pro', 'enterprise'];
@@ -106,25 +102,22 @@ const SEARCH_WORDS: Record<(typeof TIER_CAPS)[VendorTier]['seoLevel'], string> =
   priority: 'top search priority',
 };
 
-/** Reach in words: "reach 20 km" · "nationwide" (Ultra's `Infinity`). */
-const reachWords = (km: number) => (Number.isFinite(km) ? `reach ${formatCount(km)} km` : 'nationwide');
-
 /**
  * 🪜 THE LADDER THE PLAN SHEET SHOWS — "Free · Verified → Supplier Plus adds → Pro adds → Ultra adds" (prototype v16 `LADDER`,
  * the shape of `for-suppliers/_components/vendor-tier-deltas.tsx`: each plan says what it ADDS, once). Every number
- * is read from `TIER_CAPS`; Free's reach is Verified's (Free is not searchable until verified). No peso anywhere.
+ * is read from `TIER_CAPS`. No reach per rung: reach is not a plan allowance since 2026-11-19 (owner, "unlock the
+ * range. not plan dependend anymore"). No peso anywhere.
  */
 export function planLadder(): { name: string; caps: string }[] {
-  const rung = (t: VendorTier, first: boolean) => {
+  const rung = (t: VendorTier) => {
     const c = TIER_CAPS[t];
     const cats = `${formatCount(c.parentCategories)} ${c.parentCategories === 1 ? 'category' : 'categories'}`;
     const per = `${formatCount(c.serviceCardsTotal)} ${c.serviceCardsTotal === 1 ? 'service' : 'services'}`;
-    const reach = first ? reachWords(TIER_CAPS.verified.serviceRadiusKm) : reachWords(c.serviceRadiusKm);
-    return [cats, per, reach, SEARCH_WORDS[c.seoLevel]].join(' · ');
+    return [cats, per, SEARCH_WORDS[c.seoLevel]].join(' · ');
   };
   return [
-    { name: 'Free · Verified', caps: rung('free', true) },
-    ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({ name: `${planWord(t)} adds`, caps: rung(t, false) })),
+    { name: 'Free · Verified', caps: rung('free') },
+    ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({ name: `${planWord(t)} adds`, caps: rung(t) })),
   ];
 }
 
@@ -149,7 +142,7 @@ export function whatEachPlanHolds(): {
       'Each service is its own listing in its category — more services means you appear in more couples’ searches. Reach is how far from you couples search.',
     after:
       'Everything you add stays on until your first booking on Setnayan is done. Then keep one free, or pick a plan to keep them all. Nothing is deleted.',
-    firstBooking: `${FIRST_BOOKING_FREE_LABEL}.`,
+    firstBooking: `${FEE_FREE_CHIP}.`, // 20 Nov: the free first booking is retired — the owner's free rule leads
     fine: 'No booking fee on it. One per business — checked when Setnayan verifies you.',
   };
 }

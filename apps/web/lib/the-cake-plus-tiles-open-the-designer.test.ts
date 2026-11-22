@@ -23,7 +23,12 @@ const INVITE = read('app/_components/chat/cards/cake-invite-card.tsx');
 
 test('each side’s ＋ asks for its own cake tile', () => {
   assert.match(SHEET, /<ToolsSheetButton rows=\{rows\} sheetMark="couple" threadId=\{threadId\} cake="couple" \/>/, 'the couple’s ＋ draws no cake tile');
-  assert.match(SHEET, /<ToolsSheetButton rows=\{rows\} sheetMark="vendor" threadId=\{threadId\} cake="vendor" \/>/, 'the supplier’s ＋ draws no cake tile');
+  // Since the ＋ FINAL tray (#8132): an unverified shop has every tile locked, so it is not handed the cake tile either.
+  assert.match(
+    SHEET,
+    /<ToolsSheetButton rows=\{rows\} sheetMark="vendor" threadId=\{threadId\} cake=\{verified === false \? undefined : 'vendor'\} unverified=\{verified === false\} \/>/,
+    'the supplier’s ＋ draws no cake tile',
+  );
   assert.match(SHEET, /const cakeOn = useCakeTile\(cake \? threadId : undefined, cake \?\? 'couple'\)/);
 });
 

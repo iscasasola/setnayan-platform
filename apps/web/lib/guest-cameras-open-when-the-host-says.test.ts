@@ -99,8 +99,25 @@ test('switch ON: the event window governs instead', () => {
   );
   assert.equal(g(julyAfternoon), 'open', 'the host opened the cameras — this must differ');
 
-  assert.equal(g(ms('2026-06-19T09:00:00+08:00')), 'not_open_yet', 'before the window');
+  // 📷 UPDATED ON PURPOSE 2026-11-22 (owner, live fix — "On — everyone, now" did not open the camera): the host's
+  // button means NOW. A stored window START no longer holds guests at "not open yet"; only the END closes.
+  assert.equal(g(ms('2026-06-19T09:00:00+08:00')), 'open', 'before the stored start — the host said now');
   assert.equal(g(ms('2026-12-21T00:00:01+08:00')), 'closed', 'after the window');
+});
+
+test('📷 "On — everyone, now" opens NOW even when the capture days start on the event day (owner 2026-11-22)', () => {
+  // The owner's own shape: event Fri 18 Dec, the couple's capture days begin that morning, today is 22 Nov.
+  const dates = {
+    eventDate: '2026-12-18',
+    windowStart: '2026-12-18T00:00:00+08:00',
+    windowEnd: '2026-12-19T11:59:59+08:00',
+    nowMs: ms('2026-11-22T10:00:00+08:00'),
+  };
+  assert.equal(guestCaptureGate({ earlyAllowed: true, ...dates }).state, 'open', 'the card says "open now" and the camera refuses');
+  // The default (the switch off) is untouched: still the event day.
+  assert.equal(guestCaptureGate({ earlyAllowed: false, ...dates }).state, 'not_open_yet');
+  // And the END still closes it — the window's end, tail included.
+  assert.equal(guestCaptureGate({ earlyAllowed: true, ...dates, nowMs: ms('2026-12-19T12:00:00+08:00') }).state, 'closed');
 });
 
 test('missing data FAILS OPEN — never brick a camera at a live party', () => {

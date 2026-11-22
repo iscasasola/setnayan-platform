@@ -61,6 +61,8 @@ export async function mayaPayState(args: {
     // Maya is the pay stage only while the switch is on with both keys, within the one-payment ceiling, and not busy.
     railOpenFor: async (amountPhp: number) => {
       if (phase === 'busy') return false;
+      // 🎟 ₱0 — a code covered the whole price: nothing for Maya to collect (the page's own ₱0 stage handles it).
+      if (!(amountPhp > 0)) return false;
       const { state, config } = await readMayaGate();
       if (!state.open) return false;
       // 🔒 SANDBOX KEYS ARE FOR THE OWNER'S TESTS (ship review @019beef4a, HIGH): payers never see a test checkout.

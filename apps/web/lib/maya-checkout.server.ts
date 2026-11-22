@@ -241,6 +241,15 @@ export async function mayaReceiptFor(orderId: string): Promise<MayaReceipt | nul
  * A refused read answers "no": the page then shows what it would have anyway.
  */
 export async function hasOpenMayaCheckout(orderId: string): Promise<boolean> {
+  return (await readOpenMayaCheckout(orderId)) === 'open';
+}
+
+/**
+ * The same question with the refused read kept apart: `unread` when the row could not be read. The pay page's code box
+ * (`lib/pay-code.ts`) needs it — a code may never re-price a checkout Maya already holds, so an unread answer refuses
+ * the code and hides the box, where `hasOpenMayaCheckout`'s callers keep their "no".
+ */
+export async function readOpenMayaCheckout(orderId: string): Promise<'open' | 'none' | 'unread'> {
   try {
     const { data, error } = await createAdminClient()
       .from('maya_checkouts')
@@ -250,11 +259,11 @@ export async function hasOpenMayaCheckout(orderId: string): Promise<boolean> {
       .limit(1);
     if (error) {
       console.error('[maya] open-checkout read refused', error.message);
-      return false;
+      return 'unread';
     }
-    return (data ?? []).length > 0;
+    return (data ?? []).length > 0 ? 'open' : 'none';
   } catch {
-    return false;
+    return 'unread';
   }
 }
 

@@ -40,6 +40,7 @@ import { formsAction } from '@/app/vendor-dashboard/forms/actions';
 import type { MakeQuoteCardOption } from '@/lib/make-a-quote';
 import { isAvailabilityStyle, type AvailabilityStyle } from '@/lib/availability-styles';
 import type { ProposalLineItem } from '@/lib/vendor-proposals';
+import { PLUS_GATE_UNKNOWN, PLUS_NEEDS_VERIFIED } from '@/lib/shop-plus-gate';
 
 type Fail = { ok: false };
 
@@ -568,7 +569,7 @@ export async function openDecisionFromChat(formData: FormData): Promise<AskResul
   if (!threadId) return { ok: false, message: 'Name the topic first.' };
   const r = await openDecision(createClient(), threadId, topic);
   if (r.ok) return { ok: true };
-  return { ok: false, message: r.reason === 'empty' ? 'Name the topic first.' : r.reason === 'not_allowed' ? 'You are not in this chat.' : "Couldn't open it. Try again." };
+  return { ok: false, message: r.reason === 'empty' ? 'Name the topic first.' : r.reason === 'not_allowed' ? 'You are not in this chat.' : r.reason === 'unverified' ? PLUS_NEEDS_VERIFIED : "Couldn't open it. Try again." };
 }
 
 // ── Form · the shop's library ────────────────────────────────────────────────
@@ -674,6 +675,8 @@ const ASK_PAYMENT_WORDS: Record<string, string> = {
   notbooked: 'Opens once they book you.',
   signin: 'Please sign in again.',
   shop: "Couldn't find your shop.",
+  unverified: PLUS_NEEDS_VERIFIED,
+  unknown: PLUS_GATE_UNKNOWN,
   event: "Couldn't send that. Try again.",
   error: "Couldn't send that. Try again.",
 };

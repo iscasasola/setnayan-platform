@@ -71,7 +71,6 @@
   "app/reset-password/page.tsx": 1,
   "app/tour/budget/page.tsx": 1,
   "app/u/[userSlug]/c/[chapterId]/page.tsx": 1,
-  "app/vendor-dashboard/booking-fees/page.tsx": 1,
   "app/vendor-dashboard/clients/[eventId]/mood-board/page.tsx": 1,
   "app/vendor-dashboard/clients/[eventId]/page.tsx": 1,
   "app/vendor-dashboard/services/[serviceId]/page.tsx": 1,

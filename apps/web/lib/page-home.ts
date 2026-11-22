@@ -272,6 +272,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   /* ── the supplier ────────────────────────────────────────────────────────────────────────────────── */
   // A booking fee is paid from the plan page (audit ✅).
   '/vendor-dashboard/booking-fees': { home: '/vendor-dashboard/subscription', label: 'Plan' },
+  // One fee goes back to the list of fees (supplier pages set two, 21 Nov 2026: "Back to booking fees").
+  '/vendor-dashboard/booking-fees/[orderId]': { home: '/vendor-dashboard/booking-fees', label: 'Booking fees' },
   // Clients and Messages became folds of Customers; both old rooms are redirect stubs (audit ❌ ×2, fixed).
   '/vendor-dashboard/clients/[eventId]': { home: '/vendor-dashboard/customers' },
   // A supplier's chat is ONE EVENT's chat. ‹ returns IN PLACE to whichever list opened it (Chats or Customers › Events —

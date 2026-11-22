@@ -186,7 +186,8 @@ export function AddToLibrary({
       // A neutral name, as before: the picked file's own name never reaches the object key.
       const file = new File([blob], `upload-${Date.now()}.${e}`, { type: contentType });
       const run = sendToStorage(
-        { file, contentType, papicSeatToken: token },
+        // 📤 `papicAdded`: this door is the hand-added one — the upload price (owner 2026-11-22: a live shot is 1×).
+        { file, contentType, papicSeatToken: token, papicAdded: true },
         { stallMs: UPLOAD_STALL_MS, responseMs: UPLOAD_RESPONSE_MS, onProgress },
       );
       const out = await run.done;
@@ -203,7 +204,7 @@ export function AddToLibrary({
         timer = setTimeout(() => resolve({ ok: false, error: 'record_stalled' }), RECORD_STALL_MS);
       });
       try {
-        return await Promise.race([recordSeatCapture(tokenRef.current ?? '', ref, kind, posterRef, durationMs), stalled]);
+        return await Promise.race([recordSeatCapture(tokenRef.current ?? '', ref, kind, posterRef, durationMs, undefined, undefined, undefined, true), stalled]);
       } catch {
         return { ok: false as const, error: 'record_failed' };
       } finally {

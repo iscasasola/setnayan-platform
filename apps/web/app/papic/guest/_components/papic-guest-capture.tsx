@@ -43,6 +43,11 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { ChallengeFollowUp, ChallengePill, useGuestChallenges, type ArmedChallenge } from './papic-challenge-panel';
 import { newClientCaptureId } from '@/lib/papic-client-capture-id';
 import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
+import type { QueuedShot } from '@/lib/papic-upload/schedule';
+import { tagSeatCapture } from '@/app/papic/actions';
+import { watchLocation } from '@/lib/location-ask';
+import { triggerSyncNow } from '@/lib/offline/sync-daemon';
+import { isPapicWindowRefusalCode, papicSeatCaptureWindowRefusalMessage } from '@/lib/papic-seat-capture-refusal-copy';
 import { markSavedOnPhone, markShutter, markShutterReady } from '@/lib/papic-upload/shutter-timing';
 import { developCanvas } from '@/lib/papic-upload/develop';
 import { papicCaptureCost } from '@/lib/papic-cameras-pure';
@@ -300,6 +305,15 @@ type Props = {
    * the camera, and every shot carries its id — the server asks again at the shutter. Null: the whole event.
    */
   chapter?: { blockId: string; label: string } | null;
+  /**
+   * 📷 A claimed SEAT camera on this ONE camera (owner 2026-11-22: *"we only have one camera interface and that
+   * should be it"*). The host's own camera and every camera a host hands out open here, not on a second screen.
+   * Shots go through the uploader's 'seat' lane (app/api/papic/seat-capture → `recordSeatCapture`, the seat's own
+   * fence and meter), "Tag who's in it" tags through `tagSeatCapture`, and the location is stamped at the shutter
+   * when the RA 10173 control is on. The guest-only parts — the photo terms, Kwento, Challenges, the face step and
+   * "Add from your phone" — are not drawn for a seat (the seat page passes them off).
+   */
+  seat?: { token: string; geoEnabled: boolean } | null;
 };
 
 /**
@@ -323,6 +337,20 @@ function CardFrame({
       {children}
     </main>
   );
+}
+
+/**
+ * 📷 What a SEAT camera says when its shot is kept on the phone (lib/papic-upload/schedule.ts KEPT_REFUSALS, seat
+ * lane): the seat's own words for its window (lib/papic-seat-capture-refusal-copy.ts) and its paid order. Null →
+ * the camera's general "Not sent yet — this shot stays on your phone."
+ */
+function seatKeptMessage(code: string, media: 'photo' | 'clip'): string | null {
+  if (isPapicWindowRefusalCode(code)) return papicSeatCaptureWindowRefusalMessage(code, media, null);
+  if (code === 'event_put_away') return EVENT_PUT_AWAY_CAPTURE_COPY;
+  if (code === 'awaiting_payment') return 'This camera is waiting for its payment to be confirmed — your shot stays on your phone and sends once it is.';
+  if (code === 'uploads_closed') return 'Adding photos is off for this event right now — your shot stays on your phone.';
+  if (code === 'revoked' || code === 'not_your_seat') return 'This camera was handed to someone else — your shot stays on your phone.';
+  return null;
 }
 
 /**
@@ -368,7 +396,35 @@ export function PapicGuestCapture({
   myShots = null,
   dress = null,
   photoMark = null,
+  seat = null,
 }: Props) {
+  // 📷 Which lane this camera sends on, and the tag its shots carry: a guest's server-signed owner tag, or the
+  // seat's claim token (the seat route resolves the seat from it under the claimer's own session).
+  const lane: 'guest' | 'seat' = seat ? 'seat' : 'guest';
+  const shotOwner: string | null = seat ? seat.token : uploadOwner;
+  // 📍 A seat stamps the location at the shutter when the RA 10173 control is on (resolved by the seat page; the
+  // record re-gates on write). WATCHED, never asked per shot, so the shutter never waits on a GPS fix — the same
+  // rule the old seat screen kept. Inside the iPhone/Android app the watch never starts (no location declared).
+  const geoEnabled = seat?.geoEnabled === true;
+  const geoFixRef = useRef<{ lat: number; lon: number; accuracyM: number } | null>(null);
+  useEffect(() => {
+    if (!geoEnabled) return;
+    return watchLocation(
+      (fix) => {
+        geoFixRef.current = fix;
+      },
+      { enableHighAccuracy: false, maximumAge: 60_000, timeout: 15_000 },
+    );
+  }, [geoEnabled]);
+  const currentGeo = useCallback((): QueuedShot['geo'] | undefined => {
+    if (!geoEnabled) return undefined;
+    const fix = geoFixRef.current;
+    return fix ? { lat: fix.lat, lon: fix.lon, accuracyM: fix.accuracyM } : { unavailable: true };
+  }, [geoEnabled]);
+  // 📮 Shots the OLD seat screen left in this phone's offline queue still send: wake that queue's drain once.
+  useEffect(() => {
+    if (seat) void triggerSyncNow();
+  }, [seat]);
   const fullScreen = !embedded;
   const pro = dress?.pro === true;
   const tint = pro && dress ? dress.tint : CAMERA_PLAIN_TINT;
@@ -476,7 +532,7 @@ export function PapicGuestCapture({
   // counts for. The panel owns the mechanic; this is display-only state.
   const [armedChallenge, setArmedChallenge] = useState<ArmedChallenge | null>(null);
   // 🏆 The challenges (one hook): the pill left of Photo ⇄ Snippet, the follow-up line under the shutter.
-  const challenges = useGuestChallenges({ lastCaptureId, lastCaptureKind, onArmedChange: setArmedChallenge });
+  const challenges = useGuestChallenges({ lastCaptureId, lastCaptureKind, onArmedChange: setArmedChallenge, off: !!seat });
   const [tagging, setTagging] = useState(false);
   const [tagCount, setTagCount] = useState(0);
   // Each scan that tagged somebody, in order: the hint line lists them, and the
@@ -817,7 +873,7 @@ export function PapicGuestCapture({
       try {
         await saveShot({
           id: meta.clientCaptureId,
-          lane: 'guest',
+          lane,
           eventId,
           media: 'photo',
           capturedAtMs: meta.capturedAtMs,
@@ -826,9 +882,10 @@ export function PapicGuestCapture({
           sharePublicly: meta.sharePublicly,
           primary: blob,
           faceSource,
-          ownerTag: uploadOwner,
+          ownerTag: shotOwner,
           mark,
           chapterId: chapter?.blockId ?? null,
+          ...(seat ? { geo: currentGeo() } : {}),
         });
       } catch {
         // The phone could not keep it (storage full / private mode). Say so —
@@ -841,7 +898,7 @@ export function PapicGuestCapture({
       setTimeout(() => setJustSaved(false), 900);
       keepSessionShot({ id: meta.clientCaptureId, url: URL.createObjectURL(small ?? blob), media: 'photo' });
     },
-    [eventId, uploadOwner, keepSessionShot, mark, chapter?.blockId],
+    [eventId, lane, shotOwner, seat, currentGeo, keepSessionShot, mark, chapter?.blockId],
   );
 
   const capture = useCallback(async () => {
@@ -926,14 +983,14 @@ export function PapicGuestCapture({
   // used to live in the photo and clip handlers; there is one now.
   // This camera is open: its event's shots (this guest's) may send from here.
   useEffect(
-    () => papicUploader().register({ lane: 'guest', eventId, ownerTag: uploadOwner }),
-    [eventId, uploadOwner],
+    () => papicUploader().register({ lane, eventId, ownerTag: shotOwner }),
+    [lane, eventId, shotOwner],
   );
 
   useEffect(() => {
     const uploader = papicUploader();
     return uploader.on((e) => {
-      if (e.shot.lane !== 'guest' || e.shot.eventId !== eventId) return;
+      if (e.shot.lane !== lane || e.shot.eventId !== eventId) return;
       if (e.type === 'recorded') {
         const b = e.body as { remaining?: number; captureId?: string | null };
         setAdded((n) => n + 1);
@@ -941,7 +998,7 @@ export function PapicGuestCapture({
           // The server's figure, less what this phone has shot but not yet sent.
           const unsent = uploader
             .snapshot()
-            .shots.filter((s) => s.lane === 'guest' && s.eventId === eventId && !s.settled.record && s.id !== e.shot.id)
+            .shots.filter((s) => s.lane === lane && s.eventId === eventId && !s.settled.record && s.id !== e.shot.id)
             .reduce((n, s) => n + papicCaptureCost(s.media, s.durationMs ?? null), 0);
           setRemaining(Math.max(0, b.remaining - unsent));
         }
@@ -977,7 +1034,7 @@ export function PapicGuestCapture({
         else if (e.code === 'terms_required') setAccepted(false);
         else {
           setSaveError(
-            guestWindowRejectMessage(e.code, e.body?.eventDay) ??
+            (seat ? seatKeptMessage(e.code, e.shot.media) : guestWindowRejectMessage(e.code, e.body?.eventDay)) ??
               'Not sent yet — this shot stays on your phone.',
           );
         }
@@ -989,7 +1046,7 @@ export function PapicGuestCapture({
         else setSaveError("Couldn't save a shot — the event didn't accept it.");
       }
     });
-  }, [eventId, onSavedCapture]);
+  }, [lane, seat, eventId, onSavedCapture]);
 
   // Draw the current frame to the hidden canvas → JPEG poster (the NSFW proxy).
   const grabPoster = useCallback(async (): Promise<Blob | null> => {
@@ -1019,7 +1076,7 @@ export function PapicGuestCapture({
       try {
         await saveShot({
           id: clientCaptureId,
-          lane: 'guest',
+          lane,
           eventId,
           media: 'clip',
           capturedAtMs,
@@ -1028,9 +1085,10 @@ export function PapicGuestCapture({
           sharePublicly,
           primary: clip,
           poster,
-          ownerTag: uploadOwner,
+          ownerTag: shotOwner,
           mark,
           chapterId: chapter?.blockId ?? null,
+          ...(seat ? { geo: currentGeo() } : {}),
         });
       } catch {
         setSaveError("Couldn't save that clip on this phone — free up some space and try again.");
@@ -1045,7 +1103,7 @@ export function PapicGuestCapture({
         keepSessionShot({ id: clientCaptureId, url: URL.createObjectURL(small ?? poster), media: 'clip', durationMs: clamped });
       }
     },
-    [sharePublicly, eventId, capApplies, uploadOwner, keepSessionShot, mark, chapter?.blockId],
+    [sharePublicly, eventId, lane, shotOwner, seat, currentGeo, capApplies, keepSessionShot, mark, chapter?.blockId],
   );
 
   const stopRecording = useCallback(() => {
@@ -1245,18 +1303,41 @@ export function PapicGuestCapture({
     async (raw: string) => {
       if (!lastCaptureId) return;
       let r: Record<string, unknown>;
-      try {
-        const res = await fetch('/api/papic/guest-tag', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ captureId: lastCaptureId, scanned: raw }),
-        });
-        r = (await res.json().catch(() => ({ ok: false, error: 'tag_failed' }))) as Record<
-          string,
-          unknown
-        >;
-      } catch {
-        r = { ok: false, error: 'tag_failed' };
+      if (seat) {
+        // 📷 A seat tags through its own action (the seat's claimer, the seat's event) — the same answer, renamed
+        // into the guest route's shape so ONE handler draws both.
+        try {
+          const t = await tagSeatCapture(seat.token, lastCaptureId, raw);
+          r = t.ok
+            ? {
+                ok: true,
+                kind: t.kind,
+                added: t.added,
+                names: t.names,
+                tag_count: t.tagCount,
+                table_label: t.tableLabel,
+                total_at_table: t.totalAtTable,
+                truncated: t.truncated,
+                already: t.already,
+              }
+            : { ok: false, error: t.error };
+        } catch {
+          r = { ok: false, error: 'tag_failed' };
+        }
+      } else {
+        try {
+          const res = await fetch('/api/papic/guest-tag', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ captureId: lastCaptureId, scanned: raw }),
+          });
+          r = (await res.json().catch(() => ({ ok: false, error: 'tag_failed' }))) as Record<
+            string,
+            unknown
+          >;
+        } catch {
+          r = { ok: false, error: 'tag_failed' };
+        }
       }
 
       if (!r.ok) {
@@ -1297,7 +1378,7 @@ export function PapicGuestCapture({
         setTagNotice(r.already ? `${names[0] ?? 'They’re'} already tagged.` : null);
       }
     },
-    [lastCaptureId],
+    [lastCaptureId, seat],
   );
 
   // Decode loop — runs only while the tag sheet is open, on the EXISTING rear
@@ -2122,8 +2203,9 @@ export function PapicGuestCapture({
         {/* Public-sharing opt-in (Alaala orb gate · RA 10173). Explicit, never
             pre-checked, default OFF. When ON, the shots this guest captures are
             sent with share_publicly so the couple MAY feature them publicly
-            (the couple still has to approve each one — both gates required). */}
-        {!exhausted ? (
+            (the couple still has to approve each one — both gates required).
+            📷 Not on a SEAT camera: a seat's shots are the event's own, and its record step takes no such consent. */}
+        {!exhausted && !seat ? (
           /* ONE LINE, THE DETAIL IN THE ⓘ (owner 2026-10-24 prototype): the
              shipped two-line card, compacted. The ⓘ is a button, so pressing it
              never ticks the box; pressing the line does. */
@@ -2304,7 +2386,7 @@ export function PapicGuestCapture({
         onClose={closeShots}
         shots={myShotsList}
         eventId={eventId}
-        onAddFromPhone={uploadOwner ? openPhone : null}
+        onAddFromPhone={uploadOwner && !seat ? openPhone : null}
       />
       <AddFromPhoneSheet
         open={phoneOpen}

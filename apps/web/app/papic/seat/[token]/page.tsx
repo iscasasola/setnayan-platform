@@ -8,7 +8,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
-import { PapicSeatCapture } from './_components/papic-seat-capture';
+import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
+import { cameraBackTab } from '@/app/[slug]/_lib/hub-tabs';
+import { cameraDressTintOfEvent } from '@/lib/camera-dress-of-event';
+import { cameraProFor } from '@/lib/papic-photo-mark.server';
+import { photoMarkOfEvent } from '@/lib/papic-photo-mark-of-event';
+import { EventMonogram } from '@/app/_components/event-monogram';
+import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { CameraBridgePanel } from './_components/camera-bridge-panel';
 import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-panel';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
@@ -17,6 +23,13 @@ import { CAMERA_BRIDGE_SHOWN_ON_CAMERA } from '@/lib/hidden-guest-extras';
 import { papicCameraChapter } from '@/lib/papic-chapter.server';
 
 // Papic · seat capture (public, claimer-only)
+//
+// 📷 ONE CAMERA (owner 2026-11-22: *"we only have one camera interface and that should be it"* · *"a no scroll
+// full screen camera page"*). A seat — the host's own camera, and every camera a host hands out — opens the ONE
+// approved camera (`PapicGuestCapture`, prototype papic_camera_complete_2026-10-24), full screen, in seat mode. It
+// used to open its own older screen (`papic-seat-capture.tsx`, retired): tag and ⓘ on rows of their own, the roll
+// under a "Your credits" label, and the first photo's face pass run in the foreground. Its shots now go through the
+// shared uploader's 'seat' lane (app/api/papic/seat-capture) to the same `recordSeatCapture` fence and meter.
 //
 // A friend who has claimed a seat reaches this on their phone. The page
 // validates — purely through RLS — that the signed-in user is THIS seat's
@@ -30,13 +43,16 @@ export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ bridge?: string; papic_buy_error?: string; papic_release?: string }>;
+  searchParams: Promise<{ bridge?: string; papic_buy_error?: string; papic_release?: string; back?: string }>;
 };
 
 export default async function PapicSeatPage({ params, searchParams }: Props) {
   const { token } = await params;
   const storeShell = await isStoreShellRequest();
-  const { bridge, papic_buy_error: buyError, papic_release: released } = await searchParams;
+  const { bridge, papic_buy_error: buyError, papic_release: released, back } = await searchParams;
+  // ↩️ The Event Hub tab this camera was opened from (owner 2026-11-22: "back to where they were last") — re-checked
+  // against the tab keys; the ✕ is built from the event's own slug, never from this value.
+  const backTab = cameraBackTab(back);
   // Camera Bridge dark launch (build plan U1): mock-driven, no SKU active —
   // visible only via ?bridge=demo or the env flag, never by default.
   // 🙈 AND HIDDEN UNTIL THE OWNER SAYS SO (31 Oct, "hide this for now"): the constant is asked FIRST, so neither
@@ -79,35 +95,19 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
     );
   }
 
-  // Per-kind counts so the capture UI can show the running tally. Seats are
-  // uncapped (caps passed as null below); any per-camera daily cap is enforced
-  // server-side in recordSeatCapture + the presign route.
-  // superseded_at IS NULL scopes the count to the CURRENT claimer — a reissued
-  // seat starts clean (prior captures stay in the couple gallery, uncounted).
   // The locked event-wide look. The claimer isn't an event member, so events
   // is read on the admin client. Defensive: pre-migration the papic_style column
   // is absent → error (not throw) → asPapicStyle falls back to ORIG.
   const admin = createAdminClient();
-  const [{ count: photoCount }, { count: clipCount }, { data: styleRow }] =
-    await Promise.all([
-      supabase
-        .from('papic_photos')
-        .select('photo_id', { count: 'exact', head: true })
-        .eq('paparazzi_seat_id', seat.seat_id)
-        .eq('photo_type', 'photo')
-        .is('superseded_at', null),
-      supabase
-        .from('papic_photos')
-        .select('photo_id', { count: 'exact', head: true })
-        .eq('paparazzi_seat_id', seat.seat_id)
-        .eq('photo_type', 'clip')
-        .is('superseded_at', null),
-      admin
-        .from('events')
-        .select('papic_style, papic_face_mode, event_type, slug')
-        .eq('event_id', seat.event_id as string)
-        .maybeSingle(),
-    ]);
+  const [{ data: styleRow, error: styleErr }, pro] = await Promise.all([
+    admin
+      .from('events')
+      .select(`papic_style, papic_face_mode, event_type, slug, display_name, ${HERO_MONOGRAM_COLUMNS}, logo_wanted, invite_theme, role_palette`)
+      .eq('event_id', seat.event_id as string)
+      .maybeSingle(),
+    cameraProFor(admin, seat.event_id as string),
+  ]);
+  if (styleErr) console.error('[supabase-error] app/papic/seat/[token]/page.tsx · from:events.select', styleErr);
 
   const eventStyle = asPapicStyle(
     (styleRow as { papic_style?: string } | null)?.papic_style,
@@ -157,26 +157,46 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
     userId: user.id,
   });
 
+  // 🎨 The camera's dress, exactly as the guest camera reads it: Pro wears the event's logo on the shutter and its
+  // theme colour; a failed read is the free camera, never a guess at Pro.
+  const dressRow = (styleRow ?? null) as
+    | (Parameters<typeof EventMonogram>[0]['event'] & { logo_wanted?: boolean | null; invite_theme?: string | null; role_palette?: unknown })
+    | null;
+  const cameraDress = {
+    pro,
+    tint: cameraDressTintOfEvent(pro, dressRow),
+    logo: pro && dressRow ? <EventMonogram event={dressRow} size="lg" /> : null,
+  };
+  const hubSlug = hubSlugOf((styleRow as { slug?: string | null } | null)?.slug);
+
   return (
     <>
-      <PapicSeatCapture
-        token={token}
-        seatIndex={seat.seat_index as number}
+      <PapicGuestCapture
+        /* Standalone and full screen: the camera IS the page (no scroll — CameraPageLock). */
+        embedded={false}
+        guestName=""
+        eventName={((styleRow as { display_name?: string | null } | null)?.display_name as string | null) || 'this event'}
         eventId={(seat.event_id as string) ?? ''}
-        initialPhotos={photoCount ?? 0}
-        initialClips={clipCount ?? 0}
-        photoCap={null}
-        clipCap={null}
-        isAnon={Boolean(user.is_anonymous)}
+        /* A seat's shots carry the seat token (the seat lane), never a guest's owner tag. */
+        uploadOwner={null}
+        /* No personal countdown on a seat: the record step meters the seat and the event's pot, and a credit refusal
+           turns the camera to its "credits ran out" state (PRIV-1 keeps the pot's figure off a handed-out camera). */
+        initialRemaining={0}
+        total={0}
+        capApplies={false}
+        sponsorShare={false}
+        /* Guest-only parts stay off: the photo terms, the face step, Kwento. */
+        termsAccepted
+        needsFaceEnroll={false}
+        canKwento={false}
         eventStyle={eventStyle}
         faceMode={faceMode}
-        geoEnabled={geoEnabled}
-        // ✕ back to this event's Event Hub (owner 31 Oct) — the event's own slug, re-checked as a slug.
-        exitSlug={hubSlugOf((styleRow as { slug?: string | null } | null)?.slug)}
-        // The buy panel below is withheld in the store shell, so the camera
-        // must not point the guest at it ("add more shots below").
-        buyOffered={canReloadOwnCamera && !storeShell}
+        // ✕ back to the Event Hub tab this was opened from (Live when opened directly) — the event's own slug.
+        exitTo={hubSlug ? { slug: hubSlug, tab: backTab } : null}
+        dress={cameraDress}
+        photoMark={photoMarkOfEvent(dressRow, pro)}
         chapter={chapter}
+        seat={{ token, geoEnabled }}
       />
       {bridgeEnabled ? (
         <CameraBridgePanel
@@ -186,7 +206,8 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         />
       ) : null}
       {/* 🔒 Withheld in the store shell — same reason as /papic/guest: rung
-          prices plus a purchase. The seat's capture surface is untouched. */}
+          prices plus a purchase. The seat's capture surface is untouched.
+          The "Add credits" doorway floats over the camera (as on the guest camera); it never adds a row below it. */}
       {!storeShell && (
       <PapicGuestBuyPanel
         seatToken={token}

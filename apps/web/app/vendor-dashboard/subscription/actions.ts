@@ -111,6 +111,14 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
           'or switch back to your current plan, then you can start another.',
       );
     }
+    // 🍎 ONE CHANNEL AT A TIME (owner 22 Nov, spec §5): a shop whose plan the App Store bills is refused at the table
+    // (`vendor_subscription_one_channel`, migration 20271359936839) — said plainly, with where to change it.
+    if (m.includes('APP_STORE_BILLED')) {
+      ERR(
+        'Your plan is billed by the App Store. Change or cancel it in the Setnayan app or in your iPhone’s ' +
+          'Settings › Subscriptions; once it ends you can pay for a plan here.',
+      );
+    }
     ERR("We couldn't start that upgrade right now. Please try again.");
   }
 

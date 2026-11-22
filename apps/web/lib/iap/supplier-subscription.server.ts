@@ -235,8 +235,11 @@ export async function confirmSupplierPlanJws(
   switch (o.status) {
     case 'on':
     case 'already':
-      // `eventId` names no event: a plan is the SHOP's. The plan door reads the result, never the event.
-      return { result: { status: 'on', eventId: '', serviceKey: supplierPlanSkuCode(read.tx.product.tier) }, vendorId: o.vendorId };
+      // No event: a plan is the SHOP's (the same shape as a shop's gift, `vendorProfileId`).
+      return {
+        result: { status: 'on', eventId: null, vendorProfileId: o.vendorId, serviceKey: supplierPlanSkuCode(read.tx.product.tier) },
+        vendorId: o.vendorId,
+      };
     case 'stale':
       return { result: { status: 'refused', reason: 'plan_ended' }, vendorId: o.vendorId };
     case 'refused':

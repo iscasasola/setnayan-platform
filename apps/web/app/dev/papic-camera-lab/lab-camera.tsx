@@ -5,6 +5,7 @@
 // uploader a real 8-second 1440p clip (≥ 6 MB — the size the old route could
 // never take), fetched from the walk's own fixture route.
 
+import { CAMERA_PLAIN_TINT } from '@/lib/camera-dress';
 import { useEffect, useRef, useState } from 'react';
 import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
 import { PapicBuyShell } from '@/app/papic/_components/papic-buy-shell';
@@ -132,7 +133,7 @@ export function LabCamera({ lane, pro = false, buy = false, chapter = false, cei
           faceMode="mode_b"
           embedded={false}
           exitTo={{ slug: 'lab', tab: null }}
-          dress={pro ? { pro: true, tint: LAB_TINT, logo: LAB_LOGO } : { pro: false, tint: '#FFFFFF', logo: null }}
+          dress={pro ? { pro: true, tint: LAB_TINT, logo: LAB_LOGO } : { pro: false, tint: CAMERA_PLAIN_TINT, logo: null }}
           photoMark={pro ? { kind: 'monogram', svg: null, text: 'A&B', ink: LAB_TINT } : { kind: 'setnayan' }}
           chapter={chapter ? LAB_CHAPTER : null}
           seat={{ token: 'lab-seat', geoEnabled: false }}

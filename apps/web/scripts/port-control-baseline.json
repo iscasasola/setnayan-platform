@@ -10499,21 +10499,6 @@
         "AddOnDetailView"
       ]
     },
-    "/dashboard/[eventId]/studio/editorial-pro": {
-      "files": [
-        "dashboard/[eventId]/studio/editorial-pro/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/[seg]/orders"
-      ],
-      "actions": [],
-      "blocks": [
-        "InlineCheckoutDrawer",
-        "Link",
-        "PageMasthead",
-        "StudioBuyHero"
-      ]
-    },
     "/dashboard/[eventId]/studio/guest-columns": {
       "files": [
         "dashboard/[eventId]/studio/guest-columns/_components/column-queue-controls.tsx",

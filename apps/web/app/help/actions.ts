@@ -84,7 +84,12 @@ async function recordAnswered(formData: FormData): Promise<void> {
     const { data: { user } } = await sb.auth.getUser();
     if (!user) return;
     const { data: me, error } = await sb.from('users').select('is_internal, is_team_member, account_type').eq('user_id', user.id).maybeSingle();
-    if (error || !isAdminProfile(me)) return;
+    if (error) {
+      // Fails closed (no row), but never silently: the read's reason is recorded.
+      console.error('[help] recordAnswered: the admin check could not read the users row:', error.message);
+      return;
+    }
+    if (!isAdminProfile(me)) return;
   }
   await logHelpAsk({
     words: trimmed(formData.get('words'), 120) || trimmed(formData.get('slug'), 120),

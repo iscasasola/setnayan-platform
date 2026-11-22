@@ -9,3 +9,6 @@ Quick 200 + Settle). Admin model cap 159 = main's 158 + `/admin/help/guides` (me
 `rank-choices.test.ts`). Server actions stay 1251/1251.
 
 SPEC IMPACT: None
+
+Also (main's `ugat-both-ends` guard): `recordAnswered` dropped a failed `users` read silently before refusing a
+team vote. It still refuses, but it now logs why.

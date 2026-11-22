@@ -550,3 +550,44 @@ html.dark [data-home-first-screen] .sg-row.hc-card {
   font-size: 13px;
   color: var(--web-m1);
 }
+
+/* A plain service row (no card of its own — e.g. "Planner · Try it"): the drawing's row — glyph · name over its line ·
+   the state words right. The row's own parts are laid on a grid; nothing is moved in the markup. */
+[data-home-first-screen] .home-svc > .home-tile {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  column-gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 64px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+[data-home-first-screen] .home-svc > .home-tile > .home-t {
+  display: contents;
+  font-size: 15px;
+  font-weight: 600;
+}
+[data-home-first-screen] .home-svc > .home-tile > .home-t > svg {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  width: 20px;
+  height: 20px;
+  color: var(--web-m1);
+}
+[data-home-first-screen] .home-svc > .home-tile > .home-t > span {
+  grid-column: 2;
+  font-size: 15px;
+  font-weight: 600;
+}
+[data-home-first-screen] .home-svc > .home-tile > span:not(.home-t) {
+  grid-column: 2;
+  font-size: 13px;
+  color: var(--web-m1);
+}
+[data-home-first-screen] .home-svc > .home-tile > span:last-child:not(.home-t) {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  color: var(--web-m1);
+}

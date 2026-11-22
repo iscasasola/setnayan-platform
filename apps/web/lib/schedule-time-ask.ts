@@ -98,10 +98,18 @@ export function timeAskTurn(line: Pick<TimeAskLine, 'by'>, viewer: 'vendor' | 'c
 }
 
 /** The answered ask, in the drawing's words ("✓ Sound check → 3:00 PM" · "… · declined" · "… · taken back"). */
+/** "1:00 PM" before "1:30 PM" reads "1:00" — the day half is said once, as the drawing writes it. */
+function fromWords(from: string, to: string): string {
+  const half = / (AM|PM)$/.exec(to)?.[0];
+  return half && from.endsWith(half) ? from.slice(0, -half.length) : from;
+}
+
 export function timeAskSettledWords(line: TimeAskLine, status: string): string | null {
   const what = line.add ? `New · ${line.label} ${line.to}` : `${line.label} → ${line.to}`;
   if (status === 'accepted') return `✓ ${what}`;
-  if (status === 'declined') return `${what} · declined`;
+  // A declined move keeps the time it stays at (drawing: "Ingress & setup 1:00 → 1:30 PM · declined") — the moment did
+  // not move, so the old time is the one that is true. "1:00 PM → 1:30 PM" shares its PM once.
+  if (status === 'declined') return `${line.add || !line.from ? what : `${line.label} ${fromWords(line.from, line.to)} → ${line.to}`} · declined`;
   if (status === 'withdrawn') return `${what} · taken back`;
   if (status === 'answered_by_host') return `${what} · answered`;
   return null;

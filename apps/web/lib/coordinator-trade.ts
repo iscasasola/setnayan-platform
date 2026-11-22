@@ -46,6 +46,11 @@ export function isCoordinatorTrade(services: readonly string[] | null | undefine
 /** The four `event_vendors.status` values that mean BOOKED — the set `current_coordinator_booked_event_ids()` reads. */
 export const BOOKED_EVENT_VENDOR_STATUSES: readonly string[] = ['contracted', 'deposit_paid', 'delivered', 'complete'];
 
+/** Is this `event_vendors.status` one of the four that mean BOOKED? Total: null, undefined and any other word are not. */
+export function isBookedEventVendorStatus(status: string | null | undefined): boolean {
+  return typeof status === 'string' && BOOKED_EVENT_VENDOR_STATUSES.includes(status);
+}
+
 /**
  * 🧭 THE BOOKED COORDINATOR (owner 8 Nov 2026: *"only coordinator and hosts has the final say"*) — the TS mirror of
  * `public.is_booked_coordinator(event)` (migration 20271329284628): the shop is BOOKED on the event AND its services

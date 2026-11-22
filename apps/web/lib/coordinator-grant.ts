@@ -6,6 +6,7 @@ import {
   type ModeratorPermissions,
 } from './event-moderators';
 import { isCoordinatorConsentGateEnabled } from './coordinator-consent-gate';
+import { bookingIsACoordinators, isBookedEventVendorStatus } from './coordinator-trade';
 import { emitNotification } from './notification-emit';
 import {
   coordinatorInviteNotice,
@@ -17,8 +18,93 @@ import {
 const INVITE_TTL_DAYS = 7;
 const MS_PER_DAY = 86_400_000;
 
-// Auto-grant a coordinator delegate (owner 2026-06-22): the moment a booked
-// planner_coordinator's downpayment is marked, auto-create the SAME pending
+/** What one call did — callers ignore it (best-effort); it is here so the answer is never a silent `void`. */
+export type SeatForBookingOutcome =
+  | 'opened' // a seat (or, for a coordinator not on Setnayan, a 7-day invite) was written by THIS call
+  | 'unchanged' // the seat or invite is already there, or there is nobody to seat — nothing was written
+  | 'not_booked' // the row is not in the booked set
+  | 'not_a_coordinator' // booked, but the shop's services are not the coordinator trade
+  | 'no_booking' // no such row
+  | 'unread' // the booking could not be read — logged with its reason
+  | 'failed'; // something threw — logged; the booking write that called this stands
+
+/**
+ * 🚪 "ACCESS IS AUTOMATIC ON BOOKING" — EVERY DOOR, THIS ONE PLACE (owner 2026-11-21; ship review of #8094, 22 Nov
+ * 2026: the seat was opened from ONE action, `updateVendorStatus`, and only on the move into downpaid — a coordinator
+ * booked by the supplier's yes, a booked-QR claim, the wizard, a package, the chat's Book or a logged payment got no
+ * seat).
+ *
+ * Every server path that moves an `event_vendors` row into the booked set calls this, one line each, AFTER its own
+ * write. It decides nothing from what the caller believes: it reads the row FRESH (service role) and
+ *   · does nothing unless the status is BOOKED (`BOOKED_EVENT_VENDOR_STATUSES` — the same four the database opens and
+ *     closes the seat by), so an ASK that booked nobody opens nothing;
+ *   · does nothing unless the booking is a coordinator's (`bookingIsACoordinators` — the database's rule: the shop's
+ *     services, never the couple's category alone);
+ *   · then opens the seat through `autoInviteCoordinator`, stamped with the booking (`opened_by_event_vendor_id`), so
+ *     the database closes THAT seat — and only it — when this booking is cancelled.
+ *
+ * IDEMPOTENT: a second call finds the seat (or the pending invite) and changes nothing — so the hosts' one switch is
+ * never undone by a re-marked payment, and a door that runs twice is harmless.
+ * BEST-EFFORT: it never throws into the booking write. A refused read is logged with its reason, never silent.
+ *
+ * `actorUserId` → `event_moderators.invited_by_user_id` (nullable, FK auth.users ON DELETE SET NULL): the HOST who
+ * booked. A supplier-side door (the supplier's yes) passes `null` — the supplier did not invite themselves; the row's
+ * own `lock_requested_by_user_id` (the host who asked) is used when the ask recorded one, else NULL.
+ *
+ * 🔒 `lib/the-coordinators-seat-follows-the-booking.test.ts` fails if a door stops calling this, if a booked-status
+ * write appears in a file that is neither a door nor a named exemption, and if `autoInviteCoordinator` gains a second
+ * call site.
+ */
+export async function openTheCoordinatorsSeatForBooking(
+  admin: SupabaseClient,
+  p: { eventVendorId: string | null | undefined; actorUserId: string | null },
+): Promise<SeatForBookingOutcome> {
+  try {
+    if (!p.eventVendorId) return 'no_booking';
+    const { data, error } = await admin
+      .from('event_vendors')
+      .select('event_id, status, category, marketplace_vendor_id, contact_email, vendor_name, lock_requested_by_user_id')
+      .eq('vendor_id', p.eventVendorId)
+      .maybeSingle();
+    if (error) {
+      console.error('[openTheCoordinatorsSeatForBooking] booking unread — no seat opened:', error.message, { event_vendor_id: p.eventVendorId });
+      return 'unread';
+    }
+    const row = data as {
+      event_id: string;
+      status: string | null;
+      category: string | null;
+      marketplace_vendor_id: string | null;
+      contact_email: string | null;
+      vendor_name: string | null;
+      lock_requested_by_user_id: string | null;
+    } | null;
+    if (!row) return 'no_booking';
+    if (!isBookedEventVendorStatus(row.status)) return 'not_booked';
+    if (!(await bookingIsACoordinators(admin, { category: row.category, marketplaceVendorId: row.marketplace_vendor_id }))) {
+      return 'not_a_coordinator';
+    }
+    const { created } = await autoInviteCoordinator(admin, {
+      eventId: row.event_id,
+      email: row.contact_email ?? '',
+      displayLabel: row.vendor_name ?? null,
+      invitedByUserId: p.actorUserId ?? row.lock_requested_by_user_id ?? null,
+      // 🧭 A booked SHOP needs no contact email: its owner's account gets the seat, accepted (owner 2026-11-21).
+      shopProfileId: row.marketplace_vendor_id ?? null,
+      // 🔒 The booking that opens the seat — the database closes that seat when this booking is cancelled.
+      eventVendorId: p.eventVendorId,
+    });
+    return created ? 'opened' : 'unchanged';
+  } catch (e) {
+    console.error('[openTheCoordinatorsSeatForBooking] failed — the booking stands, no seat opened:', e instanceof Error ? e.message : e, {
+      event_vendor_id: p.eventVendorId,
+    });
+    return 'failed';
+  }
+}
+
+// Auto-grant a coordinator delegate (owner 2026-06-22; every booking door since 22 Nov 2026): the moment a
+// coordinator's booking is BOOKED, auto-create the SAME pending
 // delegate the manual "Promote your coordinator" makes — role
 // wedding_planner_external with the COORDINATOR_AREAS grants (full planning edit ·
 // mood board view · budget OFF). The coordinator activates it via the existing
@@ -35,13 +121,17 @@ const MS_PER_DAY = 86_400_000;
 // to copy the link by hand. A NEW invite now sends `coordinator_invited` (in the app only, never email) to the account
 // whose email the invite is for, opening `/host/accept/<token>` (`lib/coordinator-invite-notice.ts`). A re-marked
 // payment that finds the invite already there tells nobody again.
-export async function autoInviteCoordinator(
+//
+// 🚪 ONE CALLER: `openTheCoordinatorsSeatForBooking` above — the one place every booking door goes through. Not
+// exported, so a second call site cannot appear in another file.
+async function autoInviteCoordinator(
   admin: SupabaseClient,
   params: {
     eventId: string;
     email: string;
     displayLabel: string | null;
-    invitedByUserId: string;
+    /** The host who booked, or NULL when no host's press completed the booking (see the door above). */
+    invitedByUserId: string | null;
     /** The booked shop (`event_vendors.marketplace_vendor_id`), when the coordinator is on Setnayan. */
     shopProfileId?: string | null;
     /**
@@ -76,15 +166,21 @@ export async function autoInviteCoordinator(
   }
   if (!email) return { created: false };
 
-  // Dedupe against any active wedding-planner delegate already covering this email.
-  const { data: existing } = await admin
+  // Dedupe against any wedding-planner delegate already covering this email — a LIVE one, and one the HOSTS took away
+  // (every booking door calls this since 22 Nov 2026: a later payment or a status moved along must never re-invite
+  // somebody the hosts removed). Only an invite the booking's own cancel closed (`booking_cancelled`) may be made anew.
+  // An unread list is never "nobody is invited": said in the log, and nothing is written.
+  const { data: existing, error: existingError } = await admin
     .from('event_moderators')
-    .select('invitation_email')
+    .select('invitation_email, removed_at, removal_reason')
     .eq('event_id', params.eventId)
-    .eq('role_subtype', 'wedding_planner_external')
-    .is('removed_at', null);
-  const already = (existing ?? []).some(
-    (r) => (r as { invitation_email: string | null }).invitation_email?.trim().toLowerCase() === email,
+    .eq('role_subtype', 'wedding_planner_external');
+  if (existingError) {
+    console.error('[autoInviteCoordinator] invites unread — none written:', existingError.message, { event_id: params.eventId });
+    return { created: false };
+  }
+  const already = ((existing ?? []) as Array<{ invitation_email: string | null; removed_at: string | null; removal_reason: string | null }>).some(
+    (r) => r.invitation_email?.trim().toLowerCase() === email && (r.removed_at === null || r.removal_reason !== 'booking_cancelled'),
   );
   if (already) return { created: false };
 
@@ -162,13 +258,14 @@ async function tellTheCoordinator(
  *   · 'opened'   — a seat was written (or a pending invite for this shop was activated) and the owner was told;
  *   · 'already'  — they already hold a live seat here: NOTHING is rewritten, so the hosts' one switch is never undone
  *                  by a re-marked payment;
+ *   · 'removed_by_host' — the hosts took this person's seat away: NOTHING is written (it is theirs to bring back);
  *   · 'no_owner' — no owner account could be read; the caller falls back to the emailed invite;
  *   · 'refused'  — the write was refused; said in the log, never retried as "done".
  */
 async function openForTheBookedShop(
   admin: SupabaseClient,
-  p: { eventId: string; email: string; displayLabel: string | null; invitedByUserId: string; shopProfileId: string; eventVendorId?: string | null },
-): Promise<'opened' | 'already' | 'no_owner' | 'refused'> {
+  p: { eventId: string; email: string; displayLabel: string | null; invitedByUserId: string | null; shopProfileId: string; eventVendorId?: string | null },
+): Promise<'opened' | 'already' | 'removed_by_host' | 'no_owner' | 'refused'> {
   const { data: shop, error: shopError } = await admin
     .from('vendor_profiles')
     .select('user_id')
@@ -201,17 +298,23 @@ async function openForTheBookedShop(
     areas: { ...COORDINATOR_AREAS },
   });
   // 🔁 Booked again after a cancel: the seat that cancel closed (`removal_reason = 'booking_cancelled'`) comes back
-  // with the ruled grant. A seat a HOST removed is theirs to bring back — it is never revived here.
-  const { data: closed } = await admin
+  // with the ruled grant. A seat a HOST removed is theirs to bring back — it is never revived here, and (every booking
+  // door calls this since 22 Nov 2026) a later payment or a status moved along never re-opens it either.
+  const { data: gone, error: goneError } = await admin
     .from('event_moderators')
-    .select('moderator_id')
+    .select('moderator_id, role_subtype, removal_reason')
     .eq('event_id', p.eventId)
     .eq('user_id', ownerId)
-    .eq('role_subtype', 'wedding_planner_external')
-    .eq('removal_reason', 'booking_cancelled')
     .not('removed_at', 'is', null)
     .limit(1);
-  const revive = pending ? null : ((closed ?? [])[0] as { moderator_id: string } | undefined) ?? null;
+  if (goneError) {
+    console.error('[autoInviteCoordinator] closed seats unread:', goneError.message, { event_id: p.eventId });
+    return 'refused';
+  }
+  const closed = ((gone ?? [])[0] as { moderator_id: string; role_subtype: string | null; removal_reason: string | null } | undefined) ?? null;
+  const closedByCancel = closed?.role_subtype === 'wedding_planner_external' && closed.removal_reason === 'booking_cancelled';
+  if (closed && !closedByCancel) return 'removed_by_host';
+  const revive = pending ? null : closedByCancel ? closed : null;
   let wrote = false;
   if (revive) {
     const { data, error } = await admin

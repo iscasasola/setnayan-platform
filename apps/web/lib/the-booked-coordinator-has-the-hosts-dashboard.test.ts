@@ -131,8 +131,12 @@ test('5 · access is AUTOMATIC on booking — an accepted seat with the ruled gr
   assert.match(fn, /\.insert\(\{[\s\S]{0,600}user_id: ownerId,[\s\S]{0,600}accepted_at: now,/, 'the seat is not written accepted, to the shop’s owner');
   assert.match(fn, /areas: \{ \.\.\.COORDINATOR_AREAS \}/, 'the automatic seat does not carry the ruled grant');
   assert.match(fn, /\.update\(\{ user_id: ownerId, accepted_at: now, invitation_token: null/, 'a pending invite is not activated');
-  // The booking path hands the booked shop through even with no contact email.
-  assert.match(code('app/dashboard/[eventId]/vendors/actions.ts'), /\(prevRow\?\.contact_email \|\| prevRow\?\.marketplace_vendor_id\)/);
+  // The booking door (ONE, shared by every booking path since 22 Nov) hands the booked shop through even with no
+  // contact email — and `autoInviteCoordinator` only gives up when there is neither.
+  const door = g.slice(g.indexOf('export async function openTheCoordinatorsSeatForBooking('), g.indexOf('async function autoInviteCoordinator('));
+  assert.match(door, /email: row\.contact_email \?\? '',[\s\S]{0,400}shopProfileId: row\.marketplace_vendor_id \?\? null,/);
+  assert.match(g, /if \(!email && !params\.shopProfileId\) return \{ created: false \};/);
+  assert.match(code('app/dashboard/[eventId]/vendors/actions.ts'), /openTheCoordinatorsSeatForBooking\(createAdminClient\(\), \{ eventVendorId: vendorId, actorUserId: user\.id \}\)/);
   // And the retired checkout opt-in never reaches a coordinator seat.
   assert.match(code('lib/event-moderators.ts'), /wedding_planner_external: \{ edit_all: true, checkout: false,/);
 });

@@ -33,7 +33,7 @@ import { hasClaimAsk } from '@/lib/move-supplier-category.server';
 import { ABSENT_IS_FINE_HEADER } from '@/lib/supabase/db-error-log';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
-import { autoInviteCoordinator } from '@/lib/coordinator-grant';
+import { openTheCoordinatorsSeatForBooking } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { sweepShopBadgesAfter } from '@/lib/badge-earned.server';
 import { supplierChatHref, supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
@@ -129,7 +129,7 @@ import {
 } from '@/lib/agreed-total-and-its-changes';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { coordinatorMoneyScopeAllowed, ONLY_A_HOST_BOOKS, ONLY_A_HOST_PAYS } from '@/lib/coordinator-money-scope';
-import { BOOKED_EVENT_VENDOR_STATUSES, bookingIsACoordinators } from '@/lib/coordinator-trade';
+import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/coordinator-trade';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { checkManualVenueAddress } from '@/lib/manual-venue-address';
 import { addOwnContactError } from '@/lib/add-your-own';
@@ -491,37 +491,10 @@ async function updateVendorStatus(formData: FormData) {
     );
   }
 
-  // Coordinator auto-grant (owner 2026-06-22): the FIRST time a planner_coordinator
-  // booking reaches a downpaid/booked state, auto-invite the coordinator with host
-  // (full planning, no money) access — the same delegate the manual "Promote your
-  // coordinator" creates, fired automatically on the downpayment milestone. The
-  // coordinator still activates it via the /host/accept link, so access is never
-  // granted without their acceptance. Idempotent (skips an existing invite) and
-  // best-effort: a failed invite never rolls back the booking-status change.
-  if (
-    !wasConsuming
-    && willConsume
-    // 🧭 A booked SHOP needs no contact email: its owner's account gets the seat, accepted (owner 2026-11-21).
-    && (prevRow?.contact_email || prevRow?.marketplace_vendor_id)
-  ) {
-    try {
-      // The DB's own rule for "a coordinator" (the shop's services), never the couple's category alone.
-      const coordinators = createAdminClient();
-      if (await bookingIsACoordinators(coordinators, { category: prevRow.category, marketplaceVendorId: prevRow.marketplace_vendor_id }))
-      await autoInviteCoordinator(coordinators, {
-        eventId,
-        email: prevRow.contact_email ?? '',
-        displayLabel: prevRow.vendor_name ?? null,
-        invitedByUserId: user.id,
-        // 🤝 E1: the booked shop, so its owner's account is told the invite is waiting (in the app only).
-        shopProfileId: prevRow.marketplace_vendor_id ?? null,
-        // 🔒 The booking that opens the seat — the database closes that seat when this booking is cancelled.
-        eventVendorId: vendorId,
-      });
-    } catch {
-      // best-effort — never block the booking-status write on the auto-invite.
-    }
-  }
+  // 🚪 Coordinator auto-grant — "access is automatic on booking" (owner 2026-06-22 · 2026-11-21). The ONE shared door
+  // (lib/coordinator-grant.ts) reads the row fresh and opens the seat only when it is BOOKED and a coordinator's;
+  // idempotent, best-effort — it never blocks or rolls back the booking-status write above.
+  if (BOOKING_STATUSES.has(status)) await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId: vendorId, actorUserId: user.id });
 
   // Phase-2 review-request emit: the moment a vendor's service is marked
   // delivered (and wasn't already delivered/complete), drop a notification
@@ -3032,6 +3005,10 @@ export async function finalizeVendor(
   // remaining caller disappears.
   // ----------------------------------------------------------------------
 
+  // 🚪 A coordinator booked by this press gets their seat here too (the one shared door; a no-op unless the row is
+  // BOOKED and a coordinator's — an ask booked nobody).
+  await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId: vendorId, actorUserId: user.id });
+
   return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone, onePerEvent: isHardSingle };
 }
 
@@ -5129,6 +5106,10 @@ export async function recordDeposit(
       });
     }
   }
+
+  // 🚪 A booked coordinator whose seat is not open yet (booked by a door that had none before 22 Nov) gets it with the
+  // payment — the one shared door; a no-op unless the row is BOOKED and a coordinator's.
+  await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId: vendorId, actorUserId: user.id });
 
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');

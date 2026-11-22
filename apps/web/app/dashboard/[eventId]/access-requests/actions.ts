@@ -26,6 +26,7 @@ import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { openTheCoordinatorsSeatForBooking } from '@/lib/coordinator-grant';
 import type { AreaVerdict } from '@/lib/floor-command';
 import { COORDINATOR_AREAS } from '@/lib/delegate-areas';
 import { DELEGATE_AREAS, PERMISSION_TEMPLATES, type DelegateArea } from '@/lib/event-moderators';
@@ -221,6 +222,10 @@ async function answerClaimAccess(
       console.error('[access-requests] claim approval fee mint failed:', e);
     }
   }
+  // 🚪 The approval may have BOOKED the row and bonded it to a shop: the one shared door, by the shop's services (the
+  // RPC seats a coordinator by the couple's category; this covers a coordinator filed under another one). Idempotent —
+  // a seat the RPC just made is found and left as it is.
+  if (approve && result.granted) await openTheCoordinatorsSeatForBooking(admin, { eventVendorId: result.booking_vendor_id, actorUserId: user.id });
 
   // ✏️ THE COUPLE'S LIST TAKES THE SUPPLIER'S CORRECTIONS (DECISION_LOG 2026-11-07). Contact details only — a price
   // or a service on their purchase is never taken here (it reaches them as an amendment). Fail-soft: the approval is

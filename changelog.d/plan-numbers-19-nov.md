@@ -92,7 +92,11 @@ us retiring max already"* (DECISION_LOG 2026-11-21 "SPECIAL TOOLS ARE INCLUDED I
   already bought still runs to its end.
 - Comments in `lib/vendor-tier-caps.ts` no longer name a "Max" plan (five plans: Free · Verified · Plus · Pro · Ultra);
   the service-card docblock states the 19 Nov numbers the table already holds.
-- Tests: `specialized-tools-free-tier.test.ts` (5b), `vendor-plan-rows.test.ts`, DB `specialized-tools-unlock` (2a, 2b,
+- **The locked Cake Maker demo's bar** (shipped in #8112) read "Pro, Max and Ultra"; it now reads **"This special
+  tool is available on Pro and Ultra"** with its Upgrade button (`CAKE_DEMO_BAR_WORDS`, DECISION_LOG 21 Nov "A LOCKED
+  SPECIAL TOOL SHOWS ITS FRONT-END EXPERIENCE", amended 22 Nov). The demo itself is unchanged: the couple's designer on
+  sample options, nothing read, saved or sent, no price shown; the settings stay Pro and up.
+- Tests: `a-locked-cake-maker-is-a-demo.test.ts` (the bar's words), `specialized-tools-free-tier.test.ts` (5b), `vendor-plan-rows.test.ts`, DB `specialized-tools-unlock` (2a, 2b,
   and 2f, which holds the TS mirror to the SQL on every case) and `pro-tools-come-with-pro` (2).
 - Merged `origin/main` (merge commits only, no conflicts on this catch-up). Generated baselines were NOT regenerated
   here; that is the ship session's, once per batch.

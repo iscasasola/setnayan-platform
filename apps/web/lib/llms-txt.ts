@@ -485,15 +485,36 @@ function unlistedFeatureNames(): string[] {
   ).map((f) => f.name.en);
 }
 
-export function llmsFeaturePages(): ReadonlyArray<{ path: string; name: string; summary: string; group: string }> {
+/**
+ * Feature pages that still exist for people but are NOT described to answer engines, because what they sell is
+ * retired. `real-stories` (owner, DECISION_LOG "THE BLOG AND REAL STORIES ARE RETIRED"; specs
+ * `SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md` §11 "Remove from every page now"): the after-the-day story is now "Event
+ * stories", told under Keep it. Held by `lib/seo/the-retired-words-stay-gone.test.ts`.
+ */
+export const RETIRED_FROM_LLMS: ReadonlySet<string> = new Set(['real-stories']);
+
+/**
+ * THE THREE PILLARS (specs `SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md` §4 and §12: "rename Plan it · Invite & gather ·
+ * The Day · Keep the memories to Plan it · Live it · Keep it"). The /features registry keeps its own five groups for
+ * people; only what answer engines read is regrouped, so one pillar may gather two registry groups.
+ */
+export const LLMS_PILLARS = [
+  { name: 'Plan it', groups: ['plan'] },
+  { name: 'Live it', groups: ['invite', 'day'] },
+  { name: 'Keep it', groups: ['memories'] },
+  { name: 'For suppliers', groups: ['suppliers'] },
+] as const;
+
+export function llmsFeaturePages(): ReadonlyArray<{ path: string; name: string; summary: string; group: string; pillar: string }> {
   // 🪦 A RETIRED product (lib/retired-products.ts) is never described either, nor walks back in through a neighbour.
   const hidden = [...unlistedFeatureNames(), ...RETIRED_PRODUCT_NAMES];
   const named = (text: string) => hidden.some((n) => new RegExp(`\\b${n}\\b`, 'i').test(text));
-  return FEATURE_PAGES.filter((f) => !named(`${f.name.en} ${f.answer.en}`)).map((f) => ({
+  return FEATURE_PAGES.filter((f) => !RETIRED_FROM_LLMS.has(f.slug) && !named(`${f.name.en} ${f.answer.en}`)).map((f) => ({
     path: featurePaths(f.slug).en,
     name: f.name.en,
     summary: f.answer.en,
     group: FEATURE_GROUPS.find((g) => g.key === f.group)?.name.en ?? '',
+    pillar: LLMS_PILLARS.find((p) => (p.groups as readonly string[]).includes(f.group))?.name ?? '',
   }));
 }
 
@@ -502,15 +523,11 @@ export function llmsFeatureRoutes(): readonly string[] {
   return llmsFeaturePages().map((f) => f.path);
 }
 
-function featurePagesSection(): string {
-  const pages = llmsFeaturePages();
-  if (pages.length === 0) return '';
-  const lines = FEATURE_GROUPS.flatMap((g) => {
-    const rows = pages.filter((p) => p.group === g.name.en);
-    if (rows.length === 0) return [];
-    return [`### ${g.name.en}`, '', ...rows.map((p) => `- [${p.name}](${url(p.path)}) — ${p.summary}`), ''];
-  });
-  return `## Feature pages\n\nOne page per feature, each with how it works in three steps, its price from the live catalogue, and a short FAQ. Every page has a Tagalog twin under /tl/features/.\n\n${lines.join('\n')}`;
+/** "Feature pages:" and one linked line per page of one pillar, in the registry's reading order. */
+function pillarPages(pillar: string): string {
+  const rows = llmsFeaturePages().filter((p) => p.pillar === pillar);
+  if (rows.length === 0) return '';
+  return `\nFeature pages:\n\n${rows.map((p) => `- [${p.name}](${url(p.path)}) — ${p.summary}`).join('\n')}\n`;
 }
 
 /** The vendor rows as the plan table reads them — every active SKU formatted by `peso()`, the audit's own spelling. */
@@ -578,34 +595,172 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
   // a model asked "what does Setnayan charge vendors?" answered "nothing".
   // Derived from the same sources the bill uses — never hand-typed — and gated
   // on the same flag that decides whether anyone is billed.
+  // 🔑 THE FREE BOOKING IS THE OWNER'S 19 NOV RULE, in main's one fee source's third-person words (FEE_FREE_RULE_THIRD,
+  // lib/booking-fee-who-words.ts), not the retired "first booking
+  // from Setnayan is on us" (not a rule, DECISION_LOG 2026-11-19) nor the own-clients claim in any wording — 19 Nov
+  // "PROMOTION PAGES" item 4 retires it everywhere, so no "clients a supplier brings are free" lead-in and no "never
+  // carries the fee" sentence (held by lib/seo/the-retired-words-stay-gone.test.ts).
   const supplierFee = isBookingFeeEnabled()
     ? `Separately, suppliers pay Setnayan a booking fee${input.bookingFee ? ` of ${bookingFeeScheduleSummary(input.bookingFee)}` : ''}, ${FEE_SCOPE_THIRD}. ${FEE_FREE_RULE_THIRD} That holds whether the supplier brings the couple through their own invite, their own booking QR or their own link; every other booking carries the fee. It is billed to the supplier, never added to what a couple pays.${launchOfferSentence(input.launchOfferCap ?? null)}`
     : 'No booking fee is charged while it is switched off.';
+  // "Against the market" names the fee in the same one source's words (FEE_SCOPE_THIRD), and only while it is charged.
+  // It used to say "suppliers pay only on clients Setnayan brings" — the rule lib/booking-fee-who-words.ts replaced on
+  // 16 Nov, and the opposite of the fee sentence above. 🔒 lib/seo/the-retired-words-stay-gone.test.ts
+  const marketFee = isBookingFeeEnabled() ? `; suppliers pay a booking fee, ${FEE_SCOPE_THIRD}` : '';
 
+  // 📄 THE PROSE BELOW IS THE ONE SOURCE'S WORDS (owner 20 Nov 2026: "Yes, send it") — specs
+  // `SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md`: §1 the entity card, §2 what Setnayan is, §3 who it is for, §4 the
+  // three pillars, §7 against the market (by kind of tool, no rival named, no rival price, the internal "where rivals
+  // are ahead" list NOT shipped), §9 the words. Change the words there first, then here.
+  // ⚠ Patiktok is in the source's §4 and §9 but is left out here: it is RETIRED (owner 20 Nov, "Retire Patiktok and
+  // Music Maker"; lib/retired-products.ts), and `llms-txt.test.ts` holds that. ⚠ The source's §9 "never say" column is left out too: it would print the retired
+  // names this file is guarded never to print (lib/seo/stale-claims.ts, the-retired-words-stay-gone.test.ts).
   return `# Setnayan
 
-> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is the Philippines-first life-events platform: one place for a Filipino household to plan each occasion, capture it, and keep it for life. Every event type Setnayan offers is LIVE and open today — ${liveEventTypesPhrase()}. Weddings are the deepest, most complete surface; the same planning, capture, and memory rails run all of them. Built and operated entirely in the Philippines. A Filipino celebration is never one family's — it belongs to the whole group, the ninong and ninang, the titos and titas, everyone who showed up. So Setnayan's signature is a capture and memory layer built for all of them: Papic (guests' phones become a coordinated photo-and-video crew, with auto-tagged Memories, so each guest can find the photos they're in), Live Watch livestream on the event page, and the Setnayan AI planner — gathered into one living memory (Memories) the couple keeps, and that every guest goes home with their own piece of. Free planning workspace; 0% commission for couples — they pay their suppliers directly, with no Setnayan markup; transparent PHP pricing.
+> Setnayan is the home of every Filipino celebration: plan any event free, invite every guest with their own QR pass, capture the day on your guests' phones, book verified Filipino suppliers at 0% commission, and keep every photo in one album for life.
 
-## What Setnayan does
+## Setnayan at a glance
 
-Setnayan is software, not an agency. Hosts start free with the planning workspace (schedule, budget, guest list, seat plan, mood board) and a preview of their supplier matches, then optionally add Event Plus, Event Pro or Event Ultra — all three carry Setnayan AI, the supplier-matchmaking and guided-planning layer — and any of the in-app paid services. Verified Filipino suppliers list their services and are booked inside the event — the quote, the payments and the chat record sit in one place — and couples pay them directly. ${supplierFee}
+- **Name:** Setnayan — always one word, capital S (the logo is SETNAYAN). Say it SET-na-yan.
+- **Meaning:** from Tagalog "I-set na 'yan": "let's get that set." A call to start.
+- **What it is:** the home of every Filipino celebration: where you plan it, where your guests live it, and where you keep it for life.
+- **Category:** event platform — event planning, digital invitations and RSVP, guest photo sharing, livestream, supplier marketplace, lifetime photo memories.
+- **Made for:** the Philippines and Filipino families everywhere. Built and operated in the Philippines.
+- **Website:** ${url('/')}
+- **Price to start:** free. No guest limit. Not a trial.
+- **Works on:** any phone, in the browser, with nothing to install; add it to the home screen. Desktop app for Mac and Windows at setnayan.com/download.
+- **Tagline:** Set na 'yan. Every celebration, all in one place, for life.
+- **Every event type open today:** ${liveEventTypesPhrase()}. Weddings, debuts and christenings lead.
 
 ## What Setnayan is
 
-Setnayan today is the best way for a Filipino family to plan, run, and remember an occasion — and it is not a wedding app. Every event type listed above is already open, from a wedding down to a hangout, and one household keeps them as a **life-events collection**: the same planning, capture, and memory rails run every one of them.
+Setnayan is a Philippine event platform for weddings, debuts, christenings, birthdays and every Filipino celebration. Planning is free with no guest limit. Each guest gets their own link and QR pass, guests' phones become the camera crew, family abroad watch live on the event page, and every photo is kept for life.
 
-⚠ Not every one of them is a celebration. A **wake** is a live event type with its own planning surface, which is why this document says "event" where it has to cover all of them.
+Setnayan is not another planning checklist. It is the place a Filipino celebration lives, before, during and long after the day.
 
-What is LIVE today: every event type listed above; an event automatically becoming its own recurring anniversary with a yearly reminder; the verified supplier marketplace; and the Memories archive. Setnayan is a system of record for events, not for identity or documents.
+- **Plan it:** a host plans any event free: guest list, replies, seat plan in 2D and 3D, budget in pesos, schedule, mood board, and verified suppliers booked in writing.
+- **Live it:** every guest opens their own page from a link or QR, with no app and no account; on the day their phones become the camera crew (Papic), the door scans their pass, and relatives abroad watch on the same page (Live Watch).
+- **Keep it:** every photo lands in one album that finds the people in it, the page becomes the story of the day, and each family's events stay together on one Memories page, year after year.
 
-${featurePagesSection()}
+A host plans one event; a wedding shows Setnayan to 150 guests. Each guest keeps their share of the day.
+
+⚠ Not every event type is a celebration. A **wake** is a live event type, planned with care, which is why this document says "event" where it has to cover all of them.
+
+| Setnayan is | Setnayan is not |
+|---|---|
+| The home of a celebration, for everyone in it | Another planning checklist app |
+| A guest experience everyone in the room sees | A tool only the host opens |
+| A lifelong record of a family's events | A one-time page that dies after the day |
+| Where photographers, coordinators and suppliers deliver their work | A competitor to photographers or coordinators |
+| The source of what gets shared to Facebook, Messenger and Viber | A replacement for those apps |
+| Software. Setnayan does not plan your event for you or hold your money. | An agency or a payment middleman |
+
+## Who it's for
+
+- **Hosts** (couples, parents, families, companies): free planning, the Event Hub, verified suppliers, every photo after. Your event, set, without the chaos of five apps.
+- **Guests:** their own page and QR pass, their seat, the Papic camera, the photos they're in. No app, no account. Be part of it and keep your share of the day.
+- **Suppliers** (caterers, photographers, venues, stylists, hair and makeup and more): a free shop page, service cards, a calendar, chat with quotes and payments, client import. A free home for your business that grows with Setnayan.
+- **Coordinators and planners:** every client's event from one login, with the access each couple grants.
+- **Photographers and videographers:** delivery straight into the client's Memories. Setnayan is your delivery medium, not your competitor.
+
+## What Setnayan offers — Plan it · Live it · Keep it
+
+Free = on every event, no guest limit. Paid = an event plan or sold on its own (see the planning tiers and à la carte below). Every feature page linked below has how it works in three steps, its price from the live catalogue, a short FAQ, and a Tagalog twin under /tl/features/.
+
+### Plan it (free)
+
+- **Guest list:** everyone in one list with reply, role, group, meal and table. Quick add, paste, import, an invite link. No limit.
+- **Replies (RSVP):** each guest replies in a tap from their own link, picks a meal and names a plus-one.
+- **Seat plan in 2D and 3D:** tables, Auto Arrange and keep-apart rules, an export for the caterer, then walk the room in 3D.
+- **Budget in pesos:** target, agreed, paid and owed, suppliers and your own expenses in one list.
+- **Schedule:** the day's run of show in chapters; suppliers confirm their times on it.
+- **Date finder:** compare dates by which saved suppliers are free and which fall on a long weekend.
+- **Mood Board:** colours set once, a concept PDF and a print PDF every supplier can read.
+- **Filipino customs built in:** principal sponsors (ninong, ninang), the entourage, the Wedding March, dress code by role, paperwork per faith (Catholic, civil, INC, Muslim).
+- **Suppliers, booked in writing:** verified suppliers by category and city. The quote, the payment plan and every change are cards in one chat. Hosts pay suppliers directly; Setnayan adds nothing to the price (0% commission).
+- **Co-hosts:** plan together; one unlock covers everyone on the event.
+- **The Event Hub:** one link that moves from Save the Date → Invitation and RSVP → The Day → After, by itself.
+${pillarPages('Plan it')}
+### Live it (the guest moment)
+
+- **Every guest gets their own key:** a personal link and QR for the reply, the seat, the pass (Apple Wallet), the door and their photos. No app, no account.
+- **Door check-in:** scan the guest's QR; the headcount follows. Souvenir and tea-ceremony desks keep their own counts.
+- **Find my seat:** each guest sees their table and the live schedule on their own page.
+- **Papic, every guest's phone a camera:** point at the code and shoot, with nothing to install. Each photo finds the people in it. Cameras are free and unlimited; each photo uses one Papic credit.
+- **Papic Crew:** name the friends who shoot without limits.
+- **Memory lane:** guests' photos on the venue screen, live, each through a safety check.
+- **Live Watch:** family abroad watch on the event's own page; up to 12 cameras, guests' phones included. A one-camera livestream is included.
+- **E-Gifts:** guests give straight to the host's own GCash, Maya, bank or PayPal. Setnayan never touches the money.
+- **Works with no signal:** Papic keeps each photo on the phone and sends it when signal returns.
+${pillarPages('Live it')}
+### Keep it (for life)
+
+- **Memories:** every guest photo, the broadcast and the page in one place. Full-size originals are kept for a period set by the plan, then a 720p copy of every photo is kept **for life, free**. Nothing is deleted on a timer; only the host deletes.
+- **Each guest keeps their share:** "Were you there?" finds the photos a guest is in, by their face, only with their consent.
+- **Event stories:** after the day, the same link becomes a story people tap through, like Instagram Stories.
+- **Photo Notes:** guests write the story behind a photo.
+- **People saved once:** the next christening, debut or anniversary starts with your family already filled in.
+- **Linked events and Life-Flash:** a wedding and its anniversaries stay together; Life-Flash keeps a living memorial of every past event.
+- **Photo Delivery:** the photographer delivers into the same Memories, beside the guests' photos.
+${pillarPages('Keep it')}
+### For suppliers (free to open)
+
+- A shop page at **setnayan.com/yourshop**, the same design on every plan.
+- **Service cards** with real prices: one price, per guest, per hour or by size.
+- **Check a date:** couples see only "available" or "not bookable", never who booked.
+- **The chat is the record:** inquiry, quote, payment plan and receipts in one thread.
+- **QR codes for every moment:** shortlist, check a date, my page, reviews, a client's booking, the crew.
+- **Get Verified, free:** three business papers (DTI or SEC, BIR 2303, Mayor's or Business Permit). Verified shops are shown in search and read by Google and AI.
+- **Reviews only from real bookings.** "No fake reviews. No paid stars. Ever."
+${pillarPages('For suppliers')}
+### Privacy and trust
+
+- A new event is **private** until the host opens it: Private (only the hosts and guests), Unlisted (anyone with the link) or Public.
+- **FaceBlock:** a guest who opts out is blurred in every photo, wall and reel. Always free, never sold.
+- Face tagging is free on every event.
+- Built under the Philippine Data Privacy Act (RA 10173); hosts own their event content.
+
+## Against the market
+
+Setnayan is compared here by the job a host needs done — what Setnayan itself does for each. It makes no claim about any other product.
+
+| The job | What Setnayan does |
+|---|---|
+| An event website, invitation and RSVP | Filipino customs built in (ninang, entourage, faith paperwork, pesos); no guest limit; one guest list runs the invitation, seat, door, camera and album. |
+| Guest photos | Kept for life, a 720p copy free. Each photo finds the people in it. Papic lives inside the Event Hub guests already opened. |
+| A livestream | Guests' phones join as cameras by link, with no install; the stream plays on the event's own page. |
+| Finding and booking suppliers | Verified suppliers booked in writing inside the event; 0% commission for hosts${marketFee}. |
+| Keeping everyone on one page | One link that everyone in the room sees, and every photo in one album. |
+
+What Setnayan puts together: a guest list that becomes each guest's pass, seat, camera and photos; a livestream on the invitation's own page; suppliers booked in writing; and a family's events kept on one page for life.
+
+## Words
+
+Use these names, so every engine names things the same way. Plain words first, brand name second: "Guest photo album (Papic)", "Cash gifts (E-Gifts)".
+
+- **Event Hub** — the event's one link: Save the Date, invitation and RSVP, the day, after (your wedding website, as people search it).
+- **Papic** — guests' phones as the camera crew.
+- **Live Watch** — the livestream on the Event Hub.
+- **Memories** — every photo, clip and page, kept for life.
+- **Life-Flash** — a living memorial of every past event.
+- **Photo Notes** — a guest's story written on a photo.
+- **E-Gifts** — cash gifts straight to the host.
+- **Event stories** — the story of the day, tapped through after.
+- **Logo Maker** — the event's own mark.
+- **Event Plus · Event Pro · Event Ultra** — the three paid event plans.
+- **Supplier** — a business that serves the event.
+- **Reservation fee** — the first payment that holds a supplier.
+- **Ninong / ninang** — principal sponsors.
+- **Debut** — a Filipina's 18th birthday celebration.
+- **Binyag** — christening.
+
 ## Currently shipped public surfaces
 
-- [Setnayan Home](${url('/')}) — Platform overview, transparent PHP pricing, Filipino supplier stories.
+- [Setnayan Home](${url('/')}) — Platform overview, transparent PHP pricing, and Discover.
 - [Find suppliers on Discover](${url('/')}) — Browse verified Filipino event suppliers on the front page: pick a category, filter by city, event type and faith; compare shortlisted suppliers at [/explore/compare](${url('/explore/compare')}).
 - [Supplier pages](${url('/')}) — Each supplier has a public page at setnayan.com/[slug] (the old /v/[slug] address forwards there) with services, packages, coverage cities, and plan badge.
 - [Pricing](${url('/pricing')}) — Free, Event Plus, Event Pro and Event Ultra for an event, the à-la-carte services, and the supplier plans.
-- [For Suppliers](${url('/for-suppliers')}) — List your business. Free verified pages, for good — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
+- [For Suppliers](${url('/for-suppliers')}) — List your business. A free shop page and free Get Verified, for good — no listing fee, no per-lead fee. ${supplierFee}
 - [For Coordinators](${url('/for-coordinators')}) — For event coordinators: every client's event from one login, with the access each couple grants area by area, on the same supplier plans.
 - [Setnayan AI](${url('/setnayan-ai')}) — Supplier matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-supplier risk.
 - [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
@@ -616,14 +771,14 @@ ${featurePagesSection()}
 
 ## About Setnayan
 
-- **What:** Filipino-first life-events platform — plan, run, and remember every celebration, starting with the wedding.
-- **For whom:** Filipino households planning a celebration, their guests, and Filipino event suppliers.
+- **What:** the home of every Filipino celebration — plan it, live it, keep it for life.
+- **For whom:** Filipino households planning an event, their guests, and Filipino event suppliers.
 - **Headquarters:** Philippines.
 - **Availability:** Open today — anyone can sign up free and plan any event type listed above.
 - **Geography:** Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city Filipino suppliers serve.
 - **Languages:** English (primary). Tagalog (TL) for the dashboard's menus and buttons, and a Tagalog twin of every feature page.
 - **Data residency:** Database in Singapore (Supabase); object storage in Cloudflare R2's APAC region. Nothing is hosted in the Philippines.
-- **Pricing model:** Software publisher. Couples start free; Event Plus, Event Pro and Event Ultra are the three paid plans for an event (Setnayan AI comes inside all three); everything else is à la carte. Couples pay suppliers directly with no Setnayan markup; suppliers pay for an optional plan and the booking fee described under the supplier plans.
+- **Pricing model:** Software publisher. Couples start free; Event Plus, Event Pro and Event Ultra are the three paid plans for an event (Setnayan AI comes inside Event Pro and Event Ultra); everything else is à la carte. Couples pay suppliers directly with no Setnayan markup; suppliers pay for an optional plan and the booking fee described under the supplier plans.
 - **Privacy:** No public sharing of guest data without explicit opt-in. Couples own their event content. Couples pay suppliers directly; Setnayan does not hold that money.
 
 ## Planning tiers (couple-side)
@@ -682,7 +837,7 @@ Supplier-side: public page editor · inquiry inbox · calendar with intra-day bl
 - **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}) are the three paid plans for an event; Setnayan AI comes inside Event Pro and Event Ultra. Everything else is à la carte. Supplier side: Free and Verified cost nothing, for good; ${TIER_LABEL.solo} ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')} every 4 weeks), ${TIER_LABEL.pro} ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), ${TIER_LABEL.enterprise} ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). Couples pay no commission. Suppliers pay a booking fee, ${FEE_SCOPE_THIRD} (see the supplier plans).
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The Event Hub with unlimited RSVP is free; designing every part of it comes with Event Pro ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is included.
 - **What is Setnayan AI?** The assisted-planning layer — supplier matchmaking plus the guided planning workspace, until the event date. It is not sold on its own: it comes with Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}).
-- **What is Papic?** Guests' phones become a coordinated capture crew. You buy credits once — 50 free ${PAPIC_FREE_CREDIT_CONDITION}, then ${papicLadderCompact(R)} — and every guest shoots from that shared pot. Cameras are free and unlimited. Photos are matched to the guests in them (face matching only with each guest's consent), so each guest can find the photos they're in.
+- **What is Papic?** Guests' phones become a coordinated capture crew. Credits come with an event plan or as packs — ${papicLadderCompact(R)} — and every guest shoots from that shared pot. Cameras are free and unlimited. Photos are matched to the guests in them (face matching only with each guest's consent), so each guest can find the photos they're in.
 - **What is Live Watch?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} once per event, unlimited streams; single-camera streaming is included, and so is rehearsing with up to 12 cameras.
 - **Does Setnayan support discount codes?** Yes — admins issue codes for promos or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.
 - **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. More than 30 Filipino ceremony roles, including Nikah roles. Multi-faith supplier compatibility tagging.
@@ -701,8 +856,8 @@ ${aiAnswers({ bookingFee: input.bookingFee ?? null })
 
 ## What makes Setnayan structurally different
 
-- Built and operated in the Philippines for Filipino celebrations — not a foreign platform with PH localization. 200+ supplier sub-categories include entries international platforms structurally lack (Lechonero, Filipiniana attire, Barong Tagalog, Pre-Cana / CFO seminars, Pamamanhikan, Sponsor Coordinators, Kulintang, Maranao Okir motifs).
-- The memory belongs to the whole group, not one camera. Guests are the photographers; every attendee goes home with their own tagged copy. Family-album products cover one household's timeline and monetize prints — none of them carry events, suppliers, or a marketplace.
+- Built and operated in the Philippines for Filipino celebrations. 200+ supplier sub-categories include Filipino entries (Lechonero, Filipiniana attire, Barong Tagalog, Pre-Cana / CFO seminars, Pamamanhikan, Sponsor Coordinators, Kulintang, Maranao Okir motifs).
+- The memory belongs to the whole group, not one camera. Guests are the photographers; every attendee goes home with their own tagged copy.
 - Couples pay suppliers directly. Setnayan never holds the money between a couple and a supplier.
 - Multi-faith ceremony support — Catholic, Civil, INC, Christian, Muslim, Cultural, and Mixed have first-class planning branches.
 - Setnayan AI is assisted matchmaking, not a static checklist — date, budget, venue, guest count, religion, and reviews cross-referenced per category, with religion-adaptive guidance and hard-floor deadlines.

@@ -6,8 +6,6 @@ import {
   type StudioAnimKind,
   type StudioAnimTempo,
 } from '@/lib/monogram-studio-shared';
-import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
-import type { InlineCheckoutDrawerProps } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { commitMonogram } from './commit-actions';
 import { currentMark, playOnMark } from './mark-bench';
 
@@ -58,7 +56,7 @@ export function AnimateRows({
   initialTiming,
   owned,
   includedNote = null,
-  checkout,
+  unlockHref,
   unlock,
 }: {
   eventId: string;
@@ -73,13 +71,8 @@ export function AnimateRows({
    *  2026-09-24) — shown on the owned state so the missing ₱500 button reads
    *  as a benefit, not a glitch. Null otherwise. */
   includedNote?: string | null;
-  /** Everything the checkout drawer needs, read server-side. Null when owned,
-   *  in the store shell (App Review 3.1.1), or when the catalog price could not
-   *  be read — and then no purchase is offered rather than a guessed one. */
-  checkout: Pick<
-    InlineCheckoutDrawerProps,
-    'serviceKey' | 'displayName' | 'originalPriceCentavos' | 'settings' | 'vatRatePct'
-  > | null;
+  /** 🛒 Event services with the Event Hub ready (owner 2026-11-23) — null when owned or in the store shell. */
+  unlockHref: string | null;
   /** The owned / under-review confirmation, rendered by the page. */
   unlock?: React.ReactNode;
 }) {
@@ -215,7 +208,7 @@ export function AnimateRows({
 
       {/* ROW 4 — pinned in the thumb on a phone, in the flow on a wide screen. */}
       <div className="sticky bottom-20 z-20 -mx-4 space-y-2 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur-sm sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
-        <div className={`grid gap-2 sm:gap-3 ${owned || checkout ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        <div className={`grid gap-2 sm:gap-3 ${owned || unlockHref ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <button
             type="button"
             disabled={busy}
@@ -235,24 +228,21 @@ export function AnimateRows({
             >
               Apply Animation
             </button>
-          ) : checkout ? (
-            <InlineCheckoutDrawer
-              eventId={eventId}
-              serviceKey={checkout.serviceKey}
-              displayName={checkout.displayName}
-              originalPriceCentavos={checkout.originalPriceCentavos}
-              settings={checkout.settings}
-              vatRatePct={checkout.vatRatePct}
-              /* No price in the label — the drawer appends the catalog price. */
-              triggerLabel="Unlock Animation & Apply"
-              triggerClassName={`${BTN} bg-mulberry text-cream hover:bg-mulberry-700`}
-              /* Save the mark and the effect on screen, THEN open payment, so
-                 what they pay for is what they were looking at. A failed save
-                 never blocks paying; commitMonogram logs it. */
-              onBeforeOpen={async () => {
+          ) : unlockHref ? (
+            /* Save the mark and the effect on screen, THEN open Event services, so what they pay for is what they were
+               looking at. A failed save never blocks paying; commitMonogram logs it. */
+            <button
+              type="button"
+              disabled={busy}
+              onClick={async () => {
                 await save(true);
+                window.location.assign(unlockHref);
               }}
-            />
+              className={`${BTN} bg-mulberry text-cream hover:bg-mulberry-700`}
+              data-monogram-unlock=""
+            >
+              Unlock Animation &amp; Apply
+            </button>
           ) : null}
         </div>
 
@@ -275,9 +265,6 @@ export function AnimateRows({
 
         {/* The honest wait: `order_paid` is on the email allowlist, so the email
             is real; no duration, because approval time was never measured. */}
-        {checkout ? (
-          <p className="text-center text-xs text-ink/55">We check every payment by hand and email you when it goes live.</p>
-        ) : null}
       </div>
 
       {unlock}

@@ -11353,24 +11353,36 @@
     },
     "/dashboard/[eventId]/studio/website-pro": {
       "files": [
-        "dashboard/[eventId]/studio/website-pro/_components/plan-offer.tsx",
-        "dashboard/[eventId]/studio/website-pro/_components/pro-parts-body.tsx",
+        "dashboard/[eventId]/studio/website-pro/_components/event-services-body.tsx",
+        "dashboard/[eventId]/studio/website-pro/_components/event-services-view.tsx",
         "dashboard/[eventId]/studio/website-pro/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/launch${search.then === 'apply' ?",
-        "/dashboard/[seg]/orders"
+        "/dashboard/[seg]/launch${search.then === 'apply' ?"
       ],
-      "actions": [],
+      "actions": [
+        "routes.dashboard.eventServices",
+        "routes.dashboard.orders.index"
+      ],
       "blocks": [
+        "ActionButton",
         "CapizLight",
-        "InlineCheckoutDrawer",
+        "Chips",
+        "Dock",
+        "EventServicesBody",
+        "EventServicesPick",
+        "EventServicesView",
+        "Icon",
         "Link",
-        "PaidMark",
-        "PlanOffer",
-        "ProPartsBody",
-        "ProPlanCard",
-        "UltraOffer"
+        "Mark",
+        "PackFact",
+        "PageMasthead",
+        "Price",
+        "Sheet",
+        "SingleRow",
+        "StateWord",
+        "ThumbDock",
+        "ThumbRow"
       ]
     },
     "/dashboard/[eventId]/vendors": {

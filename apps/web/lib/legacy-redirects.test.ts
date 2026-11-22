@@ -260,7 +260,6 @@ test('d1 · nothing hand-types the old hub address — every door goes through s
     'app/dashboard/[eventId]/launch/page.tsx',
     'app/dashboard/[eventId]/live/page.tsx',
     'app/dashboard/[eventId]/documents/page.tsx',
-    'app/dashboard/[eventId]/orders/new/page.tsx',
     'app/vendor-dashboard/recommendations/share-actions.ts',
     'app/panood/control/[eventId]/actions.ts',
     'app/panood/control/[eventId]/screens-actions.ts',
@@ -271,6 +270,8 @@ test('d1 · nothing hand-types the old hub address — every door goes through s
     assert.ok(!/\/(suite|studio)`/.test(src), `${f} hand-types the retired hub address`);
     assert.match(src, /studioHubHref\(eventId\)/, `${f} lost its door to the services`);
   }
+  // 🛒 "New order" is Event services since 2026-11-23 — the one place to buy for an event.
+  assert.match(read('app/dashboard/[eventId]/orders/new/page.tsx'), /redirect\(routes\.dashboard\.eventServices\(eventId\)\)/);
 });
 
 test('d1 · a service with no door is not listed in the More menu (it used to open the gone page)', async () => {

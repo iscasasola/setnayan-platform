@@ -16,7 +16,9 @@ import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { AddToLibrary } from '@/app/dashboard/[eventId]/studio/papic/_components/add-to-library';
 import type { UploadPot } from '@/app/dashboard/[eventId]/studio/papic/_lib/upload-credits';
-import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
+import { ActionButton } from '@/components/action-button';
+import { Plus } from 'lucide-react';
+import { routes } from '@/lib/routes';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
 import { MagazineCard, readMagazineCard } from '@/app/dashboard/[eventId]/studio/papic/_components/magazine-card';
 import { RecapCard } from '@/app/dashboard/[eventId]/studio/papic/_components/recap-card';
@@ -238,7 +240,8 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     const buy = iap.iap ? (
       <IapPapicSheet eventId={eventId} left={typeof pot === 'number' ? pot : null} label="Add more" />
     ) : iap.storeShell ? null : (
-      <PapicBuySheet eventId={eventId} left={typeof pot === 'number' ? pot : null} tone="brand" label="Add more" />
+      // 🛒 On the web, "Add more" opens Event services with the photo sizes ready (owner 2026-11-23: one place to buy).
+      <ActionButton tone="brand" icon={<Plus aria-hidden strokeWidth={1.9} />} label="Add more" href={routes.dashboard.eventServices(eventId, 'photos')} />
     );
     addPhotos = !uploadsOpen ? (
       <UploadsOpenChoice eventId={eventId} open={false} variant="row" back="memories" />
@@ -303,15 +306,9 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       // arrival when a purchase answered with an error or `?buy=1`. Beside "Add photos" (the main button) since 20 Nov.
       const cardBuy = iap.iap ? (
         <IapPapicSheet eventId={eventId} left={now.count} label="Add more" />
-      ) : (
-        <PapicBuySheet
-          eventId={eventId}
-          left={now.count}
-          tone="neutral"
-          label="Add more"
-          defaultOpen={Boolean(poolError) || search.buy === '1'}
-          error={poolError}
-        />
+      ) : iap.storeShell ? null : (
+        // 🛒 One place to buy (owner 2026-11-23): the web's "Add more" is Event services, photo sizes open.
+        <ActionButton tone="neutral" icon={<Plus aria-hidden strokeWidth={1.9} />} label="Add more" href={routes.dashboard.eventServices(eventId, 'photos')} />
       );
       const card: PapicCardInput = {
         phase: win ? papicCardPhase(win.startIso, win.endIso, Date.now()) : null,

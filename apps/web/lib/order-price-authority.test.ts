@@ -163,6 +163,13 @@ const ORDER_MINTERS: Record<string, string> = {
     'EVENT TYPE — reading the flat catalog row for it would bill every non-wedding couple ' +
     'the wedding figure. Service-role (`moneyWriter`); authorized by the event-commit path ' +
     'that just created the event and its ownership row.',
+  'lib/event-services-orders.ts':
+    'The EVENT SERVICES bill (owner 2026-11-23, v4 approved) — ONE order for what was ticked on the Event services ' +
+    'page: a pack, singles, one photo size. The browser sends CLOSED keys only (parsePick); every line is priced by ' +
+    'resolveOrderChargeCentavos through readEventServices, the authority every checkout uses, and the total is their ' +
+    'sum. The one money-shaped field (shown_total_centavos) is the overcharge tripwire, never the charge. Membership, ' +
+    'the coordinator money scope, sellability and the day-of rule are asked as in submitOrderAction, which routes the ' +
+    'intent here. Service-role (`moneyWriter`); identity stamped by orderRowFor.',
   'app/papic/buy/actions.ts':
     'GUEST-bought Papic — a pool top-up or a reload of the buyer’s OWN camera, at the same rungs ' +
     'the host pays (owner-locked 2026-07-29). The form carries a service_code CHOICE only; points ' +

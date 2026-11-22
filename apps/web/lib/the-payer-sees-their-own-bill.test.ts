@@ -68,7 +68,8 @@ test('/pay lists a basket through the RPC — never by reading the shut table', 
 
 test('only a basket asks — an ordinary order sends no line read at all', () => {
   const body = bodyOf(read('lib/payable-by-reference.ts'), 'fetchRows');
-  const gate = body.search(/ONBOARDING_SERVICES_SKU/);
+  // 🛒 2026-11-23: every basket key (the sign-up bill and the Event services bill) — `isBasketOrderKey`.
+  const gate = body.search(/isBasketOrderKey\(/);
   const ask = body.search(/readBasketLinesForPayer\(/);
   assert.ok(gate > -1 && ask > gate, 'the line read is not gated on the basket SKU');
 });

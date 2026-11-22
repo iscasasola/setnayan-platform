@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation';
+import { EventServicesBody } from '@/app/dashboard/[eventId]/studio/website-pro/_components/event-services-body';
+import { formatCount } from '@/lib/format-number';
+import { packSavingPhp, type EventServicesFacts, type EventServicesPick, type PackFact, type PackKey } from '@/lib/event-services';
 import { HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
-import { ProPartsBody } from '@/app/dashboard/[eventId]/studio/website-pro/_components/pro-parts-body';
 import { AppleProScreen } from '@/app/_components/iap/apple-pro-screen';
 import { formatPhp } from '@/lib/php';
 import { LabFrame } from './lab-client';
-import { PLAN_NAME } from '@/lib/plan-buy-doors';
 
 /**
  * 🧪 /dev/pro-parts-lab — "Event Pro, part by part" (owner 2026-10-22), frame by frame of
@@ -13,9 +14,10 @@ import { PLAN_NAME } from '@/lib/plan-buy-doors';
  *   ?frame=sheet-two · sheet-four · sheet-cap · sheet-ready   — the ✓ Apply sheet (frames 1, 1-closer, 2, ready)
  *   ?frame=sheet-held                                       — 📵 the app with no Apple Pro: "◆ 2 waiting for Pro" + Remove Pro changes
  *   ?frame=line-free · line-paid · line-yours                 — the quiet line (frame 3)
- *   ?frame=parts-free · parts-owned                           — the parts page (frame 4)
- *   ?frame=plans-free · plans-plus                            — 🏛 the plan cards (owner 20 Nov 2026: Event Plus is the
- *                                                               whole Event Hub; Pro and Ultra are plain cards after it)
+ *   ?frame=services-free · services-pack · services-singles · services-addons · services-singles-only · services-info ·
+ *          services-pro — 🛒 EVENT SERVICES (owner 2026-11-23, v4 approved), frames 01 · 02 · 03 · 04 · 04b · 05 · 09 of
+ *          `prototypes/buy_event_services_one_place_2026-11-23/frames_v4_clean_warm/` — the page the plans page became.
+ *          Its pay page (06 · 07) is `/dev/pay-maya-lab`; Today's row (11 · 12) the home lab.
  *   ?frame=address-free · address-pick · address-kept         — the custom address (frame 5)
  *   ?frame=sheet-apple · apple · apple-on                     — 🍎 the iPhone app: the one-unlock sheet, Apple's page
  *                                                               selling Event Pro whole (owner 2026-10-26)
@@ -33,8 +35,58 @@ const SAMPLE_SMALL = 500;
 const SAMPLE_FULL = 2990;
 /** Apple's `displayPrice` string as StoreKit would hand it — SAMPLE only: one price everywhere (2026-10-28), so it is the lab's web figure. */
 const SAMPLE_APPLE_FULL = formatPhp(SAMPLE_FULL);
-/** 🏛 The plan cards' facts — SAMPLE only (the shipped page reads each from its catalogue row). */
-const SAMPLE_PLANS = { plusPhp: 2990, plusCredits: 1000, proPhp: 5490, proCredits: 3000, ultraPhp: 9990, ultraCredits: 6000 };
+
+const ES_SIZES = [
+  { code: 'PAPIC_GUEST_150', points: 150, php: 99 },
+  { code: 'PAPIC_GUEST_1K', points: 1_000, php: 499 },
+  { code: 'PAPIC_GUEST', points: 3_000, php: 999 },
+];
+const ES_PACK = { plus: { php: 2_990, credits: 1_000 }, pro: { php: 5_490, credits: 3_000 }, ultra: { php: 9_990, credits: 6_000 } } as const;
+const ES_SINGLE = { hub: 2_790, ai: 2_790, live: 3_990 } as const;
+const esPhotosLine = (k: PackKey) => `${formatCount(ES_PACK[k].credits)} guest photos`;
+const ES_INFO: Record<PackKey, string[]> = {
+  plus: ['The whole Event Hub — every theme and every part to design', 'One small “Made with Setnayan” mark instead of the watermark', '500 MB of uploads', esPhotosLine('plus')],
+  pro: ['Everything in Event Plus', 'Setnayan AI — tells you what’s next and flags what’s at risk', 'No Setnayan watermark on your Event Hub', 'Your full-size photos kept 6 months after the event', '1 GB of uploads', esPhotosLine('pro')],
+  ultra: ['Everything in Event Pro', 'Live Watch for one day — your event streamed on your Event Hub', 'Your full-size photos kept 12 months after the event', '2 GB of uploads', esPhotosLine('ultra')],
+};
+const ES_NAME: Record<PackKey, string> = { plus: 'Event Plus', pro: 'Event Pro', ultra: 'Event Ultra' };
+const ES_CODE: Record<PackKey, string> = { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO', ultra: 'EVENT_ULTRA' };
+
+function esSampleFacts(onPro: boolean): EventServicesFacts {
+  const singles = (['hub', 'ai', 'live'] as const).map((k) => ({
+    key: k,
+    code: k === 'hub' ? 'EVENT_HUB' : k === 'ai' ? 'SETNAYAN_AI' : 'LIVE_STUDIO',
+    php: onPro && k !== 'live' ? null : ES_SINGLE[k],
+    state: onPro && k !== 'live' ? ('yours' as const) : ('buy' as const),
+  }));
+  const packs: PackFact[] = (['plus', 'pro', 'ultra'] as const).map((k) => {
+    const held = onPro && k !== 'ultra';
+    const p: PackFact = {
+      key: k,
+      code: ES_CODE[k],
+      name: ES_NAME[k],
+      credits: ES_PACK[k].credits,
+      addsCredits: onPro ? Math.max(0, ES_PACK[k].credits - ES_PACK.pro.credits) : ES_PACK[k].credits,
+      php: held ? null : onPro ? ES_PACK.ultra.php - ES_PACK.pro.php : ES_PACK[k].php,
+      upgrade: onPro && !held,
+      state: held ? 'yours' : 'buy',
+      savePhp: null,
+      fits: !onPro && k === 'pro' ? 'Fits: 11 suppliers booked.' : null,
+      info: ES_INFO[k],
+    };
+    return p;
+  });
+  for (const p of packs) p.savePhp = packSavingPhp(p, singles, ES_SIZES);
+  return {
+    eyebrow: 'Ana & Miguel · Sat 12 Dec 2026',
+    plan: onPro ? 'pro' : 'free',
+    planName: onPro ? 'Event Pro' : 'Free',
+    photosLeft: onPro ? 860 : 150,
+    packs,
+    singles,
+    photos: ES_SIZES,
+  };
+}
 
 export default async function ProPartsLab({ searchParams }: { searchParams: Promise<{ frame?: string; buy?: string; from?: string; sale?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
@@ -66,59 +118,28 @@ export default async function ProPartsLab({ searchParams }: { searchParams: Prom
       </div>
     );
   }
-  if (frame.startsWith('plans')) {
-    const plusHeld = frame === 'plans-plus';
-    const whole = { full: plusHeld, parts: plusHeld ? HUB_PARTS.map((p) => p.id) : [], paidPhp: plusHeld ? SAMPLE_PLANS.plusPhp : 0, fullPricePhp: SAMPLE_PLANS.plusPhp };
+  if (frame.startsWith('services')) {
+    const f = frame.slice('services-'.length) || 'free';
+    const facts = esSampleFacts(f === 'pro');
+    const pick: EventServicesPick =
+      f === 'pack'
+        ? { pack: 'pro', singles: [], photos: null }
+        : f === 'addons'
+          ? { pack: 'pro', singles: ['live'], photos: 'PAPIC_GUEST_1K' }
+          : f === 'singles-only'
+            ? { pack: null, singles: ['hub', 'ai'], photos: null }
+            : { pack: null, singles: [], photos: null };
     return (
-      <div className="min-h-dvh bg-cream">
-        <ProPartsBody
-          planName={PLAN_NAME.pro}
-          everythingName={PLAN_NAME.plus}
-          everythingPhp={SAMPLE_PLANS.plusPhp}
+      <div className="min-h-dvh bg-page" data-lab-frame={frame}>
+        <EventServicesBody
+          key={frame}
           eventId="00000000-0000-4000-8000-000000000000"
-          title="Plans for this event"
-          back={{ href: '/dev/pro-parts-lab', label: 'Back to the Maker' }}
-          fromMaker
-          hubHref="/dev/pro-parts-lab"
-          active={whole}
-          owned={whole}
-          partPricePhp={{}}
-          fullPhp={SAMPLE_PLANS.proPhp}
-          buy={q.buy}
-          settings={{ bdo_account_name: null, bdo_account_number: null, bdo_qr_url: null, gcash_account_name: null, gcash_number: null, gcash_qr_url: null }}
-          vatRatePct={0}
-          plans={{
-            plusPhp: SAMPLE_PLANS.plusPhp,
-            plusCredits: SAMPLE_PLANS.plusCredits,
-            proCredits: SAMPLE_PLANS.proCredits,
-            freePapic: null,
-            plus: plusHeld ? 'yours' : 'buy',
-            ultraPhp: SAMPLE_PLANS.ultraPhp,
-            ultraCredits: SAMPLE_PLANS.ultraCredits,
-            ultra: 'buy',
-            paidTowardAPlan: plusHeld,
-          }}
-        />
-      </div>
-    );
-  }
-  if (frame.startsWith('parts')) {
-    return (
-      <div className="min-h-dvh bg-cream">
-        <ProPartsBody
-          planName={PLAN_NAME.pro}
-          eventId="00000000-0000-4000-8000-000000000000"
-          title="Event Pro"
-          back={{ href: '/dev/pro-parts-lab', label: 'Back to the Maker' }}
-          fromMaker
-          hubHref="/dev/pro-parts-lab"
-          active={own}
-          owned={own}
-          partPricePhp={partPricePhp}
-          fullPhp={SAMPLE_FULL}
-          buy={q.buy}
-          settings={{ bdo_account_name: null, bdo_account_number: null, bdo_qr_url: null, gcash_account_name: null, gcash_number: null, gcash_qr_url: null }}
-          vatRatePct={0}
+          facts={facts}
+          ordersHref="/dev/pro-parts-lab"
+          initialPick={pick}
+          initialOpen={f === 'singles' || f === 'addons' || f === 'singles-only'}
+          initialInfo={f === 'info' ? 'pro' : null}
+          lab
         />
       </div>
     );
@@ -130,7 +151,7 @@ export default async function ProPartsLab({ searchParams }: { searchParams: Prom
       pricing={frame === 'sheet-apple' || !onSale ? null : { partPricePhp, fullPricePhp: SAMPLE_FULL, ownership: own }}
       priceLabel={frame === 'sheet-apple' ? null : formatPhp(SAMPLE_FULL)}
       /* The launch page's rule: no part on sale → no quiet line. */
-      line={onSale ? { fromPhp: SAMPLE_SMALL, fullPhp: SAMPLE_FULL, paidPhp, owned: paidSet, href: '/dev/pro-parts-lab?frame=parts-free' } : null}
+      line={onSale ? { fromPhp: SAMPLE_SMALL, fullPhp: SAMPLE_FULL, paidPhp, owned: paidSet, href: '/dev/pro-parts-lab?frame=services-free' } : null}
       addressPricePhp={partPricePhp.address ?? null}
     />
   );

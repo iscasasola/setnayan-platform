@@ -29,6 +29,8 @@ import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
 import { AI_PLAN_SKUS_BEFORE_RECUT, placedBeforeRecut, planOrderCarriesSetnayanAi } from '@/lib/event-plans';
 import { papicPointsBoughtBySku } from '@/lib/papic-pass-tiers';
 import {
+  EVENT_SERVICES_SKU,
+  isBasketOrderKey,
   ONBOARDING_SERVICES_SKU,
   readOnboardingOrderItems,
 } from '@/lib/onboarding-order-items';
@@ -1958,6 +1960,8 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // Setnayan AI picks. Its children are PER ORDER, not static, so it gets its
   // own fan-out. See activateOnboardingBasket.
   [ONBOARDING_SERVICES_SKU]: (ctx) => activateOnboardingBasket(ctx),
+  // 🛒 The Event services bill (2026-11-23) — the same one-bill shape, the same fan-out.
+  [EVENT_SERVICES_SKU]: (ctx) => activateOnboardingBasket(ctx),
 });
 
 /**
@@ -2015,7 +2019,10 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
 // 💎 2026-11-04: Event Pro LEFT this set — it now provisions Setnayan AI and its included Papic credits
 // (`activateEventPlan`), so a Pro inside a basket must run its hook like any other item. Its Hub gates still read
 // the order/basket status live; the set stays for the next item that truly needs nothing.
-const ORDER_GATED_BASKET_ITEMS: ReadonlySet<string> = new Set<string>();
+// 🛒 2026-11-23 — the Event services bill sells two items that need nothing provisioned: Live Watch (every Live Watch gate
+// reads the order — and the basket line — live, exactly as a direct LIVE_STUDIO order has always worked with no hook) and
+// the Event Hub single (`eventHubOwnership` reads its line; approving the bill IS the unlock).
+const ORDER_GATED_BASKET_ITEMS: ReadonlySet<string> = new Set<string>(['LIVE_STUDIO', 'EVENT_HUB']);
 
 async function activateOnboardingBasket(ctx: ActivationContext): Promise<void> {
   const items = await readOnboardingOrderItems(ctx.admin, ctx.orderId);
@@ -2918,7 +2925,7 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
 /** Does this order carry Setnayan AI — directly, in an onboarding basket, or as a bundle child? */
 async function orderGrantsSetnayanAi(ctx: ActivationContext): Promise<boolean> {
   const basketItems =
-    ctx.serviceKey === ONBOARDING_SERVICES_SKU
+    isBasketOrderKey(ctx.serviceKey)
       ? await readOnboardingOrderItems(ctx.admin, ctx.orderId)
       : [];
   // 🎟 An Event Plus order may have turned the AI on (bought before the 18 Nov re-cut), so reversing one re-derives too —

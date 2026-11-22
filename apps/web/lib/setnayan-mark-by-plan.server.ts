@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { askedOnce } from '@/lib/request-once';
 import { eventSkuActive } from '@/lib/entitlements';
 import { eventProPlanActive } from '@/lib/couple-website-pro';
-import { EVENT_PLUS_SKU } from '@/lib/hub-parts';
+import { EVENT_HUB_SKU, EVENT_PLUS_SKU } from '@/lib/hub-parts';
 import { asViewed } from '@/lib/view-as-free.server';
 import { setnayanMarkFor, type SetnayanMark } from '@/lib/setnayan-mark-by-plan';
 
@@ -21,10 +21,12 @@ import { setnayanMarkFor, type SetnayanMark } from '@/lib/setnayan-mark-by-plan'
  */
 export function eventSetnayanMark(supabase: SupabaseClient, eventId: string): Promise<SetnayanMark> {
   return askedOnce(supabase, 'setnayan-mark', [eventId], async () => {
-    const [pro, plus] = await Promise.all([
+    const [pro, plus, hubSingle] = await Promise.all([
       asViewed(eventProPlanActive(supabase, eventId).catch(() => false)),
       asViewed(eventSkuActive(supabase, eventId, EVENT_PLUS_SKU).catch(() => false)),
+      // 🛒 The Event Hub single carries Event Plus's one small mark (owner 2026-11-23: what Plus unlocks, minus credits).
+      asViewed(eventSkuActive(supabase, eventId, EVENT_HUB_SKU).catch(() => false)),
     ]);
-    return setnayanMarkFor({ pro, plus });
+    return setnayanMarkFor({ pro, plus: plus || hubSingle });
   });
 }

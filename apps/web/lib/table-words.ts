@@ -1,3 +1,5 @@
+import { formatCount } from '@/lib/format-number';
+
 /**
  * table-words.ts — how a table's name is written next to a guest.
  *
@@ -18,4 +20,12 @@
 export function tableWords(label: string): string {
   const trimmed = label.trim();
   return /^\d+$/.test(trimmed) ? `Table ${trimmed}` : trimmed;
+}
+
+/**
+ * "Seat 2" — a seat as a person reads it. `event_seat_assignments.seat_number` counts from 0 (the auto-draft's first
+ * chair is 0, `lib/seating.ts`), so the first chair reads "Seat 1" — Seats › List's own words (`seat-list.tsx`).
+ */
+export function seatWords(seatNumber: number): string {
+  return `Seat ${formatCount(seatNumber + 1)}`;
 }

@@ -127,6 +127,12 @@ export type GuestCardData = {
   inviteChapters?: CardInviteChapters | null;
   /** Table label when this guest is seated, else null. */
   seatedAt: string | null;
+  /** 🪑 Their chair at that table (`seat_number`, counted from 0) — null when not seated or no chair was picked. Optional:
+   *  a card drawn from elsewhere (the Maker, the lab) may not hand it; the Seat row then names the table alone. */
+  seatNumber?: number | null;
+  /** 🔴 The seat read was REFUSED — the Seat row says it could not read it, never "Not seated" (the honest read,
+   *  `lib/guests-read-is-honest.test.ts`). Optional: absent = the read answered. */
+  seatUnread?: boolean;
   /** Custom group memberships, for the read-only Tags row. */
   customGroups: GroupChip[];
   /** When Setnayan learned the answer — already formatted, null when none. */
@@ -312,7 +318,7 @@ export async function loadGuestCard(
       .from('event_seat_assignments')
       // 🔴 `table_label`, NOT `label`. There is no `label` column on
       // `event_tables` — PostgREST answers 42703 and REFUSES THE WHOLE QUERY.
-      .select('table_id, placed_by, placed_at, event_tables(table_label)')
+      .select('table_id, seat_number, placed_by, placed_at, event_tables(table_label)')
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
       .maybeSingle(),
@@ -660,6 +666,8 @@ export async function loadGuestCard(
     initialInvited,
     inviteChapters: inviteChapterRead,
     seatedAt,
+    seatNumber: seatedAt && typeof seatRow?.seat_number === 'number' ? seatRow.seat_number : null,
+    seatUnread: Boolean(seatRowError),
     customGroups,
     recordedAt: formatRecordedAt(guest.rsvp_responded_at),
     access: accessMap?.get(guest.guest_id) ?? null,

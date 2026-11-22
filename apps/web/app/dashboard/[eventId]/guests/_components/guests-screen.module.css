@@ -139,13 +139,15 @@
 }
 /* 🎚 THE VIEW'S OWN ROUNDS in the top row (Seats: Edit · ⋯ — owner v14, "RIGHT action rounds only"): 40-px rounds, the
    word in the button's name (an icon-only `.ab` still reads "Edit"). Under 360 the rounds are 36 (prototype v14's fit). */
-.stick [data-guests-view-rounds] :global(.ab) {
+/* ▶ The view's MAIN verb keeps its word (drawing v4 § 7: "▷ Preview", the one terracotta button in the top row) — only
+   the secondary rounds go to their icon. ActionButton marks its main verb `data-main`. */
+.stick [data-guests-view-rounds] :global(.ab):not([data-main]) {
   width: 40px;
   min-width: 40px;
   padding: 0;
   gap: 0;
 }
-.stick [data-guests-view-rounds] :global(.ab .lbl) {
+.stick [data-guests-view-rounds] :global(.ab):not([data-main]) :global(.lbl) {
   display: none;
 }
 @media (max-width: 359px) {
@@ -1167,6 +1169,11 @@ button.ico {
 .typedAdd {
   margin: 6px 0 12px;
 }
+/* 🔎 "2 FOUND" — the search's count, one line in the headings' own letters (Guests redesign § 2). */
+.found {
+  display: block;
+  padding: 8px 4px 0;
+}
 .ways {
   margin-top: 8px;
 }
@@ -2058,13 +2065,17 @@ button.countsDoor[aria-pressed='true'] {
 .dragHint {
   position: absolute;
   left: max(22px, calc(var(--sn-safe-l) + 6px));
-  right: max(22px, calc(var(--sn-safe-r) + 6px));
-  bottom: 100%;
+  right: auto;
+  max-width: calc(100% - 44px);
+  bottom: calc(100% + 4px);
   display: flex;
   align-items: center;
   gap: 6px;
   margin: 0;
-  padding: 0;
+  /* On the row's own glass (`sn-glass-row` on the element) — the list scrolls behind it and never shows through the
+     words (22 Nov, drawing v4 parity: the line sat on "Table 9"). March's line wears the same. */
+  padding: 6px 12px;
+  border-radius: var(--m-r-full);
   font-size: 13px;
   color: var(--gs-mute);
   pointer-events: none;

@@ -1,19 +1,22 @@
 import type { ReactNode } from 'react';
-import { BadgeCheck, Camera, CircleX, HardDrive, Images, ReceiptText, Search, Star, Store, Users, type LucideIcon } from 'lucide-react';
+import { BadgeCheck, Camera, CircleX, Images, ReceiptText, Search, Star, Store, Users, type LucideIcon } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
-import { FIX_HREF } from '@/lib/downgrade-limits';
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import { planWord } from '@/lib/vendor-plan-change-words';
 import type { PlanLine, PlanRowBadge } from '@/lib/vendor-plan-rows';
+import type { StorageBreakdownRead } from '@/lib/supplier-storage';
+import { StorageMeter } from './storage-meter';
+import { CLIENTS_FOOTNOTE } from '@/lib/supplier-client-room';
 
 /**
  * THE PLAN SCREEN'S ROWS (simpler supplier dashboard step 6; owner-APPROVED 2026-10-14; prototype SCREENS.plan):
  *
  *   You are on <plan> · <what you pay> · until <date>          (the answer line)
  *   Pay every ▾ · the plan rows (What changes · What you pay)    (`PlanSheet`, handed in — Build 5 Lane B)
+ *   📏 the storage meter — plan · size, Photos & video · Files · Records (`StorageMeter`)
  *   Booking fee — the live schedule · "N of 5 used" / Waived   (`bookingFeeRow`)
  *   What <plan> gives you ▾ — read from the plan table         (`planGivesLines`)
  *   Receipts ▾ — paid plan orders, each to /receipts/<id>
@@ -42,7 +45,7 @@ export function PlanRows({
   featured,
   gift = null,
   photosLine = null,
-  storageLine = null,
+  storage = null,
   deepSearch = null,
   extras = null,
   bought = [],
@@ -69,10 +72,10 @@ export function PlanRows({
   /** The Portfolio photos row's line (`portfolioPlanRowLine`); null = the row is not drawn. */
   photosLine?: string | null;
   /**
-   * 💾 The Storage row's line (`storageRowLine`, lib/supplier-storage.ts): "1.2 GB of 5 GB used", or that it could not
-   * be read. null = the plan has no allowance and the row is not drawn.
+   * 📏 The storage meter's read (`readStorageBreakdown`): the top block — plan · size, the bar split Photos & video ·
+   * Files · Records. null = the plan has no allowance and the block is not drawn.
    */
-  storageLine?: string | null;
+  storage?: StorageBreakdownRead | null;
   /** 💳 Deep Search, the one thing every plan still buys (2026-11-14): its catalogue price; null = not drawn. */
   deepSearch?: { line: string } | null;
   /** 💳 Ultra's extra seats and branches (2026-11-14); null on every other plan. */
@@ -92,6 +95,8 @@ export function PlanRows({
 
       {notices ? <div className="mt-3 space-y-3">{notices}</div> : null}
 
+      {storage ? <StorageMeter tier={tier} read={storage} /> : null}
+
       <div className="mt-3" data-plan-rows="">
         {picker}
 
@@ -105,16 +110,17 @@ export function PlanRows({
               {gives.map((g) => (
                 <DatesRow key={g.key} data="plan-gives-row" title={g.title} line={g.line} />
               ))}
+              {gives.some((g) => g.key === 'clients') ? (
+                <p className="pt-2 text-sn-sm text-[color:var(--m-slate-2)]" data-clients-footnote="">
+                  {CLIENTS_FOOTNOTE}
+                </p>
+              ) : null}
             </div>
           </Fold>
         </div>
 
         {photosLine ? (
           <DatesRow data="plan-photos" lead={ic(Images)} title="Portfolio photos" line={photosLine} href="/vendor-dashboard/collections" />
-        ) : null}
-
-        {storageLine ? (
-          <DatesRow data="plan-storage" lead={ic(HardDrive)} title="Storage" line={storageLine} href={FIX_HREF.storage} />
         ) : null}
 
         <div className="border-t border-ink/10" data-plan-fold="receipts">

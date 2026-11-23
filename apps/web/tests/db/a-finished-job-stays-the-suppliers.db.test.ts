@@ -14,6 +14,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { foundOnSetnayan } from './found-on-setnayan';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -148,6 +149,8 @@ test('the supplier’s public completed-jobs count still includes it', async () 
      PAGE still says they did the job. This asserts the view, not the table. */
   const { vendorProfileId } = await newVendor();
   const eventId = await newEvent(null);
+  // Since 2026-11-23 (b89e2420 C) only an ARM'S-LENGTH job is on the track record: this couple found the shop here.
+  await foundOnSetnayan(db, vendorProfileId, eventId);
   await newBooking(eventId, 'delivered', { marketplaceId: vendorProfileId, linkedId: vendorProfileId });
 
   const count = async () => {

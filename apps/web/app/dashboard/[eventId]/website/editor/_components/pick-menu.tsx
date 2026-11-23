@@ -60,6 +60,7 @@ export function PickMenu({
   };
 
   const focusedOnOpen = useRef(false);
+  const unplaced = at === null;
   useLayoutEffect(() => {
     if (!open) {
       focusedOnOpen.current = false;
@@ -73,7 +74,7 @@ export function PickMenu({
         listRef.current.querySelector<HTMLButtonElement>('button:not([disabled])')
       )?.focus();
     }
-  });
+  }, [open, unplaced, options.length]);
 
   useEffect(() => {
     if (!open) return;

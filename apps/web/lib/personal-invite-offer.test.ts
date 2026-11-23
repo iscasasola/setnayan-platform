@@ -84,10 +84,10 @@ test('the card pill, the result line and the door rows say the prototype’s wor
 
 test('the dropdown and the message read the catalogue — a plan with no price is named without one', () => {
   assert.equal(planMenuNote('free', PRICES), 'no gift');
-  assert.equal(planMenuNote('pro', PRICES), '₱2,500 / 28 days');
+  assert.equal(planMenuNote('pro', PRICES), '₱2,500 / month');
   assert.equal(planMenuNote('enterprise', { solo: 1000 }), null);
-  assert.equal(planChoicesLine(PRICES), 'Free, Plus ₱1,000, Pro ₱2,500 or Ultra ₱8,000 / 28 days');
-  assert.equal(planChoicesLine({ solo: 1000, pro: 2500 }), 'Free, Plus ₱1,000, Pro ₱2,500 or Ultra / 28 days');
+  assert.equal(planChoicesLine(PRICES), 'Free, Plus ₱1,000, Pro ₱2,500 or Ultra ₱8,000 / month');
+  assert.equal(planChoicesLine({ solo: 1000, pro: 2500 }), 'Free, Plus ₱1,000, Pro ₱2,500 or Ultra / month');
 });
 
 test('the message: the offer, the live free-booking sentence, the launch offer only while it runs, the link', () => {
@@ -100,7 +100,7 @@ test('the message: the offer, the live free-booking sentence, the launch offer o
   const open = personalInviteMessage({ ...base, launchCapWords: '2,000' });
   assert.match(open, /^Hi Tita Nena’s Catering — your Setnayan shop is set up\./);
   assert.match(open, /Your offer: Pro, free until 31 Jan 2027, and 100 portfolio photos, yours to keep\./);
-  assert.match(open, /Free, Plus ₱1,000, Pro ₱2,500 or Ultra ₱8,000 \/ 28 days\. Nothing renews by itself\./);
+  assert.match(open, /Free, Plus ₱1,000, Pro ₱2,500 or Ultra ₱8,000 \/ month\. Nothing renews by itself\./);
   assert.ok(open.includes(FEE_FREE_RULE), 'the free rule is not the live sentence');
   assert.doesNotMatch(open, /first booking/i, '20 Nov: no free first booking');
   assert.match(open, /While Setnayan's first 2,000 bookings run, there is no booking fee at all\./);

@@ -29,6 +29,7 @@ import {
   SAMPLE_FOUND_LINE,
   GIFT_BUNDLE_WORDS,
 } from './supplier-how-we-earn-data';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 
 export type EarnFigures = { head: string; band: string; tail: string } | null;
 
@@ -42,7 +43,7 @@ export function SupplierHowWeEarn({
   feeEnabled: boolean;
   /** `bookingFeeFigures(schedule)` from the live schedule, or null when it could not be read / the fee is off. */
   figures: EarnFigures;
-  /** The 28-day price of each plan, from the catalogue (`getVendorPrices()`); null when unread. */
+  /** The monthly price of each plan, from the catalogue (`getVendorPrices()`); null when unread. */
   plans: { plus: string | null; pro: string | null; ultra: string | null };
   /** `vendor_billing_catalog.vendor_deep_search`, formatted; null when unread. */
   deepSearch: string | null;
@@ -99,7 +100,7 @@ export function SupplierHowWeEarn({
             <b>Plus · Pro · Ultra</b>
             <span>For more tools and more room. Free stays free.</span>
             <p className={s.earnPrice}>
-              Plus {dash(plans.plus)} · Pro {dash(plans.pro)} · Ultra {dash(plans.ultra)}, every 4 weeks.
+              Plus {dash(plans.plus)} · Pro {dash(plans.pro)} · Ultra {dash(plans.ultra)}, {PLAN_PERIOD.every}.
             </p>
           </div>
           <div className={s.earnRow}>

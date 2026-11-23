@@ -42,6 +42,13 @@ test('2 · every background writer asks first', () => {
   assert.ok(claim.indexOf('backgroundWritesAllowed()') < claim.indexOf("rpc('claim_periodic_job'"));
   // Every job is claimed through runClaimedJob → claimPeriodicJob; nothing else calls the RPC.
   assert.equal((jobs.match(/claim_periodic_job/g) ?? []).length, 1);
+  // The storage meter's nightly measure (PR #8191: no pg_cron) writes only inside its claimed job — so a dev server,
+  // refused the claim, never measures production.
+  const storage = src('supplier-storage-measure.server.ts');
+  const run = storage.indexOf("runClaimedJob('supplier-storage-records'");
+  assert.ok(run > 0, 'the storage measure no longer rides runClaimedJob');
+  assert.ok(storage.indexOf('createAdminClient()') > run, 'the storage measure builds a client before its claim');
+  assert.doesNotMatch(storage, /claim_periodic_job/, 'the storage measure claims its window by itself');
 
   const faults = src(join('telemetry', 'fault-log.ts'));
   const record = body(faults, 'export async function recordFault(');

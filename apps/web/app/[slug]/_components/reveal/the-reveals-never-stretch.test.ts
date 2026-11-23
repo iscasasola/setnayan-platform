@@ -8,7 +8,7 @@
  *     create more smoke, extend it"*: a wide screen gets MORE of each reveal's material at the drawing's size, never
  *     the phone's art pulled wider. `wideness()` is the one measure; `lay()` the one way to cover a wider canvas.
  *
- * Sabotage check (run once by hand): put back `sx.drawImage(satin, 0, 0, 512, 888)` in `scenes/drape.ts` → red;
+ * Sabotage check (run once by hand): make the fabric's canvas `const cw = 512` in `scenes/drape.ts` → red;
  * give `makeSeal` a fixed colour → red.
  */
 import { test } from 'node:test';
@@ -48,13 +48,9 @@ test('🔏 both envelopes press the couple’s seal: their recipe, their wax whe
   assert.match(ENV, /recipe\.press\.depth/, 'the seal’s depth is not their press');
   assert.match(ENV, /color \? new THREE\.Color\(color\)\.convertSRGBToLinear\(\) : 0xb98a2c/, 'the wax colour does not follow the minted seal');
   assert.match(ENV, /seal = makeSeal\(c, 0\.5, false\)/, 'the classic envelope lost its seal');
-  assert.match(ENV, /seal = makeSeal\(c, 0\.4, true\)/, 'the gatefold has no seal');
-  assert.match(ENV, /function placeSeal\(\)/, 'the gatefold’s seal does not ride its panel');
-  /* the seal never breaks (owner 23 Nov): every piece of the gatefold's seal takes the one panel's transform */
-  const place = ENV.slice(ENV.indexOf('function placeSeal()'));
-  assert.match(place, /const tp = flaps\[0\]\?\.tip;/, 'the gatefold’s seal does not follow the first panel');
-  assert.match(place, /for \(const half of seal\) \{/, 'the gatefold’s seal pieces move apart');
-  assert.doesNotMatch(place, /\[right, left\] = seal/, 'the gatefold’s seal breaks in two again');
+  assert.match(ENV, /else seal = makeSeal\(c, 0\.4, true\)/, 'the sealed gatefold has no seal');
+  /* the sealed gatefold's seal rides the left panel whole (held by the-gatefold-is-sealed-or-tied.test.ts) */
+  assert.match(ENV, /function placeSeal\(\): void/, 'the gatefold’s seal does not ride its panel');
   assert.match(STAGE, /sealConfig\s*\?\s*\{ recipe: cb\.current\.sealConfig/, 'the stage does not pass the minted seal');
   assert.match(STAGE, /defaultConfigFromSeed\(cb\.current\.sealFallbackSeed/, 'an unminted event has no seal of its own');
   assert.match(OVERLAY, /sealConfig=\{sealConfig\}/, 'the guest page does not hand the seal to the reveal');
@@ -66,9 +62,9 @@ test('🖥 no reveal stretches its art: each lays more of it, or counts more of 
     ['scenes/envelope.ts', /lay\(x, dam,/, 'the damask is stretched'],
     ['scenes/envelope.ts', /lay\(x, calla,/, 'the calla relief is stretched'],
     ['scenes/envelope.ts', /Math\.round\(3 \* wide\)/, 'the scallops are pulled wider'],
-    ['scenes/drape.ts', /lay\(sx, satin,/, 'the satin is stretched'],
+    ['scenes/drape.ts', /const cw = Math\.round\(512 \* wide\)/, 'the satin’s weave is stretched'],
     ['scenes/drape.ts', /cf\.folds \* wide/, 'the folds are pulled wider'],
-    ['scenes/drape.ts', /\(o\.cols \?\? 66\) \* Math\.min\(3, wide\)/, 'the cloth has no more threads on a wide screen'],
+    ['scenes/drape.ts', /\(o\.cols \?\? 66\) \* Math\.min\(o\.wideMax \?\? 3, wide\)/, 'the cloth has no more threads on a wide screen'],
     ['scenes/air.ts', /Math\.round\(\(ny \* c\.W\) \/ c\.H\)/, 'the smoke’s cells are not square'],
     ['scenes/air.ts', /lay\(fx, foil,/, 'the scratch foil is stretched'],
     ['scenes/bloom.ts', /N = Math\.round\(1500 \* Math\.min\(4, wideness/, 'the petals thin out on a wide screen'],

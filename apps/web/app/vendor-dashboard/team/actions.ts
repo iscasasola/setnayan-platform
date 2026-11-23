@@ -40,8 +40,8 @@ import {
   fetchExtraAgentSeats,
   fetchSeatFeePhp,
   seatServiceKey,
-  SEAT_PERIOD_DAYS,
 } from '@/lib/vendor-seats';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { MAIN_BRANCH_KEY, keyOfBranchId } from '@/lib/branch-copy';
 
@@ -223,7 +223,7 @@ export async function inviteVendorTeamMember(formData: FormData) {
       const seatFee = canBuyExtraSeats(ctx.tierState) ? await fetchSeatFeePhp(supabase) : null;
       const moreHint = canBuyExtraSeats(ctx.tierState)
         ? seatFee !== null
-          ? `Add a seat (${formatPhp(seatFee)}/${SEAT_PERIOD_DAYS}d) for more.`
+          ? `Add a seat (${formatPhp(seatFee)} ${PLAN_PERIOD.slash}) for more.`
           : 'Add a seat for more.'
         : 'Upgrade for more.';
       const helperHint =

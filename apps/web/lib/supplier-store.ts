@@ -32,6 +32,7 @@ import { BADGE_GRAPHS, BADGE_NAME, type GraphUnlocks, type UnlockBadge } from '.
 import { SHOP_BADGE_KEYS, type ShopBadgeKey } from './badge-tiers';
 import type { ShelfTile } from './shop-badge-shelf';
 import { storageWords } from './downgrade-limits';
+import { meterWords } from './supplier-storage';
 import { storageAllowanceBytes } from './supplier-storage';
 import { BADGE_WORDS } from '@/app/vendor-dashboard/shop/_components/badges/badge-page-model';
 import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from './special-tools';
@@ -655,7 +656,8 @@ export type StorageMeter =
 
 export function storageMeter(plan: string | null | undefined, read: { status: 'ok'; bytes: number } | { status: 'unread' } | null): StorageMeter {
   if (!read || read.status !== 'ok') return { kind: 'unread' };
-  const used = read.bytes <= 0 ? '0 MB' : storageWords(read.bytes);
+  // What is stored reads the METER's words (owner 23 Nov, "real usage only"): a new shop's few KB say KB, never "0 MB".
+  const used = meterWords(read.bytes);
   const allowance = storageAllowanceBytes(plan);
   if (allowance === null || allowance <= 0) return { kind: 'no_limit', used };
   const pct = Math.min(100, Math.max(0, (read.bytes / allowance) * 100));

@@ -37,6 +37,7 @@ import { freezePaymentPlanAfterSupplierAgreed } from '@/lib/booking-payment-plan
 import { depositAnswerReturnTo, vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { uploadPublicAsset } from '@/lib/storage';
+import { recordServerShopUpload } from '@/lib/supplier-storage.server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isSupplierDateAnswer } from '@/lib/date-change';
 import { answerDateChange } from '@/lib/date-change.server';
@@ -1155,6 +1156,13 @@ export async function vendorPostHandover(formData: FormData) {
         }),
       );
     }
+    // 📏 The handover file counts for the shop that stored it (owner 2026-11-23 "THE METER COUNTS EVERYTHING").
+    await recordServerShopUpload(createAdminClient(), profile.vendor_profile_id, {
+      bucket: up.bucket,
+      key: up.key,
+      bytes: (file as File).size,
+      contentType: (file as File).type || null,
+    });
     payload = up.publicUrl;
   } else {
     // note / signoff — free text (signoff text optional).

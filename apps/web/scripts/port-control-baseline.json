@@ -2334,7 +2334,6 @@
         "(shell)/for-coordinators/_claims.ts",
         "(shell)/for-coordinators/_facts.ts",
         "(shell)/for-coordinators/_fc-info.tsx",
-        "(shell)/for-coordinators/_prices.server.ts",
         "(shell)/for-coordinators/loading.tsx",
         "(shell)/for-coordinators/page.tsx"
       ],
@@ -2350,7 +2349,6 @@
       "blocks": [
         "CardBadgeRow",
         "ClaimSwitches",
-        "CoordinatorPrices",
         "Facts",
         "FcInfo",
         "FcSampleQr",
@@ -20133,6 +20131,7 @@
         "vendor-dashboard/subscription/_components/plan-rows.tsx",
         "vendor-dashboard/subscription/_components/plan-screen.tsx",
         "vendor-dashboard/subscription/_components/plan-sheet.tsx",
+        "vendor-dashboard/subscription/_components/storage-meter.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/badge-upgrade-actions.ts",
@@ -20195,6 +20194,7 @@
         "StartBadgeUpgradeState",
         "StartUpgradeSheet",
         "StayForm",
+        "StorageMeter",
         "SubmitButton",
         "SupplierSubmit",
         "Vendor3dBoothActionState",

@@ -1,6 +1,6 @@
 'use client';
 
-import { Pause, Play } from 'lucide-react';
+import { Check, Pause, Play } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { lookupItunes, type ItunesResult } from '@/lib/itunes-preview';
 
@@ -31,6 +31,38 @@ type Song = {
 };
 type ArtState = Record<string, ItunesResult | 'loading'>;
 
+/**
+ * The list's two looks. `onboarding` (the default) is the prototype's classes, drawn by `onboarding.css` under `.onbw`.
+ * `house` draws the SAME rows with the house tokens, for a screen outside onboarding — the Store's Song bank demo
+ * (`tool-demos.tsx`), which shows suppliers what couples meet. Same rows, same presses; only the classes differ.
+ */
+const LOOKS = {
+  onboarding: {
+    list: 'songlist',
+    row: (sel: boolean) => `song${sel ? ' sel' : ''}`,
+    cover: (playing: boolean) => `scover${playing ? ' playing' : ''}`,
+    img: 'scover-img',
+    ic: 'scover-ic',
+    txt: 'stxt',
+    title: 'st',
+    artist: 'sa',
+    note: 'snote',
+    check: (_sel: boolean) => 'sck',
+  },
+  house: {
+    list: 'sn-frame flex flex-col gap-1 p-2',
+    row: (sel: boolean) => `flex min-h-14 cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 ${sel ? 'bg-[color:var(--surface-soft)]' : ''}`,
+    cover: (playing: boolean) => `relative grid h-11 w-11 flex-none place-items-center overflow-hidden rounded-md ${playing ? 'bg-mulberry' : 'bg-[color:var(--surface-soft)]'}`,
+    img: 'absolute inset-0 h-full w-full object-cover',
+    ic: 'relative grid h-7 w-7 place-items-center rounded-full bg-ink/55 text-cream',
+    txt: 'flex min-w-0 flex-1 flex-col',
+    title: 'truncate text-sn-lg font-semibold text-ink',
+    artist: 'truncate text-sn-sm text-[color:var(--m-slate-2)]',
+    note: '',
+    check: (sel: boolean) => `grid h-5 w-5 flex-none place-items-center rounded-full border ${sel ? 'border-mulberry bg-mulberry text-cream' : 'border-ink/30'}`,
+  },
+} as const;
+
 const HYDRATE_CONCURRENCY = 4;
 
 export function SongPreviewList({
@@ -40,6 +72,7 @@ export function SongPreviewList({
   onToggle,
   onCacheSong,
   alwaysShowAll = false,
+  look = 'onboarding',
 }: {
   songs: Song[];
   pickedLbls: string[];
@@ -52,7 +85,10 @@ export function SongPreviewList({
    * owner 2026-06-08) instead of collapsing to only the picks once ≥10 are chosen.
    */
   alwaysShowAll?: boolean;
+  /** The classes the rows wear (see `LOOKS`). Default: onboarding's own. */
+  look?: keyof typeof LOOKS;
 }) {
+  const L = LOOKS[look];
   const picked = useMemo(() => new Set(pickedLbls), [pickedLbls]);
   const n = pickedLbls.length;
   const q = query.trim().toLowerCase();
@@ -211,7 +247,7 @@ export function SongPreviewList({
   }, []);
 
   return (
-    <div className="songlist" ref={listRef}>
+    <div className={L.list} ref={listRef}>
       {/* eslint-disable-next-line jsx-a11y/media-has-caption -- 30s instrumental preview, no captions */}
       <audio ref={audioRef} preload="none" />
       {songs.map(({ title, artist, lbl }) => {
@@ -229,13 +265,13 @@ export function SongPreviewList({
         return (
           <div
             key={lbl}
-            className={`song${sel ? ' sel' : ''}`}
+            className={L.row(sel)}
             style={show ? undefined : { display: 'none' }}
             onClick={() => onToggle(lbl)}
           >
             <button
               type="button"
-              className={`scover${isPlaying ? ' playing' : ''}`}
+              className={L.cover(isPlaying)}
               data-lbl={lbl}
               aria-label={`${isPlaying ? 'Stop' : 'Play'} 30-second preview of ${title} by ${artist}`}
               onClick={(e) => {
@@ -245,20 +281,22 @@ export function SongPreviewList({
             >
               {cover ? (
                 // eslint-disable-next-line @next/next/no-img-element -- external iTunes artwork, not a local/optimizable asset
-                <img className="scover-img" src={cover} alt="" loading="lazy" />
+                <img className={L.img} src={cover} alt="" loading="lazy" />
               ) : null}
-              <span className="scover-ic" aria-hidden>
+              <span className={L.ic} aria-hidden>
                 {isPlaying ? <Pause size={12} strokeWidth={2.5} /> : <Play size={12} strokeWidth={2.5} />}
               </span>
             </button>
-            <span className="stxt">
-              <span className="st">{title}</span>
-              <span className="sa">
+            <span className={L.txt}>
+              <span className={L.title}>{title}</span>
+              <span className={L.artist}>
                 {artist}
-                {note ? <span className="snote"> · {note}</span> : null}
+                {note ? <span className={L.note}> · {note}</span> : null}
               </span>
             </span>
-            <span className="sck" aria-hidden />
+            <span className={L.check(sel)} aria-hidden>
+              {look === 'house' && sel ? <Check size={12} strokeWidth={3} /> : null}
+            </span>
           </div>
         );
       })}

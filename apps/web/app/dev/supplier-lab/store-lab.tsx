@@ -1,11 +1,13 @@
 /**
  * 🧪 THE STORE + THE BADGES PAGE, from fixtures (drawing `supplier_store_graphs_badges_2026-11-23` v12).
- * `/dev/supplier-lab?s=store` · `store-tools` · `store-cake` · `store-graphs` · `store-graph` · `store-badges` ·
- * `badges-page` (dispatched through `shop-tab-lab.tsx`). No database: the SAME screens the Store pages mount
+ * `/dev/supplier-lab?s=store` · `store-tools` · `store-cake` · `store-song` · `store-papic` · `store-3d` · `store-graphs` ·
+ * `store-graph` · `store-badges` · `badges-page` (dispatched through `shop-tab-lab.tsx`). No database: the SAME screens the Store pages mount
  * (`store-screens.tsx`, `badges-list.tsx`), handed the shop-tab lab's sample shop.
  *   default     the 30-day trial is running (24 days left) — every paid tool reads "Free trial · 24 days left".
  *   `&none=1`   a new shop: no trial, no catalog price yet — paid tools read "Price not set yet" (never ₱0).
  *   `&unread=1` every read refused — the honest words.
+ * `store-song` · `store-papic` · `store-3d` are the three paid tools' items; their "Open the demo" opens the same
+ * demo screen the Store does (`tool-demos.tsx`), on `lib/store-tool-demos.ts`'s sample — nothing to read or write.
  * The lab holds no price: a price is the catalog row's, and the lab has no catalog.
  * Dev only (the lab page 404s in production).
  */
@@ -18,7 +20,7 @@ import { ToolPin } from '@/app/vendor-dashboard/_components/tool-page';
 import type { CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import type { ShelfTile } from '@/lib/shop-badge-shelf';
 
-export const STORE_LAB_STATES = ['store', 'store-tools', 'store-cake', 'store-graphs', 'store-graph', 'store-badges', 'badges-page'] as const;
+export const STORE_LAB_STATES = ['store', 'store-tools', 'store-cake', 'store-song', 'store-papic', 'store-3d', 'store-graphs', 'store-graph', 'store-badges', 'badges-page'] as const;
 export type StoreLabState = (typeof STORE_LAB_STATES)[number];
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -43,8 +45,12 @@ function labStore(fail: boolean, none: boolean, tiles: ShelfTile[] | null): Stor
     badges: tiles,
     unlocks: { hidden: new Set(['gifts', 'invites']), locked: [], unsure: [] },
     on,
+    shopName: 'SetnaProd',
   };
 }
+
+/** The paid tools' items in the lab, by state. */
+const LAB_TOOL_ITEM: Partial<Record<StoreLabState, string>> = { 'store-cake': 'cake_tool', 'store-song': 'song_bank', 'store-papic': 'papic_challenge', 'store-3d': 'plan_3d' };
 
 export function StoreLab({ state, fail, none, tiles, bar }: { state: StoreLabState; fail: boolean; none: boolean; tiles: ShelfTile[] | null; bar: ReactNode }) {
   const d = labStore(fail, none, tiles);
@@ -57,8 +63,8 @@ export function StoreLab({ state, fail, none, tiles, bar }: { state: StoreLabSta
       <StoreShelfScreen shelf="graphs" d={d} />
     ) : state === 'store-badges' ? (
       <StoreShelfScreen shelf="badges" d={d} />
-    ) : state === 'store-cake' ? (
-      <StoreItemScreen shelf="tools" itemKey="cake_tool" d={d} />
+    ) : LAB_TOOL_ITEM[state] ? (
+      <StoreItemScreen shelf="tools" itemKey={LAB_TOOL_ITEM[state]!} d={d} />
     ) : state === 'store-graph' ? (
       <StoreItemScreen shelf="graphs" itemKey="replyvs" d={d} />
     ) : (

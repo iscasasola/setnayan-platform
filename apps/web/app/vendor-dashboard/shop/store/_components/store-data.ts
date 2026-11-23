@@ -20,6 +20,8 @@ export type StoreData = {
   unlocks: GraphUnlocks;
   /** The graphs on the shop's Analytics, in its order. */
   on: CardKey[];
+  /** The shop's name, from the profile this read already holds — the "Try it first" demos wear it. null = none yet. */
+  shopName: string | null;
 };
 
 /**
@@ -48,5 +50,5 @@ export async function loadStore(): Promise<StoreData> {
       badgesRead.then((b) => b.facts),
     ),
   ]);
-  return { layout, tools, badges: badges.tiles, unlocks, on: analyticsGraphs(layout?.graphs ?? null, unlocks) };
+  return { layout, tools, badges: badges.tiles, unlocks, on: analyticsGraphs(layout?.graphs ?? null, unlocks), shopName: (profile.business_name as string | null) ?? null };
 }

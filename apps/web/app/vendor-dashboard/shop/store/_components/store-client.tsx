@@ -9,7 +9,7 @@ import { SortFace } from '@/components/sort-face';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { Sheet } from '@/app/_components/sheet';
-import type { LayoutRow } from '@/lib/supplier-store';
+import type { LayoutRow, PaidStoreTool } from '@/lib/supplier-store';
 import { storeAction } from '../store-actions';
 
 /**
@@ -392,17 +392,23 @@ export function ArrangeEdit({ row, items }: { row: LayoutRow; items: readonly Ar
 }
 
 const CakeDesigner = lazy(() => import('@/app/_components/cake-maker/cake-designer').then((m) => ({ default: m.CakeDesigner })));
+const ToolDemoScreen = lazy(() => import('./tool-demos').then((m) => ({ default: m.ToolDemoScreen })));
 
-/** "Try it first" — the Cake Maker as couples meet it in your chat: the shipped designer's demo (sample options,
- *  nothing saved or sent). Fetched only on the press. */
-export function CakeDemoButton() {
+/**
+ * "Try it first" — a paid tool as couples and guests meet it, on sample data, before the shop buys it (owner 23 Nov,
+ * specs eb51e640 "every item has its demo"; 7d487adb Q6 "all four paid tools"). The Cake Maker opens the shipped
+ * designer's demo (sample options, nothing saved or sent); Song bank, Papic challenge and the 3D plan open their
+ * shipped customer-side piece in the one full screen (`tool-demos.tsx`). Either is fetched only on the press.
+ */
+export function ToolDemoButton({ tool, shopName, services }: { tool: PaidStoreTool; shopName: string | null; services: readonly string[] }) {
   const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
   return (
     <>
-      <ActionButton tone="info" icon={<Play aria-hidden strokeWidth={1.9} />} label="Open the demo" onClick={() => setOpen(true)} />
+      <ActionButton tone="info" icon={<Play aria-hidden strokeWidth={1.9} />} label="Open the demo" onClick={() => setOpen(true)} data-store-demo-open={tool} />
       {open ? (
         <Suspense fallback={null}>
-          <CakeDesigner threadId="" demo onClose={() => setOpen(false)} />
+          {tool === 'cake_tool' ? <CakeDesigner threadId="" demo onClose={close} /> : <ToolDemoScreen tool={tool} shopName={shopName} services={services} onClose={close} />}
         </Suspense>
       ) : null}
     </>

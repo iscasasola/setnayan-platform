@@ -32,11 +32,12 @@ import {
   type StoreToolRow,
 } from '@/lib/supplier-store';
 import type { ShelfTile } from '@/lib/shop-badge-shelf';
+import { STORE_TOOL_DEMO_LINE } from '@/lib/store-tool-demos';
 import type { CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { BadgeArt } from '@/app/vendor-dashboard/shop/_components/shop-badge-row';
 import type { StoreData } from './store-data';
 import { GraphArt, GraphShelfRow, OnPage, StoreBadgeTile, StoreGraphTile, StoreShelfRow, StoreToolTile, TagChips, ToolArt, ToolShelfRow, php, toolOpenHref } from './store-views';
-import { CakeDemoButton, StoreChips, StoreOp, StoreThumb } from './store-client';
+import { StoreChips, StoreOp, StoreThumb, ToolDemoButton } from './store-client';
 
 /**
  * 🛍 THE STORE'S SCREENS (owner 23 Nov 2026 — drawing `supplier_store_graphs_badges_2026-11-23` v12). Each page reads
@@ -387,11 +388,11 @@ function ToolItem({ d, toolKey }: { d: StoreData; toolKey: string }) {
           <div className="min-w-0">{head}</div>
         </div>
       </Card>
-      {tool.key === 'cake_tool' ? (
+      {isPaidStoreTool(tool.key) ? (
         <ToolSection label="Try it first" data="store-try">
           <Card>
-            <p className="mb-3 text-sn-base text-[color:var(--m-slate-2)]">A demo · what couples see in your chat</p>
-            <CakeDemoButton />
+            <p className="mb-3 text-sn-base text-[color:var(--m-slate-2)]">{STORE_TOOL_DEMO_LINE[tool.key]}</p>
+            <ToolDemoButton tool={tool.key} shopName={d.shopName} services={d.tools.services} />
           </Card>
         </ToolSection>
       ) : null}

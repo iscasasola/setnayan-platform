@@ -174,6 +174,13 @@ export async function resolveIntegrityFlag(formData: FormData) {
     console.error('[resolveIntegrityFlag] audit log insert failed', auditErr.message);
   }
 
+  // 🛡 HELD REVIEWS (owner 2026-11-23, DECISION_LOG b89e2420 D): a review_fraud flag HOLDS its review off the shop's
+  // public page and counts until Dismiss releases it (migration 20271361301072; a trigger re-reads the stars). So the
+  // shop's page is re-rendered when THIS click moved the flag — Dismiss publishes the review, Confirm keeps it held.
+  if (kind === 'review_fraud' && transitioned && transitioned.length > 0) {
+    revalidateShopPage((flag as { subject_vendor_id: string }).subject_vendor_id);
+  }
+
   revalidatePath('/admin/integrity-watch');
 }
 

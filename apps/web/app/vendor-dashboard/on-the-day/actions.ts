@@ -9,6 +9,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { saveDayOfOverride } from '@/lib/vendor-dayof-config';
 import { resolveModules } from '@/lib/vendor-dayof-modules';
+import { readHubToolSuggestions } from '@/lib/hub-tool-suggestions.server';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { PLAYLIST_SLOT_TYPES } from '@/lib/playlist';
 import { nextSetPosition } from '@/lib/vendor-sets';
@@ -331,7 +332,8 @@ export async function setSongRequestsOpen(
   // means "every module off". Inserting the bare flag would silently switch off
   // this vendor's entire generic day-of kit as a side effect of opening the
   // requests window.
-  const defaults = resolveModules(profile.services, eventTiles, null)
+  // 🧰 With the booking's suggested hub tools, so pausing requests never switches a suggested tool off.
+  const defaults = resolveModules(profile.services, eventTiles, null, await readHubToolSuggestions(admin, eventTiles))
     .filter((m) => m.enabled)
     .map((m) => m.id);
 

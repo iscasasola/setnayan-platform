@@ -146,8 +146,8 @@ test('the booked supplier writes, ticks and counts their own rows', async () => 
   await asOwner();
 });
 
-test('another booked supplier, the couple and a stranger see none of it and cannot forge a row', async () => {
-  for (const uid of [F.caterUser, F.couple, F.outsider]) {
+test('another booked supplier and a stranger see none of it, and nobody forges a row', async () => {
+  for (const uid of [F.caterUser, F.outsider]) {
     await asUser(uid);
     const r = await db.query(`SELECT * FROM public.vendor_hub_tool_entries WHERE vendor_profile_id = $1`, [F.band]);
     assert.equal(r.rows.length, 0, `${uid} read the band's rows`);
@@ -157,6 +157,55 @@ test('another booked supplier, the couple and a stranger see none of it and cann
   assert.equal(forged.ok, false, 'the caterer wrote a row in the band’s name');
   const stranger = await insertRow(F.outsider, F.eventId, F.band, 'stranger');
   assert.equal(stranger.ok, false);
+});
+
+// ── 👀 THE COUPLE SEES THE CHECKLIST TICKS (owner 23 Nov 2026; migration 20271361284618) ────────────────────────────
+
+test('👀 the couple reads the CHECKLIST ticks (Tech rider) and nothing else — never the count', async () => {
+  await asUser(F.couple);
+  const r = await db.query<{ tool_key: string; label: string; done: boolean }>(
+    `SELECT tool_key, label, done_at IS NOT NULL AS done FROM public.vendor_hub_tool_entries WHERE vendor_profile_id = $1 ORDER BY label`,
+    [F.band],
+  );
+  await asOwner();
+  assert.deepEqual(
+    r.rows.map((x) => [x.tool_key, x.label, x.done]),
+    [['tech_rider', '2× wireless mic', true]],
+    'the couple sees the ticked checklist row, and not the Quantity vs guests count',
+  );
+});
+
+test('👀 a GUEST of the same event reads none of it (the couple-only helper, never current_event_ids)', async () => {
+  const guestUser = await createUser('guest-member@hub-tools.test');
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'guest')`, [F.eventId, guestUser]);
+  await asUser(guestUser);
+  const r = await db.query(`SELECT * FROM public.vendor_hub_tool_entries WHERE event_id = $1`, [F.eventId]);
+  await asOwner();
+  assert.equal(r.rows.length, 0, 'a guest read a supplier’s checklist');
+});
+
+test('👀 the couple only reads: no insert, no tick, no delete', async () => {
+  const forged = await insertRow(F.couple, F.eventId, F.band, 'couple wrote this');
+  assert.equal(forged.ok, false, 'the couple wrote a row in the supplier’s name');
+  await asUser(F.couple);
+  const t = await db.query(`UPDATE public.vendor_hub_tool_entries SET done_at = NULL WHERE vendor_profile_id = $1 RETURNING entry_id`, [F.band]);
+  const d = await db.query(`DELETE FROM public.vendor_hub_tool_entries WHERE vendor_profile_id = $1 RETURNING entry_id`, [F.band]);
+  await asOwner();
+  assert.equal(t.rows.length, 0, 'the couple un-ticked the supplier’s row');
+  assert.equal(d.rows.length, 0, 'the couple deleted the supplier’s row');
+});
+
+test('👀 the library decides: a checklist starts shared, other templates do not, and turning the flag off hides it', async () => {
+  const flags = await db.query<{ template: string; shared: boolean }>(
+    `SELECT template, bool_and(couple_sees) AS shared FROM public.hub_tools GROUP BY template ORDER BY template`,
+  );
+  for (const row of flags.rows) assert.equal(row.shared, row.template === 'checklist', `template ${row.template}`);
+  await db.query(`UPDATE public.hub_tools SET couple_sees = FALSE WHERE tool_key = 'tech_rider'`);
+  await asUser(F.couple);
+  const hidden = await db.query(`SELECT * FROM public.vendor_hub_tool_entries WHERE vendor_profile_id = $1`, [F.band]);
+  await asOwner();
+  await db.query(`UPDATE public.hub_tools SET couple_sees = TRUE WHERE tool_key = 'tech_rider'`);
+  assert.equal(hidden.rows.length, 0, 'the flag off still showed the couple the rows');
 });
 
 test('an unbooked supplier cannot write to an event they are not on', async () => {

@@ -3,8 +3,11 @@
  * (DECISION_LOG 2026-11-23 "THE TEN MOST-SHARED UNBUILT HUB TOOLS"; drawing `prototypes/hub_tools_working_2026-10-28/`).
  *
  * A tool is a RECORD (`lib/hub-tools.ts`: key · name · template); its rows live in ONE table, `vendor_hub_tool_entries`,
- * keyed by `tool_key`. So the second five tools here — Tech rider (checklist), Personalisation list (per_person) and
- * Quantity vs guests (counter) — are three keys, not three tables, and a later tool on these templates needs no schema.
+ * keyed by `tool_key` (an FK to `hub_tools`). The ONE home for every hub tool's rows (controller, DECISION_LOG 23 Nov
+ * 2026): Tech rider, Paperwork checklist, Load-in & venue access, Delivery & drop-off (checklist), Personalisation list
+ * (per_person), Quantity vs guests and the Queue counter (counter) are keys, not tables, and a later tool on these
+ * templates needs no schema. The Shot list keeps its own couple-read table (`event_shot_list_items`) and nothing else
+ * writes there (🔒 lib/no-hub-tool-borrows-the-shot-list.test.ts).
  * Dietary & allergies reads the RSVPs (`vendor_event_dietary_list`), never this table; Set list is Song Desk's own sets
  * (`lib/vendor-sets.ts`).
  *
@@ -24,8 +27,16 @@ export const ENTRY_QTY_MAX = 100_000;
 /** A supplier's list is a working list, not a database: a sane cap per tool per event. */
 export const ENTRY_ROWS_MAX = 200;
 
+/**
+ * Tools drawn with one of these templates whose rows are READ from elsewhere, never typed into this table — so the one
+ * writer refuses them and the reader never asks for them: Dietary & allergies (the RSVP answers,
+ * `vendor_event_dietary_list`) and Entourage (the couple's own entourage, `loadMarch` → `entourageSheet`).
+ */
+export const READ_ONLY_TOOLS = ['dietary_and_allergies', 'entourage'] as const;
+
 /** The tool's template, when it is one this table serves; null for any other key (or an unknown one). */
 export function entryTemplateOf(toolKey: string): EntryTemplate | null {
+  if ((READ_ONLY_TOOLS as readonly string[]).includes(toolKey)) return null;
   const t = HUB_TOOL_LIBRARY.find((x) => x.key === toolKey);
   if (!t) return null;
   return (ENTRY_TEMPLATES as readonly string[]).includes(t.template) ? (t.template as EntryTemplate) : null;

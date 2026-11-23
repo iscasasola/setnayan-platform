@@ -10,7 +10,10 @@
  * (`category_hub_settings`); the tools themselves are records in `hub_tools` (key · name · template), seeded from here; a category nobody has
  * saved reads its seed row, matched by name; a category the seed does not name reads the seed's "Everything else".
  *
- * ⏳ NOT BUILT HERE: the supplier-side Hub that DRAWS these tools. `hubToolsFor` is the reader it will call. The three
+ * 🛠 THE SUPPLIER SIDE (2026-11-23, DECISION_LOG "the ten most-shared unbuilt hub tools"): a tool marked `shipped` has a
+ * working screen on the supplier's Hub. Five of them are day-of modules (`lib/vendor-dayof-modules.ts`, `hubTool: true`)
+ * that any shop may switch on; `suggestedHubTools` below turns the category switches into which of them start ON for a
+ * booking — a suggestion, never a gate. The three
  * privacy picks (Medic health notes · Mobile Bar adult/minor · Insurance names) still wait for the owner's yes — they
  * are switches here, never data.
  *
@@ -60,18 +63,18 @@ type HubToolsSeedRow = { group: string; category: string; tools: readonly string
 /* ── GENERATED from the approved prototype (do not hand-edit the lists — regenerate) ── */
 export const HUB_TOOL_LIBRARY = [
   { key: "fittings_and_measurements", label: "Fittings & measurements", template: "per_person", shipped: false },
-  { key: "delivery_and_drop_off", label: "Delivery & drop-off", template: "checklist", shipped: false },
-  { key: "entourage", label: "Entourage", template: "per_person", shipped: false },
+  { key: "delivery_and_drop_off", label: "Delivery & drop-off", template: "checklist", shipped: true },
+  { key: "entourage", label: "Entourage", template: "per_person", shipped: true },
   { key: "looks_per_person", label: "Looks per person", template: "per_person", shipped: false },
   { key: "chair_schedule", label: "Chair schedule", template: "ordered_list", shipped: false },
   { key: "photo_upload", label: "Photo upload (Photo by · credits)", template: "media", shipped: false },
   { key: "personalisation_list", label: "Personalisation list", template: "per_person", shipped: true },
   { key: "wellness_plan", label: "Wellness plan", template: "plan", shipped: false },
-  { key: "queue_counter", label: "Queue counter", template: "counter", shipped: false },
+  { key: "queue_counter", label: "Queue counter", template: "counter", shipped: true },
   { key: "papic_camera", label: "Papic camera", template: "media", shipped: true },
   { key: "quantity_vs_guests", label: "Quantity vs guests", template: "counter", shipped: true },
   { key: "dietary_and_allergies", label: "Dietary & allergies", template: "per_person", shipped: true },
-  { key: "load_in_and_venue_access", label: "Load-in & venue access", template: "checklist", shipped: false },
+  { key: "load_in_and_venue_access", label: "Load-in & venue access", template: "checklist", shipped: true },
   { key: "pick_up_times_and_routes", label: "Pick-up times & routes", template: "live_timeline", shipped: false },
   { key: "headcount", label: "Headcount", template: "counter", shipped: true },
   { key: "itinerary", label: "Itinerary", template: "live_timeline", shipped: false },
@@ -81,7 +84,7 @@ export const HUB_TOOL_LIBRARY = [
   { key: "floor_command", label: "Floor Command", template: "live_timeline", shipped: true },
   { key: "run_of_show", label: "Run of show (live)", template: "live_timeline", shipped: true },
   { key: "march", label: "March (read)", template: "live_timeline", shipped: true },
-  { key: "paperwork_checklist", label: "Paperwork checklist", template: "checklist", shipped: false },
+  { key: "paperwork_checklist", label: "Paperwork checklist", template: "checklist", shipped: true },
   { key: "reservation_slots", label: "Reservation slots", template: "ordered_list", shipped: false },
   { key: "remembrance_schedule", label: "Remembrance schedule", template: "live_timeline", shipped: false },
   { key: "emcee_script", label: "Emcee script", template: "live_timeline", shipped: true },
@@ -277,4 +280,27 @@ export function parseHubToolsSave(
   if (!input.tools.every((t) => typeof t === 'string' && known.has(t))) return null;
   const on = new Set(input.tools as string[]);
   return { categoryId, tools: library.filter((t) => on.has(t.key)).map((t) => t.key), scan: input.scan };
+}
+
+/**
+ * 💡 WHICH HUB TOOLS START ON FOR ONE BOOKING — the union of `hubToolsFor` over the booked categories, each read with
+ * its admin-saved switches when it has a settings row (the row's presence IS "saved"), else its seed by name. Pure: the
+ * caller reads the four tables (`readHubToolSuggestions`, lib/hub-tool-suggestions.server.ts). A SUGGESTION, never a
+ * gate: a tool left out here is still one switch away for every shop.
+ */
+export function suggestedHubTools(input: {
+  categories: ReadonlyArray<{ id: string; label: string }>;
+  settings: ReadonlyArray<{ category_id: string; scan_default: string | null }>;
+  switches: ReadonlyArray<{ category_id: string; tool_key: string }>;
+  library: readonly HubToolRecord[];
+}): Set<string> {
+  const out = new Set<string>();
+  for (const c of input.categories) {
+    const setting = input.settings.find((s) => s.category_id === c.id);
+    const saved: HubToolsSaved | null = setting
+      ? { scan_default: setting.scan_default, tools: input.switches.filter((w) => w.category_id === c.id).map((w) => w.tool_key) }
+      : null;
+    for (const t of hubToolsFor(c.label, saved, input.library).tools) out.add(t);
+  }
+  return out;
 }

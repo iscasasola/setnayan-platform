@@ -195,7 +195,13 @@ export type DayOfModuleId =
   | 'personalisation_list'
   | 'dietary_and_allergies'
   | 'quantity_vs_guests'
-  | 'set_list';
+  | 'set_list'
+  // ── Hub tools, first five (#8212, same ruling) — drawn inline by `HubToolPanels` like the five above.
+  | 'queue_counter'
+  | 'entourage'
+  | 'paperwork_checklist'
+  | 'load_in_and_venue_access'
+  | 'delivery_and_drop_off';
 // 🗑 `guest_delivery` ("Who’s received theirs") was REMOVED 2026-10-04 (owner,
 // 2026-10-03 S1): it shipped always padlocked — `dayOfModuleHref` was null and
 // no screen ever existed behind it — so every caterer saw a locked promise. The
@@ -224,7 +230,12 @@ export type DayOfModule = {
    * would switch a tool on for trades it is not for (Dietary & allergies: the food folder, not every `serve` shop).
    */
   defaultOnForFolders?: readonly WeddingFolder[];
-  /** The hub tool record this module draws (`lib/hub-tools.ts` HUB_TOOL_LIBRARY key) — inline, by its template. */
+  /**
+   * The hub tool record this module draws (`lib/hub-tools.ts` HUB_TOOL_LIBRARY key) — inline, by its template, its rows
+   * in the ONE home `vendor_hub_tool_entries` (controller, DECISION_LOG 23 Nov 2026). Any shop may switch it on
+   * (`alwaysAvailable`); it also starts ON when Admin › Categories › Hub tools suggests it for a booked category
+   * (`resolveModules`' `hub` input) — a suggestion, never a gate — and leaves every Hub when admin turns it off.
+   */
   hubTool?: HubToolKey;
 };
 
@@ -392,6 +403,53 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
     requiresGrant: false,
     hubTool: 'set_list',
   },
+  // ── Hub tools, first five (#8212, DECISION_LOG 2026-11-23) ─────────────────────────────────────────────────────
+  // ON for nobody by family: the category switches suggest them per booking, and every shop may switch any on.
+  {
+    id: 'queue_counter',
+    label: 'Queue counter',
+    blurb: 'Count each guest served, against the guests coming.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'queue_counter',
+  },
+  {
+    id: 'entourage',
+    label: 'Entourage',
+    blurb: 'The couple’s entourage, one row per person, with their role.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'entourage',
+  },
+  {
+    id: 'paperwork_checklist',
+    label: 'Paperwork checklist',
+    blurb: 'The papers for this event, ticked when in hand.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'paperwork_checklist',
+  },
+  {
+    id: 'load_in_and_venue_access',
+    label: 'Load-in & venue access',
+    blurb: 'Gate pass, parking, power and times, ticked as you sort them.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'load_in_and_venue_access',
+  },
+  {
+    id: 'delivery_and_drop_off',
+    label: 'Delivery & drop-off',
+    blurb: 'What goes where and when, ticked when done.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'delivery_and_drop_off',
+  },
 ];
 
 const MODULE_BY_ID: Record<DayOfModuleId, DayOfModule> = Object.fromEntries(
@@ -420,16 +478,26 @@ export type ResolvedModule = DayOfModule & {
   enabled: boolean;
 };
 
+/**
+ * `hub` — Admin › Categories › Hub tools for this booking (`readHubToolSuggestions`): `suggested` hub tools start ON,
+ * `inactive` ones (admin's Turn off) are not offered. Absent or null (not read) = suggest nothing, hide nothing.
+ */
+export type HubToolInput = { suggested: ReadonlySet<string>; inactive: ReadonlySet<string> } | null | undefined;
+
 export function resolveModules(
   services: readonly string[] | null | undefined,
   eventTiles: readonly string[] | null | undefined,
   override?: readonly string[] | null,
+  hub?: HubToolInput,
 ): ResolvedModule[] {
   const families = familiesForServices(services, eventTiles ?? null);
   const folders = foldersForServices(services, eventTiles ?? null);
   const overrideSet = override ? new Set(override) : null;
-  return DAY_OF_MODULES.map((m) => {
-    const defaultOn = m.defaultOnFor.some((f) => families.has(f)) || (m.defaultOnForFolders ?? []).some((f) => folders.has(f));
+  return DAY_OF_MODULES.filter((m) => !(m.hubTool && hub?.inactive.has(m.hubTool))).map((m) => {
+    const defaultOn =
+      m.defaultOnFor.some((f) => families.has(f)) ||
+      (m.defaultOnForFolders ?? []).some((f) => folders.has(f)) ||
+      Boolean(m.hubTool && hub?.suggested.has(m.hubTool));
     const available = defaultOn || m.alwaysAvailable;
     const enabled = overrideSet
       ? overrideSet.has(m.id)

@@ -44,6 +44,11 @@ export function dayOfModuleHref(id: DayOfModuleId, eventId: string): string | nu
     case 'dietary_and_allergies':
     case 'quantity_vs_guests':
     case 'set_list':
+    case 'queue_counter':
+    case 'entourage':
+    case 'paperwork_checklist':
+    case 'load_in_and_venue_access':
+    case 'delivery_and_drop_off':
       return null;
     case 'vendor_papic':
       // Counsel-gated: callers filter it out unless the capability is live

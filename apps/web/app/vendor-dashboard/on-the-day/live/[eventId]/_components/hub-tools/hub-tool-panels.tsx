@@ -5,12 +5,14 @@ import { getModule, type DayOfModuleId } from '@/lib/vendor-dayof-modules';
 import { readVendorSongs } from '@/lib/songs';
 import { fetchPlaylistPicks, groupPicksBySlot } from '@/lib/playlist';
 import { buildVendorSets, fetchVendorEventSets } from '@/lib/vendor-sets';
+import type { EntourageSheetSection } from '@/lib/supplier-march';
 import { HubToolPanelsView, type SetListRead } from './hub-tool-panels-view';
 
 /**
- * THE HUB TOOLS ON THE DAY — the second five (DECISION_LOG 2026-11-23 "THE TEN MOST-SHARED UNBUILT HUB TOOLS"; free):
- * Tech rider · Personalisation list · Dietary & allergies · Quantity vs guests · Set list. This file READS; the drawing
- * is `hub-tool-panels-view.tsx`.
+ * THE HUB TOOLS ON THE DAY — the ten (DECISION_LOG 2026-11-23 "THE TEN MOST-SHARED UNBUILT HUB TOOLS"; free):
+ * Tech rider · Personalisation list · Dietary & allergies · Quantity vs guests · Set list · Queue counter · Entourage ·
+ * Paperwork checklist · Load-in & venue access · Delivery & drop-off. This file READS; the drawing is
+ * `hub-tool-panels-view.tsx`. Every row a tool keeps is in ONE home, `vendor_hub_tool_entries` (controller, 23 Nov).
  *
  * WHICH tools: the supplier's own day-of modules for this booking (`resolveModules` — the Hub's per-event switches);
  * only the ones carrying a `hubTool` are drawn here. Reads: ONE batch (`Promise.all`), each scoped to the event and the
@@ -27,6 +29,7 @@ export async function HubToolPanels({
   vendorProfileId,
   modules,
   attending,
+  entourage = null,
 }: {
   eventId: string;
   vendorProfileId: string;
@@ -34,6 +37,8 @@ export async function HubToolPanels({
   modules: readonly DayOfModuleId[];
   /** The coming guests — the page's brief read (`pax.attending`); null = the brief could not be read. */
   attending: number | null;
+  /** The Entourage tool's sheet — the page's march read, reused; null = not read (said, never "no entourage"). */
+  entourage?: readonly EntourageSheetSection[] | null;
 }) {
   if (modules.length === 0) return null;
   const supabase = await createClient();
@@ -66,5 +71,5 @@ export async function HubToolPanels({
           };
   }
 
-  return <HubToolPanelsView eventId={eventId} modules={modules} attending={attending} reads={{ entries, dietary, setList }} />;
+  return <HubToolPanelsView eventId={eventId} modules={modules} attending={attending} reads={{ entries, dietary, setList, entourage }} />;
 }

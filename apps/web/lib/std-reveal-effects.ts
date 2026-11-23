@@ -23,6 +23,7 @@ import {
   REVEAL_TEMPLATE_IDS,
   mergeRevealConfig,
   type RevealEffectsLook,
+  type RevealTemplateId,
   type VeilLook,
 } from './reveal-config-pure';
 
@@ -82,6 +83,9 @@ export type RevealEffects = {
    *  both (owner 23 Nov: *"ribbon and wax seal never co exist together"*; drawing v22 `env2.js` "Closed with").
    *  Present only when the couple picked the ribbon. */
   gatefoldClosure?: GatefoldClosure;
+  /** 🎨 Each reveal's own design picks (flap shape, panel design, fabric, the gift box's lining, floor and arrangement),
+   *  sparse — present only when the couple picked something other than the reveal as it already plays. */
+  looks?: RevealLooks;
 };
 
 export type GatefoldClosure = 'seal' | 'ribbon';
@@ -93,6 +97,147 @@ export const GATEFOLD_CLOSURE_LABEL: Record<GatefoldClosure, string> = { seal: '
 export function withGatefoldClosure(effects: RevealEffects, closure: GatefoldClosure): RevealEffects {
   const { gatefoldClosure: _drop, ...rest } = effects;
   return closure === 'ribbon' ? { ...rest, gatefoldClosure: 'ribbon' } : rest;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🎨 EACH REVEAL'S OWN DESIGNS (owner 23 Nov 2026, DECISION_LOG "Approve both" · "ten reveals approved"; drawing
+   v24 `env2.js` + `drape.js`, v25 `gift3.js`). ONE list, read by every chooser (the Maker's Reveal step and the
+   Save the Date's Step 5) and by the scene that draws the pick. The first choice of each is the reveal as it
+   already plays, so it is stored as nothing; a pick is kept in `events.std_reveal_effects.looks` (no new column).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export const REVEAL_LOOK_OPTIONS = {
+  /** Envelope · classic — the front flap's outline (v24). The flap is 1.34× the screen wide in every shape. */
+  flap: {
+    reveal: 'envelope-classic',
+    label: 'Flap shape',
+    choices: [
+      ['scallop', 'Scalloped'],
+      ['deepv', 'Deep V'],
+      ['euro', 'Pointed Euro'],
+      ['round', 'Rounded'],
+      ['square', 'Square'],
+      ['double', 'Double scallop'],
+      ['deckle', 'Deckle edge'],
+    ],
+  },
+  /** Envelope · gatefold — what is pressed into the two panels (v24). Each works with the seal or the ribbon. */
+  panel: {
+    reveal: 'envelope-gatefold',
+    label: 'Panel design',
+    choices: [
+      ['lily', 'Sculpted lilies'],
+      ['deco', 'Art deco'],
+      ['botanical', 'Botanical line'],
+      ['lace', 'Lace'],
+      ['geo', 'Geometric'],
+      ['monogram', 'Monogram field'],
+      ['pressed', 'Pressed florals'],
+    ],
+  },
+  /** Fabric — the cloth itself (v24): the same drape and crumple, its weave, sheen and roughness change. */
+  fabric: {
+    reveal: 'fabric',
+    label: 'Fabric',
+    choices: [
+      ['satin', 'Plain satin'],
+      ['chiffon', 'Chiffon'],
+      ['velvet', 'Velvet'],
+      ['linen', 'Linen'],
+      ['organza', 'Organza'],
+      ['tulle', 'Tulle'],
+      ['lace', 'Lace'],
+    ],
+  },
+  /** Gift box — the cloth the card lies in, and up the inside walls (v23, kept in v25). */
+  lining: {
+    reveal: 'gift-box',
+    label: 'Lining',
+    choices: [
+      ['lame', 'Gold lamé'],
+      ['ivory', 'Ivory satin'],
+      ['blush', 'Blush silk'],
+      ['navy', 'Navy velvet'],
+      ['sage', 'Sage linen'],
+      ['card', 'Plain card'],
+    ],
+  },
+  /** Gift box — what the box stands on (v25: nine, the three cotton ones shaped so the box sinks in a little). */
+  floor: {
+    reveal: 'gift-box',
+    label: 'Floor',
+    choices: [
+      ['evening', 'Evening linen'],
+      ['wood', 'Warm wood'],
+      ['marble', 'Marble'],
+      ['linen', 'Ivory linen'],
+      ['stone', 'Stone'],
+      ['sand', 'Sand'],
+      ['clouds', 'Cotton clouds'],
+      ['cotton', 'Egyptian cotton'],
+      ['clouds_ivory', 'Ivory clouds'],
+    ],
+  },
+  /** Gift box — the arrangement around it (v22, moving in the breeze since v25). Four lanes stay clear for the ribbon. */
+  around: {
+    reveal: 'gift-box',
+    label: 'Around the box',
+    choices: [
+      ['flowers', 'Flowers'],
+      ['petals', 'Rose petals'],
+      ['pearls', 'Pearls'],
+      ['diamonds', 'Diamonds'],
+      ['confetti', 'Confetti'],
+      ['balloons', 'Balloons'],
+      ['stars', 'Gold stars'],
+      ['none', 'Nothing'],
+    ],
+  },
+} as const satisfies Record<string, { reveal: RevealTemplateId; label: string; choices: readonly (readonly [string, string])[] }>;
+
+export type RevealLookKey = keyof typeof REVEAL_LOOK_OPTIONS;
+type ChoiceOf<K extends RevealLookKey> = (typeof REVEAL_LOOK_OPTIONS)[K]['choices'][number][0];
+/** The couple's picks, sparse: a key is present only when it is not that reveal's first (as-it-plays) choice. */
+export type RevealLooks = { [K in RevealLookKey]?: ChoiceOf<K> };
+/** Every pick, filled in with the defaults — what a scene reads. */
+export type RevealLooksFull = { [K in RevealLookKey]: ChoiceOf<K> };
+
+const LOOK_KEYS = Object.keys(REVEAL_LOOK_OPTIONS) as RevealLookKey[];
+
+/** The design choices THIS reveal offers, in the order the chooser shows them. */
+export function revealLookKnobsFor(opening: string): { key: RevealLookKey; label: string; choices: readonly (readonly [string, string])[] }[] {
+  return LOOK_KEYS.filter((k) => REVEAL_LOOK_OPTIONS[k].reveal === opening).map((k) => ({ key: k, label: REVEAL_LOOK_OPTIONS[k].label, choices: REVEAL_LOOK_OPTIONS[k].choices }));
+}
+
+/** Stored picks → the full set (a missing or unknown pick plays the reveal as it already plays). */
+export function revealLooksFull(looks: RevealLooks | undefined): RevealLooksFull {
+  const out = {} as Record<RevealLookKey, string>;
+  for (const k of LOOK_KEYS) {
+    const v = looks?.[k];
+    const list = REVEAL_LOOK_OPTIONS[k].choices as readonly (readonly [string, string])[];
+    out[k] = typeof v === 'string' && list.some((c) => c[0] === v) ? v : list[0]![0];
+  }
+  return out as RevealLooksFull;
+}
+
+/** Sparse and valid, or absent: junk is dropped, a default is stored as nothing. */
+function resolveRevealLooks(raw: unknown): RevealLooks | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const o = raw as Record<string, unknown>;
+  const out: Record<string, string> = {};
+  for (const k of LOOK_KEYS) {
+    const v = o[k];
+    const list = REVEAL_LOOK_OPTIONS[k].choices as readonly (readonly [string, string])[];
+    if (typeof v === 'string' && v !== list[0]![0] && list.some((c) => c[0] === v)) out[k] = v;
+  }
+  return Object.keys(out).length > 0 ? (out as RevealLooks) : undefined;
+}
+
+/** The couple's effects with one design picked. The first choice is stored as nothing. */
+export function withRevealLook(effects: RevealEffects, key: RevealLookKey, value: string): RevealEffects {
+  const { looks: prev, ...rest } = effects;
+  const looks = resolveRevealLooks({ ...(prev ?? {}), [key]: value });
+  return looks ? { ...rest, looks } : rest;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -264,6 +409,10 @@ export function resolveRevealEffects(raw: unknown): RevealEffects {
         return Object.keys(tune).length > 0 ? { tune } : {};
       })(),
       ...(coerceEnum(o.gatefoldClosure, GATEFOLD_CLOSURES, 'seal') === 'ribbon' ? { gatefoldClosure: 'ribbon' as const } : {}),
+      ...(() => {
+        const looks = resolveRevealLooks(o.looks);
+        return looks ? { looks } : {};
+      })(),
     };
   }
   return { ...DEFAULT_REVEAL_EFFECTS };

@@ -127,7 +127,7 @@ export function RevealPreview({
   }
   return (
     <SceneReveal
-      key={effects?.gatefoldClosure ?? 'seal'}
+      key={`${effects?.gatefoldClosure ?? 'seal'}:${JSON.stringify(effects?.looks ?? {})}`}
       kind={template}
       speedSec={veilLook?.speed}
       markSvg={markSvg}
@@ -136,6 +136,7 @@ export function RevealPreview({
       sealConfig={sealConfig}
       sealFallbackSeed={sealFallbackSeed}
       closure={effects?.gatefoldClosure}
+      looks={effects?.looks}
       waxColor={waxColor}
       onRevealed={onDone}
       autoplay

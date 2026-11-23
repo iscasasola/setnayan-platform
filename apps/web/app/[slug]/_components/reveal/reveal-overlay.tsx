@@ -581,7 +581,7 @@ export function RevealOverlay({
       {/* The plain backing until the closed reveal is drawn — the page behind is never shown first. */}
       {!ready ? <div className="absolute inset-0 bg-page" aria-hidden /> : null}
       <SceneReveal
-        key={eventEffects?.gatefoldClosure ?? 'seal'}
+        key={`${eventEffects?.gatefoldClosure ?? 'seal'}:${JSON.stringify(eventEffects?.looks ?? {})}`}
         kind={sceneKind}
         still={reducedMotion}
         speedSec={looks.veil?.speed}
@@ -591,6 +591,7 @@ export function RevealOverlay({
         sealConfig={sealConfig}
         sealFallbackSeed={sealFallbackSeed}
         closure={eventEffects?.gatefoldClosure}
+        looks={eventEffects?.looks}
         waxColor={waxColor}
         autoplay={preview !== null}
         autoplayAfterMs={preview?.liftAfterMs}

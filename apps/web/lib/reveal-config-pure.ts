@@ -23,9 +23,9 @@
 import { DEFAULT_REVEAL_SPEED, snapRevealSpeed } from './reveal-motion';
 
 /**
- * 🎭 THE NINE REVEALS (owner 23 Nov 2026 — DECISION_LOG "NINE REVEALS SHIP; THE GIFT BOX IS HELD"; drawing
- * specs `prototypes/reveals_round3_veil_rules_2026-11-23/`). The envelope ships in two styles, so ten ids.
- * The gift box is HELD and has no id until the owner accepts a new drawing of it.
+ * 🎭 THE TEN REVEALS (owner 23 Nov 2026 — DECISION_LOG "NINE REVEALS SHIP; THE GIFT BOX IS HELD", then "ten reveals
+ * approved": the v25 gift box lifts the hold; drawing specs `prototypes/reveals_round3_veil_rules_2026-11-23/`).
+ * The envelope ships in two styles, so eleven ids.
  * Keep this union in lockstep with `REVEAL_LIBRARY` in app/[slug]/_components/reveal/reveal-templates.ts.
  */
 export type RevealTemplateId =
@@ -38,7 +38,8 @@ export type RevealTemplateId =
   | 'smoke'
   | 'cathedral-doors'
   | 'petals'
-  | 'fireworks';
+  | 'fireworks'
+  | 'gift-box';
 // gold-monogram / molten-monogram retired as openings 2026-06-22 (now monogram
 // motion keys — lib/monogram-motion.ts).
 
@@ -53,6 +54,7 @@ export const REVEAL_TEMPLATE_IDS: readonly RevealTemplateId[] = [
   'cathedral-doors',
   'petals',
   'fireworks',
+  'gift-box',
 ];
 
 /**
@@ -228,6 +230,7 @@ export const DEFAULT_REVEAL_CONFIG: RevealStudioConfig = {
     'cathedral-doors': true,
     petals: true,
     fireworks: true,
+    'gift-box': true,
   },
   features: { petals: true, logo: true, music: false },
   veilColorDefault: '#f3ece1',

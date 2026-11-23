@@ -20,7 +20,8 @@ import {
   type RevealTemplate,
   type RevealChoice,
 } from '@/app/[slug]/_components/reveal/reveal-templates';
-import type { RevealEffects } from '@/lib/std-reveal-effects';
+import { revealLookKnobsFor, revealLooksFull, type RevealEffects, type RevealLookKey } from '@/lib/std-reveal-effects';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { REVEAL_NEEDS_PRO } from '@/lib/reveal-access';
 import { useSaveLoader } from '@/components/sd-loader';
 
@@ -131,6 +132,9 @@ type Props = {
   onToggleEffect: (key: 'butterflies' | 'petals' | 'music') => void;
   /** Set (or clear, with null) a veil colour override. */
   onSetColor: (key: 'veilColor' | 'petalColor', value: string | null) => void;
+  /** 🎨 Pick one of this reveal's own designs (`REVEAL_LOOK_OPTIONS`: flap shape, panel design, fabric, the gift box's
+   *  lining, floor and arrangement) — the same list the Maker's Reveal step offers. */
+  onSetLook: (key: RevealLookKey, value: string) => void;
   /** Mood-Board-derived defaults shown when an override is null (inherit). */
   inheritedVeilColor: string;
   inheritedPetalColor: string;
@@ -147,6 +151,7 @@ export function RevealPreviewCard({
   effects,
   onToggleEffect,
   onSetColor,
+  onSetLook,
   inheritedVeilColor,
   inheritedPetalColor,
   allowed,
@@ -182,6 +187,7 @@ export function RevealPreviewCard({
     });
 
   const isChosen = previewing === chosen;
+  const lookKnobs = isNoReveal ? [] : revealLookKnobsFor(previewing);
   const previewedItem = REVEAL_LIBRARY.find((t) => t.id === previewing);
 
   return (
@@ -302,6 +308,25 @@ export function RevealPreviewCard({
             onChange={(hex) => onSetColor('petalColor', hex)}
             onReset={() => onSetColor('petalColor', null)}
           />
+        </div>
+      ) : null}
+
+      {/* 🎨 This reveal's own designs (owner 23 Nov: *"they should all be customizable"*; drawing v24 + v25) — the
+          one list the Maker reads too, so the two choosers can never offer different designs. Saved with the film. */}
+      {lookKnobs.length > 0 ? (
+        <div data-std-reveal-designs="" className="sn-frame space-y-2 p-3.5">
+          {lookKnobs.map((k) => (
+            <div key={k.key} className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-ink">{k.label}</span>
+              <PickMenu
+                label={k.label}
+                dataAttr={`reveal-look-${k.key}`}
+                value={revealLooksFull(effects.looks)[k.key]}
+                options={k.choices.map(([key, label]) => ({ key, label }))}
+                onPick={(v) => onSetLook(k.key, v)}
+              />
+            </div>
+          ))}
         </div>
       ) : null}
 

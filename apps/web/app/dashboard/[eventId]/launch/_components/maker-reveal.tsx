@@ -11,8 +11,11 @@ import { REVEAL_EXTRA_LABEL, revealEffectsWithExtra, revealExtraOf, revealExtras
 import {
   GATEFOLD_CLOSURES,
   GATEFOLD_CLOSURE_LABEL,
+  revealLookKnobsFor,
+  revealLooksFull,
   revealTuneKnobsFor,
   withGatefoldClosure,
+  withRevealLook,
   type GatefoldClosure,
   type RevealEffects,
   type RevealTuneHouse,
@@ -848,6 +851,25 @@ function RevealStagePart({
                 </>
               )}
             </div>
+            {picked !== REVEAL_NONE_ID && revealLookKnobsFor(picked).length > 0 ? (
+              /* 🎨 EACH REVEAL'S OWN DESIGNS (owner 23 Nov: *"they should all be customizable"*; drawing v24 + v25): the
+                 classic's flap shape, the gatefold's panel design, the fabric, the gift box's lining, floor and what lies
+                 around it — one list (`REVEAL_LOOK_OPTIONS`), the same the Save the Date's Step 5 offers. All Pro ◆. */
+              <div data-look-row="reveal-designs" className={`${SP_ROWS_ROW} h-[var(--sp-rh)] shrink-0`}>
+                {revealLookKnobsFor(picked).map((k) => (
+                  <Dd
+                    key={k.key}
+                    small={`${k.label} ◆`}
+                    label={k.label}
+                    data={`reveal-look-${k.key}`}
+                    value={revealLooksFull(effects.looks)[k.key]}
+                    options={k.choices.map(([key, label]) => ({ key, label }))}
+                    onPick={(v) => setEffects(withRevealLook(effects, k.key, v))}
+                    stacked
+                  />
+                ))}
+              </div>
+            ) : null}
             {veil ? (
               /* 🧵 THE VEIL IS THE COUPLE'S TO TUNE (owner 2026-10-17: *"fold coverage, veil thread count, veil color"*):
                  Fold ▾ · Weave ▾ and the veil's colour circle — the one colour sheet. Each middle choice is today's veil,

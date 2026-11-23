@@ -54,8 +54,10 @@ test('preview builds keep every alias working exactly as before', () => {
   assert.equal(resolveRevealOverride('four-flap', PREVIEW), 'envelope-classic');
   assert.equal(resolveRevealOverride('two-flap-v', PREVIEW), 'envelope-gatefold');
   assert.equal(resolveRevealOverride('two-flap-h', PREVIEW), 'envelope-classic');
-  // 🎁 the held gift box is not an opening
-  assert.equal(resolveRevealOverride('gift', PREVIEW), null);
+  // 🎁 the gift box is the tenth reveal (owner 23 Nov, "ten reveals approved")
+  assert.equal(resolveRevealOverride('gift', PREVIEW), 'gift-box');
+  assert.equal(resolveRevealOverride('gift-box', PREVIEW), 'gift-box');
+  assert.equal(resolveRevealOverride('gift-box', PRODUCTION), null, 'the gift box cannot be summoned by URL in production');
 });
 
 test('unknown / empty / hostile values resolve null on either side', () => {

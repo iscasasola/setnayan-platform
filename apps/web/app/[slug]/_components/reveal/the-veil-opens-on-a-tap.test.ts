@@ -112,7 +112,9 @@ test('🙈 the hold is written only where an opening is mounted, and the overlay
   assert.match(OVERLAY, /if \(!active \|\| gone\) \{\s*releaseVeilHold\(\);/, 'a stood-down opening no longer lets the page play');
   // Every opening claims the page itself once it is up: the scene stage (and every still face) once its closed frame is drawn.
   assert.doesNotMatch(OVERLAY, /claimVeilHold\(\)/, 'the overlay claims the page before the reveal is drawn');
-  assert.match(code('app/[slug]/_components/reveal/scene-reveal.tsx'), /renderer\.render\(scene, camera\);[\s\S]{0,400}?claimVeilHold\(\);/, 'a scene claims the page before its closed frame is drawn');
+  assert.match(code('app/[slug]/_components/reveal/scene-reveal.tsx'), /sc\.step\(1 \/ 60, 0, legacy \? -1 : 0, false\);\s*draw\(\);[\s\S]{0,400}?claimVeilHold\(\);/, 'a scene claims the page before its closed frame is drawn');
+  /* the one draw: the scene's own post pass (the gift box) or the scene straight — never neither */
+  assert.match(code('app/[slug]/_components/reveal/scene-reveal.tsx'), /const draw = \(\) => \{\s*if \(sc\?\.render\) sc\.render\(renderer, scene, camera\);\s*else renderer\.render\(scene, camera\);/, 'the closed frame is not really drawn');
   assert.match(VEIL, /claimVeilHold\(\);\s*raf = requestAnimationFrame\(loop\);/, 'the veil no longer claims the page when it arms');
   // The opening's own box is never held.
   assert.equal((OVERLAY.match(/\[REVEAL_LAYER_ATTR\]: ''/g) ?? []).length, 2, 'both opening wrappers (veil · rigid) must be the reveal layer');

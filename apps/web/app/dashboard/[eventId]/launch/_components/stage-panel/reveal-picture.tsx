@@ -1,8 +1,8 @@
 /**
  * 🎭 THE REVEAL'S PICTURE — the prototype's `.rv-box` (owner 2026-10-07, on the
  * prototype's Reveal part: *"this is the reveal"*): a 150 × 96 card in the event's
- * colours, drawn as the chosen opening — the nine reveals of 23 Nov 2026 (Veil · Beach curtains ·
- * Envelope classic + gatefold · Fabric · Scratch · Smoke · Cathedral doors · Petals · Fireworks,
+ * colours, drawn as the chosen opening — the ten reveals of 23 Nov 2026 (Veil · Beach curtains ·
+ * Envelope classic + gatefold · Fabric · Scratch · Smoke · Cathedral doors · Petals · Fireworks · Gift box,
  * `app/[slug]/_components/reveal/reveal-templates.ts`), each in the event's own colours. ONE source, two uses: the
  * Cover Scene › Style's cards (`RevealPicture`) — the tile above the cover is gone (2026-10-16).
  *
@@ -93,6 +93,9 @@ export function revealPictureHtml(kind: string, c: RevealColours, w: number = RE
     case FIREWORKS_REVEAL:
       /* a night sky with one burst */
       return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.dominant}">${piece(`inset:0;background:radial-gradient(circle at 60% 35%,${c.accent} 0 3%,transparent 4%),repeating-conic-gradient(from 0deg at 60% 35%,${c.accent} 0 2deg,transparent 2deg 20deg);-webkit-mask:radial-gradient(circle at 60% 35%,black 0 28%,transparent 30%);mask:radial-gradient(circle at 60% 35%,black 0 28%,transparent 30%)`)}</span>`;
+    case 'gift-box':
+      /* the box from above on its floor: the lid, the ribbon crossing it, the bow on the knot */
+      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.supporting}">${piece(`${d}left:16%;top:12%;width:68%;height:76%;border-radius:var(--m-r-xs,4px);box-shadow:0 6px 14px -6px rgba(0,0,0,.45)`)}${piece(`background:${c.accent};left:46%;top:12%;width:8%;height:76%`)}${piece(`background:${c.accent};left:16%;top:46%;width:68%;height:8%`)}${piece(`background:${c.accent};left:36%;top:42%;width:14%;height:16%;border-radius:var(--m-r-full,999px)`)}${piece(`background:${c.accent};right:36%;top:42%;width:14%;height:16%;border-radius:var(--m-r-full,999px)`)}</span>`;
     default:
       /* Envelope · classic (the four flaps) — and any opening without its own picture. */
       return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral}">${piece(`${d}opacity:.85;left:0;top:0;width:100%;height:50%;clip-path:polygon(0 0,100% 0,50% 100%)`)}${piece(`${d}opacity:.55;left:0;top:0;width:50%;height:100%;clip-path:polygon(0 0,100% 50%,0 100%)`)}${piece(`${d}opacity:.55;right:0;top:0;width:50%;height:100%;clip-path:polygon(100% 0,0 50%,100% 100%)`)}${piece(`${d}opacity:.7;left:0;bottom:0;width:100%;height:50%;clip-path:polygon(0 100%,100% 100%,50% 0)`)}</span>`;

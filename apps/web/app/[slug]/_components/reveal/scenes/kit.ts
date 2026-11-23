@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import { buildMarkCanvas } from '@/lib/wax-seal/paint';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
-import type { GatefoldClosure } from '@/lib/std-reveal-effects';
+import type { GatefoldClosure, RevealLooksFull } from '@/lib/std-reveal-effects';
 
 /**
  * r128 → today's bump units. r128 measured a bump against the screen pixel's size in the world; today's three.js
@@ -113,6 +113,11 @@ export type Ctx = {
   seal: { recipe: WaxSealConfig; color: string | null };
   /** 🎀 How the gatefold is closed: the couple's seal or a ribbon and bow, never both (`RevealEffects.gatefoldClosure`). */
   closure: GatefoldClosure;
+  /** 🎨 The couple's design picks, every one filled in (`revealLooksFull`): the classic's flap shape, the gatefold's
+   *  panel design, the fabric, the gift box's lining, floor and arrangement. */
+  looks: RevealLooksFull;
+  /** ♿ The guest asked for reduced motion: the scene stands still (the gift box's breeze and sparkle hold). */
+  still: boolean;
   /** Scratch: ask the stage to open (at 60 % rubbed). */
   open: (nx: number, ny: number) => void;
   state: () => SceneState;
@@ -156,6 +161,9 @@ export type Scene = {
   release?: (id: number, nx: number, ny: number) => void;
   /** The hands-free demo (previews): scratch rubs by itself. */
   demo?: () => void;
+  /** It draws its own frame (the gift box's post pass: a slight depth of field, film curve and grain) — else the stage
+   *  renders the scene straight. */
+  render?: (r: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) => void;
   dispose?: () => void;
 };
 
@@ -210,6 +218,62 @@ export function stamp(x: CanvasRenderingContext2D, logo: HTMLCanvasElement, cx: 
   x.globalAlpha = alpha;
   x.drawImage(k, cx - size / 2, cy - size / 2, size, size);
   x.globalAlpha = 1;
+}
+
+/* a room for the gold and the wax to mirror: a soft box overhead, a warm window, a dim floor */
+export function room(c: Ctx): THREE.Texture {
+  const k = canvas(256, 128);
+  const x = ctx2d(k);
+  const g = x.createLinearGradient(0, 0, 0, 128);
+  g.addColorStop(0, '#e9e2d6');
+  g.addColorStop(0.45, '#8f8475');
+  g.addColorStop(1, '#2c261f');
+  x.fillStyle = g;
+  x.fillRect(0, 0, 256, 128);
+  x.fillStyle = '#ffffff';
+  x.fillRect(28, 8, 74, 26);
+  x.fillStyle = '#ffe9c2';
+  x.fillRect(150, 30, 26, 44);
+  x.fillStyle = '#fff6e6';
+  x.fillRect(206, 14, 34, 12);
+  const t = texOf(k, { srgb: true });
+  t.mapping = THREE.EquirectangularReflectionMapping;
+  const pm = new THREE.PMREMGenerator(c.renderer);
+  const env = pm.fromEquirectangular(t).texture;
+  pm.dispose();
+  t.dispose();
+  return env;
+}
+
+/** A satin ribbon's face: dark edges, a bright middle, a fine weft (drawing `ribbon.js` `RV.satinTex`). */
+export function satinTex(a: string, b: string, cc: string): THREE.Texture {
+  const k = canvas(64, 64);
+  const x = ctx2d(k);
+  const g = x.createLinearGradient(0, 0, 64, 0);
+  g.addColorStop(0, a);
+  g.addColorStop(0.05, b);
+  g.addColorStop(0.5, cc);
+  g.addColorStop(0.95, b);
+  g.addColorStop(1, a);
+  x.fillStyle = g;
+  x.fillRect(0, 0, 64, 64);
+  x.fillStyle = 'rgba(255,255,255,.35)';
+  x.fillRect(2, 0, 1, 64);
+  x.fillRect(61, 0, 1, 64);
+  for (let q = 0; q < 64; q += 2) {
+    x.fillStyle = `rgba(255,255,255,${0.03 + 0.03 * Math.sin(q * 0.7)})`;
+    x.fillRect(0, q, 64, 1);
+  }
+  const t = texOf(k, { srgb: true });
+  t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(1, 6);
+  return t;
+}
+
+/** Does this phone render into half-float targets? (WebGL2 needs EXT_color_buffer_half_float or _float.) */
+export function halfFloatTargets(r: THREE.WebGLRenderer): boolean {
+  const gl = r.getContext();
+  return !!(gl.getExtension('EXT_color_buffer_half_float') || gl.getExtension('EXT_color_buffer_float'));
 }
 
 /* ── lights (r128 units → today's, see the header) ───────────────────────── */

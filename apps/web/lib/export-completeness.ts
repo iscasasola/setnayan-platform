@@ -161,6 +161,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'chat_message_revisions', decision: 'excluded', why: 'What one of the subject\'s own chat messages said BEFORE they edited or unsent it — kept as the conversation\'s record, read by nobody in the chat (no policy, no grant). The message as it stands is exported to its sender as chat_messages_authored; changed_by_user_id only stamps who pressed. ⚠ OPEN (asked of the owner in the H1 PR): whether the earlier words belong in the access export too.' },
   { table: 'chat_message_reminders', decision: 'excluded', why: 'The subject\'s own "Remind me" timer on one chat message: which message, and when. No content of its own — the message is exported to its SENDER as chat_messages_authored — and a delivered reminder already reached them as a notification (notifications_received). Goes with the account (user_id NOT NULL ON DELETE CASCADE).' },
   { table: 'chat_polls', decision: 'excluded', why: 'The conversation\'s shared poll (a question and its choices), voted on by both sides — not the asker\'s record. asked_by / closed_by only stamp who pressed, the same call as chat_decision_topics. The subject\'s OWN act on a poll is their vote, exported as chat_poll_votes. The erasure clears both stamps.' },
+  { table: 'signup_attributions', decision: 'exported', as: 'signup_attribution' },
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {

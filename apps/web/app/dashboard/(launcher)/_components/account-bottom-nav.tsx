@@ -6,6 +6,7 @@ import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { AccountBarTab } from '@/lib/account-bar';
 import type { ShellBoundary } from '@/app/_components/shell-boundary';
 import { HOME_HREF } from '@/lib/home-segments';
+import { DISCOVER_HREF } from '@/lib/discover-href';
 
 /** The supplier bar's Today — the shop's first screen (`vendor-bottom-nav.tsx`), the Home tab's twin. */
 const SHOP_TODAY_HREF = '/vendor-dashboard';
@@ -67,7 +68,8 @@ const TAB: Record<AccountBarTab, BottomNavItem> = {
   discover: {
     key: 'discover',
     label: 'Discover',
-    href: '/',
+    // 🧭 Discover's own door, not the bare `/` — a signed-in `/` opens Home now (23 Nov 2026, lib/discover-way-back.ts).
+    href: DISCOVER_HREF,
     // The rail's glyph for the same door (owner 2026-09-21: Compass is Suppliers).
     icon: Telescope,
     activeMatch: '/',

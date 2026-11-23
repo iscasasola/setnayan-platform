@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { BackButton } from '@/app/_components/back-button';
 import { arrivedFromDiscover, withoutDiscoverArrival } from '@/lib/discover-way-back';
+import { DISCOVER_HREF } from '@/lib/discover-href';
 
 /**
  * ‹ Discover — ONLY for a visitor who opened this event from Discover (2026-11-12, DECISION_LOG "DISCOVER WITH
@@ -37,7 +38,7 @@ export function DiscoverArrivalBack() {
       style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
       data-discover-arrival-back=""
     >
-      <BackButton href="/" label="Discover" className="mb-0" inPlace={{ whileAt: arrivedAt }} />
+      <BackButton href={DISCOVER_HREF} label="Discover" className="mb-0" inPlace={{ whileAt: arrivedAt }} />
     </div>
   );
 }

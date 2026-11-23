@@ -28,7 +28,6 @@ import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
-  PORTFOLIO_FREE_BASE,
   TIER_CAPS,
   canBuyExtraBranches,
   canBuyExtraSeats,
@@ -235,8 +234,6 @@ export function reachSentence(): string {
   return 'until then you are found by your own link and QR; once verified, you set how far you go, on every plan';
 }
 
-/** The free photo base ("50 portfolio photos"). */
-export const FREE_PHOTOS = formatCount(PORTFOLIO_FREE_BASE);
 
 /** "10 · 50 · 100 · 500 · 1,000 · 5,000 · 10,000" — where a badge climbs. */
 export const BADGE_STEPS = MILESTONE_THRESHOLDS.map((n) => formatCount(n)).join(' · ');
@@ -264,7 +261,7 @@ export function foldGroups(): FoldGroup[] {
       title: 'Get found',
       lines: [
         free('Your public page, auto-built, ready for Google'),
-        free(`${FREE_PHOTOS} portfolio photos`),
+        free('Portfolio photos, no limit'),
         free('Six QR codes: Shortlist, Check a date, My page, Booked, Crew, Review'),
         at('Shown in search, as far as you go', 'verified'),
         at('Your own reach on every plan — you set it', 'verified'),

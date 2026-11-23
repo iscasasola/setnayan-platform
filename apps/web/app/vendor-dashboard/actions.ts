@@ -19,7 +19,6 @@ import {
   tierCaps,
   asVendorTier,
 } from '@/lib/vendor-tier-caps';
-import { portfolioShortText } from '@/lib/shop-portfolio-credits';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveOwnedActiveShop } from '@/lib/active-shop';
@@ -339,19 +338,18 @@ function parseServices(
  * arrive as form inputs; value input names match the /profile form so the exact
  * same parse helpers apply.
  */
-/** What a portfolio save took (owner 2026-10-23): new photos, credits charged, the wallet after (null = unread/none). */
-export type PortfolioSaved = { added: number; charged: number; balance: number | null };
+/** What a portfolio save added. No charge since 2026-11-23 (owner: the portfolio cap is dropped — storage only). */
+export type PortfolioSaved = { added: number };
 export type FieldSaveResult =
   | { ok: true; portfolio?: PortfolioSaved }
   | {
       ok: false;
       error: string;
-      walletShort?: { charge: number; balance: number };
       /** The shop name was refused because its CORE is held (owner 2026-11-06) — the row offers "It's my business". */
       heldName?: string;
     };
 
-const PORTFOLIO_SAVE_FAILED = 'Couldn’t save your portfolio right now. Nothing was charged — try again.';
+const PORTFOLIO_SAVE_FAILED = 'Couldn’t save your portfolio right now. Nothing was changed — try again.';
 
 const INLINE_PROFILE_FIELDS = new Set([
   'logo',
@@ -683,27 +681,18 @@ export async function updateVendorProfileField(
       if (toScan.length > 0 && (await vendorQrGuardRejects(toScan))) {
         return { ok: false, error: VENDOR_QR_MEDIA_ERROR };
       }
-      // 💳 THE FREE ROOM, THEN THE SHOP WALLET (owner 2026-10-23, option A). The list and its charge are ONE step:
-      // `shop_portfolio_commit` writes `portfolio_r2_keys` and the wallet row in one transaction under the wallet's
-      // per-shop lock — charge = max(0, after − max(free, kept)), free = 50 or the shop's personal-invite
-      // allowance (read inside, never passed). Stored photos are always kept (grandfathered); a save the wallet
-      // cannot cover writes NOTHING and says so. Replaces the "coming soon" refusal (`capPortfolioRefs`).
+      // 📸 ONE STEP, NO CHARGE: `shop_portfolio_commit` writes `portfolio_r2_keys` (owner-only, under the shop row's
+      // lock). Since 2026-11-23 there is no free room and no wallet charge — the portfolio cap is dropped and storage is
+      // the only limit (owner: *"Yes, drop it"*); `/api/upload` checked the storage before the bytes moved.
       const commit = await supabase.rpc('shop_portfolio_commit', {
         p_vendor_profile_id: shopId,
         p_refs: refs,
         p_spend_ref: `portfolio:${randomUUID()}`,
       });
-      const answer = (commit.data ?? null) as
-        | { status?: string; charged?: number; balance?: number | null; charge?: number }
-        | null;
+      const answer = (commit.data ?? null) as { status?: string } | null;
       if (commit.error || !answer?.status) {
         console.error('[supabase-error] app/vendor-dashboard/actions.ts · rpc:shop_portfolio_commit', commit.error);
         return { ok: false, error: PORTFOLIO_SAVE_FAILED };
-      }
-      if (answer.status === 'insufficient') {
-        const charge = Number(answer.charge ?? 0);
-        const balance = Number(answer.balance ?? 0);
-        return { ok: false, error: portfolioShortText(charge, balance), walletShort: { charge, balance } };
       }
       if (answer.status === 'not_owner') {
         return { ok: false, error: 'Only the shop owner can change the portfolio.' };
@@ -711,12 +700,7 @@ export async function updateVendorProfileField(
       if (answer.status !== 'ok' && answer.status !== 'duplicate') {
         return { ok: false, error: PORTFOLIO_SAVE_FAILED };
       }
-      const charged = Number(answer.charged ?? 0);
-      portfolioSaved = {
-        added: toScan.length,
-        charged: Number.isFinite(charged) ? charged : 0,
-        balance: typeof answer.balance === 'number' ? answer.balance : null,
-      };
+      portfolioSaved = { added: toScan.length };
       // The commit already wrote the column; the shared update below only stamps `updated_at`.
       patch = {};
       // Repost-watch: hash the gallery post-write (cron-free, self-swallowing).

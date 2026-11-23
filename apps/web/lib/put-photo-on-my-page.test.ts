@@ -56,10 +56,10 @@ test('4 · the action: own client, own album row, refuses taken-down/unscreened,
   assert.match(a, /if \(!canManageVendor\(role\)\) return \{ ok: false/, 'a helper can change the page');
   assert.match(a, /pagePhotoKeyFor\(vendorId, albumKey\)/);
   assert.match(a, /parseClientRef\(pageRef, vendorOwnedMediaPolicy\(vendorId\)\)/, 'the SEC-1 pin is missing');
-  // Past the free room the photo is PAID from the shop wallet (owner 2026-10-23) — priced in SQL by
-  // `file_supplier_page_notice`, with the WAITING photos counted (tests/db/a-suppliers-guest-photo-waits-seven-days).
-  assert.match(a, /\.rpc\('file_supplier_page_notice', \{ p_photo_id: photoId, p_page_ref: pageRef \}\)/, 'the tap is not priced');
-  assert.match(a, /answer\?\.status === 'insufficient'\) \{\s*return \{ ok: false, error: portfolioShortText\(/, 'an unpaid photo is not refused out loud');
+  // Filed through the ONE door (`file_supplier_page_notice`). No price since 2026-11-23 (owner: the portfolio cap is
+  // dropped — storage is the only limit), held by tests/db/a-suppliers-guest-photo-waits-seven-days.
+  assert.match(a, /\.rpc\('file_supplier_page_notice', \{ p_photo_id: photoId, p_page_ref: pageRef \}\)/, 'the tap no longer files through the one door');
+  assert.doesNotMatch(a, /insufficient|portfolioShortText|from your shop wallet/, 'a page photo is priced again');
   assert.match(a, /vendorQrGuardRejects\(\[photo\.r2_object_key\]\)/, 'the QR guard is skipped');
 });
 

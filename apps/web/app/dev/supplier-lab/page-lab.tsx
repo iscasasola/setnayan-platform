@@ -47,7 +47,7 @@ import { AccountSwitcher } from '@/app/_components/account-switcher/account-swit
 import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-avatar-rows';
 import { LabSeedDraft } from './lab-seed-draft';
 import { AnalyticsLab } from './analytics-lab';
-import { PORTFOLIO_FREE_BASE, firstPlanWith, tierCaps, TIER_LABEL } from '@/lib/vendor-tier-caps';
+import { firstPlanWith, tierCaps, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import type { DeepSearchOffer, LastDeepSearch } from '@/lib/vendor-deep-search-offer';
 import { shopBadgeTier, tierName } from '@/lib/badge-tiers';
 import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
@@ -833,8 +833,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
               vendorProfileId={`lab-${who}`}
               portfolioRefs={lp.refs}
               portfolioDisplayMap={lp.displayMap}
-              portfolioMax={PORTFOLIO_FREE_BASE}
-              walletBalance={lp.walletBalance}
+              portfolioMax={Infinity}
               labPicked={lp.picked}
               galleryVideoLinks={[]}
               igConfigured={false}

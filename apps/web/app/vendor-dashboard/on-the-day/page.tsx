@@ -46,9 +46,8 @@ import {
   vendorDayOfFreeUntilLabel,
   vendorDayOfFreeUntilEndedLabel,
 } from '@/lib/vendor-dayof-free-until';
-import { deriveVendorPapicTier,
-  fetchVendorPapicCreditsGranted } from '@/lib/vendor-papic-grants';
-import { tierReadout } from '@/lib/vendor-papic-tier';
+import { fetchVendorEventCaptureAllowance } from '@/lib/vendor-papic-grants';
+import { captureLimitLine } from '@/lib/vendor-papic-tier';
 import {
   fetchVendorTeam,
   enrichTeamWithUsers,
@@ -578,26 +577,18 @@ async function readEventTools({
     counselGated: m.counselGated,
   }));
 
-  // Papic capture (counsel-gated): when the capability is live, badge the module
-  // card with the vendor's DERIVED tier for this booking — Ltd if they accepted
-  // the inquiry with a token (or a founder couple), else Lite. Off → no read, no
-  // badge; the "Needs setup" chip stands until the DPO/NPC control is approved.
+  // Papic capture (counsel-gated): when the capability is live, badge the module card with the honest limit line for
+  // this booking — the plan's event limit (owner 2026-11-23: "10 of 10 photos at this event · Go Plus for unlimited",
+  // or "No limit · photos + video" on Plus and up). The SAME read the capture route enforces, so the badge and the
+  // gate cannot disagree. Off → no read, no badge; the "Needs setup" chip stands until the DPO/NPC control is approved.
   const papicIdx = modules.findIndex((m) => m.id === 'vendor_papic');
   const papicModule = papicIdx >= 0 ? modules[papicIdx] : undefined;
   if (papicModule && (await isVendorPapicCaptureEnabled())) {
     let readout: string | undefined;
     try {
-      // ⚠ READ THE CREDITS TOO. The readout a supplier sees must agree with
-      // the allowance the capture route enforces; on the bare tier it would
-      // show "50 pts" to somebody holding 1,000 (owner 2026-09-05: 5% of the
-      // booking fee + ₱500 packs (100 credits since 2026-09-06), summed from
-      // their ledger).
-      const admin = createAdminClient();
-      const [tier, creditsGranted] = await Promise.all([
-        deriveVendorPapicTier(admin, vendorProfileId, eventId),
-        fetchVendorPapicCreditsGranted(admin, vendorProfileId, eventId),
-      ]);
-      readout = tierReadout(tier, creditsGranted);
+      const { plan, allowance } = await fetchVendorEventCaptureAllowance(createAdminClient(), vendorProfileId, eventId);
+      // An unread plan draws no badge rather than a limit it cannot vouch for.
+      readout = plan === null ? undefined : captureLimitLine(allowance);
     } catch {
       /* readout is decorative — omit on any failure */
     }

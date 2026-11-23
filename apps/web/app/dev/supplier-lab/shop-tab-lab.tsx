@@ -137,7 +137,7 @@ function shopLab(fail: boolean, none: boolean) {
   };
 
   // 📷 Build 3 · integration: the Cover and Logo sheets are the REAL one-short-menus (`photo-menus.tsx`), on fixtures.
-  const uploadFacts: PortfolioUploadFacts = { vendorProfileId: 'lab-shop', storedRefs: none ? [] : [...PHOTOS], free: 50, allowanceUnread: fail, walletBalance: fail ? null : 0 };
+  const uploadFacts: PortfolioUploadFacts = { vendorProfileId: 'lab-shop', storedRefs: none ? [] : [...PHOTOS] };
   const logoFields: ProfileFieldData = {
     business_name: 'SetnaProd', business_owner_name: '', hq_address: '', location_city: 'Batangas', hq_latitude: null, hq_longitude: null,
     contact_phone: '', contact_email: '', in_business_since_year: '', venue_width_m: '', venue_length_m: '', capacity_min: '', capacity_max: '',
@@ -305,15 +305,12 @@ function portfolioLab(fail: boolean, none: boolean) {
           photos={none ? 0 : 38}
           moodboard={fail || none ? null : { looks: looks.length, declined: 0 }}
           songs={fail ? null : { count: none ? 0 : 24, withVideo: none ? 0 : 9 }}
-          free={50}
-          allowanceUnread={fail}
-          walletBalance={fail ? null : 128}
           igFlash={null}
           groups={groups}
           allPhotos={none ? [] : [...PHOTOS].reverse()}
           libraryOpen={!fail}
           videoLinkUrls={fail || none ? [] : ['https://www.youtube.com/watch?v=aqz-KE-bpKQ', 'https://vimeo.com/76979871', 'https://www.facebook.com/watch/?v=10153231379946729']}
-          uploadFacts={{ vendorProfileId: 'lab', storedRefs: [], free: 50, allowanceUnread: fail, walletBalance: fail ? null : 128 }}
+          uploadFacts={{ vendorProfileId: 'lab', storedRefs: [] }}
           gallery={<p className="py-3 text-[13px] text-ink/60">The shipped uploader (GalleryMedia) mounts here on the real page.</p>}
           // 🖼 Row 1's numbers — sample figures (fixtures, never measured); `&unread=1` = every count refused.
           albumStats={fail ? { serviceOpens: null, pageViews: null, opened: null } : { serviceOpens: Object.fromEntries((groups.services ?? []).map((a, i) => [a.key, [212, 41, 12][i] ?? 0])), pageViews: none ? 0 : 96, opened: {} }}

@@ -1,23 +1,22 @@
 /**
- * Wiring suite for the vendor Papic tier DERIVATION (lib/vendor-papic-grants.ts).
- * Unlike vendor-papic-tier.test.ts (the pure model), this proves the DB reads
- * translate correctly: vendor_event_unlocks.comp_reason → base tier, and a
- * vendor_papic_capture_grants 'unli' row (money-verified) → Unli. Tokens retired
- * (2026-07-21) — a historical token-burn row no longer earns Ltd. Uses a stub
- * Supabase client so no live DB is needed.
+ * Wiring suite for the supplier Papic reads (lib/vendor-papic-grants.ts), with a stub Supabase client.
+ *
+ * 📸 Since 2026-11-23 the on-the-day camera's allowance is the shop's PLAN (TIER_CAPS — Free · Verified 10 photos,
+ * no videos; Plus and up no limit): this proves the plan and the photo count are read honestly (an unread read is
+ * `null`, never a number) and that the portfolio-import credits (G3) no longer share a meter with the camera.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
-  deriveVendorPapicTier,
-  fetchVendorAcceptProvenance,
+  fetchShopPlan,
+  fetchVendorEventCaptureAllowance,
+  fetchVendorEventPhotosTaken,
   fetchVendorPapicPortfolioCredits,
-  hasPaidUnliUpgrade,
 } from './vendor-papic-grants';
 
-type Result = { data: unknown; error?: unknown };
+type Result = { data: unknown; error?: unknown; count?: number | null };
 
 /**
  * A chainable stub: every query method returns the builder; the terminal
@@ -35,6 +34,7 @@ function stubClient(byTable: Record<string, Result>): SupabaseClient {
       builder[m] = () => builder;
     }
     builder.maybeSingle = async () => result;
+    // A `count: 'exact', head: true` read answers `{ count, error }` — configured as `count` on the result.
     builder.then = (resolve: (v: Result) => unknown, reject?: (e: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject);
     return builder;
@@ -42,98 +42,50 @@ function stubClient(byTable: Record<string, Result>): SupabaseClient {
   return { from: (t: string) => build(t) } as unknown as SupabaseClient;
 }
 
-test('derive: no unlock row → Lite (the floor)', async () => {
-  const c = stubClient({
-    vendor_event_unlocks: { data: null },
-    vendor_papic_capture_grants: { data: null },
-  });
-  assert.equal(await deriveVendorPapicTier(c, 'v1', 'e1'), 'lite');
+test('the plan is read from the shop row; an unread row is null, never a plan', async () => {
+  assert.equal(await fetchShopPlan(stubClient({ vendor_profiles: { data: { tier_state: 'pro' } } }), 'v1'), 'pro');
+  assert.equal(await fetchShopPlan(stubClient({ vendor_profiles: { data: { tier_state: null } } }), 'v1'), 'free');
+  assert.equal(await fetchShopPlan(stubClient({ vendor_profiles: { data: null, error: { message: 'refused' } } }), 'v1'), null);
 });
 
-test('derive: founder-comped accept → Ltd (as-if-paid)', async () => {
-  const c = stubClient({
-    vendor_event_unlocks: { data: { comp_reason: 'founder', tokens_burned: 0 } },
-    vendor_papic_capture_grants: { data: null },
-  });
-  assert.equal(await deriveVendorPapicTier(c, 'v1', 'e1'), 'ltd');
+test('the photo count is the not-hidden photos; a refused count is null, never 0', async () => {
+  assert.equal(await fetchVendorEventPhotosTaken(stubClient({ vendor_papic_captures: { data: null, count: 7 } as Result }), 'v1', 'e1'), 7);
+  assert.equal(
+    await fetchVendorEventPhotosTaken(stubClient({ vendor_papic_captures: { data: null, count: null, error: { message: 'refused' } } as Result }), 'v1', 'e1'),
+    null,
+  );
 });
 
-test('derive: a historical token-burn row is now IGNORED → Lite (tokens retired)', async () => {
-  const c = stubClient({
-    vendor_event_unlocks: { data: { comp_reason: null, tokens_burned: 2 } },
-    vendor_papic_capture_grants: { data: null },
-  });
-  assert.equal(await deriveVendorPapicTier(c, 'v1', 'e1'), 'lite');
+test('the allowance: Free at 10 has none left; Plus has no limit; an unread plan draws Free’s rule', async () => {
+  const free = await fetchVendorEventCaptureAllowance(
+    stubClient({ vendor_profiles: { data: { tier_state: 'free' } }, vendor_papic_captures: { data: null, count: 10 } as Result }),
+    'v1',
+    'e1',
+  );
+  assert.equal(free.plan, 'free');
+  assert.equal(free.allowance.rule.photoLimit, 10);
+  assert.equal(free.allowance.photosLeft, 0);
+
+  const plus = await fetchVendorEventCaptureAllowance(
+    stubClient({ vendor_profiles: { data: { tier_state: 'solo' } }, vendor_papic_captures: { data: null, count: 900 } as Result }),
+    'v1',
+    'e1',
+  );
+  assert.equal(plus.allowance.rule.photoLimit, null);
+  assert.equal(plus.allowance.rule.videos, true);
+
+  const unread = await fetchVendorEventCaptureAllowance(
+    stubClient({ vendor_profiles: { data: null, error: { message: 'refused' } }, vendor_papic_captures: { data: null, count: 0 } as Result }),
+    'v1',
+    'e1',
+  );
+  assert.equal(unread.plan, null, 'an unread plan must say so — the route refuses on it');
+  assert.equal(unread.allowance.rule.photoLimit, 10, 'an unread plan never draws the most generous rule');
 });
 
-test('derive: an ordinary booked accept (not founder) → Lite', async () => {
+test('portfolio-import credits: the ledger minus what the album spent — the camera spends nothing', async () => {
   const c = stubClient({
-    vendor_event_unlocks: { data: { comp_reason: null } },
-    vendor_papic_capture_grants: { data: null },
-  });
-  assert.equal(await deriveVendorPapicTier(c, 'v1', 'e1'), 'lite');
-});
-
-test('derive: an admin-comped unli grant (no order) → Unli', async () => {
-  const c = stubClient({
-    vendor_event_unlocks: { data: { comp_reason: null } },
-    vendor_papic_capture_grants: { data: { tier: 'unli', upgrade_order_id: null } },
-  });
-  assert.equal(await deriveVendorPapicTier(c, 'v1', 'e1'), 'unli');
-});
-
-test('derive: an unli grant with a PAID order → Unli', async () => {
-  const c = stubClient({
-    vendor_event_unlocks: { data: { comp_reason: null } },
-    vendor_papic_capture_grants: { data: { tier: 'unli', upgrade_order_id: 'o1' } },
-    orders: { data: { status: 'paid' } },
-  });
-  assert.equal(await deriveVendorPapicTier(c, 'v1', 'e1'), 'unli');
-});
-
-test('derive: an unli grant with an UNPAID order does NOT open Unli (fail-closed)', async () => {
-  const c = stubClient({
-    vendor_event_unlocks: { data: { comp_reason: null, tokens_burned: 0 } },
-    lead_token_holds: { data: null },
-    vendor_papic_capture_grants: { data: { tier: 'unli', upgrade_order_id: 'o1' } },
-    orders: { data: { status: 'submitted' } },
-  });
-  // Falls back to the derived base tier (Lite here), never Unli.
-  assert.equal(await deriveVendorPapicTier(c, 'v1', 'e1'), 'lite');
-});
-
-test('provenance: a read error fails closed to no-unlock', async () => {
-  const c = stubClient({
-    vendor_event_unlocks: { data: null, error: { message: 'boom' } },
-  });
-  const p = await fetchVendorAcceptProvenance(c, 'v1', 'e1');
-  assert.deepEqual(p, {
-    hasUnlock: false,
-    founderComp: false,
-  });
-});
-
-test('hasPaidUnliUpgrade: a non-unli grant row → false', async () => {
-  const c = stubClient({
-    vendor_papic_capture_grants: { data: { tier: 'ltd', upgrade_order_id: null } },
-  });
-  assert.equal(await hasPaidUnliUpgrade(c, 'v1', 'e1'), false);
-});
-
-// ── fetchVendorPapicPortfolioCredits: ONE meter, TWO doors (G3) ──────────────
-// The riskiest new logic in G3 is arithmetic, not a query — capture spend and
-// portfolio-import spend must both come out of the SAME "left" total, and a
-// sign error here would silently over- or under-meter every supplier. These
-// stub the whole read graph rather than hitting a database, mirroring the
-// derivation tests above.
-
-test('spend and left fold BOTH doors: on-the-day capture AND portfolio imports', async () => {
-  const c = stubClient({
-    vendor_event_unlocks: { data: null }, // → base tier Lite (50 pts)
-    vendor_papic_capture_grants: { data: null }, // → no paid Unli upgrade
-    vendor_papic_captures: { data: [{ media_type: 'photo' }, { media_type: 'photo' }] }, // 2 pts spent
-    vendor_papic_portfolio_credit_grants: { data: [{ credits: 60 }] }, // credits held
-    // 🛍 2026-11-04: the shop buys the couple's packs — read from the couple catalogue + tiers (invented figures).
+    vendor_papic_portfolio_credit_grants: { data: [{ credits: 60 }] },
     platform_retail_catalog_v2: {
       data: [
         { service_code: 'PAPIC_GUEST_A', title: 'Pack A', retail_price_php: '11.00', is_active: true, retired_at: null },
@@ -150,54 +102,33 @@ test('spend and left fold BOTH doors: on-the-day capture AND portfolio imports',
       data: [
         { credits_spent: 1, hidden_at: null },
         { credits_spent: 1, hidden_at: null },
-        // A hidden (NSFW-blocked/taken-down) import does not count — mirrors
-        // how a hidden capture is filtered before it reaches this table.
         { credits_spent: 1, hidden_at: '2026-01-01T00:00:00Z' },
       ],
     },
   });
-
   const r = await fetchVendorPapicPortfolioCredits(c, 'v1', 'e1');
-  // allowancePointsFor('lite', 60) = max(50, 60) = 60; capture pointsLeft = 60 - 2 = 58.
   assert.equal(r.credits, 60);
-  assert.equal(r.spent, 4, 'capture spend (2) + portfolio spend (2, the hidden row excluded)');
-  assert.equal(r.left, 56, '58 (capture-only left) minus 2 more spent importing');
-  assert.deepEqual(r.packs, [{ code: 'PAPIC_GUEST_A', title: 'Pack A', credits: 7, pricePhp: 11 }], 'only the pack on sale, read from the catalogue — no gift price on this row, so none is invented');
+  assert.equal(r.spent, 2, 'the album’s two imports (the hidden one excluded) — no capture spend any more');
+  assert.equal(r.left, 58);
+  assert.deepEqual(r.packs, [{ code: 'PAPIC_GUEST_A', title: 'Pack A', credits: 7, pricePhp: 11 }]);
   assert.equal(r.offerPack, true, '60 credits is under a pack’s worth (100)');
 });
 
-test('left never goes negative — a portfolio-import race cannot show a negative balance', async () => {
-  // Lite's floor is 50 points regardless of the ledger (allowancePointsFor is a
-  // MAX), so drive the CAPTURE side close to that cap first — 48 photos spent
-  // leaves only 2 points of capture-allowance "left" for a big portfolio spend
-  // to overrun.
-  const c = stubClient({
-    vendor_event_unlocks: { data: null },
-    vendor_papic_capture_grants: { data: null },
-    vendor_papic_captures: { data: Array.from({ length: 48 }, () => ({ media_type: 'photo' })) },
-    vendor_papic_portfolio_credit_grants: { data: [{ credits: 5 }] },
-    vendor_billing_catalog: { data: null }, // pack unavailable — unrelated to this assertion
-    // Six imports against only 2 points of capture-allowance-left overruns it —
-    // the route re-checks per request, but the READOUT must still clamp
-    // rather than print a number that would confuse a supplier mid-race.
-    vendor_papic_portfolio_photos: {
-      data: Array.from({ length: 6 }, () => ({ credits_spent: 1, hidden_at: null })),
-    },
-  });
-  const r = await fetchVendorPapicPortfolioCredits(c, 'v1', 'e1');
-  assert.equal(r.left, 0, 'left must clamp at 0, never go negative');
-});
-
-test('Unli stays unlimited: a portfolio import never introduces a ceiling', async () => {
-  const c = stubClient({
-    vendor_event_unlocks: { data: null },
-    // An admin-comped Unli grant (no order to verify).
-    vendor_papic_capture_grants: { data: { tier: 'unli', upgrade_order_id: null } },
-    vendor_papic_captures: { data: [] },
-    vendor_papic_portfolio_credit_grants: { data: [] },
-    vendor_billing_catalog: { data: null },
-    vendor_papic_portfolio_photos: { data: [{ credits_spent: 1, hidden_at: null }] },
-  });
-  const r = await fetchVendorPapicPortfolioCredits(c, 'v1', 'e1');
-  assert.equal(r.left, null, 'Unli has nothing to subtract a portfolio import from');
+test('portfolio-import credits: left clamps at 0, and an unread ledger leaves nothing to spend', async () => {
+  const over = await fetchVendorPapicPortfolioCredits(
+    stubClient({
+      vendor_papic_portfolio_credit_grants: { data: [{ credits: 5 }] },
+      vendor_papic_portfolio_photos: { data: Array.from({ length: 6 }, () => ({ credits_spent: 1, hidden_at: null })) },
+    }),
+    'v1',
+    'e1',
+  );
+  assert.equal(over.left, 0, 'left must clamp at 0, never go negative');
+  const unread = await fetchVendorPapicPortfolioCredits(
+    stubClient({ vendor_papic_portfolio_credit_grants: { data: null, error: { message: 'refused' } } }),
+    'v1',
+    'e1',
+  );
+  assert.equal(unread.credits, null, 'an unread ledger is null — the card says it could not read');
+  assert.equal(unread.left, 0, 'a metering outage never mints credits');
 });

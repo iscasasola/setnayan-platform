@@ -3821,7 +3821,6 @@ export function layoutDayPosterDocs(input: LayoutInput): PrintDoc[] {
 }
 
 
-||||||| bf2bb85515
 // ─── The table sign, in the theme ───────────────────────────────────────────
 
 /** A table sign's trim: a 4 × 6 in card, standing (the size a table-number holder takes). */

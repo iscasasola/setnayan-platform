@@ -139,12 +139,19 @@ test('6 · ONE list, mounted on the customer page and in the chat; Guests read o
   assert.match(page, /isBooked && !theBookedCoordinator && feeGate\.stage === 'unlocked'\s*\?\s*await readTheirEvent\(/, 'the coordinator or a locked supplier gets the list');
   assert.match(page, /\{tab === 'overview' && feeUnlocked \? theirEventNode : null\}/);
   assert.match(page, /<div id="ask-access"/, 'Ask for access to more lands nowhere');
-  assert.match(code('app/vendor-dashboard/clients/[eventId]/_pages/chat.tsx'), /<TheirEventList eventId=\{ctx\.eventId\} rows=\{ctx\.theirEventRows\} \/>/);
+  // 🖥 The chat draws the SAME list: above the chat on a phone, in the right column from 701 (DESKTOP SPLIT VIEW, 21 Nov).
+  const chat = code('app/vendor-dashboard/clients/[eventId]/_pages/chat.tsx');
+  assert.match(chat, /const rows = ctx\.theirEventRows && ctx\.theirEventRows\.length > 0 \? ctx\.theirEventRows : null;/);
+  assert.match(chat, /<TheirEventList eventId=\{ctx\.eventId\} rows=\{rows\} \/>/);
+  assert.match(chat, /<TheirEventColumn\b[\s\S]*?rows=\{rows\}/, 'the right column draws another list');
   const part = code('app/vendor-dashboard/clients/[eventId]/their-event/[part]/page.tsx');
   assert.match(part, /if \(brief\.stage !== 'booked'\) redirect\(clientHref\);/);
   assert.match(part, /if \(isBookedCoordinator\(\{ booked: true, services \}\)\) redirect\(`\/dashboard\/\$\{eventId\}`\);/);
-  assert.ok(part.indexOf("if (!open)") > 0 && part.indexOf("if (!open)") < part.indexOf("part === 'guests'"), 'a shut part draws its content');
-  assert.doesNotMatch(part, /\.from\('guests'\)/, 'the part page reads the guest list directly');
+  assert.match(part, /const open = rows\.some\(\(r\) => r\.part === part\);/, 'the page no longer asks whether the part is on the list');
+  // The part's body is ONE component for the page and the chat's right column (`their-event-part-body.tsx`).
+  const body = code('app/vendor-dashboard/clients/[eventId]/_components/their-event-part-body.tsx');
+  assert.ok(body.indexOf("if (!open)") > 0 && body.indexOf("if (!open)") < body.indexOf("part === 'guests'"), 'a shut part draws its content');
+  for (const f of [part, body]) assert.doesNotMatch(f, /\.from\('guests'\)/, 'the part reads the guest list directly');
   assert.match(code('lib/their-event.server.ts'), /\.rpc\('supplier_booking_group'/);
   assert.match(code('app/vendor-dashboard/clients/[eventId]/mood-board/page.tsx'), /fromTheirEvent \? \(\s*<TheirEventLine /, 'mood-board/page.tsx opens without the Their event line');
   // Seats is drawn by supplier pages set two (main, 21 Nov): EVERY visit opens under the line, door or not.

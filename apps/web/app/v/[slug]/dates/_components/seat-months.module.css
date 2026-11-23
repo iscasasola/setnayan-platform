@@ -6,6 +6,8 @@
 }
 .months::-webkit-scrollbar { display: none; }
 .month { flex: 0 0 88%; scroll-snap-align: start; scroll-snap-stop: always; }
+/* A window of one month (the /for-suppliers sample) fills the strip: nothing peeks, nothing swipes. */
+.month:only-child { flex-basis: 100%; }
 .title { font-size: 15px; font-weight: 700; text-align: center; margin: 10px 0 8px; }
 .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .dh { text-align: center; font-size: 11.5px; color: rgb(var(--color-ink) / 0.55); padding: 4px 0; }
@@ -55,6 +57,7 @@
   .months { margin: 0; padding: 0; scroll-padding: 0; }
   .month { flex-basis: 100%; }
   .title { margin: 10px 52px 8px; }
+  .month:only-child .title { margin-inline: 0; }
   .arrow { display: grid; }
   .grid { gap: 6px; }
 }

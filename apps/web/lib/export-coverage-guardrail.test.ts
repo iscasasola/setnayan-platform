@@ -214,6 +214,12 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Maya confirmed) on its `orders` row. This table repeats those facts beside Maya’s ' +
     'checkout id and our queue reason — internal reconciliation keys, service-role only. ' +
     'Same decision as lib/export-completeness.ts.',
+  // ── added 2026-11-23 with the table itself (Apple supplier plans: the server names the shop) ──
+  vendor_app_store_plan_tokens:
+    'The appAccountToken the server issued for an Apple supplier-plan purchase, and the shop it was ' +
+    'issued for — an internal key Apple signs back, not information about the person. user_id is who ' +
+    'started the purchase (an actor stamp); the plan itself is the shop’s vendor_subscriptions rows. ' +
+    'Service-role only. Same decision as lib/export-completeness.ts.',
   // ── added 2026-10-08 with the table itself (the E-Gifts wish list) ──
   event_wish_items:
     'What an EVENT’s hosts would love as a gift — a name, an optional ' +
@@ -355,6 +361,7 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'A sealed Sign in with Apple refresh token, held only so account erasure can revoke the grant at Apple (App Store 5.1.1(v)). A bearer credential — never exported (same rule as api_keys).',
   vendor_locked_qr_tokens: 'Live bearer tokens — exporting one hands over a redeemable secret.',
   seating_editor_locks: 'Ephemeral advisory lock; holds no durable personal data.',
+  event_part_editor_locks: 'Ephemeral one-editor-per-part pen (frees itself 5 s after the last edit); holds no durable personal data.',
   blacklisted_emails:
     'Anti-abuse investigation record — disclosure defeats detection (NPC investigation carve-out; counsel-reviewed).',
   concierge_abuse_flags:

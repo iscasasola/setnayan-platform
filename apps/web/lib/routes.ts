@@ -335,6 +335,8 @@ export const routes = {
     },
     apiKeys: () => `/dashboard/api-keys`,
     budget: (eventId: string) => `/dashboard/${eventId}/budget`,
+    /** The Hub (the Maker) — the hosts' "Hub" tab. */
+    launch: (eventId: string) => `/dashboard/${eventId}/launch`,
     checklist: (eventId: string) => `/dashboard/${eventId}/checklist`,
     contracts: {
       index: (eventId: string) => `/dashboard/${eventId}/contracts`,
@@ -438,6 +440,12 @@ export const routes = {
   help: {
     index: () => `/help`,
     detail: (slug: string) => `/help/${slug}`,
+    /** Every topic of this help (the Guide & Help drawing's "All 14"). */
+    topics: () => `/help/topics`,
+    /** One topic: its guides on top, its answers open in place. */
+    topic: (key: string) => `/help/topics/${key}`,
+    /** One guide: numbered steps, a real app picture, Take me there at the thumb. */
+    guide: (key: string) => `/help/guides/${key}`,
   },
   host: {
     accept: {

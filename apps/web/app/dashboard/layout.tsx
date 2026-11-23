@@ -192,8 +192,13 @@ export default async function DashboardLayout({
   const termsAsk = needsTermsAgreement(profile, { isAnonymous: !!user.is_anonymous });
 
   return (
+    // 📏 Mounted for Home inside the (hub) layout's `<main class="sn-vt-page">` (18 Nov 2026), this gate is no longer the
+    // page's outer box: a `min-h-dvh` there adds a whole screen BELOW the hub's top bar, so a short Home always scrolled,
+    // and its `bg-page` painted over the hub's ambient wash. Only in that mount, it is as tall as its content and clear.
+    // (A layout's default export may take no prop but `children`/slots — Next's generated type check refuses one — so
+    // the mount is told apart by where it sits.) 🛡 app/(hub)/the-gate-does-not-stretch-home.test.ts
     <div
-      className="app-surface min-h-dvh bg-page"
+      className="app-surface min-h-dvh bg-page [main.sn-vt-page>&]:min-h-0 [main.sn-vt-page>&]:bg-transparent"
     >
       {/* Anon-draft safety net: only renders for a Supabase anonymous principal
           (their plan isn't yet tied to an email). Vanishes on convert. */}

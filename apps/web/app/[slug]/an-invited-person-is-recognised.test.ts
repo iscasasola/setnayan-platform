@@ -47,7 +47,7 @@ const SLUG_PAGE = resolve(HERE, 'page.tsx');
 // behaviour-tested; `findGuestSeatForUser` delegates to them.
 const SEAT_LOOKUP = resolve(WEBROOT, 'lib', 'guest-seat-read.ts');
 const CONNECT_ROUTE = resolve(APP, 'join', '[eventId]', 'connect', 'route.ts');
-const LAUNCHER = resolve(APP, 'dashboard', '(launcher)', 'page.tsx');
+const LAUNCHER = resolve(APP, '(hub)', 'dashboard', 'page.tsx');
 /** The board card's SHELL (link-or-inert) moved here 2026-09-24 — the
  *  collection-card standard, step 1. The launcher fills its slots. */
 const COLLECTION_CARD = resolve(APP, '_components', 'collection-card.tsx');

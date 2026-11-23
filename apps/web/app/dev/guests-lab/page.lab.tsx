@@ -69,6 +69,7 @@
  */
 import { papicCardHref } from '@/lib/papic-home-href';
 import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
+import { PageInfo } from '@/app/_components/help-ask/page-info';
 import { TOURS } from '@/lib/tours';
 import { GuestImportWaits } from '@/app/dashboard/[eventId]/guests/import/import-form';
 import { GUEST_IMPORT_OPENS_MESSAGE } from '@/lib/event-date-floor';
@@ -1053,6 +1054,7 @@ export default async function GuestsLabPage({
                   <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs} openCard={labOpenCard}>
                   <GuestsScreen
                     eventId={EVENT}
+                    info={<PageInfo pageKey="guests" eventId={EVENT} />}
                     gview={gview}
                     seat={gview === 'seats' ? parseSeatView(typeof sp.seat === 'string' ? sp.seat : null) : null}
                     views={GUESTS_VIEWS}
@@ -1162,6 +1164,8 @@ export default async function GuestsLabPage({
           <DockStandIn />
           {/* &spot=1 — the Guests page's first-visit spotlight (customer_guest_list_v2), first run, nothing recorded. */}
           {sp.spot === '1' ? <LabPageSpotlight tourKey="customer_guest_list_v2" script={TOURS.customer_guest_list_v2.spotlight!} /> : null}
+          {/* ⓘ › Show me: the page's tour, seen, waiting for a replay (as on a real second visit). */}
+          {sp.spot === 'page' ? <LabPageSpotlight tourKey="customer_guest_list_v2" script={TOURS.customer_guest_list_v2.spotlight!} seen replay="page" /> : null}
           {/* The + sheet's name box reaches its add through the SAME stand-ins as the screen — never the real action. */}
           <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs}>
             {/* As the page mounts it: this event's examples (its roles, its groups) and the roles it offers. */}

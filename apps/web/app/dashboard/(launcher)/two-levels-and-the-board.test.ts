@@ -58,7 +58,7 @@ import {
 } from '@/lib/life-event-gate';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const LAUNCHER = resolve(HERE, 'page.tsx');
+const LAUNCHER = resolve(HERE, '..', '..', '(hub)', 'dashboard', 'page.tsx');
 const AUTOSURFACED = resolve(
   HERE,
   '..',

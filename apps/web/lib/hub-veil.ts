@@ -13,7 +13,8 @@
  *   · the guest's unveil gesture (the veil's tap or swipe up — `unveilInGesture()`, called synchronously
  *     inside that `pointerup`, which is also what lets the music start there);
  *   · the opening standing down without one (reduced motion switched on, "already seen this visit", a landing
- *     part-way down, no WebGL, No Reveal on a staff build, a rigid opening's own open) — `RevealOverlay`;
+ *     part-way down, no WebGL, No Reveal on a staff build, a scene reveal's own open) — `RevealOverlay`. ♿ Reduced
+ *     motion gets no opening and no hold (16 Oct 2026 ruling, restored by the controller on #8192, 23 Nov 2026);
  *   · 🛟 FAIL-VISIBLE: if no opening has CLAIMED the page within `VEIL_HOLD_FAILSAFE_MS` (the veil arms its
  *     hit-zone → `claimVeilHold()`), the script lets go by itself — a failed bundle, a veil chunk that never
  *     loaded, must never leave a page whose entrances are frozen at their first frame.

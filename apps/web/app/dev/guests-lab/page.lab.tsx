@@ -335,7 +335,7 @@ const MJ_ROSTER: ReadonlyArray<[string, string, GuestRow['role'], GuestRow['side
   ['Lourdes', 'Bautista', 'principal_sponsor_ninang', 'bride', 'Principal Sponsors 1'],
   ['Corazon', 'Reyes', 'principal_sponsor_ninang', 'bride', 'Principal Sponsors 1'],
   ['Fernando', 'Villanueva', 'principal_sponsor_ninong', 'groom', 'Principal Sponsors 2'],
-  ['Ramon', 'Aquino', 'principal_sponsor_ninong', 'groom', 'Principal Sponsors 2'],
+  ['Ramon', 'Dalisay', 'principal_sponsor_ninong', 'groom', 'Principal Sponsors 2'],
   ['Teresita', 'Aquino', 'principal_sponsor_ninang', 'groom', 'Principal Sponsors 2'],
   ['Imelda', 'Villanueva', 'principal_sponsor_ninang', 'groom', 'Principal Sponsors 2'],
   ['Rosa', 'Santos', 'guest', 'bride', 'Family of the Bride'],

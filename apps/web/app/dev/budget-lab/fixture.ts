@@ -5,7 +5,7 @@
  * numbers typed into a component:
  *
  *   target ₱2,250,000 · agreed ₱1,189,397 · paid ₱194,997 · owed ₱994,400
- *   next ₱528,000 · Seda Vertis North · Oct 5
+ *   next ₱528,000 · Tala Grove Pavilion · Oct 5
  *
  * Fixture data only. No database, no event.
  */
@@ -21,8 +21,8 @@ export function labMoney(reads?: MoneyReadStatus): EventMoney {
   return computeEventMoney({
     targetCentavos: 225_000_000,
     vendors: [
-      { vendor_id: 'sv', event_id: E, category: 'venue', vendor_name: 'Seda Vertis North', status: 'contracted', total_cost_php: 1_056_000 },
-      { vendor_id: 'sd', event_id: E, category: 'religious_venue', vendor_name: 'Santuario de San Vicente de Paul', status: 'contracted', total_cost_php: 26_499 },
+      { vendor_id: 'sv', event_id: E, category: 'venue', vendor_name: 'Tala Grove Pavilion', status: 'contracted', total_cost_php: 1_056_000 },
+      { vendor_id: 'sd', event_id: E, category: 'religious_venue', vendor_name: 'Kapilya ng Liwayway', status: 'contracted', total_cost_php: 26_499 },
     ],
     lineItems: [
       { line_item_id: 'sv-1', vendor_id: 'sv', label: 'Reservation', amount_php: 105_600, due_date: '2026-08-02' },

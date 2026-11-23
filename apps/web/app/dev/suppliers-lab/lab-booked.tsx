@@ -40,7 +40,7 @@ const standIns = (payFail: boolean, paySlow: boolean, money: MoneyStage, whereFa
     return {
       vendorId,
       category: seda ? 'venue' : 'cake_maker',
-      name: seda ? 'Seda Vertis North' : 'Asukal Cakes',
+      name: seda ? 'Tala Grove Pavilion' : 'Asukal Cakes',
       contactPerson: '',
       contactNumber: '',
       address: '',

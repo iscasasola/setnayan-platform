@@ -335,6 +335,8 @@ export const routes = {
     },
     apiKeys: () => `/dashboard/api-keys`,
     budget: (eventId: string) => `/dashboard/${eventId}/budget`,
+    /** The Hub (the Maker) — the hosts' "Hub" tab. */
+    launch: (eventId: string) => `/dashboard/${eventId}/launch`,
     checklist: (eventId: string) => `/dashboard/${eventId}/checklist`,
     contracts: {
       index: (eventId: string) => `/dashboard/${eventId}/contracts`,

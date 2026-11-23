@@ -1,3 +1,4 @@
+import { PartEditGate } from '@/app/_components/part-edit/part-edit-gate';
 import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -51,7 +52,10 @@ export default async function MoodBoardPage({ params, searchParams }: Props) {
   return (
     <>
       <MoodBoardSaveNotice saved={notice.saved} error={notice.error} />
-      <MoodBoardEditor eventId={eventId} />
+      {/* ✍️ One editor per part (owner 2026-11-21). */}
+      <PartEditGate eventId={eventId} part="mood_board">
+        <MoodBoardEditor eventId={eventId} />
+      </PartEditGate>
     </>
   );
 }

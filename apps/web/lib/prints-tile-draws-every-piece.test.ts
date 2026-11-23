@@ -11,7 +11,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DETAILS_ITEM_GROUPS, DIGITAL_TICKET_ITEM, EVERY_PRINT_ITEM, FREE_PRINT_KEYS, type DetailsItemKey } from './maker-details-items';
+import { DAY_POSTER_ITEM, DETAILS_ITEM_GROUPS, DIGITAL_TICKET_ITEM, EVERY_PRINT_ITEM, FREE_PRINT_KEYS, type DetailsItemKey } from './maker-details-items';
 import { PRINT_SET_KEYS } from './print-pieces';
 import { printsPageItem } from './prints-page';
 import { STUDIO_FORM_ITEMS, studioDetailsGroups } from './studio-details';
@@ -35,7 +35,8 @@ test('the Prints form holds every set piece and every print for the day — coun
   assert.equal(keys[0], EVERY_PRINT_ITEM, '"On every print" does not head the Prints form');
   const pieces = keys.filter((k) => k !== 'download' && k !== EVERY_PRINT_ITEM);
   /* 🎫 + the Digital ticket, under the Event pass (owner 2026-10-17 — a guest print of its own row). */
-  const set = PRINT_SET_KEYS.flatMap((k) => (k === 'pass' ? [k, DIGITAL_TICKET_ITEM] : [k]));
+  /* 🖼 + the Our Day poster, after the Our Story poster (owner 2026-11-13; drawing v4 §1) — a post-event piece, not a set key. */
+  const set = PRINT_SET_KEYS.flatMap((k) => (k === 'pass' ? [k, DIGITAL_TICKET_ITEM] : k === 'story-poster' ? [k, DAY_POSTER_ITEM] : [k]));
   assert.equal(pieces.length, set.length + FREE_PRINT_KEYS.length, 'the tile draws a different number of pieces than the lists hold');
   assert.deepEqual(pieces, [...set, ...FREE_PRINT_KEYS], 'a piece is missing, doubled or out of the shipped order');
   assert.equal(new Set(keys).size, keys.length, 'a piece is drawn twice');
@@ -47,7 +48,7 @@ test('the Prints form holds every set piece and every print for the day — coun
 });
 
 test('every print fills the phone screen in Studio', () => {
-  for (const k of [...PRINT_SET_KEYS, DIGITAL_TICKET_ITEM, ...FREE_PRINT_KEYS, 'download' as const]) {
+  for (const k of [...PRINT_SET_KEYS, DIGITAL_TICKET_ITEM, DAY_POSTER_ITEM, ...FREE_PRINT_KEYS, 'download' as const]) {
     assert.ok(STUDIO_FORM_ITEMS.includes(k as DetailsItemKey), `${k} is not drawn full screen`);
   }
 });

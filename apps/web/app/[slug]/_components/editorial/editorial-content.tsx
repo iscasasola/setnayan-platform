@@ -22,6 +22,8 @@
 import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { Printer } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { printsPageHref } from '@/lib/prints-page-href';
 import { startAhead } from '@/lib/start-ahead';
 import { ServerTimer } from '@/lib/server-timing';
 import {
@@ -833,6 +835,13 @@ export async function EditorialContent({
   const readsAsStory = storyReading && data.readAs !== 'page';
   /* 🔗 THE STORY'S LAST SCREEN — the old Recap page's Share + Save-the-card, folded in (owner 2026-11-13 (5)). Shown
      only when the story is set to Everyone (`published`): a story only its people may read is not shared outward. */
+  /* 🖼 "PRINT YOUR DAY" — the Our Day poster's second door (owner 2026-11-13, DECISION_LOG "OUR DAY POSTER — DRAWING
+     APPROVED … opened from the Prints row AND from the end of the Post Event story"; drawing v4 §6): the couple and their
+     co-hosts only (`viewer.isHost`) — a guest never sees it. It rises the builder on the Prints page (`build=1`). */
+  const printDay =
+    !isSample && viewer.isHost && readsAsStory ? (
+      <ActionButton tone="brand" main icon={<Printer aria-hidden />} label="Print your day" href={printsPageHref(eventId, 'day-poster', 'build=1')} data-story-print-day="" />
+    ) : null;
   const shareScreen =
     readsAsStory && data.published && effectiveShare && !share ? (
       <section data-story-screen="" data-story-share="" className="mt-14 flex flex-col items-center justify-center gap-5 text-center">
@@ -842,6 +851,14 @@ export async function EditorialContent({
           <ShareButtons url={effectiveShare.url} title={effectiveShare.title} image={effectiveShare.image} />
           {storyCard ? <SaveStoryCardButton storyCardUrl={storyCard.url} filenameBase={storyCard.filenameBase} /> : null}
         </div>
+        {printDay}
+      </section>
+    ) : printDay ? (
+      /* A story only its people may read is not shared outward — but its couple can still print their day. */
+      <section data-story-screen="" data-story-print-day-screen="" className="mt-14 flex flex-col items-center justify-center gap-4 text-center">
+        <p className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-terracotta-700">Your Our Day poster</p>
+        <p className="m-0 max-w-[32ch] font-serif text-2xl italic leading-snug">{data.displayName}</p>
+        {printDay}
       </section>
     ) : null;
 

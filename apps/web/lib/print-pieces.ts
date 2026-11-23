@@ -34,6 +34,7 @@ import type { HubFontKey } from '@/lib/hub-fonts';
 import { sanitizeInviteTemplate } from '@/lib/guest-invite-message';
 import { DEFAULT_PASS_CARD_DESIGN, passCardDesignFrom, type PassCardDesign } from '@/lib/pass-card';
 import { DEFAULT_NAME_STYLE, nameStyleFrom, type NameStyle } from '@/lib/name-style';
+import { parseDayPoster, serializeDayPoster, type DayPoster } from '@/lib/day-poster';
 
 /** 72 PDF points to the inch. */
 export const PT_PER_IN = 72;
@@ -51,6 +52,7 @@ export type PrintPieceKey =
   | 'pass'
   | 'poster'
   | 'story-poster'
+  | 'day-poster'
   | 'card'
   | 'passes'
   | 'qr-codes'
@@ -93,6 +95,10 @@ export const PRINT_PIECES: Record<PrintPieceKey, PrintPieceSpec> = {
   // stories? so they can print it and frame it?"* — the couple's Love Story,
   // chapter by chapter, in their theme (`layoutStoryPoster`).
   'story-poster': { key: 'story-poster', label: 'Our Story poster', size: 'A3 · 297 × 420 mm', widthPt: mm(297), heightPt: mm(420), kind: 'set' },
+  // 🖼 THE "OUR DAY" POSTER (owner 2026-11-13, DECISION_LOG "OUR DAY POSTER" rows; approved drawing v4): the keepsake that
+  // sums up the day — the couple's template, photos and people. Its sizes are its own two lists (`lib/day-poster.ts`); the
+  // spec's trim is the free A4. A POST-EVENT piece: kept OUT of `PRINT_SET_KEYS` (see `POST_EVENT_PRINT_KEYS`).
+  'day-poster': { key: 'day-poster', label: 'Our Day poster', size: 'A4 free · wall sizes and canvas', widthPt: mm(210), heightPt: mm(297), kind: 'set' },
   // Laid out at 3 : 4 and fitted to its FORMAT (A5 by default, or an index card).
   card: { key: 'card', label: 'Event card', size: 'A5 · index card', widthPt: inch(4.5), heightPt: inch(6), kind: 'set' },
   passes: { key: 'passes', label: 'Every guest’s ticket', size: 'ganged on A4 with cut lines', widthPt: 90 * (72 / 25.4), heightPt: 54 * (72 / 25.4), kind: 'batch' },
@@ -178,6 +184,14 @@ export function isProPrint(theme: InviteThemeId): boolean {
 /** The themed pieces, in the Maker's order — the three invitation cards, the menu, then the rest. */
 export const PRINT_SET_KEYS = ['invitation', 'entourage', 'details', 'menu', 'pass', 'poster', 'story-poster', 'card'] as const satisfies readonly PrintPieceKey[];
 export type PrintSetKey = (typeof PRINT_SET_KEYS)[number];
+
+/**
+ * 🖼 THE PRINTS MADE AFTER THE DAY — kept out of `PRINT_SET_KEYS`, in this ONE named place (drawing v4 build notes: "decide
+ * whether a post-event poster belongs in a before-the-day set; if not, exclude it in one named place"). The whole set, the
+ * set's sample sheet and Everything ◆ are the invitation set a couple prints BEFORE the day; the Our Day poster is made
+ * from the day's own photos, after it, in its own builder. 🔒 `lib/day-poster.test.ts`.
+ */
+export const POST_EVENT_PRINT_KEYS = ['day-poster'] as const satisfies readonly PrintPieceKey[];
 
 export function isPrintSetKey(v: unknown): v is PrintSetKey {
   return typeof v === 'string' && (PRINT_SET_KEYS as readonly string[]).includes(v);
@@ -306,7 +320,7 @@ export const DIE_CUTS: Record<InviteThemeId, DieCut> = {
  */
 export function dieCutFor(theme: InviteThemeId, piece: PrintPieceKey, format?: Pick<PrintFormat, 'wMm' | 'hMm'> | null, passCorners: PassCorners = 'rounded'): DieCut {
   if (piece === 'pass' || piece === 'passes') return passCorners === 'square' ? 'rect' : 'rounded';
-  if (piece === 'poster' || piece === 'story-poster' || PRINT_PIECES[piece].kind === 'free') return 'rect';
+  if (piece === 'poster' || piece === 'story-poster' || piece === 'day-poster' || PRINT_PIECES[piece].kind === 'free') return 'rect';
   const cut = DIE_CUTS[theme];
   // An arch or a chevron is drawn across the sheet's WIDTH; on a LANDSCAPE card
   // (an index card) an arch that wide would take away the whole top of the card
@@ -822,6 +836,12 @@ export type StoredPrintDetails = {
    * Saved by the Maker's Details › Names dropdown (`POST /api/hub-print/name-style`).
    */
   nameStyle?: NameStyle;
+  /**
+   * 🖼 THE OUR DAY POSTER'S BUILDER RECORD (`lib/day-poster.ts`, stored as `day_poster`): template, main and supporting
+   * photos, the seven switches, the couple's line, style, size and the Finalize stamp. Absent reads as the default.
+   * Every writer of this column carries it through parse/serialize, so no other save erases it.
+   */
+  dayPoster?: DayPoster;
 };
 
 export type PosterPhoto = { ref: string; w: number | null; h: number | null };
@@ -973,6 +993,7 @@ export function parsePrintDetails(raw: unknown): StoredPrintDetails {
     passDesign: passCardDesignFrom(r.pass_design),
     posterPhoto: parsePosterPhoto(r.poster_photo),
     nameStyle: nameStyleFrom(r.name_style),
+    ...(r.day_poster && typeof r.day_poster === 'object' ? { dayPoster: parseDayPoster(r.day_poster) } : {}),
   };
 }
 
@@ -987,6 +1008,8 @@ export function serializePrintDetails(d: StoredPrintDetails): Record<string, unk
     pass_design: d.passDesign ?? DEFAULT_PASS_CARD_DESIGN,
     poster_photo: d.posterPhoto ? { ref: d.posterPhoto.ref, w: d.posterPhoto.w, h: d.posterPhoto.h } : null,
     name_style: d.nameStyle ?? DEFAULT_NAME_STYLE,
+    // Only once the couple has opened the builder — an untouched event's JSON stays byte for byte as it was.
+    ...(d.dayPoster ? { day_poster: serializeDayPoster(d.dayPoster) } : {}),
   };
 }
 

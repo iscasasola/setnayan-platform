@@ -109,6 +109,12 @@ const NO_GRANT_NEEDED = new Set([
   // grant would let any member write it past the host check.
   'checkin_desk_access',
 
+  // ── ⚖ WHO THE EVENT IS FOR — the free booking fee's gate (20271360986087, owner 2026-11-23) ──────────────────
+  // Written only by the create actions (service role) and read only by `booking_fee_event_is_for_you` (service role)
+  // and the supplier's fee preview (admin client). A user grant would let a host write "For you" past the server's
+  // check, and the free booking fee depends on it; the lock trigger refuses every change once a supplier joins.
+  'for_whom',
+
   // ── ✅ THE 2026-08-15 BILL IS PAID — every line below was CHECKED ──────────
   // That list said: "Whether each is a live defect depends on whether its
   // feature reads it through the cookie-scoped client or only through

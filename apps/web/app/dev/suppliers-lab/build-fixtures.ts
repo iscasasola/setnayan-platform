@@ -21,8 +21,8 @@ const v = (vendorId: string, name: string, planGroupId: string, status: BuildLin
 });
 
 export const LAB_BUILD_TILES: ReadonlyArray<{ tile: string; label: string; vendors: BuildLineInputVendor[] }> = [
-  { tile: 'reception', label: 'Reception', vendors: [v('v-seda', 'Seda Vertis North', 'reception_venue', 'locked')] },
-  { tile: 'ceremony_venue', label: 'Ceremony', vendors: [v('v-santuario', 'Santuario de San Vicente de Paul', 'ceremony_venue', 'locked')] },
+  { tile: 'reception', label: 'Reception', vendors: [v('v-seda', 'Tala Grove Pavilion', 'reception_venue', 'locked')] },
+  { tile: 'ceremony_venue', label: 'Ceremony', vendors: [v('v-santuario', 'Kapilya ng Liwayway', 'ceremony_venue', 'locked')] },
   { tile: 'cake', label: 'Cake', vendors: [v('v-asukal', 'Asukal Cakes', 'cake'), v('v-bibingka', 'Bibingka Bakehouse', 'cake')] },
   {
     tile: 'catering',
@@ -30,7 +30,7 @@ export const LAB_BUILD_TILES: ReadonlyArray<{ tile: string; label: string; vendo
     vendors: [
       v('v-bituin', 'Bituin Catering', 'catering'),
       v('v-hiraya', 'Hiraya Table', 'catering'),
-      v('v-lola', 'Kusina ni Lola', 'catering'),
+      v('v-lola', 'Kusina Talahib', 'catering'),
       v('v-luntian', 'Luntian Buffet', 'catering'),
       v('v-mesa', 'Mesa Kusina', 'catering'),
     ],
@@ -42,7 +42,7 @@ export const LAB_BUILD_TILES: ReadonlyArray<{ tile: string; label: string; vendo
  *  booked, on those two lines — the copy `buildShortlistFolders` makes. */
 export const LAB_COVERED_TILES: ReadonlySet<string> = new Set(['cake', 'catering']);
 export const LAB_SEDA_COVERED: BuildLineInputVendor = {
-  ...v('v-seda', 'Seda Vertis North', 'reception_venue', 'locked'),
+  ...v('v-seda', 'Tala Grove Pavilion', 'reception_venue', 'locked'),
   includedWith: 'Reception',
 };
 
@@ -82,8 +82,8 @@ const p = (groupId: string, label: string, vendorId: string, vendorName: string,
 });
 
 const BOOKED: BuildSnapshotPick[] = [
-  p('reception_venue', 'Reception', 'v-seda', 'Seda Vertis North', true),
-  p('ceremony_venue', 'Ceremony', 'v-santuario', 'Santuario de San Vicente de Paul', true),
+  p('reception_venue', 'Reception', 'v-seda', 'Tala Grove Pavilion', true),
+  p('ceremony_venue', 'Ceremony', 'v-santuario', 'Kapilya ng Liwayway', true),
 ];
 
 export type LabSavedBuild = { id: string; title: string | null; budgetPhp: number | null; created: number; picks: BuildSnapshotPick[] };

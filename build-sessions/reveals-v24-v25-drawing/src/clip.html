@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0;background:#888">
+<div id="ph" style="position:absolute;left:0;top:0;width:300px;height:520px;overflow:hidden;background:#222 center/cover">
+<canvas id="c" style="position:absolute;inset:0;width:300px;height:520px"></canvas></div>
+<canvas id="sheet" width="1800" height="2080" style="position:absolute;left:0;top:0;width:1800px;height:2080px;z-index:5;background:#888"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="tex.js"></script><script src="old.js"></script><script src="core4.js"></script><script src="oldcloth.js"></script><script src="rigid.js"></script><script src="fx.js"></script><script src="drape.js"></script><script src="aisle.js"></script><script src="ribbon.js"></script><script src="round3.js"></script><script src="env2.js"></script><script src="gift3.js"></script>
+<script>
+window.onerror=function(m,u,l){var x=document.getElementById('sheet').getContext('2d');x.fillStyle='#fff';x.font='14px sans-serif';x.fillText(m+' @'+l,10,20);};
+var q=new URLSearchParams(location.search), r=q.get('r')||'gift', t=parseFloat(q.get('t')||'0'), w=parseFloat(q.get('w')||'0');
+document.getElementById('ph').style.backgroundImage='url('+TEX.coverCale+')';
+(q.get('o')||'').split(',').forEach(function(kv){ if(!kv) return; var a=kv.split(':'); RV.opts[r]=RV.opts[r]||{}; RV.opts[r][a[0]]=a[1]; });
+RV.mount(document.getElementById('c'));
+RV.seekFrames(r, [[0.5,null],[t,function(){ if(t>0) RV.play(); }],[w,null]], parseInt(q.get('n')||'24'), parseInt(q.get('e')||'7'), document.getElementById('sheet'), 6);
+</script>

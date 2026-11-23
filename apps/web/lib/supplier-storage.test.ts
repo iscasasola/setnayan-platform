@@ -157,28 +157,28 @@ const MEDIA = { media: true, evidence: false };
 const DOC = { media: false, evidence: false };
 const EVIDENCE = { media: false, evidence: true };
 
-test('checkSupplierStorage: photos fit the plan LESS the chat & documents room — Plus holds 118 GB of photos (128 − 10)', async () => {
-  const r = await server.checkSupplierStorage(stub({ tier: 'solo', used: 117.9 * GB }), 'shop', 200_000_000, MEDIA);
+test('checkSupplierStorage: photos fit the plan LESS the chat & documents room — Plus holds 123 GB of photos (128 − its 5 GB room)', async () => {
+  const r = await server.checkSupplierStorage(stub({ tier: 'solo', used: 122.9 * GB }), 'shop', 200_000_000, MEDIA);
   assert.equal(r.kind, 'full');
   assert.match(r.kind === 'full' ? r.message : '', /This file is 200 MB, and your Plus plan has 100 MB left for photos and video\. Remove files to make room or move to Pro/);
-  assert.equal((await server.checkSupplierStorage(stub({ tier: 'solo', used: 117.9 * GB }), 'shop', 50_000_000, MEDIA)).kind, 'fits');
+  assert.equal((await server.checkSupplierStorage(stub({ tier: 'solo', used: 122.9 * GB }), 'shop', 50_000_000, MEDIA)).kind, 'fits');
   // A shop already over (grandfathered) keeps everything — and is refused only the next file.
   assert.equal((await server.checkSupplierStorage(stub({ tier: 'pro', used: 600 * GB }), 'shop', 1)).kind, 'full');
   // Free · Verified: counted, refused past their photo space; a blind read fails closed.
   assert.equal((await server.checkSupplierStorage(stub({ tier: 'free', used: 0.9 * GB }), 'shop', 200_000_000)).kind, 'full');
-  assert.equal((await server.checkSupplierStorage(stub({ tier: 'verified', used: 0.5 * GB }), 'shop', 0.5 * GB)).kind, 'fits', 'Verified: 2 GB less its 1 GB room');
-  assert.equal((await server.checkSupplierStorage(stub({ tier: 'verified', used: 0.5 * GB }), 'shop', 0.5 * GB + 1)).kind, 'full');
+  assert.equal((await server.checkSupplierStorage(stub({ tier: 'verified', used: 0.5 * GB }), 'shop', 1.4 * GB)).kind, 'fits', 'Verified: 2 GB less its 100 MB room');
+  assert.equal((await server.checkSupplierStorage(stub({ tier: 'verified', used: 0.5 * GB }), 'shop', 1.4 * GB + 1)).kind, 'full');
   assert.equal((await server.checkSupplierStorage(stub({ tier: 'free', usedError: true }), 'shop', 1)).kind, 'unavailable');
 });
 
 test('a DOCUMENT fits the room; the room never borrows photo space and photos never borrow the room', async () => {
-  // Plus: 10 GB room. Photos empty, room at 9.99 GB: a 20 MB PDF waits; a 20 MB photo goes in.
-  const full = await server.checkSupplierStorage(stub({ tier: 'solo', used: 0, room: 9.99 * GB }), 'shop', 20 * MB, DOC);
+  // Plus: 5 GB room. Photos empty, room at 4.99 GB: a 20 MB PDF waits; a 20 MB photo goes in.
+  const full = await server.checkSupplierStorage(stub({ tier: 'solo', used: 0, room: 4.99 * GB }), 'shop', 20 * MB, DOC);
   assert.equal(full.kind, 'full');
-  assert.match(full.kind === 'full' ? full.message : '', /Your Plus plan’s 10 GB for chat and documents is full\. Contracts, receipts, payment proofs and your messages still go through\./);
-  assert.equal((await server.checkSupplierStorage(stub({ tier: 'solo', used: 0, room: 9.99 * GB }), 'shop', 20 * MB, MEDIA)).kind, 'fits');
+  assert.match(full.kind === 'full' ? full.message : '', /Your Plus plan’s 5 GB for chat and documents is full\. Contracts, receipts, payment proofs and your messages still go through\./);
+  assert.equal((await server.checkSupplierStorage(stub({ tier: 'solo', used: 0, room: 4.99 * GB }), 'shop', 20 * MB, MEDIA)).kind, 'fits');
   // Photos full, room empty: a PDF still goes in.
-  assert.equal((await server.checkSupplierStorage(stub({ tier: 'solo', used: 118 * GB, room: 0 }), 'shop', 20 * MB, DOC)).kind, 'fits');
+  assert.equal((await server.checkSupplierStorage(stub({ tier: 'solo', used: 123 * GB, room: 0 }), 'shop', 20 * MB, DOC)).kind, 'fits');
 });
 
 test('EVIDENCE is counted but NEVER refused — not when full, not when the read is blind (owner 22 Nov, spec § ★ K)', async () => {

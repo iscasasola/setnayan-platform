@@ -191,24 +191,23 @@ const MEDIA_ARCHIVE_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * 🗄 THE CHAT & DOCUMENTS ROOM, as ruled (owner 22 Nov "A RESERVED CHAT & DOCUMENTS ROOM INSIDE EVERY SUPPLIER PLAN";
- * Verified's 1 GB from 23 Nov "VERIFIED SUPPLIER STORAGE IS 2 GB"; Plus 10 GB kept by "PLUS CUT TO 128 GB"). ONE
- * constant map, switchable (spec § ★ K: "Sizes as ONE constant map … re-measure once real shops use it").
+ * 🗄 THE CHAT & DOCUMENTS ROOM, as ruled — owner 23 Nov, the room beside each new storage size, verbatim:
+ * *"storage - Chat&Documents · Free 50Mb - 5Mb · Verified 1Gb - 100Mb · Plus 50Gb - 5Gb · Pro 256Gb - 25Gb ·
+ * Ultra 1Tb - 100 Gb"* (about a tenth of each plan; supersedes the 22 Nov room sizes 0.5 GB · 1 GB · 10 GB · 50 GB).
+ * ONE constant map, switchable (spec § ★ K: "Sizes as ONE constant map … re-measure once real shops use it").
  */
 export const DOCUMENTS_ROOM_RULED_BYTES: Readonly<Record<VendorTier, number>> = {
-  free: 0.5 * 1e9,
-  verified: 1 * 1e9,
-  solo: 10 * 1e9,
-  pro: 50 * 1e9,
+  free: 5 * 1e6,
+  verified: 100 * 1e6,
+  solo: 5 * 1e9,
+  pro: 25 * 1e9,
   enterprise: 100 * 1e9,
 };
 
 /**
- * The room a plan keeps for chat and documents, in bytes. The ruled size — but never more than HALF the plan: the
- * Verified row's own rule (23 Nov, "so the room never equals the whole plan", half of its storage, "the same share as
- * Free's 0.5 of 1 GB"). Free was cut to 256 MB the same day, after the room was sized for a 1 GB Free, so its ruled
- * 0.5 GB would be the whole plan and more; half keeps Free's share as ruled. 🚩 Flagged to the controller for a
- * DECISION_LOG row. Null = the plan holds no allowance.
+ * The room a plan keeps for chat and documents, in bytes: the ruled size, never more than HALF the plan (23 Nov, "so
+ * the room never equals the whole plan"). Every ruled room is about a tenth of its plan, so the half cap only bites if a
+ * plan's storage is ever cut below twice its room. Null = the plan holds no allowance.
  */
 export function documentsRoomBytes(plan: string | null | undefined): number | null {
   const allowance = storageAllowanceBytes(plan);

@@ -20,7 +20,7 @@ Owner, 23 Nov (DECISION_LOG "THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SH
   - documents fit the room;
   - **evidence** (verification papers, contracts) is counted but never refused, even when the read fails;
   - words, quotes, receipts and payment proofs are never gated.
-- **The room size.** Free 0.5 · Verified 1 · Plus 10 · Pro 50 · Ultra 100 GB, as ruled, in one constant map (`DOCUMENTS_ROOM_RULED_BYTES`). It is never more than half the plan (the Verified row's own rule), so Free's room reads 128 MB until a ruling says otherwise.
+- **The room size.** Owner 23 Nov: *"Free 50Mb - 5Mb · Verified 1Gb - 100Mb · Plus 50Gb - 5Gb · Pro 256Gb - 25Gb · Ultra 1Tb - 100 Gb"*. Rooms are Free 5 MB · Verified 100 MB · Plus 5 GB · Pro 25 GB · Ultra 100 GB (about a tenth of each plan), in one constant map (`DOCUMENTS_ROOM_RULED_BYTES`), never more than half the plan. The storage sizes themselves change in the storage-ladder PR.
 - Guards:
   - `tests/db/the-meter-counts-every-shop-table.db.test.ts`: every shop table counted or left out with a reason; a new table counted; booking rows; a new shop's few KB; a busy shop's kinds; the media twin; service role only.
   - `lib/the-meter-counts-every-upload-root.test.ts`: every upload folder in the app is a counted shop root or a named non-shop root.

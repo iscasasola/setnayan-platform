@@ -48,13 +48,9 @@ test('🔏 both envelopes press the couple’s seal: their recipe, their wax whe
   assert.match(ENV, /recipe\.press\.depth/, 'the seal’s depth is not their press');
   assert.match(ENV, /color \? new THREE\.Color\(color\)\.convertSRGBToLinear\(\) : 0xb98a2c/, 'the wax colour does not follow the minted seal');
   assert.match(ENV, /seal = makeSeal\(c, 0\.5, false\)/, 'the classic envelope lost its seal');
-  assert.match(ENV, /seal = makeSeal\(c, 0\.4, true\)/, 'the gatefold has no seal');
-  assert.match(ENV, /function placeSeal\(\)/, 'the gatefold’s seal does not ride its panel');
-  /* the seal never breaks (owner 23 Nov): every piece of the gatefold's seal takes the one panel's transform */
-  const place = ENV.slice(ENV.indexOf('function placeSeal()'));
-  assert.match(place, /const tp = flaps\[0\]\?\.tip;/, 'the gatefold’s seal does not follow the first panel');
-  assert.match(place, /for \(const half of seal\) \{/, 'the gatefold’s seal pieces move apart');
-  assert.doesNotMatch(place, /\[right, left\] = seal/, 'the gatefold’s seal breaks in two again');
+  assert.match(ENV, /else seal = makeSeal\(c, 0\.4, true\)/, 'the sealed gatefold has no seal');
+  /* the sealed gatefold's seal rides the left panel whole (held by the-gatefold-is-sealed-or-tied.test.ts) */
+  assert.match(ENV, /function placeSeal\(\): void/, 'the gatefold’s seal does not ride its panel');
   assert.match(STAGE, /sealConfig\s*\?\s*\{ recipe: cb\.current\.sealConfig/, 'the stage does not pass the minted seal');
   assert.match(STAGE, /defaultConfigFromSeed\(cb\.current\.sealFallbackSeed/, 'an unminted event has no seal of its own');
   assert.match(OVERLAY, /sealConfig=\{sealConfig\}/, 'the guest page does not hand the seal to the reveal');

@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { ss } from '@/lib/reveal-motion';
 import { DEFAULT_VEIL_LOOK } from '@/lib/reveal-config-pure';
 import { CAMZ, FZ, canvas, ctx2d, shadowsOnly, stamp, texOf, veilLights, wideness, type Ctx, type Pt, type Scene } from './kit';
+import { CLOTH_TOP, clothLength, holdEdges, pullWay } from '@/lib/veil-cloth';
 
 const L = DEFAULT_VEIL_LOOK;
 const COMP = 0.16;
@@ -178,6 +179,8 @@ class Drape {
   t = 0;
   settling = false;
   tapAt: Pt | null = null;
+  /** The way a swipe went (world, +y up), when it was one; a tap pulls from the centre toward where it touched. */
+  pullDir: Pt | null = null;
   lead: Lead[] | null = null;
   constructor(
     private c: Ctx,
@@ -203,8 +206,11 @@ class Drape {
     this.qy = new Float32Array(N);
     this.qz = new Float32Array(N);
     this.free = new Uint8Array(cols);
-    this.topPin = vh * 1.06;
-    this.clothH = vh * (2.12 - cf.reach / 47);
+    /* 🖼 every cloth reaches 10 % past every edge of the screen, so no corner ever peeks (owner 23 Nov: *"let tha fabric
+       be 10% larger than the screen so corners will not peek (all corners)"* · *"Veil and Curtains must exceed 10%
+       beyond the corners"*): pinned above the top, its hem below the bottom; `reach` hangs it longer still */
+    this.topPin = vh * CLOTH_TOP;
+    this.clothH = clothLength(vh, cf.reach);
     const x0 = o.x0 ?? -vw * 1.2;
     const x1 = o.x1 ?? vw * 1.2;
     const pinW = (this.pinW = x1 - x0);
@@ -470,22 +476,36 @@ class Drape {
       }
     }
     if (slide && lift > 0.004) {
-      /* the hand: it lifts a pinch of cloth and walks it down and off */
+      /* the hand: it takes a palm of cloth where they touched and walks it off the way they meant (owner 23 Nov:
+         *"Where they touch will drage the fabric from the center to that direction"*): along a swipe, else from the
+         cloth's centre toward the touch; a touch at the very centre (or none, hands-free) pulls it down. Across the
+         pull the hand drifts back toward the middle, so the gather follows the finger and the cloth leaves whole. */
       const sp = this.tapAt ?? { x: 0, y: -vh * 0.55 };
       if (!this.lead) this.lead = this.leadAround(sp, palmR(vh, cf.hold) * 1.3, 0);
+      const u = pullWay(this.pullDir, sp, vw, vh);
+      const along = sp.x * u.x + sp.y * u.y;
+      const ax = sp.x - u.x * along;
+      const ay = sp.y - u.y * along;
+      /* far enough along the pull that the whole cloth is off the screen (straight down: 3.4 screen half-heights) */
+      const off = 3.4 * (Math.abs(u.x) * vw + Math.abs(u.y) * vh);
       const dn = ss(0.0, 1, lift);
-      const hx = sp.x * (1 - 0.6 * dn);
-      const hy2 = sp.y + (-vh * 3.4 - sp.y) * dn;
+      const s = along + (off - along) * dn;
+      const hx = u.x * s + ax * (1 - 0.6 * dn);
+      const hy2 = u.y * s + ay * (1 - 0.6 * dn);
       const hz2 = FZ + 0.22 * Math.sin(Math.PI * Math.min(1, dn * 3));
       if (this.fold && this.hand) {
-        /* crumpled satin: the cloth below the hand slides on ahead of it (carried, not pushed), so the slack never
+        /* crumpled satin: the cloth ahead of the hand slides on with it (carried, not pushed), so the slack never
            ploughs up under the hand */
-        const dyH = hy2 - this.hand.y;
+        const mx = hx - this.hand.x;
+        const my = hy2 - this.hand.y;
+        const hs = hx * u.x + hy2 * u.y;
         for (let k = 0; k < N; k++) {
-          const below = 0.9 * ss(0, 0.3, hy2 - py[k]!);
-          if (below > 0) {
-            py[k] = py[k]! + dyH * below;
-            qy[k] = qy[k]! + dyH * below;
+          const ahead = 0.9 * ss(0, 0.3, px[k]! * u.x + py[k]! * u.y - hs);
+          if (ahead > 0) {
+            px[k] = px[k]! + mx * ahead;
+            qx[k] = qx[k]! + mx * ahead;
+            py[k] = py[k]! + my * ahead;
+            qy[k] = qy[k]! + my * ahead;
           }
         }
       }
@@ -554,6 +574,8 @@ class Drape {
     }
     /* stiffer as it slides: the gathered hem folds in soft pleats, never in creases one thread wide */
     if (this.fold) this.bend(BEND * (1 + 2 * ss(0.02, 0.3, lift)));
+    /* 🖼 closed, the hanging cloth's outer edges stay past the screen's sides (a curtain holds its outer edge only) */
+    if (!slide) holdEdges(px, cols, rows, vw, 1 - ss(0, 0.2, lift), this.side <= 0, this.side >= 0);
     for (let s = 0, n = held ? HELD_FINAL : CLAMPS; s < n; s++) this.clampPass();
     if (slide && lift > 0.004) {
       const sm = 0.22;
@@ -631,10 +653,11 @@ class Drape {
   }
 }
 
-function clothScene(o: { dir?: readonly [number, number]; push?: number; srgb?: boolean; fromTap?: boolean; build: (c: Ctx) => Promise<Drape[]> | Drape[] }): Scene {
+function clothScene(o: { dir?: readonly [number, number]; anyDir?: boolean; push?: number; srgb?: boolean; fromTap?: boolean; build: (c: Ctx) => Promise<Drape[]> | Drape[] }): Scene {
   let drapes: Drape[] = [];
   return {
     dir: o.dir,
+    anyDir: o.anyDir,
     push: o.push,
     srgb: o.srgb ?? true,
     dragZ: FZ + 0.63,
@@ -645,8 +668,12 @@ function clothScene(o: { dir?: readonly [number, number]; push?: number; srgb?: 
     step(dt, _t, lift, fth) {
       for (const d of drapes) d.step(dt, lift, fth);
     },
-    opened(wx, wy) {
-      if (o.fromTap) for (const d of drapes) d.tapAt = { x: wx, y: wy };
+    opened(wx, wy, _nx, _ny, pull) {
+      if (o.fromTap)
+        for (const d of drapes) {
+          d.tapAt = { x: wx, y: wy };
+          d.pullDir = pull ?? null;
+        }
     },
     grab(id, w) {
       for (const d of drapes) d.grab(id, w);
@@ -678,8 +705,8 @@ export const beachCurtains = (): Scene =>
             mode: 'curtain',
             side,
             /* the halves overlap at the middle; more folds on a wide screen gather more, so they overlap more */
-            x0: side < 0 ? -vw * 1.12 : -lap,
-            x1: side < 0 ? lap : vw * 1.12,
+            x0: side < 0 ? -vw * 1.2 : -lap,
+            x1: side < 0 ? lap : vw * 1.2,
             material: mat,
             tilePx: 96,
             shadow: true,
@@ -701,6 +728,7 @@ export const beachCurtains = (): Scene =>
 export const fabric = (): Scene =>
   clothScene({
     dir: [0, 1],
+    anyDir: true,
     push: 0.14,
     fromTap: true,
     async build(c) {

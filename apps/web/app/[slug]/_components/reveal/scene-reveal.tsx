@@ -24,10 +24,11 @@
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { REVEAL_MOTION, REVEAL_REDUCED_FADE_MS, handsFreeTarget, pushedZ, readGesture, revealDt, snapRevealSpeed, stepLift } from '@/lib/reveal-motion';
+import { REVEAL_MOTION, REVEAL_REDUCED_FADE_MS, handsFreeTarget, pushedZ, readGesture, revealDt, revealPlaysAt, stepLift } from '@/lib/reveal-motion';
 import { DEFAULT_REVEAL_CONFIG, REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config-pure';
 import { claimVeilHold, primeUnveilPress } from '@/lib/hub-veil';
 import { defaultConfigFromSeed, type WaxSealConfig } from '@/lib/wax-seal/types';
+import type { GatefoldClosure } from '@/lib/std-reveal-effects';
 import { CAMZ, FOV, FZ, LEGACY_FOV, LEGACY_H, disposeScene, logoMask, seeded, type ArtName, type Ctx, type Pt, type Scene, type SceneState } from './scenes/kit';
 
 /** Each reveal's scene, in its own chunk. The veil's is its still face only (reduced motion); the live veil is `veil-reveal.tsx`. */
@@ -61,6 +62,8 @@ type Props = {
   sealConfig?: WaxSealConfig | null;
   /** The pour to use until they mint one (from the event's public id), so every event's seal is its own. */
   sealFallbackSeed?: number;
+  /** 🎀 The gatefold's closure: the couple's seal (default) or a ribbon and bow, never both. */
+  closure?: GatefoldClosure;
   /** The event's wax colour (Mood Board), for a minted seal that left its wax on "follow the event". */
   waxColor?: string;
   /** ♿ Reduced motion: the closed reveal, still; a tap cross-fades it away. */
@@ -94,7 +97,7 @@ export default function SceneReveal(props: Props) {
     const hit = hitRef.current;
     if (!mount || !hit) return;
     const { kind, still = false, autoplay = false, autoplayAfterMs = 0, lowRes = false } = cb.current;
-    const speed = snapRevealSpeed(cb.current.speedSec);
+    const speed = revealPlaysAt(kind, cb.current.speedSec);
     let dead = false;
     let cleared = false;
     const timers: number[] = [];
@@ -171,11 +174,11 @@ export default function SceneReveal(props: Props) {
       locked = v > 0.3;
     };
     /** The unveil: once. `gesture` — inside a guest's own touch, where the music may start. */
-    const opened = (nx: number, ny: number, gesture: boolean) => {
+    const opened = (nx: number, ny: number, gesture: boolean, pull?: Pt) => {
       if (state !== 'closed' || !sc) return;
       state = 'opening';
       const w = world(nx, ny, FZ);
-      sc.opened?.(w.x, w.y, nx, ny);
+      sc.opened?.(w.x, w.y, nx, ny, pull);
       if (gesture) {
         try {
           cb.current.onUnveil?.();
@@ -286,7 +289,12 @@ export default function SceneReveal(props: Props) {
       if (!g || !sc) return;
       grabs.delete(e.pointerId);
       const [nx, ny] = ndc(e);
-      const gesture = readGesture({ dx: e.clientX - g.x0, dy: e.clientY - g.y0, ms: performance.now() - g.t0, dir: sc.dir });
+      const dx = e.clientX - g.x0;
+      const dy = e.clientY - g.y0;
+      const m = Math.hypot(dx, dy);
+      /* a reveal that opens any way (the fabric) reads the swipe along its own way, and is pulled that way */
+      const way = sc.anyDir && m > 0 ? ([dx / m, dy / m] as const) : sc.dir;
+      const gesture = readGesture({ dx, dy, ms: performance.now() - g.t0, dir: way });
       if (still) {
         if (gesture !== 'hold' || sc.noTap) stillOpen(true);
         return;
@@ -294,7 +302,7 @@ export default function SceneReveal(props: Props) {
       sc.release?.(e.pointerId, nx, ny);
       if (sc.noTap) return;
       if (gesture === 'open') {
-        opened(nx, ny, true);
+        opened(nx, ny, true, sc.anyDir && m > 0 ? { x: dx / m, y: -dy / m } : undefined);
         setLift(1);
       } else if (gesture === 'tap') tapOpen(nx, ny, true);
       /* 'close' is not offered: one unveil per visit (the page and the song have already started) */
@@ -337,6 +345,7 @@ export default function SceneReveal(props: Props) {
       if (legacy) {
         camera.fov = LEGACY_FOV;
         camera.position.set(0, 0, H / 2 / Math.tan((LEGACY_FOV / 2) * (Math.PI / 180)));
+        camera.zoom = s.bleed ?? 1;
         camera.updateProjectionMatrix();
       }
       z0 = camera.position.z;
@@ -371,6 +380,7 @@ export default function SceneReveal(props: Props) {
         seal: cb.current.sealConfig
           ? { recipe: cb.current.sealConfig, color: cb.current.sealConfig.wax.color ?? cb.current.waxColor ?? null }
           : { recipe: defaultConfigFromSeed(cb.current.sealFallbackSeed ?? 1), color: null },
+        closure: cb.current.closure ?? 'seal',
         open: (nx, ny) => {
           if (still) return stillOpen(false);
           if (state !== 'closed') return;

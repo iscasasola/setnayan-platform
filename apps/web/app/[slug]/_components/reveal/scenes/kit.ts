@@ -3,7 +3,7 @@
  * Scratch · Smoke · Cathedral doors · Petals · Fireworks). The veil keeps its own engine (`../veil-reveal.tsx`).
  *
  * A port of the approved drawing's shared stage (specs `prototypes/reveals_round3_veil_rules_2026-11-23/src/`
- * `core4.js` + `old.js`): the camera, the lights, the shadow catchers, the hinge spring, the
+ * `core4.js` + `old.js`): the camera, the lights, the shadow catchers, the hinge spring, the verlet ribbon, the
  * event's logo as a stamp. Timing is NOT here: every reveal is driven by the one lift in `lib/reveal-motion.ts`
  * (`scene-reveal.tsx` runs it). Loaded only inside a reveal's own chunk, never on the page's first load.
  *
@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { buildMarkCanvas } from '@/lib/wax-seal/paint';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
+import type { GatefoldClosure } from '@/lib/std-reveal-effects';
 
 /**
  * r128 → today's bump units. r128 measured a bump against the screen pixel's size in the world; today's three.js
@@ -110,6 +111,8 @@ export type Ctx = {
    * else null, and the envelope keeps the drawing's gold.
    */
   seal: { recipe: WaxSealConfig; color: string | null };
+  /** 🎀 How the gatefold is closed: the couple's seal or a ribbon and bow, never both (`RevealEffects.gatefoldClosure`). */
+  closure: GatefoldClosure;
   /** Scratch: ask the stage to open (at 60 % rubbed). */
   open: (nx: number, ny: number) => void;
   state: () => SceneState;
@@ -124,6 +127,10 @@ export type Scene = {
   dir?: readonly [number, number];
   /** No tap opens it (scratch: it opens at 60 % rubbed). */
   noTap?: boolean;
+  /** 🖼 The cover reaches this far past every edge of the screen (a half-extent share; the camera frames in by it), so
+   *  no edge of it ever shows (owner 23 Nov: *"the upper part must not cut vertically. We want the illusion that it is
+   *  larger than the screen"*). Default 1: the cover is the screen. */
+  bleed?: number;
   /** It flies its own camera (the doors' glide) — no shared push-in. */
   ownCam?: boolean;
   /** How far the shared push-in travels (default `REVEAL_MOTION.PUSH`). */
@@ -140,7 +147,10 @@ export type Scene = {
   init: (c: Ctx) => Promise<void> | void;
   /** One frame. `x` is the lift (cloth) or tau in seconds (solid; −1 while closed). */
   step: (dt: number, t: number, x: number, feather: boolean) => void;
-  opened?: (wx: number, wy: number, nx: number, ny: number) => void;
+  /** Opened at (wx, wy) world / (nx, ny) screen; `pull`: a swipe's own way, in world units (+y up), when it was one. */
+  opened?: (wx: number, wy: number, nx: number, ny: number, pull?: Pt) => void;
+  /** A swipe any way opens it, along that way (the fabric) — else only along `dir`. */
+  anyDir?: boolean;
   grab?: (id: number, w: Pt, nx: number, ny: number) => void;
   drag?: (id: number, w: Pt, nx: number, ny: number) => void;
   release?: (id: number, nx: number, ny: number) => void;
@@ -157,6 +167,8 @@ export const ease = (x: number) => {
   return t * t * (3 - 2 * t);
 };
 export const easeOut = (x: number) => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
+export const noise = (x: number, y: number, tt: number) =>
+  Math.sin(x * 1.7 + tt * 1.3) * Math.cos(y * 1.3 - tt * 0.9) + 0.5 * Math.sin(x * 3.1 - tt * 2.1 + y * 2.3);
 /** The drawing's seeded random (`RV.rand`), so a reveal looks the same every time it plays. */
 export function seeded(seed: number): () => number {
   let s = seed;
@@ -281,6 +293,114 @@ export class Hinge {
     this.v += (this.k * (this.target - this.a) - this.c * this.v) * dt;
     this.a += this.v * dt;
     return this.a;
+  }
+}
+
+/** A verlet chain — the satin ribbon's spine (drawing `old.js` `RV.Strip`). */
+export class Strip {
+  n: number;
+  p: Float32Array;
+  q: Float32Array;
+  inv: Float32Array;
+  rest: Float32Array;
+  pin: Record<number, [number, number, number]> = {};
+  shape: Float32Array;
+  anchor: [number, number, number];
+  stiff = 0;
+  shrink = 1;
+  damp = 0.985;
+  fl: number | null = null;
+  base: Float32Array | null = null;
+  constructor(pts: number[][]) {
+    const n = (this.n = pts.length);
+    this.p = new Float32Array(n * 3);
+    this.q = new Float32Array(n * 3);
+    this.inv = new Float32Array(n);
+    this.rest = new Float32Array(n - 1);
+    for (let i = 0; i < n; i++) {
+      const pt = pts[i]!;
+      this.p[i * 3] = this.q[i * 3] = pt[0]!;
+      this.p[i * 3 + 1] = this.q[i * 3 + 1] = pt[1]!;
+      this.p[i * 3 + 2] = this.q[i * 3 + 2] = pt[2] ?? 0;
+      this.inv[i] = 1;
+    }
+    for (let i = 0; i < n - 1; i++) {
+      const a = pts[i]!;
+      const b = pts[i + 1]!;
+      this.rest[i] = Math.hypot(b[0]! - a[0]!, b[1]! - a[1]!, (b[2] ?? 0) - (a[2] ?? 0));
+    }
+    this.shape = Float32Array.from(this.p);
+    this.anchor = [pts[0]![0]!, pts[0]![1]!, pts[0]![2] ?? 0];
+  }
+  hold(i: number, x: number, y: number, z = 0): void {
+    this.inv[i] = 0;
+    this.pin[i] = [x, y, z];
+  }
+  free(i: number): void {
+    this.inv[i] = 1;
+    delete this.pin[i];
+  }
+  scaleRest(base: Float32Array, s: number): void {
+    for (let i = 0; i < this.n - 1; i++) this.rest[i] = base[i]! * s;
+  }
+  step(dt: number, gx: number, gy: number, gz: number, tt: number | null): void {
+    const { p, q, n } = this;
+    const dt2 = dt * dt;
+    const d = this.damp;
+    for (let i = 0; i < n; i++) {
+      if (!this.inv[i]) continue;
+      const k = i * 3;
+      const vx = (p[k]! - q[k]!) * d;
+      const vy = (p[k + 1]! - q[k + 1]!) * d;
+      const vz = (p[k + 2]! - q[k + 2]!) * d;
+      q[k] = p[k]!;
+      q[k + 1] = p[k + 1]!;
+      q[k + 2] = p[k + 2]!;
+      const fl = tt == null ? 0 : noise(p[k]! * 2, p[k + 1]! * 2 + i, tt * 2) * 1.2 * (this.fl ?? 1);
+      p[k] = p[k]! + vx + (gx + fl) * dt2;
+      p[k + 1] = p[k + 1]! + vy + gy * dt2;
+      p[k + 2] = p[k + 2]! + vz + (gz + fl * 0.6) * dt2;
+    }
+    if (this.stiff > 0) {
+      const sh = this.shape;
+      const an = this.anchor;
+      for (let i = 0; i < n; i++) {
+        if (!this.inv[i]) continue;
+        const k = i * 3;
+        for (let c = 0; c < 3; c++) {
+          const target = an[c]! + (sh[k + c]! - an[c]!) * this.shrink;
+          p[k + c] = p[k + c]! + (target - p[k + c]!) * this.stiff;
+        }
+      }
+    }
+    for (let it = 0; it < 8; it++) {
+      for (const key of Object.keys(this.pin)) {
+        const i = Number(key);
+        const pin = this.pin[i]!;
+        p[i * 3] = pin[0];
+        p[i * 3 + 1] = pin[1];
+        p[i * 3 + 2] = pin[2];
+      }
+      for (let i = 0; i < n - 1; i++) {
+        const a = i * 3;
+        const b = a + 3;
+        const dx = p[b]! - p[a]!;
+        const dy = p[b + 1]! - p[a + 1]!;
+        const dz = p[b + 2]! - p[a + 2]!;
+        const len = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1e-6;
+        const wa = this.inv[i]!;
+        const wb = this.inv[i + 1]!;
+        const ws = wa + wb;
+        if (!ws) continue;
+        const f = (len - this.rest[i]!) / len / ws;
+        p[a] = p[a]! + dx * f * wa;
+        p[a + 1] = p[a + 1]! + dy * f * wa;
+        p[a + 2] = p[a + 2]! + dz * f * wa;
+        p[b] = p[b]! - dx * f * wb;
+        p[b + 1] = p[b + 1]! - dy * f * wb;
+        p[b + 2] = p[b + 2]! - dz * f * wb;
+      }
+    }
   }
 }
 

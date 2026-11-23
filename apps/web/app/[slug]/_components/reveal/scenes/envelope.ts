@@ -1,15 +1,17 @@
 /**
- * 🎭 THE ENVELOPE, IN THE OWNER'S TWO STYLES (owner 23 Nov: *"we want both styles"*; drawing `src/env2.js`; the
- * drawing's ribbon is gone, owner 23 Nov: *"remove the ribbon"*). Built to read as a photograph: paper that takes light across its relief, gold foil and wax that
+ * 🎭 THE ENVELOPE, IN THE OWNER'S TWO STYLES (owner 23 Nov: *"we want both styles"*; drawing v22 `src/env2.js`). Built to read as a photograph: paper that takes light across its relief, gold foil and wax that
  * mirror a room, soft shadows cast flap on flap, flaps that bend as paper does while they turn, film tone.
  *   CLASSIC  — an ornate scalloped front flap, gold edge, a gold wax seal carrying the event's logo.
- *   GATEFOLD — two embossed panels held by the couple's seal on the seam; the seal swings out with the first panel.
- * The wax seal never shatters: it stays on the flap it was pressed on and goes where that paper goes.
+ *   GATEFOLD — two embossed panels, closed with the couple's seal OR a satin ribbon and bow, never both (owner 23 Nov:
+ *              *"ribbon and wax seal never co exist together"*). Sealed: the whole seal rides the left panel, which opens
+ *              first. Tied: the bow comes undone and the ribbon slides off before the panels part.
+ * The wax seal never breaks: it stays on the flap it was pressed on and goes where that paper goes.
  */
 import * as THREE from 'three';
 import { ss } from '@/lib/reveal-motion';
 import { mulberry32 } from '@/lib/wax-seal/types';
-import { Hinge, alphaBox, canvas, ctx2d, ease, lay, shadowPlane, texOf, wideness, type Ctx, type Scene, BUMP } from './kit';
+import { CLOTH_TOP } from '@/lib/veil-cloth';
+import { Hinge, Strip, alphaBox, canvas, ctx2d, ease, lay, shadowPlane, texOf, wideness, type Ctx, type Scene, BUMP } from './kit';
 
 /* a room for the gold and the wax to mirror: a soft box overhead, a warm window, a dim floor */
 function room(c: Ctx): THREE.Texture {
@@ -297,8 +299,10 @@ function makeSeal(c: Ctx, size: number, vertical: boolean): THREE.Group[] {
   return halves;
 }
 
-/** How far the wax stands off its paper, along the paper's own face (both envelopes). */
+/** How far the wax stands off its paper, along the paper's own face (the classic's flap). */
 const SEAL_LIFT = 0.07;
+/** The gatefold's seal: how far it stands off the left panel, along that panel's face (drawing v22). */
+const SEAL_OFF = 0.02;
 
 /** What is inside: its lining, and a warm light that pours out as the flaps part, then clears to the card. */
 class Inside {
@@ -375,6 +379,9 @@ export const envelopeClassic = (): Scene => {
   let inside: Inside;
   const T = 6.6;
   return {
+    /* 🖼 the envelope is larger than the screen: it reaches 12 % past every edge, as the cloth does, so neither the body
+       nor the flap ever shows a vertical edge (owner 23 Nov: *"the upper part must not cut vertically"*) */
+    bleed: CLOTH_TOP,
     legacyT: T,
     pbr: true,
     exposure: 1.05,
@@ -585,17 +592,279 @@ export const envelopeClassic = (): Scene => {
   };
 };
 
-/** 3b · ENVELOPE, GATEFOLD — the couple's seal on the seam, the panels open like doors */
+/* ── the satin ribbon (drawing `src/ribbon.js`) ───────────────────────────── */
+
+function satinTex(a: string, b: string, cc: string): THREE.Texture {
+  const k = canvas(64, 64);
+  const x = ctx2d(k);
+  const g = x.createLinearGradient(0, 0, 64, 0);
+  g.addColorStop(0, a);
+  g.addColorStop(0.05, b);
+  g.addColorStop(0.5, cc);
+  g.addColorStop(0.95, b);
+  g.addColorStop(1, a);
+  x.fillStyle = g;
+  x.fillRect(0, 0, 64, 64);
+  x.fillStyle = 'rgba(255,255,255,.35)';
+  x.fillRect(2, 0, 1, 64);
+  x.fillRect(61, 0, 1, 64);
+  for (let q = 0; q < 64; q += 2) {
+    x.fillStyle = `rgba(255,255,255,${0.03 + 0.03 * Math.sin(q * 0.7)})`;
+    x.fillRect(0, q, 64, 1);
+  }
+  const t = texOf(k, { srgb: true });
+  t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(1, 6);
+  return t;
+}
+
+type Twist = (s: number, t: number) => number;
+/** A satin band with width in space: it turns over as it twists, cups slightly across, and throws a shadow. */
+class RibbonMesh {
+  M = 4;
+  pos: Float32Array;
+  geo = new THREE.BufferGeometry();
+  mesh: THREE.Mesh;
+  constructor(
+    public s: Strip,
+    public w: number,
+    mat: THREE.Material,
+    public twist: Twist = () => 0,
+    public camber = 0.009,
+  ) {
+    const n = s.n;
+    const M = this.M;
+    const idx: number[] = [];
+    const uv = new Float32Array(n * (M + 1) * 2);
+    for (let i = 0; i < n; i++)
+      for (let j = 0; j <= M; j++) {
+        uv[(i * (M + 1) + j) * 2] = j / M;
+        uv[(i * (M + 1) + j) * 2 + 1] = i / (n - 1);
+        if (i < n - 1 && j < M) {
+          const a = i * (M + 1) + j;
+          idx.push(a, a + 1, a + M + 1, a + 1, a + M + 2, a + M + 1);
+        }
+      }
+    this.pos = new Float32Array(n * (M + 1) * 3);
+    this.geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    this.geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    this.geo.setIndex(idx);
+    this.mesh = new THREE.Mesh(this.geo, mat);
+    this.mesh.castShadow = true;
+    this.mesh.frustumCulled = false;
+    this.update(0);
+  }
+  update(t: number): void {
+    const p = this.s.p;
+    const n = this.s.n;
+    const M = this.M;
+    const v = this.pos;
+    const hw = this.w / 2;
+    const cb = this.camber;
+    for (let i = 0; i < n; i++) {
+      const a = Math.max(0, i - 1) * 3;
+      const b = Math.min(n - 1, i + 1) * 3;
+      let tx = p[b]! - p[a]!;
+      let ty = p[b + 1]! - p[a + 1]!;
+      let tz = p[b + 2]! - p[a + 2]!;
+      const tl = Math.sqrt(tx * tx + ty * ty + tz * tz) || 1e-6;
+      tx /= tl;
+      ty /= tl;
+      tz /= tl;
+      let nx = -tx * tz;
+      let ny = -ty * tz;
+      let nz = 1 - tz * tz;
+      let nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      if (nl < 1e-3) {
+        nx = 0;
+        ny = 1;
+        nz = 0;
+        nl = 1;
+      }
+      nx /= nl;
+      ny /= nl;
+      nz /= nl;
+      const bx = ty * nz - tz * ny;
+      const by = tz * nx - tx * nz;
+      const bz = tx * ny - ty * nx;
+      const ph = this.twist(i / (n - 1), t);
+      const co = Math.cos(ph);
+      const si = Math.sin(ph);
+      const wx = bx * co + nx * si;
+      const wy = by * co + ny * si;
+      const wz = bz * co + nz * si;
+      const ux = nx * co - bx * si;
+      const uy = ny * co - by * si;
+      const uz = nz * co - bz * si;
+      const k = i * 3;
+      for (let j = 0; j <= M; j++) {
+        const u = (j / M) * 2 - 1;
+        const q = (i * (M + 1) + j) * 3;
+        const cu = cb * (1 - u * u);
+        v[q] = p[k]! + wx * u * hw + ux * cu;
+        v[q + 1] = p[k + 1]! + wy * u * hw + uy * cu;
+        v[q + 2] = p[k + 2]! + wz * u * hw + uz * cu;
+      }
+    }
+    (this.geo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+    this.geo.computeVertexNormals();
+  }
+}
+
+/**
+ * The bow across the gatefold's seam and the way it comes undone (the owner's reference): one tail is drawn, the bow
+ * COLLAPSES (its loops pass through the knot), one strand is left across the seam; it is drawn out sideways and
+ * slides off with a flutter and a twist; only then do the panels part.
+ */
+class GateRibbon {
+  mat: THREE.MeshStandardMaterial;
+  parts: Record<string, { st: Strip; rm: RibbonMesh }> = {};
+  swapped = false;
+  gone = false;
+  knot: THREE.Mesh;
+  sR: { st: Strip; rm: RibbonMesh } | null = null;
+  t0 = 0;
+  tw = 0;
+  u = 0;
+  constructor(
+    private c: Ctx,
+    private y: number,
+    private kx: number,
+    private z: number,
+  ) {
+    const { HW, scene } = c;
+    this.mat = new THREE.MeshStandardMaterial({ map: satinTex('#8a4a5e', '#bd7487', '#cf8c9c'), side: THREE.DoubleSide, roughness: 0.24, metalness: 0.16, envMapIntensity: 1.9 });
+    const mk = (name: string, pts: number[][], w: number, tw?: Twist) => {
+      const st = new Strip(pts);
+      st.base = Float32Array.from(st.rest);
+      const rm = new RibbonMesh(st, w, this.mat, tw);
+      scene.add(rm.mesh);
+      this.parts[name] = { st, rm };
+      return st;
+    };
+    const wd = 0.3;
+    let pts: number[][] = [];
+    for (let i = 0; i <= 11; i++) pts.push([-HW - 0.3 + ((kx + HW + 0.3) * i) / 11, y, z]);
+    const bl = mk('bandL', pts, wd);
+    bl.hold(0, -HW - 0.3, y, z);
+    bl.hold(11, kx, y, z);
+    pts = [];
+    for (let i = 0; i <= 17; i++) pts.push([kx + ((HW + 0.3 - kx) * i) / 17, y, z]);
+    const br = mk('bandR', pts, wd);
+    br.hold(0, kx, y, z);
+    br.hold(17, HW + 0.3, y, z);
+    const arc = (sg: number) => {
+      const o: number[][] = [];
+      const n = 20;
+      for (let k = 0; k <= n; k++) {
+        const a = (k / n) * Math.PI * 2;
+        const r = 0.5;
+        o.push([kx + sg * Math.sin(a / 2) * r * 1.45, y + Math.sin(a) * r * 0.44 - Math.sin(a / 2) * 0.1, z + 0.03 + Math.sin(a / 2) * 0.16]);
+      }
+      return o;
+    };
+    for (const S2 of ['L', 'R']) {
+      const sg = S2 === 'L' ? -1 : 1;
+      const lp = mk('loop' + S2, arc(sg), wd, (s) => Math.PI * s * sg);
+      lp.hold(0, kx, y, z + 0.03);
+      lp.hold(lp.n - 1, kx, y, z + 0.03);
+      lp.stiff = 0.5;
+      const tp: number[][] = [];
+      for (let k = 0; k <= 18; k++) tp.push([kx + sg * (k * 0.03 + 0.1 * Math.sin(k * 0.34)), y - k * 0.125, z + 0.02 + 0.03 * Math.sin(k * 0.5)]);
+      const tl = mk('tail' + S2, tp, wd, (s, t) => (0.55 * Math.sin(s * 2.6 + sg) + 0.12 * Math.sin(t * 0.5 + s * 3)) * s);
+      tl.hold(0, kx, y, z + 0.02);
+      tl.stiff = 0.028;
+      tl.damp = 0.975;
+      tl.fl = 0.1;
+    }
+    this.knot = new THREE.Mesh(new THREE.SphereGeometry(0.125, 18, 12), this.mat);
+    this.knot.scale.set(1.25, 1, 0.7);
+    this.knot.position.set(kx, y, z + 0.07);
+    this.knot.castShadow = true;
+    scene.add(this.knot);
+  }
+  step(dt: number, t: number, tau: number): void {
+    const P = this.parts;
+    const { kx, y, z } = this;
+    const { HW } = this.c;
+    if (this.gone) return;
+    if (!this.swapped) {
+      if (tau >= 0) {
+        const a = ease(tau / 0.9);
+        const b = ease((tau - 0.5) / 0.8);
+        const cc = ease((tau - 1.2) / 0.7);
+        P.loopL!.st.scaleRest(P.loopL!.st.base!, 1 - 0.95 * a);
+        P.loopL!.st.shrink = 1 - 0.95 * a;
+        P.loopR!.st.scaleRest(P.loopR!.st.base!, 1 - 0.95 * b);
+        P.loopR!.st.shrink = 1 - 0.95 * b;
+        P.loopL!.rm.mesh.visible = a < 0.97;
+        P.loopR!.rm.mesh.visible = b < 0.97;
+        const e = P.tailR!.st.n - 1;
+        P.tailR!.st.scaleRest(P.tailR!.st.base!, 1 - 0.93 * cc);
+        if (a > 0 && cc < 0.05) P.tailR!.st.hold(e, kx + 0.62 + a * 0.12, y - 2.22 - a * 0.04, z + 0.08);
+        else P.tailR!.st.free(e);
+        P.tailR!.rm.mesh.visible = cc < 0.97;
+        const ks = 1 - cc * 0.98;
+        this.knot.scale.set(1.25 * ks + 0.001, ks + 0.001, 0.7 * ks + 0.001);
+      }
+      for (const [name, part] of Object.entries(P)) {
+        const tail = name.startsWith('tail');
+        part.st.step(dt, 0, tail ? -6 : name.startsWith('loop') ? -1.2 : 0, 0, tail ? t : null);
+        part.rm.update(t);
+      }
+      if (tau >= 1.95) {
+        /* one strand is left: the tail that hangs, and the band to the right */
+        this.swapped = true;
+        this.knot.visible = false;
+        const tl = P.tailL!.st;
+        const br = P.bandR!.st;
+        const pts: number[][] = [];
+        for (let i = tl.n - 1; i >= 1; i--) pts.push([tl.p[i * 3]!, tl.p[i * 3 + 1]!, tl.p[i * 3 + 2]!]);
+        for (let i = 0; i < br.n; i++) pts.push([br.p[i * 3]!, br.p[i * 3 + 1]!, br.p[i * 3 + 2]!]);
+        const sr = new Strip(pts);
+        sr.damp = 0.99;
+        this.sR = { st: sr, rm: new RibbonMesh(sr, 0.3, this.mat, (s) => this.tw * Math.sin(s * 6.5 - this.u * 5) + this.u * 1.6 * (1 - s)) };
+        this.c.scene.add(this.sR.rm.mesh);
+        for (const k of ['tailL', 'tailR', 'bandR', 'loopL', 'loopR']) P[k]!.rm.mesh.visible = false;
+        P.bandL!.st.free(11);
+        P.bandL!.st.damp = 0.99;
+        this.t0 = tau;
+        this.tw = 0;
+        this.u = 0;
+      }
+      return;
+    }
+    const u = (this.u = tau - this.t0);
+    const sr = this.sR!.st;
+    const e2 = sr.n - 1;
+    this.tw = Math.min(1.25, u * 1.6);
+    /* drawn out to the right, faster as it goes */
+    sr.hold(e2, HW + 0.3 + 4.6 * u * u + 0.9 * u, y - 0.55 * u * u, z + 0.12);
+    sr.step(dt, 0, -2.6, 0, t);
+    this.sR!.rm.update(t);
+    const bl = P.bandL!.st;
+    bl.hold(0, -HW - 0.3 - 3.6 * u * u - 0.4 * u, y - 0.3 * u * u, z);
+    bl.step(dt, 0, -2.2, 0, t);
+    P.bandL!.rm.update(t);
+    if (u > 2.2) {
+      this.gone = true;
+      this.sR!.rm.mesh.visible = false;
+      P.bandL!.rm.mesh.visible = false;
+    }
+  }
+}
+
+/** 3b · ENVELOPE, GATEFOLD — closed with the couple's seal or a ribbon and bow (never both); the panels open like doors */
 export const envelopeGatefold = (): Scene => {
   const flaps: Flap[] = [];
   let inside: Inside;
+  let rib: GateRibbon | null = null;
   let seal: THREE.Group[] = [];
   let HWg = 1.5;
-  /* 🔏 the couple's seal on the seam (owner 23 Nov: *"envelope gatefold use wax seal logo as well"*; the ribbon is gone,
-     owner 23 Nov: *"remove the ribbon"*). It never breaks (owner 23 Nov: *"can the wax seal not be broken but flips
-     with the flap?"*): it stays whole on the free edge of the first panel to open and swings out with it, as the
-     classic's seal rides its flap */
-  const SEAL_Y = 1.2;
+  /* 🔏 Sealed: the couple's seal on the seam (owner 23 Nov: *"envelope gatefold use wax seal logo as well"*), where the
+     bow would sit. 🎀 Tied: the bow on the seam and no seal (owner 23 Nov: *"ribbon and wax seal never co exist
+     together"*; drawing v22 "Closed with"). */
+  const SEAL_Y = 0.3;
   const T = 7.4;
   return {
     legacyT: T,
@@ -603,6 +872,7 @@ export const envelopeGatefold = (): Scene => {
     exposure: 1.0,
     async init(c) {
       const { HW, H, scene: s } = c;
+      const tied = c.closure === 'ribbon';
       HWg = HW;
       stage(c);
       const calla = await c.art('calla');
@@ -616,8 +886,10 @@ export const envelopeGatefold = (): Scene => {
             x: (side * HW) / 2,
             y: 0,
             z: 0.01,
-            at: side < 0 ? 3.5 : 3.9,
-            spring: new Hinge(2.4, 2.5),
+            /* sealed, the tap frees the seal and the panels part from 1.0, the left one first; tied, they wait for the ribbon.
+               A soft spring, so either opens slowly (drawing v22) */
+            at: (tied ? 3.5 : 1.0) + (side < 0 ? 0 : 0.35),
+            spring: new Hinge(0.95, 2.3),
             relief: 9,
             nx: 18,
             ny: 30,
@@ -652,23 +924,26 @@ export const envelopeGatefold = (): Scene => {
       }
       for (const f of flaps) f.set(0, 0);
       inside = new Inside(c, -0.12);
-      seal = makeSeal(c, 0.4, true);
+      if (tied) rib = new GateRibbon(c, SEAL_Y, 0, 0.1);
+      else seal = makeSeal(c, 0.4, true);
       placeSeal();
     },
-    step(dt, _t, tau) {
+    step(dt, t, tau) {
+      /* the bow comes undone and the ribbon leaves BEFORE the panels move */
+      rib?.step(dt, t, tau);
       for (const f of flaps) f.step(dt, tau);
       placeSeal();
       inside.step((flaps[0]?.h.a ?? 0) / 2.2, tau < 0 ? 0 : tau / T);
     },
   };
-  /* the whole seal on the left panel's free edge, square to the paper as it swings (it opens first) */
+  /* 🔏 the seal is never broken (owner 23 Nov: *"The wax seal stays on the left flap. Do no break the seal"*): the whole
+     seal rides the left panel's free edge, standing off the paper along that panel's own face, and turns with it; the
+     left panel opens first, so the right panel comes free from under the seal */
   function placeSeal(): void {
     const tp = flaps[0]?.tip;
     if (!tp) return;
-    const nx = -Math.sin(tp.th);
-    const nz = Math.cos(tp.th);
     for (const half of seal) {
-      half.position.set(-(HWg - tp.d) + nx * 0.05, SEAL_Y, 0.01 + tp.z + nz * 0.05);
+      half.position.set(-(HWg - tp.d) - Math.sin(tp.th) * SEAL_OFF, SEAL_Y, 0.01 + tp.z + Math.cos(tp.th) * SEAL_OFF);
       half.rotation.y = -tp.th;
     }
   }

@@ -87,17 +87,16 @@ test('it plays once over the cover: off the Save the Date, the first page only',
   assert.equal(revealOnlyOnTheFirstPage('event'), true);
 });
 
-test('Extras ▾ is the opening’s own switch — butterflies for an envelope, petals for the doors and the veil', () => {
+test('Extras ▾ is the opening’s own switch — falling petals for the veil; the other reveals are drawn whole (23 Nov 2026)', () => {
   const base: RevealEffects = { butterflies: false, petals: false, music: true, veilColor: null, petalColor: null, gold: { buildUp: 'trace', move: 'turn', accent: 'shimmer' } };
-  assert.deepEqual(revealExtrasFor('four-flap'), ['none', 'butterflies']);
-  assert.deepEqual(revealExtrasFor('church-doors'), ['none', 'petals']);
   assert.deepEqual(revealExtrasFor('veil-sheer'), ['none', 'petals']);
-  const env = revealEffectsWithExtra(base, 'two-flap-vertical', 'butterflies');
-  assert.equal(env.butterflies, true);
-  assert.equal(env.petals, false, 'the other switch is untouched');
-  assert.equal(revealExtraOf(env, 'two-flap-vertical'), 'butterflies');
-  const doors = revealEffectsWithExtra({ ...base, butterflies: true }, 'church-doors', 'petals');
-  assert.equal(doors.petals, true);
-  assert.equal(doors.butterflies, true, 'an envelope’s switch is not this opening’s to touch');
-  assert.equal(revealEffectsWithExtra(doors, 'church-doors', 'none').petals, false);
+  for (const id of ['beach-curtains', 'envelope-classic', 'envelope-gatefold', 'fabric', 'scratch', 'smoke', 'cathedral-doors', 'petals', 'fireworks']) {
+    assert.deepEqual(revealExtrasFor(id), ['none'], id);
+    assert.equal(revealEffectsWithExtra({ ...base, petals: true }, id, 'none').petals, true, `${id}: the veil's switch is not this reveal's to touch`);
+  }
+  const veil = revealEffectsWithExtra(base, 'veil-sheer', 'petals');
+  assert.equal(veil.petals, true);
+  assert.equal(veil.butterflies, false, 'the other switch is untouched');
+  assert.equal(revealExtraOf(veil, 'veil-sheer'), 'petals');
+  assert.equal(revealEffectsWithExtra(veil, 'veil-sheer', 'none').petals, false);
 });

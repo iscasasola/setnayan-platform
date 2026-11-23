@@ -59,13 +59,16 @@ test('👆 the veil’s only unveil gestures are a tap and a swipe up — no dou
   const r = releaseHandler();
   // Exactly two unveils in the handler: the swipe up and the tap.
   assert.equal((r.match(/\bunveil\(\);/g) ?? []).length, 2, 'the veil should unveil on exactly two gestures (tap · swipe up)');
+  // 🎭 The gesture is read by the ONE shared rule (lib/reveal-motion.ts `readGesture`, the veil's own 40 px / 460 ms /
+  // 300 ms / 18 px), opening upward — no reveal keeps its own thresholds (owner 23 Nov 2026).
+  assert.match(r, /const gesture = readGesture\(\{ dx: dxC, dy: dyC, ms: dur, dir: \[0, -1\] \}\);/, 'the veil reads its gestures with its own numbers again');
   // The swipe up unveils then lifts…
-  assert.match(r, /if \(up > 40 && dur < 460 && up > Math\.abs\(dxC\) \* 1\.0\)\s*\{\s*unveil\(\);\s*setLift\(1\);/, 'swipe up no longer unveils');
-  // …and a TAP (short, still) unveils with the same hands-free lift the preview plays.
+  assert.match(r, /if \(gesture === 'open'\) \{[^}]*?unveil\(\);\s*setLift\(1\);/, 'swipe up no longer unveils');
+  // …and a TAP (short, still) unveils with the same hands-free lift the preview plays — from the tapped point.
   assert.match(
     r,
-    /if \(dur < 300 && net < 18\)\s*\{\s*if \(!locked && liftTarget < 1\)\s*\{\s*unveil\(\);\s*startAuto\(\);/,
-    'a tap no longer unveils with the hands-free lift (startAuto)',
+    /if \(gesture === 'tap'\) \{[\s\S]*?if \(!locked && liftTarget < 1\) \{[\s\S]*?tapAt = planeWorld\(e\.clientX, e\.clientY, frontZ\);[\s\S]*?unveil\(\);\s*startAuto\(\);/,
+    'a tap no longer unveils with the hands-free lift (startAuto) from the point tapped',
   );
   // The retired petal-bat: a tap means "unveil" now, never "bat a petal".
   assert.equal(/bounceAt/.test(r), false, 'a tap bats a petal again — a tap means unveil');
@@ -107,7 +110,9 @@ test('🙈 the hold is written only where an opening is mounted, and the overlay
   assert.equal((MOUNT.match(/VEIL_HOLD_SCRIPT/g) ?? []).length, 2, 'the hold is written somewhere other than beside the overlay');
   // Every stand-down releases; a real opening keeps it (the veil claims once armed, a rigid one at once).
   assert.match(OVERLAY, /if \(!active \|\| gone\) \{\s*releaseVeilHold\(\);/, 'a stood-down opening no longer lets the page play');
-  assert.match(OVERLAY, /if \(!veil\) claimVeilHold\(\);/);
+  // Every opening claims the page itself once it is up: the scene stage (and every still face) once its closed frame is drawn.
+  assert.doesNotMatch(OVERLAY, /claimVeilHold\(\)/, 'the overlay claims the page before the reveal is drawn');
+  assert.match(code('app/[slug]/_components/reveal/scene-reveal.tsx'), /renderer\.render\(scene, camera\);[\s\S]{0,400}?claimVeilHold\(\);/, 'a scene claims the page before its closed frame is drawn');
   assert.match(VEIL, /claimVeilHold\(\);\s*raf = requestAnimationFrame\(loop\);/, 'the veil no longer claims the page when it arms');
   // The opening's own box is never held.
   assert.equal((OVERLAY.match(/\[REVEAL_LAYER_ATTR\]: ''/g) ?? []).length, 2, 'both opening wrappers (veil · rigid) must be the reveal layer');
@@ -235,11 +240,11 @@ test('🛟 fail-visible: unclaimed, it lets go by itself; claimed, it waits for 
   assert.ok(b.held(), 'a claimed hold (the veil is up) let go before the guest opened it');
 });
 
-test('♿ reduced motion: no hold at all (those guests get no opening)', () => {
+test('♿ reduced motion: held until the one tap (the still reveal, then a short cross-fade — 23 Nov 2026)', () => {
   const s = standIn({ reduce: true });
   s.run();
-  assert.equal(s.held(), false);
-  assert.equal(s.window.__veilRelease, undefined);
+  assert.equal(s.held(), true);
+  assert.equal(typeof s.window.__veilRelease, 'function');
 });
 
 test('the unveil calls its callbacks in the same call stack, and a refused one never stops the rest', () => {

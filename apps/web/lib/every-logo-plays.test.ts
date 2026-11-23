@@ -424,7 +424,6 @@ const STILL: Record<string, string> = {
   'app/dev/cake-maker-lab/lab.tsx': 'a dev lab’s placeholder inspiration PHOTOS (a drawn cake stand-in as an svg data URI) — no logo at all',
   'app/_components/bespoke-monogram-mark.tsx': 'the still renderer itself — every playing surface hands it in as its `still`',
   'app/_components/gold-monogram-reveal.tsx': 'a reveal animation of its own; the mark is its mask',
-  'app/[slug]/_components/reveal/wax-seal.tsx': 'the mark PRESSED INTO wax (a canvas/WebGL die) — a material impression inside the reveal',
   'app/[slug]/_components/reveal/veil-reveal.tsx': 'the SETNAYAN mark in a WebGL veil texture — not the couple’s logo',
   'app/dashboard/[eventId]/_components/reveal-preview.tsx': 'the reveal preview’s reduced-motion still',
   'app/dashboard/[eventId]/monogram/mark-everywhere.tsx': 'mock-ups of PRINTED, embossed and projected items in a 1.7s montage',

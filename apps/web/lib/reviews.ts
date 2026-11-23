@@ -790,6 +790,29 @@ export async function fetchVendorCompletedEvents(
 }
 
 /**
+ * 🔑 THE HONEST READ OF THE SAME VIEW, for counting (the Store's "What you celebrate", owner 23 Nov 2026): only each
+ * row's `event_type`, up to `limit` rows, and `null` when the read was refused — never `[]`, which says "no events".
+ * `capped` = as many rows as the limit came back, so a count from them is an "at least".
+ */
+export async function readVendorCompletedEventTypes(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  limit = 1000,
+): Promise<{ rows: { event_type: string | null }[]; capped: boolean } | null> {
+  const { data, error } = await supabase
+    .from('vendor_completed_events')
+    .select('event_type')
+    .eq('vendor_profile_id', vendorProfileId)
+    .limit(limit);
+  if (error || !data) {
+    console.error('[supabase-error] lib/reviews.ts · from:vendor_completed_events.select(event_type)', error);
+    return null;
+  }
+  const rows = data as { event_type: string | null }[];
+  return { rows, capped: rows.length >= limit };
+}
+
+/**
  * Format a track-record entry's date as "Month YYYY" (e.g. "Jun 2026"),
  * preferring `completed_at` then `event_date`. Returns null when neither is set
  * so the caller can omit the date suffix.

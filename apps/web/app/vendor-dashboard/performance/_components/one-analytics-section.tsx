@@ -44,6 +44,7 @@ import {
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { readNewGraphs } from '@/lib/vendor-analytics-graphs.server';
+import { readStoreGraphs, withBookedValue } from '@/lib/vendor-store-graphs.server';
 import { quietCard, slowMonth } from '@/lib/vendor-analytics-graphs';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchVendorInquiryAnalytics } from '@/lib/vendor-inquiry-analytics';
@@ -423,6 +424,15 @@ export async function OneAnalyticsSection({
     cards: graphCards,
     nowMs,
   });
+  // 🛍 The Store's twelve new graphs (owner 23 Nov 2026), started beside the five — each refusal its own `null`.
+  // `guest_saved_vendors` and the photo-view ledger on `bookingsAdmin` (no shop SELECT on either; counts only).
+  const storeGraphsRead = readStoreGraphs({
+    session: supabase,
+    admin: bookingsAdmin,
+    vendorProfileId: profile.vendor_profile_id,
+    pageKeys: profile.portfolio_r2_keys ?? [],
+    nowMs,
+  });
   // Started before Batch A (beside the badges), so this wait costs no extra round trip.
   const [pinNow, pinYear] = await Promise.all([pinNowRead, pinYearRead]);
 
@@ -664,6 +674,8 @@ export async function OneAnalyticsSection({
         safeRead(readGiftPointExamples(bookingsAdmin), null, 'gift_point_examples'),
       ])
     : [null, null, null];
+  // 🛍 Booked value is the monthly series Batch B already read — joined here, never read a second time.
+  const storeGraphs = withBookedValue(await storeGraphsRead, bookingSeries);
 
   return (
     <>
@@ -673,6 +685,7 @@ export async function OneAnalyticsSection({
         unlocks={{ hidden: [...unlocks.hidden], locked: unlocks.locked, unsure: unlocks.unsure }}
         gifts={giftsOpen ? { '30': gifts30, '12': gifts12 } : null}
         giftsRecFacts={{ giftPoints, examplePoints: giftExamples }}
+        store={storeGraphs}
       />
       {verifiedMedian ? (
         <div className="px-4 pt-4">

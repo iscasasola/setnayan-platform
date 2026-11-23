@@ -36,7 +36,7 @@ import type { SourceSlice } from '@/lib/vendor-funnel';
 import type { SourceAttribution } from '@/lib/vendor-source-attribution';
 import type { GrowthRec } from '@/lib/vendor-growth-recs';
 import { formatReplyMinutes, type ReplyTimeVerdict } from '@/lib/vendor-reply-time';
-import { formatMinutes, type InquiryAnalytics } from '@/lib/vendor-inquiry-analytics';
+import { formatMinutes, heatGrid, type InquiryAnalytics } from '@/lib/vendor-inquiry-analytics';
 import { formatDuration, type ConversionAnalytics } from '@/lib/vendor-conversion-analytics';
 import type { CapacityAnalytics } from '@/lib/vendor-capacity-analytics';
 import type { ReputationAnalytics } from '@/lib/vendor-reputation-analytics';
@@ -154,21 +154,6 @@ function bookedLane(points: readonly { bookings: number }[] | null, n: number): 
 }
 
 const fmtDate = (iso: string) => formatRecordedAt(iso.slice(0, 10)) ?? iso;
-
-/** Philippine-time heat: rows Mon → Sun, eight 3-hour blocks (12a 3a 6a 9a 12p 3p 6p 9p). */
-function heatGrid(cells: InquiryAnalytics['heatmap']): number[][] | null {
-  const g = Array.from({ length: 7 }, () => Array(8).fill(0) as number[]);
-  let any = false;
-  for (const c of cells) {
-    // dow: 0 = Sunday (Postgres extract(dow)) → row 6; Monday → row 0.
-    const row = (c.dow + 6) % 7;
-    const col = Math.floor(c.hr / 3);
-    if (row < 0 || row > 6 || col < 0 || col > 7) continue;
-    g[row]![col]! += c.count;
-    if (c.count > 0) any = true;
-  }
-  return any ? g : null;
-}
 
 /* ── the build ───────────────────────────────────────────────────────────────────────────────────────────── */
 

@@ -655,6 +655,41 @@ CREATE TRIGGER events_arms_length_proof_stamp
   BEFORE DELETE ON public.events
   FOR EACH ROW EXECUTE FUNCTION public.stamp_proof_on_event_delete();
 
+-- 🔒 THE ROW IS YOURS, THE FIELD IS NOT. Both tables grant INSERT/UPDATE at TABLE level, so a column revoke is inert,
+-- and `vendor_reviews_vendor_reply` lets a supplier update its own review with no `event_id IS NOT NULL` clause — so a
+-- supplier could otherwise set its own ORPHANED review's proof_at_delete to TRUE and forge proof. A browser role
+-- (current_user anon / authenticated — never auth.role(), which the PGlite shim cannot null) never writes the stamp:
+-- an insert reads NULL, an update keeps the old value. The stamp's only writer is the definer-owned delete trigger.
+-- Deliberately NOT SECURITY DEFINER: it must see the caller.
+CREATE OR REPLACE FUNCTION public.proof_at_delete_is_not_yours()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF current_user IN ('anon', 'authenticated') THEN
+    IF TG_OP = 'INSERT' THEN
+      NEW.proof_at_delete := NULL;
+    ELSE
+      NEW.proof_at_delete := OLD.proof_at_delete;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.proof_at_delete_is_not_yours() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.proof_at_delete_is_not_yours() FROM anon;
+REVOKE ALL ON FUNCTION public.proof_at_delete_is_not_yours() FROM authenticated;
+
+DROP TRIGGER IF EXISTS vendor_reviews_proof_at_delete_is_not_yours ON public.vendor_reviews;
+CREATE TRIGGER vendor_reviews_proof_at_delete_is_not_yours
+  BEFORE INSERT OR UPDATE ON public.vendor_reviews
+  FOR EACH ROW EXECUTE FUNCTION public.proof_at_delete_is_not_yours();
+DROP TRIGGER IF EXISTS event_vendors_proof_at_delete_is_not_yours ON public.event_vendors;
+CREATE TRIGGER event_vendors_proof_at_delete_is_not_yours
+  BEFORE INSERT OR UPDATE ON public.event_vendors
+  FOR EACH ROW EXECUTE FUNCTION public.proof_at_delete_is_not_yours();
+
 -- ── 14 · Every stats refresh reads the rule fresh first ─────────────────────────────────────────────────────────────
 -- 20270516600000 verbatim + the one line marked ⟵ PROOF in each.
 CREATE OR REPLACE FUNCTION public.refresh_vendor_review_stats()

@@ -23,7 +23,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
@@ -38,7 +38,7 @@ async function newUser(email?: string): Promise<string> {
   return u.rows[0]!.id;
 }
 
-async function newShop(verified = true): Promise<{ shop: string; ownerEmail: string }> {
+async function newShop(verified = true): Promise<{ shop: string; ownerEmail: string; owner: string }> {
   n += 1;
   const ownerEmail = `fake-proof-owner-${n}@test.local`;
   const owner = await newUser(ownerEmail);
@@ -53,7 +53,7 @@ async function newShop(verified = true): Promise<{ shop: string; ownerEmail: str
          RETURNING vendor_profile_id`,
     [owner],
   );
-  return { shop: v.rows[0]!.vendor_profile_id, ownerEmail };
+  return { shop: v.rows[0]!.vendor_profile_id, ownerEmail, owner };
 }
 
 async function newCard(shop: string): Promise<string> {
@@ -292,8 +292,23 @@ test('C · only an arm’s-length event moves the stars, events done and the tra
   assert.equal(await route(unverified.shop, ev.event), null, 'C: the unverified shop’s "sourced" import counted as proof');
 });
 
+/** Act as a signed-in person — the role alone is not an identity (without auth.uid() RLS refuses an anonymous
+ *  caller and a test passes for the wrong reason). */
+async function asUser<T>(uid: string, fn: () => Promise<T>): Promise<T> {
+  await setAuthUid(db, uid);
+  await db.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', false)`);
+  await db.exec(`SET ROLE authenticated`);
+  try {
+    return await fn();
+  } finally {
+    await db.exec(`RESET ROLE`).catch(() => {});
+    await setAuthUid(db, null).catch(() => {});
+    await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`).catch(() => {});
+  }
+}
+
 test('C · a deleted celebration keeps the answer it had, and an unanswered orphan does not count', async () => {
-  const { shop } = await newShop(true);
+  const { shop, owner } = await newShop(true);
   const good = await newEvent();
   await finishedJob(shop, good.event, 'host_marketplace_search');
   const goodReview = await review(shop, good.event, good.couple);
@@ -314,6 +329,20 @@ test('C · a deleted celebration keeps the answer it had, and an unanswered orph
   assert.equal(byId.get(badReview)?.proof_at_delete, false, 'C: the non-arm’s-length review was stamped as proof');
   await refresh();
   assert.equal(await stars(shop), 1, 'C: the deleted celebration’s counting review stopped counting (or the other began)');
+
+  // 🔒 The row is the supplier's, the field is not: through its own reply policy (which has no event_id clause) the
+  // supplier writes a reply AND tries to stamp its orphaned non-proof review as proof.
+  await asUser(owner, () =>
+    db.query(`UPDATE public.vendor_reviews SET vendor_reply = 'Thank you!', proof_at_delete = TRUE WHERE review_id = $1`, [badReview]),
+  );
+  const forged = await db.query<{ vendor_reply: string | null; proof_at_delete: boolean | null }>(
+    `SELECT vendor_reply, proof_at_delete FROM public.vendor_reviews WHERE review_id = $1`,
+    [badReview],
+  );
+  assert.equal(forged.rows[0]!.vendor_reply, 'Thank you!', 'fixture: the supplier’s update must actually land (else RLS proved nothing)');
+  assert.equal(forged.rows[0]!.proof_at_delete, false, 'C: a supplier forged proof on its own orphaned review');
+  await refresh();
+  assert.equal(await stars(shop), 1, 'C: the forged stamp moved the stars');
 });
 
 test('D · a flagged review is HELD out of the counts and the public list until an admin dismisses it', async () => {

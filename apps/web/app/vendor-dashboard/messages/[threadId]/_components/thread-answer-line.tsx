@@ -122,19 +122,20 @@ export function quickRepliesFor(answer: ThreadDayAnswer | null): string[] {
 export function QuickReplies({
   threadId,
   replies,
-  sendAction,
+  sendAction: send,
 }: {
   threadId: string;
   replies: readonly string[];
   /** The shipped send. With `return_to` set, a refusal redirects back with its reason — the returned refusal is never read here. */
   sendAction: (formData: FormData) => void | Promise<void | { ok: false; reason: string }>;
 }) {
+  // A form action is typed `Promise<void>`; React drops what it returns, and with `return_to` set a refusal redirects
+  // with its reason anyway — so the refusal the send can return is never read here. Kept a bare name for the port guard.
+  const sendAction = send as (formData: FormData) => Promise<void>;
   return (
     <div className="flex gap-2 overflow-x-auto pb-0.5" data-quick-replies="">
       {replies.map((q) => (
-        // A form action is typed `Promise<void>`; React drops what it returns, and with `return_to` set a refusal
-        // redirects with its reason anyway — so the refusal the send can return is never read here.
-        <form key={q} action={sendAction as (formData: FormData) => Promise<void>} className="shrink-0">
+        <form key={q} action={sendAction} className="shrink-0">
           <input type="hidden" name="thread_id" value={threadId} />
           {/* 🏪 The supplier's quick reply speaks for the shop (owner, 11 Nov — lib/chat-sent-as.ts). */}
           <input type="hidden" name={CHAT_SENT_AS_FIELD} value="vendor" />

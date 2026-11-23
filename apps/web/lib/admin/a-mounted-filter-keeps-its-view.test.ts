@@ -52,6 +52,18 @@ test('every GET form in a mounted view says where it submits', () => {
       }
     }
   }
-  assert.ok(checked >= 4, `expected to check the shipped GET forms, checked ${checked}`);
+  // Two GET forms are left (force-majeure, disputes). The admin clean port (#8018) replaced the payouts and receipts
+  // forms with picks and links, which the test below holds to the same rule.
+  assert.ok(checked >= 2, `expected to check the shipped GET forms, checked ${checked}`);
   assert.deepEqual(lost, [], `these filters drop the ?view= and open another page: ${lost.join(', ')}`);
+});
+
+test('the payouts and receipts filters, no longer forms, still land on their own view', () => {
+  // Payouts: every filter link is built by payoutsHref, which goes to the old address the middleware forwards.
+  const payouts = readFileSync(path.join(APP, 'admin/payouts/payouts-filters.ts'), 'utf8');
+  assert.match(payouts, /`\/admin\/payouts\?\$\{qs\}`/, 'payoutsHref must build /admin/payouts?… links');
+  assert.doesNotMatch(readFileSync(path.join(APP, 'admin/payouts/page.tsx'), 'utf8'), /<form\b[^>]*method=["']get["'](?![^>]*\baction=)/i);
+  // Receipts: the month is an InsightsParamPick, which moves one param and keeps the rest of the address (its ?view=).
+  const receipts = readFileSync(path.join(APP, 'admin/receipts/page.tsx'), 'utf8');
+  assert.match(receipts, /<InsightsParamPick[\s\S]*?param="month"/, 'the receipts month must be the one param pick');
 });

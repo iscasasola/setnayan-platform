@@ -96,6 +96,7 @@ import { loadInviteSetup } from './_components/invite-message-setup';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
 import { isUuid } from '@/lib/is-uuid';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { PartEditGate } from '@/app/_components/part-edit/part-edit-gate';
 // The Guest list's two other parts are the SHIPPED pages, rendered whole in
 // this page's body (owner 2026-09-29) — never a second copy of either.
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
@@ -1404,7 +1405,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           /* 🪪 Whose card `inspector` is — so a tap can open a card IN PLACE (read alone, the address moved with no
              server render) and this page's own card takes over only for the id the address names. */
           inspectorId={inspectorBody && inspectedGuest ? inspectedGuest.guest_id : null}
-          master={master}
+          /* ✍️ One editor per part (owner 2026-11-21): the list and the March are each held by one person at a time.
+             Seats keeps its own shipped lock (`use-seating-lock.ts`); the Map draws no edits. */
+          master={
+            gview === 'list' || gview === 'march' ? (
+              <PartEditGate eventId={eventId} part={gview === 'march' ? 'march' : 'guests'}>
+                {master}
+              </PartEditGate>
+            ) : (
+              master
+            )
+          }
           inspector={inspectorBody}
         />
       </LastSeenCapture>

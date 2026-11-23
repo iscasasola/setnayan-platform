@@ -71,8 +71,8 @@ export function revealPictureHtml(kind: string, c: RevealColours, w: number = RE
       /* 🚫 No opening: the cover itself, with nothing over it. */
       return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral}"></span>`;
     case 'envelope-gatefold':
-      /* two panels meeting at the middle, a band across them */
-      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral}">${piece(`${d}opacity:.85;left:0;top:0;width:50%;height:100%`)}${piece(`${d}opacity:.6;right:0;top:0;width:50%;height:100%`)}${piece(`background:${c.accent};left:0;top:44%;width:100%;height:9%`)}</span>`;
+      /* two panels meeting at the middle, the couple's seal on the seam (no ribbon: owner 23 Nov, "remove the ribbon") */
+      return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.neutral}">${piece(`${d}opacity:.85;left:0;top:0;width:50%;height:100%`)}${piece(`${d}opacity:.6;right:0;top:0;width:50%;height:100%`)}${piece(`background:${c.accent};left:50%;top:50%;height:24%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:var(--m-r-full,999px)`)}</span>`;
     case 'beach-curtains':
       /* two sheer curtains hung on a rod, their folds in stripes */
       return `<span data-reveal-picture="${kind}" style="${box}display:block;background:${c.supporting}">${piece(`left:0;top:0;width:52%;height:100%;background:repeating-linear-gradient(90deg,${c.neutral} 0 7px,${c.supporting} 7px 9px)`)}${piece(`right:0;top:0;width:52%;height:100%;background:repeating-linear-gradient(90deg,${c.neutral} 0 7px,${c.supporting} 7px 9px)`)}${piece(`background:${c.accent};left:0;top:3%;width:100%;height:3%`)}</span>`;

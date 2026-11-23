@@ -117,7 +117,7 @@ export const REVEAL_LIBRARY: ReadonlyArray<{
   { id: 'veil-sheer', label: 'Veil', family: 'veil', blurb: 'A sheer bridal veil lifts from where they tap and hangs as a fold.', motion: 'Veil lifts away', hint: 'Tap or swipe up to unveil' },
   { id: 'beach-curtains', label: 'Beach curtains', family: 'scene', blurb: 'Two white beach curtains slide apart on their rod.', motion: 'Curtains part', hint: 'Tap or swipe to open' },
   { id: 'envelope-classic', label: 'Envelope · classic', family: 'scene', blurb: 'An ornate flap lifts under its gold wax seal; light pours out.', motion: 'Flaps unfold', hint: 'Tap the seal' },
-  { id: 'envelope-gatefold', label: 'Envelope · gatefold', family: 'scene', blurb: 'The satin bow comes undone, then two panels open like doors.', motion: 'Bow unties', hint: 'Tap the bow' },
+  { id: 'envelope-gatefold', label: 'Envelope · gatefold', family: 'scene', blurb: 'Your wax seal swings out, then two panels open like doors.', motion: 'Panels open', hint: 'Tap the seal' },
   { id: 'fabric', label: 'Fabric', family: 'scene', blurb: 'One satin drape slides slowly off the cover, like a car reveal.', motion: 'Cloth slides off', hint: 'Tap or pull the cloth' },
   { id: 'scratch', label: 'Scratch', family: 'scene', blurb: 'Gold foil to scratch away. It opens once 60% is gone.', motion: 'Scratch to open', hint: 'Scratch to open' },
   { id: 'smoke', label: 'Smoke', family: 'scene', blurb: 'Dry-ice fog fills the screen and opens in rings from the tap.', motion: 'Fog clears', hint: 'Tap anywhere' },

@@ -8,11 +8,10 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { INVITE_THEMES, isInviteThemeId } from '@/lib/invite-themes';
 import { tilesShown, type ThemeTile } from '@/lib/maker-theme-tiles';
+import { themeColours } from '@/lib/theme-colours';
 import { THEME_SET_PIECES, THEME_SET_PIECE_LABEL, liveThemeSetSources, themeUseLabel, type ThemeSetLabDoors, type ThemeSetPiece, type ThemeSetSources } from '@/lib/theme-set';
 import { MOVE_MS, RISE_MS_STANDARD } from '@/lib/motion-table';
 import { ThemePickContext } from './theme-pick-context';
-// The set's arrival and swap — Maker-only, so not in globals.css (every page parses that one).
-import './maker-theme-set.css';
 
 /**
  * 🎬 THE THEME, SHOWN AS ONE MOVING SET — the Maker's Look › Theme (owner 23 Nov 2026: *"animated yes"*; DECISION_LOG
@@ -260,7 +259,8 @@ export function ThemeSetCards({
         {shown.map((t) => {
           const on = t.id === set.trying;
           const poster = posters[t.id] ?? null;
-          const paper = isInviteThemeId(t.id) ? INVITE_THEMES[t.id].palette.canvas : undefined;
+          /* The theme's own paper, through the one theme-colour resolver — shown until its picture draws. */
+          const paper = isInviteThemeId(t.id) ? themeColours(t.id, null).colours.canvas : undefined;
           return (
             <li key={t.id} className="w-24 shrink-0 snap-start">
               <button

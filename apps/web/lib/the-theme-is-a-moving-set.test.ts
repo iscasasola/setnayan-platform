@@ -134,7 +134,7 @@ test('4 · trying never saves; "Use" picks through the one theme pick; the live 
 });
 
 test('5 · the motion is the house table’s: transform and opacity, token lengths, no travel under reduce motion', () => {
-  const css = readFileSync(join(WEB, `${L}/maker-theme-set.css`), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = stripComments(readFileSync(join(WEB, `${L}/maker-theme-set.css`), 'utf8'));
   assert.doesNotMatch(css, /\d\s*m?s\b(?![a-z-])/, 'a raw length in the set’s motion — read the timing table');
   assert.match(css, /\.sn-set-arrive \{\s*animation-duration: var\(--sn-m-rise\);\s*animation-timing-function: var\(--sn-m-spring\);/);
   assert.match(css, /\.sn-set-swap \{ animation: sn-set-swap var\(--sn-m-move\) var\(--sn-m-settle\) both; \}/);

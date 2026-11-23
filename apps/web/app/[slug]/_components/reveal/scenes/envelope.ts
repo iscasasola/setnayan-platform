@@ -847,8 +847,9 @@ export const envelopeGatefold = (): Scene => {
   let seal: THREE.Group[] = [];
   let HWg = 1.5;
   /* 🔏 the couple's seal on the seam, above the bow (owner 23 Nov: *"envelope gatefold use wax seal logo as well"*):
-     pressed across both panels, clear of the ribbon, so the bow unties first; then the seal parts down the seam and
-     each half rides its own panel's edge */
+     pressed on the seam, clear of the ribbon, so the bow unties first. It never breaks (owner 23 Nov: *"can the wax
+     seal not be broken but flips with the flap?"*): it stays whole on the free edge of the first panel to open and
+     swings out with it, as the classic's seal rides its flap */
   const SEAL_Y = 1.2;
   const T = 7.4;
   return {
@@ -917,19 +918,15 @@ export const envelopeGatefold = (): Scene => {
       inside.step((flaps[0]?.h.a ?? 0) / 2.2, tau < 0 ? 0 : tau / T);
     },
   };
-  /* each half on its own panel's free edge (halves: [right, left]; panels: [left, right]) */
+  /* the whole seal on the left panel's free edge, square to the paper as it swings (it opens first) */
   function placeSeal(): void {
-    const [right, left] = seal;
-    const [lp, rp] = flaps;
-    for (const [half, f, side] of [
-      [left, lp, -1],
-      [right, rp, 1],
-    ] as const) {
-      if (!half) continue;
-      const tp = f?.tip;
-      if (!tp) continue;
-      half.position.set(side * (HWg - tp.d), SEAL_Y, 0.01 + tp.z + 0.05);
-      half.rotation.y = side < 0 ? -tp.th : tp.th;
+    const tp = flaps[0]?.tip;
+    if (!tp) return;
+    const nx = -Math.sin(tp.th);
+    const nz = Math.cos(tp.th);
+    for (const half of seal) {
+      half.position.set(-(HWg - tp.d) + nx * 0.05, SEAL_Y, 0.01 + tp.z + nz * 0.05);
+      half.rotation.y = -tp.th;
     }
   }
 };

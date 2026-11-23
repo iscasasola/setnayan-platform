@@ -762,7 +762,8 @@ export function EventCardMenu({
                   onClick={putAway}
                   disabled={pending}
                   data-remove-put-away=""
-                  className="sn-press mt-3 flex min-h-[60px] w-full items-center gap-3 rounded-xl bg-ink/5 px-3 py-2 text-left text-ink disabled:opacity-60"
+                  className="sn-press mt-3 flex min-h-[60px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-ink disabled:opacity-60"
+                  style={{ background: 'rgb(var(--color-raised-2))' }}
                 >
                   <Archive aria-hidden className="h-5 w-5 shrink-0" strokeWidth={1.9} />
                   <span className="min-w-0 flex-1">

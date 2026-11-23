@@ -12357,14 +12357,3 @@ html.dark {
     animation-range: normal;
   }
 }
-
-/* 🏠 UNIHOME v5 (owner-approved 23 Nov 2026, DECISION_LOG "UNIHOME v5 APPROVED"): Home is a unipage — NO bottom bar
-   (`account-bottom-nav.tsx`, Home · Discover) and NO account switcher pill at the top right while Home is on screen.
-   Its rows moved: Your events → Home itself, each shop → Home's Shop part, HQ → the ☰, and the rest → ⚙ beside your
-   name (the same sheet). Both stay mounted in the shared layout (they never remount on a tab change) and are only
-   hidden here, so the section pages, Discover and every other page keep them exactly as before. `[data-unihome]` is
-   Home's own root (`unihome.tsx`); the selector is the supplier look's `:has()` idiom. */
-html:has([data-unihome]) [data-account-bar],
-html:has([data-unihome]) .fd-topright .fd-acct {
-  display: none;
-}

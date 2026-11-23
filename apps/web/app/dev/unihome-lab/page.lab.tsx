@@ -10,6 +10,7 @@
  *
  * The bottom bar is mounted here exactly as the layout mounts it, so the lab proves Home hides it.
  */
+import { notFound } from 'next/navigation';
 import '@/app/_components/frontdoor/front-door.css';
 import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
@@ -188,6 +189,7 @@ function propsFor(who: string, fail: boolean): Omit<UnihomeViewProps, 'incoming'
 }
 
 export default async function UnihomeLab({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
   const who = q.who ?? 'couple';
   const props = propsFor(who, q.fail === '1');

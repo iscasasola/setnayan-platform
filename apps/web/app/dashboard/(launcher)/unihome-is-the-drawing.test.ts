@@ -24,7 +24,7 @@ const read = (...p: string[]) => stripComments(readFileSync(join(HERE, ...p), 'u
 const page = () => read('..', '..', '(hub)', 'dashboard', 'page.tsx');
 const view = () => read('_components', 'unihome.tsx');
 const jump = () => read('_components', 'unihome-jump.tsx');
-const css = () => readFileSync(join(HERE, '..', '..', 'globals.css'), 'utf8');
+const css = () => readFileSync(join(HERE, '_components', 'unihome.module.css'), 'utf8');
 
 test('1 · plain /dashboard is Unihome; a section asked for by name is its full page', () => {
   assert.match(page(), /if \(one\('seg'\) !== seg\) \{\s*return \(\s*<UnihomeHome/, 'Home no longer branches to Unihome');
@@ -52,7 +52,7 @@ test('3 · Home draws no pinned row, and hides the bottom bar and the switcher p
   const src = view();
   assert.doesNotMatch(src, /HomePinnedRow|PinnedRow|PickMenu/, 'the Events ▾ pinned row is back on Home');
   assert.match(src, /data-unihome=""/);
-  assert.match(css(), /html:has\(\[data-unihome\]\) \[data-account-bar\],\s*html:has\(\[data-unihome\]\) \.fd-topright \.fd-acct \{\s*display: none;/);
+  assert.match(css(), /:global\(html\):has\(\.page\) :global\(\[data-account-bar\]\),\s*:global\(html\):has\(\.page\) :global\(\.fd-topright \.fd-acct\) \{\s*display: none;/);
   // ⚙ beside the name opens the SHIPPED account sheet, account rows only.
   assert.match(src, /<AccountSwitcher data=\{switcher\} trigger="gear" \/>/);
 });

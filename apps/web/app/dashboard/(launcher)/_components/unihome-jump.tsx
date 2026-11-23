@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { CalendarHeart, Sparkles, Store, Telescope, Users, type LucideIcon } from 'lucide-react';
-import { UNIHOME_JUMPS, UNIHOME_JUMP_WORD, UNIHOME_PARTS, type UnihomeJump } from '@/lib/unihome';
+import { UNIHOME_JUMPS, UNIHOME_JUMP_WORD, UNIHOME_PARTS, UNIHOME_TOP_ID, type UnihomeJump } from '@/lib/unihome';
 import u from './unihome.module.css';
 
 /**
@@ -28,8 +28,6 @@ const ICON: Record<Exclude<UnihomeJump, 'you'>, LucideIcon> = {
   discover: Telescope,
 };
 
-/** The element id each jump lands on. "You" is the top of Home. */
-export const UNIHOME_TOP_ID = 'you';
 
 export function UnihomeJump({
   me,

@@ -30,6 +30,7 @@ import { personPageHref } from '@/lib/person-page-link';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { shopCoverKey } from '@/lib/supplier-hero';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   unihomeInitials,
@@ -68,14 +69,19 @@ export async function readUnihomeShop(switcher: SwitcherData | null, userId: str
     try {
       const { data, error } = await supabase
         .from('vendor_profiles')
-        .select('verification_state, portfolio_r2_keys, microsite_hero_photo_key')
+        .select('verification_state, next_renewal_due_at, portfolio_r2_keys, microsite_hero_photo_key')
         .eq('vendor_profile_id', owned.id)
         .maybeSingle();
       if (error || !data) {
         if (error) logQueryError('Unihome.shopRow', error, {}, 'graceful_degrade');
         return null;
       }
-      return data as { verification_state: string | null; portfolio_r2_keys: string[] | null; microsite_hero_photo_key: string | null };
+      return data as {
+        verification_state: string | null;
+        next_renewal_due_at: string | null;
+        portfolio_r2_keys: string[] | null;
+        microsite_hero_photo_key: string | null;
+      };
     } catch {
       return null;
     }
@@ -94,7 +100,8 @@ export async function readUnihomeShop(switcher: SwitcherData | null, userId: str
     initials: unihomeInitials(owned.name),
     logoUrl: owned.logoUrl,
     publicHref: owned.publicHref,
-    verified: row ? row.verification_state === 'verified' : null,
+    // The ONE badge rule (`hasVerifiedBadge`): verified AND its renewal not lapsed — the same word every surface shows.
+    verified: row ? hasVerifiedBadge(row) : null,
     coverUrl,
     newCount: unreadUrls ? splitSheetUnread(unreadUrls, shops.length).shop : null,
     cards: cards ? { cards: cards.cards, online: cards.online } : null,

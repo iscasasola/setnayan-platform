@@ -23,11 +23,11 @@ import type { HomeHandle } from '@/lib/home-profile.server';
 import { MEMORIES_HOME, PEOPLE_HOME, peopleHomeHref } from '@/lib/home-segments';
 import { discoverFollowingHref } from '@/lib/discover-pin';
 import { discoverSupplierHref } from '@/lib/discover-suppliers';
-import { withDiscoverArrival } from '@/lib/discover-way-back';
 import { stanceLabel } from '@/lib/event-board';
 import { formatCount } from '@/lib/format-number';
 import {
   UNIHOME_EVENTS_ALL,
+  UNIHOME_TOP_ID,
   type UnihomeDiscover,
   type UnihomeEventCard,
   type UnihomeEvents,
@@ -39,7 +39,7 @@ import { ExamplePreview } from '@/app/_components/states/empty-state';
 import { SAMPLE_MEMORY_SHELF, SAMPLE_PEOPLE } from '@/lib/empty-look-samples';
 import { EventScene } from './event-scene';
 import { EventCardMenu } from './event-card-menu';
-import { UnihomeJump, UNIHOME_TOP_ID } from './unihome-jump';
+import { UnihomeJump } from './unihome-jump';
 import { UnihomeHubButton } from './unihome-hub-button';
 import u from './unihome.module.css';
 
@@ -81,11 +81,11 @@ export type UnihomeViewProps = {
 
 /* ── small shared pieces ─────────────────────────────────────────────────────────────────────────────────────── */
 
-function SecHead({ id, title, count, see }: { id: string; title: string; count?: string | null; see?: string | null }) {
+function SecHead({ id, title, tally, see }: { id: string; title: string; tally?: string | null; see?: string | null }) {
   return (
     <div className={u.sh}>
       <h2 id={id}>{title}</h2>
-      {count ? <span className={u.cnt}>{count}</span> : <span className={u.grow} />}
+      {tally ? <span className={u.cnt}>{tally}</span> : <span className={u.grow} />}
       {see ? (
         <Link href={see} className={u.see} aria-label={`See all ${title.toLowerCase()}`}>
           See all →
@@ -240,7 +240,7 @@ function NewEventTile() {
 function EventsPart({ events, incoming, example }: { events: UnihomeEvents; incoming?: ReactNode; example?: ReactNode }) {
   const { cards, invited, counts, worth, more } = events;
   const nothing = cards.length === 0 && invited.length === 0;
-  const count = counts
+  const tally = counts
     ? [counts.planning > 0 ? `${formatCount(counts.planning)} planning` : null, counts.celebrated > 0 ? `${formatCount(counts.celebrated)} celebrated` : null]
         .filter(Boolean)
         .join(' · ') || null
@@ -248,7 +248,7 @@ function EventsPart({ events, incoming, example }: { events: UnihomeEvents; inco
   const hasMore = more > 0 || (counts?.celebrated ?? 0) > 0 || !nothing;
   return (
     <section id="events" aria-labelledby="unihome-events" className={u.part} data-unihome-part="events">
-      <SecHead id="unihome-events" title="Events" count={count} see={hasMore ? UNIHOME_EVENTS_ALL : null} />
+      <SecHead id="unihome-events" title="Events" tally={tally} see={hasMore ? UNIHOME_EVENTS_ALL : null} />
       {incoming}
       {cards.map((c) => (
         <EventCard key={c.key} card={c} />
@@ -500,7 +500,7 @@ function DiscoverPart({ discover }: { discover: UnihomeDiscover }) {
           ) : (
             <div className={u.shelf}>
               {upcoming.items.map((c) => (
-                <Link key={c.key} href={withDiscoverArrival(c.href)} className={`${u.st} ${u.stWide}`}>
+                <Link key={c.key} href={c.href} className={`${u.st} ${u.stWide}`}>
                   <span className={u.stImg} aria-hidden>
                     <DiscoverEventCover card={c} />
                   </span>

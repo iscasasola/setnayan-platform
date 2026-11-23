@@ -19,6 +19,9 @@ export type UnihomeJump = (typeof UNIHOME_JUMPS)[number];
 export type UnihomePart = Exclude<UnihomeJump, 'you'>;
 export const UNIHOME_PARTS: readonly UnihomePart[] = ['events', 'shop', 'people', 'memories', 'discover'];
 
+/** The element id "You" jumps back to — the top of Home. */
+export const UNIHOME_TOP_ID = 'you';
+
 export const UNIHOME_JUMP_WORD: Record<UnihomeJump, string> = {
   you: 'You',
   events: 'Events',

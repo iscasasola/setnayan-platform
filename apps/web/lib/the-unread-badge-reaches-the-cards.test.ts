@@ -163,3 +163,37 @@ test('the badge renders its own words from the shared helpers, and is reachable'
   assert.match(BENCH, /\.slcat \.unrd\{/, 'the badge needs its own rule');
   assert.doesNotMatch(BENCH, /\.unrd\{[^}]*position:absolute/, 'it sits inline — .pcorner already owns the corner');
 });
+
+test('🪤 on the mall card the badge sits BESIDE the shop name, not in the stacked column', () => {
+  /* Card 14 once passed the badge as the first child of the mall face's extra
+     slot. MallFaceBody draws that slot straight inside a flex COLUMN, and a flex
+     column stretches its children, so the round 17px pill became a full-width
+     orange bar under the name. The fix hands it to the shop row (shopMark), where
+     the old card already kept it: a small round count beside the name. */
+  const from = BENCH.indexOf('function VendorCard(');
+  assert.ok(from > 0, 'VendorCard must exist — repoint this guard if it was renamed');
+  const next = BENCH.indexOf('\nfunction ', from + 1);
+  const card = BENCH.slice(from, next > 0 ? next : undefined);
+  const mall = card.slice(card.indexOf('<MallFaceBody'));
+  assert.ok(mall.length > 0 && card.includes('<MallFaceBody'), 'VendorCard draws the mall face');
+  assert.match(mall, /shopMark=\{unreadEl\}/, 'the mall face takes the badge in the shop row');
+  const extraAt = mall.indexOf('extra={');
+  const linesAt = mall.indexOf('lines={', extraAt);
+  assert.ok(extraAt > 0 && linesAt > extraAt, 'the mall face still has its extra and lines slots, in that order');
+  assert.doesNotMatch(
+    mall.slice(extraAt, linesAt),
+    /\{unreadEl\}/,
+    'in the stacked extra column the pill stretches into a full-width bar',
+  );
+
+  const FACE = read('app/_components/service-face.tsx');
+  const bodyAt = FACE.indexOf('export function MallFaceBody(');
+  assert.ok(bodyAt > 0, 'MallFaceBody must exist — repoint this guard if it was renamed');
+  const faceNext = FACE.indexOf('\nexport function ', bodyAt + 1);
+  const body = FACE.slice(bodyAt, faceNext > 0 ? faceNext : undefined);
+  const markAt = body.indexOf('{shopMark}');
+  const extraRenderAt = body.indexOf('{extra}');
+  assert.ok(markAt > 0, 'MallFaceBody renders the shop mark');
+  assert.ok(extraRenderAt > markAt, 'the shop mark renders in the shop row, above the stacked extra column');
+  assert.match(body, /\{shop \? <ShopLine shop=\{shop\} mall \/> : null\}\s*\{shopMark\}/, 'right after the shop name');
+});

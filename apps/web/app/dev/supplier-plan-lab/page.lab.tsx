@@ -238,7 +238,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
   return (
     <PlanRows
       tier={shop.tier}
-      pays={price !== null ? `₱${price.toLocaleString('en-PH')} / 28 days` : 'nothing to pay'}
+      pays={price !== null ? `₱${price.toLocaleString('en-PH')} / month` : 'nothing to pay'}
       expiresOn={shop.expires}
       expiresSoon={who === 'caterer'}
       isPaid={shop.tier !== 'free'}
@@ -574,7 +574,7 @@ export default async function SupplierPlanLabPage({
           lock={key}
           need={
             sp.plan
-              ? { kind: 'plan', plan: sp.plan, price: `${planWord(sp.plan)} · lab price / 28 days`, href: '/vendor-dashboard/subscription' }
+              ? { kind: 'plan', plan: sp.plan, price: `${planWord(sp.plan)} · lab price / month`, href: '/vendor-dashboard/subscription' }
               : { kind: 'verify', progress: papersProgress({ done: 2, of: REQUIRED_DOC_COUNT }) }
           }
           preview={
@@ -593,7 +593,7 @@ export default async function SupplierPlanLabPage({
     const tier = sp.tier ?? 'solo';
     const ask = limitAsk(tier, key, Number(sp.want ?? '2'), false);
     body = ask ? (
-      <LabLimit ask={ask} verified={sp.unverified !== '1'} price="lab price / 28 days" />
+      <LabLimit ask={ask} verified={sp.unverified !== '1'} price="lab price / month" />
     ) : (
       <p>Within the limit — no sheet.</p>
     );

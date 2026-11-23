@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  oneCalendarMonthOnMs,
+  monthlyTermIsTooShort,
   planLines,
   moveSentence,
   planWord,
@@ -196,4 +198,29 @@ test('the refusal still reads as a sentence when the date is missing', () => {
   const msg = termTooShortMessage(null);
   assert.match(msg, /shorter than the time you already have/);
   assert.ok(!/undefined|null|NaN|Invalid/.test(msg));
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 🗓 THE MONTH (20271360344805; owner 2026-11-23: "the plan is not per 4 weeks. it is now monthly").
+// The picker's copy of SQL `vendor_plan_term_end`: one calendar month on the Manila calendar.
+// ───────────────────────────────────────────────────────────────────────────
+
+const manila = (iso: string) => Date.parse(`${iso}+08:00`);
+
+test('a month on: Jan 31 → Feb 28, a leap year → Feb 29, Mar 31 → Apr 30, Dec → Jan', () => {
+  assert.equal(oneCalendarMonthOnMs(manila('2027-01-31T10:00:00')), manila('2027-02-28T10:00:00'));
+  assert.equal(oneCalendarMonthOnMs(manila('2028-01-31T10:00:00')), manila('2028-02-29T10:00:00'));
+  assert.equal(oneCalendarMonthOnMs(manila('2027-03-31T08:00:00')), manila('2027-04-30T08:00:00'));
+  assert.equal(oneCalendarMonthOnMs(manila('2027-12-15T18:30:00')), manila('2028-01-15T18:30:00'));
+  // Manila's calendar, not UTC's: 1 Feb 03:00 in Manila is still 31 Jan in UTC.
+  assert.equal(oneCalendarMonthOnMs(manila('2027-02-01T03:00:00')), manila('2027-03-01T03:00:00'));
+});
+
+test('a monthly plan: exactly a month left is allowed, a minute more is refused, lapsed buys anything', () => {
+  const now = manila('2027-01-31T10:00:00');
+  assert.equal(monthlyTermIsTooShort(new Date(manila('2027-02-28T10:00:00')).toISOString(), now), false, 'equal must pass');
+  assert.equal(monthlyTermIsTooShort(new Date(manila('2027-02-28T10:01:00')).toISOString(), now), true);
+  assert.equal(monthlyTermIsTooShort(new Date(manila('2027-02-20T10:00:00')).toISOString(), now), false);
+  assert.equal(monthlyTermIsTooShort(null, now), false, 'never subscribed');
+  assert.equal(monthlyTermIsTooShort(new Date(now - 86_400_000).toISOString(), now), false, 'lapsed');
 });

@@ -24,8 +24,8 @@ const ROWS: Purchase[] = [
 
 /** The v118 sample, in the reader's shapes (`lib/supplier-billing.ts`). */
 const SHOP_ROWS: Purchase[] = [
-  { orderId: 's1', publicId: 'S89O-ZR5K9F1CWQ', referenceCode: 'SN-ZR5K-03', description: 'Pro · 4 weeks', status: 'awaiting_payment', createdAt: '2026-11-01T01:00:00Z', eventId: null, eventName: null, isSupplierBilling: true, grossPhp: 3000, receiptId: null, receiptNumber: null },
-  { orderId: 's2', publicId: 'S89O-ZR5K9F1CWP', referenceCode: 'SN-ZR5K-02', description: 'Pro · 4 weeks', status: 'paid', createdAt: '2026-10-04T00:30:00Z', eventId: null, eventName: null, isSupplierBilling: true, grossPhp: 3000, receiptId: 'r2', receiptNumber: 'TXN-2026-000362' },
+  { orderId: 's1', publicId: 'S89O-ZR5K9F1CWQ', referenceCode: 'SN-ZR5K-03', description: 'Pro · monthly', status: 'awaiting_payment', createdAt: '2026-11-01T01:00:00Z', eventId: null, eventName: null, isSupplierBilling: true, grossPhp: 3000, receiptId: null, receiptNumber: null },
+  { orderId: 's2', publicId: 'S89O-ZR5K9F1CWP', referenceCode: 'SN-ZR5K-02', description: 'Pro · monthly', status: 'paid', createdAt: '2026-10-04T00:30:00Z', eventId: null, eventName: null, isSupplierBilling: true, grossPhp: 3000, receiptId: 'r2', receiptNumber: 'TXN-2026-000362' },
   { orderId: 's3', publicId: 'S89O-D4FJ8L2YHQ', referenceCode: 'SN-D4FJ-01', description: 'Booking fee · Ramos debut', status: 'refunded', createdAt: '2026-09-28T05:15:00Z', eventId: null, eventName: null, isSupplierBilling: true, grossPhp: 500, receiptId: 'r1', receiptNumber: 'TXN-2026-000350' },
 ];
 const reward = (id: string, key: string, kind: 'papic' | 'event_plus' | 'fee_waiver', at: string, used: string | null = null) =>

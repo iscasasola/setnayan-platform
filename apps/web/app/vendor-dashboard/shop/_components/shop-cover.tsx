@@ -449,7 +449,7 @@ function chipWord(plan: string | null): string {
 }
 
 /** "12 GB of 128 GB" · "1.2 GB stored" (no limit on the plan) · "Couldn’t load" — never 0 for an unread store. */
-function meterWords(m: StorageMeter): string {
+function storageRowWords(m: StorageMeter): string {
   if (m.kind === 'unread') return 'Couldn’t load';
   if (m.kind === 'no_limit') return m.used ? `${m.used} stored` : 'Couldn’t load';
   return `${m.used} of ${m.total}`;
@@ -471,7 +471,7 @@ function StorageRow({ storage, plan, label, onOpen }: { storage: NonNullable<Cov
     <div className="flex min-h-11 items-center gap-2.5" data-shop-storage={m.kind}>
       <span className="text-sn-md font-semibold text-ink">Storage</span>
       {m.kind === 'meter' ? <StorageBar m={m} /> : <span className="flex-1" />}
-      <span className={`whitespace-nowrap text-sn-md tabular-nums ${m.kind === 'unread' ? 'text-[rgb(var(--color-warn))]' : 'text-[color:var(--m-slate-2)]'}`}>{meterWords(m)}</span>
+      <span className={`whitespace-nowrap text-sn-md tabular-nums ${m.kind === 'unread' ? 'text-[rgb(var(--color-warn))]' : 'text-[color:var(--m-slate-2)]'}`}>{storageRowWords(m)}</span>
       <button
         type="button"
         onClick={onOpen}
@@ -498,7 +498,7 @@ function StorageBody({ storage, plan }: { storage: NonNullable<CoverData['storag
       <div className="sn-frame space-y-2 p-4">
         <span className={`text-sn-md font-semibold ${plan == null ? 'text-[rgb(var(--color-warn))]' : 'text-[color:var(--m-slate-2)]'}`}>{chipWord(plan)}</span>
         <b className={`block text-sn-3xl font-bold tabular-nums leading-tight ${m.kind === 'unread' ? 'text-[rgb(var(--color-warn))]' : 'text-ink'}`} data-storage-words="">
-          {m.kind === 'unread' ? 'Couldn’t load what you store' : meterWords(m)}
+          {m.kind === 'unread' ? 'Couldn’t load what you store' : storageRowWords(m)}
         </b>
         {m.kind === 'meter' ? (
           <span className="flex">

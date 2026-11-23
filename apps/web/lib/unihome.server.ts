@@ -67,8 +67,10 @@ export async function readUnihomeShop(switcher: SwitcherData | null, userId: str
   const supabase = await createClient();
   const rowRead = (async () => {
     try {
+      // The shop's OWN row, through the owner-scoped definer view (`vendor_profiles_self`): a signed-in session may not
+      // read the badge's deadline off the table (lib/security/shop-contact-is-not-session-readable.test.ts).
       const { data, error } = await supabase
-        .from('vendor_profiles')
+        .from('vendor_profiles_self')
         .select('verification_state, next_renewal_due_at, portfolio_r2_keys, microsite_hero_photo_key')
         .eq('vendor_profile_id', owned.id)
         .maybeSingle();

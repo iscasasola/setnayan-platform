@@ -83,19 +83,15 @@ test('every part price a surface reads goes through onSale', () => {
 
 /* ── 3 · the Event Pro page ─────────────────────────────────────────── */
 
-test('with no part on sale the Pro page sells Everything alone — no part price, button, pick or "counts toward"', () => {
-  const body = code('app/dashboard/[eventId]/studio/website-pro/_components/pro-parts-body.tsx');
-  assert.match(body, /const partsOnSale = HUB_PARTS\.some\(\(p\) => partPrice\(p\.id\) !== null\);/);
-  // The Apply sheet's `?buy=` pick is a part order — only while parts are sold.
-  assert.match(body, /\{partsOnSale && !active\?\.full && !owned\?\.full && buyParts\.length > 0/);
-  // One list of what Everything opens, instead of the priced big/small bands.
-  // 🏛 Owner 20 Nov 2026: what Everything opens is Event Plus's — the whole Event Hub.
-  assert.match(body, /partsOnSale\s*\?\s*\[\s*\{ title: 'Big parts'[\s\S]{0,120}\]\s*:\s*\[\{ title: `What \$\{everythingName\} opens`, parts: HUB_PARTS \}\]/);
-  // A part's own button needs its price — and no part price is handed in once they are off sale.
-  assert.match(body, /state === 'buy' && php !== null && !owned\?\.full \? \(/);
-  assert.match(body, /\{partsOnSale \? `Everything you pay here counts toward everything\./);
+test('the buy page sells the Event Hub WHOLE — a pack or the Event Hub single, never a part (Event services, 2026-11-23)', () => {
+  // 🛒 The plans page became Event services (v4, owner "Yes, build it"): the whole Hub is sold inside every pack, or alone
+  // as the Event Hub single (`EVENT_HUB`); no part is priced, picked or sold there.
+  const view = code('app/dashboard/[eventId]/studio/website-pro/_components/event-services-view.tsx');
+  assert.doesNotMatch(view, /HUB_PARTS|partPrice|hubParts/, 'a Hub part is sold on the Event services page');
+  const lib = code('lib/event-services.ts');
+  assert.match(lib, /hub: 'EVENT_HUB'/, 'the Event services single is not the whole-Hub row');
   const page = code('app/dashboard/[eventId]/studio/website-pro/page.tsx');
-  assert.match(page, /prices\?\.onSale\.has\(p\.sku\) \? prices\.parts\.get\(p\.sku\) : undefined/);
+  assert.doesNotMatch(page, /HUB_PARTS|hubPartPrices/, 'the page reads part prices again');
 });
 
 /* ── 4 · /pricing ───────────────────────────────────────────────────────── */

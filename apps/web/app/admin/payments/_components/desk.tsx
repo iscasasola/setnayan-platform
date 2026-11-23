@@ -44,7 +44,7 @@ import {
   type OrderStatus,
   type PaymentStatus,
 } from '@/lib/orders';
-import { ONBOARDING_SERVICES_SKU } from '@/lib/onboarding-order-items';
+import { EVENT_SERVICES_SKU, ONBOARDING_SERVICES_SKU } from '@/lib/onboarding-order-items';
 import { summarizeDeskMoney, type DeskBillLine } from '@/lib/admin-payment-desk';
 import type { EventTypeName } from '@/lib/admin/event-type-names.server';
 import { formatEventDate } from '@/lib/events';
@@ -470,6 +470,7 @@ export function decoratePayments(
 export function whatTheyBought(p: PaymentJoined, deskBills: Map<string, DeskBill>): string {
   if (!p.order) return 'Order not found';
   if (p.order.service_key === ONBOARDING_SERVICES_SKU) return 'Bought while creating their event';
+  if (p.order.service_key === EVENT_SERVICES_SKU) return 'Bought on Event services';
   const bill = deskBills.get(p.order_id);
   if (bill?.kind === 'single') return bill.line.label;
   return p.order.description || p.order.service_key || 'An order';
@@ -858,6 +859,8 @@ export function OpenedPayment({
   const serviceChip = p.order?.service_key
     ? p.order.service_key === ONBOARDING_SERVICES_SKU
       ? 'Bought while creating their event'
+      : p.order.service_key === EVENT_SERVICES_SKU
+        ? 'Bought on Event services'
       : deskBills.get(p.order_id)?.kind === 'single'
         ? (deskBills.get(p.order_id) as Extract<DeskBill, { kind: 'single' }>).line.label
         : p.order.service_key

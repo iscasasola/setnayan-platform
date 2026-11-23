@@ -91,7 +91,8 @@ test('the Papic studio mounts the Pool card', () => {
   // card is the head and the switch only), so the settings are handed the pool's Add more (`papicBuy` → PapicBuySheet).
   assert.match(read(HOME_SCREEN), /<PapicHomeCard\b/, `${HOME_SCREEN} must render the Papic card`);
   assert.match(read(HOME_SCREEN), /buy=\{card\.buy \?\? null\}/, `${HOME_SCREEN} must hand the card its Add more`);
-  assert.match(read(PAPIC_PAGE), /<PapicBuySheet\b/, `${PAPIC_PAGE} must render the pool's Add more (<PapicBuySheet>)`);
+  // 🛒 2026-11-23: on the web the pool's Add more opens Event services with the photo sizes (one place to buy).
+  assert.match(read(PAPIC_PAGE), /routes\.dashboard\.eventServices\(eventId, 'photos'\)/, `${PAPIC_PAGE} must render the pool's Add more (Event services)`);
   assert.match(read(PAPIC_PAGE), /buy: cardBuy,/, `${PAPIC_PAGE} must hand the card its Add more`);
   assert.match(read(PAPIC_PAGE), /<PapicCard key="papic" card=\{card\} \/>/, `${PAPIC_PAGE} must draw the card it built`);
   assert.match(read(BAND), /<PapicBuySheet\b/, `${BAND} must render <PapicBuySheet>`);

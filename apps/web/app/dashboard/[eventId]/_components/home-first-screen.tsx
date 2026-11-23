@@ -25,13 +25,13 @@ import { HomeMemoriesLine, HomeTodayList } from './home-todo-list';
 import { buildEventToday, eventTodayNeedWords, type EventTodayAsk } from '@/lib/event-today';
 import type { PutOffRecord } from '@/lib/today-put-off';
 import { manilaToday } from '@/lib/chat-cards';
-import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
 import { IapLiveWatchSheet } from '@/app/_components/iap/iap-live-watch-sheet';
 import { SERVICE_NAMES } from '@/lib/service-names';
 import { OUR_SERVICE_PARTS } from '@/lib/our-services';
 import { PapicSeePhotos } from '../studio/papic/_components/papic-see-photos';
 import { ServiceGlanceRow } from '@/app/_components/service-glance';
+import { routes } from '@/lib/routes';
 import { seePhotosWord } from '@/lib/papic-glance';
 import type { PoolRung } from '@/lib/papic-pool-rungs';
 import { SWITCH_ON_LABEL, type SwitchOnNeed } from '@/lib/event-needs';
@@ -149,6 +149,8 @@ export type HomeFirstScreenProps = {
   ground?: HomeCover | null;
   /** 🎨 Papic's credits left, for the Buy more sheet's "You have N" and "After this". */
   papicLeft?: number | null;
+  /** 🛒 The door on Today (Event services, owner 2026-11-23): its one line — the plan and the photos left. */
+  eventServices?: string | null;
   /** The credit ladder, ONLY when a dev lab already holds it — Home reads it on the tap. */
   papicSizes?: PoolRung[] | null;
   /**
@@ -211,6 +213,7 @@ export function HomeFirstScreen({
   dateFinderOpen = false,
   ground = null,
   papicLeft = null,
+  eventServices = null,
   papicSizes = null,
   papicInMemories = false,
   whosHere = null,
@@ -311,6 +314,7 @@ export function HomeFirstScreen({
             papicLeft={papicLeft}
             papicSizes={papicSizes}
             cards={serviceCards}
+            eventServices={eventServices}
           />
 
           {/* ✨ MEMORIES — one slim line of its own, after the widgets (round 3): everything from the day, in one place. */}
@@ -364,6 +368,7 @@ export function YourServices({
   papicLeft,
   papicSizes = null,
   cards = false,
+  eventServices = null,
 }: {
   eventId: string;
   services: HomeService[];
@@ -376,14 +381,32 @@ export function YourServices({
    * The couple's alone (the controls write as the couple); a coordinator and the app keep the rows.
    */
   cards?: boolean;
+  /**
+   * 🛒 THE DOOR ON TODAY (owner 2026-11-23, Event services v4 frame 12): one "Event services" row at the top of Your
+   * services — the plan and the photos left — opening the one place to buy for the event. Null = not drawn.
+   */
+  eventServices?: string | null;
 }) {
-  if (!(services.length > 0 || apple?.papic || apple?.liveWatch || apple?.thankYou)) return null;
+  if (!(services.length > 0 || eventServices || apple?.papic || apple?.liveWatch || apple?.thankYou)) return null;
   /* 🧱 Frames only where you act (owner 2026-11-01): Your services is a heading plus plain rows with dividers — the
      row's own control is its frame — closed off from what is above by a divider. */
   return (
     <nav aria-label="Your services" id="your-services" data-home-services className="hc-ruled flex flex-col">
       <p className="home-k2 !mt-1" data-tour="home-services">Your services</p>
       <div className="home-svc hc-plain-list">
+        {eventServices ? (
+          <ServiceGlanceRow
+            href={routes.dashboard.eventServices(eventId)}
+            name="Event services"
+            icon={<Gem aria-hidden strokeWidth={1.9} />}
+            mood="plain"
+            pct={0}
+            meter={false}
+            line={{ lead: eventServices }}
+            meterLabel=""
+            marker={{ 'data-home-service': 'event-services' }}
+          />
+        ) : null}
         {apple?.papic ? (
           <AppleServiceRow
             marker="papic"
@@ -585,14 +608,15 @@ function PapicServiceRow({
   const acts =
     doors.buy || photos ? (
       <>
+        {/* 🛒 One place to buy (owner 2026-11-23): "Buy more" opens Event services with the photo sizes ready. */}
         {doors.buy ? (
           doors.whileNext?.buy ? (
             /* NEVER TWICE, only while the card that offers it is on screen (walk-b6 F1). */
             <span data-while-next="" className="contents">
-              <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} />
+              <ActionButton tone="brand" icon={<Plus aria-hidden strokeWidth={1.9} />} label="Buy more" href={routes.dashboard.eventServices(eventId, 'photos')} data-web-only="" />
             </span>
           ) : (
-            <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} />
+            <ActionButton tone="brand" icon={<Plus aria-hidden strokeWidth={1.9} />} label="Buy more" href={routes.dashboard.eventServices(eventId, 'photos')} data-web-only="" />
           )
         ) : null}
         {/* The photos live on the event bar's Memories tab now (owner 2026-10-23) — the door opens it. */}

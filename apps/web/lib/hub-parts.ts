@@ -65,6 +65,15 @@ export const EVENT_PLUS_SKU = 'EVENT_PLUS';
  */
 export const EVERYTHING_SKU = EVENT_PLUS_SKU;
 
+/**
+ * 🛒 THE EVENT HUB SINGLE (owner 2026-11-23, "Event Hub unlock 2790"; Event services v4, approved "Yes, build it"): what
+ * Event Plus unlocks MINUS its Papic credits — every theme and every part of the Event Hub, the cinematic Save the Date
+ * openings, the animated logo, 500 MB of uploads and the one small Setnayan mark. Read as the whole Hub by
+ * `eventHubOwnership` and by the Hub's ownership aliases (`SKU_OWNERSHIP_ALIASES`). It is NOT a plan: no credits, no
+ * Setnayan AI, no Pro plan, and (until the owner says otherwise) it earns no credit toward Event Pro or Ultra.
+ */
+export const EVENT_HUB_SKU = 'EVENT_HUB';
+
 export type HubPart = {
   id: HubPartId;
   /** Its catalogue row — the price is read from there, never from here. */

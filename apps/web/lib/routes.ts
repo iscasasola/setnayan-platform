@@ -270,6 +270,13 @@ export const routes = {
   dashboard: {
     index: () => `/dashboard`,
     activity: (eventId: string) => `/dashboard/${eventId}/activity`,
+    /**
+     * 🛒 EVENT SERVICES — the one place to buy for an event (owner 2026-11-23). It lives at the plans page's address
+     * (`studio/website-pro`, which every plan door already used). `add` opens the singles with that one ready:
+     * photos (Papic "Add more"), live (the Live Watch page), ai (Setnayan AI), hub (an Event Hub lock).
+     */
+    eventServices: (eventId: string, add?: 'photos' | 'live' | 'ai' | 'hub') =>
+      `/dashboard/${eventId}/studio/website-pro${add ? `?add=${add}` : ''}`,
     addOns: {
       // `index` (/studio) removed 2026-10-02 with the full-page More Services
       // (owner, tracker d1) — zero callers; the services open through

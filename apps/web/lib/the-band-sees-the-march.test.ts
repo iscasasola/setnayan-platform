@@ -35,7 +35,8 @@ test('⓵ the band and the coordinator — booked FOR it on this event — and n
   const hub = read(HUB);
   assert.match(hub, /supplierSeesMarch\(\[\.\.\.\(brief\?\.booked_categories \?\? \[\]\), \.\.\.bookedServiceCategories\]\)/, 'the gate reads something other than this booking');
   assert.doesNotMatch(hub, /supplierSeesMarch\(profile\.services/, 'a shop that ALSO does music would see every couple’s march');
-  assert.match(hub, /seesMarch \? await loadMarch\(/, 'the march is read for bookings that may not see it');
+  // Read beside the hub-tool suggestions (Promise.all, 2026-11-23) — still only for a booking that may see it.
+  assert.match(hub, /seesMarch \? loadMarch\(/, 'the march is read for bookings that may not see it');
 });
 
 test('⓶ the couple’s own march, as applied; unread said; nothing when nobody walks', () => {

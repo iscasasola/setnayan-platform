@@ -4588,6 +4588,7 @@
         "OverlayBackdrop",
         "P",
         "PageMasthead",
+        "PayoutsShowSort",
         "PeekToast",
         "PeopleShowSort",
         "PickMenu",
@@ -5713,9 +5714,18 @@
         "removeEligibleUser"
       ],
       "blocks": [
+        "ChosenRow",
         "DiscountType",
+        "FormRow",
+        "FormRows",
         "Link",
-        "SubmitButton"
+        "PostedFieldRow",
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
+        "TypedRow"
       ]
     },
     "/admin/discount-codes/[id]/edit": {
@@ -5964,9 +5974,14 @@
       ],
       "blocks": [
         "FormFlash",
+        "FormRows",
         "PageMasthead",
+        "PostedFieldRow",
         "ReadFailed",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/fraud": {
@@ -6012,6 +6027,7 @@
         "admin/gifts/_components/badge-rewards-ledger.tsx",
         "admin/gifts/_components/badge-upgrades-ledger.tsx",
         "admin/gifts/_components/gift-limit-form.tsx",
+        "admin/gifts/_components/posted-rows.tsx",
         "admin/gifts/_components/setnayan-gift-picks.tsx",
         "admin/gifts/_components/shop-gifts-ledger.tsx",
         "admin/gifts/_components/take-back-reason-field.tsx",
@@ -6042,13 +6058,18 @@
         "BadgeRewardsLedger",
         "BadgeUpgradeLedgerRow",
         "BadgeUpgradesLedger",
+        "ChosenRow",
         "CompGrantRow",
         "CoupleFreeWindowRow",
+        "FormRow",
+        "FormRows",
         "GiftLimitForm",
         "InfoTip",
         "Link",
         "PageMasthead",
         "PickMenu",
+        "PostedPickRow",
+        "PostedTypedRow",
         "RowActionState",
         "SetnayanGiftPicks",
         "ShopGiftHoldRow",
@@ -6056,6 +6077,10 @@
         "ShopGiftsLedger",
         "SubmitButton",
         "TakeBackReasonField",
+        "TemplateEmpty",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TypedRow",
         "VendorGiftRow"
       ]
@@ -6251,12 +6276,18 @@
       ],
       "blocks": [
         "ActionButton",
+        "FormRow",
+        "FormRows",
         "FreeFeeWindowForm",
         "LaunchOfferActionState",
         "LaunchOfferNumbersForm",
         "PageMasthead",
         "Result",
-        "SpecialToolsDateForm"
+        "SpecialToolsDateForm",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/live-studio-channels": {
@@ -6548,15 +6579,18 @@
       "blocks": [
         "ActionRow",
         "AllowlistBadge",
+        "Badge",
         "DirectPayPreviewButton",
-        "FormFlash",
         "Image",
         "MethodDetail",
         "MethodTypeBadge",
         "ModerationBadge",
         "PageMasthead",
         "PaymentMethodCard",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateSection"
       ]
     },
     "/admin/payments": {
@@ -6596,6 +6630,7 @@
       "blocks": [
         "ApproveCore",
         "ApproveOutcome",
+        "Badge",
         "BatchApproveBar",
         "BatchApproveCheckbox",
         "CalendarDay",
@@ -6683,7 +6718,10 @@
       "files": [
         "admin/payouts/actions.ts",
         "admin/payouts/loading.tsx",
-        "admin/payouts/page.tsx"
+        "admin/payouts/page.tsx",
+        "admin/payouts/payout-form-rows.tsx",
+        "admin/payouts/payouts-filters.ts",
+        "admin/payouts/payouts-show-sort.tsx"
       ],
       "destinations": [],
       "actions": [
@@ -6693,16 +6731,33 @@
       ],
       "blocks": [
         "AdminUser",
+        "Badge",
+        "ChosenRow",
         "ConfirmForm",
-        "Field",
-        "FilterBar",
+        "DateRow",
+        "FilterFace",
         "FlashBanner",
-        "FormFlash",
-        "Link",
-        "PageMasthead",
-        "PayoutCard",
-        "Stat",
-        "SubmitButton"
+        "FormRows",
+        "MarkPaidRows",
+        "OpenedPayout",
+        "PayoutFilters",
+        "PayoutNum",
+        "PayoutRowLine",
+        "ReasonRow",
+        "RecordBack",
+        "RecordFacts",
+        "RecordHead",
+        "RecordSection",
+        "ShowSortSheet",
+        "ShowSortTopic",
+        "StateBadge",
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
+        "TypedRow"
       ]
     },
     "/admin/price-bands": {
@@ -6743,7 +6798,6 @@
       "destinations": [
         "/admin/addons/pricing-report",
         "/admin/gifts",
-        "/admin/pricing?tab=[seg]",
         "/admin/pricing?tab=papic-shots",
         "/admin/pricing?tab=plan-contents&plan=[seg]",
         "/admin/pricing?tab=pricing"
@@ -6773,6 +6827,7 @@
         "ActionButton",
         "AiBandsEditor",
         "AiPricesSurface",
+        "Badge",
         "BandCard",
         "BandPriceField",
         "BookingFeeForm",
@@ -6786,15 +6841,17 @@
         "Family",
         "Field",
         "FieldLabel",
+        "FieldPick",
         "FormRows",
         "FormulaLine",
         "FreeWindowsSurface",
         "GridPageSkeleton",
         "HeldByPanel",
         "HistorySection",
-        "Icon",
+        "InfoTip",
         "LegacyCatalogDisclosure",
         "Link",
+        "LinkPickMenu",
         "MoneyField",
         "NumberBox",
         "PageMasthead",
@@ -6824,12 +6881,16 @@
         "ServiceCatalogRow",
         "Shelf",
         "SignupDiscountCard",
-        "Stat",
         "SubmitButton",
         "SupplierPlan",
         "Suspense",
         "TablePageSkeleton",
         "Tag",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateNums",
+        "TemplateRows",
+        "TemplateSection",
         "TypeRow",
         "UnassignedTray",
         "ViewState"
@@ -6903,9 +6964,11 @@
       "actions": [],
       "blocks": [
         "ConsoleTable",
-        "KpiStatCard",
+        "InsightsParamPick",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "TemplateNums",
+        "TemplateSection"
       ]
     },
     "/admin/referrals": {
@@ -7241,7 +7304,6 @@
         "admin/studio/page.tsx"
       ],
       "destinations": [
-        "/",
         "/[seg]",
         "/[seg]/recap",
         "/admin/discount-codes/[seg]/edit",
@@ -7359,9 +7421,16 @@
         "rejectSubscription"
       ],
       "blocks": [
+        "Badge",
         "Link",
         "PageMasthead",
-        "SubmitButton"
+        "PostedFieldRow",
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/switches": {
@@ -13821,6 +13890,7 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/self-added-contact-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/shot-list-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-answers-form.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-checklists-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-form-answers.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-forms-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-questions-card.tsx",
@@ -13861,6 +13931,7 @@
         "CancelBookingButton",
         "ChangeAccessLink",
         "ChangeOrderTrail",
+        "ChecklistLabel",
         "ChosenProofField",
         "ChosenRow",
         "ColourAccessCard",
@@ -13923,6 +13994,7 @@
         "StayForm",
         "SubmitButton",
         "SupplierAnswersForm",
+        "SupplierChecklistsCard",
         "SupplierFormAnswers",
         "SupplierFormsCard",
         "SupplierQuestionsBody",
@@ -18659,6 +18731,7 @@
         "HubScreen",
         "HubSettings",
         "HubThumbRow",
+        "HubToolEntryResult",
         "Icon",
         "InfoTip",
         "IssuesLog",
@@ -18713,6 +18786,11 @@
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/floor-command.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/schedule-updater.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/hub-tools/dietary-sheet.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/hub-tools/entourage-sheet.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/hub-tools/entry-tools.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/hub-tools/hub-tool-panels-view.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/hub-tools/hub-tool-panels.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/march-read.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/own-captures-strip.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/papic-capture-controller.tsx",
@@ -18750,6 +18828,7 @@
       ],
       "blocks": [
         "ActionButton",
+        "AddRow",
         "AlbumShareSwitch",
         "AnnounceButton",
         "AnnouncementsCard",
@@ -18763,16 +18842,23 @@
         "Card",
         "ChangeTheSchedule",
         "CheckinDeskRows",
+        "ChecklistTool",
         "ChosenRow",
         "Closed",
         "ComingSoon",
         "ConsoleRule",
         "CopyEventToDrive",
+        "CounterTool",
         "Coverage",
         "CrewAsks",
         "CueCard",
         "DayRunOfShow",
+        "DietarySheet",
         "Drawn",
+        "EditRow",
+        "EntourageSheet",
+        "EntourageTitle",
+        "ErrorLine",
         "EventDayBody",
         "EventHubAnnounce",
         "EventHubBar",
@@ -18792,6 +18878,11 @@
         "HostPlaylist",
         "HubDoorRow",
         "HubEyebrow",
+        "HubToolEntry",
+        "HubToolEntryResult",
+        "HubToolPanels",
+        "HubToolPanelsView",
+        "Ic",
         "Icon",
         "InfoTip",
         "Link",
@@ -18816,6 +18907,7 @@
         "PartTop",
         "PauseToggle",
         "PaymentsPausedNote",
+        "PerPersonTool",
         "Person",
         "PickMenu",
         "PickRow",
@@ -18837,6 +18929,7 @@
         "SeatLookupResponse",
         "SeatScanOutcome",
         "SeatScanner",
+        "SetActions",
         "SetCard",
         "SetHeaderEditor",
         "SetsPanel",
@@ -18856,6 +18949,9 @@
         "TemplateEmpty",
         "TemplateFail",
         "TemplateSection",
+        "Tick",
+        "ToolHead",
+        "TypedRow",
         "UndoToastHost",
         "VendorSpecializationSet",
         "WakeLockSentinel",

@@ -27,6 +27,7 @@ import { useRef } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { SplitText } from 'gsap/SplitText';
+import { strokeLengthOrZero } from '@/lib/svg-stroke-length';
 
 if (typeof window !== 'undefined') {
   gsap.registerPlugin(SplitText);
@@ -51,10 +52,10 @@ export function usePanelIntro() {
 
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      // Thread draw length.
-      let len = 0;
-      if (path) {
-        len = path.getTotalLength();
+      // Thread draw length. 0 when this client cannot measure SVG geometry: the
+      // thread then rests fully drawn and is never animated (see svg-stroke-length).
+      const len = strokeLengthOrZero(path);
+      if (path && len) {
         gsap.set(path, { strokeDasharray: len, strokeDashoffset: reduce ? 0 : len });
       }
 
@@ -444,9 +445,8 @@ export function useProvision(
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
       if (items.length) gsap.set(items, { opacity: 0, y });
-      let ruleLen = 0;
-      if (rule) {
-        ruleLen = rule.getTotalLength();
+      const ruleLen = strokeLengthOrZero(rule);
+      if (rule && ruleLen) {
         gsap.set(rule, { strokeDasharray: ruleLen, strokeDashoffset: ruleLen });
       }
 

@@ -149,6 +149,7 @@ vendor_profiles.show_team_bookings_in_backend_count | 🔴 FINDING 2026-08-17. A
 # ── ADDED 2026-08-30 · deliberately temporary, and it expires by itself ──────
 # The one line in this file that is a SEQUENCING cost rather than a judgement.
 events.papic_guest_spend_ceiling_on | ⏳ TEMPORARY — the control exists, in the next PR. The spec's own rule for this feature is *gate the write, not the button* (`20271170068924:25-32`): a control that saves a number nothing enforces is the `papic_uploads_open` defect this tree already paid for, so the gate had to merge FIRST and alone. The switch is read by `papic_guest_spend_ceiling()` and enforced inside `papic_record_guest_capture` (migration 20271184624871, 22 db tests, 14 sabotages RED); what it lacks for one PR is the sheet that flips it, which is built and held. ⚠ DO NOT let this line settle: the test above deletes it for you — the moment that control lands, `gates-have-handles` fails until this line is removed.
+hub_tools.couple_sees | Hub tools (#8211/#8212, 2026-11-24): the per-tool "couple sees" flag. Its migration sets it TRUE for every checklist tool, which is the one kind a couple sees today; its switch is the Tool maker's "couple sees" control (2026-10-28), which is not built yet. Until it is, the value is set per tool by migration.
 
 # ── ADDED 2026-09-02 · phase 7a is schema, and this line expires with phase 7b ─
 

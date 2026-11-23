@@ -12,8 +12,9 @@
  *
  * ── 2 · THE FIX ─────────────────────────────────────────────────────────────────────────────────────────────────
  * `couple_thread_supplier_names(event)` answers for EVERY thread, every state, and the label the server prints
- * (`threadSupplierName`, the same `resolveVendorDisplayName`) is pinned per state — the screen name pre-reveal, the
- * business name once revealed. Never 'Supplier'. An unrevealed shop's business name and logo NEVER come back.
+ * (`threadSupplierName`, the same `resolveVendorDisplayName`) is pinned per state. Never 'Supplier'. Since owner
+ * ruling 2026-11-16 (15) (migration 20271350551812) every shop's REAL business name and logo come back — revealed or
+ * not — and the label is that name; the screen name draws only for a shop with no business name on file.
  *
  * ── 3 · THE GATE ────────────────────────────────────────────────────────────────────────────────────────────────
  * A stranger, the supplier themselves, another couple: zero rows. anon: no EXECUTE.
@@ -67,7 +68,7 @@ const SHOPS: Shop[] = [
     key: 'free-unverified-coming-soon', business_name: 'Jacq Florals', verification_state: 'unverified',
     public_visibility: 'coming_soon', tier_state: 'free', services: ['florist'], location_city: 'Cebu',
     name_revealed_at: null, screen_name: 'Cebu Florist #2002', logo_url: 'logos/jacq.webp',
-    embedVisible: false, expectName: 'Cebu Florist #2002', expectRevealed: false,
+    embedVisible: false, expectName: 'Jacq Florals', expectRevealed: false,
   },
   {
     key: 'free-unverified-replied', business_name: 'Jacq Lights', verification_state: 'unverified',
@@ -79,7 +80,7 @@ const SHOPS: Shop[] = [
     key: 'pending-review', business_name: 'Pending Photo Co', verification_state: 'pending_review',
     public_visibility: 'coming_soon', tier_state: 'free', services: ['photographer'], location_city: 'Davao',
     name_revealed_at: null, screen_name: 'Davao Photographer #3003', logo_url: null,
-    embedVisible: false, expectName: 'Davao Photographer #3003', expectRevealed: false,
+    embedVisible: false, expectName: 'Pending Photo Co', expectRevealed: false,
   },
   {
     key: 'unverified-paid-tier', business_name: 'Solo Cakes', verification_state: 'unverified',
@@ -297,18 +298,21 @@ test('THE FIX — every thread has a row and the label the anonymity resolver gi
   }
 });
 
-test('ANONYMITY — an unrevealed shop’s business name and logo never leave the database', async () => {
+// 🏷 Was "ANONYMITY — an unrevealed shop's business name and logo never leave the database". Owner ruling 2026-11-16
+// (15), real shop name everywhere, reversed that for names and logos (migration 20271350551812). What still holds:
+// `name_revealed` is still the predicate's answer (it gates STAFF names in receipts), and THE GATE below still returns
+// nothing to anyone who is not a couple on the event.
+test('REAL NAME — every shop’s business name and logo come back, revealed or not (ruling 2026-11-16 (15))', async () => {
   const rows = await namesAs(F.couple, F.eventId);
   const hidden = SHOPS.filter((s) => !s.expectRevealed);
   assert.ok(hidden.length >= 2, 'needs unrevealed shops to mean anything');
   for (const s of hidden) {
     const row = rows.find((r) => r.thread_id === F.thread[s.key])!;
-    assert.equal(row.name_revealed, false, s.key);
-    assert.equal(row.business_name, null, `${s.key}: business name leaked pre-reveal`);
-    assert.equal(row.logo_url, null, `${s.key}: logo leaked pre-reveal`);
-    assert.ok(!JSON.stringify(row).includes(s.business_name), `${s.key}: the real name is somewhere in the row`);
+    assert.equal(row.name_revealed, false, `${s.key}: the predicate still answers`);
+    assert.equal(row.business_name, s.business_name, `${s.key}: the real name is withheld`);
+    assert.equal(row.logo_url, s.logo_url, `${s.key}: the logo is withheld`);
+    assert.equal(threadSupplierName(row).name, s.business_name, `${s.key}: chat draws a stand-in, not the real name`);
   }
-  // Positive control: a revealed shop with a logo DOES carry it — so the NULLs above are the rule, not a bug.
   const open = rows.find((r) => r.thread_id === F.thread['unverified-paid-tier'])!;
   assert.equal(open.business_name, 'Solo Cakes');
   assert.equal(open.logo_url, 'logos/solo.webp');

@@ -1133,6 +1133,10 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
       return null;
     }
     if (fnByName(f, expr) && actionFacts(rel, expr)) return [`${rel}#${expr}`];
+    // const X = store?.X ?? XAction — an override (a venue host's store) with the shipped action as the fallback:
+    // the fallback is what an event posts to (the seat plan's one editor, seating-store.ts).
+    const fallback = f.src.match(new RegExp(`(?:const|let)\\s+${expr.replace(/\$/g, '\\$')}\\s*(?::[^=\\n]+)?=\\s*[^;\\n]*?\\?\\?\\s*([A-Za-z_$][\\w$.]*)\\s*;`));
+    if (fallback && fallback[1] !== expr) return resolveAction(rel, fallback[1]!, depth + 1);
     // const X = Y.bind(…) / useActionState(Y, …) / useFormState(Y, …) / useCallback(Y …)
     const bound = f.src.match(
       new RegExp(`(?:const|let)\\s+(?:${expr.replace(/\$/g, '\\$')}|\\[[^\\]]*\\b${expr.replace(/\$/g, '\\$')}\\b[^\\]]*\\])\\s*(?::[^=\\n]+)?=\\s*(?:React\\.)?(?:(?:useActionState|useFormState|useCallback|useTransition)\\(\\s*)?([A-Za-z_$][\\w$.]*)`),

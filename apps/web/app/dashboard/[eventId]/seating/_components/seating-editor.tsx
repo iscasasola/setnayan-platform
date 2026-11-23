@@ -94,7 +94,7 @@ import { UndoToastHost } from '../../guests/_components/undo-toast';
 import { pushUndo } from '../../guests/_components/undo-store';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
-import { guestSeatView } from '../../guests/seat-view-actions';
+import { guestSeatView as guestSeatViewAction } from '../../guests/seat-view-actions';
 import { GUEST_SEAT_VIEWS, GUEST_SEAT_VIEW_LABEL, GUEST_SEAT_VIEW_SHORT, parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 import { StatusLine } from '@/app/_components/status-line';
 import { Counter } from '@/app/_components/counter';
@@ -188,39 +188,40 @@ import { VENDOR_CATEGORY_LABEL, type BoothVendorOption } from '@/lib/vendors';
 // one source for "which wall a booth backs onto").
 import { BOOTH_FOOTPRINT_M, boothFacingDeg2D } from '@/lib/seating-3d';
 import {
-  addSeatingConstraint,
-  assignGroup,
-  assignGuest,
-  swapSeats,
-  autoArrange,
-  buildSeatingDraft,
-  createTable,
-  deleteTable,
-  lockAndFill,
-  removeSeatingConstraint,
-  toggleSeatLock,
-  publishSeating,
-  unpublishSeating,
-  stampTableSigns,
-  saveBooths,
-  saveFloorPlan,
-  savePriorityOrder,
-  commitWeld,
-  saveSigns,
-  saveVenuePhotoVisibility,
-  seatRoleAtTable,
-  setGuestSeatingPriority,
-  setTableSeat,
-  unassignGuest,
-  linkTables,
-  unlinkTable,
-  updateTableLabel,
-  updateTablePosition,
-  updateTableRotation,
-  updateTableType,
-  swapTableOccupants,
-  setGhostBoothsEnabled,
+  addSeatingConstraint as addSeatingConstraintAction,
+  assignGroup as assignGroupAction,
+  assignGuest as assignGuestAction,
+  swapSeats as swapSeatsAction,
+  autoArrange as autoArrangeAction,
+  buildSeatingDraft as buildSeatingDraftAction,
+  createTable as createTableAction,
+  deleteTable as deleteTableAction,
+  lockAndFill as lockAndFillAction,
+  removeSeatingConstraint as removeSeatingConstraintAction,
+  toggleSeatLock as toggleSeatLockAction,
+  publishSeating as publishSeatingAction,
+  unpublishSeating as unpublishSeatingAction,
+  stampTableSigns as stampTableSignsAction,
+  saveBooths as saveBoothsAction,
+  saveFloorPlan as saveFloorPlanAction,
+  savePriorityOrder as savePriorityOrderAction,
+  commitWeld as commitWeldAction,
+  saveSigns as saveSignsAction,
+  saveVenuePhotoVisibility as saveVenuePhotoVisibilityAction,
+  seatRoleAtTable as seatRoleAtTableAction,
+  setGuestSeatingPriority as setGuestSeatingPriorityAction,
+  setTableSeat as setTableSeatAction,
+  unassignGuest as unassignGuestAction,
+  linkTables as linkTablesAction,
+  unlinkTable as unlinkTableAction,
+  updateTableLabel as updateTableLabelAction,
+  updateTablePosition as updateTablePositionAction,
+  updateTableRotation as updateTableRotationAction,
+  updateTableType as updateTableTypeAction,
+  swapTableOccupants as swapTableOccupantsAction,
+  setGhostBoothsEnabled as setGhostBoothsEnabledAction,
 } from '../actions';
+import { useSeatingStore } from './seating-store';
 import { SEAT_PLAN_SHOW_VIEW_EVENT } from '@/lib/seat-plan-views';
 import { PLAN3D_BOOTH_ADS_ENABLED } from '@/lib/ghost-booths';
 import { useSeatingPresence } from './use-seating-presence';
@@ -271,7 +272,7 @@ import { SEARCH_WAIT_MS } from '@/lib/guest-roster-view';
 import { createPortal } from 'react-dom';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 import { BlueprintStudio } from '../../studio/indoor-blueprint/_components/blueprint-studio';
-import { saveEntrance } from '../../studio/indoor-blueprint/actions';
+import { saveEntrance as saveEntranceAction } from '../../studio/indoor-blueprint/actions';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Badge } from '@/app/_components/badge';
 import { resolvePlan3dFacts } from '@/lib/plan3d-control';
@@ -523,6 +524,43 @@ export function SeatingEditor({
   initialView = 'plan',
   details = null,
 }: Props) {
+  // 🪑 Every save goes through the seat plan's store (`seating-store.ts`): a venue host's writes, else the event's
+  // shipped actions (the app never provides a store under app/dashboard, so an event runs exactly as before).
+  const venueStore = useSeatingStore();
+  const addSeatingConstraint = venueStore?.addSeatingConstraint ?? addSeatingConstraintAction;
+  const assignGroup = venueStore?.assignGroup ?? assignGroupAction;
+  const assignGuest = venueStore?.assignGuest ?? assignGuestAction;
+  const swapSeats = venueStore?.swapSeats ?? swapSeatsAction;
+  const autoArrange = venueStore?.autoArrange ?? autoArrangeAction;
+  const buildSeatingDraft = venueStore?.buildSeatingDraft ?? buildSeatingDraftAction;
+  const createTable = venueStore?.createTable ?? createTableAction;
+  const deleteTable = venueStore?.deleteTable ?? deleteTableAction;
+  const lockAndFill = venueStore?.lockAndFill ?? lockAndFillAction;
+  const removeSeatingConstraint = venueStore?.removeSeatingConstraint ?? removeSeatingConstraintAction;
+  const toggleSeatLock = venueStore?.toggleSeatLock ?? toggleSeatLockAction;
+  const publishSeating = venueStore?.publishSeating ?? publishSeatingAction;
+  const unpublishSeating = venueStore?.unpublishSeating ?? unpublishSeatingAction;
+  const stampTableSigns = venueStore?.stampTableSigns ?? stampTableSignsAction;
+  const saveBooths = venueStore?.saveBooths ?? saveBoothsAction;
+  const saveFloorPlan = venueStore?.saveFloorPlan ?? saveFloorPlanAction;
+  const savePriorityOrder = venueStore?.savePriorityOrder ?? savePriorityOrderAction;
+  const commitWeld = venueStore?.commitWeld ?? commitWeldAction;
+  const saveSigns = venueStore?.saveSigns ?? saveSignsAction;
+  const saveVenuePhotoVisibility = venueStore?.saveVenuePhotoVisibility ?? saveVenuePhotoVisibilityAction;
+  const seatRoleAtTable = venueStore?.seatRoleAtTable ?? seatRoleAtTableAction;
+  const setGuestSeatingPriority = venueStore?.setGuestSeatingPriority ?? setGuestSeatingPriorityAction;
+  const setTableSeat = venueStore?.setTableSeat ?? setTableSeatAction;
+  const unassignGuest = venueStore?.unassignGuest ?? unassignGuestAction;
+  const linkTables = venueStore?.linkTables ?? linkTablesAction;
+  const unlinkTable = venueStore?.unlinkTable ?? unlinkTableAction;
+  const updateTableLabel = venueStore?.updateTableLabel ?? updateTableLabelAction;
+  const updateTablePosition = venueStore?.updateTablePosition ?? updateTablePositionAction;
+  const updateTableRotation = venueStore?.updateTableRotation ?? updateTableRotationAction;
+  const updateTableType = venueStore?.updateTableType ?? updateTableTypeAction;
+  const swapTableOccupants = venueStore?.swapTableOccupants ?? swapTableOccupantsAction;
+  const setGhostBoothsEnabled = venueStore?.setGhostBoothsEnabled ?? setGhostBoothsEnabledAction;
+  const guestSeatView = venueStore?.guestSeatView ?? guestSeatViewAction;
+  const saveEntrance = venueStore?.saveEntrance ?? saveEntranceAction;
   // Iteration 0053 P4 Unit 6: the event's role set drives seating tiers + labels.
   // Pure client-safe lookup; wedding → WEDDING_ROLE_SET (byte-identical). Declared
   // first so the priority-order useState initializer below can read it.
@@ -10633,6 +10671,7 @@ function AddTablePanel({
   /** The create never answered, or was refused: the parent says so in the plan's notice strip; the form stays open. */
   onNotSaved: () => void;
 }) {
+  const createTable = useSeatingStore()?.createTable ?? createTableAction;
   const [isPending, startTransition] = useTransition();
   // A table can't have more seats than its TYPE allows (a Sweetheart seats 2).
   // Capacity is capped at the selected type's seat count and resets to it when

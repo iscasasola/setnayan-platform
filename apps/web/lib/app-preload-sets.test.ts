@@ -70,7 +70,7 @@ test('the supplier bar here is the bar the supplier sees (vendor-nav-destination
 });
 
 test('the trigger is mounted where a signed-in person lands — and never in the admin console or a public page', () => {
-  for (const f of ['app/dashboard/[eventId]/layout.tsx', 'app/dashboard/(account)/layout.tsx', 'app/dashboard/(launcher)/layout.tsx', 'app/vendor-dashboard/layout.tsx']) {
+  for (const f of ['app/dashboard/[eventId]/layout.tsx', 'app/dashboard/(account)/layout.tsx', 'app/(hub)/layout.tsx', 'app/vendor-dashboard/layout.tsx']) {
     const src = stripComments(read(f));
     assert.match(src, /<AppPreload\b[\s\S]{0,200}appPreloadPlan\(/, `${f} no longer preloads what the account has`);
   }

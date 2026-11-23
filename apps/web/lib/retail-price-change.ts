@@ -1,58 +1,28 @@
 /**
- * retail-price-change.ts — which edits to a catalogue row change what a
- * CUSTOMER PAYS, and therefore need a second admin.
+ * retail-price-change.ts — which edits to a catalogue row change what a CUSTOMER PAYS.
  *
- * ── The clause ──────────────────────────────────────────────────────────────
- * Vendor Agreement § 9.1: *"Mid-quarter price change on any in-app SKU |
- * Pricing governance (per § 8)"*, and § 9 itself:
+ * ── ⚖ THE RULE, 23 NOV 2026: ONE ADMIN, LIVE ON SAVE ───────────────────────
+ * Owner, of his Live Watch price that sat in /admin/approvals waiting on a second admin: *"no need for a second
+ * admin. auto approve"*. `saveRetailRow` now applies a price change at once, through the one executor
+ * (`executeRetailPriceChange`), with an audit row (before → after, who, when, `applied_directly`).
  *
- *     "Setnayan's in-app service prices … remain constant with reviews
- *      scheduled at the start of each calendar quarter. Mid-quarter changes
- *      are rare and require two-admin approval."
- *
- * `platform_retail_catalog_v2` is admin-managed and is **the only price a
- * customer is charged**. One admin could change it alone.
- *
- * ── ⛔ WHY THIS GATES EVERY PRICE CHANGE, NOT ONLY MID-QUARTER ONES ─────────
- * The clause turns on "mid-quarter", and **the corpus never defines where a
- * quarter's review window ends.** "At the start of each calendar quarter" has
- * no duration — a day? a week? a fortnight? Grepped the whole corpus: § 3.8,
- * § 9, § 9.1 and the 0034 cart fixture all use the term and none bound it.
- *
- * Picking one would decide whether a given money change needs two admins.
- * Owner ruling 2026-08-31, on a different invented default: **"don't guess."**
- *
- * So this gates **every** customer-price change. That is STRICTER than the
- * contract, never looser, so it cannot breach it — the clause makes mid-quarter
- * changes require two admins and is silent on quarterly ones; requiring two for
- * both is a self-imposed control on Setnayan's own admins and takes nothing
- * from a vendor. § 9.1's own note agrees with the direction: these happen
- * *"once a week or less, where the two-admin friction is a feature not a bug."*
- *
- * ⚖ **Narrowing it to mid-quarter-only is a one-line change** — add the window
- * test to `priceChangeNeedsTwoAdmins`. It needs the owner to state where the
- * review window ends, and nothing else.
- *
- * ⚠ VERIFIED BEFORE SHIPPING: production has **2 admins**, so
- * `decided_by <> initiated_by` is satisfiable. With one admin every gate in
- * this family would make its operation impossible rather than careful. Two is
- * also the minimum — there is no slack if one person is away.
+ * ── What this rule was (2026-09-23 → 23 Nov 2026) ──────────────────────────
+ * Vendor Agreement § 9.1 lists *"Mid-quarter price change on any in-app SKU | Pricing governance (per § 8)"* as a
+ * two-admin decision, and § 9 says mid-quarter changes *"require two-admin approval"*. Because the corpus never
+ * bounds the quarter's review window, the gate held EVERY price change for a second admin. That gate is gone by the
+ * owner's ruling. ⚠ The agreement's text still names the row: `lib/two-admin-promise.ts` keeps it (the page quotes
+ * the contract) and records it as NOT ENFORCED. Amending § 9 / § 9.1 is the owner's step, not code's.
  *
  * ── 🔑 NOT EVERY FIELD ON THE FORM IS A PRICE ───────────────────────────────
- * The row card submits the title, the customer-facing description, the active
- * flag and `saas_overhead_cost_php` alongside the money. Renaming a SKU or
- * fixing its blurb is copy, not pricing governance, and gating it would make
- * an admin wait on a colleague to fix a typo. `saas_overhead_cost_php` is OUR
- * cost, not what anyone is charged — it moves our margin, not their bill.
- *
- * Same shape as `payment-destination.ts`: one form, two kinds of field, and
- * only one kind is what the clause is about.
+ * The row card submits the title, the customer-facing description, the active flag and `saas_overhead_cost_php`
+ * alongside the money. Those are copy and OUR cost, not anyone's bill. The split still matters: the executor writes
+ * ONLY the price fields, and the audit row names exactly which ones moved.
  */
 
 import type { RetailRowPrior, RetailRowNext } from './admin/pricing-row-diff';
 
 /**
- * The fields that decide what a CUSTOMER PAYS. Changing any is a § 9.1 action.
+ * The fields that decide what a CUSTOMER PAYS — the only columns `executeRetailPriceChange` may write.
  *
  * `billing_period` and `is_pax_priced` are here deliberately: they do not hold
  * an amount, they change *how the amount is computed* — flipping a one-time SKU
@@ -107,23 +77,9 @@ export function changedPriceFields(
 }
 
 /** True when this save changes what a customer is charged. */
-export function priceChangeNeedsTwoAdmins(
+export function changesWhatACustomerPays(
   prior: Partial<RetailRowPrior>,
   next: Partial<RetailRowNext>,
 ): boolean {
   return changedPriceFields(prior, next).length > 0;
-}
-
-/** Human-readable, for the approval rationale the second admin reads. */
-export function describePriceChange(
-  prior: Partial<RetailRowPrior>,
-  next: Partial<RetailRowNext>,
-): string {
-  return changedPriceFields(prior, next)
-    .map((f) => {
-      const a = norm((prior as Record<string, unknown>)[f]) ?? '(unset)';
-      const b = norm((next as Record<string, unknown>)[f]) ?? '(unset)';
-      return `${f}: ${a} → ${b}`;
-    })
-    .join(' · ');
 }

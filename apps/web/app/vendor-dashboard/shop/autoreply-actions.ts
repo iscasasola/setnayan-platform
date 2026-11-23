@@ -172,7 +172,7 @@ async function voiceGate(): Promise<VoiceGate> {
   if (!advanced) {
     return {
       ok: false,
-      error: 'Voice-match comes with the smarter AI chatbot, on Pro and Ultra.',
+      error: 'Voice-match comes with the smarter AI chatbot, on every paid plan.',
     };
   }
 

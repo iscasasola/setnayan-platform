@@ -1,4 +1,5 @@
 import { Lock } from 'lucide-react';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import type { ReactNode } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { r2SignedGet, R2_BUCKETS } from '@/lib/r2';
@@ -80,7 +81,7 @@ export async function PortfolioAlbumSection({
       const row = shareRead.data as { shared: boolean; asked_at: string | null } | null;
       share = {
         ready: true,
-        isUltra: (planRead.data as { tier_state: string | null }).tier_state === 'enterprise',
+        isUltra: isPaidSize((planRead.data as { tier_state: string | null }).tier_state), // every paid size since 2026-11-22
         shared: row?.shared === true,
         asked: Boolean(row?.asked_at),
       };

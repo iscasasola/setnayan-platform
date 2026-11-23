@@ -131,13 +131,18 @@ test('the five Custom catalogue rows are off sale AND marked retired', async () 
   assert.equal(live.rows[0]!.n, 0, 'a vendor_custom_* row is on sale');
 });
 
-test("Ultra's add-ons stay on sale — retiring Custom must not take them", async () => {
-  const r = await db.query<{ sku_code: string; is_active: boolean }>(
-    `SELECT sku_code, is_active FROM public.vendor_billing_catalog
+// Retiring Custom (2026-11-06) left Ultra's two add-ons on sale. They retired later, by their own ruling (owner
+// 2026-11-22, "nothing else is sold to suppliers as a plan or add-on"; migration 20271360321657) — kept, never deleted.
+test("Ultra's add-on rows survive retiring Custom — kept as rows, retired only by the 22 Nov ruling", async () => {
+  const r = await db.query<{ sku_code: string; is_active: boolean; retired_at: string | null }>(
+    `SELECT sku_code, is_active, retired_at::text FROM public.vendor_billing_catalog
       WHERE sku_code IN ('vendor_additional_branch', 'vendor_extra_seat')`,
   );
-  assert.equal(r.rows.length, 2, 'an Ultra add-on row is missing');
-  for (const row of r.rows) assert.equal(row.is_active, true, `${row.sku_code} was taken off sale`);
+  assert.equal(r.rows.length, 2, 'an Ultra add-on row was deleted');
+  for (const row of r.rows) {
+    assert.equal(row.is_active, false, `${row.sku_code} is on sale — no add-ons since 2026-11-22`);
+    assert.ok(row.retired_at, `${row.sku_code} is off sale with no retired_at`);
+  }
 });
 
 test('the Custom-only "no limit" axis is gone, and no limit has a Custom arm', async () => {

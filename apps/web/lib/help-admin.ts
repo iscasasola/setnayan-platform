@@ -18,11 +18,10 @@
  * `lib/public-help-says-what-is-true.test.ts`: no public topic may be for the
  * team, and no public route may import this file.
  *
- * ⏭ NOTHING RENDERS THESE TODAY. The content is kept (not deleted) because
- * `the-two-admin-promise-is-tracked.test.ts` counts every § 9.1 promise in
- * 'what-needs-two-admins', and withdrawing a contractual promise is an owner
- * decision, not a copy edit. Giving them a home inside /admin is a separate,
- * unbuilt piece of work — import this from an `app/admin/**` page only.
+ * ✅ RENDERED SINCE 13 NOV 2026 — the team's ask-first Help, `app/admin/help/guides/page.tsx` (owner "Three helps:
+ * user · supplier · admin"), reached from Setnayan HQ's account sheet. Still import this from `app/admin/**` only.
+ * The content is kept as written: `the-two-admin-promise-is-tracked.test.ts` counts every § 9.1 promise in
+ * 'what-needs-two-admins', and withdrawing a contractual promise is an owner decision, not a copy edit.
  */
 
 import type { HelpArticle } from './help';
@@ -72,7 +71,7 @@ export const ADMIN_HELP_TOPICS: ReadonlyArray<AdminHelpTopic> = [
       {
         slug: 'what-needs-two-admins',
         title: 'What needs two-admin approval',
-        body: 'Per Vendor Agreement § 9.1, major decisions need two admins. That means promoting a user to any admin role, adding an internal account, a comp grant above the § 9.1 retail limit, changing the BDO or GCash receiving account, a mid-quarter price change on any in-app SKU, force-delisting a supplier without the due-process timeline, refunding a single transaction above the § 9.1 limit, and re-publishing a previously rejected supplier application. Routine ops stay single-admin — payment reconciliation, approving a supplier verification queue item, comps and refunds at or below those limits, dispute mediation, review moderation and user lookup. Both limits are stated in § 9.1 itself, and the admin console names the exact figure at the moment you go over it.',
+        body: 'Per Vendor Agreement § 9.1, major decisions need two admins. That means promoting a user to any admin role, adding an internal account, a comp grant above the § 9.1 retail limit, changing the BDO or GCash receiving account, a mid-quarter price change on any in-app SKU, force-delisting a supplier without the due-process timeline, refunding a single transaction above the § 9.1 limit, and re-publishing a previously rejected supplier application. Since 23 Nov 2026 a price change is the exception: by the owner’s ruling one admin changes a price and it is live at once, with the change kept in the audit log. Routine ops stay single-admin — payment reconciliation, approving a supplier verification queue item, comps and refunds at or below those limits, dispute mediation, review moderation and user lookup. Both limits are stated in § 9.1 itself, and the admin console names the exact figure at the moment you go over it.',
       },
       {
         slug: 'approving-an-action',

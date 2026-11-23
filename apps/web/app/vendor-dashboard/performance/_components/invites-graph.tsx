@@ -51,7 +51,7 @@ export function InvitesPic({ months }: { months: readonly InviteMonth[] }) {
         </text>
       </svg>
       <p className="ag-leg">
-        <span>Invited</span>
+        <span className="ag-leg-opened">Invited</span>
         <span className="ag-leg-ok">Booked</span>
         <span className="ag-leg-done">Completed an event</span>
       </p>

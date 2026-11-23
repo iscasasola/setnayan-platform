@@ -160,7 +160,17 @@ async function exchangeCredentials(formData: FormData): Promise<
     accountHomePath() is deliberately NOT deleted — /login?next=/dashboard and
     every caller that asks for an account home still uses it.
   */
-  const destination = signInDestination(rawNext);
+  // 🏠 22 Nov 2026 — a sign-in that named nowhere of its own opens the person's profile page, Home; a supplier's on
+  // Shop. The account type is read only for that case (a named `next` is honoured as given and never needs it).
+  let accountType: string | null = null;
+  if (rawNext === '/') {
+    const { data: auth } = await supabase.auth.getUser();
+    if (auth.user?.id) {
+      const { data: row } = await supabase.from('users').select('account_type').eq('user_id', auth.user.id).maybeSingle();
+      accountType = (row?.account_type as string | null | undefined) ?? null;
+    }
+  }
+  const destination = signInDestination(rawNext, accountType);
 
   return { ok: true, destination };
 }
@@ -183,6 +193,8 @@ export type SignInInPlaceState = {
   provider: KnownProvider | null;
   /** True only after the credentials were actually accepted by Supabase. */
   ok: boolean;
+  /** Set only on a success whose `next` was `/` (nowhere of its own): the profile page to open (landingForAccount). */
+  landing?: string | null;
   /** True only when the "email me a link to set a password" send was accepted (intent=reset). */
   resetSent: boolean;
   /** Bumped on every completed submit so a repeated identical failure still
@@ -312,12 +324,16 @@ export async function signInInPlace(
     };
   }
   /*
-    `result.destination` is deliberately DROPPED here. In place, there is
+    `result.destination` is normally DROPPED here. In place, there is
     nowhere to send anybody — the whole point is that the page you are on is
     where you stay. Landing on the account board is the job of the /login
     ROUTE, which is reached by a hard load or a redirect and genuinely has
     nothing behind it. Returning a destination nobody navigates to would be a
     value that looks like a decision and is not one.
   */
-  return { error: null, provider: null, ok: true, resetSent: false, attempt };
+  // 🏠 22 Nov 2026 — EXCEPT when the page had nothing of its own to stay on. A panel opened from `/` (the front door,
+  // Discover) has `next = '/'`: there the resolved landing — the person's profile page — goes back to the panel, which
+  // navigates to it instead of refreshing Discover. Any other page keeps "stay put" exactly as before.
+  const landing = safeNext(formData.get('next')) === '/' ? result.destination : null;
+  return { error: null, provider: null, ok: true, resetSent: false, attempt, landing };
 }

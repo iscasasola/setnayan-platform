@@ -111,14 +111,17 @@ test('V-3 · a refused plan read never hides the branches and relabels every car
   assert.match(sm, /planHasBranches\(tier\) \|\| tierUnread/, 'an unread plan must still read the branch labels');
 });
 
-test('L-2 · a refused catalogue never drops a Plus shop’s own row or says "Not sold on this cycle"', () => {
+test('L-2 · a refused catalogue never drops a Plus shop’s own row or says "Not on sale right now"', () => {
   const lib = web('lib/v2-catalog.ts');
   assert.match(lib, /export async function fetchV2VendorCatalogRead\(\): Promise<\{ rows: V2VendorSku\[\]; ok: boolean \}>/);
   assert.match(lib, /vendor_billing_catalog', error\);\s*return \{ rows: \[\], ok: false \};/);
   const screen = dash('subscription/_components/plan-screen.tsx');
   assert.match(screen, /const \{ rows: vendorCatalog, ok: catalogRead \} = await fetchV2VendorCatalogRead\(\);/);
-  assert.match(screen, /const soloBuyable = priceBySku\.has\('solo_vendor_annual'\) \|\| catalogUnread \|\| currentTier === 'solo';/);
+  // Monthly only since owner 2026-11-22: Plus is shown while its MONTHLY row is on sale (the yearly row retired).
+  assert.match(screen, /const soloBuyable = priceBySku\.has\(skuFor\('solo'\)\) \|\| catalogUnread \|\| currentTier === 'solo';/);
+  assert.match(screen, /function skuFor\(tier: PaidTier\): string \{\s*return `\$\{tier\}_vendor_monthly`;/);
+  assert.doesNotMatch(screen, /solo_vendor_annual'\)/, 'Plus is gated on a retired yearly row again');
   assert.match(screen, /pricesUnread=\{catalogUnread\}/);
   const sheet = dash('subscription/_components/plan-sheet.tsx');
-  assert.match(sheet, /\) : price === undefined && pricesUnread \? \([\s\S]{0,200}\) : price === undefined \? \(/, 'an unread price must be said before "Not sold on this cycle"');
+  assert.match(sheet, /\) : price === undefined && pricesUnread \? \([\s\S]{0,200}\) : price === undefined \? \(/, 'an unread price must be said before "Not on sale right now"');
 });

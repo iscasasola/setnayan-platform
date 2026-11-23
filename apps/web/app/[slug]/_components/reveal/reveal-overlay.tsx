@@ -278,9 +278,11 @@ export function RevealOverlay({
   const template: RevealTemplate = decision === NO_REVEAL ? 'veil-sheer' : decision;
   const veil = isVeilTemplate(template);
 
-  /* ♿ Reduced motion is no longer a reason to stand down (owner 23 Nov 2026): it gets the still reveal and a cross-fade. */
+  /* ♿ Reduced motion stands the opening down: no veil, no hold, the page complete at once (16 Oct 2026 ruling — the
+     controller restored it on #8192, 23 Nov 2026, over the builder's "still reveal + one tap"). */
   const active =
     enabled &&
+    !reducedMotion &&
     !alreadySeen &&
     !offTheFirstPage &&
     decision !== NO_REVEAL;

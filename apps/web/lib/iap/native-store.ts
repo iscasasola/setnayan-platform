@@ -53,6 +53,9 @@ function call<T>(method: string, options: Record<string, unknown> = {}): Promise
   return cap.nativePromise(NATIVE_STORE_PLUGIN, method, options) as Promise<T>;
 }
 
+/** The same bridge, for the supplier plans' buy (lib/iap/supplier-plan-store.ts) — one plugin door, never a second. */
+export { call as callNativeStore };
+
 export type AppStoreProduct = {
   id: string;
   displayName: string;

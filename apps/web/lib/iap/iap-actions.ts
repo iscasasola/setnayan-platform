@@ -25,6 +25,8 @@ import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { verifyAppleTransaction } from './apple-transaction';
 import { createPurchaseIntent, fulfilAppleTransaction, type FulfilOutcome } from './fulfil.server';
 import { startRefusal, type IapStartResult, type IapConfirmResult, type IapRestoreResult } from './iap-outcome';
+import { confirmSupplierPlanForUser, startSupplierPlanForUser } from './supplier-plan-confirm.server';
+import { supplierPlanProductById } from './supplier-plans';
 
 /**
  * 🍎 THE THREE DOORS THE APP KNOCKS ON — before, after and instead of Apple's sheet.
@@ -78,6 +80,15 @@ export async function startAppStorePurchase(input: {
     return startShopGiftPurchase(gift, quantity);
   }
   if (quantity !== 1) return startRefusal('unavailable');
+
+  // 🏪 A SHOP's plan (auto-renewable): the server issues the token for the shop the caller manages and keeps the
+  // pairing, so Apple's notifications grant only to that shop (lib/iap/supplier-plan-confirm.server.ts).
+  const plan = supplierPlanProductById(input.productId);
+  if (plan) {
+    const userId = await signedInUserId();
+    if (!userId) return startRefusal('sign_in');
+    return startSupplierPlanForUser(userId, plan);
+  }
 
   const product = iapProductById(input.productId);
   const eventId = typeof input.eventId === 'string' ? input.eventId.trim() : '';
@@ -228,6 +239,9 @@ async function signedInUserId(): Promise<string | null> {
 export async function confirmAppStorePurchase(input: { jws: string }): Promise<IapConfirmResult> {
   const userId = await signedInUserId();
   if (!userId) return { status: 'refused', reason: 'not_yours' };
+  // 🏪 A supplier plan (auto-renewable, the shop's own) has its own confirm; null = not one, the event path goes on.
+  const plan = await confirmSupplierPlanForUser(userId, typeof input.jws === 'string' ? input.jws : '');
+  if (plan) return plan;
   const verified = verifyAppleTransaction(typeof input.jws === 'string' ? input.jws : '');
   if (!verified.ok) return { status: 'invalid' };
   const outcome = await fulfilAppleTransaction(createMoneyWriterClient(), verified.tx, { expectUserId: userId });

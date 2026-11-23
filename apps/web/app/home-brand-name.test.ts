@@ -34,7 +34,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const HOME_PAGE = path.join(import.meta.dirname, 'page.tsx');
+const HOME_PAGE = path.join(import.meta.dirname, '(hub)', 'page.tsx');
 /*
   🚨 THIS POINTED AT `_components/home/HomeReskin.tsx` UNTIL 2026-08-13, AND
   THAT IS HOW IT FAILED. The front door replaced that page on `/` and rendered
@@ -82,7 +82,7 @@ function metadataBlock(src: string): string {
   assert.notEqual(
     start,
     -1,
-    'app/page.tsx no longer exports a `metadata` object. The homepage is the URL ' +
+    'app/(hub)/page.tsx no longer exports a `metadata` object. The homepage is the URL ' +
       'handed to Google OAuth review; it cannot ship without one.',
   );
   const open = src.indexOf('{', start);
@@ -95,7 +95,7 @@ function metadataBlock(src: string): string {
       if (depth === 0) return src.slice(open, i + 1);
     }
   }
-  assert.fail('Unbalanced braces in app/page.tsx metadata object.');
+  assert.fail('Unbalanced braces in app/(hub)/page.tsx metadata object.');
 }
 
 /** The rendered `<header className="fd-topbar">…</header>`, prose stripped. */
@@ -147,7 +147,7 @@ test('the homepage does not drop og:site_name when it overrides openGraph', () =
   assert.match(
     meta,
     /siteName:\s*'Setnayan'/,
-    "app/page.tsx overrides `openGraph` without `siteName: 'Setnayan'`. Next REPLACES " +
+    "app/(hub)/page.tsx overrides `openGraph` without `siteName: 'Setnayan'`. Next REPLACES " +
       'the openGraph object rather than merging it, so the root layout\'s og:site_name ' +
       'is deleted on `/` — the exact live defect measured 2026-08-09. An openGraph ' +
       'override on this page must be COMPLETE, never a patch.',
@@ -155,7 +155,7 @@ test('the homepage does not drop og:site_name when it overrides openGraph', () =
   assert.match(
     meta,
     /applicationName:\s*'Setnayan'/,
-    'app/page.tsx must state `applicationName: \'Setnayan\'` itself. It renders ' +
+    'app/(hub)/page.tsx must state `applicationName: \'Setnayan\'` itself. It renders ' +
       '<meta name="application-name">, one of the two machine-readable places the ' +
       "app's name lives, and inheriting it means a layout edit can remove it from " +
       'the reviewer-facing URL without touching this file.',

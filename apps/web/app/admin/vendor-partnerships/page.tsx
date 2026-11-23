@@ -8,6 +8,14 @@ import { ErrorState } from '@/app/_components/states/error-state';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { rejectPartnership, createPartnershipHq } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { actionButtonClass } from '@/components/action-button-class';
+import {
+  TemplateEmpty,
+  TemplateFail,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import RecommendationsPage from '../vendor-recommendations/page';
@@ -217,7 +225,9 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
   const live = liveRows ? liveRows.map(enrich) : null;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
+      {/* 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): template sections and hairline rows, one
+          Reject per proposal, every explaining sentence behind its ⓘ. Same reads, same actions, same posted names. */}
       <PageMasthead
         title="Supplier Partnerships"
       />
@@ -236,18 +246,22 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
       ) : null}
 
       {/* ── OPEN PROPOSALS (HQ oversight) ────────────────────────────────── */}
-      <section className="mb-10">
-        <div className="mb-3 flex items-baseline justify-between gap-2">
-          <h2 className="sn-eye">
-            Open proposals ({proposed.length})
-          </h2>
-          <p className="text-xs text-ink/45">
-            {proposed.length === 0
-              ? 'No proposals awaiting a recipient response.'
-              : 'Awaiting the recommended supplier to accept or decline. Reject to veto.'}
-          </p>
-        </div>
-
+      <TemplateSection
+        label="Open proposals"
+        first
+        data="proposals"
+        right={`(${proposed.length})`}
+        tip={
+          proposed.length === 0 ? (
+            'No proposals awaiting a recipient response.'
+          ) : (
+            <>
+              Awaiting the recommended supplier to accept or decline. Reject to veto.{' '}
+              Rejecting sets it inactive — no badge can ever show.
+            </>
+          )
+        }
+      >
         {proposedRowsRaw === null ? (
           <ErrorState
             title="Couldn’t read the open proposals"
@@ -260,111 +274,82 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
             todo="Reload. If it repeats, the query is being rejected rather than returning nothing, and the column, value or migration it names is the thing to check."
           />
         ) : proposed.length === 0 ? (
-          <div className="sn-row p-8 text-center text-sm text-ink/70">
+          <TemplateEmpty data="proposals">
             No open partnership proposals. Set na &apos;yan.
-          </div>
+          </TemplateEmpty>
         ) : (
-          <ul className="space-y-4">
+          <TemplateRows label="Open proposals">
             {proposed.map((row) => {
               const partnershipIdStr = String(row.id);
 
               return (
-                <li key={row.id} className="sn-row p-4 sm:p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    {/* Details */}
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-md bg-mulberry/10 px-2 py-0.5 text-[12px] font-bold text-mulberry">
-                          {RELATIONSHIP_LABELS[row.relationship_type] ?? row.relationship_type}
-                        </span>
-                        <span className="rounded-md bg-warn-50 px-2 py-0.5 text-[12px] font-semibold text-warn-800">
-                          {STATUS_LABELS[row.status]}
-                        </span>
-                        {row.discount_pct ? (
-                          <span className="rounded-md bg-success-50 px-2 py-0.5 text-[12px] font-semibold text-success-700">
-                            {row.discount_pct}% off
-                          </span>
-                        ) : null}
-                        {row.additional_fee_centavos !== null &&
-                        row.relationship_type !== 'included_in_package' ? (
-                          <span className="rounded-md bg-warn-50 px-2 py-0.5 text-[12px] font-semibold text-warn-800">
-                            {formatFee(row.additional_fee_centavos, row.relationship_type)}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <p className="text-sm font-semibold text-ink">
-                        {row.recommending?.business_name ?? row.recommending_vendor_id}
-                        <span className="mx-2 font-normal text-ink/40">recommends</span>
-                        {row.recommended?.business_name ?? row.recommended_vendor_id}
-                      </p>
-
-                      {row.recommending?.services?.length ? (
-                        <p className="text-xs text-ink/50">
-                          Recommending:{' '}
-                          {row.recommending.services.slice(0, 3).join(', ')}
-                        </p>
-                      ) : null}
-
-                      {row.covered_plan_groups?.length ? (
-                        <p className="text-xs text-ink/60">
-                          Covers:{' '}
-                          <span className="font-medium">
-                            {row.covered_plan_groups.join(', ')}
-                          </span>
-                        </p>
-                      ) : null}
-
-                      <p className="text-xs text-ink/40">
-                        Proposed {timeAgo(row.created_at)}
-                      </p>
-                    </div>
-
-                    {/* Action — reject kill-switch only (no admin verify) */}
-                    <div className="flex shrink-0 flex-col items-end gap-2">
-                      <form>
-                        <input type="hidden" name="partnership_id" value={partnershipIdStr} />
-                        <SubmitButton
-                          formAction={rejectPartnership}
-                          pendingLabel="Rejecting…"
-                          className="rounded-md border border-terracotta/40 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
-                        >
-                          Reject
-                        </SubmitButton>
-                      </form>
-                      <p className="max-w-[180px] text-right text-[12px] text-ink/45">
-                        Rejecting sets it inactive — no badge can ever show.
-                      </p>
-                    </div>
-                  </div>
-                </li>
+                <TemplateRow
+                  key={row.id}
+                  data={partnershipIdStr}
+                  edge="due"
+                  title={
+                    <>
+                      {row.recommending?.business_name ?? row.recommending_vendor_id}
+                      <span className="mx-1.5 font-normal text-ink/50">recommends</span>
+                      {row.recommended?.business_name ?? row.recommended_vendor_id}
+                    </>
+                  }
+                  line={
+                    <>
+                      {RELATIONSHIP_LABELS[row.relationship_type] ?? row.relationship_type}
+                      {' · '}
+                      {STATUS_LABELS[row.status]}
+                      {row.discount_pct ? ` · ${row.discount_pct}% off` : null}
+                      {row.additional_fee_centavos !== null &&
+                      row.relationship_type !== 'included_in_package'
+                        ? ` · ${formatFee(row.additional_fee_centavos, row.relationship_type)}`
+                        : null}
+                      {row.recommending?.services?.length
+                        ? ` · Recommending: ${row.recommending.services.slice(0, 3).join(', ')}`
+                        : null}
+                      {row.covered_plan_groups?.length
+                        ? ` · Covers: ${row.covered_plan_groups.join(', ')}`
+                        : null}
+                      {` · Proposed ${timeAgo(row.created_at)}`}
+                    </>
+                  }
+                  right={
+                    /* Action — reject kill-switch only (no admin verify) */
+                    <form>
+                      <input type="hidden" name="partnership_id" value={partnershipIdStr} />
+                      <SubmitButton
+                        formAction={rejectPartnership}
+                        pendingLabel="Rejecting…"
+                        className={actionButtonClass('danger')}
+                      >
+                        Reject
+                      </SubmitButton>
+                    </form>
+                  }
+                />
               );
             })}
-          </ul>
+          </TemplateRows>
         )}
-      </section>
+      </TemplateSection>
 
       {/* ── ADD PARTNERSHIP (HQ manual entry) ───────────────────────────── */}
-      <section className="mb-10 bg-gradient-to-br from-cream to-terracotta-50/30 py-5 sm:py-6 border-t border-ink/10">
-        <h2 className="mb-1 sn-eye">
-          Add partnership (HQ entry)
-        </h2>
-        <div className="mb-4">
-          <InfoTip label="About proposing" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+      <TemplateSection
+        label="Add partnership (HQ entry)"
+        data="add"
+        tip={
+          <>
             Propose a partnership on a supplier&apos;s behalf. It lands in the recommended
           supplier&apos;s partnerships inbox — the badge only goes live once THEY accept it.
-          </InfoTip>
-        </div>
-
+          </>
+        }
+      >
         {/* An UNREADABLE picker and a truncated one fail the same way — the shop
             is not in the list and nothing says why — but they need different
             sentences, because one is "try again" and the other is "it is there,
             just past the end". */}
         {vendorOptionsUnreadable || categoryOptionsUnreadable ? (
-          <p
-            role="alert"
-            className="mb-4 rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
-          >
+          <TemplateFail retryHref="/admin/vendor-partnerships" data="pickers">
             {vendorOptionsUnreadable && categoryOptionsUnreadable
               ? 'The shop list and the category list could not be read, so both are empty below — that is not a sign there are none.'
               : vendorOptionsUnreadable
@@ -372,18 +357,18 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
                 : 'The category list could not be read, so no categories are offered below — that is not a sign there are none.'}{' '}
             Anything recorded now would be incomplete, so reload before using this
             form.
-          </p>
+          </TemplateFail>
         ) : null}
 
         {vendorOptions.length >= VENDOR_OPTIONS_LIMIT ? (
-          <p className="mb-4 rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
+          <TemplateFail data="pickers-cap">
             The supplier lists below stop at the first{' '}
             {VENDOR_OPTIONS_LIMIT.toLocaleString()} shops by name. A shop past that point cannot
             be picked here yet — it is missing from the list, not missing from Setnayan.
-          </p>
+          </TemplateFail>
         ) : null}
 
-        <form action={createPartnershipHq} className="grid gap-4 sm:grid-cols-2">
+        <form action={createPartnershipHq} className="grid gap-4 py-2 sm:grid-cols-2">
           {/* Recommending vendor */}
           <div className="flex flex-col gap-1 text-sm">
             <span className="font-semibold text-ink">Recommending supplier</span>
@@ -410,7 +395,7 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
               name="additional_fee_centavos"
               min={0}
               placeholder="e.g. 100000 = ₱1,000 · leave blank = unknown"
-              className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+              className="input-field text-sm"
             />
           </label>
 
@@ -423,19 +408,18 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
               min={0}
               max={100}
               placeholder="e.g. 10"
-              className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+              className="input-field text-sm"
             />
           </label>
 
           {/* Covered plan groups */}
           <div className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-semibold text-ink">Covered plan groups</span>
-            <p className="text-xs text-ink/50">
+            <InfoTip label="Covered plan groups" align="start" labelClassName="text-sm font-semibold text-ink">
               Which checklist categories does this partnership help resolve?
-            </p>
+            </InfoTip>
             <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
               {categoryOptions.map((cat) => (
-                <label key={cat.id} className="flex cursor-pointer items-center gap-2 text-xs">
+                <label key={cat.id} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     name="covered_plan_groups"
@@ -451,32 +435,30 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
           <div className="sm:col-span-2">
             <SubmitButton
               pendingLabel="Creating…"
-              className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
+              className={actionButtonClass('brand', { main: true })}
             >
               Propose partnership (lands in supplier inbox)
             </SubmitButton>
           </div>
         </form>
-      </section>
+      </TemplateSection>
 
       {/* ── LIVE PARTNERSHIPS (accepted) ────────────────────────────────── */}
-      <section>
-        <h2 className="mb-3 sn-eye">
-          Live partnerships {live ? `(${live.length} shown)` : '(not measured)'}
-        </h2>
+      <TemplateSection
+        label="Live partnerships"
+        data="live"
+        right={live ? `(${live.length} shown)` : '(not measured)'}
+      >
 
         {/* A dash where a shop's name should be is ALREADY the legitimate value
             for a shop with no name on file, so it cannot also be allowed to mean
             "we could not look it up". The page says which. */}
         {vendorNamesUnresolved ? (
-          <p
-            role="alert"
-            className="mb-3 rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
-          >
+          <TemplateFail retryHref="/admin/vendor-partnerships" data="names">
             Shop names could not be looked up, so the rows below and the proposals
             above fall back to internal reference codes. The partnerships
             themselves are real — only the names are missing.
-          </p>
+          </TemplateFail>
         ) : null}
         <ConsoleTable
           rows={live}
@@ -512,7 +494,7 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
               header: 'Type',
               hideBelow: 'md',
               cell: (row) => (
-                <span className="whitespace-nowrap rounded-md bg-mulberry/10 px-2 py-0.5 text-[12px] font-semibold text-mulberry">
+                <span className="whitespace-nowrap text-ink/80">
                   {RELATIONSHIP_LABELS[row.relationship_type] ?? row.relationship_type}
                 </span>
               ),
@@ -546,7 +528,7 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
                   <SubmitButton
                     formAction={rejectPartnership}
                     pendingLabel="Removing…"
-                    className="whitespace-nowrap rounded-md border border-terracotta/40 bg-white px-2.5 py-1 text-[12px] font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
+                    className={actionButtonClass('danger', { quiet: true })}
                   >
                     Take down
                   </SubmitButton>
@@ -555,7 +537,7 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
             },
           ]}
         />
-      </section>
+      </TemplateSection>
     </div>
   );
 }

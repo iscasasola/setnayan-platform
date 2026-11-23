@@ -10,7 +10,10 @@ import type { NewGraphs } from '@/lib/vendor-analytics-graphs';
 import type { GrowthRec, GrowthRecKey } from '@/lib/vendor-growth-recs';
 import { graphSpecsFor, type GraphKey } from './analytics-growing';
 import { GraphCard, type GraphSpec } from './graph-tile';
-import { CountBarsPic, CountLinePic } from './new-graph-pics';
+import { CountPic, type CountKey } from './new-graph-pics';
+import { ThreeYears } from './three-years';
+import { drawsLastYearLine, pctWord, vsLastYear, vsLastYearWords, type VsLastYear } from '@/lib/analytics-vs-last-year';
+import { ordinal } from '@/lib/analytics-growing';
 import { AnalyticsLock } from './analytics-lock';
 import { HeldCount } from './growth-motion';
 import { CARD_ORDER, FIXED_WINDOW, type CardKey } from './analytics-cards';
@@ -60,11 +63,26 @@ const COUNT_COPY: Readonly<Record<CountKind, { title: string; word: string; src:
 
 const countOf = (t: Totals | null, k: CountKind): number | null => (t === null ? null : k === 'opened' ? t.views : k === 'asked' ? t.inquiries : t.booked);
 
-function countLine(k: CountKind, n: number, win: GrowthWindow): string {
+function countLine(k: CountKind, n: number, win: GrowthWindow, vs: VsLastYear): string {
   const w = WINDOW_WORD[win];
-  if (k === 'opened') return `${formatCount(n)} ${n === 1 ? 'couple' : 'couples'} opened your page ${w}.`;
-  if (k === 'asked') return `${formatCount(n)} ${n === 1 ? 'couple' : 'couples'} asked ${w}.`;
-  return `${formatCount(n)} ${n === 1 ? 'booking' : 'bookings'} ${w}.`;
+  const head =
+    k === 'opened'
+      ? `${formatCount(n)} ${n === 1 ? 'couple' : 'couples'} opened your page ${w}`
+      : k === 'asked'
+        ? `${formatCount(n)} ${n === 1 ? 'couple' : 'couples'} asked ${w}`
+        : `${formatCount(n)} ${n === 1 ? 'booking' : 'bookings'} ${w}`;
+  // 📈 vs last year (owner 21 Nov 2026): a percent joins the sentence; under 10, both counts follow it.
+  const words = vsLastYearWords(vs, win);
+  if (vs.show === 'pct') return `${head}, ${words}.`;
+  return words ? `${head}. ${words}` : `${head}.`;
+}
+
+/** The axis words: first · middle · last bucket; on 12 months the last says how far the month runs ("Nov, to the 21st"). */
+function axisOf(labels: readonly string[], win: GrowthWindow, todayIso: string): readonly [string, string, string] | null {
+  if (labels.length === 0) return null;
+  const last = labels[labels.length - 1]!;
+  const day = Number(todayIso.slice(8, 10));
+  return [labels[0]!, labels[Math.floor((labels.length - 1) / 2)]!, win === '12' && day ? `${last}, to the ${ordinal(day)}` : last];
 }
 
 function Figure({ n, word }: { n: number | null; word: string }) {
@@ -85,13 +103,22 @@ function countSpec(k: CountKind, win: GrowthWindow, totals: Totals | null, view:
   const series = w ? (k === 'opened' ? w.lanes.views : k === 'asked' ? w.lanes.asked : w.lanes.booked) : null;
   const rec: GrowthRec | null = w ? (w.recs.find((r) => r.key === COUNT_REC[k]) ?? null) : null;
   const empty = n === 0;
-  const line = n === null ? 'Couldn’t load.' : empty ? `Nobody ${copy.word} ${WINDOW_WORD[win]} yet.` : countLine(k, n, win);
+  // 📈 VS LAST YEAR (owner 21 Nov 2026; lib/analytics-vs-last-year.ts): the card's own number against the same window
+  // last year, from the same read as its lane. A shop under a year old, or an example card, compares nothing.
+  const ly = view ? view.lastYear.kinds[k] : null;
+  const vs: VsLastYear = view && !empty ? vsLastYear(n, ly ? ly.total[win] : null, view.lastYear.yearOld) : { show: 'none' };
+  const line = n === null ? 'Couldn’t load.' : empty ? `Nobody ${copy.word} ${WINDOW_WORD[win]} yet.` : countLine(k, n, win, vs);
   const sample = Array.from({ length: win === '30' ? 30 : 12 }, (_, i) => (k === 'opened' ? 3 + ((i * 7) % 6) : (i * 5) % 7 === 0 ? 1 : 0));
+  const countKey: CountKey | null = vs.show === 'pct' ? { word: pctWord(vs), dir: vs.dir } : vs.show === 'unread' ? { unread: true } : null;
   const pic =
-    view === null ? null : k === 'opened' ? (
-      <CountLinePic values={series && !empty ? series : sample} labels={w!.lanes.labels} />
-    ) : (
-      <CountBarsPic values={series && !empty ? series : sample} labels={w!.lanes.labels} kind={k} />
+    view === null ? null : (
+      <CountPic
+        kind={k}
+        values={series && !empty ? series : sample}
+        lastYear={drawsLastYearLine(vs) && ly ? ly.lane[win] : null}
+        axis={axisOf(w!.lanes.labels, win, view.ahead.todayIso)}
+        countKey={countKey}
+      />
     );
   return {
     k,
@@ -103,6 +130,9 @@ function countSpec(k: CountKind, win: GrowthWindow, totals: Totals | null, view:
     problem: line,
     rec,
     door: copy.door,
+    // Tap a count card → "Three years" (owner 21 Nov 2026): one line per season and its total — only for a shop that
+    // has lived two seasons, and never on an example.
+    years: view && !empty && n !== null && view.lastYear.yearOld && ly && ly.years.length >= 2 ? <ThreeYears kind={k} years={ly.years} word={copy.word} /> : null,
   };
 }
 

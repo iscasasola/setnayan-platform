@@ -54,7 +54,7 @@ test('Your year and Your Story are retired as MENUS, not as places', () => {
   // pass just as happily if the destinations had been orphaned.
 
   // ── YOUR YEAR — its contents are the board's "Worth planning" shelf ────────
-  const page = read('app/dashboard/(launcher)/page.tsx');
+  const page = read('app/(hub)/dashboard/page.tsx');
   assert.ok(
     /<YearMomentsStrip /.test(page),
     'the "Worth planning" shelf is no longer mounted on the board — the year has ' +
@@ -115,7 +115,7 @@ test('Your year and Your Story are retired as MENUS, not as places', () => {
     'the help centre no longer links /dashboard/creator — that is now the ' +
       'only door to Your Story a person can see, so removing it strands the desk.',
   );
-  const launcherLayout = read('app/dashboard/(launcher)/layout.tsx');
+  const launcherLayout = read('app/(hub)/layout.tsx');
   assert.ok(
     /<AccountSwitcher/.test(launcherLayout),
     'the account switcher is no longer mounted on the board, so its Your Story ' +

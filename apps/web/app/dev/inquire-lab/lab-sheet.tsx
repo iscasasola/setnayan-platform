@@ -6,17 +6,21 @@
  */
 import { useState } from 'react';
 import { InquireSheet, type InquireEvent, type InquireService } from '@/app/v/[slug]/_components/inquire-sheet';
+import { INQUIRY_NOT_SENT } from '@/lib/shop-inquire';
 
 export function LabInquireSheet({
   services,
   events,
   signedIn,
   name = 'SetnaProd (lab)',
+  outcome = 'sent',
 }: {
   services: InquireService[];
   events: InquireEvent[];
   signedIn: boolean;
   name?: string;
+  /** What the stand-in send answers: a delivery, a failed first note, or a chat already under way. */
+  outcome?: 'sent' | 'fail' | 'resumed';
 }) {
   const [last, setLast] = useState<string | null>(null);
   return (
@@ -41,12 +45,20 @@ export function LabInquireSheet({
             }),
           );
           await new Promise((r) => setTimeout(r, 300));
-          return { status: 'ok', threadId: 'lab-thread', eventId: input.eventId ?? 'lab-event', isExisting: false };
+          if (outcome === 'fail') return { status: 'error', message: INQUIRY_NOT_SENT };
+          return {
+            status: 'ok',
+            threadId: 'lab-thread',
+            eventId: input.eventId ?? 'lab-event',
+            isExisting: outcome === 'resumed',
+            listed: true,
+            posted: outcome !== 'resumed',
+          };
         }}
       />
       {last ? (
         <pre className="mx-4 mt-4 whitespace-pre-wrap break-all rounded-lg bg-ink/5 p-3 text-[11px] text-ink/70" data-lab-sent={last}>
-          Sent (stand-in): {last}
+          Handed to the send (stand-in): {last}
         </pre>
       ) : null}
     </>

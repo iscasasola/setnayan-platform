@@ -128,7 +128,7 @@ test('BackButton’s `inPlace` returns in place — the pill is wrapped in Retur
   const cb = src('app/_components/chat/chat-back.tsx');
   assert.match(cb, /if \(whileAt !== undefined && here \+ window\.location\.hash !== whileAt\) return;/);
   // Discover is a list the pages it opens return to: it marks the tab.
-  assert.match(src('app/page.tsx'), /<ChatOriginMark \/>/);
+  assert.match(src('app/(hub)/page.tsx'), /<ChatOriginMark \/>/);
 });
 
 /* ── 2 · the bars ────────────────────────────────────────────────────────────────────────────────────── */

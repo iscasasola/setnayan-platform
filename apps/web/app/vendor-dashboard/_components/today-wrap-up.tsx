@@ -11,10 +11,11 @@
  *   2 · Reviews — the guest reviews from this event, with the shipped reply (`postVendorReply`, kind guest); the hosts'
  *       review is "Not yet" — it opens only after this confirm;
  *   3 · Confirm — one button: `eventFilesAction` op `wrapup`, which shares, tags, records and marks delivered.
- * Below Supplier Ultra the share is still made and kept, with the 🔒 Problem → Solution (owner: "All shares but only
- * Ultra shows"). 🔒 app/vendor-dashboard/_components/today-wrap-up-is-one-card.test.ts
+ * Below the first paid size the share is still made and kept, with the 🔒 Problem → Solution (owner: "All shares but only
+ * Ultra shows"; every paid size shows since 2026-11-22, "SAME FEATURES IN EVERY SIZE"). 🔒 app/vendor-dashboard/_components/today-wrap-up-is-one-card.test.ts
  */
 import { useActionState, useState } from 'react';
+import { FIRST_PAID_SIZE, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { ChevronRight, Send } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { FormRows, TypedRow, nudgeFormRows } from '@/app/_components/form-row';
@@ -23,6 +24,9 @@ import { eventFilesAction, type EventFilesState } from '@/app/_actions/event-fil
 import { postVendorReply } from '../reviews/actions';
 import { WRAP_UP_STEPS, wrapUpCountLine, wrapUpSelection, type WrapUpFacts } from '@/lib/today-wrap-up';
 import { formatCount } from '@/lib/format-number';
+/** The first paid size's name — where a locked story share points (owner 2026-11-22). */
+const FIRST_PAID = TIER_LABEL[FIRST_PAID_SIZE];
+
 
 const UPGRADE_HREF = '/vendor-dashboard/subscription';
 
@@ -238,14 +242,14 @@ export function TodayWrapUpBody({ facts }: { facts: WrapUpFacts }) {
                 <Line mark="↗" title={`Share to the ${facts.eventName} story`} line="They get the photos and can hide any" />
               ) : (
                 <div className="border-t border-ink/10 py-2" data-today-wrap-lock="">
-                  <Line mark="🔒" title="Shared to the event’s story · kept" line="Every plan shares. Only Ultra photos show in their story." />
+                  <Line mark="🔒" title="Shared to the event’s story · kept" line="Every plan shares. Paid plans’ photos show in their story." />
                   <p className="m-0 text-[13px] text-[color:var(--m-slate-2)]">
                     <b className="text-ink">Problem.</b> Your photos are shared and kept, but they do not show in the couple’s story on your plan.
                   </p>
                   <p className="m-0 mt-1 text-[13px] text-[color:var(--m-slate-2)]">
-                    <b className="text-ink">Solution.</b> Move to Ultra. Your shared photos then show in your own scene.{' '}
+                    <b className="text-ink">Solution.</b> Move to {FIRST_PAID}. Your shared photos then show in your own scene.{' '}
                     <a href={UPGRADE_HREF} className="font-semibold text-sn-accent">
-                      See Ultra
+                      See {FIRST_PAID}
                     </a>
                   </p>
                 </div>

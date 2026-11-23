@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   // exit below — with a code, without one, on `?native=1` — redirects to it.
   const rawNext = safeNext(url.searchParams.get('next'));
   // A real destination is honoured exactly as given; only the bare `/` becomes
-  // the Events board (owner 2026-08-28). ONE rule, shared with
+  // the person's profile page, Home (owner 2026-08-28 → 22 Nov 2026). ONE rule, shared with
   // app/login/actions.ts — never a second copy of the line, which is how Google
   // sign-in and password sign-in came to be two answers to one question.
   const fallbackNext = signInDestination(rawNext);
@@ -217,8 +217,10 @@ export async function GET(request: NextRequest) {
       // A guest signing in from an invitation (magic link, Google / Apple) goes
       // straight back to it: every such door returns through the event-connect
       // route, and that address — not a 120-second clock — decides it.
-      // W1-B25: a sign-in that named no destination (`/`) lands a supplier on the shop, never the Events board.
-      if (rawNext === '/' && accountType === 'vendor') landing = landingForAccount(rawNext, accountType);
+      // 🏠 A sign-in that named no destination (`/`) lands on the person's profile page, Home — a supplier's on Shop
+      // (owner 22 Nov 2026, "start on their profile page"; W1-B25 kept a supplier off the Events board). `fallbackNext`
+      // above could not know the account type; this is the same one rule with it.
+      if (rawNext === '/') landing = landingForAccount(rawNext, accountType);
       if (
         accountType === 'customer' &&
         !isEventConnectNext(fallbackNext) &&

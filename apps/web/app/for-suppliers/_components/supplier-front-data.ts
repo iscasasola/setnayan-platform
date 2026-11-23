@@ -19,8 +19,16 @@ import { bookingFeeCapPhp, bookingFeeLockPointPhp, bookingFeePhp, type BookingFe
 import { countNoun, formatCount } from '@/lib/format-number';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { FREE_FINDABLE } from './plan-table-data';
+import { storageWords } from '@/lib/downgrade-limits';
+import { planRole, planSummaryWords } from '@/lib/supplier-storage';
+
+/** A plan's size in words. `null` is only the type's "unreadable row" — every plan has a size — so it never invents one. */
+const sizeWords = (bytes: number | null): string => (bytes == null ? 'Your storage' : storageWords(bytes));
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
+import { SPECIALIZED_TOOLS, type SpecializedTool, type SpecializedToolKey } from '@/lib/specialized-tools';
+import { SPECIAL_TOOLS_LOCKED_WORDS } from '@/lib/special-tools';
+import type { CardBadgeView } from '@/lib/card-badges';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
   PORTFOLIO_FREE_BASE,
@@ -29,6 +37,8 @@ import {
   canBuyExtraSeats,
   TIER_LABEL,
   firstPlanWith,
+  isPaidSize,
+  isTierAtLeast,
   type TierCaps,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
@@ -87,22 +97,41 @@ export function verifiedSpec(): string {
 }
 
 /**
- * A paid plan's spec line, e.g. Pro: "8 categories · 20 service cards live · 5 team seats · 2 branches". A part a
- * plan does not have (Plus's branches) is left out, as the prototype leaves it out. The waiting list has no plan limit
- * since 2026-11-18, and reach is not a plan allowance since 2026-11-19, so neither is a part. Every number is TIER_CAPS.
+ * A paid plan's spec line, from its caps. 💾 Owner 2026-11-22 ("SAME FEATURES IN EVERY SIZE" + "STARTER BUSINESS"): the
+ * plans are storage sizes, so the size leads; Plus says its starter limits, Pro and Ultra say "no limit". E.g. Plus:
+ * "128 GB · every category · 15 service cards live · you and 2 more"; Pro: "500 GB · every category · no limit on
+ * cards, people or branches". A part a plan does not have (Plus's branches) is left out. Every number is TIER_CAPS;
+ * a no-limit cap is said in words, never as "—" or "Infinity".
  */
 export function growSpec(t: GrowTier): string {
   const c: TierCaps = TIER_CAPS[t];
   const parts = [
-    countNoun(c.parentCategories, 'category', 'categories'),
-    // Cards are unlimited to MAKE; the plan counts the LIVE ones (owner 19 Nov 2026, lib/live-cards-cap.ts). Bookings a
-    // day are not a plan limit (ruling 17, no part).
-    `${countNoun(c.serviceCardsTotal, 'service card', 'service cards')} live`,
-    countNoun(c.agentAccounts, 'team seat', 'team seats'),
+    sizeWords(c.storageBytes),
+    Number.isFinite(c.parentCategories) ? countNoun(c.parentCategories, 'category', 'categories') : 'every category',
   ];
-  if (c.branchesIncluded > 0) parts.push(countNoun(c.branchesIncluded, 'branch', 'branches'));
+  const unlimited = !Number.isFinite(c.serviceCardsTotal) && !Number.isFinite(c.agentAccounts) && !Number.isFinite(c.branchesIncluded);
+  if (unlimited) return [...parts, 'no limit on cards, people or branches'].join(' · ');
+  // Cards are unlimited to MAKE; the plan counts the LIVE ones (owner 19 Nov 2026, lib/live-cards-cap.ts).
+  parts.push(Number.isFinite(c.serviceCardsTotal) ? `${countNoun(c.serviceCardsTotal, 'service card', 'service cards')} live` : 'no limit on live cards');
+  parts.push(Number.isFinite(c.agentAccounts) ? `you and ${formatCount(c.agentAccounts)} more` : 'no limit on people');
+  if (!Number.isFinite(c.branchesIncluded)) parts.push('no limit on branches');
+  else if (c.branchesIncluded > 0) parts.push(countNoun(c.branchesIncluded, 'branch', 'branches'));
   return parts.join(' · ');
 }
+
+/**
+ * Each plan's one line on its card, from its caps (owner 2026-11-22: the plans are sizes with the same features, and a
+ * plan is never shown as its size alone). A paid size leads with its role ("The starter business: …"); Free and Verified
+ * already carry their name on the card, so their line is the summary itself ("Run your own clients, … and 256 MB.").
+ */
+export function planLine(t: VendorTier): string {
+  if (!isPaidSize(t)) {
+    const w = planSummaryWords(t);
+    return `${w.charAt(0).toUpperCase()}${w.slice(1)}.`;
+  }
+  return `${planRole(t)}: ${planSummaryWords(t)}.`;
+}
+
 
 /** "Everything in Free, plus" — the plan below, by the Grow order (Verified joins Free, 2026-11-14). */
 export function growPlus(t: GrowTier): string {
@@ -166,7 +195,16 @@ export function foldedLines(t: GrowTier): GrowLine[] {
   if (firstAdvanced === t) {
     out.push({ text: 'The smarter AI chatbot', tail: ': writes in your voice, replies in the couple’s language', lead: true });
   }
-  if (t === GROW_TIERS[GROW_TIERS.length - 1]) out.push({ text: 'Higher limits built in, nothing to add on', lead: true });
+  // 💾 Owner 2026-11-22 "SAME FEATURES IN EVERY SIZE": every feature sits under the first paid size, so Pro and Ultra
+  // say what they ADD — their room, and no limits — read from their caps. Nothing is sold on top (no add-ons).
+  if (t !== GROW_TIERS[0]) {
+    out.push({ text: `${sizeWords(TIER_CAPS[t].storageBytes)} for your files`, lead: true });
+    const c = TIER_CAPS[t];
+    const below = TIER_CAPS[GROW_TIERS[GROW_TIERS.indexOf(t) - 1]!];
+    if (!Number.isFinite(c.serviceCardsTotal) && Number.isFinite(below.serviceCardsTotal)) {
+      out.push({ text: 'No limit on cards, people or branches', lead: true });
+    }
+  }
   return out;
 }
 
@@ -389,4 +427,255 @@ export const FREE_CARD_LINE = 'Your page, portfolio, QR codes and the free set o
 /** The plan name a person reads ("Ultra" for `enterprise`), for the page's tabs. */
 export function growName(t: GrowTier): string {
   return planName(t);
+}
+
+/* ───────────────────────── 5 · the live service cards (redraw 23 Nov) ───────────────────────── */
+
+/**
+ * 🃏 THE LIVE CARDS (owner-approved drawing `prototypes/for_suppliers_redraw_2026-11-23/for_suppliers_redraw_fable.html`,
+ * owner 23 Nov: *"Approved, build it"*). Four Card 14 samples answer a couple's date, guest count and venue; the scroll
+ * plays four states and a tap drives the same state. ⚠ ILLUSTRATIONS, NOT APP DATA — the shops, prices, ratings, km and
+ * closed days are samples, and the section says so ("Sample cards."). They live here, in one named place, beside the
+ * other illustrations, so the guards can tell them apart. Every WORD a card prints is the app's own: the price band is
+ * `mallPrice`, the date line `DATE_FIT_WORDS`, the distance `aboutKmLine`, the month `SeatMonths`.
+ */
+export type LiveCardSample = {
+  name: string;
+  cover: string;
+  shop: string;
+  city: string;
+  /** A one-price card's price (pesos); null on the per-guest card. */
+  price: number | null;
+  priceNote: string | null;
+  /** The per-guest card's rate (pesos per guest) — its band says the couple's total (`mallPrice`). */
+  perGuest: number | null;
+  rating: { avg: number; count: number };
+  badges: readonly CardBadgeView[];
+  /** The days of the sample month this shop closed (Check a date's grey, striped days). */
+  closed: readonly number[];
+  /** km to each sample venue, in `LIVE_VENUES` order. */
+  km: readonly number[];
+  /** Where the shop sits on the venue sketch (its viewBox is 300 × 150). */
+  at: readonly [number, number];
+};
+
+const LIVE_ART = '/marketing/2026-11-20/for-suppliers';
+
+export const LIVE_CARD_SAMPLES: readonly LiveCardSample[] = [
+  {
+    name: 'Plated dinner, five courses',
+    cover: `${LIVE_ART}/t-price.webp`,
+    shop: 'Casa Lirio Catering',
+    city: 'Pasig',
+    price: null,
+    priceNote: null,
+    perGuest: 850,
+    rating: { avg: 4.9, count: 212 },
+    badges: [
+      { key: 'trending_now', since: null },
+      { key: 'rave_reviews', since: null },
+      { key: 'verified', since: null },
+    ],
+    closed: [6, 12, 13, 24, 25, 26, 31],
+    km: [52, 7, 9],
+    at: [212, 60],
+  },
+  {
+    name: 'Full-day photo & video',
+    cover: `${LIVE_ART}/c-photo.webp`,
+    shop: 'Lumen Studio',
+    city: 'Quezon City',
+    price: 45999,
+    priceNote: 'whole day, 2 shooters',
+    perGuest: null,
+    rating: { avg: 4.9, count: 128 },
+    badges: [
+      { key: 'trending_now', since: null },
+      { key: 'verified', since: null },
+    ],
+    closed: [5, 19, 20, 24, 25, 27],
+    km: [61, 12, 3],
+    at: [180, 22],
+  },
+  {
+    name: 'Bridal make-up and hair',
+    cover: `${LIVE_ART}/c-makeup.webp`,
+    shop: 'Blush by Ria',
+    city: 'Makati',
+    price: 18999,
+    priceNote: 'bride + 1, with trial',
+    perGuest: null,
+    rating: { avg: 4.8, count: 86 },
+    badges: [
+      { key: 'quick_responder', since: null },
+      { key: 'rave_reviews', since: null },
+      { key: 'verified', since: null },
+    ],
+    closed: [13, 24, 25, 30],
+    km: [48, 2, 13],
+    at: [140, 76],
+  },
+  {
+    name: 'Event highlights film',
+    cover: `${LIVE_ART}/c-video.webp`,
+    shop: 'Reel Day Films',
+    city: 'Pasig',
+    price: 35999,
+    priceNote: '4-minute film',
+    perGuest: null,
+    rating: { avg: 5.0, count: 41 },
+    badges: [
+      { key: 'hot_booking', since: null },
+      { key: 'verified', since: null },
+    ],
+    closed: [12, 24, 25],
+    km: [53, 6, 10],
+    at: [198, 44],
+  },
+];
+
+/** The three sample venues and where each sits on the sketch. */
+export const LIVE_VENUES: ReadonlyArray<{ name: string; pin: readonly [number, number] }> = [
+  { name: 'Tagaytay', pin: [96, 122] },
+  { name: 'Makati', pin: [152, 66] },
+  { name: 'Quezon City', pin: [166, 32] },
+];
+
+/** The guest counts a couple can try. One dot on the slide is ten guests. */
+export const LIVE_GUESTS = [50, 120, 250] as const;
+export const LIVE_GUESTS_PER_DOT = 10;
+
+/** One state of the stage: the couple's day (of the sample month), guests, venue (index) and the slide in view. */
+export type LiveState = { day: number; guests: number; venue: number; slide: 0 | 1 | 2 };
+
+/** What the scroll plays, step by step (the drawing's SCRIPT): the day moves, then the guests, then the venue. */
+export const LIVE_SCRIPT: readonly LiveState[] = [
+  { day: 12, guests: 50, venue: 0, slide: 0 },
+  { day: 19, guests: 50, venue: 0, slide: 0 },
+  { day: 19, guests: 120, venue: 0, slide: 1 },
+  { day: 19, guests: 120, venue: 1, slide: 2 },
+];
+
+/** Where the scroll's progress (0–1) switches step — the drawing's 10 · 40 · 70 %. */
+export function liveStepAt(progress: number): number {
+  return progress < 0.1 ? 0 : progress < 0.4 ? 1 : progress < 0.7 ? 2 : 3;
+}
+
+/**
+ * The sample month: the coming December (the season the drawing plays — 12 Dec is a "Popular day"), or next year's
+ * once December has begun. Read from the server's clock, so the month is never in the past.
+ */
+export function liveCardsMonth(nowMs: number): { y: number; m: number } {
+  const d = new Date(nowMs);
+  const y = d.getUTCFullYear();
+  return { y: d.getUTCMonth() >= 11 ? y + 1 : y, m: 12 };
+}
+
+/* ───────────────────────── 7 · plans as growth stairs (redraw 23 Nov) ───────────────────────── */
+
+/** Every plan, smallest to biggest — the stairs. */
+export const STAIR_TIERS: readonly VendorTier[] = ['free', 'verified', ...GROW_TIERS];
+
+/** A fact on a plan card: an optional bold lead ("15", "No limit") and the words after it. */
+export type StairFact = { lead: string | null; text: string };
+
+/** One step of the stairs, every part read: caps → `TIER_CAPS`, words → `planRole` / `storageWords`. */
+export type PlanStair = {
+  tier: VendorTier;
+  name: string;
+  role: string;
+  size: string;
+  /** The size's share of the biggest plan's, on a log scale (256 MB and 1 TB both stay visible). 0–1. */
+  share: number;
+  services: StairFact;
+  people: StairFact & { team: boolean };
+  branches: StairFact;
+  /** On Discover and Find — every verified shop, on every plan (`marketplaceSearchable`, gated on verification). */
+  marketplace: boolean;
+  /** Every specialized tool — the plans the two gates both open (`specialTools`, `PRO_TOOLS_MIN_TIER`). */
+  tools: boolean;
+};
+
+const finite = (n: number) => Number.isFinite(n);
+
+/** The role line over a plan's name: a paid size's own role (`planRole`); Free runs, Verified gets found. */
+function stairRole(t: VendorTier): string {
+  if (isPaidSize(t)) return planRole(t);
+  return t === 'verified' ? 'Get found' : 'Run your own clients';
+}
+
+/** Do this plan's shops have every specialized tool? Both gates, read — never a list typed here. */
+export function stairHasTools(t: VendorTier): boolean {
+  return TIER_CAPS[t].specialTools && isTierAtLeast(t, PRO_TOOLS_MIN_TIER);
+}
+
+export function planStair(t: VendorTier): PlanStair {
+  const c = TIER_CAPS[t];
+  const sizes = STAIR_TIERS.map((x) => TIER_CAPS[x].storageBytes ?? 0).filter((b) => b > 0);
+  const lo = Math.log10(Math.min(...sizes)) - 0.5;
+  const hi = Math.log10(Math.max(...sizes));
+  const b = c.storageBytes ?? 0;
+  const share = b > 0 ? Math.max(0.06, Math.min(1, (Math.log10(b) - lo) / (hi - lo))) : 0;
+  const services: StairFact = finite(c.serviceCardsTotal)
+    ? { lead: formatCount(c.serviceCardsTotal), text: c.serviceCardsTotal === 1 ? ' live service' : ' live services' }
+    : { lead: 'No limit', text: ' on services' };
+  const people = !finite(c.agentAccounts)
+    ? { lead: 'No limit', text: ' on people', team: true }
+    : c.agentAccounts > 0
+      ? { lead: null, text: `You and ${formatCount(c.agentAccounts)} more`, team: true }
+      : { lead: null, text: 'Just you', team: false };
+  const branches: StairFact = !finite(c.branchesIncluded)
+    ? { lead: 'No limit', text: ' on branches' }
+    : c.branchesIncluded > 0
+      ? { lead: formatCount(c.branchesIncluded), text: c.branchesIncluded === 1 ? ' branch' : ' branches' }
+      : { lead: null, text: 'Main shop' };
+  return {
+    tier: t,
+    name: t === 'free' ? 'Free' : planName(t),
+    role: stairRole(t),
+    size: sizeWords(c.storageBytes),
+    share,
+    services,
+    people,
+    branches,
+    marketplace: t !== 'free' && c.marketplaceSearchable,
+    tools: stairHasTools(t),
+  };
+}
+
+/* ───────────────────────── specialized tools (redraw 23 Nov) ───────────────────────── */
+
+/**
+ * The three tools that come with a paid size, each with the gate that really holds it:
+ *   · `special` — the Cake Maker, the first special tool: open to every plan until the admin's start date
+ *     (`platform_settings.special_tools_paid_from`, `specialToolsOpenToAll`), then `TIER_CAPS[t].specialTools`;
+ *   · `plan` — the Papic challenge and the 3D plan: `PRO_INCLUDED_TOOLS`, from `PRO_TOOLS_MIN_TIER` up, always.
+ * Names and lines are `SPECIALIZED_TOOLS` (lib/specialized-tools.ts), never typed here.
+ */
+export const PAID_TOOL_GATES: Readonly<Partial<Record<SpecializedToolKey, 'special' | 'plan'>>> = {
+  cake_tool: 'special',
+  papic_challenge: 'plan',
+  plan_3d: 'plan',
+};
+
+export const PAID_TOOL_TILES: readonly SpecializedTool[] = SPECIALIZED_TOOLS.filter((t) => PAID_TOOL_GATES[t.key]);
+/** The on-the-day tools every shop has, on every plan — every other `SPECIALIZED_TOOLS` tile. */
+export const EVERY_PLAN_TOOLS: readonly SpecializedTool[] = SPECIALIZED_TOOLS.filter((t) => !PAID_TOOL_GATES[t.key]);
+
+/** The first plan that carries every specialized tool — "Start on Plus". */
+export const FIRST_TOOLS_TIER: VendorTier | null = STAIR_TIERS.find(stairHasTools) ?? null;
+/** "Included in Plus" — the lock words of the plan gate (the special tools' own are `SPECIAL_TOOLS_LOCKED_WORDS`). */
+export const PLAN_TOOLS_LOCKED_WORDS = `Included in ${planName(PRO_TOOLS_MIN_TIER)}`;
+/** What the Cake Maker's tile says while the special tools are still open to every plan. */
+export const SPECIAL_TOOLS_OPEN_WORDS = 'Every plan, for now';
+
+/**
+ * The chip on one paid tool's picture, from its real gate. `specialOpen` is the live answer of
+ * `specialToolsOpenToAll` (null when the start date could not be read: then the Cake Maker's chip says nothing).
+ */
+export function paidToolChip(key: SpecializedToolKey, specialOpen: boolean | null): { words: string; locked: boolean } | null {
+  const gate = PAID_TOOL_GATES[key];
+  if (gate === 'plan') return { words: PLAN_TOOLS_LOCKED_WORDS, locked: true };
+  if (gate !== 'special' || specialOpen === null) return null;
+  return specialOpen ? { words: SPECIAL_TOOLS_OPEN_WORDS, locked: false } : { words: SPECIAL_TOOLS_LOCKED_WORDS, locked: true };
 }

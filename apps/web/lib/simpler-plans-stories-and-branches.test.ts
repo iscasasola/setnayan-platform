@@ -37,8 +37,9 @@ const UNPAID: BranchLite = { id: 'b-davao', label: 'Davao', status: 'pending_pay
 
 // ── (8) ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('(8) only Ultra opens the shop’s own story page; every other plan keeps "Read their story"', () => {
-  for (const tier of ['free', 'verified', 'solo', 'pro']) {
+test('(8) every paid size opens the shop’s own story page (2026-11-22); Free and Verified keep "Read their story"', () => {
+  for (const tier of ['solo', 'pro']) assert.equal(hasStoryPages(tier), true, tier);
+  for (const tier of ['free', 'verified']) {
     assert.equal(hasStoryPages(tier), false, tier);
     assert.deepEqual(featuredStoryLink({ tier, shopSlug: 'lumen', eventSlug: 'ana-marco' }), {
       href: '/ana-marco',

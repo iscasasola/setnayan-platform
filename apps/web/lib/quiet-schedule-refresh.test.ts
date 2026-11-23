@@ -83,7 +83,7 @@ test('the component draws nothing, never forces, and is mounted on Home and the 
 
   const hub = readFileSync(join(root, 'app/[slug]/page.tsx'), 'utf8');
   assert.match(hub, /search\.tab !== 'me' && !isEditorCanvas \? \(\s*<QuietScheduleRefresh/, 'the Hub’s other tabs, never Me or the Maker');
-  const home = readFileSync(join(root, 'app/dashboard/(launcher)/page.tsx'), 'utf8');
+  const home = readFileSync(join(root, 'app/(hub)/dashboard/page.tsx'), 'utf8');
   assert.match(home, /<QuietScheduleRefresh viewer=\{user\.id\}/, 'Home');
   assert.match(home, /invitedEvents\s*\n?\s*\.filter/, 'Home asks only for events this account is invited to');
 });

@@ -41,7 +41,7 @@ const HERE = dirname(new URL(import.meta.url).pathname);
 const WEB = join(HERE, '../..');
 
 const SWITCHER = join(WEB, 'app/_components/account-switcher/account-switcher.tsx');
-const LAUNCHER = join(WEB, 'app/dashboard/(launcher)/page.tsx');
+const LAUNCHER = join(WEB, 'app/(hub)/dashboard/page.tsx');
 
 test('the account switcher offers /open-shop to someone with no shop', () => {
   const src = readFileSync(SWITCHER, 'utf8');

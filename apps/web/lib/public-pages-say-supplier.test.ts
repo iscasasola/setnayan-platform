@@ -32,7 +32,7 @@ const WEB = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const PUBLIC = [
   'app/(shell)',
-  'app/page.tsx',
+  'app/(hub)/page.tsx',
   'app/layout.tsx',
   'app/features',
   'app/for-suppliers',

@@ -84,9 +84,10 @@ function emailAllowlist(): Set<string> {
  */
 function settingsEmailLine(): string {
   const src = read('app/vendor-dashboard/shop/_components/shop-settings-rows.tsx');
-  const at = src.indexOf('<Fold anchor="notifications"');
-  assert.ok(at >= 0, 'the Shop ⚙ has no Notifications fold');
-  const fold = src.slice(at, src.indexOf('</Fold>', at));
+  // 🧭 Settings v2 (2026-11-13): Notifications is an open section now (the same `#notifications` place), not a fold.
+  const at = src.indexOf('id="notifications"');
+  assert.ok(at >= 0, 'the Shop ⚙ has no Notifications place');
+  const fold = src.slice(at, src.indexOf('</SettingsSection>', at));
   const m = fold.match(/<DatesRow\b[^>]*data="shop-gear-email"[^>]*line="([^"]*)"/);
   assert.ok(m, 'the Shop ⚙ › Notifications Email row (data="shop-gear-email") with a literal line was not found');
   return m[1]!;

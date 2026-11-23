@@ -5,10 +5,15 @@ import {
   ChefHat,
   HandHeart,
   ListChecks,
+  ListOrdered,
+  Mic,
   Music,
+  PenLine,
   QrCode,
+  Salad,
   ScanLine,
   Star,
+  Tally5,
   TriangleAlert,
   Users,
 } from 'lucide-react';
@@ -54,6 +59,12 @@ const TOOL_ICON: Record<DayOfModuleId, Icon> = {
   issues_log: TriangleAlert,
   production_sheet: ChefHat,
   vendor_papic: Camera,
+  // The hub tools draw inline (`hubTools`), never as a row here; their marks match the panels' own.
+  tech_rider: Mic,
+  personalisation_list: PenLine,
+  dietary_and_allergies: Salad,
+  quantity_vs_guests: Tally5,
+  set_list: ListOrdered,
 };
 
 export type DayCount = { key: string; value: string; word: string; href?: string; hot?: boolean };
@@ -73,6 +84,7 @@ export function EventDayBody({
   march,
   headcount,
   tools,
+  hubTools = null,
   reviews,
   desk,
   otherView,
@@ -96,6 +108,8 @@ export function EventDayBody({
   /** The headcount row (attending of invited), or null when the module is off. */
   headcount: { attending: number; invited: number } | null;
   tools: readonly DayTool[];
+  /** The hub tools switched on for this booking, drawn inline by their templates (23 Nov), or null for none. */
+  hubTools?: ReactNode;
   /** Live reviews, or null when the module is off. */
   reviews: ReactNode;
   /** The specialization slot (Song Desk · Emcee script · Floor Command) — its own contents, unchanged; null = none. */
@@ -188,6 +202,8 @@ export function EventDayBody({
                   ))}
                 </PartList>
               ) : null}
+
+              {hubTools}
 
               {reviews ? <PartCard>{reviews}</PartCard> : null}
             </section>

@@ -20,6 +20,7 @@ import {
   type DayRequestStatus,
 } from '@/lib/day-requests';
 import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
+import { ENTRY_ROWS_MAX, nextPosition, parseHubToolEntryOp, swapWithNeighbour } from '@/lib/hub-tool-entries';
 
 /** The eleven canonical moments — a set's anchor must be one of them. */
 const VALID_PLAYLIST_SLOTS = new Set<string>(PLAYLIST_SLOT_TYPES);
@@ -704,12 +705,26 @@ export async function createVendorEventSet(
   return { ok: true };
 }
 
-/** Rename a set, or re-anchor it to a different moment. */
+/**
+ * Rename a set, or re-anchor it to a different moment — and, folded in (the server-action budget sits at its ceiling;
+ * lint-server-action-budget.mjs), the set's ORDERED-LIST edits: take a song out (`removeSong`, was
+ * `removeSongFromVendorEventSet`) or move it one place (`moveSong`, the Set list hub tool's ▲ ▼ — DECISION_LOG
+ * 2026-11-23 "THE TEN MOST-SHARED UNBUILT HUB TOOLS": Set list = ordered list, Song Desk's sets reused).
+ * A song edit is the whole call: it never also renames.
+ */
 export async function updateVendorEventSet(
   eventId: string,
   setId: string,
-  patch: { name?: string; slotType?: string },
+  patch: {
+    name?: string;
+    slotType?: string;
+    removeSong?: string;
+    moveSong?: { setSongId: string; dir: 'up' | 'down' };
+  },
 ): Promise<SetActionResult> {
+  if (patch.removeSong !== undefined || patch.moveSong !== undefined) {
+    return editSetSongs(eventId, setId, patch.removeSong, patch.moveSong);
+  }
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.name !== undefined) {
     const trimmed = patch.name.trim().slice(0, 60);
@@ -810,18 +825,146 @@ export async function addSongToVendorEventSet(
   return { ok: true };
 }
 
-/** Take a song out of a set. The song stays in the repertoire. */
-export async function removeSongFromVendorEventSet(
+/**
+ * A set's songs — take one out (the song stays in the repertoire) or move one place up or down. Positions are SWAPPED
+ * with the neighbour (two writes; positions are deliberately not unique, 20271022422205). Every write is scoped to the
+ * set AND counted: a write RLS refused matches zero rows and says so, never "saved".
+ */
+async function editSetSongs(
   eventId: string,
-  setSongId: string,
+  setId: string,
+  removeSong: string | undefined,
+  moveSong: { setSongId: string; dir: 'up' | 'down' } | undefined,
 ): Promise<SetActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase
-    .from('vendor_event_set_songs')
-    .delete()
-    .eq('set_song_id', setSongId);
-  if (error) return { ok: false, error: error.message };
-
+  if (removeSong !== undefined) {
+    const { data, error } = await supabase
+      .from('vendor_event_set_songs')
+      .delete()
+      .eq('set_song_id', removeSong)
+      .eq('set_id', setId)
+      .select('set_song_id');
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) return { ok: false, error: 'That song is already gone — refresh.' };
+  } else if (moveSong) {
+    if (moveSong.dir !== 'up' && moveSong.dir !== 'down') return { ok: false, error: 'Nothing to move.' };
+    const { data: rows, error } = await supabase
+      .from('vendor_event_set_songs')
+      .select('set_song_id, position')
+      .eq('set_id', setId);
+    if (error || !rows) return { ok: false, error: 'We couldn’t read this set — try again.' };
+    const swap = swapWithNeighbour(
+      (rows as { set_song_id: string; position: number }[]).map((r) => ({ id: r.set_song_id, position: r.position })),
+      moveSong.setSongId,
+      moveSong.dir,
+    );
+    if (!swap) return { ok: true }; // already first / last — nothing to do, nothing claimed
+    for (const side of [swap.a, swap.b]) {
+      const { data: hit, error: wErr } = await supabase
+        .from('vendor_event_set_songs')
+        .update({ position: side.position })
+        .eq('set_song_id', side.id)
+        .eq('set_id', setId)
+        .select('set_song_id');
+      if (wErr) return { ok: false, error: wErr.message };
+      if (!hit || hit.length === 0) return { ok: false, error: 'That move didn’t save — refresh and try again.' };
+    }
+  }
   revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
   return { ok: true };
+}
+
+// ── HUB TOOLS — the one writer for every tool drawn with the Checklist, Per-person or Counter template ────────────
+
+export type HubToolEntryResult = { ok: true; entryId?: string } | { ok: false; error: string };
+
+/**
+ * ONE dispatcher for the hub tools' rows (`vendor_hub_tool_entries`): add · edit · tick · count · remove.
+ * DECISION_LOG 2026-11-23 "THE TEN MOST-SHARED UNBUILT HUB TOOLS" (Tech rider · Personalisation list · Quantity vs
+ * guests here; any later tool on these templates writes through the same door). One export, not six: the budget sits
+ * at its ceiling, paid for by folding `removeSongFromVendorEventSet` into `updateVendorEventSet` above.
+ *
+ * The decision is `parseHubToolEntryOp` (lib/hub-tool-entries.ts, tested). The booked check is the friendly early
+ * answer; RLS (`vendor_hub_tool_entries_vendor_all`) is the boundary. 🔑 No success-shaped nothing: an UPDATE or DELETE
+ * that matched zero rows is a failure, never "saved".
+ */
+export async function hubToolEntry(eventId: string, input: unknown): Promise<HubToolEntryResult> {
+  const parsed = parseHubToolEntryOp(input);
+  if (!parsed.ok) return parsed;
+  const op = parsed.op;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return { ok: false, error: 'No supplier profile.' };
+  const vendorProfileId = profile.vendor_profile_id;
+  const bookings = await fetchVendorRoomEvents(supabase, vendorProfileId);
+  if (!bookings.some((b) => b.eventId === eventId)) return { ok: false, error: 'You are not booked on this event.' };
+  const feeBlocked = await eventFeeBlocksAction(vendorProfileId, eventId);
+  if (feeBlocked) return { ok: false, error: feeBlocked };
+
+  const rows = () =>
+    supabase.from('vendor_hub_tool_entries').select('position').eq('event_id', eventId).eq('vendor_profile_id', vendorProfileId);
+  const done = (entryId?: string): HubToolEntryResult => {
+    revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
+    return entryId ? { ok: true, entryId } : { ok: true };
+  };
+  const counted = (data: unknown[] | null, error: { message: string } | null): HubToolEntryResult | null => {
+    if (error) {
+      logQueryError('hubToolEntry', error, { event_id: eventId, op: op.op }, 'graceful_degrade');
+      return { ok: false, error: 'That didn’t save — try again.' };
+    }
+    if (!data || data.length === 0) return { ok: false, error: 'That row is gone — refresh.' };
+    return null;
+  };
+
+  if (op.op === 'add') {
+    const { data: mine, error } = await rows().eq('tool_key', op.toolKey);
+    if (error) return { ok: false, error: 'We couldn’t read your list — try again.' };
+    const list = (mine ?? []) as { position: number }[];
+    if (list.length >= ENTRY_ROWS_MAX) return { ok: false, error: `${ENTRY_ROWS_MAX} rows is the most one tool holds.` };
+    const { data, error: insErr } = await supabase
+      .from('vendor_hub_tool_entries')
+      .insert({
+        event_id: eventId,
+        vendor_profile_id: vendorProfileId,
+        tool_key: op.toolKey,
+        label: op.label,
+        note: op.note,
+        position: nextPosition(list.map((r) => r.position)),
+        qty: op.qty,
+      })
+      .select('entry_id');
+    const bad = counted(data, insErr);
+    if (bad) return bad;
+    return done((data![0] as { entry_id: string }).entry_id);
+  }
+
+  if (op.op === 'remove') {
+    const { data, error } = await supabase
+      .from('vendor_hub_tool_entries')
+      .delete()
+      .eq('entry_id', op.entryId)
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .select('entry_id');
+    return counted(data, error) ?? done();
+  }
+  const patch =
+    op.op === 'edit'
+      ? { label: op.label, note: op.note }
+      : op.op === 'tick'
+        ? { done_at: op.done ? new Date().toISOString() : null }
+        : { qty: op.qty };
+  const { data, error } = await supabase
+    .from('vendor_hub_tool_entries')
+    .update(patch)
+    .eq('entry_id', op.entryId)
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .select('entry_id');
+  return counted(data, error) ?? done();
 }

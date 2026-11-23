@@ -138,9 +138,8 @@ export function ToolShareCard({
     fd.set('body', toolApprovalBody(tool));
     try {
       await sendApproval(fd);
+      // The card reads "Approved" at once; the approval line arrives like every message, on the stream's Realtime feed.
       setState({ s: 'sent' });
-      // one-render: keep (no-revalidate) — the send without return_to revalidates nothing; the approval line must appear.
-      router.refresh();
     } catch {
       setState({ s: 'failed' });
     }

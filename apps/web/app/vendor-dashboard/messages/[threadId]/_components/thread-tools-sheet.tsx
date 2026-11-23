@@ -553,9 +553,8 @@ export function ToolsSheetButton({
                       return;
                     }
                     setSharing({ s: 'idle' });
+                    // The card arrives like every message: the stream's Realtime feed (one save, one render — no refresh).
                     close();
-                    // one-render: keep (no-revalidate) — the send without return_to revalidates nothing; the card must appear.
-                    router.refresh();
                   }}
                 >
                   <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--m-paper)] text-sn-accent">
@@ -575,7 +574,15 @@ export function ToolsSheetButton({
       {share == null || share.unread ? (
         <p role="status" className="mt-2 flex flex-wrap items-center gap-2 text-sn-md text-ink" data-share-unread="">
           <span>{SHARE_READ_FAILED}</span>
-          <button type="button" className="sn-press min-h-11 font-bold text-sn-accent" onClick={() => router.refresh()} data-share-retry="">
+          <button
+            type="button"
+            className="sn-press min-h-11 font-bold text-sn-accent"
+            onClick={() => {
+              // one-render: keep (retry) — the list could not be read; Try again reads the page again, nothing was written.
+              router.refresh();
+            }}
+            data-share-retry=""
+          >
             Try again
           </button>
         </p>

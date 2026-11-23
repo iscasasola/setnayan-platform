@@ -76,7 +76,7 @@ export function labFilmMoney(added: boolean): EventMoney {
     lineItems: [
       { line_item_id: 'fv-1', vendor_id: 'f-venue', label: 'Reservation', amount_php: 76_000, due_date: '2026-08-02' },
       { line_item_id: 'fv-2', vendor_id: 'f-venue', label: 'Balance', amount_php: 304_000, due_date: '2026-11-20' },
-      { line_item_id: 'ff-1', vendor_id: 'f-food', label: 'Down payment', amount_php: 73_500, due_date: '2026-09-10' },
+      { line_item_id: 'ff-1', vendor_id: 'f-food', label: 'First payment', amount_php: 73_500, due_date: '2026-09-10' },
       { line_item_id: 'ff-2', vendor_id: 'f-food', label: 'Balance', amount_php: 171_500, due_date: '2026-12-01' },
     ],
     payments: [

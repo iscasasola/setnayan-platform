@@ -38,6 +38,7 @@ import { badgeDeadline, deadlineLabel, hasVerifiedBadge, type BadgeFacts } from 
 import { canBuyExtraSeats, tierRank, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
 import type { TeamSeats } from './vendor-free-helper';
+import type { StorageBreakdownRead } from './supplier-storage';
 
 /** Where each Fix lands — the page that fixes that limit (every one an existing supplier page). */
 export const FIX_HREF = {
@@ -67,7 +68,7 @@ export type DowngradeFacts = {
   /** Bytes the shop stores (`supplier_media.size_bytes`); null = unread. */
   storedBytes: number | null;
   /** 📏 The same read, split as the Plans page meter shows it (`readStorageBreakdown`) — so the page reads it ONCE. */
-  storage?: import('./supplier-storage').StorageBreakdownRead;
+  storage?: StorageBreakdownRead;
   /** The badge facts; null = unread. */
   badge: BadgeFacts | null;
 };

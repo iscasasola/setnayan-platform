@@ -80,7 +80,7 @@ export type Pt = { x: number; y: number };
 export type SceneState = 'closed' | 'opening' | 'open';
 
 /** The art a scene may ask for — files in `public/reveal/art/` (sample art from the drawing; webp). */
-export type ArtName = 'satin' | 'paper' | 'damask' | 'calla' | 'foil' | 'doors' | 'hall' | 'arch' | 'bank' | 'drape' | 'chand';
+export type ArtName = 'paper' | 'damask' | 'calla' | 'foil' | 'doors' | 'hall' | 'arch' | 'bank' | 'drape' | 'chand';
 
 export type Ctx = {
   renderer: THREE.WebGLRenderer;

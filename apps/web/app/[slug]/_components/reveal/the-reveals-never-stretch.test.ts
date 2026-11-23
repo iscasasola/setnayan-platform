@@ -8,7 +8,7 @@
  *     create more smoke, extend it"*: a wide screen gets MORE of each reveal's material at the drawing's size, never
  *     the phone's art pulled wider. `wideness()` is the one measure; `lay()` the one way to cover a wider canvas.
  *
- * Sabotage check (run once by hand): put back `sx.drawImage(satin, 0, 0, 512, 888)` in `scenes/drape.ts` → red;
+ * Sabotage check (run once by hand): make the fabric's canvas `const cw = 512` in `scenes/drape.ts` → red;
  * give `makeSeal` a fixed colour → red.
  */
 import { test } from 'node:test';
@@ -66,9 +66,9 @@ test('🖥 no reveal stretches its art: each lays more of it, or counts more of 
     ['scenes/envelope.ts', /lay\(x, dam,/, 'the damask is stretched'],
     ['scenes/envelope.ts', /lay\(x, calla,/, 'the calla relief is stretched'],
     ['scenes/envelope.ts', /Math\.round\(3 \* wide\)/, 'the scallops are pulled wider'],
-    ['scenes/drape.ts', /lay\(sx, satin,/, 'the satin is stretched'],
+    ['scenes/drape.ts', /const cw = Math\.round\(512 \* wide\)/, 'the satin’s weave is stretched'],
     ['scenes/drape.ts', /cf\.folds \* wide/, 'the folds are pulled wider'],
-    ['scenes/drape.ts', /\(o\.cols \?\? 66\) \* Math\.min\(3, wide\)/, 'the cloth has no more threads on a wide screen'],
+    ['scenes/drape.ts', /\(o\.cols \?\? 66\) \* Math\.min\(o\.wideMax \?\? 3, wide\)/, 'the cloth has no more threads on a wide screen'],
     ['scenes/air.ts', /Math\.round\(\(ny \* c\.W\) \/ c\.H\)/, 'the smoke’s cells are not square'],
     ['scenes/air.ts', /lay\(fx, foil,/, 'the scratch foil is stretched'],
     ['scenes/bloom.ts', /N = Math\.round\(1500 \* Math\.min\(4, wideness/, 'the petals thin out on a wide screen'],

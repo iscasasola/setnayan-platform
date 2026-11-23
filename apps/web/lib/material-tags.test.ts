@@ -91,8 +91,10 @@ test('(a) the sticker, the share link, the on-screen codes and the photo mark ea
   assert.match(code('app/api/vendor/door-sticker/route.ts'), /ownDatesUrl\(siteOrigin\(\), slug, 'sticker'\) : ownPageUrl\(siteOrigin\(\), slug, 'sticker'\)/);
   assert.match(code('app/vendor-dashboard/shop/page.tsx'), /const shareUrl = data\.slug \? ownPageUrl\(siteOrigin\(\), data\.slug, 'link'\)/);
   assert.match(code('app/vendor-dashboard/page.tsx'), /const qrUrl = details\.slug \? ownPageUrl\(siteOrigin\(\), details\.slug, 'link'\)/);
-  assert.match(code('app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), /const pageUrl = ownPageUrl\(origin, slug!, 'link'\)/);
-  assert.match(code('app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), /printQrUrl\('reviews', origin, slug!, 'link'\)/);
+  // 🔳 The on-screen codes moved from Promote to My QRs (23 Nov 2026): Your page and Reviews go through its one builder,
+  // Check a date through `checkADateQr` (held above). Each is on screen, so via=link.
+  assert.match(code('app/vendor-dashboard/shop/qrs/_components/my-qrs-data.ts'), /printQrUrl\(code, origin, shop\.slug, 'link'\)/);
+  assert.doesNotMatch(code('app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), /ownPageUrl\(|printQrUrl\(/, 'Promote draws a code again — it lives on My QRs');
   assert.match(code('lib/check-a-date-qr.ts'), /ownDatesUrl\(origin, slug, 'link'\)/);
   // 📸 b95998b3: the photo mark is Setnayan's — NO src=own (so the fee applies and it counts for badges), via=photo.
   // Main's photo-mark builder (`markQrUrl`, lib/watermark-text.ts) is the ONE builder for that address.

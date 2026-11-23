@@ -8,7 +8,11 @@ import 'server-only';
  * viewer only (`front-door.tsx`). Each degrades on its own: a refused read is `unavailable` and the shelf SAYS it
  * could not load — never an empty shelf that reads as "nothing here".
  *
- * Both are VERIFIED-SHOP-ONLY through the one findable fact (`is_findable` — verified AND listed, 15 Nov; no
+ * Articles (5) — Build 3 of Find · Build · Book (owner 17 Nov): every public article, newest first, the moment it
+ * posts (Q6) — Build 2's feed read, the same one llms.txt lists (`readPublicArticles`), so a removed post leaves
+ * both together.
+ *
+ * Service cards and Inspiration are VERIFIED-SHOP-ONLY through the one findable fact (`is_findable` — verified AND listed, 15 Nov; no
  * Discover-only copy of it):
  *   · Service cards — the marketplace's own card read (`fetchMarketplaceServiceCards`, findable), drawn with
  *     the shipped `ServiceCardView` from the supplier view's own faces (`readMarketplaceCardFaces`): prices from the
@@ -30,6 +34,8 @@ import { libraryPartLabel } from '@/lib/moodboard-gallery-upload';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { inspirationPartsInOrder } from '@/lib/inspiration-parts';
 import { readTagEventLines, shownTagFilter } from '@/lib/inspiration-tags.server';
+import { readPublicArticles } from '@/lib/articles-index.server';
+import { articleHref, isJournalArticle } from '@/lib/articles-index';
 
 export type Shelf<T> = { status: 'ok'; items: T[] } | { status: 'unavailable' };
 
@@ -143,4 +149,37 @@ export async function loadDiscoverInspiration(
     logQueryError('discover.inspiration', error, {}, 'graceful_degrade');
     return { status: 'unavailable', parts };
   }
+}
+
+/* ── 5 · ARTICLES ───────────────────────────────────────────────────────────────────────────────────── */
+
+export type DiscoverArticle = {
+  key: string;
+  title: string;
+  href: string;
+  /** "Setnayan Journal" for a Journal post, a shop's name for a shop's, else the name the author posts under. */
+  by: string;
+  isJournal: boolean;
+  /** ISO — drawn as a date. */
+  postedAt: string | null;
+  /** The first paragraph, one line. */
+  line: string | null;
+};
+
+/** The newest public articles (Build 3, 17 Nov). Shown at once (Q6); a removed one is never read. */
+export async function loadDiscoverArticles(limit = 4): Promise<Shelf<DiscoverArticle>> {
+  const { ok, items } = await readPublicArticles();
+  if (!ok) return { status: 'unavailable' };
+  return {
+    status: 'ok',
+    items: items.slice(0, limit).map((a) => ({
+      key: a.slug,
+      title: a.title,
+      href: articleHref(a),
+      by: a.byline.name,
+      isJournal: isJournalArticle(a),
+      postedAt: a.publishedAt,
+      line: a.summary,
+    })),
+  };
 }

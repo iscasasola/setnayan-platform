@@ -30,6 +30,7 @@ import {
   growLines,
   growSpec,
   planLine,
+  planStair,
   tierOfPlansRow,
 } from './_components/supplier-front-data';
 
@@ -39,6 +40,7 @@ const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const PAGE_FILES = [
   'app/for-suppliers/_components/supplier-front-page.tsx',
   'app/for-suppliers/_components/supplier-front-client.tsx',
+  'app/for-suppliers/_components/supplier-live-cards.tsx',
   'app/for-suppliers/_components/supplier-front-info.tsx',
   'app/for-suppliers/_components/supplier-how-we-earn.tsx',
   'app/for-suppliers/_components/supplier-how-we-earn-data.ts',
@@ -136,16 +138,26 @@ test('owner 2026-11-22: every tool on every paid size — the 3D booth logo and 
 test('owner via controller 22 Nov: a plan is never its size alone — Free and Verified cards say what they hold, with the size', () => {
   assert.equal(planLine('free'), 'Run your own clients, 1 live service, just you, main shop only, and 256 MB.');
   assert.equal(planLine('verified'), 'On the marketplace with the basics, 3 live services, just you, main shop only, and 2 GB.');
+  // 23 Nov redraw (plans as growth stairs): every card — Free and Verified too — is its size AND its facts, from `planStair`.
   const page = code('app/for-suppliers/_components/supplier-front-page.tsx');
-  assert.match(page, /name: 'Free', line: planLine\('free'\)/, 'the Free card is a slogan again');
-  assert.match(page, /name: 'Verified', line: planLine\('verified'\)/, 'the Verified card is a slogan again');
+  assert.match(page, /STAIR_TIERS\.map\(\(t\) => \{\s*const step = planStair\(t\)/, 'a plan card is drawn from something other than its read facts');
+  for (const t of ['free', 'verified'] as const) {
+    const st = planStair(t);
+    assert.equal(st.size, storageWords(TIER_CAPS[t].storageBytes!), `${t}: the card lost its size`);
+    assert.ok(st.services.lead && st.people.text && st.branches.text, `${t}: the card is a slogan again`);
+  }
   const coord = code('app/(shell)/for-coordinators/page.tsx');
   assert.match(coord, /\{planLine\('free'\)\}/);
   assert.match(coord, /\{planLine\('verified'\)\}/);
 });
 
 test('owner 23 Nov "this is not our agreed service card": the samples wear Card 14, the mall face (approved 20 Nov, #8070)', () => {
-  for (const rel of ['app/for-suppliers/_components/supplier-front-page.tsx', 'app/(shell)/for-coordinators/page.tsx']) {
+  // /for-suppliers draws its samples in the live cards (redraw 23 Nov); /for-coordinators still draws the still row.
+  const SLOTS: Record<string, readonly string[]> = {
+    'app/for-suppliers/_components/supplier-live-cards.tsx': ['city=', 'rating=', 'mallPrice={band}', 'medals=', 'lines={<SampleDateFit fit={fit} />}', 'distance={km}', 'aboutKmLine(', 'mallPrice({'],
+    'app/(shell)/for-coordinators/page.tsx': ['city=', 'rating=', 'price=', 'priceNote=', 'medals=', 'lines={<SampleDateFit />}', 'distance={aboutKmLine('],
+  };
+  for (const [rel, slots] of Object.entries(SLOTS)) {
     const src = code(rel);
     const faces = src.match(/<ServiceFace\b[^>]*?layout="(\w+)"/gs) ?? [];
     assert.ok(src.includes('<ServiceFace'), `${rel} draws no sample card`);
@@ -153,8 +165,7 @@ test('owner 23 Nov "this is not our agreed service card": the samples wear Card 
     for (const f of faces) assert.match(f, /layout="mall"/, `${rel}: a sample is not Card 14`);
     assert.doesNotMatch(src, /includesLineOf|notIncluded=/, `${rel}: Includes / Not included live in the opened card, not on the face`);
     // Owner 23 Nov: "load up the sample cards. we want to show if the details were complete." — every Card 14 slot.
-    for (const slot of ['city=', 'rating=', 'price=', 'priceNote=', 'medals=', 'lines={<SampleDateFit />}', 'distance={aboutKmLine(']) {
-      assert.ok(src.includes(slot), `${rel}: a sample card is missing ${slot}`);
-    }
+    for (const slot of slots) assert.ok(src.includes(slot), `${rel}: a sample card is missing ${slot}`);
   }
+  assert.doesNotMatch(code('app/for-suppliers/_components/supplier-front-page.tsx'), /<ServiceFace\b/, 'the still sample row is back beside the live cards');
 });

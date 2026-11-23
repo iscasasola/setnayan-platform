@@ -23,7 +23,7 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 const SURFACES = [
   'app/[slug]/_lib/loaders.ts', // the Event Hub's hero, every stage
-  'app/dashboard/(launcher)/page.tsx', // the home board's poster + event card
+  'app/(hub)/dashboard/page.tsx', // the home board's poster + event card
   'lib/celebration-poster.ts', // the celebration poster's sheet
   'lib/celebration-card-identity.ts', // the celebration card
   'lib/story-cover.ts', // Post Event starts from the hero

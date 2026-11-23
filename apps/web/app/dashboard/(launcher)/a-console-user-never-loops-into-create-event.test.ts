@@ -15,10 +15,10 @@ import { stripComments } from '@/lib/strip-comments';
  * Sabotage: point the empty-console redirect back at '/dashboard/create-event' → red.
  */
 const HERE = dirname(fileURLToPath(import.meta.url));
-const LAUNCHER = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+const LAUNCHER = stripComments(readFileSync(join(HERE, '..', '..', '(hub)', 'dashboard', 'page.tsx'), 'utf8'));
 
 test('the board never redirects into an address its own @modal intercepts', () => {
-  assert.ok(existsSync(join(HERE, '@modal/(.)create-event/page.tsx')), 'the intercept moved — re-read this guard');
+  assert.ok(existsSync(join(HERE, '..', '..', '(hub)', 'dashboard', '@modal/(.)create-event/page.tsx')), 'the intercept moved — re-read this guard');
   assert.doesNotMatch(LAUNCHER, /redirect\(\s*['`]\/dashboard\/create-event/, 'the board redirects into its own intercept again — the loop is back');
 });
 

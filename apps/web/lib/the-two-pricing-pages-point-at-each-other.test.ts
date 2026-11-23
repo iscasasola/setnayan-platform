@@ -66,11 +66,12 @@ test('each link names WHOSE prices are on the other side', () => {
 // said the opposite and it went into a PR and the corpus before it was caught.
 // SABOTAGE: stop rendering {m.price} in the matrix → RED.
 test('/for-suppliers really is the supplier pricing page — it renders prices to a person', () => {
-  // 2026-11-06: the approved page draws the plan prices in its Grow tabs (the old matrix is no longer mounted).
+  // 2026-11-23: the approved redraw draws each plan's catalog price on its growth stair (`PlanStairs`); the Grow tabs
+  // and the old matrix are no longer mounted.
   const tabs = readCode('app/for-suppliers/_components/supplier-front-client.tsx');
   assert.match(
     tabs,
-    /<span>\{c\.price \?\? '—'\}<\/span>/,
+    /<b>\{p\.price \?\? '—'\}<\/b>/,
     'the register claimed no supplier pricing page exists; this is the line that makes that false, and it is rendered, not metadata',
   );
   assert.match(readCode(VENDORS), /proMonthly: p\.proMonthly/, 'the page no longer hands the catalog prices to the tabs');

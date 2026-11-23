@@ -115,6 +115,11 @@ export async function resolveReport(formData: FormData) {
     if (hideError) throw new Error(hideError.message);
     // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
     clearHomeShelf('stories');
+    // 🔎 A HIDDEN ARTICLE LEAVES GOOGLE AND AI ANSWERS TOO (owner 17 Nov): hide sets `removed_at`, so the article
+    // leaves its page, sitemap-articles.xml, Discover and llms.txt — every read filters `removed_at is null`
+    // (lib/articles.server.ts). Refresh the two crawler files now rather than at their hourly revalidate.
+    revalidatePath('/sitemap-articles.xml');
+    revalidatePath('/llms.txt');
   }
 
   // 📰 A reply under an article (Build 2): hide = take that reply down. It leaves the public read at once.
@@ -192,8 +197,8 @@ export async function resolveReport(formData: FormData) {
     );
   }
 
-  // A chapter "hide" is really an unfeature (the content stays on the
-  // creator's own page) — say so honestly in the resolution note. A photo
+  // A chapter "hide" takes it down (`removed_at`): off the articles, Discover,
+  // the sitemap and search engines — say so honestly in the resolution note. A photo
   // "hide" that found no photograph says THAT, never "Content hidden".
   const actionNote =
     action === 'hide' && report.target_type === 'chapter'

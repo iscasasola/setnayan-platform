@@ -1,0 +1,20 @@
+## 2026-11-23 · feat(reveals): the nine owner-approved reveals on the guest Event Hub — one motion, one tap, the gift box held
+
+Builds the reveals drawing the owner accepted on 23 Nov (specs `prototypes/reveals_round3_veil_rules_2026-11-23/`, artifact U4pTTfGDn6TBxA3PixFPLq v12–13; DECISION_LOG 23 Nov "REVEALS ACCEPTED FOR NOW AT v10" and "NINE REVEALS SHIP; THE GIFT BOX IS HELD").
+
+- **Nine reveals, ten ids** (the envelope in two styles): Veil · Beach curtains · Envelope classic (flap + gold wax seal with the couple's monogram) · Envelope gatefold (the satin bow unties first) · Fabric · Scratch (opens at 60 % rubbed) · Smoke (dry-ice fog, rings from the tap) · Cathedral doors (one continuous glide down the aisle into white) · Petals · Fireworks. The gift box is held: no id, no scene, no art.
+- **One set of motion rules:** `lib/reveal-motion.ts`, read off the shipped veil (lift step 5 %, revealed at 98.5 %, tap 300 ms / 18 px, swipe 40 px / 460 ms). The veil and every scene read them; no reveal has timing of its own. The hands-free speed is the couple's 9 · 12 · 16 s (house 12). It replaces the veil's own `feather` (5 s): a stored `feather` is ignored.
+- **The veil lifts from the tapped point** (owner 23 Nov). Everything else about the shipped veil is unchanged.
+- **One stage for the eight scenes:** `scene-reveal.tsx` plus `scenes/` (a port of the drawing's three.js r128 code to today's three.js, translated once in `scenes/kit.ts`: lights ×π, bump ×100, colours as the drawing's raw numbers). three.js and each scene load only when that reveal is chosen (`next/dynamic` + one `import()` per scene). Art is 763 KB of webp in `public/reveal/art/`, fetched per reveal.
+- **The retired openings keep playing, as their nearest new reveal** (`RETIRED_REVEAL_IDS`, read through `canonicalRevealId`, never rewritten in the database):
+  - four-flap → envelope-classic
+  - two-flap-horizontal → envelope-classic
+  - two-flap-vertical → envelope-gatefold
+  - church-doors → cathedral-doors
+- **Removed:** the retired rigid engines (four-flap, rigid-reveal/stage/webgl/flaps, reveal-particles, reveal-textures, wax-seal) and their 9.7 MB of textures. Envelopes' butterflies and the old doors' petals went with them: Extras ▾ and the Save-the-Date card offer the veil's petals only.
+- **♿ Reduced motion:** the closed reveal stands still (one frame, no loop) and the one tap cross-fades it away (280 ms). Reduced-motion guests used to skip the reveal; the page is now held for them too until that tap.
+- **Maker:** the opening cards are the nine, each with its own picture in the event's colours. "Speed ◆ ▾" (9 s · 12 s · 16 s) is beside Extras on Cover Scene › Style, and in Fine-tune. Admin Reveal Studio previews all nine and sets the house speed.
+- Guards: `lib/reveal-motion.test.ts` and `the-nine-reveals-share-one-motion.test.ts` (no scene keeps a clock, one tap unveils inside the gesture, reduced motion is still, each engine loads only when chosen, the gift box is held). Sabotaged once: a timer in a scene goes red. Updated the veil, access, config, extras, fine-tune and materials guards to the new ids and rules.
+- Server actions: none added.
+
+SPEC IMPACT: None. It builds the 23 Nov reveal rows; the retired-id mapping above is the brief's "map retired ones to the nearest new reveal".

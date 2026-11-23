@@ -51,7 +51,7 @@ import { landingJumpTarget } from '@/lib/event-board';
 import type { EventWithRole } from '@/lib/events';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const LAUNCHER = resolve(HERE, 'page.tsx');
+const LAUNCHER = resolve(HERE, '..', '..', '(hub)', 'dashboard', 'page.tsx');
 const SWITCHER = resolve(
   HERE,
   '..',

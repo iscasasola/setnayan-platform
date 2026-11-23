@@ -28,7 +28,7 @@ import { paginateCollection } from '@/lib/collection-pagination';
 (globalThis as unknown as { React: unknown }).React = React;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const launcher = () => stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+const launcher = () => stripComments(readFileSync(join(HERE, '..', '..', '(hub)', 'dashboard', 'page.tsx'), 'utf8'));
 
 async function render(el: React.ReactElement): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');

@@ -214,7 +214,7 @@ test('2 · money is never kept — a peso figure or a data-money part never reac
 
 // ── 3. Sign-out empties the store ───────────────────────────────────────────
 // Sabotage run: `wipeLastSeen` returning before removing → the first assertion
-// fails; dropping `<LastSeenSignedOutWipe />` from app/page.tsx → the mount
+// fails; dropping `<LastSeenSignedOutWipe />` from app/(hub)/page.tsx → the mount
 // assertion fails.
 test('3 · signing out empties the whole store, and nothing else', () => {
   const storage = memoryStorage({ 'sn-theme': 'dark', 'monogram-draft': 'M&J' });
@@ -242,7 +242,7 @@ test('3 · signing out empties the whole store, and nothing else', () => {
 
   // …and it runs where sign-out lands.
   assert.match(read('app/auth/sign-out/route.ts'), /NextResponse\.redirect\(new URL\('\/', request\.url\)/);
-  assert.match(read('app/page.tsx'), /<LastSeenSignedOutWipe \/>/);
+  assert.match(read('app/(hub)/page.tsx'), /<LastSeenSignedOutWipe \/>/);
   assert.match(read('app/login/page.tsx'), /<LastSeenSignedOutWipe \/>/);
 });
 

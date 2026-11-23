@@ -1,21 +1,17 @@
 /**
- * The Save-the-Date reveal library — the shared registry of opening templates.
+ * The reveal library — the shared registry of openings.
  *
- * 5 templates (owner-locked 2026-06-17): 4 rigid (envelopes + church doors) + 1
- * veil (the sheer bridal veil). The Crown veil was removed 2026-06-17. Kept as a
- * tiny pure types/consts module (no React, no three.js) so both the live overlay
- * and the dashboard preview chooser can share it with zero bundle cost.
+ * 🎭 NINE REVEALS (owner 23 Nov 2026, DECISION_LOG "NINE REVEALS SHIP; THE GIFT BOX IS HELD"; drawing specs
+ * `prototypes/reveals_round3_veil_rules_2026-11-23/`): Veil · Beach curtains · Envelope (classic + gatefold) ·
+ * Fabric · Scratch · Smoke · Cathedral doors · Petals · Fireworks. The veil is the shipped `veil-reveal.tsx`;
+ * the others are scenes on one stage (`scene-reveal.tsx`). All share one set of motion rules (`lib/reveal-motion.ts`).
+ * The 2026-06 openings (four-flap · two-flaps · church doors) are retired; their ids map to the nearest new
+ * reveal (`RETIRED_REVEAL_IDS`, lib/reveal-config-pure.ts). A tiny pure module (no React, no three.js) so the live
+ * overlay and every chooser share it at zero bundle cost.
  */
+import { RETIRED_REVEAL_IDS, type RevealTemplateId } from '@/lib/reveal-config-pure';
 
-export type RevealTemplate =
-  | 'four-flap'
-  | 'two-flap-vertical'
-  | 'two-flap-horizontal'
-  | 'church-doors'
-  | 'veil-sheer';
-// 'gold-monogram' + 'molten-monogram' were RETIRED as openings 2026-06-22 — they
-// are now monogram-editor ANIMATIONS (the 'gold'/'molten' motion keys in
-// lib/monogram-motion.ts, played by HeroMonogram), not reveal openings.
+export type RevealTemplate = RevealTemplateId;
 
 /**
  * The FREE choice — no opening reveal at all; the content film plays straight
@@ -27,37 +23,34 @@ export type RevealTemplate =
 export const NO_REVEAL = 'none' as const;
 export type RevealChoice = RevealTemplate | typeof NO_REVEAL;
 
-/** Veil templates lift/fold themselves clear (drag-driven); rigid ones swing open on tap. */
+/** The veil lifts and STAYS as a drape (its own engine); every other reveal is a scene that opens and clears. */
 export function isVeilTemplate(t: RevealTemplate): boolean {
   return t === 'veil-sheer';
 }
 
 /**
- * Rigid swing duration. The CSS transition on the flaps runs for RIGID_FOLD_MS;
- * the overlay (and the studio preview) wait RIGID_REVEAL_MS — a touch longer — to
- * remove the overlay so the swing finishes before the page beneath takes over.
- * NOTE: the Tailwind class on the flaps is the literal `duration-[1100ms]` (JIT
- * needs a static value) — keep it in sync with RIGID_FOLD_MS by hand.
- */
-export const RIGID_FOLD_MS = 1100;
-export const RIGID_REVEAL_MS = RIGID_FOLD_MS + 100;
-
-/**
  * `?reveal=` query-param aliases → template id. Lets a Vercel preview demo any
- * template without flipping the global flag. Back-compat aliases kept: `veil`
- * (→ sheer) and `envelope` (→ four-flap) shipped in earlier PRs.
+ * template without flipping the global flag. The retired ids still resolve (to their nearest new reveal).
  */
 export const REVEAL_ALIASES: Record<string, RevealTemplate> = {
-  envelope: 'four-flap',
-  'four-flap': 'four-flap',
-  'two-flap-vertical': 'two-flap-vertical',
-  'two-flap-v': 'two-flap-vertical',
-  'two-flap-horizontal': 'two-flap-horizontal',
-  'two-flap-h': 'two-flap-horizontal',
-  'church-doors': 'church-doors',
-  doors: 'church-doors',
   veil: 'veil-sheer',
   'veil-sheer': 'veil-sheer',
+  curtains: 'beach-curtains',
+  'beach-curtains': 'beach-curtains',
+  envelope: 'envelope-classic',
+  'envelope-classic': 'envelope-classic',
+  gatefold: 'envelope-gatefold',
+  'envelope-gatefold': 'envelope-gatefold',
+  fabric: 'fabric',
+  scratch: 'scratch',
+  smoke: 'smoke',
+  doors: 'cathedral-doors',
+  'cathedral-doors': 'cathedral-doors',
+  petals: 'petals',
+  fireworks: 'fireworks',
+  'two-flap-v': 'envelope-gatefold',
+  'two-flap-h': 'envelope-classic',
+  ...RETIRED_REVEAL_IDS,
 };
 
 /**
@@ -109,52 +102,31 @@ export function resolveRevealOverride(
 }
 
 /**
- * Ordered library for the dashboard chooser. `blurb` is a one-line plain-English
- * description of HOW the opening moves — the previews are intentionally small +
- * un-recordable (owner-locked 2026-06-18), so the blurb is what lets a couple
- * tell the five openings apart. `motion` is a 2-3 word gesture summary used as a
- * chip on each picker tile.
+ * Ordered library for every chooser. `blurb` is a one-line plain-English description of HOW the opening moves;
+ * `motion` a 2–3 word chip; `hint` the ONE instruction the guest reads over the closed reveal (the drawing's
+ * `RV_META` hints, shortened). The veil's is the owner's own words (`VEIL_HINT`, reveal-overlay.tsx).
  */
 export const REVEAL_LIBRARY: ReadonlyArray<{
   id: RevealTemplate;
   label: string;
-  family: 'rigid' | 'veil';
+  family: 'veil' | 'scene';
   blurb: string;
   motion: string;
+  hint: string;
 }> = [
-  {
-    id: 'four-flap',
-    label: 'Four-flap envelope',
-    family: 'rigid',
-    blurb: 'A classic envelope — all four flaps unfold outward from the centre to reveal your film.',
-    motion: 'Flaps unfold',
-  },
-  {
-    id: 'two-flap-vertical',
-    label: 'Two-flap side',
-    family: 'rigid',
-    blurb: 'Two panels part to the left and right, like opening a card from the side.',
-    motion: 'Opens sideways',
-  },
-  {
-    id: 'two-flap-horizontal',
-    label: 'Two-flap top',
-    family: 'rigid',
-    blurb: 'Two panels swing up and down, opening from the middle like a top-fold note.',
-    motion: 'Opens up & down',
-  },
-  {
-    id: 'church-doors',
-    label: 'Church doors',
-    family: 'rigid',
-    blurb: 'Two tall doors swing open from the centre — a grand, ceremonial entrance.',
-    motion: 'Doors swing open',
-  },
-  {
-    id: 'veil-sheer',
-    label: 'Sheer veil',
-    family: 'veil',
-    blurb: 'A soft, sheer veil lifts and floats away, uncovering your film beneath.',
-    motion: 'Veil lifts away',
-  },
+  { id: 'veil-sheer', label: 'Veil', family: 'veil', blurb: 'A sheer bridal veil lifts from where they tap and hangs as a fold.', motion: 'Veil lifts away', hint: 'Tap or swipe up to unveil' },
+  { id: 'beach-curtains', label: 'Beach curtains', family: 'scene', blurb: 'Two white beach curtains slide apart on their rod.', motion: 'Curtains part', hint: 'Tap or swipe to open' },
+  { id: 'envelope-classic', label: 'Envelope · classic', family: 'scene', blurb: 'An ornate flap lifts under its gold wax seal; light pours out.', motion: 'Flaps unfold', hint: 'Tap the seal' },
+  { id: 'envelope-gatefold', label: 'Envelope · gatefold', family: 'scene', blurb: 'The satin bow comes undone, then two panels open like doors.', motion: 'Bow unties', hint: 'Tap the bow' },
+  { id: 'fabric', label: 'Fabric', family: 'scene', blurb: 'One satin drape slides slowly off the cover, like a car reveal.', motion: 'Cloth slides off', hint: 'Tap or pull the cloth' },
+  { id: 'scratch', label: 'Scratch', family: 'scene', blurb: 'Gold foil to scratch away. It opens once 60% is gone.', motion: 'Scratch to open', hint: 'Scratch to open' },
+  { id: 'smoke', label: 'Smoke', family: 'scene', blurb: 'Dry-ice fog fills the screen and opens in rings from the tap.', motion: 'Fog clears', hint: 'Tap anywhere' },
+  { id: 'cathedral-doors', label: 'Cathedral doors', family: 'scene', blurb: 'Heavy doors swing in; you glide down the aisle into the light.', motion: 'Doors open', hint: 'Tap the doors' },
+  { id: 'petals', label: 'Petals', family: 'scene', blurb: 'Sampaguita and rose petals lift in a ring from the tap and fall away.', motion: 'Petals lift', hint: 'Tap anywhere' },
+  { id: 'fireworks', label: 'Fireworks', family: 'scene', blurb: 'A rocket rises from the tap; the night melts where its sparks fall.', motion: 'Night bursts open', hint: 'Tap anywhere' },
 ];
+
+/** The one instruction over a closed reveal. */
+export function revealHint(t: RevealTemplate): string {
+  return REVEAL_LIBRARY.find((r) => r.id === t)?.hint ?? 'Tap to open';
+}

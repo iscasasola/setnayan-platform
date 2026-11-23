@@ -1,4 +1,10 @@
-import { InfoTip } from '@/app/_components/info-tip';
+import {
+  TEMPLATE_SUBLINE,
+  TemplateEmpty,
+  TemplateNums,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -70,9 +76,9 @@ function Banner({ search }: { search: Awaited<Props['searchParams']> }) {
         ? 'That action was missing a required field — nothing changed.'
         : "Something went wrong writing to the database — we've logged it. Try again.";
     return (
-      <div className="mb-6 border-danger-300/60 bg-danger-50/80 py-4 border-t border-ink/10">
-        <p className="text-sm text-danger-900">{msg}</p>
-      </div>
+      <p role="alert" className="mb-2 text-sm" style={{ color: 'rgb(var(--color-danger))' }}>
+        {msg}
+      </p>
     );
   }
   const ok =
@@ -93,9 +99,9 @@ function Banner({ search }: { search: Awaited<Props['searchParams']> }) {
                   : null;
   if (!ok) return null;
   return (
-    <div className="mb-6 border-success-300/60 bg-success-50/80 py-4 border-t border-ink/10">
-      <p className="text-sm text-success-900">{ok}</p>
-    </div>
+    <p role="status" className="mb-2 text-sm text-success-800">
+      {ok}
+    </p>
   );
 }
 
@@ -216,107 +222,104 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
   const activeCount = recs.filter((r) => r.is_active).length;
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       {/* The page starts at its content.
           ⚖ The sentence survives: it is the editorial rule this whole screen
           exists to enforce — sparse by design, and Opt-in whenever a
-          recommendation could compete with the vendor&apos;s own service. */}
+          recommendation could compete with the vendor&apos;s own service.
+          📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): it now sits behind the map's ⓘ; the four
+          counts are one numbers frame; every section is a template section. Same reads, same forms, same names. */}
       <PageMasthead title="Supplier recommendations" />
-      <div className="mb-6">
-        <div className="max-w-3xl">
-          <InfoTip label="How recommendations work" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+
+      <Banner search={search} />
+
+      <TemplateNums
+        items={[
+          { label: 'Leaves with recs', value: String(groupedLeaves.length) },
+          { label: 'Active recs', value: String(activeCount) },
+          { label: 'Total recs', value: String(recs.length) },
+          { label: 'Pending flags', value: String(feedbackRows.length) },
+        ]}
+      />
+
+      {/* ─── The map, grouped by leaf ─────────────────────────────────── */}
+      <TemplateSection
+        label="Recommendation map"
+        data="map"
+        right={`(${recs.length})`}
+        tip={
+          <>
             Recommend only what helps them — a SKU appears for a leaf only when it amplifies that
           supplier&apos;s own deliverable. Sparse by design. Mark a recommendation{' '}
           <span className="font-medium text-ink">Opt-in</span> when it could compete with the
           supplier&apos;s own service (it stays hidden until the supplier turns it on).
-          </InfoTip>
-        </div>
-      </div>
-
-      <Banner search={search} />
-
-      <div className="mb-8 grid grid-cols-2 gap-2 py-4 sm:grid-cols-4 border-t border-ink/10">
-        <Stat label="Leaves with recs" value={String(groupedLeaves.length)} />
-        <Stat label="Active recs" value={String(activeCount)} />
-        <Stat label="Total recs" value={String(recs.length)} />
-        <Stat label="Pending flags" value={String(feedbackRows.length)} />
-      </div>
-
-      {/* ─── The map, grouped by leaf ─────────────────────────────────── */}
-      <section className="mb-12">
-        <h2 className="mb-4 text-base font-semibold tracking-tight">
-          Recommendation map ({recs.length})
-        </h2>
+          </>
+        }
+      >
         {groupedLeaves.length === 0 ? (
-          <p className="py-6 text-center text-sm text-ink/60 border-t border-ink/10">
-            No recommendations yet — add one below.
-          </p>
+          <TemplateEmpty data="map">No recommendations yet — add one below.</TemplateEmpty>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-4">
             {groupedLeaves.map((leafId) => (
               <div key={leafId}>
-                <h3 className="mb-3 flex items-baseline gap-2">
-                  <span className="text-sm font-semibold text-ink">
+                <h3 className="flex min-h-9 items-baseline gap-2 pb-1">
+                  <span className="text-[15px] font-semibold text-ink">
                     {leafLabel.get(leafId) ?? leafId}
                   </span>
-                  <code className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-                    {leafId}
-                  </code>
+                  <code className={TEMPLATE_SUBLINE}>{leafId}</code>
                 </h3>
-                <div className="space-y-3">
+                <TemplateRows label={leafLabel.get(leafId) ?? leafId}>
                   {(groups.get(leafId) ?? []).map((row) => (
-                    <RecommendationRow key={row.id} row={row} />
+                    <li key={row.id}>
+                      <RecommendationRow row={row} />
+                    </li>
                   ))}
-                </div>
+                </TemplateRows>
               </div>
             ))}
           </div>
         )}
-      </section>
+      </TemplateSection>
 
       {/* ─── Add a recommendation ─────────────────────────────────────── */}
-      <section className="mb-12">
-        <h2 className="mb-1 text-base font-semibold tracking-tight">Add a recommendation</h2>
-        <p className="mb-3 text-sm text-ink/60">
-          Pair a supplier leaf with a Setnayan SKU. The pairing is unique — adding an existing one is
+      <TemplateSection
+        label="Add a recommendation"
+        data="add"
+        tip={
+          <>
+            Pair a supplier leaf with a Setnayan SKU. The pairing is unique — adding an existing one is
           a no-op.
-        </p>
+          </>
+        }
+      >
         <AddRecommendation leaves={leaves} skus={skus} />
-      </section>
+      </TemplateSection>
 
       {/* ─── Pending vendor flags ─────────────────────────────────────── */}
-      <section className="mb-10">
-        <h2 className="mb-1 text-base font-semibold tracking-tight">
-          Supplier flags ({feedbackRows.length} pending)
-        </h2>
-        <div className="mb-3">
-          <InfoTip label="About supplier flags" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+      <TemplateSection
+        label="Supplier flags"
+        data="flags"
+        right={`(${feedbackRows.length} pending)`}
+        tip={
+          <>
             Suppliers flag the map as <span className="font-medium">not a fit</span> or{' '}
           <span className="font-medium">suggest add</span>. Accepting acts on the map (deactivate /
           add); declining just resolves the flag.
-          </InfoTip>
-        </div>
+          </>
+        }
+      >
         {feedbackRows.length === 0 ? (
-          <p className="py-6 text-center text-sm text-ink/60 border-t border-ink/10">
-            No pending flags.
-          </p>
+          <TemplateEmpty data="flags">No pending flags.</TemplateEmpty>
         ) : (
-          <div className="space-y-3">
+          <TemplateRows label="Supplier flags">
             {feedbackRows.map((row) => (
-              <FeedbackCard key={row.id} row={row} />
+              <li key={row.id}>
+                <FeedbackCard row={row} />
+              </li>
             ))}
-          </div>
+          </TemplateRows>
         )}
-      </section>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-ink/10 bg-white/70 p-3">
-      <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">{label}</p>
-      <p className="mt-1 text-lg font-semibold tracking-tight text-ink">{value}</p>
+      </TemplateSection>
     </div>
   );
 }

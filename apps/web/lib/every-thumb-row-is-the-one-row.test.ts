@@ -65,7 +65,7 @@ const ADOPTERS: Record<string, { file: string; mounts: RegExp; count: number }> 
   guests: { file: 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx', mounts: /<ThumbRow\b/g, count: 2 },
   // 🏠 Home › Events (owner 11 Nov 2026, "HOME IS THE PROFILE", v3 row 7): the thumb row folded into Home's ONE pinned
   // row (＋ Event is its action) and the search became the section's first row (`EventsFindInput`, the same Enter).
-  events: { file: 'app/dashboard/(launcher)/page.tsx', mounts: /<HomePinnedRow\b|<EventsFindInput\b/g, count: 2 },
+  events: { file: 'app/(hub)/dashboard/page.tsx', mounts: /<HomePinnedRow\b|<EventsFindInput\b/g, count: 2 },
   discover: { file: 'app/_components/frontdoor/front-door.tsx', mounts: /<DiscoverThumbRow\b/g, count: 1 },
   // The supplier: the ONE Clients screen (Build 2 #43: Events + Dates are one screen, "Check a date" folded into the day
   // bar) · a day — one per screen, two screens in one file.

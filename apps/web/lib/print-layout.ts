@@ -3821,6 +3821,62 @@ export function layoutDayPosterDocs(input: LayoutInput): PrintDoc[] {
 }
 
 
+||||||| bf2bb85515
+// ─── The table sign, in the theme ───────────────────────────────────────────
+
+/** A table sign's trim: a 4 × 6 in card, standing (the size a table-number holder takes). */
+export const TABLE_SIGN_PT = { w: 4 * 72, h: 6 * 72 } as const;
+
+/**
+ * 🪧 THE TABLE SIGN IN THE THEME (owner 23 Nov 2026, DECISION_LOG "EVENT HUB THEMES BATCH 6 APPROVED": *one theme on every
+ * surface — Event Hub page + bar · RSVP sheet · digital ticket · invitation · table sign*). The theme's own picture placed
+ * the theme's way (`still`, with its veil or paper panel), then the table's name in the theme's faces and inks: "TABLE" as
+ * the small caps, its number large, the rule, and the couple's names. A label that is not "Table N" ("Sponsors") is drawn
+ * whole at a smaller size, fitted to the card. `qrRef` — the table's code, when the caller has drawn one.
+ *
+ * Read by the sample door (`lib/print-sample-door.server.ts`, the Maker's theme set). Every line sits inside the safe
+ * area (`lib/the-theme-is-a-moving-set.test.ts` measures it).
+ */
+export function layoutTableSign(input: LayoutInput, sign: { label: string; line: string; qrRef: string | null }): PrintDoc {
+  const { look, data } = input;
+  const { w, h } = TABLE_SIGN_PT;
+  const bleed = input.mode === 'print' ? BLEED_MM * PT_PER_MM : 0;
+  const doc: PrintDoc = { piece: 'seating-pack', w, h, bleed, die: 'rect', diePath: diePathFor('rect', w, h), ops: [] };
+  doc.ops.push({ t: 'rect', x: -bleed, y: -bleed, w: w + 2 * bleed, h: h + 2 * bleed, fill: look.paper });
+  const placed = still(doc.ops, look, data, w, h, bleed, 0.5);
+  const cx = w / 2;
+  const inner = w - 2 * SAFE_PT - 12;
+  const layer: PrintLayer | undefined = input.foil ? 'foil' : undefined;
+  const numbered = /^table\s+(.+)$/i.exec(sign.label.trim());
+  let y = Math.max(placed.top + 34, h * 0.36);
+  if (numbered) {
+    eyebrow(doc.ops, look, 'Table', cx, y, 9, 'center', look.accent);
+    y += 92;
+    text(doc.ops, numbered[1]!, cx, y, { font: look.headFont, size: 96, color: look.heading, align: 'center', caps: look.capsNames, maxWidth: inner, layer });
+  } else {
+    y += 40;
+    text(doc.ops, sign.label, cx, y, { font: look.headFont, size: 40, color: look.heading, align: 'center', caps: look.capsNames, maxWidth: inner, layer });
+  }
+  y += 22;
+  rule(doc.ops, cx, y, 26, look.accent);
+  y += 22;
+  const names = [data.names.first, data.names.second].filter(Boolean).join(' & ');
+  if (names) {
+    text(doc.ops, names, cx, y, { font: look.scriptFont ?? look.headFont, size: look.scriptFont ? 20 : 15, color: look.ink, align: 'center', maxWidth: inner });
+    y += 18;
+  }
+  if (sign.qrRef) {
+    const q = 64;
+    const top = Math.min(y + 6, h - SAFE_PT - q - 26);
+    qrPlate(doc.ops, undefined, cx - q / 2, top, q, 4);
+    doc.ops.push({ t: 'image', ref: sign.qrRef, x: cx - q / 2, y: top, w: q, h: q });
+    y = top + q + 14;
+  }
+  if (sign.line) text(doc.ops, sign.line, cx, Math.min(y, h - SAFE_PT - 22), { font: look.bodyFont, size: 8, color: look.muted, align: 'center', maxWidth: inner });
+  safeGuide(doc, { look, data, mode: input.mode, foil: input.foil });
+  return brandPiece([doc], look)[0]!;
+}
+
 // ─── Entry points ───────────────────────────────────────────────────────────
 
 /**

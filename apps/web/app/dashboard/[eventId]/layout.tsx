@@ -32,6 +32,8 @@ import './guests/_components/guest-card.css';
 import './_components/today-website.css';
 // 🎨 The Event Hub themes' page blocks (the 23 Nov redraw) — worn by the Maker's canvas, its Look sample and its theme set.
 import '@/app/hub-themes.css';
+// 🎬 The Maker's Look › Theme set — its arrival and swap (`maker-theme-set.tsx`); never in globals.css.
+import './launch/_components/maker-theme-set.css';
 import { railToolsSignedIn } from '@/lib/studio-rail';
 import type { EventStudioRow } from '@/lib/customer-menu';
 import { EventRailContext } from './_components/event-rail-context';

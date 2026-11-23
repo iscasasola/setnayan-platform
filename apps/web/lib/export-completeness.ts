@@ -255,6 +255,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'reason — internal reconciliation keys, service-role only (migration 20271356998019).',
   },
   {
+    table: 'vendor_app_store_plan_tokens',
+    decision: 'excluded',
+    why:
+      'The token the server issued for an Apple supplier-plan purchase and the shop it was issued ' +
+      'for — an internal key Apple signs back, not information about the person. user_id is who ' +
+      'started the purchase (an actor stamp); the plan itself reaches the export as the shop\'s ' +
+      'vendor_subscriptions rows. Service-role only (migration 20271360318379).',
+  },
+  {
     table: 'admin_audit_log',
     decision: 'excluded',
     why:

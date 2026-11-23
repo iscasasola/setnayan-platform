@@ -116,6 +116,7 @@ import {
   Store,
   Telescope,
 } from 'lucide-react';
+import { DISCOVER_HREF } from '@/lib/discover-href';
 /*
   🔑 ONE ICON PER CATEGORY, FROM THE MAP THE APP ALREADY OWNS. The fifteen
   category rows drew the SAME arrow fifteen times while `WEDDING_FOLDER_ICON`
@@ -1399,7 +1400,8 @@ export function FrontDoorShell({
               </div>
             </>
           ) : null}
-          <Link href="/" {...rowProps('home')}>
+          {/* 🧭 Signed in, the bare `/` opens Home (23 Nov 2026), so the Discover row uses Discover's own door. */}
+          <Link href={account.signedIn ? DISCOVER_HREF : '/'} {...rowProps('home')}>
             <RailIcon as={Telescope} />
             <span className="fd-label-text">Discover</span>
             <span className="fd-icon-caption">Discover</span>

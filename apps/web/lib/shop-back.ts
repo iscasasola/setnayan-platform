@@ -27,6 +27,7 @@
  */
 import { shopPath } from '@/lib/shop-address';
 import { coldWayBack } from './discover-way-back';
+import { DISCOVER_HREF } from './discover-href';
 import { OWN_LINK_SRC } from './supplier-qr-codes';
 
 /** The arrival tags a door into a shop page may carry. Free text on the view row; these are the ones with a back. */
@@ -82,7 +83,7 @@ export type ShopBackDoor = {
 };
 
 // `/` and never `/explore`: the marketplace moved inside Discover (12 Nov) and `/explore` only forwards there.
-export const SHOP_BACK_COLD: ShopBackDoor = { href: '/', label: 'See more suppliers', back: false };
+export const SHOP_BACK_COLD: ShopBackDoor = { href: DISCOVER_HREF, label: 'See more suppliers', back: false };
 
 /** The one rule. An explicit origin wins over the event, which wins over nothing. */
 export function shopBackDoor({ src, eventId, q, from }: ShopArrival): ShopBackDoor {
@@ -91,12 +92,12 @@ export function shopBackDoor({ src, eventId, q, from }: ShopArrival): ShopBackDo
       // 🧭 The words match where it lands (W1, 15 Nov; DECISION_LOG 2026-11-15 "ONE BACK BUTTON, NAMED FOR WHERE THE
       // VISITOR CAME FROM"): `/explore` forwards to Discover (12 Nov, Find suppliers moved inside Discover), so a card
       // still tagged `explore` goes back to Discover and says so — never "Suppliers" landing on Discover.
-      return { href: '/', label: 'Back to Discover', back: true };
+      return { href: DISCOVER_HREF, label: 'Back to Discover', back: true };
     case SHOP_ARRIVAL_SRC.discover:
-      return { href: '/', label: 'Back to Discover', back: true };
+      return { href: DISCOVER_HREF, label: 'Back to Discover', back: true };
     case SHOP_ARRIVAL_SRC.search:
       // 🔎 SB (W1 SHOP-01): back to the RESULTS they came from (`/?q=`), never a bare "/" that drops their search.
-      return { href: q ? `/?q=${encodeURIComponent(q)}` : '/', label: q ? 'Back to results' : 'Back to Discover', back: true };
+      return { href: q ? `/?q=${encodeURIComponent(q)}` : DISCOVER_HREF, label: q ? 'Back to results' : 'Back to Discover', back: true };
     case SHOP_ARRIVAL_SRC.favorites:
       return { href: '/dashboard?seg=memories&tab=vendors', label: 'Back to saved suppliers', back: true };
     case SHOP_ARRIVAL_SRC.page:

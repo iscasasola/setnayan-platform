@@ -56,7 +56,7 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   ['/vendor-dashboard/tax-documents', '/vendor-dashboard'],
   // 🔁 UPDATED ON PURPOSE 2026-11-12: /explore itself forwards to Discover now — one hop, not two.
   ['/explore/categories', '/'],
-  ['/explore', '/'],
+  ['/explore', '/?discover=1'], // 23 Nov 2026: Discover's own door — a signed-in bare `/` opens Home
   [`/dashboard/${EID}/suite`, MORE],
   [`/dashboard/${EID}/studio`, MORE],
   // 👗 "THE DRESS CODE IS SET IN THE MOOD BOARD" (2026-10-01; removed 2026-10-04).
@@ -311,8 +311,8 @@ test('(d) /explore forwards to Discover carrying its filters; /explore/compare s
   );
   // Every parameter is carried, unknown ones too; only the old compare notice is dropped.
   assert.equal(legacyRedirectTarget('/explore', '?q=lechon&page=2&notice=compare_v1_2&demo=1'), '/?q=lechon&page=2&demo=1');
-  assert.equal(legacyRedirectTarget('/explore', ''), '/');
-  assert.equal(legacyRedirectTarget('/explore', '?notice=compare_v1_2'), '/');
+  assert.equal(legacyRedirectTarget('/explore', ''), '/?discover=1');
+  assert.equal(legacyRedirectTarget('/explore', '?notice=compare_v1_2'), '/?discover=1');
   // No loop: Discover itself is never forwarded.
   assert.equal(legacyRedirectTarget('/', '?category=x'), null);
   assert.equal(legacyRedirectTarget('/explore/compare', '?ids=a,b'), null);

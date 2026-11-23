@@ -50,7 +50,7 @@ export const SHOP_OWN_BYTES = 2 * MB;
 export const CLIENT_WORDS_FROM = 10_000;
 
 /** The footnote under the plan cards — one string, read by every surface that shows the asterisk. */
-export const CLIENTS_FOOTNOTE = `*An estimate: one booked client with ${CLIENT_PHOTOS} photos collected for that event only.`;
+export const CLIENTS_FOOTNOTE = `*An estimate: one booked client with ${formatCount(CLIENT_PHOTOS)} photos collected for that event only.`;
 
 /** Rounded DOWN to a friendly number, so the card never promises more: 62.9 → 60 · 128 → 120 · 1,308 → 1,300 · 65,530 → 65,000. */
 export function friendlyFloor(n: number): number {

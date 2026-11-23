@@ -32,7 +32,7 @@
  *   · The Invites badge (Bronze → Black Diamond, each step pays once — lib/badge-rewards.ts) and Invite a supplier
  *     (`/i/<shop>`, its QR, "N joined through your link" — Shop › Partnerships) ARE live. No count, no peso.
  *
- * 🔑 NOTHING THAT IS A NUMBER IS TYPED HERE: prices `_prices.server.ts` · plan caps `_facts.ts` · the fee the live
+ * 🔑 NOTHING THAT IS A NUMBER IS TYPED HERE: plan prices `getVendorPrices` + `monthlyPlanPrice` (the same catalogue reader as /for-suppliers) and their period `PLAN_PERIOD` · plan caps `_facts.ts` · the fee the live
  * schedule · the helper seat `FREE_HELPER_SEATS`. The day-of desks read "free" only while the floor-command paywall
  * itself says so (`on.dayOfFree`); the announcement line shows only while its switch is on.
  *
@@ -58,13 +58,14 @@ import { FEE_FREE_CHIP, FEE_SCOPE, SUPPLIER_FREE_BOOKING_LINE } from '@/lib/book
 import { COORDINATOR_AREAS, areaChoices } from '@/lib/delegate-areas';
 import { INVITE_INFO } from '@/lib/supplier-invite';
 import { TIER_PRICE_PHP } from '@/lib/vendor-tier-caps';
+import { getVendorPrices, monthlyPlanPrice } from '@/lib/v2-catalog';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 
 import { shownWith, type ClaimSwitch } from './_claims';
 import { readClaimSwitches } from './_claims.server';
 import { FREE_HELPER_SEATS, GROW_TIERS, pctWords, pesoWords, planName, reachLadderSentence, type GrowTier } from './_facts';
 import { planLine } from '@/app/for-suppliers/_components/supplier-front-data';
 import { FcInfo } from './_fc-info';
-import { readCoordinatorPrices } from './_prices.server';
 
 import './_for-coordinators.css';
 
@@ -191,7 +192,7 @@ function Head(props: { id: string; title: string; lede: string; info: ReactNode;
 export default async function ForCoordinatorsPage() {
   const [on, prices, fee] = await Promise.all([
     readClaimSwitches(),
-    readCoordinatorPrices(),
+    getVendorPrices(),
     getLiveBookingFeeSchedule().catch(() => null),
   ]);
 
@@ -425,7 +426,7 @@ export default async function ForCoordinatorsPage() {
                   <p key={t}>
                     <b>
                       {planName(t)}
-                      {prices.plans[t].month ? ` · ${prices.plans[t].month}` : ''}.
+                      {monthlyPlanPrice(prices, t) ? ` · ${monthlyPlanPrice(prices, t)} ${PLAN_PERIOD.per}` : ''}.
                     </b>{' '}
                     {PLAN_LINE[t]}
                   </p>

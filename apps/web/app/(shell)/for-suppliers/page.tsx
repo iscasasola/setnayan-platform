@@ -30,6 +30,7 @@ import { supplierCommissionPromise, supplierCommissionShort } from '@/lib/commis
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readSpecialToolsPaidFrom } from '@/lib/special-tools.server';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 
 type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
 
@@ -66,9 +67,9 @@ export async function generateMetadata() {
   const [p, fee] = await Promise.all([getVendorPrices(), getLiveBookingFeeSchedule()]);
   const all = ['solo', 'pro', 'enterprise'] as const;
   const allLine = tierPriceCopy(p, all);
-  const title = `Setnayan for Suppliers · ${HEADLINE}${allLine ? ` · ${allLine} / month` : ''}`;
-  const perBlock = tierPriceCopy(p, all, '/month');
-  const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], '/month');
+  const title = `Setnayan for Suppliers · ${HEADLINE}${allLine ? ` · ${allLine} ${PLAN_PERIOD.slash}` : ''}`;
+  const perBlock = tierPriceCopy(p, all, PLAN_PERIOD.slash);
+  const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], PLAN_PERIOD.slash);
   return {
     title,
     description: `Your clients, quotes and dates. One free place. Free to start, free to stay. ${supplierCommissionShort(fee)} — your booking is free when you bring the event first.${perBlock ? ` ${perBlock}.` : ''}`,
@@ -85,7 +86,7 @@ export async function generateMetadata() {
       images: BRAND_TWITTER_IMAGES,
       card: 'summary_large_image',
       title,
-      description: `${HEADLINE} ${supplierCommissionShort(fee)}.${allLine ? ` ${allLine}/month.` : ''}`,
+      description: `${HEADLINE} ${supplierCommissionShort(fee)}.${allLine ? ` ${allLine} ${PLAN_PERIOD.slash}.` : ''}`,
     },
   };
 }
@@ -118,8 +119,8 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
             '@type': 'UnitPriceSpecification',
             price: String(price),
             priceCurrency: 'PHP',
-            billingDuration: 'P1M',
-            unitText: 'MONTH',
+            billingDuration: PLAN_PERIOD.isoDuration,
+            unitText: PLAN_PERIOD.unitText,
           },
           availability: 'https://schema.org/InStock',
           seller: { '@id': `${SITE_URL}/#organization` },
@@ -141,7 +142,7 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
         '@type': 'WebPage',
         '@id': `${SITE_URL}/for-suppliers#webpage`,
         url: `${SITE_URL}/for-suppliers`,
-        name: `Setnayan for suppliers · ${HEADLINE}${allLine ? ` · ${allLine} / month` : ''}`,
+        name: `Setnayan for suppliers · ${HEADLINE}${allLine ? ` · ${allLine} ${PLAN_PERIOD.slash}` : ''}`,
         isPartOf: { '@id': `${SITE_URL}/#website` },
         about: { '@id': `${SITE_URL}/#organization` },
         audience: {
@@ -161,14 +162,14 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
         'pro-vendor-subscription',
         'Pro (monthly plan)',
         // Lane J: was "3 marketplace categories · 3 team accounts" — Pro is 8 · 5 since 4 Nov.
-        `${growSpec('pro')}. Billed monthly.`,
+        `${growSpec('pro')}. Plans are ${PLAN_PERIOD.billed}.`,
         p.num.proMonthly,
       ),
       offer(
         'enterprise-subscription',
         'Ultra (monthly plan)',
         // Lane J: was "All marketplace categories · reach up to 100 km" — Ultra is 15 categories, nationwide, since 4 Nov.
-        `${growSpec('enterprise')}. Billed monthly.`,
+        `${growSpec('enterprise')}. Plans are ${PLAN_PERIOD.billed}.`,
         p.num.enterpriseMonthly,
       ),
       {

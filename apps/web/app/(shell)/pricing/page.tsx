@@ -19,6 +19,7 @@ import { readOurPrices, papicRungWords } from './_pricing-reads';
 // The client pieces — Event Pro's one dropdown, and the included group's "See all included ↓". Figures arrive formatted.
 import { HubProWays, IncludedGroup, PriceRowShell, type IncludedRow } from './_pricing-pickers';
 import { FEE_SCOPE_THIRD } from '@/lib/booking-fee-who-words';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 
 /**
  * /pricing — OURS ONLY, QUALITY-LED (owner 2026-10-25, verbatim: "Yes, build this pricing page and the questionnaire
@@ -287,7 +288,7 @@ export default async function PricingPage() {
       })),
       // Monthly only — no yearly supplier plan (owner 2026-11-22).
       ...vendorSubs.map((s) => {
-        const cadence = { billingDuration: 'P1M', unitText: 'MONTH', shortLabel: 'per month' };
+        const cadence = { billingDuration: PLAN_PERIOD.isoDuration, unitText: PLAN_PERIOD.unitText, shortLabel: PLAN_PERIOD.per };
         return {
           '@type': 'Service',
           '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
@@ -640,14 +641,14 @@ export default async function PricingPage() {
                   </span>
                   <span className="whitespace-nowrap font-pahina text-xl text-terracotta-700">
                     {sp.key === 'entry' ? 'No fee' : sp.php === null ? '—' : peso(sp.php)}
-                    {sp.php !== null ? <small className="ml-1 font-sans text-xs text-ink/65">/ month</small> : null}
+                    {sp.php !== null ? <small className="ml-1 font-sans text-xs text-ink/65">{PLAN_PERIOD.slash}</small> : null}
                   </span>
                   <p className="col-start-1 m-0 text-[13.5px] leading-snug text-ink/65">{sp.what}</p>
                 </li>
               ))}
             </ul>
             <p className="m-0 mt-2 text-[13.5px] text-ink/65">
-              Every plan is billed monthly. There is no yearly plan.{' '}
+              Every plan is {PLAN_PERIOD.billed}. There is no yearly plan.{' '}
               <Link href="/for-suppliers" className="font-semibold text-terracotta-700">
                 See supplier plans →
               </Link>

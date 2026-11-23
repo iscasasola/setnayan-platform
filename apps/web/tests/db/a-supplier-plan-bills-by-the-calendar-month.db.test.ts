@@ -18,6 +18,9 @@ import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrat
  *   5 · A paid scheduled plan lands for a calendar month.
  *   6 · The "cover the time you already have" rule is month-shaped: equal is allowed, an hour over is refused.
  *   7 · The plan names say "monthly".
+ *   8 · THE RENEWAL DAY (anchor): a shop that began on the 31st renews 31 Jan → 28/29 Feb → 31 Mar → 30 Apr → 31 May,
+ *       whether it pays early, on the day, or late inside its earned grace (7 days per paid month, max 30). Past the
+ *       grace it starts fresh with today as its day. An upgrade takes today as its day.
  */
 
 let replay: ReplayResult;
@@ -84,16 +87,23 @@ async function newConsoleAdmin(): Promise<string> {
   return u.rows[0]!.id;
 }
 
-/** A paid plan purchase written directly: the history a running term stands on. */
-async function paidPurchase(vendorId: string, tier: string, amount: number, periodDays: number, expiresSql: string) {
+/** A paid plan purchase written directly: the history a running term stands on. `anchorDay` null = an old row. */
+async function paidPurchase(
+  vendorId: string,
+  tier: string,
+  amount: number,
+  periodDays: number,
+  expiresSql: string,
+  anchorDay: number | null = null,
+) {
   seq += 1;
   const r = await db.query<{ purchase_id: string }>(
     `INSERT INTO public.vendor_subscriptions
        (vendor_id, sku_code, tier, billing_cycle, amount_php, reference_code,
-        period_days, status, activated_at, paid_at, expires_at)
-     VALUES ($1, $2, $3::public.vendor_tier_state, 'monthly', $4, $5, $6, 'paid', NOW(), NOW(), ${expiresSql})
+        period_days, status, activated_at, paid_at, expires_at, anchor_day)
+     VALUES ($1, $2, $3::public.vendor_tier_state, 'monthly', $4, $5, $6, 'paid', NOW(), NOW(), ${expiresSql}, $7)
      RETURNING purchase_id`,
-    [vendorId, `${tier}_vendor_monthly`, tier, amount, `SUB-M${seq.toString().padStart(7, '0')}`, periodDays],
+    [vendorId, `${tier}_vendor_monthly`, tier, amount, `SUB-M${seq.toString().padStart(7, '0')}`, periodDays, anchorDay],
   );
   return r.rows[0]!.purchase_id;
 }
@@ -113,8 +123,8 @@ async function pendingPurchase(vendorId: string, tier: string, kind: string, amo
 }
 
 async function purchase(purchaseId: string) {
-  const r = await db.query<{ expires_at: string; period_days: number; status: string }>(
-    `SELECT expires_at, period_days, status FROM public.vendor_subscriptions WHERE purchase_id = $1`,
+  const r = await db.query<{ expires_at: string; period_days: number; status: string; anchor_day: number | null }>(
+    `SELECT expires_at, period_days, status, anchor_day FROM public.vendor_subscriptions WHERE purchase_id = $1`,
     [purchaseId],
   );
   return r.rows[0]!;
@@ -127,6 +137,12 @@ async function tierEnd(vendorId: string): Promise<string | null> {
     [vendorId],
   );
   return r.rows[0]!.e;
+}
+
+/** Today's day of the month in Manila. */
+async function manilaToday(): Promise<number> {
+  const r = await db.query<{ d: number }>(`SELECT EXTRACT(DAY FROM now() AT TIME ZONE 'Asia/Manila')::INT AS d`);
+  return r.rows[0]!.d;
 }
 
 /** The same instant on the Manila calendar, one month on — what every check below compares against. */
@@ -173,6 +189,7 @@ test('1 · a new monthly order, chosen and approved, runs ONE CALENDAR MONTH —
 
   const p = await purchase(order.purchase_id);
   assert.equal(p.status, 'paid');
+  assert.equal(p.anchor_day, await manilaToday(), 'a first order takes today as its renewal day');
   // The end is "now, one month on" on the shop's calendar (to the minute: approval and this read are moments apart).
   assert.equal(await tierEnd(vendorId), await manilaMonthOn('now()'));
   // The row's day count is exactly the month it bought, so the credit maths can read the term back.
@@ -200,14 +217,89 @@ test('2 · a renewal from Jan 31 lands on Feb 28, and in a leap year on Feb 29',
   }
 });
 
-test('2b · chained renewals follow the month from the previous end (Jan 31 → Feb 28 → Mar 28)', async () => {
+test('8 · THE RENEWAL DAY HOLDS: 31 Jan → 28 Feb → 31 Mar → 30 Apr → 31 May, never the 28th forever', async () => {
+  // A shop moving over from a 28-day block that ended on 31 Jan: no anchor on its row, so its end day (31) is kept.
   const { vendorId } = await newShop('solo', `'2027-01-31 10:00+08'::timestamptz`);
+  await paidPurchase(vendorId, 'solo', 1400, 28, `'2027-01-31 10:00+08'::timestamptz`);
+  const seen: string[] = [];
+  const days: number[] = [];
+  for (let i = 0; i < 4; i += 1) {
+    const p = await pendingPurchase(vendorId, 'solo', 'renewal', 1490);
+    await db.query(`SELECT public._apply_subscription_credit($1, NULL)`, [p]);
+    seen.push((await tierEnd(vendorId))!);
+    const row = await purchase(p);
+    assert.equal(row.anchor_day, 31, 'every renewal carries the 31st');
+    days.push(row.period_days);
+  }
+  assert.deepEqual(seen, ['2027-02-28 10:00', '2027-03-31 10:00', '2027-04-30 10:00', '2027-05-31 10:00']);
+  assert.deepEqual(days, [28, 31, 30, 31], 'each row holds the days its own month has');
+});
+
+test('8b · a leap year: 31 Jan → 29 Feb → 31 Mar', async () => {
+  const { vendorId } = await newShop('solo', `'2028-01-31 10:00+08'::timestamptz`);
+  await paidPurchase(vendorId, 'solo', 1490, 31, `'2028-01-31 10:00+08'::timestamptz`, 31);
   const a = await pendingPurchase(vendorId, 'solo', 'renewal', 1490);
   await db.query(`SELECT public._apply_subscription_credit($1, NULL)`, [a]);
+  assert.equal(await tierEnd(vendorId), '2028-02-29 10:00');
   const b = await pendingPurchase(vendorId, 'solo', 'renewal', 1490);
   await db.query(`SELECT public._apply_subscription_credit($1, NULL)`, [b]);
-  assert.equal(await tierEnd(vendorId), '2027-03-28 10:00');
-  assert.equal((await purchase(b)).period_days, 28);
+  assert.equal(await tierEnd(vendorId), '2028-03-31 10:00');
+});
+
+test('8c · paid EARLY, with weeks still left, it still lands on the renewal day', async () => {
+  // The term ends 28 Feb but the shop's day is the 31st (stored on its row): the early renewal ends 31 Mar.
+  const { vendorId } = await newShop('pro', `'2027-02-28 10:00+08'::timestamptz`);
+  await paidPurchase(vendorId, 'pro', 4990, 28, `'2027-02-28 10:00+08'::timestamptz`, 31);
+  const p = await pendingPurchase(vendorId, 'pro', 'renewal', 4990);
+  await db.query(`SELECT public._apply_subscription_credit($1, NULL)`, [p]);
+  assert.equal(await tierEnd(vendorId), '2027-03-31 10:00');
+  assert.equal((await purchase(p)).anchor_day, 31);
+});
+
+test('8d · paid LATE inside the earned grace, it still starts at the old end and lands on the renewal day', async () => {
+  // Two paid months = 14 days of grace. The last term ended 5 days ago and the sweep has dropped the shop to Verified.
+  const { vendorId } = await newShop('verified', 'NULL');
+  await paidPurchase(vendorId, 'solo', 1490, 31, "now() - INTERVAL '36 days'");
+  const last = await paidPurchase(vendorId, 'solo', 1490, 31, "now() - INTERVAL '5 days'", 17);
+  const g = await db.query<{ d: number }>(`SELECT public.vendor_plan_earned_grace_days($1) AS d`, [vendorId]);
+  assert.equal(g.rows[0]!.d, 14, '7 days per paid month');
+
+  const oldEnd = (await purchase(last)).expires_at;
+  const p = await pendingPurchase(vendorId, 'solo', 'new', 1490);
+  await db.query(`SELECT public._apply_subscription_credit($1, NULL)`, [p]);
+  const want = await db.query<{ e: string }>(
+    `SELECT to_char(public.vendor_plan_term_end($1::timestamptz, 'monthly', NULL, 17) AT TIME ZONE 'Asia/Manila',
+                    'YYYY-MM-DD HH24:MI') AS e`,
+    [oldEnd],
+  );
+  assert.equal(await tierEnd(vendorId), want.rows[0]!.e, 'the late payment covers from the old end, to the 17th');
+  const row = await purchase(p);
+  assert.equal(row.anchor_day, 17, 'paying late never moves the day');
+  const back = await db.query<{ ok: boolean }>(
+    `SELECT (expires_at - make_interval(days => period_days)) = $2::timestamptz AS ok
+       FROM public.vendor_subscriptions WHERE purchase_id = $1`,
+    [p, oldEnd],
+  );
+  assert.equal(back.rows[0]!.ok, true, 'the row reads back as starting at the old end, so the credit maths hold');
+});
+
+test('8e · paid after the earned grace is over, it is a fresh month from today, today as its day', async () => {
+  // One paid month = 7 days of grace; it ended 10 days ago.
+  const { vendorId } = await newShop('verified', 'NULL');
+  await paidPurchase(vendorId, 'solo', 1490, 31, "now() - INTERVAL '10 days'", 17);
+  const p = await pendingPurchase(vendorId, 'solo', 'new', 1490);
+  await db.query(`SELECT public._apply_subscription_credit($1, NULL)`, [p]);
+  assert.equal(await tierEnd(vendorId), await manilaMonthOn('now()'));
+  assert.equal((await purchase(p)).anchor_day, await manilaToday());
+});
+
+test('8f · earned grace is 7 days per paid month, never more than 30', async () => {
+  const { vendorId } = await newShop('verified', 'NULL');
+  const grace = async () =>
+    (await db.query<{ d: number }>(`SELECT public.vendor_plan_earned_grace_days($1) AS d`, [vendorId])).rows[0]!.d;
+  assert.equal(await grace(), 0, 'no paid month, no grace');
+  for (let i = 1; i <= 5; i += 1) await paidPurchase(vendorId, 'solo', 1490, 30, `now() - INTERVAL '${i * 30} days'`, 1);
+  assert.equal(await grace(), 30, '5 months would be 35, held at 30');
 });
 
 test('3 · a 28-day term already running KEEPS its end; its renewal adds a month from that end', async () => {
@@ -248,26 +340,31 @@ test('4 · the unused credit of a month-long term is read over the month it hold
     [up],
   );
   assert.ok(Math.abs(Number(back.rows[0]!.m)) < 5, 'the upgrade term reads back as starting today');
+  assert.equal((await purchase(up)).anchor_day, await manilaToday(), 'an upgrade takes today as its renewal day');
 });
 
 test('5 · a paid scheduled plan lands at term end for a calendar month, and its purchase records it', async () => {
   const { vendorId } = await newShop('pro', "NOW() + INTERVAL '20 days'");
   const p = await pendingPurchase(vendorId, 'solo', 'downgrade', 1490);
   await db.query(`SELECT public._apply_subscription_credit($1, NULL)`, [p]);
-  await db.query(
-    `UPDATE public.vendor_profiles SET tier_expires_at = NOW() - INTERVAL '1 minute' WHERE vendor_profile_id = $1`,
+  const ended = await db.query<{ e: string }>(
+    `UPDATE public.vendor_profiles SET tier_expires_at = NOW() - INTERVAL '1 minute' WHERE vendor_profile_id = $1
+     RETURNING tier_expires_at::text AS e`,
     [vendorId],
   );
+  const oldEnd = ended.rows[0]!.e;
   await db.query(`SELECT public.sweep_vendor_tier_expiry($1)`, [vendorId]);
   const t = await db.query<{ tier_state: string }>(
     `SELECT tier_state::text FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
     [vendorId],
   );
   assert.equal(t.rows[0]!.tier_state, 'solo');
-  assert.equal(await tierEnd(vendorId), await manilaMonthOn('now()'));
+  // It starts where the old term ended and keeps that day: one calendar month on from the old end.
+  assert.equal(await tierEnd(vendorId), await manilaMonthOn(`'${oldEnd}'::timestamptz`));
   const row = await purchase(p);
   assert.ok(row.expires_at, 'the purchase records the term it bought');
   assert.ok(row.period_days >= 28 && row.period_days <= 31, `and the days of that month, got ${row.period_days}`);
+  assert.ok(row.anchor_day !== null, 'and the renewal day it keeps');
 });
 
 test('6 · "cover the time you already have" is month-shaped: exactly a month left is allowed', async () => {
@@ -311,11 +408,22 @@ test('7 · the monthly plans are named "monthly", never "4 weeks"', async () => 
   );
 });
 
-test('the term rule is internal: no signed-in or anonymous caller may run it', async () => {
-  const r = await db.query<{ anon: boolean; authed: boolean }>(
-    `SELECT has_function_privilege('anon', 'public.vendor_plan_term_end(timestamptz,text,int)', 'EXECUTE') AS anon,
-            has_function_privilege('authenticated', 'public.vendor_plan_term_end(timestamptz,text,int)', 'EXECUTE') AS authed`,
+test('the term rule and the grace count are internal: no signed-in or anonymous caller may run them', async () => {
+  for (const fn of ['public.vendor_plan_term_end(timestamptz,text,int,int)', 'public.vendor_plan_earned_grace_days(uuid)']) {
+    const r = await db.query<{ anon: boolean; authed: boolean }>(
+      `SELECT has_function_privilege('anon', $1, 'EXECUTE') AS anon,
+              has_function_privilege('authenticated', $1, 'EXECUTE') AS authed`,
+      [fn],
+    );
+    assert.equal(r.rows[0]!.anon, false, `${fn}: anon`);
+    assert.equal(r.rows[0]!.authed, false, `${fn}: authenticated`);
+  }
+});
+
+test('a shop cannot move its own renewal day: it may only read its plan rows', async () => {
+  const r = await db.query<{ u: boolean }>(
+    `SELECT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'vendor_subscriptions'
+                     AND cmd IN ('UPDATE','ALL','INSERT')) AS u`,
   );
-  assert.equal(r.rows[0]!.anon, false);
-  assert.equal(r.rows[0]!.authed, false);
+  assert.equal(r.rows[0]!.u, false, 'no write policy on vendor_subscriptions');
 });

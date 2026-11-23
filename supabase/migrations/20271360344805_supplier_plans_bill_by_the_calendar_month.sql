@@ -1,7 +1,8 @@
 -- supplier_plans_bill_by_the_calendar_month
--- Created via `pnpm migration:new` (scripts/new-migration.mjs). Idempotent: CREATE OR REPLACE FUNCTION · REVOKE ·
--- an UPDATE that touches only titles not already final · a read-only post-condition. No table, column, policy or
--- grant on any existing object changes.
+-- Created via `pnpm migration:new` (scripts/new-migration.mjs). Idempotent: ADD COLUMN IF NOT EXISTS · a guarded
+-- ADD CONSTRAINT · CREATE OR REPLACE FUNCTION · REVOKE · an UPDATE that touches only titles not already final · a
+-- read-only post-condition. One new nullable column (vendor_subscriptions.anchor_day); no table, policy or grant on
+-- any existing object changes.
 --
 -- ============================================================================
 -- 🗓 A SUPPLIER PLAN BILLS BY THE CALENDAR MONTH, NOT EVERY 28 DAYS.
@@ -12,19 +13,32 @@
 -- The iPhone app already sells these plans as Apple monthly subscriptions, so Apple bills by the calendar month and
 -- the web now matches it.
 --
---   1 · `vendor_plan_term_end(start, billing_cycle, period_days)` — THE ONE PLACE a plan term's end is worked out.
---       Monthly = start + 1 calendar month, counted on the Manila calendar (Jan 31 → Feb 28, or Feb 29 in a leap
---       year; Mar 15 → Apr 15). Postgres clamps a day the next month lacks to its last day. A yearly row (no yearly
---       SKU is on sale since 20271360321657) keeps its day count. Internal: not granted to any user role.
+--   1 · `vendor_plan_term_end(start, billing_cycle, period_days, anchor_day)` — THE ONE PLACE a plan term's end is
+--       worked out. Monthly = the shop's RENEWAL DAY (its anchor) in the next calendar month on the Manila calendar,
+--       clamped to that month's last day, so a shop that started on the 31st renews 31 Jan → 28/29 Feb → 31 Mar →
+--       30 Apr → 31 May and never drifts to the 28th (Apple keeps the same day). With no anchor it is start + 1
+--       calendar month. A yearly row (no yearly SKU is on sale since 20271360321657) keeps its day count.
+--       `vendor_subscriptions.anchor_day` (new, 1–31, NULL on Apple and old rows) is the renewal day each web term
+--       was bought on. Shops only READ that table, so no shop can move its own day. Internal: not granted to any role.
+--   1b · `vendor_plan_earned_grace_days(shop)` — DECISION_LOG 2026-11-22 "SUPPLIER PLAN GRACE = EARNED: 7 DAYS PER
+--       PAID MONTH, MAX 30": min(30, 7 × paid plan months). The one reader of that number; here it only decides
+--       whether a LATE renewal still lands on the anchor. (The uploads-stop / files-kept behaviour of grace is the
+--       subscriptions build's, not this.)
 --   2 · `create_vendor_subscription` — the "a purchase must cover the time you already have" rule now asks whether a
 --       term started today would end before the plan the shop already has. Same rule, month-shaped term.
---   3 · `_apply_subscription_credit` — every first purchase, renewal and upgrade ends 1 calendar month after it
---       starts, and the purchase row's `period_days` is rewritten to the days that month actually holds (28–31).
+--   3 · `_apply_subscription_credit` — WHERE A TERM STARTS AND WHICH DAY IT KEEPS:
+--         · a renewal while the plan is live (paid EARLY or on the day) starts at the current end and keeps the anchor;
+--         · a renewal paid LATE, within the earned grace after the last paid term ended, still starts at that end and
+--           keeps the anchor (the Apple billing-grace behaviour); past the grace it is a fresh start today, new anchor;
+--         · an upgrade starts today with today as its new anchor (its unused month is credited, as before);
+--         · a shop moving over from a 28-day term (no anchor on its row) takes that term's END DAY as its anchor.
+--       The purchase row's `period_days` is rewritten to the days its term actually holds (28–31).
 --       `vendor_unused_plan_value_php` reads a term back as [expires_at - period_days, expires_at], so the unused
 --       credit of an upgrade stays exact for a month of any length without that function changing. An Apple row
 --       ('app_store') keeps Apple's own day count, as before.
---   4 · `sweep_vendor_tier_expiry` — a paid scheduled plan that lands at term end runs 1 calendar month (was
---       `COALESCE(pending_tier_period_days, 28)` days) and stamps the days it holds on its purchase.
+--   4 · `sweep_vendor_tier_expiry` — a paid scheduled plan lands at the old term's end and runs to the anchor day of
+--       the next month (was `COALESCE(pending_tier_period_days, 28)` days from the sweep), stamping its anchor and
+--       days on its purchase. A sweep so late that the month is already over starts it today instead.
 --   5 · The three monthly SKUs' titles read "Plus (monthly)" · "Pro (monthly)" · "Ultra (monthly)" (were "(4 weeks)").
 --
 -- ── WHAT A SHOP ALREADY PAYING SEES ──────────────────────────────────────────
@@ -37,8 +51,8 @@
 --   · Setnayan plan gifts (`setnayan_shop_gifts.plan_days` 28), badge rewards, add-ons (Papic challenge, 3D booth,
 --     AI, specialized tools) and the Founders offer keep their day counts: not in this ruling.
 --   · Apple (`app_store_supplier_plan_apply`) already takes its period end from Apple; no 28 lives there.
---   · Chained renewals follow Postgres month maths from the previous end (Jan 31 → Feb 28 → Mar 28), not an anchor
---     day. Apple anchors (Jan 31 → Feb 28 → Mar 31); a web shop renewing every month drifts to the 28th at most once.
+--   · Apple rows: Apple runs their clock and anchor (`app_store_supplier_plan_apply` overwrites the end), so their
+--     anchor_day stays NULL; a shop that moves from Apple to the web takes its last Apple end day as its anchor.
 --
 -- Never applied by hand: the pipeline (`supabase db push --include-all`) applies it.
 -- ============================================================================
@@ -48,30 +62,87 @@ BEGIN;
 -- ----------------------------------------------------------------------------
 -- 1 · The one term rule.
 -- ----------------------------------------------------------------------------
+ALTER TABLE public.vendor_subscriptions
+  ADD COLUMN IF NOT EXISTS anchor_day SMALLINT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conname = 'vendor_subscriptions_anchor_day_check'
+                    AND conrelid = 'public.vendor_subscriptions'::regclass) THEN
+    ALTER TABLE public.vendor_subscriptions
+      ADD CONSTRAINT vendor_subscriptions_anchor_day_check CHECK (anchor_day IS NULL OR anchor_day BETWEEN 1 AND 31);
+  END IF;
+END;
+$$;
+
+COMMENT ON COLUMN public.vendor_subscriptions.anchor_day IS
+  'The shop''s renewal day (1-31, Manila calendar) this web monthly term was bought on; the next renewal lands on this day of the next month, clamped to its last day (31 Jan -> 28 Feb -> 31 Mar). Written only by _apply_subscription_credit and sweep_vendor_tier_expiry (20271360344805); read by them for the next term. NULL on Apple rows (Apple keeps its own day) and on rows from before monthly billing.';
+
 CREATE OR REPLACE FUNCTION public.vendor_plan_term_end(
   p_start         TIMESTAMPTZ,
   p_billing_cycle TEXT,
-  p_period_days   INT
+  p_period_days   INT,
+  p_anchor_day    INT DEFAULT NULL
 )
 RETURNS TIMESTAMPTZ
 LANGUAGE sql
 STABLE
 SET search_path = ''
 AS $$
+  WITH l AS (
+    -- The start on the shop's own calendar, and the first day of the month after it.
+    SELECT p_start AT TIME ZONE 'Asia/Manila'                                            AS t,
+           date_trunc('month', (p_start AT TIME ZONE 'Asia/Manila') + INTERVAL '1 month') AS m
+  )
   SELECT CASE
            WHEN p_start IS NULL THEN NULL
-           -- A month on the shop's own calendar. Manila keeps no daylight saving, so the time of day is kept too.
-           WHEN COALESCE(p_billing_cycle, 'monthly') = 'monthly'
-             THEN ((p_start AT TIME ZONE 'Asia/Manila') + INTERVAL '1 month') AT TIME ZONE 'Asia/Manila'
+           WHEN COALESCE(p_billing_cycle, 'monthly') = 'monthly' THEN (
+             CASE
+               -- No renewal day yet: one calendar month on (Postgres clamps Jan 31 to Feb 28/29).
+               WHEN p_anchor_day IS NULL THEN l.t + INTERVAL '1 month'
+               -- The renewal day in the next month, clamped to its last day, at the start's time of day.
+               ELSE l.m
+                    + make_interval(days => LEAST(p_anchor_day,
+                                                  EXTRACT(DAY FROM l.m + INTERVAL '1 month' - INTERVAL '1 day')::INT) - 1)
+                    + (l.t - date_trunc('day', l.t))
+             END
+           ) AT TIME ZONE 'Asia/Manila'
            -- A yearly row bought before yearly retired keeps the day count it was sold with.
            ELSE p_start + make_interval(days => COALESCE(p_period_days, 365))
-         END;
+         END
+    FROM l;
 $$;
 
-COMMENT ON FUNCTION public.vendor_plan_term_end(TIMESTAMPTZ, TEXT, INT) IS
-  'THE ONE PLACE a supplier plan term''s end is worked out (owner 2026-11-22/23: plans bill MONTHLY, not every 4 weeks). Monthly = start + 1 calendar month on the Manila calendar (Jan 31 -> Feb 28/29). A yearly row keeps its day count. Called by create_vendor_subscription, _apply_subscription_credit and sweep_vendor_tier_expiry; internal, not granted to any user role.';
+COMMENT ON FUNCTION public.vendor_plan_term_end(TIMESTAMPTZ, TEXT, INT, INT) IS
+  'THE ONE PLACE a supplier plan term''s end is worked out (owner 2026-11-22/23: plans bill MONTHLY, not every 4 weeks). Monthly = the renewal day (anchor) in the next calendar month on the Manila calendar, clamped to its last day (31 Jan -> 28/29 Feb -> 31 Mar -> 30 Apr); with no anchor, start + 1 calendar month. A yearly row keeps its day count. Called by create_vendor_subscription, _apply_subscription_credit and sweep_vendor_tier_expiry; internal, not granted to any user role.';
 
-REVOKE ALL ON FUNCTION public.vendor_plan_term_end(TIMESTAMPTZ, TEXT, INT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.vendor_plan_term_end(TIMESTAMPTZ, TEXT, INT, INT) FROM PUBLIC, anon, authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 1b · Earned grace: min(30, 7 x paid plan months). DECISION_LOG 2026-11-22 (owner: "Yes, earned grace").
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.vendor_plan_earned_grace_days(p_vendor_id UUID)
+RETURNS INT
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  -- Each paid plan term the shop has received is a paid month (web or Apple). A deferred change not yet started
+  -- carries no expires_at and is not counted until it runs.
+  SELECT LEAST(30, 7 * count(*))::INT
+    FROM public.vendor_subscriptions s
+   WHERE s.vendor_id = p_vendor_id
+     AND s.status = 'paid'
+     AND s.tier IN ('solo', 'pro', 'enterprise')
+     AND s.expires_at IS NOT NULL
+     AND s.period_days > 0;
+$$;
+
+COMMENT ON FUNCTION public.vendor_plan_earned_grace_days(UUID) IS
+  'Earned grace in days: min(30, 7 x paid plan months) -- DECISION_LOG 2026-11-22 "SUPPLIER PLAN GRACE = EARNED: 7 DAYS PER PAID MONTH, MAX 30". THE ONE READER of that number. Used by _apply_subscription_credit (20271360344805) so a renewal paid late inside the grace keeps the shop''s renewal day. Internal, not granted to any user role.';
+
+REVOKE ALL ON FUNCTION public.vendor_plan_earned_grace_days(UUID) FROM PUBLIC, anon, authenticated;
 
 -- ----------------------------------------------------------------------------
 -- 2 · Starting a purchase. The body of 20271177335213 §5; only the term lines change.
@@ -301,6 +372,9 @@ DECLARE
   v_start   TIMESTAMPTZ;
   v_days    INT;
   v_kind    TEXT;
+  v_anchor  INT;
+  v_cur     TIMESTAMPTZ;
+  v_last    public.vendor_subscriptions;
 BEGIN
   SELECT * INTO v_s FROM public.vendor_subscriptions
     WHERE purchase_id = p_purchase_id FOR UPDATE;
@@ -366,18 +440,57 @@ BEGIN
   -- always have. An UPGRADE starts a fresh term instead, because the remaining
   -- days of the old plan were just turned into money and handed back as credit --
   -- keeping them too would pay the shop twice for the same days.
+  --
+  -- 🗓 THE RENEWAL DAY (20271360344805). A term ends on the shop's anchor day of the next month, so a shop that began
+  -- on the 31st renews 31 Jan → 28 Feb → 31 Mar → 30 Apr and never drifts to the 28th (Apple keeps the same day).
+  -- Where a term starts, and which day it keeps:
+  --   · UPGRADE → today, and today becomes the anchor (the old month's unused days were just handed back as credit).
+  --   · APPLE → as before; Apple overwrites the end with its own (see app_store_supplier_plan_apply), no web anchor.
+  --   · Plan still live (renewal paid EARLY or on the day) → the current end, keeping the anchor.
+  --   · Plan already ended, but the renewal is paid inside the EARNED GRACE after the last paid term (min(30, 7 ×
+  --     paid months), DECISION_LOG 2026-11-22) → still that end, keeping the anchor: paying late never moves the day.
+  --   · Otherwise → a fresh start today, today as the anchor.
+  -- The anchor is the last paid term's anchor_day; a term with none (a 28-day block from before this, an Apple month,
+  -- a gift or a comp) gives its END DAY, so a shop moving over keeps the day its old term ended on.
+  SELECT tier_expires_at INTO v_cur FROM public.vendor_profiles WHERE vendor_profile_id = v_s.vendor_id;
+  SELECT * INTO v_last FROM public.vendor_subscriptions
+   WHERE vendor_id = v_s.vendor_id
+     AND purchase_id <> v_s.purchase_id
+     AND status = 'paid'
+     AND tier IN ('solo', 'pro', 'enterprise')
+     AND expires_at IS NOT NULL
+   ORDER BY expires_at DESC
+   LIMIT 1;
+
   IF v_kind = 'upgrade' THEN
     v_start := now();
+  ELSIF v_kind = 'app_store' THEN
+    v_start := GREATEST(now(), COALESCE(v_cur, now()));
+  ELSIF v_cur IS NOT NULL AND v_cur > now() THEN
+    v_start := v_cur;
+    v_anchor := CASE WHEN v_last.expires_at = v_cur THEN v_last.anchor_day END;
+  ELSIF GREATEST(v_last.expires_at, v_cur) IS NOT NULL
+        AND now() <= GREATEST(v_last.expires_at, v_cur)
+                     + make_interval(days => public.vendor_plan_earned_grace_days(v_s.vendor_id))
+  THEN
+    -- The later of the last paid term's end and what the profile still holds (a gift or comp may have run past it).
+    v_start := GREATEST(v_last.expires_at, v_cur);
+    v_anchor := CASE WHEN v_last.expires_at = v_start THEN v_last.anchor_day END;
   ELSE
-    v_start := GREATEST(now(), COALESCE(
-      (SELECT tier_expires_at FROM public.vendor_profiles
-         WHERE vendor_profile_id = v_s.vendor_id),
-      now()
-    ));
+    v_start := now();
   END IF;
-  -- 🗓 ONE CALENDAR MONTH from the start (20271360344805), not period_days days. A 28-day term already running keeps
-  -- its end: a renewal starts from it, and nothing here touches a row already paid.
-  v_expires := public.vendor_plan_term_end(v_start, v_s.billing_cycle, v_s.period_days);
+  -- No anchor carried over: the start's own day (a move-over keeps its old term's end day; a fresh start, today).
+  IF v_kind <> 'app_store' AND v_anchor IS NULL THEN
+    v_anchor := EXTRACT(DAY FROM v_start AT TIME ZONE 'Asia/Manila')::INT;
+  END IF;
+
+  v_expires := public.vendor_plan_term_end(v_start, v_s.billing_cycle, v_s.period_days, v_anchor);
+  -- A late renewal whose month is somehow already over is a fresh start, never a term that ends before it begins.
+  IF v_expires <= now() THEN
+    v_start  := now();
+    v_anchor := CASE WHEN v_kind <> 'app_store' THEN EXTRACT(DAY FROM now() AT TIME ZONE 'Asia/Manila')::INT END;
+    v_expires := public.vendor_plan_term_end(v_start, v_s.billing_cycle, v_s.period_days, v_anchor);
+  END IF;
   -- The row records the days its month actually holds (28–31), because vendor_unused_plan_value_php reads the term
   -- back as [expires_at - period_days, expires_at]. Apple's row keeps the day count Apple's period gave it.
   v_days := CASE WHEN v_kind = 'app_store' THEN v_s.period_days
@@ -408,6 +521,7 @@ BEGIN
          activated_at = now(),
          expires_at   = v_expires,
          period_days  = v_days,
+         anchor_day   = v_anchor,
          paid_at      = now(),
          reviewed_by  = p_reviewed_by
    WHERE purchase_id = p_purchase_id;
@@ -432,6 +546,9 @@ SECURITY DEFINER
 AS $function$
 DECLARE
   v_p          public.vendor_profiles;
+  v_start      TIMESTAMPTZ;
+  v_end        TIMESTAMPTZ;
+  v_anchor     INT;
 BEGIN
   -- ── 🎁 A SETNAYAN PLAN GIFT THAT HAS RUN ITS DAYS (20271352202109) ───────
   -- Hands the shop back the plan it paused, with the days it had left, BEFORE
@@ -464,11 +581,27 @@ BEGIN
       -- deliberately ABSENT from this UPDATE: they are moving onto a plan they
       -- paid for, and taking their balance here would be theft dressed as
       -- policy. The RETURN below is what stops the lapse also running.
+      -- 🗓 THE RENEWAL DAY (20271360344805), not 28 days from the sweep: the scheduled plan starts where the old term
+      -- ended and runs to the anchor day of the next month, the anchor being the old term's own (or its end day when
+      -- it has none). A sweep so late that this month is already over starts the plan today, today as its day.
+      v_start  := v_p.tier_expires_at;
+      v_anchor := COALESCE(
+        (SELECT s.anchor_day FROM public.vendor_subscriptions s
+          WHERE s.vendor_id = p_vendor_id AND s.status = 'paid' AND s.expires_at = v_p.tier_expires_at
+          ORDER BY s.paid_at DESC NULLS LAST LIMIT 1),
+        EXTRACT(DAY FROM v_start AT TIME ZONE 'Asia/Manila')::INT);
+      v_end := public.vendor_plan_term_end(v_start, v_p.pending_tier_billing_cycle,
+                                           v_p.pending_tier_period_days, v_anchor);
+      IF v_end <= now() THEN
+        v_start  := now();
+        v_anchor := EXTRACT(DAY FROM now() AT TIME ZONE 'Asia/Manila')::INT;
+        v_end    := public.vendor_plan_term_end(v_start, v_p.pending_tier_billing_cycle,
+                                                v_p.pending_tier_period_days, v_anchor);
+      END IF;
+
       UPDATE public.vendor_profiles
          SET tier_state         = v_p.pending_tier,
-             -- 🗓 ONE CALENDAR MONTH (20271360344805), not the 28 days it used to add.
-             tier_expires_at    = public.vendor_plan_term_end(now(), v_p.pending_tier_billing_cycle,
-                                                              v_p.pending_tier_period_days),
+             tier_expires_at    = v_end,
              tier_billing_cycle = v_p.pending_tier_billing_cycle,
              pending_tier               = NULL,
              pending_tier_billing_cycle = NULL,
@@ -479,13 +612,12 @@ BEGIN
        WHERE vendor_profile_id = p_vendor_id;
 
       -- The purchase gets the window it bought, and the days that month holds, so the credit maths read it exactly.
-      UPDATE public.vendor_subscriptions s
-         SET expires_at  = p.tier_expires_at,
-             period_days = GREATEST(1, ROUND(EXTRACT(EPOCH FROM (p.tier_expires_at - now())) / 86400.0))::INT
-        FROM public.vendor_profiles p
-       WHERE p.vendor_profile_id = p_vendor_id
-         AND s.purchase_id = v_p.pending_tier_purchase_id
-         AND s.expires_at IS NULL;
+      UPDATE public.vendor_subscriptions
+         SET expires_at  = v_end,
+             period_days = GREATEST(1, ROUND(EXTRACT(EPOCH FROM (v_end - v_start)) / 86400.0))::INT,
+             anchor_day  = v_anchor
+       WHERE purchase_id = v_p.pending_tier_purchase_id
+         AND expires_at IS NULL;
 
       -- ⚖ THIS `RETURN` IS BELT-AND-BRACES, AND IS KEPT ANYWAY. Measured, not
       -- assumed: a mutation deleting it stayed GREEN, because the UPDATE above
@@ -583,6 +715,13 @@ DECLARE
 BEGIN
   IF public.vendor_plan_term_end('2027-01-31 10:00:00+08'::timestamptz, 'monthly', 28)
        <> '2027-02-28 10:00:00+08'::timestamptz
+     -- The renewal day holds: 31 Jan → 28 Feb → 31 Mar → 30 Apr, never the 28th forever.
+     OR public.vendor_plan_term_end('2027-02-28 10:00:00+08'::timestamptz, 'monthly', 28, 31)
+       <> '2027-03-31 10:00:00+08'::timestamptz
+     OR public.vendor_plan_term_end('2027-03-31 10:00:00+08'::timestamptz, 'monthly', 31, 31)
+       <> '2027-04-30 10:00:00+08'::timestamptz
+     OR public.vendor_plan_term_end('2028-01-31 10:00:00+08'::timestamptz, 'monthly', 31, 31)
+       <> '2028-02-29 10:00:00+08'::timestamptz
      OR public.vendor_plan_term_end('2028-01-31 10:00:00+08'::timestamptz, 'monthly', 28)
        <> '2028-02-29 10:00:00+08'::timestamptz
      OR public.vendor_plan_term_end('2027-03-15 09:30:00+08'::timestamptz, 'monthly', NULL)

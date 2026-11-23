@@ -33,6 +33,7 @@ import type { LimitChange, PayToday, PlanChanges } from '@/lib/plan-sheet';
 import type { DowngradeFit } from '@/lib/downgrade-limits';
 import { LimitsList, LowerPlanSwitch } from './limits-sheet';
 import type { PlanLine } from '@/lib/vendor-plan-rows';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 
 type Action = (formData: FormData) => void | Promise<void>;
 /** Monthly only: no yearly supplier plan (owner 2026-11-22, "remove the annual subscription everywhere"). */
@@ -75,8 +76,8 @@ export type SheetPlan = {
 };
 
 const lead = (Icon: typeof Gem) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />;
-const CYCLE_WORD: Record<Cycle, string> = { monthly: 'month' };
-const EVERY_WORD: Record<Cycle, string> = { monthly: 'every month' };
+const CYCLE_WORD: Record<Cycle, string> = { monthly: PLAN_PERIOD.unit };
+const EVERY_WORD: Record<Cycle, string> = { monthly: PLAN_PERIOD.every };
 
 function LimitRow({ l, compare }: { l: LimitChange; compare: boolean }) {
   return (

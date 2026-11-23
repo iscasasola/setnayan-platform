@@ -19,7 +19,7 @@
  */
 import { FEE_FREE_RULE } from './booking-fee-who-words';
 import { formatPhp } from './php';
-import { planWord } from './vendor-plan-change-words';
+import { PLAN_PERIOD, planWord } from './vendor-plan-change-words';
 import { formatCount } from './format-number';
 
 /** The plans an invite may give — the paid ladder (the key `enterprise` is shown as Ultra). */
@@ -135,14 +135,14 @@ function planWithPrice(tier: PersonalInviteTier, prices: PlanPrices): string {
 /** "Free, Supplier Plus ₱1,000, Pro ₱2,500 or Ultra ₱10,000 / month" — the four choices after the gift (prices read). */
 export function planChoicesLine(prices: PlanPrices): string {
   const paid = PERSONAL_INVITE_TIERS.map((t) => planWithPrice(t, prices));
-  return `Free, ${paid.slice(0, -1).join(', ')} or ${paid[paid.length - 1]} / month`;
+  return `Free, ${paid.slice(0, -1).join(', ')} or ${paid[paid.length - 1]} ${PLAN_PERIOD.slash}`;
 }
 
 /** The dropdown's trailing note per plan: "no gift" for Free, the catalogue price, or nothing when there is none. */
 export function planMenuNote(tier: 'free' | PersonalInviteTier, prices: PlanPrices): string | null {
   if (tier === 'free') return 'no gift';
   const p = prices[tier];
-  return typeof p === 'number' && Number.isFinite(p) ? `${formatPhp(p)} / month` : null;
+  return typeof p === 'number' && Number.isFinite(p) ? `${formatPhp(p)} ${PLAN_PERIOD.slash}` : null;
 }
 
 /**

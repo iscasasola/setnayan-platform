@@ -19,7 +19,7 @@ import {
 } from '@/lib/vendor-photo-challenge';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
-import { oneCalendarMonthOnMs } from '@/lib/vendor-plan-change-words';
+import { PLAN_PERIOD, oneCalendarMonthOnMs } from '@/lib/vendor-plan-change-words';
 import { logQueryError } from '@/lib/supabase/error-detect';
 export const metadata = {
   title: 'Supplier plan · Admin',
@@ -246,7 +246,7 @@ export default async function AdminVendorPlanPage({
           </div>
           <p className="text-xs text-ink/50">
             Leave end date blank for open-ended comp access (you&rsquo;ll need to revert manually).
-            Plans bill monthly — 1 month from today ={' '}
+            Plans are {PLAN_PERIOD.billed} — 1 {PLAN_PERIOD.unit} from today ={' '}
             {new Date(oneCalendarMonthOnMs(Date.now())).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
               month: 'short',
               day: 'numeric',

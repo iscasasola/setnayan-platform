@@ -290,8 +290,9 @@ test('an upgrade takes effect TODAY, is charged list minus credit, and starts a 
   const days =
     (new Date(after.tier_expires_at!).getTime() - Date.now()) / 86_400_000;
   assert.ok(
-    days > 27 && days < 29,
-    `an upgrade should start a fresh 28-day term, got ${days.toFixed(1)} days`,
+    // 🗓 A fresh CALENDAR MONTH since 20271360344805 (28–31 days), still nowhere near the ~56 a stacked term gives.
+    days > 27.9 && days < 31.1,
+    `an upgrade should start a fresh one-month term, got ${days.toFixed(1)} days`,
   );
 });
 

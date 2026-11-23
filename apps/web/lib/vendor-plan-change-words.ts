@@ -152,6 +152,34 @@ export function termIsTooShort(
   return termDays < remaining;
 }
 
+/**
+ * 🗓 THE ONE WORDING of a supplier or coordinator plan's billing period. Owner 2026-11-23: *"the plan is not per 4
+ * weeks. it is now monthly"*; and *"the only difference is the extent of the services we provide exclusively for
+ * coordinators"*, so /for-suppliers, /for-coordinators, /pricing, the Plan screen and admin all draw it from here.
+ * Never type "per month" / "4 weeks" / "28 days" beside a plan price; read it from this.
+ */
+export const PLAN_PERIOD = {
+  /** "₱1,990 per month" */
+  per: 'per month',
+  /** "₱1,990 / month" */
+  slash: '/ month',
+  /** "…, every month." */
+  every: 'every month',
+  /** "Every month" — a table row's label. */
+  everyLabel: 'Every month',
+  /** "Plans are billed monthly." */
+  billed: 'billed monthly',
+  /** " · monthly" — beside a plan's name. */
+  adjective: 'monthly',
+  /** "for a month" */
+  forOne: 'for a month',
+  /** The unit, as in "1 month from today". */
+  unit: 'month',
+  /** schema.org UnitPriceSpecification */
+  isoDuration: 'P1M',
+  unitText: 'MONTH',
+} as const;
+
 const MANILA_OFFSET_MS = 8 * 3_600_000; // Manila keeps no daylight saving.
 
 /**

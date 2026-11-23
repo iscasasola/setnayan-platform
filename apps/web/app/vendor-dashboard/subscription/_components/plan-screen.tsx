@@ -40,7 +40,7 @@ import { BadgeUpgradesSection } from './badge-upgrades-section';
 import { loadBadgeUpgradesSection } from './badge-upgrades-data';
 import { PlanChangeNotice } from './plan-change-notice';
 import { COUNT_ADDON_KINDS, COUNT_ADDONS, fetchAddOnExtras } from '@/lib/vendor-ultra-addons';
-import { monthlyTermIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
+import { PLAN_PERIOD, monthlyTermIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { formatPhp } from '@/lib/php';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { downgradeFit } from '@/lib/downgrade-limits';
@@ -432,7 +432,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       : null;
   const pays =
     currentPrice !== null
-      ? `${formatPhp(currentPrice)} / month`
+      ? `${formatPhp(currentPrice)} ${PLAN_PERIOD.slash}`
       : isPaid
         ? 'paid'
         : 'nothing to pay';

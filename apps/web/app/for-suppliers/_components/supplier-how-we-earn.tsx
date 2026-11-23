@@ -29,6 +29,7 @@ import {
   SAMPLE_FOUND_LINE,
   GIFT_BUNDLE_WORDS,
 } from './supplier-how-we-earn-data';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 
 export type EarnFigures = { head: string; band: string; tail: string } | null;
 
@@ -99,7 +100,7 @@ export function SupplierHowWeEarn({
             <b>Plus · Pro · Ultra</b>
             <span>For more tools and more room. Free stays free.</span>
             <p className={s.earnPrice}>
-              Plus {dash(plans.plus)} · Pro {dash(plans.pro)} · Ultra {dash(plans.ultra)}, every month.
+              Plus {dash(plans.plus)} · Pro {dash(plans.pro)} · Ultra {dash(plans.ultra)}, {PLAN_PERIOD.every}.
             </p>
           </div>
           <div className={s.earnRow}>

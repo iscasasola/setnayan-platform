@@ -17,6 +17,7 @@ import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { allowance } from '@/lib/vendor-plan-rows';
 import { TIER_CAPS, TIER_LABEL, WAITLIST_SETTING_MAX, type VendorTier } from '@/lib/vendor-tier-caps';
 import { ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnSku, type UltraAddOnKind } from '@/lib/vendor-ultra-addons';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 
 /**
  * Free's search line: the 15 Nov rule the database applies (`vendor_profiles.is_findable`, lib/findable-shop.ts) — an
@@ -172,7 +173,7 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
 
   const free = (t: VendorTier) => t === 'free' || t === 'verified';
   const price: TableRow[] = [
-    { key: 'price:month', label: 'Every month', cells: each((t) => (free(t) ? words('Free') : words(prices.monthly[t] ?? DASH))) },
+    { key: 'price:month', label: PLAN_PERIOD.everyLabel, cells: each((t) => (free(t) ? words('Free') : words(prices.monthly[t] ?? DASH))) },
   ];
 
   const tools: TableRow[] = [

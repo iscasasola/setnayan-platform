@@ -100,9 +100,11 @@ test('each opening offers only the knobs its engine reads', () => {
   assert.deepEqual(keys('veil-sheer'), ['speed', 'petalsDensity']);
   assert.deepEqual(keys('veil-sheer', { petals: false, butterflies: false }), ['speed']);
   /* 🎭 The other eight of the nine reveals (23 Nov 2026): their speed alone — one speed, no timing of their own. */
-  for (const id of ['beach-curtains', 'envelope-classic', 'envelope-gatefold', 'fabric', 'scratch', 'smoke', 'cathedral-doors', 'petals', 'fireworks']) {
+  for (const id of ['beach-curtains', 'fabric', 'scratch', 'smoke', 'cathedral-doors', 'petals', 'fireworks']) {
     assert.deepEqual(keys(id), ['speed'], id);
   }
+  /* The envelopes always play at the slowest (owner 23 Nov, `revealPlaysAt`): with one pace there is no speed to offer. */
+  for (const id of ['envelope-classic', 'envelope-gatefold']) assert.deepEqual(keys(id), [], id);
   /* The retired openings offer nothing (a stored retired id is read as its successor before it gets here). */
   for (const old of ['four-flap', 'two-flap-vertical', 'two-flap-horizontal', 'church-doors']) assert.deepEqual(keys(old), [], old);
   assert.deepEqual(keys('none'), []);
@@ -169,5 +171,5 @@ test('the fine-tune sliders fold shut by default and save when let go', () => {
   assert.match(shared, /onPointerUp=\{onCommit \? \(e\) => onCommit\(Number\(e\.currentTarget\.value\)\) : undefined\}/, 'a slider saves when let go');
   assert.match(shared, /onKeyUp=\{onCommit \? \(e\) => onCommit\(Number\(e\.currentTarget\.value\)\) : undefined\}/);
   assert.doesNotMatch(slider, /onChange=\{[^}]*onCommit/, 'a slider must not save on every tick');
-  assert.match(src, /<TuneFold\s+knobs=\{revealTuneKnobsFor\(opening, effects\)\}/);
+  assert.match(src, /<TuneFold\s+opening=\{opening\}\s+knobs=\{revealTuneKnobsFor\(opening, effects\)\}/);
 });

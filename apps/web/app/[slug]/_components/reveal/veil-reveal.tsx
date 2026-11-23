@@ -46,8 +46,8 @@ import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/rev
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { claimVeilHold, primeUnveilPress } from '@/lib/hub-veil';
 import { liftedValance, weaveOf } from '@/lib/veil-style';
-import { REVEAL_MOTION, handsFreeTarget, readGesture, revealDt, snapRevealSpeed, ss, stepLift } from '@/lib/reveal-motion';
-import { noteScrollY, restAtTop, restingAtTop, veilMaySleep, TOP_REST_MS, addScrollDelta, buildGridConstraints, clampPass, computeIndexedNormals, relaxPass, takeScrollWind, writePositions, type ClothConstraints, type ScrollWind } from '@/lib/veil-cloth';
+import { REVEAL_MOTION, handsFreeTarget, readGesture, revealDt, revealPlaysAt, ss, stepLift } from '@/lib/reveal-motion';
+import { CLOTH_TOP, clothLength, holdEdges, noteScrollY, restAtTop, restingAtTop, veilMaySleep, TOP_REST_MS, addScrollDelta, buildGridConstraints, clampPass, computeIndexedNormals, relaxPass, takeScrollWind, writePositions, type ClothConstraints, type ScrollWind } from '@/lib/veil-cloth';
 
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
@@ -740,8 +740,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     };
     const envOf = (rf: number) => 0.16 + 0.84 * Math.pow(rf, 1.5);
     const buildCloth = () => {
-      topPin = vh * 1.06;
-      clothH = vh * (2.12 - cfgRef.current.reaches / 47);
+      /* 🖼 10 % past every edge of the screen, so no corner peeks (`lib/veil-cloth.ts`) */
+      topPin = vh * CLOTH_TOP;
+      clothH = clothLength(vh, cfgRef.current.reaches);
       const pinW = 2 * vw * 1.2;
       PINW = pinW;
       const extra = 0.04 + (cfgRef.current.fullness / 100) * 0.4;
@@ -952,6 +953,8 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         }
         relaxPass(px, py, pz, cons, cols, maxS, COMP, TENB);
       }
+      // 🖼 Closed, the veil's outer edges stay past the screen's sides, so its hem never shows a corner (`lib/veil-cloth.ts`).
+      holdEdges(px, cols, rows, vw, 1 - ss(0, 0.2, lift), true, true);
       // Hard strain clamp (the "no rubber" rule) — cap every edge to rest·1.012.
       const CL = 1.012;
       for (let sit = 0; sit < 4; sit++) clampPass(px, py, pz, cons, cols, CL);
@@ -1005,8 +1008,8 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       asleep = false;
       const dt = revealDt(now, last);
       last = now;
-      // ⏱ The couple's speed (9 · 12 · 16 s) on the shared hands-free curve (`lib/reveal-motion.ts`).
-      const autoDur = snapRevealSpeed(cfgRef.current.speed);
+      // ⏱ The couple's speed (9 · 12 · 16 s), one step slower for the veil, on the shared hands-free curve (`lib/reveal-motion.ts`).
+      const autoDur = revealPlaysAt('veil-sheer', cfgRef.current.speed);
       if (auto) {
         autoT += dt / autoDur;
         const p = Math.min(1, autoT);

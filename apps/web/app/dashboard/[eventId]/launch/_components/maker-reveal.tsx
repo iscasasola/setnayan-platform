@@ -9,7 +9,11 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { REVEAL_STAGE_CHOICES, revealStagesWith, type RevealStage } from '@/lib/reveal-stages';
 import { REVEAL_EXTRA_LABEL, revealEffectsWithExtra, revealExtraOf, revealExtrasFor } from '@/lib/reveal-extras';
 import {
+  GATEFOLD_CLOSURES,
+  GATEFOLD_CLOSURE_LABEL,
   revealTuneKnobsFor,
+  withGatefoldClosure,
+  type GatefoldClosure,
   type RevealEffects,
   type RevealTuneHouse,
   type RevealTuneKnob,
@@ -49,7 +53,7 @@ import { setStageRevealKind, useStageRevealLook } from './stage-panel/store';
 import { SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import { StyleCards } from './stage-panel/style-carousel';
 import { StylePreview } from './stage-panel/style-preview';
-import { REVEAL_SPEEDS } from '@/lib/reveal-motion';
+import { revealPlaysAt, revealSpeedChoices } from '@/lib/reveal-motion';
 
 
 /**
@@ -525,6 +529,7 @@ function FineTune({
         </>
       ) : null}
       <TuneFold
+        opening={opening}
         knobs={revealTuneKnobsFor(opening, effects)}
         house={tuneHouse}
         effects={effects}
@@ -548,12 +553,14 @@ function FineTune({
  * the opening replays with the new value. Unset → the house look's value.
  */
 function TuneFold({
+  opening,
   knobs,
   house,
   effects,
   pending,
   onChange,
 }: {
+  opening: string;
   knobs: RevealTuneKnob[];
   house: RevealTuneHouse;
   effects: RevealEffects;
@@ -589,8 +596,11 @@ function TuneFold({
                 small={knob.label}
                 label={`Reveal ${knob.label.toLowerCase()}`}
                 data={`reveal-${knob.key}`}
-                value={String(effects.tune?.[knob.key] ?? house[knob.key])}
-                options={knob.choices.map((v) => ({ key: String(v), label: `${v} s` }))}
+                value={(() => {
+                  const plays = revealPlaysAt(opening, effects.tune?.[knob.key] ?? house[knob.key]);
+                  return String(revealSpeedChoices(opening).find((o) => o.plays === plays)?.key ?? plays);
+                })()}
+                options={revealSpeedChoices(opening).map((o) => ({ key: String(o.key), label: `${o.plays} s` }))}
                 onPick={(k) => commit(knob, Number(k))}
                 off={pending ? () => undefined : undefined}
                 stacked
@@ -747,7 +757,9 @@ function RevealStagePart({
   /* 🎭 The nine reveals (owner 23 Nov 2026) — every one the house has switched on is an ordinary card. */
   const options = [{ id: REVEAL_NONE_ID, name: 'None' }, ...openings.map((o) => ({ id: o.id, name: o.label }))];
   /* ⏱ Every reveal's speed — the couple's, else the house's (`tune.speed`, 9 · 12 · 16 s). */
-  const speed = String(effects.tune?.speed ?? tuneHouse.speed);
+  const speedChoices = revealSpeedChoices(picked);
+  const plays = revealPlaysAt(picked, effects.tune?.speed ?? tuneHouse.speed);
+  const speed = String(speedChoices.find((o) => o.plays === plays)?.key ?? plays);
   return (
     <section className="contents" data-maker-reveal-part={onStage}>
       {/* 🎭 THE COVER SCENE'S STYLE IS THE OPENING (owner-approved 2026-10-16, prototype `drawOpening`): the cards ARE the
@@ -796,16 +808,34 @@ function RevealStagePart({
                       stacked
                     />
                   ) : null}
-                  <Dd
-                    small="Speed ◆"
-                    label="Reveal speed"
-                    data="reveal-speed"
-                    value={speed}
-                    options={REVEAL_SPEEDS.map((v) => ({ key: String(v), label: `${v} s` }))}
-                    onPick={(k) => setEffects({ ...effects, tune: { ...(effects.tune ?? {}), speed: Number(k) } })}
-                    stacked
-                  />
-                  {veil ? (
+                  {/* ⏱ each pace this reveal really plays, in the seconds it plays them (the envelopes have one: none offered) */}
+                  {speedChoices.length > 1 ? (
+                    <Dd
+                      small="Speed ◆"
+                      label="Reveal speed"
+                      data="reveal-speed"
+                      value={speed}
+                      options={speedChoices.map((o) => ({ key: String(o.key), label: `${o.plays} s` }))}
+                      onPick={(k) => setEffects({ ...effects, tune: { ...(effects.tune ?? {}), speed: Number(k) } })}
+                      stacked
+                    />
+                  ) : null}
+                  {picked === 'envelope-gatefold' ? (
+                    <>
+                      {/* 🎀 Closed with ▾ (owner 23 Nov: *"ribbon and wax seal never co exist together"*; drawing v22): the
+                          couple's seal or a ribbon and bow, never both. */}
+                      <Dd
+                        small="Closed with ◆"
+                        label="Closed with"
+                        data="gatefold-closure"
+                        value={effects.gatefoldClosure ?? 'seal'}
+                        options={GATEFOLD_CLOSURES.map((k) => ({ key: k, label: GATEFOLD_CLOSURE_LABEL[k] }))}
+                        onPick={(k) => setEffects(withGatefoldClosure(effects, k as GatefoldClosure))}
+                        stacked
+                      />
+                      <About label="Opening">{OPENING_SAYS}</About>
+                    </>
+                  ) : veil ? (
                     <>
                       {/* 🌬 Wind ▾ (owner 2026-10-17: *"wind speed/randomness"*) — beside Extras, two stacked pills to a row. */}
                       <Dd small="Wind ◆" label="Veil wind" data="veil-wind" value={veilWindOf(effects)} options={WIND_OPTIONS} onPick={(k) => setEffects(withVeilWind(effects, k as VeilWind))} stacked />

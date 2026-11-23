@@ -22,6 +22,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { completedAndPaid } from './counts-for-trust';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 
 let replay: ReplayResult;
@@ -250,6 +251,9 @@ test('9 · "Worked together" lists verified shops only (owner Q5)', async () => 
       [past, cat, shop.vp],
     );
   }
+  // Since 21 Nov 2026 "served together" means both bookings completed and paid through Setnayan.
+  await completedAndPaid(db, past, S.caterer.vp);
+  await completedAndPaid(db, past, S.florist.vp);
   const others = (
     await db.query<{ other_vendor_profile_id: string; events: string }>(
       `SELECT * FROM public.shop_worked_with_counts($1)`,

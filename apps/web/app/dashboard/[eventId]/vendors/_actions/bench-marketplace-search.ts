@@ -25,6 +25,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchTrustSearchSteps, TRUSTED_BY_UNREADABLE } from '@/lib/vendor-trusted-by';
+import { compareTrust } from '@/lib/trust-rank';
 import { demoScopeFor } from '@/lib/demo-scope';
 import { eventSearchScopeOf, eventScopeUnreadable, shopInEventScope } from '@/lib/demo-vendor-exclusion';
 import { readDemoVendorIds } from '@/lib/demo-vendors';
@@ -101,8 +103,17 @@ export async function searchMarketplaceForBench(eventId: string, rawQuery: strin
   const [demoScope, demoIds] = await Promise.all([demoScopeFor(admin, eventId), readDemoVendorIds(admin)]);
   const scope = eventSearchScopeOf(demoScope, demoIds);
   if (eventScopeUnreadable(scope)) return { results: [], unreadable: true };
-  const stats = ((rows as StatsRow[] | null) ?? [])
-    .filter((r) => shopInEventScope(scope, r.vendor_profile_id))
+  const inScope = ((rows as StatsRow[] | null) ?? []).filter((r) => shopInEventScope(scope, r.vendor_profile_id));
+  // 🤝 TRUST (owner 21 Nov 2026, "TRUSTED SHOPS RANK HIGHER IN SEARCH"): every row here already matched the typed words
+  // (the fit), so trust is the first key after it, then the shipped review order (Array#sort is stable). The ONE reader
+  // (lib/vendor-trusted-by.ts); a refused read leaves the review order exactly as it was.
+  const trustRead = await fetchTrustSearchSteps(
+    admin,
+    inScope.map((r) => r.vendor_profile_id),
+  );
+  const trustSteps = trustRead === TRUSTED_BY_UNREADABLE ? null : trustRead;
+  const stats = [...inScope]
+    .sort((a, b) => compareTrust(trustSteps, a.vendor_profile_id, b.vendor_profile_id))
     .slice(0, MAX_RESULTS);
   if (stats.length === 0) return { results: [], unreadable: false };
 

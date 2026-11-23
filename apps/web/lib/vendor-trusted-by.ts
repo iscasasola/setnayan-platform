@@ -22,13 +22,14 @@ export type TrustedByVendor = {
   href: string | null;
   relationshipType: TrustedByRelationship;
   /**
-   * 🤝 Where the tie came from — the ⓘ tag (Invite a supplier v3, owner 16 Nov): `worked_together` (automatic, from a
-   * shared past event, or the shipped propose) · `added` (by hand) · `invited` (joined through a link).
+   * 🤝 Why the shop is trusted — the ⓘ tag (Invite a supplier v3, owner 16 Nov; drawing v7, 21 Nov): `worked_together`
+   * (served an event together, completed and paid) · `added` (added by hand, then served together) · `invited` (a new
+   * shop made through the link).
    */
   origin: PartnershipOrigin;
-  /** Who made the tie: this page's shop (`this_shop`) or the partner. Automatic worked-together ties are `partner`. */
+  /** Who made the tie: this page's shop (`this_shop`) or the partner. */
   direction: 'this_shop' | 'partner';
-  /** Past events served together (the served-together read) — null when not known. */
+  /** Past events served together, completed and paid — null for a new shop trusted before its first. */
   events: number | null;
   /**
    * 🖼 The endorser's STORED logo (`vendor_profiles.logo_url` — an `r2://` tag, not an address) for its round shop
@@ -40,8 +41,8 @@ export type TrustedByVendor = {
 };
 
 /**
- * A read behind "Trusted by" was REFUSED (the partnerships, the worked-together shops, or the `vendor_profiles`
- * half) — distinct from `[]` so
+ * A read behind "Trusted by" was REFUSED (the trust reader, the hidden rows, or the `vendor_profiles` half) —
+ * distinct from `[]` so
  * the "Trusted by" section never renders as "nobody endorsed this shop" for a
  * shop that other vendors HAVE endorsed. This is a trust signal shown on a
  * shop's own public profile (and their own dashboard, via callers of
@@ -51,61 +52,139 @@ export type TrustedByVendor = {
 export const TRUSTED_BY_UNREADABLE = 'unreadable' as const;
 
 /**
- * "Trusted by" — the suppliers THIS shop works with (owner 16 Nov 2026, Invite a supplier v3): every accepted
- * `vendor_partnerships` tie in either direction (peer consent stays the public gate, owner-locked 2026-07-02 — the
- * other shop accepted, or joined through this shop's link), this shop's own pending hand adds, and the shops it served
- * a past event with. Each carries its origin, the ⓘ tag (Worked together · Added · Invited).
+ * 🤝 ONE LIVE PARTNER OF A SHOP, as THE ONE READER answers (`public.shop_trust`, migration 20271361607663).
+ *
+ * Owner, 21 Nov 2026 (specs DECISION_LOG): "TRUST NEEDS ONE COMPLETED, PAID EVENT THE TWO SHOPS SERVED TOGETHER",
+ * "TRUSTED SHOPS RANK HIGHER IN SEARCH", and drawing v7 with the controller's call on its flagged risk:
+ *   · `trusted` — the two shops served the SAME event, completed and paid through Setnayan (the ONE definition,
+ *     `vendor_served_together_rows`), or the partner is a NEW shop made through the link. Otherwise the partner is
+ *     WAITING ("Waiting for your first event together"), shown on the shop's own Partnerships page only.
+ *   · `counts` — what search and the badges count: trusted by a verified, published, non-demo, non-internal shop that
+ *     is not the same business or the same people; a new shop only after its first completed, paid booking.
+ * Every surface that shows or counts trust reads it through THIS file — "Trusted by" on the shop page, the Partners
+ * list, the Invites badge and supplier search. `lib/trust-has-one-reader.test.ts` fails on a second derivation.
+ */
+export type TrustTie = {
+  /** The shop asked about. */
+  vendorProfileId: string;
+  /** Its partner. */
+  otherVendorProfileId: string;
+  relationshipTypes: string[];
+  origins: PartnershipOrigin[];
+  /** This shop made the tie (it proposed, added or invited). */
+  madeByThisShop: boolean;
+  /** This shop's link created the partner (`brought_new_shop`) — the Invites record. */
+  broughtNewShop: boolean;
+  /** Events the two served together, completed and paid. */
+  eventsTogether: number;
+  /** Trusted · otherwise Waiting for your first event together. */
+  trusted: boolean;
+  /** Counted by search and the badges. */
+  counts: boolean;
+};
+
+/** The trust of each given shop's live partners — THE ONE READER. `UNREADABLE` when the read was refused, never []. */
+export async function fetchShopTrust(
+  admin: SupabaseClient,
+  vendorProfileIds: readonly string[],
+): Promise<TrustTie[] | typeof TRUSTED_BY_UNREADABLE> {
+  const ids = [...new Set(vendorProfileIds.filter(Boolean))];
+  if (ids.length === 0) return [];
+  const { data, error } = await admin.rpc('shop_trust', { p_vendor_profile_ids: ids });
+  if (error) {
+    console.error('[supabase-error] lib/vendor-trusted-by.ts · rpc:shop_trust', error);
+    return TRUSTED_BY_UNREADABLE;
+  }
+  return ((data ?? []) as Array<{
+    vendor_profile_id: string;
+    other_vendor_profile_id: string;
+    relationship_types: string[] | null;
+    origins: string[] | null;
+    made_by_this_shop: boolean | null;
+    brought_new_shop: boolean | null;
+    events_together: number | string | null;
+    trusted: boolean | null;
+    counts: boolean | null;
+  }>).map((r) => ({
+    vendorProfileId: r.vendor_profile_id,
+    otherVendorProfileId: r.other_vendor_profile_id,
+    relationshipTypes: r.relationship_types ?? [],
+    origins: (r.origins ?? []).map(originOf),
+    madeByThisShop: r.made_by_this_shop === true,
+    broughtNewShop: r.brought_new_shop === true,
+    eventsTogether: Number.isFinite(Number(r.events_together)) ? Number(r.events_together) : 0,
+    trusted: r.trusted === true,
+    counts: r.counts === true,
+  }));
+}
+
+/** Per shop: trusted and waiting partners, the counted trust, and its search step (0 until the owner sets the step). */
+export type TrustCounts = { trusted: number; waiting: number; counted: number; searchStep: number };
+
+/**
+ * The counts, derived in the database FROM the one reader (`public.shop_trust_counts`). A shop with no partner is
+ * absent (read it as zero). `UNREADABLE` when refused — search then leaves its order exactly as it was.
+ */
+export async function fetchTrustCounts(
+  admin: SupabaseClient,
+  vendorProfileIds: readonly string[],
+): Promise<Map<string, TrustCounts> | typeof TRUSTED_BY_UNREADABLE> {
+  const ids = [...new Set(vendorProfileIds.filter(Boolean))];
+  if (ids.length === 0) return new Map();
+  const { data, error } = await admin.rpc('shop_trust_counts', { p_vendor_profile_ids: ids });
+  if (error) {
+    console.error('[supabase-error] lib/vendor-trusted-by.ts · rpc:shop_trust_counts', error);
+    return TRUSTED_BY_UNREADABLE;
+  }
+  const n = (v: unknown) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.trunc(Number(v)) : 0);
+  const out = new Map<string, TrustCounts>();
+  for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+    out.set(String(r.vendor_profile_id), {
+      trusted: n(r.trusted),
+      waiting: n(r.waiting),
+      counted: n(r.counted),
+      searchStep: n(r.search_step),
+    });
+  }
+  return out;
+}
+
+/**
+ * 🔎 Each shop's TRUST STEP for supplier search (owner 21 Nov 2026, "TRUSTED SHOPS RANK HIGHER IN SEARCH"): how many
+ * of 1 · b · b² · … its counted trust reaches, b being the owner's admin number (`platform_settings.trust_search_step`;
+ * blank → every step is 0 and the order stays as it was). `lib/trust-rank.ts` sorts by it.
+ */
+export async function fetchTrustSearchSteps(
+  admin: SupabaseClient,
+  vendorProfileIds: readonly string[],
+): Promise<Map<string, number> | typeof TRUSTED_BY_UNREADABLE> {
+  const counts = await fetchTrustCounts(admin, vendorProfileIds);
+  if (counts === TRUSTED_BY_UNREADABLE) return counts;
+  return new Map([...counts].map(([id, c]) => [id, c.searchStep]));
+}
+
+/**
+ * "Trusted by" — the suppliers THIS shop works with that are TRUSTED (owner 21 Nov 2026 + drawing v7 "Trusted by row:
+ * shows only trusted shops; a waiting shop never shows on either page"): a live partner it served an event with,
+ * completed and paid, or a new shop made through the link. A waiting partner, a pending hand add and a shop served
+ * with but never partnered are not here. Each carries the ⓘ tag (Worked together · Added · Invited).
  *
  * Names respect hybrid-anonymity via the shared resolveVendorDisplayName: a
  * still-hidden endorsing vendor shows its taxonomy+city placeholder and is not
- * linked. Founder-only marketplace → this returns [] today (honest empty state;
- * the section is hidden) until other vendors publish + endorse.
+ * linked.
  */
 export async function fetchTrustedByVendors(
   admin: SupabaseClient,
   recommendedVendorProfileId: string,
 ): Promise<TrustedByVendor[] | typeof TRUSTED_BY_UNREADABLE> {
   const me = recommendedVendorProfileId;
-  // 🤝 TRUSTED BY GATHERS EVERY SUPPLIER TIE (owner 16 Nov, "INVITE A SUPPLIER — THREE ANSWERS" (1) + v3 APPROVED):
-  //   · every ACCEPTED tie, in EITHER direction — a handshake is a two-way recommendation (owner 15 Nov), and the
-  //     schema holds one row per pair (vendor_partnerships_unordered_pair_uidx), so both pages read that one row;
-  //   · this shop's OWN pending hand adds ("on the adder's own Trusted by at once"; the other shop's page only after
-  //     Accept; a decline removes it from both);
-  //   · and, automatically, every shop it served a past event with (`shop_worked_with_counts`).
-  const [{ data: rows, error }, worked, hiddenRead] = await Promise.all([
-    admin
-      .from('vendor_partnerships')
-      .select('recommending_vendor_id, recommended_vendor_id, relationship_type, status, origin')
-      .or(`recommending_vendor_id.eq.${me},recommended_vendor_id.eq.${me}`)
-      .in('status', ['accepted', 'proposed'])
-      .eq('is_active', true)
-      // Stable read order only. The BADGE choice is made in code below, by
-      // PARTNERSHIP_RANK — not by this ORDER BY.
-      //
-      // ⚠ It used to be made here, alphabetically, which meant `accredited` always
-      // won. A directed pair (A→B) can hold two accepted+active rows of different
-      // kinds (the UNIQUE is keyed with relationship_type), so a vendor who was
-      // BOTH accredited and included-in-package showed the weaker badge here while
-      // Explore ranked them by the stronger one. Same four kinds, two files,
-      // opposite orders.
-      .order('recommending_vendor_id', { ascending: true })
-      .order('relationship_type', { ascending: true }),
-    admin.rpc('shop_worked_with_counts', { p_vendor: me }),
+  const [ties, hiddenRead] = await Promise.all([
+    fetchShopTrust(admin, [me]),
     // 🙈 Owner Q5 (16 Nov): the rows this shop has hidden from its own Trusted by.
     admin.from('vendor_trusted_by_hidden').select('hidden_vendor_profile_id').eq('vendor_profile_id', me),
   ]);
-  if (error) {
-    console.error('[supabase-error] lib/vendor-trusted-by.ts · from:vendor_partnerships.select', error);
-    return TRUSTED_BY_UNREADABLE;
-  }
-  // ⚠ THE AUTOMATIC HALF REFUSED IS NOT "NOBODY WORKED WITH THEM" (reads-are-honest, S41). Logged alone, a shop whose
-  // only ties are worked-together ones would fall through to `relByVendor.size === 0 → []` and the page would draw
-  // the list as empty — byte-identical to a shop nobody has ever worked with. A list missing a whole kind cannot be
-  // told apart from a complete one either, so any refused half answers UNREADABLE and the page says it couldn't load.
-  if (worked.error) {
-    console.error('[supabase-error] lib/vendor-trusted-by.ts · rpc:shop_worked_with_counts', worked.error);
-    return TRUSTED_BY_UNREADABLE;
-  }
+  // ⚠ A refused read is not "nobody trusts this shop" (reads-are-honest, S41): the page says it couldn't load.
+  if (ties === TRUSTED_BY_UNREADABLE) return TRUSTED_BY_UNREADABLE;
   // A refused hidden-rows read must not publish a row the shop chose to hide — and must not read as "nobody" either.
   if (hiddenRead.error) {
     console.error('[supabase-error] lib/vendor-trusted-by.ts · from:vendor_trusted_by_hidden.select', hiddenRead.error);
@@ -114,52 +193,22 @@ export async function fetchTrustedByVendors(
   const hidden = new Set(
     ((hiddenRead.data ?? []) as { hidden_vendor_profile_id: string }[]).map((h) => h.hidden_vendor_profile_id),
   );
-  const eventsWith = new Map<string, number>();
-  for (const w of ((worked.data ?? []) as { other_vendor_profile_id: string; events: number | string }[])) {
-    const n = Number(w.events);
-    if (w.other_vendor_profile_id && Number.isFinite(n) && n > 0) eventsWith.set(w.other_vendor_profile_id, n);
-  }
 
   // One badge per partner: the STRONGEST kind they hold, ranked by what the couple actually gets (shared with Explore,
-  // so the two agree). The tag is the tie's own origin; an invite or a hand add says so over a worked-together one.
-  const kindsByVendor = new Map<string, string[]>();
-  const tieByVendor = new Map<string, { origin: PartnershipOrigin; direction: 'this_shop' | 'partner' }>();
-  const ORIGIN_WEIGHT: Record<PartnershipOrigin, number> = { invited: 3, added: 2, worked_together: 1 };
-  for (const r of (rows ?? []) as {
-    recommending_vendor_id: string;
-    recommended_vendor_id: string;
-    relationship_type: string;
-    status?: string;
-    origin?: string;
-  }[]) {
-    const iMade = r.recommending_vendor_id === me;
-    // A pending tie shows only on the page of the shop that made it.
-    if (r.status === 'proposed' && !iMade) continue;
-    const vid = iMade ? r.recommended_vendor_id : r.recommending_vendor_id;
-    if (!vid || vid === me) continue;
-    const list = kindsByVendor.get(vid);
-    if (list) list.push(r.relationship_type);
-    else kindsByVendor.set(vid, [r.relationship_type]);
-    const origin = originOf(r.origin);
-    const had = tieByVendor.get(vid);
-    if (!had || ORIGIN_WEIGHT[origin] > ORIGIN_WEIGHT[had.origin]) {
-      tieByVendor.set(vid, { origin, direction: iMade ? 'this_shop' : 'partner' });
-    }
-  }
+  // so the two agree). The tag says why the shop is trusted: a new shop made through the link is Invited; a shop
+  // served with is Worked together, or Added when it was added by hand (drawing v7: "Hiraya … Worked together").
   const relByVendor = new Map<string, TrustedByRelationship>();
-  for (const [vid, kinds] of kindsByVendor) {
-    const best = strongestPartnershipKind(kinds);
-    if (best) relByVendor.set(vid, best);
-  }
-  // Worked together, automatically: a shop served with and not already tied.
-  for (const vid of eventsWith.keys()) {
-    if (vid === me || relByVendor.has(vid)) continue;
-    relByVendor.set(vid, 'general');
-    tieByVendor.set(vid, { origin: 'worked_together', direction: 'partner' });
-  }
-  for (const vid of hidden) {
-    relByVendor.delete(vid);
-    tieByVendor.delete(vid);
+  const tieByVendor = new Map<string, { origin: PartnershipOrigin; direction: 'this_shop' | 'partner' }>();
+  const eventsWith = new Map<string, number>();
+  for (const t of ties) {
+    if (t.vendorProfileId !== me || !t.trusted) continue;
+    const vid = t.otherVendorProfileId;
+    if (!vid || vid === me || hidden.has(vid)) continue;
+    relByVendor.set(vid, strongestPartnershipKind(t.relationshipTypes) ?? 'general');
+    const origin: PartnershipOrigin =
+      t.eventsTogether === 0 ? 'invited' : t.origins.includes('added') ? 'added' : 'worked_together';
+    tieByVendor.set(vid, { origin, direction: t.madeByThisShop ? 'this_shop' : 'partner' });
+    if (t.eventsTogether > 0) eventsWith.set(vid, t.eventsTogether);
   }
   if (relByVendor.size === 0) return [];
 

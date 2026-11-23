@@ -227,3 +227,35 @@ test('Dietary & allergies: a supplier not booked here, and anon, are refused', a
   );
   assert.equal((g.rows[0] as { anon_can: boolean }).anon_can, false);
 });
+
+async function teamMember(vendorProfileId: string, email: string, duty: string, deactivated = false) {
+  const uid = await createUser(email);
+  await db.query(
+    `INSERT INTO public.vendor_team_members (vendor_profile_id, user_id, role, duty) VALUES ($1, $2, 'viewer', $3)`,
+    [vendorProfileId, uid, duty],
+  );
+  if (deactivated) {
+    await db.query(`UPDATE public.vendor_team_members SET deactivated_at = NOW() WHERE user_id = $1`, [uid]);
+  }
+  return uid;
+}
+
+test('🔒 Dietary & allergies are health data: Event Crew reads them; Marketing, Helper and a removed seat are refused', async () => {
+  await asOwner();
+  const crew = await teamMember(F.cater, 'crew@hub-tools.test', 'event_crew');
+  const marketing = await teamMember(F.cater, 'marketing@hub-tools.test', 'marketing');
+  const helper = await teamMember(F.cater, 'helper@hub-tools.test', 'helper');
+  const gone = await teamMember(F.cater, 'gone@hub-tools.test', 'event_crew', true);
+
+  await asUser(crew);
+  const r = await db.query<{ d: Dietary }>(`SELECT public.vendor_event_dietary_list($1) AS d`, [F.eventId]);
+  await asOwner();
+  assert.equal(r.rows[0]!.d.allowed, true, 'Event Crew runs the day and must read the allergies');
+  assert.deepEqual(r.rows[0]!.d.guests.map((g) => g.name).sort(), ['Ana Test', 'Cara Test']);
+
+  for (const [who, uid] of [['Marketing', marketing], ['Helper', helper], ['a removed Event Crew seat', gone]] as const) {
+    await asUser(uid);
+    await assert.rejects(db.query(`SELECT public.vendor_event_dietary_list($1)`, [F.eventId]), /not_a_vendor/, `${who} read guests' allergies`);
+    await asOwner();
+  }
+});

@@ -24,3 +24,5 @@ The second five of the ten most-shared unbuilt hub tools (DECISION_LOG 2026-11-2
   - `tests/db/hub-tool-entries.db.test.ts`: 9 tests (RLS, column grants, the caterer-only gate, attending-only and no "No preference").
 
 SPEC IMPACT: None. These are approved seed tools built on their approved templates. One reading is the builder's, flagged in the PR for the owner: "caterer only" is read as the food categories the seed gives the tool to (catering · cake · mobile bar).
+
+- 🔒 **Allergies are health data (controller 23 Nov 2026).** `vendor_event_dietary_list` reads only for the shop owner and active Shop Manager, Branch Manager, Account Manager and Event Crew seats, via the six-roles helper `current_vendor_duty_ids`. Marketing, Helper and removed seats get 42501, the same as an unbooked shop. Branch and client scoping for the last three wait for the roles-scoping PR. A guard is added in `tests/db/hub-tool-entries.db.test.ts`.

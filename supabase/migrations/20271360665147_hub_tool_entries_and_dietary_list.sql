@@ -149,10 +149,21 @@ DECLARE
   v_seats        BOOLEAN;
   v_rows         JSONB;
 BEGIN
+  -- 🔒 ALLERGIES ARE HEALTH DATA (controller 23 Nov 2026, DECISION_LOG): only the people who run the day read them —
+  -- the shop's owner, and active team members whose role (`vendor_team_members.duty`, owner 19 Nov six roles) is
+  -- Shop Manager, Branch Manager, Account Manager or Event Crew. Marketing and Helper are refused, exactly like a shop
+  -- not booked here (42501), so the screen says it cannot show this rather than drawing an empty list.
+  -- Reuses the six-roles helper `current_vendor_duty_ids` (active seats only), never a second rule. `duty` is NOT NULL
+  -- since 20271351755368's backfill, so there is no legacy seat without one.
+  -- ⏭ NOT BUILT HERE: branch scoping (a Branch Manager to their branch's events) and client scoping (an Account Manager
+  -- or Event Crew to the events they are on) wait for the roles-scoping PR; today these four read every booked event of
+  -- their shop.
   SELECT ARRAY(
     SELECT vp.vendor_profile_id FROM public.vendor_profiles vp WHERE vp.user_id = auth.uid()
-    UNION
-    SELECT tm.vendor_profile_id FROM public.vendor_team_members tm WHERE tm.user_id = auth.uid()
+    UNION SELECT public.current_vendor_duty_ids('shop_manager')
+    UNION SELECT public.current_vendor_duty_ids('branch_manager')
+    UNION SELECT public.current_vendor_duty_ids('account_manager')
+    UNION SELECT public.current_vendor_duty_ids('event_crew')
   ) INTO v_profile_ids;
 
   IF v_profile_ids IS NULL OR COALESCE(array_length(v_profile_ids, 1), 0) = 0 THEN
@@ -204,4 +215,4 @@ REVOKE ALL ON FUNCTION public.vendor_event_dietary_list(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.vendor_event_dietary_list(UUID) TO authenticated;
 
 COMMENT ON FUNCTION public.vendor_event_dietary_list(UUID) IS
-  'The Dietary & allergies hub tool: attending guests'' meal pick + RSVP dietary note (+ table once guests may see seats), for a supplier booked on the event under a food category (catering · cake · mobile bar) only — DECISION_LOG 2026-10-28 "shown to the booked caterer only". Others get allowed=false. Read by lib/hub-tool-entries.server.ts.';
+  'The Dietary & allergies hub tool: attending guests'' meal pick + RSVP dietary note (+ table once guests may see seats), for a supplier booked on the event under a food category (catering · cake · mobile bar) only — DECISION_LOG 2026-10-28 "shown to the booked caterer only". Others get allowed=false. Read only by the shop owner and active Shop/Branch/Account Managers and Event Crew (health data, controller 23 Nov 2026); Marketing and Helper get 42501. Read by lib/hub-tool-entries.server.ts.';

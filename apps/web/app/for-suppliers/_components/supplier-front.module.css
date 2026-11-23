@@ -236,17 +236,22 @@
 .liveRow { display: flex; gap: 10px; margin: 10px calc(var(--sf-gutter) * -1) 0; padding: 2px var(--sf-gutter) 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--sf-gutter); scrollbar-width: none; list-style: none; }
 .liveRow::-webkit-scrollbar { display: none; }
 /* The drawing's stage card: Card 14 at 158 px on a phone, so the four answer inside one pinned screen. */
-.liveCard { flex: 0 0 158px; scroll-snap-align: start; border-radius: var(--sn-frame-radius, var(--m-r-md)); }
+.liveCard { flex: 0 0 158px; min-width: 0; scroll-snap-align: start; border-radius: var(--sn-frame-radius, var(--m-r-md)); }
 .liveCard[data-sel] { box-shadow: 0 0 0 2px var(--sf-ink); }
 .liveCard :global(span.overflow-hidden.rounded-lg) { overflow: visible; clip-path: inset(0 round var(--m-r-md)); }
 .liveCard :global([data-service-face-layout='mall']),
 .liveCard :global([data-service-face-layout='mall'] .overflow-hidden) { overflow: visible; }
-.liveCard :global([data-service-face-layout='mall'] .aspect-square) { clip-path: inset(0 round var(--sn-frame-radius) var(--sn-frame-radius) 0 0); }
+/* the photo stays square: with the frame's overflow opened for the wash, its automatic minimum would be the photo's own height */
+.liveCard :global([data-service-face-layout='mall'] .aspect-square) { min-height: 0; overflow: hidden; clip-path: inset(0 round var(--sn-frame-radius) var(--sn-frame-radius) 0 0); }
 .liveCard :global([data-mall-price]),
 .liveCard :global([data-mall-date-fit]),
 .liveCard :global([data-mall-distance]) { position: relative; }
 @media (max-width: 759px) {
-  .liveScene[data-motion] .slides { position: relative; display: block; height: 290px; }
+  /* one pinned screen at 390 × 844 under the top bar: needs 52 + slide 276 + Card 14 row ≈ 780 px. The real month is
+     drawn smaller here (zoom, its own look untouched): laid out at its natural 344 px (seven 44 px presses) and shown
+     at about 228 px so it fits its slide, as the drawing's 262 px month does. */
+  .liveScene[data-motion] .slides { position: relative; display: block; height: 276px; }
+  .liveScene[data-motion] .cal { width: 344px; max-width: none; zoom: .66; }
   .liveScene[data-motion] .slide { position: absolute; inset: 0; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity var(--sn-m-tap) var(--sn-m-settle), transform var(--sn-m-tap) var(--sn-m-settle); }
   .liveScene[data-motion] .slide.slideOn { opacity: 1; transform: none; pointer-events: auto; transition-duration: var(--sn-m-move); }
 }
@@ -356,6 +361,10 @@
   /* 5 · the three needs stand open above a 4-up row. The venue panel is the widest, so its three pills always fit
      (the drawing's one flaw: at equal shares "Quezon City" ran out of its panel). */
   .slides { grid-template-columns: 252px minmax(0, .8fr) minmax(0, 1.3fr); }
+  .liveScene[data-motion] .needs { display: none; }
+  .cal { width: 344px; max-width: none; zoom: .67; }
+  .gDots { grid-template-columns: repeat(9, 10px); gap: 4px; }
+  .gDots i { width: 10px; height: 10px; }
   .slide { min-height: 292px; padding-inline: 10px; }
   .liveRow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-inline: 0; padding-inline: 0; overflow: visible; }
   .liveCard { flex: none; }
@@ -370,7 +379,11 @@
   .size p { flex-direction: column; gap: 0; }
   .size b { font-size: 17px; white-space: nowrap; }
   .facts { font-size: 12px; }
-  .stairBtn { font-size: 13px; }
+  /* five stairs share the page's 672 px column (the drawing's is 720): a label may take two lines, never be cut */
+  .stairs .stairBtn { height: auto; min-height: 52px; padding: 4px 8px; gap: 4px; font-size: 12px; }
+  .stairs .stairBtn :global(.lbl) { white-space: normal; text-align: left; line-height: 1.15; }
+  /* the line belongs to the three paid steps: a bracket under them, as drawn */
+  .same { margin: 2px 0 0 calc(40% + 3px) !important; padding-top: 6px; border: 1px solid var(--sf-line); border-top: 0; border-radius: 0 0 var(--m-r-sm) var(--m-r-sm); }
   /* tools: three pictures, the eight on a 4-up grid */
   .shelf { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-inline: 0; padding-inline: 0; overflow: visible; }
   .tool { flex: none; }

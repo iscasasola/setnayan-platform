@@ -111,6 +111,7 @@ import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { CoverPlayOpening } from '@/app/[slug]/_components/reveal/cover-play-opening';
 import { DEFAULT_REVEAL_CONFIG, canonicalRevealId } from '@/lib/reveal-config-pure';
 import { defaultConfigFromSeed, type WaxSealConfig } from '@/lib/wax-seal/types';
+import { hexForColorName } from '@/lib/color-names';
 import { DEFAULT_REVEAL_EFFECTS, REVEAL_LOOK_OPTIONS, withGatefoldClosure, withRevealLook, type RevealEffects, type RevealLookKey } from '@/lib/std-reveal-effects';
 import { withVeilFold, withVeilWeave, withVeilWind } from '@/lib/veil-style';
 
@@ -291,7 +292,7 @@ const LAB_MARKS: Record<string, string> = {
   tall: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 400"><path d="M60 10 C100 60 100 120 60 170 C20 120 20 60 60 10 Z M50 180 h20 v210 h-20 Z M20 260 h80 v18 h-80 Z" fill="#000"/></svg>',
 };
 /** 🔏 `&seal=minted` — a sample minted seal in a red wax, to walk the couple's own seal (lab sample recipe). */
-const LAB_SEAL: WaxSealConfig = { ...defaultConfigFromSeed(4242), wax: { color: LAB_BOARD[3]!, finish: 'glossy' } };
+const LAB_SEAL: WaxSealConfig = { ...defaultConfigFromSeed(4242), wax: { color: hexForColorName('Garnet'), finish: 'glossy' } }; // a minted seal in a real wedding red, named, never a raw hex
 
 function labOpeningEffects(e: ReturnType<typeof labVeil>, sp: Record<string, string | string[] | undefined>): RevealEffects | undefined {
   const speed = Number(sp.speed);

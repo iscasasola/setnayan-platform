@@ -59,6 +59,7 @@ import { TIER_CAPS, type VendorTier } from '@/lib/vendor-tier-caps';
 import { countNoun, formatCount } from '@/lib/format-number';
 import { formatPeso } from '@/lib/v2-catalog-pure';
 import { CARD_MEDALS } from '@/lib/public-badges';
+import { TOOLKIT_CLAIM } from '@/lib/supplier-toolkit-count';
 import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
 import { FREE_FINDABLE } from './plan-table-data';
 import {
@@ -304,6 +305,7 @@ export function SupplierFrontPage({
       {/* 2 · YOUR TOOLS */}
       <section className={s.part} id="tools" aria-labelledby="sf-h-tools" data-rv="">
         <SecHead id="sf-h-tools">Your tools</SecHead>
+        <p className={s.ledeText}>{TOOLKIT_CLAIM}, ready to use.</p>
         <Lede text="Free on every plan. Bring your clients with you.">
           <p>
             Every shop gets the chat with quotes and pay plans, the calendar, QR codes and links, service cards, a shop

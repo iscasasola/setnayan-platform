@@ -16,9 +16,10 @@ import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Server actions behind My Shop's "Your website suggests you also do…" card
- * (C5, 2026-08-28). Two actions, both re-resolve everything server-side —
+ * (C5, 2026-08-28). Two jobs on ONE export (Add · "Not now" as op=dismiss), both re-resolve everything server-side —
  * neither ever trusts a key posted from the browser, mirroring `/open-shop`'s
- * own "the server re-resolves; it never trusts the post" rule.
+ * own "the server re-resolves; it never trusts the post" rule. One export:
+ * Add, and "Not now" as op=dismiss.
  *
  * ⚖ SUGGESTED, NEVER APPLIED (the ruling's second condition). This is the
  * ONLY place a signup suggestion can ever change `vendor_profiles.services` —
@@ -63,6 +64,9 @@ export async function applySuggestedCoverage(
   _prev: SuggestedCoverageActionResult | null,
   formData: FormData,
 ): Promise<SuggestedCoverageActionResult> {
+  // 🔁 FOLDED (2026-11-22, the Spaces train): "Not now" rides this export as `op=dismiss` instead of being its own
+  // route, so the train's one new action fits under the 1251 ceiling without raising it.
+  if (formData.get('op') === 'dismiss') return dismissSuggestedCoverage(formData);
   const loaded = await loadCallerVendorProfile();
   if ('error' in loaded) return { ok: false, error: loaded.error };
   const { supabase, profile } = loaded;
@@ -121,11 +125,8 @@ export async function applySuggestedCoverage(
   return { ok: true, addedLabels: confirmed.map((c) => c.label) };
 }
 
-/** "Not now" — dismisses the current suggestion without touching coverage. */
-export async function dismissSuggestedCoverage(
-  _prev: SuggestedCoverageActionResult | null,
-  formData: FormData,
-): Promise<SuggestedCoverageActionResult> {
+/** "Not now" — dismisses the current suggestion without touching coverage (reached as `applySuggestedCoverage` op=dismiss). */
+async function dismissSuggestedCoverage(formData: FormData): Promise<SuggestedCoverageActionResult> {
   const loaded = await loadCallerVendorProfile();
   if ('error' in loaded) return { ok: false, error: loaded.error };
   const { profile } = loaded;

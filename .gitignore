@@ -57,6 +57,10 @@
 # and every `pnpm install` fails on a missing patch.
 !/patches/
 
+# Added 2026-11-23 with audits/part-i-2026-11-23.md (the HOUSE_DESIGN_STANDARD Part I sweep that DESIGN.md links to).
+# Without this line the audit is swallowed by `/*` and DESIGN.md points at a file nobody else can read.
+!/audits/
+
 # --- build + tooling config at the root ---
 !/package.json
 !/pnpm-lock.yaml

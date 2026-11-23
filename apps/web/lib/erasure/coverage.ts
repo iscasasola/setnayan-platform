@@ -1602,12 +1602,10 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
   {
     table: 'event_part_editor_locks',
     column: 'holder_user_id',
-    why: 'Ephemeral one-editor-per-part pen (migration 20271360932916) carrying the subject’s first name in holder_label; it frees itself 5 s after the last edit.',
-  },
-  {
-    table: 'event_part_editor_locks',
-    column: 'bumped_user_id',
-    why: 'The same ephemeral pen, remembering that a host took the part from the subject (so they are told once).',
+    why:
+      'Ephemeral one-editor-per-part pen (migration 20271360932916) carrying the subject’s first name in holder_label; ' +
+      'it frees itself 5 s after the last edit. Its other user column, bumped_user_id (a host took the part from them), ' +
+      'is ON DELETE SET NULL, so the subject’s erasure clears it by itself.',
   },
   {
     table: 'oauth_state',

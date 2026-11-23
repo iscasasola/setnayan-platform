@@ -117,6 +117,7 @@ import {
 import { venueNowMs } from '@/lib/schedule';
 import { daysToGoCount } from '@/lib/countdown-target';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { PartEditGate } from '@/app/_components/part-edit/part-edit-gate';
 import { DETAILS_SCHEDULE_ANNOUNCE_SLOT, DETAILS_SCHEDULE_INSPECTOR_SLOT } from '@/lib/maker-details-items';
 import { InSlot } from '../launch/_components/details-piece';
 import { formatCount } from '@/lib/format-number';
@@ -1186,6 +1187,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     <section className={`sn-col sn-col-wide space-y-5${oneLine ? ' xl:max-w-[100rem]' : ''}`} data-schedule-page={oneLine ? '' : undefined}>
       {/* Inside the Maker, Details' own header names it; on its own page, the shared masthead. */}
       {inMaker ? null : <PageMasthead title="Schedule" />}
+      {/* ✍️ One editor per part (owner 2026-11-21): the day below is held by one person at a time. */}
+      <PartEditGate eventId={eventId} part="schedule" className="space-y-5">
       {/* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL — the hosts' / coordinator's own day, kept on this phone for the venue. A
           plain slot, no client code: the route's `layout.tsx` draws the saved mark into it (`ScheduleSavedSlot` says why
           — the Maker draws this page and must not carry the mark). */}
@@ -1306,6 +1309,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         </>
       )}
       </ChaptersFrame>
+      </PartEditGate>
 
       {/* Every feature gets a first-visit tour (owner 2026-09-25) — the shipped
           MiniTour, keyed once per person. */}

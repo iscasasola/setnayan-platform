@@ -10,7 +10,7 @@
 
 import dynamic from 'next/dynamic';
 import { useCallback, useState } from 'react';
-import { PlanPoster } from '@/app/_components/plan-maker/plan-maker';
+import { PlanPoster } from '@/app/_components/plan-poster';
 import { isCoupleTableType, snapDoor, type Plan } from '@/lib/seat-plan-engine';
 import { DEFAULT_ROOM_M } from '@/lib/seating';
 import { formatCount } from '@/lib/format-number';

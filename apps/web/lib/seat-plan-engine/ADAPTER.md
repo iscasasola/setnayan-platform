@@ -24,6 +24,8 @@ action and `PlanMaker` component. It stops carrying its own copy of the core.
 
 ## 2 · Change imports: `@/lib/plan-maker` → `@/lib/seat-plan-engine`
 
+> 23 Nov 2026: PlanMaker (`app/_components/plan-maker/`) is retired. The couple's editor is the one seat-plan editor and Spaces opens it in its venue mode (`app/vendor-dashboard/spaces/_components/venue-seat-plan.tsx`, DECISION_LOG d1fafcd5). The two PlanMaker lines below are history.
+
 Every name you import keeps its exact name and signature:
 
 - `app/_components/plan-maker/plan-maker.tsx`: change the big import block (from `PLAN_MAX_CHAIRS` to `type PlanView`) to `from '@/lib/seat-plan-engine'`. Also take `CHAIR_PX` and `type TableGeometry` from there rather than `@/lib/seating`. They are the same objects, since `lib/seating` re-exports them.
@@ -89,7 +91,7 @@ Keep `parseUnitNames` ("301-310 makes ten"), `moveStep`, `unitsOf`, the section 
 ```bash
 cd apps/web
 git grep -n "lib/plan-maker" -- . ':!*.md'      # must print nothing
-npx tsx --test lib/seat-plan-engine/plan.test.ts lib/seat-plan-engine/engine.test.ts app/_components/plan-maker/plan-maker.test.ts lib/rooms-seating.test.ts
+npx tsx --test lib/seat-plan-engine/plan.test.ts lib/seat-plan-engine/engine.test.ts lib/rooms-seating.test.ts
 pnpm preflight --only guards,lint,types,pins
 ```
 

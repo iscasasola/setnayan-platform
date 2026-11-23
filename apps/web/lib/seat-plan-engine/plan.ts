@@ -31,7 +31,7 @@ import {
   type TableGeometry,
   type TableType,
 } from './geometry';
-import { computeAutoLayout, type EventTableRow, type FloorPlanRow } from '@/lib/seating';
+import { computeAutoLayout, DEFAULT_FLOOR_PLAN, type EventTableRow, type FloorPlanRow } from '@/lib/seating';
 import { GRID_GAP, centredRun } from './rows';
 
 // ── The plan ─────────────────────────────────────────────────────────────────
@@ -243,6 +243,45 @@ export const PLAN_M_PER_PX = TABLE_FOOTPRINT_M.round_10 / tableGeometry('round',
 export function planFootprintM(t: PlanTable): number {
   if (isCoupleTableType(t.kind)) return TABLE_FOOTPRINT_M[t.kind];
   return planTableGeometry(t).box.w * PLAN_M_PER_PX;
+}
+
+/** The fields of an editor row (`EventTableRow`) that decide how its table is drawn. */
+export type PlanRowShape = Pick<EventTableRow, 'table_type' | 'capacity' | 'plan_shape' | 'chairs_at_ends'>;
+
+/**
+ * 🪑 ONE READER for how the one editor draws a row. A couple's row (no `plan_shape`) goes straight through
+ * `tableGeometry(shapeHintFor(type), capacity, linked)` — byte for byte what every couple site drew before. A venue's
+ * own hall (`plan_shape` set by the Spaces mapper, never stored on `event_tables`) draws its round · long · long with
+ * ends · half-moon through `planTableGeometry`, the shapes PlanMaker drew.
+ */
+export function rowGeometry(t: PlanRowShape, linked = false): TableGeometry {
+  if (!t.plan_shape) return tableGeometry(shapeHintFor(t.table_type), t.capacity, linked);
+  return planTableGeometry({ id: '', label: '', kind: t.plan_shape, chairs: t.capacity, chairsAtEnds: t.chairs_at_ends === true, x: null, y: null });
+}
+
+/** 🏛 The one editor's Shape pick for a venue's own table: the three shapes, Long split by its end chairs. */
+export const VENUE_TABLE_PICKS: ReadonlyArray<{ key: string; label: string; shape: PlanTableShape; ends: boolean }> = [
+  { key: 'round', label: 'Round', shape: 'round', ends: false },
+  { key: 'long', label: 'Long', shape: 'long', ends: false },
+  { key: 'long_ends', label: 'Long, a chair at each end', shape: 'long', ends: true },
+  { key: 'half_moon', label: 'Half-moon booth', shape: 'half_moon', ends: false },
+];
+
+/** Which `VENUE_TABLE_PICKS` row a venue table is. */
+export function venuePickFor(t: Pick<PlanRowShape, 'plan_shape' | 'chairs_at_ends'>): (typeof VENUE_TABLE_PICKS)[number] {
+  const ends = t.plan_shape === 'long' && t.chairs_at_ends === true;
+  return VENUE_TABLE_PICKS.find((p) => p.shape === t.plan_shape && p.ends === ends) ?? VENUE_TABLE_PICKS[0]!;
+}
+
+/** "Round · 8 chairs" · "Long · 10 chairs · 2 at the ends" — a venue row said the way PlanMaker said it. */
+export function venueRowWords(t: Pick<PlanRowShape, 'plan_shape' | 'chairs_at_ends' | 'capacity'>): string {
+  return planTableWords({ id: '', label: '', kind: t.plan_shape ?? 'round', chairs: t.capacity, chairsAtEnds: t.chairs_at_ends === true, x: null, y: null });
+}
+
+/** A row's real width in metres, chairs included — the couple's `TABLE_FOOTPRINT_M`, or a venue shape at true scale. */
+export function rowFootprintM(t: PlanRowShape): number {
+  if (!t.plan_shape) return TABLE_FOOTPRINT_M[t.table_type];
+  return rowGeometry(t).box.w * PLAN_M_PER_PX;
 }
 
 // ── The room ────────────────────────────────────────────────────────────────
@@ -571,6 +610,76 @@ export function planFromShopPlan(p: ShopAreaPlan): Plan {
       rotationDeg: t.rotationDeg,
     })),
   };
+}
+
+/**
+ * 🏛 ONE HALL AS THE ONE EDITOR'S ROWS (venue mode, DECISION_LOG d1fafcd5). Its tables keep their shape, one chair count
+ * and "at the ends" (`plan_shape` / `chairs_at_ends`), and their saved spot; its room size is the floor's; its first
+ * main door is the entrance and its first service door the service door, at their wall spot. No guest, no stage, no
+ * dance floor is ever on it. `event_id` is the hall's own id — never an event's.
+ */
+export function venueEditorRows(p: ShopAreaPlan): {
+  tables: EventTableRow[];
+  floorPlan: FloorPlanRow;
+  entranceDoorId: string | null;
+  serviceDoorId: string | null;
+} {
+  const hall = p.areaId ?? '';
+  const tables: EventTableRow[] = p.tables.map((t, i) => ({
+    table_id: t.id,
+    public_id: t.id,
+    event_id: hall,
+    table_label: t.label,
+    // The couple type it is placed and collided as; it is DRAWN from `plan_shape` (`rowGeometry`).
+    table_type: t.shape === 'long' ? 'long_banquet_8' : 'round_10',
+    capacity: clampChairs(t.chairs),
+    sort_order: i,
+    x_pos: t.x,
+    y_pos: t.y,
+    rotation_deg: t.rotationDeg,
+    removed_seats: [],
+    link_group_id: null,
+    is_vip: false,
+    plan_shape: t.shape,
+    chairs_at_ends: t.shape === 'long' && t.chairsAtEnds,
+  }));
+  const main = p.doors.find((d) => d.kind === 'main') ?? null;
+  const service = p.doors.find((d) => d.kind === 'service') ?? null;
+  const spot = (d: { wall: 'front' | 'back' | 'left' | 'right'; along: 'left' | 'middle' | 'right' }) =>
+    doorPoint({ wall: SHOP_WALL_TO_PLAN[d.wall], at: alongToAt(d.along) });
+  const e = main ? spot(main) : null;
+  const sv = service ? spot(service) : null;
+  return {
+    tables,
+    floorPlan: {
+      ...DEFAULT_FLOOR_PLAN,
+      venue_width_m: p.room?.widthM ?? null,
+      venue_length_m: p.room?.lengthM ?? null,
+      entrance_enabled: e !== null,
+      entrance_x: e?.x ?? DEFAULT_FLOOR_PLAN.entrance_x,
+      entrance_y: e?.y ?? DEFAULT_FLOOR_PLAN.entrance_y,
+      service_entrance_enabled: sv !== null,
+      service_entrance_x: sv?.x ?? DEFAULT_FLOOR_PLAN.service_entrance_x,
+      service_entrance_y: sv?.y ?? DEFAULT_FLOOR_PLAN.service_entrance_y,
+    },
+    entranceDoorId: main?.id ?? null,
+    serviceDoorId: service?.id ?? null,
+  };
+}
+
+/**
+ * A door the one editor moved, put back into the hall's storage words: the door to remove (when it moved or went) and
+ * the wall spot to add (when it is on and is not where it was). Nothing to do = both null. Pure.
+ */
+export function venueDoorChange(
+  was: { id: string | null; wall: 'front' | 'back' | 'left' | 'right'; along: 'left' | 'middle' | 'right' } | null,
+  now: { enabled: boolean; x: number; y: number },
+): { remove: string | null; add: { wall: 'front' | 'back' | 'left' | 'right'; along: 'left' | 'middle' | 'right' } | null } {
+  if (!now.enabled) return { remove: was?.id ?? null, add: null };
+  const snapped = snapDoor(now.x, now.y);
+  const want = { wall: PLAN_WALL_TO_SHOP[snapped.wall], along: atToAlong(snapped.at) };
+  if (was && was.wall === want.wall && was.along === want.along) return { remove: null, add: null };
+  return { remove: was?.id ?? null, add: want };
 }
 
 /** The tables whose spot or turn changed between two plans — what a move or Line up has to save, and nothing else. */

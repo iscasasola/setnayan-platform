@@ -37,7 +37,7 @@ test('the room says so from inside its Canvas — and when it cannot draw at all
 
 test('the poster reads "Building your room…" over the couple’s own tables', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { PlanPoster } = await import('@/app/_components/plan-maker/plan-maker');
+  const { PlanPoster } = await import('@/app/_components/plan-poster');
   const html = renderToStaticMarkup(
     React.createElement(PlanPoster, {
       plan: { room: { widthM: 20, depthM: 30 }, doors: [{ id: 'e', kind: 'main', wall: 'bottom', at: 50 }], tables: [{ id: 't1', label: '1', kind: 'round_10', chairs: 10, x: 50, y: 30 }] },

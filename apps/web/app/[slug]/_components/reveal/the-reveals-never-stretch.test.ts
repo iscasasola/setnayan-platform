@@ -46,7 +46,7 @@ test('🔏 both envelopes press the couple’s seal: their recipe, their wax whe
   assert.match(ENV, /recipe\.pour\.amount/, 'the seal’s size is not their pour');
   assert.match(ENV, /recipe\.pour\.irregularity/, 'the seal’s outline is not their pour');
   assert.match(ENV, /recipe\.press\.depth/, 'the seal’s depth is not their press');
-  assert.match(ENV, /color \? new THREE\.Color\(color\) : 0xb98a2c/, 'the wax colour does not follow the minted seal');
+  assert.match(ENV, /color \? new THREE\.Color\(color\)\.convertSRGBToLinear\(\) : 0xb98a2c/, 'the wax colour does not follow the minted seal');
   assert.match(ENV, /seal = makeSeal\(c, 0\.5, false\)/, 'the classic envelope lost its seal');
   assert.match(ENV, /seal = makeSeal\(c, 0\.4, true\)/, 'the gatefold has no seal');
   assert.match(ENV, /function placeSeal\(\)/, 'the gatefold’s seal does not ride its panels');

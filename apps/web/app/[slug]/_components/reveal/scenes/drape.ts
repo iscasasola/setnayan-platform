@@ -497,6 +497,7 @@ export const beachCurtains = (): Scene =>
       veilLights(c, 0.42);
       shadowsOnly(c, 0.22);
       const { vw } = c;
+      const lap = 0.04 + 0.06 * (wideness(c.px) - 1);
       const out: Drape[] = [];
       for (const side of [-1, 1]) {
         const mat = clothMaterial({ color: '#efe6d6', alphaMap: weave(c, '#d2d2d2', 0.5, 6, 2.2, [0.5, 0.75]), opacity: 1, fresnel: 0.2, fresnelA: 0.35 });
@@ -506,8 +507,9 @@ export const beachCurtains = (): Scene =>
             rows: 50,
             mode: 'curtain',
             side,
-            x0: side < 0 ? -vw * 1.12 : -0.04,
-            x1: side < 0 ? 0.04 : vw * 1.12,
+            /* the halves overlap at the middle; more folds on a wide screen gather more, so they overlap more */
+            x0: side < 0 ? -vw * 1.12 : -lap,
+            x1: side < 0 ? lap : vw * 1.12,
             material: mat,
             tilePx: 96,
             shadow: true,

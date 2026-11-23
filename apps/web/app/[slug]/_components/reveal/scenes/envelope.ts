@@ -253,7 +253,8 @@ function makeSeal(c: Ctx, size: number, vertical: boolean): THREE.Group[] {
   const ph2 = rnd() * Math.PI * 2;
   const irr = recipe.pour.irregularity;
   const wax = new THREE.MeshPhysicalMaterial({
-    color: color ? new THREE.Color(color) : 0xb98a2c,
+    /* the couple's wax is a colour they picked on screen (sRGB); the scenes are built in linear numbers */
+    color: color ? new THREE.Color(color).convertSRGBToLinear() : 0xb98a2c,
     metalness: color ? 0.3 : 0.82,
     roughness: recipe.wax.finish === 'glossy' ? 0.22 : 0.3,
     clearcoat: 0.55,
@@ -536,7 +537,8 @@ export const envelopeClassic = (): Scene => {
             plain(x, cw, ch);
             x.globalCompositeOperation = 'multiply';
             const pw = cw / wide;
-            lay(x, dam, [40, 76, 480, 500], cw, { dy: ch * 0.02, dw: pw * 0.92, dh: ch * 0.9, step: pw, anchor: 'center' });
+            /* the drawing's one panel on the phone; on a wide screen the panels meet edge to edge, mirrored */
+            lay(x, dam, [40, 76, 480, 500], cw, { dy: ch * 0.02, dw: pw * 0.92, dh: ch * 0.9, step: wide > 1 ? pw * 0.92 : pw, anchor: 'center' });
             x.globalCompositeOperation = 'source-over';
           },
           foil: (x, cw, ch) => {
@@ -882,7 +884,9 @@ export const envelopeGatefold = (): Scene => {
             paint: (x, cw, ch) => {
               /* the calla relief at its own size, laid outward from the seam (a wide screen gets more lilies) */
               const pw = cw / wide;
-              lay(x, calla, [side < 0 ? 0 : calla.width / 2, 0, calla.width / 2, calla.height], cw, { dy: 0, dw: pw, dh: ch, step: pw, anchor: side < 0 ? 'right' : 'left' });
+              /* on a wide screen the art's own border is trimmed, so the copies meet without a line */
+              const trim = wide > 1 ? calla.width * 0.012 : 0;
+              lay(x, calla, [(side < 0 ? 0 : calla.width / 2) + trim, 0, calla.width / 2 - 2 * trim, calla.height], cw, { dy: 0, dw: pw, dh: ch, step: pw, anchor: side < 0 ? 'right' : 'left' });
               x.strokeStyle = 'rgba(96,80,54,.38)';
               x.lineWidth = 3;
               const a = side < 0 ? 26 : 12;

@@ -30,28 +30,39 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const HUB = read(`${L}/_components/hub-settings.tsx`);
 const SHELL = read(`${L}/_components/maker-shell.tsx`);
 
-test('1 · one sheet, four groups in the prototype’s order, and the event’s own facts sent to Home', () => {
+test('1 · one sheet in v17’s order — Sharing · On every page · Share and print · History · Event info 🔒 (20 Nov)', () => {
+  /* ⚙ "MAKER: EVENT HUB SETTINGS REGROUPED" (owner 20 Nov 2026, (1)): only what changes right away, one row style, in this
+     order — Sharing · changes right away (Live for guests · Address · Who can view · Which version guests see) · On every
+     page (Event Bar) · Share and print (Event QR · Prints) · History · waiting for ✓ Apply (with Undo) · Event info 🔒.
+     The first three are the shipped rows' own groups (`StudioHubSettings bare`); the sheet draws the rest after them. */
+  const TOOLS = read(`${L}/_components/studio-tools.tsx`);
+  const bare = TOOLS.slice(TOOLS.indexOf('const compactRows = ('), TOOLS.indexOf('if (bare) return compactRows;'));
+  assert.deepEqual([...bare.matchAll(/data-hub-settings-group="([a-z-]+)"/g)].map((m) => m[1]), ['sharing', 'every-page', 'share-print']);
+  for (const words of ['Sharing · changes right away', 'On every page', 'Share and print']) assert.ok(bare.includes(`>${words}</p>`), `"${words}" is not a group’s title`);
   const groups = [...HUB.matchAll(/data-hub-settings-group="([a-z-]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(groups, ['look', 'your-event-hub', 'guests-see', 'gifts'], 'the groups are not Look · Your Event Hub · What guests see · E-Gifts');
+  assert.deepEqual(groups, ['history', 'event-info'], 'History and Event info are not after the rows that change right away');
+  assert.ok(HUB.indexOf('{doors.hub ??') < HUB.indexOf('data="hub-prints"') && HUB.indexOf('data="hub-prints"') < HUB.indexOf('data-hub-settings-group="history"'), 'Prints does not close Share and print');
+  assert.match(HUB, /Nothing waiting<\/span>\s*Your changes collect here until ✓ Apply/, 'the empty History does not say the drawing’s words');
+  assert.match(HUB, /label="Undo last change"[\s\S]{0,120}disabled=\{!doors\.history\.canUndo\}[\s\S]{0,80}onClick=\{go\(doors\.history\.undo\)\}/, 'History has no "Undo last change"');
+  assert.match(HUB, /Your history could not be read just now/, 'an unread history would read as "No changes are waiting"');
   assert.match(HUB, /<MenuSettingsButton menu="hub" open=\{open\} onOpenChange=\{onOpenChange\}>/, 'the sheet is not the house ⚙’s');
-  // The event's first tab is called Today since THE ONE BUILD (L1, 8 Nov 2026: "Home → Today, word only").
-  assert.match(HUB, /Names, date, venues and parents are in Today › Event settings\./, 'the event’s own facts are not sent to Today (the event’s first tab)');
-  // Each group's heading carries its ⓘ — title + one line, the rest in ⓘ.
-  for (const label of ['"Look"', '"Your Event Hub"', '{GUESTS_SEE_WORDS.title}', '"E-Gifts"']) {
-    assert.match(HUB, new RegExp(`<InfoTip label=${label.replace(/[{}.]/g, (c) => `\\${c}`)} align="start">`), `the ${label} group has no ⓘ`);
-  }
-  // …and no fact of the event's own is drawn here (one fact, one editor — Home's).
+  // 🔒 Event info: shown, edited in its one home — names · date · venues · parents in Today › Event settings.
+  assert.match(HUB, /Event info · the app runs on these/);
+  assert.match(HUB, /name: 'Names, date, venues, parents',\s*line: 'Today › Event settings'/, 'the event’s own facts are not sent to Today');
+  assert.match(HUB, /'Guest list, RSVP questions, seats', line: 'In Guests'/);
+  assert.match(HUB, /'Mood Board and dress colours', line: 'In Event › Mood Board'/);
+  // …and no fact of the event's own is edited here (one fact, one editor — Today's).
   assert.doesNotMatch(HUB, /'names'|'date'|'venues'|'parents'/, 'an event fact is edited in the Hub’s ⚙');
 });
 
-test('2 · Look: one row per section, each opening the shipped Look editor on that section', () => {
+test('2 · Look left the ⚙ — it has its own button (🎨 Look on the resting bar, and the top row of Pages)', () => {
+  /* "EVENT HUB SETTINGS REGROUPED" (1): *"The Look row leaves ⚙, since Look has its own button."* The shell still opens the
+     shipped Look editor on a section (`openLook`) for the doors that name one. */
   assert.deepEqual([...LOOK_SECTIONS], ['background', 'elements', 'music']);
-  assert.match(HUB, /\{LOOK_SECTIONS\.map\(\(k\) => \(\s*<FormRow key=\{k\}[\s\S]{0,300}onClick=\{go\(\(\) => doors\.look\(k\)\)\}/, 'a Look row does not open its section');
-  // The shell opens the Look page (Studio's) on the section — the page its Studio card opened.
+  assert.doesNotMatch(HUB, /LOOK_SECTIONS\.map|data-hub-settings-group="look"|doors\.look\(/, 'a Look row is back in the ⚙');
   const open = SHELL.slice(SHELL.indexOf('const openLook = (section: LookSection) => {'), SHELL.indexOf('const giftsTile ='));
   assert.ok(open.length > 100, 'anti-vacuity: openLook was not found');
   assert.match(open, /setSide\('studio'\);\s*setStudioAt\('look'\);\s*setDetailsItem\(section\);\s*setLookVisit\(\(n\) => n \+ 1\);\s*select\(\{ kind: 'tool', key: 'details' \}\);/);
-  assert.match(SHELL, /look: openLook,/);
   // A row closes the sheet first: the page is what the couple sees next.
   assert.match(HUB, /const go = \(act: \(\) => void\) => \(\) => \{\s*onOpenChange\(false\);\s*act\(\);\s*\};/);
 });
@@ -79,7 +90,6 @@ test('4 · the work area draws only the Event Pro line beside it — no second G
   assert.match(work, /createPortal\(\s*<MoreExtras liveHref=\{null\} proUnlockHref=\{proUnlockHref\} proPriceLabel=\{proPriceLabel\} showProCta=\{showProCta\} \/>,\s*moreHost,\s*\)/, 'the work area draws its QR card beside the ⚙’s');
 });
 
-test('5 · E-Gifts: Ways to give opens the shipped page, with its Studio card’s line', () => {
-  assert.match(SHELL, /gifts: giftsTile \? \{ line: giftsTile\.status, open: \(\) => openStudio\('gifts'\) \} : null,/);
-  assert.match(HUB, /<FormRow data="gifts" name="Ways to give" line=\{doors\.gifts\.line\}[\s\S]{0,200}onClick=\{go\(doors\.gifts\.open\)\}/);
+test('5 · E-Gifts left the ⚙ — it is a part on the page (v17 "What this removes" 6)', () => {
+  assert.doesNotMatch(HUB, /data-hub-settings-group="gifts"|name="Ways to give"/, '⚙ › E-Gifts is back');
 });

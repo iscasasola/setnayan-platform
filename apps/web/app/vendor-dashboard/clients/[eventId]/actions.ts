@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { openTheCoordinatorsSeatForBooking } from '@/lib/coordinator-grant';
 import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effects.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
@@ -17,10 +18,12 @@ import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { formatPhp } from '@/lib/php';
 import { postThreadSystemLine } from '@/lib/chat-system-line.server';
+import { backstageSetLine, timeAskLine } from '@/lib/schedule-time-ask';
 import { paymentAskedLine } from '@/lib/chat-gap-lines';
 import { LOCK_AGREE_FEE_HELD, lockAgreeHallsParam, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { closedDayOfAsk } from '@/lib/closed-day.server';
+import { fullSchedulesOfAsk } from '@/lib/schedule-pools';
 import { shortDayWords, waitlistMessage } from '@/lib/day-check';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
@@ -47,6 +50,9 @@ import { shiftWall } from '@/lib/schedule-chapters';
 import { crewFromText, momentMinutes, momentStartIn, timesRequests } from '@/lib/supplier-schedule';
 import { isOwnClock, supplierTimesNotice } from '@/lib/supplier-own-times';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { shopPlusGate } from '@/lib/shop-plus-gate.server';
+import { agreeGiftCodesOrPrefill, recordAgreeGifts } from '@/lib/agree-gifts.server';
+import { giftStoreHref } from '@/lib/agree-gifts';
 
 /**
  * Vendor Suggest flow on the shared day-of timeline — feature-access program
@@ -650,8 +656,10 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     proposed_crew?: string[] | null;
     note: string;
     itemLabel: string | null;
+    /** The moment's time now (an adjust) — the time-change card's "from". Never written to the request. */
+    currentStartIso?: string | null;
   }): Promise<{ ok: true; outcome: 'waits' | 'applied' | 'words' } | { ok: false; code: string | null }> => {
-    const { itemLabel, ...fields } = row;
+    const { itemLabel, currentStartIso: _currentStartIso, ...fields } = row;
     // RLS enforces: booked on the event, own org, own user, status open — an edit or a delete only on the supplier's
     // own item, an add only into a chapter they are linked to.
     const { data, error } = await supabase
@@ -670,7 +678,34 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
       .select('suggestion_id')
       .maybeSingle();
     if (error || !data) return { ok: false, code: error?.code ?? null };
-    const outcome = await settleAfterAsking(eventId, (data as { suggestion_id: string }).suggestion_id);
+    const why = { backstage: false };
+    const outcome = await settleAfterAsking(eventId, (data as { suggestion_id: string }).suggestion_id, why);
+    // 🎭 A backstage moment inside the venue's hours went straight in (owner 2026-11-20): the hosts and coordinator see
+    // it as ONE QUIET LINE in the conversation and an in-app notice — never the emailed "asks to change" notice.
+    if (why.backstage) {
+      try {
+        const body = backstageSetLine({ shop: supplierName, label: itemLabel, toIso: row.proposed_start_at });
+        if (body) await postThreadSystemLine(createAdminClient(), { eventId, vendorProfileId: profile.vendor_profile_id, body });
+        await notifySupplierTimes({
+          eventId,
+          title: body ?? `${supplierName} changed a backstage moment`,
+          body: 'Backstage, inside the venue’s hours — it is on the schedule. Guests don’t see it.',
+        });
+      } catch (e) {
+        console.error('[suggestScheduleChange] backstage line failed:', e);
+      }
+      return { ok: true, outcome };
+    }
+    // 🗓 THE TIME-CHANGE CARD (Unichat part F): an ask that names a new time and WAITS is one line in the conversation —
+    // the stream draws it as the card both sides answer from (`lib/schedule-time-ask.ts`). Best-effort, like the notice.
+    if (outcome === 'waits' && (row.kind === 'new' || row.kind === 'adjust') && row.proposed_start_at) {
+      try {
+        const body = timeAskLine({ by: 'supplier', add: row.kind === 'new', label: itemLabel, fromIso: row.currentStartIso ?? null, toIso: row.proposed_start_at });
+        if (body) await postThreadSystemLine(createAdminClient(), { eventId, vendorProfileId: profile.vendor_profile_id, body });
+      } catch (e) {
+        console.error('[suggestScheduleChange] time-ask line failed:', e);
+      }
+    }
     // Tell everyone who can approve it — the couple AND a coordinator holding The Day = Edit (best-effort: the
     // request is already written; a failed notice must never undo it). Auto-agreed changes are told too: the
     // schedule moved and the host should know who moved it.
@@ -870,14 +905,18 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   // The block's own label: the notice names it, and a 'remove' keeps it as `proposed_label` so the request still
   // says what it was about once the block is gone (the FK is ON DELETE SET NULL since 20271263061583).
   let blockLabel: string | null = null;
+  let blockStartIso: string | null = null;
   if (blockId) {
     const { data: block } = await supabase
       .from('event_schedule_blocks')
-      .select('label')
+      .select('label, start_at, time_tba')
       .eq('block_id', blockId)
       .eq('event_id', eventId)
       .maybeSingle();
     blockLabel = (block as { label: string | null } | null)?.label ?? null;
+    // A Time-TBA moment's `start_at` is a placeholder midnight: the ask's card then names the new time only, never "12:00 AM →".
+    const b = block as { start_at: string | null; time_tba: boolean | null } | null;
+    blockStartIso = b?.time_tba === true ? null : (b?.start_at ?? null);
   }
 
   // + My moment / My moment (the Schedule view's sheet): a chapter, a clock, minutes and crew — not the old
@@ -929,6 +968,7 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     proposed_crew: kind === 'remove' ? null : crew,
     note: typedNote || fallbackNote,
     itemLabel: kind === 'new' ? proposed.proposed_label : blockLabel,
+    currentStartIso: kind === 'adjust' ? blockStartIso : null,
   });
 
   if (quiet) {
@@ -1462,6 +1502,33 @@ export async function vendorAgreeToLock(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // 🎁 A GIFT AGAIN, ON A BOOKING ALREADY AGREED (21 Nov, controller): its store payment was refused or refunded, so its
+  // pick was cleared and the booking reads "Needs at least 1 gift. Buy one ›". The same form, `regift=1`: only the
+  // shop that holds this booking, only once it is agreed; the SQL door writes the pick (or says why not). Folded into
+  // this action — no new server action.
+  if (formData.get('regift') === '1') {
+    const backTo = lockAnswerReturnTo(formData.get('return_to'));
+    const profile = await fetchOwnVendorProfile(supabase, user.id);
+    const admin = createAdminClient();
+    const { data: row } = await admin
+      .from('event_vendors')
+      .select('marketplace_vendor_id, lock_agreed_at')
+      .eq('vendor_id', eventVendorId)
+      .maybeSingle();
+    const booking = row as { marketplace_vendor_id?: string | null; lock_agreed_at?: string | null } | null;
+    if (!profile || !booking?.lock_agreed_at || booking.marketplace_vendor_id !== profile.vendor_profile_id) {
+      redirect(`${backTo}?lock_agree=error`);
+    }
+    const codes = await agreeGiftCodesOrPrefill(admin, formData);
+    const picked = await recordAgreeGifts(admin, { eventVendorId, codes });
+    if (picked.status === 'needs_stock' || picked.status === 'none') {
+      const code = picked.codes[0] ?? codes[0] ?? null;
+      redirect(`${backTo}?lock_agree=gift_needed&gift_buy=${encodeURIComponent(giftStoreHref(code, backTo))}`);
+    }
+    revalidatePath(backTo);
+    redirect(`${backTo}?gift=${encodeURIComponent(picked.status)}`);
+  }
+
   // 🚪 DOOR 6 · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`). The yes is what books, so a closed
   // platform refuses it here, before the RPC — nothing booked, no fee minted. The trigger
   // `event_vendors_require_bookings_open` refuses the same flip if anything reaches the RPC anyway.
@@ -1478,6 +1545,16 @@ export async function vendorAgreeToLock(formData: FormData) {
     if (h.status === 'hall_taken') {
       const backTo = lockAnswerReturnTo(formData.get('return_to'));
       redirect(`${backTo}?lock_agree=hall_taken${lockAgreeHallsParam({ taken: h.taken ?? [], free: h.free ?? [] })}`);
+    }
+  }
+
+  // 👥 A FULL TEAM SCHEDULE TAKES NO YES (walk 22 Nov 2026): the yes never took a schedule seat, so a day whose crew was
+  // already full was agreed here and refused only at the couple's deposit. The deposit's own pool list and count
+  // (`fullSchedulesOfAsk`). Before the RPC: nothing booked, no fee minted. Fails open on a read error.
+  {
+    const full = await fullSchedulesOfAsk(supabase, eventVendorId, createAdminClient());
+    if (full.length > 0) {
+      redirect(`${lockAnswerReturnTo(formData.get('return_to'))}?lock_agree=schedule_full${lockAgreeHallsParam({ taken: full, free: [] })}`);
     }
   }
 
@@ -1506,10 +1583,11 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
-  // 📊 RENTED BY THE PIECE (Availability plan step 4; owner Q2, 19 Nov: the COUPLE picks how many when they ask, and
-  // the supplier may change it here). A number typed at the yes replaces the couple's — written FIRST, all or nothing,
-  // by the one definer (`set_booked_quantity`), which refuses when the card's own "How many do you have" or a schedule
-  // would go past its number that day. Left blank, the couple's number stands. The yes itself (`vendor_agree_to_lock`)
+  // 📊 RENTED BY THE PIECE (Availability plan step 4; owner Q2, 20 Nov: "No, keep the ruling — remove the picker" — a
+  // couple's ask carries no number, the SUPPLIER says how many they can give here). The number typed at the yes is
+  // written FIRST, all or nothing, by the one definer (`set_booked_quantity`), which refuses when the card's own "How
+  // many do you have" or a schedule would go past its number that day. Left blank, a number already on the booking
+  // stands (none, usually). The yes itself (`vendor_agree_to_lock`)
   // then counts the booking's own pieces under one lock per shop, and refuses a piece booking with no number
   // (`pieces_needed`) — never one piece by default.
   {
@@ -1524,7 +1602,7 @@ export async function vendorAgreeToLock(formData: FormData) {
       });
       const set = (setRaw ?? {}) as { status?: string };
       // 🔒 ANY answer but `ok` STOPS the yes — a failed or refused write must never fall through to
-      // `vendor_agree_to_lock`, which would agree the booking on the couple's number instead of the supplier's.
+      // `vendor_agree_to_lock`, which would agree the booking on a number the supplier did not give.
       if (setErr) {
         console.error(`[vendorAgreeToLock] pieces write failed for vendor_id=${eventVendorId}:`, setErr.message);
         redirect(`${backTo}?lock_agree=error`);
@@ -1538,11 +1616,34 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
+  // 🎁 AT LEAST ONE GIFT, ASKED BEFORE THE YES (owner 20 Nov: "no exceptions for gift"; 21 Nov: out of a gift → buy it,
+  // then come back). The picker posts one `gift` per pack; a form with no picker (Today's card, the chat's blocker row)
+  // posts none and gets the PRE-FILL — the smallest Papic pack (owner's ruling). The SQL door judges it with a DRY RUN
+  // (nothing written): anything but `ok` refuses Agree with NOTHING booked. `needs_stock` hands the store's door with this
+  // page as the way back ("Every booking needs at least 1 gift. Buy one ›").
+  const giftCodes = await agreeGiftCodesOrPrefill(createAdminClient(), formData);
+  {
+    const backTo = lockAnswerReturnTo(formData.get('return_to'));
+    const judged = await recordAgreeGifts(createAdminClient(), { eventVendorId, codes: giftCodes, dryRun: true });
+    if (judged.status !== 'ok') {
+      const code = judged.codes[0] ?? giftCodes[0] ?? null;
+      const shortOf = judged.status === 'none' || judged.status === 'needs_stock' || judged.status === 'error';
+      redirect(
+        `${backTo}?lock_agree=${shortOf ? 'gift_needed' : 'gift_refused'}&gift_buy=${encodeURIComponent(giftStoreHref(code, backTo))}`,
+      );
+    }
+  }
+
   const { data, error } = await supabase.rpc('vendor_agree_to_lock', {
     p_event_vendor_id: eventVendorId,
   });
   const env = (data ?? {}) as { status?: string; event_id?: string; competing?: number };
   const eventId = typeof env.event_id === 'string' ? env.event_id : null;
+
+  // ── 0 · 🚪 A COORDINATOR BOOKED BY THIS YES GETS THEIR SEAT (the one shared door, lib/coordinator-grant.ts). The
+  // supplier did not invite themselves, so no actor is handed in: the seat records the host who asked
+  // (`lock_requested_by_user_id`), else nobody. A no-op unless the row is now BOOKED and a coordinator's; never throws.
+  if (!error) await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId, actorUserId: null });
 
   // ── 1 · THE GIFT PROMISE IS CONFIRMED HERE — owner 2026-09-16, asked which
   // of the two lock moments freezes it: **"both. the supplier needs to pay us
@@ -1590,6 +1691,16 @@ export async function vendorAgreeToLock(formData: FormData) {
     } catch (e) {
       console.error(`[vendorAgreeToLock] booking fee mint failed for vendor_id=${eventVendorId}:`, e);
     }
+  }
+
+  // ── 2b · 🎁 THE GIFT PICKED WITH THE YES (gift for services, owner 2026-11-15 → 21 Nov). The same codes the dry run
+  // passed, now written: the SQL door re-judges every one from a fresh read (the limit at list price, stock first, then
+  // a sent store payment) — AFTER the mint, because the limit is sized on the fee. Never on the bill (16 Nov). On `ok`
+  // only, never throws: the booking is made, and a gift lost to a race is said back on the card (`gift=`) and asked again
+  // by the booking's gift row.
+  let giftStatus: string | null = null;
+  if (!error && env.status === 'ok' && eventId) {
+    giftStatus = (await recordAgreeGifts(createAdminClient(), { eventVendorId, codes: giftCodes })).status;
   }
 
   // ── 3 · TELL THE COUPLE — on a FRESH agreement only (a re-call answers
@@ -1726,7 +1837,8 @@ export async function vendorAgreeToLock(formData: FormData) {
   // 🔑 ONE ANSWER: the SAME `feeBilledUnpaid` that held the couple's news back above tells the supplier so — and
   // that paying the fee is what lets the couple know (`lockAgreeNotice` · `ok` with `feeHeld`). Batch-5 audit F9.
   const feeHeld = flag === 'ok' && feeBilledUnpaid ? `&fee=${LOCK_AGREE_FEE_HELD}` : '';
-  redirect(`${back}?lock_agree=${flag}${competing}${feeHeld}`);
+  const gift = giftStatus && giftStatus !== 'none' ? `&gift=${encodeURIComponent(giftStatus)}` : '';
+  redirect(`${back}?lock_agree=${flag}${competing}${feeHeld}${gift}`);
 }
 
 /**
@@ -2063,7 +2175,9 @@ export async function vendorAskForPayment(formData: FormData): Promise<void> {
 }
 
 /** What a payment ask came to — every refusal NAMED. */
-export type PaymentAskOutcome = { ok: true } | { ok: false; code: 'event' | 'amount' | 'signin' | 'shop' | 'notbooked' | 'error' };
+export type PaymentAskOutcome =
+  | { ok: true }
+  | { ok: false; code: 'event' | 'amount' | 'signin' | 'shop' | 'notbooked' | 'unverified' | 'unknown' | 'error' };
 
 /**
  * The ask itself, with no redirect. NOT exported (each export is a Vercel route): `vendorAskForPayment` above is this
@@ -2085,6 +2199,12 @@ async function askForPaymentCore(formData: FormData): Promise<PaymentAskOutcome>
   if (!user) return { ok: false, code: 'signin' };
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { ok: false, code: 'shop' };
+  // 🪪 From the CHAT (`inline=1`) this is a ＋ tool, and a ＋ tool needs a verified shop (UNICHAT ＋ P1). The client
+  // page's own ask is not the ＋ and is not gated here. A refused read refuses ('unknown'), never lets it through.
+  if (formData.get('inline') === '1') {
+    const gate = await shopPlusGate(supabase, profile.vendor_profile_id);
+    if (gate !== 'open') return { ok: false, code: gate };
+  }
 
   const eventVendorId = await resolveOwnBookingId(eventId, profile.vendor_profile_id);
   if (!eventVendorId) return { ok: false, code: 'notbooked' };

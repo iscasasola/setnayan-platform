@@ -613,15 +613,19 @@ test('screens: manpower pages the booked read and says when offers could not loa
   assert.match(src, /readOpenGigsForEvents<ManpowerGigRow>\(supabase, eligibleEventIds\)/);
   assert.match(src, /!openGigsMeasured\s*\?\s*'We couldn’t read the open gigs/);
   assert.match(src, /!openGigsMeasured && openGigs\.length > 0\s*\?\s*'Some open gigs couldn’t load/);
-  assert.match(src, /\{note \? \(\s*<p role="status"/);
+  // The tool pages redraw (v3, 21 Nov 2026): the groups are drawn by `manpower-view.tsx`; the surface still measures.
+  assert.match(read('app/vendor-dashboard/manpower/_components/manpower-view.tsx'), /\{note \? \(\s*<p role="status"/);
 });
 
 test('screens: disputes page every dispute through the shared pager', () => {
+  // The tool pages redraw (v3, 21 Nov 2026): the page reads and pages; the screen (`disputes-view.tsx`) draws.
   const src = read('app/vendor-dashboard/disputes/page.tsx');
+  const view = read('app/vendor-dashboard/disputes/_components/disputes-view.tsx');
   assert.doesNotMatch(src, /\.limit\(/);
   assert.match(src, /const disputesPage = paginate\(rows, search\.dpage\);/);
-  assert.match(src, /\{disputesPage\.items\.map\(/);
-  assert.match(src, /<ListPager\s+paged=\{disputesPage\}\s+param="dpage"/);
-  assert.match(src, /\{incomplete \? \(\s*<ShopNotice[^>]*>\s*\{rows\.length === 0\s*\?\s*'Your disputes couldn\\u2019t load/);
-  assert.match(src, /\{rows\.length === 0 && !incomplete \? \(/);
+  assert.match(src, /paged=\{disputesPage\}/);
+  assert.match(view, /\{paged\.items\.map\(/);
+  assert.match(view, /<ListPager\s+paged=\{paged\}\s+param="dpage"/);
+  assert.match(view, /\{incomplete \? \(\s*rows\.length === 0 \? \(\s*<ToolFail[^>]*title="Your disputes couldn’t load/);
+  assert.match(view, /\{rows\.length === 0 && !incomplete \? \(/);
 });

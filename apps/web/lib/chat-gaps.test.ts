@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { countsAsUnreadFor, createReadDebouncer, latestRead } from './chat-read-live';
 import { isCoHostMessage, ownsBubble } from './chat-bubble-owner';
 import { bubbleRun } from './chat-bubble-runs';
-import { chatNoticeRecipients, shopChatPeopleFrom, shopSideIds } from './chat-shop-people';
+import { chatNoticeRecipients, shopSideIds } from './chat-shop-people';
 import { refreshesTheChat } from './chat-live-refresh';
 import { accessAskedLine, paymentAskedLine } from './chat-gap-lines';
 import { supplierPlusRows, hostPlusRows, PLUS_CARD_TOPIC } from './chat-plus';
@@ -185,15 +185,15 @@ test('3 · everyone this build adds is told IN THE APP ONLY — a type of its ow
 
 // ── 4 · TEAM MEMBERS SEND ───────────────────────────────────────────────────
 
-test('4 · the shop side is the policy’s three branches — never wider (a deactivated member is out)', () => {
-  const team = [
-    { vendor_team_member_id: 't1', user_id: 'ada', role: 'admin', deactivated_at: null },
-    { vendor_team_member_id: 't2', user_id: 'gus', role: 'agent', deactivated_at: null },
-    { vendor_team_member_id: 't3', user_id: 'vic', role: 'viewer', deactivated_at: null },
-    { vendor_team_member_id: 't4', user_id: 'old', role: 'admin', deactivated_at: '2026-10-01T00:00:00Z' },
-  ];
-  assert.deepEqual(shopChatPeopleFrom({ ownerUserId: 'sol', team, servingMemberIds: new Set() }), ['sol', 'ada']);
-  assert.deepEqual(shopChatPeopleFrom({ ownerUserId: 'sol', team, servingMemberIds: new Set(['t2']) }), ['sol', 'ada', 'gus']);
+test('4 · the shop side is ONE rule, read from the database — never a second copy in the app', () => {
+  // The policy's three branches (owner · live owner/admin · a live member serving THIS event) are written ONCE as
+  // chat_shop_team_user_ids (migration 20271355512715; tests/db/a-host-on-the-shops-team-whispers-as-a-host.db.test.ts
+  // measures it). The app reads that function; it must not rebuild the rule from the tables.
+  const src = readFileSync(join(here, 'chat-shop-people.server.ts'), 'utf8');
+  const at = src.indexOf('export async function readShopChatPeople');
+  const body = src.slice(at, src.indexOf('export async function readThreadHostPeople'));
+  assert.match(body, /\.rpc\('chat_shop_team_user_ids', \{ p_vendor_profile_id: args\.vendorProfileId, p_event_id: args\.eventId \}\)/);
+  assert.doesNotMatch(body, /vendor_service_agents|event_vendors|from\('vendor_team_members'\)/, 'a second team rule is rebuilt in the app');
   assert.deepEqual(shopSideIds('sol', ['ada', 'sol', null, 'gus']), ['sol', 'ada', 'gus'], 'the owner is not first, or a person twice');
 });
 
@@ -201,7 +201,8 @@ test('4 · chat-send admits the team the policy admits before "not_member"; the 
   const send = read('lib/chat-send.ts');
   assert.match(
     send,
-    /\} else if \(\(await shopPeopleRead\(\)\)\.userIds\.includes\(user\.id\)\) \{\s*senderRole = 'vendor';\s*\} else \{\s*return \{ ok: false, code: 'not_member'/,
+    // 🗣 Part E (20 Nov): one branch sits between — the event's coordinator, who posts like a host (9 Nov ruling).
+    /\} else if \(\(await shopPeopleRead\(\)\)\.userIds\.includes\(user\.id\)\) \{\s*senderRole = 'vendor';\s*\}(?: else if \(await readIsCoordinator\([^)]*\)\) \{[^}]*\})? else \{\s*return \{ ok: false, code: 'not_member'/,
     'a team member RLS admits is refused as not_member',
   );
   const block = read('lib/chat-block.ts');
@@ -232,12 +233,9 @@ test('5 · a payment ask posts one plain line (no free-text note in it)', () => 
 
 // ── 6 · ASK FOR ACCESS IN THE SUPPLIER (+) ──────────────────────────────────
 
-test('6 · every supplier (and the coordinator) has the row; it waits for the booking, like the shipped ask', () => {
+test('6 · Ask for access LEFT the supplier (+) (owner 21 Nov: one door for asking — the Their event list)', () => {
   for (const paid of [false, true]) {
-    const row = supplierPlusRows({ paid }).find((r) => r.key === 'access');
-    assert.ok(row, 'the supplier (+) has no Ask for access');
-    assert.equal(row.card, 'access');
-    assert.ok(row.shutUntilAgreement?.reason, 'the row is hidden rather than shut with its reason');
+    assert.ok(!supplierPlusRows({ paid }).some((r) => r.key === 'access'), 'Ask for access is back under the supplier (+)');
   }
   assert.ok(!hostPlusRows({ canLogPayment: true }).some((r) => r.key === 'access'), 'the hosts were given an ask for access');
   assert.equal(PLUS_CARD_TOPIC.access, 'access');
@@ -256,6 +254,6 @@ test('6 · the card is the SHIPPED ask, one dropdown — and the ask posts a pla
   assert.equal((ask.match(/^export async function /gm) ?? []).length, 1);
   assert.equal(
     accessAskedLine({ shopName: 'Sol Studio', areas: ['seat_plan', 'guest_list'] }),
-    'Sol Studio asked to open: Seat plan, Guest list — the hosts answer in Access requests.',
+    'Sol Studio asked to open: Seats, Guests — the hosts answer in Access requests.',
   );
 });

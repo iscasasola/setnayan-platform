@@ -33,8 +33,13 @@ const pay = (over: Partial<WaitingPayment> = {}): WaitingPayment => ({
   ...over,
 });
 
-test('phase 1 matches nothing by itself', () => {
-  assert.equal(AUTO_MATCH_ENABLED, false);
+test('phase 2 is on — and the switch is the one thing holdAutoMatches reads first', async () => {
+  // Owner 2026-11-17 ("Hold 30 min, then pay"): ON with phase 2. Flip to false
+  // and every row stays with a person, exactly as phase 1.
+  assert.equal(AUTO_MATCH_ENABLED, true);
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../../app/admin/payments/received-auto.ts', import.meta.url), 'utf8');
+  assert.match(src, /if \(!AUTO_MATCH_ENABLED\) return 0;/);
 });
 
 test('a BDO received screenshot becomes one row: long reference, one amount, Manila time', () => {
@@ -158,13 +163,17 @@ test('buyers who say paid with no received row of their amount', () => {
   assert.deepEqual(left.map((p) => p.payment_id), ['b']);
 });
 
-test('nothing in this phase writes an automatic match', async () => {
+test('the human Match press never writes an automatic match, and nothing reads `strong` to save', async () => {
+  // Phase 2 keeps the split phase 1 drew: received.ts is the HUMAN press; the
+  // automatic hold lives in received-auto.ts, decided by received-auto-match.ts.
   const { readFileSync } = await import('node:fs');
   const { stripComments } = await import('@/lib/strip-comments');
   const src = stripComments(readFileSync(new URL('../../app/admin/payments/received.ts', import.meta.url), 'utf8'));
   assert.match(src, /match_kind: 'manual'/);
-  assert.doesNotMatch(src, /'auto'/, 'an automatic match is written before the BDO pay flow and its hold ship');
-  assert.doesNotMatch(src, /\bstrong\b/, 'the save path reads the strong-candidate flag — that is auto-match');
+  assert.doesNotMatch(src, /match_kind: 'auto'/, 'the hand-match path writes an automatic match');
+  assert.doesNotMatch(src, /\bstrong\b/, 'the save path reads the strong-candidate flag — that is not the auto rule');
+  const auto = stripComments(readFileSync(new URL('../../app/admin/payments/received-auto.ts', import.meta.url), 'utf8'));
+  assert.doesNotMatch(auto, /\bstrong\b|candidatesFor|referenceNamesTransfer/, 'the auto path must use planAutoMatches, not the looser hand-list ranking');
 });
 
 test('what the on-phone reader really returned for a drawn BDO screen (2026-11-17)', () => {

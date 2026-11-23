@@ -379,7 +379,7 @@ function Choice({
       onClick={onClick}
       {...data}
       className={`sn-press flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors duration-sn-control ease-sn disabled:cursor-default ${
-        on ? 'bg-ink text-cream' : 'bg-white text-ink hover:bg-white/80'
+        on ? 'bg-ink text-cream' : 'bg-raised text-ink hover:bg-raised/80'
       }`}
     >
       {thumb ? (
@@ -389,7 +389,7 @@ function Choice({
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 text-[13px] font-semibold">
           {label}
-          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" tone="current" /> : null}
+          {mark ? <PaidMark state={mark} word="PLUS" label={paidMarkLabel(mark, 'Event Plus')} size="xs" tone="current" /> : null}
         </span>
         {note ? <span className={`block text-[12px] ${on ? 'text-cream/80' : 'text-ink/75'}`}>{note}</span> : null}
       </span>
@@ -1327,7 +1327,7 @@ export function MainBackgroundPanel({
               type="button"
               data-bg-candlelight-off=""
               onClick={() => pickLook({ events: { site_art_direction: 'daylight' } }, FAILED)}
-              className="sn-press relative inline-flex h-8 min-h-0 shrink-0 items-center gap-1.5 rounded-full bg-white px-3 text-[12.5px] font-semibold text-ink ring-1 ring-ink/15 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-['']"
+              className="sn-press relative inline-flex h-8 min-h-0 shrink-0 items-center gap-1.5 rounded-full bg-raised px-3 text-[12.5px] font-semibold text-ink ring-1 ring-ink/15 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-['']"
             >
               <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               Turn off
@@ -1451,7 +1451,7 @@ export function MainBackgroundPanel({
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-md bg-white/70 px-3 py-3" data-maker-main-background="">
+    <section className="flex flex-col gap-3 rounded-md bg-raised/70 px-3 py-3" data-maker-main-background="">
       <p className="text-[14px] font-semibold text-ink">Behind every scene</p>
 
       {/* 🧭 ONE DROPDOWN (owner rule "any set of choices is a dropdown"; controller sweep

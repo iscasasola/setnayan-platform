@@ -31,6 +31,7 @@ import {
   type Seg,
 } from '@/lib/analytics-growing';
 import type { GrowthSeries } from '@/lib/vendor-growth-series';
+import { shopIsAYearOld, yearsToShow, type CountKind, type YearLine } from '@/lib/analytics-vs-last-year';
 import type { SourceSlice } from '@/lib/vendor-funnel';
 import type { SourceAttribution } from '@/lib/vendor-source-attribution';
 import type { GrowthRec } from '@/lib/vendor-growth-recs';
@@ -121,6 +122,15 @@ export type GrowthView = {
     positioned: { own: string; low: string; med: string; high: string; at: number | null; word: string } | null;
   };
   compare: { line: string };
+  /**
+   * 📈 VS LAST YEAR + THREE YEARS (owner 21 Nov 2026, *"Yes, add it"*) — the three count cards only. `yearOld` false →
+   * nothing is drawn. A kind is `null` when its read was refused ("Couldn’t load"); `years` holds only the seasons the
+   * shop has lived in, and is empty under two (lib/analytics-vs-last-year.ts).
+   */
+  lastYear: {
+    yearOld: boolean;
+    kinds: Record<CountKind, { lane: Record<GrowthWindow, number[]>; total: Record<GrowthWindow, number>; years: YearLine[] } | null>;
+  };
   /** ◆ — the plan gate is ON and this shop is below the plan that sees market intel (flag-dark today → false). */
   pro: boolean;
 };
@@ -170,13 +180,17 @@ export type GrowthInputs = {
   totals12: Totals | null;
   views: GrowthSeries | null;
   inquiries: GrowthSeries | null;
+  /** Bookings by day and month with last year and the three seasons (`fetchBookedSeries`) — vs last year only. */
+  bookedSeries?: GrowthSeries | null;
+  /** When the shop opened (`vendor_profiles.created_at`) — under a year old, nothing compares. */
+  shopCreatedAt?: string | null;
   bookedDay: readonly { bookings: number }[] | null;
   bookedMonth: readonly { bookings: number }[] | null;
   viewsBySource: Record<GrowthWindow, SourceSlice[] | null>;
   inquiriesBySource: Record<GrowthWindow, SourceSlice[] | null>;
   bookedBySource: Record<GrowthWindow, SourceSlice[] | null>;
   attribution: Record<GrowthWindow, SourceAttribution | null>;
-  /** "~N× your annual plan" — only on 12 months, only on a paid plan (as `RoiAttributionCard`). */
+  /** "~N× a year of your plan" — only on 12 months, only on a paid plan (as `RoiAttributionCard`). */
   annualPlanPhp: number | null;
   recs: Record<GrowthWindow, GrowthRec[]>;
   verdict: ReplyTimeVerdict | null;
@@ -221,7 +235,7 @@ function windowView(inp: GrowthInputs, w: GrowthWindow): WindowView {
   const hasBooked = Boolean(att && att.totalBookings > 0);
   const roi =
     !day && inp.annualPlanPhp && inp.annualPlanPhp > 0 && att && att.setnayan.revenuePhp > 0
-      ? `~${(att.setnayan.revenuePhp / inp.annualPlanPhp).toFixed(1)}× your annual plan`
+      ? `~${(att.setnayan.revenuePhp / inp.annualPlanPhp).toFixed(1)}× a year of your plan`
       : null;
   return {
     sentence: growthSentence({ figures, viewsChange, unit: day ? 'day' : 'month', booked }),
@@ -415,7 +429,21 @@ export function buildGrowthView(inp: GrowthInputs): GrowthView {
         inp.benchUnread ? 'unreadable' : inp.bench && inp.bench.hasBand ? inp.bench.metrics.map((x) => ({ key: x.key, tier: x.tier })) : null,
       ),
     },
+    lastYear: {
+      yearOld: shopIsAYearOld(inp.shopCreatedAt, inp.nowMs),
+      kinds: { opened: lastYearOf(inp.views, inp), asked: lastYearOf(inp.inquiries, inp), booked: lastYearOf(inp.bookedSeries ?? null, inp) },
+    },
     pro: inp.pro,
+  };
+}
+
+/** One count card's last year, from its own series (the same read as its lane). null = refused or not read. */
+function lastYearOf(s: GrowthSeries | null, inp: GrowthInputs): GrowthView['lastYear']['kinds'][CountKind] {
+  if (!s || !s.lastYear) return null;
+  return {
+    lane: { '30': s.lastYear.day.map((b) => b.count), '12': s.lastYear.month.map((b) => b.count) },
+    total: s.lastYear.total,
+    years: yearsToShow(s.years ?? [], inp.shopCreatedAt, inp.nowMs),
   };
 }
 

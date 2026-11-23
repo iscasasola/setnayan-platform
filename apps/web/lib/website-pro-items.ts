@@ -127,7 +127,7 @@ export const WEBSITE_PRO_ITEMS = [
   PRO_THEMES_ITEM,
   // The logo animation (owner 2026-09-24, "A then"). Granted by the
   // ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO alias; the couple meets it on the
-  // Logo Maker, where the owned state reads "Included with Event Pro".
+  // Logo Maker, where the owned state reads "Included with your plan".
   'Animated logo',
   // The Pro QR (owner 2026-09-27: "QR on Pro makes the logo use their logo on
   // the center. and change the shape, pattern style"). Free codes carry the

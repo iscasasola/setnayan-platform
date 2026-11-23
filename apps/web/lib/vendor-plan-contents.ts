@@ -39,7 +39,10 @@ export type PlanContentKeyDef = {
   label: string;
   /** Plain words: where the number takes effect. */
   readBy: string;
-  /** May the admin set "no limit"? Never for the four the database serves (its callers COALESCE a NULL to 0). */
+  /**
+   * May the admin set "no limit"? Not for the waitlist and per-date holds (their database callers COALESCE a NULL to 0).
+   * Branches: yes since 2026-11-22 — `vendor_tier_limit` honours a stored NULL and the branch gate reads it as no limit.
+   */
   noLimitAllowed: boolean;
 };
 
@@ -70,7 +73,8 @@ export const EDITABLE_PLAN_KEYS: readonly PlanContentKeyDef[] = [
     capKey: 'branchesIncluded',
     label: 'Branches included',
     readBy: 'the branch gate (in the database) and Add a branch',
-    noLimitAllowed: false,
+    // Owner 2026-11-22 "FINAL LADDER": Pro and Ultra have no branch limit (migration 20271360033501 taught the gate).
+    noLimitAllowed: true,
   },
   // ⛔ No `bookings_per_date_per_service` since 2026-11-18 (ruling 17): bookings per date are not a plan limit.
   {

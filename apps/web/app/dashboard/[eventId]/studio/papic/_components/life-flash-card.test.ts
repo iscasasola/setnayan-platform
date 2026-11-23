@@ -24,8 +24,9 @@ const GRAPH = stripComments(
 );
 
 test('the card is mounted', () => {
-  // Since 2026-10-31 the Memories keepsake row hands it the page's one read (`state={flash}`, `readLifeFlashCard`).
-  assert.ok(/<LifeFlashCard eventId=\{eventId\} state=\{flash\} \/>/.test(PAGE),
+  // Since 2026-10-31 the Memories keepsake row hands it the page's one read (`state={flash}`, `readLifeFlashCard`); since
+  // 2026-11-20 in its sheet seat (`seat="sheet"` — the keepsake sheet's head says its title once).
+  assert.ok(/<LifeFlashCard eventId=\{eventId\} state=\{flash\} seat="sheet" \/>/.test(PAGE),
     'A card that ships unmounted is this repo\'s most repeated defect.');
 });
 
@@ -85,7 +86,7 @@ test('the CTA is not painted in the gold slot', () => {
   // In this repo `terracotta` IS the atelier gold #A9834B — 3.37:1 on cream,
   // under the 4.5:1 AA floor. Fine on an icon (3:1 bar), never on text.
   // The shared pill's filled main verb (design template 14 Nov 2026, rule 3) IS the CTA colour.
-  assert.ok(/bg-mulberry|\bab-brand ab-main\b/.test(CARD), 'the action uses the CTA colour');
+  assert.ok(/bg-mulberry|\bab-brand ab-main\b|actionButtonClass\('brand', \{ main: true\b/.test(CARD), 'the action uses the CTA colour');
   assert.equal(/text-terracotta[^-]/.test(CARD.replace(/className="[^"]*h-4[^"]*text-terracotta[^"]*"/g, '')), false,
     'gold may tint the icon, never the words');
 });

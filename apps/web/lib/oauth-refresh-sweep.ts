@@ -141,7 +141,9 @@ export async function runOAuthRefreshSweep(): Promise<OAuthRefreshResult | { err
           failReason = (e as Error).message.slice(0, 128);
         }
       }
-    } else if (provider === 'drive') {
+    } else if (provider === 'drive' || provider === 'drive_supplier') {
+      // 'drive_supplier' = a shop's own Drive (owner 2026-11-22, "Copy this event to Google Drive"): the same Google
+      // OAuth client, refreshed the same way.
       const config = await getDriveOAuthConfig();
       if (!config.ready) {
         skipReason = 'drive_oauth_not_configured';

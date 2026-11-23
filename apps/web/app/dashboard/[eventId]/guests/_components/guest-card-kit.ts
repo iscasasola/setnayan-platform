@@ -63,6 +63,17 @@ export type CardFoldProps = {
   danger?: boolean;
   /** ⓘ beside the title — the details the row keeps out of sight (`Fold`'s `tip`). */
   tip?: ReactNode;
+  /**
+   * 🏷 The row's stable handle (`data-fold="card-<handle>"`) when its TITLE is not it. The 20 Nov card renamed the groups
+   * ("Basic Info" → "Name and contact" …); the handles the tours, the quick actions and the guards find a group by did
+   * not move. Absent → the handle is the title, as before.
+   */
+  handle?: string;
+  /** 🎨 Its summary is something still MISSING ("Add a mobile") — drawn in the accent; a filled summary stays grey. */
+  missing?: boolean;
+  /** 🔴 Its summary says a read FAILED ("Couldn’t read their seat") — drawn in the warn colour, so it never reads as a
+   *  value (Fable review, 22 Nov: the honest words looked like any other grey summary). */
+  unread?: boolean;
   children: ReactNode;
 };
 export type CardPickProps = {

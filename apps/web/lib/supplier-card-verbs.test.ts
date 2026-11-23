@@ -57,6 +57,8 @@ const STEPS: Array<[name: string, verbs: ReturnType<typeof cardVerbs>, want: Car
   ['priced', at({ inquiry: THREAD, build: { kind: 'add' }, buildGroupId: 'g', lockGroupId: 'g' }, { hasPrice: true }), ['add', 'book', 'chat', 'remove'], ['add']],
   ['in the build', at({ inquiry: THREAD, build: { kind: 'in_build' }, buildGroupId: 'g', lockGroupId: 'g' }, { hasPrice: true }), ['in_build', 'book', 'chat', 'remove'], ['in_build']],
   ['priced, added by you', at({ connect: true, build: { kind: 'add' }, buildGroupId: 'g', lockGroupId: 'g' }, { hasPrice: true }), ['add', 'book', 'record', 'remove'], ['add']],
+  // 🛒 Owner 2026-11-17 (drawing v15): one next step per pick — "Ask for a quote" while there is no price to book at.
+  ['in the build, no price yet', at({ inquiry: { kind: 'inquire' }, build: { kind: 'in_build' }, buildGroupId: 'g', lockGroupId: 'g' }), ['in_build', 'ask', 'remove'], ['in_build']],
   ['added by you, no price', at({ connect: true, build: { kind: 'set_price' }, buildGroupId: 'g' }), ['record', 'remove'], ['record']],
   ['does not fit the build', at({ inquiry: THREAD, build: { kind: 'schedule_clash', clashWith: 'Seda' }, buildGroupId: 'g' }, { hasPrice: true }), ['chat', 'remove'], []],
   ['asked to book', at({ inquiry: THREAD, withdraw: { kind: 'withdraw' } }, { hasPrice: true }), ['nudge', 'chat', 'withdraw'], []],
@@ -118,7 +120,7 @@ test('T3 · the words are the prototype’s, and one colour per meaning', () => 
     another_day: ['Ask about another day', 'warn'],
     add: ['Add to build', 'brand'],
     in_build: ['In your build', 'ok'],
-    book: ['Book', 'ok'],
+    book: ['Ask to book', 'ok'], // 🛒 owner 2026-11-17: "Lock this" → "Ask to book"
     record: ['Your record', 'neutral'],
     withdraw: ['Withdraw', 'danger'],
     pay: ['Pay', 'ok'],
@@ -143,11 +145,20 @@ const BENCH = stripComments(readFileSync(join(V, '_components', 'shortlist-categ
 const PAGE = stripComments(readFileSync(join(V, 'page.tsx'), 'utf8'));
 
 test('T4 · the card’s verbs come from the table — one row, every word kept', () => {
-  assert.match(CARD, /const verbs = cardVerbs\(\{ actions: shown, booked, hasPrice, quoteIn, payDue: Boolean\(payHref\) \}\);/);
+  assert.match(CARD, /const verbs = cardVerbs\(\{ actions: shown, booked, hasPrice, quoteIn, payDue: Boolean\(payHref\) \}\)(?:;|\.filter\(\s*\(v\) => viewerBooks \|\| !HOST_ONLY_VERBS\.has\(v\.key\),?\s*\);)/);
   // Buttons keep their words (owner 2026-10-12, look call 2 — supersedes the 10-07 fit pass): ONE row, no fit
   // pass, and it wraps rather than dropping a word.
   assert.doesNotMatch(CARD, /useFitRow\(/, 'a fit pass would drop the words again');
-  assert.match(CARD, /<div className="verbs" data-card-verbs=\{verbs\.map\(\(v\) => v\.key\)\.join\(' '\)\}>\s*\{verbs\.map\(draw\)\}/);
+  // 🃏 Card 14 ("14 + buttons"): every verb is drawn from the table once (`drawn`); the row shows the first two, then
+  // "More" with the rest wrapped (phone, four or more) or the rest as they are — never a word dropped.
+  assert.match(CARD, /const drawn = verbs\.map\(draw\)\.filter\(\(n\) => n !== null\);/);
+  assert.match(CARD, /<div\s+className="verbs"\s+data-card-verbs=\{verbs\.map\(\(v\) => v\.key\)\.join\(' '\)\}/);
+  assert.match(CARD, /\{drawn\.slice\(0, 2\)\}/, 'the first two verbs are no longer drawn');
+  assert.match(
+    CARD,
+    /\{seatMore\s*\?\s*drawn\.slice\(2\)\.map\([\s\S]{0,200}?\{node\}[\s\S]{0,80}?:\s*drawn\.slice\(2\)\}/,
+    'the rest of the verbs are no longer drawn — a word was dropped',
+  );
   // Every control is the shipped button — nothing hand-made, no › in a control.
   assert.doesNotMatch(CARD, /<button\b|<a\b|›/);
   // The one lock path, the one inquiry path, the one withdraw path — wearing the pill.

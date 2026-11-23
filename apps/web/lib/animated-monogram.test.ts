@@ -22,8 +22,27 @@ import {
 /** Orders stub: an ownership query "hits" when any queried service_key is owned. */
 function ordersOwning(owned: Set<string>, status = 'submitted'): SupabaseClient {
   let keys: string[] | null = null;
+  // One query chain per `from()` (2026-11-19): the readers now ask Ultra and Pro in parallel, and one shared filter
+  // would hand one query the other's answer.
+  const chain = (): Record<string, unknown> => {
+    let own: string[] | null = null;
+    const q: Record<string, unknown> = {
+      select: () => q,
+      eq: () => q,
+      not: () => q,
+      in(col: string, vals: unknown) {
+        if (col === 'service_key' && Array.isArray(vals)) own = vals as string[];
+        return q;
+      },
+      then(resolve: (v: unknown) => unknown) {
+        const data = own && own.some((k) => owned.has(k)) ? [{ status }] : [];
+        return Promise.resolve({ data, error: null }).then(resolve);
+      },
+    };
+    return q;
+  };
   const b: Record<string, unknown> = {
-    from: () => b,
+    from: () => chain(),
     select: () => b,
     eq: () => b,
     not: () => b,
@@ -41,8 +60,8 @@ function ordersOwning(owned: Set<string>, status = 'submitted'): SupabaseClient 
   return b as unknown as SupabaseClient;
 }
 
-test('the owned note says "Included with Event Pro" only when owned AND Pro', () => {
-  assert.equal(INCLUDED_WITH_HUB_PRO, 'Included with Event Pro');
+test('the owned note says "Included with your plan" only when owned AND a plan holds it', () => {
+  assert.equal(INCLUDED_WITH_HUB_PRO, 'Included with your plan');
   assert.equal(animatedMonogramIncludedNote(true, true), INCLUDED_WITH_HUB_PRO);
   // Bought the ₱500 standalone — must not be told it came with Pro.
   assert.equal(animatedMonogramIncludedNote(true, false), null);
@@ -51,13 +70,15 @@ test('the owned note says "Included with Event Pro" only when owned AND Pro', ()
   assert.equal(animatedMonogramIncludedNote(false, true), null);
 });
 
-test('a Pro couple resolves as owning the animation, and as getting it from Pro', async () => {
-  const pro = ordersOwning(new Set(['COUPLE_WEBSITE_PRO']));
-  const owned = await eventOwnsAnimatedMonogram(pro, 'evt_1');
-  assert.equal(owned, true);
-  const viaPro = await eventGetsAnimatedMonogramFromHubPro(pro, 'evt_1');
-  assert.equal(animatedMonogramIncludedNote(owned, viaPro), INCLUDED_WITH_HUB_PRO);
-});
+// 🏛 Owner 20 Nov 2026: the whole Event Hub is Event Plus's (Pro and Ultra include it) — each owns the animation.
+for (const plan of ['EVENT_PLUS', 'COUPLE_WEBSITE_PRO', 'EVENT_ULTRA']) {
+  test(`${plan} owns the animation, and is told it came with the plan`, async () => {
+    const held = ordersOwning(new Set([plan]));
+    const owned = await eventOwnsAnimatedMonogram(held, 'evt_1');
+    assert.equal(owned, true);
+    assert.equal(animatedMonogramIncludedNote(owned, true), INCLUDED_WITH_HUB_PRO);
+  });
+}
 
 test('a ₱500-only couple owns the animation but is not told it came with Pro', async () => {
   const solo = ordersOwning(new Set(['ANIMATED_MONOGRAM']));

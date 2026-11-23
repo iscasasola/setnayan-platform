@@ -421,6 +421,7 @@ const STILL_DRAWS: RegExp[] = [
 
 /** Still ON PURPOSE — each with the reason it is not a screen showing the saved logo. */
 const STILL: Record<string, string> = {
+  'app/dev/cake-maker-lab/lab.tsx': 'a dev lab’s placeholder inspiration PHOTOS (a drawn cake stand-in as an svg data URI) — no logo at all',
   'app/_components/bespoke-monogram-mark.tsx': 'the still renderer itself — every playing surface hands it in as its `still`',
   'app/_components/gold-monogram-reveal.tsx': 'a reveal animation of its own; the mark is its mask',
   'app/[slug]/_components/reveal/wax-seal.tsx': 'the mark PRESSED INTO wax (a canvas/WebGL die) — a material impression inside the reveal',
@@ -435,6 +436,7 @@ const STILL: Record<string, string> = {
   'app/_components/qr-card.tsx': 'a QR code (kind 24), not the couple’s logo',
   'app/monogram/public-monogram-studio.tsx': 'the public monogram tool’s download (an export), not a couple’s saved logo',
   'app/dev/hero-lab/page.lab.tsx': 'a dev-only lab',
+  'app/dev/their-event-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` is the stand-in href of the Logo DOWNLOAD row — no logo is drawn on the screen',
   'app/dev/art-kit-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` is a drawn stand-in QR on the sample bank card — not the couple’s saved logo',
   'app/dev/memories-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are drawn gradient stand-ins for kept frames — not the couple’s saved logo',
   'app/dev/photo-privacy-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are gradient stand-ins for a supplier’s album photos — not the couple’s saved logo',

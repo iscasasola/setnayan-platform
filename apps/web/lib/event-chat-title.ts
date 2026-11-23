@@ -15,6 +15,7 @@
  */
 
 import { fitDateScope, type EventFitDates } from '@/lib/bench-bookable-days';
+import { dateMonthsWords } from '@/lib/event-date-options';
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 
@@ -33,11 +34,17 @@ function dayWithYear(iso: string): string {
  *   one candidate   → "May 22, 2027 · option"
  *   several         → "May 22, 2027 or Jun 5, 2027 · options"
  *   a date window   → "May 1, 2027 – May 20, 2027 · window"
+ *   "Some months"   → "Feb · Apr · May 2027 · months" (`events.date_months`, passed only while the mode is months)
  *   a set day, a span, a month, or nothing → null (the caller's own date words, or "Not set yet", stand).
  */
-export function eventDateOptionWords(ev: EventFitDates): string | null {
+export function eventDateOptionWords(ev: EventFitDates & { months?: readonly string[] | null }): string | null {
   const scope = fitDateScope(ev);
-  if (!scope || scope.days.length === 0) return null;
+  // 🗓 "Some months" (owner 2026-11-17, `events.date_months`): no day, no window — say the months ("Feb · Apr 2027 ·
+  // months"), never nothing. Find's filter (`fitDateScope`) is unchanged: months are words here, not a filter.
+  if (!scope || scope.days.length === 0) {
+    const m = ev.eventDate ? null : dateMonthsWords(ev.months ?? []);
+    return m ? `${m} · months` : null;
+  }
   if (scope.kind === 'dates') {
     return `${scope.days.map(dayWithYear).join(' or ')} · ${scope.days.length > 1 ? 'options' : 'option'}`;
   }

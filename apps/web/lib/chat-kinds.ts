@@ -18,7 +18,7 @@
  * chat's first load. 🔒 lib/chat-kinds.test.ts
  */
 import { formLineTitle, streamLineKind } from './chat-card-lines';
-import type { ThreadKind } from './thread-view';
+import type { TalkView, ThreadKind } from './thread-view';
 
 export type ChatKindRow = {
   body?: string | null;
@@ -35,9 +35,15 @@ export type ChatKindRow = {
   file_removed_at?: string | null;
 };
 
-/** The chips, in their order; All is the absence of a kind. */
-export const KIND_CHIPS: readonly { key: 'all' | ThreadKind; label: string }[] = [
+/**
+ * The chips, in their order; All is the absence of a kind. Chat and Private (20 Nov 2026, Unichat part D) come right
+ * after All: Chat = only what people typed, Private = only the private lines you may see (and, where the box can
+ * whisper, it turns the box to Whisper).
+ */
+export const KIND_CHIPS: readonly { key: 'all' | TalkView | ThreadKind; label: string }[] = [
   { key: 'all', label: 'All' },
+  { key: 'chat', label: 'Chat' },
+  { key: 'private', label: 'Private' },
   { key: 'decisions', label: 'Decisions' },
   { key: 'forms', label: 'Forms' },
   { key: 'money', label: 'Money' },
@@ -81,8 +87,9 @@ export function chatKindOf(m: ChatKindRow, filed = false): ThreadKind | null {
   const body = m.body ?? '';
   if (m.sender_role === 'system') {
     const line = streamLineKind(body);
-    if (line === 'negotiate' || line === 'rise' || line === 'fall') return 'money';
-    if (line === 'schedule') return 'dates';
+    if (line === 'negotiate' || line === 'rise' || line === 'fall' || line === 'receipt') return 'money';
+    if (line === 'schedule' || line === 'crew') return 'dates';
+    if (line === 'handover') return 'files';
     if (line) return 'decisions';
     if (paymentLineOf(body)) return 'money';
     if (ACCESS_LINE.test(body.trim())) return 'decisions';
@@ -102,6 +109,25 @@ export function countKinds(rows: readonly ChatKindRow[], isFiled: (row: ChatKind
     if (k) out[k] += 1;
   }
   return out;
+}
+
+/**
+ * Is this row something a person TYPED (a bubble) — not a card, not a line the app wrote? A message that carries a file
+ * is still one. The Chat chip shows exactly these; Private shows those of them that are private.
+ */
+export function isTalkRow(m: ChatKindRow): boolean {
+  if (m.sender_role === 'system') return false;
+  const kind = chatKindOf(m);
+  return kind === null || kind === 'files';
+}
+
+export type TalkCounts = Record<TalkView, number>;
+
+/** "Showing Chat · 12 messages" · "Showing Private · 1 message" — the one line over a chat showing only talk. */
+export function talkLine(view: TalkView, n: number): string {
+  const word = view === 'chat' ? 'Chat' : 'Private';
+  if (n === 0) return view === 'chat' ? 'No messages yet' : 'Nothing private here yet';
+  return `Showing ${word} · ${n.toLocaleString('en-PH')} ${n === 1 ? 'message' : 'messages'}`;
 }
 
 /** "Showing Money · 4 cards" — the one line over a filtered chat. */

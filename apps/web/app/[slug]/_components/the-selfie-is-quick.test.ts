@@ -23,7 +23,8 @@ const WEB = join(import.meta.dirname, '..', '..', '..');
 const code = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
 const SELFIE = code('app/[slug]/_components/selfie-capture.tsx');
 const GUEST = code('app/papic/guest/_components/papic-guest-capture.tsx');
-const SEAT = code('app/papic/seat/[token]/_components/papic-seat-capture.tsx');
+// 📷 ONE CAMERA (owner 2026-11-22): a seat shoots on the guest camera — the seat page mounts it in seat mode.
+const SEAT_PAGE = code('app/papic/seat/[token]/page.tsx');
 
 test('the selfie screen loads the detector (and, on mode_a, face-api) when it opens', () => {
   assert.match(
@@ -52,7 +53,7 @@ test('the oval is the size of a face held at arm’s length', () => {
 test('both Papic cameras load face-api while they open on a mode_a event', () => {
   const warm = /useEffect\(\(\) => \{\s*if \(faceMode !== 'mode_a'\) return;\s*void import\('@\/lib\/face-embed'\)\.then\(\(m\) => m\.warmFaceEmbed\(\)\)\.catch\(\(\) => \{\}\);\s*\}, \[faceMode\]\);/;
   assert.match(GUEST, warm, 'the guest camera’s first photo waits for the models');
-  assert.match(SEAT, warm, 'the seat camera’s first photo waits for the models');
+  assert.match(SEAT_PAGE, /<PapicGuestCapture\b[\s\S]{0,1600}faceMode=\{faceMode\}/, 'the seat camera is not the one camera with its event’s face mode — its first photo waits for the models');
 });
 
 // ── 🔒 a selfie that cannot be read is never saved · 👥 a background face does not refuse · 📐 a photo keeps the box ──
@@ -94,13 +95,13 @@ test('both cameras keep the one 9:16 frame the viewfinder shows; a clip shows th
   // The photo: the 9:16 centre of the frame (at the guest camera's digital 2× too) — lib/papic-viewfinder-crop.ts.
   assert.match(GUEST, /papicFrameCrop\(\{ width: w, height: h \}, crop\)/);
   assert.match(GUEST, /ctx\.drawImage\(video, sx, sy, sw, sh, 0, 0, sw, sh\);/);
-  assert.match(SEAT, /styled \? papicFrameCrop\(\{ width: w, height: h \}\) : \{ sx: 0, sy: 0, sw: w, sh: h \}/);
-  assert.doesNotMatch(GUEST + SEAT, /viewfinderCrop|getBoundingClientRect\(\)[^;]*\bcrop\b/, 'a photo is cut to the screen box again');
+  assert.doesNotMatch(GUEST, /viewfinderCrop|getBoundingClientRect\(\)[^;]*\bcrop\b/, 'a photo is cut to the screen box again');
   // The picture: a 9:16 box (16:9 sideways), the camera object-cover inside it — the same region.
-  for (const [name, src] of [['guest', GUEST], ['seat', SEAT]] as const) {
+  for (const [name, src] of [['camera', GUEST]] as const) {
     assert.match(src, /aspectRatio: frameSideways \? '16 \/ 9' : '9 \/ 16'/, `${name}: the picture is not the 9:16 frame`);
     assert.match(src, /data-camera-frame=\{frameSideways \? '16:9' : '9:16'\}/);
   }
   assert.match(GUEST, /mode === 'snippet' \|\| recording \? 'object-contain' : 'object-cover'/);
-  assert.match(SEAT, /recording \? 'object-contain' : 'object-cover'/);
+  // …and the seat camera IS that camera, so it keeps the same frame.
+  assert.doesNotMatch(SEAT_PAGE, /papic-seat-capture/, 'the seat page opens a second camera again');
 });

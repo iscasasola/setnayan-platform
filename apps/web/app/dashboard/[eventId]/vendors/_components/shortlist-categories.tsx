@@ -24,7 +24,8 @@
 
 import { NotYetVerifiedThreadLine } from '@/app/_components/chat/not-yet-verified-line';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
-import { ServiceFace } from '@/app/_components/service-face';
+import { MallFaceBody, ServiceFace } from '@/app/_components/service-face';
+import { aboutKmLine, mallPrice } from '@/lib/mall-card';
 import {
   Fragment,
   createContext,
@@ -108,6 +109,7 @@ import {
   type SortReason,
   type SortShape,
 } from '@/lib/bench-sort';
+import { savedFirst, savedGoesFirst } from '@/lib/saved-first';
 import { isLensKey, LENSES, visibleLenses } from '@/lib/ranking-lenses';
 import { nearFromKey, nearKey, type NearFrom } from '@/lib/find-sort-choices';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -336,7 +338,7 @@ const SLCAT_CSS = `
      letters. */
   --gold-text:var(--m-orange-deep,#5C4726);
   --mulberry:var(--m-mulberry);--line:var(--m-line,rgba(30,26,18,.12));
-  --line-soft:rgba(30,26,18,.07);--card:#fff;
+  --line-soft:rgba(30,26,18,.07);--card:rgb(var(--color-raised));--sl-ok:#2e7d4f;
   /* Card EDGE + resting lift (visual parity 2026-07-28).
      The bench sits on the app-wide .sn-ambient ground. The original defect: the
      champagne wash's base midpoint (#E3DDCF) was within (2,1,2) RGB of the
@@ -408,7 +410,7 @@ const SLCAT_CSS = `
    pinned head reads as the page, not a bar. The icon pops, then the body
    unfolds a beat later (the prototype's 420 ms / 120 ms). */
 .slcat .fold.flat .fold-collapse>.fold-body{overflow:visible}
-.slcat .fold.flat .cat.open>.cat-head-row{position:sticky;top:var(--stick-h,150px);z-index:3;background:#F7F5F0;box-shadow:0 1px 0 var(--line-soft)}
+.slcat .fold.flat .cat.open>.cat-head-row{position:sticky;top:var(--stick-h,150px);z-index:3;background:var(--sn-canvas);box-shadow:0 1px 0 var(--line-soft)}
 /* …and it MOVES WITH the app's top bar. On a phone that bar slides away as the
    page scrolls down and back as it scrolls up ('.fd-topwrap': transform .3s
    ease-out), and '--stick-h' changes in the same instant. A head that jumped to
@@ -416,7 +418,7 @@ const SLCAT_CSS = `
    showing between the pinned block and the head (controller's walk at 375,
    2026-10-08). Same duration, same curve as the bar, so they travel as one. */
 .slcat .fold.flat .cat.open>.cat-head-row{transition:top var(--sn-tuck-dur) var(--sn-tuck-ease)}
-html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
+html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:rgb(var(--color-page))}
 .slcat .fold.flat .cat.open .cat-collapse{transition-delay:.12s}
 .slcat .fold.flat .cat.open .cat-ic{animation:slcat-pop 420ms var(--ease)}
 @keyframes slcat-pop{0%{transform:scale(1)}35%{transform:scale(1.28) rotate(-6deg)}60%{transform:scale(.92) rotate(4deg)}100%{transform:scale(1) rotate(0)}}
@@ -473,19 +475,19 @@ html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
 .slcat .sc-link{font-size:12px;font-weight:500;line-height:1.35;color:var(--ink-soft)}
 .slcat .sc-link.t-warn{color:#8a5a12}
 .slcat .sc-link.t-danger{color:#a3342b}
-.slcat .sc-link.t-ok{color:#2e7d4f}
-html.dark .slcat .sc-link.t-warn{color:#e2b968}
-html.dark .slcat .sc-link.t-danger{color:#f0958c}
-html.dark .slcat .sc-link.t-ok{color:#7bc79a}
+.slcat .sc-link.t-ok{color:var(--sl-ok)}
+html.dark .slcat .sc-link.t-warn{color:rgb(var(--ramp-gold-deep))}
+html.dark .slcat .sc-link.t-danger{color:rgb(var(--color-danger))}
+html.dark .slcat .sc-link.t-ok{color:rgb(var(--color-ok))}
 .slcat .sc-price{font-size:12.5px;font-weight:500;color:var(--m-orange-2,var(--gold-deep))}
 .slcat .sc-price.none{color:var(--ink-soft);font-weight:400}
-.slcat .sc-inc{display:flex;align-items:flex-start;gap:4px;font-size:12px;font-weight:500;line-height:1.35;color:#2e7d4f}
+.slcat .sc-inc{display:flex;align-items:flex-start;gap:4px;font-size:12px;font-weight:500;line-height:1.35;color:var(--sl-ok)}
 .slcat .sc-inc>svg,.slcat .sc-not>svg{flex:none;margin-top:2px}
 .slcat .sc-not{display:flex;align-items:flex-start;gap:4px;font-size:12px;line-height:1.35;padding:3px 8px;border-radius:var(--m-r-xs);background:rgba(169,131,75,.16);color:#6F5A2E}
 .slcat .sc-gift{display:flex;align-items:center;gap:4px;margin:0;font-size:12px;line-height:1.35;color:var(--m-orange-2,var(--gold-deep))}
-html.dark .slcat .sc-disc{color:#7bc79a;background:rgba(46,125,79,.18)}
-html.dark .slcat .sc-inc{color:#7bc79a}
-html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
+html.dark .slcat .sc-disc{color:rgb(var(--color-ok));background:rgba(46,125,79,.18)}
+html.dark .slcat .sc-inc{color:rgb(var(--color-ok))}
+html.dark .slcat .sc-not{color:rgb(var(--ramp-gold-deep));background:rgba(169,131,75,.2)}
 /* The sunk tiers keep their labelled dividers — laid flat, as rules. */
 .slcat .fold.flat .raildiv{align-self:auto;padding:6px 0 0}
 .slcat .fold.flat .raildiv>span{display:block;width:100%;writing-mode:horizontal-tb;transform:none;border-left:0;border-top:0.5px solid rgba(169,131,75,.42);padding:7px 0 0}
@@ -593,7 +595,7 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .cat-nm{font-family:var(--sans);font-weight:600;font-size:14px;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .slcat .cat.open .cat-nm{color:var(--mulberry)}
 .slcat .cat-rt{display:flex;align-items:center;gap:9px;flex:0 0 auto}
-.slcat .cat-count{font-family:var(--sans);font-size:12px;letter-spacing:.04em;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:21px;text-align:center}
+.slcat .cat-count{font-family:var(--sans);font-size:12px;letter-spacing:.04em;color:rgb(var(--sn-on-accent));background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:21px;text-align:center}
 /* "saved request" icon — view/edit the couple's saved requirements for this leaf */
 .slcat .cat-chev{color:var(--ink-soft);transition:transform .22s var(--ease);flex:0 0 auto}
 .slcat .cat.open .cat-chev{transform:rotate(180deg);color:var(--mulberry)}
@@ -611,19 +613,19 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .img{height:108px;flex:0 0 108px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
 .slcat .vc .img img{width:100%;height:100%;object-fit:cover}
 .slcat .vc .ini{font-family:var(--sans);font-style:normal;font-size:26px;color:rgba(255,255,255,.7)}
-.slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--sans);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:4px 8px}
+.slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--sans);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:rgb(var(--sn-on-accent));background:var(--mulberry);border-radius: var(--m-r-full);padding:4px 8px}
 /* reason-labeled sort — the "why it's here" ribbon (top-left of the card) */
 .slcat .vc .rpill{position:absolute;top:8px;left:8px;display:inline-flex;align-items:center;font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:var(--m-r-full);padding:4px 8px;line-height:1}
-.slcat .vc .rpill.ok{color:#fff;background:var(--gold-deep)}
+.slcat .vc .rpill.ok{color:rgb(var(--color-cream));background:var(--gold-deep)}
 .slcat .vc .rpill.soft{color:var(--ink);background:rgba(255,255,255,.82);backdrop-filter:blur(2px)}
-html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,26,18,.7)}
+html.dark .slcat .vc .rpill.soft{color:rgb(var(--color-ink));background:rgba(30,26,18,.7)}
 /* sort toggle — pill segmented control (databerry "Brand addition / Upcoming" feel) */
 .slcat .sortbar{display:flex;align-items:center;gap:9px;margin:0 0 13px;flex-wrap:wrap}
 .slcat .sortbar-lbl{font-family:var(--sans);font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
 .slcat .sortseg{display:inline-flex;gap:3px;padding:3px;background:rgba(30,26,18,.05);border:0.5px solid var(--line);border-radius:var(--m-r-full)}
 .slcat .sortseg button{appearance:none;-webkit-appearance:none;border:0;cursor:pointer;font:inherit;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-soft);background:transparent;border-radius:var(--m-r-full);padding:6px 13px;transition:background .18s var(--ease),color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
 .slcat .sortseg button:active{transform:scale(.96)}
-.slcat .sortseg button.on{color:#fff;background:var(--mulberry)}
+.slcat .sortseg button.on{color:rgb(var(--sn-on-accent));background:var(--mulberry)}
 /* A lens whose driving input is missing across the bench (§15.2). Offered but
    inert: it stays visible so the couple learns what would switch it on, and
    carries that reason on hover / in its accessible name. */
@@ -633,8 +635,8 @@ html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,26,18,.7)}
    point, not decoration: a lens is a recommendation with a reason pill, a plain
    sort is a comparator the couple asked for. */
 .slcat .sortsep{width:1px;height:16px;background:var(--line);flex:0 0 auto}
-html.dark .slcat .sortseg{background:rgba(251,251,250,.05)}
-html.dark .slcat .sortseg button.on{color:#17160F;background:#E5794E}
+html.dark .slcat .sortseg{background:rgb(var(--color-ink) / .05)}
+html.dark .slcat .sortseg button.on{color:rgb(var(--color-page));background:rgb(var(--color-mulberry))}
 /* bench search — client-side filter over categories + considered suppliers */
 .slcat .bench-search{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:0 13px;height:42px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
 .slcat .bench-search:focus-within{border-color:rgba(30,26,18,.28);box-shadow:0 0 0 3px rgba(30,26,18,.06)}
@@ -645,7 +647,7 @@ html.dark .slcat .sortseg button.on{color:#17160F;background:#E5794E}
 .slcat .bench-search .bs-x{flex:0 0 auto;display:grid;place-items:center;width:40px;height:40px;margin-right:-11px;border:0;background:none;padding:0;cursor:pointer}
 .slcat .bench-search .bs-x span{color:var(--ink-faint)}
 .slcat .bench-empty{padding:26px 16px;text-align:center;color:var(--ink-faint);font-size:13px}
-html.dark .slcat .bench-search{background:#232019}
+html.dark .slcat .bench-search{background:rgb(var(--color-raised))}
 .slcat .vc .meta{padding:11px 13px 13px;flex:1 1 auto;display:flex;flex-direction:column;gap:5px}
 .slcat .vc .vn{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.2}
 /* The unread counter (owner 2026-09-22). Inline beside the name it belongs to,
@@ -675,15 +677,15 @@ html.dark .slcat .bench-search{background:#232019}
 /* ── fit-badges (2026-07-09): live reach + budget checks on the bench ── */
 .slcat .vc .fits{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
 .slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);font-size:12px;letter-spacing:.02em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
-.slcat .vc .fit.ok{color:#2e7d4f;background:rgba(46,125,79,.1)}
+.slcat .vc .fit.ok{color:var(--sl-ok);background:rgba(46,125,79,.1)}
 .slcat .vc .fit.warn{color:#6F5A2E;background:rgba(169,131,75,.16)}
 .slcat .vc .fit.muted{color:rgb(var(--color-ink) / .7);background:rgb(var(--color-ink) / .06)}
-html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
-html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
+html.dark .slcat .vc .fit.ok{color:rgb(var(--color-ok));background:rgba(46,125,79,.18)}
+html.dark .slcat .vc .fit.warn{color:rgb(var(--ramp-gold-deep));background:rgba(169,131,75,.2)}
 .slcat .vc .price{font-family:var(--sans);font-style:normal;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
 .slcat .vc [data-price-basis-line]{margin-top:auto;padding-top:4px}
 .slcat .vc [data-price-basis-line] .price{margin-top:0;padding-top:0}
-.slcat .vc .incl{font-size:12px;font-weight:600;color:#2e7d4f;margin-top:auto;padding-top:4px}
+.slcat .vc .incl{font-size:12px;font-weight:600;color:var(--sl-ok);margin-top:auto;padding-top:4px}
 /* dashed action cards (in the rail, after the suppliers) */
 .slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
 .slcat .act>*{flex:1;min-height:182px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;border-radius: var(--m-r-md);text-decoration:none;font:inherit;cursor:pointer;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
@@ -716,7 +718,7 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .plan-chip:hover{border-color:rgba(30,26,18,.32)}
 .slcat .plan-chip:active{transform:scale(.97)}
 .slcat .plan-chip .pc-dot{width:6px;height:6px;border-radius:var(--m-r-full);background:var(--gold);flex:0 0 auto}
-.slcat .plan-chip.done .pc-dot{background:#2e7d4f}
+.slcat .plan-chip.done .pc-dot{background:var(--sl-ok)}
 
 /* ── Coverage Strip v2 (Explore Replan PR-B · flag-gated) ──────────────────
    Same .plan-strip shell as the chip strip it upgrades — only the CONTENTS
@@ -757,11 +759,11 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .ctile.st-asked .lb{color:var(--gold-deep)}
 .slcat .ctile.st-locked .ic{border-style:solid;border-width:2.5px;border-color:var(--gold);background:rgba(169,131,75,.16);color:var(--gold-deep);box-shadow:0 2px 8px rgba(169,131,75,.3)}
 .slcat .ctile.st-locked .lb{color:var(--gold-deep);font-weight:700}
-.slcat .ctile.st-covered .ic{border-style:solid;border-width:2.5px;border-color:#2e7d4f;background:rgba(46,125,79,.12);color:#2e7d4f}
-.slcat .ctile.st-covered .lb{color:#2e7d4f;font-weight:700}
+.slcat .ctile.st-covered .ic{border-style:solid;border-width:2.5px;border-color:var(--sl-ok);background:rgba(46,125,79,.12);color:var(--sl-ok)}
+.slcat .ctile.st-covered .lb{color:var(--sl-ok);font-weight:700}
 .slcat .ctile.is-next .ic{outline:2.5px solid var(--gold);outline-offset:2.5px}
 .slcat .ctile .mini{position:absolute;right:-3px;bottom:-3px;min-width:17px;height:17px;padding:0 3px;border-radius:var(--m-r-full);display:flex;align-items:center;justify-content:center;font-family:var(--sans);font-size:12px;font-weight:700;color:#fff;border:2px solid var(--card)}
-.slcat .ctile .mini.dn{background:#2e7d4f}
+.slcat .ctile .mini.dn{background:var(--sl-ok)}
 .slcat .ctile .mini.lk{background:var(--gold-deep)}
 .slcat .ctile .mini.ak{background:var(--card);color:var(--gold-deep);border-color:var(--gold);border-style:dashed}
 .slcat .ctile .mini.bd{background:var(--card);color:var(--gold-deep);border-color:var(--gold)}
@@ -774,9 +776,9 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .fsum .s.lk{background:rgba(169,131,75,.16);color:var(--gold-text)}
 .slcat .fsum .s.td{background:rgba(30,26,18,.07);color:var(--ink-soft)}
 .slcat .fsum .s.ad{border:1px dashed var(--line);color:var(--ink-soft)}
-.slcat .fsum .s.dn{background:rgba(46,125,79,.12);color:#2e7d4f}
-html.dark .slcat .ctile .mini.bd{background:#232019}
-html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
+.slcat .fsum .s.dn{background:rgba(46,125,79,.12);color:var(--sl-ok)}
+html.dark .slcat .ctile .mini.bd{background:rgb(var(--color-raised))}
+html.dark .slcat .fsum .s.td{background:rgb(var(--color-ink) / .08)}
 
 /* ── Adaptive category set + per-category ⓘ (Explore Replan PR-C · gated) ──
    Three quiet affordances on the SHIPPED accordion, not a new surface: the ⓘ
@@ -825,7 +827,7 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 .slcat .vact{display:inline-flex;align-items:center;justify-content:center;gap:5px;width:100%;padding:8px 9px;border:1px solid transparent;border-radius:var(--m-r-sm);font:inherit;font-family:var(--sans);font-size:12px;font-weight:600;line-height:1.15;text-align:center;text-decoration:none;cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
 .slcat .vact:active{transform:scale(.97)}
 .slcat .vact:disabled{opacity:.55;cursor:default}
-.slcat .vact.primary{background:var(--mulberry);color:#fff;border-color:var(--mulberry)}
+.slcat .vact.primary{background:var(--mulberry);color:rgb(var(--sn-on-accent));border-color:var(--mulberry)}
 .slcat .vact.ghost{background:var(--card);color:var(--ink);border-color:var(--line)}
 .slcat .vact.ghost:hover{border-color:rgba(30,26,18,.3)}
 .slcat .vact.quiet{background:rgba(169,131,75,.1);color:var(--gold-deep);border-color:rgba(169,131,75,.42)}
@@ -839,7 +841,7 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 .slcat .vact-inline-price-row{display:flex;align-items:center;gap:4px;padding:5px 7px;border:1px solid var(--line);border-radius:var(--m-r-sm);background:var(--card);font-size:12px;font-weight:600;color:var(--ink)}
 .slcat .vact-inline-price-row input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;color:inherit;padding:2px 0}
 .slcat .vact-inline-price-row input::placeholder{color:var(--ink-soft);font-weight:500}
-.slcat .vact-inline-price-row button{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:none;border:0;border-radius:var(--m-r-sm);background:var(--mulberry);color:#fff;cursor:pointer}
+.slcat .vact-inline-price-row button{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:none;border:0;border-radius:var(--m-r-sm);background:var(--mulberry);color:rgb(var(--sn-on-accent));cursor:pointer}
 .slcat .vact-inline-price-row button:disabled{opacity:.55;cursor:default}
 .slcat .vact-inline-price-err{margin:0;font-family:var(--sans);font-size:12px;line-height:1.3;color:var(--danger-900,#7f1d1d)}
 .slcat .vact-inline-price-more{font-family:var(--sans);font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);text-decoration:none;text-align:center;padding:2px}
@@ -849,8 +851,8 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 .slcat .vact-pair{display:flex;gap:5px;align-items:stretch}
 .slcat .vact-pair>.vact.on{flex:1 1 auto;min-width:0}
 .slcat .vact-err{font-family:var(--sans);font-size:12px;line-height:1.3;color:#9a3325;margin:4px 0 0}
-html.dark .slcat .vact-err{color:#e9a99d}
-html.dark .slcat .vact.primary{background:#E5794E;color:#17160F;border-color:#E5794E}
+html.dark .slcat .vact-err{color:rgb(var(--color-danger))}
+html.dark .slcat .vact.primary{background:rgb(var(--color-mulberry));color:rgb(var(--color-page));border-color:rgb(var(--color-mulberry))}
 /* Locked names on a COLLAPSED category row (decision #8) — the row answers
    "who did we choose here?" without opening the rail. Its LOOK is the app's row
    template's second line ('FORM_ROW_SUBLINE', on the element), under the name
@@ -874,7 +876,7 @@ html.dark .slcat .vact.primary{background:#E5794E;color:#17160F;border-color:#E5
 .slcat .convrg.t-converged{border-color:rgba(169,131,75,.45);background:rgba(169,131,75,.1)}
 .slcat .convrg.t-conflict{border-color:rgba(169,131,75,.45);background:rgba(169,131,75,.14)}
 .slcat .convrg.t-conflict .cv-i,.slcat .convrg.t-converged .cv-i{color:var(--gold-deep)}
-html.dark .slcat .convrg{background:rgba(251,251,250,.04)}
+html.dark .slcat .convrg{background:rgb(var(--color-ink) / .04)}
 html.dark .slcat .convrg .cv-b b{color:var(--ink)}
 html.dark .slcat .convrg.t-converged,html.dark .slcat .convrg.t-conflict{background:rgba(169,131,75,.16);border-color:rgba(169,131,75,.4)}
 
@@ -897,46 +899,46 @@ html.dark .slcat .convrg.t-converged,html.dark .slcat .convrg.t-conflict{backgro
 .slcat .vact-note-txt{display:flex;flex-direction:column;gap:1px;min-width:0;text-align:left}
 .slcat .vact-note-txt b{font-weight:600;color:var(--gold-deep)}
 .slcat .vact-note-txt>span{color:var(--ink-soft);font-weight:500;font-size:12px;line-height:1.35}
-html.dark .slcat .vact.note.clash{color:#e2b968}
+html.dark .slcat .vact.note.clash{color:rgb(var(--ramp-gold-deep))}
 
 /* ── HARD tier · "Not available on your date" (PR-G2 · owner 2026-09-11) ─────
-   The CTA red (#B04722 = --color-mulberry-600; #EC8A5F its dark step), where the
+   The CTA red (rgb(var(--color-mulberry-600)) = --color-mulberry-600; #EC8A5F its dark step), where the
    soft tier is gold: gold says "your build narrowed past them", red says "they
    are taken that day". Still a reason, never an error — the card stays viewable
    and its conversation stays live. One selector per rule, so
    the-bench-is-legible.test.ts can find and measure each label. */
-.slcat .raildiv.hard>span{color:#B04722;border-left-color:rgba(194,78,37,.45)}
-html.dark .slcat .raildiv.hard>span{color:#EC8A5F}
-.slcat .vact.note.unavailable{align-items:flex-start;gap:6px;border-color:rgba(194,78,37,.42);color:#B04722;white-space:normal}
+.slcat .raildiv.hard>span{color:rgb(var(--color-mulberry-600));border-left-color:rgba(194,78,37,.45)}
+html.dark .slcat .raildiv.hard>span{color:rgb(var(--color-mulberry-600))}
+.slcat .vact.note.unavailable{align-items:flex-start;gap:6px;border-color:rgba(194,78,37,.42);color:rgb(var(--color-mulberry-600));white-space:normal}
 .slcat .vact.note.unavailable svg{flex:0 0 auto;margin-top:1px}
-.slcat .vact.note.unavailable .vact-note-txt b{color:#B04722}
-html.dark .slcat .vact.note.unavailable{color:#EC8A5F}
-html.dark .slcat .vact.note.unavailable .vact-note-txt b{color:#EC8A5F}
+.slcat .vact.note.unavailable .vact-note-txt b{color:rgb(var(--color-mulberry-600))}
+html.dark .slcat .vact.note.unavailable{color:rgb(var(--color-mulberry-600))}
+html.dark .slcat .vact.note.unavailable .vact-note-txt b{color:rgb(var(--color-mulberry-600))}
 /* "Hide lock, say why" — neutral ink, because a supplier saying no is an
    ordinary outcome, never an alarm (the same reason Cancelled is grey). */
 .slcat .vact.note.withheld{align-items:flex-start;gap:6px;white-space:normal}
 .slcat .vact.note.withheld svg{flex:0 0 auto;margin-top:1px}
 .slcat .vact.note.withheld .vact-note-txt b{color:var(--ink)}
-html.dark .slcat .vact-note-txt b{color:#e2b968}
+html.dark .slcat .vact-note-txt b{color:rgb(var(--ramp-gold-deep))}
 
-html.dark .slcat .cat-free{color:#E5794E;background:rgba(229,121,78,.14)}
+html.dark .slcat .cat-free{color:rgb(var(--color-mulberry));background:rgb(var(--color-mulberry) / .14)}
 /* Dark: the card IS lighter than the page here (#2A2E36 on ink-black), so the
    surface separates on its own and a black drop shadow buys nothing — both
    lifts are neutralised via the vars below, which keeps '.fold.open' free to
    change border-colour as its open cue. */
 html.dark .slcat .plan-strip{background:var(--card)}
-html.dark .slcat .plan-chip{background:#232019}
+html.dark .slcat .plan-chip{background:rgb(var(--color-raised))}
 /* --gold-deep (#8A6B39) is too dark to read on the dark card; the bench already
    uses #e2b968 as its dark gold everywhere else (.fit.warn, .vact.note.clash),
    so the row icons follow it rather than inventing a shade. */
 /* The open cue in dark mode. '.fold.open' sets a DARK border (fine on white,
    invisible on the dark card) and its shadow is neutralised above, so without this
    an open folder in dark mode had no edge change at all. */
-html.dark .slcat .fold.open{border-color:rgba(251,251,250,.3)}
-html.dark .slcat .fold-ic{background:rgba(226,185,104,.14);color:#e2b968}
+html.dark .slcat .fold.open{border-color:rgb(var(--color-ink) / .3)}
+html.dark .slcat .fold-ic{background:rgba(226,185,104,.14);color:rgb(var(--ramp-gold-deep))}
 html.dark .slcat .fold.open .fold-ic{background:rgba(226,185,104,.24)}
-html.dark .slcat .cat.open .cat-ic{color:#e2b968}
-html.dark .slcat{--paper:#1E1C15;--ink:#FBFBFA;--ink-soft:#B3AEA3;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#232019;--edge:rgba(251,251,250,.16);--edge-lift:none;--edge-lift-open:none}
+html.dark .slcat .cat.open .cat-ic{color:rgb(var(--ramp-gold-deep))}
+html.dark .slcat{--sl-ok:rgb(var(--color-ok));--paper:var(--sn-paper);--ink:rgb(var(--color-ink));--ink-soft:rgb(var(--color-ink-3));--line:rgb(var(--color-ink) / .16);--line-soft:rgb(var(--color-ink) / .1);--card:rgb(var(--color-raised));--edge:rgb(var(--color-ink) / .16);--edge-lift:none;--edge-lift-open:none}
 /* THE DARK BLOCK RE-POINTED EVERY NEUTRAL AND FORGOT THE GOLDS (2026-09-09).
    --paper, --ink, --ink-soft, --line, --card and --edge all get a dark value
    here; --gold and --gold-deep did not, so every gold thing on the bench kept a
@@ -947,16 +949,16 @@ html.dark .slcat{--paper:#1E1C15;--ink:#FBFBFA;--ink-soft:#B3AEA3;--line:rgba(25
    5.95:1 and 6.21:1. --gold-text is not overridden because #5C4726 is a DARK
    ink; on a dark card it is the wrong direction entirely, so the dark rules
    below point those two labels at the light gold instead. */
-html.dark .slcat{--gold:#E2B968;--gold-deep:#E2B968;--gold-text:#E2B968;--ink-faint:#8A8F98}
+html.dark .slcat{--gold:rgb(var(--ramp-gold-deep));--gold-deep:rgb(var(--ramp-gold-deep));--gold-text:rgb(var(--ramp-gold-deep));--ink-faint:rgb(var(--color-ink-3))}
 /* The three tinted labels, in dark. Each was measured on ITS OWN tint over the
    dark card, not on the card: a colour on a wash of itself loses about half a
    point, which is the whole reason this family of bugs exists. */
-html.dark .slcat .vc .bdg.verified{color:#7BD3A0}
+html.dark .slcat .vc .bdg.verified{color:rgb(var(--color-ok))}
 /* ⚠ NO DARK RULE FOR .bdg.setnayan HERE, DELIBERATELY. The rule five lines
    down already sets it to #C99DB0 and, being later, wins — measured 5.95:1 on
    its own tint over the dark card, which passes. A rule added here would be
    DEAD and would read to the next person as if it were doing the work. */
-html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#E5794E}
+html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:rgb(var(--color-mulberry))}
 
 /* ── ROW 2 · the inline "More in {category}" rail (owner 2026-09-06) ─────────
    Deliberately QUIETER than row 1: a tinted well with a hairline top rule, so
@@ -973,7 +975,7 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
    to build — the bench does not carry that machinery. */
 .slcat .mrc .mra{display:flex;flex-direction:column;gap:5px}
 .slcat .mrc.is-busy{opacity:.7;pointer-events:none}
-.slcat .mrsaved{font-family:var(--sans);font-size:12px;letter-spacing:.03em;line-height:1.35;color:#2e7d4f}
+.slcat .mrsaved{font-family:var(--sans);font-size:12px;letter-spacing:.03em;line-height:1.35;color:var(--sl-ok)}
 
 /* Notes under the row: the loading line, the empty state, and the count of
    sunk cards. Said once here rather than printed on every card. */
@@ -992,8 +994,8 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .vcw.is-grabbed{opacity:.45}
 .slcat .mrnote{padding:8px 16px 2px 0;font-family:var(--sans);font-size:12px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
 .slcat .mrerr{padding:0 16px 8px 0;font-family:var(--sans);font-size:12px;letter-spacing:.04em;line-height:1.5;color:#8C3A3A}
-html.dark .slcat .mrsaved{color:#7FBF9A}
-html.dark .slcat .mrerr{color:#E39A9A}
+html.dark .slcat .mrsaved{color:rgb(var(--color-ok))}
+html.dark .slcat .mrerr{color:rgb(var(--color-danger))}
 
 /* ── A card's dates (2026-09-06) ─────────────────────────────────────────── */
 /* --card, not --m-paper: the app-wide paper has no dark value, so this one
@@ -1087,14 +1089,14 @@ html.dark .slcat .mrerr{color:#E39A9A}
 .slcat .sc-price,.slcat .sc-gift{color:var(--gold-deep)}
 .slcat .vc .incl,.slcat .mrsaved{color:rgb(var(--color-ok))}
 .slcat .vact-inline-price-err,.slcat .mrerr,.slcat .vact-err{color:rgb(var(--color-danger))}
-html.dark .slcat .vc .rpill.ok{color:#17160F}
-html.dark .slcat .vc .bdg{background:rgba(251,251,250,.1);color:var(--ink-soft)}
-html.dark .slcat .vc .bdg.verified{color:#6FCF97;background:rgba(111,207,151,.14)}
-html.dark .slcat .vc .bdg.setnayan{color:#E5794E;background:rgba(229,121,78,.14)}
-html.dark .slcat .fd-chip{background:rgba(251,251,250,.1)}
+html.dark .slcat .vc .rpill.ok{color:rgb(var(--color-page))}
+html.dark .slcat .vc .bdg{background:rgb(var(--color-ink) / .1);color:var(--ink-soft)}
+html.dark .slcat .vc .bdg.verified{color:rgb(var(--color-ok));background:rgba(111,207,151,.14)}
+html.dark .slcat .vc .bdg.setnayan{color:rgb(var(--color-mulberry));background:rgb(var(--color-mulberry) / .14)}
+html.dark .slcat .fd-chip{background:rgb(var(--color-ink) / .1)}
 /* the accent in dark is the accent (the old wine #C99DB0 is retired) */
 html.dark .slcat .sortseg button.on,html.dark .slcat .vact.primary{background:rgb(var(--sn-accent));border-color:rgb(var(--sn-accent));color:rgb(var(--sn-on-accent))}
-html.dark .slcat .cat-free{color:rgb(var(--sn-accent));background:rgba(229,121,78,.14)}
+html.dark .slcat .cat-free{color:rgb(var(--sn-accent));background:rgb(var(--color-mulberry) / .14)}
 html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t{color:rgb(var(--sn-accent))}
 /* "More to compare" while it loads: two shimmering rows shaped like what is coming */
 .slcat .mrload{display:flex;flex-direction:column;gap:12px;padding:6px 0 4px}
@@ -1108,6 +1110,53 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .bench-add{margin:4px 0 14px}
 /* A note is read, not pressed: no dashed box, it sits on the page (owner 2026-10-11). */
 .slcat .vact.note{border:0;padding-left:0;padding-right:0;background:none;min-height:0}
+/* 🃏 CARD 14 — THE MALL CARD (owner 20 Nov 2026, "card 14 approved" · "driving distance, two across" → "straight line,
+   about X km" · "Do it"; drawing https://claude.ai/artifact/752FUN4BTE16bEWmpjP6r7, section "14 in Find, with its
+   buttons"). The one-screen column (.fold.flat) runs the cards two across on a phone, three on a tablet and four on a
+   desktop; each snap unit is the card with its buttons under it. Sunk-tier dividers span the row. */
+.slcat .fold.flat .rail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 10px;align-items:stretch;padding:4px 0 16px}
+.slcat .fold.flat{container-type:inline-size}
+@container (min-width:600px){.slcat .fold.flat .rail{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 16px}}
+@container (min-width:900px){.slcat .fold.flat .rail{grid-template-columns:repeat(4,minmax(0,1fr));gap:28px 20px}}
+.slcat .fold.flat .rail>.raildiv,.slcat .fold.flat .rail>:not(.vcw):not(.vc){grid-column:1/-1}
+.slcat .fold.flat .vcw{min-width:0;width:auto;display:flex;flex-direction:column;gap:8px;padding:0;border:0;border-radius:0;background:none}
+.slcat .fold.flat .vcw:has(>.vc:active),.slcat .fold.flat .vcw:has(>.vc[data-inspector-selected='true']){background:none}
+.slcat .fold.flat .vc.mall,.slcat .fold.flat .vcw>.vc.mall,.slcat .fold.flat .vcw>[data-service-face-layout='mall']{display:flex;flex-direction:column;flex:1 0 auto;gap:0;padding:0;min-width:0;width:auto;background:rgb(var(--sn-frame-bg));border:0;border-radius:var(--sn-frame-radius);box-shadow:var(--sn-frame-shadow);overflow:hidden}
+.slcat .fold.flat .vcw>.vc.mall[data-inspector-selected='true']{box-shadow:var(--sn-frame-shadow),0 0 0 2px var(--gold)}
+.slcat .fold.flat .vc.mall [data-service-face-cover]>img{width:100%;height:100%;object-fit:cover}
+.slcat .fold.flat .vc.mall [data-service-face-cover]>.ini{font-size:28px}
+.slcat .fold.flat .vc.mall .mcorner{display:flex;flex-wrap:wrap;gap:4px}
+.slcat .fold.flat .vc.mall .mcorner>.pcorner,.slcat .fold.flat .vc.mall .mcorner>.rpill{position:static;inset:auto;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.slcat .fold.flat .vc.mall .badges{margin:0}
+.slcat .fold.flat .vc.mall .fits{margin:0}
+.slcat .fold.flat .vc.mall .stand,.slcat .fold.flat .vc.mall .incl{margin:0;padding:0}
+.slcat .fold.flat .vc.mall .price{font-size:19px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.slcat .fold.flat .vc.mall [data-price-basis-line]{display:contents}
+.slcat .fold.flat .vc.mall [data-price-basis-line] .price{flex:0 0 100%}
+/* THE BUTTONS (DECISION_LOG "14 + buttons"): the first verb is one full-width 44 px button, then a row of equal seats,
+   icon over word — two on a phone, three on a desktop. On a phone, with three or more verbs left, the second seat is
+   "More", which opens the rest in place. Under 150 px wide two seats cannot hold their words: they stack. */
+.slcat .fold.flat .vcw .vacts{container-type:inline-size;min-width:0}
+.slcat .fold.flat .vcw .verbs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0;flex-wrap:nowrap}
+.slcat .fold.flat .vcw .verbs>*{min-width:0;width:100%}
+.slcat .fold.flat .vcw .verbs>:first-child{grid-column:1/-1}
+.slcat .fold.flat .vcw .verbs>:first-child,.slcat .fold.flat .vcw .verbs>:first-child>:is(a,button){min-height:44px;width:100%;justify-content:center;white-space:normal;text-align:center;text-wrap:balance}
+.slcat .fold.flat .vcw .verbs>:not(:first-child),.slcat .fold.flat .vcw .verbs>.verb-slot:not(:first-child)>:is(a,button){flex-direction:column;gap:3px;min-height:52px;padding:0 4px;font-size:11.5px;line-height:1.15;justify-content:center;width:100%}
+.slcat .fold.flat .vcw .verbs>.verb-slot{display:flex;flex-direction:column}
+.slcat .fold.flat .vcw .verbs[data-seat-more='1']>.vmore-rest{display:none}
+.slcat .fold.flat .vcw .verbs[data-seat-more='1'][data-more-open]>.vmore-rest{display:flex}
+.slcat .verbs>.vmore{display:none}
+.slcat .verbs>.vmore-rest{display:contents}
+.slcat .fold.flat .vcw .verbs>.vmore-rest{display:flex;flex-direction:column}
+.slcat .fold.flat .vcw .verbs>.vmore-rest>:is(a,button),.slcat .fold.flat .vcw .verbs>.vmore-rest>.verb-slot>:is(a,button){flex-direction:column;gap:3px;min-height:52px;padding:0 4px;font-size:11.5px;line-height:1.15;justify-content:center;width:100%}
+.slcat .fold.flat .vcw .verbs[data-seat-more='1']>.vmore{display:flex}
+@container (max-width:150px){.slcat .fold.flat .vcw .verbs{grid-template-columns:minmax(0,1fr)}}
+@container (min-width:240px){
+  .slcat .fold.flat .vcw .verbs{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .slcat .fold.flat .vcw .verbs[data-seat-more='1']>.vmore-rest{display:flex}
+  .slcat .fold.flat .vcw .verbs[data-seat-more='1']>.vmore{display:none}
+}
+
 `;
 
 /** Two-letter monogram fallback — delegates to the shared shop/vendor helper
@@ -1374,6 +1423,14 @@ const PriceLineCtx = createContext<SelfAddedPriceLines | null | undefined>(undef
 type ServiceCardLook = { face: boolean; cards: Readonly<Record<string, BenchServiceCard>> | null };
 const NO_SERVICE_CARDS: ServiceCardLook = { face: false, cards: null };
 const ServiceCardCtx = createContext<ServiceCardLook>(NO_SERVICE_CARDS);
+/**
+ * 🃏 What card 14 knows about the event (owner 20 Nov): `guests` — `events.estimated_pax`, so a per-guest card can show
+ * the total for it; `askVenue` — the event has no venue pin, so the distance line asks for one instead of a number.
+ * The default (no event read) draws neither.
+ */
+type MallEvent = { guests: number | null; askVenue: boolean };
+const NO_MALL_EVENT: MallEvent = { guests: null, askVenue: false };
+const MallEventCtx = createContext<MallEvent>(NO_MALL_EVENT);
 
 /** One supplier's unread count. Shows on linked copies too — see `bench-unread.ts`. */
 function UnreadBadge({ threadId }: { threadId: string | null }) {
@@ -1479,6 +1536,7 @@ function VendorCard({
   const basisLine = selfAdded || priceLine?.follow ? priceLine : null;
   const look = useContext(ServiceCardCtx);
   const svc = look.face ? (look.cards?.[v.vendorId] ?? null) : null;
+  const mallEvent = useContext(MallEventCtx);
   const hasRecordedPrice = v.totalCostPhp != null && v.totalCostPhp > 0;
   // The recorded price, drawn ONCE (the-bench-card-keeps-everything pins it to one span) — bare as shipped, or
   // inside the price-basis line when an agreed count follows it.
@@ -1548,6 +1606,133 @@ function VendorCard({
     });
   }
 
+  // ── EVERY PIECE OF THE CARD, BUILT ONCE ───────────────────────────────────
+  // 🃏 Card 14 (owner 20 Nov, "card 14 approved" · "Do it"): on the one-screen page (`look.face`, the `.fold.flat`
+  // column) the bench card wears the MALL face — `MallFaceBody`, the same body `ServiceFace layout="mall"` draws, so
+  // Find and Discover show one card. The pre-replan bench keeps its shipped shape. Each piece below is built ONCE and
+  // placed by whichever shape is drawn (`the-bench-card-keeps-everything.test.ts` counts them).
+  const photo = v.photoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={v.photoUrl} alt="" loading="lazy" />
+  ) : (
+    <span className="ini">{initials(v.name)}</span>
+  );
+  // PR-H · "★ Chosen" is a claim about a settled booking. An ask is not
+  // one, so the corner says what is true instead of borrowing the word
+  // for a supplier who has not answered and may decline.
+  const corner =
+    v.status === 'locked' ? (
+      <span className="pcorner">★ Chosen</span>
+    ) : v.lockRequestState === 'requested' ? (
+      <span className="pcorner">Asked</span>
+    ) : null;
+  const reasonPill = reason && v.status !== 'locked' ? <span className={`rpill ${reason.tone}`}>{reason.label}</span> : null;
+  const cityEl = v.city ? (
+    <span className="sub">
+      <MapPin size={11} strokeWidth={1.75} aria-hidden /> {v.city}
+    </span>
+  ) : null;
+  const ratingEl =
+    v.rating != null ? (
+      <span className="stars">
+        <Star size={11} strokeWidth={1.75} aria-hidden /> {v.rating.toFixed(1)}
+        {v.reviewCount != null ? ` · ${formatCount(v.reviewCount)}` : ''}
+      </span>
+    ) : typeof v.reviewCount === 'number' ? (
+      // 0 reviews on a real marketplace pick — "New", never a fake
+      // 0.0 (owner ruling 2026-09-11). reviewCount is only ever a known
+      // number for a marketplace-linked vendor (never an off-platform /
+      // manual pick, which carries no enrichment at all).
+      // 📖 CYC-15b (owner 2026-11-15): "New to Setnayan" only for a shop with NO bookings; "No reviews yet" otherwise.
+      <span className="stars">{v.bookedCount === 0 ? NEW_TO_SETNAYAN_LABEL : NO_REVIEWS_YET_LABEL}</span>
+    ) : null;
+  // On the mall face Verified is the pill on the photo (it leaves this row); Setnayan stays a badge.
+  const badgesEl =
+    v.isVerified || v.isSetnayan ? (
+      <span className="badges">
+        {v.isSetnayan ? (
+          <span className="bdg setnayan">
+            <Sparkles size={12} strokeWidth={2} aria-hidden /> Setnayan
+          </span>
+        ) : null}
+        {v.isVerified && !look.face ? (
+          <span className="bdg verified">
+            <BadgeCheck size={12} strokeWidth={2} aria-hidden /> Verified
+          </span>
+        ) : null}
+      </span>
+    ) : null;
+  // v2 (owner 2026-11-13): the card's own total, then what was agreed — "₱162,000 · 120 guests agreed" /
+  // "₱30,000 · 5 hours agreed". One price span, so the bench card still draws the number exactly once.
+  const recordedPrice = hasRecordedPrice ? (
+    !basisLine?.follow && agreedSuffix(basisLine) ? (
+      <span data-price-basis-line="">
+        {priceEl}{' '}
+        <span className="sc-price">· {agreedSuffix(basisLine)}</span>
+      </span>
+    ) : (
+      priceEl
+    )
+  ) : null;
+  // The decided after-claim line (owner 13 Nov: "Yes, follow it") — only while it is still the couple's record.
+  // 👥 After the claim (20271343652941): a per-guest total follows the guest list — one line saying why.
+  const recordLine =
+    basisLine?.follow && hasRecordedPrice && guestFollowLine(basisLine.follow) ? (
+      <span className="sc-rec" data-guest-follow="">
+        {guestFollowLine(basisLine.follow)}
+      </span>
+    ) : basisLine && hasRecordedPrice ? (
+      <span className="sc-rec" data-price-basis-after={basisLine.basis}>
+        {afterClaim(basisLine.basis).line}
+      </span>
+    ) : null;
+  // No price recorded with THIS couple yet → the service card's own price. Withheld by the shop, or never set →
+  // "Price on request", and only when the cards were actually read.
+  const cardPriceMissing =
+    look.face && !hasRecordedPrice && !v.includedWith && !svc?.priceText
+      ? selfAdded
+        ? 'No price recorded'
+        : look.cards
+          ? PRICE_ON_REQUEST
+          : null
+      : null;
+  // The same supplier, shown again in a category their package also covers. No price here by design — it is one
+  // booking with one price, which lives on the card in the category it was added under.
+  const includedWithEl = v.includedWith ? <span className="incl">Included with {v.includedWith}</span> : null;
+  // PR-G1 — the vendor's own free days inside the couple's date window, in the bench's mono voice. Renders only when
+  // there IS a signal; a calendar we could not read stays silent rather than guessing.
+  const datesEl = <CardDateBlock line={v.freeDaysLine} dates={dates ?? null} name={v.name} />;
+  // A supplier the couple added themselves: what they typed is THEIR RECORD, not a booking — and where their claim
+  // link stands (owner 2026-10-10: the couple is told when the supplier declines or never answers). Only drawn in the
+  // one-screen shape, for a self-added card.
+  const ownRecordEl =
+    look.face && selfAdded ? (
+      <span className="sc-rec" data-own-record="">
+        {ownRecordLine(v.status === 'locked')}
+      </span>
+    ) : null;
+  // …and once they have joined through it the card is no longer self-added, but it still says where this shop came from.
+  const inviteEl =
+    look.face && inviteStatuses !== undefined && (selfAdded || inviteStatuses?.[v.vendorId]?.key === 'joined') ? (
+      inviteStatuses === null ? (
+        <span className="sc-link" data-invite-status="unread">
+          {INVITE_STATUS_UNREAD_LINE}
+        </span>
+      ) : inviteStatuses[v.vendorId] ? (
+        <span className={`sc-link t-${inviteStatuses[v.vendorId]!.tone}`} data-invite-status={inviteStatuses[v.vendorId]!.key}>
+          {inviteStatuses[v.vendorId]!.key === 'joined' ? joinedLine(svc != null) : inviteStatuses[v.vendorId]!.line}
+        </span>
+      ) : null
+    ) : null;
+  // Where you stand — the last line of the meta block, under the dates. The couple's eye lands on the photo, then
+  // the name, then this.
+  const standingEl = <CardStanding standing={standing ?? null} />;
+  const fitEl = <FitBadges v={v} />;
+  const unreadEl = <UnreadBadge threadId={v.threadId} />;
+  // 📍 Card 14: "about N km from your venue" — straight line from the shop's nearest place (HQ or a live branch) to
+  // the event's venue (page.tsx). No venue → the line asks for one; no shop place → nothing.
+  const distanceLine = look.face ? aboutKmLine(v.distanceKm) : null;
+
   const card = (
     // Desktop inspector trigger (Merkado phase 3): at ≥xl a plain click opens the
     // vendor's quick-view in the sticky inspector column instead of navigating;
@@ -1556,7 +1741,7 @@ function VendorCard({
     <InspectorTrigger
       inspectId={`v:${v.vendorId}`}
       href={v.href}
-      className="vc"
+      className={look.face ? 'vc mall' : 'vc'}
       // Replaces the trigger's own click (its props spread AFTER it) — only for
       // a self-added supplier. Every other card keeps the inspector untouched.
       {...(selfAdded ? { onClick: openDetails, 'aria-busy': detailsLoading || undefined }
@@ -1564,163 +1749,66 @@ function VendorCard({
           ? { onClick: openSheet, 'aria-haspopup': svc?.detailsHref ? undefined : ('dialog' as const) }
           : {})}
     >
-      <span className="img">
-        {v.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={v.photoUrl} alt="" loading="lazy" />
-        ) : (
-          <span className="ini">{initials(v.name)}</span>
-        )}
-        {/* PR-H · "★ Chosen" is a claim about a settled booking. An ask is not
-            one, so the corner says what is true instead of borrowing the word
-            for a supplier who has not answered and may decline. */}
-        {v.status === 'locked' ? (
-          <span className="pcorner">★ Chosen</span>
-        ) : v.lockRequestState === 'requested' ? (
-          <span className="pcorner">Asked</span>
-        ) : null}
-        {reason && v.status !== 'locked' ? (
-          <span className={`rpill ${reason.tone}`}>{reason.label}</span>
-        ) : null}
-      </span>
-      <span className="meta">
-        {/* The service's own name leads (the supplier's title, else the
-            category), with its running offer beside it. A card with no service
-            card — added by the couple, or not linked to one — is named by the
-            category it sits in. */}
-        {look.face ? (
-          <span className="sc-name">
-            {svc?.name ?? tileLabel}
-            {svc?.discountBadge ? <span className="sc-disc">{svc.discountBadge}</span> : null}
+      {look.face ? (
+        <MallFaceBody
+          cover={photo}
+          coverCorner={corner || reasonPill ? <span className="mcorner">{corner}{reasonPill}</span> : null}
+          verified={v.isVerified === true}
+          shop={{ name: v.name, href: null, logoUrl: null }}
+          city={v.city}
+          name={svc?.name ?? tileLabel}
+          discount={hasRecordedPrice ? null : (svc?.discountBadge ?? null)}
+          price={
+            hasRecordedPrice || v.includedWith || !svc?.priceText
+              ? null
+              : mallPrice({ perGuest: svc.perGuest ?? null, guests: mallEvent.guests, price: svc.priceText, priceNote: null })
+          }
+          priceSlot={recordedPrice}
+          priceMissing={cardPriceMissing}
+          rating={ratingEl}
+          extra={
+            <>
+              {unreadEl}
+              {selfAdded ? <span className="sc-own">added by you</span> : null}
+              {badgesEl}
+              {recordLine}
+              {includedWithEl}
+              {ownRecordEl}
+              {inviteEl}
+              {standingEl}
+            </>
+          }
+          lines={
+            <>
+              {fitEl}
+              {datesEl}
+            </>
+          }
+          distance={distanceLine}
+          askVenue={mallEvent.askVenue}
+        />
+      ) : (
+        <>
+          <span className="img">
+            {photo}
+            {corner}
+            {reasonPill}
           </span>
-        ) : null}
-        <span className="vn">{v.name}</span>
-        <UnreadBadge threadId={v.threadId} />
-        {look.face && selfAdded ? <span className="sc-own">added by you</span> : null}
-        {v.city ? (
-          <span className="sub">
-            <MapPin size={11} strokeWidth={1.75} aria-hidden /> {v.city}
+          <span className="meta">
+            <span className="vn">{v.name}</span>
+            {unreadEl}
+            {cityEl}
+            {ratingEl}
+            {badgesEl}
+            {fitEl}
+            {recordedPrice}
+            {recordLine}
+            {includedWithEl}
+            {datesEl}
+            {standingEl}
           </span>
-        ) : null}
-        {v.rating != null ? (
-          <span className="stars">
-            <Star size={11} strokeWidth={1.75} aria-hidden /> {v.rating.toFixed(1)}
-            {v.reviewCount != null ? ` · ${formatCount(v.reviewCount)}` : ''}
-          </span>
-        ) : typeof v.reviewCount === 'number' ? (
-          // 0 reviews on a real marketplace pick — "New", never a fake
-          // 0.0 (owner ruling 2026-09-11). reviewCount is only ever a known
-          // number for a marketplace-linked vendor (never an off-platform /
-          // manual pick, which carries no enrichment at all).
-          // 📖 CYC-15b (owner 2026-11-15): "New to Setnayan" only for a shop with NO bookings; "No reviews yet" otherwise.
-          <span className="stars">{v.bookedCount === 0 ? NEW_TO_SETNAYAN_LABEL : NO_REVIEWS_YET_LABEL}</span>
-        ) : null}
-        {v.isVerified || v.isSetnayan ? (
-          <span className="badges">
-            {v.isSetnayan ? (
-              <span className="bdg setnayan">
-                <Sparkles size={12} strokeWidth={2} aria-hidden /> Setnayan
-              </span>
-            ) : null}
-            {v.isVerified ? (
-              <span className="bdg verified">
-                <BadgeCheck size={12} strokeWidth={2} aria-hidden /> Verified
-              </span>
-            ) : null}
-          </span>
-        ) : null}
-        <FitBadges v={v} />
-        {/* v2 (owner 2026-11-13): the card's own total, then what was agreed — "₱162,000 · 120 guests agreed" /
-            "₱30,000 · 5 hours agreed". One price span, so the bench card still draws the number exactly once. */}
-        {hasRecordedPrice ? (
-          !basisLine?.follow && agreedSuffix(basisLine) ? (
-            <span data-price-basis-line="">
-              {priceEl}{' '}
-              <span className="sc-price">· {agreedSuffix(basisLine)}</span>
-            </span>
-          ) : (
-            priceEl
-          )
-        ) : null}
-        {/* The decided after-claim line (owner 13 Nov: "Yes, follow it") — only while it is still the couple's record. */}
-        {/* 👥 After the claim (20271343652941): a per-guest total follows the guest list — one line saying why. */}
-        {basisLine?.follow && hasRecordedPrice && guestFollowLine(basisLine.follow) ? (
-          <span className="sc-rec" data-guest-follow="">
-            {guestFollowLine(basisLine.follow)}
-          </span>
-        ) : basisLine && hasRecordedPrice ? (
-          <span className="sc-rec" data-price-basis-after={basisLine.basis}>
-            {afterClaim(basisLine.basis).line}
-          </span>
-        ) : null}
-        {/* No price recorded with THIS couple yet → the service card's own
-            "from ₱X". Withheld by the shop, or never set → "Price on request",
-            and only when the cards were actually read. */}
-        {look.face && !hasRecordedPrice && !v.includedWith ? (
-          svc?.priceText ? (
-            <span className="sc-price">{svc.priceText}</span>
-          ) : selfAdded ? (
-            <span className="sc-price none">No price recorded</span>
-          ) : look.cards ? (
-            <span className="sc-price none">{PRICE_ON_REQUEST}</span>
-          ) : null
-        ) : null}
-        {svc?.includesLine ? (
-          <span className="sc-inc">
-            <Gift size={12} strokeWidth={1.75} aria-hidden />
-            <span>{svc.includesLine}</span>
-          </span>
-        ) : null}
-        {/* 🧾 CYC-15 (walk 13 Nov): the card's static "Not included" is the SERVICE CARD's word — once this couple has a
-            recorded price (a quote, a deal, a booking) the quote's own lines are the truth, and "Not included: crew meal"
-            beside a quote that charges it said the opposite of what they were billed. */}
-        {svc && svc.notIncluded.length > 0 && !hasRecordedPrice ? (
-          <span className="sc-not">
-            <AlertCircle size={12} strokeWidth={1.75} aria-hidden />
-            <span>Not included: {svc.notIncluded.join(' · ')}</span>
-          </span>
-        ) : null}
-        {/* The one shared sentence — never re-typed, never a number. */}
-        {svc?.givesSetnayanGift ? <SetnayanGiftLine className="sc-gift" /> : null}
-        {/* The same supplier, shown again in a category their package also
-            covers. No price here by design — it is one booking with one price,
-            which lives on the card in the category it was added under. */}
-        {v.includedWith ? (
-          <span className="incl">Included with {v.includedWith}</span>
-        ) : null}
-        {/* PR-G1 — the vendor's own free days inside the couple's date window,
-            in the bench's mono voice. Renders only when there IS a signal; a
-            calendar we could not read stays silent rather than guessing. */}
-        <CardDateBlock line={v.freeDaysLine} dates={dates ?? null} name={v.name} />
-        {/* A supplier the couple added themselves: what they typed is THEIR
-            RECORD, not a booking — and where their claim link stands (owner
-            2026-10-10: the couple is told when the supplier declines or never
-            answers). Only drawn in the one-screen shape, for a self-added card. */}
-        {look.face && selfAdded ? (
-          <span className="sc-rec" data-own-record="">
-            {ownRecordLine(v.status === 'locked')}
-          </span>
-        ) : null}
-        {/* …and once they have joined through it the card is no longer
-            self-added, but it still says where this shop came from. */}
-        {look.face && inviteStatuses !== undefined && (selfAdded || inviteStatuses?.[v.vendorId]?.key === 'joined') ? (
-          inviteStatuses === null ? (
-            <span className="sc-link" data-invite-status="unread">
-              {INVITE_STATUS_UNREAD_LINE}
-            </span>
-          ) : inviteStatuses[v.vendorId] ? (
-            <span
-              className={`sc-link t-${inviteStatuses[v.vendorId]!.tone}`}
-              data-invite-status={inviteStatuses[v.vendorId]!.key}
-            >
-              {inviteStatuses[v.vendorId]!.key === 'joined' ? joinedLine(svc != null) : inviteStatuses[v.vendorId]!.line}
-            </span>
-          ) : null
-        ) : null}
-        {/* Where you stand — the last line of the meta block, under the dates.
-            The couple's eye lands on the photo, then the name, then this. */}
-        <CardStanding standing={standing ?? null} />
-      </span>
+        </>
+      )}
     </InspectorTrigger>
   );
   // Flag OFF (or nothing to offer) → the card is the whole render, unwrapped,
@@ -1873,6 +1961,25 @@ function VendorCard({
  * availability landed 2026-07-09 as the fast-follow to reach+budget — the fit is
  * computed batched upstream (page.tsx, one calendar query for the whole bench).
  */
+/**
+ * 🔖 A bench supplier goes first in line (`lib/saved-first.ts`): saved (a marketplace shop on the list, not yet
+ * chosen), the SAME reach read the card's badge draws in range, and free on the date. Unknown is not true.
+ */
+function benchSavedGoesFirst(v: ShortlistVendor): boolean {
+  return savedGoesFirst({
+    saved: v.status === 'considering' && v.marketplaceVendorId != null,
+    inReach:
+      resolveReachBadge({
+        distanceKm: v.distanceKm,
+        innerKm: v.innerRadiusKm,
+        outerKm: v.outerRadiusKm,
+        reachesVenue: v.reachesVenue,
+        serviceRadiusKm: v.serviceRadiusKm,
+      })?.inRange ?? null,
+    freeOnDate: v.dateFit === 'free' ? true : v.dateFit == null ? null : false,
+  });
+}
+
 function FitBadges({ v }: { v: ShortlistVendor }) {
   // "Taken on Dec 12" for the couple's committed day (owner 13 Nov 2026); null → "Booked that day".
   const takenOn = useContext(TakenOnCtx);
@@ -2041,6 +2148,7 @@ function InlineMoreCard({
   // The service card's own cover first; else the photo the search resolved.
   // No cover of its own but showcase photos → the first photo, not the shop's logo (the marketplace's C2 rule).
   const cover = svc?.coverUrl ?? svc?.photos?.[0] ?? benchCardImage(v);
+  const mallEvent = useContext(MallEventCtx);
   return (
     <div className={`vcw mrc${sunk ? ' is-dim' : ''}${busy ? ' is-busy' : ''}`}>
       {/* THE ONE FACE (owner 12 Nov, "ONE SERVICE CARD, EVERYWHERE") — Find's card IS the template, and it is now drawn
@@ -2050,6 +2158,14 @@ function InlineMoreCard({
         name={svc?.name || label}
         coverUrl={cover}
         photos={svc?.photos ?? null}
+        // 🃏 Card 14 (owner 20 Nov) — the same mall face the bench card above wears.
+        layout="mall"
+        mallPrice={
+          svc?.priceText ? mallPrice({ perGuest: svc.perGuest ?? null, guests: mallEvent.guests, price: svc.priceText, priceNote: null }) : null
+        }
+        // No venue pin → the search measured from the region's centre, not a venue: ask for the venue instead.
+        distance={mallEvent.askVenue ? null : aboutKmLine(v.distanceKm)}
+        askVenue={mallEvent.askVenue}
         coverCorner={
           v.boosted ? (
             <span className="inline-block rounded-full bg-mulberry px-2 py-0.5 text-xs uppercase tracking-wide text-cream">
@@ -2911,6 +3027,7 @@ export function ShortlistCategories({
   onePerEventGroups = [],
   inspiration = null,
   takenOnLabel = null,
+  mallEvent = NO_MALL_EVENT,
 }: {
   /**
    * Unread messages per chat thread for this event, and whether we know them.
@@ -3055,6 +3172,8 @@ export function ShortlistCategories({
   /** "Taken on Dec 12" for the couple's committed day (owner 13 Nov 2026) — the badge on a supplier whose calendar
    *  shows it taken. Null/absent → "Booked that day", as before. */
   takenOnLabel?: string | null;
+  /** 🃏 Card 14 — the event's estimated guest count and whether its venue is set (`MallEventCtx`). */
+  mallEvent?: MallEvent;
   /**
    * The plan groups that are ONE PER EVENT — the categories' switch (`service_categories.one_per_event`, owner
    * 2026-10-29), read on the server (lib/one-per-event.ts). An array: it crosses to the client. Absent → none, so
@@ -4168,6 +4287,7 @@ export function ShortlistCategories({
     <InviteStatusCtx.Provider value={inviteStatusByVendorId}>
     <PriceLineCtx.Provider value={selfAddedPriceLines}>
     <ServiceCardCtx.Provider value={serviceLook}>
+    <MallEventCtx.Provider value={mallEvent}>
     <div className="slcat" ref={benchRef}>
       <style>{SLCAT_CSS}</style>
       {/* The remove confirm. It must live INSIDE the rendered tree or
@@ -4485,8 +4605,15 @@ export function ShortlistCategories({
                       ? t.vendors.filter((v) => v.name.toLowerCase().includes(scopedQ))
                       : t.vendors;
                   const scopedNone = scopedQ.length > 0 && scopeTile === t.tile && railVendors.length === 0;
+                  // 🔖 Saved first (owner 20 Nov): a supplier saved to this event leads the rail — only when the venue is
+                  // in their reach AND they are free on the date (`lib/saved-first.ts`). Then the couple's own pins.
                   const arrangedRail = applyBenchArrangement(
-                    sortWithReasons(railVendors, effectiveSort, sortShapeFor<ShortlistVendor>((v) => v.ceremonyDistanceKm ?? null)),
+                    savedFirst(
+                      sortWithReasons(railVendors, effectiveSort, sortShapeFor<ShortlistVendor>((v) => v.ceremonyDistanceKm ?? null)),
+                      ({ v }) => benchSavedGoesFirst(v),
+                      // ★ Chosen stays first (6 Sep hoist ruling); saved go next.
+                      ({ v }) => v.status === 'locked',
+                    ),
                     tilePins,
                     (e) => e.v.vendorId,
                   );
@@ -5378,6 +5505,7 @@ export function ShortlistCategories({
         <SupplierSheet eventId={eventId} target={sheetTarget} load={loadSheet} onClose={() => setSheetTarget(null)} />
       ) : null}
     </div>
+    </MallEventCtx.Provider>
     </ServiceCardCtx.Provider>
     </PriceLineCtx.Provider>
     </InviteStatusCtx.Provider>

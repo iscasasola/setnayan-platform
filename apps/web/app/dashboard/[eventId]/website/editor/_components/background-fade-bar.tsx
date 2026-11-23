@@ -103,7 +103,7 @@ export function BgFadeBar({
               data-bg-fade-as-is=""
               disabled={disabled}
               onClick={toCentre}
-              className="sn-press relative inline-flex h-8 min-h-0 shrink-0 items-center gap-1.5 rounded-full bg-white px-3 text-[12.5px] font-semibold text-ink ring-1 ring-ink/15 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-[''] disabled:opacity-40"
+              className="sn-press relative inline-flex h-8 min-h-0 shrink-0 items-center gap-1.5 rounded-full bg-raised px-3 text-[12.5px] font-semibold text-ink ring-1 ring-ink/15 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-[''] disabled:opacity-40"
             >
               <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               As is
@@ -163,7 +163,7 @@ export function BgFadeBar({
         <span aria-hidden className="absolute inset-x-[14px] h-1.5 rounded-full bg-[linear-gradient(90deg,#141210_0%,#8e8880_50%,#ffffff_100%)] ring-1 ring-black/10" />
         <span aria-hidden data-bg-fade-centre="" className="absolute left-1/2 top-1.5 bottom-1.5 w-0.5 -translate-x-1/2 rounded-full bg-ink/70" />
         <span aria-hidden className="absolute left-[7px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-[#141210] ring-1 ring-black/20" />
-        <span aria-hidden className="absolute right-[7px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-white ring-1 ring-black/20" />
+        <span aria-hidden className="absolute right-[7px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-raised ring-1 ring-black/20" />
         {/* The thumb: a 44-px target around the 28-px circle, riding the line between its two ends. */}
         <span aria-hidden className="pointer-events-none absolute inset-x-[22px] inset-y-0">
           <span
@@ -171,7 +171,7 @@ export function BgFadeBar({
             className="absolute top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center"
             style={{ left: `${fadePercent(at)}%` }}
           >
-            <i className={`block h-7 w-7 rounded-full border-2 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.25)] ${at === 0 ? 'border-terracotta-700' : 'border-ink'}`} />
+            <i className={`block h-7 w-7 rounded-full border-2 bg-raised shadow-[0_1px_3px_rgba(0,0,0,0.25)] ${at === 0 ? 'border-terracotta-700' : 'border-ink'}`} />
           </span>
         </span>
       </div>

@@ -31,13 +31,13 @@
 [data-growth] .ag-lanes .ag-base { stroke: var(--ag-ink-10); stroke-width: 1; }
 [data-growth] .ag-lanes .ag-ghost { font: 500 12px var(--sn-font, inherit); fill: var(--ag-ink-45); }
 [data-growth] .ag-lanes .ag-xl { font: 500 10px var(--sn-font, inherit); fill: var(--ag-ink-55); }
-[data-growth] .ag-lanes .ag-vline { fill: none; stroke: var(--m-orange); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
-[data-growth] .ag-lanes .ag-varea { fill: var(--m-orange-4); opacity: 0.9; }
-[data-growth] .ag-lanes .ag-vdot { fill: var(--m-orange-2); }
-[data-growth] .ag-lanes .ag-abar { fill: rgb(var(--sn-accent)); }
-[data-growth] .ag-lanes .ag-bbar { fill: var(--m-orange-2); }
+[data-growth] .ag-lanes .ag-vline { fill: none; stroke: rgb(var(--color-chart-opened)); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+[data-growth] .ag-lanes .ag-varea { fill: rgb(var(--color-chart-opened) / 0.14); }
+[data-growth] .ag-lanes .ag-vdot { fill: rgb(var(--color-chart-opened)); }
+[data-growth] .ag-lanes .ag-abar { fill: rgb(var(--color-chart-opened)); }
+[data-growth] .ag-lanes .ag-bbar { fill: rgb(var(--color-chart-booked)); }
 /* J5 · the Invites graph's third series — suppliers you invited who completed an event. */
-[data-growth] .ag-lanes .ag-cbar { fill: rgb(var(--color-ok)); }
+[data-growth] .ag-lanes .ag-cbar { fill: rgb(var(--color-ink)); }
 [data-growth] .ag-lanes .ag-ghostline { stroke: var(--ag-ink-22); stroke-width: 1.2; stroke-dasharray: 3 4; }
 [data-growth] .ag-say { font-size: 16px; line-height: 1.4; margin: 10px 0 0; color: var(--ag-ink-75); text-wrap: pretty; }
 [data-growth] .ag-say b { color: rgb(var(--color-ink)); font-weight: 700; }
@@ -95,7 +95,7 @@
 
 /* ── FILLS (Fill / .meter-fill) ── */
 [data-growth] .ag-track { height: 10px; border-radius: var(--m-r-full); background: var(--ag-ink-6); overflow: hidden; position: relative; }
-[data-growth] .ag-track > .meter-fill { height: 100%; border-radius: var(--m-r-full); background: var(--m-orange); }
+[data-growth] .ag-track > .meter-fill { height: 100%; border-radius: var(--m-r-full); background: rgb(var(--color-chart-opened)); }
 [data-growth] .ag-track.ag-thin { height: 6px; }
 [data-growth] .ag-track.ag-dashed { background: none; border: 1.5px dashed var(--ag-ink-22); overflow: visible; }
 [data-growth] .ag-ghost-t { font-size: 12.5px; color: var(--ag-ink-45); }
@@ -112,7 +112,7 @@
 [data-growth] .ag-funnel ul { padding: 0; margin: 4px 0 0; list-style: none; }
 [data-growth] .ag-funnel li { margin: 0 0 12px; }
 [data-growth] .ag-funnel .ag-fr { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 5px; font-size: 14px; font-weight: 500; }
-[data-growth] .ag-funnel .ag-fr .ag-pct { font-size: 12px; color: var(--m-orange-2); margin-right: 8px; font-variant-numeric: tabular-nums; display: inline-block; }
+[data-growth] .ag-funnel .ag-fr .ag-pct { font-size: 12px; color: rgb(var(--color-ink-3)); margin-right: 8px; font-variant-numeric: tabular-nums; display: inline-block; }
 [data-growth] .ag-funnel .ag-fr .ag-n { font-variant-numeric: tabular-nums; font-weight: 600; }
 [data-growth] .ag-funnel .ag-ghostrow .ag-fr { color: var(--ag-ink-55); }
 [data-growth] .ag-funnel .ag-ghostrow .ag-ghost-t { margin: 5px 0 0; }
@@ -122,7 +122,7 @@
 [data-growth] .ag-gauge svg { width: 168px; height: 100px; flex: none; overflow: visible; }
 [data-growth] .ag-gauge .ag-gtrk { fill: none; stroke: var(--ag-ink-6); stroke-width: 12; stroke-linecap: round; }
 [data-growth] .ag-gauge .ag-gtrk.ag-ghost { stroke-width: 1.5; stroke-dasharray: 3 5; stroke: var(--ag-ink-22); }
-[data-growth] .ag-gauge .ag-gval { fill: none; stroke: var(--m-orange); stroke-width: 12; stroke-linecap: round; }
+[data-growth] .ag-gauge .ag-gval { fill: none; stroke: rgb(var(--color-chart-asked)); stroke-width: 12; stroke-linecap: round; }
 [data-growth] .ag-gauge .ag-ndl { stroke: rgb(var(--color-ink)); stroke-width: 2.5; stroke-linecap: round; transform-origin: 84px 88px; }
 [data-growth] .ag-gauge .ag-ndl.ag-ghost { stroke: var(--ag-ink-22); }
 [data-growth] .ag-gauge .ag-hub { fill: rgb(var(--color-ink)); }
@@ -141,32 +141,32 @@
 [data-growth] .ag-cal-m { display: grid; grid-template-columns: repeat(13, 1fr); gap: 3px; font-size: 12px; color: var(--ag-ink-55); margin: 0 0 4px; font-weight: 600; }
 [data-growth] .ag-cal { display: grid; grid-template-columns: repeat(13, 1fr); grid-template-rows: repeat(7, 1fr); grid-auto-flow: column; gap: 3px; }
 [data-growth] .ag-cc { aspect-ratio: 1; border-radius: var(--m-r-xs); background: var(--ag-ink-6); position: relative; }
-[data-growth] .ag-cc.ag-on { background: var(--m-orange); }
-[data-growth] .ag-cc.ag-on2 { background: var(--m-orange-2); }
-[data-growth] .ag-cc.ag-wait::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; border: 2.2px solid rgb(var(--sn-accent)); }
-[data-growth] .ag-cc.ag-today::before { content: ''; position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: rgb(var(--sn-accent)); }
+[data-growth] .ag-cc.ag-on { background: rgb(var(--color-chart-booked)); }
+[data-growth] .ag-cc.ag-on2 { background: rgb(var(--color-chart-booked)); box-shadow: inset 0 0 0 2px rgb(var(--color-chart-booked) / 0.45); }
+[data-growth] .ag-cc.ag-wait::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; border: 2.2px solid rgb(var(--color-chart-asked)); }
+[data-growth] .ag-cc.ag-today::before { content: ''; position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: rgb(var(--color-ink)); }
 [data-growth] .ag-cal-k { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ag-ink-55); margin-top: 8px; }
-[data-growth] .ag-cal-k i { display: inline-block; width: 10px; height: 10px; border-radius: var(--m-r-xs); background: var(--m-orange); vertical-align: -1px; margin-right: 5px; }
-[data-growth] .ag-cal-k i.ag-w { background: none; border: 2px solid rgb(var(--sn-accent)); border-radius: 50%; }
+[data-growth] .ag-cal-k i { display: inline-block; width: 10px; height: 10px; border-radius: var(--m-r-xs); background: rgb(var(--color-chart-booked)); vertical-align: -1px; margin-right: 5px; }
+[data-growth] .ag-cal-k i.ag-w { background: none; border: 2px solid rgb(var(--color-chart-asked)); border-radius: 50%; }
 [data-growth] .ag-cal-k i.ag-t { background: none; position: relative; }
-[data-growth] .ag-cal-k i.ag-t::before { content: ''; position: absolute; left: 3px; bottom: 0; width: 4px; height: 4px; border-radius: 50%; background: rgb(var(--sn-accent)); }
+[data-growth] .ag-cal-k i.ag-t::before { content: ''; position: absolute; left: 3px; bottom: 0; width: 4px; height: 4px; border-radius: 50%; background: rgb(var(--color-ink)); }
 
 /* §5 stars + rings · §6 ring + rail */
 [data-growth] .ag-rep { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 [data-growth] .ag-stars { position: relative; display: inline-block; height: 30px; width: 156px; }
 [data-growth] .ag-stars svg { width: 156px; height: 30px; display: block; }
 [data-growth] .ag-stars .ag-outl { fill: none; stroke: var(--ag-ink-22); stroke-width: 1.4; }
-[data-growth] .ag-stars .ag-full { fill: var(--m-orange); stroke: var(--m-orange); stroke-width: 1.4; }
+[data-growth] .ag-stars .ag-full { fill: rgb(var(--color-chart-asked)); stroke: rgb(var(--color-chart-asked)); stroke-width: 1.4; }
 [data-growth] .ag-stars .ag-fillw { position: absolute; left: 0; top: 0; height: 100%; overflow: hidden; }
 [data-growth] .ag-starl { font-size: 13px; color: var(--ag-ink-62); margin-top: 6px; }
 [data-growth] .ag-ringwrap { position: relative; flex: none; }
 [data-growth] .ag-ringwrap svg { transform: rotate(-90deg); display: block; }
 [data-growth] .ag-ringwrap .ag-rtrk { fill: none; stroke: var(--ag-ink-6); }
 [data-growth] .ag-ringwrap .ag-rtrk.ag-ghost { stroke: var(--ag-ink-22); stroke-dasharray: 3 6; }
-[data-growth] .ag-ringwrap .ag-rval { fill: none; stroke: var(--m-orange); stroke-linecap: round; }
+[data-growth] .ag-ringwrap .ag-rval { fill: none; stroke: rgb(var(--color-chart-booked)); stroke-linecap: round; }
 [data-growth] .ag-ringwrap .ag-lbl { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; line-height: 1; }
 [data-growth] .ag-ringwrap .ag-lbl b { font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-[data-growth] .ag-ringwrap .ag-lbl small { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--m-orange-2); margin-top: 3px; }
+[data-growth] .ag-ringwrap .ag-lbl small { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgb(var(--color-chart-booked)); margin-top: 3px; }
 [data-growth] .ag-ringwrap .ag-lbl .ag-ghost { color: var(--ag-ink-45); }
 [data-growth] .ag-ringwrap .ag-ring-big,
 [data-growth] .ag-ringwrap .ag-ringn { font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
@@ -178,9 +178,9 @@
 [data-growth] .ag-pil { display: grid; grid-template-columns: 96px 1fr 30px; gap: 8px 10px; align-items: center; font-size: 12.5px; margin-top: 4px; }
 [data-growth] .ag-pil .ag-track { height: 7px; }
 [data-growth] .ag-pil .ag-n { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
-[data-growth] .ag-rail { position: relative; height: 10px; border-radius: var(--m-r-full); margin: 18px 0 6px; background: linear-gradient(90deg, color-mix(in srgb, var(--m-orange) 25%, transparent), var(--m-orange), color-mix(in srgb, var(--m-orange) 25%, transparent)); }
+[data-growth] .ag-rail { position: relative; height: 10px; border-radius: var(--m-r-full); margin: 18px 0 6px; background: linear-gradient(90deg, rgb(var(--color-chart-quiet) / 0.25), rgb(var(--color-chart-quiet)), rgb(var(--color-chart-quiet) / 0.25)); }
 [data-growth] .ag-rail.ag-ghost { background: none; border: 1.5px dashed var(--ag-ink-22); }
-[data-growth] .ag-rail .ag-me { position: absolute; top: -5px; left: 0; width: 20px; height: 20px; border-radius: 50%; background: rgb(var(--sn-accent)); border: 3px solid rgb(var(--color-raised)); transform: translateX(-50%); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); }
+[data-growth] .ag-rail .ag-me { position: absolute; top: -5px; left: 0; width: 20px; height: 20px; border-radius: 50%; background: rgb(var(--color-ink)); border: 3px solid rgb(var(--color-raised)); transform: translateX(-50%); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); }
 [data-growth] .ag-rail-l { display: flex; justify-content: space-between; font-size: 12px; color: var(--ag-ink-62); }
 [data-growth] .ag-cmp { display: flex; align-items: center; gap: 16px; }
 
@@ -190,8 +190,8 @@
 [data-growth] .ag-attr .ag-ar small { font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 58%, transparent); font-weight: 400; }
 [data-growth] .ag-attr .ag-am { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 [data-growth] .ag-attr .ag-am .ag-track { flex: 1; height: 28px; border-radius: var(--m-r-sm); }
-[data-growth] .ag-attr .ag-am .ag-track > i { display: block; height: 100%; border-radius: var(--m-r-sm); background: var(--m-orange); }
-[data-growth] .ag-attr .ag-am .ag-track.ag-own > i { background: var(--m-slate-4); }
+[data-growth] .ag-attr .ag-am .ag-track > i { display: block; height: 100%; border-radius: var(--m-r-sm); background: rgb(var(--color-chart-booked)); }
+[data-growth] .ag-attr .ag-am .ag-track.ag-own > i { background: rgb(var(--color-chart-quiet)); }
 [data-growth] .ag-attr .ag-am .ag-php { width: 92px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; font-size: 14px; flex: none; }
 [data-growth] .ag-heat { display: grid; grid-template-columns: 28px repeat(8, 1fr); gap: 3px; margin-top: 6px; font-size: 12px; color: var(--ag-ink-62); }
 [data-growth] .ag-heat .ag-c { height: 20px; border-radius: var(--m-r-xs); border: 0.5px solid var(--m-line); background: var(--m-paper); }
@@ -201,10 +201,10 @@
 [data-growth] .ag-dist { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
 [data-growth] .ag-dist .ag-s { width: 26px; font-size: 12px; color: var(--ag-ink-62); }
 [data-growth] .ag-dist .ag-track { flex: 1; height: 10px; border-radius: var(--m-r-xs); }
-[data-growth] .ag-dist .ag-track > i { display: block; height: 100%; border-radius: var(--m-r-xs); background: var(--m-orange-2); }
+[data-growth] .ag-dist .ag-track > i { display: block; height: 100%; border-radius: var(--m-r-xs); background: rgb(var(--color-chart-asked)); }
 [data-growth] .ag-dist .ag-n { width: 26px; text-align: right; font-size: 12px; }
 [data-growth] .ag-bars { display: flex; align-items: flex-end; gap: 4px; height: 70px; margin-top: 10px; }
-[data-growth] .ag-bars i { display: block; flex: 1; border-radius: 4px 4px 0 0; background: color-mix(in srgb, rgb(var(--sn-accent)) 25%, transparent); }
+[data-growth] .ag-bars i { display: block; flex: 1; border-radius: 4px 4px 0 0; background: rgb(var(--color-chart-asked) / 0.5); }
 
 /* The sample ribbon (the supplier lab only — a real shop never sees it). */
 .ag-ribbon { position: sticky; top: 56px; z-index: 4; margin: 0 -16px; padding: 5px 16px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: color-mix(in srgb, rgb(var(--color-warn)) 14%, var(--sn-canvas)); color: rgb(var(--color-warn)); border-bottom: 1px solid color-mix(in srgb, rgb(var(--color-warn)) 30%, transparent); }
@@ -215,6 +215,9 @@
 @keyframes ag-slide { from { left: 0; } }
 [data-growth] .ag-pop { animation: ag-pop 450ms cubic-bezier(0.215, 0.61, 0.355, 1) both; }
 [data-growth] .ag-slide { animation: ag-slide 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 100ms both; }
+/* A card's picture is drawn before it is seen (so the carousel never changes height); its pop and slide wait, paused at
+   their first frame, until Reanimate adds .perf-play. 🔒 shop/the-analytics-carousel-never-changes-height.test.ts */
+[data-growth] .perf-reanim:not(.perf-play) .ag-pop, [data-growth] .perf-reanim:not(.perf-play) .ag-slide { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
   [data-growth] .ag-pop, [data-growth] .ag-slide { animation: none; }
 }
@@ -245,7 +248,7 @@
 [data-growth] .ag-exc { position: absolute; top: 10px; right: 12px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: var(--m-r-full); background: color-mix(in srgb, var(--m-ink) 8%, transparent); color: var(--m-slate-2); }
 [data-growth] .ag-gtile.ag-ex .ag-th b { padding-right: 64px; }
 [data-growth] .ag-gtile.ag-ex .ag-ln { color: var(--m-slate-2); }
-[data-growth] .ag-dr { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; color: rgb(var(--color-mulberry)); font-weight: 600; font-size: 13.5px; }
+[data-growth] .ag-dr { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; color: rgb(var(--color-mulberry-word, var(--color-mulberry))); font-weight: 600; font-size: 13.5px; }
 [data-growth] .ag-dr svg { width: 16px; height: 16px; }
 
 /* pictures */
@@ -253,28 +256,28 @@
 [data-growth] .ag-bk { font: 500 10px var(--sn-font, inherit); fill: var(--m-slate-3); }
 [data-growth] .ag-bk.ag-d { fill: var(--m-slate-2); font-weight: 600; }
 [data-growth] .ag-lbl { font: 600 11px var(--sn-font, inherit); fill: var(--m-ink); }
-[data-growth] .ag-ok { fill: var(--m-orange); }
-[data-growth] .ag-ok2 { fill: var(--m-orange-2); }
-[data-growth] .ag-mul { fill: rgb(var(--color-mulberry)); }
+[data-growth] .ag-ok { fill: rgb(var(--color-chart-booked)); }
+[data-growth] .ag-ok2 { fill: rgb(var(--color-chart-booked)); }
+[data-growth] .ag-mul { fill: rgb(var(--color-chart-asked)); }
 [data-growth] .ag-gr { fill: color-mix(in srgb, var(--m-ink) 9%, transparent); }
-[data-growth] .ag-pale { fill: var(--m-orange-4); }
-[data-growth] .ag-wait2 { fill: var(--m-slate-4); }
+[data-growth] .ag-pale { fill: rgb(var(--color-chart-opened)); }
+[data-growth] .ag-wait2 { fill: rgb(var(--color-chart-quiet)); }
 [data-growth] .ag-exp { fill: rgb(var(--color-danger) / 0.55); }
-[data-growth] .ag-acc { fill: rgb(var(--color-ok)); }
+[data-growth] .ag-acc { fill: rgb(var(--color-chart-booked)); }
 [data-growth] .ag-rng { fill: none; stroke: color-mix(in srgb, var(--m-ink) 55%, transparent); stroke-width: 1.6; }
 [data-growth] .ag-leg { display: flex; gap: 14px; font-size: 12px; color: var(--m-slate-2); margin-top: 4px; }
-[data-growth] .ag-leg-mul { color: rgb(var(--color-mulberry)); }
-[data-growth] .ag-leg-ok { color: var(--m-orange-2); }
+[data-growth] .ag-leg-mul { color: rgb(var(--color-chart-asked)); }
+[data-growth] .ag-leg-ok { color: rgb(var(--color-chart-booked)); }
 /* the legend of the completed bar (.ag-cbar) — the same token, so the key matches its bar */
-[data-growth] .ag-leg-done { color: rgb(var(--color-ok)); }
+[data-growth] .ag-leg-done { color: rgb(var(--color-ink)); }
 [data-growth] .ag-cap { font-size: 12px; color: var(--m-slate-2); margin: 6px 0 0; }
 [data-growth] .ag-rv { display: grid; gap: 10px; }
 [data-growth] .ag-rv-k { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; margin-bottom: 4px; }
 [data-growth] .ag-rv-t { height: 12px; border-radius: var(--m-r-full); background: var(--ag-ink-6); overflow: hidden; }
-[data-growth] .ag-rv-t > i { display: block; height: 100%; background: var(--m-orange-4); border-radius: var(--m-r-full); overflow: hidden; }
-[data-growth] .ag-rv-t > i > i { display: block; height: 100%; background: var(--m-orange); }
-[data-growth] .ag-sb.ag-split .ag-track > i { display: block; height: 100%; border-radius: var(--m-r-sm); background: var(--m-orange); }
-[data-growth] .ag-sb.ag-split .ag-track.ag-own > i { background: var(--m-slate-4); }
+[data-growth] .ag-rv-t > i { display: block; height: 100%; background: rgb(var(--color-chart-quiet) / 0.35); border-radius: var(--m-r-full); overflow: hidden; }
+[data-growth] .ag-rv-t > i > i { display: block; height: 100%; background: rgb(var(--color-chart-booked)); }
+[data-growth] .ag-sb.ag-split .ag-track > i { display: block; height: 100%; border-radius: var(--m-r-sm); background: rgb(var(--color-chart-booked)); }
+[data-growth] .ag-sb.ag-split .ag-track.ag-own > i { background: rgb(var(--color-chart-quiet)); }
 
 /* the risen graph (inside the one RiseScreen — its own `[data-growth]` root, since the screen is drawn on <body>) */
 [data-growth].ag-risen { display: grid; gap: 14px; padding: 16px 16px 24px; }
@@ -290,29 +293,130 @@
 [data-growth] .ag-recbox .ag-calm { margin: 0; }
 [data-graph-door] { display: flex; justify-content: flex-end; }
 
-/* ── 🎠 ONE ANALYTICS = THE SHOP CAROUSEL (owner 11 Nov 2026; prototype analytics_option_b_2026-11-11 option 3) ──
- * Each card: title (the one button, stretched over the card) · the control row (its number · its window switch or
- * fixed label) · the picture · one line. The whole card presses; the switch sits above the stretched button. */
+/* ── 🎠 ONE ANALYTICS = THE SHOP CAROUSEL (owner 11 Nov 2026) — EVERY CARD ONE SHAPE (owner 21 Nov 2026, *"graphs look
+ * better and balance"*; drawing `prototypes/analytics_one_shape_2026-11-21/`): 340 × 320 on every screen — head 24 ·
+ * number row 44 · picture FIXED 144 · line at most 2 lines (36), 12 between, padding 18. A picture stretches sideways
+ * only; its words are page text at 11–12 px. One tall card can never stretch the others. A desktop shows 2–3 cards in
+ * the same carousel. No card border and no hairline above the line (the house look uses space, not lines).
+ * 🔒 shop/the-analytics-carousel-never-changes-height.test.ts · performance/every-card-is-one-shape.test.ts */
+[data-shop-analytics] [data-snap-carousel] { --sc-peek: 13px; --sc-gap: 12px; }
+[data-shop-analytics] [data-snap-track] > [data-snap-slide],
+[data-shop-analytics] [data-snap-track] > [data-snap-copy] { flex: 0 0 min(340px, 100%); }
 [data-growth] .ag-card { height: 100%; }
-[data-growth] .ag-card-in { position: relative; height: 100%; display: flex; flex-direction: column; gap: 8px; border-radius: var(--m-r-md); background: var(--m-paper); padding: 14px 14px 12px; border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
-[data-growth] .ag-card .ag-open { display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; min-height: 0; }
-[data-growth] .ag-card .ag-open b { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.2; }
+[data-growth] .ag-card-in { position: relative; box-sizing: border-box; height: 320px; display: grid; grid-template-rows: 24px 44px 144px 36px; row-gap: 12px; align-content: start; border-radius: var(--m-r-md); background: var(--m-paper); padding: 18px; box-shadow: var(--sn-frame-shadow, 0 1px 2px rgb(var(--color-ink) / 0.06)); transition: transform var(--sn-m-release) var(--sn-m-spring); }
+[data-growth] .ag-card-in:active { transform: scale(0.985); transition-duration: var(--sn-m-tap); }
+[data-growth] .ag-card .ag-open { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; height: 24px; text-align: left; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+[data-growth] .ag-card .ag-open b { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 [data-growth] .ag-card .ag-open::after { content: ''; position: absolute; inset: 0; border-radius: var(--m-r-md); }
 [data-growth] .ag-card .ag-open:focus-visible::after { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
 [data-growth] .ag-card .ag-chev { width: 18px; height: 18px; flex: none; color: var(--m-slate-3); }
-[data-growth] .ag-ctlrow { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
+[data-growth] .ag-ctlrow { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; min-width: 0; }
 [data-growth] .ag-when { font-size: 12px; color: var(--m-slate-3); white-space: nowrap; }
 [data-growth] .ag-fig { display: flex; flex-direction: column; line-height: 1.1; }
-[data-growth] .ag-fig b, [data-growth] .ag-fig .ag-fig-n { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+[data-growth] .ag-fig b, [data-growth] .ag-fig .ag-fig-n { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 [data-growth] .ag-fig small { font-size: 12px; color: var(--m-slate-2); }
-[data-growth] .ag-card .ag-gp { display: block; min-height: 64px; }
-[data-growth] .ag-card .ag-gp-wait { display: block; min-height: 64px; }
-[data-growth] .ag-card .ag-ln { margin: auto 0 0; font-size: 13px; color: var(--m-slate); line-height: 1.35; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); padding-top: 8px; }
+[data-growth] .ag-card .ag-gp { display: block; position: relative; height: 144px; min-width: 0; overflow: hidden; }
+[data-growth] .ag-card .ag-gp > .ag-svg,
+[data-growth] .ag-card .ag-gp > svg { max-height: 144px; }
+[data-growth] .ag-card .ag-foot { display: block; height: 36px; overflow: hidden; }
+[data-growth] .ag-card .ag-ln { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0; font-size: 13px; line-height: 18px; color: var(--m-slate); }
+[data-growth] .ag-card.ag-ex .ag-ln { -webkit-line-clamp: 1; }
+/* A refused card: "Couldn’t load." sits in the picture's own 144-px place — no picture, never the Example. */
+[data-growth] .ag-card-in > .ag-ln[role='status'] { display: flex; align-items: center; height: 144px; }
 [data-growth] .ag-card.ag-ex .ag-gp { opacity: 0.32; filter: saturate(0.4); }
-[data-growth] .ag-card .ag-exc { position: absolute; top: 10px; right: 40px; }
-[data-growth] .ag-card .ag-dr { position: relative; z-index: 1; font-size: 13px; font-weight: 600; color: var(--m-orange-deep, rgb(var(--color-mulberry))); display: inline-flex; align-items: center; gap: 2px; }
+[data-growth] .ag-card .ag-exc { position: absolute; top: 18px; right: 44px; height: 24px; display: inline-flex; align-items: center; padding-block: 0; }
+[data-growth] .ag-card.ag-ex .ag-open b { padding-right: 70px; }
+[data-growth] .ag-card .ag-dr { position: relative; z-index: 1; font-size: 13px; line-height: 18px; font-weight: 600; color: rgb(var(--color-mulberry-word, var(--color-mulberry))); display: inline-flex; align-items: center; gap: 2px; margin: 0; }
 [data-growth] .ag-card .ag-dr svg { width: 15px; height: 15px; }
 [data-growth] .ag-lockcard { display: flex; flex-direction: column; justify-content: center; }
+/* the risen card keeps its larger picture */
+[data-growth] .ag-gbig .ag-gp { display: block; height: 220px; }
+[data-growth] .ag-gbig .ag-pic { height: 220px; }
+
+/* ── THE COUNT PICTURES (Opened · Asked · Booked): a plot that stretches sideways only, the axis as page text, the key
+ * "+23% vs last year ----" over its top. Colours by meaning (owner 22 Nov 2026): opened blue · asked amber · booked
+ * green · last year grey dashed; "+N%" green, "−N%" red, flat grey. */
+[data-growth] .ag-pic { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) 20px; height: 144px; min-width: 0; }
+[data-growth] .ag-plot { position: relative; min-height: 0; border-bottom: 1px solid var(--ag-ink-10); }
+[data-growth] .ag-plot > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+[data-growth] .ag-plot .ag-area { fill: rgb(var(--color-chart-opened) / 0.14); }
+[data-growth] .ag-plot .ag-line { fill: none; stroke: rgb(var(--color-chart-opened)); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+[data-growth] .ag-plot .ag-bar-asked { fill: rgb(var(--color-chart-asked)); }
+[data-growth] .ag-plot .ag-bar-booked { fill: rgb(var(--color-chart-booked)); }
+[data-growth] .ag-plot .ag-ly { fill: none; stroke: rgb(var(--color-chart-last)); stroke-width: 1.5; stroke-dasharray: 4 3; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+[data-growth] .ag-reveal { position: absolute; top: -4px; bottom: 0; left: -2px; right: -4px; background: var(--m-paper); transform-origin: right; transform: scaleX(0); pointer-events: none; }
+[data-growth] .ag-key { position: absolute; top: 0; left: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--m-slate-2); }
+[data-growth] .ag-key b { font-weight: 700; }
+[data-growth] .ag-key .ag-up { color: rgb(var(--color-ok)); }
+[data-growth] .ag-key .ag-down { color: rgb(var(--color-danger)); }
+[data-growth] .ag-key .ag-flat { color: rgb(var(--color-ink-3)); }
+[data-growth] .ag-key .ag-dash { display: inline-block; width: 18px; border-top: 1.5px dashed rgb(var(--color-chart-last)); }
+[data-growth] .ag-axis { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; font-size: 11px; font-weight: 500; color: var(--m-slate-3); white-space: nowrap; }
+
+/* ── Where couples found you: label · count, a 6-px track under it, one hue per source (lib/chart-source-hues.ts) ── */
+[data-growth] .ag-card .ag-sb, [data-growth] .ag-gbig .ag-sb { display: grid; gap: 10px; align-content: start; padding-top: 2px; }
+[data-growth] .ag-src-r { display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; column-gap: 8px; font-size: 12px; color: rgb(var(--color-ink)); }
+[data-growth] .ag-src-r .ag-sbl { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 400; }
+[data-growth] .ag-src-r .ag-sbn { font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; min-width: 0; }
+[data-growth] .ag-src-r .ag-track { grid-column: 1 / -1; height: 6px; }
+[data-growth] .ag-src-r.ag-ghostrow .ag-sbl, [data-growth] .ag-src-r.ag-ghostrow .ag-sbn { color: var(--m-slate-3); font-weight: 500; font-size: 12px; }
+[data-growth] .ag-src-r .ag-track.ag-dashed { height: 0; border: 0; border-top: 2px dashed var(--ag-ink-10); margin-top: 2px; }
+
+/* ── The next 13 weeks: square 13-px days, the key on the right; booked green, asked-not-free an amber ring, today an
+ * ink dot ── */
+[data-growth] .ag-cal-wrap { display: flex; gap: 14px; align-items: flex-start; min-width: 0; }
+[data-growth] .ag-cal-wrap .ag-cal-m { display: grid; grid-template-columns: repeat(13, 13px); column-gap: 3px; gap: 0 3px; height: 16px; margin: 0 0 4px; font-size: 11px; font-weight: 600; color: var(--m-slate-3); white-space: nowrap; }
+[data-growth] .ag-cal-wrap .ag-cal { grid-template-columns: repeat(13, 13px); grid-template-rows: repeat(7, 13px); }
+[data-growth] .ag-cal-wrap .ag-cc { aspect-ratio: auto; border-radius: var(--m-r-xs); }
+[data-growth] .ag-cal-wrap .ag-cal-k { display: grid; gap: 8px; margin: 0; padding-top: 20px; font-size: 12px; line-height: 1.25; color: var(--m-slate-2); min-width: 0; }
+[data-growth] .ag-cal-wrap .ag-cal-k span { display: flex; gap: 6px; align-items: flex-start; }
+[data-growth] .ag-cal-wrap .ag-cal-k i { flex: none; width: 11px; height: 11px; margin: 1px 0 0; vertical-align: 0; }
+[data-growth] .ag-cal-wrap .ag-cal-k i.ag-t { background: var(--ag-ink-6); }
+[data-growth] .ag-cal-wrap .ag-cal-k i.ag-t::before { left: 50%; bottom: 1px; margin-left: -2px; }
+
+/* ── Dates you lost: a column per weekday — closed grey under full amber, the count on top ── */
+[data-growth] .ag-lost { display: grid; grid-template-rows: minmax(0, 1fr) 20px; height: 144px; }
+[data-growth] .ag-lost-cols { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; min-height: 0; }
+[data-growth] .ag-lc { display: grid; grid-template-rows: 14px minmax(0, 1fr) 14px; gap: 3px; min-width: 0; }
+[data-growth] .ag-lc em { font-style: normal; font-size: 11px; font-weight: 600; color: var(--m-slate-2); text-align: center; line-height: 14px; }
+[data-growth] .ag-lc > span { font-size: 11px; color: var(--m-slate-3); text-align: center; line-height: 14px; }
+[data-growth] .ag-lc > span.ag-d { color: var(--m-slate-2); font-weight: 600; }
+[data-growth] .ag-col { position: relative; display: block; border-radius: var(--m-r-xs); background: var(--ag-ink-6); overflow: hidden; }
+[data-growth] .ag-col i { position: absolute; left: 0; right: 0; transform-origin: bottom; }
+[data-growth] .ag-col .ag-full { bottom: 0; background: rgb(var(--color-chart-asked)); }
+[data-growth] .ag-col .ag-closed { background: rgb(var(--color-chart-quiet)); }
+[data-growth] .ag-lost .ag-leg { display: flex; gap: 14px; align-items: flex-end; margin: 0; font-size: 12px; color: var(--m-slate-2); white-space: nowrap; }
+[data-growth] .ag-lost .ag-leg i { display: inline-block; width: 10px; height: 10px; border-radius: var(--m-r-xs); margin-right: 5px; vertical-align: -1px; }
+[data-growth] .ag-lost .ag-leg .ag-s-closed { background: rgb(var(--color-chart-quiet)); }
+[data-growth] .ag-lost .ag-leg .ag-s-full { background: rgb(var(--color-chart-asked)); }
+
+/* ── THE OTHER GRAPHS, COLOURED BY MEANING (owner 22 Nov 2026): never the theme colour — every data rule above reads a
+ * `--color-chart-*` token. Asked = amber, booked = green, opened / invited = blue, waiting · closed · your own book =
+ * quiet grey, expired = red, a star = amber; completed = ink. Buttons, tabs and the recommendation keep the theme. */
+[data-growth] .ag-thin-m { fill: rgb(var(--color-chart-booked) / 0.45); }
+[data-growth] .ag-leg-opened { color: rgb(var(--color-chart-opened)); }
+
+/* ── THREE YEARS (the risen count card): one line per year, December → November, and the yearly totals ── */
+[data-growth] .ag-3y { display: grid; gap: 8px; }
+[data-growth] .ag-3y-plot { position: relative; height: 160px; margin-right: 40px; border-bottom: 1px solid var(--ag-ink-10); }
+[data-growth] .ag-3y-plot > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+[data-growth] .ag-3y-plot path { fill: none; stroke-width: 1.8; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+[data-growth] .ag-3y-plot .ag-y0 { stroke: rgb(var(--color-chart-last) / 0.6); stroke-dasharray: 2 3; }
+[data-growth] .ag-3y-plot .ag-y1 { stroke: rgb(var(--color-chart-last)); stroke-dasharray: 4 3; }
+[data-growth] .ag-3y-plot .ag-y2.ag-k-opened { stroke: rgb(var(--color-chart-opened)); }
+[data-growth] .ag-3y-plot .ag-y2.ag-k-asked { stroke: rgb(var(--color-chart-asked)); }
+[data-growth] .ag-3y-plot .ag-y2.ag-k-booked { stroke: rgb(var(--color-chart-booked)); }
+[data-growth] .ag-3y-lbl { position: absolute; right: -40px; font-size: 11px; font-weight: 600; color: var(--m-slate-2); transform: translateY(-50%); }
+[data-growth] .ag-3y-lbl.ag-now { color: rgb(var(--color-ink)); }
+[data-growth] .ag-3y-axis { display: flex; justify-content: space-between; margin-right: 40px; font-size: 11px; font-weight: 500; color: var(--m-slate-3); }
+[data-growth] .ag-3y-tot { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+[data-growth] .ag-3y-tot > span { display: grid; gap: 2px; padding: 10px; border-radius: var(--m-r-sm); background: var(--ag-ink-6); }
+[data-growth] .ag-3y-tot small { font-size: 12px; color: var(--m-slate-2); }
+[data-growth] .ag-3y-tot b { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+[data-growth] .ag-3y-tot .ag-up { color: rgb(var(--color-ok)); font-size: 12px; font-weight: 600; }
+[data-growth] .ag-3y-tot .ag-down { color: rgb(var(--color-danger)); font-size: 12px; font-weight: 600; }
+[data-growth] .ag-3y-tot .ag-flat { color: rgb(var(--color-ink-3)); font-size: 12px; font-weight: 600; }
+
 /* Motion: the line draws, the area fades, the bars grow — once the card is seen (Reanimate adds .perf-play). */
 @keyframes ag-draw-k { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes ag-grow-k { from { transform: scaleY(0); } to { transform: scaleY(1); } }
@@ -320,6 +424,17 @@
 [data-growth] .perf-play .ag-draw { stroke-dasharray: 1; animation: ag-draw-k 900ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 [data-growth] .perf-play .ag-fade-in { animation: ag-fade-k 700ms ease-out 200ms both; }
 [data-growth] .perf-play .ag-grow { transform-box: fill-box; transform-origin: bottom; animation: ag-grow-k 600ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+/* The one-shape motion (MOTION_STANDARD): the line is uncovered left to right (Rise · Settle), bars and lost columns
+   grow (Rise · Spring), the last-year line and its "+%" fade in once the line has drawn (Quick · Settle, at Rise). */
+@keyframes ag-reveal-k { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes ag-in-k { from { opacity: 0; } to { opacity: 1; } }
+[data-growth] .perf-play .ag-reveal { animation: ag-reveal-k var(--sn-m-rise) var(--sn-m-settle) both; }
+[data-growth] .perf-play .ag-bar-grow { transform-box: fill-box; transform-origin: bottom; animation: ag-grow-k var(--sn-m-rise) var(--sn-m-spring) both; }
+[data-growth] .perf-play .ag-col i { animation: ag-grow-k var(--sn-m-rise) var(--sn-m-spring) both; }
+[data-growth] .perf-play .ag-ly, [data-growth] .perf-play .ag-key { animation: ag-in-k var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-rise) both; }
 @media (prefers-reduced-motion: reduce) {
   [data-growth] .perf-play .ag-draw, [data-growth] .perf-play .ag-fade-in, [data-growth] .perf-play .ag-grow { animation: none; }
+  [data-growth] .perf-play .ag-reveal, [data-growth] .perf-play .ag-bar-grow, [data-growth] .perf-play .ag-col i,
+  [data-growth] .perf-play .ag-ly, [data-growth] .perf-play .ag-key { animation: none; }
+  [data-growth] .ag-card-in, [data-growth] .ag-card-in:active { transition: none; transform: none; }
 }

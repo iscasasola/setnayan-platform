@@ -113,7 +113,7 @@ test('the supplier plans in llms.txt are Lane J’s plan table, cell for cell, u
   const body = renderOn();
   assert.ok(body.includes(`| | ${TABLE_TIERS.map(tableTierName).join(' | ')} |`), 'the plan header is not Free · Plus · Pro · Ultra');
   assert.equal(TABLE_TIERS.map(tableTierName).join(' · '), 'Free · Plus · Pro · Ultra');
-  const groups = planTable({ paywallOn: false, prices: { monthly: {}, annual: {}, bySku: {} } });
+  const groups = planTable({ paywallOn: false, prices: { monthly: {}, bySku: {} } });
   for (const g of groups) {
     for (const r of g.rows) {
       assert.ok(body.includes(`| ${g.title} · ${r.label} |`), `llms.txt lost the plan row "${g.title} · ${r.label}"`);

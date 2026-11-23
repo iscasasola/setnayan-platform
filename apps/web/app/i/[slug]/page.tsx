@@ -9,8 +9,11 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SupplierInviteDoor } from '@/app/vendor/claim/[token]/_components/claim-parts';
 import { readInviter } from '@/lib/supplier-invite.server';
+import { readServiceLabels, serviceLabelOf } from '@/lib/service-labels';
 import { cleanInviteSlug, supplierInvitePath } from '@/lib/supplier-invite';
 import { joinSupplierInvite } from './actions';
+// 🔵 The blue invite door (owner 19 Nov, Door C: "a shop that scans their QR gets the blue invite door").
+import '@/app/vendor-dashboard/_components/supplier-look.css';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'You’re invited', robots: { index: false } };
@@ -49,6 +52,8 @@ export default async function SupplierInvitePage({
   const hasShop = Boolean((own as { business_name?: string | null } | null)?.business_name?.trim());
   const isSelf = own?.vendor_profile_id === inviter.vendorProfileId;
   const here = supplierInvitePath(slug);
+  // PC7: the inviter's main service, by its admin-managed name (`canonical_service_schemas`); none read → no chip.
+  const category = inviter.mainService ? serviceLabelOf(await readServiceLabels(), inviter.mainService) : null;
 
   const existing = hasShop ? (
     isSelf ? null : (
@@ -56,21 +61,21 @@ export default async function SupplierInvitePage({
         <input type="hidden" name="slug" value={slug} />
         <SubmitButton pendingLabel="Joining…" className="button-secondary inline-flex items-center gap-2">
           <Handshake aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-          I already have a Setnayan shop
+          I already have a shop
         </SubmitButton>
       </form>
     )
   ) : (
     <ActionButton
-      tone="brand"
+      tone="neutral"
       icon={<LogIn aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
-      label="I already have a Setnayan shop"
+      label="I already have a shop"
       href={`/login?next=${encodeURIComponent(here)}&as=vendor`}
     />
   );
 
   return (
-    <>
+    <div data-supplier-look="">
       {sp.error ? (
         <div className="mx-auto max-w-xl px-4 pt-6">
           <FormFlash tone="error">{decodeURIComponent(sp.error).slice(0, 200)}</FormFlash>
@@ -78,16 +83,17 @@ export default async function SupplierInvitePage({
       ) : null}
       <SupplierInviteDoor
         inviterName={inviter.businessName}
+        category={category}
         createHref={hasShop ? null : `${here}/join`}
         existing={existing}
         note={
           isSelf
             ? 'This is your own invite link — share it with the suppliers you work with.'
             : hasShop
-              ? `You join as each other’s preferred supplier. ${inviter.businessName} shows on your Trusted by, and you on theirs.`
+              ? `You join as each other’s trusted partners. ${inviter.businessName} shows on your Trusted partners, and you on theirs.`
               : null
         }
       />
-    </>
+    </div>
   );
 }

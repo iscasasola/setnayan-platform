@@ -44,8 +44,8 @@ test('the live external planner is refused — the case this exists for', () => 
   assert.equal(v.refusedDelegate, true, 'a refused delegate must be distinguishable from a failed read');
 });
 
-test('the default coordinator grant refuses budget — the product already decided this', () => {
-  assert.equal(COORDINATOR_AREAS.budget, null);
+test('the booked coordinator READS the budget and never edits it (owner 2026-11-21, locked D1)', () => {
+  assert.equal(COORDINATOR_AREAS.budget, 'view');
   const coordinator: ModeratorPermissions = {
     edit_all: true,
     checkout: false,
@@ -53,7 +53,9 @@ test('the default coordinator grant refuses budget — the product already decid
     remove_hosts: false,
     areas: COORDINATOR_AREAS,
   };
-  assert.equal(budgetVisibilityFor({ isCoupleMember: false, delegatePermissions: coordinator }).mayRead, false);
+  const v = budgetVisibilityFor({ isCoupleMember: false, delegatePermissions: coordinator });
+  assert.equal(v.mayRead, true);
+  assert.equal(v.mayEdit, false);
 });
 
 test('edit_all does NOT reach the fail-open tail — budget is answered before it', () => {

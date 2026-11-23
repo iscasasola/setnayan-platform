@@ -17,11 +17,12 @@
  * does not say "every plan".
  * 🔒 ../the-earn-block-says-what-was-ruled.test.ts
  */
-import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
-import { Info } from './supplier-front-info';
+import { FEE_FREE_CHIP } from '@/lib/booking-fee-who-words';
 import s from './supplier-front.module.css';
 import {
   EARN_FREE_ROWS,
+  EARN_HEADLINE,
+  EARN_LEDE,
   EARN_PROMISES,
   ONE_WEDDING,
   ONE_WEDDING_RULE,
@@ -50,15 +51,16 @@ export function SupplierHowWeEarn({
 }) {
   const dash = (v: string | null) => v ?? '—';
   const feePrice = figures
-    ? `${figures.head} on the first ${figures.band} of a booking, ${figures.tail} after. ${FIRST_BOOKING_FREE}`
+    ? `${figures.head} on the first ${figures.band} of a booking, ${figures.tail} after. ${FEE_FREE_CHIP}.`
     : feeEnabled
-      ? `The rate is shown in full on the booking before you agree. ${FIRST_BOOKING_FREE}`
+      ? `The rate is shown in full on the booking before you agree. ${FEE_FREE_CHIP}.`
       : 'There is no booking fee while it is switched off.';
   return (
     <div className={s.earn} id="earn">
       <div className={s.earnHead} data-rv="">
         <p className={s.kicker}>How Setnayan earns</p>
-        <h3>We charge for what we add. Never for what you already had.</h3>
+        <h3>{EARN_HEADLINE}</h3>
+        <p className={s.earnLede}>{EARN_LEDE}</p>
       </div>
 
       <ul className={s.promises}>
@@ -140,12 +142,6 @@ export function SupplierHowWeEarn({
         <a className="fd-chip" href="#plans">
           See the plans
         </a>
-        <Info label="How a fee is questioned">
-          <p>
-            Every fee bill has a “Dispute this fee” button. Your first dispute is accepted. After that, our team reviews each one
-            and writes back with the reason.
-          </p>
-        </Info>
       </div>
     </div>
   );

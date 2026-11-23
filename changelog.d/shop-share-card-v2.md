@@ -1,0 +1,11 @@
+## 2026-11-22 · feat(share card): a shop's link preview is the approved v2 card — its cover photo, logo + seal, name, proof and earned badges
+
+Owner, 21 Nov 2026: *"approve the share card too"* (re-confirmed 22 Nov, *"shop card approved"*; earlier: *"No. 1 off, seals on"*). Drawing (frozen): corpus `prototypes/shop_share_card_2026-11-21/shop_share_card_v2_fable.html`; ruling: DECISION_LOG 2026-11-21 "SHOP SHARE CARD v2 — APPROVED TO BUILD".
+
+- **The card** (`/api/og/v/[slug]`, `lib/social/vendor-card.tsx`): the shop's cover photo fills it (the same photo that leads its shop page; the dark Setnayan ground when it has none) · the logo on a white tile with the seal on its corner (Setnayan Verified, or the Verified Partner seal in its place; no logo → the seal alone in the middle) · the top line "A Setnayan shop" / "Setnayan Verified" / "Setnayan Verified Partner" · the name · ★ rating · reviews · events (each only when there — never "0 reviews") · what they do · city · up to four earned badges, seals first, then "+N" (No. 1 stays off) · the Setnayan mark, once. satori draws the words; every picture is a sharp composite. JPEG now (the ground is a photo).
+- **No new number.** Seal and badges: the prints' own list (`readPrintBadgeList` → `printBadgesV84`), Verified also asking papers current (`!renewing`) as the page does. Stars: `vendor_trusted_review_stats` under the shop page's own star gate. Events: `vendor_public_completed_events_stats`. A read that fails leaves its part off and the picture is cached 5 minutes, not an hour.
+- **One cover rule** (`lib/shop-cover-photo.ts`): the shop page's hero and the card now choose through the same function. A shop whose name is withheld gets no cover photo (controller call on the ruling).
+- **New shares get the new card:** the page's `og:image` carries a look token (`vendorCardLookToken`); the route address does not move. The card no longer prints the tagline or the word "Verified" (`composeVendorTradeLine` replaces `composeVendorOgDescription`).
+- Guards: `lib/social/vendor-card-layout.test.ts`, `lib/shop-cover-photo.test.ts`, the route and card source pins updated.
+
+SPEC IMPACT: None (builds an approved drawing; no rule changes).

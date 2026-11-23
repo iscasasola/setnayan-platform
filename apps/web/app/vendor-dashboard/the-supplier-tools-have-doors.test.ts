@@ -58,5 +58,6 @@ test('📣 Message everyone opens the shipped announcement sheet — only where 
   const fullCohost = { ...row('co_host', null), permissions_json: { ...row('co_host', null).permissions_json!, access_level: 'full' } as CoordinatorSeatRow['permissions_json'] };
   assert.equal(eventsYouRun([fullCohost], now, '2026-10-29', served)[0]!.canAnnounce, true);
   const viewOnly = { ...row('wedding_planner_external', 'view'), permissions_json: { edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false, areas: { guest_list: 'view', seat_plan: 'view', schedule: 'view', vendors: 'view' }, access_level: 'limited' } as CoordinatorSeatRow['permissions_json'] };
-  assert.equal(eventsYouRun([viewOnly], now, '2026-10-29', served)[0]!.canAnnounce, false, 'a Limited coordinator is offered a send the database refuses');
+  // 🔁 Limited retired 2026-11-21: a view-only seat is the hosts' switch OFF — no event to run, so no door and no send.
+  assert.equal(eventsYouRun([viewOnly], now, '2026-10-29', served).length, 0, 'a switched-off coordinator is offered a send the database refuses');
 });

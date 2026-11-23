@@ -19,7 +19,7 @@
 import { headers, cookies } from 'next/headers';
 import { isStoreShellSignals, STORE_SHELL_CLIENT_TYPE_COOKIE } from '@/lib/store-shell';
 import { classifyShell, oauthGate, type ClientShell, type OAuthFlags, type OAuthGate } from '@/lib/oauth-shell-gate';
-import { iapAvailable } from '@/lib/iap/iap-gate';
+import { hasStoreQuantity, iapAvailable } from '@/lib/iap/iap-gate';
 import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
 import { onTheCachedHub } from '@/lib/hub-request';
 
@@ -152,13 +152,14 @@ export async function isStoreShellRequest(): Promise<boolean> {
  * `iapAvailable` in lib/iap/iap-gate.ts. With `iap` false every reader keeps
  * the store-shell behaviour it had before In-App Purchase existed. Safe outside
  * a request scope → both false.
+ *
+ * 💝 `iapQuantity` — `iap`, AND a build whose plugin passes a quantity to StoreKit (`SetnayanIAP/3`+, build 9 on): a
+ * shop's gift cart pays line by line, 1–10 per Apple purchase (owner 2026-11-22). Couple products never need it.
  */
-export async function getIapGate(): Promise<{ storeShell: boolean; iap: boolean }> {
+export async function getIapGate(): Promise<{ storeShell: boolean; iap: boolean; iapQuantity: boolean }> {
   const signals = await readShellSignals();
-  if (!signals) return { storeShell: false, iap: false };
+  if (!signals) return { storeShell: false, iap: false, iapQuantity: false };
   const storeShell = isStoreShellSignals(signals.ua, signals.clientType);
-  return {
-    storeShell,
-    iap: iapAvailable({ storeShell, userAgent: signals.ua, enabled: isAppleIapEnabled() }),
-  };
+  const iap = iapAvailable({ storeShell, userAgent: signals.ua, enabled: isAppleIapEnabled() });
+  return { storeShell, iap, iapQuantity: iap && hasStoreQuantity(signals.ua) };
 }

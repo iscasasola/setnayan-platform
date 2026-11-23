@@ -28,7 +28,7 @@ import type { CelebrationPlayer } from '@/lib/celebration-engine';
  * kinds 2 · 6 · 20; the approved gallery § 20 "Pro mark" — *"◆ marks something
  * that is part of Pro. It is shown, not hidden"*): the name left with the Pro
  * mark beside it, the pick in the row's own pill; in the list each choice has a
- * tiny looping preview, ◆ Pro on the four effects, Free on None, the pick
+ * tiny looping preview, ◆ Plus on the four effects (Event Plus holds the Event Hub, 20 Nov), Free on None, the pick
  * ticked. Picking one DRAFTS it like every Maker pick (`onPick` → the panel's
  * one-object save) and replays it on the page; "Play it again" — the house
  * action under the row — replays the current pick. A free couple may try every
@@ -67,7 +67,7 @@ export function CelebrationPick({
     preview: <CelebrationMini kind={kind} colours={colours} />,
     trail: celebrationIsPro(kind)
       ? mark
-        ? { text: mark === 'try' ? '◆ Pro' : '◆', tone: 'muted' as const, label: paidMarkLabel(mark, 'Event Pro') }
+        ? { text: mark === 'try' ? '◆ Plus' : '◆', tone: 'muted' as const, label: paidMarkLabel(mark, 'the full Event Hub') }
         : undefined
       : { text: 'Free', tone: 'muted' as const },
   }));
@@ -77,7 +77,7 @@ export function CelebrationPick({
       attrs={{ 'data-rsvp-setting': 'celebration' }}
       name={RSVP_CELEBRATION_LABEL}
       /* ◆ PRO while tried, the diamond once owned — information, never a lock. */
-      mark={mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" /> : null}
+      mark={mark ? <PaidMark state={mark} word="PLUS" label={paidMarkLabel(mark, 'the full Event Hub')} size="xs" /> : null}
       dataAttr="data-rsvp-celebration-pick"
       value={value}
       buttonText={shown}

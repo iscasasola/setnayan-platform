@@ -88,6 +88,7 @@ import { BookedWhere, BookedWhereLine } from './booked-where';
 import { BookedCountRule } from './booked-count-rule';
 import type { ServiceCounts } from '@/lib/supplier-count';
 import { SAMPLE_BOOKED } from '@/lib/empty-look-samples';
+import { useViewerBooks } from './viewer-books';
 
 export { BookedStandInCtx, type BookedStandIns } from './booked-stand-ins';
 
@@ -195,6 +196,8 @@ function VerbRow({
   const [pending, start] = useTransition();
   const [said, setSaid] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [record, setRecord] = useState<SelfAddedSupplierPrefill | null>(null);
+  // 🔒 Only a host pays or cancels a booking (owner 2026-11-21) — the coordinator's row keeps chat and workspace.
+  const viewerBooks = useViewerBooks();
   const [paying, setPaying] = useState(false);
 
   const workspaceHref = `/dashboard/${eventId}/vendors/${vendorId}/workspace`;
@@ -246,6 +249,7 @@ function VerbRow({
       name: v.label,
       className: v.main && v.quiet ? 'bk-soft' : undefined,
     } as const;
+    if (!viewerBooks && (v.key === 'pay' || v.key === 'payments' || v.key === 'cancel')) return null;
     switch (v.key) {
       case 'pay':
       case 'payments':

@@ -51,6 +51,7 @@ import {
 import { inquiryGateEnabled, evaluateInquiryVelocity } from '@/lib/inquiry-gate';
 import { isInquirySource, type InquirySource } from '@/lib/inquiry-source';
 import { materialViaOf, utmOf } from '@/lib/material-tags';
+import { INQUIRY_NOT_SENT, inquiryNotSentLine } from '@/lib/shop-inquire';
 import {
   resolveReferringChapter,
   resolveIsReturning,
@@ -58,6 +59,8 @@ import {
 } from '@/lib/inquiry-attribution';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
+import { after } from 'next/server';
+import { routeInquiry } from '@/lib/inquiry-routing.server';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import {
   eventVendorCategoryForCardKind,
@@ -82,7 +85,14 @@ const PACKAGE_ASK_BODY =
   'us know if this works?';
 
 export type StartServiceInquiryResult =
-  | { status: 'ok'; threadId: string; eventId: string; isExisting: boolean }
+  /**
+   * The ask landed. `posted` = a message from the couple reached the thread in THIS call (the opening note, or their
+   * new words on a conversation already under way); `false` only when the conversation already existed and there was
+   * nothing new to say, so the picks were added to it as interests. `listed` = the shop is on the event's Suppliers (an `event_vendors` row
+   * this action saw written, or already there). It is never assumed: a refused write leaves it `false`, and a sheet
+   * then does not say "They're on your event's Suppliers now."
+   */
+  | { status: 'ok'; threadId: string; eventId: string; isExisting: boolean; listed: boolean; posted: boolean }
   /**
    * The thread opened (or resumed) and the interests were recorded, but the
    * message carrying the couple's PACKAGE BUILD did not post.
@@ -157,6 +167,20 @@ async function postThreadMessage(
       message: caught instanceof Error ? caught.message : 'Could not send the message.',
     };
   }
+}
+
+/**
+ * 📨 A first inquiry that did NOT send, said loudly (runtime log + Sentry) — the couple is told on screen; this is for
+ * whoever watches the walk. No PII: internal ids, a stage and the error text only (0035 · no PII in logs).
+ */
+function reportNotSent(
+  stage: 'thread' | 'count' | 'first_note' | 'resumed_words',
+  detail: string,
+  ids: { eventId: string; vendorProfileId: string; threadId?: string },
+): void {
+  // eslint-disable-next-line no-console
+  console.error('[inquiry-not-sent] the couple was told it did not send', { stage, ...ids, detail });
+  Sentry.captureMessage('inquiry-not-sent', { tags: { feature: 'inquiry-not-sent', stage }, extra: { ...ids, detail } });
 }
 
 export async function startServiceInquiry(input: {
@@ -469,10 +493,10 @@ export async function startServiceInquiry(input: {
     .select('thread_id, pax_at_inquiry')
     .single();
   if (threadErr || !thread?.thread_id) {
-    return {
-      status: 'error',
-      message: demoRefusalFromDbError(threadErr) ?? threadErr?.message ?? 'Could not open the conversation.',
-    };
+    // 📨 Nothing was sent: the conversation did not open. A raw database error is logged, never shown to the couple.
+    const demo = demoRefusalFromDbError(threadErr);
+    if (!demo) reportNotSent('thread', threadErr?.message ?? 'no thread row returned', { eventId, vendorProfileId });
+    return { status: 'error', message: demo ?? INQUIRY_NOT_SENT };
   }
   const threadId = thread.thread_id as string;
   // Snapshot the count the vendor first quoted against, exactly once.
@@ -482,6 +506,11 @@ export async function startServiceInquiry(input: {
       .update({ pax_at_inquiry: livePax })
       .eq('thread_id', threadId);
   }
+
+  // 👤 One client, one Account Manager (supplier roles d–h, #8013 (e)/(f)): a new client gets their person by the fair
+  // split; a returning one keeps theirs, or is marked "Hand over" when this card is someone else's. After the response,
+  // never blocking the inquiry; a failure leaves the client with the card's people, as before.
+  after(() => routeInquiry(admin, { eventId, vendorProfileId, serviceId: initialServiceId || null, senderUserId: user.id }).then(() => undefined));
 
   // ── Creator Economy PR-C · provenance stamp (brand-NEW threads only) ───────
   // CTA-click attribution lock: the chapter whose Book CTA STARTED the thread
@@ -543,10 +572,16 @@ export async function startServiceInquiry(input: {
   // Only post the inquiry note when the thread has no messages yet — a resumed
   // thread (couple re-inquiring about more services) just gets the new
   // interests, not a duplicate inquiry message.
-  const { count: msgCount } = await admin
+  const { count: msgCount, error: msgCountErr } = await admin
     .from('chat_messages')
     .select('message_id', { count: 'exact', head: true })
     .eq('thread_id', threadId);
+  // 📨 A failed count is not "no messages": guessing 0 could post the note twice, guessing "some" would skip it and
+  // claim a send. Nothing has been posted yet, so the honest answer is "didn't send" — Try again re-runs this cleanly.
+  if (msgCountErr) {
+    reportNotSent('count', msgCountErr.message, { eventId, vendorProfileId, threadId });
+    return { status: 'error', message: INQUIRY_NOT_SENT };
+  }
   //
   // 🚨 DELIVERY IS OBSERVED, NOT ASSUMED, whenever a package build rides along.
   // The canned inquiry note stays best-effort (the thread + interests are the
@@ -554,6 +589,8 @@ export async function startServiceInquiry(input: {
   // is the ONLY carrier of what the couple just configured — so its outcome is
   // captured and returned. `null` = no build was sent, nothing to report.
   let buildDelivery: MessageDelivery | null = null;
+  // 📨 Whether a message from the couple reached the thread in this call (see `posted` on the result).
+  let posted = false;
   if ((msgCount ?? 0) === 0) {
     // Append the couple's captured requirements so the vendor sees what
     // they're looking for on first contact (a dedicated vendor "Their
@@ -591,9 +628,17 @@ export async function startServiceInquiry(input: {
         candidateDays: theEvent?.event_date ? null : eventCandidateDays({ eventDate: null, precision: null, candidates: theEvent?.date_candidates }),
       })}${servicesLine}${requirementsBlock}${packagePicksBlock}${bundleAsk}`,
     );
-    // Reported only when the build was inside that message; otherwise the note
-    // stays best-effort exactly as it has always been.
+    // With a build inside it, the outcome is reported as `ok_build_not_sent` below (the lock modal's own copy).
     if (packagePicksBlock) buildDelivery = delivery;
+    // 📨 WITHOUT a build, this note IS the inquiry (launch walk 22 Nov, step 6 · Gap 2). It used to be "best-effort":
+    // a refused or failed first note still returned `ok`, the couple saw "Sent ✓", the thread stayed empty and the
+    // supplier was never notified. Now it stops here and says so. Nothing after this line has run, and the thread it
+    // opened has no messages — so Try again resumes it and posts this note, never a second thread or a double post.
+    else if (!delivery.ok) {
+      reportNotSent('first_note', `${delivery.reason}: ${delivery.message}`, { eventId, vendorProfileId, threadId });
+      return { status: 'error', message: inquiryNotSentLine(delivery.reason, delivery.message) };
+    }
+    posted = delivery.ok;
   } else if (packagePicksBlock) {
     // ── The build, on a thread that already has messages ──────────────────
     // The rule above ("only post the inquiry note on a brand-new thread") is
@@ -613,18 +658,33 @@ export async function startServiceInquiry(input: {
       threadId,
       `${PACKAGE_ASK_BODY}${packagePicksBlock}`,
     );
+    posted = buildDelivery.ok;
+  } else if (requirementsBlock) {
+    // ── The couple's own words, on a thread that already has messages ──────
+    // Same reasoning as the build above: the canned opening is not repeated, but what the couple just TYPED (the
+    // Inquire sheet's "Anything to add?", Check a date's "Is <day> open?") is new, and it used to be dropped here while
+    // the sheet said "Sent ✓". It goes to the SAME thread through the same core, gates and all (the pre-accept one
+    // follow-up, a declined conversation, the contact filter) — and a refusal is said, never swallowed.
+    const words = await postThreadMessage(supabase, threadId, requirementsBlock.trim());
+    if (!words.ok) {
+      reportNotSent('resumed_words', `${words.reason}: ${words.message}`, { eventId, vendorProfileId, threadId });
+      return { status: 'error', message: inquiryNotSentLine(words.reason, words.message) };
+    }
+    posted = true;
   }
 
   // ❓ A general question has no card: the shop goes on the event's suppliers through the shipped shop-level save
   // (considering, filed by the shop's own services — never under a card it does not have), and nothing below that
   // needs a card runs. A refused save is reported, never fatal: the question already reached the shop.
   if (general) {
+    let listed = false;
     try {
       const form = new FormData();
       form.set('vendor_profile_id', vendorProfileId);
       form.set('event_id', eventId);
       const saved = await saveVendorToPicks(form);
-      if (saved.status !== 'ok' && saved.status !== 'already_saved') {
+      listed = saved.status === 'ok' || saved.status === 'already_saved';
+      if (!listed) {
         // eslint-disable-next-line no-console
         console.error('[inquiry-event-vendor-write] general question: the shop did NOT reach the event suppliers', {
           eventId,
@@ -643,12 +703,14 @@ export async function startServiceInquiry(input: {
       });
     }
     revalidatePath(`/dashboard/${eventId}/messages/${threadId}`);
-    return { status: 'ok', threadId, eventId, isExisting };
+    return { status: 'ok', threadId, eventId, isExisting, listed, posted };
   }
 
   // 📋 Anchored on a card-less service: the shop goes on the event's Find under THAT service's category, through the
   // same shipped shop-level save the general question uses, told which service (`service_key`). One Find pick per event
   // and shop (`event_vendors_unique_marketplace_pick_per_event`): a shop already on the event stays where it is.
+  // 📨 Whether the shop is on the event's Suppliers — set only by a write (or a row) this action SAW, never assumed.
+  let listed = false;
   if (keyed) {
     const anchorKey = providedKeys[0] as string;
     try {
@@ -657,7 +719,8 @@ export async function startServiceInquiry(input: {
       form.set('event_id', eventId);
       form.set('service_key', anchorKey);
       const saved = await saveVendorToPicks(form);
-      if (saved.status !== 'ok' && saved.status !== 'already_saved') {
+      listed = saved.status === 'ok' || saved.status === 'already_saved';
+      if (!listed) {
         // eslint-disable-next-line no-console
         console.error('[inquiry-event-vendor-write] provided service: the shop did NOT reach the event suppliers', {
           eventId,
@@ -828,6 +891,8 @@ export async function startServiceInquiry(input: {
       .maybeSingle();
 
     if (evRow?.vendor_id) {
+      // The row is there, so the shop is on the event's Suppliers whatever the merge below does.
+      listed = true;
       // Merge: union the new service IDs with any already stored. Cast through
       // unknown to satisfy TypeScript's strict mode — the column is a new
       // nullable/jsonb-like UUID[] field that the generated types may not know yet.
@@ -916,6 +981,7 @@ export async function startServiceInquiry(input: {
           ...(threadUtm ? { source_utm: threadUtm } : {}),
         } as Record<string, unknown>);
         if (insertError) reportEventVendorFault('insert', insertError, cardKind);
+        else listed = true;
       }
     }
   } catch (caught) {
@@ -967,5 +1033,5 @@ export async function startServiceInquiry(input: {
       message: buildDelivery.message,
     };
   }
-  return { status: 'ok', threadId, eventId, isExisting };
+  return { status: 'ok', threadId, eventId, isExisting, listed, posted };
 }

@@ -189,7 +189,7 @@ export function ThemePickProvider({
 function ProMark({ tier, ownsPro, storeShell }: { tier: ThemeTile['tier']; ownsPro: boolean; storeShell: boolean }) {
   if (tier !== 'pro') return null;
   const mark = makerProMark({ owns: ownsPro, storeShell });
-  return mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" /> : null;
+  return mark ? <PaidMark state={mark} word="PLUS" label={paidMarkLabel(mark, 'the full Event Hub')} size="xs" /> : null;
 }
 
 /**
@@ -314,7 +314,7 @@ export function MakerThemeGallery({
                 <span
                   /* 📱 The ONE phone-shaped frame (`globals.css` `.sn-phone-card`, 3 : 4 — owner 2026-10-08, "on all style
                      across the market hub"): the top of the couple's page in this theme, at the tile's own width. */
-                  className="sn-phone-card relative block shrink-0 overflow-hidden rounded-md bg-white"
+                  className="sn-phone-card relative block shrink-0 overflow-hidden rounded-md bg-raised"
                   style={{ ['--phone-card-w' as string]: `${TILE_W}px` }}
                 >
                   {/* ⚖ Pictures at the size they are drawn (next/image, 2× of 132 px),
@@ -334,7 +334,7 @@ export function MakerThemeGallery({
                       loading="lazy"
                       data-theme-tile-frame={t.id}
                       onLoad={() => setLoading((l) => (l === t.id ? null : l))}
-                      className="pointer-events-none absolute left-0 top-0 origin-top-left border-0 bg-white"
+                      className="pointer-events-none absolute left-0 top-0 origin-top-left border-0 bg-raised"
                       style={{ width: TILE_PAGE_W, height: TILE_PAGE_H, transform: `scale(${TILE_SCALE})` }}
                     />
                   ) : posters[t.id] && seen ? (

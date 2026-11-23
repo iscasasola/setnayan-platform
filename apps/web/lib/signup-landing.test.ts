@@ -28,7 +28,7 @@ const form = (entries: Record<string, string>) => {
 test('a couple meets the You card, carrying where they were going', () => {
   // `/` is "came from nowhere" → the dashboard, never the front door (the same
   // answer /login and the Google/Apple callback give — audit 2026-09-25 §C).
-  assert.equal(signupLanding({ accountType: 'customer', next: '/' }), '/signup/you?next=%2Fdashboard');
+  assert.equal(signupLanding({ accountType: 'customer', next: '/' }), '/signup/you?next=%2Fdashboard%3Fhub%3D1');
   assert.equal(
     signupLanding({ accountType: 'customer', next: '/v/saysay' }),
     '/signup/you?next=%2Fv%2Fsaysay',
@@ -124,13 +124,13 @@ test('the showcase consent is recorded only when ticked, and never for a vendor'
 // account must be the same whether they used email, Google/Apple, or signed in:
 //   · came from an event (its page, its invite) → back to that event, whole;
 //   · came from the onboarding flow → back into it (`?resume=1`);
-//   · came from nowhere (`/`) → the dashboard, which opens their own event when
-//     they organise exactly one (`landingJumpTarget`) and is the home otherwise.
+//   · came from nowhere (`/`) → their profile page, Home (`/dashboard?hub=1`, owner 22 Nov 2026 "start on their
+//     profile page" — `?hub=1` so the single-event auto-jump does not carry them off it).
 
 // SABOTAGE: return input.next unmapped in signupLanding → RED.
 test('the landing rule: an event, the onboarding resume and a shop come back whole; nowhere is the dashboard', () => {
   assert.equal(signInDestination('/'), SIGNED_IN_LANDING);
-  assert.equal(SIGNED_IN_LANDING, '/dashboard');
+  assert.equal(SIGNED_IN_LANDING, '/dashboard?hub=1');
   for (const back of ['/maria-and-jose', '/maria-and-jose/invite', '/onboarding/wedding?resume=1', '/v/saysay']) {
     assert.equal(signInDestination(back), back, `${back} must come back whole`);
     assert.equal(signupLanding({ accountType: 'customer', next: back }), `/signup/you?next=${encodeURIComponent(back)}`);

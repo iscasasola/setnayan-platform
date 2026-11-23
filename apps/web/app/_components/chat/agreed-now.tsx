@@ -21,9 +21,10 @@ import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { agreedOutcome, agreedRows, type AgreedOutcome, type AgreedRow } from '@/lib/agreed-now';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { ChangedRow } from './changed-row';
+import { agreedEventFact, type AgreedFact } from '@/lib/agreed-facts';
 
 /** The event's facts this card reads — the locked day AND the couple's still-open date options (EB-286). */
-const EVENT_COLS = 'event_date, estimated_pax, final_pax, date_mode, date_candidates, date_window_start, date_window_end, event_days';
+const EVENT_COLS = 'event_date, estimated_pax, final_pax, date_mode, date_candidates, date_window_start, date_window_end, date_months, event_days, event_type';
 
 export async function AgreedNow({
   eventId,
@@ -32,6 +33,7 @@ export async function AgreedNow({
   threadId,
   isBooked,
   quoteBy = 'You',
+  facts,
 }: {
   eventId: string;
   vendorProfileId: string;
@@ -39,6 +41,9 @@ export async function AgreedNow({
   threadId: string | null;
   isBooked: boolean;
   quoteBy?: string;
+  /** 🧾 The plain rows as drawn (part G, 20 Nov: Venue · Hosts · Coordinator · Supplier · Stage) — facts the page
+   *  already read. The Event row is added here, from this card's own event read. Absent: the card as shipped. */
+  facts?: readonly AgreedFact[];
 }) {
   const supabase = await createClient();
   const [quotes, changes, appts] = await Promise.all([
@@ -72,6 +77,8 @@ export async function AgreedNow({
     return (
       <section data-agreed-now="" data-read="failed">
         <h2 className="text-[15px] font-semibold text-ink">Agreed now</h2>
+        {/* What the page itself read still stands; the Event row is not guessed without the event's own read. */}
+        <AgreedFacts facts={facts} />
         <p className="mt-1 text-[15px] text-ink/75">Couldn&rsquo;t load what is agreed. Pull to refresh, or open it again in a moment.</p>
       </section>
     );
@@ -101,7 +108,9 @@ export async function AgreedNow({
     date_candidates: string[] | null;
     date_window_start: string | null;
     date_window_end: string | null;
+    date_months: string[] | null;
     event_days: number | null;
+    event_type: string | null;
   };
   const versions = orderQuoteVersions((quotes.data ?? []) as unknown as QuoteVersionRow[]);
   const outcome = agreedOutcome({ isBooked, declined: false }, versions);
@@ -118,6 +127,7 @@ export async function AgreedNow({
         windowStart: event.date_window_start,
         windowEnd: event.date_window_end,
         days: event.event_days,
+        months: event.date_months,
       },
     },
     changes,
@@ -134,7 +144,29 @@ export async function AgreedNow({
     quoteBy,
     perGuest,
   });
-  return <AgreedNowView outcome={outcome} rows={rows} historyLoaded={changes !== null} />;
+  return (
+    <AgreedNowView
+      outcome={outcome}
+      rows={rows}
+      historyLoaded={changes !== null}
+      facts={facts ? [agreedEventFact(event.event_type, event.event_date), ...facts] : undefined}
+    />
+  );
+}
+
+/** 🧾 The plain rows as drawn: the label on the left, the fact on the right (the drawing's `lr`). None: nothing. */
+function AgreedFacts({ facts }: { facts?: readonly AgreedFact[] }) {
+  if (!facts || facts.length === 0) return null;
+  return (
+    <dl className="mt-1 border-b border-ink/10 pb-1" data-agreed-facts="">
+      {facts.map((f) => (
+        <div key={f.label} className="flex min-h-9 items-center justify-between gap-3 py-1 text-[15px]" data-agreed-fact={f.label.toLowerCase()}>
+          <dt className="shrink-0 text-ink/70">{f.label}</dt>
+          <dd className="min-w-0 text-right font-semibold text-ink">{f.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
 }
 
 /** The section itself — the reads' result drawn; labs draw it from fixtures (`/dev/chat-cards-lab`). */
@@ -147,11 +179,13 @@ export function AgreedNowView({
   rows,
   historyLoaded,
   openKey = null,
+  facts,
 }: {
   outcome: AgreedOutcome;
   rows: readonly AgreedRow[];
   historyLoaded: boolean;
   openKey?: string | null;
+  facts?: readonly AgreedFact[];
 }) {
   const Icon = TOPIC_ICON.details;
   return (
@@ -166,6 +200,7 @@ export function AgreedNowView({
         {outcome.line}
       </p>
       <h2 className="mt-4 text-[15px] font-semibold text-ink">Agreed now</h2>
+      <AgreedFacts facts={facts} />
       <ul className="mt-1">
         {rows.map((r) => (
           <ChangedRow key={r.key} row={r} loaded={r.key === 'quote' || historyLoaded} initialOpen={r.key === openKey} />

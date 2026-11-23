@@ -49,10 +49,14 @@ test('A1 · flag on → nobody is signed in, the shop opens, the page says "We s
   // The wizard's link lands on the dashboard (the default); only the claim door names its own slide (7 Nov).
   assert.match(ACCOUNT, /const confirmNext = input\.confirmNext \?\? '\/vendor-dashboard';/, 'the link does not land on the dashboard');
   assert.match(ACCOUNT, /mustConfirm \? confirmNext : '\/open-shop'/);
-  assert.doesNotMatch(ACTIONS, /confirmNext/, 'the wizard no longer lands its link on the dashboard');
+  // 19 Nov fix (review: "on the Email way the approved card and the welcome are dropped"): the wizard's link now lands on
+  // Today's WELCOME — carrying the drafted card when one was approved — never on a bare dashboard.
+  assert.match(ACTIONS, /confirmNext: afterConfirm,/, 'the wizard link no longer lands on the welcome');
+  assert.match(ACTIONS, /firstCardCarryPath\(WELCOME_OPENED_PATH, \{\s*state: 'waiting'/);
   assert.match(ACTIONS, /checkEmail = created\.user\.email;/);
   // W1-B4 (walk 16 Nov 2026): the address is parked in a cookie; the URL carries only the flag.
-  assert.match(ACTIONS, /if \(checkEmail\) \{\s*await parkSentTo\(checkEmail\);\s*redirect\(`\/open-shop\?check_inbox=\$\{CHECK_INBOX_FLAG\}`\);/);
+  // …and `after` (the same welcome — a service's name and price, never a person's detail) for that screen's "sign in".
+  assert.match(ACTIONS, /if \(checkEmail\) \{\s*await parkSentTo\(checkEmail\);[\s\S]{0,200}redirect\(`\/open-shop\?check_inbox=\$\{CHECK_INBOX_FLAG\}&after=\$\{encodeURIComponent\(afterConfirm\)\}`\);/);
   // The shop is written for that account first: the check-email redirect is after the shop's own update.
   assert.ok(ACTIONS.indexOf('if (checkEmail) {') > ACTIONS.indexOf('.update(patch)'));
   assert.match(PAGE, /sentTo=\{guest \? sentTo : null\}/);
@@ -81,9 +85,12 @@ test('A1 · the account is created only after every field of the shop has passed
 
 /* ── A2 · logo off step 1, asked after the shop opens ────────────────────────────────────────────────────────── */
 
-test('A2 · the signed-out wizard has no upload; a new shop goes to "Add your logo"', () => {
+test('A2 · the signed-out wizard has no upload; a new shop reaches "Add your logo" from Today’s welcome', () => {
   assert.doesNotMatch(WIZARD, /<FileUpload\b/);
-  assert.match(ACTIONS, /if \(!logoUrl && !existingHasLogo\) redirect\(plan \? `\$\{OPEN_SHOP_LOGO_PATH\}\?plan=\$\{plan\}` : OPEN_SHOP_LOGO_PATH\);/);
+  // 🚪 19 Nov (supplier onboarding): the door lands on Today's welcome, whose second step is the logo screen — it is
+  // no longer forced between the door and Today, and it stays reachable (owner: "Keep /open-shop/logo reachable").
+  assert.doesNotMatch(ACTIONS, /redirect\([^)]*OPEN_SHOP_LOGO_PATH/);
+  assert.match(read('lib/supplier-onboarding.ts'), /\{ key: 'logo', label: 'Add your logo', href: '\/open-shop\/logo' \}/);
 });
 
 test('A2 · the logo screen: round preview, the shared framer, Skip → Today, saved by My Shop’s own logo save', () => {
@@ -161,11 +168,15 @@ test('A5 · the hint, with the categories per plan read from TIER_CAPS', () => {
   // 🔁 Retargeted 2026-11-06 to the approved redesign's words (the prototype's `planHint2`), the ⓘ now the label's.
   assert.match(WIZARD, /label="Add more later\. How many categories you can run depends on your plan"/);
   assert.match(WIZARD, /ariaLabel="Categories per plan"/);
-  assert.match(PAGE, /planCategories=\{categoryLadder\(\)\}/);
+  // 🍎 22 Nov: inside the iPhone app the ladder is not read (the app names no plan — the-app-supplier-door-names-no-price).
+  assert.match(PAGE, /planCategories=\{storeShell \? \[\] : categoryLadder\(\)\}/);
   const ladder = categoryLadder();
-  assert.ok(ladder.length >= 3);
-  const solo = ladder.find((l) => l.plan === 'Plus')!;
-  assert.equal(solo.categories, `${TIER_CAPS.solo.parentCategories} categories`, 'the number is not TIER_CAPS’');
+  assert.ok(ladder.length >= 2);
+  // Owner 2026-11-22 "FINAL LADDER": no category cap on any paid size — one row for all three.
+  const paid = ladder.find((l) => /\bPlus\b/.test(l.plan))!;
+  assert.equal(paid.plan, 'Plus, Pro and Ultra');
+  assert.equal(TIER_CAPS.solo.parentCategories, Infinity);
+  assert.equal(paid.categories, 'every category', 'the words are not TIER_CAPS’');
   assert.ok(!ladder.some((l) => /Custom/.test(l.plan)), 'Custom is retired from the app (2026-11-06)');
 });
 
@@ -222,5 +233,5 @@ test('A10 · one line, the numbers inside the ⓘ, still before "Open my shop"',
   // The sentence IS the ⓘ's label (2026-11-06). Walk 13 Nov (F-W1-12): it ends with a full stop like every other line.
   assert.match(line, /label="Free to open, free to run\. You pay only when a couple books you through Setnayan\."/);
   assert.match(line, /<InfoTip[\s\S]*\{feeNotice\.detail\}/, 'the numbers left the ⓘ');
-  assert.ok(at < WIZARD.indexOf('Open my shop — free'), 'the fee line moved below the button');
+  assert.ok(at < WIZARD.indexOf('pendingLabel="Opening your shop…"'), 'the fee line moved below the button');
 });

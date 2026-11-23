@@ -101,11 +101,12 @@ export type SignInCardProps = {
    * for a typo. In this mode neither happens: the error renders in the card and
    * the caller decides where success goes.
    *
-   * It takes no destination ON PURPOSE. In place there is nowhere to send
-   * anybody — staying is the feature. Landing on the account board belongs to
-   * the /login ROUTE, which really does have nothing behind it.
+   * It takes no destination of its own. In place, staying is the feature —
+   * EXCEPT when the page had nothing to stay on (`next` is `/`): then the
+   * action hands back `landing`, the person's profile page (owner 22 Nov 2026,
+   * `landingForAccount`), and it is passed here; otherwise it is `null`.
    */
-  onSignedIn?: () => void;
+  onSignedIn?: (landing: string | null) => void;
   /**
    * `next` opens an event (`getLoginView`): the card speaks to a GUEST — no
    * "Welcome back", no "couples and vendors" (guest text audit 2026-09-30).
@@ -175,9 +176,9 @@ export function SignInCard({
   // reached the server must never look like a sign-in.
   useEffect(() => {
     if (state.attempt > 0 && state.ok && onSignedIn) {
-      onSignedIn();
+      onSignedIn(state.landing ?? null);
     }
-  }, [state.attempt, state.ok, onSignedIn]);
+  }, [state.attempt, state.ok, state.landing, onSignedIn]);
 
   // One banner slot, two sources: the /login route's `?error=` and the in-place
   // action's returned message. They can never both apply — the route surface

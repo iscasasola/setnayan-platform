@@ -6,14 +6,19 @@
  * motion: at once. It is ONE shared part (`app/_components/search-grows.ts`), adopted by the ONE row every list's search
  * sits in (`components/thumb-row.tsx`), so a list never writes this move for itself.
  *
- *   1 · the move is transform only: from the box the field had to the box it has (a translate and a scaleX);
+ *   1 · the PILL'S REAL WIDTH grows from the icon to the row — never a scaleX (21 Nov 2026, owner: *"animate from just
+ *       the icon to the full width search bar"*, Fable's drawing `search_icon_grows_2026-11-21_fable.html`): the 18 Nov
+ *       scaleX stretched the 44 px round's radius and ring into an oval. The spring may carry it 8 px past the row, no
+ *       more; the magnifier slides on the pill's curve; a round it takes the row from gives way; and AT REST the
+ *       magnifier is dead centre in its round (owner, same day: "Search icon is not centered properly");
  *   2 · the timing is the standard's: open Move on Spring, fold Quick on Settle — and faster back than out;
  *   3 · ONE part: the move is defined in one file, and the thumb row calls it; no list re-draws it;
  *   4 · the lists the owner named sit in that row (so they inherit it), and the row's fold is no longer only a cut.
  *
- * Sabotage (each proved red, 18 Nov 2026): `width` animated in `searchGrowsFrames` (1) · the fold given Move (2) ·
+ * Sabotage (each proved red, 18 Nov 2026): the fold given Move (2) ·
  * the `useSearchGrows(` call removed from `thumb-row.tsx` (3) · a second `playSearchGrows` written in
- * `guests-screen.tsx` (3).
+ * `guests-screen.tsx` (3). 21 Nov 2026: a scaleX put back in `searchGrowsFrames` (1) · the overshoot cap removed (1) ·
+ * the resting ✕'s `margin: 0` removed from the row's CSS (1).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,32 +27,45 @@ import { join, relative } from 'node:path';
 
 import { stripComments } from './strip-comments';
 import { EASE_SETTLE, EASE_SPRING_FALLBACK, EASE_SPRING_LINEAR, MOVE_MS, QUICK_MS } from './motion-table';
-import { searchGrowsFrames, searchGrowsTiming } from '../app/_components/search-grows';
+import { SEARCH_GIVES_WAY, SEARCH_GROWS_OVERSHOOT_PX, searchGlyphFrames, searchGrowsFrames, searchGrowsTiming } from '../app/_components/search-grows';
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const PART = 'app/_components/search-grows.ts';
 
-test('1 · the move is transform only — from the box the field had to the box it has', () => {
-  // A field at 60 % of a 358 px row, after one round (left 52), takes the whole row (left 0).
-  const frames = searchGrowsFrames({ left: 52, width: 214 }, { left: 0, width: 358 });
+test('1 · the pill’s real width grows from the icon to the row — never stretched; the icon rests dead centre', () => {
+  // The 44 px icon (left 16) takes a 358 px row (left 16).
+  const frames = searchGrowsFrames({ left: 16, width: 44 }, { left: 16, width: 358 });
   assert.ok(frames && frames.length === 2);
-  for (const f of frames) assert.deepEqual(Object.keys(f), ['transform'], 'the grow animates something other than transform');
-  // Centre moves from 159 to 179 (−20 px); the width is 214 / 358 of the row.
-  const m = /^translateX\((-?[\d.]+)px\) scaleX\(([\d.]+)\)$/.exec(String(frames[0]!.transform));
-  assert.ok(m, `the first frame is “${frames[0]!.transform}”`);
-  assert.equal(Number(m[1]), -20);
-  assert.ok(Math.abs(Number(m[2]) - 214 / 358) < 1e-9);
-  assert.equal(frames[1]!.transform, 'translateX(0px) scaleX(1)', 'it does not end in its own place');
-  // Folding back is the same move from the row to the box.
-  const back = searchGrowsFrames({ left: 0, width: 358 }, { left: 52, width: 214 });
-  assert.ok(back && /^translateX\(20px\) scaleX\(1\.67/.test(String(back[0]!.transform)));
+  assert.deepEqual(frames[0], { transform: 'translateX(0px)', flexBasis: '44px', flexGrow: 0, flexShrink: 0, maxWidth: `${358 + SEARCH_GROWS_OVERSHOOT_PX}px` });
+  assert.deepEqual(frames[1], { transform: 'translateX(0px)', flexBasis: '358px', flexGrow: 0, flexShrink: 0, maxWidth: '366px' });
+  assert.equal(SEARCH_GROWS_OVERSHOOT_PX, 8, 'the spring may carry the pill 8 px past the row (Fable’s max-width: calc(100% + 8px))');
+  for (const f of frames) assert.doesNotMatch(String(f.transform), /scale/, 'the pill is stretched instead of grown');
+  // A field after one round (left 52) takes the whole row (left 0): its left edge slides on the same curve.
+  const fromSide = searchGrowsFrames({ left: 52, width: 214 }, { left: 0, width: 358 });
+  assert.equal(fromSide?.[0]?.transform, 'translateX(52px)');
+  // Folding back is the same move from the row to the icon.
+  const back = searchGrowsFrames({ left: 16, width: 358 }, { left: 16, width: 44 });
+  assert.equal(back?.[0]?.flexBasis, '358px');
+  assert.equal(back?.[1]?.flexBasis, '44px');
   // Nothing changed → nothing plays.
   assert.equal(searchGrowsFrames({ left: 10, width: 200 }, { left: 10, width: 200.4 }), null);
   assert.equal(searchGrowsFrames({ left: 0, width: 100 }, { left: 0, width: 0 }), null);
+  // The magnifier slides from where it sat to where it sits (12 → 14 at rest is 2 px); a still one plays nothing.
+  assert.deepEqual(searchGlyphFrames(12, 14), [{ transform: 'translateX(-2px)' }, { transform: 'translateX(0px)' }]);
+  assert.equal(searchGlyphFrames(14, 14.2), null);
+  // Show gives way: fades, 6 px right, .9 — and comes back the same way reversed.
+  assert.deepEqual(SEARCH_GIVES_WAY, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(6px) scale(0.9)' }]);
   const src = read(PART);
-  assert.doesNotMatch(src, /\b(?:width|height|left|top|maxHeight|maxWidth)\s*:\s*[`'"\d]/, 'the part animates a layout property');
-  assert.doesNotMatch(src, /fill:\s*'both'|fill:\s*'forwards'/, 'the part leaves a transform held on the field');
+  assert.doesNotMatch(src, /scaleX\(/, 'the part stretches the pill again');
+  assert.doesNotMatch(src, /fill:\s*'both'|fill:\s*'forwards'/, 'the part leaves a frame held on the field');
+  assert.match(src, /seat\.setAttribute\('data-search-gives-way', ''\)/, 'a round the field takes the row from no longer gives way');
+  assert.match(src, /field\.setAttribute\('data-search-words-wait', ''\)/, 'the words no longer wait for the growth');
+  // At rest the ✕ takes no width AND pulls nothing, so the magnifier is centred in its 44 px round.
+  const css = read('components/thumb-row.module.css');
+  assert.match(css, /\[data-thumb-seat='field'\]:not\(:focus-within\):has\(input\[type='search'\]:placeholder-shown\) > \.clearIn,\s*\.row\[data-search-force='rest'\] > \[data-thumb-seat='field'\]:has\(input\[type='search'\]\) > \.clearIn \{ margin: 0; \}/, 'the resting ✕ pulls the magnifier off centre again');
+  assert.match(css, /\.row > \[data-search-gives-way\] \{ display: inline-flex !important; position: absolute;/);
+  assert.match(css, /\[data-search-words-wait\] \.input::placeholder \{ color: transparent; transition: none; \}/);
 });
 
 test('2 · open Move on Spring · fold back Quick on Settle — faster back than out', () => {
@@ -87,7 +105,7 @@ test('3 · ONE part — defined once, called by the one row, re-drawn by no list
   assert.deepEqual(defines, [PART], `search-grows is written in more than one place: ${defines.join(', ')}`);
   assert.deepEqual(calls, ['components/thumb-row.tsx'], `search-grows is called from: ${calls.join(', ') || 'nowhere'}`);
   const row = read('components/thumb-row.tsx');
-  assert.match(row, /import \{ focusSearchNow, playSearchGrows, useSearchGrows \} from '@\/app\/_components\/search-grows';/);
+  assert.match(row, /import \{ focusSearchNow, holdSearchForKeyboard, playSearchGrows, useSearchGrows \} from '@\/app\/_components\/search-grows';/);
   assert.match(row, /useSearchGrows\(rowRef, riding, \{ field: "\[data-thumb-seat='field'\]", shape: 'data-riding' \}\);/);
   /* The seat and the shape the part is told about are the row's own. */
   assert.match(row, /data-thumb-seat="field"/);
@@ -112,4 +130,36 @@ test('4 · the lists the owner named search in that row — so they inherit it',
   for (const rel of ['app/dashboard/[eventId]/guests/_components/guests-screen.tsx', 'app/vendor-dashboard/customers/page.tsx']) {
     assert.doesNotMatch(read(rel), /scaleX\(|searchGrows|search-grows/, `${rel} draws its own search grow`);
   }
+});
+
+test('5 · on a phone the grow waits for the row to ride the keyboard — so it is seen above the keys', () => {
+  // Owner, 21 Nov 2026: "the keyboard rises as i press the search. can i see it while the keyboard rises?"
+  const src = read(PART);
+  const hold = src.slice(src.indexOf('export function holdSearchForKeyboard('), src.indexOf('export function focusSearchNow('));
+  assert.ok(hold.length > 0, 'anti-vacuity: the hold is gone');
+  // Only on a touch screen, only while the keyboard is not up yet, only for a search that rides, never under reduce motion.
+  assert.match(hold, /motionReduced\(\)\) return false;/);
+  assert.match(hold, /matchMedia\('\(hover: none\) and \(pointer: coarse\)'\)\.matches\) return false;/);
+  assert.match(hold, /getAttribute\('data-keyboard'\) === 'open'\) return false;/);
+  assert.match(hold, /hasAttribute\('data-rides'\)/);
+  // It holds the icon shape — the row's own measuring switch — and lets go on its own: a Rise, or the first letter.
+  assert.match(hold, /row\.setAttribute\(HOLD, 'rest'\);/);
+  assert.match(hold, /window\.setTimeout\(release, RISE_MS_STANDARD\)/);
+  assert.match(hold, /field\.addEventListener\('input', release\)/);
+  // The ride releases it, playing the grow from the icon (the hook puts the hold back for its one measure).
+  const hook = src.slice(src.indexOf('export function useSearchGrows('), src.indexOf('export function holdSearchForKeyboard('));
+  assert.match(hook, /const held = open && row\.getAttribute\(HOLD\) === 'rest';/);
+  assert.match(hook, /if \(held\) row\.setAttribute\(HOLD, 'rest'\);/);
+  // The row asks for the hold at the tap, and grows at once only when it does not hold. Tap and type is untouched:
+  // the focus is the input's own (the hold changes only the SHAPE).
+  const row = read('components/thumb-row.tsx');
+  assert.match(row, /!holdSearchForKeyboard\(rowRef\.current, seat\)\) playSearchGrows\(rowRef\.current, seat, true, forceShape\('rest'\)\);/);
+  assert.doesNotMatch(hold, /\.focus\(/, 'the hold moves the focus (tap and type must stay one synchronous focus)');
+});
+
+test('6 · a shipped search box in the seat rests centred too (Clients, People, admin)', () => {
+  const css = read('components/thumb-row.module.css');
+  assert.match(css, /\.row\[data-search-force='rest'\] > \.fieldNode:has\(input\[type='search'\]\) > \* \{ padding: 0; gap: 0; justify-content: center; \}/);
+  assert.match(css, /> \* > :not\(svg, input\[type='search'\], \[data-search-add-icon\]\) \{ display: none; \}/);
+  assert.match(read(PART), /field\.querySelector<HTMLElement \| SVGElement>\('\[data-search-add-icon\], svg'\)/, 'the slide moves the whole box, not its magnifier');
 });

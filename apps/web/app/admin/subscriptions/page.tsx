@@ -28,7 +28,8 @@ type SubscriptionRow = {
   billing_cycle: 'monthly' | 'annual' | null;
   amount_php: number | string | null;
   reference_code: string | null;
-  status: 'pending_payment' | 'paid' | 'rejected' | 'superseded';
+  // 'refunded' (migration 20271359936839): its money went back and the plan dropped at once — shown by its own word below.
+  status: 'pending_payment' | 'paid' | 'rejected' | 'superseded' | 'refunded';
   created_at: string;
   paid_at: string | null;
   expires_at: string | null;

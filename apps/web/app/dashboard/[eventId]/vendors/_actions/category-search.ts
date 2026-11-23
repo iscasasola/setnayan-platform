@@ -27,6 +27,7 @@
 
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { savedGoesFirst } from '@/lib/saved-first';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readNearAnchors } from '@/lib/find-near-anchors.server';
@@ -259,6 +260,11 @@ export type CategorySearchResult = {
   /** Null when the event has no stored coords (distance tier falls back to
    *  review order + the overlay hides distance chips). */
   hasReceptionCoords: boolean;
+  /** 🃏 Card 14's distance line (owner 20 Nov, "straight line, about X km"): TRUE when every `distanceKm` above was
+   *  measured from the event's VENUE (the reception anchor). FALSE when it came from the Region's centre — then the
+   *  overlay asks for the venue, exactly as Find's cards do (`askVenue`), and never calls it "from your venue".
+   *  Set only where results are returned; absent means the same as false. */
+  distanceFromVenue?: boolean;
   /** TRUE only on the §4 edge-#2 empty state: Setnayan AI is OFF and the WHOLE
    *  group is already in (or past) its last-minute zone, so generic search
    *  shows nothing — yet last-minute vendors COULD still take the date with AI
@@ -1373,8 +1379,21 @@ export async function searchCategoryVendors(input: {
   // Relationship-depth tier: vendors this couple already knows float above
   // everything else, sorted depth-DESC then by the normal ad/review order.
   // Depth 0 vendors fall through to the original tier ladder below unchanged.
+  //
+  // 🔖 Saved first (owner 20 Nov, `lib/saved-first.ts`): a supplier only SAVED to this event (depth 1) leads only when
+  // the venue is in their reach (a KNOWN distance inside their radius) AND the calendar check ran on a date and found
+  // them free. Otherwise it falls into the ladder below like anyone else. Depth 2-3 (talking, booked) are unchanged.
   const withRelationship = searchableShaped
-    .filter((s) => s._depth > 0)
+    .filter(
+      (s) =>
+        s._depth > 1 ||
+        (s._depth === 1 &&
+          savedGoesFirst({
+            saved: true,
+            inReach: s.distanceKm !== null ? s.withinRadius : null,
+            freeOnDate: fitScope !== null ? s.serviceDateAvailable : null,
+          })),
+    )
     .sort(
       (a, b) =>
         b._depth - a._depth ||
@@ -1544,6 +1563,7 @@ export async function searchCategoryVendors(input: {
     results,
     total: results.length,
     hasReceptionCoords: hasCoords,
+    distanceFromVenue: anchors.reception != null,
     facets: facetCatalog,
     facetDefaults,
     // Only present when the tally actually failed → the happy-path shape is

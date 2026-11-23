@@ -74,7 +74,7 @@ export const ADMIN_1_TOPICS: AdminHelpTopic[] = [
         // lib/two-admin-promise.ts TWO_ADMIN_PROMISES (actionType: null rows); app/admin/users/actions.ts issueCompGrant; saveVendorRow
         slug: 'admin-what-two-admins-really-enforce',
         title: 'Which § 9.1 promises does the console actually enforce?',
-        body: 'Enforced with a second admin: promoting to an admin role, adding an internal account, supplier comps, refunds above REFUND_TWO_ADMIN_THRESHOLD_PHP, receiving-account changes, customer price changes and supplier plan contents. NOT enforced today: force-delisting without the due-process timeline and re-publishing a rejected application have no gate; a customer or event comp above COMP_TWO_ADMIN_THRESHOLD_PHP is granted at once (only a banner flags it); supplier plan prices and the bulk price tools save with one admin. Until those are built, route them to a second admin yourself.',
+        body: 'Enforced with a second admin: promoting to an admin role, adding an internal account, supplier comps, refunds above REFUND_TWO_ADMIN_THRESHOLD_PHP, receiving-account changes and supplier plan contents. Prices take ONE admin, by the owner’s ruling of 23 Nov 2026 (“no need for a second admin. auto approve”): a customer price, a supplier plan price and the bulk price tools are live on save and kept in the audit log. NOT enforced today: force-delisting without the due-process timeline and re-publishing a rejected application have no gate; a customer or event comp above COMP_TWO_ADMIN_THRESHOLD_PHP is granted at once (only a banner flags it). Until those are built, route them to a second admin yourself.',
       },
     ],
   },

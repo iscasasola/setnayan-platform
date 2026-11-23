@@ -1,4 +1,5 @@
 import { Zap } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button-class';
 import { createClient } from '@/lib/supabase/server';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { countEventMoments, SCOPE_MIN_MOMENTS } from '@/lib/life-story-moment-graph';
@@ -65,20 +66,18 @@ export async function readLifeFlashCard(eventId: string): Promise<LifeFlashCardS
   }
 }
 
-export async function LifeFlashCard({ eventId, state }: { eventId: string; state?: LifeFlashCardState | null }) {
+/** `seat="sheet"` — its keepsake sheet on Memories (2026-11-20): the sheet's head says the title; the body only. */
+export async function LifeFlashCard({ eventId, state, seat = 'page' }: { eventId: string; state?: LifeFlashCardState | null; seat?: 'page' | 'sheet' }) {
   const read = state === undefined ? await readLifeFlashCard(eventId) : state;
   if (!read) return null;
   const moments = read.moments;
   // null = not measured. Fail closed.
   if (moments === null || moments < SCOPE_MIN_MOMENTS.event) return null;
 
-  return (
-    <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
-      <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
-        <Zap aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-        This day, as a flash
-      </h2>
-      <p className="mt-1 text-sm text-ink/70">
+  const inSheet = seat === 'sheet';
+  const body = (
+    <>
+      <p className={inSheet ? 'text-sn-lg text-ink/70' : 'mt-1 text-sm text-ink/70'}>
         {moments} {moments === 1 ? 'moment' : 'moments'} from this day, played back through
         every camera that was there.
       </p>
@@ -86,11 +85,27 @@ export async function LifeFlashCard({ eventId, state }: { eventId: string; state
           same id space the moment graph keys on. NEVER the S89E public id. */}
       <a
         href={`/dashboard/life-flash?scope=e${eventId}`}
-        className="ab ab-brand ab-main mt-4"
+        className={actionButtonClass('brand', { main: true, extra: inSheet ? 'h-12 w-full text-sn-lg' : 'mt-4' })}
       >
         <Zap aria-hidden className="h-4 w-4" strokeWidth={2} />
         Play this day
       </a>
+    </>
+  );
+  if (inSheet) {
+    return (
+      <div className="flex flex-col gap-3" data-keepsake-card="flash">
+        {body}
+      </div>
+    );
+  }
+  return (
+    <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
+      <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
+        <Zap aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
+        This day, as a flash
+      </h2>
+      {body}
     </section>
   );
 }

@@ -36,15 +36,19 @@ export function CalendarStrip({
     return <Cell key={i} cls={cls} k={isOn || isWait ? k++ : null} />;
   });
   const empty = booked.length === 0 && waiting.length === 0;
+  // One shape (owner 21 Nov 2026): square 13-px days with the key on the RIGHT, inside the 144-px picture. Colours by
+  // meaning (owner 22 Nov 2026): a booked day green, "asked, you weren't free" an amber ring, today an ink dot.
   return (
-    <div data-calendar-strip="">
-      <div className="ag-cal-m">
-        {months.map((m, i) => (
-          <span key={i}>{m}</span>
-        ))}
-      </div>
-      <div className="ag-cal" aria-hidden>
-        {cells}
+    <div data-calendar-strip="" className="ag-cal-wrap">
+      <div>
+        <div className="ag-cal-m">
+          {months.map((m, i) => (
+            <span key={i}>{m}</span>
+          ))}
+        </div>
+        <div className="ag-cal" aria-hidden>
+          {cells}
+        </div>
       </div>
       <div className="ag-cal-k">
         <span>
@@ -59,7 +63,6 @@ export function CalendarStrip({
           <i className="ag-w" />
           couples asked, you weren’t free
         </span>
-      </div>
       {unread ? (
         <p className="ag-ghost-t" style={{ marginTop: 8 }}>
           Couldn’t load your calendar just now.
@@ -69,6 +72,7 @@ export function CalendarStrip({
           Your first booked date lights up here — and so does the first date a couple wanted that you weren’t free on.
         </p>
       ) : null}
+      </div>
     </div>
   );
 }

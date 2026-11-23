@@ -55,7 +55,7 @@ before(async () => {
   F.owner1 = await createUser('owner-1@offers.test');
   F.owner2 = await createUser('owner-2@offers.test');
   const shop = async (uid: string, name: string) =>
-    (await db.query<{ vendor_profile_id: string }>(`INSERT INTO public.vendor_profiles (user_id, business_name) VALUES ($1, $2) RETURNING vendor_profile_id`, [uid, name])).rows[0]!.vendor_profile_id;
+    (await db.query<{ vendor_profile_id: string }>(`INSERT INTO public.vendor_profiles (user_id, business_name, verification_state, last_verified_at) VALUES ($1, $2, 'verified', NOW()) RETURNING vendor_profile_id`, [uid, name])).rows[0]!.vendor_profile_id;
   F.vendor1 = await shop(F.owner1, 'Shop One');
   F.vendor2 = await shop(F.owner2, 'Shop Two');
   const card = async (v: string, title: string) =>

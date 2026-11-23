@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { asVendorTier } from './vendor-tier-caps';
+import { isPaidSize } from './vendor-tier-caps';
 
 /**
  * Website-tier capability gate (owner 2026-07-03 tier ladder). Maps a vendor's
@@ -16,10 +16,9 @@ export function micrositeCan(tierState: string | null | undefined): {
   canPremium: boolean;
   isEnterprise: boolean;
 } {
-  // Rank is the website ladder Free/Verified 0 · Supplier Plus 1 · Pro 2 · Ultra (enterprise) 3.
-  const t = asVendorTier(tierState ?? null);
-  const rank = t === 'enterprise' ? 3 : t === 'pro' ? 2 : t === 'solo' ? 1 : 0;
-  return { canPersonalize: rank >= 1, canPremium: rank >= 2, isEnterprise: rank >= 3 };
+  // Every paid size has every layer (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE"; was Plus 1 · Pro 2 · Ultra 3).
+  const paid = isPaidSize(tierState ?? null);
+  return { canPersonalize: paid, canPremium: paid, isEnterprise: paid };
 }
 
 /**

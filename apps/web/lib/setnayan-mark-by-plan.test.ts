@@ -67,9 +67,9 @@ test('SABOTAGE-PROVEN: PAPER — Pro prints carry nothing, Plus the tiny mark, n
   assert.deepEqual(out.map((d) => d.ops.length), [0, 0], 'an Event Pro print carries a Setnayan mark');
 });
 
-test('the plan is READ from the shipped readers — Pro = eventCoupleWebsiteProActive, Plus = EVENT_PLUS — a failed read is the watermark', () => {
+test('the plan is READ from the shipped readers — Pro = eventProPlanActive (the Pro PLAN, 2026-11-19), Plus = EVENT_PLUS — a failed read is the watermark', () => {
   const src = code('lib/setnayan-mark-by-plan.server.ts');
-  assert.match(src, /asViewed\(eventCoupleWebsiteProActive\(supabase, eventId\)\.catch\(\(\) => false\)\)/);
+  assert.match(src, /asViewed\(eventProPlanActive\(supabase, eventId\)\.catch\(\(\) => false\)\)/);
   assert.match(src, /asViewed\(eventSkuActive\(supabase, eventId, EVENT_PLUS_SKU\)\.catch\(\(\) => false\)\)/);
   assert.match(src, /return setnayanMarkFor\(\{ pro, plus \}\);/);
   assert.doesNotMatch(src, /process\.env|NEXT_PUBLIC_/, 'the mark must come from the plan, never a flag');

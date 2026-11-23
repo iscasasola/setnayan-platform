@@ -556,7 +556,10 @@ test('wiring: the vendor side shows no plan upsell, add-on price or pack in the 
 test('wiring: couple-side upsells and web-bought features stay out of the store shell', () => {
   assert.match(src('app/dashboard/[eventId]/studio/save-the-date/page.tsx'), /\) : storeShell \? null \/\*/);
   assert.match(src('app/dashboard/[eventId]/monogram/page.tsx'), /owned=\{ownsAnimated && !storeShell\}/);
-  assert.match(src('app/papic/seat/[token]/page.tsx'), /buyOffered=\{canReloadOwnCamera && !storeShell\}/);
+  // 📷 The seat page (one camera, seat mode — owner 2026-11-22) withholds the whole buy panel in the store shell; the
+  // camera itself offers no purchase of its own.
+  assert.match(src('app/papic/seat/[token]/page.tsx'), /\{!storeShell && \(\s*<PapicGuestBuyPanel\b/);
+  assert.doesNotMatch(src('app/papic/seat/[token]/page.tsx'), /buyOffered=/, 'the seat camera grew its own purchase doorway again');
 });
 
 test('/for-suppliers — the supplier price-ladder marketing page — is a refused doorway (2026-09-25 drawer-footer audit)', () => {
@@ -928,8 +931,13 @@ test('🍎 #5/#14 — nothing that sells or names Android renders on a route the
     ['app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-credits-card.tsx', { why: 'its Buy form renders only with offerPack, which the Papic page passes false in the store shell', gate: { file: 'app/vendor-dashboard/on-the-day/live/[eventId]/papic/page.tsx', re: /offerPack=\{portfolioCredits\.offerPack && !\(await isStoreShellRequest\(\)\)\}/ } }],
     // 🎁 Your gifts moved off the Plan page (refused in the app) to Shop › Promote (open in the app) on 2026-11-05. Its
     // "Buy gifts" button and sheet draw only when `canOffer`, which needs `canBuy` — false in the store shell, read
-    // with the section's own data. In the app the stock and the Bought list still show; nothing sells.
-    ['app/vendor-dashboard/shop/promote/_components/shop-gifts-section.tsx', { why: '"Buy gifts" (button + sheet) renders only when canBuy, which the loader sets false in the store shell', gate: { file: 'app/vendor-dashboard/shop/promote/_components/shop-gifts-data.ts', re: /isStoreShellRequest\(\),[^]*canBuy: !storeShell,/ } }],
+    // with the section's own data. In the app the web buy never shows; the only buy there is APPLE's (owner 2026-11-04,
+    // line by line 2026-11-22), behind `appleGifts` = the three-part IAP gate AND a build that passes a quantity.
+    ['app/vendor-dashboard/shop/promote/_components/shop-gifts-section.tsx', { why: 'the web "Buy gifts" renders only when canBuy (false in the store shell); in the app only Apple sells, behind appleGifts = getIapGate().iapQuantity', gate: { file: 'app/vendor-dashboard/shop/promote/_components/shop-gifts-data.ts', re: /getIapGate\(\),[^]*canBuy: !gate\.storeShell,[^]*appleGifts: gate\.iapQuantity,/ } }],
+    // 🛒 The gift store (2026-11-17): its web "Buy now" draws only inside GiftStore, mounted when `canOffer` (canBuy —
+    // false in the store shell) OR, in the app, when Apple sells (`appleStore`, which needs `appleGifts` and NOT
+    // canBuy); then the store is handed `apple` and its foot is Apple's line-by-line cart, never the web's.
+    ['app/vendor-dashboard/shop/promote/_components/gift-store.tsx', { why: 'GiftStore mounts in the app only when Apple sells (appleStore), and is then handed `apple`, so its foot is Apple’s cart, never the web Buy now', gate: { file: 'app/vendor-dashboard/shop/promote/_components/shop-gifts-section.tsx', re: /const appleOffer = Boolean\(data\.appleGifts\) && !data\.canBuy && [^]*const storeOn = canOffer \|\| appleStore;[^]*\{storeOn \? \(\s*<GiftStore\b[^]*apple=\{appleStore \? / } }],
   ]);
 
   // No page is skipped for being "bounced out of the app" any more — and if middleware starts bouncing the app

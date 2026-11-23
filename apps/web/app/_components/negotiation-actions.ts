@@ -24,6 +24,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { openTheCoordinatorsSeatForBooking } from '@/lib/coordinator-grant';
 import { fetchThreadById } from '@/lib/chat';
 import { emitNotification } from '@/lib/notification-emit';
 import { supplierChatHref } from '@/lib/upcoming-schedule-door';
@@ -47,6 +48,8 @@ import { isSafeNext } from '@/lib/safe-next';
 import { demoBookingRefusal } from '@/lib/demo-scope';
 import { askRefusal, LOCK_REFUSAL_WORDS } from '@/lib/supplier-locks';
 import { acceptClaimChangeQuote } from '@/lib/supplier-purchase-change.server';
+import { plusGateRefusal } from '@/lib/shop-plus-gate';
+import { shopPlusGate } from '@/lib/shop-plus-gate.server';
 
 function str(v: FormDataEntryValue | null, max: number): string | null {
   if (typeof v !== 'string') return null;
@@ -145,6 +148,11 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
     }
     redirect(dest);
   };
+  // 🪪 A ＋ tool needs a verified shop — the SHOP's side only; a couple asking for a meeting is never gated.
+  if (role === 'vendor') {
+    const refusal = plusGateRefusal(await shopPlusGate(supabase, thread.vendor_profile_id));
+    if (refusal) failWindow(refusal);
+  }
   if ((date as string) < todayManila) failWindow('Pick a meeting date from today onward.');
   if (eventDate && (date as string) >= eventDate) {
     failWindow('Meetings must be scheduled before the event day.');
@@ -861,6 +869,9 @@ export async function lockDeal(formData: FormData): Promise<void> {
       marketplaceVendorId: ctx.thread.vendor_profile_id,
       agreedTotalPhp: newTotal,
     });
+    // 🚪 A coordinator booked from the chat gets their seat (the one shared door; a no-op when the press only ASKED
+    // or was refused — it reads the row's status itself).
+    await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId, actorUserId: ctx.userId });
     // Refuse the lock (no price freeze, no Deal stamp) when the vendor can't be
     // booked — surface a friendly reason instead of a raw error.
     if (outcome.status === 'not_verified') {
@@ -871,6 +882,9 @@ export async function lockDeal(formData: FormData): Promise<void> {
     }
     if (outcome.status === 'date_closed') {
       failBack(CLOSED_DAY_COUPLE_MESSAGE);
+    }
+    if (outcome.status === 'outside_window') {
+      failBack(outcome.message);
     }
     if (outcome.status === 'hard_single_blocked') {
       failBack(

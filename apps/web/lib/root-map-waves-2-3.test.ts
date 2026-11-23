@@ -160,7 +160,7 @@ test('a screen quotes each fixed rule by its name, not by a copy of the number',
     ['app/dashboard/[eventId]/launch/_components/details-date-clash.tsx', /\{DATE_CHANGE_DUE_DAYS\} days/],
     ['app/dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx', /\{POOL_METER_LOW_PCT\}%/],
     ['app/dashboard/[eventId]/story/_components/make-it-yours.tsx', /formatCount\(input\.poolCap\)/],
-    ['app/vendor-dashboard/clients/[eventId]/editorial-media/page.tsx', /\{MAX_PER_TYPE\} photos/],
+    ['app/vendor-dashboard/clients/[eventId]/editorial-media/editorial-media-body.tsx', /\{MAX_PER_TYPE\} photos/],
     // (inquiry-handling-card.tsx quoted REPLY_SPREAD_PCT here; "Analytics, growing" — owner-approved 6 Nov 2026 —
     // retired that card, and no screen now prints the 90% spread, so there is no quote left to pin.)
     ['app/onboarding/_shared/date-calendar.tsx', /\$\{MAXSPAN \+ 1\} days/],
@@ -202,7 +202,8 @@ test('one rendering per fact: the shared words and the shared reads', () => {
     'lib/guest-roster-view.ts',
   ]) {
     const src = code(file);
-    assert.match(src, /RSVP_ROW_WORDS/, `${file} must take the roster's RSVP words from lib/guests`);
+    // 22 Nov 2026: the guest card speaks the List's words (`RSVP_LIST_WORDS`, drawing v4 § 3 "✓ Coming") — still lib/guests'.
+    assert.match(src, /RSVP_(ROW|LIST)_WORDS/, `${file} must take the roster's RSVP words from lib/guests`);
     assert.doesNotMatch(src, /['"`]No reply['"`]/, `${file} spells "No reply" itself`);
   }
   // The Paid / Still owing read has one copy. (The Suppliers lens that also read
@@ -224,7 +225,7 @@ test('SABOTAGE — type the literal back and the shown-values scan finds it', ()
   const cases: Array<[string, string, string]> = [
     ['app/dashboard/[eventId]/launch/_components/details-date-clash.tsx', '{DATE_CHANGE_DUE_DAYS} days to answer', '3 days to answer'],
     ['app/dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx', 'under ${POOL_METER_LOW_PCT}% of what you bought', 'under 10% of what you bought'],
-    ['app/vendor-dashboard/clients/[eventId]/editorial-media/page.tsx', '{MAX_PER_TYPE} photos</strong>', '3 photos</strong>'],
+    ['app/vendor-dashboard/clients/[eventId]/editorial-media/editorial-media-body.tsx', '{MAX_PER_TYPE} photos</strong>', '3 photos</strong>'],
   ];
   for (const [file, from, to] of cases) {
     const real = code(file);

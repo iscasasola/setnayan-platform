@@ -78,6 +78,9 @@ type Site = {
 
 const SITES: Record<string, Site> = {
   [INFO_TIP]: { why: 'THE house ⓘ — the source of LOOK.' },
+  'app/_components/chat/cards/quote-terms-line.tsx': {
+    why: 'the quote card’s terms line is a <details> whose whole 44-px line is the press and opens the exact words IN the card under it (Unichat part H2)',
+  },
   'app/_components/explain.tsx': {
     why: 'the explanation template (a 44-px button; a centred popup on a phone) — its mark is InfoTip’s, inside that button',
     colours: 'template',
@@ -93,6 +96,7 @@ const SITES: Record<string, Site> = {
     why: 'the /for-coordinators ⓘ (approved drawing 2026-11-20) is a server-rendered <details> that opens its words IN the page under the line — the page ships no script',
   },
   'app/[slug]/_components/selfie-capture.tsx': { why: 'a 44-px button that opens the face-step details sheet' },
+  'app/_components/chat/cards/card-bits.tsx': { why: 'a chat card’s 44-px ⓘ button that opens that card’s details sheet (Unichat part C)' },
   'app/for-suppliers/_components/supplier-front-info.tsx': {
     why: 'the approved /for-suppliers page (2026-11-06) opens its ⓘ words IN the page under the section, from a labelled pill — not a hover note or a popup',
     colours: 'template',

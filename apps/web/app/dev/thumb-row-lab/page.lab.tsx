@@ -1,10 +1,12 @@
 /**
  * /dev/thumb-row-lab — the account rows (Events, Discover) on fixture lists, with no sign-in and no database, so the
- * one thumb row (owner 2026-10-22) can be walked at 320 · 375 · 1280. `?screen=events` (default) · `?screen=discover`.
- * The rows are the shipped `EventsThumbRow` / `DiscoverThumbRow`; the lists are stand-ins.
+ * one thumb row (owner 2026-10-22) can be walked at 320 · 375 · 1280. `?screen=events` (default) · `?screen=discover`
+ * · `?screen=today` (the supplier's Today row — its search icon and the grow, 21 Nov 2026).
+ * The rows are the shipped `EventsThumbRow` / `DiscoverThumbRow` / `TodayThumbRow`; the lists are stand-ins.
  */
 import { notFound } from 'next/navigation';
 import { DiscoverThumbRow, EventsThumbRow } from '@/app/_components/frontdoor/shell-thumb-rows';
+import { TodayThumbRow } from '@/app/vendor-dashboard/_components/today-thumb-row';
 
 const EVENTS = [
   ['Cale & Ice', '14 Feb 2026 · Tagaytay · hosting'],
@@ -21,6 +23,19 @@ export default async function ThumbRowLabPage({ searchParams }: { searchParams: 
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const discover = sp.screen === 'discover';
+  if (sp.screen === 'today') {
+    return (
+      <main className="mx-auto min-h-screen w-full max-w-3xl bg-paper px-4 pb-40 pt-5 text-ink">
+        <TodayThumbRow />
+        {EVENTS.map(([t, s]) => (
+          <div key={t} data-today-need-kind="inquiry" className="border-b border-ink/10 py-3">
+            <p className="font-semibold">{t}</p>
+            <p className="text-sm text-ink/60">{s}</p>
+          </div>
+        ))}
+      </main>
+    );
+  }
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl bg-paper px-4 pb-40 pt-5 text-ink">
       {discover ? <DiscoverThumbRow /> : <EventsThumbRow />}

@@ -1,6 +1,7 @@
 import { supplierChatHref, customerCardHref, supplierThreadNoticeSearch } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
-import { weekdayDateWithYear } from '@/lib/format-date';
+import { Suspense } from 'react';
+import { dayMonth, weekdayDateWithYear } from '@/lib/format-date';
 import { bookingFeeAttribution, SETNAYAN_SAVE_SOURCES, SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
 import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
@@ -69,6 +70,8 @@ import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { SupplierCountTile } from './_components/supplier-count-tile';
 import { QuoteTopLines } from './_components/quote-top-lines';
+import { YourBookingCard } from './_components/your-booking-card';
+import { yourBookingView, type YourBookingView } from '@/lib/your-booking';
 import { quotePlanLine } from '@/lib/quote-top-lines';
 import { ruleRoleLabels, ruleWords } from '@/lib/supplier-count';
 import {
@@ -87,6 +90,13 @@ import {
   type CustomerCardTab,
 } from './_components/customer-card-nav';
 import { ScriptTab } from './_components/script-tab';
+import { SongDesk } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/song-desk';
+import { agreedFacts } from '@/lib/agreed-facts';
+import { hubHref } from '@/lib/hub-events';
+import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
+import { BookedCallChoices, bookedCallReachable } from '@/app/_components/chat/booked-call-choices';
+import { MuteChatRow } from '@/app/_components/chat/mute-chat-row';
+import { readMyMute } from '@/lib/chat-mutes';
 import { CoupleAnswers } from './_components/couple-answers';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 // The coordinator's ask, reused exactly as the live floor console mounts it —
@@ -101,7 +111,7 @@ import { ProposeChange } from './_components/propose-change';
 import { ChangeRequestsQueue } from '@/app/_components/change-requests/change-requests-queue';
 import { readMyChangeRequests, readOpenChangeRequests, readProposeTargets } from '@/lib/change-requests.server';
 import { proposableOps } from '@/lib/change-requests';
-import { isBookedCoordinator } from '@/lib/coordinator-trade';
+import { COORDINATOR_TRADE_SERVICES, isBookedCoordinator } from '@/lib/coordinator-trade';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { resolveEventFeeGate, resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
@@ -135,6 +145,9 @@ import { readDayCheck } from '@/lib/day-check.server';
 import { piecesAskOf, type PiecesAsk } from '@/lib/pieces-ask.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import { fetchAgreeGiftBasis, fetchGiftNeeded } from '@/lib/agree-gifts.server';
+import { GiftNeededRow } from './_components/gift-needed-row';
+import { agreeGiftOutcomeLine } from '@/lib/agree-gifts';
 import { TheTie } from '@/app/_components/signature/the-tie';
 import type { CarryOverTopUp } from './_components/top-up-carry-over';
 import { overdueTopUps, topUpOwedPhp, topUpStage } from '@/lib/booking-fee-top-up';
@@ -143,8 +156,9 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import type { SettlePay } from '@/app/_components/payment/settle-pay-by';
 import { TopUpSettleSheet } from '@/app/_components/top-up-settle-sheet';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
-import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
-import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { ASKED, supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
+import { lockAgreeFeeHeld, lockAgreeGiftBuy, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
 import { clientPaymentView } from '@/lib/client-payment-view';
@@ -175,11 +189,14 @@ import { detailsNumbers } from './_components/details-numbers';
 import { OPEN_MEETING_STATUSES, openMeetingsWindow } from '../../customers/clients-tiles';
 import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
+import { TheirEventList } from './_components/their-event-list';
+import { readTheirEvent } from '@/lib/their-event.server';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
 import { ScheduleDays } from './_components/schedule-days';
-import { clientScheduleDays, scheduleDaysUnread } from '@/lib/schedule-days';
+import { clientScheduleDays, eventDayForStrip, scheduleDaysUnread, unreadDaysLine } from '@/lib/schedule-days';
+import { clientAgenda, dayMonthWords } from '@/lib/client-agenda';
 import { DetailsDecisions } from './_components/details-decisions';
 import { ClientChatStrip } from './_components/client-chat-strip';
 import { chatStrip, nextDated, suggestedStep } from '@/lib/client-chat-strip';
@@ -607,6 +624,10 @@ type Props = {
     lock_agree?: string;
     /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
     fee?: string;
+    /** 🎁 What happened to the gift picked with the yes (`vendorAgreeToLock` → `booking_gift_pick`). */
+    gift?: string;
+    /** 🎁 `gift_needed` — the store door with the way back (`lockAgreeGiftBuy`). */
+    gift_buy?: string;
     lock_decline?: string;
     /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
     taken?: string;
@@ -647,6 +668,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   if (error || !data) redirect('/vendor-dashboard/clients');
   const rawBrief = data as Brief;
   const isBooked = rawBrief.stage === 'booked';
+  // 📞 Call · Viber under ⋯ (Unichat v3) — the ONE booking check, started now beside the page's other reads; the
+  // hosts' number is read only once it says yes (`bookedCounterpartyPhone` answers null without it). Fails closed.
+  const bookedCallP: Promise<{ booked: boolean; phone: string | null }> = isBooked
+    ? shopIsBookedOnEvent(eventId, profile.vendor_profile_id)
+        .then(async (booked) => ({
+          booked,
+          phone: await bookedCounterpartyPhone({ booked, viewer: 'vendor', eventId, vendorProfileId: profile.vendor_profile_id }),
+        }))
+        .catch(() => ({ booked: false, phone: null }))
+    : Promise.resolve({ booked: false, phone: null });
 
   // ── THE BOOKING FEE UNLOCKS THE EVENT (owner, 2026-09-20) ────────────────
   // Flag OFF ⇒ the stage is 'unlocked' for everybody and `redactBriefForStage`
@@ -758,6 +789,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Only what the host has not already shared — asking for what you hold
   // spends the host's attention on nothing.
   const askableAreas = FLOOR_REQUESTABLE_AREAS.filter((a) => !myGrants[a]) as DelegateArea[];
+  // 🚪 "THEIR EVENT" (owner 2026-11-21): a booked supplier who is NOT the coordinator gets a short list of links to only
+  // their parts — here and in the chat. The coordinator has the hosts' dashboard instead ("Open their event").
+  const theirEvent =
+    isBooked && !theBookedCoordinator && feeGate.stage === 'unlocked'
+      ? await readTheirEvent(supabase, {
+          eventId,
+          vendorProfileId: profile.vendor_profile_id,
+          services: (profile as { services?: string[] | null }).services ?? null,
+          grants: myGrants,
+          monogramSvg: brief.monogram?.custom_svg ?? null,
+          tables: brief.seat_plan?.table_count ?? null,
+        })
+      : null;
+  const theirEventNode = theirEvent ? <TheirEventList eventId={eventId} rows={theirEvent.rows} /> : null;
 
   const admin = createAdminClient();
   const clientTimer = new ServerTimer('vendor-dashboard/customer-card');
@@ -891,12 +936,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle(),
       Promise.all([
-        admin.from('events').select('supplier_requests_auto_agree, event_date').eq('event_id', eventId).maybeSingle(),
+        admin.from('events').select('supplier_requests_auto_agree, event_date, event_date_precision').eq('event_id', eventId).maybeSingle(),
         admin
           .from('event_vendors')
           .select('vendor_id, category, status, vendor_name')
           .eq('event_id', eventId)
           .eq('marketplace_vendor_id', profile.vendor_profile_id)
+          .is('archived_at', null),
+        // 🏛 Unichat F: the VENUE bookings on this event, by name — the one that holds a chapter's hours is said under
+        // its bar ("Set by Fernwood Gardens · confirmed by the hosts"). Only that name is passed on (`hoursHeldBy`).
+        admin
+          .from('event_vendors')
+          .select('vendor_id, vendor_name')
+          .eq('event_id', eventId)
+          .in('category', [...VENUE_CATEGORIES])
           .is('archived_at', null),
       ]),
       // 📇 Task contacts (4 additions (3), migration 20271303218631): RLS hands a supplier ONLY those on moments they
@@ -946,7 +999,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     isBooked || lockRequest ? null : supplierAskOutcomeOf(completionRow, isLockHandshakeEnabled());
   // The answer to Agree / Decline pressed HERE lands back here (`return_to`).
   const lockNotice =
-    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee), feeLocksEvent: lockAgreeFeeHeld(search.fee) ? await resolveFeeEnforcement() : false, halls: lockAgreeHalls(search.taken, search.free) }) ??
+    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee), feeLocksEvent: lockAgreeFeeHeld(search.fee) ? await resolveFeeEnforcement() : false, halls: lockAgreeHalls(search.taken, search.free), giftBuy: lockAgreeGiftBuy(search.gift_buy), storeShell: await isStoreShellRequest() }) ??
     lockDeclineNotice(search.lock_decline);
   // 🔒 The couple's deposit receipt is a PRIVATE file. What reaches the card is
   // a short-lived link scoped to THIS event's deposit folder — never the stored
@@ -1029,6 +1082,15 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         piecesAskOf(supabase, lockRequest.event_vendor_id),
       ]))
     : null;
+  // 🎁 GIFT FOR SERVICES (owner 2026-11-15): the picker above Agree — read beside the forecast, null when no bill.
+  const giftBasisP = lockRequest?.event_vendor_id
+    ? startRead(fetchAgreeGiftBasis(admin, {
+        vendorProfileId: profile.vendor_profile_id,
+        eventVendorId: lockRequest.event_vendor_id,
+      }))
+    : null;
+  // 🎁 An agreed booking whose gift was cleared (its store payment refused or refunded): "Needs at least 1 gift."
+  const giftNeededP = startRead(fetchGiftNeeded(admin, { vendorProfileId: profile.vendor_profile_id, eventId }));
   const feeBillsP = startRead(fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE));
   const clientWaivedP = startRead(fetchWaivedFeeCharges(
     admin,
@@ -1122,6 +1184,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     ? await askReadsP!
     : [null, null, null, null];
   const heldNotice = heldService ? lockAgreeNotice('service_on_hold', { heldService }) : null;
+  const giftBasis = giftBasisP ? await giftBasisP : null;
+  const giftNeeded = await giftNeededP;
+  const giftOutcome = agreeGiftOutcomeLine(typeof search.gift === 'string' ? search.gift : null);
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
   // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
@@ -1234,6 +1299,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const threadId = thread?.thread_id ?? null;
   // 🔴 The Chat tab's unread count (v8.3) — started now, awaited at the shell, so it waits on nothing below.
   const chatUnreadP = threadId ? readThreadUnreadCount(supabase, user.id, threadId) : Promise.resolve(null);
+  // 🔕 Has the viewer muted this chat? Their own row (Pattern A). null = no chat, or the read failed → no ⋯ switch.
+  const myMuteP = threadId ? readMyMute(supabase, threadId, user.id) : Promise.resolve(null);
 
   /*
     ── ONE CHAT BOX (owner, 2026-09-18: "why did the chatbox never change?") ──
@@ -1583,7 +1650,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       }));
 
   // 🤝 Their part of the day (Step 4b) — one pass over the reads above (`lib/supplier-schedule.ts`).
-  const [factsEvent, factsBookings] = myScheduleFacts;
+  const [factsEvent, factsBookings, factsVenues] = myScheduleFacts;
   const myBookingIds = ((factsBookings.data ?? []) as { vendor_id: string }[]).map((b) => b.vendor_id);
   if (eventVendorId && !myBookingIds.includes(eventVendorId)) myBookingIds.push(eventVendorId);
   const supplierDay = liveBlocks
@@ -1614,6 +1681,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         venueBookingIds: ((factsBookings.data ?? []) as { vendor_id: string; category: string | null }[])
           .filter((b) => VENUE_CATEGORIES.has(b.category ?? ''))
           .map((b) => b.vendor_id),
+        // A refused read gives no names — the line then says "Set by the venue", never a wrong or blank name.
+        venueNames: factsVenues.error ? null : ((factsVenues.data ?? []) as { vendor_id: string; vendor_name: string | null }[]),
         tasks: (myTasksRes.data ?? []) as SupplierTaskRow[],
         requests: suggestions,
         contacts: myContactsRes.error ? [] : ((myContactsRes.data ?? []) as SupplierContactRow[]),
@@ -1656,7 +1725,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         // 🔒 CHANGE LOCK (audit D7): their part is locked — the host's changes are refused until they unlock.
         lockedAt: (myMarksRes.data as { locked_at: string | null } | null)?.locked_at ?? null,
       };
-  const factsRow = (factsEvent.data ?? null) as { supplier_requests_auto_agree: boolean | null; event_date: string | null } | null;
+  const factsRow = (factsEvent.data ?? null) as { supplier_requests_auto_agree: boolean | null; event_date: string | null; event_date_precision?: string | null } | null;
   // 🚗 ONE CREW, TWO EVENTS (slice 5, owner 2026-11-04): their crews' moments here, against the same crews on their
   // other events that day. Only when this event's crews were read — an unread crew list is never "no clash".
   const timedHere = new Map(blocksWithAClock(everyBlock).map((b) => [b.block_id, b]));
@@ -2009,6 +2078,15 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       ) : null}
       {lockNotice && !(heldNotice && search.lock_agree === 'service_on_hold') ? <LockAnswerLine notice={lockNotice} /> : null}
       {heldNotice ? <LockAnswerLine notice={heldNotice} /> : null}
+      {giftOutcome ? <LockAnswerLine notice={giftOutcome} /> : null}
+      {giftNeeded ? (
+        <GiftNeededRow
+          eventVendorId={giftNeeded.eventVendorId}
+          basis={giftNeeded.basis}
+          returnTo={`/vendor-dashboard/clients/${eventId}`}
+          action={vendorAgreeToLock}
+        />
+      ) : null}
       {lockRequest ? (
         <LockRequestAnswer
           eventVendorId={lockRequest.event_vendor_id}
@@ -2022,6 +2100,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           waitlistAsk={vendorWaitlistTheAsk}
           heldService={heldService}
           carryOver={carryOver}
+          giftBasis={giftBasis}
           askPieces={askPieces}
         />
       ) : askOutcome ? (
@@ -2094,7 +2173,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       {brief.booked_categories.map((c) => (
         <span
           key={c}
-          className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
+          className="inline-flex items-center rounded-full bg-raised px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
         >
           {/* "Booked" is said ONCE — by the stage pill (owner screenshot 17 Nov: "Booked · In-house · Booked · …"). */}
           {displayServiceLabel(c)}
@@ -2105,7 +2184,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   const identityBlock = (
     <div className="flex items-start gap-4">
-      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-ink/10 bg-white text-lg font-semibold text-ink/70">
+      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-ink/10 bg-raised text-lg font-semibold text-ink/70">
         {initials(brief.event.display_name)}
       </span>
       <div className="min-w-0 flex-1">
@@ -2134,7 +2213,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       ) : null}
       <Link
         href={customerLandingHref('proposals')}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
       >
         <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
       </Link>
@@ -2144,26 +2223,26 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             ? customerLandingHref('contracts')
             : `/vendor-dashboard/contracts/new?event=${eventId}`
         }
-        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
       >
         <FilePlus2 aria-hidden className="h-3.5 w-3.5" /> {hasContract ? 'Contract' : 'Contract'}
       </Link>
       <Link
         href={`/vendor-dashboard/clients/${eventId}?tab=files`}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
       >
         <Paperclip aria-hidden className="h-3.5 w-3.5" /> Files
       </Link>
       <Link
         href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
       >
         <CalendarDays aria-hidden className="h-3.5 w-3.5" /> Schedule
       </Link>
       {threadId ? (
         <Link
           href={`${supplierChatHref(eventId, threadId)}#pending-payments`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
         >
           <Wallet aria-hidden className="h-3.5 w-3.5" /> Log payment
         </Link>
@@ -2184,7 +2263,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
    * drift again.
    */
   const askBlock = isBooked ? (
-    <div className="mt-4 space-y-4">
+    <div id="ask-access" className="mt-4 scroll-mt-20 space-y-4">
       <AskAccess
         eventId={eventId}
         askable={askableAreas}
@@ -2235,8 +2314,35 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     </div>
   );
 
+  // 💳 THE BOOKING'S MONEY, folded ONCE (`clientPaymentView`) — the chat strip and Details › Your booking both read it.
+  // Built before `overviewNode`, which is drawn eagerly below. Every input is a read above.
+  const stripPay = isBooked
+    ? clientPaymentView({
+        steps: planStepRows?.steps ?? null,
+        clearedAt: planStepRows?.clearedAt ?? null,
+        ledgerMoney,
+        // ⚖ A plan read cut short (bookings, plans or payments refused) is not a booking with nothing paid: the whole
+        // view says "couldn't load" — the same rule the Details tiles follow (`plan: !planReadComplete ? 'unread'`).
+        ledgerUnreadable: ledgerUnreadable || !planReadComplete,
+        refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : 0,
+      })
+    : null;
+  // 🧾 The agreed quotation (Details › Your booking names what it covers): the newest accepted one.
+  const agreedQuote = [...proposals]
+    .filter((p) => p.status === 'accepted')
+    .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
+  // 🧾 Details › Your booking — the supplier's OWN booking money, never the hosts' plan (owner 21 Nov · controller 22 Nov).
+  const yourBooking = stripPay
+    ? yourBookingView({
+        pay: stripPay,
+        quoteLines: proposalRowsError ? null : agreedQuote ? quoteLinesOf(agreedQuote.line_items).map((l) => l.label) : undefined,
+        peso: (php) => fmtPeso(php),
+      })
+    : null;
+
   const overviewNode = (
     <OverviewTab
+      yourBooking={yourBooking}
       eventId={eventId}
       brief={brief}
       headcountRule={headcountRule}
@@ -2360,7 +2466,18 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     feeUnlocked,
     eventVendorId,
     eventDate: brief.event.event_date,
+    theirEventRows: theirEvent?.rows ?? null,
     threadSearch: supplierThreadNoticeSearch(search as Readonly<Record<string, string | string[] | undefined>>),
+    // 🧾 Details › Agreed now, as drawn (part G, 20 Nov): Venue · Hosts · Coordinator · Supplier · Stage — every one a
+    // fact this page already read; the Event row is the card's own (it reads the event's type). No new read here.
+    agreedFacts: agreedFacts({
+      venue: brief.event.venue_name || brief.event.region || null,
+      hosts: hostRows(brief.hosts)?.map((h) => h.name),
+      roster: isBooked ? (brief as { vendor_roster?: unknown }).vendor_roster : undefined,
+      coordinatorTrade: COORDINATOR_TRADE_SERVICES,
+      supplier: profile.business_name,
+      stage: isBooked ? 'Booked' : lockRequest ? ASKED : isAccepted ? 'Quote accepted' : proposalRowsError ? null : isQuoted ? 'Quoted' : 'Inquiry',
+    }),
   };
 
   // Files: the ONE shared builder, read once; the page body (`_pages/files.tsx`, C1) draws the rows.
@@ -2452,6 +2569,23 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   ) : null;
 
+  // 🎵 SONG LIST — the music act's page behind ⋯ (Unichat part G, owner 20 Nov 2026). The SAME entitlement the day-of
+  // Song Desk mounts on (`song_desk`, narrowed to what this shop was booked for above) — no new flag. The body is the
+  // shipped desk itself (their sets in running order, the hosts' picks by moment, the requests), not a second copy.
+  // Booked and fee-unlocked only: the desk's own reads assume a booked act, and the fee still withholds the event.
+  const showSongs = isBooked && feeUnlocked && holdsSpecialization(scriptAccess, 'song_desk');
+  const songsNode = showSongs ? (
+    <Suspense
+      fallback={
+        <p className="py-6 text-sm text-ink/70" role="status">
+          Loading the song list…
+        </p>
+      }
+    >
+      <SongDesk eventId={eventId} vendorProfileId={profile.vendor_profile_id} coupleName={eventName} />
+    </Suspense>
+  ) : null;
+
   // ❓ WHAT THEY TOLD YOU — EVERY SUPPLIER (owner 2026-11-04, verbatim "Yes, every supplier"). The host reads the
   // couple's answers inside the Script tab above; every other trade reads them here, on Details (flag-on) / the
   // overview (flag-off). One place per role: never both — a supplier holding the Script tab reads them there.
@@ -2528,6 +2662,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             {/* Item 2 of the ruling — "the request to access features". The
                 panel above already says why, so this withholds rather than
                 repeating it. */}
+            {tab === 'overview' && feeUnlocked ? theirEventNode : null}
             {tab === 'overview' && feeUnlocked ? askBlock : null}
             {/* Item 1 — the brief itself. Rendered at every stage, but from the
                 REDACTED payload: a quoting supplier still prices the job. */}
@@ -2570,7 +2705,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           ) : (
             <>
           <BookingMoneySummary money={ledgerMoney} />
-          <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
+          <p className="flex items-center gap-2 rounded-lg bg-raised px-3 py-2.5 text-sm text-ink/55">
             <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" />{' '}
             {ledgerMoney.rows.length > 0
               ? `Nothing waiting on you. When ${eventName} logs another payment, confirm it here.`
@@ -2597,7 +2732,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         <p className="home-k2 !mt-0 !mb-0">
           Payments
         </p>
-        <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
+        <p className="flex items-center gap-2 rounded-lg bg-raised px-3 py-2.5 text-sm text-ink/55">
           <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> A payment
           schedule and couple-logged payments appear here once they book you
           {threadId ? '' : ' and you start a conversation'}.
@@ -2770,15 +2905,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Every input is a read above, plus its two own (`stripAsksP` · `stripFormsP`). A refused read reaches the strip as
   // `null` and is SAID ("Couldn't load · tap to retry") — never ₱0, never "0 open".
   const stripToday = manilaTodayIso();
-  const stripPay = isBooked
-    ? clientPaymentView({
-        steps: planStepRows?.steps ?? null,
-        clearedAt: planStepRows?.clearedAt ?? null,
-        ledgerMoney,
-        ledgerUnreadable,
-        refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : 0,
-      })
-    : null;
   const stripAsksRes = stripAsksP ? await stripAsksP : null;
   const stripAsks = stripAsksRes && !stripAsksRes.error ? ((stripAsksRes.data ?? []) as DealAskDbRow[]).map(dealAskOf) : null;
   if (stripAsksRes?.error) logQueryError('vendorClientCard.stripAsks', stripAsksRes.error, { eventId }, 'graceful_degrade');
@@ -2810,6 +2936,37 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     forms: stripForms && stripForms.status === 'ok' ? { open: stripForms.open, sent: stripForms.sent } : null,
     step: nextStep ? { line: nextStep.line, page: nextStep.page } : null,
   });
+  // 📅 Unichat F — the dated list the Next box raises: the same days the Schedule's strip draws (meetings, payment due
+  // days), plus the live quote's good-until until booking locks it. Its version is its place among this shop's SENT
+  // quotes for the event, oldest first (`orderQuoteVersions`' rule). A refused read is said on the list, never hidden.
+  const agendaQuoteVersion = sentQuote
+    ? [...proposals]
+        .filter((p) => p.status !== 'draft')
+        .sort((a, b) => {
+          const ta = Date.parse(a.sent_at ?? a.created_at ?? '') || 0;
+          const tb = Date.parse(b.sent_at ?? b.created_at ?? '') || 0;
+          return ta !== tb ? ta - tb : a.proposal_id < b.proposal_id ? -1 : 1;
+        })
+        .findIndex((p) => p.proposal_id === sentQuote.proposal_id) + 1
+    : 0;
+  // 📅 A month- or year-only event is stored on the 1st; the days strip must not draw that placeholder as the event day
+  // (walk 22 Nov 2026). The precision rides the page's own events read above (no new read); an unread row keeps the date.
+  const agendaEventDate = eventDayForStrip(brief.event.event_date ?? null, factsEvent.error || !factsRow ? undefined : (factsRow.event_date_precision ?? null));
+  const stripAgenda = {
+    eventId,
+    eventDate: agendaEventDate,
+    eventDayWords: dayMonthWords(agendaEventDate),
+    unreadLine: unreadDaysLine(scheduleDaysUnread({ meetingsRead: !appointmentsReadFailed, paymentsRead: planReadComplete })),
+    agenda: clientAgenda({
+      todayIso: stripToday,
+      eventDate: agendaEventDate,
+      days: clientScheduleDays({ eventDate: agendaEventDate, chapters: [], meetings: appointmentViews, payments: planRowsAll.flatMap((p) => p.steps ?? []) }),
+      quote: isBooked || proposalRowsError || !sentQuote ? null : { version: agendaQuoteVersion || null, validUntil: sentQuote.valid_until ?? null },
+    }),
+    day: supplierPart.day,
+    autoAgree: supplierPart.autoAgree,
+    tasksRead: supplierPart.tasksRead,
+  };
   const stripSuggest = suggestedStep({
     hasThread: Boolean(threadId),
     isBooked,
@@ -2827,7 +2984,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         guests: paxAsked && paxAsked > 0 ? `~${paxAsked.toLocaleString('en-PH')}` : brief.pax.invited > 0 ? brief.pax.invited.toLocaleString('en-PH') : null,
         venue: brief.event.venue_name || brief.event.region || null,
         budget: brief.budget_band ? `${fmtPesoCentavos(brief.budget_band.lo_centavos)} – ${fmtPesoCentavos(brief.budget_band.hi_centavos)}` : null,
-        hasQuote: Boolean(sentQuote),
+        hasQuote: proposalRowsError ? null : Boolean(sentQuote),
       }
     : null;
 
@@ -2911,11 +3068,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       />
     ) : null,
   });
+  const bookedCall = await bookedCallP;
+  const myMute = await myMuteP;
 
   return (
     <PickedClientShell
       eventId={eventId}
       eventName={eventName}
+      muted={myMute === true}
       chatUnread={await chatUnreadP}
       closeHref={pickedClientCloseHref(search.from)}
       menu={pickedMenuFor(isBooked).map((m) => ({ id: m.id, label: m.label }))}
@@ -2923,7 +3083,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       bodies={bodies}
       landAt={wantsScriptFold(rawTab) ? (showScript ? SCRIPT_FOLD_ID : null) : pickedAnchorOf(rawTab)}
       workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: brief.event.event_date ?? null, isBooked })}
-      strip={<ClientChatStrip boxes={stripBoxes} threadId={threadId} />}
+      strip={<ClientChatStrip boxes={stripBoxes} threadId={threadId} agenda={stripAgenda} />}
       suggest={stripSuggest}
       inquiry={inquiryFacts}
       settingsLine={{
@@ -2938,6 +3098,19 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           autoAgree={factsEvent.error ? null : factsRow?.supplier_requests_auto_agree === true}
         />
       }
+      // ⋯ The rows that depend on this shop and this event (`clientMoreRows`): a trade page only when the shop holds
+      // that desk, Crew once booked (the shipped Hub › Crew), the timeline file once the day has a timed moment.
+      more={{
+        songs: songsNode,
+        script: showScript ? gated(scriptNode) : null,
+        crewHref: isBooked ? hubHref(eventId, 'crew') : null,
+        crewDay: dayMonth(brief.event.event_date),
+        call: bookedCallReachable(bookedCall.booked, bookedCall.phone) ? (
+          <BookedCallChoices booked={bookedCall.booked} phone={bookedCall.phone} who={eventName} />
+        ) : null,
+        mute: threadId && myMute !== null ? <MuteChatRow threadId={threadId} muted={myMute} /> : null,
+        calendar: feeUnlocked && allBlocks.length > 0 ? { href: `/vendor-dashboard/clients/${eventId}/calendar.ics`, filename: `schedule-${eventId}.ics` } : null,
+      }}
     />
   );
 }
@@ -3100,6 +3273,8 @@ function ReturningMarker({ returningFlag }: { returningFlag: ReturningClientFlag
 function OverviewTab(props: {
   eventId: string;
   brief: Brief;
+  /** 🧾 Details › Your booking — the supplier's own booking money, decided once on the page. null = not booked. */
+  yourBooking: YourBookingView | null;
   /** 🧮 Their count and its why (owner 2026-11-04) — null for a flat-priced service or a refused read. */
   headcountRule: SupplierHeadcount | null;
   /** The couple's words for roles, for the rule's line. */
@@ -3198,6 +3373,7 @@ function OverviewTab(props: {
     isVendorMarked,
     hideCompletion,
     search,
+    yourBooking,
   } = props;
 
   return (
@@ -3266,7 +3442,7 @@ function OverviewTab(props: {
             )}
           </dl>
           {brief.event.ceremony_type ? (
-            <span className="mt-3 inline-flex items-center gap-1 rounded-full border border-ink/15 bg-white/70 px-2.5 py-1 text-xs font-medium text-ink/70">
+            <span className="mt-3 inline-flex items-center gap-1 rounded-full border border-ink/15 bg-raised/70 px-2.5 py-1 text-xs font-medium text-ink/70">
               <Church aria-hidden className="h-3.5 w-3.5" />
               {brief.event.ceremony_type.replace(/_/g, ' ')}
             </span>
@@ -3300,7 +3476,7 @@ function OverviewTab(props: {
               </p>
             </>
           ) : (
-            <p className="mt-3 flex items-center gap-2 rounded-lg bg-white/70 px-3 py-2.5 text-sm text-ink/55">
+            <p className="mt-3 flex items-center gap-2 rounded-lg bg-raised/70 px-3 py-2.5 text-sm text-ink/55">
               <Info aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No guest list yet — this
               fills in once they start their RSVPs.
             </p>
@@ -3415,33 +3591,14 @@ function OverviewTab(props: {
           </Link>
         </Card>
 
-        {/* Budget — couple opt-in range for THIS vendor's category (PR-5).
-         *  Rendered at both stages; it's a quote input, most useful at inquiry.
-         *  Present → a rounded range; absent → the couple hasn't opted in (or has
-         *  no allocation for this category). Never an exact figure. */}
-        <Card>
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
-            <Wallet aria-hidden className="h-4 w-4 text-terracotta" /> Budget
-          </h2>
-          {brief.budget_band ? (
-            <>
-              <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums">
-                {fmtPesoCentavos(brief.budget_band.lo_centavos)}
-                <span className="mx-1.5 text-ink/40">–</span>
-                {fmtPesoCentavos(brief.budget_band.hi_centavos)}
-              </p>
-              <p className="mt-2 text-xs text-ink/55">
-                Shared by the couple · for your category. A range to quote against —
-                never their exact number.
-              </p>
-            </>
-          ) : (
-            <p className="mt-3 flex items-center gap-2 rounded-lg bg-white/70 px-3 py-2.5 text-sm text-ink/55">
-              <Info aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> Not shared —
-              the couple hasn&rsquo;t opted into budget sharing.
-            </p>
-          )}
-        </Card>
+        {/* 🧾 YOUR BOOKING (owner 21 Nov 2026 — "the quotation, payment plan, status"): where "Budget" stood, the
+         *  supplier's OWN booking money, view only — never the hosts' plan, not even while they share it (controller,
+         *  22 Nov 2026). Before a booking there is no booking money, so there is no card here at all. */}
+        {isBooked && yourBooking ? (
+          <Card>
+            <YourBookingCard eventId={eventId} view={yourBooking} />
+          </Card>
+        ) : null}
       </div>
 
       {/* Seat plan — status + size at every stage; the floor plan itself opens once booked. */}
@@ -3693,7 +3850,7 @@ function OverviewTab(props: {
                       name="reason"
                       maxLength={200}
                       placeholder="Reason (optional) — e.g. no payment received"
-                      className="w-full rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-xs text-ink focus:border-danger-400 focus:outline-none focus:ring-1 focus:ring-danger-400 sm:w-64"
+                      className="w-full rounded-md border border-ink/15 bg-raised px-2.5 py-1.5 text-xs text-ink focus:border-danger-400 focus:outline-none focus:ring-1 focus:ring-danger-400 sm:w-64"
                     />
                     <SubmitButton
                       className="inline-flex min-h-[36px] items-center justify-center rounded-md border border-danger-300 bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-700 transition-colors hover:bg-danger-100"
@@ -3824,7 +3981,7 @@ function QuoteTab(props: {
           Quotation
         </p>
         {proposals.length === 0 ? (
-          <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
+          <p className="flex items-center gap-2 rounded-lg bg-raised px-3 py-2.5 text-sm text-ink/55">
             <FileText aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No quotes sent yet.
           </p>
         ) : (
@@ -3832,7 +3989,7 @@ function QuoteTab(props: {
             {proposals.map((p) => (
               <li
                 key={p.proposal_id}
-                className="flex items-center gap-3 rounded-xl border border-ink/10 border-l-[3px] border-l-terracotta bg-white px-3 py-2.5"
+                className="flex items-center gap-3 rounded-xl border border-ink/10 border-l-[3px] border-l-terracotta bg-raised px-3 py-2.5"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold">{formatCentavos(p.total_centavos)}</p>
@@ -3865,7 +4022,7 @@ function QuoteTab(props: {
               ? customerCardHref(eventId, 'quote')
               : customerLandingHref('proposals')
           }
-          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
         >
           <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
         </Link>
@@ -3877,7 +4034,7 @@ function QuoteTab(props: {
           Payments
         </p>
         {!isBooked ? (
-          <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
+          <p className="flex items-center gap-2 rounded-lg bg-raised px-3 py-2.5 text-sm text-ink/55">
             <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> A payment schedule
             appears once they book you and pay a first payment.
           </p>
@@ -4132,7 +4289,7 @@ function ScheduleTab(props: {
           ) : null}
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
+            <details className="rounded-xl border border-ink/10 bg-raised/50 p-3">
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <Link2 aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Share an album link
               </summary>
@@ -4148,7 +4305,7 @@ function ScheduleTab(props: {
               </StayForm>
             </details>
 
-            <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
+            <details className="rounded-xl border border-ink/10 bg-raised/50 p-3">
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <FileText aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Upload a sample/proof
               </summary>
@@ -4164,7 +4321,7 @@ function ScheduleTab(props: {
               </StayForm>
             </details>
 
-            <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
+            <details className="rounded-xl border border-ink/10 bg-raised/50 p-3">
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <MessageSquarePlus aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Leave a note
               </summary>
@@ -4179,7 +4336,7 @@ function ScheduleTab(props: {
               </StayForm>
             </details>
 
-            <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
+            <details className="rounded-xl border border-ink/10 bg-raised/50 p-3">
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <PackageCheck aria-hidden className="h-3.5 w-3.5 text-ink/55" /> All delivered (sign-off)
               </summary>
@@ -4285,7 +4442,7 @@ function ScheduleTab(props: {
                     required
                     maxLength={120}
                     placeholder="e.g. Extra hour of coverage"
-                    className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                    className="mt-1 w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
                   />
                 </label>
                 <label className="block text-xs font-medium text-ink/70">
@@ -4298,7 +4455,7 @@ function ScheduleTab(props: {
                     required
                     inputMode="decimal"
                     placeholder="e.g. 5000"
-                    className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                    className="mt-1 w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
                   />
                 </label>
               </div>
@@ -4307,7 +4464,7 @@ function ScheduleTab(props: {
                 <input
                   type="date"
                   name="proposed_due_date"
-                  className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta sm:w-56"
+                  className="mt-1 w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta sm:w-56"
                 />
               </label>
               <label className="block text-xs font-medium text-ink/70">
@@ -4317,7 +4474,7 @@ function ScheduleTab(props: {
                   rows={2}
                   maxLength={2000}
                   placeholder="Anything the couple should know"
-                  className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                  className="mt-1 w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
                 />
               </label>
               <SubmitButton className="button-primary" pendingLabel="Sending…">
@@ -4345,7 +4502,7 @@ function ScheduleTab(props: {
                     ? Number(co.delta_amount_php)
                     : co.delta_amount_php ?? 0;
                 return (
-                  <li key={co.change_order_id} className="rounded-xl border border-ink/10 bg-white px-3 py-2.5">
+                  <li key={co.change_order_id} className="rounded-xl border border-ink/10 bg-raised px-3 py-2.5">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-ink">
@@ -4386,7 +4543,7 @@ function ScheduleTab(props: {
                           <input type="hidden" name="change_order_id" value={co.change_order_id} />
                           <input type="hidden" name="decision" value="decline" />
                           <SubmitButton
-                            className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11px] font-medium text-ink/70 hover:bg-cream"
+                            className="rounded-lg border border-ink/15 bg-raised px-3 py-1.5 text-[11px] font-medium text-ink/70 hover:bg-cream"
                             pendingLabel="Declining…"
                           >
                             Decline
@@ -4400,7 +4557,7 @@ function ScheduleTab(props: {
                         <input type="hidden" name="event_id" value={eventId} />
                         <input type="hidden" name="change_order_id" value={co.change_order_id} />
                         <SubmitButton
-                          className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11px] font-medium text-ink/70 hover:bg-cream"
+                          className="rounded-lg border border-ink/15 bg-raised px-3 py-1.5 text-[11px] font-medium text-ink/70 hover:bg-cream"
                           pendingLabel="Withdrawing…"
                         >
                           Withdraw

@@ -1,0 +1,38 @@
+# /llms.txt — the Articles section, from lib/llms-txt.ts (the one source), over the 4 newest public posts read 22 Nov
+
+## Articles
+
+Posts on Setnayan's Discover. Setnayan Journal posts are Setnayan's own; every other post is its author's own words, not Setnayan's.
+
+- [On-the-day vs. full coordination: which do you need?](https://www.setnayan.com/articles/wedding-coordinator-on-the-day-vs-full): Setnayan Journal
+- [The save-the-date video and AVP, explained](https://www.setnayan.com/articles/avp-save-the-date-video-guide): Setnayan Journal
+- [A free Event Hub: how it actually helps you](https://www.setnayan.com/articles/free-event-hub-how-it-helps): Setnayan Journal
+- [New year, newly engaged: how to start planning](https://www.setnayan.com/articles/new-year-wedding-planning-kickoff): Setnayan Journal
+
+
+# /sitemap-articles.xml rows (lib/articles-index.ts)
+
+  <url>
+    <loc>https://www.setnayan.com/articles/wedding-coordinator-on-the-day-vs-full</loc>
+    <lastmod>2026-11-20T00:00:00.000Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.setnayan.com/articles/avp-save-the-date-video-guide</loc>
+    <lastmod>2026-11-18T00:00:00.000Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.setnayan.com/articles/free-event-hub-how-it-helps</loc>
+    <lastmod>2026-11-16T00:00:00.000Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.setnayan.com/articles/new-year-wedding-planning-kickoff</loc>
+    <lastmod>2026-11-13T00:00:00.000Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>

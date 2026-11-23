@@ -377,6 +377,13 @@ test('E · a FREE booking whose card says no is free_booking, not card_says_no',
   const vpid = await newVendor();
   const no = await newCard(vpid, false);
   const q = await newBooking(vpid, { status: 'considering', serviceId: no });
+  // ⚖ 20 Nov: no booking takes a free place now, so the free booking here is a place FROZEN free before the change.
+  await db.query(
+    `INSERT INTO public.booking_fee_ledger
+       (vendor_profile_id, event_id, source, attribution, attribution_frozen_at, booking_ordinal, is_free_booking)
+     VALUES ($1, $2, 'lock', 'sourced', NOW(), 1, TRUE)`,
+    [vpid, q.eventId],
+  );
   assert.equal(await ask(q.eventId, vpid), 'free_booking');
 });
 

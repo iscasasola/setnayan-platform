@@ -167,10 +167,14 @@ test('the doorway and the parameter are gated on the SAME flag as the maker', ()
   const manager = code(MANAGER);
   assert.doesNotMatch(manager, /\?from=\$\{svc\.vendor_service_id\}/, 'the Services list grew a copy doorway again');
   const canvas = code(CANVAS);
+  // 🔒 Plus ONE named reuse (owner 19 Nov 2026 edit lock): `copyHref`, read only by the lock's way out, because the
+  // fold's row is inert while a booked client uses the card. Still inside the maker; still nowhere else.
+  assert.match(canvas, /const copyHref = editing \? `\/vendor-dashboard\/services\/new\/\$\{category\}\?from=\$\{editing\.serviceId\}` : null;/);
+  assert.equal([...canvas.matchAll(/\bcopyHref\b/g)].length, 3, 'copyHref is the lock’s way out only');
   assert.equal(
     [...canvas.matchAll(/services\/new\/\$\{category\}\?from=\$\{editing\.serviceId\}/g)].length,
-    1,
-    'exactly one copy doorway, inside the maker',
+    2,
+    'exactly one copy doorway, inside the maker (plus the edit lock’s copyHref)',
   );
 
   const page = code(PAGE);

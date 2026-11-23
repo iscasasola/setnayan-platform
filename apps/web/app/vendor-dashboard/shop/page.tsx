@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { readSpecialToolsLocked } from '@/lib/special-tools.server';
 import Link from 'next/link';
 import { readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
 import { redirect } from 'next/navigation';
@@ -54,6 +55,7 @@ import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { ShopCover, type CoverData } from './_components/shop-cover';
 import { ShopBadgeRow } from './_components/shop-badge-row';
 import { ShopMakers, type BookedDay, type OfferTileFacts, type ScannerLine } from './_components/shop-makers';
+import { shopTemplatesBody } from './_components/shop-templates-body';
 import { blankOffer, offerStatus, type OfferWho } from '@/lib/offers';
 import { heroPlaceholderUrl } from '@/lib/supplier-hero.server';
 import { coverIsYourPagePick, shopCoverKey } from '@/lib/supplier-hero';
@@ -153,6 +155,8 @@ type ShopData = {
   formsSaved: number | null;
   /** 🏷 The Offer Maker tile: Verified (the lock), how many offers run, and the papers line for the lock. */
   offerTile: OfferTileFacts;
+  /** 🎂 Special tools (the Cake Maker) are locked for this shop — the tile reads "Included in Plus". */
+  specialToolsLocked: boolean;
 };
 
 /** The badge facts were unread — the reward lines are then simply absent (a sentinel, never logged twice). */
@@ -384,8 +388,12 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // 📂 The Upload doors (hero · Cover · Logo menus): the uploader's free room and wallet, beside the batch.
   const uploadFactsRead = readPortfolioUploadFacts(supabase, vendorId, portfolio, ownRead.then((own) => own?.tier_state ?? null));
 
+  // 🎂 The Cake Maker tile's lock (Pro and up after the admin's start date, promo deals counted). Display only — the save
+  // and the couple's send re-check on the server.
+  const specialLockedRead = readSpecialToolsLocked(supabase, vendorId);
+
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
-  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, coverUrl, hero, booked, uploadFacts] = await Promise.all([
+  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, coverUrl, hero, booked, uploadFacts, specialToolsLocked] = await Promise.all([
     ownRead,
     verifyAppRead,
     logoRead,
@@ -397,6 +405,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     heroRead,
     bookedRead,
     uploadFactsRead,
+    specialLockedRead,
   ]);
   const bundles = await bundlesRead;
   // 🔒 THE BUNDLE MAKER'S LOCK — the same `canUse` the save asks (lib/locks.ts). Unread: no lock row is drawn and the
@@ -477,6 +486,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     logoFields: logoFieldData(profile, logoUrl),
     uploadFacts,
     formsSaved: own && Array.isArray(own.vendor_forms) ? own.vendor_forms.length : null,
+    specialToolsLocked,
     offerTile: {
       // S-4: an unread own row falls back to the profile's measured visibility — never a lock on a verified shop.
       verified: own ? own.verification_state === 'verified' : profile.public_visibility === 'verified',
@@ -723,11 +733,13 @@ async function ShopHome({
         <ShopMakers
           scanners={scanners}
           formsBody={shopFormsBody(sp)}
+          templatesBody={shopTemplatesBody(sp)}
           formsSaved={data.formsSaved}
           categories={(data.serviceRows ?? []).map((r) => r.label)}
           services={data.services}
           booked={data.booked}
           offers={data.offerTile}
+          specialToolsLocked={data.specialToolsLocked}
         />
 
         {/* 📊🎠 ANALYTICS — THE CAROUSEL, AND THE ONLY ANALYTICS (owner 11 Nov 2026: "Analytics should be the carousel" ·

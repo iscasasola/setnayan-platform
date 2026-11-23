@@ -57,17 +57,21 @@ test('Door 1 offers the lowest plan above the shop that takes the number', () =>
   assert.ok(ask);
   assert.equal(ask.plan, plan);
   assert.equal(ask.savedAt, soloCards, 'the setting saves at the current limit until paid');
-  assert.match(ask.headline, new RegExp(`take up to ${TIER_CAPS[plan].serviceCardsTotal} service cards`));
+  // Pro has no card limit (owner 2026-11-22): the ask says so in words, never "up to No limit".
+  assert.equal(TIER_CAPS[plan].serviceCardsTotal, Infinity);
+  assert.equal(ask.headline, `Upgrade to Pro to take as many service cards as you like`);
+  assert.doesNotMatch(ask.headline, /No limit|Infinity/);
+  const seats = limitAsk('verified', 'teamSeats', 1, true)!;
+  assert.equal(seats.headline, `Upgrade to Plus to take up to ${TIER_CAPS.solo.agentAccounts} team seats`);
   assert.equal(ask.keep, `Keep ${soloCards}`);
   assert.ok(ask.alsoUnlocks.length > 0, 'the other differences are listed');
 });
 
-test('Door 1 says nothing within the limit, and says so when no plan takes it', () => {
-  assert.equal(limitAsk('pro', 'serviceCards', TIER_CAPS.pro.serviceCardsTotal, true), null);
-  const top = limitAsk('enterprise', 'mainCategories', TIER_CAPS.enterprise.parentCategories + 1, true);
-  assert.ok(top);
-  assert.equal(top.plan, null);
-  assert.match(top.headline, /^No plan takes more than/);
+test('Door 1 says nothing within the limit — and on Pro and Ultra nothing is ever past it (2026-11-22)', () => {
+  assert.equal(limitAsk('solo', 'serviceCards', TIER_CAPS.solo.serviceCardsTotal, true), null);
+  for (const t of ['pro', 'enterprise'] as const) {
+    for (const l of PLAN_LIMITS) assert.equal(limitAsk(t, l.key, 1_000_000, true), null, `${t} · ${l.key} asks to upgrade`);
+  }
 });
 
 test('an unverified shop past its live cards is sent to get verified', () => {
@@ -85,7 +89,7 @@ test('Door 2 lists the shop first, never offers being unverified to a verified s
   assert.equal(ch.direction, 'up');
   const seats = ch.limits.find((l) => l.key === 'teamSeats')!;
   assert.equal(seats.now, String(TIER_CAPS.solo.agentAccounts));
-  assert.equal(seats.after, String(TIER_CAPS.pro.agentAccounts));
+  assert.equal(seats.after, 'No limit');
   assert.equal(planChanges('pro', 'solo', true).direction, 'down');
   assert.match(planRowLine('pro', 'solo', true, '8 Dec 2026'), /^Lower plan · starts after 8 Dec 2026$/);
 });

@@ -122,6 +122,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     'lib/shop-seals.server.ts',
     { count: 1, why: "readPoolFacts (badge build J2): who may COMPETE for a yearly seal — the listed-verified pool of the monthly Spotlight awards the seals replace (spotlight-awards.ts reads verification_state = 'verified' the same way). Never a rendered Verified badge: Setnayan Verified on a shop is hasVerifiedBadge, read in the same file (readPartnerFacts)." },
   ],
+  [
+    'lib/vendor-ai-level.ts',
+    { count: 1, why: 'planChatbotLevel (owner 21 Nov "AI Chatbot is for verified and up"): a Free shop whose papers are approved reads as the PLAN STATE "verified" for the chatbot gate (approval does not rewrite tier_state) — the inbox gate and the 🔒, the same read as endedPlanReadsFree; never a rendered Verified badge.' },
+  ],
   ['lib/vendor-tier-lapse.ts', { count: 1, why: 'endedPlanReadsFree: an ended paid plan falls back to the PLAN STATE "verified" vs "free" (the tier the gates enforce), not a rendered Verified badge' }],
   [
     'lib/admin/supplier-work.server.ts',
@@ -261,7 +265,8 @@ test('hasVerifiedBadge is reachable and the fixed sites actually call it', () =>
     'app/onboarding/wedding/actions.ts',
     'app/tour/vendors/page.tsx',
     'app/_components/frontdoor/data.ts',
-    'lib/vendor-og-description.ts',
+    // The shop share card's Verified (v2, 2026-11-21) is read through `readShopBadgeFacts` — the line no longer says it.
+    'lib/shop-badges.server.ts',
   ]) {
     const src = STRIPPED.get(f);
     assert.ok(src, `${f} is no longer scanned`);

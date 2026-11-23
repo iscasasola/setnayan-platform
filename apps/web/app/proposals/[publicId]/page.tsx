@@ -8,6 +8,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchQuoteShopGifts } from '@/lib/shop-gifts.server';
 import { QuoteShopGiftNote } from '@/app/_components/quote-shop-gift-note';
 import { markProposalViewed } from '@/lib/proposal-send';
+import { PLUS_GATE_UNKNOWN, PLUS_NEEDS_VERIFIED } from '@/lib/shop-plus-gate';
+import { PLUS_TRAY_UNVERIFIED_CTA, PLUS_TRAY_VERIFY_HREF } from '@/lib/chat-plus';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchProposalPaymentMethods } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
@@ -448,6 +450,20 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           Pick how long this quote is valid before you send it. Your draft was kept.
         </p>
       ) : null}
+      {/* 🪪 A quote needs a verified shop (sendProposal asks `shopPlusGate`) — the chat door's words and its Get verified door. */}
+      {search.notice === 'send_plus_unverified' ? (
+        <p role="alert" data-send-plus="unverified" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">
+          {PLUS_NEEDS_VERIFIED} Nothing was sent; your draft was kept.{' '}
+          <Link href={PLUS_TRAY_VERIFY_HREF} className="font-semibold underline">
+            {PLUS_TRAY_UNVERIFIED_CTA}
+          </Link>
+        </p>
+      ) : null}
+      {search.notice === 'send_plus_unknown' ? (
+        <p role="alert" data-send-plus="unknown" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">
+          {PLUS_GATE_UNKNOWN} Nothing was sent; your draft was kept.
+        </p>
+      ) : null}
       {search.notice === 'send_lock_requested' ? (
         <p role="alert" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">
           The couple has asked to lock at the quote they accepted. Agree or decline that request on
@@ -720,6 +736,12 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
             Accepting tells {businessName} you&rsquo;re going with this — it doesn&rsquo;t
             charge you anything.
           </p>
+          {/* 📜 Terms at Accept (Unichat part H2, 20 Nov 2026): said beside the press, only when this quote states terms. */}
+          {proposal.rendered_terms.trim() ? (
+            <p className="w-full text-xs font-medium text-ink/70" data-quote-terms-at-accept="">
+              Accepting means you agree to {businessName}&rsquo;s terms above.
+            </p>
+          ) : null}
         </div>
       ) : null}
 

@@ -6,10 +6,12 @@
  *
  * 🚦 A LINE SHIPS ONLY WHEN ITS BUILD IS LIVE (owner, 20 Nov 2026). Where the drawing names something the app does
  * not do yet, this page says what the app does TODAY, and never "Coming":
- *   · the fee: the drawing's rates, its ceiling ("locks there") and "every 100,000th fee is on us" are NOT built — the
- *     page places the LIVE schedule (`bookingFeeFigures`, `bookingFeePhp`) and draws no ceiling and no such switch;
- *   · who books free: the drawing's "first supplier brought onto the event" is not built — the switches are the free
- *     bookings that are live (a client you bring; your first booking from Setnayan; a badge's free booking fee ticket);
+ *   · the fee: the LIVE schedule (`bookingFeeFigures`, `bookingFeePhp`) with its ₱100,000 lock (`bookingFeeCapAmount`,
+ *     PR #8061) — the lede, the "Never more than" line and the ruler's lock; "every 100,000th fee is on us" is live in
+ *     billing but this page does not read its N yet, so it is not a switch;
+ *   · who books free: the switches are the free bookings that are live (you bring the event first; a client you brought
+ *     onto Setnayan; a badge's free booking fee ticket). A first booking from Setnayan is NOT free since 20 Nov
+ *     ("BILLING MUST FOLLOW THE RETIRED COPY", PR #8061);
  *   · the fee is charged when the client agrees to book (`BOOKING_FEE_CHARGED_WHEN`), not with the first payment;
  *   · the gift with every booking (drawn "Coming") is not built, so its section is not drawn at all;
  *   · Plans: the Ultra Add-on and storage are not live, so the ⓘ names only the live caps (`TIER_CAPS`), and the fine
@@ -25,19 +27,22 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { bookingFeeFigures, bookingFeeMinimumAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { BOOKING_FEE_CHARGED_WHEN, FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { Lock } from 'lucide-react';
+import { bookingFeeCapAmount, bookingFeeFigures, bookingFeeMinimumAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
+import { BOOKING_FEE_CHARGED_WHEN } from '@/lib/booking-fee-lock';
 import { FEE_FREE_CHIP, FEE_SCOPE, SUPPLIER_FREE_BOOKING_LINE } from '@/lib/booking-fee-who-words';
 import { TIER_CAPS, type VendorTier } from '@/lib/vendor-tier-caps';
 import { countNoun, formatCount } from '@/lib/format-number';
 import { formatPeso } from '@/lib/v2-catalog-pure';
 import { CARD_MEDALS } from '@/lib/public-badges';
 import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
-import { ServiceFace, includesLineOf } from '@/app/_components/service-face';
+import { ServiceFace } from '@/app/_components/service-face';
+import { aboutKmLine } from '@/lib/mall-card';
+import { SampleDateFit } from './sample-card-date-fit';
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
 import type { CardBadgeView } from '@/lib/card-badges';
 import { FREE_FINDABLE } from './plan-table-data';
-import { GROW_TIERS, VERIFIED_PAPERS, growName, verifiedSpec } from './supplier-front-data';
+import { GROW_TIERS, VERIFIED_PAPERS, growName, planLine, verifiedSpec } from './supplier-front-data';
 import { FeeRuler, PlanRows, type FreeWhen, type PlanRow } from './supplier-front-client';
 import { Info } from './supplier-front-info';
 import { SupplierHowWeEarn } from './supplier-how-we-earn';
@@ -45,16 +50,10 @@ import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import s from './supplier-front.module.css';
 
 export type SupplierFrontPrices = {
+  // Monthly only — no yearly supplier plan (owner 2026-11-22).
   soloMonthly: string | null;
-  soloAnnual: string | null;
-  /** What a year saves against 13 blocks of 4 weeks (`getVendorPrices().*AnnualSave`), or null when unread. */
-  soloAnnualSave: string | null;
   proMonthly: string | null;
-  proAnnual: string | null;
-  proAnnualSave: string | null;
   enterpriseMonthly: string | null;
-  enterpriseAnnual: string | null;
-  enterpriseAnnualSave: string | null;
   branch: string | null;
   seat: string | null;
   /** Every active `vendor_billing_catalog` row by sku_code, formatted (`getVendorPrices().bySku`). */
@@ -87,7 +86,15 @@ const SAMPLE_CARDS: ReadonlyArray<{
   path: string;
   cover: string;
   shop: string;
+  /** Where the shop works, said after its name. */
+  city: string;
   price: number;
+  /** The card's own note under its price. */
+  priceNote: string;
+  /** Reviews come only from completed bookings; a sample shows what a reviewed card looks like. */
+  rating: { avg: number; count: number };
+  /** Straight-line km to the couple's venue (`aboutKmLine`). */
+  km: number;
   includes: readonly string[];
   notIncluded: readonly string[];
   badges: readonly CardBadgeView[];
@@ -97,7 +104,11 @@ const SAMPLE_CARDS: ReadonlyArray<{
     path: 'Photographers · Photo & video',
     cover: `${A}/c-photo.webp`,
     shop: 'Lumen Studio',
+    city: 'Quezon City',
     price: 45999,
+    priceNote: 'whole day, 2 shooters',
+    rating: { avg: 4.9, count: 128 },
+    km: 12,
     includes: ['2 shooters', 'Online album', 'Same-day edit'],
     notIncluded: ['crew meal'],
     badges: [
@@ -110,7 +121,11 @@ const SAMPLE_CARDS: ReadonlyArray<{
     path: 'Hair & make-up · Bridal',
     cover: `${A}/c-makeup.webp`,
     shop: 'Blush by Ria',
+    city: 'Makati',
     price: 18999,
+    priceNote: 'bride + 1, with trial',
+    rating: { avg: 4.8, count: 86 },
+    km: 6,
     includes: ['Trial session', 'Airbrush', 'Touch-ups'],
     notIncluded: [],
     badges: [
@@ -124,7 +139,11 @@ const SAMPLE_CARDS: ReadonlyArray<{
     path: 'Videographers · Highlights',
     cover: `${A}/c-video.webp`,
     shop: 'Reel Day Films',
+    city: 'Pasig',
     price: 35999,
+    priceNote: '4-minute film',
+    rating: { avg: 5.0, count: 41 },
+    km: 9,
     includes: ['4-minute film', 'Drone shots', 'Raw files'],
     notIncluded: [],
     badges: [{ key: 'hot_booking', since: null }],
@@ -182,16 +201,16 @@ export function SupplierFrontPage({
   const freeWhen: FreeWhen[] = [
     { label: 'You bring the event first', hint: FEE_FREE_CHIP },
     { label: 'A couple you brought onto Setnayan', hint: SUPPLIER_FREE_BOOKING_LINE },
-    { label: 'It is your first booking from Setnayan', hint: FIRST_BOOKING_ON_US },
     { label: 'You have a free booking fee ticket', hint: 'Your ticket is used on your next booking, automatically.' },
   ];
 
   const planRows: PlanRow[] = [
-    { name: 'Free', line: 'Run the business you already have.', price: '₱0', per: 'always', cta: CTA },
-    { name: 'Verified', line: 'Be found on Discover and Find.', price: '₱0', per: 'always', cta: CTA },
+    // Free and Verified show what they hold too, never a slogan alone (owner via controller 22 Nov: "not just Memory Space").
+    { name: 'Free', line: planLine('free'), price: '₱0', per: 'always', cta: CTA },
+    { name: 'Verified', line: planLine('verified'), price: '₱0', per: 'always', cta: CTA },
     ...GROW_TIERS.map((t) => ({
       name: growName(t),
-      line: { solo: 'Something to test on, with a small team.', pro: 'The complete business package.', enterprise: 'Expand: more people, cards and branches.' }[t],
+      line: planLine(t), // 💾 the size and what it adds, from TIER_CAPS (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE")
       price: { solo: prices.soloMonthly, pro: prices.proMonthly, enterprise: prices.enterpriseMonthly }[t],
       per: 'per 4 weeks',
       cta: `Start on ${growName(t)}`,
@@ -340,15 +359,20 @@ export function SupplierFrontPage({
         <ul className={`${s.row} ${s.cards}`}>
           {SAMPLE_CARDS.map((c) => (
             <li key={c.name} className={s.card}>
+              {/* Card 14, the agreed service card (owner 20 Nov "card 14 approved"; shipped #8070): the mall face Find and
+                  Discover draw. Includes / Not included live in the opened card, never on this face. */}
               <ServiceFace
+                layout="mall"
                 name={c.name}
                 coverUrl={c.cover}
-                path={c.path}
                 shop={{ name: c.shop, href: null, logoUrl: null, verified: c.badges.some((b) => b.key === 'verified') }}
+                city={c.city}
+                rating={c.rating}
                 price={peso(c.price)}
-                includes={includesLineOf(c.includes)}
-                notIncluded={c.notIncluded}
-                footer={<CardBadgeRow badges={c.badges} cardName={c.name} shopName={c.shop} now={0} />}
+                priceNote={c.priceNote}
+                medals={<CardBadgeRow badges={c.badges} cardName={c.name} shopName={c.shop} now={0} />}
+                lines={<SampleDateFit />}
+                distance={aboutKmLine(c.km)}
               />
             </li>
           ))}
@@ -368,7 +392,8 @@ export function SupplierFrontPage({
                 {bookingFeeMinimumAmount(fee.schedule)}.
               </p>
               <p>
-                <b>How much.</b> {f.head} of the first {f.band} of a booking, then {f.tail} of the rest.
+                <b>How much.</b> {f.head} of the first {f.band} of a booking, then {f.tail} of the rest. Once the fee
+                reaches {bookingFeeCapAmount(fee.schedule)} it locks there, however big the booking.
               </p>
             </>
           ) : (
@@ -380,9 +405,6 @@ export function SupplierFrontPage({
           )}
           <p>
             <b>Who books you free.</b> {SUPPLIER_FREE_BOOKING_LINE}
-          </p>
-          <p>
-            <b>Your first booking.</b> {FIRST_BOOKING_ON_US}
           </p>
           <p>
             <b>Free booking fee tickets.</b> A ticket you already hold is applied automatically to your next booking that
@@ -402,6 +424,12 @@ export function SupplierFrontPage({
                 <span className={s.feeCap}>{f.tail} after that</span>
               </p>
             </div>
+            <p className={s.feeLock}>
+              <Lock aria-hidden className={s.fxLk} strokeWidth={2.2} />
+              <span>
+                Never more than <b>{bookingFeeCapAmount(fee.schedule)}</b>
+              </span>
+            </p>
             <FeeRuler schedule={fee.schedule} freeWhen={freeWhen} />
             {tapers ? <p className={s.fbSay}>The bigger you grow, the smaller our share.</p> : null}
             <p className={s.feeWhen}>{BOOKING_FEE_CHARGED_WHEN}</p>

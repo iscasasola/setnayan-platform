@@ -41,6 +41,7 @@ import {
 import { eventSkuActive } from '@/lib/entitlements';
 import { liveStudioControllerHref, LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
 import { hubPartPrices } from '@/lib/couple-website-pro';
+import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { hubPart } from '@/lib/hub-parts';
 import { readEventWatchUrls } from '@/lib/watch-live-links';
 import {
@@ -199,7 +200,8 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   const ent = await eventEntitlementClient(eventId);
   const [baseOwned, customMonogramOwned, ownsHostedChannel] = await Promise.all([
     eventSkuActive(ent, eventId, 'PANOOD_SYSTEM'),
-    eventSkuActive(ent, eventId, 'ANIMATED_MONOGRAM'),
+    // 💎 The animation, or the Logo & QR part that carries it (Plus, Pro, Ultra, the cap).
+    eventAnimatedMonogramActive(ent, eventId),
     // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
     // 2026-09-02)? Decides which pool-only connect notice renders below —
     // NOT multicam entitlement, which stays keyed on PANOOD_SYSTEM/LIVE_STUDIO
@@ -261,8 +263,9 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   const monogramPriceLabel =
     monogramPartPhp != null
       ? formatPhp(monogramPartPhp)
-      : monogramPrices?.full != null
-        ? `In Event Pro · ${formatPhp(monogramPrices.full)}`
+      : monogramPrices?.everything != null
+        ? // 🏛 The part is in Event Plus, the whole Event Hub (owner 20 Nov) — its name and price, read.
+          `In ${monogramPrices.everythingTitle ?? 'Event Plus'} · ${formatPhp(monogramPrices.everything)}`
         : null;
 
   // The venue connection check's last result — the couple's and the coordinator's to see.
@@ -504,7 +507,7 @@ function YoutubeConnect({
           2026-10-02 the action refuses the pool to an event without the hosted
           channel (owner ruling 2026-09-14), so the warning follows ownership too. */}
       {mayBroadcastOnSharedChannel(ownsHostedChannel) ? (
-        <p className="max-w-prose rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-sm text-ink/80">
+        <p className="max-w-prose rounded-xl border border-amber-200/80 dark:border-[rgb(var(--color-warn)/0.4)] bg-amber-50/60 dark:bg-[rgb(var(--color-warn)/0.14)] px-4 py-3 text-sm text-ink/80">
           {POOL_CHANNEL_SHARED_STRIKE_NOTICE}
         </p>
       ) : null}
@@ -1152,7 +1155,7 @@ function YouTubeDelivery({
               <input type="hidden" name="event_id" value={eventId} />
               <SubmitButton
                 pendingLabel="Removing…"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-burgundy/40 hover:text-burgundy"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-raised px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-burgundy/40 hover:text-burgundy"
               >
                 <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Remove link
@@ -1182,7 +1185,7 @@ function YouTubeDelivery({
               name="watch_url"
               required
               placeholder="Paste your YouTube watch link — youtube.com/watch?v=…"
-              className="min-h-[44px] flex-1 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+              className="min-h-[44px] flex-1 rounded-lg border border-ink/15 bg-raised px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
             />
             <SubmitButton
               pendingLabel="Saving…"

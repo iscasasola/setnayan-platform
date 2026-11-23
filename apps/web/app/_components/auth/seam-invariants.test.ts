@@ -22,6 +22,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { colourHex } from '@/lib/css-colour-tokens';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, '..', '..');
@@ -356,18 +357,19 @@ test('the sign-in panel can actually trap focus, close on Escape and lock scroll
   );
 });
 
-test('the panel stays put on success — refresh, never push', () => {
+test('the panel stays put on success — refresh; it pushes ONLY to the landing a `/` sign-in was handed', () => {
   const src = code(read('_components/auth/sign-in-here-panel.tsx'));
   assert.match(
     src,
     /router\.refresh\(\)/,
     'A successful in-place sign-in must router.refresh() — it re-renders the server half while every client component stays mounted, which is what keeps a half-written enquiry in its box.',
   );
-  assert.doesNotMatch(
-    src,
-    /router\.push\(/,
-    'router.push() would look identical in the address bar and throw the typing away.',
-  );
+  // 🏠 22 Nov 2026 ("start on their profile page"): the ONE push is to `landing`, which signInInPlace sets only when
+  // the panel's `next` was `/` (Discover — nothing half-written to keep). A push to anything else, or an unguarded
+  // one, would look identical in the address bar and throw the typing away.
+  const pushes = src.match(/router\.push\(([^)]*)\)/g) ?? [];
+  assert.deepEqual(pushes, ['router.push(landing)'], `the panel may push only to the handed landing — found ${JSON.stringify(pushes)}`);
+  assert.match(src, /else if \(landing\) \{[^}]*router\.push\(landing\)/, 'the push must sit behind `landing` being set.');
 });
 
 test('the in-place action returns its error instead of redirecting', () => {
@@ -744,9 +746,12 @@ test('the terracotta sign-in card clears AA on its own greige', () => {
   const darkStart = css.indexOf('html.dark .home-reskin-ov:has(.sn-signin-terra)');
   assert.ok(darkStart > -1, 'the sign-in card has no dark rules');
   const dark = css.slice(darkStart).split('\n/*')[0] ?? '';
-  const darkBg = dark.match(/--hr-bg:\s*(#[0-9a-f]{6})/i)?.[1];
+  // The dark rules read the one colour set since 18 Nov 2026 (`--hr-bg: rgb(var(--color-raised-2))`), so each colour is
+  // followed to what it paints (`lib/css-colour-tokens.ts`) instead of being read as a literal.
+  const paints = (v: string | undefined) => (v ? colourHex(v.trim(), 'dark') : null);
+  const darkBg = paints(dark.match(/--hr-bg:\s*([^;]+);/i)?.[1]);
   if (!darkBg) throw new Error('the dark card colour must be readable');
-  const darkText = [...dark.matchAll(/\n\s*color:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1]!).filter(Boolean);
+  const darkText = [...dark.matchAll(/\n\s*color:\s*([^;]+);/gi)].map((m) => paints(m[1])).filter((c): c is string => Boolean(c));
   assert.ok(darkText.length >= 4, `expected the dark ink, quiet words, links and error colours, found ${darkText.length}`);
   for (const c of darkText) {
     const r = ratio(c, darkBg);

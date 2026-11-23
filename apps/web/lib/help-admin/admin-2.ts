@@ -32,10 +32,10 @@ export const ADMIN_2_TOPICS: AdminHelpTopic[] = [
         body: 'Catalogue › Categories: choose the list, then add in place. Catalogue ⚙ › Export categories (CSV) downloads them. Service requests collects shops asking for a new service — when several asked for the same one, one decision answers them all.',
       },
       {
-        // Catalogue › Prices "Save this price"; lib/retail-price-change.ts CUSTOMER_PRICE_FIELDS (approve_retail_price_change); platform_retail_catalog_v2
+        // Catalogue › Prices "Save this price"; saveRetailRow → executeRetailPriceChange (owner 23 Nov 2026: "no need for a second admin. auto approve"); lib/retail-price-change.ts CUSTOMER_PRICE_FIELDS; platform_retail_catalog_v2
         slug: 'admin-change-a-customer-price',
         title: 'How do I change what a customer pays?',
-        body: 'Catalogue › Prices, open the row and Save this price. Words and descriptions save at once; a change to a price field (those in CUSTOMER_PRICE_FIELDS, including the billing period) becomes a two-admin request, and the page says everything except the price was saved. Prices live in platform_retail_catalog_v2 — the only price a customer is charged.',
+        body: 'Catalogue › Prices, open the row and Save this price. The change is live at once — no second admin — and the page says "Live" with the new price. Every price change is kept in the audit log: before, after, who and when. A request still waiting from before is closed when you save. Prices live in platform_retail_catalog_v2 — the only price a customer is charged.',
       },
       {
         // "Retire this price", "Put back on sale", "Remove for good" (Safe to remove)
@@ -47,7 +47,7 @@ export const ADMIN_2_TOPICS: AdminHelpTopic[] = [
         // saveVendorRow → vendor_billing_catalog; vendor_plan_contents (approve_plan_contents_change)
         slug: 'admin-supplier-plan-prices',
         title: 'How do I change a supplier plan’s price or contents?',
-        body: 'The same Prices browser edits supplier plans (vendor_billing_catalog). A plan’s contents need a second admin; its price currently saves with one — route it to a second admin yourself until that is gated.',
+        body: 'The same Prices browser edits supplier plans (vendor_billing_catalog). A plan’s contents need a second admin; its price saves with one admin and is live at once (owner, 23 Nov 2026).',
       },
       {
         // Catalogue › Market price bands "Recompute now" (recompute_market_price_bands → market_price_bands)

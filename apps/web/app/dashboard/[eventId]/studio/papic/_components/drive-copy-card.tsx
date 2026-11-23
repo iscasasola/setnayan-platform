@@ -152,6 +152,7 @@ async function DriveConnectedPanel({
       .from('drive_copy_artifacts')
       .select('artifact_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
+      .is('vendor_profile_id', null)
       .is('drive_file_id', null)
       .gte('attempt_count', 5)
       .ilike('last_error_text', '%storageQuotaExceeded%'),
@@ -186,9 +187,9 @@ async function DriveConnectedPanel({
       ) : null}
 
       {strandedFull > 0 ? (
-        <div className="rounded-xl bg-amber-50/70 p-3 text-[12px] text-amber-900">
+        <div className="rounded-xl bg-amber-50/70 dark:bg-[rgb(var(--color-warn)/0.14)] p-3 text-[12px] text-amber-900 dark:text-[rgb(var(--color-warn))]">
           <p className="font-medium">Your Drive is full.</p>
-          <InfoTip labelAs="p" label="Some full-resolution originals couldn&rsquo;t be saved to Drive" labelClassName="text-amber-800" className="mt-0.5" align="start">
+          <InfoTip labelAs="p" label="Some full-resolution originals couldn&rsquo;t be saved to Drive" labelClassName="text-amber-800 dark:text-[rgb(var(--color-warn))]" className="mt-0.5" align="start">
             your
             Memories are safe here, but the full-res copies are waiting. Free up
             space{overflowGrant ? ' on either Drive' : ''}, or{' '}

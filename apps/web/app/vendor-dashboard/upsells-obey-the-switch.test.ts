@@ -57,6 +57,7 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // The plan page itself — it is where a supplier chooses to buy.
   'subscription/actions.ts': 'the Plans checkout — buying is its job',
   'subscription/_components/plan-sheet.tsx': 'the Plans page’s own plan rows (Build 5 Lane B) — buying a plan is its job; hiding Upgrade behind the paywall switch would leave the Plan page with nothing to buy',
+  'subscription/_components/apple-plan-door.tsx': 'the Plan sheet’s twin in the iPhone app (Shop ⚙ › Plan and billing, supplier subscriptions §3, owner-locked 22 Nov) — Subscribe / Upgrade / Switch through Apple is buying a plan, not a paywall; hiding it behind the switch would leave the app with no way to buy one',
   'subscription/ai-addon-actions.ts': 'Vendor AI add-on checkout',
   // The gate component: it only ever renders where a caller asked the switch
   // (property 2 below checks every mount).
@@ -66,6 +67,10 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // not a feature paywall. Governed by the pipeline-caps switch, not this one.
   'services/actions.ts': 'numeric quotas (services per category, categories, bookings/day, time slots)',
   'services/_components/coverage-panel.tsx': 'numeric quota (coverage areas)',
+  // Special tools (the Cake Maker) are governed by their OWN admin start date, platform_settings.special_tools_paid_from
+  // (controller ruling 2026-11-21 "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP"; Admin › Launch offer): before it
+  // every shop has them, after it Pro and up — the save (`cakeAction`, app/_components/cake-maker/cake-actions.ts) and the couple's send check the same date.
+  'shop/_components/cake-maker-panel.tsx': 'special tools — gated by their own admin start date (special_tools_paid_from), not the paywall switch',
   // The SAME numeric quota as services/actions.ts, applied after the first booking and at a downgrade (owner
   // 2026-11-06 SERVICES LIFE CYCLE · A DOWNGRADE PUTS EXTRA SERVICES ON HOLD): "upgrade or keep one" is the ruling.
   'services/_components/stay-on-picker.tsx': 'numeric quota (services per category, categories) — which services stay on',
@@ -74,7 +79,13 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // offer_creator_reach_hold raises TIER_BELOW_PRO_NO_REACH (owner decision
   // #4, 2026-07-16). The page is try-first (browse + draft); Send asks.
   'creators/actions.ts': 'maps the database’s own Pro floor (TIER_BELOW_PRO_NO_REACH) at Send',
-  'creators/page.tsx': 'try-first browse; the ◆ note describes the database’s Pro floor at Send',
+  // The ◆ note moved into the Send offer sheet with the tool pages redraw (v3, 21 Nov 2026) — the same words.
+  'creators/_components/creators-tools.tsx': 'try-first browse; the ◆ note describes the database’s Pro floor at Send',
+  // Enforced by the DATABASE unconditionally: the couple's room brands a booth only through
+  // event_branded_booth_vendor_ids → vendor_pro_tools_included (Pro and up, owner 20 Nov; specs 66ae2cce, 21 Nov),
+  // so the switch cannot lift it — the section says so ("Included in Pro · Upgrade") instead of selling it below Pro.
+  'clients/[eventId]/_components/booth-event-section.tsx': 'maps the database’s own Pro floor (vendor_pro_tools_included) for the branded booth',
+  'clients/[eventId]/booth-event-actions.ts': 'refuses the per-event booth below Plus — the database’s own floor (vendor_pro_tools_included) would never brand it',
   // Day-of tools lapse with a paid Papic/day-of order, not the plan tier.
   'on-the-day/page.tsx': 'a lapsed day-of purchase, not the plan tier',
   'team/actions.ts':
@@ -85,6 +96,9 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // THE ONE BUILD (C4): Shop's one badge row draws the same reward lines (`row.reward.upgrade`) in its sheet.
   'subscription/_components/badge-upgrades-section.tsx': 'Badge upgrades on the Plans page — the reward’s Start sheet',
   'subscription/badge-upgrade-actions.ts': 'Badge upgrades — Start; the plan rule is the database door’s own',
+  // 🎁 Setnayan gifts to a shop (owner 14 Nov 2026): "Upgrade now" STARTS a plan Setnayan gave — nothing is bought and
+  // nothing is locked. What the shop may press is the database's (`setnayan_shop_gift_choices`), not the paywall.
+  '_components/setnayan-shop-gift-moment.tsx': 'a Setnayan gift’s Start / Upgrade now — a gift opened, not a plan paywall',
 };
 
 // Supplier-visible paywall copy. Words only as whole words: `upgradeHref` is

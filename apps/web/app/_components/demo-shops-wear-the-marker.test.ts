@@ -94,7 +94,7 @@ const SURFACES: Surface[] = [
     name: 'service card — the explore grid and Discover both draw the shared face',
     file: 'app/(shell)/explore/_lib/marketplace-view.tsx',
     imports: /import \{ readMarketplaceCardFaces \} from '@\/lib\/marketplace-service-card-faces';/,
-    draws: [/<ServiceCardView \{\.\.\.serviceCardFace\(c\)\} detailsEnabled \/>/],
+    draws: [/<ServiceCardView \{\.\.\.serviceCardFace\(c\)\} detailsEnabled\b/],
   },
   {
     name: 'service card — the read carries is_demo',
@@ -156,7 +156,14 @@ const SURFACES: Surface[] = [
     name: 'share image (OG) — the card prints it',
     file: 'lib/social/vendor-card.tsx',
     imports: /demoLabel\?: string \| null;/,
-    draws: [/demoLabel \? `A SETNAYAN SHOP · \$\{demoLabel\}` : 'A SETNAYAN SHOP'/, /eyebrowRow\(input\.demoLabel\)/],
+    // v2 (DECISION_LOG 2026-11-21): the top line is drawn from `vendorCardTopLine` — "A SETNAYAN SHOP · (DEMO ONLY)".
+    draws: [/vendorCardTopLine\(input\.status, input\.demoLabel\)/],
+  },
+  {
+    name: 'share image (OG) — the top line says it',
+    file: 'lib/social/vendor-card-layout.ts',
+    imports: /demoLabel\?: string \| null/,
+    draws: [/demoLabel \? `\$\{TOP_LINE\[status\]\} · \$\{demoLabel\}` : TOP_LINE\[status\]/],
   },
   {
     name: "the shop's own page card (supplier dashboard › Website)",

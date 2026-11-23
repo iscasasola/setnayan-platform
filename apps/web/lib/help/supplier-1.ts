@@ -21,7 +21,6 @@
  */
 import type { HelpTopic } from '@/lib/help';
 import { HELP_NOT_IN_THE_APP } from './not-in-the-app';
-import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
 import { SHOP_NAME_MAX } from '@/lib/business-slug';
 import { FEE_FREE_RULE } from '@/lib/booking-fee-who-words';
 
@@ -267,10 +266,10 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         appBody: "They ask · you agree · the fee · they are told. A couple asks you from your page or their event. You agree on the details in your chat and send your quote. When both of you agree, the booking is made, and the couple is told it is confirmed.",
       },
       {
-        // lib/booking-fee-lock.ts FIRST_BOOKING_ON_US, `freeHeldBackSentence` (once per business, not per account)
+        // lib/booking-fee-who-words.ts FEE_FREE_RULE — 20 Nov: there is no free first booking any more
         slug: 'supplier-first-booking-free',
         title: 'Suppliers: is my first booking free?',
-        body: `${FIRST_BOOKING_ON_US} It is once per business, not once per account: if your business already used it under another account, the next booking carries the fee.`,
+        body: `No — not since 20 November 2026. ${FEE_FREE_RULE} Every other booking carries the fee. A free booking fee ticket from a badge pays your next fee by itself.`,
       },
       {
         // app/vendor-dashboard/booking-fees/page.tsx title="Booking fees", "Due", "Nothing to pay yet.", "Waived — nothing owed"; supplier-today-screen.tsx `<BookingFeeBills`
@@ -290,7 +289,7 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         // lib/vendor-tier-caps.ts `TIER_LABEL`; app/for-suppliers/_components/plan-table-data.ts 'Every 4 weeks'; prices: vendor_billing_catalog
         slug: 'supplier-plans',
         title: 'Suppliers: what plans are there?',
-        body: 'Every shop starts Free, and stays free once verified. Three paid plans add more: Supplier Plus, Supplier Pro and Supplier Ultra, paid every 4 weeks or for a year. The plan table on the For suppliers page shows what each one adds and its current price.',
+        body: 'Every shop starts Free, and stays free once verified. Three paid plans add more: Plus, Pro and Ultra, paid every 4 weeks. There is no yearly plan. The plan table on the For suppliers page shows what each one adds and its current price.',
         appBody: HELP_NOT_IN_THE_APP,
       },
       {

@@ -29,12 +29,19 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { seededBeforeTheOneVerifiedShopRule } from './shop-registration-fixture';
 
 let replay: ReplayResult;
 let db: PGlite;
 before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
+  // ⚖ 20 NOV: the free first place is RETIRED (`booking_fee_free_booking_limit()` → 0, migration 20271356196197), so
+  // a booking made today never reaches the mechanism this file tests. The mechanism still lives in the lock RPC (it is
+  // what keeps places frozen before the change honest), so it is exercised here with the limit set back to ONE in this
+  // throwaway database only — the shape the RPC reads, not a second rule.
+  await db.query(`CREATE OR REPLACE FUNCTION public.booking_fee_free_booking_limit() RETURNS integer
+                    LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $f$ SELECT 1 $f$`);
 });
 after(async () => {
   await db?.close();
@@ -173,7 +180,8 @@ test('0 · the migration replayed', async () => {
 test('1a · same registration number on a NEW account → no second free booking', async () => {
   await firstShopTakesTheFree({ reg: 'DTI-1234-5678' });
   // The second shop typed the same papers differently, on a brand-new account.
-  const second = await newShop({ reg: 'dti 1234 5678' });
+  // A second VERIFIED shop under one number exists only from before 22 Nov 2026 (one verified shop per number).
+  const second = await seededBeforeTheOneVerifiedShopRule(db, () => newShop({ reg: 'dti 1234 5678' }));
   await assertBilledAsBusinessUsed(second, 'registration number');
 });
 
@@ -245,7 +253,8 @@ test('5 · a place frozen free stays free; the withheld one stays withheld', asy
   const first = await newShop({ reg: 'FZ-2222-3333' });
   const fb = await newBooking(first);
   assert.equal((await openCharge(fb.eventVendorId)).status, 'waived_free5');
-  const second = await newShop({ reg: 'FZ-2222-3333' });
+  // A second VERIFIED shop under one number exists only from before 22 Nov 2026 (one verified shop per number).
+  const second = await seededBeforeTheOneVerifiedShopRule(db, () => newShop({ reg: 'FZ-2222-3333' }));
   const sb = await newBooking(second);
   assert.equal((await openCharge(sb.eventVendorId)).status, 'pending');
   // Re-asked (a re-lock): neither answer moves.
@@ -258,7 +267,10 @@ test('5 · a place frozen free stays free; the withheld one stays withheld', asy
 
 test('6 · the desk and the quote read the same match the charge does', async () => {
   const first = await firstShopTakesTheFree({ reg: 'DK-4444-5555', phone: '09175550606' });
-  const second = await newShop({ reg: 'DK 4444 5555', phone: '+63 917 555 0606' });
+  // A second VERIFIED shop under one number exists only from before 22 Nov 2026 (one verified shop per number).
+  const second = await seededBeforeTheOneVerifiedShopRule(db, () =>
+    newShop({ reg: 'DK 4444 5555', phone: '+63 917 555 0606' }),
+  );
   const m = await db.query<{ vendor_profile_id: string; other_vendor_profile_id: string; matched_on: string[]; other_took_free: boolean }>(
     `SELECT * FROM public.booking_fee_business_matches(ARRAY[$1]::uuid[])`,
     [second],

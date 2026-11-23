@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
-import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
+import { coordinatorMoneyScopeAllowed, ONLY_A_HOST_PAYS } from '@/lib/coordinator-money-scope';
 import { paymentRowFor } from '@/lib/order-mint-identity';
 import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
 import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
@@ -203,7 +203,7 @@ export async function logPayment(formData: FormData) {
   );
   if (!checkoutAllowed) {
     throw new Error(
-      'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
+      ONLY_A_HOST_PAYS,
     );
   }
 

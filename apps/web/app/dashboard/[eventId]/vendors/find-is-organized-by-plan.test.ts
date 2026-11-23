@@ -5,7 +5,7 @@
  * (Fable), with four answers: "Ask for a quote" is the ONE verb on cards and liked photos · the covered count counts
  * *"only the ones listed"* · 3 suggested cards and 4 idea photos · asking is never automatic (*"needs to press"*).
  *
- *   1  the pinned row: Find ▾ (each menu row with its meaning) · the count · the NEXT page · ⚙
+ *   1  (superseded 2026-11-17 — the row is Find · Build · Book, held by lib/suppliers-one-dropdown.test.ts)
  *   2  Find lists only the categories with someone in them (`listedOnly`), and the shell's Build N/M counts the same rows
  *   3  an opened category reads Booked → Asked → Liked ideas → Suggested for you → Ideas; booked → "✓ Done · Search again"
  *   4  "Suggested for you" is three cards and ONE "Search all <Category> (N) ›"; Ideas is four part tiles + "More ideas"
@@ -17,7 +17,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { SUPPLIERS_MODE_MEANING, SUPPLIERS_NEXT_MODE } from '@/lib/suppliers-shell';
 import { buildFindInspiration, likedFromLine } from '@/lib/find-inspiration';
 import type { InspirationPart } from '@/lib/inspiration-parts';
 
@@ -27,14 +26,13 @@ const BENCH = read('_components/shortlist-categories.tsx');
 const INSP = read('_components/find-inspiration.tsx');
 const PAGE = read('page.tsx');
 
-test('1 · the pinned row: Find ▾ with meanings · its count · the next page · ⚙', () => {
-  assert.deepEqual(SUPPLIERS_NEXT_MODE, { find: 'build', build: 'booked', booked: 'find' });
-  for (const m of ['find', 'build', 'booked'] as const) assert.ok(SUPPLIERS_MODE_MEANING[m].length > 0);
+// 1 · SUPERSEDED 2026-11-17 (owner: "the find build book" — search · cart · orders, drawing v15): the pinned row's
+// Find ▾ with meanings, its fraction and the ▶ next page are gone; the row is three plain steps with read badges.
+// That rule is held in ONE place, `lib/suppliers-one-dropdown.test.ts` (tests 1–2), so it is not re-asserted here.
+test('1 · the pinned row is held by its one guard (Find · Build · Book since 2026-11-17)', () => {
   const at = SHELL.indexOf('data-suppliers-stick=""');
   const row = SHELL.slice(SHELL.lastIndexOf('<div', at), SHELL.indexOf('<MenuSettingsButton', at));
-  assert.match(row, /<ActionButton[\s\S]*?label=\{nextWords\}[\s\S]*?onClick=\{\(\) => goToBuildTab\(SUPPLIERS_MODE_TAB\[nextMode\]\)\}/, 'the row’s one action is not the next page');
-  const opts = SHELL.slice(SHELL.indexOf('const faceOptions'), SHELL.indexOf('];', SHELL.indexOf('const faceOptions')));
-  assert.equal((opts.match(/hint: SUPPLIERS_MODE_MEANING\./g) ?? []).length, 3, 'a menu row lost its one-line meaning');
+  assert.match(row, /data-sup-steps=""/, 'the row is not the Find · Build · Book steps');
 });
 
 test('2 · Find lists only the categories with someone in them — and Build N/M counts the same rows', () => {

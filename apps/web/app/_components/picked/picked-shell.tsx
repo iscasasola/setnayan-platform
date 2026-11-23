@@ -26,22 +26,34 @@
  * 🥞 A page's OWN thumb row must not go to <body> at z 25: it would sit UNDER this screen. The screen keeps a thumb host
  * inside its own layer — after the page body, outside the sliding page — and hands it down through `ThumbLayerContext`.
  *
+ * ── THE CHAT AS HOME, AND A PAGE BESIDE IT (a side that asks: `chatHome`) ─────────────────────────────────────────
+ * With `chatHome` the chat is the one body and every other page RISES over it (`RiseScreen`) on a phone. With
+ * `chatHome.pane` (Unichat part G, owner 20 Nov 2026) a computer does the same thing sideways: the page opens in its
+ * own 420 px column on the right with its own ←, the chat narrows by exactly that and is never covered, and opening
+ * another page replaces the one there. ⋯ (`chatHome.more`, `PickedMoreRow`) holds the places the chat's own strip does
+ * not open — a page, a page of its own that is not a tab, a place elsewhere, a file.
+ *
  * 🔒 vendor-dashboard/customers/the-picked-client-opens-over-the-list.test.ts · app/_components/picked/one-picked-shell.test.ts
+ *    · vendor-dashboard/clients/[eventId]/the-more-menu-holds-places-to-go.test.ts
  */
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { onItsOwnLayer } from '@/lib/rise-layer';
 import { useRouter } from 'next/navigation';
-import { MoreHorizontal, X, type LucideIcon } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowLeft, MoreHorizontal, Search, X, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePortalHost } from '@/lib/use-portal-host';
 import { keepLayerMark } from '@/lib/use-back-closes';
-import { Sheet } from '@/app/_components/sheet';
+import { useOneOpen } from '@/lib/one-open';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { RiseScreen, useRiseClose } from '@/app/_components/rise/rise-screen';
+import { SaveFileLink } from '@/app/_components/save-file-link';
+import { EASE_SETTLE, MOVE_MS, QUICK_MS } from '@/lib/motion-table';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { formatCount } from '@/lib/format-number';
-import { nextPanelTabId, PickedCoveredContext, PickedHeadContext, PickedHeadLineContext, PickedNavContext, type PickedShellNav } from './picked-nav';
+import { nextPanelTabId, PICKED_CHAT_SEARCH_EVENT, PickedCoveredContext, PickedHeadContext, PickedHeadLineContext, PickedNavContext, type PickedShellNav } from './picked-nav';
 import { pickedPageFromUrl } from './picked-url-page';
 import { ThumbLayerContext, type ThumbLayer } from '@/app/vendor-dashboard/_components/thumb-layer';
 import {
@@ -60,11 +72,38 @@ import { centreInStrip, pageSwipeStep } from '@/app/_components/centre-in-strip'
 /** Where a body swipe may NOT start (it belongs to something that moves sideways itself, or to a field). */
 const PAGE_SWIPE_SKIP = '[data-picked-menu],[data-calendar],[data-dates-week-strip],input,textarea,select,[contenteditable="true"],[data-no-page-swipe]';
 
+/**
+ * ⋯ ONE ROW BEHIND THE HEAD'S MORE (Unichat part G, owner 20 Nov 2026 — drawing UNICHAT-LIVE-2026-11-19, "⋯ holds
+ * places to go"). A bare page id is that page under its tab's own word and icon. Anything else names its own word and
+ * icon and is ONE of: a menu page under other words (`page`), a page of its own that is not a tab (`body` — a trade
+ * page: the Song list, the Script), a place elsewhere in the app (`href`), or a file to keep (`file`). `heading` is the
+ * small label drawn above the row ("For your trade"). A `control` is a row that IS its own action — a switch that does
+ * something where you are (🔕 Mute this chat): the page hands in the control, the shell draws it in the row's look
+ * (`PICKED_MORE_ROW`) and closes the menu on its press. Its `label` and `icon` name it for the guards and the menu.
+ */
+export type PickedMoreItem<P extends string> = { id: string; label: string; icon: LucideIcon; heading?: string } & (
+  | { page: P }
+  | { body: ReactNode }
+  | { href: string }
+  | { file: { href: string; filename: string } }
+  | { control: ReactNode }
+);
+
+/** One look for every ⋯ row (drawing `.li`: 18 px ink-2 icon, words) — a `control` row draws itself with it. */
+export const PICKED_MORE_ROW =
+  'flex min-h-11 w-full items-center gap-3 px-4 text-left text-[15px] font-semibold text-ink hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:outline-none';
+export type PickedMoreRow<P extends string> = P | PickedMoreItem<P>;
+
+/** 🖥 The page column beside the chat on a computer (drawing: the third column, 420 px; the chat narrows, never covered). */
+const PANE_OUT_MS = MOVE_MS * 0.8;
+
 export type PickedShellProps<P extends string> = {
   /** `data-picked-client` — the event (supplier side) or the event-supplier row (host side) this screen is about. */
   pickedId: string;
   /** The pinned row's name. */
   title: string;
+  /** 🔕 A small mark after the name (drawing v3: the bell-off while this chat is muted), or null. */
+  titleMark?: ReactNode;
   /** The menu, in order. */
   menu: { id: P; label: string }[];
   /** One icon per page (lucide). */
@@ -119,6 +158,18 @@ export type PickedShellProps<P extends string> = {
   sideChat?: { page: P; workDefault: P } | null;
   /** ➡ A row pinned on top of the chat page (the supplier's Next step), wherever the chat is drawn. */
   chatTop?: ReactNode;
+  /**
+   * ⋯ Rows behind the head's More for a side WITHOUT `chatHome` (the host's picked supplier, which keeps its tabs until
+   * its own build): shown at every width. Only `page` · `href` · `file` rows — a page of its own (`body`) needs the chat
+   * as home to open over. With `chatHome`, its own `more` is the list and this is ignored.
+   */
+  more?: readonly PickedMoreRow<P>[];
+  /**
+   * 🔎 The magnifier in the head, while the chat page is on show (drawing UNICHAT-LIVE: search sits in the chat header,
+   * which is this shell). It only ASKS the chat to open its own search (`PICKED_CHAT_SEARCH_EVENT`, `picked-nav.ts`).
+   * Off unless a side passes its chat page — and no side should until the chat listens (part D's file).
+   */
+  headSearch?: { page: P } | null;
   /** The part of its page a door id lands on (`payments` → `#payments` on Book & Budget); absent = the page's top. */
   anchorOf?: (raw: string) => string | null;
   /**
@@ -130,7 +181,21 @@ export type PickedShellProps<P extends string> = {
    * 🖥 From 1024 px nothing changes (owner 18 Nov: the chat keeps its own column, the tabs switch the work beside it).
    * Absent = today's tabs everywhere (the host's picked supplier, until its own build).
    */
-  chatHome?: { page: P; line: string; titleOpens: P; more: readonly P[]; /** 🔦 A tour stop on the title (`data-tour`). */ titleTour?: string } | null;
+  chatHome?: {
+    page: P;
+    line: string;
+    titleOpens: P;
+    more: readonly PickedMoreRow<P>[];
+    /** 🔦 A tour stop on the title (`data-tour`). */
+    titleTour?: string;
+    /**
+     * 🖥 ON A COMPUTER A PAGE OPENS IN ITS OWN COLUMN BESIDE THE CHAT (owner 20 Nov 2026, drawing UNICHAT-LIVE: "The
+     * opened page covered half the chat on a computer. Now it is its own third column; the chat narrows."). With this
+     * on there is no tab row and no work column at any width: the chat is the page, ⋯ shows on a computer too, and a
+     * page (or a ⋯ page of its own) opens in a right-hand column with its own ←. Opening another one replaces it.
+     */
+    pane?: boolean;
+  } | null;
 };
 
 /** 🖥 The width from which the chat keeps its own column (`sideChat`). */
@@ -186,9 +251,12 @@ function hashId(hash: string): string {
   }
 }
 
+const NO_MORE_ROWS: readonly never[] = [];
+
 export function PickedShell<P extends string>({
   pickedId,
   title,
+  titleMark = null,
   menu,
   icons,
   initialPage,
@@ -206,6 +274,8 @@ export function PickedShell<P extends string>({
   closeAs = null,
   sideChat = null,
   chatTop = null,
+  more = NO_MORE_ROWS,
+  headSearch = null,
   anchorOf,
   chatHome = null,
 }: PickedShellProps<P>) {
@@ -242,15 +312,18 @@ export function PickedShell<P extends string>({
   // 🖥 On a computer the chat keeps its own column; read after mount (the server and the first paint draw the phone).
   const [wide, setWide] = useState(false);
   const sideChatPage = sideChat?.page ?? null;
+  // 🖥 The chat keeps the whole page and a page opens in a column beside it (`chatHome.pane`) — no work column then.
+  const panes = chatHome?.pane === true;
   useEffect(() => {
-    if (!sideChatPage || typeof window.matchMedia !== 'function') return;
+    if ((!sideChatPage && !panes) || typeof window.matchMedia !== 'function') return;
     const mq = window.matchMedia(SIDE_CHAT_QUERY);
     const on = () => setWide(mq.matches);
     on();
     mq.addEventListener('change', on);
     return () => mq.removeEventListener('change', on);
-  }, [sideChatPage]);
-  const split = wide && sideChat !== null;
+  }, [sideChatPage, panes]);
+  const split = wide && sideChat !== null && !panes;
+  const paneOn = wide && panes;
   // 💬 The chat is home (`chatHome`): once the page is awake on a phone, the chat is the one body and any other page
   // rises over it. Before that (the server's paint, a computer) the page is drawn where it always was.
   const [awake, setAwake] = useState(false);
@@ -260,14 +333,62 @@ export function PickedShell<P extends string>({
   const risenPage: P | null = rises && page !== homePage ? page : null;
   const riseCloseRef = useRef<(() => void) | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
-  const moreHeadingId = useId();
+  useOneOpen(moreOpen, setMoreOpen); // one open at a time — lib/one-open.ts
+  const moreMenuId = useId();
+  const moreButtonRef = useRef<HTMLButtonElement | HTMLAnchorElement | null>(null);
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  const closeMore = useCallback(() => {
+    setMoreOpen(false);
+    moreButtonRef.current?.focus();
+  }, []);
+  // ⌨ The menu's keys (WAI-ARIA menu): it opens with its first row focused; ↓ / ↑ step, Home / End jump, Esc closes
+  // back onto ⋯ (`escClose` below — the screen's own Esc must not close the whole client too).
+  useEffect(() => {
+    if (moreOpen) moreMenuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [moreOpen]);
+  const onMoreKey = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      const items = Array.from(moreMenuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+      const at = items.indexOf(document.activeElement as HTMLElement);
+      const go = (i: number) => items[(i + items.length) % items.length]?.focus();
+      if (e.key === 'Tab') return setMoreOpen(false);
+      if (e.key === 'ArrowDown') go(at + 1);
+      else if (e.key === 'ArrowUp') go(at - 1);
+      else if (e.key === 'Home') go(0);
+      else if (e.key === 'End') go(items.length - 1);
+      else return;
+      e.preventDefault();
+    },
+    [],
+  );
+  // ⋯ A page of its own (a trade page — not a tab, so not a `?tab=`): the one that is open, by its row id.
+  const [extraId, setExtraId] = useState<string | null>(null);
+  const paneRef = useRef<HTMLDivElement | null>(null);
+  const paneHeadingId = useId();
   const [risenThumbHost, setRisenThumbHost] = useState<HTMLDivElement | null>(null);
   const risenThumbLayer = useMemo<ThumbLayer>(() => ({ host: risenThumbHost, column: risenThumbHost }), [risenThumbHost]);
   // The page the work column draws: on a computer the chat is never it (it has its own column).
   const workPage: P = rises ? homePage! : split && page === sideChat!.page ? sideChat!.workDefault : page;
   const shownMenu = useMemo(() => (split ? menu.filter((m) => m.id !== sideChatPage) : menu), [split, menu, sideChatPage]);
   // ⋯ Only pages this menu really has (Hub before booking is not one).
-  const moreMenu = useMemo(() => (chatHome ? chatHome.more.flatMap((id) => menu.filter((m) => m.id === id)) : []), [chatHome, menu]);
+  // A row that names a menu page shows only while the menu has that page; a row with no page behind it always shows.
+  const moreMenu = useMemo(
+    () =>
+      (chatHome ? chatHome.more : more).flatMap((row): PickedMoreItem<P>[] => {
+        if (typeof row === 'string') {
+          const m = menu.find((x) => x.id === row);
+          return m ? [{ id: m.id, label: m.label, icon: icons[m.id], page: m.id }] : [];
+        }
+        // A page of its own opens over the chat as home — without `chatHome` there is nowhere for it to open.
+        if ('body' in row && !chatHome) return [];
+        return 'page' in row && !menu.some((m) => m.id === row.page) ? [] : [row];
+      }),
+    [chatHome, more, menu, icons],
+  );
+  const extra = useMemo(() => {
+    const row = extraId === null ? undefined : moreMenu.find((r) => r.id === extraId);
+    return row && 'body' in row ? row : null;
+  }, [extraId, moreMenu]);
   const [gearOpen, setGearOpen] = useState(false);
   const [headSlot, setHeadSlot] = useState<HTMLSpanElement | null>(null);
   const [headLineSlot, setHeadLineSlot] = useState<HTMLSpanElement | null>(null);
@@ -372,17 +493,22 @@ export function PickedShell<P extends string>({
   }, [host]);
 
   const fills = fillPages.includes(workPage);
-  const frame = sideChat ? WIDE_FRAME : NARROW_FRAME;
+  const frame = sideChat && !panes ? WIDE_FRAME : NARROW_FRAME;
   // Before the page wakes on a computer, the server's frame has no second column yet: a Chat landing is drawn where the
   // Chat column will be (right, 360/400), any other page where the work column will be — so nothing jumps on wake.
   const chatAlone = sideChat !== null && !split && page === sideChat.page;
-  const workWidth = !sideChat
+  const workWidth = !sideChat || panes
     ? 'flex-1'
     : chatAlone
       ? 'flex-1 lg:ml-auto lg:w-[360px] lg:flex-none xl:w-[400px]'
       : 'flex-1 lg:w-[592px] lg:flex-none xl:w-[564px]';
   const select = useCallback(
     (id: P) => {
+      // ⋯ A page of its own is open: a door to the chat closes it the way its own ✕ does; any other door replaces it.
+      if (extraId !== null) {
+        if (rises && id === homePage) return riseCloseRef.current ? riseCloseRef.current() : setExtraId(null);
+        setExtraId(null);
+      }
       if (id === (rises ? page : workPage)) return;
       // 🖥 The chat is already open beside the work on a computer: a door to it leaves the work where it is.
       if (split && id === sideChatPage) return;
@@ -425,7 +551,7 @@ export function PickedShell<P extends string>({
         );
       }
     },
-    [workPage, split, sideChatPage, rises, page, homePage],
+    [workPage, split, sideChatPage, rises, page, homePage, extraId],
   );
 
   // 💬 The risen page has closed (✕, Esc, the phone's Back): the chat is the page again, at its plain address.
@@ -441,6 +567,31 @@ export function PickedShell<P extends string>({
       /* the chat still shows */
     }
   }, [homePage]);
+  // ⋯ A page of its own opens over the chat (a phone) or in the column beside it (a computer) — it takes the place of
+  // whatever page was open there, and that page's `?tab=` leaves the address with it.
+  const openExtra = useCallback(
+    (id: string) => {
+      setGearOpen(false);
+      setMoreOpen(false);
+      if (homePage !== null && page !== homePage) landHome();
+      setExtraId(id);
+    },
+    [homePage, page, landHome],
+  );
+  // 🖥 The column's own ←: out the way it came in, then the chat has the whole width again.
+  const paneClosing = useRef(false);
+  const closePane = useCallback(() => {
+    if (paneClosing.current) return;
+    const done = () => {
+      paneClosing.current = false;
+      if (extraId !== null) setExtraId(null);
+      else landHome();
+    };
+    const el = paneRef.current;
+    if (!el || prefersReducedMotion() || typeof el.animate !== 'function') return done();
+    paneClosing.current = true;
+    el.animate([{ transform: 'translateX(0)', opacity: 1 }, { transform: 'translateX(24px)', opacity: 0 }], { duration: PANE_OUT_MS, easing: EASE_SETTLE, fill: 'forwards' }).finished.then(done, done);
+  }, [extraId, landHome]);
   // A second risen page (a door inside the first) starts at its own top.
   useEffect(() => {
     if (risenPage === null) return;
@@ -515,7 +666,9 @@ export function PickedShell<P extends string>({
   // answers Esc, so with the ⚙ sheet (or any sheet a page opens) on top, Esc peels that layer, not the client. Armed once
   // the screen is on <body> (`host`): the first frame is drawn in place, then remounted into the portal. Page scroll is
   // left alone (`lockScroll: false`) — the screen is fixed full-height with its own scroller, as before.
-  useModalA11y({ open: Boolean(host), onClose: close, containerRef: rootRef, lockScroll: false });
+  // ⋯ Esc peels ONE layer: with the More menu open it closes the menu (back onto ⋯), never the whole client under it.
+  const escClose = useCallback(() => (moreOpen ? closeMore() : close()), [moreOpen, closeMore, close]);
+  useModalA11y({ open: Boolean(host), onClose: escClose, containerRef: rootRef, lockScroll: false });
 
   // A ⚙ row or a link inside a page switches pages the same way the menu does (and closes the ⚙ sheet first).
   // A folded id (`payments`, `forms`) is read by the side's own `pageOf`, and lands on its part (`anchorOf`).
@@ -554,6 +707,20 @@ export function PickedShell<P extends string>({
     [split],
   );
   const chatTopRow = chatTop ? <div className="shrink-0" data-picked-chat-top="">{chatTop}</div> : null;
+  // 🖥 What the column beside the chat holds: a ⋯ page of its own, else the page the address names. One at a time.
+  const paneKey = !paneOn ? null : extra ? `more:${extra.id}` : risenPage;
+  const paneTitle = extra ? extra.label : (menu.find((m) => m.id === risenPage)?.label ?? title);
+  const paneWas = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const el = paneRef.current;
+    const was = paneWas.current;
+    paneWas.current = paneKey;
+    if (!el || paneKey === null || was === paneKey || prefersReducedMotion() || typeof el.animate !== 'function') return;
+    // In from the side at Move; a page that REPLACES the one open only cross-fades (the column itself never moved).
+    if (was === null) el.animate([{ transform: 'translateX(24px)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }], { duration: MOVE_MS, easing: EASE_SETTLE });
+    else el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: QUICK_MS, easing: EASE_SETTLE });
+    el.querySelector('[data-rise-body]')?.scrollTo({ top: 0 });
+  }, [paneKey]);
 
   const screen = (
     <PickedNavContext.Provider value={nav}>
@@ -563,12 +730,13 @@ export function PickedShell<P extends string>({
       aria-modal="true"
       aria-labelledby={headingId}
       data-picked-client={pickedId}
-      className="fixed inset-0 flex h-[100dvh] flex-col bg-cream text-ink outline-none"
+      className="fixed inset-0 flex h-[100dvh] flex-col bg-cream text-ink outline-none transition-[padding] duration-sn-elem ease-sn motion-reduce:transition-none lg:data-[picked-pane-open]:pr-[420px]"
       style={{ zIndex: 'var(--sn-z-pop)' }}
+      {...(paneKey !== null ? { 'data-picked-pane-open': '' } : {})}
     >
       {/* 📌 The pinned row: the client · ⚙ · ✕ (v113). No hard line under it — the menu's ground carries on. */}
       <div className="shrink-0 bg-[rgb(var(--color-cream))] pt-[env(safe-area-inset-top)]">
-        <div ref={split ? undefined : setThumbColumn} className={`${frame} flex items-center gap-2 px-4 pt-2`} data-picked-pin="">
+        <div ref={split ? undefined : setThumbColumn} className={`${frame} relative flex items-center gap-2 px-4 pt-2`} data-picked-pin="">
           <div className="min-w-0 flex-1">
             <h1 id={headingId} className="truncate text-[20px] font-bold leading-tight text-ink" data-pin-word="">
               {chatHome ? (
@@ -582,9 +750,13 @@ export function PickedShell<P extends string>({
                   data-tour={chatHome.titleTour}
                 >
                   <span className="truncate">{title}</span>
+                  {titleMark}
                 </button>
               ) : (
-                title
+                <>
+                  {title}
+                  {titleMark}
+                </>
               )}
             </h1>
             {/* 📅 The page's own line under the title (the supplier's Chat: their date · Free — CHAT-09); empty = gone. */}
@@ -594,14 +766,99 @@ export function PickedShell<P extends string>({
           <span ref={setHeadSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-picked-head-actions="" />
           {/* ⚙ This page's own settings — not the list's ⚙ (that menu is mounted once, on the list). The house door
               (`MenuSettingsButton`) on the `client` key (L1, `lib/menu-settings.ts`); its rows are this page's own. */}
-          {/* ⋯ The pages that left the strip (drawing v3: Files · Hub · Report). A phone only — a computer keeps its tabs. */}
-          {chatHome && moreMenu.length > 0 ? (
-            <span className="inline-flex shrink-0 lg:hidden" data-picked-more="">
-              <ActionButton tone="neutral" iconOnly icon={MoreHorizontal} label="More" aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(true)} data-testid="picked-more" />
+          {/* ⋯ The places the strip does not open (drawing v3; part G, 20 Nov: trade pages · Files · Hub · Crew · calendar ·
+              Report). On a phone always; on a computer too once pages open beside the chat (`pane` — no tab row there). */}
+          {/* 🔎 The chat's search, asked for from the head (the slot — see `PICKED_CHAT_SEARCH_EVENT`). Only while the
+              chat is on show; the event goes out inside the tap so the chat can focus its box in the same gesture. */}
+          {headSearch && (workPage === headSearch.page || split) ? (
+            <ActionButton
+              tone="neutral"
+              iconOnly
+              icon={Search}
+              label="Search in this chat"
+              onClick={() => window.dispatchEvent(new CustomEvent(PICKED_CHAT_SEARCH_EVENT, { detail: { pickedId } }))}
+              data-testid="picked-head-search"
+              data-picked-head-search=""
+            />
+          ) : null}
+          {moreMenu.length > 0 ? (
+            <span className={panes || !chatHome ? 'inline-flex shrink-0' : 'inline-flex shrink-0 lg:hidden'} data-picked-more="">
+              <ActionButton
+                ref={moreButtonRef}
+                tone="neutral"
+                iconOnly
+                icon={MoreHorizontal}
+                label="More"
+                aria-haspopup="menu"
+                aria-expanded={moreOpen}
+                onClick={() => setMoreOpen((v) => !v)}
+                data-testid="picked-more"
+              />
+              {/* ⋯ A MENU UNDER THE HEAD, AT ITS RIGHT (drawing UNICHAT-LIVE, `.menu.top`: 232 px, 8 px in from the right — the
+                  pinned row is its anchor, so it sits at the corner even with ⚙ · ✕ after ⋯; plain rows, the
+                  "For your trade" label) — places to go, the row itself is the press. Esc, a tap outside or a row closes it. */}
+              {moreOpen ? (
+                <>
+                  {/* The scrim sits above the thumb row (`--sn-z-thumb`), so the composer dims under it as drawn; the menu one up. */}
+                  <OverlayBackdrop onClose={closeMore} tabIndex={-1} className="z-[var(--sn-z-nav)]" data-picked-more-scrim="" />
+                  <div
+                    ref={moreMenuRef}
+                    id={moreMenuId}
+                    role="menu"
+                    aria-label={`More for ${title}`}
+                    onKeyDown={onMoreKey}
+                    className="absolute right-2 top-full z-[var(--sn-z-pop)] mt-1 w-[232px] origin-top-right sn-frame sn-frame-flush py-1 motion-safe:animate-[sn-peek-in_var(--sn-dur-elem)_var(--sn-ease)_backwards]"
+                    data-picked-more-menu=""
+                  >
+                    {moreMenu.map((m) => {
+                      const Icon: LucideIcon = m.icon;
+                      // One look for a page, a page of its own, a place and a file (drawing `.li`: 18 px ink-2 icon, words).
+                      const row = PICKED_MORE_ROW;
+                      const inner = (
+                        <>
+                          <Icon aria-hidden className="h-[18px] w-[18px] shrink-0 text-[color:var(--m-slate-2)]" strokeWidth={1.9} />
+                          <span className="min-w-0 flex-1 truncate">{m.label}</span>
+                        </>
+                      );
+                      return (
+                        <div key={m.id} role="none">
+                          {m.heading ? (
+                            <p role="presentation" className="px-4 pt-2 text-[11.5px] font-bold uppercase tracking-[0.06em] text-[color:var(--m-slate-2)]" data-picked-more-heading="">
+                              {m.heading}
+                            </p>
+                          ) : null}
+                          {'page' in m ? (
+                            <button type="button" role="menuitem" onClick={() => { closeMore(); nav.select(m.page); }} className={row} data-picked-more-row={m.id}>
+                              {inner}
+                            </button>
+                          ) : 'body' in m ? (
+                            <button type="button" role="menuitem" onClick={() => openExtra(m.id)} className={row} data-picked-more-row={m.id}>
+                              {inner}
+                            </button>
+                          ) : 'control' in m ? (
+                            // The control does its own work; a press anywhere on it also closes the menu (it keeps running).
+                            <div role="none" onClick={() => setMoreOpen(false)} data-picked-more-control={m.id}>
+                              {m.control}
+                            </div>
+                          ) : 'href' in m ? (
+                            <Link href={m.href} role="menuitem" onClick={() => setMoreOpen(false)} className={row} data-picked-more-row={m.id}>
+                              {inner}
+                            </Link>
+                          ) : (
+                            <SaveFileLink href={m.file.href} filename={m.file.filename} role="menuitem" className={row} onSaved={() => setMoreOpen(false)} data-picked-more-row={m.id}>
+                              {inner}
+                            </SaveFileLink>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
             </span>
           ) : null}
           {gear ? (
-            <MenuSettingsButton menu="client" rise open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
+            <MenuSettingsButton menu="client" open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
               {gear.node}
             </MenuSettingsButton>
           ) : null}
@@ -615,7 +872,7 @@ export function PickedShell<P extends string>({
           ref={menuRef}
           role="tablist"
           aria-label={`${title} pages`}
-          className={`${frame} ${chatHome ? 'hidden lg:flex' : 'flex'} gap-0.5 overflow-x-auto px-4 pb-2 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${MENU_FADE[menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : 'none']}`}
+          className={`${frame} ${chatHome ? (panes ? 'hidden' : 'hidden lg:flex') : 'flex'} gap-0.5 overflow-x-auto px-4 pb-2 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${MENU_FADE[menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : 'none']}`}
           data-picked-menu=""
           data-picked-menu-more={menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : undefined}
         >
@@ -658,7 +915,7 @@ export function PickedShell<P extends string>({
           })}
         </div>
       </div>
-      <div className={sideChat ? `contents ${WIDE_FRAME} lg:flex lg:min-h-0 lg:flex-1 lg:gap-6 xl:gap-7` : 'contents'} data-picked-columns={split ? 'work-chat' : undefined}>
+      <div className={sideChat && !panes ? `contents ${WIDE_FRAME} lg:flex lg:min-h-0 lg:flex-1 lg:gap-6 xl:gap-7` : 'contents'} data-picked-columns={split ? 'work-chat' : undefined}>
       <div
         ref={bodyRefCb}
         className={`min-h-0 ${workWidth} overflow-x-hidden overscroll-contain [overscroll-behavior-x:none] bg-[color:var(--m-paper)] ${fills ? 'flex flex-col overflow-y-hidden' : 'overflow-y-auto'}`}
@@ -680,8 +937,9 @@ export function PickedShell<P extends string>({
             <PickedHeadLineContext.Provider value={headLineSlot}>
               <ThumbLayerContext.Provider value={thumbLayer}>
                 {sideChat && workPage === sideChat.page ? chatTopRow : null}
-                {/* 🙈 Under a risen page the chat stays mounted but is not on show — it must not mark itself read. */}
-                <PickedCoveredContext.Provider value={risenPage !== null}>{bodies[workPage]}</PickedCoveredContext.Provider>
+                {/* 🙈 Under a risen page the chat stays mounted but is not on show — it must not mark itself read.
+                    Beside a page's own column (a computer) it IS on show. */}
+                <PickedCoveredContext.Provider value={!paneOn && (risenPage !== null || extra !== null)}>{bodies[workPage]}</PickedCoveredContext.Provider>
               </ThumbLayerContext.Provider>
             </PickedHeadLineContext.Provider>
           </PickedHeadContext.Provider>
@@ -724,34 +982,9 @@ export function PickedShell<P extends string>({
       </div>
       {/* 🥞 The thumb host: a page's floating row lands HERE, inside this screen's layer (not on <body> under it). */}
       <div ref={setThumbHost} data-picked-thumb-layer="" />
-      {/* ⋯ The pages behind the head's More — rows, the row itself is the press. */}
-      {chatHome ? (
-        <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} labelledById={moreHeadingId} rise>
-          <div className="px-5 pb-5 pt-5" data-picked-more-sheet="">
-            <h2 id={moreHeadingId} className="pr-12 text-[17px] font-semibold text-ink">
-              {title}
-            </h2>
-            <ul className="mt-2">
-              {moreMenu.map((m) => {
-                const Icon: LucideIcon = icons[m.id];
-                return (
-                  <li key={m.id}>
-                    <button type="button" onClick={() => nav.select(m.id)} className="sn-press flex min-h-[48px] w-full items-center gap-3 py-1 text-left" data-picked-more-row={m.id}>
-                      <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--m-paper-2)] text-sn-accent">
-                        <Icon className="h-[17px] w-[17px]" strokeWidth={1.75} />
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{m.label}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </Sheet>
-      ) : null}
       {/* ⤴ A PAGE RISEN OVER THE CHAT — the shipped body, unchanged; only the way in changed. ✕, Esc and the phone's
           Back close it (the one `RiseScreen`), and the chat under it is where it was left. */}
-      {risenPage !== null && chatHome ? (
+      {risenPage !== null && chatHome && !paneOn ? (
         <RiseScreen
           title={menu.find((m) => m.id === risenPage)?.label ?? title}
           line={chatHome.line}
@@ -768,6 +1001,52 @@ export function PickedShell<P extends string>({
           </div>
           <div ref={setRisenThumbHost} data-picked-thumb-layer="risen" />
         </RiseScreen>
+      ) : null}
+      {/* ⤴ ⋯ A PAGE OF ITS OWN (a trade page) — risen the same way on a phone; ✕, Esc and Back land on the chat. */}
+      {extra !== null && chatHome && !paneOn ? (
+        <RiseScreen title={extra.label} line={chatHome.line} data="picked-more-page" onClose={() => setExtraId(null)}>
+          <RiseCloser into={riseCloseRef} />
+          <div className="px-4 pb-[var(--sn-thumb-room,0px)] pt-3" data-picked-more-page={extra.id}>
+            <PickedHeadContext.Provider value={null}>
+              <PickedHeadLineContext.Provider value={null}>
+                <ThumbLayerContext.Provider value={risenThumbLayer}>{extra.body}</ThumbLayerContext.Provider>
+              </PickedHeadLineContext.Provider>
+            </PickedHeadContext.Provider>
+          </div>
+          <div ref={setRisenThumbHost} data-picked-thumb-layer="risen" />
+        </RiseScreen>
+      ) : null}
+      {/* 🖥 THE PAGE'S OWN COLUMN BESIDE THE CHAT (owner 20 Nov 2026; drawing UNICHAT-LIVE, computer view): 420 px on
+          the right, its own ←, the chat narrowed beside it (the root's right padding) and never covered. The same
+          shipped body the phone raises; opening another page replaces what is here. */}
+      {paneKey !== null && chatHome ? (
+        <aside
+          aria-labelledby={paneHeadingId}
+          className="absolute inset-y-0 right-0 hidden w-[420px] flex-col border-l border-ink/10 bg-[color:var(--m-paper)] pt-[env(safe-area-inset-top)] lg:flex"
+          data-picked-pane={extra ? extra.id : (risenPage ?? '')}
+        >
+          <div ref={paneRef} className="flex min-h-0 flex-1 flex-col">
+            <div className="flex shrink-0 items-center gap-2 px-2 pt-2" data-picked-pane-head="">
+              <ActionButton tone="neutral" iconOnly icon={ArrowLeft} label="Back to chat" onClick={closePane} data-testid="picked-pane-back" />
+              <h2 id={paneHeadingId} className="min-w-0 flex-1 truncate text-[17px] font-semibold text-ink">
+                {paneTitle}
+              </h2>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain" data-rise-body="">
+              <div
+                className="px-4 pb-[max(24px,var(--sn-thumb-room,0px))] pt-3"
+                {...(extra ? { 'data-picked-more-page': extra.id } : { 'data-picked-page-body': risenPage ?? '', 'data-picked-risen': '' })}
+              >
+                <PickedHeadContext.Provider value={null}>
+                  <PickedHeadLineContext.Provider value={null}>
+                    <ThumbLayerContext.Provider value={risenThumbLayer}>{extra ? extra.body : risenPage !== null ? bodies[risenPage] : null}</ThumbLayerContext.Provider>
+                  </PickedHeadLineContext.Provider>
+                </PickedHeadContext.Provider>
+              </div>
+            </div>
+          </div>
+          <div ref={setRisenThumbHost} data-picked-thumb-layer="pane" />
+        </aside>
       ) : null}
     </div>
     </PickedNavContext.Provider>

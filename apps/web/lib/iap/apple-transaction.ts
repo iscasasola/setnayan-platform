@@ -10,6 +10,7 @@
 import { verifyAppleJws, APPLE_ROOT_CA_G3_SHA256, type JwsRefusal } from './apple-jws';
 import { type IapProduct } from './products';
 import { iapProductForDelivery } from './products-delivery';
+import { appleGiftQuantityOk } from './apple-gift-lines';
 
 /** The iPhone app's bundle id — `appId` in apps/mobile/capacitor.config.ts. */
 export const APP_BUNDLE_ID = 'com.setnayan.app';
@@ -27,7 +28,15 @@ export type AppleTransaction = {
   product: IapProduct;
   appAccountToken: string;
   environment: AppleEnvironment;
-  /** Apple's price in milli-units of `currency`, when Apple sent one. */
+  /**
+   * 💝 How many Apple charged for (`quantity`, absent ⇒ 1). Always 1 for a couple product; 1–10 for a shop's gift — a
+   * gift cart line is ONE purchase of its gift with a quantity (owner 2026-11-22, `lib/iap/apple-gift-lines.ts`).
+   */
+  quantity: number;
+  /**
+   * Apple's price in milli-units of `currency`, when Apple sent one — the price CONFIGURED in App Store Connect for ONE
+   * unit; what Apple charged is this × `quantity` (`chargedPhp`).
+   */
   priceMilliunits: number | null;
   currency: string | null;
   purchaseDate: Date | null;
@@ -70,8 +79,10 @@ export function readAppleTransaction(
   const product = iapProductForDelivery(str(payload.productId));
   if (!product) return { ok: false, reason: 'unknown_product' };
   if (payload.type !== 'Consumable') return { ok: false, reason: 'not_consumable' };
-  const quantity = num(payload.quantity);
-  if (quantity !== null && quantity !== 1) return { ok: false, reason: 'bad_quantity' };
+  // A couple product is one per purchase; a shop's gift is bought by the line, 1–10 (StoreKit's limit).
+  const quantity = payload.quantity === undefined || payload.quantity === null ? 1 : num(payload.quantity);
+  if (quantity === null || !appleGiftQuantityOk(quantity)) return { ok: false, reason: 'bad_quantity' };
+  if (quantity !== 1 && product.kind !== 'supplier-gift') return { ok: false, reason: 'bad_quantity' };
   const token = str(payload.appAccountToken);
   if (!token || !UUID_RE.test(token)) return { ok: false, reason: 'no_token' };
   const environment = payload.environment;
@@ -88,6 +99,7 @@ export function readAppleTransaction(
       product,
       appAccountToken: token.toLowerCase(),
       environment,
+      quantity,
       priceMilliunits: num(payload.price),
       currency: currency && /^[A-Z]{3}$/.test(currency) ? currency : null,
       purchaseDate: date(payload.purchaseDate),
@@ -110,10 +122,13 @@ export function verifyAppleTransaction(
 /**
  * What Apple charged, in pesos — ONLY when Apple charged in PHP. Any other
  * currency is null: converting it here would be inventing an exchange rate.
+ * 💝 The unit price × the quantity Apple signed (a gift line of 3 is charged 3 ×).
  */
-export function chargedPhp(tx: Pick<AppleTransaction, 'priceMilliunits' | 'currency'>): number | null {
+export function chargedPhp(tx: Pick<AppleTransaction, 'priceMilliunits' | 'currency'> & { quantity?: number }): number | null {
   if (tx.currency !== 'PHP' || tx.priceMilliunits === null || tx.priceMilliunits < 0) return null;
-  return Math.round(tx.priceMilliunits / 10) / 100;
+  const quantity = tx.quantity ?? 1;
+  if (!appleGiftQuantityOk(quantity)) return null;
+  return Math.round(tx.priceMilliunits * quantity / 10) / 100;
 }
 
 /** App Store Server Notifications v2 — the decoded fields this build reads. */

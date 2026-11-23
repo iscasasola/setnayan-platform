@@ -41,11 +41,16 @@ import {
   ArrowDown,
   ArrowUpRight,
   Armchair,
+  Box,
   Check,
   ChevronDown,
   ChevronRight,
   CircleHelp,
+  Footprints,
+  LayoutGrid,
+  List as ListIcon,
   Mail,
+  Network,
   Plus,
   Send,
   Share,
@@ -61,10 +66,10 @@ import { holdFocus } from '@/components/clear-field';
 import { InfoTip } from '@/app/_components/info-tip';
 import { GuestPeek } from './guest-peek';
 import { ThumbRow, type ThumbField, type ThumbMenu } from '@/components/thumb-row';
-import { useThumbRowArrivesLast } from '@/lib/thumb-row-arrives-last';
 import { Count } from '@/components/count';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { AddKindPick } from './add-kind-pick';
 import { InspectorColumn, useInspectorSelect } from '@/app/_components/inspector/inspector-column';
 import { GuestCardAvatar, guestCardEyebrow, guestCardNick, guestCardReply, guestCardTitle } from './guest-card-head';
 import type { GuestCardData } from './guest-card-data';
@@ -164,6 +169,7 @@ import {
   GUESTS_MAKER_VIEWS,
   GUESTS_TOPS,
   GUESTS_TOP_LABEL,
+  topOfView,
   GUESTS_VIEW_LABEL,
   SEAT_MODES,
   SEAT_MODE_MENU_LABEL,
@@ -233,6 +239,8 @@ export type GuestsScreenProps = {
   groups: { group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' }[];
   /** The seat plan's tables — Set… ▾ › Table. */
   tables: { tableId: string; label: string }[];
+  /** The tables read was measured — false/absent-on-failure keeps the view menu from saying "0 tables" (ship review 21 Nov). */
+  tablesMeasured?: boolean;
   /** guest_id → the table they are placed at. */
   tableByGuest: Record<string, string>;
   /** 🏷 A partial invite's tag — "After party only" · "Not at Ceremony" (owner 2026-11-02, "Invited to"). Absent = none. */
@@ -369,6 +377,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
         songsByGuest: {},
         groups: [],
         tables: [],
+        tablesMeasured: false,
         empty: null,
         initialQuery: '',
         initialSelect: false,
@@ -408,6 +417,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     oneQr = false,
     empty,
     copy = null,
+    tablesMeasured = true,
     roleSetKey = null,
     viewOnly = false,
     filter: filterAsked = NO_GUESTS_FILTER,
@@ -429,6 +439,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
      here through the lens (`registerSeats`), and a mode picked while the plan is not on screen waits for it. */
   const [seatMode, setSeatMode] = useState<SeatMode>(seatModeOf(seatAsked));
   const [seatShow3D, setSeatShow3D] = useState(process.env.NEXT_PUBLIC_SEATING_3D !== 'false');
+  /** 🎚 Guests redesign § 8 (20 Nov): "A place opens on the look you used last" — Guests' last look (List or Map). Seats'
+      last look is `seatMode` itself, which the plan keeps while it is hidden. */
+  const lastGuestLook = useRef<'list' | 'map'>(gviewAsked === 'map' ? 'map' : 'list');
+  /** 🎚 § 8: the March's walk count for the place menu — reported by the March once it has been drawn; never guessed. */
+  const [walkCount, setWalkCount] = useState<number | null>(null);
   /** The top row's seat for the view's own rounds (Seats' Edit · ⋯) — the plan portals them in. */
   const [toolsSlot, setToolsSlot] = useState<HTMLElement | null>(null);
   /** The top row's seat for the view's own counts (Seats' seated · unseated · tables) — the plan portals them in. */
@@ -445,6 +460,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     else setSeatMode(api.mode);
   }, []);
   const pickView = (v: GuestsView, seat?: SeatMode) => {
+    if (v === 'list' || v === 'map') lastGuestLook.current = v;
     setGview(v);
     setSeenViews((s) => (s.has(v) ? s : new Set([...s, v])));
     // ⇅ The shared Show · Group by · Sort rides along — a switch keeps what is shown (lib/guests-filter.ts).
@@ -805,7 +821,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   // ── The thumb row arrives LAST — after the carousel and the open section have built up (owner 2026-10-27,
   //    `lib/thumb-row-arrives-last.ts`); List ↔ Map builds up again, so it re-arms on the view.
-  const barOn = useThumbRowArrivesLast(gview);
+  /* 👻 THE THUMB ROW DRAWS AT FULL COLOUR AT ONCE (Guests redesign "On every view", owner 20 Nov "Yes, your picks"):
+     *"the top row and thumb row draw at full colour at once … Nothing fades."* This supersedes, for Guests, the
+     27 Oct "the thumb row arrives last" wait — every other page keeps the shared timing (`useThumbRowArrivesLast`). */
+  const barOn = true;
 
   // ── 🖥 From 701 the thumb row sits UNDER THE READING COLUMN, edge to edge with it, and stays there when the column
   //    moves (owner 2026-10-20, "is the desktop view done fixing?"). The column is THIS screen — `dock-follows-column.ts`.
@@ -1250,6 +1269,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
         {wordDoor('declined', stats.no, 'gs-no', RSVP_LIST_WORDS.declined.toLowerCase(), 'no')}
         <span aria-hidden> · </span>
         {wordDoor('none', stats.none, 'gs-none', RSVP_LIST_WORDS.pending.toLowerCase(), 'wait')}
+        {/* 🤷 "· 2 maybe" — only when someone still holds a Maybe from before it was retired, so the words add up to
+            "N guests". The same door as the others: a tap shows exactly them. */}
+        {stats.maybe > 0 ? (
+          <>
+            <span aria-hidden> · </span>
+            {wordDoor('maybe', stats.maybe, 'gs-maybe', RSVP_LIST_WORDS.maybe.toLowerCase(), 'wait')}
+          </>
+        ) : null}
       </div>
       {/* One extra line, only when there is something to say (drawing: "+1s" and "Asking to join" stay in Show and sort). */}
       {plusAll > 0 || requests > 0 ? (
@@ -1328,12 +1355,18 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const guestModes: PickOption[] = guestsViews.filter((v) => v === 'list' || v === 'map').map((v) => ({ key: v, label: GUESTS_VIEW_LABEL[v] }));
   const seatModes: PickOption[] = SEAT_MODES.filter((m) => m !== '3d' || seatShow3D).map((m) => ({ key: m, label: SEAT_MODE_MENU_LABEL[m] }));
   /** 📌 The slim pinned row's ONE menu (owner v14: LEFT one menu — page + mode in one dropdown, the groups listed). */
+  /* 🎚 THE PLACE MENU (Guests redesign § 8, owner 20 Nov "Yes, your picks", pick 1): the pill still reads where you are
+     ("Seats · 2D"); it opens THREE lines — the places — each with its count. The looks (List · 2D · 3D, List · Map) moved
+     to one round in the thumb row (`lookMenu`). A place opens on the look you used last. */
+  const placeCount = (n: number | null, one: string, many: string) => (n === null ? undefined : { text: `${formatCount(n)} ${n === 1 ? one : many}`, tone: 'muted' as const });
   const pinMenuOptions: PickOption[] = [
-    ...guestModes.map((o) => ({ key: `guests:${o.key}`, label: o.label, group: GUESTS_TOP_LABEL.guests })),
-    ...(tops.includes('seats') ? seatModes.map((o) => ({ key: `seats:${o.key}`, label: o.label, group: GUESTS_TOP_LABEL.seats })) : []),
-    ...(tops.includes('march') ? [{ key: 'march', label: GUESTS_TOP_LABEL.march, group: GUESTS_TOP_LABEL.march }] : []),
+    { key: 'guests', label: GUESTS_TOP_LABEL.guests, icon: <Users className="h-[18px] w-[18px]" strokeWidth={1.9} />, trail: measured ? placeCount(stats.total, 'guest', 'guests') : undefined },
+    ...(tops.includes('seats')
+      ? [{ key: 'seats', label: GUESTS_TOP_LABEL.seats, icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} />, trail: tablesMeasured ? placeCount(tables.length, 'table', 'tables') : undefined }]
+      : []),
+    ...(tops.includes('march') ? [{ key: 'march', label: GUESTS_TOP_LABEL.march, icon: <Footprints className="h-[18px] w-[18px]" strokeWidth={1.9} />, trail: placeCount(walkCount, 'walk', 'walks') }] : []),
   ];
-  const pinMenuValue = gview === 'seats' ? `seats:${seatMode}` : gview === 'march' ? 'march' : `guests:${gview}`;
+  const pinMenuValue = topOfView(gview);
   const pinMenu = (
     <PickMenu
       label="Guests — what you see"
@@ -1341,8 +1374,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
       options={pinMenuOptions}
       onPick={(k) => {
         if (k === 'march') pickView('march');
-        else if (k.startsWith('seats:')) chooseSeat(k.slice(6) as SeatMode);
-        else pickView(k.slice(7) as GuestsView);
+        else if (k === 'seats') chooseSeat(seatMode);
+        else pickView(guestModes.some((o) => o.key === lastGuestLook.current) ? lastGuestLook.current : 'list');
       }}
       dataAttr="data-guests-pin-menu"
       buttonText={pinnedMenuWords(gview, seatMode)}
@@ -1355,6 +1388,36 @@ export function GuestsScreen(props: GuestsScreenProps) {
       }
     />
   );
+
+  /* 🎚 THE LOOK ROUND (Guests redesign § 8, pick 1): one round in the thumb row wears the current look and opens UPWARD —
+     Guests: List · Map; Seats: List · 2D floor plan · 3D room. March has none. Seats stays one place: a look never
+     leaves it. Absent when a place has one look only. */
+  const lookIcon = { list: ListIcon, map: Network, '2d': LayoutGrid, '3d': Box } as const;
+  const lookOption = (key: keyof typeof lookIcon, label: string): PickOption => {
+    const Icon = lookIcon[key];
+    return { key, label, icon: <Icon className="h-[18px] w-[18px]" strokeWidth={1.9} /> };
+  };
+  /** The look's pick, always the newest closures — so the round itself is built once per look, and the lens it rides
+      on is not rebuilt on every render. */
+  const lookPick = useRef<(k: string) => void>(() => {});
+  lookPick.current = (k) => (gview === 'seats' ? chooseSeat(k as SeatMode) : pickView(k as GuestsView));
+  const lookKeys = gview === 'seats' ? seatModes.map((o) => o.key).join() : gview === 'list' || gview === 'map' ? guestModes.map((o) => o.key).join() : '';
+  const lookValue = gview === 'seats' ? seatMode : gview;
+  const lookMenu = useMemo<ThumbMenu | null>(() => {
+    const keys = lookKeys ? lookKeys.split(',') : [];
+    if (keys.length < 2) return null;
+    const seats = gview === 'seats';
+    const words: Record<string, string> = seats ? SEAT_MODE_MENU_LABEL : GUESTS_VIEW_LABEL;
+    return {
+      menu: keys.map((k) => lookOption(k as keyof typeof lookIcon, words[k] ?? k)),
+      label: seats ? 'How Seats looks' : 'How Guests looks',
+      value: lookValue,
+      onPick: (k) => lookPick.current(k),
+      mark: 'data-guests-look',
+      opensUp: true,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lookOption/lookIcon are constant in what they draw
+  }, [gview, lookKeys, lookValue]);
 
   /* ═══ the thumb row ═══ */
   /* ➕ NO ROUND ＋ (owner 2026-10-25, verbatim: *"Yes, remove the + on the guest list. Typing in the search adds; put
@@ -1602,22 +1665,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       writesOff || gview !== 'list'
         ? undefined
         : {
-            kind: (
-              <PickMenu
-                label="What to add"
-                value="guest"
-                options={[{ key: 'guest', label: 'Guest', group: 'Add' }, ...addWays]}
-                onPick={(k) => void pickedAddWay(k)}
-                dataAttr="data-guests-add-kind"
-                buttonText="Guest"
-                trigger={
-                  <span data-kind-face="">
-                    Guest
-                    <ChevronDown aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
-                  </span>
-                }
-              />
-            ),
+            kind: <AddKindPick word="Guest" options={addWays} onPick={(k) => void pickedAddWay(k)} dataAttr="data-guests-add-kind" />,
           },
     onMode: setAddMode,
     input: {
@@ -1768,7 +1816,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       <ThumbRow
         name="guests"
         field={field}
-        right={[{ node: filterSheet }]}
+        right={lookMenu ? [lookMenu, { node: filterSheet }] : [{ node: filterSheet }]}
       />
     );
   } else if (gview === 'map') {
@@ -1778,7 +1826,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       <ThumbRow
         name="guests-map"
         field={field}
-        right={[arrangeMenu]}
+        right={lookMenu ? [lookMenu, arrangeMenu] : [arrangeMenu]}
         action={writesOff ? null : { icon: Plus, label: 'Add guest', onClick: () => openAddGuest(''), testId: 'map-add-guest' }}
       />
     );
@@ -1836,6 +1884,13 @@ export function GuestsScreen(props: GuestsScreenProps) {
           <TypedWays eventId={eventId} />
         </div>
       ) : null}
+      {/* 🔎 "2 FOUND" (Guests redesign § 2, "one tap, searching"): how many guests the words found, in the headings' own
+          words, above them — counted off the very rows drawn below (`visible`), never a second count. */}
+      {q && !noMatch ? (
+        <div className={`${styles.lab} ${styles.found}`} data-search-found="" aria-live="polite">
+          <Count value={visible.length} id="gs-found" /> found
+        </div>
+      ) : null}
       {(empty && !q ? [] : sections).map((sec) => {
         const opened = isOpen(sec.key);
         const allSel = sec.guests.length > 0 && sec.guests.every((g) => selected.has(g.guest_id));
@@ -1873,8 +1928,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
               >
                 {/* 🏷 Headings are text only (Guests redesign §1, 20 Nov: the grey circle icon per heading is gone). */}
                 <span className={styles.lab}>{sec.label}</span>
+                {/* "BRIDE & GROOM  2" — a plain count after the label, no dot (drawing v4 § 1). */}
                 <span className={styles.n}>
-                  · <Count value={sec.guests.length} id={`gs-n-${sec.key}`} />
+                  <Count value={sec.guests.length} id={`gs-n-${sec.key}`} />
                 </span>
                 {selectMode ? (
                   <span className={styles.note}>
@@ -2059,6 +2115,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
       registerSeats,
       toolsSlot,
       countsSlot,
+      lookRound: lookMenu,
+      reportWalks: setWalkCount,
       ...(writesOff
         ? {}
         : {
@@ -2073,7 +2131,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             },
           }),
     }),
-    [gview, thumbSlot, toolsSlot, countsSlot, registerSeats, filter, hasSides, rosterById, roster, facts, writesOff, roleNames, setRoleNames, eventId],
+    [gview, thumbSlot, toolsSlot, countsSlot, registerSeats, lookMenu, filter, hasSides, rosterById, roster, facts, writesOff, roleNames, setRoleNames, eventId],
   );
 
   return (
@@ -2624,7 +2682,16 @@ function GuestRowLine({
   );
   // 👈 The row's delete (owner 2026-11-03): none in select mode — a row is a thing to tick there.
   const del = selectMode ? null : verbs.includes('remove') ? 'remove' : verbs.includes('release') ? 'release' : null;
-  if (!del) return row;
+  /* 🖱 ONE RIGHT EDGE ON A COMPUTER (Fable review of the built page, 22 Nov): a row that can be removed keeps a 44 px column
+     for its hover Delete (`SwipeToDelete`); a row that cannot (the couple) keeps the same empty column, so ticks and pills
+     line up down the list. A touch screen has neither column. */
+  if (!del)
+    return selectMode ? row : (
+      <div className="flex items-stretch">
+        <div className="min-w-0 flex-1">{row}</div>
+        <span aria-hidden className="hidden w-11 shrink-0 [@media(hover:hover)_and_(pointer:fine)]:block" data-row-delete-room="" />
+      </div>
+    );
   return (
     <SwipeToDelete
       label={del === 'remove' ? `Remove ${name}` : `Release seat ${name}`}

@@ -22,7 +22,7 @@ import { parseGuestQrPayload, guestInitials } from '@/lib/checkin';
 import { guestTokenFromTag, nfcReadFailureCopy } from '@/lib/nfc-tag';
 import { useNfcEnabled } from '@/app/_components/use-nfc-enabled';
 import { useNfcTagReader } from '@/app/_components/use-nfc-tag-reader';
-import { checkInGuest, checkTicketLive, undoCheckIn, type CheckinMethod, type TicketCheck } from '../actions';
+import { changeDesk, checkInGuest, checkTicketLive, type CheckinMethod, type TicketCheck, type UndoActionResult } from '../actions';
 import { DOOR_WORDS } from '@/lib/request-key';
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
@@ -420,9 +420,9 @@ export function CheckinDesk({
           setNotice('Undo needs signal — try again when you’re back online.');
           return;
         }
-        let result: Awaited<ReturnType<typeof undoCheckIn>>;
+        let result: UndoActionResult;
         try {
-          result = await undoCheckIn(eventId, guestId);
+          result = await changeDesk(eventId, { kind: 'undo', guestId });
         } catch {
           setOnline(false);
           setNotice('Undo needs signal — try again when you’re back online.');
@@ -523,7 +523,12 @@ export function CheckinDesk({
   );
 
   return (
-    <div className="mt-6 space-y-4">
+    /* 🖥 TWO COLUMNS FROM 1280 (owner 16 Nov 2026, "Yes, all 8" item 1 — prototype event_pages_guests_doors_2026-11-16):
+       headcount, Scan and name search on the left; the arriving guest and recent arrivals on the right. The phone keeps
+       one column in the same order; the status lines above span both columns. */
+    <div className="mt-6 space-y-4 xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-8 xl:gap-y-4 xl:space-y-0" data-desk-columns="">
+      {!online || queued.size > 0 || sent !== null || notes.length > 0 ? (
+      <div className="space-y-4 xl:col-span-2">
       {/* 📶 THE QUEUE LINE (EV3, prototype frame "Supplier · Hub › Scan"): "● No signal · N scans saved on this phone"
           → "✓ Back online · N sent". Shown only when there is something to say. */}
       {!online ? (
@@ -568,6 +573,10 @@ export function CheckinDesk({
         </section>
       ) : null}
 
+      </div>
+      ) : null}
+
+      <div className="space-y-4" data-desk-column="find">
       {/* headcount */}
       <section
         aria-label="Arrival headcount"
@@ -602,7 +611,7 @@ export function CheckinDesk({
             <button
               type="button"
               onClick={stopScanner}
-              className="absolute bottom-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-ink shadow"
+              className="absolute bottom-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-raised/90 px-4 py-2 text-sm font-medium text-ink shadow"
             >
               <CameraOff className="h-4 w-4" /> Stop scanning
             </button>
@@ -654,7 +663,7 @@ export function CheckinDesk({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="No QR on hand? Search their name…"
-            className="min-h-12 w-full rounded-xl border border-ink/15 bg-white py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-ink/50 focus:border-terracotta"
+            className="min-h-12 w-full rounded-xl border border-ink/15 bg-raised py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-ink/50 focus:border-terracotta"
           />
         </div>
         {matches.length > 0 ? (
@@ -695,6 +704,9 @@ export function CheckinDesk({
         ) : null}
       </section>
 
+      </div>
+
+      <div className="space-y-4" data-desk-column="arrivals">
       {notice ? (
         <p role="status" className="rounded-xl bg-warn-50 px-4 py-2.5 text-sm text-warn-800">
           {notice}
@@ -843,7 +855,7 @@ export function CheckinDesk({
                   disabled={busy}
                   onClick={() => doUndo(guest.guestId)}
                   aria-label={`Undo check-in for ${guest.name}`}
-                  className="rounded-lg p-1.5 text-ink/70 hover:bg-ink/5 hover:text-ink disabled:opacity-50"
+                  className="sn-hit rounded-lg p-1.5 text-ink/70 hover:bg-ink/5 hover:text-ink disabled:opacity-50"
                 >
                   <Undo2 className="h-4 w-4" />
                 </button>
@@ -852,6 +864,7 @@ export function CheckinDesk({
           </ul>
         </section>
       ) : null}
+      </div>
     </div>
   );
 }

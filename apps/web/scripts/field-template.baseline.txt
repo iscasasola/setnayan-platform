@@ -3,7 +3,7 @@
 # GENERATED — never hand-edit, never hand-merge (on a conflict take either side, then):
 #   node apps/web/scripts/lint-field-template.mjs --update-baseline
 # A RATCHET BOTH WAYS: a count may not rise, and a fall must be written here in the same PR.
-# 313 files · 738 boxes
+# 304 files · 720 boxes
 2 apps/web/app/_components/amendment-builder.tsx
 3 apps/web/app/_components/appointments-section.tsx
 1 apps/web/app/_components/chat-send-form.tsx
@@ -125,7 +125,7 @@
 2 apps/web/app/dashboard/(account)/samahan/new/page.tsx
 2 apps/web/app/dashboard/(launcher)/_components/event-card-menu.tsx
 1 apps/web/app/dashboard/[eventId]/_components/day-of-mode/coordinator-broadcast-card.tsx
-2 apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
+1 apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
 1 apps/web/app/dashboard/[eventId]/_components/nikah-essentials-card.tsx
 5 apps/web/app/dashboard/[eventId]/_components/payment-plan-rows.tsx
 1 apps/web/app/dashboard/[eventId]/_components/supplier-share-button.tsx
@@ -255,7 +255,6 @@
 2 apps/web/app/papic/decorate/_components/kwento-decorator.tsx
 2 apps/web/app/papic/guest/_components/papic-guest-capture.tsx
 2 apps/web/app/papic/order/[token]/page.tsx
-1 apps/web/app/pay/[reference]/_components/pay-panel.tsx
 1 apps/web/app/signup/page.tsx
 2 apps/web/app/signup/you/_components/you-card.tsx
 1 apps/web/app/tour/_components/tour-chat-thread.tsx
@@ -264,7 +263,6 @@
 2 apps/web/app/vendor-dashboard/_components/branch-manager.tsx
 2 apps/web/app/vendor-dashboard/_components/overview-sections.tsx
 1 apps/web/app/vendor-dashboard/_components/video-links-editor.tsx
-4 apps/web/app/vendor-dashboard/activities/page.tsx
 4 apps/web/app/vendor-dashboard/activities/questions-section.tsx
 3 apps/web/app/vendor-dashboard/attributes/_components/attribute-field-renderer.tsx
 2 apps/web/app/vendor-dashboard/bookings/_components/vendor-prep-add.tsx
@@ -277,13 +275,7 @@
 1 apps/web/app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx
 1 apps/web/app/vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx
 9 apps/web/app/vendor-dashboard/clients/[eventId]/page.tsx
-2 apps/web/app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx
-1 apps/web/app/vendor-dashboard/contracts/[contractId]/page.tsx
-2 apps/web/app/vendor-dashboard/contracts/new/page.tsx
-2 apps/web/app/vendor-dashboard/creators/page.tsx
-1 apps/web/app/vendor-dashboard/disputes/page.tsx
 6 apps/web/app/vendor-dashboard/invite/_components/locked-qr-generator.tsx
-1 apps/web/app/vendor-dashboard/lines/page.tsx
 1 apps/web/app/vendor-dashboard/manpower/_components/gig-card.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx
@@ -299,7 +291,6 @@
 6 apps/web/app/vendor-dashboard/payment-options/_components/add-payment-method.tsx
 4 apps/web/app/vendor-dashboard/proposals/surface.tsx
 3 apps/web/app/vendor-dashboard/recommendations/_panel.tsx
-3 apps/web/app/vendor-dashboard/repertoire/page.tsx
 1 apps/web/app/vendor-dashboard/services/_components/addons-editor.tsx
 1 apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx
 3 apps/web/app/vendor-dashboard/services/_components/customization-step.tsx

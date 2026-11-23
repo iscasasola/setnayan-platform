@@ -14,6 +14,7 @@
  * the way it shows on a phone.
  *
  *   ?part=seatview  Seats S1d — the guest's seat page for `&view=both|2d|3d` + the guest card's preview of each
+ *   ?part=loading   Guests' own loading screen (`guests/loading.tsx`) — the List's shape in Ghost rows, nothing fades
  *   ?part=notices   the Notifications list, scrolled under the account thumb bar
  *   ?part=head      (retired with the phone title + ⋯ — redirects to part=screen)
  *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯; &plusone=1 a +1's seat (TBA), &named=1 a named +1;
@@ -21,6 +22,7 @@
  *                   &seats=2 a guest who brings TWO +1s (one named, one not yet) — every seat a line (2026-10-22);
  *                   &seatread=empty the card as origin/main's `.maybeSingle()` loader drew that guest (the read erred → []),
  *                   &seatread=fail a refused seat read ("Couldn’t read …", never the empty state)
+ *                   &seatrow=fail the guest's OWN seat read refused — Seat says "Couldn’t read their seat", never "Not seated"
  *   ?part=host      the bride's card — a host, ⋯ only
  *   ?part=rows      (retired with the old GuestListMultiselect — redirects to part=screen)
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
@@ -117,6 +119,9 @@ import { LabGuestActions } from './lab-guest-actions';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
+import GuestsLoading from '@/app/dashboard/[eventId]/guests/loading';
+// The guest card's own rules — the event layout loads them on the real pages; a lab has no event layout.
+import '@/app/dashboard/[eventId]/guests/_components/guest-card.css';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 /** 👥 `&sides=1` — cale-ice's own groups as measured in prod 2026-10-20 (names + sides only), plus one both-sides group;
@@ -291,6 +296,8 @@ function cardData(g: GuestRow, isCouple: boolean): GuestCardData {
     plusOneGuestId: null,
     initialInvited: [],
     seatedAt: isCouple ? 'Sweetheart Table' : 'Entourage',
+    // 🪑 Their chair, counted from 0 — Daniel at Entourage reads "Entourage · Seat 2" (drawing § 3).
+    seatNumber: isCouple ? 0 : 1,
     customGroups: [],
     recordedAt: null,
     access: null,
@@ -604,6 +611,15 @@ export default async function GuestsLabPage({
   }
   const part = typeof sp.part === 'string' ? sp.part : 'head';
 
+  /* 👻 `?part=loading` — Guests' own loading screen (`guests/loading.tsx`), as a phone sees it before the list arrives: the
+     List's shape in Ghost rows, the top and thumb rows at full colour (Guests redesign "On every view", 20 Nov). */
+  if (part === 'loading') {
+    return (
+      <main className="sn-vt-page mx-auto min-h-dvh w-full max-w-3xl px-4 pt-4">
+        <GuestsLoading />
+      </main>
+    );
+  }
   if (part === 'seatview') {
     /* 🪑 Seats S1d — the guest's seat page (`YourSeat`) for the Seats ⚙ choice in `&view=` (both · 2d · 3d), and the
        host's guest-card preview of each choice. Fake data, no database. */
@@ -682,7 +698,8 @@ export default async function GuestsLabPage({
     const titled: Partial<GuestRow> =
       sp.title === 'atty'
         ? { first_name: 'Eufemia', last_name: 'Dela Cruz', role: 'groom_parents', group_category: 'family', name_prefix: 'Atty.', gender: pickedGender }
-        : {};
+        : /* Daniel is the best man on the lab's List — his card says the same ("Best man · Groom's side", drawing § 3). */
+          { role: 'best_man' };
     /* 🏷 `&role=bride_immediate_family` — a sibling of the bride (stand-in name), for "Rename this section";
        `&vip=1` — the event's words with Immediate Family renamed "VIP" (owner 2026-10-19). The lab has no event: a keep
        is refused by the host fence, so the after-state is drawn from these fixture words. */
@@ -860,7 +877,7 @@ export default async function GuestsLabPage({
         <GuestCard
           frame={panelFrame ? 'panel' : 'page'}
           eventId={EVENT}
-          data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...linkedData, ...proxyData, ...notCountedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
+          data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...(sp.seatrow === 'fail' ? { seatUnread: true, seatedAt: null, seatNumber: null, tables: null } : {}), ...linkedData, ...proxyData, ...notCountedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
           invitationBase="https://www.setnayan.com/maria-and-jose"
           photoDisplayUrl={null}
           returnTo={labBack}
@@ -1027,7 +1044,7 @@ export default async function GuestsLabPage({
                       but still a flex item — so the screen starts a `gap-6` further down, exactly as on the real page.
                       Without it the lab drew the screen 24 px higher than the app and hid the band under the pinned row
                       (2026-10-30, Seats › List). */}
-                  <div className="flex flex-col gap-4" data-guests-title-group="">
+                  <div className="contents" data-guests-title-group="">
                     <h1 className="sr-only">Guests</h1>
                   </div>
                   <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs} openCard={labOpenCard}>

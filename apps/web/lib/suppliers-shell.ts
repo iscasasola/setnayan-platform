@@ -24,25 +24,15 @@ import { ringBuildCount } from './explore-in-plan';
 export const SUPPLIERS_MODES = ['find', 'build', 'booked'] as const;
 export type SuppliersMode = (typeof SUPPLIERS_MODES)[number];
 
-/** The word on each segment. "Build", never "Picks" (owner 2026-10-07). */
+/**
+ * The word on each step. "Build", never "Picks" (owner 2026-10-07). 🛒 FIND · BUILD · BOOK (owner 2026-11-17, "the find
+ * build book" — search · cart · orders): the page is "Book"; "Booked ✓" stays as a status on its rows. The mode KEY
+ * stays `booked` — every `?tab=` and bus key keeps landing (`SUPPLIERS_MODE_TAB`).
+ */
 export const SUPPLIERS_MODE_LABEL: Record<SuppliersMode, string> = {
   find: 'Find',
   build: 'Build',
-  booked: 'Booked',
-};
-
-/** 📌 One line under each page's name in the row's menu (owner 2026-11-12, "option 4" — the prototype's words). */
-export const SUPPLIERS_MODE_MEANING: Record<SuppliersMode, string> = {
-  find: 'look, ask, accept a price',
-  build: 'combine and compare',
-  booked: 'who is booked, what is next',
-};
-
-/** ▶ The row's one action — the NEXT page: Find → Build → Booked → Find (owner 2026-11-12, "option 4"). */
-export const SUPPLIERS_NEXT_MODE: Record<SuppliersMode, SuppliersMode> = {
-  find: 'build',
-  build: 'booked',
-  booked: 'find',
+  booked: 'Book',
 };
 
 /**
@@ -141,6 +131,8 @@ export type LiveTallyBase = {
   ring: { tiles: ReadonlyArray<{ tile: string; lockedCount: number; vendorIds: readonly string[] }>; inPlan: readonly string[] } | null;
   /** Every pick drawn in the build when the page was made (each category's). */
   drawnIn: readonly string[];
+  /** 🛒 The picks already asked to book and not answered — they left the cart for Book (`cartCount`). */
+  askedVendorIds?: readonly string[];
 };
 
 export function liveBuildTally(base: LiveTallyBase, builtNow: (vendorId: string, groupId: string, drawn: boolean) => boolean): BuildTally {
@@ -180,6 +172,37 @@ export const SUP_REACH_X = "relative after:absolute after:inset-y-0 after:-inset
 /** Is there a peso figure to print? None recorded → no figure, never "₱0". */
 export function tallyHasMoney(t: Pick<BuildTally, 'knownPhp'>): boolean {
   return t.knownPhp > 0;
+}
+
+/* ── THE CART AND ORDERS BADGES (owner 2026-11-17, Q10/Q13) ──────────────── */
+
+/**
+ * 🛒 THE CART BADGE — what the couple picked and has not asked yet. Read from the SAME inputs as the tally
+ * (`LiveTallyBase`), so a press that answers in place (Add to build) moves it at once: a pick in the build now
+ * (`builtNow`), not booked (a locked status), and not already asked (`askedVendorIds`, the pending asks). Never typed.
+ */
+export function cartCount(
+  base: Pick<LiveTallyBase, 'children' | 'askedVendorIds'>,
+  builtNow: (vendorId: string, groupId: string, drawn: boolean) => boolean,
+): number {
+  const asked = new Set(base.askedVendorIds ?? []);
+  const seen = new Set<string>();
+  for (const c of base.children) {
+    const drawn = new Set(c.buildPickVendorIds);
+    for (const p of c.picks) {
+      if (seen.has(p.vendor_id) || isLocked(p) || asked.has(p.vendor_id)) continue;
+      if (builtNow(p.vendor_id, c.groupId, drawn.has(p.vendor_id))) seen.add(p.vendor_id);
+    }
+  }
+  return seen.size;
+}
+
+/**
+ * 📦 THE ORDERS BADGE — what waits on the couple in Book: a supplier who said yes and whose first payment is theirs
+ * to make (the team row's Pay — due, or sent back). Counted from the rows Book draws, never typed.
+ */
+export function ordersWaitingCount(rows: ReadonlyArray<{ action: { kind: string } | null }>): number {
+  return rows.filter((r) => r.action?.kind === 'pay').length;
 }
 
 /* ── FIND: WHICH CATEGORIES ARE OPEN ─────────────────────────────────────── */

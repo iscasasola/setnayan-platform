@@ -7,6 +7,9 @@
  *   /dev/supplier-lab?s=analytics                 SetnaProd — 67 views, nothing asked, verified, no stats row
  *   /dev/supplier-lab?s=analytics&shop=sample     the sample shop — every card filled
  *   /dev/supplier-lab?s=analytics&shop=new        a brand-new shop — every empty state (the greyed sample curves)
+ *   /dev/supplier-lab?s=analytics&shop=drawing    the one-shape drawing's shop (analytics_one_shape_2026-11-21): three
+ *                                                 years of daily rows from its own generator, put through the real
+ *                                                 bucketing — vs last year and Three years
  *   …&fail=1                                      every read refused — "Couldn’t load", never a zero
  *   …&locked=1                                    an UNVERIFIED shop: the three counts + the ONE shared lock card
  *
@@ -14,6 +17,7 @@
  * Recommendations are NOT copied from the prototype: they are `buildGrowthRecs` on the fixture stats row, per window,
  * exactly as the section computes them. No plan price is typed here — `annualPlanPhp` is null.
  */
+import '@/app/vendor-dashboard/_components/supplier-look.css';
 import { AnalyticsCarousel } from '@/app/vendor-dashboard/performance/_components/analytics-carousel';
 import { buildGrowthView, type GrowthInputs, type Totals } from '@/app/vendor-dashboard/performance/_components/growth-view';
 import { papersProgress } from '@/lib/locks';
@@ -25,9 +29,10 @@ import { milestoneLadder, stepName, type TrackerFacts } from '@/lib/shop-badges'
 import type { SourceSlice } from '@/lib/vendor-funnel';
 import type { SourceAttribution } from '@/lib/vendor-source-attribution';
 import type { GrowthSeries } from '@/lib/vendor-growth-series';
+import { buildCompareSeries, windowSpan, type InstantRow } from '@/lib/analytics-vs-last-year';
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 
-export type LabShop = 'setnaprod' | 'sample' | 'new';
+export type LabShop = 'setnaprod' | 'sample' | 'new' | 'drawing';
 
 /** The prototype's "today" — every date on the strip and every bucket label is fixed to it, so screenshots repeat. */
 const NOW_MS = Date.parse('2026-11-06T04:00:00Z');
@@ -404,26 +409,99 @@ function refused(): Lab {
   };
 }
 
+/* ── 📈 THE ONE-SHAPE DRAWING'S SHOP (prototypes/analytics_one_shape_2026-11-21/gen.js): its generator, seed and
+   rates, one row per open / ask / booking, 22 Nov 2023 → 21 Nov 2026 — then the SAME bucketing the reads use. ── */
+const DRAW_NOW = Date.parse('2026-11-21T04:00:00Z');
+function drawingRows(): { o: InstantRow[]; a: InstantRow[]; b: InstantRow[] } {
+  let seed = 20261121;
+  const R = () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const pois = (l: number) => {
+    const L = Math.exp(-l);
+    let k = 0;
+    let q = 1;
+    do {
+      k++;
+      q *= R();
+    } while (q > L);
+    return k - 1;
+  };
+  const binom = (n: number, q: number) => Array.from({ length: n }).filter(() => R() < q).length;
+  const SEASON = [1.15, 1.25, 1.0, 1.05, 1.1, 1.0, 0.8, 0.78, 0.9, 1.05, 1.1, 1.2];
+  const WD = [1.25, 1.15, 1.0, 0.95, 0.95, 0.85, 0.85];
+  const out = { o: [] as InstantRow[], a: [] as InstantRow[], b: [] as InstantRow[] };
+  const DAY = 864e5;
+  for (let t = Date.UTC(2023, 10, 22), i = 0; t <= Date.UTC(2026, 10, 21); t += DAY, i++) {
+    const d = new Date(t);
+    const o = pois(5.8 * Math.pow(1.22, i / 365) * SEASON[d.getUTCMonth()]! * WD[d.getUTCDay()]!);
+    const a = binom(o, 0.085 + (0.015 * i) / 1096);
+    const b = binom(a, 0.17);
+    const at = new Date(t + 2 * 3600e3).toISOString(); // 10:00 Manila
+    for (let j = 0; j < o; j++) out.o.push({ at, who: `v${i}-${j}` });
+    for (let j = 0; j < a; j++) out.a.push({ at, who: null });
+    for (let j = 0; j < b; j++) out.b.push({ at, who: null });
+  }
+  return out;
+}
+
+function drawing(): Lab {
+  const rows = drawingRows();
+  const opens = buildCompareSeries(rows.o, DRAW_NOW);
+  const asks = buildCompareSeries(rows.a, DRAW_NOW);
+  const books = buildCompareSeries(rows.b, DRAW_NOW);
+  const count = (r: InstantRow[], win: GrowthWindow) => {
+    const s = windowSpan(win, DRAW_NOW);
+    return r.filter((x) => Date.parse(x.at) >= s.from && Date.parse(x.at) < s.to).length;
+  };
+  const now = totals(count(rows.o, '30'), count(rows.a, '30'), 0, count(rows.b, '30'));
+  const year = totals(count(rows.o, '12'), count(rows.a, '12'), 0, count(rows.b, '12'));
+  const s = sample();
+  return {
+    ...s,
+    now,
+    year,
+    inputs: {
+      ...s.inputs,
+      nowMs: DRAW_NOW,
+      totals30: now,
+      totals12: year,
+      views: opens,
+      inquiries: asks,
+      bookedSeries: books,
+      bookedDay: books.day.map((b) => ({ bookings: b.count })),
+      bookedMonth: books.month.map((b) => ({ bookings: b.count })),
+      shopCreatedAt: '2023-11-22T00:00:00Z',
+    },
+  };
+}
+
 /** The carousel's props for a lab shop — shared with the Shop tab lab, so both labs draw the same fixtures. */
 export function labCarouselProps({ shop, fail, locked = false }: { shop?: string; fail: boolean; locked?: boolean }): Parameters<typeof AnalyticsCarousel>[0] {
-  const which: LabShop = shop === 'sample' || shop === 'new' ? shop : 'setnaprod';
-  const lab = fail ? refused() : which === 'sample' ? sample() : which === 'new' ? fresh() : setnaprod();
+  const which: LabShop = shop === 'sample' || shop === 'new' || shop === 'drawing' ? shop : 'setnaprod';
+  const lab = fail ? refused() : which === 'sample' ? sample() : which === 'drawing' ? drawing() : which === 'new' ? fresh() : setnaprod();
   // 🔒 `&locked=1` — an UNVERIFIED shop: the section's counts-only branch — three count cards and the ONE shared lock.
   if (locked) return { locked: { progress: papersProgress({ done: 2, of: REQUIRED_DOC_COUNT }), totals: { '30': lab.now, '12': lab.year } } };
   const graphs: Record<GrowthWindow, NewGraphs> = fail
     ? { '30': REFUSED_GRAPHS, '12': REFUSED_GRAPHS }
-    : which === 'sample'
+    : which === 'sample' || which === 'drawing'
       ? { '30': SAMPLE_GRAPHS_30, '12': SAMPLE_GRAPHS }
       : { '30': EMPTY_GRAPHS, '12': EMPTY_GRAPHS };
   return { view: buildGrowthView(lab.inputs), graphs };
 }
 
 export function AnalyticsLab({ shop, fail, locked = false }: { shop?: string; fail: boolean; locked?: boolean }) {
-  const which: LabShop = shop === 'sample' || shop === 'new' ? shop : 'setnaprod';
+  const which: LabShop = shop === 'sample' || shop === 'new' || shop === 'drawing' ? shop : 'setnaprod';
   return (
-    <section className="mx-auto w-full max-w-3xl pb-32 pt-4" data-lab-shop-analytics={locked ? 'locked' : fail ? 'refused' : which}>
+    /* The supplier's blue look (`data-supplier-look`, supplier-look.css) — Analytics only ever lives in the supplier
+       dashboard, so the lab wears its colours, light and dark. */
+    <section className="mx-auto w-full max-w-5xl pb-32 pt-4" data-supplier-look="" data-lab-shop-analytics={locked ? 'locked' : fail ? 'refused' : which}>
       {/* LAB ONLY — the prototype's own ribbon on its sample shop, so a screenshot is never mistaken for a real one. */}
-      {which === 'sample' && !fail && !locked ? (
+      {(which === 'sample' || which === 'drawing') && !fail && !locked ? (
         <p className="px-4 py-1 text-[12px] font-bold uppercase tracking-[0.04em]" style={{ color: 'rgb(var(--color-warn))', background: 'color-mix(in srgb, rgb(var(--color-warn)) 14%, transparent)' }} data-lab-sample-ribbon="">
           Sample numbers · not a real shop
         </p>

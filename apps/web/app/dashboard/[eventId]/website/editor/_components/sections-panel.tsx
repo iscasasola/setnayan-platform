@@ -438,7 +438,7 @@ export function SectionsPanel({
                     <div data-maker-part="animate" className="mt-2 border-t border-dashed border-ink/10 pt-2">
                       <p className="mb-1 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                         How it moves
-                        {proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Pro')} size="xs" /> : null}
+                        {proMark ? <PaidMark state={proMark} word="PLUS" label={paidMarkLabel(proMark, 'Event Plus')} size="xs" /> : null}
                       </p>
                       <div className="flex flex-wrap items-center gap-1">
                         {HUB_MOTION_PRESETS.map((p) => (
@@ -519,7 +519,7 @@ export function SectionsPanel({
                                       }`}
                                     >
                                       {locked ? (
-                                        <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Pro')} size="xs" tone="current" />
+                                        <PaidMark state="try" bare word="PLUS" label={paidMarkLabel('try', 'Event Plus')} size="xs" tone="current" />
                                       ) : null}
                                       {HUB_TRANSITION_LABEL[t]}
                                     </button>
@@ -780,7 +780,7 @@ export function SectionsPanel({
                         <span>Its words and layout go with it.</span>
                         <button
                           type="submit"
-                          className="inline-flex h-7 items-center rounded-full bg-danger-600 px-3 text-[12px] font-semibold text-white transition-colors hover:bg-danger-700"
+                          className="inline-flex h-7 items-center rounded-full bg-danger-600 px-3 text-[12px] font-semibold text-cream transition-colors hover:bg-danger-700"
                         >
                           Remove for good
                         </button>
@@ -839,7 +839,7 @@ export function SectionsPanel({
                             maxLength={CUSTOM_COLUMN_TITLE_MAX}
                             defaultValue={title}
                             placeholder={makerPart && !askBody ? 'Add a heading' : 'Heading (optional)'}
-                            className="min-h-[36px] w-full rounded-md border border-ink/15 bg-white px-2 text-[12px] text-ink placeholder:text-ink/40"
+                            className="min-h-[36px] w-full rounded-md border border-ink/15 bg-raised px-2 text-[12px] text-ink placeholder:text-ink/40"
                           />
                         </>
                       ) : null}
@@ -864,7 +864,7 @@ export function SectionsPanel({
                             maxLength={CUSTOM_COLUMN_BODY_MAX}
                             defaultValue={body}
                             placeholder="Your own words — this section stays hidden until you write something."
-                            className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-[12px] leading-relaxed text-ink placeholder:text-ink/40"
+                            className="w-full rounded-md border border-ink/15 bg-raised px-2 py-1.5 text-[12px] leading-relaxed text-ink placeholder:text-ink/40"
                           />
                         </>
                       )}

@@ -15,13 +15,19 @@
  *   ?check_inbox=<email>  the check-your-email state (A1)
  *   ?screen=logo   the "Add your logo" screen (A2; its autosave answers from a stand-in that writes nothing) · &framed=1 with a public image already in, so the align + zoom
  *                  control shows (an upload needs R2, which a dummy env does not have)
+ *   ?screen=welcome  Today's welcome, the onboarding's last stop · &kind=claimed|opened ·
+ *                  &card=live|draft|refused|claim-draft|claim-refused|claim-unread (the first card as the shipped
+ *                  switch answered; claim-* = the claim door's carry, a key + the card's id). Never press its buttons.
  *   ?screen=claim  the claim door on the prototype's couple record · &signed=1 signed in · &way=email the Email way
  *                  &basis=fixed|per_pax|per_hour — price basis v2's samples (₱80,000 one price · ₱162,000 for 120
  *                  guests agreed · ₱30,000 for 5 hours agreed), with how to pay them as recorded (fake numbers)
  *                  chosen · &taken=1 / &check_inbox=<email> its two refusals · &from=setnayan Setnayan's personal invite
  *                  (a staged shop + "Your offer") · &start=account opens on the account slide
+ *   ?screen=invite  another supplier's invite door (`/i/<slug>`, PC7) as a signed-out supplier sees it, with the inviter's
+ *                  category under their name. Its buttons go nowhere real.
  */
 import { LAB_FAIR_WORDS } from '../lab-fair-words';
+import { TodayWelcome } from '@/app/vendor-dashboard/_components/today-welcome';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
@@ -45,6 +51,11 @@ import {
 import { categoryLadder } from '@/lib/vendor-tier-caps';
 import { DEFAULT_LOGO_FRAME } from '@/lib/open-shop-logo';
 import { siteOrigin } from '@/lib/site-origin';
+import { SupplierInviteDoor } from '@/app/vendor/claim/[token]/_components/claim-parts';
+import { ActionButton } from '@/components/action-button';
+import { LogIn } from 'lucide-react';
+import '@/app/vendor-dashboard/_components/supplier-look.css';
+import { claimDatePhrase } from '@/lib/claim-invite-words';
 
 export const dynamic = 'force-dynamic';
 
@@ -157,6 +168,9 @@ async function labSaveLogo(): Promise<{ ok: true }> {
   return { ok: true };
 }
 
+/** The sample date, through the SAME formatter the real claim record uses (`claimDatePhrase` → "on Sat, Dec 12, 2026"). */
+const LAB_DATE = claimDatePhrase('2026-12-12', 'day');
+
 /** The prototype v21 record (`REC`, `COUPLE`) — the couple's sample event, the prototype's photographer. */
 const LAB_CLAIM_RECORD: ClaimDoorRecord = {
   token: 'x7k2qp-sample',
@@ -166,7 +180,7 @@ const LAB_CLAIM_RECORD: ClaimDoorRecord = {
   hostNoun: 'couple',
   eventWord: 'wedding',
   eventType: 'wedding',
-  datePhrase: 'on 12 December 2026',
+  datePhrase: LAB_DATE ? `${LAB_DATE.preposition} ${LAB_DATE.label}` : null,
   business: 'Banawe Florals',
   contactPerson: 'Ana Reyes',
   contactPhone: '+639178888889',
@@ -211,13 +225,41 @@ const LAB_TEAM_RECORD: ClaimDoorRecord = {
 export default async function OpenShopLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ basis?: string; step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string; as?: string; error?: string; signed?: string; way?: string; from?: string; start?: string }>;
+  searchParams: Promise<{ card?: string; kind?: string; basis?: string; step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string; as?: string; error?: string; signed?: string; way?: string; from?: string; start?: string; app?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
   const host = (await headers()).get('host');
   const labOrigin = host ? 'http://' + host : siteOrigin();
   const LAB_LOGO = labOrigin + LAB_LOGO_PATH;
+  if (q.screen === 'welcome') {
+    // 🚪 Today's welcome in each first-card state (review 20 Nov) — fixtures only; "live" here is what the page draws
+    // AFTER `readHasLiveCard` confirmed it. Reasons are KEYS (`lib/first-card-why.ts`); the sentence is the shipped one.
+    const lab = { title: 'Wedding florals', price: 45_000, category: 'florals' };
+    const labId = '0b7e6c1a-3f1e-4c2b-9d5a-1a2b3c4d5e6f';
+    const c = q.card;
+    return (
+      <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
+        <TodayWelcome
+          kind={q.kind === 'claimed' ? 'claimed' : 'opened'}
+          shopName="Banawe Florals"
+          shop={{ tierState: 'free', verified: false }}
+          card={c === 'draft' ? { ...lab, state: 'draft', why: 'needs-cover', id: labId } : c === 'refused' ? { ...lab, state: 'refused', why: 'not-made' } : null}
+          cardState={c === 'live' ? 'live' : c === 'claim-draft' || c === 'claim-unread' ? 'draft' : c === 'claim-refused' ? 'refused' : null}
+          cardNote={
+            c === 'claim-draft'
+              ? { why: 'needs-cover', id: labId }
+              : c === 'claim-unread'
+                ? { why: 'made-unread', id: null }
+                : c === 'claim-refused'
+                  ? { why: 'not-made', id: null }
+                  : null
+          }
+          claimed={q.kind === 'claimed' ? { couple: 'Maria & Jose', eventWord: 'wedding' } : null}
+        />
+      </div>
+    );
+  }
   if (q.screen === 'logo') {
     return (
       <AddYourLogo
@@ -228,6 +270,19 @@ export default async function OpenShopLabPage({
         frame={q.framed === '1' ? { x: 70, y: 35, zoom: 140 } : DEFAULT_LOGO_FRAME}
         saveAction={labSaveLogo}
       />
+    );
+  }
+  if (q.screen === 'invite') {
+    // 🤝 PC7 — the /i door on a fixture inviter (no database): the name, then its main service named.
+    return (
+      <div data-supplier-look="">
+        <SupplierInviteDoor
+          inviterName="Maria Santos Events"
+          category="Coordination"
+          createHref="/dev/open-shop-lab?step=1"
+          existing={<ActionButton tone="neutral" icon={<LogIn aria-hidden strokeWidth={1.75} />} label="I already have a shop" href="/dev/open-shop-lab?screen=invite" />}
+        />
+      </div>
     );
   }
   if (q.screen === 'claim') {
@@ -292,7 +347,9 @@ export default async function OpenShopLabPage({
       guest={guest}
       coordinator={q.as === 'coordinator'}
       oauth={{ show: true, desktop: false, native: false }}
-      planCategories={categoryLadder()}
+      // 🍎 `?app=1` draws the wizard as the iPhone app asks for it (the store shell: no plan, no price — 22 Nov).
+      storeShell={q.app === '1'}
+      planCategories={q.app === '1' ? [] : categoryLadder()}
       specialties={LAB_SPECIALTIES}
       emailTaken={q.taken === '1'}
       error={q.taken === '1' ? OPEN_SHOP_ACCOUNT_ERRORS.emailTaken : (q.error ?? undefined)}

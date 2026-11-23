@@ -174,9 +174,9 @@ export default async function PricingPage() {
   // rule (pricing-ours-only.test.ts) holds here too: the entry plan reads "No fee", never a zero or the giveaway word.
   const vendorPrice = (sku: string): number | null => vendorSkus.find((r) => r.sku_code === sku)?.price_php ?? null;
   const supplierPlans: { key: string; name: string; php: number | null; what: string }[] = [
-    { key: 'entry', name: TIER_LABEL.free, php: null, what: 'Your page, portfolio and the starter tools' },
+    { key: 'entry', name: TIER_LABEL.free, php: null, what: 'Your page, portfolio and the starter tools; the AI chatbot once Verified' },
     { key: 'plus', name: TIER_LABEL.solo, php: vendorPrice('solo_vendor_monthly'), what: 'All specialized tools' },
-    { key: 'pro', name: TIER_LABEL.pro, php: vendorPrice('pro_vendor_monthly'), what: 'Adds the AI chatbot' },
+    { key: 'pro', name: TIER_LABEL.pro, php: vendorPrice('pro_vendor_monthly'), what: 'Adds the smarter AI chatbot' },
     { key: 'ultra', name: TIER_LABEL.enterprise, php: vendorPrice('enterprise_vendor_monthly'), what: 'The highest limits and the smarter AI chatbot' },
   ];
   const papicFrom = prices.papicRungs[0] ?? null;
@@ -255,7 +255,6 @@ export default async function PricingPage() {
   const buildAvailability = (status: BuildStatus): string =>
     status === 'not_built' ? 'https://schema.org/PreOrder' : 'https://schema.org/InStock';
   const vendorSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_monthly');
-  const vendorAnnualSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_annual');
   const pricingJsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -286,11 +285,9 @@ export default async function PricingPage() {
             : {}),
         },
       })),
-      ...[...vendorSubs, ...vendorAnnualSubs].map((s) => {
-        const isAnnual = s.offering_type === 'subscription_annual';
-        const cadence = isAnnual
-          ? { billingDuration: 'P1Y', unitText: 'annual subscription', shortLabel: 'per year' }
-          : { billingDuration: 'P28D', unitText: '28-day prepaid block', shortLabel: 'per 28 days' };
+      // Monthly only — no yearly supplier plan (owner 2026-11-22).
+      ...vendorSubs.map((s) => {
+        const cadence = { billingDuration: 'P28D', unitText: '28-day prepaid block', shortLabel: 'per 28 days' };
         return {
           '@type': 'Service',
           '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
@@ -354,7 +351,7 @@ export default async function PricingPage() {
               shot={<WhyShot src="/feature-shots/event-hub-0.jpg" y="28%" zoom={1.1} />}
               title="An Event Hub that looks like yours"
               line="One page your guests open — your look, your reveal."
-              tip={`A complete design is included with every event. Your own photos, music, themes and the cinematic reveal are Event Pro${prices.hubParts.length > 0 ? ', or just the parts you need' : ''}.`}
+              tip={`A complete design is included with every event. The ready-made Pro themes, your own photos, music and every other part of your Event Hub come with Event Plus${prices.hubParts.length > 0 ? ', or just the parts you need' : ''}.`}
             />
             <WhyPoint
               shot={<WhyShot src="/feature-shots/3d-plan-0.jpg" y="21%" zoom={1.25} />}
@@ -458,12 +455,14 @@ export default async function PricingPage() {
                         ◆
                       </i>
                       <InfoTip label="Event Pro" labelClassName="text-[16.5px] font-semibold tracking-[-0.005em]" align="start">
-                        {`${proThemes} Pro themes, your own photos, video and music, the cinematic reveal, your logo animated and on every QR, ${formatMakerMediaMB(coupleMediaCapBytes('pro'))} of media, prints in your look, and Setnayan AI${prices.plus != null ? ' — and everything in Event Plus' : ''}. One unlock covers everyone on the event.`}
+                        {/* 💎 Owner 2026-11-19 (4) + 20 Nov: Pro is "Everything in Plus · Setnayan AI · no Setnayan mark"; Plus holds the
+                            whole Event Hub — your own photos, music, reveal, logo, prints — so Pro does too. */}
+                        {`${prices.plus != null ? `Everything in Event Plus — the whole Event Hub, ${proThemes} ready-made Pro themes among it — plus ` : ''}Setnayan AI, ${formatMakerMediaMB(coupleMediaCapBytes('pro'))} of media and no Setnayan watermark on your Event Hub. One unlock covers everyone on the event.`}
                       </InfoTip>
                     </span>
                     <span className="whitespace-nowrap font-pahina text-xl text-terracotta-700">{peso(prices.pro.regular)}</span>
                     <p className="col-start-1 m-0 text-[13.5px] leading-snug text-ink/65">
-                      Your own look on the Event Hub — the included design stays yours either way.
+                      Setnayan AI and no Setnayan mark — the included design stays yours either way.
                     </p>
                     {prices.pro.signup != null ? (
                       <p className="col-span-2 m-0 mt-1 text-[13px] text-ink/65" data-pro-setup="">
@@ -498,7 +497,7 @@ export default async function PricingPage() {
                   {prices.ultra != null ? (
                     <PriceRowShell
                       name="Event Ultra"
-                      tip={`Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months after the event instead of 3, and ${prices.planCredits.ultra != null ? `${formatCount(prices.planCredits.ultra)} Papic credits` : 'more Papic credits'}. One unlock covers everyone on the event.`}
+                      tip={`Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months after the event and ${prices.planCredits.ultra != null ? `${formatCount(prices.planCredits.ultra)} Papic credits` : 'more Papic credits'}. One unlock covers everyone on the event.`}
                       what="Everything in Pro — and your day shared live and kept."
                       figure={<Figure php={prices.ultra} />}
                       action={<PlanBuyCta plan="ultra" />}
@@ -574,8 +573,8 @@ export default async function PricingPage() {
                 <ul className="m-0 list-none p-0">
                   <PriceRowShell
                     name="Event Plus"
-                    tip={`${prices.planCredits.plus != null ? `${formatCount(prices.planCredits.plus)} Papic credits` : 'Papic credits'} for your guests’ cameras, ${formatMakerMediaMB(coupleMediaCapBytes('plus'))} of uploads, and one small “Made with Setnayan” mark instead of the watermark. Works for an event with no suppliers. Setnayan AI comes with Event Pro, which includes everything in Event Plus.`}
-                    what="Papic credits and more upload space, for this event."
+                    tip={`${prices.planCredits.plus != null ? `${formatCount(prices.planCredits.plus)} Papic credits` : 'Papic credits'} for your guests’ cameras and the whole Event Hub — every ready-made theme and every part to design: your own photos, video and music, the reveal, your logo and QR, prints in your look — a cinematic opening for your Save-the-Date, ${formatMakerMediaMB(coupleMediaCapBytes('plus'))} of uploads, and one small “Made with Setnayan” mark instead of the watermark. Works for an event with no suppliers. Setnayan AI comes with Event Pro, which includes everything in Event Plus.`}
+                    what="Papic credits and the whole Event Hub, for this event."
                     figure={<Figure php={prices.plus} />}
                     action={<PlanBuyCta plan="plus" />}
                   />
@@ -648,7 +647,7 @@ export default async function PricingPage() {
               ))}
             </ul>
             <p className="m-0 mt-2 text-[13.5px] text-ink/65">
-              Any plan can be paid for the year, at ten blocks&rsquo; price.{' '}
+              Every plan is paid every 4 weeks. There is no yearly plan.{' '}
               <Link href="/for-suppliers" className="font-semibold text-terracotta-700">
                 See supplier plans →
               </Link>

@@ -13,6 +13,49 @@
 >   `--color-cream`) are re-pointed per scope by hub themes, `[data-art]` and Admin › Colours. A `:root`
 >   alias would resolve once at the root and freeze those scopes.
 >
+> **18 Nov 2026 — THE ONE COLOUR SET, BY JOB (owner: "dark mode. YES :D" · "all picks").** Colour now has one home.
+> Each job below has ONE `--color-*` token, declared for Light at `:root` and for Dark under `html.dark` in
+> `apps/web/app/globals.css` ("THE ONE COLOUR SET, BY JOB"); the older families hold a pointer
+> (`--m-paper: rgb(var(--color-raised))`), never a second copy. Held by `apps/web/lib/the-colour-set-is-one.test.ts`;
+> a guard that needs a colour's value reads it through `apps/web/lib/css-colour-tokens.ts`, which follows the pointer.
+>
+> | Job | The one token | Points at it |
+> |---|---|---|
+> | page | `--color-page` | `--sn-page-bg` · `--sn-canvas` (dark) · `--fd-cream` (dark) |
+> | frame (the card) | `--color-raised` | `--sn-frame-bg` · `--m-paper` · `--surface` · `--fd-cream` (light) |
+> | raised (a tile in a card) | `--color-raised-2` | `--m-paper-2` · `--surface-soft` |
+> | wash (chip, quiet pill) | `--color-wash` | `--m-ivory` |
+> | band (the hero) | `--color-band-from` / `-to` / `-glow` | `--sn-band-from` / `-to` · `.sn-band` |
+> | text 1 · 2 · 3 | `--color-ink` · `--color-ink-2` · `--color-ink-3` | `--m-ink` · `--m-slate` · `--m-slate-2` · `--sn-on-band` · `--fd-ink` · `--fd-m1` |
+> | decision | `--color-mulberry` (+ `-600`, `-700`) | `--m-mulberry` · `--m-mulberry-2` · the fallback of `--sn-decision` |
+> | words on decision / toggle | `--color-on-accent` | `--sn-on-accent` |
+> | money | `--color-ok` | read directly |
+> | private chat | `--color-private` · `-text` · `-tint` | read directly |
+> | toggle on | `--color-toggle` | `--sn-accent` |
+> | category tiles | `--color-cat-booked` / `-schedule` / `-asked` / `-collect` | `--sn-cat-*` |
+> | charts, by meaning | `--color-chart-opened` / `-asked` / `-booked` / `-last` / `-quiet` / `-src-1`…`-src-5` | read directly (Shop › Analytics) |
+> | accent (icons, rings) | `--color-terracotta` | `--m-orange` · `--fd-hi` |
+>
+> House names are kept (14 Nov ruling above): where a `--color-*` token already held a job (`cream`, `ink`, `raised`,
+> `mulberry`, `ok`, `terracotta`, `private`) it IS that job's one token — no job-named twin was added beside it. The
+> drawing's table called the frame `--color-frame` and the decision `--color-decision`; the app already had
+> `--color-raised` and `--color-mulberry` for exactly those jobs, so those names stand.
+>
+> **Light moves no pixel:** every Light token equals the literal its pointers held on 18 Nov (every custom property
+> on `<html>` resolves to the same colour; held by `apps/web/lib/the-colour-set-is-one.test.ts`). A pointer on `:root`
+> resolves on `<html>`, so `html.dark` re-points it for free; a hub theme or `[data-art]` scope that re-points
+> `--color-ink` / `--color-mulberry` on its own element does not move `--m-*` (it never did).
+>
+> **Dark (owner 18 Nov, pick 2):** page `#121110` · frame `#1C1A16` · raised `#26231E` · wash `#302C26` — each a step
+> lighter; depth from light (a 6 % top highlight + a deep soft shadow, `--sn-frame-shadow`), never a border. It
+> supersedes the 13 Oct pair (page `#17160F` · card `#232019`). Measured (WCAG 2): ink on page 17.18 · frame 15.83 ·
+> raised 14.26 · wash 12.64 · ink-2 on frame 10.88 · ink-3 on page 7.09 / frame 6.53 / raised 5.88 / wash 5.21 ·
+> decision `#EE8456` 7.25 on the page, 6.68 on the frame · its words `#1A120C` 7.11 (white reads 2.6) · ink on the
+> hero's brightest glow (`#704430`) 7.48 · private tint `#203136`: sky on it 6.31, ink 12.31.
+>
+> These notes lived in `globals.css` until 19 Nov; they moved here because every page parses that sheet and
+> `apps/web/lib/the-stylesheet-stays-in-budget.test.ts` holds its size.
+>
 > The original proposal follows.
 > Measured on `origin/main` @ `0e9f11ab51` (14 Nov 2026, 21:18). It scanned 11,510 files under
 > `apps/web/{app,components,lib}`, with comments removed by `lib/strip-comments.ts`. Scanner:
@@ -240,3 +283,27 @@ Each batch is limited to files no open template-wave PR touches (§0 table). Re-
 4. **Hand buttons → `ActionButton` with the exact-match variant.** Top 8 looks first.
 
 Every △ row above is the **restyle task**, not this one.
+
+
+## Chart colours by meaning (owner 22 Nov 2026)
+
+Owner, reviewing the analytics drawing: *"don't use theme color for the graphs. use what colors are appropriate for each
+graph."* (DECISION_LOG "ANALYTICS GRAPHS: COLOUR BY MEANING, NOT THE THEME COLOUR"). Buttons and tabs keep the theme;
+only the data changes. Every pair is a graphic (WCAG 1.4.11, 3:1), and colour is never the only signal — every series
+keeps its word. "+N%" / "−N%" words use `--color-ok` / `--color-danger` (AA as text); flat is `--color-ink-3`.
+
+| Token | Means | Light | on white · on #EEF2F8 | Dark | on #172338 · on #1C1A16 |
+|---|---|---|---|---|---|
+| `--color-chart-opened` | Opened (attention) | #0B6FA4 | 5.49 · 4.89 | #5CB8F0 | 7.17 · 7.92 |
+| `--color-chart-asked` | Asked (interest); "asked, you weren't free"; dates lost to full | #B26B00 | 4.20 · 3.74 | #F2B44C | 8.55 · 9.44 |
+| `--color-chart-booked` | Booked (won); a booked day | #23824F | 4.80 · 4.27 | #5DD39A | 8.43 · 9.31 |
+| `--color-chart-last` | Same days last year (dashed) | #6B7686 | 4.60 · 4.10 | #A3AEC0 | 7.03 · 7.75 |
+| `--color-chart-quiet` | Closed / own book / nothing to stress | #848E9C | 3.32 · 2.95 | #6E7A8C | 3.62 · 3.99 |
+| `--color-chart-src-1` | Source: search | #5B4FC4 | 6.25 · 5.56 | #A79DF5 | 6.59 · 7.27 |
+| `--color-chart-src-2` | Source: your shop link | #0E7C86 | 4.95 · 4.40 | #4CC9D2 | 7.94 · 8.76 |
+| `--color-chart-src-3` | Source: browsing a category | #B03A86 | 5.53 · 4.92 | #EE8BCB | 6.89 · 7.60 |
+| `--color-chart-src-4` | Source: a friend's share | #B4531F | 5.00 · 4.45 | #F39A68 | 7.22 · 7.97 |
+| `--color-chart-src-5` | Source: saved (favourites, shortlist) | #8B5E3C | 5.58 · 4.97 | #D6A27A | 6.98 · 7.70 |
+
+Any other source is `--color-chart-quiet`. The source → hue map is ONE list, `lib/chart-source-hues.ts`, so a source
+wears the same hue on every screen.

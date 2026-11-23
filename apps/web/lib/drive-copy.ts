@@ -16,6 +16,13 @@ import {
   type DriveProvider,
   isDriveQuotaExceededError,
 } from '@/lib/drive-copy-core';
+import { R2_BUCKETS } from '@/lib/r2';
+import {
+  SUPPLIER_DRIVE_PROVIDER,
+  SUPPLIER_SUBFOLDER_NAME,
+  bucketOfStoredRef,
+  type SupplierDriveArtifactType,
+} from '@/lib/supplier-drive-copy';
 
 // Re-export the 2-Drive primitives so existing importers of drive-copy keep working.
 export { type DriveProvider, isDriveQuotaExceededError };
@@ -56,6 +63,26 @@ export const DRIVE_COPY_ARTIFACT_TYPES = [
 ] as const;
 
 export type DriveCopyArtifactType = (typeof DRIVE_COPY_ARTIFACT_TYPES)[number];
+
+/**
+ * ☁️ A SHOP'S OWN DRIVE (owner 2026-11-22, "Copy this event to Google Drive" — lib/supplier-drive-copy.ts). Every
+ * function below takes an optional `shopId`: absent, it is the couple's Drive exactly as before, and every read says
+ * `vendor_profile_id IS NULL` so a shop's pending copy can never be pushed into a couple's Drive; present, it is that
+ * shop's Drive (grant provider 'drive_supplier', folders and rows owned by the shop). No overflow Drive for a shop.
+ */
+type AnyArtifactType = DriveCopyArtifactType | SupplierDriveArtifactType;
+type FolderProvider = DriveProvider | typeof SUPPLIER_DRIVE_PROVIDER;
+
+function subfolderName(t: AnyArtifactType): string {
+  return t in SUPPLIER_SUBFOLDER_NAME
+    ? SUPPLIER_SUBFOLDER_NAME[t as SupplierDriveArtifactType]
+    : ARTIFACT_SUBFOLDER_NAME[t as DriveCopyArtifactType];
+}
+
+/** Scope a drive_copy_* query to one owner: the shop's rows, or the couple's (owner NULL). */
+function byOwner<Q extends { eq(c: string, v: string): Q; is(c: string, v: null): Q }>(q: Q, shopId: string | undefined): Q {
+  return shopId ? q.eq('vendor_profile_id', shopId) : q.is('vendor_profile_id', null);
+}
 
 // Human-readable subfolder name per artifact type, created under the event's
 // root Drive folder. Matches the layout in the architecture doc.
@@ -141,8 +168,10 @@ export async function pushToDriveCopy(input: {
  */
 export async function enqueueDriveCopy(input: {
   eventId: string;
-  artifactType: DriveCopyArtifactType;
+  artifactType: AnyArtifactType;
   files: DriveCopyFile[];
+  /** A shop's own Drive copy (see the ☁️ note above). Absent = the couple's. */
+  shopId?: string;
 }): Promise<{ enqueued: number; skipped: number }> {
   if (input.files.length === 0) return { enqueued: 0, skipped: 0 };
   const admin = createAdminClient();
@@ -167,6 +196,7 @@ export async function enqueueDriveCopy(input: {
       mime_type: f.mimeType ?? null,
       size_bytes: f.sizeBytes ?? null,
       copied_high_res: f.copiedHighRes ?? true,
+      vendor_profile_id: input.shopId ?? null,
     }));
 
   if (newRows.length > 0) {
@@ -199,15 +229,21 @@ export async function runDriveCopyBatch(input: {
   attemptCap?: number;
   /** Per-row back-off gate (retry sweep). Default: every fetched row is due. */
   retryDue?: (row: { attempt_count: number; last_error_at: string | null }) => boolean;
+  /** A shop's own Drive copy (see the ☁️ note above). Absent = the couple's. */
+  shopId?: string;
 }): Promise<{ uploaded: number; failed: number; remaining: number }> {
   const admin = createAdminClient();
   const batchSize = input.batchSize ?? DEFAULT_BATCH_SIZE;
   const attemptCap = input.attemptCap ?? MAX_ATTEMPTS;
+  const shopId = input.shopId;
 
-  const { data: pendingRaw } = await admin
-    .from('drive_copy_artifacts')
-    .select('artifact_id, artifact_type, r2_object_key, file_name, mime_type, attempt_count, last_error_at')
-    .eq('event_id', input.eventId)
+  const { data: pendingRaw } = await byOwner(
+    admin
+      .from('drive_copy_artifacts')
+      .select('artifact_id, artifact_type, r2_object_key, file_name, mime_type, attempt_count, last_error_at')
+      .eq('event_id', input.eventId),
+    shopId,
+  )
     .is('drive_file_id', null)
     .lt('attempt_count', attemptCap)
     .order('attempt_count', { ascending: true })
@@ -230,10 +266,11 @@ export async function runDriveCopyBatch(input: {
   }
 
   const primaryToken =
-    input.accessToken ?? (await getEventDriveAccessToken(input.eventId, 'drive'));
+    input.accessToken ??
+    (shopId ? await getShopDriveAccessToken(shopId) : await getEventDriveAccessToken(input.eventId, 'drive'));
   if (!primaryToken) {
     // No token — leave the rows pending without burning a retry attempt.
-    return { uploaded: 0, failed: 0, remaining: await countPending(input.eventId) };
+    return { uploaded: 0, failed: 0, remaining: await countPending(input.eventId, shopId) };
   }
 
   // 2-Drive overflow (owner 2026-07-11): start on Drive #1; if it returns a
@@ -245,7 +282,7 @@ export async function runDriveCopyBatch(input: {
     drive: primaryToken,
     drive_overflow: null,
   };
-  const folderCaches: Record<DriveProvider, Map<DriveCopyArtifactType, string>> = {
+  const folderCaches: Record<DriveProvider, Map<AnyArtifactType, string>> = {
     drive: new Map(),
     drive_overflow: new Map(),
   };
@@ -260,7 +297,7 @@ export async function runDriveCopyBatch(input: {
     provider: DriveProvider,
     token: string,
   ): Promise<{ driveFileId: string; folderId: string }> => {
-    const artifactType = art.artifact_type as DriveCopyArtifactType;
+    const artifactType = art.artifact_type as AnyArtifactType;
     const cache = folderCaches[provider];
     let folderId = cache.get(artifactType);
     if (!folderId) {
@@ -269,12 +306,25 @@ export async function runDriveCopyBatch(input: {
         artifactType,
         accessToken: token,
         driveProvider: provider,
+        shopId,
       });
       if (!ensured) throw new Error('drive_folder_unavailable');
       folderId = ensured;
       cache.set(artifactType, folderId);
     }
-    const bytes = await readR2Object(art.r2_object_key as string);
+    // A shop's filed files live in thread-files, named by their own `r2://<bucket>/…` ref; the couple's path reads the
+    // media bucket exactly as before.
+    let bytes: Uint8Array;
+    if (shopId) {
+      const bucket = bucketOfStoredRef(art.r2_object_key as string, {
+        all: Object.values(R2_BUCKETS),
+        media: R2_BUCKETS.media,
+      });
+      if (!bucket) throw new Error('r2_bucket_not_ours');
+      bytes = await readR2Object(art.r2_object_key as string, bucket);
+    } else {
+      bytes = await readR2Object(art.r2_object_key as string);
+    }
     const driveFileId = await uploadFileToDrive({
       accessToken: token,
       folderId,
@@ -310,7 +360,7 @@ export async function runDriveCopyBatch(input: {
     } catch (e) {
       err = e;
       // Drive #1 full → fail over to the 2nd Drive for this + every later file.
-      if (isDriveQuotaExceededError(e) && activeProvider === 'drive') {
+      if (!shopId && isDriveQuotaExceededError(e) && activeProvider === 'drive') {
         if (tokens.drive_overflow === null) {
           tokens.drive_overflow = await getEventDriveAccessToken(
             input.eventId,
@@ -348,7 +398,7 @@ export async function runDriveCopyBatch(input: {
       .eq('artifact_id', art.artifact_id);
   }
 
-  return { uploaded, failed, remaining: await countPending(input.eventId) };
+  return { uploaded, failed, remaining: await countPending(input.eventId, shopId) };
 }
 
 /**
@@ -359,13 +409,15 @@ export async function runDriveCopyBatch(input: {
  */
 export async function ensureArtifactFolder(input: {
   eventId: string;
-  artifactType: DriveCopyArtifactType;
+  artifactType: AnyArtifactType;
   accessToken: string;
   /** Which Drive to build folders in (owner 2026-07-11 · 2-Drive overflow). */
   driveProvider?: DriveProvider;
+  /** A shop's own Drive: one folder per event in it, "Files" and "Album" inside. */
+  shopId?: string;
 }): Promise<string | null> {
   const admin = createAdminClient();
-  const driveProvider: DriveProvider = input.driveProvider ?? 'drive';
+  const driveProvider: FolderProvider = input.shopId ? SUPPLIER_DRIVE_PROVIDER : (input.driveProvider ?? 'drive');
 
   const { data: ev } = await admin
     .from('events')
@@ -382,6 +434,7 @@ export async function ensureArtifactFolder(input: {
   // Drive #1, which does not exist in the overflow Drive; the overflow Drive
   // builds its own fresh folder tree.
   if (
+    !input.shopId &&
     driveProvider === 'drive' &&
     input.artifactType === 'papic' &&
     ev.photo_delivery_folder_id
@@ -398,6 +451,7 @@ export async function ensureArtifactFolder(input: {
     eventId: input.eventId,
     kind: 'root',
     driveProvider,
+    shopId: input.shopId,
     create: () =>
       createDriveFolder({ accessToken: input.accessToken, name: rootName, parentId: null }),
   });
@@ -407,10 +461,11 @@ export async function ensureArtifactFolder(input: {
     eventId: input.eventId,
     kind: input.artifactType,
     driveProvider,
+    shopId: input.shopId,
     create: () =>
       createDriveFolder({
         accessToken: input.accessToken,
-        name: ARTIFACT_SUBFOLDER_NAME[input.artifactType],
+        name: subfolderName(input.artifactType),
         parentId: rootId,
       }),
   });
@@ -433,6 +488,37 @@ export async function getEventDriveAccessToken(
     .eq('event_id', eventId)
     .eq('provider', provider)
     .maybeSingle();
+  return accessTokenForGrant(admin, grant);
+}
+
+/**
+ * ☁️ The SHOP's own Drive token (provider 'drive_supplier', no event) — the same refresh and sealing rules as the
+ * couple's, through the one `accessTokenForGrant` below.
+ */
+export async function getShopDriveAccessToken(shopId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data: grant } = await admin
+    .from('oauth_grants')
+    .select('grant_id, refresh_token, access_token, access_token_expires_at, revoked_at')
+    .eq('vendor_profile_id', shopId)
+    .eq('provider', SUPPLIER_DRIVE_PROVIDER)
+    .maybeSingle();
+  return accessTokenForGrant(admin, grant);
+}
+
+type GrantRow = {
+  grant_id: string;
+  refresh_token: unknown;
+  access_token: unknown;
+  access_token_expires_at: unknown;
+  revoked_at: unknown;
+};
+
+/** Open (and if near expiry, refresh) one grant's access token. Null = no usable grant; work stays enqueued. */
+async function accessTokenForGrant(
+  admin: ReturnType<typeof createAdminClient>,
+  grant: GrantRow | null,
+): Promise<string | null> {
   if (!grant || grant.revoked_at) return null;
 
   const expiresAt = grant.access_token_expires_at
@@ -525,19 +611,22 @@ export async function getEventDriveAccessToken(
 
 async function ensureFolderRow(input: {
   eventId: string;
-  kind: 'root' | DriveCopyArtifactType;
-  driveProvider: DriveProvider;
+  kind: 'root' | AnyArtifactType;
+  driveProvider: FolderProvider;
+  shopId?: string;
   create: () => Promise<string>;
 }): Promise<string | null> {
   const admin = createAdminClient();
 
-  const { data: existing } = await admin
-    .from('drive_copy_folders')
-    .select('drive_folder_id')
-    .eq('event_id', input.eventId)
-    .eq('kind', input.kind)
-    .eq('drive_provider', input.driveProvider)
-    .maybeSingle();
+  const { data: existing } = await byOwner(
+    admin
+      .from('drive_copy_folders')
+      .select('drive_folder_id')
+      .eq('event_id', input.eventId)
+      .eq('kind', input.kind)
+      .eq('drive_provider', input.driveProvider),
+    input.shopId,
+  ).maybeSingle();
   if (existing?.drive_folder_id) return existing.drive_folder_id as string;
 
   // Create on Drive, then upsert. A concurrent tick may have created its own
@@ -552,26 +641,33 @@ async function ensureFolderRow(input: {
         kind: input.kind,
         drive_provider: input.driveProvider,
         drive_folder_id: created,
+        vendor_profile_id: input.shopId ?? null,
       },
-      { onConflict: 'event_id,kind,drive_provider', ignoreDuplicates: true },
+      // The key is (event, kind, Drive, owner), NULLS NOT DISTINCT — migration 20271359577754.
+      { onConflict: 'event_id,kind,drive_provider,vendor_profile_id', ignoreDuplicates: true },
     );
 
-  const { data: canonical } = await admin
-    .from('drive_copy_folders')
-    .select('drive_folder_id')
-    .eq('event_id', input.eventId)
-    .eq('kind', input.kind)
-    .eq('drive_provider', input.driveProvider)
-    .maybeSingle();
+  const { data: canonical } = await byOwner(
+    admin
+      .from('drive_copy_folders')
+      .select('drive_folder_id')
+      .eq('event_id', input.eventId)
+      .eq('kind', input.kind)
+      .eq('drive_provider', input.driveProvider),
+    input.shopId,
+  ).maybeSingle();
   return (canonical?.drive_folder_id as string | undefined) ?? created;
 }
 
-async function countPending(eventId: string): Promise<number> {
+async function countPending(eventId: string, shopId?: string): Promise<number> {
   const admin = createAdminClient();
-  const { count } = await admin
-    .from('drive_copy_artifacts')
-    .select('artifact_id', { count: 'exact', head: true })
-    .eq('event_id', eventId)
+  const { count } = await byOwner(
+    admin
+      .from('drive_copy_artifacts')
+      .select('artifact_id', { count: 'exact', head: true })
+      .eq('event_id', eventId),
+    shopId,
+  )
     .is('drive_file_id', null)
     .lt('attempt_count', MAX_ATTEMPTS);
   return count ?? 0;

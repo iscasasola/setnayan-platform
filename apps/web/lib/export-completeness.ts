@@ -64,7 +64,11 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'chat_message_hearts', decision: 'exported', as: 'chat_message_hearts' },
   // 🗳 The votes this subject cast on chat polls (2026-11-11) — read on `voter_user_id`.
   { table: 'chat_poll_votes', decision: 'exported', as: 'chat_poll_votes' },
+  // 🎂 The couple's own cake design, sent from the chat (Cake Maker v6) — their picks, their words, its estimate.
+  { table: 'cake_designs', decision: 'exported', as: 'cake_designs_sent' },
   { table: 'admin_focus_put_offs', decision: 'exported', as: 'admin_focus_put_offs' },
+  // ⏭ This subject's own "Do it tomorrow" on an event's Today (2026-11-20) — read on `user_id`.
+  { table: 'event_today_put_offs', decision: 'exported', as: 'event_today_put_offs' },
   {
     table: 'vendor_crew_codes',
     decision: 'excluded',
@@ -89,6 +93,8 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // "Don't show me invites from this person" (owner 2026-09-28, migration
   // 20271252896804) — the subject's own private mute list, keyed on user_id.
   { table: 'invite_mutes', decision: 'exported', as: 'invite_mutes' },
+  // 🔕 "Mute this chat" (2026-11-21, migration 20271356402294) — the chats the subject muted, keyed on user_id.
+  { table: 'chat_thread_mutes', decision: 'exported', as: 'chats_you_muted' },
   // 🖼⏱ The Mood Board photo changes the subject MADE under Mood Board Edit (2026-10-30, migration 20271299051148) —
   // author-scoped on actor_user_id, like event_colour_changes.
   { table: 'event_mood_board_changes', decision: 'exported', as: 'mood_board_changes_made' },
@@ -151,6 +157,9 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // 🗳 2026-11-11 (migration 20271338412990): a message filed under a decision, and a chat poll — the same call.
   { table: 'chat_decision_messages', decision: 'excluded', why: 'Which shared message sits under which decision topic: the conversation\'s filing, read, moved and removed by either side. added_by_user_id only stamps who filed it; the message itself is exported to its sender as chat_messages_authored. The erasure clears the stamp (lib/erasure/coverage.ts).' },
   { table: 'chat_file_removals', decision: 'excluded', why: 'A removal mark on a chat file (sender for everyone, or either side for themselves); user_id only stamps who pressed. The file\'s message is exported to its sender as chat_messages_authored; rows cascade away with the account.' },
+  // 💬 2026-11-20 (Unichat H1, migration 20271354347259): edit / unsend history, and "Remind me".
+  { table: 'chat_message_revisions', decision: 'excluded', why: 'What one of the subject\'s own chat messages said BEFORE they edited or unsent it — kept as the conversation\'s record, read by nobody in the chat (no policy, no grant). The message as it stands is exported to its sender as chat_messages_authored; changed_by_user_id only stamps who pressed. ⚠ OPEN (asked of the owner in the H1 PR): whether the earlier words belong in the access export too.' },
+  { table: 'chat_message_reminders', decision: 'excluded', why: 'The subject\'s own "Remind me" timer on one chat message: which message, and when. No content of its own — the message is exported to its SENDER as chat_messages_authored — and a delivered reminder already reached them as a notification (notifications_received). Goes with the account (user_id NOT NULL ON DELETE CASCADE).' },
   { table: 'chat_polls', decision: 'excluded', why: 'The conversation\'s shared poll (a question and its choices), voted on by both sides — not the asker\'s record. asked_by / closed_by only stamp who pressed, the same call as chat_decision_topics. The subject\'s OWN act on a poll is their vote, exported as chat_poll_votes. The erasure clears both stamps.' },
   { table: 'signup_attributions', decision: 'exported', as: 'signup_attribution' },
 
@@ -238,6 +247,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'is an internal key, not information about the person (migration 20271276386641).',
   },
   {
+    table: 'maya_checkouts',
+    decision: 'excluded',
+    why:
+      'Every Maya Checkout payment the subject made is ALREADY in their export as an ordinary ' +
+      'payments row (channel maya, reference = Maya\'s payment id, amount = what Maya confirmed) ' +
+      'on its orders row. This table holds the same facts plus Maya\'s checkout id and our queue ' +
+      'reason — internal reconciliation keys, service-role only (migration 20271356998019).',
+  },
+  {
     table: 'admin_audit_log',
     decision: 'excluded',
     why:
@@ -272,6 +290,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'that device. Disclose that it is held; do not hand over the keys.',
   },
   {
+    table: 'vendor_push_tokens',
+    decision: 'excluded',
+    why:
+      'A device push token (FCM, APNs or Web Push) for a shop device; since the Mute this chat migration ' +
+      '(20271356402294) it also names WHO registered the device. Same reason as push_subscriptions: the token is ' +
+      'a live delivery credential, and exporting it lets anyone holding the file push to that device. Disclose ' +
+      'that it is held; do not hand over the token.',
+  },
+  {
     table: 'shop_papic_wallet_entries',
     decision: 'excluded',
     why:
@@ -288,6 +315,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       '(vendor_profile_id), not to a person (supplier gifts, 2026-11-05). `created_by` is an actor stamp on who ' +
       'pressed Buy; the row says nothing about that person, the order and payment it belongs to are exported ' +
       'with `orders` / `payments`, and erasure clears the stamp (lib/erasure/coverage.ts).',
+  },
+  {
+    table: 'shop_gift_order_lines',
+    decision: 'excluded',
+    why:
+      'A SHOP\'s gift-store order, one row per item (which gift, how many, at what catalogue price), keyed to the ' +
+      'shop (vendor_profile_id), not to a person (gift store, 2026-11-17). `created_by` is an actor stamp on who ' +
+      'pressed Buy now; the order and payment it belongs to are exported with `orders` / `payments`, and erasure ' +
+      'clears the stamp (lib/erasure/coverage.ts).',
   },
   {
     table: 'event_supplier_files',

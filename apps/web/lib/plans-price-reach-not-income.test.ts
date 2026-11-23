@@ -73,16 +73,16 @@ function readersOf(key: string): string[] {
 // ── 1 · service cards IN TOTAL, by plan (owner 2026-11-18) ─────────────────────
 
 test('1 · every plan can put up a card; the totals are the owner\'s', () => {
-  // Owner 2026-11-18, DECISION_LOG "SUPPLIER PLANS REBUILT" + "SUPPLIER CARDS: MAX 80, ULTRA 200", verbatim: "max 80
-  // cards / ultra 200 cards". Cards are counted IN TOTAL across categories (supersedes the per-category allowance).
+  // Owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": Free 1 · Verified 3 · Plus 15 · Pro and Ultra no limit.
+  // Cards are counted IN TOTAL across categories (supersedes the per-category allowance).
   for (const t of VENDOR_TIERS) {
     assert.ok(TIER_CAPS[t].serviceCardsTotal >= 1, `${t} allows ${TIER_CAPS[t].serviceCardsTotal} cards — a shop could not be booked at all`);
   }
   assert.equal(TIER_CAPS.free.serviceCardsTotal, 1);
   assert.equal(TIER_CAPS.verified.serviceCardsTotal, 3);
-  assert.equal(TIER_CAPS.solo.serviceCardsTotal, 10);
-  assert.equal(TIER_CAPS.pro.serviceCardsTotal, 20);
-  assert.equal(TIER_CAPS.enterprise.serviceCardsTotal, 80); // Max (today's top plan, renamed by the owner 2026-11-18)
+  assert.equal(TIER_CAPS.solo.serviceCardsTotal, 15);
+  assert.equal(TIER_CAPS.pro.serviceCardsTotal, Infinity);
+  assert.equal(TIER_CAPS.enterprise.serviceCardsTotal, Infinity);
 });
 
 // ── 2 · no per-day booking cap, no weekly answering cap ────────────────────────
@@ -132,10 +132,11 @@ test('2c · bookings per date are NOT a plan limit on any plan (owner 2026-11-18
 
 // ── 3 · the portfolio free base, grandfathered ─────────────────────────────────
 
-test('3a · the portfolio base is 50 free on every tier', () => {
+test('3a · the portfolio base is 50 free on the free plans; no cap on a paid size (owner 2026-11-22)', () => {
   assert.equal(PORTFOLIO_FREE_BASE, 50, 'owner: "free 50"');
   for (const t of VENDOR_TIERS) {
-    assert.equal(TIER_CAPS[t].portfolioPhotos, PORTFOLIO_FREE_BASE, `${t} portfolio photos`);
+    const paid = t === 'solo' || t === 'pro' || t === 'enterprise';
+    assert.equal(TIER_CAPS[t].portfolioPhotos, paid ? Infinity : PORTFOLIO_FREE_BASE, `${t} portfolio photos`);
   }
   assert.equal(
     PORTFOLIO_OVER_BASE_MESSAGE,

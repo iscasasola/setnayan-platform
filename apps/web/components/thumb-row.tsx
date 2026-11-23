@@ -51,7 +51,7 @@ import { SEARCH_ADD_DRAG_FOLLOW_PX, SearchAddIcon, searchAddDrag, useSearchAdd }
 import { ActionButton, actionButtonClass, type ActionButtonProps } from '@/components/action-button';
 import { rowRides, useRidingRow } from '@/app/_components/typing-band';
 import { useThumbRoom } from '@/lib/thumb-room';
-import { focusSearchNow, playSearchGrows, useSearchGrows } from '@/app/_components/search-grows';
+import { focusSearchNow, holdSearchForKeyboard, playSearchGrows, useSearchGrows } from '@/app/_components/search-grows';
 import { useRotatingHint } from '@/lib/use-rotating-hint';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import styles from './thumb-row.module.css';
@@ -92,6 +92,8 @@ export type ThumbMenu = {
   face?: ReactNode;
   /** 📏 The open list's floor width (`PickMenuProps.menuMinWidth`) — so a menu's rows stay on one line at 390 px. */
   menuMinWidth?: number;
+  /** ⬆ Open the list above the round whenever it fits (Guests redesign § 8: the look round opens upward, within reach). */
+  opensUp?: boolean;
 };
 
 /**
@@ -252,10 +254,12 @@ export function ThumbRow({
     row?.setAttribute('data-search-force', shape);
     return () => row?.removeAttribute('data-search-force');
   };
+  /* ⌨ On a phone the grow waits for the row to lift onto the rising keyboard (`holdSearchForKeyboard`), so it is seen
+     above the keys instead of played out under them; elsewhere it grows at once. */
   const onFieldFocus = (e: FocusEvent<HTMLElement>) => {
     ride.rowProps.onFocus(e);
     const seat = e.currentTarget;
-    if (rowRef.current && !seat.contains(e.relatedTarget as Node | null)) playSearchGrows(rowRef.current, seat, true, forceShape('rest'));
+    if (rowRef.current && !seat.contains(e.relatedTarget as Node | null) && !holdSearchForKeyboard(rowRef.current, seat)) playSearchGrows(rowRef.current, seat, true, forceShape('rest'));
   };
   const onFieldBlur = (e: FocusEvent<HTMLElement>) => {
     ride.rowProps.onBlur(e);
@@ -431,6 +435,7 @@ export function ThumbRow({
                   buttonText={r.buttonText}
                   trigger={r.face}
                   menuMinWidth={r.menuMinWidth}
+                  opensUp={r.opensUp}
                   className={r.face ? 'inline-flex items-center justify-center rounded-full text-ink' : undefined}
                 />
               </span>

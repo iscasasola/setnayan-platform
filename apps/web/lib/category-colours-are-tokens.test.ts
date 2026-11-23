@@ -47,8 +47,10 @@ test('each category colour is a token with the ruled light and dark value', () =
   const root = block(':root');
   const dark = block('  html.dark');
   for (const [k, v] of Object.entries(RULED)) {
-    assert.match(root, new RegExp(`--sn-cat-${k}: ${hexToTriple(v.light)};`), `light --sn-cat-${k} is not ${v.light}`);
-    assert.match(dark, new RegExp(`--sn-cat-${k}: ${hexToTriple(v.dark)};`), `dark --sn-cat-${k} is not ${v.dark}`);
+    // The value lives in the job's ONE token, `--color-cat-*`; `--sn-cat-*` points at it (the one colour set, 18 Nov 2026).
+    assert.match(root, new RegExp(`--color-cat-${k}: ${hexToTriple(v.light)};`), `light --color-cat-${k} is not ${v.light}`);
+    assert.match(dark, new RegExp(`--color-cat-${k}: ${hexToTriple(v.dark)};`), `dark --color-cat-${k} is not ${v.dark}`);
+    assert.match(root, new RegExp(`--sn-cat-${k}: var\\(--color-cat-${k}\\);`), `--sn-cat-${k} no longer points at --color-cat-${k}`);
     assert.match(TW, new RegExp(`${k}: 'rgb\\(var\\(--sn-cat-${k}\\) / <alpha-value>\\)'`), `Tailwind cat-${k} does not read the token`);
   }
 });

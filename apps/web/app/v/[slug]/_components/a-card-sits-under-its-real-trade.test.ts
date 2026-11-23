@@ -82,7 +82,8 @@ test('the cover photo is RESOLVED and PASSED — the argument the call was short
   const src = code(PAGE);
   assert.match(
     src,
-    /displayUrlForStoredAsset\(s\.primary_photo_r2_key\)/,
+    // 🔒 under the Free-files rule (lib/free-shop-files.ts, spec § ★ J): a verified shop's cover through the same signer
+    /ownShopFileUrl\(s\.primary_photo_r2_key, own, \(v\) => displayUrlForStoredAsset\(v\)\)/,
     'the stored cover ref is never turned into a display URL',
   );
   // toServiceCard takes it LAST; passing nothing renders exactly as before, so

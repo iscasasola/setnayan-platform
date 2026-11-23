@@ -20,6 +20,7 @@
 // ============================================================================
 
 import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { Printer } from 'lucide-react';
 import { startAhead } from '@/lib/start-ahead';
 import { ServerTimer } from '@/lib/server-timing';
@@ -48,7 +49,7 @@ import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { storyAudienceAdmits, STRANGER, type StoryViewer } from '@/lib/who-can-see-your-story';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventProPlanActive } from '@/lib/couple-website-pro';
 import { eventWordsForEvent, type EventWords } from '../../_lib/event-words';
 import {
   resolveEventMonogram,
@@ -436,7 +437,7 @@ export async function EditorialContent({
   const hideWatermarkRead: Promise<boolean> = (async () => {
     if (!isSample) {
       try {
-        return await eventCoupleWebsiteProActive(createAdminClient(), eventId);
+        return await eventProPlanActive(createAdminClient(), eventId); // 💎 the watermark is the Pro PLAN's (2026-11-19)
       } catch {
         return false;
       }
@@ -780,7 +781,7 @@ export async function EditorialContent({
     <div key={`ultra-${album.vendorProfileId}`} data-story-screen="">
       <UltraSupplierScene
         album={album}
-        supplier={supplierViews.find((v) => v.tier === 'enterprise' && v.name === album.name) ?? null}
+        supplier={supplierViews.find((v) => isPaidSize(v.tier) && v.name === album.name) ?? null}
         index={i + 1}
         of={ultraAlbums.length}
         names={data.firstNames}
@@ -1997,20 +1998,14 @@ function Colophon({
           Each is drawn only when its destination is really there: no slug means
           a curated sample with no event behind it, and an edition where the
           couple never broadcast has no film section to scroll to. A footer that
-          quietly gets shorter is honest; a link that does nothing is not. */}
-      {slug || watchFilmShown ? (
+          quietly gets shorter is honest; a link that does nothing is not.
+          🧭 "The day as it happened" (→ /[slug]/hub) went on 20 Nov 2026 — one bar per stage:
+          `/hub` is no longer a second screen, and after the day it sends a visitor to `/[slug]`,
+          which is THIS page; the day's programme is its own "As the Day Unfolded" chapter above. */}
+      {watchFilmShown ? (
         <div className="flex flex-wrap justify-center gap-5 font-mono text-xs uppercase tracking-[0.1em]">
           {/* (No "The Invitation (RSVP)" here: after the day `/[slug]` is THIS
               page — a link to itself. Owner 2026-10-03, one place each.) */}
-          {slug ? (
-            <a
-              href={`/${slug}/hub`}
-              className="border-b border-terracotta pb-0.5 text-ink no-underline"
-            >
-              {/* 🏷 Plain words after the day (F-W2-52): the day's page is a record now, never "(Live)". */}
-              The day as it happened
-            </a>
-          ) : null}
           {watchFilmShown ? (
             <a
               href={`#${WATCH_FILM_ANCHOR_ID}`}

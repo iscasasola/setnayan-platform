@@ -494,8 +494,16 @@ const AUDITED_DEFINER_READERS: string[] = [
   // 👈 20271342335343: EXECUTE revoked from every browser role; returns one boolean (is this file part of the booking).
   'chat_message_is_booking_file',
   'chat_poll_open', // inserts the poll's own system line; returns the poll id
+  // 🧾 20271354150744 (Unichat H2 · the deal's end said in the chat): EXECUTE revoked from every browser role (the
+  // handover / crew triggers call it). Matches only sender_role = 'system' lines of ONE event + shop thread against a
+  // fixed sentence the caller passes; returns one boolean — never a body, never a person's message.
+  'chat_record_line_exists',
   'chat_record_post_line', // finds the thread and inserts a system line; returns nothing
   'count_unread_message_threads', // filters recipient_user_id (20271329968207/20271330575424)
+  // ✏️ 20271354347259 (Unichat H1 · edit / unsend your own message): each locks ONE row and acts only when the caller
+  // is its SENDER and still in the chat (chat_message_caller_is_in_chat); returns that row's thread id and a
+  // timestamp — never a body, never another row. The words before an edit go to chat_message_revisions, not out.
+  'edit_my_chat_message',
   // 📁 20271339773560 (Piece 3b · a supplier's files): a trigger, EXECUTE revoked from every browser role. It only
   // checks that NEW.chat_message_id is a message of THIS shop's thread with THIS event (EXISTS) — never reads a body,
   // returns nothing but NEW, and its refusal is a fixed sentence.
@@ -516,8 +524,12 @@ const AUDITED_DEFINER_READERS: string[] = [
   'tg_chat_messages_guard_end_user_write', // screens NEW's own body only
   'tg_chat_messages_offer_is_this_suppliers', // 🏷 PR-4: validates NEW's offer id + day and refuses it on a private line; reads no other message
   'tg_chat_messages_private_is_between_members', // this lane's recipient check
+  // 🤫 20271354185201 (Unichat H1 · a whisper stays on its side): a BEFORE INSERT trigger, EXECUTE revoked from every
+  // browser role. Reads only NEW's thread kind and NEW's recipient list, checks each side; returns NEW or a fixed refusal.
+  'tg_chat_messages_whisper_stays_on_its_side',
   'unread_message_threads_by_event', // filters recipient_user_id
   'unread_message_threads_by_vendor', // filters recipient_user_id
+  'unsend_my_chat_message', // ✏️ 20271354347259: the edit's twin — the caller's own words or voice note; returns thread id + time
 ];
 
 test('no view reads chat_messages', async () => {
@@ -549,12 +561,17 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
       'chat_decision_topics.chat_decision_topics_read',
       // 💬 20271340374819: a group member (a guest included) reads the group's hearts.
       'chat_message_hearts.chat_message_hearts_group_member_read',
+      // 🚪 20271354552883 (Unichat H1 · a removed member reads nothing): RESTRICTIVE — they only NARROW. The helper here
+      // is the way OUT of the restriction for a removed shop seat who is still a host / coordinator of this chat.
+      'chat_messages.chat_messages_a_removed_member_reads_nothing',
+      'chat_messages.chat_messages_a_removed_member_writes_nothing',
       'chat_messages.chat_messages_member_insert',
       'chat_messages.chat_messages_member_read',
       'chat_poll_choices.chat_poll_choices_read',
       'chat_poll_votes.chat_poll_votes_read',
       'chat_polls.chat_polls_read',
       'chat_thread_members.chat_thread_members_read',
+      'chat_threads.chat_threads_a_removed_member_reads_nothing', // 🚪 the thread's twin of the restrictive read above
       'chat_threads.chat_threads_member_read',
     ],
     functions: [
@@ -569,6 +586,9 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
       // 20271332497337 (Build 3 lane B): the decision topics' membership check — a member of the chat (this helper)
       // or the shop's team; chat_decision_open / _set_closed / the topics' read policy all ask it.
       'chat_is_in_thread',
+      // ✏️ 20271354347259: the edit / unsend writers' "still in this chat" check — the same three branches as
+      // chat_messages_member_read; EXECUTE revoked from every browser role; returns one boolean.
+      'chat_message_caller_is_in_chat',
       'chat_thread_add_host',
       'chat_thread_leave',
       'count_unread_message_threads',

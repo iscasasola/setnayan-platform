@@ -1,5 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
+import { FIRST_CARD_EDIT_UNREAD, WELCOME_CLAIMED_PATH, claimCardFrom, claimedWelcomePath, firstCardLanding, welcomeEditUnreadPath } from '@/lib/supplier-onboarding';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -38,8 +39,14 @@ type Props = { params: Promise<{ token: string }> };
  *      to the shop only on Approve), and insert vendor_follows for the couple.
  *   3. Redirect to /vendor-dashboard.
  */
-export default async function FinalizeClaimPage({ params }: Props) {
+export default async function FinalizeClaimPage({ params, searchParams }: Props & { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const { token } = await params;
+  const search = (await searchParams) ?? {};
+  // 🚪 Edit on the door's first card (supplier onboarding, owner 19 Nov): after the consent, the shipped Card Maker.
+  const editCard = firstCardToEdit(typeof search.edit === 'string' ? search.edit : undefined);
+  // 🃏 …and what the door found about that card (live · draft · refused · skipped) — re-read here, passed on to Today's
+  // welcome (review 20 Nov). A bare finalize carries nothing, so the welcome names the shop alone.
+  const cardCarry = claimCardFrom(search);
 
   const supabase = await createClient();
   const user = await getCurrentUser();
@@ -276,7 +283,22 @@ export default async function FinalizeClaimPage({ params }: Props) {
   // Default — land them in the vendor dashboard with the new client visible in
   // their Clients pipeline (couple-source) or just the fresh dashboard
   // (already-has-services).
-  redirect('/vendor-dashboard?claimed=1');
+  // 🚪 …and Today reads `?claimed=1` for its welcome (supplier onboarding, owner 19 Nov) — or, Edit picked on the
+  // door's first card, the shipped Card Maker on that card.
+  // Edit picked but the card could not be found (`?edit=unread`, ship review 21 Nov): the welcome SAYS it.
+  redirect(
+    editCard === FIRST_CARD_EDIT_UNREAD
+      ? welcomeEditUnreadPath(WELCOME_CLAIMED_PATH)
+      : editCard
+        ? firstCardLanding({ choice: 'edit', cardId: editCard, category: null })
+        : claimedWelcomePath(cardCarry),
+  );
+}
+
+/** A card id the door handed over (`?edit=`) — a uuid, or nothing. The Card Maker re-checks it is this shop's. */
+function firstCardToEdit(v: string | undefined): string | null {
+  if (v === FIRST_CARD_EDIT_UNREAD) return FIRST_CARD_EDIT_UNREAD;
+  return typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v) ? v : null;
 }
 
 /**

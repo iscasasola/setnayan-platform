@@ -4,11 +4,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BOOKING_FEE, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
+import { maxPaymentPhpOrDefault } from '@/lib/max-payment';
 
 type BookingFeeRow = {
   booking_fee_rate_pct?: number | string | null;
   booking_fee_tail_rate_pct?: number | string | null;
   booking_fee_tier1_limit_php?: number | string | null;
+  booking_fee_cap_php?: number | string | null;
+  booking_fee_new_client_free_months?: number | string | null;
+  max_payment_php?: number | string | null;
 };
 
 /**
@@ -47,11 +51,11 @@ export async function getBookingFeeSchedule(
     // the tag in the same action, so a new rate is quoted on the next page.
     // ⛔ A refused read THROWS inside, so it is never remembered, and lands on the locked
     // default below for this page only — as before.
-    const data = await rememberedGlobalRead('platform_settings-booking-fee-v1', GLOBAL_SETTINGS_TAGS.platformSettings, async () => {
+    const data = await rememberedGlobalRead('platform_settings-booking-fee-v3', GLOBAL_SETTINGS_TAGS.platformSettings, async () => {
       const res = await admin
         .from('platform_settings')
         .select(
-          'booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php',
+          'booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php, booking_fee_cap_php, max_payment_php, booking_fee_new_client_free_months',
         )
         .eq('id', 1)
         .maybeSingle();
@@ -74,6 +78,14 @@ export async function getBookingFeeSchedule(
       ),
       // FIXED in code — see the docblock. Deliberately not read.
       minPhp: BOOKING_FEE.minPhp,
+      // THE LOCK (owner 2026-11-20) — `booking_fee_cap_php`, the same column `booking_fee_centavos` reads.
+      capPhp: positiveOr(row.booking_fee_cap_php, BOOKING_FEE.capPhp as number),
+      // THE NEW-CLIENT FREE WINDOW (owner 2026-11-16) — the column `booking_fee_new_client_window_covers` reads. No
+      // fallback number: unread or nonsense leaves it absent, and the words then name no months.
+      ...wholeMonths(row.booking_fee_new_client_free_months),
+      // ⚖ The ceiling (owner 2026-11-17) — the one admin setting every payment
+      // to Setnayan is bounded by; the SQL mirror reads the same column.
+      maxPhp: maxPaymentPhpOrDefault(row.max_payment_php),
     };
   } catch {
     return BOOKING_FEE;
@@ -93,6 +105,13 @@ function pctToFraction(raw: unknown, fallback: number): number {
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 0 || n > 100) return fallback;
   return n / 100;
+}
+
+/** A stored whole number of months, or nothing at all — never a default (see `BookingFeeSchedule.newClientFreeMonths`). */
+function wholeMonths(raw: unknown): { newClientFreeMonths?: number } {
+  if (raw == null || raw === '') return {};
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? { newClientFreeMonths: n } : {};
 }
 
 /** A stored peso threshold, or the fallback when it is missing / nonsense. */

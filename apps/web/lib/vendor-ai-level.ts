@@ -73,30 +73,40 @@ export function isVendorAiAdvanced(raw: string | null | undefined): boolean {
 }
 
 /**
- * 💳 THE CHATBOT A PLAN INCLUDES — owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS" item 3: the AI chatbot is
- * included on Pro (today's chatbot) and Ultra (the smarter level: the shop's voice, the couple's language); Free,
- * Verified and Plus have none and Plus cannot buy it. A chatbot window a shop BOUGHT before the fold keeps working
- * until it runs out (item 11) — that is `windowActive` below, never this table.
+ * 💳 THE CHATBOT A PLAN INCLUDES — owner 2026-11-21, verbatim: *"AI Chatbot is for verified and up but smarter chatbot is
+ * for pro and up"* (DECISION_LOG 21 Nov; replaces the 14 Nov split "SIMPLER SUPPLIER PLANS" item 3, which put the
+ * chatbot on Pro and the smarter level on Ultra only). Verified and Plus get today's chatbot; Pro and Ultra get the
+ * smarter level (the shop's voice, the couple's language, no daily cap). An unverified Free shop has none.
+ * Since 2026-11-22 (DECISION_LOG "SUPPLIER PLANS MIRROR ICLOUD+: SAME FEATURES IN EVERY SIZE") Plus has the smarter level too. Neither level
+ * is sold on its own. A chatbot window a shop BOUGHT before the fold keeps working until it runs out (item 11) — that is
+ * `windowActive` below, never this table.
  */
 export const PLAN_CHATBOT_LEVEL: Readonly<Record<string, VendorAiLevel | 'none'>> = Object.freeze({
   free: 'none',
-  verified: 'none',
-  solo: 'none',
-  pro: 'basic',
+  verified: 'basic',
+  solo: 'advanced', // owner 2026-11-22 "SAME FEATURES IN EVERY SIZE" (was basic)
+  pro: 'advanced',
   enterprise: 'advanced',
 });
 
+/** The shop's plan row, as the chatbot gate reads it. */
+export type ChatbotPlanRow = {
+  tier_state?: string | null;
+  tier_expires_at?: string | null;
+  /** `vendor_profiles.verification_state`. A Free shop whose papers are approved IS Verified — approval does not
+   *  rewrite `tier_state` (only the papers-lapse path writes 'verified'), so the gate must read this column too. */
+  verification_state?: string | null;
+};
+
 /** The chatbot a plan row includes — read as the sweep would write it (a plan whose day passed reads as Free). */
-export function planChatbotLevel(
-  plan: { tier_state?: string | null; tier_expires_at?: string | null } | null | undefined,
-  nowMs: number = Date.now(),
-): VendorAiLevel | 'none' {
+export function planChatbotLevel(plan: ChatbotPlanRow | null | undefined, nowMs: number = Date.now()): VendorAiLevel | 'none' {
   const row = endedPlanReadsFree(plan ?? null, nowMs);
-  const tier = row?.tier_state ?? 'free';
+  const raw = row?.tier_state ?? 'free';
+  const tier = raw === 'free' && plan?.verification_state === 'verified' ? 'verified' : raw;
   return PLAN_CHATBOT_LEVEL[tier] ?? 'none';
 }
 
-/** Is the chatbot still sold as an add-on? No — folded into Pro and Ultra on 2026-11-14 (item 3). The buy action reads it. */
+/** Is the chatbot still sold as an add-on? No — folded into the plans on 2026-11-14 (item 3); since 21 Nov Verified and up. The buy action reads it. */
 export const AI_CHATBOT_SOLD_ON_ITS_OWN: boolean = false;
 
 export type VendorAiEntitlement = {
@@ -104,8 +114,9 @@ export type VendorAiEntitlement = {
   level: string | null | undefined;
   /** `isVendorAiAddonActive(ai_addon_expires_at)` — the ONE shared window. */
   windowActive: boolean;
-  /** The shop's plan (`tier_state`, `tier_expires_at`) — Pro includes Basic, Ultra includes Advanced (2026-11-14). */
-  plan?: { tier_state?: string | null; tier_expires_at?: string | null } | null;
+  /** The shop's plan (`tier_state`, `tier_expires_at`, `verification_state`) — Verified and Plus include Basic, Pro and
+   *  Ultra include Advanced (2026-11-21). */
+  plan?: ChatbotPlanRow | null;
 };
 
 /**

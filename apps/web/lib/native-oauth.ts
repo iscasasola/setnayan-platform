@@ -45,6 +45,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { issueNativeLandingMarker } from '@/app/auth/native-marker-action';
 import { mintTurnstileToken } from '@/lib/turnstile-client';
+import { frontDoorAuthorizeUrl } from '@/lib/oauth-front-door';
 import type { OAuthIntentAccountType } from '@/lib/oauth-signup';
 import {
   NATIVE_AUTH_PLUGIN,
@@ -178,12 +179,20 @@ async function systemBrowser(
     fail(error?.message ?? `${provider} sign-in could not start.`, next);
     return true;
   }
+  // 🏷 OUR ADDRESS FIRST (owner screenshot 22 Nov 2026): iOS names the host of the first URL in its sheet, which
+  // read "…Wants to Use njrupjnvkjkitfctetvi.supabase.co to Sign In". The session opens setnayan.com/auth/go, which
+  // 302s to this project's authorize endpoint only (lib/oauth-front-door.ts). Never the raw URL as a fallback.
+  const frontDoor = frontDoorAuthorizeUrl(window.location.origin, data.url, process.env.NEXT_PUBLIC_SUPABASE_URL);
+  if (!frontDoor) {
+    fail(`${provider} sign-in could not start.`, next);
+    return true;
+  }
   let opened: { url?: unknown };
   try {
     // 🔒 The provider page opens in the SYSTEM browser, never this web view —
     // Google refuses the web view (guarded by native-oauth.test.ts).
     opened = (await callPlugin('openAuthSession', {
-      url: data.url,
+      url: frontDoor,
       callbackScheme: NATIVE_CALLBACK_SCHEME,
     })) as typeof opened;
   } catch (err) {

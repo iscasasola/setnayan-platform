@@ -21,6 +21,7 @@ import { BOOKING_FEE } from '@/lib/booking-fee';
 import { bundleListNote } from '@/lib/shop-gifts';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
+import { readPricingFormulaSettings } from '@/lib/pricing-formula';
 import { LegacyCatalogDisclosure } from '@/app/admin/pricing/_components/legacy-catalog';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -143,7 +144,7 @@ export async function PricingSurface(_props: Props) {
 
   const admin = createAdminClient();
 
-  const [retailRes, bundleRes, vendorRes, settingsRes, poolRes] = await Promise.all([
+  const [retailRes, bundleRes, vendorRes, settingsRes, poolRes, formulaRes] = await Promise.all([
     admin
       .from('platform_retail_catalog_v2')
       .select(
@@ -168,7 +169,7 @@ export async function PricingSurface(_props: Props) {
     admin
       .from('platform_settings')
       .select(
-        'setnayan_pay_fee_pct, onboarding_discount_pct, booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php',
+        'setnayan_pay_fee_pct, onboarding_discount_pct, booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php, booking_fee_cap_php, booking_fee_free_every_nth, booking_fee_new_client_free_months',
       )
       .eq('id', 1)
       .maybeSingle(),
@@ -184,6 +185,15 @@ export async function PricingSurface(_props: Props) {
       .select('free_grant_points')
       .eq('config_key', 'default')
       .maybeSingle(),
+    // 🧮 The 2026-11-21 price formula — its OWN read, so a failure here hides only the formula
+    // suggestions and never the sign-up discount or booking-fee figures above.
+    // 🔒 Admin-only numbers (our markup): the one row of `pricing_formula_settings`, a service-role-only
+    // table (migration 20271356452488) — read here with the service-role client, below `requireAdmin()`.
+    admin
+      .from('pricing_formula_settings')
+      .select('pricing_opex_factor, pricing_margin_factor, pricing_fee_tax_cover, pricing_round_step_php')
+      .eq('id', 1)
+      .maybeSingle(),
   ]);
 
   if (retailRes.error) logQueryError('AdminPricingPage (retail)', retailRes.error);
@@ -193,6 +203,9 @@ export async function PricingSurface(_props: Props) {
   if (bundleRes.error) logQueryError('AdminPricingPage (bundle)', bundleRes.error);
   if (vendorRes.error) logQueryError('AdminPricingPage (vendor)', vendorRes.error);
   if (settingsRes.error) logQueryError('AdminPricingPage (settings)', settingsRes.error);
+  if (formulaRes.error) logQueryError('AdminPricingPage (price formula)', formulaRes.error);
+  // Null on a refused read or a nonsense value — the card then says so, never a confident default.
+  const formula = formulaRes.error ? null : readPricingFormulaSettings(formulaRes.data);
 
   const retailRows = (retailRes.data ?? []) as RetailRow[];
   const bundleRows = (bundleRes.data ?? []) as BundleRow[];
@@ -220,6 +233,9 @@ export async function PricingSurface(_props: Props) {
     booking_fee_rate_pct?: number | string | null;
     booking_fee_tail_rate_pct?: number | string | null;
     booking_fee_tier1_limit_php?: number | string | null;
+    booking_fee_cap_php?: number | string | null;
+    booking_fee_free_every_nth?: number | string | null;
+    booking_fee_new_client_free_months?: number | string | null;
   } | null;
   const bfFromDb =
     bfRow?.booking_fee_rate_pct != null && Number.isFinite(Number(bfRow.booking_fee_rate_pct));
@@ -233,6 +249,21 @@ export async function PricingSurface(_props: Props) {
       bfRow?.booking_fee_tier1_limit_php != null && Number.isFinite(Number(bfRow.booking_fee_tier1_limit_php))
         ? Number(bfRow.booking_fee_tier1_limit_php)
         : BOOKING_FEE.tier1LimitPhp,
+    // The lock and the every-Nth count (owner 2026-11-20). Null = unread: the form says so rather than print a default.
+    capPhp:
+      bfRow?.booking_fee_cap_php != null && Number.isFinite(Number(bfRow.booking_fee_cap_php))
+        ? Number(bfRow.booking_fee_cap_php)
+        : null,
+    freeEveryNth:
+      bfRow?.booking_fee_free_every_nth != null && Number.isFinite(Number(bfRow.booking_fee_free_every_nth))
+        ? Number(bfRow.booking_fee_free_every_nth)
+        : null,
+    // The new-client free window (owner 2026-11-16). Null = unread: said, never a default.
+    newClientFreeMonths:
+      bfRow?.booking_fee_new_client_free_months != null &&
+      Number.isInteger(Number(bfRow.booking_fee_new_client_free_months))
+        ? Number(bfRow.booking_fee_new_client_free_months)
+        : null,
     isFromDb: bfFromDb,
   };
 
@@ -389,6 +420,7 @@ export async function PricingSurface(_props: Props) {
         rows={rows}
         retailTitlesForReplacement={retailTitlesForReplacement}
         freeCreditsPerEvent={freeCreditsPerEvent}
+        formula={formula}
       />
 
       {/*
@@ -438,14 +470,17 @@ export async function PricingSurface(_props: Props) {
         <h2 className="mb-1 text-base font-semibold tracking-tight">Supplier booking fee</h2>
         <p className="mb-3 max-w-prose text-sm text-ink/60">
           What a supplier pays Setnayan for an introduction that turns into a booking. Owner-set:
-          the rate below the threshold, the threshold itself, and the rate above it. The minimum
-          and the no-cap rule are fixed.
+          the rate below the threshold, the threshold itself, and the rate above it. The minimum is
+          fixed; the lock, the every-Nth free booking fee and the new-client free window are shown under the form.
         </p>
         <BookingFeeForm
           action={saveBookingFeeSchedule}
           ratePct={bookingFee.ratePct}
           tailRatePct={bookingFee.tailRatePct}
           tier1LimitPhp={bookingFee.tier1LimitPhp}
+          capPhp={bookingFee.capPhp}
+          freeEveryNth={bookingFee.freeEveryNth}
+          newClientFreeMonths={bookingFee.newClientFreeMonths}
           minPhp={BOOKING_FEE.minPhp}
           isFromDb={bookingFee.isFromDb}
           enabled={isBookingFeeEnabled()}

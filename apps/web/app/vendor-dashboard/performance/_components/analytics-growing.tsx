@@ -55,7 +55,7 @@ const TIPS = {
   slipped: 'A floor, not a full count — “unanswered” uses a 48-hour guide and “no response” is self-reported.',
   heat: 'Darker = more inquiries arrive then · Philippine time. Needs a long window to read (12 months).',
   funnel: 'Profile views: how many times couples opened your profile. Inquiries: couples who reached out. Quotes sent: inquiries you answered with a price or package. Booked: quotes couples confirmed.',
-  split: 'Booked business Setnayan sourced for you versus couples you added yourself. On 12 months, with a paid plan, this also shows “~N× your annual plan”.',
+  split: 'Booked business Setnayan sourced for you versus couples you added yourself. On 12 months, with a paid plan, this also shows “~N× a year of your plan”.',
   deals: 'Win rate is of decided inquiries (won vs declined) — open and stale inquiries aren’t counted. Peso figures cover on-platform priced bookings only.',
   ahead: 'The next 13 weeks from today, a column per week. Filled = a day with a live booking (deeper = more than one). Ring = a date couples asked for that you weren’t free on. Raw counts, no utilization ratio.',
   demand: 'Every number here is a count — inquiries, unlocks and bookings rolled up by month and look for your region. Small groups stay hidden until no single couple can be picked out, so the radar can look quiet early.',
@@ -574,7 +574,7 @@ function BenchPic({ rows }: { rows: readonly { title: string; pct: number; word:
   );
 }
 
-const PILLAR_COLOR = (s: number) => (s > 85 ? 'rgb(var(--color-ok))' : s >= 70 ? 'var(--m-orange)' : 'rgb(var(--color-danger))');
+const PILLAR_COLOR = (s: number) => (s > 85 ? 'rgb(var(--color-ok))' : s >= 70 ? 'rgb(var(--color-chart-asked))' : 'rgb(var(--color-danger))');
 
 function Health({ h }: { h: GrowthView['health'] }) {
   const ghost = h.unread || h.composite === null;
@@ -675,7 +675,7 @@ function HeatRow({ day, row, max }: { day: string; row: number[]; max: number })
     <>
       <span className="ag-l">{day}</span>
       {row.map((v, j) => (
-        <span key={j} className="ag-c" style={v ? { background: `color-mix(in srgb, var(--m-orange-2) ${Math.round(20 + (v / max) * 80)}%, var(--m-paper))` } : undefined} />
+        <span key={j} className="ag-c" style={v ? { background: `color-mix(in srgb, rgb(var(--color-chart-asked)) ${Math.round(20 + (v / max) * 80)}%, var(--m-paper))` } : undefined} />
       ))}
     </>
   );

@@ -94,6 +94,7 @@ import { type LiveTallyBase } from '@/lib/suppliers-shell';
 import { SuppliersLabStage } from './lab-stage';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { LabBench } from './lab-bench';
+import { MALL_REAL_GUESTS, mallRealFixtures } from './mall-fixtures';
 import { labSupplierShare } from '../lab-supplier-share';
 import { renderUrlQrSvg } from '@/lib/qr';
 import {
@@ -114,7 +115,8 @@ import { LabSuppliersShell } from './lab-build';
 import { BookedBody } from '@/app/dashboard/[eventId]/vendors/_components/booked-body';
 import { labServiceCounts } from '@/app/dev/count-fixtures';
 import { LabBookedStandIns } from './lab-booked';
-import { labBookedBudget, labBookedMoney, labBookedNow, labBookedView, type LabBookedOptions } from './booked-fixtures';
+import { labBookedBudget, labBookedMoney, labBookedNow, labBookedView, labTeamRows, type LabBookedOptions } from './booked-fixtures';
+import { ordersWaitingCount } from '@/lib/suppliers-shell';
 import { priceToday } from '@/lib/price-summary';
 import { BookedBudgetSection } from '@/app/dashboard/[eventId]/vendors/_components/booked-budget';
 import { moneyStageOf } from './money-pair';
@@ -212,7 +214,11 @@ export default async function SuppliersLabPage({
           ? { basis: 'fixed' as const, total: 80_000, count: null }
           : null;
   const titaRow = basisSample ? labAddedRowPriced(basisSample.total) : LAB_ADDED_ROW;
-  const rows = empty
+  // 🃏 `&mall=real` — card 14 on the real production cards (`mall-fixtures.ts`); `&venue=none` · `&perguest=1`.
+  const mallReal = one('mall') === 'real' ? mallRealFixtures({ venue: one('venue') !== 'none', perGuest: one('perguest') === '1', savedFirst: one('savedfirst') === '1', noPin: one('nopin') === '1' }) : null;
+  const rows = mallReal
+    ? mallReal.rows
+    : empty
     ? []
     : [
         ...(one('added') === '1' || basisSample ? [...LAB_ROWS, titaRow] : LAB_ROWS).map((r) =>
@@ -250,9 +256,9 @@ export default async function SuppliersLabPage({
     taxonomy: shoes ? labShoesTaxonomy(shoes === 'written') : undefined,
     serviceLabels: shoes ? LAB_SHOE_SERVICE_LABELS : undefined,
     vendorRows: rows,
-    enrichmentByVendorId: LAB_ENRICHMENT,
+    enrichmentByVendorId: mallReal ? mallReal.enrichment : LAB_ENRICHMENT,
     // P5 calendar truth on the bench card: Bituin booked that day, Hiraya free — or "Calendar not set" (&cal=notset).
-    dateFitByVendorId: new Map<string, DateFit>([
+    dateFitByVendorId: mallReal ? mallReal.dateFit : new Map<string, DateFit>([
       ['v-bituin', 'booked'],
       ['v-hiraya', factOptions.notSet ? 'not_set' : 'free'],
       ['v-lola', 'free'],
@@ -355,7 +361,8 @@ export default async function SuppliersLabPage({
       standings={LAB_STANDINGS}
       initialOpenTile={one('open')}
       starterTiles={[...popularTilesFor('wedding')]}
-      serviceCardByVendorId={LAB_CARDS}
+      serviceCardByVendorId={mallReal ? mallReal.cards : LAB_CARDS}
+      mallEvent={mallReal ? { guests: one('guests') === 'none' ? null : MALL_REAL_GUESTS, askVenue: one('venue') === 'none' } : undefined}
       payHrefByVendorId={{ 'v-seda': `/dev/suppliers-lab?open=reception` }}
       inviteStatusByVendorId={one('links') === 'fail' ? null : labInviteStatuses(Date.now())}
       selfAddedPriceLines={basisSample ? { 'v-tita': { basis: basisSample.basis, count: basisSample.count } } : undefined}
@@ -416,6 +423,8 @@ export default async function SuppliersLabPage({
           // the lab shell's own Build-body view is the count (`lab-build.tsx`), so the live base is not handed over there.
           liveTally={one('tab') === 'build' ? null : liveTally}
           bookedCount={booked}
+          // 📦 The orders badge, read the page's way from the fixture rows (`ordersWaitingCount`).
+          ordersCount={ordersWaitingCount(labTeamRows(bookedOpts))}
           shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}
           bookedSlot={
             <LabBookedStandIns payFail={one('payfail') === '1'} paySlow={one('payslow') === '1'} whereFail={one('wherefail') === '1'} money={bookedOpts.money} today={priceToday(labBookedNow(bookedOpts))}>

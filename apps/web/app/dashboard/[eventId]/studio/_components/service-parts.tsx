@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Clapperboard } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button-class';
 import { ADD_ONS, appStoreDetailHref } from '@/lib/add-ons-catalog';
 import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
@@ -45,14 +46,32 @@ export async function ServiceParts({
   eventId,
   service,
   door: given,
+  seat = 'page',
 }: {
   eventId: string;
   service: 'papic' | 'music-maker';
   /** The answer the page already read (the Memories keepsake row) — so it is read once. Absent = read here. */
   door?: ServicePartDoor | null;
+  /**
+   * `sheet` — the part's own keepsake sheet on Memories (owner 2026-11-20, "memories approved": *"Thank You's sheet carries
+   * the film itself"*): the sheet's head says the name, so the part gives its one line and ONE main button to the SAME
+   * page its row opens — one tap fewer than a row that opens a row. `page` (default): the row, as before.
+   */
+  seat?: 'page' | 'sheet';
 }) {
   const door = given === undefined ? await readServicePart(eventId, service) : given;
   if (!door) return null;
+  if (seat === 'sheet') {
+    return (
+      <div className="flex flex-col gap-3" data-keepsake-card={door.key}>
+        <p className="text-sn-lg text-ink/70">{door.line}</p>
+        <Link href={door.href} data-service-part={door.key} className={actionButtonClass('brand', { main: true, extra: 'h-12 w-full text-sn-lg' })}>
+          {service === 'papic' ? <Clapperboard aria-hidden className="h-4 w-4" strokeWidth={2} /> : null}
+          Open your {door.name}
+        </Link>
+      </div>
+    );
+  }
   return (
     <Link
       href={door.href}

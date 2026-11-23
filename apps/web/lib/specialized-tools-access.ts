@@ -92,7 +92,8 @@ export const FREE_SPECIALIZED_TOOLS = [
 export type FreeSpecializedTool = (typeof FREE_SPECIALIZED_TOOLS)[number];
 
 /**
- * 🔓 THE PAID TOOLS — what the unlock opens today. Every future Setnayan tool and the shop's own
+ * 🔓 THE PAID TOOLS — what the unlock opened. Since owner 20 Nov the photo challenge (`papic_challenge`) and the 3D booth
+ * (`3d_plan`) come with Pro and up instead ({@link PRO_INCLUDED_TOOLS}); the unlock keeps opening the rest. Every future Setnayan tool and the shop's own
  * tools (Tools Maker, Thu 12 Nov) join this side. Forms Maker is NOT a tool here: it is free on
  * every plan (owner 2026-11-09, *"Form make it free"*).
  */
@@ -174,6 +175,69 @@ export function specializedToolsUnlockFrom(
     return { unlocked: true, source: 'trial' };
   }
   return { unlocked: false, source: null };
+}
+
+// ── THE PHOTO CHALLENGE AND THE 3D BOOTH: PRO AND UP (owner 20 Nov) ──────────
+
+/**
+ * ⚖ DECISION_LOG 2026-11-20 "SUPPLIER AI CHATBOT, 3D BOOTH AND PHOTO CHALLENGE ARE INCLUDED IN PRO AND UP" — owner,
+ * verbatim: *"the AI chatbot / the 3D booth / the photo challenge this is part of Pro and Up"*; Free · Verified · Plus
+ * may not have them (controller, under owner delegation, same day), with GRANDFATHERING: what a shop already held
+ * when it shipped runs to its end. The two tools below therefore leave the Specialized tools unlock, which keeps
+ * opening every OTHER paid tool ({@link specializedToolsUnlockFrom} is unchanged).
+ * 💬 The CHATBOT half of that row was re-ruled on 21 Nov (owner: *"AI Chatbot is for verified and up but smarter chatbot
+ * is for pro and up"*) — its gate is `PLAN_CHATBOT_LEVEL` in lib/vendor-ai-level.ts, not this file.
+ *
+ * ⚖ WIDENED 2026-11-22 (owner, "FINAL LADDER": *every tool on every paid size*): the two tools now come with EVERY paid
+ * plan — Plus (128 GB) included — so {@link PRO_TOOLS_MIN_TIER} is `solo`. The grandfather columns stay as they were.
+ *
+ * THE MIRROR of `vendor_pro_tools_included(shop, event)` (migration 20271356215288, widened by the 2026-11-22 ladder
+ * migration), held in step by
+ * `tests/db/pro-tools-come-with-pro.db.test.ts`.
+ */
+export const PRO_INCLUDED_TOOLS = ['papic_challenge', '3d_plan'] as const satisfies readonly PaidSpecializedTool[];
+export const PRO_TOOLS_MIN_TIER: VendorTier = 'solo';
+
+/** Does this paid tool come with Pro and up only (not with the Specialized tools unlock)? */
+export function isProIncludedTool(tool: string): boolean {
+  return (PRO_INCLUDED_TOOLS as readonly string[]).includes(tool);
+}
+
+/**
+ * The frozen grandfather columns on `vendor_specialized_tools_access` (null = held nothing that way at ship time).
+ * `pro_tools_plus_until = 'infinity'` is a Plus plan with no end date. `trial_event_id` is the row's own, never
+ * changed once set.
+ */
+export type ProToolsGrandfather = {
+  pro_tools_plus_until: string | null;
+  pro_tools_unlock_until: string | null;
+  pro_tools_trial_until: string | null;
+  trial_event_id: string | null;
+};
+
+const OPEN_ENDED = 'infinity';
+
+export function proToolsIncludedFrom(
+  facts: Pick<SpecializedToolsFacts, 'tier_state' | 'tier_expires_at' | 'verification_state'> | null | undefined,
+  grandfather: ProToolsGrandfather | null | undefined,
+  eventId: string | null | undefined,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!facts) return false;
+  const tier = facts.tier_state;
+  const planLiveNow = !facts.tier_expires_at || liveAt(facts.tier_expires_at, nowMs);
+  if (isTierAtLeast(tier, PRO_TOOLS_MIN_TIER) && planLiveNow) return true;
+  const g = grandfather;
+  if (!g) return false;
+  if (g.pro_tools_plus_until === OPEN_ENDED) {
+    if (tier === 'solo' && !facts.tier_expires_at) return true;
+  } else if (liveAt(g.pro_tools_plus_until, nowMs)) {
+    return true;
+  }
+  if (facts.verification_state !== 'verified') return false;
+  if (!isTierAtLeast(tier, SPECIALIZED_TOOLS_MIN_TIER)) return false;
+  if (liveAt(g.pro_tools_unlock_until, nowMs)) return true;
+  return !!eventId && g.trial_event_id === eventId && liveAt(g.pro_tools_trial_until, nowMs);
 }
 
 // ── MAY THIS SHOP BUY IT? ────────────────────────────────────────────────────

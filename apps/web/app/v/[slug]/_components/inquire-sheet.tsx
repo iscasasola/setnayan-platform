@@ -16,7 +16,9 @@ import {
   inquireResumeHref,
   inquireResumeOf,
   inquireRowNote,
+  inquireSendOutcome,
   inquireSendPicks,
+  INQUIRY_NOT_SENT,
   NO_SERVICES_LINE,
   type InquireListItem,
 } from '@/lib/shop-inquire';
@@ -90,14 +92,17 @@ export function InquireSheet({
   const [eventId, setEventId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [note, setNote] = useState<string | null>(null);
+  // 📨 The note is a failure (the send did not land) — drawn in the danger colour, the couple's words kept in the box.
+  const [noteFailed, setNoteFailed] = useState(false);
   const [left, setLeft] = useState(0);
-  const [sent, setSent] = useState<{ eventId: string; threadId: string } | null>(null);
+  const [sent, setSent] = useState<{ eventId: string; threadId: string; listed: boolean; posted: boolean } | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const { openSignIn, panel } = useSignInPanel();
 
   const open = useCallback(
     (at?: Step, picks?: string[], made?: string | null) => {
       setNote(null);
+      setNoteFailed(false);
       setSent(null);
       // ☝ Only what they tapped — never the first service by default (Build 5 F4).
       setChosen(inquireOpeningPicks(services, picks));
@@ -211,28 +216,29 @@ export function InquireSheet({
         inquiryUtm,
         referringChapterPublicId,
       });
-      if (res.status === 'ok' || res.status === 'ok_build_not_sent') {
-        setSent({ eventId: res.eventId, threadId: res.threadId });
+      // 📨 ONE reading of the result (`inquireSendOutcome`): only a delivery is the Sent step. Anything else goes back
+      // to this step with the reason — the typed words stay in the box (`message` is never cleared on a failure).
+      const outcome = inquireSendOutcome(res, 'Sign in to send this — your picks are kept.');
+      if (outcome.sent) {
+        setSent({ eventId: outcome.eventId, threadId: outcome.threadId, listed: outcome.listed, posted: outcome.posted });
         setStep('sent');
         // Sent: the ask leaves the address, so a reload does not open it again.
         window.history.replaceState(window.history.state, '', inquireClearedHref(window.location.href));
         return;
       }
       setStep('event');
-      setNote(
-        res.status === 'not_signed_in' || res.status === 'not_secured'
-          ? 'Sign in to send this — your picks are kept.'
-          : res.status === 'no_event'
-            ? 'That event isn’t yours to ask from. Pick another.'
-            : res.message || 'It didn’t send. Try again.',
-      );
+      setNoteFailed(true);
+      setNote(outcome.note);
     } catch {
       setStep('event');
-      setNote('It didn’t send. Check your connection and try again.');
+      setNoteFailed(true);
+      setNote(INQUIRY_NOT_SENT);
     }
   };
 
   const hold = () => {
+    // A note from here on is a prompt, not a failure — until a send says otherwise.
+    setNoteFailed(false);
     // 🔇 OWN-02 (walk 13 Nov): with two or more events nothing is picked, and a press on Send did nothing at all — no
     // note, no movement. It now says what is missing, beside the button.
     if (!eventId) {
@@ -260,8 +266,17 @@ export function InquireSheet({
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
     setStep('event');
+    setNoteFailed(false);
     setNote('Not sent.');
   };
+
+  // 📨 The Sent step's line — each part said only when it happened (see the heading below).
+  const sentLine = [
+    sent?.posted === false ? `You already have a chat with ${shop.name}. Your picks were added to it.` : `${shop.name} will reply in your chat.`,
+    sent?.listed ? 'They’re on your event’s Suppliers now.' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const messagePlaceholder = general
     ? `What would you like to ask ${shop.name}?`
@@ -361,7 +376,11 @@ export function InquireSheet({
                   </FormRows>
                 </div>
                 {note ? (
-                  <p role="status" className="mt-2 text-[13px] text-ink/70" data-inquire-note="">
+                  <p
+                    role={noteFailed ? 'alert' : 'status'}
+                    className={`mt-2 text-[13px] ${noteFailed ? 'font-semibold text-danger-700' : 'text-ink/70'}`}
+                    data-inquire-note={noteFailed ? 'failed' : ''}
+                  >
                     {note}
                   </p>
                 ) : null}
@@ -390,12 +409,13 @@ export function InquireSheet({
           </>
         ) : step === 'sent' ? (
           <>
-            <h2 id="inquire-sheet-title" className="pr-12 text-[17px] font-bold" data-inquire-sent="">
-              Sent ✓
+            {/* 📨 Each sentence here is only said when it happened: "Sent" when a message posted, "on your Suppliers"
+                when the row was written (or already there). A conversation already under way, with nothing new
+                typed, gets the picks as interests — so it says that instead of "Sent". */}
+            <h2 id="inquire-sheet-title" className="pr-12 text-[17px] font-bold" data-inquire-sent={sent?.posted === false ? 'in-chat' : ''}>
+              {sent?.posted === false ? 'In your chat ✓' : 'Sent ✓'}
             </h2>
-            <p className="mb-2 text-[13px] text-ink/60">
-              {shop.name} will reply in your chat. They&rsquo;re on your event&rsquo;s Suppliers now.
-            </p>
+            <p className="mb-2 text-[13px] text-ink/60">{sentLine}</p>
             <div className="grid gap-2.5">
               {sent ? (
                 <ActionButton tone="info" main icon={MessageCircle} label="Open the chat" href={`/dashboard/${sent.eventId}/messages/${sent.threadId}`} className={MAIN} data-testid="inquire-open-chat" />

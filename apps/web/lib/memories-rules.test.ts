@@ -65,7 +65,8 @@ const ROWS: Array<[string, Parameters<typeof memoriesManagerRoleOf>[0], 'host' |
   ['the couple (creator)', { memberType: 'couple', coordinatorSeat: false, ...open }, 'host'],
   ['a co-host (a couple member)', { memberType: 'couple', coordinatorSeat: false, ...open }, 'host'],
   ['a full-access coordinator (co-host seat)', { memberType: 'couple', coordinatorSeat: true, ...open }, 'host'],
-  ['the coordinator (booked or by hand)', { memberType: 'coordinator', coordinatorSeat: true, ...open }, 'coordinator'],
+  // 🔒 Owner 2026-11-21: Memories are the hosts' — the coordinator (booked or by hand) no longer manages them.
+  ['the coordinator (booked or by hand)', { memberType: 'coordinator', coordinatorSeat: true, ...open }, null],
   ['a coordinator after the window', { memberType: 'coordinator', coordinatorSeat: true, coordinatorWindowClosed: true }, null],
   ['a limited helper (coordinator member, viewer seat)', { memberType: 'coordinator', coordinatorSeat: false, ...open }, null],
   ['a guest', { memberType: 'guest', coordinatorSeat: false, ...open }, null],
@@ -73,7 +74,7 @@ const ROWS: Array<[string, Parameters<typeof memoriesManagerRoleOf>[0], 'host' |
   ['a stranger', { memberType: null, coordinatorSeat: false, ...open }, null],
 ];
 
-test('2 · who manages: hosts + co-hosts + the coordinator, never a guest, another supplier or a helper', () => {
+test('2 · who manages: the hosts + co-hosts only — never the coordinator (2026-11-21), a guest, another supplier or a helper', () => {
   for (const [who, facts, want] of ROWS) assert.equal(memoriesManagerRoleOf(facts), want, who);
 });
 
@@ -106,7 +107,8 @@ test('2 · the server read: a coordinator seat is the live, accepted COORDINATOR
   console.error = () => {};
   try {
     const coord = fakeClient({ member: { data: { member_type: 'coordinator' }, error: null }, seat: { data: [{ moderator_id: 'm' }], error: null } });
-    assert.equal(await memoriesManagerRole(coord.client, 'ev', 'u'), 'coordinator');
+    // 🔒 Owner 2026-11-21: a live coordinator seat no longer manages Memories.
+    assert.equal(await memoriesManagerRole(coord.client, 'ev', 'u'), null);
     const seatAsk = coord.asked.filter((a) => a.startsWith('event_moderators')).join(' ');
     assert.match(seatAsk, /eq\("role_subtype","wedding_planner_external"\)/, 'the coordinator seat, not any seat');
     assert.match(seatAsk, /not\("accepted_at","is",null\)/, 'accepted');

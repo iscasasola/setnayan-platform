@@ -52,6 +52,9 @@ export const APPLY_SHEET_MAX_LINES = 8;
  *
  * No server imports — its actions come in as props, so a test can mount it.
  */
+/** The one line under ◆ Get the full Event Hub (20 Nov "MAKER PAYWALL"). */
+export const APPLY_FULL_HUB_COMES_WITH = 'Comes with Event Plus, Pro and Ultra.';
+
 export function ApplyProSheet({
   effects,
   priceLabel,
@@ -130,13 +133,13 @@ export function ApplyProSheet({
         <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15 lg:hidden" />
         <div className="flex items-center gap-2 px-4 pt-3">
           <p id={titleId} className="min-w-0 flex-1 text-lg font-bold tracking-tight text-ink">
-            {none ? 'Ready to apply' : grouped ? `Apply needs ${grouped.parts.length === 1 ? '1 Pro part' : `${formatCount(grouped.parts.length)} Pro parts`}` : 'Apply needs Event Pro'}
+            {none ? 'Ready to apply' : grouped ? `Apply needs ${grouped.parts.length === 1 ? '1 Plus part' : `${formatCount(grouped.parts.length)} Plus parts`}` : 'Apply needs the full Event Hub'}
           </p>
           {none ? null : (
-            <InfoTip label="" ariaLabel="About Event Pro effects" align="end">
+            <InfoTip label="" ariaLabel="About the full Event Hub’s changes" align="end">
               {grouped
                 ? 'These are in your draft. Guests see them once their part is unlocked for this event — everyone on it. Tap one to go to it, take one off, or apply the rest now; the Pro ones stay in your draft.'
-                : 'These are in your draft. Guests see them once you unlock Event Pro. Take one off, or apply the rest now — the Pro ones stay in your draft.'}
+                : 'These are in your draft. Guests see them once you get the full Event Hub. Take one off, or apply the rest now — the ◆ ones stay in your draft.'}
             </InfoTip>
           )}
           <button
@@ -161,7 +164,7 @@ export function ApplyProSheet({
                 {changes.slice(0, APPLY_SHEET_MAX_LINES).map((c, i) => (
                   <li key={`${c.place}·${c.what}·${i}`} data-apply-change="" className="flex min-w-0 items-center gap-1.5 text-ink">
                     {c.pro ? (
-                      <PaidMark state={c.held ? 'try' : 'unlocked'} bare label="Event Pro" size="xs" />
+                      <PaidMark state={c.held ? 'try' : 'unlocked'} bare label="the full Event Hub" size="xs" />
                     ) : (
                       <span aria-hidden className="inline-block h-1 w-1 shrink-0 rounded-full bg-ink/30" />
                     )}
@@ -181,8 +184,8 @@ export function ApplyProSheet({
             {heldForPro > 0 ? (
               <div className="mt-2 flex min-h-11 items-center justify-between gap-2" data-apply-held-for-pro="">
                 <p className="inline-flex items-center gap-1.5">
-                  <PaidMark state="try" bare label="Event Pro" size="xs" />
-                  {formatCount(heldForPro)} waiting for Pro
+                  <PaidMark state="try" bare label="the full Event Hub" size="xs" />
+                  {formatCount(heldForPro)} waiting for Plus
                 </p>
                 {onRemoveHeld ? (
                   <button
@@ -191,7 +194,7 @@ export function ApplyProSheet({
                     onClick={onRemoveHeld}
                     className="sn-press inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-ink/70 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
                   >
-                    Remove Pro changes
+                    Remove Plus changes
                   </button>
                 ) : null}
               </div>
@@ -212,7 +215,7 @@ export function ApplyProSheet({
                       onClick={() => setOpenPart(open ? null : g.part)}
                       className="flex min-h-11 w-full items-center gap-2 rounded-2xl px-2 text-left disabled:cursor-default"
                     >
-                      <PaidMark state="try" bare label="Event Pro" size="xs" />
+                      <PaidMark state="try" bare label="the full Event Hub" size="xs" />
                       <span className="min-w-0 flex-1 text-sm">
                         <span className="block font-semibold text-ink">{g.name}</span>
                         {/* Closed, a part is ONE line a part — its effects said small underneath (prototype frame 1-closer). */}
@@ -305,7 +308,7 @@ export function ApplyProSheet({
             {effects.map((e) => (
               <li key={e.id} data-apply-pro-effect={e.id} className="flex min-h-12 items-center gap-2 rounded-2xl px-2 py-1">
                 {/* Every row here is Pro — the diamond alone, no word repeated seven times. */}
-                <PaidMark state="try" bare label="Event Pro" size="xs" />
+                <PaidMark state="try" bare label="the full Event Hub" size="xs" />
                 {/* 🚫 No "Go to ↗" (owner 2026-10-22) — the row itself is the press. */}
                 <button
                   type="button"
@@ -383,8 +386,14 @@ export function ApplyProSheet({
                 data-apply-pro-unlock=""
                 className="button-primary sn-press inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-center"
               >
-                Unlock Pro and Apply{priceLabel ? ` · ${priceLabel}` : ''}
+                ◆ Get the full Event Hub and apply{priceLabel ? ` · ${priceLabel}` : ''}
               </Link>
+              ) : null}
+              {/* ◆ = the full Event Hub (20 Nov "MAKER PAYWALL"): it comes with Event Plus, Pro and Ultra. Nothing is lost. */}
+              {proHref ? (
+                <p className="-mt-1 text-center text-[12px] text-ink/60" data-apply-pro-comes-with="">
+                  {APPLY_FULL_HUB_COMES_WITH}
+                </p>
               ) : null}
               <button
                 type="button"
@@ -393,7 +402,7 @@ export function ApplyProSheet({
                 data-apply-pro-without=""
                 className="sn-press min-h-11 w-full rounded-full text-sm font-semibold text-ink/70 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
               >
-                {pending ? 'Applying…' : 'Apply without the Pro effects'}
+                {pending ? 'Applying…' : 'Apply without the ◆ changes'}
               </button>
             </>
           )}

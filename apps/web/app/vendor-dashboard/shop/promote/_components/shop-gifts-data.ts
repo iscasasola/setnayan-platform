@@ -4,16 +4,18 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate } from '@/lib/request-platform';
 import {
-  fetchShopGiftBought,
   fetchShopGiftBundles,
+  fetchShopGiftGivenTotal,
+  fetchShopGiftHistory,
   fetchShopGiftPacks,
   fetchShopGiftRewardStock,
   fetchShopGiftStock,
 } from '@/lib/shop-gifts.server';
 import { freeByKind, rewardFreeByKind } from '@/lib/shop-gifts';
 import { readGrantedRewards, readRewardNames } from '@/lib/badge-rewards.server';
+import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import type { ShopGiftsSectionData } from './shop-gifts-section';
 
 /**
@@ -30,13 +32,17 @@ export async function loadShopGiftsSection(supabase: SupabaseClient, vendorProfi
   const giftsAdmin = createAdminClient();
   // 🏅 …and the badge rewards kept in it (owner 2026-11-05): what is left of the reward stock, every reward given and
   // the free booking fee's history — read with the service role, keyed on the shop's own id.
-  const [stock, bought, packs, papicOn, storeShell, settings, rewardStock, rewardsGranted, rewardNames] =
+  // 🛒 The store (prototype v16, 2026-11-17): the History screen's rows, the top row's Given, and the most in one
+  // payment (the admin setting the store's caps are drawn from — never a typed number).
+  const [stock, history, givenTotal, maxPaymentPhp, packs, papicOn, gate, settings, rewardStock, rewardsGranted, rewardNames] =
     await Promise.all([
       fetchShopGiftStock(supabase, vendorProfileId, null),
-      fetchShopGiftBought(supabase, vendorProfileId),
+      fetchShopGiftHistory(supabase, vendorProfileId),
+      fetchShopGiftGivenTotal(supabase, vendorProfileId),
+      getMaxPaymentPhp(giftsAdmin),
       fetchShopGiftPacks(giftsAdmin),
       isVendorPapicCaptureEnabled(),
-      isStoreShellRequest(),
+      getIapGate(),
       fetchPlatformSettings(supabase),
       fetchShopGiftRewardStock(supabase, vendorProfileId, null),
       readGrantedRewards(giftsAdmin, vendorProfileId),
@@ -51,9 +57,16 @@ export async function loadShopGiftsSection(supabase: SupabaseClient, vendorProfi
     // 💎 Event Plus / Pro are not Papic — with the Papic switch off only they stay on sale (#7297, slice 2).
     packs: papicOn ? packs : (packs?.filter((p) => p.kind !== 'papic') ?? null),
     bundles,
-    bought,
+    history: history?.rows ?? null,
+    onTheWay: history?.onTheWay ?? {},
+    givenTotal,
+    maxPaymentPhp,
     openRails: openRailOptions(settings),
-    canBuy: !storeShell,
+    canBuy: !gate.storeShell,
+    // 💝 In the iPhone app with StoreKit (the three-part gate: the flag, the store shell, a build that sells) AND a build
+    // whose plugin passes a quantity (`SetnayanIAP/3`), a gift is bought through Apple instead — line by line, each cart
+    // line its own Apple purchase, Apple's price on every button (owner 2026-11-04, 2026-11-22).
+    appleGifts: gate.iapQuantity,
     rewards: { left: rewardFreeByKind(rewardStock, freeByKind(stock)), granted: rewardsGranted, names: rewardNames },
   };
 }

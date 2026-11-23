@@ -97,7 +97,7 @@ export function InkCompare({
         </span>
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.18)]"
+          className="pointer-events-none absolute inset-y-0 w-0.5 bg-raised shadow-[0_0_0_1px_rgba(0,0,0,0.18)]"
           style={{ left: `${wipe}%` }}
         />
 

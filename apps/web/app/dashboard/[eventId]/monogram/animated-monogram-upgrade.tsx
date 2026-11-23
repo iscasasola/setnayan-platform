@@ -23,7 +23,7 @@ import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-re
 import { sanitizeStudioConfig, type StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { DEFAULT_STUDIO_ANIM } from '@/lib/hero-monogram-data';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
-import { FULL_PRO_SKU, hubPart } from '@/lib/hub-parts';
+import { EVERYTHING_SKU, hubPart } from '@/lib/hub-parts';
 
 /**
  * <AnimatedMonogramUpgrade> — the paid ANIMATED_MONOGRAM upgrade, rendered
@@ -172,7 +172,8 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
   const catalogue = await hubPartPrices(createAdminClient()).catch(() => null);
   const sale: MonogramSale = catalogue?.onSale.has(SKU_CODE)
     ? { serviceKey: SKU_CODE, pricePhp: catalogue.parts.get(SKU_CODE) ?? null, name: 'Event Pro · Logo & QR', whole: false }
-    : { serviceKey: FULL_PRO_SKU, pricePhp: catalogue?.full ?? null, name: 'Event Pro', whole: true };
+    : // 🏛 The Logo & QR part (and so the animation) is in Event Plus, the whole Event Hub (owner 20 Nov) — its row and name.
+      { serviceKey: EVERYTHING_SKU, pricePhp: catalogue?.everything ?? null, name: catalogue?.everythingTitle ?? 'Event Plus', whole: true };
 
   /* ── THE UNLOCK IS A ROW, NOT A SECTION (owner 2026-09-20) ──────────────
    * "it doesn't need its own row. it just needs to be on the Animate and
@@ -452,7 +453,7 @@ async function UnownedView({
            * and a made-up "within 2 hours" is a number governing money. */}
           <p className="pt-1 text-xs text-ink/55">
             {sale.whole
-              ? 'Part of Event Pro — one unlock for this event, with every other Pro feature.'
+              ? `Part of ${sale.name} — one unlock for this event, with every other Hub part.`
               : 'One unlock for your wedding — designed mark or uploaded logo, whichever you use.'}{' '}
             We check every payment by hand and email you the moment it
             goes live; your mark shows everywhere in the meantime.
@@ -471,7 +472,7 @@ async function UnownedView({
                * "Animate & apply · ₱500 · ₱500.00" on a MONEY button — seen in
                * production, invisible to tsc, lint and every test, because the
                * appending happens inside the drawer. */
-              triggerLabel={sale.whole ? 'Unlock Event Pro' : 'Animate & apply'}
+              triggerLabel={sale.whole ? `Unlock ${sale.name}` : 'Animate & apply'}
 
               triggerClassName="inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-700 disabled:opacity-70 sm:w-auto"
             />
@@ -515,7 +516,7 @@ async function UnownedView({
         </header>
 
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col items-center gap-3 rounded-xl border border-ink/10 bg-white/60 p-5 text-center">
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-ink/10 bg-raised/60 p-5 text-center">
             {/* Static side — exactly what the hero renders WITHOUT the upgrade:
                 the couple's own mark (BespokeMonogramMark) when one exists, else
                 the h-20 initials circle. */}
@@ -534,7 +535,7 @@ async function UnownedView({
             <p className="text-xs text-ink/55">Appears the moment the page loads.</p>
           </div>
 
-          <div className="relative flex flex-col items-center gap-3 rounded-xl border border-terracotta/30 bg-white/60 p-5 text-center">
+          <div className="relative flex flex-col items-center gap-3 rounded-xl border border-terracotta/30 bg-raised/60 p-5 text-center">
             <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-terracotta">
               <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
               Upgrade
@@ -622,7 +623,7 @@ async function UnownedView({
         {pricePhp != null ? (
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink/65">
-              {sale.whole ? 'Part of Event Pro' : 'One price for your wedding'} ·{' '}
+              {sale.whole ? `Part of ${sale.name}` : 'One price for your wedding'} ·{' '}
               <span className="font-mono text-base text-ink">{formatPhp(pricePhp)}</span>
             </p>
             <div className="sm:w-auto">
@@ -632,7 +633,7 @@ async function UnownedView({
                 displayName={`${sale.name}${displayName ? ` · ${displayName}` : ''}`}
                 originalPriceCentavos={String(Math.round(pricePhp * 100))}
                 settings={settings}
-                triggerLabel={sale.whole ? 'Unlock Event Pro' : 'Draw my monogram live'}
+                triggerLabel={sale.whole ? `Unlock ${sale.name}` : 'Draw my monogram live'}
                 triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
               />
             </div>

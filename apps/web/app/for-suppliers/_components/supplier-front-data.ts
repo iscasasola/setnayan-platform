@@ -8,19 +8,24 @@
  *   · which plan a Solo / Pro / Ultra line sits under                 → the Plans page's own rows,
  *                                                                       `VENDOR_TIER_SECTIONS` (vendor-benefits.ts)
  *   · which plan first has a fold line ("Pro+")                       → the same rows, or `firstPlanWith(TIER_CAPS)`
- *   · the 3D seat-plan logo                                           → `boothTierCanBrand` (booth-branding-tier-gate)
+ *   · the 3D seat-plan logo                                           → `PRO_TOOLS_MIN_TIER` (specialized-tools-access, owner 20 Nov)
  *   · plan prices, the year price, the branch + seat add-ons          → the catalog, read by the page (getVendorPrices)
  *   · the booking fee                                                  → the live schedule, read by the page
  *
  * Pure module (no React, no I/O) — `supplier-front-reads-its-numbers.test.ts` runs it.
  */
 import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
-import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
+import { bookingFeeCapPhp, bookingFeeLockPointPhp, bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { countNoun, formatCount } from '@/lib/format-number';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { FREE_FINDABLE } from './plan-table-data';
+import { storageWords } from '@/lib/downgrade-limits';
+import { planRole, planSummaryWords } from '@/lib/supplier-storage';
+
+/** A plan's size in words. `null` is only the type's "unreadable row" — every plan has a size — so it never invents one. */
+const sizeWords = (bytes: number | null): string => (bytes == null ? 'Your storage' : storageWords(bytes));
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
-import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
+import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
   PORTFOLIO_FREE_BASE,
@@ -29,6 +34,7 @@ import {
   canBuyExtraSeats,
   TIER_LABEL,
   firstPlanWith,
+  isPaidSize,
   type TierCaps,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
@@ -81,26 +87,47 @@ export function freeSpec(): string {
  * since 2026-11-19 (owner: *"unlock the range. not plan dependend anymore"*): verified, every plan sets its own.
  */
 export function verifiedSpec(): string {
-  return `${VERIFIED_REACH} · the Verified seal · get paid in the app`;
+  // 💬 Owner 21 Nov: "AI Chatbot is for verified and up" — read from the gate's own table, never typed.
+  const chatbot = (PLAN_CHATBOT_LEVEL.verified ?? 'none') !== 'none' ? ' · the AI chatbot' : '';
+  return `${VERIFIED_REACH} · the Verified seal · get paid in the app${chatbot}`;
 }
 
 /**
- * A paid plan's spec line, e.g. Pro: "8 categories · 20 service cards live · 5 team seats · 2 branches". A part a
- * plan does not have (Plus's branches) is left out, as the prototype leaves it out. The waiting list has no plan limit
- * since 2026-11-18, and reach is not a plan allowance since 2026-11-19, so neither is a part. Every number is TIER_CAPS.
+ * A paid plan's spec line, from its caps. 💾 Owner 2026-11-22 ("SAME FEATURES IN EVERY SIZE" + "STARTER BUSINESS"): the
+ * plans are storage sizes, so the size leads; Plus says its starter limits, Pro and Ultra say "no limit". E.g. Plus:
+ * "128 GB · every category · 15 service cards live · you and 2 more"; Pro: "500 GB · every category · no limit on
+ * cards, people or branches". A part a plan does not have (Plus's branches) is left out. Every number is TIER_CAPS;
+ * a no-limit cap is said in words, never as "—" or "Infinity".
  */
 export function growSpec(t: GrowTier): string {
   const c: TierCaps = TIER_CAPS[t];
   const parts = [
-    countNoun(c.parentCategories, 'category', 'categories'),
-    // Cards are unlimited to MAKE; the plan counts the LIVE ones (owner 19 Nov 2026, lib/live-cards-cap.ts). Bookings a
-    // day are not a plan limit (ruling 17, no part).
-    `${countNoun(c.serviceCardsTotal, 'service card', 'service cards')} live`,
-    countNoun(c.agentAccounts, 'team seat', 'team seats'),
+    sizeWords(c.storageBytes),
+    Number.isFinite(c.parentCategories) ? countNoun(c.parentCategories, 'category', 'categories') : 'every category',
   ];
-  if (c.branchesIncluded > 0) parts.push(countNoun(c.branchesIncluded, 'branch', 'branches'));
+  const unlimited = !Number.isFinite(c.serviceCardsTotal) && !Number.isFinite(c.agentAccounts) && !Number.isFinite(c.branchesIncluded);
+  if (unlimited) return [...parts, 'no limit on cards, people or branches'].join(' · ');
+  // Cards are unlimited to MAKE; the plan counts the LIVE ones (owner 19 Nov 2026, lib/live-cards-cap.ts).
+  parts.push(Number.isFinite(c.serviceCardsTotal) ? `${countNoun(c.serviceCardsTotal, 'service card', 'service cards')} live` : 'no limit on live cards');
+  parts.push(Number.isFinite(c.agentAccounts) ? `you and ${formatCount(c.agentAccounts)} more` : 'no limit on people');
+  if (!Number.isFinite(c.branchesIncluded)) parts.push('no limit on branches');
+  else if (c.branchesIncluded > 0) parts.push(countNoun(c.branchesIncluded, 'branch', 'branches'));
   return parts.join(' · ');
 }
+
+/**
+ * Each plan's one line on its card, from its caps (owner 2026-11-22: the plans are sizes with the same features, and a
+ * plan is never shown as its size alone). A paid size leads with its role ("The starter business: …"); Free and Verified
+ * already carry their name on the card, so their line is the summary itself ("Run your own clients, … and 256 MB.").
+ */
+export function planLine(t: VendorTier): string {
+  if (!isPaidSize(t)) {
+    const w = planSummaryWords(t);
+    return `${w.charAt(0).toUpperCase()}${w.slice(1)}.`;
+  }
+  return `${planRole(t)}: ${planSummaryWords(t)}.`;
+}
+
 
 /** "Everything in Free, plus" — the plan below, by the Grow order (Verified joins Free, 2026-11-14). */
 export function growPlus(t: GrowTier): string {
@@ -121,7 +148,7 @@ export const GROW_LINES: ReadonlyArray<{ text: string; tail?: string; lead?: tru
   { text: 'Your own reply and booking metrics', row: /^Your own funnel metrics$/ },
   { text: 'Earnings dashboard', row: /^Earnings dashboard$/ },
   { text: 'Recap sharing to your Facebook Page', row: /^Recap sharing$/ },
-  { text: 'Your logo on the couple’s 3D seat plan (3D Booth add-on)', row: /3D seat plan/ },
+  { text: 'Your logo on your booth in the couple’s 3D seat plan', row: /3D seat plan/ },
   { text: 'Premium two-column page', tail: ' with a sticky Inquire rail', lead: true, row: /^Premium two-column page$/ },
   { text: 'One business identity for your whole crew', row: /^One clean business identity$/ },
   { text: 'Demand Radar', row: /^Demand Radar$/ },
@@ -147,25 +174,44 @@ export type GrowLine = { text: string; tail?: string; lead: boolean };
  */
 export function foldedLines(t: GrowTier): GrowLine[] {
   const firstTools = GROW_TIERS.find((g) => SPECIALIZED_TOOLS_INCLUDED_TIERS.includes(g)) ?? null;
-  const firstBasic = GROW_TIERS.find((g) => PLAN_CHATBOT_LEVEL[g] === 'basic') ?? null;
+  // Verified comes first: when the chatbot opens on Verified (21 Nov), `verifiedSpec` says it and no plan repeats it.
+  const firstBasic = (['verified', ...GROW_TIERS] as const).find((g) => PLAN_CHATBOT_LEVEL[g] === 'basic') ?? null;
   const firstAdvanced = GROW_TIERS.find((g) => PLAN_CHATBOT_LEVEL[g] === 'advanced') ?? null;
   const out: GrowLine[] = [];
-  if (firstTools === t) out.push({ text: 'All specialized tools, included', lead: true });
+  if (firstTools === t) {
+    out.push(
+      firstTools === PRO_TOOLS_MIN_TIER
+        ? { text: 'All specialized tools, included', lead: true }
+        : { text: 'Specialized tools, included', tail: ': Papic Challenges and the branded 3D booth come with Pro', lead: true },
+    );
+  }
+  // 🎁 Owner 20 Nov: the photo challenge comes with Pro and up (the booth line rides GROW_LINES' 3D row).
+  if (t === PRO_TOOLS_MIN_TIER && firstTools !== t) out.push({ text: 'Papic Challenges at your events', lead: true });
   if (firstBasic === t) out.push({ text: 'AI chatbot, included', tail: ': answers price, dates and what’s included', lead: true });
   if (firstAdvanced === t) {
     out.push({ text: 'The smarter AI chatbot', tail: ': writes in your voice, replies in the couple’s language', lead: true });
   }
-  if (t === GROW_TIERS[GROW_TIERS.length - 1]) out.push({ text: 'Higher limits built in, nothing to add on', lead: true });
+  // 💾 Owner 2026-11-22 "SAME FEATURES IN EVERY SIZE": every feature sits under the first paid size, so Pro and Ultra
+  // say what they ADD — their room, and no limits — read from their caps. Nothing is sold on top (no add-ons).
+  if (t !== GROW_TIERS[0]) {
+    out.push({ text: `${sizeWords(TIER_CAPS[t].storageBytes)} for your files`, lead: true });
+    const c = TIER_CAPS[t];
+    const below = TIER_CAPS[GROW_TIERS[GROW_TIERS.indexOf(t) - 1]!];
+    if (!Number.isFinite(c.serviceCardsTotal) && Number.isFinite(below.serviceCardsTotal)) {
+      out.push({ text: 'No limit on cards, people or branches', lead: true });
+    }
+  }
   return out;
 }
 
 /**
  * The lines shown under one paid plan. A line whose Plans-page row is gone is dropped (never shown under a guess);
- * the 3D seat-plan line additionally sits under the FIRST plan `boothTierCanBrand` opens, so the gate and the page
+ * the 3D seat-plan line additionally sits under the plan `PRO_TOOLS_MIN_TIER` names (owner 20 Nov: Pro and up), so the gate and the page
  * cannot disagree.
  */
 export function growLines(t: GrowTier): GrowLine[] {
-  const firstBooth = GROW_TIERS.find((g) => boothTierCanBrand(g)) ?? null;
+  // 🎁 Owner 20 Nov: the branded booth comes with Pro and up — anchored to the same tier the database gate opens it on.
+  const firstBooth = GROW_TIERS.find((g) => g === PRO_TOOLS_MIN_TIER) ?? null;
   return [...foldedLines(t), ...GROW_LINES.filter((l) => {
     const at = l.row.source.includes('3D') ? firstBooth : tierOfPlansRow(l.row);
     return at === t;
@@ -316,12 +362,30 @@ export const FEE_SLIDER = { min: 10000, max: 1000000, step: 5000, start: 300000 
 /**
  * The fee ruler's stops (approved drawing `prototypes/for_suppliers_2026-11-20/`, "Test it: drag the bar"): EXAMPLE
  * booking prices a visitor swipes through, not prices. Each stop's fee is computed from the LIVE schedule by
- * `bookingFeePhp` in the client — no fee is typed anywhere. The ruler opens on `FEE_STOP_START`.
+ * `bookingFeePhp` — no fee is typed anywhere. The ruler opens on `FEE_STOP_START`.
+ *
+ * 🔒 The drawing's 26th stop — where the fee reaches the ₱100,000 lock — is NOT typed here: `feeRulerStops` adds it from
+ * the schedule (`bookingFeeLockPointPhp`), so an edited cap or rate moves it. On the live schedule it lands at 80%.
  */
 export const FEE_STOPS = [
-  50000, 75000, 100000, 150000, 200000, 250000, 300000, 400000, 500000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000,
+  50000, 75000, 100000, 150000, 200000, 250000, 300000, 400000, 500000, 600000, 750000, 1000000, 1250000, 1500000, 1750000,
+  2000000, 2250000, 2500000, 2750000, 3000000, 4000000, 5000000, 6000000, 8000000, 10000000,
 ] as const;
 export const FEE_STOP_START = 6;
+
+/** One ruler stop: the booking price, its fee, whether the fee sits at the lock, and whether it is the lock point. */
+export type FeeRulerStop = { v: number; fee: number; locked: boolean; lockPoint: boolean };
+
+/** The ruler's stops on a schedule — the example prices plus the lock point, in order, each with its LIVE fee. PURE. */
+export function feeRulerStops(schedule: BookingFeeSchedule): FeeRulerStop[] {
+  const cap = bookingFeeCapPhp(schedule);
+  const at = bookingFeeLockPointPhp(schedule);
+  const vs = [...new Set<number>([...FEE_STOPS, ...(at !== null ? [at] : [])])].sort((a, b) => a - b);
+  return vs.map((v) => {
+    const fee = bookingFeePhp(v, schedule);
+    return { v, fee, locked: fee >= cap, lockPoint: v === at };
+  });
+}
 
 /* ───────────────────────── small read facts the page prints ───────────────────────── */
 

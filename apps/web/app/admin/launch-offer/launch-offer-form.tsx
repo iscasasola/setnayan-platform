@@ -164,3 +164,34 @@ export function FreeFeeWindowForm({ from, until, reason }: { from: string; until
     </form>
   );
 }
+
+/**
+ * 🎂 The special tools' start date — before it every plan has the Cake Maker; from it, Pro and up (owner ruling
+ * "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP"). Empty = open to every plan.
+ */
+export function SpecialToolsDateForm({ from }: { from: string }) {
+  const [state, formAction] = useActionState<LaunchOfferActionState, FormData>(saveLaunchOffer, {
+    ok: false,
+    message: null,
+  });
+  return (
+    <form action={formAction} className="border-t border-ink/10 pt-4">
+      <input type="hidden" name="intent" value="special_tools" />
+      <label className="block" htmlFor="special_tools_paid_from">
+        <span className="text-xs font-medium text-ink/70">Pro and up from (Manila time)</span>
+        <input
+          id="special_tools_paid_from"
+          name="special_tools_paid_from"
+          type="datetime-local"
+          defaultValue={from}
+          className="input-field mt-1 w-full rounded-full"
+        />
+        <span className="mt-1 block text-xs text-ink/60">Until then the Cake Maker is open to every plan. Leave empty to keep it open.</span>
+      </label>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <ActionButton tone="brand" main icon={Check} type="submit" label="Save the date" />
+        <Result state={state} />
+      </div>
+    </form>
+  );
+}

@@ -78,7 +78,7 @@ test('RENDER: the two original ids keep their names, an admin-typed channel is s
 test('WIRED: the couple order page, the supplier fee page and the admin card print names', () => {
   for (const rel of [
     'app/dashboard/[eventId]/orders/[orderId]/page.tsx',
-    'app/vendor-dashboard/booking-fees/[orderId]/page.tsx',
+    'app/vendor-dashboard/booking-fees/[orderId]/fee-body.tsx',
   ]) {
     const s = src(rel);
     assert.match(s, /<PaymentChannelName\b[^>]*channel=\{p\.channel\}/, `${rel} must mount PaymentChannelName`);
@@ -124,7 +124,8 @@ test('names read as a phrase from the list, in the admin order', () => {
   assert.equal(namesPhrase(['GCash', 'BDO']), 'GCash or BDO');
   assert.equal(namesPhrase(['GCash', 'BDO', 'Maribank']), 'GCash, BDO or Maribank');
   assert.equal(namesPhrase([], 'bank or e-wallet'), 'bank or e-wallet');
-  assert.equal(receivingAccountsPhrase(SETTINGS), 'GCash, BDO or Maribank');
+  // ⚖ BDO only (owner 2026-11-17): the OPEN accounts' phrase names BDO alone.
+  assert.equal(receivingAccountsPhrase(SETTINGS), 'BDO');
   assert.equal(ourAccountPhrase(['GCash', 'Maribank']), 'our GCash or Maribank account');
   assert.equal(ourAccountPhrase([]), 'our receiving account');
 });
@@ -169,7 +170,7 @@ test('the surfaces that hold the open rails SAY their names', () => {
     assert.match(src(rel), /ourAccountPhrase\(openRails\.map/, `${rel} does not read the list`);
   }
   assert.match(
-    src('app/vendor-dashboard/booking-fees/[orderId]/page.tsx'),
+    src('app/vendor-dashboard/booking-fees/[orderId]/fee-body.tsx'),
     /namesPhrase\(\s*openAccounts\(settings\)/,
   );
 });

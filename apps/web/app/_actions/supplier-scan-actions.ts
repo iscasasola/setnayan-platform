@@ -35,6 +35,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { runCakeAction, type CakeActionInput, type CakeActionResult } from '@/app/_components/cake-maker/cake-actions';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -56,8 +57,17 @@ import {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function supplierScan(req: SupplierScanRequest): Promise<SupplierScanReply> {
+/**
+ * 🎂 `{ op: 'cake_tool', input }` — the Cake Maker, Shop › Specialized tools' other tile (2026-11-21): the action budget is
+ * full, so its reads and writes ride this dispatcher instead of a route of their own. `runCakeAction` does its own sign-in
+ * and shop / thread checks, exactly as when it was its own action. The client door is `cake-maker/cake-call.ts`.
+ */
+export async function supplierScan(
+  req: SupplierScanRequest | { op: 'cake_tool'; input: CakeActionInput },
+): Promise<SupplierScanReply | { op: 'cake_tool'; result: CakeActionResult }> {
   switch (req.op) {
+    case 'cake_tool':
+      return { op: 'cake_tool', result: await runCakeAction(req.input) };
     case 'set_scanner':
       return { op: 'set_scanner', result: await setServiceScanner(req.coverageId, req.choice) };
     case 'claim':

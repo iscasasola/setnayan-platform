@@ -74,6 +74,7 @@ const ANCHORS: Record<string, RegExp> = {
   papic_free_grant_claims: eqUid('user_id'),
   user_unfollows: eqUid('follower_user_id'),
   invite_mutes: eqUid('user_id'),
+  chat_thread_mutes: eqUid('user_id'),
   event_type_requests: eqUid('user_id'),
   vendor_reuse_requests: eqUid('requested_by_user_id'),
   /* 🤝🖼 Photos the subject suggested to a couple's board as a booked supplier — the author's act (2026-10-19). */
@@ -84,7 +85,9 @@ const ANCHORS: Record<string, RegExp> = {
   vendor_crew_passes: eqUid('crew_user_id'),
   chat_message_hearts: eqUid('user_id'),
   chat_poll_votes: eqUid('voter_user_id'),
+  cake_designs: eqUid('created_by'),
   admin_focus_put_offs: eqUid('user_id'),
+  event_today_put_offs: eqUid('user_id'),
   event_vendor_working_notes: eqUid('author_user_id'),
   coordinator_broadcasts: eqUid('sender_user_id'),
   event_day_requests: eqUid('author_user_id'),

@@ -249,6 +249,8 @@ export type NotificationType =
     for this without carrying one for themselves.
   */
   | 'vendor_credit_expiring'
+  // 🎁 A Setnayan plan gift ends in 7 days / 1 day (owner 14 Nov 2026) — `maybeSweepPlanGiftEndingNotices`.
+  | 'vendor_plan_gift_ending'
   // Added 2026-06-20 (Vendor lifecycle Phase 3→4 spine) alongside migration
   // 20270205806123_add_completion_accepted_notification_type.sql. Fired
   // (vendor-recipient) from vendors/[vendorId]/review/actions.ts →
@@ -586,6 +588,11 @@ export type NotificationType =
      opening `/host/accept/<token>` — so they accept without the couple copying the link. ⚠ IN-APP ONLY: NOT on
      EMAIL_ENABLED_TYPES (owner: no new emails without his word). ⚠ ENUM value in 20271303211103. */
   | 'coordinator_invited'
+  /* 💸 THE BOOKED COORDINATOR REMINDS THE HOSTS OF A PAYMENT DUE (owner 2026-11-21, DECISION_LOG "COORDINATOR: DUE
+     PAYMENTS VIEWABLE + 'REMIND THE HOSTS', NOT LOGGABLE"). → every host of the event, one notice per press, opening the
+     Budget page. Written by the DATABASE (`remind_the_hosts_of_a_payment`, 20271357113669), never emitNotification — at
+     most one per seat per supplier a day. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271356585725. */
+  | 'coordinator_reminded_payment'
   /* 🗓 A HOST OR THE COORDINATOR ASKED A BOOKED SUPPLIER TO CHANGE THEIR TIMES (owner 2026-11-02, DECISION_LOG "A
      SUPPLIER'S SCHEDULE BASICS FOR THIS WEEK" item 2; supplier gate audit D2). `schedule_ask` → the asked shop's owner,
      opening their Schedule for that event (Accept / Decline there); `schedule_ask_answered` → the asker, when the
@@ -634,7 +641,16 @@ export type NotificationType =
      earned a CARD BADGE (sender: J3). In-app + push only — NOT on EMAIL_ENABLED_TYPES (the owner ruled email for
      badge_earned only). ⚠ ENUM values in their own migration (notification_types_seal_and_card_badge). */
   | 'seal_awarded'
-  | 'card_badge_earned';
+  | 'card_badge_earned'
+  /** 💳 Maya would not open, so payers were sent to the BDO QR (owner 2026-11-21). ONE admin notice per outage window
+     (lib/maya-busy.server.ts). Admin-only, in-app + push. ⚠ ENUM value in its own migration
+     (notification_type_payment_rail_down). */
+  | 'payment_rail_down'
+  /** ⏰ Unichat H1 (approved prototype v3, DECISION_LOG 2026-11-20): a "Remind me" the person THEMSELVES set on a chat
+     message came due — sent to them alone by `lib/chat-reminders.server.ts`, and only if they can still read the
+     message. ⚠ IN-APP ONLY (owner rule 2026-10-11, no new emails): NOT on EMAIL_ENABLED_TYPES —
+     `a-chat-reminder-stays-in-the-app.test.ts`. ⚠ ENUM value in its own migration (notification_type_chat_reminder). */
+  | 'chat_reminder';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -712,6 +728,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   client_refund_recorded: 'Refund recorded',
   waitlist_picked: 'Your date is being held',
   vendor_credit_expiring: 'Your credit is about to expire',
+  vendor_plan_gift_ending: 'Your plan gift is ending',
   // Vendor lifecycle Phase 3→4 spine (2026-06-20).
   completion_accepted: 'Service confirmed',
   // Admin reconciliation signal (2026-06-24) — couple orders + vendor
@@ -773,6 +790,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   fee_dispute_opened: 'A booking fee is disputed',
   fee_dispute_answered: 'Your fee dispute was answered',
   coordinator_invited: 'You’re invited to coordinate',
+  coordinator_reminded_payment: 'Your coordinator reminds you of a payment',
   schedule_ask: 'Asked to change your times',
   schedule_ask_answered: 'A supplier answered your ask',
   supplier_where_asked: 'A supplier picked their chapters',
@@ -785,6 +803,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   badge_earned: 'You earned a badge',
   seal_awarded: 'You were given a seal',
   card_badge_earned: 'A service card earned a badge',
+  payment_rail_down: 'Maya is not opening',
+  chat_reminder: 'Reminder',
   supplier_part_changed: 'Your part changed',
   schedule_released: 'Your full schedule is ready',
 };
@@ -917,6 +937,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   waitlist_picked: 'bg-warn-100 text-warn-900',
   // Amber, not red: the money is still there. Red is for something already lost.
   vendor_credit_expiring: 'bg-warn-100 text-warn-900',
+  vendor_plan_gift_ending: 'bg-warn-100 text-warn-900',
   // A logged payment awaiting the vendor's confirm = action-needed → amber.
   payment_logged: 'bg-warn-100 text-warn-900',
   // A confirmed payment = a positive money-in confirmation → emerald
@@ -1033,6 +1054,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   fee_dispute_answered: 'bg-sky-100 text-sky-800',
   // Waiting on the coordinator's Accept → the action-needed amber, like every other ask.
   coordinator_invited: 'bg-warn-100 text-warn-900',
+  // A payment waits on the hosts → the action-needed amber.
+  coordinator_reminded_payment: 'bg-warn-100 text-warn-900',
   // A deadline on the couple's own originals → the action-needed amber.
   papic_originals_reminder: 'bg-warn-100 text-warn-900',
   // A supplier waits on the couple's answers → the action-needed amber, like every other ask.
@@ -1048,6 +1071,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   badge_earned: 'bg-success-200 text-success-900',
   seal_awarded: 'bg-success-200 text-success-900',
   card_badge_earned: 'bg-success-200 text-success-900',
+  payment_rail_down: 'bg-danger-100 text-danger-800',
+  // A reminder you set yourself on a chat message → sky, the chat_message register.
+  chat_reminder: 'bg-sky-100 text-sky-800',
   // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.
@@ -1353,6 +1379,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   supplier_part_changed: 'calendar',
   schedule_released: 'calendar',
   coordinator_invited: 'user-plus',
+  coordinator_reminded_payment: 'bell',
   schedule_ask: 'calendar',
   schedule_ask_answered: 'calendar',
   supplier_where_asked: 'calendar',
@@ -1370,6 +1397,8 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   badge_earned: 'gift',
   seal_awarded: 'gift',
   card_badge_earned: 'gift',
+  payment_rail_down: 'shield',
+  chat_reminder: 'message',
   vendor_review_reply: 'star',
   security_alert: 'shield',
   gift: 'gift',

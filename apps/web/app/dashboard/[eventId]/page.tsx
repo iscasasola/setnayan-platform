@@ -16,8 +16,10 @@ import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AccessRequestsDoorway, accessAsksWaiting, readAccessAsks } from './_components/access-requests-doorway';
-import { MoodBoardAsksDoorway } from './_components/mood-board-asks-doorway';
-import { CoordinatorLevelCard } from './_components/coordinator-level-card';
+import { MoodBoardAsksDoorway, readMoodBoardAsks, type MoodBoardAsksRead } from './_components/mood-board-asks-doorway';
+import { eventTodayAsks, readEventTodayPutOffs } from './_components/event-today-asks';
+import { isInPrepWindow } from '@/lib/event-day-prep-window';
+import { manilaToday } from '@/lib/chat-cards';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -107,9 +109,9 @@ import { DATE_FINDER_VALUE } from '@/lib/home-date-finder';
    work". This side-effect import puts the action, and so the editors it draws, in Home's server graph.
    🔒 `_components/the-settings-sheet-is-in-homes-graph.test.ts`. */
 import './_components/open-event-settings';
-import { rosterStats } from '@/lib/guest-roster-view';
+import { rosterStats, toInviteNames } from '@/lib/guest-roster-view';
 import { homeCoverFor } from '@/lib/home-cover.server';
-import { DateChangeDoorway } from './_components/date-change-doorway';
+import { DateChangeDoorway, readDateChange, type DateChangeRead } from './_components/date-change-doorway';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { readNikahImam } from './_components/nikah-imam';
 import { SetnayanAiComebackOffer } from './_components/setnayan-ai-comeback-offer';
@@ -250,6 +252,13 @@ export default async function EventHomePage({
   const homeNeedsRead = startAhead(readEventNeedsFor(supabase, eventId, 'EventHome'));
   // 🔑 What access asks wait on the hosts — started now; the Today line and its doorway share the one answer.
   const accessAsksRead = startAhead(readAccessAsks(eventId).catch((): Awaited<ReturnType<typeof readAccessAsks>> => ({ ok: false })));
+  // ☀ The other asks — each read ONCE here (they were read inside their own doorway): Home's Today list words each as a
+  // row and counts it (owner 20 Nov 2026), and the doorways the day-of and after screens draw take the same answer.
+  const moodAsksRead = startAhead(readMoodBoardAsks(eventId).catch((): MoodBoardAsksRead => ({ ok: false })));
+  const dateChangeRead = startAhead(readDateChange(eventId).catch((): DateChangeRead => ({ ok: false })));
+  // ⏭ THIS PERSON'S "Do it tomorrow" records on this event (`event_today_put_offs`, RLS: own rows); null = unread.
+  const todayIso = manilaToday();
+  const todayPutOffsRead = startAhead(readEventTodayPutOffs(supabase, eventId, user.id, todayIso).catch(() => null));
 
   // Lazy expiry sweeps at the top of the dashboard (no-cron architecture per
   // CLAUDE.md 2026-05-14 / PR #47). Fire-and-forget; failures never block the
@@ -1157,29 +1166,44 @@ export default async function EventHomePage({
     ☀ THE TODAY ASKS — every prompt that waits on the hosts (owner 2026-10-29, verbatim: *"The popup for the access and
     other popups above the header can be presented better"*). They used to stack ABOVE the cover band; NOTHING renders
     above Home's cover now — the cover is the top of Home — and each is a line of the Today list under it
-    (`HomeTodayItem`), in this order: what waits on the hosts first (the coordinator's access, then access requests),
+    (`HomeTodayItem`), in this order: what waits on the hosts first (access requests),
     then what is under way (a date change), then the event-day offer. Each self-hides and says a refused read. Held by
     `the-cover-is-the-top-of-home.test.ts`.
   */
+  const moodAsks = await moodAsksRead;
+  const dateChange = await dateChangeRead;
+  const todayPutOffs = await todayPutOffsRead;
   const todayAsks = (
     <>
-      {/* 🔑 "<shop> joined as your coordinator · Pick their access" — once, for a connected coordinator the hosts have
-          not answered for (owner 2026-10-29). Owners only; the press opens the house Sheet. */}
-      <CoordinatorLevelCard eventId={eventId} userId={user.id} />
       {/* Self-hiding: renders nothing unless someone is waiting on an answer (owner ruling 2026-07-27 — the host
           decides what to share). */}
       <AccessRequestsDoorway eventId={eventId} read={accessAsks} />
       {/* 🖼⏱ Suppliers' photos to approve, and the last 24 h of Mood Board changes by others with their Undo (owner
           2026-10-30, "THE OWNERS HAVE 24 HOURS TO UNDO"). One read; self-hiding; the database decides who sees which. */}
-      <MoodBoardAsksDoorway eventId={eventId} />
+      <MoodBoardAsksDoorway eventId={eventId} read={moodAsks} />
       {/* 🗓 "Date change: n of N suppliers answered" — self-hiding: renders nothing unless the couple asked booked
           suppliers to move (owner 2026-10-01, the clashing-date flow). Couple-only by RLS. */}
-      <DateChangeDoorway eventId={eventId} />
+      <DateChangeDoorway eventId={eventId} read={dateChange} />
       {/* "EVENT DAY SOON" was rendering for a full day AFTER the celebration — its own window is T-3d..T+1d and it
           never asked whether the day had been and gone. It is TOLD, from the one resolver. */}
       <EventDayPrepCta eventId={eventId} eventDate={event.event_date} finished={afterActive} />
     </>
   );
+  /*
+    ☀ BEFORE THE DAY THE SAME ASKS ARE ROWS OF HOME'S ONE LIST (owner 20 Nov 2026, Event Today, Focus shape — drawing
+    part C · 2: "each ask is a row in the list"): worded from the very reads above, each with its shipped answer for the
+    open card. After the day the lines above still lead the page, so the list repeats none of them.
+  */
+  const todayRows = afterActive
+    ? { asks: [], bodies: {} }
+    : eventTodayAsks({
+        eventId,
+        access: accessAsks,
+        mood: moodAsks,
+        dateChange,
+        prep: isInPrepWindow(event.event_date, new Date()) ? { eventDate: event.event_date } : null,
+        now: Date.now(),
+      });
   const homeFirstScreen = (
     <>
     {/* 🍎 The App Store net (lib/iap/native-store.ts): on Home — where the app
@@ -1189,7 +1213,7 @@ export default async function EventHomePage({
     <HomeFirstScreen
       eventId={eventId}
       cover={homeCover0}
-      asks={todayAsks}
+      todayList={{ asks: todayRows.asks, bodies: todayRows.bodies, putOffs: todayPutOffs, todayIso, inviteNames: toInviteNames(guests) }}
       /* ⚙ Event Settings on the cover — the couple's, who change the event's own facts (owner 2026-10-29). */
       eventSettings={viewerMemberType === 'couple'}
       /* 🪪 …and a helper's (a coordinator or limited helper — every non-host seat is a `coordinator` member): the same ⚙,

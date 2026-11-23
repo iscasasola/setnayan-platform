@@ -1,5 +1,7 @@
 import { formatCount } from '@/lib/format-number';
-import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
+import { FEE_FREE_CHIP } from './booking-fee-who-words';
+import { TIER_CAPS, TIER_LABEL, isPaidSize, type VendorTier } from '@/lib/vendor-tier-caps';
+import { storageWords } from '@/lib/downgrade-limits';
 
 /**
  * 🧺 MORE THAN ONE SERVICE AT SIGN-UP — the rules the /open-shop step 2 list runs (owner 2026-11-06, DECISION_LOG
@@ -19,11 +21,6 @@ import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
  * 10", and cards per `vendor_services.category`) — reconciling the two belongs to the hold build, not this file.
  */
 
-/**
- * The unlock line (the prototype's `UNLOCK_LABEL`, verbatim — v16, owner 6 Nov: *"their first booking free once
- * verified"*). Said once under the cards when the picks are more than Free holds, and as the lead of the plan sheet.
- */
-export const FIRST_BOOKING_FREE_LABEL = 'Your first booking is free once you’re verified';
 
 /** The plans the meter walks, smallest first. Verified holds more than Free since 2026-11-18 (3 service cards to 1). */
 const METER_PLANS: readonly VendorTier[] = ['free', 'verified', 'solo', 'pro', 'enterprise'];
@@ -98,6 +95,11 @@ export function carriesFirstBookingLabel(list: readonly MeterService[]): boolean
   return !planHolds('free', list);
 }
 
+/** "2 categories" · "1 service" — or the plan's own words for no limit (paid sizes since 2026-11-22), never "— categories". */
+function capWords(v: number, one: string, many: string, noLimit: string): string {
+  return Number.isFinite(v) ? `${formatCount(v)} ${v === 1 ? one : many}` : noLimit;
+}
+
 /** Search-listing words per `seoLevel` — the prototype's ladder (`LADDER`, v14–v16), one per level, never a price. */
 const SEARCH_WORDS: Record<(typeof TIER_CAPS)[VendorTier]['seoLevel'], string> = {
   basic: 'basic search listing',
@@ -115,9 +117,11 @@ const SEARCH_WORDS: Record<(typeof TIER_CAPS)[VendorTier]['seoLevel'], string> =
 export function planLadder(): { name: string; caps: string }[] {
   const rung = (t: VendorTier) => {
     const c = TIER_CAPS[t];
-    const cats = `${formatCount(c.parentCategories)} ${c.parentCategories === 1 ? 'category' : 'categories'}`;
-    const per = `${formatCount(c.serviceCardsTotal)} ${c.serviceCardsTotal === 1 ? 'service' : 'services'}`;
-    return [cats, per, SEARCH_WORDS[c.seoLevel]].join(' · ');
+    const cats = capWords(c.parentCategories, 'category', 'categories', 'every category');
+    const per = capWords(c.serviceCardsTotal, 'service', 'services', 'no limit on services');
+    // A paid rung leads with its size: since 2026-11-22 the features are the same in every paid size, the room is not.
+    const size = isPaidSize(t) && c.storageBytes != null ? [storageWords(c.storageBytes)] : [];
+    return [...size, cats, per, SEARCH_WORDS[c.seoLevel]].join(' · ');
   };
   return [
     { name: 'Free · Verified', caps: rung('free') },
@@ -146,7 +150,7 @@ export function whatEachPlanHolds(): {
       'Each service is its own listing in its category — more services means you appear in more couples’ searches. Reach is how far from you couples search.',
     after:
       'Everything you add stays on until your first booking on Setnayan is done. Then keep one free, or pick a plan to keep them all. Nothing is deleted.',
-    firstBooking: `${FIRST_BOOKING_FREE_LABEL}.`,
+    firstBooking: `${FEE_FREE_CHIP}.`, // 20 Nov: the free first booking is retired — the owner's free rule leads
     fine: 'No booking fee on it. One per business — checked when Setnayan verifies you.',
   };
 }
@@ -164,8 +168,8 @@ export function planSplit(list: readonly MeterService[]): {
 } {
   const capsOf = (t: VendorTier) => {
     const c = TIER_CAPS[t];
-    const cats = `${formatCount(c.parentCategories)} ${c.parentCategories === 1 ? 'category' : 'categories'}`;
-    const per = `${formatCount(c.serviceCardsTotal)} ${c.serviceCardsTotal === 1 ? 'service' : 'services'}`;
+    const cats = capWords(c.parentCategories, 'category', 'categories', 'every category');
+    const per = capWords(c.serviceCardsTotal, 'service', 'services', 'no limit on services');
     return `${cats} · ${per}`;
   };
   const paid = (['solo', 'pro', 'enterprise'] as const).find((t) => planHolds(t, list)) ?? null;

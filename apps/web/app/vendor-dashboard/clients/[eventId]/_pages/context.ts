@@ -13,6 +13,8 @@
  */
 import type { ReactNode } from 'react';
 
+import type { TheirEventRow } from '@/lib/their-event';
+
 export type PickedClientStage = 'booked' | 'inquiry' | 'requested';
 
 export type PickedPageContext = {
@@ -38,6 +40,13 @@ export type PickedPageContext = {
    * the chat box (owner 17 Nov). Empty on a plain open.
    */
   threadSearch?: Record<string, string>;
+  /**
+   * 🚪 "Their event" — a booked supplier's links to their open parts (owner 2026-11-21), drawn above the chat. Null for
+   * the coordinator (who has the dashboard), before booking, and while the fee withholds the event.
+   */
+  theirEventRows?: readonly TheirEventRow[] | null;
+  /** 🧾 Details › Agreed now's plain rows (Venue · Hosts · Coordinator · Supplier · Stage) — `agreedFacts`, part G. */
+  agreedFacts?: readonly { label: string; value: string }[];
 };
 
 export type PickedPageProps = {

@@ -31,6 +31,9 @@ import { isValidOpenShopEmail } from '@/lib/open-shop-validation';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { claimChangeQuote, purchaseChange } from '@/lib/supplier-purchase-change';
 import { stagePurchaseChange } from '@/lib/supplier-purchase-change.server';
+import { FIRST_CARD_EDIT_UNREAD, claimCardQuery, type ClaimCardCarry } from '@/lib/supplier-onboarding';
+import { putFirstCardLive } from '@/lib/first-card-live.server';
+import { firstCardWhyKey } from '@/lib/first-card-why';
 
 /**
  * THE CLAIM DOOR'S FINISH (controller A6, 7 Nov; owner 2026-11-06 "THE SAME DOOR, PRE-FILLED — THEN ONE SLIDE PER
@@ -222,8 +225,19 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   // maker's own, and a card it refused is simply not made — the Today checklist still asks for it.
   // The couple's cards, then the supplier's own — each added service is its own card on the shop, priced on its own.
   const made: string[] = [];
+  // 🚪 THE FIRST CARD'S WAY (supplier onboarding, owner 19 Nov) — the door's card 0. Skip = that card is not made (the
+  // booking stays in Clients); Edit = it is made, then the shipped Card Maker opens on it once the claim is consented.
+  // Card 0 is the door's first service's card — found among the split cards by that service, never by re-reading the post.
+  const firstService = answers.services[0] ?? null;
+  const firstCard = firstService
+    ? [...theirs, ...added].find((c) => c.category === firstService.category && c.leaf === firstService.leaf) ?? null
+    : null;
+  const firstCardName = firstCard?.name ?? null;
+  // The maker's own sentence when it refuses card 0 — carried to Today's welcome as a key (`lib/first-card-why.ts`).
+  let makerSaidOfFirstCard: string | null = null;
   for (const card of [...theirs, ...added]) {
     if (card.bundled) continue;
+    if (answers.firstCard === 'skip' && card === firstCard) continue;
     // 🧾 v2: the Card Maker's own pricing fields as the supplier confirmed them (One price · Per guest · Per hour,
     // and the extras as the maker's add-on rows) — or no card, as before, when it carries no price.
     const priceFields = claimCardServiceFields(card);
@@ -242,6 +256,7 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
       const url = new URL(getURLFromRedirectError(e) ?? '', 'http://claim-door.local');
       if (url.searchParams.get('error')) {
         console.warn('[claim-door] a card was refused by the maker:', url.searchParams.get('error'));
+        if (card === firstCard) makerSaidOfFirstCard = url.searchParams.get('error');
         continue;
       }
     }
@@ -369,5 +384,50 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   // Your details (prototype frame B4). Finalize would only see "claimed by you" and send them to the dashboard.
   if (fromSetnayan) redirect('/vendor-dashboard/profile');
   // ── THE CONSENT IS THE SHIPPED ONE ──────────────────────────────────────────────────────────────────────────────
-  redirect(`/vendor/claim/${encodeURIComponent(token)}/finalize`);
+  // Edit on the first card: finalize hands over to the shipped Card Maker on that card (`?edit=`), never past consent.
+  // Ship review 21 Nov: when Edit was picked but the card cannot be found (not made, or the lookup failed), say so —
+  // finalize lands the welcome with `card_edit=unread`, never silently on the welcome as if Edit had not been pressed.
+  const firstMade = Boolean(firstCardName && made.includes(firstCardName));
+  const editId =
+    answers.firstCard === 'edit' && firstCardName && firstMade
+      ? await firstCardIdOf(admin, vendorProfileId, firstCardName)
+      : null;
+  const editParam = editId ? encodeURIComponent(editId) : answers.firstCard === 'edit' ? FIRST_CARD_EDIT_UNREAD : null;
+  const finalize = `/vendor/claim/${encodeURIComponent(token)}/finalize${editParam ? `?edit=${editParam}` : ''}`;
+  if (editParam) redirect(finalize);
+  // 🃏 WHAT THE WELCOME MAY SAY ABOUT THE FIRST CARD (review 20 Nov) — carried through finalize, as Door B's is. The
+  // maker makes every card as a draft; Approve asks the SHIPPED switch (the publish gate + the plan's live-cards cap,
+  // `putFirstCardLive`) and only its yes is `live`. Skipped · not made · made but not found again · refused by the
+  // switch are each said on Today, with the reason as a key. A card inside the bundle is not a card of its own: no carry.
+  let cardCarry: ClaimCardCarry | null = null;
+  if (firstCard && !firstCard.bundled && (answers.firstCard === 'skip' || answers.firstCard === 'approve')) {
+    if (answers.firstCard === 'skip') cardCarry = { state: 'skipped', why: null, id: null };
+    else if (!firstMade || !firstCardName) cardCarry = { state: 'refused', why: firstCardWhyKey(makerSaidOfFirstCard, 'refused'), id: null };
+    else {
+      const firstId = await firstCardIdOf(admin, vendorProfileId, firstCardName);
+      // Made, but the read that finds it again failed or came back empty: said as that (`made-unread`), never "not live".
+      if (!firstId) redirect(`${finalize}?${claimCardQuery({ state: 'draft', why: 'made-unread', id: null })}`);
+      const live = await putFirstCardLive(firstId);
+      cardCarry = live.live ? { state: 'live', why: null, id: null } : { state: 'draft', why: firstCardWhyKey(live.why, 'draft'), id: firstId };
+    }
+  }
+  redirect(cardCarry ? `${finalize}?${claimCardQuery(cardCarry)}` : finalize);
+}
+
+/** The id of the card the door just made under `title` on this shop (the newest), or null. */
+async function firstCardIdOf(admin: ReturnType<typeof createAdminClient>, vendorProfileId: string, title: string): Promise<string | null> {
+  const { data, error } = await admin
+    .from('vendor_services')
+    .select('vendor_service_id')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('title', title)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    // A failed lookup is not "no card": the caller says it (`card_edit=unread`) instead of landing as if nothing was asked.
+    console.error('[supabase-error] app/open-shop/claim-actions.ts · from:vendor_services.select', error.message);
+    return null;
+  }
+  return (data as { vendor_service_id?: string } | null)?.vendor_service_id ?? null;
 }

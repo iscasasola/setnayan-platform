@@ -89,11 +89,16 @@
 .q em { font-style: normal; font-weight: 700; }
 .ok { justify-self: end; padding: 5px 10px; border-radius: var(--m-r-full); background: var(--sf-ok); color: #fff; font-weight: 650; }
 .cards { padding-bottom: 10px; }
-.card { flex: 0 0 min(300px, 82vw); scroll-snap-align: start; }
+/* Card 14's own widths (DECISION_LOG 20 Nov): ~206 px on a phone, ~285 px on desktop. */
+.card { flex: 0 0 206px; scroll-snap-align: start; }
+@media (min-width: 768px) { .card { flex-basis: 285px; } }
 /* The shared ServiceFace rounds its cover with overflow:hidden. On the card that peeks at the row's edge, that half-shown
    box is the first clipper the sideways-scroll e2e finds, so it never reaches the scroller around it. Round it with a
    clip-path instead: the same 14 px corner, and the swipe row stays the box that holds it. */
 .card :global(span.overflow-hidden.rounded-lg) { overflow: visible; clip-path: inset(0 round var(--m-r-md)); }
+.card :global([data-service-face-layout='mall']),
+.card :global([data-service-face-layout='mall'] .overflow-hidden) { overflow: visible; }
+.card :global([data-service-face-layout='mall'] .aspect-square) { clip-path: inset(0 round var(--sn-frame-radius) var(--sn-frame-radius) 0 0); }
 
 /* ── 3 · shop page ── */
 .wide { position: relative; margin: 10px 0 0; border-radius: var(--m-r-lg); overflow: hidden; background: var(--sf-wash); }
@@ -126,6 +131,7 @@
 .earnHead { display: grid; gap: 4px; }
 .kicker { font-size: 12.5px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--sf-m2); }
 .earnHead h3 { margin: 0; font-size: 20px; line-height: 1.25; font-weight: 650; color: var(--sf-ink); }
+.earnLede { margin: 4px 0 0; font-size: 15px; line-height: 1.5; color: var(--sf-m1); }
 .promises { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .promises li { position: relative; display: grid; gap: 2px; padding: 12px 14px 12px 40px; border-radius: var(--m-r-md); background: var(--sf-card); border: 1px solid var(--sf-line); }
 .promises li::before { content: '✓'; position: absolute; left: 14px; top: 12px; color: var(--sf-ok); font-weight: 800; }
@@ -164,11 +170,21 @@
 .fx { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--sf-line); }
 .fxTry { font-size: 15px; line-height: 1.35; font-weight: 650; }
 .fxRule { position: relative; margin-top: 10px; }
-.fxBar { position: relative; height: 74px; pointer-events: none; }
+.fxBar { position: relative; height: 74px; cursor: grab; touch-action: pan-y; user-select: none; -webkit-tap-highlight-color: transparent; }
+.fxBar:active { cursor: grabbing; }
+.fxBar:focus-visible { outline: 3px solid var(--sf-acc); outline-offset: 4px; border-radius: var(--m-r-md); }
+.fxBar:focus-visible .fxThumb, .fxBar:active .fxThumb { transform: scale(1.15); }
 .fxTrack { position: absolute; left: 0; right: 0; top: 40px; height: 10px; border-radius: var(--m-r-full); background: var(--sf-chip); overflow: hidden; }
 .fxFill { position: absolute; inset: 0; background: var(--sf-acc); transform-origin: left center; }
-.fxThumb { position: absolute; top: 34px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; background: var(--sf-acc); border: 3px solid var(--sf-card); box-shadow: 0 2px 8px var(--sf-shade), 0 0 0 1px var(--sf-line); }
+.fxThumb { position: absolute; top: 34px; transition: transform var(--sn-m-tap) var(--sn-m-settle); width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; background: var(--sf-acc); border: 3px solid var(--sf-card); box-shadow: 0 2px 8px var(--sf-shade), 0 0 0 1px var(--sf-line); }
 .fxFree { position: absolute; right: 0; top: 0; padding: 5px 10px; border-radius: var(--m-r-full); background: color-mix(in srgb, var(--sf-ok) 14%, transparent); color: var(--sf-ok); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.fxFlag { position: absolute; right: 0; top: 0; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: var(--m-r-full); background: var(--sf-wash); color: var(--sf-acc); font-size: 12.5px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fxLk { flex: none; width: 13px; height: 13px; color: var(--sf-acc); align-self: center; }
+.fxTick { position: absolute; top: 33px; width: 2px; height: 24px; margin-left: -1px; border-radius: var(--m-r-full); background: var(--sf-acc); pointer-events: none; z-index: 1; }
+.fxBar .fxThumb { z-index: 2; }
+.feeLock { margin-top: 14px !important; display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: var(--m-r-md); background: var(--sf-wash); font-size: 14px; font-weight: 500; }
+.feeLock .fxLk { width: 16px; height: 16px; }
+.feeLock b { font-weight: 700; font-variant-numeric: tabular-nums; }
 .fxEnd { position: absolute; left: 0; top: 57px; font-size: 10.5px; font-weight: 600; color: var(--sf-m1); font-variant-numeric: tabular-nums; }
 .fxEndR { left: auto; right: 0; }
 .fxWin { position: absolute; left: 50%; bottom: 0; width: 152px; height: 96px; margin-left: -76px; border-radius: var(--m-r-md); background: var(--sf-note); box-shadow: inset 0 0 0 1.5px var(--sf-acc); pointer-events: none; }

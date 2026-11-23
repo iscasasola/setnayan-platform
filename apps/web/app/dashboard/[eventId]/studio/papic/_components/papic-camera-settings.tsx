@@ -29,6 +29,7 @@ import { GuestAllotmentsChoice } from './guest-allotments-choice';
 import { PhoneUploadsChoice } from './phone-uploads-choice';
 import type { PapicCardSeat } from '@/lib/papic-home-href';
 import { papicWaitsForTheDayWords } from '@/lib/papic-waits-for-the-day';
+import { CAMERAS_UNREAD, papicGuestCamerasLine, papicHeadHints } from '@/lib/papic-guest-cameras-line';
 
 /**
  * papic-camera-settings.tsx — PAPIC, THE CAMERA, IN THE OWNER'S ORDER (owner 2026-10-23: *"Papic holds: Filter,
@@ -71,7 +72,7 @@ export async function PapicCameraSettings({
   const { data: ev, error } = await supabase
     .from('events')
     .select(
-      'event_type, event_date, papic_window_start, papic_window_end, papic_style, papic_on, date_mode, date_candidates, date_window_start, date_window_end, event_days',
+      'event_type, event_date, papic_window_start, papic_window_end, papic_style, papic_on, date_mode, date_candidates, date_window_start, date_window_end, date_months, event_days',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -229,18 +230,22 @@ export async function PapicCameraSettings({
  * 📷 THE CARD'S HEAD — ONE DROPDOWN, THREE POSITIONS (owner 2026-10-30: *"actually the switch on event home should be the
  * let everybody shoot now function"* · *"If we cannot turn it off, then maybe assign partial turn on?"*):
  * Off · On — event day · On — everyone, now (`PapicHeadPicker`, rules in `lib/papic-shoot-now.ts`). It replaces the
- * Papic switch that sat here (2026-10-24) — `papic_on` still goes through that switch's own door, the Event Hub draft.
+ * Papic switch that sat here (2026-10-24). ⚡ Live since 2026-11-22 (no Apply): both columns go through `setPapicGuestCaptureEarly`.
  * Papic on/off also stays in Event Details › Photos from guests and the Maker's Your info.
  *
  * `papicOn` is the LIVE `events.papic_on` Home already read. Held by `home-papic-head-is-shoot-now.test.ts`.
  */
 export async function PapicHeadControl({ eventId, papicOn }: { eventId: string; papicOn: boolean | null }) {
   const head = await readPapicHead(eventId, papicOn);
-  return <PapicHeadPicker eventId={eventId} live={head.live} draftOn={head.draftOn} early={head.early} />;
+  return <PapicHeadPicker eventId={eventId} live={head.live} early={head.early} hints={papicHeadHints(head.dates, Date.now())} />;
 }
 
-/** The line under the card's title — the head's current position, honestly ("… after you Apply" while it waits). */
+/**
+ * The line under the card's title — since 2026-11-20 (owner, "memories approved") the ONE state line: what the guest gate
+ * answers for the head's position ("Guests’ cameras open Fri 18 Dec" · "… are open now" · "… are off"), honestly ("… after
+ * you Apply" while the draft waits; "Couldn’t check just now" when a fact is unread). `lib/papic-guest-cameras-line.ts`.
+ */
 export async function PapicHeadLine({ eventId, papicOn }: { eventId: string; papicOn: boolean | null }) {
   const head = await readPapicHead(eventId, papicOn);
-  return <>{head.line}</>;
+  return <>{head.dates ? papicGuestCamerasLine(head, head.dates, Date.now()) : CAMERAS_UNREAD}</>;
 }

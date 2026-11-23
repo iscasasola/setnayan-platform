@@ -185,6 +185,13 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
       'A made-up receipt amount on a Waiting pin in the DEV-ONLY supplier chat lab (404 in production; Build 3 lane B) — a supplier’s own payment, not a Setnayan SKU.',
   },
   {
+    file: 'app/dev/unichat-f-lab/lab.tsx',
+    literal: '₱31,000',
+    sku: null,
+    reason:
+      'A made-up payment-due label on the schedule list in the DEV-ONLY Unichat F lab (404 in production; Unichat part F) — a supplier’s own payment, not a Setnayan SKU.',
+  },
+  {
     file: 'app/dev/_components/lab-picked-chat.tsx',
     literal: '₱40,000',
     sku: null,
@@ -246,6 +253,20 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     sku: null,
     reason:
       'A made-up Shop wallet balance in the DEV-ONLY Shop tab lab (404 in production; Build 2 B) — a fixture balance, not a Setnayan SKU.',
+  },
+  {
+    file: 'app/dev/_components/lab-picked-chat.tsx',
+    literal: '₱42,000',
+    sku: null,
+    reason:
+      'A made-up host budget cap in a whisper bubble in the DEV-ONLY Unichat lab (404 in production; Unichat part E) — a couple/supplier budget line, not a Setnayan SKU.',
+  },
+  {
+    file: 'app/dev/_components/lab-picked-chat.tsx',
+    literal: '₱42,500',
+    sku: null,
+    reason:
+      'A made-up supplier counter-offer in a whisper bubble in the DEV-ONLY Unichat lab (404 in production; Unichat part E) — a couple/supplier budget line, not a Setnayan SKU.',
   },
 ];
 

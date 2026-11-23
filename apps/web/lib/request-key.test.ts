@@ -149,7 +149,7 @@ test('🔒 the door scanner asks the server LIVE on every scan, and check-in its
   assert.match(on, /check\.verdict === 'pending' \|\| check\.verdict === 'declined'\) \{\s*setSelectedId\(null\)/);
   assert.match(desk, /DOOR_WORDS\.checkedLive\(/, 'the desk does not say it checked live');
   const actions = read('app/dashboard/[eventId]/guests/checkin/actions.ts');
-  const checkIn = actions.slice(actions.indexOf('export async function checkInGuest'), actions.indexOf('export async function undoCheckIn'));
+  const checkIn = actions.slice(actions.indexOf('export async function checkInGuest'), actions.indexOf('async function undoCheckIn'));
   assert.match(checkIn, /if \(doorVerdict\(guest as never\)\.kind !== 'valid'\) \{/, 'a pending request can be checked in by id');
   const live = actions.slice(actions.indexOf('export async function checkTicketLive'));
   assert.match(live, /await assertDoorCrew\(eventId\)/);

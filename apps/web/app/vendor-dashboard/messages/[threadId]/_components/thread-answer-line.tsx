@@ -132,7 +132,9 @@ export function QuickReplies({
   return (
     <div className="flex gap-2 overflow-x-auto pb-0.5" data-quick-replies="">
       {replies.map((q) => (
-        <form key={q} action={sendAction} className="shrink-0">
+        // A form action is typed `Promise<void>`; React drops what it returns, and with `return_to` set a refusal
+        // redirects with its reason anyway — so the refusal the send can return is never read here.
+        <form key={q} action={sendAction as (formData: FormData) => Promise<void>} className="shrink-0">
           <input type="hidden" name="thread_id" value={threadId} />
           {/* 🏪 The supplier's quick reply speaks for the shop (owner, 11 Nov — lib/chat-sent-as.ts). */}
           <input type="hidden" name={CHAT_SENT_AS_FIELD} value="vendor" />

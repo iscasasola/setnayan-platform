@@ -141,7 +141,8 @@ function familyOf(file: string): string {
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
 
 function themeBlock(id: string): string {
-  const css = readFileSync(join(WEB, 'app', 'globals.css'), 'utf8');
+  // 🎨 The 23 Nov redraw's theme blocks live in app/hub-themes.css (globals.css sits at its ceiling) — read both, as a themed page loads both.
+  const css = ['globals.css', 'hub-themes.css'].map((f) => readFileSync(join(WEB, 'app', f), 'utf8')).join('\n');
   const blocks = [...css.matchAll(new RegExp(`\\[data-hub-theme='${id}'\\] \\{([^}]*)\\}`, 'g'))].map((m) => m[1] ?? '');
   return stripComments(blocks.find((b) => /--hub-canvas/.test(b)) ?? '');
 }

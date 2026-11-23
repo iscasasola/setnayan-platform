@@ -1,3 +1,4 @@
+import { INVITE_THEMES, isInviteThemeId } from '@/lib/invite-themes';
 import { guestsArriveTime } from '@/lib/guests-arrive';
 import { OurLoveStoryWidget } from '@/app/[slug]/_components/our-love-story-widget';
 import { LAB_LOVE_STORY, LAB_PHOTOS } from '../../details-lab/love-story-fixture';
@@ -504,7 +505,15 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           data-guest-look={look || sp.art === 'candlelight' ? '' : undefined}
           data-art={sp.art === 'candlelight' ? 'candlelight' : undefined}
         >
-          <main className="pahina-in mx-auto min-h-[100dvh] w-full max-w-[480px] bg-paper px-4 pt-16 text-center text-ink" data-lab-heldpass={kase} data-lab-hub="" data-lab-standing={standing}>
+          <main
+            className="pahina-in relative mx-auto min-h-[100dvh] w-full max-w-[480px] bg-paper bg-cover bg-center px-4 pt-16 text-center text-ink"
+            /* 🎬 A theme with a picture wears it as the whole ground here, as the guest page does (the theme set's lab
+               stand-in for the sample page — `/dev/maker-lab/theme-print?piece=art`). */
+            style={look && isInviteThemeId(look) && INVITE_THEMES[look].media ? { backgroundImage: `url(/dev/maker-lab/theme-print?piece=art&theme=${look})` } : undefined}
+            data-lab-heldpass={kase}
+            data-lab-hub=""
+            data-lab-standing={standing}
+          >
             <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
             <p className="text-xs uppercase tracking-[0.28em] text-ink/60">Together with their families</p>
             <h1 className="mt-4 font-pahina text-5xl font-light leading-tight text-ink">Maria &amp; Jose</h1>

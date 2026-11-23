@@ -48,6 +48,8 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import type { StoredQrStyle } from '@/lib/qr-look';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { ThemePickProvider } from './maker-theme-picker';
+import { ThemeSetBody, ThemeSetCards, ThemeSetProvider } from './maker-theme-set';
+import type { ThemeSetLabDoors } from '@/lib/theme-set';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 import {
@@ -280,6 +282,8 @@ export type MakerDetailsProps = {
     seeds?: Record<string, unknown> | null;
     /** 🎨 The palette the gallery's samples wear (`sampleBoardQuery`). */
     samplePalette?: string | null;
+    /** 🧪 A lab's own doors for the theme set's pieces (no sample event there). Never set by the Maker. */
+    setLab?: ThemeSetLabDoors | null;
   };
   /** The couple's own prints, in the theme being edited. */
   prints: PrintsInput;
@@ -1341,6 +1345,17 @@ export function MakerDetails(props: MakerDetailsProps) {
         </>
       );
     }
+    /* 🎬 LOOK › THEME — the whole Event Hub's one theme, shown as the moving set (owner 23 Nov 2026, *"animated yes"*;
+       DECISION_LOG "THEMES ARE SHOWN AS THE ANIMATED SET — APPROVED", built with Maker parts 4–6). Its body is the set
+       (the five shipped pieces in the theme being tried); its sheet is the theme cards, "Play again" and "Use <theme>". */
+    bodies.background = <DetailsLookPageBody />;
+    bodies.theme = <ThemeSetBody />;
+    editors.theme = (
+      <>
+        <StudioTool part="look" item="theme" />
+        <ThemeSetCards themes={theme.themes} posters={theme.posters} ownsPro={theme.ownsPro} storeShell={theme.storeShell} />
+      </>
+    );
     /* 🎁 E-Gifts — the answer, then one switch per way to give with its field (the manager's own writes). */
     if (editors.gifts && giftsOff) {
       /* 🎁 "Accept gifts? — No" (owner 2026-10-08, wish list frame 10): nothing below the answer —
@@ -1394,6 +1409,7 @@ export function MakerDetails(props: MakerDetailsProps) {
       seeds={theme.seeds ?? null}
       samplePalette={theme.samplePalette ?? null}
     >
+      <ThemeSetProvider board={theme.samplePalette ?? null} version={theme.sampleVersion} lab={theme.setLab ?? null}>
       <DetailsWorkspace
         /* 🧭 The new Maker's Studio: Info · E-Gifts · Prints are forms of their own (`lib/studio-details.ts`). */
         /* 🎁 Accept gifts? — No: the thank-you words fold away with everything else of E-Gifts (kept, not shown). */
@@ -1412,7 +1428,8 @@ export function MakerDetails(props: MakerDetailsProps) {
         guide={guide}
         coverUrl={props.coverUrl ?? null}
         /* 🖼 Background · Elements · Music show the ONE page the whole Look shows. */
-        bodyAlias={{ background: 'theme', elements: 'theme', music: 'theme' }}
+        /* 🎬 In the Maker the theme's own tab shows the set, and Background · Elements · Music share Background's page. */
+        bodyAlias={props.studio ? { elements: 'background', music: 'background' } : { background: 'theme', elements: 'theme', music: 'theme' }}
         /* 🗂 The new Maker's Studio forms, grouped as the prototype draws them (`.gh`). */
         formHeads={
           props.studio
@@ -1487,6 +1504,7 @@ export function MakerDetails(props: MakerDetailsProps) {
           </>
         }
       />
+      </ThemeSetProvider>
     </ThemePickProvider>
   );
 }

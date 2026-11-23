@@ -184,7 +184,7 @@
  "vendor-dashboard/activities": 1,
  "vendor-dashboard/attributes": 2,
  "vendor-dashboard/bookings": 12,
- "vendor-dashboard/clients/[eventId]": 60,
+ "vendor-dashboard/clients/[eventId]": 58,
  "vendor-dashboard/clients/[eventId]/cocktail": 4,
  "vendor-dashboard/clients/[eventId]/production-sheet": 2,
  "vendor-dashboard/collections": 2,

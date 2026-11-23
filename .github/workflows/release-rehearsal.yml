@@ -80,7 +80,7 @@ on:
       sweep_minutes:
         description: 'Control sweep: minutes per persona × width (0 = no sweep)'
         required: false
-        default: '80'
+        default: '110'
 
 permissions:
   contents: read
@@ -94,7 +94,7 @@ jobs:
     name: rehearse the release
     runs-on: ubuntu-latest
     # The walk's ~16 minutes plus the sweep's budget (its four parts run side by side).
-    timeout-minutes: 130
+    timeout-minutes: 160
     env:
       REHEARSE_REF: ${{ inputs.ref || 'main' }}
       LIVE_REF: ${{ inputs.live_ref || 'deployed-prod' }}
@@ -429,7 +429,7 @@ jobs:
         env:
           REHEARSAL_BASE_URL: http://localhost:3000
           REHEARSAL_COUNTER_URL: http://127.0.0.1:54320
-          SWEEP_MINUTES: ${{ inputs.sweep_minutes || '80' }}
+          SWEEP_MINUTES: ${{ inputs.sweep_minutes || '110' }}
           CI: 'true'
         run: |
           set -euo pipefail

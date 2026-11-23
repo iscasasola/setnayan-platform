@@ -26,6 +26,12 @@ specs measured sizes and overflow; nothing pressed the dropdown. The release reh
 - **Guards:** `lib/the-control-sweep-skips-what-it-must.test.ts` (the skip list, the error-screen headings of every
   boundary, the noise filter, the route plan); `release-rehearsal-touches-nothing-live.test.ts` now also holds the
   sweep to `assertLocalUrl`. The sweep's browser refuses every non-loopback address, as the walk's does.
+- **The rehearsal could not run since 11 Nov — fixed here:** the seed's three booked suppliers were refused by the
+  launch bookings switch (`bookings_closed`, 20271302310560; the seed now opens it for its own rows and puts it back),
+  both accounts met the Terms re-ask (the seed now hands in the app's own `TERMS_VERSION`), and the walk looked for
+  the old Home (`section[aria-label="Home"]` → the "Today" first screen, `data-home-first-screen`).
+- **The app's own fault reports:** `/api/telemetry/client-fault` answers 500 outside production by design, so the sweep
+  answers it and lists what the app reported (dead taps, action errors, dead ends) as "worth a look".
 
 No migration, no server action, no app code. The failures the first sweep found are NOT fixed here; they are listed
 in the PR for the controller to route.

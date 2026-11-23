@@ -64,7 +64,7 @@ const EMAILS: Record<Persona, string> = { couple: FIXTURE.hostEmail, supplier: F
 const HOME: Record<Persona, string> = { couple: `/dashboard/${FIXTURE.eventId}`, supplier: '/vendor-dashboard' };
 
 /** Minutes ONE persona at ONE width may take. Routes past it are listed as "not reached", never as passed. */
-const SWEEP_MINUTES = Number(process.env.SWEEP_MINUTES || 80);
+const SWEEP_MINUTES = Number(process.env.SWEEP_MINUTES || 110);
 const ROUTE_SECONDS = Number(process.env.SWEEP_ROUTE_SECONDS || 150);
 const ROUTE_PRESSES = 150;
 const OPTIONS_PER_DROPDOWN = 12;

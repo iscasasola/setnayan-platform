@@ -66,6 +66,50 @@ async function mappedShop(admin: SupabaseClient, originalTransactionId: string):
   return (data as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
 }
 
+/**
+ * The shop the server issued this `appAccountToken` for (`issueSupplierPlanToken`) — null when we never issued it,
+ * 'error' when the read failed. The token itself is never taken as a shop id.
+ */
+async function pairedShop(admin: SupabaseClient, token: string | null): Promise<string | null | 'error'> {
+  if (!token) return null;
+  const { data, error } = await admin
+    .from('vendor_app_store_plan_tokens')
+    .select('vendor_profile_id')
+    .eq('app_account_token', token)
+    .maybeSingle();
+  if (error) return 'error';
+  return (data as { vendor_profile_id?: string } | null)?.vendor_profile_id?.toLowerCase() ?? null;
+}
+
+/**
+ * 🔑 THE TOKEN A PLAN PURCHASE CARRIES — issued by the server when the app starts a plan purchase
+ * (`startAppStorePurchase`), for a shop the signed-in person was already proved to manage, and kept with that shop
+ * (migration 20271360318379). StoreKit signs it into the subscription's transactions, and a notification grants only
+ * to the shop it was issued for.
+ */
+export async function issueSupplierPlanToken(
+  admin: SupabaseClient,
+  input: { userId: string; vendorProfileId: string; productId: string },
+): Promise<{ ok: true; token: string } | { ok: false }> {
+  const { data, error } = await admin
+    .from('vendor_app_store_plan_tokens')
+    .insert({ user_id: input.userId, vendor_profile_id: input.vendorProfileId, product_id: input.productId })
+    .select('app_account_token')
+    .maybeSingle();
+  const token = (data as { app_account_token?: string } | null)?.app_account_token;
+  if (error || !token) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'App Store supplier plan — issue token',
+      file_path: 'lib/iap/supplier-subscription.server.ts',
+      error_message: error?.message ?? 'no row returned',
+      payload_snapshot: { productId: input.productId, vendorProfileId: input.vendorProfileId },
+    });
+    return { ok: false };
+  }
+  return { ok: true, token: token.toLowerCase() };
+}
+
 export type ApplyOutcome =
   | { status: 'on' | 'already' | 'stale'; vendorId: string }
   | { status: 'refused'; reason: string; vendorId: string | null }
@@ -73,8 +117,15 @@ export type ApplyOutcome =
 
 /**
  * A paid period → the plan. `callerShops` = the shops the signed-in person manages (the app's confirm); null = Apple
- * is the caller (a notification). With a caller, a subscription already mapped to ANOTHER shop is refused — a restore
- * on a second shop never grants it — and an unmapped one must name one of the caller's own shops.
+ * is the caller (a notification).
+ *
+ * WHICH SHOP: the shop the subscription is already mapped to; otherwise the shop the server issued the transaction's
+ * `appAccountToken` for. Never the token itself — a payer could put any shop's id there. A token we never issued
+ * grants nothing and is logged for a person. With a caller, the shop must also be one of the caller's own: a restore
+ * on a second shop never grants it.
+ *
+ * One allowance, for the app's confirm only: a purchase made before the server issued tokens carries the shop's own
+ * id, and it lands when the SESSION proves the caller manages that shop. A notification never takes it.
  */
 export async function applySupplierPlanPeriod(
   admin: SupabaseClient,
@@ -83,22 +134,37 @@ export async function applySupplierPlanPeriod(
   callerShops: readonly string[] | null,
   fault: SupplierPlanFault = faultForAPerson,
 ): Promise<ApplyOutcome> {
-  const mapped = await mappedShop(admin, tx.originalTransactionId);
+  const [mapped, paired] = await Promise.all([
+    mappedShop(admin, tx.originalTransactionId),
+    pairedShop(admin, tx.appAccountToken),
+  ]);
   if (mapped === 'error') return { status: 'error', where: 'map_read' };
+  if (paired === 'error') return { status: 'error', where: 'token_read' };
+  const sessionProved = !!callerShops && !!tx.appAccountToken && callerShops.includes(tx.appAccountToken);
+  const vendorId = mapped ?? paired ?? (sessionProved ? tx.appAccountToken : null);
   if (callerShops) {
     if (mapped && !callerShops.includes(mapped)) return { status: 'refused', reason: 'other_shop', vendorId: mapped };
-    if (!mapped && (!tx.appAccountToken || !callerShops.includes(tx.appAccountToken))) {
+    if (!mapped && (!vendorId || !callerShops.includes(vendorId))) {
       return { status: 'refused', reason: 'not_yours', vendorId: null };
     }
   }
-  const vendorId = mapped ?? tx.appAccountToken;
-  if (!vendorId) return { status: 'refused', reason: 'no_token', vendorId: null };
-  if (mapped && tx.appAccountToken && tx.appAccountToken !== mapped) {
+  if (!vendorId) {
+    // Apple charged for a plan whose token we never issued: nothing is granted, and a person must see it.
+    await fault(`App Store charged for ${tx.product.name} (${tx.transactionId}) with a token Setnayan never issued; no plan was granted.`, {
+      originalTransactionId: tx.originalTransactionId,
+      transactionId: tx.transactionId,
+      appAccountToken: tx.appAccountToken,
+      refused: 'unknown_token',
+    });
+    return { status: 'refused', reason: 'unknown_token', vendorId: null };
+  }
+  if (mapped && paired && paired !== mapped) {
     // The same Apple ID changed plans from another shop's door: Apple bills ONE subscription, so the plan follows it.
     await fault(`An App Store plan change for ${tx.originalTransactionId} came from another shop's door; it stays on its own shop.`, {
       originalTransactionId: tx.originalTransactionId,
       transactionId: tx.transactionId,
       mappedShop: mapped,
+      tokenShop: paired,
     });
   }
 
@@ -118,8 +184,9 @@ export async function applySupplierPlanPeriod(
   if (error) return { status: 'error', where: 'apply' };
   const out = (data ?? {}) as { on?: boolean; already?: boolean; stale?: boolean; refused?: string; vendor_id?: string };
   if (out.refused) {
-    // Apple has charged and we granted nothing: a person must see it (refund, or move the shop's billing).
-    if (!callerShops || out.refused !== 'other_shop') {
+    // Apple has charged and we granted nothing: a person must see it (refund, or move the shop's billing). Not when
+    // Apple already took the money back ('reversed'): nothing is owed either way.
+    if (out.refused !== 'reversed' && (!callerShops || out.refused !== 'other_shop')) {
       await fault(`App Store charged for ${tx.product.name} (${tx.transactionId}) but no plan was granted: ${out.refused}.`, {
         originalTransactionId: tx.originalTransactionId,
         transactionId: tx.transactionId,
@@ -199,7 +266,9 @@ export async function handleSupplierPlanNotification(
         p_notification: n.subtype ? `${n.notificationType}/${n.subtype}` : n.notificationType,
       });
       if (error) return { http: 500, what: 'supplier plan end failed' };
-      const out = (data ?? {}) as { unknown?: boolean; dropped?: boolean };
+      const out = (data ?? {}) as { unknown?: boolean; recorded?: string; dropped?: boolean };
+      // A REFUND / REVOKE that came before its SUBSCRIBED: kept, so that SUBSCRIBED grants nothing when it lands.
+      if (out.recorded) return { http: 200, what: `supplier plan ${decision.status}: recorded before any grant` };
       if (out.unknown) return { http: 200, what: `supplier plan ${decision.status}: never granted` };
       return { http: 200, what: `supplier plan ${decision.status}${out.dropped ? ', dropped' : ''}` };
     }
@@ -243,6 +312,8 @@ export async function confirmSupplierPlanJws(
     case 'stale':
       return { result: { status: 'refused', reason: 'plan_ended' }, vendorId: o.vendorId };
     case 'refused':
+      // Apple took this transaction's money back before it reached us: the phone says so plainly.
+      if (o.reason === 'reversed') return { result: { status: 'refunded' }, vendorId: null };
       return { result: { status: 'refused', reason: o.reason }, vendorId: o.vendorId };
     default:
       return { result: { status: 'pending' }, vendorId: null };

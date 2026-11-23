@@ -21,6 +21,8 @@
  * Guarded by `lib/shell-search.test.ts` — every search hop from the shell must
  * resolve to a page under a layout that draws the account bar.
  */
+import { DISCOVER_HREF } from './discover-href';
+
 export const SHELL_SEARCH_PATH = '/dashboard/search';
 
 /** The shell's results page for these words. Empty words → the bare page. */
@@ -42,5 +44,7 @@ export function stayOnPageSearchHref(currentHref: string, query: string): string
   if (q) u.searchParams.set('q', q);
   else u.searchParams.delete('q');
   const qs = u.searchParams.toString();
+  // Clearing a search on Discover stays on Discover: its own door, never the bare `/` (a signed-in `/` opens Home).
+  if (!qs && u.pathname === '/') return DISCOVER_HREF;
   return `${u.pathname}${qs ? `?${qs}` : ''}`;
 }

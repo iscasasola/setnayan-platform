@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ d?: string; s?: string; step?: string; src?: string; event?: string }>;
+  searchParams: Promise<{ d?: string; s?: string; step?: string; src?: string; event?: string; via?: string; utm?: string; utm_source?: string; utm_medium?: string; utm_campaign?: string }>;
 };
 
 export const metadata: Metadata = { title: 'Check a date', robots: { index: false, follow: true } };

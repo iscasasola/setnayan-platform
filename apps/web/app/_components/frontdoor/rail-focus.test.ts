@@ -73,7 +73,7 @@ test('all five sections pass focus back to /dashboard', () => {
 test('the shell draws the way back INSTEAD of Discover and My Home when focused', () => {
   const s = code('app/_components/frontdoor/front-door-shell.tsx');
   const back = s.indexOf('{focused && focus ? (');
-  const discover = s.indexOf(`<Link href="/" {...rowProps('home')}>`);
+  const discover = s.indexOf(`<Link href={account.signedIn ? DISCOVER_HREF : '/'} {...rowProps('home')}>`);
   // 🏠 Home sits ABOVE Discover since 11 Nov 2026 ("HOME IS THE PROFILE" — the ☰ reads Home · Discover).
   const myHome = s.indexOf('data-home-row=""');
   const ctx = s.indexOf('{railContext ? (');

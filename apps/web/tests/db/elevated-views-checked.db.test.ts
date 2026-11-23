@@ -45,6 +45,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { foundOnSetnayan } from './found-on-setnayan';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -259,6 +260,9 @@ async function seedBooking(
       [eventId, coupleUserId],
     );
   }
+  // Since 2026-11-23 (b89e2420 C) only an ARM'S-LENGTH job reaches the track record: every booking seeded here is one
+  // the couple found on Setnayan, so the exclusions below are what keeps a row out — never the absence of that fact.
+  await foundOnSetnayan(db, vendorProfileId, eventId);
   await db.query(
     `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, linked_vendor_profile_id)
      VALUES ($1, 'photographer', $2, $3::vendor_status, $4)`,

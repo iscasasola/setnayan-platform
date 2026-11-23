@@ -75,6 +75,9 @@ COMMENT ON COLUMN public.vendor_reviews.proof_at_delete IS
   'answered by the events_arms_length_proof_stamp trigger at the moment the couple deleted it. NULL while the event '
   'exists (read the rule then) and on a review orphaned before 20271361301072 — both count as NOT proven for an orphan.';
 ALTER TABLE public.event_vendors ADD COLUMN IF NOT EXISTS proof_at_delete BOOLEAN;
+-- event_vendors' browser SELECT is granted PER COLUMN (20271343340931): an ungranted column makes PostgREST refuse a
+-- `select('*')` on the whole table. A non-secret boolean, so it is granted like every other non-amount column.
+GRANT SELECT (proof_at_delete) ON public.event_vendors TO anon, authenticated;
 COMMENT ON COLUMN public.event_vendors.proof_at_delete IS
   'Fake proof fixes (C): whether this booking''s celebration was arm''s length, stamped at the event''s delete by '
   'events_arms_length_proof_stamp. NULL while the event exists. An orphan without TRUE is not counted in events done.';

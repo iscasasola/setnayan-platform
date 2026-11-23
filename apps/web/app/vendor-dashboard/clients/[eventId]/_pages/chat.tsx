@@ -5,6 +5,10 @@ import { SUPPLIER_CHATS_HREF } from '@/app/vendor-dashboard/customers/anchors';
 import { ChatHomeTop } from '@/app/_components/chat/chat-home';
 import type { PickedPageProps } from './context';
 import { TheirEventList } from '../_components/their-event-list';
+import { CoordinatorPane, TheirEventColumn } from '../_components/their-event-pane';
+import { TheirEventPartBody } from '../_components/their-event-part-body';
+import { SupplierColumns } from '@/app/vendor-dashboard/_components/supplier-columns';
+import { COLUMN_PARTS, theirEventColumnHref } from '@/lib/their-event';
 
 /**
  * CHAT — the picked client's page (THE ONE BUILD, v111 "Chat lives in the client"; spec plans/supplier_one_build_2026-11-08
@@ -35,12 +39,15 @@ export function ChatPage({ ctx }: PickedPageProps) {
       </div>
     );
   }
-  const theirEvent = ctx.theirEventRows && ctx.theirEventRows.length > 0 ? (
-    <div className="px-4 pt-3">
-      <TheirEventList eventId={ctx.eventId} rows={ctx.theirEventRows} />
+  const rows = ctx.theirEventRows && ctx.theirEventRows.length > 0 ? ctx.theirEventRows : null;
+  // 📱 On a phone the list stays above the chat, every row to its own full-screen page (as approved). From 701 it moves
+  // into the right column (below), so it is not drawn twice.
+  const theirEvent = rows ? (
+    <div className="px-4 pt-3 tab:hidden">
+      <TheirEventList eventId={ctx.eventId} rows={rows} />
     </div>
   ) : null;
-  return (
+  const chat = (
     <>
     {theirEvent}
     <Suspense
@@ -56,6 +63,44 @@ export function ChatPage({ ctx }: PickedPageProps) {
       <SupplierThreadBody threadId={threadId} view="chat" search={ctx.threadSearch} />
     </Suspense>
     </>
+  );
+
+  // 🖥 DESKTOP SPLIT VIEW (owner 2026-11-21, DECISION_LOG "DESKTOP SPLIT VIEW + ONE EDITOR PER PART — APPROVED TO BUILD";
+  // drawing `desktop_split_view_v2_fable.html` frames 1–2): the chat stays left; the right column is the hosts'
+  // dashboard for the booked coordinator, the "Their event" list for every other booked supplier, and a part opens IN
+  // that column with a back arrow. The system's two columns (`SupplierColumns`, from 701); a phone draws no pane.
+  const pane = ctx.coordinatorPane ? (
+    <CoordinatorPane eventName={ctx.eventName} dateLine={ctx.coordinatorPane.dateLine} placeLine={ctx.coordinatorPane.placeLine} rows={ctx.coordinatorPane.rows} />
+  ) : rows && ctx.theirEventColumn ? (
+    <TheirEventColumn
+      eventId={ctx.eventId}
+      rows={rows}
+      listHref={theirEventColumnHref(ctx.eventId, null)}
+      partHref={(part) => (COLUMN_PARTS.includes(part) ? theirEventColumnHref(ctx.eventId, part) : null)}
+      open={
+        ctx.theirEventColumn.open
+          ? {
+              part: ctx.theirEventColumn.open,
+              body: (
+                <TheirEventPartBody
+                  eventId={ctx.eventId}
+                  part={ctx.theirEventColumn.open}
+                  open={rows.some((r) => r.part === ctx.theirEventColumn!.open)}
+                  brief={ctx.theirEventColumn.brief}
+                  group={ctx.theirEventColumn.group}
+                  hubSlug={null}
+                />
+              ),
+            }
+          : null
+      }
+    />
+  ) : null;
+  if (!pane) return chat;
+  return (
+    <div className="tab:[&_.sn-cols-pane]:h-auto" data-chat-split="">
+      <SupplierColumns name="client-chat" list={chat} pane={pane} paneLabel={`Their event · ${ctx.eventName}`} />
+    </div>
   );
 }
 

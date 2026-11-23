@@ -92,12 +92,14 @@ test('1 · the stream is mounted in exactly the two thread pages, nowhere else u
   // `app/dev/_components/lab-picked-chat.tsx` — not a page, so it cannot 404 itself. It is allowed only while EVERY
   // file that imports it is a lab page that 404s in production as its first statement (checked here, not assumed).
   const LAB_PART = 'app/dev/_components/lab-picked-chat.tsx';
-  const LAB_PART_PAGES = ['app/dev/chat-lab/page.lab.tsx', 'app/dev/supplier-chat-lab/page.lab.tsx'];
+  // 🖥 23 Nov 2026 — the desktop split view's lab (`/dev/desktop-split-lab`) draws the supplier's chat beside the right
+  // column, through the same lab part, on the same terms (404 in production, checked below).
+  const LAB_PART_PAGES = ['app/dev/chat-lab/page.lab.tsx', 'app/dev/supplier-chat-lab/page.lab.tsx', 'app/dev/desktop-split-lab/page.lab.tsx'];
   const partImporters = files
     .filter((f) => /lab-picked-chat['"]/.test(stripComments(readFileSync(f, 'utf8'))))
     .map((f) => f.slice(WEB.length + 1))
     .filter((f) => !/\.test\.tsx?$/.test(f));
-  assert.deepEqual(partImporters.sort(), [...LAB_PART_PAGES].sort(), `the lab chat part is imported outside the two lab pages: ${partImporters.join(', ')}`);
+  assert.deepEqual(partImporters.sort(), [...LAB_PART_PAGES].sort(), `the lab chat part is imported outside the lab pages: ${partImporters.join(', ')}`);
   const groupViewImporters = files
     .filter((f) => /group-chat-view['"]/.test(stripComments(readFileSync(f, 'utf8'))))
     .map((f) => f.slice(WEB.length + 1))

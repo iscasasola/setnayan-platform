@@ -13,7 +13,9 @@
  */
 import type { ReactNode } from 'react';
 
-import type { TheirEventRow } from '@/lib/their-event';
+import type { CoordinatorRow, TheirEventPart, TheirEventRow } from '@/lib/their-event';
+import type { BookingGroupRead } from '@/lib/their-event.server';
+import type { TheirEventPartBrief } from '../_components/their-event-part-body';
 
 export type PickedClientStage = 'booked' | 'inquiry' | 'requested';
 
@@ -45,6 +47,14 @@ export type PickedPageContext = {
    * the coordinator (who has the dashboard), before booking, and while the fee withholds the event.
    */
   theirEventRows?: readonly TheirEventRow[] | null;
+  /**
+   * 🖥 THE CHAT'S RIGHT COLUMN ON A COMPUTER (owner 2026-11-21, DECISION_LOG "DESKTOP SPLIT VIEW + ONE EDITOR PER PART").
+   * A booked supplier: the part opened in the column (`?part=`, Schedule · Numbers · Guests) and what its body draws —
+   * facts the page already read (the brief, the booking group). Null when there is no "Their event" list.
+   */
+  theirEventColumn?: { open: TheirEventPart | null; brief: TheirEventPartBrief; group: BookingGroupRead } | null;
+  /** 🖥 The booked coordinator: the hosts' dashboard in the right column — rows, the event's date and place line. */
+  coordinatorPane?: { rows: readonly CoordinatorRow[]; dateLine: string | null; placeLine: string | null } | null;
   /** 🧾 Details › Agreed now's plain rows (Venue · Hosts · Coordinator · Supplier · Stage) — `agreedFacts`, part G. */
   agreedFacts?: readonly { label: string; value: string }[];
 };

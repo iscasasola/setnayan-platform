@@ -77,6 +77,28 @@ export async function readStorageBreakdown(admin: SupabaseClient, vendorProfileI
 }
 
 /**
+ * 🔑 THE SAME TOTAL, READ-ONLY — for a render that must never write (the Shop cover's Storage row; guard
+ * `shop/the-shop-render-never-writes.test.ts`). `vendor_storage_used_bytes` (STABLE) is the database's own total —
+ * files plus records as last measured — the one `readStorageBreakdown` adds up. It never MEASURES: a shop never measured
+ * counts its records once its first look at the Plans page or the nightly job has (the breakdown read does that, and
+ * writes). A refused or malformed answer is `unread`, never 0.
+ */
+export async function readStoredBytesAsMeasured(admin: SupabaseClient, vendorProfileId: string): Promise<StoredBytesRead> {
+  try {
+    const { data, error } = await admin.rpc('vendor_storage_used_bytes', { p_vendor_profile_id: vendorProfileId });
+    if (error) {
+      console.error('[supplier-storage] used bytes unreadable', vendorProfileId, error.message);
+      return { status: 'unread' };
+    }
+    const bytes = typeof data === 'number' ? data : typeof data === 'string' ? Number(data) : NaN;
+    return Number.isFinite(bytes) && bytes >= 0 ? { status: 'ok', bytes } : { status: 'unread' };
+  } catch (e) {
+    console.error('[supplier-storage] used bytes read threw', vendorProfileId, e instanceof Error ? e.message : e);
+    return { status: 'unread' };
+  }
+}
+
+/**
  * May `incomingBytes` more be stored by this shop? Asked by `/api/upload` BEFORE the PUT is signed (every shop upload,
  * not only event files), so a file that does not fit never reaches storage. The plan is the shop's `tier_state` — the
  * same column the database's backstop (`enforce_supplier_storage_allowance`) reads. `kind` says media or a document,

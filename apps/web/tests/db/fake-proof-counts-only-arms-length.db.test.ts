@@ -28,6 +28,7 @@ import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrat
 let replay: ReplayResult;
 let db: ReplayResult['db'];
 let n = 0;
+let seededN: number | null = null;
 
 async function newUser(email?: string): Promise<string> {
   n += 1;
@@ -164,11 +165,17 @@ async function guests(event: string, emails: Array<string | null>, how: 'rsvp' |
 before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
+  // What the migration itself left, read before any test moves it.
+  seededN = (await db.query<{ v: number | null }>(`SELECT proof_real_guests_min AS v FROM public.platform_settings WHERE id = 1`)).rows[0]?.v ?? null;
   await setN(null);
 });
 
 after(async () => {
   await db?.close();
+});
+
+test('N is seeded at 20, the owner’s number (DECISION_LOG "Seven open calls settled", item 5)', () => {
+  assert.equal(seededN, 20, 'the migration must seed proof_real_guests_min = 20 where it was unset');
 });
 
 test('A · the shop’s own offered card is never an inquiry — not for Quick Responder, not for Trending Now', async () => {

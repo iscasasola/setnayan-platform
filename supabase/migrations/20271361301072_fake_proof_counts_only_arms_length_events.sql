@@ -26,8 +26,8 @@
 --                             flat fee on everything) made an unverified shop's imports read 'sourced'; that line is a
 --                             BILLING rule and is left exactly as it is — proof asks for verification separately.
 --       'real_guests'       — at least N distinct guests RSVP'd or captured Papic on the event. N is
---                             platform_settings.proof_real_guests_min: NULLABLE, NO DEFAULT. While it is NULL this route
---                             never qualifies (fails toward not counting). The owner sets N.
+--                             platform_settings.proof_real_guests_min: NULLABLE, seeded 20 (owner). While it is NULL this route
+--                             never qualifies (fails toward not counting). An admin can change N.
 --       NULL                — does not count. The review still SHOWS on the shop, labelled the supplier's own client
 --                             (the shipped "Verified booking" pill), through `vendor_reviews_public.counts_as_proof`.
 --     Readers covered: vendor_trusted_review_stats (the shop's stars) · vendor_service_trusted_review_stats (each card's)
@@ -51,7 +51,7 @@ BEGIN;
 
 SET LOCAL lock_timeout = '5s';
 
--- ── 1 · N: the owner's number, NOT SET ───────────────────────────────────────────────────────────────────────────────
+-- ── 1 · N: the owner's number, 20 ────────────────────────────────────────────────────────────────────────────────────
 ALTER TABLE public.platform_settings
   ADD COLUMN IF NOT EXISTS proof_real_guests_min INTEGER;
 ALTER TABLE public.platform_settings DROP CONSTRAINT IF EXISTS platform_settings_proof_real_guests_min_range;
@@ -61,8 +61,12 @@ ALTER TABLE public.platform_settings
 COMMENT ON COLUMN public.platform_settings.proof_real_guests_min IS
   'Fake proof fixes (C), owner 2026-11-23 (DECISION_LOG b89e2420): how many distinct guests must RSVP or capture Papic on '
   'an event before a review from it moves the shop''s stars, medals and events done — when the couple did not find the '
-  'shop on Setnayan. NULL = not set: that route never qualifies (fails toward not counting). No number is seeded: the '
-  'owner sets it on Admin › Settings. Read by public.vendor_event_proof_route. Migration 20271361301072.';
+  'shop on Setnayan. NULL = not set: that route never qualifies (fails toward not counting). Seeded at 20 (owner, '
+  'DECISION_LOG "Seven open calls settled" item 5); an admin changes it on Admin › Settings. Read by '
+  'public.vendor_event_proof_route. Migration 20271361301072.';
+-- N = 20, the owner's number (DECISION_LOG "Seven open calls settled", item 5). Only where it is still unset; an admin
+-- can change it later on Admin › Settings.
+UPDATE public.platform_settings SET proof_real_guests_min = 20 WHERE id = 1 AND proof_real_guests_min IS NULL;
 
 -- ── 2 · Stamps for a deleted celebration's surviving rows ────────────────────────────────────────────────────────────
 ALTER TABLE public.vendor_reviews ADD COLUMN IF NOT EXISTS proof_at_delete BOOLEAN;

@@ -57,7 +57,7 @@ test('the /login ✕ goes to a page the app opens — in the app as on the web',
     assert.equal(isStoreShellWebOnlyPath(t, true), false, `the ✕ goes to ${t}, which the iPhone app refuses where Apple sells`);
   }
   assert.ok(targets.includes('/'), `the ✕ no longer goes to Discover ("/"): dismissHref={${expr}}`);
-  assert.ok(existsSync(join(WEB, 'app/page.tsx')) || existsSync(join(WEB, 'app/(shell)/page.tsx')), '"/" has no page');
+  assert.ok(existsSync(join(WEB, 'app/(hub)/page.tsx')) || existsSync(join(WEB, 'app/(shell)/page.tsx')), '"/" has no page');
 });
 
 test('dismissHref null draws no ✕, and Escape and the backdrop do nothing', () => {

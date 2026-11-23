@@ -61,7 +61,7 @@ test('the raw result is never mapped straight into a list or a count', () => {
  */
 const read = (...p: string[]) => stripComments(readFileSync(join(__dirname, '..', ...p), 'utf8'));
 const CREATE = read('app', 'dashboard', '(account)', 'create-event', 'page.tsx');
-const BOARD = read('app', 'dashboard', '(launcher)', 'page.tsx');
+const BOARD = read('app', '(hub)', 'dashboard', 'page.tsx');
 
 test('🔴 Create Event offers only MY loved ones — never an admin-visible stranger', () => {
   assert.match(CREATE, /lovedOnesInMyCare\(\s*\(deps \?\? \[\]\)/, 'the picker lists the raw RLS result');

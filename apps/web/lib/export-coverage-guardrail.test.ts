@@ -214,6 +214,12 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Maya confirmed) on its `orders` row. This table repeats those facts beside Maya’s ' +
     'checkout id and our queue reason — internal reconciliation keys, service-role only. ' +
     'Same decision as lib/export-completeness.ts.',
+  // ── added 2026-11-23 with the table itself (Apple supplier plans: the server names the shop) ──
+  vendor_app_store_plan_tokens:
+    'The appAccountToken the server issued for an Apple supplier-plan purchase, and the shop it was ' +
+    'issued for — an internal key Apple signs back, not information about the person. user_id is who ' +
+    'started the purchase (an actor stamp); the plan itself is the shop’s vendor_subscriptions rows. ' +
+    'Service-role only. Same decision as lib/export-completeness.ts.',
   // ── added 2026-10-08 with the table itself (the E-Gifts wish list) ──
   event_wish_items:
     'What an EVENT’s hosts would love as a gift — a name, an optional ' +

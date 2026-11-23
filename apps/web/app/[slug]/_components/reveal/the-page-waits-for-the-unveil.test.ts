@@ -97,7 +97,7 @@ test('🧱 the unveil lets go at once and for the visit — a second hold (clien
   assert.equal((s.listeners.touchmove ?? []).length, 0);
 });
 
-test('♿ reduced motion: never locked (no opening there by the shipped rule)', () => {
+test('♿ reduced motion: never locked (no opening there by the shipped rule — 16 Oct 2026, restored 23 Nov 2026)', () => {
   const s = standIn({ reduce: true });
   s.run();
   assert.equal(s.holdStyle(), undefined);

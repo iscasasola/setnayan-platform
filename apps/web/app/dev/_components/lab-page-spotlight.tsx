@@ -8,6 +8,19 @@
 import { SpotlightMount } from '@/app/_components/spotlight-mount';
 import type { SpotlightScript, TourKey } from '@/lib/tours';
 
-export function LabPageSpotlight({ tourKey, script, inMaker = false }: { tourKey: TourKey; script: SpotlightScript; inMaker?: boolean }) {
-  return <SpotlightMount tourKey={tourKey} script={script} seen={false} inMaker={inMaker} completeAction={async () => {}} />;
+export function LabPageSpotlight({
+  tourKey,
+  script,
+  inMaker = false,
+  seen = false,
+  replay = false,
+}: {
+  tourKey: TourKey;
+  script: SpotlightScript;
+  inMaker?: boolean;
+  /** Already seen: nothing runs until a replay asks (the page's ⓘ › Show me — `&spot=page` on guests-lab). */
+  seen?: boolean;
+  replay?: boolean | 'page';
+}) {
+  return <SpotlightMount tourKey={tourKey} script={script} seen={seen} replay={replay} inMaker={inMaker} completeAction={async () => {}} />;
 }

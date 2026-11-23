@@ -67,7 +67,7 @@ test('all five sections pass focus back to /dashboard', () => {
     assert.match(code(rel), re, `${rel} does not focus the rail.`);
   }
   // The (launcher) layout is My Home itself — it must NOT focus.
-  assert.doesNotMatch(code('app/dashboard/(launcher)/layout.tsx'), /focus=\{/);
+  assert.doesNotMatch(code('app/(hub)/layout.tsx'), /focus=\{/);
 });
 
 test('the shell draws the way back INSTEAD of Discover and My Home when focused', () => {

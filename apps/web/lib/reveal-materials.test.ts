@@ -60,15 +60,16 @@ test('the dressed paper is the theme’s own colour — the materials follow the
   }
 });
 
-test('the overlay dresses ONLY the rigid openings — the veil branch never reads the materials', () => {
+test('the overlay draws NO theme materials since 23 Nov 2026 — the nine reveals are as drawn, the veil untouched', () => {
   const src = stripComments(
     readFileSync(join(__dirname, '..', 'app/[slug]/_components/reveal/reveal-overlay.tsx'), 'utf8'),
   );
   const veil = src.indexOf('<VeilReveal');
-  const dressed = src.indexOf('revealMaterialVars(');
-  assert.ok(veil > 0 && dressed > 0, 'anchors moved — re-anchor this guard');
-  assert.equal((src.match(/revealMaterialVars\(/g) ?? []).length, 1, 'one dressing site');
-  assert.ok(dressed > veil, 'the materials must be applied after (outside) the veil branch');
+  assert.ok(veil > 0, 'anchors moved — re-anchor this guard');
+  /* The retired CSS envelopes were what took the theme's paper / liner / door colours; the reveals that replaced them are
+     frozen as drawn (owner, "REVEALS ACCEPTED FOR NOW AT v10"). The prop rides on, reported for the walk only. */
+  assert.equal((src.match(/revealMaterialVars\(/g) ?? []).length, 0, 'a theme dressing is back on a reveal drawn as frozen');
+  assert.match(src, /data-reveal-dressed=\{materials \? '' : undefined\}/);
   const veilBlock = src.slice(veil, src.indexOf('/>', veil));
   assert.doesNotMatch(veilBlock, /materials/, 'the veil is untouched');
 });

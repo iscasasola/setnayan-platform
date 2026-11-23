@@ -319,7 +319,7 @@ test('the Maker: its membership read throws a blip before the redirect out', () 
 });
 
 test('Home: all three board reads re-throw a blip instead of an empty board', () => {
-  const s = src('app/dashboard/(launcher)/page.tsx');
+  const s = src('app/(hub)/dashboard/page.tsx');
   for (const mt of ['couple', 'guest', 'coordinator']) {
     assert.match(
       s,

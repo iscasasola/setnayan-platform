@@ -82,6 +82,7 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
   { route: '/admin/account-deletions', tab: 'work', note: 'A queue of deletion requests.' },
   { route: '/admin/event-deletions', tab: 'work', note: 'A queue of event removals.' },
   { route: '/admin/help', tab: 'work', note: 'Help inbox.' },
+  { route: '/admin/help/guides', tab: 'work', note: 'The team’s Help: team guides, and the No answer yet list (13 Nov 2026).' },
   { route: '/admin/editorial-review', tab: 'work' },
   { route: '/admin/editorial-review/[editorialId]', tab: 'work' },
   { route: '/admin/verify', tab: 'work', note: 'From suppliers: documents to check.' },

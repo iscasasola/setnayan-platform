@@ -147,7 +147,7 @@ test('admin actions.ts sites (corrections, event-types, verify): the dropped err
 });
 
 test('dashboard launcher + story desk-actions + vendors page: kept-reason logs sit at each drop point', () => {
-  const launcher = src('app/dashboard/(launcher)/page.tsx');
+  const launcher = src('app/(hub)/dashboard/page.tsx');
   const chapAt = indexAfter(launcher, "from('creator_chapters')");
   const chapLogAt = indexAfter(launcher, 'logQueryError(', chapAt);
   const chapCatchAt = indexAfter(launcher, 'chapterCount = 0;', chapLogAt);

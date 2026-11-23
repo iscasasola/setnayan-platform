@@ -1,12 +1,11 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { createContext, useContext, useId, useMemo, useRef, useState, useTransition, type ComponentType, type ReactNode } from 'react';
-import { Camera, Check, RotateCw, ChevronDown, ChevronRight, ChevronUp, Gem, LayoutTemplate, Radio, Sparkles, Wallet, X } from 'lucide-react';
+import { ArrowRight, Check, RotateCw, ChevronDown, ChevronRight, Wallet, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { Sheet } from '@/app/_components/sheet';
 import { Chips } from '@/app/_components/chips';
-import { InfoTip } from '@/app/_components/info-tip';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { formatPhp } from '@/lib/php';
 import { routes } from '@/lib/routes';
@@ -16,6 +15,7 @@ import {
   EMPTY_PICK,
   PACK_HOLDS,
   PACK_PURPOSE,
+  SERVICE_PICTURE,
   SINGLE_SHORT,
   SINGLE_WORDS,
   applySwitch,
@@ -27,24 +27,29 @@ import {
   switchOffer,
   type EventServicesFacts,
   type EventServicesPick,
-  type PackFact,
   type PackKey,
   type SingleFact,
   type SingleKey,
 } from '@/lib/event-services';
 
 /**
- * 🛒 EVENT SERVICES — the one place to buy for an event (owner 2026-11-23; drawing
- * `prototypes/buy_event_services_one_place_2026-11-23/frames_v4_clean_warm/`, approved "Yes, build it"), on the clean
- * warm look (16 Nov · HOUSE_DESIGN_STANDARD): the peach band with the one 30-px title, floating white frames with no
- * lines, prices in the decision colour at the row's end, the saving in green under it, soft grey second buttons, the
- * one filled Pay.
+ * 🛒 EVENT SERVICES — the one place to buy for an event (owner 2026-11-23), in the WEBSITE template: DECISION_LOG
+ * "EVENT SERVICES v5 (WEBSITE TEMPLATE) APPROVED, WITH THE TODAY DOOR"; drawing
+ * `prototypes/buy_event_services_one_place_2026-11-23/frames_v5_website/` + `strip-v5.jpg` (HOUSE_DESIGN_STANDARD Part H,
+ * Discover's own tokens). v4's functions, unchanged; only the look moved:
+ *
+ *   a white page · the event's mono kicker and the one 28-px title · plan rows split by hairlines (no boxes, no cards)
+ *   · a tick circle at each row's start (v5's one new piece) · the price 17/700 at the row's end, the saving an outlined
+ *   tag · the ⓘ opening the pack's list IN PLACE in a note box · the singles with the Pricing page's small pictures ·
+ *   32-px chips · a flat Pay bar with the ONE terracotta button.
  *
  *   Your plan · Pick a pack (or "Next pack" on a plan) · Or just what you need / Add to your pack · Orders and receipts
  *   · the cart bar → ONE order → the shipped `/pay/[reference]`.
  *
- * Draws only what it is handed (`EventServicesFacts`, read by `readEventServices`) — so the page and its lab
- * (`/dev/event-services-lab`) draw the same thing. Every peso is a read; `null` says "Couldn't read", never ₱0.
+ * The look is `event-services-website.css` (scoped to `[data-event-services]` and the cart bar; loaded by the page and
+ * its lab, never by a unit render). Draws only what it is handed (`EventServicesFacts`, read by `readEventServices`) —
+ * so the page and its lab (`/dev/pro-parts-lab?frame=services-…`) draw the same thing. Every peso is a read; `null`
+ * says "Couldn't read", never ₱0.
  */
 export type EventServicesBodyProps = {
   eventId: string;
@@ -58,7 +63,7 @@ export type EventServicesBodyProps = {
   lab?: boolean;
   /** The way back when a door brought them (the Maker's Apply sheet) — drawn as a quiet row; null otherwise. */
   back?: { href: string; label: string } | null;
-  /** 🧪 The lab's ⓘ frame: that pack's sheet open on arrival. */
+  /** 🧪 The lab's ⓘ frame: that pack's list open in place on arrival. */
   initialInfo?: PackKey | null;
 };
 
@@ -114,46 +119,52 @@ const AppleCtx = createContext<((code: string) => string | null) | null>(null);
 export type CartDock = ComponentType<{ children: ReactNode }>;
 const PlainDock: CartDock = ({ children }) => <div data-event-services-dock="">{children}</div>;
 
-const ICON: Record<SingleKey, typeof Gem> = { hub: LayoutTemplate, ai: Sparkles, live: Radio };
-
-/** A price, or the honest word when it was not read. */
-function Price({ php, code, className = '' }: { php: number | null; code?: string; className?: string }) {
+/** A price (17/700, tabular — the website's plan-row price), or the honest word when it was not read. */
+function Price({ php, code }: { php: number | null; code?: string }) {
   const apple = useContext(AppleCtx);
   if (apple) {
     const label = code ? apple(code) : null;
-    return label === null ? (
-      <span className={`text-sn-md text-ink/55 ${className}`}>Apple’s price</span>
-    ) : (
-      <span className={`whitespace-nowrap text-sn-xl font-bold text-mulberry ${className}`}>{label}</span>
-    );
+    return label === null ? <span className="es-unread">Apple’s price</span> : <b className="es-price">{label}</b>;
   }
-  return php === null ? (
-    <span className={`text-sn-md text-ink/55 ${className}`}>Couldn’t read</span>
-  ) : (
-    <span className={`whitespace-nowrap text-sn-xl font-bold text-mulberry ${className}`}>{formatPhp(php)}</span>
+  return php === null ? <span className="es-unread">Couldn’t read</span> : <b className="es-price">{formatPhp(php)}</b>;
+}
+
+/** The tick circle at a row's start (v5's one new piece: the website has no "pick" control) — filled when picked. */
+function Tick() {
+  return (
+    <span aria-hidden className="es-tick">
+      <Check strokeWidth={2.6} />
+    </span>
   );
 }
 
-/** The round mark at a row's start: the topic icon on a soft ground, or a filled ✓ when picked. */
-function Mark({ on, Icon }: { on: boolean; Icon: typeof Gem }) {
-  return (
-    <span
-      aria-hidden
-      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors duration-sn-control ease-sn ${
-        on ? 'bg-mulberry text-cream' : 'bg-mulberry/10 text-mulberry'
-      }`}
-    >
-      {on ? <Check className="h-5 w-5" strokeWidth={2.4} /> : <Icon className="h-5 w-5" strokeWidth={1.9} />}
-    </span>
-  );
+/** The small outlined word (Part H "small tag"): Picked · Save · In your plan · Being checked. */
+function Tag({ quiet = false, children }: { quiet?: boolean; children: ReactNode }) {
+  return <em className={quiet ? 'es-tag es-tag-q' : 'es-tag'}>{children}</em>;
 }
 
 function StateWord({ state }: { state: 'yours' | 'review' | 'plan' }) {
-  if (state === 'review') return <span className="whitespace-nowrap text-sn-sm font-semibold text-ink/60">Being checked</span>;
+  return <Tag quiet>{state === 'review' ? 'Being checked' : state === 'plan' ? 'In your plan' : 'Yours'}</Tag>;
+}
+
+/**
+ * The ⓘ beside a row: it opens the row's full list IN PLACE, in a note box under the row (v5: "The ⓘ opens the full
+ * list in a note box, in place" — no sheet). The house ⓘ's look, token for token (`there-is-one-info-dot.test.ts` lists
+ * this site).
+ */
+function InfoDot({ name, open, onToggle, controls, marker }: { name: string; open: boolean; onToggle: () => void; controls: string; marker: string }) {
   return (
-    <span className="whitespace-nowrap rounded-full bg-success-100 px-2 py-1 text-sn-sm font-semibold text-success-800">
-      {state === 'plan' ? 'In your plan' : 'Yours'}
-    </span>
+    <button
+      type="button"
+      className="sn-press sn-press-ring sn-dot-btn pointer-events-auto relative z-10 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
+      aria-label={`What’s in ${name}`}
+      aria-expanded={open}
+      aria-controls={controls}
+      onClick={onToggle}
+      data-event-services-info-open={marker}
+    >
+      <span aria-hidden="true">i</span>
+    </button>
   );
 }
 
@@ -175,7 +186,8 @@ export function EventServicesView({
   const facts = useMemo(() => (apple ? appleFacts(shippedFacts, apple) : shippedFacts), [shippedFacts, apple]);
   const [pick, setPick] = useState<EventServicesPick>(initialPick);
   const [open, setOpen] = useState(initialOpen || (facts.plan !== null && facts.plan !== 'free'));
-  const [info, setInfo] = useState<PackFact | null>(() => (initialInfo ? facts.packs.find((p) => p.key === initialInfo) ?? null : null));
+  // ⓘ: the one pack whose full list is open IN PLACE, under its row (v5 — no sheet).
+  const [info, setInfo] = useState<PackKey | null>(initialInfo);
   const [failed, setFailed] = useState<string | null>(null);
   const [paying, startPaying] = useTransition();
   const [step, setStep] = useState<{ at: number; of: number; label: string } | null>(null);
@@ -292,161 +304,149 @@ export function EventServicesView({
 
   return (
     <AppleCtx.Provider value={appleLabel}>
-    <section className="mx-auto w-full max-w-[760px] pb-8" data-event-services="" data-event-services-apple={apple ? '' : undefined} data-event-services-plan={facts.plan ?? 'unread'}>
-      {/* ── the peach band: the event's line and the one title ── */}
-      <div className="sn-band -mt-2 px-4 pb-4 pt-3 sm:rounded-b-2xl" data-event-services-band="">
-        {facts.eyebrow ? <p className="text-sn-md text-ink/60">{facts.eyebrow}</p> : null}
-        <p aria-hidden className="sn-screen-title mt-1 text-ink">
+    <section className="es" data-event-services="" data-event-services-apple={apple ? '' : undefined} data-event-services-plan={facts.plan ?? 'unread'}>
+      {/* ── the head: the event's line (mono kicker) and the one title, on the white page — no band ── */}
+      <div className="es-head" data-event-services-head="">
+        {facts.eyebrow ? <p className="es-kick">{facts.eyebrow}</p> : null}
+        <p aria-hidden className="es-title">
           Event services
         </p>
       </div>
 
-      <div className="space-y-6 px-4 pt-2">
-        {/* 🍎 The honest states, in amber (frames 08e · 08f): the App Store not answering, or a payment that did not go
-            through — what landed is said, what did not stays picked, and Try again picks up where it stopped. */}
-        {apple && apple.prices.state === 'silent' ? (
-          <div className="flex items-center justify-between gap-3 rounded-xl bg-warn-50 p-3 text-warn-900" role="alert" data-event-services-apple-silent="">
-            <p className="text-sn-md">{IAP_COPY.storeSilent}</p>
-            <ActionButton tone="neutral" icon={RotateCw} label="Try again" onClick={() => window.location.reload()} />
-          </div>
-        ) : null}
-        {appleNote ? (
-          <div
-            className={`flex items-center justify-between gap-3 rounded-xl p-3 ${appleNote.tone === 'warn' ? 'bg-warn-50 text-warn-900' : 'bg-success-50 text-success-900'}`}
-            role={appleNote.tone === 'warn' ? 'alert' : 'status'}
-            data-event-services-apple-note={appleNote.tone}
-          >
-            <p className="text-sn-md">{appleNote.text}</p>
-            {appleNote.retry && cart.lines.length > 0 ? <ActionButton tone="neutral" icon={RotateCw} label="Try again" onClick={pay} /> : null}
-          </div>
-        ) : null}
-
-        {/* ── Your plan ── */}
-        <div className="sn-frame" data-event-services-your-plan="">
-          <p className="text-sn-md text-ink/60">Your plan</p>
-          <p className="mt-1 text-sn-3xl font-bold text-ink">{facts.planName ?? 'Couldn’t read'}</p>
-          <p className="mt-1 text-sn-base text-ink/70">
-            {facts.photosLeft === null ? 'Guest photos left: couldn’t read' : `${formatCount(facts.photosLeft)} guest photos left`}
-          </p>
+      {/* 🍎 The honest states, in a note box (frames 08e · 08f): the App Store not answering, or a payment that did not
+          go through — what landed is said, what did not stays picked, and Try again picks up where it stopped. */}
+      {apple && apple.prices.state === 'silent' ? (
+        <div className="es-note es-note-row" role="alert" data-event-services-apple-silent="">
+          <p>{IAP_COPY.storeSilent}</p>
+          <ActionButton tone="brand" quiet icon={RotateCw} label="Try again" onClick={() => window.location.reload()} />
         </div>
+      ) : null}
+      {appleNote ? (
+        <div className="es-note es-note-row" role={appleNote.tone === 'warn' ? 'alert' : 'status'} data-event-services-apple-note={appleNote.tone}>
+          <p>{appleNote.text}</p>
+          {appleNote.retry && cart.lines.length > 0 ? <ActionButton tone="brand" quiet icon={RotateCw} label="Try again" onClick={pay} /> : null}
+        </div>
+      ) : null}
 
-        {/* ── the packs ── */}
-        {packs.length > 0 ? (
-          <section aria-labelledby={`${infoHead}-packs`} data-event-services-packs="">
-            <div className="mb-3 flex items-center justify-between">
-              <InfoTip
-                label={packsTitle}
-                labelAs="h2"
-                labelId={`${infoHead}-packs`}
-                labelClassName="text-sn-xl font-semibold text-ink"
-                align="end"
-                className="w-full justify-between"
-              >
-                A pack holds several services for less than buying each one. Its ⓘ lists everything inside.
-              </InfoTip>
-            </div>
-            <ul className="sn-frame flex flex-col gap-1 !p-2">
-              {packs.map((p) => {
-                const picked = pick.pack === p.key;
-                const buyable = p.state === 'buy' && p.php !== null;
-                const next = packsTitle === 'Next pack';
-                return (
-                  <li key={p.key} data-event-services-pack={p.key} data-picked={picked ? '' : undefined} data-state={p.state}>
-                    {/* The whole row picks (a stretched button under the words); the ⓘ beside the name sits above it. */}
-                    <div className={`relative flex items-start gap-3 rounded-xl p-3 transition-colors duration-sn-control ease-sn ${picked ? 'bg-mulberry/10' : ''}`}>
-                      <button
-                        type="button"
-                        className="sn-press absolute inset-0 rounded-xl disabled:cursor-default"
-                        aria-pressed={picked}
-                        aria-label={`${p.name}${p.php !== null && p.state === 'buy' ? `, ${formatPhp(p.php)}` : ''}`}
-                        disabled={!buyable}
-                        onClick={() => togglePack(p.key)}
-                      />
-                      <Mark on={picked} Icon={Gem} />
-                      <span className="pointer-events-none min-w-0 flex-1">
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-sn-xl font-semibold text-ink">{p.name}</span>
-                          {/* The house ⓘ's look, token for token (`there-is-one-info-dot.test.ts` lists this site): it opens the
-                              pack's full list in the page's one sheet, which <InfoTip>'s hover note cannot hold. */}
-                          <button
-                            type="button"
-                            className="sn-press sn-press-ring sn-dot-btn pointer-events-auto relative z-10 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
-                            aria-label={`What’s in ${p.name}`}
-                            aria-haspopup="dialog"
-                            aria-expanded={info?.key === p.key}
-                            onClick={() => setInfo(p)}
-                            data-event-services-info-open={p.key}
-                          >
-                            <span aria-hidden="true">i</span>
-                          </button>
-                        </span>
-                        <span className="mt-0.5 block text-sn-base leading-snug text-ink/75">
-                          {PACK_PURPOSE[p.key]}
-                          {p.fits ? <span className="font-semibold text-ink"> {p.fits}</span> : null}
-                        </span>
-                        <span className="mt-0.5 block text-sn-md text-ink/55">{packHoldsLine(p, next, facts.plan)}</span>
+      {/* ── Your plan: a plan row — name and its line left, the plan right ── */}
+      <div className="es-rows es-plan" data-event-services-your-plan="">
+        <div className="es-row es-row-plan">
+          <span className="es-words">
+            <b className="es-name">Your plan</b>
+            <span className="es-line">
+              {facts.photosLeft === null ? 'Guest photos left: couldn’t read' : `${formatCount(facts.photosLeft)} guest photos left`}
+            </span>
+          </span>
+          {facts.planName === null ? <span className="es-unread">Couldn’t read</span> : <b className="es-price">{facts.planName}</b>}
+        </div>
+      </div>
+
+      {/* ── the packs: plan rows, a tick at the start, the saving as a small tag, the ⓘ opening its list in place ── */}
+      {packs.length > 0 ? (
+        <section className="es-part" aria-labelledby={`${infoHead}-packs`} data-event-services-packs="">
+          <h2 id={`${infoHead}-packs`} className="es-sec">
+            {packsTitle}
+          </h2>
+          {packsTitle === 'Next pack' ? null : <p className="es-lede">Each pack costs less than its parts.</p>}
+          <ul className="es-rows">
+            {packs.map((p) => {
+              const picked = pick.pack === p.key;
+              const buyable = p.state === 'buy' && p.php !== null;
+              const next = packsTitle === 'Next pack';
+              const opened = info === p.key;
+              const noteId = `${infoHead}-info-${p.key}`;
+              return (
+                <li
+                  key={p.key}
+                  className={`es-item${picked ? ' es-on' : ''}${opened ? ' es-open' : ''}`}
+                  data-event-services-pack={p.key}
+                  data-picked={picked ? '' : undefined}
+                  data-state={p.state}
+                >
+                  <div className="es-row es-row-pack">
+                    {/* The whole row picks (a stretched button under the words); the ⓘ sits above it. */}
+                    <button
+                      type="button"
+                      className="es-hit sn-press"
+                      aria-pressed={picked}
+                      aria-label={`${p.name}${p.php !== null && p.state === 'buy' ? `, ${formatPhp(p.php)}` : ''}`}
+                      disabled={!buyable}
+                      onClick={() => togglePack(p.key)}
+                    />
+                    <Tick />
+                    <span className="es-words">
+                      <b className="es-name">
+                        {p.name}
+                        {picked ? <Tag>Picked</Tag> : null}
+                      </b>
+                      <span className="es-line">
+                        {PACK_PURPOSE[p.key]}
+                        {p.fits ? ` ${p.fits}` : null}
                       </span>
-                      <span className="pointer-events-none flex shrink-0 flex-col items-end gap-1 pt-1">
-                        {p.state === 'buy' ? (
-                          <>
-                            <Price php={p.php} code={p.code} />
-                            {apple ? null : next && p.php !== null ? (
-                              <span className="text-sn-sm text-ink/55">pay the difference</span>
-                            ) : p.savePhp !== null ? (
-                              <span className="whitespace-nowrap text-sn-sm font-bold text-success-700">Save {formatPhp(p.savePhp)}</span>
-                            ) : null}
-                          </>
-                        ) : (
-                          <StateWord state={p.state} />
-                        )}
-                      </span>
+                      <small className="es-small">{packHoldsLine(p, next, facts.plan)}</small>
+                    </span>
+                    <span className="es-end">
+                      {p.state === 'buy' ? (
+                        <>
+                          <Price php={p.php} code={p.code} />
+                          {apple ? null : next && p.php !== null ? (
+                            <small className="es-small">pay the difference</small>
+                          ) : p.savePhp !== null ? (
+                            <Tag>Save {formatPhp(p.savePhp)}</Tag>
+                          ) : null}
+                        </>
+                      ) : (
+                        <StateWord state={p.state} />
+                      )}
+                    </span>
+                    <InfoDot name={p.name} open={opened} onToggle={() => setInfo((k) => (k === p.key ? null : p.key))} controls={noteId} marker={p.key} />
+                  </div>
+                  {opened ? (
+                    <div id={noteId} className="es-note es-note-list" data-event-services-info={p.key}>
+                      <ul>
+                        {p.info.map((line) => (
+                          <li key={line}>{line}</li>
+                        ))}
+                      </ul>
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ) : null}
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
-        {/* ── the singles: the quieter second choice ── */}
-        <section ref={singlesRef} aria-labelledby={`${infoHead}-singles`} data-event-services-singles={open ? 'open' : 'closed'}>
-          <div className="flex items-center justify-between gap-3">
-            <h2 id={`${infoHead}-singles`} className="text-sn-lg font-medium text-ink/70">
+      {/* ── the singles: the quieter second choice — one terracotta line until opened, then plan rows with pictures ── */}
+      <section ref={singlesRef} className={open ? 'es-part' : undefined} aria-labelledby={`${infoHead}-singles`} data-event-services-singles={open ? 'open' : 'closed'}>
+        {open ? (
+          <>
+            <h2 id={`${infoHead}-singles`} className="es-sec">
               {singlesTitle}
             </h2>
-            <ActionButton
-              tone="neutral"
-              icon={open ? ChevronUp : ChevronDown}
-              label={open ? 'Hide' : 'Show'}
-              aria-expanded={open}
-              onClick={() => {
-                if (!open) revealSingles();
-                setOpen((o) => !o);
-              }}
-            />
-          </div>
-          {open ? (
-            <div className="sn-frame mt-3 !p-2">
-              <ul className="flex flex-col gap-1">
-                {facts.singles.map((s) => (
-                  <SingleRow key={s.key} s={s} inPlan={inPlan.has(s.key)} picked={pick.singles.includes(s.key) && singleTickable(s, inPlan)} onToggle={() => toggleSingle(s.key)} />
-                ))}
-              </ul>
-              {/* More guest photos · Papic — the sizes on sale */}
-              <div className="p-3" data-event-services-photos="">
-                <div className="flex items-center gap-3">
-                  <span aria-hidden className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-mulberry/10 text-mulberry">
-                    <Camera className="h-5 w-5" strokeWidth={1.9} />
+            <ul className="es-rows">
+              {facts.singles.map((s) => (
+                <SingleRow key={s.key} s={s} inPlan={inPlan.has(s.key)} picked={pick.singles.includes(s.key) && singleTickable(s, inPlan)} onToggle={() => toggleSingle(s.key)} />
+              ))}
+              {/* More guest photos · Papic — the sizes on sale, as the website's chips */}
+              <li className={`es-item${pick.photos ? ' es-on' : ''}`} data-event-services-photos="">
+                <div className="es-row es-row-x">
+                  <span className="es-pic">
+                    <Image src={SERVICE_PICTURE.photos} alt="" width={48} height={48} sizes="48px" />
+                    {pick.photos ? <Tick /> : null}
                   </span>
-                  <p className="text-sn-lg font-semibold text-ink">
-                    More guest photos <span className="font-normal text-ink/55">· Papic</span>
-                  </p>
+                  <span className="es-words">
+                    <b className="es-name">More guest photos</b>
+                    <span className="es-line">Papic · every guest’s phone is a camera.</span>
+                  </span>
+                  <span className="es-end">{photoSize ? <Price php={photoSize.php} code={photoSize.code} /> : <small className="es-small">pick a size</small>}</span>
                 </div>
                 {facts.photos === null ? (
-                  <p className="mt-3 text-sn-md text-ink/60">The photo sizes couldn’t be read. Try again in a moment.</p>
+                  <p className="es-fine es-indent">The photo sizes couldn’t be read. Try again in a moment.</p>
                 ) : facts.photos.length > 0 ? (
                   <Chips
-                    className="mt-3"
+                    className="es-chips es-indent"
+                    even={false}
                     label="Photo sizes"
                     data="event-services-photos"
                     options={facts.photos.map((p) => ({ key: p.code, label: formatCount(p.points), ariaLabel: `${formatCount(p.points)} photos, ${formatPhp(p.php)}` }))}
@@ -454,123 +454,102 @@ export function EventServicesView({
                     onToggle={pickPhotos}
                   />
                 ) : null}
-                <p className="mt-3 flex items-baseline justify-between gap-3 text-sn-md text-ink/70">
-                  <span>
-                    {photosLine ? (
-                      <>
-                        {photosLine.word} <span className="font-semibold text-ink">{formatCount(photosLine.n)} photos</span>
-                      </>
-                    ) : (
-                      'Photos left: couldn’t read'
-                    )}
-                  </span>
-                  {photoSize ? <Price php={photoSize.php} code={photoSize.code} className="!text-sn-lg" /> : null}
+                <p className="es-fine es-indent">
+                  {photosLine ? (
+                    <>
+                      {photosLine.word} <span className="es-strong">{formatCount(photosLine.n)} photos</span>
+                    </>
+                  ) : (
+                    'Photos left: couldn’t read'
+                  )}
                 </p>
-              </div>
-            </div>
-          ) : null}
-        </section>
+              </li>
+            </ul>
+          </>
+        ) : (
+          <button
+            type="button"
+            id={`${infoHead}-singles`}
+            className="es-all sn-press"
+            aria-expanded={false}
+            onClick={() => {
+              revealSingles();
+              setOpen(true);
+            }}
+          >
+            {singlesTitle}
+            <ChevronDown aria-hidden strokeWidth={1.9} />
+          </button>
+        )}
+      </section>
 
-        {/* ── the Switch line: ticked singles a pack holds for less ── */}
-        {offer ? (
-          <div className="flex items-center justify-between gap-3 rounded-xl bg-info-50 p-3" data-event-services-switch={offer.pack}>
-            <p className="text-sn-md text-ink/80">
-              <span className="font-semibold text-ink">
-                {offer.name} has {offer.holds.length === 2 ? 'both' : 'all of them'}
-              </span>
-              {offer.extraPhotos ? `, plus ${formatCount(offer.extraPhotos)} photos,` : ''} for {formatPhp(offer.lessPhp)} less.
-            </p>
-            <ActionButton tone="neutral" icon={Gem} label="Switch" onClick={() => setPick((p) => applySwitch(p, offer))} />
-          </div>
-        ) : null}
-
-        {back ? (
-          <Link href={back.href} className="sn-press flex min-h-11 items-center justify-between text-sn-lg text-ink/70 hover:text-ink" data-event-services-back="">
-            {back.label}
-            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </Link>
-        ) : null}
-        <Link href={ordersHref} className="sn-press flex min-h-11 items-center justify-between text-sn-lg text-ink/70 hover:text-ink" data-event-services-orders="">
-          Orders and receipts
-          <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </Link>
-      </div>
-
-      {/* 🍎 "1 of 2 · Event Pro" — Apple's own payment sheet opens over this; we only name the step (frames 08b · 08c). */}
-      {step ? (
-        <div className="sn-frame fixed inset-x-4 top-24 z-40 mx-auto max-w-[480px] text-center" role="status" aria-live="polite" data-event-services-apple-step={`${step.at}/${step.of}`}>
-          <p className="text-sn-md text-ink/60">
-            {step.at} of {step.of}
+      {/* ── the Switch line: ticked singles a pack holds for less — a note box with its one link ── */}
+      {offer ? (
+        <div className="es-note es-note-row" data-event-services-switch={offer.pack}>
+          <p>
+            <b>
+              {offer.name} has {offer.holds.length === 2 ? 'both' : 'all of them'}
+            </b>
+            {offer.extraPhotos ? `, plus ${formatCount(offer.extraPhotos)} photos,` : ''} for {formatPhp(offer.lessPhp)} less.
           </p>
-          <p className="mt-1 text-sn-2xl font-bold text-ink">{step.label}</p>
-          <p className="mt-2 text-sn-md text-ink/60">Apple’s own payment sheet opens now.</p>
+          <ActionButton tone="brand" quiet icon={ArrowRight} label="Switch" onClick={() => setPick((p) => applySwitch(p, offer))} />
         </div>
       ) : null}
 
-      {/* ── the cart bar: ONE order, ONE Pay ── */}
-      {cart.lines.length > 0 ? (
-        <Dock>
-            <div className="sn-glass-row flex w-full min-w-0 items-center gap-3 rounded-full py-1.5 pl-4 pr-1.5" data-event-services-cart="">
-              <span className="min-w-0 flex-1">
-                <span className="line-clamp-2 block text-sn-md font-semibold leading-snug text-ink">{cart.label}</span>
-                <span className="block text-sn-sm text-ink/60">
-                  {apple ? (
-                    appleCount === 1 ? `Apple’s price · ${IAP_COPY.billedByApple}` : `Apple’s prices · ${appleCount} Apple payments`
-                  ) : failed ? (
-                    <span className="text-warn-800">{failed}</span>
-                  ) : cart.totalPhp === null ? (
-                    'A price couldn’t be read'
-                  ) : (
-                    `${formatPhp(cart.totalPhp)} · one payment`
-                  )}
-                </span>
-              </span>
-              <ActionButton
-                tone="brand"
-                main
-                icon={failed ? X : Wallet}
-                label={failed ? 'Try again' : 'Pay'}
-                waiting={apple ? step !== null || apple.prices.state !== 'ready' : paying || cart.totalPhp === null}
-                onClick={pay}
-                data-event-services-pay=""
-              />
-            </div>
-        </Dock>
+      {back ? (
+        <Link href={back.href} className="es-ask sn-press" data-event-services-back="">
+          {back.label}
+          <ChevronRight aria-hidden strokeWidth={1.9} />
+        </Link>
+      ) : null}
+      <Link href={ordersHref} className="es-ask sn-press" data-event-services-orders="">
+        Orders and receipts
+        <ChevronRight aria-hidden strokeWidth={1.9} />
+      </Link>
+
+      {/* 🍎 "1 of 2 · Event Pro" — Apple's own payment sheet opens over this; we only name the step (frames 08b · 08c). */}
+      {step ? (
+        <div className="es-step" role="status" aria-live="polite" data-event-services-apple-step={`${step.at}/${step.of}`}>
+          <div className="es-step-sheet">
+            <p className="es-kick">
+              {step.at} of {step.of}
+            </p>
+            <p className="es-big">{step.label}</p>
+            <p className="es-fine">Apple’s own payment sheet opens now.</p>
+          </div>
+        </div>
       ) : null}
 
-      {/* ── ⓘ: what's in a pack — the only sheet on the page ── */}
-      <Sheet open={info !== null} onClose={() => setInfo(null)} labelledById={`${infoHead}-info`}>
-        {info ? (
-          <div className="space-y-4 px-5 pb-5 pt-1" data-event-services-info={info.key}>
-            <h2 id={`${infoHead}-info`} className="text-sn-2xl font-bold text-ink">
-              What’s in {info.name}
-            </h2>
-            <ul className="space-y-2 text-sn-base text-ink/80">
-              {info.info.map((line) => (
-                <li key={line} className="flex gap-2">
-                  <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-mulberry" strokeWidth={2.2} />
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="flex flex-wrap justify-end gap-2 pt-2">
-              <ActionButton tone="neutral" quiet icon={X} label="Close" onClick={() => setInfo(null)} />
-              {info.state === 'buy' && info.php !== null ? (
-                <ActionButton
-                  tone="brand"
-                  main
-                  icon={Check}
-                  label={`Pick ${info.name}`}
-                  onClick={() => {
-                    if (pick.pack !== info.key) togglePack(info.key);
-                    setInfo(null);
-                  }}
-                />
-              ) : null}
-            </div>
+      {/* ── the cart bar: ONE order, ONE Pay — flat on the page, a hairline above (no floating pill) ── */}
+      {cart.lines.length > 0 ? (
+        <Dock>
+          <div className="es-paybar" data-event-services-cart="">
+            <span className="es-paybar-t">
+              <b>{cart.label}</b>
+              <small>
+                {apple ? (
+                  appleCount === 1 ? `Apple’s price · ${IAP_COPY.billedByApple}` : `Apple’s prices · ${appleCount} Apple payments`
+                ) : failed ? (
+                  <span className="es-warn">{failed}</span>
+                ) : cart.totalPhp === null ? (
+                  'A price couldn’t be read'
+                ) : (
+                  `${formatPhp(cart.totalPhp)} · one payment`
+                )}
+              </small>
+            </span>
+            <ActionButton
+              tone="brand"
+              main
+              icon={failed ? X : Wallet}
+              label={failed ? 'Try again' : 'Pay'}
+              waiting={apple ? step !== null || apple.prices.state !== 'ready' : paying || cart.totalPhp === null}
+              onClick={pay}
+              data-event-services-pay=""
+            />
           </div>
-        ) : null}
-      </Sheet>
+        </Dock>
+      ) : null}
     </section>
     </AppleCtx.Provider>
   );
@@ -580,27 +559,29 @@ function SingleRow({ s, inPlan, picked, onToggle }: { s: SingleFact; inPlan: boo
   const words = SINGLE_WORDS[s.key];
   const tickable = s.state === 'buy' && s.php !== null && !inPlan;
   return (
-    <li data-event-services-single={s.key} data-picked={picked ? '' : undefined}>
-      <button
-        type="button"
-        className={`sn-press flex w-full items-start gap-3 rounded-xl p-3 text-left transition-colors duration-sn-control ease-sn disabled:cursor-default ${picked ? 'bg-mulberry/10' : ''}`}
-        aria-pressed={tickable ? picked : undefined}
-        aria-label={`${SINGLE_SHORT[s.key]}${tickable ? '' : inPlan ? ', in your plan' : ''}`}
-        disabled={!tickable}
-        onClick={onToggle}
-      >
-        <Mark on={picked} Icon={ICON[s.key]} />
-        <span className="min-w-0 flex-1">
-          <span className="block text-sn-lg font-semibold text-ink">
+    <li className={`es-item${picked ? ' es-on' : ''}`} data-event-services-single={s.key} data-picked={picked ? '' : undefined}>
+      <div className="es-row es-row-x">
+        <button
+          type="button"
+          className="es-hit sn-press"
+          aria-pressed={tickable ? picked : undefined}
+          aria-label={`${SINGLE_SHORT[s.key]}${tickable ? '' : inPlan ? ', in your plan' : ''}`}
+          disabled={!tickable}
+          onClick={onToggle}
+        />
+        <span className="es-pic">
+          <Image src={SERVICE_PICTURE[s.key]} alt="" width={48} height={48} sizes="48px" />
+          {picked ? <Tick /> : null}
+        </span>
+        <span className="es-words">
+          <b className="es-name">
             {words.name}
-            {words.brand ? <span className="font-normal text-ink/55"> · {words.brand}</span> : null}
-          </span>
-          <span className="block text-sn-md leading-snug text-ink/65">{words.line}</span>
+            {words.brand ? <span className="es-brand"> · {words.brand}</span> : null}
+          </b>
+          <span className="es-line">{words.line}</span>
         </span>
-        <span className="shrink-0 pt-0.5">
-          {inPlan ? <StateWord state="plan" /> : s.state !== 'buy' ? <StateWord state={s.state} /> : <Price php={s.php} code={s.code} className="!text-sn-lg" />}
-        </span>
-      </button>
+        <span className="es-end">{inPlan ? <StateWord state="plan" /> : s.state !== 'buy' ? <StateWord state={s.state} /> : <Price php={s.php} code={s.code} />}</span>
+      </div>
     </li>
   );
 }

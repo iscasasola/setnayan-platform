@@ -52,11 +52,23 @@ export const PACK_PURPOSE: Readonly<Record<PackKey, string>> = Object.freeze({
   ultra: 'Stream the day live and keep photos a year.',
 });
 
-/** The singles' names and lines (drawing v4). `brand` is the quiet product name after the name. */
+/** The singles' names and lines (drawing v5: "Live Watch" by its product name). `brand` is a quiet product name after the name. */
 export const SINGLE_WORDS: Readonly<Record<SingleKey, { name: string; brand: string | null; line: string }>> = Object.freeze({
   hub: { name: 'Event Hub', brand: null, line: 'Every theme, every part to design.' },
   ai: { name: 'Setnayan AI', brand: null, line: 'Watches your plan and suppliers.' },
-  live: { name: 'Live stream', brand: 'Live Watch', line: 'Guests who can’t come watch it live.' },
+  live: { name: 'Live Watch', brand: null, line: 'Guests who can’t come watch it live.' },
+});
+
+/**
+ * 🖼 The small picture at each single's start (drawing v5, website template: "the four single items wear the Pricing
+ * page's own pictures"). Shipped files only: the front door's Event Hub photo and suppliers capture (`/marketing`) and the
+ * add-on art for Papic and Live Watch (`/add-ons`), the drawing's own Papic and live pictures not being shipped.
+ */
+export const SERVICE_PICTURE: Readonly<Record<SingleKey | 'photos', string>> = Object.freeze({
+  hub: '/marketing/2026-11-20/hub1.webp',
+  ai: '/marketing/2026-11-20/scr-suppliers-0.webp',
+  live: '/add-ons/panood.avif',
+  photos: '/add-ons/papic.avif',
 });
 
 /** The plain name of a single in the pack's "holds" line and the cart label. */

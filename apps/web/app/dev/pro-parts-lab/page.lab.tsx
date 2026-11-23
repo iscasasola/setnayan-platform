@@ -7,6 +7,7 @@ import { HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
 import { AppleProScreen } from '@/app/_components/iap/apple-pro-screen';
 import { formatPhp } from '@/lib/php';
 import { LabFrame } from './lab-client';
+import '@/app/dashboard/[eventId]/studio/website-pro/_components/event-services-website.css';
 
 /**
  * 🧪 /dev/pro-parts-lab — "Event Pro, part by part" (owner 2026-10-22), frame by frame of
@@ -17,7 +18,7 @@ import { LabFrame } from './lab-client';
  *   ?frame=line-free · line-paid · line-yours                 — the quiet line (frame 3)
  *   ?frame=services-free · services-pack · services-singles · services-addons · services-singles-only · services-info ·
  *          services-pro — 🛒 EVENT SERVICES (owner 2026-11-23, v4 approved), frames 01 · 02 · 03 · 04 · 04b · 05 · 09 of
- *          `prototypes/buy_event_services_one_place_2026-11-23/frames_v4_clean_warm/` — the page the plans page became.
+ *          `prototypes/buy_event_services_one_place_2026-11-23/frames_v5_website/` (v5, the website template) — the page the plans page became.
  *          Its pay page (06 · 07) is `/dev/pay-maya-lab`; Today's row (11 · 12) the home lab.
  *   ?frame=iphone · iphone-cancel · iphone-silent — 🍎 the iPhone app (frames 08 · 08b · 08c · 08e · 08f): press Pay.
  *   ?frame=address-free · address-pick · address-kept         — the custom address (frame 5)

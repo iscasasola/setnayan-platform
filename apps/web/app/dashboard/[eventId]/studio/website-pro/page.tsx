@@ -10,6 +10,8 @@ import { PACK_KEYS, SINGLE_CODES, SINGLE_KEYS, singleTickable, singlesInPlan, ty
 import { PLAN_PRICE_CODES } from '@/lib/event-plans';
 import { EventServicesBody } from './_components/event-services-body';
 import { UNLOCK_AND_APPLY_PARAM } from '@/lib/hub-pro-effects';
+// 🎨 The website template's look for this page (v5) — loaded here and in its lab, never in a unit render.
+import './_components/event-services-website.css';
 
 export const metadata = { title: 'Event services' };
 

@@ -382,8 +382,8 @@ export function YourServices({
    */
   cards?: boolean;
   /**
-   * 🛒 THE DOOR ON TODAY (owner 2026-11-23, Event services v4 frame 12): one "Event services" row at the top of Your
-   * services — the plan and the photos left — opening the one place to buy for the event. Null = not drawn.
+   * 🛒 THE DOOR ON TODAY (owner 2026-11-23, Event services v5 frame 12): one "Event services" row at the END of Your
+   * services, tagged New — the plan and the photos left — opening the one place to buy for the event. Null = not drawn.
    */
   eventServices?: string | null;
 }) {
@@ -394,19 +394,6 @@ export function YourServices({
     <nav aria-label="Your services" id="your-services" data-home-services className="hc-ruled flex flex-col">
       <p className="home-k2 !mt-1" data-tour="home-services">Your services</p>
       <div className="home-svc hc-plain-list">
-        {eventServices ? (
-          <ServiceGlanceRow
-            href={routes.dashboard.eventServices(eventId)}
-            name="Event services"
-            icon={<Gem aria-hidden strokeWidth={1.9} />}
-            mood="plain"
-            pct={0}
-            meter={false}
-            line={{ lead: eventServices }}
-            meterLabel=""
-            marker={{ 'data-home-service': 'event-services' }}
-          />
-        ) : null}
         {apple?.papic ? (
           <AppleServiceRow
             marker="papic"
@@ -536,6 +523,21 @@ export function YourServices({
             </Link>
           );
         })}
+        {/* 🛒 Event services — the LAST row, tagged New (v5 drawing `12-today-proposed`: "one new row at the end"). */}
+        {eventServices ? (
+          <ServiceGlanceRow
+            href={routes.dashboard.eventServices(eventId)}
+            name="Event services"
+            tag="New"
+            icon={<Gem aria-hidden strokeWidth={1.9} />}
+            mood="plain"
+            pct={0}
+            meter={false}
+            line={{ lead: eventServices }}
+            meterLabel=""
+            marker={{ 'data-home-service': 'event-services' }}
+          />
+        ) : null}
       </div>
     </nav>
   );

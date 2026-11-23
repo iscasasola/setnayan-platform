@@ -27,3 +27,46 @@ COMMENT ON COLUMN public.events.invite_theme IS
   '(the 23 Nov redraw, batch 1: one still picture each). Every theme but the free ones is Event Hub Pro '
   '(COUPLE_WEBSITE_PRO). NULL means never chosen and renders as house. A Pro theme on an event without an active '
   'Event Hub Pro unlock also renders as house — the gate lives in the app.';
+
+-- 🔤 …and the faces batch 1 brings are faces a couple can save (lib/hub-fonts.ts — every face the app ships is in the
+-- Maker's dropdown, owner 2026-09-27 "use all our fonts on the dropdown"). Only widens the list.
+ALTER TABLE public.events
+  DROP CONSTRAINT IF EXISTS events_site_font_key_check;
+ALTER TABLE public.events
+  ADD CONSTRAINT events_site_font_key_check
+  CHECK (site_font_key IS NULL
+         OR site_font_key IN ('cormorant','fraunces','playfair','caslon','vidaloka',
+                              'cinzel','script','tangerine','luxurious',
+                              'cormorantsc','playfairsc','bodoni','prata','instrument',
+                              'cardo','gilda','cinzeldeco','italiana','marcellus',
+                              'yeseva','limelight','alfaslab','oswald','syne','poiret',
+                              'pinyon','herrvon','haviland','manrope','hanken','jost',
+                              'quicksand','outfit','schibsted','poppins',
+                              'lora','baskerville','crimson','josefin','kaushan',
+                              'alexbrush','parisienne','cookie','delafield','monoton',
+                              'raleway','gloock','mulish','worksans','epilogue','newsreader'));
+
+DO $$
+DECLARE
+  theme_def TEXT;
+  font_def TEXT;
+  k TEXT;
+BEGIN
+  SELECT pg_get_constraintdef(c.oid) INTO theme_def FROM pg_constraint c
+   WHERE c.conrelid = 'public.events'::regclass AND c.conname = 'events_invite_theme_check';
+  SELECT pg_get_constraintdef(c.oid) INTO font_def FROM pg_constraint c
+   WHERE c.conrelid = 'public.events'::regclass AND c.conname = 'events_site_font_key_check';
+  IF theme_def IS NULL OR font_def IS NULL THEN
+    RAISE EXCEPTION 'a CHECK is missing — a typo could become a silent fallback';
+  END IF;
+  FOREACH k IN ARRAY ARRAY['house','cyber','gatsby','capiz','perlas','waling','hagdan','solihiya'] LOOP
+    IF position(quote_literal(k) IN theme_def) = 0 THEN
+      RAISE EXCEPTION 'events_invite_theme_check does not accept %', k;
+    END IF;
+  END LOOP;
+  FOREACH k IN ARRAY ARRAY['cormorant','monoton','raleway','gloock','mulish','worksans','epilogue','newsreader'] LOOP
+    IF position(quote_literal(k) IN font_def) = 0 THEN
+      RAISE EXCEPTION 'events_site_font_key_check does not accept %', k;
+    END IF;
+  END LOOP;
+END $$;

@@ -485,14 +485,12 @@ const TYPE: Record<
   regency: { head: 'bodoni', script: 'luxurious', body: 'cardo', ornament: '❦' },
   gatsby: { head: 'cinzel', script: null, body: 'cardo', ornament: '◆', caps: true },
   cyber: { head: 'poppinsBold', script: null, body: 'poppins', ornament: '◆', caps: true },
-  // 23 Nov redraw, batch 1 — each sheet's heading face where the server holds it (Italiana, Marcellus, Lora); the rest
-  // take the nearest bundled one, as this table's rule says (Gloock → Bodoni, Epilogue → Poppins Bold, the sans bodies
-  // → Poppins, Newsreader → Cardo).
-  perlas: { head: hubPrintFont('italiana'), script: null, body: 'poppins', ornament: '•', caps: true },
-  waling: { head: 'bodoni', script: null, body: hubPrintFont('outfit'), ornament: '✦' },
-  capiz: { head: hubPrintFont('marcellus'), script: null, body: 'poppins', ornament: '◇' },
-  hagdan: { head: hubPrintFont('lora'), script: null, body: 'poppins', ornament: '—' },
-  solihiya: { head: 'poppinsBold', script: null, body: 'cardo', ornament: '—', caps: true },
+  // 23 Nov redraw, batch 1 — every face its sheet names, set on paper too (each is a Hub face with its own outline).
+  perlas: { head: hubPrintFont('italiana'), script: null, body: hubPrintFont('raleway'), ornament: '•', caps: true },
+  waling: { head: hubPrintFont('gloock'), script: null, body: hubPrintFont('outfit'), ornament: '✦' },
+  capiz: { head: hubPrintFont('marcellus'), script: null, body: hubPrintFont('mulish'), ornament: '◇' },
+  hagdan: { head: hubPrintFont('lora'), script: null, body: hubPrintFont('worksans'), ornament: '—' },
+  solihiya: { head: hubPrintFont('epilogue'), script: null, body: hubPrintFont('newsreader'), ornament: '—', caps: true },
 };
 
 /**

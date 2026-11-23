@@ -68,12 +68,13 @@ test('🔑 no LIST ORDER decides who is in the five — the counts or a person d
 test('🔑 the owner tie order names only offered faces, each once, and is reached by today\'s tie', () => {
   assert.deepEqual([...MOST_USED_OWNER_TIE_ORDER], ['lora', 'baskerville', 'crimson'], 'owner 2026-10-04: Lora, Libre Baskerville, Crimson Pro first');
   for (const k of MOST_USED_OWNER_TIE_ORDER) assert.ok(HUB_FONT_BY_KEY[k], `${k} is an offered face`);
-  // Today the counts leave Lora · Libre Baskerville · Crimson Pro · Jost · Quicksand ·
-  // Outfit tied (2 slots in 1 theme each) — so the owner's order is what decides.
+  // RE-MEASURED 23 Nov (the redraw's batch 1): Lora is now in two themes (Rustic, Hagdan), so it leaves the tie, and
+  // Libre Baskerville · Crimson Pro · Jost · Quicksand · Raleway · Mulish · Work Sans · Newsreader are tied (2 slots in
+  // 1 theme each) — so the owner's order still decides, and his two that are tied lead.
   const ranked = countHubFontUse();
   const tied = ranked.filter((r) => r.uses === 2 && r.themes === 1).map((r) => r.key);
-  assert.deepEqual(tied.slice(0, 3), ['lora', 'baskerville', 'crimson'], 'among the tied, the owner\'s three lead');
-  assert.ok(tied.includes('jost') && tied.includes('quicksand') && tied.includes('outfit'), `the tie is as measured: ${tied.join(', ')}`);
+  assert.deepEqual(tied.slice(0, 2), ['baskerville', 'crimson'], 'among the tied, the owner\'s order leads');
+  assert.ok(tied.includes('jost') && tied.includes('quicksand') && tied.includes('raleway'), `the tie is as measured: ${tied.join(', ')}`);
 });
 
 test('🔑 theme count breaks a slot tie — a fixture, so the rule is proven, not today\'s data', () => {
@@ -102,8 +103,8 @@ test('🔑 theme count breaks a slot tie — a fixture, so the rule is proven, n
 });
 
 test('the count reads every theme slot — and only the four face slots', () => {
-  // Non-vacuity: the registry is read (ten themes, up to four slots each).
-  assert.equal(HUB_THEMES.length, 10);
+  // Non-vacuity: the registry is read (every theme, up to four slots each — 15 with the redraw's batch 1).
+  assert.equal(HUB_THEMES.length, 15);
   const slots = countThemeFaceSlots(HUB_THEMES);
   const total = [...slots.values()].reduce((a, b) => a + b, 0);
   const expected = HUB_THEMES.reduce(

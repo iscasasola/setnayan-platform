@@ -154,7 +154,7 @@ test('owner via controller 22 Nov: a plan is never its size alone — Free and V
 test('owner 23 Nov "this is not our agreed service card": the samples wear Card 14, the mall face (approved 20 Nov, #8070)', () => {
   // /for-suppliers draws its samples in the live cards (redraw 23 Nov); /for-coordinators still draws the still row.
   const SLOTS: Record<string, readonly string[]> = {
-    'app/for-suppliers/_components/supplier-live-cards.tsx': ['city=', 'rating=', 'mallPrice={band}', 'medals=', 'lines={<SampleDateFit fit={fit} />}', 'distance={km}', 'aboutKmLine(', 'mallPrice({'],
+    'app/for-suppliers/_components/supplier-live-cards.tsx': ['city=', 'rating=', 'mallPrice={band}', 'medals=', 'lines={<SampleDateFit fit="free" />}', 'distance={km}', 'aboutKmLine(', 'mallPrice({'],
     'app/(shell)/for-coordinators/page.tsx': ['city=', 'rating=', 'price=', 'priceNote=', 'medals=', 'lines={<SampleDateFit />}', 'distance={aboutKmLine('],
   };
   for (const [rel, slots] of Object.entries(SLOTS)) {

@@ -548,13 +548,43 @@ export const LIVE_GUESTS_PER_DOT = 10;
 /** One state of the stage: the couple's day (of the sample month), guests, venue (index) and the slide in view. */
 export type LiveState = { day: number; guests: number; venue: number; slide: 0 | 1 | 2 };
 
-/** What the scroll plays, step by step (the drawing's SCRIPT): the day moves, then the guests, then the venue. */
+/**
+ * What the scroll plays, step by step (the drawing's SCRIPT): the day moves, then the guests, then the venue.
+ * Owner 23 Nov, after the drawing: a shop that is not free that day DROPS OUT of the row ("Booked that day" no longer
+ * stays on the card). So the first day is one all four are free, the second takes one card away, and the caterer (the
+ * per-guest card the guest step moves) stays in.
+ */
 export const LIVE_SCRIPT: readonly LiveState[] = [
-  { day: 12, guests: 50, venue: 0, slide: 0 },
+  { day: 11, guests: 50, venue: 0, slide: 0 },
   { day: 19, guests: 50, venue: 0, slide: 0 },
   { day: 19, guests: 120, venue: 0, slide: 1 },
   { day: 19, guests: 120, venue: 1, slide: 2 },
 ];
+
+/**
+ * 💬 THE "WHAT'S HAPPENING" TIP — owner 23 Nov: *"this needs to show what is happening and not just changing"* ·
+ * *"pointing at something like a what's happening pop up"*. One tip points at what just changed, then settles away.
+ * Every word it says is here, in one place.
+ */
+export const LIVE_TIPS = {
+  leaves: (shop: string, day: string) => ({
+    title: `${shop} is booked on ${day}`,
+    body: 'Its card steps out of the list by itself, so you never check your schedule over and over.',
+  }),
+  returns: (shop: string, day: string) => ({
+    title: `${shop} is free on ${day}`,
+    body: 'Its card is back by itself. Your calendar answers for you.',
+  }),
+  guests: (guests: string) => ({
+    title: `The price follows ${guests} guests`,
+    body: 'Set your price per guest once. Every couple sees their own total, with no recomputing.',
+  }),
+  place: (venue: string) => ({
+    title: `How far you are from ${venue}`,
+    body: 'You start set up near you, to build around your area, with room to expand.',
+  }),
+  none: (day: string) => `None of these four shops is free on ${day}. Pick another day.`,
+} as const;
 
 /** Where the scroll's progress (0–1) switches step — the drawing's 10 · 40 · 70 %. */
 export function liveStepAt(progress: number): number {

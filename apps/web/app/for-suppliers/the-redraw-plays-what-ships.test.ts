@@ -79,13 +79,16 @@ test('the scroll room is a real block INSIDE the scene (padding gives a sticky c
   assert.match(LIVE, /prefers-reduced-motion: reduce/);
 });
 
-test('four states: the day flips a date line, then the guests move the caterer’s total, then the venue moves the km', () => {
+test('four states: the day takes a card out of the row, then the guests move the caterer’s total, then the venue moves the km', () => {
   assert.equal(LIVE_SCRIPT.length, 4);
   assert.deepEqual([0, 0.2, 0.5, 0.9].map(liveStepAt), [0, 1, 2, 3]);
-  const fit = (day: number) => LIVE_CARD_SAMPLES.map((c) => (c.closed.includes(day) ? 'booked' : 'free'));
+  const inRow = (day: number) => LIVE_CARD_SAMPLES.filter((c) => !c.closed.includes(day)).map((c) => c.shop);
   const [a, b, c, d] = LIVE_SCRIPT as [typeof LIVE_SCRIPT[0], typeof LIVE_SCRIPT[0], typeof LIVE_SCRIPT[0], typeof LIVE_SCRIPT[0]];
-  assert.notDeepEqual(fit(a.day), fit(b.day), 'the day step flips no card’s date line');
-  assert.ok(fit(a.day).includes('booked') && fit(a.day).includes('free'), 'the first day shows both answers');
+  // Owner 23 Nov: a shop not free that day DROPS OUT of the row. The row starts full, so the day step shows one leave.
+  assert.equal(inRow(a.day).length, LIVE_CARD_SAMPLES.length, 'the first day already hides a card: nothing is seen leaving');
+  assert.ok(inRow(b.day).length < inRow(a.day).length && inRow(b.day).length > 0, 'the day step takes no card out of the row');
+  const caterer = LIVE_CARD_SAMPLES.find((x) => x.perGuest != null)!;
+  for (const st of [b, c, d]) assert.ok(!caterer.closed.includes(st.day), 'the per-guest card the guest step moves has left the row');
   assert.notEqual(b.guests, c.guests, 'the guest step moves nothing');
   assert.notEqual(c.venue, d.venue, 'the venue step moves nothing');
   for (const s of LIVE_SCRIPT) {
@@ -94,6 +97,28 @@ test('four states: the day flips a date line, then the guests move the caterer�
   }
   assert.deepEqual(DATE_FIT_WORDS.free, 'Free on your date');
   assert.deepEqual(DATE_FIT_WORDS.booked, 'Booked that day');
+});
+
+test('a closed shop leaves the row — never "Booked that day" on a card — and a day with none free says so', () => {
+  // The card in the row is always one that is free: the line is the free one, and a closed day hides the card.
+  assert.match(LIVE, /lines=\{<SampleDateFit fit="free" \/>\}/);
+  assert.doesNotMatch(LIVE, /fit=\{fit\}|'booked'/, 'a closed shop’s card stays in the row, labelled booked');
+  assert.match(LIVE, /li\.hidden = true/, 'a closed shop’s card is not taken out of the row');
+  assert.match(CSS, /\.liveScene\[data-motion\] \.liveCard\[data-out\] \{ opacity: 0; transform: scale\(\.\d+\); \}/);
+  // Some sample day closes all four (24 · 25 Dec): the row then speaks, it is never a blank strip.
+  assert.ok(Array.from({ length: 31 }, (_, i) => i + 1).some((d) => LIVE_CARD_SAMPLES.every((c) => c.closed.includes(d))));
+  assert.match(LIVE, /\{allOut \? \(\s*<li className=\{s\.liveNone\}[^>]*>\s*\{LIVE_TIPS\.none\(dayLabel\)\}/);
+});
+
+test('💬 each change is explained by ONE tip that points at it, in words from one place, heard by a screen reader', () => {
+  assert.match(LIVE, /className=\{s\.liveTip\}\s+role="status"/);
+  for (const k of ['leaves', 'returns', 'guests', 'place'] as const) {
+    assert.match(LIVE, new RegExp(`LIVE_TIPS\\.${k}\\b`), `no change says "${k}"`);
+  }
+  assert.equal(LIVE.match(/className=\{s\.liveTip\}/g)?.length, 1, 'more than one tip');
+  // The tip settles on the motion tokens, and only with the script and without reduced motion.
+  assert.match(CSS, /\.liveScene\[data-motion\] \.liveTip \{ transition: opacity var\(--sn-m-move\) var\(--sn-m-settle\)/);
+  assert.match(CSS, /\.liveTip \{ position: absolute;[^}]*pointer-events: none; \}/, 'the tip can catch a tap meant for the stage');
 });
 
 test('the one per-guest caterer: its band is mallPrice — "for your N guests" and the total', () => {

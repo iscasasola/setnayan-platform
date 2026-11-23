@@ -581,7 +581,7 @@ export const LIVE_TIPS = {
   }),
   place: (venue: string) => ({
     title: `How far you are from ${venue}`,
-    body: 'You start set up near you, to build around your area, with room to expand.',
+    body: 'You start with the couples near you, so you build around your own area, with room to expand later.',
   }),
   none: (day: string) => `None of these four shops is free on ${day}. Pick another day.`,
 } as const;

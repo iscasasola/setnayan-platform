@@ -19,11 +19,12 @@ import path from 'node:path';
 import { CARD_BADGES, CARD_BADGE_THRESHOLDS, passingCardBadges, type CardBadgeFacts } from './card-badges';
 import { reviewIsOwnClient } from './reviews';
 import { buildCardReviews } from './card-reviews';
+import { stripComments } from './strip-comments';
 
 const WEB = path.join(__dirname, '..');
 const read = (rel: string) => fs.readFileSync(path.join(WEB, rel), 'utf8');
-/** Comments out, so a guard never matches the note that explains a fix. */
-const code = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+/** Comments out (the one shared stripper), so a guard never matches the note that explains a fix. */
+const code = (src: string) => stripComments(src);
 
 const card = (over: Partial<CardBadgeFacts>): CardBadgeFacts => ({
   id: 'c1',

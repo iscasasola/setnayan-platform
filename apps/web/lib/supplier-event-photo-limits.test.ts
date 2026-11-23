@@ -20,10 +20,10 @@ import { TIER_CAPS, TIER_LABEL, VENDOR_TIERS, eventCaptureRule, isTierAtLeast, t
 import { canCapture, captureLimitLine, eventCaptureAllowance, STORAGE_FULL_LINE, CAPTURE_COUNT_UNREAD } from './vendor-papic-tier';
 import { seatRefusal } from './papic-seat-lane';
 import { classifyAnswer } from './papic-upload/schedule';
+import { stripComments } from './strip-comments';
 
 const WEB = process.cwd();
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
-const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 
 const EXPECTED: Record<VendorTier, { photos: number | null; videos: boolean }> = {
   free: { photos: 10, videos: false },

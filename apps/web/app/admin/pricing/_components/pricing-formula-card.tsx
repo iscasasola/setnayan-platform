@@ -17,7 +17,7 @@
  * 🔒 NOTHING HERE CHANGES A PRICE BY ITSELF. Saving the four numbers moves no
  * price; "Use formula price" fills the row's Price box and the admin still presses
  * "Save this price"; "Apply to all" sends each change through the same audited
- * per-row save (and § 9.1 second-admin approval) as a typed edit.
+ * per-row save as a typed edit — live at once, audited (owner 23 Nov 2026: no second admin for a price).
  */
 
 import { createContext, useActionState, useContext, useMemo, useState } from 'react';
@@ -158,7 +158,7 @@ export function PricingFormulaCard({ rows }: { rows: FormulaCandidateRow[] }) {
           <p className="text-[13px] font-bold text-danger-700">
             {formatCount(changes.length)} price{changes.length === 1 ? '' : 's'} would change
           </p>
-          <p className="mt-0.5 text-[12px] text-ink/60">Each one waits for a second admin in /admin/approvals.</p>
+          <p className="mt-0.5 text-[12px] text-ink/60">Each one is live as soon as you apply, and kept in the audit log.</p>
           <ul className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-[12.5px] text-ink/75 sm:grid-cols-2">
             {changes.map((c) => (
               <li key={c.code} className="tabular-nums">

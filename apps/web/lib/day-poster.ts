@@ -13,7 +13,7 @@
  *     only); supplier credits a switch, off to start; QR always on;
  *   · "CLASSIC SAVES FREE UP TO A4; LARGER SIZES AND THE PRO LOOKS NEED EVENT PRO" (amends "free in Classic"): A4 in the
  *     Classic look saves free for every event; every larger photo-print size, every canvas size and the event's own
- *     look need Event Pro ("Event Pro", never the retired "Event Hub Pro" — the 13 Nov name fix);
+ *     look need Event Pro (the plan's name since the 13 Nov name fix);
  *   · "THE FREE A4 FILE IS BUILT SO IT PRINTS SOFT IF ENLARGED": a flattened raster at A4 ≈ 200 dpi, no watermark
  *     (`DAY_POSTER_FREE_PX`); a Pro file is drawn at its size with vector type and the full-size photos;
  *   · "CRISP PRINTS ONLY UNTIL THE PHOTOS ARE COMPRESSED": the full-quality date is the shipped one
@@ -28,6 +28,8 @@ import type { PosterPhoto } from '@/lib/print-pieces';
 
 import { eventLastDay } from '@/lib/face-data-retention-core';
 import { addDays, fullSizeKeptUntil, originalsKeptUntil } from '@/lib/papic-originals-reminder-core';
+
+import { formatCount } from '@/lib/format-number';
 
 const PT_PER_MM = 72 / 25.4;
 
@@ -306,7 +308,7 @@ export function supportingCountLine(d: Pick<DayPoster, 'template' | 'supporting'
   const t = DAY_POSTER_TEMPLATES[d.template];
   if (t.max === 0) return 'None on this template';
   const n = Math.min(d.supporting.length, t.max);
-  return `${n} of ${t.min === t.max ? t.max : `${t.min}–${t.max}`}`;
+  return `${formatCount(n)} of ${t.min === t.max ? formatCount(t.max) : `${formatCount(t.min)}–${formatCount(t.max)}`}`;
 }
 
 // ─── The gate ───────────────────────────────────────────────────────────────
@@ -365,7 +367,7 @@ export function dayPosterLockWords(lock: DayPosterLock, plan: string, keptUntil:
     case 'pro-size':
       return { title: 'Larger prints come with ' + plan, problem: 'A4 in Classic saves free. Wall sizes need full-size files.', solution: `Get ${plan}, or save A4 free.` };
     case 'pro-canvas':
-      return { title: 'Canvas comes with ' + plan, problem: 'A canvas is printed large, with a gallery wrap.', solution: `Get ${plan}, or save A4 free.` };
+      return { title: 'Canvas comes with ' + plan, problem: 'A canvas is printed large and wrapped over its frame.', solution: `Get ${plan}, or save A4 free.` };
     case 'pro-look':
       return { title: 'Your theme comes with ' + plan, problem: 'Classic saves free. Your Event Hub look on paper is Pro.', solution: `Get ${plan}, or save Classic free.` };
     case 'kept':
@@ -375,7 +377,7 @@ export function dayPosterLockWords(lock: DayPosterLock, plan: string, keptUntil:
         solution: 'Print A4, or use your own full-size photo.',
       };
     case 'store':
-      return { title: 'Not available here', problem: 'Larger sizes and your theme are saved on the web.', solution: 'Save A4 free here.' };
+      return { title: 'Not available here', problem: 'Larger sizes and your theme are not offered here.', solution: 'Save A4 free here.' };
   }
 }
 

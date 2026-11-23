@@ -786,8 +786,8 @@ export async function loadPrintSet(
     samplePalette?: RolePalette | null;
     /**
      * 🖼 THE OUR DAY POSTER (`lib/day-poster.ts`): its record (the saved one, or the builder's choice for a preview) and
-     * the look it is saved in. `classic` draws the free plain-white look even for an Event Pro event — "Save · Classic
-     * (PDF)" beside "Save in your theme ◆". The poster's photos, line, place, credits and every entourage group are read.
+     * the look it is saved in (the route picks Classic's plain look for "Save · Classic (PDF)" — `dayPosterLookFor`). The
+     * poster's photos, line, place, credits and every entourage group are read.
      */
     dayPoster?: { record: DayPoster; look: DayPosterLook };
   },
@@ -829,9 +829,7 @@ export async function loadPrintSet(
   /* 🤍 A FREE EVENT PRINTS PLAIN WHITE (owner 2026-10-21: *"Free version is the plain white. Themes that follows the event hub is
      pro"*) — Classic's type on white paper, whatever theme it saved: the set is drawn as Classic (its file name, its spot layers).
      The theme gallery's samples (`samplePalette`) still show each theme as the theme. */
-  /* 🖼 A day poster saved in Classic wears the free look whatever the plan — the gate is the route's (`dayPosterLock`). */
-  const wearsPro = ownsPro && opts.dayPoster?.look !== 'classic';
-  const theme = !sampleGallery && !wearsPro ? 'house' : printThemeFor(event, opts.previewTheme);
+  const theme = !sampleGallery && !ownsPro ? 'house' : printThemeFor(event, opts.previewTheme);
   // 🎨 The Mood Board palette dresses the theme (`lib/theme-colours.ts`, the resolver the guest page wears) — the ground a Pro
   // print's Hub look is laid on (`printLooksFor`).
   const looks = printLooksFor(theme, sampleGallery ? opts.samplePalette : event.role_palette, { sampleGallery });
@@ -839,7 +837,7 @@ export async function loadPrintSet(
      design? and so does the other prints?"* → *"yes wire all, and yes it's Pro"*). The ONE door (`printLookForEvent`): a free
      event gets plain white and its Hub is never read. The sample gallery draws each theme as the theme, never one couple's Hub.
      Pro is the EVENT's (`printOwnsPro`, as viewed) — the same for every host on it. */
-  const worn = await printLookForEvent(looks, !sampleGallery && wearsPro, () => hubPrintInput(admin, event, opts.mode));
+  const worn = await printLookForEvent(looks, !sampleGallery && ownsPro, () => hubPrintInput(admin, event, opts.mode));
   /* 🏷 THE PLAN'S SETNAYAN MARK ON PAPER (Build 6 Lane L, DECISION_LOG 2026-11-04): Free = the line · Event Plus = the
      tiny quiet mark · Event Pro = none, on every print and pass — never louder than the look's own (a Prints-part print
      already carries the quiet mark). The theme gallery's samples keep their own. */

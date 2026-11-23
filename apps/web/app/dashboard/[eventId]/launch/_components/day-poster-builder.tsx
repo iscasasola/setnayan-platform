@@ -11,6 +11,9 @@ import { Sk } from '@/components/skeletons';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { planScreenHref } from '@/lib/plan-buy-doors';
+import { formatCount } from '@/lib/format-number';
+import { PaidMark } from '@/app/_components/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { printFileName, type PosterPhoto } from '@/lib/print-pieces';
 import {
   DAY_POSTER_KEY,
@@ -251,6 +254,8 @@ export function DayPosterBuilder({ boot, initial, onClose }: { boot: DayPosterBo
   const ended = Boolean(quality?.ended);
   const lockOf = (l: DayPosterLook, r: Pick<DayPoster, 'style' | 'size'> = record) =>
     dayPosterLock({ ownsPro: boot.ownsPro, storeShell: boot.storeShell, style: r.style, size: r.size, look: l, fullQualityEnded: ended });
+  /* ◆ The house Pro mark — shown, never a lock by itself (`makerProMark`; absent in the store shell without Pro). */
+  const proMark = makerProMark({ owns: boot.ownsPro, storeShell: boot.storeShell });
   const classicLock = lockOf('classic');
   const themeLock = lockOf('theme');
   const notReady = dayPosterNotReady(record);
@@ -328,6 +333,7 @@ export function DayPosterBuilder({ boot, initial, onClose }: { boot: DayPosterBo
         <p className="flex items-center gap-1.5 text-sn-base font-semibold text-ink">
           <span aria-hidden>🔒</span>
           {w.title}
+          {proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, boot.planName)} /> : null}
         </p>
         <p className="text-sn-md text-ink/70">
           <b className="font-semibold text-ink/80">Problem · </b>
@@ -632,7 +638,7 @@ export function DayPosterBuilder({ boot, initial, onClose }: { boot: DayPosterBo
           <div className="hidden min-h-0 flex-1 flex-col gap-0 overflow-y-auto px-4 pb-4 lg:flex" data-day-poster-desk="">
             {STEPS.map((s, i) => (
               <section key={s.key} className="border-b border-ink/10 py-3" data-day-poster-desk-step={s.key}>
-                <button type="button" onClick={() => setStep(s.key)} className="flex min-h-11 w-full items-center gap-3 text-left" aria-expanded={step === s.key}>
+                <button type="button" onClick={() => setStep(s.key)} className="flex min-h-11 w-full items-center gap-3 text-left" aria-current={step === s.key ? 'step' : undefined}>
                   <span className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-sn-xs font-semibold ${step === s.key ? 'bg-sn-accent text-sn-on-accent' : 'bg-ink/[0.08] text-ink/70'}`}>{i + 1}</span>
                   <span className="flex-1 text-sn-base font-semibold text-ink">{s.label}</span>
                   <span className="text-sn-sm text-ink/60">{stepLine[s.key]}</span>
@@ -776,7 +782,7 @@ function PhotosSheet({
           }}
           label="From your phone"
         />
-        {uploaded.length ? <p className="text-sn-sm text-success-700">{uploaded.length === 1 ? 'Your photo is added.' : `${uploaded.length} photos added.`}</p> : null}
+        {uploaded.length ? <p className="text-sn-sm text-success-700">{uploaded.length === 1 ? 'Your photo is added.' : `${formatCount(uploaded.length)} photos added.`}</p> : null}
         <p className="text-sn-xs font-semibold uppercase tracking-[0.14em] text-ink/55">
           <Upload aria-hidden className="mr-1 inline h-3.5 w-3.5" strokeWidth={1.9} />
           From your Memories

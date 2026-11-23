@@ -71,6 +71,7 @@ export async function readDayPosterPicks(admin: SupabaseClient, eventId: string,
       .select('photo_id, r2_object_key, display_r2_key, tile_r2_key, thumb_r2_key, full_res_dropped_at, photo_type, moderation_state, hidden_at, expires_at, captured_at')
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
+      .eq('moderation_state', 'clean')
       .order('captured_at', { ascending: false })
       .limit(LIMIT),
     admin
@@ -78,6 +79,7 @@ export async function readDayPosterPicks(admin: SupabaseClient, eventId: string,
       .select('capture_id, r2_object_key, display_r2_key, tile_r2_key, thumb_r2_key, full_res_dropped_at, media_type, moderation_state, hidden_at, captured_at')
       .eq('event_id', eventId)
       .eq('media_type', 'photo')
+      .eq('moderation_state', 'clean')
       .order('captured_at', { ascending: false })
       .limit(LIMIT),
     admin
@@ -85,6 +87,7 @@ export async function readDayPosterPicks(admin: SupabaseClient, eventId: string,
       .select('capture_id, vendor_profile_id, r2_object_key, display_r2_key, tile_r2_key, thumb_r2_key, full_res_dropped_at, media_type, hidden_at, nsfw_checked, consent_basis, captured_at')
       .eq('event_id', eventId)
       .eq('media_type', 'photo')
+      .eq('nsfw_checked', true)
       .order('captured_at', { ascending: false })
       .limit(LIMIT),
     admin.from('event_vendors').select('linked_vendor_profile_id').eq('event_id', eventId).eq('papic_captures_hidden', true).not('linked_vendor_profile_id', 'is', null),

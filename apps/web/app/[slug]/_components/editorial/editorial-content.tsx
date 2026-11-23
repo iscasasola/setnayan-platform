@@ -840,7 +840,7 @@ export async function EditorialContent({
      co-hosts only (`viewer.isHost`) — a guest never sees it. It rises the builder on the Prints page (`build=1`). */
   const printDay =
     !isSample && viewer.isHost && readsAsStory ? (
-      <ActionButton tone="brand" main icon={Printer} label="Print your day" href={printsPageHref(eventId, 'day-poster', 'build=1')} data-story-print-day="" />
+      <ActionButton tone="brand" main icon={<Printer aria-hidden />} label="Print your day" href={printsPageHref(eventId, 'day-poster', 'build=1')} data-story-print-day="" />
     ) : null;
   const shareScreen =
     readsAsStory && data.published && effectiveShare && !share ? (

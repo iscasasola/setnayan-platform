@@ -5,6 +5,7 @@
  */
 import { buildEntourage, type EntourageGuestRow } from '@/lib/entourage';
 import type { PrintSetData } from '@/lib/print-layout';
+import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 
 const FIRST = ['Nene', 'Hernan', 'Ofelia', 'Corazon', 'Jun', 'Queenie', 'Elvie', 'Lito', 'Susan', 'Gloria', 'Nestor', 'Ben', 'Imelda', 'Pepito', 'Danilo', 'Kristina', 'Rodel', 'Fidel', 'Marites'];
 const LAST = ['Reyes', 'Aquino', 'Flores', 'Navarro', 'Ramos', 'Uy', 'Zamora', 'Lim', 'Bautista', 'Garcia', 'Ocampo', 'Salazar', 'Valdez', 'Abad', 'Dizon', 'Castro', 'Mendoza'];
@@ -26,7 +27,7 @@ function guests(): EntourageGuestRow[] {
   return r;
 }
 
-export const LAB_GROUPS = buildEntourage(guests());
+export const LAB_GROUPS = buildEntourage(guests(), null, null, DEFAULT_NAME_STYLE);
 export const LAB_EVENT = '00000000-0000-4000-8000-00000000da11';
 export const LAB_BASE = '/dev/day-poster-lab/api';
 export const LAB_PHOTOS = 14;

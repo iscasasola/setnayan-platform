@@ -1,8 +1,7 @@
 /**
  * lib/day-poster-file.ts — 🖼 THE OUR DAY POSTER'S FREE FILE: the poster flattened to pixels at A4 ≈ 200 dpi
  * (`DAY_POSTER_FREE_PX`) and laid on one A4 page. There is no vector to scale: enlarged at a print shop it comes out soft
- * (owner 2026-11-13, *"if they did free and they went on a larger scale, the print will be soft. but crisp when on event
- * hub pro"*). No watermark. The route draws it for an event without Event Pro (`dayPosterFileIsFlat`).
+ * (owner 2026-11-13, *"if they did free and they went on a larger scale, the print will be soft. but crisp when on [Event Pro]"*). No watermark. The route draws it for an event without Event Pro (`dayPosterFileIsFlat`).
  *
  * Server-only in practice (sharp), but no `server-only` import, so the Node test runner can rasterise a real one and
  * measure it (`lib/day-poster.test.ts` — the build guard: never more pixels than A4 at 200 dpi).

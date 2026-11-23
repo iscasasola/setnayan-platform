@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { loadPrintSet, printOwnsPro, readPrintEvent } from '@/lib/print-set.server';
 import { layoutDayPosterDocs } from '@/lib/print-layout';
+import { printLooksFor } from '@/lib/print-hub-look';
+import type { PrintLook } from '@/lib/print-pieces';
 import { flatDayPosterPdf } from '@/lib/day-poster-file';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import { renderPrintPdf } from '@/lib/print-drawers-on-demand';
@@ -59,6 +61,15 @@ async function readEventDays(admin: ReturnType<typeof createAdminClient>, eventI
 }
 
 /**
+ * The look a poster file wears. The event's own look (`set.look`: its Event Hub on paper for Event Pro, plain white
+ * otherwise — the shipped door, `printLookForEvent`) for "Save in your theme ◆"; for "Save · Classic (PDF)" the free
+ * print's plain look whatever the plan, keeping the plan's Setnayan mark (`brand`). The gate is `dayPosterLock`.
+ */
+function dayPosterLookFor(set: { look: PrintLook }, look: DayPosterLook): PrintLook {
+  return look === 'classic' ? { ...printLooksFor('house', null).free, brand: set.look.brand } : set.look;
+}
+
+/**
  * `mode=picks` — what the builder needs once it is opened (never with the Prints page): every photo the couple may put
  * on the poster (`readDayPosterPicks`), a signed small copy of each photo already on the record, and the full-quality
  * date. `refused`: the Memories read was refused — the builder says "Couldn't read your Memories", never "no photos".
@@ -94,8 +105,8 @@ export async function dayPosterGet(url: URL, eventId: string): Promise<NextRespo
     const look: DayPosterLook = asked === 'theme' && ownsPro && !storeShell ? 'theme' : 'classic';
     const set = await loadPrintSet(eventId, { mode: 'screen', dayPoster: { record, look } });
     if (!set?.data.dayPoster) return plain('Event not found.', 404);
-    const spot = spotLayersFor(set.theme);
-    const [doc] = layoutDayPosterDocs({ look: set.look, data: set.data, mode: 'screen', foil: spot.foil });
+    const l = dayPosterLookFor(set, look);
+    const [doc] = layoutDayPosterDocs({ look: l, data: set.data, mode: 'screen', foil: spotLayersFor(l.theme).foil });
     return new NextResponse(renderPrintSvg(doc!, set.images, { compact: true }), {
       status: 200,
       headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': previewCacheControl(url.searchParams.get('v')) },
@@ -112,20 +123,21 @@ export async function dayPosterGet(url: URL, eventId: string): Promise<NextRespo
   if (!set || !dp) return plain('Event not found.', 404);
   if (dp.missingPhotos) return plain('One of your photos could not be read just now. Please try again.', 503);
   if (dp.creditsFailed) return plain('We could not read your suppliers just now. Turn credits off, or try again.', 503);
-  const spot = spotLayersFor(set.theme);
+  const l = dayPosterLookFor(set, asked);
+  const spot = spotLayersFor(l.theme);
   const size = DAY_POSTER_SIZES[record.size];
   const title = `${set.event.display_name ?? 'Event'} — Our Day poster`;
   const file = printFileName(set.event.slug, `our-day-poster-${record.template}-${record.size}${asked === 'theme' ? '-theme' : ''}`);
   let bytes: Uint8Array;
   if (dayPosterFileIsFlat(ownsPro)) {
-    const [doc] = layoutDayPosterDocs({ look: set.look, data: set.data, mode: 'sample', foil: false });
+    const [doc] = layoutDayPosterDocs({ look: l, data: set.data, mode: 'sample', foil: false });
     bytes = (await flatDayPosterPdf(doc!, set.images, title)).pdf;
   } else {
-    const docs = layoutDayPosterDocs({ look: set.look, data: set.data, mode: 'print', foil: spot.foil, whiteInk: spot.whiteInk });
+    const docs = layoutDayPosterDocs({ look: l, data: set.data, mode: 'print', foil: spot.foil, whiteInk: spot.whiteInk });
     bytes = await renderPrintPdf(docs, set.images, {
       mode: 'print',
       title,
-      subject: `${size.label}${size.style === 'canvas' ? ' · canvas with a 2 in gallery wrap' : ''} · print-ready · 3 mm bleed · crop marks`,
+      subject: `${size.label}${size.style === 'canvas' ? ' · canvas, 2 in wrapped over the frame' : ''} · print-ready · 3 mm bleed · crop marks`,
     });
   }
   return new NextResponse(bytesStream(bytes), {

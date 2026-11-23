@@ -197,6 +197,11 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-11-13 with the tables (admin areas × levels, migration 20271350705084) ──
+  admin_scopes:
+    'Which admin areas a staff member may act in. user_id is NOT NULL ON DELETE CASCADE, so the rows go with the account on their own; granted_by is an actor stamp, ON DELETE SET NULL. Console configuration, nothing a customer typed.',
+  work_escalations:
+    'Admin Escalate ▸ notes about a WORK ITEM (a queue row), not about a person. escalated_by / resolved_by are actor stamps, nullable + ON DELETE SET NULL, so deleting the admin strips them on its own.',
   // ── added 2026-11-20 with the tables (Unichat H1, migration 20271354347259) ──
   chat_message_revisions:
     'What a chat message held before its sender edited or unsent it. It has no life of its own: message_id is NOT NULL ON DELETE CASCADE, so when erasure deletes the subject\'s authored chat_messages rows (purge.ts) every revision of them goes in the same statement; changed_by is nullable ON DELETE SET NULL and only ever names the message\'s own sender.',

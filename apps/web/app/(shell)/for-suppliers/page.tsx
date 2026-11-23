@@ -31,6 +31,7 @@ import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { supplierCommissionPromise, supplierCommissionShort } from '@/lib/commission-promise';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 
 /** The service-role client, or null where it cannot be made (a build with no key): every read then says "couldn't read". */
 function createAdminClientOrNull() {
@@ -74,9 +75,9 @@ export async function generateMetadata() {
   const [p, fee] = await Promise.all([getVendorPrices(), getLiveBookingFeeSchedule()]);
   const all = ['solo', 'pro', 'enterprise'] as const;
   const allLine = tierPriceCopy(p, all);
-  const title = `Setnayan for Suppliers · ${HEADLINE}${allLine ? ` · ${allLine} / 28d` : ''}`;
-  const perBlock = tierPriceCopy(p, all, '/28d');
-  const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], '/28d');
+  const title = `Setnayan for Suppliers · ${HEADLINE}${allLine ? ` · ${allLine} ${PLAN_PERIOD.slash}` : ''}`;
+  const perBlock = tierPriceCopy(p, all, PLAN_PERIOD.slash);
+  const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], PLAN_PERIOD.slash);
   return {
     title,
     description: `Your clients, quotes and dates. One free place. Free to start, free to stay. ${supplierCommissionShort(fee)} — your booking is free when you bring the event first.${perBlock ? ` ${perBlock}.` : ''}`,
@@ -93,7 +94,7 @@ export async function generateMetadata() {
       images: BRAND_TWITTER_IMAGES,
       card: 'summary_large_image',
       title,
-      description: `${HEADLINE} ${supplierCommissionShort(fee)}.${allLine ? ` ${allLine}/28d.` : ''}`,
+      description: `${HEADLINE} ${supplierCommissionShort(fee)}.${allLine ? ` ${allLine} ${PLAN_PERIOD.slash}.` : ''}`,
     },
   };
 }
@@ -126,8 +127,8 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
             '@type': 'UnitPriceSpecification',
             price: String(price),
             priceCurrency: 'PHP',
-            billingDuration: 'P28D',
-            unitText: '28-DAY BLOCK',
+            billingDuration: PLAN_PERIOD.isoDuration,
+            unitText: PLAN_PERIOD.unitText,
           },
           availability: 'https://schema.org/InStock',
           seller: { '@id': `${SITE_URL}/#organization` },
@@ -149,7 +150,7 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
         '@type': 'WebPage',
         '@id': `${SITE_URL}/for-suppliers#webpage`,
         url: `${SITE_URL}/for-suppliers`,
-        name: `Setnayan for suppliers · ${HEADLINE}${allLine ? ` · ${allLine} / 28d` : ''}`,
+        name: `Setnayan for suppliers · ${HEADLINE}${allLine ? ` · ${allLine} ${PLAN_PERIOD.slash}` : ''}`,
         isPartOf: { '@id': `${SITE_URL}/#website` },
         about: { '@id': `${SITE_URL}/#organization` },
         audience: {
@@ -160,23 +161,23 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
       },
       offer(
         'solo-vendor-subscription',
-        'Plus (28-day prepaid block)',
+        'Plus (monthly plan)',
         // Lane J: the plan's caps, read (this said "1 marketplace category · solo operator" — Supplier Plus is 2 · 1 seat since 4 Nov).
         `${growSpec('solo')}. ${supplierCommissionPromise(fee)}`,
         p.num.soloMonthly,
       ),
       offer(
         'pro-vendor-subscription',
-        'Pro (28-day prepaid block)',
+        'Pro (monthly plan)',
         // Lane J: was "3 marketplace categories · 3 team accounts" — Pro is 8 · 5 since 4 Nov.
-        `${growSpec('pro')}. 28-day prepaid blocks.`,
+        `${growSpec('pro')}. Plans are ${PLAN_PERIOD.billed}.`,
         p.num.proMonthly,
       ),
       offer(
         'enterprise-subscription',
-        'Ultra (28-day prepaid block)',
+        'Ultra (monthly plan)',
         // Lane J: was "All marketplace categories · reach up to 100 km" — Ultra is 15 categories, nationwide, since 4 Nov.
-        `${growSpec('enterprise')}. 28-day prepaid blocks.`,
+        `${growSpec('enterprise')}. Plans are ${PLAN_PERIOD.billed}.`,
         p.num.enterpriseMonthly,
       ),
       {

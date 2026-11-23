@@ -290,8 +290,9 @@ test('an upgrade takes effect TODAY, is charged list minus credit, and starts a 
   const days =
     (new Date(after.tier_expires_at!).getTime() - Date.now()) / 86_400_000;
   assert.ok(
-    days > 27 && days < 29,
-    `an upgrade should start a fresh 28-day term, got ${days.toFixed(1)} days`,
+    // 🗓 A fresh CALENDAR MONTH since 20271360344805 (28–31 days), still nowhere near the ~56 a stacked term gives.
+    days > 27.9 && days < 31.1,
+    `an upgrade should start a fresh one-month term, got ${days.toFixed(1)} days`,
   );
 });
 
@@ -421,7 +422,8 @@ test('a paid scheduled plan LANDS at term end, and not on free', async () => {
   assert.equal(after.pending_tier, null, 'the schedule should be consumed once applied');
   assert.ok(after.tier_expires_at, 'the new plan must start a term of its own');
   const days = (new Date(after.tier_expires_at!).getTime() - Date.now()) / 86_400_000;
-  assert.ok(days > 27 && days < 29, `the new term should run 28 days, got ${days.toFixed(1)}`);
+  // 🗓 One calendar month since 20271360344805 (owner 2026-11-23: "it is now monthly"), so 28–31 days.
+  assert.ok(days > 27.9 && days < 31.1, `the new term should run one calendar month, got ${days.toFixed(1)}`);
 
   // The purchase gets its window stamped, so the credit maths can see it.
   const s = await db.query<{ expires_at: string | null }>(
@@ -946,12 +948,14 @@ test('BOUNDARY: a term EXACTLY matching the time left is ALLOWED', async () => {
   // timestamp and is frozen for its whole life, so the expiry is exactly 28 days
   // out at the moment the gate compares them — the only arrangement in which the
   // boundary is actually on the boundary.
+  // 🗓 The monthly term is ONE CALENDAR MONTH since 20271360344805, so "exactly the time left" is a month, read
+  // through the same term rule the gate uses.
   const equal = await shopWithSignedInOwner('solo', "NOW() + INTERVAL '28 days'");
   const soloMonthly = await activeSku('solo\\_vendor\\_monthly');
 
   await db.exec('BEGIN');
   await db.query(
-    `UPDATE public.vendor_profiles SET tier_expires_at = now() + INTERVAL '28 days'
+    `UPDATE public.vendor_profiles SET tier_expires_at = public.vendor_plan_term_end(now(), 'monthly', NULL)
       WHERE vendor_profile_id = $1`,
     [equal.vendorId],
   );
@@ -971,7 +975,7 @@ test('BOUNDARY: one hour past the term IS refused', async () => {
   // The other side of the same line, so the pair brackets it. Without this a
   // gate that simply never fires would pass the equality test above.
   const soloMonthly = await activeSku('solo\\_vendor\\_monthly');
-  await shopWithSignedInOwner('solo', "NOW() + INTERVAL '28 days 1 hour'");
+  await shopWithSignedInOwner('solo', "public.vendor_plan_term_end(NOW(), 'monthly', NULL) + INTERVAL '1 hour'");
   await assert.rejects(
     () => db.query(`SELECT public.create_vendor_subscription($1, NULL)`, [soloMonthly.sku]),
     /TERM_TOO_SHORT/,

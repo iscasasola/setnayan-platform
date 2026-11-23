@@ -39,6 +39,9 @@ import { formatPhpRounded } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import type { PlanCredits } from '@/lib/event-plans';
 import type { ShopGiftBundle, ShopGiftPack } from '@/lib/shop-gifts';
+import { CLIENTS_FOOTNOTE } from '@/lib/supplier-client-room';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
+import { monthlyPlanPrice } from '@/lib/v2-catalog';
 import {
   BADGE_ROW,
   BROUGHT_CLIENT_SHARE,
@@ -146,15 +149,15 @@ export function SupplierFrontPage({
   const count = toolkitCountLine(shelves);
 
   /** The plan cards: every fact `planStair` (TIER_CAPS), every price the catalog's, one real door each. */
-  const growPrice = (t: GrowTier) => ({ solo: prices.soloMonthly, pro: prices.proMonthly, enterprise: prices.enterpriseMonthly })[t];
+  const growPrice = (t: GrowTier) => monthlyPlanPrice(prices, t);
   const plans: PlanCard[] = STAIR_TIERS.map((t) => {
     const step = planStair(t);
     const tools = { ok: step.tools, text: step.tools ? PLAN_PAID_TOOLS_OK : PLAN_PAID_TOOLS_LOCKED };
-    const base = { tier: t, name: step.name, keep: step.role, size: `${step.size} storage`, share: railShare(t), tools };
+    const base = { tier: t, name: step.name, keep: step.clients ?? step.role, size: step.sizeLine ?? `${step.size} storage`, share: railShare(t), tools };
     if (!isGrowTier(t)) {
       return { ...base, price: 'Free', per: null, cta: t === 'free' ? CTA : 'Get verified', href: OPEN_SHOP };
     }
-    return { ...base, price: growPrice(t), per: 'per 4 weeks', cta: `Start on ${step.name}`, href: openShopWithPlanHref(t) };
+    return { ...base, price: growPrice(t), per: PLAN_PERIOD.per, cta: `Start on ${step.name}`, href: openShopWithPlanHref(t) };
   });
 
   const tileTools = FRONT_MEDIA.tools.flatMap((m) => {
@@ -363,6 +366,7 @@ export function SupplierFrontPage({
       {/* #plans */}
       <Part id="plans" title="When you outgrow free." lede="No hurry. Free stays free.">
         <PlanPicker plans={plans} start={START_PLAN} />
+        <p className={s.fine} data-clients-footnote="">{CLIENTS_FOOTNOTE}</p>
         <p className={s.fine}>No plan limits your inquiries.</p>
         {afterPlans ? <div className={s.after}>{afterPlans}</div> : null}
       </Part>

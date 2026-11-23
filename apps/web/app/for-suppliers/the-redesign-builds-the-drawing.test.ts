@@ -130,7 +130,10 @@ test('the plans open on Verified; every paid card opens its own checkout; an unr
   assert.match(PAGE, /const START_PLAN = STAIR_TIERS\.indexOf\('verified'\);/);
   assert.ok(STAIR_TIERS.indexOf('verified') > 0);
   assert.match(PAGE, /<PlanPicker plans=\{plans\} start=\{START_PLAN\} \/>/);
-  assert.match(PAGE, /price: growPrice\(t\), per: 'per 4 weeks', cta: `Start on \$\{step\.name\}`, href: openShopWithPlanHref\(t\)/);
+  // calendar-month billing (batch AH): the period words are PLAN_PERIOD's, the price the catalogue's monthly row
+  assert.match(PAGE, /const growPrice = \(t: GrowTier\) => monthlyPlanPrice\(prices, t\)/);
+  assert.match(PAGE, /price: growPrice\(t\), per: PLAN_PERIOD\.per, cta: `Start on \$\{step\.name\}`, href: openShopWithPlanHref\(t\)/);
+  assert.doesNotMatch(PAGE + CLIENT + ROUTE, /4 weeks|28[- ]?d(ay)?\b|P28D/i, 'a 4-week period is back');
   assert.match(CLIENT, /\{p\.price \?\? '—'\} <small>\{p\.per\}<\/small>/);
   // the rail's bars are each plan's room, straight: grow up the plans, the biggest full
   const shares = STAIR_TIERS.map(railShare);

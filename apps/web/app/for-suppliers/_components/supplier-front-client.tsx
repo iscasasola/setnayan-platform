@@ -261,7 +261,7 @@ export type PlanCard = {
   name: string;
   /** A paid plan's catalogue price ("₱…"), null when unread (draws "—"); a free plan's word ("Free"). */
   price: string | null;
-  /** "per 4 weeks" under a paid price; null on a free plan. */
+  /** "per month" (`PLAN_PERIOD.per`) under a paid price; null on a free plan. */
   per: string | null;
   keep: string;
   size: string;

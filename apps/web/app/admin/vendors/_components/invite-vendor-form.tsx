@@ -52,7 +52,7 @@ export function InviteVendorForm({
   prices = {},
   categories = [],
 }: {
-  /** 28-day catalogue price per plan; a plan with none is listed without a price. */
+  /** Monthly catalogue price per plan; a plan with none is listed without a price. */
   prices?: PlanPrices;
   /** Every supplier category, `{ key, label }`, in the taxonomy's order. */
   categories?: ReadonlyArray<{ key: string; label: string }>;

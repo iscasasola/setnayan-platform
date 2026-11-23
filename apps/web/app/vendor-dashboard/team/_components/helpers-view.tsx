@@ -28,6 +28,7 @@ import {
 import { StayForm } from '@/app/_components/stay-form';
 import { AgentServiceAssignment } from './who-works-what-services';
 import { keyOfBranchId, whoWorksWhatLine, type BranchScope, type ScopedService } from '@/lib/branch-copy';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 
 /**
  * HELPERS — the screen (simpler supplier dashboard step 6; owner-APPROVED 2026-10-14 "team seats → Helpers";
@@ -275,12 +276,12 @@ export function HelpersView({
           href={storeShell || !isShopManager ? null : '/vendor-dashboard/subscription'}
         />
 
-        {/* Extra seats — Ultra ₱/28d add-on, the live catalogue price. 🔒 Never in the store shell. */}
+        {/* Extra seats — Ultra add-on that joins the plan's monthly renewal, the live catalogue price. 🔒 Never in the store shell. */}
         {canBuySeats && !storeShell ? (
           <DatesRow
             data="helpers-add-seat"
             title="Add a seat"
-            line={`${seatFeePhp !== null ? `${formatPhp(seatFeePhp)} / 28 days each · ` : ''}${formatCount(extraSeats)} added · joins your renewal`}
+            line={`${seatFeePhp !== null ? `${formatPhp(seatFeePhp)} ${PLAN_PERIOD.slash} each · ` : ''}${formatCount(extraSeats)} added · joins your renewal`}
             end={
               <form action={actions.buySeat}>
                 <SupplierSubmit

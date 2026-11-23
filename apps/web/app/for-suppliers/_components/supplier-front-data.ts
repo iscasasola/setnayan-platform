@@ -28,6 +28,7 @@ import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { FREE_FINDABLE } from './plan-table-data';
 import { storageWords } from '@/lib/downgrade-limits';
 import { planRole, planSummaryWords } from '@/lib/supplier-storage';
+import { clientsKeptWords, planStorageLine } from '@/lib/supplier-client-room';
 
 /** A plan's size in words. `null` is only the type's "unreadable row" — every plan has a size — so it never invents one. */
 const sizeWords = (bytes: number | null): string => (bytes == null ? 'Your storage' : storageWords(bytes));
@@ -104,7 +105,7 @@ export function verifiedSpec(): string {
 /**
  * A paid plan's spec line, from its caps. 💾 Owner 2026-11-22 ("SAME FEATURES IN EVERY SIZE" + "STARTER BUSINESS"): the
  * plans are storage sizes, so the size leads; Plus says its starter limits, Pro and Ultra say "no limit". E.g. Plus:
- * "128 GB · every category · 15 service cards live · you and 2 more"; Pro: "500 GB · every category · no limit on
+ * "50 GB · every category · 15 service cards live · you and 2 more"; Pro: "256 GB · every category · no limit on
  * cards, people or branches". A part a plan does not have (Plus's branches) is left out. Every number is TIER_CAPS;
  * a no-limit cap is said in words, never as "—" or "Infinity".
  */
@@ -127,14 +128,18 @@ export function growSpec(t: GrowTier): string {
 /**
  * Each plan's one line on its card, from its caps (owner 2026-11-22: the plans are sizes with the same features, and a
  * plan is never shown as its size alone). A paid size leads with its role ("The starter business: …"); Free and Verified
- * already carry their name on the card, so their line is the summary itself ("Run your own clients, … and 256 MB.").
+ * already carry their name on the card, so their line is the summary itself ("Run your own clients, … and 50 MB.").
+ * Clients first (owner 2026-11-23 "Yes, clients first", `clientsKeptWords`): "Keeps about 60 clients at a time*. Run
+ * your own clients, … and 50 MB." The asterisk's footnote is `CLIENTS_FOOTNOTE`, said once under the plans.
  */
 export function planLine(t: VendorTier): string {
+  const clients = clientsKeptWords(t);
+  const lead = clients ? `${clients}. ` : '';
   if (!isPaidSize(t)) {
     const w = planSummaryWords(t);
-    return `${w.charAt(0).toUpperCase()}${w.slice(1)}.`;
+    return `${lead}${w.charAt(0).toUpperCase()}${w.slice(1)}.`;
   }
-  return `${planRole(t)}: ${planSummaryWords(t)}.`;
+  return `${lead}${planRole(t)}: ${planSummaryWords(t)}.`;
 }
 
 
@@ -391,7 +396,11 @@ export type PlanStair = {
   name: string;
   role: string;
   size: string;
-  /** The size's share of the biggest plan's, on a log scale (256 MB and 1 TB both stay visible). 0–1. */
+  /** The card's headline, clients first (`clientsKeptWords`, owner 2026-11-23 "Yes, clients first"); null = lead with the size. */
+  clients: string | null;
+  /** The line under the headline: the size, and for a counted plan how to make room (`planStorageLine`). */
+  sizeLine: string | null;
+  /** The size's share of the biggest plan's, on a log scale (50 MB and 1 TB both stay visible). 0–1. */
   share: number;
   services: StairFact;
   people: StairFact & { team: boolean };
@@ -440,6 +449,8 @@ export function planStair(t: VendorTier): PlanStair {
     name: t === 'free' ? 'Free' : planName(t),
     role: stairRole(t),
     size: sizeWords(c.storageBytes),
+    clients: clientsKeptWords(t),
+    sizeLine: planStorageLine(t),
     share,
     services,
     people,

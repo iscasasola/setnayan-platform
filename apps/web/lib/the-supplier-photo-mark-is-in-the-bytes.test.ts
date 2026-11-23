@@ -165,7 +165,7 @@ test('§5b the photo QR is ?via=photo and carries NO src tag — a scan from a p
     check(url);
     const u = new globalThis.URL(url);
     assert.equal(`${u.origin}${u.pathname}`, myPageUrl(origin, slug), 'the photo QR opens the plain myPageUrl page');
-    assert.notEqual(url, ownPageUrl(origin, slug));
+    assert.notEqual(url, ownPageUrl(origin, slug, 'photo'));
   }
   // …and the burned pixels agree: what a phone reads off the photo is via=photo with no src.
   for (const spec of [VERIFIED, UNVERIFIED]) {

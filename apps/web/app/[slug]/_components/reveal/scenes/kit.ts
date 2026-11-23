@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { buildMarkCanvas } from '@/lib/wax-seal/paint';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
+import type { GatefoldClosure } from '@/lib/std-reveal-effects';
 
 /**
  * r128 → today's bump units. r128 measured a bump against the screen pixel's size in the world; today's three.js
@@ -80,7 +81,7 @@ export type Pt = { x: number; y: number };
 export type SceneState = 'closed' | 'opening' | 'open';
 
 /** The art a scene may ask for — files in `public/reveal/art/` (sample art from the drawing; webp). */
-export type ArtName = 'satin' | 'paper' | 'damask' | 'calla' | 'foil' | 'doors' | 'hall' | 'arch' | 'bank' | 'drape' | 'chand';
+export type ArtName = 'paper' | 'damask' | 'calla' | 'foil' | 'doors' | 'hall' | 'arch' | 'bank' | 'drape' | 'chand';
 
 export type Ctx = {
   renderer: THREE.WebGLRenderer;
@@ -110,6 +111,8 @@ export type Ctx = {
    * else null, and the envelope keeps the drawing's gold.
    */
   seal: { recipe: WaxSealConfig; color: string | null };
+  /** 🎀 How the gatefold is closed: the couple's seal or a ribbon and bow, never both (`RevealEffects.gatefoldClosure`). */
+  closure: GatefoldClosure;
   /** Scratch: ask the stage to open (at 60 % rubbed). */
   open: (nx: number, ny: number) => void;
   state: () => SceneState;
@@ -124,6 +127,10 @@ export type Scene = {
   dir?: readonly [number, number];
   /** No tap opens it (scratch: it opens at 60 % rubbed). */
   noTap?: boolean;
+  /** 🖼 The cover reaches this far past every edge of the screen (a half-extent share; the camera frames in by it), so
+   *  no edge of it ever shows (owner 23 Nov: *"the upper part must not cut vertically. We want the illusion that it is
+   *  larger than the screen"*). Default 1: the cover is the screen. */
+  bleed?: number;
   /** It flies its own camera (the doors' glide) — no shared push-in. */
   ownCam?: boolean;
   /** How far the shared push-in travels (default `REVEAL_MOTION.PUSH`). */
@@ -140,7 +147,10 @@ export type Scene = {
   init: (c: Ctx) => Promise<void> | void;
   /** One frame. `x` is the lift (cloth) or tau in seconds (solid; −1 while closed). */
   step: (dt: number, t: number, x: number, feather: boolean) => void;
-  opened?: (wx: number, wy: number, nx: number, ny: number) => void;
+  /** Opened at (wx, wy) world / (nx, ny) screen; `pull`: a swipe's own way, in world units (+y up), when it was one. */
+  opened?: (wx: number, wy: number, nx: number, ny: number, pull?: Pt) => void;
+  /** A swipe any way opens it, along that way (the fabric) — else only along `dir`. */
+  anyDir?: boolean;
   grab?: (id: number, w: Pt, nx: number, ny: number) => void;
   drag?: (id: number, w: Pt, nx: number, ny: number) => void;
   release?: (id: number, nx: number, ny: number) => void;

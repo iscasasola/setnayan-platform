@@ -858,7 +858,7 @@ export function PickedShell<P extends string>({
             </span>
           ) : null}
           {gear ? (
-            <MenuSettingsButton menu="client" rise open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
+            <MenuSettingsButton menu="client" open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
               {gear.node}
             </MenuSettingsButton>
           ) : null}

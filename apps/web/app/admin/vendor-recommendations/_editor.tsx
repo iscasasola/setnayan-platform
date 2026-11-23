@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { Plus, Trash2, Check, X } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import {
   addRecommendation,
   updateRecommendation,
@@ -26,7 +27,7 @@ import {
   resolveFeedback,
 } from './actions';
 
-const labelCls = 'mb-1 block text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70';
+const labelCls = 'mb-1 block text-[13px] text-[color:var(--m-slate-2)]';
 
 export type LeafOption = { id: string; label: string };
 export type SkuOption = { service_code: string; title: string };
@@ -58,20 +59,20 @@ export type FeedbackRow = {
 export function RecommendationRow({ row }: { row: MapRow }) {
   return (
     <div
-      className={`border-t border-ink/10 py-4 ${row.is_active ? '' : 'opacity-70'}`}
+      className={`py-4 ${row.is_active ? '' : 'opacity-70'}`}
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <code className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+        <code className="text-[13px] text-[color:var(--m-slate-2)]">
           {row.service_code}
         </code>
         <span className="text-sm font-medium text-ink">{row.sku_title}</span>
         {row.is_opt_in && (
-          <span className="rounded bg-warn-100 px-2 py-0.5 text-warn-900 text-[12px] font-bold">
+          <span className="text-[13px] font-semibold text-warn-800">
             Opt-in
           </span>
         )}
         {!row.is_active && (
-          <span className="rounded bg-ink/10 px-2 py-0.5 text-ink/55 text-[12px] font-bold">
+          <span className="text-[13px] font-semibold text-ink/55">
             Inactive
           </span>
         )}
@@ -125,7 +126,7 @@ export function RecommendationRow({ row }: { row: MapRow }) {
           </label>
           <div className="ml-auto">
             <SubmitButton
-              className="rounded-md bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
+              className={actionButtonClass('brand')}
               pendingLabel="Saving…"
             >
               Save
@@ -140,11 +141,11 @@ export function RecommendationRow({ row }: { row: MapRow }) {
         confirmLabel="Remove"
         destructive
         message="This deletes the leaf → SKU pairing from the map. Suppliers on this leaf will no longer see this recommendation. To hide it temporarily instead, untick Active and Save."
-        className="mt-3 border-t border-ink/5 pt-3"
+        className="mt-2"
       >
         <input type="hidden" name="id" value={row.id} />
         <SubmitButton
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-danger-700 transition hover:text-danger-900"
+          className={actionButtonClass('danger', { quiet: true })}
           pendingLabel="Removing…"
         >
           <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Remove from map
@@ -169,7 +170,7 @@ export function AddRecommendation({
       confirmLabel="Add to map"
       destructive={false}
       message="This adds a leaf → SKU pairing to the recommendation map. Keep the map sparse: a SKU should appear for a leaf only when it amplifies that supplier's own deliverable."
-      className="border-t border-ink/10 py-4 sm:py-5"
+      className="sn-frame px-4 py-4 sm:py-5"
     >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="block">
@@ -212,7 +213,7 @@ export function AddRecommendation({
       </label>
       <div className="mt-4">
         <SubmitButton
-          className="inline-flex items-center gap-2 rounded-md bg-terracotta-700 px-5 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
+          className={actionButtonClass('brand', { main: true })}
           pendingLabel="Adding…"
         >
           <Plus aria-hidden className="h-4 w-4" strokeWidth={2} /> Add recommendation
@@ -232,12 +233,10 @@ export function FeedbackCard({ row }: { row: FeedbackRow }) {
     : 'Accepting adds the proposed SKU to the leaf (priority 100).';
 
   return (
-    <div className="py-4 border-t border-ink/10">
+    <div className="py-4">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <span
-          className={`rounded px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.1em] ${
-            isNotAFit ? 'bg-danger-50 text-danger-900' : 'bg-success-50 text-success-900'
-          }`}
+          className={`text-[13px] font-semibold ${isNotAFit ? 'text-danger-700' : 'text-success-700'}`}
         >
           {isNotAFit ? 'Not a fit' : 'Suggest add'}
         </span>
@@ -268,25 +267,25 @@ export function FeedbackCard({ row }: { row: FeedbackRow }) {
             ? acceptHint
             : 'Declining marks the flag resolved without changing the map.'
         }
-        className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink/5 pt-3"
+        className="mt-3 flex flex-wrap items-center gap-2"
       >
         <input type="hidden" name="id" value={row.id} />
         <input type="hidden" name="decision" value={decision} />
         <SubmitButton
           onClick={() => setDecision('accepted')}
-          className="inline-flex items-center gap-1.5 rounded-md bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
+          className={actionButtonClass('ok')}
           pendingLabel="Resolving…"
         >
           <Check aria-hidden className="h-4 w-4" strokeWidth={2} /> Accept
         </SubmitButton>
         <SubmitButton
           onClick={() => setDecision('declined')}
-          className="inline-flex items-center gap-1.5 rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 transition hover:bg-ink/5"
+          className={actionButtonClass('neutral')}
           pendingLabel="Resolving…"
         >
           <X aria-hidden className="h-4 w-4" strokeWidth={2} /> Decline
         </SubmitButton>
-        <span className="text-[12px] text-ink/45">{acceptHint}</span>
+        <span className="text-[13px] text-[color:var(--m-slate-2)]">{acceptHint}</span>
       </ConfirmForm>
     </div>
   );

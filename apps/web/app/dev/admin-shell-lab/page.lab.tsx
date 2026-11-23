@@ -105,7 +105,7 @@ export default async function AdminShellLab({
         variant="app"
         account={ACCOUNT}
         navLabels={{}}
-        railContext={<AdminRailContext queueCounts={counts} overdue={overdue} unreadable={unreadable} at={at} />}
+        railContext={<AdminRailContext queueCounts={allCounts} overdue={overdue} unreadable={unreadable} at={at} />}
         topBarSlot={
           <div className="flex min-w-0 items-center gap-3">
             <AccountSwitcher data={SWITCHER} here="admin" adminRows={avatarRows} />
@@ -114,7 +114,7 @@ export default async function AdminShellLab({
         createSlot={null}
       >
         <div className="sn-vt-page pb-[calc(env(safe-area-inset-bottom)+92px+var(--sn-thumb-room,0px))] lg:pb-0">
-          <AdminPinnedRow queueCounts={counts} at={at} />
+          <AdminPinnedRow queueCounts={allCounts} at={at} />
           {place?.kind === 'landing' ? (
             <TabLanding tab={place.tab.key as 'work'} digest={digest} />
           ) : place?.kind === 'tab' && place.view.key === 'queue.all' ? (

@@ -268,14 +268,12 @@ const REQUIRED_RETAIL = [
   // document to its stub — the PAPIC_ADDON_STORIES lesson.
 ] as const;
 
+// Monthly only: the three *_vendor_annual rows and the extra branch retired (owner 2026-11-22, migration
+// 20271360321657). A retired code kept here would throw MissingSkuError and drop the whole document to its stub.
 const REQUIRED_VENDOR = [
   'solo_vendor_monthly',
-  'solo_vendor_annual',
   'pro_vendor_monthly',
-  'pro_vendor_annual',
   'enterprise_vendor_monthly',
-  'enterprise_vendor_annual',
-  'vendor_additional_branch',
 ] as const;
 
 /**
@@ -542,12 +540,7 @@ function planTablePrices(input: LlmsTxtInput): PlanTablePrices {
     pro: bySku.pro_vendor_monthly ?? null,
     enterprise: bySku.enterprise_vendor_monthly ?? null,
   };
-  const annual: PlanTablePrices['annual'] = {
-    solo: bySku.solo_vendor_annual ?? null,
-    pro: bySku.pro_vendor_annual ?? null,
-    enterprise: bySku.enterprise_vendor_annual ?? null,
-  };
-  return { monthly, annual, bySku };
+  return { monthly, bySku };
 }
 
 /**
@@ -829,7 +822,7 @@ ${supplierFee}
 
 A shop starts on **Free** the moment it is opened. Couples reach it by its own link and QR code (the plan table's "${FREE_FINDABLE}") and can message and book it there, with Setnayan's booking fee; **Verified** adds it to Discover and Suppliers › Find: the supplier sends three business papers (DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit) and proves their email, a Setnayan admin reviews them and contacts the supplier for a final confirmation — free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Reach is not a plan allowance: an unverified shop is not distance-searched, and a verified shop sets its own service range on any plan. Paid plans add categories, service cards in total, team seats, branches and storage — never the right to take bookings: no plan, Free included, limits bookings, inquiries, shortlists or the waitlist, and a supplier sets how many bookings a day each service takes, up to ${DAILY_CAPACITY_MAX}.
 
-Plus, Pro and Ultra are prepaid blocks of 4 weeks (13 a year), or a year at a discount. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends.${ultraAddonSentence(input)}
+Plus, Pro and Ultra are prepaid blocks of 4 weeks. There is no yearly plan. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends.${ultraAddonSentence(input)}
 
 ## Answering couples (included free)
 
@@ -843,7 +836,7 @@ Supplier-side: public page editor · inquiry inbox · calendar with intra-day bl
 
 ## Common questions Setnayan answers
 
-- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}) are the three paid plans for an event; Setnayan AI comes inside Event Pro and Event Ultra. Everything else is à la carte. Supplier side: Free and Verified cost nothing, for good; ${TIER_LABEL.solo} ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')} every 4 weeks), ${TIER_LABEL.pro} ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), ${TIER_LABEL.enterprise} ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). Couples pay no commission. Suppliers pay a booking fee, ${FEE_SCOPE_THIRD} (see the supplier plans).
+- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}) are the three paid plans for an event; Setnayan AI comes inside Event Pro and Event Ultra. Everything else is à la carte. Supplier side: Free and Verified cost nothing, for good; every 4 weeks, ${TIER_LABEL.solo} is ${V('solo_vendor_monthly')} · ${TIER_LABEL.pro} ${V('pro_vendor_monthly')} · ${TIER_LABEL.enterprise} ${V('enterprise_vendor_monthly')} (no yearly plan). Couples pay no commission. Suppliers pay a booking fee, ${FEE_SCOPE_THIRD} (see the supplier plans).
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The Event Hub with unlimited RSVP is free; designing every part of it comes with Event Pro ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is included.
 - **What is Setnayan AI?** The assisted-planning layer — supplier matchmaking plus the guided planning workspace, until the event date. It is not sold on its own: it comes with Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}).
 - **What is Papic?** Guests' phones become a coordinated capture crew. Credits come with an event plan or as packs — ${papicLadderCompact(R)} — and every guest shoots from that shared pot. Cameras are free and unlimited. Photos are matched to the guests in them (face matching only with each guest's consent), so each guest can find the photos they're in.

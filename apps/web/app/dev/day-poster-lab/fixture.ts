@@ -18,7 +18,7 @@ const p = (role: string, title: string | null = null): EntourageGuestRow => {
 function guests(): EntourageGuestRow[] {
   const r: EntourageGuestRow[] = [];
   r.push(p('groom_parents'), p('groom_parents'), p('bride_parents'), p('bride_parents'));
-  r.push(p('maid_of_honor'), p('maid_of_honor'), p('best_man'));
+  r.push(p('maid_of_honor'), p('maid_of_honor'), p('best_man'), p('best_woman'));
   for (let i = 0; i < 38; i += 1) r.push(p(i % 2 ? 'principal_sponsor_ninang' : 'principal_sponsor_ninong', i % 2 ? 'Mrs.' : 'Mr.'));
   for (const x of ['candle_sponsor', 'candle_sponsor', 'veil_sponsor', 'veil_sponsor', 'cord_sponsor', 'cord_sponsor']) r.push(p(x));
   for (let i = 0; i < 12; i += 1) r.push(p('bridesmaid'));

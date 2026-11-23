@@ -94,6 +94,9 @@ import { join, relative, sep } from 'node:path';
  * 🪤 `}` IS DELIBERATELY ABSENT TOO (2026-11-22) — the JSX self-close
  * `x={1.9} />` was read as a pattern opener. The full reasoning and the
  * measurement are on the same set in apps/web/lib/strip-comments.ts.
+ *
+ * A substitution's own closing `}` never reaches this test at all: the template
+ * stack in `stripComments` resumes template text there instead (2026-11-22).
  */
 const REGEX_MAY_FOLLOW_CHAR = new Set([
   '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', ';',
@@ -110,7 +113,17 @@ export function stripComments(source) {
   const out = source.split('');
   let i = 0;
   const n = source.length;
-  let quote = null; // "'" | '"' | '`'
+  let quote = null; // "'" | '"' — a template is NOT a quote, see below
+  // 🪤 A TEMPLATE LITERAL IS NOT A FLAT STRING (2026-11-22). Its `${ … }` is
+  // CODE: it can hold comments, strings and further templates. Read backtick to
+  // backtick, a comment in a substitution survived, and a template nested in one
+  // closed the OUTER template at the inner backtick — after which the lexer ran
+  // out of step for the rest of the file, in either direction.
+  // So: `inTemplate` is the text mode; each `${` pushes the brace depth it was
+  // opened at, and only the `}` that returns to that depth resumes the text.
+  let inTemplate = false;
+  const substitutions = [];
+  let depth = 0;
   // The last non-whitespace character, and the identifier ending at it. Together
   // they decide whether a `/` opens a pattern or divides.
   let prevChar = '';
@@ -118,6 +131,26 @@ export function stripComments(source) {
   while (i < n) {
     const c = source[i];
     const next = source[i + 1];
+    if (inTemplate) {
+      if (c === '\\') {
+        i += 2;
+        continue;
+      }
+      if (c === '`') {
+        inTemplate = false;
+        prevChar = c;
+        prevWord = '';
+      } else if (c === '$' && next === '{') {
+        inTemplate = false;
+        substitutions.push(depth);
+        prevChar = '{'; // a substitution opens like a block: a `/` here starts a pattern
+        prevWord = '';
+        i += 2;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
     if (quote) {
       if (c === '\\') {
         i += 2;
@@ -127,12 +160,27 @@ export function stripComments(source) {
       i += 1;
       continue;
     }
-    if (c === "'" || c === '"' || c === '`') {
+    if (c === "'" || c === '"') {
       quote = c;
       prevChar = c;
       prevWord = '';
       i += 1;
       continue;
+    }
+    if (c === '`') {
+      inTemplate = true;
+      i += 1;
+      continue;
+    }
+    if (c === '{') depth += 1;
+    if (c === '}') {
+      if (substitutions.length > 0 && substitutions[substitutions.length - 1] === depth) {
+        substitutions.pop();
+        inTemplate = true;
+        i += 1;
+        continue;
+      }
+      depth -= 1;
     }
     if (c === '/' && next === '/') {
       while (i < n && source[i] !== '\n') out[i++] = ' ';

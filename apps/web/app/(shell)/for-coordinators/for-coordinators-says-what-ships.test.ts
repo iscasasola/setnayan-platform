@@ -104,13 +104,27 @@ test('the page makes none of the claims the code contradicts', () => {
 // ── NUMBERS ARE READ, NEVER TYPED ─────────────────────────────────────────────────────────────────────
 
 test('prices are read from the catalogue that charges them, with no peso fallback', () => {
-  const prices = own('_prices.server.ts');
-  assert.match(prices, /fetchV2VendorCatalog\(\)/);
-  assert.doesNotMatch(prices, /\b\d{3,}\b/, 'a number is typed into the price reader');
-  assert.match(PAGE, /readCoordinatorPrices\(\)/, 'the page does not read the prices');
-  assert.match(PAGE, /prices\.plans\[t\]\.month \?/, 'a paid plan whose price cannot be read must drop its figure, not invent one');
+  // ONE READER (owner 2026-11-23: "the only difference is the extent of the services we provide exclusively for
+  // coordinators"): the coordinator page reads the same `getVendorPrices` the supplier pages read; its own copy is gone.
+  assert.ok(!existsSync(join(HERE, '_prices.server.ts')), 'a second price reader for coordinators is back');
+  assert.match(PAGE, /getVendorPrices\(\)/, 'the page does not read the prices');
+  assert.match(PAGE, /monthlyPlanPrice\(prices, t\) \?/, 'a paid plan whose price cannot be read must drop its figure, not invent one');
   assert.match(PAGE, /pesoWords\(TIER_PRICE_PHP\.free\.monthly\)/);
   assert.match(PAGE, /pesoWords\(TIER_PRICE_PHP\.verified\.monthly\)/);
+});
+
+test('a paid plan reads "per month", from the one wording both pages use', () => {
+  // Owner 2026-11-23: "the plan is not per 4 weeks. it is now monthly" — and "this needs to align to the coordinators
+  // as well". Both doorways draw the period from PLAN_PERIOD (lib/vendor-plan-change-words.ts) and the price from
+  // monthlyPlanPrice (lib/v2-catalog.ts); neither types the period beside a price.
+  assert.match(PAGE, /\$\{monthlyPlanPrice\(prices, t\)\} \$\{PLAN_PERIOD\.per\}/, 'the coordinator plan price does not read its period from PLAN_PERIOD');
+  const supplier = stripComments(read('app/for-suppliers/_components/supplier-front-page.tsx'));
+  assert.match(supplier, /monthlyPlanPrice\(prices, t\)/, 'the supplier page no longer reads the same price helper');
+  assert.match(supplier, /PLAN_PERIOD\.per/, 'the supplier page no longer reads the same period word');
+  for (const [name, src] of [['/for-coordinators', WORDS], ['/for-suppliers', supplier]] as const) {
+    assert.doesNotMatch(src, /4 weeks|four weeks|28 days|28-day|every 4|P28D/i, `${name} still bills a plan by 4 weeks`);
+    assert.doesNotMatch(src, /['"`]per month['"`]/, `${name} types "per month" instead of reading PLAN_PERIOD`);
+  }
 });
 
 test('the fee is named only from the live schedule; unreadable → no rate is named', () => {

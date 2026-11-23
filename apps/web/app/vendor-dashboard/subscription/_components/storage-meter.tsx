@@ -6,6 +6,7 @@ import {
   STORAGE_KINDS,
   STORAGE_UNREAD,
   meterWords,
+  recordsMeasure,
   roomLine,
   storageAllowanceBytes,
   storageMeterState,
@@ -50,7 +51,16 @@ const LEVEL_FILL: Record<'ok' | 'near' | 'full', string> = {
   full: 'bg-danger-600',
 };
 
-export function StorageMeter({ tier, read }: { tier: string; read: StorageBreakdownRead }) {
+export function StorageMeter({
+  tier,
+  read,
+  nowMs = Date.now(),
+}: {
+  tier: string;
+  read: StorageBreakdownRead;
+  /** The clock "measured X ago" is read against — the lab pins it; the page reads the request's own time. */
+  nowMs?: number;
+}) {
   const allowance = storageAllowanceBytes(tier);
   if (allowance === null) return null;
   const name = `${planWord(asVendorTier(tier))} · ${storageWords(allowance)}`;
@@ -81,8 +91,17 @@ export function StorageMeter({ tier, read }: { tier: string; read: StorageBreakd
       ? `${meterWords(used)} of ${storageWords(allowance)} used · the rest is kept for chat and documents`
       : storageUsedLine(tier, used);
   const free = Math.max(0, allowance - used);
+  // 🔑 HONEST RECORDS: a size never measured is not "0 KB" (lib/supplier-storage.ts `recordsMeasure`). The Records
+  // row says "Not measured yet" and the used line says it counts files only; an old measure says how old it is.
+  const measure = recordsMeasure(b.recordsMeasuredAt, nowMs);
+  const kindSize = (key: (typeof STORAGE_KINDS)[number]['key']) =>
+    key === 'records' && measure.state === 'never' ? measure.words : meterWords(b[key]);
+  const measuredLine =
+    measure.state === 'never'
+      ? 'Files only so far — your records are not measured yet'
+      : `Records ${measure.words.charAt(0).toLowerCase()}${measure.words.slice(1)}`;
   const label = [
-    ...STORAGE_KINDS.map((k) => `${k.name} ${meterWords(b[k.key])}`),
+    ...STORAGE_KINDS.map((k) => `${k.name} ${kindSize(k.key)}`),
     ...(over ? [] : [`free ${meterWords(free)}`]),
   ].join(', ');
 
@@ -125,6 +144,12 @@ export function StorageMeter({ tier, read }: { tier: string; read: StorageBreakd
       <p className="mt-3 text-sn-lg font-semibold tabular-nums text-ink" data-plan-storage-used="">
         {usedLine}
       </p>
+      <p
+        className={`mt-1 text-sn-sm ${measure.state === 'fresh' ? 'text-ink/60' : 'text-warn-700'}`}
+        data-plan-storage-measured={measure.state}
+      >
+        {measuredLine}
+      </p>
 
       <div className="mt-3 border-t border-ink/10 pt-3" data-plan-storage-room={roomLevel}>
         <p className="text-sn-md tabular-nums text-ink/70">{roomLine(tier, b.room)}</p>
@@ -146,8 +171,8 @@ export function StorageMeter({ tier, read }: { tier: string; read: StorageBreakd
             data="plan-storage-kind"
             lead={<b className={`h-3 w-3 flex-none rounded-sm ${KIND_FILL[k.key]}`} aria-hidden />}
             title={k.name}
-            line={k.line}
-            strong={meterWords(b[k.key])}
+            line={k.key === 'records' ? `${k.line} · ${measure.words}` : k.line}
+            strong={kindSize(k.key)}
           />
         ))}
       </div>

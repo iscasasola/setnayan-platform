@@ -30,7 +30,9 @@
 --       Records, the chat & documents room's use, the evidence share, when the records were measured.
 --   7 · `vendor_storage_used_bytes(shop)` — the total (files + the last measured records): the number the filing
 --       backstop `enforce_supplier_storage_allowance` and the limits sheet compare with the plan. Same signature.
---   8 · the nightly job (pg_cron, when installed).
+--   8 · the nightly measure is NOT scheduled here: this repo has no scheduler and cron.job stays empty. The app runs
+--       `supplier_storage_measure_records(NULL)` as a claimed periodic job, once per Manila night from 03:00, on
+--       request traffic (lib/supplier-storage-measure.server.ts, `supplier-storage-records`).
 --
 -- Media = photos, video, audio and archives (zip can hide photos); everything else is a document (spec § ★ K).
 -- Evidence (contracts, and uploads marked so) COUNTS but is never refused — the app's gate says so; nothing here
@@ -249,16 +251,19 @@ BEGIN
     v_tables := v_tables + 1;
   END LOOP;
 
+  -- No counted table at all still measures every shop (at 0): a shop is never left "not measured".
   IF array_length(v_parts, 1) IS NULL THEN
-    RETURN 0;
+    v_parts := ARRAY['SELECT NULL::uuid AS shop, 0::bigint AS b, false AS chat WHERE false'];
   END IF;
 
+  -- EVERY shop gets a row, measured now (vendor_profiles LEFT JOIN the rows): a shop no table names reads 0 and
+  -- is never left "not measured yet" after a night has run.
   EXECUTE format(
     'WITH m AS (%s), s AS ('
-    '  SELECT m.shop, SUM(m.b) FILTER (WHERE NOT m.chat) AS rb, SUM(m.b) FILTER (WHERE m.chat) AS cb'
-    '    FROM m JOIN public.vendor_profiles vp ON vp.vendor_profile_id = m.shop'
-    '   WHERE $1 IS NULL OR m.shop = $1'
-    '   GROUP BY m.shop'
+    '  SELECT vp.vendor_profile_id AS shop, SUM(m.b) FILTER (WHERE NOT m.chat) AS rb, SUM(m.b) FILTER (WHERE m.chat) AS cb'
+    '    FROM public.vendor_profiles vp LEFT JOIN m ON m.shop = vp.vendor_profile_id'
+    '   WHERE $1 IS NULL OR vp.vendor_profile_id = $1'
+    '   GROUP BY vp.vendor_profile_id'
     '), w AS ('
     '  INSERT INTO public.supplier_storage_records AS r (vendor_profile_id, records_bytes, chat_bytes, tables_counted, measured_at)'
     '  SELECT s.shop, COALESCE(s.rb, 0), COALESCE(s.cb, 0), $2, now() FROM s'
@@ -393,23 +398,5 @@ GRANT EXECUTE ON FUNCTION public.vendor_storage_used_bytes(uuid) TO service_role
 
 COMMENT ON FUNCTION public.vendor_storage_used_bytes(uuid) IS
   'Everything a shop stores against its plan (owner 2026-11-23 "THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SHOP OWNS"): every file (vendor_storage_files — event files, portfolio, Papic captures, chat files the shop sent, contracts, every other upload) plus its data as last measured (supplier_storage_records). Read by the filing backstop enforce_supplier_storage_allowance and the limits sheet. Service role only.';
-
--- ── 8 · the nightly measure ────────────────────────────────────────────────
--- 19:23 UTC = 03:23 in Manila. Runs SQL in the database (no HTTP). Skipped where pg_cron is not installed (local
--- replay, PGlite).
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-    RAISE NOTICE 'pg_cron not installed; skipping supplier_storage_records_nightly.';
-    RETURN;
-  END IF;
-  PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'supplier_storage_records_nightly';
-  PERFORM cron.schedule(
-    'supplier_storage_records_nightly',
-    '23 19 * * *',
-    $job$SELECT public.supplier_storage_measure_records(NULL)$job$
-  );
-END;
-$$;
 
 COMMIT;

@@ -234,6 +234,60 @@ export type StorageBreakdown = {
 
 export type StorageBreakdownRead = { status: 'ok'; breakdown: StorageBreakdown } | { status: 'unread' };
 
+/* ── THE NIGHTLY RECORDS MEASURE — no scheduler, a claimed window ───────────────────────────────────────────────────
+ * The repo has no scheduler (cron.job stays empty): `supplier_storage_measure_records(NULL)` runs as a claimed periodic
+ * job on request traffic (lib/supplier-storage-measure.server.ts). Its window is one Manila night: it opens at 03:00
+ * Manila and lasts until the next 03:00. The first request after it opens runs the measure, so a quiet night catches
+ * up on the next request; the claim's gap is "since this window opened", so it never runs twice in one window. */
+
+/** The Manila hour the nightly records window opens (Asia/Manila is UTC+8, no daylight saving). */
+export const RECORDS_MEASURE_HOUR_MANILA = 3;
+const MANILA_OFFSET_MS = 8 * 3_600_000;
+const DAY_MS = 86_400_000;
+
+/** When the current nightly window opened: the latest 03:00 Manila at or before `nowMs` (epoch ms). */
+export function recordsMeasureWindowOpenedMs(nowMs: number): number {
+  const local = nowMs + MANILA_OFFSET_MS;
+  let open = Math.floor(local / DAY_MS) * DAY_MS + RECORDS_MEASURE_HOUR_MANILA * 3_600_000;
+  if (local < open) open -= DAY_MS;
+  return open - MANILA_OFFSET_MS;
+}
+
+/**
+ * The claim's gap: the time since this window opened, in whole seconds plus one (at least a minute). The claim
+ * (`claim_periodic_job`: last_run_at < now() − gap, the gap sent in whole seconds) succeeds only when the last run was
+ * before this window opened. So one run per window, and the first request after 03:00 runs it however late it comes.
+ */
+export function recordsMeasureClaimGapMs(nowMs: number): number {
+  return Math.max(60_000, Math.ceil((nowMs - recordsMeasureWindowOpenedMs(nowMs)) / 1000) * 1000 + 1000);
+}
+
+/** A measure older than this missed at least one night: the meter says so instead of passing it off as current. */
+export const RECORDS_STALE_AFTER_MS = 36 * 3_600_000;
+
+export type RecordsMeasure =
+  /** Never measured: the Records size is not known, so the meter shows no number for it. */
+  | { state: 'never'; words: string }
+  | { state: 'fresh' | 'stale'; words: string; ageMs: number };
+
+/** "Measured 5 hours ago" · "Last measured 3 days ago" · "Not measured yet" — how current the Records size is. */
+export function recordsMeasure(measuredAt: string | null | undefined, nowMs: number): RecordsMeasure {
+  const at = measuredAt ? Date.parse(measuredAt) : NaN;
+  if (!Number.isFinite(at)) return { state: 'never', words: 'Not measured yet' };
+  const ageMs = Math.max(0, nowMs - at);
+  const ago =
+    ageMs < 60_000
+      ? 'just now'
+      : ageMs < 3_600_000
+        ? plural(Math.floor(ageMs / 60_000), 'minute')
+        : ageMs < DAY_MS
+          ? plural(Math.floor(ageMs / 3_600_000), 'hour')
+          : plural(Math.floor(ageMs / DAY_MS), 'day');
+  const stale = ageMs > RECORDS_STALE_AFTER_MS;
+  return { state: stale ? 'stale' : 'fresh', words: `${stale ? 'Last measured' : 'Measured'} ${ago}`, ageMs };
+}
+const plural = (n: number, unit: string) => `${formatCount(n)} ${unit}${n === 1 ? '' : 's'} ago`;
+
 /** The whole: the three kinds added. The room and evidence are inside them, never added twice. */
 export function storageTotal(b: StorageBreakdown): number {
   return b.photosVideo + b.files + b.records;

@@ -186,7 +186,7 @@ const LAB_SHEET_NOW = Date.parse('2026-11-10T02:00:00Z');
 const LAB_EXPIRES_AT: Record<string, string | null> = { free: null, solo: '2026-12-08T15:59:59Z', pro: '2027-10-03T15:59:59Z' };
 
 /**
- * 📏 LAB-ONLY storage meter fixtures (`&meter=new|busy|near|full|room|unread`) — sample sizes for the screenshot, never
+ * 📏 LAB-ONLY storage meter fixtures (`&meter=new|busy|near|full|room|unread|unmeasured|stale`) — sample sizes for the screenshot, never
  * a ruled figure. A new shop holds only its sign-up rows (a few KB, owner 23 Nov "No, real usage only"); a busy shop
  * holds albums, cards, chat files, contracts and its data.
  */
@@ -195,10 +195,13 @@ function labMeter(kind: string | undefined, tier: string): StorageBreakdownRead 
   const MB = 1e6;
   const k = kind ?? (tier === 'free' ? 'new' : 'busy');
   if (k === 'unread') return { status: 'unread' };
+  // Records never measured (the nightly measure has not reached this shop) · or last measured four nights ago.
+  const measuredAt = k === 'unmeasured' ? null : k === 'stale' ? new Date(Date.now() - 4 * 86_400_000).toISOString() : new Date(Date.now() - 5 * 3_600_000).toISOString();
   const b = (photosVideo: number, files: number, records: number, chat: number, evidence: number): StorageBreakdownRead => ({
     status: 'ok',
-    breakdown: { photosVideo, files, records, room: files + chat, evidence, recordsMeasuredAt: '2026-11-23T19:23:00Z' },
+    breakdown: { photosVideo, files, records, room: files + chat, evidence, recordsMeasuredAt: measuredAt },
   });
+  if (k === 'unmeasured') return b(2.4 * GB, 180 * MB, 0, 0, 40 * MB);
   if (k === 'new') return b(0, 0, 6_200, 0, 0);
   if (k === 'near') return b(99 * GB, 1.1 * GB, 61 * MB, 24 * MB, 0.3 * GB);
   if (k === 'full') return b(118.2 * GB, 1.4 * GB, 74 * MB, 30 * MB, 0.4 * GB);

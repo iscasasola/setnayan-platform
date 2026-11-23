@@ -315,6 +315,23 @@ test('the read never rescans: records change only when measured (the nightly job
   assert.ok((await breakdown(s.shop)).records >= first.records + 2000, 'the nightly measure missed the new message');
 });
 
+test('the nightly pass never skips a shop: every supplier is measured, now, in one pass', async () => {
+  await newShop('free');
+  await newShop('pro');
+  await asOwner();
+  const before = (await db.query<{ t: string }>(`SELECT now()::text AS t`)).rows[0]!.t;
+  const n = await measure(null);
+  const shops = Number((await db.query<{ c: number }>(`SELECT count(*)::int AS c FROM public.vendor_profiles`)).rows[0]!.c);
+  assert.equal(n, shops, `the nightly measure wrote ${n} of ${shops} shops`);
+  const missed = await db.query(
+    `SELECT vp.vendor_profile_id FROM public.vendor_profiles vp
+       LEFT JOIN public.supplier_storage_records r ON r.vendor_profile_id = vp.vendor_profile_id
+      WHERE r.measured_at IS NULL OR r.measured_at < $1::timestamptz`,
+    [before],
+  );
+  assert.equal(missed.rows.length, 0, 'a shop was left "not measured yet" (or on an old measure) after the nightly pass');
+});
+
 test('media vs document: the SQL twin says exactly what isMediaContentType says', async () => {
   await asOwner();
   const types = [

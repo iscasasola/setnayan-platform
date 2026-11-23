@@ -78,7 +78,7 @@ export async function loadMyQrCode(
 
   // 📅 Check a date is the shop's one permanent code — its own builder (`checkADateQr`), as on Promote before.
   const dates = code === 'dates' ? await checkADateQr(shop.slug, origin) : null;
-  const url = dates ? dates.url : printQrUrl(code, origin, shop.slug);
+  const url = dates ? dates.url : printQrUrl(code, origin, shop.slug, 'link'); // 🏷 an on-screen code: via=link (#7881)
   const [svg, verified, ownLink, gifts] = await Promise.all([
     dates ? Promise.resolve(dates.svg) : renderUrlQrSvg(url, 220).catch(() => null),
     // 🪪 The ONE verified test the server uses; null = couldn't check (never "not verified", never a promise).

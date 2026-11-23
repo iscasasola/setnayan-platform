@@ -187,6 +187,9 @@ export const ADMIN_MERGED_PAGES: readonly AdminMergedPage[] = [
       v('papic-shots', 'Papic shots', '/admin/pricing?tab=papic-shots'),
       v('bands', 'Bands', '/admin/pricing?tab=price-bands', { match: ['/admin/pricing?tab=price-bands', '/admin/price-bands'] }),
       v('free-windows', 'Free windows', '/admin/pricing?tab=free-windows'),
+      // 📐 Admin clean port (19 Nov 2026): the in-page tab pills are gone, so the sixth tab joins this dropdown — it was
+      // only reachable from those pills (owner 2026-11-13 "Yes, add both" made the tab).
+      v('plan-contents', 'Plan contents', '/admin/pricing?tab=plan-contents'),
     ],
     waitsOn: ['#8018 (pricing/page.tsx)', '#7874 (pricing/_components)'],
   },

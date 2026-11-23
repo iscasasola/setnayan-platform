@@ -45,6 +45,7 @@ import { ADMIN_SEARCH_OPEN_EVENT } from './admin-search-open-event';
 import { useAdminAddress } from './admin-address';
 import css from './admin-tab-rows.module.css';
 import { PeopleShowSort } from '../directory/_components/people-show-sort';
+import { PayoutsShowSort } from '../payouts/payouts-show-sort';
 
 /** A read that failed is never a 0. */
 export const COUNT_REFUSED = 'Couldn’t count — not the same as none';
@@ -234,7 +235,10 @@ export function AdminThumbRow({ at }: { /** Lab only. */ at?: string } = {}) {
             // sheet, as on Guests. Add a venue stays one tap away in Look up › Venues.
             tab.key === 'people' && place.kind === 'landing'
               ? { node: <PeopleShowSort show={params?.get('show') ?? 'everyone'} /> }
-              : tab.create
+              : // 📐 Admin clean port (owner 19 Nov 2026): Payouts' four filters sit behind this round, as People's do.
+                place.kind === 'tab' && place.view.key === 'to-approve.payouts'
+                ? { node: <PayoutsShowSort params={params} /> }
+                : tab.create
                 ? { icon: Plus, label: tab.create.label, href: tab.create.href }
                 : null
           }

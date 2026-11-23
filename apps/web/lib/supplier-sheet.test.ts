@@ -225,10 +225,13 @@ test('🔑 that one request is five reads, one per table, together — and it is
   assert.match(ACTION, /if \(!user\) return \{ \.\.\.EMPTY, sheet: null \};/, 'a signed-out caller is answered');
 });
 
-test('🔑 a shop whose name is still withheld is not named by its photos or its address', () => {
-  assert.match(READER, /isVendorNameRevealed\(\{/);
-  assert.match(READER, /photos:\s*profile && revealed\s*\?/);
-  assert.match(READER, /sharePath: profile && revealed && profile\.business_slug \? `\$\{shopPath\(profile\.business_slug\)\}` : null,/);
+// 🏷 Was "a shop whose name is still withheld is not named by its photos or its address". Owner ruling 2026-11-16 (15)
+// shows every shop's real name, and (18) opens its page to anyone with the link, so the photos and the address show
+// for every shop. What still holds: no profile row read → no photos and no Share (never an invented page).
+test('🔑 every shop shows its photos and its address (ruling 2026-11-16 (15)/(18)); no profile read → neither', () => {
+  assert.doesNotMatch(READER, /isVendorNameRevealed\(/, 'the sheet still hides a shop behind the old reveal rule');
+  assert.match(READER, /photos:\s*profile\s*\?/);
+  assert.match(READER, /sharePath: profile && profile\.business_slug \? `\$\{shopPath\(profile\.business_slug\)\}` : null,/);
   // …and the sheet offers Share only when there is a page to share.
   assert.match(SHEET, /\{data\?\.sharePath \? <ActionButton tone="neutral" icon=\{Share\} label="Share"/);
 });

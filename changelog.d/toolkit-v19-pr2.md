@@ -20,9 +20,9 @@ Built from Fable's drawing `prototypes/supplier_store_graphs_badges_2026-11-23/`
 - **Your widgets** (`/shop/store/yours`): every installed widget as a card showing where it is used, with Open · How to use it · Remove (a built-in has no Remove). It has place chips.
 - **QR designs** (`/shop/store/qr`, `/shop/store/qr/<code>`):
   - My page is built in. Check a date, Shortlist and Reviews are installed until removed.
-  - Removing one only takes it off Promote's list: `QrCodes` takes `hide`, and Promote reads the layout. A refused read hides nothing.
+  - Removing one only takes it off the My QRs list (main's Shop › My QRs, also drawn on Promote and the cover's QR sheet); the code still works. `MyQrsList` takes `hide`, and both callers read the layout. A refused read hides nothing.
   - The layout gains a `qrs` row in the same `store_layout` jsonb, written by the one `storeAction` op=layout. No migration.
-  - The QR words moved to `lib/supplier-qr-codes.ts` (`SUPPLIER_QR_WORDS`) so the rows and the Toolkit read one copy.
+  - The Toolkit reads My QRs' own words (`MY_QR_WORDS`), one copy. The cover's Promote sheet's QR tab reads "My QRs".
 - **Item page:** a strip (Price · Works in · For) and an Information table (Price · Renewal · Suggested for, plus Status for an installed, owned-and-removed or off-plan widget). Where it works covers the new doors.
 - **Shop cover:** View shop · **Toolkit** · Share · Promote (v19 frame 0).
 - **HUB_TOOL_LIBRARY:** `shot_list`, `incident_log` and `tables_and_seating` now read `shipped: true`. A guard fails if a shipped Event Hub widget's hub tool is ever flagged unshipped again.

@@ -1,14 +1,17 @@
 /**
- * 🎭 THE ENVELOPE, IN THE OWNER'S TWO STYLES (owner 23 Nov: *"we want both styles"*; drawing `src/env2.js` +
- * `src/ribbon.js`). Built to read as a photograph: paper that takes light across its relief, gold foil and wax that
+ * 🎭 THE ENVELOPE, IN THE OWNER'S TWO STYLES (owner 23 Nov: *"we want both styles"*; drawing v22 `src/env2.js`). Built to read as a photograph: paper that takes light across its relief, gold foil and wax that
  * mirror a room, soft shadows cast flap on flap, flaps that bend as paper does while they turn, film tone.
  *   CLASSIC  — an ornate scalloped front flap, gold edge, a gold wax seal carrying the event's logo.
- *   GATEFOLD — two embossed panels; the satin bow comes undone and leaves BEFORE the panels part.
- * The wax seal never shatters: it stays on the flap it was pressed on and goes where that paper goes.
+ *   GATEFOLD — two embossed panels, closed with the couple's seal OR a satin ribbon and bow, never both (owner 23 Nov:
+ *              *"ribbon and wax seal never co exist together"*). Sealed: the whole seal rides the left panel, which opens
+ *              first. Tied: the bow comes undone and the ribbon slides off before the panels part.
+ * The wax seal never breaks: it stays on the flap it was pressed on and goes where that paper goes.
  */
 import * as THREE from 'three';
 import { ss } from '@/lib/reveal-motion';
-import { Hinge, Strip, canvas, ctx2d, ease, shadowPlane, texOf, type Ctx, type Scene, BUMP } from './kit';
+import { mulberry32 } from '@/lib/wax-seal/types';
+import { CLOTH_TOP } from '@/lib/veil-cloth';
+import { Hinge, Strip, alphaBox, canvas, ctx2d, ease, lay, shadowPlane, texOf, wideness, type Ctx, type Scene, BUMP } from './kit';
 
 /* a room for the gold and the wax to mirror: a soft box overhead, a warm window, a dim floor */
 function room(c: Ctx): THREE.Texture {
@@ -37,8 +40,8 @@ function room(c: Ctx): THREE.Texture {
 
 /* a normal map made from a painted canvas: its light-and-dark becomes real relief, and its cut edge a bevel */
 function normalsOf(src: HTMLCanvasElement, strength: number): THREE.Texture {
-  const w = 256;
-  const h = Math.round((256 * src.height) / src.width);
+  const w = Math.min(512, Math.round(src.width / 2));
+  const h = Math.round((w * src.height) / src.width);
   const k = canvas(w, h);
   const x = ctx2d(k);
   x.drawImage(src, 0, 0, w, h);
@@ -79,6 +82,8 @@ type FlapOpts = {
   nx?: number;
   ny?: number;
   liner?: number;
+  /** 🖥 how many phone-widths the screen is (`wideness`): the canvas widens with the flap, so the art keeps its size */
+  wide?: number;
   shape: Paint;
   paint: Paint;
   foil?: Paint;
@@ -98,8 +103,8 @@ class Flap {
     scene: THREE.Scene,
     public o: FlapOpts,
   ) {
-    const cw = 512;
-    const ch = Math.round((512 * o.h) / o.w);
+    const cw = Math.min(2048, Math.round(512 * (o.wide ?? 1)));
+    const ch = Math.round((cw * o.h) / o.w);
     const col = canvas(cw, ch);
     const cx = ctx2d(col);
     const msk = canvas(cw, ch);
@@ -191,7 +196,9 @@ class Flap {
   }
 }
 
-function sealBump(logo: HTMLCanvasElement): THREE.Texture {
+function sealBump(c: Ctx): THREE.Texture {
+  const { logo } = c;
+  const press = c.seal.recipe.press;
   const k = canvas(256, 256);
   const x = ctx2d(k);
   x.fillStyle = '#808080';
@@ -215,16 +222,50 @@ function sealBump(logo: HTMLCanvasElement): THREE.Texture {
   x.beginPath();
   x.arc(128, 128, 78, 0, 7);
   x.stroke();
-  /* the couple's own monogram, pressed into the wax (white on the mask = raised) */
-  x.globalCompositeOperation = 'lighten';
-  x.drawImage(logo, 58, 58, 140, 140);
-  x.globalCompositeOperation = 'source-over';
+  /* 🔏 THE COUPLE'S OWN LOGO, PRESSED INTO THE WAX AND FITTED TO IT (owner 23 Nov: *"Seal needs to adapt to logo"*):
+     cropped to its own ink and scaled so its box's corners touch the inner ring — a wide, a tall and a square logo
+     each fill the face for their shape, never squeezed into a fixed square. The press is the couple's own: where the
+     die landed (`offset`) and its slight tilt (`skew`), from the candle-stamp maker's recipe. White = raised. */
+  const box = alphaBox(logo);
+  if (box) {
+    const f = 148 / Math.hypot(box.w, box.h);
+    const w = box.w * f;
+    const h = box.h * f;
+    x.save();
+    x.translate(128 + press.offset[0] * 5, 128 + press.offset[1] * 5);
+    x.rotate(press.skew * 0.12);
+    x.globalCompositeOperation = 'lighten';
+    x.drawImage(logo, box.x, box.y, box.w, box.h, -w / 2, -h / 2, w, h);
+    x.restore();
+  }
   return texOf(k);
 }
 
-/** A wax seal in two halves (it stays on the paper it was pressed on). */
-function makeSeal(c: Ctx, color: number, rough: number, R: number): THREE.Group[] {
-  const wax = new THREE.MeshPhysicalMaterial({ color, metalness: 0.82, roughness: rough, clearcoat: 0.55, clearcoatRoughness: 0.25, bumpMap: sealBump(c.logo), bumpScale: 0.045 * BUMP, side: THREE.DoubleSide, envMapIntensity: 1.1 });
+/**
+ * A wax seal in two halves (it stays on the paper it was pressed on). 🔏 It is the COUPLE'S seal: its outline is their
+ * pour (the recipe's seed and irregularity, as the candle-stamp maker pours it), its size their pour amount, its
+ * depth their press, its sheen their finish, and its colour the wax they chose when they minted it — else the
+ * drawing's gold. `vertical`: split down the middle (the gatefold's seam), else across (the classic's flap).
+ */
+function makeSeal(c: Ctx, size: number, vertical: boolean): THREE.Group[] {
+  const { recipe, color } = c.seal;
+  const R = size * (0.92 + recipe.pour.amount * 0.16);
+  const rnd = mulberry32(recipe.seed);
+  const ph1 = rnd() * Math.PI * 2;
+  const ph2 = rnd() * Math.PI * 2;
+  const irr = recipe.pour.irregularity;
+  const wax = new THREE.MeshPhysicalMaterial({
+    /* the couple's wax is a colour they picked on screen (sRGB); the scenes are built in linear numbers */
+    color: color ? new THREE.Color(color).convertSRGBToLinear() : 0xb98a2c,
+    metalness: color ? 0.3 : 0.82,
+    roughness: recipe.wax.finish === 'glossy' ? 0.22 : 0.3,
+    clearcoat: 0.55,
+    clearcoatRoughness: 0.25,
+    bumpMap: sealBump(c),
+    bumpScale: 0.045 * BUMP * (0.55 + 0.6 * recipe.press.depth),
+    side: THREE.DoubleSide,
+    envMapIntensity: 1.1,
+  });
   const halves: THREE.Group[] = [];
   for (const hf of [0, 1]) {
     const prof = [new THREE.Vector2(0, 0.085)];
@@ -233,7 +274,7 @@ function makeSeal(c: Ctx, color: number, rough: number, R: number): THREE.Group[
       prof.push(new THREE.Vector2(R * 0.8 + Math.sin(a) * R * 0.16, Math.cos(a) * 0.085));
     }
     prof.push(new THREE.Vector2(R, 0));
-    const geo = new THREE.LatheGeometry(prof, 36, hf * Math.PI - Math.PI / 2, Math.PI);
+    const geo = new THREE.LatheGeometry(prof, 36, hf * Math.PI - (vertical ? 0 : Math.PI / 2), Math.PI);
     const p = geo.attributes.position as THREE.BufferAttribute;
     const uv = geo.attributes.uv as THREE.BufferAttribute;
     for (let i = 0; i < p.count; i++) {
@@ -241,7 +282,7 @@ function makeSeal(c: Ctx, color: number, rough: number, R: number): THREE.Group[
       const z = p.getZ(i);
       const r = Math.hypot(x, z);
       const an = Math.atan2(z, x);
-      const wob = r > R * 0.66 ? 1 + 0.06 * Math.sin(an * 5 + 1) + 0.035 * Math.sin(an * 11) : 1;
+      const wob = r > R * 0.66 ? 1 + irr * (0.18 * Math.sin(an * 5 + ph1) + 0.1 * Math.sin(an * 11 + ph2)) : 1;
       p.setX(i, x * wob);
       p.setZ(i, z * wob);
       uv.setXY(i, (x * wob) / (R * 2.05) + 0.5, 0.5 - (z * wob) / (R * 2.05));
@@ -257,6 +298,11 @@ function makeSeal(c: Ctx, color: number, rough: number, R: number): THREE.Group[
   }
   return halves;
 }
+
+/** How far the wax stands off its paper, along the paper's own face (the classic's flap). */
+const SEAL_LIFT = 0.07;
+/** The gatefold's seal: how far it stands off the left panel, along that panel's face (drawing v22). */
+const SEAL_OFF = 0.02;
 
 /** What is inside: its lining, and a warm light that pours out as the flaps part, then clears to the card. */
 class Inside {
@@ -333,6 +379,9 @@ export const envelopeClassic = (): Scene => {
   let inside: Inside;
   const T = 6.6;
   return {
+    /* 🖼 the envelope is larger than the screen: it reaches 12 % past every edge, as the cloth does, so neither the body
+       nor the flap ever shows a vertical edge (owner 23 Nov: *"the upper part must not cut vertically"*) */
+    bleed: CLOTH_TOP,
     legacyT: T,
     pbr: true,
     exposure: 1.05,
@@ -343,8 +392,11 @@ export const envelopeClassic = (): Scene => {
       const YS = HH - H * 0.27;
       stage(c);
       const [paper, dam] = await Promise.all([c.art('paper'), c.art('damask')]);
+      /* 🖥 on a wide screen every flap is a wider sheet of the same paper: `pw` is a flap's width on the phone */
+      const wide = wideness(c.px);
       const plain: Paint = (x, cw, ch) => {
-        x.drawImage(paper, 130, 130, 330, 300, 0, 0, cw, ch);
+        const pw = cw / wide;
+        lay(x, paper, [130, 130, 330, 300], cw, { dy: 0, dw: pw, dh: ch, step: pw, anchor: 'center' });
         x.fillStyle = 'rgba(255,250,240,.18)';
         x.fillRect(0, 0, cw, ch);
       };
@@ -361,6 +413,7 @@ export const envelopeClassic = (): Scene => {
           at: 4.4,
           spring: new Hinge(4.6, 3.3),
           relief: 3,
+          wide,
           shape: (x, cw, ch) => {
             x.beginPath();
             x.moveTo(0, ch);
@@ -372,7 +425,7 @@ export const envelopeClassic = (): Scene => {
             plain(x, cw, ch);
             x.fillStyle = '#a8843a';
             x.textAlign = 'center';
-            x.font = `500 ${Math.round(cw * 0.075)}px Georgia, serif`;
+            x.font = `500 ${Math.round((cw / wide) * 0.075)}px Georgia, serif`;
             x.fillText('Tap to open', cw / 2, ch * 0.5);
           },
           foil: (x, cw, ch) => {
@@ -385,10 +438,11 @@ export const envelopeClassic = (): Scene => {
             x.lineWidth = 2;
             const y = ch * 0.6;
             x.beginPath();
-            x.moveTo(cw * 0.3, y);
-            x.lineTo(cw * 0.455, y);
-            x.moveTo(cw * 0.545, y);
-            x.lineTo(cw * 0.7, y);
+            const pw = cw / wide;
+            x.moveTo(cw / 2 - pw * 0.2, y);
+            x.lineTo(cw / 2 - pw * 0.045, y);
+            x.moveTo(cw / 2 + pw * 0.045, y);
+            x.lineTo(cw / 2 + pw * 0.2, y);
             x.stroke();
             x.beginPath();
             x.moveTo(cw / 2, y - 14);
@@ -413,6 +467,7 @@ export const envelopeClassic = (): Scene => {
             at: side < 0 ? 3.0 : 3.7,
             spring: new Hinge(4.6, 3.3),
             relief: 3,
+            wide,
             shape: (x, cw, ch) => {
               const ty = ((HH - TY) / H) * ch;
               x.beginPath();
@@ -450,7 +505,9 @@ export const envelopeClassic = (): Scene => {
       const ht = HH - TY;
       const scallop = (x: CanvasRenderingContext2D, cw: number, ch: number, inset: number) => {
         const y0 = ((HH - YS) / ht) * ch;
-        const n = 3;
+        /* the scallops keep their shape on a wide screen: more of them, not wider ones */
+        const n = Math.max(3, Math.round(3 * wide));
+        const pw = cw / wide;
         x.beginPath();
         x.moveTo(inset, 0);
         x.lineTo(inset, y0 - inset);
@@ -459,14 +516,14 @@ export const envelopeClassic = (): Scene => {
           const ay = y0 + ((ch - y0) * (i - 1)) / n - inset;
           const bx = inset + ((cw / 2 - inset) * i) / n;
           const by = y0 + ((ch - y0) * i) / n - inset;
-          x.quadraticCurveTo((ax + bx) / 2 - cw * 0.035, (ay + by) / 2 + ch * 0.075, bx, by);
+          x.quadraticCurveTo((ax + bx) / 2 - pw * 0.035, (ay + by) / 2 + ch * 0.075, bx, by);
         }
         for (let i = n; i >= 1; i--) {
           const ax = cw - (inset + ((cw / 2 - inset) * i) / n);
           const ay = y0 + ((ch - y0) * i) / n - inset;
           const bx = cw - (inset + ((cw / 2 - inset) * (i - 1)) / n);
           const by = y0 + ((ch - y0) * (i - 1)) / n - inset;
-          x.quadraticCurveTo((ax + bx) / 2 + cw * 0.035, (ay + by) / 2 + ch * 0.075, bx, by);
+          x.quadraticCurveTo((ax + bx) / 2 + pw * 0.035, (ay + by) / 2 + ch * 0.075, bx, by);
         }
         x.lineTo(cw - inset, 0);
         x.closePath();
@@ -484,11 +541,14 @@ export const envelopeClassic = (): Scene => {
           relief: 7,
           nx: 24,
           ny: 30,
+          wide,
           shape: (x, cw, ch) => scallop(x, cw, ch, 0),
           paint: (x, cw, ch) => {
             plain(x, cw, ch);
             x.globalCompositeOperation = 'multiply';
-            x.drawImage(dam, 40, 76, 480, 500, cw * 0.04, ch * 0.02, cw * 0.92, ch * 0.9);
+            const pw = cw / wide;
+            /* the drawing's one panel on the phone; on a wide screen the panels meet edge to edge, mirrored */
+            lay(x, dam, [40, 76, 480, 500], cw, { dy: ch * 0.02, dw: pw * 0.92, dh: ch * 0.9, step: wide > 1 ? pw * 0.92 : pw, anchor: 'center' });
             x.globalCompositeOperation = 'source-over';
           },
           foil: (x, cw, ch) => {
@@ -502,7 +562,7 @@ export const envelopeClassic = (): Scene => {
         }),
       );
       for (const f of flaps) f.set(0, 0);
-      seal = makeSeal(c, 0xb98a2c, 0.3, 0.5);
+      seal = makeSeal(c, 0.5, false);
       inside = new Inside(c, TY);
     },
     step(dt, _t, tau) {
@@ -513,15 +573,20 @@ export const envelopeClassic = (): Scene => {
         if (f.o.hinge === 'top') top = f;
       }
       if (top?.tip) {
-        /* the seal stays on the flap's point and rises with it */
+        /* the seal stays on the flap's point and rises with it. It sits ON the paper: its offsets run along the flap's
+           own surface (0.03 in from the point, 0.07 off the face), never along the screen — so once the flap passes
+           upright the wax turns away behind it, and never floats over the flap's lining (owner 23 Nov: *"envelope
+           wax seal overlapped when opening"*) */
         const tp = top.tip;
-        const y = HH - tp.d + 0.03 * Math.cos(tp.th);
-        const z = 0.045 + tp.z + 0.07;
+        const sn = Math.sin(tp.th);
+        const cs = Math.cos(tp.th);
+        const y = HH - tp.d + 0.03 * cs + SEAL_LIFT * sn;
+        const z = 0.045 + tp.z - 0.03 * sn + SEAL_LIFT * cs;
         for (const h of seal) {
           h.position.set(0, y, z);
           h.rotation.x = -tp.th;
         }
-      } else for (const h of seal) h.position.set(0, HH - H * 0.56 + 0.03, 0.115);
+      } else for (const h of seal) h.position.set(0, HH - H * 0.56 + 0.03, 0.045 + SEAL_LIFT);
       inside.step(top ? top.h.a / 2.2 : 0, tau < 0 ? 0 : tau / T);
     },
   };
@@ -789,11 +854,17 @@ class GateRibbon {
   }
 }
 
-/** 3b · ENVELOPE, GATEFOLD — with the ribbon untie */
+/** 3b · ENVELOPE, GATEFOLD — closed with the couple's seal or a ribbon and bow (never both); the panels open like doors */
 export const envelopeGatefold = (): Scene => {
   const flaps: Flap[] = [];
-  let rib: GateRibbon;
   let inside: Inside;
+  let rib: GateRibbon | null = null;
+  let seal: THREE.Group[] = [];
+  let HWg = 1.5;
+  /* 🔏 Sealed: the couple's seal on the seam (owner 23 Nov: *"envelope gatefold use wax seal logo as well"*), where the
+     bow would sit. 🎀 Tied: the bow on the seam and no seal (owner 23 Nov: *"ribbon and wax seal never co exist
+     together"*; drawing v22 "Closed with"). */
+  const SEAL_Y = 0.3;
   const T = 7.4;
   return {
     legacyT: T,
@@ -801,8 +872,11 @@ export const envelopeGatefold = (): Scene => {
     exposure: 1.0,
     async init(c) {
       const { HW, H, scene: s } = c;
+      const tied = c.closure === 'ribbon';
+      HWg = HW;
       stage(c);
       const calla = await c.art('calla');
+      const wide = wideness(c.px);
       for (const side of [-1, 1]) {
         flaps.push(
           new Flap(s, {
@@ -812,18 +886,25 @@ export const envelopeGatefold = (): Scene => {
             x: (side * HW) / 2,
             y: 0,
             z: 0.01,
-            at: side < 0 ? 3.5 : 3.9,
-            spring: new Hinge(2.4, 2.5),
+            /* sealed, the tap frees the seal and the panels part from 1.0, the left one first; tied, they wait for the ribbon.
+               A soft spring, so either opens slowly (drawing v22) */
+            at: (tied ? 3.5 : 1.0) + (side < 0 ? 0 : 0.35),
+            spring: new Hinge(0.95, 2.3),
             relief: 9,
             nx: 18,
             ny: 30,
             liner: 0xe9dfca,
+            wide,
             shape: (x, cw, ch) => {
               x.beginPath();
               x.rect(0, 0, cw, ch);
             },
             paint: (x, cw, ch) => {
-              x.drawImage(calla, side < 0 ? 0 : calla.width / 2, 0, calla.width / 2, calla.height, 0, 0, cw, ch);
+              /* the calla relief at its own size, laid outward from the seam (a wide screen gets more lilies) */
+              const pw = cw / wide;
+              /* on a wide screen the art's own border is trimmed, so the copies meet without a line */
+              const trim = wide > 1 ? calla.width * 0.012 : 0;
+              lay(x, calla, [(side < 0 ? 0 : calla.width / 2) + trim, 0, calla.width / 2 - 2 * trim, calla.height], cw, { dy: 0, dw: pw, dh: ch, step: pw, anchor: side < 0 ? 'right' : 'left' });
               x.strokeStyle = 'rgba(96,80,54,.38)';
               x.lineWidth = 3;
               const a = side < 0 ? 26 : 12;
@@ -842,13 +923,28 @@ export const envelopeGatefold = (): Scene => {
         );
       }
       for (const f of flaps) f.set(0, 0);
-      rib = new GateRibbon(c, 0.3, -0.5, 0.1);
       inside = new Inside(c, -0.12);
+      if (tied) rib = new GateRibbon(c, SEAL_Y, 0, 0.1);
+      else seal = makeSeal(c, 0.4, true);
+      placeSeal();
     },
     step(dt, t, tau) {
-      rib.step(dt, t, tau);
+      /* the bow comes undone and the ribbon leaves BEFORE the panels move */
+      rib?.step(dt, t, tau);
       for (const f of flaps) f.step(dt, tau);
+      placeSeal();
       inside.step((flaps[0]?.h.a ?? 0) / 2.2, tau < 0 ? 0 : tau / T);
     },
   };
+  /* 🔏 the seal is never broken (owner 23 Nov: *"The wax seal stays on the left flap. Do no break the seal"*): the whole
+     seal rides the left panel's free edge, standing off the paper along that panel's own face, and turns with it; the
+     left panel opens first, so the right panel comes free from under the seal */
+  function placeSeal(): void {
+    const tp = flaps[0]?.tip;
+    if (!tp) return;
+    for (const half of seal) {
+      half.position.set(-(HWg - tp.d) - Math.sin(tp.th) * SEAL_OFF, SEAL_Y, 0.01 + tp.z + Math.cos(tp.th) * SEAL_OFF);
+      half.rotation.y = -tp.th;
+    }
+  }
 };

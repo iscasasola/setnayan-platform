@@ -17,6 +17,9 @@
  *     meant on the drawing.
  */
 import * as THREE from 'three';
+import { buildMarkCanvas } from '@/lib/wax-seal/paint';
+import type { WaxSealConfig } from '@/lib/wax-seal/types';
+import type { GatefoldClosure } from '@/lib/std-reveal-effects';
 
 /**
  * r128 → today's bump units. r128 measured a bump against the screen pixel's size in the world; today's three.js
@@ -32,12 +35,53 @@ export const FOV = 45;
 /** The solid reveals' world: a phone cover H tall at z = 0, filled by a 30° camera (drawing `old.js`). */
 export const LEGACY_H = 5.2;
 export const LEGACY_FOV = 30;
+/** The drawing's phone: 300 × 520. */
+export const PHONE_ASPECT = 300 / 520;
+/**
+ * 🖥 HOW MANY PHONE-WIDTHS THIS SCREEN IS (1 on a phone, ~3.6 on a 1280 × 800 desktop). A reveal never stretches its
+ * art to a wide screen (owner 23 Nov: *"all reveal do not stretch … extend it"*): it lays more of it, at the
+ * drawing's own size, and multiplies its counts (folds, petals, stars) by this.
+ */
+export function wideness(px: { w: number; h: number }): number {
+  return px.h > 0 ? Math.max(1, px.w / px.h / PHONE_ASPECT) : 1;
+}
+
+/**
+ * 🖥 LAY AN IMAGE ACROSS A CANVAS AT ITS OWN SIZE — never stretched to the screen (owner 23 Nov: *"all reveal do not
+ * stretch"*). One copy is drawn `dw × dh` (its size on the drawing's phone) and repeated every `step`, outward from
+ * `anchor` (the centre, or one edge), every other copy mirrored so neighbours meet. On the phone it is the one copy
+ * the drawing drew; a wide screen gets more of the art, not wider art.
+ */
+export function lay(
+  x: CanvasRenderingContext2D,
+  img: CanvasImageSource,
+  crop: [number, number, number, number],
+  cw: number,
+  box: { dy: number; dw: number; dh: number; step: number; anchor: 'center' | 'left' | 'right' },
+): void {
+  const [sx, sy, sw, sh] = crop;
+  const { dy, dw, dh, step, anchor } = box;
+  const x0 = anchor === 'left' ? 0 : anchor === 'right' ? cw - dw : (cw - dw) / 2;
+  const n = Math.ceil(cw / step) + 1;
+  for (let i = -n; i <= n; i++) {
+    const tx = x0 + i * step;
+    if (tx >= cw || tx + dw <= 0) continue;
+    x.save();
+    x.translate(tx, 0);
+    if (i % 2 !== 0) {
+      x.translate(dw, 0);
+      x.scale(-1, 1);
+    }
+    x.drawImage(img, sx, sy, sw, sh, 0, dy, dw, dh);
+    x.restore();
+  }
+}
 
 export type Pt = { x: number; y: number };
 export type SceneState = 'closed' | 'opening' | 'open';
 
 /** The art a scene may ask for — files in `public/reveal/art/` (sample art from the drawing; webp). */
-export type ArtName = 'satin' | 'paper' | 'damask' | 'calla' | 'foil' | 'doors' | 'hall' | 'arch' | 'bank' | 'drape' | 'chand';
+export type ArtName = 'paper' | 'damask' | 'calla' | 'foil' | 'doors' | 'hall' | 'arch' | 'bank' | 'drape' | 'chand';
 
 export type Ctx = {
   renderer: THREE.WebGLRenderer;
@@ -61,6 +105,14 @@ export type Ctx = {
   names: string;
   /** The veil's tulle colour (the couple's, else the Mood Board's) — the veil's still face only. */
   veilColor: string;
+  /**
+   * 🔏 The couple's wax seal (the candle-stamp maker's recipe): its pour shape and press always (a couple who never
+   * minted one gets the recipe seeded from their event, as the maker does); its wax `color` only when they MINTED one —
+   * else null, and the envelope keeps the drawing's gold.
+   */
+  seal: { recipe: WaxSealConfig; color: string | null };
+  /** 🎀 How the gatefold is closed: the couple's seal or a ribbon and bow, never both (`RevealEffects.gatefoldClosure`). */
+  closure: GatefoldClosure;
   /** Scratch: ask the stage to open (at 60 % rubbed). */
   open: (nx: number, ny: number) => void;
   state: () => SceneState;
@@ -75,6 +127,10 @@ export type Scene = {
   dir?: readonly [number, number];
   /** No tap opens it (scratch: it opens at 60 % rubbed). */
   noTap?: boolean;
+  /** 🖼 The cover reaches this far past every edge of the screen (a half-extent share; the camera frames in by it), so
+   *  no edge of it ever shows (owner 23 Nov: *"the upper part must not cut vertically. We want the illusion that it is
+   *  larger than the screen"*). Default 1: the cover is the screen. */
+  bleed?: number;
   /** It flies its own camera (the doors' glide) — no shared push-in. */
   ownCam?: boolean;
   /** How far the shared push-in travels (default `REVEAL_MOTION.PUSH`). */
@@ -91,7 +147,10 @@ export type Scene = {
   init: (c: Ctx) => Promise<void> | void;
   /** One frame. `x` is the lift (cloth) or tau in seconds (solid; −1 while closed). */
   step: (dt: number, t: number, x: number, feather: boolean) => void;
-  opened?: (wx: number, wy: number, nx: number, ny: number) => void;
+  /** Opened at (wx, wy) world / (nx, ny) screen; `pull`: a swipe's own way, in world units (+y up), when it was one. */
+  opened?: (wx: number, wy: number, nx: number, ny: number, pull?: Pt) => void;
+  /** A swipe any way opens it, along that way (the fabric) — else only along `dir`. */
+  anyDir?: boolean;
   grab?: (id: number, w: Pt, nx: number, ny: number) => void;
   drag?: (id: number, w: Pt, nx: number, ny: number) => void;
   release?: (id: number, nx: number, ny: number) => void;
@@ -347,54 +406,58 @@ export class Strip {
 
 /* ── the event's logo ────────────────────────────────────────────────────── */
 
+/** The box the logo's ink actually occupies (alpha > 32), or null when the canvas is empty. */
+export function alphaBox(c: HTMLCanvasElement): { x: number; y: number; w: number; h: number } | null {
+  const d = ctx2d(c).getImageData(0, 0, c.width, c.height).data;
+  let x0 = c.width;
+  let y0 = c.height;
+  let x1 = -1;
+  let y1 = -1;
+  for (let y = 0; y < c.height; y++)
+    for (let x = 0; x < c.width; x++) {
+      if (d[(y * c.width + x) * 4 + 3]! <= 32) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
 /**
  * The event's own logo as a white shape (drawing `RV.logo`, there the cale-ice monogram): the couple's mark when they
- * have one (its alpha is the shape), else their initials lettered in a serif. Never throws: a mark that will not
- * draw falls back to the letters.
+ * have one, else their initials lettered in a serif. Never throws: a mark that will not draw falls back to the letters.
+ *
+ * 🔏 The mark is read by the candle-stamp maker's own die reader (`buildMarkCanvas`, lib/wax-seal/paint.ts): a vector
+ * mark by its shape, an uploaded picture by its dark ink — so a logo on a white ground presses as the logo, never as a
+ * solid square. Then it is FITTED: cropped to its own ink and scaled to fill the 256 square for its shape, so a wide
+ * or a tall logo is as large as a square one (owner 23 Nov: *"Seal needs to adapt to logo"*).
  */
 export async function logoMask(markSvg: string | null | undefined, letters: string): Promise<HTMLCanvasElement> {
   const k = canvas(256, 256);
   const x = ctx2d(k);
-  const lettered = () => {
-    x.clearRect(0, 0, 256, 256);
-    x.fillStyle = '#ffffff';
-    x.textAlign = 'center';
-    x.textBaseline = 'middle';
-    const word = (letters || '✦').trim();
-    x.font = `italic 600 ${word.length > 3 ? 92 : 150}px Georgia, 'Times New Roman', serif`;
-    x.fillText(word, 128, 134, 236);
-  };
-  if (!markSvg) {
-    lettered();
-    return k;
-  }
+  let die: HTMLCanvasElement | null = null;
   try {
-    const doc = new DOMParser().parseFromString(markSvg, 'image/svg+xml');
-    const svg = doc.documentElement;
-    if (svg.nodeName.toLowerCase() !== 'svg') throw new Error('not svg');
-    svg.setAttribute('width', '256');
-    svg.setAttribute('height', '256');
-    if (!svg.getAttribute('xmlns')) svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(svg));
-    const im = new Image();
-    await new Promise<void>((res, rej) => {
-      im.onload = () => res();
-      im.onerror = () => rej(new Error('mark'));
-      im.src = src;
-    });
-    x.drawImage(im, 20, 20, 216, 216);
-    const d = x.getImageData(0, 0, 256, 256);
-    const p = d.data;
-    let solid = 0;
-    for (let i = 0; i < p.length; i += 4) {
-      p[i] = p[i + 1] = p[i + 2] = 255;
-      if (p[i + 3]! > 32) solid++;
-    }
-    if (solid < 40) throw new Error('empty mark');
-    x.putImageData(d, 0, 0);
+    die = markSvg ? await buildMarkCanvas(markSvg, 512) : null;
   } catch {
-    lettered();
+    die = null;
   }
+  if (!die) {
+    die = canvas(512, 512);
+    const t = ctx2d(die);
+    t.fillStyle = '#ffffff';
+    t.textAlign = 'center';
+    t.textBaseline = 'middle';
+    const word = (letters || '✦').trim();
+    t.font = `italic 600 ${word.length > 3 ? 184 : 300}px Georgia, 'Times New Roman', serif`;
+    t.fillText(word, 256, 268, 472);
+  }
+  const box = alphaBox(die);
+  if (!box) return k;
+  const s = 236 / Math.max(box.w, box.h);
+  const w = box.w * s;
+  const h = box.h * s;
+  x.drawImage(die, box.x, box.y, box.w, box.h, 128 - w / 2, 128 - h / 2, w, h);
   return k;
 }
 

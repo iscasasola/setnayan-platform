@@ -59,10 +59,63 @@ export function promoteQrModeOf(raw: unknown): PromoteQrMode {
   return isPromoteQrMode(m) ? m : 'shortlist';
 }
 
-/** Where a code lives, with its `?mode=` — the one place every link to a code is built from. */
-export function supplierQrHref(mode: SupplierQrMode): string {
-  return `${isPromoteQrMode(mode) ? PROMOTE_HREF : CUSTOMERS_QR_HREF}?mode=${mode}`;
+/**
+ * 🔳 MY QRs (owner 23 Nov 2026, verbatim: *"this also means we have to get cloud create a QR Page that will replace our
+ * current QR page."* — DECISION_LOG "STORE DRAWING v13→v18 RULINGS" (1); drawing `supplier_store_graphs_badges_2026-11-23`
+ * frames "My QRs" and "One QR, opened"). Every QR code the shop has, on ONE page under Shop; each code opens its own
+ * page (the big code · Share · Copy link · Download · Write to NFC · Print it). It replaces Promote's QR part: the
+ * Shop's QR sheet, the Promote page's QR section and every `?mode=` link now open here.
+ */
+export const MY_QRS_HREF = '/vendor-dashboard/shop/qrs';
+
+/** The "Your shop" group, in the drawing's order: Your page · Reviews · Shortlist · Check a date. Same four codes. */
+export const MY_QRS_SHOP_ORDER = ['page', 'reviews', 'shortlist', 'dates'] as const satisfies readonly PromoteQrMode[];
+
+/** `/shop/qrs/<code>` → its code; anything else is no code (the page answers 404). */
+export function myQrCodeOf(raw: unknown): PromoteQrMode | null {
+  return typeof raw === 'string' && (PROMOTE_QR_MODES as readonly string[]).includes(raw) ? (raw as PromoteQrMode) : null;
 }
+
+/** One code's own page. Shortlist keeps its two picks (`et` · `cat`) in the address, as the Promote list did. */
+export function myQrHref(mode: PromoteQrMode, picks: { et?: string | null; cat?: string | null } = {}): string {
+  const q = new URLSearchParams();
+  if (mode === 'shortlist') {
+    if (picks.et) q.set('et', picks.et);
+    if (picks.cat) q.set('cat', picks.cat);
+  }
+  const s = q.toString();
+  return `${MY_QRS_HREF}/${mode}${s ? `?${s}` : ''}`;
+}
+
+/**
+ * 🖨 "Print it" — THIS code on the shop's prints (the old sheet's "Put it on…" · Door print · Prints). The prints still
+ * live in Shop › Promote; the address hands the code (and the door piece) to its Prints section, which opens on it.
+ * `QR designs` (the drawing's "QR templates" row, named by the controller 23 Nov) has no Toolkit shelf on main yet, so its
+ * door is the same Prints section — never a dead link.
+ */
+export function printWithQrHref(mode: PromoteQrMode | null, piece: 'door' | null = null): string {
+  const q = new URLSearchParams();
+  if (mode) q.set('print', mode);
+  if (mode && piece) q.set('piece', piece);
+  const s = q.toString();
+  return `${PROMOTE_HREF}${s ? `?${s}` : ''}#prints`;
+}
+
+/** Where a code lives — the one place every link to a code is built from. The shop's own codes open on My QRs. */
+export function supplierQrHref(mode: SupplierQrMode): string {
+  return isPromoteQrMode(mode) ? myQrHref(mode) : `${CUSTOMERS_QR_HREF}?mode=${mode}`;
+}
+
+/**
+ * Each shop code's words (moved from `QrCodes`, 23 Nov — My QRs is their home now): the row's line is what a scan does;
+ * the opened page shows it whole. `name` is the drawing's ("Your page", not "My page", on My QRs).
+ */
+export const MY_QR_WORDS: Readonly<Record<PromoteQrMode, { name: string; sub?: string; line: string; sheetLine: string; file: string; data: string }>> = {
+  page: { name: 'Your page', line: 'They scan and open your Setnayan page', sheetLine: 'They scan and open your Setnayan page — your services, photos and reviews.', file: 'setnayan-my-page-qr.svg', data: 'my-page' },
+  reviews: { name: 'Reviews', line: 'They scan and read your reviews', sheetLine: 'They scan and open your Setnayan page at its reviews.', file: 'setnayan-reviews-qr.svg', data: 'reviews' },
+  shortlist: { name: 'Shortlist', sub: 'free', line: 'They scan, sign up free, and you join their shortlist', sheetLine: 'They scan, sign up free, and you join their shortlist.', file: 'setnayan-shortlist-qr.svg', data: 'shortlist' },
+  dates: { name: 'Check a date', sub: 'free', line: 'They scan and see which days you can still be booked', sheetLine: 'They scan and see which days you can still be booked — never who booked or who is asking.', file: 'setnayan-check-a-date-qr.svg', data: 'check-a-date' },
+};
 
 export const SUPPLIER_QR_MODE_LABEL: Readonly<Record<SupplierQrMode, string>> = {
   shortlist: 'Shortlist · free',
@@ -139,17 +192,3 @@ export function crewQrEvents(days: readonly VendorDay[], today: string, dayWords
 export function pickCrewQrEvent(list: readonly CrewQrEvent[], asked: string | null | undefined): CrewQrEvent | null {
   return list.find((e) => e.eventId === asked) ?? list[0] ?? null;
 }
-
-/**
- * Each code's words (the prototype's "what it does" list): the row line is the shipped caption cut at the dash; the
- * sheet shows it whole. Read by the QR rows (`QrCodes`) and the Toolkit's QR designs shelf — one copy of the words. ⚠ Reviews: the prototype's "They scan to review you" describes `/<slug>/review` (PR #7329,
- * not merged) — this code opens `/<slug>#reviews` today, so its words say what it does now.
- */
-export const SUPPLIER_QR_WORDS: Readonly<Record<SupplierQrMode, { name: string; sub?: string; perEvent?: boolean; line: string; sheetLine: string }>> = {
-  dates: { name: 'Check a date', sub: 'free', line: 'They scan and see which days you can still be booked', sheetLine: 'They scan and see which days you can still be booked — never who booked or who is asking.' },
-  shortlist: { name: 'Shortlist', sub: 'free', line: 'They scan, sign up free, and you join their shortlist', sheetLine: 'They scan, sign up free, and you join their shortlist.' },
-  page: { name: 'My page', line: 'They scan and open your Setnayan page', sheetLine: 'They scan and open your Setnayan page — your services, photos and reviews.' },
-  reviews: { name: 'Reviews', line: 'They scan and read your reviews', sheetLine: 'They scan and open your Setnayan page at its reviews.' },
-  locked: { name: 'Booked', sub: 'one-use', perEvent: true, line: 'One use — give it to that one customer', sheetLine: 'One use — give it to that one customer. A Locked QR means you’ve agreed on a date.' },
-  crew: { name: 'Crew for an event', perEvent: true, line: 'They scan, then wait for your Allow', sheetLine: 'They scan, then wait for your Allow.' },
-};

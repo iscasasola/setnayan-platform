@@ -117,4 +117,8 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
      Maker never waits for it. */
   { key: 'maker:explain', label: 'ⓘ popup', load: () => import('@/app/_components/explain-lazy').then(warmDynamicExports) },
   { key: 'maker:guest-card', label: 'Guest card', load: () => import('../../guests/_components/guest-card-in-place').then(warmDynamicExports) },
+  /* ✍️ One editor per part (2026-11-21): the "<Name> is editing" bar and the kept / waiting-change cards the part gate
+     draws (`part-edit-bar-lazy.tsx`) — their own chunk, out of the Maker's first load (it embeds Schedule); warmed here
+     so the bar never waits for a download when someone else takes the part. */
+  { key: 'maker:part-edit-bar', label: 'Who is editing', load: () => import('@/app/_components/part-edit/part-edit-bar-lazy').then(warmDynamicExports) },
 ];

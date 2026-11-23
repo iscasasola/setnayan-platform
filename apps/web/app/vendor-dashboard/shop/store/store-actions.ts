@@ -1,6 +1,6 @@
 'use server';
 
-import { PROMOTE_HREF } from '@/lib/supplier-qr-codes';
+import { MY_QRS_HREF, PROMOTE_HREF } from '@/lib/supplier-qr-codes';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -72,7 +72,8 @@ function revalidateStore() {
   revalidatePath(routes.vendorDashboard.shop.store.index());
   revalidatePath(routes.vendorDashboard.shop.badges());
   revalidatePath(routes.vendorDashboard.performance());
-  // A QR design installed or removed shows or hides on Promote's list.
+  // A QR design installed or removed shows or hides on the My QRs list (also drawn on Promote and the cover's QR sheet).
+  revalidatePath(MY_QRS_HREF);
   revalidatePath(PROMOTE_HREF);
 }
 
@@ -113,11 +114,11 @@ export async function storeAction(_prev: StoreActionState, formData: FormData): 
   return ok(layoutToast(row, String(formData.get('intent') ?? 'order')));
 }
 
-const ADDED: Readonly<Record<LayoutRow, string>> = { graphs: 'On your Analytics', badges: 'On your Shop', tools: 'In Your widgets', qrs: 'On your Promote page' };
+const ADDED: Readonly<Record<LayoutRow, string>> = { graphs: 'On your Analytics', badges: 'On your Shop', tools: 'In Your widgets', qrs: 'On your My QRs' };
 
 function layoutToast(row: LayoutRow, intent: string): string {
   if (intent === 'add') return ADDED[row];
-  if (intent === 'remove') return row === 'tools' ? 'Taken off your Shop. It stays yours in the Toolkit.' : row === 'qrs' ? 'Taken off your Promote page. Install it again any time.' : 'Taken off your Shop';
+  if (intent === 'remove') return row === 'tools' ? 'Taken off your Shop. It stays yours in the Toolkit.' : row === 'qrs' ? 'Taken off your My QRs. The code still works — install it again any time.' : 'Taken off your Shop';
   return 'Saved';
 }
 

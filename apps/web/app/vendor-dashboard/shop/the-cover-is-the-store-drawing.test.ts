@@ -43,9 +43,10 @@ test('2 · one line of doors: the logo · View shop · Toolkit · Share · Promo
   assert.match(one, /href=\{routes\.vendorDashboard\.shop\.store\.index\(\)\} className=\{SHARE_PILL\} data-shop-cover-icon="toolkit"/, 'the Toolkit square is not the Toolkit door');
 });
 
-test('3 · Promote: one sheet, Posters & prints · QR codes, the old addresses still land', () => {
+test('3 · Promote: one sheet, Posters & prints · My QRs, the old addresses still land', () => {
   assert.match(COVER, /label: 'Posters & prints'/);
-  assert.match(COVER, /label: 'QR codes'/);
+  // The QR tab reads "My QRs" since My QRs replaced Promote's QR part (main 341aee5063).
+  assert.match(COVER, /label: 'My QRs'/);
   assert.match(COVER, /\{promoteTab === 'qr' \? qrBody : promoteBody\}/);
   assert.match(COVER, /const promoteOpen = sheet === 'promote' \|\| sheet === 'prints' \|\| sheet === 'qr';/);
   assert.match(PAGE, /promoteBody=\{\s*<Suspense[\s\S]{0,80}?<PromoteBody search=\{qrSearch\} part="promote" \/>/);

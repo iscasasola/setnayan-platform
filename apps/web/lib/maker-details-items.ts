@@ -113,7 +113,14 @@ export const EVERY_PRINT_ITEM: EveryPrintItemKey = 'every-print';
  */
 export type DigitalTicketItemKey = 'digital-ticket';
 export const DIGITAL_TICKET_ITEM: DigitalTicketItemKey = 'digital-ticket';
-export type DetailsItemKey = 'theme' | LookSectionItemKey | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | EveryPrintItemKey | PrintSetKey | DigitalTicketItemKey | FreePrintKey | DownloadItemKey;
+/**
+ * 🖼 THE OUR DAY POSTER (owner 2026-11-13, DECISION_LOG "OUR DAY POSTER" rows; approved drawing v4 §1): one row in the
+ * Invitation set, after the Our Story poster — its picture, "Make your poster" (the full-screen builder,
+ * `day-poster-builder.tsx`) and its free A4 file. A post-event piece: not one of `PRINT_SET_KEYS` (`POST_EVENT_PRINT_KEYS`).
+ */
+export type DayPosterItemKey = 'day-poster';
+export const DAY_POSTER_ITEM: DayPosterItemKey = 'day-poster';
+export type DetailsItemKey = 'theme' | LookSectionItemKey | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | EveryPrintItemKey | PrintSetKey | DigitalTicketItemKey | DayPosterItemKey | FreePrintKey | DownloadItemKey;
 
 export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['address', 'qr'];
 /** The Look after Theme, in the owner's order: Theme · Mood Board · Logo · Hero · Reveal. */
@@ -183,7 +190,7 @@ export const DETAILS_ITEM_GROUPS: ReadonlyArray<{
   { group: 'elsewhere', label: 'Elsewhere', keys: ['theme', 'parents', 'papic', 'plan-myself', 'kindly-reply', 'rsvp'], hidden: true },
   /* 🖨 "On every print" heads the set — drawn only in Studio (it is `present` only there). */
   /* 🎫 …and the Digital ticket sits under the Event pass — drawn only in Studio too. */
-  { group: 'set', label: 'Invitation set', keys: [EVERY_PRINT_ITEM, ...PRINT_SET_KEYS.flatMap((k) => (k === 'pass' ? [k, DIGITAL_TICKET_ITEM] : [k]))] },
+  { group: 'set', label: 'Invitation set', keys: [EVERY_PRINT_ITEM, ...PRINT_SET_KEYS.flatMap((k) => (k === 'pass' ? [k, DIGITAL_TICKET_ITEM] : k === 'story-poster' ? [k, DAY_POSTER_ITEM] : [k]))] },
   { group: 'day', label: 'For the day', keys: FREE_PRINT_KEYS },
   { group: 'download', label: 'Download the set', keys: ['download'] },
 ];

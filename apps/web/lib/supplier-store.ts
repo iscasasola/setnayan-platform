@@ -23,7 +23,7 @@
  * PURE — no I/O, no clock. Reads: `lib/supplier-store.server.ts`. 🔒 lib/supplier-store.test.ts
  */
 import { SPECIALIZED_TOOLS, WIDGET_SHELVES, listedWidgets, specializedToolsFor, suggestedFor, type SpecializedTool, type SpecializedToolKey, type WidgetShelf } from './specialized-tools';
-import { PROMOTE_QR_MODES, SUPPLIER_QR_WORDS, type PromoteQrMode } from './supplier-qr-codes';
+import { MY_QR_WORDS, PROMOTE_QR_MODES, type PromoteQrMode } from './supplier-qr-codes';
 import { HUB_TOOLS_FALLBACK, HUB_TOOLS_SEED, nameKey } from './hub-tools';
 import { isCakeKind } from './cake-maker';
 import { MUSIC_TOOL_CATEGORIES, isMusicToolCategory } from './songs';
@@ -182,30 +182,30 @@ export function toolkitCountWords(c: ToolkitCounts): string | null {
 
 // ── QR DESIGNS (Toolkit v19) ────────────────────────────────────────────────
 //
-// The four codes Promote draws today (`PROMOTE_QR_MODES`): My page is BUILT IN (always installed, never removed — owner,
-// restated 23 Nov); Check a date, Shortlist and Reviews are installed until the shop removes one, which only takes it
-// off Promote's list (`QrCodes` `hide`). Their words are the QR rows' own (`SUPPLIER_QR_WORDS`).
+// The shop's four codes (`PROMOTE_QR_MODES`): Your page is BUILT IN (always installed, never removed — owner, restated
+// 23 Nov); Check a date, Shortlist and Reviews are installed until the shop removes one, which only takes it off the My
+// QRs list (`MyQrsList` `hide`) — the code keeps working. Their words are My QRs' own (`MY_QR_WORDS`).
 
 export const BUILT_IN_QRS: readonly PromoteQrMode[] = ['page'];
 export function isBuiltInQr(k: string): boolean {
   return (BUILT_IN_QRS as readonly string[]).includes(k);
 }
 
-/** The QR designs on Promote, in its order. Never arranged = all four. A built-in is always there. */
+/** The QR designs on My QRs, in its order. Never arranged = all four. A built-in is always there. */
 export function installedQrs(l: Pick<StoreLayout, 'qrs'> | null): PromoteQrMode[] {
   const saved = l?.qrs ?? null;
   if (saved === null) return [...PROMOTE_QR_MODES];
   return PROMOTE_QR_MODES.filter((k) => isBuiltInQr(k) || saved.includes(k));
 }
 
-/** The QR designs the shop removed — Promote does not list them. A layout that could not be read hides nothing. */
+/** The QR designs the shop removed — My QRs does not list them. A layout that could not be read hides nothing. */
 export function hiddenQrs(l: Pick<StoreLayout, 'qrs'> | null): PromoteQrMode[] {
   const on = installedQrs(l);
   return PROMOTE_QR_MODES.filter((k) => !on.includes(k));
 }
 
 export function qrWords(k: PromoteQrMode): { name: string; line: string } {
-  return { name: SUPPLIER_QR_WORDS[k].name, line: SUPPLIER_QR_WORDS[k].line };
+  return { name: MY_QR_WORDS[k].name, line: MY_QR_WORDS[k].line };
 }
 
 // ── TOOLS ───────────────────────────────────────────────────────────────────

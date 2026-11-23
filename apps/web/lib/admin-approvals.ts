@@ -55,6 +55,11 @@ export type ApprovalActionType =
   // propose in the abstract, only a specific new price on a specific SKU.
   // target_id carries the service_code; the figures ride in the payload.
   | 'approve_retail_price_change'
+  // DECISION_LOG 2026-11-13 — AREAS × LEVELS. Giving an admin the Escalated
+  // level in one or more areas ("gives or takes something") is itself a
+  // two-admin act; the owner gives it typed + 24 h. Raised from /admin/team,
+  // never the picker. target_user_id = the admin; payload.areas = the areas.
+  | 'grant_admin_escalated'
   // Owner 2026-11-13 ("Yes, add both") — what a supplier plan INCLUDES (vendor_plan_contents), changed "like a price".
   // Initiated from /admin/pricing?tab=plan-contents, confirmed by a second admin. Never in the picker. target_id
   // carries `<plan>:<key>`; the new number rides in the payload.
@@ -74,6 +79,7 @@ const NON_PICKER_ACTION_LABEL: Record<string, string> = {
   approve_large_refund: 'Approve refund over ₱25,000 (money)',
   approve_payment_account_change: 'Change a receiving account (money)',
   approve_retail_price_change: 'Change what a customer pays for a SKU (money)',
+  grant_admin_escalated: 'Give an admin the Escalated level',
   approve_plan_contents_change: 'Change what a supplier plan includes',
 };
 
@@ -130,5 +136,6 @@ export function approvalActionBadge(type: string): string {
   if (type === 'approve_vendor_partnership') return '🤝 Partnership';
   if (type === 'approve_comp_grant') return '💸 Comp';
   if (type === 'grant_team_pool') return 'Retired';
+  if (type === 'grant_admin_escalated') return '🔐 Escalated';
   return approvalActionMeta(type)?.badge ?? type;
 }

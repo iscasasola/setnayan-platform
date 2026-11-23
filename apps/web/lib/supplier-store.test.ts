@@ -426,7 +426,7 @@ test('v19 PR 2 · a shelf with no real item is hidden: the three Forms shelves t
   }
 });
 
-test('v19 PR 2 · QR designs: My page built in; removing one only takes it off Promote; a refused read hides nothing', () => {
+test('v19 PR 2 · QR designs: Your page built in; removing one only takes it off My QRs; a refused read hides nothing', () => {
   assert.deepEqual(installedQrs(null), [...PROMOTE_QR_MODES], 'never arranged = all four installed');
   assert.deepEqual(hiddenQrs(null), []);
   assert.deepEqual(hiddenQrs({ qrs: ['page', 'dates'] }), ['shortlist', 'reviews']);
@@ -434,8 +434,12 @@ test('v19 PR 2 · QR designs: My page built in; removing one only takes it off P
   assert.ok(isBuiltInQr('page') && !isBuiltInQr('dates'));
   const promote = readFileSync(join(WEB, 'app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), 'utf8');
   assert.match(promote, /readStoreLayout\(supabase, profile\.vendor_profile_id\)\.then\(hiddenQrs\)/);
-  const codes = readFileSync(join(WEB, 'app/vendor-dashboard/invite/_components/qr-codes.tsx'), 'utf8');
-  assert.match(codes, /const rows = listed\.filter\(\(r\) => r\.key === 'page' \|\| !\(hide as readonly string\[\]\)\.includes\(r\.key\)\);/);
+  assert.match(promote, /<MyQrsList [^>]*hide=\{hide\}/);
+  const page = readFileSync(join(WEB, 'app/vendor-dashboard/shop/qrs/page.tsx'), 'utf8');
+  assert.match(page, /\.then\(hiddenQrs\)\.catch\(\(\) => \[\]\)/);
+  assert.match(page, /<MyQrsList [^>]*hide=\{hide\}/);
+  const list = readFileSync(join(WEB, 'app/vendor-dashboard/shop/qrs/_components/my-qrs-list.tsx'), 'utf8');
+  assert.match(list, /if \(code !== 'page' && hide\.includes\(code\)\) return null;/);
 });
 
 test('v19 PR 2 · the Papic camera is not listed while its switch is off — not on a shelf, not in Your widgets', () => {

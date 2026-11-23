@@ -22,7 +22,7 @@
  *   · Honest: until the channel answers the list is `null` ("Checking…"), and a refused or dropped channel is
  *     `failed` ("Couldn't check") — never an empty list read as "just you".
  */
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { TeamMeta, TeamPeer } from '@/lib/whos-here';
 
 export type EventTeamPresenceState = {
@@ -34,6 +34,13 @@ export type EventTeamPresenceState = {
 };
 
 const Ctx = createContext<EventTeamPresenceState | null>(null);
+/** ✍️ The person on this dashboard — the name the others read in "<Name> is editing <Part>." (`PartEditGate`). */
+const MeCtx = createContext<{ id: string; name: string } | null>(null);
+
+/** The signed-in person on this event's dashboard — `null` outside an event layout. */
+export function useEventMe(): { id: string; name: string } | null {
+  return useContext(MeCtx);
+}
 
 /** The team on the dashboard now — `null` outside an event layout (a lab, a test render). */
 export function useEventTeamPresence(): EventTeamPresenceState | null {
@@ -78,7 +85,12 @@ export function EventTeamPresence({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, eventId, me.id, me.name, me.role, me.photo]);
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  const meValue = useMemo(() => ({ id: me.id, name: me.name }), [me.id, me.name]);
+  return (
+    <MeCtx.Provider value={meValue}>
+      <Ctx.Provider value={value}>{children}</Ctx.Provider>
+    </MeCtx.Provider>
+  );
 }
 
 /** DEV-ONLY stand-in for the channel (`/dev/home-lab?whos=…` — production 404s the labs): a fixed team list. */

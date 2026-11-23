@@ -57,7 +57,7 @@ import {
 } from '@/lib/supplier-store';
 import type { ShelfTile } from '@/lib/shop-badge-shelf';
 import type { CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
-import { PROMOTE_QR_MODES, SUPPLIER_QR_WORDS, supplierQrHref, type PromoteQrMode } from '@/lib/supplier-qr-codes';
+import { MY_QR_WORDS, PROMOTE_QR_MODES, supplierQrHref, type PromoteQrMode } from '@/lib/supplier-qr-codes';
 import { BadgeArt } from '@/app/vendor-dashboard/shop/_components/shop-badge-row';
 import type { StoreData } from './store-data';
 import { GraphArt, GraphShelfRow, HeroPill, OnPage, QrArt, StoreBadgeTile, StoreGraphTile, StoreHeroCard, StoreQrTile, StoreShelfRow, StoreToolTile, TagChips, ToolArt, ToolShelfRow, ToolVideo, php, toolOpenHref, toolShowTags } from './store-views';
@@ -815,7 +815,7 @@ function statusWord(a: ReturnType<typeof toolAct>): string | null {
 
 /** A QR design's page (v19): what it opens, Install or ✓ Installed with Remove (My page is built in), Where it works. */
 function QrItem({ d, qrKey }: { d: StoreData; qrKey: PromoteQrMode }) {
-  const w = SUPPLIER_QR_WORDS[qrKey];
+  const w = MY_QR_WORDS[qrKey];
   const on = installedQrs(d.layout);
   const installed = on.includes(qrKey);
   const builtIn = isBuiltInQr(qrKey);
@@ -847,7 +847,7 @@ function QrItem({ d, qrKey }: { d: StoreData; qrKey: PromoteQrMode }) {
       <div className="mt-4 flex [&>*]:w-full" data-store-buy="">
         {button}
       </div>
-      <ItemStrip cells={[{ k: 'Price', v: 'Free' }, { k: 'Works in', v: 'Promote' }, { k: 'For', v: 'Any shop' }]} />
+      <ItemStrip cells={[{ k: 'Price', v: 'Free' }, { k: 'Works in', v: 'My QRs' }, { k: 'For', v: 'Any shop' }]} />
       <ToolSection label="What it does" data="store-shows">
         <Card>
           <p className="text-sn-lg leading-snug text-ink">{w.sheetLine}</p>
@@ -855,12 +855,12 @@ function QrItem({ d, qrKey }: { d: StoreData; qrKey: PromoteQrMode }) {
       </ToolSection>
       <ToolSection label="Where it works" data="store-where">
         <ul className="sn-frame px-4 py-1">
-          <li className="flex items-center gap-3 py-2.5" data-store-place="promote">
+          <li className="flex items-center gap-3 py-2.5" data-store-place="my-qrs">
             <span className="min-w-0 flex-1">
-              <b className="block text-sn-lg font-semibold leading-tight text-ink">Promote</b>
-              <span className="block text-sn-md leading-snug text-[color:var(--m-slate-2)]">Shop › Promote, with your other codes — print it or share it</span>
+              <b className="block text-sn-lg font-semibold leading-tight text-ink">My QRs</b>
+              <span className="block text-sn-md leading-snug text-[color:var(--m-slate-2)]">Shop › My QRs, with your other codes — print it or share it</span>
             </span>
-            <Link href={supplierQrHref(qrKey)} className="sn-press inline-flex min-h-11 flex-none items-center gap-0.5 text-sn-base font-semibold text-[rgb(var(--color-link))]" data-store-place-open="promote">
+            <Link href={supplierQrHref(qrKey)} className="sn-press inline-flex min-h-11 flex-none items-center gap-0.5 text-sn-base font-semibold text-[rgb(var(--color-link))]" data-store-place-open="my-qrs">
               Open
               <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
             </Link>
@@ -868,7 +868,7 @@ function QrItem({ d, qrKey }: { d: StoreData; qrKey: PromoteQrMode }) {
         </ul>
       </ToolSection>
       <ToolSection label="Information" data="store-info">
-        <InfoTable rows={[{ k: 'Price', v: 'Free' }, { k: 'Renewal', v: 'None — free' }, { k: 'Status', v: d.layout === null ? 'Couldn’t load' : builtIn ? 'Built in · always installed' : installed ? INSTALLED_WORD : 'Not on your Promote page' }]} />
+        <InfoTable rows={[{ k: 'Price', v: 'Free' }, { k: 'Renewal', v: 'None — free' }, { k: 'Status', v: d.layout === null ? 'Couldn’t load' : builtIn ? 'Built in · always installed' : installed ? INSTALLED_WORD : 'Not on your My QRs' }]} />
       </ToolSection>
     </>
   );

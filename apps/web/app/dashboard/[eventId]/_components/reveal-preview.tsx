@@ -65,6 +65,8 @@ export function RevealPreview({
   markSvg = null,
   monogram,
   waxColor = '#5c2542',
+  sealConfig = null,
+  sealFallbackSeed,
   veilColor = '#f3ece1',
   petalsColor,
   veilLook,
@@ -125,11 +127,16 @@ export function RevealPreview({
   }
   return (
     <SceneReveal
+      key={effects?.gatefoldClosure ?? 'seal'}
       kind={template}
       speedSec={veilLook?.speed}
       markSvg={markSvg}
       monogram={monogram}
       veilColor={effects?.veilColor ?? veilColor}
+      sealConfig={sealConfig}
+      sealFallbackSeed={sealFallbackSeed}
+      closure={effects?.gatefoldClosure}
+      waxColor={waxColor}
       onRevealed={onDone}
       autoplay
       lowRes

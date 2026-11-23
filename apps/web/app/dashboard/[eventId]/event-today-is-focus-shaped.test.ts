@@ -58,9 +58,9 @@ test('1 · ONE list under the card, by urgency, on the shared parts — never a 
   const html = drawHome({ control: c });
   const cover = html.indexOf('data-home-cover');
   const at = html.indexOf('data-event-today=""');
-  assert.ok(at > cover && at < html.indexOf('data-home-your-event'), 'the list is not under the card, before the widgets');
+  assert.ok(at > cover && at < html.indexOf('data-home-control="board"'), 'the list is not under the card, before the widgets');
   assert.equal(count(html, 'data-event-today-list=""'), 1, 'the first screen draws the list more or less than once');
-  const part = slice(html, 'data-event-today=""', ['data-home-your-event']);
+  const part = slice(html, 'data-event-today=""', ['data-home-control="board"']);
   // The rendered rows are the lib's rows, in the lib's order.
   const want = buildEventToday({ control: c, today: homeToday(c.next, c.guests, homeWaiting(c)), putOffs: [], todayIso: TODAY }).list.map((r) => r.key);
   const drawn = [...part.matchAll(/data-event-today-row="([^"]+)"/g)].map((m) => m[1]);

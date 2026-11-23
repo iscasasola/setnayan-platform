@@ -84,6 +84,8 @@ export const PassCardDesignPicker = dynamic(() => import(/* webpackChunkName: "m
 export const PrintSaveButton = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-save-button').then((m) => m.PrintSaveButton), { loading: SlotButton });
 // 🖼 The A3 poster's own photo (owner 2026-09-29) — the Details chunk, like every print control.
 export const PosterPhotoPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './poster-photo-picker').then((m) => m.PosterPhotoPicker), { loading: SlotRows });
+// 🖼 The Our Day poster's row and its full-screen builder (owner 2026-11-13) — the Details chunk, like every print control.
+export const DayPosterSlide = dynamic(() => import(/* webpackChunkName: "maker-details" */ './day-poster-builder').then((m) => m.DayPosterSlide), { loading: SlotRows });
 // 🖨 "Changed since you printed" (owner 2026-09-29) — the same file, the same chunk, nothing drawn while it loads.
 export const ChangedSincePrinted = dynamic(() => import(/* webpackChunkName: "maker-details" */ './print-save-button').then((m) => m.ChangedSincePrinted));
 

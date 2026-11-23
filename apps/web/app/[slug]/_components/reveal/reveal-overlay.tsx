@@ -581,12 +581,17 @@ export function RevealOverlay({
       {/* The plain backing until the closed reveal is drawn — the page behind is never shown first. */}
       {!ready ? <div className="absolute inset-0 bg-page" aria-hidden /> : null}
       <SceneReveal
+        key={eventEffects?.gatefoldClosure ?? 'seal'}
         kind={sceneKind}
         still={reducedMotion}
         speedSec={looks.veil?.speed}
         monogram={monogram}
         markSvg={markSvg}
         veilColor={eventEffects?.veilColor ?? veilColor}
+        sealConfig={sealConfig}
+        sealFallbackSeed={sealFallbackSeed}
+        closure={eventEffects?.gatefoldClosure}
+        waxColor={waxColor}
         autoplay={preview !== null}
         autoplayAfterMs={preview?.liftAfterMs}
         onAutoLift={
@@ -621,7 +626,7 @@ export function RevealOverlay({
         >
           <div className="rounded-full bg-black/35 px-6 py-3 text-center backdrop-blur-[2px]">
             <p className="text-balance font-display text-2xl font-medium leading-snug text-cream [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
-              {reducedMotion ? 'Tap to open' : revealHint(sceneKind)}
+              {reducedMotion ? 'Tap to open' : revealHint(sceneKind, eventEffects?.gatefoldClosure)}
             </p>
           </div>
         </div>

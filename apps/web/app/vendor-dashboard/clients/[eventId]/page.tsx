@@ -191,6 +191,8 @@ import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
 import { TheirEventList } from './_components/their-event-list';
 import { readTheirEvent } from '@/lib/their-event.server';
+import { COLUMN_PARTS, coordinatorDashboardRows } from '@/lib/their-event';
+import { routes } from '@/lib/routes';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
@@ -635,6 +637,8 @@ type Props = {
     competing?: string;
     /** `today` — opened from Today, so ✕ returns there (`pickedClientCloseHref`, EB-290). */
     from?: string;
+    /** 🖥 The "Their event" part opened in the chat's right column on a computer (`COLUMN_PARTS`). */
+    part?: string;
   }>;
 };
 
@@ -2467,6 +2471,39 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     eventVendorId,
     eventDate: brief.event.event_date,
     theirEventRows: theirEvent?.rows ?? null,
+    // 🖥 The chat's right column on a computer (owner 2026-11-21) — facts already read above, no new read.
+    theirEventColumn: theirEvent
+      ? {
+          open: COLUMN_PARTS.find((p) => p === search.part) ?? null,
+          brief: { pax: brief.pax, timeline: brief.timeline ?? [] },
+          group: theirEvent.group,
+        }
+      : null,
+    coordinatorPane: runsThisEvent
+      ? {
+          rows: coordinatorDashboardRows({
+            eventId,
+            grants: myGrants,
+            pax: brief.pax ? { attending: brief.pax.attending, pending: brief.pax.pending } : null,
+            tables: typeof brief.seat_plan?.table_count === 'number' ? brief.seat_plan.table_count : null,
+            moments: Array.isArray(brief.timeline) ? brief.timeline.length : null,
+            href: {
+              guests: routes.dashboard.guests.index(eventId),
+              seats: `${routes.dashboard.guests.index(eventId)}?gview=seats`,
+              march: `${routes.dashboard.guests.index(eventId)}?gview=march`,
+              schedule: routes.dashboard.schedule(eventId),
+              hub: routes.dashboard.launch(eventId),
+              details: routes.dashboard.details(eventId),
+              suppliers: routes.dashboard.vendors.index(eventId),
+              moodBoard: routes.dashboard.addOns.moodBoard.index(eventId),
+              budget: routes.dashboard.budget(eventId),
+            },
+          }),
+          dateLine: fmtShortDate(brief.event.event_date) || null,
+          placeLine:
+            [brief.event.venue_name || null, brief.pax ? `${formatCount(brief.pax.invited)} guests` : null].filter(Boolean).join(' · ') || null,
+        }
+      : null,
     threadSearch: supplierThreadNoticeSearch(search as Readonly<Record<string, string | string[] | undefined>>),
     // 🧾 Details › Agreed now, as drawn (part G, 20 Nov): Venue · Hosts · Coordinator · Supplier · Stage — every one a
     // fact this page already read; the Event row is the card's own (it reads the event's type). No new read here.

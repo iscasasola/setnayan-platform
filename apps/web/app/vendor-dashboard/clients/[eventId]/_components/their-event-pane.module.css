@@ -1,0 +1,162 @@
+/*
+ * their-event-pane.module.css — 🖥 the chat's right column on a computer (owner 2026-11-21; drawing
+ * `prototypes/desktop_split_view_2026-11-21/desktop_split_view_v2_fable.html` frames 1–2: `.ehead`, `.dash .row`,
+ * `.row .ic`, `.pill.edit`, `.pill.view`, `.rhead`, `.ib`).
+ *
+ * TOKENS ONLY — colour by job (`--color-*`, light and dark paired in globals.css; the supplier blue look re-points the
+ * accent itself), radii `--m-r-*`, spacing 4 8 12 16 24, presses 44.
+ */
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-bottom: 16px;
+  color: rgb(var(--color-ink));
+}
+
+/* The event's head under the dark line (frame 1 `.ehead`). */
+.head {
+  padding: 16px 16px 12px;
+}
+.kicker {
+  margin: 0;
+  color: rgb(var(--color-ink-3));
+  font-size: var(--sn-fs-sm);
+  font-weight: 600;
+}
+.title {
+  margin: 4px 0 0;
+  font-size: var(--sn-fs-3xl);
+  font-weight: 700;
+  line-height: 1.15;
+}
+.sub {
+  margin: 2px 0 0;
+  color: rgb(var(--color-ink-3));
+  font-size: var(--sn-fs-md);
+}
+
+.list {
+  margin: 0 12px;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+}
+.list > li + li {
+  border-top: 1px solid rgb(var(--color-ink) / 0.08);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 12px;
+  color: rgb(var(--color-ink));
+}
+.ic {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--m-r-sm);
+  background: rgb(var(--color-wash));
+  color: rgb(var(--color-ink-2));
+}
+.ic svg {
+  width: 18px;
+  height: 18px;
+}
+.icQuiet {
+  color: rgb(var(--color-ink-3));
+}
+.words {
+  flex: 1;
+  min-width: 0;
+}
+.words b {
+  display: block;
+  overflow: hidden;
+  font-size: var(--sn-fs-base);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.words span {
+  display: block;
+  overflow: hidden;
+  color: rgb(var(--color-ink-3));
+  font-size: var(--sn-fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: var(--m-r-full);
+  font-size: var(--sn-fs-xs);
+  font-weight: 700;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.pillEdit {
+  background: rgb(var(--color-ok) / 0.14);
+  color: rgb(var(--color-ok));
+}
+.pillView {
+  background: rgb(var(--color-wash));
+  color: rgb(var(--color-ink-2));
+}
+.pillIcon {
+  width: 12px;
+  height: 12px;
+}
+.closed {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: rgb(var(--color-ink-3));
+}
+
+/* The column's own header: back arrow · the part's name (frame 2 `.rhead`). */
+.rhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px 0 4px;
+  box-shadow: 0 1px 0 rgb(var(--color-ink) / 0.08);
+  font-weight: 700;
+}
+.back {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--m-r-full);
+  color: rgb(var(--color-ink));
+}
+.back svg {
+  width: 20px;
+  height: 20px;
+}
+.rtitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--sn-fs-lg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rtitlePad {
+  padding-left: 12px;
+}
+.listPad {
+  padding: 4px 16px 0;
+}

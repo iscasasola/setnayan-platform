@@ -249,6 +249,11 @@
      * colour — gold keeps that role, so the "one decorative family" rule holds. */
     --color-link: 59 78 103;           /* slate indigo #3B4E67 · 8.22:1 AAA */
     --color-link-600: 48 64 85;        /* link hover → #304055 */
+    /* 🏪 SUPPLIER NAVY ON THE COUPLE SIDE (Unihome v5, owner-approved 23 Nov 2026): the Home shop block's fill and its
+       tiles — the drawing's --sup / --sup-tile. Painted ONLY inside that block; the supplier dashboard keeps its own blue
+       look (supplier-look.css). White on #3B4E67 = 8.22:1. */
+    --color-supplier: 59 78 103;       /* #3B4E67 */
+    --color-supplier-tile: 238 242 248; /* #EEF2F8 */
     /* ONE COLOUR PER MEANING — the button rule (owner 2026-10-07,
      * corpus BUTTON_RULE_2026-10-07_fable.md). Read by `components/action-button.tsx`
      * (`tone` → token). Brand (terracotta) stays `--color-mulberry`; neutral stays `--color-ink`.
@@ -459,6 +464,8 @@
     --sn-on-accent: var(--color-on-accent); /* #1A120C — white reads 2.6:1 here */
     --color-link: 157 178 206;         /* link → lightened slate indigo #9DB2CE · 8.37:1 AAA */
     --color-link-600: 175 194 218;     /* link hover → #AFC2DA (9.97:1) */
+    --color-supplier: 34 114 230;      /* #2272E6 — white on it 4.55:1 */
+    --color-supplier-tile: 31 47 74;   /* #1F2F4A */
     /* Button-rule tones, dark (inert like the rest of this block). Against the
      * dark page #17160F · dark label #161513 on the fill · on the 9% tint:
      *   ok     #6FCF97  9.54 · 9.60 · 8.10  AAA
@@ -12349,4 +12356,15 @@ html.dark {
     animation-timeline: auto;
     animation-range: normal;
   }
+}
+
+/* 🏠 UNIHOME v5 (owner-approved 23 Nov 2026, DECISION_LOG "UNIHOME v5 APPROVED"): Home is a unipage — NO bottom bar
+   (`account-bottom-nav.tsx`, Home · Discover) and NO account switcher pill at the top right while Home is on screen.
+   Its rows moved: Your events → Home itself, each shop → Home's Shop part, HQ → the ☰, and the rest → ⚙ beside your
+   name (the same sheet). Both stay mounted in the shared layout (they never remount on a tab change) and are only
+   hidden here, so the section pages, Discover and every other page keep them exactly as before. `[data-unihome]` is
+   Home's own root (`unihome.tsx`); the selector is the supplier look's `:has()` idiom. */
+html:has([data-unihome]) [data-account-bar],
+html:has([data-unihome]) .fd-topright .fd-acct {
+  display: none;
 }

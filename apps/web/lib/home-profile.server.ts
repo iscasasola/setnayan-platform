@@ -60,19 +60,32 @@ export async function readHomeHandle(userId: string): Promise<HomeHandle> {
   }
 }
 
-export type HomeCardCounts = { cards: number; online: number };
+export type HomeCardCounts = {
+  cards: number;
+  online: number;
+  /**
+   * The first Online card's photo (`primary_photo_r2_key`, oldest card first — the shop page's own order). Unihome v5's
+   * shop quick view wears it as the cover when the shop has chosen no cover of its own. Null = no Online card has one.
+   */
+  topPhotoKey: string | null;
+};
 
-/** The shop's service cards and how many are Online. null = refused. */
+/** The shop's service cards and how many are Online — ONE read. null = refused. */
 export async function readHomeCardCounts(vendorProfileId: string): Promise<HomeCardCounts | null> {
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase.from('vendor_services').select('is_active').eq('vendor_profile_id', vendorProfileId);
+    const { data, error } = await supabase
+      .from('vendor_services')
+      .select('is_active, primary_photo_r2_key')
+      .eq('vendor_profile_id', vendorProfileId)
+      .order('created_at', { ascending: true });
     if (error) {
       logQueryError('Home.readHomeCardCounts', error, {}, 'graceful_degrade');
       return null;
     }
-    const rows = (data ?? []) as { is_active: boolean | null }[];
-    return { cards: rows.length, online: rows.filter((r) => r.is_active !== false).length };
+    const rows = (data ?? []) as { is_active: boolean | null; primary_photo_r2_key: string | null }[];
+    const online = rows.filter((r) => r.is_active !== false);
+    return { cards: rows.length, online: online.length, topPhotoKey: online.find((r) => r.primary_photo_r2_key)?.primary_photo_r2_key ?? null };
   } catch {
     return null;
   }

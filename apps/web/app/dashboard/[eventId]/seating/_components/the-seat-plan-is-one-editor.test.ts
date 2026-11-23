@@ -20,10 +20,12 @@ import {
   TABLE_FOOTPRINT_M,
 } from '@/lib/seat-plan-engine';
 import { SEATING_STORE_ACTIONS } from './seating-store';
+import { stripComments } from '@/lib/strip-comments';
 
 const WEB = join(__dirname, '..', '..', '..', '..', '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
-const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+// The ONE comment stripper (lint:one-comment-stripper): a two-replace regex blanks code after a `video/*`.
+const strip = stripComments;
 const HOST = 'app/vendor-dashboard/spaces/_components/venue-seat-plan.tsx';
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -52,7 +54,7 @@ test('2 · both sides draw from ONE component: the event page and the hall impor
   assert.match(host, /<SeatingStoreContext\.Provider value=\{store\}>\s*<SeatingEditor/, 'the hall does not hand the editor its store');
   assert.match(host, /const source = useMemo\(\(\) => \(\{ kind: 'venue' as const, spaceId, floorPlanOpen \}\), \[spaceId, floorPlanOpen\]\);/, 'the hall does not open the editor in venue mode');
   assert.match(host, /<SeatingEditor[\s\S]*?source=\{source\}/, 'the hall does not hand the editor its venue source');
-  assert.match(strip(read('app/vendor-dashboard/spaces/_components/base-layout.tsx')), /<VenueSeatPlan /, 'the Spaces sheet no longer shows the hall’s plan');
+  assert.match(strip(read('app/vendor-dashboard/spaces/_components/base-layout-fold.tsx')), /<VenueSeatPlan /, 'the Spaces sheet no longer shows the hall’s plan');
 });
 
 test('3 · the hall’s store answers every call the editor makes — the event-only ones refuse, never reach an event action', () => {
@@ -168,4 +170,19 @@ test('9 · a hall opens on its floor at 390, its tables inside its wall, and not
   const head = phone.slice(phone.indexOf('data-seat-plan-phone-head'), phone.indexOf('export function PhoneSeatPlanFoot'));
   assert.match(head, /\{venue \? null : \(\s*<p data-seat-plan-status=""/, 'a hall’s head says “0 seated · guests see it on the day”');
   assert.match(head, /\{venue \? null : \(\s*<div className="flex items-center gap-2">\s*<button\s+type="button"\s+onClick=\{onUnseated\}/, 'a hall’s head carries Unseated or the View picker');
+});
+
+test('10 · ONE resolver for the editor’s writes: the hall’s store, else the event’s action — the editor imports no action', () => {
+  const ed = strip(read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx'));
+  assert.doesNotMatch(ed, /from '\.\.\/actions'/, 'the editor imports an action again — it would shadow its own write by name');
+  assert.doesNotMatch(ed, /\?\? \w+Action\b/, 'a write is resolved in the editor, not in the one resolver');
+  assert.match(ed, /\} = useSeatingWrites\(\);/, 'the editor does not take its writes from the one resolver');
+  assert.match(ed, /const \{ createTable \} = useSeatingWrites\(\);/, 'the Add table panel resolves its own write');
+  const w = strip(read('app/dashboard/[eventId]/seating/_components/seating-writes.ts'));
+  assert.match(w, /return useSeatingStore\(\) \?\? EVENT_WRITES;/, 'the resolver no longer prefers the hall’s store');
+  for (const k of [...SEATING_STORE_ACTIONS, 'guestSeatView', 'saveEntrance']) {
+    assert.match(w, new RegExp(`const EVENT_WRITES: SeatingWrites = \\{[^}]*\\n\\s+${k},`), `the event's ${k} is not the default`);
+  }
+  // Spaces loads the store eagerly; the action references stay in the lazy editor's file.
+  assert.doesNotMatch(strip(read('app/dashboard/[eventId]/seating/_components/seating-store.ts')), /import \{[^}]*\} from '\.\.\/actions'/);
 });

@@ -16,7 +16,7 @@ PR 2 of 2 for the one seat plan (DECISION_LOG d1fafcd5, option B). It builds on 
   - They are drawn through `rowGeometry` (`lib/seat-plan-engine/plan.ts`).
   - A couple's row still draws as `tableGeometry(shapeHintFor(type), capacity, linked)`, byte for byte. The couple's dock bodies are left verbatim, and the hall gets its own.
 - **Writes:**
-  - Every save the editor makes reads `useSeatingStore()?.x ?? xAction`.
+  - Every save the editor makes comes from ONE resolver, `useSeatingWrites()` (`seating/_components/seating-writes.ts`): the venue's store, else the event's shipped action, under the call's own name. The editor imports no action itself (`lint:dup-rule` GUARD 1: a local `createTable` must not shadow the action it isn't). The Ugat field scan follows `const { X } = useWrites()` to the hook's import (`lib/ugat/scan-fields.ts`), so the Add table form still maps to `actions.ts#createTable`.
   - The hall's store (`spaces/_components/venue-seat-plan.tsx`, `venueSeatingStore`) maps those calls to the Spaces dispatcher's existing ops (`addTables`, `updateTable`, `placeTable`, `deleteTable`, `addDoor`, `deleteDoor`).
   - The event-only calls refuse.
   - No new server action. Nothing under `app/dashboard` provides a store.
@@ -31,6 +31,10 @@ PR 2 of 2 for the one seat plan (DECISION_LOG d1fafcd5, option B). It builds on 
   - **Guest words in a hall.** The venue mode now drops the phone head's "0 seated · guests see it on the day" line, its Unseated + View row, the desktop List/2D picker (a hall has one view; 3D was still offered on the phone) and the people search. A hall row reads `venueRowWords` ("Long · 12 chairs · 2 at the ends"), not "0/12 seats · Long banquet (8 seats)".
   - `text-sn-13` is not a class; the hall's lock line and the phone status line use `text-sn-md`.
   - Guards 8 and 9 in `the-seat-plan-is-one-editor.test.ts` hold all of the above.
+- **CI fixes for the fold:**
+  - `spaces/_components/base-layout.tsx` is renamed `base-layout-fold.tsx`. The socket guard reads any `*layout.tsx` as a Next layout, and this fold now reaches the editor (whose live hooks a hall never runs).
+  - The hall's dock Delete and Done are `ActionButton`s, so the seating page's template score goes from 59 back to 57, under its baseline.
+  - The one-editor test uses the shared `stripComments`.
 - **Line up:** PlanMaker's Line up is now the venue editor's Arrange row ("Line up the tables", `lineUpPlan`).
 - **Removed:**
   - `app/_components/plan-maker/` and its test.

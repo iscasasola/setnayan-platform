@@ -8,6 +8,9 @@
  * The rows add, edit and delete; the drawn plan is THE ONE SEAT-PLAN EDITOR, the couple's own, in its venue mode
  * (`venue-seat-plan.tsx`, DECISION_LOG d1fafcd5). Floor plan on every paid plan. Nothing here is
  * a new control: FormRows · TypedRow · ChosenRow · SwitchRow · Counter · Fold · SwipeToDelete · ActionButton.
+ *
+ * Named `base-layout-fold`, not `base-layout`: a file ending in `layout.tsx` is read as a Next layout (drawn around every
+ * page under it) by `lib/a-socket-only-where-something-is-live.test.ts`, and this fold reaches the seat-plan editor.
  */
 import { useState } from 'react';
 import { Check, DoorOpen, Plus } from 'lucide-react';
@@ -46,7 +49,7 @@ export function BaseLayout({ spaceId, tables, run, floorPlanOpen }: { spaceId: s
   const seats = units.reduce((s, u) => s + (u.chairs ?? 0), 0);
   return (
     <div className="space-y-4" data-base-layout={spaceId}>
-      <p className="text-[13px] text-ink/70" data-base-layout-counts="">
+      <p className="text-sn-md text-ink/70" data-base-layout-counts="">
         {units.length === 0 ? 'No tables yet' : `${units.length} ${units.length === 1 ? 'table' : 'tables'} · ${seats} ${seats === 1 ? 'seat' : 'seats'}`}
       </p>
       <DoorList doors={tables.doors.filter((d) => d.groupId === spaceId)} spaceId={spaceId} run={run} />

@@ -1137,6 +1137,17 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
     // the fallback is what an event posts to (the seat plan's one editor, seating-store.ts).
     const fallback = f.src.match(new RegExp(`(?:const|let)\\s+${expr.replace(/\$/g, '\\$')}\\s*(?::[^=\\n]+)?=\\s*[^;\\n]*?\\?\\?\\s*([A-Za-z_$][\\w$.]*)\\s*;`));
     if (fallback && fallback[1] !== expr) return resolveAction(rel, fallback[1]!, depth + 1);
+    // const { X, … } = useWrites() — a hook hands the action out by its own name (the seat plan's one resolver,
+    // `seating-writes.ts`): X is what the hook's module imports under that name.
+    const handed = f.src.match(new RegExp(`(?:const|let)\\s*\\{[^}]*\\b${expr.replace(/\$/g, '\\$')}\\b[^}]*\\}\\s*=\\s*([A-Za-z_$][\\w$]*)\\(\\s*\\)`));
+    if (handed) {
+      const hook = f.imports.get(handed[1]!);
+      const t = hook && hook.imported !== '*' && hook.imported !== 'default' ? resolveSpec(rel, hook.spec) : null;
+      if (t && t !== rel) {
+        const r = resolveAction(t, expr, depth + 1);
+        if (r) return r;
+      }
+    }
     // const X = Y.bind(…) / useActionState(Y, …) / useFormState(Y, …) / useCallback(Y …)
     const bound = f.src.match(
       new RegExp(`(?:const|let)\\s+(?:${expr.replace(/\$/g, '\\$')}|\\[[^\\]]*\\b${expr.replace(/\$/g, '\\$')}\\b[^\\]]*\\])\\s*(?::[^=\\n]+)?=\\s*(?:React\\.)?(?:(?:useActionState|useFormState|useCallback|useTransition)\\(\\s*)?([A-Za-z_$][\\w$.]*)`),

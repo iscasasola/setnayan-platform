@@ -43,7 +43,7 @@ import {
   type TileState,
 } from '@/lib/spaces';
 import type { SpaceTables } from '@/lib/space-tables';
-import { BaseLayout, type Run } from './base-layout';
+import { BaseLayout, type Run } from './base-layout-fold';
 
 export type SheetMode =
   | { mode: 'new'; choice: KindChoice; typed: string }

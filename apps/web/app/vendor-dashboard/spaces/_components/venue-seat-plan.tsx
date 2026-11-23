@@ -25,7 +25,7 @@ import {
 } from '@/lib/seat-plan-engine';
 import { LOCKS } from '@/lib/locks';
 import { shopPlanOf, type SpaceTables } from '@/lib/space-tables';
-import type { Run } from './base-layout';
+import type { Run } from './base-layout-fold';
 
 /** An event-only call reached from a venue's hall — refused, never sent to an event's server action. */
 const NOT_IN_A_HALL = (async () => {

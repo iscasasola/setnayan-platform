@@ -49,6 +49,8 @@ export type PublishDeps = {
   /** Web-size the clean copy (upright JPEG), the same size the public copy is drawn at. */
   normalise: (bytes: Uint8Array) => Promise<Buffer>;
   pair: (row: { vendor_profile_id: string; public_ref: string; original_ref: string; mark_kind: MarkKind }) => Promise<void>;
+  /** 📏 The shop's storage meter learns the size of a copy this publish stored (owner 2026-11-23 "COUNTS EVERYTHING"). Never throws. */
+  counted?: (vendorProfileId: string, bucket: string, key: string, bytes: number) => Promise<void>;
 };
 
 export type Published = { publicRef: string; originalRef: string; markKind: MarkKind; source: 'stored-original' | 'given-bytes' };
@@ -75,6 +77,7 @@ export async function publishMarkedSupplierPhoto(
   } else {
     const normalised = await deps.normalise(args.bytes);
     await deps.putOriginal(originalKey, normalised);
+    await deps.counted?.(vendorProfileId, ORIGINALS, originalKey, normalised.byteLength);
     clean = normalised;
   }
   // 2 · THE MARK, from the shop's own row. A throw here publishes nothing.
@@ -83,6 +86,7 @@ export async function publishMarkedSupplierPhoto(
   if (!marked || marked.byteLength === 0) throw new Error('supplier photo: the mark produced no bytes');
   // 3 · THE PUBLIC COPY — marked bytes only — then the pairing.
   await deps.putPublic(publicKey, marked);
+  await deps.counted?.(vendorProfileId, MEDIA, publicKey, marked.byteLength);
   const publicRef = `r2://${MEDIA}/${publicKey}`;
   const originalRef = `r2://${ORIGINALS}/${originalKey}`;
   const markKind = desiredMarkKind(spec);
@@ -132,6 +136,13 @@ export function defaultDeps(): PublishDeps {
       const { createAdminClient } = await import('./supabase/admin');
       const { error } = await createAdminClient().from('supplier_photo_originals').upsert(row, { onConflict: 'public_ref' });
       if (error) throw new Error(`supplier photo: supplier_photo_originals upsert failed: ${error.message}`);
+    },
+    counted: async (vendorProfileId, bucket, key, bytes) => {
+      const [{ createAdminClient }, { recordServerShopUpload }] = await Promise.all([
+        import('./supabase/admin'),
+        import('./supplier-storage.server'),
+      ]);
+      await recordServerShopUpload(createAdminClient(), vendorProfileId, { bucket, key, bytes, contentType: 'image/jpeg' });
     },
   };
 }

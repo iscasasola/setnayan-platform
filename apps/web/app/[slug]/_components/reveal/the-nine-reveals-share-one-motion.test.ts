@@ -50,7 +50,7 @@ test('⏱ no reveal has timing of its own — the stage and the veil read the on
     assert.match(src, /from '@\/lib\/reveal-motion'/, `${name} does not read the shared rules`);
     assert.match(src, /stepLift\(lift, (target|liftTarget)\)/, `${name}: the lift does not close by the shared step`);
     assert.match(src, /handsFreeTarget\(p\)/, `${name}: the hands-free curve is its own`);
-    assert.match(src, /snapRevealSpeed\(/, `${name}: the speed is not the couple’s 9 · 12 · 16`);
+    assert.match(src, /revealPlaysAt\(/, `${name}: the speed is not the couple’s 9 · 12 · 16, at the reveal’s own pace`);
     assert.match(src, /readGesture\(\{/, `${name}: the tap and swipe are read with numbers of its own`);
     assert.match(src, /REVEAL_MOTION\.DONE/, `${name}: "revealed" is its own threshold`);
     assert.doesNotMatch(src, /\b0\.985\b|lift \+= \(/, `${name}: a copy of a shared number is back`);
@@ -61,7 +61,7 @@ test('👆 ONE tap opens it, and the unveil runs inside the gesture (the page an
   const up = STAGE.slice(STAGE.indexOf('const onUp = '), STAGE.indexOf('const onCancel = '));
   assert.ok(up.length > 100, 'the stage’s pointerup moved — re-anchor this guard');
   assert.match(up, /gesture === 'tap'\) tapOpen\(nx, ny, true\)/);
-  assert.match(up, /if \(gesture === 'open'\) \{\s*opened\(nx, ny, true\);/);
+  assert.match(up, /if \(gesture === 'open'\) \{\s*opened\(nx, ny, true(, [^;]+)?\);/);
   const opened = STAGE.slice(STAGE.indexOf('const opened = '), STAGE.indexOf('const tapOpen = '));
   assert.match(opened, /if \(gesture\) \{[\s\S]*?cb\.current\.onUnveil\?\.\(\)/, 'the unveil is not called inside the gesture');
   assert.match(STAGE, /const onDown = [\s\S]*?primeUnveilPress\(\);/, 'the press no longer primes the song (PR #7129)');

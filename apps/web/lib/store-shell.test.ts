@@ -386,7 +386,7 @@ test('wiring: the vendor 3D Booth card never mounts in the store shell', () => {
   before(
     'app/vendor-dashboard/clients/[eventId]/_components/booth-event-section.tsx',
     /if \(await isStoreShellRequest\(\)\) return null;/,
-    '<BoothEventBuyForm',
+    'lock="boothBranding"',
   );
 });
 

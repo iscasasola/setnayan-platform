@@ -40,7 +40,6 @@ export default async function ApplePlanDoorLab({ searchParams }: { searchParams:
       <div className="sn-frame mt-4 p-4">
         <p className="pb-2 text-[13.5px] text-ink/60">You&rsquo;re on {pick.tier === 'enterprise' ? 'Ultra' : pick.tier === 'pro' ? 'Pro' : pick.tier === 'solo' ? 'Plus' : 'Verified'}.</p>
         <ApplePlanDoor
-          shopToken="11111111-1111-4111-8111-111111111111"
           currentTier={pick.tier}
           verified={sp.unverified !== '1'}
           papersProgress="3 of 5 papers in · then press Submit"

@@ -335,6 +335,8 @@ export const routes = {
     },
     apiKeys: () => `/dashboard/api-keys`,
     budget: (eventId: string) => `/dashboard/${eventId}/budget`,
+    /** The Hub (the Maker) — the hosts' "Hub" tab. */
+    launch: (eventId: string) => `/dashboard/${eventId}/launch`,
     checklist: (eventId: string) => `/dashboard/${eventId}/checklist`,
     contracts: {
       index: (eventId: string) => `/dashboard/${eventId}/contracts`,
@@ -438,6 +440,12 @@ export const routes = {
   help: {
     index: () => `/help`,
     detail: (slug: string) => `/help/${slug}`,
+    /** Every topic of this help (the Guide & Help drawing's "All 14"). */
+    topics: () => `/help/topics`,
+    /** One topic: its guides on top, its answers open in place. */
+    topic: (key: string) => `/help/topics/${key}`,
+    /** One guide: numbered steps, a real app picture, Take me there at the thumb. */
+    guide: (key: string) => `/help/guides/${key}`,
   },
   host: {
     accept: {
@@ -530,6 +538,7 @@ export const routes = {
     moodboardLibrary: () => `/vendor-dashboard/moodboard-library`,
     more: () => `/vendor-dashboard/more`,
     notifications: () => `/vendor-dashboard/notifications`,
+    onTheDay: () => `/vendor-dashboard/on-the-day`,
     paymentOptions: () => `/vendor-dashboard/payment-options`,
     profile: () => `/vendor-dashboard/profile`,
     proposals: () => `/vendor-dashboard/proposals`,
@@ -537,6 +546,18 @@ export const routes = {
     repertoire: () => `/vendor-dashboard/repertoire`,
     reviews: () => `/vendor-dashboard/reviews`,
     services: () => `/vendor-dashboard/services`,
+    performance: () => `/vendor-dashboard/performance`,
+    shop: {
+      index: () => `/vendor-dashboard/shop`,
+      // 🏅 Every badge, its seven steps and what is left (owner 23 Nov 2026).
+      badges: () => `/vendor-dashboard/shop/badges`,
+      // 🛍 The Store — Tools · Graphs · Badges (owner 23 Nov 2026). A shelf opens filtered; an item opens its detail.
+      store: {
+        index: () => `/vendor-dashboard/shop/store`,
+        shelf: (shelf: 'tools' | 'graphs' | 'badges') => `/vendor-dashboard/shop/store/${shelf}`,
+        item: (shelf: 'tools' | 'graphs' | 'badges', key: string) => `/vendor-dashboard/shop/store/${shelf}/${encodeURIComponent(key)}`,
+      },
+    },
     subscription: () => `/vendor-dashboard/subscription`,
     team: () => `/vendor-dashboard/team`,
     verify: () => `/vendor-dashboard/verify`,

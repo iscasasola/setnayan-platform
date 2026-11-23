@@ -35,9 +35,9 @@ const code = (p: string) =>
     .replace(/^\s*\/\/.*$/gm, '')
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
-const LAUNCHER_LAYOUT = 'app/dashboard/(launcher)/layout.tsx';
+const LAUNCHER_LAYOUT = 'app/(hub)/layout.tsx';
 const ACCOUNT_LAYOUT = 'app/dashboard/(account)/layout.tsx';
-const LAUNCHER_PAGE = 'app/dashboard/(launcher)/page.tsx';
+const LAUNCHER_PAGE = 'app/(hub)/dashboard/page.tsx';
 const BAR = 'app/dashboard/(launcher)/_components/account-bottom-nav.tsx';
 
 test('the bar is chrome — both layouts that cover its targets render it', () => {

@@ -76,7 +76,7 @@ test('2 · an overdue task is Now’s — ticked in place — and the To do list
   const card = slice(html, 'data-home-cover', ['data-home-column']);
   // RE-AIMED 20 Nov 2026: the strip's level word says "Overdue" once — the tail no longer says it a second time.
   assert.match(text(card), /Overdue Book the church · due Jan 10(?! · overdue)/);
-  const todo = slice(html, 'data-home-todo=""', ['data-home-your-event']);
+  const todo = slice(html, 'data-home-todo=""', ['data-home-control="board"']);
   assert.doesNotMatch(text(todo), /Book the church/, 'the To do list repeats the task Now holds');
   assert.equal((todo.match(/data-home-todo-row=/g) ?? []).length, 3, 'the list does not fill back to three');
   // Now's Done is Planning Stage's own write — a task's row is ticked as a task.
@@ -89,8 +89,8 @@ test('3 · ONE To do under the card — three rows, each with the plan’s tick,
   const html = drawHome();
   const cover = html.indexOf('data-home-cover');
   const todoAt = html.indexOf('data-home-todo=""');
-  assert.ok(todoAt > cover && todoAt < html.indexOf('data-home-your-event'), 'the To do list is not under the card, before the widgets');
-  const todo = slice(html, 'data-home-todo=""', ['data-home-your-event']);
+  assert.ok(todoAt > cover && todoAt < html.indexOf('data-home-control="board"'), 'the To do list is not under the card, before the widgets');
+  const todo = slice(html, 'data-home-todo=""', ['data-home-control="board"']);
   assert.equal((todo.match(/data-home-todo-row=/g) ?? []).length, 3, 'the To do list is not three rows');
   assert.match(text(todo), /62% of the plan done · All 1 this week/, 'the closing line is not the plan’s state');
   // RE-AIMED 20 Nov 2026 (Event Today, Focus shape): the three task rows are rows of the one list now

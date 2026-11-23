@@ -109,12 +109,16 @@ const LABELS: Record<string, string> = {
   '/vendor-dashboard': 'Today',
   '/vendor-dashboard/customers': 'Clients',
   '/vendor-dashboard/shop': 'Shop',
+  // 🛍 The Store (owner 23 Nov 2026): a shelf's ‹ is the Store.
+  '/vendor-dashboard/shop/store': 'Toolkit',
   '/vendor-dashboard/collections': 'Portfolio',
   // Team › Roles (six supplier roles, owner 19 Nov 2026) goes back to the Team page.
   '/vendor-dashboard/team': 'Team',
   // The supplier's Hub room is no tab any more (THE ONE BUILD) — its own heading's word ("Hub", never the couple's
   // "Event Hub" — owner 2026-11-05), for the live console's ‹.
   '/vendor-dashboard/on-the-day': 'Hub',
+  // 🔳 My QRs (owner 23 Nov 2026): one opened code's ‹ is the list.
+  '/vendor-dashboard/shop/qrs': 'My QRs',
   '/admin': 'Work',
   '/admin/payments': 'Money',
   '/admin/accounts': 'People',
@@ -180,6 +184,11 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // 🤝 Another supplier's invite link (Invite a supplier v3): a door reached from a shared link or QR — like the
   // supplier claim door, its way out is signing in.
   '/i/[slug]': { home: '/login' },
+  // 📘 Help's topic and guide pages (Guide & Help drawing, approved 21 Nov 2026) go back to Help — in place, so a guide
+  // opened from a topic or a page's ⓘ returns there; cold, to Help.
+  '/help/topics': { home: '/help', label: 'Help' },
+  '/help/topics/[key]': { home: '/help', label: 'Help' },
+  '/help/guides/[key]': { home: '/help', label: 'Help' },
 
   /* ── sign in ──────────────────────────────────────────────────────────────────────────────────────── */
   // A password reset belongs to signing in (audit ✅).
@@ -300,6 +309,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // My lines' only door is an opened client's Script tab, so its ‹ is Clients'.
   '/vendor-dashboard/attributes': { home: '/vendor-dashboard/shop' },
   '/vendor-dashboard/repertoire': { home: '/vendor-dashboard/shop' },
+  // 🛍 A Store item's ‹ is the Store (its shelf is one more link under the pinned row).
+  '/vendor-dashboard/shop/store/[shelf]/[item]': { home: '/vendor-dashboard/shop/store' },
   '/vendor-dashboard/recommendations': { home: '/vendor-dashboard/shop' },
   '/vendor-dashboard/creators': { home: '/vendor-dashboard/shop' },
   '/vendor-dashboard/theft-watch': { home: '/vendor-dashboard/shop' },

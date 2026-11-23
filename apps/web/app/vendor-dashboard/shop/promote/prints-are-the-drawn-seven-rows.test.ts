@@ -8,7 +8,8 @@
  *
  *   1. The rows are `PRINT_PIECES.map` — never a typed list — and each opens the sheet on its own piece (`setBig`).
  *   2. No count is typed: "15 designs" / "7 pieces" appear nowhere outside comments; they are read from the tables.
- *   3. One line, two places: `PRINTS_LINE` in the section and on the Shop's tile.
+ *   3. One line: `PRINTS_LINE` in the section. (The Shop's Prints tile left the cover 23 Nov 2026 — Promote's
+ *      "Posters & prints" tab is its door, Store drawing v10 — and the cover types no copy of the line.)
  *   4. The section's icon is `IdCard`; `Printer` is gone from the section.
  *
  * SABOTAGE (each run once, each went red): type "15 designs · 7 pieces" back → 1; drop `setBig` from a row → 1; type
@@ -42,14 +43,13 @@ test('no count is typed — both are read from the tables', () => {
   assert.match(SECTION, /\{printsCountLine\(\)\}/);
 });
 
-test('one line, in the section and on the Shop\'s Prints tile', () => {
+test('one line, in the section; the Shop opens the prints through Promote › Posters & prints', () => {
   assert.equal(PRINTS_LINE, 'Marketing materials, printed out');
   assert.match(SECTION, /\{PRINTS_LINE\}/);
-  assert.match(COVER, /data-shop-quick="prints"[\s\S]{0,700}\{PRINTS_LINE\}/, 'the Shop tile does not wear the line');
-  assert.doesNotMatch(COVER, /Marketing materials, printed out/, 'the tile types its own copy of the line');
-  assert.match(COVER, /data-shop-quick="prints"/); // "Prints" again (owner 17 Nov, later): it opens the prints alone
-  // The tile is one of the five-button row (`the-quick-row-is-the-drawn-five.test.ts`); it opens the prints alone.
-  assert.match(COVER, /onClick=\{\(\) => openSheet\('prints'\)\}[^>]*data-shop-quick="prints"/, 'the tile does not open the prints');
+  assert.doesNotMatch(COVER, /Marketing materials, printed out/, 'the cover types its own copy of the line');
+  assert.match(COVER, /label: 'Posters & prints'/, 'the prints lost their door on the Shop');
+  // An old `?sheet=prints` link still lands on that tab (`the-cover-is-the-store-drawing.test.ts`).
+  assert.match(COVER, /const promoteOpen = sheet === 'promote' \|\| sheet === 'prints'/);
 });
 
 test('the icon is a calling card, not a printer', () => {

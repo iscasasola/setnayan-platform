@@ -15,7 +15,7 @@ import { formatCount } from '@/lib/format-number';
  * six rules, and the closing `+ New <thing>` tile.
  *
  * ─── WHERE THIS CAME FROM ──────────────────────────────────────────────────
- * It was `GlassEventCard`'s body, inline in `app/dashboard/(launcher)/page.tsx`.
+ * It was `GlassEventCard`'s body, inline in `app/(hub)/dashboard/page.tsx`.
  * Step 1 of the standard is extraction with Planning as the only caller and
  * NOTHING changing on screen; the extraction was proved by rendering the old
  * inline card and this one for the same fixture events and comparing the HTML
@@ -439,6 +439,9 @@ export function NewThingTile({
   delay = 0,
   layout = 'card',
   tour,
+  className = '',
+  children,
+  ...data
 }: {
   href: string;
   /** "New event" — the whole visible label. */
@@ -446,9 +449,27 @@ export function NewThingTile({
   /** 🔦 A spotlight tour's anchor token (`data-tour`). */
   tour?: string;
   delay?: number;
-  /** `'poster'`: the dashed 3:4 ghost of a poster, at every width. */
-  layout?: 'card' | 'poster';
+  /**
+   * `'poster'`: the dashed 3:4 ghost of a poster, at every width.
+   * `'ghost'`: the Shop's dashed "Add a …" tile closing a row (Store drawing v10/v12, F0: Add a graph · Add a widget ·
+   * Add a service). The dashed frame is drawn here, once; the caller gives only its size and arrangement (`className`)
+   * and what sits inside (`children`, which carry the label; without them the label alone).
+   */
+  layout?: 'card' | 'poster' | 'ghost';
+  /** `'ghost'` only: the tile's size and arrangement. */
+  className?: string;
+  /** `'ghost'` only: the icon and the label as the row draws them. */
+  children?: ReactNode;
+  /** `data-*` hooks the caller's guards and tours read, passed through. */
+  [hook: `data-${string}`]: string | undefined;
 }) {
+  if (layout === 'ghost') {
+    return (
+      <Link href={href} className={`sn-press rounded-2xl border-2 border-dashed border-[color:var(--m-line)] ${className}`} data-tour={tour} {...data}>
+        {children ?? label}
+      </Link>
+    );
+  }
   if (layout === 'poster') {
     return (
       <Link

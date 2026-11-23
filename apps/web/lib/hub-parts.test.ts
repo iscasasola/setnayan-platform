@@ -165,7 +165,7 @@ function triedEverything() {
   d = mergeHubDraft(d, {
     events: {
       invite_theme: PRO_THEME, // style
-      std_reveal_template: 'four-flap', // reveal
+      std_reveal_template: 'envelope-classic', // reveal
       site_bg_music_r2_key: ref('site-music/ours.mp3'), // music
       rsvp_backdrop: { theme: SPATIAL_THEME_KEYS[0], intensity: 'standard' }, // background
       site_magic_traveller: 'bar', // logo & qr

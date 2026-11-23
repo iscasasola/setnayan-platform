@@ -55,6 +55,8 @@ import { printDraftOf } from '@/lib/ceremony-time';
 import { allInOneRefusal } from '@/lib/studio-prints-six';
 import { PAPER_HOW, previewPage, printPaperHeader, type PrintPaperFacts } from '@/lib/print-paper';
 import { printsPageHref } from '@/lib/prints-page-href';
+import { DAY_POSTER_KEY } from '@/lib/day-poster';
+import { dayPosterGet, dayPosterPost } from '@/lib/day-poster-route.server';
 
 /**
  * /api/hub-print/[piece] — PRINTS & TICKETS (Event Hub Maker Phase 9, the
@@ -353,6 +355,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   const g = await gate(url.searchParams.get('event'));
   if (!g.ok) return g.res;
   const eventId = g.eventId;
+  /* 🖼 THE OUR DAY POSTER — its own preview and its own gate (`dayPosterLock`), after the same host gate
+     (lib/day-poster-route.server.ts). It is not one of the invitation set, so nothing below draws it. */
+  if (rawPiece === DAY_POSTER_KEY) return dayPosterGet(url, eventId);
 
   /* 🗂 EVERYTHING ◆ (owner 2026-10-17): the whole set's PDF with every guest's pass and the day's sheets after it — always the
      print-ready file (`everythingPdf`), never a sample sheet. */
@@ -615,7 +620,7 @@ const said = (r: Awaited<ReturnType<typeof updatePrintDetails>>): { message: str
 
 export async function POST(req: Request, ctx: { params: Promise<{ piece: string }> }) {
   const { piece } = await ctx.params;
-  if (piece !== 'words' && piece !== 'menu' && piece !== 'poster-photo' && piece !== 'name-style') return new NextResponse('Not found.', { status: 404 });
+  if (piece !== 'words' && piece !== 'menu' && piece !== 'poster-photo' && piece !== 'name-style' && piece !== DAY_POSTER_KEY) return new NextResponse('Not found.', { status: 404 });
 
   // A form post from another site carries no Origin of ours.
   const origin = req.headers.get('origin');
@@ -626,6 +631,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   const g = await gate(String(form.get('event_id') ?? ''));
   if (!g.ok) return g.res;
   const eventId = g.eventId;
+  // 🖼 The Our Day poster's builder saves its whole record here, quietly (JSON) — `dayPosterPost`.
+  if (piece === DAY_POSTER_KEY) return dayPosterPost(form, eventId);
   const admin = createAdminClient();
   const current = await readPrintEvent(admin, eventId);
   /* 🖨 Both land on the Prints page (R8, 2026-10-27 "PRINTS LEAVES STUDIO") — the Menu on its own print, the words on the

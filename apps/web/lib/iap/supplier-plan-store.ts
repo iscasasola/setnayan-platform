@@ -3,30 +3,40 @@
 /**
  * 🏪 BUY A SUPPLIER PLAN WITH APPLE — the web half, in the iPhone app only (owner-locked 22 Nov 2026).
  *
- * Same order as every Apple purchase (lib/iap/native-store.ts), minus the intent step:
- *   1 · Apple's sheet, with the SHOP as the appAccountToken    (plugin.purchase)
- *   2 · our server verifies Apple's signed transaction and
- *       switches the plan on for that shop                     (confirmAppStorePurchase → supplier plan path)
- *   3 · ONLY THEN the phone finishes the transaction            (plugin.finish)
+ * Same order as every Apple purchase (lib/iap/native-store.ts):
+ *   1 · our server issues the purchase's token for the shop the
+ *       signed-in person manages, and keeps that pairing             (startAppStorePurchase → plan start)
+ *   2 · Apple's sheet, with that token as the appAccountToken       (plugin.purchase)
+ *   3 · our server verifies Apple's signed transaction and
+ *       switches the plan on for the paired shop                    (confirmAppStorePurchase → supplier plan path)
+ *   4 · ONLY THEN the phone finishes the transaction                (plugin.finish)
  *
- * No intent row: the token IS the shop (one subscription = one shop), the server reads the caller's own shop from the
- * session and refuses any other, and App Store Server Notifications grant the same period if the phone dies at 2.
+ * The phone never names the shop: the server reads it from the session and pairs it with the token, and App Store
+ * Server Notifications grant the same period, to that pairing only, if the phone dies at 3.
  * Every check the web makes before a plan purchase was made when the door was drawn (manager · verified · one channel).
  */
 
 import { callNativeStore, nativeStoreAvailable } from './native-store';
-import { confirmAppStorePurchase } from './iap-actions';
-import type { IapConfirmResult, IapScreen } from './iap-outcome';
+import { confirmAppStorePurchase, startAppStorePurchase } from './iap-actions';
+import type { IapConfirmResult, IapScreen, IapStartResult } from './iap-outcome';
 import { supplierPlanRefusedLine } from './supplier-plans';
 
 type PurchaseAnswer = { result?: string; jws?: string; transactionId?: string };
 
-export async function buySupplierPlanWithApple(input: { productId: string; shopToken: string }): Promise<IapScreen> {
+export async function buySupplierPlanWithApple(input: { productId: string }): Promise<IapScreen> {
   if (!nativeStoreAvailable()) return { kind: 'refused', message: 'This is not available in the app right now.' };
+
+  let started: IapStartResult;
+  try {
+    started = await startAppStorePurchase({ productId: input.productId });
+  } catch {
+    return { kind: 'failed' };
+  }
+  if (!started.ok) return { kind: 'refused', message: started.message };
 
   let answer: PurchaseAnswer;
   try {
-    answer = await callNativeStore<PurchaseAnswer>('purchase', { productId: input.productId, appAccountToken: input.shopToken });
+    answer = await callNativeStore<PurchaseAnswer>('purchase', { productId: started.productId, appAccountToken: started.token });
   } catch {
     return { kind: 'failed' };
   }

@@ -103,7 +103,6 @@ export async function ShopSettingsBody({ search }: { search: Record<string, stri
             </p>
             {appleDoor ? (
               <ApplePlanDoor
-                shopToken={profile.vendor_profile_id.toLowerCase()}
                 currentTier={tier}
                 verified={permitFacts?.verification_state === 'verified'}
                 papersProgress={papersProgress({ done: d.docsIn, of: d.docsTotal })}

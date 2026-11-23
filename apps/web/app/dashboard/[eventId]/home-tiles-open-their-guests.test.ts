@@ -134,7 +134,7 @@ test('2b · Home states the counts it is HANDED — the list\'s own, never a sec
   assert.equal(refused.noReply, '—');
 });
 
-test('1 · COMING opens the list filtered to coming, NO REPLY to no reply, CAN\'T COME to declined — on both versions', async () => {
+test('1 · COMING opens the list filtered to coming, NO REPLY to no reply, CAN\'T COME to declined — on the one Guests widget', async () => {
   // RE-AIMED 2026-10-24: the two guest tiles became the ONE Guests widget (owner: "one widget per destination"); each
   // of its faces opens the exact list it counts — the tile's faces on the phone, the card's figures from md up.
   const { HomeFirstScreen } = await import('./_components/home-first-screen');
@@ -142,12 +142,16 @@ test('1 · COMING opens the list filtered to coming, NO REPLY to no reply, CAN\'
   const html = renderToStaticMarkup(
     React.createElement(HomeFirstScreen, { eventId: 'e1', cover: { eyebrow: 'Wedding', name: 'A & B' }, next: control.next, control, services: [] } as never),
   );
-  const face = (id: string) => html.match(new RegExp(`data-home-face="${id}" data-home-face-href="([^"]*)"`))?.[1]?.replace(/&amp;/g, '&') ?? null;
-  assert.equal(face('guests-coming'), '/dashboard/e1/guests?q=coming');
-  assert.equal(face('guests-noreply'), '/dashboard/e1/guests?q=no+reply');
-  assert.equal(face('guests-declined'), '/dashboard/e1/guests?q=declined');
-  const card = html.slice(html.indexOf('data-home-card-key="guests"'));
-  for (const q of ['coming', 'no+reply', 'declined']) assert.ok(card.includes(`href="/dashboard/e1/guests?q=${q}"`), `the Guests card's ${q} figure does not open its list`);
+  // 🌐 23 Nov 2026 (owner, v5 drawing in the website look): the phone's tile is retired — the card's figures (chips on
+  // the page) are the ONE copy at every width, and each opens the exact list it counts.
+  assert.equal(html.split('data-home-tile="guests"').length - 1, 0, 'the retired Guests tile is back');
+  const at = html.indexOf('data-home-card-key="guests"');
+  assert.ok(at > 0, 'the Guests card is not drawn');
+  const card = html.slice(at, html.indexOf('data-home-card-key="', at + 20));
+  const figure = (word: string) => card.match(new RegExp(`<a class="hc-fig[^"]*" href="([^"]*)"[^>]*>(?:(?!</a>)[\\s\\S])*?${word}</a>`))?.[1]?.replace(/&amp;/g, '&') ?? null;
+  assert.equal(figure('coming'), '/dashboard/e1/guests?q=coming');
+  assert.equal(figure('no reply'), '/dashboard/e1/guests?q=no+reply');
+  assert.equal(figure('can’t come'), '/dashboard/e1/guests?q=declined');
   assert.equal(new URLSearchParams('q=no+reply').get('q'), 'no reply', 'the page reads the words the search understands');
 });
 

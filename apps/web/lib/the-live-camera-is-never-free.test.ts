@@ -17,7 +17,7 @@ import { PUBLIC_HELP_SOURCES } from '@/lib/help-sources.test-helper';
 
 const WEB = join(__dirname, '..');
 const FILES = [
-  'app/page.tsx',
+  'app/(hub)/page.tsx',
   'app/_components/iap/iap-live-watch-sheet.tsx',
   'app/dashboard/[eventId]/studio/live-studio-control/page.tsx',
   'app/dashboard/[eventId]/studio/panood/setup/page.tsx',

@@ -20,7 +20,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { HOME_CONTROL_KEYS } from './_components/home-control-faces';
-import { drawHome, loadHome, slice } from './home-render.harness';
+import { fixtureControl, fixtureSchedule } from '@/lib/home-control-fixture';
+import { count, drawHome, loadHome, slice } from './home-render.harness';
 
 test.before(loadHome);
 
@@ -28,8 +29,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => stripComments(readFileSync(join(HERE, ...rel.split('/')), 'utf8'));
 
 test('1 · no upper widget grows in place — every one is a door', () => {
-  const html = drawHome();
-  const row = slice(html, 'data-home-control="compact"', ['data-home-services']);
+  // 🌐 23 Nov 2026 (owner, v5 drawing in the website look): the board's cards are the ONE copy at every width (the
+  // phone's tiles and the md copy are retired), with the Schedule the one tile among them.
+  const html = drawHome({ control: fixtureControl('e1', { schedule: fixtureSchedule('day') }) });
+  assert.equal(count(html, 'data-home-control="compact"') + count(html, 'data-home-control="detail"'), 0, 'a retired copy of the widgets is back');
+  const row = slice(html, 'data-home-control="board"', ['data-home-services']);
   assert.ok(row.length > 0, 'premise: the control row is drawn');
   // The only `aria-expanded` allowed is the ⓘ's own (InfoTip, "About …") — a tip, never the widget growing — and a
   // button that opens a SHEET over the page (`aria-haspopup="dialog"`): the Event Hub tile's "Pick what shows" (owner
@@ -41,11 +45,13 @@ test('1 · no upper widget grows in place — every one is a door', () => {
   assert.doesNotMatch(row, /role="region"/, 'an upper widget holds a settings region');
   // 🎴 The Countdown and the plan left the grid (Home redraw 2026-11-02): the card's figure and the To do list.
   for (const key of HOME_CONTROL_KEYS.filter((k) => k !== 'count' && k !== 'plan')) {
-    const tile = slice(row, `data-home-tile="${key}"`, ['data-home-tile="', 'data-home-control="detail"']);
-    assert.match(tile, /<a [^>]*class="hc-door"/, `compact: the ${key} tile is not a door`);
-    const card = slice(row, `data-home-card-key="${key}"`, ['data-home-card-key="', 'data-home-services']);
-    assert.match(card, /class="hc-card-door"/, `detail: the ${key} card is not a door`);
+    const card = slice(row, `data-home-card-key="${key}"`, ['data-home-card-key="', 'data-home-tile="', 'data-home-services']);
+    assert.match(card, /class="hc-card-door"/, `the ${key} card is not a door`);
   }
+  // The Schedule, the one tile left on Home, is a door too.
+  const sched = slice(row, 'data-home-tile="sched"', ['data-home-card-key="', 'data-home-services']);
+  assert.ok(sched.length > 0, 'premise: the Schedule is drawn');
+  assert.match(sched, /<a [^>]*class="hc-door"/, 'the Schedule tile is not a door');
   // The sources hold no grow state at all.
   for (const f of ['_components/home-control-row.tsx', '_components/home-tile.tsx']) {
     assert.doesNotMatch(read(f), /aria-expanded|useOneOpen|data-home-card-settings/, `${f} grows something`);

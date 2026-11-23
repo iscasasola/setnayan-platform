@@ -21,9 +21,7 @@
  * A design that did not go across says so and offers Send again — it is never shown as sent.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, ArrowLeft, ArrowRight, ArrowUpRight, Check, Clock, ImageIcon, Lock, MessageCircle, Pencil, RotateCcw, RotateCw, Send, X } from 'lucide-react';
-import { CAKE_DEMO_BAR_WORDS, cakeDemoOptions } from '@/lib/cake-demo';
-import { SPECIAL_TOOLS_UPGRADE_HREF } from '@/lib/special-tools';
+import { AlertCircle, ArrowLeft, ArrowRight, Check, Clock, ImageIcon, MessageCircle, Pencil, RotateCcw, RotateCw, Send, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { formatCentavosPhp } from '@/lib/vendor-packages';
@@ -56,11 +54,6 @@ const STEP_NAME: Record<Step, string> = { shape: 'Shape', tiers: 'Tiers', colour
 
 export type CakeDesignerStart = { config: CakeConfig; cardId: string | null };
 
-/** The demo's read — sample options, no card (so no price), no photos, nothing from any event. */
-function demoRead(): CakeOpenRead {
-  return { ok: true, op: 'open', shopName: 'Your shop', options: cakeDemoOptions(), cards: [], mood: [], monogramText: 'A&M', guests: null, photos: [] };
-}
-
 type Send = { s: 'idle' } | { s: 'sending' } | { s: 'sent' } | { s: 'failed'; message: string };
 
 export function CakeDesigner({
@@ -69,7 +62,6 @@ export function CakeDesigner({
   onSent,
   start = null,
   seed,
-  demo = false,
 }: {
   threadId: string;
   onClose: () => void;
@@ -79,17 +71,11 @@ export function CakeDesigner({
   start?: CakeDesignerStart | null;
   /** Labs only — the shop's read without a call. */
   seed?: CakeOpenRead | 'failed';
-  /**
-   * 🔒 A shop below Pro after the start date plays the couple's designer on SAMPLE options (`lib/cake-demo.ts`): no
-   * read, no save, no send — the bar says which plans have it, with Upgrade (owner ruling "A LOCKED SPECIAL TOOL SHOWS
-   * ITS FRONT-END EXPERIENCE, NOT ITS SETTINGS").
-   */
-  demo?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useModalA11y({ open: true, onClose, containerRef: ref });
   const [read, setRead] = useState<{ s: 'loading' } | { s: 'failed'; message: string } | { s: 'ok'; data: CakeOpenRead }>(
-    demo ? { s: 'ok', data: demoRead() } : seed === 'failed' ? { s: 'failed', message: 'Couldn’t open the Cake Maker.' } : seed ? { s: 'ok', data: seed } : { s: 'loading' },
+    seed === 'failed' ? { s: 'failed', message: 'Couldn’t open the Cake Maker.' } : seed ? { s: 'ok', data: seed } : { s: 'loading' },
   );
   const load = useCallback(() => {
     setRead({ s: 'loading' });
@@ -98,14 +84,14 @@ export function CakeDesigner({
       .catch(() => setRead({ s: 'failed', message: 'Couldn’t open the Cake Maker.' }));
   }, [threadId]);
   useEffect(() => {
-    if (!seed && !demo) load();
-  }, [load, seed, demo]);
+    if (!seed) load();
+  }, [load, seed]);
 
   return (
-    <div className={css.over} data-cake-designer="" data-cake-demo={demo ? '' : undefined}>
+    <div className={css.over} data-cake-designer="">
       <div ref={ref} className={css.root} role="dialog" aria-modal="true" aria-labelledby="cake-designer-h" tabIndex={-1}>
         {read.s === 'ok' ? (
-          <Designer data={read.data} threadId={threadId} start={start} onClose={onClose} onSent={onSent} demo={demo} />
+          <Designer data={read.data} threadId={threadId} start={start} onClose={onClose} onSent={onSent} />
         ) : (
           <>
             <Head shop={read.s === 'failed' ? null : 'Opening…'} onClose={onClose} />
@@ -154,14 +140,14 @@ function Head({ shop, sub, onClose, onReset }: { shop: string | null; sub?: stri
   );
 }
 
-function Designer({ data, threadId, start, onClose, onSent, demo = false }: { data: CakeOpenRead; threadId: string; start: CakeDesignerStart | null; onClose: () => void; onSent?: () => void; demo?: boolean }) {
+function Designer({ data, threadId, start, onClose, onSent }: { data: CakeOpenRead; threadId: string; start: CakeDesignerStart | null; onClose: () => void; onSent?: () => void }) {
   const o = data.options;
   const offer = useMemo(() => cakeOfferOf(o), [o]);
   const fresh = useCallback(
     () => startingCakeConfig(offer, o.standardSize, { flavourRef: o.standardFlavour, accent: o.standardAccent, finish: o.standardFinish }),
     [offer, o],
   );
-  const [phase, setPhase] = useState<'start' | 'design'>(start || demo ? 'design' : 'start');
+  const [phase, setPhase] = useState<'start' | 'design'>(start ? 'design' : 'start');
   const [config, setConfig] = useState<CakeConfig>(() => start?.config ?? fresh());
   // The one price: the shop's priced cake card (the first one, if it has several) — no picker (v6 draws none).
   const cardId = start?.cardId ?? (data.cards.find((c) => c.oneCentavos != null) ?? data.cards[0])?.id ?? null;
@@ -199,7 +185,7 @@ function Designer({ data, threadId, start, onClose, onSent, demo = false }: { da
 
   const overCap = config.colours.length > o.colourPick;
   const doSend = async () => {
-    if (demo || overCap || send.s === 'sending') return; // the demo never sends
+    if (overCap || send.s === 'sending') return;
     setSend({ s: 'sending' });
     try {
       const r = await cakeAction({ op: 'send', threadId, config, cardId });
@@ -216,7 +202,6 @@ function Designer({ data, threadId, start, onClose, onSent, demo = false }: { da
     <>
       <Head
         shop={data.shopName}
-        sub={demo ? 'A demo · what couples see in your chat' : undefined}
         onClose={onClose}
         onReset={() => {
           const c = { ...fresh(), inspirationRef: config.inspirationRef };
@@ -456,13 +441,7 @@ function Designer({ data, threadId, start, onClose, onSent, demo = false }: { da
           </div>
 
           <footer className={css.bar}>
-            {demo ? (
-              <div className={css.demoBar} role="note" data-cake-demo-bar="">
-                <Lock aria-hidden className="h-4 w-4 flex-none" />
-                <span>{CAKE_DEMO_BAR_WORDS}</span>
-                <ActionButton tone="brand" icon={ArrowUpRight} label="Upgrade" href={SPECIAL_TOOLS_UPGRADE_HREF} data-web-only="" data-cake-demo-upgrade="" />
-              </div>
-            ) : send.s === 'sent' ? (
+            {send.s === 'sent' ? (
               <div className={css.sent} role="status" data-cake-sent="">
                 <Check aria-hidden className="h-4 w-4 flex-none" />
                 <span>Sent to {data.shopName} — your design is in the message.</span>

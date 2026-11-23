@@ -1,0 +1,20 @@
+## 2026-11-23 · feat(prints): the Our Day poster and its full-screen builder
+
+The approved Our Day poster (DECISION_LOG 2026-11-13, every "OUR DAY POSTER" row; drawing v4 `prototypes/approved_2026-11-13/our-day-poster-fable.html`). It is a keepsake of the day, not a summary: the couple's template, the photos they pick, their names, date, place and line, every principal sponsor and the entourage where the template shows them, and the event's one Event Hub QR. No counts and no schedule.
+
+- **Six templates** (`lib/day-poster.ts`, written once): One photo · Collage (the photo print's default) · Film strip · Magazine cover · Three moments · Words + one photo. The supporting ranges are 4–16 · 3–8 · 0–3 · 2 · 0–2. Sponsors and the entourage print on Collage and on Words + one photo only, and both are photo print only. Supplier credits are a switch, off to start. The QR is always printed.
+- **Two size lists**: photo print A4 · A3+ · 16×20 · A2 · 20×24 · 20×30 · A1 · 24×30, and canvas 11×14 · 12×18 · 14×17 · 16×20 · 20×24, with a 2 in gallery wrap and a larger type floor on canvas. The layout is measured, never scaled.
+- **One gate, `dayPosterLock`**, read by the builder, the row and the route alike. A4 in Classic saves free for every event, store shell included. Every larger size, every canvas and the event's own look need Event Pro. After the full-quality date (`FULL_RES_POST_EVENT_GRACE_DAYS` after the last day, the same clock as "Keep your photos"), every size above A4 locks. The route answers 403 even when a file is asked for directly.
+- **Two files**: the free file is the poster flattened to A4 at about 200 dpi (1654 × 2339) on one page, with no watermark. A Pro file is drawn at its size with vector type, bleed and crop marks.
+- **The auto-fit**: 40 principal sponsors and an 80-name entourage fit at every size of every template, in both styles, with 1 to 16 photos. No name is cut, nothing drops under the floor or past the safe area, and nothing touches the QR.
+- **The builder** (`day-poster-builder.tsx`) rises full screen (`RiseScreen`) with the live poster on top and the steps in the lower third: Template → Main photo → Supporting photos → What to show → Style & size → Finalize. On a computer the steps sit as rows beside the poster.
+  - Every change saves in place to `print_details.day_poster` through the shipped print route (`POST /api/hub-print/day-poster`). No new route, no server action, no migration.
+  - Photos come from Memories (the Papic frames, including a supplier's on-the-day shots, printed from the original while it is kept) or from the phone. A ref that does not belong to this event is refused.
+- **Two doors**:
+  - The Prints row "Our Day poster", after the Our Story poster, with "Make your poster".
+  - "Print your day" at the end of the Post Event story, for the couple and co-hosts only (`viewer.isHost`). It opens `prints?item=day-poster&build=1`.
+- **Kept out of the before-the-day set** in one named place (`POST_EVENT_PRINT_KEYS`): not in `PRINT_SET_KEYS`, the whole-set file or Everything ◆.
+- Guards: `lib/day-poster.test.ts` (11 tests: registry, gate, date, route order, record, exclusion, every-name-fits, free-file pixels, doors). The fit guard was sabotaged once (sponsors drawn at 80 %) and went red.
+- Lab: `/dev/day-poster-lab` runs the shipped builder against a sample-data stand-in for the route (real layout, gate and file writers). `?pro=1` gives a Pro event and `?after=1` puts it past the full-quality date.
+
+SPEC IMPACT: Builds the approved 13 Nov rows as amended by the later ones the same day (Classic free up to A4, flat 200 dpi free file, Event Pro naming, the full-quality date). Not built, for the owner: the one-time large-download fee (no price set) and the selling surfaces and nudges (drawing §7). Also found: a supplier's delivered gallery (`supplier_media` / `event_supplier_files`) is NOT under the 92-day compression job, so the 13 Nov rule "the photographer's photos follow the same date" does not hold for that set today. It is not offered as a pick source until the owner rules.

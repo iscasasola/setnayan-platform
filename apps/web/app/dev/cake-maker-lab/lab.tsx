@@ -198,21 +198,6 @@ export default function CakeMakerLab({ view, fail, n }: { view: string; fail: bo
     );
   }
 
-  if (view === 'demo') {
-    // 🔒 A shop below Pro after the start date: the locked tile opens THIS — the designer on sample options, no Send.
-    return (
-      <main className="min-h-dvh p-4" data-lab-view={view}>
-        {open ? (
-          <CakeDesigner threadId="" demo onClose={() => setOpen(false)} />
-        ) : (
-          <button type="button" className="underline" onClick={() => setOpen(true)}>
-            Open the demo again
-          </button>
-        )}
-      </main>
-    );
-  }
-
   if (view === 'designer' || view === 'start') {
     return (
       <main className="min-h-dvh p-4" data-lab-view={view}>

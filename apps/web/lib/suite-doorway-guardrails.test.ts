@@ -90,7 +90,7 @@ function subDirs(dir: string): string[] {
 function walk(dir: string, segs: readonly string[]): boolean {
   if (segs.length === 0) {
     if (hasPageFile(dir)) return true;
-    // A group folder can host the leaf page (e.g. dashboard/(launcher)/page.tsx).
+    // A group folder can host the leaf page (e.g. (hub)/dashboard/page.tsx).
     return subDirs(dir)
       .filter((n) => n.startsWith('(') && n.endsWith(')'))
       .some((n) => walk(path.join(dir, n), segs));

@@ -180,6 +180,8 @@ export type VendorSpecializationReason =
   | 'free_set'
   /** Their category maps to no specialization set — generic kit is the whole kit. */
   | 'no_specialization_for_category'
+  /** A free set, but the shop is not Verified yet — free widgets open from Verified up (owner 23 Nov). */
+  | 'not_verified'
   /** Free / verified / no subscription at all — below {@link SPECIALIZATION_MIN_TIER}. */
   | 'below_tier_floor'
   /** Paid tier on the row, but `tier_expires_at` has passed (the mid-event lapse). */
@@ -329,6 +331,20 @@ export type VendorSubscriptionState = {
  * data-format bug, which is the exact failure the owner's degrade requirement is
  * aimed at. A bad timestamp is a data bug, not evidence of non-payment.
  */
+/**
+ * 🆓 FREE WIDGETS OPEN FROM VERIFIED UP (owner 23 Nov 2026 via the controller: "free widgets open at Verified"). THE one
+ * rule for a free widget, read by both ends: this day-of gate (`free_set`) and the Toolkit's `toolStatus` (through
+ * `ToolFacts.freeOpen`, computed with this same function in `readStoreToolFacts`). "Verified up" = the shop passed
+ * verification (`shopIsVerified`) OR its tier is Verified or above on the ladder (a comp `verified` tier, a paid plan).
+ * Unknown verification = closed (fail closed: an unread fact never opens anything).
+ */
+export function freeWidgetsOpen(
+  subscription: Pick<VendorSubscriptionState, 'tier_state'> | null | undefined,
+  verified: boolean | null | undefined,
+): boolean {
+  return verified === true || isTierAtLeast(subscription?.tier_state ?? null, 'verified');
+}
+
 export function subscriptionClearsSpecializationFloor(
   subscription: VendorSubscriptionState | null | undefined,
   now: number = Date.now(),
@@ -380,6 +396,11 @@ export function resolveVendorSpecializationAccess(input: {
    * has no production subject — this lets its tests keep exercising it for the next paid set.
    */
   freeSets?: ReadonlySet<VendorSpecializationSet>;
+  /**
+   * Has the shop passed verification (`vendor_profiles.verification_state`, read through `shopIsVerified`)? A free set
+   * opens only from Verified up ({@link freeWidgetsOpen}). Missing / null = not known = closed.
+   */
+  verified?: boolean | null;
 }): VendorSpecializationAccess {
   const { subscription, services, eventTiles, now, minTier } = input;
   const freeSetsHere = input.freeSets ?? FREE_SPECIALIZATION_SETS;
@@ -422,6 +443,10 @@ export function resolveVendorSpecializationAccess(input: {
   // 🆓 Below the floor, but a FREE set is still held — the coordinator's day-of desk (owner 2026-11-05, "keep it
   // free"). Only the free sets: a band that also coordinates gets the floor, never the paid song desk.
   const freeSets = eligibleSets.filter((s) => freeSetsHere.has(s));
+  if (freeSets.length > 0 && !freeWidgetsOpen(subscription, input.verified)) {
+    // Free, but not Verified yet: nothing held; the surface sends them to Verify, not to a plan.
+    return { genericKit: true, unlockedSet: null, eligibleSet, unlockedSets: [], eligibleSets, reason: 'not_verified' };
+  }
   if (freeSets.length > 0) {
     return {
       genericKit: true,

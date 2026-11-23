@@ -58,7 +58,7 @@ const SIGNATURES: ReadonlyArray<{ what: string; needle: string }> = [
  * Every collection that has adopted the standard. Adding one here is how a new
  * adopter is enrolled; each must import the component and mount it.
  */
-const ADOPTERS: ReadonlyArray<string> = ['dashboard/(launcher)/page.tsx'];
+const ADOPTERS: ReadonlyArray<string> = ['(hub)/dashboard/page.tsx'];
 
 function sourceFiles(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {

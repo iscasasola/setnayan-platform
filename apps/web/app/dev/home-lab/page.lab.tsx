@@ -92,6 +92,8 @@
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
 import { CoordinatingLine } from '@/app/dashboard/[eventId]/_components/coordinating-line';
+// 🌐 Today's website look — the event layout's own sheet, so the lab shows what the page shows.
+import '@/app/dashboard/[eventId]/_components/today-website.css';
 import { eventTodayAsks } from '@/app/dashboard/[eventId]/_components/event-today-asks';
 import { manilaToday } from '@/lib/chat-cards';
 import { labEventSettingsRows, labYourAccessRows } from './lab-event-settings';

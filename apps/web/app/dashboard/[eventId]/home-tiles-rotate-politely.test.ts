@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
-import { fixtureControl } from '@/lib/home-control-fixture';
+import { fixtureControl, fixtureSchedule } from '@/lib/home-control-fixture';
 import { homeControlTiles } from './_components/home-control-faces';
 import {
   FACE_MS,
@@ -88,13 +88,18 @@ test('3 · the tile obeys the rule, and the CSS stills itself under reduced moti
 });
 
 test('4 · rendered: the Countdown is one face with no dots; a multi-face tile draws a dot per face', () => {
-  const html = drawHome();
-  const compact = slice(html, 'data-home-control="compact"', ['data-home-control="detail"']);
-  const countdown = slice(compact, 'data-home-tile="count"', ['data-home-tile="guests"']);
-  assert.equal(count(countdown, 'data-hc-dot'), 0, 'the Countdown has dots');
-  const { tiles } = homeControlTiles(fixtureControl('e1'));
-  for (const t of tiles.filter((x) => x.faces.length > 1)) {
-    const one = slice(compact, `data-home-tile="${t.key}"`, ['data-home-tile="', 'data-home-control="detail"'].map((m) => m));
+  const control = fixtureControl('e1', { schedule: fixtureSchedule('day') });
+  const html = drawHome({ control });
+  // 🌐 23 Nov 2026 (owner, v5 drawing in the website look): the phone's rotating tiles are retired — the Countdown rides
+  // the event card (no tile, no dots) and the Schedule is the ONE tile left on Home, in the board's middle column.
+  assert.equal(count(html, 'data-home-control="compact"'), 0, 'the retired compact tiles are back');
+  assert.equal(count(html, 'data-home-tile="count"'), 0, 'the Countdown is a tile again');
+  const board = slice(html, 'data-home-board="middle"', ['data-home-board="right"']);
+  const { tiles } = homeControlTiles(control);
+  const drawn = tiles.filter((x) => x.faces.length > 1 && count(board, `data-home-tile="${x.key}"`) > 0);
+  assert.ok(drawn.some((t) => t.key === 'sched'), 'anti-vacuity: the multi-face Schedule tile is not drawn');
+  for (const t of drawn) {
+    const one = slice(board, `data-home-tile="${t.key}"`, ['data-home-tile="', 'data-home-card-key="']);
     assert.equal(count(one, 'data-hc-dot'), t.faces.length, `${t.key}: dots ≠ faces`);
   }
 });

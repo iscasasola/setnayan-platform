@@ -9,6 +9,7 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { INVITE_THEMES, isInviteThemeId } from '@/lib/invite-themes';
 import { tilesShown, type ThemeTile } from '@/lib/maker-theme-tiles';
 import { THEME_SET_PIECES, THEME_SET_PIECE_LABEL, liveThemeSetSources, themeUseLabel, type ThemeSetLabDoors, type ThemeSetPiece, type ThemeSetSources } from '@/lib/theme-set';
+import { MOVE_MS, RISE_MS_STANDARD } from '@/lib/motion-table';
 import { ThemePickContext } from './theme-pick-context';
 // The set's arrival and swap — Maker-only, so not in globals.css (every page parses that one).
 import './maker-theme-set.css';
@@ -89,6 +90,12 @@ const PLACE: Readonly<Record<ThemeSetPiece, string>> = {
   sign: 'right-[6%] top-[42%] w-[28%] h-[30%] z-[3]',
 };
 
+/** The widest the set is drawn (a desktop's preview column), the air around it, and the least room worth fitting into. */
+const SET_MAX_W = 420;
+const SET_PAD = 12;
+const SET_MIN_ROOM = 120;
+const SET_OVERLAYS = '[data-details-editor-panel][data-open], [data-maker-lower-third]';
+
 /** The live page's own size — the sample is drawn at a phone's width and scaled into its piece. */
 const PAGE_W = 390;
 const PAGE_H = 760;
@@ -118,7 +125,7 @@ function LivePiece({ src, title, bottom }: { src: string; title: string; bottom:
           sandbox="allow-scripts allow-same-origin"
           loading="lazy"
           data-theme-set-frame=""
-          className={`pointer-events-none absolute left-0 origin-top-left border-0 bg-raised ${bottom ? 'bottom-0 origin-bottom-left' : 'top-0'}`}
+          className={`pointer-events-none absolute left-0 border-0 bg-raised ${bottom ? 'bottom-0 origin-bottom-left' : 'top-0 origin-top-left'}`}
           style={{ width: PAGE_W, height: PAGE_H, transform: `scale(${scale})` }}
         />
       ) : null}
@@ -146,17 +153,47 @@ export function ThemeSetBody() {
     if (!set) return;
     setLayers((l) => (l.now === set.trying ? l : { now: set.trying, was: l.now }));
   }, [set, set?.trying]);
+  /* 📐 The set keeps its 10 : 11 shape and fits the part of the preview the Maker's lower third leaves free — on a phone
+     the Look's sheet rises over the bottom of this body, so the set is fitted above it, never behind it. */
+  const area = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<{ width: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = area.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      /* What rises over this body: the open editor sheet (`data-details-editor-panel`) or the lower third. */
+      const over = [...document.querySelectorAll(SET_OVERLAYS)]
+        .map((o) => o.getBoundingClientRect().top)
+        .filter((top) => top > r.top + SET_MIN_ROOM && top < r.bottom);
+      const bottom = Math.min(r.bottom, ...over);
+      const room = bottom - r.top - 2 * SET_PAD;
+      const width = Math.max(0, Math.min(el.clientWidth - 2 * SET_PAD, (room * 10) / 11, SET_MAX_W));
+      setFit({ width, top: SET_PAD + Math.max(0, (room - (width * 11) / 10) / 2) });
+    };
+    measure();
+    /* The sheet rises after this body mounts — measured again once its rise has run. */
+    const later = [MOVE_MS, RISE_MS_STANDARD].map((ms) => window.setTimeout(measure, ms));
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    ro?.observe(el);
+    document.querySelectorAll(SET_OVERLAYS).forEach((o) => ro?.observe(o));
+    return () => {
+      later.forEach((t) => window.clearTimeout(t));
+      ro?.disconnect();
+    };
+  }, []);
   if (!set) return null;
   const name = isInviteThemeId(layers.now) ? INVITE_THEMES[layers.now].name : 'This theme';
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center p-3" data-theme-set-body="">
+    <div ref={area} className="flex min-h-0 flex-1 items-start justify-center" data-theme-set-body="">
       <figure
+        style={fit ? { width: fit.width, marginTop: fit.top } : undefined}
         /* The arrival plays once per mount; "Play again" remounts the set. */
         key={set.play}
         role="img"
         aria-label={`${name} on every piece: ${THEME_SET_PIECES.map((p) => THEME_SET_PIECE_LABEL[p]).join(', ')}`}
         data-theme-set={layers.now}
-        className="sn-frame relative aspect-[10/11] w-full max-w-[420px] overflow-hidden"
+        className="sn-frame relative aspect-[10/11] w-full overflow-hidden"
       >
         {THEME_SET_PIECES.map((piece) => (
           <div key={piece} data-theme-set-piece={piece} className={`sn-set-arrive sn-set-arrive--${piece} absolute overflow-hidden rounded-md shadow-sn-frame ${PLACE[piece]}`}>

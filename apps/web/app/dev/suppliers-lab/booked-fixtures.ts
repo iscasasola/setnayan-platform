@@ -4,10 +4,10 @@
  * states it reaches):
  *
  *   Hiraya Table        asked to book at ₱216,000 — waiting for their yes
- *   Seda Vertis North   booked, added by the couple, ₱1,056,000 — a first
+ *   Tala Grove Pavilion   booked, added by the couple, ₱1,056,000 — a first
  *                       payment of ₱528,000 due Oct 5, the balance Dec 11
  *   Santuario           booked on Setnayan, no price recorded
- *   Lumina Studio       booked, ₱85,000, paid in full
+ *   Tanglaw Frames       booked, ₱85,000, paid in full
  *   Bituin Catering     booked on Setnayan, ₱190,000 — THEIR OWN payment plan
  *                       (a reservation due Oct 8) and three published ways to pay
  *   Asukal Cakes        booked, added by the couple, no price recorded
@@ -82,10 +82,10 @@ import { supplierCorrections } from '@/lib/supplier-corrections';
  *   &covers=1        Seda also brings Cake (changed to Reception only) and Catering (follows Seda)
  */
 export const LAB_CHAPTERS: readonly WhereChapter[] = [
-  { blockId: 'ch-prep', name: 'Preparation', location: 'Seda Vertis North', startAt: '2026-12-18T06:00:00Z', tags: ['v-seda', 'v-lumina'] },
+  { blockId: 'ch-prep', name: 'Preparation', location: 'Tala Grove Pavilion', startAt: '2026-12-18T06:00:00Z', tags: ['v-seda', 'v-lumina'] },
   { blockId: 'ch-cer', name: 'Ceremony', location: null, startAt: '2026-12-18T14:00:00Z', tags: ['v-santuario', 'v-lumina'] },
   { blockId: 'ch-rec', name: 'Reception', location: null, startAt: '2026-12-18T18:00:00Z', tags: ['v-seda', 'v-lumina', 'v-bituin'] },
-  { blockId: 'ch-after', name: 'After party', location: 'Seda Vertis North', startAt: '2026-12-18T23:00:00Z', tags: ['v-seda'] },
+  { blockId: 'ch-after', name: 'After party', location: 'Tala Grove Pavilion', startAt: '2026-12-18T23:00:00Z', tags: ['v-seda'] },
 ];
 
 /** The prototype was drawn in early October 2026; pinned so "by Oct 5" does not drift. */
@@ -110,9 +110,9 @@ const teamRow = (f: Partial<TeamRowFacts> & Pick<TeamRowFacts, 'vendorId' | 'nam
 
 const TEAM: TeamRowFacts[] = [
   teamRow({ vendorId: 'v-hiraya', name: 'Hiraya Table', service: 'Catering', status: 'shortlisted', lockRequestState: 'pending', lockRequestExpiresAt: '2026-10-06T04:00:00Z', threadId: 't-hiraya', pricePhp: 216_000, isVerified: true }),
-  teamRow({ vendorId: 'v-seda', name: 'Seda Vertis North', service: 'Reception', pricePhp: 1_056_000, depositStep: 'due', threadId: 't-seda' }),
-  teamRow({ vendorId: 'v-santuario', name: 'Santuario de San Vicente de Paul', service: 'Ceremony', depositStep: 'due', threadId: 't-santuario', isVerified: true }),
-  teamRow({ vendorId: 'v-lumina', name: 'Lumina Studio', service: 'Photo & video', status: 'deposit_paid', pricePhp: 85_000, threadId: 't-lumina', isVerified: true }),
+  teamRow({ vendorId: 'v-seda', name: 'Tala Grove Pavilion', service: 'Reception', pricePhp: 1_056_000, depositStep: 'due', threadId: 't-seda' }),
+  teamRow({ vendorId: 'v-santuario', name: 'Kapilya ng Liwayway', service: 'Ceremony', depositStep: 'due', threadId: 't-santuario', isVerified: true }),
+  teamRow({ vendorId: 'v-lumina', name: 'Tanglaw Frames', service: 'Photo & video', status: 'deposit_paid', pricePhp: 85_000, threadId: 't-lumina', isVerified: true }),
   teamRow({ vendorId: 'v-asukal', name: 'Asukal Cakes', service: 'Cake', depositStep: 'due' }),
   teamRow({ vendorId: 'v-bituin', name: 'Bituin Catering', service: 'Catering', pricePhp: 190_000, depositStep: 'due', threadId: 't-bituin', isVerified: true }),
 ];
@@ -210,9 +210,9 @@ export function labBookedMoney(o: LabBookedOptions): EventMoney {
     vendors: none
       ? []
       : ([
-          { vendor_id: 'v-seda', event_id: LAB_EVENT, category: 'venue', vendor_name: 'Seda Vertis North', status: 'contracted', total_cost_php: 1_056_000 },
-          { vendor_id: 'v-santuario', event_id: LAB_EVENT, category: 'religious_venue', vendor_name: 'Santuario de San Vicente de Paul', status: 'contracted', total_cost_php: null, marketplace_vendor_id: 'p-santuario' },
-          { vendor_id: 'v-lumina', event_id: LAB_EVENT, category: 'photographer', vendor_name: 'Lumina Studio', status: 'deposit_paid', total_cost_php: 85_000, marketplace_vendor_id: 'p-lumina' },
+          { vendor_id: 'v-seda', event_id: LAB_EVENT, category: 'venue', vendor_name: 'Tala Grove Pavilion', status: 'contracted', total_cost_php: 1_056_000 },
+          { vendor_id: 'v-santuario', event_id: LAB_EVENT, category: 'religious_venue', vendor_name: 'Kapilya ng Liwayway', status: 'contracted', total_cost_php: null, marketplace_vendor_id: 'p-santuario' },
+          { vendor_id: 'v-lumina', event_id: LAB_EVENT, category: 'photographer', vendor_name: 'Tanglaw Frames', status: 'deposit_paid', total_cost_php: 85_000, marketplace_vendor_id: 'p-lumina' },
           { vendor_id: 'v-asukal', event_id: LAB_EVENT, category: 'cake_maker', vendor_name: 'Asukal Cakes', status: 'contracted', total_cost_php: null },
           { vendor_id: 'v-bituin', event_id: LAB_EVENT, category: 'catering', vendor_name: 'Bituin Catering', status: 'contracted', total_cost_php: 190_000, marketplace_vendor_id: 'p-bituin' },
           { vendor_id: 'v-hiraya', event_id: LAB_EVENT, category: 'catering', vendor_name: 'Hiraya Table', status: 'shortlisted', total_cost_php: 216_000, marketplace_vendor_id: 'p-hiraya' },
@@ -303,7 +303,7 @@ export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedVie
           { vendor_profile_id: 'p-santuario', event_vendor_id: 'v-santuario', answer: 'asked', due_at: '2026-10-03T04:00:00Z', answered_at: null, money_flag_id: null },
           { vendor_profile_id: 'p-lumina', event_vendor_id: 'v-lumina', answer: 'moved', due_at: '2026-10-03T04:00:00Z', answered_at: '2026-09-30T09:00:00Z', money_flag_id: null },
         ],
-        names: new Map([['p-santuario', 'Santuario de San Vicente de Paul'], ['p-lumina', 'Lumina Studio']]),
+        names: new Map([['p-santuario', 'Kapilya ng Liwayway'], ['p-lumina', 'Tanglaw Frames']]),
         now: LAB_BOOKED_NOW.getTime(),
       })
     : null;

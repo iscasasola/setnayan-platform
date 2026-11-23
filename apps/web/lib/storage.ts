@@ -1,4 +1,5 @@
 import 'server-only';
+import { releaseDeletedShopUpload } from '@/lib/supplier-storage-release.server';
 import { randomUUID } from 'node:crypto';
 import {
   DeleteObjectCommand,
@@ -454,6 +455,8 @@ export async function deletePublicAsset(args: {
       console.error('[storage] R2 delete failed', { ...r2, error: message });
       return { ok: false, reason: 'r2-delete-failed', message };
     }
+    // 📏 A shop's deleted upload stops counting on its storage meter (owner 2026-11-23 "THE METER COUNTS EVERYTHING").
+    await releaseDeletedShopUpload(r2.bucket, r2.key);
     return { ok: true, outcome: 'deleted' };
   }
 

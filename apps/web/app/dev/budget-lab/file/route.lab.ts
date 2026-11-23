@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     return new NextResponse(budgetExportCsv(input), { headers: { 'Content-Type': 'text/csv; charset=utf-8' } });
   }
   try {
-    const bytes = await budgetPdf({ ...input, eventDate: 'Saturday · December 12, 2026', venue: 'Seda Vertis North', paper: sharePdfPaper(q.get('paper')) });
+    const bytes = await budgetPdf({ ...input, eventDate: 'Saturday · December 12, 2026', venue: 'Tala Grove Pavilion', paper: sharePdfPaper(q.get('paper')) });
     return new NextResponse(Buffer.from(bytes), { headers: { 'Content-Type': 'application/pdf' } });
   } catch (e) {
     if (e instanceof BudgetUnreadError) return new NextResponse(e.message, { status: 503 });

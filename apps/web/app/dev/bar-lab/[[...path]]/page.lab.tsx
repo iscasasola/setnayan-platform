@@ -103,7 +103,7 @@ const TONES = [
   ['#B8788D', '#6D3F50'], ['#C8D27F', '#7E9A3E'], ['#E8C7A3', '#B67E57'], ['#9FB7B0', '#4E6E67'],
   ['#c9d3b8', '#5f7a53'], ['#e7cfc1', '#a8614b'], ['#d6cbe7', '#6a5a8c'], ['#bcd3dc', '#3f6e82'],
 ];
-const WHO = ['Bea', 'Tito Boy', 'Ate Claire', 'Lumen Studio', 'Marco', 'Kuya Dan', null, 'Lola Nena', 'Reel & Co'];
+const WHO = ['Bea', 'Tito Boy', 'Ate Claire', 'Tanglaw Frames', 'Marco', 'Kuya Dan', null, 'Lola Nena', 'Kislap Reels'];
 /** A fixture photo — a numbered gradient, so a walk can see which tile stayed under the fingers. */
 function labPhoto(i: number): GalleryPhoto {
   const [a, b] = TONES[i % TONES.length]!;
@@ -129,7 +129,7 @@ function labPhoto(i: number): GalleryPhoto {
 const LAB_CHALLENGES: MemoriesChallenge[] = [
   { id: 'ch-1', title: 'Dance with the oldest guest', supplier: null },
   { id: 'ch-2', title: 'Your table, all in one frame', supplier: null },
-  { id: 'ch-3', title: 'A polaroid with the props', supplier: 'Lumen Studio' },
+  { id: 'ch-3', title: 'A polaroid with the props', supplier: 'Tanglaw Frames' },
 ];
 const HUB_USES = ['Cover photo', 'Background', 'Love story', 'Our photos'];
 /** A fixture file for every album: the photo's number decides its source, its mark and its challenge. */
@@ -341,7 +341,7 @@ export default async function BarLab({
                     addPicksAtOnce={addState === 'open'}
                     papic={papic}
                     keepsakes={<MemoriesKeepsakeRow key="keepsakes" doors={doors} cards={cards} />}
-                    suppliers={[{ vendorProfileId: 'vp-lumen', vendorRowId: 'v-lumen', name: 'Lumen Studio', hidden: false }]}
+                    suppliers={[{ vendorProfileId: 'vp-lumen', vendorRowId: 'v-lumen', name: 'Tanglaw Frames', hidden: false }]}
                     canTag={sp.guest !== '1' || sp.coord === '1'}
                     tagFixture={LAB_TAGS}
                     settings={

@@ -19,6 +19,8 @@
  *   ?state=setnayan  the first supplier is ON Setnayan: Chat opens their thread,
  *                    Record a payment goes to Amount to pay
  *   ?state=traditions a Muslim + Chinese event: the Target's ⓘ carries both notes
+ *   ?state=film      🎬 the front page's Budget clip: INVENTED suppliers only (`labFilmMoney`), and the ledger after its one
+ *                    "Add expense" swapped in when the film script says the save answered (`lab-budget-film.tsx`)
  *
  * The page's file actions (📤 Share · spreadsheet · calendar — `BudgetFileActions`) sit on top, as on the page; their
  * files come from `/dev/budget-lab/file` (the REAL PDF / CSV builders over this fixture), never from a route that reads
@@ -35,7 +37,8 @@ import { depositStepHref } from '@/lib/deposit-pay-step';
 import { TraditionNotes } from '@/app/dashboard/[eventId]/budget/_components/tradition-notes';
 import { BudgetFileActions } from '@/app/dashboard/[eventId]/budget/_components/budget-file-actions';
 import { LabBudgetFiles } from './lab-budget-files';
-import { labMoney, LAB_NOW, LAB_PAYMENTS } from './fixture';
+import { labMoney, labFilmMoney, LAB_NOW, LAB_PAYMENTS } from './fixture';
+import { LabBudgetFilm } from './lab-budget-film';
 import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
 import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
@@ -88,6 +91,41 @@ export default async function BudgetLabPage({
       amountToPayHref: depositStepHref(E, row.vendorId),
       chat: onSetnayan ? { kind: 'thread' } : { kind: 'link', href: `/dashboard/${E}/messages` },
     };
+  }
+
+  /* 🎬 `?state=film` — the same real screen, built twice over the invented ledger: before and after the clip's one add. */
+  if (state === 'film') {
+    const filmProps = (added: boolean) => {
+      const film = labFilmMoney(added);
+      const filmKnown = knownMoneyTotals(film);
+      return {
+        eventId: E,
+        canEdit: true,
+        summary: {
+          targetPhp: film.targetPhp,
+          agreedPhp: filmKnown.agreedPhp,
+          paidPhp: filmKnown.paidPhp,
+          owedPhp: filmKnown.owedAtLeastPhp,
+          owedAtLeast: false,
+          partial: false,
+          next: pickNextPayment(film.lines),
+        },
+        list: buildBudgetList(film),
+        supplierExtras: Object.fromEntries(
+          (buildBudgetList(film).suppliers ?? []).map((row) => [
+            row.vendorId,
+            { payments: [], door: 'log' as const, amountToPayHref: depositStepHref(E, row.vendorId), chat: { kind: 'link' as const, href: `/dashboard/${E}/messages` } },
+          ]),
+        ),
+        categories: costCategoryOptions('wedding'),
+      };
+    };
+    const film = (
+      <main className={q.shell === '1' ? 'sn-col max-w-3xl' : 'sn-col'} style={q.shell === '1' ? undefined : { maxWidth: 720, margin: '0 auto', padding: '8px 16px 96px' }} data-budget-lab="film">
+        <LabBudgetFilm before={filmProps(false)} after={filmProps(true)} />
+      </main>
+    );
+    return q.shell === '1' ? <LabShell eventId={E}>{film}</LabShell> : film;
   }
 
   const body = (

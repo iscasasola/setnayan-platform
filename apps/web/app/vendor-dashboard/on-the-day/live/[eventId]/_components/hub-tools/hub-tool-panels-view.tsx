@@ -41,7 +41,7 @@ const MARK: Partial<Record<DayOfModuleId, Icon>> = {
 /** Each entry tool's words — the add box and the empty line (the drawing's examples). */
 const ENTRY_WORDS: Record<string, { placeholder: string; empty: string; second?: string }> = {
   tech_rider: {
-    placeholder: 'Add a need — “2× wireless mic”',
+    placeholder: 'e.g. 2× wireless mic',
     empty: 'List what you need at the venue — mics, power, a sound check — and tick each as it’s ready.',
   },
   personalisation_list: {
@@ -50,7 +50,7 @@ const ENTRY_WORDS: Record<string, { placeholder: string; empty: string; second?:
     empty: 'Add each person and what goes on theirs — spelled the way they want it.',
   },
   quantity_vs_guests: {
-    placeholder: 'What you’re counting — “Giveaways”',
+    placeholder: 'e.g. Giveaways',
     empty: 'Name what you’re counting — cups, giveaways, plates — and tap More as you make or hand them out.',
   },
 };

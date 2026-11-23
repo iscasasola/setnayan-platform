@@ -11,8 +11,9 @@
  * "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON ROWS"). `save` is the dispatcher unless a lab hands one in.
  */
 import { useEffect, useRef, useState, type ComponentType, type SVGProps } from 'react';
-import { Check, Minus, Pencil, Plus, X } from 'lucide-react';
+import { Check, Minus, Pencil, Plus } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { setTwo } from '@/app/vendor-dashboard/_components/set-two/parts';
@@ -124,59 +125,68 @@ function ErrorLine({ error }: { error: string | null }) {
   ) : null;
 }
 
-/** One line in, one button out — the add row every template ends with. */
+/**
+ * The add box every template ends with — the ONE Field template (`TypedRow`, owner 1 Nov 2026), as the domain and
+ * category add boxes draw it: it follows what is typed (`onType`), ⏎ ENTER ADDS (`onEnter`, "ENTER STILL ADDS IN ONE-LINE
+ * ADD BOXES"), and the button beside it adds too. A per-person sheet asks a second line (what to write).
+ */
 function AddRow({
+  name,
   placeholder,
   second,
   onAdd,
   addWord = 'Add',
 }: {
+  name: string;
   placeholder: string;
-  /** A second box (the per-person sheet's "what to write"). */
+  /** A second line (the per-person sheet's "what to write"). */
   second?: string;
   onAdd: (label: string, note: string) => void;
   addWord?: string;
 }) {
   const [label, setLabel] = useState('');
   const [note, setNote] = useState('');
-  const submit = () => {
-    const l = label.trim();
+  const [round, setRound] = useState(0);
+  const submit = (typed?: string) => {
+    const l = (typed ?? label).trim();
     if (!l) return;
     onAdd(l, note.trim());
     setLabel('');
     setNote('');
+    setRound((n) => n + 1); // a fresh, empty row for the next one
   };
   return (
-    <form
-      className="mt-3 flex flex-wrap items-center gap-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        submit();
-      }}
-      data-hub-tool-add=""
-    >
-      <input
-        type="text"
-        value={label}
-        onChange={(e) => setLabel(e.target.value)}
-        maxLength={ENTRY_LABEL_MAX}
-        placeholder={placeholder}
-        aria-label={placeholder}
-        className="input-field min-w-0 flex-1"
-      />
-      {second ? (
-        <input
-          type="text"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          maxLength={ENTRY_NOTE_MAX}
-          placeholder={second}
-          aria-label={second}
-          className="input-field min-w-0 flex-1 basis-full sm:basis-auto"
+    <div className="mt-3" data-hub-tool-add="">
+      <FormRows width="wide" key={round}>
+        <TypedRow
+          name={name}
+          value={label}
+          empty={placeholder}
+          placeholder={placeholder}
+          maxLength={ENTRY_LABEL_MAX}
+          onType={setLabel}
+          onKeep={(t) => setLabel(t)}
+          onEnter={second ? undefined : (t) => submit(t)}
+          data="hub-tool-add-label"
         />
-      ) : null}
-      <ActionButton tone="brand" type="submit" icon={Plus} label={addWord} disabled={!label.trim()} />
-    </form>
+        {second ? (
+          <TypedRow
+            name={second}
+            value={note}
+            empty="Optional"
+            placeholder={second}
+            maxLength={ENTRY_NOTE_MAX}
+            onType={setNote}
+            onKeep={(t) => setNote(t)}
+            onEnter={() => submit()}
+            data="hub-tool-add-note"
+          />
+        ) : null}
+      </FormRows>
+      <div className="mt-2 flex justify-end">
+        <ActionButton tone="brand" icon={Plus} label={addWord} onClick={() => submit()} disabled={!label.trim()} data-hub-tool-add-button="" />
+      </div>
+    </div>
   );
 }
 
@@ -202,36 +212,51 @@ function Tick({ done, label, onPress }: { done: boolean; label: string; onPress:
   );
 }
 
-/** A row being edited in place: its words, Save, Cancel. */
+/**
+ * A row being edited in place — the ONE Field template again: each line keeps (and saves) when it is kept, and Done
+ * closes the editor.
+ */
 function EditRow({
   row,
   second,
   onSave,
-  onCancel,
+  onDone,
 }: {
   row: HubToolEntry;
   second?: string;
   onSave: (label: string, note: string) => void;
-  onCancel: () => void;
+  onDone: () => void;
 }) {
-  const [label, setLabel] = useState(row.label);
-  const [note, setNote] = useState(row.note);
   return (
-    <form
-      className="flex flex-wrap items-center gap-2 px-3 py-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (label.trim()) onSave(label.trim(), note.trim());
-      }}
-      data-hub-tool-edit=""
-    >
-      <input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={ENTRY_LABEL_MAX} aria-label="Name" className="input-field min-w-0 flex-1" />
-      {second ? (
-        <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={ENTRY_NOTE_MAX} aria-label={second} placeholder={second} className="input-field min-w-0 flex-1 basis-full sm:basis-auto" />
-      ) : null}
-      <ActionButton tone="ok" type="submit" icon={Check} label="Save" main disabled={!label.trim()} />
-      <ActionButton tone="neutral" quiet icon={X} label="Cancel" onClick={onCancel} />
-    </form>
+    <div className="px-3 py-2" data-hub-tool-edit="">
+      <FormRows width="wide">
+        <TypedRow
+          name={second ? 'Name' : 'Item'}
+          value={row.label}
+          maxLength={ENTRY_LABEL_MAX}
+          required
+          onKeep={(t) => {
+            if (t.trim() && t.trim() !== row.label) onSave(t.trim(), row.note);
+          }}
+          data="hub-tool-edit-label"
+        />
+        {second ? (
+          <TypedRow
+            name={second}
+            value={row.note}
+            empty="Optional"
+            maxLength={ENTRY_NOTE_MAX}
+            onKeep={(t) => {
+              if (t.trim() !== row.note) onSave(row.label, t.trim());
+            }}
+            data="hub-tool-edit-note"
+          />
+        ) : null}
+      </FormRows>
+      <div className="mt-2 flex justify-end">
+        <ActionButton tone="ok" icon={Check} label="Done" onClick={onDone} data-hub-tool-edit-done="" />
+      </div>
+    </div>
   );
 }
 
@@ -251,11 +276,8 @@ export function ChecklistTool({ eventId, toolKey, title, icon, initial, save = h
             <li key={r.id}>
               <EditRow
                 row={r}
-                onCancel={() => setEditing(null)}
-                onSave={(label) => {
-                  setEditing(null);
-                  patch(r.id, { label }, { op: 'edit', label, note: r.note });
-                }}
+                onDone={() => setEditing(null)}
+                onSave={(label) => patch(r.id, { label }, { op: 'edit', label, note: r.note })}
               />
             </li>
           ) : (
@@ -270,7 +292,7 @@ export function ChecklistTool({ eventId, toolKey, title, icon, initial, save = h
         )}
       </ul>
       <ErrorLine error={error} />
-      <AddRow placeholder={placeholder} onAdd={(label) => add({ toolKey, label })} />
+      <AddRow name="What you need" placeholder={placeholder} onAdd={(label) => add({ toolKey, label })} />
     </div>
   );
 }
@@ -301,11 +323,8 @@ export function PerPersonTool({
               <EditRow
                 row={r}
                 second={second}
-                onCancel={() => setEditing(null)}
-                onSave={(label, note) => {
-                  setEditing(null);
-                  patch(r.id, { label, note }, { op: 'edit', label, note });
-                }}
+                onDone={() => setEditing(null)}
+                onSave={(label, note) => patch(r.id, { label, note }, { op: 'edit', label, note })}
               />
             </li>
           ) : (
@@ -326,7 +345,7 @@ export function PerPersonTool({
         )}
       </ul>
       <ErrorLine error={error} />
-      <AddRow placeholder="Name" second={second} addWord="Add person" onAdd={(label, note) => add({ toolKey, label, note })} />
+      <AddRow name="Name" placeholder="Their name" second={second} addWord="Add person" onAdd={(label, note) => add({ toolKey, label, note })} />
     </div>
   );
 }
@@ -427,7 +446,7 @@ export function CounterTool({
         })}
       </ul>
       <ErrorLine error={error} />
-      <AddRow placeholder={placeholder} addWord="Count it" onAdd={(label) => add({ toolKey, label, qty: 0 })} />
+      <AddRow name="What you’re counting" placeholder={placeholder} addWord="Count it" onAdd={(label) => add({ toolKey, label, qty: 0 })} />
     </div>
   );
 }

@@ -288,6 +288,7 @@
 .size p { display: flex; align-items: baseline; gap: 6px; }
 .size b { font-size: 19px; font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .size span { font-size: 12px; color: var(--sf-m1); }
+.size .clients { display: block; margin: 0; font-size: 13px; color: var(--sf-m1); }
 .meter { display: block; height: 8px; border-radius: var(--m-r-full); background: var(--sf-chip); overflow: hidden; }
 .stairPaid .meter { background: var(--sf-line); }
 .meter i { display: block; height: 100%; border-radius: var(--m-r-full); background: var(--sf-acc); transform-origin: left; transform: scaleX(var(--w)); transition: transform var(--sn-m-rise) var(--sn-m-settle); }

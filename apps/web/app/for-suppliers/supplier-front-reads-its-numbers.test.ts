@@ -20,6 +20,7 @@ import { TIER_CAPS, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-t
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 import { formatCount } from '@/lib/format-number';
 import { storageWords } from '@/lib/downgrade-limits';
+import { clientRangeWords } from '@/lib/supplier-client-room';
 import {
   ADDON_TIERS,
   GROW_LINES,
@@ -30,6 +31,7 @@ import {
   growLines,
   growSpec,
   planLine,
+  STAIR_TIERS,
   planStair,
   tierOfPlansRow,
 } from './_components/supplier-front-data';
@@ -136,8 +138,8 @@ test('owner 2026-11-22: every tool on every paid size — the 3D booth logo and 
 });
 
 test('owner via controller 22 Nov: a plan is never its size alone — Free and Verified cards say what they hold, with the size', () => {
-  assert.equal(planLine('free'), 'Run your own clients, 1 live service, just you, main shop only, and 256 MB.');
-  assert.equal(planLine('verified'), 'On the marketplace with the basics, 3 live services, just you, main shop only, and 2 GB.');
+  assert.equal(planLine('free'), 'Run your own clients, 1 live service, just you, main shop only, and 128 MB. Room for about 25–150 clients.');
+  assert.equal(planLine('verified'), 'On the marketplace with the basics, 3 live services, just you, main shop only, and 1 GB. Room for about 200–1,200 clients.');
   // 23 Nov redraw (plans as growth stairs): every card — Free and Verified too — is its size AND its facts, from `planStair`.
   const page = code('app/for-suppliers/_components/supplier-front-page.tsx');
   assert.match(page, /STAIR_TIERS\.map\(\(t\) => \{\s*const step = planStair\(t\)/, 'a plan card is drawn from something other than its read facts');
@@ -146,6 +148,9 @@ test('owner via controller 22 Nov: a plan is never its size alone — Free and V
     assert.equal(st.size, storageWords(TIER_CAPS[t].storageBytes!), `${t}: the card lost its size`);
     assert.ok(st.services.lead && st.people.text && st.branches.text, `${t}: the card is a slogan again`);
   }
+  // Owner 2026-11-23 "Give them a quick range of how many clients can they serve": every card says it, from ONE helper.
+  for (const t of STAIR_TIERS) assert.equal(planStair(t).clients, clientRangeWords(t), `${t}: the card's client range is not the helper's`);
+  assert.match(code('app/for-suppliers/_components/supplier-front-client.tsx'), /\{p\.clients \? <p className=\{s\.clients\}>\{p\.clients\}<\/p> : null\}/, 'the plan card does not draw its client range');
   const coord = code('app/(shell)/for-coordinators/page.tsx');
   assert.match(coord, /\{planLine\('free'\)\}/);
   assert.match(coord, /\{planLine\('verified'\)\}/);

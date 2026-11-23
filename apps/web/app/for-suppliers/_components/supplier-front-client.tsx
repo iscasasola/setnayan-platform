@@ -308,6 +308,7 @@ export function PlanStairs({ plans }: { plans: readonly StairCard[] }) {
                 <span className={s.meter} aria-hidden="true">
                   <i style={{ ['--w' as string]: p.share }} />
                 </span>
+                {p.clients ? <p className={s.clients}>{p.clients}</p> : null}
               </div>
               <ul className={s.facts}>
                 <li>

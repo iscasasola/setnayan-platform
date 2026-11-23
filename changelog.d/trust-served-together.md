@@ -8,6 +8,7 @@ Builds the owner's 21 Nov rulings "TRUST NEEDS ONE COMPLETED, PAID EVENT THE TWO
   - `shop_trust(ids)` is the one trust reader. Per partner it returns the kinds, origins, events together, `trusted` and `counts`. A new shop brought in by the link is trusted at once and counts after its first counted booking.
   - `shop_trust_counts(ids)` returns trusted, waiting and counted, plus the search step.
   - `platform_settings.trust_search_step` is the owner's number (2–10). It is left blank, and blank lifts nobody.
+  - `shop_worked_with_counts` is dropped. It was Trusted by's old automatic half, and nothing calls it now (Ugat both-ends).
   - All of these are server-only (no anon or authenticated EXECUTE).
 - **One reader, every surface:** `lib/vendor-trusted-by.ts` (`fetchShopTrust`, `fetchTrustCounts`, `fetchTrustSearchSteps`) feeds:
   - the shop page's Trusted by: trusted partners only, with no pending adds and no un-partnered "worked with";

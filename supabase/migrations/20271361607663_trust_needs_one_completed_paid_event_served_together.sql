@@ -34,12 +34,14 @@
 --        · not refunded   = no live event_vendor_refunds row.
 --   3. public.vendor_served_together_rows — the shipped ONE definition, narrowed: both shops' bookings on the event
 --      must count (2). Its readers move with it: the propose picker (partners_you_served_with), the insert trigger
---      (vendor_partnerships_need_a_shared_event), the automatic "Worked together" count (shop_worked_with_counts).
+--      (vendor_partnerships_need_a_shared_event).
 --   4. public.shop_trust(shops[]) — THE ONE READER of trust. One row per live partner of each given shop (an accepted,
 --      active vendor_partnerships row, either direction): trusted (Trusted · or Waiting), counts (search and badges),
 --      events together, the kinds and origins. lib/vendor-trusted-by.ts is its only caller.
 --   5. public.shop_trust_counts(shops[]) — trusted · waiting · counted per shop, and the search step. Derived FROM (4),
 --      never beside it.
+--   6. DROP public.shop_worked_with_counts — Trusted by's old automatic half (every shop served with, partner or not).
+--      Trusted by now shows trusted partners only (drawing v7), so nothing calls it.
 --
 -- ── WHAT IT DOES NOT TOUCH ──────────────────────────────────────────────────────────────────────────────────────────
 --   • vendor_partnerships, its triggers' bodies and its RLS. Pending proposals made before today can still be accepted
@@ -354,5 +356,10 @@ COMMENT ON FUNCTION public.shop_trust_counts(uuid[]) IS
 
 REVOKE ALL ON FUNCTION public.shop_trust_counts(uuid[]) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.shop_trust_counts(uuid[]) TO service_role;
+
+-- ── 6 · the automatic "Worked together" list is retired ────────────────────────────────────────────────────────────
+-- 20271350444634 made shop_worked_with_counts for Trusted by's automatic half: every verified shop served with, partner
+-- or not. Since 21 Nov Trusted by shows trusted PARTNERS only (drawing v7), from shop_trust; nothing calls it any more.
+DROP FUNCTION IF EXISTS public.shop_worked_with_counts(uuid);
 
 COMMIT;

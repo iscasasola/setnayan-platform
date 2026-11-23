@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8361
+# facts: 8364
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     674
-#   col       6018
+#   col       6021
 #   policy    1223
 #   view      10
 #   func      432
@@ -2564,6 +2564,7 @@ col	public.event_vendors.pax_quote_base	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_surcharge_php	anon=IU authenticated=IU
 col	public.event_vendors.prep_days	anon=IU authenticated=IU
 col	public.event_vendors.pricing_basis	anon=SIU authenticated=SIU
+col	public.event_vendors.proof_at_delete	anon=SIU authenticated=SIU
 col	public.event_vendors.public_id	anon=SIU authenticated=SIU
 col	public.event_vendors.requested_service_ids	anon=SIU authenticated=SIU
 col	public.event_vendors.selection_match_rank	anon=SIU authenticated=SIU
@@ -4311,6 +4312,7 @@ col	public.platform_settings.onboarding_bg_music_r2_keys	anon=- authenticated=S
 col	public.platform_settings.onboarding_discount_pct	anon=- authenticated=S
 col	public.platform_settings.papic_signup_discount_pct	anon=- authenticated=S
 col	public.platform_settings.photo_delivery_oauth_redirect_uri	anon=- authenticated=S
+col	public.platform_settings.proof_real_guests_min	anon=- authenticated=S
 col	public.platform_settings.radar_enabled	anon=- authenticated=S
 col	public.platform_settings.radar_min_n_floor	anon=- authenticated=S
 col	public.platform_settings.receiving_accounts	anon=- authenticated=S
@@ -6253,6 +6255,7 @@ col	public.vendor_reviews.created_at	anon=SIU authenticated=SIU
 col	public.vendor_reviews.event_id	anon=SIU authenticated=SIU
 col	public.vendor_reviews.override_admin_id	anon=SIU authenticated=SIU
 col	public.vendor_reviews.override_reason	anon=SIU authenticated=SIU
+col	public.vendor_reviews.proof_at_delete	anon=SIU authenticated=SIU
 col	public.vendor_reviews.public_id	anon=SIU authenticated=SIU
 col	public.vendor_reviews.rating_communication	anon=SIU authenticated=SIU
 col	public.vendor_reviews.rating_on_time	anon=SIU authenticated=SIU

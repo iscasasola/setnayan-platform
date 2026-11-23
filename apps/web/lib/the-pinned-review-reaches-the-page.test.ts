@@ -40,8 +40,9 @@ test('no pin, or a stale / foreign pin that fetched nothing, leaves the list as 
 test('the shop page fetches the pin when it is outside the window, scoped to this vendor', () => {
   const page = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/page.tsx'), 'utf8'));
   assert.ok(page.length > 50_000, 'read the real page (an empty read is a green lie)');
-  const fetches = [...page.matchAll(/fetchReviewForVendorWithCouple\(\s*admin,\s*vendor\.vendor_profile_id,\s*pinnedReviewId,?\s*\)/g)].length;
-  assert.equal(fetches, 1, `the out-of-window pin fetch is missing (found ${fetches})`);
+  const fetches = [...page.matchAll(/fetchReviewForVendorWithCouple\(\s*admin,\s*vendor\.vendor_profile_id,\s*pinnedReviewId,\s*\{ publicOnly: true \},?\s*\)/g)].length;
+  // 🛡 Since 2026-11-23 (fake proof fixes D) the pin is the PUBLIC read too — a held review is never pinned on.
+  assert.equal(fetches, 1, `the out-of-window pin fetch is missing, or no longer the public read (found ${fetches})`);
   assert.match(page, /const orderedReviews = pinReviewFirst\(reviews, pinnedReviewId, pinnedOutsideWindow\);/);
   // A Pro perk, asked through the owner's paywall switch (2026-09-30): off →
   // every shop's pin renders (the editor let them save it); on → Pro only.

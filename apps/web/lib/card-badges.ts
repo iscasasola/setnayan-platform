@@ -60,7 +60,7 @@ export const CARD_BADGES: Record<CardBadgeKey, CardBadgeDef> = {
   generous_giver: {
     key: 'generous_giver',
     name: medalName('generous_giver'),
-    rule: 'Every paid booking of this card in the last 30 days received a gift from the shop, with at least 5 bookings. One booking without a gift and it comes off.',
+    rule: 'Every paid booking of this card in the last 30 days received a gift from the shop, with at least 5 bookings from 5 different couples. One booking without a gift and it comes off.',
   },
   verified: {
     key: 'verified',
@@ -112,7 +112,9 @@ export const CARD_BADGE_THRESHOLDS = {
   quick_responder: { inquiries: 10, minutes: 60 },
   trending_now: { couples: 30, more: 10 },
   rave_reviews: { fiveStars: 5, perEvent: 2, floorStars: 4 },
-  generous_giver: { bookings: 5 },
+  // ⚖ Fake proof fixes (B), owner 2026-11-23 (DECISION_LOG b89e2420): "5 different couples" is 5 couple ACCOUNTS —
+  // `paid_couples` is counted by account in SQL (event_couple_key), so one account booking five events is one couple.
+  generous_giver: { bookings: 5, couples: 5 },
 } as const;
 
 /** One inquiry about a card: when it was raised, the shop's first own reply after it, and whether it was withdrawn. */
@@ -187,7 +189,12 @@ export function passingCardBadges(card: CardBadgeFacts, goodStanding: boolean, n
 
   if (card.couples_now >= t.trending_now.couples && card.couples_now - card.couples_before >= t.trending_now.more) out.push('trending_now');
   if (card.five_star_capped >= t.rave_reviews.fiveStars && card.under_four === 0) out.push('rave_reviews');
-  if (card.paid_bookings >= t.generous_giver.bookings && card.paid_with_gift === card.paid_bookings) out.push('generous_giver');
+  if (
+    card.paid_bookings >= t.generous_giver.bookings &&
+    card.paid_couples >= t.generous_giver.couples &&
+    card.paid_with_gift === card.paid_bookings
+  )
+    out.push('generous_giver');
   return out;
 }
 

@@ -13,6 +13,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { foundOnSetnayan } from './found-on-setnayan';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -372,6 +373,8 @@ test('Shown as: names by default, initials on request, and nothing else is accep
 
 test('the card’s numbers: the hosts’ trusted review lands on its card, a guest’s on the guests’ line — never crossed', async () => {
   const s = await seed('cardstats');
+  // Since 2026-11-23 (b89e2420 C) only a review from an ARM'S-LENGTH event moves the card's stars.
+  await foundOnSetnayan(db, s.vendorProfileId, s.eventId);
   await asUser(s.coupleUserId, () => db.query(HOST_INSERT, [s.vendorProfileId, s.eventId, s.coupleUserId, 4, s.serviceId]));
   await submit(s, s.checkedIn, 2);
   const host = await asServiceRole(() =>

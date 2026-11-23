@@ -307,8 +307,13 @@ test('(5) the Mood Board is ONE component — Details draws it, and its old page
   assert.match(launch, /moodBoardControls: null,/);
   const page = read(`${MB}/page.tsx`);
   assert.match(page, /if \(makerHasWork\(memberType, websiteOn\)\) redirect\(detailsItemHref\(eventId, 'mood-board'\)\);/);
-  // Everyone else keeps the page: its return draws the board (beside the save notice, #6321).
-  assert.match(page, /return \(\s*<>[\s\S]{0,200}<MoodBoardEditor eventId=\{eventId\} \/>\s*<\/>\s*\);/, 'everyone else keeps the page');
+  // Everyone else keeps the page: its return draws the board (beside the save notice, #6321) — inside the part's
+  // one-editor gate since 23 Nov 2026 (DESKTOP SPLIT VIEW + ONE EDITOR PER PART).
+  assert.match(
+    page,
+    /return \(\s*<>[\s\S]{0,400}<PartEditGate eventId=\{eventId\} part="mood_board">\s*<MoodBoardEditor eventId=\{eventId\} \/>\s*<\/PartEditGate>\s*<\/>\s*\);/,
+    'everyone else keeps the page',
+  );
   // The one rule, shared with the launch page's `hasWork`.
   assert.match(launch, /const hasWork = makerHasWork\(memberType, websiteOn\);/);
   assert.equal(makerHasWork('couple', true), true);

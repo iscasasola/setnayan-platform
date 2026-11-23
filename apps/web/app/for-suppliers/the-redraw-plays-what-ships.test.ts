@@ -119,6 +119,8 @@ test('💬 each change is explained by ONE tip that points at it, in words from 
   // The tip settles on the motion tokens, and only with the script and without reduced motion.
   assert.match(CSS, /\.liveScene\[data-motion\] \.liveTip \{ transition: opacity var\(--sn-m-move\) var\(--sn-m-settle\)/);
   assert.match(CSS, /\.liveTip \{ position: absolute;[^}]*pointer-events: none; \}/, 'the tip can catch a tap meant for the stage');
+  // Seen on the 23 Nov preview at 375 px: the card's shop line drew OVER the tip. The row is its own layer.
+  assert.match(CSS, /\.liveRow \{ isolation: isolate;/, 'a card’s own layers can rise over the tip');
 });
 
 test('the one per-guest caterer: its band is mallPrice — "for your N guests" and the total', () => {

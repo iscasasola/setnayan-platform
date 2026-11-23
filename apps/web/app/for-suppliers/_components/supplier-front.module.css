@@ -233,7 +233,7 @@
 .vPinDot { fill: var(--sf-note); }
 .vOne { display: none; }
 .vOne.vOn { display: inline; }
-.liveRow { display: flex; gap: 10px; margin: 10px calc(var(--sf-gutter) * -1) 0; padding: 2px var(--sf-gutter) 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--sf-gutter); scrollbar-width: none; list-style: none; }
+.liveRow { isolation: isolate; display: flex; gap: 10px; margin: 10px calc(var(--sf-gutter) * -1) 0; padding: 2px var(--sf-gutter) 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--sf-gutter); scrollbar-width: none; list-style: none; }
 .liveRow::-webkit-scrollbar { display: none; }
 /* The drawing's stage card: Card 14 at 158 px on a phone, so the four answer inside one pinned screen. */
 .liveCard { flex: 0 0 158px; min-width: 0; scroll-snap-align: start; border-radius: var(--sn-frame-radius, var(--m-r-md)); }

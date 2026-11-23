@@ -28,8 +28,8 @@
  * past six expanded sets to reach a pending request.
  */
 
-import { useState, useTransition } from 'react';
-import { Check, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { createContext, useContext, useState, useTransition } from 'react';
+import { ArrowDown, ArrowUp, Check, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
@@ -46,12 +46,24 @@ import {
 import type { Song } from '@/lib/songs';
 import { MAX_SETS, repertoireAvailableForSet, type VendorSet } from '@/lib/vendor-sets';
 import {
-  addSongToVendorEventSet,
-  updateVendorEventSet,
-  createVendorEventSet,
-  deleteVendorEventSet,
-  removeSongFromVendorEventSet,
+  addSongToVendorEventSet as addSongAction,
+  updateVendorEventSet as updateSetAction,
+  createVendorEventSet as createSetAction,
+  deleteVendorEventSet as deleteSetAction,
 } from '../../../../actions';
+
+/**
+ * The four set writes, by name. The real server actions unless a dev lab provides its own in-memory ones, so the
+ * Set list hub tool runs on sample data there (23 Nov). Never provided on a live page.
+ */
+const REAL_SET_ACTIONS = {
+  addSongToVendorEventSet: addSongAction,
+  updateVendorEventSet: updateSetAction,
+  createVendorEventSet: createSetAction,
+  deleteVendorEventSet: deleteSetAction,
+};
+export type SetActions = typeof REAL_SET_ACTIONS;
+export const SetActionsContext = createContext<SetActions>(REAL_SET_ACTIONS);
 import { formatCount } from '@/lib/format-number';
 
 /** The moments a set may cover — every playlist slot but the "Don't play these" list. One list for both pickers. */
@@ -64,12 +76,16 @@ export function SetsPanel({
   eventId,
   sets,
   repertoire,
+  open = false,
 }: {
   eventId: string;
   sets: VendorSet[];
   /** The act's own repertoire — the only place a set song may come from. */
   repertoire: Song[];
+  /** Start open — the Set list hub tool (23 Nov), where the sets ARE the tool; the Song Desk keeps it closed. */
+  open?: boolean;
 }) {
+  const { updateVendorEventSet, createVendorEventSet, deleteVendorEventSet } = useContext(SetActionsContext);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
@@ -102,7 +118,7 @@ export function SetsPanel({
       label: `${title} removed from ${set.name}`,
       hide: () => setHiddenSongs((h) => new Set(h).add(setSongId)),
       restore: () => setHiddenSongs((h) => without(h, setSongId)),
-      commit: () => removeSongFromVendorEventSet(eventId, setSongId),
+      commit: () => updateVendorEventSet(eventId, set.setId, { removeSong: setSongId }),
       failed: `Couldn’t take ${title} out of ${set.name}. It’s back — try again.`,
     });
   const deleteSet = (set: VendorSet) =>
@@ -120,7 +136,7 @@ export function SetsPanel({
   const full = sets.length >= MAX_SETS;
 
   return (
-    <details className="group">
+    <details className="group" open={open}>
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-ink">
         <ChevronRight
           aria-hidden
@@ -245,6 +261,7 @@ function SetCard({
   onRemoveSong: (setSongId: string, title: string) => void;
   onDeleteSet: () => void;
 }) {
+  const { updateVendorEventSet, addSongToVendorEventSet } = useContext(SetActionsContext);
   const [editing, setEditing] = useState(false);
   const available = repertoireAvailableForSet({ repertoire, setSongs: set.songs });
 
@@ -283,7 +300,7 @@ function SetCard({
 
       {set.songs.length > 0 ? (
         <ul className="divide-y divide-[color:var(--m-line)]">
-          {set.songs.map((s) => (
+          {set.songs.map((s, i) => (
             <SwipeToDelete
               key={s.setSongId}
               as="li"
@@ -295,10 +312,32 @@ function SetCard({
               surfaceClass="bg-paper-deep"
             >
               <div className="flex min-h-14 min-w-0 items-center gap-2 py-1" data-set-song="">
+                <span className="w-5 shrink-0 text-right tabular-nums text-sm text-[color:var(--m-slate-2)]">{i + 1}</span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{s.title}</span>
                 {s.artist ? (
                   <span className="min-w-0 shrink truncate text-sm text-[color:var(--m-slate-2)]">{s.artist}</span>
                 ) : null}
+                {/* ⇅ THE ORDERED LIST (Set list hub tool, 23 Nov): one place up or down, saved as you press. */}
+                <ActionButton
+                  tone="neutral"
+                  iconOnly
+                  icon={ArrowUp}
+                  label="Up"
+                  name={`Move ${s.title} up`}
+                  disabled={pending || i === 0}
+                  onClick={() => run(() => updateVendorEventSet(eventId, set.setId, { moveSong: { setSongId: s.setSongId, dir: 'up' } }))}
+                  data-set-song-move="up"
+                />
+                <ActionButton
+                  tone="neutral"
+                  iconOnly
+                  icon={ArrowDown}
+                  label="Down"
+                  name={`Move ${s.title} down`}
+                  disabled={pending || i === set.songs.length - 1}
+                  onClick={() => run(() => updateVendorEventSet(eventId, set.setId, { moveSong: { setSongId: s.setSongId, dir: 'down' } }))}
+                  data-set-song-move="down"
+                />
               </div>
             </SwipeToDelete>
           ))}
@@ -382,6 +421,7 @@ function SetHeaderEditor({
   /** Delete the whole set (its songs go with it) — with Undo, from the panel. */
   onDelete: () => void;
 }) {
+  const { updateVendorEventSet } = useContext(SetActionsContext);
   const [name, setName] = useState(set.name);
   const [slot, setSlot] = useState<PlaylistSlotType>(set.slot);
 

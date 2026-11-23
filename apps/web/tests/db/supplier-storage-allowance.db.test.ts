@@ -6,7 +6,8 @@
  * Ultra 1 TB (sizes re-cut 22 Nov, "PLUS CUT TO 128 GB"). Every plan has an allowance (Free and Verified had none before).
  *
  *   · PARITY derives from the TypeScript side (`TIER_CAPS[t].storageBytes`), so editing one side alone turns CI red;
- *   · the database refuses NEW bytes past the allowance, as the shop itself under RLS;
+ *   · the database refuses NEW photo and video bytes past the allowance, as the shop itself under RLS — a document
+ *     always goes in (owner 23 Nov, the chat & documents room dropped: "Yes, drop it");
  *   · a link to a copy already counted is never refused; removing a file makes room; nothing is ever deleted;
  *   · GRANDFATHERED: a shop over a lowered allowance keeps every file, and only the next new bytes are refused;
  *   · the usage read is service-role only.
@@ -68,14 +69,15 @@ async function newShop(tier: VendorTier): Promise<Shop> {
   return { uid, shop, ev, ev2 };
 }
 
-/** The shop stores one copy of `bytes` (as itself, under RLS). */
-async function store(s: Shop, bytes: number): Promise<string> {
+/** The shop stores one copy of `bytes` (as itself, under RLS) — a photo unless `mime` says otherwise. */
+async function store(s: Shop, bytes: number, mime = 'image/jpeg'): Promise<string> {
   await asUser(s.uid);
   const n = ++seq;
+  const ext = mime === 'application/pdf' ? 'pdf' : 'jpg';
   const r = await db.query<{ m: string }>(
     `INSERT INTO public.supplier_media (vendor_profile_id, content_sha256, r2_ref, mime, size_bytes)
-     VALUES ($1, $2, $3, 'application/pdf', $4) RETURNING media_id AS m`,
-    [s.shop, n.toString(16).padStart(64, '0'), `r2://setnayan-thread-files/supplier-files/${s.shop}/ev/${n}.pdf`, bytes],
+     VALUES ($1, $2, $3, $4, $5) RETURNING media_id AS m`,
+    [s.shop, n.toString(16).padStart(64, '0'), `r2://setnayan-thread-files/supplier-files/${s.shop}/ev/${n}.${ext}`, mime, bytes],
   );
   await asOwner();
   return r.rows[0]!.m;
@@ -149,6 +151,15 @@ test('Free holds 256 MB — the next new byte past it is refused, in the supplie
   const s = await newShop('free');
   assert.equal((await file(s, await store(s, 256 * MB))).error, null, 'exactly 256 MB must fit');
   assert.match((await file(s, await store(s, 1))).error ?? '', /storage_allowance: this file does not fit the 256 MB your plan holds/);
+});
+
+test('a DOCUMENT past the plan still files and still counts; the next photo waits (owner 23 Nov, the room dropped)', async () => {
+  const s = await newShop('verified');
+  const cap = Number(TIER_CAPS.verified.storageBytes);
+  assert.equal((await file(s, await store(s, cap))).error, null, 'a photo filling the plan exactly must fit');
+  assert.equal((await file(s, await store(s, 5 * MB, 'application/pdf'))).error, null, 'a PDF past a full plan was refused');
+  assert.equal(await used(s.shop), cap + 5 * MB, 'the document was not counted');
+  assert.match((await file(s, await store(s, 1))).error ?? '', /storage_allowance/, 'a photo past the plan was let in');
 });
 
 test('a link to a copy already counted adds nothing and is never refused — even at full', async () => {

@@ -12,20 +12,22 @@ Owner, 23 Nov (DECISION_LOG "THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SH
 - **The Plans page meter** replaces the old Storage row, as the approved drawing does (`prototypes/supplier_storage_page_2026-11-22/`, § 1). It shows:
   - plan · size and the percent used;
   - one bar split Photos & video · Files · Records, with "X of Y used · Z free";
-  - the chat & documents room on its own line;
-  - a notice at 80% and 100% that names the space filling up.
+  - a notice at 80% and 100%.
   - Real usage only: a new shop reads its true few KB, never a reserve.
-- **The gate.** Every upload into a shop's own folders, and every file the shop sends in chat, is checked before it is signed:
-  - photos and video fit the plan less the chat & documents room;
-  - documents fit the room;
+- **One storage number per plan, no chat & documents room.** Owner 23 Nov: *"let us not set Room anymore?"* → *"Yes, drop it"*. When the plan is full, only new photos and videos wait:
+  - photos and video must fit the whole plan (`/api/upload` before it signs, and the database backstop `enforce_supplier_storage_allowance` when a copy is filed on an event);
+  - documents and chat files always go in, at both gates, and still count;
   - **evidence** (verification papers, contracts) is counted but never refused, even when the read fails;
   - words, quotes, receipts and payment proofs are never gated.
-- **The room size.** Owner 23 Nov: *"Free 50Mb - 5Mb · Verified 1Gb - 100Mb · Plus 50Gb - 5Gb · Pro 256Gb - 25Gb · Ultra 1Tb - 100 Gb"*. Rooms are Free 5 MB · Verified 100 MB · Plus 5 GB · Pro 25 GB · Ultra 100 GB (about a tenth of each plan), in one constant map (`DOCUMENTS_ROOM_RULED_BYTES`), never more than half the plan. The storage sizes themselves change in the storage-ladder PR.
+  - The storage sizes themselves change in the storage-ladder PR.
+- **A full Free shop is offered Get verified** (DECISION_LOG "SUPPLIER SIZES FIXED (FINAL)": "Full Free → Get verified"). The refusal ends "… or get verified, free: <what Verified gives, with its size>", not a paid plan (`storageWayUp`). Verified and up still name the next paid size.
 - Guards:
-  - `tests/db/the-meter-counts-every-shop-table.db.test.ts`: every shop table counted or left out with a reason; a new table counted; booking rows; a new shop's few KB; a busy shop's kinds; the media twin; service role only.
+  - `tests/db/the-meter-counts-every-shop-table.db.test.ts`: every shop table counted or left out with a reason; a new table counted; booking rows; a new shop's few KB; a busy shop's kinds and no room column; the media twin; service role only.
+  - `tests/db/supplier-storage-allowance.db.test.ts`: a document past a full plan still files and counts; the next photo is refused.
   - `lib/the-meter-counts-every-upload-root.test.ts`: every upload folder in the app is a counted shop root or a named non-shop root.
-  - `lib/supplier-storage.test.ts`: the room gate and evidence.
+  - `lib/supplier-storage.test.ts`: photos fit the whole plan; documents and evidence always go in.
+  - `lib/supplier-storage-records-are-honest.test.ts`: the meter has no room line, and a full plan's notice says documents still go through.
 
-**Migration `20271360925434_supplier_storage_meter_counts_everything`** (do-not-auto-merge): two service-role tables (RLS on, no policy), six functions and one pg_cron job. No price, no plan number, no write to any shop's data.
+**Migration `20271360925434_supplier_storage_meter_counts_everything`** (do-not-auto-merge): two service-role tables (RLS on, no policy), six functions and the filing backstop re-made so a document always goes in. No scheduler, no price, no plan number, no write to any shop's data.
 
-SPEC IMPACT: Free's chat & documents room. The ruled 0.5 GB is larger than Free's 256 MB plan (cut on 23 Nov, after the room was sized for a 1 GB Free). This build caps every room at half its plan (the Verified row's "the room never equals the whole plan"), so Free reads 128 MB. A DECISION_LOG row is needed from the controller. Otherwise this builds the ruled spec § ★ A (sizes) · H (meter block) · K (room, evidence).
+SPEC IMPACT: Spec § ★ H · K's chat & documents room is dropped by the owner (23 Nov, "Yes, drop it"): one storage number per plan, and only photos and videos wait when it is full. A DECISION_LOG row is needed (the storage-ladder session records it with the final sizes). Otherwise this builds the ruled spec § ★ A (sizes) · H (meter block) · K (evidence).

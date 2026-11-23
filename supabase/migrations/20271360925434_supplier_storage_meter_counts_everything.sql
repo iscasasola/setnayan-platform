@@ -19,24 +19,27 @@
 --       the object is deleted (`r2Delete`). Service role only.
 --   2 · `supplier_storage_records` — what the shop's DATA weighs: the real stored size (`pg_column_size` of each row)
 --       of every row in every table that names the shop, measured by a nightly job (and once, on a shop's first
---       Plans page view) — never a scan per page view. Chat messages are kept apart: they live in the chat &
---       documents room. Service role only.
+--       Plans page view) — never a scan per page view. Chat messages are kept apart (chat_bytes), still counted in
+--       Records. Service role only.
 --   3 · `supplier_storage_record_sources()` — the list of tables that name a shop (a foreign key to vendor_profiles
 --       or a uuid `vendor_profile_id` column), each counted, or not counted with its reason. A new table that names a
 --       shop is COUNTED by default — the test tests/db/the-meter-counts-every-shop-table.db.test.ts proves it.
 --   4 · `supplier_storage_measure_records(shop | NULL)` — the measure (one shop, or every shop in one pass per table).
 --   5 · `vendor_storage_files(shop)` — every stored file, live, split media / documents / evidence.
 --   6 · `vendor_storage_breakdown(shop)` — THE ONE READ the Plans page and /api/upload ask: Photos & video · Files ·
---       Records, the chat & documents room's use, the evidence share, when the records were measured.
+--       Records, the evidence share, when the records were measured.
 --   7 · `vendor_storage_used_bytes(shop)` — the total (files + the last measured records): the number the filing
 --       backstop `enforce_supplier_storage_allowance` and the limits sheet compare with the plan. Same signature.
 --   8 · the nightly measure is NOT scheduled here: this repo has no scheduler and cron.job stays empty. The app runs
 --       `supplier_storage_measure_records(NULL)` as a claimed periodic job, once per Manila night from 03:00, on
 --       request traffic (lib/supplier-storage-measure.server.ts, `supplier-storage-records`).
+--   9 · the filing backstop `enforce_supplier_storage_allowance` refuses only PHOTOS AND VIDEO past the plan. One number
+--       per plan, no chat & documents room (owner 23 Nov: "let us not set Room anymore?" → "Yes, drop it"): a document
+--       filed on an event always goes in, as /api/upload lets it.
 --
 -- Media = photos, video, audio and archives (zip can hide photos); everything else is a document (spec § ★ K).
--- Evidence (contracts, and uploads marked so) COUNTS but is never refused — the app's gate says so; nothing here
--- refuses anything new.
+-- Documents and evidence (contracts, and uploads marked so) COUNT but are never refused; only new photos and video wait
+-- when the plan is full (§ 9 and the app's gate).
 --
 -- RLS ON at CREATE (service-role-only pattern: no policy, privileges revoked from anon and authenticated).
 -- 🛑 NEVER APPLIED BY HAND. The pipeline (`supabase db push --include-all`) applies it.
@@ -46,7 +49,7 @@ BEGIN;
 
 -- ── 0 · what is media ──────────────────────────────────────────────────────
 -- TS twin: `isMediaContentType` (lib/supplier-storage.ts); parity held by the db test. An unknown type is media —
--- the chat & documents room is the smaller, reserved one, and nothing unknown may hide in it.
+-- only media waits when the plan is full, so nothing unknown may slip past the limit as a document.
 CREATE OR REPLACE FUNCTION public.supplier_storage_is_media(p_mime text)
 RETURNS boolean
 LANGUAGE sql
@@ -101,7 +104,7 @@ REVOKE ALL ON TABLE public.supplier_storage_records FROM PUBLIC, anon, authentic
 GRANT ALL ON TABLE public.supplier_storage_records TO service_role;
 
 COMMENT ON TABLE public.supplier_storage_records IS
-  'What a shop''s DATA weighs: the stored size (pg_column_size) of every row of every table that names the shop (supplier_storage_record_sources), chat messages apart (chat_bytes — the chat & documents room). Written only by supplier_storage_measure_records (nightly job; once on a shop''s first Plans page view). Owner 2026-11-23: "every data compiled to them is computed", "computed cheaply … never a scan per page view". Service role only.';
+  'What a shop''s DATA weighs: the stored size (pg_column_size) of every row of every table that names the shop (supplier_storage_record_sources), chat messages apart (chat_bytes, still part of Records). Written only by supplier_storage_measure_records (nightly job; once on a shop''s first Plans page view). Owner 2026-11-23: "every data compiled to them is computed", "computed cheaply … never a scan per page view". Service role only.';
 
 -- ── 3 · which tables name a shop, and whether each is counted ──────────────
 -- A table names a shop when it has a foreign key to vendor_profiles(vendor_profile_id), or a uuid column called
@@ -340,12 +343,13 @@ REVOKE ALL ON FUNCTION public.vendor_storage_files(uuid) FROM PUBLIC, anon, auth
 GRANT EXECUTE ON FUNCTION public.vendor_storage_files(uuid) TO service_role;
 
 -- ── 6 · THE ONE READ: Photos & video · Files · Records ─────────────────────
+-- Dropped first: an earlier draft of this read returned a room_bytes column, and a return type cannot be replaced.
+DROP FUNCTION IF EXISTS public.vendor_storage_breakdown(uuid);
 CREATE OR REPLACE FUNCTION public.vendor_storage_breakdown(p_vendor_profile_id uuid)
 RETURNS TABLE (
   photos_video_bytes  bigint,
   files_bytes         bigint,
   records_bytes       bigint,
-  room_bytes          bigint,
   evidence_bytes      bigint,
   records_measured_at timestamptz
 )
@@ -366,7 +370,6 @@ BEGIN
     SELECT f.media_bytes,
            f.documents_bytes,
            COALESCE(r.records_bytes, 0) + COALESCE(r.chat_bytes, 0),
-           f.documents_bytes + COALESCE(r.chat_bytes, 0),
            f.evidence_bytes,
            r.measured_at
       FROM public.vendor_storage_files(p_vendor_profile_id) f
@@ -377,7 +380,7 @@ REVOKE ALL ON FUNCTION public.vendor_storage_breakdown(uuid) FROM PUBLIC, anon, 
 GRANT EXECUTE ON FUNCTION public.vendor_storage_breakdown(uuid) TO service_role;
 
 COMMENT ON FUNCTION public.vendor_storage_breakdown(uuid) IS
-  'THE storage meter (owner 2026-11-23 "THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SHOP OWNS"): photos_video_bytes (photos, video, audio, archives) · files_bytes (every other file) · records_bytes (the shop''s data, chat included, as last measured) · room_bytes (the chat & documents room: non-media files + chat messages) · evidence_bytes (contracts and other kept papers — counted, never refused). Real usage only: no reserve. Read by lib/supplier-storage.server.ts readStorageBreakdown. Service role only — the app resolves the shop from the session first.';
+  'THE storage meter (owner 2026-11-23 "THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SHOP OWNS"): photos_video_bytes (photos, video, audio, archives) · files_bytes (every other file) · records_bytes (the shop''s data, chat included, as last measured) · evidence_bytes (contracts and other kept papers — counted, never refused). Real usage only: no reserve. Read by lib/supplier-storage.server.ts readStorageBreakdown. Service role only — the app resolves the shop from the session first.';
 
 -- ── 7 · the total, same signature ──────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.vendor_storage_used_bytes(p_vendor_profile_id uuid)
@@ -398,5 +401,75 @@ GRANT EXECUTE ON FUNCTION public.vendor_storage_used_bytes(uuid) TO service_role
 
 COMMENT ON FUNCTION public.vendor_storage_used_bytes(uuid) IS
   'Everything a shop stores against its plan (owner 2026-11-23 "THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SHOP OWNS"): every file (vendor_storage_files — event files, portfolio, Papic captures, chat files the shop sent, contracts, every other upload) plus its data as last measured (supplier_storage_records). Read by the filing backstop enforce_supplier_storage_allowance and the limits sheet. Service role only.';
+
+-- ── 9 · the filing backstop: only photos and video wait ────────────────────
+-- Same rule as before (a link to a counted copy adds nothing; new bytes past the plan are refused), except a DOCUMENT
+-- always goes in: one number per plan, no chat & documents room (owner 23 Nov, "Yes, drop it"). TS twin:
+-- `storageFitsUpload` (lib/supplier-storage.ts). The trigger on event_supplier_files is unchanged.
+CREATE OR REPLACE FUNCTION public.enforce_supplier_storage_allowance()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_tier   text;
+  v_mb     int;
+  v_words  text;
+  v_size   bigint;
+  v_mime   text;
+  v_used   bigint;
+BEGIN
+  IF NEW.media_id IS NULL THEN
+    RETURN NEW;                                   -- a link, a portfolio pointer or a chat document: no stored bytes
+  END IF;
+  IF TG_OP = 'UPDATE' AND NEW.media_id IS NOT DISTINCT FROM OLD.media_id THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT COALESCE(m.size_bytes, 0), m.mime INTO v_size, v_mime
+    FROM public.supplier_media m
+   WHERE m.media_id = NEW.media_id AND m.vendor_profile_id = NEW.vendor_profile_id;
+  IF FOUND AND NOT public.supplier_storage_is_media(v_mime) THEN
+    RETURN NEW;                                   -- a document: counted, never refused
+  END IF;
+
+  SELECT vp.tier_state::text INTO v_tier
+    FROM public.vendor_profiles vp WHERE vp.vendor_profile_id = NEW.vendor_profile_id;
+  v_mb := public.vendor_tier_limit(v_tier, 'storage_mb');
+  IF v_mb IS NULL THEN
+    RETURN NEW;                                   -- no allowance known: never refuse on a guess
+  END IF;
+
+  -- One shop's filings in a row, so two uploads racing for the last megabytes cannot both get in.
+  PERFORM pg_advisory_xact_lock(hashtext('supplier_storage:' || NEW.vendor_profile_id::text));
+
+  -- These bytes are already counted (another file of this shop points at the same copy): a link adds nothing.
+  IF EXISTS (
+    SELECT 1 FROM public.event_supplier_files f
+     WHERE f.media_id = NEW.media_id
+       AND f.vendor_profile_id = NEW.vendor_profile_id
+       AND (TG_OP = 'INSERT' OR f.file_id <> NEW.file_id)
+  ) THEN
+    RETURN NEW;
+  END IF;
+
+  v_used := public.vendor_storage_used_bytes(NEW.vendor_profile_id);
+
+  IF v_used + COALESCE(v_size, 0) > v_mb::bigint * 1000000 THEN
+    -- The size as the supplier reads it (lib/downgrade-limits.ts storageWords): "256 MB" · "2 GB" · "1 TB".
+    v_words := CASE
+      WHEN v_mb >= 1000000 AND v_mb % 1000000 = 0 THEN (v_mb / 1000000)::text || ' TB'
+      WHEN v_mb >= 1000 AND v_mb % 1000 = 0 THEN (v_mb / 1000)::text || ' GB'
+      ELSE v_mb::text || ' MB'
+    END;
+    RAISE EXCEPTION 'storage_allowance: this file does not fit the % your plan holds', v_words
+      USING ERRCODE = 'P0001',
+            HINT = 'Remove files from an event to make room, or move to a plan that holds more.';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.enforce_supplier_storage_allowance() FROM PUBLIC, anon, authenticated;
 
 COMMIT;

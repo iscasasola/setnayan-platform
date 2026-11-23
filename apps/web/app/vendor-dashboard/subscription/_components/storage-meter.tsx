@@ -7,7 +7,6 @@ import {
   STORAGE_UNREAD,
   meterWords,
   recordsMeasure,
-  roomLine,
   storageAllowanceBytes,
   storageMeterState,
   storageNotice,
@@ -24,9 +23,10 @@ import { asVendorTier } from '@/lib/vendor-tier-caps';
  * spec § ★ H). It REPLACES the old "Storage" row (drawing: "it became the top block of this page").
  *
  * The kinds are the owner's 23 Nov three, not the drawing's five (DECISION_LOG "THE SUPPLIER STORAGE METER COUNTS
- * EVERYTHING THE SHOP OWNS — FILES AND DATA" (4): "the meter shows the split Photos & video · Files · Records"). The
- * chat & documents room carries its own second line under the bar (spec § ★ H, the room's label delta). Real usage
- * only: no reserve, so a new shop reads its true few KB (owner 23 Nov, "No, real usage only").
+ * EVERYTHING THE SHOP OWNS — FILES AND DATA" (4): "the meter shows the split Photos & video · Files · Records"). One
+ * number per plan: the chat & documents room and its second line are gone (owner 23 Nov, "let us not set Room
+ * anymore?" → "Yes, drop it"). Real usage only: no reserve, so a new shop reads its true few KB (owner 23 Nov, "No,
+ * real usage only").
  *
  * The rows have no way in yet: each kind's own file list is the next build (spec § ★ G, Make room), so they are
  * statements, never presses. Colours are the category tokens (light and dark paired in globals.css), each with a word
@@ -44,11 +44,6 @@ const LEVEL_WORD: Record<'ok' | 'near' | 'full', string> = {
   ok: 'text-ink',
   near: 'text-warn-700',
   full: 'text-danger-600',
-};
-const LEVEL_FILL: Record<'ok' | 'near' | 'full', string> = {
-  ok: 'bg-cat-collect',
-  near: 'bg-warn-600',
-  full: 'bg-danger-600',
 };
 
 export function StorageMeter({
@@ -81,15 +76,11 @@ export function StorageMeter({
   const used = storageTotal(b);
   const state = storageMeterState(tier, b);
   if (!state) return null;
-  const { pct, level, roomLevel, roomPct } = state;
+  const { pct, level } = state;
   const notice = storageNotice(state);
   const over = used > allowance;
   const base = over ? used : allowance;
-  // Photos full but the plan not: the free part is the room, kept for chat and documents — never "8 GB free" alone.
-  const usedLine =
-    state.mediaPct >= 100 && !over
-      ? `${meterWords(used)} of ${storageWords(allowance)} used · the rest is kept for chat and documents`
-      : storageUsedLine(tier, used);
+  const usedLine = storageUsedLine(tier, used);
   const free = Math.max(0, allowance - used);
   // 🔑 HONEST RECORDS: a size never measured is not "0 KB" (lib/supplier-storage.ts `recordsMeasure`). The Records
   // row says "Not measured yet" and the used line says it counts files only; an old measure says how old it is.
@@ -150,13 +141,6 @@ export function StorageMeter({
       >
         {measuredLine}
       </p>
-
-      <div className="mt-3 border-t border-ink/10 pt-3" data-plan-storage-room={roomLevel}>
-        <p className="text-sn-md tabular-nums text-ink/70">{roomLine(tier, b.room)}</p>
-        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-ink/10" aria-hidden>
-          <i className={`block h-full ${LEVEL_FILL[roomLevel]}`} style={{ width: `${Math.min(100, roomPct)}%` }} />
-        </div>
-      </div>
 
       {notice ? (
         <ShopNotice tone={notice.tone} role={notice.tone === 'danger' ? 'alert' : 'status'} className="mt-3">

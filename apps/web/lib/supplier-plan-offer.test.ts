@@ -43,15 +43,15 @@ test('the landing after opening is the plan sheet with that row anchored, never 
 
 test('/for-suppliers paid-plan buttons carry the plan; the picker uses each card’s own door', () => {
   const front = readFileSync('app/for-suppliers/_components/supplier-front-page.tsx', 'utf8');
-  // 2026-11-23: the redraw's growth stairs replace the plan rows; every stair is built by `STAIR_TIERS.map(` and the
-  // paid ones carry their own door before the page's `return (` — the slice moved with them.
-  const at = front.indexOf('const stairs: StairCard[] = STAIR_TIERS.map(');
-  assert.ok(at > 0, 'anti-vacuity: the plan stairs are no longer built from STAIR_TIERS');
+  // 2026-11-23 redesign (v4.3.1): the plan cards are built by `STAIR_TIERS.map(` and the paid ones carry their own
+  // door before the page's `return (` — the slice moved with them.
+  const at = front.indexOf('const plans: PlanCard[] = STAIR_TIERS.map(');
+  assert.ok(at > 0, 'anti-vacuity: the plan cards are no longer built from STAIR_TIERS');
   const grow = front.slice(at, front.indexOf('return (', front.indexOf('Start on ', at)));
   assert.match(grow, /cta: `Start on \$\{step\.name\}`/, 'anti-vacuity: the paid stairs moved');
-  assert.match(grow, /href: openShopWithPlanHref\(t\)/, 'a "Start on <plan>" stair is back to a bare /open-shop');
+  assert.match(grow, /href: openShopWithPlanHref\(t\)/, 'a "Start on <plan>" card is back to a bare /open-shop');
   const client = readFileSync('app/for-suppliers/_components/supplier-front-client.tsx', 'utf8');
-  assert.match(client, /href=\{p\.href\}/, 'the stair button ignores the stair’s own door');
+  assert.match(client, /href=\{p\.href\}/, 'the plan card’s door ignores the card’s own href');
 });
 
 test('the plan sheet opens the offered plan’s row', () => {

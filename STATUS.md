@@ -9,6 +9,34 @@
 > previous picture; every number here was measured on 2026-09-28 and starts rotting at once —
 > re-measure with the command beside it before trusting it.
 
+## /for-suppliers redesign (owner-APPROVED 23 Nov) — build beside the drawing · 2026-11-23
+
+Branch `claude/zen-meitner-op074k` (draft PR; handed to Ship). Drawing: specs `prototypes/for_suppliers_redesign_2026-11-23/index.html`
+v4.3.1 (DECISION_LOG 2026-11-23 "/for-suppliers redesign APPROVED (owner)"). Build on the left, drawing on the right. Shot from
+`/dev/for-suppliers-lab` (the real `SupplierFrontPage` with fixture reads; the local env has no database). Clips are shown as
+their posters, because a full-page capture drops paused video frames.
+
+| Shot | File (`build-sessions/shots-for-suppliers-redesign/`) |
+|---|---|
+| 375 light · build vs drawing | `375-light-build-vs-drawing.jpg` |
+| 375 dark · build vs drawing | `375-dark-build-vs-drawing.jpg` (dark forced with `html.dark`; see note 1) |
+| 1280 light · build vs drawing | `1280-light-build-vs-drawing.jpg` |
+| 1280 dark · build vs drawing | `1280-dark-build-vs-drawing.jpg` |
+| The Toolkit "See all" sheet, 375 | `build-375-toolkit-sheet.jpg` |
+| "Open your shop" follows the reader | `build-375-follow.jpg` · `build-1280-follow.jpg` |
+| Every read failed (gifts, fee, tools) | `build-375-unread.jpg` |
+| The real route in the shell, dummy env | `route-375-dummy-env.jpg` |
+
+1. **Dark is not on for this page in production.** `/for-suppliers` is not on `DARK_READY` (`lib/appearance.ts`), and signed-out
+   visitors are always Light. The dark shots prove the tokens hold, ready for when the dark rollout lists the page.
+2. **⏭ TODO, Toolkit count (#8231).** The count line reads main's lists today (`SPECIALIZED_TOOLS` · `CARD_ORDER` ·
+   `SHOP_BADGE_KEYS`, = 33 on main), in `toolkitShelves` / `toolkitCountLine` (`supplier-front-data.ts`). When Toolkit v19 PR 2
+   (#8231) lands, switch it to `toolkitCountWords(toolkitCounts({ papicCapture, badges: SHOP_BADGE_KEYS }))`. The graphs then get
+   their names (`STORE_GRAPHS`). Until then the sheet's Graphs shelf shows its count only.
+3. **⏭ TODO, plan cards (#8217, #8231, #8219).** The drawing's "Keeps about N clients at a time*", its footnote and the new sizes
+   come with `lib/supplier-client-room.ts` (#8217). "Paid tools: buy each once" comes with #8231. "Plans are monthly" comes with
+   #8219. Until those land, the cards read main: the plan's role and `TIER_CAPS` storage, "Paid tools included", "per 4 weeks".
+
 ## Admin People records (build A4) — old page → new home · 2026-11-14
 
 Branch `claude/admin-people` (draft PR, `do-not-auto-merge`; the controller audits and ships). Drawing:

@@ -35,7 +35,8 @@ import { INVITE_THEME_IDS, INVITE_THEMES } from '@/lib/invite-themes';
 const WEB = join(import.meta.dirname, '..', '..', '..', '..');
 const read = (...p: string[]) => readFileSync(join(WEB, ...p), 'utf8');
 
-const CSS = read('app', 'globals.css');
+// 🎨 The 23 Nov redraw's theme blocks live in app/hub-themes.css (globals.css sits at its ceiling) — read both, as a themed page loads both.
+const CSS = `${read('app', 'globals.css')}\n${read('app', 'hub-themes.css')}`;
 const DOOR_DIR = join(WEB, 'app', '[slug]', 'invite', '_components', 'themes');
 const SITE_DIR = join(WEB, 'app', '[slug]', '_components', 'skins');
 

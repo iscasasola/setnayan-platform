@@ -377,6 +377,17 @@ export async function fetchV2VendorCatalogRead(): Promise<{ rows: V2VendorSku[];
  * to a single query per request even if several server components call it. The
  * fallbacks (= current catalog) only ever render if the DB is unreachable.
  */
+/**
+ * A paid plan's monthly price, formatted, from `getVendorPrices()` — THE ONE map from plan size to its catalogue
+ * price, shared by /for-suppliers and /for-coordinators (one ladder, one price). `null` = unread: show no figure.
+ */
+export function monthlyPlanPrice(
+  prices: { soloMonthly: string | null; proMonthly: string | null; enterpriseMonthly: string | null },
+  tier: 'solo' | 'pro' | 'enterprise',
+): string | null {
+  return { solo: prices.soloMonthly, pro: prices.proMonthly, enterprise: prices.enterpriseMonthly }[tier];
+}
+
 export const getVendorPrices = cache(async () => {
   const rows = await fetchV2VendorCatalog();
   const price = (code: string) => rows.find((r) => r.sku_code === code)?.price_php ?? null;

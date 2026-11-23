@@ -1,7 +1,7 @@
 /**
  * The date and place sheets' fixtures (PR5) — the approved prototype's own names and days
- * (`suppliers_date_place_help_tour_2026-10-10.html`): Seda Vertis North is booked (taken Dec 5), Bituin Catering is a
- * priced pick (taken Dec 26), Hiraya Table and Lumina Studio are free. Help me choose compares December 2026's
+ * (`suppliers_date_place_help_tour_2026-10-10.html`): Tala Grove Pavilion is booked (taken Dec 5), Bituin Catering is a
+ * priced pick (taken Dec 26), Hiraya Table and Tanglaw Frames are free. Help me choose compares December 2026's
  * Saturdays through the REAL filters (`fittingDates` · `daysFreeForPricedPicks`), so the lab shows what the rule does,
  * not a list typed to look right.
  */
@@ -24,10 +24,10 @@ export type LabFactOptions = {
 
 type Pick = { key: string; name: string; category: string; label: string; taken: string[]; confirmed: boolean; priced: boolean };
 const PICKS: Pick[] = [
-  { key: 'v-seda', name: 'Seda Vertis North', category: 'venue', label: 'Reception venue', taken: ['2026-12-05'], confirmed: true, priced: true },
+  { key: 'v-seda', name: 'Tala Grove Pavilion', category: 'venue', label: 'Reception venue', taken: ['2026-12-05'], confirmed: true, priced: true },
   { key: 'v-bituin', name: 'Bituin Catering', category: 'catering', label: 'Catering', taken: ['2026-12-26'], confirmed: false, priced: true },
   { key: 'v-hiraya', name: 'Hiraya Table', category: 'catering', label: 'Catering', taken: [], confirmed: false, priced: false },
-  { key: 'v-lumina', name: 'Lumina Studio', category: 'photographer', label: 'Photo & video', taken: [], confirmed: false, priced: true },
+  { key: 'v-lumina', name: 'Tanglaw Frames', category: 'photographer', label: 'Photo & video', taken: [], confirmed: false, priced: true },
 ];
 const SATURDAYS = ['2026-12-05', '2026-12-12', '2026-12-19', '2026-12-26'];
 
@@ -72,7 +72,7 @@ export function labDateSheet(o: LabFactOptions, month: string | null): DateSheet
           {
             vendorProfileId: 'p-seda',
             eventVendorIds: ['v-seda'],
-            name: 'Seda Vertis North',
+            name: 'Tala Grove Pavilion',
             answer: 'asked',
             dueAt: new Date(Date.now() + 2.5 * 86_400_000).toISOString(),
             overdue: false,
@@ -88,7 +88,7 @@ export function labDateSheet(o: LabFactOptions, month: string | null): DateSheet
     date: '2026-12-12',
     precision: 'day',
     ceremonyTime: '15:00',
-    bookedNames: o.venues === 'booked' ? ['Seda Vertis North'] : [],
+    bookedNames: o.venues === 'booked' ? ['Tala Grove Pavilion'] : [],
     // Seda's booking holds the event's day (Dec 12).
     bookedDay: o.venues === 'booked' ? '2026-12-12' : null,
     change,
@@ -109,7 +109,7 @@ export function labPlaceSheet(o: LabFactOptions): PlaceSheetData {
       {
         slot: 'ceremony',
         label: 'Ceremony',
-        booked: booked ? { name: 'Santuario de San Vicente de Paul', address: 'Tandang Sora Ave, Quezon City', pinned: true } : null,
+        booked: booked ? { name: 'Kapilya ng Liwayway', address: 'Tandang Sora Ave, Quezon City', pinned: true } : null,
         choice: {},
         typed: '',
         address: '',
@@ -119,7 +119,7 @@ export function labPlaceSheet(o: LabFactOptions): PlaceSheetData {
       {
         slot: 'reception',
         label: 'Reception',
-        booked: booked ? { name: 'Seda Vertis North', address: 'North Ave corner EDSA, Quezon City', pinned: true } : null,
+        booked: booked ? { name: 'Tala Grove Pavilion', address: 'North Ave corner EDSA, Quezon City', pinned: true } : null,
         choice: {},
         typed: booked ? '' : 'Casa Hiraya Garden',
         address: booked ? '' : '12 Mabini St, Quezon City',

@@ -51,10 +51,11 @@ test('a stored tune is sparse, finite, clamped and snapped — nothing else surv
   assert.deepEqual(resolveRevealTune(null), {});
   assert.deepEqual(resolveRevealTune([1, 2]), {});
   assert.deepEqual(
-    resolveRevealTune({ wind: 250, feather: 1, petalFall: 'fast', butterflyCount: Number.NaN, tilePx: 10, petalSize: 41.4 }),
-    { wind: 100, feather: 2, petalSize: 41 },
+    resolveRevealTune({ wind: 250, speed: 1, feather: 5, petalFall: 'fast', butterflyCount: Number.NaN, tilePx: 10, petalSize: 41.4 }),
+    { wind: 100, speed: 9, petalSize: 41 },
   );
-  assert.deepEqual(resolveRevealTune({ feather: 3.3 }), { feather: 3.5 }, 'the veil speed snaps to its half-second step');
+  assert.deepEqual(resolveRevealTune({ speed: 13 }), { speed: 12 }, 'the speed is one of 9 · 12 · 16, the nearest');
+  assert.deepEqual(resolveRevealTune({ feather: 3.3 }), {}, 'the retired veil-only feather is no longer a knob');
   // An untuned event's effects are byte-for-byte what they were.
   assert.equal('tune' in resolveRevealEffects({ petals: true }), false);
   assert.deepEqual(resolveRevealEffects({ tune: { wind: 20 } }).tune, { wind: 20 });
@@ -68,9 +69,9 @@ test('the tune lays over the house look, clamped; no tune is the house look unto
   assert.equal(same.veil, house.veil, 'an untuned event must get the very same house look');
   assert.equal(same.effects, house.effects);
 
-  const tuned = tuneRevealLooks(house, { wind: 5, petalFall: 90, feather: 99 });
+  const tuned = tuneRevealLooks(house, { wind: 5, petalFall: 90, speed: 99 });
   assert.equal(tuned.veil?.wind, 5);
-  assert.equal(tuned.veil?.feather, 8, 'clamped by the house resolver');
+  assert.equal(tuned.veil?.speed, 16, 'snapped by the resolvers');
   assert.equal(tuned.effects?.petalFall, 90);
   assert.equal(tuned.veil?.folds, house.veil.folds, 'a knob the couple never touched stays the house value');
   assert.equal(tuned.effects?.butterflySize, house.effects.butterflySize);
@@ -85,8 +86,8 @@ test('the opening on the guest page reads the tuned look, never the raw house lo
   const overlay = stripComments(read('app/[slug]/_components/reveal/reveal-overlay.tsx'));
   assert.match(overlay, /const looks = tuneRevealLooks\(config, eventEffects\?\.tune\);/);
   assert.match(overlay, /look=\{looks\.veil\}/, 'the veil plays the tuned look');
-  assert.equal((overlay.match(/effectLook=\{looks\.effects\}/g) ?? []).length, 2, 'both rigid openings play the tuned look');
-  assert.doesNotMatch(overlay, /look=\{config\?\.veil\}|effectLook=\{config\?\.effects\}/, 'a raw house look is back');
+  assert.match(overlay, /speedSec=\{looks\.veil\?\.speed\}/, 'the scene reveals play the tuned speed');
+  assert.doesNotMatch(overlay, /look=\{config\?\.veil\}|speedSec=\{config/, 'a raw house look is back');
 });
 
 /* ── 3 · only what the engine reads ──────────────────────────────────────── */
@@ -96,13 +97,14 @@ test('each opening offers only the knobs its engine reads', () => {
   const keys = (opening: string, fx = on) => revealTuneKnobsFor(opening, fx).map((k) => k.key);
   /* 2026-10-17: the veil's wind is Wind ▾ (Still · Breeze · Gusty, `lib/veil-style.ts`) on Cover Scene › Style — onto the
      same `tune.wind` — so the Sway slider is no longer offered beside it (one control per fact). */
-  assert.deepEqual(keys('veil-sheer'), ['feather', 'petalsDensity']);
-  assert.deepEqual(keys('veil-sheer', { petals: false, butterflies: false }), ['feather']);
-  assert.deepEqual(keys('church-doors'), ['petalDensity', 'petalSize', 'petalFall']);
-  for (const env of ['four-flap', 'two-flap-vertical', 'two-flap-horizontal']) {
-    assert.deepEqual(keys(env), ['butterflyCount', 'butterflySpeed', 'butterflySize'], env);
-    assert.deepEqual(keys(env, { petals: true, butterflies: false }), [], `${env}: no butterflies, nothing to tune`);
+  assert.deepEqual(keys('veil-sheer'), ['speed', 'petalsDensity']);
+  assert.deepEqual(keys('veil-sheer', { petals: false, butterflies: false }), ['speed']);
+  /* 🎭 The other eight of the nine reveals (23 Nov 2026): their speed alone — one speed, no timing of their own. */
+  for (const id of ['beach-curtains', 'envelope-classic', 'envelope-gatefold', 'fabric', 'scratch', 'smoke', 'cathedral-doors', 'petals', 'fireworks']) {
+    assert.deepEqual(keys(id), ['speed'], id);
   }
+  /* The retired openings offer nothing (a stored retired id is read as its successor before it gets here). */
+  for (const old of ['four-flap', 'two-flap-vertical', 'two-flap-horizontal', 'church-doors']) assert.deepEqual(keys(old), [], old);
   assert.deepEqual(keys('none'), []);
 });
 

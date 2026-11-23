@@ -112,7 +112,7 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
         </p>
       </div>
 
-      <form className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end" method="get">
+      <form className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end" method="get" action="/admin/receipts">
         <label className="space-y-1">
           <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             Month

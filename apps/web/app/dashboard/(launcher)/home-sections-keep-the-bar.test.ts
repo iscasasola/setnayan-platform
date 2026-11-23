@@ -16,7 +16,7 @@
  *
  * 🔑 A PROPERTY OF THE ROUTER, HELD AT ITS INPUTS. App Router preserves a layout's DOM across a navigation that stays
  * under it; that is the mechanism, and these three are the only ways a Home change could step outside it.
- * ⚠ NOT HELD HERE, AND NOT TRUE TODAY: Home → Discover. `/` (`app/page.tsx`) and `/dashboard` share no layout below
+ * ⚠ NOT HELD HERE, AND NOT TRUE TODAY: Home → Discover. `/` (`app/(hub)/page.tsx`) and `/dashboard` share no layout below
  * the root, so that tap mounts a new bar (the view-transition slide hides it). Moving the two under one layout is a
  * structural change outside a reposition build — raised to the owner in the PR, not papered over here.
  */
@@ -49,10 +49,10 @@ test('1 · every section of Home is an address on /dashboard itself — the same
 });
 
 test('2 · the bar, the rail and the top bar are the layout\'s — Home\'s page and pieces draw none of them', () => {
-  const layout = src('app/dashboard/(launcher)/layout.tsx');
+  const layout = src('app/(hub)/layout.tsx');
   assert.match(layout, /<AccountBarSlot\b/, 'the account bar left the layout');
   assert.match(layout, /<AppRailShell\b/, 'the rail and the top bar left the layout');
-  for (const rel of ['app/dashboard/(launcher)/page.tsx', ...HOME_PIECES]) {
+  for (const rel of ['app/(hub)/dashboard/page.tsx', ...HOME_PIECES]) {
     const code = src(rel);
     assert.ok(
       !/<AccountBarSlot\b|<AccountBottomNav\b|<AppRailShell\b|<BottomDock\b|<BottomNav\b/.test(code),

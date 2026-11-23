@@ -136,11 +136,11 @@ test('the home page links the Privacy Policy and the Terms', async () => {
 });
 
 test("the home page's <title> starts with the app name", () => {
-  const src = stripComments(readFileSync(path.join(APP, 'page.tsx'), 'utf8'));
+  const src = stripComments(readFileSync(path.join(APP, '(hub)', 'page.tsx'), 'utf8'));
   const m = /const HOME_TITLE\s*=\s*'([^']+)'/.exec(src);
-  assert.ok(m, 'HOME_TITLE is gone from app/page.tsx');
+  assert.ok(m, 'HOME_TITLE is gone from app/(hub)/page.tsx');
   assert.match(m[1] ?? '', /^Setnayan\b/, `The home <title> "${m[1]}" must lead with "Setnayan".`);
-  assert.match(src, /title:\s*HOME_TITLE/, 'app/page.tsx metadata no longer uses HOME_TITLE as its title.');
+  assert.match(src, /title:\s*HOME_TITLE/, 'app/(hub)/page.tsx metadata no longer uses HOME_TITLE as its title.');
 });
 
 /* ── /privacy ──────────────────────────────────────────────────────────── */

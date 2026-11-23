@@ -45,7 +45,7 @@ const INTERNAL: ReadonlyArray<{ file: string; has: string; why: string }> = [
   },
   // Owner 2026-10-23: "keep the SEO keyword as gallery" — search keywords are
   // page metadata (what people type into a search box), never drawn on screen.
-  { file: 'app/page.tsx', has: 'wedding photo gallery app', why: 'SEO metadata keyword' },
+  { file: 'app/(hub)/page.tsx', has: 'wedding photo gallery app', why: 'SEO metadata keyword' },
   { file: 'app/(shell)/papic/page.tsx', has: 'guest photo gallery', why: 'SEO metadata keyword' },
   { file: 'app/(shell)/papic/page.tsx', has: 'shared wedding gallery', why: 'SEO metadata keyword' },
   { file: 'lib/feature-pages/day-memories.ts', has: 'wedding photo gallery', why: 'SEO metadata keyword (feature-pages/seo.ts)' },

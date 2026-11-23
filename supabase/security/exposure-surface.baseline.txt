@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8299
+# facts: 8315
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     668
-#   col       5975
-#   policy    1217
+#   tpriv     670
+#   col       5986
+#   policy    1220
 #   view      10
 #   func      425
 #
@@ -516,6 +516,8 @@ tpriv	public.vendor_admin_motion_votes|authenticated	SIUD
 tpriv	public.vendor_admin_motions|anon	SIUD
 tpriv	public.vendor_admin_motions|authenticated	SIUD
 tpriv	public.vendor_album_opens|authenticated	SIU
+tpriv	public.vendor_app_store_plan_tokens|authenticated	S
+tpriv	public.vendor_app_store_reversals|authenticated	S
 tpriv	public.vendor_app_store_subscriptions|authenticated	S
 tpriv	public.vendor_availability_freed|anon	SIUD
 tpriv	public.vendor_availability_freed|authenticated	SIUD
@@ -5162,6 +5164,17 @@ col	public.vendor_album_opens.album_key	anon=- authenticated=SIU
 col	public.vendor_album_opens.album_kind	anon=- authenticated=SIU
 col	public.vendor_album_opens.opened_at	anon=- authenticated=SIU
 col	public.vendor_album_opens.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_app_store_plan_tokens.app_account_token	anon=- authenticated=S
+col	public.vendor_app_store_plan_tokens.created_at	anon=- authenticated=S
+col	public.vendor_app_store_plan_tokens.product_id	anon=- authenticated=S
+col	public.vendor_app_store_plan_tokens.user_id	anon=- authenticated=S
+col	public.vendor_app_store_plan_tokens.vendor_profile_id	anon=- authenticated=S
+col	public.vendor_app_store_reversals.notification	anon=- authenticated=S
+col	public.vendor_app_store_reversals.original_transaction_id	anon=- authenticated=S
+col	public.vendor_app_store_reversals.recorded_at	anon=- authenticated=S
+col	public.vendor_app_store_reversals.reversal_id	anon=- authenticated=S
+col	public.vendor_app_store_reversals.status	anon=- authenticated=S
+col	public.vendor_app_store_reversals.transaction_id	anon=- authenticated=S
 col	public.vendor_app_store_subscriptions.auto_renew_product_id	anon=- authenticated=S
 col	public.vendor_app_store_subscriptions.billing_failed_at	anon=- authenticated=S
 col	public.vendor_app_store_subscriptions.created_at	anon=- authenticated=S
@@ -7574,6 +7587,9 @@ policy	public.vendor_admin_motions|vendor_admin_motions_admin_read	mode=PERMISSI
 policy	public.vendor_album_opens|vendor_album_opens_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_album_opens|vendor_album_opens_vendor_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.vendor_album_opens|vendor_album_opens_vendor_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.vendor_app_store_plan_tokens|vendor_app_store_plan_tokens_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.vendor_app_store_plan_tokens|vendor_app_store_plan_tokens_shop_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=NULL
+policy	public.vendor_app_store_reversals|vendor_app_store_reversals_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.vendor_app_store_subscriptions|vendor_app_store_subscriptions_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.vendor_app_store_subscriptions|vendor_app_store_subscriptions_shop_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=NULL
 policy	public.vendor_availability_freed|vaf_owner_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL

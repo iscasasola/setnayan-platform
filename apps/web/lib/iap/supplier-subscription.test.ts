@@ -36,6 +36,10 @@ const srv = () => import('./supplier-subscription.server');
 
 const SHOP_A = '11111111-1111-4111-8111-111111111111';
 const SHOP_B = '22222222-2222-4222-8222-222222222222';
+/** Tokens the SERVER issued at purchase start (vendor_app_store_plan_tokens), one per shop. */
+const TOKEN_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const TOKEN_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const ISSUED = { [TOKEN_A]: SHOP_A, [TOKEN_B]: SHOP_B };
 const PRO = 'com.setnayan.app.supplier_pro_monthly';
 const ULTRA = 'com.setnayan.app.supplier_ultra_monthly';
 const PLUS = 'com.setnayan.app.supplier_plus_monthly';
@@ -57,7 +61,7 @@ function tx(over: Record<string, unknown> = {}): Record<string, unknown> {
     productId: PRO,
     type: 'Auto-Renewable Subscription',
     inAppOwnershipType: 'PURCHASED',
-    appAccountToken: SHOP_A,
+    appAccountToken: TOKEN_A,
     environment: 'Sandbox',
     purchaseDate: Date.parse('2026-11-22T00:00:00Z'),
     expiresDate: Date.parse('2026-12-22T00:00:00Z'),
@@ -83,19 +87,41 @@ function notification(type: string, subtype: string | null, t: Record<string, un
 
 type Call = { fn: string; args: Record<string, unknown> };
 
-/** A service-role client double: the map read answers `mapped`, each RPC answers from `answers`. */
-function fakeAdmin(opts: { mapped?: string | null; mapError?: boolean; answers?: Record<string, unknown>; rpcError?: string } = {}) {
+/**
+ * A service-role client double: the map read answers `mapped`, the token read answers from `tokens` (the tokens the
+ * server issued → their shop), each RPC answers from `answers`.
+ */
+function fakeAdmin(
+  opts: {
+    mapped?: string | null;
+    mapError?: boolean;
+    tokens?: Record<string, string>;
+    tokenError?: boolean;
+    answers?: Record<string, unknown>;
+    rpcError?: string;
+  } = {},
+) {
   const calls: Call[] = [];
   const admin = {
     from(table: string) {
-      assert.equal(table, 'vendor_app_store_subscriptions');
+      assert.ok(table === 'vendor_app_store_subscriptions' || table === 'vendor_app_store_plan_tokens', table);
+      let key = '';
       const chain = {
         select: () => chain,
-        eq: () => chain,
-        maybeSingle: async () =>
-          opts.mapError
+        eq: (_col: string, value: string) => {
+          key = value;
+          return chain;
+        },
+        maybeSingle: async () => {
+          if (table === 'vendor_app_store_plan_tokens') {
+            if (opts.tokenError) return { data: null, error: { message: 'boom' } };
+            const shop = opts.tokens?.[key];
+            return { data: shop ? { vendor_profile_id: shop } : null, error: null };
+          }
+          return opts.mapError
             ? { data: null, error: { message: 'boom' } }
-            : { data: opts.mapped ? { vendor_profile_id: opts.mapped } : null, error: null },
+            : { data: opts.mapped ? { vendor_profile_id: opts.mapped } : null, error: null };
+        },
       };
       return chain;
     },
@@ -152,20 +178,20 @@ test('another app, a consumable, an unknown product and no expiry are refused', 
   assert.deepEqual(readAppleSubscriptionTransaction(tx({ productId: 'com.setnayan.app.event_pro' })), { ok: false, reason: 'not_a_supplier_plan' });
   assert.deepEqual(readAppleSubscriptionTransaction(tx({ type: 'Consumable' })), { ok: false, reason: 'not_subscription' });
   assert.deepEqual(readAppleSubscriptionTransaction(tx({ expiresDate: undefined })), { ok: false, reason: 'no_expiry' });
-  const ok = readAppleSubscriptionTransaction(tx({ appAccountToken: SHOP_A.toUpperCase() }));
-  assert.ok(ok.ok && ok.tx.appAccountToken === SHOP_A && ok.tx.product.tier === 'pro');
+  const ok = readAppleSubscriptionTransaction(tx({ appAccountToken: TOKEN_A.toUpperCase() }));
+  assert.ok(ok.ok && ok.tx.appAccountToken === TOKEN_A && ok.tx.product.tier === 'pro');
 });
 
 // ── One test per notification type ───────────────────────────────────────────
 
-test('SUBSCRIBED → the plan, for the shop the appAccountToken names, until Apple’s expiresDate', async () => {
-  const { admin, calls } = fakeAdmin({ mapped: null });
+test('SUBSCRIBED → the plan, for the shop the server issued the token for, until Apple’s expiresDate', async () => {
+  const { admin, calls } = fakeAdmin({ mapped: null, tokens: ISSUED });
   const r = await handle(notification('SUBSCRIBED', 'INITIAL_BUY'), admin);
   assert.deepEqual(r, { http: 200, what: 'supplier plan on' });
   assert.equal(calls.length, 1);
   const a = calls[0]!.args;
   assert.equal(calls[0]!.fn, 'app_store_supplier_plan_apply');
-  assert.equal(a.p_vendor_id, SHOP_A);
+  assert.equal(a.p_vendor_id, SHOP_A, 'the grant went to the token, not to the shop the token was issued for');
   assert.equal(a.p_original_tx, 'orig-1');
   assert.equal(a.p_tier, 'pro');
   assert.equal(a.p_sku_code, 'pro_vendor_monthly');
@@ -282,16 +308,100 @@ test('a first purchase must name one of the caller’s OWN shops', async () => {
 });
 
 test('a notification for a mapped subscription follows the subscription, never a different token', async () => {
-  const { admin, calls } = fakeAdmin({ mapped: SHOP_A });
+  const { admin, calls } = fakeAdmin({ mapped: SHOP_A, tokens: ISSUED });
   faults.length = 0;
-  const o = await (await srv()).applySupplierPlanPeriod(admin, (readAppleSubscriptionTransaction(tx({ appAccountToken: SHOP_B })) as { ok: true; tx: never }).tx, 'DID_RENEW', null, fault);
+  const o = await (await srv()).applySupplierPlanPeriod(admin, (readAppleSubscriptionTransaction(tx({ appAccountToken: TOKEN_B })) as { ok: true; tx: never }).tx, 'DID_RENEW', null, fault);
   assert.equal(o.status, 'on');
   assert.equal(calls[0]!.args.p_vendor_id, SHOP_A);
   assert.equal(faults.length, 1, 'the cross-shop door was not recorded for a person');
 });
 
+// ── Shop binding: the server names the shop (follow-up to #8166) ──────────────
+
+test('BINDING · a notification whose token the server never issued grants nothing, and a person is told', async () => {
+  // A payer put another shop's id where the token goes: the token is never read as a shop.
+  const { admin, calls } = fakeAdmin({ mapped: null, tokens: ISSUED });
+  faults.length = 0;
+  const r = await handle(notification('SUBSCRIBED', 'INITIAL_BUY', tx({ appAccountToken: SHOP_B })), admin);
+  assert.deepEqual(r, { http: 200, what: 'supplier plan refused: unknown_token' });
+  assert.equal(calls.length, 0, 'an unknown token reached the grant');
+  assert.equal(faults.length, 1, 'an unknown token was not logged for a person');
+  assert.match(faults[0]!, /never issued/);
+});
+
+test('BINDING · a failed token read is a 500 (Apple retries), never a guess', async () => {
+  const { admin, calls } = fakeAdmin({ mapped: null, tokenError: true });
+  assert.equal((await handle(notification('SUBSCRIBED', 'INITIAL_BUY'), admin))?.http, 500);
+  assert.equal(calls.length, 0);
+});
+
+test('BINDING · the app’s confirm grants only to the paired shop, and only when the caller manages it', async () => {
+  const s = await srv();
+  // Token issued for shop B, confirmed by someone who manages only shop A: refused.
+  const other = fakeAdmin({ mapped: null, tokens: ISSUED });
+  const refused = await s.confirmSupplierPlanJws(other.admin, jws(tx({ appAccountToken: TOKEN_B })), async () => [SHOP_A], [], fault, verify);
+  assert.deepEqual(refused?.result, { status: 'refused', reason: 'not_yours' });
+  assert.equal(other.calls.length, 0);
+  // Token issued for shop A, confirmed by its manager: on, for shop A.
+  const own = fakeAdmin({ mapped: null, tokens: ISSUED });
+  const ok = await s.confirmSupplierPlanJws(own.admin, jws(tx()), async () => [SHOP_A], [], fault, verify);
+  assert.equal(ok?.result.status, 'on');
+  assert.equal(own.calls[0]!.args.p_vendor_id, SHOP_A);
+});
+
+test('BINDING · a purchase from before tokens were issued lands through the app ONLY when the session proves the shop', async () => {
+  const s = await srv();
+  const legacy = tx({ appAccountToken: SHOP_A });
+  const app = fakeAdmin({ mapped: null, tokens: ISSUED });
+  const ok = await s.confirmSupplierPlanJws(app.admin, jws(legacy), async () => [SHOP_A], [], fault, verify);
+  assert.equal(ok?.result.status, 'on');
+  assert.equal(app.calls[0]!.args.p_vendor_id, SHOP_A);
+  // The same transaction from Apple alone (no session): an unknown token, nothing granted.
+  const apple = fakeAdmin({ mapped: null, tokens: ISSUED });
+  faults.length = 0;
+  assert.deepEqual(await handle(notification('SUBSCRIBED', 'INITIAL_BUY', legacy), apple.admin), {
+    http: 200,
+    what: 'supplier plan refused: unknown_token',
+  });
+  assert.equal(apple.calls.length, 0);
+});
+
+test('BINDING · the phone never names the shop: the door sends no shop, and the store asks the server for the token first', () => {
+  const store = stripComments(readFileSync(join(HERE, 'supplier-plan-store.ts'), 'utf8'));
+  const start = store.indexOf('startAppStorePurchase({');
+  const sheet = store.indexOf("callNativeStore<PurchaseAnswer>('purchase'");
+  assert.ok(start > 0 && sheet > start, 'Apple’s sheet opens before the server issued the token');
+  assert.match(store, /appAccountToken: started\.token/);
+  assert.doesNotMatch(store, /shopToken|vendor_profile_id/);
+  const door = stripComments(
+    readFileSync(join(HERE, '../../app/vendor-dashboard/subscription/_components/apple-plan-door.tsx'), 'utf8'),
+  );
+  assert.doesNotMatch(door, /shopToken|appAccountToken/);
+  const actions = stripComments(readFileSync(join(HERE, 'iap-actions.ts'), 'utf8'));
+  assert.match(actions, /startSupplierPlanForUser\(userId, plan\)/);
+});
+
+// ── Order of delivery (follow-up to #8166) ───────────────────────────────────
+
+test('ORDER · a REFUND before its SUBSCRIBED is kept (200), and that SUBSCRIBED then grants nothing — quietly', async () => {
+  const early = fakeAdmin({ mapped: null, answers: { app_store_supplier_plan_end: { recorded: 'refunded', granted: false } } });
+  const r = await handle(notification('REFUND', null, tx({ revocationDate: Date.now() })), early.admin);
+  assert.deepEqual(r, { http: 200, what: 'supplier plan refunded: recorded before any grant' });
+  assert.equal(early.calls[0]!.args.p_tx_id, 'tx-1');
+
+  const late = fakeAdmin({ mapped: null, tokens: ISSUED, answers: { app_store_supplier_plan_apply: { refused: 'reversed', vendor_id: null } } });
+  faults.length = 0;
+  const s = await handle(notification('SUBSCRIBED', 'INITIAL_BUY'), late.admin);
+  assert.deepEqual(s, { http: 200, what: 'supplier plan refused: reversed' });
+  assert.equal(faults.length, 0, 'a refunded transaction was logged as "Apple charged, nothing granted"');
+  // The app's confirm of that transaction says it was refunded, so the phone finishes it.
+  const app = fakeAdmin({ mapped: null, tokens: ISSUED, answers: { app_store_supplier_plan_apply: { refused: 'reversed', vendor_id: null } } });
+  const out = await (await srv()).confirmSupplierPlanJws(app.admin, jws(tx()), async () => [SHOP_A], [], fault, verify);
+  assert.deepEqual(out?.result, { status: 'refunded' });
+});
+
 test('a grant the database refuses (web-billed shop) is 200 and recorded for a person — Apple charged, nothing granted', async () => {
-  const { admin } = fakeAdmin({ mapped: null, answers: { app_store_supplier_plan_apply: { refused: 'web_billed', vendor_id: SHOP_A } } });
+  const { admin } = fakeAdmin({ mapped: null, tokens: ISSUED, answers: { app_store_supplier_plan_apply: { refused: 'web_billed', vendor_id: SHOP_A } } });
   faults.length = 0;
   const r = await handle(notification('SUBSCRIBED', 'INITIAL_BUY'), admin);
   assert.deepEqual(r, { http: 200, what: 'supplier plan refused: web_billed' });

@@ -28,7 +28,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const src = readFileSync(join(here, 'page.tsx'), 'utf8');
+const src = readFileSync(join(here, '..', '..', '(hub)', 'dashboard', 'page.tsx'), 'utf8');
 
 const START = 'EVERY READ BELOW STARTS AT ONCE';
 const WAIT = 'THE ONE WAIT';

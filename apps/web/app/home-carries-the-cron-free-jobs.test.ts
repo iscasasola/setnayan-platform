@@ -2,7 +2,7 @@
  * GUARD — the homepage is a SCHEDULER, and replacing it must not silently
  * switch three background jobs off.
  *
- * `app/page.tsx` is about to be replaced: the owner ruled on 2026-08-13 that
+ * `app/(hub)/page.tsx` is about to be replaced: the owner ruled on 2026-08-13 that
  * the new front door becomes `/` and the June cinematic homepage is retired
  * completely. The visible half of that swap is obvious. **The invisible half is
  * this file.**
@@ -38,7 +38,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const PAGE = join(__dirname, 'page.tsx');
+const PAGE = join(__dirname, '(hub)', 'page.tsx');
 const SRC = readFileSync(PAGE, 'utf8');
 
 /** Source with comments stripped, so a mention in a docblock can never satisfy
@@ -71,7 +71,7 @@ const JOBS = [
 
 test('ANCHOR — the page source was actually read', () => {
   // Every assertion below passes vacuously against an empty string.
-  assert.ok(SRC.length > 2000, `app/page.tsx read as ${SRC.length} chars — too short to be the real page`);
+  assert.ok(SRC.length > 2000, `app/(hub)/page.tsx read as ${SRC.length} chars — too short to be the real page`);
   assert.ok(CODE.includes('export default'), 'comment-stripping ate the code; the scan would prove nothing');
 });
 
@@ -79,7 +79,7 @@ for (const { fn, what } of JOBS) {
   test(`/ still schedules ${fn} — ${what}`, () => {
     assert.ok(
       CODE.includes(fn),
-      `app/page.tsx no longer references ${fn}.\n` +
+      `app/(hub)/page.tsx no longer references ${fn}.\n` +
         `That job replaced a RETIRED CRON — there is no scheduler behind it, so ` +
         `dropping it silently stops ${what}. Nothing will throw. Carry the after() ` +
         `call into the new page rather than deleting this guard.`,
@@ -90,7 +90,7 @@ for (const { fn, what } of JOBS) {
     const scheduled = new RegExp(String.raw`after\(\s*\(\s*\)\s*=>\s*[^)]*\b${fn}\b`);
     assert.ok(
       scheduled.test(CODE),
-      `${fn} appears in app/page.tsx but is not inside an after(() => …) call. ` +
+      `${fn} appears in app/(hub)/page.tsx but is not inside an after(() => …) call. ` +
         `An import that nothing schedules is exactly the shape of this bug.`,
     );
   });
@@ -102,7 +102,7 @@ test('/ re-renders often enough for the jobs to fire — per request, or within 
      page with no window would starve them. */
   const perRequest = /await\s+searchParams\b/.test(CODE) || /export\s+const\s+dynamic\s*=\s*'force-dynamic'/.test(CODE);
   const m = CODE.match(/export\s+const\s+revalidate\s*=\s*(\d+)/);
-  assert.ok(perRequest || m, 'app/page.tsx is neither request-rendered nor revalidated — the cron-free jobs would almost never run');
+  assert.ok(perRequest || m, 'app/(hub)/page.tsx is neither request-rendered nor revalidated — the cron-free jobs would almost never run');
   if (m) {
     const seconds = Number(m[1]);
     assert.ok(

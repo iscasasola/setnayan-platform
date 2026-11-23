@@ -53,6 +53,8 @@ export const STORIES_SEE_ALL_HREF = '/?stories=1';
 export const INSPIRATION_SEE_ALL_HREF = '/?inspiration=1';
 /** Service cards' "See all" — the supplier view on `/`, which leads with service cards (`isLandingView`). */
 export const SERVICE_CARDS_SEE_ALL_HREF = '/?browse=1';
+/** Articles' "See all" — Build 2's feed (`/articles`; ruled 18 Nov on #7935). */
+export const ARTICLES_SEE_ALL_HREF = '/articles';
 
 /**
  * Signed out, the address `/` would otherwise answer with something other than the front door → where to send the

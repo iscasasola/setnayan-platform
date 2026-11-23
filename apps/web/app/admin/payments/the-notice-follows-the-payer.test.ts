@@ -453,7 +453,7 @@ function subdirs(dir: string, prefix: string): string[] {
  *   · the literal directory;
  *   · a `[param]` directory, which a concrete id fills;
  *   · a `(group)` directory, which is TRANSPARENT to the URL — `/dashboard` is
- *     served by `app/dashboard/(launcher)/page.tsx`, so the group is re-entered
+ *     served by `app/(hub)/dashboard/page.tsx`, so the group is re-entered
  *     for the SAME segment rather than consuming it.
  */
 function servesRoute(dir: string, segments: readonly string[]): boolean {

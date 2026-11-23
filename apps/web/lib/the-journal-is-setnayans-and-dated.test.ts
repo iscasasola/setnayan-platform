@@ -69,7 +69,7 @@ const PERSONAL_READS: [string, RegExp][] = [
   ['lib/creator-public.ts', /fetchPublishedChaptersResult[\s\S]*?\.eq\('is_journal', false\)[\s\S]*?fetchPublishedChapterByPublicId/],
   ['lib/creator-public.ts', /fetchPublishedChapterByPublicId\([\s\S]*?\.eq\('is_journal', false\)[\s\S]*?fetchPublishedChapterForShare/],
   ['lib/creator-public.ts', /fetchPublishedChapterForShare\([\s\S]*?\.eq\('is_journal', false\)/],
-  ['app/dashboard/(launcher)/page.tsx', /select\('event_id, status'\)\s*\.eq\('user_id', user\.id\)\s*\.eq\('is_journal', false\)/],
+  ['app/(hub)/dashboard/page.tsx', /select\('event_id, status'\)\s*\.eq\('user_id', user\.id\)\s*\.eq\('is_journal', false\)/],
   ['app/_components/frontdoor/command-data.ts', /\{ count: 'exact', head: true \}\)\s*\.eq\('user_id', user\.id\)\s*\.eq\('is_journal', false\)/],
   ['app/_components/frontdoor/rail-data.ts', /\{ count: 'exact', head: true \}\)\s*\.eq\('user_id', user\.id\)\s*\.eq\('is_journal', false\)/],
   ['app/dashboard/(account)/creator/page.tsx', /\.eq\('user_id', userId\)\s*\.eq\('is_journal', false\)/],

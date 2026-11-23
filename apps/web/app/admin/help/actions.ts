@@ -10,14 +10,33 @@ import { renderBrandedEmail } from '@/lib/email-template';
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
+import { ADMIN_HELP_TOPICS } from '@/lib/help-admin';
+import { askHelp } from '@/lib/help-ask-core';
+import { logHelpAsk } from '@/lib/help-asks.server';
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim();
   return t.length > 0 ? t : null;
 }
 
+/**
+ * ❓ THE TEAM'S ASK rides THIS action (`intent=ask`, from /admin/help/guides' ask box) — not a new export, the
+ * server-action budget is full. Admin only; it finds the answer in the team guides, writes ONE `help_asks` row
+ * (coverage `team`, bounded per hour in `logHelpAsk`) and lands back on the team's Help with the words. The page
+ * itself never writes a row.
+ */
+async function recordTeamAsk(formData: FormData): Promise<void> {
+  const raw = formData.get('q');
+  const words = typeof raw === 'string' ? raw.trim().slice(0, 120) : '';
+  if (!words) redirect('/admin/help/guides');
+  const ask = askHelp(words, ADMIN_HELP_TOPICS);
+  await logHelpAsk({ words, coverage: 'team', surface: 'web', outcome: ask.outcome, articleSlug: ask.best?.slug ?? null });
+  redirect(`/admin/help/guides?${new URLSearchParams({ q: words }).toString()}`);
+}
+
 export async function setHelpMessageStatus(formData: FormData) {
   const { userId } = await requireAdmin();
+  if (formData.get('intent') === 'ask') return recordTeamAsk(formData);
   const messageId = formData.get('message_id');
   const statusRaw = formData.get('status');
   const adminNotes = nullIfBlank(formData.get('admin_notes'));

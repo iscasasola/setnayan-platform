@@ -1,4 +1,6 @@
 import { startAhead } from '@/lib/start-ahead';
+import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
+import { canonicalRevealId } from '@/lib/reveal-config-pure';
 import { venueTimezone } from '@/lib/event-clock.server';
 import { clockRowOf } from '@/lib/event-clock';
 import { mainBackgroundRowOffered } from '@/lib/main-background-offered';
@@ -1408,9 +1410,12 @@ export default async function WebsiteEditorPage({
           panel: (
             <StdPanel
               eventId={eventId}
-              openingLabel={String(
-                (event as { std_reveal_template?: string | null }).std_reveal_template ?? 'sheer veil',
-              ).replace(/_/g, ' ')}
+              /* 🎭 The reveal's own name (`REVEAL_LIBRARY`); a retired opening is named as the reveal it now plays. */
+              openingLabel={
+                REVEAL_LIBRARY.find(
+                  (r) => r.id === (canonicalRevealId((event as { std_reveal_template?: string | null }).std_reveal_template) ?? 'veil-sheer'),
+                )?.label ?? 'Veil'
+              }
               themeLabel={
                 (event as { std_theme?: string | null }).std_theme?.replace(/_/g, ' ') ?? null
               }

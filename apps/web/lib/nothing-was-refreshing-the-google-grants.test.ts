@@ -83,7 +83,7 @@ test('something claims it, and the home page actually calls that', () => {
     'the wrapper no longer claims the job — it would run on every request or ' +
       'not at all',
   );
-  const home = read('app/page.tsx');
+  const home = read('app/(hub)/page.tsx');
   assert.match(
     home,
     /after\(\(\) => maybeRunOAuthRefresh\(\)/,

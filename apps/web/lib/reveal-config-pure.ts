@@ -20,23 +20,62 @@
  * everything here.
  */
 
+import { DEFAULT_REVEAL_SPEED, snapRevealSpeed } from './reveal-motion';
+
+/**
+ * 🎭 THE NINE REVEALS (owner 23 Nov 2026 — DECISION_LOG "NINE REVEALS SHIP; THE GIFT BOX IS HELD"; drawing
+ * specs `prototypes/reveals_round3_veil_rules_2026-11-23/`). The envelope ships in two styles, so ten ids.
+ * The gift box is HELD and has no id until the owner accepts a new drawing of it.
+ * Keep this union in lockstep with `REVEAL_LIBRARY` in app/[slug]/_components/reveal/reveal-templates.ts.
+ */
 export type RevealTemplateId =
-  | 'four-flap'
-  | 'two-flap-vertical'
-  | 'two-flap-horizontal'
-  | 'church-doors'
-  | 'veil-sheer';
+  | 'veil-sheer'
+  | 'beach-curtains'
+  | 'envelope-classic'
+  | 'envelope-gatefold'
+  | 'fabric'
+  | 'scratch'
+  | 'smoke'
+  | 'cathedral-doors'
+  | 'petals'
+  | 'fireworks';
 // gold-monogram / molten-monogram retired as openings 2026-06-22 (now monogram
-// motion keys — lib/monogram-motion.ts). Keep this union in lockstep with
-// RevealTemplate in reveal-templates.ts.
+// motion keys — lib/monogram-motion.ts).
 
 export const REVEAL_TEMPLATE_IDS: readonly RevealTemplateId[] = [
-  'four-flap',
-  'two-flap-vertical',
-  'two-flap-horizontal',
-  'church-doors',
   'veil-sheer',
+  'beach-curtains',
+  'envelope-classic',
+  'envelope-gatefold',
+  'fabric',
+  'scratch',
+  'smoke',
+  'cathedral-doors',
+  'petals',
+  'fireworks',
 ];
+
+/**
+ * ↪️ THE RETIRED OPENINGS, EACH TO ITS NEAREST NEW REVEAL (23 Nov 2026). An event that chose one keeps an opening:
+ * the stored `events.std_reveal_template` is read through `canonicalRevealId`, never rewritten.
+ *   four-flap            → envelope-classic   (a four-flap envelope under a wax seal)
+ *   two-flap-horizontal  → envelope-classic   (flaps that open up and down)
+ *   two-flap-vertical    → envelope-gatefold  (two panels that part to the sides)
+ *   church-doors         → cathedral-doors    (the doors, now a glide down the aisle)
+ */
+export const RETIRED_REVEAL_IDS: Readonly<Record<string, RevealTemplateId>> = {
+  'four-flap': 'envelope-classic',
+  'two-flap-horizontal': 'envelope-classic',
+  'two-flap-vertical': 'envelope-gatefold',
+  'church-doors': 'cathedral-doors',
+};
+
+/** A stored opening id → today's id (a retired one → its nearest), or null when it is not an opening at all. */
+export function canonicalRevealId(v: unknown): RevealTemplateId | null {
+  if (typeof v !== 'string') return null;
+  if ((REVEAL_TEMPLATE_IDS as readonly string[]).includes(v)) return v as RevealTemplateId;
+  return Object.prototype.hasOwnProperty.call(RETIRED_REVEAL_IDS, v) ? RETIRED_REVEAL_IDS[v]! : null;
+}
 
 /** The veil "look" knobs — the live slider panel. Mirrors the prototype's §6 table. */
 export type VeilLook = {
@@ -51,7 +90,9 @@ export type VeilLook = {
   weight: number; // gravity
   trail: number; // fold follow softness
   floatUp: number; // keeps the fold high during reveal
-  feather: number; // auto-reveal (feather) seconds
+  /** ⏱ Hands-free seconds from the tap to open — 9 · 12 · 16 (`lib/reveal-motion.ts`). ONE speed for every reveal:
+   *  it replaced the veil's own `feather` (2–8 s) on 23 Nov 2026, so a stored `feather` is ignored. */
+  speed: number;
   bounce: number; // settle damping
   petalsDensity: number; // petal count %
   liftPk: number; // hold forward peak
@@ -140,7 +181,7 @@ export const DEFAULT_VEIL_LOOK: VeilLook = {
   weight: 26,
   trail: 100,
   floatUp: 100,
-  feather: 5.0,
+  speed: DEFAULT_REVEAL_SPEED,
   bounce: 83,
   petalsDensity: 100,
   liftPk: 70,
@@ -177,11 +218,16 @@ export const DEFAULT_REVEAL_CONFIG: RevealStudioConfig = {
   enabled: false,
   defaultTemplate: 'veil-sheer',
   templates: {
-    'four-flap': true,
-    'two-flap-vertical': true,
-    'two-flap-horizontal': true,
-    'church-doors': true,
     'veil-sheer': true,
+    'beach-curtains': true,
+    'envelope-classic': true,
+    'envelope-gatefold': true,
+    fabric: true,
+    scratch: true,
+    smoke: true,
+    'cathedral-doors': true,
+    petals: true,
+    fireworks: true,
   },
   features: { petals: true, logo: true, music: false },
   veilColorDefault: '#f3ece1',
@@ -202,9 +248,6 @@ function clamp(v: unknown, fallback: number, min: number, max: number): number {
 }
 function hex(v: unknown, fallback: string): string {
   return typeof v === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(v.trim()) ? v.trim() : fallback;
-}
-function isTemplateId(v: unknown): v is RevealTemplateId {
-  return typeof v === 'string' && (REVEAL_TEMPLATE_IDS as readonly string[]).includes(v);
 }
 
 function mergeLook(raw: unknown): VeilLook {
@@ -227,7 +270,7 @@ function mergeLook(raw: unknown): VeilLook {
     weight: clamp(r.weight, d.weight, 0, 100),
     trail: clamp(r.trail, d.trail, 0, 100),
     floatUp: clamp(r.floatUp, d.floatUp, 0, 100),
-    feather: clamp(r.feather, d.feather, 2, 8),
+    speed: snapRevealSpeed(typeof r.speed === 'number' ? r.speed : d.speed),
     bounce: clamp(r.bounce, d.bounce, 0, 100),
     petalsDensity: clamp(r.petalsDensity, d.petalsDensity, 0, 100),
     liftPk: clamp(r.liftPk, d.liftPk, 0, 100),
@@ -267,7 +310,7 @@ export function mergeRevealConfig(raw: unknown): RevealStudioConfig {
   const rawFeatures = (r.features ?? {}) as Record<string, unknown>;
   return {
     enabled: bool(r.enabled, d.enabled),
-    defaultTemplate: isTemplateId(r.defaultTemplate) ? r.defaultTemplate : d.defaultTemplate,
+    defaultTemplate: canonicalRevealId(r.defaultTemplate) ?? d.defaultTemplate,
     templates,
     features: {
       petals: bool(rawFeatures.petals, d.features.petals),

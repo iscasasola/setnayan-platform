@@ -25,6 +25,7 @@ import type { HubFontKey } from '@/lib/hub-fonts';
 import { flattenSvgMark, type FlatMark } from '@/lib/print-mark';
 import { SETNAYAN_MARK_PATH, SETNAYAN_MARK_TRANSFORM, SETNAYAN_MARK_VIEWBOX } from '@/lib/qr-style-svg';
 import { entourageCellWord, loneRoleWord, roleBlocks, lineNames, pairsShareALine, type EntourageGroup } from '@/lib/entourage';
+import { CANVAS_MIN_BODY_PT, CANVAS_WRAP_MM, DAY_POSTER_SIZES, DAY_POSTER_TEMPLATES, dayPosterTrimPt, type DayPoster, type DayPosterTemplateKey } from '@/lib/day-poster';
 import { guestPassFacts } from '@/lib/guest-pass';
 import { DEFAULT_PASS_CARD_DESIGN, PASS_CARD_FORMAT_ID, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
 import type { QrShape } from '@/lib/qr-look';
@@ -113,6 +114,8 @@ export type PrintDoc = {
   back?: PrintDoc;
   /** This sheet IS a back: printed without die line or cut marks (the cuts are made from the front). */
   isBack?: true;
+  /** 🖼 The Our Day poster's words could not all be set above the floor with room for its photos — a guard fails on it. */
+  overflow?: true;
 };
 
 /** The images a layout names by `ref`; the backends are handed the bytes. */
@@ -157,6 +160,8 @@ export type PrintSetData = {
   hasStill: boolean;
   /** 🖼 The couple chose their own photo for the Our Story poster (`images.posterBg`). */
   hasPosterBg?: boolean;
+  /** 🖼 The Our Day poster's choices and resolved facts — only when that poster is drawn (`layoutDayPosterDocs`). */
+  dayPoster?: DayPosterData;
   hasEventQr: boolean;
   /**
    * The SHAPE of every code on this set (the event's `QrLook.shape`,
@@ -3336,6 +3341,482 @@ const UTILITY_PAPER = { theme: 'house', ink: '#1a1a1a' } as const;
 export function brandUtilityPage(doc: PrintDoc): PrintDoc {
   return brandSheet(doc, UTILITY_PAPER, 'line');
 }
+
+// ─── The Our Day poster ─────────────────────────────────────────────────────
+
+/**
+ * 🖼 THE OUR DAY POSTER — what the layout is handed (`loadPrintSet` with `dayPoster`). The record is the builder's saved
+ * choice (`lib/day-poster.ts`); everything else is already RESOLVED and already filtered by the record's switches, so an
+ * unticked fact is never passed, never merely left undrawn.
+ */
+export type DayPosterData = {
+  record: DayPoster;
+  /** `images` refs of the photos whose bytes arrived: the main photo, then the supporting ones the template draws. */
+  main: string | null;
+  supporting: string[];
+  /** The couple's line (typed, else their closing words) — null when switched off or none. */
+  line: string | null;
+  /** The place, as the Event Hub names it — null when switched off or none. */
+  place: string | null;
+  /** "With thanks to …" — booked suppliers' names, only when the switch is on. */
+  credits: string[];
+  /** Every entourage group, parents included, in the Hub's order — empty when both roll switches are off. */
+  groups: EntourageGroup[];
+  /** The credits switch is on but the booked suppliers could not be read — the preview says so; the file is refused. */
+  creditsFailed?: true;
+  /** Picked photos whose bytes did not arrive — the preview leaves their box out; the file is refused. */
+  missingPhotos?: number;
+};
+
+/** What a day poster lays out at — the face (inside a canvas's wrap) and its unit (1 = A4's width). */
+type DpGeo = { fx: number; fy: number; fw: number; fh: number; u: number; floorPt: number; canvas: boolean };
+
+/** The main photo's slot, and the supporting ones', for a template — drawn as cover-cropped images with a paper gap. */
+type Slot = { x: number; y: number; w: number; h: number; ref: string };
+
+function photoSlots(key: DayPosterTemplateKey, refs: { main: string | null; sup: string[] }, x: number, y: number, w: number, h: number, gap: number): Slot[] {
+  const main = refs.main;
+  const sup = refs.sup;
+  const out: Slot[] = [];
+  const put = (ref: string | null | undefined, sx: number, sy: number, sw: number, sh: number) => {
+    if (ref && sw > 1 && sh > 1) out.push({ x: sx, y: sy, w: sw, h: sh, ref });
+  };
+  if (key === 'one-photo' || key === 'magazine') {
+    put(main, x, y, w, h);
+    return out;
+  }
+  if (key === 'three-moments') {
+    const cw = (w - 2 * gap) / 3;
+    put(sup[0], x, y, cw, h);
+    put(main, x + cw + gap, y, cw, h);
+    put(sup[1], x + 2 * (cw + gap), y, cw, h);
+    return out;
+  }
+  if (key === 'film-strip') {
+    const stripH = Math.min(h * 0.3, Math.max(h * 0.2, (w / Math.max(3, sup.length)) * 0.95));
+    const mainH = h - stripH - gap;
+    put(main, x, y, w, mainH);
+    // The strip itself (a dark band with sprocket holes) is drawn by `drawFilmBand`; its frames are slots.
+    const band = { y: y + mainH + gap, h: stripH };
+    const hole = band.h * 0.12;
+    const n = Math.max(1, sup.length);
+    const fw = (w - gap * (n + 1)) / n;
+    sup.forEach((r, i) => put(r, x + gap + i * (fw + gap), band.y + hole * 2, fw, band.h - hole * 4));
+    return out;
+  }
+  if (key === 'words') {
+    const n = sup.length;
+    const mw = n ? w * 0.5 : w * 0.62;
+    const side = n ? (w - mw - 2 * gap) / 2 : 0;
+    const mx = x + (w - mw) / 2;
+    put(main, mx, y, mw, h);
+    if (n >= 1) put(sup[0], x, y + h * 0.18, side, h * 0.64);
+    if (n >= 2) put(sup[1], mx + mw + gap, y + h * 0.18, side, h * 0.64);
+    return out;
+  }
+  // COLLAGE — the main photo top-left, a column of photos at its right, the rest in rows under it; every row's photos
+  // share its whole width, so any count from 4 to 16 fills the block with no empty box (owner: "the layout adjusts").
+  const n = sup.length;
+  const cols = n <= 6 ? 3 : n <= 11 ? 4 : 5;
+  const right = Math.min(n, cols - 1);
+  const rest = n - right;
+  const perRow = cols;
+  const rows = Math.ceil(rest / perRow);
+  const unit = (h - gap * (right - 1 + rows)) / (right + rows);
+  const colW = (w - gap) / cols;
+  const mainW = w - colW - gap;
+  const mainH = unit * right + gap * (right - 1);
+  put(main, x, y, right ? mainW : w, mainH);
+  for (let i = 0; i < right; i += 1) put(sup[i], x + mainW + gap, y + i * (unit + gap), colW, unit);
+  let k = right;
+  for (let r = 0; r < rows; r += 1) {
+    const inRow = Math.ceil((n - k) / (rows - r));
+    const cw = (w - gap * (inRow - 1)) / inRow;
+    const ry = y + mainH + gap + r * (unit + gap);
+    for (let c = 0; c < inRow; c += 1, k += 1) put(sup[k], x + c * (cw + gap), ry, cw, unit);
+  }
+  return out;
+}
+
+/** The film strip's band: a dark ribbon with sprocket holes, behind its frames. */
+function drawFilmBand(ops: PrintOp[], x: number, y: number, w: number, h: number) {
+  ops.push({ t: 'rect', x, y, w, h, fill: '#1c1a18' });
+  const hole = h * 0.12;
+  const step = hole * 2.2;
+  for (let hx = x + hole; hx + hole < x + w; hx += step) {
+    ops.push({ t: 'rect', x: hx, y: y + hole * 0.6, w: hole, h: hole * 0.8, fill: '#f4efe6' });
+    ops.push({ t: 'rect', x: hx, y: y + h - hole * 1.4, w: hole, h: hole * 0.8, fill: '#f4efe6' });
+  }
+}
+
+/** A person's printed names in a group, in the Hub's order — a real couple in a role block shares one line ("Nina & Omar"). */
+function dpRollEntries(groups: readonly EntourageGroup[]): { sponsors: string[]; others: Array<{ label: string; names: string }> } {
+  const sponsors: string[] = [];
+  const others: Array<{ label: string; names: string }> = [];
+  for (const g of groups) {
+    if (g.key === 'principal_sponsors') {
+      for (const [l, r] of g.rows) {
+        if (l) sponsors.push(l.name);
+        if (r) sponsors.push(r.name);
+      }
+      continue;
+    }
+    const blocks = roleBlocks(g);
+    if (blocks) {
+      for (const b of blocks) {
+        const names = b.rows.map(([l, r]) => [l?.name, r?.name].filter(Boolean).join(' & ')).filter(Boolean);
+        if (names.length) others.push({ label: b.label, names: names.join(' · ') });
+      }
+      continue;
+    }
+    const names: string[] = [];
+    for (const [l, r] of g.rows) {
+      if (l) names.push(l.name);
+      if (r) names.push(r.name);
+    }
+    if (names.length) others.push({ label: g.label, names: names.join(' · ') });
+  }
+  return { sponsors, others };
+}
+
+/**
+ * THE NAME ROLLS, MEASURED — every principal sponsor and every entourage name, never cut, never "and N more" (owner
+ * 2026-11-13, *"it will auto adjust neatly"*; sized to a real wedding: 38 sponsors + ≈ 80 names). Sponsors flow into as
+ * many columns as the widest name allows (2–5), the rest of the entourage into two. Returns the height it took; `draw`
+ * false measures only.
+ */
+function dpRolls(
+  ops: PrintOp[],
+  look: PrintLook,
+  rolls: ReturnType<typeof dpRollEntries>,
+  show: { sponsors: boolean; entourage: boolean },
+  x: number,
+  y: number,
+  w: number,
+  s: number,
+  draw: boolean,
+  floorPt: number,
+): number {
+  const o: PrintOp[] = draw ? ops : [];
+  const label = look.labelFont ?? look.bodyFont;
+  const head = Math.max(s * 1.05, s + 1);
+  let cy = y;
+  const cx = x + w / 2;
+  if (show.sponsors && rolls.sponsors.length) {
+    cy += head * 1.1;
+    if (draw) sectionHead(o, look, 'Principal sponsors', cx, cy, w / 2, head);
+    cy += head * 0.9;
+    const widest = Math.max(...rolls.sponsors.map((n) => measure(printableText(n), look.bodyFont, s)));
+    const gutter = s * 2.2;
+    let cols = 5;
+    while (cols > 1 && (w - gutter * (cols - 1)) / cols < widest) cols -= 1;
+    cols = Math.min(cols, Math.max(1, Math.ceil(rolls.sponsors.length / 2)));
+    const colW = (w - gutter * (cols - 1)) / cols;
+    const perCol = Math.ceil(rolls.sponsors.length / cols);
+    const lead = s * 1.32;
+    rolls.sponsors.forEach((n, i) => {
+      const c = Math.floor(i / perCol);
+      const r = i % perCol;
+      if (draw) text(o, n, x + c * (colW + gutter) + colW / 2, cy + s + r * lead, { font: look.bodyFont, size: s, color: look.ink, align: 'center', maxWidth: colW });
+    });
+    cy += s + (perCol - 1) * lead + s * DESC_EM;
+  }
+  if (show.entourage && rolls.others.length) {
+    cy += head * 1.6;
+    if (draw) sectionHead(o, look, 'The entourage', cx, cy, w / 2, head);
+    cy += head * 0.9;
+    const two = w >= 300;
+    const gutter = s * 3;
+    const colW = two ? (w - gutter) / 2 : w;
+    const lead = s * 1.38;
+    // Each entry: its label (small caps, accent) then the names, wrapped — one block, never split across columns.
+    const blocks = rolls.others.map((e) => {
+      const lines = wrap(e.names, look.bodyFont, s, colW);
+      return { e, lines, h: s * 0.9 * 1.25 + lines.length * lead + s * 0.5 };
+    });
+    const total = blocks.reduce((a, b) => a + b.h, 0);
+    let col = 0;
+    const colY = [cy, cy];
+    const target = two ? total / 2 : Infinity;
+    let acc = 0;
+    for (const b of blocks) {
+      if (two && col === 0 && acc > 0 && acc + b.h / 2 > target) col = 1;
+      const bx = x + col * (colW + gutter);
+      let by = colY[col]!;
+      by += s * 0.9;
+      if (draw) text(o, b.e.label, bx + colW / 2, by, { font: label, size: Math.max(floorPt, s * 0.82), color: look.accent, align: 'center', caps: true, tracking: 0.16, maxWidth: colW });
+      by += s * 0.35;
+      for (const line of b.lines) {
+        by += lead;
+        if (draw) text(o, line, bx + colW / 2, by, { font: look.bodyFont, size: s, color: look.ink, align: 'center', maxWidth: colW });
+      }
+      by += s * 0.5;
+      colY[col] = by;
+      if (col === 0) acc += b.h;
+    }
+    cy = Math.max(colY[0]!, colY[1]!) + s * DESC_EM;
+  }
+  return cy - y;
+}
+
+/** The names as one line — "Maria & Jose" — in the theme's script (or its head face, in caps where the theme sets caps). */
+function dpNames(ops: PrintOp[], look: PrintLook, data: PrintSetData, cx: number, y: number, size: number, maxW: number, foil: boolean) {
+  const { first, second } = data.names;
+  const s = second ? `${first} & ${second}` : first;
+  const font = look.scriptFont ?? look.headFont;
+  return text(ops, s, cx, y, { font, size, color: look.heading, align: 'center', caps: !look.scriptFont && look.capsNames, maxWidth: maxW, layer: foil ? 'foil' : undefined });
+}
+
+/** "December 12, 2026 · The Ridge, Tagaytay" — the day without its weekday, then the place. */
+function dpWhenWhere(data: PrintSetData, dp: DayPosterData): string | null {
+  const day = dp.record.show.date && data.dateLabel ? data.dateLabel.split(' · ').pop()! : null;
+  const parts = [day, dp.place].filter((p): p is string => Boolean(p && p.trim()));
+  return parts.length ? parts.join(' · ') : null;
+}
+
+/**
+ * THE OUR DAY POSTER — owner 2026-11-13: *"we want them to have a memory they can truly keep. a one page representation
+ * of their wedding with photos that mean to them"*; approved drawing v4. One sheet at the size the couple picked (a
+ * canvas: its face plus the gallery wrap), in one of six templates that share the same parts — the names lockup, the
+ * when-and-where line, their line, the photo block, the name rolls and the ONE Event Hub QR ("Our story"), always.
+ *
+ * MEASURED, NEVER SCALED: the seven photo sizes have five shapes, so every block is laid out at the sheet's own unit and
+ * the photo block takes what the words leave. The rolls come down toward the floor (`PRINT_MIN_BODY_PT`; a canvas's
+ * larger `CANVAS_MIN_BODY_PT`) and widen before the photos give way — no name is ever shortened or dropped
+ * (`lib/day-poster.test.ts` renders 40 sponsors and 80 entourage names at every size).
+ */
+function layoutDayPoster(ctx: Ctx): PrintDoc {
+  const { look, data } = ctx;
+  const dp = data.dayPoster!;
+  const rec = dp.record;
+  const t = DAY_POSTER_TEMPLATES[rec.template];
+  const size = DAY_POSTER_SIZES[rec.size];
+  const face = dayPosterTrimPt(size);
+  const canvas = size.style === 'canvas';
+  const wrapPt = canvas ? CANVAS_WRAP_MM * PT_PER_MM : 0;
+  const doc = sheet('day-poster', ctx, { w: face.w + 2 * wrapPt, h: face.h + 2 * wrapPt });
+  const g: DpGeo = { fx: wrapPt, fy: wrapPt, fw: face.w, fh: face.h, u: face.w / (210 * PT_PER_MM), floorPt: canvas ? CANVAS_MIN_BODY_PT : PRINT_MIN_BODY_PT, canvas };
+  const { u } = g;
+  const ops = doc.ops;
+  const m = SAFE_PT + 22 * u;
+  const x0 = g.fx + m;
+  const inner = g.fw - 2 * m;
+  const cx = g.fx + g.fw / 2;
+  const gap = 5 * u;
+  const refs = { main: dp.main, sup: dp.supporting };
+  const magazine = t.key === 'magazine';
+
+  // 🔳 The QR — always (owner: "the one Event Hub QR"), bottom right of the face, "Our story" under it.
+  const q = Math.max(CORNER_QR_PT, 46 * u);
+  const qLabel = Math.max(g.floorPt, 6.5 * u);
+  const qx = g.fx + g.fw - m - q;
+  const qy = g.fy + g.fh - m - q - qLabel * 1.8 - brandFoot(doc, ctx);
+  const footTop = qy - 10 * u;
+
+  // The paper: a hairline frame (Classic's "ivory paper, gold hairlines"); a magazine cover is the photo, edge to edge.
+  if (magazine) {
+    if (refs.main) ops.push({ t: 'image', ref: refs.main, x: canvas ? -doc.bleed : g.fx - doc.bleed, y: canvas ? -doc.bleed : g.fy - doc.bleed, w: (canvas ? doc.w : g.fw) + 2 * doc.bleed, h: (canvas ? doc.h : g.fh) + 2 * doc.bleed });
+    // A soft veil at the foot (where the names sit) and under the masthead, in exact bands that never overlap.
+    const veil = (from: number, to: number, a0: number, a1: number) => {
+      const steps = 40;
+      const x = -doc.bleed;
+      const w = doc.w + 2 * doc.bleed;
+      for (let i = 0; i < steps; i += 1) {
+        const y0 = from + ((to - from) * i) / steps;
+        const y1 = from + ((to - from) * (i + 1)) / steps;
+        ops.push({ t: 'rect', x, y: Math.min(y0, y1), w, h: Math.abs(y1 - y0), fill: '#000000', opacity: a0 + ((a1 - a0) * (i + 0.5)) / steps });
+      }
+    };
+    veil(g.fy + g.fh * 0.4, g.fy + g.fh + wrapPt + doc.bleed, 0, 0.62);
+    veil(g.fy - wrapPt - doc.bleed, g.fy + g.fh * 0.26, 0.3, 0);
+  } else {
+    const fi = SAFE_PT + 8 * u;
+    ops.push({ t: 'rect', x: g.fx + fi, y: g.fy + fi, w: g.fw - 2 * fi, h: g.fh - 2 * fi, stroke: look.accent, sw: Math.max(0.5, 0.7 * u), opacity: 0.75 });
+  }
+  const onPhoto = magazine;
+  const ink = onPhoto ? '#ffffff' : look.ink;
+  const muted = onPhoto ? '#ffffff' : look.muted;
+  const heading = onPhoto ? { ...look, heading: '#ffffff', accent: '#ffffff', ink: '#ffffff', muted: '#ffffff' } : look;
+  const whenWhere = dpWhenWhere(data, dp);
+  const rolls = t.rolls ? dpRollEntries(dp.groups) : { sponsors: [], others: [] };
+  const showRolls = { sponsors: t.rolls && rec.show.sponsors, entourage: t.rolls && rec.show.entourage };
+  const hasRolls = (showRolls.sponsors && rolls.sponsors.length > 0) || (showRolls.entourage && rolls.others.length > 0);
+
+  /** The head: OUR DAY · the names · when and where — drawn at `y`, returning where it ends. */
+  const head = (o: PrintOp[], y: number, eyebrowOn: boolean, nameSize: number): number => {
+    let yy = y;
+    if (eyebrowOn) {
+      yy += 9 * u;
+      eyebrow(o, heading, 'Our day', cx, yy, Math.max(g.floorPt, 8.5 * u));
+      yy += 6 * u;
+    }
+    if (rec.show.names) {
+      yy += nameSize * 0.95;
+      dpNames(o, heading, data, cx, yy, nameSize, inner, ctx.foil);
+      yy += nameSize * 0.28;
+    }
+    if (whenWhere) {
+      const ws = Math.max(g.floorPt, 9 * u);
+      for (const line of wrap(whenWhere.toUpperCase(), look.bodyFont, ws, inner * 0.8).slice(0, 3)) {
+        yy += ws * 1.5;
+        text(o, line, cx, yy, { font: look.bodyFont, size: ws, color: ink, align: 'center', tracking: 0.12, maxWidth: inner });
+      }
+    }
+    return yy;
+  };
+  /** Their line (and, under the photos of a roll template, their names signed small) — returning where it ends. */
+  const lineBlock = (o: PrintOp[], y: number, ls: number, sign: boolean): number => {
+    let yy = y;
+    if (dp.line) {
+      for (const l of wrap(dp.line, look.bodyFont, ls, inner * 0.78)) {
+        yy += ls * 1.45;
+        text(o, l, cx, yy, { font: look.bodyFont, size: ls, color: muted, align: 'center', maxWidth: inner });
+      }
+    }
+    if (sign && rec.show.names && dp.line) {
+      const ss = 15 * u;
+      yy += ss * 1.15;
+      dpNames(o, heading, data, cx, yy, ss, inner * 0.5, false);
+    }
+    return yy;
+  };
+  const credits = (o: PrintOp[]) => {
+    if (dp.creditsFailed && ctx.mode === 'screen') {
+      text(o, 'Couldn’t read your suppliers — credits are left off this preview.', x0, qy + q, { font: look.bodyFont, size: Math.max(g.floorPt, 6.5 * u), color: muted, align: 'left', maxWidth: qx - 12 * u - x0 });
+      return;
+    }
+    if (!dp.credits.length) return;
+    const cs = Math.max(g.floorPt, 6.5 * u);
+    const width = qx - 12 * u - x0;
+    const lines = wrap(`With thanks to ${dp.credits.join(' · ')}`, look.bodyFont, cs, width);
+    let yy = qy + q - (lines.length - 1) * cs * 1.4;
+    for (const l of lines) {
+      text(o, l, x0, yy, { font: look.bodyFont, size: cs, color: muted, align: 'left', maxWidth: width });
+      yy += cs * 1.4;
+    }
+  };
+
+  let fits = true;
+  if (magazine) {
+    // A masthead over the photo, the names over its foot; up to three moments framed down the right.
+    const mast = Math.min(inner / 2.6, 120 * u);
+    text(ops, 'OUR DAY', cx, g.fy + m + mast * 0.82, { font: look.headFont, size: mast, color: '#ffffff', align: 'center', tracking: 0.04, maxWidth: inner });
+    const ls = Math.max(g.floorPt, 11 * u);
+    const nameSize = 44 * u;
+    const scratch: PrintOp[] = [];
+    const hH = head(scratch, 0, false, nameSize);
+    const lH = lineBlock(scratch, 0, ls, false);
+    const yTop = footTop - hH - lH - 6 * u;
+    head(ops, yTop, false, nameSize);
+    lineBlock(ops, yTop + hH + 6 * u, ls, false);
+    const n = Math.min(3, refs.sup.length);
+    const fw = inner * 0.22;
+    const fh = fw * 1.25;
+    for (let i = 0; i < n; i += 1) {
+      const fx = g.fx + g.fw - m - fw;
+      const fy = g.fy + m + mast * 1.15 + i * (fh + 10 * u);
+      ops.push({ t: 'rect', x: fx - 3 * u, y: fy - 3 * u, w: fw + 6 * u, h: fh + 6 * u, fill: '#ffffff' });
+      ops.push({ t: 'image', ref: refs.sup[i]!, x: fx, y: fy, w: fw, h: fh });
+    }
+  } else {
+    // Every other template: a vertical stack. The rolls' type comes down (to the floor) before the photos give way.
+    const order: Record<Exclude<DayPosterTemplateKey, 'magazine'>, Array<'head' | 'eyebrowHead' | 'photos' | 'line' | 'signedLine' | 'rolls'>> = {
+      'one-photo': ['photos', 'head', 'line'],
+      collage: ['eyebrowHead', 'photos', 'signedLine', 'rolls'],
+      'film-strip': ['eyebrowHead', 'photos', 'line'],
+      'three-moments': ['head', 'photos', 'line'],
+      words: ['photos', 'head', 'line', 'rolls'],
+    };
+    const steps = order[t.key as Exclude<DayPosterTemplateKey, 'magazine'>];
+    const big = canvas ? 1.25 : 1;
+    const nameSize = (t.key === 'words' ? 50 : 42) * u * big;
+    const ls = Math.max(g.floorPt, (t.key === 'words' ? 13 : 11) * u * big);
+    const top = g.fy + m;
+    const minPhoto = g.fh * (t.key === 'words' ? 0.16 : hasRolls ? 0.24 : 0.4);
+    const maxPhoto = t.key === 'words' ? g.fh * 0.3 : Infinity;
+    const between = 10 * u;
+    /** Lay the stack at roll size `s` with photo height `ph`; returns the bottom. */
+    const stack = (o: PrintOp[], s: number, ph: number): number => {
+      let y = top;
+      for (const step of steps) {
+        if (step === 'photos') {
+          y += between * 0.6;
+          const slots = photoSlots(t.key, refs, x0, y, inner, ph, gap);
+          if (t.key === 'film-strip' && slots.length > 1) {
+            const by = y + slots[0]!.h + gap;
+            drawFilmBand(o, x0, by, inner, y + ph - by);
+          }
+          for (const sl of slots) o.push({ t: 'image', ref: sl.ref, x: sl.x, y: sl.y, w: sl.w, h: sl.h });
+          y += ph + between * 0.4;
+        } else if (step === 'head' || step === 'eyebrowHead') {
+          y = head(o, y, step === 'eyebrowHead', nameSize) + between * 0.8;
+          if (step === 'eyebrowHead') {
+            rule(o, cx, y - between * 0.2, Math.min(inner / 2, 120 * u), look.accent);
+            y += between * 0.4;
+          }
+        } else if (step === 'line' || step === 'signedLine') {
+          y = lineBlock(o, y, ls, step === 'signedLine') + between * 0.6;
+        } else if (step === 'rolls' && hasRolls) {
+          y += dpRolls(o, look, rolls, showRolls, x0, y, inner, s, true, g.floorPt) + between * 0.4;
+        }
+      }
+      return y;
+    };
+    const floor = footTop;
+    const startS = Math.max(g.floorPt, (t.key === 'words' ? 11 : 7.5) * u * big);
+    // Measure the stack with no photos: the photos take what is left, between their floor and their cap.
+    const room = (s: number) => floor - stack([], s, 0);
+    let s = startS;
+    let ph = Math.min(maxPhoto, room(s));
+    if (ph < minPhoto && hasRolls) {
+      // Bring the rolls down, in 2 % steps, to the floor.
+      while (s > g.floorPt + 1e-6 && Math.min(maxPhoto, room(s)) < minPhoto) s = Math.max(g.floorPt, s * 0.96);
+      ph = Math.min(maxPhoto, room(s));
+    }
+    if (ph < minPhoto * 0.5) fits = false;
+    ph = Math.max(ph, Math.min(minPhoto * 0.5, maxPhoto));
+    // A template without rolls centres its stack in the room it has.
+    const used = stack([], s, ph) - top;
+    const lift = hasRolls ? 0 : Math.max(0, (floor - top - used) / 2) * (t.key === 'one-photo' ? 0 : 1);
+    const drawn: PrintOp[] = [];
+    stack(drawn, s, ph);
+    for (const o of drawn) ops.push(lift ? shiftOp(o, lift) : o);
+  }
+
+  credits(ops);
+  if (data.hasEventQr) {
+    qrPlate(ops, data.qrShape, qx, qy, q, QR_PLATE * u);
+    ops.push({ t: 'image', ref: 'eventqr', x: qx, y: qy, w: q, h: q });
+    text(ops, 'Our story', qx + q / 2, qy + q + qLabel * 1.5, { font: look.labelFont ?? look.bodyFont, size: qLabel, color: muted, align: 'center', caps: true, tracking: 0.2 });
+  }
+  // 🖼 A canvas: the fold of the gallery wrap, on screen only — a guide, never ink.
+  if (canvas && ctx.mode === 'screen') {
+    ops.push({ t: 'rect', x: g.fx, y: g.fy, w: g.fw, h: g.fh, stroke: look.ink, sw: 0.8, opacity: 0.35, dash: true });
+  }
+  safeGuide(doc, ctx);
+  return fits ? doc : { ...doc, overflow: true as const };
+}
+
+/** Move an op down by `dy` (a path's outline included). */
+function shiftOp(o: PrintOp, dy: number): PrintOp {
+  if (o.t === 'rect' || o.t === 'image') return { ...o, y: o.y + dy };
+  if (o.t === 'circle') return { ...o, cy: o.cy + dy };
+  const moved: PrintOp = { ...o, d: scalePath(o.d, 1, 0, dy) };
+  if (o.text?.box) (moved as { text?: PrintTextMeta }).text = { ...o.text, box: { ...o.text.box, y: o.text.box.y + dy } };
+  return moved;
+}
+
+/**
+ * The Our Day poster as it saves — one sheet, branded once (`brandPiece`), the white underprint on dark stock. Its own
+ * entry, beside `layoutPieceDocs`: it is not one of the invitation set (`POST_EVENT_PRINT_KEYS`).
+ */
+export function layoutDayPosterDocs(input: LayoutInput): PrintDoc[] {
+  if (!input.data.dayPoster) throw new Error('layoutDayPosterDocs: no day poster record');
+  const ctx: Ctx = { look: input.look, data: input.data, mode: input.mode, foil: input.foil };
+  const branded = brandPiece([layoutDayPoster(ctx)], input.look);
+  return input.mode === 'print' && input.whiteInk ? branded.map(underprintWhite) : branded;
+}
+
 
 // ─── Entry points ───────────────────────────────────────────────────────────
 

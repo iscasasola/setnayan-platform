@@ -200,7 +200,9 @@ test('Event Home carries the date’s door — the Countdown opens the Date Find
   // place; a helper's Countdown still opens this page (`countdownDoor`).
   const first = read('app/dashboard/[eventId]/_components/home-first-screen.tsx');
   assert.match(first, /<HomeCoverBand cover=\{cover\}/);
-  assert.match(first, /<HomeControlRow input=\{control\}[^>]*\/>/);
+  // 🌐 Since 23 Nov 2026 (v5 drawing, the website look) the Countdown WIDGET is retired; the event card's countdown is
+  // the one Countdown, and it carries the same door (`c.door`, a helper's Event Details) or the couple's Date Finder.
+  assert.match(first, /href: c\.door \?\? countdownDoor\(eventId\),/, 'the card’s countdown lost the Countdown’s door');
   const faces = read('app/dashboard/[eventId]/_components/home-control-faces.ts');
   assert.match(faces, /const door = c\.door \?\? countdownDoor\(e\);/, 'the Countdown does not open the Date Finder');
   assert.match(faces, /return dateFinderHref\(eventId\);/, 'the Countdown’s door is not the Date Finder');

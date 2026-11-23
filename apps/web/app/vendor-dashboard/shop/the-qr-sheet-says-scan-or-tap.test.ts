@@ -1,7 +1,9 @@
 /**
  * 🔒 SHOP › QR = "SCAN OR TAP" (THE ONE BUILD, lane C4 — A3 §5 guard 5, as cut by spec §4: NFC status is this device's
  * write/tap test only — NO `shop_nfc_tags` table).
- *   1 · The QR sheet is Promote's ONE body (`part="qr"`) with the Tap test on the shop code's own link.
+ *   1 · The QR sheet is Promote's ONE body (`part="qr"`), which draws the My QRs list (owner 23 Nov 2026: My QRs replaces
+ *       the QR page); the Tap test moved with the shop code to its own page ("One QR, opened" for Your page), on that
+ *       code's own link.
  *   2 · The Tap test reads with the shipped readers and answers with `readBackMatches`; status is this phone's only.
  *   3 · iPhone Safari gets the instruction, never a fake test; no table, no write of a status anywhere but this browser.
  */
@@ -16,11 +18,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const BODY = stripComments(readFileSync(join(HERE, 'promote/_components/promote-body.tsx'), 'utf8'));
 const TAP = stripComments(readFileSync(join(HERE, '../../_components/nfc-tap-test.tsx'), 'utf8'));
 const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+const OPENED = stripComments(readFileSync(join(HERE, 'qrs/_components/my-qr-code.tsx'), 'utf8'));
 
-test('1 · the QR sheet is the one body, with the Tap test on the shop code’s link', () => {
+test('1 · the QR sheet is the one body — the My QRs list — and the Tap test sits on Your page’s own page, on its link', () => {
   assert.match(PAGE, /<PromoteBody search=\{qrSearch\} part="qr" \/>/);
-  assert.match(BODY, /Scan or tap/);
-  assert.match(BODY, /<NfcTapTest url=\{pageLink\} \/>/);
+  assert.match(BODY, /withQr \? <MyQrsList\b/, 'the QR sheet no longer draws the My QRs list');
+  assert.match(OPENED, /d\.code === 'page' \?[\s\S]{0,200}label="Scan or tap"[\s\S]{0,400}<NfcTapTest url=\{d\.url\} \/>/, 'the Tap test left Your page, or tests another link');
 });
 
 test('2 · the Tap test answers with the shipped read-back rule', () => {
@@ -32,6 +35,6 @@ test('2 · the Tap test answers with the shipped read-back rule', () => {
 
 test('3 · iPhone Safari is told, not tested; no table', () => {
   assert.match(TAP, /Hold the top of any iPhone to the tag/);
-  assert.doesNotMatch(TAP + BODY + PAGE, /shop_nfc_tags|shop_nfc_tag_confirm/, 'an NFC table is back — spec §4: device status only');
+  assert.doesNotMatch(TAP + BODY + PAGE + OPENED, /shop_nfc_tags|shop_nfc_tag_confirm/, 'an NFC table is back — spec §4: device status only');
   assert.doesNotMatch(TAP, /\.from\(|supabase/i, 'the Tap test writes its status somewhere but this browser');
 });

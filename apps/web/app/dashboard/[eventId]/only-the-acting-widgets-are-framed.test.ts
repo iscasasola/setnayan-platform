@@ -12,8 +12,11 @@
  * `home-card`) without `hc-plain`; and `hc-plain` really takes the frame off (its CSS clears the border and the fill).
  * The acting set is written HERE, from the ruling — not imported — so moving a widget in or out of the code's list is red.
  *
- *   1 · the phone: Countdown and the glance row unframed, Schedule and Budget cards, the glance row closed by a divider;
- *   2 · from md: the same widgets, the same frames;
+ *   1 · RE-AIMED 23 Nov 2026 (owner, v5 drawing in the website look — the phone's tiles, the glance row and the md copy
+ *       are retired; the board's cards are the ONE copy at every width): the widgets read Guests · Budget · Schedule |
+ *       Suppliers · Event Hub, and on TODAY the website sheet (`today-website.css`) takes every frame off — sections on
+ *       a white page, no floating cards (the drawing supersedes 1 Nov's "cards for Schedule and Budget" there);
+ *   2 · the markup still marks the acting widgets (the frame classes other screens read), held per widget;
  *   3 · Papic is a card; Who's here, Prints and Your services are not;
  *   4 · the CSS: `hc-plain` and the plain services list clear the border and the fill, in light and dark.
  *
@@ -70,25 +73,34 @@ function home(): string {
   });
 }
 
-test('1 · the phone: only the Schedule and the Budget are cards; the glance row is closed by a divider', () => {
-  const compact = slice(home(), 'data-home-control="compact"', ['data-home-control="detail"']);
-  const tiles = roots(compact, 'data-home-tile');
-  // 🎴 Home redraw 2026-11-02 (round 3): the Countdown is the event card's figure and To do is the list under the card.
-  assert.deepEqual(tiles.map((t) => t.key), ['sched', 'guests', 'hub', 'sup', 'budget'], 'the phone order is not the prototype’s');
-  for (const t of tiles) assert.equal(framed(t.cls), ACTING.has(t.key), `phone: the ${t.key} widget is ${framed(t.cls) ? 'framed' : 'unframed'}`);
-  const glance = slice(compact, 'data-home-glance=""', ['data-home-tile="budget"']);
-  assert.deepEqual(roots(glance, 'data-home-tile').map((t) => t.key), ['guests', 'hub', 'sup'], 'the glance row is not Guests · Event Hub · Suppliers');
-  assert.match(glance, /class="hc-rule"/, 'the glance row is not closed by a divider');
+test('1 · Today: the widgets are sections on the page in the drawing’s order — no floating cards', () => {
+  const html = home();
+  assert.equal(html.split('data-home-control="compact"').length + html.split('data-home-glance').length - 2, 0, 'the retired phone tiles or glance row are back');
+  const board = slice(html, 'data-home-board="middle"', ['data-home-services']);
+  const order = [...board.matchAll(/\bdata-home-(?:card-key|tile)="([a-z-]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(order, ['guests', 'budget', 'sched', 'sup', 'hub'], 'the widgets are not in the v5 drawing’s order');
+  // The website sheet takes the frame off every Today widget — the cards and the Schedule tile alike — in light and dark.
+  const sheet = stripComments(readFileSync(join(HERE, '_components/today-website.css'), 'utf8'));
+  for (const [what, sel] of [
+    ['the cards', /\[data-home-first-screen\] \.sg-row\.hc-card,\s*html\.dark \[data-home-first-screen\] \.sg-row\.hc-card\s*\{([^}]*)\}/],
+    ['the Schedule tile', /\[data-home-first-screen\] \[data-home-control='board'\] \.hc-tile\.hc-sched\s*\{([^}]*border: 0[^}]*)\}/],
+  ] as const) {
+    const rule = sel.exec(sheet);
+    assert.ok(rule, `Today's sheet does not unframe ${what}`);
+    assert.match(rule[1]!, /border: 0/, `${what} keep their border on Today`);
+    assert.match(rule[1]!, /background: transparent/, `${what} keep their fill on Today`);
+    assert.match(rule[1]!, /box-shadow: none/, `${what} keep their lift on Today`);
+  }
 });
 
-test('2 · from md: the same widgets wear the same frames', () => {
-  const detail = slice(home(), 'data-home-control="detail"', ['data-home-services']);
-  const cards = roots(detail, 'data-home-card-key');
-  // Guests · Event Hub · Suppliers · Budget (the Countdown and To do left the grid, Home redraw 2026-11-02).
-  assert.ok(cards.length >= 4, 'the detail cards are not drawn');
-  for (const c of cards) assert.equal(framed(c.cls), ACTING.has(c.key), `md: the ${c.key} card is ${framed(c.cls) ? 'framed' : 'unframed'}`);
-  const sched = roots(detail, 'data-home-tile').find((t) => t.key === 'sched');
-  assert.ok(sched && framed(sched.cls), 'md: the Schedule is not a card');
+test('2 · the markup marks exactly the acting widgets', () => {
+  const board = slice(home(), 'data-home-control="board"', ['data-home-services']);
+  const cards = roots(board, 'data-home-card-key');
+  // Guests · Budget · Suppliers · Event Hub (the Countdown and To do left the grid, Home redraw 2026-11-02).
+  assert.ok(cards.length >= 4, 'the board cards are not drawn');
+  for (const c of cards) assert.equal(framed(c.cls), ACTING.has(c.key), `the ${c.key} card is ${framed(c.cls) ? 'framed' : 'unframed'}`);
+  const sched = roots(board, 'data-home-tile').find((t) => t.key === 'sched');
+  assert.ok(sched && framed(sched.cls), 'the Schedule is not marked as a card');
 });
 
 test('3 · Papic is a card; Who’s here, Prints and Your services sit on the page', () => {

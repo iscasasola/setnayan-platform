@@ -4,3 +4,4 @@
 #   pnpm --filter @setnayan/web root-map --baseline
 # Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
 # be dropped by re-running the command above — CI fails while it is still listed.
+/vendor-dashboard/clients/[eventId] shows guests-coming	# tab-level: Hub tab and chat-tab right column are separate views of one route; both read get_vendor_event_brief.pax.attending (controller 23 Nov)

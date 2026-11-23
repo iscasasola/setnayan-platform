@@ -93,7 +93,10 @@ export async function markThreadRead(threadId: string): Promise<void> {
  * then inserts a message tagged with that role. Used by both /dashboard and
  * /vendor-dashboard so message creation is consistent across surfaces.
  */
-export async function sendChatMessage(formData: FormData) {
+/** A send the server refused, said back to the composer in words (the JS path has no `return_to` to carry it). */
+export type ChatSendRefusal = { ok: false; reason: string };
+
+export async function sendChatMessage(formData: FormData): Promise<void | ChatSendRefusal> {
   const threadId = formData.get('thread_id');
   const body = formData.get('body');
   const returnTo = formData.get('return_to');
@@ -144,8 +147,10 @@ export async function sendChatMessage(formData: FormData) {
     // text + file for a retry.
     // A blocked message (off-platform contact) also fails gracefully — the
     // sender sees why and edits. On the no-JS form path we redirect back with the
-    // reason; on the JS path return_to is stripped (the composer already blocked
-    // it client-side and shows the message), so this just returns.
+    // reason. On the JS path return_to is stripped, so the reason comes BACK to the
+    // composer, which says it on the bubble (chat walk, 22 Nov: a quiet return here
+    // read as "sent", then a reason-less "Not sent" six seconds later).
+    // A refusal that a Try again cannot change (a rule, not a fault) is said the same way.
     if (
       result.code === 'attachment_invalid' ||
       result.code === 'attachment_failed' ||
@@ -153,14 +158,19 @@ export async function sendChatMessage(formData: FormData) {
       result.code === 'private_words_only' ||
       result.code === 'fee_words_only' ||
       result.code === 'plus_unverified' ||
-      result.code === 'private_recipient'
+      result.code === 'private_recipient' ||
+      result.code === 'followup_used' ||
+      result.code === 'not_accepted' ||
+      result.code === 'declined' ||
+      result.code === 'too_long' ||
+      result.code === 'whisper_refused'
     ) {
       if (isSafeNext(returnTo)) {
         redirect(
           `${returnTo}${returnTo.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(result.message)}`,
         );
       }
-      return;
+      return { ok: false, reason: result.message };
     }
     throw new Error(result.message);
   }

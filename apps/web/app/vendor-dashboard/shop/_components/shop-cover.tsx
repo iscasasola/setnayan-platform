@@ -420,7 +420,7 @@ export function ShopCover({
       {viewOpen && d.publicPath ? <ViewShopScreen path={d.publicPath} live={d.websiteLive} shareUrl={d.shareUrl} onClose={() => setViewOpen(false)} /> : null}
       <ParamSheet open={sheet === 'promote'} onClose={() => closeSheet('promote')} title="Promote" body={promoteBody} data="promote" />
       <ParamSheet open={sheet === 'prints'} onClose={() => closeSheet('prints')} title="Prints" body={printsBody} data="prints" />
-      <ParamSheet open={sheet === 'qr'} onClose={() => closeSheet('qr')} title="QR · scan or tap" body={qrBody} data="qr" />
+      <ParamSheet open={sheet === 'qr'} onClose={() => closeSheet('qr')} title="My QRs" body={qrBody} data="qr" />
       <ParamSheet open={sheet === 'logo'} onClose={() => closeSheet('logo')} title="Logo" body={logoBody ? <PickedLogoFiles.Provider value={logoFiles}>{logoBody}</PickedLogoFiles.Provider> : null} data="logo" />
       <ParamSheet open={sheet === 'cover'} onClose={() => closeSheet('cover')} title="Cover photo" body={coverBody} data="cover" />
     </>

@@ -7,7 +7,8 @@
  * device explanation (iPhone browser → the Setnayan app or an Android phone) is the shared sheet's own words. This file
  * pins the two halves that make that true for the supplier's QR codes page, with the COUNT printed:
  *
- *   1. every code the page can show (Shortlist · Booked · Check a date · My page · Reviews · Crew) is drawn by `QrCard`;
+ *   1. every code the pages can show is drawn by `QrCard` — Booked · Crew on Customers › QR codes, and Your page ·
+ *      Reviews · Shortlist · Check a date on their own My QRs page (`shop/qrs/`, owner 23 Nov 2026);
  *   2. `QrCard` hands the strip the card's own `url`.
  *
  * And the one place the owner kept NFC OFF stays off: the couple's supplier-connect panel (build plan 2026-10-07).
@@ -17,7 +18,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { SUPPLIER_QR_MODES } from '@/lib/supplier-qr-codes';
+import { MY_QR_WORDS, SUPPLIER_QR_MODES, isPromoteQrMode } from '@/lib/supplier-qr-codes';
 
 const WEB = path.join(__dirname, '..', '..', '..');
 const read = (rel: string) => stripComments(fs.readFileSync(path.join(WEB, rel), 'utf8'));
@@ -34,18 +35,26 @@ const CARD_OF_MODE: Record<(typeof SUPPLIER_QR_MODES)[number], string> = {
 
 test('every shop code is drawn by QrCard — so each carries Write to NFC', () => {
   const src = read('app/vendor-dashboard/invite/_components/qr-codes.tsx');
+  const opened = read('app/vendor-dashboard/shop/qrs/_components/my-qr-code.tsx');
   assert.match(src, /from '@\/app\/_components\/qr-card'/);
+  assert.match(opened, /from '@\/app\/_components\/qr-card'/);
   const cards = [...src.matchAll(/<QrCard\b[\s\S]*?\/>/g)].map((m) => m[0]);
+  const openedCards = [...opened.matchAll(/<QrCard\b[\s\S]*?\/>/g)].map((m) => m[0]);
+  // My QRs' one card draws whichever shop code is opened: its `data` is that code's own (`MY_QR_WORDS`).
+  assert.equal(openedCards.length, 1);
+  const openedCard = openedCards[0] ?? '';
+  assert.match(openedCard, /\bdata=\{w\.data\}/);
+  assert.match(openedCard, /\burl=\{d\.url\}/, 'the opened card must hand its own url');
   const report = SUPPLIER_QR_MODES.map((mode) => {
-    const card = cards.find((c) => c.includes(`data="${CARD_OF_MODE[mode]}"`));
-    return { mode, card };
+    if (isPromoteQrMode(mode)) return { mode, card: MY_QR_WORDS[mode].data === CARD_OF_MODE[mode] ? openedCard : undefined };
+    return { mode, card: cards.find((c) => c.includes(`data="${CARD_OF_MODE[mode]}"`)) };
   });
   console.log(report.map((r) => `${r.mode}: ${r.card ? 'QrCard' : 'MISSING'}`).join(' · '));
   for (const { mode, card } of report) {
     assert.ok(card, `the ${mode} code is not drawn by QrCard — it would lose Write to NFC`);
     assert.match(card, /\burl=\{/, `the ${mode} card must hand its own url`);
   }
-  assert.equal(cards.length, SUPPLIER_QR_MODES.length, `${cards.length} QrCards for ${SUPPLIER_QR_MODES.length} codes`);
+  assert.equal(cards.length, 2, `${cards.length} QrCards on Customers › QR codes for Booked · Crew`);
 });
 
 test('QrCard hands the strip the SAME url the code encodes', () => {
@@ -60,18 +69,18 @@ test('the couple’s supplier-connect panel stays without Write to NFC (2026-10-
   assert.doesNotMatch(src, /NfcWriteButton|<QrActions|<QrCard/);
 });
 
-test('the door piece has ONE home — Prints, reached from a code’s “Put it on…” (Option B, 2026-11-06)', () => {
-  // Retargeted from “the door sticker has ONE home — Shop › Promote” (2026-11-05). Owner 2026-11-06, ONE HOME FOR EVERY
-  // PROMOTE TOOL: the door print is a piece INSIDE Prints, so the cream door-sticker fold under QR codes is gone; a
-  // code's sheet hands its code to the Prints sheet's door piece instead (`handOff(row.putOn!, 'door')`).
+test('the door piece has ONE home — Prints, reached from a shop code’s “Print it › Door print” (My QRs, 23 Nov 2026)', () => {
+  // Retargeted from Option B's “Put it on… › Door print” (2026-11-06): the shop's codes moved to My QRs, where a code's
+  // page hands its code to Promote's Prints by the address (`printWithQrHref(code, 'door')` → `?print=…&piece=door`).
   const codes = read('app/vendor-dashboard/invite/_components/qr-codes.tsx');
   const list = read('app/vendor-dashboard/invite/_components/qr-code-list.tsx');
-  const mounts = [...codes.matchAll(/<DoorSticker\b/g)].length + [...list.matchAll(/<DoorSticker\b/g)].length;
-  const putOnDoor = [...list.matchAll(/handOff\(row\.putOn!, 'door'\)/g)].length;
-  console.log(`door sticker mounts in QR codes: ${mounts} · “Put it on… › Door print” hand-offs: ${putOnDoor}`);
-  assert.equal(mounts, 0, 'the door sticker fold is back under QR codes — the door piece lives in Prints');
+  const opened = read('app/vendor-dashboard/shop/qrs/_components/my-qr-code.tsx');
+  const mounts = [...(codes + list + opened).matchAll(/<DoorSticker\b/g)].length;
+  const toDoor = [...opened.matchAll(/printWithQrHref\(d\.code, 'door'\)/g)].length;
+  console.log(`door sticker mounts: ${mounts} · “Print it › Door print” doors: ${toDoor}`);
+  assert.equal(mounts, 0, 'the door sticker fold is back — the door piece lives in Prints');
   assert.equal(fs.existsSync(path.join(WEB, 'app/vendor-dashboard/invite/_components/door-sticker.tsx')), false, 'the old door-sticker fold component is back');
-  assert.equal(putOnDoor, 1, 'a code’s sheet must offer “Put it on… › Door print” exactly once');
+  assert.equal(toDoor, 1, 'a shop code’s page must offer “Print it › Door print” exactly once');
   const prints = read('app/vendor-dashboard/shop/promote/_components/shop-prints-section.tsx');
-  assert.match(prints, /ask\.piece === 'door'/, 'the Prints sheet must open its door piece when a code is put on it');
+  assert.match(prints, /initialAsk\?\.piece === 'door'/, 'the Prints sheet must open its door piece when a code is handed to it');
 });

@@ -55,7 +55,6 @@ const SKUS = [
 ];
 const PRICES = {
   monthly: { solo: SENT('solo-mo'), pro: SENT('pro-mo'), enterprise: SENT('ent-mo') },
-  annual: { solo: SENT('solo-yr'), pro: SENT('pro-yr'), enterprise: SENT('ent-yr') },
   bySku: Object.fromEntries(SKUS.map((k) => [k, SENT(k)])),
 };
 
@@ -101,12 +100,17 @@ test('every limit cell is the entitlement code — in both states of the plan pa
       assert.equal(wl.cells[t].text, v >= WAITLIST_SETTING_MAX ? 'No plan limit' : v > 0 ? formatCount(v) : 'None', `waitlist · ${t} · paywall ${paywallOn}`);
     }
   }
-  // Anti-vacuity: the limits are the plan sheet's, and Pro/Max differ on service cards (20 vs 80 today). No bookings-a-day
-  // row since 2026-11-18 (ruling 17): bookings per date are not a plan limit.
+  // Anti-vacuity (owner 2026-11-22 "FINAL LADDER"): Plus 15 cards, Pro and Ultra no limit. No bookings-a-day row since
+  // 2026-11-18 (ruling 17): bookings per date are not a plan limit.
   const g = planTable({ paywallOn: true, prices: PRICES });
   const cards = row(g, 'limit:serviceCards');
-  assert.equal(cards.cells.pro.text, formatCount(TIER_CAPS.pro.serviceCardsTotal));
-  assert.equal(cards.cells.enterprise.text, formatCount(TIER_CAPS.enterprise.serviceCardsTotal));
+  assert.equal(cards.cells.solo.text, formatCount(TIER_CAPS.solo.serviceCardsTotal));
+  assert.equal(cards.cells.pro.text, 'No limit');
+  assert.equal(cards.cells.enterprise.text, 'No limit');
+  // Storage is the first limit — the plans are storage sizes; Verified's 2 GB is said in the Free cell.
+  const storage = row(g, 'limit:storage');
+  assert.equal(g.find((gr) => gr.rows.some((r) => r.key === 'limit:storage'))!.rows[0]!.key, 'limit:storage');
+  assert.deepEqual(TABLE_TIERS.map((t) => storage.cells[t].text), ['256 MB; 2 GB once Verified', '128 GB', '500 GB', '1 TB']);
   assert.equal(g.flatMap((gr) => gr.rows).some((r) => r.key === 'limit:bookingsPerDate'), false, 'a bookings-a-day row is back');
 });
 
@@ -130,7 +134,8 @@ test('the plan-feature rows are TIER_CAPS, the tools row is the unlock rule, gif
   // Verified, Plus is included, Pro and Ultra name the smarter level.
   const bot = row(g, 'tool:chatbot');
   assert.deepEqual(bot.cells.free, { kind: 'lock', text: 'Opens once Verified' });
-  assert.equal(bot.cells.solo.text, 'Included');
+  // 22 Nov "SAME FEATURES IN EVERY SIZE": the smarter level is on every paid size, Plus included.
+  assert.match(bot.cells.solo.text, /^Smarter level/);
   assert.match(bot.cells.pro.text, /^Smarter level/);
   assert.match(bot.cells.enterprise.text, /^Smarter level/);
   assert.equal(TABLE_TIERS.join(' · '), 'free · solo · pro · enterprise', 'Verified joins Free — four columns');
@@ -146,15 +151,14 @@ test('every price cell is the price the page read — or "—" when it read noth
     for (const m of c.match(/₱[^\s/]*/g) ?? []) assert.match(m, /^₱SENT:/, `a price cell prints ${m}, which the page never read`);
   }
   assert.equal(row(g, 'price:4w').cells.pro.text, SENT('pro-mo'));
-  assert.equal(row(g, 'price:yr').cells.enterprise.text, SENT('ent-yr'));
+  // Owner 2026-11-22 "no yearly for any supplier subscription": the table has no year row.
+  assert.equal(rowsOf(g).some((r) => r.key === 'price:yr' || /year/i.test(r.label)), false, 'a yearly price row is offered');
   for (const t of TABLE_TIERS) {
     assert.equal(row(g, 'buy:deep').cells[t].text, `${SENT(vendorAddonSkuCode('deep_search_about_you', t))} a search`);
-    const sb = row(g, 'buy:seatbranch').cells[t];
-    if (canBuyExtraSeats(t) && canBuyExtraBranches(t)) assert.match(sb.text, /₱SENT:vendor_extra_seat|₱SENT:vendor_additional_branch/);
-    else assert.equal(sb.kind, 'no', `${t} is offered a seat or branch it cannot buy`);
+    assert.equal(canBuyExtraSeats(t) || canBuyExtraBranches(t), false, `${t} may buy a seat or branch — the table has no row for it`);
   }
-  assert.equal(row(g, 'price:yr').cells.free.kind, 'no', 'Free has nothing to pay for a year');
-  const none = planTable({ paywallOn: true, prices: { monthly: {}, annual: {}, bySku: {} } });
+  assert.equal(rowsOf(g).some((r) => r.key === 'buy:seatbranch'), false, 'an extra seat or branch is offered (no add-ons since 2026-11-22)');
+  const none = planTable({ paywallOn: true, prices: { monthly: {}, bySku: {} } });
   const blank = rowsOf(none).flatMap((r) => TABLE_TIERS.map((t) => r.cells[t].text)).filter((t) => t.includes('₱'));
   assert.deepEqual(blank, [], 'an unread catalogue still printed a peso');
   // Ultra's add-ons: every one the code lets a Grow plan buy, at the SKU it charges.
@@ -162,8 +166,8 @@ test('every price cell is the price the page read — or "—" when it read noth
   const buyable = ULTRA_ADDON_ORDER.filter((k) => (['solo', 'pro', 'enterprise'] as const).some((t) => canBuyUltraAddOn(k, t)));
   assert.deepEqual(lines.map((l) => l.kind), buyable);
   for (const l of lines) assert.equal(l.price, SENT(ultraAddOnSku(l.kind)));
-  // 2026-11-14 ("SIMPLER SUPPLIER PLANS"): only the extra seat and the extra branch are left to buy on top of Ultra.
-  assert.deepEqual(lines.map((l) => l.kind), ['seat', 'branch'], 'the add-ons left to buy are the seat and the branch');
+  // Owner 2026-11-22 "FINAL LADDER": no add-ons — nothing is left to buy on top of a plan.
+  assert.deepEqual(lines.map((l) => l.kind), [], 'an add-on is still offered');
 });
 
 test('a lock is printed only when the app enforces it — and every enforced one is', () => {
@@ -195,22 +199,26 @@ test('both front pages say what search does with an unverified shop', () => {
   }
 });
 
-test('the Event Plus card names only what a paid Event Plus order unlocks', () => {
-  // What the code grants a Plus-only event: no Event Hub part at all.
+test('the Event Plus card names what a paid Event Plus order unlocks — the whole Event Hub', () => {
+  // 🏛 Owner 20 Nov 2026 (DECISION_LOG "EVENT PLUS = 1,000 PAPIC CREDITS + THE WHOLE EVENT HUB"): a paid Event Plus holds
+  // every Hub part. What the code grants: the Plus row paid against the everything price (the Plus row) is everything.
   const own = hubOwnershipFrom({
     fullHeld: false,
     partHeld: () => false,
     paidParts: [],
-    prices: new Map([[EVENT_PLUS_SKU, 1]]),
+    prices: new Map([[EVENT_PLUS_SKU, 2]]),
     fullPrice: 2,
     plusPaid: true,
   });
-  assert.equal(own.full, false);
-  assert.equal(own.parts.size, 0, 'Event Plus now unlocks a Hub part — say so on the Plus card and update this guard');
-  assert.ok(HUB_PART_IDS.length > 0);
+  assert.equal(own.full, true, 'a paid Event Plus no longer holds the whole Event Hub — the Plus card says it does');
+  assert.equal(own.parts.size, HUB_PART_IDS.length);
+  assert.equal(own.proPlan, undefined, 'Event Plus grants the Pro plan (Setnayan AI, no mark) — it must not');
   const facts = { plusCredits: 7, proCredits: 9, freePapic: null };
   const plus = [...plusPeek(facts), ...PLUS_MORE].join(' · ');
-  assert.doesNotMatch(plus, /theme|music|web address|animation|Setnayan mark/i, `the Plus card sells a Hub part: ${plus}`);
+  assert.match(plus, /whole Event Hub/, 'the Plus card no longer says it is the whole Event Hub');
+  assert.match(plus, /Pro themes/, 'the Plus card no longer names the ready-made Pro themes it unlocks');
+  assert.doesNotMatch(plus, /Setnayan AI/, 'the Plus card sells Setnayan AI, which comes with Event Pro');
+  assert.doesNotMatch(plus, /No Setnayan mark/i, 'the Plus card promises no mark — Plus keeps one small mark');
   assert.match(plus, /\b7 Papic credits\b/, 'the Plus card does not print the credits the catalogue read');
   assert.match(proMore(facts).join(' '), /\b9 Papic credits\b/, 'the Pro card does not print the credits the catalogue read');
   assert.doesNotMatch(plusPeek({ plusCredits: null, proCredits: null, freePapic: null }).join(' '), /credits/, 'an unread credit count is still said');

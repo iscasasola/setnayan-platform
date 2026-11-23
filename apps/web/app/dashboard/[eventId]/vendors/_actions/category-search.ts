@@ -260,6 +260,11 @@ export type CategorySearchResult = {
   /** Null when the event has no stored coords (distance tier falls back to
    *  review order + the overlay hides distance chips). */
   hasReceptionCoords: boolean;
+  /** 🃏 Card 14's distance line (owner 20 Nov, "straight line, about X km"): TRUE when every `distanceKm` above was
+   *  measured from the event's VENUE (the reception anchor). FALSE when it came from the Region's centre — then the
+   *  overlay asks for the venue, exactly as Find's cards do (`askVenue`), and never calls it "from your venue".
+   *  Set only where results are returned; absent means the same as false. */
+  distanceFromVenue?: boolean;
   /** TRUE only on the §4 edge-#2 empty state: Setnayan AI is OFF and the WHOLE
    *  group is already in (or past) its last-minute zone, so generic search
    *  shows nothing — yet last-minute vendors COULD still take the date with AI
@@ -1558,6 +1563,7 @@ export async function searchCategoryVendors(input: {
     results,
     total: results.length,
     hasReceptionCoords: hasCoords,
+    distanceFromVenue: anchors.reception != null,
     facets: facetCatalog,
     facetDefaults,
     // Only present when the tally actually failed → the happy-path shape is

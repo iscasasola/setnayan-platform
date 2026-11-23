@@ -10,6 +10,7 @@
  */
 import { CAKE_ACCENTS, CAKE_ARRANGEMENTS, CAKE_FINISHES, CAKE_FLOWING, CAKE_SHAPES, CAKE_TOPPERS } from './cake-config';
 import { cakeShopTemplate, type CakeShopOptions } from './cake-maker';
+import { SPECIAL_TOOLS_LOCKED_WORDS } from './special-tools';
 
 /** The sample colours (a cake palette, not page colours). */
 const DEMO_COLOURS = [
@@ -40,5 +41,8 @@ export function cakeDemoOptions(): CakeShopOptions {
   };
 }
 
-/** The words on the demo's calm bar, in place of Send. */
-export const CAKE_DEMO_BAR_WORDS = 'This special tool is available on Pro, Max and Ultra';
+/**
+ * The words on the demo's calm bar, in place of Send — the same lock words as every special tool ("Included in Plus"),
+ * read from the plan table (owner 2026-11-22: special tools open on every paid size; no "Max" plan exists).
+ */
+export const CAKE_DEMO_BAR_WORDS = `This special tool is ${SPECIAL_TOOLS_LOCKED_WORDS.charAt(0).toLowerCase()}${SPECIAL_TOOLS_LOCKED_WORDS.slice(1)}`;

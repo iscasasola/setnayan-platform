@@ -298,10 +298,59 @@ export async function acquireSchedulePoolsForBooking(
   };
   if (!row.marketplace_vendor_id) return { status: 'no_pools' };
 
-  const poolIds = row.service_id
-    ? await resolvePoolIdsForService(admin, row.marketplace_vendor_id, row.service_id)
-    : await resolvePoolIdsForCategory(admin, row.marketplace_vendor_id, row.category);
+  const poolIds = await poolIdsOfBooking(admin, row);
   if (poolIds.length === 0) return { status: 'no_pools' };
 
   return acquireSchedulePools(admin, eventId, eventVendorId, poolIds);
+}
+
+/**
+ * The schedules a booking takes a seat on — ONE list, read by the deposit gate (`acquireSchedulePoolsForBooking`) and
+ * by the supplier's yes (`fullSchedulesOfAsk`), so the yes can never weigh a different set of schedules than the
+ * deposit. `service_id` when the row names one, else its category (see above).
+ */
+export async function poolIdsOfBooking(
+  admin: SupabaseClient,
+  row: { marketplace_vendor_id: string | null; service_id: string | null; category: string | null },
+): Promise<string[]> {
+  if (!row.marketplace_vendor_id) return [];
+  return row.service_id
+    ? resolvePoolIdsForService(admin, row.marketplace_vendor_id, row.service_id)
+    : resolvePoolIdsForCategory(admin, row.marketplace_vendor_id, row.category);
+}
+
+/**
+ * 👥 THE SUPPLIER'S YES SEES A FULL SCHEDULE (walk 22 Nov 2026, migration 20271359089802). The names of this ask's
+ * TEAM schedules that are already full on its day, by the deposit gate's own count (`vendor_card_schedules_on` →
+ * `schedule_pool_taken_on`). Halls are answered by `vendor_card_halls_on`, a closed day by `closedDayOfAsk`.
+ *
+ * The ask is read through the supplier's OWN session (RLS: a stranger's id reads nothing, so is refused nothing here —
+ * the RPC refuses it); the pools are resolved on the service role by the one resolver, and never leave this function.
+ * ⚖ Fails OPEN, logged, like the hall and closed-day checks: the deposit gate still refuses a full schedule after.
+ */
+export async function fullSchedulesOfAsk(
+  supabase: SupabaseClient,
+  eventVendorId: string,
+  admin: SupabaseClient,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('event_vendors')
+    .select('marketplace_vendor_id, service_id, category')
+    .eq('vendor_id', eventVendorId)
+    .maybeSingle();
+  if (error) console.error('[fullSchedulesOfAsk] the ask could not be read — not refused here', eventVendorId, error.message);
+  if (error || !data) return [];
+  const poolIds = await poolIdsOfBooking(admin, data as { marketplace_vendor_id: string | null; service_id: string | null; category: string | null });
+  if (poolIds.length === 0) return [];
+  const { data: on, error: onErr } = await supabase.rpc('vendor_card_schedules_on', {
+    p_event_vendor_id: eventVendorId,
+    p_pool_ids: poolIds,
+  });
+  if (onErr) {
+    console.error('[fullSchedulesOfAsk] the schedules could not be read — not refused here', eventVendorId, onErr.message);
+    return [];
+  }
+  const r = (on ?? {}) as { status?: string; full?: unknown };
+  if (r.status !== 'schedule_full' || !Array.isArray(r.full)) return [];
+  return r.full.filter((n): n is string => typeof n === 'string' && n.length > 0);
 }

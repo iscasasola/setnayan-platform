@@ -89,7 +89,8 @@ test('with no part on sale the Pro page sells Everything alone — no part price
   // The Apply sheet's `?buy=` pick is a part order — only while parts are sold.
   assert.match(body, /\{partsOnSale && !active\?\.full && !owned\?\.full && buyParts\.length > 0/);
   // One list of what Everything opens, instead of the priced big/small bands.
-  assert.match(body, /partsOnSale\s*\?\s*\[\s*\{ title: 'Big parts'[\s\S]{0,120}\]\s*:\s*\[\{ title: `What \$\{planName\} unlocks`, parts: HUB_PARTS \}\]/);
+  // 🏛 Owner 20 Nov 2026: what Everything opens is Event Plus's — the whole Event Hub.
+  assert.match(body, /partsOnSale\s*\?\s*\[\s*\{ title: 'Big parts'[\s\S]{0,120}\]\s*:\s*\[\{ title: `What \$\{everythingName\} opens`, parts: HUB_PARTS \}\]/);
   // A part's own button needs its price — and no part price is handed in once they are off sale.
   assert.match(body, /state === 'buy' && php !== null && !owned\?\.full \? \(/);
   assert.match(body, /\{partsOnSale \? `Everything you pay here counts toward everything\./);
@@ -107,7 +108,8 @@ test('with no part on sale /pricing draws no parts dropdown and no "just the par
   const on = renderToStaticMarkup(React.createElement(HubProWays, { everythingLabel: 'Everything · ₱5,000', partsLabel: 'Just the parts you need · from ₱500', parts: null }));
   assert.match(on, /data-hub-ways="all"/, 'the guard cannot see the dropdown when parts ARE on sale — it is blind');
   const page = code('app/(shell)/pricing/page.tsx');
-  assert.match(page, /are Event Pro\$\{prices\.hubParts\.length > 0 \? ', or just the parts you need' : ''\}\./);
+  // 🏛 Owner 20 Nov 2026: the whole Event Hub is Event Plus's.
+  assert.match(page, /come with Event Plus\$\{prices\.hubParts\.length > 0 \? ', or just the parts you need' : ''\}\./);
   // The parts list itself only holds rows the catalogue has ACTIVE (`_pricing-reads.ts`).
   assert.match(code('app/(shell)/pricing/_pricing-reads.ts'), /const n = r && r\.is_active \? Number\(r\.retail_price_php\) : NaN;/);
 });
@@ -124,7 +126,7 @@ test('the charge authority refuses every part order: off sale with an event, out
   assert.match(a, /if \(partKey && !eventId\) \{\s*return \{ ok: false, refusal: 'no_price_source'/);
   assert.match(a, /if \(eventId && \(serviceKey === FULL_PRO_SKU \|\| partKey\)\) \{\s*const hub = await resolveHubProCharge/);
   // …and resolveHubProCharge answers for every part key (null only for Full Pro with nothing paid), refusing one off sale.
-  assert.match(a, /if \(serviceKey === FULL_PRO_SKU && !owned\.full && owned\.paidPhp === 0\) return null;/);
+  assert.match(a, /if \(serviceKey === FULL_PRO_SKU && !owned\.proPlan && owned\.paidPhp === 0\) return null;/);
   assert.match(a, /parts\.some\(\(p\) => !prices\.onSale\.has\(hubPart\(p\)\.sku\)\)\) \{\s*return \{ ok: false, refusal: 'no_price_source'/);
   assert.match(a, /if \(!charge\.ok\) \{/);
 });

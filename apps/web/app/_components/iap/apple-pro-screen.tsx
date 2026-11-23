@@ -7,7 +7,9 @@ import { iapProductForServiceKey } from '@/lib/iap/products';
 import { buyWithApple, loadAppStoreProducts } from '@/lib/iap/native-store';
 import { IAP_COPY, pendingLine, type IapScreen } from '@/lib/iap/iap-outcome';
 
-const PRO = iapProductForServiceKey('COUPLE_WEBSITE_PRO');
+/* 🏛 The whole Event Hub is Event Plus (owner 20 Nov 2026, DECISION_LOG "EVENT PLUS = 1,000 PAPIC CREDITS + THE WHOLE
+   EVENT HUB"), so the Maker's Apply asks for Event Plus — the `event_plus` App Store product, looked up by its code. */
+const PRO = iapProductForServiceKey('EVENT_PLUS');
 
 /**
  * 🍎 EVENT PRO (renamed and re-productised as `event_pro` by the owner's 2026-11-04 price
@@ -79,8 +81,8 @@ function AppleProEverything({ eventId, back, sample }: Pick<AppleProScreenProps,
     return (
       <section className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 py-6" data-apple-pro-on="">
         <h1 className="inline-flex items-center gap-1.5 font-serif text-2xl text-ink">
-          Event Pro is on
-          <PaidMark state="unlocked" bare label="Event Pro" size="xs" />
+          Event Plus is on
+          <PaidMark state="unlocked" bare label="Event Plus" size="xs" />
         </h1>
         <p className="text-sm text-ink/70">For this event, and everyone on it.</p>
         <button type="button" onClick={() => router.push(`${back}${sep}apply=1`)} className="button-primary sn-press mt-2 min-h-11 w-full">
@@ -94,7 +96,7 @@ function AppleProEverything({ eventId, back, sample }: Pick<AppleProScreenProps,
     return (
       <section className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 py-6" data-apple-pro-pending="">
         <h1 className="font-serif text-2xl text-ink">{IAP_COPY.pendingTitle}</h1>
-        <p className="text-sm text-ink/70">{screen.askToBuy ? IAP_COPY.askToBuy : pendingLine('Event Pro', false)}</p>
+        <p className="text-sm text-ink/70">{screen.askToBuy ? IAP_COPY.askToBuy : pendingLine('Event Plus', false)}</p>
         <p className="text-sm text-ink/70">{IAP_COPY.pendingRestore}</p>
         <button type="button" onClick={() => router.push(back)} className="button-primary sn-press mt-2 min-h-11 w-full">
           OK
@@ -105,13 +107,13 @@ function AppleProEverything({ eventId, back, sample }: Pick<AppleProScreenProps,
   return (
     <section className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 py-6" data-apple-pro-buy="">
       <h1 className="inline-flex items-center gap-1.5 font-serif text-2xl text-ink">
-        Event Pro
-        <PaidMark state="try" bare label="Event Pro" size="xs" />
+        Event Plus
+        <PaidMark state="try" bare label="Event Plus" size="xs" />
       </h1>
-      <p className="text-sm text-ink/70">One unlock for this event — it covers everyone on it. Your Pro changes go live as soon as it is on.</p>
+      <p className="text-sm text-ink/70">One unlock for this event — it covers everyone on it. Your Plus changes go live as soon as it is on.</p>
       {screen?.kind === 'cancelled' ? (
         <p className="text-sm text-ink/70" role="status" data-apple-cancelled="">
-          {IAP_COPY.cancelled} Your Pro changes are still in your draft.
+          {IAP_COPY.cancelled} Your Plus changes are still in your draft.
         </p>
       ) : screen?.kind === 'failed' ? (
         <div className="text-sm text-ink/70" role="alert" data-apple-failed="">
@@ -136,7 +138,7 @@ function AppleProEverything({ eventId, back, sample }: Pick<AppleProScreenProps,
       >
         {buying
           ? 'Opening the App Store…'
-          : `${screen?.kind === 'failed' ? 'Try again' : 'Unlock Pro and Apply'}${price.value ? ` · ${price.value}` : ''}`}
+          : `${screen?.kind === 'failed' ? 'Try again' : 'Unlock Plus and Apply'}${price.value ? ` · ${price.value}` : ''}`}
       </button>
       <p className="text-center text-xs text-ink/60">{IAP_COPY.billedByApple}</p>
       <button type="button" onClick={() => router.push(back)} className="sn-press min-h-11 w-full rounded-full text-sm font-semibold text-ink/70 hover:bg-ink/5">

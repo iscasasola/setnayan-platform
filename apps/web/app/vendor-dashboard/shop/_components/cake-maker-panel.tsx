@@ -13,7 +13,7 @@
  * `sanitizeCakeShopOptions` the couple's design is checked against — a refusal is the sentence shown here.
  *
  * 🔒 SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP (or open to every shop before the admin's start date). Locked,
- * the page shows "Included in Pro · Upgrade" and saves nothing — any saved options stay as they are.
+ * the page shows "Included in Plus · Upgrade" and saves nothing — any saved options stay as they are.
  *
  * Lazy-loaded from the tile (shop-makers.tsx), so none of it is in the Shop's first load.
  */
@@ -102,7 +102,7 @@ export function CakeMakerPanel({ seed }: { seed?: { options: CakeShopOptions; sa
   return <CakeMakerEditor start={load.options} saved={load.saved} />;
 }
 
-/** Below Pro after the start date (v6 "Included in Pro"): the drawing's words, Upgrade, and what was saved — read-only,
+/** Free or Verified after the start date (v6 drew "Included in Pro"; Plus since 2026-11-22): the drawing's words, Upgrade, and what was saved — read-only,
  *  kept just as it is. Nothing here writes. */
 function LockedCakeMaker({ saved, options }: { saved: boolean; options: CakeShopOptions }) {
   return (

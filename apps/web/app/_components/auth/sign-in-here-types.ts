@@ -12,8 +12,10 @@ export type OpenSignInOptions = {
    * Ran after a successful in-place sign-in, before the refresh. The shop
    * page's Save button uses it to retry the save the person had already
    * pressed, so the four presses in the prototype are four presses here.
+   * `landing` is the person's profile page when the panel was opened from `/`
+   * (nowhere of its own to stay on — owner 22 Nov 2026), else `null`.
    */
-  onSignedIn?: () => void;
+  onSignedIn?: (landing: string | null) => void;
   /**
    * 🪟 THE THIRD PANE (owner 2026-11-06, the supplier sign-up redesign: "on tablet and desktop a pop-up is a THIRD
    * PANE on the right, never floating; on the phone it is the bottom sheet"). The same card in the shipped

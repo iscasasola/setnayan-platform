@@ -61,6 +61,7 @@ import { parsePersonName } from '@/lib/person-name-parse';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { openTheCoordinatorsSeatForBooking } from '@/lib/coordinator-grant';
 import { uploadPublicAsset } from '@/lib/storage';
 import {
   computeAuspiciousReasons,
@@ -74,6 +75,7 @@ import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
+import { bookingWindowRefusal } from '@/lib/booking-window.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { isMoodboardSlotPosition, MOODBOARD_SLOT_POSITIONS } from '@/lib/moodboard-slots';
@@ -539,6 +541,11 @@ async function completeVendorPickFromMarketplace(
       .eq('event_id', eventIdRaw)
       .maybeSingle();
     const d = dayRow as { event_date?: string | null; event_date_precision?: string | null } | null;
+    // 📅 The shop's At least · At most — the same helper every booking door asks (`lib/booking-window.server.ts`).
+    if (d?.event_date_precision === 'day') {
+      const windowWords = await bookingWindowRefusal({ vendorProfileId: marketplaceVendorIdRaw, day: d.event_date });
+      if (windowWords) throw new Error(windowWords);
+    }
     if (
       d?.event_date_precision === 'day' &&
       (await closedDayRefusal({ vendorProfileId: marketplaceVendorIdRaw, serviceId: null, day: d.event_date })) === 'closed'
@@ -591,6 +598,8 @@ async function completeVendorPickFromMarketplace(
     .maybeSingle();
   if (insertErr) throw new Error(insertErr.message);
   if (!inserted) throw new Error('Could not book supplier — try again');
+  // 🚪 A coordinator booked from the wizard gets their seat (the one shared door; a no-op while the row only ASKS).
+  await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId: inserted.vendor_id, actorUserId: user.id });
 
   // Advance wizard_state.<taskId> · re-render moves to next task.
   const priorWizardState = parseWizardState(priorRow.wizard_state);
@@ -684,6 +693,9 @@ async function completeVendorPickFromCustom(
     .maybeSingle();
   if (insertErr) throw new Error(insertErr.message);
   if (!inserted) throw new Error('Could not save your custom supplier — try again');
+  // 🚪 The couple's own coordinator, typed here as already booked: the one shared door (a 7-day invite to the email
+  // they gave, when they gave one).
+  await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId: inserted.vendor_id, actorUserId: user.id });
 
   const priorWizardState = parseWizardState(priorRow.wizard_state);
   const newWizardState = setTaskComplete(priorWizardState, taskIdRaw, {

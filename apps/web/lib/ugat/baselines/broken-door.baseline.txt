@@ -4,3 +4,5 @@
 #   pnpm --filter @setnayan/web root-map --baseline
 # Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
 # be dropped by re-running the command above — CI fails while it is still listed.
+app/api/oauth/drive/callback/route.ts → /api/oauth/drive	# 2026-11-22 · not a link: the shop-Drive back-cookie's `path:` scope (#8170, batch U) — every real route lives under /api/oauth/drive/{start,callback,disconnect}
+app/api/oauth/drive/start/route.ts → /api/oauth/drive	# 2026-11-22 · not a link: the shop-Drive back-cookie's `path:` scope (#8170, batch U) — every real route lives under /api/oauth/drive/{start,callback,disconnect}

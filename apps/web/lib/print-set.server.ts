@@ -73,6 +73,7 @@ import { filterPassCardRows, type PassCardRow } from '@/lib/pass-card';
 import { nameStyleOfPrintDetails, ticketName, type NameStyle } from '@/lib/name-style';
 import { displayPersonName } from '@/lib/person-name-case';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
+import { seatNumberWords } from '@/lib/table-words';
 
 /**
  * lib/print-set.server.ts — everything a print piece needs, read ONCE.
@@ -1112,7 +1113,7 @@ export async function loadGuestPasses(
     ]);
     const label = new Map(((tables ?? []) as Array<{ table_id: string; table_label: string | null }>).map((t) => [t.table_id, t.table_label]));
     for (const s of (seats ?? []) as Array<{ guest_id: string; table_id: string; seat_number: number | null }>) {
-      if (s.seat_number != null) seatNumberOf.set(s.guest_id, String(s.seat_number));
+      if (s.seat_number != null) seatNumberOf.set(s.guest_id, seatNumberWords(s.seat_number));
       const l = label.get(s.table_id);
       if (l) seatOf.set(s.guest_id, /^\d+$/.test(l) ? `Table ${l}` : l);
     }

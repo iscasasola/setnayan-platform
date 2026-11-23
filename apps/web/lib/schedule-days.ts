@@ -56,6 +56,17 @@ export function manilaDayAndTime(iso: string | null): { day: string; time: strin
 
 const MEETING_CHIP: Record<string, string> = { proposed: 'Waiting for an answer', confirmed: 'Both said yes', done: 'Done' };
 
+/**
+ * The event's day as the strip may draw it: only a day-precise date is a day. A month- or year-only event is stored on
+ * its 1st (a placeholder), so it gets no event dot — the strip would say "Event day" on a day nobody chose.
+ * `precision` undefined = the precision could not be read: the date is kept, as before (never hidden on a failed read).
+ */
+export function eventDayForStrip(eventDate: string | null, precision: string | null | undefined): string | null {
+  if (!eventDate) return null;
+  if (precision === undefined) return eventDate;
+  return precision === 'day' ? eventDate : null;
+}
+
 /** Every dotted day of THIS client, sorted by day then kind (event · meeting · payment). */
 export function clientScheduleDays(input: ScheduleDayInputs): ScheduleDayItem[] {
   const out: ScheduleDayItem[] = [];

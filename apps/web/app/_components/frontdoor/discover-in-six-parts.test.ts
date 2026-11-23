@@ -184,7 +184,9 @@ test('7 · every new shelf says, in one line, that it is empty or could not load
     ['service cards, empty', html(React.createElement(m.ServiceCardsShelf, { shelf: { status: 'ok', items: [] } })), /No verified supplier/],
     ['stories, unavailable', html(React.createElement(m.EventStoriesShelf, { stories: null })), /couldn’t load/],
     ['stories, empty', html(React.createElement(m.EventStoriesShelf, { stories: [] })), /first event stories/],
-    ['articles', html(React.createElement(m.ArticlesShelf)), /Articles are coming soon/],
+    // 🔄 17 Nov (Build 3 of Find · Build · Book): the placeholder is filled by the public articles.
+    ['articles, unavailable', html(React.createElement(m.ArticlesShelf, { shelf: { status: 'unavailable' } })), /couldn’t load/],
+    ['articles, empty', html(React.createElement(m.ArticlesShelf, { shelf: { status: 'ok', items: [] } })), /No articles yet/],
     ['inspiration, unavailable', html(React.createElement(m.InspirationShelf, { shelf: { status: 'unavailable' }, saveHref: null })), /couldn’t load/],
     ['inspiration, empty', html(React.createElement(m.InspirationShelf, { shelf: { status: 'ok', items: [] }, saveHref: null })), /verified suppliers/],
   ];

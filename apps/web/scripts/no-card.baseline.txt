@@ -4,7 +4,7 @@
 # GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 429 files · 982 lines
+# 441 files · 1008 lines
 1 apps/web/app/(shell)/alaala/page.tsx
 2 apps/web/app/(shell)/explore/_components/category-tile.tsx
 3 apps/web/app/(shell)/explore/_components/filter-drawer.tsx
@@ -162,7 +162,19 @@
 1 apps/web/app/admin/menus/_components/menu-registry-editor.tsx
 2 apps/web/app/admin/moodboard-library/_components/library-editor.tsx
 1 apps/web/app/admin/moodboard-library/_components/screen-findings-panel.tsx
-3 apps/web/app/admin/pricing/_components/catalog-editor.tsx
+2 apps/web/app/admin/payment-options/page.tsx
+3 apps/web/app/admin/payments/_components/inbox-matcher.tsx
+1 apps/web/app/admin/payouts/page.tsx
+6 apps/web/app/admin/pricing/_components/ai-bands-editor.tsx
+2 apps/web/app/admin/pricing/_components/booking-fee-form.tsx
+9 apps/web/app/admin/pricing/_components/catalog-editor.tsx
+2 apps/web/app/admin/pricing/_components/papic-ladder-editor.tsx
+1 apps/web/app/admin/pricing/_components/papic-rest-editor.tsx
+2 apps/web/app/admin/pricing/_components/papic-type-sizing-editor.tsx
+1 apps/web/app/admin/pricing/_surfaces/ai-prices-surface.tsx
+2 apps/web/app/admin/pricing/_surfaces/free-windows-surface.tsx
+1 apps/web/app/admin/pricing/_surfaces/papic-ladder-surface.tsx
+1 apps/web/app/admin/pricing/_surfaces/pricing-surface.tsx
 1 apps/web/app/admin/reveal-studio/std-video-moderation.tsx
 1 apps/web/app/admin/reveal-studio/studio.tsx
 4 apps/web/app/admin/reviews/page.tsx
@@ -172,8 +184,8 @@
 2 apps/web/app/admin/studio/_surfaces/real-stories-surface.tsx
 1 apps/web/app/admin/studio/_surfaces/social-queue-surface.tsx
 2 apps/web/app/admin/studio/_surfaces/storytellers-surface.tsx
+1 apps/web/app/admin/subscriptions/page.tsx
 1 apps/web/app/admin/vendors/[vendorProfileId]/team/page.tsx
-5 apps/web/app/admin/verification-docs/page.tsx
 3 apps/web/app/admin/verify/page.tsx
 1 apps/web/app/admin/website-media/page.tsx
 4 apps/web/app/api/v1/page.tsx

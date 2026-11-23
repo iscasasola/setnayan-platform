@@ -12,6 +12,8 @@
  *   ?services=mixed     two cards + services picked at sign-up; the one a card already carries is not listed twice
  *   &events=2|1|0       the couple's events (0 = only "Start a new event")
  *   &signed=1|0         signed in, or signed out (the sign-in sheet first)
+ *   &fail=1             the send fails (the first note did not post) — the sheet must say so, never "Sent"
+ *   &resumed=1          the send lands on a chat already under way with nothing new to say ("In your chat")
  *   &inquire=1&isvc=…   the return from sign-in / a new event — the pop-up reopens on the event step
  */
 import { notFound } from 'next/navigation';
@@ -47,7 +49,7 @@ const EVENTS = [
 export default async function InquireLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ services?: string; events?: string; signed?: string }>;
+  searchParams: Promise<{ services?: string; events?: string; signed?: string; fail?: string; resumed?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -89,7 +91,13 @@ export default async function InquireLabPage({
           {services.length === 0 ? NO_SERVICES_LINE(name) : 'Pick the services, then the event — one send.'}
         </p>
       </section>
-      <LabInquireSheet services={services} events={events} signedIn={signedIn} name={name} />
+      <LabInquireSheet
+        services={services}
+        events={events}
+        signedIn={signedIn}
+        name={name}
+        outcome={sp.fail === '1' ? 'fail' : sp.resumed === '1' ? 'resumed' : 'sent'}
+      />
     </main>
   );
 }

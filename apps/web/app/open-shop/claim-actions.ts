@@ -31,7 +31,9 @@ import { isValidOpenShopEmail } from '@/lib/open-shop-validation';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { claimChangeQuote, purchaseChange } from '@/lib/supplier-purchase-change';
 import { stagePurchaseChange } from '@/lib/supplier-purchase-change.server';
-import { FIRST_CARD_EDIT_UNREAD } from '@/lib/supplier-onboarding';
+import { FIRST_CARD_EDIT_UNREAD, claimCardQuery, type ClaimCardCarry } from '@/lib/supplier-onboarding';
+import { putFirstCardLive } from '@/lib/first-card-live.server';
+import { firstCardWhyKey } from '@/lib/first-card-why';
 
 /**
  * THE CLAIM DOOR'S FINISH (controller A6, 7 Nov; owner 2026-11-06 "THE SAME DOOR, PRE-FILLED — THEN ONE SLIDE PER
@@ -231,6 +233,8 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
     ? [...theirs, ...added].find((c) => c.category === firstService.category && c.leaf === firstService.leaf) ?? null
     : null;
   const firstCardName = firstCard?.name ?? null;
+  // The maker's own sentence when it refuses card 0 — carried to Today's welcome as a key (`lib/first-card-why.ts`).
+  let makerSaidOfFirstCard: string | null = null;
   for (const card of [...theirs, ...added]) {
     if (card.bundled) continue;
     if (answers.firstCard === 'skip' && card === firstCard) continue;
@@ -252,6 +256,7 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
       const url = new URL(getURLFromRedirectError(e) ?? '', 'http://claim-door.local');
       if (url.searchParams.get('error')) {
         console.warn('[claim-door] a card was refused by the maker:', url.searchParams.get('error'));
+        if (card === firstCard) makerSaidOfFirstCard = url.searchParams.get('error');
         continue;
       }
     }
@@ -382,12 +387,31 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   // Edit on the first card: finalize hands over to the shipped Card Maker on that card (`?edit=`), never past consent.
   // Ship review 21 Nov: when Edit was picked but the card cannot be found (not made, or the lookup failed), say so —
   // finalize lands the welcome with `card_edit=unread`, never silently on the welcome as if Edit had not been pressed.
+  const firstMade = Boolean(firstCardName && made.includes(firstCardName));
   const editId =
-    answers.firstCard === 'edit' && firstCardName && made.includes(firstCardName)
+    answers.firstCard === 'edit' && firstCardName && firstMade
       ? await firstCardIdOf(admin, vendorProfileId, firstCardName)
       : null;
   const editParam = editId ? encodeURIComponent(editId) : answers.firstCard === 'edit' ? FIRST_CARD_EDIT_UNREAD : null;
-  redirect(`/vendor/claim/${encodeURIComponent(token)}/finalize${editParam ? `?edit=${editParam}` : ''}`);
+  const finalize = `/vendor/claim/${encodeURIComponent(token)}/finalize${editParam ? `?edit=${editParam}` : ''}`;
+  if (editParam) redirect(finalize);
+  // 🃏 WHAT THE WELCOME MAY SAY ABOUT THE FIRST CARD (review 20 Nov) — carried through finalize, as Door B's is. The
+  // maker makes every card as a draft; Approve asks the SHIPPED switch (the publish gate + the plan's live-cards cap,
+  // `putFirstCardLive`) and only its yes is `live`. Skipped · not made · made but not found again · refused by the
+  // switch are each said on Today, with the reason as a key. A card inside the bundle is not a card of its own: no carry.
+  let cardCarry: ClaimCardCarry | null = null;
+  if (firstCard && !firstCard.bundled && (answers.firstCard === 'skip' || answers.firstCard === 'approve')) {
+    if (answers.firstCard === 'skip') cardCarry = { state: 'skipped', why: null, id: null };
+    else if (!firstMade || !firstCardName) cardCarry = { state: 'refused', why: firstCardWhyKey(makerSaidOfFirstCard, 'refused'), id: null };
+    else {
+      const firstId = await firstCardIdOf(admin, vendorProfileId, firstCardName);
+      // Made, but the read that finds it again failed or came back empty: said as that (`made-unread`), never "not live".
+      if (!firstId) redirect(`${finalize}?${claimCardQuery({ state: 'draft', why: 'made-unread', id: null })}`);
+      const live = await putFirstCardLive(firstId);
+      cardCarry = live.live ? { state: 'live', why: null, id: null } : { state: 'draft', why: firstCardWhyKey(live.why, 'draft'), id: firstId };
+    }
+  }
+  redirect(cardCarry ? `${finalize}?${claimCardQuery(cardCarry)}` : finalize);
 }
 
 /** The id of the card the door just made under `title` on this shop (the newest), or null. */

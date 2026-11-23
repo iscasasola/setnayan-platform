@@ -63,7 +63,7 @@ export const RUN_SEAT_ROLES: readonly string[] = [COORDINATOR_SEAT_ROLE, ...FULL
 /** The word for the seat on the Today row and the customer card's pill. */
 export type RunSeatWord = 'Coordinator' | 'Co-host';
 export const runSeatWord = (roleSubtype: string | null, permissions?: ModeratorPermissions | null): RunSeatWord =>
-  // A coordinator the hosts gave FULL access sits on a co-host seat — still their coordinator (owner 2026-10-29).
+  // A seat written before Limited · Full retired (2026-11-21) may still carry its answer until the migration lands.
   roleSubtype === COORDINATOR_SEAT_ROLE || levelOf({ permissions_json: (permissions ?? null) as LevelledPermissions | null }) !== null
     ? 'Coordinator'
     : 'Co-host';
@@ -122,6 +122,13 @@ export type EventYouRun = {
   anchor: { event_type: string | null; event_date: string | null; date_candidates: string[] | null; date_window_start: string | null; created_at: string | null };
   /** Where Open goes — the couple's own event dashboard, through its shipped check. */
   href: string;
+  /**
+   * 🧭 THE ROW'S THREE BUTTONS (owner 2026-11-21, controller call (2): *"each 'Events you run' row shows three buttons —
+   * Dashboard · Chats · Hub"*). Dashboard = `href`; Chats = their chat with the hosts on the customer page
+   * (`supplierChatHref`'s shape); Hub = the hosts' Event Hub Maker (`/launch`, the menu's Hub tab).
+   */
+  chatsHref: string;
+  hubHref: string;
   /** Sort key: 0 upcoming (by date) · 1 no date yet · 2 after the event (still in its window). */
   rank: 0 | 1 | 2;
   date: string | null;
@@ -161,9 +168,7 @@ export function seatRunsTheEvent(row: CoordinatorSeatRow, now: Date): boolean {
     now,
   });
   if (!perms) return false; // window closed (or no grant at all)
-  // 🔑 The hosts answered LIMITED (owner 2026-10-29, Home's Limited · Full access): she views every part — still her
-  // event to open, inside the same window.
-  if (levelOf({ permissions_json: row.permissions_json as LevelledPermissions | null }) === 'limited') return true;
+  // 🔀 The hosts' ONE switch (owner 2026-11-21: Limited · Full retired, booked = the ruled access). On → the door.
   return coordinatorHasHostAccess(areaCells(perms));
 }
 
@@ -259,6 +264,8 @@ export function eventYouRunOf(row: CoordinatorSeatRow, todayIso: string): EventY
       created_at: ev.created_at ?? null,
     },
     href: `/dashboard/${ev.event_id}`,
+    chatsHref: `/vendor-dashboard/clients/${ev.event_id}?tab=chat`,
+    hubHref: `/dashboard/${ev.event_id}/launch`,
     rank,
     date: ev.event_date,
   };

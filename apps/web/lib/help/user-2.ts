@@ -159,10 +159,10 @@ export const USER_2_TOPICS: HelpTopic[] = [
         body: 'Tap ↺ to open History, then tap a row to return to that point — Redo brings it back. Restore what guests see drops your whole draft.',
       },
       {
-        // website/_components/apply-pro-sheet.tsx "Unlock Pro and Apply", "Apply without the Pro effects"
+        // website/_components/apply-pro-sheet.tsx "Unlock Plus and Apply", "Apply without the Plus effects"
         slug: 'apply-with-pro-effects',
         title: 'What happens when I Apply with ◆ effects in my draft?',
-        body: 'The Apply sheet lists each ◆ effect. Unlock Pro and Apply puts everything live with Event Pro; Apply without the Pro effects puts the rest live and keeps the ◆ effects waiting in your draft.',
+        body: 'The Apply sheet lists each ◆ effect. Unlock Plus and Apply puts everything live with Event Plus; Apply without the Plus effects puts the rest live and keeps the ◆ effects waiting in your draft.',
         appBody: 'The Apply sheet lists each ◆ effect. You can put the rest live and keep the ◆ effects waiting in your draft.',
       },
       {
@@ -260,7 +260,7 @@ export const USER_2_TOPICS: HelpTopic[] = [
         // story/page.tsx title 'Story Maker'; story/_components/editorial-editor.tsx railSteps
         slug: 'story-maker',
         title: 'What is the Story Maker?',
-        body: 'Your after-event story, made in steps: the desk, the story, the look, the cover, what is next, and publish. You choose who reads it — keep it a draft, show it to your guests only, or publish it. Sharing it on Real Stories is up to you.',
+        body: 'Your after-event story, made in steps: the desk, the story, the look, the cover, what is next, and publish. You choose who reads it — keep it a draft, show it to your guests only, or publish it.',
       },
     ],
   },

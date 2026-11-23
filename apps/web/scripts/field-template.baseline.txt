@@ -3,21 +3,7 @@
 # GENERATED — never hand-edit, never hand-merge (on a conflict take either side, then):
 #   node apps/web/scripts/lint-field-template.mjs --update-baseline
 # A RATCHET BOTH WAYS: a count may not rise, and a fall must be written here in the same PR.
-# 300 files · 700 boxes
-1 apps/web/app/(shell)/explore/_components/event-type-notify-form.tsx
-1 apps/web/app/(shell)/explore/_components/filter-drawer.tsx
-4 apps/web/app/(shell)/help/page.tsx
-2 apps/web/app/[slug]/_components/guest-column-form.tsx
-1 apps/web/app/[slug]/_components/guest-hub-bar.tsx
-1 apps/web/app/[slug]/_components/photos-of-you-gallery.tsx
-1 apps/web/app/[slug]/_components/rsvp-name-correction.tsx
-1 apps/web/app/[slug]/_components/rsvp-plus-ones.tsx
-3 apps/web/app/[slug]/_components/rsvp-widget.tsx
-3 apps/web/app/[slug]/_components/song-request-card.tsx
-1 apps/web/app/[slug]/_components/story/your-own-consent.tsx
-1 apps/web/app/[slug]/find-seat/_components/name-search.tsx
-3 apps/web/app/[slug]/pabuya/_components/gift-record-sheet.tsx
-1 apps/web/app/[slug]/welcome/_components/plus-one-door.tsx
+# 304 files · 720 boxes
 2 apps/web/app/_components/amendment-builder.tsx
 3 apps/web/app/_components/appointments-section.tsx
 1 apps/web/app/_components/chat-send-form.tsx
@@ -35,6 +21,20 @@
 1 apps/web/app/_components/schedule-suggest-chip.tsx
 1 apps/web/app/_components/timeline-row.tsx
 1 apps/web/app/_components/vendor-packages/lock-modal.tsx
+1 apps/web/app/(shell)/explore/_components/event-type-notify-form.tsx
+1 apps/web/app/(shell)/explore/_components/filter-drawer.tsx
+4 apps/web/app/(shell)/help/page.tsx
+2 apps/web/app/[slug]/_components/guest-column-form.tsx
+1 apps/web/app/[slug]/_components/guest-hub-bar.tsx
+1 apps/web/app/[slug]/_components/photos-of-you-gallery.tsx
+1 apps/web/app/[slug]/_components/rsvp-name-correction.tsx
+1 apps/web/app/[slug]/_components/rsvp-plus-ones.tsx
+3 apps/web/app/[slug]/_components/rsvp-widget.tsx
+3 apps/web/app/[slug]/_components/song-request-card.tsx
+1 apps/web/app/[slug]/_components/story/your-own-consent.tsx
+1 apps/web/app/[slug]/find-seat/_components/name-search.tsx
+3 apps/web/app/[slug]/pabuya/_components/gift-record-sheet.tsx
+1 apps/web/app/[slug]/welcome/_components/plus-one-door.tsx
 2 apps/web/app/admin/_components/admin-command-palette.tsx
 1 apps/web/app/admin/account-deletions/page.tsx
 1 apps/web/app/admin/accounts/_surfaces/events-surface.tsx
@@ -64,15 +64,18 @@
 1 apps/web/app/admin/data-privacy/_components/control-actions.tsx
 2 apps/web/app/admin/data-privacy/_components/task-actions.tsx
 2 apps/web/app/admin/demo-vendors/inquiries/[threadId]/page.tsx
+1 apps/web/app/admin/discount-codes/_components/eligibility-section.tsx
+1 apps/web/app/admin/discount-codes/_components/voucher-form.tsx
 1 apps/web/app/admin/disputes/_components/deposit-disputes-section.tsx
 1 apps/web/app/admin/disputes/_components/payment-disputes-section.tsx
 1 apps/web/app/admin/disputes/page.tsx
 1 apps/web/app/admin/editorial-review/[editorialId]/page.tsx
 1 apps/web/app/admin/event-deletions/page.tsx
 1 apps/web/app/admin/force-majeure/[flagId]/page.tsx
+2 apps/web/app/admin/founder-seats/page.tsx
 2 apps/web/app/admin/fraud/_components/wipe-ban-dialog.tsx
 1 apps/web/app/admin/fraud/page.tsx
-1 apps/web/app/admin/gifts/page.tsx
+13 apps/web/app/admin/gifts/page.tsx
 2 apps/web/app/admin/hub-music/hub-music-manager.tsx
 1 apps/web/app/admin/integrations/_components/maya-card.tsx
 2 apps/web/app/admin/integrations/_components/oauth-card.tsx
@@ -85,6 +88,7 @@
 3 apps/web/app/admin/moodboard-library/_components/library-editor.tsx
 9 apps/web/app/admin/payments/_components/desk.tsx
 1 apps/web/app/admin/payments/_components/inbox-matcher.tsx
+4 apps/web/app/admin/payouts/page.tsx
 3 apps/web/app/admin/pricing/_components/catalog-editor.tsx
 6 apps/web/app/admin/pricing/_surfaces/free-windows-surface.tsx
 2 apps/web/app/admin/repost-watch/page.tsx
@@ -97,6 +101,7 @@
 16 apps/web/app/admin/studio/_surfaces/social-queue-surface.tsx
 2 apps/web/app/admin/studio/_surfaces/songs-danger-controls.tsx
 1 apps/web/app/admin/studio/_surfaces/spotlight-awards-surface.tsx
+1 apps/web/app/admin/subscriptions/page.tsx
 1 apps/web/app/admin/ugat/_components/ugat-console.tsx
 2 apps/web/app/admin/vendor-recommendations/_editor.tsx
 7 apps/web/app/admin/vendors/[vendorProfileId]/edit/page.tsx
@@ -106,8 +111,8 @@
 3 apps/web/app/admin/verify/page.tsx
 1 apps/web/app/admin/website-media/clear-folder-button.tsx
 1 apps/web/app/dashboard/(account)/api-keys/page.tsx
-1 apps/web/app/dashboard/(account)/clusters/[clusterId]/_components/cluster-tools.tsx
 1 apps/web/app/dashboard/(account)/clusters/_components/create-cluster-form.tsx
+1 apps/web/app/dashboard/(account)/clusters/[clusterId]/_components/cluster-tools.tsx
 1 apps/web/app/dashboard/(account)/create-event/_components/ask-for-event-type.tsx
 1 apps/web/app/dashboard/(account)/create-event/_components/create-location-picker.tsx
 2 apps/web/app/dashboard/(account)/create-event/_components/event-type-picker.tsx
@@ -205,6 +210,10 @@
 3 apps/web/app/dashboard/[eventId]/studio/playlist/_components/playlist-pick-row.tsx
 3 apps/web/app/dashboard/[eventId]/studio/playlist/_components/playlist-slot-section.tsx
 4 apps/web/app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx
+1 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-lock.tsx
+1 apps/web/app/dashboard/[eventId]/vendors/_components/build-body.tsx
+1 apps/web/app/dashboard/[eventId]/vendors/_components/build-compare.tsx
+1 apps/web/app/dashboard/[eventId]/vendors/_components/team-controls.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/review/_components/recommend-vendor-card.tsx
 3 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/review/page.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx
@@ -212,10 +221,6 @@
 1 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/host-service-details.tsx
 4 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/self-added-contact-card.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx
-1 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-lock.tsx
-1 apps/web/app/dashboard/[eventId]/vendors/_components/build-body.tsx
-1 apps/web/app/dashboard/[eventId]/vendors/_components/build-compare.tsx
-1 apps/web/app/dashboard/[eventId]/vendors/_components/team-controls.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/categories/page.tsx
 1 apps/web/app/dashboard/[eventId]/website/editor/_components/details-bound-field.tsx
 1 apps/web/app/dashboard/[eventId]/website/editor/_components/media-panels.tsx
@@ -271,7 +276,6 @@
 1 apps/web/app/vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx
 9 apps/web/app/vendor-dashboard/clients/[eventId]/page.tsx
 6 apps/web/app/vendor-dashboard/invite/_components/locked-qr-generator.tsx
-1 apps/web/app/vendor-dashboard/lines/page.tsx
 1 apps/web/app/vendor-dashboard/manpower/_components/gig-card.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx

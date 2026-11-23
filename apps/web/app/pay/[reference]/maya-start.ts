@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createMoneyWriterClient } from '@/lib/supabase/admin';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
-import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
+import { coordinatorMoneyScopeAllowed, ONLY_A_HOST_PAYS } from '@/lib/coordinator-money-scope';
 import { siteOrigin } from '@/lib/site-origin';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import { paymentWithinCeiling } from '@/lib/payment-ceiling';
@@ -25,7 +25,7 @@ import { settleMaya } from '@/app/admin/payments/maya';
  *   · signed in, and the reference is THEIRS (`fetchPayableByReference` on the
  *     session client — RLS decides; a stranger's code is "not found");
  *   · the bill is still waiting for payment;
- *   · a coordinator acting on the couple's order has payment permission;
+ *   · only a host pays — a coordinator or helper on the couple's order is refused (`ONLY_A_HOST_PAYS`);
  *   · the rail is ON (switch + both keys) — re-asked, never trusted from the page;
  *   · the bill is within the one-payment ceiling (owner 2026-11-17, ₱100,000).
  *
@@ -52,9 +52,8 @@ export async function startMayaCheckout(formData: FormData): Promise<never> {
 
   if (payable.eventId && payable.ownerUserId !== user.id) {
     const allowed = await coordinatorMoneyScopeAllowed(createMoneyWriterClient(), payable.eventId, user.id, 'checkout');
-    if (!allowed) {
-      back('The couple has not approved payment handling for your access — ask them to re-invite you with payment permission.');
-    }
+    // 🔒 Only a host pays (owner 2026-11-21, "no booking, no paying") — the same words the proof form says.
+    if (!allowed) back(ONLY_A_HOST_PAYS);
   }
 
   const { state, config } = await readMayaGate();

@@ -24,9 +24,16 @@ export type HostCameraDoor =
   /** A host, but the camera cannot open right now — said in words, with a way on. Never a dead button. */
   | { kind: 'refused'; title: string; words: string; eventId: string };
 
-/** The camera page for a claimed host camera. The token is a path segment, never a query. */
-export function hostCameraHref(token: string): string {
-  return `/papic/seat/${encodeURIComponent(token)}`;
+/**
+ * The camera page for a claimed host camera. The token is a path segment, never a query.
+ *
+ * ↩️ `back` — the Event Hub tab the camera was opened from (owner 2026-11-22: *"we want them back to where they were
+ * last"*). It rides along as `?back=<tab>` so the camera's ✕ returns to that tab; the seat page re-checks it against
+ * the tab keys (`cameraBackTab`) and builds the exit from the event's own slug, never from this value.
+ */
+export function hostCameraHref(token: string, back?: string | null): string {
+  const path = `/papic/seat/${encodeURIComponent(token)}`;
+  return back && /^[a-z][a-z0-9_-]{0,31}$/.test(back) ? `${path}?back=${back}` : path;
 }
 
 /** Why a host's camera did not open — one plain sentence each, and what to do. */

@@ -38,7 +38,7 @@ import { loadConsentVetoedPapicIds, publicKeyForCapture } from './consent-veto';
 import { parseYouTubeVideoId, youTubeEmbedUrl, isYouTubeVideoId } from '@/lib/panood-watch';
 import { filmsFromRows, type EventFilm, type EventFilmRow } from '@/lib/event-films';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
-import { tierCaps } from '@/lib/vendor-tier-caps';
+import { isPaidSize, tierCaps } from '@/lib/vendor-tier-caps';
 import { bylineFor } from '@/lib/guest-columns';
 import {
   fetchEventRecommendations,
@@ -140,7 +140,7 @@ const SERVICE_LABELS: Record<string, string> = {
   CUSTOM_QR_GUEST: 'Custom Guest QR',
   // EDITORIAL_PRO + STD_PREMIUM_OPENINGS are bundle-only (2026-07-22 · via Website
   // PRO). Kept here so existing/bundle owners still get a clean "Powered by" label.
-  EDITORIAL_PRO: 'Editorial PRO',
+  EDITORIAL_PRO: 'Story Maker',
   EVENT_WEBSITE: 'Event Hub',
   // LIVE_BACKGROUND removed 2026-08-11 with the LED wall backdrop itself. No
   // order was ever placed under it, so no "Powered by" label loses its name.
@@ -1297,10 +1297,10 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
         });
       }
 
-      // 🤝 The rich card (Supplier Pro / Ultra) and each Supplier Ultra's own scene (owner 2026-11-13). A failed read
+      // 🤝 The rich card and each supplier's own scene — every paid size (owner 2026-11-13; Plus too since 2026-11-22). A failed read
       // keeps the plain credits and draws no Ultra scene — it never empties the list.
       const cardProfiles = [...profiles.entries()]
-        .filter(([, p]) => p.tier === 'pro' || p.tier === 'enterprise')
+        .filter(([, p]) => isPaidSize(p.tier))
         .map(([vendorProfileId, p]) => ({ vendorProfileId, portfolioKeys: p.portfolioKeys }));
       const cards = await readStorySupplierCards(admin, cardProfiles).catch(() => null);
       if (cards) for (const v of vendors) if (v.vendorProfileId) v.card = cards.get(v.vendorProfileId) ?? null;

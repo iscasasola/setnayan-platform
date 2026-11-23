@@ -94,9 +94,9 @@ test('a new N drops the options that would now share a day, and says how many', 
   assert.equal(droppedLine(0, 4), null);
 });
 
-test('a window ≤ 30 days; four options at most', () => {
-  assert.equal(dateOptionsRefusal({ mode: 'window', candidates: [], windowStart: '2026-12-19', windowEnd: '2027-01-17', days: 3, maxDays: 7 }), null);
-  assert.match(dateOptionsRefusal({ mode: 'window', candidates: [], windowStart: '2026-12-19', windowEnd: '2027-01-18', days: 3, maxDays: 7 }) ?? '', /30 days/);
+test('a window ≤ 92 days (3 months, owner 2026-11-17); four options at most', () => {
+  assert.equal(dateOptionsRefusal({ mode: 'window', candidates: [], windowStart: '2026-12-19', windowEnd: '2027-03-20', days: 3, maxDays: 7 }), null);
+  assert.match(dateOptionsRefusal({ mode: 'window', candidates: [], windowStart: '2026-12-19', windowEnd: '2027-03-21', days: 3, maxDays: 7 }) ?? '', /92 days/);
   assert.match(
     dateOptionsRefusal({ mode: 'specific', candidates: ['2027-01-02', '2027-01-09', '2027-01-16', '2027-01-23', '2027-01-30'], windowStart: null, windowEnd: null, days: 1, maxDays: 7 }) ?? '',
     /up to 4/,
@@ -114,4 +114,15 @@ test('the date · place line reads the options as the prototype does', () => {
   );
   assert.equal(dateOptionsFactWords({ mode: 'window', candidates: [], windowStart: '2026-12-19', windowEnd: '2027-01-02', days: 1 }), 'Dec 19 – Jan 2');
   assert.equal(dateOptionsFactWords({ mode: 'specific', candidates: [], windowStart: null, windowEnd: null, days: 1 }), null);
+});
+
+test('🗓 "Some months" (owner 2026-11-17): first-of-month days, de-duped, in order, at most 3 — and said as months', async () => {
+  const { cleanDateMonths, dateMonthsWords, dateOptionsFactWords, openDateWords } = await import('./event-date-options');
+  assert.deepEqual(cleanDateMonths(['2027-05-01', '2027-02-01', '2027-02-01', '2027-04-15', 'x', '2027-10-01', '2027-11-01']), ['2027-02-01', '2027-05-01', '2027-10-01']);
+  assert.deepEqual(cleanDateMonths(['2026-01-01', '2027-01-01'], '2026-12-19'), ['2027-01-01'], 'a month already gone is dropped');
+  assert.equal(dateMonthsWords(['2027-02-01', '2027-04-01', '2027-05-01']), 'Feb · Apr · May 2027');
+  assert.equal(dateMonthsWords(['2026-12-01', '2027-02-01']), 'Dec 2026 · Feb 2027');
+  assert.equal(dateOptionsFactWords({ mode: 'months', candidates: null, windowStart: null, windowEnd: null, days: 1, months: ['2027-02-01'] }), 'Feb 2027');
+  assert.equal(openDateWords({ mode: 'months', candidates: null, windowStart: null, windowEnd: null, months: ['2027-02-01', '2027-04-01'] }), 'in Feb · Apr 2027');
+  assert.equal(dateMonthsWords([]), null, 'no months → no words, never a made-up date');
 });

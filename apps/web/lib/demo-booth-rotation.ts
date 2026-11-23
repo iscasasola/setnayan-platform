@@ -18,6 +18,7 @@
  */
 
 import type { VendorCategory } from './vendors';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { envFlagEnabled } from '@/lib/env-flag';
 
 /** How long a rotation window lasts — the demo booths change lineup this often
@@ -36,12 +37,11 @@ export type RotatableVendor = {
   bookable: boolean; // public_visibility === 'verified' — drives the booth CTA
 };
 
-/** Ring copies for a vendor — more copies = more airtime. Enterprise leads, then
- *  Pro, an ad boost adds one, and a plain verified vendor gets one. */
+/** Ring copies for a vendor — more copies = more airtime. Every paid size gets two (owner 2026-11-22 "SAME FEATURES
+ *  IN EVERY SIZE"; was Ultra 3 · Pro 2), an ad boost adds one, and a plain verified vendor gets one. */
 export function rotationWeight(tier: string | null, adRank: number): number {
   let w = 1;
-  if (tier === 'enterprise') w = 3;
-  else if (tier === 'pro') w = 2;
+  if (isPaidSize(tier)) w = 2;
   if (adRank > 0) w += 1;
   return w;
 }

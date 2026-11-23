@@ -300,8 +300,11 @@ test('SEC-8 · the deny-set is EXACTLY the two credential columns, per the catal
   assert.deepEqual(
     deniedToAuthenticated,
     // granted_by_user_id is locked by 20271009200000 (it is an erasure-control
-    // input, not user data); the two tokens by 20271009210000.
-    ['access_token', 'granted_by_user_id', 'refresh_token'],
+    // input, not user data); the two tokens by 20271009210000. vendor_profile_id
+    // (20271359577754, a shop's own Drive) was never granted: a shop grant has no
+    // event, so no event member can see its row, and the shop id is not the
+    // couple's to read on their own grants either. Denied is the tighter posture.
+    ['access_token', 'granted_by_user_id', 'refresh_token', 'vendor_profile_id'],
     'the browser deny-set on oauth_grants is not what this PR intends',
   );
 

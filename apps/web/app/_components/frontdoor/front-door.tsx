@@ -44,7 +44,7 @@ import { DiscoverCategoryButton, DiscoverFiltersButton } from './discover-suppli
 import type { MarketplaceSearchParams } from '@/app/(shell)/explore/_lib/marketplace-view';
 import { redirect } from 'next/navigation';
 import { discoverViewOf, eventStoriesShelfInput, signedOutRedirect } from '@/lib/discover-six-parts';
-import { loadDiscoverInspiration, loadDiscoverServiceCards } from './discover-six-parts-data';
+import { loadDiscoverArticles, loadDiscoverInspiration, loadDiscoverServiceCards } from './discover-six-parts-data';
 import {
   ArticlesShelf,
   EventStoriesShelf,
@@ -104,6 +104,8 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
         feed && view.kind !== 'stories' ? resolveRailStudioEvent() : null,
         feed && view.kind === 'stories' ? loadPublishedShowcasesResult(48).catch(() => null) : null,
         feed && view.kind === 'stories' ? getEventTypeVocab() : [],
+        // Part 5 · Articles (Build 3, owner 17 Nov) — the same one read the sitemap and llms.txt list.
+        feed && !ownView ? loadDiscoverArticles(4) : null,
       ]);
     }),
   );
@@ -157,7 +159,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
     once more with the event type.
   */
   // Started the moment the account was known (`shelvesRead`, above) — each part only for a signed-in feed.
-  const [serviceCardShelf, inspirationShelf, studio, storyRead, storyOccasions] = await shelvesRead;
+  const [serviceCardShelf, inspirationShelf, studio, storyRead, storyOccasions, articleShelf] = await shelvesRead;
   const saveHref = studio ? moodBoardSaveHref(studio) : null;
 
   /*
@@ -404,7 +406,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
                 <>
                   {serviceCardShelf ? <ServiceCardsShelf shelf={serviceCardShelf} /> : null}
                   <EventStoriesShelf stories={eventStoriesShelfInput(data.stories, data.editorialsMeasured)} />
-                  <ArticlesShelf />
+                  {articleShelf ? <ArticlesShelf shelf={articleShelf} /> : null}
                   {inspirationShelf ? <InspirationShelf shelf={inspirationShelf} saveHref={saveHref} /> : null}
                 </>
               }

@@ -82,14 +82,17 @@ test('every reader honours it: Check a date, its side card, Find, the bench, the
   const bench = read('lib/bench-bookable-days.server.ts');
   assert.equal((bench.match(/windowRefusals\(cardsBySupplier, windows, days, windowToday\(\)\)/g) ?? []).length, 2, 'Find and the bench');
   const ask = read('app/dashboard/[eventId]/vendors/actions.ts');
-  assert.match(ask, /readBookingWindow\(createAdminClient\(\), targetVendor\.marketplace_vendor_id\)[\s\S]{0,300}bookingWindowMessage\(outside, shopWindow\)/);
+  // The ask asks the ONE helper every booking door asks (`lib/booking-window.server.ts`, walk 22 Nov 2026).
+  assert.match(ask, /bookingWindowRefusal\(\{ vendorProfileId: targetVendor\.marketplace_vendor_id, day: wd\.event_date \}\)/);
+  const helper = read('lib/booking-window.server.ts');
+  assert.match(helper, /readBookingWindow\(args\.admin \?\? createAdminClient\(\), args\.vendorProfileId\)[\s\S]{0,200}bookingWindowMessage\(outside, window\)/);
   // Above the slot / daily-capacity split, so a card with time slots is checked too (ship review of #8058).
   const fin = ask.slice(ask.indexOf('export async function finalizeVendor('));
-  const windowAt = fin.indexOf('readBookingWindow(');
+  const windowAt = fin.indexOf('bookingWindowRefusal(');
   const splitAt = fin.indexOf('let slotPathLocked = false;');
   assert.ok(windowAt > 0 && splitAt > 0, 'finalizeVendor still reads the window and still splits slot / #2');
   assert.ok(windowAt < splitAt, 'the window check runs before the slot path, not only inside #2');
-  assert.equal((fin.match(/readBookingWindow\(/g) ?? []).length, 1, 'one window check, not one per path');
+  assert.equal((fin.match(/bookingWindowRefusal\(/g) ?? []).length, 1, 'one window check, not one per path');
   // A write the row policy turns into zero rows must not read "saved" (ship review of #8058).
   const save = read('app/vendor-dashboard/calendar/actions.ts');
   const body = save.slice(save.indexOf('async function saveBookingWindow('), save.indexOf("backToCalendar(formData, 'booking_window_saved')"));

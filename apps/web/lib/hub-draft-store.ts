@@ -13,7 +13,7 @@ import { landAfterWrite } from '@/lib/maker-land.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
 import { asViewedOwnership } from '@/lib/view-as-free.server';
-import { HUB_PARTS, NO_HUB_PARTS, hubOwnershipView, type HubOwnership, type HubOwnershipView, type HubPartId } from '@/lib/hub-parts';
+import { EVENT_PLUS_SKU, HUB_PARTS, NO_HUB_PARTS, hubOwnershipView, type HubOwnership, type HubOwnershipView, type HubPartId } from '@/lib/hub-parts';
 import { getIapGate } from '@/lib/request-platform';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
@@ -604,7 +604,7 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
     ]);
     ownedViewed = owned;
     /* "As a free couple" — the switch handed back no parts for an event that holds some. */
-    viewedAsFree = owned === NO_HUB_PARTS && (real.full || real.parts.size > 0);
+    viewedAsFree = owned === NO_HUB_PARTS && (real.full || real.parts.size > 0 || (real.gates?.size ?? 0) > 0);
     if (draft) {
       const live = await readHubLiveState(supabase, eventId);
       // 📵 In the store shell web-bought Pro is not usable yet (owner 2026-09-25),
@@ -630,11 +630,14 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
       const php = read?.onSale.has(p.sku) ? read.parts.get(p.sku) : undefined;
       if (php !== undefined) partPricePhp[p.id] = php;
     }
-    fullPricePhp = read?.full ?? null;
+    // 🏛 The whole Event Hub is Event Plus (owner 20 Nov) — the rest the Apply sheet measures is against Plus's row.
+    fullPricePhp = read?.everything ?? null;
   }
   let priceLabel: string | null = null;
   if (!storeShell && summary.proCount > 0) {
-    const sku = await formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null);
+    /* 🏛 "Unlock Plus and Apply · ₱X" (owner 20 Nov: the whole Event Hub is Event Plus): X is the Event Plus row, read
+       from the catalogue, never typed; an unread row shows no price. */
+    const sku = await formatV2Sku(EVENT_PLUS_SKU).catch(() => null);
     priceLabel = sku?.price_php != null ? formatPhp(sku.price_php) : null;
   }
   return {

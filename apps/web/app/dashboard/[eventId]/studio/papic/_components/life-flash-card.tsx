@@ -1,4 +1,5 @@
 import { Zap } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button-class';
 import { createClient } from '@/lib/supabase/server';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { countEventMoments, SCOPE_MIN_MOMENTS } from '@/lib/life-story-moment-graph';
@@ -76,7 +77,7 @@ export async function LifeFlashCard({ eventId, state, seat = 'page' }: { eventId
   const inSheet = seat === 'sheet';
   const body = (
     <>
-      <p className={inSheet ? 'text-[15px] text-ink/70' : 'mt-1 text-sm text-ink/70'}>
+      <p className={inSheet ? 'text-sn-lg text-ink/70' : 'mt-1 text-sm text-ink/70'}>
         {moments} {moments === 1 ? 'moment' : 'moments'} from this day, played back through
         every camera that was there.
       </p>
@@ -84,7 +85,7 @@ export async function LifeFlashCard({ eventId, state, seat = 'page' }: { eventId
           same id space the moment graph keys on. NEVER the S89E public id. */}
       <a
         href={`/dashboard/life-flash?scope=e${eventId}`}
-        className={inSheet ? 'ab ab-brand ab-main h-12 w-full text-[15px]' : 'ab ab-brand ab-main mt-4'}
+        className={actionButtonClass('brand', { main: true, extra: inSheet ? 'h-12 w-full text-sn-lg' : 'mt-4' })}
       >
         <Zap aria-hidden className="h-4 w-4" strokeWidth={2} />
         Play this day

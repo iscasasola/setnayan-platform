@@ -208,7 +208,7 @@ test('3 · ART_KIT_IS_PRO is the one gate — both values hold on the guest page
   assert.deepEqual(hubDraftProEffects(mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { scene_accents: { countdown: 'narra-columns' } } } }), live, true), [], 'an owning couple was asked');
 
   const loaders = stripComments(read('app/[slug]/_lib/loaders.ts'));
-  assert.match(loaders, /const proWatermarkHiddenAhead = startAhead\(websiteProActiveFor\(event\.event_id\)\);/);
+  assert.match(loaders, /const proWatermarkHiddenAhead = startAhead\(proPlanActiveFor\(event\.event_id\)\);/);
   assert.match(stripComments(read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx')), /tryPro=\{ART_KIT_IS_PRO && !ownsPro\}/, 'the Accent row is not ◆ through the one constant');
 });
 

@@ -29,6 +29,7 @@ import {
   type PassCardEligibility,
   type PassCardRow,
 } from '@/lib/pass-card';
+import { seatNumberWords } from '@/lib/table-words';
 
 /**
  * lib/pass-card.server.ts — THE PASS CARD'S READS (lib/pass-card.ts decides,
@@ -270,7 +271,7 @@ export async function readTicketSeats(admin: SupabaseClient, eventId: string): P
     const l = label.get(s.table_id)?.trim() || null;
     out.set(s.guest_id, {
       seat: l ? (/^\d+$/.test(l) ? `Table ${l}` : l) : null,
-      seatNumber: s.seat_number != null ? String(s.seat_number) : null,
+      seatNumber: s.seat_number != null ? seatNumberWords(s.seat_number) : null,
     });
   }
   return out;

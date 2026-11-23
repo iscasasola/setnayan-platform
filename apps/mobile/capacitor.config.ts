@@ -71,7 +71,10 @@ const config: CapacitorConfig = {
     // offer the native ask and register an APNs token (apps/web/lib/native-push.ts).
     // An older build lacks the token and is never shown an ask with nothing behind
     // it. iOS ONLY — Android has no FCM wiring yet.
-    appendUserAgent: 'SetnayanApp SetnayanSignIn/1 SetnayanIAP/2 SetnayanPush/1',
+    // 💝 `SetnayanIAP/3` (1.0 build 9, owner 2026-11-22): this build's plugin passes a QUANTITY (1–10) to StoreKit, so a
+    // shop's gift cart pays line by line — one Apple purchase per line. `/2` builds still sell couple products; only `/3`+
+    // is shown the gift store (apps/web/lib/iap/iap-gate.ts `hasStoreQuantity`).
+    appendUserAgent: 'SetnayanApp SetnayanSignIn/1 SetnayanIAP/3 SetnayanPush/1',
   },
   plugins: {
     SplashScreen: {

@@ -62,11 +62,10 @@ test('an add-on raises a number, never a feature — and never an unlimited one'
   assert.equal(g.serviceCardsTotal, TIER_CAPS.enterprise.serviceCardsTotal);
 });
 
-test('only Ultra may buy a seat or a branch; the four "+1" add-ons are not sold on any plan (2026-11-14)', () => {
+test('no add-on is sold on any plan — not the seat or branch either (owner 2026-11-22 "FINAL LADDER": no add-ons)', () => {
   for (const kind of ULTRA_ADDON_ORDER) {
-    const stillSold = kind === 'seat' || kind === 'branch';
     for (const t of VENDOR_TIERS) {
-      assert.equal(canBuyUltraAddOn(kind, t), stillSold && t === 'enterprise', `${kind} on ${t}`);
+      assert.equal(canBuyUltraAddOn(kind, t), false, `${kind} on ${t}`);
     }
     assert.equal(canBuyUltraAddOn(kind, null), false);
   }

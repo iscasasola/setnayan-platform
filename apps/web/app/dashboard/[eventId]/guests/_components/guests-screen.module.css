@@ -139,13 +139,15 @@
 }
 /* 🎚 THE VIEW'S OWN ROUNDS in the top row (Seats: Edit · ⋯ — owner v14, "RIGHT action rounds only"): 40-px rounds, the
    word in the button's name (an icon-only `.ab` still reads "Edit"). Under 360 the rounds are 36 (prototype v14's fit). */
-.stick [data-guests-view-rounds] :global(.ab) {
+/* ▶ The view's MAIN verb keeps its word (drawing v4 § 7: "▷ Preview", the one terracotta button in the top row) — only
+   the secondary rounds go to their icon. ActionButton marks its main verb `data-main`. */
+.stick [data-guests-view-rounds] :global(.ab):not([data-main]) {
   width: 40px;
   min-width: 40px;
   padding: 0;
   gap: 0;
 }
-.stick [data-guests-view-rounds] :global(.ab .lbl) {
+.stick [data-guests-view-rounds] :global(.ab):not([data-main]) :global(.lbl) {
   display: none;
 }
 @media (max-width: 359px) {
@@ -891,7 +893,10 @@ button.ico {
   white-space: nowrap;
   flex: 0 0 auto;
   color: var(--gs-mute);
-  font-size: 13px;
+  /* The count speaks in the heading's own letters, 8 px after it (drawing v4 § 1: "BRIDE & GROOM  2"). */
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: -4px; /* the bar's 12 px gap → 8 */
 }
 .chev {
   margin-left: auto;
@@ -1166,6 +1171,11 @@ button.ico {
    ways in as plain rows, two to a line. No frame around the block; only the buttons are pressable. */
 .typedAdd {
   margin: 6px 0 12px;
+}
+/* 🔎 "2 FOUND" — the search's count, one line in the headings' own letters (Guests redesign § 2). */
+.found {
+  display: block;
+  padding: 8px 4px 0;
 }
 .ways {
   margin-top: 8px;
@@ -2057,15 +2067,18 @@ button.countsDoor[aria-pressed='true'] {
    sit right above the thumb row, in the page's muted words; the add line in the add colour. */
 .dragHint {
   position: absolute;
-  left: max(22px, calc(var(--sn-safe-l) + 6px));
-  right: max(22px, calc(var(--sn-safe-r) + 6px));
+  /* An unframed line on a band of the page colour, gutter to gutter (22 Nov, Fable review of the built page: a framed
+     pill reads as pressable and still hid a result). The band keeps the rows behind it from showing through. */
+  left: max(16px, calc(var(--sn-safe-l) + 4px));
+  right: max(16px, calc(var(--sn-safe-r) + 4px));
   bottom: 100%;
   display: flex;
   align-items: center;
   gap: 6px;
   margin: 0;
-  padding: 0;
-  font-size: 13px;
+  padding: 6px 4px;
+  background: var(--gs-paper);
+  font-size: 12px;
   color: var(--gs-mute);
   pointer-events: none;
 }

@@ -54,7 +54,7 @@ test('verification reads the required-papers count, and says the video call', ()
   assert.match(code('app/_components/home/vendor-benefits.ts'), /\$\{formatCount\(REQUIRED_DOC_COUNT\)\} required papers/, 'the count is typed, not read');
 });
 
-test('the 3D seat-plan logo opens from Supplier Plus, with the 3D Booth add-on', () => {
+test('the 3D seat-plan logo opens from Supplier Plus, included (no add-ons since 2026-11-22)', () => {
   const tiersWith3d = VENDOR_TIER_SECTIONS.filter((s) =>
     s.groups.some((g) => g.items.some((i) => /3D seat plan/.test(i.n))),
   ).map((s) => s.tier);
@@ -62,5 +62,6 @@ test('the 3D seat-plan logo opens from Supplier Plus, with the 3D Booth add-on',
   const row = VENDOR_TIER_SECTIONS.find((s) => s.tier === 'solo')!
     .groups.flatMap((g) => g.items)
     .find((i) => /3D seat plan/.test(i.n))!;
-  assert.match(row.b, /3D Booth add-on/, 'the row must say it is the 3D Booth add-on');
+  // No add-ons since 2026-11-22: the logo is simply included on every paid size.
+  assert.match(row.b, /Included\./, 'the row must say the logo is included');
 });

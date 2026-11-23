@@ -105,7 +105,9 @@ export async function eventAnimatedMonogramActive(
  */
 export const HUB_PRO_SERVICE_KEY = 'COUPLE_WEBSITE_PRO';
 
-export const INCLUDED_WITH_HUB_PRO = 'Included with Event Pro';
+// 🏛 Owner 20 Nov 2026: the whole Event Hub — the Logo & QR part among it — is Event Plus's, and Pro and Ultra include
+// Plus, so the note names the plan, not one rung of it.
+export const INCLUDED_WITH_HUB_PRO = 'Included with your plan';
 
 export async function eventGetsAnimatedMonogramFromHubPro(
   supabase: SupabaseClient,

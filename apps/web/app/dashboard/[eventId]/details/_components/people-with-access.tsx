@@ -28,7 +28,6 @@ import {
 } from '@/lib/people-with-access';
 import { setDelegateArea, removeHost } from '@/app/dashboard/[eventId]/hosts/actions';
 import { setGuestAccess } from '@/app/dashboard/[eventId]/guests/[guestId]/access-actions';
-import { ACCESS_LEVEL_AREA, COORDINATOR_ACCESS_LEVELS, LEVEL_WORD, type CoordinatorAccessLevel } from '@/lib/coordinator-access-level';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { ClaimAccessCard } from '@/app/dashboard/[eventId]/access-requests/_components/claim-access-card';
 import type { ClaimAccessAsk } from '@/lib/claim-access-asks';
@@ -270,55 +269,6 @@ function CoordinatorSwitch({ eventId, row, readOnly }: { eventId: string; row: P
   );
 }
 
-/**
- * 🔑 THE COORDINATOR'S LEVEL — Limited · Full access (owner 2026-10-29, "only TWO levels"). Where Home's one-time
- * answer stays changeable: the same door (`setDelegateArea`, area `access_level`). Full access moves her onto the
- * co-host seat; Limited back onto the coordinator's seat with view on every part. A refusal puts the pick back.
- */
-function CoordinatorLevelPick({ eventId, row }: { eventId: string; row: PersonRow }) {
-  const start = row.coordinatorLevel === 'limited' || row.coordinatorLevel === 'full' ? row.coordinatorLevel : null;
-  const [level, setLevel] = useState<CoordinatorAccessLevel | null>(start);
-  const [error, setError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
-  if (!row.moderatorId || row.coordinatorLevel === undefined) return null;
-  const moderatorId = row.moderatorId;
-  const pick = (key: string) => {
-    const next = key as CoordinatorAccessLevel;
-    if (next === level) return;
-    const before = level;
-    setLevel(next);
-    setError(null);
-    startTransition(async () => {
-      const res = await setDelegateArea(eventId, moderatorId, ACCESS_LEVEL_AREA, next);
-      if (!res.ok) {
-        setLevel(before);
-        setError(res.error);
-      }
-    });
-  };
-  return (
-    <div className="flex min-h-11 items-center justify-between gap-3" data-coordinator-level-pick="">
-      <span className="text-[13px] text-ink/75">Access</span>
-      <span className="flex flex-col items-end gap-0.5">
-        <PickMenu
-          label={`${row.name}'s access to this event`}
-          value={level ?? ''}
-          options={COORDINATOR_ACCESS_LEVELS.map((k) => ({ key: k, label: LEVEL_WORD[k] }))}
-          onPick={pick}
-          dataAttr="data-coordinator-level-menu"
-          buttonText={level ? undefined : 'Pick one'}
-          compact
-        />
-        {error ? (
-          <span role="alert" className="max-w-[16rem] text-right text-[12px] text-terracotta-700">
-            {error}
-          </span>
-        ) : null}
-      </span>
-    </div>
-  );
-}
-
 function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
   const [level, setLevel] = useState<GuestAccessLevel>(row.access?.level ?? 'none');
   const [error, setError] = useState<string | null>(null);
@@ -486,18 +436,10 @@ function PersonItem({
           <AccessPick eventId={eventId} row={row} />
         )}
       </div>
-      {/* 🔑 Limited · Full access — the coordinator's level, changeable here (owner 2026-10-29). */}
-      {row.coordinatorLevel !== undefined && !row.isViewer && !readOnly ? <CoordinatorLevelPick eventId={eventId} row={row} /> : null}
       {row.kind === 'coordinator' && !row.isViewer ? (
-        // The old one switch stays only until the hosts answer the level (a recorded level replaces it).
-        row.coordinatorLevel === 'unanswered' || row.coordinatorLevel === undefined ? (
-          <CoordinatorSwitch eventId={eventId} row={row} readOnly={readOnly} />
-        ) : row.coordinatorLevel === 'limited' && row.areas ? (
-          /* 🖼 LIMITED = "changes only what you allow" (LEVEL_MORE: "…until you allow a part in Event details ›
-             Access"). This is that place — the helper's own per-part toggles on the coordinator's seat, Mood Board
-             among them (owner 2026-10-30: "Only the host and whoever supplier they give access to"). */
-          <AreaPicks eventId={eventId} row={{ ...row, areas: row.areas }} readOnly={readOnly} />
-        ) : null
+        /* 🔀 THE HOSTS' ONE SWITCH (owner 2026-11-21, controller call (1): "the hosts' Limited/Full choice for a
+           coordinator retires — booked = the ruled access; the hosts keep ONE off switch"). */
+        <CoordinatorSwitch eventId={eventId} row={row} readOnly={readOnly} />
       ) : row.areas ? (
         <AreaPicks eventId={eventId} row={{ ...row, areas: row.areas }} readOnly={readOnly || row.isViewer} />
       ) : null}

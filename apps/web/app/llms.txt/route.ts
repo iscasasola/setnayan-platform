@@ -25,6 +25,7 @@ import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
 import { launchOfferIsOpen } from '@/lib/launch-offer';
+import { readPublicArticles } from '@/lib/articles-index.server';
 
 export const revalidate = 3600;
 
@@ -63,7 +64,7 @@ export async function GET(): Promise<Response> {
     // through B/C/D rows that are is_active=FALSE by design (price-source only,
     // see lib/setnayan-ai-type-pricing.ts). Filtering here would silently flatten
     // the ladder back to a single price, which is the exact bug this replaces.
-    const [retailRes, vendorRes] = await Promise.all([
+    const [retailRes, vendorRes, articles] = await Promise.all([
       admin
         .from('platform_retail_catalog_v2')
         .select('service_code, title, retail_price_php, is_active'),
@@ -71,6 +72,8 @@ export async function GET(): Promise<Response> {
         .from('vendor_billing_catalog')
         .select('sku_code, title, price_php, is_active')
         .eq('is_active', true),
+      // Discover's public articles (owner 17 Nov, Build 3). A refused read lists none — the rest of the file stands.
+      readPublicArticles(),
     ]);
 
     if (retailRes.error || vendorRes.error || !retailRes.data || !vendorRes.data) {
@@ -91,6 +94,7 @@ export async function GET(): Promise<Response> {
       vendorPaywallOn: isVendorFeatureGateEnabled(),
       launchOfferCap,
       refreshedOn: new Date().toISOString().slice(0, 10),
+      articles: articles.items,
     });
 
     return new Response(body, { headers: HEADERS });

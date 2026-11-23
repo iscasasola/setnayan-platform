@@ -55,6 +55,11 @@ export interface QueuedShot {
   /** 📷 The chapter the camera showed at the shutter (owner 2026-11-01) — the server re-asks if it may go in. */
   chapterId?: string | null;
   /**
+   * 📍 Seat lane only: the location stamped at the shutter, when the RA 10173 control `papic_geo_metadata` is on
+   * (the seat page resolves it; `recordSeatCapture` re-gates on write). Absent = no location asked for.
+   */
+  geo?: { lat?: number | null; lon?: number | null; accuracyM?: number | null; unavailable?: boolean };
+  /**
    * 📲 'phone' = added from the phone's gallery, not taken by this camera (guest upload v2, owner 2026-11-13). Every
    * call carries it: the route then charges the UPLOAD price and checks the taken-date is on the event day.
    * `capturedAtMs` is the file's own taken-date.
@@ -280,6 +285,12 @@ export const KEPT_REFUSALS: ReadonlySet<string> = new Set([
   'chapter_closed',
   'not_in_chapter',
   'not_a_chapter',
+  // seat lane (`recordSeatCapture`) — the camera's window, its paid order, a seat handed to someone else
+  'capture_not_started',
+  'capture_window_closed',
+  'awaiting_payment',
+  'revoked',
+  'not_your_seat',
 ]);
 
 /** The shot belongs to another event / another person on this phone. */

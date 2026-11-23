@@ -212,7 +212,10 @@ test('Editorial authoring is free, and it does not take the watermark with it', 
     /export async function eventCoupleWebsiteProActive[\s\S]*?eventHubOwnership\(supabase, eventId, 'active'\)\)\.full/,
     'the watermark gate must still read the UMBRELLA key.',
   );
-  assert.match(gates, /eventSkuActive\(supabase, eventId, FULL_PRO_SKU\)/, 'everything no longer starts from the UMBRELLA key');
+  /* 2026-11-19: one `holds(sku)` reader serves Full Pro and the Plus gates in the same mode — the active one is still
+     eventSkuActive, and everything still starts from the UMBRELLA key. */
+  assert.match(gates, /const holds = \(sku: string\) =>\s*\(mode === 'active' \? eventSkuActive\(supabase, eventId, sku\)/, 'the active read is no longer eventSkuActive');
+  assert.match(gates, /holds\(FULL_PRO_SKU\)/, 'everything no longer starts from the UMBRELLA key');
   /*
     🪤 SLICED TO THE FUNCTION BODY, NOT A CHARACTER WINDOW. The first version of
     this looked 400 characters past the signature and went RED on correct code:

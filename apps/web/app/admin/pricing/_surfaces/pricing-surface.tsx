@@ -23,6 +23,7 @@ import { BOOKING_FEE } from '@/lib/booking-fee';
 import { bundleListNote } from '@/lib/shop-gifts';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
+import { readPricingFormulaSettings } from '@/lib/pricing-formula';
 import { LegacyCatalogDisclosure } from '@/app/admin/pricing/_components/legacy-catalog';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -145,7 +146,7 @@ export async function PricingSurface(_props: Props) {
 
   const admin = createAdminClient();
 
-  const [retailRes, bundleRes, vendorRes, settingsRes, poolRes] = await Promise.all([
+  const [retailRes, bundleRes, vendorRes, settingsRes, poolRes, formulaRes] = await Promise.all([
     admin
       .from('platform_retail_catalog_v2')
       .select(
@@ -186,6 +187,15 @@ export async function PricingSurface(_props: Props) {
       .select('free_grant_points')
       .eq('config_key', 'default')
       .maybeSingle(),
+    // 🧮 The 2026-11-21 price formula — its OWN read, so a failure here hides only the formula
+    // suggestions and never the sign-up discount or booking-fee figures above.
+    // 🔒 Admin-only numbers (our markup): the one row of `pricing_formula_settings`, a service-role-only
+    // table (migration 20271356452488) — read here with the service-role client, below `requireAdmin()`.
+    admin
+      .from('pricing_formula_settings')
+      .select('pricing_opex_factor, pricing_margin_factor, pricing_fee_tax_cover, pricing_round_step_php')
+      .eq('id', 1)
+      .maybeSingle(),
   ]);
 
   if (retailRes.error) logQueryError('AdminPricingPage (retail)', retailRes.error);
@@ -195,6 +205,9 @@ export async function PricingSurface(_props: Props) {
   if (bundleRes.error) logQueryError('AdminPricingPage (bundle)', bundleRes.error);
   if (vendorRes.error) logQueryError('AdminPricingPage (vendor)', vendorRes.error);
   if (settingsRes.error) logQueryError('AdminPricingPage (settings)', settingsRes.error);
+  if (formulaRes.error) logQueryError('AdminPricingPage (price formula)', formulaRes.error);
+  // Null on a refused read or a nonsense value — the card then says so, never a confident default.
+  const formula = formulaRes.error ? null : readPricingFormulaSettings(formulaRes.data);
 
   const retailRows = (retailRes.data ?? []) as RetailRow[];
   const bundleRows = (bundleRes.data ?? []) as BundleRow[];
@@ -396,6 +409,7 @@ export async function PricingSurface(_props: Props) {
         rows={rows}
         retailTitlesForReplacement={retailTitlesForReplacement}
         freeCreditsPerEvent={freeCreditsPerEvent}
+        formula={formula}
       />
 
       {/*

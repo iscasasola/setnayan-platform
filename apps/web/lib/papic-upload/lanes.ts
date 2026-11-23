@@ -1,8 +1,9 @@
 // lib/papic-upload/lanes.ts — the small JSON calls a shot makes on its way up.
 //
-// Two lanes, one shape: the guest camera (/api/papic/guest-capture, cookie
-// session) and the supplier camera (/api/vendor/papic-capture, signed-in
-// supplier). NEITHER carries file bytes — the routes refuse them (Vercel caps a
+// Three lanes, one shape: the guest camera (/api/papic/guest-capture, cookie
+// session), the supplier camera (/api/vendor/papic-capture, signed-in
+// supplier) and a claimed seat camera (/api/papic/seat-capture, the seat's
+// signed-in claimer — the host's own camera among them). NONE carries file bytes — the routes refuse them (Vercel caps a
 // function body at 4.5 MB; measured 413 in production 2026-10-23).
 
 import { CLIENT_CAPTURE_ID_FIELD } from '../papic-client-capture-id';
@@ -12,6 +13,7 @@ import type { CaptureLane, CaptureTier } from './tiers';
 export const LANE_ENDPOINT: Readonly<Record<CaptureLane, string>> = {
   guest: '/api/papic/guest-capture',
   vendor: '/api/vendor/papic-capture',
+  seat: '/api/papic/seat-capture',
 };
 
 export interface LaneAnswer {
@@ -64,8 +66,14 @@ export function recordBody(shot: QueuedShot): Record<string, unknown> {
     if (shot.subjectCenter) body.subject_center = shot.subjectCenter;
     // 🏷 The phone burned the event's mark into the copies it sent — else the server marks its own.
     if (shot.copiesMarked) body.copies_marked = true;
-  } else if (shot.deviceModel) {
-    body.device_model = shot.deviceModel;
+  } else {
+    if (shot.deviceModel) body.device_model = shot.deviceModel;
+    if (shot.lane === 'seat') {
+      // 📷 A seat records through `recordSeatCapture`, which stamps the location (when the RA 10173 control is on)
+      // and matches the faces read on the phone (`autoTagSeatCapture`) — the two things the old seat screen sent.
+      if (shot.faceVectors && shot.faceVectors.length > 0) body.face_vectors = shot.faceVectors;
+      if (shot.geo) body.geo = shot.geo;
+    }
   }
   return body;
 }

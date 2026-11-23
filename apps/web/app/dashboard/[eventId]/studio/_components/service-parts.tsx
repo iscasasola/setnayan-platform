@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ChevronRight, Clapperboard } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button-class';
 import { ADD_ONS, appStoreDetailHref } from '@/lib/add-ons-catalog';
 import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
@@ -63,8 +64,8 @@ export async function ServiceParts({
   if (seat === 'sheet') {
     return (
       <div className="flex flex-col gap-3" data-keepsake-card={door.key}>
-        <p className="text-[15px] text-ink/70">{door.line}</p>
-        <Link href={door.href} data-service-part={door.key} className="ab ab-brand ab-main h-12 w-full text-[15px]">
+        <p className="text-sn-lg text-ink/70">{door.line}</p>
+        <Link href={door.href} data-service-part={door.key} className={actionButtonClass('brand', { main: true, extra: 'h-12 w-full text-sn-lg' })}>
           {service === 'papic' ? <Clapperboard aria-hidden className="h-4 w-4" strokeWidth={2} /> : null}
           Open your {door.name}
         </Link>

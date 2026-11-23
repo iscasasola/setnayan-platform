@@ -755,7 +755,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         // Owner 2026-11-13 (specs DECISION_LOG "every booked supplier is tappable" · "Supplier Ultra scenes").
         Icon: Users,
         title: 'The people who made it',
-        body: 'Every supplier booked on Setnayan is in your story, ordered by their plan &mdash; <b>See all</b> lists them all, with a search when there are many. Tap one to open their shop; Supplier Pro and Supplier Ultra open a card first. A supplier you added yourself is named, with no link. Each Supplier Ultra that shares its album from your day gets its own scene.',
+        body: 'Every supplier booked on Setnayan is in your story, ordered by their plan &mdash; <b>See all</b> lists them all, with a search when there are many. Tap one to open their shop; suppliers on a paid plan open a card first. A supplier you added yourself is named, with no link. Each supplier on a paid plan that shares its album from your day gets its own scene.',
       },
       {
         Icon: Wand2,
@@ -1587,7 +1587,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'shop-gear',
           title: 'Shop settings',
-          body: 'Your page, your plan, who helps you run the shop and your documents are all in here.',
+          // 🧭 Settings v2 (2026-11-13): every ⚙ opens the same full screen.
+          body: 'Your page, your plan, who helps you run the shop and your documents are all in here. Every ⚙ opens the same full screen; ✕ takes you back.',
           go: true,
         },
         {

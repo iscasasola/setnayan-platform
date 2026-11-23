@@ -157,9 +157,13 @@ export function limitAsk(
   if (!plan) {
     return { plan: null, headline: `No plan takes more than ${limitWords(key, cap)} ${meta.thing} today`, alsoUnlocks: [], keep, savedAt: cap };
   }
-  const upTo = limitWords(key, limitOf(plan, key, paywallOn));
+  const planCap = limitOf(plan, key, paywallOn);
   const verb = plan === 'verified' ? 'Get verified' : `Upgrade to ${planWord(plan)}`;
-  const headline = `${verb} to take up to ${upTo} ${meta.thing}`;
+  // "… to take up to 5 team seats" — or, on a plan with no limit (Pro and Ultra since 2026-11-22), "… to take as many
+  // team seats as you like", never "up to No limit".
+  const headline = Number.isFinite(planCap)
+    ? `${verb} to take up to ${limitWords(key, planCap)} ${meta.thing}`
+    : `${verb} to take as many ${meta.thing} as you like`;
   const ch = planChanges(current, plan, paywallOn);
   const alsoUnlocks = [
     ...ch.limits.filter((l) => l.changed && l.key !== key).map((l) => `${l.title} ${l.now} → ${l.after}`),

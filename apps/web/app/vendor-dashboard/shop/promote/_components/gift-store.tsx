@@ -33,6 +33,8 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 import { GiftTicketArt, GiftTicketPile } from './gift-ticket-art';
 import { GIFT_AT_LEAST_ONE, GIFT_HOLD_RULE, bundleShape, giftSheetGrow, giftSheetWords, giftStoreCapLine } from './gift-store-copy';
 import s from './gift-store.module.css';
+import { appleCanAdd, appleCartLines, appleMostOf } from '@/lib/iap/apple-gift-lines';
+import { AppleGiftCartFoot, appleBundleNote, appleSheetPrices, appleSingleNote, type AppleGiftPrices } from './apple-gift-cart';
 
 /**
  * 🛒 THE GIFT STORE — the owner-approved prototype `gifts-interactive` v16 (2026-11-17, "build it"), translated:
@@ -52,9 +54,9 @@ import s from './gift-store.module.css';
 const IDLE: BuyVendorPapicPortfolioPackState = { status: 'idle' };
 
 /** Why + is grey, in the prototype's words. */
-function addWhy(v: AddVerdict, maxPhp: number, code: string): string | null {
+function addWhy(v: AddVerdict, maxPhp: number, code: string, most = mostOf(code)): string | null {
   if (v === 'over_max') return `Would pass ${formatPhp(maxPhp)}`;
-  if (v === 'most_each') return `${formatCount(mostOf(code))} is the most`;
+  if (v === 'most_each') return `${formatCount(most)} is the most`;
   if (v === 'not_on_sale') return 'Not on sale right now';
   return null;
 }
@@ -70,6 +72,7 @@ export function GiftTicketSheet({
   bundles,
   maxPaymentPhp,
   canBuy,
+  apple = null,
   onClose,
   onAdd,
 }: {
@@ -82,14 +85,24 @@ export function GiftTicketSheet({
   maxPaymentPhp: number;
   /** Buying is offered (Papic on, not the App Store shell, a rail open). */
   canBuy: boolean;
+  /**
+   * 💝 Inside the iPhone app with StoreKit (a build that passes a quantity): Apple's price for this gift. The sheet keeps
+   * everything and swaps only the price words — Add 1 / Add 10 + 1 put it in the in-app cart, which pays line by line
+   * through Apple (owner 2026-11-22). Null on the web.
+   */
+  apple?: AppleGiftPrices | null;
   onClose: () => void;
   onAdd: (code: string) => void;
 }) {
   const headingId = useId();
   if (!pack) return null;
   const words = giftSheetWords(pack);
-  const one = canAdd(cart, pack.code, packs, bundles, maxPaymentPhp);
-  const many = bundle ? canAdd(cart, bundle.code, packs, bundles, maxPaymentPhp) : null;
+  const verdict = (code: string) => (apple ? appleCanAdd(cart, code, packs, bundles) : canAdd(cart, code, packs, bundles, maxPaymentPhp));
+  const one = verdict(pack.code);
+  const many = bundle ? verdict(bundle.code) : null;
+  // In the app a bundle Apple cannot sell in one purchase is not offered (`appleMostOf`).
+  const appleBundle = apple && bundle && many !== 'not_on_sale' ? bundle : null;
+  const appleWords = apple ? appleSheetPrices(pack, appleBundle, apple) : null;
   const shape = bundle ? bundleShape(bundle) : null;
   const grow = bundle ? giftSheetGrow(bundle) : null;
   const save = bundle ? Math.max(0, bundle.quantity * pack.srpCentavos - bundle.priceCentavos) : 0;
@@ -140,7 +153,28 @@ export function GiftTicketSheet({
             ) : null}
           </div>
         ) : null}
-        {canBuy && grow ? <p className="mt-2 text-[12.5px] text-ink/60">{grow}</p> : null}
+        {!canBuy && appleWords ? (
+          <div className="mt-3 grid grid-cols-2 gap-2" data-gift-sheet-apple="">
+            <AddButton
+              word="Add 1"
+              price={appleWords.one}
+              why={addWhy(one, maxPaymentPhp, pack.code, appleMostOf(pack.code, bundles))}
+              onPress={() => onAdd(pack.code)}
+              data="gift-sheet-add-1"
+            />
+            {appleBundle && shape && appleWords.many ? (
+              <AddButton
+                main
+                word={`Add ${shape.label}`}
+                price={appleWords.many}
+                why={many ? addWhy(many, maxPaymentPhp, appleBundle.code, appleMostOf(appleBundle.code, bundles)) : null}
+                onPress={() => onAdd(appleBundle.code)}
+                data="gift-sheet-add-bundle"
+              />
+            ) : null}
+          </div>
+        ) : null}
+        {(canBuy || (appleWords && appleBundle)) && grow ? <p className="mt-2 text-[12.5px] text-ink/60">{grow}</p> : null}
       </div>
     </Sheet>
   );
@@ -193,6 +227,7 @@ export function GiftStore({
   openRails,
   flash,
   toast,
+  apple = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -208,9 +243,26 @@ export function GiftStore({
   flash: { code: string; n: number } | null;
   /** "Added to your order · <item> · Now N in your order" (prototype `tst`). */
   toast: { label: string; n: number; key: number } | null;
+  /**
+   * 💝 Inside the iPhone app (a build that passes a quantity — owner 2026-11-22): Apple's prices, and the cart pays LINE BY
+   * LINE, one Apple purchase each (`apple-gift-cart.tsx`). Null on the web: one order, paid into BDO.
+   */
+  apple?: { prices: AppleGiftPrices; silent: boolean } | null;
 }) {
   const headingId = useId();
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // 💝 Lines Apple has charged (or is finishing) leave the cart when the store closes — not mid-sheet, so each keeps
+  // saying what happened to it.
+  const [settled, setSettled] = useState<readonly string[]>([]);
+  const close = () => {
+    if (apple && settled.length > 0) {
+      const next: Record<string, number> = { ...cart };
+      for (const code of settled) delete next[code];
+      setCart(next);
+      setSettled([]);
+    }
+    onClose();
+  };
   const [state, formAction] = useActionState(buyVendorPapicPortfolioPack, IDLE);
   const handled = useRef<BuyVendorPapicPortfolioPackState | null>(null);
   const notify = useToast();
@@ -246,8 +298,9 @@ export function GiftStore({
 
   const row = (code: string, pic: ReactNode, title: string, note: ReactNode, capLine: string | null) => {
     const n = cart[code] ?? 0;
-    const v = canAdd(cart, code, packs, bundles, maxPaymentPhp);
-    const why = addWhy(v, maxPaymentPhp, code);
+    const v = apple ? appleCanAdd(cart, code, packs, bundles) : canAdd(cart, code, packs, bundles, maxPaymentPhp);
+    if (apple && v === 'not_on_sale') return null;
+    const why = addWhy(v, maxPaymentPhp, code, apple ? appleMostOf(code, bundles) : undefined);
     return (
       <div key={code}>
         <div className="flex min-h-[64px] items-center gap-2.5 px-3 py-2.5" data-store-row={code}>
@@ -287,7 +340,7 @@ export function GiftStore({
               p.code,
               <GiftTicketArt pack={p} width={72} className="h-auto w-[72px]" />,
               p.title,
-              `${formatPhp(p.srpCentavos / 100)} each`,
+              apple ? appleSingleNote(p, apple.prices) : `${formatPhp(p.srpCentavos / 100)} each`,
               giftStoreCapLine(SHOP_GIFT_STORE_MOST_EACH, bundles.find((b) => b.pack.code === p.code) ?? null),
             ),
           )}
@@ -303,7 +356,7 @@ export function GiftStore({
 
   const head = (
     <div className="flex min-h-[52px] items-center gap-2 border-b border-ink/10 bg-frame px-2">
-      <button type="button" onClick={onClose} className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-[15px] font-semibold text-sn-accent">
+      <button type="button" onClick={close} className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-[15px] font-semibold text-sn-accent">
         <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
         Your gifts
       </button>
@@ -313,7 +366,14 @@ export function GiftStore({
     </div>
   );
 
-  const foot = (
+  const foot = apple ? (
+    <AppleGiftCartFoot
+      lines={appleCartLines(cart, packs, bundles)}
+      prices={apple.prices}
+      silent={apple.silent}
+      onSettled={(code) => setSettled((s) => (s.includes(code) ? s : [...s, code]))}
+    />
+  ) : (
     <div className="border-t border-ink/10 bg-frame px-4 pb-[calc(12px+env(safe-area-inset-bottom,0px))] pt-3" data-gift-cart-bar="">
       <div className="flex items-baseline justify-between gap-3 text-[14.5px] font-bold text-ink">
         <span data-gift-cart-count="">
@@ -363,7 +423,7 @@ export function GiftStore({
   );
 
   return (
-    <Sheet open={open} onClose={onClose} labelledById={headingId} full head={head} foot={foot}>
+    <Sheet open={open} onClose={close} labelledById={headingId} full head={head} foot={foot}>
       <div ref={scrollRef} className="bg-[rgb(238_242_248)] px-4 pb-4 pt-1" data-gift-store="">
         {group('Papic', packs.filter((p) => p.kind === 'papic'))}
         {group('Event', packs.filter((p) => p.kind !== 'papic'))}
@@ -387,7 +447,7 @@ export function GiftStore({
                   b.code,
                   <GiftTicketPile pack={b.pack} label={bundleShape(b).label} width={72} />,
                   b.pack.title,
-                  <>
+                  apple ? appleBundleNote(b, apple.prices) : <>
                     {formatPhp(b.priceCentavos / 100)}
                     {save > 0 ? (
                       <>

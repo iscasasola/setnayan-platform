@@ -89,10 +89,12 @@ export async function readSupplierEventLines(
       date_candidates: unknown;
       date_window_start: string | null;
       date_window_end: string | null;
+      date_mode: string | null;
+      date_months: string[] | null;
     }>(ids, (part) =>
       admin
         .from('events')
-        .select('event_id, display_name, event_type, venue_name, event_date, event_date_precision, estimated_pax, role_names, honoree_label, signature_details, date_candidates, date_window_start, date_window_end')
+        .select('event_id, display_name, event_type, venue_name, event_date, event_date_precision, estimated_pax, role_names, honoree_label, signature_details, date_candidates, date_window_start, date_window_end, date_mode, date_months')
         .in('event_id', part),
     ),
     // Every HOST of the event — the couple and every co-host (a live co-host seat makes a `couple` member,
@@ -351,6 +353,7 @@ export async function readSupplierEventLines(
               candidates: ev.date_candidates,
               windowStart: ev.date_window_start,
               windowEnd: ev.date_window_end,
+              months: ev.date_mode === 'months' ? ev.date_months : null, // 🗓 "Some months"
             })
           : null),
       // 👥 RW-08: a claimed per-guest booking counts the couple's guests (the figure it bills) — never the event's

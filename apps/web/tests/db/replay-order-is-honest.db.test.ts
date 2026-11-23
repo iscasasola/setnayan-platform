@@ -600,9 +600,11 @@ test('no deferred migration lands after the last migration that writes what it w
  *     10×, migration 20271346711828_simpler_supplier_plans.sql).
  */
 const OWNER_PRICE_SHEET_2026_08_27: Array<[string, number]> = [
-  ['solo_vendor_monthly', 1490],
+  // Owner 2026-11-22 "SUPPLIER PLAN PRICES, FINAL" (migration 20271360321657). The yearly rows and the branch below are
+  // retired that day and keep the price they last sold at, as history.
+  ['solo_vendor_monthly', 1990],
   ['pro_vendor_monthly', 4990],
-  ['enterprise_vendor_monthly', 9990],
+  ['enterprise_vendor_monthly', 8990],
   ['solo_vendor_annual', 14900],
   ['pro_vendor_annual', 49900],
   ['enterprise_vendor_annual', 99900],

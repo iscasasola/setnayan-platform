@@ -19,7 +19,13 @@ import {
 } from '@/lib/onboarding-family-discount';
 import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
-import type { RowActionState } from './actions';
+import { saveRetailRow, type RowActionState } from './actions';
+import {
+  formulaCandidates,
+  formulaSentence,
+  readPricingFormulaSettings,
+  validatePricingFormulaFields,
+} from '@/lib/pricing-formula';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -339,6 +345,9 @@ export async function saveSignupDiscount(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // 🧮 The price formula's save / apply rides on this action (see `pricingFormulaOp` — the route budget is full).
+  const formulaOp = String(formData.get('pricing_formula_op') ?? '');
+  if (formulaOp) return pricingFormulaOp(formulaOp, formData, adminUserId);
   const admin = createAdminClient();
 
   const pct = parsePct(formData.get('discount_pct'));
@@ -843,5 +852,205 @@ export async function recomputePapicPoolLearning(
       changed === 0
         ? 'Nothing changed — no event type has enough finished events yet.'
         : `${changed} event type${changed === 1 ? '' : 's'} updated.`,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE PRICE FORMULA (owner 2026-11-21) — four numbers that SUGGEST a price
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * The 2026-11-21 price formula's save and apply, HOSTED by `saveSignupDiscount`
+ * (a form carrying `pricing_formula_op` = save | apply) instead of exported as
+ * actions of their own: every exported 'use server' function is a Vercel route,
+ * and the budget (scripts/lint-server-action-budget.mjs) is full — main sat at
+ * 1251 / 1251 when this landed, with no unimported export left to drop. Same
+ * hosting shape as admin/vendors/actions.ts (op=setnayan_gift) and
+ * admin/colours/actions.ts (op=reset). The formula is a page-wide pricing
+ * setting, which is what this file holds (see its docblock).
+ *
+ * 🔒 ADMIN-ONLY NUMBERS (controller ruling 2026-11-22). The four numbers are our
+ * markup, so they are NOT on `platform_settings` (every signed-in account can
+ * read that table). They are the one row of `pricing_formula_settings`
+ * (migration 20271356452488): RLS on, no policy, no grant to anon or
+ * authenticated — only the service-role client reaches it, and only below
+ * `requireAdminAction()` in `saveSignupDiscount`.
+ */
+async function pricingFormulaOp(op: string, formData: FormData, adminUserId: string): Promise<RowActionState> {
+  if (op === 'save') {
+    return savePricingFormulaSettings(adminUserId, {
+      opexFactor: String(formData.get('pricing_opex_factor') ?? ''),
+      marginFactor: String(formData.get('pricing_margin_factor') ?? ''),
+      feeTaxCover: String(formData.get('pricing_fee_tax_cover') ?? ''),
+      roundStepPhp: String(formData.get('pricing_round_step_php') ?? ''),
+    });
+  }
+  if (op === 'apply') {
+    const codes = [...new Set(formData.getAll('service_code').map((v) => String(v).trim()).filter(Boolean))];
+    const shown = new Map(codes.map((c) => [c, Number(formData.get(`shown_price_${c}`))]));
+    return applyFormulaPrices(codes, shown);
+  }
+  return { ok: false, message: 'Unknown formula action.' };
+}
+
+/**
+ * Saves `price = base cost × opex × margin ÷ cover`, rounded up to a step.
+ *
+ * 🔒 THIS MOVES NO PRICE. The four numbers only change the "Formula ₱X" shown
+ * beside each catalog row. Validation is `validatePricingFormulaFields`
+ * (a blank box is refused, never read as 0). Audited as `pricing_formula_edit`.
+ */
+async function savePricingFormulaSettings(
+  adminUserId: string,
+  raw: { opexFactor: string; marginFactor: string; feeTaxCover: string; roundStepPhp: string },
+): Promise<RowActionState> {
+  const admin = createAdminClient();
+  const validated = validatePricingFormulaFields(raw);
+  if (!validated.ok) return { ok: false, message: validated.message };
+  const next = validated.next;
+
+  const { data: prior, error: readErr } = await admin
+    .from('pricing_formula_settings')
+    .select('pricing_opex_factor, pricing_margin_factor, pricing_fee_tax_cover, pricing_round_step_php')
+    .eq('id', 1)
+    .maybeSingle();
+  if (readErr) return { ok: false, message: `Couldn't read the formula — ${readErr.message}` };
+  const before = readPricingFormulaSettings(prior);
+  if (
+    before &&
+    before.opexFactor === next.opexFactor &&
+    before.marginFactor === next.marginFactor &&
+    before.feeTaxCover === next.feeTaxCover &&
+    before.roundStepPhp === next.roundStepPhp
+  ) {
+    return { ok: true, message: 'No changes to save.' };
+  }
+
+  // `.select('id')` so a save that matched no row is refused, never reported as saved (the one row is seeded by
+  // migration 20271356452488). No settings-cache tag to drop: these numbers are not in the cached platform settings.
+  const { data: written, error } = await admin
+    .from('pricing_formula_settings')
+    .update({
+      pricing_opex_factor: next.opexFactor,
+      pricing_margin_factor: next.marginFactor,
+      pricing_fee_tax_cover: next.feeTaxCover,
+      pricing_round_step_php: next.roundStepPhp,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1)
+    .select('id');
+  if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
+  if (!written || written.length === 0) {
+    return { ok: false, message: "Couldn't save — the formula settings row is missing. Nothing was changed." };
+  }
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'pricing_formula_edit',
+    target_id: 'pricing_formula',
+    actor_user_id: adminUserId,
+    metadata: { table: 'pricing_formula_settings', before, after: next },
+  });
+  if (auditErr) console.error('[price formula save] audit insert failed (non-fatal):', auditErr);
+
+  revalidatePath('/admin/pricing');
+  return { ok: true, message: `Saved — ${formulaSentence(next)}. No price has changed.` };
+}
+
+/**
+ * "Apply to all rows with a cost" — the 2026-11-21 formula price, saved by
+ * `saveRetailRow` ITSELF, once per row (owner: the formula suggests; nothing
+ * changes a price on its own).
+ *
+ * 🔑 THE SAME DOOR AS A TYPED EDIT, NOT A SECOND ONE. Each row is submitted to
+ * `saveRetailRow` as a form holding every field exactly as stored, with only
+ * `price` replaced — so it is validated by `validateRetailRowFields`
+ * (lib/admin/pricing-row-diff), parked behind the § 9.1 second-admin approval,
+ * and audited, exactly like a price typed into the row card. Only
+ * `retail_price_php` can move; on-sale state is never in the form.
+ *
+ * 🔒 THE SERVER DECIDES THE NUMBERS, NEVER THE FORM. The form carries only the
+ * codes the confirm list showed and the price it showed for each. Costs and
+ * settings are re-read here and the set is `formulaCandidates` — the function
+ * that drew the list. A row whose fresh formula price is not what the admin was
+ * shown is SKIPPED and named, never written at a figure nobody saw.
+ */
+async function applyFormulaPrices(
+  shownCodes: string[],
+  shown: Map<string, number>,
+): Promise<RowActionState> {
+  const admin = createAdminClient();
+  if (shownCodes.length === 0) return { ok: false, message: 'Nothing to apply.' };
+
+  const [settingsRes, rowsRes] = await Promise.all([
+    admin
+      .from('pricing_formula_settings')
+      .select('pricing_opex_factor, pricing_margin_factor, pricing_fee_tax_cover, pricing_round_step_php')
+      .eq('id', 1)
+      .maybeSingle(),
+    admin
+      .from('platform_retail_catalog_v2')
+      .select(
+        'service_code,title,description,retail_price_php,saas_overhead_cost_php,onboarding_price_php,billing_period,is_pax_priced,pax_floor,pax_floor_price_php,pax_increment_size,pax_increment_price_php,is_active,bundle_of_service_code',
+      )
+      .in('service_code', shownCodes),
+  ]);
+  const settings = settingsRes.error ? null : readPricingFormulaSettings(settingsRes.data);
+  if (!settings) return { ok: false, message: "Couldn't read the formula settings — nothing was changed." };
+  if (rowsRes.error) return { ok: false, message: `Couldn't read the prices — ${rowsRes.error.message}` };
+
+  const stored = new Map((rowsRes.data ?? []).map((r) => [r.service_code as string, r]));
+  const plan = new Map(
+    formulaCandidates(
+      [...stored.values()].map((r) => ({
+        code: r.service_code as string,
+        title: r.title as string,
+        price: Number(r.retail_price_php),
+        cost: Number(r.saas_overhead_cost_php),
+        isActive: r.is_active === true,
+        isGiftBundle: r.bundle_of_service_code != null,
+        billingPeriod: r.billing_period as string,
+      })),
+      settings,
+    ).map((p) => [p.code, p]),
+  );
+
+  const blank = (v: unknown) => (v == null ? '' : String(v));
+  let sent = 0;
+  const skipped: string[] = [];
+  for (const code of shownCodes) {
+    const p = plan.get(code);
+    const r = stored.get(code);
+    if (!p || !r || p.newPrice !== shown.get(code)) {
+      skipped.push(`${code} (changed since you looked)`);
+      continue;
+    }
+    const fd = new FormData();
+    fd.set('service_code', code);
+    fd.set('title', blank(r.title));
+    fd.set('desc', blank(r.description));
+    fd.set('price', String(p.newPrice));
+    fd.set('cost', blank(r.saas_overhead_cost_php));
+    fd.set('onboarding_price', blank(r.onboarding_price_php));
+    fd.set('billing_period', blank(r.billing_period));
+    if (r.is_pax_priced === true) fd.set('is_pax_priced', 'on');
+    fd.set('pax_floor', blank(r.pax_floor));
+    fd.set('pax_floor_price', blank(r.pax_floor_price_php));
+    fd.set('pax_increment_size', blank(r.pax_increment_size));
+    fd.set('pax_increment_price', blank(r.pax_increment_price_php));
+
+    const res = await saveRetailRow({ ok: false, message: null }, fd);
+    // Since 23 Nov 2026 a price change is live on save (owner: "no need for a second admin. auto approve"), so ok is
+    // the only success; anything else is a real refusal and is named.
+    if (res.ok) sent += 1;
+    else skipped.push(`${code} (${res.message ?? 'not saved'})`);
+  }
+
+  const head =
+    sent === 0
+      ? 'No price was changed.'
+      : `${formatCount(sent)} price${sent === 1 ? '' : 's'} live now.`;
+  return {
+    ok: skipped.length === 0 && sent > 0,
+    message: skipped.length > 0 ? `${head} Skipped: ${skipped.join('; ')}.` : head,
   };
 }

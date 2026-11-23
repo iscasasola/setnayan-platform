@@ -199,14 +199,8 @@ export default async function ForSuppliersPage() {
         <SupplierFrontPage
           prices={{
             soloMonthly: p.soloMonthly,
-            soloAnnual: p.soloAnnual,
-            soloAnnualSave: p.soloAnnualSave,
             proMonthly: p.proMonthly,
-            proAnnual: p.proAnnual,
-            proAnnualSave: p.proAnnualSave,
             enterpriseMonthly: p.enterpriseMonthly,
-            enterpriseAnnual: p.enterpriseAnnual,
-            enterpriseAnnualSave: p.enterpriseAnnualSave,
             branch: p.branch,
             seat: p.seat,
             bySku: p.bySku,

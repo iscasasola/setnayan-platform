@@ -7,16 +7,15 @@
  * PURE: no I/O, no env. 🔒 supplier-plan-table-tells-the-truth.test.ts
  */
 import { formatCount } from '@/lib/format-number';
+import { storageWords } from '@/lib/downgrade-limits';
 import { LOCKS, LOCK_KEYS, canUse, type LockDef, type LockKey } from '@/lib/locks';
 import { PLAN_LIMITS, limitOf, limitWords, type PlanLimitKey } from '@/lib/plan-sheet';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
 import { vendorAddonSkuCode } from '@/lib/vendor-addon-tier-pricing';
-import { BRANCH_SKU_CODE } from '@/lib/vendor-branches';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
-import { SEAT_SKU_CODE } from '@/lib/vendor-seats';
 import { allowance } from '@/lib/vendor-plan-rows';
-import { TIER_CAPS, TIER_LABEL, canBuyExtraBranches, canBuyExtraSeats, WAITLIST_SETTING_MAX, type VendorTier } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, TIER_LABEL, WAITLIST_SETTING_MAX, type VendorTier } from '@/lib/vendor-tier-caps';
 import { ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnSku, type UltraAddOnKind } from '@/lib/vendor-ultra-addons';
 
 /**
@@ -54,7 +53,8 @@ function planName(t: VendorTier): string {
  *   · gifts → the SAME list price on every plan (📦 2026-11-14 / 2026-11-17: one price per gift; the buy-10-get-1
  *     bundles are open to every shop — lib/shop-gifts.ts), so no plan buys gifts for less;
  *   · Deep Search → the SKU each plan is CHARGED from (`vendorAddonSkuCode`), priced by the catalogue;
- *   · Ultra's extra seat and branch → `canBuyExtraSeats` / `canBuyExtraBranches` + the SKU each one charges;
+ *   · storage → `TIER_CAPS.storageBytes` in `storageWords` (owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes);
+ *   · no add-on row: nothing is sold on top of a plan since 2026-11-22 (`canBuyUltraAddOn` says no for all six);
  *   · the locks → `LOCKS` + `canUse` (lib/locks.ts). ⚠ ONLY a lock whose server gate exists (`server !== null`) is
  *     printed: a ruled lock the app does not apply yet would be a promise the shop can walk straight through. The rest
  *     join the table by themselves the day their gate lands (the guard lists them).
@@ -91,10 +91,8 @@ export type TableGroup = { title: string; rows: TableRow[] };
 
 /** Prices the page read, by plan and by SKU. `null` = unread → "—". */
 export type PlanTablePrices = {
+  /** Monthly only — no yearly supplier plan (owner 2026-11-22). */
   monthly: Partial<Record<VendorTier, string | null>>;
-  annual: Partial<Record<VendorTier, string | null>>;
-  /** What a year saves against 13 blocks of 4 weeks (`getVendorPrices().*AnnualSave`). */
-  annualSave?: Partial<Record<VendorTier, string | null>>;
   bySku: Readonly<Record<string, string | null>>;
 };
 
@@ -140,11 +138,22 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
   /** "₱499 a search" — or just "—" when the row could not be read (never a suffix on nothing). */
   const per = (code: string, tail: string): string => (prices.bySku[code] ? `${prices.bySku[code]}${tail}` : DASH);
 
-  const limits: TableRow[] = PLAN_LIMITS.map((l) => ({
-    key: `limit:${l.key}`,
-    label: l.title,
-    cells: each((t) => limitCell(t, l.key, paywallOn)),
-  }));
+  // 💾 Storage first — what the plans are sold by (owner 2026-11-22 "FINAL LADDER"). Verified joins Free: its 2 GB is said
+  // in the Free cell, like every other limit where the verified step differs.
+  const storageCell = (t: VendorTier): TableCell => {
+    const w = (b: number | null) => (b === null ? DASH : storageWords(b));
+    const own = TIER_CAPS[t].storageBytes;
+    const ver = TIER_CAPS.verified.storageBytes;
+    return words(t === 'free' && ver !== own ? `${w(own)}; ${w(ver)} once Verified` : w(own));
+  };
+  const limits: TableRow[] = [
+    { key: 'limit:storage', label: 'Storage for your files', cells: each(storageCell) },
+    ...PLAN_LIMITS.map((l) => ({
+      key: `limit:${l.key}`,
+      label: l.title,
+      cells: each((t) => limitCell(t, l.key, paywallOn)),
+    })),
+  ];
   // 🔓 REACH IS THE SAME ON EVERY PLAN (owner 2026-11-19: *"ok unlock the range. not plan dependend anymore."* · *"Free
   // Unverified account will have a range of 0km."*). One row, one sentence, no km per plan.
   limits.push({ key: 'limit:reach', label: 'Shown in search', cells: each(() => words(PLAN_TABLE_REACH)) });
@@ -162,16 +171,8 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
   }
 
   const free = (t: VendorTier) => t === 'free' || t === 'verified';
-  const yearCell = (t: VendorTier): TableCell => {
-    if (free(t)) return no('Nothing to pay');
-    const yr = prices.annual[t];
-    if (!yr) return words(DASH);
-    const save = prices.annualSave?.[t];
-    return words(save ? `${yr} · save ${save}` : yr);
-  };
   const price: TableRow[] = [
     { key: 'price:4w', label: 'Every 4 weeks', cells: each((t) => (free(t) ? words('Free') : words(prices.monthly[t] ?? DASH))) },
-    { key: 'price:yr', label: 'Pay for the year', cells: each(yearCell) },
   ];
 
   const tools: TableRow[] = [
@@ -190,20 +191,12 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
     { key: 'tool:theft', label: 'Reverse-image theft watch', cells: each((t) => has(TIER_CAPS[t].theftWatch)) },
   ];
 
-  const seatOrBranch = (t: VendorTier): TableCell => {
-    if (!(canBuyExtraSeats(t) && canBuyExtraBranches(t))) return no('Not sold on this plan');
-    const seat = prices.bySku[SEAT_SKU_CODE];
-    const branch = prices.bySku[BRANCH_SKU_CODE];
-    if (!seat || !branch) return words(DASH);
-    return words(seat === branch ? `${seat} each, every 4 weeks` : `Seat ${seat} · branch ${branch}, every 4 weeks`);
-  };
   const buy: TableRow[] = [
     {
       key: 'buy:deep',
       label: 'Deep Search',
       cells: each((t) => words(per(vendorAddonSkuCode('deep_search_about_you', t), ' a search'))),
     },
-    { key: 'buy:seatbranch', label: 'Extra seat · extra branch', cells: each(seatOrBranch) },
     { key: 'money:gift', label: 'Setnayan gifts you buy', cells: each(() => words('List price')) },
   ];
 
@@ -231,9 +224,9 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
 }
 
 /**
- * What is LEFT TO BUY on top of a plan (owner 2026-11-14, "SIMPLER SUPPLIER PLANS" item 4): Deep Search on every plan,
- * and on Ultra an extra seat or an extra branch. The four "+1" Ultra add-ons were folded into Ultra's limits, so they
- * are no longer listed (`canBuyUltraAddOn` answers no for them). Each priced by the SKU its purchase charges; a price
+ * What is LEFT TO BUY on top of a plan: nothing since owner 2026-11-22 "FINAL LADDER" (no add-ons — Pro and Ultra have
+ * no seat or branch limit), so this lists none today; it still reads `canBuyUltraAddOn`, so a ruling that sells one
+ * again lists it by itself. Each priced by the SKU its purchase charges; a price
  * that could not be read prints "Price unavailable", never a guess.
  */
 export function addonLines(bySku: Readonly<Record<string, string | null>>): { kind: UltraAddOnKind; label: string; price: string }[] {

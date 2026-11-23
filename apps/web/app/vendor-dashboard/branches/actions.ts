@@ -27,6 +27,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BranchActionState } from './branch-types';
 import { parseCoordPair } from '@/lib/parse-coord';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { branchNeedsRegistrationRefusal } from '@/lib/one-registered-business.server';
 
 function err(message: string): BranchActionState {
   return { status: 'error', message };
@@ -248,6 +249,12 @@ export async function createBranch(
   // Coords are stored as a pair or not at all (a lone axis is meaningless).
   const hasCoords = lat !== null && lng !== null;
 
+  // 🔒 EVERY BRANCH CARRIES THE SHOP'S DTI/SEC NUMBER (owner 2026-11-22, "UNLIMITED = ONE REGISTERED BUSINESS"): a
+  // branch has no number of its own, so a shop with none cannot open one. The database refuses the same insert
+  // (`vendor_branches_carry_shop_registration`); this is the plain answer first.
+  const needsNumber = await branchNeedsRegistrationRefusal(vendorProfileId);
+  if (needsNumber) return err(needsNumber);
+
   // ── 📐 INCLUDED IN THE PLAN (owner 2026-11-04, "branches 0,0,3,10") ─────────────────────────────────────────────
   // Pro includes 3 branches and Ultra 6 (trimmed the same day), fee-free. Counted from the shop's own LIVE included branches (a cancelled
   // one frees its place). A shop already over a lowered allowance keeps every branch it has and gets 0 here — it
@@ -281,15 +288,14 @@ export async function createBranch(
     revalidateBranchSurfaces();
     return { status: 'success', kind: 'created', message: `${label} added — included in your plan.` };
   }
-  // ⚖ Past the included ones, only Ultra may BUY more — ULTRA ONLY, ALWAYS (owner 2026-11-05, verbatim
-  // "Ultra only, always"; price sheet 2026-11-04 "Extra branch 1990 (applies for ultra only)"). A price rule is not a
-  // try-first paywall, so VENDOR_TIER_FEATURE_GATE does not open it.
+  // ⚖ Past the included ones nothing is bought any more (owner 2026-11-22 "FINAL LADDER": no add-ons — Pro and Ultra
+  // have no branch limit). `canBuyExtraBranches` answers no on every plan; the buy path below stays for a future ruling.
   if (!canBuyExtraBranches(tier)) {
     const total = planCaps.branchesIncluded;
     return err(
       total > 0
-        ? `Your plan includes ${formatCount(total)} branches and they are all in use. More branches are part of ${TIER_LABEL.enterprise}.`
-        : `Branches come with Supplier Pro and ${TIER_LABEL.enterprise}.`,
+        ? `Your plan includes ${formatCount(total)} branches and they are all in use.`
+        : `Branches come with ${TIER_LABEL.pro} and ${TIER_LABEL.enterprise}.`,
     );
   }
 

@@ -14,7 +14,7 @@
 import type { DateChangeView } from './date-change';
 import type { MatrixDate } from './schedule-matrix';
 import type { VenueChoice, VenueSlotKey } from './event-venues';
-import { daysBetweenIso, optionEnd, optionWords, shortDayWords } from './event-date-options';
+import { cleanDateMonths, dateMonthsWords, daysBetweenIso, optionEnd, optionWords, shortDayWords } from './event-date-options';
 import { formatCount } from './format-number';
 
 export type FactSheetKey = 'date' | 'place';
@@ -57,10 +57,12 @@ export type DateSheetData = {
   maxDays?: number;
   /** The options being considered (A few dates) — the event's own columns. */
   options?: {
-    mode: 'specific' | 'window';
+    mode: 'specific' | 'window' | 'months';
     candidates: string[];
     windowStart: string | null;
     windowEnd: string | null;
+    /** 🗓 "Some months" (owner 2026-11-17): `events.date_months` — first-of-month days, read when the mode is 'months'. */
+    months?: string[];
   };
   /** 💍 The founders' account: days start today, not on the first event day. */
   dateExempt?: boolean;
@@ -141,6 +143,21 @@ export function dateLadder(
   if (!at && d.options) {
     const n = Math.max(1, d.days ?? 1);
     const o = d.options;
+    /* 🗓 SOME MONTHS: Year and Month light from the months the couple picked; Day says them (never "not set"). */
+    const picked = o.mode === 'months' ? cleanDateMonths(o.months ?? []) : [];
+    if (picked.length) {
+      const utcs = picked.map(utc).filter((x): x is Date => !!x);
+      const years = [...new Set(utcs.map((x) => String(x.getUTCFullYear())))];
+      const monthsSaid = [...new Set(utcs.map((x) => x.toLocaleDateString('en-US', MONTH)))];
+      const span = (xs: string[]) => (xs.length > 1 ? `${xs[0]} – ${xs[xs.length - 1]}` : xs[0]!);
+      const time = timeWords(d.ceremonyTime);
+      return [
+        { key: 'year', on: true, label: 'Year', value: span(years) },
+        { key: 'month', on: true, label: 'Month', value: span(monthsSaid) },
+        { key: 'day', on: false, label: n > 1 ? 'Days' : 'Day', value: 'not yet', note: `considering ${dateMonthsWords(picked)}` },
+        { key: 'time', on: !!time, label: 'Time', value: time ? `${time} ceremony` : 'ceremony, after the day' },
+      ];
+    }
     const starts = o.mode === 'specific' ? [...o.candidates].sort() : o.windowStart && o.windowEnd ? [o.windowStart, o.windowEnd] : [];
     const edges = o.mode === 'specific' ? [...starts, ...starts.map((x) => optionEnd(x, n))] : starts;
     const dates = edges.map(utc).filter((x): x is Date => !!x).sort((x, y) => x.getTime() - y.getTime());

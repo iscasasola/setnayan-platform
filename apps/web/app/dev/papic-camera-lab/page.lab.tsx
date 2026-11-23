@@ -13,7 +13,7 @@
  *   (default)       the guest camera
  *   ?lane=vendor    the supplier camera
  *   ?pro=1          the guest camera on a PRO event (owner 2026-10-24 ruling)
- *   ?lane=seat      the seat camera (`PapicSeatCapture`) on fixture props
+ *   ?lane=seat      a seat on the ONE camera (`PapicGuestCapture` in seat mode) on fixture props
  *   &buy=1          the real floating "Add credits" doorway over the camera (one fixture rung)
  *   ?lane=challenges the REAL Challenges-page rows on fixture missions — a couple's own deletes by its swipe (2026-11-03)
  *   &chapter=1      📷 the camera shoots into a chapter ("Meeting with caterer", owner 2026-11-01) — named on it

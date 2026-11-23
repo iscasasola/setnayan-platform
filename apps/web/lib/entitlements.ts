@@ -345,8 +345,13 @@ export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string
     // NOT transitive, so every list below that names COUPLE_WEBSITE_PRO names EVENT_ULTRA too —
     // `event-ultra-grants.test.ts` fails if one is missed. One-directional: a Pro order never confers Ultra.
     COUPLE_WEBSITE_PRO: Object.freeze([EVENT_ULTRA_SKU]),
-    EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU]),
-    STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU]),
+    // 🏛 …and EVENT_PLUS (owner 20 Nov 2026: "Event Plus = 1,000 Papic credits + the whole Event Hub", Editorial and the
+    // guest columns among it). Read side, so an Event Plus bought earlier opens it too — a grant only ever widens.
+    EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU, 'EVENT_PLUS']),
+    // 🎟 …and EVENT_PLUS (owner 2026-11-18, PLAN_RULINGS ruling 34: "premium Save the Date" is Event Plus's) — gate 1, the
+    // Cinematic Reveal openings, ONLY. The Reveal part's effects (2) and own film (3) stay the part's. Read side, so it
+    // also opens the openings for an Event Plus bought earlier — a grant only ever widens; nobody loses one.
+    STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU, 'EVENT_PLUS']),
     // ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO (owner ruling 2026-09-24, "A
     // then"): Event Pro ALSO unlocks the logo animation. The standalone
     // ANIMATED_MONOGRAM row stays on sale for couples who only want the
@@ -354,7 +359,8 @@ export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string
     // siblings: buying the animation does NOT confer Event Pro. Read side
     // only, so it covers past AND pending Pro orders (a pending one suppresses
     // the monogram buy CTA; the animation plays once the payment is approved).
-    ANIMATED_MONOGRAM: Object.freeze(['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR', EVENT_ULTRA_SKU]),
+    // 🏛 …and EVENT_PLUS (owner 20 Nov 2026): the whole Event Hub is Event Plus's, the Logo & QR part among it.
+    ANIMATED_MONOGRAM: Object.freeze(['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR', EVENT_ULTRA_SKU, 'EVENT_PLUS']),
     // 💎 COUPLE_HUB_PART_LOGO_QR ← ANIMATED_MONOGRAM (owner 2026-10-22, "Event Pro, part by part", Q2 "yes"): the
     // standalone animation is retired from sale (migration 20271283592608) and its owners read as owning the whole
     // Logo & QR part — the QR logo, shape and colour too — so nobody who paid ₱500 is asked for ₱500 again. And the

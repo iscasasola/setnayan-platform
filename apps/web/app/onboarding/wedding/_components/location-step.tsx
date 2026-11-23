@@ -7,7 +7,7 @@
  *   • type  → searches the curated cities FIRST, then the full PSGC set (every PH
  *             province/city/municipality — lazy-loaded so it never bloats the bundle)
  *   • "Near me" → device GPS re-sorts the curated cities nearest-first (haversine)
- * Couple picks up to 2 areas → chips. The pick scopes the reception-venue search;
+ * Couple picks up to 3 areas (owner 2026-11-17, Q15) → chips. The pick scopes the reception-venue search;
  * the parent derives the region label + venue coords from the primary pick.
  */
 
@@ -26,20 +26,28 @@ import {
 import type { PhPlace } from '../_data/ph-places';
 import { askLocationOnce } from '@/lib/location-ask';
 import { useIsStoreShell } from '@/lib/use-store-shell';
+import { MAX_EVENT_AREAS } from '@/lib/create-event-capture';
+import { rankAreas } from '@/lib/area-supplier-counts';
+import { formatCount } from '@/lib/format-number';
+import { StepPick } from '@/app/onboarding/_shared/step-field';
 
 type Pos = { lat: number; lon: number };
 type Row = { c: WeddingCity; d: number | null };
 
-const MAX = 2;
+// 📍 Up to 3 areas (owner 2026-11-17, Q15) — the one cap the writer reads too.
+const MAX = MAX_EVENT_AREAS;
 const NCR_FALLBACK: Pos = { lat: 14.58, lon: 121.0 };
 
 export function LocationStep({
   value,
   onChange,
   storeShell: storeShellFromServer = false,
+  areaCounts = null,
 }: {
   value: string[];
   onChange: (keys: string[]) => void;
+  /** 📍 area key → suppliers there (the page's one grouped read). null = refused: said, never ranked at zero. */
+  areaCounts?: Record<string, number> | null;
   /** Resolved server-side (`isStoreShellRequest`) so the app's first paint has no "Near me". */
   storeShell?: boolean;
 }) {
@@ -160,11 +168,67 @@ export function LocationStep({
   // Near-me results that are Top-30 destinations render as photo cards (same art the carousel uses).
   const nearActive = !showCarousel && !q && mode === 'near' && Boolean(userPos);
 
+  /* 📍 "NOT SURE YET" (owner 2026-11-17, Q1 — Where never ends blank): where most guests live, then the areas Setnayan
+     has the most suppliers in, nearest them first. One tap adds an area. */
+  const [unsure, setUnsure] = useState(false);
+  const [home, setHome] = useState('');
+  const homeCity = home ? cityByKey(home) : undefined;
+  const fits = areaCounts
+    ? rankAreas(
+        new Map(Object.entries(areaCounts)),
+        CITIES.map((c) => ({ key: c.k, lat: c.lat, lon: c.lon })),
+        homeCity ? { lat: homeCity.lat, lon: homeCity.lon } : null,
+      )
+    : [];
+  const unsurePanel = unsure ? (
+    <div className="locunsure" data-loc-unsure="">
+      <StepPick
+        label="Where do most of your guests live?"
+        placeholder="Where most of your guests live"
+        value={home}
+        options={[...CITIES].sort((a, b) => a.n.localeCompare(b.n)).map((c) => ({ key: c.k, label: c.n, hint: c.r }))}
+        onPick={setHome}
+      />
+      <div className="locresult-h">Areas that fit · by suppliers we have there</div>
+      {areaCounts === null ? (
+        <p className="locunsure-note" role="status">We couldn’t count our suppliers just now — search a city above instead.</p>
+      ) : fits.length === 0 ? (
+        <p className="locunsure-note">No area has a Setnayan supplier yet — search any city above.</p>
+      ) : (
+        <ul className="locunsure-list">
+          {fits.map((f) => {
+            const c = cityByKey(f.key);
+            const on = value.includes(f.key);
+            return (
+              <li key={f.key}>
+                <button /* button-ok: an area row — the choice itself, like a city tile */
+                  type="button"
+                  className={`locunsure-row${on ? ' sel' : ''}`}
+                  aria-pressed={on}
+                  data-loc-fit={f.key}
+                  onClick={() => toggle(f.key)}
+                >
+                  <b>{c?.n ?? f.key}</b>
+                  <small>
+                    {formatCount(f.count)} {f.count === 1 ? 'supplier' : 'suppliers'} here
+                    {homeCity && f.km !== null ? ` · ${formatCount(f.km)} km from ${homeCity.n}` : ''}
+                  </small>
+                  {on ? <span aria-hidden>✓</span> : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  ) : null;
+
   return (
     <>
       <div className="viewzone">
         <div className="eyebrow">Where</div>
-        <h1 className="q">Where will it be? Pick up to 2 areas.</h1>
+        <h1 className="q">Where will it be?</h1>
+        <p className="sub">Pick up to {MAX_EVENT_AREAS} areas.</p>
         <div className="locpicks" data-count={value.length} aria-live="polite">
           {value.length === 0 ? (
             <span className="locpicks-empty">
@@ -187,6 +251,17 @@ export function LocationStep({
       </div>
 
       <div className="tapzone">
+        <div className="locunsure-toggle">
+          <ActionButton
+            tone="neutral"
+            icon={<></>}
+            quiet={!unsure}
+            label="Not sure yet"
+            aria-pressed={unsure}
+            onClick={() => setUnsure((u) => !u)}
+          />
+        </div>
+        {unsurePanel}
         <div className="locresults-wrap">
           <div className="locresult-h">{header}</div>
 

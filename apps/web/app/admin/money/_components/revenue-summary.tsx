@@ -75,7 +75,7 @@ export async function RevenueSummary() {
   // 📐 Design template rule 13 (owner-approved 2026-11-14): the one strong number on the warm surface, money in the
   // words' own font (never a typewriter font), the lines under it as hairline rows, the scope note behind ⓘ.
   return (
-    <div className="mx-auto w-full max-w-[760px] px-4 pt-2 sm:px-6">
+    <div>
       <TemplateSection
         label="Revenue, all time"
         first

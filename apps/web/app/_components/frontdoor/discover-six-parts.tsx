@@ -34,6 +34,7 @@ import {
   STORY_ORDERS,
   type StoryOrder,
 } from '@/lib/discover-six-parts';
+import { DISCOVER_HREF } from '@/lib/discover-href';
 
 /** Where "Save" goes for this viewer — their one event's Mood Board, their events list, or nowhere. */
 export function moodBoardSaveHref(studio: { eventId: string | null; count: number }): string | null {
@@ -218,7 +219,7 @@ export function InspirationShelf({
 function BackToDiscover() {
   return (
     <p className="mb-3">
-      <Link href="/" className="fd-go" data-discover-back="">
+      <Link href={DISCOVER_HREF} className="fd-go" data-discover-back="">
         ← Discover
       </Link>
     </p>

@@ -14,6 +14,9 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
+import { TEMPLATE_SUBLINE, TemplateSection } from '@/app/_components/template-rows';
 
 export type PapicRungRow = {
   serviceCode: string;
@@ -99,16 +102,21 @@ export function PapicLadderEditor({
   }).length;
 
   return (
-    <div>
-      <p className="mb-5 max-w-prose text-sm leading-relaxed text-ink/70">
-        Shots are sold <strong>by the shot</strong>, with a bulk saving that deepens as the
-        number grows. You set <strong>every</strong> price — none is worked out for you, so a
-        save keeps exactly what you typed. The At set-up column follows the one sign-up discount.
-      </p>
-
+    <TemplateSection
+      first
+      label="Shots"
+      tip={
+        <>
+          Shots are sold <strong>by the shot</strong>, with a bulk saving that deepens as the
+          number grows. You set <strong>every</strong> price — none is worked out for you, so a
+          save keeps exactly what you typed. The At set-up column follows the one sign-up discount.
+        </>
+      }
+    >
+      {/* 📐 Clean port (19 Nov): the lede is behind the ⓘ; the ladder stays one frame. */}
       <form action={ladderFormAction}>
         <div className={`${ADMIN_FRAME} overflow-hidden`}>
-          <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b border-ink/10 bg-ink/[0.03] px-4 py-2.5 font-mono text-[9.5px] uppercase tracking-[0.15em] text-ink/55">
+          <div className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b border-[color:var(--sn-divider)] px-4 py-2.5 ${TEMPLATE_SUBLINE}`}>
             <span>Shots</span>
             <span className="text-right">Regular price</span>
             <span className="text-right">Per shot</span>
@@ -127,18 +135,16 @@ export function PapicLadderEditor({
             return (
               <div
                 key={rung.shots}
-                className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b border-ink/8 px-4 py-2.5 last:border-b-0 ${
-                  ownsAnInput ? 'bg-cream' : 'bg-ink/[0.02]'
+                className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b border-[color:var(--sn-divider)] px-4 py-2.5 last:border-b-0 ${
+                  ownsAnInput ? '' : 'bg-ink/[0.02]'
                 }`}
               >
                 <span className="flex items-center gap-2 text-[14px] font-semibold tabular-nums">
                   {rung.shots.toLocaleString('en-PH')}
                   {ownsAnInput ? (
-                    <span className="rounded-full border border-gold/40 bg-gold/[0.14] px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.11em] text-gold-deep">
-                      you set this
-                    </span>
+                    <Badge tone="wait">you set this</Badge>
                   ) : (
-                    <span className="inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.11em] text-ink/45">
+                    <span className={`inline-flex items-center gap-1 ${TEMPLATE_SUBLINE}`}>
                       <Lock className="h-3 w-3" strokeWidth={2} aria-hidden />
                       works itself out
                     </span>
@@ -160,13 +166,13 @@ export function PapicLadderEditor({
                         onChange={(e) =>
                           setAnchorPhp((p) => ({ ...p, [rung.shots]: e.target.value }))
                         }
-                        className="input-field h-9 w-32 pl-6 text-right font-mono tabular-nums"
+                        className="input-field h-9 w-32 pl-6 text-right tabular-nums"
                         aria-label={`Regular price for ${formatCount(rung.shots)} credits`}
                       />
                     </span>
                   ) : (
                     <span
-                      className={`font-mono text-[14px] tabular-nums ${
+                      className={`text-[14px] tabular-nums ${
                         willMove ? 'font-bold text-danger-700' : 'text-ink/75'
                       }`}
                     >
@@ -175,11 +181,11 @@ export function PapicLadderEditor({
                   )}
                 </span>
 
-                <span className="w-20 text-right font-mono text-[12.5px] tabular-nums text-ink/55">
+                <span className="w-20 text-right text-[12.5px] tabular-nums text-ink/55">
                   {rung.ratePerCredit == null ? '—' : `₱${rung.ratePerCredit.toFixed(3)}`}
                 </span>
 
-                <span className="w-24 text-right font-mono text-[12.5px] tabular-nums text-ink/55">
+                <span className="w-24 text-right text-[12.5px] tabular-nums text-ink/55">
                   {signup == null ? '—' : peso(signup)}
                 </span>
               </div>
@@ -193,43 +199,44 @@ export function PapicLadderEditor({
           and nothing on screen says why, which is the state the owner met.
         */}
         {emptyAnchors.length > 0 && (
-          <div className="mt-3 rounded-xl border border-warn-700/35 bg-warn-500/[0.08] p-3">
-            <p className="text-[13px] font-bold text-warn-700">
-              {emptyAnchors.length === 1
-                ? 'One price is empty'
-                : `${emptyAnchors.length} prices are empty`}
-            </p>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-ink/75">
+          <div className="mt-3 py-1 text-[13px] font-bold text-warn-700">
+            <InfoTip
+              label={
+                emptyAnchors.length === 1
+                  ? 'One price is empty'
+                  : `${emptyAnchors.length} prices are empty`
+              }
+              align="start"
+            >
               {emptyAnchors.map((s) => s.toLocaleString('en-PH')).join(', ')} —{' '}
               {emptyAnchors.length === 1 ? 'this rung sets' : 'these rungs set'} the rate for
               everything below, so those prices stay blank until{' '}
               {emptyAnchors.length === 1 ? 'it has' : 'they have'} a number. Nothing is saved
               until you press save.
-            </p>
+            </InfoTip>
           </div>
         )}
 
         {complaints.length > 0 && (
-          <div className="mt-3 rounded-xl border border-danger-700/35 bg-danger-700/[0.06] p-3">
-            <p className="flex items-center gap-2 text-[13px] font-bold text-danger-700">
+          <div className="mt-3 py-1">
+            <div className="flex items-center gap-2 text-[13px] font-bold text-danger-700">
               <AlertTriangle className="h-4 w-4" strokeWidth={2} aria-hidden />
-              This ladder would not make sense
-            </p>
+              <InfoTip label="This ladder would not make sense" align="start">
+                A rung that costs more per shot than a smaller one is one nobody would ever buy — they
+                would buy the smaller one twice. This will not save.
+              </InfoTip>
+            </div>
             <ul className="mt-1.5 space-y-1 text-[12.5px] text-ink/75">
               {complaints.map((c, i) => (
                 <li key={`${c.kind}-${i}`}>{c.message}</li>
               ))}
             </ul>
-            <p className="mt-2 text-[11.5px] text-ink/55">
-              A rung that costs more per shot than a smaller one is one nobody would ever buy — they
-              would buy the smaller one twice. This will not save.
-            </p>
           </div>
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <ActionButton tone="brand" main type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save shot prices" />
-          <span className="text-[12.5px] text-ink/60">
+          <span className={TEMPLATE_SUBLINE}>
             {changedCount === 0
               ? 'No price would change.'
               : `${formatCount(changedCount)} of ${formatCount(rows.length)} prices would change.`}
@@ -241,6 +248,6 @@ export function PapicLadderEditor({
           )}
         </div>
       </form>
-    </div>
+    </TemplateSection>
   );
 }

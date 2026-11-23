@@ -13,8 +13,8 @@ export const EVENT_LINE = 'December 18, 2026 · Ana & Miguel';
 /**
  * HIDDEN-SHOP FIXTURES (owner bug 2026-10-28 — a shop the couple's RLS cannot read drew as "Supplier"). Each name is
  * computed by the REAL `threadSupplierName` from the row shape `couple_thread_supplier_names` returns, so the lab draws
- * exactly what production now draws for: a not-yet-verified shop whose name is revealed (it replied/accepted), one
- * still pre-reveal (its screen name, never its business name), and a read that failed (it says so).
+ * exactly what production now draws for: a not-yet-verified shop with its real name (every shop with a business name
+ * since owner ruling 2026-11-16 (15)), one with NO business name on file (its screen name), and a read that failed.
  */
 const hiddenShop = (over: Partial<CoupleThreadSupplierRow>): string =>
   threadSupplierName({

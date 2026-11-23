@@ -66,6 +66,7 @@ import { readAddOwnCategories } from '@/lib/add-own-categories.server';
 import type { ShelfState } from '@/lib/discover-events';
 import type { DiscoverEventCard as DiscoverEventCardData } from '@/lib/discover-events-core';
 import { DiscoverEventCard } from './discover-event-card';
+import { DISCOVER_HREF } from '@/lib/discover-href';
 
 /** Words Discover's results say when the events read was refused — never "nothing", never a 0. */
 export const EVENTS_UNREAD = 'We couldn’t search events just now. Nothing is lost — try again in a moment.';
@@ -335,7 +336,7 @@ export async function FrontDoorResults({
           this page has no other visible control that clears the query.
         */}
         {/* In the shell, clearing stays in the shell — `/` is the public front door. */}
-        <Link href={place === 'shell' ? SHELL_SEARCH_PATH : '/'} className="fd-sechead-go">
+        <Link href={place === 'shell' ? SHELL_SEARCH_PATH : DISCOVER_HREF} className="fd-sechead-go">
           Clear
         </Link>
       </h2>
@@ -464,7 +465,7 @@ function DiscoverResults({
               : 'nothing here yet'
             : `${formatCount(shown)} ${shown === 1 ? 'thing' : 'things'}`}
         </span>
-        <Link href="/" className="fd-sechead-go">
+        <Link href={DISCOVER_HREF} className="fd-sechead-go">
           Clear
         </Link>
       </h2>

@@ -19,6 +19,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { foundOnSetnayan } from './found-on-setnayan';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -67,6 +68,9 @@ async function newFinishedJob(
     `INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1,$2,'couple')`,
     [eventId, coupleUserId],
   );
+  // Since 2026-11-23 (b89e2420 C) only an ARM'S-LENGTH job counts: every job here is one the couple found here, so the
+  // self-dealing cases below are kept out by their own exclusions, never by the absence of that fact.
+  await foundOnSetnayan(db, vendorProfileId, eventId);
   await db.query(
     `INSERT INTO public.event_vendors
        (event_id, category, vendor_name, status, linked_vendor_profile_id, marketplace_vendor_id)

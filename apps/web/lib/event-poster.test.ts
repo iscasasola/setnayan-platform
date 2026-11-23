@@ -217,7 +217,7 @@ test('ONE hero, ONE resolver: posterFor has exactly one caller, resolveEventPost
   assert.match(server, /return eventPosterGiven\(event, heroSrc, \{/, 'resolveEventPoster no longer composes through the one rule');
   assert.match(server, /resolveHubLook\(/, 'the poster stopped reading the theme through the hub resolver');
   assert.match(server, /eventWordsFor\(/, 'the poster stopped reading the hub card\'s words');
-  const launcher = readFileSync(join(web, 'app/dashboard/(launcher)/page.tsx'), 'utf8');
+  const launcher = readFileSync(join(web, 'app/(hub)/dashboard/page.tsx'), 'utf8');
   assert.match(launcher, /resolveEventPoster\(/, 'the board no longer asks the one resolver');
 });
 
@@ -234,7 +234,7 @@ test('the Save-the-Date background reaches the poster: read by both callers, han
   assert.match(given, /backgroundSrc:\s*given\.look\?\.photo/, 'the resolver stopped handing the gated background to posterFor');
   assert.match(server, /resolveThemeGround\(/, 'the resolver stopped reading the theme still from the hub ground');
   assert.match(given, /themeStillSrc:\s*given\.themeStill\(theme\)/, 'the theme still no longer reaches posterFor');
-  const launcher = readFileSync(join(web, 'app/dashboard/(launcher)/page.tsx'), 'utf8');
+  const launcher = readFileSync(join(web, 'app/(hub)/dashboard/page.tsx'), 'utf8');
   assert.match(launcher, /\.select\('event_id, invite_theme, std_background(?:, role_palette)?'\)/, 'the board stopped reading the background');
   // 🎨 …and the Mood Board, which the poster's veil and ink follow (2026-10-05).
   assert.match(launcher, /role_palette: saved\.get\(e\.event_id\)\?\.role_palette \?\? null/, 'the board stopped handing the Mood Board to the poster');

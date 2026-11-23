@@ -1,13 +1,15 @@
 'use client';
 
 /**
- * The five hub tools (DECISION_LOG 2026-11-23) on SAMPLE data, for the day lab: the shipped `HubToolsSection`, its
- * checklists and counter talking to an in-memory store (`memoryListStore`) instead of the actions, so every control
- * can be pressed with no sign-in and no database. DEV-ONLY (the lab page 404s in production).
+ * The first five hub tools (DECISION_LOG 2026-11-23) on SAMPLE data, for the day lab: the SHIPPED view
+ * (`HubToolPanelsView`, the one that draws all ten) handed sample rows and an in-memory saver in place of the database,
+ * so every control can be pressed with no sign-in. The saver runs the dispatcher's own decision (`parseHubToolEntryOp`),
+ * so a refusal here is the refusal a live write gets. Every row is a `vendor_hub_tool_entries` row (ONE home,
+ * controller 23 Nov 2026). DEV-ONLY (the lab page 404s in production).
  */
-import { useState } from 'react';
-import { HubToolsSection } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/hub-tools/hub-tools-section';
-import { memoryListStore } from '@/lib/shot-list';
+import { useMemo } from 'react';
+import { HubToolPanelsView, type HubToolReads } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/hub-tools/hub-tool-panels-view';
+import { parseHubToolEntryOp, type HubToolEntry } from '@/lib/hub-tool-entries';
 import type { DayOfModuleId } from '@/lib/vendor-dayof-modules';
 import type { EntourageSheetSection } from '@/lib/supplier-march';
 
@@ -31,33 +33,48 @@ const ENTOURAGE: EntourageSheetSection[] = [
   },
 ];
 
+const uuid = () => crypto.randomUUID();
+const e = (label: string, over: Partial<HubToolEntry> = {}): HubToolEntry => ({ id: uuid(), label, note: '', done: false, qty: 0, ...over });
+
+const ROW_TOOLS = ['queue_counter', 'paperwork_checklist', 'load_in_and_venue_access', 'delivery_and_drop_off'] as const;
+
+function readsFor(unread: boolean): HubToolReads {
+  if (unread) {
+    return { entries: new Map(ROW_TOOLS.map((k) => [k, { state: 'unread' as const }])), dietary: null, setList: null, entourage: null };
+  }
+  return {
+    entries: new Map([
+      ['queue_counter', { state: 'ok' as const, entries: [e('Served', { qty: 37 })] }],
+      ['paperwork_checklist', { state: 'ok' as const, entries: [e('Valid IDs', { done: true }), e('Signed forms'), e('Permits')] }],
+      ['load_in_and_venue_access', { state: 'ok' as const, entries: [] }],
+      ['delivery_and_drop_off', { state: 'ok' as const, entries: [e('Delivery time agreed', { done: true }), e('Who receives it')] }],
+    ]),
+    dietary: null,
+    setList: null,
+    entourage: ENTOURAGE,
+  };
+}
+
+/** The dispatcher's decision, in memory: refuses what the live one refuses, saves the rest. */
+async function labSave(_eventId: string, input: unknown) {
+  const parsed = parseHubToolEntryOp(input);
+  if (!parsed.ok) return parsed;
+  await new Promise((r) => setTimeout(r, 120));
+  return parsed.op.op === 'add' ? { ok: true as const, entryId: uuid() } : { ok: true as const };
+}
+
 export function HubToolsLab({
   eventId,
-  eventName,
   coming,
   on,
-  entourageUnread = false,
+  unread = false,
 }: {
   eventId: string;
-  eventName: string;
   coming: number | null;
   on: readonly DayOfModuleId[];
-  entourageUnread?: boolean;
+  /** Every read refused: each tool says so in its place, never an empty tool. */
+  unread?: boolean;
 }) {
-  const [store] = useState(() =>
-    memoryListStore({
-      paperwork_checklist: [{ label: 'Valid IDs', done: true }, { label: 'Signed forms' }, { label: 'Permits' }],
-      queue_counter: Array.from({ length: 37 }, () => ({ label: 'Served', done: true })),
-    }),
-  );
-  return (
-    <HubToolsSection
-      eventId={eventId}
-      eventName={eventName}
-      on={on}
-      coming={coming}
-      entourage={entourageUnread ? null : ENTOURAGE}
-      store={store}
-    />
-  );
+  const reads = useMemo(() => readsFor(unread), [unread]);
+  return <HubToolPanelsView eventId={eventId} modules={on} attending={coming} reads={reads} save={labSave} />;
 }

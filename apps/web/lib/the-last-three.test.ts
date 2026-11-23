@@ -84,7 +84,7 @@ test('every degraded switcher fallback says it measured nothing', () => {
     'app/_components/frontdoor/signed-in-cluster.tsx',
     'app/admin/layout.tsx',
     'app/dashboard/(account)/layout.tsx',
-    'app/dashboard/(launcher)/layout.tsx',
+    'app/(hub)/layout.tsx',
     'app/dashboard/[eventId]/layout.tsx',
     'app/vendor-dashboard/layout.tsx',
   ];

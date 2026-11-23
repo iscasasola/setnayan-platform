@@ -201,7 +201,8 @@ test('a multi-day celebration keeps every day it is booked for', () => {
 
 const ROOM_SITES: ReadonlyArray<readonly [string, number]> = [
   ['app/vendor-dashboard/on-the-day/page.tsx', 1],
-  ['app/vendor-dashboard/on-the-day/actions.ts', 4],
+  // 4 → 5 (23 Nov): `hubToolEntry`, the hub tools' one writer, asks the room read like every other day-of write.
+  ['app/vendor-dashboard/on-the-day/actions.ts', 5],
   ['app/vendor-dashboard/on-the-day/live/[eventId]/page.tsx', 2],
   ['app/vendor-dashboard/on-the-day/live/[eventId]/papic/page.tsx', 1],
   ['app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts', 1],
@@ -232,7 +233,7 @@ test('every day-of screen asks the room read, and none of them still asks the po
     );
     total += calls;
   }
-  assert.equal(total, 11, 'ten day-of call sites in six files, plus the Overview’s Upcoming');
+  assert.equal(total, 12, 'eleven day-of call sites in six files (the hub tools’ writer joined 23 Nov), plus the Overview’s Upcoming');
 });
 
 test('the Upcoming row id does not depend on a pool row (SUP-8)', () => {

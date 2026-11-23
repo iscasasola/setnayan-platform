@@ -24,7 +24,7 @@ import { stripComments } from './strip-comments';
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const MENU = 'app/dashboard/(launcher)/_components/event-card-menu.tsx';
-const PAGE = 'app/dashboard/(launcher)/page.tsx';
+const PAGE = 'app/(hub)/dashboard/page.tsx';
 
 test('1 · a measured menu is slid inside the 16-px gutter', () => {
   // The owner's case: a 280-px menu hung from the right edge of a left-column chip at 390.

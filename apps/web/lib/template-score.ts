@@ -61,7 +61,7 @@ export type TemplatePageScore = {
  * it needs the owner's word, the same as a new look does.
  */
 export const TEMPLATE_EXEMPT: ReadonlyArray<{ match: string; reason: string }> = [
-  { match: '', reason: 'the front door — its own owner-approved design, not a dashboard screen' },
+  { match: '(hub)', reason: 'the front door — its own owner-approved design, not a dashboard screen' },
   { match: '(shell)/privacy', reason: 'legal text' },
   { match: '(shell)/privacy/', reason: 'legal text' },
   { match: '(shell)/terms', reason: 'legal text' },
@@ -89,7 +89,7 @@ export function exemptReason(page: string): string | null {
 export function areaOf(page: string): TemplateArea {
   if (page === 'admin' || page.startsWith('admin/')) return 'admin';
   if (page === 'vendor-dashboard' || page.startsWith('vendor-dashboard/')) return 'supplier';
-  if (page === 'dashboard' || page.startsWith('dashboard/')) return 'couple';
+  if (page === 'dashboard' || page.startsWith('dashboard/') || page.startsWith('(hub)/dashboard')) return 'couple';
   return 'public';
 }
 
@@ -104,9 +104,23 @@ function listPages(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-function filesFor(pageFile: string): string[] {
+/**
+ * A page that moved while its components stayed behind still owns them. Home moved into `app/(hub)/` so it shares
+ * one layout with Discover (18 Nov 2026); its `_components/` stayed in `dashboard/(launcher)/`. Without this entry
+ * Home would score 1 instead of 16 — a drop that measured nothing.
+ */
+const COMPONENTS_LIVE_ELSEWHERE: Readonly<Record<string, string>> = {
+  '(hub)/dashboard': 'dashboard/(launcher)/_components',
+};
+
+function filesFor(pageFile: string, appDir: string = APP_DIR): string[] {
   const dir = path.dirname(pageFile);
   const files = [pageFile];
+  const elsewhere = COMPONENTS_LIVE_ELSEWHERE[path.relative(appDir, dir).split(path.sep).join('/')];
+  if (elsewhere) {
+    const d = path.join(appDir, elsewhere);
+    for (const f of fs.readdirSync(d).sort()) if (/\.tsx$/.test(f) && !/test/.test(f)) files.push(path.join(d, f));
+  }
   for (const f of fs.readdirSync(dir).sort()) {
     if (/\.tsx$/.test(f) && f !== 'page.tsx' && !/test/.test(f) && f !== 'layout.tsx' && f !== 'loading.tsx') {
       files.push(path.join(dir, f));
@@ -153,7 +167,7 @@ export function scoreAllPages(appDir: string = APP_DIR): TemplatePageScore[] {
   for (const file of listPages(appDir)) {
     const page = path.relative(appDir, path.dirname(file)).split(path.sep).join('/');
     if (exemptReason(page) !== null) continue;
-    const src = filesFor(file)
+    const src = filesFor(file, appDir)
       .map((f) => stripComments(fs.readFileSync(f, 'utf8')))
       .join('\n');
     const counts = countSource(src);

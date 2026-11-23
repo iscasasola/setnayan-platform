@@ -329,7 +329,7 @@ const ROUTES = routes();
 /** Does `/dashboard/${eventId}/vendors` (a literal off an emit site) name a page that exists? */
 function isRealRoute(literal: string): boolean {
   const path = literal.split('#')[0]!.split('?')[0]!.replace(/\$\{[^}]+\}/g, '[*]').replace(/\/$/, '') || '/';
-  // The root is `''` on both sides — `/?browse=1` (Discover's supplier view, 2026-11-12) is `app/page.tsx`.
+  // The root is `''` on both sides — `/?browse=1` (Discover's supplier view, 2026-11-12) is `app/(hub)/page.tsx`.
   const want = (path === '/' ? '' : path).split('/');
   return ROUTES.some((route) => {
     const have = (route === '/' ? '' : route).split('/');

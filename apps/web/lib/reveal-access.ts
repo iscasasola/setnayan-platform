@@ -3,8 +3,8 @@
  *
  * Owner, 2026-09-24, verbatim: **"all reveal is paid".**
  *
- * Every opening — four-flap · two-flap-vertical · two-flap-horizontal ·
- * church-doors · veil-sheer — and every effect that rides on it needs Event Hub
+ * Every opening — the nine reveals of 23 Nov 2026 (veil · beach curtains · envelope ×2 ·
+ * fabric · scratch · smoke · cathedral doors · petals · fireworks) — and every effect on it needs Event Hub
  * Pro. `COUPLE_WEBSITE_PRO` grants `STD_PREMIUM_OPENINGS` through
  * `SKU_OWNERSHIP_ALIASES` (lib/entitlements.ts), so "owns Pro" is read as
  * `eventStdOpeningsActive()` (lib/std-openings.ts). A free couple gets
@@ -24,7 +24,7 @@
  *   not Pro, not a staff preview            → NO_REVEAL  (admin default ignored)
  *   couple chose 'none'                     → NO_REVEAL  (even when Pro)
  *   Pro (or staff preview), chose X         → X          (admin map may swap it)
- *   Pro (or staff preview), chose nothing   → admin default → 'four-flap'
+ *   Pro (or staff preview), chose nothing   → admin default → 'envelope-classic' (four-flap's successor)
  *
  * `isStaffPreview` is the build-time `NEXT_PUBLIC_STD_REVEAL=1` preview flag —
  * no visitor can set it, and it is off in production (SEC-3, 2026-07-26). A
@@ -67,7 +67,7 @@ export function revealAllowedFor(input: RevealAccessInput): RevealDecision {
   if (!ownsPro && !isStaffPreview) return REVEAL_NONE;
   // 3 · The couple's explicit "No Reveal" stands, Pro or not.
   if (chosenTemplate === REVEAL_NONE) return REVEAL_NONE;
-  let template: RevealTemplateId = chosenTemplate ?? adminDefault ?? 'four-flap';
+  let template: RevealTemplateId = chosenTemplate ?? adminDefault ?? 'envelope-classic';
   // 4 · The admin's allowed-openings map: a deactivated opening falls back to
   //     the house default, else the first still-enabled opening.
   if (allowed && allowed[template] === false) {

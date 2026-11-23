@@ -68,16 +68,16 @@ const playsByDefault = (themeOpening: string, adminDefault: RevealTemplateId | n
 test('1 · what plays when nothing is chosen: the theme’s opening, unless the Reveal Studio switched it off', () => {
   /* The owner's screen: Cyber Neon's opening is switched off; the house default (Sheer veil) plays. */
   const live = only('veil-sheer');
-  assert.equal(playsByDefault('two-flap-horizontal', 'veil-sheer', live), 'veil-sheer');
+  assert.equal(playsByDefault('envelope-classic', 'veil-sheer', live), 'veil-sheer');
   /* With every opening on (the code's own default), the theme's opening plays. */
-  assert.equal(playsByDefault('two-flap-horizontal', 'veil-sheer', DEFAULT_REVEAL_CONFIG.templates), 'two-flap-horizontal');
+  assert.equal(playsByDefault('envelope-classic', 'veil-sheer', DEFAULT_REVEAL_CONFIG.templates), 'envelope-classic');
   /* The house default switched off too: the first opening still on. */
-  assert.equal(playsByDefault('two-flap-horizontal', 'veil-sheer', only('church-doors')), 'church-doors');
-  /* A theme with no opening of its own: the house default, then the library's first. */
+  assert.equal(playsByDefault('envelope-classic', 'veil-sheer', only('cathedral-doors')), 'cathedral-doors');
+  /* A theme with no opening of its own: the house default, then the classic envelope (four-flap's successor). */
   assert.equal(playsByDefault(REVEAL_NONE, 'veil-sheer', live), 'veil-sheer');
-  assert.equal(playsByDefault(REVEAL_NONE, null, null), 'four-flap');
+  assert.equal(playsByDefault(REVEAL_NONE, null, null), 'envelope-classic');
   /* No map could be read: nothing is second-guessed. */
-  assert.equal(playsByDefault('church-doors', null, null), 'church-doors');
+  assert.equal(playsByDefault('cathedral-doors', null, null), 'cathedral-doors');
 });
 
 test('2 · the panel asks the guest page’s own rule — and names the theme only when the theme’s opening plays', () => {

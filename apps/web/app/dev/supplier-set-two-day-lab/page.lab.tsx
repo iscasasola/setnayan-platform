@@ -8,9 +8,9 @@
  *   (no params)   the list of states
  *   ?s=<state>    one state — `day`, `day-program-unread`, `scanner`, `papic-consent`, `papic-camera` (the consent's
  *                 button pressed by the shot; a browser with no camera shows the shipped "Camera unavailable"),
- *                 `papic-not-the-day`, `papic-unread`, `hub-tools` (the five hub tools of 23 Nov on sample data — every
- *                 ＋, −, tick, add and swipe works against an in-memory store), `hub-tools-unread` (each tool's honest
- *                 "couldn't load")
+ *                 `papic-not-the-day`, `papic-unread`, `hub-tools` (the five hub tools of 23 Nov on sample data, drawn by the
+ *                 shipped `HubToolPanelsView` — every add, tick, count and swipe runs the dispatcher's own decision in
+ *                 memory), `hub-tools-unread` (each tool's honest "couldn't load")
  */
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -35,9 +35,6 @@ import { formatCount } from '@/lib/format-number';
 import type { OpenRail } from '@/lib/payment-channels';
 import type { ShopPapicPack } from '@/lib/vendor-papic-credits';
 import { HubToolsLab } from './hub-tools-lab';
-import { QueueCounter } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/hub-tools/queue-counter';
-import { EntourageSheet } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/hub-tools/entourage-sheet';
-import { PartCard } from '@/app/vendor-dashboard/_components/set-two/parts';
 
 /** The five hub tools of 23 Nov, all switched on (the booking's switches decide this on the live page). */
 const HUB_TOOL_ON: DayOfModuleId[] = ['queue_counter', 'entourage', 'paperwork_checklist', 'load_in_and_venue_access', 'delivery_and_drop_off'];
@@ -170,22 +167,12 @@ const STATES: Record<string, { label: string; page: string; draw: () => ReactNod
   'hub-tools': {
     label: 'The Day · the five hub tools on sample data (Queue counter · Entourage · three checklists) · new',
     page: '/vendor-dashboard/on-the-day',
-    draw: () => day('day', false, false, <HubToolsLab eventId={EVENT_ID} eventName={COUPLE} coming={ATTENDING} on={HUB_TOOL_ON} />),
+    draw: () => day('day', false, false, <HubToolsLab eventId={EVENT_ID} coming={ATTENDING} on={HUB_TOOL_ON} />),
   },
   'hub-tools-unread': {
-    label: 'The hub tools · a read refused (honest states · new)',
+    label: 'The hub tools · every read refused (honest states · new)',
     page: '/vendor-dashboard/on-the-day',
-    draw: () => (
-      <div className="space-y-3 p-3">
-        <PartCard>
-          <EntourageSheet sections={null} />
-        </PartCard>
-        <PartCard>
-          {/* The real actions, no sign-in: the counter's read is refused, so it says so — never 0. */}
-          <QueueCounter eventId={EVENT_ID} coming={null} />
-        </PartCard>
-      </div>
-    ),
+    draw: () => day('day', false, false, <HubToolsLab eventId={EVENT_ID} coming={null} on={HUB_TOOL_ON} unread />),
   },
   'papic-consent': { label: 'Papic · before you shoot', page: '/vendor-dashboard/on-the-day', draw: () => papic({ isEventDay: true }) },
   'papic-camera': { label: 'Papic · the camera (press Agree)', page: '/vendor-dashboard/on-the-day', draw: () => papic({ isEventDay: true }) },

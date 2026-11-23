@@ -2,28 +2,20 @@
  * 🧰 THE FIVE HUB TOOLS WORK (DECISION_LOG 2026-11-23: the ten most-shared unbuilt hub tools, free — this PR builds the
  * first five: Queue counter · Entourage · Paperwork checklist · Load-in & venue access · Delivery & drop-off).
  *
- * Each tool is one of the shipped templates on the live Hub page, never a screen of its own:
- *   · the three checklists ride the shot list (its rows `tool_key`, its actions' `tool`, its component's `tool`);
- *   · the Queue counter is one saved row per serve, counted "served of coming";
- *   · Entourage is the couple's own entourage (`loadMarch` → `entourageSheet`), read-only.
- * The tests EXECUTE the pure halves and the in-memory store, and read the source only for the wiring a test cannot run
- * without a database (a scope on a query, a slot on a page).
+ * Each tool is one of the shipped templates on the live Hub page, never a screen of its own, and every row a tool keeps
+ * lives in ONE home (controller, DECISION_LOG 23 Nov 2026): `vendor_hub_tool_entries`, through ONE reader
+ * (`readHubToolEntries`) and ONE writer (`hubToolEntry`):
+ *   · the three checklists are Checklist rows;
+ *   · the Queue counter is a Counter row (its count is the row's `qty`), against the RSVP's coming guests;
+ *   · Entourage is the couple's own entourage (`loadMarch` → `entourageSheet`), read-only — it keeps no rows.
+ * The Shot list keeps its own couple-read table and is untouched (🔒 no-hub-tool-borrows-the-shot-list.test.ts).
+ * The tests EXECUTE the pure halves and read the source only for the wiring a test cannot run without a database.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-  CHECKLIST_TOOLS,
-  CHECKLIST_TOOL_KEYS,
-  QUEUE_SERVED_LABEL,
-  SHOT_LABEL_MAX,
-  checklistTool,
-  isListToolKey,
-  memoryListStore,
-  normalizeShotLabel,
-  queueCounterView,
-} from './shot-list';
+import { READ_ONLY_TOOLS, counterModel, entryTemplateOf, parseHubToolEntryOp } from './hub-tool-entries';
 import { HUB_TOOL_LIBRARY, suggestedHubTools, HUB_TOOL_RECORDS } from './hub-tools';
 import { DAY_OF_MODULES, resolveModules } from './vendor-dayof-modules';
 import { dayOfModuleHref } from './vendor-dayof-module-href';
@@ -31,7 +23,11 @@ import { entourageSheet, entourageSheetCount, nameInitials } from './supplier-ma
 import type { EntourageGroup } from './entourage';
 
 const FIVE = ['queue_counter', 'entourage', 'paperwork_checklist', 'load_in_and_venue_access', 'delivery_and_drop_off'] as const;
+/** The four of the five that keep rows. */
+const ROW_TOOLS = ['queue_counter', 'paperwork_checklist', 'load_in_and_venue_access', 'delivery_and_drop_off'] as const;
 const web = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
+const VIEW = 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/hub-tools/hub-tool-panels-view.tsx';
+const PANELS = 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/hub-tools/hub-tool-panels.tsx';
 
 /* ── the library ───────────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -55,7 +51,7 @@ test('every shipped tool of the five is a day-of module any shop may switch on, 
   for (const key of FIVE) {
     const m = DAY_OF_MODULES.find((x) => x.id === key);
     assert.ok(m, `${key} has no day-of module — a shipped tool nobody can switch on`);
-    assert.equal(m.hubTool, true);
+    assert.equal(m.hubTool, key, `${key}: the module draws its own library record`);
     assert.equal(m.alwaysAvailable, true, `${key}: categories suggest, never gate`);
     assert.equal(dayOfModuleHref(key, 'e1'), null, `${key} is drawn inline, never a link row`);
   }
@@ -98,93 +94,60 @@ test('the category switches decide what starts ON; every shop can still switch a
   assert.ok(!off.some((m) => m.id === 'entourage'));
 });
 
-/* ── the three checklists ──────────────────────────────────────────────────────────────────────────────────────── */
+/* ── ONE home: vendor_hub_tool_entries ─────────────────────────────────────────────────────────────────────────── */
 
-test('each checklist has a title, a line naming the event, and a seed that saves as it is', () => {
-  assert.deepEqual([...CHECKLIST_TOOL_KEYS], ['shot_list', 'paperwork_checklist', 'load_in_and_venue_access', 'delivery_and_drop_off']);
-  for (const key of CHECKLIST_TOOL_KEYS) {
-    const t = CHECKLIST_TOOLS[key];
-    assert.equal(t.key, key);
-    assert.ok(t.title.length > 0 && t.line.includes('{event}'), key);
-    assert.ok(t.seed.length >= 3, `${key}: a starting list`);
-    for (const label of t.seed) assert.equal(normalizeShotLabel(label), label, `${key}: "${label}" would not save`);
-    for (const label of t.seed) assert.ok(label.length <= SHOT_LABEL_MAX);
-    assert.ok(!/vendor|website/i.test(t.title + t.line + t.seed.join(' ')), `${key}: house words`);
-  }
-  assert.equal(checklistTool('nope').key, 'shot_list', 'an unknown key reads as the column default');
-});
-
-test('PAPERWORK · LOAD-IN · DELIVERY: tick, add, remove and replace each touch only their own list', async () => {
-  const store = memoryListStore({ shot_list: [{ label: 'The kiss' }] });
-  for (const tool of ['paperwork_checklist', 'load_in_and_venue_access', 'delivery_and_drop_off'] as const) {
-    const saved = await store.replace('e1', CHECKLIST_TOOLS[tool].seed.map((label) => ({ label, done: false })), tool);
-    assert.ok(saved.ok);
-    const first = saved.ok ? saved.shots[0]! : null;
-    assert.ok(first);
-    assert.deepEqual(await store.setDone('e1', first.id, true), { ok: true });
-    const added = await store.add('e1', '  Extra step  ', 99, tool);
-    assert.ok(added.ok && added.shot.label === 'Extra step');
-    const read = await store.load('e1', tool);
-    assert.equal(read.state, 'ok');
-    if (read.state === 'ok') {
-      assert.equal(read.rows.length, CHECKLIST_TOOLS[tool].seed.length + 1);
-      assert.equal(read.rows.filter((r) => r.captured_at).length, 1, `${tool}: the tick saved`);
+test('the four row tools are rows of the ONE table — the one writer takes them, on their own template', () => {
+  assert.equal(entryTemplateOf('paperwork_checklist'), 'checklist');
+  assert.equal(entryTemplateOf('load_in_and_venue_access'), 'checklist');
+  assert.equal(entryTemplateOf('delivery_and_drop_off'), 'checklist');
+  assert.equal(entryTemplateOf('queue_counter'), 'counter');
+  for (const toolKey of ROW_TOOLS) {
+    const add = parseHubToolEntryOp({ op: 'add', toolKey, label: '  Signed   forms ' });
+    assert.ok(add.ok, `${toolKey}: the writer refuses its rows`);
+    if (add.ok && add.op.op === 'add') {
+      assert.equal(add.op.label, 'Signed forms');
+      assert.equal(add.op.qty, toolKey === 'queue_counter' ? 0 : null, `${toolKey}: a counter row starts at 0; a checklist row has no count`);
     }
-    if (added.ok) assert.deepEqual(await store.remove('e1', added.shot.id), { ok: true });
   }
-  const shots = await store.load('e1');
-  assert.equal(shots.state === 'ok' ? shots.rows.length : -1, 1, 'three other lists saved — the shot list is untouched');
+  // The Queue counter's ＋ is the template's own count op on its row.
+  const count = parseHubToolEntryOp({ op: 'count', entryId: '00000000-0000-4000-8000-000000000001', qty: 38 });
+  assert.ok(count.ok && count.op.op === 'count' && count.op.qty === 38);
 });
 
-test('the actions scope every read and every replace to ONE tool (a new list never clears another)', () => {
-  const src = web('app/vendor-dashboard/on-the-day/shot-list-actions.ts');
-  const load = src.slice(src.indexOf('export async function loadShotList'), src.indexOf('export async function replaceShotList'));
-  assert.match(load, /\.eq\('tool_key', key\)/, 'loadShotList reads one tool');
-  const replace = src.slice(src.indexOf('export async function replaceShotList'), src.indexOf('export async function addShot'));
-  assert.match(replace, /\.eq\('tool_key', key\)/, 'replaceShotList clears only its own tool’s old rows');
-  assert.match(replace, /tool_key: key/, 'replaceShotList writes its tool');
-  const add = src.slice(src.indexOf('export async function addShot'), src.indexOf('export async function setShotCaptured'));
-  assert.match(add, /tool_key: key/, 'addShot writes its tool');
-  assert.ok(isListToolKey('queue_counter') && isListToolKey('paperwork_checklist') && !isListToolKey('entourage'));
-  // No new export: the tool is an optional last argument (the server-action budget).
-  assert.equal((src.match(/^export async function /gm) ?? []).length, 5);
+test('Entourage keeps NO rows: the one writer refuses it, and the reader never asks for it', () => {
+  assert.ok((READ_ONLY_TOOLS as readonly string[]).includes('entourage'));
+  assert.equal(entryTemplateOf('entourage'), null);
+  assert.equal(entryTemplateOf('dietary_and_allergies'), null, 'the RSVP answers are read, never typed');
+  const add = parseHubToolEntryOp({ op: 'add', toolKey: 'entourage', label: 'Maria Reyes' });
+  assert.equal(add.ok, false);
+  const panels = web(PANELS);
+  assert.match(panels, /const entryKeys = keys\.filter\(\(k\) => entryTemplateOf\(k\) != null\)/, 'the read asks only for tools that keep rows');
+  assert.match(panels, /readHubToolEntries\(supabase, eventId, vendorProfileId, entryKeys\)/);
 });
 
-test('the couple sees the ticks: their workspace splits one read per checklist tool', () => {
-  const src = web('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx');
-  assert.match(src, /\.in\('tool_key', \[\.\.\.CHECKLIST_TOOL_KEYS\]\)/, 'the read is the checklist tools only (never the queue rows)');
-  assert.match(src, /r\.tool_key === 'shot_list'/, 'the shot list card shows only the shot list');
-  assert.match(src, /tool=\{c\.tool\}/);
+test('each row tool is drawn by its template with its own words and mark', () => {
+  const view = web(VIEW);
+  for (const key of ROW_TOOLS) {
+    assert.match(view, new RegExp(`\\n  ${key}: \\{\\n    placeholder: '`), `${key}: no add-box words`);
+    assert.match(view, new RegExp(`\\n  ${key}: [A-Z][A-Za-z0-9]+,`), `${key}: no mark`);
+  }
+  assert.match(view, /template === 'checklist'\) \{\s*body = <ChecklistTool/);
+  assert.match(view, /body = <CounterTool/);
+  assert.match(view, /if \(key === 'entourage'\) \{\s*body = <EntourageSheet sections=\{reads\.entourage \?\? null\} \/>/);
 });
 
-/* ── the queue counter ─────────────────────────────────────────────────────────────────────────────────────────── */
-
-test('QUEUE COUNTER: served of coming, the bar capped, an unread guest count never drawn as 0', () => {
-  assert.deepEqual(queueCounterView(96, 131), { served: 96, of: 131, pct: 73 });
-  assert.deepEqual(queueCounterView(140, 131), { served: 140, of: 131, pct: 100 }, 'seconds still count; the bar stops full');
-  assert.deepEqual(queueCounterView(5, null), { served: 5, of: null, pct: 0 }, 'not read is null, not 0');
-  assert.deepEqual(queueCounterView(-2, 10), { served: 0, of: 10, pct: 0 });
+test('QUEUE COUNTER: counted against the coming guests; an unread guest count is never drawn as 0', () => {
+  assert.deepEqual(counterModel(96, 131), { qty: 96, base: 131, pct: 73, gap: { kind: 'short', by: 35 } });
+  assert.equal(counterModel(140, 131).pct, 100, 'seconds still count; the bar stops full');
+  assert.deepEqual(counterModel(5, null), { qty: 5, base: null, pct: null, gap: null }, 'not read is null, not 0');
 });
 
-test('QUEUE COUNTER: each ＋ is one timed row, − takes back the latest, and the count is the rows', async () => {
-  const store = memoryListStore();
-  const a = await store.add('e1', QUEUE_SERVED_LABEL, 0, 'queue_counter');
-  const b = await store.add('e1', QUEUE_SERVED_LABEL, 1, 'queue_counter');
-  assert.ok(a.ok && b.ok);
-  const read = await store.load('e1', 'queue_counter');
-  assert.equal(read.state === 'ok' ? read.rows.length : -1, 2);
-  if (read.state === 'ok') assert.ok(read.rows.every((r) => r.captured_at), 'a serve is done the moment it is saved');
-  if (b.ok) await store.remove('e1', b.shot.id);
-  const after = await store.load('e1', 'queue_counter');
-  assert.equal(after.state === 'ok' ? after.rows.length : -1, 1);
-  const shots = await store.load('e1');
-  assert.equal(shots.state === 'ok' ? shots.rows.length : -1, 0, 'serves are not shots');
-
-  const src = web('app/vendor-dashboard/on-the-day/shot-list-actions.ts');
-  assert.match(src, /key === 'queue_counter' \? \{ captured_at: new Date\(\)\.toISOString\(\) \}/, 'the action stamps the serve');
-  const counter = web('app/vendor-dashboard/on-the-day/live/[eventId]/_components/hub-tools/queue-counter.tsx');
-  assert.match(counter, /state === 'unreadable'/, 'a refused read is said');
-  assert.match(counter, /It is not zero\./);
+test('the couple reads none of the new tools: their workspace reads the shot list only, as main does', () => {
+  const page = web('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx');
+  const card = web('app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/shot-list-card.tsx');
+  for (const src of [page, card]) {
+    assert.ok(!/tool_key|CHECKLIST_TOOL_KEYS|vendor_hub_tool_entries/.test(src), 'a couple surface reads a supplier hub tool');
+  }
 });
 
 /* ── entourage ─────────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -229,16 +192,15 @@ test('ENTOURAGE: read from the march’s own loader, and an unread entourage is 
 
 /* ── the live page draws them ──────────────────────────────────────────────────────────────────────────────────── */
 
-test('the live Hub page reads the switches and draws the hub tools in their slot', () => {
+test('the live Hub page reads the switches and draws every hub tool in its ONE slot', () => {
   const page = web('app/vendor-dashboard/on-the-day/live/[eventId]/page.tsx');
   assert.match(page, /readHubToolSuggestions\(supabase, eventTiles\)/);
   assert.match(page, /resolveModules\(profile\.services, eventTiles, override, hubSuggestions\)/);
-  assert.match(page, /hubTools=\{\s*<HubToolsSection/);
+  assert.match(page, /hubTools=\{\s*<HubToolPanels/);
+  assert.match(page, /entourage=\{entourage\}/);
+  assert.equal((page.match(/hubTools=\{/g) ?? []).length, 1, 'one hub-tools slot, one drawer');
   const body = web('app/vendor-dashboard/on-the-day/live/[eventId]/_components/event-day-body.tsx');
-  assert.match(body, /\{hubTools \?\? null\}/);
+  assert.equal((body.match(/hubTools\?: ReactNode/g) ?? []).length, 1);
   const hub = web('app/vendor-dashboard/on-the-day/page.tsx');
   assert.match(hub, /resolveModules\(services, eventTiles, override, hubSuggestions\)/, 'the set-up switches start where the live page does');
-  const section = web('app/vendor-dashboard/on-the-day/live/[eventId]/_components/hub-tools/hub-tools-section.tsx');
-  for (const k of ['queue_counter', 'entourage']) assert.match(section, new RegExp(`id === '${k}'`));
-  assert.match(section, /isChecklist\(id\)\) return <ShotList/);
 });

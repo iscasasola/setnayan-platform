@@ -15,10 +15,6 @@
  * shooter can still check shots off, and "Save again" pushes the device copy
  * once the signal is back.
  *
- * 🧰 THE CHECKLIST TEMPLATE (DECISION_LOG 2026-11-23). `tool` makes the same list the Paperwork checklist, Load-in &
- * venue access or Delivery & drop-off (`CHECKLIST_TOOLS` in lib/shot-list.ts): their own title, line, seed, device
- * cache and rows (`tool_key`). Without `tool` it is the shot list, unchanged.
- *
  * 🔑 THE STATUS LINE IS THE POINT. Which of three states the list is in —
  * saved (the couple sees it), not shared yet, or not saved — is
  * always printed under the heading. A list that exists only on this phone must
@@ -27,20 +23,18 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Check, CloudOff, FileCheck2, PackageCheck, Plus, RotateCcw, Truck, Users, type LucideIcon } from 'lucide-react';
+import { Camera, Check, CloudOff, Plus, RotateCcw, Users } from 'lucide-react';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { ActionButton } from '@/components/action-button';
 import { Badge } from '@/app/_components/badge';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { shopEmptyInlineClass } from '../../_components/kit';
 import {
-  CHECKLIST_TOOLS,
+  DEFAULT_SHOTS,
   SHOT_LABEL_MAX,
   decideInitialShots,
   normalizeShotLabel,
   parseLocalShots,
-  type ChecklistToolKey,
-  type ListStore,
   type Shot,
   type ShotListSource,
 } from '@/lib/shot-list';
@@ -51,53 +45,21 @@ import {
   replaceShotList,
   setShotCaptured,
 } from '../shot-list-actions';
-
-/** The shipped actions — what every page uses. A dev lab passes `memoryListStore()` instead. */
-const ACTIONS: ListStore = {
-  load: (eventId, tool) => loadShotList(eventId, tool),
-  replace: (eventId, shots, tool) => replaceShotList(eventId, shots, tool),
-  add: (eventId, label, position, tool) => addShot(eventId, label, position, tool),
-  setDone: (eventId, itemId, done) => setShotCaptured(eventId, itemId, done),
-  remove: (eventId, itemId) => removeShot(eventId, itemId),
-};
 import { formatCount } from '@/lib/format-number';
 
-/** The shot list keeps its shipped device key, so a cached list from before the hub tools still comes back. */
-function storageKey(eventId: string, tool: ChecklistToolKey): string {
-  return tool === 'shot_list' ? `setnayan.onday.shotlist.${eventId}` : `setnayan.onday.${tool}.${eventId}`;
+function storageKey(eventId: string): string {
+  return `setnayan.onday.shotlist.${eventId}`;
 }
-
-/** Each checklist tool's mark (one icon per tool). */
-const TOOL_MARK: Record<ChecklistToolKey, LucideIcon> = {
-  shot_list: Camera,
-  paperwork_checklist: FileCheck2,
-  load_in_and_venue_access: Truck,
-  delivery_and_drop_off: PackageCheck,
-};
 
 function makeLocalId(): string {
   return `local_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function seedShots(tool: ChecklistToolKey): Shot[] {
-  return CHECKLIST_TOOLS[tool].seed.map((label) => ({ id: makeLocalId(), label, done: false }));
+function seedShots(): Shot[] {
+  return DEFAULT_SHOTS.map((label) => ({ id: makeLocalId(), label, done: false }));
 }
 
-export function ShotList({
-  eventId,
-  eventName,
-  tool = 'shot_list',
-  store = ACTIONS,
-}: {
-  eventId: string;
-  eventName: string;
-  /** Which checklist tool this is; the shot list when not given. */
-  tool?: ChecklistToolKey;
-  /** Labs only: an in-memory store. Pages never pass it. */
-  store?: ListStore;
-}) {
-  const cfg = CHECKLIST_TOOLS[tool];
-  const Mark = TOOL_MARK[tool];
+export function ShotList({ eventId, eventName }: { eventId: string; eventName: string }) {
   const [shots, setShots] = useState<Shot[]>([]);
   const [source, setSource] = useState<ShotListSource | 'loading'>('loading');
   const [saving, setSaving] = useState(false);
@@ -113,32 +75,32 @@ export function ShotList({
     let cancelled = false;
     let local: Shot[] | null = null;
     try {
-      local = parseLocalShots(window.localStorage.getItem(storageKey(eventId, tool)));
+      local = parseLocalShots(window.localStorage.getItem(storageKey(eventId)));
     } catch {
       local = null;
     }
-    store.load(eventId, tool)
+    loadShotList(eventId)
       .catch(() => ({ state: 'unreadable' as const }))
       .then((server) => {
         if (cancelled) return;
-        const initial = decideInitialShots(server, local, () => seedShots(tool));
+        const initial = decideInitialShots(server, local, seedShots);
         setShots(initial.shots);
         setSource(initial.source);
       });
     return () => {
       cancelled = true;
     };
-  }, [eventId, tool, store]);
+  }, [eventId]);
 
   // Mirror every change to the device cache (after hydrate).
   useEffect(() => {
     if (source === 'loading') return;
     try {
-      window.localStorage.setItem(storageKey(eventId, tool), JSON.stringify(shots));
+      window.localStorage.setItem(storageKey(eventId), JSON.stringify(shots));
     } catch {
       // Storage full / blocked — the saved list is unaffected.
     }
-  }, [shots, source, eventId, tool]);
+  }, [shots, source, eventId]);
 
   const doneCount = useMemo(() => shots.filter((s) => s.done).length, [shots]);
 
@@ -146,10 +108,9 @@ export function ShotList({
   const saveWhole = useCallback(
     async (list: Shot[]) => {
       setSaving(true);
-      const res = await store.replace(
+      const res = await replaceShotList(
         eventId,
         list.map((s) => ({ label: s.label, done: s.done })),
-        tool,
       ).catch(() => ({ ok: false as const, error: 'Couldn’t reach Setnayan.' }));
       setSaving(false);
       if (res.ok) {
@@ -160,7 +121,7 @@ export function ShotList({
         setError(res.error);
       }
     },
-    [eventId, tool, store],
+    [eventId],
   );
 
   /**
@@ -190,7 +151,7 @@ export function ShotList({
     const target = shots.find((s) => s.id === id);
     if (!target) return;
     const next = shots.map((s) => (s.id === id ? { ...s, done: !s.done } : s));
-    void commit(next, () => store.setDone(eventId, id, !target.done));
+    void commit(next, () => setShotCaptured(eventId, id, !target.done));
   }
 
   // The latest `commit`, for a delete whose write lands after its Undo window (the list may have been saved since).
@@ -218,7 +179,7 @@ export function ShotList({
         next.splice(at < 0 ? next.length : Math.min(at, next.length), 0, shot);
         setShots(next);
       },
-      commit: () => commitRef.current(shotsRef.current, () => store.remove(eventId, shot.id)),
+      commit: () => commitRef.current(shotsRef.current, () => removeShot(eventId, shot.id)),
     });
   }
 
@@ -229,7 +190,7 @@ export function ShotList({
     const next = [...shots, { id: tempId, label, done: false }];
     setDraft('');
     void commit(next, async () => {
-      const res = await store.add(eventId, label, next.length - 1, tool);
+      const res = await addShot(eventId, label, next.length - 1);
       if (res.ok) {
         // Swap the temporary id for the saved one, so a later toggle targets it.
         setShots(shotsRef.current.map((s) => (s.id === tempId ? res.shot : s)));
@@ -240,7 +201,7 @@ export function ShotList({
   }
 
   function reset() {
-    void saveWhole(seedShots(tool));
+    void saveWhole(seedShots());
   }
 
   const loading = source === 'loading';
@@ -249,16 +210,15 @@ export function ShotList({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <Mark aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} /> {cfg.title}
+          <Camera aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} /> Shot list
         </h2>
         <Badge tone="quiet">
-          {formatCount(doneCount)}/{formatCount(shots.length)} {cfg.doneWord}
+          {formatCount(doneCount)}/{formatCount(shots.length)} captured
         </Badge>
       </div>
-      <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]" data-checklist-tool={tool}>
-        {cfg.line.split('{event}')[0]}
-        <span className="font-medium text-ink">{eventName}</span>
-        {cfg.line.split('{event}')[1] ?? ''}
+      <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">
+        Your must-get shots for <span className="font-medium text-ink">{eventName}</span>. Tap to
+        check them off as you go.
       </p>
 
       <ShotListStatus
@@ -285,7 +245,7 @@ export function ShotList({
               type="button"
               onClick={() => toggle(s.id)}
               aria-pressed={s.done}
-              aria-label={s.done ? `Mark "${s.label}" not ${cfg.doneWord}` : `Mark "${s.label}" ${cfg.doneWord}`}
+              aria-label={s.done ? `Mark "${s.label}" not captured` : `Mark "${s.label}" captured`}
               className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition ${
                 s.done
                   ? 'border-success-400 bg-success-500 text-cream'
@@ -304,7 +264,7 @@ export function ShotList({
         ))}
         {!loading && shots.length === 0 ? (
           <li className={shopEmptyInlineClass}>
-            Your list is empty — add one below or reset to the starting list.
+            Your list is empty — add a shot below or reset to the default list.
           </li>
         ) : null}
       </ul>
@@ -321,7 +281,7 @@ export function ShotList({
             }
           }}
           maxLength={SHOT_LABEL_MAX}
-          placeholder={`${cfg.addHint}…`}
+          placeholder="Add a shot…"
           disabled={loading}
           className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
         />

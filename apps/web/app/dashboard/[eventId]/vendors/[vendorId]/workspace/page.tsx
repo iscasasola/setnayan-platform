@@ -167,7 +167,7 @@ import { SupplierQuestionsCard } from './_components/supplier-questions-card';
 import { SupplierFormsCard } from './_components/supplier-forms-card';
 import { CouplePhotoApprovals } from './_components/couple-photo-approvals';
 import { CoupleStoryShares } from './_components/couple-story-shares';
-import { CHECKLIST_TOOL_KEYS, type ChecklistToolKey, type ShotRow } from '@/lib/shot-list';
+import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
 import { followFromRows, guestFollowLine } from '@/lib/claimed-per-guest-follow';
@@ -678,27 +678,19 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // through event_shot_list_items_event_read. Only a marketplace supplier can
   // keep one — a manual vendor has no console. `unreadable` is carried to the
   // render so a refused read never says "they haven't shared one".
-  // 🧰 The same rows carry the supplier's other checklist hub tools (`tool_key`, DECISION_LOG 2026-11-23): one read,
-  // split per tool — the shot list stays the shot list; a Paperwork / Load-in / Delivery list shows beside it.
   let shotList: ShotListCardState | null = null;
-  let otherChecklists: { tool: ChecklistToolKey; rows: ShotRow[] }[] = [];
   if (ev.marketplace_vendor_id) {
     const { data: shotRows, error: shotRowsError } = await supabase
       .from('event_shot_list_items')
-      .select('item_id, vendor_profile_id, label, position, captured_at, tool_key')
+      .select('item_id, vendor_profile_id, label, position, captured_at')
       .eq('event_id', eventId)
       .eq('vendor_profile_id', ev.marketplace_vendor_id)
-      .in('tool_key', [...CHECKLIST_TOOL_KEYS])
       .order('position', { ascending: true });
     if (shotRowsError || !shotRows) {
       logQueryError('VendorWorkspacePage.shotList', shotRowsError, { eventId }, 'graceful_degrade');
       shotList = { state: 'unreadable' };
     } else {
-      const all = shotRows as Array<ShotRow & { tool_key: string }>;
-      shotList = { state: 'ok', rows: all.filter((r) => r.tool_key === 'shot_list') };
-      otherChecklists = CHECKLIST_TOOL_KEYS.filter((t) => t !== 'shot_list')
-        .map((tool) => ({ tool, rows: all.filter((r) => r.tool_key === tool) }))
-        .filter((c) => c.rows.length > 0);
+      shotList = { state: 'ok', rows: shotRows as ShotRow[] };
     }
   }
   // Offer the "also mark delivered" opt-in only when the booking hasn't already
@@ -2069,12 +2061,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           DAY-10 · Shot list — the supplier's must-get shots from their day-of
           console, read-only, with what has been captured so far.
         */}
-        {shotList
-          ? [
-              { tool: 'shot_list' as ChecklistToolKey, list: shotList },
-              ...otherChecklists.map((c) => ({ tool: c.tool, list: { state: 'ok' as const, rows: c.rows } })),
-            ].map((c) => <ShotListCard key={c.tool} vendorName={displayName} category={ev.category} list={c.list} tool={c.tool} />)
-          : null}
+        {shotList ? (
+          <ShotListCard vendorName={displayName} category={ev.category} list={shotList} />
+        ) : null}
 
         {vendorBudgetSummary ? (
           <VendorItemizationCard

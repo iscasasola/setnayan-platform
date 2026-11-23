@@ -26,10 +26,10 @@ import { loadMarch } from '@/app/[slug]/_lib/loaders';
 import { marchSections } from '@/lib/march-sections';
 import { marchWalkCount, supplierSeesMarch } from '@/lib/supplier-march';
 import { MarchRead } from './_components/march-read';
-import { HubToolsSection } from './_components/hub-tools/hub-tools-section';
 import { readHubToolSuggestions } from '@/lib/hub-tool-suggestions.server';
 import { entourageSheet } from '@/lib/supplier-march';
 import { EventDayBody } from './_components/event-day-body';
+import { HubToolPanels, hubToolModules } from './_components/hub-tools/hub-tool-panels';
 import { EventHubAnnounce, EventHubScanner } from './_components/event-hub-views';
 import { eventHubViewOf } from '@/lib/event-hub-views';
 import { readEventScanServices } from '@/lib/supplier-scan.server';
@@ -348,16 +348,23 @@ export default async function VendorOnTheDayLivePage({
       headcount={has('pax_headcount') ? { attending, invited } : null}
       // Enabled-module quick links — one row each; the whole row opens.
       tools={linkModules.map(({ mod, href }) => ({ id: mod.id, label: mod.label, blurb: mod.blurb, href }))}
-      reviews={has('live_reviews') ? <LiveReviews vendorProfileId={profile.vendor_profile_id} initial={reviews} /> : null}
+      // 🧰 The hub tools switched on for this booking (DECISION_LOG 2026-11-23: Tech rider · Personalisation list · Dietary
+      // & allergies · Quantity vs guests · Set list · Queue counter · Entourage · Paperwork checklist · Load-in & venue
+      // access · Delivery & drop-off), drawn inline by their templates; every row they keep is in ONE home,
+      // `vendor_hub_tool_entries`. Set list steps aside when the Song Desk is this person's desk tonight: its sets panel
+      // is already on it.
       hubTools={
-        <HubToolsSection
+        <HubToolPanels
           eventId={eventId}
-          eventName={coupleName}
-          on={modules.map((m) => m.id)}
-          coming={brief ? attending : null}
+          vendorProfileId={profile.vendor_profile_id}
+          modules={hubToolModules(modules.map((m) => m.id)).filter(
+            (id) => !(id === 'set_list' && frame.specialization?.set === 'song_desk' && frame.specialization.state === 'ready'),
+          )}
+          attending={brief ? attending : null}
           entourage={entourage}
         />
       }
+      reviews={has('live_reviews') ? <LiveReviews vendorProfileId={profile.vendor_profile_id} initial={reviews} /> : null}
       // ── THE SPECIALIZATION SLOT — the only gated section on this page ───
       desk={
         frame.specialization ? (

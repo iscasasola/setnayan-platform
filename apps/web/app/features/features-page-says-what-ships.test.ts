@@ -258,11 +258,11 @@ const MIGRATIONS = join(WEB, '..', '..', 'supabase', 'migrations');
 
 /** A public URL path → does a page file serve it? Route groups `(x)` add no segment.
  *  The query string is not part of the path: `/?browse=1` (Discover's supplier view,
- *  2026-11-12) is served by `app/page.tsx`. */
+ *  2026-11-12) is served by `app/(hub)/page.tsx`. */
 function pageExists(href: string): boolean {
   const path = href.split('#')[0]!.split('?')[0]!;
   const segs = path.split('/').filter(Boolean);
-  const roots = [APP, join(APP, '(shell)')];
+  const roots = [APP, join(APP, '(shell)'), join(APP, '(hub)')];
   return roots.some((root) => existsSync(join(root, ...segs, 'page.tsx')));
 }
 

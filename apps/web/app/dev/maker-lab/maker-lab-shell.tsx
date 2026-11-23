@@ -525,7 +525,7 @@ export function MakerLabShell({
           reveal: (
             <MakerRevealPicker
               eventId={eventId}
-              current={revealLab ? null : 'four-flap'}
+              current={revealLab ? null : 'envelope-classic'}
               drafted={false}
               stages={revealLab ? ['save_the_date', 'rsvp', 'event'] : ['save_the_date']}
               stagesDrafted={false}
@@ -533,7 +533,7 @@ export function MakerLabShell({
               effectsDrafted={false}
               tuneHouse={{} as ComponentProps<typeof MakerRevealPicker>['tuneHouse']}
               themeName={revealLab?.themeName ?? 'Classic'}
-              defaultOpening={revealLab?.defaultOpening ?? 'four-flap'}
+              defaultOpening={revealLab?.defaultOpening ?? 'envelope-classic'}
               defaultIsTheme={revealLab?.defaultIsTheme ?? false}
               dressing={null}
               openings={REVEAL_LIBRARY.filter((t) => !revealLab || revealLab.openings.includes(t.id)).map((t) => ({ id: t.id, label: t.label, blurb: t.blurb }))}

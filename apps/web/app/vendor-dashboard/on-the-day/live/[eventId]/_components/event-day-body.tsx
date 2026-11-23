@@ -6,12 +6,17 @@ import {
   FileCheck2,
   HandHeart,
   ListChecks,
+  ListOrdered,
+  Mic,
   Music,
   PackageCheck,
+  PenLine,
   QrCode,
+  Salad,
   ScanLine,
   Star,
   Ticket,
+  Tally5,
   TriangleAlert,
   Truck,
   Users,
@@ -59,7 +64,12 @@ const TOOL_ICON: Record<DayOfModuleId, Icon> = {
   issues_log: TriangleAlert,
   production_sheet: ChefHat,
   vendor_papic: Camera,
-  // 🧰 Hub tools — drawn inline (`hubTools`), never a row; their marks still answer for the jump bar and labs.
+  // 🧰 The hub tools draw inline (`hubTools`), never as a row here; their marks match the panels' own.
+  tech_rider: Mic,
+  personalisation_list: PenLine,
+  dietary_and_allergies: Salad,
+  quantity_vs_guests: Tally5,
+  set_list: ListOrdered,
   queue_counter: Ticket,
   entourage: UsersRound,
   paperwork_checklist: FileCheck2,
@@ -84,8 +94,8 @@ export function EventDayBody({
   march,
   headcount,
   tools,
+  hubTools = null,
   reviews,
-  hubTools,
   desk,
   otherView,
 }: {
@@ -108,10 +118,10 @@ export function EventDayBody({
   /** The headcount row (attending of invited), or null when the module is off. */
   headcount: { attending: number; invited: number } | null;
   tools: readonly DayTool[];
+  /** The hub tools switched on for this booking, drawn inline by their templates (23 Nov), or null for none. */
+  hubTools?: ReactNode;
   /** Live reviews, or null when the module is off. */
   reviews: ReactNode;
-  /** 🧰 The hub tools switched on for this booking (`HubToolsSection`), or null when none is. */
-  hubTools?: ReactNode;
   /** The specialization slot (Song Desk · Emcee script · Floor Command) — its own contents, unchanged; null = none. */
   desk: ReactNode;
   /** The Scanner or Announce view, drawn in place of The Day. */
@@ -203,7 +213,7 @@ export function EventDayBody({
                 </PartList>
               ) : null}
 
-              {hubTools ?? null}
+              {hubTools}
 
               {reviews ? <PartCard>{reviews}</PartCard> : null}
             </section>

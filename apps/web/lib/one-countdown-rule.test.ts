@@ -136,7 +136,7 @@ test('5 · the guest page and Home print the shared rule — countdown, scene te
   const body = stripComments(readFileSync(join(process.cwd(), 'app/[slug]/_components/site-body.tsx'), 'utf8'));
   assert.match(body, /daysLeft=\{\(\(\) => \{\s*const left = daysToGo\(event\.event_date, eventTzForDay, Date\.now\(\)\);/);
   // The events list's card.
-  const launcher = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/(launcher)/page.tsx'), 'utf8'));
+  const launcher = stripComments(readFileSync(join(process.cwd(), 'app/(hub)/dashboard/page.tsx'), 'utf8'));
   assert.doesNotMatch(launcher, /`\$\{days\} days to go`/, 'the event card prints the calendar count again');
   assert.match(launcher, /`\$\{left\.days\} \$\{left\.days === 1 \? 'day' : 'days'\} to go`/);
 });

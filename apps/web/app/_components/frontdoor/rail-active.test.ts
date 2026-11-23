@@ -33,7 +33,7 @@ const SHELL_SRC = readFileSync(join(HERE, 'front-door-shell.tsx'), 'utf8');
 const CSS_SRC = readFileSync(join(HERE, 'front-door.css'), 'utf8');
 const APP_SHELL_SRC = readFileSync(join(HERE, 'app-rail-shell.tsx'), 'utf8');
 const LAUNCHER_LAYOUT = readFileSync(
-  join(HERE, '..', '..', 'dashboard', '(launcher)', 'layout.tsx'),
+  join(HERE, '..', '..', '(hub)', 'layout.tsx'),
   'utf8',
 );
 const ACCOUNT_LAYOUT = readFileSync(

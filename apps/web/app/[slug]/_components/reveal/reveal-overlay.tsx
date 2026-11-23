@@ -3,16 +3,19 @@
 /**
  * RevealOverlay — the opening "reveal" layer for the couple website.
  *
- * Mounts a full-screen reveal (one of the envelope / door / veil templates) over
- * the Save-the-Date (and later RSVP) phase. The guest opens it to uncover the
- * invitation beneath: rigid templates are gated by swiping the couple's monogram
- * wax seal off, then SCROLL scrubs the flaps open (§1a); veils lift on drag/scroll.
+ * Mounts a full-screen reveal over the Save-the-Date / invitation / the day's
+ * first page. 🎭 NINE REVEALS (owner 23 Nov 2026): the Veil (`veil-reveal.tsx`,
+ * it lifts and stays as a drape) and eight scenes on one stage (`scene-reveal.tsx`:
+ * Beach curtains · Envelope classic + gatefold · Fabric · Scratch · Smoke ·
+ * Cathedral doors · Petals · Fireworks), every one opened by ONE tap and moved by
+ * the one set of motion rules (`lib/reveal-motion.ts`).
  *
  * Progressive enhancement: renders nothing on the server and until mounted, so a
  * guest with JS disabled (or before hydration) sees the content directly — the
  * reveal is a delight layer, never a gate. Once opened it removes itself so the
- * page underneath is fully interactive. Honors prefers-reduced-motion (those
- * guests skip the reveal and see the content directly).
+ * page underneath is fully interactive. ♿ prefers-reduced-motion: the closed
+ * reveal stands still and the one tap cross-fades it away (owner 23 Nov: the
+ * reveal is always first; reduced motion gets a short cross-fade).
  *
  * Activation (the caller passes `enabled` = "we're in the Save-the-Date phase"):
  *   ALL REVEAL IS PAID (owner 2026-09-24) — lib/reveal-access.ts decides:
@@ -31,34 +34,33 @@
  * The admin also customizes the veil look + per-feature toggles via `config`
  * (resolved from lib/reveal-config); those flow into the veil as `look`/`features`.
  *
- * Template registry is a switch (./reveal-templates). The rigid families are pure
- * CSS-3D (in the main chunk, Lighthouse-safe); the two WebGL veils are lazy-loaded
- * via next/dynamic (ssr:false) so three.js lands in a code-split chunk fetched
- * only when a veil actually mounts — the main couple-site bundle stays clean.
+ * Template registry: ./reveal-templates. Both engines are lazy-loaded via
+ * next/dynamic (ssr:false) so three.js lands in a code-split chunk fetched only
+ * when a reveal actually mounts, and each scene is a further chunk of its own —
+ * the main couple-site bundle carries none of it.
  */
 
 import dynamic from 'next/dynamic';
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 // Imported, never re-typed: a hand-copied event name drifts silently and the
 // veil simply stops standing down, with nothing failing.
 import { STD_FILM_EXIT_EVENT } from '../save-the-date-film';
 import { STD_FILM_RETURN_EVENT } from '../std-film-handoff';
-import { FourFlapEnvelope } from './four-flap';
-import { RigidReveal } from './rigid-reveal';
 import {
   isVeilTemplate,
   NO_REVEAL,
   resolveRevealOverride,
+  revealHint,
   type RevealTemplate,
 } from './reveal-templates';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
-import { rigidEffectFor, tuneRevealLooks, type RevealEffects } from '@/lib/std-reveal-effects';
+import { tuneRevealLooks, type RevealEffects } from '@/lib/std-reveal-effects';
 import { markRevealSeen, revealAlreadySeen } from '@/lib/reveal-once-per-visit';
 import { COVER_SCENE_SELECTOR, coverOnScreen, drapeShift, drapeShows, landedOnTheFirstPage } from '@/lib/reveal-stages';
 import { revealAllowedFor } from '@/lib/reveal-access';
-import { revealMaterialVars, type RevealMaterials } from '@/lib/reveal-materials';
-import { claimVeilHold, ensureVeilHold, releaseVeilHold, unveilInGesture, REVEAL_LAYER_ATTR } from '@/lib/hub-veil';
+import type { RevealMaterials } from '@/lib/reveal-materials';
+import { ensureVeilHold, releaseVeilHold, unveilInGesture, REVEAL_LAYER_ATTR } from '@/lib/hub-veil';
 
 // NOTE: the gold-monogram + molten-monogram openings were RETIRED here (owner
 // 2026-06-22 "this is monogram animation, not a reveal") — they now live ONLY as
@@ -66,6 +68,7 @@ import { claimVeilHold, ensureVeilHold, releaseVeilHold, unveilInGesture, REVEAL
 // HeroMonogram on the surfaces that show the mark (incl. the film's monogram
 // beat that this opening uncovers). The five envelope/veil openings remain.
 const VeilReveal = dynamic(() => import('./veil-reveal'), { ssr: false });
+const SceneReveal = dynamic(() => import('./scene-reveal'), { ssr: false });
 
 export type { RevealTemplate } from './reveal-templates';
 export type { WaxSealConfig } from '@/lib/wax-seal/types';
@@ -100,8 +103,8 @@ type Props = {
    *  admin house default, beneath a per-visit ?reveal= override. (PR4 P4)
    *  'none' = the couple chose No Reveal (free → no opening; film plays directly). */
   eventTemplate?: RevealTemplateId | typeof NO_REVEAL | null;
-  /** The couple's reveal effect toggles (events.std_reveal_effects, resolved):
-   *  butterflies → envelopes · petals → church doors + veil. (2026-06-18) */
+  /** The couple's reveal effects (events.std_reveal_effects, resolved): the veil's petals and colours, and the
+   *  fine-tune — its ⏱ speed (9 · 12 · 16 s) is every reveal's. */
   eventEffects?: RevealEffects;
   /** The event holds Event Pro (COUPLE_WEBSITE_PRO → STD_PREMIUM_OPENINGS).
    *  Since 2026-09-24 ("all reveal is paid") this is the ONLY path to a reveal
@@ -137,10 +140,9 @@ type Props = {
    */
   seenEventId?: string | null;
   /**
-   * The THEME's materials for this opening (Maker Phase 6 · `lib/reveal-materials.ts`):
-   * paper, liner and door colours as token overrides on the opening's own box,
-   * and the seal. Null/absent = Classic, exactly the shipped look. The sheer
-   * veil is never dressed here (owner 2026-09-24: "the veil is untouched").
+   * The THEME's materials (Maker Phase 6 · `lib/reveal-materials.ts`). ⚠ Not drawn since 23 Nov 2026: the nine
+   * reveals are frozen as drawn (photographic paper, gold seal) — the retired CSS envelopes were what took the
+   * theme's colours. Kept on the props so the mounts need not change; reported on the overlay for the walk.
    */
   materials?: RevealMaterials | null;
   /**
@@ -215,6 +217,8 @@ export function RevealOverlay({
      finished rising (live 2026-10-15, `/cale-ice`: the pill stayed ~10 s through the hands-free lift). */
   const [lifting, setLifting] = useState(false);
   const [gone, setGone] = useState(false);
+  /* 🎭 A scene is drawn (its chunk and art are in): until then a plain backing hides the page, and no instruction shows. */
+  const [ready, setReady] = useState(false);
   // 🎚 The couple's fine-tune over the house look (Maker's Reveal page) —
   // untouched when they tuned nothing. `lib/std-reveal-effects.ts`.
   const looks = tuneRevealLooks(config, eventEffects?.tune);
@@ -271,9 +275,11 @@ export function RevealOverlay({
     previewOverride: override,
     allowed: config?.templates,
   });
-  const template: RevealTemplate = decision === NO_REVEAL ? 'four-flap' : decision;
+  const template: RevealTemplate = decision === NO_REVEAL ? 'veil-sheer' : decision;
   const veil = isVeilTemplate(template);
 
+  /* ♿ Reduced motion stands the opening down: no veil, no hold, the page complete at once (16 Oct 2026 ruling — the
+     controller restored it on #8192, 23 Nov 2026, over the builder's "still reveal + one tap"). */
   const active =
     enabled &&
     !reducedMotion &&
@@ -423,12 +429,13 @@ export function RevealOverlay({
       return;
     }
     ensureVeilHold();
-    if (!veil) claimVeilHold();
-  }, [active, mounted, gone, veil]);
+    /* Every opening claims the page itself once it is really up and can be opened: the veil when its hit-zone is armed,
+       a scene (and the still face) once its closed frame is drawn (`scene-reveal.tsx`). */
+  }, [active, mounted, gone]);
 
   if (!active || !mounted || gone) return null;
 
-  if (veil) {
+  if (veil && !reducedMotion) {
     // The veil is a PERSISTENT top layer, not a one-shot gate: the first lift
     // STARTS the film underneath (dispatch 'std-reveal-done') and the veil
     // stays mounted on top (z-60), drooped to its valance — we never fade it
@@ -555,49 +562,70 @@ export function RevealOverlay({
     );
   }
 
-  // Rigid family — RigidStage owns the seal-swipe gate + scroll-scrub open and
-  // fires onOpened once the flaps are fully clear; we then remove the overlay.
-  const onOpened = () => {
-    releaseVeilHold();
-    window.dispatchEvent(new CustomEvent('std-reveal-done'));
-    setGone(true);
-  };
-  // Couple-chosen decorative effect that plays as the opening parts:
-  // butterflies on envelopes, petals on church doors (null → none).
-  const rigidEffect = eventEffects ? rigidEffectFor(template, eventEffects) : null;
+  /*
+    🎭 THE SCENES (and ♿ every reveal's still face under reduced motion) — one stage, `scene-reveal.tsx`. One-shot:
+    the tap / swipe (scratch: 60 % rubbed) unveils INSIDE the gesture (the page and the song start), the motion runs
+    at the couple's speed, and at "revealed" the film is told and the page let go; once faded, the layer goes.
+  */
+  const sceneKind = template;
   return (
     <div
       className="fixed inset-0 z-[60] overflow-hidden"
       {...{ [REVEAL_LAYER_ATTR]: '' }}
+      data-reveal-scene={sceneKind}
       data-reveal-dressed={materials ? '' : undefined}
-      style={revealMaterialVars(materials ?? null) as CSSProperties}
+      data-reveal-still={reducedMotion ? '' : undefined}
+      data-reveal-ready={ready ? '' : undefined}
+      data-reveal-open={open ? '' : undefined}
     >
-      {template === 'two-flap-vertical' ||
-        template === 'two-flap-horizontal' ||
-        template === 'church-doors' ? (
-        <RigidReveal
-          variant={template}
-          markSvg={markSvg}
-          monogram={monogram}
-          waxColor={materials?.seal ?? waxColor}
-          config={sealConfig}
-          fallbackSeed={sealFallbackSeed}
-          onOpened={onOpened}
-          effect={rigidEffect}
-          effectLook={looks.effects}
-        />
-      ) : (
-        <FourFlapEnvelope
-          markSvg={markSvg}
-          monogram={monogram}
-          waxColor={materials?.seal ?? waxColor}
-          config={sealConfig}
-          fallbackSeed={sealFallbackSeed}
-          onOpened={onOpened}
-          effect={rigidEffect}
-          effectLook={looks.effects}
-        />
-      )}
+      {/* The plain backing until the closed reveal is drawn — the page behind is never shown first. */}
+      {!ready ? <div className="absolute inset-0 bg-page" aria-hidden /> : null}
+      <SceneReveal
+        kind={sceneKind}
+        still={reducedMotion}
+        speedSec={looks.veil?.speed}
+        monogram={monogram}
+        markSvg={markSvg}
+        veilColor={eventEffects?.veilColor ?? veilColor}
+        autoplay={preview !== null}
+        autoplayAfterMs={preview?.liftAfterMs}
+        onAutoLift={
+          preview
+            ? () => {
+                setLifting(true);
+                preview.onLift?.();
+              }
+            : undefined
+        }
+        onReady={() => setReady(true)}
+        /* 👆 THE TAP / SWIPE ITSELF, synchronously inside its pointerup: the page behind starts, and the music with it. */
+        onUnveil={() => {
+          unveilInGesture();
+          setLifting(true);
+        }}
+        onRevealed={() => {
+          setOpen(true);
+          if (preview) return;
+          releaseVeilHold();
+          window.dispatchEvent(new CustomEvent('std-reveal-done'));
+        }}
+        onCleared={() => setGone(true)}
+      />
+      {ready ? (
+        <div
+          data-reveal-hint=""
+          className={`pointer-events-none absolute inset-x-0 flex justify-center ${
+            lifting || open ? 'opacity-0' : 'opacity-100 transition-opacity duration-sn-enter'
+          }`}
+          style={{ bottom: 'calc(4rem + var(--cookie-banner-top, 0px))' }}
+        >
+          <div className="rounded-full bg-black/35 px-6 py-3 text-center backdrop-blur-[2px]">
+            <p className="text-balance font-display text-2xl font-medium leading-snug text-cream [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
+              {reducedMotion ? 'Tap to open' : revealHint(sceneKind)}
+            </p>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Check, ChevronRight, Lock, Plus, ShoppingBag } from 'lucide-react';
+import { BadgeCheck, Check, ChevronRight, Lock, Plus, ShoppingBag } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatPhpRounded } from '@/lib/php';
 import { routes } from '@/lib/routes';
@@ -10,7 +10,9 @@ import { BadgeArt } from '@/app/vendor-dashboard/shop/_components/shop-badge-row
 import {
   STORE_GRAPHS,
   goalWords,
+  graphLockedLine,
   graphWindowWords,
+  isNewGraph,
   groupChipKey,
   toolFootWords,
   toolIsYours,
@@ -136,7 +138,7 @@ export function StoreToolTile({ row }: { row: StoreToolRow }) {
     ) : s.kind === 'buy' ? (
       <Pill>{php(s.price)}</Pill>
     ) : null;
-  const foot = toolIsYours(s) ? (s.kind === 'trial' ? toolFootWords(s, php) : s.kind === 'free' ? 'Free' : s.kind === 'owned' ? 'Owned' : 'With your plan') : s.kind === 'buy' ? 'One-time' : toolFootWords(s, php);
+  const foot = toolIsYours(s) ? (s.kind === 'free' ? 'Free' : s.kind === 'owned' ? 'Owned' : 'With your plan') : s.kind === 'buy' ? 'One-time' : toolFootWords(s, php);
   return (
     <StoreTile
       href={shop.store.item('tools', row.tool.key)}
@@ -155,7 +157,7 @@ export function StoreToolTile({ row }: { row: StoreToolRow }) {
 /** Show & sort tokens for a tool row: yours · free · paid, plus the chips it answers (For you · each tag's group). */
 export function toolShowTags(row: StoreToolRow): string {
   const tags = [toolIsYours(row.status) ? 'yours' : 'more'];
-  tags.push(row.status.kind === 'free' ? 'free' : 'paid');
+  tags.push(row.status.kind === 'free' || row.status.kind === 'verify' ? 'free' : 'paid');
   if (row.forYou) tags.push('foryou');
   for (const t of row.tags) if (t.group) tags.push(groupChipKey(t.group));
   return [...new Set(tags)].join(' ');
@@ -170,7 +172,7 @@ export function StoreGraphTile({ k, status }: { k: CardKey; status: GraphStatus 
       art={<GraphArt />}
       title={g.title}
       line={g.counts}
-      foot={status.kind === 'locked' ? `Opens with ${status.badgeName} · Bronze` : status.kind === 'on' ? 'On your Analytics' : 'Free'}
+      foot={status.kind === 'locked' ? graphLockedLine(status.badgeName) : status.kind === 'on' ? 'On your Analytics' : isNewGraph(k) ? 'New · Recommended' : 'Free'}
       pill={status.kind === 'locked' ? <Lock aria-label="Locked" className="h-4 w-4 flex-none text-[color:var(--m-slate-2)]" strokeWidth={2} /> : status.kind === 'on' ? <Pill>Open</Pill> : <Pill>Get</Pill>}
       data={`graph:${k}`}
       show={status.kind === 'on' ? 'on' : status.kind === 'locked' ? 'locked' : 'off'}
@@ -249,6 +251,8 @@ export function ToolShelfRow({ row, yours }: { row: StoreToolRow; yours: readonl
     ) : (
       <ToolChip tone="wait">Couldn’t load</ToolChip>
     );
+  } else if (s.kind === 'verify') {
+    right = <ActionButton tone="info" icon={<BadgeCheck aria-hidden strokeWidth={1.8} />} label="Get Verified" href={routes.vendorDashboard.verify()} />;
   } else if (s.kind === 'buy') {
     right = <ActionButton tone="brand" icon={<ShoppingBag aria-hidden strokeWidth={1.8} />} label={php(s.price)} href={item} />;
   } else if (s.kind === 'pending') {
@@ -258,7 +262,7 @@ export function ToolShelfRow({ row, yours }: { row: StoreToolRow; yours: readonl
   } else {
     right = <ToolChip tone="wait">Couldn’t load</ToolChip>;
   }
-  const foot = s.kind === 'trial' ? <span className="font-semibold text-[rgb(var(--color-ok))]">{toolFootWords(s, php)}</span> : s.kind === 'buy' ? null : toolFootWords(s, php);
+  const foot = s.kind === 'buy' ? null : toolFootWords(s, php);
   return (
       <ToolRow
         attrs={{ 'data-store-row': '', 'data-store-name': row.tool.title, 'data-store-show': toolShowTags(row), 'data-store-tool': k }}
@@ -300,10 +304,12 @@ export function GraphShelfRow({ k, status, on, layoutRead }: { k: CardKey; statu
         lines={[
           status.kind === 'on' ? null : g.asks,
           status.kind === 'locked' ? (
-            <span>
-              Opens with <b className="font-semibold text-ink">{status.badgeName} · Bronze</b>
+            <span data-store-locked-line="">
+              {graphLockedLine(status.badgeName)}
               {status.toGo ? ` · ${status.toGo}` : ''}
             </span>
+          ) : status.kind === 'off' && isNewGraph(k) ? (
+            <span data-store-new="">New · Recommended</span>
           ) : (
             graphWindowWords(k)
           ),

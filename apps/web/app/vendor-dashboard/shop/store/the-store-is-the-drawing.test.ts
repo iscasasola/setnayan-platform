@@ -1,7 +1,7 @@
 /**
  * GUARD — THE STORE IS THE DRAWING (owner 23 Nov 2026; drawing `supplier_store_graphs_badges_2026-11-23` v12).
  *
- *   1. Three shelves in the drawing's order — Specialized Tools · Graphs · Badges — each with "See all N", one batched read.
+ *   1. Three shelves in the drawing's order — Widgets · Graphs · Badges (the place reads "Toolkit"; owner 23 Nov) — each with "See all N", one batched read.
  *   2. Every Shop [+] lands on its shelf: Add a graph → Graphs, Add a badge → Badges, Add a tool → Tools. Each of the
  *      three rows has an Edit that arranges it (reorder · remove) through the one action's op=layout.
  *   3. Buying is apply-then-pay through the ONE Store action: the price is the catalog row's (`vendor_billing_catalog`,
@@ -12,10 +12,10 @@
  *   6. The Tools shelf opens with its tag chips and "For you" first; every tool row and item carries its tags. What is
  *      on the page says "✓ On your page"; nothing on a shelf drags (the order lives on the Shop's Edit).
  *   7. No "Try it first" (owner 23 Nov 2026: "no more try first"): no demo door in the Store, and the Cake Maker
- *      designer has no demo mode. The 30-day trial after Verified is a separate ruling and stays.
+ *      designer has no demo mode.
  *
  * Sabotage: swap the shelves (1) · point Add a tool at /vendor-dashboard/services (2) · read the price from the form (3)
- * · put a Buy on the badges shelf (4) · drop an Edit (2) · put "More tools" before "For you" (6) · bring back a "Try it first" section or `<CakeDesigner demo` (7).
+ * · put a Buy on the badges shelf (4) · drop an Edit (2) · put "More widgets" before "For you" (6) · bring back a "Try it first" section or `<CakeDesigner demo` (7).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -62,7 +62,7 @@ test('2 · every Shop [+] lands on its shelf', () => {
   assert.match(badgeRow, />Add a badge</);
   const client = read('app/vendor-dashboard/shop/store/_components/store-client.tsx');
   assert.match(client, /fd\.set\('op', 'layout'\)/, 'the Edit sheet saves through another op');
-  assert.match(client, /A tool you remove stays yours in the Store\./);
+  assert.match(client, /A widget you remove stays yours in the Toolkit\./);
 });
 
 test('3 · one Store action; the buy reads the catalog price and ends on the pay page', () => {
@@ -88,7 +88,7 @@ test('4 · tool items say one-time or their state; no price = said; badges are n
 
 test('5 · the pages are registered and use the route builders', () => {
   const home = read('lib/page-home.ts');
-  assert.match(home, /'\/vendor-dashboard\/shop\/store': 'Store'/, 'Back does not know the Store');
+  assert.match(home, /'\/vendor-dashboard\/shop\/store': 'Toolkit'/, 'Back does not know the Toolkit (owner 23 Nov: the place is "Toolkit")');
   assert.match(home, /'\/vendor-dashboard\/shop\/store\/\[shelf\]\/\[item\]': \{ home: '\/vendor-dashboard\/shop\/store' \}/, 'an item’s Back does not go to the Store');
   const routes = read('lib/routes.ts');
   assert.match(routes, /store: \{[\s\S]{0,400}shelf: \(shelf[\s\S]{0,200}item: \(shelf/);
@@ -97,7 +97,7 @@ test('5 · the pages are registered and use the route builders', () => {
 
 test('6 · tags and For you on the Tools shelf; on-page rows say so; shelves never drag', () => {
   const tools = SCREENS.slice(SCREENS.indexOf('function ToolsShelf'), SCREENS.indexOf('type GraphItemState'));
-  const at = ['<StoreChips', 'label="For you"', 'label="Yours"', 'label="More tools"'].map((k) => tools.indexOf(k));
+  const at = ['<StoreChips', 'label="For you"', 'label="Yours"', 'label="More widgets"'].map((k) => tools.indexOf(k));
   assert.ok(at.every((n) => n >= 0), 'a Tools shelf part is missing');
   assert.deepEqual(at, [...at].sort((a, b) => a - b), 'the Tools shelf is out of the drawing’s order');
   const views = read('app/vendor-dashboard/shop/store/_components/store-views.tsx');
@@ -113,6 +113,26 @@ test('7 · no "Try it first": no demo door in the Store, no demo mode in the Cak
   const designer = read('app/_components/cake-maker/cake-designer.tsx');
   assert.doesNotMatch(SCREENS + client + ITEM, /Try it first|CakeDemoButton|store-try|Open the demo/, 'a "Try it first" door is back');
   assert.doesNotMatch(designer, /\bdemo\b|cake-demo/, 'the Cake Maker designer has a demo mode again');
-  assert.match(read('lib/supplier-store.ts'), /`Free trial · \$\{s\.daysLeft\}/, 'the 30-day trial after Verified is a separate ruling — it stays');
 });
 
+
+test('8 · every widget has its How to use it guide — on its Toolkit page and from its panel; no fake pictures', async () => {
+  const { WIDGET_GUIDES } = await import('@/lib/supplier-store-guides');
+  const { SPECIALIZED_TOOLS } = await import('@/lib/specialized-tools');
+  for (const t of SPECIALIZED_TOOLS) {
+    const g = WIDGET_GUIDES[t.key];
+    assert.ok(g, `${t.key} has no guide`);
+    assert.equal(g.key, t.key);
+    assert.ok(g.steps.length <= 6, `${t.key}: a guide is short steps`);
+    for (const s of g.steps) {
+      assert.ok(s.title.length > 0 && s.body.length > 0 && s.body.length <= 240, `${t.key}: "${s.title}" is not a short step`);
+      if (s.shot) assert.match(s.shot.src, /^\/guides\/widgets\/[a-z0-9_]+-\d+\.jpg$/, `${t.key}: a picture must be a real capture in public/guides/widgets`);
+    }
+  }
+  assert.match(SCREENS, /<div id="guide"[\s\S]{0,200}<ToolSection label="How to use it" data="store-guide">\s*<WidgetGuideSteps guide=\{WIDGET_GUIDES\[tool\.key\]\} \/>/, 'the Toolkit page lost the guide');
+  const makers = read('app/vendor-dashboard/shop/_components/shop-makers.tsx');
+  assert.match(makers, /label="How to use it" href=\{`\$\{routes\.vendorDashboard\.shop\.store\.item\('tools', picked\.key\)\}#guide`\}/, 'a widget’s panel lost its How to use it door');
+  const view = read('app/vendor-dashboard/shop/store/_components/widget-guide.tsx');
+  assert.match(view, /data-guide-shot-missing/, 'a missing picture must draw an empty frame');
+  assert.doesNotMatch(view, /placeholder|sample|example\.(png|jpg)/i, 'a stand-in picture');
+});

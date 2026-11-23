@@ -93,17 +93,22 @@ export type FreeSpecializedTool = (typeof FREE_SPECIALIZED_TOOLS)[number];
 
 /**
  * 🔓 THE PAID TOOLS — what the unlock opened. Since owner 20 Nov the photo challenge (`papic_challenge`) and the 3D booth
- * (`3d_plan`) come with Pro and up instead ({@link PRO_INCLUDED_TOOLS}); the unlock keeps opening the rest. Every future Setnayan tool and the shop's own
+ * (`plan_3d` — the Store's key, its SKU `vendor_tool_plan_3d`) come with Pro and up instead ({@link PRO_INCLUDED_TOOLS}); the unlock keeps opening the rest. Every future Setnayan tool and the shop's own
  * tools (Tools Maker, Thu 12 Nov) join this side. Forms Maker is NOT a tool here: it is free on
  * every plan (owner 2026-11-09, *"Form make it free"*).
  */
-export const PAID_SPECIALIZED_TOOLS = ['papic_challenge', '3d_plan', 'custom'] as const;
+export const PAID_SPECIALIZED_TOOLS = ['papic_challenge', 'plan_3d', 'custom'] as const;
 export type PaidSpecializedTool = (typeof PAID_SPECIALIZED_TOOLS)[number];
 
-export type SpecializedToolKey = FreeSpecializedTool | PaidSpecializedTool;
+/**
+ * A key the usage log (`specialized_tool_usage.tool_key`) accepts. NOT a second tool key: the ONE widget key is
+ * `SpecializedToolKey` in `lib/specialized-tools.ts` (owner 23 Nov via the controller, "one SpecializedToolKey") — this
+ * list only adds the log's own extras (`march`, `custom`), and shares the 3D key `plan_3d` with the Store's SKU.
+ */
+export type ToolUsageKey = FreeSpecializedTool | PaidSpecializedTool;
 
 /** Every key `record_specialized_tool_use` accepts — mirrors the table's CHECK. */
-export const SPECIALIZED_TOOL_KEYS: readonly SpecializedToolKey[] = [
+export const TOOL_USAGE_KEYS: readonly ToolUsageKey[] = [
   ...FREE_SPECIALIZED_TOOLS,
   ...PAID_SPECIALIZED_TOOLS,
 ];
@@ -195,7 +200,7 @@ export function specializedToolsUnlockFrom(
  * migration), held in step by
  * `tests/db/pro-tools-come-with-pro.db.test.ts`.
  */
-export const PRO_INCLUDED_TOOLS = ['papic_challenge', '3d_plan'] as const satisfies readonly PaidSpecializedTool[];
+export const PRO_INCLUDED_TOOLS = ['papic_challenge', 'plan_3d'] as const satisfies readonly PaidSpecializedTool[];
 export const PRO_TOOLS_MIN_TIER: VendorTier = 'solo';
 
 /** Does this paid tool come with Pro and up only (not with the Specialized tools unlock)? */

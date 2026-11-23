@@ -46,18 +46,24 @@ export async function readShopSpecialToolsAllowed(admin: SupabaseClient, vendorP
 }
 
 /**
- * 🛍 Is the Cake Maker OPEN for this shop — its plan allows the special tools, OR the shop bought it once in the Store, OR
- * its 30-day trial runs (and an event booked inside the trial keeps it to its last day — never locked mid-event). The
- * Store's answer is the database's (`vendor_store_tool_open`, service role). Store drawing v10, owner 23 Nov 2026.
- * A refused read on both sides is `unread`; a refused Store read with a plan that allows it is still open.
+ * 🛍 Is a special paid widget (Cake Maker · Song bank) OPEN for this shop — its plan allows the special tools, OR the shop
+ * bought it once in the Toolkit (no trial — owner 23 Nov, "guides only"). The Toolkit's answer is the database's
+ * (`vendor_store_tool_open`, service role). Store drawing v10, owner 23 Nov 2026; Song bank gated the same way (owner via
+ * the controller, 23 Nov: "gate it everywhere it opens, the same way as the cake").
+ * A refused read on both sides is `unread`; a refused Toolkit read with a plan that allows it is still open.
  */
-export async function readShopCakeToolOpen(admin: SupabaseClient, vendorProfileId: string, eventId: string | null = null): Promise<Read<boolean>> {
+export async function readShopSpecialToolOpen(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+  tool: 'cake_tool' | 'song_bank',
+  eventId: string | null = null,
+): Promise<Read<boolean>> {
   const [plan, store] = await Promise.all([
     readShopSpecialToolsAllowed(admin, vendorProfileId),
-    admin.rpc('vendor_store_tool_open', { p_vendor_profile_id: vendorProfileId, p_tool: 'cake_tool', p_event_id: eventId }).then(
+    admin.rpc('vendor_store_tool_open', { p_vendor_profile_id: vendorProfileId, p_tool: tool, p_event_id: eventId }).then(
       ({ data, error }) => {
         if (error) {
-          logQueryError('readShopCakeToolOpen.store', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+          logQueryError('readShopSpecialToolOpen.store', error, { vendor_profile_id: vendorProfileId, tool }, 'graceful_degrade');
           return null;
         }
         return data === true;
@@ -69,6 +75,11 @@ export async function readShopCakeToolOpen(admin: SupabaseClient, vendorProfileI
   if (store === true) return { status: 'ok', data: true };
   if (plan.status === 'unread' || store === null) return { status: 'unread' };
   return plan;
+}
+
+/** The Cake Maker's gate — {@link readShopSpecialToolOpen} for `cake_tool`. */
+export function readShopCakeToolOpen(admin: SupabaseClient, vendorProfileId: string, eventId: string | null = null): Promise<Read<boolean>> {
+  return readShopSpecialToolOpen(admin, vendorProfileId, 'cake_tool', eventId);
 }
 
 export type ShopCakeCard = { id: string; name: string; oneCentavos: number | null; usualPrepDays: number | null };

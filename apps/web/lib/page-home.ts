@@ -110,7 +110,7 @@ const LABELS: Record<string, string> = {
   '/vendor-dashboard/customers': 'Clients',
   '/vendor-dashboard/shop': 'Shop',
   // 🛍 The Store (owner 23 Nov 2026): a shelf's ‹ is the Store.
-  '/vendor-dashboard/shop/store': 'Store',
+  '/vendor-dashboard/shop/store': 'Toolkit',
   '/vendor-dashboard/collections': 'Portfolio',
   // Team › Roles (six supplier roles, owner 19 Nov 2026) goes back to the Team page.
   '/vendor-dashboard/team': 'Team',

@@ -18,7 +18,7 @@ import { drawsLastYearLine, pctWord, vsLastYear, vsLastYearWords, type VsLastYea
 import { ordinal } from '@/lib/analytics-growing';
 import { AnalyticsLock } from './analytics-lock';
 import { HeldCount } from './growth-motion';
-import { CARD_ORDER, FIXED_WINDOW, type CardKey } from './analytics-cards';
+import { DEFAULT_INSTALLED_GRAPHS, FIXED_WINDOW, type CardKey } from './analytics-cards';
 import type { GrowthView, Totals } from './growth-view';
 import { BRONZE_LINES, LOCKED_HEAD, lockedLine, type GiftsRecFacts, type GiftsToBookings, type LockedBadge, type UnlockBadge } from '@/lib/graph-unlocks';
 import { COULDNT_LOAD } from '@/lib/shop-badge-row';
@@ -165,7 +165,7 @@ type Props =
 /**
  * 🛍 THE SHOP'S PICKS (owner 23 Nov 2026 — Store drawing v12, F0 + "Edit · Analytics"): `order` = the graphs the shop
  * picked, in its order (`analyticsGraphs`, lib/supplier-store.ts — open ones only); `addHref` = the dashed "Add a graph"
- * tile at the end, into the Store's Graphs shelf; the head's "Edit" opens "Arrange Analytics" (reorder · remove). With the Store, a shut graph lives on its shelf ("Opens with …"), so the lines under the
+ * tile at the end, into the Store's Graphs shelf; the head's "Edit" opens "Arrange Analytics" (reorder · remove). With the Store, a shut graph lives on its shelf ("Unlocks free when you earn the … badge"), so the lines under the
  * carousel step aside. Without them (Performance), the carousel is exactly as before.
  */
 type Picks = { order?: readonly CardKey[]; addHref?: string };
@@ -212,7 +212,8 @@ export function AnalyticsCarousel(props: Props & Picks) {
   };
 
   const cards: CarouselCard[] = [];
-  for (const k of props.order ?? CARD_ORDER) {
+  // Never arranged = the graphs installed by default — an explicit list, so a new graph never lands here uninstalled.
+  for (const k of props.order ?? DEFAULT_INSTALLED_GRAPHS) {
     if (k === 'opened' || k === 'asked' || k === 'booked') {
       const win = winOf(k);
       const g = countSpec(k, win, totalsOf(win), props.view ?? null);

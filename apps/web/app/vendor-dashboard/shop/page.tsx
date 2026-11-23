@@ -1,6 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import { readStoreLayout, readStoreToolFacts } from '@/lib/supplier-store.server';
-import { followedBadges, storageMeter, trialDaysLeft, yourTools, type StorageMeter, type StoreLayout } from '@/lib/supplier-store';
+import { followedBadges, storageMeter, yourTools, type StorageMeter, type StoreLayout } from '@/lib/supplier-store';
 import { readStoredBytes } from '@/lib/supplier-storage.server';
 import { nextStoragePlan } from '@/lib/supplier-storage';
 import { readPayPlanTemplates } from '@/lib/pay-plan-templates.server';
@@ -162,7 +162,7 @@ type ShopData = {
   offerTile: OfferTileFacts;
   /** 🛍 The shop's layout of its three Store rows (graphs · badges · tools); null = unread (the defaults are drawn). */
   layout: StoreLayout | null;
-  /** 🧰 Your tools, in order (`yourTools`): the free tools added and the paid ones held, with trial days. */
+  /** 🧰 Your tools, in order (`yourTools`): the free tools added and the paid ones held. */
   mine: MyTool[];
   /** 💾 The cover's Storage row: the meter and the next plan that holds more. */
   storage: { meter: StorageMeter; next: string | null };
@@ -400,7 +400,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   const uploadFactsRead = readPortfolioUploadFacts(supabase, vendorId, portfolio, ownRead.then((own) => own?.tier_state ?? null));
 
   // 🛍 THE STORE'S LAYOUT (Store drawing v12, owner 23 Nov 2026): the Shop's three rows in one column (which graphs,
-  // badges and tools, in the shop's order) — and each paid tool's state (bought · plan · trial · price), the storage
+  // badges and tools, in the shop's order) — and each paid tool's state (bought · plan · price), the storage
   // meter and the saved payment plans. Started here, awaited in the one wait below.
   const storeAdmin = createAdminClient();
   const layoutRead = readStoreLayout(supabase, vendorId);
@@ -509,10 +509,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     uploadFacts,
     formsSaved: own && Array.isArray(own.vendor_forms) ? own.vendor_forms.length : null,
     layout,
-    mine: yourTools(toolFacts).map((r) => ({
-      key: r.tool.key,
-      trialDays: r.status.kind === 'trial' ? (trialDaysLeft(toolFacts.trialEndsAt, toolFacts.nowMs) ?? null) : null,
-    })),
+    mine: yourTools(toolFacts).map((r) => ({ key: r.tool.key })),
     // The plan is the shop's own row's; unread → the meter says "Couldn't load" (never a 0 against a guessed plan).
     storage: {
       meter: own ? storageMeter(own.tier_state ?? null, stored) : { kind: 'unread' },

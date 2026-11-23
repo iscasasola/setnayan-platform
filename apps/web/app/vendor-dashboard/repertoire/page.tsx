@@ -3,7 +3,9 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorSongs, searchSongs, fetchCuratedSongs, isMusicVendor } from '@/lib/songs';
-import { RepertoireNotMusic, RepertoireView } from './_components/repertoire-view';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readShopSpecialToolOpen } from '@/lib/cake-maker.server';
+import { RepertoireLocked, RepertoireNotMusic, RepertoireUnread, RepertoireView } from './_components/repertoire-view';
 
 export const metadata = { title: 'Your repertoire · Supplier' };
 
@@ -25,10 +27,15 @@ export default async function RepertoirePage({ searchParams }: Props) {
   // silent redirect). Nav-level hiding for non-music vendors is a follow-up.
   if (!isMusicVendor(profile.services)) return <RepertoireNotMusic />;
 
-  const [repertoire, results] = await Promise.all([
+  // 🔒 Song bank is a paid widget (owner via the controller, 23 Nov): open when bought once in the Toolkit or the plan
+  // includes it — the Cake Maker's own gate. Asked with the page's reads, one batch.
+  const [open, repertoire, results] = await Promise.all([
+    readShopSpecialToolOpen(createAdminClient(), profile.vendor_profile_id, 'song_bank'),
     fetchVendorSongs(supabase, profile.vendor_profile_id),
     query ? searchSongs(supabase, query) : fetchCuratedSongs(supabase),
   ]);
+  if (open.status === 'unread') return <RepertoireUnread />;
+  if (open.status !== 'ok' || !open.data) return <RepertoireLocked saved={repertoire.length} />;
 
   return (
     <RepertoireView

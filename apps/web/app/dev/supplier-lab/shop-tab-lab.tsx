@@ -206,7 +206,7 @@ function shopLab(fail: boolean, none: boolean) {
           categories={none ? [] : ['Live Band', 'Photo Booth']}
           services={none ? [] : ['live_band']}
           booked={fail ? null : none ? [] : [{ eventId: 'ev-santos', eventName: 'Santos – Dela Cruz wedding', bookedDate: '2026-11-14' }, { eventId: 'ev-cruz', eventName: 'Cruz debut', bookedDate: '2026-11-21' }]}
-          mine={none ? [{ key: 'scanner', trialDays: null }] : [{ key: 'scanner', trialDays: null }, { key: 'headcount', trialDays: null }, { key: 'run_of_show', trialDays: null }, { key: 'cake_tool', trialDays: 24 }]}
+          mine={none ? [{ key: 'scanner' }] : [{ key: 'scanner' }, { key: 'headcount' }, { key: 'run_of_show' }, { key: 'cake_tool' }]}
           addToolHref={routes.vendorDashboard.shop.store.shelf('tools')}
           plansSaved={fail ? null : none ? 0 : 2}
         />

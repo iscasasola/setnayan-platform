@@ -200,7 +200,7 @@ const ORDER_MINTERS: Record<string, string> = {
     'plan, each bought ONCE and owned forever. pricePhp read server-side from the ACTIVE vendor_billing_catalog row ' +
     '(`vendor_tool_<key>`); no row, a retired row or a non-positive price refuses the sale (no code fallback). The form ' +
     'carries a tool key only. Service-role (`createMoneyWriterClient`). Authorized by fetchOwnVendorProfile + ' +
-    'canManageVendor; refused when the tool is already owned, opened by the plan or the trial, or an order is in review.',
+    'canManageVendor; refused when the tool is already owned, opened by the plan, or an order is in review.',
   'app/vendor-dashboard/subscription/booth-addon-actions.ts':
     'Vendor 3D-booth add-on. pricePhp read server-side from the vendor catalog. ' +
     'SEC-4b: paid branch now service-role (`moneyWriter`). Authorized by fetchOwnVendorProfile + ' +

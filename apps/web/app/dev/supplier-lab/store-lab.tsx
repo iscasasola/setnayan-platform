@@ -3,8 +3,9 @@
  * `/dev/supplier-lab?s=store` · `store-tools` · `store-cake` · `store-graphs` · `store-graph` · `store-badges` ·
  * `badges-page` (dispatched through `shop-tab-lab.tsx`). No database: the SAME screens the Store pages mount
  * (`store-screens.tsx`, `badges-list.tsx`), handed the shop-tab lab's sample shop.
- *   default     the 30-day trial is running (24 days left) — every paid tool reads "Free trial · 24 days left".
- *   `&none=1`   a new shop: no trial, no catalog price yet — paid tools read "Price not set yet" (never ₱0).
+ *   default     the shop bought the Cake Maker (Owned); the other paid tools have no catalog price in the lab — "Price
+ *               not set yet" (never ₱0).
+ *   `&none=1`   a new shop: nothing bought, the default tools.
  *   `&unread=1` every read refused — the honest words.
  * The lab holds no price: a price is the catalog row's, and the lab has no catalog.
  * Dev only (the lab page 404s in production).
@@ -21,24 +22,22 @@ import type { ShelfTile } from '@/lib/shop-badge-shelf';
 export const STORE_LAB_STATES = ['store', 'store-tools', 'store-cake', 'store-graphs', 'store-graph', 'store-badges', 'badges-page'] as const;
 export type StoreLabState = (typeof STORE_LAB_STATES)[number];
 
-const DAY = 24 * 60 * 60 * 1000;
-const NOW = Date.parse('2026-11-23T12:00:00+08:00');
 
 function labStore(fail: boolean, none: boolean, tiles: ShelfTile[] | null): StoreData {
   const on: CardKey[] = fail ? ['opened', 'asked', 'booked'] : none ? ['opened', 'asked'] : ['opened', 'asked', 'booked', 'reply', 'slow'];
   return {
     layout: fail ? null : { graphs: on, badges: null, tools: none ? null : ['scanner', 'headcount', 'run_of_show'], toolsOff: [] },
     tools: {
-      owned: fail ? null : new Set(),
+      // "none" doubles as the shop that is not Verified yet: its free widgets say "Free once you’re Verified".
+      freeOpen: fail ? null : none ? false : true,
+      owned: fail ? null : none ? new Set() : new Set(['cake_tool']),
       pending: fail ? null : new Set(),
-      trialEndsAt: fail ? 'unread' : none ? null : new Date(NOW + 24 * DAY).toISOString(),
       planOpen: { cake_tool: false, song_bank: false, papic_challenge: false, plan_3d: false },
       prices: fail ? null : {},
       picked: fail ? null : none ? null : ['scanner', 'headcount', 'run_of_show'],
       toolsOff: [],
       categoryLabels: ['Live Band', 'Photo Booth'],
       services: ['live_band'],
-      nowMs: NOW,
     },
     badges: tiles,
     unlocks: { hidden: new Set(['gifts', 'invites']), locked: [], unsure: [] },

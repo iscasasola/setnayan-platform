@@ -9,21 +9,24 @@
  *   · TOOLS: free forever = Scanner · Headcount · Run of show · Emcee script · Song Desk · Floor Command + March · Live
  *     Watch. Paid = Cake Maker · Song bank · Papic challenge · 3D plan, each ONE-TIME, owned forever (never re-locks).
  *     The price is the `vendor_billing_catalog` row `vendor_tool_<key>`, never typed here; a row with no usable price says
- *     "Price not set yet", never ₱0. 30 days free from the day the shop became Verified (tools only).
+ *     "Price not set yet", never ₱0. No trial (owner 23 Nov, "guides only"). Free widgets open from Verified up
+ *     (`freeWidgetsOpen`, shared with the day-of gate); before that a free widget says "Free once you’re Verified".
  *   · GRAPHS: all free. The shop picks which show on its Analytics and their order; a graph a badge opens says
- *     "Opens with <badge> · Bronze · N to go" until then (lib/graph-unlocks.ts decides).
+ *     "Unlocks free when you earn the <badge> badge" until then (lib/graph-unlocks.ts decides). Never greyed on the Shop:
+ *     a locked graph is simply not on the Analytics row. Never arranged = `DEFAULT_INSTALLED_GRAPHS` (explicit); a graph
+ *     not in it is "New · Recommended" in the Toolkit until installed.
  *   · BADGES: earned, never sold. The Shop row shows the badges the shop chose, any number, in its order; never chosen
  *     = the three closest to done.
  *   · ONE LAYOUT for the three Shop rows (owner via the controller, 23 Nov): add ([+] → Store), remove (off the page
  *     only — a bought tool stays owned) and reorder, all in `vendor_profiles.store_layout`, written by one action op.
  *
- * PURE — no I/O, no clock (the caller passes `nowMs`). Reads: `lib/supplier-store.server.ts`. 🔒 lib/supplier-store.test.ts
+ * PURE — no I/O, no clock. Reads: `lib/supplier-store.server.ts`. 🔒 lib/supplier-store.test.ts
  */
 import { SPECIALIZED_TOOLS, specializedToolsFor, suggestedFor, type SpecializedTool, type SpecializedToolKey } from './specialized-tools';
 import { HUB_TOOLS_SEED, nameKey } from './hub-tools';
 import { isCakeKind } from './cake-maker';
 import { isMusicToolCategory } from './songs';
-import { CARD_ORDER, FIXED_WINDOW, type CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
+import { CARD_ORDER, DEFAULT_INSTALLED_GRAPHS, FIXED_WINDOW, type CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { BADGE_GRAPHS, BADGE_NAME, type GraphUnlocks, type UnlockBadge } from './graph-unlocks';
 import { SHOP_BADGE_KEYS, type ShopBadgeKey } from './badge-tiers';
 import type { ShelfTile } from './shop-badge-shelf';
@@ -37,7 +40,7 @@ export const STORE_SHELVES = ['tools', 'graphs', 'badges'] as const;
 export type StoreShelf = (typeof STORE_SHELVES)[number];
 
 export const SHELF_TITLE: Readonly<Record<StoreShelf, string>> = {
-  tools: 'Specialized Tools',
+  tools: 'Widgets',
   graphs: 'Graphs',
   badges: 'Badges',
 };
@@ -76,12 +79,15 @@ export function storeToolOf(key: string): SpecializedTool | null {
 export type ToolPrice = number | null;
 
 export type ToolFacts = {
+  /**
+   * Do the FREE widgets open for this shop — Verified up (owner 23 Nov)? Computed with `freeWidgetsOpen`, the same rule
+   * the day-of gate uses, so the Toolkit and the event day never disagree. null = unread.
+   */
+  freeOpen: boolean | null;
   /** Paid tools the shop bought (an order paid or fulfilled). null = unread. */
   owned: ReadonlySet<PaidStoreTool> | null;
   /** Paid tools with an order in review (submitted). null = unread. */
   pending: ReadonlySet<PaidStoreTool> | null;
-  /** The 30-day trial's end (ISO), null = never started, 'unread' = could not read. */
-  trialEndsAt: string | null | 'unread';
   /** The plan (or the admin's open-to-all window) already opens this paid tool. Missing / null = unread. */
   planOpen: Partial<Record<PaidStoreTool, boolean | null>>;
   /** Each paid tool's catalog price. The whole map null = the catalog could not be read. */
@@ -94,7 +100,6 @@ export type ToolFacts = {
   services: readonly string[];
   /** An admin's saved hub tools per category (the tags' source beside the seed). Absent / empty = the seed alone. */
   hubOverrides?: HubOverrides;
-  nowMs: number;
 };
 
 // ── TOOL TAGS (owner via the controller, 23 Nov: "which supplier types it is for") ──────────────────────────
@@ -151,22 +156,22 @@ export function toolChipGroups(tagsOf: (tool: SpecializedTool) => readonly ToolT
 export type ToolStatus =
   | { kind: 'owned' }
   | { kind: 'plan' }
-  | { kind: 'trial'; daysLeft: number }
   | { kind: 'free'; added: boolean }
+  /** A free widget, held back until the shop is Verified (owner 23 Nov: free widgets open from Verified up). */
+  | { kind: 'verify' }
   | { kind: 'pending' }
   | { kind: 'buy'; price: number }
   | { kind: 'no_price' }
   | { kind: 'unread' };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** Whole days left in the trial, counting today (1 on its last day); 0 = over or never started; null = unread. */
-export function trialDaysLeft(trialEndsAt: string | null | 'unread', nowMs: number): number | null {
-  if (trialEndsAt === 'unread') return null;
-  if (!trialEndsAt) return 0;
-  const end = Date.parse(trialEndsAt);
-  if (Number.isNaN(end) || end <= nowMs) return 0;
-  return Math.max(1, Math.ceil((end - nowMs) / DAY_MS));
+/**
+ * 🧷 BUILT-IN WIDGETS — always installed, never removed (owner, ruled earlier and restated 23 Nov via the controller:
+ * "Built-in items (shop page QR, Scanner) are always installed and can't be removed"). Not held back by the Verified
+ * rule either: a built-in is part of every shop. (The shop page QR lives on the Shop's cover, not in this row.)
+ */
+export const BUILT_IN_WIDGETS: readonly SpecializedToolKey[] = ['scanner'];
+export function isBuiltInWidget(k: string): boolean {
+  return (BUILT_IN_WIDGETS as readonly string[]).includes(k);
 }
 
 /** The free tools a shop that never picked gets: Scanner + the tools suggested for its services. */
@@ -180,7 +185,9 @@ export function defaultFreeTools(categoryLabels: readonly string[], services: re
 export function addedFreeTools(f: Pick<ToolFacts, 'picked' | 'categoryLabels' | 'services'>): SpecializedToolKey[] {
   const raw = f.picked ?? defaultFreeTools(f.categoryLabels, f.services);
   const seen = new Set<string>();
-  const out: SpecializedToolKey[] = [];
+  // A built-in is always installed: first, unless the shop's own order already places it.
+  const out: SpecializedToolKey[] = BUILT_IN_WIDGETS.filter((b) => !raw.includes(b));
+  for (const b of out) seen.add(b);
   for (const k of raw) {
     const t = storeToolOf(k);
     if (!t || isPaidStoreTool(t.key) || seen.has(t.key)) continue;
@@ -191,17 +198,20 @@ export function addedFreeTools(f: Pick<ToolFacts, 'picked' | 'categoryLabels' | 
 }
 
 /**
- * One tool's state. A paid tool: bought → owned; the plan opens it → plan; the trial runs → trial; an order in review →
- * pending; else the catalog price (or "Price not set yet"). A read that failed on the way to "open" never sells: a shop
+ * One tool's state. A paid tool: bought → owned; the plan opens it → plan; an order in review → pending (no trial —
+ * owner 23 Nov, "guides only"); else the catalog price (or "Price not set yet"). A read that failed on the way to "open" never sells: a shop
  * we cannot tell about sees "Couldn't load", not a price.
  */
 export function toolStatus(key: SpecializedToolKey, f: ToolFacts): ToolStatus {
-  if (!isPaidStoreTool(key)) return { kind: 'free', added: addedFreeTools(f).includes(key) };
+  if (!isPaidStoreTool(key)) {
+    if (isBuiltInWidget(key)) return { kind: 'free', added: true };
+    if (f.freeOpen === null) return { kind: 'unread' };
+    if (f.freeOpen === false) return { kind: 'verify' };
+    return { kind: 'free', added: addedFreeTools(f).includes(key) };
+  }
   if (f.owned?.has(key)) return { kind: 'owned' };
   if (f.planOpen[key] === true) return { kind: 'plan' };
-  const days = trialDaysLeft(f.trialEndsAt, f.nowMs);
-  if (days !== null && days > 0) return { kind: 'trial', daysLeft: days };
-  if (f.owned === null || f.planOpen[key] == null || days === null || f.pending === null || f.prices === null) return { kind: 'unread' };
+  if (f.owned === null || f.planOpen[key] == null || f.pending === null || f.prices === null) return { kind: 'unread' };
   if (f.pending.has(key)) return { kind: 'pending' };
   const price = f.prices[key];
   return typeof price === 'number' && Number.isFinite(price) && price > 0 ? { kind: 'buy', price } : { kind: 'no_price' };
@@ -209,7 +219,7 @@ export function toolStatus(key: SpecializedToolKey, f: ToolFacts): ToolStatus {
 
 /** Is the tool in the shop's hands right now (Your tools + Open)? */
 export function toolIsYours(s: ToolStatus): boolean {
-  return s.kind === 'owned' || s.kind === 'plan' || s.kind === 'trial' || (s.kind === 'free' && s.added);
+  return s.kind === 'owned' || s.kind === 'plan' || (s.kind === 'free' && s.added);
 }
 
 export type StoreToolRow = { tool: SpecializedTool; status: ToolStatus; suggested: boolean; tags: ToolTag[]; forYou: boolean };
@@ -231,7 +241,7 @@ export function toolShelfGroups(rows: readonly StoreToolRow[]): { forYou: StoreT
 
 /**
  * Your tools on the Shop, in the shop's order. Never arranged = the free tools added, then the paid ones it holds (owned,
- * plan, trial). Arranged = the shop's list (a paid key shows only while held); a paid tool held since and not taken off
+ * plan). Arranged = the shop's list (a paid key shows only while held); a paid tool held since and not taken off
  * joins at the end — a new buy lands last.
  */
 export function yourTools(f: ToolFacts): StoreToolRow[] {
@@ -240,7 +250,12 @@ export function yourTools(f: ToolFacts): StoreToolRow[] {
   const held = rows.filter((r) => isPaidStoreTool(r.tool.key) && toolIsYours(r.status));
   if (f.picked === null) return [...addedFreeTools(f).map((k) => byKey.get(k)!).filter(Boolean), ...held];
   const seen = new Set<string>();
-  const out: StoreToolRow[] = [];
+  // A built-in the saved order leaves out still leads the row (always installed).
+  const out: StoreToolRow[] = BUILT_IN_WIDGETS.filter((b) => !f.picked!.includes(b)).flatMap((b) => {
+    const r = byKey.get(b);
+    if (r) seen.add(b);
+    return r ? [r] : [];
+  });
   for (const k of f.picked) {
     const r = byKey.get(k as SpecializedToolKey);
     if (!r || seen.has(r.tool.key)) continue;
@@ -259,10 +274,10 @@ export function toolFootWords(s: ToolStatus, formatPrice: (php: number) => strin
       return 'Owned';
     case 'plan':
       return 'With your plan';
-    case 'trial':
-      return `Free trial · ${s.daysLeft} ${s.daysLeft === 1 ? 'day' : 'days'} left`;
     case 'free':
       return 'Free';
+    case 'verify':
+      return 'Free once you’re Verified';
     case 'pending':
       return 'Payment in review';
     case 'buy':
@@ -330,13 +345,26 @@ export function graphBadge(k: CardKey): UnlockBadge | null {
 export type GraphStatus =
   | { kind: 'on' }
   | { kind: 'off' }
-  /** Shut until a badge's Bronze: "Opens with Gifts given · Bronze · 60 points to go" (toGo null = count unread). */
+  /** Shut until a badge's Bronze: "Unlocks free when you earn the Gifts given badge" (toGo null = count unread). */
   | { kind: 'locked'; badge: UnlockBadge; badgeName: string; toGo: string | null };
 
-/** Graphs on the shop's Analytics, in its order: its picks (open ones only), or every open graph in the shipped order. */
+/** The Toolkit's line for a badge-locked graph (owner 23 Nov) — the badge's name from the seal rows, never typed. */
+export function graphLockedLine(badgeName: string): string {
+  return `Unlocks free when you earn the ${badgeName} badge`;
+}
+
+/** A graph a shop never had by default — "New · Recommended" in the Toolkit until the shop installs it. */
+export function isNewGraph(k: CardKey): boolean {
+  return !DEFAULT_INSTALLED_GRAPHS.includes(k);
+}
+
+/**
+ * Graphs on the shop's Analytics, in its order: its picks (open ones only), or — never arranged — the default installed
+ * graphs (`DEFAULT_INSTALLED_GRAPHS`, an explicit list) that are open. A badge-locked graph is left out, never greyed.
+ */
 export function analyticsGraphs(picked: readonly string[] | null, unlocks: Pick<GraphUnlocks, 'hidden'>): CardKey[] {
   const open = (k: CardKey) => !unlocks.hidden.has(k);
-  if (picked === null) return CARD_ORDER.filter(open);
+  if (picked === null) return DEFAULT_INSTALLED_GRAPHS.filter(open);
   const seen = new Set<string>();
   const out: CardKey[] = [];
   for (const k of picked) {
@@ -458,8 +486,10 @@ export function cleanLayoutRow(row: LayoutRow, raw: readonly unknown[]): string[
  * The layout after one row is set: its new order, and (tools) the paid tools taken off — a removed paid tool goes into
  * `tools_off` so a later purchase elsewhere never puts it back by itself; adding it again takes it out.
  */
-export function withLayoutRow(prev: StoreLayout, row: LayoutRow, keys: readonly string[], off: readonly string[] = []): StoreLayout {
-  if (row !== 'tools') return { ...prev, [row]: [...keys] };
+export function withLayoutRow(prev: StoreLayout, row: LayoutRow, sent: readonly string[], off: readonly string[] = []): StoreLayout {
+  if (row !== 'tools') return { ...prev, [row]: [...sent] };
+  // A built-in is never removed: a save that leaves it out keeps it, first.
+  const keys = [...BUILT_IN_WIDGETS.filter((b) => !sent.includes(b)), ...sent];
   const removed = off.filter((k) => isPaidStoreTool(k) && !keys.includes(k));
   const toolsOff = [...new Set([...prev.toolsOff.filter((k) => !keys.includes(k)), ...removed])];
   return { ...prev, tools: [...keys], toolsOff };

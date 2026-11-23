@@ -149,7 +149,7 @@ export function StoreThumb({
   return (
     <SupplierThumbRow
       name={`store-${name}`}
-      label="Store actions"
+      label="Toolkit actions"
       row={
         <ThumbRow
           name={`store-${name}`}
@@ -206,7 +206,7 @@ export function StoreThumb({
 export function StoreChips({ chips }: { chips: readonly Show[] }) {
   const [on, setOn] = useState('all');
   return (
-    <div role="group" aria-label="Show tools for" className="sn-glide-x -mx-4 mb-1 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-store-chips="">
+    <div role="group" aria-label="Show widgets for" className="sn-glide-x -mx-4 mb-1 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-store-chips="">
       {chips.map((c) => (
         <button
           key={c.key}
@@ -229,9 +229,10 @@ export function StoreChips({ chips }: { chips: readonly Show[] }) {
   );
 }
 
-export type ArrangeItem = { key: string; title: string; sub: string; art: ReactNode; paid?: boolean };
+/** `builtIn` = always installed (Scanner): it can be moved, never taken off — the sheet draws no (−) for it. */
+export type ArrangeItem = { key: string; title: string; sub: string; art: ReactNode; paid?: boolean; builtIn?: boolean };
 
-const ARRANGE_TITLE: Readonly<Record<LayoutRow, string>> = { graphs: 'Arrange Analytics', badges: 'Arrange Badges', tools: 'Arrange your tools' };
+const ARRANGE_TITLE: Readonly<Record<LayoutRow, string>> = { graphs: 'Arrange Analytics', badges: 'Arrange Badges', tools: 'Arrange your widgets' };
 
 /**
  * A Shop row's "Edit" (v12 Edit frames · owner via the controller 23 Nov: add, remove, reorder). The link opens the
@@ -333,7 +334,7 @@ export function ArrangeEdit({ row, items }: { row: LayoutRow; items: readonly Ar
         labelledById={titleId}
         foot={
           <div className="px-4 pb-4 pt-2 [&>*]:w-full">
-            {row === 'tools' ? <p className="pb-3 text-sn-base text-[color:var(--m-slate-2)]">A tool you remove stays yours in the Store.</p> : null}
+            {row === 'tools' ? <p className="pb-3 text-sn-base text-[color:var(--m-slate-2)]">A widget you remove stays yours in the Toolkit.</p> : null}
             <ActionButton tone="brand" main icon={<Check aria-hidden strokeWidth={2.2} />} label="Done" waiting={busy} disabled={busy} onClick={done} tour={`arrange-done-${row}`} />
           </div>
         }
@@ -369,6 +370,7 @@ export function ArrangeEdit({ row, items }: { row: LayoutRow; items: readonly Ar
                 <b className="text-sn-lg font-semibold leading-tight text-ink">{g.title}</b>
                 <span className="mt-0.5 text-sn-md leading-snug text-[color:var(--m-slate-2)]">{g.sub}</span>
               </span>
+              {g.builtIn ? null : (
               <ActionButton
                 tone="neutral"
                 iconOnly
@@ -382,10 +384,11 @@ export function ArrangeEdit({ row, items }: { row: LayoutRow; items: readonly Ar
                 }}
                 tour={`arrange-remove-${g.key}`}
               />
+              )}
             </li>
           ))}
         </ul>
-        {order.length === 0 ? <p className="px-4 py-3 text-sn-base text-[color:var(--m-slate-2)]">Nothing on this row. Add one from the Store.</p> : null}
+        {order.length === 0 ? <p className="px-4 py-3 text-sn-base text-[color:var(--m-slate-2)]">Nothing on this row. Add one from the Toolkit.</p> : null}
       </Sheet>
     </>
   );

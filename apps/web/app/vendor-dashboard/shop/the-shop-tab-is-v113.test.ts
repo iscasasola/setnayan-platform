@@ -67,7 +67,7 @@ test('3 · Your tools (its own list, opening each tool), then Templates; no Tool
   const templates = MAKERS.indexOf('id="makers"');
   const tools = MAKERS.indexOf('id="tools"');
   assert.ok(tools > 0 && templates > tools, 'Templates does not come after Your tools');
-  assert.match(MAKERS.slice(tools), />\s*Your tools\s*<\/h2>[\s\S]*?data-tool-list=""[\s\S]*?data-tool-tile=\{t\.key\}[\s\S]*?data-tool-add=""/, 'Your tools is not a list on the page with its Add a tool row');
+  assert.match(MAKERS.slice(tools), />\s*Your widgets\s*<\/h2>[\s\S]*?data-tool-list=""[\s\S]*?data-tool-tile=\{t\.key\}[\s\S]*?data-tool-add=""/, 'Your tools is not a list on the page with its Add a tool row');
   assert.match(MAKERS, /k: 'forms' as const, title: 'Chat forms'/);
   assert.match(PAGE, /<ShopMakers\s+scanners=\{scanners\}\s+formsBody=\{shopFormsBody\(sp\)\}/, 'the Forms tile has no body behind it (a dead tile)');
   assert.match(read('_components/shop-forms-body.tsx'), /return sp\.maker === 'forms' \? <ShopFormsBody \/> : null;/, 'the Forms body is read when the panel is shut');

@@ -107,27 +107,27 @@ export async function storeAction(_prev: StoreActionState, formData: FormData): 
   return ok(layoutToast(row, String(formData.get('intent') ?? 'order')));
 }
 
-const ADDED: Readonly<Record<LayoutRow, string>> = { graphs: 'On your Analytics', badges: 'On your Shop', tools: 'In your tools' };
+const ADDED: Readonly<Record<LayoutRow, string>> = { graphs: 'On your Analytics', badges: 'On your Shop', tools: 'In Your widgets' };
 
 function layoutToast(row: LayoutRow, intent: string): string {
   if (intent === 'add') return ADDED[row];
-  if (intent === 'remove') return row === 'tools' ? 'Taken off your Shop. It stays yours in the Store.' : 'Taken off your Shop';
+  if (intent === 'remove') return row === 'tools' ? 'Taken off your Shop. It stays yours in the Toolkit.' : 'Taken off your Shop';
   return 'Saved';
 }
 
 async function buyTool(formData: FormData, who: { userId: string; shopId: string; services: string[] }): Promise<StoreActionState> {
   const key = String(formData.get('tool') ?? '');
-  if (!isPaidStoreTool(key)) return err('That tool is not sold in the Store.');
+  if (!isPaidStoreTool(key)) return err('That widget is not sold in the Toolkit.');
   const tool: PaidStoreTool = key;
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  // ── Never charge for what the shop already has: owned, with its plan, in its trial, or an order in review.
+  // ── Never charge for what the shop already has: owned, with its plan, or an order in review.
   const facts = await readStoreToolFacts(supabase, admin, who.shopId, who.services, null);
   const state = toolStatus(tool, facts);
-  if (state.kind === 'owned' || state.kind === 'plan' || state.kind === 'trial') return ok('It is already yours. Open it from Your tools.');
-  if (state.kind === 'pending') return err('Your payment for this tool is in review. It opens once our team confirms it.');
-  if (state.kind === 'unread') return err('Couldn’t check your tools just now. You have not been charged — try again.');
+  if (state.kind === 'owned' || state.kind === 'plan') return ok('It is already yours. Open it from Your widgets.');
+  if (state.kind === 'pending') return err('Your payment for this widget is in review. It opens once our team confirms it.');
+  if (state.kind === 'unread') return err('Couldn’t check your widgets just now. You have not been charged — try again.');
 
   // ── The authoritative price + is_active, from the admin-managed row. No row, a retired row or no price refuses.
   const sku = storeToolSku(tool);
@@ -135,7 +135,7 @@ async function buyTool(formData: FormData, who: { userId: string; shopId: string
   const row = skuRow as { price_php?: number | string | null; is_active?: boolean | null; title?: string | null } | null;
   const pricePhp = row ? Number(row.price_php) : Number.NaN;
   if (!row || row.is_active !== true || !Number.isFinite(pricePhp) || pricePhp <= 0) {
-    return err('This tool’s price is not set yet. You have not been charged.');
+    return err('This widget’s price is not set yet. You have not been charged.');
   }
 
   const channel = await railForNewOrder(supabase, formData.get('channel'));
@@ -149,7 +149,7 @@ async function buyTool(formData: FormData, who: { userId: string; shopId: string
         { userId: who.userId, eventId: null, vendorProfileId: who.shopId },
         {
           service_key: sku,
-          description: row.title ?? storeToolOf(tool)?.title ?? 'Specialized tool',
+          description: row.title ?? storeToolOf(tool)?.title ?? 'Widget',
           requested_total_php: pricePhp,
           status: 'submitted',
           reference_code: referenceCode,

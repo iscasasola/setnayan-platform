@@ -27,6 +27,7 @@
 -- to whoever RLS admits, and the piece adds nothing that row does not already reveal.
 
 -- 1 · the view -------------------------------------------------------------------------------------------------------
+SET LOCAL lock_timeout = '5s';
 ALTER TABLE public.vendor_profile_views
   ADD COLUMN IF NOT EXISTS via TEXT
     CHECK (via IS NULL OR via IN ('card', 'standee', 'door', 'backdrop', 'tarp', 'rollup', 'table', 'sticker', 'link', 'photo'));

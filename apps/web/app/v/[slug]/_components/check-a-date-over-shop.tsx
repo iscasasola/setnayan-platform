@@ -35,7 +35,8 @@ export async function CheckADateOverShop({
       shopHref={shopHref}
       shop={read.shop}
       logoUrl={logoUrl}
-      // 🖨💳 The plan half (only Ultra's prints are own) is judged again at send, with the piece — see the shop page.
+      // 🖨💳 Whether the ask is the shop's own is judged at send by `ownLinkArrival`: a VERIFIED shop's own link, on any
+      // plan (owner "QR for everybody", DECISION_LOG 72da7025) — see inquiry-actions.ts.
       inquirySource={arrivalInquirySourceOf(search.src)}
       inquiryVia={search.via ?? null}
       inquiryUtm={search.utm ?? null}

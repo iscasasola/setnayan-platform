@@ -15,7 +15,8 @@ import s from './seat-months.module.css';
  *     It stays green: popular is never a reason to stop asking. Never colour alone: grey has stripes, a shining day
  *     has its ✦, and a screen reader hears "available", "available, popular" or "not bookable".
  *   · Past days are faint and empty; today has a ring.
- *   · Months SWIPE: each swipe settles on one whole month and the next one peeks. On a computer ‹ › and the arrow
+ *   · Months SWIPE: each swipe settles on one whole month, and the neighbour stays fully out of view (live fix
+ *     23 Nov 2026: on a phone the next month used to peek in at the right edge). On a computer ‹ › and the arrow
  *     keys do the same. Reduced motion: no glide, and the light stops as a still band.
  *
  * The answer per day is still the shipped one (`checkDateStateOf` in the parent) — this file only draws it.
@@ -75,8 +76,11 @@ export function SeatMonths({
   const onScroll = () => {
     const el = strip.current;
     if (!el) return;
-    const w = (el.children[0] as HTMLElement | undefined)?.offsetWidth ?? el.clientWidth;
-    const i = Math.round(el.scrollLeft / Math.max(1, w + 14));
+    // One month's step is read from the strip itself (month width + gap), never a typed number: the gap differs by width.
+    const a = el.children[0] as HTMLElement | undefined;
+    const b = el.children[1] as HTMLElement | undefined;
+    const step = a && b ? b.offsetLeft - a.offsetLeft : (a?.offsetWidth ?? el.clientWidth);
+    const i = Math.round(el.scrollLeft / Math.max(1, step));
     if (i !== at) setAt(Math.min(months.length - 1, Math.max(0, i)));
   };
 

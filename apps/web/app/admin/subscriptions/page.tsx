@@ -10,7 +10,7 @@ import { approveSubscription, rejectSubscription } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { planWord } from '@/lib/vendor-plan-change-words';
+import { PLAN_PERIOD, planWord } from '@/lib/vendor-plan-change-words';
 export const metadata = {
   title: 'Subscriptions · Admin',
   robots: { index: false, follow: false },
@@ -146,7 +146,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
   }
 
   // 🏷 AW-9 (admin walk 14 Nov 2026): the plan's NAME, read from the catalog the supplier bought from
-  // (`vendor_billing_catalog.title`, e.g. "Supplier Plus (4 weeks)") — the row's raw `tier · billing_cycle`
+  // (`vendor_billing_catalog.title`, e.g. "Plus (monthly)") — the row's raw `tier · billing_cycle`
   // printed "solo · monthly". Names only; no price is read here. A refused read falls back to words, never a code.
   const skus = Array.from(new Set([...pending, ...recent].map((p) => p.sku_code).filter(Boolean)));
   const planTitle = new Map<string, string>();
@@ -162,7 +162,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
   }
   const planName = (p: SubscriptionRow): string =>
     planTitle.get(p.sku_code) ??
-    `${p.tier === 'solo' || p.tier === 'pro' || p.tier === 'enterprise' ? planWord(p.tier) : 'Supplier plan'}${p.billing_cycle === 'annual' ? ' · yearly' : p.billing_cycle === 'monthly' ? ' · 4 weeks' : ''}`;
+    `${p.tier === 'solo' || p.tier === 'pro' || p.tier === 'enterprise' ? planWord(p.tier) : 'Supplier plan'}${p.billing_cycle === 'annual' ? ' · yearly' : p.billing_cycle === 'monthly' ? ` · ${PLAN_PERIOD.adjective}` : ''}`;
 
   const pendingTotal = pending.reduce((s, p) => s + Number(p.amount_php ?? 0), 0);
 

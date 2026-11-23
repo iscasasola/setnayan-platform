@@ -89,6 +89,23 @@ test('guest route: the pass is read FOR THE SHOT’S EVENT, and both checks run 
   before(post, "'other_owner'", 'return handleSign(', 'return handleRecord(', 'return handleAttach(');
 });
 
+test('📷 the ONE camera: a seat sends on the seat lane under the seat token, a guest on the guest lane under her tag', () => {
+  const cam = read('app/papic/guest/_components/papic-guest-capture.tsx');
+  assert.match(cam, /const lane: 'guest' \| 'seat' = seat \? 'seat' : 'guest';/);
+  assert.match(cam, /const shotOwner: string \| null = seat \? seat\.token : uploadOwner;/);
+  // Both sends name the camera's lane and owner — never a hard-coded guest lane a seat would ride.
+  assert.equal((cam.match(/ownerTag: shotOwner,/g) ?? []).length, 2, 'a photo or clip send no longer carries the camera’s owner');
+  assert.doesNotMatch(cam, /lane: 'guest',/, 'a send is hard-coded to the guest lane again — a seat shot would ride it');
+});
+
+test('seat route: the seat is its claimer’s and the shot’s event, checked before any sign / record / attach', () => {
+  const src = read('app/api/papic/seat-capture/route.ts');
+  assert.match(src, /if \(!seat \|\| seat\.claimer_user_id !== user\.id\) return json\(\{ error: 'other_owner' \}, 409\);/);
+  assert.match(src, /if \(seat\.event_id !== eventId\) return json\(\{ error: 'other_event' \}, 409\);/);
+  before(src, "'other_owner'", "if (op === 'sign')", "if (op === 'record')", "if (op === 'attach')");
+  before(src, "'other_event'", "if (op === 'sign')", "if (op === 'record')", "if (op === 'attach')");
+});
+
 test('supplier route: the owner tag is checked before any sign / record / attach', () => {
   const src = read('app/api/vendor/papic-capture/route.ts');
   assert.match(
@@ -107,6 +124,10 @@ test('every queued shot carries its event and its owner tag on every call', () =
     'app/papic/decorate/_components/kwento-decorator.tsx',
     'app/vendor-dashboard/on-the-day/live/[eventId]/_components/papic-capture-controller.tsx',
   ]) {
-    assert.match(read(cam), /papicUploader\(\)\.register\(\{ lane: '(guest|vendor)', eventId, ownerTag: uploadOwner \}\)/, `${cam} registers no camera`);
+    assert.match(
+      read(cam),
+      /papicUploader\(\)\.register\(\{ lane: '(guest|vendor)', eventId, ownerTag: uploadOwner \}\)|papicUploader\(\)\.register\(\{ lane, eventId, ownerTag: shotOwner \}\)/,
+      `${cam} registers no camera`,
+    );
   }
 });

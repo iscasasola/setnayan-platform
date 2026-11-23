@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 306 single-column FKs onto auth.users / public.users
-# CASCADE=83  RESTRICT=1  SET NULL=222
+# 303 single-column FKs onto auth.users / public.users
+# CASCADE=83  RESTRICT=1  SET NULL=219
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -25,8 +25,6 @@ admin_data_access_log.admin_user_id                       SET NULL     nullable 
 admin_focus_put_offs.user_id                              CASCADE      NOT NULL  -> auth.users
 admin_received_transactions.created_by                    SET NULL     nullable  -> users
 admin_received_transactions.matched_by                    SET NULL     nullable  -> users
-admin_scopes.granted_by                                   SET NULL     nullable  -> users
-admin_scopes.user_id                                      CASCADE      NOT NULL  -> users
 api_keys.user_id                                          CASCADE      NOT NULL  -> users
 app_store_purchases.user_id                               CASCADE      NOT NULL  -> users
 apple_sign_in_tokens.user_id                              CASCADE      NOT NULL  -> users
@@ -267,6 +265,7 @@ vendor_ad_subscriptions.cancelled_by_user_id              SET NULL     nullable 
 vendor_admin_motion_votes.voter_user_id                   CASCADE      NOT NULL  -> auth.users
 vendor_admin_motions.proposed_by                          SET NULL     nullable  -> auth.users
 vendor_admin_motions.target_user_id                       CASCADE      NOT NULL  -> auth.users
+vendor_app_store_plan_tokens.user_id                      CASCADE      NOT NULL  -> auth.users
 vendor_billing_catalog.retired_by_admin_id                SET NULL     nullable  -> auth.users
 vendor_cake_makers.updated_by                             SET NULL     nullable  -> auth.users
 vendor_contracts.cancelled_by_user_id                     SET NULL     nullable  -> users
@@ -318,5 +317,3 @@ vendor_verification_applications.admin_user_id            SET NULL     nullable 
 vendor_verification_bypasses.granted_by                   SET NULL     nullable  -> auth.users
 vendor_verifications.approved_by_admin_user_id            SET NULL     nullable  -> users
 vendor_web_dossiers.requested_by                          SET NULL     nullable  -> users
-work_escalations.escalated_by                             SET NULL     nullable  -> users
-work_escalations.resolved_by                              SET NULL     nullable  -> users

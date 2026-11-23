@@ -64,9 +64,11 @@ test('5 · a quote still reuses the section’s Buy sheet (giving stays in the q
   assert.match(read('_components/quote-shop-gifts.tsx'), /import \{ BuyGiftsSheet \} from '@\/app\/vendor-dashboard\/shop\/promote\/_components\/shop-gifts-section'/);
 });
 
-test('6 · nothing sells inside the iPhone app — Promote is open there, the Plan page was not', () => {
-  // The Plan page is refused in the store shell; Promote is not. Buy (button + sheet) hangs off `canOffer`, which needs
-  // `canBuy`, which the loader sets false in the store shell (`lib/store-shell.test.ts` cites the same gate).
+test('6 · inside the iPhone app the web buy never shows — a gift is bought only through Apple there', () => {
+  // The Plan page is refused in the store shell; Promote is not. The WEB buy (button + sheet) hangs off `canOffer`,
+  // which needs `canBuy`, which the loader sets false in the store shell (`lib/store-shell.test.ts` cites the same
+  // gate). The app's own store is Apple's, line by line, and only for a build that passes a quantity (owner 2026-11-22).
   assert.match(read('vendor-dashboard/shop/promote/_components/shop-gifts-section.tsx'), /const canOffer = data\.canBuy && /);
-  assert.match(read('vendor-dashboard/shop/promote/_components/shop-gifts-data.ts'), /canBuy: !storeShell,/);
+  assert.match(read('vendor-dashboard/shop/promote/_components/shop-gifts-data.ts'), /canBuy: !gate\.storeShell,/);
+  assert.match(read('vendor-dashboard/shop/promote/_components/shop-gifts-data.ts'), /appleGifts: gate\.iapQuantity,/);
 });

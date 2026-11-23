@@ -117,7 +117,7 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
     },
     worksWith: [
       { slug: 'marketplace', how: { en: 'Verified shops are the ones couples find in the Marketplace.', tl: 'Ang Verified na shops ang nahahanap ng couples sa Marketplace.' } },
-      { slug: 'supplier-plans', how: { en: 'Verified is free, and it is what opens your reach; Supplier Plus, Supplier Pro and Supplier Ultra add a team, branches and tools.', tl: 'Libre ang Verified, at ito ang nagbubukas ng abot mo; nagdadagdag ng team, branches at tools ang Supplier Plus, Supplier Pro at Supplier Ultra.' } },
+      { slug: 'supplier-plans', how: { en: 'Verified is free, and it is what opens your reach; Plus, Pro and Ultra add a team, branches and tools.', tl: 'Libre ang Verified, at ito ang nagbubukas ng abot mo; nagdadagdag ng team, branches at tools ang Plus, Pro at Ultra.' } },
       { slug: 'supplier-page', how: { en: 'Your page shows the Verified seal.', tl: 'May Verified seal ang page mo.' } },
     ],
     faq: {
@@ -151,23 +151,23 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
     group: 'suppliers',
     icon: 'subscription',
     name: { en: 'Supplier plans', tl: 'Supplier plans' },
-    line: { en: 'Free, Verified, then Supplier Plus, Pro and Ultra for a bigger shop.', tl: 'Free, Verified, tapos Supplier Plus, Pro at Ultra para sa mas malaking shop.' },
-    title: { en: 'Supplier Plans: Free, Verified, Plus, Pro and Ultra', tl: 'Supplier Plans: Free, Verified, Plus, Pro at Ultra' },
+    line: { en: 'Free with Verified, then Plus, Pro and Ultra for a bigger shop.', tl: 'Free kasama ang Verified, tapos Plus, Pro at Ultra para sa mas malaking shop.' },
+    title: { en: 'Supplier Plans: Free, Plus, Pro and Ultra', tl: 'Supplier Plans: Free, Plus, Pro at Ultra' },
     description: {
-      en: 'Run your bookings free. Verified opens your reach; Supplier Plus, Pro and Ultra add live cards, team seats and branches. Nothing renews by itself.',
+      en: 'Run your bookings free. Verified opens your reach; Plus, Pro and Ultra add live cards, team seats and branches. Nothing renews by itself.',
       tl: 'Libre ang bookings. Verified ang nagbubukas ng abot mo; may dagdag na live cards, seats at branches ang Plus, Pro at Ultra. Walang kusang nagre-renew.',
     },
     answer: {
-      en: 'Setnayan has five supplier plans: Free, Verified, Supplier Plus, Supplier Pro and Supplier Ultra. Free and Verified cost nothing, for good, and include the full dashboard. Your reach comes from getting Verified, on any plan. The paid plans add categories, service cards, team seats and branches — never the right to take bookings. Paid plans are prepaid blocks of four weeks or a year, and nothing renews by itself.',
-      tl: 'Lima ang supplier plans ng Setnayan: Free, Verified, Supplier Plus, Supplier Pro at Supplier Ultra. Libre ang Free at Verified, habambuhay, at kasama ang buong dashboard. Sa pagpa-Verified nanggagaling ang abot mo, sa kahit anong plan. Nagdadagdag ang paid plans ng categories, service cards, team seats at branches — hindi ang karapatang tumanggap ng booking. Prepaid ang paid plans, apat na linggo o isang taon, at walang kusang nagre-renew.',
+      en: 'Setnayan has four supplier plans: Free, Plus, Pro and Ultra. Free costs nothing, for good, includes the full dashboard, and is where you get Verified. Your reach comes from getting Verified, on any plan. The paid plans add categories, service cards, team seats and branches — never the right to take bookings. Paid plans are prepaid blocks of four weeks, and nothing renews by itself.',
+      tl: 'Apat ang supplier plans ng Setnayan: Free, Plus, Pro at Ultra. Libre ang Free, habambuhay, kasama ang buong dashboard, at dito ka nagpapa-Verified. Sa pagpa-Verified nanggagaling ang abot mo, sa kahit anong plan. Nagdadagdag ang paid plans ng categories, service cards, team seats at branches — hindi ang karapatang tumanggap ng booking. Prepaid ang paid plans, bawat apat na linggo, at walang kusang nagre-renew.',
     },
     forWho: {
       en: 'Suppliers deciding how far they want to be found, and how big a team they run.',
       tl: 'Para sa suppliers na nagpapasya kung gaano kalayo sila gustong mahanap, at gaano kalaki ang team nila.',
     },
     steps: {
-      en: ['Start on Free the moment you open your shop.', 'Get Verified, free, to appear in search.', 'Move up to Supplier Plus, Supplier Pro or Supplier Ultra when you need more live service cards, seats or branches.'],
-      tl: ['Magsimula sa Free pagbukas mo ng shop.', 'Magpa-Verified, libre, para lumabas sa search.', 'Umakyat sa Supplier Plus, Supplier Pro o Supplier Ultra kapag kailangan mo ng mas maraming live service cards, seats o branches.'],
+      en: ['Start on Free the moment you open your shop.', 'Get Verified, free, to appear in search.', 'Move up to Plus, Pro or Ultra when you need more live service cards, seats or branches.'],
+      tl: ['Magsimula sa Free pagbukas mo ng shop.', 'Magpa-Verified, libre, para lumabas sa search.', 'Umakyat sa Plus, Pro o Ultra kapag kailangan mo ng mas maraming live service cards, seats o branches.'],
     },
     different: {
       en: [
@@ -190,20 +190,20 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
     ],
     faq: {
       en: [
-        { q: 'Is Setnayan free for suppliers?', a: 'Yes. Free and Verified cost nothing, for good, and include the full dashboard: calendar, inquiries, quotes, bookings, payments on record, contracts and your public page.' },
+        { q: 'Is Setnayan free for suppliers?', a: 'Yes. Free costs nothing, for good, Verified included, and includes the full dashboard: calendar, inquiries, quotes, bookings, payments on record, contracts and your public page.' },
         { q: 'Does Setnayan take a commission?', a: `Setnayan never takes a cut of the deal. It bills a booking fee on a booking, ${FEE_SCOPE}. ${FEE_FREE_RULE} The current rate is on the For Suppliers page.` },
-        { q: 'Do paid plans renew automatically?', a: 'No. Supplier Plus, Supplier Pro and Supplier Ultra are prepaid blocks of four weeks or a year. Skip the next payment and you are on Free.' },
+        { q: 'Do paid plans renew automatically?', a: 'No. Plus, Pro and Ultra are prepaid blocks of four weeks. Skip the next payment and you are on Free.' },
         { q: 'What do the paid plans add?', a: 'More categories and service cards, team seats and branches, and your own web address. Reach is not a plan: it comes from getting Verified, free.' },
       ],
       tl: [
-        { q: 'Libre ba ang Setnayan para sa suppliers?', a: 'Oo. Libre ang Free at Verified, habambuhay, at kasama ang buong dashboard: calendar, inquiries, quotes, bookings, tala ng bayad, contracts at public page mo.' },
+        { q: 'Libre ba ang Setnayan para sa suppliers?', a: 'Oo. Libre ang Free, habambuhay, kasama ang Verified, at kasama ang buong dashboard: calendar, inquiries, quotes, bookings, tala ng bayad, contracts at public page mo.' },
         { q: 'Kumukuha ba ng commission ang Setnayan?', a: `Hindi kumukuha ang Setnayan ng parte sa deal. May booking fee ang bawat booking, maliban kung ikaw ang unang nagdala ng event. ${FEE_FREE_RULE_TL} Nasa For Suppliers page ang kasalukuyang rate.` },
-        { q: 'Kusa bang nagre-renew ang paid plans?', a: 'Hindi. Prepaid ang Supplier Plus, Supplier Pro at Supplier Ultra, apat na linggo o isang taon. Lumaktaw ng susunod na bayad at nasa Free ka na.' },
+        { q: 'Kusa bang nagre-renew ang paid plans?', a: 'Hindi. Prepaid ang Plus, Pro at Ultra, bawat apat na linggo. Lumaktaw ng susunod na bayad at nasa Free ka na.' },
         { q: 'Ano ang idinadagdag ng paid plans?', a: 'Mas maraming categories at service cards, team seats at branches, at sariling web address. Hindi plan ang abot: sa pagpa-Verified ito nanggagaling, libre.' },
       ],
     },
     keywords: {
-      en: ['supplier plans', 'event supplier subscription', 'wedding supplier pricing', 'booking fee for suppliers', 'Supplier Pro'],
+      en: ['supplier plans', 'event supplier subscription', 'wedding supplier pricing', 'booking fee for suppliers', 'supplier Pro plan'],
       tl: ['presyo ng supplier plan', 'booking fee ng supplier'],
     },
     shots: [],

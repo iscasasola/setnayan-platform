@@ -154,7 +154,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 import { asViewed, asViewedOwnership, viewAsFreeSwitch } from '@/lib/view-as-free.server';
-import { HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
+import { HUB_PARTS, ownsHubGate, type HubPartId, type HubPlanGate } from '@/lib/hub-parts';
 import { eventHasRenamed } from '@/lib/event-slug-rename.server';
 import { planMyselfOn } from '@/lib/plan-myself';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
@@ -660,6 +660,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   ]);
   /** 💎 Does the event hold this part (or everything), as the viewer is shown it — each Maker row's own ◆ state. */
   const ownsPart = (p: HubPartId): boolean => Boolean(proOwn && (proOwn.full || proOwn.parts.has(p)));
+  /** 🎟 …and a plan gate (1 · 13 — Event Plus passes them outside their part, owner 2026-11-18): `ownsHubGate`. */
+  const ownsGate = (g: HubPlanGate): boolean => Boolean(proOwn && ownsHubGate(proOwn, g));
   const partPricePhp: Partial<Record<HubPartId, number>> = {};
   for (const p of HUB_PARTS) {
     const php = proPrices?.onSale.has(p.sku) ? proPrices.parts.get(p.sku) : undefined;
@@ -669,11 +671,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   /* 💎 Renamed before parts shipped → that address is kept free (its `slug_change_log` row is the proof). */
   const addressRenamed = await renamedRead;
   const proLine: MakerProLine | null =
-    !proOwn || proOwn.full || !proPrices?.full || Object.keys(partPricePhp).length === 0
+    !proOwn || proOwn.full || !proPrices?.everything || Object.keys(partPricePhp).length === 0
       ? null
       : {
           fromPhp: Math.min(...Object.values(partPricePhp)),
-          fullPhp: proPrices.full,
+          // 💎 Everything is Event Plus (owner 20 Nov) — the parts' rest is measured against its row.
+          fullPhp: proPrices.everything,
           paidPhp: proOwn.paidPhp,
           owned: [...proOwn.parts],
           href: `/dashboard/${eventId}/studio/website-pro?from=maker`,
@@ -1418,7 +1421,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // 💎 On the web a drafted Pro theme is the one being edited even without
       // Pro — it is tried here and held at Apply (owner 2026-09-28, #6091). The
       // shell keeps the ownership half of the gate.
-      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: ownsPart('style') || !storeShell });
+      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: ownsGate('13') || !storeShell });
       /* 🎂 The celebration's type decides Details' items and switches (DECISION_LOG
          "THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON"). An
          unreadable profile is the generic one — never a wedding. */
@@ -1919,7 +1922,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             theme={{
               themes: themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
               current: themeCurrent,
-              ownsPro: ownsPart('style'),
+              ownsPro: ownsGate('13'),
               storeShell,
               suggested: themeMatchingFeel(feelRes.data?.mood_feel_key),
               sampleVersion,

@@ -16,7 +16,8 @@ import { bookingFeeScheduleSummary, unverifiedBookingFeeScheduleSummary } from '
 import { ordinalWord, type BookingFeeStanding } from './booking-fee-disclosure';
 import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
-import { STORAGE_GB, TIER_CAPS, TIER_LABEL, VENDOR_TIERS, WAITLIST_SETTING_MAX, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
+import { storageWords } from './downgrade-limits';
+import { TIER_CAPS, TIER_LABEL, VENDOR_TIERS, WAITLIST_SETTING_MAX, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
 import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from './specialized-tools-access';
 import { PLAN_CHATBOT_LEVEL } from './vendor-ai-level';
@@ -54,9 +55,11 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
   const waitlist = allowance(c.waitlistAcceptances, 'waitlistAcceptances', paywallOn);
   const free = FREE_HELPER_SEATS > 0 ? ` + ${formatCount(FREE_HELPER_SEATS)} free Helper` : '';
   const webPlan = firstPlanWith((x) => x.customWebsiteName);
-  const branches = c.branchesIncluded > 0
-    ? `${formatCount(c.branchesIncluded)} included${canBuyMoreBranches(tier) ? ' · more can be added' : ''}`
-    : 'Not on this plan';
+  const branches = !Number.isFinite(c.branchesIncluded)
+    ? 'No limit · one registered business'
+    : c.branchesIncluded > 0
+      ? `${formatCount(c.branchesIncluded)} included${canBuyMoreBranches(tier) ? ' · more can be added' : ''}`
+      : 'Not on this plan';
   const insights = !paywallOn
     ? 'All of it — open to every plan today'
     : c.marketIntel
@@ -94,11 +97,11 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     // dependend anymore"); once verified, every plan sets its own.
     { key: 'branches', title: 'Branches beyond your main shop', line: branches },
     {
-      // 💾 Owner 2026-11-13 "plan storage": Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB. Free · Verified were given none and keep
-      // what they had — no limit. GB of 1e9 bytes, the GB `storageWords` prints (lib/supplier-storage.ts).
+      // 💾 Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes — 256 MB · 2 GB · 128 GB · 500 GB · 1 TB (re-cut 22 Nov), in the words
+      // `storageWords` prints everywhere else (decimal GB / TB).
       key: 'storage',
-      title: 'Storage for your event files',
-      line: c.storageBytes === null ? 'No limit on this plan today' : `${formatCount(c.storageBytes / STORAGE_GB)} GB`,
+      title: 'Storage for your files',
+      line: c.storageBytes === null ? 'Couldn’t read' : storageWords(c.storageBytes),
     },
     { key: 'insights', title: 'How is my business doing', line: insights },
     {

@@ -1,0 +1,353 @@
+/**
+ * Homepage · / — THE FRONT DOOR.
+ *
+ * ─── WHAT THIS REPLACED, AND ON WHOSE WORD ───────────────────────────────
+ * `/` used to render `HomeReskin` — the ELN cinematic no-scroll gate +
+ * 5-pillar dock, owner-approved 2026-06-29. The owner was asked directly
+ * whether the new front door replaces the homepage ("yes we want the new
+ * website") and then what becomes of the cinematic opening: **"Retire it
+ * completely."** He was told in the question itself that this discards
+ * finished, approved work. `DECISION_LOG.md` 2026-08-13.
+ *
+ * That ruling shipped in two steps, deliberately. The front door went live
+ * behind a flag first, because deleting an approved page before its
+ * replacement has been looked at on a real screen is the one step that cannot
+ * be undone. The owner has since seen it live and said delete — so the flag,
+ * the cinematic page and its four data reads are gone, and this file renders
+ * exactly one thing.
+ *
+ * ─── PORTED, NOT REDRAWN ─────────────────────────────────────────────────
+ * Binding sources: `prototypes/front_door_and_seam_2026-08-12.html` (rev 3)
+ * and `FRONT_DOOR_AND_SEAM_FINAL_2026-08-12.md`. A delta between this page and
+ * the prototype is a defect in the PORT, not a fresh design decision.
+ *
+ * ─── PRESERVED THROUGH BOTH STEPS, deliberately ──────────────────────────
+ *   • GEO/SERP metadata + the WebSite + SoftwareApplication JSON-LD graph, so
+ *     AI answer engines and search cards keep their extractable surface. The
+ *     shape of the page changed; what a machine reads about the brand did not.
+ *   • 🚨 ALL THREE CRON-FREE after() JOBS — the admin morning digest, the daily
+ *     email jobs and the interconnection probes. THESE HAVE NO SCHEDULER
+ *     BEHIND THEM; they piggyback on this page's guaranteed public traffic.
+ *     Dropping them while rewriting the page would have silently stopped the
+ *     anniversary digests, the renewal reminders and the Papic drop warning,
+ *     and nothing would have reported it. If this file is ever rewritten
+ *     again, they move WITH it or they move somewhere else first.
+ *
+ * ⚠ RETIRED WITH THE PAGE: the catalog-driven pricing read, the admin
+ * background videos, the published-showcase rail and the Spotlight strip.
+ * They were props of the cinematic homepage only. `/pricing` remains the
+ * source of truth for prices and is untouched, and `/api/home-pricing` still
+ * serves the marketing chrome's Prices popup from the same catalog reader.
+ */
+
+import { after } from 'next/server';
+import '@/app/_components/frontdoor/front-door.css';
+import '@/app/_components/frontdoor/front-door-landing.css';
+import { FrontDoor } from '@/app/_components/frontdoor/front-door';
+import { LastSeenSignedOutWipe } from '@/app/_components/last-seen/last-seen-wipe-script';
+import { ChatOriginMark } from '@/app/_components/chat/chat-back';
+import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
+import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
+import { maybeRunPapicCloseSelfieErase } from '@/lib/face-selfie-erase';
+import { maybeRunFaceRescan } from '@/lib/face-rescan';
+import { maybeRunOAuthRefresh } from '@/lib/oauth-refresh-job';
+import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
+import { maybeRunOwnerApprovals } from '@/lib/admin/self-approval-runner';
+
+// GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
+// Carried forward so AI answer engines + SERP cards keep extracting the same
+// brand + price + 0% commission signals.
+//
+// 🔑 WIDENED 2026-08-31 — THE FRONT DOOR SOLD ONE EVENT TYPE OUT OF SEVENTEEN.
+// `event_type_vocab` in production carries seventeen rows and every one of them
+// is `status = 'active'` AND `enabled = TRUE` — wedding, debut, gender reveal,
+// birthday, celebration, travel, corporate, tournament, christening,
+// anniversary, graduation, reunion, gala night, simple event, date, hangout,
+// wake. The homepage title and description still said "your Filipino wedding",
+// so the one page an answer engine grounds the whole brand on described a
+// seventeenth of the product. Measured against the live table, not a doc.
+//
+// ⚠ "EVENT", NOT "CELEBRATION", AND THE REASON IS `wake`. A wake is a live,
+// enabled event type and it is not a celebration. The house word elsewhere in
+// the corpus is "celebration"; on the two strings that must cover ALL seventeen
+// it would be false, so these two say "event". Do not "fix" this back.
+//
+// ⚠ WEDDING IS STILL NAMED FIRST in the description and still leads
+// `keywords`. Widening the claim is not the same as dropping the strongest
+// query the brand ranks for — weddings remain the deepest surface.
+const HOME_TITLE = 'Setnayan · Plan any event free. Every photo in one album.';
+const HOME_DESCRIPTION =
+  'Plan any Filipino event free — wedding, debut, christening, birthday, graduation, anniversary, reunion, corporate and more — with every guest’s photo in one album. Verified supplier marketplace at 0% commission.';
+
+export const metadata = {
+  title: HOME_TITLE,
+  description: HOME_DESCRIPTION,
+  // 🔒 Restated, not inherited-by-luck. `applicationName` renders
+  // <meta name="application-name"> — one of the two places a machine reader
+  // (and Google's OAuth homepage review) looks for the app's NAME. It is set on
+  // the root layout and would normally cascade, but stating it on the single
+  // page the reviewer is sent to means a future layout edit cannot quietly
+  // remove it from THIS url. Guarded by app/home-brand-name.test.ts.
+  applicationName: 'Setnayan',
+  alternates: { canonical: '/' },
+  // ⚠ WEDDING TERMS STAY AND STAY FIRST — they are the queries the brand
+  // actually ranks for. The event-type terms below are ADDED, never swapped in:
+  // every one of them is a live `event_type_vocab` row (active + enabled in
+  // production), so none of these sends a searcher to something we cannot run.
+  keywords: [
+    'Filipino wedding planning',
+    'Philippines wedding suppliers',
+    'wedding marketplace Manila',
+    'Filipino wedding app',
+    'Setnayan',
+    'verified Filipino suppliers',
+    "Set na 'yan",
+    'Filipino wedding software',
+    'wedding photo gallery app',
+    'keep wedding photos safe',
+    'Filipino life events app',
+    'Filipino debut planning',
+    'christening planner Philippines',
+    'birthday party planner Philippines',
+    'graduation and reunion planning Philippines',
+    'corporate event planner Philippines',
+    'Filipino event planning app',
+  ],
+  // 🚨 `openGraph` and `twitter` are REPLACED wholesale by the child segment,
+  // not deep-merged — next/dist/lib/metadata/resolve-metadata.js does
+  // `target.openGraph = resolveOpenGraph(source.openGraph, …)` on a plain
+  // `case 'openGraph':`. So until 2026-08-09 this three-key object silently
+  // DELETED the root layout's og:site_name ("Setnayan"), og:type, og:locale and
+  // the 1200×630 og:image — on the homepage ONLY, which is the one page where
+  // the brand name matters most. Measured on the live site 2026-08-09: `/`
+  // served og:title, og:description and og:url and NOTHING else, and
+  // twitter:card had degraded to the tiny "summary" thumbnail because Next's
+  // auto-fill could no longer see a large image. Every other public page was
+  // correct, which is exactly why nobody noticed.
+  // 🔑 If you add a key to the layout's openGraph, add it here too — an
+  // override object must be COMPLETE, not a patch. Guarded by
+  // app/home-brand-name.test.ts.
+  openGraph: {
+    type: 'website',
+    siteName: 'Setnayan',
+    locale: 'en_PH',
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    url: '/',
+    images: [
+      {
+        url: '/brand/og-card-2026-11.png',
+        width: 1200,
+        height: 630,
+        alt: 'Setnayan · Plan any event free. Every photo in one album.',
+        type: 'image/png',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    images: ['/brand/og-card-2026-11.png'],
+  },
+};
+
+// ⚡ NO `revalidate` HERE, ON PURPOSE (speed pass 2026-11-18). This page used to export `revalidate = 300` for ISR, but
+// it AWAITS `searchParams` (`?q=` is a real filter, below) and the front door reads the session, so Next renders it per
+// request and the 300 never did anything: the response is `private, no-cache, no-store` (curl, live da4a079, 18 Nov). The three
+// cron-free `after()` jobs below therefore run on EVERY view, not every 5 minutes; each job throttles itself with
+// its own database claim. `home-carries-the-cron-free-jobs.test.ts` now asserts that the page is request-rendered (or,
+// if it is ever made static again, that it has a revalidation window), so the jobs can never be starved.
+//
+// Making `/` cacheable for signed-out visitors is a real win (TTFB 0.7–0.8 s vs 0.2–0.3 s elsewhere), but it moves the
+// session read and the `?q=` answer to the client, which changes the signed-in path: an owner decision, not a speed fix.
+// Its same-for-everyone row reads are already remembered for 60 s (`lib/home-public-reads-core.ts`); the consented
+// editorials (`loadPublishedShowcases`) are still read on every view.
+
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+).replace(/\/$/, '');
+
+// Homepage JSON-LD graph — the canonical WebSite node + a SoftwareApplication
+// whose featureList enumerates the differentiated capture/media layer so
+// ChatGPT / Perplexity / Claude / Gemini ground on the moat. Facts only — no SKU
+// prices (those drift; /pricing is the source of truth); the free couple
+// baseline is expressed as a single ₱0 Offer.
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  '@id': `${SITE_URL}/#website`,
+  url: `${SITE_URL}/`,
+  name: 'Setnayan',
+  inLanguage: 'en-PH',
+  publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
+  // Sitelinks search box — lets Google surface a search field for the brand
+  // SERP. 2026-11-12: pointed at Discover's own search (`/?q=`) — /explore forwards to `/` now (Find suppliers
+  // moved inside Discover; the drawing's SEO plan: "the search action points at /?q=").
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: `${SITE_URL}/?q={search_term_string}`,
+    },
+    'query-input': 'required name=search_term_string',
+  },
+};
+
+const softwareAppJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  '@id': `${SITE_URL}/#software`,
+  url: `${SITE_URL}/`,
+  name: 'Setnayan',
+  applicationCategory: 'LifestyleApplication',
+  operatingSystem: 'Web, iOS, Android, macOS, Windows',
+  inLanguage: 'en-PH',
+  publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
+  isPartOf: { '@type': 'WebSite', '@id': `${SITE_URL}/#website` },
+  // 🔑 SAME WIDENING AS HOME_DESCRIPTION, and this string matters more than it
+  // looks: it is the machine-readable one-paragraph answer an LLM quotes when
+  // asked "what is Setnayan". It said "wedding platform" while sixteen other
+  // event types were live and enabled.
+  description:
+    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then choose Event Plus or Event Pro for an event — the Setnayan AI planner comes inside both — or add single services priced in PHP: Papic candid photo-and-video capture from the guests' own phones with QR-tagged Memories (free credits on your first event), and Live Watch livestream on the event page. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
+  featureList: [
+    // 🔑 REFRESHED 2026-09-26 (GEO audit) against shipped code, not docs.
+    // "Free" appears only on tools the ₱0 tier includes — `FREE_FOR_ALL_SKUS`
+    // (lib/entitlements.ts) + the /pricing free list. The 2026-06-13 note that
+    // "RSVP is a paid SKU" is retired: RSVP collection is unlimited and free on
+    // the Event Hub, and a QR per guest is `CUSTOM_QR_GUEST` — free. 3D Plan is
+    // free since 2026-09-05. "No guest limit" is measured: nothing in the guest
+    // code caps a list — and it is the one claim the Philippine rivals cannot
+    // make (their free tiers stop at 30–50 guests).
+    // ⚠ NO ROLE COUNT BEYOND "MORE THAN 30" — `GuestRole` has 35 values today.
+    // ⚠ PATIKTOK IS ABSENT — retired 2026-11-20 (lib/retired-products.ts).
+    'Guest list with no guest limit and more than 30 Filipino ceremony roles — principal sponsors (ninong and ninang), candle, veil, cord and coin sponsors, bearers, the wedding party, and Nikah roles (free)',
+    'RSVP with a personal QR code for every guest and a real-time headcount (free)',
+    'Seat plan editor, and 3D Plan — walk your reception in 3D before the day, built from your seat plan (both free)',
+    'Budget tracker in Philippine pesos with payment-deadline calendar export (free)',
+    'Day-of schedule built block by block (free)',
+    'Pakulay mood board (free)',
+    'Event Hub — save-the-date, RSVP, the day’s details and your story laid out like a magazine feature (free, unlimited RSVP)',
+    // Build 6 Lane K: the free credits are on an account's FIRST event only (lib/papic-free-credit-promise.ts), and the
+    // "personal highlight reels" line left with it — reels are Patiktok, which is unlisted until it has run for real.
+    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged Memories (free credits on your first event; credit packs for more)',
+    'Memory lane — the guests’ photos live on a screen at the venue and on their own phones (free)',
+    'Live Watch — day-of livestream to YouTube, embedded on the Event Hub (one camera included; multicam control room as an add-on)',
+    'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (comes with Event Pro and Event Ultra)',
+    // 🪦 Music Maker retired 2026-11-20 (lib/retired-products.ts) — its line left with it.
+    'Logo Maker — your own event logo across invites, the Event Hub, and signage (free; Event Pro animates it)',
+    'Groups — a standing group for your barkada, clan or parish: short stories that disappear after 24 hours, one group chat, and the events you plan together (free)',
+    'Memories — every photo, video, and milestone from the day gathered into one place the host keeps',
+    // ⚠ NO COUNT, DELIBERATELY. "as those event types unlock" was false when
+    // this line was fixed — every row in `event_type_vocab` is already enabled —
+    // and a literal "seventeen" would go false the day the eighteenth ships,
+    // silently, in a machine-readable field. Named examples plus "and more"
+    // stays true in both directions.
+    'The same planning, capture, and memory tools run every event type Setnayan offers — weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes, and more — and your event becomes its own recurring anniversary with a yearly reminder',
+    // Couple-facing: the zero is unqualified here (owner 2026-09-22).
+    'Verified Filipino event supplier marketplace — every supplier passes a business-legitimacy check and a video call with a Setnayan admin; couples pay 0% commission and pay suppliers directly',
+  ],
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'PHP',
+    description:
+      'Free planning workspace with no guest limit and no card required; optional upgrades priced individually in PHP.',
+  },
+};
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  /*
+    ⚠ AWAITING `searchParams` IS A DYNAMIC OPT-OUT. It is read because `?q=`
+    (below) is a real filter carried in the URL, so this page is
+    request-rendered rather than static.
+
+    ⚠ 2026-09-03: the `?c=` chip row (`All`/`Your people`/`Stories`/`Articles`)
+    that used to be the OTHER reason for this await is retired along with the
+    chip bar itself — New uploads/Trending/Shops are never filtered now, so
+    there is no `?c=` param to read any more. `?q=` alone still makes this
+    page dynamic; removing the chip param changes nothing about how `/`
+    renders.
+  */
+  const params = await searchParams;
+  /*
+    `?q=` — the top bar's search now answers HERE, in this page's own body,
+    rather than handing every typed word to the supplier marketplace (owner
+    2026-08-20; see `front-door-results.tsx` for the measured reason).
+
+    🔒 NOTHING ABOUT INDEXING CHANGES: `metadata.alternates.canonical` above is
+    the bare '/', so every `?q=` url canonicalizes to the front page and no
+    thin results page competes with it in search.
+  */
+  const qParam = params.q;
+  const q = Array.isArray(qParam) ? qParam[0] : qParam;
+  /*
+    🔎 SIGNED IN, A SEARCH ANSWERS HERE, ON DISCOVER (owner 2026-10-24: *"we will show the result on the page itself.
+    not a new screen"*; on the hop this used to make to `/dashboard/search`: *"it went to a different page?"*). This
+    page draws the account bar and Discover's own search row for a member now (owner 2026-10-22, "Discover needs to
+    show the bottom nav still"), so a member's `?q=` stays: `FrontDoor` draws the shell's results form in place of the
+    sections, and an empty `q` is Discover itself. Signed out, nothing changes.
+  */
+
+  // Admin morning-digest flush — cron-free, piggybacks on the homepage's
+  // guaranteed public traffic so the digest reaches an admin who isn't in the
+  // console even on a quiet day. Throttled + single-claim + gated OFF by
+  // default internally; uses the service-role client (no cookies → safe in
+  // after()). See lib/admin/digest-flush.ts.
+  after(() => runAdminDigestFlush().catch(() => {}));
+  // Daily email jobs (anniversary digest · renewal reminders · Papic drop
+  // warning) — CRON-FREE: public traffic + a per-job daily DB claim, so they
+  // run even when no admin/vendor is online (replaces the retired crons).
+  after(() => runDailyEmailJobs().catch(() => {}));
+  // Interconnection probes — same cron-free shape, ~4×/day. Reports on the
+  // JOINTS between subsystems (does each booked vendor still reach their desk;
+  // can anyone see the pending song requests) rather than on any one part, which
+  // is where the song desk broke while 8 PRs of part-level checks stayed green.
+  // Verdicts land on /admin/app-performance?tab=interconnections.
+  after(() => maybeRunInterconnectionProbes());
+  // 🔒 The Google connections. Five live grants sat with EXPIRED access tokens
+  // — two since July — because the only thing that renews them was a cron route
+  // nobody schedules. It is also the only writer that seals a token, which is
+  // why the September vault had encrypted zero production rows.
+  after(() => maybeRunOAuthRefresh().catch(() => {}));
+  // 🧽 The face-tagging selfie ends when the event's Papic closes, twelve hours
+  // after the event (owner 2026-09-30) — tags stay. CRON-FREE: a ~30-min DB
+  // claim, carried by admin AND public traffic so a quiet console cannot hold a
+  // guest's selfie past its close. Never throws.
+  after(() => maybeRunPapicCloseSelfieErase().catch(() => {}));
+  // 🔁 The ONE face rescan after an event ends (owner 2026-09-30, "2. a"): every
+  // photo against every registered selfie, before Papic closes. Sliced — a
+  // photo cap + a time budget per ~5-min claim; resumable. Never throws.
+  after(() => maybeRunFaceRescan().catch(() => {}));
+  // ⏳ The owner's own two-admin requests run 24 h after he types the word
+  // (DECISION_LOG 2026-11-13). Public traffic carries it so a request still
+  // runs when he is away from the console. Throttled; never throws.
+  after(() => maybeRunOwnerApprovals().catch(() => {}));
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
+      />
+      {/* 💾 `/auth/sign-out` lands here: no auth cookie → the last-seen store
+          (a host's kept pages) is emptied before anything else runs. */}
+      <LastSeenSignedOutWipe />
+      {/* ↩ Discover is a list the pages it opens return to IN PLACE (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS —
+          PROTOTYPE APPROVED"): this marks the tab, so a shop's, a person's or an event's ‹ is the browser's back and
+          Discover comes back with its filters and scroll (chat/chat-back.tsx `ReturnInPlace`). */}
+      <ChatOriginMark />
+      {/* 🔎 Every parameter, not only `q`: a supplier parameter opens Discover's supplier view (2026-11-12). */}
+      <FrontDoor q={q} params={params} />
+    </>
+  );
+}

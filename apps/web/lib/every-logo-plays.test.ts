@@ -387,7 +387,7 @@ test('6 · the door seals, the event chip and the hero render the PLAYING logo w
 
 test('6 · every page-level screen hands its "animation on" answer down', () => {
   const HANDS = {
-    'app/dashboard/(launcher)/page.tsx': /markPlays=\{markPlays\}[\s\S]*plays=\{markPlays\}/,
+    'app/(hub)/dashboard/page.tsx': /markPlays=\{markPlays\}[\s\S]*plays=\{markPlays\}/,
     'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx': /markPlays=\{markPlays\}/,
     'app/dashboard/[eventId]/layout.tsx': /eventMonogramPlays=\{railMarkPlays\}/,
     'app/dashboard/[eventId]/_components/event-rail-context.tsx': /plays=\{eventMonogramPlays \?\? eventMonogram\.plays\}/,
@@ -424,7 +424,6 @@ const STILL: Record<string, string> = {
   'app/dev/cake-maker-lab/lab.tsx': 'a dev lab’s placeholder inspiration PHOTOS (a drawn cake stand-in as an svg data URI) — no logo at all',
   'app/_components/bespoke-monogram-mark.tsx': 'the still renderer itself — every playing surface hands it in as its `still`',
   'app/_components/gold-monogram-reveal.tsx': 'a reveal animation of its own; the mark is its mask',
-  'app/[slug]/_components/reveal/wax-seal.tsx': 'the mark PRESSED INTO wax (a canvas/WebGL die) — a material impression inside the reveal',
   'app/[slug]/_components/reveal/veil-reveal.tsx': 'the SETNAYAN mark in a WebGL veil texture — not the couple’s logo',
   'app/dashboard/[eventId]/_components/reveal-preview.tsx': 'the reveal preview’s reduced-motion still',
   'app/dashboard/[eventId]/monogram/mark-everywhere.tsx': 'mock-ups of PRINTED, embossed and projected items in a 1.7s montage',
@@ -436,6 +435,7 @@ const STILL: Record<string, string> = {
   'app/_components/qr-card.tsx': 'a QR code (kind 24), not the couple’s logo',
   'app/monogram/public-monogram-studio.tsx': 'the public monogram tool’s download (an export), not a couple’s saved logo',
   'app/dev/hero-lab/page.lab.tsx': 'a dev-only lab',
+  'app/dev/their-event-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` is the stand-in href of the Logo DOWNLOAD row — no logo is drawn on the screen',
   'app/dev/art-kit-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` is a drawn stand-in QR on the sample bank card — not the couple’s saved logo',
   'app/dev/memories-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are drawn gradient stand-ins for kept frames — not the couple’s saved logo',
   'app/dev/photo-privacy-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are gradient stand-ins for a supplier’s album photos — not the couple’s saved logo',

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import Link from 'next/link';
 import { DATE_ANSWER_NOTICE } from '@/lib/date-change';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -16,6 +17,7 @@ import { todayCreditNotice } from '@/lib/vendor-credit-warning';
 import { giftDoorWords, giftShopLine, planGiftOf } from '@/lib/plan-gift';
 import {
   readEventDayFacts,
+  readHasLiveCard,
   readNextEventFacts,
   readTodaySchedules,
   readTodayShopRow,
@@ -81,7 +83,7 @@ import {
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
 import { TodayWelcome } from './_components/today-welcome';
 import { readClaimedWelcome } from '@/lib/claimed-welcome.server';
-import { FIRST_CARD_EDIT_UNREAD, firstCardFrom, firstCardStateFrom, welcomeFrom } from '@/lib/supplier-onboarding';
+import { FIRST_CARD_EDIT_UNREAD, claimCardFrom, confirmedCardState, firstCardFrom, firstCardStateFrom, welcomeFrom } from '@/lib/supplier-onboarding';
 import { SupplierToast } from './_components/supplier-toast';
 import { TodayNextEvents } from './_components/today-next-events';
 import { TodayThumbRow } from './_components/today-thumb-row';
@@ -356,6 +358,10 @@ export default async function VendorOverviewPage({
   const claimedWelcomeP = welcome === 'claimed' ? readClaimedWelcome(createAdminClient(), user.id).catch(() => null) : Promise.resolve(null);
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
+  // ✓ The welcome ticks "and first card" only when a card of this shop is live NOW (`confirmedCardState`) — read only
+  // on `?card=live`, started beside the page's other reads; a refused read is "not live" (no ✓ on a guess).
+  const cardLiveNowP =
+    welcome && firstCardStateFrom(search) === 'live' ? readHasLiveCard(supabase, vendorProfileId) : Promise.resolve(false);
   // 🎁 Setnayan's gifts to this shop (owner 14 Nov 2026) — waiting to be opened, or a plan gift running; the Stay
   // price is the catalogue's. Started here, read at the end; a refusal is drawn as a refusal, never as "no gift".
   const shopGiftsP = readPersonalInvitePlanPrices()
@@ -779,7 +785,7 @@ export default async function VendorOverviewPage({
         readGuestReviewsForVendor(admin, vendorProfileId, { limit: 100 }).catch(() => ({ state: 'refused' }) as const),
         readStorySilenceDays(admin).catch(() => null),
       ]);
-      const ultra = shopRow ? shopRow.tierState === 'enterprise' : null;
+      const ultra = shopRow ? isPaidSize(shopRow.tierState) : null; // story pages are every paid size since 2026-11-22
       const pairs = await Promise.all(
         doneCards.map(async (c) => [c.id, await readWrapUpFacts({ supabase, admin, vendorProfileId, card: c, guestReviews, ultra, silenceDays }).catch(() => null)] as const),
       );
@@ -829,7 +835,8 @@ export default async function VendorOverviewPage({
           kind={welcome}
           shopName={profile.business_name ?? null}
           card={firstCardFrom(search)}
-          cardState={firstCardStateFrom(search)}
+          cardState={confirmedCardState(firstCardStateFrom(search), await cardLiveNowP)}
+          cardNote={claimCardFrom(search)}
           claimed={await claimedWelcomeP}
           shop={shopRow ? { tierState: shopRow.tierState ?? null, verified: shopRow.verified } : null}
           editUnread={search.card_edit === FIRST_CARD_EDIT_UNREAD}

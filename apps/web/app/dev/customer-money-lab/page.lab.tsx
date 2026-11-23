@@ -17,6 +17,9 @@
  *   ?s=noplan     a booking with no plan: the logged ledger instead
  *   ?s=unread     no plan and the ledger read failed — said, never "nothing"
  *
+ *   ?booking=1    Details › "Your booking" (owner 21 Nov 2026) over the SAME fixture and stage (`&s=` as above) — the
+ *                 supplier's own Price · Paid · Left, the next payment and its status (never the hosts' plan)
+ *
  * The answer forms post the REAL actions; pressing them here needs a
  * supplier's session (the lab draws, it does not confirm). Names are samples.
  */
@@ -29,6 +32,10 @@ import { CustomerMoneyFold } from '@/app/vendor-dashboard/clients/[eventId]/_com
 import { awaitsTheSupplier } from '@/lib/payment-refusal';
 import type { BookingMoney } from '@/lib/vendor-cashflow';
 import { bituinPending, bituinSteps, moneyStageOf } from '../suppliers-lab/money-pair';
+import { YourBookingCard } from '@/app/vendor-dashboard/clients/[eventId]/_components/your-booking-card';
+import { clientPaymentView } from '@/lib/client-payment-view';
+import { formatPhp } from '@/lib/php';
+import { yourBookingView } from '@/lib/your-booking';
 
 const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
 
@@ -97,6 +104,33 @@ export default async function CustomerMoneyLabPage({
               180<span className="ml-2 text-sm font-normal text-ink/55">attending of 214 invited</span>
             </p>
           )}
+        </ShopCard>
+      </main>
+    );
+  }
+
+  if (sp.booking === '1') {
+    // 🧾 Details › Your booking — the card as the client page draws it, over the fold's own fixture. Sample amounts.
+    const pay = clientPaymentView({
+      steps: noPlan ? null : bituinSteps(stage),
+      clearedAt: null,
+      ledgerMoney: raw === 'noplan' ? LEDGER : NO_LEDGER,
+      ledgerUnreadable: raw === 'unread',
+    });
+    return (
+      <main className="mx-auto w-full max-w-xl px-4 pb-32 pt-6" data-lab-your-booking={raw}>
+        <p className="text-xs uppercase tracking-[0.14em] text-ink/55">Customer · Details</p>
+        <h1 className="font-display text-[22px] font-medium leading-tight text-ink">Ana &amp; Paolo</h1>
+        <p className="mb-5 mt-0.5 text-sm text-ink/55">Dec 12, 2026 · Quezon City · Catering</p>
+        <ShopCard>
+          <YourBookingCard
+            eventId={LAB_EVENT}
+            view={yourBookingView({
+              pay,
+              quoteLines: raw === 'unread' ? null : noPlan ? undefined : ['Plated dinner for 150', 'Dessert table', 'Coffee cart', 'Service crew'],
+              peso: (php) => formatPhp(php),
+            })}
+          />
         </ShopCard>
       </main>
     );

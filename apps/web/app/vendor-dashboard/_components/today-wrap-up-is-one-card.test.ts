@@ -50,9 +50,9 @@ test('2 · one tap on the shipped dispatcher; a failed share marks nothing', () 
   assert.match(op.slice(share, mark), /Nothing was marked/);
 });
 
-test('3 · every plan shares; only Ultra shows', () => {
+test('3 · every plan shares; every paid size shows (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE")', () => {
   assert.match(CARD, /facts\.ultra \? \([\s\S]*?\) : \([\s\S]*?data-today-wrap-lock=""[\s\S]*?Problem\.[\s\S]*?Solution\./, 'below Ultra the card lost its Problem → Solution');
-  assert.match(STORY, /r\.tier_state === 'enterprise'/, 'the story stopped re-reading the plan');
+  assert.match(STORY, /isPaidSize\(r\.tier_state\)/, 'the story stopped re-reading the plan');
   assert.match(STORY, /\.neq\('couple_decision', 'hidden'\)/, 'a hidden photo still shows in the story');
 });
 

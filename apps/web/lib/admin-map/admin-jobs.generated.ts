@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 332 jobs, 218 of them form-driven, as of 88ce924b89.
+// that performs it. 332 jobs, 218 of them form-driven, as of c7e4a21a1c.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -218,17 +218,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/recaps",
     "fields": [
       "event_id"
-    ],
-    "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
-    "name": "adminTeamAct",
-    "phrase": "admin team act",
-    "ownerPath": "/admin/approvals",
-    "resolvedPath": "/admin/approvals",
-    "fields": [
-      "op"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -1689,6 +1678,20 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": true
   },
   {
+    "name": "rejectRequest",
+    "phrase": "reject request",
+    "ownerPath": "/admin/approvals",
+    "resolvedPath": "/admin/approvals",
+    "fields": [
+      "approval_id",
+      "reason"
+    ],
+    "refusedWhenEmpty": [
+      "approval_id"
+    ],
+    "destructive": true
+  },
+  {
     "name": "rejectSubscription",
     "phrase": "reject subscription",
     "ownerPath": "/admin/subscriptions",
@@ -2793,6 +2796,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/pricing",
     "resolvedPath": "/admin/pricing",
     "fields": [
+      "pricing_formula_op",
       "discount_pct"
     ],
     "refusedWhenEmpty": [],
@@ -3173,6 +3177,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/help",
     "resolvedPath": "/admin/help",
     "fields": [
+      "intent",
       "message_id",
       "status",
       "admin_notes"
@@ -3949,7 +3954,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "onboarding_flow_key",
       "role_set_key",
       "marketplace_enabled_shown",
-      "marketplace_enabled"
+      "marketplace_enabled",
+      "size_shown",
+      "event_size"
     ],
     "refusedWhenEmpty": [],
     "destructive": false

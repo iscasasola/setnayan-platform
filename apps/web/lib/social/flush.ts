@@ -1,4 +1,5 @@
 import 'server-only';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -288,7 +289,7 @@ async function sweepVendorFeatures(admin: AdminClient, now: Date): Promise<void>
     // Same Pro+ derivation as the queue page: tier_state guarded by
     // tier_expires_at because the downgrade sweep is login-driven.
     const proActive =
-      (vendor.tier_state === 'pro' || vendor.tier_state === 'enterprise') &&
+      isPaidSize(vendor.tier_state) && // every paid size since 2026-11-22 (was Pro and Ultra)
       (!vendor.tier_expires_at || new Date(vendor.tier_expires_at).getTime() > now.getTime());
     const categoryLabel = vendor.services?.[0]
       ? displayServiceLabel(vendor.services[0])

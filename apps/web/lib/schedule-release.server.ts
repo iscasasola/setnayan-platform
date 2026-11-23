@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { eventCoupleWebsiteProActive } from './couple-website-pro';
+import { eventProPlanActive } from './couple-website-pro';
 import { eventEntitlementClient } from './event-entitlement-client.server';
 import { asViewed } from './view-as-free.server';
 import { getIapGate } from './request-platform';
@@ -19,7 +19,7 @@ export const RELEASE_NOTICE_TYPE: NotificationType = 'schedule_released';
  * NOTIFICATIONS ONLY"; plan §3, §3b, §4 "Release + announce · Schedule's 🔊 round").
  *
  * 💎 RELEASE IS PRO (§3b, ruled 1 Nov: *"chapters Free · View as and Release Pro"*). It is not an Event Hub part, so
- * the question is the whole of Pro (`eventCoupleWebsiteProActive`, listed in `every-pro-gate-names-its-part.test.ts`),
+ * the question is the Pro PLAN (`eventProPlanActive` — owner 2026-11-19/20: the plan's own perks are Pro's and Ultra's; the whole Hub is Event Plus's; listed in `every-pro-gate-names-its-part.test.ts`),
  * asked through the one host-facing entitlement client (a host or an accepted coordinator — `eventEntitlementClient`).
  *   · `releasePro` — THE GATE at the press: the real answer. A refused read answers Free (the press refuses).
  *   · `readScheduleRelease` — what the 🔊 sheet draws: the release time, and Pro AS THIS VIEWER IS SHOWN IT (`asViewed`
@@ -29,7 +29,7 @@ export const RELEASE_NOTICE_TYPE: NotificationType = 'schedule_released';
  */
 export async function releasePro(eventId: string): Promise<boolean> {
   try {
-    return await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId);
+    return await eventProPlanActive(await eventEntitlementClient(eventId), eventId);
   } catch {
     return false;
   }

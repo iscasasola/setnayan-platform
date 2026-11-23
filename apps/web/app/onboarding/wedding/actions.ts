@@ -1,5 +1,6 @@
 'use server';
 
+import { cleanDateMonths } from '@/lib/event-date-options';
 import { onePickedPlaceName } from '@/lib/onboarding/one-picked-place';
 import { singlePickedWeddingDate } from '@/lib/event-anchor';
 import { LIVE_SHOP_GATE } from '@/lib/live-shops';
@@ -249,7 +250,9 @@ export type OnboardingCommitPayload = {
   budgetBand: string | null;
   /** working-budget amount in centavos (band MAX for pax unless the couple typed/dragged a value) → events.estimated_budget_centavos */
   budgetAmountCentavos: number | null;
-  dateMode: 'specific' | 'window';
+  dateMode: 'specific' | 'window' | 'months';
+  /** 🗓 "Some months" (owner 2026-11-17) → events.date_months. Optional: absent = none. */
+  dateMonths?: string[];
   dateCandidates: string[];
   windowStart: string | null;
   windowEnd: string | null;
@@ -533,7 +536,9 @@ export async function commitOnboardingWedding(
       : null;
 
   // Normalize the onboarding date capture into the v2 columns.
-  const dateMode = payload.dateMode === 'window' ? 'window' : 'specific';
+  // 🗓 "Some months" is stored only when at least one month survives the clean-up — else the shipped two modes.
+  const dateMonths = payload.dateMode === 'months' ? cleanDateMonths(payload.dateMonths ?? []) : [];
+  const dateMode = dateMonths.length > 0 ? 'months' : payload.dateMode === 'window' ? 'window' : 'specific';
   const candidates =
     dateMode === 'specific'
       ? (payload.dateCandidates ?? []).filter(Boolean)
@@ -613,6 +618,7 @@ export async function commitOnboardingWedding(
       venue_latitude: payload.venueLatitude,
       venue_longitude: payload.venueLongitude,
       date_mode: dateMode,
+      ...(dateMonths.length > 0 ? { date_months: dateMonths } : {}),
       date_candidates: weddingDate || !candidates.length ? null : candidates,
       date_window_start: windowStart,
       date_window_end: windowEnd,

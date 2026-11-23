@@ -170,6 +170,7 @@ export function describeEventDate(e: Record<string, unknown>): string | null {
     windowStart: e.date_window_start,
     windowEnd: e.date_window_end,
     days: e.event_days,
+    months: e.date_months, // 🗓 "Some months" (owner 2026-11-17) — said, never "Not set"
   });
   return open ? `Not settled · ${open}` : null;
 }

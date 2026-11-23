@@ -188,11 +188,15 @@ export function specializedToolsUnlockFrom(
  * 💬 The CHATBOT half of that row was re-ruled on 21 Nov (owner: *"AI Chatbot is for verified and up but smarter chatbot
  * is for pro and up"*) — its gate is `PLAN_CHATBOT_LEVEL` in lib/vendor-ai-level.ts, not this file.
  *
- * THE MIRROR of `vendor_pro_tools_included(shop, event)` (migration 20271356215288), held in step by
+ * ⚖ WIDENED 2026-11-22 (owner, "FINAL LADDER": *every tool on every paid size*): the two tools now come with EVERY paid
+ * plan — Plus (128 GB) included — so {@link PRO_TOOLS_MIN_TIER} is `solo`. The grandfather columns stay as they were.
+ *
+ * THE MIRROR of `vendor_pro_tools_included(shop, event)` (migration 20271356215288, widened by the 2026-11-22 ladder
+ * migration), held in step by
  * `tests/db/pro-tools-come-with-pro.db.test.ts`.
  */
 export const PRO_INCLUDED_TOOLS = ['papic_challenge', '3d_plan'] as const satisfies readonly PaidSpecializedTool[];
-export const PRO_TOOLS_MIN_TIER: VendorTier = 'pro';
+export const PRO_TOOLS_MIN_TIER: VendorTier = 'solo';
 
 /** Does this paid tool come with Pro and up only (not with the Specialized tools unlock)? */
 export function isProIncludedTool(tool: string): boolean {
@@ -222,7 +226,7 @@ export function proToolsIncludedFrom(
   if (!facts) return false;
   const tier = facts.tier_state;
   const planLiveNow = !facts.tier_expires_at || liveAt(facts.tier_expires_at, nowMs);
-  if ((tier === 'pro' || tier === 'enterprise') && planLiveNow) return true;
+  if (isTierAtLeast(tier, PRO_TOOLS_MIN_TIER) && planLiveNow) return true;
   const g = grandfather;
   if (!g) return false;
   if (g.pro_tools_plus_until === OPEN_ENDED) {

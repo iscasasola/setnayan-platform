@@ -19,6 +19,7 @@ import { stripComments } from '@/lib/strip-comments';
 import { TIER_CAPS, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 import { formatCount } from '@/lib/format-number';
+import { storageWords } from '@/lib/downgrade-limits';
 import {
   ADDON_TIERS,
   GROW_LINES,
@@ -28,6 +29,8 @@ import {
   foldedLines,
   growLines,
   growSpec,
+  planLine,
+  planStair,
   tierOfPlansRow,
 } from './_components/supplier-front-data';
 
@@ -37,6 +40,7 @@ const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const PAGE_FILES = [
   'app/for-suppliers/_components/supplier-front-page.tsx',
   'app/for-suppliers/_components/supplier-front-client.tsx',
+  'app/for-suppliers/_components/supplier-live-cards.tsx',
   'app/for-suppliers/_components/supplier-front-info.tsx',
   'app/for-suppliers/_components/supplier-how-we-earn.tsx',
   'app/for-suppliers/_components/supplier-how-we-earn-data.ts',
@@ -70,9 +74,15 @@ test('each plan spec is its caps', () => {
     const spec = growSpec(t);
     // 🔓 Reach is not a plan allowance (owner 2026-11-19): no km and no "Nationwide" on any plan's spec.
     assert.doesNotMatch(spec, /\bkm\b|nationwide/i, `${t} still prints a reach: ${spec}`);
-    assert.ok(spec.includes(`${formatCount(c.parentCategories)} categor`), `${t}: ${spec}`);
-    assert.ok(spec.includes(`${formatCount(c.serviceCardsTotal)} service card`), `${t}: ${spec}`);
-    assert.ok(spec.includes(`${formatCount(c.agentAccounts)} team seat`), `${t}: ${spec}`);
+    // 22 Nov "SAME FEATURES IN EVERY SIZE": each spec leads with its size, then the caps — or "no limit" in words.
+    assert.ok(spec.startsWith(storageWords(c.storageBytes ?? 0)), `${t} does not lead with its size: ${spec}`);
+    assert.doesNotMatch(spec, /Infinity|—/, `${t} prints a no-limit cap as a symbol: ${spec}`);
+    if (Number.isFinite(c.serviceCardsTotal)) {
+      assert.ok(spec.includes(`${formatCount(c.serviceCardsTotal)} service card`), `${t}: ${spec}`);
+      assert.ok(spec.includes(`you and ${formatCount(c.agentAccounts)} more`), `${t}: ${spec}`);
+    } else {
+      assert.ok(spec.includes('no limit on cards, people or branches'), `${t}: ${spec}`);
+    }
   }
 });
 
@@ -85,9 +95,10 @@ test('every Grow line still finds its Plans-page row, and sits under exactly one
   assert.ok(tierOfPlansRow(/^Market Intelligence/), 'anti-vacuity: the Market Intelligence row is gone from the Plans page');
 });
 
-test('Verified names the papers it asks for, and the add-ons name who may buy them', () => {
+test('Verified names the papers it asks for, and the add-ons name who may buy them — nobody, since 2026-11-22', () => {
   assert.equal(VERIFIED_PAPERS.length, REQUIRED_DOC_COUNT, 'the Verified step lists a different number of papers than verification asks for');
-  assert.ok(ADDON_TIERS.length > 0, 'no plan may buy an extra branch and seat — the add-on block would be a promise nobody can take');
+  // Owner 2026-11-22 "FINAL LADDER": no add-ons — Pro and Ultra have no seat or branch limit, so nobody buys one.
+  assert.equal(ADDON_TIERS.length, 0, 'a plan is offered an extra seat or branch');
   for (const t of GROW_TIERS) assert.equal(ADDON_TIERS.includes(t), canBuyExtraBranches(t) && canBuyExtraSeats(t), t);
 });
 
@@ -115,11 +126,46 @@ test('the page says nothing the brief forbids', () => {
   }
 });
 
-test('owner 20 Nov: the 3D booth logo and Papic Challenges sit under Pro, never Plus, and nothing calls the booth an add-on', async () => {
+test('owner 2026-11-22: every tool on every paid size — the 3D booth logo and Papic Challenges are named once, from Plus, and nothing calls the booth an add-on', async () => {
   const { growLines } = await import('./_components/supplier-front-data');
   const words = (t: 'solo' | 'pro' | 'enterprise') => growLines(t).map((l) => l.text + (l.tail ?? '')).join(' | ');
-  assert.doesNotMatch(words('solo'), /3D seat plan|All specialized tools/);
-  assert.match(words('pro'), /3D seat plan/);
-  assert.match(words('pro'), /Papic Challenges|All specialized tools/);
+  assert.match(words('solo'), /3D seat plan/);
+  assert.match(words('solo'), /Papic Challenges|All specialized tools/);
+  assert.doesNotMatch(words('pro'), /3D seat plan/, 'Pro repeats a line Plus already gives');
   for (const t of ['solo', 'pro', 'enterprise'] as const) assert.doesNotMatch(words(t), /add-on\)/);
+});
+
+test('owner via controller 22 Nov: a plan is never its size alone — Free and Verified cards say what they hold, with the size', () => {
+  assert.equal(planLine('free'), 'Run your own clients, 1 live service, just you, main shop only, and 256 MB.');
+  assert.equal(planLine('verified'), 'On the marketplace with the basics, 3 live services, just you, main shop only, and 2 GB.');
+  // 23 Nov redraw (plans as growth stairs): every card — Free and Verified too — is its size AND its facts, from `planStair`.
+  const page = code('app/for-suppliers/_components/supplier-front-page.tsx');
+  assert.match(page, /STAIR_TIERS\.map\(\(t\) => \{\s*const step = planStair\(t\)/, 'a plan card is drawn from something other than its read facts');
+  for (const t of ['free', 'verified'] as const) {
+    const st = planStair(t);
+    assert.equal(st.size, storageWords(TIER_CAPS[t].storageBytes!), `${t}: the card lost its size`);
+    assert.ok(st.services.lead && st.people.text && st.branches.text, `${t}: the card is a slogan again`);
+  }
+  const coord = code('app/(shell)/for-coordinators/page.tsx');
+  assert.match(coord, /\{planLine\('free'\)\}/);
+  assert.match(coord, /\{planLine\('verified'\)\}/);
+});
+
+test('owner 23 Nov "this is not our agreed service card": the samples wear Card 14, the mall face (approved 20 Nov, #8070)', () => {
+  // /for-suppliers draws its samples in the live cards (redraw 23 Nov); /for-coordinators still draws the still row.
+  const SLOTS: Record<string, readonly string[]> = {
+    'app/for-suppliers/_components/supplier-live-cards.tsx': ['city=', 'rating=', 'mallPrice={band}', 'medals=', 'lines={<SampleDateFit fit={fit} />}', 'distance={km}', 'aboutKmLine(', 'mallPrice({'],
+    'app/(shell)/for-coordinators/page.tsx': ['city=', 'rating=', 'price=', 'priceNote=', 'medals=', 'lines={<SampleDateFit />}', 'distance={aboutKmLine('],
+  };
+  for (const [rel, slots] of Object.entries(SLOTS)) {
+    const src = code(rel);
+    const faces = src.match(/<ServiceFace\b[^>]*?layout="(\w+)"/gs) ?? [];
+    assert.ok(src.includes('<ServiceFace'), `${rel} draws no sample card`);
+    assert.equal((src.match(/<ServiceFace\b/g) ?? []).length, faces.length, `${rel}: a sample card has no layout — the old row face`);
+    for (const f of faces) assert.match(f, /layout="mall"/, `${rel}: a sample is not Card 14`);
+    assert.doesNotMatch(src, /includesLineOf|notIncluded=/, `${rel}: Includes / Not included live in the opened card, not on the face`);
+    // Owner 23 Nov: "load up the sample cards. we want to show if the details were complete." — every Card 14 slot.
+    for (const slot of slots) assert.ok(src.includes(slot), `${rel}: a sample card is missing ${slot}`);
+  }
+  assert.doesNotMatch(code('app/for-suppliers/_components/supplier-front-page.tsx'), /<ServiceFace\b/, 'the still sample row is back beside the live cards');
 });

@@ -78,6 +78,9 @@ type Site = {
 
 const SITES: Record<string, Site> = {
   [INFO_TIP]: { why: 'THE house ⓘ — the source of LOOK.' },
+  'app/_components/chat/cards/quote-terms-line.tsx': {
+    why: 'the quote card’s terms line is a <details> whose whole 44-px line is the press and opens the exact words IN the card under it (Unichat part H2)',
+  },
   'app/_components/explain.tsx': {
     why: 'the explanation template (a 44-px button; a centred popup on a phone) — its mark is InfoTip’s, inside that button',
     colours: 'template',
@@ -85,7 +88,7 @@ const SITES: Record<string, Site> = {
   'app/dashboard/[eventId]/schedule/_components/day-ui.tsx': {
     why: 'InfoTip PRINTS its label; every ⓘ on the day rail sits beside a label its caller already prints',
   },
-  'app/dashboard/(launcher)/page.tsx': {
+  'app/(hub)/dashboard/page.tsx': {
     why: 'the My Events shelf ⓘ is a server-rendered <details> so it opens with JavaScript off, on a venue’s bad signal',
   },
   'app/onboarding/_shared/setup-card.tsx': { why: 'it opens its line IN the page under the title, not a hover note' },
@@ -93,6 +96,9 @@ const SITES: Record<string, Site> = {
     why: 'the /for-coordinators ⓘ (approved drawing 2026-11-20) is a server-rendered <details> that opens its words IN the page under the line — the page ships no script',
   },
   'app/[slug]/_components/selfie-capture.tsx': { why: 'a 44-px button that opens the face-step details sheet' },
+  'app/_components/help-ask/page-info-sheet.tsx': {
+    why: 'a page’s ⓘ — a 44-px round in its pinned row that opens the page’s help SHEET (Show me · Answers · the guide; Guide & Help drawing, approved 21 Nov 2026), not a hover note or a centred popup',
+  },
   'app/_components/chat/cards/card-bits.tsx': { why: 'a chat card’s 44-px ⓘ button that opens that card’s details sheet (Unichat part C)' },
   'app/for-suppliers/_components/supplier-front-info.tsx': {
     why: 'the approved /for-suppliers page (2026-11-06) opens its ⓘ words IN the page under the section, from a labelled pill — not a hover note or a popup',

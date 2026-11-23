@@ -208,7 +208,7 @@ test('3 · ART_KIT_IS_PRO is the one gate — both values hold on the guest page
   assert.deepEqual(hubDraftProEffects(mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { scene_accents: { countdown: 'narra-columns' } } } }), live, true), [], 'an owning couple was asked');
 
   const loaders = stripComments(read('app/[slug]/_lib/loaders.ts'));
-  assert.match(loaders, /const proWatermarkHiddenAhead = startAhead\(websiteProActiveFor\(event\.event_id\)\);/);
+  assert.match(loaders, /const proWatermarkHiddenAhead = startAhead\(proPlanActiveFor\(event\.event_id\)\);/);
   assert.match(stripComments(read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx')), /tryPro=\{ART_KIT_IS_PRO && !ownsPro\}/, 'the Accent row is not ◆ through the one constant');
 });
 
@@ -271,11 +271,11 @@ test('6 · the seal’s tap unveils — deaf to the pointer, over the veil’s o
   assert.ok(artKitCss(VIEW).includes('[data-kit-slot]{pointer-events:none}'), 'the seal is no longer deaf to the pointer');
 
   const overlay = stripComments(read('app/[slug]/_components/reveal/reveal-overlay.tsx'));
-  const veil = overlay.slice(overlay.indexOf('if (veil) {'), overlay.indexOf('data-veil-hint'));
+  const veil = overlay.slice(overlay.indexOf('if (veil && !reducedMotion) {'), overlay.indexOf('data-veil-hint'));
   assert.ok(veil.includes('<VeilReveal') && veil.indexOf('{kitSeal}') > veil.indexOf('<VeilReveal'), 'the seal is not drawn over the veil');
   assert.match(veil, /data-veil-seal=""\s+className=\{`pointer-events-none absolute/);
   const reveal = stripComments(read('app/[slug]/_components/reveal/veil-reveal.tsx'));
-  assert.match(reveal, /if \(dur < 300 && net < 18\) \{\s+if \(!locked && liftTarget < 1\) \{\s+unveil\(\);/, 'a tap on the veil no longer unveils');
+  assert.match(reveal, /if \(gesture === 'tap'\) \{\s+if \(!locked && liftTarget < 1\) \{[\s\S]*?unveil\(\);/, 'a tap on the veil no longer unveils');
   assert.match(reveal, /ref=\{grabRef\}\s+className="absolute inset-x-0 top-0 bottom-0"/, 'the veil’s hit-zone no longer covers the screen under the seal');
 });
 

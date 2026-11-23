@@ -72,7 +72,7 @@ test('a guest with ONE invited event is never auto-jumped into a dashboard', () 
 });
 
 test('🔒 the board card takes its door from eventBoardHref, never a hand-built /dashboard path', () => {
-  const page = read('app/dashboard/(launcher)/page.tsx');
+  const page = read('app/(hub)/dashboard/page.tsx');
   assert.match(page, /const href = eventBoardHref\(event\);/, 'the card stopped asking the one resolver');
   assert.match(page, /const resolvedHref = storyHref \?\? href;/);
 });

@@ -110,14 +110,24 @@ test('the presign refusal carries a code, or the client queues it silently', () 
       'so the photographer believes the photo was taken.',
   );
 
-  const client = readFileSync(
-    join(process.cwd(), 'app/papic/seat/[token]/_components/papic-seat-capture.tsx'),
-    'utf8',
-  );
+  // 📷 ONE CAMERA (owner 2026-11-22): a seat now sends on the one camera's seat lane. Its window refusal must still
+  // arrive BY NAME — the lane maps it to the uploader's 'kept' verdict (kept on the phone, said in words), never to
+  // a retry that reads as a network blip or to a photograph that landed.
+  const lane = readFileSync(join(process.cwd(), 'lib/papic-seat-lane.ts'), 'utf8');
   assert.match(
-    client,
-    /code === 'capture_not_started' \|\| code === 'capture_window_closed'/,
-    'the client must re-throw window codes by name so they reach PAPIC_TERMINAL_ERRORS ' +
-      'instead of becoming a retryable Error("presign")',
+    lane,
+    /case 'capture_not_started':\s*case 'capture_window_closed':[\s\S]{0,240}return \{ status: 403, error: code \};/,
+    'the seat lane no longer answers a window refusal by name',
+  );
+  const schedule = readFileSync(join(process.cwd(), 'lib/papic-upload/schedule.ts'), 'utf8');
+  const kept = /export const KEPT_REFUSALS[\s\S]*?\]\);/.exec(schedule)?.[0] ?? '';
+  for (const code of ['capture_not_started', 'capture_window_closed']) {
+    assert.ok(kept.includes(`'${code}'`), `${code} is not a kept refusal — the uploader would retry it as a network failure`);
+  }
+  const camera = readFileSync(join(process.cwd(), 'app/papic/guest/_components/papic-guest-capture.tsx'), 'utf8');
+  assert.match(
+    camera,
+    /if \(isPapicWindowRefusalCode\(code\)\) return papicSeatCaptureWindowRefusalMessage\(code, media, null\);/,
+    'the seat camera no longer says the window in words',
   );
 });

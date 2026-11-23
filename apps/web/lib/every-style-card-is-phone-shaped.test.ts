@@ -292,7 +292,7 @@ test('inside the toolbar’s Style card the part is shown WHOLE — centred, sca
 test('the Reveal’s card is the same drawing at the frame’s shape — never new artwork', async () => {
   const { revealPictureHtml, REVEAL_PICTURE_PX } = await import(`../${LAUNCH}/stage-panel/reveal-picture`);
   const c = { dominant: '#5B4A6B', supporting: '#D9C4CF', accent: '#A9834B', neutral: '#F7F2EC' };
-  for (const kind of ['four-flap', 'two-flap-vertical', 'two-flap-horizontal', 'church-doors', 'veil-sheer']) {
+  for (const kind of ['veil-sheer', 'beach-curtains', 'envelope-classic', 'envelope-gatefold', 'fabric', 'scratch', 'smoke', 'cathedral-doors', 'petals', 'fireworks']) {
     const own = revealPictureHtml(kind, c);
     const fill = revealPictureHtml(kind, c, REVEAL_PICTURE_PX.w, REVEAL_PICTURE_PX.h, true);
     assert.match(own, /position:relative;width:150px;height:96px/, `${kind}: the page’s own stub changed size`);
@@ -305,7 +305,7 @@ test('the Reveal’s card is the same drawing at the frame’s shape — never n
   assert.match(reveal, /<RevealPicture kind=\{id\} colours=\{look\.colours\} fill over \/>/);
   /* Over the couple's real cover (2026-10-17): a rigid opening is the very same pieces; None draws nothing; the Sheer
      veil is its cloth and stripes, see-through, filling the frame. */
-  for (const kind of ['four-flap', 'two-flap-vertical', 'two-flap-horizontal', 'church-doors']) {
+  for (const kind of ['beach-curtains', 'envelope-classic', 'envelope-gatefold', 'fabric', 'scratch', 'smoke', 'cathedral-doors', 'petals', 'fireworks']) {
     assert.equal(revealPictureHtml(kind, c, REVEAL_PICTURE_PX.w, REVEAL_PICTURE_PX.h, true, true), revealPictureHtml(kind, c, REVEAL_PICTURE_PX.w, REVEAL_PICTURE_PX.h, true), `${kind}: over the cover it is other artwork`);
   }
   assert.equal(revealPictureHtml('none', c, 150, 96, true, true), '');

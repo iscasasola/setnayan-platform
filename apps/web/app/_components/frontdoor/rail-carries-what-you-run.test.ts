@@ -152,7 +152,8 @@ test('Your Story is retired from the rail, and is NOT gated where it moved', () 
   );
   assert.match(
     switcher,
-    /const helpHref = supplierSheet \? '\/vendor-dashboard\/help' : referEvent \? `\/help\?refer=\$\{referEvent\}` : '\/help';/,
+    // 13 Nov 2026: a shop's sheet opens the shop's own ask-first Help (`/help?for=shop`, "Help coverage = active account").
+    /const helpHref = here === 'admin' \? '\/admin\/help\/guides' : supplierSheet \? '\/help\?for=shop' : referEvent \? `\/help\?refer=\$\{referEvent\}` : '\/help';/,
     'the account sheet no longer opens Help — and Help is where Your Story moved.',
   );
   assert.match(switcher, /href=\{helpHref\}/, 'the Help tile is not drawn from helpHref');

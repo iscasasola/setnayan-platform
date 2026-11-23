@@ -6,35 +6,47 @@ import { RowIcon, TodayEyebrow } from './supplier-today-first-screen';
 /**
  * 🗂 One row per event this supplier RUNS as the hosts' coordinator (owner "approved", 2026-10-28; prototype
  * `coordinator_door_2026-10-28` frames A and B): the round mark · the couple's names · the event line · what the day
- * is to them (in the accent) · **Open ›** into the couple's own event dashboard.
+ * is to them (in the accent) — and, since 2026-11-21 (`their_event_door_2026-11-21`, frame "1 · Events you run"), three
+ * buttons: **Dashboard · Chats · Hub**.
  *
  * The SAME row on Today ("Events you run", `line` = "… · Coordinator") and on the Events tab (`placeLine` = "… ·
- * the venue"). A hairline row like every Today row — no frame; the whole row is the door (≥ 44 px).
+ * the venue"). A hairline row like every Today row — no frame; the names open the dashboard, each button is ≥ 44 px.
  * Rows are handed in ALREADY live (`eventsYouRun` in `lib/events-you-run.ts`); this draws, it never decides.
  */
 export function EventsYouRunRows({ events, where }: { events: readonly EventYouRun[]; where: 'today' | 'events' }) {
   return (
-    <div className="[&>a:first-child]:border-t-0" data-events-you-run={where}>
+    <div className="[&>div:first-child]:border-t-0" data-events-you-run={where}>
       {events.map((e) => (
-        <Link
-          key={e.eventId}
-          href={e.href}
-          data-event-you-run={e.eventId}
-          className="home-row min-h-11 !grid-cols-[36px_minmax(0,1fr)_auto]"
-        >
+        <div key={e.eventId} data-event-you-run={e.eventId} className="home-row min-h-11 !grid-cols-[36px_minmax(0,1fr)]">
           <RowIcon name="run" />
           <span className="min-w-0">
-            <span className="home-t block truncate text-[15px] leading-tight text-ink">{e.name}</span>
-            <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]">{where === 'today' ? e.line : e.placeLine}</span>
-            <span className="block truncate text-[13px] text-sn-accent" data-needs="">{e.needs}</span>
+            <Link href={e.href} className="block min-w-0">
+              <span className="home-t block truncate text-[15px] leading-tight text-ink">{e.name}</span>
+              <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]">{where === 'today' ? e.line : e.placeLine}</span>
+              <span className="block truncate text-[13px] text-sn-accent" data-needs="">{e.needs}</span>
+            </Link>
+            {/* 🧭 Dashboard · Chats · Hub (owner 2026-11-21, controller call (2)) — three doors, each ≥ 44 px. */}
+            <span className="mt-1.5 flex flex-wrap gap-2" data-run-buttons="">
+              <RunButton href={e.href} label="Dashboard" data="dashboard" />
+              <RunButton href={e.chatsHref} label="Chats" data="chats" />
+              <RunButton href={e.hubHref} label="Hub" data="hub" />
+            </span>
           </span>
-          <span className="inline-flex items-center gap-0.5 text-[14px] font-medium text-sn-accent">
-            Open
-            <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-          </span>
-        </Link>
+        </div>
       ))}
     </div>
+  );
+}
+
+function RunButton({ href, label, data }: { href: string; label: string; data: string }) {
+  return (
+    <Link
+      href={href}
+      data-run-button={data}
+      className="inline-flex min-h-11 items-center rounded-full border border-[color:var(--m-line,rgba(0,0,0,0.12))] px-4 text-[14px] font-medium text-sn-accent"
+    >
+      {label}
+    </Link>
   );
 }
 

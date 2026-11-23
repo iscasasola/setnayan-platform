@@ -9,7 +9,7 @@
  * Held here, each at the grain it can be held:
  *   1. the Discover row's every navigation keeps the page it stands on — only `?q=` changes (`stayOnPageSearchHref`,
  *      executed), and the row reaches no other destination (source);
- *   2. `/?q=` for a member is not sent anywhere — `app/page.tsx` redirects nothing, and `FrontDoor` draws the results
+ *   2. `/?q=` for a member is not sent anywhere — `app/(hub)/page.tsx` redirects nothing, and `FrontDoor` draws the results
  *      in the sections' place, under the same row, in the shell's form;
  *   3. AN EMPTY QUERY IS DISCOVER, NEVER A BLANK PAGE — `FrontDoor` trims and draws the feed for no words, and the old
  *      results address with no words goes to `/` before it draws anything; the "search at the top" sentence is gone;
@@ -67,7 +67,7 @@ test('1 · the Discover row reaches no other destination', () => {
 });
 
 test('2 · a member’s /?q= stays on / and draws the results in the sections’ place', () => {
-  assert.doesNotMatch(code('app/page.tsx'), /redirect\(/, 'app/page.tsx sends a search somewhere else again');
+  assert.doesNotMatch(code('app/(hub)/page.tsx'), /redirect\(/, 'app/(hub)/page.tsx sends a search somewhere else again');
   const fd = code('app/_components/frontdoor/front-door.tsx');
   assert.match(fd, /<DiscoverThumbRow key=\{searchQuery\} q=\{searchQuery\} \/>/, 'the row is not redrawn with the words it searched');
   // 2026-11-12: the supplier view (a supplier parameter on `/`) is tested first, so the search branch now follows

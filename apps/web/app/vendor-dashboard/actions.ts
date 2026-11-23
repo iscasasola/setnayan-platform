@@ -1056,7 +1056,7 @@ function websiteFieldPatch(
   // custom slug (Pro/Enterprise). The UI hides them for lower tiers; this is
   // the server-side backstop.
   if (PRO_WEBSITE_FIELDS.has(field) && vendorPaywallApplies(caps.premiumPage)) {
-    return { ok: false, error: 'This is part of Supplier Pro. Pick Supplier Pro on the Plans page to save it.' };
+    return { ok: false, error: 'This is part of every paid plan. Pick a plan on the Plans page to save it.' };
   }
 
   // ENTERPRISE gate — the video portfolio is a Flagship differentiator. UI hides
@@ -1067,7 +1067,7 @@ function websiteFieldPatch(
   ) {
     return {
       ok: false,
-      error: 'Video portfolio is part of Supplier Ultra. Pick Supplier Ultra on the Plans page to add films.',
+      error: 'Video portfolio is part of every paid plan. Pick a plan on the Plans page to add films.',
     };
   }
 

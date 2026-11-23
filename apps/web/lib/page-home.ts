@@ -180,6 +180,11 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // 🤝 Another supplier's invite link (Invite a supplier v3): a door reached from a shared link or QR — like the
   // supplier claim door, its way out is signing in.
   '/i/[slug]': { home: '/login' },
+  // 📘 Help's topic and guide pages (Guide & Help drawing, approved 21 Nov 2026) go back to Help — in place, so a guide
+  // opened from a topic or a page's ⓘ returns there; cold, to Help.
+  '/help/topics': { home: '/help', label: 'Help' },
+  '/help/topics/[key]': { home: '/help', label: 'Help' },
+  '/help/guides/[key]': { home: '/help', label: 'Help' },
 
   /* ── sign in ──────────────────────────────────────────────────────────────────────────────────────── */
   // A password reset belongs to signing in (audit ✅).
@@ -258,6 +263,9 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // One-link pages sent by email or QR — nothing behind them.
   '/receipts/[receiptId]': { none: 'token' },
   '/receipts/order/[orderId]': { none: 'token' },
+  // The supplier-payment receipt is opened from the hosts' chat with that supplier: its ‹ goes back to THAT chat,
+  // which only the payment's own row names — worked out per visit by the page.
+  '/receipts/payment/[paymentId]': { none: 'computed', by: 'app/receipts/payment/[paymentId]/page.tsx' },
   '/vendor-invite/[slug]': { none: 'token' },
   '/vendor/fit/[ref]': { none: 'token' },
   '/demo-capture/[slug]': { none: 'token' },
@@ -276,6 +284,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/vendor-dashboard/booking-fees/[orderId]': { home: '/vendor-dashboard/booking-fees', label: 'Booking fees' },
   // Clients and Messages became folds of Customers; both old rooms are redirect stubs (audit ❌ ×2, fixed).
   '/vendor-dashboard/clients/[eventId]': { home: '/vendor-dashboard/customers' },
+  // 🚪 One part of "Their event" (2026-11-21) — its ✕ Close goes back to the supplier's chat with the hosts.
+  '/vendor-dashboard/clients/[eventId]/their-event/[part]': { home: '/vendor-dashboard/clients/[eventId]' },
   // A supplier's chat is ONE EVENT's chat. ‹ returns IN PLACE to whichever list opened it (Chats or Customers › Events —
   // `ReturnInPlace`, chat-back.tsx); a deep link with nothing behind it goes to Chats, the supplier's full-screen inbox
   // (owner 2026-11-06: "Why is it still jumping to customer events"). `/vendor-dashboard/messages` itself needs no line:

@@ -81,7 +81,7 @@ test('fixture: a declaration fills an unmapped screen and loses to a table read'
     writeFileSync(join(root, rel), body);
   };
   try {
-    put('app/page.tsx', 'export default function P() { return (<main><a href="/door">d</a><a href="/reads">r</a></main>); }\n');
+    put('app/(hub)/page.tsx', 'export default function P() { return (<main><a href="/door">d</a><a href="/reads">r</a></main>); }\n');
     put('app/door/page.tsx', 'export default function P() { return (<main />); }\n');
     put('app/reads/page.tsx', "export const q = (s: any) => s.from('guests');\nexport default function P() { return (<main />); }\n");
     const map = scanScreens({

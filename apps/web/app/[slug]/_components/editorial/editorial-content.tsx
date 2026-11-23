@@ -20,6 +20,7 @@
 // ============================================================================
 
 import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { Printer } from 'lucide-react';
 import { startAhead } from '@/lib/start-ahead';
 import { ServerTimer } from '@/lib/server-timing';
@@ -48,7 +49,7 @@ import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { storyAudienceAdmits, STRANGER, type StoryViewer } from '@/lib/who-can-see-your-story';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventProPlanActive } from '@/lib/couple-website-pro';
 import { eventWordsForEvent, type EventWords } from '../../_lib/event-words';
 import {
   resolveEventMonogram,
@@ -436,7 +437,7 @@ export async function EditorialContent({
   const hideWatermarkRead: Promise<boolean> = (async () => {
     if (!isSample) {
       try {
-        return await eventCoupleWebsiteProActive(createAdminClient(), eventId);
+        return await eventProPlanActive(createAdminClient(), eventId); // 💎 the watermark is the Pro PLAN's (2026-11-19)
       } catch {
         return false;
       }
@@ -780,7 +781,7 @@ export async function EditorialContent({
     <div key={`ultra-${album.vendorProfileId}`} data-story-screen="">
       <UltraSupplierScene
         album={album}
-        supplier={supplierViews.find((v) => v.tier === 'enterprise' && v.name === album.name) ?? null}
+        supplier={supplierViews.find((v) => isPaidSize(v.tier) && v.name === album.name) ?? null}
         index={i + 1}
         of={ultraAlbums.length}
         names={data.firstNames}

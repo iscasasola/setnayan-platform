@@ -30,6 +30,14 @@ let db: ReplayResult['db'];
 before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
+  // ⚠ DORMANT ARM, KEPT PROVEN. No yearly supplier plan is on sale since owner 2026-11-22 ("no yearly for any supplier
+  // subscription"; migration 20271360321657 retires the three *_vendor_annual rows). `create_vendor_subscription`
+  // still carries its 365-day arm and the term rule built on it, so THIS test database — and only it — puts the
+  // yearly rows back on sale to keep that arm and the term rule under test. Production never runs this.
+  await db.query(
+    `UPDATE public.vendor_billing_catalog SET is_active = TRUE
+      WHERE sku_code IN ('solo_vendor_annual','pro_vendor_annual','enterprise_vendor_annual')`,
+  );
 });
 
 after(async () => {

@@ -163,7 +163,9 @@ test('the guest wall mirror closes on a put-away celebration', () => {
 ─────────────────────────────────────────────────────────────────────────────*/
 
 const GUEST_CAM = join(APP, 'papic', 'guest', '_components', 'papic-guest-capture.tsx');
-const SEAT_CAM = join(APP, 'papic', 'seat', '[token]', '_components', 'papic-seat-capture.tsx');
+// 📷 ONE CAMERA (owner 2026-11-22): a seat shoots on the guest camera, which shows a seat's put-away refusal through
+// its own seat wording (`seatKeptMessage`) — that is the seat's reader of the sentence now.
+const SEAT_CAM = join(APP, 'papic', 'guest', '_components', 'papic-guest-capture.tsx');
 const DECORATOR = join(APP, 'papic', 'decorate', '_components', 'kwento-decorator.tsx');
 const DRAIN = join(HERE, 'offline', 'service-handlers', 'papic-drain.ts');
 
@@ -178,6 +180,12 @@ test('the put-away sentence has readers — it is rendered, not merely declared'
         `did not save.`,
     );
   }
+  // …and a SEAT's kept shot reaches it through the seat's own wording, not only a guest's.
+  assert.match(
+    code(SEAT_CAM),
+    /function seatKeptMessage[\s\S]{0,600}if \(code === 'event_put_away'\) return EVENT_PUT_AWAY_CAPTURE_COPY;/,
+    'a seat camera no longer tells its photographer the event was put away',
+  );
 });
 
 test('put-away and the window KEEP the guest’s shot — only blocked ends one', async () => {

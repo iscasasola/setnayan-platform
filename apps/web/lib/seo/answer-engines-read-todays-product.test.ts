@@ -113,7 +113,7 @@ test('the supplier plans in llms.txt are Lane J’s plan table, cell for cell, u
   const body = renderOn();
   assert.ok(body.includes(`| | ${TABLE_TIERS.map(tableTierName).join(' | ')} |`), 'the plan header is not Free · Plus · Pro · Ultra');
   assert.equal(TABLE_TIERS.map(tableTierName).join(' · '), 'Free · Plus · Pro · Ultra');
-  const groups = planTable({ paywallOn: false, prices: { monthly: {}, annual: {}, bySku: {} } });
+  const groups = planTable({ paywallOn: false, prices: { monthly: {}, bySku: {} } });
   for (const g of groups) {
     for (const r of g.rows) {
       assert.ok(body.includes(`| ${g.title} · ${r.label} |`), `llms.txt lost the plan row "${g.title} · ${r.label}"`);
@@ -189,7 +189,7 @@ test('every public route the audit knows is listed in a sitemap', () => {
 
 // SABOTAGE: put "Event Pro’s Logo & QR part" back in the homepage featureList → RED.
 test('the homepage structured data names no retired product', () => {
-  const src = code('app/page.tsx');
+  const src = code('app/(hub)/page.tsx');
   const start = src.indexOf('const softwareAppJsonLd');
   const end = src.indexOf('export default');
   assert.ok(start >= 0 && end > start, 'the homepage JSON-LD moved — re-point this guard');

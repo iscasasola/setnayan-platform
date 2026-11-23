@@ -277,11 +277,14 @@ export function TeamInviteDoor({
  */
 export function SupplierInviteDoor({
   inviterName,
+  category = null,
   createHref,
   existing,
   note,
 }: {
   inviterName: string;
+  /** PC7 — the inviter's main service, named ("Coordination"); null draws the name alone. */
+  category?: string | null;
   createHref: string | null;
   existing: ReactNode;
   /** A plain line under the buttons (a refusal, "your own link", …). */
@@ -301,7 +304,10 @@ export function SupplierInviteDoor({
     >
       <article className="space-y-6" data-claim-door="supplier-invite">
         <section className="grid gap-1.5 rounded-2xl border border-ink/10 p-4" data-supplier-invite-card="">{/* no-card-ok: the owner-approved PC7 shop card (drawing 36jmQMWrANcgd2HxihAUw5, 19 Nov) */}
-          <b className="text-[15px] font-semibold text-ink [overflow-wrap:anywhere]">{inviterName}</b>
+          <b className="text-[15px] font-semibold text-ink [overflow-wrap:anywhere]">
+            {inviterName}
+            {category ? <span className="font-normal text-ink/60" data-supplier-invite-category=""> · {category}</span> : null}
+          </b>
           <span className="text-sm text-ink/70">Joining makes you partners at once</span>
           <span className="text-sm text-ink/70">Free. Tools for your own clients.</span>
         </section>

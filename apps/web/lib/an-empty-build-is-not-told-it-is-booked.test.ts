@@ -34,11 +34,14 @@ test('the button asks the rule, and its toast wears the rule’s tone', () => {
   assert.match(src, /<PeekToast key=\{toast\} tone=\{toastTone\}/, 'the toast is a fixed ✓ again');
 });
 
-test('both callers say how many lines are in the build', () => {
-  for (const p of ['app/dashboard/[eventId]/vendors/page.tsx', 'app/dev/suppliers-lab/lab-build.tsx']) {
-    const src = read(p);
-    const at = src.indexOf('<BookThisBuild');
-    assert.ok(at >= 0, `${p} no longer draws BookThisBuild`);
-    assert.match(src.slice(at, at + 400), /inBuild=\{[^}]*\.filter\(\(l\) => l\.pick \|\| l\.booked\)\.length\}/, `${p} does not pass inBuild`);
-  }
+test('the real page has no Book-this-build any more (owner 2026-11-17) — and the lab still passes how many lines are in it', () => {
+  // 🛒 Drawing v15: "Book this build and its sheet go. Each supplier gets one 'Ask to book' on its card instead." With no
+  // button there is no ✓ to say over an empty build; a pick asks only when there IS one (`askable`).
+  const page = read('app/dashboard/[eventId]/vendors/page.tsx');
+  assert.doesNotMatch(page, /<BookThisBuild\b/, 'Book this build is back on the Suppliers page');
+  const body = read('app/dashboard/[eventId]/vendors/_components/build-body.tsx');
+  assert.match(body, /const p = line\.pick;\s*return \(\s*p != null &&/, 'a line with no pick could offer "Ask to book"');
+  const lab = read('app/dev/suppliers-lab/lab-build.tsx');
+  const at = lab.indexOf('<BookThisBuild');
+  if (at >= 0) assert.match(lab.slice(at, at + 400), /inBuild=\{[^}]*\.filter\(\(l\) => l\.pick \|\| l\.booked\)\.length\}/, 'the lab does not pass inBuild');
 });

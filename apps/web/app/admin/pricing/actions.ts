@@ -12,10 +12,13 @@ import { recheckRetailRemovability, computeRetailRemovabilityMap } from '@/lib/a
 import { validateRetailRowFields, retailRowUnchanged } from '@/lib/admin/pricing-row-diff';
 import {
   changedPriceFields,
-  describePriceChange,
   CUSTOMER_PRICE_FIELDS,
 } from '@/lib/retail-price-change';
 import { revalidateAllShopPages } from '@/lib/shop-page-cache';
+import { formatPhp } from '@/lib/php';
+
+/** Why a pending price request was closed on save (owner rule, 23 Nov 2026). */
+const PRICE_APPLIED_DIRECTLY = 'Applied directly, owner rule 23 Nov: "no need for a second admin. auto approve"';
 
 /**
  * /admin/pricing server actions · per-row catalog editor (2026-08-26 rebuild)
@@ -53,7 +56,10 @@ function round2(n: number): number {
 // `useActionState` initial values live in `_components/action-state.ts`, NOT
 // here — a `'use server'` file may export only async functions (Next fails
 // the production build on anything else); see that file's docblock.
-export type RowActionState = { ok: boolean; message: string | null };
+export type RowActionState = {
+  ok: boolean;
+  message: string | null;
+};
 
 function revalidateCatalogSurfaces() {
   revalidatePath('/pricing');
@@ -129,38 +135,17 @@ export async function saveRetailRow(
     return { ok: true, message: 'No changes to save.' };
   }
 
-  // ── VENDOR AGREEMENT § 9.1 · changing what a customer PAYS takes two ─────
+  // ── A PRICE CHANGE APPLIES AT ONCE (owner, 23 Nov 2026) ───────────────────
   //
-  // Only the price fields are gated. The title, the customer-facing blurb and
-  // `saas_overhead_cost_php` save immediately — renaming a SKU
-  // is copy, and the cost column is OUR margin, not anyone's bill. See
-  // lib/retail-price-change.ts for why this covers every price change rather
-  // than only mid-quarter ones: the corpus never bounds the review window, and
-  // a guessed boundary would decide whether a money change needs two admins.
+  // Owner, of his Live Watch save that sat in /admin/approvals: *"no need for a second admin. auto approve"*.
+  // Until then a change to any CUSTOMER_PRICE_FIELDS opened an `approve_retail_price_change` request for a second
+  // admin (Vendor Agreement § 9.1's mid-quarter row, gated stricter than the clause). Now the saving admin's change
+  // is live on save. It still goes through THE executor (`executeRetailPriceChange`) so there is one writer of a
+  // customer price and one audit row with before → after, who and when. The copy fields save first, as before.
+  // § 9.1 still names the row; `lib/two-admin-promise.ts` records it as not enforced, by this ruling.
   const changed = changedPriceFields(prior, nextRow);
 
   if (changed.length > 0) {
-    const summary = describePriceChange(prior, nextRow);
-
-    // One pending change per SKU. Two approvals in flight could be granted by
-    // two different admins and the last write would silently win.
-    const { data: alreadyPending } = await admin
-      .from('admin_approval_requests')
-      .select('approval_id')
-      .eq('action_type', 'approve_retail_price_change')
-      .eq('target_id', code)
-      .eq('status', 'pending')
-      .maybeSingle();
-    if (alreadyPending) {
-      return {
-        ok: false,
-        message: `A price change for ${code} is already waiting on a second admin — decide that one in /admin/approvals first.`,
-      };
-    }
-
-    // 🔑 SAVE THE COPY NOW. An admin fixing a typo in a SKU's blurb must not
-    // have that edit held hostage by a price change sitting in a queue — and
-    // discarding it silently would be worse.
     const priceValues: Record<string, unknown> = {};
     const copyOnly: Record<string, unknown> = { ...nextRow };
     for (const f of changed) {
@@ -176,36 +161,37 @@ export async function saveRetailRow(
       return { ok: false, message: `Couldn't save — ${copyErr.message}` };
     }
 
-    const { error: reqErr } = await admin.from('admin_approval_requests').insert({
-      action_type: 'approve_retail_price_change',
-      target_id: code,
-      payload: { service_code: code, fields: priceValues },
-      rationale: `Change what customers pay for ${code} — ${summary}`,
-      initiated_by: adminUserId,
-      // 72 hours, matching the comp and refund gates. A price is not an
-      // emergency; an expired request is re-opened deliberately rather than
-      // approved days later by someone who has forgotten the reasoning.
-      expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-    });
-    if (reqErr) {
-      return { ok: false, message: `Could not open the approval: ${reqErr.message}` };
+    // A request still waiting from before the ruling must not be approved later over this save and put the old
+    // figure back. Closed, with the reason; `expired` is the table's own word for "no longer decided".
+    const { error: closeErr } = await admin
+      .from('admin_approval_requests')
+      .update({ status: 'expired', decided_at: new Date().toISOString(), decision_reason: PRICE_APPLIED_DIRECTLY })
+      .eq('action_type', 'approve_retail_price_change')
+      .eq('target_id', code)
+      .eq('status', 'pending');
+    if (closeErr) {
+      return {
+        ok: false,
+        message: `The words were saved, but the price was not: an older request for ${code} could not be closed (${closeErr.message}). Try again.`,
+      };
     }
 
-    const { error: reqAuditErr } = await admin.from('admin_audit_log').insert({
-      action: 'v2_retail_price_change_requested',
-      target_id: code,
-      actor_user_id: adminUserId,
-      metadata: { table: 'platform_retail_catalog_v2', service_code: code, changed, summary },
-    });
-    if (reqAuditErr) {
-      console.error('[saveRetailRow] request audit insert failed (non-fatal):', reqAuditErr);
+    try {
+      await executeRetailPriceChange(admin, {
+        payload: { service_code: code, fields: priceValues },
+        initiatedByAdminId: adminUserId,
+        confirmingAdminId: adminUserId,
+        appliedDirectly: true,
+      });
+    } catch (e) {
+      return {
+        ok: false,
+        message: `The words were saved, but the price was not — ${e instanceof Error ? e.message : 'try again'}.`,
+      };
     }
 
     revalidateCatalogSurfaces();
-    return {
-      ok: false,
-      message: `Everything except the price was saved. Changing what customers pay needs a second admin (Vendor Agreement § 9.1) — the request is open in /admin/approvals: ${summary}`,
-    };
+    return { ok: true, message: `Live — ${formatPhp(nextRow.retail_price_php)}.` };
   }
 
   const { error: updateErr } = await admin
@@ -230,20 +216,19 @@ export async function saveRetailRow(
   }
 
   revalidateCatalogSurfaces();
-  return { ok: true, message: `Saved — ₱${nextRow.retail_price_php.toLocaleString('en-PH')}.` };
+  return { ok: true, message: `Saved — ${formatPhp(nextRow.retail_price_php)}.` };
 }
 
 /**
- * executeRetailPriceChange — the § 9.1 price change, run by the SECOND admin.
+ * executeRetailPriceChange — THE writer of a customer price.
  *
- * Called only from the approvals dispatcher, which has already claimed the row
- * atomically and enforced `decided_by <> initiated_by` (the DB constraint
- * `admin_approval_four_eyes` enforces it again).
+ * Two callers:
+ *  · `saveRetailRow`, the per-SKU editor — since 23 Nov 2026 the saving admin's change applies at once (owner: *"no
+ *    need for a second admin. auto approve"*). `appliedDirectly` is set, and the audit row says so.
+ *  · the approvals dispatcher, for an `approve_retail_price_change` request opened before that ruling and still
+ *    pending — it has already claimed the row and enforced `decided_by <> initiated_by`.
  *
- * 🔒 THE NUMBERS COME FROM THE PAYLOAD, NEVER RE-READ FROM A FORM. The second
- * admin is approving the exact figures the first one proposed. Re-deriving
- * anything here would let two admins agree to different prices — which is the
- * whole failure this gate exists to prevent.
+ * 🔒 THE NUMBERS COME FROM THE PAYLOAD, NEVER RE-READ FROM A FORM, and only CUSTOMER_PRICE_FIELDS may be written.
  */
 export async function executeRetailPriceChange(
   admin: ReturnType<typeof createAdminClient>,
@@ -251,6 +236,8 @@ export async function executeRetailPriceChange(
     payload: unknown;
     initiatedByAdminId: string;
     confirmingAdminId: string;
+    /** Set by `saveRetailRow`: one admin, applied at once (owner rule 23 Nov 2026). */
+    appliedDirectly?: true;
   },
 ): Promise<void> {
   const body = (params.payload ?? {}) as {
@@ -288,7 +275,7 @@ export async function executeRetailPriceChange(
     .eq('service_code', code);
   if (updErr) throw new Error(`Price change failed: ${updErr.message}`);
 
-  // ⚠ The only place two admins are recorded together for this change. Loud
+  // ⚠ The paper trail of a customer price: before → after, who, when (and whether it was applied directly). Loud
   // but non-fatal: the price is already live and must not be rolled back
   // because a log write did not land.
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
@@ -302,6 +289,7 @@ export async function executeRetailPriceChange(
       after: fields,
       initiated_by: params.initiatedByAdminId,
       confirmed_by: params.confirmingAdminId,
+      ...(params.appliedDirectly ? { applied_directly: PRICE_APPLIED_DIRECTLY } : {}),
     },
   });
   if (auditErr) {

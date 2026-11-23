@@ -7,7 +7,6 @@
 /[slug]/everyone	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
 /[slug]/seat	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
 /dashboard/[eventId]/guests/quick	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
-/dashboard/[eventId]/studio/editorial-pro	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dashboard/[eventId]/studio/live-studio-control/setup	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dashboard/[eventId]/studio/playlist	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dev/account-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -17,12 +16,14 @@
 /dev/admin-people-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/admin-shell-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/admin-supplier-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/apple-plan-door-lab	# 2026-11-22 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/art-kit-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/articles-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/avatar-sheet-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/award-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/bar-lab/[[...path]]	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/billing-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/booked-coordinator-lab	# 2026-11-21 · internal (dev lab, 404 in production) · the booked coordinator's new parts (Events you run buttons, Payments due, Suppliers line, Memories shut) on fixtures; reached by typing its address
 /dev/booking-ask-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/booth-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/budget-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -36,6 +37,7 @@
 /dev/chat-cards-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/chat-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/check-a-date-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/checkin-desk-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/clients-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/collapsing-top-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/create-for-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -52,6 +54,7 @@
 /dev/forms-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/group-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/guests-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/help-lab	# 2026-11-23 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/hero-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/home-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/iap-doors-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -111,8 +114,10 @@
 /dev/swipe-rows-lab/repertoire	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/sponsors	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/suppliers	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/their-event-lab	# 2026-11-21 · internal (dev lab, 404 in production) · a booked supplier's Their event list, one part alone, Numbers on fixtures; reached by typing its address
 /dev/thumb-row-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/unichat-a-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/unichat-f-lab	# 2026-11-21 · internal (dev lab, 404 in production) · Unichat F: the time-change card and the risen Schedule list on fixtures, for the §4 shots; reached by typing its address
 /dev/venue-check-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/verify-desk-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/visits-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -121,3 +126,4 @@
 /papic/lightcheck	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
 /sample/[...rest]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
+/dev/drive-copy-lab	# 2026-11-22 · internal (dev lab, 404 in production) · Copy to Google Drive per event on fixtures (#8170); reached by typing its address

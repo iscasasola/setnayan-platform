@@ -117,9 +117,9 @@ test('2 · nothing else in the app starts a view transition of its own', () => {
 const SHELLS: { name: string; file: string[]; whileSliding: boolean }[] = [
   { name: 'event', file: ['app', 'dashboard', '[eventId]', 'layout.tsx'], whileSliding: false },
   { name: 'shop', file: ['app', 'vendor-dashboard', 'layout.tsx'], whileSliding: false },
-  { name: 'account · Events', file: ['app', 'dashboard', '(launcher)', 'layout.tsx'], whileSliding: true },
+  // 18 Nov 2026: Home AND Discover — one layout (`(hub)`), so one <main>, one slide, and no remount between them.
+  { name: 'account · Home + Discover', file: ['app', '(hub)', 'layout.tsx'], whileSliding: true },
   { name: 'account · spokes', file: ['app', 'dashboard', '(account)', 'layout.tsx'], whileSliding: true },
-  { name: 'account · Discover', file: ['app', '_components', 'frontdoor', 'front-door.tsx'], whileSliding: true },
 ];
 
 test('3 · every dashboard shell carries exactly one .sn-vt-page', () => {

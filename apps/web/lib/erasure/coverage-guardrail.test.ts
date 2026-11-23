@@ -292,6 +292,9 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // ── added 2026-11-21 with the table itself (Maya Checkout, owner "MAYA CHECKOUT — BUILD IT") ──
   maya_checkouts:
     'Financial record — the Maya half of an order (Maya’s checkout and payment ids, sandbox/production, the amount asked, why a payment was queued), retained with the order it settled on the same BIR/bookkeeping basis, and needed to answer Maya refunds and disputes. No profile data: user_id is the payer, the rest is the transaction.',
+  // ── added 2026-11-23 with the table itself (Apple supplier plans: the server names the shop) ──
+  vendor_app_store_plan_tokens:
+    'Not retained past the account: user_id REFERENCES auth.users ON DELETE CASCADE, so deleting the account deletes every token that person started. Nothing else on the row is about them — the token is an internal key Apple signs back and the shop it was issued for. A subscription already granted keeps its shop through vendor_app_store_subscriptions, which needs no token.',
   receipts: 'BIR Official Receipt. issued_to_name/email/tin are the statutory content of the document; erasing them destroys the receipt.',
   order_refunds: 'Reconciliation decision attached to a retained financial record.',
   supplies_orders: 'Purchase record; delivery_address is part of the fulfilment evidence.',

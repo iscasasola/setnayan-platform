@@ -12,7 +12,8 @@ import { join } from 'node:path';
 const read = (p: string) => readFileSync(join(__dirname, p), 'utf8');
 const GUEST_PAGE = read('guest/page.tsx');
 const SEAT_PAGE = read('seat/[token]/page.tsx');
-const SEAT_CAM = read('seat/[token]/_components/papic-seat-capture.tsx');
+// The seat camera IS the guest camera now (owner 2026-11-22, "we only have one camera interface").
+const SEAT_CAM = read('guest/_components/papic-guest-capture.tsx');
 
 test('the guest camera always gets an exit — the tab it came from, else its own Event Hub', () => {
   assert.match(GUEST_PAGE, /exitTo=\{backSlug \? \{ slug: backSlug, tab: backTab \} : ownHubSlug \? \{ slug: ownHubSlug, tab: null \} : null\}/);
@@ -21,8 +22,12 @@ test('the guest camera always gets an exit — the tab it came from, else its ow
 });
 
 test('the seat camera draws the same ✕ back to the Event Hub', () => {
-  assert.match(SEAT_PAGE, /exitSlug=\{hubSlugOf\(/, 'the seat page does not hand the camera its hub');
-  assert.match(SEAT_PAGE, /select\('papic_style, papic_face_mode, event_type, slug'\)/);
-  assert.match(SEAT_CAM, /data-camera-exit=""\s*href=\{cameraExitHref\(exitSlug, null, 0\)\}\s*aria-label="Close the camera"/);
+  // 📷 ONE CAMERA (owner 2026-11-22): the seat page mounts the guest camera itself, so the ✕ is the same element.
+  assert.match(SEAT_PAGE, /<PapicGuestCapture\b/, 'the seat page no longer opens the one camera');
+  assert.match(SEAT_PAGE, /exitTo=\{hubSlug \? \{ slug: hubSlug, tab: backTab \} : null\}/, 'the seat page does not hand the camera its hub');
+  assert.match(SEAT_PAGE, /const hubSlug = hubSlugOf\(/, 'the slug is not re-checked before it becomes an href');
+  assert.match(SEAT_PAGE, /const backTab = cameraBackTab\(back\);/, 'the tab it came from is not re-checked against the tab keys');
+  assert.match(SEAT_PAGE, /select\(`papic_style, papic_face_mode, event_type, slug,/);
+  assert.match(SEAT_CAM, /data-camera-exit=""\s*href=\{cameraExitHref\(exitTo\.slug, exitTo\.tab, added\)\}\s*aria-label="Close the camera"/);
   assert.match(SEAT_CAM, /inline-flex h-11 w-11/, 'the ✕ is under the 44 px floor');
 });

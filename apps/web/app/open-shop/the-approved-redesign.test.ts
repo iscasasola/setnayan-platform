@@ -111,7 +111,8 @@ test('five screens in the approved order, the account SECOND (supplier onboardin
   assert.doesNotMatch(WIZARD, /<FileUpload\b|in_business_since_year/);
   // No role LIST either: the ONE dropdown on the door is Door C's coordination service (owner 19 Nov).
   assert.equal((WIZARD.match(/<PickMenu\b/g) ?? []).length, 1, 'a second dropdown appeared on the door');
-  assert.match(WIZARD, /data-onboarding-coordination="">\s*<PickMenu\s+label="Your main coordination service"/);
+  // PC1 (20 Nov): the "What you do · Coordination · Picked" row sits above it — a row, not a second control.
+  assert.match(WIZARD, /data-onboarding-coordination="">\s*(?:\{\s*\}\s*)?<span[^>]*data-onboarding-coordination-picked=""[^]*?<\/span>\s*<\/span>\s*<PickMenu\s+label="Your main coordination service"/);
   assert.match(WIZARD, /contact: 'Who couples will talk to\.'/);
   assert.match(WIZARD, /2: guest \? ONBOARDING_HEADS\.account : \['Your shop’s email', 'Where couples and Setnayan reach your shop\.'\]/);
   // Five segments in the step bar.
@@ -320,5 +321,8 @@ test('"Sign in" opens the ONE sign-in panel as the third pane (SidePanel ≥768,
   assert.match(LINK, /openSignIn\(pane \? \{ pane: true \} : undefined\)/);
   assert.match(PANE, /if \(options\.pane\) \{[\s\S]*?<SidePanel[\s\S]*?size="wide"[\s\S]*?phone="sheet"/);
   assert.match(PANE, /router\.refresh\(\)/);
-  assert.doesNotMatch(PANE, /router\.push/);
+  // In place: the panel's ONLY push is to the profile page a `/` sign-in is handed (22 Nov 2026, "start on their
+  // profile page" — lib/a-sign-in-starts-on-the-profile-page.test.ts). The open-shop door's `next` is never `/`, so
+  // here it still only refreshes.
+  assert.deepEqual(PANE.match(/router\.push\([^)]*\)/g) ?? [], ['router.push(landing)']);
 });

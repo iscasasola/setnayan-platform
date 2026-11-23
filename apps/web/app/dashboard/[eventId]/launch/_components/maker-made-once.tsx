@@ -12,7 +12,7 @@ import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { resolveMonogram } from '@/lib/monogram';
-import { fetchRevealConfig } from '@/lib/reveal-config';
+import { canonicalRevealId, fetchRevealConfig } from '@/lib/reveal-config';
 import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
 import { INVITE_THEMES, normalizeThemeId, type InviteThemeId } from '@/lib/invite-themes';
 import { revealMaterialsFor } from '@/lib/reveal-materials';
@@ -234,7 +234,7 @@ export async function MakerHeroPanel({
       ) : canUpload ? (
         <SafeForm action={uploadHeroPhoto} className="flex flex-col gap-2 rounded-md bg-raised/70 px-3 py-3">
           {photoMark ? (
-            <PaidMark state={photoMark} label={paidMarkLabel(photoMark, 'the full Event Hub')} text="Full Event Hub" size="xs" />
+            <PaidMark state={photoMark} word="PLUS" label={paidMarkLabel(photoMark, 'the full Event Hub')} text="Full Event Hub" size="xs" />
           ) : null}
           <HubDraftField />
           <input type="hidden" name="event_id" value={eventId} />
@@ -309,7 +309,9 @@ export async function MakerRevealPanel({
     label: t.label,
     blurb: t.blurb,
   }));
-  const current = typeof m.drafted.std_reveal_template === 'string' ? m.drafted.std_reveal_template : null;
+  /* ↪️ A retired opening (four-flap · two-flaps · church doors) is ticked as the new reveal it now plays. */
+  const current =
+    m.drafted.std_reveal_template === REVEAL_NONE ? REVEAL_NONE : canonicalRevealId(m.drafted.std_reveal_template);
   /* 🎭 WHAT PLAYS WHEN NOTHING IS CHOSEN — asked of the guest page's OWN rule (`revealAllowedFor`,
      the one `RevealMount` asks), never re-stated here. The theme's opening is only where it
      STARTS: an opening the Reveal Studio has switched off does not play — the house default (or

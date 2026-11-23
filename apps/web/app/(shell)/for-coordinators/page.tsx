@@ -44,7 +44,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
-import { ServiceFace, includesLineOf } from '@/app/_components/service-face';
+import { ServiceFace } from '@/app/_components/service-face';
+import { SampleDateFit } from '@/app/for-suppliers/_components/sample-card-date-fit';
+import { aboutKmLine } from '@/lib/mall-card';
+import { formatPhpRounded } from '@/lib/php';
 import type { CardBadgeView } from '@/lib/card-badges';
 
 import { TIERS } from '@/lib/badge-tiers';
@@ -59,6 +62,7 @@ import { TIER_PRICE_PHP } from '@/lib/vendor-tier-caps';
 import { shownWith, type ClaimSwitch } from './_claims';
 import { readClaimSwitches } from './_claims.server';
 import { FREE_HELPER_SEATS, GROW_TIERS, pctWords, pesoWords, planName, reachLadderSentence, type GrowTier } from './_facts';
+import { planLine } from '@/app/for-suppliers/_components/supplier-front-data';
 import { FcInfo } from './_fc-info';
 import { readCoordinatorPrices } from './_prices.server';
 
@@ -146,11 +150,11 @@ const TOOLS: readonly { src: string; alt: string; name: string; line: string }[]
 const MARCH_OFF = new Set([1, 8, 9, 15, 22, 23, 29]);
 const MARCH_POPULAR = new Set([14, 21, 28]);
 
-/** Each paid plan's one line, from the drawing. */
+/** Each paid plan's one line — the size and what it adds, the same words as /for-suppliers (owner 2026-11-22). */
 const PLAN_LINE: Readonly<Record<GrowTier, string>> = {
-  solo: 'Something to test on, with a small team.',
-  pro: 'The complete business package.',
-  enterprise: 'Expand: more people, cards and branches.',
+  solo: planLine('solo'),
+  pro: planLine('pro'),
+  enterprise: planLine('enterprise'),
 };
 
 type Fact = { term: string; line: string; needs?: ClaimSwitch };
@@ -409,13 +413,13 @@ export default async function ForCoordinatorsPage() {
                   <b>
                     {planName('free')} · {pesoWords(TIER_PRICE_PHP.free.monthly)}.
                   </b>{' '}
-                  Run the business you already have.
+                  {planLine('free')}
                 </p>
                 <p>
                   <b>
                     {planName('verified')} · {pesoWords(TIER_PRICE_PHP.verified.monthly)}.
                   </b>{' '}
-                  Be found on Discover.
+                  {planLine('verified')}
                 </p>
                 {GROW_TIERS.map((t) => (
                   <p key={t}>
@@ -434,13 +438,17 @@ export default async function ForCoordinatorsPage() {
             {/* The LIVE service card, exactly as main draws it (ServiceFace + CardBadgeRow) — never a hand copy. */}
             <div className="fc-sf">
               <ServiceFace
+                layout="mall"
                 name="On-the-day coordination"
                 coverUrl={`${SHOT}/c-coord.webp`}
-                path="Coordinators · Planning"
                 shop={{ name: 'Amihan Events', href: null, logoUrl: null, verified: true }}
-                includes={includesLineOf(['2 coordinators', '12 hours'])}
-                notIncluded={['crew meal']}
-                footer={
+                city="Taguig"
+                rating={{ avg: 4.9, count: 64 }}
+                price={formatPhpRounded(24999)}
+                priceNote="2 coordinators, 12 hours"
+                lines={<SampleDateFit />}
+                distance={aboutKmLine(8)}
+                medals={
                   <CardBadgeRow
                     badges={SAMPLE_BADGES}
                     cardName="On-the-day coordination"

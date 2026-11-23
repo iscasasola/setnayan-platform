@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { openTheCoordinatorsSeatForBooking } from '@/lib/coordinator-grant';
 import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effects.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
@@ -17,10 +18,12 @@ import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { formatPhp } from '@/lib/php';
 import { postThreadSystemLine } from '@/lib/chat-system-line.server';
+import { backstageSetLine, timeAskLine } from '@/lib/schedule-time-ask';
 import { paymentAskedLine } from '@/lib/chat-gap-lines';
 import { LOCK_AGREE_FEE_HELD, lockAgreeHallsParam, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { closedDayOfAsk } from '@/lib/closed-day.server';
+import { fullSchedulesOfAsk } from '@/lib/schedule-pools';
 import { shortDayWords, waitlistMessage } from '@/lib/day-check';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
@@ -653,8 +656,10 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     proposed_crew?: string[] | null;
     note: string;
     itemLabel: string | null;
+    /** The moment's time now (an adjust) — the time-change card's "from". Never written to the request. */
+    currentStartIso?: string | null;
   }): Promise<{ ok: true; outcome: 'waits' | 'applied' | 'words' } | { ok: false; code: string | null }> => {
-    const { itemLabel, ...fields } = row;
+    const { itemLabel, currentStartIso: _currentStartIso, ...fields } = row;
     // RLS enforces: booked on the event, own org, own user, status open — an edit or a delete only on the supplier's
     // own item, an add only into a chapter they are linked to.
     const { data, error } = await supabase
@@ -673,7 +678,34 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
       .select('suggestion_id')
       .maybeSingle();
     if (error || !data) return { ok: false, code: error?.code ?? null };
-    const outcome = await settleAfterAsking(eventId, (data as { suggestion_id: string }).suggestion_id);
+    const why = { backstage: false };
+    const outcome = await settleAfterAsking(eventId, (data as { suggestion_id: string }).suggestion_id, why);
+    // 🎭 A backstage moment inside the venue's hours went straight in (owner 2026-11-20): the hosts and coordinator see
+    // it as ONE QUIET LINE in the conversation and an in-app notice — never the emailed "asks to change" notice.
+    if (why.backstage) {
+      try {
+        const body = backstageSetLine({ shop: supplierName, label: itemLabel, toIso: row.proposed_start_at });
+        if (body) await postThreadSystemLine(createAdminClient(), { eventId, vendorProfileId: profile.vendor_profile_id, body });
+        await notifySupplierTimes({
+          eventId,
+          title: body ?? `${supplierName} changed a backstage moment`,
+          body: 'Backstage, inside the venue’s hours — it is on the schedule. Guests don’t see it.',
+        });
+      } catch (e) {
+        console.error('[suggestScheduleChange] backstage line failed:', e);
+      }
+      return { ok: true, outcome };
+    }
+    // 🗓 THE TIME-CHANGE CARD (Unichat part F): an ask that names a new time and WAITS is one line in the conversation —
+    // the stream draws it as the card both sides answer from (`lib/schedule-time-ask.ts`). Best-effort, like the notice.
+    if (outcome === 'waits' && (row.kind === 'new' || row.kind === 'adjust') && row.proposed_start_at) {
+      try {
+        const body = timeAskLine({ by: 'supplier', add: row.kind === 'new', label: itemLabel, fromIso: row.currentStartIso ?? null, toIso: row.proposed_start_at });
+        if (body) await postThreadSystemLine(createAdminClient(), { eventId, vendorProfileId: profile.vendor_profile_id, body });
+      } catch (e) {
+        console.error('[suggestScheduleChange] time-ask line failed:', e);
+      }
+    }
     // Tell everyone who can approve it — the couple AND a coordinator holding The Day = Edit (best-effort: the
     // request is already written; a failed notice must never undo it). Auto-agreed changes are told too: the
     // schedule moved and the host should know who moved it.
@@ -873,14 +905,18 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   // The block's own label: the notice names it, and a 'remove' keeps it as `proposed_label` so the request still
   // says what it was about once the block is gone (the FK is ON DELETE SET NULL since 20271263061583).
   let blockLabel: string | null = null;
+  let blockStartIso: string | null = null;
   if (blockId) {
     const { data: block } = await supabase
       .from('event_schedule_blocks')
-      .select('label')
+      .select('label, start_at, time_tba')
       .eq('block_id', blockId)
       .eq('event_id', eventId)
       .maybeSingle();
     blockLabel = (block as { label: string | null } | null)?.label ?? null;
+    // A Time-TBA moment's `start_at` is a placeholder midnight: the ask's card then names the new time only, never "12:00 AM →".
+    const b = block as { start_at: string | null; time_tba: boolean | null } | null;
+    blockStartIso = b?.time_tba === true ? null : (b?.start_at ?? null);
   }
 
   // + My moment / My moment (the Schedule view's sheet): a chapter, a clock, minutes and crew — not the old
@@ -932,6 +968,7 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     proposed_crew: kind === 'remove' ? null : crew,
     note: typedNote || fallbackNote,
     itemLabel: kind === 'new' ? proposed.proposed_label : blockLabel,
+    currentStartIso: kind === 'adjust' ? blockStartIso : null,
   });
 
   if (quiet) {
@@ -1511,6 +1548,16 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
+  // 👥 A FULL TEAM SCHEDULE TAKES NO YES (walk 22 Nov 2026): the yes never took a schedule seat, so a day whose crew was
+  // already full was agreed here and refused only at the couple's deposit. The deposit's own pool list and count
+  // (`fullSchedulesOfAsk`). Before the RPC: nothing booked, no fee minted. Fails open on a read error.
+  {
+    const full = await fullSchedulesOfAsk(supabase, eventVendorId, createAdminClient());
+    if (full.length > 0) {
+      redirect(`${lockAnswerReturnTo(formData.get('return_to'))}?lock_agree=schedule_full${lockAgreeHallsParam({ taken: full, free: [] })}`);
+    }
+  }
+
   // 🧭 A SERVICE ON HOLD TAKES NO BOOKING (owner 2026-11-06, SERVICES LIFE CYCLE (5)): the supplier is told
   // "Upgrade to accept", the couple's ask stays open ("waiting for ‹shop› to agree"). The database refuses the flip
   // anyway (`a_held_service_takes_no_booking`); this only lets the answer say why instead of "did not go through".
@@ -1592,6 +1639,11 @@ export async function vendorAgreeToLock(formData: FormData) {
   });
   const env = (data ?? {}) as { status?: string; event_id?: string; competing?: number };
   const eventId = typeof env.event_id === 'string' ? env.event_id : null;
+
+  // ── 0 · 🚪 A COORDINATOR BOOKED BY THIS YES GETS THEIR SEAT (the one shared door, lib/coordinator-grant.ts). The
+  // supplier did not invite themselves, so no actor is handed in: the seat records the host who asked
+  // (`lock_requested_by_user_id`), else nobody. A no-op unless the row is now BOOKED and a coordinator's; never throws.
+  if (!error) await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId, actorUserId: null });
 
   // ── 1 · THE GIFT PROMISE IS CONFIRMED HERE — owner 2026-09-16, asked which
   // of the two lock moments freezes it: **"both. the supplier needs to pay us

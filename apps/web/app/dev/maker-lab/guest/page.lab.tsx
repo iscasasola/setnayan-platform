@@ -109,7 +109,7 @@ import { RevealMount } from '@/app/[slug]/_components/reveal/reveal-mount';
 import { revealOnlyOnTheFirstPage } from '@/lib/reveal-stages';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { CoverPlayOpening } from '@/app/[slug]/_components/reveal/cover-play-opening';
-import { DEFAULT_REVEAL_CONFIG } from '@/lib/reveal-config-pure';
+import { DEFAULT_REVEAL_CONFIG, canonicalRevealId } from '@/lib/reveal-config-pure';
 import { DEFAULT_REVEAL_EFFECTS, type RevealEffects } from '@/lib/std-reveal-effects';
 import { withVeilFold, withVeilWeave, withVeilWind } from '@/lib/veil-style';
 
@@ -281,6 +281,14 @@ function labVeil(sp: Record<string, string | string[] | undefined>): RevealEffec
   if (weave) e = withVeilWeave(e, weave);
   if (wind) e = withVeilWind(e, wind);
   return e;
+}
+
+/** 🎭 The lab's `&speed=` laid over the lab veil's effects as the couple's own Speed ▾ would be (`tune.speed`). */
+function labOpeningEffects(e: ReturnType<typeof labVeil>, sp: Record<string, string | string[] | undefined>): RevealEffects | undefined {
+  const speed = Number(sp.speed);
+  if (!Number.isFinite(speed) || speed <= 0) return e;
+  const base = e ?? DEFAULT_REVEAL_EFFECTS;
+  return { ...base, tune: { ...(base.tune ?? {}), speed } };
 }
 
 export default async function MakerLabGuestPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -1361,7 +1369,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           2026-10-16) can be walked without a database. Never in the Maker's canvas, as on the page. Told the page's own
           `firstPageOnly` (`site-body.tsx`), so the drape that stays with the cover (owner 2026-10-17) walks here too. */}
       {sp.veil === '1' && !makerCanvas ? (
-        <RevealMount enabled monogram="M&J" config={DEFAULT_REVEAL_CONFIG} eventEffects={labVeilEffects} ownsPro isStaffPreview={false} eventTemplate="veil-sheer" eventId="lab-veil" firstPageOnly={revealOnlyOnTheFirstPage(phase as LifecyclePhase)} />
+        /* 🎭 `&opening=<id>` — any of the nine reveals (23 Nov 2026), a retired id plays its successor; `&speed=9|12|16`. */
+        <RevealMount enabled monogram="M&J" config={DEFAULT_REVEAL_CONFIG} eventEffects={labOpeningEffects(labVeilEffects, sp)} ownsPro isStaffPreview={false} eventTemplate={canonicalRevealId(sp.opening) ?? 'veil-sheer'} eventId={`lab-${typeof sp.opening === 'string' ? sp.opening : 'veil'}`} firstPageOnly={revealOnlyOnTheFirstPage(phase as LifecyclePhase)} />
       ) : null}
       <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 border-b border-ink/10 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <div className="flex justify-between px-4 py-2.5">

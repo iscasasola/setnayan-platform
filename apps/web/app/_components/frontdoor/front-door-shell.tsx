@@ -296,6 +296,12 @@ export type FrontDoorAccount = {
   /** A vendor also gets a row straight into their own shop. */
   shopName: string | null;
   /**
+   * 🏪 May this person open a shop of their own? `roles.canOpenShop` — shops they OWN against the cap, the gate the
+   * switcher's "Create your shop" already uses. NOT `!shopName`: a helper in someone else's shop owns none and may
+   * still open one. A failed read is `false`/absent: the app's "Open your shop" row stays closed.
+   */
+  canOpenShop?: boolean;
+  /**
    * The shop's uploaded logo, already resolved to a presigned display URL
    * (never the raw `r2://` ref — resolve via `displayUrlForStoredAsset`
    * server-side, same rule as `VendorAvatar`'s `logoUrl` prop). Null/undefined
@@ -960,7 +966,7 @@ export function FrontDoorShell({
   */
   const onSignInPress = (e: React.MouseEvent) => {
     e.preventDefault();
-    openSignIn({ onSignedIn: () => router.push(SIGNED_IN_LANDING) });
+    openSignIn({ onSignedIn: (landing) => router.push(landing ?? SIGNED_IN_LANDING) });
   };
 
   // Escape closes whichever layer is open — the off-canvas rail first, since
@@ -1463,6 +1469,16 @@ export function FrontDoorShell({
                 <span className="fd-label-text">For coordinators</span>
                 <span className="fd-icon-caption">For coordinators</span>
               </Link>
+              {/* 🏪 THE APP'S SUPPLIER DOOR (owner YES 22 Nov; drawing `prototypes/app_supplier_door_2026-11-22`): the
+                  iPhone app hides both rows above (they name plan prices), so a supplier had no way in. ONE plain row
+                  into the FREE sign-up — no price, no plan, no paid page; `data-app-only` shows it only in the app, so
+                  the web menu does not change by a pixel. App order: Discover · Open your shop · Features.
+                  Held by `the-app-supplier-door-names-no-price.test.ts`. */}
+              <Link href="/open-shop" data-app-only="" {...rowProps('open-shop')}>
+                <RailIcon as={Store} />
+                <span className="fd-label-text">Open your shop</span>
+                <span className="fd-icon-caption">Open your shop</span>
+              </Link>
               <Link href="/features" {...rowProps('features')}>
                 <RailIcon as={Blocks} />
                 <span className="fd-label-text">Features</span>
@@ -1499,6 +1515,16 @@ export function FrontDoorShell({
                 LISTS"): your events · your shop / HQ · Features. Every tool is on
                 /features; inside an event the tools are rows of that event's menu.
               */}
+              {/* 🏪 The app's supplier door, signed in (owner YES 22 Nov): the same row under the divider, above
+                  Features, ONLY while this account may open a shop (`canOpenShop`; a failed read keeps it closed).
+                  `data-app-only` — on the web the switcher's "Create your shop" is the door, unchanged. */}
+              {account.canOpenShop ? (
+                <Link href="/open-shop" data-app-only="" {...rowProps('open-shop')}>
+                  <RailIcon as={Store} />
+                  <span className="fd-label-text">Open your shop</span>
+                  <span className="fd-icon-caption">Open your shop</span>
+                </Link>
+              ) : null}
               <Link href="/features" {...rowProps('features')}>
                 <RailIcon as={Blocks} />
                 <span className="fd-label-text">Features</span>

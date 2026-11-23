@@ -10,6 +10,7 @@
  * facts overwritten in place (event date · guest count · meeting time — `lib/booking-changes.ts`).
  */
 import { onePickedDay } from './event-anchor';
+import { dateMonthsWords } from './event-date-options';
 import { changesFor, type BookingChange } from './booking-changes';
 import { formatPhp } from './php';
 import { shopPerGuestNote } from './claimed-per-guest-follow';
@@ -57,6 +58,8 @@ export type AgreedInputs = {
       windowStart: string | null;
       windowEnd: string | null;
       days: number | null;
+      /** 🗓 "Some months" (owner 2026-11-17) — `events.date_months`, said while the mode is 'months'. */
+      months?: readonly string[] | null;
     } | null;
   };
   /** `booking_changes` rows, or null when the read was refused (the rows then say they could not load). */
@@ -105,6 +108,10 @@ export function eventDateWords(e: AgreedInputs['event']): string {
   if (locked) return locked;
   const o = e.dateOptions;
   if (o) {
+    if (o.mode === 'months') {
+      const w = dateMonthsWords(o.months ?? []);
+      if (w) return `Not settled · in ${w}`;
+    }
     const days = Math.max(1, Math.floor(o.days ?? 1) || 1);
     const span = days > 1 ? ` · ${days} days` : '';
     /* 💍 ONE picked day IS the date (owner 14 Nov, DECISION_LOG 16f7e76a — the rule Home reads through

@@ -134,12 +134,12 @@ test('3 · the words name who decides, and say every answer — never silent, ne
   assert.equal(whoDecides(false), 'the host or the coordinator');
   assert.equal(
     answerLines({ requestedAreas: ['guest_list', 'budget', 'vendors'], decisions: { guest_list: 'granted', budget: 'declined' } }),
-    'Guest list: shared · Budget & payments: declined · Suppliers: no answer',
+    'Guests: shared · Budget: declined · Suppliers: no answer',
   );
   const n = accessAnswerNotice({ eventId: G, eventName: 'Ana & Ben', decisions: { guest_list: 'granted', budget: 'declined' }, askerIsCoordinator: false });
-  assert.equal(n.title, 'Ana & Ben shared Guest list with you');
+  assert.equal(n.title, 'Ana & Ben shared Guests with you');
   assert.match(n.body, /see it and propose changes/);
-  assert.match(n.body, /Not shared: Budget & payments/);
+  assert.match(n.body, /Not shared: Budget/);
   assert.equal(n.relatedUrl, `/vendor-dashboard/clients/${G}`);
   assert.match(accessAnswerNotice({ eventId: G, eventName: null, decisions: { guest_list: 'granted' }, askerIsCoordinator: true }).body, /can make changes/);
 

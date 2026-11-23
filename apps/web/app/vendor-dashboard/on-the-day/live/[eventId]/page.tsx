@@ -32,6 +32,7 @@ import { eventHubViewOf } from '@/lib/event-hub-views';
 import { readEventScanServices } from '@/lib/supplier-scan.server';
 import { hubDayWords, hubHref } from '@/lib/hub-events';
 import { readEventsYouRun } from '@/lib/events-you-run.server';
+import { readMyDeskDoorParts } from '@/lib/checkin-desk.server';
 import type { EventYouRun } from '@/lib/events-you-run';
 import { isCoordinatorP3Enabled, fetchLatestBroadcasts } from '@/lib/coordinator-broadcasts-server';
 import { deriveRunOfShow } from '@/lib/run-of-show';
@@ -290,9 +291,11 @@ export default async function VendorOnTheDayLivePage({
   // the run of show's own derivation; Coming is the RSVP headcount (a supplier cannot read arrivals yet — said, not
   // invented). "Events you run" (the Hub's read, cache()d) says whether this person coordinates THIS event: the
   // Check-in desk and Announce are theirs only then.
-  const [{ events: runEvents }, announceOn] = await Promise.all([
+  const [{ events: runEvents }, announceOn, deskDoorParts] = await Promise.all([
     readEventsYouRun(supabase, user.id).catch(() => ({ events: [] as EventYouRun[], measured: false })),
     isCoordinatorP3Enabled().catch(() => false),
+    // 🛂 The supplier the hosts picked for the Check-in desk's door (owner 16 Nov) — their way in, beside the coordinator's.
+    readMyDeskDoorParts(eventId, user.id).catch(() => null),
   ]);
   const run = runEvents.find((e) => e.eventId === eventId) ?? null;
   const ros = deriveRunOfShow(blocks, new Date(), DEFAULT_EVENT_TZ);
@@ -322,7 +325,7 @@ export default async function VendorOnTheDayLivePage({
       }}
       counts={counts}
       programUnread={programUnread}
-      focal={{ coupleName, place, viewer: user.id, eventDate: booking.bookedDate, checkin: run != null }}
+      focal={{ coupleName, place, viewer: user.id, eventDate: booking.bookedDate, checkin: run != null || (deskDoorParts?.length ?? 0) > 0 }}
       blocks={blocks}
       nav={frame.nav}
       genericDomId={frame.genericDomId}
@@ -349,7 +352,7 @@ export default async function VendorOnTheDayLivePage({
       }
       otherView={
         view === 'scanner' ? (
-          <EventHubScanner eventId={eventId} run={run} floorIsYours={frame.specialization?.set === 'floor_command'} scan={scanServices} />
+          <EventHubScanner eventId={eventId} run={run} floorIsYours={frame.specialization?.set === 'floor_command'} scan={scanServices} deskDoorParts={deskDoorParts ?? []} />
         ) : view === 'announce' ? (
           <EventHubAnnounce eventId={eventId} run={run} enabled={announceOn} recent={recent} />
         ) : null

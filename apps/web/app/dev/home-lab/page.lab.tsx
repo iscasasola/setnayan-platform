@@ -45,7 +45,7 @@
  *                                    (the app reads the catalogue; a lab has none, so the figure is omitted).
  *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
  *                                    selling Event Pro through Apple, in each outcome
- *   ?level=1 | level=unread          🔑 "<shop> joined as your coordinator" (owner 2026-10-29) — the REAL
+ *   ?level=…                         (retired 2026-11-21 — Limited · Full is gone; was "<shop> joined as your coordinator") the REAL
  *                                    `CoordinatorLevelAsk`, FIRST in the Today list under the cover (never above it);
  *                                    its press opens the house Sheet, Limited · Full access (the lab's presses write
  *                                    nothing real). `&shop=long` a long shop name (never cut) · `&shop=none` no name read
@@ -726,27 +726,11 @@ export default async function HomeLab({
         /* ✨ The Memories line (Home redraw 2026-11-02) — the lab's words; the page words it from its own reads. */
         memories={q.sched === 'day' ? '12 photos so far · filling now' : 'Fills on the day · photos, reels and your Thank-you video'}
         /* ☀ The asks are rows of the ONE list under the card (owner 20 Nov 2026, Event Today, Focus shape):
-           `&level=1|unread` — a coordinator's access to pick · `&tomorrow=1` — that row put off to tomorrow. */
+           (`&level=` retired 2026-11-21 with Limited · Full) · `&tomorrow=1` — a row put off to tomorrow. */
         todayList={{
           ...eventTodayAsks({
             eventId: E,
             access: { ok: true, count: 0, claims: [] },
-            coordinator:
-              q.level === '1' || q.level === 'unread'
-                ? {
-                    unread: q.level === 'unread',
-                    asks:
-                      q.level === 'unread'
-                        ? []
-                        : [
-                            {
-                              moderatorId: 'lab-seat',
-                              shop: q.shop === 'none' ? null : q.shop === 'long' ? 'The Wedding Project Events & Coordination by Ana Marie' : 'The Wedding Project',
-                              logoUrl: null,
-                            },
-                          ],
-                  }
-                : null,
             mood: { ok: true, asks: { suggestions: [], changes: [] } },
             dateChange: { ok: true, view: null },
             prep: null,

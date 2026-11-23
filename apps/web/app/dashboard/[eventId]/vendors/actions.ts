@@ -33,7 +33,7 @@ import { hasClaimAsk } from '@/lib/move-supplier-category.server';
 import { ABSENT_IS_FINE_HEADER } from '@/lib/supabase/db-error-log';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
-import { autoInviteCoordinator } from '@/lib/coordinator-grant';
+import { openTheCoordinatorsSeatForBooking } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { sweepShopBadgesAfter } from '@/lib/badge-earned.server';
 import { supplierChatHref, supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
@@ -56,8 +56,7 @@ import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/event
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
 import { orderIsTooSoon, orderTooSoonMessage } from '@/lib/availability-styles';
-import { readBookingWindow } from '@/lib/check-a-date.server';
-import { bookingWindowMessage, outsideBookingWindow, windowToday } from '@/lib/booking-window';
+import { bookingWindowRefusal } from '@/lib/booking-window.server';
 import { phTodayIso } from '@/lib/vendor-day-picker';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
@@ -128,7 +127,8 @@ import {
   type ChangeLineRow,
 } from '@/lib/agreed-total-and-its-changes';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
-import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
+import { coordinatorMoneyScopeAllowed, ONLY_A_HOST_BOOKS, ONLY_A_HOST_PAYS } from '@/lib/coordinator-money-scope';
+import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/coordinator-trade';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { checkManualVenueAddress } from '@/lib/manual-venue-address';
 import { addOwnContactError } from '@/lib/add-your-own';
@@ -344,6 +344,9 @@ export async function updateVendorCosts(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
 }
 
+/** The statuses a row becomes when it is BOOKED (`BOOKED_EVENT_VENDOR_STATUSES`) — reaching one is a booking. */
+const BOOKING_STATUSES: ReadonlySet<string> = new Set(BOOKED_EVENT_VENDOR_STATUSES);
+
 async function updateVendorStatus(formData: FormData) {
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
@@ -389,6 +392,18 @@ async function updateVendorStatus(formData: FormData) {
     ? DOWNPAID_STATUSES.has(prevRow.status)
     : false;
   const willConsume = DOWNPAID_STATUSES.has(status);
+
+  // 🔒 ONLY A HOST BOOKS (owner 2026-11-21, *"no booking, no paying"*). `event_vendors_moderator_write` lets a
+  // coordinator change a supplier row, so the status flip INTO booked — contracted or downpaid, from a row that was not
+  // booked — is refused here for anybody who is not a host. Moving a booked row along (delivered, complete) or back is
+  // not booking and stays theirs.
+  if (
+    BOOKING_STATUSES.has(status)
+    && !(prevRow?.status && BOOKING_STATUSES.has(prevRow.status))
+    && !(await coordinatorMoneyScopeAllowed(createAdminClient(), eventId, user.id, 'vendor_lock'))
+  ) {
+    throw new Error(ONLY_A_HOST_BOOKS);
+  }
   if (
     !wasConsuming
     && willConsume
@@ -475,32 +490,10 @@ async function updateVendorStatus(formData: FormData) {
     );
   }
 
-  // Coordinator auto-grant (owner 2026-06-22): the FIRST time a planner_coordinator
-  // booking reaches a downpaid/booked state, auto-invite the coordinator with host
-  // (full planning, no money) access — the same delegate the manual "Promote your
-  // coordinator" creates, fired automatically on the downpayment milestone. The
-  // coordinator still activates it via the /host/accept link, so access is never
-  // granted without their acceptance. Idempotent (skips an existing invite) and
-  // best-effort: a failed invite never rolls back the booking-status change.
-  if (
-    !wasConsuming
-    && willConsume
-    && prevRow?.category === 'planner_coordinator'
-    && prevRow?.contact_email
-  ) {
-    try {
-      await autoInviteCoordinator(createAdminClient(), {
-        eventId,
-        email: prevRow.contact_email,
-        displayLabel: prevRow.vendor_name ?? null,
-        invitedByUserId: user.id,
-        // 🤝 E1: the booked shop, so its owner's account is told the invite is waiting (in the app only).
-        shopProfileId: prevRow.marketplace_vendor_id ?? null,
-      });
-    } catch {
-      // best-effort — never block the booking-status write on the auto-invite.
-    }
-  }
+  // 🚪 Coordinator auto-grant — "access is automatic on booking" (owner 2026-06-22 · 2026-11-21). The ONE shared door
+  // (lib/coordinator-grant.ts) reads the row fresh and opens the seat only when it is BOOKED and a coordinator's;
+  // idempotent, best-effort — it never blocks or rolls back the booking-status write above.
+  if (BOOKING_STATUSES.has(status)) await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId: vendorId, actorUserId: user.id });
 
   // Phase-2 review-request emit: the moment a vendor's service is marked
   // delivered (and wasn't already delivered/complete), drop a notification
@@ -1218,14 +1211,10 @@ export async function finalizeVendor(
     }
   }
 
-  // Consent-scoped coordinator vendor lock (owner 2026-07-19 #5). A direct
-  // lock from here commits the couple to a vendor and seeds the payment
-  // schedule. Behind NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a
-  // non-couple caller may lock directly only when the couple granted the
-  // 'vendor_lock' scope at invite time (coordinator_access_consents.scopes).
-  // Runs AFTER the propose-lock branch so that flag (if ever ON) keeps its
-  // propose path untouched; flag OFF = exact current behavior (helper returns
-  // true without reading).
+  // 🔒 ONLY A HOST BOOKS (owner 2026-11-21, *"no booking, no paying"*). A direct lock commits the couple to a supplier
+  // and seeds the payment schedule; a coordinator finds, recommends and shortlists instead. No opt-in scope, no
+  // control: `coordinatorMoneyScopeAllowed` is true for a host alone. Runs AFTER the propose-lock branch, so that flag
+  // (if ever ON) keeps its propose path — a proposal books nothing.
   {
     const lockAllowed = await coordinatorMoneyScopeAllowed(
       createAdminClient(),
@@ -1237,7 +1226,7 @@ export async function finalizeVendor(
       return {
         status: 'error',
         message:
-          'The couple has not approved supplier booking for your coordinator access — ask them to re-invite you with vendor-booking permission.',
+          ONLY_A_HOST_BOOKS,
       };
     }
   }
@@ -1736,9 +1725,24 @@ export async function finalizeVendor(
       .maybeSingle();
     const wd = windowDay as { event_date?: string | null; event_date_precision?: string | null } | null;
     if (wd?.event_date_precision === 'day' && wd.event_date) {
-      const shopWindow = await readBookingWindow(createAdminClient(), targetVendor.marketplace_vendor_id);
-      const outside = shopWindow ? outsideBookingWindow(wd.event_date, windowToday(), shopWindow) : null;
-      if (shopWindow && outside) return { status: 'error', message: bookingWindowMessage(outside, shopWindow) };
+      // ONE helper for every door that asks or books (`lib/booking-window.server.ts`, walk 22 Nov 2026).
+      const outside = await bookingWindowRefusal({ vendorProfileId: targetVendor.marketplace_vendor_id, day: wd.event_date });
+      if (outside) return { status: 'error', message: outside };
+      // 🗓 MADE TO ORDER — "Order at least N days before the date they need it" (Availability plan step 3, owner
+      // 2026-11-19). A hard rule, asked of ONE server-only definer (`service_card_order_lead_days`, NULL unless the card
+      // is Made to order with a rule). ABOVE the slot / #2 split (walk 22 Nov 2026): it sat only on the no-slot path, so
+      // a Made-to-order card that kept time slots was asked with no lead check. A refused read degrades OPEN, like every
+      // capacity read here — never silently.
+      if (targetVendor.service_id) {
+        const { data: leadRaw, error: leadErr } = await createAdminClient().rpc('service_card_order_lead_days', {
+          p_service_id: targetVendor.service_id,
+        });
+        if (leadErr) console.error('[finalizeVendor] order-lead read failed', leadErr.message);
+        const lead = typeof leadRaw === 'number' ? leadRaw : null;
+        if (lead !== null && orderIsTooSoon(phTodayIso(), wd.event_date, lead)) {
+          return { status: 'error', message: orderTooSoonMessage(lead) };
+        }
+      }
     }
   }
   let slotPathLocked = false;
@@ -1908,20 +1912,7 @@ export async function finalizeVendor(
         ) {
           return { status: 'error', message: CLOSED_DAY_COUPLE_MESSAGE };
         }
-        // 🗓 MADE TO ORDER — "Order at least N days before the date they need it" (Availability plan step 3, owner
-        // 2026-11-19). A hard rule, asked of ONE server-only definer (`service_card_order_lead_days`, NULL unless the card
-        // is Made to order with a rule). Day-precise events only, like the closed day. A refused read degrades OPEN,
-        // like every capacity read here — never silently.
-        if (d?.event_date_precision === 'day' && d.event_date) {
-          const { data: leadRaw, error: leadErr } = await createAdminClient().rpc('service_card_order_lead_days', {
-            p_service_id: targetVendor.service_id,
-          });
-          if (leadErr) console.error('[finalizeVendor] order-lead read failed', leadErr.message);
-          const lead = typeof leadRaw === 'number' ? leadRaw : null;
-          if (lead !== null && orderIsTooSoon(phTodayIso(), d.event_date, lead)) {
-            return { status: 'error', message: orderTooSoonMessage(lead) };
-          }
-        }
+        // 🗓 The Made-to-order lead is asked above the slot / #2 split (every card, not only this path).
       }
       // The card's own "Bookings per day" INSIDE its plan (owner 2026-11-06, "BOOKINGS PER DATE PER SERVICE IS A PLAN
       // ALLOWANCE" — Solo 1 · Pro 3 · Ultra 5, plus a bought "+1 booking per date"; Free · Verified 1 each, like Solo,
@@ -3014,6 +3005,10 @@ export async function finalizeVendor(
   // non-test call site ever appears, and fails just as loudly if the one
   // remaining caller disappears.
   // ----------------------------------------------------------------------
+
+  // 🚪 A coordinator booked by this press gets their seat here too (the one shared door; a no-op unless the row is
+  // BOOKED and a coordinator's — an ask booked nobody).
+  await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId: vendorId, actorUserId: user.id });
 
   return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone, onePerEvent: isHardSingle };
 }
@@ -4799,7 +4794,7 @@ export async function recordDeposit(
       return {
         status: 'error',
         message:
-          'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
+          ONLY_A_HOST_PAYS,
       };
     }
   }
@@ -5112,6 +5107,10 @@ export async function recordDeposit(
       });
     }
   }
+
+  // 🚪 A booked coordinator whose seat is not open yet (booked by a door that had none before 22 Nov) gets it with the
+  // payment — the one shared door; a no-op unless the row is BOOKED and a coordinator's.
+  await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId: vendorId, actorUserId: user.id });
 
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');

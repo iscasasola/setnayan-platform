@@ -67,7 +67,9 @@ test('🔑 the /for-suppliers Pro and Ultra previews draw their branches — own
   for (const plan of SAMPLE_SHOP_PLANS) {
     const cities = samplePlanBranchCities(plan);
     const included = tierCaps(SAMPLE_SHOP_PLAN_TIER[plan]).branchesIncluded;
-    assert.equal(cities.length, included, `${plan}: draws ${cities.length} branches, the plan includes ${included}`);
+    // No limit (Pro and Ultra since 2026-11-22) draws every sample city; a counted plan draws exactly its number.
+    if (Number.isFinite(included)) assert.equal(cities.length, included, `${plan}: draws ${cities.length} branches, the plan includes ${included}`);
+    else assert.ok(cities.length > SHOP_ALSO_IN_NAMED, `${plan}: a plan with no branch limit draws only ${cities.length} sample branches`);
     const line = shopAlsoInLine(cities, 'Tagaytay');
     if (plan === 'pro' || plan === 'ultra') {
       assert.ok(included > 0, `${plan} includes no branches any more — re-read the owner's ruling`);
@@ -80,7 +82,8 @@ test('🔑 the /for-suppliers Pro and Ultra previews draw their branches — own
     }
   }
   // The sample has enough cities for the top plan — a shorter list would silently draw fewer than the plan includes.
-  const most = Math.max(...SAMPLE_SHOP_PLANS.map((p) => tierCaps(SAMPLE_SHOP_PLAN_TIER[p]).branchesIncluded));
+  // A counted plan only: "no limit" (Pro and Ultra since 2026-11-22) draws every sample city, checked above.
+  const most = Math.max(...SAMPLE_SHOP_PLANS.map((p) => tierCaps(SAMPLE_SHOP_PLAN_TIER[p]).branchesIncluded).filter(Number.isFinite));
   assert.ok(SAMPLE_BRANCH_CITIES.length >= most, `the sample lists ${SAMPLE_BRANCH_CITIES.length} branch cities, a plan includes ${most}`);
   assert.ok(!SAMPLE_BRANCH_CITIES.some((c) => c.toLowerCase() === 'tagaytay'), 'a branch city is the HQ city, so the line would drop it');
 });

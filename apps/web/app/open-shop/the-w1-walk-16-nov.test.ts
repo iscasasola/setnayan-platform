@@ -111,7 +111,9 @@ test('W1-B21 · the plan picked on /for-suppliers rides through the door and is 
   assert.match(PAGE, /redirect\(planOfferPath\(plan\) \?\? landing\)/);
   assert.match(WIZARD, /\{plan \? <input type="hidden" name="plan" value=\{plan\} \/> : null\}/, 'the form no longer posts the plan');
   const actions = stripComments(read('app/open-shop/actions.ts'));
-  assert.match(actions, /const plan = parseSupplierPlan\(formData\.get\('plan'\)\);/);
+  // The web door still reads the posted plan; inside the iPhone app the server drops it (22 Nov, no paid offer outside
+  // Apple's in-app purchase — pinned in the-app-supplier-door-names-no-price.test.ts).
+  assert.match(actions, /const plan = \(await isStoreShellRequest\(\)\) \? null : parseSupplierPlan\(formData\.get\('plan'\)\);/);
   // 🚪 19 Nov: the logo screen is no longer forced in between — the plan's offer comes first, Today's welcome otherwise
   // (and Edit on the first card opens the Card Maker, the plan reachable from Today after it).
   assert.match(actions, /redirect\(viaInvite\(planOfferPath\(plan\) \?\? firstCardLanding\(\{ choice: cardChoice, cardId, category: cardCategory \}\)\)\);/);

@@ -16,6 +16,7 @@ import { plainRefusal } from '@/lib/admin/plain-refusal';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { grantVerificationPlanReward } from '@/lib/verification-plan-reward.server';
+import { verifyRefusalFor } from '@/lib/one-registered-business.server';
 
 /**
  * verification-decision.server.ts — THE ONE ENGINE that approves, rejects,
@@ -155,6 +156,12 @@ export async function applyApplicationDecision(
       if (heldBack === null) {
         return { ok: false, error: "Couldn't read the plan this shop had waiting — nothing was changed. Try again." };
       }
+      // 🔒 ONE VERIFIED SHOP PER REGISTRATION NUMBER (owner 2026-11-22, "UNLIMITED = ONE REGISTERED BUSINESS"):
+      // asked BEFORE the application row is written, so a refusal never leaves it approved with the shop unverified.
+      // The automatic path comes through here too. The trigger `vendor_profiles_one_verified_per_registration`
+      // refuses the same row anyway.
+      const oneBusiness = await verifyRefusalFor(vendor.vendor_profile_id, fromState, admin);
+      if (oneBusiness) return { ok: false, error: oneBusiness };
       toState = 'verified';
       appStatus = 'approved';
       appDecision = 'approved';

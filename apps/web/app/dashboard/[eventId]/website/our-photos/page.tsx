@@ -130,7 +130,7 @@ export default async function OurPhotosEditorPage({
         ) : null}
         {!proActive && !storeShell ? (
           <p role={drafted ? 'status' : undefined} className="flex items-start gap-2 text-sm text-ink/70">
-            <PaidMark state="try" label={paidMarkLabel('try', 'Event Pro')} text="Pro" size="xs" />
+            <PaidMark state="try" word="PLUS" label={paidMarkLabel('try', 'Event Plus')} text="Pro" size="xs" />
             <span>
               {heldForPro || drafted
                 ? 'Saved in your Event Hub draft. Guests see these photos after you Apply with Event Pro in your Event Hub Maker.'

@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1968
-# tables: 538
-# columns: 6455
-# notnull: 3887
+# ledger: 1988
+# tables: 540
+# columns: 6489
+# notnull: 3900
 [ledger]
 20260512000000
 20260513000000
@@ -1953,6 +1953,7 @@
 20271352968519
 20271353093349
 20271353556136
+20271354150744
 20271354185201
 20271354187586
 20271354345662
@@ -1964,22 +1965,41 @@
 20271354727518
 20271355036188
 20271355258231
+20271355381662
 20271355512715
 20271355746081
 20271355899662
+20271355916558
+20271356061492
 20271356173915
 20271356196197
 20271356215288
 20271356402294
+20271356433378
+20271356452488
+20271356585725
 20271356599293
 20271356623783
 20271356665317
 20271356877338
 20271356969132
 20271356998019
+20271357113669
 20271357547732
 20271357625672
+20271357741892
 20271357859993
+20271357880360
+20271357924837
+20271358270977
+20271358554489
+20271359080029
+20271359089802
+20271359577754
+20271359913146
+20271359936839
+20271360033501
+20271360321657
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2131,6 +2151,7 @@ app_store_purchases.service_key
 app_store_purchases.transaction_id
 app_store_purchases.updated_at
 app_store_purchases.user_id
+app_store_purchases.vendor_profile_id
 app_store_purchases.verified_at
 app_telemetry_logs.build_sha
 app_telemetry_logs.created_at
@@ -2913,12 +2934,14 @@ drive_copy_artifacts.size_bytes
 drive_copy_artifacts.source_ref
 drive_copy_artifacts.source_table
 drive_copy_artifacts.uploaded_at
+drive_copy_artifacts.vendor_profile_id
 drive_copy_folders.created_at
 drive_copy_folders.drive_folder_id
 drive_copy_folders.drive_provider
 drive_copy_folders.event_id
 drive_copy_folders.folder_row_id
 drive_copy_folders.kind
+drive_copy_folders.vendor_profile_id
 earned_token_vouchers.expires_at
 earned_token_vouchers.grant_metadata
 earned_token_vouchers.grant_source
@@ -3392,6 +3415,7 @@ event_moderators.invitation_sent_at
 event_moderators.invitation_token
 event_moderators.invited_by_user_id
 event_moderators.moderator_id
+event_moderators.opened_by_event_vendor_id
 event_moderators.permissions_json
 event_moderators.removal_reason
 event_moderators.removed_at
@@ -3738,9 +3762,11 @@ event_type_onboarding.reveal_overrides
 event_type_onboarding.updated_at
 event_type_profiles.budget_taxonomy_key
 event_type_profiles.camera_default
+event_type_profiles.core_categories
 event_type_profiles.created_at
 event_type_profiles.enabled_surfaces
 event_type_profiles.event_class
+event_type_profiles.event_size
 event_type_profiles.event_type
 event_type_profiles.gifts_mode
 event_type_profiles.guest_word
@@ -4053,6 +4079,7 @@ events.ceremony_venue_latitude
 events.ceremony_venue_longitude
 events.ceremony_venue_setting
 events.chapters_peek
+events.checkin_desk_access
 events.cleared_at
 events.cleared_by_user_id
 events.community_id
@@ -4071,6 +4098,7 @@ events.created_at
 events.date_candidates
 events.date_forced_by_lock_of
 events.date_mode
+events.date_months
 events.date_status
 events.date_window_end
 events.date_window_start
@@ -4463,6 +4491,7 @@ guest_group_memberships.group_id
 guest_group_memberships.guest_id
 guest_groups.created_at
 guest_groups.event_id
+guest_groups.event_vendor_id
 guest_groups.group_id
 guest_groups.label
 guest_groups.public_id
@@ -5097,11 +5126,13 @@ oauth_grants.provider
 oauth_grants.refresh_token
 oauth_grants.revoked_at
 oauth_grants.scopes
+oauth_grants.vendor_profile_id
 oauth_state.created_at
 oauth_state.event_id
 oauth_state.initiated_by
 oauth_state.provider
 oauth_state.state_token
+oauth_state.vendor_profile_id
 onboarding_order_items.created_at
 onboarding_order_items.item_id
 onboarding_order_items.order_id
@@ -6027,6 +6058,12 @@ platform_settings.vendor_validate_email
 platform_settings.vendor_validate_phone
 platform_settings.youtube_oauth_client_id
 platform_settings.youtube_oauth_redirect_uri
+pricing_formula_settings.id
+pricing_formula_settings.pricing_fee_tax_cover
+pricing_formula_settings.pricing_margin_factor
+pricing_formula_settings.pricing_opex_factor
+pricing_formula_settings.pricing_round_step_php
+pricing_formula_settings.updated_at
 promo_free_windows.audience_params
 promo_free_windows.audience_type
 promo_free_windows.blurb
@@ -6912,6 +6949,22 @@ vendor_album_opens.album_key
 vendor_album_opens.album_kind
 vendor_album_opens.opened_at
 vendor_album_opens.vendor_profile_id
+vendor_app_store_subscriptions.auto_renew_product_id
+vendor_app_store_subscriptions.billing_failed_at
+vendor_app_store_subscriptions.created_at
+vendor_app_store_subscriptions.environment
+vendor_app_store_subscriptions.expires_at
+vendor_app_store_subscriptions.grace_period_expires_at
+vendor_app_store_subscriptions.last_notification
+vendor_app_store_subscriptions.last_notification_at
+vendor_app_store_subscriptions.last_transaction_id
+vendor_app_store_subscriptions.original_transaction_id
+vendor_app_store_subscriptions.product_id
+vendor_app_store_subscriptions.status
+vendor_app_store_subscriptions.tier
+vendor_app_store_subscriptions.updated_at
+vendor_app_store_subscriptions.vendor_profile_id
+vendor_app_store_subscriptions.will_auto_renew
 vendor_availability_freed.blocked_at
 vendor_availability_freed.blocked_until
 vendor_availability_freed.day_part
@@ -8223,6 +8276,7 @@ vendor_subscriptions.addon_amount_php
 vendor_subscriptions.addon_token_count
 vendor_subscriptions.addon_token_pack_sku
 vendor_subscriptions.amount_php
+vendor_subscriptions.app_store_original_transaction_id
 vendor_subscriptions.billing_cycle
 vendor_subscriptions.created_at
 vendor_subscriptions.credit_applied_php
@@ -10284,7 +10338,6 @@ npc_filing_tasks.tier
 npc_filing_tasks.title
 npc_filing_tasks.updated_at
 oauth_grants.connection_health
-oauth_grants.event_id
 oauth_grants.grant_id
 oauth_grants.granted_at
 oauth_grants.metadata
@@ -10810,6 +10863,12 @@ platform_settings.updated_at
 platform_settings.vendor_addon_tiered_pricing_enabled
 platform_settings.vendor_tier_pipeline_caps_enabled
 platform_settings.vendor_validate_email
+pricing_formula_settings.id
+pricing_formula_settings.pricing_fee_tax_cover
+pricing_formula_settings.pricing_margin_factor
+pricing_formula_settings.pricing_opex_factor
+pricing_formula_settings.pricing_round_step_php
+pricing_formula_settings.updated_at
 promo_free_windows.audience_params
 promo_free_windows.audience_type
 promo_free_windows.covered_service_keys
@@ -11396,6 +11455,14 @@ vendor_album_opens.album_key
 vendor_album_opens.album_kind
 vendor_album_opens.opened_at
 vendor_album_opens.vendor_profile_id
+vendor_app_store_subscriptions.created_at
+vendor_app_store_subscriptions.environment
+vendor_app_store_subscriptions.original_transaction_id
+vendor_app_store_subscriptions.product_id
+vendor_app_store_subscriptions.status
+vendor_app_store_subscriptions.tier
+vendor_app_store_subscriptions.updated_at
+vendor_app_store_subscriptions.vendor_profile_id
 vendor_availability_freed.day_part
 vendor_availability_freed.freed_at
 vendor_availability_freed.id

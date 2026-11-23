@@ -94,8 +94,10 @@ test('3 · a card in the stream wears the one look; the old frame is only a draf
   }
   assert.ok(worn >= 12, `only ${worn} cards wear KindCard`);
   const bits = stripComments(read(`${CARDS}/card-bits.tsx`));
-  // Ruled 20 Nov ("match the drawing"): ⇄ counter · ≡ plan · ₱ quote; every other kind keeps its topic's glyph.
-  assert.match(bits, /DEAL_MARK[^=]*= \{ counter: ArrowLeftRight, plan: List, quote: PhilippinePeso \}/, 'the drawing\'s three deal marks');
+  // Ruled 20 Nov ("match the drawing"): ⇄ counter · ≡ plan · ₱ quote, and the review ask's ☆ (it borrows the quote's
+  // colour in the drawing, never its ₱); every other kind keeps its topic's glyph.
+  assert.match(bits, /DEAL_MARK[^=]*= \{ counter: ArrowLeftRight, plan: List, quote: PhilippinePeso, review: Star \}/, 'the drawing\'s deal marks');
+  assert.match(stripComments(read(`${CARDS}/handover-card.tsx`)), /kind="quote"\s+mark="review"/, 'the review ask wears the drawing\'s ☆, not the quote\'s ₱');
   assert.match(bits, /: TOPIC_ICON\[topic\];/, 'every other card keeps its topic\'s icon');
   assert.match(stripComments(read(`${CARDS}/negotiate-cards.tsx`)), /mark=\{kind === 'plan' \? 'plan' : undefined\}/, 'a payment plan wears the plan mark');
   assert.match(bits, /turn === 'me' \? 'shadow-sn-frame' : 'shadow-sn-hair'/, 'only a card that waits on the reader lifts');

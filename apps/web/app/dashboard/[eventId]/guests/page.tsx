@@ -96,6 +96,7 @@ import { loadInviteSetup } from './_components/invite-message-setup';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
 import { isUuid } from '@/lib/is-uuid';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { PageInfo } from '@/app/_components/help-ask/page-info';
 // The Guest list's two other parts are the SHIPPED pages, rendered whole in
 // this page's body (owner 2026-09-29) — never a second copy of either.
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
@@ -1117,9 +1118,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     !viewer.isCouple && viewer.delegatePermissions !== null && viewerAreaLevel(viewer, 'guest_list') !== 'edit';
   /* 📤 NO SHARE ON A ROW (Guests redesign pick 3, owner 20 Nov 2026: "No share button on guest rows" — "Send invite" on
      the guest card, "Send N invites" in the list's summary). The list no longer carries every guest's token. */
+  // ⓘ This page's help (Guide & Help drawing, screen 6) — drawn by the server, seated in the pinned row by the screen.
+  const pageInfo = <PageInfo pageKey="guests" eventId={eventId} />;
   const guestsScreen = (
     <GuestsScreen
       eventId={eventId}
+      info={pageInfo}
       roleSetKey={guestRoleSetKey}
       gview={gview}
       seat={gview === 'seats' ? parseSeatView(typeof search.seat === 'string' ? search.seat : null) : null}
@@ -1216,7 +1220,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
        block below it, one `gap-4` (16 px) apart. A block that is not drawn is
        not a flex item, so it leaves no orphan gap. */
     <section className="sn-col max-w-none flex flex-col gap-6" data-roster-full-width="">
-      <div className="flex flex-col gap-4" data-guests-title-group="">
+      {/* 📏 `contents`, not a flex column (22 Nov 2026, drawing v4 § 1: the summary sits right under the top row). On a
+          phone the group holds only the sr-only h1 — 0 px tall, yet as a flex item it still cost the section's 24 px
+          `gap-6`, a dead band under the pinned row. An sr-only heading is out of flow, so it now costs nothing; a
+          visible masthead (desktop) is still the section's first item, spaced exactly as before. */}
+      <div className="contents" data-guests-title-group="">
 
       {/* The floating focus-mode "back X" (top-left) was REMOVED 2026-06-15
           (nav-surfaces follow-up to #1470): the global journey bottom nav is now

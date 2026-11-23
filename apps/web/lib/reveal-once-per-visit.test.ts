@@ -159,7 +159,7 @@ test('a House invite records nothing — that guest’s first reveal is still th
   assert.ok(effect, 'the `showing` effect is gone or reshaped — re-read this rule before changing it');
   assert.match(
     effect[0]!,
-    /if \(showing && oncePerVisit === 'record'\) markRevealSeen\(/,
+    /if \(showing && \(oncePerVisit === 'record' \|\| oncePerVisit === 'defer'\)\) markRevealSeen\(/,
     'the mark is no longer written from `showing` — it must record what a guest SAW, ' +
       'not what happened to mount. Every reason the overlay stands down (reduced ' +
       'motion, No Reveal, the admin map, a lapsed unlock, the wrong phase) is folded ' +
@@ -200,4 +200,20 @@ test('🪤 STANDING ASIDE STILL STARTS THE FILM — and through the shipped path
     /std-reveal-done/,
     'the deferral is dispatching the first-lift event to "make sure" the film starts',
   );
+});
+
+test('↩️ A RETURN TO THE EVENT HUB NEVER REPLAYS THE OPENING (owner 2026-11-22)', () => {
+  // "when we return to the event hub. we don't want them to start at the reveal. we want them back to where they
+  // were last" — so the Hub's OWN opening, once seen, is recorded for the visit, exactly as the invite door's is.
+  const overlay = read('app/[slug]/_components/reveal/reveal-overlay.tsx');
+  assert.match(
+    overlay,
+    /oncePerVisit === 'defer'\)\) markRevealSeen\(window\.sessionStorage, seenEventId\)/,
+    'the Event Hub no longer records the opening it showed — a guest coming back from the camera watches it again',
+  );
+  // …and the mark it writes is the one its own deferral reads on the next mount.
+  const tab = fakeStore();
+  assert.equal(revealAlreadySeen(tab, 'evt_hub'), false);
+  markRevealSeen(tab, 'evt_hub');
+  assert.equal(revealAlreadySeen(tab, 'evt_hub'), true, 'the Hub would play its opening again on the way back');
 });

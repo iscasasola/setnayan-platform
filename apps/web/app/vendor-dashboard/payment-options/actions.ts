@@ -126,11 +126,11 @@ export async function addPaymentMethod(formData: FormData) {
       row.decoded_destination = str(formData.get('decoded_destination'), 256);
     }
   } else {
-    // link — Pro/Enterprise only
+    // link — every paid size (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE")
     // The final action — where a Pro-less shop is asked, and only while the
     // switch is on (vendorPaywallApplies). Off, every shop may add a link.
     if (vendorPaywallApplies(await isShopProActive(supabase, vendorProfileId)))
-      fail('Payment links are part of Pro and Ultra. Pick one on the Plans page to add this link.');
+      fail('Payment links are part of every paid plan. Pick one on the Plans page to add this link.');
     const url = str(formData.get('link_url'), 512);
     if (!url) fail('Enter your payment link.');
     const cls = classifyPaymentLink(url);

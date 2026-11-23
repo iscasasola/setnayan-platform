@@ -14,7 +14,7 @@ import { sanitizeRolePalette } from '@/lib/mood-board';
 import { sealColorFromPalette, veilColorFromPalette } from '@/lib/site-palette';
 import { sanitizeWaxSealConfig, type WaxSealConfig } from '@/lib/wax-seal/types';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
-import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
+import { canonicalRevealId, type RevealTemplateId } from '@/lib/reveal-config';
 
 /** Derive a short couple monogram for the reveal seal, e.g. "A & J". */
 export function revealMonogram(name: string): string {
@@ -63,8 +63,6 @@ export function revealSealConfig(event: { wax_seal_config?: unknown }): WaxSealC
  *  import reveal-config (it pulls the admin client). */
 export function coerceRevealTemplate(v: unknown): RevealTemplateId | 'none' | null {
   if (v === 'none') return 'none'; // NO_REVEAL — honoured even with the premium unlock
-  return typeof v === 'string' &&
-    (REVEAL_TEMPLATE_IDS as readonly string[]).includes(v)
-    ? (v as RevealTemplateId)
-    : null;
+  // ↪️ A retired opening (four-flap · two-flaps · church doors) plays its nearest new reveal (23 Nov 2026).
+  return canonicalRevealId(v);
 }

@@ -100,37 +100,33 @@ test('the masthead is the shared component, never a hand-roll', () => {
    protected is unchanged: no second channel, no re-typed labels.)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-test('a pick in the row’s ONE dropdown calls the SHIPPED bus — it does not build a second channel', () => {
-  // The paid-twice mistake this surface already made once. A pick goes through
+test('a press on a step calls the SHIPPED bus — it does not build a second channel', () => {
+  // The paid-twice mistake this surface already made once. A step goes through
   // `goToBuildTab`, which dispatches the existing event the takeover's own
   // listener consumes — no new key, no new event, no handler of its own.
-  // (2026-10-31: the segmented Find · Build · Booked row became the ONE dropdown, `Page · View ▾` — the bus is the same.)
+  // (2026-10-31 the row became ONE dropdown; 2026-11-17 — owner, "the find build book" — three plain steps. The bus is
+  // the same through both.)
   const shell = shellBody();
-  assert.match(shell, /onPick=\{pickFace\}/, 'the row’s dropdown must dispatch the existing bus');
-  // Every pick — Find · Build · Booked (owner 2026-11-02: Booked is just the team, no part pages) — is the bus.
-  assert.match(shell, /goToBuildTab\(SUPPLIERS_MODE_TAB\[key\]\);/, 'a pick must dispatch the existing bus');
-  assert.doesNotMatch(shell, /onPick=\{\(\w*\) => setMode\(/, 'a pick sets the mode behind the bus’s back');
+  assert.match(shell, /if \(!on\) goToBuildTab\(SUPPLIERS_MODE_TAB\[m\]\);/, 'a step must dispatch the existing bus');
+  assert.doesNotMatch(shell, /onClick=\{\(\) => setMode\(/, 'a step sets the mode behind the bus’s back');
   assert.equal((code(TAKEOVER).match(/new CustomEvent\(/g) ?? []).length, 0, 'the takeover dispatches an event of its own');
 });
 
-test('the dropdown’s words come from the one module, never authored in the takeover', () => {
+test('the steps’ words come from the one module, never authored in the takeover', () => {
   const shell = shellBody();
-  assert.match(shell, /label: SUPPLIERS_MODE_LABEL\.find\b/);
-  assert.match(shell, /label: SUPPLIERS_MODE_LABEL\.build\b/);
-  assert.match(shell, /label: SUPPLIERS_MODE_LABEL\.booked\b/);
-  assert.doesNotMatch(shell, />\s*(Find|Build|Booked)\s*</, 'a mode’s word is typed in the takeover');
-  assert.doesNotMatch(shell, /label: '(Find|Build|Booked)/, 'a mode’s word is typed in the takeover');
-  // …and that module says Find · Build · Booked.
-  assert.match(code(SHELL_RULES), /find: 'Find',\s*build: 'Build',\s*booked: 'Booked',/);
+  assert.match(shell, /<span>\{SUPPLIERS_MODE_LABEL\[m\]\}<\/span>/, 'a step no longer reads its word from the module');
+  assert.doesNotMatch(shell, />\s*(Find|Build|Booked|Book)\s*</, 'a mode’s word is typed in the takeover');
+  assert.doesNotMatch(shell, /label: '(Find|Build|Booked|Book)/, 'a mode’s word is typed in the takeover');
+  // …and that module says Find · Build · Book (owner 2026-11-17).
+  assert.match(code(SHELL_RULES), /find: 'Find',\s*build: 'Build',\s*booked: 'Book',/);
 });
 
-test('the dropdown lists every mode, and every mode key is a shipped tab', () => {
+test('the row offers every mode, and every mode key is a shipped tab', () => {
   // `suppliers-shell.test.ts` executes that every bus key opens a body and each
-  // body owns one key; here, that the dropdown offers each body (Booked is just the team since 2026-11-02).
+  // body owns one key; here, that the row offers each body, in order.
   const shell = shellBody();
-  assert.match(shell, /\{ key: 'find', label: SUPPLIERS_MODE_LABEL\.find,/);
-  assert.match(shell, /\{ key: 'build', label: SUPPLIERS_MODE_LABEL\.build,/);
-  assert.match(shell, /\{ key: 'booked', label: SUPPLIERS_MODE_LABEL\.booked,/);
+  assert.match(shell, /\{SUPPLIERS_MODES\.map\(\(m\) => \{/, 'the row no longer draws one step per mode');
+  assert.match(code(SHELL_RULES), /SUPPLIERS_MODES = \['find', 'build', 'booked'\] as const/);
   assert.match(code(SHELL_RULES), /find: 'shortlist',\s*build: 'build',\s*booked: 'budget',/);
 });
 

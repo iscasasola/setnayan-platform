@@ -87,7 +87,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'event-plus-and-event-pro',
         title: 'What do Event Plus, Event Pro and Event Ultra add?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'They are the three optional paid plans for one event; planning stays free without them. Event Plus adds Papic credits for your guests’ cameras and 500 MB of uploads, and the Setnayan watermark gives way to one small “Made with Setnayan”; it works even for an event with no suppliers. Event Pro is everything in Event Plus with more Papic credits, adds Setnayan AI — it tells you what is next and flags what is at risk — and 1 GB of uploads, and lets you design every part of your Event Hub: the reveal, background, photos, style, motion, logo and QR, music, prints, the after-the-event page and your address. It takes the Setnayan watermark off your Event Hub. Event Ultra is everything in Event Pro with the most Papic credits, plus Live Watch for one day, 2 GB of uploads, your full-size photos kept 12 months after the event instead of 3. What you pay for Event Plus counts toward Event Pro, and moving from Event Plus or Event Pro to Event Ultra, you pay only the difference. Current rates are on setnayan.com/pricing.',
+        body: 'They are the three optional paid plans for one event; planning stays free without them. Event Plus adds Papic credits for your guests’ cameras and the whole Event Hub — every ready-made theme, and every part to design: the reveal, background, photos, style, motion, logo and QR, music, prints, the after-the-event page and your address — plus a cinematic opening for your Save the Date and 500 MB of uploads, and the Setnayan watermark gives way to one small “Made with Setnayan”; it works even for an event with no suppliers. Event Pro is everything in Event Plus with more Papic credits, adds Setnayan AI — it tells you what is next and flags what is at risk — and 1 GB of uploads, and takes the Setnayan watermark off your Event Hub. Event Ultra is everything in Event Pro with the most Papic credits, and adds Live Watch for one day, 2 GB of uploads and your full-size photos kept 12 months after the event. What you pay for Event Plus counts toward Event Pro, and moving from Event Plus or Event Pro to Event Ultra, you pay only the difference. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
@@ -337,12 +337,12 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         // "story with many suppliers", "Supplier Ultra scenes") — the story's own ⓘ says the short version.
         slug: 'story-suppliers',
         title: 'How are our suppliers shown in our event story?',
-        body: 'After the day, your story lists everyone who made it in “The people who made it”. Suppliers booked on Setnayan come first, ordered by their plan — Supplier Ultra, then Supplier Pro, Supplier Plus, Verified and Free — and a supplier you added yourself is named, with no link. The story shows the first eight; “See all” opens the full list, grouped by plan, with a search box when there are more than 20. Every booked supplier can be tapped: Supplier Pro and Supplier Ultra open a card with their cover, rating, best work and a Book button, the rest open their shop. Each Supplier Ultra that shares its album from your event also gets its own scene in your story.',
+        body: 'After the day, your story lists everyone who made it in “The people who made it”. Suppliers booked on Setnayan come first, ordered by their plan — Ultra, then Pro, Plus, Verified and Free — and a supplier you added yourself is named, with no link. The story shows the first eight; “See all” opens the full list, grouped by plan, with a search box when there are more than 20. Every booked supplier can be tapped: suppliers on a paid plan open a card with their cover, rating, best work and a Book button, the rest open their shop. Each supplier on a paid plan that shares its album from your event also gets its own scene in your story.',
       },
       {
         slug: 'share-album-to-story',
         title: 'Supplier: how do I share my album to an event’s story?',
-        body: 'On Supplier Ultra, open the event in On the day → What you shot. Under “Your private portfolio”, turn on “Share this album to the event’s story”. The photos and videos in that album then fill your own scene in the event’s story, with your shop name, your Supplier Ultra badge and a button to your shop. It is off until you turn it on, and you can turn it off any time. After the event you are asked once whether to share. The album counts toward your plan’s storage. On other plans you are listed in the story with no scene of your own.',
+        body: 'On any paid plan, open the event in On the day → What you shot. Under “Your private portfolio”, turn on “Share this album to the event’s story”. The photos and videos in that album then fill your own scene in the event’s story, with your shop name, your plan badge and a button to your shop. It is off until you turn it on, and you can turn it off any time. After the event you are asked once whether to share. The album counts toward your plan’s storage. On Free and Verified you are listed in the story with no scene of your own.',
       },
       {
         slug: 'people-page',
@@ -484,11 +484,12 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       },
       {
         // The slug stays (an indexed URL). Parts left sale 2026-10-26 (lib/event-hub-pro-is-sold-whole.test.ts) and the
-        // whole is Event Pro (COUPLE_WEBSITE_PRO). The Apply sheet is apply-pro-sheet.tsx; free themes are FREE_THEMES.
+        // whole is Event Plus since the owner's 20 Nov ruling (EVENT_PLUS; Pro and Ultra include it). The Apply sheet is
+        // apply-pro-sheet.tsx; free themes are FREE_THEMES.
         slug: 'event-hub-pro-parts',
         title: 'How do Pro effects work on my Event Hub?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Classic, Modern and Cyber Neon are free themes; every other theme, and every effect marked ◆, comes with Event Pro. Try any of them in your draft — only you see it. When you press Apply, the sheet lists each Pro effect and where it is: tap one to open it, or × to take it off. Unlock Pro and Apply puts everything live with Event Pro; Apply without the Pro effects puts the rest live and keeps the Pro ones in your draft. Event Pro comes whole, not part by part, and what you paid for Event Plus counts toward it; Event Ultra includes everything in Event Pro, and moving up to it you pay only the difference. Its price is on setnayan.com/pricing.',
+        body: 'Classic, Modern and Cyber Neon are free themes; every other ready-made theme, and every effect marked ◆, comes with Event Plus (Event Pro and Event Ultra include it). Try any of them in your draft — only you see it. When you press Apply, the sheet lists each ◆ effect and where it is: tap one to open it, or × to take it off. Unlock Plus and Apply puts everything live with Event Plus; Apply without the Plus effects puts the rest live and keeps the ◆ ones in your draft. Event Plus comes whole, not part by part. Its price is on setnayan.com/pricing.',
       },
       {
         // 🔒 The Maker Edit shell's locked tabs (owner-approved 2026-11-13, "maker shell approved").
@@ -508,7 +509,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'monogram',
         title: 'Customize the QR monogram',
         appBody: 'Every guest’s QR code carries a mark in its centre and opens their own invitation. You will find it in Hub, under Event Details › QR code.',
-        body: 'Every guest’s QR has a mark in its centre: the Setnayan mark, or your own logo with Event Pro, which also lets you pick the QR’s shape, pattern and colour. Find it in Hub, under Event Details › QR code. Guests see a change once you press Apply.',
+        body: 'Every guest’s QR has a mark in its centre: the Setnayan mark, or your own logo with Event Plus, which also lets you pick the QR’s shape, pattern and colour. Find it in Hub, under Event Details › QR code. Guests see a change once you press Apply.',
       },
       {
         slug: 'print-qr-sheet',

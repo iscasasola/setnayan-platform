@@ -75,7 +75,7 @@ function BoothCard({ pro }: { pro: boolean }) {
 /** 💬 Owner 21 Nov: "AI Chatbot is for verified and up but smarter chatbot is for pro and up". The locked view is an
  *  unverified Free shop (the Clients ⚙ auto-reply section draws exactly this lock); both views show the plan table's row. */
 function ChatbotCard({ pro }: { pro: boolean }) {
-  const groups = planTable({ paywallOn: true, prices: { monthly: {}, annual: {}, bySku: {} } });
+  const groups = planTable({ paywallOn: true, prices: { monthly: {}, bySku: {} } });
   const bot = groups.flatMap((g) => g.rows).find((r) => r.key === 'tool:chatbot');
   return (
     <ShopCard pad="roomy">

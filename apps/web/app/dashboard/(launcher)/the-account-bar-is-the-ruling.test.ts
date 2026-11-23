@@ -134,14 +134,14 @@ test('anchored: the bar is the canonical <BottomNav> inside <BottomDock>, with n
   assert.match(html, /aria-label="Primary navigation"/, 'not the canonical bar');
   const bar = src('app/dashboard/(launcher)/_components/account-bottom-nav.tsx');
   assert.ok(!/\bPlus\b|NavFab|nav-fab/.test(bar), 'a floating ＋ is back on the account bar');
-  for (const f of ['app/dashboard/(launcher)/layout.tsx', 'app/dashboard/(account)/layout.tsx']) {
+  for (const f of ['app/(hub)/layout.tsx', 'app/dashboard/(account)/layout.tsx']) {
     const layout = src(f);
     assert.ok(!/NavFab|\/dashboard\/create-event/.test(layout), `${f} mounts a create control beside the bar`);
   }
 });
 
 test('wiring: both layouts draw the ruled tabs from the server-side answers', () => {
-  for (const f of ['app/dashboard/(launcher)/layout.tsx', 'app/dashboard/(account)/layout.tsx']) {
+  for (const f of ['app/(hub)/layout.tsx', 'app/dashboard/(account)/layout.tsx']) {
     const layout = src(f);
     assert.match(
       layout,

@@ -44,6 +44,7 @@ import { verificationEvidenceSnapshot } from '@/lib/verification-checks-server';
 import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { verifyRefusalFor } from '@/lib/one-registered-business.server';
 
 /**
  * The same gate every other admin vendor action uses, copied rather than
@@ -109,6 +110,10 @@ export async function grantVerificationBypass(formData: FormData): Promise<void>
   // and would otherwise read exactly like "vendor not found".
   if (readErr) throw new Error(readErr.message);
   if (!before) throw new Error('Supplier not found.');
+  // 🔒 ONE VERIFIED SHOP PER REGISTRATION NUMBER (owner 2026-11-22): a vouch makes the shop verified too, so it is
+  // asked the same question first. The trigger refuses the same row anyway.
+  const oneBusiness = await verifyRefusalFor(vendorId, before.verification_state as string | null, admin);
+  if (oneBusiness) throw new Error(oneBusiness);
 
   const grantedAt = new Date();
   // 🏅 Founders verification (owner 12 Nov 2026): papers due 30 Mar 2027 for every vouch pressed before it.

@@ -50,7 +50,7 @@ export function GuestsLastCopy({ children }: { children: ReactNode }) {
       <div className="sn-inspector-shell sn-inspector-shell--card" data-open="false">
         <div className="sn-inspector-master">
           <section className="sn-col max-w-none flex flex-col gap-6" data-roster-full-width="">
-            <div className="flex flex-col gap-4" data-guests-title-group="">
+            <div className="contents" data-guests-title-group="">
               <h1 className="sr-only">Guests</h1>
             </div>
             <div className="flex min-w-0 flex-col gap-4" data-guests-blocks="">

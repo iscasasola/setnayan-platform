@@ -19,7 +19,8 @@ const SURFACES = [
   // (extra-cameras-picker.tsx deleted 2026-10-23 — the crew-camera tiers retired)
   'app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx',
   'app/papic/guest/_components/papic-guest-capture.tsx',
-  'app/papic/seat/[token]/_components/papic-seat-capture.tsx',
+  // (papic-seat-capture.tsx retired 2026-11-22 — a seat shoots on the guest camera above: one camera)
+  'lib/papic-seat-lane.ts',
   'app/papic/order/[token]/page.tsx',
   'app/papic/_components/papic-buy-shell.tsx',
   'app/papic/demo/[token]/_components/demo-join-flow.tsx',

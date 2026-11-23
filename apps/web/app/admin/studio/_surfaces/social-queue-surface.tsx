@@ -1,4 +1,5 @@
 import { InfoTip } from '@/app/_components/info-tip';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
@@ -994,7 +995,7 @@ export async function SocialQueueSurface({
             // guarded by tier_expires_at because the downgrade sweep is
             // login-driven (sweep_vendor_tier_expiry) and may not have run.
             const proActive =
-              (v.tier_state === 'pro' || v.tier_state === 'enterprise') &&
+              isPaidSize(v.tier_state) && // every paid size since 2026-11-22
               (!v.tier_expires_at || new Date(v.tier_expires_at).getTime() > Date.now());
             const categoryLabel = v.services[0]
               ? displayServiceLabel(v.services[0])

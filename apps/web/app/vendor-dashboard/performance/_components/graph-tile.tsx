@@ -6,7 +6,7 @@ import { ArrowRight, ChevronRight } from 'lucide-react';
 import type { GrowthRec } from '@/lib/vendor-growth-recs';
 import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
 import { impactChipStyle } from './growth-recs-card';
-import { Reanimate, useReanimate } from './reanimate';
+import { Reanimate } from './reanimate';
 
 /**
  * 📈🎠 EVERY GRAPH IS A CARD OF THE ONE ANALYTICS CAROUSEL, AND A CARD RISES TO OUR RECOMMENDATION (Build 6 Lane I —
@@ -14,7 +14,7 @@ import { Reanimate, useReanimate } from './reanimate';
  * the carousel."*, the window *"inside each card"*; prototype `analytics_option_b_2026-11-11`, option 3).
  *
  *   CARD    title (the whole card is the button) · its number and its OWN window switch (or a fixed-window label) ·
- *           the picture, animated when the card is swiped into view (`Reanimate` + `WhenSeen`) · one line in words.
+ *           the picture, drawn at its final size from the first paint, animated when the card is swiped into view (`Reanimate`) · one line in words.
  *   RISE    THE one Rise full screen (`RiseScreen`, Build 5 Lane A — out of the tapped card, the reverse on ✕, the bars
  *           away; the same window switch rides its head, the one door its thumb zone): the graph larger, then ONE
  *           recommendation — Problem (the graph's own number) → Solution → one door — only when its rule fired in
@@ -46,6 +46,8 @@ export type GraphSpec = {
   details?: ReactNode;
   /** The door when no rule fired (and the empty state's start). */
   door: { label: string; href: string };
+  /** 📈 "Three years" — the count cards' risen view only, drawn under the graph and before the recommendation. */
+  years?: ReactNode;
 };
 
 function RecBox({ g }: { g: GraphSpec }) {
@@ -73,16 +75,6 @@ function RecBox({ g }: { g: GraphSpec }) {
       )}
     </div>
   );
-}
-
-/**
- * Draws its picture only once the card has been SEEN (the `Reanimate` around it says so), so the bars grow, the lines
- * draw and the counts tick when the supplier swipes to it — never finishing off-screen while it waited in the carousel.
- * Reduced motion: the CSS keeps everything still (the house rules in globals.css / analytics-growing.css).
- */
-function WhenSeen({ children }: { children: ReactNode }) {
-  const seen = useReanimate();
-  return seen === false ? <span className="ag-gp-wait" aria-hidden /> : <>{children}</>;
 }
 
 /**
@@ -121,18 +113,21 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
               Couldn’t load.
             </span>
           ) : (
-            <>
-              <span className="ag-gp" aria-hidden={g.state === 'empty' ? true : undefined}>
-                <WhenSeen>{g.pic}</WhenSeen>
-              </span>
-              <span className="ag-ln">{g.line}</span>
-            </>
+            /* 📐 THE PICTURE IS DRAWN FROM THE FIRST PAINT, IN ITS FIXED 144-PX BOX (owner 21 Nov 2026: *"the graphs when
+               scrolled goes up and down"* · *"graphs look better and balance"*). Every card is one shape — head 24 ·
+               number row 44 · picture 144 · line 36 — so no card can stretch the carousel, seen or not. The motion still
+               waits for the card to be seen: `useTween` holds its values and analytics-growing.css pauses the CSS
+               motion until `.perf-play`. 🔒 shop/the-analytics-carousel-never-changes-height.test.ts */
+            <span className="ag-gp" aria-hidden={g.state === 'empty' ? true : undefined}>{g.pic}</span>
           )}
-          {g.state === 'empty' ? (
-            <span className="ag-dr">
-              {g.door.label} <ChevronRight aria-hidden strokeWidth={1.9} />
-            </span>
-          ) : null}
+          <span className="ag-foot">
+            {g.state === 'unread' ? null : <span className="ag-ln">{g.line}</span>}
+            {g.state === 'empty' ? (
+              <span className="ag-dr">
+                {g.door.label} <ChevronRight aria-hidden strokeWidth={1.9} />
+              </span>
+            ) : null}
+          </span>
         </div>
       </Reanimate>
       {open ? (
@@ -163,6 +158,7 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
                 </>
               )}
             </div>
+            {g.years ?? null}
             <RecBox g={g} />
             {g.details ? <div className="ag-body">{g.details}</div> : null}
             <p className="ag-cap">{g.state === 'empty' ? 'The picture is a sample, faded — it goes with your first real row.' : 'One recommendation per graph · never advice on a number we do not have.'}</p>

@@ -7,7 +7,8 @@
  * not ride into the Maker's bundle.
  */
 import { columnOfRole, ENTOURAGE_GROUP_KEYS, entourageGroupOfRole, isMarchOnlyGroup, isOwnMarchGroup, marchHomeOf, marchOrderKeys, type EntourageGroup, type EntouragePerson } from '@/lib/entourage';
-import { guestRoleLabel } from '@/lib/guests';
+import { guestRoleLabel, type GuestRole } from '@/lib/guests';
+import type { RoleNames } from '@/lib/role-names';
 import type { MarchOut, MarchPerson, MarchSection } from '@/lib/march-drag';
 
 /**
@@ -123,4 +124,40 @@ export function marchTray(groups: readonly EntourageGroup[]): MarchOut[] {
       row.filter((p): p is MarchPerson => p !== null && p.id !== '').map((p) => ({ ...p, tied: undefined, section: sec.key, sectionLabel: sec.label })),
     ),
   );
+}
+
+/**
+ * 🏷 THE CAPTION UNDER A WALKER'S NAME in Guests › March (approved drawing `guests_redesign_2026-11-20_fable.html` § 7:
+ * *"The role is a small caption under the name (Groom, Maid of honor, Best man)"*). Their role in the couple's own words
+ * (`guestRoleLabel`), never said twice: no caption where the heading already names the role ("Principal sponsor (Ninong)"
+ * under PRINCIPAL SPONSORS, "Groomsman" under GROOMSMEN); a heading that names two roles ("Maid of honor & best man")
+ * still captions each. A plain guest has none. The couple's march `tag` (Groom, Bride) wins. The words the app ships are
+ * set in sentence case ("Maid of honor"); a name the couple typed is kept exactly as they typed it.
+ * View-only: the printed march reads `marchSections` and is untouched.
+ */
+export function marchCaption(p: Pick<MarchPerson, 'role' | 'tag'>, heading: string, names?: RoleNames | null): string | null {
+  if (p.tag) return p.tag;
+  const role = p.role as GuestRole;
+  if (!role || role === 'guest') return null;
+  const word = guestRoleLabel(role, names);
+  if (!word) return null;
+  const stem = (t: string) =>
+    t
+      .toLowerCase()
+      .replace(/\(.*?\)/g, '')
+      .replace(/[^a-z& ]+/g, ' ')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .replace(/men\b/g, 'man')
+      .replace(/(es|s)\b/g, '');
+  const h = stem(heading);
+  const w = stem(word);
+  // One role in the heading: a caption that says it again (or only adds whose side) is dropped.
+  if (!h.includes('&') && (h === w || w.endsWith(` ${h}`) || w.endsWith(`'${h}`))) return null;
+  // The app's own word, in sentence case; the couple's typed word, as typed.
+  if (word !== guestRoleLabel(role)) return word;
+  // "Principal Sponsor (Ninong)" → "Principal sponsor (Ninong)": a name in brackets keeps its capital.
+  const at = word.indexOf(' (');
+  const head = at === -1 ? word : word.slice(0, at);
+  return head.charAt(0) + head.slice(1).toLowerCase() + (at === -1 ? '' : word.slice(at));
 }

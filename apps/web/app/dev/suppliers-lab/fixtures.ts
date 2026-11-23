@@ -25,15 +25,15 @@ const row = (r: Partial<EventVendorRowInput> & Pick<EventVendorRowInput, 'vendor
 });
 
 export const LAB_ROWS: EventVendorRowInput[] = [
-  row({ vendor_id: 'v-seda', vendor_name: 'Seda Vertis North', category: 'venue', status: 'contracted', total_cost_php: 1_056_000, manual_vendor_id: 'm-seda' }),
-  row({ vendor_id: 'v-santuario', vendor_name: 'Santuario de San Vicente de Paul', category: 'religious_venue', status: 'contracted', marketplace_vendor_id: 'p-santuario' }),
+  row({ vendor_id: 'v-seda', vendor_name: 'Tala Grove Pavilion', category: 'venue', status: 'contracted', total_cost_php: 1_056_000, manual_vendor_id: 'm-seda' }),
+  row({ vendor_id: 'v-santuario', vendor_name: 'Kapilya ng Liwayway', category: 'religious_venue', status: 'contracted', marketplace_vendor_id: 'p-santuario' }),
   row({ vendor_id: 'v-tinapay', vendor_name: 'Tinapay & Co.', category: 'cake_maker', total_cost_php: 12_000, manual_vendor_id: 'm-tinapay' }),
   row({ vendor_id: 'v-asukal', vendor_name: 'Asukal Cakes', category: 'cake_maker', manual_vendor_id: 'm-asukal' }),
   row({ vendor_id: 'v-bibingka', vendor_name: 'Bibingka Bakehouse', category: 'cake_maker', manual_vendor_id: 'm-bibingka' }),
   row({ vendor_id: 'v-bituin', vendor_name: 'Bituin Catering', category: 'catering', marketplace_vendor_id: 'p-bituin' }),
   row({ vendor_id: 'v-hiraya', vendor_name: 'Hiraya Table', category: 'catering', marketplace_vendor_id: 'p-hiraya' }),
-  row({ vendor_id: 'v-lola', vendor_name: 'Kusina ni Lola', category: 'catering', marketplace_vendor_id: 'p-lola' }),
-  row({ vendor_id: 'v-lumina', vendor_name: 'Lumina Studio', category: 'photographer', marketplace_vendor_id: 'p-lumina' }),
+  row({ vendor_id: 'v-lola', vendor_name: 'Kusina Talahib', category: 'catering', marketplace_vendor_id: 'p-lola' }),
+  row({ vendor_id: 'v-lumina', vendor_name: 'Tanglaw Frames', category: 'photographer', marketplace_vendor_id: 'p-lumina' }),
 ];
 
 export const LAB_ENRICHMENT = new Map<string, VendorEnrichment>([

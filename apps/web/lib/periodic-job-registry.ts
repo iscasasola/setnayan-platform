@@ -559,6 +559,16 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     reportsCount: true,
   },
   {
+    // 2026-11-23 — the supplier storage meter's Records (PR #8191). Its window is one Manila night from 03:00
+    // (lib/supplier-storage.ts `recordsMeasureClaimGapMs`): a DAILY row here, but the claim's gap is "since 03:00
+    // Manila", so the first request after 03:00 runs it and it never runs twice in one night. No pg_cron.
+    key: 'supplier-storage-records',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: 'Measuring what every supplier’s records weigh for the storage meter, once a night',
+    reportsCount: true,
+  },
+  {
     key: 'push-evening-summary',
     kind: 'operational',
     gapMs: DAILY_GAP_MS,

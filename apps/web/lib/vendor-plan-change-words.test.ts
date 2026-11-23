@@ -185,7 +185,8 @@ test('the refusal names the day and gives a way out', () => {
   const msg = termTooShortMessage('2027-06-14T05:00:00.000Z');
   assert.match(msg, /June/, 'a refusal without the date leaves nowhere to go');
   assert.match(msg, /2027/);
-  assert.match(msg, /yearly plan/, 'it must say what to do instead');
+  assert.match(msg, /come back nearer that date/, 'it must say what to do instead');
+  assert.doesNotMatch(msg, /year/i, 'there is no yearly plan to send them to (owner 2026-11-22)');
   assert.ok(!/TERM_TOO_SHORT/.test(msg), 'a person must never read the raw code');
 });
 

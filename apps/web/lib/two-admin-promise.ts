@@ -126,8 +126,8 @@ export const TWO_ADMIN_PROMISES: readonly TwoAdminPromise[] = [
     key: 'mid-quarter-price-change',
     asPublished: 'a mid-quarter price change on any in-app SKU',
     whyPerClause: 'Pricing governance (per § 8)',
-    actionType: 'approve_retail_price_change',
-    note: 'Enforced since 2026-09-23 (migration 20271244152236). `saveRetailRow` opens an approval when a save changes any field in CUSTOMER_PRICE_FIELDS and saves the copy fields immediately. ⛔ It gates EVERY price change, not only mid-quarter ones: the corpus never bounds the quarterly review window, and guessing it would decide whether a money change needs two admins. Stricter than the clause, never looser. Narrowing is one line once the owner states where the window ends. See lib/retail-price-change.ts.',
+    actionType: null,
+    note: '⚠ NOT ENFORCED, BY THE OWNER\'S RULING (23 Nov 2026): "no need for a second admin. auto approve". `saveRetailRow` now applies a price change at once through `executeRetailPriceChange`, with an audit row (before → after, who, applied_directly), and closes any request still pending for that SKU. From 2026-09-23 to 23 Nov it opened `approve_retail_price_change` for a second admin (migration 20271244152236; the dispatcher arm stays, for requests opened before the ruling). Enforcing it again would mean putting that request back in saveRetailRow. The agreement still names this row; amending § 9 / § 9.1 is the owner\'s step. See lib/retail-price-change.ts.',
   },
   {
     key: 'vendor-force-delisting',

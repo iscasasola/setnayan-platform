@@ -12,6 +12,22 @@ import { SUPPLIER_FREE_BOOKING_LINE } from '@/lib/booking-fee-who-words';
 
 /** The free booking in the owner's 19 Nov words — one home, `lib/booking-fee-who-words.ts`; re-exported for the guard. */
 export { SUPPLIER_FREE_BOOKING_LINE };
+/**
+ * The block's head (owner 23 Nov: "our goal is to help them elevate their services and provide a platform for them to
+ * grow their business … this is the best platform for them to grow their business"). It leads with growth; the 16 Nov
+ * ruled line (e5d166cd) closes the lede, unchanged.
+ */
+export const EARN_HEADLINE = 'The best place to grow your business. We do well only when you do.';
+export const EARN_RULED_LINE = 'We charge for what we add. Never for what you already had.';
+// Owner 23 Nov: "we don't want too many words" — the lede is one short line plus the ruled line.
+export const EARN_LEDE = `Your tools, your shop page and the couples planning here. ${EARN_RULED_LINE}`;
+
+/** What we give, first: the growth promise (owner 23 Nov, "we give a lot of services for them"). */
+export const GROW_PROMISE = {
+  title: 'Everything you need to grow, in one place.',
+  body: 'Shop page, quotes, bookings, payments, schedules, chat and portfolio.',
+} as const;
+
 /** Ruling e5d166cd (1), verbatim. */
 export const PAID_SPOT_PROMISE = {
   title: 'No one can pay to rank above you.',
@@ -19,6 +35,7 @@ export const PAID_SPOT_PROMISE = {
 } as const;
 
 export const EARN_PROMISES: ReadonlyArray<{ title: string; body: string }> = [
+  GROW_PROMISE,
   {
     title: OWN_CLIENT_PROMISE,
     body: `${SUPPLIER_FREE_BOOKING_LINE} Each one comes with a Setnayan gift from you.`,
@@ -26,10 +43,6 @@ export const EARN_PROMISES: ReadonlyArray<{ title: string; body: string }> = [
   {
     title: 'You see every fee before you agree.',
     body: 'The fee is written on the booking before you say yes. Nothing is added after.',
-  },
-  {
-    title: 'You can question any fee.',
-    body: 'Tap “Dispute this fee” on the bill. Your first one is on us; after that our team reviews it and tells you why.',
   },
   {
     title: 'We never sell or share your clients.',

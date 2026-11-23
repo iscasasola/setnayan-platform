@@ -13,7 +13,7 @@
  *     vendor_payment_methods directly).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isTierAtLeast } from './vendor-tier-caps';
+import { isPaidSize } from './vendor-tier-caps';
 
 export type PaymentMethodType = 'bank' | 'qr' | 'link';
 export type ModerationStatus = 'approved' | 'pending_review' | 'held' | 'removed';
@@ -191,7 +191,7 @@ export async function isVendorProActive(
   const now = Date.now();
   return (data as { tier_state?: string | null; tier_expires_at?: string | null }[]).some(
     (row) => {
-      if (!isTierAtLeast(row.tier_state, 'pro')) return false;
+      if (!isPaidSize(row.tier_state)) return false; // every paid size since 2026-11-22 (was Pro and up)
       if (row.tier_expires_at == null) return true; // no expiry set → active
       const expiry = new Date(row.tier_expires_at).getTime();
       return Number.isFinite(expiry) && expiry > now;
@@ -218,7 +218,7 @@ export async function isShopProActive(
     return false;
   }
   const row = data as { tier_state?: string | null; tier_expires_at?: string | null } | null;
-  if (!row || !isTierAtLeast(row.tier_state, 'pro')) return false;
+  if (!row || !isPaidSize(row.tier_state)) return false;
   if (row.tier_expires_at == null) return true;
   const expiry = new Date(row.tier_expires_at).getTime();
   return Number.isFinite(expiry) && expiry > Date.now();

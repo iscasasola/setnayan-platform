@@ -111,8 +111,10 @@ export function pagePlanLines(): PagePlanLine[] {
     { plan: 'Free', line: `Name · services · reviews · ${photos}`, pro: false },
     // 🌐 Your own web address sits on the first plan that has it — Solo since owner 2026-11-04 ("website applies to
     // solo as well"); read from `customWebsiteName`, never typed onto a line.
-    { plan: 'Plus', line: `Your About · your colour · what shows${TIER_CAPS.solo.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
-    { plan: 'Pro', line: `A cover photo · a pinned review · stories${!TIER_CAPS.solo.customWebsiteName && TIER_CAPS.pro.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
+    // Owner 2026-11-22 "SAME FEATURES IN EVERY SIZE": the cover photo, pinned review and stories open on Plus with the rest
+    // (`premiumPage`); Pro and Ultra differ by storage only.
+    { plan: 'Plus', line: `Your About · your colour · what shows${TIER_CAPS.solo.premiumPage ? ' · a cover photo · a pinned review · stories' : ''}${TIER_CAPS.solo.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
+    { plan: 'Pro', line: `Everything in Plus, with more storage${!TIER_CAPS.solo.customWebsiteName && TIER_CAPS.pro.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
   ];
 }
 

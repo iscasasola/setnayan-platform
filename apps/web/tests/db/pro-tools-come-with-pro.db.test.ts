@@ -14,6 +14,9 @@
  *       Free and a lapsed Plus; and with the table's COMMENT set (any re-apply) it grandfathers nobody new.
  *   4 · the TS mirror `proToolsIncludedFrom` agrees with the SQL on every case.
  *
+ * ⚖ WIDENED 2026-11-22 (owner "FINAL LADDER": every tool on every paid size; migration 20271360033501): a live Plus
+ * gets both too. The grandfather arms are unchanged; below Plus they still decide.
+ *
  * Sabotage (each turns this file RED): drop the Pro arm · drop the pro_tools_plus_until arm · switch the two gates back to
  * vendor_specialized_tools_unlocked · drop the COMMENT guard from the INSERT.
  */
@@ -156,8 +159,8 @@ async function grandfather(vpid: string): Promise<ProToolsGrandfather | null> {
   };
 }
 
-test('1 · live Pro and Ultra get both tools; a lapsed Pro does not', async () => {
-  for (const tier of ['pro', 'enterprise']) {
+test('1 · live Plus, Pro and Ultra get both tools; a lapsed Pro does not', async () => {
+  for (const tier of ['solo', 'pro', 'enterprise']) {
     const vpid = await newShop({ tier, tierExpires: FUTURE() });
     const eventId = await newBooking(vpid);
     assert.equal(await challenge(vpid, eventId), true, `${tier}: photo challenge`);
@@ -169,13 +172,13 @@ test('1 · live Pro and Ultra get both tools; a lapsed Pro does not', async () =
   assert.deepEqual(await branded(eventId), []);
 });
 
-test('2 · Plus, and a window bought after the ship, get neither — the unlock still opens the other tools', async () => {
+test('2 · Plus gets both since 2026-11-22; a Verified window bought after the ship gets neither — the unlock still opens the other tools', async () => {
   const plus = await newShop({ tier: 'solo', tierExpires: FUTURE() });
   const e1 = await newBooking(plus);
   await spendTrial(plus);
-  assert.equal(await unlocked(plus, e1), true, 'Plus still includes the Specialized tools unlock');
-  assert.equal(await challenge(plus, e1), false, 'but not the photo challenge');
-  assert.deepEqual(await branded(e1), [], 'nor the branded booth');
+  assert.equal(await unlocked(plus, e1), true, 'Plus includes the Specialized tools unlock');
+  assert.equal(await challenge(plus, e1), true, 'and the photo challenge (every tool on every paid size)');
+  assert.deepEqual(await branded(e1), [plus], 'and the branded booth');
 
   const verified = await newShop({ tier: 'verified' });
   const e2 = await newBooking(verified);
@@ -219,10 +222,14 @@ test('3 · the snapshot grandfathers what was held at ship time, to its end — 
     `UPDATE public.vendor_specialized_tools_access SET pro_tools_plus_until = NOW() - INTERVAL '1 minute' WHERE vendor_profile_id = $1`,
     [plusDated],
   );
-  assert.equal(await included(plusDated, null), false, 'the term ended: Plus no longer includes them');
-  // An open-ended Plus that takes an end date has left that plan.
+  // Since 2026-11-22 a live Plus includes them on its own, so the ended term changes nothing while the plan runs …
+  assert.equal(await included(plusDated, null), true, 'a live Plus includes them (2026-11-22)');
+  // … and once the plan itself lapses, neither the plan nor the ended term opens them.
+  await db.query(`UPDATE public.vendor_profiles SET tier_expires_at = $2 WHERE vendor_profile_id = $1`, [plusDated, PAST()]);
+  assert.equal(await included(plusDated, null), false, 'the plan lapsed and the term ended');
+  // An open-ended Plus that takes an end date is still a live Plus.
   await db.query(`UPDATE public.vendor_profiles SET tier_expires_at = $2 WHERE vendor_profile_id = $1`, [plusOpen, FUTURE(28)]);
-  assert.equal(await included(plusOpen, null), false);
+  assert.equal(await included(plusOpen, null), true);
 
   // A RE-APPLY (marker set) grandfathers nobody new.
   const lateJoiner = await newShop({ tier: 'solo', tierExpires: FUTURE(20) });
@@ -278,10 +285,11 @@ test('5 · the frozen columns live on a service-role-only table', async () => {
   assert.deepEqual(r.rows, []);
 });
 
-test('6 · a badge-reward window below Pro is time-boxed: it opens the tool, then ends — never a permanent grant (controller 20 Nov)', async () => {
+test('6 · a badge-reward window below the paid plans is time-boxed: it opens the tool, then ends — never a permanent grant (controller 20 Nov)', async () => {
   // Decision: badge reward windows stay, time-boxed; the ruling covers bought access only. They write the same
-  // papic_challenge_expires_at / booth_addon_expires_at windows the legacy add-ons did.
-  const plus = await newShop({ tier: 'solo', tierExpires: FUTURE() });
+  // papic_challenge_expires_at / booth_addon_expires_at windows the legacy add-ons did. Since 2026-11-22 Plus includes
+  // the tools, so the shop below the gate is a Verified one.
+  const plus = await newShop({ tier: 'verified' });
   const eventId = await newBooking(plus);
   await spendTrial(plus);
   await db.query(`UPDATE public.vendor_profiles SET papic_challenge_expires_at = $2 WHERE vendor_profile_id = $1`, [plus, FUTURE(28)]);

@@ -57,6 +57,7 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // The plan page itself — it is where a supplier chooses to buy.
   'subscription/actions.ts': 'the Plans checkout — buying is its job',
   'subscription/_components/plan-sheet.tsx': 'the Plans page’s own plan rows (Build 5 Lane B) — buying a plan is its job; hiding Upgrade behind the paywall switch would leave the Plan page with nothing to buy',
+  'subscription/_components/apple-plan-door.tsx': 'the Plan sheet’s twin in the iPhone app (Shop ⚙ › Plan and billing, supplier subscriptions §3, owner-locked 22 Nov) — Subscribe / Upgrade / Switch through Apple is buying a plan, not a paywall; hiding it behind the switch would leave the app with no way to buy one',
   'subscription/ai-addon-actions.ts': 'Vendor AI add-on checkout',
   // The gate component: it only ever renders where a caller asked the switch
   // (property 2 below checks every mount).
@@ -84,7 +85,7 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // event_branded_booth_vendor_ids → vendor_pro_tools_included (Pro and up, owner 20 Nov; specs 66ae2cce, 21 Nov),
   // so the switch cannot lift it — the section says so ("Included in Pro · Upgrade") instead of selling it below Pro.
   'clients/[eventId]/_components/booth-event-section.tsx': 'maps the database’s own Pro floor (vendor_pro_tools_included) for the branded booth',
-  'clients/[eventId]/booth-event-actions.ts': 'refuses the per-event booth below Pro — the database’s own floor (vendor_pro_tools_included) would never brand it',
+  'clients/[eventId]/booth-event-actions.ts': 'refuses the per-event booth below Plus — the database’s own floor (vendor_pro_tools_included) would never brand it',
   // Day-of tools lapse with a paid Papic/day-of order, not the plan tier.
   'on-the-day/page.tsx': 'a lapsed day-of purchase, not the plan tier',
   'team/actions.ts':

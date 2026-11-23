@@ -169,7 +169,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
         </InfoTip>
       </div>
 
-      <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
+      <form method="get" action="/admin/force-majeure" className="mb-4 flex flex-wrap items-center gap-2">
         <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Filter</span>
         <FieldPick name="filter" label="Filter" defaultValue={filter} className="min-h-11 max-w-[18rem]" options={FILTER_OPTIONS.map((o) => ({ key: o.value, label: o.label }))} />
         <ActionButton tone="neutral" type="submit" icon={<Check aria-hidden />} label="Apply" />

@@ -45,7 +45,8 @@ test('Your plan: the gift in place of a price, and the end once it is over', () 
 
 test('the 100 photos are the shop’s, not the plan’s — the cap holds after the plan is Free', () => {
   assert.equal(portfolioPhotoCap('free', null), PORTFOLIO_FREE_BASE);
-  assert.equal(portfolioPhotoCap('pro', 100), 100);
+  // Paid plans have no photo cap since 2026-11-22 ("FINAL LADDER"): storage is their only ceiling.
+  assert.equal(portfolioPhotoCap('pro', 100), Infinity);
   assert.equal(portfolioPhotoCap('free', 100), 100, 'the gift ended and took the photos with it');
   assert.equal(portfolioPhotoCap('free', 10), PORTFOLIO_FREE_BASE, 'an allowance never lowers the base');
   assert.equal(portfolioOverCapMessage(PORTFOLIO_FREE_BASE), PORTFOLIO_OVER_BASE_MESSAGE);

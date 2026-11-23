@@ -86,8 +86,9 @@ test('activation flag defaults OFF and accepts any yes-spelling', () => {
 const EXPECTED: Record<VendorTier, Omit<VendorSeoPlan, 'sitemapPriority'>> = {
   free: { level: 'basic', indexable: true, entityGraph: false, offerGraph: false },
   verified: { level: 'basic', indexable: true, entityGraph: false, offerGraph: false },
-  solo: { level: 'enhanced', indexable: true, entityGraph: true, offerGraph: false },
-  pro: { level: 'aeo', indexable: true, entityGraph: true, offerGraph: true },
+  // Every paid size has every feature (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE"): Plus and Pro get the top level too.
+  solo: { level: 'priority', indexable: true, entityGraph: true, offerGraph: true },
+  pro: { level: 'priority', indexable: true, entityGraph: true, offerGraph: true },
   enterprise: { level: 'priority', indexable: true, entityGraph: true, offerGraph: true },
 };
 
@@ -134,10 +135,10 @@ test('gate ON: enhanced SEO+GEO unlocks at Supplier Plus and never below', () =>
   assert.equal(vendorSeoPlan('enterprise', true).entityGraph, true);
 });
 
-test('gate ON: AEO offer graph unlocks at Pro and never below', () => {
+test('gate ON: AEO offer graph unlocks at the first paid size and never below', () => {
   assert.equal(vendorSeoPlan('free', true).offerGraph, false);
   assert.equal(vendorSeoPlan('verified', true).offerGraph, false);
-  assert.equal(vendorSeoPlan('solo', true).offerGraph, false);
+  assert.equal(vendorSeoPlan('solo', true).offerGraph, true);
   assert.equal(vendorSeoPlan('pro', true).offerGraph, true);
   assert.equal(vendorSeoPlan('enterprise', true).offerGraph, true);
 });
@@ -173,7 +174,8 @@ test('isSeoLevelAtLeast reads the matrix, not a hardcoded tier set', () => {
   assert.equal(isSeoLevelAtLeast('solo', 'enhanced'), true);
   assert.equal(isSeoLevelAtLeast('verified', 'enhanced'), false);
   assert.equal(isSeoLevelAtLeast('pro', 'aeo'), true);
-  assert.equal(isSeoLevelAtLeast('solo', 'aeo'), false);
+  assert.equal(isSeoLevelAtLeast('solo', 'aeo'), true, 'Plus has every feature since 2026-11-22');
+  assert.equal(isSeoLevelAtLeast('verified', 'aeo'), false);
   assert.equal(isSeoLevelAtLeast(null, 'enhanced'), false);
 });
 

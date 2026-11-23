@@ -405,6 +405,7 @@
         "Head",
         "Image",
         "Link",
+        "SampleDateFit",
         "ServiceFace",
         "T"
       ]
@@ -414,6 +415,7 @@
         "(shell)/for-suppliers/loading.tsx",
         "(shell)/for-suppliers/page.tsx",
         "for-suppliers/_components/plan-table-data.ts",
+        "for-suppliers/_components/sample-card-date-fit.tsx",
         "for-suppliers/_components/supplier-front-client.tsx",
         "for-suppliers/_components/supplier-front-data.ts",
         "for-suppliers/_components/supplier-front-info.tsx",
@@ -435,6 +437,7 @@
         "Lede",
         "Link",
         "PlanRows",
+        "SampleDateFit",
         "SecHead",
         "ServiceFace",
         "SupplierFrontPage",
@@ -5574,7 +5577,12 @@
         "PageMasthead",
         "SearchParams",
         "SearchParamsRecord",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/vendor-recommendations": {
@@ -5596,11 +5604,13 @@
         "ConfirmForm",
         "FeedbackCard",
         "FieldPick",
-        "InfoTip",
         "PageMasthead",
         "RecommendationRow",
-        "Stat",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateNums",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/vendors": {
@@ -5790,7 +5800,12 @@
         "ConfirmForm",
         "Group",
         "PageMasthead",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/verify": {
@@ -14707,6 +14722,7 @@
         "Ctx",
         "DateChangeBody",
         "DateRow",
+        "DatesRow",
         "DeleteRequestBody",
         "DisputeBody",
         "DoorRow",
@@ -14759,6 +14775,7 @@
         "MeetingBody",
         "MenuSettingsButton",
         "MessageBody",
+        "MoreSupplierSettings",
         "NewServiceMaker",
         "NotConnected",
         "NoteIc",
@@ -14821,6 +14838,7 @@
         "SetnayanShopGiftLines",
         "SetnayanShopGiftMoment",
         "SetnayanShopGiftNotices",
+        "SettingsSection",
         "SetupDaysOffRow",
         "SetupFoldKey",
         "SetupOfferFold",
@@ -16726,6 +16744,7 @@
         "MenuSettingsButton",
         "MessageEveryoneRows",
         "ModuleConfigurator",
+        "MoreSupplierSettings",
         "NonPhotoConsole",
         "PickMenu",
         "QrActions",
@@ -16735,6 +16754,7 @@
         "SeatFinderRow",
         "ServerRead",
         "SetActionResult",
+        "SettingsSection",
         "Sheet",
         "ShopEmpty",
         "ShotList",
@@ -17839,6 +17859,8 @@
         "ActionButton",
         "Amount",
         "AnalyticsPlaceholder",
+        "ApplePlanDoor",
+        "AppleShopPlanRead",
         "ApplicationStatus",
         "ArrangementsBody",
         "AutoReplyCard",
@@ -17989,6 +18011,7 @@
         "ServiceRadiusSaveResult",
         "ServiceScannerPick",
         "ServicesManagerSearch",
+        "SettingsSection",
         "ShareSheet",
         "Sheet",
         "SheetOpening",
@@ -18170,6 +18193,7 @@
     },
     "/vendor-dashboard/subscription": {
       "files": [
+        "vendor-dashboard/subscription/_components/apple-plan-door.tsx",
         "vendor-dashboard/subscription/_components/badge-upgrades-data.ts",
         "vendor-dashboard/subscription/_components/badge-upgrades-section.tsx",
         "vendor-dashboard/subscription/_components/limits-sheet.tsx",
@@ -18198,6 +18222,8 @@
         "action",
         "cancelScheduledPlanChange",
         "formAction",
+        "routes.privacy",
+        "routes.terms",
         "startSubscriptionPurchase"
       ],
       "blocks": [
@@ -18211,7 +18237,6 @@
         "BookingFeeStanding",
         "CapizLight",
         "Column",
-        "Cycle",
         "DatesRow",
         "FitLine",
         "Fold",
@@ -18240,7 +18265,6 @@
         "StayForm",
         "SubmitButton",
         "SupplierSubmit",
-        "SwitchTrack",
         "Vendor3dBoothActionState",
         "VendorAiAddonActionState"
       ]

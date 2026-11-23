@@ -264,7 +264,7 @@ test('the waitlist has no plan limit — the shop sets up to the column’s 10; 
   }
 });
 
-test('the seat and the branch stay on sale at the owner’s price; the four "+1" add-ons are retired by flag, never deleted', async () => {
+test('the seat, the branch and the four "+1" add-ons keep the owner’s price and are retired by flag, never deleted', async () => {
   const r = await db.query<{ sku_code: string; php: string; offering_type: string; is_active: boolean; retired_at: string | null }>(
     `SELECT sku_code, price_php::text AS php, offering_type, is_active, retired_at::text FROM public.vendor_billing_catalog
       WHERE sku_code IN ('vendor_extra_seat','vendor_additional_branch','vendor_extra_category',
@@ -273,9 +273,11 @@ test('the seat and the branch stay on sale at the owner’s price; the four "+1"
   const by = new Map(r.rows.map((x) => [x.sku_code, x]));
   // Owner, verbatim (2026-11-06): "seat, branch + 990 / the rest is +199". 2026-11-14 ("SIMPLER SUPPLIER PLANS"): only
   // the seat and the branch are left to buy; the rest folded into Ultra's limits — kept, priced, off sale.
+  // 2026-11-22 ("PAID PLANS = THREE STORAGE SIZES … FINAL SHAPE": no add-ons; migration 20271360321657): the seat and
+  // the branch retire too, at the price they last sold for.
   const want: Array<[string, number, string, boolean]> = [
-    ['vendor_extra_seat', 990, 'seat', true],
-    ['vendor_additional_branch', 990, 'branch', true],
+    ['vendor_extra_seat', 990, 'seat', false],
+    ['vendor_additional_branch', 990, 'branch', false],
     ['vendor_extra_category', 199, 'category', false],
     ['vendor_extra_service_card', 199, 'service_card', false],
     ['vendor_extra_waitlist', 199, 'waitlist', false],

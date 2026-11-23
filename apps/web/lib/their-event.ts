@@ -234,3 +234,79 @@ export function groupDriftWords(live: number, booked: number | null): string | n
   const n = Math.abs(d);
   return `${n} ${d > 0 ? 'more' : 'fewer'} than the ${booked} booked. The price changes only through the quote.`;
 }
+
+// ── 🖥 THE BOOKED COORDINATOR'S RIGHT COLUMN (owner 2026-11-21, DECISION_LOG "DESKTOP SPLIT VIEW + ONE EDITOR PER PART —
+// APPROVED TO BUILD"; drawing `desktop_split_view_v2_fable.html` frame 1: "Coordinator: the hosts' dashboard in the right
+// column"). The hosts' own parts, each said with its mark — Edit · View · "The hosts keep this" — from the coordinator's
+// OWN seat (`fetchMyAreaGrants`, the server's resolver), never assumed. Each row opens the hosts' page itself.
+
+export type CoordinatorRow = {
+  key: 'guests' | 'seats' | 'march' | 'schedule' | 'hub' | 'event_details' | 'suppliers' | 'mood_board' | 'budget' | 'memories';
+  name: string;
+  line: string;
+  /** Edit · View · closed ("The hosts keep this", no link). */
+  mark: 'edit' | 'view' | 'closed';
+  href: string | null;
+};
+
+export type CoordinatorRowsInput = {
+  eventId: string;
+  grants: Partial<Record<DelegateArea, AreaLevel>>;
+  /** The brief's numbers (`get_vendor_event_brief`): replies, tables, moments. Null = not read — said as such. */
+  pax: { attending: number; pending: number } | null;
+  tables: number | null;
+  moments: number | null;
+  /** Route builders, handed in so this file stays import-free of the app's route map. */
+  href: {
+    guests: string;
+    seats: string;
+    march: string;
+    schedule: string;
+    hub: string;
+    details: string;
+    suppliers: string;
+    moodBoard: string;
+    budget: string;
+  };
+};
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+export function coordinatorDashboardRows(i: CoordinatorRowsInput): CoordinatorRow[] {
+  const mark = (area: DelegateArea, cap: 'edit' | 'view' = 'edit'): CoordinatorRow['mark'] => {
+    const level = i.grants[area] ?? null;
+    if (level === null) return 'closed';
+    return level === 'edit' && cap === 'edit' ? 'edit' : 'view';
+  };
+  const row = (key: CoordinatorRow['key'], name: string, line: string, m: CoordinatorRow['mark'], href: string): CoordinatorRow => ({
+    key,
+    name,
+    line: m === 'closed' ? 'The hosts keep this' : line,
+    mark: m,
+    href: m === 'closed' ? null : href,
+  });
+  return [
+    row('guests', 'Guests', i.pax ? `${i.pax.attending} coming · ${i.pax.pending} no reply` : 'Who is coming', mark('guest_list'), i.href.guests),
+    row('seats', 'Seats', i.tables !== null ? plural(i.tables, 'table', 'tables') : 'The seat plan', mark('seat_plan'), i.href.seats),
+    row('march', 'March', 'Who walks, in what order', mark('schedule'), i.href.march),
+    row('schedule', 'Schedule', i.moments !== null ? plural(i.moments, 'moment', 'moments') : 'The day', mark('schedule'), i.href.schedule),
+    row('hub', 'Hub', 'Guest page · check-in', mark('invitations'), i.href.hub),
+    row('event_details', 'Event Details', 'Date · place · hosts', mark('schedule'), i.href.details),
+    row('suppliers', 'Suppliers', 'Find · recommend · shortlist', mark('vendors'), i.href.suppliers),
+    row('mood_board', 'Mood Board', 'The look of the day', mark('mood_board'), i.href.moodBoard),
+    row('budget', 'Budget', 'You can look, not change', mark('budget', 'view'), i.href.budget),
+    // Memories: never the coordinator's (owner 2026-11-21, "THE HOSTS' DASHBOARD MINUS THE MEMORIES").
+    { key: 'memories', name: 'Memories', line: 'The hosts keep this', mark: 'closed', href: null },
+  ];
+}
+
+/**
+ * 🖥 The parts that open INSIDE the chat's right column on a computer (`?tab=chat&part=`): their bodies are drawn from
+ * facts the client page already read. The Hub needs its own address read, Seats and Mood Board are whole tools — those
+ * open their own pages, as on a phone; the Logo is a download.
+ */
+export const COLUMN_PARTS: readonly TheirEventPart[] = ['schedule', 'numbers', 'guests'];
+
+/** The chat with the part opened in the right column — or the list (`part` null). */
+export const theirEventColumnHref = (eventId: string, part: TheirEventPart | null): string =>
+  `/vendor-dashboard/clients/${eventId}?tab=chat${part ? `&part=${part}` : ''}`;

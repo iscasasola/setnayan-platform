@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
@@ -6,11 +5,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchMyAreaGrants } from '@/lib/my-area-grants.server';
 import { isBookedCoordinator } from '@/lib/coordinator-trade';
-import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { readTheirEvent } from '@/lib/their-event.server';
-import { askForMoreHref, ASK_FOR_MORE, THEIR_EVENT_PART_NAME, type TheirEventPart } from '@/lib/their-event';
+import { type TheirEventPart } from '@/lib/their-event';
 import { TheirEventLine } from '../../_components/their-event-line';
-import { GuestsPart, NumbersPart } from '../../_components/their-event-parts';
+import { PART_BODY_PARTS, TheirEventPartBody } from '../../_components/their-event-part-body';
 
 /**
  * 🚪 ONE PART, ALONE — opened from the "Their event" list (owner 2026-11-21; drawing `their_event_door_2026-11-21`
@@ -33,7 +31,6 @@ type Brief = {
   seat_plan: { table_count: number };
 };
 
-const PARTS: readonly TheirEventPart[] = ['schedule', 'numbers', 'guests', 'hub'];
 
 export default async function TheirEventPartPage({ params }: { params: Promise<{ eventId: string; part: string }> }) {
   const { eventId, part: rawPart } = await params;
@@ -42,7 +39,7 @@ export default async function TheirEventPartPage({ params }: { params: Promise<{
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
   const clientHref = `/vendor-dashboard/clients/${eventId}`;
-  const part = (PARTS as readonly string[]).includes(rawPart) ? (rawPart as TheirEventPart) : null;
+  const part = (PART_BODY_PARTS as readonly string[]).includes(rawPart) ? (rawPart as TheirEventPart) : null;
   if (!part) redirect(clientHref);
 
   const { data, error } = await supabase.rpc('get_vendor_event_brief', { p_event_id: eventId });
@@ -65,65 +62,13 @@ export default async function TheirEventPartPage({ params }: { params: Promise<{
   const name = brief.event.display_name;
   const open = rows.some((r) => r.part === part);
 
-  let body: React.ReactNode;
-  if (!open) {
-    body = (
-      <div className="space-y-3 p-4" data-their-event-shut="">
-        <p className="text-sm text-ink/70">{THEIR_EVENT_PART_NAME[part]} is not open to you. The hosts decide what each supplier sees.</p>
-        <Link href={askForMoreHref(eventId)} className="inline-flex min-h-11 items-center text-[15px] font-medium text-sn-accent">
-          {ASK_FOR_MORE}
-        </Link>
-      </div>
-    );
-  } else if (part === 'schedule') {
-    body = (
-      <div className="p-4" data-their-event-schedule="">
-        <h1 className="text-lg font-semibold text-ink">Schedule</h1>
-        <p className="mt-1 text-[13px] text-ink/60">The whole day. Your own items are changed from your Schedule.</p>
-        {brief.timeline.length === 0 ? (
-          <p className="mt-3 text-sm text-ink/70">The hosts have not set the day yet.</p>
-        ) : (
-          <ul className="mt-2">
-            {brief.timeline.map((b, i) => (
-              <li key={`${b.start_at}-${i}`} className="flex min-h-11 items-center justify-between gap-3 border-t border-ink/10 py-2 first:border-t-0">
-                <span className="min-w-0">
-                  <span className="block text-[15px] text-ink">
-                    {b.start_at ? `${formatWallClock(b.start_at)} · ` : ''}
-                    {b.label}
-                  </span>
-                  {b.location ? <span className="block truncate text-[13px] text-ink/60">{b.location}</span> : null}
-                </span>
-                <span className="shrink-0 text-[13px] text-ink/55">View</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <Link href={`${clientHref}?tab=schedule`} className="mt-3 inline-flex min-h-11 items-center text-[15px] font-medium text-sn-accent">
-          Edit your items
-        </Link>
-      </div>
-    );
-  } else if (part === 'numbers') {
-    body = <NumbersPart pax={brief.pax} group={group} />;
-  } else if (part === 'guests') {
-    body = <GuestsPart group={group} />;
-  } else {
-    // Hub — what the guests see: the event's public page.
+  // Hub — the event's public address, read only when the Hub is the part opened.
+  let hubSlug: string | null = null;
+  if (open && part === 'hub') {
     const { data: ev } = await createAdminClient().from('events').select('slug').eq('event_id', eventId).maybeSingle();
-    const slug = (ev as { slug: string | null } | null)?.slug ?? null;
-    body = (
-      <div className="space-y-2 p-4" data-their-event-hub="">
-        <h1 className="text-lg font-semibold text-ink">Hub</h1>
-        {slug ? (
-          <Link href={`/${slug}`} target="_blank" className="inline-flex min-h-11 items-center text-[15px] font-medium text-sn-accent">
-            Open what the guests see
-          </Link>
-        ) : (
-          <p className="text-sm text-ink/70">The hosts have not published their Hub yet.</p>
-        )}
-      </div>
-    );
+    hubSlug = (ev as { slug: string | null } | null)?.slug ?? null;
   }
+  const body = <TheirEventPartBody eventId={eventId} part={part} open={open} brief={brief} group={group} hubSlug={hubSlug} />;
 
   return (
     <div className="mx-auto w-full max-w-2xl" data-their-event-part={part}>

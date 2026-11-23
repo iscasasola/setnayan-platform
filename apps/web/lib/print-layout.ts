@@ -3036,7 +3036,10 @@ function layoutCardLandscape(ctx: Ctx, fmt: PrintFormat): PrintDoc {
     ops.push({ t: 'rect', x: left, y: -bleed, w: 0.8, h: h + 2 * bleed, fill: look.accent });
   }
   const cx = left + (w - left) / 2;
-  const inner = w - left - 28 * k;
+  /* ✂ The words' width never reaches past the safe line: centred in the column, a line fitted to its full width ends
+     at `cx + inner / 2`, so `inner` keeps one safe margin (and a point) each side. 28 pt alone left a full-width line
+     0.3 pt over it on a 5 × 3 card (23 Nov: the batch 1 faces fill their width — `every-print-fits.test.ts`). */
+  const inner = w - left - Math.max(28 * k, 2 * SAFE_PT + 2);
   let y = 40 * k;
   // Lower when this die's edge (a scallop's cusps) needs the crest to clear the safe line.
   for (let n = 0; n < 60 && !safeContainsBox(doc.die, w, h, { x: cx - 18 * k * 1.2, y: y - 18 * k, w: 36 * k * 1.2, h: 36 * k }); n += 1) y += 1;

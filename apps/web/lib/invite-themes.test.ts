@@ -365,7 +365,8 @@ test('the CHECK admits exactly the registry — capiz is live again, so nothing 
    second opinion unless something compares them — this does, channel by
    channel, for every token the page renders through. */
 test("every Pro theme's page block in globals.css paints exactly its registry palette", () => {
-  const css = readFileSync(join(HERE, '..', 'app', 'globals.css'), 'utf8');
+  // 🎨 The 23 Nov redraw's theme blocks live in app/hub-themes.css (globals.css sits at its ceiling) — read both, as a themed page loads both.
+  const css = ['globals.css', 'hub-themes.css'].map((f) => readFileSync(join(HERE, '..', 'app', f), 'utf8')).join('\n');
   const ch = (hex: string) => {
     const n = parseInt(hex.slice(1), 16);
     return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
@@ -407,7 +408,8 @@ test("every Pro theme's page block in globals.css paints exactly its registry pa
    must be one `<html>` already declares — or the "face" is the fallback stack
    with no error anywhere. */
 test("every theme block wires its body, script and labels faces — not only its heading", () => {
-  const css = readFileSync(join(HERE, '..', 'app', 'globals.css'), 'utf8');
+  // 🎨 The 23 Nov redraw's theme blocks live in app/hub-themes.css (globals.css sits at its ceiling) — read both, as a themed page loads both.
+  const css = ['globals.css', 'hub-themes.css'].map((f) => readFileSync(join(HERE, '..', 'app', f), 'utf8')).join('\n');
   const loaders = ['layout.tsx', join('_fonts', 'choice-faces.ts')]
     .map((f) => readFileSync(join(HERE, '..', 'app', f), 'utf8'))
     .join('\n');

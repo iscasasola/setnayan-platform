@@ -27,6 +27,8 @@ import { resolveHubTheme } from '@/app/[slug]/_lib/hub-look';
 import { mainGroundPictureFor } from '@/app/[slug]/_lib/main-ground-picture';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
 import { printHubFonts, printLookForEvent, printLooksFor, type WornHub } from '@/lib/print-hub-look';
+import { DAY_POSTER_TEMPLATES, drawnSupporting, type DayPoster, type DayPosterLook } from '@/lib/day-poster';
+import { fetchBookedVendorsForBooths } from '@/lib/vendors';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { dressCodeForEveryone, dressCodeLines } from '@/lib/dress-code-for-everyone';
 import { resolveDisplayPalette } from '@/lib/room-palette';
@@ -46,7 +48,8 @@ import { seatedGuestsOf, seatingUnits } from '@/lib/print-entrance-chart';
 import { pickGuestRows } from '@/lib/print-picked-guests';
 import type { RoleNames } from '@/lib/role-names';
 import { readRoleNames } from '@/lib/role-names.server';
-import type { PrintEntourageStyle, PrintImages, PrintMonogram, PrintPass, PrintSetData } from '@/lib/print-layout';
+import type { DayPosterData, PrintEntourageStyle, PrintImages, PrintMonogram, PrintPass, PrintSetData } from '@/lib/print-layout';
+import type { EntourageGroup } from '@/lib/entourage';
 import {
   blockTime,
   ceremonyBlock,
@@ -659,6 +662,51 @@ async function sepia(bytes: Uint8Array): Promise<Uint8Array> {
   );
 }
 
+// ─── The Our Day poster's own reads ─────────────────────────────────────────
+
+/**
+ * 🖼 "With thanks to …" — the booked suppliers, by the name the couple knows them by, through the ONE booked reader
+ * (`fetchBookedVendorsForBooths`: `BOOKED_VENDOR_STATUSES`). Null = the read was refused: the preview says so and the
+ * file is refused — never a poster quietly missing its credits.
+ */
+async function dayPosterCredits(admin: SupabaseClient, eventId: string): Promise<string[] | null> {
+  try {
+    const rows = await fetchBookedVendorsForBooths(admin, eventId);
+    const seen = new Set<string>();
+    return rows.map((r) => r.vendor_name?.trim()).filter((n): n is string => Boolean(n) && !seen.has(n!.toLowerCase()) && Boolean(seen.add(n!.toLowerCase())));
+  } catch (err) {
+    console.error('[print-set] day poster credits unavailable', String(err));
+    return null;
+  }
+}
+
+/** The day poster's layout input: its photos into `images` (`dp-main`, `dp-0`…), its words already filtered by its switches. */
+async function dayPosterData(
+  record: DayPoster,
+  r: { photos: Array<Uint8Array | null>; images: PrintImages; line: string | null; place: string | null; credits: string[] | null; groups: EntourageGroup[] },
+): Promise<DayPosterData> {
+  const [main, ...sup] = r.photos;
+  if (main) r.images['dp-main'] = { bytes: main, mime: 'image/jpeg' };
+  const supporting: string[] = [];
+  sup.forEach((b, i) => {
+    if (!b) return;
+    r.images[`dp-${i}`] = { bytes: b, mime: 'image/jpeg' };
+    supporting.push(`dp-${i}`);
+  });
+  const t = DAY_POSTER_TEMPLATES[record.template];
+  return {
+    record,
+    main: main ? 'dp-main' : null,
+    supporting,
+    line: r.line,
+    place: r.place,
+    credits: r.credits ?? [],
+    ...(record.show.credits && r.credits === null ? { creditsFailed: true as const } : {}),
+    missingPhotos: r.photos.filter((b, i) => !b && (i === 0 ? Boolean(record.main) : true)).length,
+    groups: t.rolls && (record.show.sponsors || record.show.entourage) ? r.groups : [],
+  };
+}
+
 // ─── The one loader ─────────────────────────────────────────────────────────
 
 export type LoadedPrintSet = {
@@ -736,6 +784,12 @@ export async function loadPrintSet(
      * (each theme in its own colours). Absent = the event's own `role_palette`.
      */
     samplePalette?: RolePalette | null;
+    /**
+     * 🖼 THE OUR DAY POSTER (`lib/day-poster.ts`): its record (the saved one, or the builder's choice for a preview) and
+     * the look it is saved in. `classic` draws the free plain-white look even for an Event Pro event — "Save · Classic
+     * (PDF)" beside "Save in your theme ◆". The poster's photos, line, place, credits and every entourage group are read.
+     */
+    dayPoster?: { record: DayPoster; look: DayPosterLook };
   },
   /**
    * ✍ THE HOST'S DRAFT, for the Maker's on-screen preview only (the route
@@ -766,11 +820,18 @@ export async function loadPrintSet(
   // The poster photo is named by the event row itself (`print_details`), the same value `readPrintSetInputs` parses.
   const posterRef = parsePrintDetails(event.print_details).posterPhoto?.ref ?? null;
   const posterRead = posterRef ? startAhead(posterPhotoBytes(posterRef, opts.mode)) : null;
+  /* 🖼 The day poster's photos (the main one, then the ones its template draws) and its credits start beside the rest. */
+  const dpRec = opts.dayPoster?.record ?? null;
+  const dpPhotoRefs = dpRec ? [dpRec.main?.ref ?? null, ...drawnSupporting(dpRec).map((p) => p.ref)] : [];
+  const dpPhotosRead = dpRec ? startAhead(Promise.all(dpPhotoRefs.map((r) => (r ? posterPhotoBytes(r, opts.mode) : Promise.resolve(null))))) : null;
+  const dpCreditsRead = dpRec?.show.credits ? startAhead(dayPosterCredits(admin, eventId)) : null;
   const sampleGallery = opts.samplePalette !== undefined;
   /* 🤍 A FREE EVENT PRINTS PLAIN WHITE (owner 2026-10-21: *"Free version is the plain white. Themes that follows the event hub is
      pro"*) — Classic's type on white paper, whatever theme it saved: the set is drawn as Classic (its file name, its spot layers).
      The theme gallery's samples (`samplePalette`) still show each theme as the theme. */
-  const theme = !sampleGallery && !ownsPro ? 'house' : printThemeFor(event, opts.previewTheme);
+  /* 🖼 A day poster saved in Classic wears the free look whatever the plan — the gate is the route's (`dayPosterLock`). */
+  const wearsPro = ownsPro && opts.dayPoster?.look !== 'classic';
+  const theme = !sampleGallery && !wearsPro ? 'house' : printThemeFor(event, opts.previewTheme);
   // 🎨 The Mood Board palette dresses the theme (`lib/theme-colours.ts`, the resolver the guest page wears) — the ground a Pro
   // print's Hub look is laid on (`printLooksFor`).
   const looks = printLooksFor(theme, sampleGallery ? opts.samplePalette : event.role_palette, { sampleGallery });
@@ -778,7 +839,7 @@ export async function loadPrintSet(
      design? and so does the other prints?"* → *"yes wire all, and yes it's Pro"*). The ONE door (`printLookForEvent`): a free
      event gets plain white and its Hub is never read. The sample gallery draws each theme as the theme, never one couple's Hub.
      Pro is the EVENT's (`printOwnsPro`, as viewed) — the same for every host on it. */
-  const worn = await printLookForEvent(looks, !sampleGallery && ownsPro, () => hubPrintInput(admin, event, opts.mode));
+  const worn = await printLookForEvent(looks, !sampleGallery && wearsPro, () => hubPrintInput(admin, event, opts.mode));
   /* 🏷 THE PLAN'S SETNAYAN MARK ON PAPER (Build 6 Lane L, DECISION_LOG 2026-11-04): Free = the line · Event Plus = the
      tiny quiet mark · Event Pro = none, on every print and pass — never louder than the look's own (a Prints-part print
      already carries the quiet mark). The theme gallery's samples keep their own. */
@@ -895,6 +956,18 @@ export async function loadPrintSet(
     hasEventQr,
     // ⭕ Every slot a code sits in follows the code's shape (`qrPlate`).
     qrShape: qrLook.shape,
+    ...(dpRec
+      ? {
+          dayPoster: await dayPosterData(dpRec, {
+            photos: dpPhotosRead ? await dpPhotosRead : [],
+            images,
+            line: dpRec.show.line ? dpRec.line ?? (event.special_message?.trim() || null) : null,
+            place: dpRec.show.place ? hubVenues.ceremony ?? hubVenues.reception : null,
+            credits: dpCreditsRead ? await dpCreditsRead : null,
+            groups: entourage.groups,
+          }),
+        }
+      : {}),
     // Paper says which day its facts are from (the pass card's "As of …").
     asOf: opts.mode === 'print' ? `As of ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' })}` : null,
   };

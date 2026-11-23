@@ -18,7 +18,7 @@
  * Pure: the groups in, the groups out. Only while the new Maker is on
  * (`MakerDetails`'s `studio`); every couple today keeps the shipped list.
  */
-import { DIGITAL_TICKET_ITEM, EVERY_PRINT_ITEM, FREE_PRINT_KEYS, type DetailsItemGroup, type DetailsItemKey } from '@/lib/maker-details-items';
+import { DAY_POSTER_ITEM, DIGITAL_TICKET_ITEM, EVERY_PRINT_ITEM, FREE_PRINT_KEYS, type DetailsItemGroup, type DetailsItemKey } from '@/lib/maker-details-items';
 import { PRINT_SET_KEYS } from '@/lib/print-pieces';
 import { STUDIO_TILE_ITEM } from '@/lib/studio-tile-defs';
 import { EVERYTHING_HEAD } from '@/lib/studio-prints-settings';
@@ -98,6 +98,7 @@ export const STUDIO_FORM_ITEMS: readonly DetailsItemKey[] = [
   EVERY_PRINT_ITEM,
   ...PRINT_SET_KEYS,
   DIGITAL_TICKET_ITEM,
+  DAY_POSTER_ITEM,
   ...FREE_PRINT_KEYS,
   'download',
 ];

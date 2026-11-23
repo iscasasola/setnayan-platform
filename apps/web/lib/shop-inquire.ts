@@ -10,6 +10,7 @@
  */
 
 import { serviceKeyStem } from '@/lib/distinct-shop-services';
+import type { BuildNotSentReason } from '@/lib/package-picks-summary';
 
 /** `?inquire=1` — reopen the Inquire pop-up on arrival. */
 export const INQUIRE_PARAM = 'inquire';
@@ -182,4 +183,63 @@ export function inquireSendPicks(
     alsoServiceIds: cards.map((s) => s.serviceId),
     serviceKeys,
   };
+}
+
+/**
+ * 📨 "SENT" ONLY WHEN IT WAS SENT (supplier launch walk 22 Nov 2026, step 6 · Build 1). A couple's first inquiry used to
+ * say "Sent ✓" when the opening note never landed: `startServiceInquiry` ignored the first note's delivery result, so
+ * the thread existed, the chat was empty, the supplier was never told, and the couple waited for a reply that could not
+ * come. Both shop sheets (Inquire, Check a date) now read the send's result through `inquireSendOutcome` — one reading,
+ * so the two can never disagree about what counts as sent.
+ */
+export const INQUIRY_NOT_SENT = 'Your message didn’t send. Try again.';
+
+/**
+ * The couple-facing line for a first note that did not post. A plain failure (`failed`) is the one sentence above — a
+ * raw database error never reaches the couple. A refusal they can act on (the off-platform contact filter, a closed
+ * conversation, the one follow-up) keeps the server's own teaching copy after it, because "Try again" alone would send
+ * the same refused words again.
+ */
+export function inquiryNotSentLine(reason: BuildNotSentReason, serverMessage?: string | null): string {
+  const said = (serverMessage ?? '').trim();
+  if (reason === 'failed' || !said) return INQUIRY_NOT_SENT;
+  return `Your message didn’t send. ${said}`;
+}
+
+/** What a shop sheet shows after its one send: the Sent step, or a failure note with the couple's words kept. */
+export type InquireSendOutcome =
+  | { sent: true; eventId: string; threadId: string; listed: boolean; posted: boolean }
+  | { sent: false; note: string };
+
+/**
+ * The ONE reading of `startServiceInquiry`'s result for a shop sheet. Only `status: 'ok'` is sent. Every other status —
+ * including `ok_build_not_sent`, where the conversation opened but the words did not post — is a failure note, never
+ * the Sent step, and never an empty string. `signInLine` is the sheet's own sign-in wording (each keeps its picks).
+ */
+export function inquireSendOutcome(
+  res:
+    | { status: 'ok'; threadId: string; eventId: string; listed: boolean; posted: boolean }
+    | { status: 'ok_build_not_sent'; reason: BuildNotSentReason; message: string }
+    | { status: 'not_signed_in' }
+    | { status: 'not_secured' }
+    | { status: 'no_event' }
+    | { status: 'error'; message: string },
+  signInLine: string,
+): InquireSendOutcome {
+  switch (res.status) {
+    case 'ok':
+      return { sent: true, eventId: res.eventId, threadId: res.threadId, listed: res.listed === true, posted: res.posted === true };
+    case 'not_signed_in':
+    case 'not_secured':
+      return { sent: false, note: signInLine };
+    case 'no_event':
+      return { sent: false, note: 'That event isn’t yours to ask from. Pick another.' };
+    case 'ok_build_not_sent':
+      return { sent: false, note: inquiryNotSentLine(res.reason, res.message) };
+    case 'error':
+      return { sent: false, note: (res.message ?? '').trim() || INQUIRY_NOT_SENT };
+    default:
+      // A status added tomorrow is not a delivery until someone says it is.
+      return { sent: false, note: INQUIRY_NOT_SENT };
+  }
 }

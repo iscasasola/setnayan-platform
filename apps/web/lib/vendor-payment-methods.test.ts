@@ -80,9 +80,9 @@ test('enterprise inherits the Pro gate', async () => {
   }
 });
 
-test('tiers below pro are denied', async () => {
+test('tiers below the first paid size are denied (Plus opens it — owner 2026-11-22 SAME FEATURES IN EVERY SIZE)', async () => {
   // 'custom' — the retired Custom plan — reads as Free and is denied like any unknown tier.
-  for (const tier of ['free', 'verified', 'solo', 'custom', null]) {
+  for (const tier of ['free', 'verified', 'custom', null]) {
     const { client } = stubClient([{ tier_state: tier, tier_expires_at: null }]);
     assert.equal(await isVendorProActive(client, 'u'), false, `${tier} should fail`);
   }

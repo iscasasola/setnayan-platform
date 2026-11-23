@@ -19,6 +19,7 @@ import {
 import {
   VENDOR_TIERS,
   asVendorTier,
+  isPaidSize,
   TIER_LABEL,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
@@ -260,8 +261,12 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   //
   // A vendor with no resolved
   // profile (e.g. deleted) defaults to 'free' via asVendorTier(undefined).
-  const tierRank = (vendorProfileId: string): number =>
-    VENDOR_TIERS.indexOf(vendorTierMap.get(vendorProfileId) ?? 'free');
+  // 💾 Owner 2026-11-22 "SAME FEATURES IN EVERY SIZE": every paid size ranks the same (paid first, then Verified, then
+  // Free) — Ultra no longer jumps Plus. Kept as a rank so the sort below is unchanged.
+  const tierRank = (vendorProfileId: string): number => {
+    const t = vendorTierMap.get(vendorProfileId) ?? 'free';
+    return isPaidSize(t) ? 2 : VENDOR_TIERS.indexOf(t) > 0 ? 1 : 0;
+  };
 
   // Stable re-order: tier rank DESC, then preserve the DB order the query
   // already applied (created_at DESC). `rows` is server-controlled + capped at

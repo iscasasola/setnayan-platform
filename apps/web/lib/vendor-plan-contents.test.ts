@@ -28,13 +28,17 @@ test('a stored number replaces the code value for that plan only; "no limit" onl
     { plan: 'pro', key: 'agent_accounts', value: 4 },
     { plan: 'solo', key: 'agent_accounts', value: 99 }, // another plan's row is ignored
     { plan: 'pro', key: 'service_cards_total', value: null }, // no limit — allowed here
-    { plan: 'pro', key: 'branches_included', value: null }, // no limit — NOT allowed: the code value stands
+    { plan: 'pro', key: 'waitlist_acceptances', value: null }, // no limit — NOT allowed: the code value stands
+    { plan: 'pro', key: 'branches_included', value: 3 }, // a number over the code's "no limit"
     { plan: 'pro', key: 'nonsense', value: 1 },
     { plan: 'pro', key: 'parent_categories', value: -3 }, // malformed: ignored
   ]);
   assert.equal(caps.agentAccounts, 4);
   assert.equal(caps.serviceCardsTotal, Infinity);
-  assert.equal(caps.branchesIncluded, TIER_CAPS.pro.branchesIncluded);
+  assert.equal(caps.waitlistAcceptances, TIER_CAPS.pro.waitlistAcceptances);
+  assert.equal(caps.branchesIncluded, 3);
+  // Branches may be "no limit" since 2026-11-22 (Pro and Ultra): a stored NULL is honoured.
+  assert.equal(applyPlanContents('solo', [{ plan: 'solo', key: 'branches_included', value: null }]).branchesIncluded, Infinity);
   assert.equal(caps.parentCategories, TIER_CAPS.pro.parentCategories);
   assert.equal(TIER_CAPS.pro.agentAccounts !== 4, true, 'TIER_CAPS itself was mutated');
 });
@@ -53,6 +57,7 @@ test('every editable key names a real TierCaps number, and the seed in the migra
     '20271344452857_vendor_plan_contents.sql',
     '20271346711828_simpler_supplier_plans.sql',
     '20271350427190_supplier_plans_rebuilt_2026_11_18.sql', // owner 2026-11-18 "SUPPLIER PLANS REBUILT"
+    '20271360033501_supplier_final_ladder_2026_11_22.sql', // owner 2026-11-22 "FINAL LADDER"
   ]
     .map((f) => readFileSync(join(__dirname, '../../../supabase/migrations', f), 'utf8'))
     .join('\n');
@@ -70,12 +75,14 @@ test('every editable key names a real TierCaps number, and the seed in the migra
   assert.ok(seeded >= 30, `only ${seeded} seed rows checked`);
 });
 
-test('the typed value: whole numbers; "no limit" refused for the four the database serves', () => {
+test('the typed value: whole numbers; "no limit" refused for the waitlist and per-date holds the database serves', () => {
   const seats = planContentKeyDef('agent_accounts')!;
   const branches = planContentKeyDef('branches_included')!;
+  const waitlist = planContentKeyDef('waitlist_acceptances')!;
   assert.deepEqual(parsePlanValue(seats, ' 4 ', false), { ok: true, value: 4 });
   assert.deepEqual(parsePlanValue(seats, '', true), { ok: true, value: null });
-  assert.equal(parsePlanValue(branches, '', true).ok, false);
+  assert.deepEqual(parsePlanValue(branches, '', true), { ok: true, value: null }, 'branches may be no limit (2026-11-22)');
+  assert.equal(parsePlanValue(waitlist, '', true).ok, false);
   assert.equal(parsePlanValue(seats, '', false).ok, false);
   assert.equal(parsePlanValue(seats, '2.5', false).ok, false);
   assert.equal(parsePlanValue(seats, '-1', false).ok, false);

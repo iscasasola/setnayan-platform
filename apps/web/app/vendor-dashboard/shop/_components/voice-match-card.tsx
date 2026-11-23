@@ -191,7 +191,7 @@ export function VoiceMatchCard({
                 ? 'Not switched on for your account yet.'
                 : advancedActive
                   ? 'Replies go out sounding like you — the facts still come straight from your catalog.'
-                  : 'Included with the smarter AI chatbot, on Pro and Ultra.'}
+                  : 'Included with the smarter AI chatbot, on every paid plan.'}
             </p>
           </div>
         </div>
@@ -214,7 +214,7 @@ export function VoiceMatchCard({
       ) : !advancedActive ? (
         <p className="mt-4 text-[13px]" style={{ color: 'var(--m-slate)' }}>
           Right now your assistant answers in Setnayan&rsquo;s neutral voice. On
-          Pro and Ultra, the smarter AI chatbot greets, phrases and signs off the way you
+          every paid plan, the smarter AI chatbot greets, phrases and signs off the way you
           do. Your prices and dates never change: those always come from your own
           catalog.
         </p>

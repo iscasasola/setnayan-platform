@@ -20,8 +20,12 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import {
   EARN_FREE_ROWS,
+  EARN_HEADLINE,
+  EARN_LEDE,
   EARN_PROMISES,
+  EARN_RULED_LINE,
   GIFT_BUNDLE_WORDS,
+  GROW_PROMISE,
   PAID_SPOT_PROMISE,
   SUPPLIER_FREE_BOOKING_LINE,
 } from './_components/supplier-how-we-earn-data';
@@ -106,4 +110,17 @@ test('the block is mounted inside #model and the hero ⓘ links to it', () => {
 
 test('it adds no server action and no form', () => {
   assert.doesNotMatch(block, /['"]use server['"]|<form\b|action=/, 'the block posts something');
+});
+
+test('owner 23 Nov: the block leads with growth and what we give; the 16 Nov ruled line still closes the lede', () => {
+  assert.match(EARN_HEADLINE, /grow your business/i);
+  assert.equal(EARN_RULED_LINE, 'We charge for what we add. Never for what you already had.');
+  assert.ok(EARN_LEDE.endsWith(EARN_RULED_LINE), 'the ruled line left the lede');
+  assert.equal(EARN_PROMISES[0], GROW_PROMISE, 'what we give is no longer the first promise');
+  assert.match(block, /\{EARN_HEADLINE\}/);
+  assert.match(block, /\{EARN_LEDE\}/);
+});
+
+test('owner 23 Nov: disputing a fee is not something the public page shares — no promise, no ⓘ', () => {
+  for (const src of [block, words, page]) assert.doesNotMatch(src, /Dispute this fee|question any fee|fee is questioned/i);
 });

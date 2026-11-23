@@ -55,6 +55,7 @@ import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-r
 import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 import { ShopNotice } from '../../_components/kit';
+import { readAppleShopPlan } from '@/lib/iap/supplier-subscription.server';
 
 
 /**
@@ -89,7 +90,7 @@ const NUMBER = new Intl.NumberFormat('en-PH');
  * of the MANILA day. It printed "Dec 11, 2026" (US order, the server's UTC day) beside the gift's "12 Dec 2026" for the
  * same moment: a plan that ends at 00:24 on 12 Dec in Manila is still 11 Dec in UTC.
  */
-function fmtDate(s: string) {
+export function fmtDate(s: string) {
   const ms = Date.parse(s);
   if (!Number.isFinite(ms)) return s;
   const manilaDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
@@ -110,22 +111,20 @@ export type PlanSearch = {
 
 // Self-serve subscription tiers. All three paid tiers (Solo · Pro · Enterprise)
 // are buyable — create_vendor_subscription maps solo_/pro_/enterprise_ SKUs to
-// their tier and mints an apply-then-pay order (Solo self-serve wired by
-// migration 20270426213000: the solo_vendor_annual SKU + the RPC's solo branch).
+// their tier and mints an apply-then-pay order. Monthly only since owner
+// 2026-11-22 ("no yearly for any supplier subscription"; migration 20271360321657).
 type PaidTier = Extract<VendorTier, 'solo' | 'pro' | 'enterprise'>;
 
 const PAID_TIERS: PaidTier[] = ['solo', 'pro', 'enterprise'];
 
 /**
- * How many days each cycle BUYS. These are the two periods
- * `create_vendor_subscription` writes (28 / 365) — the same numbers the
- * too-short rule is measured against there, so the screen and the database
- * cannot disagree about what a "monthly" plan is worth.
+ * How many days a block BUYS — the period `create_vendor_subscription` writes for a monthly SKU (28), the same number
+ * the too-short rule is measured against there, so the screen and the database cannot disagree.
  */
-const TERM_DAYS: Record<'monthly' | 'annual', number> = { monthly: 28, annual: 365 };
+const TERM_DAYS = { monthly: 28 } as const;
 
-function skuFor(tier: PaidTier, cycle: 'monthly' | 'annual'): string {
-  return `${tier}_vendor_${cycle}`;
+function skuFor(tier: PaidTier): string {
+  return `${tier}_vendor_monthly`;
 }
 
 /**
@@ -134,7 +133,6 @@ function skuFor(tier: PaidTier, cycle: 'monthly' | 'annual'): string {
  * plan editor. `embedded` drops the page's own column (the sheet is the column).
  */
 export async function PlanScreen({ search, embedded = false }: { search: PlanSearch; embedded?: boolean }) {
-  const cycle: 'monthly' | 'annual' = search.cycle === 'annual' ? 'annual' : 'monthly';
 
   const supabase = await createClient();
   const {
@@ -193,8 +191,6 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   );
   const tierExpiresAt =
     (tierRow as { tier_expires_at?: string | null } | null)?.tier_expires_at ?? null;
-  const currentCycle =
-    (tierRow as { tier_billing_cycle?: string | null } | null)?.tier_billing_cycle ?? null;
   const isVerifiedVendor =
     (tierRow as { verification_state?: string | null } | null)?.verification_state === 'verified';
 
@@ -251,23 +247,17 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   const branchPricePhp = vendorCatalog.find((r) => r.sku_code === BRANCH_SKU_CODE)?.price_php ?? null;
   const priceBySku = new Map<string, number>();
   for (const r of vendorCatalog) {
-    if (
-      r.offering_type === 'subscription_monthly' ||
-      r.offering_type === 'subscription_annual'
-    ) {
+    if (r.offering_type === 'subscription_monthly') {
       priceBySku.set(r.sku_code, r.price_php);
     }
   }
 
-  // Solo self-serve is gated on its wiring being LIVE. Migration 20270426213000
-  // seeds solo_vendor_annual AND adds the RPC's solo branch together, so the
-  // annual SKU's presence in the catalog is a safe proxy for "Solo checkout
-  // works." Until it's applied, Solo is omitted so we never render a buy button
-  // that would hard-error (UNMAPPED_SKU_TIER). Once applied, Solo appears on the
-  // next request — no redeploy (this is a server component reading live prices).
+  // Plus (Solo) is shown while its monthly row is on sale. It used to key on `solo_vendor_annual` (the row migration
+  // 20270426213000 seeded with the RPC's solo branch); that row retired with every yearly plan (owner 2026-11-22), and
+  // the RPC's solo branch has long been live, so the monthly row is now the proof Plus can be bought.
   // L-2 (supplier audit 2026-11-17): an UNREAD catalogue is not proof Solo is unwired — dropping the row then took a
   // Plus shop's own "Plus · your plan" row away. Unread keeps every row; their prices are unread (no figure, no Pay).
-  const soloBuyable = priceBySku.has('solo_vendor_annual') || catalogUnread || currentTier === 'solo';
+  const soloBuyable = priceBySku.has(skuFor('solo')) || catalogUnread || currentTier === 'solo';
   const visibleTiers: PaidTier[] = soloBuyable
     ? PAID_TIERS
     : PAID_TIERS.filter((t) => t !== 'solo');
@@ -359,28 +349,21 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     ...visibleTiers.map((tier) => ({
       key: tier,
       name: planWord(tier),
-      price: Object.fromEntries(
-        (['monthly', 'annual'] as const).flatMap((cy) => {
-          // 💰 The catalogue row or nothing (owner 2026-11-13): an unread plan price shows no figure and no Pay button.
-          const v = priceBySku.get(skuFor(tier, cy));
-          return v !== undefined && Number.isFinite(v) ? [[cy, v]] : [];
-        }),
-      ) as PlanPick['price'],
+      // 💰 The catalogue row or nothing (owner 2026-11-13): an unread plan price shows no figure and no Pay button.
+      price: ((v) => (v !== undefined && Number.isFinite(v) ? { monthly: v } : {}))(priceBySku.get(skuFor(tier))) as PlanPick['price'],
       tooShort: {
         monthly: termIsTooShort(TERM_DAYS.monthly, tierExpiresAt, now) ? termTooShortMessage(tierExpiresAt) : null,
-        annual: termIsTooShort(TERM_DAYS.annual, tierExpiresAt, now) ? termTooShortMessage(tierExpiresAt) : null,
       },
       pickLine: planPickLine(currentTier, tier, expiresOn),
     })),
   ];
-  const currentCycleKey: 'monthly' | 'annual' = currentCycle === 'annual' ? 'annual' : cycle;
 
   // 📋 THE PLAN SHEET (Build 5 · Lane B, Door 2) — the same plans and prices as above, as rows that open in place: what
   // changes (TIER_CAPS) and what you pay today (`payToday`, the plan-change RPC's own arithmetic). The unused value of
   // the current plan is the server's `vendor_unused_plan_value_php` (admin-only, called for THIS shop's own id); a
   // failed read is said on the row ("the exact amount shows on your order"), never guessed.
   const paywallOn = isVendorFeatureGateEnabled();
-  const [unusedPhp, papersRead, storeShell] = await Promise.all([
+  const [unusedPhp, papersRead, storeShell, applePlan] = await Promise.all([
     isPaid
       ? (async () => {
           const { data, error } = await createAdminClient().rpc('vendor_unused_plan_value_php', {
@@ -403,7 +386,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             return null;
           }),
     isStoreShellRequest(),
+    // 🍎 One channel at a time (owner 22 Nov): who bills this shop's live plan — read for THIS shop's own id.
+    readAppleShopPlan(createAdminClient(), profile.vendor_profile_id),
   ]);
+  const billedByApple = applePlan.status === 'ok' && applePlan.channel === 'app_store';
   const pickBy = new Map(plans.map((p) => [p.key, p]));
   // 📉 THE LIMITS SHEET (ruling 5683): what the shop has today that a LOWER plan does not hold — read once, only when
   // there is a lower plan to show (Free has none below it).
@@ -446,11 +432,11 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     });
   const currentPrice =
     currentTier === 'solo' || currentTier === 'pro' || currentTier === 'enterprise'
-      ? priceBySku.get(skuFor(currentTier, currentCycleKey)) ?? null
+      ? priceBySku.get(skuFor(currentTier)) ?? null
       : null;
   const pays =
     currentPrice !== null
-      ? `${formatPhp(currentPrice)} / ${currentCycleKey === 'annual' ? 'year' : '28 days'}`
+      ? `${formatPhp(currentPrice)} / 28 days`
       : isPaid
         ? 'paid'
         : 'nothing to pay';
@@ -600,6 +586,11 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
                 it starts once we confirm the payment.
               </ShopNotice>
             )}
+            {billedByApple && !storeShell ? (
+              <ShopNotice tone="gold" role="status">
+                Your plan is billed by the App Store. Change or cancel it there; once it ends, you can pay here.
+              </ShopNotice>
+            ) : null}
             {search.error && (
               <ShopNotice tone="gold" role="alert">
                 {search.error}
@@ -612,7 +603,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             plans={sheet}
             current={currentTier}
             offer={supplierPlanTier(search.plan)}
-            cycle={currentCycleKey}
+            cycle="monthly"
             verified={isVerifiedVendor}
             action={startSubscriptionPurchase}
             expiresOn={expiresOn}

@@ -154,7 +154,8 @@ test('4 · 🔒 the provider page goes to the system browser, never the app\'s w
   assert.doesNotMatch(src, /location\.href\s*=\s*data\.url/, 'the web view is sent to the provider page');
   assert.doesNotMatch(src, /window\.open\(/, 'window.open inside the app is the web view, not the system browser');
   // The URL's only destination is the plugin's system-browser session.
-  assert.match(src, /callPlugin\('openAuthSession',\s*\{\s*url:\s*data\.url/);
+  // (22 Nov 2026) — through OUR address, so the iOS sheet names setnayan.com: lib/a-phone-sign-in-opens-on-our-address.test.ts.
+  assert.match(src, /callPlugin\('openAuthSession',\s*\{\s*url:\s*frontDoor/);
   assert.equal(NATIVE_AUTH_PLUGIN, 'SetnayanAuth');
   // And the native buttons never post the web server action (a redirect in the web view).
   const btn = code(join(WEB, 'app/_components/native-oauth-buttons.tsx'));

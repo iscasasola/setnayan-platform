@@ -1,0 +1,11 @@
+## 2026-11-22 · fix(inquiry): a couple's inquiry never says "Sent" when it was not sent
+
+Supplier launch walk, 22 Nov 2026, step 6 · "Build" item 1 (Gap 2). `startServiceInquiry` ignored the first note's delivery result when no package build rode along. A refused or failed first note still returned `ok`, so the shop's Inquire pop-up said "Sent ✓", the thread stayed empty and the supplier was never notified.
+
+- **The action** (`app/v/[slug]/inquiry-actions.ts`): a first note that did not post now returns `status: 'error'` with "Your message didn't send. Try again." (a refusal the couple can act on, such as the contact filter, keeps the server's own teaching copy after it). It stops there, so the empty thread it opened is resumed and posted into on Try again. A failed message-count read is now a failure, not "no messages". On a chat already under way, the couple's typed words (Inquire's "Anything to add?", Check a date's "Is <day> open?") were dropped while the sheet said "Sent"; they now post into the same thread through the same core, and a refusal is said. A thread that did not open no longer shows the couple a raw database error. Every `ok` now carries `posted` (a message reached the thread in this call) and `listed` (the shop is on the event's Suppliers, from a write the action saw).
+- **The sheets** (Inquire pop-up and Check a date): both read the result through one reading, `inquireSendOutcome` in `lib/shop-inquire.ts`. Only a delivery reaches "Sent ✓"; `ok_build_not_sent` and every failure go back to the event step with the reason in the danger colour, the typed words kept in the box. "They're on your event's Suppliers now" is said only when `listed`; a chat already under way with nothing new typed says "In your chat ✓" instead of "Sent ✓".
+- **The pending-inquiry dispatcher** now keeps its stash when the first note fails (it used to clear it on the false `ok`, losing the couple's message).
+- **Guard:** `app/v/[slug]/inquiry-send-is-honest.test.ts` injects every failure result and pins the action's failure returns and both sheets' one reading. Mutation-checked five ways (each went red, then restored).
+- **Lab:** `/dev/inquire-lab?fail=1` and `?resumed=1` show the failure and in-chat states.
+
+SPEC IMPACT: None. Closes the launch walk's "Build" item 1; the walk's step 6 Gap 2 can be re-measured after deploy.

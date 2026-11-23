@@ -1,4 +1,5 @@
 import 'server-only';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { signStoredRef } from '@/lib/supplier-file-sign.server';
@@ -93,7 +94,7 @@ export async function readUltraAlbums(admin: Admin, eventId: string, ultras: rea
   const accepted = await readAcceptedStoryShares(admin, eventId, ids);
   if (accepted === null) return null;
   const sharedIds = new Set([...albumIds, ...accepted.keys()]);
-  // The plan, read now — only a CURRENT Supplier Ultra's share is shown.
+  // The plan, read now — only a CURRENT paid size's share is shown (Plus, Pro or Ultra since 2026-11-22).
   const stillUltra = await admin.from('vendor_profiles').select('vendor_profile_id, tier_state').in('vendor_profile_id', [...sharedIds]);
   if (stillUltra.error) {
     console.error('[supabase-error] lib/story-suppliers.server.ts · from:vendor_profiles.select', stillUltra.error);
@@ -101,7 +102,7 @@ export async function readUltraAlbums(admin: Admin, eventId: string, ultras: rea
   }
   const shown = ultras.filter((u) =>
     ((stillUltra.data ?? []) as { vendor_profile_id: string; tier_state: string | null }[]).some(
-      (r) => r.vendor_profile_id === u.vendorProfileId && r.tier_state === 'enterprise',
+      (r) => r.vendor_profile_id === u.vendorProfileId && isPaidSize(r.tier_state),
     ),
   );
   const albums: UltraAlbum[] = [];

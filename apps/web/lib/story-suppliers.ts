@@ -16,7 +16,7 @@
  *
  * PURE: no I/O, no React. 🔒 lib/story-suppliers.test.ts
  */
-import { asVendorTier, tierRank, type VendorTier } from './vendor-tier-caps';
+import { asVendorTier, isPaidSize, tierRank, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
 
 /** The scene shows this many, then "See all N". */
@@ -41,7 +41,7 @@ export type StorySupplierTap = 'card' | 'shop' | 'none';
 
 export function storySupplierTap(s: StorySupplierLike): StorySupplierTap {
   if (s.tier === null || !s.slug) return 'none';
-  return s.tier === 'pro' || s.tier === 'enterprise' ? 'card' : 'shop';
+  return isPaidSize(s.tier) ? 'card' : 'shop'; // every paid size since 2026-11-22 (was Pro and Ultra)
 }
 
 /** Booked on Setnayan = a linked shop. Self-added suppliers are named, never linked. */
@@ -131,9 +131,9 @@ export function storySupplierTags<T extends StorySupplierRanked>(list: readonly 
   return { shown: ordered.slice(0, STORY_SUPPLIER_TAGS_MAX), more: Math.max(0, ordered.length - STORY_SUPPLIER_TAGS_MAX) };
 }
 
-/** Every Supplier Ultra on the event, in the story's order — each one gets its own scene. */
+/** Every paid-size supplier on the event, in the story's order — each one gets its own scene (was Ultra only, 2026-11-22). */
 export function ultraSuppliers<T extends StorySupplierRanked>(list: readonly T[]): T[] {
-  return orderStorySuppliers(list).filter((s) => s.tier === 'enterprise');
+  return orderStorySuppliers(list).filter((s) => isPaidSize(s.tier));
 }
 
 /** The two letters a supplier's round mark carries when there is no logo ("Talulot Florals" → "TF"). */

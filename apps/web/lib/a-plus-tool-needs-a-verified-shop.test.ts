@@ -105,6 +105,9 @@ const SENDS: Array<[string, string, string]> = [
   ['app/_components/negotiation-actions.ts', 'createScheduleRequestFromChat', ".from('event_appointments')"],
   ['app/vendor-dashboard/forms/actions.ts', 'formsAction', 'sendFormIntoEvent(supabase'],
   ['lib/chat-send.ts', 'sendChatMessageCore', ".from('chat_messages')"],
+  // 🧾 The two OLDER quote doors (supplier launch walk 22 Nov, step 8) — the quotes page's Send and the app's route.
+  ['app/vendor-dashboard/proposals/actions.ts', 'sendProposal', ".update({ status: 'sent'"],
+  ['app/api/vendor/chat/[threadId]/proposal/route.ts', 'POST', 'sendProposalCore('],
 ];
 
 it('the chat’s payment ask (inline=1) asks the gate before it inserts', () => {
@@ -175,4 +178,53 @@ it('the Cake Maker invite asks the gate before it sends, and refuses on unverifi
   assert.equal(plusGateRefusal('unverified'), PLUS_NEEDS_VERIFIED);
   assert.equal(plusGateRefusal('unknown'), PLUS_GATE_UNKNOWN);
   assert.equal(plusGateRefusal('open'), null);
+});
+
+/**
+ * 🧾 THE TWO OLDER QUOTE DOORS REFUSE AN UNVERIFIED SHOP (supplier launch walk 22 Nov, step 8 · Build 2). Asking the
+ * gate is not enough — each door must STOP on any verdict but 'open', before it writes, and fail closed: the quotes
+ * page's Send refuses when its draft read failed or found nothing (it never sends on an unread shop), and the app's
+ * route answers the gate's own words with the Get verified door. `shopPlusGate`/`threadPlusGate` are proved on a fake
+ * client above.
+ * SABOTAGE (22 Nov 2026): `if (plusGate !== 'open') redirect(…)` deleted from sendProposal → RED ("does not refuse");
+ * its `: 'unknown'` fallback flipped to `: 'open'` → RED ("an unread draft"); `if (plusRefusal) {…}` deleted from the
+ * route → RED ("does not refuse").
+ */
+describe('the two older quote doors refuse an unverified shop', () => {
+  it('the quotes page’s Send (sendProposal) refuses before the draft→sent flip, and fails closed', () => {
+    const body = bodyOf('app/vendor-dashboard/proposals/actions.ts', 'sendProposal');
+    const g = body.indexOf('await shopPlusGate(supabase, draft.vendor_profile_id)');
+    const r = body.indexOf("if (plusGate !== 'open') redirect(`/proposals/${publicId}?notice=send_plus_${plusGate}`);");
+    const w = body.indexOf(".update({ status: 'sent'");
+    assert.ok(g >= 0, 'sendProposal no longer asks the gate about the draft’s own shop');
+    assert.ok(r > g, 'sendProposal asks the gate but does not refuse on its answer');
+    assert.ok(r < w, 'sendProposal refuses AFTER it flips the draft to sent');
+    assert.match(
+      body,
+      /const plusGate: PlusGate = draft && !draftErr \? await shopPlusGate\([^)]*\) : 'unknown';/,
+      'an unread draft (refused read, or none) must be refused as unknown — never sent on an unchecked shop',
+    );
+  });
+
+  it('the app’s quote route refuses with the gate’s words before it sends', () => {
+    const body = bodyOf('app/api/vendor/chat/[threadId]/proposal/route.ts', 'POST');
+    const g = body.indexOf('const plusRefusal = plusGateRefusal(shopGate);');
+    const r = body.indexOf('if (plusRefusal) {');
+    const ret = body.indexOf('return Response.json(', r);
+    const w = body.indexOf('sendProposalCore(');
+    assert.ok(g >= 0 && body.indexOf('threadPlusGate(auth.supabase, threadId)') < g, 'the route never asks the ＋ gate');
+    assert.ok(r > g && ret > r && ret < w, 'the route asks the gate but does not refuse before it sends');
+    assert.ok(body.includes('verifyHref: PLUS_TRAY_VERIFY_HREF'), 'an unverified refusal lost its Get verified door');
+  });
+
+  it('the quote page says the gate’s own words for both refusals, with the Get verified door', () => {
+    const page = src('app/proposals/[publicId]/page.tsx');
+    for (const verdict of ['unverified', 'unknown'] as const) {
+      const at = page.indexOf(`search.notice === 'send_plus_${verdict}'`);
+      assert.ok(at >= 0, `the quote page never shows send_plus_${verdict}`);
+      const block = page.slice(at, page.indexOf(') : null}', at));
+      assert.ok(block.includes(verdict === 'unverified' ? '{PLUS_NEEDS_VERIFIED}' : '{PLUS_GATE_UNKNOWN}'), `send_plus_${verdict} lost the gate’s words`);
+      if (verdict === 'unverified') assert.ok(block.includes('href={PLUS_TRAY_VERIFY_HREF}'), 'the refusal lost its Get verified door');
+    }
+  });
 });

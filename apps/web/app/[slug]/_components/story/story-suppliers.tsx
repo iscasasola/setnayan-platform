@@ -20,6 +20,7 @@
  */
 
 import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -37,7 +38,7 @@ import { formatCount } from '@/lib/format-number';
 
 const EYEBROW = 'font-mono text-xs font-semibold uppercase tracking-[0.2em] text-ink/70';
 const ULTRA_SCENE_TIP =
-  'Every Ultra shop on this event gets its own scene, however many there are. The photos and videos are the ones the supplier shared from this event. Other supplier plans are listed in the story, with no scene.';
+  'Every supplier on a paid plan gets its own scene on this event, however many there are. The photos and videos are the ones the supplier shared from this event. Suppliers on the free plans are listed in the story, with no scene.';
 
 /* ── the frame every layer shares ────────────────────────────────────────── */
 
@@ -237,7 +238,7 @@ function SupplierSheet({
           />
         </label>
       ) : null}
-      <p className="mt-3 text-sm text-ink/70">Listed by plan: Ultra, Pro, Plus, Verified, Free. Ultra and Pro open a full card. Each Ultra also has its own scene.</p>
+      <p className="mt-3 text-sm text-ink/70">Listed by plan. Paid plans open a full card and have their own scene.</p>
       {searchable ? (
         groups.map((g) =>
           g.folded ? (
@@ -314,8 +315,8 @@ export function PeopleWhoMadeIt({
   const [card, setCard] = useState<StorySupplierView | null>(null);
   const lead = storySuppliersLead(suppliers);
   if (lead.total === 0) return null;
-  const leads = lead.shown.filter((s) => s.tier === 'enterprise' || s.tier === 'pro');
-  const rest = lead.shown.filter((s) => !(s.tier === 'enterprise' || s.tier === 'pro'));
+  const leads = lead.shown.filter((s) => isPaidSize(s.tier));
+  const rest = lead.shown.filter((s) => !isPaidSize(s.tier));
   return (
     <div className="py-8 text-center" data-story-suppliers="">
       <p className={EYEBROW}>From your suppliers · {formatCount(lead.total)}</p>
@@ -398,7 +399,9 @@ export function UltraSupplierScene({
         <div className="min-w-0">
           <h2 className="truncate font-serif text-3xl leading-tight text-ink">{album.name}</h2>
           <p className="text-sm text-ink/75">
-            <span className="mr-2 rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-cream">Ultra</span>
+            {supplier?.badge ? (
+              <span className="mr-2 rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-cream">{supplier.badge}</span>
+            ) : null}
             {service}
           </p>
         </div>
@@ -424,11 +427,11 @@ export function UltraSupplierScene({
             Visit the shop
           </Tap>
         ) : null}
-        <InfoTip label="Ultra" labelClassName="text-sm text-ink/75" ariaLabel="About this scene" align="end">
+        <InfoTip label="About this scene" labelClassName="text-sm text-ink/75" ariaLabel="About this scene" align="end">
           {ULTRA_SCENE_TIP}
         </InfoTip>
       </div>
-      <Layer open={open} onClose={() => setOpen(false)} title={album.name} eyebrow="Ultra · shared album" label={`${album.name} — shared album`}>
+      <Layer open={open} onClose={() => setOpen(false)} title={album.name} eyebrow={supplier?.badge ? `${supplier.badge} · shared album` : 'Shared album'} label={`${album.name} — shared album`}>
         <p className="text-sm text-ink/70">
           {formatCount(album.photos)} {album.photos === 1 ? 'photo' : 'photos'}
           {album.videos > 0 ? ` · ${formatCount(album.videos)} ${album.videos === 1 ? 'video' : 'videos'}` : ''}

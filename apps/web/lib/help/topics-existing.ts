@@ -337,12 +337,12 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         // "story with many suppliers", "Supplier Ultra scenes") — the story's own ⓘ says the short version.
         slug: 'story-suppliers',
         title: 'How are our suppliers shown in our event story?',
-        body: 'After the day, your story lists everyone who made it in “The people who made it”. Suppliers booked on Setnayan come first, ordered by their plan — Supplier Ultra, then Supplier Pro, Supplier Plus, Verified and Free — and a supplier you added yourself is named, with no link. The story shows the first eight; “See all” opens the full list, grouped by plan, with a search box when there are more than 20. Every booked supplier can be tapped: Supplier Pro and Supplier Ultra open a card with their cover, rating, best work and a Book button, the rest open their shop. Each Supplier Ultra that shares its album from your event also gets its own scene in your story.',
+        body: 'After the day, your story lists everyone who made it in “The people who made it”. Suppliers booked on Setnayan come first, ordered by their plan — Ultra, then Pro, Plus, Verified and Free — and a supplier you added yourself is named, with no link. The story shows the first eight; “See all” opens the full list, grouped by plan, with a search box when there are more than 20. Every booked supplier can be tapped: suppliers on a paid plan open a card with their cover, rating, best work and a Book button, the rest open their shop. Each supplier on a paid plan that shares its album from your event also gets its own scene in your story.',
       },
       {
         slug: 'share-album-to-story',
         title: 'Supplier: how do I share my album to an event’s story?',
-        body: 'On Supplier Ultra, open the event in On the day → What you shot. Under “Your private portfolio”, turn on “Share this album to the event’s story”. The photos and videos in that album then fill your own scene in the event’s story, with your shop name, your Supplier Ultra badge and a button to your shop. It is off until you turn it on, and you can turn it off any time. After the event you are asked once whether to share. The album counts toward your plan’s storage. On other plans you are listed in the story with no scene of your own.',
+        body: 'On any paid plan, open the event in On the day → What you shot. Under “Your private portfolio”, turn on “Share this album to the event’s story”. The photos and videos in that album then fill your own scene in the event’s story, with your shop name, your plan badge and a button to your shop. It is off until you turn it on, and you can turn it off any time. After the event you are asked once whether to share. The album counts toward your plan’s storage. On Free and Verified you are listed in the story with no scene of your own.',
       },
       {
         slug: 'people-page',

@@ -42,19 +42,23 @@ test('the logo is never handed to satori as an <img> node', () => {
   );
 });
 
-test('the logo is composited onto the rendered PNG with sharp, not embedded pre-render', () => {
-  assert.match(
-    src,
-    /\.composite\(\[\{\s*input:\s*tile/,
-    'the logo tile must be layered onto the finished satori+sharp PNG via .composite(), the same proven ' +
-      'technique profile-card.tsx uses for its hero photo',
-  );
+test('every picture is composited onto the card with sharp — the photo is the ground, never a satori image', () => {
+  assert.match(src, /sharp\(ground\)\.composite\(layers\)/, 'the photo (or the dark ground) is the base the layers go on');
+  for (const spot of ['LOGO_TILE', 'spot', 'BADGE_ROW', 'MARK']) {
+    assert.match(src, new RegExp(`${spot}\\.(top|left)`), `${spot} is placed at its fixed spot by a composite`);
+  }
 });
 
-test('a missing/broken logo degrades to the plain card, never throws', () => {
-  assert.match(
-    src,
-    /if \(!tile\) return base\.toBuffer\(\);/,
-    'renderVendorOgPng must still return a valid card when the logo tile is null',
-  );
+test('a picture that fails is left out — the card is still drawn', () => {
+  assert.match(src, /const ground = photo \?\? /, 'no photo → the dark Setnayan ground, never a broken image');
+  assert.match(src, /if \(tile\)/, 'no logo → no tile');
+  assert.match(src, /tile \? SEAL_ON_LOGO : SEAL_SOLO/, 'no logo → the seal moves to the middle');
+  assert.match(src, /medals: medalPics\.length/, 'a medal whose art failed is left out before the row is laid out');
+});
+
+test('the seal art is the approved v84 art, never a re-draw', () => {
+  assert.match(src, /verifiedV84Svg\(/, 'Verified: the v84 check');
+  assert.match(src, /sealArtSvgNoYear\('verified_partner'/, 'Partner: the v84 seal, without its year at this size');
+  assert.match(src, /resolvePrintBadgeArt\(/, 'the row: the same art resolver the prints use');
+  assert.match(src, /SETNAYAN_MARK_PATH/, 'the mark: the shipped geometry');
 });

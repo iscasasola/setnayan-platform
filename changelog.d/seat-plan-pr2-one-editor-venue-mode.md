@@ -24,6 +24,13 @@ PR 2 of 2 for the one seat plan (DECISION_LOG d1fafcd5, option B). It builds on 
   - The hall's picture (`PlanPoster`) and one button, "Open the floor plan", which opens the editor full screen (`RiseScreen`, `kind="zoom"`).
   - On the free plan, the lock's words appear in place of the button.
 - **Stable between renders:** the hall's rows are memoised on the hall's read, and the store reads the sheet's `run` through a ref. The editor's empty lists, `me` and `source` are the same objects every render, so saving a table never rebuilds the store and doesn't re-run the editor's effects.
+- **Walked at 390 in `/dev/spaces-lab`, and fixed:**
+  - **It opened behind its sheet.** A `RiseScreen` sits on the pop layer (40), under the Sheet (50) that opened it. Opened from inside a Sheet (`InSheet`), it now marks itself `data-rise-over-sheet`, and `globals.css` lifts it to `--sn-z-modal`. Drawn on `<body>` after the sheet, it stands over it. The sheets the editor opens are also modal and drawn later, so they still stand over the editor.
+  - **On a phone it opened on the guests' List.** A hall stays on its floor at every width.
+  - **The hall's tables lay metres outside its wall** (Fit at 0.15). The floor's first layout was 134 px wide, tables with no saved spot dodged each other there, and `prev` kept them. Unplaced tables are now placed, and Fit frames, in layout pixels (`layoutRectOf`, untransformed). The region and canvas are measured from `offset*` and the observer's border box. A table nobody moved is placed again when the canvas size changes; a moved (`dirty`) one keeps its spot. On an untransformed couple page every number is unchanged.
+  - **Guest words in a hall.** The venue mode now drops the phone head's "0 seated · guests see it on the day" line, its Unseated + View row, the desktop List/2D picker (a hall has one view; 3D was still offered on the phone) and the people search. A hall row reads `venueRowWords` ("Long · 12 chairs · 2 at the ends"), not "0/12 seats · Long banquet (8 seats)".
+  - `text-sn-13` is not a class; the hall's lock line and the phone status line use `text-sn-md`.
+  - Guards 8 and 9 in `the-seat-plan-is-one-editor.test.ts` hold all of the above.
 - **Line up:** PlanMaker's Line up is now the venue editor's Arrange row ("Line up the tables", `lineUpPlan`).
 - **Removed:**
   - `app/_components/plan-maker/` and its test.

@@ -181,9 +181,12 @@ export function PhoneSeatPlanHead({
           {more}
         </Pop>
       </div>
-      <p data-seat-plan-status="" className="text-[13px] leading-snug text-ink/70 group-data-[details-mode=guided]/ws:hidden">
-        {status}
-      </p>
+      {/* 🏛 A hall has no guests and no day: its count and seats are the full screen's own head line. */}
+      {venue ? null : (
+        <p data-seat-plan-status="" className="text-sn-md leading-snug text-ink/70 group-data-[details-mode=guided]/ws:hidden">
+          {status}
+        </p>
+      )}
       {toast ? <SeatToast toast={toast} /> : null}
       {venue ? null : (
       <div className="flex items-center gap-2">
@@ -202,8 +205,9 @@ export function PhoneSeatPlanHead({
         </Pop>
       </div>
       )}
+      {/* 🏛 A hall: no one to seat and one view (its floor) — nothing for this row to hold. */}
+      {venue ? null : (
       <div className="flex items-center gap-2">
-        {venue ? null : (
         <button
           type="button"
           onClick={onUnseated}
@@ -216,13 +220,13 @@ export function PhoneSeatPlanHead({
           Unseated: {formatCount(unseated)}
           <ChevronRight aria-hidden className="h-3.5 w-3.5" />
         </button>
-        )}
         <span className="flex-1" />
         {/* 🔦 The tour's stop 3 rides on a box of its own — PickMenu takes no attribute beyond its one data hook. */}
         <span data-tour="seat-plan-view" className="inline-flex">
           <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="border border-ink/15" />
         </span>
       </div>
+      )}
     </div>
   );
 }

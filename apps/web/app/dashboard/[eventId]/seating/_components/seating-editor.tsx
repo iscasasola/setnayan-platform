@@ -504,6 +504,20 @@ type GuestSeatOp =
 // map (lib/seating) so the layout matches everywhere.
 const defaultGrid = defaultTablePosition;
 
+/**
+ * 📐 A box in LAYOUT pixels. Inside a full screen still zooming open (a hall's floor plan, risen from its Spaces sheet)
+ * `getBoundingClientRect` is the scaled first frame: tables placed or framed against it land metres apart and stay
+ * there. Each axis is brought back by the painted ÷ layout ratio of `ref` (the canvas); unscaled — the couple's page —
+ * the box comes back exactly as painted.
+ */
+function layoutRectOf(el: HTMLElement, ref: HTMLElement = el): { left: number; top: number; width: number; height: number } {
+  const r = el.getBoundingClientRect();
+  const p = ref === el ? r : ref.getBoundingClientRect();
+  const kx = ref.offsetWidth > 0 && Math.abs(p.width - ref.offsetWidth) >= 1 ? p.width / ref.offsetWidth : 1;
+  const ky = ref.offsetHeight > 0 && Math.abs(p.height - ref.offsetHeight) >= 1 ? p.height / ref.offsetHeight : 1;
+  return { left: r.left / kx, top: r.top / ky, width: r.width / kx, height: r.height / ky };
+}
+
 /** 🏛 What a venue's own hall can place (seat plan PR2): tables and its doors. Booths, signs, the dance floor and a
  * cocktail room belong to an event. */
 const VENUE_ADD_KINDS: ReadonlySet<string> = new Set(['table', 'entrance', 'service']);
@@ -1181,7 +1195,8 @@ export function SeatingEditor({
     // the List view (the lab's mirrored segment links here with ?view=list).
     // 🪑 Not inside Details: there the plan is the middle part at every width
     // (the owner-approved phone frames draw the floor, the guests a panel under it).
-    if (!details && initialView !== 'list' && typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
+    // 🏛 Nor in a venue's hall: there is no one to seat, so the floor IS the plan at every width.
+    if (!details && !isVenue && initialView !== 'list' && typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
       setView('list');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1284,9 +1299,12 @@ export function SeatingEditor({
   useIsoLayoutEffect(() => {
     const el = canvasRef.current;
     if (!el || view !== 'plan') return;
-    const update = () => setCanvasW(el.getBoundingClientRect().width);
-    update();
-    const ro = new ResizeObserver(update);
+    // 📐 The layout width (see the region above): a zooming full screen must not size the tables from its first frame.
+    setCanvasW(el.offsetWidth);
+    const ro = new ResizeObserver(([entry]) => {
+      const box = entry?.borderBoxSize?.[0];
+      if (box) setCanvasW(box.inlineSize);
+    });
     ro.observe(el);
     return () => ro.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3090,10 +3108,18 @@ export function SeatingEditor({
   // work" on delete — surfaced once the post-#3305 collision model began moving
   // tables during the churn). The transient optimistic set is never worth
   // re-placing; we re-resolve once cleanly when the mutation settles.
+  // 📐 The canvas size the auto-placed spots were worked out for. When the floor first lays out short and then grows (a
+  // hall's floor plan opening in Spaces: 134 px wide, then 390), spots dodged against the small floor sent the hall's
+  // tables metres past its wall — and `prev` kept them there. On a new size, a table nobody moved is placed again.
+  const placedForRef = useRef<{ w: number; h: number } | null>(null);
   useIsoLayoutEffect(() => {
     if (wallDragRef.current || isPending) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
+    // 📐 Placed in layout pixels (`layoutRectOf`), never against a still-zooming first frame.
+    const rect = canvasRef.current ? layoutRectOf(canvasRef.current) : null;
     if (!rect || rect.width === 0) return;
+    const was = placedForRef.current;
+    const resized = was !== null && (Math.abs(was.w - rect.width) >= 1 || Math.abs(was.h - rect.height) >= 1);
+    placedForRef.current = { w: rect.width, h: rect.height };
     const shelf = venueScaled ? venueShelfBase(rect) : null;
     setPositions((prev) => {
       const placed: Record<string, LocalPos> = {};
@@ -3104,7 +3130,8 @@ export function SeatingEditor({
       });
       tables.forEach((t, i) => {
         if (placed[t.table_id]) return;
-        const base = prev[t.table_id] ?? shelf?.[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
+        const kept = resized && !dirty.has(t.table_id) ? undefined : prev[t.table_id];
+        const base = kept ?? shelf?.[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
         placed[t.table_id] = nearestFree(base.x, base.y, t, rect, (o) => placed[o.table_id] ?? null);
       });
       // Cleanup: greedy placement (each table only dodges earlier ones) can leave
@@ -4596,8 +4623,10 @@ export function SeatingEditor({
      What stands BEYOND a wall stays in view too (a table dragged past one, the cocktail area docked outside).
      🔒 the-floor-fits-the-room.test.ts */
   const fitView = () => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return;
+    const canvasEl = canvasRef.current;
+    // 📐 Fit in layout pixels (`layoutRectOf`): a pan worked out from a still-zooming box lands off the room.
+    const rect = canvasEl ? layoutRectOf(canvasEl) : null;
+    if (!canvasEl || !rect || rect.width === 0) return;
     const also: Array<{ minX: number; minY: number; maxX: number; maxY: number }> = [];
     tables.forEach((t, i) => {
       const pos = positions[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
@@ -4616,7 +4645,7 @@ export function SeatingEditor({
       });
     }
     const region = regionRef.current;
-    const cell = inGuests ? regionRef.current?.getBoundingClientRect() : null;
+    const cell = inGuests && regionRef.current ? layoutRectOf(regionRef.current, canvasEl) : null;
     const px = (name: string) => (region ? parseFloat(getComputedStyle(region).getPropertyValue(name)) || 0 : 0);
     const v = fitRoom({
       room: { left: cell ? rect.left - cell.left : 0, top: cell ? rect.top - cell.top : 0, width: rect.width, height: rect.height },
@@ -4801,12 +4830,14 @@ export function SeatingEditor({
   useIsoLayoutEffect(() => {
     const el = regionRef.current;
     if (!el || view !== 'plan') return;
-    const update = () => {
-      const r = el.getBoundingClientRect();
-      setRegion({ w: r.width, h: r.height });
-    };
-    update();
-    const ro = new ResizeObserver(update);
+    // 📐 The LAYOUT size, never the painted one: opened in a full screen that zooms in (a hall's floor plan in Spaces),
+    // `getBoundingClientRect` reads the first, scaled-down frame — and a transform never fires the observer again, so
+    // the room stayed a postage stamp at 390. `offset*` first (no transform in it), then the observer's exact box.
+    setRegion({ w: el.offsetWidth, h: el.offsetHeight });
+    const ro = new ResizeObserver(([entry]) => {
+      const box = entry?.borderBoxSize?.[0];
+      if (box) setRegion({ w: box.inlineSize, h: box.blockSize });
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, [view]);
@@ -5354,10 +5385,17 @@ export function SeatingEditor({
                         {u.label}
                       </span>
                       <span className="block text-xs text-ink/70">
-                        {formatCount(filled)}/{formatCount(cap)} {cap === 1 ? 'seat' : 'seats'} ·{' '}
-                        {u.members.length > 1
-                          ? `${u.members.length} tables joined`
-                          : TABLE_TYPE_LABEL[u.lead.table_type]}
+                        {/* 🏛 A hall's row: its own shape and chairs ("Long · 12 chairs · 2 at the ends"), no one seated. */}
+                        {isVenue ? (
+                          venueRowWords(u.lead)
+                        ) : (
+                          <>
+                            {formatCount(filled)}/{formatCount(cap)} {cap === 1 ? 'seat' : 'seats'} ·{' '}
+                            {u.members.length > 1
+                              ? `${u.members.length} tables joined`
+                              : TABLE_TYPE_LABEL[u.lead.table_type]}
+                          </>
+                        )}
                       </span>
                     </span>
                     <Badge tone={full ? 'ok' : 'quiet'}>{full ? 'Filled' : 'Open'}</Badge>
@@ -5515,7 +5553,8 @@ export function SeatingEditor({
 
   const panelBody = (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 p-3 pb-2">{searchRow}</div>
+      {/* 🏛 The search finds people; a hall has none, so it would be a box that finds nothing. */}
+      {isVenue ? null : <div className="shrink-0 p-3 pb-2">{searchRow}</div>}
       {panelTabs}
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {isVenue || panelTab === 'tables' ? tablesPane : panelTab === 'people' ? peoplePane : rulesPane}
@@ -7751,7 +7790,7 @@ export function SeatingEditor({
       more={phoneMore}
       view={in3d ? '3d' : view === 'list' ? 'list' : '2d'}
       onView={onSelectView}
-      show3D={process.env.NEXT_PUBLIC_SEATING_3D !== 'false'}
+      show3D={!isVenue && process.env.NEXT_PUBLIC_SEATING_3D !== 'false'}
       toast={autoRun ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) } : null}
       trailing={phoneTrailing}
       venue={isVenue}
@@ -8289,15 +8328,18 @@ export function SeatingEditor({
       {/* ═══════════ ROW 1 — COMMAND BAR (the page's only blurred surface) ═══════════ */}
       {isPhone || inGuests ? null : (
       <CommandBar>
-        {/* View axis — [2D · 3D · List] (verdict §4). Prefetch the lab on hover. */}
-        <SeatingViewSegment
-          active={in3d ? '3d' : view === 'list' ? 'list' : '2d'}
-          onSelect={onSelectView}
-          /* In Details, 3D is this same address re-read with the lab in it — no
-             page to prefetch (a prefetch would render the whole Maker). */
-          on3DHover={details || isVenue ? undefined : () => router.prefetch(labUrl)}
-          no3D={isVenue}
-        />
+        {/* View axis — [2D · 3D · List] (verdict §4). Prefetch the lab on hover.
+            🏛 A venue's hall has ONE view, its floor: no 3D room, and the List is guest seating (its tables are the
+            Spaces sheet's own rows), so there is nothing to pick. */}
+        {isVenue ? null : (
+          <SeatingViewSegment
+            active={in3d ? '3d' : view === 'list' ? 'list' : '2d'}
+            onSelect={onSelectView}
+            /* In Details, 3D is this same address re-read with the lab in it — no
+               page to prefetch (a prefetch would render the whole Maker). */
+            on3DHover={details ? undefined : () => router.prefetch(labUrl)}
+          />
+        )}
 
         {/* §5.5 — stats chip becomes a DOORWAY: one actionable number ("N to
             seat"). Tap flips the People pane to the unseated filter; the full

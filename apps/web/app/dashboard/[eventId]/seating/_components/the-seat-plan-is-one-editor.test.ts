@@ -50,7 +50,8 @@ test('2 · both sides draw from ONE component: the event page and the hall impor
   assert.match(page, /import \{ SeatingEditor \} from '\.\/_components\/seating-lazy'/);
   assert.match(host, /import \{ SeatingEditor \} from '@\/app\/dashboard\/\[eventId\]\/seating\/_components\/seating-lazy'/);
   assert.match(host, /<SeatingStoreContext\.Provider value=\{store\}>\s*<SeatingEditor/, 'the hall does not hand the editor its store');
-  assert.match(host, /source=\{\{ kind: 'venue', spaceId, floorPlanOpen \}\}/, 'the hall does not open the editor in venue mode');
+  assert.match(host, /const source = useMemo\(\(\) => \(\{ kind: 'venue' as const, spaceId, floorPlanOpen \}\), \[spaceId, floorPlanOpen\]\);/, 'the hall does not open the editor in venue mode');
+  assert.match(host, /<SeatingEditor[\s\S]*?source=\{source\}/, 'the hall does not hand the editor its venue source');
   assert.match(strip(read('app/vendor-dashboard/spaces/_components/base-layout.tsx')), /<VenueSeatPlan /, 'the Spaces sheet no longer shows the hall’s plan');
 });
 
@@ -125,4 +126,46 @@ test('7 · a door the editor moved is put back on its wall: unchanged → nothin
   assert.deepEqual(venueDoorChange(was, { enabled: false, x: 50, y: 100 }), { remove: 'd1', add: null });
   assert.deepEqual(venueDoorChange(null, { enabled: true, x: 85, y: 0 }), { remove: null, add: { wall: 'back', along: 'right' } });
   assert.deepEqual(venueDoorChange(null, { enabled: false, x: 50, y: 100 }), { remove: null, add: null });
+});
+
+test('8 · the hall’s floor plan opens OVER its Spaces sheet, and keeps the same store between renders', () => {
+  // Live in the lab at 390: the full screen stood on the pop layer (40), under the sheet that opened it (50). Opened
+  // from inside a Sheet, RiseScreen reads `InSheet` BEFORE its own provider, and globals.css lifts it to the modal layer
+  // token (not the toast layer: the editor's own sheets are modal too, and must still open over it).
+  const rise = strip(read('app/_components/rise/rise-screen.tsx'));
+  const body = rise.slice(rise.indexOf('export function RiseScreen('));
+  const reads = body.indexOf('const overSheet = useContext(InSheet);');
+  assert.ok(reads > 0 && reads < body.indexOf('<InSheet.Provider value>'), 'RiseScreen no longer knows it was opened from a sheet');
+  assert.match(body, /data-rise-over-sheet=\{overSheet \? '' : undefined\}/, 'a full screen opened from a sheet does not say so');
+  const css = read('app/globals.css');
+  assert.match(css, /\[data-rise-screen\]\[data-rise-over-sheet\] \{\s*z-index: var\(--sn-z-modal\);\s*\}/, 'a full screen opened from a sheet falls under it again');
+  // The Spaces sheet IS a Sheet, so the hall's floor plan is inside one.
+  const sheet = strip(read('app/vendor-dashboard/spaces/_components/space-sheet.tsx'));
+  assert.match(sheet, /<Sheet\b/, 'the Spaces sheet is not the shared Sheet any more — re-check where the floor plan opens');
+  // A save re-renders the sheet with a new `run`: the store must not be rebuilt for it.
+  const host = strip(read(HOST));
+  assert.match(host, /useMemo\(\(\) => venueSeatingStore\(spaceId, \(op, done\) => runRef\.current\(op, done\), \(\) => latest\.current\), \[spaceId\]\)/, 'the hall’s store is rebuilt on every render');
+  assert.doesNotMatch(host.slice(host.indexOf('<SeatingEditor')), /=\{\[\]\}|=\{\{/, 'the editor gets a new list or object every render');
+});
+
+test('9 · a hall opens on its floor at 390, its tables inside its wall, and nothing in it speaks of guests', () => {
+  // Live in the lab at 390 (Hall001, six tables with no saved spot): the editor flipped to the guests' List; on the
+  // floor the first layout was 134 px wide, the tables dodged each other metres past the wall and `prev` kept them.
+  const ed = strip(read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx'));
+  assert.match(ed, /if \(!details && !isVenue && initialView !== 'list' &&/, 'a hall opens on the guests’ List on a phone');
+  assert.match(ed, /function layoutRectOf\(/, 'the layout box is gone');
+  const place = ed.slice(ed.indexOf('const placedForRef = useRef'), ed.indexOf('const shelf = venueScaled ? venueShelfBase(rect) : null;'));
+  assert.match(place, /const rect = canvasRef\.current \? layoutRectOf\(canvasRef\.current\) : null;/, 'tables are placed against the painted (still zooming) box');
+  assert.match(place, /const resized = was !== null &&/, 'a resize no longer re-places the tables nobody moved');
+  assert.match(ed, /const kept = resized && !dirty\.has\(t\.table_id\) \? undefined : prev\[t\.table_id\];/, 'a resize throws away a table the person moved, or keeps a spot from the wrong size');
+  assert.match(ed, /setRegion\(\{ w: el\.offsetWidth, h: el\.offsetHeight \}\);/, 'the floor is sized from the painted first frame');
+  // One view in a hall: no List (guest seating) and no 3D, on either picker; no people search.
+  assert.match(ed, /\{isVenue \? null : \(\s*<SeatingViewSegment/, 'the desktop picker offers a hall List or 3D');
+  assert.match(ed, /show3D=\{!isVenue && process\.env\.NEXT_PUBLIC_SEATING_3D !== 'false'\}/, 'the phone offers a hall 3D');
+  assert.match(ed, /\{isVenue \? null : <div className="shrink-0 p-3 pb-2">\{searchRow\}<\/div>\}/, 'a hall shows a people search');
+  assert.match(ed, /\{isVenue \? \(\s*venueRowWords\(u\.lead\)/, 'a hall’s row says the couple type and a seated count');
+  const phone = strip(read('app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx'));
+  const head = phone.slice(phone.indexOf('data-seat-plan-phone-head'), phone.indexOf('export function PhoneSeatPlanFoot'));
+  assert.match(head, /\{venue \? null : \(\s*<p data-seat-plan-status=""/, 'a hall’s head says “0 seated · guests see it on the day”');
+  assert.match(head, /\{venue \? null : \(\s*<div className="flex items-center gap-2">\s*<button\s+type="button"\s+onClick=\{onUnseated\}/, 'a hall’s head carries Unseated or the View picker');
 });

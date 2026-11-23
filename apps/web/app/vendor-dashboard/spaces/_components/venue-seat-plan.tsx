@@ -164,7 +164,7 @@ export function VenueSeatPlan({ tables, spaceId, run, floorPlanOpen }: { tables:
       {floorPlanOpen ? (
         <ActionButton tone="neutral" icon={MapIcon} label="Open the floor plan" className="!h-11" onClick={() => setOpen(true)} />
       ) : (
-        <p className="text-sn-13 text-ink/70" data-space-plan-locked="">
+        <p className="text-sn-md text-ink/70" data-space-plan-locked="">
           {LOCKS.space_floor_plan.solution}
         </p>
       )}

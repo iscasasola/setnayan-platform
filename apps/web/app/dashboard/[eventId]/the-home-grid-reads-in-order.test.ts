@@ -13,6 +13,10 @@
  *      gone with the pieces it placed (Next card · numbers · money · What's next).
  *
  * Sabotage (2026-10-24): swap Budget and Checklist in the detail columns (2 red); add `order: 2` to `.hc-tile` (3 red).
+ *
+ * RE-AIMED 23 Nov 2026 (owner, v5 drawing in the website look): the phone's tiles (1) and the md copy (2) are retired —
+ * the board's two columns are the ONE copy at every width, stacked under the list below 1280 in the page's own order:
+ * Guests · Budget · Schedule, then Suppliers · Event Hub (the drawing's order). Tests 1 and 2 now hold that.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -30,22 +34,21 @@ const CSS = read('app/globals.css');
 const order = (html: string, marker: string) => [...html.matchAll(new RegExp(`${marker}="([a-z]+)"`, 'g'))].map((m) => m[1]);
 
 // 🎴 Home redraw 2026-11-02 (round 3): the Countdown rides the event card and To do is the list under it.
-test('1 · the phone reads the tiles row by row, in the order drawn', () => {
+test('1 · below 1280 the widgets read in the order drawn — Guests · Budget · Schedule · Suppliers · Event Hub', () => {
   const html = drawHome();
-  const compact = slice(html, 'data-home-control="compact"', ['data-home-control="detail"']);
-  assert.deepEqual(order(compact, 'data-home-tile'), ['guests', 'hub', 'sup', 'budget']);
+  assert.equal(html.split('data-home-control="compact"').length - 1, 0, 'the retired phone tiles are back');
+  const board = slice(html, 'data-home-board="middle"', ['data-home-services']);
+  assert.deepEqual(order(board, 'data-home-card-key'), ['guests', 'budget', 'sup', 'hub']);
 });
 
-test('2 · from md, the two columns are read column by column, as seen', () => {
+test('2 · the list comes first, the widgets after it, the services after them — no second copy', () => {
   const html = drawHome();
-  const detail = slice(html, 'data-home-control="detail"', ['data-home-control="board"']);
-  const cols = detail.split('class="hc-col"').slice(1);
-  assert.equal(cols.length, 2, 'the detail version is not two columns');
-  assert.deepEqual(order(cols[0]!, 'data-home-card-key'), ['hub', 'budget'], 'the left column');
-  assert.deepEqual(order(cols[1]!, 'data-home-card-key'), ['guests', 'sup'], 'the right column');
-  // The Today line comes first, the services after the control row.
-  assert.ok(html.indexOf('data-home-today=') < html.indexOf('data-home-control="compact"'), 'Today is not first');
-  assert.ok(html.indexOf('data-home-control="detail"') < html.indexOf('data-home-services'), 'Your services come before the control row');
+  assert.equal(html.split('data-home-control="detail"').length - 1, 0, 'the retired md copy is back');
+  assert.ok(html.indexOf('data-home-today=') < html.indexOf('data-event-today=""'), 'Today is not first');
+  assert.ok(html.indexOf('data-event-today=""') < html.indexOf('data-home-board="middle"'), 'the widgets come before the list');
+  assert.ok(html.indexOf('data-home-board="right"') < html.indexOf('data-home-services'), 'Your services come before the control row');
+  // Each board column is a stack at every width — never hidden below 1280.
+  for (const side of ['middle', 'right']) assert.doesNotMatch(html, new RegExp(`class="[^"]*\\bhidden\\b[^"]*" data-home-control="board" data-home-board="${side}"`), `the ${side} column hides below 1280`);
 });
 
 // 🖥 THE 1280 BOARD (owner-approved 16 Nov 2026, event dashboard drawing v13): three column wrappers, each its own stack,
@@ -67,7 +70,8 @@ test('2b · from 1280, three columns read column by column, as seen', () => {
   for (const side of ['left', 'right']) {
     assert.match(html, new RegExp(`class="contents xl:flex[^"]*" data-home-board-col="${side}"`), `the ${side} wrapper is not display: contents below 1280`);
   }
-  assert.match(html, /class="hc-two hidden md:grid xl:hidden" data-home-control="detail"/, 'the two-column cards must hide where the board shows');
+  // The two-column cards are retired (23 Nov 2026) — the board is the one copy, so nothing must hide where it shows.
+  assert.doesNotMatch(html, /data-home-control="detail"/, 'the retired two-column cards are back');
 });
 
 test('3 · no Home piece is placed out of the page order, at any width', () => {
@@ -77,4 +81,7 @@ test('3 · no Home piece is placed out of the page order, at any width', () => {
     assert.doesNotMatch(rule[2]!, /grid-row\s*:/, `.${rule[1]} places a widget on a row`);
   }
   assert.doesNotMatch(CSS, /@media \(min-width: 1024px\) \{\s*\[data-home-column\] \{/, 'the old desktop placement block is back');
+  // Today's website sheet (23 Nov 2026) lays pieces side by side but never reorders what the page says.
+  const sheet = read('app/dashboard/[eventId]/_components/today-website.css');
+  assert.doesNotMatch(sheet, /(^|;|\{|\s)order\s*:/, 'the Today sheet reorders what the page says');
 });

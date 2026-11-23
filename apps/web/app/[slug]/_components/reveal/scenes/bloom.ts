@@ -8,7 +8,7 @@
  *                 goes in glitter.
  */
 import * as THREE from 'three';
-import { canvas, clamp, ctx2d, easeOut, shadowPlane, solidLights, texOf, type Ctx, type Scene } from './kit';
+import { canvas, clamp, ctx2d, easeOut, shadowPlane, solidLights, texOf, wideness, type Ctx, type Scene } from './kit';
 
 function petalAlpha(): THREE.Texture {
   const k = canvas(64, 64);
@@ -29,7 +29,8 @@ type Petal = { x: number; y: number; z: number; rx: number; ry: number; rz: numb
 /** C · PETALS */
 export const petals = (): Scene => {
   let c: Ctx;
-  const N = 1500;
+  /* 🖥 the drawing's 1,500 petals fill its phone; a wide screen gets that many per phone-width */
+  let N = 1500;
   let im: THREE.InstancedMesh;
   const P: Petal[] = [];
   const d = new THREE.Object3D();
@@ -49,6 +50,7 @@ export const petals = (): Scene => {
     init(cx) {
       c = cx;
       const R = c.rand;
+      N = Math.round(1500 * Math.min(4, wideness(c.px)));
       solidLights(c, { amb: 0.5, key: 0.58, back: 0.1, kx: -2, ky: 3.2 });
       shadowPlane(c, -0.02, 0.35);
       const geo = new THREE.PlaneGeometry(0.4, 0.5, 3, 3);
@@ -117,9 +119,13 @@ export const petals = (): Scene => {
 /** D · FIREWORKS */
 export const fireworks = (): Scene => {
   let c: Ctx;
-  const MW = 300;
+  /* 🖥 the night at the drawing's pixel size: a wide screen is a WIDER sky with more stars and more bursts, never a
+     stretched one (owner 23 Nov: *"all reveal do not stretch … extend it"*) */
+  let MW = 300;
   const MH = 520;
-  const N = 520;
+  const N = 1800;
+  /* the sparks in play: the drawing's 520 on a phone, more for each extra burst a wider sky gets */
+  let NL = 520;
   let mx: CanvasRenderingContext2D;
   let maskTex: THREE.Texture;
   let pts: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial>;
@@ -127,12 +133,12 @@ export const fireworks = (): Scene => {
   const V = new Float32Array(N * 3);
   const Lf = new Float32Array(N);
   let k = 0;
-  const fired = [false, false, false];
+  const fired: boolean[] = [];
   let tapW: [number, number] = [0, 0];
   const burst = (cx: number, cy: number, n: number, sp: number) => {
     const R = c.rand;
     for (let j = 0; j < n; j++) {
-      const i = k++ % N;
+      const i = k++ % NL;
       const a = R() * 6.283;
       const v = sp * (0.35 + R() * 0.65);
       P[i * 3] = cx;
@@ -148,6 +154,8 @@ export const fireworks = (): Scene => {
     init(cx) {
       c = cx;
       const R = c.rand;
+      MW = Math.round(MH * (c.W / c.H));
+      NL = Math.min(N, 520 + 320 * Math.max(0, Math.min(4, Math.floor(wideness(c.px) - 0.5))));
       const n = canvas(MW, MH);
       const x = ctx2d(n);
       const g = x.createLinearGradient(0, 0, 0, MH);
@@ -156,7 +164,7 @@ export const fireworks = (): Scene => {
       g.addColorStop(1, '#2a1f4d');
       x.fillStyle = g;
       x.fillRect(0, 0, MW, MH);
-      for (let i = 0; i < 170; i++) {
+      for (let i = 0, ns = Math.round((170 * MW) / 300); i < ns; i++) {
         x.fillStyle = `rgba(255,255,255,${0.25 + R() * 0.7})`;
         x.beginPath();
         x.arc(R() * MW, R() * MH, R() * 1.1 + 0.2, 0, 7);
@@ -193,16 +201,24 @@ export const fireworks = (): Scene => {
       const { W, H, HH } = c;
       const R = c.rand;
       const tw = tapW;
+      const reach = Math.max(1, c.HW - 0.6);
       const at: Array<[number, number, number]> = [
         [0.9, tw[0], Math.min(HH - 0.9, tw[1] + 0.9)],
-        [1.9, clamp(-tw[0] * 0.7 - 0.5, -1, 1), 0.2],
-        [2.8, clamp(tw[0] * 0.5 + 0.6, -1, 1), -1.1],
+        [1.9, clamp(-tw[0] * 0.7 - 0.5, -reach, reach), 0.2],
+        [2.8, clamp(tw[0] * 0.5 + 0.6, -reach, reach), -1.1],
       ];
+      /* a wider sky: one more burst on each side for every extra phone-width */
+      const extra = Math.min(4, Math.floor(wideness(c.px) - 0.5));
+      for (let i = 0; i < extra; i++) {
+        const side = i % 2 ? 1 : -1;
+        const step = Math.floor(i / 2) + 1;
+        at.push([2.1 + i * 0.35, side * Math.min(reach, 1 + (reach - 1) * (step / Math.ceil(extra / 2))), 0.9 - (i % 3) * 0.8]);
+      }
       if (tau < at[0]![0]) {
         /* the rocket climbs, trailing sparks */
         const u = tau / at[0]![0];
         const ry = -HH + (at[0]![2] + HH) * easeOut(u);
-        const q = k++ % N;
+        const q = k++ % NL;
         P[q * 3] = tw[0] + (R() - 0.5) * 0.05;
         P[q * 3 + 1] = ry;
         P[q * 3 + 2] = 0.1;
@@ -210,7 +226,7 @@ export const fireworks = (): Scene => {
         V[q * 3 + 1] = -0.6;
         Lf[q] = 0.5;
       }
-      for (let i = 0; i < 3; i++)
+      for (let i = 0; i < at.length; i++)
         if (!fired[i] && tau >= at[i]![0]) {
           fired[i] = true;
           burst(at[i]![1], at[i]![2], 150, 2.5);
@@ -241,7 +257,7 @@ export const fireworks = (): Scene => {
         mx.fillRect(px - r, py - r, r * 2, r * 2);
       }
       if (tau > 3.5) {
-        const nn = Math.floor((tau - 3.5) * 60);
+        const nn = Math.floor(((tau - 3.5) * 60 * MW) / 300);
         mx.fillStyle = 'rgba(0,0,0,.6)';
         for (let i = 0; i < nn; i++) {
           const bx = R() * MW;

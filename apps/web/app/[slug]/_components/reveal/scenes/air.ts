@@ -10,7 +10,7 @@
  */
 import * as THREE from 'three';
 import { SCRATCH_OPENS_AT } from '@/lib/reveal-motion';
-import { BUMP, canvas, ctx2d, solidLights, stamp, texOf, type Ctx, type Scene } from './kit';
+import { BUMP, canvas, ctx2d, lay, solidLights, stamp, texOf, type Ctx, type Scene } from './kit';
 
 const VS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }';
 const VS3 = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }';
@@ -227,8 +227,14 @@ export const smoke = (): Scene => {
       c = cx;
       const wh: [number, number] = [c.W, c.H];
       soft.uWH.value.set(c.W, c.H);
+      /* 🖥 square cells on every screen: the drawing's 166 rows, and as many columns as the width holds — a wide screen
+         gets MORE smoke (owner 23 Nov: *"create more smoke, extend it"*), never puffs pulled into ovals */
+      const ny = 166;
+      const nx = Math.min(480, Math.round((ny * c.W) / c.H));
       if (halfFloatTargets(c.renderer)) {
         const f = (fluid = new Fluid(c.renderer, {
+          nx,
+          ny,
           conf: 16,
           vdiss: 0.99,
           ddiss: [1, 1, 1, 1],
@@ -249,7 +255,7 @@ export const smoke = (): Scene => {
         }));
         for (let i = 0; i < 90; i++) f.source();
         mat = new THREE.ShaderMaterial({
-          uniforms: { uD: { value: null }, tx: { value: new THREE.Vector2(1 / 192, 1 / 332) } },
+          uniforms: { uD: { value: null }, tx: { value: new THREE.Vector2(1 / (nx * 2), 1 / (ny * 2)) } },
           vertexShader: VS3,
           transparent: true,
           depthWrite: false,
@@ -326,7 +332,8 @@ function softFog(u: Record<string, THREE.IUniform>): THREE.ShaderMaterial {
 
 /** 6 · SCRATCH — rub the gold away. Nothing opens until 60 % of it is gone. */
 export const scratch = (): Scene => {
-  const MW = 300;
+  /* the foil card at the drawing's pixel size; on a wide screen it is WIDER foil, never stretched foil */
+  let MW = 300;
   const MH = 520;
   let c: Ctx;
   let mask: HTMLCanvasElement;
@@ -367,11 +374,12 @@ export const scratch = (): Scene => {
     }
     maskTex.needsUpdate = true;
     if (R() < 0.8) flake((x1 / MW - 0.5) * c.W, (0.5 - y1 / MH) * c.H, (x1 - x0) * 0.05, -(y1 - y0) * 0.05);
-    sx.drawImage(mask, 0, 0, 30, 52);
-    const d8 = sx.getImageData(0, 0, 30, 52).data;
+    const sw = sx.canvas.width;
+    sx.drawImage(mask, 0, 0, sw, 52);
+    const d8 = sx.getImageData(0, 0, sw, 52).data;
     let n0 = 0;
     for (let i = 0; i < d8.length; i += 4) if (d8[i]! < 128) n0++;
-    pct = n0 / (30 * 52);
+    pct = n0 / (sw * 52);
     c.progress(pct);
     if (pct >= SCRATCH_OPENS_AT) c.open(0, 0);
   };
@@ -394,10 +402,11 @@ export const scratch = (): Scene => {
     async init(cx) {
       c = cx;
       solidLights(c, { amb: 0.5, key: 0.34, back: 0, kx: -2, ky: 3, kz: 5 });
+      MW = Math.round(MH * (c.W / c.H));
       const face = canvas(MW * 2, MH * 2);
       const fx = ctx2d(face);
       const foil = await c.art('foil');
-      fx.drawImage(foil, 0, 0, face.width, face.height);
+      lay(fx, foil, [0, 0, foil.width, foil.height], face.width, { dy: 0, dw: 600, dh: face.height, step: 600, anchor: 'center' });
       fx.strokeStyle = 'rgba(70,48,14,.42)';
       fx.lineWidth = 2;
       fx.strokeRect(34, 34, face.width - 68, face.height - 68);
@@ -407,7 +416,7 @@ export const scratch = (): Scene => {
       fx.font = 'italic 54px Georgia, serif';
       fx.fillText('Scratch to open', face.width / 2, face.height / 2 - 6);
       fx.font = '600 22px Georgia, serif';
-      fx.fillText(c.names.toUpperCase().split('').join(' '), face.width / 2, face.height / 2 + 44, face.width - 120);
+      fx.fillText(c.names.toUpperCase().split('').join(' '), face.width / 2, face.height / 2 + 44, 480);
       /* the logo, stamped into the foil */
       stamp(fx, c.logo, face.width / 2 + 2, face.height / 2 - 208, 230, 'rgba(255,240,200,1)', 0.35);
       stamp(fx, c.logo, face.width / 2, face.height / 2 - 210, 230, 'rgba(60,40,10,1)', 0.62);
@@ -417,7 +426,7 @@ export const scratch = (): Scene => {
       mx.fillStyle = '#fff';
       mx.fillRect(0, 0, MW, MH);
       maskTex = texOf(mask);
-      const small = canvas(30, 52);
+      const small = canvas(Math.round((30 * MW) / 300), 52);
       sx = small.getContext('2d', { willReadFrequently: true })!;
       const m = new THREE.Mesh(
         new THREE.PlaneGeometry(c.W, c.H),

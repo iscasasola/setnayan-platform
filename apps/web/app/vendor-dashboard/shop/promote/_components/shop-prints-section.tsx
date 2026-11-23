@@ -45,7 +45,6 @@ import {
 } from '@/lib/supplier-prints';
 import type { PrintMember } from '@/lib/supplier-prints-svg';
 import { formatCount } from '@/lib/format-number';
-import { usePromoteBridge } from './promote-bridge';
 
 /**
  * 🖨 PRINTS — Shop › Promote part 3 (owner APPROVED the 15 looks, 5 Nov 2026: "perfect"; prototype
@@ -108,6 +107,7 @@ export function ShopPrintsSection({
   member = null,
   facts = null,
   backTo = 'Promote',
+  initialAsk = null,
 }: {
   canShare: boolean;
   setupHref: string;
@@ -120,22 +120,15 @@ export function ShopPrintsSection({
   facts?: PrintFacts | null;
   /** The sheet the prints open from — the back press names it ("Back to Prints" from Shop › Prints, never "Promote"). */
   backTo?: 'Promote' | 'Prints';
+  /** 🔳 My QRs' "Print it" (23 Nov 2026): the address names a code (`?print=`), and the door piece (`&piece=door`) —
+   *  the sheet opens on arrival, carrying THAT code. Null = the sheet waits for a press, on the default code. */
+  initialAsk?: { qr: PrintQrMode; piece: 'door' | null } | null;
 }) {
-  const [open, setOpen] = useState(false);
-  // 🔗 The code on every piece — the QR codes list's "Put it on…" sets it (Option B), the dock's QR ▾ changes it.
-  const [qr, setQr] = useState<PrintQrMode>(DEFAULT_PRINT_QR);
-  const [big, setBig] = useState<Big>(null);
+  const [open, setOpen] = useState(initialAsk !== null);
+  // 🔗 The code on every piece — My QRs' "Print it" sets it (by the address, `initialAsk`), the dock's QR ▾ changes it.
+  const [qr, setQr] = useState<PrintQrMode>(initialAsk?.qr ?? DEFAULT_PRINT_QR);
+  const [big, setBig] = useState<Big>(initialAsk?.piece === 'door' ? { kind: 'piece', piece: PRINT_PIECES.find((p) => p.id === 'door')! } : null);
   const headingId = useId();
-  const bridge = usePromoteBridge();
-  const ask = bridge?.ask ?? null;
-  useEffect(() => {
-    if (!ask) return;
-    setQr(ask.qr);
-    setBig(ask.piece === 'door' ? { kind: 'piece', piece: PRINT_PIECES.find((p) => p.id === 'door')! } : null);
-    setOpen(true);
-    // one ask = one opening — `n` counts them
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ask?.n]);
   return (
     <section id="prints" className="mt-8 scroll-mt-24" data-shop-prints="" aria-labelledby={headingId}>
       <InfoTip label="Prints" labelAs="h2" labelClassName="sn-sec" labelId={headingId} align="start">

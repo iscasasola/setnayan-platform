@@ -4729,6 +4729,21 @@
       "actions": [],
       "blocks": []
     },
+    "/admin/admin-log": {
+      "files": [
+        "admin/admin-log/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "ErrorState",
+        "InfoTip",
+        "NoteField",
+        "PageMasthead",
+        "PickField"
+      ]
+    },
     "/admin/app-performance": {
       "files": [
         "admin/app-performance/_components/action-center.tsx",
@@ -4873,17 +4888,20 @@
     "/admin/approvals": {
       "files": [
         "admin/approvals/actions.ts",
+        "admin/approvals/escalation-ops.server.ts",
         "admin/approvals/page.tsx"
       ],
       "destinations": [],
       "actions": [
+        "adminTeamAct",
         "approveRequest",
-        "rejectRequest",
         "requestPrivilegedGrant"
       ],
       "blocks": [
         "ConsoleTable",
         "ErrorState",
+        "InfoTip",
+        "NoteField",
         "PageMasthead",
         "SubmitButton"
       ]
@@ -7378,6 +7396,31 @@
         "TemplateSection"
       ]
     },
+    "/admin/team": {
+      "files": [
+        "admin/team/_components/team-fields.tsx",
+        "admin/team/page.tsx",
+        "admin/team/team-ops.server.ts"
+      ],
+      "destinations": [
+        "/admin/admin-log?person=[seg]"
+      ],
+      "actions": [
+        "adminTeamAct"
+      ],
+      "blocks": [
+        "AreaGrid",
+        "ErrorState",
+        "FormRows",
+        "InfoTip",
+        "NoteField",
+        "PageMasthead",
+        "PickMenu",
+        "SubmitButton",
+        "TypedField",
+        "TypedRow"
+      ]
+    },
     "/admin/ugat": {
       "files": [
         "admin/ugat/_components/ugat-console.tsx",
@@ -8988,7 +9031,6 @@
         "HomeCardRow",
         "HomeControlBoardColumn",
         "HomeControlKey",
-        "HomeControlRow",
         "HomeCoverBand",
         "HomeCoverPin",
         "HomeCoverWordsProvider",
@@ -18176,7 +18218,6 @@
         "LockedQrInitial",
         "OwnClientActionState",
         "PickMenu",
-        "PutOnRow",
         "QrCard",
         "QrCodeList",
         "QrCodes",
@@ -19944,7 +19985,6 @@
         "vendor-dashboard/shop/promote/_components/gift-store.tsx",
         "vendor-dashboard/shop/promote/_components/gift-ticket-art.tsx",
         "vendor-dashboard/shop/promote/_components/promote-body.tsx",
-        "vendor-dashboard/shop/promote/_components/promote-bridge.tsx",
         "vendor-dashboard/shop/promote/_components/share-your-work-data.ts",
         "vendor-dashboard/shop/promote/_components/share-your-work.tsx",
         "vendor-dashboard/shop/promote/_components/shop-gifts-data.ts",
@@ -19971,7 +20011,6 @@
         "Big",
         "BigPiece",
         "BigScene",
-        "Bridge",
         "BuyVendorPapicPortfolioPackState",
         "CouldNotLoad",
         "Counter",
@@ -19997,9 +20036,7 @@
         "IapGiftBuy",
         "InfoTip",
         "Link",
-        "NfcTapTest",
-        "OwnLinkAddGiftNotice",
-        "OwnLinkGift",
+        "MyQrsList",
         "PaymentsPausedNote",
         "PickMenu",
         "PieceHead",
@@ -20008,10 +20045,6 @@
         "PrintQrMode",
         "PrintsSheet",
         "PromoteBody",
-        "PromoteBridge",
-        "PromoteBridgeCtx.Provider",
-        "PutOnAsk",
-        "QrCodes",
         "SaveAllButton",
         "SaveButton",
         "SaveFileLink",
@@ -20033,6 +20066,47 @@
         "T",
         "TemplateEmpty",
         "TypedRow"
+      ]
+    },
+    "/vendor-dashboard/shop/qrs": {
+      "files": [
+        "vendor-dashboard/shop/qrs/_components/my-qr-code.tsx",
+        "vendor-dashboard/shop/qrs/_components/my-qrs-data.ts",
+        "vendor-dashboard/shop/qrs/_components/my-qrs-list.tsx",
+        "vendor-dashboard/shop/qrs/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "CustomersPick",
+        "DatesRow",
+        "Link",
+        "MyQrCodeData",
+        "MyQrsList",
+        "NfcTapTest",
+        "OwnLinkAddGiftNotice",
+        "OwnLinkGift",
+        "QrCard",
+        "RowIcon",
+        "TemplateRow",
+        "TemplateRows",
+        "ToolFail",
+        "ToolPage",
+        "ToolPin",
+        "ToolSection"
+      ]
+    },
+    "/vendor-dashboard/shop/qrs/[code]": {
+      "files": [
+        "vendor-dashboard/shop/qrs/[code]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "MyQrCode",
+        "ToolFail",
+        "ToolPage",
+        "ToolPin"
       ]
     },
     "/vendor-dashboard/subscription": {

@@ -57,7 +57,11 @@ test('RW-19 · every Promote code the supplier hands out is tagged as theirs (th
   assert.equal(ownReviewsUrl(O, 'titanena'), want.reviews);
   assert.match(code('lib/check-a-date-qr.ts'), /const url = ownDatesUrl\(origin, slug\);/, 'Promote’s Check a date code');
   assert.match(code('app/api/vendor/door-sticker/route.ts'), /code === 'dates' \? ownDatesUrl\(siteOrigin\(\), slug\)/);
-  assert.match(code('app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), /const reviewsUrl = printQrUrl\('reviews', origin, slug!\);/);
+  // 🔳 My QRs (23 Nov 2026): every own code's page is built by the prints' own builder (`printQrUrl`, ?src=own), Check a
+  // date by its own (`checkADateQr` → `ownDatesUrl`) — never an untagged shop address.
+  const myQrs = code('app/vendor-dashboard/shop/qrs/_components/my-qrs-data.ts');
+  assert.match(myQrs, /const url = dates \? dates\.url : printQrUrl\(code, origin, shop\.slug\);/);
+  assert.doesNotMatch(myQrs, /myPageUrl\(/, 'a My QRs code opens the shop untagged');
 });
 
 test('RW-19 · an own arrival keeps its tag on the way to the shop: dates → shop, the ask on dates, the review door', () => {
@@ -76,7 +80,6 @@ test('RW-19 · an own arrival keeps its tag on the way to the shop: dates → sh
 test('every code or link the SUPPLIER hands out is tagged as theirs', () => {
   assert.match(code('app/vendor-dashboard/page.tsx'), /const qrUrl = details\.slug \? ownPageUrl\(/);
   assert.match(code('app/vendor-dashboard/shop/page.tsx'), /const shareUrl = data\.slug \? ownPageUrl\(/);
-  assert.match(code('app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), /const pageUrl = ownPageUrl\(/);
   assert.match(code('app/api/vendor/door-sticker/route.ts'), /ownPageUrl\(siteOrigin\(\), slug\)/);
   assert.match(code('lib/supplier-prints-shop.ts'), /if \(mode === 'page'\) return ownPageUrl\(origin, slug\);/);
   assert.match(code('lib/supplier-prints-shop.ts'), /if \(mode === 'reviews'\) return ownReviewsUrl\(origin, slug\);/);

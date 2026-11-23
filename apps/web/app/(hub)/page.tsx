@@ -53,6 +53,7 @@ import { maybeRunFaceRescan } from '@/lib/face-rescan';
 import { maybeRunOAuthRefresh } from '@/lib/oauth-refresh-job';
 import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
 import { maybeRunSupplierStorageMeasure } from '@/lib/supplier-storage-measure.server';
+import { maybeRunOwnerApprovals } from '@/lib/admin/self-approval-runner';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward so AI answer engines + SERP cards keep extracting the same
@@ -327,6 +328,10 @@ export default async function HomePage({
   // 📏 What every supplier's records weigh, for the storage meter — once a Manila night from 03:00, cron-free (no
   // pg_cron: cron.job stays empty). The first request after 03:00 runs it. Never throws.
   after(() => maybeRunSupplierStorageMeasure().catch(() => {}));
+  // ⏳ The owner's own two-admin requests run 24 h after he types the word
+  // (DECISION_LOG 2026-11-13). Public traffic carries it so a request still
+  // runs when he is away from the console. Throttled; never throws.
+  after(() => maybeRunOwnerApprovals().catch(() => {}));
 
   return (
     <>

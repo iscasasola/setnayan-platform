@@ -51,22 +51,19 @@ test('1 · every face of the Event Hub tile opens the Event Hub', () => {
   for (const f of noLink.faces) assert.equal(f.href, '/dashboard/e1/launch', `hub/${f.id} with no link opens ${f.href}`);
 });
 
-test('2 · two 32-px buttons, labels in aria, the ⓘ beside the label', () => {
+test('2 · the Event Hub widget: Pick what shows (a sheet), Edit in Maker, View, labels in aria, the ⓘ beside the label', () => {
+  // 🌐 23 Nov 2026 (owner, v5 drawing in the website look): the phone's Event Hub tile — its two 32-px tiny buttons — is
+  // retired; the CARD is the ONE Event Hub widget at every width, and carries the same sheet, with its word.
   const html = drawHome();
-  const tile = slice(html, 'data-home-tile="hub"', ['data-home-tile="', 'data-home-control="detail"']);
-  const pick = (tile.match(/<button [^>]*data-home-hub-pick-open="tile"[^>]*>/) ?? [''])[0];
-  assert.ok(pick, 'the tile has no "Pick what shows" button');
-  assert.match(pick, /class="hc-tiny"/, 'the pick button is not the 32-px tiny button');
+  assert.equal(html.split('data-home-tile="hub"').length - 1, 0, 'the retired Event Hub tile is back');
+  const card = slice(html, 'data-home-card-key="hub"', ['data-home-card-key="']);
+  const pick = (card.match(/<button [^>]*data-testid="home-hub-pick-open-card"[^>]*>/) ?? [''])[0];
+  assert.ok(pick, 'the card has no "Pick what shows" button');
   assert.match(pick, /aria-label="Pick what shows"/);
   assert.match(pick, /aria-haspopup="dialog"/, 'the pick button does not say it opens a sheet');
-  assert.match(tile, /<a [^>]*href="\/dashboard\/e1\/launch[^"]*"[^>]*aria-label="Maker"|<a [^>]*aria-label="Maker"[^>]*href="\/dashboard\/e1\/launch/, 'the tile has no Maker button');
-  assert.match(tile, /aria-label="About Event Hub"/, 'the tile has no ⓘ');
-  assert.doesNotMatch(tile, /aria-label="View Event Hub"/, 'the tile still carries a View button — the tile itself is the View');
-  const css = readFileSync(join(HERE, '..', '..', '..', '..', 'globals.css'), 'utf8');
-  assert.match(css, /\.hc-tiny \{[^}]*width: 32px; height: 32px;/, 'the tiny buttons are no longer 32 px');
-  // The md+ card carries the same sheet, with its word.
-  const card = slice(html, 'data-home-card-key="hub"', ['data-home-card-key="']);
-  assert.match(card, /data-testid="home-hub-pick-open-card"/, 'the md+ card has no "Pick what shows"');
+  assert.match(card, /<a [^>]*aria-label="Edit in Maker"[^>]*href="\/dashboard\/e1\/launch|<a [^>]*href="\/dashboard\/e1\/launch[^"]*"[^>]*aria-label="Edit in Maker"/, 'the card has no Maker button');
+  assert.match(card, /aria-label="About Event Hub"/, 'the card has no ⓘ');
+  assert.match(card, /data-home-hub-view="card-button"/, 'the card has no View Event Hub');
 });
 
 test('3 · the sheet is four stage rows, one choice, written by the shipped setLaunchPhase', () => {

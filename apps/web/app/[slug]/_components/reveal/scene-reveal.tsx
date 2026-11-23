@@ -27,6 +27,7 @@ import * as THREE from 'three';
 import { REVEAL_MOTION, REVEAL_REDUCED_FADE_MS, handsFreeTarget, pushedZ, readGesture, revealDt, snapRevealSpeed, stepLift } from '@/lib/reveal-motion';
 import { DEFAULT_REVEAL_CONFIG, REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config-pure';
 import { claimVeilHold, primeUnveilPress } from '@/lib/hub-veil';
+import { defaultConfigFromSeed, type WaxSealConfig } from '@/lib/wax-seal/types';
 import { CAMZ, FOV, FZ, LEGACY_FOV, LEGACY_H, disposeScene, logoMask, seeded, type ArtName, type Ctx, type Pt, type Scene, type SceneState } from './scenes/kit';
 
 /** Each reveal's scene, in its own chunk. The veil's is its still face only (reduced motion); the live veil is `veil-reveal.tsx`. */
@@ -56,6 +57,12 @@ type Props = {
   markSvg?: string | null;
   /** The veil's tulle colour — used by the veil's still face (reduced motion). */
   veilColor?: string;
+  /** 🔏 The couple's wax seal, as minted in the candle-stamp maker — the envelopes press it. Null: not minted yet. */
+  sealConfig?: WaxSealConfig | null;
+  /** The pour to use until they mint one (from the event's public id), so every event's seal is its own. */
+  sealFallbackSeed?: number;
+  /** The event's wax colour (Mood Board), for a minted seal that left its wax on "follow the event". */
+  waxColor?: string;
   /** ♿ Reduced motion: the closed reveal, still; a tap cross-fades it away. */
   still?: boolean;
   /** Previews: open by itself (after `autoplayAfterMs`), no hand needed. */
@@ -360,6 +367,10 @@ export default function SceneReveal(props: Props) {
         logo,
         names: cb.current.monogram,
         veilColor: cb.current.veilColor ?? DEFAULT_REVEAL_CONFIG.veilColorDefault,
+        /* the minted seal brings its own wax; an unminted one keeps the drawing's gold */
+        seal: cb.current.sealConfig
+          ? { recipe: cb.current.sealConfig, color: cb.current.sealConfig.wax.color ?? cb.current.waxColor ?? null }
+          : { recipe: defaultConfigFromSeed(cb.current.sealFallbackSeed ?? 1), color: null },
         open: (nx, ny) => {
           if (still) return stillOpen(false);
           if (state !== 'closed') return;

@@ -1,4 +1,5 @@
 import { eventRowOnce } from '@/lib/event-row-once';
+import { PLAN_NAME } from '@/lib/plan-buy-doors';
 import { papicCardHref } from '@/lib/papic-home-href';
 import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { venueTimezone } from '@/lib/event-clock.server';
@@ -1504,6 +1505,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             : stored.passDesign,
         /* 🖼 The Our Story poster's own photo (owner 2026-09-29). */
         posterPhoto: stored.posterPhoto ?? null,
+        /* 🖼 The Our Day poster's builder record (owner 2026-11-13) — the same stored value, no read added. */
+        dayPoster: stored.dayPoster ?? null,
+        planName: PLAN_NAME.pro,
         passCardsZip: passCardsZipFileNameOf(printEvent),
         passGuests: (await passGuestsP) ?? undefined,
         qrGuests: await qrGuestsP,

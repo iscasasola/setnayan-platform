@@ -104,6 +104,11 @@ export type PrintSlide = {
   printed?: { eventId: string; piece: string; version: string | null };
   /** Content a print needs that is not a setting (the Menu's dishes): opened from the ⓘ and the slide's empty line. */
   edit?: { label: string; body: ReactNode } | null;
+  /**
+   * 🖼 A print MADE in its own full-screen builder (the Our Day poster, `day-poster-builder.tsx`): the slide's main verb
+   * ("Make your poster") — the toolbar's filled button, the ⓘ's and the empty slide's door all open it.
+   */
+  build?: { label: string; open: () => void } | null;
   /** What the ⓘ says — words the print already carried (its blurb, the set's free/Pro rule). */
   tip?: string;
 };
@@ -127,7 +132,7 @@ export function captureSlidesForTest(on: boolean) {
 }
 
 /** The parts of a slide that are React nodes or functions — never compared, only drawn. */
-const NOT_COMPARED = new Set(['changed', 'body', 'icon', 'note']);
+const NOT_COMPARED = new Set(['changed', 'body', 'icon', 'note', 'open']);
 
 /**
  * A part registers ITS share of a slide (`part`): a plain print's head and its Download are two parts of one slide. Unmounted, its

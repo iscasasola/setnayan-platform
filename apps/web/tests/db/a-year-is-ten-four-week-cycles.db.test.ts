@@ -49,28 +49,23 @@ const MUST_HAVE_A_YEAR = [
 
 const yearOf = (sku: string) => (sku.endsWith('_monthly') ? sku.replace(/_monthly$/, '_annual') : `${sku}_annual`);
 
-test('every yearly price is exactly 10× its 4-week price', async () => {
-  const r = await db.query<{ sku_code: string; price_php: string }>(
-    `SELECT sku_code, price_php FROM public.vendor_billing_catalog`,
+/*
+ * ⛔ SUPERSEDED 2026-11-22. The 4 Nov "a year = 10× the 4-week price" rule ended with the owner's *"no yearly for any
+ * supplier subscription. remove the annual subscription everywhere"* (DECISION_LOG "NO YEARLY SUPPLIER/COORDINATOR
+ * PLAN ANYWHERE"; migration 20271360321657). A retired yearly row is history at the price it last sold for — it is no
+ * longer required to track its 4-week sibling, whose price moved (owner "SUPPLIER PLAN PRICES, FINAL").
+ */
+test('no yearly supplier item is on sale — a yearly sibling is retired history, never a price', async () => {
+  const r = await db.query<{ sku_code: string; is_active: boolean; retired_at: string | null }>(
+    `SELECT sku_code, is_active, retired_at FROM public.vendor_billing_catalog`,
   );
-  const price = new Map(r.rows.map((x) => [x.sku_code, Number(x.price_php)]));
-
-  const missing = MUST_HAVE_A_YEAR.filter((s) => !price.has(s) || !price.has(yearOf(s)));
-  assert.deepEqual(missing, [], 'a 4-week item the owner named has no row or no yearly sibling');
-
-  const wrong: string[] = [];
-  let pairs = 0;
-  for (const [sku, php] of price) {
-    if (sku.endsWith('_annual')) continue;
-    const year = price.get(yearOf(sku));
-    if (year === undefined) continue;
-    pairs += 1;
-    // Whole centavos, so a float can never pass a ₱0.01 drift.
-    if (Math.round(year * 100) !== Math.round(php * 100) * 10) {
-      wrong.push(`${sku} ₱${php} → ${yearOf(sku)} ₱${year} (want ₱${php * 10})`);
-    }
+  const row = new Map(r.rows.map((x) => [x.sku_code, x]));
+  const onSale = MUST_HAVE_A_YEAR.map(yearOf).filter((y) => row.get(y)?.is_active === true);
+  assert.deepEqual(onSale, [], 'a yearly supplier row is on sale again');
+  for (const plan of ['solo_vendor_annual', 'pro_vendor_annual', 'enterprise_vendor_annual']) {
+    const y = row.get(plan);
+    assert.ok(y, `${plan} was deleted — a retired row is kept, never deleted`);
+    assert.ok(y.retired_at, `${plan} is off sale without a retired_at`);
   }
-  assert.deepEqual(wrong, [], 'a yearly price is not 10× its 4-week price');
-  assert.ok(pairs >= MUST_HAVE_A_YEAR.length, `checked ${pairs} pairs`);
 });
 

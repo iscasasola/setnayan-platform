@@ -18219,7 +18219,6 @@
         "BookingFeeStanding",
         "CapizLight",
         "Column",
-        "Cycle",
         "DatesRow",
         "FitLine",
         "Fold",
@@ -18248,7 +18247,6 @@
         "StayForm",
         "SubmitButton",
         "SupplierSubmit",
-        "SwitchTrack",
         "Vendor3dBoothActionState",
         "VendorAiAddonActionState"
       ]

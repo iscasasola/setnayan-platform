@@ -90,17 +90,17 @@ import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 
 type Who = 'parish' | 'caterer' | 'studio';
 
-const SHOPS: Record<Who, { tier: string; cycle: 'monthly' | 'annual'; expires: string | null; used: number; feeKind: 'free' | 'billable' }> = {
+const SHOPS: Record<Who, { tier: string; cycle: 'monthly'; expires: string | null; used: number; feeKind: 'free' | 'billable' }> = {
   parish: { tier: 'free', cycle: 'monthly', expires: null, used: 1, feeKind: 'free' },
   caterer: { tier: 'solo', cycle: 'monthly', expires: '31 October 2026', used: 2, feeKind: 'free' },
-  studio: { tier: 'pro', cycle: 'annual', expires: '3 October 2027', used: 5, feeKind: 'billable' },
+  studio: { tier: 'pro', cycle: 'monthly', expires: '3 October 2027', used: 5, feeKind: 'billable' },
 };
 
 /** Lab-only stand-in prices — the page reads `vendor_billing_catalog`; these never reach a supplier. */
-const LAB_PRICES: Record<string, { monthly: number; annual: number }> = {
-  solo: { monthly: 1490, annual: 14900 },
-  pro: { monthly: 4990, annual: 49900 },
-  enterprise: { monthly: 9990, annual: 99900 },
+const LAB_PRICES: Record<string, { monthly: number }> = {
+  solo: { monthly: 1990 },
+  pro: { monthly: 4990 },
+  enterprise: { monthly: 8990 },
 };
 
 /** The plan sheet's rows from the lab's picks — the same lib calls the Plan screen makes (`plan-screen.tsx`). */
@@ -192,7 +192,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
       key: t,
       name: t === 'solo' ? 'Plus' : t === 'pro' ? 'Pro' : 'Ultra',
       price: LAB_PRICES[t]!,
-      tooShort: { monthly: who === 'studio' ? 'You are paid up to 3 October 2027 — pick a year so it covers that.' : null, annual: null },
+      tooShort: { monthly: who === 'studio' ? 'You are paid up to 3 October 2027 — come back nearer that date.' : null },
       pickLine: planPickLine(shop.tier, t, shop.expires),
     })),
   ];
@@ -212,7 +212,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
   return (
     <PlanRows
       tier={shop.tier}
-      pays={price !== null ? `₱${price.toLocaleString('en-PH')} / ${shop.cycle === 'annual' ? 'year' : '28 days'}` : 'nothing to pay'}
+      pays={price !== null ? `₱${price.toLocaleString('en-PH')} / 28 days` : 'nothing to pay'}
       expiresOn={shop.expires}
       expiresSoon={who === 'caterer'}
       isPaid={shop.tier !== 'free'}
@@ -265,7 +265,7 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
       key: t,
       name: t === 'solo' ? 'Plus' : t === 'pro' ? 'Pro' : 'Ultra',
       price: LAB_PRICES[t]!,
-      tooShort: { monthly: null, annual: null },
+      tooShort: { monthly: null },
       pickLine: planPickLine(tier, t, gift ? '31 January 2027' : null),
     })),
   ];

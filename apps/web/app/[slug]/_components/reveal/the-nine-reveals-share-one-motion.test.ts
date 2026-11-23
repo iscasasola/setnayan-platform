@@ -72,12 +72,16 @@ test('👆 ONE tap opens it, and the unveil runs inside the gesture (the page an
   assert.match(air, /if \(pct >= SCRATCH_OPENS_AT\) c\.open\(0, 0\);/);
 });
 
-test('♿ reduced motion: the closed reveal stands still, and the one tap cross-fades it away', () => {
+test('♿ reduced motion: no opening at all — the page is complete at once (16 Oct 2026 ruling, restored 23 Nov 2026)', () => {
+  assert.match(OVERLAY, /!reducedMotion &&\s*!alreadySeen/, 'reduced motion no longer stands the opening down');
+  assert.match(readFileSync(join(process.cwd(), 'lib/hub-veil.ts'), 'utf8'), /matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches\)return;/, 'the hold is written for a reduced-motion guest');
+});
+
+test('♿ the still face (the dashboard preview) — the closed reveal stands still, and the one tap cross-fades it away', () => {
   assert.match(OVERLAY, /if \(veil && !reducedMotion\)/, 'the live veil plays for a reduced-motion guest');
   assert.match(OVERLAY, /still=\{reducedMotion\}/);
   assert.match(STAGE, /if \(still\) return;\s*if \(autoplay\)/, 'a still reveal starts a loop');
   assert.match(STAGE, /fadeAway\(REVEAL_REDUCED_FADE_MS\)/);
-  assert.doesNotMatch(OVERLAY, /!reducedMotion &&\s*!alreadySeen/, 'reduced motion skips the reveal again (it is always first)');
 });
 
 test('📦 a reveal’s engine loads only when it is the one chosen', () => {

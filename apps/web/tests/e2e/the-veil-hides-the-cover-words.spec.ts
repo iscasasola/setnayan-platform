@@ -19,8 +19,7 @@ import { join } from 'node:path';
  *   • the unveil (`__veilRelease`, what the tap and the swipe up call) — the lines ENTER: a line with no Build in is
  *     still faint just after (an entrance, not a pop), the later lines start later (reading order), and every one is
  *     fully drawn once the entrances end — the line with its own Build in, and the lines without one;
- *   • reduced motion — held too since 23 Nov 2026 (the still veil, one tap): nothing drawn behind it, every line
- *     there once released;
+ *   • reduced motion — no hold at all: every line is there at once;
  *   • no veil — today's cover, byte for byte in behaviour: a line with no Build in is drawn at once.
  *
  * ⚠ WHAT A PASS DOES NOT PROVE: the veil's own gesture (WebGL — held in `reveal/the-veil-opens-on-a-tap.test.ts`), and
@@ -124,23 +123,12 @@ for (const [w, h] of [
     });
   }
 
-  // ♿ Since 23 Nov 2026 (#8192, the nine reveals) reduced motion is held too: the closed reveal stands STILL and its
-  // one tap (a short cross-fade) is the unveil. So: behind the still veil no cover word shows, and once released every
-  // line is there — no entrance to wait through.
-  test(`${w}×${h}: reduced motion — held behind the still veil, then every line is there`, async ({ page }) => {
+  test(`${w}×${h}: reduced motion — no hold, every line is there at once`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize({ width: w, height: h });
     await mount(page, RENDER.pages.plain!, true);
-    await page.waitForTimeout(1500);
-    const held = await lines(page);
-    expect(held.length, 'the cover lost its line marks — nothing below would be measured').toBeGreaterThanOrEqual(6);
-    for (const l of held) expect(l.drawn, `under reduced motion, behind the veil "${l.tag}" is drawn (opacity ${l.drawn})`).toBe(0);
-
-    await page.evaluate(() => (window as unknown as { __veilRelease: () => void }).__veilRelease());
-    await page.waitForTimeout(1500);
     for (const l of await lines(page)) {
-      expect(l.visible, `under reduced motion, after the tap "${l.tag}" is hidden`).toBe(true);
-      expect(l.drawn, `under reduced motion, after the tap "${l.tag}" is not drawn (opacity ${l.drawn})`).toBeGreaterThan(0.99);
+      expect(l.drawn, `under reduced motion "${l.tag}" is not drawn at once`).toBeGreaterThan(0.99);
     }
   });
 

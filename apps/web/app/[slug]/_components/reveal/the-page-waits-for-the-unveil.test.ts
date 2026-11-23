@@ -97,11 +97,11 @@ test('🧱 the unveil lets go at once and for the visit — a second hold (clien
   assert.equal((s.listeners.touchmove ?? []).length, 0);
 });
 
-test('♿ reduced motion: held like everyone — it gets the still reveal, and its one tap lets go (23 Nov 2026)', () => {
+test('♿ reduced motion: never locked (no opening there by the shipped rule — 16 Oct 2026, restored 23 Nov 2026)', () => {
   const s = standIn({ reduce: true });
   s.run();
-  assert.ok(s.holdStyle(), 'a reduced-motion guest sees the closed reveal first: the page behind must not play under it');
-  assert.equal((s.listeners.touchmove ?? []).length, 1);
+  assert.equal(s.holdStyle(), undefined);
+  assert.equal((s.listeners.touchmove ?? []).length, 0);
 });
 
 test('🧱 it lets go when the unveil STARTS, and is only ever written where a guest’s opening is mounted', () => {

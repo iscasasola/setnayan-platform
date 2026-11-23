@@ -12,9 +12,9 @@
  *
  *   · the guest's unveil gesture (the veil's tap or swipe up — `unveilInGesture()`, called synchronously
  *     inside that `pointerup`, which is also what lets the music start there);
- *   · the opening standing down without one ("already seen this visit", a landing part-way down, no WebGL, No
- *     Reveal on a staff build, a scene reveal's own open) — `RevealOverlay`. ♿ Reduced motion is held too since
- *     23 Nov 2026: it gets the closed reveal STILL, and its one tap (a short cross-fade) is the unveil;
+ *   · the opening standing down without one (reduced motion switched on, "already seen this visit", a landing
+ *     part-way down, no WebGL, No Reveal on a staff build, a scene reveal's own open) — `RevealOverlay`. ♿ Reduced
+ *     motion gets no opening and no hold (16 Oct 2026 ruling, restored by the controller on #8192, 23 Nov 2026);
  *   · 🛟 FAIL-VISIBLE: if no opening has CLAIMED the page within `VEIL_HOLD_FAILSAFE_MS` (the veil arms its
  *     hit-zone → `claimVeilHold()`), the script lets go by itself — a failed bundle, a veil chunk that never
  *     loaded, must never leave a page whose entrances are frozen at their first frame.
@@ -154,7 +154,7 @@ const VEIL_HOLD_WORDS_CSS = `[${COVER_LINE_ATTR}]{opacity:0 !important}`;
  * iOS Safari scrolls a hidden body by touch). The veil's swipe up is pointer events on its own box, untouched.
  * It comes off with the hold — the moment the unveil STARTS (`unveilInGesture`), not when the cloth has risen — so
  * the drape and the cover's entrance play while the guest can already move. Where the hold is never written (no
- * opening, the Maker's canvas, the ▶ preview) the page was never locked; after the unveil the hold is
+ * opening, reduced motion, the Maker's canvas, the ▶ preview) the page was never locked; after the unveil the hold is
  * gone for the visit (`__veilRelease` runs once), so a returning cover and its drape never lock it again.
  */
 export const VEIL_STILL_PAGE_CSS =
@@ -196,6 +196,7 @@ type VeilWindow = Window & {
 export const VEIL_HOLD_SCRIPT = `(function(){try{
 var d=document.documentElement,w=window;
 if(w.__veilRelease)return;
+if(w.matchMedia&&w.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
 var st=document.createElement('style');st.setAttribute('${VEIL_HOLD_ATTR}','');st.textContent='${VEIL_HOLD_FULL_CSS}';
 (document.head||d).appendChild(st);
 var ws=document.createElement('style');ws.setAttribute('${VEIL_WORDS_ATTR}','');(document.head||d).appendChild(ws);

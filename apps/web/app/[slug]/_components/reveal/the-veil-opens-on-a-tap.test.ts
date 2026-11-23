@@ -240,11 +240,11 @@ test('🛟 fail-visible: unclaimed, it lets go by itself; claimed, it waits for 
   assert.ok(b.held(), 'a claimed hold (the veil is up) let go before the guest opened it');
 });
 
-test('♿ reduced motion: held until the one tap (the still reveal, then a short cross-fade — 23 Nov 2026)', () => {
+test('♿ reduced motion: no hold at all (those guests get no opening — 16 Oct 2026, restored 23 Nov 2026)', () => {
   const s = standIn({ reduce: true });
   s.run();
-  assert.equal(s.held(), true);
-  assert.equal(typeof s.window.__veilRelease, 'function');
+  assert.equal(s.held(), false);
+  assert.equal(s.window.__veilRelease, undefined);
 });
 
 test('the unveil calls its callbacks in the same call stack, and a refused one never stops the rest', () => {

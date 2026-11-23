@@ -47,7 +47,7 @@ test("the fixture reproduces the approved prototype's figures through the real c
   assert.equal(known.owedAtLeastPhp, 994_400);
   assert.deepEqual(pickNextPayment(money.lines), {
     amountPhp: 528_000,
-    name: 'Seda Vertis North',
+    name: 'Tala Grove Pavilion',
     dueDate: '2026-10-05',
     vendorId: 'sv',
     costId: null,

@@ -49,8 +49,8 @@ export function LabFactSheets({
         if (date === LAB_CLASH_DAY && options.venues === 'booked') {
           return {
             ok: false,
-            error: 'Seda Vertis North is booked elsewhere that day.',
-            clash: [{ vendorId: 'v-seda', name: 'Seda Vertis North', service: 'Reception venue', href: '/dev/suppliers-lab?mode=booked' }],
+            error: 'Tala Grove Pavilion is booked elsewhere that day.',
+            clash: [{ vendorId: 'v-seda', name: 'Tala Grove Pavilion', service: 'Reception venue', href: '/dev/suppliers-lab?mode=booked' }],
           };
         }
         if (landDateCookie) {

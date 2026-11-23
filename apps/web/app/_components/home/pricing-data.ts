@@ -71,7 +71,7 @@ export type PricingData = {
   aiPlanPhp: number;
   /** recurrence suffix for the AI tier (e.g. "/28 days" or "/mo") */
   aiPeriod: string;
-  /** Vendor tier prices (28-day + annual), resolved from the live catalog —
+  /** Vendor tier prices (monthly; no yearly plan since 2026-11-22), resolved from the live catalog —
    *  the "For vendors" overlay reads these so it never hardcodes a price. */
   vendor: Awaited<ReturnType<typeof getVendorPrices>>;
   /**

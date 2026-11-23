@@ -148,8 +148,9 @@ test('the stairs are every plan, smallest to biggest, each fact read from TIER_C
 });
 
 test('every stair’s price is the catalog’s, and every paid step opens its own checkout door', () => {
-  assert.match(PAGE, /const growPrice = \(t: GrowTier\) => \(\{ solo: prices\.soloMonthly, pro: prices\.proMonthly, enterprise: prices\.enterpriseMonthly \}\)\[t\]/);
-  assert.match(PAGE, /price: growPrice\(t\), per: 'per 4 weeks', cta: `Start on \$\{step\.name\}`, href: openShopWithPlanHref\(t\)/);
+  assert.match(PAGE, /const growPrice = \(t: GrowTier\) => monthlyPlanPrice\(prices, t\)/);
+  assert.match(code('lib/v2-catalog.ts'), /\{ solo: prices\.soloMonthly, pro: prices\.proMonthly, enterprise: prices\.enterpriseMonthly \}\[tier\]/);
+  assert.match(PAGE, /price: growPrice\(t\), per: PLAN_PERIOD\.per, cta: `Start on \$\{step\.name\}`, href: openShopWithPlanHref\(t\)/);
   assert.match(CLIENT, /\{p\.price \?\? '—'\}/, 'an unread price draws something other than "—"');
   assert.ok(openShopWithPlanHref('solo').startsWith('/open-shop?plan='));
 });
@@ -198,5 +199,5 @@ test('the tools’ door is a real checkout door, priced from the catalog', () =>
   assert.match(PAGE, /href: openShopWithPlanHref\(FIRST_TOOLS_TIER\)/);
   assert.match(PAGE, /price: growPrice\(FIRST_TOOLS_TIER\)/);
   assert.match(PAGE, /\{toolsDoor\.price \?\? '—'\}/);
-  assert.match(PAGE, /per 4 weeks, with \{toolsDoor\.name\}/);
+  assert.match(PAGE, /\{PLAN_PERIOD\.per\}, with \{toolsDoor\.name\}/);
 });

@@ -30,6 +30,8 @@ import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import './guests/_components/guest-card.css';
 // 🌐 Today in the website's look (owner 23 Nov 2026, v5 drawing) — scoped to Today's one section.
 import './_components/today-website.css';
+// 🎨 The Event Hub themes' page blocks (the 23 Nov redraw) — worn by the Maker's canvas, its Look sample and its theme set.
+import '@/app/hub-themes.css';
 import { railToolsSignedIn } from '@/lib/studio-rail';
 import type { EventStudioRow } from '@/lib/customer-menu';
 import { EventRailContext } from './_components/event-rail-context';

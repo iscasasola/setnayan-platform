@@ -134,6 +134,62 @@ const hubMarcellus = localFont({
   variable: '--font-hub-marcellus',
   adjustFontFallback: 'Times New Roman',
 });
+// ── 2026-11-23 · Event Hub themes redraw, batch 1: the faces its sheet names that the repo did not ship
+//    (`scripts/build-theme-faces.py --only=…`; Raleway whole — it reserves its name — the rest latin cuts).
+const hubRaleway = localFont({
+  src: [{ path: './raleway/raleway-variable.woff2', weight: '100 900', style: 'normal' }],
+  display: 'swap',
+  preload: false,
+  variable: '--font-hub-raleway',
+  adjustFontFallback: 'Arial',
+});
+const hubGloock = localFont({
+  src: [{ path: './gloock/gloock-400.woff2', weight: '400', style: 'normal' }],
+  display: 'swap',
+  preload: false,
+  variable: '--font-hub-gloock',
+  adjustFontFallback: 'Times New Roman',
+});
+const hubMulish = localFont({
+  src: [
+    { path: './mulish/mulish-400.woff2', weight: '400', style: 'normal' },
+    { path: './mulish/mulish-600.woff2', weight: '600', style: 'normal' },
+  ],
+  display: 'swap',
+  preload: false,
+  variable: '--font-hub-mulish',
+  adjustFontFallback: 'Arial',
+});
+const hubWorkSans = localFont({
+  src: [
+    { path: './work-sans/work-sans-400.woff2', weight: '400', style: 'normal' },
+    { path: './work-sans/work-sans-600.woff2', weight: '600', style: 'normal' },
+  ],
+  display: 'swap',
+  preload: false,
+  variable: '--font-hub-worksans',
+  adjustFontFallback: 'Arial',
+});
+const hubEpilogue = localFont({
+  src: [
+    { path: './epilogue/epilogue-700.woff2', weight: '700', style: 'normal' },
+    { path: './epilogue/epilogue-800.woff2', weight: '800', style: 'normal' },
+  ],
+  display: 'swap',
+  preload: false,
+  variable: '--font-hub-epilogue',
+  adjustFontFallback: 'Arial',
+});
+const hubNewsreader = localFont({
+  src: [
+    { path: './newsreader/newsreader-400.woff2', weight: '400', style: 'normal' },
+    { path: './newsreader/newsreader-400-italic.woff2', weight: '400', style: 'italic' },
+  ],
+  display: 'swap',
+  preload: false,
+  variable: '--font-hub-newsreader',
+  adjustFontFallback: 'Times New Roman',
+});
 const hubYeseva = localFont({
   src: [{ path: './yeseva-one/yeseva-one-400.woff2', weight: '400', style: 'normal' }],
   display: 'swap',
@@ -372,6 +428,12 @@ export const HUB_CHOICE_FACES_CLASS = [
   hubCookie,
   hubDelafield,
   hubMonoton,
+  hubRaleway,
+  hubGloock,
+  hubMulish,
+  hubWorkSans,
+  hubEpilogue,
+  hubNewsreader,
 ]
   .map((f) => f.variable)
   .join(' ');

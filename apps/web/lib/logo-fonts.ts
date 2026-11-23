@@ -74,6 +74,13 @@ export const LOGO_FONT_OUTLINE: Readonly<Record<HubFontKey, string>> = {
   cookie: `${OWN}cookie.ttf`,
   delafield: `${OWN}delafield.ttf`,
   monoton: `${OWN}monoton.ttf`,
+  // 2026-11-23 · the Event Hub themes redraw, batch 1 (`scripts/make-logo-outline-fonts.py --only=…`).
+  raleway: `${OWN}raleway.ttf`,
+  gloock: `${OWN}gloock.ttf`,
+  mulish: `${OWN}mulish.ttf`,
+  worksans: `${OWN}worksans.ttf`,
+  epilogue: `${OWN}epilogue.ttf`,
+  newsreader: `${OWN}newsreader.ttf`,
 };
 
 /**
@@ -86,6 +93,8 @@ export const LOGO_FONT_OUTLINE: Readonly<Record<HubFontKey, string>> = {
  */
 export const LOGO_FONT_VARIATION: Readonly<Partial<Record<HubFontKey, Readonly<Record<string, number>>>>> = {
   josefin: { wght: 400 },
+  // Raleway reserves its name, so it ships whole, and its default instance is 100 (a hairline).
+  raleway: { wght: 400 },
 };
 
 /** Pin a variable outline face to the weight the stage draws (a no-op for every other face). */

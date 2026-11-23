@@ -38,7 +38,7 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const LAUNCHER = resolve(HERE, 'page.tsx');
+const LAUNCHER = resolve(HERE, '..', '..', '(hub)', 'dashboard', 'page.tsx');
 const MENU = resolve(HERE, '_components/event-card-menu.tsx');
 const DELETE_ACTIONS = resolve(
   HERE,

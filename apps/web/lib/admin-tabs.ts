@@ -82,6 +82,7 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
   { route: '/admin/account-deletions', tab: 'work', note: 'A queue of deletion requests.' },
   { route: '/admin/event-deletions', tab: 'work', note: 'A queue of event removals.' },
   { route: '/admin/help', tab: 'work', note: 'Help inbox.' },
+  { route: '/admin/help/guides', tab: 'work', note: 'The team’s Help: team guides, and the No answer yet list (13 Nov 2026).' },
   { route: '/admin/editorial-review', tab: 'work' },
   { route: '/admin/editorial-review/[editorialId]', tab: 'work' },
   { route: '/admin/verify', tab: 'work', note: 'From suppliers: documents to check.' },
@@ -210,6 +211,8 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
   { route: '/admin/ugat/map', tab: 'insights' },
 
   // ── AVATAR — running admin itself ─────────────────────────────────────────
+  { route: '/admin/team', tab: 'avatar', note: 'Team & permissions — areas × levels (2026-11-13).' },
+  { route: '/admin/admin-log', tab: 'avatar', note: 'Admin log — every act, by person · area · day (2026-11-13).' },
   { route: '/admin/secrets', tab: 'avatar', note: 'Secrets & integrations.' },
   { route: '/admin/ask', tab: 'avatar', note: 'What can I ask? — the ask box cheat sheet + its A4 download (Focus | Full, 14 Nov).' },
   { route: '/admin/integrations', tab: 'avatar', note: 'Secrets & integrations.' },

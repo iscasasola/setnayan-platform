@@ -159,7 +159,7 @@ test('the Overview focal band is handed the resolver’s cover, and reads the co
 });
 
 test('every glass card on the home board wears the same cover', () => {
-  const board = src('app/dashboard/(launcher)/page.tsx');
+  const board = src('app/(hub)/dashboard/page.tsx');
   assert.match(board, /cover=\{sceneCoverFor\(scenePoster\)\}/, 'the glass card hands the cover to its band');
   const cards = board.match(/<GlassEventCard\b[\s\S]*?\/>/g) ?? [];
   assert.ok(cards.length >= 5, `expected the five board shelves' cards, saw ${cards.length}`);

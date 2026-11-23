@@ -47,7 +47,7 @@ test('veil: each knob clamps to its studio SliderDef range', () => {
     veil: {
       logoSize: -5, // 2–30
       tilePx: 9999, // 40–400
-      feather: 100, // 2–8
+      speed: 100, // 9 · 12 · 16 (lib/reveal-motion.ts) — snapped to the nearest
       folds: 1, // 4–30
       reaches: 999, // 0–30
       topValance: 200, // 0–70
@@ -57,7 +57,7 @@ test('veil: each knob clamps to its studio SliderDef range', () => {
   });
   assert.equal(c.veil.logoSize, 2);
   assert.equal(c.veil.tilePx, 400);
-  assert.equal(c.veil.feather, 8);
+  assert.equal(c.veil.speed, 16);
   assert.equal(c.veil.folds, 4);
   assert.equal(c.veil.reaches, 30);
   assert.equal(c.veil.topValance, 70);
@@ -68,13 +68,13 @@ test('veil: each knob clamps to its studio SliderDef range', () => {
 test('valid in-range values pass through unchanged', () => {
   const c = mergeRevealConfig({
     effects: { petalSize: 50, butterflyCount: 12 },
-    veil: { logoSize: 20, tilePx: 120, feather: 4.5, folds: 10 },
+    veil: { logoSize: 20, tilePx: 120, speed: 9, folds: 10 },
   });
   assert.equal(c.effects.petalSize, 50);
   assert.equal(c.effects.butterflyCount, 12);
   assert.equal(c.veil.logoSize, 20);
   assert.equal(c.veil.tilePx, 120);
-  assert.equal(c.veil.feather, 4.5);
+  assert.equal(c.veil.speed, 9);
   assert.equal(c.veil.folds, 10);
 });
 
@@ -92,4 +92,17 @@ test('empty / nullish config yields the full locked defaults', () => {
   const c = mergeRevealConfig(null);
   assert.deepEqual(c.effects, DEFAULT_EFFECTS_LOOK);
   assert.deepEqual(c.veil, DEFAULT_VEIL_LOOK);
+});
+
+test('⏱ the house speed is 12 s; a stored veil `feather` (the speed it replaced) is ignored, not read as a speed', () => {
+  assert.equal(mergeRevealConfig(null).veil.speed, 12);
+  assert.equal(mergeRevealConfig({ veil: { feather: 5 } }).veil.speed, 12);
+  assert.equal('feather' in mergeRevealConfig({ veil: { feather: 5 } }).veil, false);
+  assert.equal(mergeRevealConfig({ veil: { speed: 11 } }).veil.speed, 12, 'between the three, the nearest');
+});
+
+test('↪️ a retired opening id as the house default plays its successor', () => {
+  assert.equal(mergeRevealConfig({ defaultTemplate: 'four-flap' }).defaultTemplate, 'envelope-classic');
+  assert.equal(mergeRevealConfig({ defaultTemplate: 'church-doors' }).defaultTemplate, 'cathedral-doors');
+  assert.equal(mergeRevealConfig({ defaultTemplate: 'gift-box' }).defaultTemplate, 'veil-sheer', 'the held gift box is not an opening');
 });

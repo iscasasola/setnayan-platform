@@ -25,7 +25,9 @@ export type IapStartRefusal =
   | 'owned'
   | 'try_again'
   /** 💝 A shop's gift: only the shop's owner or an admin buys gifts, as on the web. */
-  | 'not_shop_owner';
+  | 'not_shop_owner'
+  /** 🏪 A shop's plan: only the shop's owner or an admin chooses it, as on the web. */
+  | 'not_plan_manager';
 
 export type IapStartResult =
   /** `quantity` — how many StoreKit is asked for: 1 for a couple product; a gift cart line's 1–10. */
@@ -55,6 +57,7 @@ const START_COPY: Record<IapStartRefusal, string> = {
   owned: 'Your event already has this.',
   try_again: 'We couldn’t start that. Nothing was charged — please try again.',
   not_shop_owner: 'Only the shop’s owner or an admin can buy gifts.',
+  not_plan_manager: 'Only the shop’s owner or an admin can choose its plan.',
 };
 
 export function startRefusal(reason: IapStartRefusal): IapStartResult {

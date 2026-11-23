@@ -43,7 +43,7 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..', '..', '..');
 
-const LAUNCHER = resolve(HERE, 'page.tsx');
+const LAUNCHER = resolve(HERE, '..', '..', '(hub)', 'dashboard', 'page.tsx');
 const BODY = resolve(WEB, 'app', '_components', 'alaala', 'lens-body.tsx');
 const ALAALA_PAGE = resolve(WEB, 'app', 'dashboard', '(account)', 'library', '_components', 'memories-segment.tsx');
 /*

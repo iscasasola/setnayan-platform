@@ -291,6 +291,12 @@ export type GuestsScreenProps = {
    * ⚙). Null → no ⚙ (not the couple).
    */
   setup?: ReactNode;
+  /**
+   * ⓘ THIS PAGE'S HELP — the 44 round in the pinned row that opens the ⓘ sheet (Guide & Help drawing, screen 6, owner
+   * "Approved" 21 Nov 2026: Show me · Answers · Read the full guide). Drawn by the server
+   * (`app/_components/help-ask/page-info.tsx`) and passed in; it sits left of the ⚙. Left out (the Maker) → none.
+   */
+  info?: ReactNode;
   /** `?settings=1` — the sheet opens with the page (a link's way in). */
   settingsOpen?: boolean;
   /** `?row=` — the row the open sheet lands on (its `data-setup-row`). */
@@ -2183,6 +2189,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 <ActionButton tone="neutral" icon={SquareCheck} label="Select" onClick={() => setSelectMode(true)} data-testid="guests-select" />
               ) : null}
             </span>
+            {props.info && !selectMode ? <span className="flex shrink-0" data-guests-info="">{props.info}</span> : null}
             {setup ? (
               <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
                 <PickWhoContext.Provider value={writesOff ? null : pickWho}>{setup}</PickWhoContext.Provider>

@@ -49,7 +49,7 @@ import { copyStrings } from '@/lib/public-copy-strings';
  *     structured data still sold it by name.
  *   · New roots: the sign-up doors (/open-shop, /signup, /login, the password
  *     pages), /help articles, /download, the /tour walk-through, the front
- *     page itself (`app/page.tsx`), the shared doorway components, and the two
+ *     page itself (`app/(hub)/page.tsx`), the shared doorway components, and the two
  *     copy libraries every Studio and feature page reads (`lib/studio-apps.ts`,
  *     `lib/feature-pages`). /tour said "vendor" 24 times; /open-shop called a
  *     shop's address "Your website".
@@ -81,7 +81,7 @@ const ROOTS = [
   'lib/help.ts',
   'lib/help', // help split 2026-11-14: the answers live here now
   // Widened 2026-10-23 — see the docblock.
-  'app/page.tsx',
+  'app/(hub)/page.tsx',
   'app/open-shop',
   'app/signup',
   'app/login',
@@ -201,7 +201,7 @@ test('the scan reads the pages the sweep named — it cannot pass on an empty tr
     'app/(shell)/monogram/page.tsx',
     // 'app/(shell)/realstories/page.tsx' left 2026-11-16 — retired with the blog + Real Stories, PR #7847.
     'lib/blog.ts',
-    'app/page.tsx',
+    'app/(hub)/page.tsx',
     'app/open-shop/_components/address-preview.tsx',
     'app/tour/page.tsx',
     'app/(shell)/palogo/page.tsx',

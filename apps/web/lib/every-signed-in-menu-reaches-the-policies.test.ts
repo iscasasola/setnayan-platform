@@ -38,7 +38,7 @@ const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'))
  * flag's <Role>. The couple's tree is three layouts (the board, the account pages, an event).
  */
 const TREES: Record<string, readonly string[]> = {
-  Customer: ['app/dashboard/(launcher)/layout.tsx', 'app/dashboard/(account)/layout.tsx', 'app/dashboard/[eventId]/layout.tsx'],
+  Customer: ['app/(hub)/layout.tsx', 'app/dashboard/(account)/layout.tsx', 'app/dashboard/[eventId]/layout.tsx'],
   Vendor: ['app/vendor-dashboard/layout.tsx'],
   Admin: ['app/admin/layout.tsx'],
 };

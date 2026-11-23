@@ -197,6 +197,11 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-11-13 with the tables (admin areas × levels, migration 20271350705084) ──
+  admin_scopes:
+    'Which admin areas a staff member may act in. user_id is NOT NULL ON DELETE CASCADE, so the rows go with the account on their own; granted_by is an actor stamp, ON DELETE SET NULL. Console configuration, nothing a customer typed.',
+  work_escalations:
+    'Admin Escalate ▸ notes about a WORK ITEM (a queue row), not about a person. escalated_by / resolved_by are actor stamps, nullable + ON DELETE SET NULL, so deleting the admin strips them on its own.',
   // ── added 2026-11-20 with the tables (Unichat H1, migration 20271354347259) ──
   chat_message_revisions:
     'What a chat message held before its sender edited or unsent it. It has no life of its own: message_id is NOT NULL ON DELETE CASCADE, so when erasure deletes the subject\'s authored chat_messages rows (purge.ts) every revision of them goes in the same statement; changed_by is nullable ON DELETE SET NULL and only ever names the message\'s own sender.',
@@ -287,6 +292,9 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // ── added 2026-11-21 with the table itself (Maya Checkout, owner "MAYA CHECKOUT — BUILD IT") ──
   maya_checkouts:
     'Financial record — the Maya half of an order (Maya’s checkout and payment ids, sandbox/production, the amount asked, why a payment was queued), retained with the order it settled on the same BIR/bookkeeping basis, and needed to answer Maya refunds and disputes. No profile data: user_id is the payer, the rest is the transaction.',
+  // ── added 2026-11-23 with the table itself (Apple supplier plans: the server names the shop) ──
+  vendor_app_store_plan_tokens:
+    'Not retained past the account: user_id REFERENCES auth.users ON DELETE CASCADE, so deleting the account deletes every token that person started. Nothing else on the row is about them — the token is an internal key Apple signs back and the shop it was issued for. A subscription already granted keeps its shop through vendor_app_store_subscriptions, which needs no token.',
   receipts: 'BIR Official Receipt. issued_to_name/email/tin are the statutory content of the document; erasing them destroys the receipt.',
   order_refunds: 'Reconciliation decision attached to a retained financial record.',
   supplies_orders: 'Purchase record; delivery_address is part of the fulfilment evidence.',

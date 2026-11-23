@@ -10,7 +10,7 @@
  * MEASURED LIVE before the fix, not inferred from the config — `/pricing`,
  * `/terms` and `/explore` all rendered the doubled form on www.setnayan.com.
  *
- * 🔑 THE ROOT PAGE IS EXEMPT, AND ONLY MEASUREMENT SHOWS IT. `app/page.tsx`
+ * 🔑 THE ROOT PAGE IS EXEMPT, AND ONLY MEASUREMENT SHOWS IT. `app/(hub)/page.tsx`
  * shares the root SEGMENT with the layout that declares the template, so Next
  * does not apply the template to it: `/` rendered
  * "Setnayan · Plan your Filipino wedding free — …" with NO suffix while its

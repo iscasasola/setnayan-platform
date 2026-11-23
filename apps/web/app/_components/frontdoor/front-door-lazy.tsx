@@ -4,7 +4,7 @@
  * front-door-lazy.tsx — the front door's SIGNED-IN-ONLY client pieces, loaded only when they are drawn.
  *
  * ⚡ WHY (measured 2026-11-13, production build, Lighthouse mobile from `.lighthouserc.json`). Every `'use client'`
- * module that `app/page.tsx`'s SERVER tree imports joins the page's entry chunk group, and Next writes that whole
+ * module that `app/(hub)/page.tsx`'s SERVER tree imports joins the page's entry chunk group, and Next writes that whole
  * group into the HTML of `/` — whether or not the component is rendered. So a stranger opening the front page
  * downloaded the signed-in search's "Add your own" walk (the dashboard's add-a-supplier flow: send-invite, the
  * supplier-connect panel, the address pin map, form rows — ~34KB gzipped over six chunks) and Discover's signed-in

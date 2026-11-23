@@ -44,6 +44,7 @@ DECLARE
   v_shop  int := current_setting('rehearsal.supplier_shop')::int;
   v_tours text[] := current_setting('rehearsal.tours_seen')::text[];
   v_rs    jsonb;
+  v_bookings_open boolean;
   v_event uuid := current_setting('rehearsal.event_id')::uuid;
   v_slug  text := current_setting('rehearsal.slug');
   v_bride_name text := current_setting('rehearsal.bride_name');
@@ -171,6 +172,14 @@ BEGIN
   -- 4 · THE SUPPLIERS. Twelve published shops, one live service each; five are
   -- on this event (three booked, two saved). A loop so each trigger sees the
   -- previous statement's rows.
+  --
+  -- Bookings are CLOSED at launch (`platform_settings.bookings_open`,
+  -- 20271302310560): the trigger refuses a new booked row. Production still
+  -- holds the bookings made before the switch, and so must the rehearsal — so
+  -- the switch is opened for these three rows only and put back as it was
+  -- below. The app under rehearsal sees the switch exactly as shipped.
+  SELECT bookings_open INTO v_bookings_open FROM public.platform_settings WHERE id = 1;
+  UPDATE public.platform_settings SET bookings_open = TRUE WHERE id = 1;
   FOR n IN 1..12 LOOP
     v_name := 'Rehearsal ' || initcap(replace(cats[n], '_', ' ')) || ' Co.';
 
@@ -201,6 +210,8 @@ BEGIN
               20000 + n * 5000, v_vp);
     END IF;
   END LOOP;
+
+  UPDATE public.platform_settings SET bookings_open = v_bookings_open WHERE id = 1;
 
   -- 4b · THE SUPPLIER ACCOUNT owns one of those shops (the one booked on this
   -- event), with two more live services — what the control sweep signs in as.

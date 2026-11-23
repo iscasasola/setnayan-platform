@@ -9,7 +9,7 @@
  * unreadability, never a dead button. Tapping it RISES FULL SCREEN (the shipped `RiseScreen`, T4) with, in this order:
  *   1. THE PROBLEM, then THE SOLUTION — the two lines from `lib/locks.ts` (the type will not take a lock without both);
  *   2. a real-looking preview of the feature, VIEW-ONLY (`inert`: nothing in it can be pressed or focused);
- *   3. the progress (verify: "2 of 3 papers in · then press Submit") or the price (plan: "₱… / 28 days");
+ *   3. the progress (verify: "2 of 3 papers in · then press Submit") or the price (plan: "₱… / month");
  *   4. ONE button — **Get verified** (the shipped papers flow, `/vendor-dashboard/profile#docs`) or **Upgrade to <plan>**.
  *      ✕ falls back into the row they tapped.
  *
@@ -42,7 +42,7 @@ export const GET_VERIFIED_HREF = '/vendor-dashboard/profile#docs';
 
 export type LockNeed =
   | { kind: 'verify'; /** `papersProgress(...)` */ progress: string }
-  | { kind: 'plan'; plan: string; /** The catalogue price, worded ("₱… / 28 days") — never typed by the caller. */ price: string | null; href: string }
+  | { kind: 'plan'; plan: string; /** The catalogue price, worded ("₱… / month") — never typed by the caller. */ price: string | null; href: string }
   /**
    * 🔒 A lock lifted by the shop's OWN bookings finishing, not by papers or a plan — a card a booked client is using
    * (`CARD_IN_USE_LOCK`, lib/service-open-bookings.ts). `progress` is what is still open (or that it could not be

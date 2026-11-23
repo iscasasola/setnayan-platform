@@ -192,6 +192,10 @@ export async function saveBusinessIdentity(formData: FormData) {
     // 👤 Supplier roles d–h (e): how many own past clients a card needs before its fair split is cut from them
     // (controller row 4). Blank = not set — every shop's split uses all Setnayan inquiries.
     ['inquiry_split_own_enough', 'own-clients split', 100000],
+    // 🛡 Fake proof fixes (C), owner 2026-11-23 (DECISION_LOG b89e2420): how many real guests (RSVP'd or captured Papic)
+    // an event needs before a review from it counts, when the couple did not find the shop on Setnayan. Blank = not
+    // set — that route never counts. The owner's number; nothing is seeded. A trigger re-reads the counts on save.
+    ['proof_real_guests_min', 'real-guests', 100000],
   ] as const) {
     if (!formData.has(field)) continue;
     const raw = formData.get(field);

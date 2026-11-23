@@ -130,11 +130,11 @@ import { formatPhp } from '@/lib/php';
 const LAB_SUPPLIERS_SETTINGS: SuppliersSettingsView = {
   costs: { mode: 'realtime', deadline: '2026-11-20' },
   payments: [
-    { id: 'p1', when: 'Nov 3', words: `Kusina ni Lola · First payment ${formatPhp(25000)}` },
-    { id: 'p2', when: 'Nov 18', words: `Lumina Studio · Second payment ${formatPhp(18000)}` },
+    { id: 'p1', when: 'Nov 3', words: `Kusina Talahib · First payment ${formatPhp(25000)}` },
+    { id: 'p2', when: 'Nov 18', words: `Tanglaw Frames · Second payment ${formatPhp(18000)}` },
   ],
   photos: [
-    { vendorRowId: 'v-lumina', name: 'Lumina Studio', hidden: false },
+    { vendorRowId: 'v-lumina', name: 'Tanglaw Frames', hidden: false },
     { vendorRowId: 'v-seda', name: 'Seda Films', hidden: true },
   ],
   photosRead: true,
@@ -378,7 +378,7 @@ export default async function SuppliersLabPage({
             ? {
                 tone: 'conflict',
                 headline: 'No single date works — swap one',
-                detail: 'Kusina ni Lola and Lumina Studio share no free day in the dates you are considering. Drop one of them from your build and the rest of your suppliers line up again.',
+                detail: 'Kusina Talahib and Tanglaw Frames share no free day in the dates you are considering. Drop one of them from your build and the rest of your suppliers line up again.',
               }
             : null
       }
@@ -410,7 +410,7 @@ export default async function SuppliersLabPage({
                   date: { text: 'Sat, Dec 12, 2026', open: false },
                   place:
                     factOptions.venues === 'booked'
-                      ? { text: 'Seda Vertis North, Quezon City', open: false }
+                      ? { text: 'Tala Grove Pavilion, Quezon City', open: false }
                       : { text: 'Quezon City', open: true },
                 }}
                 changeAsked={factOptions.change}

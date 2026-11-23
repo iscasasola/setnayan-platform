@@ -40,12 +40,12 @@ import { BadgeUpgradesSection } from './badge-upgrades-section';
 import { loadBadgeUpgradesSection } from './badge-upgrades-data';
 import { PlanChangeNotice } from './plan-change-notice';
 import { COUNT_ADDON_KINDS, COUNT_ADDONS, fetchAddOnExtras } from '@/lib/vendor-ultra-addons';
-import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
+import { PLAN_PERIOD, monthlyTermIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { formatPhp } from '@/lib/php';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { downgradeFit } from '@/lib/downgrade-limits';
-import { readDowngradeFacts, readStoredBytes, storageAllowanceBytes } from '@/lib/downgrade-limits.server';
-import { storageRowLine } from '@/lib/supplier-storage';
+import { readDowngradeFacts, storageAllowanceBytes } from '@/lib/downgrade-limits.server';
+import { readStorageBreakdown } from '@/lib/supplier-storage.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveBookingFeeStanding } from '@/lib/booking-fee-disclosure.server';
 import type { BookingFeeStanding } from '@/lib/booking-fee-disclosure';
@@ -117,11 +117,6 @@ type PaidTier = Extract<VendorTier, 'solo' | 'pro' | 'enterprise'>;
 
 const PAID_TIERS: PaidTier[] = ['solo', 'pro', 'enterprise'];
 
-/**
- * How many days a block BUYS — the period `create_vendor_subscription` writes for a monthly SKU (28), the same number
- * the too-short rule is measured against there, so the screen and the database cannot disagree.
- */
-const TERM_DAYS = { monthly: 28 } as const;
 
 function skuFor(tier: PaidTier): string {
   return `${tier}_vendor_monthly`;
@@ -352,7 +347,8 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       // 💰 The catalogue row or nothing (owner 2026-11-13): an unread plan price shows no figure and no Pay button.
       price: ((v) => (v !== undefined && Number.isFinite(v) ? { monthly: v } : {}))(priceBySku.get(skuFor(tier))) as PlanPick['price'],
       tooShort: {
-        monthly: termIsTooShort(TERM_DAYS.monthly, tierExpiresAt, now) ? termTooShortMessage(tierExpiresAt) : null,
+        // 🗓 A month started now vs the plan already held: the picker's copy of create_vendor_subscription's rule.
+        monthly: monthlyTermIsTooShort(tierExpiresAt, now) ? termTooShortMessage(tierExpiresAt) : null,
       },
       pickLine: planPickLine(currentTier, tier, expiresOn),
     })),
@@ -436,7 +432,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       : null;
   const pays =
     currentPrice !== null
-      ? `${formatPhp(currentPrice)} / 28 days`
+      ? `${formatPhp(currentPrice)} ${PLAN_PERIOD.slash}`
       : isPaid
         ? 'paid'
         : 'nothing to pay';
@@ -482,20 +478,13 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       })
     : PORTFOLIO_ALLOWANCE_UNREAD;
 
-  // 💾 STORAGE (owner 2026-11-13 "plan storage": Solo 5 GB · Pro 10 GB · Ultra 15 GB) — "1.2 GB of 5 GB used", from the
-  // SAME read the limits sheet and the upload refusal use. A read that failed says so, never "0 MB". No allowance (Free ·
-  // Verified) = no row. The limits sheet above already read it for every paid plan; read again only if it did not.
-  const storageLine =
+  // 📏 THE STORAGE METER (owner 2026-11-23 "THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SHOP OWNS"): Photos &
+  // video · Files · Records, from the ONE breakdown read — the limits sheet above already
+  // read it (`downgradeFacts.storage`); read again only when it did not (Free has no sheet). A failed read says so.
+  const storageRead =
     storageAllowanceBytes(currentTier) === null
       ? null
-      : storageRowLine(
-          currentTier,
-          downgradeFacts
-            ? downgradeFacts.storedBytes === null
-              ? { status: 'unread' }
-              : { status: 'ok', bytes: downgradeFacts.storedBytes }
-            : await readStoredBytes(createAdminClient(), profile.vendor_profile_id),
-        );
+      : (downgradeFacts?.storage ?? (await readStorageBreakdown(createAdminClient(), profile.vendor_profile_id)));
 
   // 💳 The rows that replaced the add-on cards (drawing § 3). Deep Search's own route is web-only (lib/store-shell.ts),
   // so the row is not drawn in the store app.
@@ -514,9 +503,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         line: [
           extraSeats === null ? null : `${NUMBER.format(extraSeats)} extra ${extraSeats === 1 ? 'seat' : 'seats'}`,
           seatPrice && branchPrice
-            ? seatPrice === branchPrice
-              ? `${seatPrice} each, every 4 weeks`
-              : `seat ${seatPrice} · branch ${branchPrice}, every 4 weeks`
+            ? // A seat folds into the plan's renewal, so it bills by the plan's month (#8219); a branch is still its
+              // own 28-day order window (`BRANCH_PERIOD_DAYS`, sku-activation), so its word stays until that changes.
+              `seat ${seatPrice} ${PLAN_PERIOD.slash} · branch ${branchPrice} / 28 days`
             : null,
         ]
           .filter(Boolean)
@@ -630,7 +619,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         featured={featured}
         gift={gift ? { line: giftPlanLine(gift) } : giftEnded ? { line: giftEndedLine(giftEnded.plan, giftEnded.untilDay) } : null}
         photosLine={photosLine}
-        storageLine={storageLine}
+        storage={storageRead}
         deepSearch={deepSearchRow}
         extras={extrasRow}
         bought={bought}

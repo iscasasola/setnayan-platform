@@ -68,6 +68,12 @@ const JOBS = [
     what: 'the interconnection probes',
   },
   {
+    // 📏 2026-11-23 (PR #8191): the storage meter's Records, measured once a Manila night from 03:00. It replaced a
+    // pg_cron job the repo never runs (cron.job stays empty); the homepage's public traffic is what lets it catch up.
+    fn: 'maybeRunSupplierStorageMeasure',
+    what: 'the nightly measure of what every supplier’s records weigh (the storage meter)',
+  },
+  {
     fn: 'maybeRunOwnerApprovals',
     what:
       "the owner's own two-admin requests, which run 24 hours after he types " +

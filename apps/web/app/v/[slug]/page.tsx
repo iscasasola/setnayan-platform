@@ -194,6 +194,7 @@ import {
 } from '@/lib/service-card-record';
 import {
   fetchReviewsForVendorWithCouple,
+  reviewIsOwnClient,
   fetchReviewForVendorWithCouple,
   pinReviewFirst,
   fetchReviewStats,
@@ -1147,7 +1148,9 @@ export async function renderVendorBySlug({
     // `reviewStats` above still backs the per-star histogram bars + the review
     // LIST pagination (`hasMore`), which stay as-is.
     fetchTrustedReviewStats(admin, vendor.vendor_profile_id),
-    fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents] }),
+    // 🛡 Fake proof fixes (owner 2026-11-23, b89e2420 C + D): the PUBLIC read — a held review never lists, and each row
+    // says whether it counts (a booked review that does not wears the supplier's-own-client pill, `reviewIsOwnClient`).
+    fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents], publicOnly: true }),
     fetchVendorServices(admin, vendor.vendor_profile_id),
     // Vendor packages (owner directive 2026-05-22) — bundled multi-category
     // wedding offerings. Public-read via RLS when is_active=TRUE. The fetch
@@ -1648,6 +1651,8 @@ export async function renderVendorBySlug({
         admin,
         vendor.vendor_profile_id,
         pinnedReviewId,
+        // 🛡 A held review (screener flag not yet dismissed) is never pinned onto the public page either.
+        { publicOnly: true },
       );
       // 💸 A pinned review from an unlisted event (overdue top-up) is not shown either.
       if (pinnedOutsideWindow?.event_id && unlistedEvents.has(pinnedOutsideWindow.event_id)) pinnedOutsideWindow = null;
@@ -4609,7 +4614,7 @@ function ReviewRow({
               came via the vendor's invite QR (import); "Verified wedding" when
               the couple booked on-platform themselves; nothing for off-platform
               bookings with no linked profile. */}
-          {review.via_vendor_import ? (
+          {reviewIsOwnClient(review) ? (
             <VerifiedBookingPill />
           ) : review.booked_through_setnayan ? (
             <VerifiedWeddingPill />
@@ -4670,7 +4675,9 @@ function VerifiedWeddingPill() {
  * "Verified booking" — the vendor brought this couple onto Setnayan via their
  * invite QR (event_vendors.source = 'vendor_invite'). Still a verified,
  * platform-confirmed relationship — just sourced from the vendor's own client
- * rather than on-platform discovery.
+ * rather than on-platform discovery. Since 2026-11-23 (fake proof fixes C) it is
+ * also worn by a booked review whose event was not arm's length: the review
+ * still shows, as the supplier's own client, and does not move the stars.
  */
 function VerifiedBookingPill() {
   return (

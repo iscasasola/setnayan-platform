@@ -40,6 +40,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { foundOnSetnayan } from './found-on-setnayan';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -78,6 +79,9 @@ async function newDeliveredBooking(vendorProfileId: string, label: string): Prom
     [label],
   );
   const eventId = e.rows[0]!.event_id;
+  // Since 2026-11-23 (b89e2420 C) only an ARM'S-LENGTH job counts: every booking here is one the couple found here,
+  // so the fraud filter is what takes a row out — never the absence of that fact.
+  await foundOnSetnayan(db, vendorProfileId, eventId);
   const r = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors
        (event_id, category, vendor_name, status, linked_vendor_profile_id)

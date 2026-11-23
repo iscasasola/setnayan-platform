@@ -286,10 +286,10 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
     roles: ['vendor'],
     articles: [
       {
-        // lib/vendor-tier-caps.ts `TIER_LABEL`; app/for-suppliers/_components/plan-table-data.ts 'Every 4 weeks'; prices: vendor_billing_catalog
+        // lib/vendor-tier-caps.ts `TIER_LABEL`; app/for-suppliers/_components/plan-table-data.ts 'Every month'; prices: vendor_billing_catalog
         slug: 'supplier-plans',
         title: 'Suppliers: what plans are there?',
-        body: 'Every shop starts Free, and stays free once verified. Three paid plans add more: Plus, Pro and Ultra, paid every 4 weeks. There is no yearly plan. The plan table on the For suppliers page shows what each one adds and its current price.',
+        body: 'Every shop starts Free, and stays free once verified. Three paid plans add more: Plus, Pro and Ultra, billed monthly. There is no yearly plan. The plan table on the For suppliers page shows what each one adds and its current price.',
         appBody: HELP_NOT_IN_THE_APP,
       },
       {

@@ -14,7 +14,8 @@
  *   badges at 10 · 50 · … · 10,000 ............................................... `MILESTONE_THRESHOLDS`
  *   the booking fee's two rates and its band .................................... the LIVE schedule (`getLiveBookingFeeSchedule`)
  *
- * Prices are not here — they are read per request in `_prices.server.ts`.
+ * Prices are not here — the page reads them per request from `getVendorPrices` (lib/v2-catalog.ts), the same reader
+ * /for-suppliers uses, and words their period with `PLAN_PERIOD`.
  *
  * Pure: no I/O, so the guard beside the page can call every function.
  */

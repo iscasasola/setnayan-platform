@@ -263,7 +263,7 @@ function FilterBar({
           </Link>
         ))}
       </div>
-      <form className="flex flex-wrap items-end gap-2 sn-tile p-3" method="get">
+      <form className="flex flex-wrap items-end gap-2 sn-tile p-3" method="get" action="/admin/payouts">
         <input type="hidden" name="filter" value={filter} />
         <label className="block text-xs text-ink/60">
           <span className="mb-1 block font-mono uppercase tracking-[0.15em]">Supplier (name or ID)</span>

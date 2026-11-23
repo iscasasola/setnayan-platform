@@ -5577,7 +5577,12 @@
         "PageMasthead",
         "SearchParams",
         "SearchParamsRecord",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/vendor-recommendations": {
@@ -5599,11 +5604,13 @@
         "ConfirmForm",
         "FeedbackCard",
         "FieldPick",
-        "InfoTip",
         "PageMasthead",
         "RecommendationRow",
-        "Stat",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateNums",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/vendors": {
@@ -5793,7 +5800,12 @@
         "ConfirmForm",
         "Group",
         "PageMasthead",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/verify": {
@@ -14710,6 +14722,7 @@
         "Ctx",
         "DateChangeBody",
         "DateRow",
+        "DatesRow",
         "DeleteRequestBody",
         "DisputeBody",
         "DoorRow",
@@ -14762,6 +14775,7 @@
         "MeetingBody",
         "MenuSettingsButton",
         "MessageBody",
+        "MoreSupplierSettings",
         "NewServiceMaker",
         "NotConnected",
         "NoteIc",
@@ -14824,6 +14838,7 @@
         "SetnayanShopGiftLines",
         "SetnayanShopGiftMoment",
         "SetnayanShopGiftNotices",
+        "SettingsSection",
         "SetupDaysOffRow",
         "SetupFoldKey",
         "SetupOfferFold",
@@ -16729,6 +16744,7 @@
         "MenuSettingsButton",
         "MessageEveryoneRows",
         "ModuleConfigurator",
+        "MoreSupplierSettings",
         "NonPhotoConsole",
         "PickMenu",
         "QrActions",
@@ -16738,6 +16754,7 @@
         "SeatFinderRow",
         "ServerRead",
         "SetActionResult",
+        "SettingsSection",
         "Sheet",
         "ShopEmpty",
         "ShotList",
@@ -17994,6 +18011,7 @@
         "ServiceRadiusSaveResult",
         "ServiceScannerPick",
         "ServicesManagerSearch",
+        "SettingsSection",
         "ShareSheet",
         "Sheet",
         "SheetOpening",

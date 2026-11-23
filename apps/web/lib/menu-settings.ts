@@ -231,3 +231,14 @@ export const SETTINGS_MENUS = Object.keys(SETTINGS_ENTRY) as SettingsMenu[];
 export function isSettingsMenu(v: string): v is SettingsMenu {
   return (SETTINGS_MENUS as string[]).includes(v);
 }
+
+/**
+ * 🚪 THE SUPPLIER'S OTHER SETTINGS — the doors a short supplier settings screen ends with (Settings v2, owner
+ * 2026-11-13 *"one setting shell approved"*; prototype § 8: *"A short screen ends with doors to the other supplier
+ * settings, so no settings screen is a dead end."*). Each door is the page's shipped deep link that opens its own ⚙
+ * (`?gear=1` — `shop-settings.tsx`, `customers-settings.tsx`); the words are the entry's own, never retyped.
+ */
+export const SUPPLIER_SETTINGS_DOORS: ReadonlyArray<{ key: 'shop' | 'customers'; name: string; line: string; href: string }> = [
+  { key: 'shop', name: SETTINGS_ENTRY.shop.sheet, line: 'Plan, team, papers', href: '/vendor-dashboard/shop?gear=1' },
+  { key: 'customers', name: SETTINGS_ENTRY.customers.sheet, line: 'Getting paid, teams and days', href: '/vendor-dashboard/customers?gear=1' },
+];

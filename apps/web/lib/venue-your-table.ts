@@ -1,0 +1,42 @@
+/**
+ * The name of the guest's OWN table in the 3D walk ("You're at Ninong's table").
+ *
+ * `public_venue_scene` names every table by its public id (`S89TBL-…`) and sends
+ * no table names, so the walk's caption read "You're at S89TBL-LAB0000006". The
+ * RPC fills `you` only after it has checked the guest's personal token, so
+ * `you.table` is the token holder's own table. This joins that one table's name,
+ * the same name find-seat shows them, and no other table is named. It runs
+ * wherever the scene is read (the venue page and the live-refresh route), so a
+ * refresh never brings the code back.
+ *
+ * A failed read leaves `tableName` null and the caption says "your table". It
+ * never falls back to the code. Only a type is imported, so the client caption
+ * can import `youAreAtWords` from here.
+ */
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+type TableNameRow = { table_label: string | null; link_group_label: string | null };
+type WithYou = { you?: { table: string; tableName?: string | null } | null };
+
+/** A joined set of tables answers to its group name, as everywhere else (`groupTablesIntoUnits`). */
+export function yourTableName(row: TableNameRow | null): string | null {
+  const name = (row?.link_group_label ?? '').trim() || (row?.table_label ?? '').trim();
+  return name || null;
+}
+
+export async function withYourTableName<T extends WithYou>(admin: SupabaseClient, scene: T): Promise<T> {
+  const you = scene.you;
+  if (!you?.table) return scene;
+  const { data, error } = await admin
+    .from('event_tables')
+    .select('table_label, link_group_label')
+    .eq('public_id', you.table)
+    .maybeSingle();
+  const tableName = error ? null : yourTableName(data as TableNameRow | null);
+  return { ...scene, you: { ...you, tableName } };
+}
+
+/** What the caption names: the table's name, or "your table". Never the code. */
+export function youAreAtWords(you: { tableName?: string | null }): string {
+  return you.tableName || 'your table';
+}

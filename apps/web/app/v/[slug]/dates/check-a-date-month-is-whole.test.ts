@@ -13,9 +13,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 const WEB = join(__dirname, '..', '..', '..', '..');
-const RAW = readFileSync(join(WEB, 'app/v/[slug]/dates/_components/seat-months.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const RAW = stripComments(readFileSync(join(WEB, 'app/v/[slug]/dates/_components/seat-months.module.css'), 'utf8'));
 
 /** The phone rules: everything before the first @media block (the desktop and reduced-motion rules come after). */
 const PHONE = RAW.slice(0, RAW.search(/@media/) === -1 ? RAW.length : RAW.search(/@media/));

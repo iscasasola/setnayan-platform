@@ -134,18 +134,20 @@
 .receipt { display: grid; gap: 4px; margin-top: 6px; }
 .receipt small { font-size: 12.5px; color: var(--sf-m2); }
 .srcTag { justify-self: start; padding: 4px 10px; border-radius: var(--m-r-full); background: var(--sf-chip); color: var(--sf-ink); font-size: 12.5px; font-weight: 600; }
-.pill { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: var(--m-r-full); font-size: 12px; font-weight: 650; }
-.free { background: var(--sf-wash); color: var(--sf-ok); }
-.feePill { background: var(--sf-chip); color: var(--sf-acc); }
+/* The tag: a small chip on the chip paint, 8 px corner; only its WORD carries colour (HOUSE_DESIGN_STANDARD Part H3). */
+.pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: var(--m-r-sm); background: var(--sf-chip); font-size: 12px; font-weight: 650; }
+.free { color: var(--sf-ok); }
+.feePill { color: var(--sf-acc); }
+/* One wedding, five suppliers — PLAN ROWS (Part H3; owner 23 Nov: "does not follow our design … we do not have this
+   design"): no box, no border, no side stripe, no shadow; a hairline between rows; the colour only on the tag word. */
 .wedding { display: grid; gap: 8px; }
-.wedding ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.wedding li { display: grid; gap: 4px; padding: 12px 14px; border-radius: var(--m-r-md); background: var(--sf-card); border: 1px solid var(--sf-line); border-left-width: 4px; }
+.wedding ol { list-style: none; margin: 0; padding: 0; display: grid; }
+.wedding li { display: grid; gap: 4px; padding: 12px 0; }
+.wedding li + li { border-top: 1px solid var(--sf-line); }
 .wedding li > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
-.wedding li b { font-weight: 650; color: var(--sf-ink); }
-.wedding li small { font-size: 12.5px; color: var(--sf-m2); }
+.wedding li b { font-size: 15px; font-weight: 600; color: var(--sf-ink); }
+.wedding li small { font-size: 13px; color: var(--sf-m1); }
 .wedding li p { font-size: 14px; color: var(--sf-m1); }
-.wFree { border-left-color: var(--sf-ok) !important; }
-.wFee { border-left-color: var(--sf-acc) !important; }
 .wRow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .earnRule { margin-top: 4px !important; font-weight: 650; color: var(--sf-ink); }
 .earnCtas { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }

@@ -122,7 +122,7 @@ export function SupplierHowWeEarn({
         <p className={s.fine}>Ana &amp; Paolo, Sat 14 Feb 2027. Names are samples.</p>
         <ol>
           {ONE_WEDDING.map((w) => (
-            <li key={w.name} className={w.fee ? s.wFee : s.wFree}>
+            <li key={w.name}>
               <div>
                 <b>{w.name}</b>
                 <small>{w.role}</small>

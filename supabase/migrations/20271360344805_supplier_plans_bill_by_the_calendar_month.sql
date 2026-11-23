@@ -20,16 +20,14 @@
 --       calendar month. A yearly row (no yearly SKU is on sale since 20271360321657) keeps its day count.
 --       `vendor_subscriptions.anchor_day` (new, 1–31, NULL on Apple and old rows) is the renewal day each web term
 --       was bought on. Shops only READ that table, so no shop can move its own day. Internal: not granted to any role.
---   1b · `vendor_plan_earned_grace_days(shop)` — DECISION_LOG 2026-11-22 "SUPPLIER PLAN GRACE = EARNED: 7 DAYS PER
---       PAID MONTH, MAX 30": min(30, 7 × paid plan months). The one reader of that number; here it only decides
---       whether a LATE renewal still lands on the anchor. (The uploads-stop / files-kept behaviour of grace is the
---       subscriptions build's, not this.)
 --   2 · `create_vendor_subscription` — the "a purchase must cover the time you already have" rule now asks whether a
 --       term started today would end before the plan the shop already has. Same rule, month-shaped term.
 --   3 · `_apply_subscription_credit` — WHERE A TERM STARTS AND WHICH DAY IT KEEPS:
 --         · a renewal while the plan is live (paid EARLY or on the day) starts at the current end and keeps the anchor;
---         · a renewal paid LATE, within the earned grace after the last paid term ended, still starts at that end and
---           keeps the anchor (the Apple billing-grace behaviour); past the grace it is a fresh start today, new anchor;
+--         · a renewal paid AFTER the end, by any amount, starts at the payment and runs one calendar month; its day
+--           becomes the new anchor. The shop had no plan after the end (the sweep drops it), so back-dating would
+--           charge it for days it never had (controller ruling (b), specs DECISION_LOG ce266e3a). Earned grace is the
+--           later subscriptions build's; nothing here reads it;
 --         · an upgrade starts today with today as its new anchor (its unused month is credited, as before);
 --         · a shop moving over from a 28-day term (no anchor on its row) takes that term's END DAY as its anchor.
 --       The purchase row's `period_days` is rewritten to the days its term actually holds (28–31).
@@ -118,31 +116,6 @@ COMMENT ON FUNCTION public.vendor_plan_term_end(TIMESTAMPTZ, TEXT, INT, INT) IS
   'THE ONE PLACE a supplier plan term''s end is worked out (owner 2026-11-22/23: plans bill MONTHLY, not every 4 weeks). Monthly = the renewal day (anchor) in the next calendar month on the Manila calendar, clamped to its last day (31 Jan -> 28/29 Feb -> 31 Mar -> 30 Apr); with no anchor, start + 1 calendar month. A yearly row keeps its day count. Called by create_vendor_subscription, _apply_subscription_credit and sweep_vendor_tier_expiry; internal, not granted to any user role.';
 
 REVOKE ALL ON FUNCTION public.vendor_plan_term_end(TIMESTAMPTZ, TEXT, INT, INT) FROM PUBLIC, anon, authenticated;
-
--- ----------------------------------------------------------------------------
--- 1b · Earned grace: min(30, 7 x paid plan months). DECISION_LOG 2026-11-22 (owner: "Yes, earned grace").
--- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.vendor_plan_earned_grace_days(p_vendor_id UUID)
-RETURNS INT
-LANGUAGE sql
-STABLE
-SET search_path = ''
-AS $$
-  -- Each paid plan term the shop has received is a paid month (web or Apple). A deferred change not yet started
-  -- carries no expires_at and is not counted until it runs.
-  SELECT LEAST(30, 7 * count(*))::INT
-    FROM public.vendor_subscriptions s
-   WHERE s.vendor_id = p_vendor_id
-     AND s.status = 'paid'
-     AND s.tier IN ('solo', 'pro', 'enterprise')
-     AND s.expires_at IS NOT NULL
-     AND s.period_days > 0;
-$$;
-
-COMMENT ON FUNCTION public.vendor_plan_earned_grace_days(UUID) IS
-  'Earned grace in days: min(30, 7 x paid plan months) -- DECISION_LOG 2026-11-22 "SUPPLIER PLAN GRACE = EARNED: 7 DAYS PER PAID MONTH, MAX 30". THE ONE READER of that number. Used by _apply_subscription_credit (20271360344805) so a renewal paid late inside the grace keeps the shop''s renewal day. Internal, not granted to any user role.';
-
-REVOKE ALL ON FUNCTION public.vendor_plan_earned_grace_days(UUID) FROM PUBLIC, anon, authenticated;
 
 -- ----------------------------------------------------------------------------
 -- 2 · Starting a purchase. The body of 20271177335213 §5; only the term lines change.
@@ -447,9 +420,9 @@ BEGIN
   --   · UPGRADE → today, and today becomes the anchor (the old month's unused days were just handed back as credit).
   --   · APPLE → as before; Apple overwrites the end with its own (see app_store_supplier_plan_apply), no web anchor.
   --   · Plan still live (renewal paid EARLY or on the day) → the current end, keeping the anchor.
-  --   · Plan already ended, but the renewal is paid inside the EARNED GRACE after the last paid term (min(30, 7 ×
-  --     paid months), DECISION_LOG 2026-11-22) → still that end, keeping the anchor: paying late never moves the day.
-  --   · Otherwise → a fresh start today, today as the anchor.
+  --   · Plan already ended (paid AFTER the end, by any amount) → a fresh month from the payment, the payment's day as
+  --     the new anchor. The sweep dropped the shop at the end, so it had no plan in between; back-dating would charge
+  --     it for days it never had (controller ruling (b), specs DECISION_LOG ce266e3a).
   -- The anchor is the last paid term's anchor_day; a term with none (a 28-day block from before this, an Apple month,
   -- a gift or a comp) gives its END DAY, so a shop moving over keeps the day its old term ended on.
   SELECT tier_expires_at INTO v_cur FROM public.vendor_profiles WHERE vendor_profile_id = v_s.vendor_id;
@@ -469,13 +442,6 @@ BEGIN
   ELSIF v_cur IS NOT NULL AND v_cur > now() THEN
     v_start := v_cur;
     v_anchor := CASE WHEN v_last.expires_at = v_cur THEN v_last.anchor_day END;
-  ELSIF GREATEST(v_last.expires_at, v_cur) IS NOT NULL
-        AND now() <= GREATEST(v_last.expires_at, v_cur)
-                     + make_interval(days => public.vendor_plan_earned_grace_days(v_s.vendor_id))
-  THEN
-    -- The later of the last paid term's end and what the profile still holds (a gift or comp may have run past it).
-    v_start := GREATEST(v_last.expires_at, v_cur);
-    v_anchor := CASE WHEN v_last.expires_at = v_start THEN v_last.anchor_day END;
   ELSE
     v_start := now();
   END IF;
@@ -485,7 +451,7 @@ BEGIN
   END IF;
 
   v_expires := public.vendor_plan_term_end(v_start, v_s.billing_cycle, v_s.period_days, v_anchor);
-  -- A late renewal whose month is somehow already over is a fresh start, never a term that ends before it begins.
+  -- A term that would end before it begins (never expected; a guard) is a fresh start today instead.
   IF v_expires <= now() THEN
     v_start  := now();
     v_anchor := CASE WHEN v_kind <> 'app_store' THEN EXTRACT(DAY FROM now() AT TIME ZONE 'Asia/Manila')::INT END;

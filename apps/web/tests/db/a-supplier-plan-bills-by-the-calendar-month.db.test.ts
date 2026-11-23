@@ -19,8 +19,9 @@ import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrat
  *   6 · The "cover the time you already have" rule is month-shaped: equal is allowed, an hour over is refused.
  *   7 · The plan names say "monthly".
  *   8 · THE RENEWAL DAY (anchor): a shop that began on the 31st renews 31 Jan → 28/29 Feb → 31 Mar → 30 Apr → 31 May,
- *       whether it pays early, on the day, or late inside its earned grace (7 days per paid month, max 30). Past the
- *       grace it starts fresh with today as its day. An upgrade takes today as its day.
+ *       whether it pays early or on the day. Paid AFTER the end, by any amount, it is a full month from the payment
+ *       and the payment's day becomes its day: the sweep dropped the shop at the end, so back-dating would charge it
+ *       for days it never had (controller ruling (b), specs DECISION_LOG ce266e3a). An upgrade takes today as its day.
  */
 
 let replay: ReplayResult;
@@ -256,50 +257,43 @@ test('8c · paid EARLY, with weeks still left, it still lands on the renewal day
   assert.equal((await purchase(p)).anchor_day, 31);
 });
 
-test('8d · paid LATE inside the earned grace, it still starts at the old end and lands on the renewal day', async () => {
-  // Two paid months = 14 days of grace. The last term ended 5 days ago and the sweep has dropped the shop to Verified.
+test('8d · paid 10 DAYS LATE, it is one full calendar month from the payment, and the payment day is its new day', async () => {
+  // Two paid months behind it, the last on the 17th, ended 10 days ago; the sweep has dropped the shop to Verified.
+  // A back-dated month would end ~20 days from now: the shop would pay a month for ~20 days of plan.
   const { vendorId } = await newShop('verified', 'NULL');
-  await paidPurchase(vendorId, 'solo', 1490, 31, "now() - INTERVAL '36 days'");
-  const last = await paidPurchase(vendorId, 'solo', 1490, 31, "now() - INTERVAL '5 days'", 17);
-  const g = await db.query<{ d: number }>(`SELECT public.vendor_plan_earned_grace_days($1) AS d`, [vendorId]);
-  assert.equal(g.rows[0]!.d, 14, '7 days per paid month');
-
-  const oldEnd = (await purchase(last)).expires_at;
-  const p = await pendingPurchase(vendorId, 'solo', 'new', 1490);
-  await db.query(`SELECT public._apply_subscription_credit($1, NULL)`, [p]);
-  const want = await db.query<{ e: string }>(
-    `SELECT to_char(public.vendor_plan_term_end($1::timestamptz, 'monthly', NULL, 17) AT TIME ZONE 'Asia/Manila',
-                    'YYYY-MM-DD HH24:MI') AS e`,
-    [oldEnd],
-  );
-  assert.equal(await tierEnd(vendorId), want.rows[0]!.e, 'the late payment covers from the old end, to the 17th');
-  const row = await purchase(p);
-  assert.equal(row.anchor_day, 17, 'paying late never moves the day');
-  const back = await db.query<{ ok: boolean }>(
-    `SELECT (expires_at - make_interval(days => period_days)) = $2::timestamptz AS ok
-       FROM public.vendor_subscriptions WHERE purchase_id = $1`,
-    [p, oldEnd],
-  );
-  assert.equal(back.rows[0]!.ok, true, 'the row reads back as starting at the old end, so the credit maths hold');
-});
-
-test('8e · paid after the earned grace is over, it is a fresh month from today, today as its day', async () => {
-  // One paid month = 7 days of grace; it ended 10 days ago.
-  const { vendorId } = await newShop('verified', 'NULL');
+  await paidPurchase(vendorId, 'solo', 1490, 31, "now() - INTERVAL '41 days'", 17);
   await paidPurchase(vendorId, 'solo', 1490, 31, "now() - INTERVAL '10 days'", 17);
   const p = await pendingPurchase(vendorId, 'solo', 'new', 1490);
+  await db.query(`SELECT public._apply_subscription_credit($1, NULL)`, [p]);
+
+  assert.equal(await tierEnd(vendorId), await manilaMonthOn('now()'), 'one calendar month from the payment');
+  const row = await purchase(p);
+  assert.equal(row.anchor_day, await manilaToday(), 'the payment day becomes the renewal day');
+  assert.ok(row.period_days >= 28 && row.period_days <= 31, `a full month, got ${row.period_days} days`);
+  const back = await db.query<{ ok: boolean }>(
+    `SELECT abs(EXTRACT(EPOCH FROM ((expires_at - make_interval(days => period_days)) - now()))) < 86400 AS ok
+       FROM public.vendor_subscriptions WHERE purchase_id = $1`,
+    [p],
+  );
+  assert.equal(back.rows[0]!.ok, true, 'the row reads back as starting at the payment, not at the old end');
+});
+
+test('8e · paid even ONE HOUR after the end, it is still a fresh month from the payment', async () => {
+  const { vendorId } = await newShop('verified', 'NULL');
+  await paidPurchase(vendorId, 'pro', 4990, 31, "now() - INTERVAL '1 hour'", 3);
+  const p = await pendingPurchase(vendorId, 'pro', 'new', 4990);
   await db.query(`SELECT public._apply_subscription_credit($1, NULL)`, [p]);
   assert.equal(await tierEnd(vendorId), await manilaMonthOn('now()'));
   assert.equal((await purchase(p)).anchor_day, await manilaToday());
 });
 
-test('8f · earned grace is 7 days per paid month, never more than 30', async () => {
-  const { vendorId } = await newShop('verified', 'NULL');
-  const grace = async () =>
-    (await db.query<{ d: number }>(`SELECT public.vendor_plan_earned_grace_days($1) AS d`, [vendorId])).rows[0]!.d;
-  assert.equal(await grace(), 0, 'no paid month, no grace');
-  for (let i = 1; i <= 5; i += 1) await paidPurchase(vendorId, 'solo', 1490, 30, `now() - INTERVAL '${i * 30} days'`, 1);
-  assert.equal(await grace(), 30, '5 months would be 35, held at 30');
+test('8f · no earned-grace back-date is left: the grace reader is not shipped by this migration', async () => {
+  const r = await db.query<{ f: string | null }>(`SELECT to_regprocedure('public.vendor_plan_earned_grace_days(uuid)')::text AS f`);
+  assert.equal(r.rows[0]!.f, null, 'earned grace is the later subscriptions build’s, not this one');
+  const body = await db.query<{ src: string }>(
+    `SELECT pg_get_functiondef('public._apply_subscription_credit(uuid,uuid)'::regprocedure) AS src`,
+  );
+  assert.doesNotMatch(body.rows[0]!.src, /grace/i, '_apply_subscription_credit still back-dates a late renewal');
 });
 
 test('3 · a 28-day term already running KEEPS its end; its renewal adds a month from that end', async () => {
@@ -408,8 +402,8 @@ test('7 · the monthly plans are named "monthly", never "4 weeks"', async () => 
   );
 });
 
-test('the term rule and the grace count are internal: no signed-in or anonymous caller may run them', async () => {
-  for (const fn of ['public.vendor_plan_term_end(timestamptz,text,int,int)', 'public.vendor_plan_earned_grace_days(uuid)']) {
+test('the term rule is internal: no signed-in or anonymous caller may run it', async () => {
+  for (const fn of ['public.vendor_plan_term_end(timestamptz,text,int,int)']) {
     const r = await db.query<{ anon: boolean; authed: boolean }>(
       `SELECT has_function_privilege('anon', $1, 'EXECUTE') AS anon,
               has_function_privilege('authenticated', $1, 'EXECUTE') AS authed`,

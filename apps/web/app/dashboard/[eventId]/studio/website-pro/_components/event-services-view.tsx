@@ -512,7 +512,7 @@ export function EventServicesView({
         <div className="es-step" role="status" aria-live="polite" data-event-services-apple-step={`${step.at}/${step.of}`}>
           <div className="es-step-sheet">
             <p className="es-kick">
-              {step.at} of {step.of}
+              {formatCount(step.at)} of {formatCount(step.of)}
             </p>
             <p className="es-big">{step.label}</p>
             <p className="es-fine">Apple’s own payment sheet opens now.</p>
@@ -528,7 +528,7 @@ export function EventServicesView({
               <b>{cart.label}</b>
               <small>
                 {apple ? (
-                  appleCount === 1 ? `Apple’s price · ${IAP_COPY.billedByApple}` : `Apple’s prices · ${appleCount} Apple payments`
+                  appleCount === 1 ? `Apple’s price · ${IAP_COPY.billedByApple}` : `Apple’s prices · ${formatCount(appleCount)} Apple payments`
                 ) : failed ? (
                   <span className="es-warn">{failed}</span>
                 ) : cart.totalPhp === null ? (

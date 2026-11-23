@@ -119,7 +119,7 @@ test('5 · ONE terracotta: Pay is the main button; every other button is a quiet
   assert.ok(buttons.length >= 3, 'the view’s buttons were not found');
   const mains = buttons.filter((b) => /\bmain\b/.test(b));
   assert.equal(mains.length, 1, 'more than one main (terracotta) button');
-  assert.match(mains[0], /data-event-services-pay/, 'the one main button is not Pay');
+  assert.match(mains[0] ?? '', /data-event-services-pay/, 'the one main button is not Pay');
   for (const b of buttons.filter((x) => !/\bmain\b/.test(x))) assert.match(b, /\bquiet\b/, `a button is not a quiet pill: ${b.slice(0, 80)}`);
   assert.match(sheet(), /\[data-event-services\] :is\(button, a\)\.ab\.ab\.ab\.quiet \{[^}]*border: 1px solid var\(--web-line\);/, 'the quiet pill lost its hairline');
 });

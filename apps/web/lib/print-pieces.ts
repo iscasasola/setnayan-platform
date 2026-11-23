@@ -297,6 +297,12 @@ export const DIE_CUTS: Record<InviteThemeId, DieCut> = {
   regency: 'arch',
   gatsby: 'chevron',
   cyber: 'rounded',
+  // 23 Nov redraw, batch 1 — straight-cut, but Capiz's pane and the soft Perlas card.
+  perlas: 'rounded',
+  waling: 'rect',
+  capiz: 'rect',
+  hagdan: 'rect',
+  solihiya: 'rect',
 };
 
 /**
@@ -337,6 +343,12 @@ const SPOT_LAYERS: Record<InviteThemeId, { foil: boolean; whiteInk: boolean }> =
   regency: { foil: true, whiteInk: false },
   gatsby: { foil: true, whiteInk: true },
   cyber: { foil: false, whiteInk: true },
+  // 23 Nov redraw, batch 1 — white ink under the light type of the two dark sheets.
+  perlas: { foil: false, whiteInk: false },
+  waling: { foil: false, whiteInk: true },
+  capiz: { foil: false, whiteInk: false },
+  hagdan: { foil: false, whiteInk: true },
+  solihiya: { foil: false, whiteInk: false },
 };
 
 export function spotLayersFor(theme: InviteThemeId): { foil: boolean; whiteInk: boolean } {
@@ -451,6 +463,12 @@ const STILLS: Record<InviteThemeId, StillPlacement> = {
   regency: 'top',
   gatsby: 'full',
   cyber: 'full',
+  // 23 Nov redraw, batch 1 — the still lies under the whole card, as each sheet's invitation draws it.
+  perlas: 'full',
+  waling: 'full',
+  capiz: 'full',
+  hagdan: 'top',
+  solihiya: 'full',
 };
 
 const TYPE: Record<
@@ -467,6 +485,14 @@ const TYPE: Record<
   regency: { head: 'bodoni', script: 'luxurious', body: 'cardo', ornament: '❦' },
   gatsby: { head: 'cinzel', script: null, body: 'cardo', ornament: '◆', caps: true },
   cyber: { head: 'poppinsBold', script: null, body: 'poppins', ornament: '◆', caps: true },
+  // 23 Nov redraw, batch 1 — each sheet's heading face where the server holds it (Italiana, Marcellus, Lora); the rest
+  // take the nearest bundled one, as this table's rule says (Gloock → Bodoni, Epilogue → Poppins Bold, the sans bodies
+  // → Poppins, Newsreader → Cardo).
+  perlas: { head: hubPrintFont('italiana'), script: null, body: 'poppins', ornament: '•', caps: true },
+  waling: { head: 'bodoni', script: null, body: hubPrintFont('outfit'), ornament: '✦' },
+  capiz: { head: hubPrintFont('marcellus'), script: null, body: 'poppins', ornament: '◇' },
+  hagdan: { head: hubPrintFont('lora'), script: null, body: 'poppins', ornament: '—' },
+  solihiya: { head: 'poppinsBold', script: null, body: 'cardo', ornament: '—', caps: true },
 };
 
 /**

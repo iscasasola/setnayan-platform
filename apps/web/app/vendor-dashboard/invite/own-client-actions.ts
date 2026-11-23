@@ -92,6 +92,7 @@ export async function saveOwnClient(_prev: OwnClientActionState, formData: FormD
       return fail('The gift couldn’t be saved. Try again.');
     }
     revalidatePath('/vendor-dashboard/shop/promote');
+    revalidatePath('/vendor-dashboard/shop/qrs/[code]', 'page');
     return { status: 'set', gift: line.title };
   }
 

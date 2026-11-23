@@ -186,19 +186,23 @@ test('coming and no-reply move when the guest list does', async () => {
   };
   const small = [guest('attending'), guest('pending'), guest('declined')];
   const big = [...small, guest('attending'), guest('attending'), guest('pending')];
-  // The Guests widget's counted figures (`Count` ids — the face and the card share them).
+  // The Guests widget's counted figures — the board card's `Count` ids, the ONE copy at every width since 23 Nov 2026
+  // (owner, v5 drawing in the website look; the phone's tile that shared the bare ids is retired).
   const counted = (id: string) => (h: string) => h.match(new RegExp(`data-count="${id}"[^>]*>([^<]*)<`))?.[1] ?? null;
-  await assertOutputMoves({ what: 'Home · coming', render, read: counted('home-guests-coming'), inputs: [small, big], expect: ['1', '3'] });
-  await assertOutputMoves({ what: 'Home · no reply', render, read: counted('home-guests-noreply'), inputs: [small, big], expect: ['1', '2'] });
+  await assertOutputMoves({ what: 'Home · coming', render, read: counted('home-guests-coming-board'), inputs: [small, big], expect: ['1', '3'] });
+  await assertOutputMoves({ what: 'Home · no reply', render, read: counted('home-guests-noreply-board'), inputs: [small, big], expect: ['1', '2'] });
 });
 
 test('a guest read that did not happen prints "—", never 0 coming', async () => {
   const f = await factsFor({ guests: [], measured: false });
   const html = await paint({ facts: f, roster: null });
   // Said, not a bare "—" (H3, 2026-10-07): the Guests widget becomes one "couldn't load" face.
-  assert.doesNotMatch(html, /data-count="home-guests-coming"/, 'no "coming" number is drawn from a read that did not happen');
+  assert.doesNotMatch(html, /data-count="home-guests-coming/, 'no "coming" number is drawn from a read that did not happen');
   assert.match(html, /Guest counts couldn’t load/);
-  const guests = html.slice(html.indexOf('data-home-tile="guests"'), html.indexOf('data-home-tile="', html.indexOf('data-home-tile="guests"') + 20));
+  // The board's Guests card (the ONE copy since 23 Nov 2026), up to the next card.
+  const at = html.indexOf('data-home-card-key="guests"');
+  assert.ok(at > 0, 'the Guests widget is not drawn');
+  const guests = html.slice(at, html.indexOf('data-home-card-key="', at + 20));
   assert.doesNotMatch(guests, />0</);
 });
 
@@ -207,8 +211,9 @@ test('Paid and Still owing move when the money does — and "—" when it was no
     const f = await factsFor({ money: m });
     return paint({ facts: f, money: m });
   };
-  const owing = (html: string) => html.match(/>Still owing<\/div><div[^>]*>(?:<span[^>]*>)?([^<]+)</)?.[1] ?? null;
-  const paid = (html: string) => html.match(/>Paid<\/div><div[^>]*>(?:<span[^>]*>)?([^<]+)</)?.[1] ?? null;
+  // 🌐 23 Nov 2026 (owner, v5 drawing): Paid and still owing are the Budget section's one fine line, each through Count.
+  const owing = (html: string) => html.match(/ · still owing <span[^>]*>([^<]+)</)?.[1] ?? null;
+  const paid = (html: string) => html.match(/>Paid <span[^>]*>([^<]+)</)?.[1] ?? null;
   const a = await render({ paid: 12_000, owing: 3_000 });
   const b = await render({ paid: 20_000, owing: 500 });
   assert.notEqual(owing(a), owing(b), 'Still owing did not move with the money');

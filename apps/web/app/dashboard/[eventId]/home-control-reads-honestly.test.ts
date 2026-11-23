@@ -3,8 +3,8 @@
  * `home_control_center_2026-10-24_fable.html`: *"'Couldn't load · not zero · unread' + Reload is the single face"*;
  * the rule of `lib/guests-read-is-honest.test.ts`, carried onto every upper widget).
  *
- *   1 · RENDERED: with every read failed, each upper widget — on the phone and from md up — says it could not load,
- *       offers ⟳ Reload, and draws no 0, no ₱0, no dots and no rotation.
+ *   1 · RENDERED: with every read failed, each upper widget — the board's ONE copy at every width since 23 Nov 2026
+ *       (v5 drawing, the website look) — says it could not load, offers ⟳ Reload, and draws no 0, no ₱0.
  *   2 · THE MODEL: a failed widget is ONE face that never rotates; a payment ledger that could not be resolved never
  *       draws a payment face and says so on the summary.
  *   3 · THE READS: each widget's reader answers 'unread' on a refusal (Supabase RESOLVES with `{ error }`), and the
@@ -33,31 +33,25 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]
 /** What a person reads, without the words that SAY it is not zero ("not ₱0", "not zero"). */
 const figures = (html: string) => text(html).replace(/not (₱0|zero)/g, '');
 
-test('1 · every failed widget says so, offers Reload, and draws no 0 / ₱0 — on the phone and from md up', () => {
+test('1 · every failed widget says so, offers Reload, and draws no 0 / ₱0 — at every width', () => {
   const html = drawHome({ control: fixtureControlUnread('e1') });
-  const compact = slice(html, 'data-home-control="compact"', ['data-home-control="detail"']);
-  const detail = slice(html, 'data-home-control="detail"', ['data-home-services']);
+  // 🌐 23 Nov 2026 (owner, v5 drawing in the website look): the phone's tiles and the md copy are retired — the board's
+  // cards are the ONE copy at every width, so each failed widget is checked there, once.
+  assert.equal(count(html, 'data-home-control="compact"') + count(html, 'data-home-control="detail"'), 0, 'a retired copy of the widgets is back');
+  const detail = slice(html, 'data-home-control="board"', ['data-home-services']);
   // 🎴 The Countdown is the event card's figure and the plan is the To do list under the card (Home redraw 2026-11-02):
   // neither is a widget, so the To do list is checked on its own below.
   const failing = HOME_CONTROL_KEYS.filter((k) => k !== 'count' && k !== 'plan');
   for (const key of failing) {
-    const tile = slice(compact, `data-home-tile="${key}"`, HOME_CONTROL_KEYS.map((k) => `data-home-tile="${k}"`).filter((m) => m !== `data-home-tile="${key}"`));
-    assert.ok(tile.length > 0, `compact: the ${key} tile is not drawn`);
-    assert.match(text(tile), /couldn.t load/i, `compact: the failed ${key} tile does not say it could not load`);
-    assert.match(tile, /data-home-tile-failed=""/);
-    assert.match(tile, /aria-label="Reload"/, `compact: the failed ${key} tile offers no Reload`);
-    assert.doesNotMatch(figures(tile), /(^|\s)0(\s|$)|₱0/, `compact: the failed ${key} tile prints a zero`);
-    assert.equal(count(tile, 'data-hc-dot'), 0, `compact: a failed ${key} tile has faces to swipe`);
-    assert.doesNotMatch(tile, /data-home-tile-rotates/, `compact: a failed ${key} tile rotates`);
-
     const card = slice(detail, `data-home-card-key="${key}"`, HOME_CONTROL_KEYS.map((k) => `data-home-card-key="${k}"`).filter((m) => m !== `data-home-card-key="${key}"`));
-    assert.ok(card.length > 0, `detail: the ${key} card is not drawn`);
-    assert.match(text(card), /couldn.t load/i, `detail: the failed ${key} card does not say it could not load`);
-    assert.match(card, /aria-label="Reload"/, `detail: the failed ${key} card offers no Reload`);
-    assert.doesNotMatch(figures(card), /(^|\s)0(\s|$)|₱0/, `detail: the failed ${key} card prints a zero`);
+    assert.ok(card.length > 0, `board: the ${key} card is not drawn`);
+    assert.match(text(card), /couldn.t load/i, `board: the failed ${key} card does not say it could not load`);
+    assert.match(card, /aria-label="Reload"/, `board: the failed ${key} card offers no Reload`);
+    assert.doesNotMatch(figures(card), /(^|\s)0(\s|$)|₱0/, `board: the failed ${key} card prints a zero`);
+    assert.equal(count(card, 'data-hc-dot'), 0, `board: a failed ${key} card has faces to swipe`);
   }
   // ✅ The To do list under the card: said, with ⟳ — never an empty list.
-  const todo = slice(html, 'data-home-todo="unread"', ['data-home-your-event']);
+  const todo = slice(html, 'data-home-todo="unread"', ['data-home-control="board"']);
   assert.ok(todo.length > 0, 'a failed plan read is not said on the To do list');
   assert.match(text(todo), /couldn.t load/i, 'the failed To do does not say it could not load');
   assert.match(todo, /data-home-todo-reload=""/, 'the failed To do offers no Reload');
@@ -132,9 +126,9 @@ test('4 · the Schedule widget: a refused read says so — never "No chapters ye
   assert.equal(await readHomeSchedule(client(null), 'e1', { show: false, tz: null }), null, 'a viewer who does not plan gets a widget');
 
   const html = drawHome({ control: fixtureControl('e1', { schedule: 'unread' }) });
+  // 🌐 One copy at every width since 23 Nov 2026 (v5 drawing): the board's Schedule tile.
   for (const [where, part] of [
-    ['phone', slice(slice(html, 'data-home-control="compact"', ['data-home-control="detail"']), 'data-home-tile="sched"', ['data-home-glance'])],
-    ['md', slice(slice(html, 'data-home-control="detail"', ['data-home-services']), 'data-home-tile="sched"', ['data-home-card-key="hub"'])],
+    ['board', slice(slice(html, 'data-home-board="middle"', ['data-home-services']), 'data-home-tile="sched"', ['data-home-board="right"'])],
   ] as const) {
     assert.ok(part.length > 0, `${where}: the failed Schedule is not drawn`);
     assert.match(text(part), /Schedule couldn.t load/, `${where}: the failed Schedule does not say so`);

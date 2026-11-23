@@ -160,10 +160,11 @@ export function termIsTooShort(
 export function termTooShortMessage(tierExpiresAt: string | null): string {
   const day = tierExpiresAt ? dayWords(tierExpiresAt) : null;
   return day
-    ? `You're paid up until ${day}. That plan is shorter than the time you ` +
-        `already have, so choose the yearly plan, or come back nearer that date.`
-    : `That plan is shorter than the time you already have. Choose the yearly ` +
-        `plan, or come back nearer the end of your current plan.`;
+    ? // Monthly only since owner 2026-11-22 ("no yearly for any supplier subscription") — the way out is the date.
+      `You're paid up until ${day}. That plan is shorter than the time you ` +
+        `already have, so come back nearer that date.`
+    : `That plan is shorter than the time you already have. Come back nearer ` +
+        `the end of your current plan.`;
 }
 
 /**

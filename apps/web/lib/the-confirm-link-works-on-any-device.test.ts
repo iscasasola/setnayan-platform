@@ -87,13 +87,14 @@ test('the dead-link screen has a "Send a new link" button that re-sends — thro
 
 test('W1-B25 · a link with no destination lands a SUPPLIER on the shop — from both email routes', async () => {
   const { landingForAccount } = await import('./auth-confirm-link');
-  assert.equal(landingForAccount('/', 'vendor'), '/vendor-dashboard');
-  assert.equal(landingForAccount('/', 'customer'), '/');
+  // 22 Nov 2026 ("start on their profile page"): the shop is Home's Shop section; everyone else opens on Home.
+  assert.equal(landingForAccount('/', 'vendor'), '/dashboard?seg=shop');
+  assert.equal(landingForAccount('/', 'customer'), '/dashboard?hub=1');
   assert.equal(landingForAccount('/x', 'vendor'), '/x', 'a real destination is honoured');
   const confirm = stripComments(read('app/auth/confirm/route.ts'));
   assert.match(confirm, /NextResponse\.redirect\(new URL\(landingForAccount\(next, accountType\), url\.origin\)\)/);
   const callback = stripComments(read('app/auth/callback/route.ts'));
-  assert.match(callback, /if \(rawNext === '\/' && accountType === 'vendor'\) landing = landingForAccount\(rawNext, accountType\);/);
+  assert.match(callback, /if \(rawNext === '\/'\) landing = landingForAccount\(rawNext, accountType\);/);
 });
 
 test('W1-B5 · both expired screens send a NEW link in place — the sent page\'s path and words', () => {

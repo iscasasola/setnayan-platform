@@ -1,46 +1,23 @@
 import { displayServiceLabel } from '@/lib/vendors';
-import { hasVerifiedBadge } from '@/lib/verified-badge';
 
 /**
- * lib/vendor-og-description.ts — the one descriptive line on a shop's share
- * card (`app/api/og/v/[slug]/route.tsx`, E1 "a shop's link preview never
- * breaks").
+ * lib/vendor-og-description.ts — the "what they do · city" line on a shop's share card (`app/api/og/v/[slug]/route.tsx`,
+ * `lib/social/vendor-card.tsx`).
  *
- * Pure (no `server-only`, no SDK) so it is directly node:test-able — split out
- * per the house rule that `server-only` is not installed for node:test and a
- * route file pulling in `next/server` should not be the only place this logic
- * lives.
+ * Shop share card v2 (owner, 21 Nov 2026; DECISION_LOG "SHOP SHARE CARD v2 — APPROVED TO BUILD"): the card keeps the
+ * "category · city" half of the old descriptive line and drops the rest —
+ *   · the tagline branch: the tagline still shows as the text UNDER the picture (the page's og:description);
+ *   · the word "Verified": the seal on the logo and the top line say it now (drawing "Removes").
  *
- * The shop's own tagline when it has one; otherwise "category · city ·
- * Verified" — each part present only when it is actually true. Never a
- * fabricated placeholder: this is the same row-3838 house rule ("never a
- * stock photo, a zero, or an empty chart") D2 already enforces on the public
- * page itself.
- *
- * "Verified" here follows the badge's own deadline (owner rulings 2026-09-11,
- * DECISION_LOG "SEVEN SUPPLIER-SIDE QUESTIONS" Q4/Q5) via `hasVerifiedBadge`
- * — not `verification_state` alone, which a share card could otherwise keep
- * advertising past the badge's own lapse.
+ * Pure (no `server-only`, no SDK) so it is node:test-able. Each part only when it is true — never a fabricated
+ * placeholder (row-3838): no service and no city is NO line (null), and the card leaves the line out.
  */
-export function composeVendorOgDescription(vendor: {
-  tagline: string | null;
+export function composeVendorTradeLine(vendor: {
   services: readonly string[] | null | undefined;
   location_city: string | null;
-  verification_state?: string | null;
-  next_renewal_due_at?: string | null;
-}): string {
-  const tagline = vendor.tagline?.trim();
-  if (tagline) return tagline;
+}): string | null {
   const category = vendor.services?.[0] ? displayServiceLabel(vendor.services[0]) : null;
   const city = vendor.location_city?.trim() || null;
   const parts = [category, city].filter((p): p is string => Boolean(p));
-  if (
-    hasVerifiedBadge({
-      verification_state: vendor.verification_state ?? null,
-      next_renewal_due_at: vendor.next_renewal_due_at ?? null,
-    })
-  ) {
-    parts.push('Verified');
-  }
-  return parts.length > 0 ? parts.join(' · ') : 'A Setnayan shop.';
+  return parts.length > 0 ? parts.join(' · ') : null;
 }

@@ -574,7 +574,7 @@ function BenchPic({ rows }: { rows: readonly { title: string; pct: number; word:
   );
 }
 
-const PILLAR_COLOR = (s: number) => (s > 85 ? 'rgb(var(--color-ok))' : s >= 70 ? 'var(--m-orange)' : 'rgb(var(--color-danger))');
+const PILLAR_COLOR = (s: number) => (s > 85 ? 'rgb(var(--color-ok))' : s >= 70 ? 'rgb(var(--color-chart-asked))' : 'rgb(var(--color-danger))');
 
 function Health({ h }: { h: GrowthView['health'] }) {
   const ghost = h.unread || h.composite === null;
@@ -675,7 +675,7 @@ function HeatRow({ day, row, max }: { day: string; row: number[]; max: number })
     <>
       <span className="ag-l">{day}</span>
       {row.map((v, j) => (
-        <span key={j} className="ag-c" style={v ? { background: `color-mix(in srgb, var(--m-orange-2) ${Math.round(20 + (v / max) * 80)}%, var(--m-paper))` } : undefined} />
+        <span key={j} className="ag-c" style={v ? { background: `color-mix(in srgb, rgb(var(--color-chart-asked)) ${Math.round(20 + (v / max) * 80)}%, var(--m-paper))` } : undefined} />
       ))}
     </>
   );

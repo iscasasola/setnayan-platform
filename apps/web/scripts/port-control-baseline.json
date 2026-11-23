@@ -405,6 +405,7 @@
         "Head",
         "Image",
         "Link",
+        "SampleDateFit",
         "ServiceFace",
         "T"
       ]
@@ -414,6 +415,7 @@
         "(shell)/for-suppliers/loading.tsx",
         "(shell)/for-suppliers/page.tsx",
         "for-suppliers/_components/plan-table-data.ts",
+        "for-suppliers/_components/sample-card-date-fit.tsx",
         "for-suppliers/_components/supplier-front-client.tsx",
         "for-suppliers/_components/supplier-front-data.ts",
         "for-suppliers/_components/supplier-front-info.tsx",
@@ -435,6 +437,7 @@
         "Lede",
         "Link",
         "PlanRows",
+        "SampleDateFit",
         "SecHead",
         "ServiceFace",
         "SupplierFrontPage",
@@ -17106,6 +17109,7 @@
         "vendor-dashboard/performance/_components/reply-gauge.tsx",
         "vendor-dashboard/performance/_components/source-bars.tsx",
         "vendor-dashboard/performance/_components/stars-fill.tsx",
+        "vendor-dashboard/performance/_components/three-years.tsx",
         "vendor-dashboard/performance/_components/verified-median-card.tsx",
         "vendor-dashboard/performance/page.tsx"
       ],
@@ -17131,9 +17135,7 @@
         "CardSellPic",
         "Cell",
         "Count",
-        "CountAxis",
-        "CountBarsPic",
-        "CountLinePic",
+        "CountPic",
         "DatesRow",
         "Dot",
         "Figure",
@@ -17185,6 +17187,7 @@
         "Sub",
         "Sweep",
         "T",
+        "ThreeYears",
         "TrackerFacts",
         "Value",
         "VendorTierGate",
@@ -17839,6 +17842,8 @@
         "ActionButton",
         "Amount",
         "AnalyticsPlaceholder",
+        "ApplePlanDoor",
+        "AppleShopPlanRead",
         "ApplicationStatus",
         "ArrangementsBody",
         "AutoReplyCard",
@@ -18170,6 +18175,7 @@
     },
     "/vendor-dashboard/subscription": {
       "files": [
+        "vendor-dashboard/subscription/_components/apple-plan-door.tsx",
         "vendor-dashboard/subscription/_components/badge-upgrades-data.ts",
         "vendor-dashboard/subscription/_components/badge-upgrades-section.tsx",
         "vendor-dashboard/subscription/_components/limits-sheet.tsx",
@@ -18198,6 +18204,8 @@
         "action",
         "cancelScheduledPlanChange",
         "formAction",
+        "routes.privacy",
+        "routes.terms",
         "startSubscriptionPurchase"
       ],
       "blocks": [
@@ -18211,7 +18219,6 @@
         "BookingFeeStanding",
         "CapizLight",
         "Column",
-        "Cycle",
         "DatesRow",
         "FitLine",
         "Fold",
@@ -18240,7 +18247,6 @@
         "StayForm",
         "SubmitButton",
         "SupplierSubmit",
-        "SwitchTrack",
         "Vendor3dBoothActionState",
         "VendorAiAddonActionState"
       ]

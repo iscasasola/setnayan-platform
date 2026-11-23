@@ -9,6 +9,7 @@ import {
   verifyAppleTransaction,
 } from './apple-transaction';
 import { fulfilAppleTransaction, revokeAppleTransaction } from './fulfil.server';
+import { handleSupplierPlanNotification } from './supplier-subscription.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 
 /**
@@ -24,6 +25,8 @@ import { insertFaultLog } from '@/lib/telemetry/fault-log';
  *   200 — handled, or deliberately ignored (a type we do not act on, TEST);
  *   400 — not Apple's signature / not our app: retrying cannot help;
  *   500 — a read or write failed on OUR side: retry, please.
+ *
+ * 🏪 Supplier plans (auto-renewable subscriptions) are handed to lib/iap/supplier-subscription.server.ts first.
  *
  * Ignored on purpose, and named: `REFUND_REVERSED` is recorded for an admin to
  * re-approve by hand (re-running activation automatically on a reversal is the
@@ -44,6 +47,12 @@ export async function handleAppStoreNotification(
   if (n.bundleId && n.bundleId !== APP_BUNDLE_ID) return { http: 400, what: 'another app' };
 
   if (n.notificationType === 'TEST') return { http: 200, what: 'TEST' };
+
+  // 🏪 A SUPPLIER PLAN (an auto-renewable subscription in "Supplier plans", owner-locked 22 Nov): SUBSCRIBED · DID_RENEW
+  // · DID_CHANGE_RENEWAL_PREF · DID_FAIL_TO_RENEW · GRACE_PERIOD_EXPIRED · EXPIRED · REFUND · REVOKE take their own
+  // path (lib/iap/supplier-subscription.server.ts). Null = not about a supplier plan: a consumable's REFUND goes on below.
+  const plan = await handleSupplierPlanNotification(admin, outer.payload, trustedRoots);
+  if (plan) return plan;
   if (n.notificationType !== 'ONE_TIME_CHARGE' && n.notificationType !== 'REFUND' && n.notificationType !== 'REFUND_REVERSED') {
     return { http: 200, what: `ignored ${n.notificationType}` };
   }

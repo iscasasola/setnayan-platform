@@ -28,6 +28,7 @@ import {
   type SourceSlice,
 } from '@/lib/vendor-funnel';
 import {
+  fetchBookedSeries,
   fetchInquiriesSeries,
   fetchUpcomingBookedDays,
   fetchViewsSeries,
@@ -278,6 +279,7 @@ export async function OneAnalyticsSection({
     inquiriesSeries,
     upcomingBooked,
     badgeFacts,
+    bookedSeries,
   ] = await Promise.all([
     safeRead(
       supabase
@@ -402,6 +404,9 @@ export async function OneAnalyticsSection({
       : Promise.resolve(null),
     // 🏅 The badges, started above — awaited in this same batch (no extra round trip).
     badgeFactsRead,
+    // 📈 VS LAST YEAR (owner 21 Nov 2026): the Booked stage by day and month, last year and three seasons — the views
+    // and inquiries series above carry theirs. `event_vendors` on `bookingsAdmin` (no vendor SELECT policy, see above).
+    safeRead(fetchBookedSeries(bookingsAdmin as unknown as SeriesClient, profile.vendor_profile_id, nowMs), null, 'booked_series'),
   ]);
   // 📈 The five new graphs (Build 6 Lane I — lost dates · which card sells · reply speed vs bookings · slow months ·
   // quotes waiting), started the moment the shop's cards are known and awaited at the recommendations below, so they
@@ -592,6 +597,8 @@ export async function OneAnalyticsSection({
     totals12: pinYear.totals,
     views: viewsSeries,
     inquiries: inquiriesSeries,
+    bookedSeries,
+    shopCreatedAt: profile.created_at ?? null,
     bookedDay: bookingDailySeries,
     bookedMonth: bookingSeries,
     viewsBySource: { '30': viewsBySourceDay, '12': viewsBySourceYear },

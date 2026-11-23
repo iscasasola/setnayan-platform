@@ -91,10 +91,8 @@ export type TableGroup = { title: string; rows: TableRow[] };
 
 /** Prices the page read, by plan and by SKU. `null` = unread → "—". */
 export type PlanTablePrices = {
+  /** Monthly only — no yearly supplier plan (owner 2026-11-22). */
   monthly: Partial<Record<VendorTier, string | null>>;
-  annual: Partial<Record<VendorTier, string | null>>;
-  /** What a year saves against 13 blocks of 4 weeks (`getVendorPrices().*AnnualSave`). */
-  annualSave?: Partial<Record<VendorTier, string | null>>;
   bySku: Readonly<Record<string, string | null>>;
 };
 
@@ -173,16 +171,8 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
   }
 
   const free = (t: VendorTier) => t === 'free' || t === 'verified';
-  const yearCell = (t: VendorTier): TableCell => {
-    if (free(t)) return no('Nothing to pay');
-    const yr = prices.annual[t];
-    if (!yr) return words(DASH);
-    const save = prices.annualSave?.[t];
-    return words(save ? `${yr} · save ${save}` : yr);
-  };
   const price: TableRow[] = [
     { key: 'price:4w', label: 'Every 4 weeks', cells: each((t) => (free(t) ? words('Free') : words(prices.monthly[t] ?? DASH))) },
-    { key: 'price:yr', label: 'Pay for the year', cells: each(yearCell) },
   ];
 
   const tools: TableRow[] = [

@@ -1,25 +1,24 @@
 /**
- * 🛏 ROOMS & SEATING — the shop's places, made once (piece A of the units map, owner 2026-11-18;
- * specs `prototypes/units_rooms_seating_2026-11-18/MAP.md`; storage: migration 20271350389612).
+ * 🪑 THE TABLES AND DOORS IN A HALL OR ROOM — what #7968 (Rooms & seating, 18 Nov) keeps once it is reworked into Spaces
+ * (owner 19 Nov, DECISION_LOG "SHOP PAGE FINAL + SPACES COMBINED WITH ROOMS & SEATING": "#7968 keeps only tables,
+ * table types, doors and the shared plan core, hung on a space"). Storage: `vendor_units` / `vendor_unit_doors`, each
+ * row on a hall or room (`pool_id`, migration 20271356372536).
  *
- *   · Hotel rooms — floors, each with its rooms.
- *   · Halls — the shop's ONE room size (the shipped `vendor_profiles.venue_width_m` / `venue_length_m`) and its doors.
- *     Size + doors only, never wiring.
- *   · Dining tables — areas (optional room size + doors), each with its tables: Round · Long (with a "chairs at the
- *     ends" switch) · Half-moon booth, ONE chair count each.
+ *   · Tables: Round · Long (with a "chairs at the ends" switch) · Half-moon booth, ONE chair count each.
+ *   · Doors: Main or Service · which wall · where along it. Size + doors only, never wiring.
  *
- * Grid only. Move = shift a tile within its floor or area; Line up = every group back in name order. The Floor plan view
- * (Pro · Max · Ultra, ruling 35) waits on the owner's one-line confirm (MAP.md conflict 1) and is NOT drawn.
+ * A "group" here IS a space (a hall or room): its id is the pool id, its size the space's Floor size.
  *
- * 🔒 Supplier-only. Couples never see which room or table (owner 18 Nov). Nothing here is read by a couple surface.
+ * 🔒 Supplier-only. Couples never see which table (owner 18 Nov). Nothing here is read by a couple surface.
  *
- * Pure: no React, no database. 🔒 lib/rooms-seating.test.ts
+ * Pure: no React, no database. 🔒 lib/space-tables.test.ts
  */
 
 import { PLAN_MAX_CHAIRS, PLAN_MAX_SIDE_M, parsePlanSide, planDrawnShape, planTableWords, type PlanTable } from '@/lib/seat-plan-engine';
 
-export type UnitKind = 'room' | 'table';
-export type GroupKind = 'floor' | 'dining_area';
+export type UnitKind = 'table';
+/** The spaces that hold tables. */
+export type GroupKind = 'hall' | 'room';
 export type TableShape = 'round' | 'long' | 'half_moon';
 export type DoorKind = 'main' | 'service';
 export type Wall = 'front' | 'back' | 'left' | 'right';
@@ -47,19 +46,9 @@ export type Unit = {
   y?: number | null;
   rotationDeg?: number;
 };
-export type Door = { id: string; groupId: string | null; kind: DoorKind; wall: Wall; along: Along };
-export type RoomsSeating = { groups: UnitGroup[]; units: Unit[]; doors: Door[] };
-
-/** The page's three sections — one dropdown ("Show"), the drawing's order. */
-export const SECTIONS = [
-  { key: 'rooms', label: 'Hotel rooms', line: 'Floors and rooms you rent by the night' },
-  { key: 'halls', label: 'Halls', line: 'Your hall’s size and doors' },
-  { key: 'tables', label: 'Dining tables', line: 'Areas, tables and chairs' },
-] as const;
-export type Section = (typeof SECTIONS)[number]['key'];
-export function isSection(v: unknown): v is Section {
-  return typeof v === 'string' && SECTIONS.some((s) => s.key === v);
-}
+export type Door = { id: string; groupId: string; kind: DoorKind; wall: Wall; along: Along };
+/** A shop's halls and rooms (as groups) with the tables and doors in them. */
+export type SpaceTables = { groups: UnitGroup[]; units: Unit[]; doors: Door[] };
 
 export const TABLE_SHAPES: ReadonlyArray<{ key: TableShape; label: string; hint: string }> = [
   { key: 'round', label: 'Round', hint: 'Chairs all around' },
@@ -89,11 +78,10 @@ export const isDoorKind = (v: unknown): v is DoorKind => DOOR_KINDS.some((d) => 
 export const isWall = (v: unknown): v is Wall => WALLS.some((d) => d.key === v);
 export const isAlong = (v: unknown): v is Along => ALONGS.some((d) => d.key === v);
 
-/** Limits, matched to the database CHECKs (migration 20271350389612). */
+/** Limits, matched to the database CHECKs (migrations 20271350389612 + 20271356372536). */
 export const MAX_CHAIRS = PLAN_MAX_CHAIRS;
 export const MAX_UNIT_NAME = 30;
-export const MAX_GROUP_NAME = 60;
-/** One "Add" may make at most this many rooms or tables (a typo like "1-10000" is refused, never half-made). */
+/** One "Add" may make at most this many tables (a typo like "1-10000" is refused, never half-made). */
 export const MAX_ADD = 200;
 /** Metres — the ceiling `vendor_profiles_venue_dimensions_check` uses. */
 export const MAX_SIDE_M = PLAN_MAX_SIDE_M;
@@ -148,8 +136,8 @@ export function chairPoints(shape: TableShape, chairs: number, atEnds: boolean):
 }
 
 /**
- * Names typed into "Room names or numbers" / "Table names or numbers": commas or new lines between them, and a range
- * makes a run — "301-310" · "T1-T8" · "Penthouse, 401-403". A refused entry says why; nothing is half-made.
+ * Names typed into "Table names or numbers": commas or new lines between them, and a range makes a run —
+ * "T1-T8" · "VIP, T9-T12". A refused entry says why; nothing is half-made.
  */
 export function parseUnitNames(input: string): { ok: true; names: string[] } | { ok: false; error: string } {
   const parts = String(input ?? '')
@@ -237,44 +225,29 @@ export function doorWords(d: Pick<Door, 'kind' | 'wall' | 'along'>): string {
   return `${k} · ${w}, ${d.along}`;
 }
 
-/** The count line under the page title: "12 rooms · 1 hall · 18 tables". */
-export function countsLine(data: RoomsSeating, hasHallSize: boolean): string {
-  const rooms = data.units.filter((u) => u.kind === 'room').length;
-  const tables = data.units.filter((u) => u.kind === 'table').length;
-  const seats = data.units.reduce((s, u) => s + (u.kind === 'table' ? u.chairs ?? 0 : 0), 0);
-  const parts = [`${rooms} ${rooms === 1 ? 'room' : 'rooms'}`];
-  if (hasHallSize) parts.push('1 hall');
-  parts.push(`${tables} ${tables === 1 ? 'table' : 'tables'}${tables ? ` · ${seats} ${seats === 1 ? 'seat' : 'seats'}` : ''}`);
-  return parts.join(' · ');
-}
-
 /**
- * 🔌 THE SHOP'S HAND-OFF TO THE SHARED SEAT-PLAN CORE (owner 18 Nov: Rooms & seating = the shipped seat plan and room
- * makers, improved and adapted; a separate session pulls the shared core out of `app/dashboard/[eventId]/seating/` and
- * `app/(shell)/pa3d/`). One dining area (or the hall, `areaId = null`) as the core draws it: a sized room, its tables
- * with their type and one chair count, and its doors. No guest is ever on it. Writes come back through
- * `saveTablePlace` (x · y · rotation) and the rest of `app/vendor-dashboard/rooms-seating/actions.ts`.
+ * 🔌 ONE HALL OR ROOM AS THE SHARED SEAT-PLAN CORE DRAWS IT (`planFromShopPlan`, lib/seat-plan-engine): its Floor size,
+ * its tables with their type and one chair count, and its doors. No guest is ever on it. Writes come back through
+ * `placeTable` (x · y · rotation) in `app/vendor-dashboard/spaces/actions.ts`.
  */
 export type ShopPlan = {
-  areaId: string | null;
+  areaId: string;
   name: string;
   room: { widthM: number; lengthM: number } | null;
   tables: Array<{ id: string; label: string; shape: TableShape; chairs: number; chairsAtEnds: boolean; x: number | null; y: number | null; rotationDeg: number }>;
   doors: Array<{ id: string; kind: DoorKind; wall: Wall; along: Along }>;
 };
 
-export function shopPlanOf(data: RoomsSeating, areaId: string | null, hall: { widthM: number; lengthM: number } | null): ShopPlan | null {
-  const g = areaId === null ? null : data.groups.find((x) => x.id === areaId && x.kind === 'dining_area');
-  if (areaId !== null && !g) return null;
+export function shopPlanOf(data: SpaceTables, spaceId: string): ShopPlan | null {
+  const g = data.groups.find((x) => x.id === spaceId);
+  if (!g) return null;
   return {
-    areaId,
-    name: g ? g.name : 'Hall',
-    room: g ? (g.widthM != null && g.lengthM != null ? { widthM: g.widthM, lengthM: g.lengthM } : null) : hall,
-    tables: g
-      ? unitsOf(data.units, g.id)
-          .filter((u) => u.kind === 'table' && u.shape && u.chairs)
-          .map((u) => ({ id: u.id, label: u.name, shape: u.shape!, chairs: u.chairs!, chairsAtEnds: u.chairsAtEnds, x: u.x ?? null, y: u.y ?? null, rotationDeg: u.rotationDeg ?? 0 }))
-      : [],
-    doors: data.doors.filter((d) => d.groupId === areaId).map((d) => ({ id: d.id, kind: d.kind, wall: d.wall, along: d.along })),
+    areaId: spaceId,
+    name: g.name,
+    room: g.widthM != null && g.lengthM != null ? { widthM: g.widthM, lengthM: g.lengthM } : null,
+    tables: unitsOf(data.units, g.id)
+      .filter((u) => u.shape && u.chairs)
+      .map((u) => ({ id: u.id, label: u.name, shape: u.shape!, chairs: u.chairs!, chairsAtEnds: u.chairsAtEnds, x: u.x ?? null, y: u.y ?? null, rotationDeg: u.rotationDeg ?? 0 })),
+    doors: data.doors.filter((d) => d.groupId === spaceId).map((d) => ({ id: d.id, kind: d.kind, wall: d.wall, along: d.along })),
   };
 }

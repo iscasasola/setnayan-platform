@@ -13,14 +13,18 @@ import { stripComments } from './strip-comments';
 
 const WEB = process.cwd();
 
-test('the twelve tiles, Scanner first, the owner’s list (Cake Maker joined 21 Nov)', () => {
+test('the twelve tiles, Scanner first, then Spaces, the owner’s list (Cake Maker joined 21 Nov)', () => {
   assert.deepEqual(
     SPECIALIZED_TOOLS.map((t) => t.title),
-    ['Scanner', 'Cake Maker', 'Song bank', 'Song Desk', 'Emcee script', 'Floor Command + March', 'Run of show', 'Headcount', 'Live Watch', 'Papic challenge', '3D plan', 'Rooms & seating'],
+    ['Scanner', 'Cake Maker', 'Song bank', 'Song Desk', 'Emcee script', 'Floor Command + March', 'Run of show', 'Headcount', 'Live Watch', 'Papic challenge', '3D plan', 'Spaces'],
   );
   for (const shop of [[], ['Live Band'], ['Catering'], ['Coordinator / Planner']]) {
-    assert.equal(specializedToolsFor(shop, [])[0]!.tool.key, 'scanner', `Scanner is not first for ${shop.join(',') || 'a new shop'}`);
+    const order = specializedToolsFor(shop, []);
+    assert.equal(order[0]!.tool.key, 'scanner', `Scanner is not first for ${shop.join(',') || 'a new shop'}`);
+    // Owner 19 Nov (Shop final pick 2): "Specialized tools (Spaces inside, after Scanner)".
+    assert.equal(order[1]!.tool.key, 'spaces', `Spaces is not right after Scanner for ${shop.join(',') || 'a new shop'}`);
   }
+  assert.ok(!SPECIALIZED_TOOLS.some((t) => /rooms.?seating/i.test(t.key + t.title)), 'the 18 Nov Rooms & seating tile came back (owner 19 Nov: dropped)');
 });
 
 test('every tile is open to every shop — suggested ones first, none dropped', () => {

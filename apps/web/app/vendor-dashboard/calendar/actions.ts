@@ -38,6 +38,7 @@ import {
 } from '@/lib/vendor-waitlist';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { bookingWindowFromForm } from '@/lib/booking-window';
+import { SCHEDULE_OR_HALL_POOLS } from '@/lib/schedule-pool-kinds';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -800,6 +801,7 @@ export async function reassignCategoryPool(formData: FormData): Promise<void> {
       .eq('pool_id', target)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .eq('is_active', true)
+      .or(SCHEDULE_OR_HALL_POOLS)
       .maybeSingle();
     if (!pool) backToCalendar(formData, 'bad_pool');
     targetPoolId = target;
@@ -881,6 +883,8 @@ export async function createCalendar(formData: FormData): Promise<void> {
       is_vendor_created: true,
       daily_booking_capacity: capacity,
       is_hall: isHall,
+      // 🏛 A hall made here is a Space too (ship review 21 Nov): Shop › Spaces lists it at once.
+      space_kind: isHall ? 'hall' : null,
       seated_capacity: guests('seated_capacity'),
       standing_capacity: guests('standing_capacity'),
     })
@@ -1028,6 +1032,7 @@ export async function setServiceHalls(formData: FormData): Promise<void> {
       .select('pool_id')
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .eq('is_hall', true)
+      .or(SCHEDULE_OR_HALL_POOLS)
       .in('pool_id', asked);
     halls = ((data ?? []) as { pool_id: string }[]).map((r) => r.pool_id);
     if (halls.length !== asked.length) backToCalendar(formData, 'bad_pool');

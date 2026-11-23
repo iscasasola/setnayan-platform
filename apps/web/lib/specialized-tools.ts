@@ -36,7 +36,7 @@ export type SpecializedToolKey =
   | 'live_watch'
   | 'papic_challenge'
   | 'plan_3d'
-  | 'rooms_seating';
+  | 'spaces';
 
 export type SpecializedTool = {
   key: SpecializedToolKey;
@@ -71,9 +71,11 @@ export const SPECIALIZED_TOOLS: readonly SpecializedTool[] = [
   { key: 'live_watch', title: 'Live Watch', line: 'The day’s live feed', door: { kind: 'per_event' }, hubKeys: ['live_watch'] },
   { key: 'papic_challenge', title: 'Papic challenge', line: 'Photo games for the guests', door: { kind: 'page', href: '/vendor-dashboard/subscription' }, hubKeys: ['papic_camera'] },
   { key: 'plan_3d', title: '3D plan', line: 'Your booth inside the couple’s 3D plan', door: { kind: 'page', href: '/vendor-dashboard/subscription' }, hubKeys: ['floor_plan', 'tables_and_seating', 'floor_command'] },
-  // 🛏 Owner 18 Nov (specs units_rooms_seating_2026-11-18/MAP.md piece A): the shop's rooms, halls and tables, made once —
-  // the door that fills the `floor_plan` + `tables_and_seating` hub keys.
-  { key: 'rooms_seating', title: 'Rooms & seating', line: 'Your rooms, halls and tables, made once', door: { kind: 'page', href: '/vendor-dashboard/rooms-seating' }, hubKeys: ['floor_plan', 'tables_and_seating'] },
+  // 🏛 Owner 19 Nov ("SHOP PAGE FINAL + SPACES COMBINED WITH ROOMS & SEATING"): Spaces is a tool inside Specialized tools,
+  // AFTER Scanner — halls, rooms and what the shop rents out, set once. It replaces 18 Nov's "Rooms & seating" tile and
+  // page, and fills the `floor_plan` + `tables_and_seating` hub keys. Shown only once the shop has a space (the page's
+  // `spacesCount`); the first is added from a card's Uses pick.
+  { key: 'spaces', title: 'Spaces', line: 'Rooms · clothing · objects you rent out', door: { kind: 'page', href: '/vendor-dashboard/spaces' }, hubKeys: ['floor_plan', 'tables_and_seating'] },
 ];
 
 /** The hub tools each of the shop's categories gets, from the one table (labels matched the table's own way). */
@@ -102,6 +104,9 @@ export function specializedToolsFor(categoryLabels: readonly string[], services:
   all.sort((a, b) => {
     if (a.tool.key === 'scanner') return -1;
     if (b.tool.key === 'scanner') return 1;
+    // Spaces sits right after Scanner (owner 19 Nov, Shop final pick 2: "Specialized tools (Spaces inside, after Scanner)").
+    if (a.tool.key === 'spaces') return -1;
+    if (b.tool.key === 'spaces') return 1;
     if (a.suggested !== b.suggested) return a.suggested ? -1 : 1;
     return a.i - b.i;
   });

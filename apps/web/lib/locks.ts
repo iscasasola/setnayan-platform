@@ -140,6 +140,22 @@ export const LOCKS = {
     server: 'app/vendor-dashboard/subscription/actions.ts',
     draft: true,
   },
+  // 🏛 Spaces (owner 19 Nov, "Floor plan is Pro and up" · "renaming them comes with PRO"; lines verbatim from specs
+  // prototypes/spaces_final_screens_2026-11-19.html screens 2, 4 and 7). Inert until VENDOR_TIER_FEATURE_GATE is on.
+  space_floor_plan: {
+    name: 'Make it a floor plan',
+    problem: 'Couples can’t see how your halls fit together.',
+    solution: 'Draw them to scale. Comes with Pro.',
+    opens: 'pro',
+    server: 'app/vendor-dashboard/spaces/actions.ts',
+  },
+  space_names: {
+    name: 'Your own names',
+    problem: 'Couples know your halls by their real names.',
+    solution: 'Type your own names. Comes with Pro.',
+    opens: 'pro',
+    server: 'app/vendor-dashboard/spaces/actions.ts',
+  },
   // 💬 Owner 21 Nov, verbatim: "AI Chatbot is for verified and up but smarter chatbot is for pro and up". The inbox gate
   // (`vendorAiBasicActive`, PLAN_CHATBOT_LEVEL) refuses an unverified Free shop's replies; a bought window still runs.
   chatbot: {

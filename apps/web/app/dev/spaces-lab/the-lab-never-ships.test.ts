@@ -1,5 +1,5 @@
 /**
- * /dev/rooms-seating-lab 404s in production — the same rule, and the same check, as `/dev/supplier-chat-lab`: the
+ * /dev/spaces-lab 404s in production — the same rule, and the same check, as `/dev/supplier-chat-lab`: the
  * production test is the FIRST thing the page does, before it reads a search param or draws a fixture.
  */
 import { test } from 'node:test';
@@ -12,9 +12,9 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LAB = stripComments(readFileSync(join(HERE, 'page.lab.tsx'), 'utf8'));
 
-test('the rooms & seating lab calls notFound() in production, before anything else', () => {
+test('the spaces lab calls notFound() in production, before anything else', () => {
   assert.match(LAB, /import \{ notFound \} from 'next\/navigation';/, 'notFound is not imported');
-  const page = LAB.slice(LAB.indexOf('export default async function RoomsSeatingLabPage('));
+  const page = LAB.slice(LAB.indexOf('export default async function SpacesLabPage('));
   assert.ok(page.length > 0, 'the lab page function is gone');
   const body = page.slice(page.indexOf('{', page.indexOf(')')) + 1).trimStart();
   assert.match(

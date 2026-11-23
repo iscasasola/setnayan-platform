@@ -1602,12 +1602,9 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
   {
     table: 'event_part_editor_locks',
     column: 'holder_user_id',
+    // `bumped_user_id` (a host took the part from the subject) is NOT a delete filter: that row is the HOST's pen, and
+    // the column is nullable + ON DELETE SET NULL, so erasing the subject clears it without freeing someone else's part.
     why: 'Ephemeral one-editor-per-part pen (migration 20271360932916) carrying the subject’s first name in holder_label; it frees itself 5 s after the last edit.',
-  },
-  {
-    table: 'event_part_editor_locks',
-    column: 'bumped_user_id',
-    why: 'The same ephemeral pen, remembering that a host took the part from the subject (so they are told once).',
   },
   {
     table: 'oauth_state',

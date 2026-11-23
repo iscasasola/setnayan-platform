@@ -17,7 +17,6 @@
  * A failed read keeps the last known state and never says "free" (`readPartLockState` → `unknown`).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { pauseWhileHidden } from '@/lib/tab-return';
 import {
   TOUCH_EVERY_MS,
@@ -29,6 +28,16 @@ import {
   type LockMoment,
   type PartLockState,
 } from '@/lib/part-editor-lock';
+
+// ⚡ The Supabase browser client loads when the lock first asks, never in a page's first load: the Maker embeds the
+// Schedule page, so a static import here put the whole client into the Maker's first-load JavaScript (+42 KB gz, over
+// `check-maker-js-budget.mjs`). Once loaded it is kept, so the pagehide release can call it synchronously.
+type SupabaseClientModule = typeof import('@/lib/supabase/client');
+let clientModule: SupabaseClientModule | null = null;
+async function browserClient() {
+  clientModule ??= await import('@/lib/supabase/client');
+  return clientModule.createClient();
+}
 
 export type PartEditorLock = {
   state: PartLockState;
@@ -67,7 +76,7 @@ export function usePartEditorLock(eventId: string, part: EditPart, label: string
   }, []);
 
   const read = useCallback(async () => {
-    const supabase = createClient();
+    const supabase = await browserClient();
     const { data, error } = await supabase.rpc('part_editor_lock_state', { p_event_id: eventId, p_part: part });
     if (error) {
       // Keep what we knew — never "free" on a failure; the next watch asks again.
@@ -82,7 +91,7 @@ export function usePartEditorLock(eventId: string, part: EditPart, label: string
       if (inFlightRef.current) return stateRef.current.status === 'mine';
       inFlightRef.current = true;
       try {
-        const supabase = createClient();
+        const supabase = await browserClient();
         const { data, error } = await supabase.rpc('acquire_part_editor_lock', {
           p_event_id: eventId,
           p_part: part,
@@ -115,7 +124,7 @@ export function usePartEditorLock(eventId: string, part: EditPart, label: string
   const touch = useCallback(async () => {
     const lid = lockIdRef.current;
     if (!lid) return;
-    const supabase = createClient();
+    const supabase = await browserClient();
     const { data, error } = await supabase.rpc('touch_part_editor_lock', { p_lock_id: lid });
     if (error || !data) {
       // Best effort — the next edit or watch says what is true.
@@ -159,7 +168,8 @@ export function usePartEditorLock(eventId: string, part: EditPart, label: string
       const lid = lockIdRef.current;
       if (!lid) return;
       lockIdRef.current = null;
-      void createClient().rpc('release_part_editor_lock', { p_lock_id: lid });
+      if (clientModule) void clientModule.createClient().rpc('release_part_editor_lock', { p_lock_id: lid });
+      else void browserClient().then((c) => c.rpc('release_part_editor_lock', { p_lock_id: lid }));
     };
     window.addEventListener('pagehide', releaseNow);
     return () => {

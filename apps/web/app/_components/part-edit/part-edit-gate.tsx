@@ -34,7 +34,8 @@ import {
   type EditPart,
 } from '@/lib/part-editor-lock';
 import { usePartEditorLock } from './use-part-editor-lock';
-import { DraftOnLatestCard, KeptChange, PartEditBar, partEditStyles as s } from './part-edit-bar';
+import { DraftOnLatestCard, KeptChange, PartEditBar } from './part-edit-bar-lazy';
+import s from './part-edit.module.css';
 import { readDirtyFields, readLatestValues, resetDirtyFields, writeFieldValues } from './dirty-fields';
 import { useEventMe } from '@/app/dashboard/[eventId]/_components/event-team-presence';
 

@@ -16,7 +16,7 @@
  * The wax seal is NOT an effect — it's the structural open-gate, always on for
  * envelopes (owner-locked 2026-06-18).
  */
-import { REVEAL_SPEEDS, snapRevealSpeed } from './reveal-motion';
+import { REVEAL_SPEEDS, revealSpeedChoices, snapRevealSpeed } from './reveal-motion';
 import {
   DEFAULT_EFFECTS_LOOK,
   DEFAULT_VEIL_LOOK,
@@ -78,7 +78,22 @@ export type RevealEffects = {
   /** The couple's FINE-TUNE over the Reveal Studio's house look — present only
    *  when they have moved a slider (`resolveRevealTune`). */
   tune?: RevealTune;
+  /** 🎀 How the gatefold envelope is closed: the couple's wax seal (the default, absent) or a ribbon and bow, never
+   *  both (owner 23 Nov: *"ribbon and wax seal never co exist together"*; drawing v22 `env2.js` "Closed with").
+   *  Present only when the couple picked the ribbon. */
+  gatefoldClosure?: GatefoldClosure;
 };
+
+export type GatefoldClosure = 'seal' | 'ribbon';
+export const GATEFOLD_CLOSURES: readonly GatefoldClosure[] = ['seal', 'ribbon'];
+/** The gatefold's "Closed with" choice, as the Maker offers it (drawing v22 `env2.js`). */
+export const GATEFOLD_CLOSURE_LABEL: Record<GatefoldClosure, string> = { seal: 'Wax seal', ribbon: 'Ribbon and bow' };
+
+/** The couple's effects with the gatefold closed this way. The seal is the default, so it is stored as nothing. */
+export function withGatefoldClosure(effects: RevealEffects, closure: GatefoldClosure): RevealEffects {
+  const { gatefoldClosure: _drop, ...rest } = effects;
+  return closure === 'ribbon' ? { ...rest, gatefoldClosure: 'ribbon' } : rest;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    🎚 THE COUPLE'S FINE-TUNE (owner 2026-09-27: *"where is the petal speed and
@@ -149,7 +164,7 @@ export const REVEAL_TUNE_KNOBS: Record<RevealTuneKey, RevealTuneKnob> = {
 };
 
 /** The knobs THIS opening's engine reads, given what the couple has switched on. */
-export function revealTuneKnobsFor(opening: string, effects: Pick<RevealEffects, 'petals' | 'butterflies'>): RevealTuneKnob[] {
+function revealTuneKnobsAll(opening: string, effects: Pick<RevealEffects, 'petals' | 'butterflies'>): RevealTuneKnob[] {
   const K = REVEAL_TUNE_KNOBS;
   /* 🌬 The veil's wind is Wind ▾ on Cover Scene › Style now (owner 2026-10-17, `lib/veil-style.ts` — Still · Breeze ·
      Gusty onto this same `tune.wind`): one control for it, so the old Sway slider is not offered beside it. */
@@ -157,6 +172,13 @@ export function revealTuneKnobsFor(opening: string, effects: Pick<RevealEffects,
   /* ⏱ Every other reveal: its speed alone (the drawing's scenes have no knob of their own). */
   if ((REVEAL_TEMPLATE_IDS as readonly string[]).includes(opening)) return [K.speed];
   return [];
+}
+
+/** Every knob this opening offers. Speed only where the reveal has more than one pace (the envelopes always play at the
+ *  slowest, `revealPlaysAt`), so no choice is offered that changes nothing. */
+export function revealTuneKnobsFor(opening: string, effects: Pick<RevealEffects, 'petals' | 'butterflies'>): RevealTuneKnob[] {
+  const all = revealTuneKnobsAll(opening, effects);
+  return revealSpeedChoices(opening).length > 1 ? all : all.filter((k) => k.key !== 'speed');
 }
 
 /** The house look's value for every knob — where an untuned slider rests. */
@@ -241,6 +263,7 @@ export function resolveRevealEffects(raw: unknown): RevealEffects {
         const tune = resolveRevealTune(o.tune);
         return Object.keys(tune).length > 0 ? { tune } : {};
       })(),
+      ...(coerceEnum(o.gatefoldClosure, GATEFOLD_CLOSURES, 'seal') === 'ribbon' ? { gatefoldClosure: 'ribbon' as const } : {}),
     };
   }
   return { ...DEFAULT_REVEAL_EFFECTS };

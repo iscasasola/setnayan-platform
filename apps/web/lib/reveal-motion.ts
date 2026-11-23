@@ -32,6 +32,31 @@ export function snapRevealSpeed(v: unknown): RevealSpeed {
 }
 
 /**
+ * ⏱ EACH REVEAL'S PACE ON THE ONE SCALE (owner 23 Nov 2026: *"Veil curtain slower · Evelope doesnt get slow but should
+ * be at slowest"*). The envelopes always play at the slowest speed; the veil and the beach curtains one step slower than
+ * the speed they are given (the couple's, else the house's), never slower than the envelopes; every other reveal at the
+ * speed it is given. The ONE place a reveal's seconds are decided: the veil and the scene stage both read it.
+ */
+export const SLOWEST_REVEAL_SPEED: RevealSpeed = REVEAL_SPEEDS[REVEAL_SPEEDS.length - 1]!;
+const AT_THE_SLOWEST: readonly string[] = ['envelope-classic', 'envelope-gatefold'];
+const ONE_STEP_SLOWER: readonly string[] = ['veil-sheer', 'beach-curtains'];
+export function revealPlaysAt(kind: string, speed: unknown): RevealSpeed {
+  const s = snapRevealSpeed(speed);
+  if (AT_THE_SLOWEST.includes(kind)) return SLOWEST_REVEAL_SPEED;
+  if (ONE_STEP_SLOWER.includes(kind)) return REVEAL_SPEEDS[Math.min(REVEAL_SPEEDS.length - 1, REVEAL_SPEEDS.indexOf(s) + 1)]!;
+  return s;
+}
+/** The speeds a couple can pick for this reveal, one per pace it really plays (the stored value, the seconds it plays). */
+export function revealSpeedChoices(kind: string): Array<{ key: RevealSpeed; plays: RevealSpeed }> {
+  const out: Array<{ key: RevealSpeed; plays: RevealSpeed }> = [];
+  for (const key of REVEAL_SPEEDS) {
+    const plays = revealPlaysAt(kind, key);
+    if (!out.some((o) => o.plays === plays)) out.push({ key, plays });
+  }
+  return out;
+}
+
+/**
  * The rules. Each line names where the shipped veil holds the same number.
  */
 export const REVEAL_MOTION = {

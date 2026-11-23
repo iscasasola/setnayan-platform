@@ -258,3 +258,48 @@ export function restingAtTop(s: TopRest, now: number): boolean {
 export function veilMaySleep(revealed: boolean, atTop: boolean, petalsInAir: number): boolean {
   return revealed && !atTop && petalsInAir === 0;
 }
+
+/**
+ * 🖼 EVERY CLOTH REACHES 10 % PAST EVERY EDGE OF THE SCREEN (owner 23 Nov 2026: *"let tha fabric be 10% larger than the
+ * screen so corners will not peek (all corners)"* · *"Veil and Curtains must exceed 10% beyond the corners so the corners
+ * doesnt peek"*). As shares of the screen's half-height: pinned 12 % above the top, the hem at least 12 % below the
+ * bottom; the reach a look sets (0–30) hangs it up to a fifth of a screen longer. Read by the live veil
+ * (`veil-reveal.tsx`) and every scene cloth (`scenes/drape.ts`: the veil's still face, the curtains, the fabric).
+ */
+export const CLOTH_TOP = 1.12;
+export function clothLength(vh: number, reach: number): number {
+  return vh * (CLOTH_TOP + 1.12 + Math.max(0, 30 - reach) / 150);
+}
+
+/**
+ * 🧵 The way the fabric is pulled off (owner 23 Nov 2026: *"Where they touch will drage the fabric from the center to that
+ * direction"*), a unit vector in world units (+y up): a swipe's own way; else from the cloth's centre toward the touch;
+ * a touch within a tenth of the screen of the centre, or none (hands-free), pulls straight down.
+ */
+export function pullWay(swipe: { x: number; y: number } | null, at: { x: number; y: number }, vw: number, vh: number): { x: number; y: number } {
+  const v = swipe ?? at;
+  const m = Math.hypot(v.x, v.y);
+  if (!swipe && m < 0.1 * Math.min(vw, vh)) return { x: 0, y: -1 };
+  return m < 1e-6 ? { x: 0, y: -1 } : { x: v.x / m, y: v.y / m };
+}
+
+/**
+ * 🖼 A hanging cloth draws in toward its hem (its fullness folds it), so its pin alone does not keep the bottom corners
+ * covered. While it is closed, its outer edges are held at least this far past the screen's sides (a share of the
+ * half-width), within the slack its rows already have; the hold lets go as it opens (`w` → 0).
+ */
+export const EDGE_HOLD = 1.15;
+export function holdEdges(px: Float32Array, cols: number, rows: number, vw: number, w: number, left: boolean, right: boolean): void {
+  if (w <= 0) return;
+  const lim = vw * EDGE_HOLD;
+  for (let iy = 1; iy < rows; iy++) {
+    if (left) {
+      const k = iy * cols;
+      if (px[k]! > -lim) px[k] = px[k]! + (-lim - px[k]!) * w;
+    }
+    if (right) {
+      const k = iy * cols + cols - 1;
+      if (px[k]! < lim) px[k] = px[k]! + (lim - px[k]!) * w;
+    }
+  }
+}

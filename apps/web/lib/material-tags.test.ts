@@ -146,7 +146,8 @@ test('(c) the inquiry asks the shop’s VERIFICATION, read at that moment, befor
 });
 
 test('(c) the quoted fee words say the same rule: free only for a verified shop', () => {
-  assert.match(FEE_FREE_RULE, /verified shops only/);
+  // main now ends the line "… Verified shops only." (its own sentence), so the match ignores case.
+  assert.match(FEE_FREE_RULE, /verified shops only/i);
   assert.match(FEE_FREE_RULE_THIRD, /^A verified supplier/);
 });
 

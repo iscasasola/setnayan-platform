@@ -8,15 +8,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { SPECIALIZED_TOOLS, specializedToolsFor, onTheDayHref } from './specialized-tools';
+import { SPECIALIZED_TOOLS, WIDGET_SHELVES, listedWidgets, specializedToolsFor, onTheDayHref } from './specialized-tools';
+import { HUB_TOOL_LIBRARY } from './hub-tools';
+import { routes } from './routes';
 import { stripComments } from './strip-comments';
 
 const WEB = process.cwd();
 
-test('the eleven tiles, Scanner first, the owner’s list (Cake Maker joined 21 Nov)', () => {
+test('the widgets, Scanner first: the owner’s eleven (Cake Maker joined 21 Nov), then the seven shipped Event Hub widgets (v19 PR 2, "Yes, include them")', () => {
   assert.deepEqual(
     SPECIALIZED_TOOLS.map((t) => t.title),
-    ['Scanner', 'Cake Maker', 'Song bank', 'Song Desk', 'Emcee script', 'Floor Command + March', 'Run of show', 'Headcount', 'Live Watch', 'Papic challenge', '3D plan'],
+    [
+      'Scanner', 'Cake Maker', 'Song bank', 'Song Desk', 'Emcee script', 'Floor Command + March', 'Run of show', 'Headcount', 'Live Watch', 'Papic challenge', '3D plan',
+      'Shot list', 'Issues log', 'Production sheet', 'Live reviews', 'Hand over to the couple', 'Seat plan', 'Papic camera',
+    ],
   );
   for (const shop of [[], ['Live Band'], ['Catering'], ['Coordinator / Planner']]) {
     assert.equal(specializedToolsFor(shop, [])[0]!.tool.key, 'scanner', `Scanner is not first for ${shop.join(',') || 'a new shop'}`);
@@ -48,4 +53,39 @@ test('doors only: each page tile is a route that ships; per-event tiles open the
   for (const t of SPECIALIZED_TOOLS) {
     if (t.door.kind === 'page') assert.doesNotMatch(t.door.href, /#(papic-challenge|booth-addon)$/, `${t.title} points at a card that left`);
   }
+});
+
+test('v19 PR 2: every Event Hub widget IS a shipped hub tool — the library can never call it unshipped again', () => {
+  // A widget whose door is the day itself (the per-event screen, the On the day console or a booked client's page) is
+  // the shipped form of the hub tools it names. Page doors (Papic challenge, 3D plan) only borrow hub keys to SUGGEST
+  // themselves, so they are not held here.
+  const lib = new Map<string, boolean>(HUB_TOOL_LIBRARY.map((t) => [t.key, t.shipped]));
+  for (const t of SPECIALIZED_TOOLS) {
+    if (t.door.kind !== 'per_event' && t.door.kind !== 'day_console' && t.door.kind !== 'client_page') continue;
+    for (const k of t.hubKeys) {
+      assert.ok(lib.has(k), `${t.title} names hub tool "${k}", which is not in the library`);
+      assert.equal(lib.get(k), true, `${t.title} ships, but HUB_TOOL_LIBRARY says "${k}" is not shipped`);
+    }
+  }
+  for (const k of ['shot_list', 'incident_log', 'tables_and_seating']) assert.equal(lib.get(k), true, `${k} is flagged unshipped again`);
+});
+
+test('v19 PR 2: every widget sits on a v19 shelf, every new door is a real address, and the Papic camera waits on its switch', () => {
+  for (const t of SPECIALIZED_TOOLS) {
+    assert.ok(t.shelves.length > 0, `${t.title} sits on no shelf`);
+    for (const sh of t.shelves) assert.ok((WIDGET_SHELVES as readonly string[]).includes(sh), `${t.title}: unknown shelf ${sh}`);
+  }
+  assert.ok(existsSync(join(WEB, 'app/vendor-dashboard/on-the-day/page.tsx')), 'the On the day console does not ship');
+  for (const t of SPECIALIZED_TOOLS) {
+    if (t.door.kind !== 'client_page') continue;
+    const href = routes.vendorDashboard.clients[t.door.page]('e1');
+    const path = href.replace(/^\//, '').replace('/e1', '/[eventId]');
+    assert.ok(existsSync(join(WEB, 'app', path, 'page.tsx')), `${t.title} opens ${href}, which does not ship`);
+  }
+  assert.ok(!listedWidgets(false).some((t) => t.key === 'papic_camera'), 'the Papic camera is listed with its switch off');
+  assert.ok(listedWidgets(true).some((t) => t.key === 'papic_camera'));
+  const keys = SPECIALIZED_TOOLS.map((t) => t.key);
+  assert.equal(new Set(keys).size, keys.length, 'a widget is listed twice');
+  // Scanner stays ONE item (one per service, never counted per service).
+  assert.equal(keys.filter((k) => k === 'scanner').length, 1);
 });

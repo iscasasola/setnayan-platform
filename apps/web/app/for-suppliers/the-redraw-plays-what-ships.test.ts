@@ -10,6 +10,7 @@
  *   tools — each paid widget's chip says the one rule (bought once, works on Plus, Pro or Ultra — owner a02673ac), the
  *         Toolkit's live count (5ae3fbb2); the on-the-day tools are `SPECIALIZED_TOOLS`, never a typed list.
  */
+import { isPaidStoreTool } from '@/lib/supplier-store';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -170,8 +171,13 @@ test('the three paid widgets are SPECIALIZED_TOOLS, each under the one Toolkit r
   assert.deepEqual(PAID_TOOL_TILES.map((t) => t.key), ['cake_tool', 'papic_challenge', 'plan_3d']);
   assert.ok(Object.values(PAID_TOOL_GATES).every((g) => g === 'toolkit'), 'a paid widget drawn under another gate');
   assert.equal(FIRST_TOOLS_TIER, PRO_TOOLS_MIN_TIER, 'the tools’ door is not the first plan a bought widget works on');
-  assert.equal(EVERY_PLAN_TOOLS.length + PAID_TOOL_TILES.length, SPECIALIZED_TOOLS.length);
-  assert.equal(EVERY_PLAN_TOOLS.length, 8, 'the drawing’s eight on-the-day tools');
+  // Every free widget the Toolkit lists, and only those (v19 PR 2): never a paid one (the Song bank is bought), never a
+  // gated one (the Papic camera waits on its privacy switch).
+  assert.deepEqual(
+    EVERY_PLAN_TOOLS.map((t) => t.key),
+    SPECIALIZED_TOOLS.filter((t) => !isPaidStoreTool(t.key) && !t.gate).map((t) => t.key),
+  );
+  assert.ok(!EVERY_PLAN_TOOLS.some((t) => t.key === 'song_bank' || t.key === 'papic_camera'), 'a paid or gated widget is said to be in every plan');
   assert.match(PAGE, /EVERY_PLAN_TOOLS\.map\(/, 'the on-the-day tools are typed, not read');
   assert.match(PAGE, /\{t\.title\}/);
 });

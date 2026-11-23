@@ -37,14 +37,20 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
   Check,
+  ChefHat,
   Flag,
+  HandHeart,
+  LayoutGrid,
   Library,
+  ListChecks,
   ListOrdered,
   Lock,
   Mic,
   Music,
   Radio,
   ScanLine,
+  Star,
+  TriangleAlert,
   Users,
   Wrench,
   type LucideIcon,
@@ -128,6 +134,13 @@ const DAY_TOOL_ICON: Partial<Record<SpecializedToolKey, LucideIcon>> = {
   run_of_show: ListOrdered,
   headcount: Users,
   live_watch: Radio,
+  // The Event Hub widgets the Toolkit lists since v19 PR 2 — the same marks as their Toolkit tiles.
+  shot_list: ListChecks,
+  issues_log: TriangleAlert,
+  production_sheet: ChefHat,
+  live_reviews: Star,
+  handover: HandHeart,
+  seat_plan: LayoutGrid,
 };
 
 /** The three paid tools as pictures (the drawing's art, on the page's tokens). Decoration: the name says what it is. */
@@ -219,7 +232,10 @@ export function SupplierFrontPage({
   afterPlans,
   giftFrom = null,
   nowMs = Date.now(),
+  papicCapture = false,
 }: {
+  /** The Papic camera's privacy switch (`isVendorPapicCaptureEnabled`) — the Toolkit's count lists it only while on. */
+  papicCapture?: boolean;
   prices: SupplierFrontPrices;
   /** The server's clock: the sample month, Check a date's today, and the special tools' gate. */
   nowMs?: number;
@@ -260,7 +276,7 @@ export function SupplierFrontPage({
       ? { name: growName(FIRST_TOOLS_TIER), price: growPrice(FIRST_TOOLS_TIER), href: openShopWithPlanHref(FIRST_TOOLS_TIER) }
       : null;
   /** The Toolkit's live count (owner 5ae3fbb2), read from the one Toolkit list; nothing read = nothing shown. */
-  const toolkitCount = toolkitCountWords(toolkitCounts(SHOP_BADGE_KEYS));
+  const toolkitCount = toolkitCountWords(toolkitCounts({ papicCapture, badges: SHOP_BADGE_KEYS }));
 
   return (
     <div className={s.root}>

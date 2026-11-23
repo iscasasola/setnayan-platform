@@ -32,6 +32,7 @@ import {
   type TableType,
 } from './geometry';
 import { computeAutoLayout, type EventTableRow, type FloorPlanRow } from '@/lib/seating';
+import { GRID_GAP, centredRun } from './rows';
 
 // ── The plan ─────────────────────────────────────────────────────────────────
 
@@ -457,16 +458,13 @@ export function lineUpPlan(plan: Plan): Plan {
     const w = planFootprintM(t);
     return across ? (w / widthM) * 100 : (((g.box.h / g.box.w) * w) / depthM) * 100;
   };
-  const GAP = SLOT_GAP_PCT;
   const placed: Record<string, { x: number; y: number }> = {};
   for (const [line, ids] of rowsByLine) {
-    const widths = ids.map((id) => breadthPct(byId.get(id)!));
-    const total = widths.reduce((s, w) => s + w, 0) + GAP * (ids.length - 1);
-    let cursor = 50 - total / 2;
+    // ONE row-centring rule for every plan (`centredRun`) — the couple's floor centres its rows through it too.
+    const mids = centredRun(ids.map((id) => breadthPct(byId.get(id)!)), 50, GRID_GAP);
     ids.forEach((id, k) => {
-      const mid = Math.max(0, Math.min(100, cursor + widths[k]! / 2));
+      const mid = Math.max(0, Math.min(100, mids[k]!));
       placed[id] = across ? { x: mid, y: line } : { x: line, y: mid };
-      cursor += widths[k]! + GAP;
     });
   }
   return {

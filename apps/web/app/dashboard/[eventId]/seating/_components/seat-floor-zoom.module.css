@@ -1,0 +1,8 @@
+/* 🔍 The zoom pill in the thumb row (seat-floor-zoom.tsx; drawing § 5). The row's seat gives each press its 44 px
+   (`thumb-row.module.css` `.nodeRound`); this draws the three as ONE pill with a hairline between them. */
+.pill { display: inline-flex; align-items: center; }
+.pill > * + * { box-shadow: inset 1px 0 0 var(--sn-glass-line); }
+/* In the middle of the row (drawing § 2: "the zoom pill in the middle of the row"): a resting search pushes the seat after
+   it to the right (`margin-left: auto`, thumb-row.module.css); the pill's seat takes the room after it too, so it sits
+   between the search and Show and sort. While the search is open the field takes every free pixel, so both are 0. */
+:global([data-thumb-seat]):has(> .pill) { margin-right: auto; }

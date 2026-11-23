@@ -46,6 +46,7 @@ import {
   planAspect,
   planFootprintM,
   planRoomM,
+  planRoomWords,
   planRoomSized,
   planSeatCount,
   planSeatTotal,
@@ -54,6 +55,7 @@ import {
   planTableWords,
   planTablesInOrder,
   snapDoor,
+  snapToLines,
   type Plan,
   type PlanDoor,
   type PlanTable,
@@ -223,7 +225,11 @@ export function PlanMaker({
     const p = pct(e);
     const base = live ?? plan;
     if (d.kind === 'table') {
-      const at = clampToRoom(p.x, p.y);
+      /* 📏 ONE ENGINE (owner 2026-11-20): a moved table lines up with another table's row or column — the same
+         `snapToLines` the couple's seat plan drags through. */
+      const others = base.tables.flatMap((t, i) => (t.id === d.id ? [] : [{ id: t.id, ...planTablePositions(base.tables)[i]! }]));
+      const lined = snapToLines({ at: p, others });
+      const at = clampToRoom(lined.x, lined.y);
       setLive({ ...base, tables: base.tables.map((t) => (t.id === d.id ? { ...t, x: at.x, y: at.y } : t)) });
     } else {
       const at = snapDoor(p.x, p.y);
@@ -566,5 +572,45 @@ function DoorSheet({ door, onKind, onRemove }: { door: PlanDoor; onKind: (k: Pla
         <ActionButton tone="danger" icon={Trash2} label="Remove" onClick={onRemove} data-plan-remove-door="" />
       </div>
     </div>
+  );
+}
+
+/**
+ * 🖼 THE FLOOR AS A POSTER — the plan's own drawing (the same wall, doors and tables as the Floor plan view above) with
+ * no tools and no chrome, its name and size in the corner. Shown while something heavier loads over it: the couple's
+ * 3D room draws it at once instead of a blank screen (owner 2026-11-20, "never a blank screen").
+ */
+export function PlanPoster({ plan, roomName, className = '' }: { plan: Plan; roomName?: string | null; className?: string }) {
+  const room = planRoomM(plan.room);
+  const H = W / planAspect(plan.room);
+  const pxPerM = W / room.widthM;
+  const positions = planTablePositions(plan.tables);
+  const words = planRoomWords(plan.room, roomName);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className={`block ${className}`} role="img" aria-label={`Floor plan, ${words.size}, ${plan.tables.length} tables`} data-plan-poster="">
+      <rect x={4} y={4} width={W - 8} height={H - 8} fill="none" className="stroke-current" strokeWidth={8} />
+      <text x={28} y={54} fontSize={30} fontWeight={700} className="fill-current">{words.name}</text>
+      <text x={28} y={90} fontSize={26} className="fill-current" opacity={0.7}>{words.size}</text>
+      {plan.doors.map((d) => {
+        const p = doorPoint(d);
+        const along = d.wall === 'top' || d.wall === 'bottom';
+        const len = Math.max(60, 1.4 * pxPerM);
+        const cx = (p.x / 100) * W;
+        const cy = (p.y / 100) * H;
+        return (
+          <line key={d.id} x1={along ? cx - len / 2 : cx} x2={along ? cx + len / 2 : cx} y1={along ? cy : cy - len / 2} y2={along ? cy : cy + len / 2} className="stroke-terracotta-700" strokeWidth={22} strokeLinecap="round" />
+        );
+      })}
+      {plan.tables.map((t, i) => {
+        const g = planTableGeometry(t);
+        const p = positions[i]!;
+        const s = (planFootprintM(t) * pxPerM) / g.box.w;
+        return (
+          <g key={t.id} transform={`translate(${(p.x / 100) * W} ${(p.y / 100) * H}) scale(${s}) rotate(${t.rotationDeg ?? 0})`} data-plan-table={t.id}>
+            <TableShapeSvg g={g} label={t.label} seated={0} names={null} marked={false} selected={false} fontPx={Math.max(18, 24 / s)} />
+          </g>
+        );
+      })}
+    </svg>
   );
 }

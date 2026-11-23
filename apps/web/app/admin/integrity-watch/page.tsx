@@ -166,6 +166,10 @@ function evidenceChips(row: FlagRow): string[] {
       );
     if (rd.linkage?.peer_reviewer_count)
       chips.push(`shares a device with ${rd.linkage.peer_reviewer_count} reviewer(s)`);
+    // 🛡 Owner 2026-11-23 (DECISION_LOG b89e2420 D): the flag HOLDS the review — off the shop's page and its counts —
+    // until Dismiss releases it (migration 20271361301072). Confirm keeps it held.
+    if (row.status === 'open' || row.status === 'confirmed_fraud')
+      chips.push('held off the shop page until you dismiss this');
   } else if (row.kind === 'ghost_listing') {
     const gd = d as unknown as GhostListingDetail;
     if (gd.has_logo === false) chips.push('no logo');

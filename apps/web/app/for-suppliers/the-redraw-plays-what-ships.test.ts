@@ -33,6 +33,7 @@ import {
   LIVE_VENUES,
   PAID_TOOL_GATES,
   PAID_TOOL_TILES,
+  SET_UP_ONCE_TOOLS,
   PLAN_TOOLS_LOCKED_WORDS,
   SPECIAL_TOOLS_OPEN_WORDS,
   STAIR_TIERS,
@@ -172,7 +173,7 @@ test('the three paid tools are SPECIALIZED_TOOLS, each held by its real gate', (
   const planGated = Object.entries(PAID_TOOL_GATES).filter(([, g]) => g === 'plan').map(([k]) => (k === 'plan_3d' ? '3d_plan' : k));
   assert.deepEqual(planGated.sort(), [...PRO_INCLUDED_TOOLS].sort());
   assert.equal(FIRST_TOOLS_TIER, PRO_TOOLS_MIN_TIER, 'the tools’ door is not the first plan that carries them');
-  assert.equal(EVERY_PLAN_TOOLS.length + PAID_TOOL_TILES.length, SPECIALIZED_TOOLS.length);
+  assert.equal(EVERY_PLAN_TOOLS.length + PAID_TOOL_TILES.length + SET_UP_ONCE_TOOLS.size, SPECIALIZED_TOOLS.length);
   assert.equal(EVERY_PLAN_TOOLS.length, 8, 'the drawing’s eight on-the-day tools');
   assert.match(PAGE, /EVERY_PLAN_TOOLS\.map\(/, 'the on-the-day tools are typed, not read');
   assert.match(PAGE, /\{t\.title\}/);

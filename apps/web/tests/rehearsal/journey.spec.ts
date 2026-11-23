@@ -315,9 +315,9 @@ test('the launch-critical journey', async ({ browser }) => {
     await expect(coming).toBeVisible();
     comingBefore = await settledNumber(coming);
     // The seed made this many say yes; the couple's own two rows may count too.
-    expect(comingBefore).toBeGreaterThanOrEqual(FIXTURE.attendingAtStart);
-    expect(comingBefore).toBeLessThanOrEqual(FIXTURE.attendingAtStart + 2);
-    check(`the "coming" tile reads ${comingBefore} (the fixture has ${FIXTURE.attendingAtStart} guests who said yes)`);
+    expect(comingBefore).toBeGreaterThanOrEqual(FIXTURE.comingAtStart);
+    expect(comingBefore).toBeLessThanOrEqual(FIXTURE.comingAtStart + 2);
+    check(`the "coming" tile reads ${comingBefore} (the fixture has ${FIXTURE.comingAtStart} guests who said yes)`);
     await expect(host.getByRole('link', { name: 'Event Hub', exact: true }).first()).toBeVisible();
     check('the Event Hub door is on the Home');
   });

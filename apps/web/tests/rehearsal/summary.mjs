@@ -8,13 +8,17 @@
  * that says how far it got — a missing section is written as "did not run",
  * never left out, and never rendered as a pass.
  *
- * Usage: node summary.mjs <out-dir> <walk-outcome>
+ * Usage: node summary.mjs <out-dir> <walk-outcome> [<sweep-outcome>]
+ *
+ * The control sweep's own report (every screen, every failure) is written to
+ * SWEEP.md beside REHEARSAL.md, and summarised in REHEARSAL.md.
  */
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const out = process.argv[2] ?? 'rehearsal-out';
 const walkOutcome = process.argv[3] ?? '';
+const sweepOutcome = process.argv[4] ?? '';
 
 const read = (f) => (existsSync(join(out, f)) ? readFileSync(join(out, f), 'utf8') : null);
 const readJson = (f) => {
@@ -55,7 +59,19 @@ const cell = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 const stepList = Array.isArray(steps?.steps) ? steps.steps : [];
 const failedStep = stepList.find((s) => s.ok === false);
 const walked = stepList.length > 0;
-const allGreen = walkOutcome === 'success' && walked && !failedStep && steps?.finished === true;
+const SWEEP_PARTS = [
+  ['couple', 'phone'],
+  ['supplier', 'phone'],
+  ['couple', 'desktop'],
+  ['supplier', 'desktop'],
+];
+const sweeps = SWEEP_PARTS.map(([persona, width]) => ({ persona, width, r: readJson(`sweep-${persona}-${width}.json`) }));
+const sweepRan = sweeps.some((x) => x.r);
+const sweepFailures = sweeps.flatMap((x) => x.r?.failures ?? []);
+// A sweep that was switched off (0 minutes) is "skipped"; one that ran must be clean and complete.
+const sweepGreen = sweepOutcome === 'skipped' || sweepOutcome === '' ? !sweepRan || sweepFailures.length === 0 : sweepOutcome === 'success';
+const walkGreen = walkOutcome === 'success' && walked && !failedStep && steps?.finished === true;
+const allGreen = walkGreen && sweepGreen;
 
 const lines = [];
 const say = (s = '') => lines.push(s);
@@ -63,13 +79,20 @@ const say = (s = '') => lines.push(s);
 say(`# Release rehearsal — ${allGreen ? '✅ PASSED' : '❌ DID NOT PASS'}`);
 say();
 if (!allGreen) {
-  if (failedStep) {
+  if (!walkGreen && failedStep) {
     say(`**Stopped at: "${failedStep.title}"** — ${cell(failedStep.error ?? 'no message')}`);
     if (failedStep.screenshot) say(`Screenshot of that moment: \`rehearsal-screens/${failedStep.screenshot}\``);
   } else if (!walked) {
     say('**The walk did not run** — the rehearsal stopped before the app was up. See the red step on the run page.');
-  } else {
+  } else if (!walkGreen) {
     say(`**The walk ended as "${walkOutcome || 'unknown'}"** without finishing every step.`);
+  }
+  if (!sweepGreen) {
+    say(
+      sweepFailures.length > 0
+        ? `**The control sweep found ${sweepFailures.length} failure${sweepFailures.length === 1 ? '' : 's'}** — the numbered list is under "Every control, pressed" below.`
+        : `**The control sweep ended as "${sweepOutcome || 'unknown'}"** — see "Every control, pressed" below.`,
+    );
   }
   say();
   say('Do not upload this release until a rehearsal passes.');
@@ -151,13 +174,126 @@ if (!walked) {
 }
 say();
 
+// ── THE CONTROL SWEEP ────────────────────────────────────────────────────
+const sw = [];
+const sws = (x = '') => sw.push(x);
+const widthLabel = (w) => (w === 'phone' ? '375 px' : 'desktop');
+/** One numbered line per distinct failure, with every place it was seen. */
+const grouped = new Map();
+for (const f of sweepFailures) {
+  const g = grouped.get(f.key) ?? { f, places: [] };
+  g.places.push(f);
+  grouped.set(f.key, g);
+}
+const failureLines = [];
+let fn = 0;
+for (const { f, places } of grouped.values()) {
+  fn += 1;
+  failureLines.push(`${fn}. **${f.kind}** on \`${cell(f.route)}\` — control **${cell(f.control)}** (${f.persona} · ${widthLabel(f.width)})`);
+  failureLines.push(`   - error: \`${cell(f.text).slice(0, 500)}\``);
+  if (f.url) failureLines.push(`   - address: \`${cell(f.url)}\``);
+  if (f.screenshot) failureLines.push(`   - screenshot: \`rehearsal-screens/${f.screenshot}\``);
+  if (places.length > 1) {
+    const where = [...new Set(places.slice(1).map((p) => `${p.persona} · ${widthLabel(p.width)} · ${p.route} · "${p.control}"`))];
+    failureLines.push(`   - also seen ${places.length - 1} more time${places.length === 2 ? '' : 's'}: ${cell(where.slice(0, 6).join(' ; '))}${where.length > 6 ? ` … and ${where.length - 6} more` : ''}`);
+  }
+}
+
+sws('## Every control, pressed (the sweep)');
+sws();
+if (!sweepRan) {
+  sws(sweepOutcome === 'skipped' ? '**Not run** (switched off for this run, or the walk never started).' : '**Did not run** (or failed before writing its report).');
+} else {
+  sws('Signed in as the couple and as the supplier; every dashboard screen in `lib/ugat/screens.generated.json` opened and every control pressed (each dropdown option picked, each sheet opened, swept and closed). **Red** on an error screen, a page or console error, or any 5xx.');
+  sws();
+  sws('| Who | Width | Screens swept | Controls pressed | Options picked | Dialogs opened | Never pressed (skip list) | Could not press | Not swept | **Failures** | Time |');
+  sws('|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|');
+  for (const { persona, width, r } of sweeps) {
+    if (!r) {
+      sws(`| ${persona} | ${widthLabel(width)} | did not run | | | | | | | | |`);
+      continue;
+    }
+    const routes = r.routes ?? [];
+    const swept = routes.filter((x) => x.status === 'swept' || x.status === 'error-on-load').length;
+    const sum = (k) => routes.reduce((n, x) => n + (Array.isArray(x[k]) ? x[k].length : x[k] ?? 0), 0);
+    const notSwept = routes.filter((x) => !['swept', 'error-on-load'].includes(x.status)).length + (r.left ?? []).length;
+    const secs = routes.reduce((n, x) => n + (x.seconds ?? 0), 0);
+    sws(`| ${persona} | ${widthLabel(width)} | ${swept} | ${sum('pressed')} | ${sum('options')} | ${sum('dialogs')} | ${sum('skipped')} | ${sum('unpressable')} | ${notSwept} | **${(r.failures ?? []).length}** | ${mins(secs)}${r.finished ? '' : ' (did not finish)'} |`);
+  }
+  sws();
+  if (failureLines.length === 0) {
+    sws('**No failure.** No error screen, no page or console error, no 5xx on any control pressed.');
+  } else {
+    sws(`### Failures — ${grouped.size} distinct (${sweepFailures.length} in all)`);
+    sws();
+    for (const l of failureLines) sws(l);
+  }
+  sws();
+}
+const sweepSummary = [...sw];
+
+// The full report (every screen, every skip) — SWEEP.md, in the artifact.
+if (sweepRan) {
+  sws('### Every screen');
+  sws();
+  sws('| Who | Width | Screen | Result | Pressed | Options | Dialogs | Skipped | Could not press | Failures | Notes |');
+  sws('|---|---|---|---|---:|---:|---:|---:|---:|---:|---|');
+  for (const { persona, width, r } of sweeps) {
+    for (const x of r?.routes ?? []) {
+      const result = { swept: '✅ swept', 'error-on-load': '❌ error on load', 'not-reached': '— not reached (budget)', 'no-fixture': '— no address to open', 'signed-out': '❌ signed out', 'harness-error': '⚠️ sweep stumbled' }[x.status] ?? x.status;
+      sws(`| ${persona} | ${widthLabel(width)} | \`${cell(x.label)}\`${x.landed ? ` → \`${cell(x.landed)}\`` : ''} | ${x.failures > 0 && x.status === 'swept' ? '❌ swept' : result} | ${x.pressed} | ${x.options} | ${x.dialogs} | ${x.skipped.length} | ${x.unpressable.length} | ${x.failures} | ${cell((x.notes ?? []).join(' · ')).slice(0, 300)} |`);
+    }
+    for (const l of r?.left ?? []) sws(`| ${persona} | ${widthLabel(width)} | \`${cell(l.route)}\` | — left out | | | | | | | ${cell(l.reason)} |`);
+  }
+  sws();
+  const skips = new Map();
+  for (const { r } of sweeps) for (const x of r?.routes ?? []) for (const k of x.skipped ?? []) {
+    const key = `${k.name}|${k.reason}`;
+    skips.set(key, { ...k, n: (skips.get(key)?.n ?? 0) + 1 });
+  }
+  sws(`### Never pressed — the skip list matched these (${skips.size})`);
+  sws();
+  sws('Matched by accessible name (`tests/rehearsal/sweep-rules.ts` SKIP_CONTROLS / SKIP_OPTIONS).');
+  sws();
+  for (const k of [...skips.values()].sort((a, b) => b.n - a.n)) sws(`- "${cell(k.name)}" — ${k.reason} (on ${k.n} screen${k.n === 1 ? '' : 's'})`);
+  sws();
+  const stuck = new Map();
+  for (const { r } of sweeps) for (const x of r?.routes ?? []) for (const k of x.unpressable ?? []) {
+    const key = `${x.label} · ${k.name}`;
+    if (!stuck.has(key)) stuck.set(key, k.why);
+  }
+  sws(`### Could not press (${stuck.size}) — covered, moved or gone when its turn came`);
+  sws();
+  for (const [k, why] of [...stuck].slice(0, 200)) sws(`- \`${cell(k)}\` — ${cell(why)}`);
+  sws();
+  const noise = {};
+  const native = [];
+  for (const { r } of sweeps) {
+    for (const [id, v] of Object.entries(r?.noise ?? {})) noise[id] = { why: v.why, count: (noise[id]?.count ?? 0) + v.count };
+    native.push(...(r?.nativeDialogs ?? []));
+  }
+  sws('### Rehearsal noise — counted, not failures');
+  sws();
+  if (Object.keys(noise).length === 0) sws('- none');
+  for (const [id, v] of Object.entries(noise)) sws(`- \`${id}\` ×${v.count} — ${v.why}`);
+  if (native.length > 0) {
+    sws();
+    sws(`Native confirm / alert boxes (dismissed — "no"): ${native.length}`);
+    for (const d of native.slice(0, 40)) sws(`- ${cell(d)}`);
+  }
+}
+writeFileSync(join(out, 'SWEEP.md'), sw.join('\n') + '\n');
+for (const l of sweepSummary) say(l);
+if (sweepRan) say('The full sweep report — every screen, every skip, everything that could not be pressed — is `SWEEP.md` in this run\'s artifact.');
+say();
+
 say('## Requests each step cost');
 say();
 const reqSteps = Array.isArray(requests?.steps) ? requests.steps : [];
 if (reqSteps.length === 0) {
   say('**Not recorded** — the counter did not report.');
 } else {
-  say('Counted at the door between the app and the database, for the fixture (30 guests, 12 suppliers, 3 orders).');
+  say('Counted at the door between the app and the database, for the fixture (39 guests, 12 suppliers, 3 orders).');
   say('"DB" = PostgREST requests (reads + writes + function calls). "from the phone" = sent by the browser itself, the rest by the app\'s server.');
   say();
   say('| Step | Screen loads | Presses | DB reads | DB writes | DB function calls | **DB total** | from the phone | auth | refused | Asked most |');
@@ -237,7 +373,7 @@ say('## How long it took');
 say();
 const total = Number(timings.finished) - Number(timings.started);
 say(`- Whole run: **${mins(total)}**`);
-say(`- Local stack: ${mins(timings.stack_seconds)} · migrations (baseline): ${mins(timings.baseline_seconds)} · db push: ${mins(timings.push_seconds)} · build: ${timings.build_seconds === '0' ? 'reused an identical build' : mins(timings.build_seconds)} · walk: ${mins(timings.walk_seconds)}`);
+say(`- Local stack: ${mins(timings.stack_seconds)} · migrations (baseline): ${mins(timings.baseline_seconds)} · db push: ${mins(timings.push_seconds)} · build: ${timings.build_seconds === '0' ? 'reused an identical build' : mins(timings.build_seconds)} · walk: ${mins(timings.walk_seconds)} · sweep: ${timings.sweep_seconds ? mins(timings.sweep_seconds) : 'did not run'}`);
 say();
 
 const screens = existsSync(join(out, 'screens')) ? readdirSync(join(out, 'screens')).filter((f) => f.endsWith('.png')).sort() : [];

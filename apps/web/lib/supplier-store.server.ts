@@ -13,6 +13,7 @@ import { graphUnlocks, type GraphUnlocks } from '@/lib/graph-unlocks';
 import { readShopSpecialToolsAllowed } from '@/lib/cake-maker.server';
 import { PAID_STORE_TOOLS, STORE_TOOL_SKUS, readLayout, toolOfSku, type PaidStoreTool, type HubOverrides, type StoreLayout, type ToolFacts, type ToolPrice } from '@/lib/supplier-store';
 import { nameKey } from '@/lib/hub-tools';
+import { shareableTools, type ShareableRead } from '@/lib/chat-tool-share-held';
 
 /**
  * 🛍 THE SUPPLIER STORE'S READS (owner 23 Nov 2026 — `lib/supplier-store.ts` holds the words and the states).
@@ -179,6 +180,18 @@ export async function readStoreToolFacts(
     hubOverrides,
     nowMs: Date.now(),
   };
+}
+
+/**
+ * 🧰 The tools this shop may share into a chat ("Share from your tools", DECISION_LOG 2026-11-23 dee66686) — the tool
+ * facts above, read with the shop's saved layout, through the one rule (`shareableTools`). Read by the supplier's chat
+ * page (the picker) and by the chat send (`sendChatMessageCore`, which refuses a share of a tool not held).
+ */
+export async function readShareableTools(admin: SupabaseClient, vendorProfileId: string, services: readonly string[]): Promise<ShareableRead> {
+  // The service client for every read: the chat proves this person works this shop, and an Account Manager (role
+  // agent) must see the same list the send checks — the picker and the check can never disagree about one shop.
+  const layout = await readStoreLayout(admin, vendorProfileId);
+  return shareableTools(await readStoreToolFacts(admin, admin, vendorProfileId, services, layout));
 }
 
 /** Is this paid tool open for this shop now — bought once, or the trial? The SQL answer (`vendor_store_tool_open`). */

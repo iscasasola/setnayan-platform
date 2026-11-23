@@ -448,7 +448,7 @@ export const STORE_GRAPHS: Readonly<Record<CardKey, { title: string; group: Grap
   value: { title: STORE_GRAPH_TITLE.value, group: 'Quotes, bookings and money', asks: 'How much am I booking each month?', counts: 'The agreed price of your bookings, by month' },
   owed: { title: STORE_GRAPH_TITLE.owed, group: 'Quotes, bookings and money', asks: 'What is paid and what is still owed?', counts: 'Your open bookings: received, to come, overdue' },
   lead: { title: STORE_GRAPH_TITLE.lead, group: 'Quotes, bookings and money', asks: 'How far ahead do couples book me?', counts: 'Days from booking to the event' },
-  types: { title: STORE_GRAPH_TITLE.types, group: 'What couples say', asks: 'Which celebrations do I do most?', counts: 'Events you completed, by kind' },
+  types: { title: STORE_GRAPH_TITLE.types, group: 'What couples say', asks: 'Which kinds of event do I do most?', counts: 'Events you completed, by kind' },
   revmonth: { title: STORE_GRAPH_TITLE.revmonth, group: 'What couples say', asks: 'Are reviews coming in?', counts: 'Reviews couples left you, by month' },
   substars: { title: STORE_GRAPH_TITLE.substars, group: 'What couples say', asks: 'Which part of my work do couples rate best?', counts: 'Your four part ratings, averaged' },
   replied: { title: STORE_GRAPH_TITLE.replied, group: 'What couples say', asks: 'Do I answer my reviews?', counts: 'Reviews you answered, of every review' },

@@ -4,10 +4,13 @@ import { Mail } from 'lucide-react';
 import { HELP_TOPICS, helpTopicsFor } from '@/lib/help';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { topicsForCoverage, type HelpCoverage } from '@/lib/help-ask-core';
-import { readPeopleAsk } from '@/lib/help-asks.server';
 import { AnswerRows, AnswerWays, BestAnswer, NoAnswer, type AnswerCtx } from '@/app/_components/help-ask/help-ask-view';
-import { TopicTiles } from '@/app/_components/help-ask/topic-tiles';
-import { helpDoorFor, tilesFor } from '@/app/_components/help-ask/help-ask-places';
+import { helpDoorFor } from '@/app/_components/help-ask/help-ask-places';
+import { HelpStart } from '@/app/_components/help-ask/help-start';
+import { MessageUs } from '@/app/_components/help-ask/message-us';
+import { guideForTopic } from '@/lib/help/guides';
+import { helpKeep, helpPlace, inHelp } from '@/lib/help/help-place';
+import { routes } from '@/lib/routes';
 import { getSelfPersonalization } from '@/lib/self-personalization';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
@@ -94,13 +97,13 @@ type Props = {
  * switch), anything else signed in is the user account (host AND guest answers). Signed out, no invite: About
  * Setnayan only, and the door to sign in. The team's help is inside Setnayan HQ (`app/admin/help/guides`), never here.
  * The old role tiles are gone; an old `?role=` address lands on the same coverage it used to narrow to.
+ *
+ * 📘 GUIDE & HELP (owner "Approved" 21 Nov 2026, re-confirmed 22 Nov; corpus `prototypes/guide_help_2026-11-20/index.html`
+ * screen 1): Help · Ask anything · Start here (the first three guides of this help, `lib/help/guides.ts`) · Topics (three
+ * rows + All N, `/help/topics`) · Message us (one row; the form opens in a Sheet). The 13 Nov People ask chips, the topic
+ * tiles, the on-page form and the topic lines are gone (the drawing's four removals). Coverage is read once, by
+ * `lib/help/help-place.ts`, so every Help page keeps the same account.
  */
-function coverageFor(search: { for?: string; role?: string }, signedIn: boolean): HelpCoverage {
-  const f = search.for ?? (search.role === 'vendor' ? 'shop' : search.role === 'guest' ? 'guest' : undefined);
-  if (f === 'guest') return 'guest';
-  if (!signedIn) return 'public';
-  return f === 'shop' ? 'supplier' : 'user';
-}
 
 const ACCOUNT_LINE: Record<HelpCoverage, string> = {
   user: 'Answers for your account',
@@ -118,14 +121,13 @@ export default async function HelpPage({ searchParams }: Props) {
   const prefillSubject = typeof search.subject === 'string' ? search.subject.slice(0, 160) : '';
   const prefillBody = typeof search.body === 'string' ? search.body.slice(0, 4000) : '';
   const prefillTopic = ['couple', 'vendor', 'guest', 'billing', 'bug', 'feature', 'other'].includes(search.topic ?? '') ? search.topic! : null;
-  const referEvent = typeof search.refer === 'string' && /^[A-Za-z0-9-]{1,64}$/.test(search.refer) ? search.refer : null;
 
   const user = await getCurrentUser();
   const signedIn = Boolean(user && !user.is_anonymous);
-  const coverage = coverageFor(search, signedIn);
-  const forParam = coverage === 'supplier' ? 'shop' : coverage === 'guest' ? 'guest' : undefined;
-  const keep = { for: forParam, refer: referEvent ?? undefined };
-  const here = `/help${forParam || referEvent ? `?${new URLSearchParams(Object.entries(keep).filter((e): e is [string, string] => Boolean(e[1]))).toString()}` : ''}`;
+  const place = helpPlace(search, signedIn);
+  const { coverage, forParam, referEvent } = place;
+  const keep = helpKeep(place);
+  const here = inHelp(routes.help.index(), place);
 
   // Pre-fill the contact form with the signed-in user's email and their own name (owner 2026-11-08).
   const prefilledEmail = user?.email ?? '';
@@ -135,51 +137,33 @@ export default async function HelpPage({ searchParams }: Props) {
   // about a part the app does not include is left out of the topics — the switch the list always used, read once
   // here. (The ASK keeps that question, with the app's own line: lib/help-ask-core.ts `askTopicsFor`.)
   const storeShell = await isStoreShellRequest();
-  const tileAccount = coverage === 'supplier' ? 'shop' : 'user';
   const covered = topicsForCoverage(helpTopicsFor(HELP_TOPICS, storeShell), coverage);
 
   const q = (search.q ?? '').trim().slice(0, 120);
   const found = q ? await runHowSearch(q, { coverage }) : null;
   const ask = found?.ask ?? null;
-
   // What we could not answer is kept (§ 09) — but by the ASK, not by this render: the box POSTs to the help's action
   // (`intent=ask`, app/help/actions.ts), which writes the row and redirects here. A GET of `?q=` writes nothing.
-  const peopleAsk = q ? [] : await readPeopleAsk(coverage);
 
   const ctx: AnswerCtx = {
     words: q,
     coverage,
     askAgainHref: `${here}#ask`,
     messageHref: '#contact',
-    doorFor: (topicKey) => helpDoorFor(tileAccount, topicKey, { eventId: referEvent, eventName: referEvent ? 'your event' : null }),
+    doorFor: (topicKey) => helpDoorFor(place.account, topicKey, { eventId: referEvent, eventName: referEvent ? 'your event' : null }),
+    guideFor: (topicKey) => {
+      const g = guideForTopic(topicKey, coverage);
+      return g ? inHelp(routes.help.guide(g.key), place) : null;
+    },
   };
-  const topicCtx: AnswerCtx = { ...ctx, words: '' };
-
-  const tiles = tilesFor(tileAccount, covered);
-  const pages = Object.fromEntries(
-    covered.map((t) => [
-      t.key,
-      <AnswerRows
-        key={t.key}
-        group={`help-topic-${t.key}`}
-        ctx={topicCtx}
-        tag={false}
-        hits={t.articles.map((a) => ({ slug: a.slug, title: a.title, body: a.body, lead: a.body, topicKey: t.key, topicLabel: t.label, notInApp: false }))}
-      />,
-    ]),
-  );
 
   // Feature pages and guides — the one search's own rows, under the help's answers.
   const featureRows: HowHit[] = (found?.hits ?? []).filter((h) => h.kind !== 'help').slice(0, 3);
   const shown = ask?.best ? [ask.best, ...ask.more].map((h) => h.title).join(' · ') : '';
 
   const contact = (
-    <section id="contact" className="scroll-mt-20 space-y-3" data-help-contact="">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight">{q ? 'Still stuck?' : 'Rather talk to a person?'}</h2>
-        <p className="text-sm text-ink/70">A person replies by email.</p>
-      </div>
-      <form action={submitHelpMessage} className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-4">
+    <MessageUs title={q ? 'Still stuck?' : 'Message us'} startOpen={Boolean(prefillSubject || prefillBody || prefillTopic || search.error)}>
+      <form action={submitHelpMessage} className="space-y-4">
         {forParam ? <input type="hidden" name="for" value={forParam} /> : null}
         {q ? <input type="hidden" name="asked" value={q} /> : null}
         {shown ? <input type="hidden" name="shown" value={shown.slice(0, 600)} /> : null}
@@ -219,7 +203,7 @@ export default async function HelpPage({ searchParams }: Props) {
           Send message
         </SubmitButton>
       </form>
-    </section>
+    </MessageUs>
   );
 
   return (
@@ -231,8 +215,8 @@ export default async function HelpPage({ searchParams }: Props) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSONLD) }} />
       <main className="min-h-dvh bg-page pb-24 lg:pb-0">
         <div className="mx-auto w-full max-w-xl px-4 pb-12 pt-6 sm:px-6 sm:pt-10" data-help-coverage={coverage}>
-          <h1 className="sn-h1">{q ? 'Help' : 'Ask anything'}</h1>
-          {q ? null : <p className="mt-1 text-base text-ink/65">Type it your way. English or Tagalog.</p>}
+          <h1 className="text-sn-title text-ink">Help</h1>
+          {q ? null : <p className="mt-1 text-sn-lg text-ink/65">Ask it your way. English or Tagalog.</p>}
 
           <div className="mt-4">
             <HowSearchField q={q} action="/help" keep={keep} at="top" clearHref={here} ask={{ action: submitHelpMessage, coverage }} />
@@ -274,45 +258,26 @@ export default async function HelpPage({ searchParams }: Props) {
               )}
               {ask.more.length > 0 ? (
                 <section aria-label="More answers" data-help-more="">
-                  <h2 className="text-sm font-semibold text-ink/70">More answers</h2>
-                  <AnswerRows hits={ask.more} group="help-more" ctx={ctx} />
+                  <h2 className="text-sn-xl font-semibold text-ink">More answers</h2>
+                  <div className="sn-frame mt-2 px-4 py-1">
+                    <AnswerRows hits={ask.more} group="help-more" ctx={ctx} />
+                  </div>
                 </section>
               ) : null}
               <HowSearchResults q={q} hits={featureRows} storiesFailed={found.storiesFailed} clearHref={here} askHref="#contact" title="Features" />
               {contact}
             </div>
           ) : (
-            <div className="mt-6 space-y-8">
-              {peopleAsk.length > 0 ? (
-                <section aria-label="People ask" data-help-people-ask="">
-                  <h2 className="text-sm font-semibold text-ink/70">People ask</h2>
-                  <ul className="mt-2 flex flex-wrap gap-2">
-                    {peopleAsk.map((w) => (
-                      <li key={w}>
-                        <Link
-                          href={`/help?${new URLSearchParams({ ...(forParam ? { for: forParam } : {}), q: w }).toString()}`}
-                          className="sn-press inline-flex min-h-11 items-center rounded-full border border-ink/15 bg-cream px-4 text-sm text-ink"
-                        >
-                          {w.charAt(0).toUpperCase() + w.slice(1)}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
+            <div className="mt-2">
+              <HelpStart place={place} topics={covered} />
 
-              <section aria-label="Browse topics" data-help-browse="">
-                <h2 className="text-sm font-semibold text-ink/70">Browse topics</h2>
-                <div className="mt-2">
-                  <TopicTiles topics={tiles} pages={pages} />
-                </div>
-              </section>
+              {contact}
 
               {/* ✍ YOUR STORY — its door moved here from the account sheet, whose tiles are Help · Show me around · Sign out
                   (DECISION_LOG 2026-11-07 "Account sheet tiles"; THE ONE BUILD §9 #5: "their destinations stay reachable
                   inside Help"). Signed-in only — the Storyteller chapters are an account's own. */}
               {user && !user.is_anonymous ? (
-                <p className="text-sm text-ink/65" data-help-your-story="">
+                <p className="mt-6 text-sm text-ink/65" data-help-your-story="">
                   <Link href="/dashboard/creator" className="font-medium text-terracotta underline-offset-2 hover:underline">
                     Your Story ›
                   </Link>{' '}
@@ -322,15 +287,13 @@ export default async function HelpPage({ searchParams }: Props) {
               {/* 🤝 Refer a couple — only from an event's sheet (`?refer=<event>`), only while the programme is on; the
                   refer page checks the viewer itself. */}
               {user && !user.is_anonymous && referEvent && (await isReferralProgramEnabled().catch(() => false)) ? (
-                <p className="-mt-6 text-sm text-ink/65" data-help-refer="">
+                <p className="mt-2 text-sm text-ink/65" data-help-refer="">
                   <Link href={`/dashboard/${referEvent}/refer`} className="font-medium text-terracotta underline-offset-2 hover:underline">
                     Refer a couple ›
                   </Link>{' '}
                   — share Setnayan with a couple you know.
                 </p>
               ) : null}
-
-              {contact}
             </div>
           )}
         </div>

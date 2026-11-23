@@ -680,6 +680,11 @@ async function dayPosterCredits(admin: SupabaseClient, eventId: string): Promise
   }
 }
 
+/** The day poster's photos, in order, at the print's size (`posterPhotoBytes`, the Our Story poster's own read); a ref that cannot be read is null. */
+function dayPosterPhotoBytes(refs: ReadonlyArray<string | null>, mode: PrintMode): Promise<Array<Uint8Array | null>> {
+  return Promise.all(refs.map((r) => (r ? posterPhotoBytes(r, mode) : Promise.resolve(null))));
+}
+
 /** The day poster's layout input: its photos into `images` (`dp-main`, `dp-0`…), its words already filtered by its switches. */
 async function dayPosterData(
   record: DayPoster,
@@ -823,7 +828,7 @@ export async function loadPrintSet(
   /* 🖼 The day poster's photos (the main one, then the ones its template draws) and its credits start beside the rest. */
   const dpRec = opts.dayPoster?.record ?? null;
   const dpPhotoRefs = dpRec ? [dpRec.main?.ref ?? null, ...drawnSupporting(dpRec).map((p) => p.ref)] : [];
-  const dpPhotosRead = dpRec ? startAhead(Promise.all(dpPhotoRefs.map((r) => (r ? posterPhotoBytes(r, opts.mode) : Promise.resolve(null))))) : null;
+  const dpPhotosRead = dpRec ? startAhead(dayPosterPhotoBytes(dpPhotoRefs, opts.mode)) : null;
   const dpCreditsRead = dpRec?.show.credits ? startAhead(dayPosterCredits(admin, eventId)) : null;
   const sampleGallery = opts.samplePalette !== undefined;
   /* 🤍 A FREE EVENT PRINTS PLAIN WHITE (owner 2026-10-21: *"Free version is the plain white. Themes that follows the event hub is

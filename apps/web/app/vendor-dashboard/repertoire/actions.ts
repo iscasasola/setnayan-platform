@@ -9,6 +9,9 @@ import { parseVideoLink } from '@/lib/video-embed';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readShopSpecialToolOpen } from '@/lib/paid-widget-open.server';
+import { readPaidWidgetStatus } from '@/lib/supplier-store.server';
+import type { ToolStatus } from '@/lib/supplier-store';
+import { PAID_WIDGET_RESUBSCRIBE_WORDS } from '@/lib/special-tools';
 
 const BASE = '/vendor-dashboard/repertoire';
 
@@ -35,16 +38,23 @@ async function ensureProfile() {
 }
 
 /**
- * 🔒 Song bank is a paid widget (owner via the controller, 23 Nov): a write goes through only while it is open — bought
- * once in the Toolkit, or the plan includes it (the Cake Maker's gate). The page hides the tools when it is shut; a
- * server action is a POST target of its own, so it asks again. null = open; else the sentence to show.
+ * 🔒 Song bank is a paid widget (owner a02673ac, 23 Nov): a write goes through only while it is open — bought once in
+ * the Toolkit AND on Plus, Pro or Ultra. The page hides the tools when it is shut; a server action is a POST target of
+ * its own, so it asks again. null = open; else the sentence to show — an owner off-plan hears "Works again when you
+ * subscribe", never "Get it", the same two locks the page draws.
  */
 async function songBankRefusal(vendorProfileId: string): Promise<string | null> {
-  const open = await readShopSpecialToolOpen(createAdminClient(), vendorProfileId, 'song_bank');
-  if (open.status === 'unread') return 'We couldn’t check your Song bank just now. Nothing was changed — try again.';
-  if (open.status !== 'ok' || !open.data) return 'Song bank is not open for your shop. Get it once in the Toolkit.';
-  return null;
+  const admin = createAdminClient();
+  const open = await readShopSpecialToolOpen(admin, vendorProfileId, 'song_bank');
+  if (open.status === 'unread') return SONG_BANK_UNREAD;
+  if (open.status === 'ok' && open.data) return null;
+  const widget = await readPaidWidgetStatus(admin, vendorProfileId, 'song_bank').catch((): ToolStatus => ({ kind: 'unread' }));
+  if (widget.kind === 'unread') return SONG_BANK_UNREAD;
+  if (widget.kind === 'resubscribe') return `Your Song bank is kept. ${PAID_WIDGET_RESUBSCRIBE_WORDS}. Nothing was changed.`;
+  return 'Song bank is not open for your shop. Get it once in the Toolkit.';
 }
+
+const SONG_BANK_UNREAD = 'We couldn’t check your Song bank just now. Nothing was changed — try again.';
 
 /**
  * Add a song to the vendor's repertoire. Accepts either an existing master

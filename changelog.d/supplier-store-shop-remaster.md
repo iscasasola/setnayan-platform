@@ -60,5 +60,6 @@ Built from Fable's drawing `prototypes/supplier_store_graphs_badges_2026-11-23/`
     - The Toolkit buy is registered as checkout navigation. Its client no longer re-renders twice.
     - `store_layout` is in the shop's data export, and the Toolkit clip URL goes through `publicUrlForStoredAsset`.
     - The retired per-event booth buy form is deleted.
+  - Repertoire's Song bank lock now says which door. A shop that bought it and is off-plan reads "Works again when you subscribe" and gets See plans, not a second Buy. A refused save says the same. Held by `repertoire/the-song-bank-lock-says-which-door.test.ts`.
 
 SPEC IMPACT: Builds owner rulings a02673ac (bought AND subscribed), 5bfefe76 (grandfathering), 5ae3fbb2 (live count) and 4c07edd7 (tool-video slot), already in the specs DECISION_LOG. The 30-day trial (DECISION_LOG 2026-11-23, specs 6a7db142) is withdrawn by the owner's "Yes, guides only" (relayed by the controller, who records it in the corpus); the place a person reads is "Toolkit" and its tools are "widgets". Otherwise this builds the 2026-11-23 rulings as drawn. The storage sheet leaves out the drawing's "photos at each event, by plan" list: those limits have no home in the catalog or `TIER_CAPS` yet (raised as an owner question on the PR).

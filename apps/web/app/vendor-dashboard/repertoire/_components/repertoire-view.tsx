@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { BookOpen, Check, Lock, Music, Plus, ShoppingBag } from 'lucide-react';
+import { BookOpen, Check, Lock, Music, Plus, ShoppingBag, Sparkles } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { routes } from '@/lib/routes';
 import type { Song } from '@/lib/songs';
 import { formatCount } from '@/lib/format-number';
-import { PAID_WIDGET_NEEDS_PLAN_WORDS } from '@/lib/special-tools';
+import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from '@/lib/special-tools';
 import { Fold } from '@/app/_components/fold';
 import { InfoTip } from '@/app/_components/info-tip';
 import { StayForm } from '@/app/_components/stay-form';
@@ -127,31 +127,43 @@ export function RepertoireView({
 const SONG_BANK_IN_TOOLKIT = routes.vendorDashboard.shop.store.item('tools', 'song_bank');
 
 /**
- * 🔒 Song bank, not open for this shop (owner via the controller, 23 Nov: a paid widget, gated everywhere it opens,
- * like the Cake Maker). Saved songs are kept, never deleted, and come back the moment it opens. Its one door goes to
- * the Toolkit page, which shows the catalog price or "With your plan".
+ * 🔒 Song bank, not open for this shop (owner a02673ac, 23 Nov: a paid widget opens only when bought AND on Plus, Pro or
+ * Ultra). Saved songs are kept, never deleted, and come back the moment it opens. Two locks, one main door each:
+ *   • not bought → the Toolkit page (the catalog price and the plan notice);
+ *   • `owned` (bought, now off-plan) → "Works again when you subscribe" and the plans door — never a second Buy.
  */
-export function RepertoireLocked({ saved }: { saved: number }) {
+export function RepertoireLocked({ saved, owned }: { saved: number; owned: boolean }) {
   return (
     <ToolPage name="repertoire">
       <ToolPin route="/vendor-dashboard/repertoire" title="Repertoire" />
-      <div className="sn-frame mt-3 flex flex-col gap-2 p-4" data-song-bank="locked">
+      <div className="sn-frame mt-3 flex flex-col gap-2 p-4" data-song-bank={owned ? 'resubscribe' : 'locked'}>
         <p className="flex items-center gap-2 text-sn-lg font-bold text-ink">
           <Lock aria-hidden className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={1.8} /> Song bank
         </p>
         <p className="text-sn-base text-[color:var(--m-slate-2)]">
           The songs you play, each with a video, on your shop page: couples comparing bands see what you can do.
         </p>
-        <p className="text-sn-base text-[color:var(--m-slate-2)]">
-          Get it once in the Toolkit; it is yours to keep. {PAID_WIDGET_NEEDS_PLAN_WORDS}.
-        </p>
+        {owned ? (
+          /* 🧰 Owned, off-plan (a02673ac): locked and kept — the plans door, never a second Buy. */
+          <p className="text-sn-base text-[color:var(--m-slate-2)]" data-song-bank-words="">
+            It is still yours. {PAID_WIDGET_RESUBSCRIBE_WORDS} to {PAID_WIDGET_PLAN_WORDS}.
+          </p>
+        ) : (
+          <p className="text-sn-base text-[color:var(--m-slate-2)]" data-song-bank-words="">
+            Get it once in the Toolkit; it is yours to keep. {PAID_WIDGET_NEEDS_PLAN_WORDS}.
+          </p>
+        )}
         {saved > 0 ? (
           <p className="text-sn-base text-[color:var(--m-slate-2)]">
             Your {formatCount(saved)} saved {saved === 1 ? 'song is' : 'songs are'} kept as they are.
           </p>
         ) : null}
         <div className="mt-1 flex flex-wrap gap-2">
-          <ActionButton tone="brand" main icon={<ShoppingBag aria-hidden strokeWidth={1.9} />} label="See it in the Toolkit" href={SONG_BANK_IN_TOOLKIT} />
+          {owned ? (
+            <ActionButton tone="brand" main icon={<Sparkles aria-hidden strokeWidth={1.9} />} label="See plans" href={routes.vendorDashboard.subscription()} />
+          ) : (
+            <ActionButton tone="brand" main icon={<ShoppingBag aria-hidden strokeWidth={1.9} />} label="See it in the Toolkit" href={SONG_BANK_IN_TOOLKIT} />
+          )}
           <ActionButton tone="neutral" icon={<BookOpen aria-hidden strokeWidth={1.9} />} label="How to use it" href={`${SONG_BANK_IN_TOOLKIT}#guide`} />
         </div>
       </div>

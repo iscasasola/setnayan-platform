@@ -136,7 +136,7 @@ export function toolShareFace(tool: ShareableTool, viewer: ToolShareViewer, appr
 } {
   const w = TOOL_SHARE_WORDS[tool];
   if (viewer === 'couple') {
-    return { kicker: w.kind, title: w.title, from: w.from, open: 'Open', approve: approved ? null : 'Approve', status: approved ? 'You approved this' : null };
+    return { kicker: w.kind, title: w.title, from: w.from, open: 'Open', approve: approved ? null : 'Approve', status: approved ? 'Approved' : null };
   }
   return { kicker: w.kind, title: w.title, from: w.from, open: null, approve: null, status: approved ? 'Approved by your client' : 'Waiting for their OK' };
 }

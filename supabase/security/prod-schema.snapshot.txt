@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1986
-# tables: 539
-# columns: 6472
-# notnull: 3892
+# ledger: 1987
+# tables: 540
+# columns: 6489
+# notnull: 3900
 [ledger]
 20260512000000
 20260513000000
@@ -1997,6 +1997,7 @@
 20271359089802
 20271359577754
 20271359913146
+20271359936839
 20271360033501
 [columns]
 account_deletion_requests.admin_note
@@ -6947,6 +6948,22 @@ vendor_album_opens.album_key
 vendor_album_opens.album_kind
 vendor_album_opens.opened_at
 vendor_album_opens.vendor_profile_id
+vendor_app_store_subscriptions.auto_renew_product_id
+vendor_app_store_subscriptions.billing_failed_at
+vendor_app_store_subscriptions.created_at
+vendor_app_store_subscriptions.environment
+vendor_app_store_subscriptions.expires_at
+vendor_app_store_subscriptions.grace_period_expires_at
+vendor_app_store_subscriptions.last_notification
+vendor_app_store_subscriptions.last_notification_at
+vendor_app_store_subscriptions.last_transaction_id
+vendor_app_store_subscriptions.original_transaction_id
+vendor_app_store_subscriptions.product_id
+vendor_app_store_subscriptions.status
+vendor_app_store_subscriptions.tier
+vendor_app_store_subscriptions.updated_at
+vendor_app_store_subscriptions.vendor_profile_id
+vendor_app_store_subscriptions.will_auto_renew
 vendor_availability_freed.blocked_at
 vendor_availability_freed.blocked_until
 vendor_availability_freed.day_part
@@ -8258,6 +8275,7 @@ vendor_subscriptions.addon_amount_php
 vendor_subscriptions.addon_token_count
 vendor_subscriptions.addon_token_pack_sku
 vendor_subscriptions.amount_php
+vendor_subscriptions.app_store_original_transaction_id
 vendor_subscriptions.billing_cycle
 vendor_subscriptions.created_at
 vendor_subscriptions.credit_applied_php
@@ -11436,6 +11454,14 @@ vendor_album_opens.album_key
 vendor_album_opens.album_kind
 vendor_album_opens.opened_at
 vendor_album_opens.vendor_profile_id
+vendor_app_store_subscriptions.created_at
+vendor_app_store_subscriptions.environment
+vendor_app_store_subscriptions.original_transaction_id
+vendor_app_store_subscriptions.product_id
+vendor_app_store_subscriptions.status
+vendor_app_store_subscriptions.tier
+vendor_app_store_subscriptions.updated_at
+vendor_app_store_subscriptions.vendor_profile_id
 vendor_availability_freed.day_part
 vendor_availability_freed.freed_at
 vendor_availability_freed.id

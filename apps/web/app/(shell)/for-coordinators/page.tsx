@@ -63,6 +63,7 @@ import { shownWith, type ClaimSwitch } from './_claims';
 import { readClaimSwitches } from './_claims.server';
 import { FREE_HELPER_SEATS, GROW_TIERS, pctWords, pesoWords, planName, reachLadderSentence, type GrowTier } from './_facts';
 import { planLine } from '@/app/for-suppliers/_components/supplier-front-data';
+import { CLIENTS_FOOTNOTE } from '@/lib/supplier-client-room';
 import { FcInfo } from './_fc-info';
 import { readCoordinatorPrices } from './_prices.server';
 
@@ -430,6 +431,7 @@ export default async function ForCoordinatorsPage() {
                     {PLAN_LINE[t]}
                   </p>
                 ))}
+                <p>{CLIENTS_FOOTNOTE}</p>
                 <p>No plan limits bookings or reach. Only a Verified shop is shown in search: {reachLadderSentence()}.</p>
               </>
             }

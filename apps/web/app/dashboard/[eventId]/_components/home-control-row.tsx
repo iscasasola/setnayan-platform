@@ -35,90 +35,23 @@ import { ExamplePreview } from '@/app/_components/states/empty-state';
 import { budgetPageHref } from '@/lib/pillar-parts';
 
 /**
- * 🎛 HOME'S CONTROL ROW — the six upper widgets (owner-approved 2026-10-24, "ok": `home_control_center_2026-10-24_fable
- * .html`, corpus 10067d39). THE UPPER PARTS OPEN THEIR PAGE (owner: *"the upper parts are the ones that open to another
- * page. the lower parts are the ones that expand"*): a widget never grows; a tap opens its ONE page at the exact item.
- *
- *   COMPACT — below 768 px (owner: compact on the phone, no toggle): a 2-column grid of small tiles, like phone
- *             home-screen widgets — Countdown / Guests · Event Hub / Suppliers · Checklist / Budget — each one figure,
- *             one short line, at most one tiny action; the multi-face tiles rotate (`home-tile.tsx`).
- *   DETAIL  — from `md` up: the same widgets as cards (the shipped card's head · dot · status · acts, no grow) in two
- *             columns, read column by column: Countdown · Event Hub · Budget | Guests · Suppliers · Checklist.
- *
- * ONE DATA SHAPE (`home-control-faces.ts`), drawn twice; the same doors in both. Details live inside each card's ⓘ
- * (title + one short line visible). A failed read is ONE "Couldn't load" line with ⟳ Reload — never 0, never ₱0.
+ * 🎛 HOME'S WIDGETS IN THE WEBSITE LOOK (owner 23 Nov 2026, *"Yes, approve"* — specs DECISION_LOG "EVENT SERVICES v5
+ * (WEBSITE TEMPLATE) APPROVED, WITH THE TODAY DOOR", drawing `prototypes/buy_event_services_one_place_2026-11-23/
+ * strip-v5-today.jpg`): Guests · Budget · Schedule · Suppliers · Event Hub are SECTIONS on a white page at every
+ * width — "Title  See all →", one grey line, chips, quiet pills, rows split by hairlines (HOUSE_DESIGN_STANDARD
+ * Part H). They are the 1280 board's own cards, drawn once: the phone's rotating compact tiles and the tablet's second
+ * copy are retired (the drawing replaces them; owner's pick in the build, 23 Nov). The Countdown rides the event card
+ * and To do is the list, so neither is drawn here. THE UPPER PARTS OPEN THEIR PAGE (owner 2026-10-24): a section never
+ * grows; a tap opens its ONE page at the exact item. A failed read is ONE "Couldn't load" line with ⟳ Reload.
  */
-export function HomeControlRow({
-  input,
-  hubPick = null,
-}: {
-  input: HomeControlInput;
-  /** 🎛 The Event Hub's "Pick what shows" read, when the caller already holds it (the dev lab) — else on the tap. */
-  hubPick?: HomeHubPickRead | null;
-}) {
-  const { tiles } = homeControlTiles(input);
-  let rotating = 0;
-  const tile = (t: (typeof tiles)[number]) => {
-    const rotates = t.faces.length > 1 && !t.failed;
-    const stagger = rotates ? rotating++ : 0;
-    // The first-visit tour's "More on every tile" rings the first tile with faces to swipe.
-    return (
-      <HomeTile
-        key={t.key}
-        model={t}
-        eventId={input.eventId}
-        stagger={stagger}
-        tour={rotates && stagger === 0 ? 'home-faces' : undefined}
-        hubPick={t.key === 'hub' ? hubPick : null}
-      />
-    );
-  };
-  /* 🧱 THE PHONE'S ORDER (owner-approved 1 Nov prototype): Countdown on the page · the Schedule card · the glance row —
-     Guests · Event Hub / Suppliers · To do, unframed, closed by a divider — · the Budget card. */
-  const lead = tiles.filter((t) => t.key === 'count' || t.key === 'sched');
-  const glance = tiles.filter((t) => GLANCE.has(t.key));
-  const rest = tiles.filter((t) => t.key !== 'count' && t.key !== 'sched' && !GLANCE.has(t.key));
-  const sched = tiles.find((t) => t.key === 'sched') ?? null;
-  return (
-    <>
-      <div className="hc-stack md:hidden" data-home-control="compact" data-tour="home-tiles">
-        {lead.map(tile)}
-        {glance.length > 0 ? (
-          <>
-            <div className="hc-grid hc-glance" data-home-glance="">
-              {glance.map(tile)}
-            </div>
-            <hr className="hc-rule" aria-hidden />
-          </>
-        ) : null}
-        {rest.map(tile)}
-      </div>
-      <div className="hc-two hidden md:grid xl:hidden" data-home-control="detail" data-tour="home-tiles">
-        <div className="hc-col">
-          <DetailCard k="count" input={input} tile={tiles.find((t) => t.key === 'count') ?? null} hubPick={hubPick} />
-          {/* 📅 The Schedule, after the Countdown — the same card as the phone's (its faces, dots and doors). */}
-          {sched ? <HomeTile model={sched} eventId={input.eventId} stagger={0} /> : null}
-          {(['hub', 'budget'] as const).map((k) => (
-            <DetailCard key={k} k={k} input={input} tile={tiles.find((t) => t.key === k) ?? null} hubPick={hubPick} />
-          ))}
-        </div>
-        <div className="hc-col">
-          {(['guests', 'sup', 'plan'] as const).map((k) => (
-            <DetailCard key={k} k={k} input={input} tile={tiles.find((t) => t.key === k) ?? null} />
-          ))}
-        </div>
-      </div>
-    </>
-  );
-}
 
 /**
  * 🖥 THE 1280 BOARD — one of Home's three columns from `xl` (owner-approved 16 Nov 2026, event dashboard drawing v13,
  * `event_dashboard_clean_2026-11-16_fable.html` · clean look screen 2b): the event card, Next and To do | Guests ·
- * Budget · Schedule | Suppliers · Event Hub, then Prints · Your services · Memories. The same detail cards, the same
- * doors — drawn a third time, like the phone tiles and the tablet cards, and shown only from 1280 (`hidden xl:flex`),
- * where the two-column detail hides. Each column is its own stack, so the eye and the Tab key read it column by column
- * (the-home-grid-reads-in-order.test.ts). The Countdown rides the event card and To do is the list in the first
+ * Budget · Schedule | Suppliers · Event Hub, then Prints · Your services · Memories. Below 1280 the same two columns
+ * stack under the list in that order (Guests · Budget · Schedule · Suppliers · Event Hub — the v5 drawing's order), so
+ * the board is the ONE copy at every width. Each column is its own stack, so the eye and the Tab key read it column by
+ * column (the-home-grid-reads-in-order.test.ts). The Countdown rides the event card and To do is the list in the first
  * column, so the board draws neither card.
  */
 export const HOME_BOARD_COLUMNS = {
@@ -138,7 +71,7 @@ export function HomeControlBoardColumn({
   const { tiles } = homeControlTiles(input);
   return (
     <div
-      className="hc-bcol hidden min-w-0 flex-col gap-3 xl:flex"
+      className="hc-bcol mx-auto flex w-full min-w-0 max-w-xl flex-col md:max-w-none xl:mx-0"
       data-home-control="board"
       data-home-board={side}
       /* 🧭 The welcome tour's "Start here" ring (lib/tours.ts, anchor `home-tiles`) — the board is what shows from 1280. */
@@ -158,9 +91,6 @@ export function HomeControlBoardColumn({
     </div>
   );
 }
-
-/** The glance row — heading-less tiles on the page, two across, like Safari's Favorites (owner 2026-11-01). */
-const GLANCE: ReadonlySet<string> = new Set(['guests', 'hub', 'sup', 'plan']);
 
 /* ─── The detail card — the shipped card's shape, no grow ─────────────────── */
 
@@ -237,20 +167,24 @@ function Shell({
       ) : (
         <Link href={door} className="hc-card-door" aria-label={label} data-home-card-door={k} />
       )}
+      {/* 🌐 The website's section head (Part H, "Title  See all →"): the name with its ⓘ, then the door's own words.
+          The whole section stays the door (`hc-card-door` above); "See all →" says so, as the website's heads do. */}
       <span className="sg-head">
         <span className="sg-mark" aria-hidden>
           {MARK[k]}
         </span>
-        <span className="min-w-0">
-          <span className="hc-card-name">
-            <InfoTip label={NAME[k]} labelClassName="sg-name" align="start">
-              {INFO[k]}
-            </InfoTip>
-          </span>
-          {brand ? <span className="sg-brand block truncate">{brand}</span> : null}
+        <span className="hc-card-name">
+          <InfoTip label={NAME[k]} labelClassName="sg-name" align="start">
+            {INFO[k]}
+          </InfoTip>
         </span>
-        <ChevronRight aria-hidden className="sg-arrow h-[18px] w-[18px]" strokeWidth={1.9} />
+        <span aria-hidden className="hc-see-all">
+          See all
+          <ArrowRight className="h-[18px] w-[18px]" strokeWidth={2} />
+        </span>
       </span>
+      {/* The section's one grey line (its first status joins it, after a ·). */}
+      {brand ? <span className="sg-brand">{brand}</span> : null}
       {children}
       {/* 👻 THE EMPTY LOOK AT DESKTOP WIDTHS (Build 5 Lane H leftover): the phone tile's own sample face, drawn in this
           card's own lines under "Example" — the same gate, the same fixture, so phone and desktop show one sample.
@@ -581,14 +515,16 @@ function DetailCard({
                 const href = payFace(p.id)?.action?.href ?? budgetPageHref(e);
                 return (
                   <div key={p.id} className={`hc-pay${late ? ' hc-late' : ''}`} data-home-pay={p.id}>
+                    {/* 🌐 The website's plan row (Part H): who and their line on the left, the amount right, then Pay. */}
                     <span className="min-w-0 flex-1">
-                      <b className="block">
-                        {formatPhpRounded(p.owedPhp)} <span className="hc-due">· {dueWords(p, true)}</span>
-                      </b>
+                      <b className="block">{p.who}</b>
                       <span className="hc-pay-s">
-                        {p.who} · {p.what}
+                        {p.what} <span className="hc-due">· {dueWords(p, true)}</span>
                       </span>
                     </span>
+                    <b className="hc-pay-amt">
+                      <Count value={p.owedPhp} format="peso" id={`home-pay-${p.id}${countKey}`} />
+                    </b>
                     <ActionButton tone={late ? 'brand' : 'ok'} main={late} icon={<ArrowRight aria-hidden="true" strokeWidth={1.9} />} label="Pay" name={`Pay ${formatPhpRounded(p.owedPhp)} to ${p.who}`} href={href} />
                   </div>
                 );
@@ -600,26 +536,20 @@ function DetailCard({
               ) : null}
             </div>
           ) : null}
-          <div className="home-money mt-2">
-            <div>
-              <div className="home-k">Paid</div>
-              <div className="home-v"><Count value={b.paidPhp} format="peso" id={`home-paid${countKey}`} /></div>
-            </div>
-            <div className="text-right">
-              <div className="home-k">Still owing</div>
-              <div className="home-v"><Count value={b.owingPhp} format="peso" id={`home-owing${countKey}`} /></div>
-            </div>
-          </div>
-          {pct !== null ? <GlanceMeter mood="ok" pct={pct} label="Paid" /> : null}
-          <Dot mood="ok">
-            {pct !== null ? (
-              <>
-                <b className="font-medium"><Count value={pct} format="pct" id={`home-paid-pct${countKey}`} /> paid</b> · of {formatPhpRounded(agreed)} agreed
-              </>
-            ) : (
-              'Nothing agreed yet'
-            )}
-          </Dot>
+          {/* 🌐 Paid · still owing · the share paid, as the section's ONE fine line (the v5 drawing) — the same readers. */}
+          <span className="sg-status hc-money-line" data-home-money="">
+            <span>
+              Paid <Count value={b.paidPhp} format="peso" id={`home-paid${countKey}`} /> · still owing <Count value={b.owingPhp} format="peso" id={`home-owing${countKey}`} />
+              {' · '}
+              {pct !== null ? (
+                <>
+                  <Count value={pct} format="pct" id={`home-paid-pct${countKey}`} /> paid of {formatPhpRounded(agreed)} agreed
+                </>
+              ) : (
+                'Nothing agreed yet'
+              )}
+            </span>
+          </span>
         </Shell>
       );
     }

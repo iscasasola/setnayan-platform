@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ChevronRight, Lock, MessageSquare, MinusCircle, Plus, ReceiptText, ShoppingBag } from 'lucide-react';
+import { BadgeCheck, ChevronRight, Lock, MessageSquare, MinusCircle, Plus, ReceiptText, ShoppingBag, Sparkles } from 'lucide-react';
 import { CARD_ORDER } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { ToolChip, ToolEmpty, ToolFail, ToolPin, ToolRow, ToolSection } from '@/app/vendor-dashboard/_components/tool-page';
 import { TemplateRows } from '@/app/_components/template-rows';
@@ -14,6 +14,7 @@ import {
   followedBadges,
   goalWords,
   graphStatus,
+  graphLockedLine,
   graphWindowWords,
   groupChipKey,
   isGraphKey,
@@ -21,11 +22,18 @@ import {
   storeToolOf,
   storeToolRows,
   toolChipGroups,
+  INSTALLED_WORD,
+  INSTALL_WORD,
+  buyWords,
+  toolAct,
   toolFootWords,
-  toolIsYours,
+  toolIsInstalled,
+  widgetPlaces,
   toolShelfGroups,
   toolStatus,
   toolTags,
+  toolkitCountWords,
+  toolkitCounts,
   yourTools,
   type GraphStatus,
   type StoreShelf,
@@ -35,8 +43,12 @@ import type { ShelfTile } from '@/lib/shop-badge-shelf';
 import type { CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { BadgeArt } from '@/app/vendor-dashboard/shop/_components/shop-badge-row';
 import type { StoreData } from './store-data';
-import { GraphArt, GraphShelfRow, OnPage, StoreBadgeTile, StoreGraphTile, StoreShelfRow, StoreToolTile, TagChips, ToolArt, ToolShelfRow, php, toolOpenHref } from './store-views';
-import { CakeDemoButton, StoreChips, StoreOp, StoreThumb } from './store-client';
+import { GraphShelfRow, OnPage, StoreBadgeTile, StoreGraphTile, StoreShelfRow, StoreToolTile, TagChips, ToolArt, ToolShelfRow, ToolVideo, php } from './store-views';
+import { StoreChips, StoreOp, StoreThumb } from './store-client';
+import { WidgetGuideSteps } from './widget-guide';
+import { WIDGET_GUIDES } from '@/lib/supplier-store-guides';
+import { PAID_WIDGET_NEEDS_PLAN_WORDS } from '@/lib/special-tools';
+import { toolVideoSrc } from '@/lib/toolkit-videos.server';
 
 /**
  * 🛍 THE STORE'S SCREENS (owner 23 Nov 2026 — drawing `supplier_store_graphs_badges_2026-11-23` v12). Each page reads
@@ -47,9 +59,9 @@ import { CakeDemoButton, StoreChips, StoreOp, StoreThumb } from './store-client'
  *   StoreShelfScreen  F6 Tools (tag chips; "For you" · "Yours" · "More tools", each tool with its supplier-type tags) ·
  *                     F12 Graphs ("On your Analytics", ✓ On your page; then the groups with Get) · F15 Badges ("On your
  *                     Shop", any number; "More badges" with Add; Verified ✓ Earned). Order lives on the Shop's Edit.
- *   StoreItemScreen   F9 a tool — its tags, its one-time price from the catalog row (never typed) or its state, "Try it first",
- *                     what it adds, ONE button: Buy · ₱… / Get / Open. F7 a graph — what it shows, an example, Good to
- *                     know, Get · Free. A badge has no item of its own: it opens on the Badges page.
+ *   StoreItemScreen   F9 a tool — its tags, its one-time price from the catalog row (never typed) or its state,
+ *                     what it adds, ONE button: Buy · ₱… / Get / Open, then How to use it (`#guide`). F7 a graph — what it shows, Good to
+ *                     know, Install (Toolkit v19: one word for the act). A badge has no item of its own: it opens on the Badges page.
  */
 
 /** F1 · the Store front: three shelves, each a sideways row with "See all N". */
@@ -57,18 +69,25 @@ export function StoreFront({ d }: { d: StoreData }) {
   const tools = storeToolRows(d.tools);
   const yours = d.badges ? followedBadges(d.layout?.badges ?? null, d.badges).keys : [];
   const graphs = [...d.on, ...CARD_ORDER.filter((k) => !d.on.includes(k))];
+  // 🔢 The live count per shelf (owner 5ae3fbb2), from the one Toolkit list; a failed badge read drops that part.
+  const counts = toolkitCounts(d.badges);
+  const countWords = toolkitCountWords(counts);
   return (
     <>
-      <ToolPin route="/vendor-dashboard/shop/store" title="Store" sub={<span data-store-sub="">Tools, graphs and badges for your shop.</span>} />
+      <ToolPin
+        route="/vendor-dashboard/shop/store"
+        title="Toolkit"
+        sub={<span data-store-sub="">{countWords ? <span data-toolkit-count="">{countWords}</span> : 'Widgets, graphs and badges for your shop.'}</span>}
+      />
       {d.layout === null ? <ToolFail title="Couldn’t load your Shop’s rows" line="What is yours may show as not yet. Nothing was changed." retryHref={routes.vendorDashboard.shop.store.index()} /> : null}
 
-      <StoreShelfRow title={SHELF_TITLE.tools} count={SPECIALIZED_TOOLS.length} href={routes.vendorDashboard.shop.store.shelf('tools')} data="tools">
+      <StoreShelfRow title={SHELF_TITLE.tools} count={counts.tools ?? SPECIALIZED_TOOLS.length} href={routes.vendorDashboard.shop.store.shelf('tools')} data="tools">
         {tools.map((r) => (
           <StoreToolTile key={r.tool.key} row={r} />
         ))}
       </StoreShelfRow>
 
-      <StoreShelfRow title={SHELF_TITLE.graphs} count={CARD_ORDER.length} href={routes.vendorDashboard.shop.store.shelf('graphs')} data="graphs">
+      <StoreShelfRow title={SHELF_TITLE.graphs} count={counts.graphs ?? CARD_ORDER.length} href={routes.vendorDashboard.shop.store.shelf('graphs')} data="graphs">
         {graphs.map((k) => (
           <StoreGraphTile key={k} k={k} status={graphStatus(k, d.on, d.unlocks, d.badges)} />
         ))}
@@ -84,7 +103,7 @@ export function StoreFront({ d }: { d: StoreData }) {
         <ToolFail title="Couldn’t load your badges" retryHref={routes.vendorDashboard.shop.store.index()} data="store-badges" />
       )}
       <p hidden data-store-none="" className="py-6 text-center text-sn-lg text-[color:var(--m-slate-2)]">
-        Nothing in the Store matches that.
+        Nothing in the Toolkit matches that.
       </p>
       <StoreThumb name="front" placeholder="Search the Store" />
     </>
@@ -104,8 +123,8 @@ export function StoreShelfScreen({ shelf, d }: { shelf: StoreShelf; d: StoreData
       {shelf === 'tools' ? (
         <StoreThumb
           name="tools"
-          placeholder="Search tools"
-          countWord="tool"
+          placeholder="Search widgets"
+          countWord="widget"
           shows={[
             { key: 'all', label: 'All' },
             { key: 'yours', label: 'Yours' },
@@ -132,13 +151,13 @@ export function StoreShelfScreen({ shelf, d }: { shelf: StoreShelf; d: StoreData
   );
 }
 
-/** F3 · F7 — one item: a tool (price or state, demo, what it adds, one button) or a graph. */
+/** F3 · F7 — one item: a tool (price or state, what it adds, one button) or a graph. */
 export function StoreItemScreen({ shelf, itemKey, d }: { shelf: 'tools' | 'graphs'; itemKey: string; d: StoreData }) {
   return shelf === 'tools' ? <ToolItem d={d} toolKey={itemKey} /> : <GraphItem d={d} graphKey={itemKey} />;
 }
 
 function subLine(shelf: StoreShelf, d: StoreData): string {
-  if (shelf === 'tools') return `${SPECIALIZED_TOOLS.length} tools`;
+  if (shelf === 'tools') return `${SPECIALIZED_TOOLS.length} widgets`;
   if (shelf === 'graphs') return `${CARD_ORDER.length} graphs, all free. ${d.on.length} ${d.on.length === 1 ? 'is' : 'are'} on your Analytics.`;
   return 'Earned, never sold. Pick the badges that show on your Shop.';
 }
@@ -175,7 +194,7 @@ function ToolsShelf({ d }: { d: StoreData }) {
       <StoreChips chips={[{ key: 'all', label: 'All' }, { key: 'foryou', label: 'For you' }, ...groups.map((g) => ({ key: groupChipKey(g), label: g }))]} />
       <ToolGroup label="For you" rows={forYou} yours={keys} data="store-foryou" />
       <ToolGroup label="Yours" rows={yours} yours={keys} data="store-yours" />
-      <ToolGroup label="More tools" rows={more} yours={keys} data="store-more" />
+      <ToolGroup label="More widgets" rows={more} yours={keys} data="store-more" />
     </>
   );
 }
@@ -206,9 +225,9 @@ function GraphsShelf({ d }: { d: StoreData }) {
   return (
     <>
       {d.on.length > 0 ? (
-        <GraphBlock label="On your Analytics" items={d.on.map((k) => ({ k, status: { kind: 'on' } }))} d={d} data="store-on" />
+        <GraphBlock label={INSTALLED_WORD} items={d.on.map((k) => ({ k, status: { kind: 'on' } }))} d={d} data="store-on" />
       ) : (
-        <ToolSection label="On your Analytics" data="store-on">
+        <ToolSection label={INSTALLED_WORD} data="store-on">
           <ToolEmpty>No graphs on your Analytics. Get one below.</ToolEmpty>
         </ToolSection>
       )}
@@ -231,11 +250,11 @@ function BadgesShelf({ d }: { d: StoreData }) {
   const lineOf = (t: ShelfTile) => [goalWords(t), t.tierName ? `${t.tierName} now` : 'not earned yet'].filter(Boolean).join(' · ') || t.sub;
   return (
     <>
-      <ToolSection label="On your Shop" count={on.length} data="store-badges-on">
+      <ToolSection label={INSTALLED_WORD} count={on.length} data="store-badges-on">
         <div data-store-block="">
           <div data-store-list="">
             {on.length > 0 ? (
-              <TemplateRows label="On your Shop">
+              <TemplateRows label={INSTALLED_WORD}>
                 {on.map((t) => (
                   <ToolRow
                     key={t.key}
@@ -248,7 +267,7 @@ function BadgesShelf({ d }: { d: StoreData }) {
                 ))}
               </TemplateRows>
             ) : (
-              <ToolEmpty>No badges on your Shop. Add one below.</ToolEmpty>
+              <ToolEmpty>No badges on your Shop. Install one below.</ToolEmpty>
             )}
           </div>
         </div>
@@ -266,7 +285,7 @@ function BadgesShelf({ d }: { d: StoreData }) {
                   lines={[lineOf(t)]}
                   right={
                     canWrite ? (
-                      <StoreOp op="layout" fields={{ row: 'badges', intent: 'add', key: [...followed.keys, t.key] }} tone="info" icon={<Plus aria-hidden strokeWidth={2} />} label="Add" />
+                      <StoreOp op="layout" fields={{ row: 'badges', intent: 'add', key: [...followed.keys, t.key] }} tone="info" icon={<Plus aria-hidden strokeWidth={2} />} label={INSTALL_WORD} />
                     ) : (
                       <ToolChip tone="wait">Couldn’t load</ToolChip>
                     )
@@ -317,7 +336,7 @@ function Line({ icon, title, line }: { icon: ReactNode; title: string; line: str
 
 /** What each paid tool adds — the drawing's three lines for the Cake Maker; the tool's own line for the rest. */
 function addsOf(key: string, line: string): { icon: ReactNode; title: string; line: string }[] {
-  const tile = { icon: <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />, title: 'A tile in your tools', line };
+  const tile = { icon: <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />, title: 'A tile in Your widgets', line };
   if (key === 'cake_tool') {
     return [
       { ...tile, line: 'Set your sizes, flavours and finishes once.' },
@@ -331,10 +350,11 @@ function addsOf(key: string, line: string): { icon: ReactNode; title: string; li
 function ToolItem({ d, toolKey }: { d: StoreData; toolKey: string }) {
   const tool = storeToolOf(toolKey)!;
   const s = toolStatus(tool.key, d.tools);
+  const installed = toolIsInstalled(tool.key, s, d.tools);
+  const a = toolAct(tool.key, s, installed);
   const paid = isPaidStoreTool(tool.key);
   const keys = yourToolKeys(d);
   const tags = toolTags(tool, d.tools.hubOverrides);
-  const yours = toolIsYours(s);
   const head =
     s.kind === 'buy' ? (
       <>
@@ -342,42 +362,72 @@ function ToolItem({ d, toolKey }: { d: StoreData; toolKey: string }) {
           {php(s.price)} <span className="text-sn-lg font-semibold text-[color:var(--m-slate-2)]">one-time</span>
         </b>
         <span className="mt-1 block text-sn-base text-[color:var(--m-slate-2)]">Yours forever. No renewal.</span>
+        {/* 🧰 Before payment (owner a02673ac): a bought widget works only on a paid plan — said on every price. */}
+        <span className="mt-1 block text-sn-base font-semibold text-ink" data-store-needs-plan="">
+          {PAID_WIDGET_NEEDS_PLAN_WORDS}.
+        </span>
       </>
     ) : (
-      <b className={`block text-sn-xl font-semibold ${s.kind === 'trial' ? 'text-[rgb(var(--color-ok))]' : s.kind === 'unread' ? 'text-[rgb(var(--color-warn))]' : 'text-ink'}`} data-store-state={s.kind}>
-        {s.kind === 'free' ? (s.added ? 'Free · in your tools' : 'Free forever') : toolFootWords(s, php)}
+      <b className={`block text-sn-xl font-semibold ${s.kind === 'unread' ? 'text-[rgb(var(--color-warn))]' : 'text-ink'}`} data-store-state={a.kind}>
+        {a.kind === 'installed' ? (a.builtIn ? 'Built in · always on your shop' : paid ? 'Owned · paid once' : 'Free') : a.kind === 'install' ? (a.owned ? 'Owned · paid once' : 'Free') : toolFootWords(s, php)}
       </b>
     );
-  const button = yours ? (
-    <ActionButton tone="brand" main icon={<ChevronRight aria-hidden strokeWidth={2} />} label={`Open ${tool.title}`} href={toolOpenHref(tool.key)} className="w-full" />
-  ) : s.kind === 'free' && keys === null ? (
-    <ToolChip tone="wait">Couldn’t load</ToolChip>
-  ) : s.kind === 'free' ? (
-    <StoreOp
-      op="layout"
-      fields={{ row: 'tools', intent: 'add', key: [...(keys ?? []), tool.key] }}
-      tone="brand"
-      main
-      icon={<Plus aria-hidden strokeWidth={2} />}
-      label="Get · Free"
-      landTo={`${routes.vendorDashboard.shop.index()}?added=${encodeURIComponent(`tool:${tool.key}`)}#tools`}
-    />
-  ) : s.kind === 'buy' ? (
-    // 🍎 Buying is web-only: the iPhone app's shell hides the press (Apple's rules — `lib/store-shell.ts`).
-    <span className="contents" data-web-only="">
-      <StoreOp op="buy" fields={{ tool: tool.key }} tone="brand" main icon={<ShoppingBag aria-hidden strokeWidth={1.8} />} label={`Buy · ${php(s.price)}`} />
-    </span>
-  ) : s.kind === 'pending' ? (
-    <ToolChip tone="wait">Payment in review</ToolChip>
-  ) : s.kind === 'no_price' ? (
-    <ToolChip tone="quiet">Price not set yet</ToolChip>
-  ) : (
-    <ToolFail title="Couldn’t load this tool" line="You have not been charged." retryHref={routes.vendorDashboard.shop.store.item('tools', tool.key)} />
-  );
+  // 🧩 Toolkit v19: one word for the act — Install · Buy ₱… · ✓ Installed (with Remove, never on a built-in).
+  const button =
+    a.kind === 'installed' ? (
+      <span className="flex flex-wrap items-center gap-3" data-store-installed="">
+        <OnPage />
+        {a.builtIn ? null : keys === null ? (
+          <ToolChip tone="wait">Couldn’t load</ToolChip>
+        ) : (
+          <StoreOp
+            op="layout"
+            fields={{ row: 'tools', intent: 'remove', key: keys.filter((k) => k !== tool.key), off: paid ? [tool.key] : [] }}
+            tone="neutral"
+            icon={<MinusCircle aria-hidden strokeWidth={1.8} />}
+            label="Remove"
+          />
+        )}
+      </span>
+    ) : a.kind === 'install' && keys === null ? (
+      <ToolChip tone="wait">Couldn’t load</ToolChip>
+    ) : a.kind === 'install' ? (
+      // Free, or owned and taken off the page (Install again is free).
+      <StoreOp
+        op="layout"
+        fields={{ row: 'tools', intent: 'add', key: [...(keys ?? []), tool.key] }}
+        tone="brand"
+        main
+        icon={<Plus aria-hidden strokeWidth={2} />}
+        label={INSTALL_WORD}
+        landTo={`${routes.vendorDashboard.shop.index()}?added=${encodeURIComponent(`tool:${tool.key}`)}#tools`}
+      />
+    ) : a.kind === 'verify' ? (
+      <ActionButton tone="brand" main icon={<BadgeCheck aria-hidden strokeWidth={1.8} />} label="Get Verified" href={routes.vendorDashboard.verify()} className="w-full" />
+    ) : a.kind === 'resubscribe' || (a.kind === 'buy' && a.needsPlan) ? (
+      // 🧰 Owner a02673ac: owned on Free or Verified → the plans door, never a second Buy; not owned on Free or Verified →
+      // the price and the notice show above, and the button is the plans door. Web-only like every plan door.
+      <span className="contents" data-web-only="">
+        <ActionButton tone="brand" main icon={<Sparkles aria-hidden strokeWidth={1.8} />} label="See plans" href={routes.vendorDashboard.subscription()} className="w-full" />
+      </span>
+    ) : a.kind === 'buy' ? (
+      // 🍎 Buying is web-only: the iPhone app's shell hides the press (Apple's rules — `lib/store-shell.ts`).
+      <span className="contents" data-web-only="">
+        <StoreOp op="buy" fields={{ tool: tool.key }} tone="brand" main icon={<ShoppingBag aria-hidden strokeWidth={1.8} />} label={buyWords(a.price, php)} />
+      </span>
+    ) : a.kind === 'pending' ? (
+      <ToolChip tone="wait">Payment in review</ToolChip>
+    ) : a.kind === 'no_price' ? (
+      <ToolChip tone="quiet">Price not set yet</ToolChip>
+    ) : (
+      <ToolFail title="Couldn’t load this widget" line="You have not been charged." retryHref={routes.vendorDashboard.shop.store.item('tools', tool.key)} />
+    );
   return (
     <>
-      <ToolPin route="/vendor-dashboard/shop/store/[shelf]/[item]" title={tool.title} sub={tool.line} />
+      <ToolPin route="/vendor-dashboard/shop/store/[shelf]/[item]" title={tool.title} sub={<ItemSub line={tool.line} d={d} />} />
       <BackToShelf shelf="tools" />
+      {/* 🎞 The widget's clip at the top (owner 4c07edd7): set-up, then where it shows. Nothing while it is not recorded. */}
+      {paid ? <ToolVideo src={toolVideoSrc(tool.key)} title={tool.title} /> : null}
       <div data-store-item-tags="">
         <TagChips tags={tags} max={6} />
       </div>
@@ -387,26 +437,57 @@ function ToolItem({ d, toolKey }: { d: StoreData; toolKey: string }) {
           <div className="min-w-0">{head}</div>
         </div>
       </Card>
-      {tool.key === 'cake_tool' ? (
-        <ToolSection label="Try it first" data="store-try">
-          <Card>
-            <p className="mb-3 text-sn-base text-[color:var(--m-slate-2)]">A demo · what couples see in your chat</p>
-            <CakeDemoButton />
-          </Card>
-        </ToolSection>
-      ) : null}
-      <ToolSection label="What it adds to your shop" data="store-adds">
-        <ul className="sn-frame px-4 py-1">
-          {addsOf(tool.key, tool.line).map((a) => (
-            <Line key={a.title} {...a} />
-          ))}
-          {!paid ? <Line icon={<Plus aria-hidden className="h-4 w-4" strokeWidth={2} />} title="Free forever" line="Every free tool is yours to keep." /> : null}
-        </ul>
-      </ToolSection>
-      <div className="mt-5 flex [&>*]:w-full" data-store-buy="">
+      <div className="mt-4 flex [&>*]:w-full" data-store-buy="">
         {button}
       </div>
+      <ToolSection label="What it adds to your shop" data="store-adds">
+        <ul className="sn-frame px-4 py-1">
+          {addsOf(tool.key, tool.line).map((x) => (
+            <Line key={x.title} {...x} />
+          ))}
+          {!paid ? <Line icon={<Plus aria-hidden className="h-4 w-4" strokeWidth={2} />} title="Free forever" line="Every free widget is yours to keep." /> : null}
+        </ul>
+      </ToolSection>
+      {/* 📍 Where it works (v19): each place with an Open to its home, in every state. */}
+      <ToolSection label="Where it works" data="store-where">
+        <ul className="sn-frame px-4 py-1">
+          {widgetPlaces(tool).map((p) => (
+            <li key={p.key} className="flex items-center gap-3 py-2.5" data-store-place={p.key}>
+              <span className="min-w-0 flex-1">
+                <b className="block text-sn-lg font-semibold leading-tight text-ink">{p.place}</b>
+                <span className="block text-sn-md leading-snug text-[color:var(--m-slate-2)]">{p.line}</span>
+              </span>
+              <Link href={p.href} className="sn-press inline-flex min-h-11 flex-none items-center gap-0.5 text-sn-base font-semibold text-[rgb(var(--color-link))]" data-store-place-open={p.key}>
+                Open
+                <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </ToolSection>
+      {/* 📘 How to use it — the widget's guide (owner 23 Nov, "guides only"). `#guide` is its address: the tool's panel
+          in Your tools opens it here. */}
+      <div id="guide" className="scroll-mt-20">
+        <ToolSection label="How to use it" data="store-guide">
+          <WidgetGuideSteps guide={WIDGET_GUIDES[tool.key]} />
+        </ToolSection>
+      </div>
     </>
+  );
+}
+
+/** An item page's masthead line: what it is, then the Toolkit's live count (owner 5ae3fbb2; a failed read drops it). */
+function ItemSub({ line, d }: { line: string; d: StoreData }) {
+  const count = toolkitCountWords(toolkitCounts(d.badges));
+  return (
+    <span data-store-sub="">
+      {line}
+      {count ? (
+        <span className="block" data-toolkit-count="">
+          {count}
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -418,19 +499,22 @@ function GraphItem({ d, graphKey }: { d: StoreData; graphKey: string }) {
     status.kind === 'locked' ? (
       <p className="flex items-center gap-2 text-sn-base text-[color:var(--m-slate-2)]" data-store-locked="">
         <Lock aria-hidden className="h-4 w-4" strokeWidth={2} />
-        Opens with <b className="font-semibold text-ink">{status.badgeName} · Bronze</b>
+        {graphLockedLine(status.badgeName)}
         {status.toGo ? ` · ${status.toGo}` : ''}
       </p>
     ) : d.layout === null ? (
       <ToolChip tone="wait">Couldn’t load</ToolChip>
     ) : status.kind === 'on' ? (
-      <StoreOp
-        op="layout"
-        fields={{ row: 'graphs', intent: 'remove', key: d.on.filter((k) => k !== graphKey) }}
-        tone="neutral"
-        icon={<MinusCircle aria-hidden strokeWidth={1.8} />}
-        label="Take it off your Analytics"
-      />
+      <span className="flex flex-wrap items-center gap-3" data-store-installed="">
+        <OnPage />
+        <StoreOp
+          op="layout"
+          fields={{ row: 'graphs', intent: 'remove', key: d.on.filter((k) => k !== graphKey) }}
+          tone="neutral"
+          icon={<MinusCircle aria-hidden strokeWidth={1.8} />}
+          label="Remove"
+        />
+      </span>
     ) : (
       <StoreOp
         op="layout"
@@ -438,26 +522,18 @@ function GraphItem({ d, graphKey }: { d: StoreData; graphKey: string }) {
         tone="brand"
         main
         icon={<Plus aria-hidden strokeWidth={2} />}
-        label="Get · Free"
+        label={INSTALL_WORD}
         landTo={`${routes.vendorDashboard.shop.index()}?added=${encodeURIComponent(`graph:${graphKey}`)}#analytics`}
       />
     );
   return (
     <>
-      <ToolPin route="/vendor-dashboard/shop/store/[shelf]/[item]" title={g.title} sub={g.asks} />
+      <ToolPin route="/vendor-dashboard/shop/store/[shelf]/[item]" title={g.title} sub={<ItemSub line={g.asks} d={d} />} />
       <BackToShelf shelf="graphs" />
       <ToolSection label="What it shows" data="store-shows">
         <Card>
           <p className="text-sn-lg leading-snug text-ink">{g.asks}</p>
           <p className="mt-1 text-sn-base text-[color:var(--m-slate-2)]">{g.counts}.</p>
-        </Card>
-      </ToolSection>
-      <ToolSection label="Try it first" data="store-try">
-        <Card>
-          <span className="mb-2 inline-block">
-            <ToolChip tone="quiet">Example</ToolChip>
-          </span>
-          <GraphArt size={72} wide />
         </Card>
       </ToolSection>
       <ToolSection label="Good to know" data="store-know">

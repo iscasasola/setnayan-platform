@@ -135,7 +135,7 @@ export function HomeCoverBand({
               BEFORE the eyebrow, so `lint-page-masthead` does not read a label-over-h1. */}
           <h1 className="sr-only">{cover.name}</h1>
           <div className={card && gear ? 'min-h-[44px] pr-[54px]' : ''}>
-            <p className="truncate text-[12px] uppercase tracking-[0.12em] opacity-85">{cover.eyebrow}</p>
+            <p className="hc-ecard-kick truncate text-[12px] uppercase tracking-[0.12em] opacity-85">{cover.eyebrow}</p>
             <p aria-hidden className={`hc-ecard-name ${card ? 'text-[24px]' : 'text-[26px]'} font-semibold leading-[1.1] tracking-[-0.01em]`}>{cover.name}</p>
             {cover.forWho ? <HomeForLine tag={cover.forWho} /> : null}
           </div>

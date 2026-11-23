@@ -231,7 +231,7 @@ test('4 · Home’s To do list, the board and the list’s own filter all count 
   const board = src('lib/planning-progress.server.ts');
   assert.match(board, /fetchPreparationAgenda\(/);
   assert.match(board, /planningProgress\(agenda\.items\)/);
-  for (const caller of ['app/dashboard/(launcher)/page.tsx', 'lib/events-you-run.server.ts', 'app/dashboard/[eventId]/_components/event-dashboard.tsx']) {
+  for (const caller of ['app/(hub)/dashboard/page.tsx', 'lib/events-you-run.server.ts', 'app/dashboard/[eventId]/_components/event-dashboard.tsx']) {
     assert.match(src(caller), /readPlanningProgress\(/, `${caller} counts the plan through the one list`);
   }
   const view = src('app/dashboard/[eventId]/schedule/_components/preparation-agenda.tsx');

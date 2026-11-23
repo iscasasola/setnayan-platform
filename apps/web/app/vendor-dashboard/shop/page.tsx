@@ -1,6 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import { readStoreLayout, readStoreToolFacts } from '@/lib/supplier-store.server';
-import { followedBadges, storageMeter, trialDaysLeft, yourTools, type StorageMeter, type StoreLayout } from '@/lib/supplier-store';
+import { followedBadges, storageMeter, yourTools, type StorageMeter, type StoreLayout } from '@/lib/supplier-store';
 import { readStoredBytes } from '@/lib/supplier-storage.server';
 import { nextStoragePlan } from '@/lib/supplier-storage';
 import { readPayPlanTemplates } from '@/lib/pay-plan-templates.server';
@@ -162,7 +162,7 @@ type ShopData = {
   offerTile: OfferTileFacts;
   /** 🛍 The shop's layout of its three Store rows (graphs · badges · tools); null = unread (the defaults are drawn). */
   layout: StoreLayout | null;
-  /** 🧰 Your tools, in order (`yourTools`): the free tools added and the paid ones held, with trial days. */
+  /** 🧰 Your tools, in order (`yourTools`): the free tools added and the paid ones held. */
   mine: MyTool[];
   /** 💾 The cover's Storage row: the meter and the next plan that holds more. */
   storage: { meter: StorageMeter; next: string | null };
@@ -400,7 +400,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   const uploadFactsRead = readPortfolioUploadFacts(supabase, vendorId, portfolio, ownRead.then((own) => own?.tier_state ?? null));
 
   // 🛍 THE STORE'S LAYOUT (Store drawing v12, owner 23 Nov 2026): the Shop's three rows in one column (which graphs,
-  // badges and tools, in the shop's order) — and each paid tool's state (bought · plan · trial · price), the storage
+  // badges and tools, in the shop's order) — and each paid tool's state (bought · plan · price), the storage
   // meter and the saved payment plans. Started here, awaited in the one wait below.
   const storeAdmin = createAdminClient();
   const layoutRead = readStoreLayout(supabase, vendorId);
@@ -509,10 +509,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     uploadFacts,
     formsSaved: own && Array.isArray(own.vendor_forms) ? own.vendor_forms.length : null,
     layout,
-    mine: yourTools(toolFacts).map((r) => ({
-      key: r.tool.key,
-      trialDays: r.status.kind === 'trial' ? (trialDaysLeft(toolFacts.trialEndsAt, toolFacts.nowMs) ?? null) : null,
-    })),
+    mine: yourTools(toolFacts).map((r) => ({ key: r.tool.key })),
     // The plan is the shop's own row's; unread → the meter says "Couldn't load" (never a 0 against a guessed plan).
     storage: {
       meter: own ? storageMeter(own.tier_state ?? null, stored) : { kind: 'unread' },
@@ -815,14 +812,16 @@ async function ShopHome({
           </p>
           <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" toolsByCoverage={toolsByCoverage(data)} />
           {/* ＋ Services end in their own tile (Store drawing v10, F0): the Card Maker, as the head's ＋ › New service. */}
-          <Link
+          <NewThingTile
+            layout="ghost"
             href={SERVICE_MAKER_HREF}
-            className="sn-press mt-3 flex min-h-16 items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[color:var(--m-line)] text-sn-lg font-semibold text-ink"
+            label="Add a service"
+            className="mt-3 flex min-h-16 items-center justify-center gap-2 text-sn-lg font-semibold text-ink"
             data-shop-service-add=""
           >
             <Plus aria-hidden className="h-5 w-5 text-[color:var(--m-slate-2)]" strokeWidth={2} />
             Add a service
-          </Link>
+          </NewThingTile>
         </section>
         </div>
       </div>
@@ -841,6 +840,7 @@ import { Suspense } from 'react';
 import { shopGearBodyAlways } from './_components/shop-settings-body';
 import { BadgeRewardSweep } from '../_components/badge-reward-sweep';
 import { shopFormsBody } from './_components/shop-forms-body';
+import { NewThingTile } from '@/app/_components/collection-card';
 
 export default async function VendorShopHub({
   searchParams,

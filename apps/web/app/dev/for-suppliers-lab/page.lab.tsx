@@ -32,10 +32,11 @@ const LAB_PRICES = {
   bySku: new Proxy({} as Record<string, string | null>, { get: () => '₱ · · ·' }),
 };
 
-export default async function ForSuppliersLabPage({ searchParams }: { searchParams: Promise<{ paywall?: string }> }) {
+export default async function ForSuppliersLabPage({ searchParams }: { searchParams: Promise<{ paywall?: string; tools?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   // `?paywall=1` draws the table as it reads with the plan paywall ON; the default is production's switch, OFF.
-  const paywallOn = (await searchParams).paywall === '1';
+  const q = await searchParams;
+  const paywallOn = q.paywall === '1';
   const origin = siteOrigin();
   const page = myPageUrl(origin, SAMPLE_SHOP.slug);
   const urls = {
@@ -53,7 +54,12 @@ export default async function ForSuppliersLabPage({ searchParams }: { searchPara
   };
   return (
     <main style={{ ['--fd-bar' as string]: '0px' }}>
-      <SupplierFrontPage prices={LAB_PRICES} fee={{ schedule: BOOKING_FEE, enabled: true }} codes={codes} paywallOn={paywallOn} />
+      <SupplierFrontPage
+        prices={LAB_PRICES}
+        fee={{ schedule: BOOKING_FEE, enabled: true }}
+        codes={codes}
+        paywallOn={paywallOn}
+      />
     </main>
   );
 }

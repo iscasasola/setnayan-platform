@@ -415,7 +415,7 @@ export function ShopCover({
                 value={promoteTab}
                 options={[
                   { key: 'prints', label: 'Posters & prints' },
-                  { key: 'qr', label: 'QR codes' },
+                  { key: 'qr', label: 'My QRs' },
                 ]}
                 onPick={(k) => {
                   if (k === promoteTab) return;

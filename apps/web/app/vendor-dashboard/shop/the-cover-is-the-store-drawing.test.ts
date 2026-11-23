@@ -44,7 +44,8 @@ test('2 · one line of doors: the logo · View shop · Share · Promote — no q
 
 test('3 · Promote: one sheet, Posters & prints · QR codes, the old addresses still land', () => {
   assert.match(COVER, /label: 'Posters & prints'/);
-  assert.match(COVER, /label: 'QR codes'/);
+  // 🔳 Main's My QRs (23 Nov): Promote's second tab reads "My QRs" (held too by shop/qrs/my-qrs-keeps-every-code.test.ts).
+  assert.match(COVER, /label: 'My QRs'/);
   assert.match(COVER, /\{promoteTab === 'qr' \? qrBody : promoteBody\}/);
   assert.match(COVER, /const promoteOpen = sheet === 'promote' \|\| sheet === 'prints' \|\| sheet === 'qr';/);
   assert.match(PAGE, /promoteBody=\{\s*<Suspense[\s\S]{0,80}?<PromoteBody search=\{qrSearch\} part="promote" \/>/);

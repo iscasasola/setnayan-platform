@@ -3,19 +3,21 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowUpRight, CalendarDays, ClipboardList, FileText, Lock, Plus, ReceiptText, Tag, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, BookOpen, CalendarDays, ClipboardList, FileText, Lock, Plus, ReceiptText, Tag, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { routes } from '@/lib/routes';
 import { formatCount } from '@/lib/format-number';
 import type { ScannerChoice } from '@/lib/supplier-scan';
 import { onTheDayHref, specializedToolsFor, type SpecializedTool, type SpecializedToolKey } from '@/lib/specialized-tools';
 import { toolIcon } from './specialized-tool-icon';
-import { isPaidStoreTool } from '@/lib/supplier-store';
+import { isBuiltInWidget, isPaidStoreTool } from '@/lib/supplier-store';
 import { ArrangeEdit } from '@/app/vendor-dashboard/shop/store/_components/store-client';
 import { BodyPanel } from '../../_components/body-panel';
 import { ServiceScannerPick } from './service-scanner-pick';
 import { LockExplainer } from '@/app/_components/lock/locked-feature';
 import type { OfferMakerStart } from '../../offers/_components/offer-maker';
 import { TemplatesOffersContext } from './shop-templates';
+import { NewThingTile } from '@/app/_components/collection-card';
 
 // 📦 The Offer Maker is its own chunk, fetched on the first open — never in the Shop tab's first load.
 // 🎂 The Cake Maker's options editor — only fetched when its tile opens (none of it is in the Shop's first load).
@@ -55,8 +57,8 @@ export type ScannerLine = { coverageId: number; label: string; choice: ScannerCh
 
 type MakerKey = 'forms' | 'offers' | 'templates';
 
-/** 🧰 One tool in Your tools (Store drawing v10 F0): its key, and the days left when it is open on the 30-day trial. */
-export type MyTool = { key: SpecializedToolKey; trialDays: number | null };
+/** 🧰 One tool in Your tools (Store drawing v10 F0). */
+export type MyTool = { key: SpecializedToolKey };
 
 /** The four Templates tiles (drawing v10 F0): Chat forms · Card forms · Offer maker · Payment plan. `tpl` = the
  *  Templates panel's starting kind. */
@@ -142,9 +144,9 @@ export function ShopMakers({
   const tools = specializedToolsFor(categories, services);
   // 🧰 YOUR TOOLS: the shop's own, in its order; the lab (no `mine`) shows Scanner and the suggested ones.
   const myTools: MyTool[] = (
-    mine ?? tools.filter(({ tool: t, suggested }) => t.key === 'scanner' || suggested).map(({ tool: t }) => ({ key: t.key, trialDays: null }))
+    mine ?? tools.filter(({ tool: t, suggested }) => t.key === 'scanner' || suggested).map(({ tool: t }) => ({ key: t.key }))
   ).filter((m) => tools.some(({ tool: t }) => t.key === m.key));
-  // "Get" in the Store lands here with `?added=tool:<key>` — that row wears New; `?tool=<key>` (Open) opens its panel.
+  // "Install" in the Toolkit lands here with `?added=tool:<key>` — that row wears New; `?tool=<key>` (Open) opens its panel.
   const addedTool = /^tool:(.+)$/.exec(params.get('added') ?? '')?.[1] ?? null;
   const askedTool = params.get('tool');
   // 🧰 Which tool's panel is open — none until a row is tapped, or the address's own tool (the Store's Open).
@@ -177,7 +179,7 @@ export function ShopMakers({
     ...(formsOn ? [{ id: 'chat_forms' as const, k: 'forms' as const, title: 'Chat forms', sub: formsSub(formsSaved), icon: ClipboardList, head: 'Sent to couples as a chat card' }] : []),
     ...(hasTemplates ? [{ id: 'card_forms' as const, k: 'templates' as const, tpl: 'forms' as const, title: 'Card forms', sub: 'Used on any card', icon: FileText, head: 'Saved once, used on any card' }] : []),
     ...(offers ? [{ id: 'offers' as const, k: 'offers' as const, title: 'Offer maker', sub: offersSub(offers), icon: Tag, head: 'Couples get the single best offer' }] : []),
-    ...(hasTemplates ? [{ id: 'plans' as const, k: 'templates' as const, tpl: 'plans' as const, title: 'Payment plan', sub: savedSub(plansSaved), icon: ReceiptText, head: 'Saved once, used on any card' }] : []),
+    ...(hasTemplates ? [{ id: 'plans' as const, k: 'templates' as const, tpl: 'plans' as const, title: 'Payment plans', sub: savedSub(plansSaved), icon: ReceiptText, head: 'Saved once, used on any card' }] : []),
   ];
   const picked = tool ? (tools.find((t) => t.tool.key === tool)?.tool ?? null) : null;
   const PickedIcon = picked ? toolIcon(picked.key) : null;
@@ -186,15 +188,14 @@ export function ShopMakers({
   return (
     <div ref={root} data-shop-makers-and-tools="">
       {/* 🧰 YOUR TOOLS (Store drawing `supplier_store_graphs_badges_2026-11-23` v10, F0 — owner 23 Nov 2026): the tools
-          this shop uses, in its order — the free ones it added and the paid ones it holds (bought · with its plan · on
-          the 30-day trial). A row opens that tool into the body; "Add a tool" opens the Store's Tools shelf. */}
+          this shop uses, in its order — the free ones it added and the paid ones it holds (bought · with its plan). A row opens that tool into the body; "Add a tool" opens the Store's Tools shelf. */}
       <section aria-labelledby="shop-tools-h" data-specialized-tools="" data-your-tools="" id="tools" className="scroll-mt-24">
         <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-5">
           <span className="flex items-center gap-2">
             <h2 id="shop-tools-h" className="home-k2 !my-0">
-              Your tools
+              Your widgets
             </h2>
-            <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" aria-label={`${myTools.length} ${myTools.length === 1 ? 'tool' : 'tools'}`} data-your-tools-count="">
+            <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" aria-label={`${myTools.length} ${myTools.length === 1 ? 'widget' : 'widgets'}`} data-your-tools-count="">
               {formatCount(myTools.length)}
             </span>
           </span>
@@ -211,6 +212,7 @@ export function ShopMakers({
                     title: t.title,
                     sub: t.line,
                     paid: isPaidStoreTool(t.key),
+                    builtIn: isBuiltInWidget(t.key),
                     art: (
                       <span className="grid h-11 w-11 place-items-center rounded-xl bg-[color:var(--surface-soft)] text-ink">
                         <Icon className="h-5 w-5" strokeWidth={1.75} />
@@ -223,7 +225,7 @@ export function ShopMakers({
           ) : null}
         </div>
         <ul className="sn-glide-x flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-tool-list="">
-          {myTools.map(({ key, trialDays }) => {
+          {myTools.map(({ key }) => {
             const t = tools.find((x) => x.tool.key === key)!.tool;
             const Icon = toolIcon(t.key);
             const isNew = addedTool === t.key;
@@ -249,11 +251,6 @@ export function ShopMakers({
                       {isNew ? <span className="rounded-full bg-[rgb(var(--color-link))] px-1.5 py-px text-sn-2xs font-bold text-[color:var(--m-paper)]">New</span> : null}
                     </b>
                     <span className="mt-0.5 line-clamp-2 text-sn-md leading-snug text-[color:var(--m-slate-2)]">{t.line}</span>
-                    {trialDays ? (
-                      <span className="mt-0.5 text-sn-sm font-semibold text-[rgb(var(--color-ok))]" data-tool-trial="">
-                        Free trial · {trialDays} {trialDays === 1 ? 'day' : 'days'} left
-                      </span>
-                    ) : null}
                   </span>
                 </button>
               </li>
@@ -261,12 +258,12 @@ export function ShopMakers({
           })}
           {addToolHref ? (
             <li className="w-[150px] flex-none snap-start">
-              <Link href={addToolHref} className="sn-press flex h-full min-h-[128px] flex-col items-start gap-2 rounded-2xl border-2 border-dashed border-[color:var(--m-line)] p-3 text-sn-lg font-semibold text-ink" data-tool-add="">
+              <NewThingTile layout="ghost" href={addToolHref} label="Add a widget" className="flex h-full min-h-[128px] flex-col items-start gap-2 p-3 text-sn-lg font-semibold text-ink" data-tool-add="">
                 <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full bg-[color:var(--surface-soft)] text-[color:var(--m-slate-2)]">
                   <Plus className="h-5 w-5" strokeWidth={2} />
                 </span>
-                Add a tool
-              </Link>
+                Add a widget
+              </NewThingTile>
             </li>
           ) : null}
         </ul>
@@ -374,6 +371,10 @@ export function ShopMakers({
           data={`tool-${picked.key}`}
         >
           <ToolBody tool={picked} scanners={scanners} booked={booked} />
+          {/* 📘 Every widget's guide, one door for all (owner 23 Nov, "guides only"): its Store page's How to use it. */}
+          <div className="mt-4 grid">
+            <ActionButton tone="neutral" icon={BookOpen} label="How to use it" href={`${routes.vendorDashboard.shop.store.item('tools', picked.key)}#guide`} data-tool-guide={picked.key} />
+          </div>
         </BodyPanel>
       ) : null}
     </div>

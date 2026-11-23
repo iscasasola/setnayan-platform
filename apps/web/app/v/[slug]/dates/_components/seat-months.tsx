@@ -38,6 +38,7 @@ const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, '
 
 export function SeatMonths({
   today,
+  from,
   to,
   value,
   startAt,
@@ -45,6 +46,8 @@ export function SeatMonths({
   onPick,
 }: {
   today: string;
+  /** Where the window starts (default `today`). /for-suppliers' sample shows one coming month, so it starts there. */
+  from?: string;
   to: string;
   value: string | null;
   startAt: string;
@@ -52,7 +55,7 @@ export function SeatMonths({
   stateOf: (day: string) => SeatState;
   onPick: (day: string) => void;
 }) {
-  const months = useMemo(() => monthsBetween(today, to), [today, to]);
+  const months = useMemo(() => monthsBetween(from ?? today, to), [from, today, to]);
   const startIndex = Math.max(0, months.findIndex((x) => iso(x.y, x.m, 1).slice(0, 7) === startAt.slice(0, 7)));
   const [at, setAt] = useState(startIndex);
   const strip = useRef<HTMLDivElement>(null);
@@ -79,12 +82,17 @@ export function SeatMonths({
 
   return (
     <div className={s.wrap} data-seat-months="">
-      <button type="button" className={`${s.arrow} ${s.prev}`} aria-label="Previous month" onClick={() => go(at - 1)} disabled={at <= 0}>
-        ‹
-      </button>
-      <button type="button" className={`${s.arrow} ${s.next}`} aria-label="Next month" onClick={() => go(at + 1)} disabled={at >= months.length - 1}>
-        ›
-      </button>
+      {/* One month has nothing to page to: no ‹ › at all, never two dead arrows. */}
+      {months.length > 1 ? (
+        <>
+          <button type="button" className={`${s.arrow} ${s.prev}`} aria-label="Previous month" onClick={() => go(at - 1)} disabled={at <= 0}>
+            ‹
+          </button>
+          <button type="button" className={`${s.arrow} ${s.next}`} aria-label="Next month" onClick={() => go(at + 1)} disabled={at >= months.length - 1}>
+            ›
+          </button>
+        </>
+      ) : null}
       <div
         ref={strip}
         className={s.months}

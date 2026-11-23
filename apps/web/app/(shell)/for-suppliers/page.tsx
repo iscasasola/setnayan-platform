@@ -206,6 +206,7 @@ export default async function ForSuppliersPage() {
             bySku: p.bySku,
           }}
           giftFrom={papic150 ? `₱${papic150}` : null}
+          nowMs={Date.now()}
           paywallOn={isVendorFeatureGateEnabled()}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}
           afterPlans={

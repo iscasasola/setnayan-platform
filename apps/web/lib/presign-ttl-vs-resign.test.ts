@@ -7,7 +7,7 @@
  * `assertAdmin`-gated, so not urgent". Two corrections after reading the code:
  *
  *   1. They are NOT admin-only. `lib/background-videos.ts`
- *      are consumed by `app/page.tsx` — the PUBLIC homepage, rendered per
+ *      are consumed by `app/(hub)/page.tsx` — the PUBLIC homepage, rendered per
  *      request. So a bad TTL change is a public breakage, which makes
  *      it MORE dangerous to touch casually, not less.
  *

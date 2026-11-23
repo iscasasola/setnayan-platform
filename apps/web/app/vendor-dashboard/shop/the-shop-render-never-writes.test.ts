@@ -81,7 +81,7 @@ function functionBodies(code: string): Map<string, string> {
 // + service_card_badge_facts (2026-11-17, J3): a STABLE SQL read of the 30-day numbers, no write (migration
 //   20271348906302). ⛔ NOT service_card_badge_settle — it opens and closes holds, and runs only from the sweep.
 // + vendor_pro_tools_included, vendor_storage_used_bytes, vendor_store_tool_open (2026-11-23, the Store): STABLE SQL reads
-//   of the plan's tools, the stored bytes and a bought/trial tool — no write (migrations 20271356215288, 20271342883073,
+//   of the plan's tools, the stored bytes and a bought tool — no write (migrations 20271356215288, 20271342883073,
 //   20271360126307).
 const READ_ONLY_RPCS = ['vendor_pro_tools_included', 'vendor_storage_used_bytes', 'vendor_store_tool_open', 'service_card_badge_facts', 'shop_booked_loop_count', 'shop_trusted_five_star_count', 'shop_gift_points', 'shop_completed_bookings_count', 'shop_trusted_by_count'];
 const WRITE = new RegExp(String.raw`\.(insert|update|upsert|delete)\s*\(|\bgrantOwed\w*\s*\(|\.rpc\(\s*(?!'(?:${READ_ONLY_RPCS.join('|')})')`);

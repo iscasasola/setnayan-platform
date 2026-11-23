@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ChevronRight, Lock } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { PartEditGate } from '@/app/_components/part-edit/part-edit-gate';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -535,6 +536,8 @@ export default async function EventDetailsPage({
     <LastSeenCapture page="details" fresh={lastSeenFresh}>
     <section className="sn-col sn-col-wide space-y-4" data-event-details>
       <PageMasthead title="Event Details" />
+      {/* ✍️ One editor per part (owner 2026-11-21): the record below is held by one person at a time. */}
+      <PartEditGate eventId={eventId} part="event_details" className="space-y-4">
       {/* The slim bar: the record's name and the Maker's own Undo · Apply — a
           change made here is the same waiting change as one made in the Maker. */}
       <div className="sticky top-0 z-20 -mx-4 flex min-h-[52px] items-center gap-2 border-b border-ink/10 bg-cream/95 px-4 py-1.5 backdrop-blur" data-record-bar="">
@@ -962,6 +965,7 @@ export default async function EventDetailsPage({
           eventName={typeof e.display_name === 'string' && e.display_name.trim() ? e.display_name : 'this event'}
         />
       </div>
+      </PartEditGate>
     </section>
     </LastSeenCapture>
   );

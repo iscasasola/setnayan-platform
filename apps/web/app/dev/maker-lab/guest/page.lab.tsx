@@ -109,7 +109,8 @@ import { RevealMount } from '@/app/[slug]/_components/reveal/reveal-mount';
 import { revealOnlyOnTheFirstPage } from '@/lib/reveal-stages';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { CoverPlayOpening } from '@/app/[slug]/_components/reveal/cover-play-opening';
-import { DEFAULT_REVEAL_CONFIG } from '@/lib/reveal-config-pure';
+import { DEFAULT_REVEAL_CONFIG, canonicalRevealId } from '@/lib/reveal-config-pure';
+import { defaultConfigFromSeed, type WaxSealConfig } from '@/lib/wax-seal/types';
 import { DEFAULT_REVEAL_EFFECTS, type RevealEffects } from '@/lib/std-reveal-effects';
 import { withVeilFold, withVeilWeave, withVeilWind } from '@/lib/veil-style';
 
@@ -281,6 +282,22 @@ function labVeil(sp: Record<string, string | string[] | undefined>): RevealEffec
   if (weave) e = withVeilWeave(e, weave);
   if (wind) e = withVeilWind(e, wind);
   return e;
+}
+
+/** 🎭 The lab's `&speed=` laid over the lab veil's effects as the couple's own Speed ▾ would be (`tune.speed`). */
+/** 🔏 `&mark=wide|tall` — a sample logo of each shape, to walk the seal fitting it (lab sample art). */
+const LAB_MARKS: Record<string, string> = {
+  wide: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120"><path d="M10 110 L60 10 L110 110 Z M130 10 h120 v20 h-50 v80 h-20 v-80 h-50 Z M270 10 h40 a50 50 0 0 1 0 100 h-40 Z" fill="#000"/></svg>',
+  tall: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 400"><path d="M60 10 C100 60 100 120 60 170 C20 120 20 60 60 10 Z M50 180 h20 v210 h-20 Z M20 260 h80 v18 h-80 Z" fill="#000"/></svg>',
+};
+/** 🔏 `&seal=minted` — a sample minted seal in a red wax, to walk the couple's own seal (lab sample recipe). */
+const LAB_SEAL: WaxSealConfig = { ...defaultConfigFromSeed(4242), wax: { color: LAB_BOARD[3]!, finish: 'glossy' } };
+
+function labOpeningEffects(e: ReturnType<typeof labVeil>, sp: Record<string, string | string[] | undefined>): RevealEffects | undefined {
+  const speed = Number(sp.speed);
+  if (!Number.isFinite(speed) || speed <= 0) return e;
+  const base = e ?? DEFAULT_REVEAL_EFFECTS;
+  return { ...base, tune: { ...(base.tune ?? {}), speed } };
 }
 
 export default async function MakerLabGuestPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -1361,7 +1378,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           2026-10-16) can be walked without a database. Never in the Maker's canvas, as on the page. Told the page's own
           `firstPageOnly` (`site-body.tsx`), so the drape that stays with the cover (owner 2026-10-17) walks here too. */}
       {sp.veil === '1' && !makerCanvas ? (
-        <RevealMount enabled monogram="M&J" config={DEFAULT_REVEAL_CONFIG} eventEffects={labVeilEffects} ownsPro isStaffPreview={false} eventTemplate="veil-sheer" eventId="lab-veil" firstPageOnly={revealOnlyOnTheFirstPage(phase as LifecyclePhase)} />
+        /* 🎭 `&opening=<id>` — any of the nine reveals (23 Nov 2026), a retired id plays its successor; `&speed=9|12|16`. */
+        <RevealMount enabled monogram="M&J" markSvg={typeof sp.mark === 'string' ? (LAB_MARKS[sp.mark] ?? null) : null} sealConfig={sp.seal === 'minted' ? LAB_SEAL : null} sealFallbackSeed={7} config={DEFAULT_REVEAL_CONFIG} eventEffects={labOpeningEffects(labVeilEffects, sp)} ownsPro isStaffPreview={false} eventTemplate={canonicalRevealId(sp.opening) ?? 'veil-sheer'} eventId={`lab-${typeof sp.opening === 'string' ? sp.opening : 'veil'}`} firstPageOnly={revealOnlyOnTheFirstPage(phase as LifecyclePhase)} />
       ) : null}
       <div data-sticky-top="" style={{ background: "var(--sn-page, #FBF9F5)" }} className="z-20 border-b border-ink/10 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <div className="flex justify-between px-4 py-2.5">

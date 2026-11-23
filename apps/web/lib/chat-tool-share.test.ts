@@ -39,19 +39,17 @@ import { groupPlusRows, hostPlusRows, supplierPlusRows } from './chat-plus';
 
 const WEB = process.cwd();
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
-const NOW = Date.parse('2026-11-23T04:00:00Z');
 
 const facts = (over: Partial<ToolFacts> = {}): ToolFacts => ({
+  freeOpen: true,
   owned: new Set(),
   pending: new Set(),
-  trialEndsAt: null,
-  planOpen: { cake_tool: false, song_bank: false, papic_challenge: false, plan_3d: false },
+  subscribed: false,
   prices: { cake_tool: 1, song_bank: 1, papic_challenge: 1, plan_3d: 1 },
   picked: [],
   toolsOff: [],
   categoryLabels: [],
   services: [],
-  nowMs: NOW,
   ...over,
 });
 
@@ -69,22 +67,23 @@ test('1 · five planning tools, in the drawing’s order; event-day tools never 
 });
 
 test('2 · a tool the shop does not have never appears in the picker', () => {
-  // Nothing bought, no plan, no trial, nothing added → nothing to share.
+  // Nothing bought, nothing added → nothing to share.
   assert.deepEqual(shareableTools(facts()), { tools: [], unread: false });
-  // A free tool appears only once added to Your tools.
+  // A free tool appears only once added to Your tools — and only while free tools open (Verified up).
   assert.deepEqual(shareableTools(facts({ picked: ['run_of_show'] })).tools, ['run_of_show']);
+  assert.deepEqual(shareableTools(facts({ picked: ['run_of_show'], freeOpen: false })).tools, [], 'a shop below Verified shares no free tool');
   assert.deepEqual(shareableTools(facts({ picked: ['scanner', 'headcount'] })).tools, [], 'event-day tools added are still never offered');
-  // A paid tool: bought, with the plan, or in the trial.
-  assert.deepEqual(shareableTools(facts({ owned: new Set(['cake_tool']) })).tools, ['cake_tool']);
-  assert.deepEqual(shareableTools(facts({ planOpen: { cake_tool: false, song_bank: true, papic_challenge: true, plan_3d: true } })).tools, ['plan_3d', 'song_bank']);
+  // A paid tool (owner a02673ac): bought AND on Plus, Pro or Ultra. No trial; the plan alone opens nothing.
+  assert.deepEqual(shareableTools(facts({ owned: new Set(['cake_tool']), subscribed: true })).tools, ['cake_tool']);
+  assert.deepEqual(shareableTools(facts({ subscribed: true })).tools, [], 'a plan alone shares nothing');
   assert.deepEqual(
-    shareableTools(facts({ trialEndsAt: new Date(NOW + 5 * 86_400_000).toISOString() })).tools,
+    shareableTools(facts({ owned: new Set(['cake_tool', 'plan_3d', 'song_bank', 'papic_challenge']), subscribed: true })).tools,
     ['cake_tool', 'plan_3d', 'song_bank'],
-    'the 30-day trial opens the three paid shareable tools (the Papic challenge is never shared)',
+    'every paid shareable tool bought and subscribed (the Papic challenge is never shared)',
   );
-  // A trial that ended, a payment still in review, or a price on the shelf is NOT having it.
-  assert.deepEqual(shareableTools(facts({ trialEndsAt: new Date(NOW - 86_400_000).toISOString() })).tools, []);
-  assert.deepEqual(shareableTools(facts({ pending: new Set(['plan_3d']) })).tools, []);
+  // Bought but off-plan ("Works again when you subscribe"), a payment still in review, or a price on the shelf is NOT shared.
+  assert.deepEqual(shareableTools(facts({ owned: new Set(['cake_tool']), subscribed: false })).tools, [], 'a locked tool is never shared');
+  assert.deepEqual(shareableTools(facts({ pending: new Set(['plan_3d']), subscribed: true })).tools, []);
   // A paid tool the shop has only on sale is never offered, whatever its price.
   for (const k of PAID_STORE_TOOLS) {
     assert.ok(!shareableTools(facts()).tools.includes(k as never), `${k} offered without being held`);
@@ -96,7 +95,7 @@ test('2 · a tool the shop does not have never appears in the picker', () => {
 
 test('2b · the picker reads the Store’s own facts — never the layout alone', () => {
   const held = read('lib/chat-tool-share-held.ts');
-  assert.match(held, /toolIsYours\(s\)/, 'the Store’s own "is it yours" decides');
+  assert.match(held, /toolIsOpen\(s\)/, 'the Store’s own "does it work now" decides (a02673ac: bought AND subscribed)');
   assert.match(held, /toolStatus\(k, f\)/);
   const server = read('lib/supplier-store.server.ts');
   assert.match(server, /export async function readShareableTools[\s\S]{0,600}readStoreToolFacts\(admin, admin, vendorProfileId, services, layout\)/);

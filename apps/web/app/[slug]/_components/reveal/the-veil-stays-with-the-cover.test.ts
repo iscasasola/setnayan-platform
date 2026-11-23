@@ -117,7 +117,7 @@ test('🎭 once unveiled it is never retired and never closed again in the visit
   assert.match(VEIL, /revealedRef\.current = true;\s*if \(keepsOpenRef\.current && grabRef\.current\) grabRef\.current\.style\.pointerEvents = 'none';/);
   assert.match(
     VEIL,
-    /if \(dyC > 40 && dur < 460 && dyC > Math\.abs\(dxC\) \* 1\.0\) \{\s*if \(keepsOpenRef\.current && \(freed \|\| revealedRef\.current\)\) return;\s*freed = false;\s*setLift\(0\);/,
+    /if \(gesture === 'close'\) \{\s*if \(keepsOpenRef\.current && \(freed \|\| revealedRef\.current\)\) return;\s*freed = false;[\s\S]*?setLift\(0\);/,
     'a swipe down re-covers the hub veil — one unveil per visit',
   );
   // Nothing else turns the hit-zone back on after it was armed.

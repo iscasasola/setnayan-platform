@@ -51,6 +51,7 @@ import { ThemePickProvider } from './maker-theme-picker';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 import {
+  DAY_POSTER_ITEM,
   DIGITAL_TICKET_ITEM,
   EVERY_PRINT_ITEM,
   LOOK_ITEM_KEYS,
@@ -132,6 +133,8 @@ import { parentsOffered } from '@/lib/details-your-event';
 import { hubSetupRound, type HubSetupFacts } from '@/lib/hub-setup-steps';
 import { previewCarriesPlace } from '@/lib/maker-preview-way-back';
 import {
+  DayPosterBody,
+  DayPosterEditor,
   DigitalTicketEditor,
   PassCardsPanel,
   PrintEverythingStudio,
@@ -645,6 +648,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     if (k === EVERY_PRINT_ITEM) return { label: PRINT_SETTINGS_LABEL, sub: PRINT_SETTINGS_LINE, icon: <Settings aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     /* 🎫 The Digital ticket — the PNG each guest saves (2026-10-17, Studio only). */
     if (k === DIGITAL_TICKET_ITEM) return { label: 'Digital ticket', sub: 'PNG · what each guest saves', icon: <Ticket aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
+    /* 🖼 The Our Day poster (owner 2026-11-13) — done once it is finalized. */
+    if (k === DAY_POSTER_ITEM) return { label: PRINT_PIECES['day-poster'].label, sub: PRINT_PIECES['day-poster'].size, done: Boolean(prints.dayPoster?.finalizedAt), icon: <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     if ((WORDS_ITEM_KEYS as readonly string[]).includes(k) || (STORY_ITEM_KEYS as readonly string[]).includes(k)) {
       const w = k as WordsItemKey | StoryItemKey;
       return {
@@ -678,7 +683,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
-  const present = new Set<DetailsItemKey>(['theme', ...LOOK_SECTION_ITEM_KEYS, ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...(props.studio ? [EVERY_PRINT_ITEM, DIGITAL_TICKET_ITEM] : []), ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  const present = new Set<DetailsItemKey>(['theme', ...LOOK_SECTION_ITEM_KEYS, ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...(props.studio ? [EVERY_PRINT_ITEM, DIGITAL_TICKET_ITEM] : []), ...PRINT_SET_KEYS, DAY_POSTER_ITEM, ...free.map((f) => f.key)]);
   /* 👪 Where the type prints no parents (a birthday, a wake), "Hosts" has no march to
      live in — it is the last field of the Your event form instead (review 2026-10-06). */
   const hostsInForm = props.yourEvent ? !parentsOffered(props.yourEvent.kind) : !switches.parents;
@@ -853,6 +858,8 @@ export function MakerDetails(props: MakerDetailsProps) {
       {theme.tour ? <MiniTour tourKey="customer_print_story_poster_v1" after="customer_print_menu_v1" storeShell={theme.storeShell} /> : null}
     </>
   );
+  /* 🖼 The Our Day poster's picture — its saved record, drawn by the route; the builder rises from its row. */
+  bodies[DAY_POSTER_ITEM] = <DayPosterBody input={prints} />;
   for (const f of free) bodies[f.key] = f.body;
   /* 🪧 Studio: the entrance chart's picture follows the row's By table | A to Z and size (`StudioChartBody`, owner 2026-10-14). */
   const chartPrint = props.studio ? freePrints(eventId, slug).find((x) => x.key === 'seating-chart') : undefined;
@@ -1087,6 +1094,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     menu: <PrintPieceEditor input={prints} piece="menu" studio={Boolean(props.studio)} menu={menu} />,
     poster: <PrintPieceEditor input={prints} piece="poster" studio={Boolean(props.studio)} />,
     'story-poster': <PrintPieceEditor input={prints} piece="story-poster" studio={Boolean(props.studio)} />,
+    [DAY_POSTER_ITEM]: <DayPosterEditor input={prints} studio={Boolean(props.studio)} />,
     card: <PrintPieceEditor input={prints} piece="card" studio={Boolean(props.studio)} />,
     /* 🗂 Studio: Everything ◆ — one file of every piece (owner 2026-10-17); the shipped Details keeps Download the set. */
     download: props.studio ? <PrintEverythingStudio input={prints} /> : <PrintSetDownloads input={prints} />,

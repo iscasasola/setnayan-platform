@@ -1,7 +1,7 @@
-// "Brand your booth at THIS wedding" — the ₱500 per-event 3D Booth (owner
-// 2026-09-05: "500 per event. or 3000/4 week cycle."). The per-event door
-// stands where the retired "unlock the 3D Plan for this couple" section stood:
-// the couple's room is free now, and what a vendor buys for it is BRANDING.
+// "Your booth in their 3D Plan" — whether this shop's booth is branded at THIS
+// event. Since the owner's a02673ac (23 Nov 2026) the branding is the 3D plan
+// widget: bought once in the Toolkit AND on Plus, Pro or Ultra. The retired
+// per-event buy and 4-week cycle are honoured where already paid, never sold.
 //
 // Async SERVER component, self-fetching like VendorChallengeSection: tier +
 // verification + the cycle window (session client — the shop's own row), the
@@ -10,30 +10,22 @@
 // booked-only by the client-event card. Renders null only when 3D is switched
 // off — every other state is drawn, including the ones that cannot buy, because
 // a vendor who cannot see WHY they are generic will assume the product is broken.
-import Link from 'next/link';
 import { Store, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { openRailOptions } from '@/lib/payment-channels';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
-import { isTierAtLeast } from '@/lib/vendor-tier-caps';
-import { resolveVendorTier } from '@/lib/vendor-feature-gate';
-import { planWord } from '@/lib/vendor-plan-change-words';
-import { isVendor3dBoothActive, fetchVendor3dBoothPricePhp } from '@/lib/vendor-3d-booth-pricing';
+import { isVendor3dBoothActive } from '@/lib/vendor-3d-booth-pricing';
 import {
-  fetchVendor3dBoothEventPricePhp,
   fetchVendorBoothEventOrderState,
 } from '@/lib/vendor-3d-booth-event-pricing';
 import { ShopCard } from '../../../_components/kit';
-import { BoothEventBuyForm } from './booth-event-buy-form';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { LockedFeature } from '@/app/_components/lock/locked-feature';
-import { PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
-
-function peso(n: number): string {
-  return `₱${n.toLocaleString('en-PH')}`;
-}
+import { readPaidWidgetStatus } from '@/lib/supplier-store.server';
+import { widgetLock, type ToolStatus } from '@/lib/supplier-store';
+import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from '@/lib/special-tools';
+import { formatPhp } from '@/lib/php';
+import { routes } from '@/lib/routes';
 
 export async function BoothEventSection({
   eventId,
@@ -50,7 +42,7 @@ export async function BoothEventSection({
   if (await isStoreShellRequest()) return null;
   const supabase = await createClient();
   const admin = createAdminClient();
-  const [gateRead, orderState, eventPricePhp, cyclePricePhp, settings, includedRead, planTier] = await Promise.all([
+  const [gateRead, orderState, includedRead] = await Promise.all([
     supabase
       .from('vendor_profiles')
       .select('tier_state, verification_state, booth_addon_expires_at')
@@ -75,33 +67,21 @@ export async function BoothEventSection({
         },
       ),
     fetchVendorBoothEventOrderState(admin, vendorProfileId, eventId),
-    fetchVendor3dBoothEventPricePhp(supabase),
-    fetchVendor3dBoothPricePhp(supabase),
-    fetchPlatformSettings(supabase),
-    // 🎁 Owner 20 Nov: the branded booth comes with Pro and up (or a shop grandfathered when that shipped) — the SAME
-    // gate event_branded_booth_vendor_ids brands the couple's room with. Admin client: service role only.
-    admin.rpc('vendor_pro_tools_included', { p_vendor_profile_id: vendorProfileId, p_event_id: eventId }).then(
-      (r) => {
-        if (r.error) console.error('[supabase-error] booth-event-section: vendor_pro_tools_included', r.error);
-        return { unread: !!r.error, included: r.data === true };
-      },
+    // 🧰 Owner a02673ac (23 Nov): the branded booth is the 3D plan widget — bought in the Toolkit AND on Plus, Pro or
+    // Ultra, the SAME rule event_branded_booth_vendor_ids brands the couple's room with. Admin client: service role.
+    readPaidWidgetStatus(admin, vendorProfileId, 'plan_3d').then(
+      (st) => ({ unread: st.kind === 'unread', included: st.kind === 'owned', status: st }),
       (err: unknown) => {
-        console.error('[supabase-error] booth-event-section: vendor_pro_tools_included', err);
-        return { unread: true, included: false };
+        console.error('[supabase-error] booth-event-section: plan_3d widget', err);
+        return { unread: true, included: false, status: { kind: 'unread' } as ToolStatus };
       },
     ),
-    // ⚖ Owner 20/21 Nov (specs 66ae2cce): the branded booth is a Pro-and-up benefit, not sold below it — the same
-    // effective plan the Special tools gate on (promotions applied), so a Plus shop never meets the buy form.
-    resolveVendorTier(supabase, vendorProfileId),
   ]);
-  // The rails the owner has left ON — the buy form offers only these.
-  const openRails = openRailOptions(settings);
 
   const gateRow = gateRead.row;
   const gateUnread = gateRead.unread || includedRead.unread;
   const included = includedRead.included;
-  const tierOk = isTierAtLeast(planTier, PRO_TOOLS_MIN_TIER);
-  const verified = gateRow?.verification_state === 'verified';
+  const lock = widgetLock(includedRead.status);
   const cycleActive = isVendor3dBoothActive(gateRow?.booth_addon_expires_at ?? null);
   const cycleUntil = gateRow?.booth_addon_expires_at
     ? new Date(gateRow.booth_addon_expires_at).toLocaleDateString('en-PH', { day: 'numeric', month: 'short' })
@@ -145,35 +125,26 @@ export async function BoothEventSection({
         <p className="mt-1 text-xs text-ink/55">
           Payment under review. Your booth brands the moment it&rsquo;s confirmed — usually within 24 hours.
         </p>
-      ) : !tierOk || !verified || eventPricePhp == null ? (
-        /* 🎁 Owner 20 Nov: the branded booth comes with Pro and up and is not sold on its own — the shared 🔒
-           (Problem → Solution → Upgrade). Replaces "comes with a paid plan (Supplier Plus …)", now untrue. */
+      ) : (
+        /* 🧰 Owner a02673ac (23 Nov): the branded booth is the 3D plan widget, bought once in the Toolkit and working
+           only on Plus, Pro or Ultra — the shared 🔒 (Problem → Solution → the one door). The per-event buy is retired. */
         <>
           <p className="mt-1 text-xs text-ink/55">Right now the couple sees a plain booth with your name.</p>
-          <div className="mt-3" data-booth-locked="">
-            <LockedFeature
-              lock="boothBranding"
-              need={{ kind: 'plan', plan: PRO_TOOLS_MIN_TIER, price: null, href: '/vendor-dashboard/subscription' }}
-              line={`Included in ${planWord(PRO_TOOLS_MIN_TIER)} · Upgrade`}
-            />
-          </div>
-        </>
-      ) : (
-        <>
-          <p className="mt-1 text-xs text-ink/55">
-            Right now the couple sees a plain booth with your name. Brand it with your logo and poster for
-            this event only — <strong className="text-ink/80">{peso(eventPricePhp)}, one-time</strong>.
-            It stays for as long as the couple keeps their room up.
-          </p>
-          <BoothEventBuyForm eventId={eventId} pricePhp={eventPricePhp} openRails={openRails} />
-          {cyclePricePhp != null && cyclePricePhp > 0 ? (
-            <p className="mt-2 text-[11px] text-ink/45">
-              Several weddings this month? The 3D Booth cycle brands every client&rsquo;s room for{' '}
-              {peso(cyclePricePhp)} / 4 weeks.{' '}
-              <Link href="/vendor-dashboard/subscription" className="font-semibold text-terracotta-700 underline-offset-2 hover:underline">
-                Compare
-              </Link>
-            </p>
+          {lock ? (
+            <div className="mt-3" data-booth-locked="">
+              <LockedFeature
+                lock="boothBranding"
+                need={{
+                  kind: 'widget',
+                  owned: lock.owned,
+                  subscribed: lock.subscribed,
+                  price: lock.price == null ? null : `${formatPhp(lock.price)} · one-time`,
+                  toolkitHref: routes.vendorDashboard.shop.store.item('tools', 'plan_3d'),
+                  plansHref: routes.vendorDashboard.subscription(),
+                }}
+                line={lock.owned ? PAID_WIDGET_RESUBSCRIBE_WORDS : PAID_WIDGET_NEEDS_PLAN_WORDS}
+              />
+            </div>
           ) : null}
         </>
       )}

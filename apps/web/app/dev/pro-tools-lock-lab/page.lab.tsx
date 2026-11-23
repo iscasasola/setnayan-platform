@@ -14,11 +14,11 @@ import { LockedFeature } from '@/app/_components/lock/locked-feature';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Badge } from '@/app/_components/badge';
 import { ShopCard } from '@/app/vendor-dashboard/_components/kit';
-import { PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
 import { papersProgress } from '@/lib/locks';
 import { planTable, tableTierName, TABLE_TIERS } from '@/app/for-suppliers/_components/plan-table-data';
 
-const NEED = { kind: 'plan', plan: PRO_TOOLS_MIN_TIER, price: null, href: '/vendor-dashboard/subscription' } as const;
+// 🧰 Owner a02673ac (23 Nov): a paid widget — bought in the Toolkit AND on Plus, Pro or Ultra. A Free shop's lock: the plans door.
+const NEED = { kind: 'widget', owned: false, subscribed: false, price: null, toolkitHref: '/vendor-dashboard/shop/store/tools/papic_challenge', plansHref: '/vendor-dashboard/subscription' } as const;
 
 function ChallengeCard({ pro }: { pro: boolean }) {
   return (

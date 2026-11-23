@@ -10,8 +10,9 @@ import type { TrackerRewardInput } from '@/lib/badge-rewards';
 import { shopBadgeShelf, type ShelfTile } from '@/lib/shop-badge-shelf';
 import { readGraphUnlockFacts } from '@/lib/graph-unlocks.server';
 import { graphUnlocks, type GraphUnlocks } from '@/lib/graph-unlocks';
-import { readShopSpecialToolsAllowed } from '@/lib/cake-maker.server';
-import { PAID_STORE_TOOLS, STORE_TOOL_SKUS, readLayout, toolOfSku, type PaidStoreTool, type HubOverrides, type StoreLayout, type ToolFacts, type ToolPrice } from '@/lib/supplier-store';
+import { fetchVendorSpecializationSubscription } from '@/lib/vendor-specialization-gate.server';
+import { freeWidgetsOpen } from '@/lib/vendor-specialization-gate';
+import { PAID_STORE_TOOLS, STORE_TOOL_SKUS, readLayout, toolOfSku, toolStatus, type ToolStatus, type PaidStoreTool, type HubOverrides, type StoreLayout, type ToolFacts, type ToolPrice } from '@/lib/supplier-store';
 import { nameKey } from '@/lib/hub-tools';
 import { shareableTools, type ShareableRead } from '@/lib/chat-tool-share-held';
 
@@ -19,7 +20,7 @@ import { shareableTools, type ShareableRead } from '@/lib/chat-tool-share-held';
  * 🛍 THE SUPPLIER STORE'S READS (owner 23 Nov 2026 — `lib/supplier-store.ts` holds the words and the states).
  *
  * Every read is honest: a refused read comes back `null` / 'unread' and the screen says "Couldn't load" — never a price,
- * never "not owned", never zero. Money-adjacent reads (orders, the catalog, the trial clock) use the service-role
+ * never "not owned", never zero. Money-adjacent reads (orders, the catalog) use the service-role
  * client the buy and the gates use, so the Store and the gate can never disagree about one shop.
  */
 
@@ -122,33 +123,31 @@ async function readToolOrders(admin: SupabaseClient, vendorProfileId: string): P
   return { owned, pending };
 }
 
-/** The 30-day trial's end, stamped once at Verified (the migration's trigger). null = never started; 'unread' = refused. */
-export async function readStoreTrialEndsAt(admin: SupabaseClient, vendorProfileId: string): Promise<string | null | 'unread'> {
-  const { data, error } = await admin.from('vendor_specialized_tools_access').select('store_trial_ends_at').eq('vendor_profile_id', vendorProfileId).maybeSingle();
-  if (error) {
-    logQueryError('readStoreTrialEndsAt', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
-    return 'unread';
-  }
-  return (data as { store_trial_ends_at?: string | null } | null)?.store_trial_ends_at ?? null;
+/**
+ * SUBSCRIBED — is the shop on Plus, Pro or Ultra now? The subscription half of a paid widget (owner a02673ac), the SQL
+ * `vendor_pro_tools_included` (service role). null = unread.
+ */
+async function readSubscribed(admin: SupabaseClient, vendorProfileId: string): Promise<boolean | null> {
+  return admin.rpc('vendor_pro_tools_included', { p_vendor_profile_id: vendorProfileId, p_event_id: null }).then(
+    ({ data, error }) => {
+      if (error) {
+        logQueryError('readStoreSubscribed', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+        return null;
+      }
+      return data === true;
+    },
+    () => null,
+  );
 }
 
-/** Does the plan already open the paid tools? Cake Maker + Song bank: the special-tools rule; Papic + 3D: Pro's. */
-async function readPlanOpen(admin: SupabaseClient, vendorProfileId: string): Promise<Partial<Record<PaidStoreTool, boolean | null>>> {
-  const [special, pro] = await Promise.all([
-    readShopSpecialToolsAllowed(admin, vendorProfileId),
-    admin.rpc('vendor_pro_tools_included', { p_vendor_profile_id: vendorProfileId, p_event_id: null }).then(
-      ({ data, error }) => {
-        if (error) {
-          logQueryError('readStorePlanOpen.pro', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
-          return null;
-        }
-        return data === true;
-      },
-      () => null,
-    ),
-  ]);
-  const sp = special.status === 'ok' ? special.data : special.status === 'none' ? false : null;
-  return { cake_tool: sp, song_bank: sp, papic_challenge: pro, plan_3d: pro };
+/**
+ * Do the free widgets open — Verified up? THE rule the day-of gate uses (`freeWidgetsOpen`), on the same row read
+ * (`fetchVendorSpecializationSubscription`). An unreadable verification that the tier alone cannot settle = null.
+ */
+async function readFreeOpen(admin: SupabaseClient, vendorProfileId: string): Promise<boolean | null> {
+  const sub = await fetchVendorSpecializationSubscription(admin, vendorProfileId);
+  if (freeWidgetsOpen(sub, sub.verified)) return true;
+  return sub.verified === null ? null : false;
 }
 
 /** Everything a tool row needs — one batch. */
@@ -159,26 +158,25 @@ export async function readStoreToolFacts(
   services: readonly string[],
   layout: StoreLayout | null,
 ): Promise<ToolFacts> {
-  const [orders, trialEndsAt, planOpen, prices, categoryLabels, hubOverrides] = await Promise.all([
+  const [freeOpen, orders, subscribed, prices, categoryLabels, hubOverrides] = await Promise.all([
+    readFreeOpen(admin, vendorProfileId),
     readToolOrders(admin, vendorProfileId),
-    readStoreTrialEndsAt(admin, vendorProfileId),
-    readPlanOpen(admin, vendorProfileId),
+    readSubscribed(admin, vendorProfileId),
     readStoreToolPrices(admin),
     readCategoryLabels(client, vendorProfileId),
     readHubOverrides(admin),
   ]);
   return {
+    freeOpen,
     owned: orders ? orders.owned : null,
     pending: orders ? orders.pending : null,
-    trialEndsAt,
-    planOpen,
+    subscribed,
     prices,
     picked: layout?.tools ?? null,
     toolsOff: layout?.toolsOff ?? [],
     categoryLabels,
     services,
     hubOverrides,
-    nowMs: Date.now(),
   };
 }
 
@@ -194,14 +192,28 @@ export async function readShareableTools(admin: SupabaseClient, vendorProfileId:
   return shareableTools(await readStoreToolFacts(admin, admin, vendorProfileId, services, layout));
 }
 
-/** Is this paid tool open for this shop now — bought once, or the trial? The SQL answer (`vendor_store_tool_open`). */
-export async function readStoreToolOpen(admin: SupabaseClient, vendorProfileId: string, tool: PaidStoreTool, eventId: string | null = null): Promise<boolean | null> {
-  const { data, error } = await admin.rpc('vendor_store_tool_open', { p_vendor_profile_id: vendorProfileId, p_tool: tool, p_event_id: eventId });
-  if (error) {
-    logQueryError('readStoreToolOpen', error, { vendor_profile_id: vendorProfileId, tool }, 'graceful_degrade');
-    return null;
-  }
-  return data === true;
+/**
+ * 🧰 One paid widget's Toolkit status for a page outside the Toolkit (the 3D booth and the photo challenge on a client's
+ * event): the SAME `toolStatus` the Toolkit draws, from the same reads — owned, subscribed, in review, the catalog price.
+ * `owned` = open (bought AND subscribed); `resubscribe` = owned, off-plan; `buy` carries the price and `needsPlan`.
+ */
+export async function readPaidWidgetStatus(admin: SupabaseClient, vendorProfileId: string, tool: PaidStoreTool): Promise<ToolStatus> {
+  const [orders, subscribed, prices] = await Promise.all([
+    readToolOrders(admin, vendorProfileId),
+    readSubscribed(admin, vendorProfileId),
+    readStoreToolPrices(admin),
+  ]);
+  return toolStatus(tool, {
+    freeOpen: null,
+    owned: orders ? orders.owned : null,
+    pending: orders ? orders.pending : null,
+    subscribed,
+    prices,
+    picked: null,
+    toolsOff: [],
+    categoryLabels: [],
+    services: [],
+  });
 }
 
 const FACTS_UNREAD = Symbol('badge facts unread');

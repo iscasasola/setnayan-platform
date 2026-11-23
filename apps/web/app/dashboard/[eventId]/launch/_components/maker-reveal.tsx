@@ -18,7 +18,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { Slider } from '@/app/_components/slider';
 import { SwitchTrack } from '@/app/_components/switch-track';
 import { ActionButton } from '@/components/action-button';
-import { MAKER_STAGE_SAY_EVENT, useMaker } from './maker-context';
+import { useMaker } from './maker-context';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { IRow, ISection, ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
@@ -49,11 +49,8 @@ import { setStageRevealKind, useStageRevealLook } from './stage-panel/store';
 import { SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import { StyleCards } from './stage-panel/style-carousel';
 import { StylePreview } from './stage-panel/style-preview';
-import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
+import { REVEAL_SPEEDS } from '@/lib/reveal-motion';
 
-/** 🌫 The prototype's openings after the Sheer veil (`cover_scene_edit_animate_2026-10-16.html` `OPENINGS`, owner 2026-10-15). */
-const REVEAL_COVER_SOON: readonly string[] = ['four-flap', 'church-doors'];
-const REVEAL_COVER_SOON_SAYS = 'After the envelope proof — not yet';
 
 /**
  * 🎭 THE REVEAL AS A PART (the new Maker's Stages side, plan PR 3 — owner
@@ -384,7 +381,7 @@ export function MakerRevealPicker({
   /* 🎭 The Stages panel's Opening — Cover Scene › Style (owner-approved 2026-10-16): the openings as cards over the
      couple's own cover, then Extras ◆ ▾ (`RevealStagePart`). No Background: the opening plays over the cover. */
   if (onStage) {
-    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} savePick={savePick} stages={stages} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} mainColours={mainColours} veilShown={veilShown} />;
+    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} savePick={savePick} stages={stages} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} mainColours={mainColours} veilShown={veilShown} tuneHouse={tuneHouse} />;
   }
   /* 🧩 The navigator's part: the openings alone. */
   if (part === 'options') {
@@ -462,12 +459,11 @@ export function MakerRevealPicker({
 const NO_COLOURS: readonly string[] = [];
 /** Today's veil with no Mood Board colour to lighten (`veilColorFromPalette`'s own fallback). */
 const VEIL_IVORY = '#f3ece1';
-const ENVELOPES = new Set(['four-flap', 'two-flap-vertical', 'two-flap-horizontal']);
 
 /**
- * The opening's own fine-tuning — only what THIS opening uses (an envelope lets
- * butterflies out; the doors and the veil let petals fall; the veil takes its
- * tulle and petal colours). Every change saves to the draft and replays.
+ * The opening's own fine-tuning — only what THIS opening uses: the veil lets petals fall and takes its tulle and
+ * petal colours; every reveal takes its ⏱ speed (9 · 12 · 16 s, the Fine-tune fold). The nine reveals of 23 Nov 2026
+ * are drawn whole, so no other reveal has a switch here. Every change saves to the draft and replays.
  */
 function FineTune({
   opening,
@@ -487,7 +483,6 @@ function FineTune({
   pending: boolean;
   onChange: (next: RevealEffects) => void;
 }) {
-  const envelope = ENVELOPES.has(opening);
   const veil = opening === 'veil-sheer';
   const Switch = ({ on, label, flip }: { on: boolean; label: string; flip: () => void }) => (
     <button
@@ -506,21 +501,13 @@ function FineTune({
   return (
     <fieldset className="flex flex-col gap-1.5" data-maker-reveal-finetune={opening}>
       <legend className="mb-1 text-[13px] font-semibold text-ink">Effects</legend>
-      {envelope ? (
-        <Switch
-          on={effects.butterflies}
-          label="Butterflies"
-          flip={() => onChange({ ...effects, butterflies: !effects.butterflies })}
-        />
-      ) : (
-        <Switch
-          on={effects.petals}
-          label="Falling petals"
-          flip={() => onChange({ ...effects, petals: !effects.petals })}
-        />
-      )}
       {veil ? (
         <>
+          <Switch
+            on={effects.petals}
+            label="Falling petals"
+            flip={() => onChange({ ...effects, petals: !effects.petals })}
+          />
           <ColourRow
             label="Veil colour"
             value={effects.veilColor}
@@ -594,7 +581,21 @@ function TuneFold({
       </button>
       {open ? (
         <div className="flex flex-col gap-4 px-3 pb-3">
-          {knobs.map((knob) => (
+          {knobs.map((knob) =>
+            /* ⏱ A choice, not a slider (the reveal's speed: 9 · 12 · 16 s) — any set of choices is a dropdown. */
+            knob.choices ? (
+              <Dd
+                key={knob.key}
+                small={knob.label}
+                label={`Reveal ${knob.label.toLowerCase()}`}
+                data={`reveal-${knob.key}`}
+                value={String(effects.tune?.[knob.key] ?? house[knob.key])}
+                options={knob.choices.map((v) => ({ key: String(v), label: `${v} s` }))}
+                onPick={(k) => commit(knob, Number(k))}
+                off={pending ? () => undefined : undefined}
+                stacked
+              />
+            ) : (
             <TuneSlider
               key={knob.key}
               knob={knob}
@@ -603,7 +604,8 @@ function TuneFold({
               disabled={pending}
               onCommit={(v) => commit(knob, v)}
             />
-          ))}
+            ),
+          )}
         </div>
       ) : null}
     </div>
@@ -707,7 +709,10 @@ function RevealStagePart({
   failed,
   mainColours,
   veilShown,
+  tuneHouse,
 }: {
+  /** Where an untuned knob rests — the Reveal Studio's house look (the house speed). */
+  tuneHouse: RevealTuneHouse;
   /** 🎨 The five main colours — the veil's Colour opens the one picker on them. */
   mainColours: readonly string[];
   /** 🧵 What the veil is painted while no colour is chosen (today's). */
@@ -739,15 +744,10 @@ function RevealStagePart({
   const veil = picked === 'veil-sheer';
   const [pickingColour, setPickingColour] = useState(false);
   const mark = makerProMark({ owns: ownsPro, storeShell });
-  /* 🌫 The prototype's cards after the Sheer veil — the envelope and the doors exist (`REVEAL_LIBRARY`), but an opening
-     the house has not switched on is drawn faint and says why (prototype `.lc.soon`: "After the envelope proof — not
-     yet"); switched on, it is an ordinary card. */
-  const soon = REVEAL_COVER_SOON.filter((id) => !openings.some((o) => o.id === id));
-  const options = [
-    { id: REVEAL_NONE_ID, name: 'None' },
-    ...openings.map((o) => ({ id: o.id, name: o.label })),
-    ...soon.map((id) => ({ id, name: REVEAL_LIBRARY.find((r) => r.id === id)?.label ?? id })),
-  ];
+  /* 🎭 The nine reveals (owner 23 Nov 2026) — every one the house has switched on is an ordinary card. */
+  const options = [{ id: REVEAL_NONE_ID, name: 'None' }, ...openings.map((o) => ({ id: o.id, name: o.label }))];
+  /* ⏱ Every reveal's speed — the couple's, else the house's (`tune.speed`, 9 · 12 · 16 s). */
+  const speed = String(effects.tune?.speed ?? tuneHouse.speed);
   return (
     <section className="contents" data-maker-reveal-part={onStage}>
       {/* 🎭 THE COVER SCENE'S STYLE IS THE OPENING (owner-approved 2026-10-16, prototype `drawOpening`): the cards ARE the
@@ -764,17 +764,10 @@ function RevealStagePart({
               label="Opening"
               options={options}
               value={picked}
-              dim={soon}
               pending={false}
               canvasKey="f:hero"
               sceneType="opening"
-              onPick={(id) => {
-                if (soon.includes(id)) {
-                  window.dispatchEvent(new CustomEvent(MAKER_STAGE_SAY_EVENT, { detail: REVEAL_COVER_SOON_SAYS }));
-                  return;
-                }
-                savePick(revealCoverPickPatch(id, now, onStage));
-              }}
+              onPick={(id) => savePick(revealCoverPickPatch(id, now, onStage))}
               picture={(id, on) => (
                 <>
                   <StylePreview canvasKey="f:hero" sceneType="opening" styleId={id} current={on} focus="header[data-pahina-first-screen]" screen hide={id === REVEAL_NONE_ID ? null : '[data-cover-line]'} />
@@ -803,6 +796,15 @@ function RevealStagePart({
                       stacked
                     />
                   ) : null}
+                  <Dd
+                    small="Speed ◆"
+                    label="Reveal speed"
+                    data="reveal-speed"
+                    value={speed}
+                    options={REVEAL_SPEEDS.map((v) => ({ key: String(v), label: `${v} s` }))}
+                    onPick={(k) => setEffects({ ...effects, tune: { ...(effects.tune ?? {}), speed: Number(k) } })}
+                    stacked
+                  />
                   {veil ? (
                     <>
                       {/* 🌬 Wind ▾ (owner 2026-10-17: *"wind speed/randomness"*) — beside Extras, two stacked pills to a row. */}

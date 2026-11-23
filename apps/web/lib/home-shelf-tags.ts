@@ -13,7 +13,7 @@
  *   every `clears` write still empties the tag at once.)
  * HARD 300 s — past it the rows are never shown; they are asked again. 300 is
  * the staleness this page already ran under as an ISR page (`revalidate = 300`
- * in `app/page.tsx`, the 2026-07-02 perf sweep) — not a new number.
+ * in `app/(hub)/page.tsx`, the 2026-07-02 perf sweep) — not a new number.
  * ⚠ Both sit far under the 24 h life of a signed picture address, and no signed
  * address is remembered in the first place: the readers keep ROWS, and every
  * picture is signed per request by the code that already did it.

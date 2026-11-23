@@ -415,7 +415,7 @@ test('4·2 · the name is said once: a cover that prints it drops the visible ti
 });
 
 test('4·3 · Home and Discover ask the poster for the name only; the other screens are not changed silently', () => {
-  const home = stripComments(readFileSync(join(WEB, 'app/dashboard/(launcher)/page.tsx'), 'utf8'));
+  const home = stripComments(readFileSync(join(WEB, 'app/(hub)/dashboard/page.tsx'), 'utf8'));
   const cover = stripComments(readFileSync(join(WEB, 'app/_components/frontdoor/discover-event-cover.tsx'), 'utf8'));
   const posterSrc = stripComments(readFileSync(join(WEB, 'app/_components/event-poster.tsx'), 'utf8'));
   const tags = (src: string) => [...src.matchAll(/<EventPoster\b[\s\S]*?\/>/g)].map((m) => m[0]);

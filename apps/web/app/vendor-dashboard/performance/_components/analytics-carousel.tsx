@@ -2,7 +2,6 @@
 
 import './analytics-growing.css';
 import { useMemo, useState, type ReactNode } from 'react';
-import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
 import { PillSelector } from '@/app/_components/pill-selector';
@@ -18,7 +17,7 @@ import { drawsLastYearLine, pctWord, vsLastYear, vsLastYearWords, type VsLastYea
 import { ordinal } from '@/lib/analytics-growing';
 import { AnalyticsLock } from './analytics-lock';
 import { HeldCount } from './growth-motion';
-import { CARD_ORDER, FIXED_WINDOW, type CardKey } from './analytics-cards';
+import { DEFAULT_INSTALLED_GRAPHS, FIXED_WINDOW, type CardKey } from './analytics-cards';
 import type { GrowthView, Totals } from './growth-view';
 import { BRONZE_LINES, LOCKED_HEAD, lockedLine, type GiftsRecFacts, type GiftsToBookings, type LockedBadge, type UnlockBadge } from '@/lib/graph-unlocks';
 import { COULDNT_LOAD } from '@/lib/shop-badge-row';
@@ -28,6 +27,7 @@ import { STORE_GRAPHS, graphWindowWords } from '@/lib/supplier-store';
 import { ArrangeEdit } from '@/app/vendor-dashboard/shop/store/_components/store-client';
 import { GraphArt } from '@/app/vendor-dashboard/shop/store/_components/graph-art';
 import type { InviteMonth } from '@/lib/graph-unlocks';
+import { NewThingTile } from '@/app/_components/collection-card';
 
 /**
  * 📊🎠 SHOP › ANALYTICS — ONE LONG CAROUSEL, AND IT IS THE ONLY ANALYTICS (owner 11 Nov 2026: *"Analytics should be the
@@ -165,7 +165,7 @@ type Props =
 /**
  * 🛍 THE SHOP'S PICKS (owner 23 Nov 2026 — Store drawing v12, F0 + "Edit · Analytics"): `order` = the graphs the shop
  * picked, in its order (`analyticsGraphs`, lib/supplier-store.ts — open ones only); `addHref` = the dashed "Add a graph"
- * tile at the end, into the Store's Graphs shelf; the head's "Edit" opens "Arrange Analytics" (reorder · remove). With the Store, a shut graph lives on its shelf ("Opens with …"), so the lines under the
+ * tile at the end, into the Store's Graphs shelf; the head's "Edit" opens "Arrange Analytics" (reorder · remove). With the Store, a shut graph lives on its shelf ("Unlocks free when you earn the … badge"), so the lines under the
  * carousel step aside. Without them (Performance), the carousel is exactly as before.
  */
 type Picks = { order?: readonly CardKey[]; addHref?: string };
@@ -212,7 +212,8 @@ export function AnalyticsCarousel(props: Props & Picks) {
   };
 
   const cards: CarouselCard[] = [];
-  for (const k of props.order ?? CARD_ORDER) {
+  // Never arranged = the graphs installed by default — an explicit list, so a new graph never lands here uninstalled.
+  for (const k of props.order ?? DEFAULT_INSTALLED_GRAPHS) {
     if (k === 'opened' || k === 'asked' || k === 'booked') {
       const win = winOf(k);
       const g = countSpec(k, win, totalsOf(win), props.view ?? null);
@@ -232,10 +233,10 @@ export function AnalyticsCarousel(props: Props & Picks) {
       key: 'add',
       label: 'Add a graph',
       node: (
-        <Link href={props.addHref} className="ag-card-in sn-press flex h-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[color:var(--m-line)] text-[color:var(--m-slate-2)]" data-analytics-add="">
+        <NewThingTile layout="ghost" href={props.addHref} label="Add a graph" className="ag-card-in flex h-full flex-col items-center justify-center gap-2 text-[color:var(--m-slate-2)]" data-analytics-add="">
           <Plus aria-hidden className="h-7 w-7" strokeWidth={1.8} />
           <b className="text-sn-lg font-semibold text-ink">Add a graph</b>
-        </Link>
+        </NewThingTile>
       ),
     });
   }
@@ -259,7 +260,7 @@ export function AnalyticsCarousel(props: Props & Picks) {
             Analytics
           </h2>
           {props.addHref ? (
-            <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" aria-label={`${graphCount} ${graphCount === 1 ? 'graph' : 'graphs'}`} data-analytics-count="">
+            <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" aria-label={`${formatCount(graphCount)} ${graphCount === 1 ? 'graph' : 'graphs'}`} data-analytics-count="">
               {formatCount(graphCount)}
             </span>
           ) : null}

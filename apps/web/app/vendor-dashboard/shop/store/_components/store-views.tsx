@@ -1,6 +1,7 @@
 import Link from 'next/link';
+import { formatCount } from '@/lib/format-number';
 import type { ReactNode } from 'react';
-import { Check, ChevronRight, Lock, Plus, ShoppingBag } from 'lucide-react';
+import { BadgeCheck, Check, ChevronRight, Lock, Plus, ShoppingBag, Sparkles } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatPhpRounded } from '@/lib/php';
 import { routes } from '@/lib/routes';
@@ -10,8 +11,13 @@ import { BadgeArt } from '@/app/vendor-dashboard/shop/_components/shop-badge-row
 import {
   STORE_GRAPHS,
   goalWords,
+  graphLockedLine,
   graphWindowWords,
+  isNewGraph,
   groupChipKey,
+  INSTALLED_WORD,
+  INSTALL_WORD,
+  buyWords,
   toolFootWords,
   toolIsYours,
   type GraphStatus,
@@ -22,6 +28,7 @@ import type { ShelfTile } from '@/lib/shop-badge-shelf';
 import type { CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { StoreOp } from './store-client';
 import { GraphArt } from './graph-art';
+import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_PLAN_WORDS } from '@/lib/special-tools';
 
 export { GraphArt };
 
@@ -39,7 +46,7 @@ export function toolOpenHref(key: string): string {
 
 export const php = (n: number) => formatPhpRounded(n);
 
-/** The small round "Get" / "Open" / price pill at a tile's foot — words only (the whole tile is the door). */
+/** The small round "Install" / "✓ Installed" / "Buy ₱…" pill at a tile's foot — words only (the whole tile is the door). */
 function Pill({ children, tone = 'link' }: { children: ReactNode; tone?: 'link' | 'quiet' | 'done' }) {
   const look =
     tone === 'link'
@@ -98,8 +105,8 @@ export function ToolArt({ toolKey }: { toolKey: StoreToolRow['tool']['key'] }) {
   );
 }
 
-/** "✓ On your page" / "✓ Earned" — a row's settled state, in the ok green (v12 F12 · F15). */
-export function OnPage({ children = 'On your page' }: { children?: ReactNode }) {
+/** "✓ Installed" / "✓ Earned" — a row's settled state, in the ok green (Toolkit v19: one word, "Installed"). */
+export function OnPage({ children = INSTALLED_WORD }: { children?: ReactNode }) {
   return (
     <span className="inline-flex min-h-11 flex-none items-center gap-1 text-sn-base font-semibold text-[rgb(var(--color-ok))]" data-store-on-page="">
       <Check aria-hidden className="h-4 w-4" strokeWidth={2.4} />
@@ -125,18 +132,36 @@ export function TagChips({ tags, max = 2 }: { tags: readonly ToolTag[]; max?: nu
   );
 }
 
+/**
+ * 🎞 A paid widget's clip (owner 4c07edd7): silent, looping, phone size, at the top of its Toolkit page. A preview, not
+ * a demo — nothing in it can be pressed. `src` null (not recorded yet) = this renders nothing at all.
+ */
+export function ToolVideo({ src, title }: { src: string | null; title: string }) {
+  if (!src) return null;
+  return (
+    <div className="sn-frame mb-3 overflow-hidden" data-store-video="">
+      <video src={src} autoPlay muted loop playsInline preload="metadata" aria-label={`${title}: how it is set up and where it shows`} className="block max-h-96 w-full object-contain" />
+    </div>
+  );
+}
+
 /** The tool's tile on the Store front (F1). */
 export function StoreToolTile({ row }: { row: StoreToolRow }) {
   const s = row.status;
+  const a = row.act;
   const pill =
-    toolIsYours(s) ? (
-      <Pill>Open</Pill>
-    ) : s.kind === 'free' ? (
-      <Pill>Get</Pill>
-    ) : s.kind === 'buy' ? (
-      <Pill>{php(s.price)}</Pill>
+    a.kind === 'installed' ? (
+      <Pill tone="done">
+        <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.4} />
+        {INSTALLED_WORD}
+      </Pill>
+    ) : a.kind === 'install' ? (
+      <Pill>{INSTALL_WORD}</Pill>
+    ) : a.kind === 'buy' ? (
+      <Pill>{buyWords(a.price, php)}</Pill>
     ) : null;
-  const foot = toolIsYours(s) ? (s.kind === 'trial' ? toolFootWords(s, php) : s.kind === 'free' ? 'Free' : s.kind === 'owned' ? 'Owned' : 'With your plan') : s.kind === 'buy' ? 'One-time' : toolFootWords(s, php);
+  const foot =
+    s.kind === 'free' && s.added ? 'Free' : s.kind === 'owned' ? 'Owned' : s.kind === 'buy' ? (s.needsPlan ? `One-time · ${PAID_WIDGET_PLAN_WORDS}` : 'One-time') : toolFootWords(s, php);
   return (
     <StoreTile
       href={shop.store.item('tools', row.tool.key)}
@@ -155,7 +180,7 @@ export function StoreToolTile({ row }: { row: StoreToolRow }) {
 /** Show & sort tokens for a tool row: yours · free · paid, plus the chips it answers (For you · each tag's group). */
 export function toolShowTags(row: StoreToolRow): string {
   const tags = [toolIsYours(row.status) ? 'yours' : 'more'];
-  tags.push(row.status.kind === 'free' ? 'free' : 'paid');
+  tags.push(row.status.kind === 'free' || row.status.kind === 'verify' ? 'free' : 'paid');
   if (row.forYou) tags.push('foryou');
   for (const t of row.tags) if (t.group) tags.push(groupChipKey(t.group));
   return [...new Set(tags)].join(' ');
@@ -170,15 +195,26 @@ export function StoreGraphTile({ k, status }: { k: CardKey; status: GraphStatus 
       art={<GraphArt />}
       title={g.title}
       line={g.counts}
-      foot={status.kind === 'locked' ? `Opens with ${status.badgeName} · Bronze` : status.kind === 'on' ? 'On your Analytics' : 'Free'}
-      pill={status.kind === 'locked' ? <Lock aria-label="Locked" className="h-4 w-4 flex-none text-[color:var(--m-slate-2)]" strokeWidth={2} /> : status.kind === 'on' ? <Pill>Open</Pill> : <Pill>Get</Pill>}
+      foot={status.kind === 'locked' ? graphLockedLine(status.badgeName) : status.kind === 'on' ? 'On your Analytics' : isNewGraph(k) ? 'New · Recommended' : 'Free'}
+      pill={
+        status.kind === 'locked' ? (
+          <Lock aria-label="Locked" className="h-4 w-4 flex-none text-[color:var(--m-slate-2)]" strokeWidth={2} />
+        ) : status.kind === 'on' ? (
+          <Pill tone="done">
+            <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.4} />
+            {INSTALLED_WORD}
+          </Pill>
+        ) : (
+          <Pill>{INSTALL_WORD}</Pill>
+        )
+      }
       data={`graph:${k}`}
       show={status.kind === 'on' ? 'on' : status.kind === 'locked' ? 'locked' : 'off'}
     />
   );
 }
 
-/** The badge's tile on the Store front (F1): earned only, never sold — ✓ On page, or Add. */
+/** The badge's tile on the Store front (F1): earned only, never sold — ✓ Installed, or Install. */
 export function StoreBadgeTile({ tile, following }: { tile: ShelfTile; following: boolean }) {
   return (
     <StoreTile
@@ -198,10 +234,10 @@ export function StoreBadgeTile({ tile, following }: { tile: ShelfTile; following
         ) : following ? (
           <Pill tone="done">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.4} />
-            On page
+            {INSTALLED_WORD}
           </Pill>
         ) : (
-          <Pill>Add</Pill>
+          <Pill>{INSTALL_WORD}</Pill>
         )
       }
       data={`badge:${tile.key}`}
@@ -216,7 +252,7 @@ export function StoreShelfRow({ title, count, href, children, data }: { title: s
       <h2 className="hc-k2 mb-2 min-h-9 justify-between">
         <span>{title}</span>
         <Link href={href} className="sn-press inline-flex min-h-11 items-center gap-0.5 text-sn-base font-semibold normal-case text-[rgb(var(--color-link))]" data-store-see-all={data}>
-          See all {count}
+          See all {formatCount(count)}
           <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
         </Link>
       </h2>
@@ -231,34 +267,41 @@ export function StoreShelfRow({ title, count, href, children, data }: { title: s
  *  Your tools now (a Get adds to the end of them); null = the layout could not be read. */
 export function ToolShelfRow({ row, yours }: { row: StoreToolRow; yours: readonly string[] | null }) {
   const s = row.status;
+  const a = row.act;
   const k = row.tool.key;
   const item = shop.store.item('tools', k);
   let right: ReactNode;
-  if (toolIsYours(s)) {
-    right = <ActionButton tone="info" icon={<ChevronRight aria-hidden strokeWidth={2} />} label="Open" href={toolOpenHref(k)} />;
-  } else if (s.kind === 'free') {
+  if (a.kind === 'installed') {
+    right = <OnPage />;
+  } else if (a.kind === 'resubscribe') {
+    // 🧰 Owned on Free or Verified (owner a02673ac): kept, locked, the plans door — never a second Buy.
+    right = <ActionButton tone="info" icon={<Sparkles aria-hidden strokeWidth={1.8} />} label="See plans" href={routes.vendorDashboard.subscription()} />;
+  } else if (a.kind === 'install') {
+    // Free, or owned and taken off the page: Install puts it back on Your widgets — never a second charge.
     right = yours ? (
       <StoreOp
         op="layout"
         fields={{ row: 'tools', intent: 'add', key: [...yours, k] }}
         tone="info"
         icon={<Plus aria-hidden strokeWidth={2} />}
-        label="Get"
+        label={INSTALL_WORD}
         landTo={`${shop.index()}?added=${encodeURIComponent(`tool:${k}`)}#tools`}
       />
     ) : (
       <ToolChip tone="wait">Couldn’t load</ToolChip>
     );
-  } else if (s.kind === 'buy') {
-    right = <ActionButton tone="brand" icon={<ShoppingBag aria-hidden strokeWidth={1.8} />} label={php(s.price)} href={item} />;
-  } else if (s.kind === 'pending') {
+  } else if (a.kind === 'verify') {
+    right = <ActionButton tone="info" icon={<BadgeCheck aria-hidden strokeWidth={1.8} />} label="Get Verified" href={routes.vendorDashboard.verify()} />;
+  } else if (a.kind === 'buy') {
+    right = <ActionButton tone="brand" icon={<ShoppingBag aria-hidden strokeWidth={1.8} />} label={buyWords(a.price, php)} href={item} />;
+  } else if (a.kind === 'pending') {
     right = <ToolChip tone="wait">In review</ToolChip>;
-  } else if (s.kind === 'no_price') {
+  } else if (a.kind === 'no_price') {
     right = <ToolChip tone="quiet">Price not set yet</ToolChip>;
   } else {
     right = <ToolChip tone="wait">Couldn’t load</ToolChip>;
   }
-  const foot = s.kind === 'trial' ? <span className="font-semibold text-[rgb(var(--color-ok))]">{toolFootWords(s, php)}</span> : s.kind === 'buy' ? null : toolFootWords(s, php);
+  const foot = s.kind === 'buy' ? (s.needsPlan ? PAID_WIDGET_NEEDS_PLAN_WORDS : null) : a.kind === 'installed' && a.builtIn ? 'Built in' : toolFootWords(s, php);
   return (
       <ToolRow
         attrs={{ 'data-store-row': '', 'data-store-name': row.tool.title, 'data-store-show': toolShowTags(row), 'data-store-tool': k }}
@@ -274,7 +317,7 @@ export function ToolShelfRow({ row, yours }: { row: StoreToolRow; yours: readonl
   );
 }
 
-/** A graph row on the Graphs shelf (F12): its picture · name · question · ✓ On your page / Get, or the badge that opens
+/** A graph row on the Graphs shelf (F12): its picture · name · question · ✓ Installed / Install, or the badge that opens
  *  it. `on` = the graphs on the Analytics now (a Get adds to their end); `layoutRead` false = the layout was refused. */
 export function GraphShelfRow({ k, status, on, layoutRead }: { k: CardKey; status: GraphStatus; on: readonly CardKey[]; layoutRead: boolean }) {
   const g = STORE_GRAPHS[k];
@@ -286,7 +329,7 @@ export function GraphShelfRow({ k, status, on, layoutRead }: { k: CardKey; statu
     ) : !layoutRead ? (
       <ToolChip tone="wait">Couldn’t load</ToolChip>
     ) : (
-      <StoreOp op="layout" fields={{ row: 'graphs', intent: 'add', key: [...on, k] }} tone="info" icon={<Plus aria-hidden strokeWidth={2} />} label="Get" />
+      <StoreOp op="layout" fields={{ row: 'graphs', intent: 'add', key: [...on, k] }} tone="info" icon={<Plus aria-hidden strokeWidth={2} />} label={INSTALL_WORD} />
     );
   return (
       <ToolRow
@@ -300,10 +343,12 @@ export function GraphShelfRow({ k, status, on, layoutRead }: { k: CardKey; statu
         lines={[
           status.kind === 'on' ? null : g.asks,
           status.kind === 'locked' ? (
-            <span>
-              Opens with <b className="font-semibold text-ink">{status.badgeName} · Bronze</b>
+            <span data-store-locked-line="">
+              {graphLockedLine(status.badgeName)}
               {status.toGo ? ` · ${status.toGo}` : ''}
             </span>
+          ) : status.kind === 'off' && isNewGraph(k) ? (
+            <span data-store-new="">New · Recommended</span>
           ) : (
             graphWindowWords(k)
           ),

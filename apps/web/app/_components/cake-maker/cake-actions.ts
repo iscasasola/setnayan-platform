@@ -148,7 +148,7 @@ export async function runCakeAction(input: CakeActionInput): Promise<CakeActionR
     ]);
     if (thread.error || options.status === 'unread') return fail();
     if (!thread.data) return fail('This chat is not your shop’s.');
-    if (options.status !== 'ok') return fail('Set up your Cake Maker first — Shop › Specialized tools › Cake Maker.');
+    if (options.status !== 'ok') return fail('Set up your Cake Maker first — Shop › Your widgets › Cake Maker.');
     // 🪪 A ＋ tool needs a verified shop (owner 21 Nov 2026) — asked HERE, at the server, before the invite is written:
     // hiding the tile is not a check. A refused read refuses too ('unknown'), never lets the invite through. Read with
     // the service client for the same reason as the options above (an Account Manager cannot read the shop row).

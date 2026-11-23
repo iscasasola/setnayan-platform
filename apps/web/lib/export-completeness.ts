@@ -255,6 +255,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'reason — internal reconciliation keys, service-role only (migration 20271356998019).',
   },
   {
+    table: 'vendor_app_store_plan_tokens',
+    decision: 'excluded',
+    why:
+      'The token the server issued for an Apple supplier-plan purchase and the shop it was issued ' +
+      'for — an internal key Apple signs back, not information about the person. user_id is who ' +
+      'started the purchase (an actor stamp); the plan itself reaches the export as the shop\'s ' +
+      'vendor_subscriptions rows. Service-role only (migration 20271360318379).',
+  },
+  {
     table: 'admin_audit_log',
     decision: 'excluded',
     why:
@@ -367,6 +376,14 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'person. `revoked_by` is an admin actor stamp on who took back a free booking fee; the row says nothing about ' +
       'that person, the shop owner reads every reward on Plan › Your gifts and the badge page, and erasure clears the ' +
       'stamp (lib/erasure/coverage.ts).',
+  },
+  {
+    table: 'admin_scopes',
+    decision: 'excluded',
+    why:
+      'Staff console configuration (admin areas × levels, 2026-11-13, migration 20271350705084): which admin areas an ' +
+      'account may act in. The same kind of fact as the users.is_team_member flag, which the export already carries on ' +
+      'the profile; `granted_by` is an actor stamp (SET NULL on delete) and no customer data is held here.',
   },
   {
     table: 'card_claim_words',

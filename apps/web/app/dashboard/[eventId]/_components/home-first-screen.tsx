@@ -17,7 +17,7 @@ import type { HomeCover } from '@/lib/home-cover';
 import type { HomeCoverWords } from '@/lib/home-cover-words';
 import { HomeToday, HomeTodayFold } from './home-parts';
 import { HomeCoverBand, type HomeSettingsLink } from './home-cover-band';
-import { HomeControlBoardColumn, HomeControlRow } from './home-control-row';
+import { HomeControlBoardColumn } from './home-control-row';
 import { HomeDateFinder } from './home-date-finder';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { countdownDoor, homeNowAction, homeToday, homeWaiting, type HomeControlInput } from './home-control-faces';
@@ -261,12 +261,6 @@ export function HomeFirstScreen({
               that opens as a card where it sits. The item the card's strip holds is not repeated. */}
           <HomeTodayList eventId={eventId} today={list} bodies={todayList?.bodies} />
 
-          {/* 🎛 YOUR EVENT — the widgets; tap a name to open its page. */}
-          <p className="hc-k2 xl:hidden" data-home-your-event="">
-            <span className="hc-k2-name">Your event</span>
-            <em>tap a name to open it</em>
-          </p>
-
           {/* 🚪 ONE QR FOR EVERYONE — where an event has no guest list, the QR IS the way in
               (owner 2026-10-08; prototype frame 2, its words). Opens the GUESTS' one link + QR (Guests › Invite,
               `ShareLinkPanel`) — never `/event-qr`, which is the CREW's device-pairing code (`setnayan://crew-pair`).
@@ -281,8 +275,6 @@ export function HomeFirstScreen({
             </Link>
           ) : null}
 
-          {/* 🎛 THE CONTROL ROW — Countdown · Guests · Event Hub · Suppliers · Budget · Checklist; each opens its ONE page. */}
-          <HomeControlRow input={control} hubPick={hubPick} />
           {/* 📅 The Countdown's Date Finder, in place — the couple's (who change the date); a helper's Countdown opens Event Details. */}
           {eventSettings ? <HomeDateFinder eventId={eventId} openAtFirst={dateFinderOpen} /> : null}
         </div>

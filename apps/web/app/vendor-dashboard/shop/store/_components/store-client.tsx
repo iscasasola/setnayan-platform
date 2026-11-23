@@ -1,8 +1,8 @@
 'use client';
 
-import { lazy, Suspense, useId, useRef, useState, useTransition, type PointerEvent as ReactPointerEvent, type ReactElement, type ReactNode } from 'react';
+import { useId, useRef, useState, useTransition, type PointerEvent as ReactPointerEvent, type ReactElement, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, GripVertical, MinusCircle, Play } from 'lucide-react';
+import { Check, GripVertical, MinusCircle } from 'lucide-react';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { ThumbRow } from '@/components/thumb-row';
 import { SortFace } from '@/components/sort-face';
@@ -15,7 +15,7 @@ import { storeAction } from '../store-actions';
 /**
  * 🛍 THE STORE'S PRESSES (owner 23 Nov 2026; drawing `supplier_store_graphs_badges_2026-11-23` v12).
  *
- *  · `StoreOp`       — ONE button that runs ONE Store op (Get · Add · Buy · Remove) through `storeAction`, then says
+ *  · `StoreOp`       — ONE button that runs ONE Store op (Install · Buy · Remove) through `storeAction`, then says
  *                      what happened in a small toast — or the plain reason it failed. Success refreshes the screen; a
  *                      `landTo` address takes the shop to where the thing landed (the Shop, the item marked New).
  *  · `StoreThumb`    — the Store's thumb row: search (an icon until tapped) and, on a shelf, Show & sort behind Sliders.
@@ -65,8 +65,8 @@ export function StoreOp({
         return;
       }
       if (res.status === 'ok') toast.success(res.message);
+      // The action revalidated the Shop, the Toolkit, Badges and Analytics; its answer carries the new render.
       if (landTo) router.push(landTo);
-      else router.refresh();
     });
   };
   return (
@@ -149,7 +149,7 @@ export function StoreThumb({
   return (
     <SupplierThumbRow
       name={`store-${name}`}
-      label="Store actions"
+      label="Toolkit actions"
       row={
         <ThumbRow
           name={`store-${name}`}
@@ -206,7 +206,7 @@ export function StoreThumb({
 export function StoreChips({ chips }: { chips: readonly Show[] }) {
   const [on, setOn] = useState('all');
   return (
-    <div role="group" aria-label="Show tools for" className="sn-glide-x -mx-4 mb-1 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-store-chips="">
+    <div role="group" aria-label="Show widgets for" className="sn-glide-x -mx-4 mb-1 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-store-chips="">
       {chips.map((c) => (
         <button
           key={c.key}
@@ -229,9 +229,10 @@ export function StoreChips({ chips }: { chips: readonly Show[] }) {
   );
 }
 
-export type ArrangeItem = { key: string; title: string; sub: string; art: ReactNode; paid?: boolean };
+/** `builtIn` = always installed (Scanner): it can be moved, never taken off — the sheet draws no (−) for it. */
+export type ArrangeItem = { key: string; title: string; sub: string; art: ReactNode; paid?: boolean; builtIn?: boolean };
 
-const ARRANGE_TITLE: Readonly<Record<LayoutRow, string>> = { graphs: 'Arrange Analytics', badges: 'Arrange Badges', tools: 'Arrange your tools' };
+const ARRANGE_TITLE: Readonly<Record<LayoutRow, string>> = { graphs: 'Arrange Analytics', badges: 'Arrange Badges', tools: 'Arrange your widgets' };
 
 /**
  * A Shop row's "Edit" (v12 Edit frames · owner via the controller 23 Nov: add, remove, reorder). The link opens the
@@ -240,7 +241,6 @@ const ARRANGE_TITLE: Readonly<Record<LayoutRow, string>> = { graphs: 'Arrange An
  * A paid tool taken off stays owned (the tools sheet says so). A save that fails keeps the sheet open and says why.
  */
 export function ArrangeEdit({ row, items }: { row: LayoutRow; items: readonly ArrangeItem[] }) {
-  const router = useRouter();
   const toast = useToast();
   const titleId = useId();
   const [open, setOpen] = useState(false);
@@ -275,7 +275,6 @@ export function ArrangeEdit({ row, items }: { row: LayoutRow; items: readonly Ar
       }
       if (res.status === 'ok') toast.success(res.message);
       setOpen(false);
-      router.refresh();
     });
   };
 
@@ -333,7 +332,7 @@ export function ArrangeEdit({ row, items }: { row: LayoutRow; items: readonly Ar
         labelledById={titleId}
         foot={
           <div className="px-4 pb-4 pt-2 [&>*]:w-full">
-            {row === 'tools' ? <p className="pb-3 text-sn-base text-[color:var(--m-slate-2)]">A tool you remove stays yours in the Store.</p> : null}
+            {row === 'tools' ? <p className="pb-3 text-sn-base text-[color:var(--m-slate-2)]">A widget you remove stays yours in the Toolkit.</p> : null}
             <ActionButton tone="brand" main icon={<Check aria-hidden strokeWidth={2.2} />} label="Done" waiting={busy} disabled={busy} onClick={done} tour={`arrange-done-${row}`} />
           </div>
         }
@@ -369,6 +368,7 @@ export function ArrangeEdit({ row, items }: { row: LayoutRow; items: readonly Ar
                 <b className="text-sn-lg font-semibold leading-tight text-ink">{g.title}</b>
                 <span className="mt-0.5 text-sn-md leading-snug text-[color:var(--m-slate-2)]">{g.sub}</span>
               </span>
+              {g.builtIn ? null : (
               <ActionButton
                 tone="neutral"
                 iconOnly
@@ -382,29 +382,12 @@ export function ArrangeEdit({ row, items }: { row: LayoutRow; items: readonly Ar
                 }}
                 tour={`arrange-remove-${g.key}`}
               />
+              )}
             </li>
           ))}
         </ul>
-        {order.length === 0 ? <p className="px-4 py-3 text-sn-base text-[color:var(--m-slate-2)]">Nothing on this row. Add one from the Store.</p> : null}
+        {order.length === 0 ? <p className="px-4 py-3 text-sn-base text-[color:var(--m-slate-2)]">Nothing on this row. Add one from the Toolkit.</p> : null}
       </Sheet>
-    </>
-  );
-}
-
-const CakeDesigner = lazy(() => import('@/app/_components/cake-maker/cake-designer').then((m) => ({ default: m.CakeDesigner })));
-
-/** "Try it first" — the Cake Maker as couples meet it in your chat: the shipped designer's demo (sample options,
- *  nothing saved or sent). Fetched only on the press. */
-export function CakeDemoButton() {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <ActionButton tone="info" icon={<Play aria-hidden strokeWidth={1.9} />} label="Open the demo" onClick={() => setOpen(true)} />
-      {open ? (
-        <Suspense fallback={null}>
-          <CakeDesigner threadId="" demo onClose={() => setOpen(false)} />
-        </Suspense>
-      ) : null}
     </>
   );
 }

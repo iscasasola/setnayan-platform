@@ -1,6 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import { readStoreLayout, readStoreToolFacts } from '@/lib/supplier-store.server';
-import { followedBadges, storageMeter, yourTools, type StorageMeter, type StoreLayout } from '@/lib/supplier-store';
+import { followedBadges, noCardWords, storageMeter, yourTools, type StorageMeter, type StoreLayout } from '@/lib/supplier-store';
 import { readStoredBytes } from '@/lib/supplier-storage.server';
 import { nextStoragePlan } from '@/lib/supplier-storage';
 import { readPayPlanTemplates } from '@/lib/pay-plan-templates.server';
@@ -509,7 +509,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     uploadFacts,
     formsSaved: own && Array.isArray(own.vendor_forms) ? own.vendor_forms.length : null,
     layout,
-    mine: yourTools(toolFacts).map((r) => ({ key: r.tool.key })),
+    // 🟢 A widget no online card serves stays on the row, greyed with its line (DECISION_LOG 3a2419fd).
+    mine: yourTools(toolFacts).map((r) => ({ key: r.tool.key, off: r.status.kind === 'no_card' ? noCardWords(r.status.category) : undefined })),
     // The plan is the shop's own row's; unread → the meter says "Couldn't load" (never a 0 against a guessed plan).
     storage: {
       meter: own ? storageMeter(own.tier_state ?? null, stored) : { kind: 'unread' },

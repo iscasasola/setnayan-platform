@@ -30,6 +30,8 @@ import { ShareYourWork } from './share-your-work';
 import { loadShareYourWork } from './share-your-work-data';
 import { ShopPrintsSection } from './shop-prints-section';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readStoreLayout } from '@/lib/supplier-store.server';
+import { hiddenQrs } from '@/lib/supplier-store';
 import { readPrintMember } from '@/lib/supplier-prints.server';
 import { NfcTapTest } from '@/app/_components/nfc-tap-test';
 import type { ReactNode } from 'react';
@@ -80,11 +82,15 @@ export async function PromoteBody({
   const sharePromise = withRest ? loadShareYourWork(supabase, profile.vendor_profile_id) : Promise.resolve(null);
   // 🪪 The signed-in member's own calling card (owner 2026-11-06, "Yes") — their account name and Team label; no name =
   // no card. Read beside the gifts and the share read (a refused read = no personal card, never a broken sheet).
+  // 🧩 Toolkit v19: a QR design the shop removed in the Toolkit is not listed here (My page is built in). Read beside the
+  // rest; a refused read hides nothing — every code still shows.
+  const hidePromise = withQr ? readStoreLayout(supabase, profile.vendor_profile_id).then(hiddenQrs) : Promise.resolve([]);
   const memberPromise = canShare && withPromote ? readPrintMember(createAdminClient(), profile.vendor_profile_id, user.id).catch(() => null) : Promise.resolve(null);
   // 🔳 OPTION B (owner 2026-11-06, *"B"*): ONE LIST of the shop's four codes, every one drawn on this visit (each row
   // shows its code). `?mode=` names the code whose sheet opens on arrival (an old "Which code ▾" link, a Shortlist pick).
   const opened: PromoteQrMode | null = search.mode && (PROMOTE_QR_MODES as readonly string[]).includes(search.mode) ? mode : null;
-  const common = { place: 'promote' as const, open: opened, backHref: PROMOTE_HREF, setupHref: '/vendor-dashboard/shop', booked: null };
+  const hide = await hidePromise;
+  const common = { place: 'promote' as const, open: opened, backHref: PROMOTE_HREF, setupHref: '/vendor-dashboard/shop', booked: null, hide };
 
   const kindLabel = await cardKindLabeller();
   const profileServices = ((profile as { services?: string[] | null }).services ?? []) as string[];

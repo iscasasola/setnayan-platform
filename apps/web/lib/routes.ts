@@ -550,10 +550,12 @@ export const routes = {
       // 🏅 Every badge, its seven steps and what is left (owner 23 Nov 2026).
       badges: () => `/vendor-dashboard/shop/badges`,
       // 🛍 The Store — Tools · Graphs · Badges (owner 23 Nov 2026). A shelf opens filtered; an item opens its detail.
+      // The Toolkit. A shelf is one of `STORE_SHELVES` (lib/supplier-store.ts, spelt here since that file reads this one);
+      // an item is a widget (`tools`), a graph or a QR design (`qr`).
       store: {
         index: () => `/vendor-dashboard/shop/store`,
-        shelf: (shelf: 'tools' | 'graphs' | 'badges') => `/vendor-dashboard/shop/store/${shelf}`,
-        item: (shelf: 'tools' | 'graphs' | 'badges', key: string) => `/vendor-dashboard/shop/store/${shelf}/${encodeURIComponent(key)}`,
+        shelf: (shelf: 'tools' | 'yours' | 'chat' | 'present' | 'hub' | 'shop_page' | 'qr' | 'graphs' | 'badges') => `/vendor-dashboard/shop/store/${shelf}`,
+        item: (shelf: 'tools' | 'graphs' | 'qr' | 'badges', key: string) => `/vendor-dashboard/shop/store/${shelf}/${encodeURIComponent(key)}`,
       },
     },
     subscription: () => `/vendor-dashboard/subscription`,

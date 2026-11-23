@@ -1,5 +1,6 @@
 'use server';
 
+import { PROMOTE_HREF } from '@/lib/supplier-qr-codes';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -19,6 +20,8 @@ import {
   layoutColumn,
   storeToolOf,
   storeToolSku,
+  noCardWords,
+  toolRowFor,
   toolStatus,
   withLayoutRow,
   type LayoutRow,
@@ -69,6 +72,8 @@ function revalidateStore() {
   revalidatePath(routes.vendorDashboard.shop.store.index());
   revalidatePath(routes.vendorDashboard.shop.badges());
   revalidatePath(routes.vendorDashboard.performance());
+  // A QR design installed or removed shows or hides on Promote's list.
+  revalidatePath(PROMOTE_HREF);
 }
 
 export async function storeAction(_prev: StoreActionState, formData: FormData): Promise<StoreActionState> {
@@ -95,7 +100,7 @@ export async function storeAction(_prev: StoreActionState, formData: FormData): 
   const keys = cleanLayoutRow(row, formData.getAll('key'));
   const off = row === 'tools' ? cleanLayoutRow('tools', formData.getAll('off')) : [];
 
-  // The other two rows are kept as they are: read the column first, so one row's save never resets another's.
+  // The other rows are kept as they are: read the column first, so one row's save never resets another's.
   const layout = await readStoreLayout(admin, shopId);
   if (!layout) return err('Couldn’t read your shop just now. Nothing was changed — try again.');
   const next = withLayoutRow(layout, row, keys, off);
@@ -108,11 +113,11 @@ export async function storeAction(_prev: StoreActionState, formData: FormData): 
   return ok(layoutToast(row, String(formData.get('intent') ?? 'order')));
 }
 
-const ADDED: Readonly<Record<LayoutRow, string>> = { graphs: 'On your Analytics', badges: 'On your Shop', tools: 'In Your widgets' };
+const ADDED: Readonly<Record<LayoutRow, string>> = { graphs: 'On your Analytics', badges: 'On your Shop', tools: 'In Your widgets', qrs: 'On your Promote page' };
 
 function layoutToast(row: LayoutRow, intent: string): string {
   if (intent === 'add') return ADDED[row];
-  if (intent === 'remove') return row === 'tools' ? 'Taken off your Shop. It stays yours in the Toolkit.' : 'Taken off your Shop';
+  if (intent === 'remove') return row === 'tools' ? 'Taken off your Shop. It stays yours in the Toolkit.' : row === 'qrs' ? 'Taken off your Promote page. Install it again any time.' : 'Taken off your Shop';
   return 'Saved';
 }
 
@@ -132,6 +137,9 @@ async function buyTool(formData: FormData, who: { userId: string; shopId: string
   if (state.kind === 'buy' && state.needsPlan) return err(`${PAID_WIDGET_NEEDS_PLAN_WORDS}. Choose a plan first — you have not been charged.`);
   if (state.kind === 'pending') return err('Your payment for this widget is in review. It opens once our team confirms it.');
   if (state.kind === 'unread') return err('Couldn’t check your widgets just now. You have not been charged — try again.');
+  // 🟢 Never sell a widget no online service card serves (DECISION_LOG 3a2419fd) — it would arrive greyed.
+  const gated = toolRowFor(tool, facts)?.status;
+  if (gated?.kind === 'no_card') return err(`${noCardWords(gated.category)} You have not been charged.`);
 
   // ── The authoritative price + is_active, from the admin-managed row. No row, a retired row or no price refuses.
   const sku = storeToolSku(tool);

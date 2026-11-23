@@ -13,12 +13,15 @@
  *   5. Badges: the ones the shop chose, any number, in its order; never chosen = the three closest to their next step.
  *   6. Storage: an unread store is "unread", never 0 of the plan.
  *   7. ONE layout for the three Shop rows: one column (`store_layout`), one action op (`layout`), no per-row mechanism.
- *   8. Tags: read only from the per-category table (seed + admin switches) and `suggestedFor`'s own rules; never typed,
- *      never a gate — every shop sees and can get every tool.
+ *   8. Tags: read only from the per-category table (seed + admin switches) and `suggestedFor`'s own rules; never typed.
+ *      The shop's coverage labels alone never gate. 🟢 The CARD GATE (DECISION_LOG 3a2419fd, which supersedes the
+ *      2026-10-28 "never a gate" for the Toolkit): a widget no ONLINE service card serves is hidden unless the shop holds
+ *      it, and greyed (`no_card`) when it does; a failed card read gates nothing; shop-level widgets always show.
  *
  * Sabotage (each seen red): type a number price into supplier-store.ts (1) · put `plan` after `pending` (2) · bring back a trial state (2) · let `addedFreeTools`
  * keep a paid key (3) · drop the hidden filter in `analyticsGraphs` (4) · cap `cleanBadgePicks` at three (5) · add a
- * `store_badges` write to the action (7) · type 'Cake' into supplier-store.ts, or hide an untagged tool (8).
+ * `store_badges` write to the action (7) · type 'Cake' into supplier-store.ts, or hide an untagged tool (8) · drop
+ * `heldByShop` from `gatedRow`, or gate on a null card read (3a2419fd).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -64,12 +67,26 @@ import {
   withLayoutRow,
   yourTools,
   type ToolFacts,
+  toolkitItems,
+  shelfItems,
+  visibleShelves,
+  installedQrs,
+  hiddenQrs,
+  isBuiltInQr,
+  SHOP_LEVEL_WIDGETS,
+  cardHiddenWidgets,
+  cardTileOf,
+  noCardWords,
+  seedTileOf,
+  unmappedSeedCategories,
 } from './supplier-store';
+import { PROMOTE_QR_MODES } from './supplier-qr-codes';
+
 import { HUB_TOOLS_SEED, nameKey } from './hub-tools';
 import { CARD_ORDER, DEFAULT_INSTALLED_GRAPHS } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import type { ShelfTile } from './shop-badge-shelf';
 import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from './special-tools';
-import { SPECIALIZED_TOOLS } from './specialized-tools';
+import { SPECIALIZED_TOOLS, listedWidgets } from './specialized-tools';
 import { SHOP_BADGE_KEYS } from './badge-tiers';
 import { TOOL_VIDEO_KEYS, toolVideoKey } from './toolkit-videos';
 
@@ -261,7 +278,7 @@ test('7 · one layout: one column, one action op, every row add/remove/reorder t
   // The column reads leniently: anything malformed = never arranged, never "nothing chosen".
   assert.deepEqual(readLayout(null), NO_LAYOUT);
   assert.deepEqual(readLayout('x'), NO_LAYOUT);
-  assert.deepEqual(readLayout({ graphs: ['slow', 3], badges: [], tools_off: ['plan_3d'] }), { graphs: ['slow'], badges: [], tools: null, toolsOff: ['plan_3d'] });
+  assert.deepEqual(readLayout({ graphs: ['slow', 3], badges: [], tools_off: ['plan_3d'] }), { graphs: ['slow'], badges: [], tools: null, toolsOff: ['plan_3d'], qrs: null });
   // Cleaning: known keys of that row only, once each, in order.
   assert.deepEqual(cleanLayoutRow('graphs', ['slow', 'nope', 'slow', 'opened']), ['slow', 'opened']);
   assert.deepEqual(cleanLayoutRow('badges', ['verified', 'invites', 'trusted_by']), ['invites', 'trusted_by']);
@@ -273,7 +290,10 @@ test('7 · one layout: one column, one action op, every row add/remove/reorder t
   const off = withLayoutRow(NO_LAYOUT, 'tools', ['scanner'], ['plan_3d', 'headcount']);
   assert.deepEqual(off.toolsOff, ['plan_3d']);
   assert.deepEqual(withLayoutRow(off, 'tools', ['scanner', 'plan_3d']).toolsOff, []);
-  assert.deepEqual(layoutColumn(off), { graphs: null, badges: null, tools: ['scanner'], tools_off: ['plan_3d'] });
+  assert.deepEqual(layoutColumn(off), { graphs: null, badges: null, tools: ['scanner'], tools_off: ['plan_3d'], qrs: null });
+  // QR designs (v19 PR 2): known codes only; My page is built in — a save that leaves it out keeps it.
+  assert.deepEqual(cleanLayoutRow('qrs', ['reviews', 'crew', 'page', 'reviews']), ['reviews', 'page']);
+  assert.deepEqual(withLayoutRow(NO_LAYOUT, 'qrs', ['dates']).qrs, ['page', 'dates']);
 
   // The code: one column, written in one place, by one op.
   const action = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/shop/store/store-actions.ts'), 'utf8'));
@@ -286,7 +306,7 @@ test('7 · one layout: one column, one action op, every row add/remove/reorder t
   assert.doesNotMatch(sql.replace(/--.*$/gm, ''), /store_(graphs|badges|tools)\b/, 'three columns came back');
 });
 
-test('8 · tags: from the per-category table only, never typed, never a gate', () => {
+test('8 · tags: from the per-category table only, never typed; coverage labels alone never gate', () => {
   const labels = (k: string) => toolTags(storeToolOf(k)!).map((t) => t.label);
   assert.deepEqual(labels('scanner'), ['Every service']);
   assert.deepEqual(labels('cake_tool'), ['Cake']);
@@ -302,7 +322,8 @@ test('8 · tags: from the per-category table only, never typed, never a gate', (
   // Never typed: no seed category name is a string in the Store's code.
   const code = stripComments(readFileSync(join(WEB, 'lib/supplier-store.ts'), 'utf8'));
   for (const r of HUB_TOOLS_SEED) assert.ok(!code.includes(`'${r.category}'`), `${r.category} is typed in supplier-store.ts`);
-  // Never a gate: a cake shop still sees every tool, each in the same state as a shop with no categories.
+  // Coverage labels alone never gate (the card gate reads ONLINE cards, below): a cake shop with no card read sees every
+  // tool, each in the same state as a shop with no categories.
   const plain = storeToolRows(facts());
   const cake = storeToolRows(facts({ categoryLabels: ['Cake'], services: ['cake'] }));
   assert.equal(cake.length, plain.length);
@@ -313,17 +334,114 @@ test('8 · tags: from the per-category table only, never typed, never a gate', (
   assert.equal(g.forYou.length + g.yours.length + g.more.length, cake.length, 'a tool fell off the shelf');
 });
 
-test('5ae3fbb2 · the live count per shelf, from the one Toolkit list — a failed badge read shows nothing for it', () => {
-  const c = toolkitCounts(SHOP_BADGE_KEYS);
-  assert.deepEqual(c, { tools: SPECIALIZED_TOOLS.length, graphs: CARD_ORDER.length, badges: SHOP_BADGE_KEYS.length });
-  assert.equal(toolkitCountWords(c), `${SPECIALIZED_TOOLS.length} widgets · ${CARD_ORDER.length} graphs · ${SHOP_BADGE_KEYS.length} badges`);
-  assert.equal(toolkitCountWords(toolkitCounts(null)), `${SPECIALIZED_TOOLS.length} widgets · ${CARD_ORDER.length} graphs`, 'an unread badge count is left out, never 0');
-  assert.equal(toolkitCountWords({ tools: null, graphs: null, badges: null }), null, 'nothing read = nothing shown');
+test('3a2419fd · the card gate: hidden unless held, greyed when held, back by itself; shop-level always; a failed read gates nothing', () => {
+  const keys = (f: ToolFacts) => storeToolRows(f).map((r) => r.tool.key);
+  const row = (f: ToolFacts, k: string) => storeToolRows(f).find((r) => r.tool.key === k);
+  // The join is the taxonomy's tile: a leaf card (photoman) meets the seed's Photo Booth row; Florist through florals.
+  assert.equal(cardTileOf('photoman'), 'photo_booth');
+  assert.equal(seedTileOf(HUB_TOOLS_SEED.find((r) => cardTileOf('photo_booth') === seedTileOf(r.category))!.category), 'photo_booth');
+  assert.equal(cardTileOf('florals'), 'florist');
+  // Not held + no card of its kind → hidden (not listed, not counted).
+  const florist = facts({ cards: ['florals'] });
+  assert.ok(!keys(florist).includes('cake_tool'), 'Cake Maker shows to a florist with no cake card');
+  assert.ok(cardHiddenWidgets(florist).has('cake_tool'));
+  const all = toolkitCounts({ papicCapture: false, badges: null }).widgets;
+  assert.equal(toolkitCounts({ papicCapture: false, badges: null, hidden: cardHiddenWidgets(florist) }).widgets, all - cardHiddenWidgets(florist).size);
+  // A cake card serves it.
+  assert.ok(keys(facts({ cards: ['wedding_cake'] })).includes('cake_tool'));
+  // Held (bought) + the card offline → shown greyed, still owned, the approved line; back online → open again.
+  const bought = { owned: new Set(['cake_tool'] as const) };
+  const off = row(facts({ ...bought, cards: ['florals'] }), 'cake_tool')!;
+  assert.equal(off.status.kind, 'no_card');
+  assert.ok(off.status.kind === 'no_card' && off.status.prior.kind === 'owned', 'nothing bought is lost');
+  assert.equal(off.status.kind === 'no_card' ? noCardWords(off.status.category) : '', 'Turn on a Cake card to use it.');
+  assert.equal(row(facts({ ...bought, cards: ['wedding_cake'] }), 'cake_tool')!.status.kind, 'owned');
+  // An installed free widget greys and stays installed (on Your widgets).
+  const freeWidget = storeToolRows(facts()).find((r) => r.status.kind === 'free' && !SHOP_LEVEL_WIDGETS.includes(r.tool.key) && r.tags.length > 0 && !storeToolRows(facts({ cards: [] })).some((x) => x.tool.key === r.tool.key))!;
+  assert.ok(freeWidget, 'no free widget the card gate can hide');
+  const installed = row(facts({ cards: [], picked: [freeWidget.tool.key] }), freeWidget.tool.key)!;
+  assert.equal(installed.status.kind, 'no_card');
+  assert.equal(installed.installed, true);
+  assert.ok(yourTools(facts({ cards: [], picked: [freeWidget.tool.key] })).some((r) => r.tool.key === freeWidget.tool.key));
+  // Shop-level: always shown, never greyed, with no card at all.
+  for (const k of SHOP_LEVEL_WIDGETS) assert.notEqual(row(facts({ cards: [] }), k)?.status.kind ?? 'hidden', 'no_card', k);
+  for (const k of SHOP_LEVEL_WIDGETS) assert.ok(keys(facts({ cards: [] })).includes(k), k);
+  // A widget tagged with a seed category no card kind maps to stays shop-level (never guessed).
+  const unmapped = new Set(unmappedSeedCategories());
+  for (const r of storeToolRows(facts())) {
+    if (r.tags.some((t) => unmapped.has(t.label))) assert.ok(keys(facts({ cards: [] })).includes(r.tool.key), `${r.tool.key} hidden on an unmapped category`);
+  }
+  // A failed card read hides nothing and greys nothing; absent = no gate.
+  assert.deepEqual(storeToolRows(facts({ cards: null })).map((r) => [r.tool.key, r.status.kind]), storeToolRows(facts()).map((r) => [r.tool.key, r.status.kind]));
+  assert.equal(cardHiddenWidgets(facts({ cards: null })).size, 0);
+  // The one read is the shop's ACTIVE cards; the buy action refuses a widget no card serves.
+  const server = stripComments(readFileSync(join(WEB, 'lib/supplier-store.server.ts'), 'utf8'));
+  assert.match(server, /from\('vendor_services'\)\.select\('category'\)\.eq\('vendor_profile_id', vendorProfileId\)\.eq\('is_active', true\)/);
+  const act = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/shop/store/store-actions.ts'), 'utf8'));
+  assert.match(act, /toolRowFor\(tool, facts\)\?\.status/);
+  // The dashboard count leaves the hidden out; /for-suppliers stays the whole catalogue.
+  const screens = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/shop/store/_components/store-screens.tsx'), 'utf8'));
+  assert.match(screens, /hidden: cardHiddenWidgets\(d\.tools\)/);
+  const front = stripComments(readFileSync(join(WEB, 'app/for-suppliers/_components/supplier-front-page.tsx'), 'utf8'));
+  assert.doesNotMatch(front, /cardHiddenWidgets|hidden:/);
+});
+
+test('5ae3fbb2 · the live count, from the ONE Toolkit list — unique items, gated ones out, a failed badge read shows nothing', () => {
+  const on = { papicCapture: true, badges: SHOP_BADGE_KEYS };
+  const off = { papicCapture: false, badges: SHOP_BADGE_KEYS };
+  const c = toolkitCounts(off);
+  assert.deepEqual(c, { widgets: SPECIALIZED_TOOLS.length - 1, qr: PROMOTE_QR_MODES.length, graphs: CARD_ORDER.length, badges: SHOP_BADGE_KEYS.length });
+  assert.equal(toolkitCounts(on).widgets, SPECIALIZED_TOOLS.length, 'the Papic camera counts only while its switch is on');
+  assert.equal(
+    toolkitCountWords(c),
+    `${SPECIALIZED_TOOLS.length - 1} widgets · ${PROMOTE_QR_MODES.length} QR designs · ${CARD_ORDER.length} graphs · ${SHOP_BADGE_KEYS.length} badges`,
+  );
+  assert.equal(toolkitCountWords(toolkitCounts({ papicCapture: false, badges: null })), `${SPECIALIZED_TOOLS.length - 1} widgets · ${PROMOTE_QR_MODES.length} QR designs · ${CARD_ORDER.length} graphs`, 'an unread badge count is left out, never 0');
+  assert.equal(toolkitCountWords({ widgets: null, qr: null, graphs: null, badges: null }), null, 'nothing read = nothing shown');
+  // ONE array: the count IS the list's length, by kind; every item once, however many shelves it sits on.
+  const items = toolkitItems(on);
+  assert.equal(items.length, Object.values(toolkitCounts(on)).reduce<number>((a, n) => a + (n ?? 0), 0));
+  const ids = items.map((i) => `${i.kind}:${i.key}`);
+  assert.equal(new Set(ids).size, ids.length, 'an item is listed twice');
+  assert.equal(ids.filter((i) => i === 'widget:scanner').length, 1, 'Scanner is ONE item, never one per service');
+  // Graphs read CARD_ORDER: a graph added there is counted the day it lands.
+  assert.deepEqual(items.filter((i) => i.kind === 'graph').map((i) => i.key), [...CARD_ORDER]);
   // Both surfaces read the ONE function — never a typed number.
   const screens = readFileSync(join(WEB, 'app/vendor-dashboard/shop/store/_components/store-screens.tsx'), 'utf8');
-  assert.match(screens, /const counts = toolkitCounts\(d\.badges\);/);
+  assert.match(screens, /toolkitCountWords\(toolkitCounts\(listFacts\(d\)\)\)/);
+  assert.match(screens, /const items = toolkitItems\(listFacts\(d\)\);\n  const shelves = visibleShelves\(items\);/, 'the front does not draw its shelves from the one list');
   const front = readFileSync(join(WEB, 'app/for-suppliers/_components/supplier-front-page.tsx'), 'utf8');
-  assert.match(front, /toolkitCountWords\(toolkitCounts\(SHOP_BADGE_KEYS\)\)/);
+  assert.match(front, /toolkitCountWords\(toolkitCounts\(\{ papicCapture, badges: SHOP_BADGE_KEYS \}\)\)/);
+});
+
+test('v19 PR 2 · a shelf with no real item is hidden: the three Forms shelves today; never a sample item', () => {
+  const items = toolkitItems({ papicCapture: false, badges: SHOP_BADGE_KEYS });
+  for (const f of ['chat_forms', 'card_forms', 'payment_plans'] as const) assert.deepEqual(shelfItems(items, f), [], `${f} lists an item`);
+  assert.deepEqual(visibleShelves(items), ['chat', 'present', 'hub', 'shop_page', 'qr', 'graphs', 'badges']);
+  // A failed badge read lists no badge: that shelf is hidden, and the screen says the read failed.
+  assert.ok(!visibleShelves(toolkitItems({ papicCapture: false, badges: null })).includes('badges'));
+  // Each widget shelf holds exactly the widgets that name it.
+  for (const sh of ['chat', 'present', 'hub', 'shop_page'] as const) {
+    assert.deepEqual(shelfItems(items, sh).map((i) => i.key), listedWidgets(false).filter((t) => t.shelves.includes(sh)).map((t) => t.key), sh);
+  }
+});
+
+test('v19 PR 2 · QR designs: My page built in; removing one only takes it off Promote; a refused read hides nothing', () => {
+  assert.deepEqual(installedQrs(null), [...PROMOTE_QR_MODES], 'never arranged = all four installed');
+  assert.deepEqual(hiddenQrs(null), []);
+  assert.deepEqual(hiddenQrs({ qrs: ['page', 'dates'] }), ['shortlist', 'reviews']);
+  assert.ok(installedQrs({ qrs: [] }).includes('page'), 'My page was removed');
+  assert.ok(isBuiltInQr('page') && !isBuiltInQr('dates'));
+  const promote = readFileSync(join(WEB, 'app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), 'utf8');
+  assert.match(promote, /readStoreLayout\(supabase, profile\.vendor_profile_id\)\.then\(hiddenQrs\)/);
+  const codes = readFileSync(join(WEB, 'app/vendor-dashboard/invite/_components/qr-codes.tsx'), 'utf8');
+  assert.match(codes, /const rows = listed\.filter\(\(r\) => r\.key === 'page' \|\| !\(hide as readonly string\[\]\)\.includes\(r\.key\)\);/);
+});
+
+test('v19 PR 2 · the Papic camera is not listed while its switch is off — not on a shelf, not in Your widgets', () => {
+  assert.ok(!storeToolRows(facts()).some((r) => r.tool.key === 'papic_camera'));
+  assert.ok(storeToolRows(facts({ papicCapture: true })).some((r) => r.tool.key === 'papic_camera'));
+  assert.ok(!yourTools(facts({ picked: ['scanner', 'papic_camera'] })).some((r) => r.tool.key === 'papic_camera'));
 });
 
 test('4c07edd7 · a paid widget’s clip sits at the top of its Toolkit page and draws nothing until it is recorded', () => {

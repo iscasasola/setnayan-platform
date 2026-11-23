@@ -6,7 +6,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { TemplateEmpty, TemplateFail } from '@/app/_components/template-rows';
 import { QrCard } from '@/app/_components/qr-card';
 import { formatCount } from '@/lib/format-number';
-import type { SupplierQrMode } from '@/lib/supplier-qr-codes';
+import { SUPPLIER_QR_WORDS, type PromoteQrMode, type SupplierQrMode } from '@/lib/supplier-qr-codes';
 import { CustomersPick } from '../../customers/_components/customers-pick';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { QrCodeList, type QrRow } from './qr-code-list';
@@ -68,20 +68,6 @@ export type IssuedRow = {
 };
 
 
-/**
- * Each code's words (the prototype's "what it does" list): the row line is the shipped caption cut at the dash; the
- * sheet shows it whole. ⚠ Reviews: the prototype's "They scan to review you" describes `/<slug>/review` (PR #7329,
- * not merged) — this code opens `/<slug>#reviews` today, so its words say what it does now.
- */
-const WORDS: Record<SupplierQrMode, { name: string; sub?: string; perEvent?: boolean; line: string; sheetLine: string }> = {
-  dates: { name: 'Check a date', sub: 'free', line: 'They scan and see which days you can still be booked', sheetLine: 'They scan and see which days you can still be booked — never who booked or who is asking.' },
-  shortlist: { name: 'Shortlist', sub: 'free', line: 'They scan, sign up free, and you join their shortlist', sheetLine: 'They scan, sign up free, and you join their shortlist.' },
-  page: { name: 'My page', line: 'They scan and open your Setnayan page', sheetLine: 'They scan and open your Setnayan page — your services, photos and reviews.' },
-  reviews: { name: 'Reviews', line: 'They scan and read your reviews', sheetLine: 'They scan and open your Setnayan page at its reviews.' },
-  locked: { name: 'Booked', sub: 'one-use', perEvent: true, line: 'One use — give it to that one customer', sheetLine: 'One use — give it to that one customer. A Locked QR means you’ve agreed on a date.' },
-  crew: { name: 'Crew for an event', perEvent: true, line: 'They scan, then wait for your Allow', sheetLine: 'They scan, then wait for your Allow.' },
-};
-
 type ShopCode = { url: string; svg: string | null; shopName: string };
 
 type Booked = {
@@ -113,7 +99,10 @@ export function QrCodes({
   addClient = null,
   ownLinkGift = null,
   ownLinkNotice = null,
+  hide = [],
 }: {
+  /** 🧩 Toolkit v19: the QR designs the shop removed in the Toolkit — not listed on Promote (My page is built in, never hidden). */
+  hide?: readonly PromoteQrMode[];
   /** 🎁 "Add a gift to your link so your clients book free." — on every own code's sheet, when the link has no gift. */
   ownLinkNotice?: ReactNode;
   /** 🎁 Own clients v4: the "Add a client" row + promise line, above Booked and Crew (Customers › QR codes only). */
@@ -150,7 +139,7 @@ export function QrCodes({
 }) {
   const row = (key: SupplierQrMode, thumb: string | null, body: ReactNode | null): QrRow => ({
     key,
-    ...WORDS[key],
+    ...SUPPLIER_QR_WORDS[key],
     thumb,
     body,
     href: hrefs[key],
@@ -159,7 +148,7 @@ export function QrCodes({
     putOn: place === 'promote' && (key === 'dates' || key === 'shortlist' || key === 'page' || key === 'reviews') ? key : undefined,
   });
 
-  const rows: QrRow[] =
+  const listed: QrRow[] =
     place === 'promote'
       ? [
           row(
@@ -168,7 +157,7 @@ export function QrCodes({
             checkADate ? (
               <div className="mt-3.5">
                 {ownLinkNotice}
-                <QrCard svg={checkADate.svg} url={checkADate.url} title={checkADate.shopName} line={WORDS.dates.sheetLine} filename="setnayan-check-a-date-qr.svg" data="check-a-date" />
+                <QrCard svg={checkADate.svg} url={checkADate.url} title={checkADate.shopName} line={SUPPLIER_QR_WORDS.dates.sheetLine} filename="setnayan-check-a-date-qr.svg" data="check-a-date" />
               </div>
             ) : null,
           ),
@@ -200,7 +189,7 @@ export function QrCodes({
             myPage ? (
               <div className="mt-3.5">
                 {ownLinkNotice}
-                <QrCard svg={myPage.svg} url={myPage.url} title={myPage.shopName} line={WORDS.page.sheetLine} filename="setnayan-my-page-qr.svg" data="my-page" />
+                <QrCard svg={myPage.svg} url={myPage.url} title={myPage.shopName} line={SUPPLIER_QR_WORDS.page.sheetLine} filename="setnayan-my-page-qr.svg" data="my-page" />
                 {ownLinkGift}
               </div>
             ) : null,
@@ -211,7 +200,7 @@ export function QrCodes({
             reviews ? (
               <div className="mt-3.5">
                 {ownLinkNotice}
-                <QrCard svg={reviews.svg} url={reviews.url} title={reviews.shopName} line={WORDS.reviews.sheetLine} filename="setnayan-reviews-qr.svg" data="reviews" />
+                <QrCard svg={reviews.svg} url={reviews.url} title={reviews.shopName} line={SUPPLIER_QR_WORDS.reviews.sheetLine} filename="setnayan-reviews-qr.svg" data="reviews" />
               </div>
             ) : null,
           ),
@@ -220,6 +209,8 @@ export function QrCodes({
           row('locked', booked?.issued?.svg ?? null, booked ? <BookedBody booked={booked} /> : null),
           row('crew', crew?.code?.state === 'ready' ? crew.code.svg : null, crew ? <CrewCode crew={crew} /> : null),
         ];
+  // 🧩 A QR design removed in the Toolkit is not listed; My page is built in and always is.
+  const rows = listed.filter((r) => r.key === 'page' || !(hide as readonly string[]).includes(r.key));
 
   return (
     <div

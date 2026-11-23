@@ -27,6 +27,7 @@ const sizeWords = (bytes: number | null): string => (bytes == null ? 'Your stora
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
 import { SPECIALIZED_TOOLS, type SpecializedTool, type SpecializedToolKey } from '@/lib/specialized-tools';
+import { isPaidStoreTool } from '@/lib/supplier-store';
 import { PAID_WIDGET_PLAN_WORDS } from '@/lib/special-tools';
 import type { CardBadgeView } from '@/lib/card-badges';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
@@ -647,8 +648,11 @@ export const PAID_TOOL_GATES: Readonly<Partial<Record<SpecializedToolKey, 'toolk
 };
 
 export const PAID_TOOL_TILES: readonly SpecializedTool[] = SPECIALIZED_TOOLS.filter((t) => PAID_TOOL_GATES[t.key]);
-/** The on-the-day tools every shop has, on every plan — every other `SPECIALIZED_TOOLS` tile. */
-export const EVERY_PLAN_TOOLS: readonly SpecializedTool[] = SPECIALIZED_TOOLS.filter((t) => !PAID_TOOL_GATES[t.key]);
+/**
+ * The on-the-day tools every shop has, on every plan — every FREE widget the Toolkit lists: never a paid one (the Song
+ * bank is bought, so it is not "in every plan"), never a gated one (the Papic camera waits on its privacy switch).
+ */
+export const EVERY_PLAN_TOOLS: readonly SpecializedTool[] = SPECIALIZED_TOOLS.filter((t) => !PAID_TOOL_GATES[t.key] && !isPaidStoreTool(t.key) && !t.gate);
 
 /** The first plan a bought widget works on — "Start on Plus". */
 export const FIRST_TOOLS_TIER: VendorTier | null = STAIR_TIERS.find(stairHasTools) ?? null;

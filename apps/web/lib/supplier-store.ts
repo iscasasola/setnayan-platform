@@ -22,10 +22,12 @@
  *
  * PURE — no I/O, no clock. Reads: `lib/supplier-store.server.ts`. 🔒 lib/supplier-store.test.ts
  */
-import { SPECIALIZED_TOOLS, specializedToolsFor, suggestedFor, type SpecializedTool, type SpecializedToolKey } from './specialized-tools';
-import { HUB_TOOLS_SEED, nameKey } from './hub-tools';
+import { SPECIALIZED_TOOLS, WIDGET_SHELVES, listedWidgets, specializedToolsFor, suggestedFor, type SpecializedTool, type SpecializedToolKey, type WidgetShelf } from './specialized-tools';
+import { PROMOTE_QR_MODES, SUPPLIER_QR_WORDS, type PromoteQrMode } from './supplier-qr-codes';
+import { HUB_TOOLS_FALLBACK, HUB_TOOLS_SEED, nameKey } from './hub-tools';
 import { isCakeKind } from './cake-maker';
-import { isMusicToolCategory } from './songs';
+import { MUSIC_TOOL_CATEGORIES, isMusicToolCategory } from './songs';
+import { TAXONOMY_MAP, WEDDING_TILE_LABEL } from './taxonomy';
 import { CARD_ORDER, DEFAULT_INSTALLED_GRAPHS, FIXED_WINDOW, type CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { BADGE_GRAPHS, BADGE_NAME, type GraphUnlocks, type UnlockBadge } from './graph-unlocks';
 import { SHOP_BADGE_KEYS, type ShopBadgeKey } from './badge-tiers';
@@ -37,45 +39,173 @@ import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from './s
 import { formatCount } from './format-number';
 import { routes } from './routes';
 
-// ── THE SHELVES ─────────────────────────────────────────────────────────────
+// ── THE SHELVES (Toolkit v19) ───────────────────────────────────────────────
+//
+// The drawing's ten shelves (specs `prototypes/supplier_store_graphs_badges_2026-11-23/` v19): Chat widgets · Present
+// widgets · Event Hub widgets · Shop page widgets · Chat forms · Card forms · Payment plans · QR designs · Graphs ·
+// Badges. Every shelf is filled from the ONE Toolkit list (`toolkitItems`); a shelf with no real item is HIDDEN (the three
+// Forms shelves today: there are no ready-made forms on main, and the Toolkit never lists a sample). Two more screens
+// share the address: `tools` = every widget (the shelf the Shop's [+] opens) and `yours` = the Your widgets manager.
 
-export const STORE_SHELVES = ['tools', 'graphs', 'badges'] as const;
+export const TOOLKIT_SHELVES = ['chat', 'present', 'hub', 'shop_page', 'chat_forms', 'card_forms', 'payment_plans', 'qr', 'graphs', 'badges'] as const;
+export type ToolkitShelf = (typeof TOOLKIT_SHELVES)[number];
+
+export const STORE_SHELVES = ['tools', 'yours', 'chat', 'present', 'hub', 'shop_page', 'qr', 'graphs', 'badges'] as const;
 export type StoreShelf = (typeof STORE_SHELVES)[number];
 
-export const SHELF_TITLE: Readonly<Record<StoreShelf, string>> = {
+export const SHELF_TITLE: Readonly<Record<StoreShelf | ToolkitShelf, string>> = {
   tools: 'Widgets',
+  yours: 'Your widgets',
+  chat: 'Chat widgets',
+  present: 'Present widgets',
+  hub: 'Event Hub widgets',
+  shop_page: 'Shop page widgets',
+  chat_forms: 'Chat forms',
+  card_forms: 'Card forms',
+  payment_plans: 'Payment plans',
+  qr: 'QR designs',
   graphs: 'Graphs',
   badges: 'Badges',
+};
+
+/** The line under each shelf's title — the drawing's words. */
+export const SHELF_LINE: Readonly<Record<StoreShelf | ToolkitShelf, string>> = {
+  tools: 'Every widget for your shop',
+  yours: 'Every widget you have installed',
+  chat: 'Use these in your chat',
+  present: 'Show and customise live, in person with a client',
+  hub: 'On-the-day tools for your Event Hub',
+  shop_page: 'These show on your shop page',
+  chat_forms: 'Send a form for a client to fill in',
+  card_forms: 'Let a client choose what is included',
+  payment_plans: 'Ready-made ways to split a payment',
+  qr: 'Your QR codes, and designs to print them',
+  graphs: 'See what is working',
+  badges: 'Earned, never sold',
 };
 
 export function isStoreShelf(v: unknown): v is StoreShelf {
   return typeof v === 'string' && (STORE_SHELVES as readonly string[]).includes(v);
 }
 
-/**
- * 🔢 THE LIVE COUNT (DECISION_LOG 5ae3fbb2, owner 23 Nov): how many widgets, graphs and badges the Toolkit holds, read
- * from the ONE Toolkit list (`SPECIALIZED_TOOLS`, `CARD_ORDER`, the badge tiles) — never typed. The Toolkit masthead
- * and the /for-suppliers Toolkit section both read it. `badges: null` = the badge read failed: that part shows nothing.
- */
-export type ToolkitCounts = Readonly<Record<StoreShelf, number | null>>;
-
-export function toolkitCounts(badges: readonly unknown[] | null): ToolkitCounts {
-  return { tools: SPECIALIZED_TOOLS.length, graphs: CARD_ORDER.length, badges: badges ? badges.length : null };
+/** A widget shelf (Chat · Present · Event Hub · Shop page) — the four shelves a widget can sit on. */
+export function isWidgetShelf(v: unknown): v is WidgetShelf {
+  return typeof v === 'string' && (WIDGET_SHELVES as readonly string[]).includes(v);
 }
 
-const SHELF_NOUN: Readonly<Record<StoreShelf, [string, string]>> = {
-  tools: ['widget', 'widgets'],
+/**
+ * 🧾 THE ONE TOOLKIT LIST (owner "Yes, include them", controller GO 23 Nov): every item the Toolkit offers, each ONCE —
+ * widgets (`SPECIALIZED_TOOLS`, less a gated one whose switch is off: the Papic camera shows only while
+ * `isVendorPapicCaptureEnabled()`), the shop's QR designs (`PROMOTE_QR_MODES`, the codes Promote draws; My page built
+ * in), graphs (`CARD_ORDER`, so a graph added there is counted the day it lands) and badges (the shop's badge tiles).
+ * The shelves AND the count read this list; nothing is padded, nothing is listed twice (a widget on three shelves is
+ * one item). Forms: none exist yet, so none are listed and their shelves are hidden.
+ */
+export type ToolkitItem =
+  | { kind: 'widget'; key: SpecializedToolKey; shelves: readonly WidgetShelf[] }
+  | { kind: 'qr'; key: PromoteQrMode; builtIn: boolean }
+  | { kind: 'graph'; key: CardKey }
+  | { kind: 'badge'; key: string };
+
+export type ToolkitListFacts = {
+  /** The Papic camera's privacy switch (`isVendorPapicCaptureEnabled`); off or unread = not listed. */
+  papicCapture: boolean;
+  /** The badge keys (the shop's tiles, or `SHOP_BADGE_KEYS` on the public page); null = unread (no badge items). */
+  badges: readonly string[] | null;
+  /**
+   * Widgets this shop is not shown: no online service card serves them and the shop never installed or bought them
+   * (`cardHiddenWidgets`, DECISION_LOG 3a2419fd). Absent = the whole catalogue (/for-suppliers).
+   */
+  hidden?: ReadonlySet<string>;
+};
+
+export function toolkitItems(f: ToolkitListFacts): ToolkitItem[] {
+  const items: ToolkitItem[] = [
+    ...listedWidgets(f.papicCapture).filter((t) => !f.hidden?.has(t.key)).map((t) => ({ kind: 'widget' as const, key: t.key, shelves: t.shelves })),
+    ...PROMOTE_QR_MODES.map((k) => ({ kind: 'qr' as const, key: k, builtIn: isBuiltInQr(k) })),
+    ...CARD_ORDER.map((k) => ({ kind: 'graph' as const, key: k })),
+    ...(f.badges ?? []).map((k) => ({ kind: 'badge' as const, key: k })),
+  ];
+  const seen = new Set<string>();
+  return items.filter((i) => {
+    const id = `${i.kind}:${i.key}`;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+/** The items one shelf holds, in the list's order. A Forms shelf holds none today (hidden). */
+export function shelfItems(items: readonly ToolkitItem[], shelf: ToolkitShelf): ToolkitItem[] {
+  if (isWidgetShelf(shelf)) return items.filter((i) => i.kind === 'widget' && i.shelves.includes(shelf));
+  if (shelf === 'qr') return items.filter((i) => i.kind === 'qr');
+  if (shelf === 'graphs') return items.filter((i) => i.kind === 'graph');
+  if (shelf === 'badges') return items.filter((i) => i.kind === 'badge');
+  return [];
+}
+
+/** The shelves the Toolkit front draws: the ten, less every shelf with no real item. */
+export function visibleShelves(items: readonly ToolkitItem[]): ToolkitShelf[] {
+  return TOOLKIT_SHELVES.filter((s) => shelfItems(items, s).length > 0);
+}
+
+/**
+ * 🔢 THE LIVE COUNT (DECISION_LOG 5ae3fbb2, owner 23 Nov): how many widgets, QR designs, graphs and badges the Toolkit
+ * holds, counted from `toolkitItems` — never typed. The Toolkit masthead and the /for-suppliers Toolkit section both
+ * read it. `badges: null` = the badge read failed: that part shows nothing.
+ */
+export const COUNT_PARTS = ['widgets', 'qr', 'graphs', 'badges'] as const;
+export type CountPart = (typeof COUNT_PARTS)[number];
+export type ToolkitCounts = Readonly<Record<CountPart, number | null>>;
+
+export function toolkitCounts(f: ToolkitListFacts): ToolkitCounts {
+  const items = toolkitItems(f);
+  const n = (k: ToolkitItem['kind']) => items.filter((i) => i.kind === k).length;
+  return { widgets: n('widget'), qr: n('qr'), graphs: n('graph'), badges: f.badges ? n('badge') : null };
+}
+
+const COUNT_NOUN: Readonly<Record<CountPart, [string, string]>> = {
+  widgets: ['widget', 'widgets'],
+  qr: ['QR design', 'QR designs'],
   graphs: ['graph', 'graphs'],
   badges: ['badge', 'badges'],
 };
 
-/** "11 widgets · 29 graphs · 9 badges" — a shelf whose count is unread is left out; nothing read = null (show nothing). */
+/** "18 widgets · 4 QR designs · 17 graphs · 5 badges" — a part whose count is unread is left out; nothing read = null. */
 export function toolkitCountWords(c: ToolkitCounts): string | null {
-  const parts = STORE_SHELVES.flatMap((k) => {
+  const parts = COUNT_PARTS.flatMap((k) => {
     const n = c[k];
-    return n == null || !Number.isFinite(n) ? [] : [`${formatCount(n)} ${SHELF_NOUN[k][n === 1 ? 0 : 1]}`];
+    return n == null || !Number.isFinite(n) ? [] : [`${formatCount(n)} ${COUNT_NOUN[k][n === 1 ? 0 : 1]}`];
   });
   return parts.length ? parts.join(' · ') : null;
+}
+
+// ── QR DESIGNS (Toolkit v19) ────────────────────────────────────────────────
+//
+// The four codes Promote draws today (`PROMOTE_QR_MODES`): My page is BUILT IN (always installed, never removed — owner,
+// restated 23 Nov); Check a date, Shortlist and Reviews are installed until the shop removes one, which only takes it
+// off Promote's list (`QrCodes` `hide`). Their words are the QR rows' own (`SUPPLIER_QR_WORDS`).
+
+export const BUILT_IN_QRS: readonly PromoteQrMode[] = ['page'];
+export function isBuiltInQr(k: string): boolean {
+  return (BUILT_IN_QRS as readonly string[]).includes(k);
+}
+
+/** The QR designs on Promote, in its order. Never arranged = all four. A built-in is always there. */
+export function installedQrs(l: Pick<StoreLayout, 'qrs'> | null): PromoteQrMode[] {
+  const saved = l?.qrs ?? null;
+  if (saved === null) return [...PROMOTE_QR_MODES];
+  return PROMOTE_QR_MODES.filter((k) => isBuiltInQr(k) || saved.includes(k));
+}
+
+/** The QR designs the shop removed — Promote does not list them. A layout that could not be read hides nothing. */
+export function hiddenQrs(l: Pick<StoreLayout, 'qrs'> | null): PromoteQrMode[] {
+  const on = installedQrs(l);
+  return PROMOTE_QR_MODES.filter((k) => !on.includes(k));
+}
+
+export function qrWords(k: PromoteQrMode): { name: string; line: string } {
+  return { name: SUPPLIER_QR_WORDS[k].name, line: SUPPLIER_QR_WORDS[k].line };
 }
 
 // ── TOOLS ───────────────────────────────────────────────────────────────────
@@ -132,6 +262,14 @@ export type ToolFacts = {
   services: readonly string[];
   /** An admin's saved hub tools per category (the tags' source beside the seed). Absent / empty = the seed alone. */
   hubOverrides?: HubOverrides;
+  /** The Papic camera's privacy switch (`isVendorPapicCaptureEnabled`). Absent, off or unread = the camera is not listed. */
+  papicCapture?: boolean;
+  /**
+   * The kinds of the shop's ONLINE service cards (`vendor_services.category` where `is_active`): taxonomy ids, a tile
+   * (`lights_sound`) or a leaf (`photoman`). null = the read failed (nothing hidden, nothing greyed, "Couldn't check your
+   * service cards"). Absent = not read on this page (no card gate).
+   */
+  cards?: readonly string[] | null;
 };
 
 // ── TOOL TAGS (owner via the controller, 23 Nov: "which supplier types it is for") ──────────────────────────
@@ -139,8 +277,9 @@ export type ToolFacts = {
 // Read ONLY from the one per-category table — `HUB_TOOLS_SEED` (lib/hub-tools.ts), with an admin's saved switches
 // (`category_hub_settings` + `category_hub_tool_switches`) replacing a category's seed row — and the rules
 // `suggestedFor` already uses for the three tools that have no hub key (Scanner: every service; Cake Maker: the cake
-// kinds; Song bank: the music kinds). No category is typed here. A tag is a SUGGESTION, never a gate (2026-10-28):
-// every shop can get every tool, whatever its tags say.
+// kinds; Song bank: the music kinds). No category is typed here. The tags order and suggest; since DECISION_LOG
+// 3a2419fd (owner, 23 Nov: "only show tools they can use based on the services they have online") the SAME tags also
+// decide the card gate below (`toolServedByCards`), which supersedes the 2026-10-28 "never a gate" ruling.
 
 /** The categories an admin saved, by `nameKey(label)` → the hub tools switched on for it (replacing its seed row). */
 export type HubOverrides = ReadonlyMap<string, readonly string[]>;
@@ -166,7 +305,7 @@ export function toolTags(tool: SpecializedTool, overrides: HubOverrides = new Ma
 
 /**
  * "For you": the tool is suggested for this shop (`suggestedFor`) or tagged with one of the shop's own categories.
- * Order only — never a gate.
+ * Order only — the card gate is `toolServedByCards` (3a2419fd).
  */
 export function toolIsForYou(tool: SpecializedTool, tags: readonly ToolTag[], f: Pick<ToolFacts, 'categoryLabels' | 'services'>): boolean {
   if (suggestedFor(tool, f.categoryLabels, f.services)) return true;
@@ -197,6 +336,12 @@ export type ToolStatus =
   /** Not bought. `needsPlan`: on Free or Verified — the price and the notice show, and the button opens the plans door. */
   | { kind: 'buy'; price: number; needsPlan: boolean }
   | { kind: 'no_price' }
+  /**
+   * 🟢 No ONLINE service card serves it (DECISION_LOG 3a2419fd). Kept on the shop — installed stays installed, bought
+   * stays owned, nothing refunded — and greyed: "Turn on a <category> card to use it". Turning a card back on opens it
+   * again by itself (computed on every read). `installed` = it is on the shop's Your widgets.
+   */
+  | { kind: 'no_card'; category: string; installed: boolean; prior: Exclude<ToolStatus, { kind: 'no_card' }> }
   | { kind: 'unread' };
 
 /**
@@ -258,7 +403,7 @@ export function toolStatus(key: SpecializedToolKey, f: ToolFacts): ToolStatus {
  * bought disappears; it reads "Works again when you subscribe" (`toolIsOpen` says whether it works right now).
  */
 export function toolIsYours(s: ToolStatus): boolean {
-  return s.kind === 'owned' || s.kind === 'resubscribe' || (s.kind === 'free' && s.added);
+  return s.kind === 'owned' || s.kind === 'resubscribe' || (s.kind === 'free' && s.added) || (s.kind === 'no_card' && s.installed);
 }
 
 /**
@@ -284,6 +429,7 @@ export function toolIsOpen(s: ToolStatus): boolean {
  */
 export function toolIsInstalled(key: string, s: ToolStatus, f: Pick<ToolFacts, 'toolsOff'>): boolean {
   if (s.kind === 'free') return s.added;
+  if (s.kind === 'no_card') return s.installed;
   if (s.kind === 'owned' || s.kind === 'resubscribe') return !f.toolsOff.includes(key);
   return false;
 }
@@ -316,6 +462,9 @@ export const buyWords = (price: number, formatPrice: (php: number) => string) =>
  */
 export type WidgetPlace = { key: 'chat' | 'hub' | 'clients' | 'songs' | 'own'; place: string; line: string; href: string };
 
+/** Where a widget's shelves say it is used — the cards' small place words (Chat · Present · Event Hub · Shop page). */
+export const WIDGET_SHELF_WORD: Readonly<Record<WidgetShelf, string>> = { chat: 'Chat', present: 'Present', hub: 'Event Hub', shop_page: 'Shop page' };
+
 export function widgetPlaces(tool: SpecializedTool): WidgetPlace[] {
   const vd = routes.vendorDashboard;
   const own: WidgetPlace = { key: 'own', place: 'On its own', line: `Shop › Your widgets › ${tool.title}`, href: `${vd.shop.index()}?tool=${encodeURIComponent(tool.key)}#tools` };
@@ -327,21 +476,134 @@ export function widgetPlaces(tool: SpecializedTool): WidgetPlace[] {
     return [{ ...hub, line: 'On the day, the Scanner view counts each guest you serve' }, { ...own, line: `${own.line}, where you set how a scan counts` }];
   }
   if (tool.door.kind === 'per_event') return [hub, own];
+  // Shot list and Issues log sit with each booked event on On the day.
+  if (tool.door.kind === 'day_console') return [{ ...hub, line: 'With each booked event, on On the day' }, own];
+  // Production sheet · Hand over · Seat plan: on each booked client's page.
+  if (tool.door.kind === 'client_page') return [{ key: 'clients', place: 'Your clients', line: 'On each booked client’s page', href: vd.clients.index() }, own];
   if (tool.key === 'song_bank') return [{ key: 'songs', place: 'Your songs', line: 'The songs you play, kept for your shop page', href: vd.repertoire() }, own];
   // Papic challenge and the 3D plan work on a booked client's page.
   return [{ key: 'clients', place: 'Your clients', line: 'On a booked client’s page', href: vd.clients.index() }, own];
 }
 
+// ── 🟢 THE CARD GATE (DECISION_LOG 3a2419fd, owner 23 Nov via the controller) ──────────────────────────────────
+//
+// "only show tools they can use based on the services they have online. if that service card becomes offline, the
+// toolkit greys out as well." A widget is SERVED when one of the shop's ONLINE cards (`vendor_services.is_active`) is
+// of a category the widget is tagged with (`toolTags`, the one table + an admin's switches). Not served:
+//   · never installed or bought → HIDDEN (not listed, not counted on the dashboard);
+//   · installed, bought or in review → shown GREYED (`no_card`), still installed and owned; no refund, no uninstall.
+// A card back online opens it again by itself. A failed card read hides nothing and greys nothing.
+// Always shown (shop-level): `SHOP_LEVEL_WIDGETS`, graphs, badges and QR designs, and any widget tagged with a seed
+// category no card kind maps to yet (`unmappedSeedCategories`, listed for an admin to map — never guessed).
+// The join is the code taxonomy's TILE: a card kind's tile (`TAXONOMY_MAP[leaf].tile`, or the kind when it is a tile)
+// meets a seed category's tile (its kind spelt as a tile key, or a tile whose label is its name). On the day and the
+// client pages are not greyed (controller, 23 Nov).
+
+/** Shop-level widgets: they serve the shop, not one kind of card (controller, 23 Nov). Always shown, never greyed. */
+export const SHOP_LEVEL_WIDGETS: readonly SpecializedToolKey[] = ['scanner', 'production_sheet', 'live_reviews', 'handover'];
+
+export const CARDS_UNREAD_WORDS = 'Couldn’t check your service cards';
+export const noCardWords = (category: string) => `Turn on a ${category} card to use it.`;
+
+const TILE_LABELS: Readonly<Record<string, string>> = WEDDING_TILE_LABEL;
+const TILE_BY_LABEL: ReadonlyMap<string, string> = new Map(Object.entries(TILE_LABELS).map(([tile, label]) => [nameKey(label), tile]));
+
+/** A seed category's tile, or null when no card kind maps to it yet (then its widgets are shop-level). */
+export function seedTileOf(category: string): string | null {
+  const kind = kindOf(category);
+  if (TILE_LABELS[kind]) return kind;
+  return TILE_BY_LABEL.get(nameKey(category)) ?? null;
+}
+
+/** The seed categories no card kind maps to — the STATUS list an admin maps; their widgets stay shop-level. */
+export function unmappedSeedCategories(): string[] {
+  return HUB_TOOLS_SEED.map((r) => r.category).filter((c) => seedTileOf(c) === null);
+}
+
+/** A card kind's tile: a leaf's tile from the one taxonomy, or the kind itself when it is a tile. */
+export function cardTileOf(kind: string): string | null {
+  const leaf = TAXONOMY_MAP[kind];
+  if (leaf?.tile) return leaf.tile;
+  return TILE_LABELS[kind] ? kind : null;
+}
+
+/** The seed's catch-all row (`HUB_TOOLS_FALLBACK`) — what a card whose tile has no row of its own is served by. */
+const EVERYTHING_ELSE = HUB_TOOLS_FALLBACK.category;
+
+/** Does one of the shop's online cards serve this widget? */
+export function toolServedByCards(tool: SpecializedTool, tags: readonly ToolTag[], cards: readonly string[]): boolean {
+  if ((SHOP_LEVEL_WIDGETS as readonly string[]).includes(tool.key)) return true;
+  const tiles = cards.map((k) => cardTileOf(k));
+  if (tool.key === 'cake_tool') return cards.some((k, i) => isCakeKind(k) || isCakeKind(tiles[i]));
+  if (tool.key === 'song_bank') return cards.some((k, i) => MUSIC_TOOL_CATEGORIES.has(k) || (!!tiles[i] && MUSIC_TOOL_CATEGORIES.has(tiles[i]!)));
+  if (tags.length === 0) return true;
+  const tagTiles = tags.map((t) => seedTileOf(t.label));
+  // A category no card kind maps to yet: shop-level until an admin maps it (3a2419fd, "don't guess").
+  if (tagTiles.some((t) => t === null)) return true;
+  const have = new Set(tiles.filter((t): t is string => !!t));
+  if (tagTiles.some((t) => have.has(t!))) return true;
+  // A card whose tile has no seed row gets the catch-all row, the way `seedFor` answers the Hub.
+  const seedTiles = new Set(HUB_TOOLS_SEED.map((r) => seedTileOf(r.category)));
+  const orphan = tiles.some((t) => !t || !seedTiles.has(t));
+  return orphan && tags.some((t) => t.label === EVERYTHING_ELSE);
+}
+
+/** The category a greyed widget names ("Turn on a Florist card to use it"): its first tag in the table's order. */
+function noCardCategory(tags: readonly ToolTag[]): string {
+  return tags[0]?.label ?? 'service';
+}
+
 export type StoreToolRow = { tool: SpecializedTool; status: ToolStatus; installed: boolean; act: ToolAct; suggested: boolean; tags: ToolTag[]; forYou: boolean };
 
-/** Every tool, suggested first (Scanner leads), each with its state and tags — the Tools shelf's order. */
+/** Is the widget the shop's own already — installed, bought (open or locked) or in review? Those grey, never hide. */
+function heldByShop(s: ToolStatus, installed: boolean): boolean {
+  return installed || s.kind === 'owned' || s.kind === 'resubscribe' || s.kind === 'pending';
+}
+
+/**
+ * Every tool, suggested first (Scanner leads), each with its state and tags — the Tools shelf's order. The card gate
+ * (3a2419fd) hides a widget no online card serves unless the shop holds it, and greys the ones it holds.
+ */
 export function storeToolRows(f: ToolFacts): StoreToolRow[] {
-  return specializedToolsFor(f.categoryLabels, f.services).map(({ tool, suggested }) => {
-    const tags = toolTags(tool, f.hubOverrides);
-    const status = toolStatus(tool.key, f);
-    const installed = toolIsInstalled(tool.key, status, f);
-    return { tool, suggested, status, installed, act: toolAct(tool.key, status, installed), tags, forYou: toolIsForYou(tool, tags, f) };
-  });
+  const listed = new Set(listedWidgets(f.papicCapture === true).map((t) => t.key));
+  const out: StoreToolRow[] = [];
+  for (const { tool, suggested } of specializedToolsFor(f.categoryLabels, f.services)) {
+    if (!listed.has(tool.key)) continue;
+    const { row, hidden } = gatedRow(tool, suggested, f);
+    if (!hidden) out.push(row);
+  }
+  return out;
+}
+
+/** One widget's row with the card gate applied; `hidden` = not served and not held (the Toolkit does not list it). */
+function gatedRow(tool: SpecializedTool, suggested: boolean, f: ToolFacts): { row: StoreToolRow; hidden: boolean } {
+  const tags = toolTags(tool, f.hubOverrides);
+  let status = toolStatus(tool.key, f);
+  let installed = toolIsInstalled(tool.key, status, f);
+  let hidden = false;
+  if (Array.isArray(f.cards) && !toolServedByCards(tool, tags, f.cards)) {
+    hidden = !heldByShop(status, installed);
+    status = { kind: 'no_card', category: noCardCategory(tags), installed, prior: status };
+    installed = toolIsInstalled(tool.key, status, f);
+  }
+  return { row: { tool, suggested, status, installed, act: toolAct(tool.key, status, installed), tags, forYou: toolIsForYou(tool, tags, f) }, hidden };
+}
+
+/**
+ * One widget's row for its own page — the same gate, but a hidden widget still answers (a direct link says "Turn on a
+ * <category> card to use it", never a 404 or a Buy). null = not a listed widget.
+ */
+export function toolRowFor(key: string, f: ToolFacts): StoreToolRow | null {
+  const hit = specializedToolsFor(f.categoryLabels, f.services).find(({ tool }) => tool.key === key);
+  if (!hit || !listedWidgets(f.papicCapture === true).some((t) => t.key === key)) return null;
+  return gatedRow(hit.tool, hit.suggested, f).row;
+}
+
+/** The widgets the card gate hides for this shop (not listed, not counted). Empty when the cards were not read. */
+export function cardHiddenWidgets(f: ToolFacts): Set<string> {
+  if (!Array.isArray(f.cards)) return new Set();
+  const shown = new Set(storeToolRows(f).map((r) => r.tool.key));
+  return new Set(listedWidgets(f.papicCapture === true).map((t) => t.key).filter((k) => !shown.has(k)));
 }
 
 /** The Tools shelf's three groups (v12): For you first, then Yours, then More tools. */
@@ -396,6 +658,8 @@ export function toolFootWords(s: ToolStatus, formatPrice: (php: number) => strin
       return s.needsPlan ? `${formatPrice(s.price)} · ${PAID_WIDGET_NEEDS_PLAN_WORDS}` : `${formatPrice(s.price)} · one-time`;
     case 'no_price':
       return 'Price not set yet';
+    case 'no_card':
+      return noCardWords(s.category);
     case 'unread':
       return 'Couldn’t load';
   }
@@ -561,7 +825,7 @@ export function followedBadges(picked: readonly string[] | null, tiles: readonly
 
 // ── THE SHOP'S LAYOUT (one column for the three rows) ──────────────────────
 
-export const LAYOUT_ROWS = ['graphs', 'badges', 'tools'] as const;
+export const LAYOUT_ROWS = ['graphs', 'badges', 'tools', 'qrs'] as const;
 export type LayoutRow = (typeof LAYOUT_ROWS)[number];
 
 export function isLayoutRow(v: unknown): v is LayoutRow {
@@ -569,15 +833,15 @@ export function isLayoutRow(v: unknown): v is LayoutRow {
 }
 
 /** `vendor_profiles.store_layout`, read. A row that is null was never arranged (its default is drawn). */
-export type StoreLayout = { graphs: string[] | null; badges: string[] | null; tools: string[] | null; toolsOff: string[] };
+export type StoreLayout = { graphs: string[] | null; badges: string[] | null; tools: string[] | null; toolsOff: string[]; /** The QR designs installed (Toolkit v19); null = never arranged (all four). */ qrs: string[] | null };
 
-export const NO_LAYOUT: StoreLayout = { graphs: null, badges: null, tools: null, toolsOff: [] };
+export const NO_LAYOUT: StoreLayout = { graphs: null, badges: null, tools: null, toolsOff: [], qrs: null };
 
 /** The column's jsonb as the app reads it — anything malformed reads as never arranged, never as "nothing chosen". */
 export function readLayout(raw: unknown): StoreLayout {
   const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   const list = (v: unknown): string[] | null => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : null);
-  return { graphs: list(o.graphs), badges: list(o.badges), tools: list(o.tools), toolsOff: list(o.tools_off) ?? [] };
+  return { graphs: list(o.graphs), badges: list(o.badges), tools: list(o.tools), toolsOff: list(o.tools_off) ?? [], qrs: list(o.qrs) };
 }
 
 /** At most this many keys in one row (the column's size check backs it). */
@@ -588,7 +852,7 @@ export function cleanLayoutRow(row: LayoutRow, raw: readonly unknown[]): string[
   const out: string[] = [];
   for (const k of raw) {
     if (typeof k !== 'string' || out.includes(k) || out.length >= MAX_ROW_KEYS) continue;
-    const known = row === 'graphs' ? isGraphKey(k) : row === 'badges' ? isShopBadgeKey(k) : storeToolOf(k) !== null;
+    const known = row === 'graphs' ? isGraphKey(k) : row === 'badges' ? isShopBadgeKey(k) : row === 'qrs' ? (PROMOTE_QR_MODES as readonly string[]).includes(k) : storeToolOf(k) !== null;
     if (known) out.push(k);
   }
   return out;
@@ -599,6 +863,8 @@ export function cleanLayoutRow(row: LayoutRow, raw: readonly unknown[]): string[
  * `tools_off` so a later purchase elsewhere never puts it back by itself; adding it again takes it out.
  */
 export function withLayoutRow(prev: StoreLayout, row: LayoutRow, sent: readonly string[], off: readonly string[] = []): StoreLayout {
+  // My page is built in: a QR save that leaves it out keeps it.
+  if (row === 'qrs') return { ...prev, qrs: [...BUILT_IN_QRS.filter((b) => !sent.includes(b)), ...sent] };
   if (row !== 'tools') return { ...prev, [row]: [...sent] };
   // A built-in is never removed: a save that leaves it out keeps it, first.
   const keys = [...BUILT_IN_WIDGETS.filter((b) => !sent.includes(b)), ...sent];
@@ -608,8 +874,8 @@ export function withLayoutRow(prev: StoreLayout, row: LayoutRow, sent: readonly 
 }
 
 /** The layout as the column stores it. */
-export function layoutColumn(l: StoreLayout): { graphs: string[] | null; badges: string[] | null; tools: string[] | null; tools_off: string[] } {
-  return { graphs: l.graphs, badges: l.badges, tools: l.tools, tools_off: l.toolsOff };
+export function layoutColumn(l: StoreLayout): { graphs: string[] | null; badges: string[] | null; tools: string[] | null; tools_off: string[]; qrs: string[] | null } {
+  return { graphs: l.graphs, badges: l.badges, tools: l.tools, tools_off: l.toolsOff, qrs: l.qrs };
 }
 
 /** The ring's two short lines on the Shop: "60 to go" · "Bronze next" (or the tier reached / the honest state). */

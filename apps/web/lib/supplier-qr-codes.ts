@@ -139,3 +139,17 @@ export function crewQrEvents(days: readonly VendorDay[], today: string, dayWords
 export function pickCrewQrEvent(list: readonly CrewQrEvent[], asked: string | null | undefined): CrewQrEvent | null {
   return list.find((e) => e.eventId === asked) ?? list[0] ?? null;
 }
+
+/**
+ * Each code's words (the prototype's "what it does" list): the row line is the shipped caption cut at the dash; the
+ * sheet shows it whole. Read by the QR rows (`QrCodes`) and the Toolkit's QR designs shelf — one copy of the words. ⚠ Reviews: the prototype's "They scan to review you" describes `/<slug>/review` (PR #7329,
+ * not merged) — this code opens `/<slug>#reviews` today, so its words say what it does now.
+ */
+export const SUPPLIER_QR_WORDS: Readonly<Record<SupplierQrMode, { name: string; sub?: string; perEvent?: boolean; line: string; sheetLine: string }>> = {
+  dates: { name: 'Check a date', sub: 'free', line: 'They scan and see which days you can still be booked', sheetLine: 'They scan and see which days you can still be booked — never who booked or who is asking.' },
+  shortlist: { name: 'Shortlist', sub: 'free', line: 'They scan, sign up free, and you join their shortlist', sheetLine: 'They scan, sign up free, and you join their shortlist.' },
+  page: { name: 'My page', line: 'They scan and open your Setnayan page', sheetLine: 'They scan and open your Setnayan page — your services, photos and reviews.' },
+  reviews: { name: 'Reviews', line: 'They scan and read your reviews', sheetLine: 'They scan and open your Setnayan page at its reviews.' },
+  locked: { name: 'Booked', sub: 'one-use', perEvent: true, line: 'One use — give it to that one customer', sheetLine: 'One use — give it to that one customer. A Locked QR means you’ve agreed on a date.' },
+  crew: { name: 'Crew for an event', perEvent: true, line: 'They scan, then wait for your Allow', sheetLine: 'They scan, then wait for your Allow.' },
+};

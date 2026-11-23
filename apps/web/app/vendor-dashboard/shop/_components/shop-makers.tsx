@@ -3,7 +3,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowUpRight, BookOpen, CalendarDays, ClipboardList, FileText, Lock, Plus, ReceiptText, Tag, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, BookOpen, CalendarDays, ClipboardList, FileText, Layers, Lock, Plus, ReceiptText, Tag, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { routes } from '@/lib/routes';
 import { formatCount } from '@/lib/format-number';
@@ -57,7 +57,8 @@ export type ScannerLine = { coverageId: number; label: string; choice: ScannerCh
 type MakerKey = 'forms' | 'offers' | 'templates';
 
 /** 🧰 One tool in Your tools (Store drawing v10 F0). */
-export type MyTool = { key: SpecializedToolKey };
+/** `off` = no online service card serves it (DECISION_LOG 3a2419fd): the row greys and its panel says this line in place of the tool. */
+export type MyTool = { key: SpecializedToolKey; off?: string };
 
 /** The four Templates tiles (drawing v10 F0): Chat forms · Card forms · Offer maker · Payment plan. `tpl` = the
  *  Templates panel's starting kind. */
@@ -182,6 +183,7 @@ export function ShopMakers({
   ];
   const picked = tool ? (tools.find((t) => t.tool.key === tool)?.tool ?? null) : null;
   const PickedIcon = picked ? toolIcon(picked.key) : null;
+  const pickedOff = picked ? (myTools.find((m) => m.key === picked.key)?.off ?? null) : null;
   const cur = open ? (list.find((t) => t.id === from && t.k === open) ?? list.find((t) => t.k === open)) : undefined;
 
   return (
@@ -224,7 +226,7 @@ export function ShopMakers({
           ) : null}
         </div>
         <ul className="sn-glide-x flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-tool-list="">
-          {myTools.map(({ key }) => {
+          {myTools.map(({ key, off }) => {
             const t = tools.find((x) => x.tool.key === key)!.tool;
             const Icon = toolIcon(t.key);
             const isNew = addedTool === t.key;
@@ -238,8 +240,9 @@ export function ShopMakers({
                   onClick={() => setTool(t.key)}
                   aria-expanded={t.key === picked?.key}
                   aria-haspopup="dialog"
-                  className="sn-press sn-frame flex h-full min-h-[128px] w-full flex-col items-start gap-1 p-3 text-left"
+                  className={`sn-press sn-frame flex h-full min-h-[128px] w-full flex-col items-start gap-1 p-3 text-left${off ? ' opacity-60' : ''}`}
                   data-tool-tile={t.key}
+                  data-tool-off={off ? '' : undefined}
                 >
                   <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-[color:var(--surface-soft)] text-ink">
                     <Icon className="h-5 w-5" strokeWidth={1.75} />
@@ -249,7 +252,7 @@ export function ShopMakers({
                       {t.title}
                       {isNew ? <span className="rounded-full bg-[rgb(var(--color-link))] px-1.5 py-px text-sn-2xs font-bold text-[color:var(--m-paper)]">New</span> : null}
                     </b>
-                    <span className="mt-0.5 line-clamp-2 text-sn-md leading-snug text-[color:var(--m-slate-2)]">{t.line}</span>
+                    <span className="mt-0.5 line-clamp-2 text-sn-md leading-snug text-[color:var(--m-slate-2)]">{off ?? t.line}</span>
                   </span>
                 </button>
               </li>
@@ -369,7 +372,15 @@ export function ShopMakers({
           onClose={() => setTool(null)}
           data={`tool-${picked.key}`}
         >
-          <ToolBody tool={picked} scanners={scanners} booked={booked} />
+          {pickedOff ? (
+            // 🟢 No online card serves it: the line, and the door to turn a card on — never the tool (3a2419fd).
+            <div className="grid gap-3" data-tool-off-panel={picked.key}>
+              <p className="text-sn-md text-[color:var(--m-slate-2)]">{pickedOff}</p>
+              <ActionButton tone="info" icon={Layers} label="Your services" href={routes.vendorDashboard.services()} />
+            </div>
+          ) : (
+            <ToolBody tool={picked} scanners={scanners} booked={booked} />
+          )}
           {/* 📘 Every widget's guide, one door for all (owner 23 Nov, "guides only"): its Store page's How to use it. */}
           <div className="mt-4 grid">
             <ActionButton tone="neutral" icon={BookOpen} label="How to use it" href={`${routes.vendorDashboard.shop.store.item('tools', picked.key)}#guide`} data-tool-guide={picked.key} />
@@ -465,9 +476,23 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
       </div>
     );
   }
+  if (tool.door.kind === 'day_console') {
+    // 🧭 A finished day-of part: it lives on the On the day console, with each booking (no page of its own).
+    return (
+      <div className="space-y-3" data-tool-body={tool.key}>
+        <p className="text-sn-base text-ink/70">{tool.line} — it sits with each booked event on On the day.</p>
+        <ActionButton tone="brand" icon={ArrowUpRight} label="Open On the day" href={routes.vendorDashboard.onTheDay()} className="w-full" data-tool-open={tool.key} />
+      </div>
+    );
+  }
+  // per_event → the event's on-the-day screen; client_page → that booked client's page (one door per booked event).
+  const door = tool.door;
+  const eventHref = (eventId: string) => (door.kind === 'client_page' ? routes.vendorDashboard.clients[door.page](eventId) : onTheDayHref(eventId));
   return (
     <div className="space-y-2" data-tool-body={tool.key}>
-      <p className="text-[13.5px] text-ink/70">{tool.line} — it opens on the day of each booked event, from that event&rsquo;s screen.</p>
+      <p className="text-[13.5px] text-ink/70">
+        {tool.line} — {door.kind === 'client_page' ? 'it opens from each booked client' : 'it opens on the day of each booked event, from that event’s screen'}.
+      </p>
       {booked === null ? (
         <p role="status" className="py-2 text-[13.5px] text-ink/70">
           Couldn&rsquo;t load your booked events just now.
@@ -481,7 +506,7 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
         <ul className="divide-y divide-ink/10">
           {booked.map((b) => (
             <li key={`${b.eventId}:${b.bookedDate}`}>
-              <Link href={onTheDayHref(b.eventId)} className="sn-press flex min-h-14 items-center gap-3 py-2" data-tool-event={b.eventId}>
+              <Link href={eventHref(b.eventId)} className="sn-press flex min-h-14 items-center gap-3 py-2" data-tool-event={b.eventId}>
                 <CalendarDays aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.9} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium text-ink">{b.eventName}</span>

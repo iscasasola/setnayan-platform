@@ -19,6 +19,7 @@
 
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { SupplierFrontPage } from '@/app/for-suppliers/_components/supplier-front-page';
 import { growSpec } from '@/app/for-suppliers/_components/supplier-front-data';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
@@ -184,10 +185,12 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
 export default async function ForSuppliersPage() {
   // 🎁 The lowest single gift's LIST price (owner: Papic 150) for the "How Setnayan earns" gift row — every shop pays the
   // list price (DECISION_LOG 14 Nov "BUY 10, GET 1 FREE"; 16 Nov 03e465e1). Never the withheld gift column.
-  const [p, fee, papic150] = await Promise.all([
+  const [p, fee, papic150, papicCapture] = await Promise.all([
     getVendorPrices(),
     getLiveBookingFeeSchedule(),
     getCustomerSkuPrice(GIFT_FROM_SKU),
+    // 📷 The Toolkit's count lists the Papic camera only while its privacy switch is on; a refused read keeps it off.
+    isVendorPapicCaptureEnabled().catch(() => false),
   ]);
   return (
     <>
@@ -207,6 +210,7 @@ export default async function ForSuppliersPage() {
           }}
           giftFrom={papic150 ? `₱${papic150}` : null}
           nowMs={Date.now()}
+          papicCapture={papicCapture}
           paywallOn={isVendorFeatureGateEnabled()}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}
           afterPlans={

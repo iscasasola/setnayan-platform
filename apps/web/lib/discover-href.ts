@@ -13,3 +13,16 @@
  */
 export const DISCOVER_PARAM = 'discover';
 export const DISCOVER_HREF = `/?${DISCOVER_PARAM}=1`;
+
+/**
+ * Tracking tags (`utm_*`, `fbclid`, `gclid`) do not count as asking for Discover: a signed-in visit to `/` carrying
+ * only these opens Home (`signedInRootLanding`). ONE copy, shared by that rule and by every retired address that
+ * forwards into Discover (`lib/legacy-redirects.ts`), so the two can never disagree about what "asks for Discover" is.
+ */
+export const TRACKING_ONLY = /^(utm_[a-z_]+|fbclid|gclid)$/i;
+
+/** True when an address's parameters ask for Discover on their own — any parameter that is not a tracking tag. */
+export function asksForDiscover(keys: Iterable<string>): boolean {
+  for (const k of keys) if (!TRACKING_ONLY.test(k)) return true;
+  return false;
+}

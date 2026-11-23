@@ -41,6 +41,7 @@
  */
 
 import { landingForAccount } from './auth-confirm-link';
+import { asksForDiscover } from './discover-href';
 
 /**
  * The page a signed-in person starts on when nothing says otherwise — their profile page, Home (owner 22 Nov 2026:
@@ -85,14 +86,12 @@ export function signInDestination(raw: string, accountType: string | null | unde
  *
  * 🔒 lib/a-signed-in-visit-to-the-root-opens-home.test.ts
  */
-const TRACKING_ONLY = /^(utm_[a-z_]+|fbclid|gclid)$/i;
 
 export function signedInRootLanding(
   params: Record<string, string | string[] | undefined>,
   who: { signedIn: boolean; isAnonymous: boolean; accountType: string | null | undefined },
 ): string | null {
   if (!who.signedIn || who.isAnonymous) return null;
-  const asksForDiscover = Object.keys(params).some((k) => params[k] !== undefined && !TRACKING_ONLY.test(k));
-  if (asksForDiscover) return null;
+  if (asksForDiscover(Object.keys(params).filter((k) => params[k] !== undefined))) return null;
   return landingForAccount('/', who.accountType);
 }

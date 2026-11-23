@@ -18,6 +18,7 @@
  *   · `signedInRootLanding` ignoring params (always Home when signed in)  → "Discover's own door" RED
  *   · the bar's Discover tab put back to `href: '/'`                     → "every Discover press" RED
  *   · the page's `redirect(home)` removed                                → "the root page asks the one rule" RED
+ *   · `/realstories` or `/explore/categories` put back to forward to `'/'`  → "no retired address forwards to the bare `/`" RED
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -34,7 +35,7 @@ import { homeSegHref } from '@/lib/home-segments';
 import { shopBackDoor, SHOP_BACK_COLD, SHOP_ARRIVAL_SRC } from '@/lib/shop-back';
 import { discoverFollowingHref } from '@/lib/discover-pin';
 import { stayOnPageSearchHref } from '@/lib/shell-search';
-import { exploreRedirectTarget } from '@/lib/legacy-redirects';
+import { exploreRedirectTarget, legacyRedirectTarget, LEGACY_REDIRECT_OLD_PATHS } from '@/lib/legacy-redirects';
 import { accountBarItems } from '@/app/dashboard/(launcher)/_components/account-bottom-nav';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -114,4 +115,36 @@ test('the root page asks the one rule, with the layout’s session, after the cr
   assert.match(page, /alternates:\s*\{\s*canonical:\s*'\/'\s*\}/);
   // The middleware still never bounces `/` (signed-in-can-see-it.test.ts) — Discover is reached by its door.
   assert.ok(!/user\s*&&\s*pathname\s*===\s*['"]\/['"]/.test(read('middleware.ts')));
+});
+
+test('no retired address forwards to the bare `/` — it would open Home for a signed-in person, not Discover', () => {
+  // Owner, 23 Nov 2026, verbatim: "Fix the two leftover forwards too" — /realstories and /explore/categories.
+  for (const [path, search] of [
+    ['/realstories', ''],
+    ['/realstories/', ''],
+    ['/realstories/maria-and-juan-tagaytay-garden-wedding', ''],
+    ['/explore/categories', ''],
+    ['/explore/categories/', ''],
+  ] as const) {
+    assert.equal(legacyRedirectTarget(path, search), DISCOVER_HREF, `${path} must open Discover's own door`);
+  }
+  // Any query they carry is kept — after the door, so tracking tags alone still land on Discover, not Home.
+  for (const path of ['/realstories', '/explore/categories']) {
+    const to = legacyRedirectTarget(path, '?utm_source=fb&city=cebu&notice=x')!;
+    assert.equal(to, `${DISCOVER_HREF}&utm_source=fb&city=cebu`, `${path} keeps its query`);
+    const params = Object.fromEntries(new URL(to, 'https://x.test').searchParams);
+    assert.equal(signedInRootLanding(params, SIGNED_IN('customer')), null, `${path}?utm_source=… must still draw Discover signed in`);
+  }
+  // The whole map: no old address lands on a bare `/` (with or without a query that only tracks).
+  for (const old of LEGACY_REDIRECT_OLD_PATHS) {
+    const path = old.replace('<eventId>', 'S89E-TEST000000').replace('<anything>', 'x').replace('<type>', 'wedding');
+    for (const search of ['', '?utm_source=fb']) {
+      const to = legacyRedirectTarget(path, search);
+      if (to === null) continue;
+      const u = new URL(to, 'https://x.test');
+      if (u.pathname !== '/') continue;
+      const params = Object.fromEntries(u.searchParams);
+      assert.equal(signedInRootLanding(params, SIGNED_IN('customer')), null, `${path}${search} → ${to} opens Home for a signed-in person`);
+    }
+  }
 });

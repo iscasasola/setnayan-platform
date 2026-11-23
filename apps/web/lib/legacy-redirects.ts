@@ -40,7 +40,7 @@ import { articleHref, JOURNAL_DRAFT_SLUGS, journalArticleSlug } from '@/lib/jour
 import { MORE_SERVICES_PARAM, MORE_SERVICES_VALUE } from './studio-hub';
 import { DETAILS_ROWS_MOVED_TO_GUESTS, DETAILS_ROWS_MOVED_TO_SUPPLIERS } from './event-settings-record';
 import { papicCardHref } from './papic-home-href';
-import { DISCOVER_HREF } from './discover-href';
+import { DISCOVER_HREF, DISCOVER_PARAM, asksForDiscover } from './discover-href';
 
 /** The More menu's address, relative to the event (`studioHubHref`). */
 const MORE_MENU = `?${MORE_SERVICES_PARAM}=${MORE_SERVICES_VALUE}`;
@@ -114,8 +114,6 @@ const FIXED: readonly (readonly [from: string, to: string])[] = [
   // 🗞✂ The supplier-side Real Stories stub, retired with Real Stories (owner 2026-11-16, DECISION_LOG "THE BLOG AND
   // REAL STORIES ARE RETIRED" + "RETIRED ADDRESSES FORWARD").
   ['/vendor-dashboard/real-stories', '/vendor-dashboard'],
-  // retired 2026-08-15 → /explore, which is itself retired since 2026-11-12 — so it lands where /explore now does.
-  ['/explore/categories', '/'],
 ];
 
 /**
@@ -198,16 +196,41 @@ export function exploreRedirectTarget(search: string): string {
   const q = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
   q.delete('notice');
   const qs = q.toString();
-  // A bare `/explore` is Discover itself — its own door, since a signed-in bare `/` opens Home (23 Nov 2026).
-  return qs ? `/?${qs}` : DISCOVER_HREF;
+  // A bare `/explore` is Discover itself — its own door, since a signed-in bare `/` opens Home (23 Nov 2026). So is an
+  // `/explore` carrying only tracking tags (`?utm_source=fb`): those alone do not ask for Discover, so the door goes
+  // first or a signed-in person would land on Home (found by the whole-map check, 23 Nov 2026).
+  if (!qs) return DISCOVER_HREF;
+  return asksForDiscover(q.keys()) ? `/?${qs}` : `${DISCOVER_HREF}&${qs}`;
 }
+
+/**
+ * 🏠 TWO LEFTOVER FORWARDS OPEN DISCOVER, NOT HOME (owner 23 Nov 2026, verbatim: *"Fix the two leftover forwards
+ * too"*). `/explore/categories` (retired 2026-08-15 → /explore) and the retired Real Stories tree (`/realstories`,
+ * `/realstories/<anything>`, owner 2026-11-16 "/realstories → Discover") used to forward to the bare `/` — which, since
+ * a signed-in bare `/` opens Home (#8234), took a signed-in person to Home instead of Discover. Both now land on
+ * Discover's own door, `?discover=1` FIRST, with every other parameter they carried kept after it. The door goes first
+ * because tracking tags alone (`utm_*`, `fbclid`) do not count as asking for Discover (`signedInRootLanding`), so a
+ * shared `/realstories?utm_source=fb` must still say so itself. `notice` is dropped, as on /explore.
+ * Held by `a-signed-in-visit-to-the-root-opens-home.test.ts`.
+ */
+export function discoverForwardTarget(search: string): string {
+  const carried = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  carried.delete('notice');
+  carried.delete(DISCOVER_PARAM);
+  const rest = carried.toString();
+  return rest ? `${DISCOVER_HREF}&${rest}` : DISCOVER_HREF;
+}
+
+/** The two retired addresses that forward into Discover (see `discoverForwardTarget`). */
+const TO_DISCOVER = '/explore/categories';
 
 /**
  * 🗞✂ THE BLOG AND REAL STORIES ARE RETIRED (owner 2026-11-16, DECISION_LOG "THE BLOG AND REAL STORIES ARE RETIRED" ·
  * "RETIRED ADDRESSES FORWARD": *"we retired these blogs already"*, then "YES" to /blog → /features and /realstories →
  * Discover). Post-event stories (`/dashboard/[eventId]/story`) are the new stories. WHOLE SUBTREES, unlike every
  * exact-path row above: `/blog`, `/blog/<anything>`, `/realstories`, `/realstories/<anything>` — saved and indexed
- * article and story links never break. The query is dropped (the pages it addressed are gone).
+ * article and story links never break. `/realstories` lands on Discover with its query kept (`discoverForwardTarget`,
+ * owner 23 Nov 2026 "Fix the two leftover forwards too").
  *
  * ⚠ A last segment with a dot is a FILE, not a page: `public/realstories/` still holds the sample photos and clips
  * other screens show (`/realstories/maria-juan-tagaytay.jpg`, `/realstories/clips/….mp4`). The middleware matcher
@@ -215,7 +238,7 @@ export function exploreRedirectTarget(search: string): string {
  * `lib/legacy-redirects.test.ts`.
  */
 export const RETIRED_TREES: readonly (readonly [from: string, to: string])[] = [
-  ['/realstories', '/'],
+  ['/realstories', DISCOVER_HREF], // the query is carried by `discoverForwardTarget` in `legacyRedirectTarget`
 ];
 
 /**
@@ -261,6 +284,7 @@ export const LEGACY_REDIRECT_OLD_PATHS: readonly string[] = [
   ...FIXED.map(([from]) => from),
   ...[...KEEPS_QUERY.keys()],
   '/explore',
+  TO_DISCOVER,
   '/dashboard/<eventId>/studio/papic',
   ...RETIRED_TREES.flatMap(([from]) => [from, `${from}/<anything>`]),
   '/blog',
@@ -281,9 +305,10 @@ export function legacyRedirectTarget(pathname: string, search = ''): string | nu
   if (fixed) return fixed;
 
   if (path === '/explore') return exploreRedirectTarget(search);
+  if (path === TO_DISCOVER) return discoverForwardTarget(search);
 
   const tree = retiredTreeTarget(path);
-  if (tree) return tree;
+  if (tree) return tree === DISCOVER_HREF ? discoverForwardTarget(search) : tree;
 
   const keeps = KEEPS_QUERY.get(path);
   if (keeps) return search && search !== '?' ? `${keeps}${search.startsWith('?') ? search : `?${search}`}` : keeps;

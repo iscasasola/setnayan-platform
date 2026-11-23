@@ -4442,6 +4442,36 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'tests/db/a-tagged-files-photo-shows-in-inspiration-only-when-the-shop-does.db.test.ts (card parts · nothing before the shop shows it · one per photo × part · no public read of source_event_id/event_file_id · removed → retired) · column grants (event_file_id: service role only)',
     traps:
       'Never DELETE a tag that was ever approved — event_inspiration_assets.library_asset_id CASCADES, so a delete takes the tile off every saved board; untag RETIRES. The shop page reads on the service role, which skips the policy, so it filters by the listing view itself (lib/inspiration-tags.server.ts). The gate is LIVE: a Hide or a moved date takes the tag off at once — never copy “shown” into a column.',
+  },  {
+    /**
+     * 📏 THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SHOP OWNS (owner 2026-11-23, migration 20271360925434). The
+     * plan is a storage size; the meter is every stored file (live) plus every row naming the shop (measured nightly),
+     * split Photos & video · Files · Records, against one number per plan (the chat & documents room dropped 23 Nov).
+     */
+    id: 'J73',
+    claims: [
+      { kind: 'table', table: 'supplier_stored_files' },
+      { kind: 'fk', table: 'supplier_stored_files', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'supplier_stored_files', column: 'released_at' },
+      { kind: 'column', table: 'supplier_stored_files', column: 'evidence' },
+      { kind: 'table', table: 'supplier_storage_records' },
+      { kind: 'fk', table: 'supplier_storage_records', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'supplier_storage_records', column: 'chat_bytes' },
+    ],
+    chain: 7,
+    pair: ['TYPE-VENDORS', 'TYPE-BILLING'],
+    title: 'Shop → what it stores against its plan (Photos & video · Files · Records)',
+    joint: 'vendor_storage_breakdown',
+    cardinality:
+      'A shop has 0..n ledger rows (one per object it uploaded that no other table sizes; PK object_ref) and 0..1 records row (its data as last measured); every table naming the shop is counted unless supplier_storage_record_sources leaves it out with a reason',
+    implementedBy:
+      'supplier_stored_files (uploads with no other size: vendors/ · vendor-payment-qr/ · vendor-originals/ · handovers · suggestions · the marked public copy) · supplier_storage_records (pg_column_size of every row naming the shop, chat apart) · supplier_storage_record_sources · supplier_storage_measure_records (the nightly claimed job supplier-storage-records, cron-free — lib/supplier-storage-measure.server.ts; one shop on its first look) · vendor_storage_files · vendor_storage_breakdown (THE read) · vendor_storage_used_bytes (the total, for the filing backstop) · supplier_storage_is_media (twin of isMediaContentType)',
+    writtenBy:
+      'recordShopUpload from /api/upload (after the PUT is signed, `ledger` roots only — lib/supplier-storage.ts SHOP_UPLOAD_ROOTS) and recordServerShopUpload (handover, mood-board suggestion, supplier-photo-publish); releaseDeletedShopUpload from the two delete choke points (the cleanup executor and the public-asset delete in lib/storage.ts); supplier_storage_measure_records (the job, and vendor_storage_breakdown on a never-measured shop)',
+    guardedBy:
+      'tests/db/the-meter-counts-every-shop-table.db.test.ts (every shop table counted or left out with a reason · a new table counted by default · booking rows through event_vendors · a new shop reads a few KB · every file in its kind · media twin · service role only) · lib/supplier-storage.test.ts (the gate: only photos and video past the plan wait; documents and evidence never refused) · lib/the-meter-counts-every-upload-root.test.ts (every upload root is a counted shop root or a named non-shop root)',
+    traps:
+      'Never ledger a supplier-files/ upload: its size is on supplier_media and it would count twice. Records are MEASURED, not live — a page view never rescans (owner: "never a scan per page view"); the nightly job refreshes. A signed upload that never completed still counts until its object is deleted (the presign is the only moment the size is known). Only photos and video are refused: a document, a chat file or evidence past the plan still goes in (owner 23 Nov, the room dropped) — the database backstop skips them too.',
   },
 ];
 

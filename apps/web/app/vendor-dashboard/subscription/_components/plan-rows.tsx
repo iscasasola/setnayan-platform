@@ -8,6 +8,7 @@ import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import { planWord } from '@/lib/vendor-plan-change-words';
 import type { PlanLine, PlanRowBadge } from '@/lib/vendor-plan-rows';
+import { CLIENTS_FOOTNOTE } from '@/lib/supplier-client-room';
 
 /**
  * THE PLAN SCREEN'S ROWS (simpler supplier dashboard step 6; owner-APPROVED 2026-10-14; prototype SCREENS.plan):
@@ -105,6 +106,11 @@ export function PlanRows({
               {gives.map((g) => (
                 <DatesRow key={g.key} data="plan-gives-row" title={g.title} line={g.line} />
               ))}
+              {gives.some((g) => g.key === 'clients') ? (
+                <p className="pt-2 text-sn-sm text-[color:var(--m-slate-2)]" data-clients-footnote="">
+                  {CLIENTS_FOOTNOTE}
+                </p>
+              ) : null}
             </div>
           </Fold>
         </div>

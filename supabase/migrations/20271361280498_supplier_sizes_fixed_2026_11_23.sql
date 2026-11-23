@@ -1,14 +1,16 @@
 -- supplier_sizes_fixed_2026_11_23
 -- Created via `pnpm migration:new`. KEEP THIS MIGRATION IDEMPOTENT (it may be re-applied).
 -- ============================================================================
--- 💾 SUPPLIER SIZES FIXED — owner 2026-11-23, verbatim: "Let's fix this · Free Unverified 128MB · Free Verified 1Gb ·
--- Plus 100Gb · Pro 500Gb · Ultra 1Tb" · "fix the sizes to this." (specs DECISION_LOG 2026-11-23 "SUPPLIER SIZES FIXED").
+-- 💾 SUPPLIER SIZES FIXED — owner 2026-11-23 (specs DECISION_LOG 2026-11-23 "SUPPLIER SIZES FIXED"). The final cut, after
+-- "Let's fix this" the same day: Free 100 MB ("free … is only for them to experience it") · Verified 1 GB · Plus 10 GB
+-- ("100MB 1GB 10 GB") · Pro 256 GB ("Pro is 256Gb") · Ultra 1 TB ("Ultra is 1TB"). The chat & documents room is dropped
+-- ("let us not set Room anymore?" → "Yes, drop it"): one storage number per plan.
 --
 --   plan (code)          was       now
---   Free     (free)       256 MB    128 MB
+--   Free     (free)       256 MB    100 MB
 --   Verified (verified)   2 GB      1 GB
---   Plus     (solo)       128 GB    100 GB
---   Pro      (pro)        500 GB    500 GB
+--   Plus     (solo)       128 GB    10 GB
+--   Pro      (pro)        500 GB    256 GB
 --   Ultra    (enterprise) 1 TB      1 TB
 --
 -- ONE change: the 'storage_mb' numbers in `vendor_tier_limit()`. The body is the CURRENT definition, copied from
@@ -61,11 +63,11 @@ AS $$
         END
       WHEN 'storage_mb' THEN                    -- whole MB (decimal, as the supplier reads it); replaces 'storage_gb'
         CASE t.plan
-          WHEN 'free'       THEN 128            -- owner 2026-11-23 "Free Unverified 128MB" (was 256)
-          WHEN 'verified'   THEN 1000           -- owner 2026-11-23 "Free Verified 1Gb" (was 2,000)
-          WHEN 'solo'       THEN 100000         -- owner 2026-11-23 "Plus 100Gb" (was 128,000)
-          WHEN 'pro'        THEN 500000         -- owner 2026-11-23 "Pro 500Gb" (unchanged)
-          WHEN 'enterprise' THEN 1000000        -- owner 2026-11-23 "Ultra 1Tb" (unchanged)
+          WHEN 'free'       THEN 100            -- owner 2026-11-23 "100MB" (was 256)
+          WHEN 'verified'   THEN 1000           -- owner 2026-11-23 "1GB" (was 2,000)
+          WHEN 'solo'       THEN 10000          -- owner 2026-11-23 "10 GB" (was 128,000)
+          WHEN 'pro'        THEN 256000         -- owner 2026-11-23 "Pro is 256Gb" (was 500,000)
+          WHEN 'enterprise' THEN 1000000        -- owner 2026-11-23 "Ultra is 1TB" (unchanged)
         END
       ELSE NULL                                 -- unknown key: NULL, never a silent 0
     END AS value
@@ -78,6 +80,6 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.vendor_tier_limit(text, text) IS
-  'Per-plan limits. Reads public.vendor_plan_contents first (admin-editable since 2026-11-13, two-admin approval), falling back to the code values when no row exists. Keys: whitelist_per_date · waitlist_acceptances · branches_included · storage_mb (the table also holds service_cards_total · parent_categories · agent_accounts, which the app reads). branches_included: NULL = no limit (Pro and Ultra since 2026-11-22), and a stored NULL row is honoured. storage_mb (whole MB, decimal): 128 · 1000 · 100000 · 500000 · 1000000 (owner 2026-11-23 "SUPPLIER SIZES FIXED": Free 128 MB · Verified 1 GB · Plus 100 GB · Pro 500 GB · Ultra 1 TB). An unknown TIER reads as Free; an unknown KEY returns NULL on purpose. Fallback mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts.';
+  'Per-plan limits. Reads public.vendor_plan_contents first (admin-editable since 2026-11-13, two-admin approval), falling back to the code values when no row exists. Keys: whitelist_per_date · waitlist_acceptances · branches_included · storage_mb (the table also holds service_cards_total · parent_categories · agent_accounts, which the app reads). branches_included: NULL = no limit (Pro and Ultra since 2026-11-22), and a stored NULL row is honoured. storage_mb (whole MB, decimal): 100 · 1000 · 10000 · 256000 · 1000000 (owner 2026-11-23 "SUPPLIER SIZES FIXED": Free 100 MB · Verified 1 GB · Plus 10 GB · Pro 256 GB · Ultra 1 TB; no chat & documents room). An unknown TIER reads as Free; an unknown KEY returns NULL on purpose. Fallback mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts.';
 
 COMMIT;

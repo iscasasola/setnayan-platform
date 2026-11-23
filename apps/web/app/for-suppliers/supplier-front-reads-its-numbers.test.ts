@@ -20,7 +20,7 @@ import { TIER_CAPS, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-t
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 import { formatCount } from '@/lib/format-number';
 import { storageWords } from '@/lib/downgrade-limits';
-import { clientRangeWords } from '@/lib/supplier-client-room';
+import { CLIENTS_FOOTNOTE, clientsKeptWords, planStorageLine } from '@/lib/supplier-client-room';
 import {
   ADDON_TIERS,
   GROW_LINES,
@@ -138,8 +138,8 @@ test('owner 2026-11-22: every tool on every paid size — the 3D booth logo and 
 });
 
 test('owner via controller 22 Nov: a plan is never its size alone — Free and Verified cards say what they hold, with the size', () => {
-  assert.equal(planLine('free'), 'Run your own clients, 1 live service, just you, main shop only, and 128 MB. Room for about 25–150 clients.');
-  assert.equal(planLine('verified'), 'On the marketplace with the basics, 3 live services, just you, main shop only, and 1 GB. Room for about 200–1,200 clients.');
+  assert.equal(planLine('free'), 'Keeps about 120 clients at a time*. Run your own clients, 1 live service, just you, main shop only, and 100 MB.');
+  assert.equal(planLine('verified'), 'Keeps about 1,300 clients at a time*. On the marketplace with the basics, 3 live services, just you, main shop only, and 1 GB.');
   // 23 Nov redraw (plans as growth stairs): every card — Free and Verified too — is its size AND its facts, from `planStair`.
   const page = code('app/for-suppliers/_components/supplier-front-page.tsx');
   assert.match(page, /STAIR_TIERS\.map\(\(t\) => \{\s*const step = planStair\(t\)/, 'a plan card is drawn from something other than its read facts');
@@ -148,9 +148,18 @@ test('owner via controller 22 Nov: a plan is never its size alone — Free and V
     assert.equal(st.size, storageWords(TIER_CAPS[t].storageBytes!), `${t}: the card lost its size`);
     assert.ok(st.services.lead && st.people.text && st.branches.text, `${t}: the card is a slogan again`);
   }
-  // Owner 2026-11-23 "Give them a quick range of how many clients can they serve": every card says it, from ONE helper.
-  for (const t of STAIR_TIERS) assert.equal(planStair(t).clients, clientRangeWords(t), `${t}: the card's client range is not the helper's`);
-  assert.match(code('app/for-suppliers/_components/supplier-front-client.tsx'), /\{p\.clients \? <p className=\{s\.clients\}>\{p\.clients\}<\/p> : null\}/, 'the plan card does not draw its client range');
+  // Owner 2026-11-23 "Yes, clients first": every card leads with the clients it keeps, its size under it, one footnote —
+  // all from ONE helper (lib/supplier-client-room.ts).
+  for (const t of STAIR_TIERS) {
+    assert.equal(planStair(t).clients, clientsKeptWords(t), `${t}: the card's headline is not the helper's`);
+    assert.equal(planStair(t).sizeLine, planStorageLine(t), `${t}: the line under it is not the helper's`);
+  }
+  const client = code('app/for-suppliers/_components/supplier-front-client.tsx');
+  assert.match(client, /<b>\{p\.clients \?\? p\.size\}<\/b>/, 'the plan card does not lead with the clients it keeps');
+  assert.match(client, /\{p\.sizeLine\}/, 'the plan card lost its size line');
+  assert.match(page, /\{CLIENTS_FOOTNOTE\}/, 'the asterisk has no footnote under the plans');
+  assert.match(code('app/(shell)/for-coordinators/page.tsx'), /\{CLIENTS_FOOTNOTE\}/, '/for-coordinators shows the asterisk without its footnote');
+  assert.ok(CLIENTS_FOOTNOTE.startsWith('*'));
   const coord = code('app/(shell)/for-coordinators/page.tsx');
   assert.match(coord, /\{planLine\('free'\)\}/);
   assert.match(coord, /\{planLine\('verified'\)\}/);

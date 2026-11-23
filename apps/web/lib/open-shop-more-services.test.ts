@@ -89,8 +89,8 @@ test('the ladder (Free · Verified → Plus → Pro → Ultra adds) is composed 
   assert.equal(l[0]!.caps, '1 category · 1 service · basic search listing');
   // A paid size with no limit says so in words, never "Infinity" or "—" (owner 2026-11-22).
   // Same features in every paid size (owner 2026-11-22): each paid rung leads with its size, the one thing that differs.
-  assert.equal(l[1]!.caps, `100 GB · every category · ${TIER_CAPS.solo.serviceCardsTotal} services · top search priority`);
-  assert.equal(l[2]!.caps, '500 GB · every category · no limit on services · top search priority');
+  assert.equal(l[1]!.caps, `10 GB · every category · ${TIER_CAPS.solo.serviceCardsTotal} services · top search priority`);
+  assert.equal(l[2]!.caps, '256 GB · every category · no limit on services · top search priority');
   assert.equal(l[3]!.caps, '1 TB · every category · no limit on services · top search priority');
   assert.doesNotMatch(JSON.stringify(l), /\bkm\b|nationwide/i);
   assert.doesNotMatch(JSON.stringify(l), /₱|PHP|\bpeso/i);

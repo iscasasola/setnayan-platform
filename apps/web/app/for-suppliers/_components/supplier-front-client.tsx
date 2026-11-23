@@ -300,15 +300,16 @@ export function PlanStairs({ plans }: { plans: readonly StairCard[] }) {
                   <small>{p.per}</small>
                 </p>
               </div>
+              {/* Clients first (owner 2026-11-23 "Yes, clients first"): what the storage keeps, then its size under it. */}
               <div className={s.size}>
                 <p>
-                  <b>{p.size}</b>
-                  <span>storage</span>
+                  <b>{p.clients ?? p.size}</b>
+                  {p.clients ? null : <span>storage</span>}
                 </p>
+                {p.clients && p.sizeLine ? <p className={s.sizeLine}>{p.sizeLine}</p> : null}
                 <span className={s.meter} aria-hidden="true">
                   <i style={{ ['--w' as string]: p.share }} />
                 </span>
-                {p.clients ? <p className={s.clients}>{p.clients}</p> : null}
               </div>
               <ul className={s.facts}>
                 <li>

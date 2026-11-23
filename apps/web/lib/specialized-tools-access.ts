@@ -189,7 +189,7 @@ export function specializedToolsUnlockFrom(
  * is for pro and up"*) — its gate is `PLAN_CHATBOT_LEVEL` in lib/vendor-ai-level.ts, not this file.
  *
  * ⚖ WIDENED 2026-11-22 (owner, "FINAL LADDER": *every tool on every paid size*): the two tools now come with EVERY paid
- * plan — Plus (128 GB) included — so {@link PRO_TOOLS_MIN_TIER} is `solo`. The grandfather columns stay as they were.
+ * plan — Plus (10 GB) included — so {@link PRO_TOOLS_MIN_TIER} is `solo`. The grandfather columns stay as they were.
  *
  * THE MIRROR of `vendor_pro_tools_included(shop, event)` (migration 20271356215288, widened by the 2026-11-22 ladder
  * migration), held in step by

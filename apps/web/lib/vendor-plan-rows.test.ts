@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 
 import { BOOKING_FEE, type BookingFeeSchedule } from './booking-fee';
 import { TIER_CAPS } from './vendor-tier-caps';
-import { clientRangeWords } from './supplier-client-room';
+import { clientsKeptWords } from './supplier-client-room';
 import { bookingFeeRow, planGivesLines, planPickLine } from './vendor-plan-rows';
 
 const line = (tier: string, key: string, paywallOn = true) =>
@@ -25,11 +25,11 @@ test('what a plan gives is read from TIER_CAPS', () => {
   assert.equal(line('pro', 'services'), 'No limit in total · every kind of work');
   assert.match(line('pro', 'helpers')!, /^No limit \+ 1 free Helper/);
   assert.equal(line('enterprise', 'services'), 'No limit in total · every kind of work');
-  // Storage is what the plans are sold by: 128 MB · 1 GB · 100 GB · 500 GB · 1 TB (owner 2026-11-23 "SUPPLIER SIZES FIXED").
-  assert.deepEqual(['free', 'verified', 'solo', 'pro', 'enterprise'].map((t) => line(t, 'storage')), ['128 MB', '1 GB', '100 GB', '500 GB', '1 TB']);
-  // …and roughly how many clients that holds, computed from the size (owner 2026-11-23, `clientRangeWords`).
-  for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise']) assert.equal(line(t, 'clients'), clientRangeWords(t), t);
-  assert.equal(line('free', 'clients'), 'Room for about 25–150 clients');
+  // Storage is what the plans are sold by: 100 MB · 1 GB · 10 GB · 256 GB · 1 TB (owner 2026-11-23 "SUPPLIER SIZES FIXED").
+  assert.deepEqual(['free', 'verified', 'solo', 'pro', 'enterprise'].map((t) => line(t, 'storage')), ['100 MB', '1 GB', '10 GB', '256 GB', '1 TB']);
+  // …and, clients first, about how many clients that keeps, computed from the size (owner 2026-11-23, `clientsKeptWords`).
+  for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise']) assert.equal(line(t, 'clients'), clientsKeptWords(t), t);
+  assert.equal(line('free', 'clients'), 'Keeps about 120 clients at a time*');
   // 🔓 No reach line on any plan since 2026-11-19 (owner: "unlock the range. not plan dependend anymore").
   for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise']) assert.equal(line(t, 'reach'), undefined, t);
   // Own web address from Plus up ("website applies to solo as well"); below it, the plan is named from the table.

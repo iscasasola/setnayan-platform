@@ -60,6 +60,7 @@ import { countNoun, formatCount } from '@/lib/format-number';
 import { formatPeso } from '@/lib/v2-catalog-pure';
 import { CARD_MEDALS } from '@/lib/public-badges';
 import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
+import { CLIENTS_FOOTNOTE } from '@/lib/supplier-client-room';
 import { FREE_FINDABLE } from './plan-table-data';
 import {
   EVERY_PLAN_TOOLS,
@@ -483,6 +484,7 @@ export function SupplierFrontPage({
         <SecHead id="sf-h-plans">Plans</SecHead>
         <p className={s.ledeText}>Start free. Grow when your business does.</p>
         <PlanStairs plans={stairs} />
+        <p className={s.fine} data-clients-footnote="">{CLIENTS_FOOTNOTE}</p>
         <p className={`${s.fine} ${s.same}`}>Same tools in every paid size. Only the room grows.</p>
         <p className={s.fine}>No plan limits your inquiries.</p>
         {afterPlans ? <div className={s.after}>{afterPlans}</div> : null}

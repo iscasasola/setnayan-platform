@@ -33,6 +33,7 @@ import type { LimitChange, PayToday, PlanChanges } from '@/lib/plan-sheet';
 import type { DowngradeFit } from '@/lib/downgrade-limits';
 import { LimitsList, LowerPlanSwitch } from './limits-sheet';
 import type { PlanLine } from '@/lib/vendor-plan-rows';
+import { CLIENTS_FOOTNOTE } from '@/lib/supplier-client-room';
 
 type Action = (formData: FormData) => void | Promise<void>;
 /** Monthly only: no yearly supplier plan (owner 2026-11-22, "remove the annual subscription everywhere"). */
@@ -123,6 +124,11 @@ function AlsoRows({ also }: { also: readonly PlanLine[] }) {
           <span className="block text-[13px] text-[color:var(--m-slate-2)]">{g.line}</span>
         </div>
       ))}
+      {also.some((g) => g.key === 'clients') ? (
+        <p className="pt-1 text-sn-sm text-[color:var(--m-slate-2)]" data-clients-footnote="">
+          {CLIENTS_FOOTNOTE}
+        </p>
+      ) : null}
     </div>
   );
 }

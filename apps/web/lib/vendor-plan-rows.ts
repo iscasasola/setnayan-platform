@@ -17,7 +17,7 @@ import { ordinalWord, type BookingFeeStanding } from './booking-fee-disclosure';
 import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
 import { storageWords } from './downgrade-limits';
-import { clientRangeWords } from './supplier-client-room';
+import { clientsKeptWords } from './supplier-client-room';
 import { TIER_CAPS, TIER_LABEL, VENDOR_TIERS, WAITLIST_SETTING_MAX, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
 import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from './specialized-tools-access';
@@ -98,18 +98,18 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     // dependend anymore"); once verified, every plan sets its own.
     { key: 'branches', title: 'Branches beyond your main shop', line: branches },
     {
-      // 💾 Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes — 128 MB · 1 GB · 100 GB · 500 GB · 1 TB (fixed 23 Nov), in the words
+      // 👥 Clients first (owner 2026-11-23 "Yes, clients first"): what the storage keeps, computed from the size
+      // (`clientsKeptWords`, lib/supplier-client-room.ts), never typed. Its asterisk's footnote is `CLIENTS_FOOTNOTE`.
+      key: 'clients',
+      title: 'Clients you keep',
+      line: clientsKeptWords(tier) ?? 'Couldn’t read',
+    },
+    {
+      // 💾 Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes — 100 MB · 1 GB · 10 GB · 256 GB · 1 TB (fixed 23 Nov), in the words
       // `storageWords` prints everywhere else (decimal GB / TB).
       key: 'storage',
       title: 'Storage for your files',
       line: c.storageBytes === null ? 'Couldn’t read' : storageWords(c.storageBytes),
-    },
-    {
-      // 👥 Owner 2026-11-23 "Give them a quick range of how many clients can they serve" — computed from the size
-      // (`clientRangeWords`, lib/supplier-client-room.ts), never typed.
-      key: 'clients',
-      title: 'Clients that fit',
-      line: clientRangeWords(tier) ?? 'Couldn’t read',
     },
     { key: 'insights', title: 'How is my business doing', line: insights },
     {

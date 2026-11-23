@@ -510,9 +510,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         line: [
           extraSeats === null ? null : `${NUMBER.format(extraSeats)} extra ${extraSeats === 1 ? 'seat' : 'seats'}`,
           seatPrice && branchPrice
-            ? seatPrice === branchPrice
-              ? `${seatPrice} each, every 4 weeks`
-              : `seat ${seatPrice} · branch ${branchPrice}, every 4 weeks`
+            ? // A seat folds into the plan's renewal, so it bills by the plan's month (#8219); a branch is still its
+              // own 28-day order window (`BRANCH_PERIOD_DAYS`, sku-activation), so its word stays until that changes.
+              `seat ${seatPrice} ${PLAN_PERIOD.slash} · branch ${branchPrice} / 28 days`
             : null,
         ]
           .filter(Boolean)

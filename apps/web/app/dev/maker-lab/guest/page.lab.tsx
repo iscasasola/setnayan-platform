@@ -291,7 +291,7 @@ const LAB_MARKS: Record<string, string> = {
   tall: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 400"><path d="M60 10 C100 60 100 120 60 170 C20 120 20 60 60 10 Z M50 180 h20 v210 h-20 Z M20 260 h80 v18 h-80 Z" fill="#000"/></svg>',
 };
 /** 🔏 `&seal=minted` — a sample minted seal in a red wax, to walk the couple's own seal (lab sample recipe). */
-const LAB_SEAL: WaxSealConfig = { ...defaultConfigFromSeed(4242), wax: { color: '#8a1f2c', finish: 'glossy' } };
+const LAB_SEAL: WaxSealConfig = { ...defaultConfigFromSeed(4242), wax: { color: LAB_BOARD[3]!, finish: 'glossy' } };
 
 function labOpeningEffects(e: ReturnType<typeof labVeil>, sp: Record<string, string | string[] | undefined>): RevealEffects | undefined {
   const speed = Number(sp.speed);

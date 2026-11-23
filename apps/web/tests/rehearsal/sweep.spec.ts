@@ -62,7 +62,7 @@ const HOME: Record<Persona, string> = { couple: `/dashboard/${FIXTURE.eventId}`,
 
 /** Minutes ONE persona at ONE width may take. Routes past it are listed as "not reached", never as passed. */
 const SWEEP_MINUTES = Number(process.env.SWEEP_MINUTES || 80);
-const ROUTE_SECONDS = Number(process.env.SWEEP_ROUTE_SECONDS || 240);
+const ROUTE_SECONDS = Number(process.env.SWEEP_ROUTE_SECONDS || 150);
 const ROUTE_PRESSES = 150;
 const OPTIONS_PER_DROPDOWN = 12;
 /** Rows of one list (30 guests, 12 suppliers) — the first few are pressed, the rest counted. */
@@ -128,7 +128,16 @@ type Report = {
   noise: Record<string, { why: string; count: number }>;
   blocked: Record<string, number>;
   nativeDialogs: string[];
+  /**
+   * What the app's OWN fault observer (`lib/telemetry/fault-observer.ts`) reported
+   * while the sweep pressed — a dead tap, an action that answered an error, a
+   * dead end. Listed for a look; not failures of the sweep (an uncaught crash is
+   * already one, from the page itself).
+   */
+  appFaults: AppFault[];
 };
+
+type AppFault = { route: string; control: string; type: string; element: string; message: string };
 
 const slugOf = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
 const firstLine = (e: unknown) =>
@@ -167,6 +176,8 @@ class Sweep {
   /** Concrete addresses of [param] routes, found on the screens already opened. */
   readonly seen = new Set<string>();
   private routeFailures = 0;
+  /** When the page last started to move — a fetch it cut short then is the sweep's doing. */
+  private lastNav = 0;
 
   constructor(
     page: Page,
@@ -185,9 +196,38 @@ class Sweep {
       noise: {},
       blocked: {},
       nativeDialogs: [],
+      appFaults: [],
     };
 
+    // The app reports its own faults to /api/telemetry/client-fault. Outside a
+    // production deployment that route records nothing and answers 500
+    // (`backgroundWritesAllowed`), so the sweep answers it here and keeps what
+    // the app said — it is the app telling us which press did nothing.
+    void page.route('**/api/telemetry/client-fault', async (route) => {
+      const raw = route.request().postData() ?? '';
+      try {
+        const body = JSON.parse(raw) as Record<string, unknown>;
+        if (!Array.isArray(body.loads) && !Array.isArray(body.counts)) {
+          const list = Array.isArray(body.faults) ? (body.faults as Record<string, unknown>[]) : [body];
+          for (const f of list) {
+            if (this.report.appFaults.length >= 500) break;
+            this.report.appFaults.push({
+              route: this.now.route,
+              control: this.now.control,
+              type: String(f.event_type ?? 'unknown'),
+              element: String(f.element_name ?? '').slice(0, 120),
+              message: String(f.error_message ?? '').slice(0, 300),
+            });
+          }
+        }
+      } catch {
+        /* not JSON — nothing to keep */
+      }
+      await route.fulfill({ status: 204, body: '' }).catch(() => {});
+    });
+
     page.on('request', (r) => {
+      if (r.isNavigationRequest() && r.frame() === page.mainFrame()) this.lastNav = Date.now();
       if (!isLocalUrl(r.url())) return;
       const t = r.resourceType();
       if (t === 'websocket' || t === 'eventsource' || t === 'media') return;
@@ -212,6 +252,9 @@ class Sweep {
       if (/Failed to load resource: the server responded with a status of 5\d\d/.test(text)) return;
       const noise = consoleNoise(text, src);
       if (noise) return this.noise(noise.id, noise.why);
+      if (/Failed to fetch|NetworkError when attempting to fetch|Load failed/.test(text) && Date.now() - this.lastNav < 3000) {
+        return this.noise('navigation-cut', 'a request the sweep cut short by moving on (the page was left mid-load)');
+      }
       this.fail('console-error', `${text.slice(0, 400)}${src && /Failed to load resource/.test(text) ? ` (${src.replace(BASE, '')})` : ''}`);
     });
     page.on('response', (r) => {

@@ -450,6 +450,13 @@ jobs:
             "select count(*) from rehearsal.swallowed_http" > "$REHEARSAL_OUT/swallowed-http.txt" 2>/dev/null || true
           echo "finished=$(date +%s)" >> "$REHEARSAL_OUT/timings.env"
           node apps/web/tests/rehearsal/summary.mjs "$REHEARSAL_OUT" "${{ steps.walk.outcome }}" "${{ steps.sweep.outcome }}" | tee -a "$GITHUB_STEP_SUMMARY"
+          # The full sweep report goes into the log as well, so it can be read
+          # without downloading the artifact.
+          if [ -f "$REHEARSAL_OUT/SWEEP.md" ]; then
+            echo "::group::SWEEP.md — every screen, every skip, every fault"
+            cat "$REHEARSAL_OUT/SWEEP.md"
+            echo "::endgroup::"
+          fi
           mkdir -p "$RUNNER_TEMP/artifact/rehearsal-screens" "$RUNNER_TEMP/artifact/diagnostics"
           cp "$REHEARSAL_OUT"/screens/*.png "$RUNNER_TEMP/artifact/rehearsal-screens/" 2>/dev/null || true
           cp "$REHEARSAL_OUT/REHEARSAL.md" "$RUNNER_TEMP/artifact/" 2>/dev/null || true

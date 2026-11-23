@@ -216,7 +216,10 @@ if (!sweepRan) {
     const routes = r.routes ?? [];
     const swept = routes.filter((x) => x.status === 'swept' || x.status === 'error-on-load').length;
     const sum = (k) => routes.reduce((n, x) => n + (Array.isArray(x[k]) ? x[k].length : x[k] ?? 0), 0);
-    const notSwept = routes.filter((x) => !['swept', 'error-on-load'].includes(x.status)).length + (r.left ?? []).length;
+    const why = {};
+    for (const x of routes) if (!['swept', 'error-on-load'].includes(x.status)) why[x.status] = (why[x.status] ?? 0) + 1;
+    if ((r.left ?? []).length) why['redirect-only'] = r.left.length;
+    const notSwept = `${Object.values(why).reduce((a, b) => a + b, 0)}${Object.keys(why).length ? ` (${Object.entries(why).map(([k, n]) => `${k} ${n}`).join(', ')})` : ''}`;
     const secs = routes.reduce((n, x) => n + (x.seconds ?? 0), 0);
     sws(`| ${persona} | ${widthLabel(width)} | ${swept} | ${sum('pressed')} | ${sum('options')} | ${sum('dialogs')} | ${sum('skipped')} | ${sum('unpressable')} | ${notSwept} | **${(r.failures ?? []).length}** | ${mins(secs)}${r.finished ? '' : ' (did not finish)'} |`);
   }
@@ -230,7 +233,46 @@ if (!sweepRan) {
   }
   sws();
 }
+// What the app's own fault observer said while the sweep pressed (lib/telemetry/fault-observer.ts).
+const appFaults = sweeps.flatMap((x) => (x.r?.appFaults ?? []).map((f) => ({ ...f, persona: x.persona, width: x.width })));
+if (sweepRan) {
+  const byType = {};
+  for (const f of appFaults) byType[f.type] = (byType[f.type] ?? 0) + 1;
+  sws(`### What the app's own fault observer reported — ${appFaults.length} (not failures of the sweep; worth a look)`);
+  sws();
+  sws(appFaults.length === 0 ? '- none' : `- ${Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([t, n]) => `\`${t}\` ×${n}`).join(' · ')}`);
+  const g = new Map();
+  for (const f of appFaults) {
+    const k = `${f.type}|${f.route}|${f.element || f.control}`;
+    const e = g.get(k) ?? { ...f, n: 0, widths: new Set() };
+    e.n += 1;
+    e.widths.add(`${f.persona} · ${widthLabel(f.width)}`);
+    g.set(k, e);
+  }
+  const top = [...g.values()].sort((a, b) => b.n - a.n);
+  if (top.length > 0) {
+    sws();
+    for (const e of top.slice(0, 30)) {
+      sws(`- \`${e.type}\` on \`${cell(e.route)}\` — "${cell(e.element || e.control)}"${e.message ? `: ${cell(e.message).slice(0, 160)}` : ''} (×${e.n}; ${[...e.widths].join(', ')})`);
+    }
+    if (top.length > 30) sws(`- … and ${top.length - 30} more in SWEEP.md`);
+  }
+  sws();
+}
 const sweepSummary = [...sw];
+if (sweepRan && appFaults.length > 0) {
+  const g = new Map();
+  for (const f of appFaults) {
+    const k = `${f.type}|${f.route}|${f.element || f.control}`;
+    g.set(k, { ...f, n: (g.get(k)?.n ?? 0) + 1 });
+  }
+  sws(`### Every fault the app reported (${g.size} distinct)`);
+  sws();
+  for (const e of [...g.values()].sort((a, b) => b.n - a.n)) {
+    sws(`- \`${e.type}\` · ${e.persona} · ${widthLabel(e.width)} · \`${cell(e.route)}\` · pressing "${cell(e.control)}" · element "${cell(e.element)}"${e.message ? ` — ${cell(e.message).slice(0, 200)}` : ''} (×${e.n})`);
+  }
+  sws();
+}
 
 // The full report (every screen, every skip) — SWEEP.md, in the artifact.
 if (sweepRan) {

@@ -34,7 +34,8 @@ SELECT set_config('rehearsal.host_email',  :'host_email',  false),
        set_config('rehearsal.supplier_name',  :'supplier_name',  false),
        set_config('rehearsal.supplier_shop',  :'supplier_shop',  false),
        set_config('rehearsal.tours_seen',     :'tours_seen',     false),
-       set_config('rehearsal.reply_states',   :'reply_states',   false);
+       set_config('rehearsal.reply_states',   :'reply_states',   false),
+       set_config('rehearsal.terms_version',  :'terms_version',  false);
 \o
 
 DO $seed$
@@ -67,7 +68,9 @@ BEGIN
   SELECT id INTO STRICT v_host FROM auth.users WHERE lower(email) = lower(current_setting('rehearsal.host_email'));
   SELECT id INTO STRICT v_supplier FROM auth.users WHERE lower(email) = lower(current_setting('rehearsal.supplier_email'));
 
-  -- 1 · THE HOST. Terms accepted and tours seen, so the dashboard is not
+  -- 1 · THE HOST. Terms accepted (at the app's own TERMS_VERSION, handed in by
+  -- seed.mts — a typed date went stale on 2026-10-23 and the re-ask covered Home)
+  -- and tours seen, so the dashboard is not
   -- replaced by the terms re-ask or covered by a welcome tour. is_internal
   -- stays FALSE on purpose: an internal account passes every paid gate, and a
   -- rehearsal must see what a paying couple sees.
@@ -75,7 +78,7 @@ BEGIN
      SET first_name = split_part(v_groom_name, ' ', 1),
          last_name = substr(v_groom_name, length(split_part(v_groom_name, ' ', 1)) + 2),
          display_name = v_groom_name,
-         terms_accepted_at = now(), terms_version = '2026-06-30',
+         terms_accepted_at = now(), terms_version = current_setting('rehearsal.terms_version'),
          tour_seen_keys = v_tours
    WHERE user_id = v_host;
   IF NOT FOUND THEN
@@ -220,7 +223,7 @@ BEGIN
          last_name = substr(current_setting('rehearsal.supplier_name'),
                             length(split_part(current_setting('rehearsal.supplier_name'), ' ', 1)) + 2),
          display_name = current_setting('rehearsal.supplier_name'),
-         terms_accepted_at = now(), terms_version = '2026-06-30',
+         terms_accepted_at = now(), terms_version = current_setting('rehearsal.terms_version'),
          tour_seen_keys = v_tours
    WHERE user_id = v_supplier;
   IF NOT FOUND THEN

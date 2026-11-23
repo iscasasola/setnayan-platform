@@ -17,6 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FIXTURE, REPLY_STATE_GUESTS, TOURS_SEEN } from './fixture';
 import { assertLocalUrl } from './local-only';
+import { TERMS_VERSION } from '../../lib/terms-agreement';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -74,6 +75,8 @@ async function main(): Promise<void> {
         supplier_shop: String(FIXTURE.supplier.shopNumber),
         tours_seen: `{${TOURS_SEEN.join(',')}}`,
         reply_states: JSON.stringify(REPLY_STATE_GUESTS),
+        // The version the app asks for today, so neither account is met by the Terms re-ask.
+        terms_version: TERMS_VERSION,
       }).flatMap(([k, v]) => ['-v', `${k}=${v}`]),
       '-f', path.join(HERE, 'seed.sql'),
     ],

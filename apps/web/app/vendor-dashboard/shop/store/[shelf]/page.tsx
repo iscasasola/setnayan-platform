@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: { params: Promise<{ shelf: st
 
 /**
  * 🛍 ONE STORE SHELF (drawing v12 — Specialized Tools · Graphs · Badges). A Shop [+] tile lands here.
- *   Tools  — tag chips, then "For you", "Yours" (Open) and "More tools" (Get · the one-time price · Price not
+ *   Tools  — tag chips, then "For you", "Yours" (✓ Installed) and "More tools" (Install · Buy ₱ the one-time price · Price not
  *            set yet), each tool with the supplier types it is for.
  *   Graphs — "On your Analytics" (✓ On your page; the order lives on the Shop’s Edit), then the groups with Get, or the badge that opens it.
  *   Badges — "On your Shop" (the ones chosen, any number; never chosen = the three closest), "More badges" with Add,

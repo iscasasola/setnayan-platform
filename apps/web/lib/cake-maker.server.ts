@@ -13,8 +13,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { moodCakeColours } from '@/lib/cake-mood-colours';
-import { specialToolsAllowed } from '@/lib/special-tools';
-import { readShopTierWithDeals, readSpecialToolsPaidFrom } from '@/lib/special-tools.server';
+import type { PaidStoreTool } from '@/lib/supplier-store';
 import { CAKE_MESSAGE_MAX, fullCakeOffer, sanitizeCakeConfig, type CakeConfig, type CakeConfigRefusal } from '@/lib/cake-config';
 import { cakeDesignOf, cakeOfferOf, isCakeKind, sanitizeCakeShopOptions, type CakeDesign, type CakeShopOptions, type MoodCakeColour } from '@/lib/cake-maker';
 
@@ -36,45 +35,28 @@ export async function readShopCakeMaker(client: SupabaseClient, vendorProfileId:
   return { status: 'ok', data: checked.options };
 }
 
-/** Is the shop's plan allowed the special tools now (Pro and up, or before the admin's start date)? */
-export async function readShopSpecialToolsAllowed(admin: SupabaseClient, vendorProfileId: string): Promise<Read<boolean>> {
-  // The plan as it acts — promo deals included (a shop on a free-Pro deal is Pro here too).
-  const [paid, shop] = await Promise.all([readSpecialToolsPaidFrom(admin), readShopTierWithDeals(admin, vendorProfileId)]);
-  if (paid.status !== 'ok' || shop.status === 'unread') return { status: 'unread' };
-  if (shop.status === 'none') return { status: 'none' };
-  return { status: 'ok', data: specialToolsAllowed(shop.tier, paid.paidFrom, Date.now()) };
-}
-
 /**
- * 🛍 Is a special paid widget (Cake Maker · Song bank) OPEN for this shop — its plan allows the special tools, OR the shop
- * bought it once in the Toolkit (no trial — owner 23 Nov, "guides only"). The Toolkit's answer is the database's
- * (`vendor_store_tool_open`, service role). Store drawing v10, owner 23 Nov 2026; Song bank gated the same way (owner via
- * the controller, 23 Nov: "gate it everywhere it opens, the same way as the cake").
- * A refused read on both sides is `unread`; a refused Toolkit read with a plan that allows it is still open.
+ * 🧰 Is a paid widget OPEN for this shop — THE one answer (DECISION_LOG a02673ac, owner 23 Nov 2026): bought once in the
+ * Toolkit AND on Plus, Pro or Ultra, from the database (`vendor_store_tool_open`, service role). The plan alone no
+ * longer opens it, and neither does the admin's old open-to-all start date. A refused read is `unread`, never "open".
+ * Read by the Cake Maker (editor, save, the couple's chat), the Song bank (page, actions, public set list).
  */
 export async function readShopSpecialToolOpen(
   admin: SupabaseClient,
   vendorProfileId: string,
-  tool: 'cake_tool' | 'song_bank',
+  tool: PaidStoreTool,
   eventId: string | null = null,
 ): Promise<Read<boolean>> {
-  const [plan, store] = await Promise.all([
-    readShopSpecialToolsAllowed(admin, vendorProfileId),
-    admin.rpc('vendor_store_tool_open', { p_vendor_profile_id: vendorProfileId, p_tool: tool, p_event_id: eventId }).then(
-      ({ data, error }) => {
-        if (error) {
-          logQueryError('readShopSpecialToolOpen.store', error, { vendor_profile_id: vendorProfileId, tool }, 'graceful_degrade');
-          return null;
-        }
-        return data === true;
-      },
-      () => null,
-    ),
-  ]);
-  if (plan.status === 'ok' && plan.data) return plan;
-  if (store === true) return { status: 'ok', data: true };
-  if (plan.status === 'unread' || store === null) return { status: 'unread' };
-  return plan;
+  try {
+    const { data, error } = await admin.rpc('vendor_store_tool_open', { p_vendor_profile_id: vendorProfileId, p_tool: tool, p_event_id: eventId });
+    if (error) {
+      logQueryError('readShopSpecialToolOpen', error, { vendor_profile_id: vendorProfileId, tool }, 'graceful_degrade');
+      return { status: 'unread' };
+    }
+    return { status: 'ok', data: data === true };
+  } catch {
+    return { status: 'unread' };
+  }
 }
 
 /** The Cake Maker's gate — {@link readShopSpecialToolOpen} for `cake_tool`. */

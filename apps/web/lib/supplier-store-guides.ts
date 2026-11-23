@@ -1,13 +1,15 @@
 import type { SpecializedToolKey } from '@/lib/specialized-tools';
+import type { GuideShot, GuideStep } from '@/lib/help/guides';
 
 /**
  * 📘 HOW TO USE IT — one short guide per widget (owner 23 Nov 2026 via the controller: *"Yes, guides only"* — no trial,
  * no "Try it first"; every widget gets a how-to guide). Drawn by `store/_components/widget-guide.tsx` on the widget's
  * Toolkit page (`#guide`), and opened from its panel in Your widgets ("How to use it").
  *
- * SHAPE — the Guide & Help guide's (PR #8174 `lib/help/guides.ts`: `GuideStep` {title, body} and `GuideShot` {src, alt}),
- * with the picture on every step (the controller: "short steps, each with a picture of the real screen"). When #8174
- * lands these rows can join its guide list as they are; until then they live here.
+ * SHAPE — the Guide & Help guide's own types (`lib/help/guides.ts`: `GuideStep` {title, body} and `GuideShot` {src, alt},
+ * imported, never re-declared), with the picture on every step (the controller: "short steps, each with a picture of the
+ * real screen"). Help's guides are page tours; a widget has no tour (supplier page tours were retired), so its steps
+ * are written here, in the same shape, and drawn with Help's step look and `stepsLine`.
  *
  * ✍ EVERY STEP SAYS WHAT THE CODE DOES TODAY, in the screen's own words (each tool's anchor is in the comment above it).
  * No feature is promised. A widget with no screen of its own says so instead of inventing steps.
@@ -17,17 +19,10 @@ import type { SpecializedToolKey } from '@/lib/specialized-tools';
  * 🔒 app/vendor-dashboard/shop/store/the-store-is-the-drawing.test.ts (8).
  */
 
-export type GuideStep = { title: string; body: string };
-export type GuideShot = { src: string; alt: string };
 export type WidgetGuideStep = GuideStep & { shot: GuideShot | null };
 export type WidgetGuide = { key: SpecializedToolKey; title: string; steps: ReadonlyArray<WidgetGuideStep> };
 
 const step = (title: string, body: string): WidgetGuideStep => ({ title, body, shot: null });
-
-/** "4 steps" — the count above a guide. */
-export function guideStepsLine(n: number): string {
-  return `${n} ${n === 1 ? 'step' : 'steps'}`;
-}
 
 /** The on-the-day door every per-event widget shares (`ToolBody` per_event · `onTheDayHref` · the live page's date rule). */
 const ON_THE_DAY = step(

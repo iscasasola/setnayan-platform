@@ -145,7 +145,7 @@ export function ShopMakers({
   const myTools: MyTool[] = (
     mine ?? tools.filter(({ tool: t, suggested }) => t.key === 'scanner' || suggested).map(({ tool: t }) => ({ key: t.key }))
   ).filter((m) => tools.some(({ tool: t }) => t.key === m.key));
-  // "Get" in the Store lands here with `?added=tool:<key>` — that row wears New; `?tool=<key>` (Open) opens its panel.
+  // "Install" in the Toolkit lands here with `?added=tool:<key>` — that row wears New; `?tool=<key>` (Open) opens its panel.
   const addedTool = /^tool:(.+)$/.exec(params.get('added') ?? '')?.[1] ?? null;
   const askedTool = params.get('tool');
   // 🧰 Which tool's panel is open — none until a row is tapped, or the address's own tool (the Store's Open).

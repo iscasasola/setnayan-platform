@@ -148,7 +148,7 @@ export function RepertoireLocked({ saved }: { saved: number }) {
           </p>
         ) : null}
         <div className="mt-1 flex flex-wrap gap-2">
-          <ActionButton tone="brand" main icon={ShoppingBag} label="Get it in the Toolkit" href={SONG_BANK_IN_TOOLKIT} />
+          <ActionButton tone="brand" main icon={ShoppingBag} label="See it in the Toolkit" href={SONG_BANK_IN_TOOLKIT} />
           <ActionButton tone="neutral" icon={BookOpen} label="How to use it" href={`${SONG_BANK_IN_TOOLKIT}#guide`} />
         </div>
       </div>

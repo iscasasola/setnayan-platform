@@ -536,6 +536,7 @@ export const routes = {
     moodboardLibrary: () => `/vendor-dashboard/moodboard-library`,
     more: () => `/vendor-dashboard/more`,
     notifications: () => `/vendor-dashboard/notifications`,
+    onTheDay: () => `/vendor-dashboard/on-the-day`,
     paymentOptions: () => `/vendor-dashboard/payment-options`,
     profile: () => `/vendor-dashboard/profile`,
     proposals: () => `/vendor-dashboard/proposals`,

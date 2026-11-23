@@ -33,6 +33,9 @@ import type { ShelfTile } from './shop-badge-shelf';
 import { storageWords } from './downgrade-limits';
 import { storageAllowanceBytes } from './supplier-storage';
 import { BADGE_WORDS } from '@/app/vendor-dashboard/shop/_components/badges/badge-page-model';
+import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from './special-tools';
+import { formatCount } from './format-number';
+import { routes } from './routes';
 
 // ── THE SHELVES ─────────────────────────────────────────────────────────────
 
@@ -47,6 +50,32 @@ export const SHELF_TITLE: Readonly<Record<StoreShelf, string>> = {
 
 export function isStoreShelf(v: unknown): v is StoreShelf {
   return typeof v === 'string' && (STORE_SHELVES as readonly string[]).includes(v);
+}
+
+/**
+ * 🔢 THE LIVE COUNT (DECISION_LOG 5ae3fbb2, owner 23 Nov): how many widgets, graphs and badges the Toolkit holds, read
+ * from the ONE Toolkit list (`SPECIALIZED_TOOLS`, `CARD_ORDER`, the badge tiles) — never typed. The Toolkit masthead
+ * and the /for-suppliers Toolkit section both read it. `badges: null` = the badge read failed: that part shows nothing.
+ */
+export type ToolkitCounts = Readonly<Record<StoreShelf, number | null>>;
+
+export function toolkitCounts(badges: readonly unknown[] | null): ToolkitCounts {
+  return { tools: SPECIALIZED_TOOLS.length, graphs: CARD_ORDER.length, badges: badges ? badges.length : null };
+}
+
+const SHELF_NOUN: Readonly<Record<StoreShelf, [string, string]>> = {
+  tools: ['widget', 'widgets'],
+  graphs: ['graph', 'graphs'],
+  badges: ['badge', 'badges'],
+};
+
+/** "11 widgets · 29 graphs · 9 badges" — a shelf whose count is unread is left out; nothing read = null (show nothing). */
+export function toolkitCountWords(c: ToolkitCounts): string | null {
+  const parts = STORE_SHELVES.flatMap((k) => {
+    const n = c[k];
+    return n == null || !Number.isFinite(n) ? [] : [`${formatCount(n)} ${SHELF_NOUN[k][n === 1 ? 0 : 1]}`];
+  });
+  return parts.length ? parts.join(' · ') : null;
 }
 
 // ── TOOLS ───────────────────────────────────────────────────────────────────
@@ -88,8 +117,11 @@ export type ToolFacts = {
   owned: ReadonlySet<PaidStoreTool> | null;
   /** Paid tools with an order in review (submitted). null = unread. */
   pending: ReadonlySet<PaidStoreTool> | null;
-  /** The plan (or the admin's open-to-all window) already opens this paid tool. Missing / null = unread. */
-  planOpen: Partial<Record<PaidStoreTool, boolean | null>>;
+  /**
+   * SUBSCRIBED — the shop is on Plus, Pro or Ultra now (`vendor_pro_tools_included`). A paid widget opens only when
+   * bought AND subscribed (owner a02673ac, 23 Nov); the plan alone opens nothing. null = unread.
+   */
+  subscribed: boolean | null;
   /** Each paid tool's catalog price. The whole map null = the catalog could not be read. */
   prices: Partial<Record<PaidStoreTool, ToolPrice>> | null;
   /** Your tools in the shop's order (`store_layout.tools`, free and paid keys); null = never arranged (the default set). */
@@ -154,13 +186,16 @@ export function toolChipGroups(tagsOf: (tool: SpecializedTool) => readonly ToolT
 }
 
 export type ToolStatus =
+  /** Bought AND subscribed: open. */
   | { kind: 'owned' }
-  | { kind: 'plan' }
+  /** Bought, but the shop is on Free or Verified: locked and kept — "Works again when you subscribe", the plans door, no second Buy. */
+  | { kind: 'resubscribe' }
   | { kind: 'free'; added: boolean }
   /** A free widget, held back until the shop is Verified (owner 23 Nov: free widgets open from Verified up). */
   | { kind: 'verify' }
   | { kind: 'pending' }
-  | { kind: 'buy'; price: number }
+  /** Not bought. `needsPlan`: on Free or Verified — the price and the notice show, and the button opens the plans door. */
+  | { kind: 'buy'; price: number; needsPlan: boolean }
   | { kind: 'no_price' }
   | { kind: 'unread' };
 
@@ -198,9 +233,10 @@ export function addedFreeTools(f: Pick<ToolFacts, 'picked' | 'categoryLabels' | 
 }
 
 /**
- * One tool's state. A paid tool: bought → owned; the plan opens it → plan; an order in review → pending (no trial —
- * owner 23 Nov, "guides only"); else the catalog price (or "Price not set yet"). A read that failed on the way to "open" never sells: a shop
- * we cannot tell about sees "Couldn't load", not a price.
+ * One tool's state. A paid widget (owner a02673ac, 23 Nov: bought AND subscribed): bought + on Plus, Pro or Ultra →
+ * owned; bought + on Free or Verified → resubscribe (locked, kept); an order in review → pending (no trial); else the
+ * catalog price, with `needsPlan` when the shop is not subscribed (or "Price not set yet"). The SQL twin is
+ * `vendor_store_tool_open`. A read that failed on the way to "open" never sells: "Couldn't load", not a price.
  */
 export function toolStatus(key: SpecializedToolKey, f: ToolFacts): ToolStatus {
   if (!isPaidStoreTool(key)) {
@@ -209,26 +245,102 @@ export function toolStatus(key: SpecializedToolKey, f: ToolFacts): ToolStatus {
     if (f.freeOpen === false) return { kind: 'verify' };
     return { kind: 'free', added: addedFreeTools(f).includes(key) };
   }
-  if (f.owned?.has(key)) return { kind: 'owned' };
-  if (f.planOpen[key] === true) return { kind: 'plan' };
-  if (f.owned === null || f.planOpen[key] == null || f.pending === null || f.prices === null) return { kind: 'unread' };
+  if (f.owned === null || f.subscribed === null) return { kind: 'unread' };
+  if (f.owned.has(key)) return f.subscribed ? { kind: 'owned' } : { kind: 'resubscribe' };
+  if (f.pending === null || f.prices === null) return { kind: 'unread' };
   if (f.pending.has(key)) return { kind: 'pending' };
   const price = f.prices[key];
-  return typeof price === 'number' && Number.isFinite(price) && price > 0 ? { kind: 'buy', price } : { kind: 'no_price' };
+  return typeof price === 'number' && Number.isFinite(price) && price > 0 ? { kind: 'buy', price, needsPlan: !f.subscribed } : { kind: 'no_price' };
 }
 
-/** Is the tool in the shop's hands right now (Your tools + Open)? */
+/**
+ * Is the tool the shop's (Your widgets)? An owned widget stays the shop's when it locks off-plan — nothing a shop
+ * bought disappears; it reads "Works again when you subscribe" (`toolIsOpen` says whether it works right now).
+ */
 export function toolIsYours(s: ToolStatus): boolean {
-  return s.kind === 'owned' || s.kind === 'plan' || (s.kind === 'free' && s.added);
+  return s.kind === 'owned' || s.kind === 'resubscribe' || (s.kind === 'free' && s.added);
 }
 
-export type StoreToolRow = { tool: SpecializedTool; status: ToolStatus; suggested: boolean; tags: ToolTag[]; forYou: boolean };
+/**
+ * A paid widget's lock, for a page outside the Toolkit (`LockNeed` kind `widget`): owned off-plan → resubscribe; not
+ * bought → the price (null = not set) and whether the shop is subscribed (which door the button is). Open, pending or
+ * unread → null (the page says that state itself).
+ */
+export function widgetLock(s: ToolStatus): { owned: boolean; subscribed: boolean; price: number | null } | null {
+  if (s.kind === 'resubscribe') return { owned: true, subscribed: false, price: null };
+  if (s.kind === 'buy') return { owned: false, subscribed: !s.needsPlan, price: s.price };
+  if (s.kind === 'no_price') return { owned: false, subscribed: true, price: null };
+  return null;
+}
+
+/** Does the tool work for the shop right now? */
+export function toolIsOpen(s: ToolStatus): boolean {
+  return s.kind === 'owned' || (s.kind === 'free' && s.added);
+}
+
+/**
+ * 🧩 INSTALLED (Toolkit v19, DECISION_LOG 5920bbf4): is the widget on the shop's Your widgets now? Free: added (a
+ * built-in always). Paid: held — bought, open or locked off-plan — and not taken off (`store_layout.tools_off`).
+ */
+export function toolIsInstalled(key: string, s: ToolStatus, f: Pick<ToolFacts, 'toolsOff'>): boolean {
+  if (s.kind === 'free') return s.added;
+  if (s.kind === 'owned' || s.kind === 'resubscribe') return !f.toolsOff.includes(key);
+  return false;
+}
+
+/**
+ * ONE WORD FOR THE ACT (Toolkit v19, controller call 5920bbf4): free, owned and grandfathered items not on the page read
+ * "Install"; a paid item not bought reads "Buy ₱…" (the catalog price); an item on the page reads "✓ Installed". "Get" is
+ * never used. An owned paid widget on Free or Verified stays `resubscribe` ("Works again when you subscribe").
+ */
+export type ToolAct =
+  | { kind: 'installed'; builtIn: boolean }
+  | { kind: 'install'; owned: boolean }
+  | Exclude<ToolStatus, { kind: 'owned' } | { kind: 'free' }>;
+
+export function toolAct(key: string, s: ToolStatus, installed: boolean): ToolAct {
+  if (s.kind === 'owned' || s.kind === 'free') {
+    return installed ? { kind: 'installed', builtIn: isBuiltInWidget(key) } : { kind: 'install', owned: s.kind === 'owned' };
+  }
+  return s;
+}
+
+export const INSTALL_WORD = 'Install';
+export const INSTALLED_WORD = 'Installed';
+/** "Buy ₱800" — the price is always the catalog's, formatted by the caller's `lib/php.ts` formatter. */
+export const buyWords = (price: number, formatPrice: (php: number) => string) => `Buy ${formatPrice(price)}`;
+
+/**
+ * 📍 WHERE IT WORKS (Toolkit v19): each place a widget works, with an "Open" to that place's home — in every state,
+ * installed or not. Read from the widget's own door; every address is a `lib/routes.ts` builder.
+ */
+export type WidgetPlace = { key: 'chat' | 'hub' | 'clients' | 'songs' | 'own'; place: string; line: string; href: string };
+
+export function widgetPlaces(tool: SpecializedTool): WidgetPlace[] {
+  const vd = routes.vendorDashboard;
+  const own: WidgetPlace = { key: 'own', place: 'On its own', line: `Shop › Your widgets › ${tool.title}`, href: `${vd.shop.index()}?tool=${encodeURIComponent(tool.key)}#tools` };
+  const hub: WidgetPlace = { key: 'hub', place: 'Event Hub', line: 'On each booked event’s day', href: vd.onTheDay() };
+  if (tool.door.kind === 'cake_tool') {
+    return [{ key: 'chat', place: 'Chat', line: 'Your client builds a cake from a card in your chat', href: vd.messages.index() }, { ...own, line: `${own.line}, where you set what you offer` }];
+  }
+  if (tool.door.kind === 'scanner') {
+    return [{ ...hub, line: 'On the day, the Scanner view counts each guest you serve' }, { ...own, line: `${own.line}, where you set how a scan counts` }];
+  }
+  if (tool.door.kind === 'per_event') return [hub, own];
+  if (tool.key === 'song_bank') return [{ key: 'songs', place: 'Your songs', line: 'The songs you play, kept for your shop page', href: vd.repertoire() }, own];
+  // Papic challenge and the 3D plan work on a booked client's page.
+  return [{ key: 'clients', place: 'Your clients', line: 'On a booked client’s page', href: vd.clients.index() }, own];
+}
+
+export type StoreToolRow = { tool: SpecializedTool; status: ToolStatus; installed: boolean; act: ToolAct; suggested: boolean; tags: ToolTag[]; forYou: boolean };
 
 /** Every tool, suggested first (Scanner leads), each with its state and tags — the Tools shelf's order. */
 export function storeToolRows(f: ToolFacts): StoreToolRow[] {
   return specializedToolsFor(f.categoryLabels, f.services).map(({ tool, suggested }) => {
     const tags = toolTags(tool, f.hubOverrides);
-    return { tool, suggested, status: toolStatus(tool.key, f), tags, forYou: toolIsForYou(tool, tags, f) };
+    const status = toolStatus(tool.key, f);
+    const installed = toolIsInstalled(tool.key, status, f);
+    return { tool, suggested, status, installed, act: toolAct(tool.key, status, installed), tags, forYou: toolIsForYou(tool, tags, f) };
   });
 }
 
@@ -241,7 +353,7 @@ export function toolShelfGroups(rows: readonly StoreToolRow[]): { forYou: StoreT
 
 /**
  * Your tools on the Shop, in the shop's order. Never arranged = the free tools added, then the paid ones it holds (owned,
- * plan). Arranged = the shop's list (a paid key shows only while held); a paid tool held since and not taken off
+ * or locked off-plan). Arranged = the shop's list (a paid key shows only while held); a paid tool held since and not taken off
  * joins at the end — a new buy lands last.
  */
 export function yourTools(f: ToolFacts): StoreToolRow[] {
@@ -272,8 +384,8 @@ export function toolFootWords(s: ToolStatus, formatPrice: (php: number) => strin
   switch (s.kind) {
     case 'owned':
       return 'Owned';
-    case 'plan':
-      return 'With your plan';
+    case 'resubscribe':
+      return PAID_WIDGET_RESUBSCRIBE_WORDS;
     case 'free':
       return 'Free';
     case 'verify':
@@ -281,7 +393,7 @@ export function toolFootWords(s: ToolStatus, formatPrice: (php: number) => strin
     case 'pending':
       return 'Payment in review';
     case 'buy':
-      return `${formatPrice(s.price)} · one-time`;
+      return s.needsPlan ? `${formatPrice(s.price)} · ${PAID_WIDGET_NEEDS_PLAN_WORDS}` : `${formatPrice(s.price)} · one-time`;
     case 'no_price':
       return 'Price not set yet';
     case 'unread':

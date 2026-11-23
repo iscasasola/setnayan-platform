@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * 🛍 SHOP › STORE (owner 23 Nov 2026 — drawing `supplier_store_graphs_badges_2026-11-23` v10, F1): three shelves —
- * Specialized Tools · Graphs · Badges — each a sideways row with "See all N". Tools say Open · Get · their one-time
+ * Specialized Tools · Graphs · Badges — each a sideways row with "See all N". Tools say ✓ Installed · Install · Buy with their one-time
  * price (from the catalog); graphs are all free; badges are earned, never sold (Track). Search at the thumb.
  * One read (`loadStore`). 🔒 lib/supplier-store.test.ts · shop/store/the-store-is-the-drawing.test.ts
  */

@@ -14,9 +14,13 @@
 --   2 · OWNED = A PAID ORDER. A shop owns a paid tool while it has an order for that tool's SKU in `paid` or
 --       `fulfilled` (the orders-backed gate: a refund or a reject takes it back with no extra write). No new table.
 --   3 · NO TRIAL (owner 23 Nov, "guides only"): nothing is stamped on Verified; the old 9 Nov columns stay untouched.
---   4 · `vendor_store_tool_open(shop, tool, event)` — THE answer for one paid tool from the Store: bought once.
---       A plan that includes the tool still answers through `vendor_pro_tools_included` in each caller. The photo
---       challenge and the branded 3D booth now ask it too (bodies from 20271356215288, one arm added each).
+--   4 · BOUGHT AND SUBSCRIBED (DECISION_LOG a02673ac, owner 23 Nov). ONE rule for every paid widget (Cake Maker ·
+--       Song bank · Papic challenge · 3D plan): it opens only when the shop BOUGHT it AND is on Plus, Pro or Ultra.
+--       The plan alone no longer includes anything. Two functions say it:
+--         `vendor_pro_tools_included(shop, event)` — the subscription half: a live Plus, Pro or Ultra plan, nothing else
+--           (the frozen 20 Nov grandfather arms are dropped; 5bfefe76 replaces them, item 7).
+--         `vendor_store_tool_open(shop, tool, event)` — THE answer: bought once AND subscribed.
+--       The photo challenge and the branded 3D booth ask only `vendor_store_tool_open` (plus their legacy paid arms).
 --   5 · THE SHOP'S LAYOUT — ONE column, `vendor_profiles.store_layout` (jsonb), for all three Shop rows (owner via
 --       the controller, 23 Nov: add · remove · reorder, "in one place for all three rows"). Shape:
 --         { "graphs": [...] | null, "badges": [...] | null, "tools": [...] | null, "tools_off": [...] }
@@ -28,6 +32,10 @@
 --   6 · ONE TOOL KEY (owner via the controller, 23 Nov: "one SpecializedToolKey"). The usage log's 3D key `3d_plan`
 --       becomes `plan_3d`, the key the Store's SKU (`vendor_tool_plan_3d`) and `vendor_store_tool_open` already use.
 --       Rows move first, then the CHECK is swapped. No row can clash on the UNIQUE shape: `plan_3d` was not allowed.
+--   7 · GRANDFATHERING (DECISION_LOG 5bfefe76). Each shop on a live Plus, Pro or Ultra plan that has a saved Papic
+--       challenge (a `papic_missions` row it wrote, source 'vendor') or a saved 3D plan (an `event_vendor_booth_posters`
+--       row) gets an OWNED row for that widget: a zero-total `orders` row, status 'paid', `payment_method_key` 'grandfathered'.
+--       No charge. It still locks off-plan (item 4). Written here, by the pipeline: never by hand.
 --
 -- 🛑 NEVER APPLIED BY HAND. The pipeline pushes this file (CLAUDE.md §5), on the controller's go.
 -- Idempotent: IF NOT EXISTS / CREATE OR REPLACE / ON CONFLICT DO NOTHING / guarded backfill.
@@ -45,8 +53,34 @@ VALUES
   ('vendor_tool_plan_3d',         '3D plan',         499, 'custom_addon', TRUE, 93, 'Specialized tool, one-time. Your booth inside the couple''s 3D plan. Owned forever, never renews.')
 ON CONFLICT (sku_code) DO NOTHING;
 
--- ── 4 · THE ONE ANSWER FOR A PAID TOOL ──────────────────────────────────────
--- p_tool is the Store's key: cake_tool · song_bank · papic_challenge · plan_3d (SKU = 'vendor_tool_' || p_tool).
+-- ── 4 · THE ONE ANSWER FOR A PAID TOOL: BOUGHT AND SUBSCRIBED ───────────────
+-- The subscription half — body from 20271360033501 with the frozen grandfather arms removed (owner a02673ac: "the plan
+-- alone no longer includes it"; the grandfathering is item 7's owned rows). Same signature: grants carry over.
+CREATE OR REPLACE FUNCTION public.vendor_pro_tools_included(
+  p_vendor_profile_id UUID,
+  p_event_id          UUID
+)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT COALESCE((
+    SELECT vp.tier_state::TEXT IN ('solo', 'pro', 'enterprise')
+       AND (vp.tier_expires_at IS NULL OR vp.tier_expires_at > NOW())
+      FROM public.vendor_profiles vp
+     WHERE vp.vendor_profile_id = p_vendor_profile_id
+  ), FALSE);
+$$;
+
+COMMENT ON FUNCTION public.vendor_pro_tools_included(UUID, UUID) IS
+  'The SUBSCRIPTION half of a paid widget (DECISION_LOG a02673ac, owner 23 Nov 2026): TRUE while the shop is on a live Plus, Pro or Ultra plan. It opens nothing on its own — vendor_store_tool_open is bought AND this. p_event_id is kept for the callers. Mirror: proToolsIncludedFrom (apps/web/lib/specialized-tools-access.ts). service_role only.';
+
+REVOKE ALL ON FUNCTION public.vendor_pro_tools_included(UUID, UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.vendor_pro_tools_included(UUID, UUID) TO service_role;
+
+-- p_tool is the Toolkit's key: cake_tool · song_bank · papic_challenge · plan_3d (SKU = 'vendor_tool_' || p_tool).
 -- p_event_id is kept so every caller passes the event it asks about; a one-time buy is open at every event.
 CREATE OR REPLACE FUNCTION public.vendor_store_tool_open(
   p_vendor_profile_id UUID,
@@ -60,22 +94,24 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
   SELECT
-    -- Bought once: an order for this tool, paid (a refund or a reject takes it back).
+    -- Bought once: an order for this widget, paid (a refund or a reject takes it back) …
     EXISTS (
       SELECT 1 FROM public.orders o
        WHERE o.vendor_profile_id = p_vendor_profile_id
          AND o.service_key = 'vendor_tool_' || p_tool
          AND o.status IN ('paid', 'fulfilled')
-    );
+    )
+    -- … AND subscribed: on Plus, Pro or Ultra right now.
+    AND public.vendor_pro_tools_included(p_vendor_profile_id, p_event_id);
 $$;
 
 COMMENT ON FUNCTION public.vendor_store_tool_open(UUID, TEXT, UUID) IS
-  'Is this paid Store tool open for this shop? TRUE when the shop bought it once (an order for vendor_tool_<tool> in paid/fulfilled) — owned forever; a refund or a reject takes it back. No trial (owner 23 Nov 2026, "guides only"). Plans that include the tool answer through vendor_pro_tools_included in each caller. Mirror: storeToolOpenFrom (apps/web/lib/supplier-store.ts). service_role only.';
+  'Is this paid widget open for this shop? TRUE when the shop BOUGHT it once (an order for vendor_tool_<tool> in paid/fulfilled; a refund or a reject takes it back) AND is subscribed (vendor_pro_tools_included: a live Plus, Pro or Ultra plan). DECISION_LOG a02673ac, owner 23 Nov 2026. Owned but off-plan = locked, "Works again when you subscribe". No trial. Mirror: toolStatus (apps/web/lib/supplier-store.ts). service_role only.';
 
 REVOKE ALL ON FUNCTION public.vendor_store_tool_open(UUID, TEXT, UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.vendor_store_tool_open(UUID, TEXT, UUID) TO service_role;
 
--- The photo challenge — body from 20271356215288; ONE arm added: bought once in the Store.
+-- The photo challenge — body from 20271356215288: the plan arm REPLACED by the one answer (bought AND subscribed).
 CREATE OR REPLACE FUNCTION public.vendor_papic_challenge_entitled(
   p_vendor_profile_id UUID,
   p_event_id          UUID
@@ -92,15 +128,14 @@ AS $$
        AND vp.papic_challenge_expires_at IS NOT NULL
        AND vp.papic_challenge_expires_at > NOW()
   )
-  OR public.vendor_pro_tools_included(p_vendor_profile_id, p_event_id)
-  -- ⟵ ADDED (owner 23 Nov): bought once in the Store.
+  -- ⟵ CHANGED (owner a02673ac): bought in the Toolkit AND on Plus, Pro or Ultra. The plan alone no longer opens it.
   OR public.vendor_store_tool_open(p_vendor_profile_id, 'papic_challenge', p_event_id);
 $$;
 
 COMMENT ON FUNCTION public.vendor_papic_challenge_entitled(UUID, UUID) IS
-  'May this shop run a Papic Challenge at this event? TRUE for a live legacy 28-day subscription, vendor_pro_tools_included (the plan, or grandfathered), OR vendor_store_tool_open(…,''papic_challenge'',…) — bought once in the Store (owner 23 Nov 2026). THE SINGLE definition — called by papic_create_vendor_challenge and papic_vendor_challenge_photos.';
+  'May this shop run a Papic Challenge at this event? TRUE for a live legacy 28-day subscription OR vendor_store_tool_open(…,''papic_challenge'',…) — bought in the Toolkit AND on Plus, Pro or Ultra (owner a02673ac, 23 Nov 2026). THE SINGLE definition — called by papic_create_vendor_challenge and papic_vendor_challenge_photos.';
 
--- The branded 3D booth — body from 20271356215288; ONE arm added to the booked-shop half.
+-- The branded 3D booth — body from 20271356215288: the booked-shop half asks the one answer (bought AND subscribed).
 CREATE OR REPLACE FUNCTION public.event_branded_booth_vendor_ids(p_event_id UUID)
 RETURNS SETOF UUID
 LANGUAGE sql
@@ -122,11 +157,8 @@ AS $$
       AND ev.marketplace_vendor_id IS NOT NULL
       AND ev.status IN ('contracted', 'deposit_paid', 'delivered', 'complete')
       AND ev.archived_at IS NULL
-      AND (
-        public.vendor_pro_tools_included(ev.marketplace_vendor_id, p_event_id)
-        -- ⟵ ADDED (owner 23 Nov): bought once in the Store.
-        OR public.vendor_store_tool_open(ev.marketplace_vendor_id, 'plan_3d', p_event_id)
-      )
+      -- ⟵ CHANGED (owner a02673ac): bought in the Toolkit AND on Plus, Pro or Ultra.
+      AND public.vendor_store_tool_open(ev.marketplace_vendor_id, 'plan_3d', p_event_id)
   ) x
   WHERE (
       public.is_admin()
@@ -136,7 +168,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.event_branded_booth_vendor_ids(UUID) IS
-  'Which vendors brand their 3D booth at this event beyond the legacy 28-day window: a PAID per-event 3D Booth order (retired 2026-11-09, paid orders honoured) OR a booked shop for which vendor_pro_tools_included is true OR that bought the 3D plan once in the Store (vendor_store_tool_open, owner 23 Nov 2026). service_role ONLY — read by lib/seating.ts fetchBooths. Ids only — never amounts.';
+  'Which vendors brand their 3D booth at this event: a PAID per-event 3D Booth order (retired 2026-11-09, paid orders honoured) OR a booked shop for which vendor_store_tool_open(…,''plan_3d'',…) is true — bought in the Toolkit AND on Plus, Pro or Ultra (owner a02673ac, 23 Nov 2026). service_role ONLY — read by lib/seating.ts fetchBooths. Ids only — never amounts.';
 
 REVOKE ALL ON FUNCTION public.event_branded_booth_vendor_ids(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.event_branded_booth_vendor_ids(UUID) TO service_role;
@@ -234,5 +266,34 @@ BEGIN
     RAISE EXCEPTION 'POST-CONDITION FAILED: a usage row still says 3d_plan';
   END IF;
 END $$;
+
+-- ── 7 · GRANDFATHERING: saved work on a paid plan becomes an owned widget (DECISION_LOG 5bfefe76) ──────────
+-- One zero-total 'paid' order per shop per widget, only for a shop on a live Plus, Pro or Ultra plan RIGHT NOW with saved work.
+-- NOT EXISTS keeps a re-apply from writing twice; a shop that already bought it gets nothing new. The reference is
+-- derived from the shop and the widget, so it is unique and the same on every run. Off-plan it still locks (item 4).
+INSERT INTO public.orders
+  (event_id, user_id, vendor_profile_id, service_key, description, requested_total_php, status, reference_code, payment_method_key)
+SELECT NULL, vp.user_id, vp.vendor_profile_id, 'vendor_tool_' || w.tool,
+       'Grandfathered: ' || w.title || ' (saved work kept when the Toolkit shipped, no charge)',
+       0, 'paid'::order_status,
+       'GF-' || upper(substr(md5(vp.vendor_profile_id::text || ':' || w.tool), 1, 16)),
+       'grandfathered'
+  FROM public.vendor_profiles vp
+  CROSS JOIN (VALUES ('papic_challenge', 'Papic challenge'), ('plan_3d', '3D plan')) AS w(tool, title)
+ WHERE vp.tier_state::TEXT IN ('solo', 'pro', 'enterprise')
+   AND (vp.tier_expires_at IS NULL OR vp.tier_expires_at > NOW())
+   AND (
+     (w.tool = 'papic_challenge' AND EXISTS (
+        SELECT 1 FROM public.papic_missions m
+          JOIN public.event_vendors ev ON ev.vendor_id = m.vendor_id
+         WHERE m.source = 'vendor' AND ev.marketplace_vendor_id = vp.vendor_profile_id))
+     OR (w.tool = 'plan_3d' AND EXISTS (
+        SELECT 1 FROM public.event_vendor_booth_posters bp WHERE bp.vendor_profile_id = vp.vendor_profile_id))
+   )
+   AND NOT EXISTS (
+     SELECT 1 FROM public.orders o
+      WHERE o.vendor_profile_id = vp.vendor_profile_id
+        AND o.service_key = 'vendor_tool_' || w.tool
+        AND o.status IN ('paid', 'fulfilled'));
 
 COMMIT;

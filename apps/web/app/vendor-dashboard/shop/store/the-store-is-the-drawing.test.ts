@@ -10,7 +10,7 @@
  *      never ₱0. Badges are earned, never sold: no Buy on the Badges shelf.
  *   5. The Store's pages are registered (Back knows them) and use the route builders.
  *   6. The Tools shelf opens with its tag chips and "For you" first; every tool row and item carries its tags. What is
- *      on the page says "✓ On your page"; nothing on a shelf drags (the order lives on the Shop's Edit).
+ *      on the page says "✓ Installed" (v19); nothing on a shelf drags (the order lives on the Shop's Edit).
  *   7. No "Try it first" (owner 23 Nov 2026: "no more try first"): no demo door in the Store, and the Cake Maker
  *      designer has no demo mode.
  *
@@ -104,7 +104,7 @@ test('6 · tags and For you on the Tools shelf; on-page rows say so; shelves nev
   assert.match(views, /<TagChips key="tags" tags=\{row\.tags\} \/>/, 'a tool row lost its tags');
   assert.match(views, /tags=\{<TagChips tags=\{row\.tags\} max=\{1\} \/>\}/, 'a Store tile lost its tags');
   assert.match(SCREENS, /<TagChips tags=\{tags\} max=\{6\} \/>/, 'a tool item lost its tags');
-  assert.match(views, /On your page/);
+  assert.match(views, /children = INSTALLED_WORD/, 'an installed row reads ✓ Installed (Toolkit v19)');
   assert.doesNotMatch(SCREENS, /GraphArrange|drag to arrange|onPointerDown/, 'a shelf drags again (the order lives on the Shop’s Edit)');
 });
 

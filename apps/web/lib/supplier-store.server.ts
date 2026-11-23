@@ -10,10 +10,9 @@ import type { TrackerRewardInput } from '@/lib/badge-rewards';
 import { shopBadgeShelf, type ShelfTile } from '@/lib/shop-badge-shelf';
 import { readGraphUnlockFacts } from '@/lib/graph-unlocks.server';
 import { graphUnlocks, type GraphUnlocks } from '@/lib/graph-unlocks';
-import { readShopSpecialToolsAllowed } from '@/lib/cake-maker.server';
 import { fetchVendorSpecializationSubscription } from '@/lib/vendor-specialization-gate.server';
 import { freeWidgetsOpen } from '@/lib/vendor-specialization-gate';
-import { PAID_STORE_TOOLS, STORE_TOOL_SKUS, readLayout, toolOfSku, type PaidStoreTool, type HubOverrides, type StoreLayout, type ToolFacts, type ToolPrice } from '@/lib/supplier-store';
+import { PAID_STORE_TOOLS, STORE_TOOL_SKUS, readLayout, toolOfSku, toolStatus, type ToolStatus, type PaidStoreTool, type HubOverrides, type StoreLayout, type ToolFacts, type ToolPrice } from '@/lib/supplier-store';
 import { nameKey } from '@/lib/hub-tools';
 
 /**
@@ -123,23 +122,21 @@ async function readToolOrders(admin: SupabaseClient, vendorProfileId: string): P
   return { owned, pending };
 }
 
-/** Does the plan already open the paid tools? Cake Maker + Song bank: the special-tools rule; Papic + 3D: Pro's. */
-async function readPlanOpen(admin: SupabaseClient, vendorProfileId: string): Promise<Partial<Record<PaidStoreTool, boolean | null>>> {
-  const [special, pro] = await Promise.all([
-    readShopSpecialToolsAllowed(admin, vendorProfileId),
-    admin.rpc('vendor_pro_tools_included', { p_vendor_profile_id: vendorProfileId, p_event_id: null }).then(
-      ({ data, error }) => {
-        if (error) {
-          logQueryError('readStorePlanOpen.pro', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
-          return null;
-        }
-        return data === true;
-      },
-      () => null,
-    ),
-  ]);
-  const sp = special.status === 'ok' ? special.data : special.status === 'none' ? false : null;
-  return { cake_tool: sp, song_bank: sp, papic_challenge: pro, plan_3d: pro };
+/**
+ * SUBSCRIBED — is the shop on Plus, Pro or Ultra now? The subscription half of a paid widget (owner a02673ac), the SQL
+ * `vendor_pro_tools_included` (service role). null = unread.
+ */
+async function readSubscribed(admin: SupabaseClient, vendorProfileId: string): Promise<boolean | null> {
+  return admin.rpc('vendor_pro_tools_included', { p_vendor_profile_id: vendorProfileId, p_event_id: null }).then(
+    ({ data, error }) => {
+      if (error) {
+        logQueryError('readStoreSubscribed', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+        return null;
+      }
+      return data === true;
+    },
+    () => null,
+  );
 }
 
 /**
@@ -160,10 +157,10 @@ export async function readStoreToolFacts(
   services: readonly string[],
   layout: StoreLayout | null,
 ): Promise<ToolFacts> {
-  const [freeOpen, orders, planOpen, prices, categoryLabels, hubOverrides] = await Promise.all([
+  const [freeOpen, orders, subscribed, prices, categoryLabels, hubOverrides] = await Promise.all([
     readFreeOpen(admin, vendorProfileId),
     readToolOrders(admin, vendorProfileId),
-    readPlanOpen(admin, vendorProfileId),
+    readSubscribed(admin, vendorProfileId),
     readStoreToolPrices(admin),
     readCategoryLabels(client, vendorProfileId),
     readHubOverrides(admin),
@@ -172,7 +169,7 @@ export async function readStoreToolFacts(
     freeOpen,
     owned: orders ? orders.owned : null,
     pending: orders ? orders.pending : null,
-    planOpen,
+    subscribed,
     prices,
     picked: layout?.tools ?? null,
     toolsOff: layout?.toolsOff ?? [],
@@ -182,14 +179,28 @@ export async function readStoreToolFacts(
   };
 }
 
-/** Is this paid tool open for this shop — bought once? The SQL answer (`vendor_store_tool_open`). */
-export async function readStoreToolOpen(admin: SupabaseClient, vendorProfileId: string, tool: PaidStoreTool, eventId: string | null = null): Promise<boolean | null> {
-  const { data, error } = await admin.rpc('vendor_store_tool_open', { p_vendor_profile_id: vendorProfileId, p_tool: tool, p_event_id: eventId });
-  if (error) {
-    logQueryError('readStoreToolOpen', error, { vendor_profile_id: vendorProfileId, tool }, 'graceful_degrade');
-    return null;
-  }
-  return data === true;
+/**
+ * 🧰 One paid widget's Toolkit status for a page outside the Toolkit (the 3D booth and the photo challenge on a client's
+ * event): the SAME `toolStatus` the Toolkit draws, from the same reads — owned, subscribed, in review, the catalog price.
+ * `owned` = open (bought AND subscribed); `resubscribe` = owned, off-plan; `buy` carries the price and `needsPlan`.
+ */
+export async function readPaidWidgetStatus(admin: SupabaseClient, vendorProfileId: string, tool: PaidStoreTool): Promise<ToolStatus> {
+  const [orders, subscribed, prices] = await Promise.all([
+    readToolOrders(admin, vendorProfileId),
+    readSubscribed(admin, vendorProfileId),
+    readStoreToolPrices(admin),
+  ]);
+  return toolStatus(tool, {
+    freeOpen: null,
+    owned: orders ? orders.owned : null,
+    pending: orders ? orders.pending : null,
+    subscribed,
+    prices,
+    picked: null,
+    toolsOff: [],
+    categoryLabels: [],
+    services: [],
+  });
 }
 
 const FACTS_UNREAD = Symbol('badge facts unread');

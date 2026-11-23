@@ -15,7 +15,7 @@ import { storeAction } from '../store-actions';
 /**
  * 🛍 THE STORE'S PRESSES (owner 23 Nov 2026; drawing `supplier_store_graphs_badges_2026-11-23` v12).
  *
- *  · `StoreOp`       — ONE button that runs ONE Store op (Get · Add · Buy · Remove) through `storeAction`, then says
+ *  · `StoreOp`       — ONE button that runs ONE Store op (Install · Buy · Remove) through `storeAction`, then says
  *                      what happened in a small toast — or the plain reason it failed. Success refreshes the screen; a
  *                      `landTo` address takes the shop to where the thing landed (the Shop, the item marked New).
  *  · `StoreThumb`    — the Store's thumb row: search (an icon until tapped) and, on a shelf, Show & sort behind Sliders.

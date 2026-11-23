@@ -453,10 +453,10 @@ export interface TierCaps {
   /** Card maker units view: Floor plan (rooms and tables) — every paid plan (owner 2026-11-22 "FINAL LADDER": every tool on every paid size). Grid is on every plan. */
   floorPlanUnits: boolean;
   /**
-   * 🎂 SPECIAL TOOLS — the Cake Maker and every special tool after it: a plan benefit of every paid plan (owner 2026-11-22 "FINAL LADDER":
-   * "every tool on every paid size"; was Pro and up), never a separate fee. Until the admin
-   * start date (`specialToolsOpenToAll`, lib/special-tools.ts) every shop may use them. A shop that drops to Free or
-   * Verified keeps its saved options and designs; the tool locks and comes back on upgrade.
+   * 🧰 PAID WIDGETS — the plans a BOUGHT paid widget (Cake Maker · Song bank · Papic challenge · 3D plan) works on
+   * (owner a02673ac, 23 Nov 2026: bought AND on Plus, Pro or Ultra; the plan alone no longer includes it). The SQL twin
+   * is `vendor_pro_tools_included`; the whole answer is `vendor_store_tool_open`. A shop that drops to Free or Verified
+   * keeps what it bought and its saved work; the widget locks ("Works again when you subscribe").
    */
   specialTools: boolean;
   /**
@@ -509,7 +509,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     formMediaUploads: false, // owner 2026-11-22 "FINAL LADDER": every tool on every paid size — not on the free plans
     cardMakerDetailed: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
     floorPlanUnits: false, // owner 2026-11-22 "FINAL LADDER": Floor plan view on every paid size; Grid for all
-    specialTools: false, // owner 2026-11-22 "FINAL LADDER": every tool on every paid size
+    specialTools: false, // a paid widget works only on a paid plan, and only once bought (owner a02673ac, 23 Nov)
     formVideoLinks: false, // owner 2026-11-22 "FINAL LADDER": every tool on every paid size
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
@@ -560,7 +560,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     formMediaUploads: false, // owner 2026-11-22 "FINAL LADDER": every tool on every paid size — not on the free plans
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
     floorPlanUnits: false, // owner 2026-11-22 "FINAL LADDER": Floor plan view on every paid size; Grid for all
-    specialTools: false, // owner 2026-11-22 "FINAL LADDER": every tool on every paid size
+    specialTools: false, // a paid widget works only on a paid plan, and only once bought (owner a02673ac, 23 Nov)
     formVideoLinks: false, // owner 2026-11-22 "FINAL LADDER": every tool on every paid size
     slotsPerDay: Infinity, // no plan limit (2026-10-23; was 1)
     slotsTimeBounded: false,
@@ -596,7 +596,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     formMediaUploads: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
     floorPlanUnits: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
-    specialTools: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
+    specialTools: true, // a paid widget bought in the Toolkit works on this plan (owner a02673ac, 23 Nov; was "included")
     formVideoLinks: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
     chat: 'chat',
     parentCategories: Infinity, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": no category cap on a paid size
@@ -640,7 +640,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     formMediaUploads: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
     floorPlanUnits: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
-    specialTools: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
+    specialTools: true, // a paid widget bought in the Toolkit works on this plan (owner a02673ac, 23 Nov; was "included")
     formVideoLinks: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
     serviceCardsTotal: Infinity, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": live cards 1 · 3 · 15 · no limit · no limit
     chat: 'chat',
@@ -686,7 +686,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     formMediaUploads: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
     floorPlanUnits: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
-    specialTools: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
+    specialTools: true, // a paid widget bought in the Toolkit works on this plan (owner a02673ac, 23 Nov; was "included")
     formVideoLinks: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
     serviceCardsTotal: Infinity, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": live cards 1 · 3 · 15 · no limit · no limit
     chat: 'chat',

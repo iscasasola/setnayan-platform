@@ -32,7 +32,7 @@ function labStore(fail: boolean, none: boolean, tiles: ShelfTile[] | null): Stor
       freeOpen: fail ? null : none ? false : true,
       owned: fail ? null : none ? new Set() : new Set(['cake_tool']),
       pending: fail ? null : new Set(),
-      planOpen: { cake_tool: false, song_bank: false, papic_challenge: false, plan_3d: false },
+      subscribed: true,
       prices: fail ? null : {},
       picked: fail ? null : none ? null : ['scanner', 'headcount', 'run_of_show'],
       toolsOff: [],

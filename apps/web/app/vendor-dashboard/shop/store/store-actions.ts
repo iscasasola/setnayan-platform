@@ -25,6 +25,7 @@ import {
   type PaidStoreTool,
 } from '@/lib/supplier-store';
 import { readStoreLayout, readStoreToolFacts } from '@/lib/supplier-store.server';
+import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from '@/lib/special-tools';
 
 /**
  * 🛍 THE STORE'S ONE SERVER ACTION (owner 23 Nov 2026; drawing specs `prototypes/supplier_store_graphs_badges_2026-11-23/`).
@@ -122,10 +123,13 @@ async function buyTool(formData: FormData, who: { userId: string; shopId: string
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  // ── Never charge for what the shop already has: owned, with its plan, or an order in review.
+  // ── Never charge for what the shop already has (owned, or an order in review), and never sell a widget that would
+  //    not work: a bought widget works only on Plus, Pro or Ultra (owner a02673ac) — Free and Verified get the plans door.
   const facts = await readStoreToolFacts(supabase, admin, who.shopId, who.services, null);
   const state = toolStatus(tool, facts);
-  if (state.kind === 'owned' || state.kind === 'plan') return ok('It is already yours. Open it from Your widgets.');
+  if (state.kind === 'owned') return ok('It is already yours. Open it from Your widgets.');
+  if (state.kind === 'resubscribe') return err(`It is already yours. ${PAID_WIDGET_RESUBSCRIBE_WORDS}.`);
+  if (state.kind === 'buy' && state.needsPlan) return err(`${PAID_WIDGET_NEEDS_PLAN_WORDS}. Choose a plan first — you have not been charged.`);
   if (state.kind === 'pending') return err('Your payment for this widget is in review. It opens once our team confirms it.');
   if (state.kind === 'unread') return err('Couldn’t check your widgets just now. You have not been charged — try again.');
 

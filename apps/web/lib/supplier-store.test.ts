@@ -38,8 +38,18 @@ import {
   followedBadges,
   storageMeter,
   storeToolSku,
+  INSTALLED_WORD,
+  INSTALL_WORD,
+  buyWords,
+  toolAct,
   toolFootWords,
+  toolIsInstalled,
+  toolIsOpen,
+  widgetPlaces,
   toolIsYours,
+  toolkitCountWords,
+  toolkitCounts,
+  widgetLock,
   graphLockedLine,
   isNewGraph,
   toolOfSku,
@@ -58,6 +68,10 @@ import {
 import { HUB_TOOLS_SEED, nameKey } from './hub-tools';
 import { CARD_ORDER, DEFAULT_INSTALLED_GRAPHS } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import type { ShelfTile } from './shop-badge-shelf';
+import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from './special-tools';
+import { SPECIALIZED_TOOLS } from './specialized-tools';
+import { SHOP_BADGE_KEYS } from './badge-tiers';
+import { TOOL_VIDEO_KEYS, toolVideoKey } from './toolkit-videos';
 
 const WEB = process.cwd();
 
@@ -65,7 +79,7 @@ const facts = (over: Partial<ToolFacts> = {}): ToolFacts => ({
   freeOpen: true,
   owned: new Set(),
   pending: new Set(),
-  planOpen: { cake_tool: false, song_bank: false, papic_challenge: false, plan_3d: false },
+  subscribed: true,
   prices: { cake_tool: 123, song_bank: 123, papic_challenge: 123, plan_3d: 123 },
   picked: null,
   toolsOff: [],
@@ -83,7 +97,7 @@ test('1b · free widgets open from Verified up — the day-of gate’s own rule 
   assert.equal(toolFootWords({ kind: 'verify' }, String), 'Free once you’re Verified');
   // Unread: "Couldn't load", never open and never locked by guess.
   assert.deepEqual(toolStatus('headcount', facts({ freeOpen: null })), { kind: 'unread' });
-  // Paid widgets do not ride the Verified fact: bought or in the plan.
+  // Paid widgets do not ride the Verified fact: bought AND subscribed (owner a02673ac).
   assert.deepEqual(toolStatus('cake_tool', facts({ freeOpen: false, owned: new Set(['cake_tool']) })), { kind: 'owned' });
   // ONE rule: the server computes freeOpen with the gate's own function.
   const server = readFileSync(join(WEB, 'lib/supplier-store.server.ts'), 'utf8');
@@ -106,7 +120,7 @@ test('1 · four paid tools, one catalog SKU each, seeded by the migration; no pr
   // No price → said so; a price → the one-time words; never ₱0.
   assert.deepEqual(toolStatus('cake_tool', facts({ prices: {} })), { kind: 'no_price' });
   assert.deepEqual(toolStatus('cake_tool', facts({ prices: { cake_tool: 0 } })), { kind: 'no_price' });
-  assert.deepEqual(toolStatus('cake_tool', facts()), { kind: 'buy', price: 123 });
+  assert.deepEqual(toolStatus('cake_tool', facts()), { kind: 'buy', price: 123, needsPlan: false });
   assert.equal(toolFootWords({ kind: 'no_price' }, String), 'Price not set yet');
   // A read that failed on the way to "open" never sells.
   assert.deepEqual(toolStatus('cake_tool', facts({ owned: null })), { kind: 'unread' });
@@ -114,18 +128,48 @@ test('1 · four paid tools, one catalog SKU each, seeded by the migration; no pr
   assert.deepEqual(toolStatus('cake_tool', facts({ pending: null })), { kind: 'unread' });
 });
 
-test('2 · owned → plan → pending → price; no trial anywhere', () => {
-  assert.deepEqual(toolStatus('song_bank', facts({ owned: new Set(['song_bank']), planOpen: { song_bank: true } })), { kind: 'owned' });
-  assert.deepEqual(toolStatus('song_bank', facts({ planOpen: { song_bank: true } })), { kind: 'plan' });
+test('2 · bought AND subscribed (owner a02673ac): owned → resubscribe → pending → price (+ the plans door off-plan); no trial', () => {
+  // Bought + on Plus, Pro or Ultra: open.
+  assert.deepEqual(toolStatus('song_bank', facts({ owned: new Set(['song_bank']) })), { kind: 'owned' });
+  // Bought + Free or Verified: locked, kept — "Works again when you subscribe", never a second Buy.
+  const off = toolStatus('song_bank', facts({ owned: new Set(['song_bank']), subscribed: false }));
+  assert.deepEqual(off, { kind: 'resubscribe' });
+  assert.equal(toolIsYours(off), true, 'what a shop bought never disappears from Your widgets');
+  assert.equal(toolIsOpen(off), false, '… but it does not work off-plan');
+  assert.equal(toolFootWords(off, String), PAID_WIDGET_RESUBSCRIBE_WORDS);
+  // The plan alone opens nothing.
+  assert.deepEqual(toolStatus('song_bank', facts()), { kind: 'buy', price: 123, needsPlan: false });
+  // Not bought on Free or Verified: the price AND the notice; the button is the plans door (store-screens).
+  const free = toolStatus('plan_3d', facts({ subscribed: false }));
+  assert.deepEqual(free, { kind: 'buy', price: 123, needsPlan: true });
+  assert.match(toolFootWords(free, String), new RegExp(`^123 · ${PAID_WIDGET_NEEDS_PLAN_WORDS}$`));
+  assert.equal(PAID_WIDGET_NEEDS_PLAN_WORDS, 'Works only while your shop is on Plus, Pro or Ultra', 'the plan names are read from the table');
+  // A subscription read that failed never opens and never sells.
+  assert.deepEqual(toolStatus('cake_tool', facts({ owned: new Set(['cake_tool']), subscribed: null })), { kind: 'unread' });
+  assert.deepEqual(toolStatus('cake_tool', facts({ subscribed: null })), { kind: 'unread' });
   assert.deepEqual(toolStatus('plan_3d', facts({ pending: new Set(['plan_3d']) })), { kind: 'pending' });
-  assert.deepEqual(toolStatus('plan_3d', facts()), { kind: 'buy', price: 123 }, 'a shop that has not bought it sees the price — no free days');
+  // The lock a page outside the Toolkit draws, from the same status.
+  assert.deepEqual(widgetLock(off), { owned: true, subscribed: false, price: null });
+  assert.deepEqual(widgetLock(free), { owned: false, subscribed: false, price: 123 });
+  assert.equal(widgetLock({ kind: 'owned' }), null);
+  // The buy refuses both off-plan states before it reads a price; the screens give them the plans door.
+  const action = readFileSync(join(WEB, 'app/vendor-dashboard/shop/store/store-actions.ts'), 'utf8');
+  assert.match(action, /if \(state\.kind === 'resubscribe'\) return err\(/);
+  assert.match(action, /if \(state\.kind === 'buy' && state\.needsPlan\) return err\(/);
+  const screens = readFileSync(join(WEB, 'app/vendor-dashboard/shop/store/_components/store-screens.tsx'), 'utf8');
+  assert.match(screens, /a\.kind === 'resubscribe' \|\| \(a\.kind === 'buy' && a\.needsPlan\) \?/);
+  assert.match(screens, /\{PAID_WIDGET_NEEDS_PLAN_WORDS\}\./, 'the Buy block says the plan rule before payment');
   // The trial is gone end to end (owner 23 Nov, "guides only").
   const code = ['lib/supplier-store.ts', 'lib/supplier-store.server.ts', 'app/vendor-dashboard/shop/store/store-actions.ts', 'app/vendor-dashboard/shop/_components/shop-makers.tsx', 'app/vendor-dashboard/shop/store/_components/store-views.tsx', 'app/vendor-dashboard/shop/store/_components/store-screens.tsx'];
   for (const f of code) assert.doesNotMatch(stripComments(readFileSync(join(WEB, f), 'utf8')), /Free trial|trialDays|trialEndsAt|kind: 'trial'|store_trial/, `${f} still carries the trial`);
   const mig = readdirSync(join(WEB, '../../supabase/migrations')).find((f) => f.endsWith('_supplier_store_tools_graphs_badges.sql'))!;
   const sql = readFileSync(join(WEB, '../../supabase/migrations', mig), 'utf8').replace(/--[^\n]*/g, '');
   assert.doesNotMatch(sql, /store_trial_ends_at|store_trial_on_verify|INTERVAL '30 days'/, 'the migration still stamps a trial');
-  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.vendor_store_tool_open[\s\S]{0,600}o\.status IN \('paid', 'fulfilled'\)\s*\);\s*\$\$;/, 'vendor_store_tool_open is no longer "bought once" only');
+  assert.match(
+    sql,
+    /CREATE OR REPLACE FUNCTION public\.vendor_store_tool_open[\s\S]{0,700}o\.status IN \('paid', 'fulfilled'\)\s*\)\s*AND public\.vendor_pro_tools_included\(p_vendor_profile_id, p_event_id\);\s*\$\$;/,
+    'vendor_store_tool_open is no longer "bought AND subscribed"',
+  );
 });
 
 test('3 · Your tools: the free ones added, in order, then the paid ones held', () => {
@@ -267,4 +311,68 @@ test('8 · tags: from the per-category table only, never typed, never a gate', (
   const g = toolShelfGroups(cake);
   assert.ok(g.forYou.some((r) => r.tool.key === 'cake_tool'));
   assert.equal(g.forYou.length + g.yours.length + g.more.length, cake.length, 'a tool fell off the shelf');
+});
+
+test('5ae3fbb2 · the live count per shelf, from the one Toolkit list — a failed badge read shows nothing for it', () => {
+  const c = toolkitCounts(SHOP_BADGE_KEYS);
+  assert.deepEqual(c, { tools: SPECIALIZED_TOOLS.length, graphs: CARD_ORDER.length, badges: SHOP_BADGE_KEYS.length });
+  assert.equal(toolkitCountWords(c), `${SPECIALIZED_TOOLS.length} widgets · ${CARD_ORDER.length} graphs · ${SHOP_BADGE_KEYS.length} badges`);
+  assert.equal(toolkitCountWords(toolkitCounts(null)), `${SPECIALIZED_TOOLS.length} widgets · ${CARD_ORDER.length} graphs`, 'an unread badge count is left out, never 0');
+  assert.equal(toolkitCountWords({ tools: null, graphs: null, badges: null }), null, 'nothing read = nothing shown');
+  // Both surfaces read the ONE function — never a typed number.
+  const screens = readFileSync(join(WEB, 'app/vendor-dashboard/shop/store/_components/store-screens.tsx'), 'utf8');
+  assert.match(screens, /const counts = toolkitCounts\(d\.badges\);/);
+  const front = readFileSync(join(WEB, 'app/for-suppliers/_components/supplier-front-page.tsx'), 'utf8');
+  assert.match(front, /toolkitCountWords\(toolkitCounts\(SHOP_BADGE_KEYS\)\)/);
+});
+
+test('4c07edd7 · a paid widget’s clip sits at the top of its Toolkit page and draws nothing until it is recorded', () => {
+  assert.deepEqual(Object.keys(TOOL_VIDEO_KEYS).sort(), [...PAID_STORE_TOOLS].sort(), 'one slot per paid widget');
+  for (const k of PAID_STORE_TOOLS) assert.equal(toolVideoKey(k), null, `${k}: no clip is recorded yet`);
+  assert.equal(toolVideoKey('scanner'), null, 'a free widget has no clip slot');
+  const views = readFileSync(join(WEB, 'app/vendor-dashboard/shop/store/_components/store-views.tsx'), 'utf8');
+  assert.match(views, /export function ToolVideo\(\{ src, title \}[^)]*\) \{\s*if \(!src\) return null;/, 'an empty path must render nothing');
+  assert.match(views, /<video src=\{src\} autoPlay muted loop playsInline/);
+  const screens = readFileSync(join(WEB, 'app/vendor-dashboard/shop/store/_components/store-screens.tsx'), 'utf8');
+  const pin = screens.indexOf('<BackToShelf shelf="tools" />');
+  const video = screens.indexOf('<ToolVideo src={toolVideoSrc(tool.key)}');
+  const head = screens.indexOf('<Card data="tool-head">');
+  assert.ok(pin > 0 && video > pin && head > video, 'the clip is the top of the widget page');
+});
+
+test('5920bbf4 · Toolkit v19: one word for the act — Install · Buy ₱… · ✓ Installed; never "Get"; Where it works opens in every state', () => {
+  // Free, not on the page → Install; on the page → Installed; a built-in → Installed, built in (no Remove).
+  const f = facts({ picked: ['headcount'] });
+  assert.deepEqual(toolAct('song_desk', toolStatus('song_desk', f), false), { kind: 'install', owned: false });
+  assert.deepEqual(toolAct('headcount', toolStatus('headcount', f), true), { kind: 'installed', builtIn: false });
+  assert.deepEqual(toolAct('scanner', toolStatus('scanner', f), true), { kind: 'installed', builtIn: true });
+  // Owned (bought or grandfathered) and on the page → Installed; taken off → Install (again, free).
+  const held = facts({ owned: new Set(['plan_3d', 'song_bank']), toolsOff: ['song_bank'] });
+  const s3d = toolStatus('plan_3d', held);
+  const sSong = toolStatus('song_bank', held);
+  assert.equal(toolIsInstalled('plan_3d', s3d, held), true);
+  assert.equal(toolIsInstalled('song_bank', sSong, held), false);
+  assert.deepEqual(toolAct('song_bank', sSong, false), { kind: 'install', owned: true });
+  // Not bought → Buy with the catalog price; owned off-plan → resubscribe (no "Included" state anywhere).
+  assert.deepEqual(toolAct('cake_tool', toolStatus('cake_tool', facts()), false), { kind: 'buy', price: 123, needsPlan: false });
+  assert.deepEqual(toolAct('song_bank', toolStatus('song_bank', facts({ owned: new Set(['song_bank']), subscribed: false })), true), { kind: 'resubscribe' });
+  assert.equal(buyWords(800, (n) => `₱${n}`), 'Buy ₱800');
+  assert.deepEqual([INSTALL_WORD, INSTALLED_WORD], ['Install', 'Installed']);
+  // Every row carries its installed fact and its act.
+  for (const r of storeToolRows(held)) assert.deepEqual(r.act, toolAct(r.tool.key, r.status, r.installed), r.tool.key);
+  // "Get" and "Included" are gone from the Toolkit's screens.
+  for (const f2 of ['app/vendor-dashboard/shop/store/_components/store-views.tsx', 'app/vendor-dashboard/shop/store/_components/store-screens.tsx']) {
+    const code = stripComments(readFileSync(join(WEB, f2), 'utf8'));
+    assert.doesNotMatch(code, /label="Get(?: · Free)?"|<Pill>Get<\/Pill>|>Included</, `${f2} still says Get or Included`);
+  }
+  // Where it works: every widget has places, each with a real address, and "On its own" opens its tile on the Shop.
+  for (const t of SPECIALIZED_TOOLS) {
+    const places = widgetPlaces(t);
+    assert.ok(places.length >= 2, t.key);
+    for (const p of places) assert.match(p.href, /^\/vendor-dashboard\//, `${t.key} · ${p.place}`);
+    assert.ok(places.some((p) => p.key === 'own' && p.href.includes(`tool=${encodeURIComponent(t.key)}`)), t.key);
+  }
+  assert.deepEqual(widgetPlaces(storeToolOf('cake_tool')!).map((p) => p.place), ['Chat', 'On its own']);
+  const screens = readFileSync(join(WEB, 'app/vendor-dashboard/shop/store/_components/store-screens.tsx'), 'utf8');
+  assert.match(screens, /data-store-place-open=\{p\.key\}>\s*Open/, 'a Where it works link must read Open, in every state');
 });

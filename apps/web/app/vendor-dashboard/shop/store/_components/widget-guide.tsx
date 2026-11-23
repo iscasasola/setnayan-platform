@@ -1,10 +1,11 @@
 import Image from 'next/image';
 import { ImageIcon } from 'lucide-react';
-import { guideStepsLine, type WidgetGuide } from '@/lib/supplier-store-guides';
+import { stepsLine } from '@/lib/help/guides';
+import type { WidgetGuide } from '@/lib/supplier-store-guides';
 
 /**
  * 📘 HOW TO USE IT — one widget's guide, in the Guide & Help guide page's shape (corpus `prototypes/guide_help_2026-11-20`
- * screen 4; PR #8174 `HelpGuideView`): "N steps", then numbered steps — a title, one or two plain lines, and the real
+ * screen 4; `HelpGuideView`, `app/(shell)/(help-pages)/help/guides/[key]/guide-view.tsx`): "N steps", then numbered steps — a title, one or two plain lines, and the real
  * screen's picture. Owner 23 Nov 2026 via the controller: *"Yes, guides only"* — no trial, no "Try it first"; every
  * widget gets this guide, opened from its Store page (`#guide`) and from its panel in Your tools ("How to use it").
  *
@@ -21,7 +22,7 @@ export function WidgetGuideSteps({ guide }: { guide: WidgetGuide }) {
   }
   return (
     <div data-widget-guide={guide.key}>
-      <p className="text-sn-base text-[color:var(--m-slate-2)]">{guideStepsLine(guide.steps.length)}</p>
+      <p className="text-sn-base text-[color:var(--m-slate-2)]">{stepsLine(guide.steps.length)}</p>
       <ol className="mt-4 space-y-6" data-guide-steps="">
         {guide.steps.map((s, i) => (
           <li key={`${i}-${s.title}`} className="flex gap-3" data-guide-step={i + 1}>

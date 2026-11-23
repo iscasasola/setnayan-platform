@@ -142,12 +142,21 @@ test('QUEUE COUNTER: counted against the coming guests; an unread guest count is
   assert.deepEqual(counterModel(5, null), { qty: 5, base: null, pct: null, gap: null }, 'not read is null, not 0');
 });
 
-test('the couple reads none of the new tools: their workspace reads the shot list only, as main does', () => {
-  const page = web('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx');
-  const card = web('app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/shot-list-card.tsx');
-  for (const src of [page, card]) {
-    assert.ok(!/tool_key|CHECKLIST_TOOL_KEYS|vendor_hub_tool_entries/.test(src), 'a couple surface reads a supplier hub tool');
-  }
+test('👀 the couple sees the checklist ticks — through the ONE reader, and the shot list card stays the shot list', () => {
+  // Owner 23 Nov 2026: "let couples see the checklist ticks" (migration 20271361284618: hub_tools.couple_sees + the
+  // couple-only read policy). The page names neither the table nor a tool: which tools show is the library's flag.
+  const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\/|\/\/.*$|\{\/\*[\s\S]*?\*\/\}/gm, '');
+  const page = strip(web('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx'));
+  const card = strip(web('app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/shot-list-card.tsx'));
+  assert.ok(!/tool_key|vendor_hub_tool_entries/.test(card), 'the shot list card reads a hub tool');
+  assert.ok(!/tool_key|vendor_hub_tool_entries/.test(page), 'the page reads hub tool rows itself instead of the one reader');
+  assert.match(page, /readCoupleChecklists\(supabase, eventId, ev\.marketplace_vendor_id\)/);
+  assert.match(page, /<SupplierChecklistsCard vendorName=\{displayName\} read=\{checklists\} \/>/);
+  const reader = web('lib/hub-tool-entries.server.ts');
+  assert.match(reader, /\.eq\('couple_sees', true\)/, 'which tools the couple sees is the library flag, never a list in code');
+  const sheet = web('app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-checklists-card.tsx');
+  assert.match(sheet, /read\.state === 'unread'/, 'a refused read is said');
+  assert.match(sheet, /not the same as them not having any/);
 });
 
 /* ── entourage ─────────────────────────────────────────────────────────────────────────────────────────────────── */

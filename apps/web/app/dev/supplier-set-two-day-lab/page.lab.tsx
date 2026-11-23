@@ -35,6 +35,32 @@ import { formatCount } from '@/lib/format-number';
 import type { OpenRail } from '@/lib/payment-channels';
 import type { ShopPapicPack } from '@/lib/vendor-papic-credits';
 import { HubToolsLab } from './hub-tools-lab';
+import { SupplierChecklistsCard } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-checklists-card';
+import type { CoupleChecklistsRead } from '@/lib/hub-tool-entries.server';
+
+/** 👀 What the couple reads on their supplier workspace (owner 23 Nov 2026: "let couples see the checklist ticks"). */
+const COUPLE_LISTS: CoupleChecklistsRead = {
+  state: 'ok',
+  lists: [
+    {
+      toolKey: 'paperwork_checklist',
+      title: 'Paperwork checklist',
+      entries: [
+        { id: 'p1', label: 'Valid IDs', note: '', done: true, qty: 0 },
+        { id: 'p2', label: 'Signed forms', note: 'Both sets, with the church', done: false, qty: 0 },
+        { id: 'p3', label: 'Permits', note: '', done: false, qty: 0 },
+      ],
+    },
+    {
+      toolKey: 'delivery_and_drop_off',
+      title: 'Delivery & drop-off',
+      entries: [
+        { id: 'd1', label: 'Delivery time agreed', note: '9:00 AM at the suite', done: true, qty: 0 },
+        { id: 'd2', label: 'Who receives it', note: '', done: false, qty: 0 },
+      ],
+    },
+  ],
+};
 
 /** The five hub tools of 23 Nov, all switched on (the booking's switches decide this on the live page). */
 const HUB_TOOL_ON: DayOfModuleId[] = ['queue_counter', 'entourage', 'paperwork_checklist', 'load_in_and_venue_access', 'delivery_and_drop_off'];
@@ -173,6 +199,24 @@ const STATES: Record<string, { label: string; page: string; draw: () => ReactNod
     label: 'The hub tools · every read refused (honest states · new)',
     page: '/vendor-dashboard/on-the-day',
     draw: () => day('day', false, false, <HubToolsLab eventId={EVENT_ID} coming={null} on={HUB_TOOL_ON} unread />),
+  },
+  'couple-checklists': {
+    label: 'The couple’s workspace · their supplier’s checklist ticks (new, 23 Nov)',
+    page: '/vendor-dashboard/on-the-day',
+    draw: () => (
+      <div className="p-4" data-couple-checklists-lab="">
+        <SupplierChecklistsCard vendorName="Bloom & Co" read={COUPLE_LISTS} />
+      </div>
+    ),
+  },
+  'couple-checklists-unread': {
+    label: 'The couple’s workspace · the checklists could not be read (honest state)',
+    page: '/vendor-dashboard/on-the-day',
+    draw: () => (
+      <div className="p-4" data-couple-checklists-lab="">
+        <SupplierChecklistsCard vendorName="Bloom & Co" read={{ state: 'unread' }} />
+      </div>
+    ),
   },
   'papic-consent': { label: 'Papic · before you shoot', page: '/vendor-dashboard/on-the-day', draw: () => papic({ isEventDay: true }) },
   'papic-camera': { label: 'Papic · the camera (press Agree)', page: '/vendor-dashboard/on-the-day', draw: () => papic({ isEventDay: true }) },

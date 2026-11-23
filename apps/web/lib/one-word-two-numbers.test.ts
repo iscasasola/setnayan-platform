@@ -29,7 +29,7 @@ const code = (p: string) =>
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
 const FOCAL = 'app/dashboard/[eventId]/_components/event-dashboard.tsx';
-const HOME = 'app/dashboard/(launcher)/page.tsx';
+const HOME = 'app/(hub)/dashboard/page.tsx';
 
 test('the focal no longer states the locked share at all — and never calls anything "planned"', () => {
   // Owner 2026-10-03: the dashboard's "% locked in" line was DROPPED (Suppliers shows what is

@@ -90,7 +90,7 @@ test('(3) the Reveal tile is drawn nowhere — the cover’s corner names the op
   assert.match(read('app/globals.css'), /html\[data-maker-guest\] \[data-maker-opening-tag\] \{ display: none !important; \}/);
   assert.ok(existsSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/stage-panel/reveal-picture.tsx')));
   const { coverOpeningTag } = await import('../app/dashboard/[eventId]/launch/_components/stage-panel/reveal-picture');
-  assert.equal(coverOpeningTag('veil-sheer'), 'Sheer veil ◆ opens over it');
+  assert.equal(coverOpeningTag('veil-sheer'), 'Veil ◆ opens over it');
   assert.equal(coverOpeningTag('none'), 'No opening');
   assert.match(TOOLS, /tag\.textContent = coverOpeningTag\(revealLook\.kind\);/);
 });

@@ -27,7 +27,7 @@ function fixture(files: Record<string, string>): string {
 }
 
 const FILES: Record<string, string> = {
-  'app/page.tsx': `export default function P() { return (<main>
+  'app/(hub)/page.tsx': `export default function P() { return (<main>
     <Link href="/messages">Messages</Link>
     <Link href="/guests">Messages</Link>
     <Link href="/guests#plus-ones">Plus-ones</Link>
@@ -51,19 +51,19 @@ function run() {
 
 test('a "Messages" door that opens the guest list is a finding; one that opens Messages is not', () => {
   const words = run().filter((f) => f.check === 'wrong-words').map((f) => f.key);
-  assert.deepEqual(words, ['app/page.tsx "Messages" → /guests']);
+  assert.deepEqual(words, ['app/(hub)/page.tsx "Messages" → /guests']);
 });
 
 test('a door to a #section the page never draws is a finding; one it draws (in a child) is not', () => {
   const keys = run().filter((f) => f.check === 'missing-section').map((f) => f.key);
-  assert.ok(keys.includes('app/page.tsx → /guests#table-view'));
+  assert.ok(keys.includes('app/(hub)/page.tsx → /guests#table-view'));
   assert.ok(!keys.some((k) => k.includes('plus-ones')), 'drawn by the Roster component the page imports');
-  assert.ok(keys.includes('app/page.tsx → #nowhere'), 'a same-page jump to a missing section');
+  assert.ok(keys.includes('app/(hub)/page.tsx → #nowhere'), 'a same-page jump to a missing section');
 });
 
 test('a door through a forwarding stub is "retarget"', () => {
   const keys = run().filter((f) => f.check === 'retarget').map((f) => f.key);
-  assert.deepEqual(keys, ['app/page.tsx → /old-guests']);
+  assert.deepEqual(keys, ['app/(hub)/page.tsx → /old-guests']);
 });
 
 test('words: synonyms land, generic calls to action are not judged', () => {

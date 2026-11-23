@@ -2,12 +2,14 @@
 
 /**
  * /for-suppliers — the two parts of the approved page of 20 Nov 2026 that answer a tap (`prototypes/for_suppliers_2026-
- * 11-20/`, Setnayan-specs): the booking-fee ruler with its "Free when" switches, and the plan rows.
+ * 11-20/`, Setnayan-specs): the booking-fee ruler with its "Free when" switches; and, from the redraw of 23 Nov
+ * (`prototypes/for_suppliers_redraw_2026-11-23/for_suppliers_redraw_fable.html`), the plans as growth stairs.
  *
  * WHERE EVERY NUMBER COMES FROM:
  *   · each stop's fee → `bookingFeePhp(v, schedule)`, the LIVE schedule the page read (`getLiveBookingFeeSchedule`) —
  *     never the code default; the stops themselves are example booking prices (`FEE_STOPS`), not prices;
- *   · each plan's price → the catalog (`getVendorPrices`), handed in by the page; one that could not be read shows "—".
+ *   · each plan's price → the catalog (`getVendorPrices`), handed in by the page; one that could not be read shows "—";
+ *   · each stair's size, meter and five facts → `planStair` (`TIER_CAPS`), built by the page.
  *
  * 🎚 THE DRAWING'S RULER, ON WHAT IS LIVE. 🔒 The ₱100,000 lock is live (PR #8061, `platform_settings.booking_fee_cap_php`),
  * so the ruler draws it as the drawing does: a stop where the fee first reaches the lock (`feeRulerStops`, from the
@@ -15,12 +17,12 @@
  * The switches are only the free bookings the app actually gives — handed in by the page (`freeWhen`), never typed here;
  * "every 100,000th fee" is live in billing but its N is not read by this page yet, so it is not a switch.
  */
-import Link from 'next/link';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { SWITCH_TRACK } from '@/app/_components/switch-track';
-import { Lock } from 'lucide-react';
+import { ArrowRight, Check, LayoutGrid, Lock, Search, Store, User, Users } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { bookingFeeCapAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FEE_STOP_START, feeRulerStops } from './supplier-front-data';
+import { FEE_STOP_START, feeRulerStops, type PlanStair, type StairFact } from './supplier-front-data';
 import s from './supplier-front.module.css';
 
 const PESO = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -219,26 +221,138 @@ export function FeeRuler({ schedule, freeWhen }: { schedule: BookingFeeSchedule;
   );
 }
 
-/** One plan row: its name, its one line, and its price as the catalog has it (or "—" when it could not be read). */
-export type PlanRow = { name: string; line: string; price: string | null; per: string; cta: string; href?: string };
+/** One step of the plan stairs as the page hands it: the read facts (`planStair`), its price as the catalog has it
+ *  (or "—" when it could not be read), and its one door. */
+export type StairCard = PlanStair & { price: string | null; per: string; cta: string; href: string; main: boolean };
 
-export function PlanRows({ rows, href }: { rows: readonly PlanRow[]; href: string }) {
+const PEOPLE_ICON = { team: Users, solo: User } as const;
+
+/**
+ * 🪜 PLANS AS GROWTH STAIRS (redraw of 23 Nov, owner "Approved, build it"): Free → Verified → Plus → Pro → Ultra, each
+ * card its role, its size with a meter, five icon facts, its price and ONE button. On a phone the cards swipe sideways
+ * and the five steps above them follow the swipe (a tap on a step glides there); from 760 px all five stand in a row,
+ * each a step higher than the one before. The meters and the steps grow once as the part enters — behind the
+ * `data-motion` mark this script sets, so without it (or with reduced motion) everything is simply drawn full.
+ */
+export function PlanStairs({ plans }: { plans: readonly StairCard[] }) {
+  const row = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const [at, setAt] = useState(0);
+  const [motion, setMotion] = useState(false);
+  const [seen, setSeen] = useState(false);
+
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
+    setMotion(true);
+    const el = box.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (es) => {
+        if (es.some((e) => e.isIntersecting)) {
+          setSeen(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: '0px 0px -12% 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const go = (i: number) => {
+    const el = row.current;
+    const card = el?.children[i] as HTMLElement | undefined;
+    if (!el || !card) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el.scrollTo({ left: card.offsetLeft - el.offsetLeft - parseFloat(getComputedStyle(el).paddingLeft || '0'), behavior: reduce ? 'auto' : 'smooth' });
+    setAt(i);
+  };
+  const onScroll = () => {
+    const el = row.current;
+    const card = el?.children[0] as HTMLElement | undefined;
+    if (!el || !card) return;
+    const i = Math.max(0, Math.min(plans.length - 1, Math.round(el.scrollLeft / Math.max(1, card.offsetWidth + 10))));
+    if (i !== at) setAt(i);
+  };
+
   return (
-    <ul className={s.plans}>
-      {rows.map((c) => (
-        <li key={c.name}>
-          <Link aria-label={`${c.cta}: ${c.name}, ${c.price ?? 'price unavailable'} ${c.per}`} className={`${s.plan} ${s.pickCta}`} href={c.href ?? href}>
-            <span className={s.pw}>
-              <b>{c.name}</b>
-              <span>{c.line}</span>
-            </span>
-            <span className={s.pc}>
-              <span>{c.price ?? '—'}</span>
-              <small>{c.per}</small>
-            </span>
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <div ref={box} className={s.stairs} data-motion={motion ? '' : undefined} data-in={seen ? '' : undefined}>
+      <div className={s.rail} role="group" aria-label="Plans, smallest to biggest">
+        {plans.map((p, i) => (
+          <button key={p.tier} type="button" className={s.stop} aria-pressed={i === at} onClick={() => go(i)}>
+            <i style={{ ['--h' as string]: (i + 1) / plans.length }} aria-hidden="true" />
+            {p.name}
+          </button>
+        ))}
+      </div>
+      <div ref={row} className={s.prow} onScroll={onScroll}>
+        {plans.map((p, i) => {
+          const People = PEOPLE_ICON[p.people.team ? 'team' : 'solo'];
+          return (
+            <article key={p.tier} className={`${s.stair} ${p.tools ? s.stairPaid : ''}`} style={{ ['--i' as string]: i }} data-plan={p.tier}>
+              <div className={s.stairTop}>
+                <div>
+                  <p className={s.role}>{p.role}</p>
+                  <h3>{p.name}</h3>
+                </div>
+                <p className={s.stairPrice}>
+                  <b>{p.price ?? '—'}</b>
+                  <small>{p.per}</small>
+                </p>
+              </div>
+              <div className={s.size}>
+                <p>
+                  <b>{p.size}</b>
+                  <span>storage</span>
+                </p>
+                <span className={s.meter} aria-hidden="true">
+                  <i style={{ ['--w' as string]: p.share }} />
+                </span>
+              </div>
+              <ul className={s.facts}>
+                <li>
+                  <LayoutGrid aria-hidden className={s.factIc} strokeWidth={2} />
+                  <Fact f={p.services} />
+                </li>
+                <li>
+                  <People aria-hidden className={s.factIc} strokeWidth={2} />
+                  <Fact f={p.people} />
+                </li>
+                <li>
+                  <Store aria-hidden className={s.factIc} strokeWidth={2} />
+                  <Fact f={p.branches} />
+                </li>
+                <li className={p.marketplace ? undefined : s.factNo}>
+                  <Search aria-hidden className={s.factIc} strokeWidth={2} />
+                  <span>{p.marketplace ? 'On the marketplace' : 'Not on the marketplace'}</span>
+                </li>
+                <li className={p.tools ? s.factYes : s.factNo}>
+                  {p.tools ? <Check aria-hidden className={s.factIc} strokeWidth={2.4} /> : <Lock aria-hidden className={s.factIc} strokeWidth={2} />}
+                  <span>{p.tools ? <><b>Every</b> specialized tool</> : 'Specialized tools'}</span>
+                </li>
+              </ul>
+              <ActionButton
+                href={p.href}
+                tone="brand"
+                icon={ArrowRight}
+                label={p.cta}
+                name={`${p.cta}: ${p.name}, ${p.price ?? 'price unavailable'} ${p.per}`}
+                main={p.main}
+                className={s.stairBtn}
+              />
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Fact({ f }: { f: StairFact }) {
+  return (
+    <span>
+      {f.lead ? <b>{f.lead}</b> : null}
+      {f.text}
+    </span>
   );
 }

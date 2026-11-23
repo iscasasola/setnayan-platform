@@ -76,13 +76,14 @@ test('4 · the doors are ONE dropdown in ONE row — "Guests · List ▾" listin
   assert.deepEqual(words, ['Guests', 'Seats', 'March'], `the groups read ${words.join(' · ')}`);
   assert.ok(words.every((w) => !/\s/.test(w)), 'a group says more than one word');
   assert.deepEqual(Object.values(GUESTS_VIEW_LABEL), ['List', 'Map', 'Seats', 'March'], 'a view lost its one word');
-  // The ⚙ ends the first row after the face (menu · counts) and the view's own rounds (Seats' Edit · ⋯).
+  // The ⚙ ends the first row after the face (menu · counts), the view's own rounds (Seats' Edit · ⋯) and the page's ⓘ
+  // (Guide & Help drawing, approved 21 Nov 2026: "The ⓘ: 44 px round in the pinned row").
   const rowAt = SCREEN.indexOf('data-first-row="" data-guests-top-row=""');
   assert.ok(rowAt > -1, 'the one top row is gone');
   assert.match(
     SCREEN.slice(rowAt),
     // ☑ 3 Nov: the view's rounds slot holds the List's ☑ Select (it left the ≡); Seats still portals its rounds into it.
-    /^[\s\S]*?<PinnedSummary[\s\S]*?\/>\s*(?:\{\s*\}\s*)*<span ref=\{setToolsSlot\}[^>]*data-guests-view-rounds="">\s*\{gview === 'list' && !selectMode[\s\S]*?data-testid="guests-select" \/>\s*\) : null\}\s*<\/span>\s*\{setup \? \(\s*<MenuSettingsButton menu="guests"/,
+    /^[\s\S]*?<PinnedSummary[\s\S]*?\/>\s*(?:\{\s*\}\s*)*<span ref=\{setToolsSlot\}[^>]*data-guests-view-rounds="">\s*\{gview === 'list' && !selectMode[\s\S]*?data-testid="guests-select" \/>\s*\) : null\}\s*<\/span>\s*\{props\.info && !selectMode \? <span className="flex shrink-0" data-guests-info="">\{props\.info\}<\/span> : null\}\s*\{setup \? \(\s*<MenuSettingsButton menu="guests"/,
     'the ⚙ does not end the first row after the menu and the rounds',
   );
 });

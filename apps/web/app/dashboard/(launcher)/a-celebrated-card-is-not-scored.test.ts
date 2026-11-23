@@ -20,7 +20,7 @@ const stripped = (rel: string) =>
 
 // ─── 3 · A CELEBRATED CARD IS NEVER SCORED, AND A SCORE PRINTS ONCE ────────
 test('the board card never scores a finished celebration and never prints the figure twice', () => {
-  const page = stripped('page.tsx');
+  const page = stripped('../../(hub)/dashboard/page.tsx');
 
   // The ring's gate must test finished — a planning score on a "Celebrated"
   // card is the board contradicting its own badge one line up.

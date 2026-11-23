@@ -10,8 +10,9 @@
  * now, a lower plan when the paid month ends — Apple enforces both inside the "Supplier plans" group, and the note under
  * the rows says so. No figure of ours, no web word, no link out. A price StoreKit did not return leaves its button off.
  *
- * Drawn only where Apple can sell (`getIapGate().iap`), for a shop admin, with the session's own shop as the purchase's
- * `appAccountToken` (one subscription = one shop). One channel at a time: a shop the web bills reads when its plan
+ * Drawn only where Apple can sell (`getIapGate().iap`), for a shop admin. The purchase's `appAccountToken` is issued by
+ * the server for the session's own shop and paired with it (one subscription = one shop); the phone never names the
+ * shop. One channel at a time: a shop the web bills reads when its plan
  * ends and gets no button. Unverified: the shared 🔒 (Get verified), the same as the Plan page.
  */
 import { useState } from 'react';
@@ -51,15 +52,12 @@ export type ApplePlanDoorState =
 const lead = (Icon: typeof Gem) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />;
 
 export function ApplePlanDoor({
-  shopToken,
   currentTier,
   verified,
   papersProgress,
   planEndsOn,
   state,
 }: {
-  /** The shop — the purchase's `appAccountToken`. */
-  shopToken: string;
   currentTier: string | null;
   verified: boolean;
   papersProgress: string;
@@ -97,7 +95,7 @@ export function ApplePlanDoor({
     if (buying) return;
     setBuying(p.productId);
     setMessage(null);
-    void buySupplierPlanWithApple({ productId: p.productId, shopToken }).then((screen) => {
+    void buySupplierPlanWithApple({ productId: p.productId }).then((screen) => {
       setBuying(null);
       if (screen.kind === 'on') toast.success(`${p.name} is on for your shop`);
       else if (screen.kind === 'pending') setMessage(screen.askToBuy ? IAP_COPY.askToBuy : `Apple confirmed ${p.name}. We’re switching it on for your shop now — it usually takes a moment.`);

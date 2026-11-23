@@ -145,7 +145,7 @@ test('4 · the board card stays at two chips — the tag lives in the stance slo
   assert.doesNotMatch(chip('helper', tag), /SetnaProd/, "a helper's card was named");
   assert.doesNotMatch(chip('invited', tag), /SetnaProd/, "a guest's card was named");
 
-  const page = stripComments(readFileSync('app/dashboard/(launcher)/page.tsx', 'utf8'));
+  const page = stripComments(readFileSync('app/(hub)/dashboard/page.tsx', 'utf8'));
   assert.equal(page.match(/<ForTagMark\b/g)?.length ?? 0, 0, 'the For mark is drawn outside the stance slot — a third chip');
   const kickers = page.match(/kicker=\{[^\n]*/g) ?? [];
   assert.equal(kickers.length, 1);

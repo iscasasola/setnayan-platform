@@ -36,7 +36,7 @@ import { resolveHubTheme } from '@/app/[slug]/_lib/hub-look';
 import { resolveStdMedia, stdNsfwDisplayStatus, stdVideoNeedsScreen } from '@/lib/std-media';
 import { loadStdNsfwVerdict } from '@/lib/std-video-gate';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
-import { REVEAL_TEMPLATE_IDS, fetchRevealConfig } from '@/lib/reveal-config';
+import { canonicalRevealId, fetchRevealConfig } from '@/lib/reveal-config';
 import {
   NO_REVEAL,
   type RevealTemplate,
@@ -79,9 +79,8 @@ type Props = {
 
 function coerceTemplate(v: unknown): RevealChoice | null {
   if (v === NO_REVEAL) return NO_REVEAL; // the couple's explicit "No Reveal"
-  return typeof v === 'string' && (REVEAL_TEMPLATE_IDS as readonly string[]).includes(v)
-    ? (v as RevealTemplate)
-    : null;
+  // ↪️ A retired opening is shown as the new reveal it now plays (lib/reveal-config-pure.ts RETIRED_REVEAL_IDS).
+  return canonicalRevealId(v);
 }
 
 export default async function SaveTheDatePage({ params }: Props) {

@@ -5,7 +5,7 @@
  * layout it does not use.
  *
  * ⚡ WHY (measured 2026-11-13, production build). `FrontDoorShell` is a client component that two root-group entries
- * render: `app/page.tsx` (through `front-door.tsx`) and `app/(shell)/layout.tsx` (through `AppRailShell`). Next 15.5
+ * render: `app/(hub)/page.tsx` (through `front-door.tsx`) and `app/(shell)/layout.tsx` (through `AppRailShell`). Next 15.5
  * gives a client reference ONE chunk list per route, merged across the root group with `Object.assign`
  * (`flight-manifest-plugin.js` `mergeManifest`; route groups like `(shell)` collapse into the root group), so the
  * last recorder wins — and on `/` that was the `(shell)` layout. The front page therefore downloaded

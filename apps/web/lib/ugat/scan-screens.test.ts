@@ -29,7 +29,7 @@ function fixture(files: Record<string, string>): string {
 const page = (body = '<main />') => `export default function P() { return (${body}); }\n`;
 
 const FILES: Record<string, string> = {
-  'app/page.tsx': page(`<main><a href="/guests">Guests</a><Link href={\`/events/\${id}\`}>e</Link><a href="/missing/thing">x</a></main>`),
+  'app/(hub)/page.tsx': page(`<main><a href="/guests">Guests</a><Link href={\`/events/\${id}\`}>e</Link><a href="/missing/thing">x</a></main>`),
   'app/guests/page.tsx': `import { load } from '@/lib/load-guests';\n${page()}`,
   'lib/load-guests.ts': `export const load = (s: any) => s.from('guests').select('*');\n`,
   'app/events/[eventId]/page.tsx': page(`<a href="/events/x">self</a>`),
@@ -104,7 +104,7 @@ test('a door to a missing route is reported — and nothing else is', () => {
   try {
     assert.deepEqual(
       map.brokenDoors.map((b) => `${b.to} <- ${b.from}`),
-      ['/missing/thing <- app/page.tsx'],
+      ['/missing/thing <- app/(hub)/page.tsx'],
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -118,7 +118,7 @@ test('a placeholder fills a dynamic segment, and the registry says phone', () =>
     assert.equal(ev.status, 'connected');
     const reg = ev.doors.find((d) => d.kind === 'nav-registry');
     assert.equal(reg?.surface, 'phone');
-    assert.ok(ev.doors.some((d) => d.from === 'app/page.tsx'), 'the `/events/${id}` link was missed');
+    assert.ok(ev.doors.some((d) => d.from === 'app/(hub)/page.tsx'), 'the `/events/${id}` link was missed');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -152,8 +152,8 @@ test('Ugat nodes come from tables read two imports deep; none read = unmapped', 
 
 test('route groups and parallel slots drop out; intercepting routes are not screens', () => {
   assert.equal(urlForAppDir('(shell)/about'), '/about');
-  assert.equal(urlForAppDir('dashboard/(launcher)/@modal/x'), '/dashboard/x');
-  assert.equal(urlForAppDir('dashboard/(launcher)/@modal/(.)create-event'), null);
+  assert.equal(urlForAppDir('(hub)/dashboard/@modal/x'), '/dashboard/x');
+  assert.equal(urlForAppDir('(hub)/dashboard/@modal/(.)create-event'), null);
   assert.equal(urlForAppDir(''), '/');
 });
 

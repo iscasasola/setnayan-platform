@@ -98,7 +98,8 @@ test('the similar row draws Discover\'s SHIPPED card and grid words, with no bad
 // The door's words and address are unchanged; WHEN it shows is v16's rule (owner 15 Nov: only for the supplier's own
 // QR / link and a typed address — `shopColdDoorShows`, held by lib/the-shop-website-follows-v16.test.ts).
 test('"See more suppliers" is unchanged', () => {
-  assert.match(read('lib/shop-back.ts'), /export const SHOP_BACK_COLD: ShopBackDoor = \{ href: '\/', label: 'See more suppliers', back: false \};/);
+  // 23 Nov 2026: its address is Discover's own door (`DISCOVER_HREF`) — a signed-in bare `/` opens Home now.
+  assert.match(read('lib/shop-back.ts'), /export const SHOP_BACK_COLD: ShopBackDoor = \{ href: DISCOVER_HREF, label: 'See more suppliers', back: false \};/);
   assert.match(PAGE, /\{shopColdDoorShows\(shopArrival\) \? \(\s*<Link href=\{shopBack\.href\} className="button-secondary" data-shop-back="cold">/);
 });
 

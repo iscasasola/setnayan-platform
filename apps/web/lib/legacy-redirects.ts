@@ -40,6 +40,7 @@ import { articleHref, JOURNAL_DRAFT_SLUGS, journalArticleSlug } from '@/lib/jour
 import { MORE_SERVICES_PARAM, MORE_SERVICES_VALUE } from './studio-hub';
 import { DETAILS_ROWS_MOVED_TO_GUESTS, DETAILS_ROWS_MOVED_TO_SUPPLIERS } from './event-settings-record';
 import { papicCardHref } from './papic-home-href';
+import { DISCOVER_HREF } from './discover-href';
 
 /** The More menu's address, relative to the event (`studioHubHref`). */
 const MORE_MENU = `?${MORE_SERVICES_PARAM}=${MORE_SERVICES_VALUE}`;
@@ -197,7 +198,8 @@ export function exploreRedirectTarget(search: string): string {
   const q = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
   q.delete('notice');
   const qs = q.toString();
-  return qs ? `/?${qs}` : '/';
+  // A bare `/explore` is Discover itself — its own door, since a signed-in bare `/` opens Home (23 Nov 2026).
+  return qs ? `/?${qs}` : DISCOVER_HREF;
 }
 
 /**

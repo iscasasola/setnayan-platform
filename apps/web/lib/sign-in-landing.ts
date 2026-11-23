@@ -68,3 +68,31 @@ export const SIGNED_IN_LANDING = landingForAccount('/', null);
 export function signInDestination(raw: string, accountType: string | null | undefined = null): string {
   return landingForAccount(raw, accountType);
 }
+
+/**
+ * 🏠 A SIGNED-IN VISIT TO `/` OPENS HOME — the same one rule as a sign-in (owner 23 Nov 2026, verbatim *"Yes, go to
+ * Home"*; DECISION_LOG 2026-11-23 "A signed-in visit to setnayan.com opens Home", which closes the 22 Nov open call).
+ * setnayan.com, the installed app's start (`manifest.json` `start_url: "/"`, the Capacitor and Tauri shells) and the
+ * logo all open `/`; for an account that is signed in, `/` with nothing else on it means "nowhere of my own", exactly
+ * as a sign-in's bare `next` does, so it answers with `landingForAccount('/', accountType)` — never a second rule.
+ *
+ * Returns the address to send them to, or `null` to draw the page (Discover / the public front page):
+ *   · signed out, or the session read failed (`signedIn: false`)                      → null — the public page, untouched;
+ *   · an anonymous session (a host who started an event with no account yet)           → null — not signed in yet;
+ *   · ANY parameter of Discover's own on the address — `?discover=1` (Discover's door,
+ *     `DISCOVER_HREF`), `?q=` (its search), a supplier filter                           → null — Discover was asked for;
+ *   · only tracking tags (`utm_*`, `fbclid`, `gclid`) or nothing at all                → Home, by `landingForAccount`.
+ *
+ * 🔒 lib/a-signed-in-visit-to-the-root-opens-home.test.ts
+ */
+const TRACKING_ONLY = /^(utm_[a-z_]+|fbclid|gclid)$/i;
+
+export function signedInRootLanding(
+  params: Record<string, string | string[] | undefined>,
+  who: { signedIn: boolean; isAnonymous: boolean; accountType: string | null | undefined },
+): string | null {
+  if (!who.signedIn || who.isAnonymous) return null;
+  const asksForDiscover = Object.keys(params).some((k) => params[k] !== undefined && !TRACKING_ONLY.test(k));
+  if (asksForDiscover) return null;
+  return landingForAccount('/', who.accountType);
+}

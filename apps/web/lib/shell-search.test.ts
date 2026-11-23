@@ -29,6 +29,7 @@ import { stripComments } from './strip-comments';
 import { SEARCH_SCOPES } from './search-scope';
 import { SHELL_SEARCH_PATH, shellSearchHref } from './shell-search';
 import { marketplaceEscapeItem } from '@/app/_components/frontdoor/command-escape';
+import { signedInRootLanding } from '@/lib/sign-in-landing';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -167,7 +168,7 @@ test('2 · Clear on the shell results stays in the shell', () => {
   const src = code(join(APP, '_components', 'frontdoor', 'front-door-results.tsx'));
   const clear = /<Link href=\{([^}]*)\} className="fd-sechead-go">/.exec(src);
   assert.ok(clear, 'the Clear link moved — re-anchor');
-  assert.match(clear[1]!, /^place === 'shell' \? SHELL_SEARCH_PATH : '\/'$/, 'Clear on the shell results leaves the shell (it went to `/`)');
+  assert.match(clear[1]!, /^place === 'shell' \? SHELL_SEARCH_PATH : DISCOVER_HREF$/, 'Clear on the shell results leaves the shell (it went to `/`)');
   assert.equal(landsInShell(SHELL_SEARCH_PATH).ok, true);
 });
 
@@ -176,7 +177,11 @@ test('3 · a member’s /?q= answers ON Discover, in the shell form; a stranger�
   // account bar and Discover's own search row for a member now, so the words stay on it. The shell FORM still holds:
   // the member's results on `/` are the same shell results (no door out to the marketplace) — `place="discover"`.
   const src = code(join(APP, '(hub)', 'page.tsx'));
-  assert.doesNotMatch(src, /redirect\(/, 'app/(hub)/page.tsx sends a search somewhere else again');
+  // 23 Nov 2026: the page's ONE redirect is a signed-in BARE `/` opening Home (`signedInRootLanding`) — a search
+  // (`?q=`, even empty) is never it, so the words still answer here.
+  assert.deepEqual(src.match(/redirect\(/g) ?? [], ['redirect('], 'app/(hub)/page.tsx gained a second redirect');
+  assert.match(src, /if \(home\) redirect\(home\);/);
+  for (const q of ['seda', '']) assert.equal(signedInRootLanding({ q }, { signedIn: true, isAnonymous: false, accountType: 'customer' }), null, 'app/(hub)/page.tsx sends a search somewhere else again');
   assert.match(src, /<FrontDoor[^>]*\bq=\{q\}/, 'the front door lost its query');
   const fd = code(join(APP, '_components', 'frontdoor', 'front-door.tsx'));
   assert.match(fd, /<FrontDoorResults[\s\S]*?place="discover"/, 'a member’s results on Discover are not the shell form');

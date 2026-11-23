@@ -9,7 +9,7 @@
  *   · "Add many rooms" is this sheet with How many past 1 (no separate screen); the preview line shows the names before
  *     anything is saved.
  *   · The name is GIVEN below Pro (Hall001 · Room001 …) behind the shared 🔒 (`LockedFeature`, problem → solution);
- *     Pro and up type their own, rename, and number rooms by floor or letters. The server refuses the same.
+ *     Every paid plan types its own, rename, and number rooms by floor or letters. The server refuses the same.
  *   · "Add another like this" keeps every row and gives the next name.
  *
  * Every control is shipped: Sheet · FormRows · TypedRow · ChosenRow · SwitchRow · Counter · Fold · ActionButton.
@@ -49,8 +49,8 @@ export type SheetMode =
   | { mode: 'new'; choice: KindChoice; typed: string }
   | { mode: 'edit'; space: Space; state: TileState | null };
 
-/** "Pro and up" — the plan lock both Spaces locks open with (the price is the Plan page's, never typed here). */
-export const PRO_NEED: LockNeed = { kind: 'plan', plan: 'pro', price: null, href: '/vendor-dashboard/subscription' };
+/** Every paid plan, from Plus (owner 22 Nov, "SAME FEATURES IN EVERY SIZE") — the plan lock both Spaces locks open with (the price is the Plan page's, never typed here). */
+export const PAID_NEED: LockNeed = { kind: 'plan', plan: 'solo', price: null, href: '/vendor-dashboard/subscription' };
 
 const CLOTHING_TYPES = ['Gown', 'Barong', 'Suit', 'Dress', 'Filipiniana', 'Accessory'] as const;
 const NAMINGS_ROOM: ReadonlyArray<{ key: RoomNaming; label: string; hint: string }> = [
@@ -78,7 +78,7 @@ export function SpaceSheet({
   at: SheetMode;
   spaces: readonly Space[];
   tables: SpaceTables;
-  /** Pro and up, or the paywall switch off: own names, renaming, numbering by floor, the drawn floor plan. */
+  /** Every paid plan, or the paywall switch off: own names, renaming, numbering by floor, the drawn floor plan. */
   proOpen: boolean;
   /** The day the tiles follow, in words ("Sat 14 Feb") — for "Booked on …". */
   dayLabel: string;
@@ -202,11 +202,11 @@ export function SpaceSheet({
           ) : null}
         </FormRows>
 
-        {/* ── Name: given below Pro (🔒 problem → solution); typed on Pro and up ── */}
+        {/* ── Name: given on Free (🔒 problem → solution); typed on every paid plan ── */}
         <div className="mt-1" data-space-name="">
           {!proOpen ? (
             <FormRows width="wide">
-              <LockedFeature lock="space_names" need={PRO_NEED} line={`Given for you: ${editing ? editing.name : preview?.ok ? preview.names[0] : '…'}`} data="space-name-lock" />
+              <LockedFeature lock="space_names" need={PAID_NEED} line={`Given for you: ${editing ? editing.name : preview?.ok ? preview.names[0] : '…'}`} data="space-name-lock" />
             </FormRows>
           ) : editing ? (
             <FormRows width="wide">

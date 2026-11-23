@@ -43,7 +43,7 @@ import {
  * page's ONE read (`readSpaces`) for the day the supplier is looking at, so a save never resets the screen.
  *
  * 🔒 Pro locks, checked HERE as well as on the page (a lock that is only drawn is not a lock): typed names, renaming and
- * numbering by floor are Pro and up (DECISION_LOG 19 Nov "Naming + shared floors APPROVED"); the drawn floor plan too.
+ * numbering by floor are on every paid plan (DECISION_LOG 19 Nov "Naming + shared floors APPROVED"; 22 Nov "SAME FEATURES IN EVERY SIZE"); the drawn floor plan too.
  * Both open for every shop while `VENDOR_TIER_FEATURE_GATE` is off (`vendorPaywallApplies`).
  * 🔒 "A booked space can be closed, never removed": removing one with a booking today or later is refused.
  *
@@ -91,7 +91,7 @@ function said(error: { code?: string; message?: string } | null): string {
   return 'Couldn’t save just now. Try again.';
 }
 
-/** Pro and up (or the paywall switch off): own names, renaming, numbering by floor, the drawn floor plan. */
+/** Every paid plan, from Plus (or the paywall switch off): own names, renaming, numbering by floor, the drawn floor plan. */
 async function proOpen(s: Shop): Promise<boolean> {
   const { data } = await s.supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', s.profile.vendor_profile_id).maybeSingle();
   const tier = (data as { tier_state?: string | null } | null)?.tier_state ?? null;
@@ -226,7 +226,7 @@ async function updateSpace(input: Omit<SpaceInput, 'howMany' | 'run'> & { id: st
   const patch: Record<string, unknown> = { ...cols, updated_at: new Date().toISOString() };
   const name = input.name?.trim().replace(/\s+/g, ' ');
   if (name !== undefined && name !== (was.calendar_name ?? '')) {
-    if (!(await proOpen(s))) return { ok: false, error: 'Renaming comes with Pro.' };
+    if (!(await proOpen(s))) return { ok: false, error: 'Renaming comes with every paid plan.' };
     if (!name || name.length > MAX_SPACE_NAME) return { ok: false, error: `A name, up to ${MAX_SPACE_NAME} letters.` };
     const { data: same } = await s.supabase.from('vendor_schedule_pools').select('pool_id').eq('vendor_profile_id', s.profile.vendor_profile_id).eq('is_active', true).ilike('calendar_name', likeExactly(name)).neq('pool_id', input.id).limit(1);
     if ((same ?? []).length > 0) return { ok: false, error: `${name} is already a name in your shop.` };
@@ -370,7 +370,7 @@ async function deleteDoor(id: string, date: string): Promise<SpacesResult> {
 async function placeTable(id: string, x: number, y: number, rotationDeg: number, date: string): Promise<SpacesResult> {
   const s = await shop();
   if (!s) return NO_SHOP;
-  if (!(await proOpen(s))) return { ok: false, error: 'The floor plan comes with Pro.' };
+  if (!(await proOpen(s))) return { ok: false, error: 'The floor plan comes with every paid plan.' };
   const ok = (n: number, lo: number, hi: number) => Number.isFinite(n) && n >= lo && n <= hi;
   if (!ok(x, 0, 100) || !ok(y, 0, 100) || !ok(rotationDeg, -360, 360)) return { ok: false, error: 'That place is off the plan.' };
   // ONE check before a save (ADAPTER.md §5): the engine's validatePlan — a supplier floor refuses exactly what an

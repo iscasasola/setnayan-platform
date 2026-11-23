@@ -8,7 +8,7 @@
  *     changes it). Tap a tile → its sheet; a booked tile's sheet names who holds it (no trip to Clients › Dates).
  *   · The thumb row: ONE box that searches and adds (🔍 → ＋, the shipped `ThumbField.onAdd`) and the sliders (Show: All +
  *     the six kinds). Adding opens the sheet on the kind the shop's categories point to (or the last one added).
- *   · 🔒 "Make it a floor plan" — Pro and up, the shared lock (problem → solution). Inert while the paywall switch is off.
+ *   · 🔒 "Make it a floor plan" — every paid plan, the shared lock (problem → solution). Inert while the paywall switch is off.
  *
  * A save never resets the screen: every op hands back the page's one read for the same day. A refused read says so
  * (never "no spaces yet"); a refused DAY read draws the tiles with no day words rather than "Free".
@@ -37,7 +37,7 @@ import {
 } from '@/lib/spaces';
 import type { SpacesRead } from '@/lib/spaces.server';
 import { spacesWrite, type SpacesOp } from '../actions';
-import { SpaceSheet, PRO_NEED, type SheetMode } from './space-sheet';
+import { SpaceSheet, PAID_NEED, type SheetMode } from './space-sheet';
 import styles from './spaces-screen.module.css';
 
 export function SpacesScreen({
@@ -157,7 +157,7 @@ export function SpacesScreen({
 
       {hasHallsOrRooms && !proOpen ? (
         <FormRows width="wide" data="spaces-floor-plan-lock">
-          <LockedFeature lock="space_floor_plan" need={PRO_NEED} line="Halls and rooms only" data="spaces-floor-plan" />
+          <LockedFeature lock="space_floor_plan" need={PAID_NEED} line="Halls and rooms only" data="spaces-floor-plan" />
         </FormRows>
       ) : null}
 

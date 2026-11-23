@@ -6,7 +6,7 @@
  * Spaces (owner 19 Nov: "#7968 keeps only tables, table types, doors and the shared plan core, hung on a space").
  *
  * The rows add, edit and delete; the drawn plan is the SHARED seat-plan maker (`app/_components/plan-maker`) in its
- * 'move' tools — it only moves tables and lines them up. Floor plan on Pro and up; Grid for every shop. Nothing here is
+ * 'move' tools — it only moves tables and lines them up. Floor plan on every paid plan; Grid for every shop. Nothing here is
  * a new control: FormRows · TypedRow · ChosenRow · SwitchRow · Counter · Fold · SwipeToDelete · ActionButton.
  */
 import { useMemo, useState } from 'react';
@@ -104,7 +104,7 @@ function SpacePlan({ tables, spaceId, run, floorPlanOpen }: { tables: SpaceTable
         }}
         options={{
           views: planViewsFor('supplier', floorPlanOpen),
-          floorPlanNote: floorPlanOpen ? undefined : 'On Pro and up',
+          floorPlanNote: floorPlanOpen ? undefined : 'On every paid plan',
           showNames: false,
           tools: 'move',
         }}

@@ -1,7 +1,7 @@
 /**
  * 🔒 SHOP › SPACES — every lock the screen draws is ALSO refused by the server (a lock that is only drawn is not a lock;
- * `lib/locks.ts`: "The lock is the LOOK; the server is the RULE"). Owner 19 Nov: renaming and own names are Pro and up;
- * the floor plan is Pro and up; "A booked space can be closed, never removed".
+ * `lib/locks.ts`: "The lock is the LOOK; the server is the RULE"). Owner 19 Nov: renaming and own names, and the floor plan, are on every paid plan (from Plus;
+ * 22 Nov "SAME FEATURES IN EVERY SIZE"); "A booked space can be closed, never removed".
  *
  * Read off the one action file (`actions.ts`, comments stripped), because the action needs a signed-in shop and a
  * database to run. Each claim names the branch that holds it; break one and this fails.
@@ -28,7 +28,7 @@ test('own names and numbering by floor are refused below Pro, on the server', ()
 });
 
 test('renaming is refused below Pro, on the server', () => {
-  assert.match(body('updateSpace'), /if \(!\(await proOpen\(s\)\)\) return \{ ok: false, error: 'Renaming comes with Pro\.' \}/);
+  assert.match(body('updateSpace'), /if \(!\(await proOpen\(s\)\)\) return \{ ok: false, error: 'Renaming comes with every paid plan\.' \}/);
 });
 
 test('moving a table on the drawn floor plan is refused below Pro, on the server', () => {
@@ -48,10 +48,10 @@ test('a refused tier read keeps the lock shut (never a wrong "you have it")', ()
   assert.match(body('proOpen'), /return !vendorPaywallApplies\(isTierAtLeast\(tier, SUPPLIER_FLOOR_PLAN_MIN_TIER\)\)/);
 });
 
-test('the two Spaces locks say problem and solution, open at Pro, and name this file as their server', () => {
+test('the two Spaces locks say problem and solution, open on every paid plan, and name this file as their server', () => {
   for (const k of ['space_floor_plan', 'space_names'] as const) {
     const d = LOCKS[k];
-    assert.equal(d.opens, 'pro');
+    assert.equal(d.opens, 'solo');
     assert.ok(d.problem.length > 0 && d.solution.length > 0);
     assert.equal(d.server, 'app/vendor-dashboard/spaces/actions.ts');
     assert.ok(existsSync(join(HERE, '../../..', d.server)), `${k} names a server file that does not exist`);

@@ -35,7 +35,7 @@ export default async function SpacesPage() {
     readSpaces(supabase, profile.vendor_profile_id, today),
     supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle(),
   ]);
-  // 🔒 Pro and up (or the paywall switch off): own names, renaming, numbering by floor, the drawn floor plan. A refused
+  // 🔒 Every paid plan, from Plus (or the paywall switch off): own names, renaming, numbering by floor, the drawn floor plan. A refused
   // tier read reads as below Pro — the lock holds, never a wrong "you have it". The server refuses the same.
   const tier = (tierRow.data as { tier_state?: string | null } | null)?.tier_state ?? null;
   const proOpen = !vendorPaywallApplies(isTierAtLeast(tier, SUPPLIER_FLOOR_PLAN_MIN_TIER));

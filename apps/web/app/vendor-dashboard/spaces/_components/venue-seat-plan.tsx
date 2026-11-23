@@ -142,12 +142,16 @@ export function venueSeatingStore(spaceId: string, run: Run, latest: () => ShopA
  */
 export function VenueSeatPlan({ tables, spaceId, run, floorPlanOpen }: { tables: SpaceTables; spaceId: string; run: Run; floorPlanOpen: boolean }) {
   const sp = useMemo(() => shopPlanOf(tables, spaceId), [tables, spaceId]);
+  const rows = useMemo(() => (sp ? venueEditorRows(sp) : null), [sp]);
+  // The hall as last read, and the sheet's `run` (a new function each render): read at call time, so the store — and
+  // the editor's props — stay the same object between saves.
   const latest = useRef<ShopAreaPlan | null>(sp);
   latest.current = sp;
-  const store = useMemo(() => venueSeatingStore(spaceId, run, () => latest.current), [spaceId, run]);
+  const runRef = useRef(run);
+  runRef.current = run;
+  const store = useMemo(() => venueSeatingStore(spaceId, (op, done) => runRef.current(op, done), () => latest.current), [spaceId]);
   const [open, setOpen] = useState(false);
-  if (!sp) return null;
-  const rows = venueEditorRows(sp);
+  if (!sp || !rows) return null;
   const seats = rows.tables.reduce((s, t) => s + t.capacity, 0);
   return (
     <div className="space-y-2" data-space-plan={spaceId}>

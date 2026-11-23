@@ -35,8 +35,8 @@ import type { ShelfTile } from '@/lib/shop-badge-shelf';
 import type { CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { BadgeArt } from '@/app/vendor-dashboard/shop/_components/shop-badge-row';
 import type { StoreData } from './store-data';
-import { GraphArt, GraphShelfRow, OnPage, StoreBadgeTile, StoreGraphTile, StoreShelfRow, StoreToolTile, TagChips, ToolArt, ToolShelfRow, php, toolOpenHref } from './store-views';
-import { CakeDemoButton, StoreChips, StoreOp, StoreThumb } from './store-client';
+import { GraphShelfRow, OnPage, StoreBadgeTile, StoreGraphTile, StoreShelfRow, StoreToolTile, TagChips, ToolArt, ToolShelfRow, php, toolOpenHref } from './store-views';
+import { StoreChips, StoreOp, StoreThumb } from './store-client';
 
 /**
  * 🛍 THE STORE'S SCREENS (owner 23 Nov 2026 — drawing `supplier_store_graphs_badges_2026-11-23` v12). Each page reads
@@ -47,8 +47,8 @@ import { CakeDemoButton, StoreChips, StoreOp, StoreThumb } from './store-client'
  *   StoreShelfScreen  F6 Tools (tag chips; "For you" · "Yours" · "More tools", each tool with its supplier-type tags) ·
  *                     F12 Graphs ("On your Analytics", ✓ On your page; then the groups with Get) · F15 Badges ("On your
  *                     Shop", any number; "More badges" with Add; Verified ✓ Earned). Order lives on the Shop's Edit.
- *   StoreItemScreen   F9 a tool — its tags, its one-time price from the catalog row (never typed) or its state, "Try it first",
- *                     what it adds, ONE button: Buy · ₱… / Get / Open. F7 a graph — what it shows, an example, Good to
+ *   StoreItemScreen   F9 a tool — its tags, its one-time price from the catalog row (never typed) or its state,
+ *                     what it adds, ONE button: Buy · ₱… / Get / Open. F7 a graph — what it shows, Good to
  *                     know, Get · Free. A badge has no item of its own: it opens on the Badges page.
  */
 
@@ -132,7 +132,7 @@ export function StoreShelfScreen({ shelf, d }: { shelf: StoreShelf; d: StoreData
   );
 }
 
-/** F3 · F7 — one item: a tool (price or state, demo, what it adds, one button) or a graph. */
+/** F3 · F7 — one item: a tool (price or state, what it adds, one button) or a graph. */
 export function StoreItemScreen({ shelf, itemKey, d }: { shelf: 'tools' | 'graphs'; itemKey: string; d: StoreData }) {
   return shelf === 'tools' ? <ToolItem d={d} toolKey={itemKey} /> : <GraphItem d={d} graphKey={itemKey} />;
 }
@@ -387,14 +387,6 @@ function ToolItem({ d, toolKey }: { d: StoreData; toolKey: string }) {
           <div className="min-w-0">{head}</div>
         </div>
       </Card>
-      {tool.key === 'cake_tool' ? (
-        <ToolSection label="Try it first" data="store-try">
-          <Card>
-            <p className="mb-3 text-sn-base text-[color:var(--m-slate-2)]">A demo · what couples see in your chat</p>
-            <CakeDemoButton />
-          </Card>
-        </ToolSection>
-      ) : null}
       <ToolSection label="What it adds to your shop" data="store-adds">
         <ul className="sn-frame px-4 py-1">
           {addsOf(tool.key, tool.line).map((a) => (
@@ -450,14 +442,6 @@ function GraphItem({ d, graphKey }: { d: StoreData; graphKey: string }) {
         <Card>
           <p className="text-sn-lg leading-snug text-ink">{g.asks}</p>
           <p className="mt-1 text-sn-base text-[color:var(--m-slate-2)]">{g.counts}.</p>
-        </Card>
-      </ToolSection>
-      <ToolSection label="Try it first" data="store-try">
-        <Card>
-          <span className="mb-2 inline-block">
-            <ToolChip tone="quiet">Example</ToolChip>
-          </span>
-          <GraphArt size={72} wide />
         </Card>
       </ToolSection>
       <ToolSection label="Good to know" data="store-know">

@@ -16,8 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ shelf: st
 
 /**
  * 🛍 ONE STORE ITEM (drawing v10 — F3 Cake Maker · F7 a graph). A tool: what it is, its price (one-time, yours forever —
- * from the catalog row, never typed) or its state (Owned · With your plan · Free trial · Free), "Try it first" where a demo
- * exists, what it adds to the shop, and ONE button: Buy · ₱… / Get / Open. A graph: what it shows, an example, Good to
+ * from the catalog row, never typed) or its state (Owned · With your plan · Free trial · Free), what it adds to the shop, and ONE button: Buy · ₱… / Get / Open. A graph: what it shows, Good to
  * know (Free · Window · Counts), and Get · Free. A badge has no item of its own: it opens on the Badges page.
  */
 export default async function StoreItemPage({ params }: { params: Promise<{ shelf: string; item: string }> }) {

@@ -1,8 +1,8 @@
 'use client';
 
-import { lazy, Suspense, useId, useRef, useState, useTransition, type PointerEvent as ReactPointerEvent, type ReactElement, type ReactNode } from 'react';
+import { useId, useRef, useState, useTransition, type PointerEvent as ReactPointerEvent, type ReactElement, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, GripVertical, MinusCircle, Play } from 'lucide-react';
+import { Check, GripVertical, MinusCircle } from 'lucide-react';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { ThumbRow } from '@/components/thumb-row';
 import { SortFace } from '@/components/sort-face';
@@ -387,24 +387,6 @@ export function ArrangeEdit({ row, items }: { row: LayoutRow; items: readonly Ar
         </ul>
         {order.length === 0 ? <p className="px-4 py-3 text-sn-base text-[color:var(--m-slate-2)]">Nothing on this row. Add one from the Store.</p> : null}
       </Sheet>
-    </>
-  );
-}
-
-const CakeDesigner = lazy(() => import('@/app/_components/cake-maker/cake-designer').then((m) => ({ default: m.CakeDesigner })));
-
-/** "Try it first" — the Cake Maker as couples meet it in your chat: the shipped designer's demo (sample options,
- *  nothing saved or sent). Fetched only on the press. */
-export function CakeDemoButton() {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <ActionButton tone="info" icon={<Play aria-hidden strokeWidth={1.9} />} label="Open the demo" onClick={() => setOpen(true)} />
-      {open ? (
-        <Suspense fallback={null}>
-          <CakeDesigner threadId="" demo onClose={() => setOpen(false)} />
-        </Suspense>
-      ) : null}
     </>
   );
 }

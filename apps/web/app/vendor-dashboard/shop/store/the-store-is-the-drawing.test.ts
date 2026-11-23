@@ -11,9 +11,11 @@
  *   5. The Store's pages are registered (Back knows them) and use the route builders.
  *   6. The Tools shelf opens with its tag chips and "For you" first; every tool row and item carries its tags. What is
  *      on the page says "✓ On your page"; nothing on a shelf drags (the order lives on the Shop's Edit).
+ *   7. No "Try it first" (owner 23 Nov 2026: "no more try first"): no demo door in the Store, and the Cake Maker
+ *      designer has no demo mode. The 30-day trial after Verified is a separate ruling and stays.
  *
  * Sabotage: swap the shelves (1) · point Add a tool at /vendor-dashboard/services (2) · read the price from the form (3)
- * · put a Buy on the badges shelf (4) · drop an Edit (2) · put "More tools" before "For you" (6).
+ * · put a Buy on the badges shelf (4) · drop an Edit (2) · put "More tools" before "For you" (6) · bring back a "Try it first" section or `<CakeDesigner demo` (7).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -105,3 +107,12 @@ test('6 · tags and For you on the Tools shelf; on-page rows say so; shelves nev
   assert.match(views, /On your page/);
   assert.doesNotMatch(SCREENS, /GraphArrange|drag to arrange|onPointerDown/, 'a shelf drags again (the order lives on the Shop’s Edit)');
 });
+
+test('7 · no "Try it first": no demo door in the Store, no demo mode in the Cake Maker', () => {
+  const client = read('app/vendor-dashboard/shop/store/_components/store-client.tsx');
+  const designer = read('app/_components/cake-maker/cake-designer.tsx');
+  assert.doesNotMatch(SCREENS + client + ITEM, /Try it first|CakeDemoButton|store-try|Open the demo/, 'a "Try it first" door is back');
+  assert.doesNotMatch(designer, /\bdemo\b|cake-demo/, 'the Cake Maker designer has a demo mode again');
+  assert.match(read('lib/supplier-store.ts'), /`Free trial · \$\{s\.daysLeft\}/, 'the 30-day trial after Verified is a separate ruling — it stays');
+});
+

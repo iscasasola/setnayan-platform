@@ -13,7 +13,7 @@ Built from Fable's drawing `prototypes/supplier_store_graphs_badges_2026-11-23/`
 - **Store** (`/vendor-dashboard/shop/store`, a shelf, an item):
   - Three shelves (Specialized Tools · Graphs · Badges), with search at the thumb and Show & sort behind Sliders.
   - Every tool shows the supplier types it is for (Cake Maker → Cake; Scanner → Every service), read only from the per-category hub-tools table (`HUB_TOOLS_SEED` + an admin's saved switches) and `suggestedFor`'s rules — no category is typed. The Tools shelf opens with tag chips (All · For you · each supplier group), then For you · Yours · More tools. Tags only order and suggest: every shop can still get every tool.
-  - A tool item shows its one-time price from the catalog (or "Price not set yet"), "Try it first" (the Cake Maker's demo), what it adds, and one button: Open · Get · Buy.
+  - A tool item shows its one-time price from the catalog (or "Price not set yet"), what it adds, and one button: Open · Get · Buy.
   - Graphs: "On your Analytics" (✓ On your page), then the groups with Get. A badge-locked graph names its badge and what is left.
   - Badges: "On your Shop" (✓ On your page) and "More badges" (Add). They are earned, never sold.
 - **Badges page** (`/vendor-dashboard/shop/badges`): every badge with its ring, the seven-step ladder, what is left, and the next gift (Verified's Papic gift once).

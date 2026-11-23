@@ -4,6 +4,8 @@ import { useActionState } from 'react';
 import type { RowActionState } from '@/app/admin/pricing/actions';
 import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { TEMPLATE_SUBLINE, TemplateSection } from '@/app/_components/template-rows';
 import { Save } from 'lucide-react';
 
 export type PapicProductRow = {
@@ -36,14 +38,15 @@ export function PapicRestEditor({
   savePriceAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
 }) {
   return (
-    <section className="mt-10">
-      <h2 className="mb-1 text-base font-semibold tracking-tight">
-        Free credits, and the Thank You video
-      </h2>
-      <p className="mb-4 max-w-prose text-sm leading-relaxed text-ink/60">
-        What every event starts with, and Papic&apos;s one product that is not a rung of
-        the ladder above.
-      </p>
+    <TemplateSection
+      label="Free credits, and the Thank You video"
+      tip={
+        <>
+          What every event starts with, and Papic&apos;s one product that is not a rung of
+          the ladder above.
+        </>
+      }
+    >
 
       {/*
         ⚠ THE FREE ALLOWANCE IS SHOWN, NOT EDITABLE — and the difference is
@@ -52,18 +55,18 @@ export function PapicRestEditor({
         at all until this; giving it a save is its own change, with its own
         audit row and its own guard.
       */}
-      <div className="mb-4 rounded-2xl border border-success-800/25 bg-success-800/[0.05] p-4">
+      <div className={`${ADMIN_FRAME} mb-4 p-4`}>
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[15px] font-semibold">Free credits on a first event</p>
-            <p className="mt-0.5 max-w-prose text-[13px] leading-relaxed text-ink/60">
+            <p className={`mt-0.5 max-w-prose ${TEMPLATE_SUBLINE}`}>
               Given to every event before anybody buys anything. The ladder above tops
               this up; it never replaces it.
             </p>
           </div>
           <div className="text-right">
             <p
-              className={`font-mono text-xl font-bold tabular-nums ${
+              className={`text-xl font-bold tabular-nums ${
                 freeCreditsPerEvent == null ? 'text-ink/45' : 'text-success-800'
               }`}
             >
@@ -74,7 +77,7 @@ export function PapicRestEditor({
             </p>
           </div>
         </div>
-        <p className="mt-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-ink/45">
+        <p className={`mt-2 ${TEMPLATE_SUBLINE}`}>
           Not editable here yet — changing it still needs a migration
         </p>
       </div>
@@ -84,7 +87,7 @@ export function PapicRestEditor({
           <ProductRow key={p.serviceCode} row={p} action={savePriceAction} />
         ))}
       </div>
-    </section>
+    </TemplateSection>
   );
 }
 
@@ -103,24 +106,14 @@ function ProductRow({
   return (
     <form
       action={formAction}
-      className="flex flex-wrap items-center gap-3 border-b border-ink/5 p-4 last:border-b-0"
+      className="flex flex-wrap items-center gap-3 border-b border-[color:var(--sn-divider)] p-4 last:border-b-0"
     >
       <input type="hidden" name="service_code" value={row.serviceCode} />
       <div className="min-w-0 flex-1">
         <p className="text-[15px] font-semibold leading-snug">{row.title}</p>
         <p className="mt-0.5 flex flex-wrap items-center gap-1.5">
-          <code className="font-mono text-[10px] uppercase tracking-[0.13em] text-ink/50">
-            {row.serviceCode}
-          </code>
-          {row.isActive ? (
-            <span className="rounded-full border border-success-800/25 bg-success-800/[0.08] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.13em] text-success-800">
-              On sale
-            </span>
-          ) : (
-            <span className="rounded-full border border-ink/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.13em] text-ink/55">
-              Switched off
-            </span>
-          )}
+          <code className={TEMPLATE_SUBLINE}>{row.serviceCode}</code>
+          {row.isActive ? <Badge tone="ok">On sale</Badge> : <Badge tone="quiet">Switched off</Badge>}
         </p>
         {state.message && (
           <p className={`mt-1 text-[11.5px] font-semibold ${state.ok ? 'text-success-800' : 'text-danger-700'}`}>
@@ -130,7 +123,7 @@ function ProductRow({
       </div>
       <div className="flex items-center gap-2">
         <div className="relative">
-          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[12px] text-ink/45">
+          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[12px] text-ink/45">
             ₱
           </span>
           <input
@@ -140,7 +133,7 @@ function ProductRow({
             step="1"
             defaultValue={String(row.regularPhp)}
             aria-label={`Price for ${row.title}`}
-            className="input-field h-9 w-32 pl-5 text-right font-mono text-[14px] tabular-nums"
+            className="input-field h-9 w-32 pl-5 text-right text-[14px] tabular-nums"
           />
         </div>
         <ActionButton tone="neutral" type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save" />

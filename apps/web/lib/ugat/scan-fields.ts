@@ -826,7 +826,9 @@ interface RawForm {
 }
 
 /** The Form row family (`app/_components/form-row.tsx`, `form-row-date.tsx`): `name` is its label, `fieldName` what it posts. */
-const FORM_ROW_TAGS = /^(?:TypedRow|ChosenRow|SwitchRow|DateRow|FormRow|FactRow|OpensRow)$/;
+// The Posted* shells (`app/admin/_components/posted-field-row.tsx`, `app/admin/gifts/_components/posted-rows.tsx`) are the
+// same family with a server-safe `onKeep`: `name` is the label, `fieldName` what posts — read their `fieldName`, never the label.
+const FORM_ROW_TAGS = /^(?:TypedRow|ChosenRow|SwitchRow|DateRow|FormRow|FactRow|OpensRow|PostedFieldRow|PostedTypedRow|PostedPickRow)$/;
 
 function formsIn(rel: string, src: string): RawForm[] {
   const out: RawForm[] = [];

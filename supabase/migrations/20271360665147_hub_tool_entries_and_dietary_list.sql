@@ -25,9 +25,13 @@ CREATE TABLE IF NOT EXISTS public.vendor_hub_tool_entries (
   event_id           UUID NOT NULL REFERENCES public.events(event_id) ON DELETE CASCADE,
   vendor_profile_id  UUID NOT NULL REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE CASCADE,
 
-  -- The tool record's key (`hub_tools.key` / lib/hub-tools.ts HUB_TOOL_LIBRARY). Not an FK: a tool switched off in the
-  -- library keeps its data ("Turn off keeps data", 2026-10-28), and the Tool maker may add keys the seed never had.
-  tool_key           TEXT NOT NULL CHECK (tool_key ~ '^[a-z][a-z0-9_]{0,59}$'),
+  -- The tool record (`hub_tools`, the ONE library; lib/hub-tools.ts HUB_TOOL_LIBRARY). An FK (controller, DECISION_LOG
+  -- 23 Nov 2026: every new hub tool lives in ONE home, this table): a row can only name a tool the library holds.
+  -- "Turn off keeps data" (2026-10-28) still holds — turning a tool off is `hub_tools.is_active = false`, never a delete,
+  -- so RESTRICT (as `category_hub_tool_switches`) only stops a library row being deleted while a supplier has rows in it;
+  -- and the Tool maker writes its new keys INTO `hub_tools`, so a made tool is in the library before it has a row.
+  -- No shape CHECK here: `hub_tools.tool_key` carries the one shape rule, and the FK means every key here passed it.
+  tool_key           TEXT NOT NULL REFERENCES public.hub_tools(tool_key) ON DELETE RESTRICT,
 
   -- The row's words: an item ("2× wireless mic"), a person ("Maria Reyes") or the thing counted ("Giveaways").
   label              TEXT NOT NULL CHECK (char_length(btrim(label)) BETWEEN 1 AND 140),
@@ -54,11 +58,14 @@ CREATE INDEX IF NOT EXISTS vendor_hub_tool_entries_event_vendor_idx
 -- FK covering index for the vendor_profiles cascade.
 CREATE INDEX IF NOT EXISTS vendor_hub_tool_entries_vendor_idx
   ON public.vendor_hub_tool_entries (vendor_profile_id);
+-- FK covering index for the hub_tools RESTRICT check (the event index leads with event_id, so it cannot serve it).
+CREATE INDEX IF NOT EXISTS vendor_hub_tool_entries_tool_idx
+  ON public.vendor_hub_tool_entries (tool_key);
 
 ALTER TABLE public.vendor_hub_tool_entries ENABLE ROW LEVEL SECURITY;
 
 COMMENT ON TABLE public.vendor_hub_tool_entries IS
-  'A booked supplier''s rows in one hub tool for one event (Tech rider items, Personalisation names, Quantity vs guests counts — any tool drawn with the Checklist, Per-person or Counter template). Keyed by tool_key from lib/hub-tools.ts. Written by hubToolEntry in app/vendor-dashboard/on-the-day/actions.ts; read by lib/hub-tool-entries.server.ts for the on-the-day screen.';
+  'A booked supplier''s rows in one hub tool for one event (Tech rider items, Personalisation names, Quantity vs guests counts — any tool drawn with the Checklist, Per-person or Counter template). Keyed by tool_key, an FK to hub_tools (the one library; lib/hub-tools.ts). Written by hubToolEntry in app/vendor-dashboard/on-the-day/actions.ts; read by lib/hub-tool-entries.server.ts for the on-the-day screen.';
 COMMENT ON COLUMN public.vendor_hub_tool_entries.done_at IS 'NULL = not ticked. Set when the supplier ticks the row; cleared when they untick it.';
 COMMENT ON COLUMN public.vendor_hub_tool_entries.qty IS 'The Counter template''s count; NULL on Checklist and Per-person rows.';
 

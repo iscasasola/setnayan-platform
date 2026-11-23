@@ -178,14 +178,20 @@ test('an UPDATE cannot re-point a row at another event, supplier or tool', async
   await asOwner();
 });
 
-test('the table refuses a blank label, a bad key and a negative count', async () => {
+test('the table refuses a blank label, a key the library does not hold and a negative count', async () => {
   await asUser(F.bandUser);
   await assert.rejects(
     db.query(`INSERT INTO public.vendor_hub_tool_entries (event_id, vendor_profile_id, tool_key, label) VALUES ($1, $2, 'tech_rider', '  ')`, [F.eventId, F.band]),
   );
-  await assert.rejects(
-    db.query(`INSERT INTO public.vendor_hub_tool_entries (event_id, vendor_profile_id, tool_key, label) VALUES ($1, $2, 'Tech Rider!', 'x')`, [F.eventId, F.band]),
-  );
+  // tool_key is an FK to hub_tools (controller 23 Nov 2026: ONE home): a malformed key AND a well-shaped key the
+  // library never seeded are both refused by the FK (23503) — the second is the case a shape CHECK alone let through.
+  for (const key of ['Tech Rider!', 'no_such_tool']) {
+    await assert.rejects(
+      db.query(`INSERT INTO public.vendor_hub_tool_entries (event_id, vendor_profile_id, tool_key, label) VALUES ($1, $2, $3, 'x')`, [F.eventId, F.band, key]),
+      (e: { code?: string }) => e.code === '23503',
+      `${key}: refused by the hub_tools FK`,
+    );
+  }
   await assert.rejects(
     db.query(`INSERT INTO public.vendor_hub_tool_entries (event_id, vendor_profile_id, tool_key, label, qty) VALUES ($1, $2, 'quantity_vs_guests', 'x', -1)`, [F.eventId, F.band]),
   );

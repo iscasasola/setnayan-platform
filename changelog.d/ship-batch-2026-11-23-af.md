@@ -6,3 +6,5 @@
 - Ship regenerated the screens map, admin jobs and port baseline once.
 
 SPEC IMPACT: None from Ship (the ruling is in DECISION_LOG via specs 9abac928).
+
+- **#8218:** dev-only lab states for filming the front-page loops. Names are invented, and the faces are AI-made inline pictures, nothing fetched. Only `app/dev/` changes.

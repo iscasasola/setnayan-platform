@@ -23,10 +23,12 @@ PR 2 of 2 for the one seat plan (DECISION_LOG d1fafcd5, option B). It builds on 
 - **Spaces sheet:**
   - The hall's picture (`PlanPoster`) and one button, "Open the floor plan", which opens the editor full screen (`RiseScreen`, `kind="zoom"`).
   - On the free plan, the lock's words appear in place of the button.
+- **Stable between renders:** the hall's rows are memoised on the hall's read, and the store reads the sheet's `run` through a ref. The editor's empty lists, `me` and `source` are the same objects every render, so saving a table never rebuilds the store and doesn't re-run the editor's effects.
 - **Line up:** PlanMaker's Line up is now the venue editor's Arrange row ("Line up the tables", `lineUpPlan`).
 - **Removed:**
   - `app/_components/plan-maker/` and its test.
   - The roster line in `lib/no-delete-x-on-list-rows.test.ts`.
+  - `the-floor-fits-the-room.test.ts` checks 5 and 6 read PlanMaker's file. They now hold the same two rules where they live today: the hall's picture (`PlanPoster`) draws the square wall, and the editor's one `snapToLines` isn't skipped in venue mode.
 - **Guard:** `seating/_components/the-seat-plan-is-one-editor.test.ts`:
   - PlanMaker is gone;
   - both sides import the one `SeatingEditor`;

@@ -87,9 +87,10 @@ test('5 · the Spaces look: an ink outline, square corners, the hall’s name an
   assert.doesNotMatch(wall.slice(0, 330), /rounded/, 'the wall has round corners');
   assert.match(wall, /planRoomWords\(\{ widthM: roomM\.w, depthM: roomM\.d \}, venueHall\?\.name\)\.name/);
   assert.match(wall, /planRoomWords\(\{ widthM: roomM\.w, depthM: roomM\.d \}\)\.size/);
-  // the supplier's wall is the same: ink, square
-  const pm = stripComments(readFileSync(join(process.cwd(), 'app', '_components', 'plan-maker', 'plan-maker.tsx'), 'utf8'));
-  assert.match(pm, /<rect x=\{4\} y=\{4\} width=\{W - 8\} height=\{H - 8\} fill="none" className="stroke-ink" strokeWidth=\{8\} \/>/, 'the Spaces wall changed — re-read this test');
+  // the hall's picture in Spaces (PlanPoster, out of the retired PlanMaker) draws the same wall: square, in the ink it sits in
+  const poster = stripComments(readFileSync(join(process.cwd(), 'app', '_components', 'plan-poster.tsx'), 'utf8'));
+  assert.match(poster, /<rect x=\{4\} y=\{4\} width=\{W - 8\} height=\{H - 8\} fill="none" className="stroke-current" strokeWidth=\{8\} \/>/, 'the Spaces wall changed — re-read this test');
+  assert.doesNotMatch(poster, /<rect x=\{4\}[^>]*\brx=/, 'the Spaces wall has round corners');
 });
 
 test('6 · a moved table lines up through the core — on both plans — and says with what', () => {
@@ -97,6 +98,7 @@ test('6 · a moved table lines up through the core — on both plans — and say
   assert.ok(drag.length > 0, 'the couple’s drag no longer snaps through the core');
   assert.match(drag, /stage: \{ x: stage\.x, y: stage\.y \},/, 'the stage line is not a line');
   assert.match(ed, /Lined up with \{tables\.find\(\(t\) => t\.table_id === linedWithRef\.current\)!\.table_label\}/);
-  const pm = stripComments(readFileSync(join(process.cwd(), 'app', '_components', 'plan-maker', 'plan-maker.tsx'), 'utf8'));
-  assert.match(pm, /const lined = snapToLines\(\{ at: p, others \}\);/, 'a shop’s Spaces does not line up through the same rule');
+  // a shop's hall IS this editor in venue mode (PlanMaker retired): the one snap is not skipped for a venue
+  const guard = ed.slice(ed.lastIndexOf('if (', ed.indexOf('const snap = snapToLines({')), ed.indexOf('const snap = snapToLines({'));
+  assert.doesNotMatch(guard, /isVenue|venueMode|source\.kind/, 'a shop’s Spaces does not line up through the same rule');
 });

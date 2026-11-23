@@ -32,6 +32,10 @@ const NOT_IN_A_HALL = (async () => {
   throw new Error('That is for an event’s seat plan, not a hall.');
 }) as never;
 
+/** A hall has none of these: the same empty lists every render, so the editor's effects don't re-run on a re-render. */
+const NONE: never[] = [];
+const NOBODY = { id: '', name: '' };
+
 const str = (fd: FormData, k: string) => {
   const v = fd.get(k);
   return typeof v === 'string' ? v : '';
@@ -150,6 +154,7 @@ export function VenueSeatPlan({ tables, spaceId, run, floorPlanOpen }: { tables:
   const runRef = useRef(run);
   runRef.current = run;
   const store = useMemo(() => venueSeatingStore(spaceId, (op, done) => runRef.current(op, done), () => latest.current), [spaceId]);
+  const source = useMemo(() => ({ kind: 'venue' as const, spaceId, floorPlanOpen }), [spaceId, floorPlanOpen]);
   const [open, setOpen] = useState(false);
   if (!sp || !rows) return null;
   const seats = rows.tables.reduce((s, t) => s + t.capacity, 0);
@@ -177,14 +182,14 @@ export function VenueSeatPlan({ tables, spaceId, run, floorPlanOpen }: { tables:
               eventId={spaceId}
               roleSetKey="wedding"
               tables={rows.tables}
-              guests={[]}
-              groups={[]}
+              guests={NONE}
+              groups={NONE}
               floorPlan={rows.floorPlan}
-              booths={[]}
-              signs={[]}
-              bookedVendors={[]}
-              constraints={[]}
-              me={{ id: '', name: '' }}
+              booths={NONE}
+              signs={NONE}
+              bookedVendors={NONE}
+              constraints={NONE}
+              me={NOBODY}
               eventDate={null}
               genderSeparationNote={null}
               seatShortfall={0}
@@ -196,7 +201,7 @@ export function VenueSeatPlan({ tables, spaceId, run, floorPlanOpen }: { tables:
               toSeatReserved={0}
               setSeatingAutoplace={NOT_IN_A_HALL}
               setSeatingGroupAdjacency={NOT_IN_A_HALL}
-              source={{ kind: 'venue', spaceId, floorPlanOpen }}
+              source={source}
             />
           </SeatingStoreContext.Provider>
         </RiseScreen>

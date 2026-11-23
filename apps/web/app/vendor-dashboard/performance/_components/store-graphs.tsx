@@ -239,7 +239,7 @@ export function storeGraphSpecs(g: StoreGraphs, win: GrowthWindow): Record<Store
     p && !pEmpty ? (
       <PhotoRows top={p.top} urls={p.urls} />
     ) : (
-      <ValueRows pic="photos" rows={[3, 2, 1].map((v, i) => ({ key: `ex-${i}`, label: i === 0 ? 'Most viewed' : `Photo ${i + 1}`, value: v * 10, shown: `${v * 10} views`, max: 30, tone: 'opened' }))} />
+      <ValueRows pic="photos" rows={[3, 2, 1].map((v, i) => ({ key: `ex-${i}`, label: i === 0 ? 'Most viewed' : `Photo ${i + 1}`, value: v * 10, shown: `${formatCount(v * 10)} views`, max: 30, tone: 'opened' }))} />
     ),
     p === null ? UNREAD : pEmpty ? 'Fills in as couples open the photos on your page.' : photosLine(p, win),
     DOOR.portfolio,

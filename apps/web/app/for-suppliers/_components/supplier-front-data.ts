@@ -533,6 +533,12 @@ export const FRONT_MEDIA = {
  */
 export const FEE_STEP_BOOKINGS = { usual: 80_000, big: 500_000 } as const;
 
+/**
+ * The share a booking the supplier brought carries: none. One formatted value ("0%") for the hero line and the
+ * "Clients you bring" row, through the same formatter as the steps' shares — never typed into the page.
+ */
+export const BROUGHT_CLIENT_SHARE = new Intl.NumberFormat('en-PH', { style: 'percent', maximumFractionDigits: 1 }).format(0);
+
 /** One step: what happened, the ONE figure, its line under it, then what it meant. */
 export type FeeStep = { say: string; fee: string; sub: string; mean: string };
 

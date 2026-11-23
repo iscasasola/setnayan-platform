@@ -177,7 +177,7 @@
 .close .lede { margin-top: 6px !important; }
 
 /* ── "Open your shop" follows the reader: a floating pill on a phone, under the shell's bar on desktop ── */
-.fab { position: fixed; z-index: 30; left: 16px; right: 16px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; justify-content: center; min-height: 48px; font-size: 15px; font-weight: 650; box-shadow: var(--m-shadow-lg); }
+.fab { position: fixed; z-index: 30; left: max(16px, var(--sn-safe-l, 0px)); right: max(16px, var(--sn-safe-r, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; justify-content: center; min-height: 48px; font-size: 15px; font-weight: 650; box-shadow: var(--m-shadow-lg); }
 .topOpen { display: none; }
 
 @media (max-width: 759.98px) {
@@ -194,7 +194,7 @@
   .bdgs p { font-size: 13px; }
   .story { font-size: 15px; }
   .fab { display: none; }
-  .topOpen { position: fixed; z-index: 30; top: calc(var(--fd-bar, 56px) + 8px); right: 24px; display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; font-size: 14px; font-weight: 650; box-shadow: var(--m-shadow-lg); }
+  .topOpen { position: fixed; z-index: 30; top: calc(var(--fd-bar, 56px) + 8px); right: max(24px, var(--sn-safe-r, 0px)); display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; font-size: 14px; font-weight: 650; box-shadow: var(--m-shadow-lg); }
 }
 
 /* ══ MOTION — every part reads the `--sn-m-*` tokens; transform and opacity only; nothing needed to read the page ══ */

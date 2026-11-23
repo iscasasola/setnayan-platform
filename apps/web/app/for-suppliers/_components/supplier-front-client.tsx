@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Check, Lock } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import { formatCount } from '@/lib/format-number';
 import type { FeeStep, FrontClip as Clip, ToolkitShelf, ToolkitTag } from './supplier-front-data';
 import s from './supplier-front.module.css';
 
@@ -400,9 +401,9 @@ export function ToolkitCount({ total, parts, shelves, graphsLine }: { total: num
   return (
     <>
       <p className={s.count}>
-        <span className={s.num}>{total}</span> in the Toolkit: {parts}.{' '}
+        <span className={s.num}>{formatCount(total)}</span> in the Toolkit: {parts}.{' '}
         <button type="button" className={s.countBtn} onClick={() => setOpen(true)} aria-haspopup="dialog">
-          See all {total}
+          See all {formatCount(total)}
         </button>
       </p>
       <Sheet open={open} onClose={() => setOpen(false)} labelledById={titleId} rise>
@@ -410,11 +411,11 @@ export function ToolkitCount({ total, parts, shelves, graphsLine }: { total: num
           <h3 id={titleId} className={s.kitTitle}>
             The Toolkit
           </h3>
-          <p className={s.lede}>{total} in all. Most are free.</p>
+          <p className={s.lede}>{formatCount(total)} in all. Most are free.</p>
           {shelves.map((sh) => (
             <section key={sh.key}>
               <p className={s.k}>
-                {sh.title} · {sh.count}
+                {sh.title} · {formatCount(sh.count)}
               </p>
               {sh.rows.length ? (
                 <ul className={`${s.rows} ${s.rowsSm}`}>

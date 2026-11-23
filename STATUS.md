@@ -27,6 +27,12 @@ their posters, because a full-page capture drops paused video frames.
 | Every read failed (gifts, fee, tools) | `build-375-unread.jpg` |
 | The real route in the shell, dummy env | `route-375-dummy-env.jpg` |
 
+**Speed (production build, `next start`, 390 × 844 phone, 5 warm loads; median):** response 36 ms · first paint 164 ms ·
+largest paint 164 ms · load 202 ms. All are under the 0.7 s target. The page's own JS is 11.4 kB (172 kB first load, mostly
+shared). No clip blocks first paint: only the first beat's clip (42 kB) and two posters start, after hydration, because they
+sit within a screen of view. ⚠ Measured on the dummy env (no database), so the route's database reads, one `Promise.all`, are
+not in these numbers. Live timing waits for the deploy.
+
 1. **Dark is not on for this page in production.** `/for-suppliers` is not on `DARK_READY` (`lib/appearance.ts`), and signed-out
    visitors are always Light. The dark shots prove the tokens hold, ready for when the dark rollout lists the page.
 2. **⏭ TODO, Toolkit count (#8231).** The count line reads main's lists today (`SPECIALIZED_TOOLS` · `CARD_ORDER` ·

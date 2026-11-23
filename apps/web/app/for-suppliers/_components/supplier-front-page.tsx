@@ -36,10 +36,12 @@ import { specialToolsOpenToAll } from '@/lib/special-tools';
 import { SPECIALIZED_TOOLS } from '@/lib/specialized-tools';
 import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
 import { formatPhpRounded } from '@/lib/php';
+import { formatCount } from '@/lib/format-number';
 import type { PlanCredits } from '@/lib/event-plans';
 import type { ShopGiftBundle, ShopGiftPack } from '@/lib/shop-gifts';
 import {
   BADGE_ROW,
+  BROUGHT_CLIENT_SHARE,
   FRONT_MEDIA,
   GROW_TIERS,
   PLAN_PAID_TOOLS_LOCKED,
@@ -179,7 +181,7 @@ export function SupplierFrontPage({
         </p>
         <p className={`${s.fine} ${s.c}`}>{FREE_LINE}</p>
         <p className={`${s.fine} ${s.c} ${s.tight}`}>
-          0% fee on clients you bring. Every booking includes a Setnayan gift for your couple{giftFrom ? `, from ${giftFrom}` : ''}.
+          {BROUGHT_CLIENT_SHARE} fee on clients you bring. Every booking includes a Setnayan gift for your couple{giftFrom ? `, from ${giftFrom}` : ''}.
         </p>
       </section>
 
@@ -194,7 +196,7 @@ export function SupplierFrontPage({
             <p className={s.story}>
               <b className={s.say}>
                 <i>
-                  {i + 1} / {FRONT_MEDIA.beats.length}
+                  {formatCount(i + 1)} / {formatCount(FRONT_MEDIA.beats.length)}
                 </i>
                 {b.say}
               </b>
@@ -243,7 +245,7 @@ export function SupplierFrontPage({
               <li>
                 <div className={s.hd}>
                   <b>Clients you bring</b>
-                  <span className={s.big}>0%</span>
+                  <span className={s.big}>{BROUGHT_CLIENT_SHARE}</span>
                 </div>
               </li>
               <li>

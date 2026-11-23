@@ -2,7 +2,6 @@
 
 import './analytics-growing.css';
 import { useMemo, useState, type ReactNode } from 'react';
-import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
 import { PillSelector } from '@/app/_components/pill-selector';
@@ -28,6 +27,7 @@ import { STORE_GRAPHS, graphWindowWords } from '@/lib/supplier-store';
 import { ArrangeEdit } from '@/app/vendor-dashboard/shop/store/_components/store-client';
 import { GraphArt } from '@/app/vendor-dashboard/shop/store/_components/graph-art';
 import type { InviteMonth } from '@/lib/graph-unlocks';
+import { NewThingTile } from '@/app/_components/collection-card';
 
 /**
  * 📊🎠 SHOP › ANALYTICS — ONE LONG CAROUSEL, AND IT IS THE ONLY ANALYTICS (owner 11 Nov 2026: *"Analytics should be the
@@ -233,10 +233,10 @@ export function AnalyticsCarousel(props: Props & Picks) {
       key: 'add',
       label: 'Add a graph',
       node: (
-        <Link href={props.addHref} className="ag-card-in sn-press flex h-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[color:var(--m-line)] text-[color:var(--m-slate-2)]" data-analytics-add="">
+        <NewThingTile layout="ghost" href={props.addHref} label="Add a graph" className="ag-card-in flex h-full flex-col items-center justify-center gap-2 text-[color:var(--m-slate-2)]" data-analytics-add="">
           <Plus aria-hidden className="h-7 w-7" strokeWidth={1.8} />
           <b className="text-sn-lg font-semibold text-ink">Add a graph</b>
-        </Link>
+        </NewThingTile>
       ),
     });
   }
@@ -260,7 +260,7 @@ export function AnalyticsCarousel(props: Props & Picks) {
             Analytics
           </h2>
           {props.addHref ? (
-            <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" aria-label={`${graphCount} ${graphCount === 1 ? 'graph' : 'graphs'}`} data-analytics-count="">
+            <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" aria-label={`${formatCount(graphCount)} ${graphCount === 1 ? 'graph' : 'graphs'}`} data-analytics-count="">
               {formatCount(graphCount)}
             </span>
           ) : null}

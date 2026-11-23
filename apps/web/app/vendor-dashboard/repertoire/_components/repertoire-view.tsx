@@ -4,6 +4,7 @@ import { ActionButton } from '@/components/action-button';
 import { routes } from '@/lib/routes';
 import type { Song } from '@/lib/songs';
 import { formatCount } from '@/lib/format-number';
+import { PAID_WIDGET_NEEDS_PLAN_WORDS } from '@/lib/special-tools';
 import { Fold } from '@/app/_components/fold';
 import { InfoTip } from '@/app/_components/info-tip';
 import { StayForm } from '@/app/_components/stay-form';
@@ -139,8 +140,10 @@ export function RepertoireLocked({ saved }: { saved: number }) {
           <Lock aria-hidden className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={1.8} /> Song bank
         </p>
         <p className="text-sn-base text-[color:var(--m-slate-2)]">
-          The songs you play, with a video of you playing each one, on your shop page — so couples comparing bands see
-          what you can do. Get it once in the Toolkit; it is yours to keep.
+          The songs you play, each with a video, on your shop page: couples comparing bands see what you can do.
+        </p>
+        <p className="text-sn-base text-[color:var(--m-slate-2)]">
+          Get it once in the Toolkit; it is yours to keep. {PAID_WIDGET_NEEDS_PLAN_WORDS}.
         </p>
         {saved > 0 ? (
           <p className="text-sn-base text-[color:var(--m-slate-2)]">
@@ -148,8 +151,8 @@ export function RepertoireLocked({ saved }: { saved: number }) {
           </p>
         ) : null}
         <div className="mt-1 flex flex-wrap gap-2">
-          <ActionButton tone="brand" main icon={ShoppingBag} label="See it in the Toolkit" href={SONG_BANK_IN_TOOLKIT} />
-          <ActionButton tone="neutral" icon={BookOpen} label="How to use it" href={`${SONG_BANK_IN_TOOLKIT}#guide`} />
+          <ActionButton tone="brand" main icon={<ShoppingBag aria-hidden strokeWidth={1.9} />} label="See it in the Toolkit" href={SONG_BANK_IN_TOOLKIT} />
+          <ActionButton tone="neutral" icon={<BookOpen aria-hidden strokeWidth={1.9} />} label="How to use it" href={`${SONG_BANK_IN_TOOLKIT}#guide`} />
         </div>
       </div>
     </ToolPage>

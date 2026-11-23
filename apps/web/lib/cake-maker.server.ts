@@ -13,7 +13,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { moodCakeColours } from '@/lib/cake-mood-colours';
-import type { PaidStoreTool } from '@/lib/supplier-store';
+import { readShopSpecialToolOpen } from '@/lib/paid-widget-open.server';
 import { CAKE_MESSAGE_MAX, fullCakeOffer, sanitizeCakeConfig, type CakeConfig, type CakeConfigRefusal } from '@/lib/cake-config';
 import { cakeDesignOf, cakeOfferOf, isCakeKind, sanitizeCakeShopOptions, type CakeDesign, type CakeShopOptions, type MoodCakeColour } from '@/lib/cake-maker';
 
@@ -35,31 +35,7 @@ export async function readShopCakeMaker(client: SupabaseClient, vendorProfileId:
   return { status: 'ok', data: checked.options };
 }
 
-/**
- * 🧰 Is a paid widget OPEN for this shop — THE one answer (DECISION_LOG a02673ac, owner 23 Nov 2026): bought once in the
- * Toolkit AND on Plus, Pro or Ultra, from the database (`vendor_store_tool_open`, service role). The plan alone no
- * longer opens it, and neither does the admin's old open-to-all start date. A refused read is `unread`, never "open".
- * Read by the Cake Maker (editor, save, the couple's chat), the Song bank (page, actions, public set list).
- */
-export async function readShopSpecialToolOpen(
-  admin: SupabaseClient,
-  vendorProfileId: string,
-  tool: PaidStoreTool,
-  eventId: string | null = null,
-): Promise<Read<boolean>> {
-  try {
-    const { data, error } = await admin.rpc('vendor_store_tool_open', { p_vendor_profile_id: vendorProfileId, p_tool: tool, p_event_id: eventId });
-    if (error) {
-      logQueryError('readShopSpecialToolOpen', error, { vendor_profile_id: vendorProfileId, tool }, 'graceful_degrade');
-      return { status: 'unread' };
-    }
-    return { status: 'ok', data: data === true };
-  } catch {
-    return { status: 'unread' };
-  }
-}
-
-/** The Cake Maker's gate — {@link readShopSpecialToolOpen} for `cake_tool`. */
+/** The Cake Maker's gate — `readShopSpecialToolOpen` (lib/paid-widget-open.server.ts, the one answer) for `cake_tool`. */
 export function readShopCakeToolOpen(admin: SupabaseClient, vendorProfileId: string, eventId: string | null = null): Promise<Read<boolean>> {
   return readShopSpecialToolOpen(admin, vendorProfileId, 'cake_tool', eventId);
 }

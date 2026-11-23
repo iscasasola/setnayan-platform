@@ -812,14 +812,16 @@ async function ShopHome({
           </p>
           <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" toolsByCoverage={toolsByCoverage(data)} />
           {/* ＋ Services end in their own tile (Store drawing v10, F0): the Card Maker, as the head's ＋ › New service. */}
-          <Link
+          <NewThingTile
+            layout="ghost"
             href={SERVICE_MAKER_HREF}
-            className="sn-press mt-3 flex min-h-16 items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[color:var(--m-line)] text-sn-lg font-semibold text-ink"
+            label="Add a service"
+            className="mt-3 flex min-h-16 items-center justify-center gap-2 text-sn-lg font-semibold text-ink"
             data-shop-service-add=""
           >
             <Plus aria-hidden className="h-5 w-5 text-[color:var(--m-slate-2)]" strokeWidth={2} />
             Add a service
-          </Link>
+          </NewThingTile>
         </section>
         </div>
       </div>
@@ -838,6 +840,7 @@ import { Suspense } from 'react';
 import { shopGearBodyAlways } from './_components/shop-settings-body';
 import { BadgeRewardSweep } from '../_components/badge-reward-sweep';
 import { shopFormsBody } from './_components/shop-forms-body';
+import { NewThingTile } from '@/app/_components/collection-card';
 
 export default async function VendorShopHub({
   searchParams,

@@ -8,7 +8,7 @@ import { findOrCreateSongId, isMusicToolCategory } from '@/lib/songs';
 import { parseVideoLink } from '@/lib/video-embed';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { readShopSpecialToolOpen } from '@/lib/cake-maker.server';
+import { readShopSpecialToolOpen } from '@/lib/paid-widget-open.server';
 
 const BASE = '/vendor-dashboard/repertoire';
 

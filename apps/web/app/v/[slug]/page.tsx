@@ -16,7 +16,7 @@ import { Suspense } from 'react';
 import { CheckADateLink } from './_components/check-a-date-link';
 import { CheckADateOverShop } from './_components/check-a-date-over-shop';
 import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
-import { readShopSpecialToolOpen } from '@/lib/cake-maker.server';
+import { readShopSpecialToolOpen } from '@/lib/paid-widget-open.server';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import Image from 'next/image';

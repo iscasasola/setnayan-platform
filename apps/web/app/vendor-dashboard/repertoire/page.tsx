@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorSongs, searchSongs, fetchCuratedSongs, isMusicVendor } from '@/lib/songs';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { readShopSpecialToolOpen } from '@/lib/cake-maker.server';
+import { readShopSpecialToolOpen } from '@/lib/paid-widget-open.server';
 import { RepertoireLocked, RepertoireNotMusic, RepertoireUnread, RepertoireView } from './_components/repertoire-view';
 
 export const metadata = { title: 'Your repertoire · Supplier' };

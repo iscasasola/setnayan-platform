@@ -17,6 +17,7 @@ import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { allowance } from '@/lib/vendor-plan-rows';
 import { TIER_CAPS, TIER_LABEL, WAITLIST_SETTING_MAX, type VendorTier } from '@/lib/vendor-tier-caps';
 import { ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnSku, type UltraAddOnKind } from '@/lib/vendor-ultra-addons';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 
 /**
  * Free's search line: the 15 Nov rule the database applies (`vendor_profiles.is_findable`, lib/findable-shop.ts) — an
@@ -138,7 +139,7 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
   /** "₱499 a search" — or just "—" when the row could not be read (never a suffix on nothing). */
   const per = (code: string, tail: string): string => (prices.bySku[code] ? `${prices.bySku[code]}${tail}` : DASH);
 
-  // 💾 Storage first — what the plans are sold by (owner 2026-11-22 "FINAL LADDER"). Verified joins Free: its 2 GB is said
+  // 💾 Storage first — what the plans are sold by (owner 2026-11-22 "FINAL LADDER"). Verified joins Free: its 1 GB is said
   // in the Free cell, like every other limit where the verified step differs.
   const storageCell = (t: VendorTier): TableCell => {
     const w = (b: number | null) => (b === null ? DASH : storageWords(b));
@@ -172,7 +173,7 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
 
   const free = (t: VendorTier) => t === 'free' || t === 'verified';
   const price: TableRow[] = [
-    { key: 'price:4w', label: 'Every 4 weeks', cells: each((t) => (free(t) ? words('Free') : words(prices.monthly[t] ?? DASH))) },
+    { key: 'price:month', label: PLAN_PERIOD.everyLabel, cells: each((t) => (free(t) ? words('Free') : words(prices.monthly[t] ?? DASH))) },
   ];
 
   const tools: TableRow[] = [

@@ -45,7 +45,7 @@ test('allowances · the owner\'s 2026-11-22 FINAL LADDER, Free / Verified / Plus
   assert.deepEqual(row('agentAccounts'), [0, 0, 2, Infinity, Infinity], 'people beyond the owner: 0 / 0 / 2 / no limit / no limit');
   assert.deepEqual(row('waitlistAcceptances'), [10, 10, 10, 10, 10], 'waitlist: no plan limit — the setting\'s own ceiling on every plan');
   assert.deepEqual(row('branchesIncluded'), [0, 0, 0, Infinity, Infinity], 'branches besides the main shop: 0 / 0 / 0 / no limit / no limit');
-  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].storageBytes), [256 * STORAGE_MB, ...[2, 128, 500, 1000].map((gb) => gb * STORAGE_GB)], 'storage: 256 MB (free unverified is 256 MB. so they run out of space asap.) / 2 GB ("verified is 2Gb only") / 128 GB / 500 GB / 1 TB');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].storageBytes), [50 * STORAGE_MB, ...[1, 50, 256, 1000].map((gb) => gb * STORAGE_GB)], 'storage (owner 2026-11-23 "SUPPLIER SIZES FIXED"): 50 MB / 1 GB / 50 GB / 256 GB / 1 TB');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].portfolioPhotos === Infinity), [false, false, true, true, true], 'no portfolio photo cap on a paid size');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].customWebsiteName), [false, false, true, true, true], 'own web address: Plus, Pro, Ultra');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].premiumPage), [false, false, true, true, true], 'the premium page parts are on every paid size (owner 2026-11-22 SAME FEATURES IN EVERY SIZE)');
@@ -101,7 +101,7 @@ test('ladder · Free: 1 category, no market intel, no agent seats', () => {
   assert.equal(c.agentAccounts, 0, 'Free has no agent seats');
 });
 
-test('ladder · Plus (128 GB): analytics and Market Intel — every tool on every paid size', () => {
+test('ladder · Plus (50 GB): analytics and Market Intel — every tool on every paid size', () => {
   const c = TIER_CAPS.solo;
   assert.equal(c.performanceTrends, true, 'Plus gets business-performance analytics');
   assert.equal(c.marketIntel, true, 'Plus gets Market Intel (owner 2026-11-22: every tool on every paid size)');
@@ -109,7 +109,7 @@ test('ladder · Plus (128 GB): analytics and Market Intel — every tool on ever
   assert.equal(c.agentAccounts, 2, 'Plus = the owner + 2 people');
 });
 
-test('ladder · Pro (500 GB): no people limit', () => {
+test('ladder · Pro (256 GB): no people limit', () => {
   const c = TIER_CAPS.pro;
   assert.equal(c.marketIntel, true, 'Pro gets Market Intel (Demand Radar + Price-Position)');
   assert.equal(canSeeMarketIntel('pro'), true);

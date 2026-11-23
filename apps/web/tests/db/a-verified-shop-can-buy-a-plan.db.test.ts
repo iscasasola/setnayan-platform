@@ -148,7 +148,8 @@ for (const [tier, word] of [
     assert.equal(st.rows[0]!.status, 'paid');
     const on = await shopPlan(vendorId);
     assert.equal(on.tier_state, tier, `the shop is on ${word} once it is confirmed`);
-    assert.ok(on.days_left !== null && on.days_left > 27.9 && on.days_left <= 28, `a 4-week plan runs 28 days (got ${on.days_left})`);
+    // 🗓 One calendar month since 20271360344805 (owner 2026-11-23: "it is now monthly"): 28 to 31 days.
+    assert.ok(on.days_left !== null && on.days_left > 27.9 && on.days_left <= 31, `a monthly plan runs one calendar month (got ${on.days_left})`);
 
     // ── the paid days end → the sweep writes the shop back to Verified ──
     await db.query(`UPDATE public.vendor_profiles SET tier_expires_at = NOW() - INTERVAL '1 minute' WHERE vendor_profile_id = $1`, [vendorId]);

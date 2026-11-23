@@ -61,6 +61,9 @@ import { countNoun, formatCount } from '@/lib/format-number';
 import { formatPeso } from '@/lib/v2-catalog-pure';
 import { CARD_MEDALS } from '@/lib/public-badges';
 import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
+import { CLIENTS_FOOTNOTE } from '@/lib/supplier-client-room';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
+import { monthlyPlanPrice } from '@/lib/v2-catalog';
 import { FREE_FINDABLE } from './plan-table-data';
 import {
   EVERY_PLAN_TOOLS,
@@ -243,13 +246,13 @@ export function SupplierFrontPage({
   ];
 
   /** The growth stairs: every fact read (`planStair`), every price the catalog's, one door each. */
-  const growPrice = (t: GrowTier) => ({ solo: prices.soloMonthly, pro: prices.proMonthly, enterprise: prices.enterpriseMonthly })[t];
+  const growPrice = (t: GrowTier) => monthlyPlanPrice(prices, t);
   const stairs: StairCard[] = STAIR_TIERS.map((t) => {
     const step = planStair(t);
     if (!isGrowTier(t)) {
       return { ...step, price: '₱0', per: 'always', cta: t === 'free' ? CTA : 'Get Verified free', href: OPEN_SHOP, main: t === 'free' };
     }
-    return { ...step, price: growPrice(t), per: 'per 4 weeks', cta: `Start on ${step.name}`, href: openShopWithPlanHref(t), main: false };
+    return { ...step, price: growPrice(t), per: PLAN_PERIOD.per, cta: `Start on ${step.name}`, href: openShopWithPlanHref(t), main: false };
   });
   /** The tools' door: the first plan that carries them all, its catalog price and its checkout door. */
   const toolsDoor =
@@ -478,6 +481,7 @@ export function SupplierFrontPage({
         <SecHead id="sf-h-plans">Plans</SecHead>
         <p className={s.ledeText}>Start free. Grow when your business does.</p>
         <PlanStairs plans={stairs} />
+        <p className={s.fine} data-clients-footnote="">{CLIENTS_FOOTNOTE}</p>
         <p className={`${s.fine} ${s.same}`}>Same tools in every paid size. Only the room grows.</p>
         <p className={s.fine}>No plan limits your inquiries.</p>
         {afterPlans ? <div className={s.after}>{afterPlans}</div> : null}
@@ -522,7 +526,7 @@ export function SupplierFrontPage({
           <div className={s.gate}>
             <p className={s.stairPrice}>
               <b>{toolsDoor.price ?? '—'}</b>
-              <small>per 4 weeks, with {toolsDoor.name}</small>
+              <small>{PLAN_PERIOD.per}, with {toolsDoor.name}</small>
             </p>
             <Link className={actionButtonClass('brand', { main: false })} href={toolsDoor.href}>
               <span className="lbl">Start on {toolsDoor.name}</span>

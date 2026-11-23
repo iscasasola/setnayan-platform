@@ -7306,7 +7306,6 @@
         "admin/studio/page.tsx"
       ],
       "destinations": [
-        "/",
         "/[seg]",
         "/[seg]/recap",
         "/admin/discount-codes/[seg]/edit",

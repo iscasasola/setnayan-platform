@@ -106,7 +106,8 @@ test('each home draws its slice of the one list, and each code is drawn', () => 
   assert.match(MYQR_PAGE, /const code = myQrCodeOf\(raw\);\s*if \(!code\) notFound\(\);/, 'My QRs opens a page for a code outside PROMOTE_QR_MODES');
   assert.match(MYQR_DATA, /code === 'dates' \? await checkADateQr\(/, 'Check a date is not drawn');
   assert.match(MYQR_DATA, /buildVendorInviteUrl\(shop\.slug, \{ eventType: et, category: cat \}\)/, 'Shortlist is not drawn from its picks');
-  assert.match(MYQR_DATA, /printQrUrl\(code, origin, shop\.slug\)/, 'Your page · Reviews are not drawn');
+  // 🏷 On screen, so via=link (#7881, ported onto My QRs 23 Nov 2026).
+  assert.match(MYQR_DATA, /printQrUrl\(code, origin, shop\.slug, 'link'\)/, 'Your page · Reviews are not drawn');
   assert.match(PAGE, /mode === 'crew'[\s\S]{0,600}crew=\{await readCrewQr\(/, 'Crew for an event is not drawn');
   assert.match(VIEW, /row\('crew',[^\n]*crew \? <CrewCode crew=\{crew\} \/> : null\)/);
   // One code per page: the opened page draws exactly one QrCard, named by its own code.

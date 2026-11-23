@@ -28,6 +28,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ChosenRow, FormRow, FormRows, TypedRow } from '@/app/_components/form-row';
+import { TemplateSection } from '@/app/_components/template-rows';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { actionButtonClass } from '@/components/action-button-class';
 
 type ServiceOption = {
   sku_code: string;
@@ -116,6 +120,8 @@ export function VoucherForm({
   // controlled inputs work fine with native form submission.
   const [pctValueStr, setPctValueStr] = useState<string>(initialPct);
   const [capPesosStr, setCapPesosStr] = useState<string>(initialCapPesos);
+  // The code, as kept in its Form row (create only — on edit it is fixed).
+  const [codeStr, setCodeStr] = useState<string>(initial.code);
 
 
   const initialExpiresAt = initial.expires_at
@@ -185,8 +191,40 @@ export function VoucherForm({
   const showCapInput = discountType === 'pct_off_capped';
   const showCoveredServices = true;
 
+  // The discount kinds — ONE dropdown (a set of choices is a dropdown), posting `discount_type` exactly as the radios did.
+  const typeOptions = (
+    [
+      { v: 'pct_off' as const, label: 'Percentage off' },
+      { v: 'pct_off_capped' as const, label: 'Percentage off (capped)' },
+      // 'grant_tokens' was REMOVED here 2026-08-07 with the token
+      // retirement. It minted a currency with no redeem surface at all
+      // — `redeem_vendor_token_voucher` has zero callers in the app, so
+      // every voucher of that type was unredeemable from the hour it
+      // was created.
+      //
+      // ⚠ THAT REMOVAL TOOK THE OPTION AND LEFT THE EDITOR. Removing
+      // it from this list stopped anyone CREATING one; the fields that
+      // EDIT one stayed, and the only voucher in production was a
+      // grant_tokens row (TESTGTK1, expired 2026-06-28, never
+      // redeemed) — so the retired wallet was the one thing this
+      // screen could show. The owner saw it and asked why.
+      // 🔑 RETIRING A THING MEANS RETIRING ITS EDITOR TOO. A removed
+      // create-option only stops NEW rows; the existing row is what
+      // renders. Fifth time this shape has resurfaced.
+      // The row was deleted 2026-08-18 and the fields removed with it.
+      // The value stays in the DB enum (dropping an enum label is a
+      // migration with no caller left to justify it) but nothing in
+      // the app can write, edit or display one.
+      { v: 'free' as const, label: 'Free (100% off)' },
+    ] satisfies { v: DiscountType; label: string }[]
+  ).map((opt) => ({ key: opt.v, label: opt.label }));
+
+  const INPUT = 'input-field w-[200px] max-w-full flex-none rounded-full';
+
+  // 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): each field is a Form row in one frame, every
+  // helper sentence moved behind its row's ⓘ, the type radios became one dropdown. Same posted names and values.
   return (
-    <form action={action} className="space-y-6">
+    <form action={action}>
       {isEdit && (
         <input
           type="hidden"
@@ -194,316 +232,149 @@ export function VoucherForm({
           value={initial.discount_code_id ?? ''}
         />
       )}
+      <input type="hidden" name="discount_type" value={discountType} />
 
-      {/* Code · 8 A-Z 0-9 · uppercase on blur · readOnly on edit */}
-      <div>
-        <label
-          htmlFor="code"
-          className="block text-sm font-medium"
-          style={{ color: 'var(--m-ink)' }}
-        >
-          Code
-        </label>
-        <p
-          className="mt-1 text-xs"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          {isEdit
-            ? "Codes can't be renamed — disabling the old one and creating a fresh code is the safer path for historical audit."
-            : 'Eight characters · letters and numbers only · we uppercase on save so people can type either case.'}
-        </p>
-        <input
-          type="text"
-          id="code"
-          name="code"
-          defaultValue={initial.code}
-          readOnly={isEdit}
-          required={!isEdit}
-          maxLength={8}
-          pattern="[A-Za-z0-9]{8}"
-          autoCapitalize="characters"
-          spellCheck={false}
-          className="mt-2 block w-full rounded-md border px-3 py-2 text-sm text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
-          style={{
-            background: isEdit ? 'var(--m-paper-2)' : 'var(--m-paper)',
-            borderColor: 'var(--m-line)',
-            color: 'var(--m-ink)',
-          }}
-          onBlur={(e) => {
-            e.target.value = e.target.value.trim().toUpperCase();
-          }}
-        />
-      </div>
+      <div className={`${ADMIN_FRAME} px-4 py-1`}>
+        <FormRows width="wide">
+          {/* Code · 8 A-Z 0-9 · uppercase on keep · fixed on edit (still posted, as the read-only box did) */}
+          {isEdit ? (
+            <FormRow
+              name="Code"
+              about={{ words: "Codes can't be renamed — disabling the old one and creating a fresh code is the safer path for historical audit." }}
+            >
+              <input type="hidden" name="code" value={initial.code} />
+              <span className="text-[14px] font-semibold uppercase tracking-[0.06em] text-ink">{initial.code}</span>
+            </FormRow>
+          ) : (
+            <TypedRow
+              name="Code"
+              about={{ words: 'Eight characters · letters and numbers only · we uppercase on save so people can type either case.' }}
+              value={codeStr}
+              required
+              maxLength={8}
+              fieldName="code"
+              clean={(t) => t.trim().toUpperCase()}
+              check={(t) => (/^[A-Za-z0-9]{8}$/.test(t.trim()) ? null : 'Code must be exactly 8 characters · A-Z and 0-9 only.')}
+              onKeep={(t) => setCodeStr(t)}
+              data="voucher-code"
+            />
+          )}
 
-      {/* Discount type · radio · controls the conditional value field */}
-      <div>
-        <span
-          className="block text-sm font-medium"
-          style={{ color: 'var(--m-ink)' }}
-        >
-          What kind of discount?
-        </span>
-        <p
-          className="mt-1 text-xs"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          Percentage off scales by percentage · Percentage off (capped) tops
-          out at a peso ceiling · Free makes covered services 100% off.
-        </p>
-        <div className="mt-2 flex flex-wrap gap-3">
-          {(
-            [
-              { v: 'pct_off' as const, label: 'Percentage off' },
-              { v: 'pct_off_capped' as const, label: 'Percentage off (capped)' },
-              // 'grant_tokens' was REMOVED here 2026-08-07 with the token
-              // retirement. It minted a currency with no redeem surface at all
-              // — `redeem_vendor_token_voucher` has zero callers in the app, so
-              // every voucher of that type was unredeemable from the hour it
-              // was created.
-              //
-              // ⚠ THAT REMOVAL TOOK THE OPTION AND LEFT THE EDITOR. Removing
-              // it from this list stopped anyone CREATING one; the fields that
-              // EDIT one stayed, and the only voucher in production was a
-              // grant_tokens row (TESTGTK1, expired 2026-06-28, never
-              // redeemed) — so the retired wallet was the one thing this
-              // screen could show. The owner saw it and asked why.
-              // 🔑 RETIRING A THING MEANS RETIRING ITS EDITOR TOO. A removed
-              // create-option only stops NEW rows; the existing row is what
-              // renders. Fifth time this shape has resurfaced.
-              // The row was deleted 2026-08-18 and the fields removed with it.
-              // The value stays in the DB enum (dropping an enum label is a
-              // migration with no caller left to justify it) but nothing in
-              // the app can write, edit or display one.
-              { v: 'free' as const, label: 'Free (100% off)' },
-            ] satisfies { v: DiscountType; label: string }[]
-          ).map((opt) => (
-            <label
-              key={opt.v}
-              className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5"
-              style={{
-                background:
-                  discountType === opt.v ? 'var(--m-blush)' : 'var(--m-paper)',
-                borderColor:
-                  discountType === opt.v ? 'var(--m-orange-2)' : 'var(--m-line)',
-                color:
-                  discountType === opt.v ? 'var(--m-orange-2)' : 'var(--m-slate)',
-              }}
+          <ChosenRow
+            name="What kind of discount?"
+            about={{ words: 'Percentage off scales by percentage · Percentage off (capped) tops out at a peso ceiling · Free makes covered services 100% off.' }}
+            value={discountType}
+            options={typeOptions}
+            onPick={(key) => setDiscountType(key as DiscountType)}
+            data="voucher-type"
+          />
+
+          {/* Percentage · shown for pct_off + pct_off_capped */}
+          {showPctInput && (
+            <FormRow name="Percentage off (1-100)">
+              <input
+                type="number"
+                id="discount_pct"
+                aria-label="Percentage off (1-100)"
+                name="discount_pct"
+                min="1"
+                max="100"
+                step="1"
+                value={pctValueStr}
+                onChange={(e) => setPctValueStr(e.target.value)}
+                required
+                className={INPUT}
+              />
+            </FormRow>
+          )}
+
+          {/* Cap · shown ONLY for pct_off_capped */}
+          {showCapInput && (
+            <FormRow
+              name="Maximum discount (₱)"
+              about={{ words: 'The percentage tops out at this peso amount · e.g. a 50% off code with a ₱500 cap on a ₱2,000 service still takes only ₱500 off (not ₱1,000).' }}
             >
               <input
-                type="radio"
-                name="discount_type"
-                value={opt.v}
-                checked={discountType === opt.v}
-                onChange={() => setDiscountType(opt.v)}
-                className="accent-current"
+                type="number"
+                id="cap_pesos"
+                aria-label="Maximum discount (₱)"
+                name="cap_pesos"
+                min="0.01"
+                step="0.01"
+                value={capPesosStr}
+                onChange={(e) => setCapPesosStr(e.target.value)}
                 required
+                className={INPUT}
               />
-              <span className="text-sm">{opt.label}</span>
-            </label>
-          ))}
-        </div>
-      </div>
+            </FormRow>
+          )}
 
-      {/* Percentage · shown for pct_off + pct_off_capped */}
-      {showPctInput && (
-        <div>
-          <label
-            htmlFor="discount_pct"
-            className="block text-sm font-medium"
-            style={{ color: 'var(--m-ink)' }}
+          {discountType === 'free' && (
+            <p className="border-t border-ink/10 py-3 text-[13px] text-ink/60">
+              Free codes make every covered service 100% off · no value needed.
+            </p>
+          )}
+
+          {/* Expires at · REQUIRED */}
+          <FormRow
+            name="Effective until"
+            about={{ words: 'The code stops working at this moment · pick a date and time in Philippine local time.' }}
           >
-            Percentage off (1-100)
-          </label>
-          <input
-            type="number"
-            id="discount_pct"
-            name="discount_pct"
-            min="1"
-            max="100"
-            step="1"
-            value={pctValueStr}
-            onChange={(e) => setPctValueStr(e.target.value)}
-            required
-            className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
-            style={{
-              background: 'var(--m-paper)',
-              borderColor: 'var(--m-line)',
-              color: 'var(--m-ink)',
-            }}
-          />
-        </div>
-      )}
+            <input
+              type="datetime-local"
+              id="expires_at"
+              aria-label="Effective until"
+              name="expires_at"
+              defaultValue={initialExpiresAt}
+              required
+              className={INPUT}
+            />
+          </FormRow>
 
-      {/* Cap · shown ONLY for pct_off_capped */}
-      {showCapInput && (
-        <div>
-          <label
-            htmlFor="cap_pesos"
-            className="block text-sm font-medium"
-            style={{ color: 'var(--m-ink)' }}
+          {/* Effective FROM · optional · null = effective immediately. Owner
+              request 2026-05-29 for gift-card scheduling use case. */}
+          <FormRow
+            name="Effective from (optional)"
+            about={{ words: 'Leave blank for effective immediately · or schedule the code to activate later (gift-card use case · e.g. birthday on Dec 1). Must be before the effective-until.' }}
           >
-            Maximum discount (₱)
-          </label>
-          <p
-            className="mt-1 text-xs"
-            style={{ color: 'var(--m-slate)' }}
+            <input
+              type="datetime-local"
+              id="effective_from"
+              aria-label="Effective from (optional)"
+              name="effective_from"
+              defaultValue={initialEffectiveFrom}
+              className={INPUT}
+            />
+          </FormRow>
+
+          {/* Max uses · optional */}
+          <FormRow
+            name="Max uses (optional)"
+            about={{ words: 'Leave blank for unlimited within the effective window · set a number if you want the code to retire after that many redemptions.' }}
           >
-            The percentage tops out at this peso amount · e.g. a 50% off code
-            with a ₱500 cap on a ₱2,000 service still takes only ₱500 off
-            (not ₱1,000).
-          </p>
-          <input
-            type="number"
-            id="cap_pesos"
-            name="cap_pesos"
-            min="0.01"
-            step="0.01"
-            value={capPesosStr}
-            onChange={(e) => setCapPesosStr(e.target.value)}
-            required
-            className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
-            style={{
-              background: 'var(--m-paper)',
-              borderColor: 'var(--m-line)',
-              color: 'var(--m-ink)',
-            }}
-          />
-        </div>
-      )}
-
-      {discountType === 'free' && (
-        <p
-          className="rounded-md border px-3 py-2 text-sm"
-          style={{
-            background: 'var(--m-paper-2)',
-            borderColor: 'var(--m-line)',
-            color: 'var(--m-slate)',
-          }}
-        >
-          Free codes make every covered service 100% off · no value needed.
-        </p>
-      )}
-
-
-      {/* Expires at · REQUIRED */}
-      <div>
-        <label
-          htmlFor="expires_at"
-          className="block text-sm font-medium"
-          style={{ color: 'var(--m-ink)' }}
-        >
-          Effective until
-        </label>
-        <p
-          className="mt-1 text-xs"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          The code stops working at this moment · pick a date and time in
-          Philippine local time.
-        </p>
-        <input
-          type="datetime-local"
-          id="expires_at"
-          name="expires_at"
-          defaultValue={initialExpiresAt}
-          required
-          className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
-          style={{
-            background: 'var(--m-paper)',
-            borderColor: 'var(--m-line)',
-            color: 'var(--m-ink)',
-          }}
-        />
-      </div>
-
-      {/* Effective FROM · optional · null = effective immediately. Owner
-          request 2026-05-29 for gift-card scheduling use case. */}
-      <div>
-        <label
-          htmlFor="effective_from"
-          className="block text-sm font-medium"
-          style={{ color: 'var(--m-ink)' }}
-        >
-          Effective from <span style={{ color: 'var(--m-slate)' }}>(optional)</span>
-        </label>
-        <p
-          className="mt-1 text-xs"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          Leave blank for effective immediately · or schedule the code to
-          activate later (gift-card use case · e.g. birthday on Dec 1).
-          Must be before the effective-until.
-        </p>
-        <input
-          type="datetime-local"
-          id="effective_from"
-          name="effective_from"
-          defaultValue={initialEffectiveFrom}
-          className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
-          style={{
-            background: 'var(--m-paper)',
-            borderColor: 'var(--m-line)',
-            color: 'var(--m-ink)',
-          }}
-        />
-      </div>
-
-      {/* Max uses · optional */}
-      <div>
-        <label
-          htmlFor="max_uses"
-          className="block text-sm font-medium"
-          style={{ color: 'var(--m-ink)' }}
-        >
-          Max uses (optional)
-        </label>
-        <p
-          className="mt-1 text-xs"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          Leave blank for unlimited within the effective window · set a number
-          if you want the code to retire after that many redemptions.
-        </p>
-        <input
-          type="number"
-          id="max_uses"
-          name="max_uses"
-          min="1"
-          step="1"
-          defaultValue={initial.max_uses ?? ''}
-          className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
-          style={{
-            background: 'var(--m-paper)',
-            borderColor: 'var(--m-line)',
-            color: 'var(--m-ink)',
-          }}
-        />
+            <input
+              type="number"
+              id="max_uses"
+              aria-label="Max uses (optional)"
+              name="max_uses"
+              min="1"
+              step="1"
+              defaultValue={initial.max_uses ?? ''}
+              className={INPUT}
+            />
+          </FormRow>
+        </FormRows>
       </div>
 
       {/* Covered services · multi-checkbox grouped by category. Always shown
           since 2026-08-18 — the only type that hid it is retired. */}
       {showCoveredServices && (
-      <div>
-        <span
-          className="block text-sm font-medium"
-          style={{ color: 'var(--m-ink)' }}
-        >
-          Which services does this code cover?
-        </span>
-        <p
-          className="mt-1 text-xs"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          At least one. Couples can only apply the voucher when at least one
-          item in their cart is a covered service.
-        </p>
-        <div
-          className="mt-3 space-y-4 rounded-md border p-4"
-          style={{
-            background: 'var(--m-paper)',
-            borderColor: 'var(--m-line)',
-          }}
-        >
+      <TemplateSection
+        label="Which services does this code cover?"
+        tip="At least one. Couples can only apply the voucher when at least one item in their cart is a covered service."
+        data="voucher-services"
+      >
+        <div className={`${ADMIN_FRAME} space-y-4 p-4`}>
           {grouped.size === 0 ? (
             <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
               No active services in the catalog right now.
@@ -511,10 +382,7 @@ export function VoucherForm({
           ) : (
             Array.from(grouped.entries()).map(([category, items]) => (
               <fieldset key={category}>
-                <legend
-                  className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
-                  style={{ color: 'var(--m-orange-2)' }}
-                >
+                <legend className="text-[13px] font-semibold text-ink">
                   {category}
                 </legend>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -590,12 +458,12 @@ export function VoucherForm({
             ))
           )}
         </div>
-      </div>
+      </TemplateSection>
       )}
 
       {/* Submit */}
-      <div className="flex items-center gap-3 pt-2">
-        <SubmitButton className="button-primary" pendingLabel={submitPendingLabel}>
+      <div className="flex items-center gap-3 pt-4">
+        <SubmitButton className={actionButtonClass('brand', { main: true })} pendingLabel={submitPendingLabel}>
           {submitLabel}
         </SubmitButton>
         <Link

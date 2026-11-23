@@ -35,6 +35,7 @@ import { resolveCommandItems } from '@/app/_components/frontdoor/command-data';
 import { resolveShellSearchContext } from '@/app/_components/frontdoor/shell-search-context';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
+import { DISCOVER_HREF } from '@/lib/discover-href';
 
 export const metadata = { title: 'Search' };
 
@@ -59,7 +60,7 @@ export default async function ShellSearchPage({
     a bookmark, Back) goes there. In the store app `/` is not a page, and the middleware takes it on to the board —
     a page with its own search, never a blank one. Guarded by `discover-search-stays-on-page.test.ts`.
   */
-  if (!query) redirect('/');
+  if (!query) redirect(DISCOVER_HREF);
 
   const commandItems = await resolveCommandItems();
   const { people, findSuppliers } = await resolveShellSearchContext(query, user.id, commandItems);

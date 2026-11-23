@@ -6,6 +6,7 @@ import { bookingFeePhp, bookingFeeScheduleSummary } from '@/lib/booking-fee';
 import { formatPhp } from '@/lib/php';
 import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 import { ActionButton } from '@/components/action-button';
+import { TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
 import { Save } from 'lucide-react';
 
 /**
@@ -88,97 +89,74 @@ export function BookingFeeForm({
 
   const examples = [50_000, 100_000, 250_000, 1_000_000, 10_000_000];
 
+  // 📐 Admin clean port (owner 19 Nov 2026): the card's three labelled boxes became three rows of the design template —
+  // name on the left, the number on the right — over the same live sentence, examples, warning and fine print.
+  const row = 'flex min-h-14 items-center gap-3 border-b border-[color:var(--sn-divider)] py-2';
+  const name = 'min-w-0 flex-1 text-[15px] font-semibold leading-tight text-ink';
   return (
-    <form action={formAction} className={`${ADMIN_FRAME} p-4`}>
-      <h4 className="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-gold-text">
-        Supplier booking fee
-      </h4>
-      <p className="mt-1 max-w-prose text-[12.5px] leading-relaxed text-ink/60">
-        Charged to the <strong className="text-ink/80">supplier</strong> when Setnayan introduces
-        them to a couple — never to the couple, and never a commission. The couple pays the
-        supplier directly.
-      </p>
+    <form action={formAction} className={`${ADMIN_FRAME} px-4`} data-booking-fee-form="">
+      <label className={row}>
+        <span className={name}>Rate below the threshold</span>
+        <span className="relative w-28 flex-none">
+          <input
+            name="booking_fee_rate_pct"
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            value={rate}
+            onChange={(e) => setRate(e.target.value)}
+            className="input-field w-full pr-7 text-right tabular-nums"
+          />
+          <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink/50">%</span>
+        </span>
+      </label>
 
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <label className="block">
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-            Rate below the threshold
-          </span>
-          <div className="relative mt-1">
-            <input
-              name="booking_fee_rate_pct"
-              type="number"
-              step="0.01"
-              min="0"
-              max="100"
-              value={rate}
-              onChange={(e) => setRate(e.target.value)}
-              className="input-field w-full pr-7 text-right tabular-nums"
-            />
-            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink/50">
-              %
-            </span>
-          </div>
-        </label>
+      <label className={row}>
+        <span className={name}>Threshold</span>
+        <span className="relative w-36 flex-none">
+          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink/50">₱</span>
+          <input
+            name="booking_fee_tier1_limit_php"
+            type="number"
+            step="1"
+            min="1"
+            value={band}
+            onChange={(e) => setBand(e.target.value)}
+            className="input-field w-full pl-6 text-right tabular-nums"
+          />
+        </span>
+      </label>
 
-        <label className="block">
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-            Threshold
-          </span>
-          <div className="relative mt-1">
-            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink/50">
-              ₱
-            </span>
-            <input
-              name="booking_fee_tier1_limit_php"
-              type="number"
-              step="1"
-              min="1"
-              value={band}
-              onChange={(e) => setBand(e.target.value)}
-              className="input-field w-full pl-6 text-right tabular-nums"
-            />
-          </div>
-        </label>
-
-        <label className="block">
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-            Rate above it
-          </span>
-          <div className="relative mt-1">
-            <input
-              name="booking_fee_tail_rate_pct"
-              type="number"
-              step="0.01"
-              min="0"
-              max="100"
-              value={tail}
-              onChange={(e) => setTail(e.target.value)}
-              className="input-field w-full pr-7 text-right tabular-nums"
-            />
-            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink/50">
-              %
-            </span>
-          </div>
-        </label>
-      </div>
+      <label className={row}>
+        <span className={name}>Rate above it</span>
+        <span className="relative w-28 flex-none">
+          <input
+            name="booking_fee_tail_rate_pct"
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            value={tail}
+            onChange={(e) => setTail(e.target.value)}
+            className="input-field w-full pr-7 text-right tabular-nums"
+          />
+          <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink/50">%</span>
+        </span>
+      </label>
 
       {/* What his own numbers produce, in the supplier's own words. */}
-      <div className="mt-3 rounded-xl border border-ink/10 bg-ink/[0.02] p-3">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-          A supplier is billed
-        </span>
-        <p className="mt-1 text-[13.5px] font-semibold text-ink">
+      <div className="border-b border-[color:var(--sn-divider)] py-2.5">
+        <span className={TEMPLATE_SUBLINE}>A supplier is billed</span>
+        <p className="mt-0.5 text-[14px] font-semibold text-ink">
           {schedule ? bookingFeeScheduleSummary(schedule) : 'Fill in all three numbers.'}
         </p>
         {schedule && (
-          <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-ink/60">
+          <ul className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-ink/60">
             {examples.map((amt) => (
               <li key={amt} className="tabular-nums">
                 ₱{amt.toLocaleString('en-PH')} booking →{' '}
-                <strong className="font-mono text-ink/85">
-                  ₱{bookingFeePhp(amt, schedule).toLocaleString('en-PH')}
-                </strong>
+                <strong className="text-ink/85">₱{bookingFeePhp(amt, schedule).toLocaleString('en-PH')}</strong>
               </li>
             ))}
           </ul>
@@ -186,15 +164,15 @@ export function BookingFeeForm({
       </div>
 
       {inverted && (
-        <p className="mt-2 rounded-lg border border-danger-700/30 bg-danger-700/[0.06] px-3 py-2 text-[12.5px] font-semibold text-danger-700">
-          The rate above the threshold is higher than the rate below it. That charges a supplier
-          more for declaring a bigger booking honestly — this will not save.
-        </p>
+        <div className="pt-2 text-[13px] font-semibold" style={{ color: 'rgb(var(--color-danger))' }} role="alert">
+          <p>The rate above the threshold is higher than the rate below it.</p>
+          <p>That charges a supplier more for declaring a bigger booking honestly — this will not save.</p>
+        </div>
       )}
 
       {/* The lock and the every-Nth count (owner 2026-11-20) — set in platform settings, shown here so the owner reads
           what bills. Null = unread: said, never a default. */}
-      <ul className="mt-2 space-y-0.5 text-[11px] leading-relaxed text-ink/55">
+      <ul className={`space-y-0.5 pt-2 ${TEMPLATE_SUBLINE}`}>
         <li>
           {capPhp != null ? (
             <>A fee is locked at <strong>{formatPhp(capPhp)}</strong>, verified or not.</>
@@ -224,7 +202,7 @@ export function BookingFeeForm({
         </li>
         <li>Unverified shops pay the first rate on the whole booking.</li>
       </ul>
-      <p className="mt-2 text-[11px] leading-relaxed text-ink/45">
+      <p className={TEMPLATE_SUBLINE}>
         The <strong>{formatPhp(minPhp)}</strong> minimum is fixed.{' '}
         {isFromDb ? 'Set in platform settings.' : 'Falling back to the built-in schedule — save once to store it.'}{' '}
         {enabled
@@ -232,10 +210,10 @@ export function BookingFeeForm({
           : 'The booking fee is switched off, so nothing is being billed yet.'}
       </p>
 
-      <div className="mt-3 flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 py-3">
         <ActionButton tone="brand" main type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save booking fee" />
         {state.message && (
-          <span className={`text-xs ${state.ok ? 'text-success-800' : 'text-danger-700'}`}>
+          <span className="text-[13px]" style={{ color: state.ok ? 'rgb(var(--color-ok))' : 'rgb(var(--color-danger))' }}>
             {state.message}
           </span>
         )}

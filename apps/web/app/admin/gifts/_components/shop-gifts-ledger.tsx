@@ -1,5 +1,6 @@
 import { Gift } from 'lucide-react';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { TemplateSection } from '@/app/_components/template-rows';
 import { formatCount } from '@/lib/format-number';
 import type { ShopGiftHoldRow, ShopGiftLedgerRow } from '@/lib/shop-gifts.server';
 
@@ -33,13 +34,18 @@ export function ShopGiftsLedger({
   giftLimitPct: number;
 }) {
   return (
-    <section className="mb-10" data-admin-shop-gifts="">
-      <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">Supplier gifts</h2>
-      <p className="mb-4 text-xs text-ink/60">
-        A shop&rsquo;s gifts on one booking are capped at {giftLimitPct}% of that booking&rsquo;s fee, at the
-        price couples pay — the same share as the Setnayan gift. The smallest Papic pack is always allowed. Every gift is
-        at its catalogue list price; the only way to pay less is a buy-10-get-1 Papic bundle, which lands as packs.
-      </p>
+    <div data-admin-shop-gifts="">
+    <TemplateSection
+      label="Supplier gifts"
+      tip={
+        <>
+          A shop&rsquo;s gifts on one booking are capped at {giftLimitPct}% of that booking&rsquo;s fee, at the
+          price couples pay — the same share as the Setnayan gift. The smallest Papic pack is always allowed. Every gift is
+          at its catalogue list price; the only way to pay less is a buy-10-get-1 Papic bundle, which lands as packs.
+        </>
+      }
+      data="shop-gifts"
+    >
 
       <ConsoleTable<ShopGiftLedgerRow>
         rows={ledger}
@@ -88,7 +94,7 @@ export function ShopGiftsLedger({
         ]}
       />
 
-      <h3 className="mb-2 mt-6 text-xs font-medium text-ink/60">On quotes, not given yet</h3>
+      <h3 className="mt-4 pb-1 text-[13px] font-semibold text-[color:var(--m-slate-2)]">On quotes, not given yet</h3>
       <ConsoleTable<ShopGiftHoldRow>
         rows={holds}
         readError={holdsError}
@@ -122,6 +128,7 @@ export function ShopGiftsLedger({
           },
         ]}
       />
-    </section>
+    </TemplateSection>
+    </div>
   );
 }

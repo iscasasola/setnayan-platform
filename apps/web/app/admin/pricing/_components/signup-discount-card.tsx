@@ -9,6 +9,7 @@ import {
   previewFamilySave,
 } from '@/lib/onboarding-family-discount';
 import { ActionButton } from '@/components/action-button';
+import { TEMPLATE_SUBLINE, TemplateSection } from '@/app/_components/template-rows';
 
 const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
 
@@ -43,80 +44,71 @@ export function SignupDiscountCard({
   const preview = usable && !blocked ? previewFamilySave(rows, n) : [];
   const moving = preview.filter((p) => p.moves);
 
+  // 📐 Admin clean port (owner 19 Nov 2026): the gold-barred card became ONE row of the design template — the line,
+  // the % field and Save — with its warnings and the before → after list under it, inside the same frame.
   return (
-    <form
-      action={formAction}
-      className="mb-6 rounded-r-2xl border border-l-[3px] border-ink/10 border-l-gold bg-ink/[0.02] p-4"
-      data-signup-discount=""
-    >
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <h2 className="min-w-0 flex-1 text-[15px] font-bold">Off everything bought during sign-up</h2>
-        <label className="block shrink-0 text-right">
-          <span className="mb-1.5 block font-mono text-[9.5px] uppercase tracking-[0.15em] text-ink/55">
-            Sign-up discount
+    <TemplateSection label="Sign-up discount" first data="signup-discount">
+      <form action={formAction} className="sn-frame sn-frame-flush px-4" data-signup-discount="">
+        <div className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 py-2">
+          <b className="min-w-0 flex-1 text-[15px] font-semibold leading-tight text-ink">Off everything bought during sign-up</b>
+          <span className="flex flex-none items-center gap-2">
+            <label className="relative block">
+              <span className="sr-only">Sign-up discount</span>
+              <input
+                name="discount_pct"
+                type="number"
+                step="0.01"
+                min={PAPIC_DISCOUNT_FLOOR_PCT}
+                max="99.99"
+                value={pct}
+                onChange={(e) => setPct(e.target.value)}
+                className="input-field w-24 pr-7 text-right tabular-nums"
+              />
+              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink/50">
+                %
+              </span>
+            </label>
+            <ActionButton tone="brand" type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save" />
           </span>
-          <div className="relative">
-            <input
-              name="discount_pct"
-              type="number"
-              step="0.01"
-              min={PAPIC_DISCOUNT_FLOOR_PCT}
-              max="99.99"
-              value={pct}
-              onChange={(e) => setPct(e.target.value)}
-              className="input-field w-28 pr-7 text-right font-mono tabular-nums"
-            />
-            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink/50">
-              %
-            </span>
-          </div>
-        </label>
-      </div>
-
-      {complaints.map((c) => (
-        <p
-          key={c.kind}
-          className={`mt-2.5 rounded-lg px-3 py-2 text-[12.5px] font-semibold ${
-            c.kind === 'not_a_discount'
-              ? 'border border-gold/40 bg-gold/[0.10] text-gold-deep'
-              : 'border border-danger-700/30 bg-danger-700/[0.06] text-danger-700'
-          }`}
-        >
-          {c.message}
-        </p>
-      ))}
-
-      {moving.length > 0 && (
-        <div className="mt-3 rounded-xl bg-danger-700/[0.05] p-3">
-          <p className="flex items-center gap-2 text-[13px] font-bold text-danger-700">
-            <AlertTriangle className="h-4 w-4" strokeWidth={2} aria-hidden />
-            Saving this changes {moving.length} sign-up price{moving.length === 1 ? '' : 's'}
-          </p>
-          <ul className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-[12.5px] text-ink/75 sm:grid-cols-2">
-            {moving.map((p) => (
-              <li key={p.serviceCode} className="tabular-nums">
-                <span className="font-semibold">{p.title}</span>{' '}
-                <span className="font-mono">
-                  {p.currentSignupPhp == null ? 'none' : peso(p.currentSignupPhp)}
-                </span>{' '}
-                →{' '}
-                <span className="font-mono font-bold text-danger-700">
-                  {p.nextSignupPhp == null ? 'none' : peso(p.nextSignupPhp)}
-                </span>
-              </li>
-            ))}
-          </ul>
         </div>
-      )}
 
-      <div className="mt-3 flex items-center gap-2">
-        <ActionButton tone="brand" main type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save" />
-        {state.message && (
-          <span className={`text-xs ${state.ok ? 'text-success-800' : 'text-danger-700'}`}>
-            {state.message}
-          </span>
+        {complaints.map((c) => (
+          <p
+            key={c.kind}
+            className="pb-2 text-[13px] font-semibold"
+            style={{ color: c.kind === 'not_a_discount' ? 'rgb(var(--color-warn))' : 'rgb(var(--color-danger))' }}
+          >
+            {c.message}
+          </p>
+        ))}
+
+        {moving.length > 0 && (
+          <div className="border-t border-[color:var(--sn-divider)] py-2.5">
+            <p className="flex items-center gap-2 text-[13px] font-bold" style={{ color: 'rgb(var(--color-danger))' }}>
+              <AlertTriangle className="h-4 w-4" strokeWidth={2} aria-hidden />
+              Saving this changes {moving.length} sign-up price{moving.length === 1 ? '' : 's'}
+            </p>
+            <ul className="mt-1.5 grid grid-cols-1 gap-x-6 gap-y-1 text-[13px] text-ink/75 sm:grid-cols-2">
+              {moving.map((p) => (
+                <li key={p.serviceCode} className="tabular-nums">
+                  <span className="font-semibold">{p.title}</span>{' '}
+                  <span>{p.currentSignupPhp == null ? 'none' : peso(p.currentSignupPhp)}</span>{' '}
+                  →{' '}
+                  <span className="font-bold" style={{ color: 'rgb(var(--color-danger))' }}>
+                    {p.nextSignupPhp == null ? 'none' : peso(p.nextSignupPhp)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
-      </div>
-    </form>
+
+        {state.message && (
+          <p className={`pb-2.5 ${TEMPLATE_SUBLINE}`} style={{ color: state.ok ? 'rgb(var(--color-ok))' : 'rgb(var(--color-danger))' }}>
+            {state.message}
+          </p>
+        )}
+      </form>
+    </TemplateSection>
   );
 }

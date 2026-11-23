@@ -66,12 +66,19 @@ test('threadSupplierName never prints the bare word, for any row shape', () => {
   assert.equal(nameForThread({ byThread: new Map(), byShop: new Map(), failed: true }, 'x').name, SUPPLIER_NAME_UNREADABLE);
 });
 
-test('pre-reveal never shows the business name or the logo, even if a row carried them', () => {
-  const leaky = { ...base, business_name: 'Real Name Co', logo_url: 'logos/x.webp', screen_name: 'Cebu Florist #2' };
-  const label = threadSupplierName(leaky);
-  assert.equal(label.name, 'Cebu Florist #2');
-  assert.equal(label.logoUrl, null);
-  assert.equal(label.revealed, false);
+// 🏷 Was "pre-reveal never shows the business name or the logo". Owner ruling 2026-11-16 (15) — real shop name
+// everywhere — reversed it: an unrevealed (e.g. unverified, never-replied) shop is named by its business name and wears
+// its logo in chat, exactly as on every other surface. `revealed` stays the predicate's answer: it still withholds the
+// shop's STAFF names in receipts, which the ruling did not touch.
+test('an unrevealed shop shows its REAL name and logo in chat — never its screen name (ruling 2026-11-16 (15))', () => {
+  const row = { ...base, business_name: 'Real Name Co', logo_url: 'logos/x.webp', screen_name: 'Cebu Florist #2' };
+  const label = threadSupplierName(row);
+  assert.equal(label.name, 'Real Name Co');
+  assert.notEqual(label.name, 'Cebu Florist #2');
+  assert.equal(label.logoUrl, 'logos/x.webp');
+  assert.equal(label.revealed, false, 'the reveal predicate still answers for staff names');
+  // No name on file → still the stand-in, never blank and never the bare word.
+  assert.equal(threadSupplierName({ ...row, business_name: '  ' }).name, 'Cebu Florist #2');
 });
 
 test('the couple list builder falls back to the honest line, not the word', async () => {

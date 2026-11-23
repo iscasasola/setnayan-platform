@@ -52,7 +52,9 @@ export async function readSupplierSheet(
   // 💸 A review from an event whose booking-fee top-up is overdue is unlisted until settled (owner 2026-11-12).
   const unlisted = await readOverdueTopUpEventIds(vendorProfileId, manilaToday());
   const [reviews, completed, profile, services, following, taxonomy] = await Promise.all([
-    fetchReviewsForVendor(supabase, vendorProfileId, { limit: 12, excludeEventIds: [...unlisted] })
+    // 🛡 The PUBLIC read (owner 2026-11-23, b89e2420 D): a review the screener holds never reaches a couple's sheet.
+    // `vendor_reviews_public` is service-role only, hence `admin`.
+    fetchReviewsForVendor(admin, vendorProfileId, { limit: 12, excludeEventIds: [...unlisted], publicOnly: true })
       .then((rows) => sheetReviews(rows))
       .catch((err) => {
         console.error('[supplier-sheet] reviews read failed', err);

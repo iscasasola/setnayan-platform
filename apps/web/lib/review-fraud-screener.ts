@@ -13,16 +13,20 @@ import {
  * device-linkage). Signals BEYOND the 5-signal self-review hard-gate
  * (lib/self-review-gate.ts + 20260515030000_self_review_gate.sql). NO LLM.
  *
- * WHERE IT RUNS: server-side, in a Next `after()` task fired the moment a couple
- * submits a review (app/dashboard/[eventId]/vendors/[vendorId]/review/actions.ts
- * → submitCoupleReview). NO polling cron. Best-effort + fail-soft: any throw is
- * swallowed + Sentry-captured so a screening hiccup never affects the review the
- * couple just left.
+ * WHERE IT RUNS: server-side, AWAITED inside the couple's review submit
+ * (app/dashboard/[eventId]/vendors/[vendorId]/review/actions.ts →
+ * submitCoupleReview) before it returns — it was an after() task until
+ * 2026-11-23. NO polling cron. Best-effort + fail-soft: any throw is swallowed +
+ * Sentry-captured so a screening hiccup never affects the review the couple
+ * just left.
  *
  * A flag lands in `integrity_flags` (kind='review_fraud') ONLY when the score
- * >= REVIEW_FRAUD_FLAG_THRESHOLD. Detect-and-review only — the flag NEVER
- * deletes the review or dings the vendor; an admin adjudicates at
- * /admin/integrity-watch.
+ * >= REVIEW_FRAUD_FLAG_THRESHOLD. The flag NEVER deletes the review or dings the
+ * vendor; an admin adjudicates at /admin/integrity-watch.
+ * 🛡 HELD (owner 2026-11-23, DECISION_LOG b89e2420 D): while the flag is 'open'
+ * or 'confirmed_fraud' the review is out of every public count and list
+ * (migration 20271361301072 — vendor_trusted_review_stats, the card view, the
+ * badge facts, vendor_reviews_public). Only Dismiss releases it.
  *
  * PRIVACY (RA 10173): the `detail` JSONB persisted with a flag carries only
  * NON-PII derived evidence — component scores + small counts + booleans. NO

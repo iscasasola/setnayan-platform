@@ -522,6 +522,11 @@ export type GrowLines =
       soonEventDays: number | null;
       /** 👤 Supplier roles d–h (e): own past clients a card needs before its split is cut from them. NULL = not set. */
       splitOwnEnough?: number | null;
+      /**
+       * 🛡 Fake proof fixes (C), owner 2026-11-23 (b89e2420): distinct guests who must RSVP or capture Papic before a
+       * review from an event the couple did NOT find on Setnayan counts. NULL = not set — that route never counts.
+       */
+      proofRealGuestsMin?: number | null;
     }
   | { read: false };
 
@@ -529,7 +534,7 @@ export async function fetchGrowLines(supabase: SupabaseClient): Promise<GrowLine
   try {
     const { data, error } = await supabase
       .from('platform_settings')
-      .select('grow_few_inquiries_28d, grow_few_bookings_month, story_photo_silence_days, today_soon_ask_hours, today_soon_event_days, inquiry_split_own_enough')
+      .select('grow_few_inquiries_28d, grow_few_bookings_month, story_photo_silence_days, today_soon_ask_hours, today_soon_event_days, inquiry_split_own_enough, proof_real_guests_min')
       .eq('id', 1)
       .maybeSingle();
     if (error) {
@@ -546,6 +551,7 @@ export async function fetchGrowLines(supabase: SupabaseClient): Promise<GrowLine
       soonAskHours: n(row.today_soon_ask_hours),
       soonEventDays: n(row.today_soon_event_days),
       splitOwnEnough: n(row.inquiry_split_own_enough),
+      proofRealGuestsMin: n(row.proof_real_guests_min),
     };
   } catch (e) {
     logQueryError('platform-settings: fetchGrowLines (threw)', e);

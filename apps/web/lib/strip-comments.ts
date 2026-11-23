@@ -87,9 +87,34 @@
  * tried and removed: it buys almost nothing (`a < /re/.test(b)` is not a thing
  * anyone writes) and in TSX it makes every closing tag `</p>` look like the
  * start of a pattern.
+ *
+ * 🪤 `}` IS DELIBERATELY ABSENT TOO (2026-11-22). In TSX a `}` is far more often
+ * the end of a JSX expression container than the end of a block, and the `/`
+ * after one is a SELF-CLOSE or JSX TEXT, never a pattern:
+ *
+ *     icon={<S x={1.9} />} href={`/a`}       ← `/>} href={\`` read as a regex
+ *     {formatCount(i)} / {formatCount(n)}    ← JSX text, not a pattern
+ *
+ * With `}` in this set the first line's ` />` opened a "regex" that ran to the
+ * next `/` — inside the template — so the leftover backtick opened a template
+ * that never closed and every comment after it in the file survived. That is
+ * how a "40%" inside a `{/* … *​/}` in `app/admin/gifts/page.tsx` red-lined
+ * `the-gift-limit-is-one-setting.test.ts` while merging PR #8018.
+ * Measured with TypeScript's own parser over app/ + lib/ + components/ +
+ * tests/ + scripts/ that day: 0 regex literals start after a `}` on the same
+ * line, against 12,000+ JSX self-closes that do. A pattern after a block still
+ * lexes as one when it starts a new line, because a newline resets `prevChar`.
+ * `strip-comments.test.ts` pins the case. Checked against every comment
+ * TypeScript's parser finds in that corpus, the comments this lexer left
+ * standing fell from 217 in 28 files to 166 in 17, and no file gained one.
+ * (The test file's parse oracle cannot see this class: a comment that SURVIVES never
+ * stops a file parsing.)
+ *
+ * A substitution's own closing `}` never reaches this test at all: the template
+ * stack in `stripComments` resumes template text there instead (2026-11-22).
  */
 const REGEX_MAY_FOLLOW_CHAR = new Set([
-  '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';',
+  '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', ';',
   '+', '-', '*', '%', '~', '^', '>', '\n', '',
 ]);
 
@@ -103,7 +128,17 @@ export function stripComments(source: string): string {
   const out = source.split('');
   let i = 0;
   const n = source.length;
-  let quote: string | null = null; // "'" | '"' | '`'
+  let quote: string | null = null; // "'" | '"' — a template is NOT a quote, see below
+  // 🪤 A TEMPLATE LITERAL IS NOT A FLAT STRING (2026-11-22). Its `${ … }` is
+  // CODE: it can hold comments, strings and further templates. Read backtick to
+  // backtick, a comment in a substitution survived, and a template nested in one
+  // closed the OUTER template at the inner backtick — after which the lexer ran
+  // out of step for the rest of the file, in either direction.
+  // So: `inTemplate` is the text mode; each `${` pushes the brace depth it was
+  // opened at, and only the `}` that returns to that depth resumes the text.
+  let inTemplate = false;
+  const substitutions: number[] = [];
+  let depth = 0;
   // The last non-whitespace character, and the identifier ending at it. Together
   // they decide whether a `/` opens a pattern or divides.
   let prevChar = '';
@@ -111,6 +146,26 @@ export function stripComments(source: string): string {
   while (i < n) {
     const c = source[i];
     const next = source[i + 1];
+    if (inTemplate) {
+      if (c === '\\') {
+        i += 2;
+        continue;
+      }
+      if (c === '`') {
+        inTemplate = false;
+        prevChar = c;
+        prevWord = '';
+      } else if (c === '$' && next === '{') {
+        inTemplate = false;
+        substitutions.push(depth);
+        prevChar = '{'; // a substitution opens like a block: a `/` here starts a pattern
+        prevWord = '';
+        i += 2;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
     if (quote) {
       if (c === '\\') {
         i += 2;
@@ -120,12 +175,27 @@ export function stripComments(source: string): string {
       i += 1;
       continue;
     }
-    if (c === "'" || c === '"' || c === '`') {
+    if (c === "'" || c === '"') {
       quote = c;
       prevChar = c;
       prevWord = '';
       i += 1;
       continue;
+    }
+    if (c === '`') {
+      inTemplate = true;
+      i += 1;
+      continue;
+    }
+    if (c === '{') depth += 1;
+    if (c === '}') {
+      if (substitutions.length > 0 && substitutions[substitutions.length - 1] === depth) {
+        substitutions.pop();
+        inTemplate = true;
+        i += 1;
+        continue;
+      }
+      depth -= 1;
     }
     if (c === '/' && next === '/') {
       while (i < n && source[i] !== '\n') out[i++] = ' ';

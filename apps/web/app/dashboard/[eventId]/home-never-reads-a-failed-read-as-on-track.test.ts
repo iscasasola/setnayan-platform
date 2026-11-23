@@ -64,9 +64,11 @@ test('1 · a thrown guest read is said on the Today line, pointing at Guests —
 
 test('2 · the Guests widget says it could not load — one face, with Reload, never 0', () => {
   const html = draw(true);
+  // 🌐 23 Nov 2026 (owner, v5 drawing in the website look): the phone's Guests tile is retired — the board's card is the
+  // ONE Guests widget at every width.
+  assert.equal(count(html, 'data-home-tile="guests"'), 0, 'the retired Guests tile is back');
   for (const [marker, ends] of [
-    ['data-home-tile="guests"', ['data-home-tile="hub"']],
-    ['data-home-card-key="guests"', ['data-home-card-key="sup"']],
+    ['data-home-card-key="guests"', ['data-home-card-key="budget"', 'data-home-card-key="sup"']],
   ] as const) {
     const w = slice(html, marker, [...ends]);
     assert.match(w, /[Cc]ouldn’t load/, `${marker}: does not say it could not load`);

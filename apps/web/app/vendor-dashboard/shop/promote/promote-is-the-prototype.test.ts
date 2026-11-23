@@ -4,10 +4,10 @@
  *
  * Pins the SHAPE the two approved designs fixed, so the build cannot drift back to the shapes they replaced:
  *
- *   1. QR codes — Option B (`qr-list-proto`, owner "B"): ONE LIST, a row per code, in the prototype's order —
- *      Promote: Check a date · Shortlist · My page · Reviews; Customers: Booked · Crew (per event). No "Which code ▾".
- *      A row is name · what a scan does · small QR · ›, and opens its sheet; Promote's sheets end in "Put it on…" ›
- *      Door print · Prints.
+ *   1. QR codes — the shop's four now live on Shop › My QRs (owner 23 Nov 2026; drawing `supplier_store_graphs_badges_
+ *      2026-11-23`, frames "My QRs" · "One QR, opened"): ONE list in the drawing's order — Your page · Reviews ·
+ *      Shortlist · Check a date — each opening its own page, which ends in "Print it" › Door print · Prints (the old
+ *      sheet's "Put it on…"). Customers keeps Option B's row + sheet for Booked · Crew (per event). No "Which code ▾".
  *   2. One door piece — the cream door-sticker fold is gone; the door piece is Prints' own.
  *   3. The Prints sheet — the 5 Nov prototype (`supplier_prints_2026-11-05/index.html`) + the 6 Nov content prototype:
  *      the head (‹ back · title · Save all), YOUR FACTS, HOW IT FITS, then the pieces; Design ▾ and QR ▾ in the THUMB
@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { CUSTOMERS_QR_MODES, PROMOTE_QR_MODES } from '@/lib/supplier-qr-codes';
+import { CUSTOMERS_QR_MODES, MY_QRS_SHOP_ORDER, PROMOTE_QR_MODES, printWithQrHref } from '@/lib/supplier-qr-codes';
 
 const WEB = path.join(__dirname, '..', '..', '..', '..');
 const read = (rel: string) => stripComments(fs.readFileSync(path.join(WEB, rel), 'utf8'));
@@ -28,51 +28,54 @@ const read = (rel: string) => stripComments(fs.readFileSync(path.join(WEB, rel),
 const CODES = 'app/vendor-dashboard/invite/_components/qr-codes.tsx';
 const LIST = 'app/vendor-dashboard/invite/_components/qr-code-list.tsx';
 const PRINTS = 'app/vendor-dashboard/shop/promote/_components/shop-prints-section.tsx';
+const MINE = 'app/vendor-dashboard/shop/qrs/_components/my-qrs-list.tsx';
+const OPENED = 'app/vendor-dashboard/shop/qrs/_components/my-qr-code.tsx';
 
-test('1 · the codes are ONE list in the prototype’s order — no one-code dropdown', () => {
-  assert.deepEqual([...PROMOTE_QR_MODES], ['dates', 'shortlist', 'page', 'reviews'], 'Promote’s rows are not the prototype’s four, in order');
+test('1 · the codes are ONE list in the drawing’s order — no one-code dropdown', () => {
+  assert.deepEqual([...MY_QRS_SHOP_ORDER], ['page', 'reviews', 'shortlist', 'dates'], 'My QRs’ "Your shop" rows are not the drawing’s four, in order');
+  assert.deepEqual([...MY_QRS_SHOP_ORDER].sort(), [...PROMOTE_QR_MODES].sort(), 'My QRs lost (or gained) a shop code');
   assert.deepEqual([...CUSTOMERS_QR_MODES], ['locked', 'crew'], 'Customers’ rows are not Booked · Crew');
+  const mine = read(MINE);
+  assert.match(mine, /MY_QRS_SHOP_ORDER\.map\(/, 'the My QRs rows are not built from MY_QRS_SHOP_ORDER');
   const src = read(CODES);
-  const promote = src.slice(src.indexOf("place === 'promote'\n      ? ["), src.indexOf(': [\n          row(\'locked\''));
-  const order = [...promote.matchAll(/row\(\s*'(\w+)'/g)].map((m) => m[1]);
-  const customers = [...src.slice(src.indexOf(": [\n          row('locked'")).matchAll(/row\('(\w+)'/g)].map((m) => m[1]).slice(0, 2);
-  console.log(`Promote rows: ${order.join(' · ')} · Customers rows: ${customers.join(' · ')}`);
-  assert.deepEqual(order, ['dates', 'shortlist', 'page', 'reviews']);
+  const customers = [...src.matchAll(/row\('(\w+)'/g)].map((m) => m[1]);
+  console.log(`My QRs rows: ${MY_QRS_SHOP_ORDER.join(' · ')} · Customers rows: ${customers.join(' · ')}`);
   assert.deepEqual(customers, ['locked', 'crew']);
   assert.match(src, /<QrCodeList rows=\{rows\} openKey=\{open\} \/>/);
-  assert.doesNotMatch(src, /label="Which code"|modeOptions/, 'the one-code dropdown is back');
+  assert.doesNotMatch(src + mine, /label="Which code"|modeOptions/, 'the one-code dropdown is back');
 });
 
-test('1 · a row is name · what a scan does · small QR · › — and opens its sheet with the shipped QR card inside', () => {
+test('1 · a row is name · what it does · › — Customers’ opens its sheet, My QRs’ opens the code’s page — each with the shipped QR card', () => {
   const list = read(LIST);
   for (const anchor of ['data-qr-row={r.key}', '<QrThumb', '<ChevronRight', 'r.line', "'per event'"]) {
     assert.ok(list.includes(anchor) || (anchor === "'per event'" && /per event/.test(list)), `a row lost ${anchor}`);
   }
   assert.match(list, /<Sheet[\s\S]{0,200}head=\{/, 'a code’s sheet lost its head (name · ⓘ · Done)');
   assert.match(list, /data-qr-sheet-done/);
-  const cards = (read(CODES).match(/<QrCard\b/g) ?? []).length;
-  console.log(`QrCards behind the rows: ${cards}`);
-  assert.equal(cards, 6, 'every code’s sheet draws the shipped QR card (Share · Copy link · Download · Write to NFC)');
+  assert.match(read(MINE), /href=\{myQrHref\(code\)\}/, 'a My QRs row does not open its code’s page');
+  const cards = (read(CODES).match(/<QrCard\b/g) ?? []).length + (read(OPENED).match(/<QrCard\b/g) ?? []).length;
+  console.log(`QrCards behind the rows: ${cards} (Booked · Crew · the one opened shop code)`);
+  assert.equal(cards, 3, 'every code draws the shipped QR card (Share · Copy link · Download · Write to NFC)');
 });
 
-test('1 · Promote’s sheets end in “Put it on…” › Door print · Prints — Customers’ never do', () => {
-  const list = read(LIST);
-  const src = read(CODES);
-  assert.match(list, /Put it on…/);
-  assert.match(list, /title="Door print"/);
-  assert.match(list, /title="Prints"/);
-  assert.match(src, /putOn: place === 'promote' &&/, '“Put it on…” must be Promote’s only');
-  // The hand-off waits for this sheet's own Back entry to go (useBackCloses steps back a tick after the close) — opening
-  // the Prints sheet first let that late step back shut it at once (caught in this PR's own 390 px walk).
-  const hand = list.slice(list.indexOf('const handOff'), list.indexOf('const handOff') + 900);
-  assert.match(hand, /addEventListener\('popstate', go\)/, 'the hand-off no longer waits for the QR sheet’s Back');
-  assert.ok(hand.indexOf("addEventListener('popstate'") < hand.indexOf('setOpen(null)'), 'listen before closing');
+test('1 · a shop code’s page ends in “Print it” › Door print · Prints — Customers’ sheets never do', () => {
+  const opened = read(OPENED);
+  assert.match(opened, /label="Print it"/);
+  assert.match(opened, /title="Door print"[^>]*href=\{printWithQrHref\(d\.code, 'door'\)\}/);
+  assert.match(opened, /title="Prints"[^>]*href=\{printWithQrHref\(d\.code\)\}/);
+  assert.doesNotMatch(read(LIST) + read(CODES), /Put it on…|printWithQrHref/, 'Booked or Crew can be put on the shop’s prints');
+  // The address hands THIS code (and the door piece) to Promote's Prints, which opens on it.
+  assert.equal(printWithQrHref('reviews', 'door'), '/vendor-dashboard/shop/promote?print=reviews&piece=door#prints');
+  assert.equal(printWithQrHref('page'), '/vendor-dashboard/shop/promote?print=page#prints');
+  const prints = read(PRINTS);
+  assert.match(prints, /useState\(initialAsk !== null\)/, 'the Prints sheet does not open on a code handed in the address');
+  assert.match(prints, /useState<PrintQrMode>\(initialAsk\?\.qr \?\? DEFAULT_PRINT_QR\)/, 'the Prints sheet does not carry the handed code');
 });
 
 test('2 · one door piece — the cream door-sticker fold is gone, the door print lives in Prints', () => {
   assert.equal(fs.existsSync(path.join(WEB, 'app/vendor-dashboard/invite/_components/door-sticker.tsx')), false);
   assert.doesNotMatch(read(CODES) + read(LIST) + read('app/vendor-dashboard/shop/promote/page.tsx'), /DoorSticker|door-sticker/);
-  assert.match(read(PRINTS), /ask\.piece === 'door'/);
+  assert.match(read(PRINTS), /initialAsk\?\.piece === 'door'/);
 });
 
 test('3 · the Prints sheet is the prototype: head (‹ · title · Save all) · YOUR FACTS · HOW IT FITS · pieces; pickers in the dock', () => {

@@ -18,11 +18,17 @@ const SV_TEMPLATES_WORDS: StayWords = {
 const svTemplates = kind(SV_TEMPLATES_WORDS, false);
 
 /** The couple's Accept / Decline lands back on the quote (`/proposals/<id>`), or — "Accept the update" in a chat — on
- *  that thread (`return_to`, only this app's own thread paths). `?notice=respond_failed` is said in the quote page's own
- *  banner sentence. Signed out → `/login`: navigates. */
+ *  that thread (`return_to`, only this app's own thread paths). `?notice=respond_failed` and `?notice=quote_expired` are
+ *  said where the press was. Signed out → `/login`: navigates. */
 const SV_QUOTE_ANSWER_WORDS: StayWords = {
   within: [/^\/proposals\/[^/]+$/, /^\/dashboard\/[^/]+\/messages\/[^/]+$/, /^\/vendor-dashboard\/messages\/[^/]+$/],
-  refuse: (q) => (q.get('notice') === 'respond_failed' ? 'That didn’t go through — refresh and try again.' : null),
+  refuse: (q) => {
+    const n = q.get('notice');
+    if (n === 'respond_failed') return 'That didn’t go through — refresh and try again.';
+    // ⏳ Accepted after its Valid until (QUOTE_EXPIRED): said where the press was, never read as accepted.
+    if (n === 'quote_expired') return 'This quotation expired before it was accepted. Ask the supplier for a new one.';
+    return null;
+  },
 };
 const svQuoteAnswer = kind(SV_QUOTE_ANSWER_WORDS, false);
 

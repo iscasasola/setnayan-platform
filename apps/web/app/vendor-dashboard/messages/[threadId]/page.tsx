@@ -2257,7 +2257,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                     t ? { supplierName: 'the hosts', coHosts: t.ids.length, unread: t.unread, side: 'team' as const, reach: t.reach } : null,
                   )}
                   // 🎤 An empty box: Send is a mic — hold to record a voice note (Unichat H1, 20 Nov).
-                  voice
+                  // 🪪 An unverified shop's voice note would be refused (`plus_unverified`) — the mic is locked like the ＋ tiles.
+                  voice={shopVerified !== false}
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (

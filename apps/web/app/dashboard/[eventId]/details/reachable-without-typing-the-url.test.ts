@@ -136,7 +136,8 @@ const MOVED_DOOR: Record<string, (railHrefs: string[]) => boolean> = {
     read('app/dashboard/[eventId]/_components/event-rail-context.tsx').includes('<Link href={eventSettingsHref(eventId)}') &&
     read('app/dashboard/[eventId]/_components/home-control-faces.ts').includes('return dateFinderHref(eventId);') &&
     read('app/dashboard/[eventId]/page.tsx').includes('countdownDoor: viewerMemberType === \'couple\' ? undefined : `/dashboard/${eventId}/details`') &&
-    read('app/dashboard/[eventId]/_components/home-first-screen.tsx').includes('<HomeControlRow ') &&
+    // 🌐 23 Nov 2026 (v5 drawing): the Countdown widget is retired — the event card's countdown carries its door.
+    read('app/dashboard/[eventId]/_components/home-first-screen.tsx').includes('href: c.door ?? countdownDoor(eventId),') &&
     isMounted('app/dashboard/[eventId]/_components/home-first-screen.tsx'),
   hosts: (railHrefs) =>
     railHrefs.includes('/dashboard/EVT123/guests') &&

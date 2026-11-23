@@ -37,8 +37,7 @@ test('it is drawn by the qrcode library through the shared renderer, and the QR 
   const lib = stripComments(fs.readFileSync(path.join(__dirname, 'check-a-date-qr.ts'), 'utf8'));
   assert.match(lib, /renderUrlQrSvg\(/);
   assert.match(stripComments(fs.readFileSync(path.join(__dirname, 'qr.ts'), 'utf8')), /from 'qrcode'/);
-  // 📣 Shop › Promote since 2026-11-05 (moved from Customers › QR codes, `invite/page.tsx`).
-  // THE ONE BUILD (C4): Promote's codes are drawn by its ONE body (page + Shop's QR sheet mount it).
-  const page = stripComments(fs.readFileSync(path.join(__dirname, '../app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), 'utf8'));
-  assert.match(page, /checkADateQr\(slug!\)/, "Shop › Promote no longer draws the Check-a-date code");
+  // 🔳 Shop › My QRs since 23 Nov 2026 (moved from Shop › Promote): the code's own page reads it.
+  const page = stripComments(fs.readFileSync(path.join(__dirname, '../app/vendor-dashboard/shop/qrs/_components/my-qrs-data.ts'), 'utf8'));
+  assert.match(page, /code === 'dates' \? await checkADateQr\(shop\.slug, origin\)/, 'My QRs no longer draws the Check-a-date code');
 });

@@ -107,17 +107,21 @@ export function EventTodayGroup({ eventId, children }: { eventId: string; childr
 
 const LINK = 'et-link inline-flex min-h-11 items-center text-[14px] font-semibold';
 
-/** The level word in its colour, in front of the row's line ("Overdue · ₱40,000 · 39 days late"). */
+/**
+ * The level word in front of the row's line ("Overdue · ₱40,000 · 39 days late"). 🌐 In the website look (owner 23 Nov
+ * 2026, v5 drawing) it is a small OUTLINED TAG in its colour — OVERDUE red, SOON amber — and the "·" after it is for a
+ * reader only (the tag already sets it apart for the eye).
+ */
 function LevelLine({ row }: { row: EventTodayRow }) {
   const u = row.urgency;
   return (
-    <span className="block text-[13px] leading-[1.35] text-[color:var(--sn-ink-500)]" data-event-today-line="">
+    <span className="et-line block" data-event-today-line="">
       {u ? (
         <>
-          <span data-event-today-level={u.level} className="font-semibold" style={{ color: u.level === 'red' ? 'var(--sn-danger)' : 'var(--sn-warning-deep)' }}>
+          <span data-event-today-level={u.level} className="et-tag">
             {u.word}
           </span>
-          {row.line ? ' · ' : ''}
+          {row.line ? <span className="sr-only"> · </span> : ''}
         </>
       ) : null}
       {row.line}
@@ -142,8 +146,8 @@ export function EventTodayRowItem({ row, children }: { row: EventTodayRow; child
     onTomorrow: () => (row.putOff ? g?.putOff(row.key) : undefined),
     onRefuse: () => g?.refuse(),
   });
-  const edge = red ? 'rgb(var(--color-danger))' : level === 'amber' ? 'rgb(var(--color-warn))' : null;
-  const tint = red ? 'var(--sn-danger-soft)' : level === 'amber' ? 'var(--sn-warning-soft)' : undefined;
+  // 🌐 No tint and no coloured edge (owner 23 Nov 2026, v5 drawing in the website look): a row is a row split by a
+  // hairline, and its level is the outlined word in its line (`LevelLine`).
   const moved = tx !== 0 || dragging;
   const Icon = ICONS[row.icon];
   const tick = row.task?.tick ?? null;
@@ -155,22 +159,14 @@ export function EventTodayRowItem({ row, children }: { row: EventTodayRow; child
       data-event-today-card={open ? 'open' : undefined}
       data-event-today-swipe={open ? undefined : red ? 'right-only' : 'both'}
       {...(row.task ? { 'data-home-todo-row': row.task.id } : {})}
-      className={`relative isolate list-none ${
-        open
-          ? '-mx-2 my-2 rounded-[var(--sn-frame-radius)] bg-frame px-2 shadow-sn-frame'
-          : level
-            ? '-mx-4 overflow-hidden rounded-r-2xl pl-3 pr-4 sm:-mx-6 sm:pl-5 sm:pr-6 xl:mx-0 xl:pl-3 xl:pr-3'
-            : 'overflow-hidden border-b border-[color:var(--sn-line)]'
-      }`}
-      style={{ ...(edge ? { borderLeft: `4px solid ${edge}` } : {}), ...(!open && tint ? { background: tint } : {}) }}
+      className={`et-row relative isolate list-none ${open ? 'et-row-open' : 'overflow-hidden'}`}
     >
       {moved && !open ? <TwoWayPanes tx={tx} armed={armed} red={red} /> : null}
       <div
         {...handlers}
         data-event-today-drag-front=""
-        className={moved && !open ? 'relative z-10 bg-page' : 'relative'}
+        className={moved && !open ? 'et-front relative z-10' : 'relative'}
         style={{
-          ...(moved && !open && tint ? { background: `linear-gradient(${tint}, ${tint}), rgb(var(--sn-page-bg))` } : {}),
           // No transform at rest (a transform frames every `position: fixed` inside the row). The snap back is the
           // shipped Release.
           transform: tx === 0 && !dragging ? undefined : `translateX(${tx}px)`,
@@ -188,25 +184,13 @@ export function EventTodayRowItem({ row, children }: { row: EventTodayRow; child
             /* A plan task with no table row to tick (a computed step) still wears the drawing's tick circle — never the
                list icon (drawing v3 `.row .tick i`: a 24 px ring, red on a red row). The row's tap opens its card. */
             <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center" data-event-today-tick="ring">
-              <i
-                className="block h-6 w-6 rounded-full border-2"
-                style={{ borderColor: red ? 'rgb(var(--color-danger))' : 'var(--sn-ink-500)', background: 'rgb(var(--sn-frame-bg))' }}
-              />
+              {/* 🌐 The website's tick ring (v5 drawing `.ring`): 24 px, a quiet line, the same on every level. */}
+              <i className="et-ring block h-6 w-6 rounded-full" />
             </span>
           ) : (
-            <span
-              aria-hidden
-              data-row-icon=""
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
-              style={
-                red
-                  ? { background: 'rgb(var(--color-danger))', color: 'rgb(var(--sn-frame-bg))' }
-                  : level === 'amber'
-                    ? { background: 'rgb(var(--sn-frame-bg))', color: 'var(--sn-warning-deep)' }
-                    : { background: 'color-mix(in srgb, rgb(var(--color-ink)) 6%, transparent)', color: 'var(--sn-ink-900)' }
-              }
-            >
-              <Icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
+            /* 🌐 The row's glyph, plain on the page (v5 drawing `.rico`) — no disc behind it. */
+            <span aria-hidden data-row-icon="" className="et-ico grid h-9 w-9 shrink-0 place-items-center">
+              <Icon className="h-5 w-5" strokeWidth={1.75} />
             </span>
           )}
           <button
@@ -286,7 +270,8 @@ export function EventTodayUnreadRow({ row }: { row: EventTodayRow }) {
   const reload = () => router?.refresh();
   const inner = (
     <>
-      <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full" style={{ background: 'var(--sn-warning-soft)', color: 'var(--sn-warning-deep)' }}>
+      {/* 🌐 A failed read keeps its warning colour on the glyph — no disc behind it (the website look, 23 Nov). */}
+      <span aria-hidden className="et-ico grid h-9 w-9 shrink-0 place-items-center" style={{ color: 'var(--sn-warning-deep)' }}>
         <RotateCw className="h-[18px] w-[18px]" strokeWidth={1.8} />
       </span>
       <span className="grid min-w-0 flex-1 text-left">

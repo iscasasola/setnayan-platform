@@ -122,12 +122,16 @@ export function quickRepliesFor(answer: ThreadDayAnswer | null): string[] {
 export function QuickReplies({
   threadId,
   replies,
-  sendAction,
+  sendAction: send,
 }: {
   threadId: string;
   replies: readonly string[];
-  sendAction: (formData: FormData) => void | Promise<void>;
+  /** The shipped send. With `return_to` set, a refusal redirects back with its reason — the returned refusal is never read here. */
+  sendAction: (formData: FormData) => void | Promise<void | { ok: false; reason: string }>;
 }) {
+  // A form action is typed `Promise<void>`; React drops what it returns, and with `return_to` set a refusal redirects
+  // with its reason anyway — so the refusal the send can return is never read here. Kept a bare name for the port guard.
+  const sendAction = send as (formData: FormData) => Promise<void>;
   return (
     <div className="flex gap-2 overflow-x-auto pb-0.5" data-quick-replies="">
       {replies.map((q) => (

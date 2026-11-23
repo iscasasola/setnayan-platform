@@ -65,6 +65,8 @@ export function RevealPreview({
   markSvg = null,
   monogram,
   waxColor = '#5c2542',
+  sealConfig = null,
+  sealFallbackSeed,
   veilColor = '#f3ece1',
   petalsColor,
   veilLook,
@@ -130,6 +132,9 @@ export function RevealPreview({
       markSvg={markSvg}
       monogram={monogram}
       veilColor={effects?.veilColor ?? veilColor}
+      sealConfig={sealConfig}
+      sealFallbackSeed={sealFallbackSeed}
+      waxColor={waxColor}
       onRevealed={onDone}
       autoplay
       lowRes

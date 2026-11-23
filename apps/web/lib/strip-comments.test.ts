@@ -55,6 +55,84 @@ test('template literals and escaped quotes do not desynchronise the lexer', () =
   assert.match(out, /const after = 3;/);
 });
 
+/**
+ * ── 2026-11-22 · A TEMPLATE LITERAL IS NOT A FLAT STRING ────────────────────
+ * The lexer used to read a template from backtick to backtick, so a `${ … }`
+ * substitution — which is CODE — was lexed as text. Both tests below are shapes
+ * taken from this codebase (`app/[slug]/_components/copy-my-link.tsx` and
+ * `app/admin/settings/actions.ts`); each was red before the substitution stack.
+ */
+test('🪤 a comment INSIDE a ${ … } substitution is stripped — it is code, not text', () => {
+  const src = [
+    'const cls = `inline-flex ${',
+    '  // a note inside a substitution',
+    "  state === 'done' ? 'bg-paper' : 'bg-ink'",
+    '} rounded ${/* a block note */ size}`;',
+    'const after = 1;',
+  ].join('\n');
+  const out = stripComments(src);
+  assert.doesNotMatch(out, /a note inside a substitution/, 'a // comment in a substitution survived');
+  assert.doesNotMatch(out, /a block note/, 'a /* */ comment in a substitution survived');
+  // …and nothing else moved: the template's own text and the code around it stay.
+  assert.match(out, /state === 'done' \? 'bg-paper' : 'bg-ink'/);
+  assert.match(out, /`inline-flex \$\{/);
+  assert.match(out, /\} rounded \$\{/);
+  assert.match(out, /size\}`;/);
+  assert.match(out, /const after = 1;/);
+  assert.equal(out.length, src.length);
+});
+
+test('🪤 a template NESTED in a substitution does not close the outer one — both directions', () => {
+  // ① COMMENTS SURVIVE. The inner template holds an apostrophe. Read flat, the
+  // OUTER template closes at the inner backtick, `couldn't` is then code, and its
+  // `'` opens a string that swallows everything after it — real comments included.
+  const survive = [
+    "const url = `/admin?e=${enc(`it couldn't save ${logRefusal('x (y)', err)}`)}`; // a real note",
+    'const keep = 1;',
+    '// another real note',
+    'const after = 2;',
+  ].join('\n');
+  const a = stripComments(survive);
+  assert.doesNotMatch(a, /a real note/, 'the trailing comment after a nested template survived');
+  assert.doesNotMatch(a, /another real note/, 'a comment two lines below a nested template survived');
+  assert.match(a, /it couldn't save \$\{logRefusal\('x \(y\)', err\)\}/);
+  assert.match(a, /const after = 2;/);
+
+  // ② CODE IS EATEN. The inner template holds `//`. Read flat, `http:` becomes
+  // code and `//…` a line comment that blanks the real code after it.
+  const eaten = 'const a = `${f(`http://x.y`)}`; const keep = 1;';
+  const b = stripComments(eaten);
+  assert.equal(b, eaten, 'nothing in this line is a comment, so nothing may be blanked');
+});
+
+test('a `}` that closes an object or block inside a substitution does not end it', () => {
+  // The stack counts braces: only the `}` at the substitution's own depth
+  // returns to template text. Anything else here would desynchronise again.
+  // A stack that closed on ANY `}` reads `, /* a note */ b)` as template text and
+  // keeps the note; that is the sabotage this test was checked against.
+  const src =
+    'const s = `${ fn({ a: 1 }, /* a note */ b) } // text ${(() => { if (x) { y(); } /* another */ return `${b}`; })()} /* text */`; // gone\nconst keep = 1;';
+  const out = stripComments(src);
+  assert.doesNotMatch(out, /a note/, 'the `}` of `{ a: 1 }` ended the substitution early');
+  assert.doesNotMatch(out, /another/, 'the `}` of a block inside an arrow body ended the substitution early');
+  assert.match(out, /\) \} \/\/ text \$\{/, '`// text` is template text after the substitution closed');
+  assert.match(out, /\/\* text \*\/`;/, '`/* text */` is template text too');
+  assert.doesNotMatch(out, /gone/);
+  assert.match(out, /const keep = 1;/);
+  assert.equal(out.length, src.length);
+});
+
+test('🪤 `} />` — a self-closing tag after an expression attribute — is not a pattern', () => {
+  // With `}` in REGEX_MAY_FOLLOW_CHAR the `/` of `/>` opened a "regex" that ran
+  // to `text-ink/`, and the `"` after it opened a string that never re-synced.
+  const src =
+    'const el = <p><Peso id={id} /><span className="text-ink/60">x</span></p>; // gone\nconst keep = 1;';
+  const out = stripComments(src);
+  assert.doesNotMatch(out, /gone/, 'the lexer fell out of step at `} />`');
+  assert.match(out, /<Peso id=\{id\} \/><span className="text-ink\/60">x<\/span><\/p>;/);
+  assert.match(out, /const keep = 1;/);
+});
+
 test('⚖ REVERSED 2026-08-30 — an unterminated block opener strips NOTHING', () => {
   // This test used to assert the opposite: that `/*` with no `*/` ate to EOF.
   // That rule cost more than it bought, and the argument against it is the
@@ -99,6 +177,35 @@ test('division is not mistaken for a pattern', () => {
   const out = stripComments('const half = total / 2; const third = total / 3; const keep = 1;');
   assert.match(out, /const keep = 1;/);
   assert.match(out, /total \/ 3/);
+});
+
+test('🪤 a JSX self-close after `}` is not a regex — `x={1.9} />` then a template', () => {
+  // Found 2026-11-22 merging main into PR #8018: `strokeWidth={1.9} />} … href={`…`}`
+  // in app/admin/gifts/page.tsx. With `}` allowed before a pattern, ` />` opened a
+  // "regex" that ran to the `/` inside the template, the leftover backtick opened
+  // a template that never closed, and every comment after it survived — a "40%"
+  // in a `{/* … */}` then red-lined the-gift-limit-is-one-setting.test.ts.
+  const out = stripComments('icon={<S x={1.9} />} href={`/a`}\n/* PROBE */\n');
+  assert.doesNotMatch(out, /PROBE/, 'a comment after a JSX self-close survived stripping');
+  assert.match(out, /href=\{`\/a`\}/, 'the code itself must be left alone');
+});
+
+test('🪤 a `/` in JSX text after `}` is not a regex either', () => {
+  // `{a} / {b}` — the population TypeScript calls JsxText. Read as a pattern, its
+  // body runs to the next `/` — here the one in `href="/x"` — so the attribute's
+  // OPENING quote is swallowed and its closing quote opens a string to EOF.
+  const out = stripComments('<p>{a} / <a href="/x">b</a></p>;\n// GONE\nconst keep = 1;\n');
+  assert.doesNotMatch(out, /GONE/);
+  assert.match(out, /const keep = 1;/);
+});
+
+test('a regex that starts a new line after a block is still a regex', () => {
+  // The other direction: removing `}` from the set must not turn a pattern on
+  // the next line into division. A newline resets the lexer's previous char.
+  const out = stripComments(String.raw`if (x) {}` + '\n' + String.raw`/\/\//.test(y); // NOTE` + '\nconst keep = 1;\n');
+  assert.doesNotMatch(out, /NOTE/);
+  assert.match(out, /const keep = 1;/);
+  assert.match(out, /\.test\(y\);/, 'the escaped-slash pattern must survive intact');
 });
 
 test('offsets are preserved — line numbers stay true', () => {
@@ -238,6 +345,107 @@ test('🚨 the stripper never makes a file that parses stop parsing', async () =
     'stripComments made these files stop parsing, so it ate real code. Whatever ' +
       'a guard was checking inside them, it is now asserting against a blank:\n  ' +
       broke.join('\n  '),
+  );
+});
+
+/**
+ * ── THE COMMENT ORACLE · A RATCHET ──────────────────────────────────────────
+ * The parse oracle above sees one direction only: code that was EATEN. A
+ * comment that SURVIVES stripping breaks no parse, so it is invisible there —
+ * and that is how a template's `${ … }` went unread as code until 2026-11-22.
+ *
+ * So ask TypeScript for every comment it finds (leading and trailing ranges
+ * around every node and token) and check that each one comes out blank.
+ * Comment-shaped text inside a `JsxText` node is skipped: TypeScript reports a
+ * range there, but `<p>a // b</p>` is prose on the page, not a comment.
+ *
+ * Measured over app/ + lib/ + components/ + tests/:
+ *
+ *     the flat-template lexer, `}` a pattern opener      217 survivors · 28 files
+ *     the flat-template lexer, `}` removed                166 survivors · 17 files
+ *     the template stack + `}` removed                     32 survivors ·  1 file
+ *
+ * 🔒 RATCHET. A file may not appear in SURVIVORS_ALLOWED, and no file may
+ * exceed its count. When yours goes DOWN, lower the number (or delete the row)
+ * in the same PR. Never raise one to go green: a surviving comment is a guard
+ * reading prose as code, or a lexer out of step and skipping code as prose.
+ */
+const SURVIVORS_ALLOWED: Record<string, number> = {
+  // JSX TEXT, not a template: `</span> / <span className="… text-ink/80">` —
+  // after `>` the `/` opens a "pattern" that closes at `ink/`, and the `"`
+  // after it opens a string that runs out of step for the rest of the file.
+  'app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx': 32,
+};
+
+test('🔒 every comment TypeScript sees is stripped (ratchet: survivors may only go down)', async () => {
+  const ts = (await import('typescript')).default;
+  const walk = (dir: string, out: string[] = []): string[] => {
+    for (const name of readdirSync(dir)) {
+      if (name === 'node_modules' || name === '.next') continue;
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walk(p, out);
+      else if (/\.tsx?$/.test(name)) out.push(p);
+    }
+    return out;
+  };
+
+  const over: string[] = [];
+  let judged = 0;
+  let commentsSeen = 0;
+  for (const p of ['app', 'lib', 'components', 'tests'].flatMap((r) => {
+    try {
+      return walk(join(WEB, r));
+    } catch {
+      return [];
+    }
+  })) {
+    const src = readFileSync(p, 'utf8');
+    if (!src.includes('//') && !src.includes('/*')) continue;
+    const sf = ts.createSourceFile(
+      p,
+      src,
+      ts.ScriptTarget.Latest,
+      true,
+      p.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+    );
+    if (((sf as unknown as { parseDiagnostics?: unknown[] }).parseDiagnostics?.length ?? 0) !== 0) continue;
+    judged += 1;
+
+    const ranges = new Map<number, number>();
+    const jsxText: Array<[number, number]> = [];
+    const visit = (node: import('typescript').Node) => {
+      if (node.kind === ts.SyntaxKind.JsxText) jsxText.push([node.pos, node.end]);
+      for (const r of ts.getLeadingCommentRanges(src, node.pos) ?? []) ranges.set(r.pos, r.end);
+      for (const r of ts.getTrailingCommentRanges(src, node.end) ?? []) ranges.set(r.pos, r.end);
+      for (const child of node.getChildren(sf)) visit(child);
+    };
+    visit(sf);
+
+    const out = stripComments(src);
+    let survived = 0;
+    let first = '';
+    for (const [a, b] of ranges) {
+      if (jsxText.some(([s, e]) => a >= s && a < e)) continue;
+      commentsSeen += 1;
+      if (/\S/.test(out.slice(a, b))) {
+        survived += 1;
+        if (!first) first = `line ${src.slice(0, a).split('\n').length}: ${src.slice(a, a + 70).replace(/\n/g, ' ')}`;
+      }
+    }
+    const rel = p.slice(WEB.length + 1);
+    const allowed = SURVIVORS_ALLOWED[rel] ?? 0;
+    if (survived > allowed) over.push(`${rel} — ${survived} survive (allowed ${allowed}); first at ${first}`);
+  }
+
+  assert.ok(judged > 3000, `judged only ${judged} files — the walk is not reading the repo`);
+  assert.ok(commentsSeen > 10000, `TypeScript reported only ${commentsSeen} comments — the oracle is not seeing them`);
+  assert.deepEqual(
+    over,
+    [],
+    'comments TypeScript can see came out of stripComments still standing. Either a ' +
+      'guard is now reading prose as code, or the lexer fell out of step and is ' +
+      'reading code as prose. Fix the lexer — do not raise SURVIVORS_ALLOWED:\n  ' +
+      over.join('\n  '),
   );
 });
 

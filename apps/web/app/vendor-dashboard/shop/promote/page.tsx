@@ -7,6 +7,7 @@ import { shopGearBody } from '../_components/shop-settings-body';
 import { promoteFigures } from '@/lib/shop-section-figures';
 import { loadShopGiftsSection } from './_components/shop-gifts-data';
 import { PromoteBody } from './_components/promote-body';
+import { myQrCodeOf, myQrHref } from '@/lib/supplier-qr-codes';
 
 export const metadata = { title: 'Promote · Shop · Supplier' };
 export const dynamic = 'force-dynamic';
@@ -16,15 +17,11 @@ export const dynamic = 'force-dynamic';
  * belong under Customers; they belong in Shop, beside the website, print materials and gifts. Owner, verbatim: "So the
  * location of our for page is correct" — the For Suppliers page already presents them that way).
  *
- * PART 1 — 🔳 QR CODES, ONE LIST (Option B, owner 2026-11-06 *"B"*): a row per code — Check a date · Shortlist · My page
- * · Reviews — each opening its sheet (Share · Copy link · Download · Write to NFC · Put it on… Door print / Prints).
- * The three below were the dropdown's choices before it; they MOVED here from Customers › QR codes:
- *   • Shortlist · free     — stateless slug invite; a scan imports the shop onto the couple's shortlist under the picked
- *                            event type + service (`buildVendorInviteUrl`).
- *   • Check a date · free  — the shop's one permanent code → `/v/<slug>/dates` (`lib/check-a-date-qr.ts`).
- *   • My page              — the shop's own Setnayan page → `/v/<slug>` (`lib/supplier-qr-codes.ts`).
- * Booked · one-use and Crew for an event stay on Customers › QR codes (`/vendor-dashboard/invite`), which forwards any
- * of these three here.
+ * PART 1 — 🔳 MY QRs (owner 23 Nov 2026: *"this also means we have to get cloud create a QR Page that will replace our
+ * current QR page."*). The shop's four codes — Your page · Reviews · Shortlist · Check a date — moved to their own page,
+ * `/vendor-dashboard/shop/qrs`; this section draws that page's list (`MyQrsList`), each row opening its code's page. An
+ * old link that named a code (`?mode=`, with a Shortlist's `et` · `cat`) forwards to that code's page before any read.
+ * Booked · one-use and Crew for an event stay on Customers › QR codes (`/vendor-dashboard/invite`).
  *
  * PART 2 — 🎁 YOUR GIFTS MOVED here from the Plan page, same component, same words, same behaviour (`ShopGiftsSection`:
  * the gift stock, Buy gifts, Bought). Its reads moved with it (`loadShopGiftsSection`), and the pinned row's ONE figure is
@@ -48,9 +45,12 @@ export const dynamic = 'force-dynamic';
 export default async function ShopPromotePage({
   searchParams,
 }: {
-  searchParams: Promise<{ et?: string; cat?: string; mode?: string; gear?: string }>;
+  searchParams: Promise<{ et?: string; cat?: string; mode?: string; gear?: string; print?: string; piece?: string }>;
 }) {
   const search = await searchParams;
+  // 🔳 An old link to one code (Today's "Open QR", a bookmark, a Shortlist pick) lands on that code's page in My QRs.
+  const asked = myQrCodeOf(search.mode);
+  if (asked) redirect(myQrHref(asked, search));
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) redirect('/login');

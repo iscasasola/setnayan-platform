@@ -363,6 +363,28 @@ export async function SettingsSurface({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
+          <Field
+            label="Reviews that count — real guests at an event the couple did not find here"
+            htmlFor="proof_real_guests_min"
+            help={
+              growLines.read
+                ? 'A review moves a supplier’s stars, medals and events done when the couple found them on Setnayan, or when at least this many different guests replied to the invitation or took Papic photos at the event. Leave blank and only the first way counts; the other reviews still show, marked as the supplier’s own client.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="proof_real_guests_min"
+              name="proof_real_guests_min"
+              type="number"
+              min={1}
+              max={100000}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.proofRealGuestsMin != null ? growLines.proofRealGuestsMin : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
         </section>
 
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">

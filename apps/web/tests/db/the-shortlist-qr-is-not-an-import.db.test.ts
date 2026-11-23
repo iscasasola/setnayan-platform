@@ -79,6 +79,7 @@ test('1abf35b — the Shortlist QR is an import QR: as the first import on an ev
 });
 
 test('a client the supplier brought in does not count toward Completed bookings; the supplier’s own count keeps them', async () => {
+  // (The test name is kept so its history reads as one test.)
   const shop = await newShop();
   for (const s of ['host_marketplace_search', null, 'vendor_shortlist_qr']) await rowFor(shop, s, 'complete');
   for (const s of ['vendor_invite', 'vendor_locked_qr', 'reuse_accept']) await rowFor(shop, s, 'complete');
@@ -91,7 +92,11 @@ test('a client the supplier brought in does not count toward Completed bookings;
        (SELECT full_completed_count FROM public.vendor_full_completed_events_stats WHERE vendor_profile_id=$1)::int AS full`,
     [shop],
   );
-  assert.equal(r.rows[0]!.pub, 3, 'the Completed bookings badge counts a client the supplier brought in');
+  // Since 2026-11-23 (b89e2420 C, migration 20271361301072) Completed bookings counts only an ARM'S-LENGTH job. Of the
+  // six: the marketplace-search booking counts (a Setnayan fact, a verified shop). The Shortlist QR is an import QR
+  // (1abf35b, which superseded d7f4b97f the same day), so it joins the three supplier-brought sources and does not.
+  // The row with no source and no Setnayan fact no longer counts either: nothing shows the couple found the shop here.
+  assert.equal(r.rows[0]!.pub, 1, 'the Completed bookings badge counts a client the supplier brought in, or one Setnayan never showed the couple');
   assert.equal(r.rows[0]!.full, 6, 'the supplier’s own finished-jobs count lost a job');
 });
 

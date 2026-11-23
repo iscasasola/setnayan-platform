@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8378
+# facts: 8364
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     675
-#   col       6030
-#   policy    1226
+#   tpriv     674
+#   col       6021
+#   policy    1223
 #   view      10
-#   func      433
+#   func      432
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -571,7 +571,6 @@ tpriv	public.vendor_forms|authenticated	SIU
 tpriv	public.vendor_graph_unlocks_kept|authenticated	S
 tpriv	public.vendor_guest_deliveries|authenticated	SIUD
 tpriv	public.vendor_guest_reviews|authenticated	S
-tpriv	public.vendor_hub_tool_entries|authenticated	SD
 tpriv	public.vendor_ig_media|anon	SIUD
 tpriv	public.vendor_ig_media|authenticated	SIUD
 tpriv	public.vendor_ig_oauth_state|authenticated	SIUD
@@ -2565,6 +2564,7 @@ col	public.event_vendors.pax_quote_base	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_surcharge_php	anon=IU authenticated=IU
 col	public.event_vendors.prep_days	anon=IU authenticated=IU
 col	public.event_vendors.pricing_basis	anon=SIU authenticated=SIU
+col	public.event_vendors.proof_at_delete	anon=SIU authenticated=SIU
 col	public.event_vendors.public_id	anon=SIU authenticated=SIU
 col	public.event_vendors.requested_service_ids	anon=SIU authenticated=SIU
 col	public.event_vendors.selection_match_rank	anon=SIU authenticated=SIU
@@ -3182,7 +3182,6 @@ col	public.hub_music_tracks.sort_order	anon=- authenticated=SIU
 col	public.hub_music_tracks.title	anon=- authenticated=SIU
 col	public.hub_music_tracks.track_id	anon=- authenticated=SIU
 col	public.hub_music_tracks.updated_at	anon=- authenticated=SIU
-col	public.hub_tools.couple_sees	anon=- authenticated=S
 col	public.hub_tools.created_at	anon=- authenticated=S
 col	public.hub_tools.is_active	anon=- authenticated=S
 col	public.hub_tools.label	anon=- authenticated=S
@@ -4313,6 +4312,7 @@ col	public.platform_settings.onboarding_bg_music_r2_keys	anon=- authenticated=S
 col	public.platform_settings.onboarding_discount_pct	anon=- authenticated=S
 col	public.platform_settings.papic_signup_discount_pct	anon=- authenticated=S
 col	public.platform_settings.photo_delivery_oauth_redirect_uri	anon=- authenticated=S
+col	public.platform_settings.proof_real_guests_min	anon=- authenticated=S
 col	public.platform_settings.radar_enabled	anon=- authenticated=S
 col	public.platform_settings.radar_min_n_floor	anon=- authenticated=S
 col	public.platform_settings.receiving_accounts	anon=- authenticated=S
@@ -5570,17 +5570,6 @@ col	public.vendor_guest_reviews.shown_as	anon=- authenticated=S
 col	public.vendor_guest_reviews.vendor_profile_id	anon=- authenticated=S
 col	public.vendor_guest_reviews.vendor_reply	anon=- authenticated=S
 col	public.vendor_guest_reviews.vendor_reply_at	anon=- authenticated=S
-col	public.vendor_hub_tool_entries.created_at	anon=- authenticated=S
-col	public.vendor_hub_tool_entries.done_at	anon=- authenticated=SIU
-col	public.vendor_hub_tool_entries.entry_id	anon=- authenticated=S
-col	public.vendor_hub_tool_entries.event_id	anon=- authenticated=SI
-col	public.vendor_hub_tool_entries.label	anon=- authenticated=SIU
-col	public.vendor_hub_tool_entries.note	anon=- authenticated=SIU
-col	public.vendor_hub_tool_entries.position	anon=- authenticated=SIU
-col	public.vendor_hub_tool_entries.qty	anon=- authenticated=SIU
-col	public.vendor_hub_tool_entries.tool_key	anon=- authenticated=SI
-col	public.vendor_hub_tool_entries.updated_at	anon=- authenticated=S
-col	public.vendor_hub_tool_entries.vendor_profile_id	anon=- authenticated=SI
 col	public.vendor_ig_connections.connected_at	anon=- authenticated=S
 col	public.vendor_ig_connections.created_at	anon=- authenticated=S
 col	public.vendor_ig_connections.ig_user_id	anon=- authenticated=S
@@ -6266,6 +6255,7 @@ col	public.vendor_reviews.created_at	anon=SIU authenticated=SIU
 col	public.vendor_reviews.event_id	anon=SIU authenticated=SIU
 col	public.vendor_reviews.override_admin_id	anon=SIU authenticated=SIU
 col	public.vendor_reviews.override_reason	anon=SIU authenticated=SIU
+col	public.vendor_reviews.proof_at_delete	anon=SIU authenticated=SIU
 col	public.vendor_reviews.public_id	anon=SIU authenticated=SIU
 col	public.vendor_reviews.rating_communication	anon=SIU authenticated=SIU
 col	public.vendor_reviews.rating_on_time	anon=SIU authenticated=SIU
@@ -7736,9 +7726,6 @@ policy	public.vendor_guest_deliveries|vendor_guest_deliveries_vendor_read	mode=P
 policy	public.vendor_guest_deliveries|vendor_guest_deliveries_vendor_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_guest_reviews|vendor_guest_reviews_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.vendor_guest_reviews|vendor_guest_reviews_team_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR (vendor_profile_id IN ( SELECT vp.vendor_profile_id FROM vendor_profiles vp WHERE (vp.user_id = ( SELECT auth.uid() AS uid))))) check=NULL
-policy	public.vendor_hub_tool_entries|vendor_hub_tool_entries_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=is_admin() check=NULL
-policy	public.vendor_hub_tool_entries|vendor_hub_tool_entries_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) AND (tool_key IN ( SELECT ht.tool_key FROM hub_tools ht WHERE (ht.couple_sees AND ht.is_active)))) check=NULL
-policy	public.vendor_hub_tool_entries|vendor_hub_tool_entries_vendor_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND ((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)))) check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND ((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))
 policy	public.vendor_ig_connections|vendor_ig_connections_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.vendor_ig_connections|vendor_ig_connections_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = ( SELECT auth.uid() AS uid)))) check=NULL
 policy	public.vendor_ig_media|vendor_ig_media_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
@@ -8349,7 +8336,6 @@ func	public.vendor_delete_cocktail_booth(p_event_id uuid, p_booth_id uuid)	secde
 func	public.vendor_delete_sign(p_event_id uuid, p_sign_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_duty_of_rank(p_role text)	secdef=no exec=authenticated search_path=public
 func	public.vendor_duty_rank(p_duty text)	secdef=no exec=authenticated search_path=public
-func	public.vendor_event_dietary_list(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_guest_review_reply(p_review_id uuid, p_reply text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_inquiry_heatmap(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_inquiry_missed(p_vendor_profile_id uuid, p_sla_hours integer, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public

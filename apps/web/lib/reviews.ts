@@ -69,6 +69,13 @@ export type ReviewRow = {
    */
   via_vendor_import: boolean;
   /**
+   * 🛡 Fake proof fixes (C), owner 2026-11-23 (DECISION_LOG b89e2420): TRUE when this review moves the shop's stars —
+   * a booked-through review from an ARM'S-LENGTH event (`vendor_event_proof_route`, cached in `vendor_proof_events`).
+   * Read only from `vendor_reviews_public` (`fetchReviewsForVendor({ publicOnly: true })`); absent on every other read.
+   * FALSE on a booked review → the shop shows it as the supplier's own client (`reviewIsOwnClient`).
+   */
+  counts_as_proof?: boolean;
+  /**
    * The service card this review is FOR (owner, 6 Nov 2026 — "the review will be aligned to the service card they
    * have"). NULL on every review written before that day: no "For" line, nothing guessed. Optional in the type so
    * fixtures that predate it still compile; every read selects it.
@@ -140,6 +147,12 @@ export type FetchReviewsOpts = {
    * `readOverdueTopUpEventIds`). A review with no event (its celebration deleted) is never excluded by this.
    */
   excludeEventIds?: readonly string[];
+  /**
+   * 🛡 A PUBLIC page's list (owner 2026-11-23, b89e2420 C + D). Reads `vendor_reviews_public` — a SERVICE-ROLE view, so
+   * pass the admin client — which (D) never returns a review the screener flagged and an admin has not dismissed, and
+   * (C) carries `counts_as_proof`. A refused read throws, exactly as the table read does: never an empty list.
+   */
+  publicOnly?: boolean;
 };
 
 /**
@@ -154,13 +167,26 @@ export async function fetchReviewsForVendor(
 ): Promise<ReviewRow[]> {
   const limit = opts.limit ?? 25;
   const offset = opts.offset ?? 0;
-  let q = supabase.from('vendor_reviews').select(REVIEW_COLUMNS).eq('vendor_profile_id', vendorProfileId);
+  let q = opts.publicOnly
+    ? supabase.from('vendor_reviews_public').select(`${REVIEW_COLUMNS},counts_as_proof`).eq('vendor_profile_id', vendorProfileId)
+    : supabase.from('vendor_reviews').select(REVIEW_COLUMNS).eq('vendor_profile_id', vendorProfileId);
   const skip = (opts.excludeEventIds ?? []).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
   // `NOT IN` alone would also drop a review whose event_id is NULL (SQL's three-valued NOT IN) — keep those.
   if (skip.length > 0) q = q.or(`event_id.is.null,event_id.not.in.(${skip.join(',')})`);
   const { data, error } = await q.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
   if (error) throw new Error(`fetchReviewsForVendor failed: ${error.message}`);
   return (data ?? []) as ReviewRow[];
+}
+
+/**
+ * 🛡 The ONE answer to "does this review wear the supplier's-own-client pill?" (owner 2026-11-23, b89e2420 C): the
+ * supplier brought the couple (`via_vendor_import`), OR it is a booked review whose event was not arm's length — it
+ * still SHOWS, labelled the supplier's own client, and does not move the stars. `counts_as_proof` absent (a read that
+ * did not ask) keeps the shipped behaviour.
+ */
+export function reviewIsOwnClient(review: Pick<ReviewRow, 'via_vendor_import' | 'booked_through_setnayan' | 'counts_as_proof'>): boolean {
+  if (review.via_vendor_import) return true;
+  return review.booked_through_setnayan && review.counts_as_proof === false;
 }
 
 /**
@@ -282,10 +308,12 @@ export async function fetchReviewForVendorWithCouple(
   supabase: SupabaseClient,
   vendorProfileId: string,
   reviewId: string,
+  /** 🛡 `publicOnly` — the same public read as the list (held reviews never returned; `counts_as_proof` carried). */
+  opts: Pick<FetchReviewsOpts, 'publicOnly'> = {},
 ): Promise<ReviewWithCouple | null> {
-  const { data, error } = await supabase
-    .from('vendor_reviews')
-    .select(REVIEW_COLUMNS)
+  const { data, error } = await (opts.publicOnly
+    ? supabase.from('vendor_reviews_public').select(`${REVIEW_COLUMNS},counts_as_proof`)
+    : supabase.from('vendor_reviews').select(REVIEW_COLUMNS))
     .eq('vendor_profile_id', vendorProfileId)
     .eq('review_id', reviewId)
     .maybeSingle();

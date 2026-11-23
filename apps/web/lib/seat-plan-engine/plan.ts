@@ -31,7 +31,7 @@ import {
   type TableGeometry,
   type TableType,
 } from './geometry';
-import { computeAutoLayout, type EventTableRow, type FloorPlanRow } from '@/lib/seating';
+import { computeAutoLayout, DEFAULT_FLOOR_PLAN, type EventTableRow, type FloorPlanRow } from '@/lib/seating';
 import { GRID_GAP, centredRun } from './rows';
 
 // ── The plan ─────────────────────────────────────────────────────────────────
@@ -610,6 +610,76 @@ export function planFromShopPlan(p: ShopAreaPlan): Plan {
       rotationDeg: t.rotationDeg,
     })),
   };
+}
+
+/**
+ * 🏛 ONE HALL AS THE ONE EDITOR'S ROWS (venue mode, DECISION_LOG d1fafcd5). Its tables keep their shape, one chair count
+ * and "at the ends" (`plan_shape` / `chairs_at_ends`), and their saved spot; its room size is the floor's; its first
+ * main door is the entrance and its first service door the service door, at their wall spot. No guest, no stage, no
+ * dance floor is ever on it. `event_id` is the hall's own id — never an event's.
+ */
+export function venueEditorRows(p: ShopAreaPlan): {
+  tables: EventTableRow[];
+  floorPlan: FloorPlanRow;
+  entranceDoorId: string | null;
+  serviceDoorId: string | null;
+} {
+  const hall = p.areaId ?? '';
+  const tables: EventTableRow[] = p.tables.map((t, i) => ({
+    table_id: t.id,
+    public_id: t.id,
+    event_id: hall,
+    table_label: t.label,
+    // The couple type it is placed and collided as; it is DRAWN from `plan_shape` (`rowGeometry`).
+    table_type: t.shape === 'long' ? 'long_banquet_8' : 'round_10',
+    capacity: clampChairs(t.chairs),
+    sort_order: i,
+    x_pos: t.x,
+    y_pos: t.y,
+    rotation_deg: t.rotationDeg,
+    removed_seats: [],
+    link_group_id: null,
+    is_vip: false,
+    plan_shape: t.shape,
+    chairs_at_ends: t.shape === 'long' && t.chairsAtEnds,
+  }));
+  const main = p.doors.find((d) => d.kind === 'main') ?? null;
+  const service = p.doors.find((d) => d.kind === 'service') ?? null;
+  const spot = (d: { wall: 'front' | 'back' | 'left' | 'right'; along: 'left' | 'middle' | 'right' }) =>
+    doorPoint({ wall: SHOP_WALL_TO_PLAN[d.wall], at: alongToAt(d.along) });
+  const e = main ? spot(main) : null;
+  const sv = service ? spot(service) : null;
+  return {
+    tables,
+    floorPlan: {
+      ...DEFAULT_FLOOR_PLAN,
+      venue_width_m: p.room?.widthM ?? null,
+      venue_length_m: p.room?.lengthM ?? null,
+      entrance_enabled: e !== null,
+      entrance_x: e?.x ?? DEFAULT_FLOOR_PLAN.entrance_x,
+      entrance_y: e?.y ?? DEFAULT_FLOOR_PLAN.entrance_y,
+      service_entrance_enabled: sv !== null,
+      service_entrance_x: sv?.x ?? DEFAULT_FLOOR_PLAN.service_entrance_x,
+      service_entrance_y: sv?.y ?? DEFAULT_FLOOR_PLAN.service_entrance_y,
+    },
+    entranceDoorId: main?.id ?? null,
+    serviceDoorId: service?.id ?? null,
+  };
+}
+
+/**
+ * A door the one editor moved, put back into the hall's storage words: the door to remove (when it moved or went) and
+ * the wall spot to add (when it is on and is not where it was). Nothing to do = both null. Pure.
+ */
+export function venueDoorChange(
+  was: { id: string | null; wall: 'front' | 'back' | 'left' | 'right'; along: 'left' | 'middle' | 'right' } | null,
+  now: { enabled: boolean; x: number; y: number },
+): { remove: string | null; add: { wall: 'front' | 'back' | 'left' | 'right'; along: 'left' | 'middle' | 'right' } | null } {
+  if (!now.enabled) return { remove: was?.id ?? null, add: null };
+  const snapped = snapDoor(now.x, now.y);
+  const want = { wall: PLAN_WALL_TO_SHOP[snapped.wall], along: atToAlong(snapped.at) };
+  if (was && was.wall === want.wall && was.along === want.along) return { remove: null, add: null };
+  return { remove: was?.id ?? null, add: want };
 }
 
 /** The tables whose spot or turn changed between two plans — what a move or Line up has to save, and nothing else. */

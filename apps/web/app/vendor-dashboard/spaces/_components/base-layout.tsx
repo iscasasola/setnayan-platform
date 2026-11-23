@@ -5,14 +5,13 @@
  * stage, doors, pillars, usual tables"). This is what #7968 (Rooms & seating, 18 Nov) keeps once it is reworked into
  * Spaces (owner 19 Nov: "#7968 keeps only tables, table types, doors and the shared plan core, hung on a space").
  *
- * The rows add, edit and delete; the drawn plan is the SHARED seat-plan maker (`app/_components/plan-maker`) in its
- * 'move' tools — it only moves tables and lines them up. Floor plan on every paid plan; Grid for every shop. Nothing here is
+ * The rows add, edit and delete; the drawn plan is THE ONE SEAT-PLAN EDITOR, the couple's own, in its venue mode
+ * (`venue-seat-plan.tsx`, DECISION_LOG d1fafcd5). Floor plan on every paid plan. Nothing here is
  * a new control: FormRows · TypedRow · ChosenRow · SwitchRow · Counter · Fold · SwipeToDelete · ActionButton.
  */
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Check, DoorOpen, Plus } from 'lucide-react';
-import { PlanMaker } from '@/app/_components/plan-maker/plan-maker';
-import { planFromShopPlan, planViewsFor, placementsChanged, type Plan } from '@/lib/seat-plan-engine';
+import { VenueSeatPlan } from './venue-seat-plan';
 import { ActionButton } from '@/components/action-button';
 import { Fold } from '@/app/_components/fold';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
@@ -51,7 +50,7 @@ export function BaseLayout({ spaceId, tables, run, floorPlanOpen }: { spaceId: s
         {units.length === 0 ? 'No tables yet' : `${units.length} ${units.length === 1 ? 'table' : 'tables'} · ${seats} ${seats === 1 ? 'seat' : 'seats'}`}
       </p>
       <DoorList doors={tables.doors.filter((d) => d.groupId === spaceId)} spaceId={spaceId} run={run} />
-      <SpacePlan tables={tables} spaceId={spaceId} run={run} floorPlanOpen={floorPlanOpen} />
+      <VenueSeatPlan tables={tables} spaceId={spaceId} run={run} floorPlanOpen={floorPlanOpen} />
       <ul className="divide-y divide-ink/10" data-unit-rows="">
         {units.map((u) => (
           <SwipeToDelete key={u.id} as="li" label={`Delete ${u.name}`} onDelete={() => void run({ op: 'deleteTable', id: u.id }, `${u.name} deleted`)}>
@@ -70,45 +69,6 @@ export function BaseLayout({ spaceId, tables, run, floorPlanOpen }: { spaceId: s
         ))}
       </ul>
       <AddTables spaceId={spaceId} run={run} />
-    </div>
-  );
-}
-
-/**
- * The hall drawn by the shared plan maker. A drag or Line up saves only the tables that moved (`placeTable`, one at a
- * time); while those saves run the plan stays where the supplier left it — a save never resets the screen.
- */
-function SpacePlan({ tables, spaceId, run, floorPlanOpen }: { tables: SpaceTables; spaceId: string; run: Run; floorPlanOpen: boolean }) {
-  const saved = useMemo(() => {
-    const sp = shopPlanOf(tables, spaceId);
-    return sp ? planFromShopPlan(sp) : null;
-  }, [tables, spaceId]);
-  const [mine, setMine] = useState<Plan | null>(null);
-  if (!saved || saved.tables.length === 0) return null;
-  const plan = mine ?? saved;
-  return (
-    <div data-space-plan={spaceId}>
-      <PlanMaker
-        plan={plan}
-        onChange={(next) => {
-          const moves = placementsChanged(plan, next);
-          if (moves.length === 0) return;
-          setMine(next);
-          void (async () => {
-            for (const m of moves) {
-              const ok = await run({ op: 'placeTable', id: m.id, x: m.x, y: m.y, rotationDeg: m.rotationDeg });
-              if (!ok) break;
-            }
-            setMine(null);
-          })();
-        }}
-        options={{
-          views: planViewsFor('supplier', floorPlanOpen),
-          floorPlanNote: floorPlanOpen ? undefined : 'On every paid plan',
-          showNames: false,
-          tools: 'move',
-        }}
-      />
     </div>
   );
 }

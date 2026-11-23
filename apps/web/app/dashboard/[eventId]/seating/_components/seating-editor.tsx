@@ -67,6 +67,7 @@ import {
   AlertTriangle,
   ListOrdered,
   Scale,
+  LayoutGrid,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCloseOutside } from './close-outside';
@@ -166,6 +167,8 @@ import {
   rowGeometry,
   rowFootprintM,
   venuePickFor,
+  lineUpPlan,
+  snapDoor,
   venueRowWords,
   VENUE_TABLE_PICKS,
   PLAN_TABLE_SHAPES,
@@ -2786,7 +2789,8 @@ export function SeatingEditor({
     // identical in 3D). Every other table over the stage reads as a collision
     // and heals via the same slide / monotone-escape as any obstacle. Sized room
     // only — the free auto-grow board is place-anywhere in both projections.
-    if (venueScaled)
+    // 🏛 A venue's own hall has no stage on it yet (PlanMaker drew none; the hall's stage comes with blocked areas).
+    if (venueScaled && !isVenue)
       out.push(stageZone({ stage_x: stage.x, stage_y: stage.y, stage_w: stage.w, stage_h: stage.h }, rect));
     // The dance floor + cocktail room are no-table zones.
     if (dance.enabled)
@@ -5540,8 +5544,35 @@ export function SeatingEditor({
           Arrange (it's a policy, not a placeable). */}
     </>
   );
+  // 🏛 LINE UP (PlanMaker's tool, now the one editor's in venue mode): the hall's tables in name order, in rows that
+  //    face away from the main door — the engine's `lineUpPlan`, the same one PlanMaker ran. The spots are drafted like
+  //    a drag (marked unsaved), and Save keeps them.
+  const lineUpVenueTables = () => {
+    if (!canEdit || tables.length === 0) return;
+    const door = entrance.enabled ? snapDoor(entrance.x, entrance.y) : null;
+    const next = lineUpPlan({
+      room: { widthM: venueScaled ? venue.width : null, depthM: venueScaled ? venue.length : null },
+      doors: door ? [{ id: 'main', kind: 'main', wall: door.wall, at: door.at }] : [],
+      tables: tables.map((t) => ({
+        id: t.table_id,
+        label: t.table_label,
+        kind: t.plan_shape ?? t.table_type,
+        chairs: t.capacity,
+        chairsAtEnds: t.chairs_at_ends === true,
+        x: positions[t.table_id]?.x ?? null,
+        y: positions[t.table_id]?.y ?? null,
+        rotationDeg: rotationOf(t),
+      })),
+    });
+    const at = Object.fromEntries(next.tables.flatMap((t) => (t.x === null || t.y === null ? [] : [[t.id, { x: t.x, y: t.y }]])));
+    setPositions((p) => ({ ...p, ...at }));
+    setDirty((d) => new Set([...d, ...Object.keys(at)]));
+  };
   const arrangeMenuBody = (
     <>
+      {isVenue ? (
+        <MenuRow icon={LayoutGrid} label="Line up the tables" hint="In name order, in rows · Save keeps them" onClick={lineUpVenueTables} disabled={!canEdit || tables.length === 0} />
+      ) : null}
 {isVenue ? null : (
 <>
       <MenuCaption>Seating policies</MenuCaption>
@@ -5664,6 +5695,8 @@ export function SeatingEditor({
       {/* §5.2 — Room size & scale lives here now (policy, not a placeable). The
           auto verbs (Build draft / Fill-around-locked) moved to the gold
           split-button caret (§5.3). */}
+      {/* 🏛 A venue's hall is sized in its own Spaces sheet, so the editor does not size it again. */}
+      {isVenue ? null : (
       <MenuRow
         icon={Ruler}
         label="Room size & scale…"
@@ -5671,6 +5704,7 @@ export function SeatingEditor({
         onClick={() => setShowRoomPanel((v) => !v)}
         disabled={!canEdit || view !== 'plan'}
       />
+      )}
       {details ? (
         <>
           <MenuDivider />
@@ -8481,7 +8515,7 @@ export function SeatingEditor({
 
         {/* Room size & scale — right-anchored popover over the canvas (verdict
             §2 row 2). Floats (absolute) so it never pushes the canvas down. */}
-        {view === 'plan' && showRoomPanel ? (
+        {view === 'plan' && showRoomPanel && !isVenue ? (
           <div
             className="absolute right-2 top-2 z-40 flex max-h-[calc(100%-1rem)] w-[min(92vw,40rem)] flex-wrap items-end gap-4 overflow-y-auto rounded-2xl bg-cream p-4 shadow-lg ring-1 ring-ink/10"
             /* 🗺 In Guests the plan's top is under the pinned row (the plan is the whole screen) — the panel opens below it. */
@@ -8919,6 +8953,7 @@ export function SeatingEditor({
 
           {/* resizable stage (auto-seat anchors its rings here) — drag the body
               to move, the corner grip to resize */}
+          {isVenue ? null : (
           <div
             className="absolute z-10"
             style={{
@@ -8959,6 +8994,7 @@ export function SeatingEditor({
               </button>
             ) : null}
           </div>
+          )}
 
           {/* Walk-through entrance footprint — a deeper rectangle whose back edge
               is flush to the nearest wall, extending inward by the couple's
@@ -9614,7 +9650,7 @@ export function SeatingEditor({
             <button
               type="button"
               onClick={() => setShowRoomPanel(true)}
-              disabled={!canEdit}
+              disabled={!canEdit || isVenue}
               aria-label="Room size & scale"
               title="Room size & scale"
               className="absolute bottom-[64px] left-3 z-20 flex flex-col items-start gap-0.5 rounded px-1 hover:bg-cream/60 disabled:cursor-default lg:bottom-3"

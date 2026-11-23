@@ -366,6 +366,7 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'A sealed Sign in with Apple refresh token, held only so account erasure can revoke the grant at Apple (App Store 5.1.1(v)). A bearer credential — never exported (same rule as api_keys).',
   vendor_locked_qr_tokens: 'Live bearer tokens — exporting one hands over a redeemable secret.',
   seating_editor_locks: 'Ephemeral advisory lock; holds no durable personal data.',
+  event_part_editor_locks: 'Ephemeral one-editor-per-part pen (frees itself 5 s after the last edit); holds no durable personal data.',
   blacklisted_emails:
     'Anti-abuse investigation record — disclosure defeats detection (NPC investigation carve-out; counsel-reviewed).',
   concierge_abuse_flags:

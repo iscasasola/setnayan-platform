@@ -155,17 +155,17 @@ test('📲 in the app too: middleware sends no tab\'s address away, so every tab
   }
 });
 
-test('🔒 Discover draws the bar for a signed-in viewer only — signed out, the front door is unchanged', () => {
+test('🔒 Discover\'s bar is the (hub) layout\'s, signed in only — signed out, the front door is unchanged', () => {
+  // 18 Nov 2026 (owner "unify home and discover"): `/` and `/dashboard` share `app/(hub)/layout.tsx`, which draws the
+  // account bar ONCE for both, so the tap between them keeps it mounted. The page no longer draws a bar of its own.
   const fd = src(join(APP, '_components/frontdoor/front-door.tsx'));
-  assert.match(fd, /\{account\.signedIn \? <FrontDoorAccountBar \/> : null\}/);
-  assert.equal((fd.match(/<FrontDoorAccountBar\b/g) ?? []).length, 1);
-  const bar = src(join(APP, '_components/frontdoor/front-door-account-bar.tsx'));
-  assert.match(bar, /const user = await getCurrentUser\(\);\s*if \(!user\) return null;/);
-  // The same tab rule the layouts use — Home, and Discover where `/` opens.
-  assert.match(bar, /<AccountBarSlot tabs=\{accountBarTabs\(\{ discoverOpen \}\)\} \/>/);
-  assert.match(bar, /discoverOpensHere\(\)/);
-  // OUTSIDE the shell's <main>: the dock is fixed, and the page takes a
-  // view-transition name during a set-change slide.
-  const shellClose = fd.indexOf('</FrontDoorShell>');
-  assert.ok(shellClose > 0 && fd.indexOf('<FrontDoorAccountBar') > shellClose, 'the bar is rendered inside the shell');
+  assert.doesNotMatch(fd, /<AccountBarSlot\b|<FrontDoorAccountBar\b/, 'Discover draws its own account bar again — two bars, remounted on every tap');
+  const hub = src(join(APP, '(hub)/layout.tsx'));
+  assert.match(hub, /const user = await hubDrawsTheShell\(\);\s*if \(!user\) return <>\{children\}<\/>;/);
+  // The same tab rule — Home, and Discover where `/` opens.
+  assert.match(hub, /<AccountBarSlot\s+tabs=\{accountBarTabs\(\{ discoverOpen \}\)\}/);
+  assert.match(hub, /discoverOpensHere\(\)/);
+  // OUTSIDE the <main>: the dock is fixed, and the page takes a view-transition name during a set-change slide.
+  const mainClose = hub.indexOf('</main>');
+  assert.ok(mainClose > 0 && hub.indexOf('<AccountBarSlot') > mainClose, 'the bar is rendered inside the <main>');
 });

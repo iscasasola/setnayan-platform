@@ -23,7 +23,7 @@ import { stripComments } from '@/lib/strip-comments';
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const src = () => stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+const src = () => stripComments(readFileSync(join(HERE, '..', '..', '(hub)', 'dashboard', 'page.tsx'), 'utf8'));
 const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
 
 test('no shelf hides a composition at a breakpoint any more', () => {

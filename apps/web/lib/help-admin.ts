@@ -18,11 +18,10 @@
  * `lib/public-help-says-what-is-true.test.ts`: no public topic may be for the
  * team, and no public route may import this file.
  *
- * ⏭ NOTHING RENDERS THESE TODAY. The content is kept (not deleted) because
- * `the-two-admin-promise-is-tracked.test.ts` counts every § 9.1 promise in
- * 'what-needs-two-admins', and withdrawing a contractual promise is an owner
- * decision, not a copy edit. Giving them a home inside /admin is a separate,
- * unbuilt piece of work — import this from an `app/admin/**` page only.
+ * ✅ RENDERED SINCE 13 NOV 2026 — the team's ask-first Help, `app/admin/help/guides/page.tsx` (owner "Three helps:
+ * user · supplier · admin"), reached from Setnayan HQ's account sheet. Still import this from `app/admin/**` only.
+ * The content is kept as written: `the-two-admin-promise-is-tracked.test.ts` counts every § 9.1 promise in
+ * 'what-needs-two-admins', and withdrawing a contractual promise is an owner decision, not a copy edit.
  */
 
 import type { HelpArticle } from './help';

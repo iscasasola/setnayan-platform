@@ -11,7 +11,7 @@
  * only place it is answered. Every surface that draws a hero asks HERE:
  *
  *   · the Event Hub's hero on every stage   — `app/[slug]/_lib/loaders.ts` `loadMedia`
- *   · the home board's poster / event card   — `app/dashboard/(launcher)/page.tsx`
+ *   · the home board's poster / event card   — `app/(hub)/dashboard/page.tsx`
  *   · the celebration poster sheet           — `lib/celebration-poster.ts`
  *   · the celebration card's identity        — `lib/celebration-card-identity.ts`
  *   · Post Event's cover, until a post-event photo is chosen — `lib/story-cover.ts`

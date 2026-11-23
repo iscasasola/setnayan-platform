@@ -101,7 +101,7 @@ test('2 · the veil loop writes no inline style per frame — only the grab-zone
   const writes = body.match(/\.style\.[a-zA-Z]+\s*=/g) ?? [];
   // The one remaining is the `keepsOpen` hit-zone going inert at the reveal — once, behind `!revealedRef.current`.
   assert.ok(writes.length <= 1, `per-frame style writes in the veil loop: ${writes.join(', ')}`);
-  if (writes.length) assert.match(body, /if \(lift > 0\.985 && !revealedRef\.current\) \{[^}]*\.style\.pointerEvents = 'none'/);
+  if (writes.length) assert.match(body, /if \(lift > REVEAL_MOTION\.DONE && !revealedRef\.current\) \{[^}]*\.style\.pointerEvents = 'none'/);
 });
 
 test('3 · the petals carry their instance colour from the first frame — no shader re-link when they begin to fall', () => {

@@ -52,11 +52,12 @@ async function apply(
   tx: string,
   tier: 'solo' | 'pro' | 'enterprise',
   expiresSql = "NOW() + INTERVAL '30 days'",
+  purchaseSql = 'NOW()',
 ): Promise<Out> {
   const product = { solo: 'plus', pro: 'pro', enterprise: 'ultra' }[tier];
   const r = await db.query<{ o: Out }>(
     `SELECT public.app_store_supplier_plan_apply(
-       $1::uuid, $2, $3, $4, $5::public.vendor_tier_state, $6, NOW(), ${expiresSql}, 1990, 'Sandbox', 'SUBSCRIBED') AS o`,
+       $1::uuid, $2, $3, $4, $5::public.vendor_tier_state, $6, ${purchaseSql}, ${expiresSql}, 1990, 'Sandbox', 'SUBSCRIBED') AS o`,
     [vendor, orig, tx, `com.setnayan.app.supplier_${product}_monthly`, tier, `${tier}_vendor_monthly`],
   );
   return r.rows[0]!.o;
@@ -228,4 +229,84 @@ test('none of the functions is callable by a signed-in user', async () => {
   );
   assert.equal(r.rows.length, 5);
   for (const row of r.rows) assert.equal(row.can, false, `${row.fn} is callable by authenticated`);
+});
+
+// ── ORDER OF DELIVERY (follow-up to #8166, migration 20271360318379) ─────────────────────────────────────────────
+// Apple does not promise order. A REFUND / REVOKE that arrives before its SUBSCRIBED is kept, and that SUBSCRIBED —
+// first delivery or Apple's retry — grants nothing.
+
+async function end(orig: string, status: 'refunded' | 'revoked', tx: string | null, kind: string): Promise<Out> {
+  const r = await db.query<{ o: Out }>(`SELECT public.app_store_supplier_plan_end($1, $2, $3, $4) AS o`, [orig, status, tx, kind]);
+  return r.rows[0]!.o;
+}
+
+test('ORDER · a REFUND that arrives before its SUBSCRIBED is kept, and the SUBSCRIBED (and its retry) grants nothing', async () => {
+  const v = await shop();
+  const early = await end('orig-10', 'refunded', 'tx-10', 'REFUND');
+  assert.equal(early.recorded, 'refunded');
+  assert.equal(early.granted, false);
+  // Apple retries the REFUND too: still one ledger row.
+  await end('orig-10', 'refunded', 'tx-10', 'REFUND');
+  const kept = await db.query<{ c: number }>(
+    `SELECT count(*)::int AS c FROM public.vendor_app_store_reversals WHERE original_transaction_id = 'orig-10'`,
+  );
+  assert.equal(kept.rows[0]!.c, 1);
+
+  for (const attempt of ['first delivery', 'Apple’s retry']) {
+    const out = await apply(v, 'orig-10', 'tx-10', 'pro');
+    assert.equal(out.refused, 'reversed', `${attempt} of a refunded SUBSCRIBED was not refused`);
+  }
+  assert.equal((await plan(v)).tier_state, 'verified', 'a refunded transaction switched the plan on');
+  assert.equal(await mapRow('orig-10'), undefined, 'a refunded subscription was tied to the shop');
+  const rows = await db.query<{ c: number }>(`SELECT count(*)::int AS c FROM public.vendor_subscriptions WHERE vendor_id = $1`, [v]);
+  assert.equal(rows.rows[0]!.c, 0, 'a refunded transaction wrote a paid period');
+
+  // A refund names ONE transaction: the subscription's next, new-money transaction still grants.
+  assert.equal((await apply(v, 'orig-10', 'tx-10b', 'pro')).on, true);
+});
+
+test('ORDER · a REVOKE that arrives first refuses every transaction bought before it; a purchase after it is new money', async () => {
+  const v = await shop();
+  assert.equal((await end('orig-11', 'revoked', null, 'REVOKE')).recorded, 'revoked');
+  const before = await apply(v, 'orig-11', 'tx-11', 'solo', "NOW() + INTERVAL '30 days'", "NOW() - INTERVAL '1 day'");
+  assert.equal(before.refused, 'reversed');
+  assert.equal((await plan(v)).tier_state, 'verified');
+  const later = await apply(v, 'orig-11', 'tx-11b', 'solo', "NOW() + INTERVAL '30 days'", "NOW() + INTERVAL '1 minute'");
+  assert.equal(later.on, true, 'a purchase made after the revoke was refused');
+});
+
+test('ORDER · a renewal delivered after a REVOKE of a granted subscription does not bring the plan back', async () => {
+  const v = await shop();
+  await apply(v, 'orig-12', 'tx-12', 'pro', "NOW() + INTERVAL '30 days'", "NOW() - INTERVAL '2 days'");
+  await end('orig-12', 'revoked', null, 'REVOKE');
+  assert.equal((await plan(v)).tier_state, 'verified');
+  const late = await apply(v, 'orig-12', 'tx-12b', 'pro', "NOW() + INTERVAL '60 days'", "NOW() - INTERVAL '1 day'");
+  assert.equal(late.refused, 'reversed');
+  assert.equal((await plan(v)).tier_state, 'verified', 'a late renewal re-granted a revoked plan');
+  assert.equal((await mapRow('orig-12'))!.status, 'revoked');
+});
+
+test('the token pairing and the reversal ledger: RLS on, and no client writes either', async () => {
+  for (const table of ['vendor_app_store_plan_tokens', 'vendor_app_store_reversals']) {
+    const r = await db.query<{ rls: boolean; ins: boolean; upd: boolean; del: boolean; anon: boolean }>(
+      `SELECT c.relrowsecurity AS rls,
+              has_table_privilege('authenticated', c.oid, 'INSERT') AS ins,
+              has_table_privilege('authenticated', c.oid, 'UPDATE') AS upd,
+              has_table_privilege('authenticated', c.oid, 'DELETE') AS del,
+              has_table_privilege('anon', c.oid, 'SELECT') AS anon
+         FROM pg_class c JOIN pg_namespace ns ON ns.oid = c.relnamespace
+        WHERE ns.nspname = 'public' AND c.relname = $1`,
+      [table],
+    );
+    assert.deepEqual(r.rows[0], { rls: true, ins: false, upd: false, del: false, anon: false }, table);
+  }
+  // The token is the server's: issued with a shop, never chosen by the phone.
+  const v = await shop();
+  const u = await db.query<{ id: string }>(`SELECT user_id AS id FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [v]);
+  const t = await db.query<{ app_account_token: string }>(
+    `INSERT INTO public.vendor_app_store_plan_tokens (vendor_profile_id, user_id, product_id)
+     VALUES ($1, $2, 'com.setnayan.app.supplier_pro_monthly') RETURNING app_account_token`,
+    [v, u.rows[0]!.id],
+  );
+  assert.match(t.rows[0]!.app_account_token, /^[0-9a-f-]{36}$/);
 });

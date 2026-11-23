@@ -80,7 +80,7 @@ test('unread: a refused RPC is null, never an empty map', async () => {
 
 test('the board reads the honest ones, and turns null into "couldn’t load" on the card', () => {
   const here = dirname(fileURLToPath(import.meta.url));
-  const src = stripComments(readFileSync(join(here, '../app/dashboard/(launcher)/page.tsx'), 'utf8'));
+  const src = stripComments(readFileSync(join(here, '../app/(hub)/dashboard/page.tsx'), 'utf8'));
   // The plan's progress: THE ONE LIST's reader, which answers null on a refusal (`the-plan-is-one-list.test.ts`).
   assert.match(src, /await readPlanningProgress\(supabase, e\.event_id,/);
   assert.match(src, /if \(p === null\) return \[e\.event_id, \{ pct: null, overdue: null, failed: true \}\];/);

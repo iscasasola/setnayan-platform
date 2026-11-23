@@ -422,7 +422,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       {
         // Background videos — the LIVE upload tool feeding the production
         // homepage hero + pillar loop videos (lib/background-videos.ts →
-        // app/page.tsx → HomeReskin). Re-linked per the 2026-07-12 page-layer
+        // app/(hub)/page.tsx → HomeReskin). Re-linked per the 2026-07-12 page-layer
         // audit (owner decision #3 — additive only, surface untouched).
         key: 'background-videos',
         label: 'Background videos',

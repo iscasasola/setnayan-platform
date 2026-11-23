@@ -19,7 +19,7 @@
 /** The sample couple — the one name every Example uses. */
 export const SAMPLE_COUPLE = 'Ana & Miguel';
 
-/* ─── USER DASHBOARD (`app/dashboard/(launcher)/page.tsx`) ───────────────────────────────────────────────────── */
+/* ─── USER DASHBOARD (`app/(hub)/dashboard/page.tsx`) ───────────────────────────────────────────────────── */
 
 export type SampleBoardEvent = {
   id: string;

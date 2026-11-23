@@ -47,10 +47,10 @@ test('a public guest cannot bring a reveal in with ?reveal= (no staff preview)',
     revealAllowedFor({
       ...base,
       ownsPro: true,
-      chosenTemplate: 'church-doors',
-      previewOverride: 'four-flap',
+      chosenTemplate: 'cathedral-doors',
+      previewOverride: 'envelope-classic',
     }),
-    'church-doors',
+    'cathedral-doors',
   );
 });
 
@@ -60,11 +60,11 @@ test('a Pro couple gets their choice', () => {
   }
 });
 
-test('a Pro couple who has not chosen gets the admin default, then four-flap', () => {
+test('a Pro couple who has not chosen gets the admin default, then the classic envelope (four-flap’s successor)', () => {
   assert.equal(revealAllowedFor({ ...base, ownsPro: true }), 'veil-sheer');
   assert.equal(
     revealAllowedFor({ ...base, ownsPro: true, adminDefault: null }),
-    'four-flap',
+    'envelope-classic',
   );
 });
 
@@ -76,23 +76,17 @@ test("a Pro couple's explicit No Reveal stands", () => {
 });
 
 test('the admin allowed-openings map swaps a deactivated opening for the default', () => {
-  const allowed = {
-    'four-flap': false,
-    'two-flap-vertical': false,
-    'two-flap-horizontal': false,
-    'church-doors': false,
-    'veil-sheer': true,
-  };
+  const allowed = Object.fromEntries(REVEAL_TEMPLATE_IDS.map((id) => [id, id === 'veil-sheer']));
   assert.equal(
-    revealAllowedFor({ ...base, ownsPro: true, chosenTemplate: 'four-flap', allowed }),
+    revealAllowedFor({ ...base, ownsPro: true, chosenTemplate: 'envelope-classic', allowed }),
     'veil-sheer',
   );
   assert.equal(
     revealAllowedFor({
       ...base,
       ownsPro: true,
-      chosenTemplate: 'four-flap',
-      adminDefault: 'church-doors',
+      chosenTemplate: 'envelope-classic',
+      adminDefault: 'cathedral-doors',
       allowed,
     }),
     'veil-sheer',
@@ -102,8 +96,8 @@ test('the admin allowed-openings map swaps a deactivated opening for the default
 
 test('a staff preview may demo any opening, override first', () => {
   assert.equal(
-    revealAllowedFor({ ...base, isStaffPreview: true, previewOverride: 'church-doors' }),
-    'church-doors',
+    revealAllowedFor({ ...base, isStaffPreview: true, previewOverride: 'cathedral-doors' }),
+    'cathedral-doors',
   );
   assert.equal(revealAllowedFor({ ...base, isStaffPreview: true }), 'veil-sheer');
 });

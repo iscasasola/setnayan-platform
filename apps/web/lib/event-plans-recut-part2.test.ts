@@ -114,7 +114,7 @@ function drafted() {
   return mergeHubDraft(emptyHubDraft(), {
     events: {
       invite_theme: PRO_THEME,
-      std_reveal_template: 'four-flap',
+      std_reveal_template: 'envelope-classic',
       site_art_direction: 'candlelight',
       std_reveal_effects: { petals: true },
     },

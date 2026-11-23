@@ -87,9 +87,31 @@
  * tried and removed: it buys almost nothing (`a < /re/.test(b)` is not a thing
  * anyone writes) and in TSX it makes every closing tag `</p>` look like the
  * start of a pattern.
+ *
+ * 🪤 `}` IS DELIBERATELY ABSENT TOO (2026-11-22). In TSX a `}` is far more often
+ * the end of a JSX expression container than the end of a block, and the `/`
+ * after one is a SELF-CLOSE or JSX TEXT, never a pattern:
+ *
+ *     icon={<S x={1.9} />} href={`/a`}       ← `/>} href={\`` read as a regex
+ *     {formatCount(i)} / {formatCount(n)}    ← JSX text, not a pattern
+ *
+ * With `}` in this set the first line's ` />` opened a "regex" that ran to the
+ * next `/` — inside the template — so the leftover backtick opened a template
+ * that never closed and every comment after it in the file survived. That is
+ * how a "40%" inside a `{/* … *​/}` in `app/admin/gifts/page.tsx` red-lined
+ * `the-gift-limit-is-one-setting.test.ts` while merging PR #8018.
+ * Measured with TypeScript's own parser over app/ + lib/ + components/ +
+ * tests/ + scripts/ that day: 0 regex literals start after a `}` on the same
+ * line, against 12,000+ JSX self-closes that do. A pattern after a block still
+ * lexes as one when it starts a new line, because a newline resets `prevChar`.
+ * `strip-comments.test.ts` pins the case. Checked against every comment
+ * TypeScript's parser finds in that corpus, the comments this lexer left
+ * standing fell from 217 in 28 files to 166 in 17, and no file gained one.
+ * (The test file's parse oracle cannot see this class: a comment that SURVIVES never
+ * stops a file parsing.)
  */
 const REGEX_MAY_FOLLOW_CHAR = new Set([
-  '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';',
+  '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', ';',
   '+', '-', '*', '%', '~', '^', '>', '\n', '',
 ]);
 

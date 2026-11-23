@@ -22,19 +22,27 @@ import { ArrowRight } from 'lucide-react';
 import { SupplierFrontPage } from '@/app/for-suppliers/_components/supplier-front-page';
 import { growSpec } from '@/app/for-suppliers/_components/supplier-front-data';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
-import { getCustomerSkuPrice, getVendorPrices } from '@/lib/v2-catalog';
+import { fetchV2CustomerCatalog, getVendorPrices } from '@/lib/v2-catalog';
+import { fetchShopGiftBundles, fetchShopGiftPacks } from '@/lib/shop-gifts.server';
+import { planCreditsFrom } from '@/lib/event-plans';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { supplierCommissionPromise, supplierCommissionShort } from '@/lib/commission-promise';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import { createAdminClient } from '@/lib/supabase/admin';
+
+/** The service-role client, or null where it cannot be made (a build with no key): every read then says "couldn't read". */
+function createAdminClientOrNull() {
+  try {
+    return createAdminClient();
+  } catch {
+    return null;
+  }
+}
 import { readSpecialToolsPaidFrom } from '@/lib/special-tools.server';
 
 type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
-
-/** The gift the "How Setnayan earns" row prices from — the smallest single gift a supplier can give (owner, 16 Nov). */
-const GIFT_FROM_SKU = 'PAPIC_GUEST_150';
 
 const HEADLINE = 'Run the business you already have.';
 
@@ -184,16 +192,24 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
 }
 
 export default async function ForSuppliersPage() {
-  // 🎁 The lowest single gift's LIST price (owner: Papic 150) for the "How Setnayan earns" gift row — every shop pays the
-  // list price (DECISION_LOG 14 Nov "BUY 10, GET 1 FREE"; 16 Nov 03e465e1). Never the withheld gift column.
+  // ONE batched read (house G2). 🎁 The gifts a shop can hand a couple — the shop-gift packs on sale (title + LIST price,
+  // `platform_retail_catalog_v2`), then their 10+1 bundles — chained inside the batch; the plans' included Papic
+  // credits from the customer catalogue. A refused read is null and the gift part says so, never ₱0.
   // 🧰 The special tools' start date, read by the SAME reader the Cake Maker's gate uses (`readSpecialToolsPaidFrom`):
-  // before it the page says the tool is open to every plan; a refused read says nothing either way.
-  const [p, fee, papic150, specialTools] = await Promise.all([
+  // before it the Toolkit tags the Cake Maker free; a refused read tags nothing either way.
+  const admin = createAdminClientOrNull();
+  const [p, fee, giftRead, catalog, specialTools] = await Promise.all([
     getVendorPrices(),
     getLiveBookingFeeSchedule(),
-    getCustomerSkuPrice(GIFT_FROM_SKU),
-    readSpecialToolsPaidFrom(createAdminClient()).catch(() => ({ status: 'unread' as const })),
+    admin
+      ? fetchShopGiftPacks(admin)
+          .then(async (packs) => ({ packs, bundles: packs ? await fetchShopGiftBundles(admin, packs) : null }))
+          .catch(() => ({ packs: null, bundles: null }))
+      : Promise.resolve({ packs: null, bundles: null }),
+    fetchV2CustomerCatalog(),
+    admin ? readSpecialToolsPaidFrom(admin).catch(() => ({ status: 'unread' as const })) : Promise.resolve({ status: 'unread' as const }),
   ]);
+  const credits = planCreditsFrom(catalog);
   return (
     <>
       <script
@@ -210,7 +226,7 @@ export default async function ForSuppliersPage() {
             seat: p.seat,
             bySku: p.bySku,
           }}
-          giftFrom={papic150 ? `₱${papic150}` : null}
+          gifts={{ packs: giftRead.packs, bundles: giftRead.bundles, credits: { plusCredits: credits.plusCredits, proCredits: credits.proCredits } }}
           specialTools={specialTools}
           nowMs={Date.now()}
           paywallOn={isVendorFeatureGateEnabled()}

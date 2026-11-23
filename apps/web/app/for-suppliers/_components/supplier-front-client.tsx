@@ -1,358 +1,478 @@
 'use client';
 
 /**
- * /for-suppliers — the two parts of the approved page of 20 Nov 2026 that answer a tap (`prototypes/for_suppliers_2026-
- * 11-20/`, Setnayan-specs): the booking-fee ruler with its "Free when" switches; and, from the redraw of 23 Nov
- * (`prototypes/for_suppliers_redraw_2026-11-23/for_suppliers_redraw_fable.html`), the plans as growth stairs.
+ * /for-suppliers — the parts of the owner-APPROVED redesign (23 Nov 2026, specs
+ * `prototypes/for_suppliers_redesign_2026-11-23/index.html` v4.3.1) that answer a tap or the screen:
  *
- * WHERE EVERY NUMBER COMES FROM:
- *   · each stop's fee → `bookingFeePhp(v, schedule)`, the LIVE schedule the page read (`getLiveBookingFeeSchedule`) —
- *     never the code default; the stops themselves are example booking prices (`FEE_STOPS`), not prices;
- *   · each plan's price → the catalog (`getVendorPrices`), handed in by the page; one that could not be read shows "—";
- *   · each stair's size, meter and five facts → `planStair` (`TIER_CAPS`), built by the page.
+ *   · `FrontClip`       — a clip that plays only while it is on screen, its poster first, nothing fetched until it is near
+ *                         (with reduced motion it waits for a tap: native controls);
+ *   · `FeeSteps`        — #fees: three steps PLAY once when the part comes into view (words → the ONE figure → what it
+ *                         meant), step dots to replay any one, and Play again. No scroll-scrub, no pinning (DECISION_LOG
+ *                         23 Nov "a timed fee scene");
+ *   · `PlanPicker`      — #plans: the rail (one bar per plan, its height the plan's size) picks a card; a swipe of the
+ *                         cards moves the rail. Verified is picked first, as drawn;
+ *   · `ToolkitCount`    — #tools: the Toolkit count line and its "See all" `Sheet`;
+ *   · `OpenShopFollow`  — "Open your shop" follows the reader: a floating pill on a phone, a pill under the shell's top bar
+ *                         on desktop, shown only while neither the hero's button nor the closing button is on screen.
  *
- * 🎚 THE DRAWING'S RULER, ON WHAT IS LIVE. 🔒 The ₱100,000 lock is live (PR #8061, `platform_settings.booking_fee_cap_php`),
- * so the ruler draws it as the drawing does: a stop where the fee first reaches the lock (`feeRulerStops`, from the
- * schedule), a tick on the bar there, a "₱100,000 lock" flag (`bookingFeeCapAmount`) and a lock on every stop at the cap.
- * The switches are only the free bookings the app actually gives — handed in by the page (`freeWhen`), never typed here;
- * "every 100,000th fee" is live in billing but its N is not read by this page yet, so it is not a switch.
+ * WHERE EVERY NUMBER COMES FROM: nothing is computed here. The fees, prices, counts and sizes arrive as words the page
+ * built from their one reader (`supplier-front-data.ts`: `feeSteps`, `planStair`, `toolkitShelves`); an unread plan
+ * price draws "—".
  */
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { SWITCH_TRACK } from '@/app/_components/switch-track';
-import { ArrowRight, Check, LayoutGrid, Lock, Search, Store, User, Users } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
-import { bookingFeeCapAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FEE_STOP_START, feeRulerStops, type PlanStair, type StairFact } from './supplier-front-data';
+import Link from 'next/link';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Check, Lock } from 'lucide-react';
+import { Sheet } from '@/app/_components/sheet';
+import { formatCount } from '@/lib/format-number';
+import type { FeeStep, FrontClip as Clip, ToolkitShelf, ToolkitTag } from './supplier-front-data';
 import s from './supplier-front.module.css';
 
-const PESO = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0, maximumFractionDigits: 0 });
-const PCT = new Intl.NumberFormat('en-PH', { style: 'percent', maximumFractionDigits: 1 });
-const peso = (n: number) => PESO.format(n);
-
-/** One "Free when" switch: its label, and the line the ruler says while it is the first one on. */
-export type FreeWhen = { label: string; hint: string };
-
-export function FeeRuler({ schedule, freeWhen }: { schedule: BookingFeeSchedule; freeWhen: readonly FreeWhen[] }) {
-  const stops = useMemo(() => feeRulerStops(schedule), [schedule]);
-  /** Where the lock sits on the bar (0–1), or null when no stop reaches it. */
-  const lockAt = useMemo(() => {
-    const i = stops.findIndex((p) => p.lockPoint);
-    return i < 0 ? null : i / Math.max(1, stops.length - 1);
-  }, [stops]);
-  const [at, setAt] = useState<number>(FEE_STOP_START);
-  const [on, setOn] = useState<readonly boolean[]>(() => freeWhen.map(() => false));
-  const sc = useRef<HTMLDivElement>(null);
-  const bar = useRef<HTMLDivElement>(null);
-  /** The stop a drag, tap or key sent the cards to — scroll events on the way there must not pull the dot back. */
-  const goingTo = useRef<number | null>(null);
-  const id = useId();
-  const last = stops.length - 1;
-
-  /** 🎚 The dot and the cards are ONE control: moving either moves the other. */
-  const go = (i: number, smooth: boolean) => {
-    const n = Math.max(0, Math.min(last, i));
-    setAt(n);
-    const el = sc.current;
-    const stop = el?.children[n] as HTMLElement | undefined;
-    if (!el || !stop) return;
-    goingTo.current = n;
-    el.scrollTo({ left: stop.offsetLeft - (el.clientWidth - stop.offsetWidth) / 2, behavior: smooth ? 'smooth' : 'auto' });
-  };
-
-  // Open on the start stop, centred under the window — after layout, so a snap container that has not measured yet
-  // does not leave the cards on the first stop while the dot sits on the start stop (owner, 20 Nov: "stuck").
+/** The visitor asked for less motion (read once on mount; the server renders the resting page). */
+function useReducedMotion(): boolean | null {
+  const [reduce, setReduce] = useState<boolean | null>(null);
   useEffect(() => {
-    const r = requestAnimationFrame(() => go(FEE_STOP_START, false));
-    return () => cancelAnimationFrame(r);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const m = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduce(m.matches);
+    const on = () => setReduce(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
   }, []);
-
-  /** The stop under a point on the bar. */
-  const stopAt = (clientX: number) => {
-    const r = bar.current?.getBoundingClientRect();
-    if (!r || r.width === 0) return at;
-    return Math.round(Math.max(0, Math.min(1, (clientX - r.left) / r.width)) * last);
-  };
-  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    go(stopAt(e.clientX), false);
-  };
-  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-    const i = stopAt(e.clientX);
-    if (i !== at) go(i, false);
-  };
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const step = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -3, PageUp: 3 }[e.key];
-    const to = e.key === 'Home' ? 0 : e.key === 'End' ? last : step === undefined ? null : at + step;
-    if (to === null) return;
-    e.preventDefault();
-    go(to, true);
-  };
-
-  const onScroll = () => {
-    const el = sc.current;
-    if (!el) return;
-    const mid = el.scrollLeft + el.clientWidth / 2;
-    let best = 0;
-    let gap = Infinity;
-    Array.from(el.children).forEach((c, i) => {
-      const k = c as HTMLElement;
-      const d = Math.abs(k.offsetLeft + k.offsetWidth / 2 - mid);
-      if (d < gap) {
-        gap = d;
-        best = i;
-      }
-    });
-    // On the way to a stop the bar sent it to, the cards pass other stops: hold the dot until they arrive.
-    if (goingTo.current !== null) {
-      if (best === goingTo.current) goingTo.current = null;
-      return;
-    }
-    if (best !== at) setAt(best);
-  };
-
-  const first = on.findIndex(Boolean);
-  const free = first >= 0;
-  const cur = stops[at] ?? stops[0]!;
-  const share = at / Math.max(1, stops.length - 1);
-
-  return (
-    <div className={s.fx} data-free={free ? '' : undefined}>
-      <p className={s.fxTry}>Test it: drag the bar to see your fee.</p>
-      <div className={s.fxRule}>
-        <div
-          ref={bar}
-          className={s.fxBar}
-          role="slider"
-          tabIndex={0}
-          aria-label="Booking price"
-          aria-valuemin={0}
-          aria-valuemax={last}
-          aria-valuenow={at}
-          aria-valuetext={`${peso(cur.v)} booking, ${free ? 'no booking fee' : `fee ${peso(cur.fee)}`}`}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onKeyDown={onKeyDown}
-        >
-          {free ? (
-            <span className={s.fxFree}>Free · no booking fee</span>
-          ) : lockAt !== null ? (
-            <span className={s.fxFlag}>
-              <Lock aria-hidden className={s.fxLk} strokeWidth={2.2} />
-              {bookingFeeCapAmount(schedule)} lock
-            </span>
-          ) : null}
-          {!free && lockAt !== null ? <i className={s.fxTick} style={{ left: `${lockAt * 100}%` }} aria-hidden="true" /> : null}
-          <i className={s.fxTrack}>
-            <i className={s.fxFill} style={{ transform: `scaleX(${share})` }} />
-          </i>
-          <i className={s.fxThumb} style={{ left: `${share * 100}%` }} aria-hidden="true" />
-          <span className={s.fxEnd} aria-hidden="true">{peso(stops[0]!.v)}</span>
-          <span className={`${s.fxEnd} ${s.fxEndR}`} aria-hidden="true">{peso(stops[stops.length - 1]!.v)}</span>
-        </div>
-        <div className={s.fxWin} aria-hidden="true" />
-        <div
-          ref={sc}
-          className={s.fxSc}
-          tabIndex={0}
-          role="group"
-          aria-label={`Booking prices from ${peso(stops[0]!.v)} to ${peso(stops[stops.length - 1]!.v)}, each with its fee. Swipe sideways.`}
-          aria-describedby={id}
-          onScroll={onScroll}
-          // A hand on the cards takes over from a glide the bar started — the dot follows the cards again at once.
-          onPointerDown={() => (goingTo.current = null)}
-          onTouchStart={() => (goingTo.current = null)}
-          onWheel={() => (goingTo.current = null)}
-        >
-          {stops.map((p) => (
-            <div key={p.v} className={s.fxP}>
-              <span className={s.fxB}>{peso(p.v)} booking</span>
-              {free ? (
-                <>
-                  <b className={s.fxFr}>Free · {peso(0)}</b>
-                  <span className={s.fxPc}>
-                    Fee <s>{peso(p.fee)}</s>
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className={s.fxF}>
-                    <small>Fee</small>
-                    {p.locked ? <Lock aria-label="locked" className={s.fxLk} strokeWidth={2.2} /> : null}
-                    <b>{peso(p.fee)}</b>
-                  </span>
-                  <span className={s.fxPc}>
-                    <b>{PCT.format(p.fee / p.v)}</b> of the booking
-                  </span>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-      <p className={s.fxHint} id={id} aria-live="polite">
-        {free ? <b>{freeWhen[first]!.hint}</b> : 'Swipe sideways. Each stop is a booking price.'}
-        <span className="sr-only">
-          {` ${peso(cur.v)} booking: ${free ? 'no booking fee' : `fee ${peso(cur.fee)}`}.`}
-        </span>
-      </p>
-      {freeWhen.length > 0 ? (
-        <>
-          <p className={`${s.feeK} ${s.fxK}`}>Free when</p>
-          <div className={s.fxCs}>
-            {freeWhen.map((w, i) => (
-              <label key={w.label} className={s.fxC}>
-                <span>{w.label}</span>
-                <input
-                  type="checkbox"
-                  role="switch"
-                  className="peer sr-only"
-                  checked={on[i] ?? false}
-                  onChange={(e) => setOn((o) => o.map((x, j) => (j === i ? e.target.checked : x)))}
-                />
-                <span aria-hidden="true" className={SWITCH_TRACK} />
-              </label>
-            ))}
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
+  return reduce;
 }
 
-/** One step of the plan stairs as the page hands it: the read facts (`planStair`), its price as the catalog has it
- *  (or "—" when it could not be read), and its one door. */
-export type StairCard = PlanStair & { price: string | null; per: string; cta: string; href: string; main: boolean };
-
-const PEOPLE_ICON = { team: Users, solo: User } as const;
+/* ───────────────────────── a clip ───────────────────────── */
 
 /**
- * 🪜 PLANS AS GROWTH STAIRS (redraw of 23 Nov, owner "Approved, build it"): Free → Verified → Plus → Pro → Ultra, each
- * card its role, its size with a meter, five icon facts, its price and ONE button. On a phone the cards swipe sideways
- * and the five steps above them follow the swipe (a tap on a step glides there); from 760 px all five stand in a row,
- * each a step higher than the one before. The meters and the steps grow once as the part enters — behind the
- * `data-motion` mark this script sets, so without it (or with reduced motion) everything is simply drawn full.
+ * 🎞 A clip in its crop (4:3 or 3:4). Until it comes within a screen of view it is only its box on the wash, so no
+ * poster or video is fetched for the first paint; near, the poster paints and the video plays while ≥ 55 % is on screen.
  */
-export function PlanStairs({ plans }: { plans: readonly StairCard[] }) {
-  const row = useRef<HTMLDivElement>(null);
+export function FrontClip({ clip }: { clip: Clip }) {
   const box = useRef<HTMLDivElement>(null);
-  const [at, setAt] = useState(0);
-  const [motion, setMotion] = useState(false);
-  const [seen, setSeen] = useState(false);
+  const vid = useRef<HTMLVideoElement>(null);
+  const [near, setNear] = useState(false);
+  const reduce = useReducedMotion();
 
   useEffect(() => {
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
-    setMotion(true);
     const el = box.current;
     if (!el) return;
     const io = new IntersectionObserver(
       (es) => {
         if (es.some((e) => e.isIntersecting)) {
-          setSeen(true);
+          setNear(true);
           io.disconnect();
         }
       },
-      { rootMargin: '0px 0px -12% 0px' },
+      { rootMargin: '100% 0px' },
     );
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
-  const go = (i: number) => {
-    const el = row.current;
-    const card = el?.children[i] as HTMLElement | undefined;
-    if (!el || !card) return;
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    el.scrollTo({ left: card.offsetLeft - el.offsetLeft - parseFloat(getComputedStyle(el).paddingLeft || '0'), behavior: reduce ? 'auto' : 'smooth' });
-    setAt(i);
-  };
-  const onScroll = () => {
-    const el = row.current;
-    const card = el?.children[0] as HTMLElement | undefined;
-    if (!el || !card) return;
-    const i = Math.max(0, Math.min(plans.length - 1, Math.round(el.scrollLeft / Math.max(1, card.offsetWidth + 10))));
-    if (i !== at) setAt(i);
-  };
+  useEffect(() => {
+    const v = vid.current;
+    if (!near || !v || reduce !== false) return;
+    const io = new IntersectionObserver(
+      (es) => {
+        for (const e of es) {
+          if (e.isIntersecting) v.play().catch(() => {});
+          else v.pause();
+        }
+      },
+      { threshold: 0.55 },
+    );
+    io.observe(v);
+    return () => io.disconnect();
+  }, [near, reduce]);
 
   return (
-    <div ref={box} className={s.stairs} data-motion={motion ? '' : undefined} data-in={seen ? '' : undefined}>
-      <div className={s.rail} role="group" aria-label="Plans, smallest to biggest">
-        {plans.map((p, i) => (
-          <button key={p.tier} type="button" className={s.stop} aria-pressed={i === at} onClick={() => go(i)}>
-            <i style={{ ['--h' as string]: (i + 1) / plans.length }} aria-hidden="true" />
-            {p.name}
+    <div ref={box} className={s.cap} data-shape={clip.shape}>
+      {near ? (
+        <video
+          ref={vid}
+          muted
+          playsInline
+          loop
+          preload="metadata"
+          poster={clip.poster}
+          aria-label={clip.label}
+          controls={reduce === true}
+        >
+          <source src={clip.src} type="video/mp4" />
+        </video>
+      ) : (
+        <span className={s.capWait} role="img" aria-label={clip.label} />
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────────── #fees · the timed steps ───────────────────────── */
+
+/** The drawing's beats: the words, then the figure at 800 ms, then what it meant at 1.5 s; the next step at 2.5 s. */
+const FIGURE_AT = 800;
+const MEANT_AT = 1500;
+const NEXT_AT = 2500;
+
+function Say({ n, text }: { n: number | null; text: string }) {
+  return (
+    <b className={s.say}>
+      {n ? <i>{n} / 3</i> : null}
+      {text}
+    </b>
+  );
+}
+
+export function FeeSteps({ intro, steps, figureLabel }: { intro: { say: string; mean: string }; steps: readonly FeeStep[]; figureLabel: string }) {
+  const reduce = useReducedMotion();
+  const box = useRef<HTMLDivElement>(null);
+  const timers = useRef<number[]>([]);
+  /** The step on screen (1–3), 0 before the first plays. */
+  const [at, setAt] = useState(0);
+  /** How far the step has played: 0 words · 1 + the figure · 2 + what it meant. */
+  const [beat, setBeat] = useState(2);
+  const [again, setAgain] = useState(false);
+  /** Bumped each time the figure changes, so it rises again. */
+  const [hit, setHit] = useState(0);
+
+  const clear = () => {
+    for (const t of timers.current) window.clearTimeout(t);
+    timers.current = [];
+  };
+  const later = (fn: () => void, ms: number) => timers.current.push(window.setTimeout(fn, ms));
+
+  const show = (n: number) => {
+    clear();
+    setAt(n);
+    setBeat(0);
+    later(() => {
+      setBeat(1);
+      setHit((h) => h + 1);
+    }, FIGURE_AT);
+    later(() => setBeat(2), MEANT_AT);
+  };
+  const play = (n: number) => {
+    setAgain(false);
+    show(n);
+    if (n < steps.length) later(() => play(n + 1), NEXT_AT);
+    else later(() => setAgain(true), NEXT_AT);
+  };
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el || reduce !== false) return;
+    const io = new IntersectionObserver(
+      (es) => {
+        if (es.some((e) => e.isIntersecting)) {
+          io.disconnect();
+          play(1);
+        }
+      },
+      { threshold: 0.5 },
+    );
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      clear();
+    };
+    // `play` reads only refs and setters; the observer is set up once the motion preference is known.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reduce]);
+
+  // Reduced motion (and the server's first paint): every step written out, the last figure in the box.
+  if (reduce !== false) {
+    const last = steps[steps.length - 1];
+    return (
+      <div ref={box}>
+        <div className={s.feeshow}>
+          <p className={s.k}>{figureLabel}</p>
+          <p className={s.ff}>{last?.fee ?? '—'}</p>
+          <p className={s.fs}>{last?.sub ?? ''}</p>
+        </div>
+        <p className={s.story} role="status">
+          {steps.map((st, i) => (
+            <span key={st.say} className={s.storyPair}>
+              <Say n={i + 1} text={st.say} />
+              <span className={s.mean}>
+                {st.fee}
+                {st.sub ? ` · ${st.sub}` : ''}. {st.mean}
+              </span>
+            </span>
+          ))}
+        </p>
+      </div>
+    );
+  }
+
+  const cur = at > 0 ? steps[at - 1] : null;
+  return (
+    <div ref={box}>
+      <div className={s.feeshow}>
+        <p className={s.k}>{figureLabel}</p>
+        <p className={s.ff} key={hit} data-hit={hit > 0 ? '' : undefined}>
+          {cur && beat >= 1 ? cur.fee : steps[0]?.fee ?? '—'}
+        </p>
+        <p className={s.fs}>{cur && beat >= 1 ? cur.sub : ''}</p>
+      </div>
+      <p className={s.story} role="status">
+        {cur ? (
+          <>
+            <Say n={at} text={cur.say} />
+            {beat >= 2 ? <span className={s.mean}>{cur.mean}</span> : null}
+          </>
+        ) : (
+          <>
+            <Say n={null} text={intro.say} />
+            <span className={s.mean}>{intro.mean}</span>
+          </>
+        )}
+      </p>
+      <div className={s.dots}>
+        {steps.map((st, i) => (
+          <button
+            key={st.say}
+            type="button"
+            className={s.dot}
+            aria-label={`Step ${i + 1}`}
+            aria-pressed={at === i + 1}
+            onClick={() => {
+              setAgain(false);
+              show(i + 1);
+              later(() => setAgain(true), NEXT_AT);
+            }}
+          >
+            {i + 1}
           </button>
         ))}
-      </div>
-      <div ref={row} className={s.prow} onScroll={onScroll}>
-        {plans.map((p, i) => {
-          const People = PEOPLE_ICON[p.people.team ? 'team' : 'solo'];
-          return (
-            <article key={p.tier} className={`${s.stair} ${p.tools ? s.stairPaid : ''}`} style={{ ['--i' as string]: i }} data-plan={p.tier}>
-              <div className={s.stairTop}>
-                <div>
-                  <p className={s.role}>{p.role}</p>
-                  <h3>{p.name}</h3>
-                </div>
-                <p className={s.stairPrice}>
-                  <b>{p.price ?? '—'}</b>
-                  <small>{p.per}</small>
-                </p>
-              </div>
-              <div className={s.size}>
-                <p>
-                  <b>{p.size}</b>
-                  <span>storage</span>
-                </p>
-                <span className={s.meter} aria-hidden="true">
-                  <i style={{ ['--w' as string]: p.share }} />
-                </span>
-              </div>
-              <ul className={s.facts}>
-                <li>
-                  <LayoutGrid aria-hidden className={s.factIc} strokeWidth={2} />
-                  <Fact f={p.services} />
-                </li>
-                <li>
-                  <People aria-hidden className={s.factIc} strokeWidth={2} />
-                  <Fact f={p.people} />
-                </li>
-                <li>
-                  <Store aria-hidden className={s.factIc} strokeWidth={2} />
-                  <Fact f={p.branches} />
-                </li>
-                <li className={p.marketplace ? undefined : s.factNo}>
-                  <Search aria-hidden className={s.factIc} strokeWidth={2} />
-                  <span>{p.marketplace ? 'On the marketplace' : 'Not on the marketplace'}</span>
-                </li>
-                <li className={p.tools ? s.factYes : s.factNo}>
-                  {p.tools ? <Check aria-hidden className={s.factIc} strokeWidth={2.4} /> : <Lock aria-hidden className={s.factIc} strokeWidth={2} />}
-                  <span>{p.tools ? <><b>Every</b> specialized tool</> : 'Specialized tools'}</span>
-                </li>
-              </ul>
-              <ActionButton
-                href={p.href}
-                tone="brand"
-                icon={ArrowRight}
-                label={p.cta}
-                name={`${p.cta}: ${p.name}, ${p.price ?? 'price unavailable'} ${p.per}`}
-                main={p.main}
-                className={s.stairBtn}
-              />
-            </article>
-          );
-        })}
+        {again ? (
+          <button type="button" className={s.again} onClick={() => play(1)}>
+            Play again
+          </button>
+        ) : null}
       </div>
     </div>
   );
 }
 
-function Fact({ f }: { f: StairFact }) {
+/* ───────────────────────── #plans · the rail and the cards ───────────────────────── */
+
+/** One plan card, every part read by the page (`planStair` · the catalog · `openShopWithPlanHref`). */
+export type PlanCard = {
+  tier: string;
+  name: string;
+  /** A paid plan's catalogue price ("₱…"), null when unread (draws "—"); a free plan's word ("Free"). */
+  price: string | null;
+  /** "per 4 weeks" under a paid price; null on a free plan. */
+  per: string | null;
+  keep: string;
+  size: string;
+  /** The rail bar's height, 0–1 (`railShare`: its storage over the biggest plan's). */
+  share: number;
+  tools: { ok: boolean; text: string };
+  cta: string;
+  href: string;
+};
+
+export function PlanPicker({ plans, start }: { plans: readonly PlanCard[]; start: number }) {
+  const [pk, setPk] = useState(start);
+  const row = useRef<HTMLDivElement>(null);
+  /** The card a tap sent the row to — scroll events on the way there must not move the rail back. */
+  const goingTo = useRef<number | null>(null);
+  const railRef = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+
+  const center = (i: number, smooth: boolean) => {
+    const el = row.current;
+    const card = el?.children[i] as HTMLElement | undefined;
+    if (!el || !card) return;
+    goingTo.current = i;
+    el.scrollTo({ left: card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2, behavior: smooth ? 'smooth' : 'auto' });
+  };
+
+  useEffect(() => {
+    center(start, false);
+    const el = railRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (es) => {
+        if (es.some((e) => e.isIntersecting)) {
+          setInView(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.4 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onScroll = () => {
+    const el = row.current;
+    if (!el) return;
+    const mid = el.scrollLeft + el.clientWidth / 2;
+    let best = 0;
+    let gap = Infinity;
+    Array.from(el.children).forEach((c, i) => {
+      const h = c as HTMLElement;
+      const d = Math.abs(h.offsetLeft + h.offsetWidth / 2 - mid);
+      if (d < gap) {
+        gap = d;
+        best = i;
+      }
+    });
+    if (goingTo.current !== null) {
+      if (best === goingTo.current) goingTo.current = null;
+      return;
+    }
+    setPk(best);
+  };
+
   return (
-    <span>
-      {f.lead ? <b>{f.lead}</b> : null}
-      {f.text}
-    </span>
+    <>
+      <div ref={railRef} className={s.rail} role="group" aria-label="Plans, smallest to biggest" data-in={inView ? '' : undefined}>
+        {plans.map((p, i) => (
+          <button
+            key={p.tier}
+            type="button"
+            className={s.stop}
+            aria-pressed={pk === i}
+            style={{ ['--h' as string]: String(p.share) }}
+            onClick={() => {
+              setPk(i);
+              center(i, true);
+            }}
+          >
+            <u aria-hidden />
+            <span>{p.name}</span>
+          </button>
+        ))}
+      </div>
+      <div
+        ref={row}
+        className={s.prow}
+        onScroll={onScroll}
+        onPointerDown={() => {
+          goingTo.current = null;
+        }}
+      >
+        {plans.map((p, i) => (
+          <div key={p.tier} className={s.plan} data-on={pk === i ? '' : undefined}>
+            <div className={s.ptop}>
+              <b>{p.name}</b>
+              <span className={s.price}>
+                {p.per ? (
+                  <>
+                    {p.price ?? '—'} <small>{p.per}</small>
+                  </>
+                ) : (
+                  p.price
+                )}
+              </span>
+            </div>
+            <p className={s.keep}>{p.keep}</p>
+            <p className={s.size}>{p.size}</p>
+            <ul>
+              <li>
+                <Check aria-hidden className={s.okIc} strokeWidth={2.2} />
+                <span>Free tools</span>
+              </li>
+              <li data-locked={p.tools.ok ? undefined : ''}>
+                {p.tools.ok ? <Check aria-hidden className={s.okIc} strokeWidth={2.2} /> : <Lock aria-hidden className={s.lkIc} strokeWidth={2} />}
+                <span>{p.tools.text}</span>
+              </li>
+            </ul>
+            <Link className={s.door} href={p.href}>
+              {p.cta} →
+            </Link>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ───────────────────────── #tools · the Toolkit count and its sheet ───────────────────────── */
+
+const TAG_WORDS: Readonly<Record<ToolkitTag, string>> = { free: 'Free', paid: 'Paid', built: 'Built in' };
+
+export function ToolkitCount({ total, parts, shelves, graphsLine }: { total: number; parts: string; shelves: readonly ToolkitShelf[]; graphsLine: string }) {
+  const [open, setOpen] = useState(false);
+  const titleId = useId();
+  return (
+    <>
+      <p className={s.count}>
+        <span className={s.num}>{formatCount(total)}</span> in the Toolkit: {parts}.{' '}
+        <button type="button" className={s.countBtn} onClick={() => setOpen(true)} aria-haspopup="dialog">
+          See all {formatCount(total)}
+        </button>
+      </p>
+      <Sheet open={open} onClose={() => setOpen(false)} labelledById={titleId} rise>
+        <div className={`${s.root} ${s.kit}`}>
+          <h3 id={titleId} className={s.kitTitle}>
+            The Toolkit
+          </h3>
+          <p className={s.lede}>{formatCount(total)} in all. Most are free.</p>
+          {shelves.map((sh) => (
+            <section key={sh.key}>
+              <p className={s.k}>
+                {sh.title} · {formatCount(sh.count)}
+              </p>
+              {sh.rows.length ? (
+                <ul className={`${s.rows} ${s.rowsSm}`}>
+                  {sh.rows.map((r) => (
+                    <li key={r.key}>
+                      <div className={s.hd}>
+                        <b>{r.name}</b>
+                        {r.tag ? (
+                          <span className={s.tag} data-tag={r.tag}>
+                            {TAG_WORDS[r.tag]}
+                          </span>
+                        ) : null}
+                      </div>
+                      {r.line ? <p>{r.line}</p> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={s.fine}>{graphsLine}</p>
+              )}
+            </section>
+          ))}
+        </div>
+      </Sheet>
+    </>
+  );
+}
+
+/* ───────────────────────── "Open your shop" follows the reader ───────────────────────── */
+
+/**
+ * Shown only while NEITHER of the page's own "Open your shop" buttons (`watch`, element ids) is on screen, so there are
+ * never two at once. On a phone it floats at the foot; from 760 px it sits under the shell's one top bar, top-right
+ * (the bar itself is shared, `one-top-bar.test.ts`, so the page never draws into it).
+ */
+export function OpenShopFollow({ href, label, watch }: { href: string; label: string; watch: readonly string[] }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const seen = new Map<string, boolean>(watch.map((id, i) => [id, i === 0]));
+    const els = watch.map((id) => document.getElementById(id)).filter((e): e is HTMLElement => e !== null);
+    if (els.length === 0) return;
+    const io = new IntersectionObserver((es) => {
+      for (const e of es) seen.set(e.target.id, e.isIntersecting);
+      setShow([...seen.values()].every((v) => !v));
+    });
+    for (const el of els) io.observe(el);
+    return () => io.disconnect();
+  }, [watch]);
+  if (!show) return null;
+  return (
+    <>
+      <Link className={`fd-btn-terra ${s.fab}`} href={href}>
+        {label}
+      </Link>
+      <Link className={`fd-btn-terra ${s.topOpen}`} href={href}>
+        {label}
+      </Link>
+    </>
   );
 }

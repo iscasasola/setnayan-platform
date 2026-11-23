@@ -141,11 +141,13 @@ test('3 · the app’s words stay true — every word on the right appears in th
 test('4 · every "Take me there" is a page that exists; an event door with no event draws no button', () => {
   for (const href of allHelpDoorHrefs()) {
     const segs = href.replace(/^\//, '').replace(/[?#].*$/, '').split('/');
-    const candidates = [join(WEB, 'app', ...segs, 'page.tsx')];
-    if (segs[0] === 'dashboard' && segs.length === 1) candidates.push(join(WEB, 'app', 'dashboard', '(launcher)', 'page.tsx'));
+    // /dashboard lives under the (hub) route group since #7988; the old place is kept so either layout resolves.
+    const candidates = [join(WEB, 'app', ...segs, 'page.tsx'), join(WEB, 'app', '(hub)', ...segs, 'page.tsx')];
     if (segs[0] === 'dashboard' && segs[1] !== '[eventId]') {
-      candidates.push(join(WEB, 'app', 'dashboard', '(account)', ...segs.slice(1), 'page.tsx'));
-      candidates.push(join(WEB, 'app', 'dashboard', '(launcher)', ...segs.slice(1), 'page.tsx'));
+      for (const root of [join(WEB, 'app', 'dashboard'), join(WEB, 'app', '(hub)', 'dashboard')]) {
+        candidates.push(join(root, '(account)', ...segs.slice(1), 'page.tsx'));
+        candidates.push(join(root, '(launcher)', ...segs.slice(1), 'page.tsx'));
+      }
     }
     assert.ok(candidates.some((c) => existsSync(c)), `${href}: no page`);
   }

@@ -163,6 +163,8 @@ type CouplePaymentAskRow = {
 import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-order-trail';
 import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
 import { ShotListCard, type ShotListCardState } from './_components/shot-list-card';
+import { SupplierChecklistsCard } from './_components/supplier-checklists-card';
+import { readCoupleChecklists, type CoupleChecklistsRead } from '@/lib/hub-tool-entries.server';
 import { SupplierQuestionsCard } from './_components/supplier-questions-card';
 import { SupplierFormsCard } from './_components/supplier-forms-card';
 import { CouplePhotoApprovals } from './_components/couple-photo-approvals';
@@ -679,13 +681,20 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // keep one — a manual vendor has no console. `unreadable` is carried to the
   // render so a refused read never says "they haven't shared one".
   let shotList: ShotListCardState | null = null;
+  // 👀 …and the supplier's checklist hub tools, beside it (owner 23 Nov 2026: "let couples see the checklist ticks").
+  // Their own home (`vendor_hub_tool_entries`) and their own reader; which tools show is the library's flag.
+  let checklists: CoupleChecklistsRead | null = null;
   if (ev.marketplace_vendor_id) {
-    const { data: shotRows, error: shotRowsError } = await supabase
-      .from('event_shot_list_items')
-      .select('item_id, vendor_profile_id, label, position, captured_at')
-      .eq('event_id', eventId)
-      .eq('vendor_profile_id', ev.marketplace_vendor_id)
-      .order('position', { ascending: true });
+    const [{ data: shotRows, error: shotRowsError }, checklistsRead] = await Promise.all([
+      supabase
+        .from('event_shot_list_items')
+        .select('item_id, vendor_profile_id, label, position, captured_at')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', ev.marketplace_vendor_id)
+        .order('position', { ascending: true }),
+      readCoupleChecklists(supabase, eventId, ev.marketplace_vendor_id),
+    ]);
+    checklists = checklistsRead;
     if (shotRowsError || !shotRows) {
       logQueryError('VendorWorkspacePage.shotList', shotRowsError, { eventId }, 'graceful_degrade');
       shotList = { state: 'unreadable' };
@@ -2064,6 +2073,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {shotList ? (
           <ShotListCard vendorName={displayName} category={ev.category} list={shotList} />
         ) : null}
+        {/* 👀 The supplier's checklists — the ticks, as they tick them (owner 23 Nov 2026). */}
+        {checklists ? <SupplierChecklistsCard vendorName={displayName} read={checklists} /> : null}
 
         {vendorBudgetSummary ? (
           <VendorItemizationCard

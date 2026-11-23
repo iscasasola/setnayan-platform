@@ -248,7 +248,7 @@ test('the public shop page leaves out the review, page photos, hero and featured
   // SABOTAGE: drop any one of the four uses of `unlistedEvents` / `unlistedPageRefs` on the page → RED.
   const page = read('app/v/[slug]/page.tsx');
   assert.match(page, /const unlistedEvents = await readOverdueTopUpEventIds\(vendor\.vendor_profile_id, /);
-  assert.match(page, /fetchReviewsForVendorWithCouple\(admin, vendor\.vendor_profile_id, \{ limit, offset: 0, excludeEventIds: \[\.\.\.unlistedEvents\] \}\)/);
+  assert.match(page, /fetchReviewsForVendorWithCouple\(admin, vendor\.vendor_profile_id, \{ limit, offset: 0, excludeEventIds: \[\.\.\.unlistedEvents\], publicOnly: true \}\)/);
   assert.match(page, /if \(pinnedOutsideWindow\?\.event_id && unlistedEvents\.has\(pinnedOutsideWindow\.event_id\)\) pinnedOutsideWindow = null;/);
   // The page photos and the hero go through the ONE cover rule (lib/shop-cover-photo.ts, held by its own test), handed
   // the unlisted refs — the shop's share card reads through the same rule. Both follow the shop's own file serve.

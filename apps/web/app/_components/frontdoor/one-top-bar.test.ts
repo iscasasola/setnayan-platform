@@ -40,7 +40,7 @@ const APP = join(HERE, '..', '..');
 const TREES = [
   {
     name: 'launcher (the events board)',
-    file: join(APP, 'dashboard', '(launcher)', 'layout.tsx'),
+    file: join(APP, '(hub)', 'layout.tsx'),
     doors: ['UnreadBellBadge', 'AccountSwitcher'],
   },
   {
@@ -544,7 +544,7 @@ test('the search keeps its way out — the thumb rows go where the escape row we
 });
 
 test('the launcher no longer builds a second command index', () => {
-  const page = read(join(APP, 'dashboard', '(launcher)', 'page.tsx'));
+  const page = read(join(APP, '(hub)', 'dashboard', 'page.tsx'));
   assert.ok(
     !/const commandItems: HomeCommandItem\[\]/.test(code(page)),
     'The launcher builds its own palette index again. Two builders is two ' +

@@ -87,7 +87,7 @@ export function useAnimatePhase(): [AnimatePhase, (p: AnimatePhase) => void] {
 
 /* ── 🎭 the Reveal: the opening chosen (said by its picker) and the event's colours (read off the canvas) ── */
 export type StageRevealLook = { kind: string; colours: { dominant: string; supporting: string; accent: string; neutral: string } };
-let reveal: StageRevealLook = { kind: 'four-flap', colours: { dominant: '#5B4A6B', supporting: '#D9C4CF', accent: '#A9834B', neutral: '#F7F2EC' } };
+let reveal: StageRevealLook = { kind: 'envelope-classic', colours: { dominant: '#5B4A6B', supporting: '#D9C4CF', accent: '#A9834B', neutral: '#F7F2EC' } };
 export function setStageRevealKind(kind: string): void {
   if (kind === reveal.kind) return;
   reveal = { ...reveal, kind };

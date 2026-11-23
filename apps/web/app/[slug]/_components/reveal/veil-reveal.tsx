@@ -30,6 +30,13 @@
  * geometry/texture rebuild. On the live couple site the props are static, so the
  * settings are effectively baked. Couple-customizable = `veilColor` + `petalsColor`, and (owner 2026-10-17) the Sheer
  * veil's Fold · Weave · Wind presets (`lib/veil-style.ts`), which arrive as the look's `drape` · `weave` · `wind`+`gust`.
+ *
+ * 🎭 THE SHARED MOTION RULES (owner 23 Nov 2026, reveals round 3): the veil's tap, swipe, lift and "revealed" are READ
+ * from `lib/reveal-motion.ts`, the one module every reveal obeys — their numbers are this file's own, moved there so
+ * no reveal keeps timing of its own. Two of the owner's asks of 23 Nov land here: the hands-free speed is the
+ * couple's 9 · 12 · 16 s (the look's `speed`, was `feather` 5 s) on the steadier curve `handsFreeTarget`, and
+ * ☝ THE VEIL LIFTS FROM THE TAPPED POINT (*"tap and it will unveil from that point pulling up the veil"*; drawing
+ * `src/drape.js` `tapAt`): the cloth under the finger is drawn up first and the hem follows it.
  */
 
 import { useEffect, useRef } from 'react';
@@ -39,6 +46,7 @@ import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/rev
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { claimVeilHold, primeUnveilPress } from '@/lib/hub-veil';
 import { liftedValance, weaveOf } from '@/lib/veil-style';
+import { REVEAL_MOTION, handsFreeTarget, readGesture, revealDt, snapRevealSpeed, ss, stepLift } from '@/lib/reveal-motion';
 import { noteScrollY, restAtTop, restingAtTop, veilMaySleep, TOP_REST_MS, addScrollDelta, buildGridConstraints, clampPass, computeIndexedNormals, relaxPass, takeScrollWind, writePositions, type ClothConstraints, type ScrollWind } from '@/lib/veil-cloth';
 
 type Props = {
@@ -254,10 +262,6 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     let vh = 0;
     let vw = 0;
 
-    const ss = (a: number, b: number, x: number) => {
-      x = (x - a) / (b - a);
-      return x < 0 ? 0 : x > 1 ? 1 : x * x * (3 - 2 * x);
-    };
     const rnd = () => Math.random();
 
     // ── Veil texture: faint tulle weave + ONE sparse white Setnayan mark, fixed-px tiled.
@@ -381,6 +385,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     let shakeFrames = 0;
     /* 🎭 0 → 1 over `DRAPE_HANG_FRAMES` once a `keepsOpen` veil has lifted: how much of the lift's float it has let go. */
     let hang = 0;
+    /* ☝ Where the guest tapped (world, on the veil's plane) — the point the cloth is lifted from — and the cloth near it. */
+    let tapAt: { x: number; y: number } | null = null;
+    let lead: Array<{ k: number; ox: number; oy: number; w: number }> | null = null;
 
     const veil = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
     veil.renderOrder = 1;
@@ -783,6 +790,8 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       locked = false;
       auto = false;
       featherFrames = 0;
+      tapAt = null;
+      lead = null;
     };
     const presettle = (n: number) => {
       settling = true;
@@ -880,14 +889,42 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       }
       // Reveal fold — hem pulled up past the top edge, two-end-led, the cloth trails.
       if (lift > 0.015) {
-        const pull0 = (0.05 + (cfg.trail / 100) * 0.32) * ss(0.02, 0.42, lift);
+        let pull0 = (0.05 + (cfg.trail / 100) * 0.32) * ss(0.02, 0.42, lift);
         const clothHvh = clothH / vh;
         const hemUp = Math.max(0.2, clothHvh - 4 * (liftedValance(cfg, keepsOpenRef.current, DRAPE_VALANCE) / 100));
         const hy = topPin + vh * hemUp * ss(0.02, 1, lift);
         const hz = frontZ - 0.25;
+        /* ☝ FROM THE TAPPED POINT (drawing `drape.js`): the cloth around the finger rises first, arcs toward you and up to
+           the crown; the hem waits, then follows it — strongest under the tap, not at the two ends. */
+        const tp = tapAt;
+        const tfx = tp ? (tp.x - pinX[0]!) / PINW : -1;
+        if (tp) {
+          if (!lead) {
+            const Rl = 0.2;
+            lead = [];
+            for (let k = cols; k < N; k++) {
+              const ddx = px[k]! - tp.x;
+              const ddy = py[k]! - tp.y;
+              const d2 = ddx * ddx + ddy * ddy;
+              if (d2 < Rl * Rl) lead.push({ k, ox: ddx, oy: ddy, w: 1 - Math.sqrt(d2) / Rl });
+            }
+          }
+          const up = ss(0.0, 0.9, lift);
+          const ly = tp.y + (topPin + vh * (keepsOpenRef.current ? 0.02 : 0.5) - tp.y) * up;
+          const lx = tp.x * (1 - 0.35 * up);
+          const lz = frontZ + 0.55 * Math.sin(Math.PI * Math.min(1, up * 1.15)) - 0.25 * up;
+          const lw = 0.22 * ss(0.0, 0.12, lift) * (keepsOpenRef.current ? 1 - ss(0.75, 1, lift) : 1);
+          for (const Lk of lead) {
+            const ww = lw * Lk.w;
+            px[Lk.k] = px[Lk.k]! + (lx + Lk.ox * (1 - 0.7 * up) - px[Lk.k]!) * ww;
+            py[Lk.k] = py[Lk.k]! + (ly + Lk.oy * (1 - 0.7 * up) - py[Lk.k]!) * ww;
+            pz[Lk.k] = pz[Lk.k]! + (lz - pz[Lk.k]!) * ww;
+          }
+          pull0 *= ss(0.18, 0.6, lift);
+        }
         for (let ix2 = 0; ix2 < cols; ix2++) {
           const fx = ix2 / (cols - 1);
-          const endW = Math.max(0, 1 - Math.min(fx, 1 - fx) / 0.3);
+          const endW = tp ? Math.exp(-Math.pow((fx - tfx) / 0.34, 2)) : Math.max(0, 1 - Math.min(fx, 1 - fx) / 0.3);
           const w = pull0 * (0.3 + 0.7 * endW);
           const vk = idx(ix2, rows - 1);
           px[vk] = px[vk]! + (pinX[ix2]! - px[vk]!) * w * 0.4;
@@ -966,14 +1003,15 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         return;
       }
       asleep = false;
-      const dt = Math.min(0.033, (now - last) / 1000);
+      const dt = revealDt(now, last);
       last = now;
-      const autoDur = Math.max(0.4, cfgRef.current.feather);
+      // ⏱ The couple's speed (9 · 12 · 16 s) on the shared hands-free curve (`lib/reveal-motion.ts`).
+      const autoDur = snapRevealSpeed(cfgRef.current.speed);
       if (auto) {
         autoT += dt / autoDur;
         const p = Math.min(1, autoT);
-        liftTarget = ss(0.05, 0.95, p);
-        if (p > 0.3) featherFrames = Math.round(autoDur * 34);
+        liftTarget = handsFreeTarget(p);
+        if (p > 0.3) featherFrames = Math.round(autoDur * REVEAL_MOTION.FEATHER_FPS);
         if (autoT >= 1) {
           auto = false;
           liftTarget = 1;
@@ -981,7 +1019,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       }
       if (featherFrames > 0) featherFrames--;
       const pl = lift;
-      lift += (liftTarget - lift) * 0.05;
+      lift = stepLift(lift, liftTarget);
       if (lift < pl - 0.0008) shakeFrames = 18;
       if (shakeFrames > 0) shakeFrames--;
       // Resize the grab-zone to follow the veil: lifted (lift high) → only the
@@ -1031,7 +1069,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         petalsSeeded = false;
       }
       renderer.render(scene, camera);
-      if (lift > 0.985 && !revealedRef.current) {
+      if (lift > REVEAL_MOTION.DONE && !revealedRef.current) {
         revealedRef.current = true;
         if (keepsOpenRef.current && grabRef.current) grabRef.current.style.pointerEvents = 'none';
         onRevealedRef.current();
@@ -1153,26 +1191,32 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         const dur = performance.now() - g.t0;
         const dxC = e.clientX - g.cx0;
         const dyC = e.clientY - g.cy0;
-        const up = -dyC;
-        const net = Math.hypot(dxC, dyC);
         delete grabs[e.pointerId];
-        if (up > 40 && dur < 460 && up > Math.abs(dxC) * 1.0) {
-          // SWIPE UP = unveil.
+        // 🎭 The tap and the swipe are read by the shared rule (`readGesture`, lib/reveal-motion.ts) — the veil opens up.
+        const gesture = readGesture({ dx: dxC, dy: dyC, ms: dur, dir: [0, -1] });
+        if (gesture === 'open') {
+          // SWIPE UP = unveil — lifted from where the finger left the cloth.
+          if (!locked && liftTarget < 1) tapAt = planeWorld(e.clientX, e.clientY, frontZ);
           unveil();
           setLift(1);
           freeThePage(e.pointerId);
           return;
         }
-        if (dyC > 40 && dur < 460 && dyC > Math.abs(dxC) * 1.0) {
+        if (gesture === 'close') {
           if (keepsOpenRef.current && (freed || revealedRef.current)) return;
           freed = false;
+          tapAt = null;
+          lead = null;
           setLift(0);
           return;
         }
-        if (dur < 300 && net < 18) {
+        if (gesture === 'tap') {
           // TAP = unveil — only while the veil still covers: a tap on the lifted valance (the top band the
           // film keeps reachable) does nothing; swipe down is how it comes back down.
           if (!locked && liftTarget < 1) {
+            // ☝ …and the veil lifts from the point the guest tapped (owner 23 Nov 2026).
+            tapAt = planeWorld(e.clientX, e.clientY, frontZ);
+            lead = null;
             unveil();
             startAuto();
             freeThePage(e.pointerId);

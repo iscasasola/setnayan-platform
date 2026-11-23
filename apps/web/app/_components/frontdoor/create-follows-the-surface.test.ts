@@ -93,7 +93,7 @@ test('exactly two surfaces override it — everyone else is untouched', () => {
   const layouts = [
     'app/(shell)/layout.tsx',
     'app/dashboard/(account)/layout.tsx',
-    'app/dashboard/(launcher)/layout.tsx',
+    'app/(hub)/layout.tsx',
     'app/dashboard/[eventId]/layout.tsx',
   ];
   for (const l of layouts) {

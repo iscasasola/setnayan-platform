@@ -97,6 +97,7 @@ import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-dat
 import { isUuid } from '@/lib/is-uuid';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { PartEditGate } from '@/app/_components/part-edit/part-edit-gate';
+import { PageInfo } from '@/app/_components/help-ask/page-info';
 // The Guest list's two other parts are the SHIPPED pages, rendered whole in
 // this page's body (owner 2026-09-29) — never a second copy of either.
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
@@ -1118,9 +1119,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     !viewer.isCouple && viewer.delegatePermissions !== null && viewerAreaLevel(viewer, 'guest_list') !== 'edit';
   /* 📤 NO SHARE ON A ROW (Guests redesign pick 3, owner 20 Nov 2026: "No share button on guest rows" — "Send invite" on
      the guest card, "Send N invites" in the list's summary). The list no longer carries every guest's token. */
+  // ⓘ This page's help (Guide & Help drawing, screen 6) — drawn by the server, seated in the pinned row by the screen.
+  const pageInfo = <PageInfo pageKey="guests" eventId={eventId} />;
   const guestsScreen = (
     <GuestsScreen
       eventId={eventId}
+      info={pageInfo}
       roleSetKey={guestRoleSetKey}
       gview={gview}
       seat={gview === 'seats' ? parseSeatView(typeof search.seat === 'string' ? search.seat : null) : null}

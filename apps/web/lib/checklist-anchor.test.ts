@@ -45,7 +45,7 @@ import {
 } from './checklist';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const LAUNCHER_PAGE = join(HERE, '../app/dashboard/(launcher)/page.tsx');
+const LAUNCHER_PAGE = join(HERE, '../app/(hub)/dashboard/page.tsx');
 const SCHEDULE_PAGE = join(HERE, '../app/dashboard/[eventId]/schedule/page.tsx');
 const PREPARATION_LIB = join(HERE, './preparation.ts');
 const EVENTS_LIB = join(HERE, './events.ts');

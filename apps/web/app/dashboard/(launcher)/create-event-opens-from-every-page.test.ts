@@ -20,14 +20,14 @@ const has = (rel: string) => existsSync(join(DASH, rel));
 const code = (rel: string) => stripComments(readFileSync(join(DASH, rel), 'utf8'));
 
 test('the intercept that draws the sheet still exists, and renders the real page', () => {
-  assert.ok(has('(launcher)/@modal/(.)create-event/page.tsx'), 'the create-event sheet route moved — re-read this guard');
-  assert.match(code('(launcher)/@modal/(.)create-event/page.tsx'), /import CreateEventPage from '@\/app\/dashboard\/\(account\)\/create-event\/page'/);
+  assert.ok(has('../(hub)/dashboard/@modal/(.)create-event/page.tsx'), 'the create-event sheet route moved — re-read this guard');
+  assert.match(code('../(hub)/dashboard/@modal/(.)create-event/page.tsx'), /import CreateEventPage from '@\/app\/dashboard\/\(account\)\/create-event\/page'/);
 });
 
 test('every slot of the launcher layout has a fallback, so an intercept from another page is never not-found', () => {
-  assert.ok(has('(launcher)/@modal/default.tsx'), '@modal has no default — a hard load of /dashboard 404s the slot');
-  assert.ok(has('(launcher)/default.tsx'), 'the main slot has no default — "Plan an event" from a Group is a soft 404');
-  assert.match(code('(launcher)/default.tsx'), /return null;/, 'the fallback must draw nothing — the sheet is the content');
+  assert.ok(has('../(hub)/dashboard/@modal/default.tsx'), '@modal has no default — a hard load of /dashboard 404s the slot');
+  assert.ok(has('../(hub)/dashboard/default.tsx'), 'the main slot has no default — "Plan an event" from a Group is a soft 404');
+  assert.match(code('../(hub)/dashboard/default.tsx'), /return null;/, 'the fallback must draw nothing — the sheet is the content');
 });
 
 test('the full page is still reachable by a hard load, with and without ?samahan=', () => {

@@ -18,40 +18,26 @@ import dynamic from 'next/dynamic';
 import {
   DEFAULT_REVEAL_CONFIG,
   REVEAL_TEMPLATE_IDS,
-  type RevealEffectsLook,
   type RevealStudioConfig,
   type RevealTemplateId,
   type VeilLook,
 } from '@/lib/reveal-config-pure';
-import { FourFlapEnvelope } from '@/app/[slug]/_components/reveal/four-flap';
-import { RigidReveal } from '@/app/[slug]/_components/reveal/rigid-reveal';
+import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
+import { REVEAL_SPEEDS } from '@/lib/reveal-motion';
 import { StdTouchGlow } from '@/app/[slug]/_components/reveal/std-touch-glow';
 import { saveRevealStudio } from './actions';
 import { SwitchTrack } from '@/app/_components/switch-track';
 
-// gold/molten retired as reveal openings 2026-06-22 (now monogram-editor motions);
-// the studio calibrates only the five envelope/veil openings.
+// gold/molten retired as reveal openings 2026-06-22 (now monogram-editor motions).
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), { ssr: false });
+// 🎭 The other eight of the nine reveals (owner 23 Nov 2026) — one stage, the same one guests get.
+const SceneReveal = dynamic(() => import('@/app/[slug]/_components/reveal/scene-reveal'), { ssr: false });
 
-/** Which template the live preview shows (veil drives the veil sliders; the
- *  rigid ones drive the effect sliders so they can be calibrated in view). All
- *  five reveals are previewable. */
+/** Which reveal the live preview shows — every one of the nine (the veil drives the veil sliders). */
 type PreviewTpl = RevealTemplateId;
-const PREVIEW_TPLS: Array<[PreviewTpl, string]> = [
-  ['veil-sheer', 'Veil'],
-  ['four-flap', 'Four-flap'],
-  ['two-flap-vertical', 'Side'],
-  ['two-flap-horizontal', 'Top'],
-  ['church-doors', 'Doors'],
-];
+const PREVIEW_TPLS: Array<[PreviewTpl, string]> = REVEAL_LIBRARY.map((r) => [r.id, r.label]);
 
-const TEMPLATE_LABELS: Record<RevealTemplateId, string> = {
-  'four-flap': 'Four-flap envelope',
-  'two-flap-vertical': 'Two-flap side',
-  'two-flap-horizontal': 'Two-flap top',
-  'church-doors': 'Church doors',
-  'veil-sheer': 'Sheer veil',
-};
+const TEMPLATE_LABELS = Object.fromEntries(REVEAL_LIBRARY.map((r) => [r.id, r.label])) as Record<RevealTemplateId, string>;
 
 type SliderDef = { key: keyof VeilLook; label: string; min: number; max: number; step?: number };
 const LOOK_GROUPS: Array<{ group: string; sliders: SliderDef[] }> = [
@@ -75,7 +61,6 @@ const LOOK_GROUPS: Array<{ group: string; sliders: SliderDef[] }> = [
       { key: 'trail', label: 'Trail (fold follow)', min: 0, max: 100 },
       { key: 'floatUp', label: 'Float-up', min: 0, max: 100 },
       { key: 'bounce', label: 'Bounce (settle)', min: 0, max: 100 },
-      { key: 'feather', label: 'Feather — auto-reveal (s)', min: 2, max: 8, step: 0.5 },
     ],
   },
   {
@@ -86,30 +71,6 @@ const LOOK_GROUPS: Array<{ group: string; sliders: SliderDef[] }> = [
       { key: 'stretch', label: 'Stretch give', min: 0, max: 100 },
       { key: 'petalsDensity', label: 'Petal density', min: 0, max: 100 },
     ],
-  },
-];
-
-type EffectSliderDef = { key: keyof RevealEffectsLook; label: string };
-const EFFECT_SLIDERS: Array<{ group: string; sliders: EffectSliderDef[] }> = [
-  {
-    group: 'Butterflies (envelopes)',
-    sliders: [
-      { key: 'butterflySize', label: 'Butterfly size' },
-      { key: 'butterflyCount', label: 'How many' },
-      { key: 'butterflySpeed', label: 'Fly-out speed' },
-    ],
-  },
-  {
-    group: 'Petals (church doors)',
-    sliders: [
-      { key: 'petalSize', label: 'Petal size' },
-      { key: 'petalDensity', label: 'Petal density' },
-      { key: 'petalFall', label: 'Fall speed' },
-    ],
-  },
-  {
-    group: 'Shared',
-    sliders: [{ key: 'shadow', label: 'Cast-shadow strength' }],
   },
 ];
 
@@ -205,8 +166,6 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
 
   const setLook = (key: keyof VeilLook, v: number) =>
     setDraft((d) => ({ ...d, veil: { ...d.veil, [key]: v } }));
-  const setEffect = (key: keyof RevealEffectsLook, v: number) =>
-    setDraft((d) => ({ ...d, effects: { ...d.effects, [key]: v } }));
   const setFeature = (key: keyof RevealStudioConfig['features'], v: boolean) =>
     setDraft((d) => ({ ...d, features: { ...d.features, [key]: v } }));
   const setTemplateAllowed = (id: RevealTemplateId, v: boolean) =>
@@ -394,33 +353,33 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
           ))}
         </section>
 
-        {/* Rigid effects (butterflies + petals) */}
-        <section className="space-y-5">
+        {/* ⏱ The house speed — every reveal's hands-free open, 9 · 12 · 16 s (lib/reveal-motion.ts). A couple's own
+            Speed ▾ in the Maker outranks it. It replaced the veil's own "feather" (2–8 s) on 23 Nov 2026. */}
+        <section className="space-y-3">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: SLATE }}>
-            Effects — envelopes &amp; doors
+            Speed — every reveal
           </h2>
-          <p className="text-[12px]" style={{ color: SLATE }}>
-            Switch the preview to <b style={{ color: INK }}>Four-flap</b> or <b style={{ color: INK }}>Church doors</b> (right) to calibrate these in view.
-          </p>
-          {EFFECT_SLIDERS.map((g) => (
-            <div key={g.group} className="space-y-3">
-              <div className="text-[12px] font-medium" style={{ color: INK }}>
-                {g.group}
-              </div>
-              <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-                {g.sliders.map((s) => (
-                  <Slider
-                    key={s.key}
-                    label={s.label}
-                    value={draft.effects[s.key]}
-                    min={0}
-                    max={100}
-                    onChange={(v) => setEffect(s.key, v)}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
+          <div className="flex flex-wrap gap-1.5" data-studio-speed={draft.veil.speed}>
+            {REVEAL_SPEEDS.map((sec) => (
+              <button
+                key={sec}
+                type="button"
+                aria-pressed={draft.veil.speed === sec}
+                onClick={() => {
+                  setLook('speed', sec);
+                  redrapePreview();
+                }}
+                className="rounded-full border px-3 py-1 text-[11px] font-medium"
+                style={{
+                  borderColor: draft.veil.speed === sec ? ACCENT : LINE,
+                  color: draft.veil.speed === sec ? '#fff' : SLATE,
+                  background: draft.veil.speed === sec ? ACCENT : 'transparent',
+                }}
+              >
+                {sec} s
+              </button>
+            ))}
+          </div>
         </section>
       </div>
 
@@ -477,30 +436,17 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
                 window.setTimeout(redrapePreview, 1500);
               }}
             />
-          ) : previewTpl === 'four-flap' ? (
-            <FourFlapEnvelope
-              key={previewKey}
-              markSvg={null}
-              monogram="M & J"
-              waxColor="#7d2b4f"
-              fallbackSeed={1}
-              onOpened={() => window.setTimeout(redrapePreview, 1800)}
-              autoPlay
-              effect="butterflies"
-              effectLook={draft.effects}
-            />
           ) : (
-            <RigidReveal
-              key={previewKey}
-              variant={previewTpl}
-              markSvg={null}
+            <SceneReveal
+              key={`${previewTpl}-${previewKey}`}
+              kind={previewTpl}
+              speedSec={draft.veil.speed}
               monogram="M & J"
-              waxColor="#7d2b4f"
-              fallbackSeed={1}
-              onOpened={() => window.setTimeout(redrapePreview, 1800)}
-              autoPlay
-              effect={previewTpl === 'church-doors' ? 'petals' : 'butterflies'}
-              effectLook={draft.effects}
+              markSvg={null}
+              autoplay
+              autoplayAfterMs={900}
+              onRevealed={() => undefined}
+              onCleared={() => window.setTimeout(redrapePreview, 1200)}
             />
           )}
           {/* Press-to-glow, scoped to this frame — drag/press inside to see it

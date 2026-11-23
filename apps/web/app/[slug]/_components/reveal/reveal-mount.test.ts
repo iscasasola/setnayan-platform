@@ -78,7 +78,7 @@ test('the overlay component resolves (else every assertion below is vacuous)', a
 
 test("a free couple's page mounts no reveal — admin toggle ON, house default set", async () => {
   const { RevealMount, overlaysIn, renderToStaticMarkup } = await load();
-  for (const eventTemplate of [null, 'veil-sheer', 'church-doors', 'four-flap'] as const) {
+  for (const eventTemplate of [null, 'veil-sheer', 'cathedral-doors', 'envelope-classic'] as const) {
     const tree = RevealMount(props({ eventTemplate }));
     assert.equal(overlaysIn(tree).length, 0, `free couple, stored choice ${eventTemplate}`);
     // It still renders — the touch glow and the film are untouched by this.

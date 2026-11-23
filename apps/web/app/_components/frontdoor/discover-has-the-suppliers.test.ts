@@ -32,7 +32,7 @@ const WEB = join(__dirname, '..', '..', '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const FRONT_DOOR = 'app/_components/frontdoor/front-door.tsx';
-const HOME = 'app/page.tsx';
+const HOME = 'app/(hub)/page.tsx';
 const VIEW = 'app/(shell)/explore/_lib/marketplace-view.tsx';
 const EXPLORE = 'app/(shell)/explore/page.tsx';
 const HEAD = 'app/(shell)/explore/_components/discover-supplier-head.tsx';

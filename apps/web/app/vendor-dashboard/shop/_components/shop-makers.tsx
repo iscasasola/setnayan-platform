@@ -71,8 +71,12 @@ export function ShopMakers({
   services = [],
   booked = null,
   offers = null,
+  spacesCount,
   specialToolsLocked = false,
 }: {
+  /** 🏛 How many spaces the shop has (owner 19 Nov: "Spaces shows only once the shop has one"). 0 = the tile is not
+   *  drawn; null = unread, and the tile stays (a refused read never hides a door); absent = not measured (the lab). */
+  spacesCount?: number | null;
   /** One line per service; null = the scanner settings could not be read (said so, never "Off"). */
   scanners: ScannerLine[] | null;
   /** The Forms Maker's body, server-drawn while `?maker=forms`; null while closed (or still on its way). */
@@ -126,7 +130,7 @@ export function ShopMakers({
   useEffect(() => {
     frame.current = (root.current?.closest('[data-shop-tab],[data-shop-tab-lab]') as HTMLElement | null) ?? null;
   }, []);
-  const tools = specializedToolsFor(categories, services);
+  const tools = specializedToolsFor(categories, services).filter((t) => t.tool.key !== 'spaces' || spacesCount !== 0);
   // 🧰 Which tool's panel is open — none until a tile is tapped (the row itself is always on the page).
   const [tool, setTool] = useState<SpecializedToolKey | null>(null);
 

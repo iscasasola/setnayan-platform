@@ -659,8 +659,15 @@ export const PAID_TOOL_GATES: Readonly<Partial<Record<SpecializedToolKey, 'speci
 };
 
 export const PAID_TOOL_TILES: readonly SpecializedTool[] = SPECIALIZED_TOOLS.filter((t) => PAID_TOOL_GATES[t.key]);
+/**
+ * Tiles that are set up once, not used on the day: Spaces (halls, rooms and rentals, owner 19 Nov "SPACES COMBINED WITH
+ * ROOMS & SEATING"). They live in the shop's Specialized tools, but the /for-suppliers drawing's on-the-day row does not show them.
+ */
+export const SET_UP_ONCE_TOOLS: ReadonlySet<SpecializedToolKey> = new Set<SpecializedToolKey>(['spaces']);
 /** The on-the-day tools every shop has, on every plan — every other `SPECIALIZED_TOOLS` tile. */
-export const EVERY_PLAN_TOOLS: readonly SpecializedTool[] = SPECIALIZED_TOOLS.filter((t) => !PAID_TOOL_GATES[t.key]);
+export const EVERY_PLAN_TOOLS: readonly SpecializedTool[] = SPECIALIZED_TOOLS.filter(
+  (t) => !PAID_TOOL_GATES[t.key] && !SET_UP_ONCE_TOOLS.has(t.key),
+);
 
 /** The first plan that carries every specialized tool — "Start on Plus". */
 export const FIRST_TOOLS_TIER: VendorTier | null = STAIR_TIERS.find(stairHasTools) ?? null;

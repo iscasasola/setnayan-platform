@@ -148,7 +148,7 @@ test('nearestWall breaks ties top · bottom · left · right (the couple editor�
 
 test('the couple editor uses this nearestWall, not a copy of its own', () => {
   const src = readFileSync(join(__dirname, '..', '..', 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx'), 'utf8');
-  assert.match(src, /\bnearestWall,\n\} from '@\/lib\/seat-plan-engine';/);
+  assert.match(src, /import \{[^}]*\bnearestWall\b[^}]*\} from '@\/lib\/seat-plan-engine';/);
   assert.match(src, /const wall = nearestWall\(entrance\.x, entrance\.y\);/);
   assert.doesNotMatch(src, /const dRight = 100 - entrance\.x;/);
 });

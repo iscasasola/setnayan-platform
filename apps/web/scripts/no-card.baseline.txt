@@ -252,7 +252,7 @@
 1 apps/web/app/dashboard/[eventId]/seating/_components/drop-confirm-bubble.tsx
 1 apps/web/app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx
 1 apps/web/app/dashboard/[eventId]/seating/_components/seating-context-dock.tsx
-18 apps/web/app/dashboard/[eventId]/seating/_components/seating-editor.tsx
+17 apps/web/app/dashboard/[eventId]/seating/_components/seating-editor.tsx
 1 apps/web/app/dashboard/[eventId]/seating/_components/seating-frame.tsx
 1 apps/web/app/dashboard/[eventId]/seating/walkthrough/_components/walkthrough-manager.tsx
 1 apps/web/app/dashboard/[eventId]/story/_components/cover-step.tsx

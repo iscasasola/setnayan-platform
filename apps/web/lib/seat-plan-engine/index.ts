@@ -26,3 +26,4 @@ export * from './plan';
 export * from './floors';
 export * from './validate';
 export * from './occupants';
+export * from './rows';

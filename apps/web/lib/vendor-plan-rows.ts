@@ -17,6 +17,7 @@ import { ordinalWord, type BookingFeeStanding } from './booking-fee-disclosure';
 import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
 import { storageWords } from './downgrade-limits';
+import { clientsKeptWords } from './supplier-client-room';
 import { TIER_CAPS, TIER_LABEL, VENDOR_TIERS, WAITLIST_SETTING_MAX, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
 import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from './specialized-tools-access';
@@ -97,7 +98,14 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     // dependend anymore"); once verified, every plan sets its own.
     { key: 'branches', title: 'Branches beyond your main shop', line: branches },
     {
-      // 💾 Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes — 256 MB · 2 GB · 128 GB · 500 GB · 1 TB (re-cut 22 Nov), in the words
+      // 👥 Clients first (owner 2026-11-23 "Yes, clients first"): what the storage keeps, computed from the size
+      // (`clientsKeptWords`, lib/supplier-client-room.ts), never typed. Its asterisk's footnote is `CLIENTS_FOOTNOTE`.
+      key: 'clients',
+      title: 'Clients you keep',
+      line: clientsKeptWords(tier) ?? 'Couldn’t read',
+    },
+    {
+      // 💾 Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes — 50 MB · 1 GB · 50 GB · 256 GB · 1 TB (fixed 23 Nov), in the words
       // `storageWords` prints everywhere else (decimal GB / TB).
       key: 'storage',
       title: 'Storage for your files',

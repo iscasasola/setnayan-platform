@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8377
+# facts: 8378
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     675
-#   col       6032
+#   col       6033
 #   policy    1224
 #   view      10
 #   func      432
@@ -6512,6 +6512,7 @@ col	public.vendor_subscriptions.addon_amount_php	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.addon_token_count	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.addon_token_pack_sku	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.amount_php	anon=SIU authenticated=SIU
+col	public.vendor_subscriptions.anchor_day	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.app_store_original_transaction_id	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.billing_cycle	anon=SIU authenticated=SIU
 col	public.vendor_subscriptions.created_at	anon=SIU authenticated=SIU

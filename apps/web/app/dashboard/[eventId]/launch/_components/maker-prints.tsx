@@ -37,7 +37,9 @@ import {
   type PassCardDesign,
 } from '@/lib/pass-card';
 /* ⚡ The print pieces load when Details is opened — never with the Maker (`details-lazy.tsx`). */
-import { ChangedSincePrinted, PassCardDesignPicker, PosterPhotoPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
+import { ChangedSincePrinted, DayPosterSlide, PassCardDesignPicker, PosterPhotoPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
+import { DAY_POSTER_SIZES, DEFAULT_DAY_POSTER, dayPosterHash, dayPosterHref, type DayPoster } from '@/lib/day-poster';
+import { PLAN_NAME } from '@/lib/plan-buy-doors';
 import { DetailsGoTo } from './details-go';
 import { EVERYTHING_PRO_NOTE, PLACE_CARDS_PRO_NOTE, WHOLE_SET_PRO_NOTE } from '@/lib/studio-prints-six';
 import { GUEST_TOKEN, GUEST_WORD_TOKEN, EVERYTHING_LABEL, DIGITAL_TICKET_TIP, everythingLine, guestPrintCountLine, printSetTip, type PrintGuest } from '@/lib/studio-prints-settings';
@@ -112,6 +114,10 @@ export type PrintsInput = {
   storyEmpty?: boolean;
   /** 🖼 The Our Story poster's own photo, when the couple chose one (`print_details.poster_photo`). */
   posterPhoto?: PosterPhoto | null;
+  /** 🖼 The Our Day poster's saved builder record (`print_details.day_poster`) — null before the builder is first opened. */
+  dayPoster?: DayPoster | null;
+  /** The plan's name for the poster's locks, read from the plans (`PLAN_NAME`). */
+  planName?: string;
   /** The couple's saved pass card look (`print_details.pass_design`). */
   passDesign?: PassCardDesign;
   /** The zip's file name — `<Couple>-<date>-passes.zip` (`passCardsZipFileName`). */
@@ -332,6 +338,52 @@ export function PrintPieceBody({
           <span data-print-story-link="">{storyMissing ? 'Add your Love Story' : 'Edit your Love Story'}</span>
         </DetailsGoTo>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * 🖼 THE OUR DAY POSTER'S PICTURE (owner 2026-11-13; drawing v4 §1) — its SAVED record, drawn by the route (Classic), at
+ * its size's shape. Before the builder is first opened there is nothing of the couple's to draw: the row says so and
+ * its button opens the builder (`DayPosterEditor`).
+ */
+export function DayPosterBody({ input }: { input: PrintsInput }) {
+  const record = input.dayPoster ?? null;
+  const size = DAY_POSTER_SIZES[(record ?? DEFAULT_DAY_POSTER).size];
+  return (
+    <div data-print-piece="day-poster" className="flex flex-col items-center gap-2">
+      {record?.main ? (
+        <PrintPreview
+          src={dayPosterHref(input.eventId, 'screen', 'classic', `&v=${dayPosterHash(record, input.previewVersion ?? '')}`)}
+          alt="Our Day poster"
+          label="Our Day poster"
+          aspect={size.wMm / size.hMm}
+        />
+      ) : (
+        <p className="max-w-xs text-center text-sn-md text-ink/60" data-day-poster-empty-row="">
+          Your day, on your wall — a template, your own photos, your people. Save A4 free.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** 🖼 The Our Day poster's row: "Make your poster" — the full-screen builder rises from it (`day-poster-builder.tsx`). */
+export function DayPosterEditor({ input, studio = false }: { input: PrintsInput; studio?: boolean }) {
+  return (
+    <div data-print-editor="day-poster" data-print-studio={studio ? '' : undefined} className="flex flex-col gap-2">
+      <DayPosterSlide
+        studio={studio}
+        boot={{
+          eventId: input.eventId,
+          slug: input.slug,
+          saved: input.dayPoster ?? null,
+          ownsPro: input.ownsPro,
+          storeShell: input.storeShell,
+          previewVersion: input.previewVersion ?? null,
+          planName: input.planName ?? PLAN_NAME.pro,
+        }}
+      />
     </div>
   );
 }

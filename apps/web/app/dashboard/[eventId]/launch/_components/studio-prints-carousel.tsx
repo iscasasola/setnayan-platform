@@ -163,6 +163,8 @@ export function StudioPrintsCarousel({
   const root = useRef<HTMLDivElement>(null);
   const here = pieces[Math.min(i, pieces.length - 1)]!;
   const slide: PrintSlide = slides.get(here.key) ?? {};
+  /* 🖼 A print made in its own builder (the Our Day poster): its doors open the builder, never the edit sheet. */
+  const openEdit = () => (slide.build ? slide.build.open() : setEditOpen(true));
   /* ⚙ The page's ⚙ sheet opens at the print on screen (owner 2026-10-31) — it reads this as it opens. */
   useEffect(() => {
     setPrintOnScreen(here.key);
@@ -347,15 +349,15 @@ export function StudioPrintsCarousel({
 
       {/* The slides — the phone's (full width), and on a computer the centre column with ‹ ›. */}
       <div className="relative flex min-h-0 flex-1 flex-col lg:min-w-0">
-        <Track refEl={track} pieces={pieces} slides={slides} at={i} guest={guest} ticketLook={ticketLook} onEdit={() => setEditOpen(true)} className="flex lg:hidden" />
-        <Track refEl={deskTrack} pieces={pieces} slides={slides} at={i} guest={guest} ticketLook={ticketLook} onEdit={() => setEditOpen(true)} className="hidden lg:flex" desk />
+        <Track refEl={track} pieces={pieces} slides={slides} at={i} guest={guest} ticketLook={ticketLook} onEdit={openEdit} className="flex lg:hidden" />
+        <Track refEl={deskTrack} pieces={pieces} slides={slides} at={i} guest={guest} ticketLook={ticketLook} onEdit={openEdit} className="hidden lg:flex" desk />
         <span className="absolute left-5 top-1/2 hidden -translate-y-1/2 lg:block">
           <ActionButton tone="neutral" iconOnly icon={ChevronLeft} label="Previous print" disabled={i === 0} onClick={() => go(i - 1)} />
         </span>
         <span className="absolute right-5 top-1/2 hidden -translate-y-1/2 lg:block">
           <ActionButton tone="neutral" iconOnly icon={ChevronRight} label="Next print" disabled={i === pieces.length - 1} onClick={() => go(i + 1)} />
         </span>
-        <Under pieces={pieces} at={i} slide={slide} onJump={(k) => go(pieces.findIndex((p) => p.key === k))} onEdit={() => setEditOpen(true)} />
+        <Under pieces={pieces} at={i} slide={slide} onJump={(k) => go(pieces.findIndex((p) => p.key === k))} onEdit={openEdit} />
       </div>
 
       {/* The toolbar — the lower third on a phone; the right column's Form rows on a computer. */}
@@ -699,9 +701,9 @@ function Under({
               <span className="mt-1 block">Pick guests prints only the guests you tick, in one file (up to {formatCount(MAX_PICKED_GUESTS)}).</span>
             ) : null}
             {slide.changed ? <span className="mt-1 block">{slide.changed}</span> : null}
-            {slide.edit ? (
+            {slide.edit || slide.build ? (
               <span className="mt-2 block">
-                <ActionButton tone="neutral" label={slide.edit.label} icon={ChevronRight} onClick={onEdit} />
+                <ActionButton tone="neutral" label={(slide.edit ?? slide.build)!.label} icon={ChevronRight} onClick={onEdit} />
               </span>
             ) : null}
           </InfoTip>
@@ -1080,13 +1082,26 @@ function PhoneTools(p: ToolsProps) {
         </div>
       ) : null}
       <div data-prints-row="act" className="flex items-center gap-2">
-        <span className="flex min-w-0 flex-1">
-          <DownloadControl {...p} />
-        </span>
+        <BuildControl slide={p.slide} />
+        {p.slide.build && !p.slide.download ? null : (
+          <span className="flex min-w-0 flex-1">
+            <DownloadControl {...p} />
+          </span>
+        )}
       </div>
       <SaveSaid state={p.state} />
       <CountLine {...p} />
     </div>
+  );
+}
+
+/** 🖼 A print made in its own builder — its one main verb ("Make your poster"), filled, before its Download. */
+function BuildControl({ slide }: { slide: PrintSlide }) {
+  if (!slide.build) return null;
+  return (
+    <span className="flex min-w-0 flex-1" data-prints-build="">
+      <ActionButton tone="brand" main icon={ChevronRight} label={slide.build.label} onClick={slide.build.open} className="w-full" />
+    </span>
   );
 }
 
@@ -1107,7 +1122,8 @@ function DeskTools(p: ToolsProps) {
         )}
       </FormRows>
       <div className="flex flex-col gap-2 border-t border-ink/10 px-2.5 pb-1 pt-3">
-        <DownloadControl {...p} />
+        <BuildControl slide={p.slide} />
+        {p.slide.build && !p.slide.download ? null : <DownloadControl {...p} />}
         <SaveSaid state={p.state} />
         <CountLine {...p} />
       </div>

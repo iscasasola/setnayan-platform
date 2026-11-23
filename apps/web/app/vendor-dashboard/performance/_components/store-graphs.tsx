@@ -113,7 +113,7 @@ function PhotoRows({ top, urls }: { top: readonly { key: string; views: number }
         <div key={p.key} className="flex items-center gap-3">
           {urls[p.key] ? (
             // eslint-disable-next-line @next/next/no-img-element -- a signed portfolio URL, as the Portfolio draws it
-            <img src={urls[p.key]} alt="" loading="lazy" className="h-9 w-9 flex-none rounded-md object-cover" />
+            <img src={urls[p.key]} alt="" loading="lazy" className="h-9 w-9 flex-none rounded-md bg-ink/5 object-cover" />
           ) : (
             <span className="h-9 w-9 flex-none rounded-md bg-ink/5" aria-hidden />
           )}

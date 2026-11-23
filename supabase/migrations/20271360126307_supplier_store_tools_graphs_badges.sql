@@ -47,10 +47,10 @@ BEGIN;
 -- ON CONFLICT DO NOTHING: a row the owner already edited in admin is never overwritten by a re-apply.
 INSERT INTO public.vendor_billing_catalog (sku_code, title, price_php, offering_type, is_active, display_order, description)
 VALUES
-  ('vendor_tool_cake_tool',       'Cake Maker',      499, 'custom_addon', TRUE, 90, 'Specialized tool, one-time. Couples design their cake in your chat. Owned forever, never renews.'),
-  ('vendor_tool_song_bank',       'Song bank',       499, 'custom_addon', TRUE, 91, 'Specialized tool, one-time. The songs you play; couples request and preview. Owned forever, never renews.'),
-  ('vendor_tool_papic_challenge', 'Papic challenge', 499, 'custom_addon', TRUE, 92, 'Specialized tool, one-time. Photo games for the guests. Owned forever, never renews.'),
-  ('vendor_tool_plan_3d',         '3D plan',         499, 'custom_addon', TRUE, 93, 'Specialized tool, one-time. Your booth inside the couple''s 3D plan. Owned forever, never renews.')
+  ('vendor_tool_cake_tool',       'Cake Maker',      999, 'custom_addon', TRUE, 90, 'Specialized tool, one-time. Couples design their cake in your chat. Owned forever, never renews.'),
+  ('vendor_tool_song_bank',       'Song bank',       299, 'custom_addon', TRUE, 91, 'Specialized tool, one-time. The songs you play; couples request and preview. Owned forever, never renews.'),
+  ('vendor_tool_papic_challenge', 'Papic challenge', 999, 'custom_addon', TRUE, 92, 'Specialized tool, one-time. Photo games for the guests. Owned forever, never renews.'),
+  ('vendor_tool_plan_3d',         '3D plan',         1499, 'custom_addon', TRUE, 93, 'Specialized tool, one-time. Your booth inside the couple''s 3D plan. Owned forever, never renews.')
 ON CONFLICT (sku_code) DO NOTHING;
 
 -- ── 4 · THE ONE ANSWER FOR A PAID TOOL: BOUGHT AND SUBSCRIBED ───────────────

@@ -53,9 +53,10 @@ test('💾 a pick is stored sparse: the default as nothing, junk dropped, a real
 });
 
 test('🧭 both choosers read the one list, and every surface hands the picks to the scene', () => {
-  const maker = read('app/dashboard/[eventId]/launch/_components/maker-reveal.tsx');
-  assert.match(maker, /revealLookKnobsFor\(picked\)\.map/, 'the Maker does not offer the designs');
-  assert.match(maker, /onPick=\{\(v\) => setEffects\(withRevealLook\(effects, k\.key, v\)\)\}/, 'a Maker pick is not kept');
+  assert.match(read('app/dashboard/[eventId]/launch/_components/maker-reveal.tsx'), /<RevealDesignsRow picked=\{picked\} effects=\{effects\} onEffects=\{setEffects\} \/>/, 'the Maker does not offer the designs');
+  const row = read('app/dashboard/[eventId]/launch/_components/stage-panel/reveal-designs-row.tsx');
+  assert.match(row, /const knobs = revealLookKnobsFor\(picked\);/, 'the Maker\'s designs row does not read the one list');
+  assert.match(row, /onPick=\{\(v\) => onEffects\(withRevealLook\(effects, k\.key, v\)\)\}/, 'a Maker pick is not kept');
   const std = read('app/dashboard/[eventId]/_components/reveal-preview-card.tsx');
   assert.match(std, /revealLookKnobsFor\(previewing\)/, 'Step 5 does not offer the designs');
   assert.match(read('app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx'), /withRevealLook\(e, key, value\)/, 'a Step 5 pick is not kept');

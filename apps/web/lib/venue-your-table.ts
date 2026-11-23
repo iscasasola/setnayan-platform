@@ -16,7 +16,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type TableNameRow = { table_label: string | null; link_group_label: string | null };
-type WithYou = { you?: { table: string; tableName?: string | null } | null };
+export type WithYou = { you?: { table: string; tableName?: string | null } | null };
 
 /** A joined set of tables answers to its group name, as everywhere else (`groupTablesIntoUnits`). */
 export function yourTableName(row: TableNameRow | null): string | null {
@@ -32,6 +32,8 @@ export async function withYourTableName<T extends WithYou>(admin: SupabaseClient
     .select('table_label, link_group_label')
     .eq('public_id', you.table)
     .maybeSingle();
+  // A failed read is logged, and the caption says "your table" (never the code).
+  if (error) console.error('[supabase-error] lib/venue-your-table.ts · from:event_tables.select', error);
   const tableName = error ? null : yourTableName(data as TableNameRow | null);
   return { ...scene, you: { ...you, tableName } };
 }

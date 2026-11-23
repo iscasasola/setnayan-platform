@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { stripComments } from './strip-comments';
-import { withYourTableName, yourTableName, youAreAtWords } from './venue-your-table';
+import { withYourTableName, yourTableName, youAreAtWords, type WithYou } from './venue-your-table';
 
 const WEB = join(__dirname, '..');
 const read = (...p: string[]) => stripComments(readFileSync(join(WEB, ...p), 'utf8'));
@@ -52,20 +52,21 @@ test('a joined set answers to its group name; a blank name is no name', () => {
 
 test("the join reads only the guest's own table, by its public id", async () => {
   const { admin, asked } = fakeAdmin({ data: { table_label: 'Family', link_group_label: null }, error: null });
-  const out = await withYourTableName(admin, { you: { table: 'S89TBL-LAB0000006', seatNumber: 2 } });
+  const out = await withYourTableName<WithYou>(admin, { you: { table: 'S89TBL-LAB0000006' } });
   assert.equal(asked.table, 'event_tables');
   assert.deepEqual(asked.eq, ['public_id', 'S89TBL-LAB0000006']);
   assert.equal(out.you?.tableName, 'Family');
   assert.equal(out.you?.table, 'S89TBL-LAB0000006', 'the id stays the key the 3D scene matches tables by');
 });
 
-test('no token, no read; a failed read is "your table", not the code', async () => {
+test('no token, no read; a failed read is "your table", not the code', async (t) => {
+  t.mock.method(console, 'error', () => {});
   const none = fakeAdmin({ data: null, error: null });
-  const anon = await withYourTableName(none.admin, { you: null });
+  const anon = await withYourTableName<WithYou>(none.admin, { you: null });
   assert.equal(none.asked.table, undefined, 'a tokenless scene names no table');
   assert.equal(anon.you, null);
   const failed = fakeAdmin({ data: { table_label: 'Family', link_group_label: null }, error: { message: 'boom' } });
-  const out = await withYourTableName(failed.admin, { you: { table: 'S89TBL-LAB0000006' } });
+  const out = await withYourTableName<WithYou>(failed.admin, { you: { table: 'S89TBL-LAB0000006' } });
   assert.equal(out.you?.tableName, null);
   assert.equal(youAreAtWords(out.you!), 'your table');
 });

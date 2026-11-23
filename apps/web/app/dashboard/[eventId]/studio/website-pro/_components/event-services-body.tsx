@@ -39,6 +39,7 @@ export function EventServicesBody({
             products: appleProducts,
             prices: { state: prices.state, display: new Map([...prices.products].map(([id, p]) => [id, p.displayPrice])) },
             buy: (productId: string) => buyWithApple({ eventId: props.eventId, productId }),
+            // one-render: keep (client-write) — the purchase ran in Apple's own sheet, not a server action; one re-read shows the plan.
             refresh: () => router.refresh(),
           }
         : null,

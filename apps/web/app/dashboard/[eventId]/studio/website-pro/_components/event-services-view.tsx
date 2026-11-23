@@ -308,9 +308,11 @@ export function EventServicesView({
       {/* ── the head: the event's line (mono kicker) and the one title, on the white page — no band ── */}
       <div className="es-head" data-event-services-head="">
         {facts.eyebrow ? <p className="es-kick">{facts.eyebrow}</p> : null}
-        <p aria-hidden className="es-title">
+        {/* The one visible title (a real heading, so the event's loader may promise it); hidden from a screen reader,
+            which hears the masthead's own h1 once. */}
+        <h1 aria-hidden className="es-title">
           Event services
-        </p>
+        </h1>
       </div>
 
       {/* 🍎 The honest states, in a note box (frames 08e · 08f): the App Store not answering, or a payment that did not

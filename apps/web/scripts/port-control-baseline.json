@@ -494,6 +494,7 @@
         "_components/paid-mark.tsx",
         "_components/paper-picker.tsx",
         "_components/part-edit/dirty-fields.ts",
+        "_components/part-edit/part-edit-bar-lazy.tsx",
         "_components/part-edit/part-edit-bar.tsx",
         "_components/part-edit/part-edit-gate.tsx",
         "_components/part-edit/use-part-editor-lock.ts",

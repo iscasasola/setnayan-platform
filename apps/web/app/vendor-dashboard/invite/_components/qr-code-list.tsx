@@ -6,8 +6,6 @@ import { ChevronRight, QrCode } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { InfoTip } from '@/app/_components/info-tip';
-import { usePromoteBridge } from '@/app/vendor-dashboard/shop/promote/_components/promote-bridge';
-import type { PrintQrMode } from '@/lib/supplier-prints';
 
 /**
  * 🔳 QR CODES, ONE LIST — Option B (owner 2026-11-06: *"The qr codes are unorganized"* · *"Seeing each kind of qr, and
@@ -16,12 +14,12 @@ import type { PrintQrMode } from '@/lib/supplier-prints';
  *
  *   ONE ROW PER CODE   name · sub (· "per event") / what a scan does · a small QR · ›
  *   TAP → ITS SHEET    name · sub · ⓘ · Done / the full caption / its own options / the big code + Share · Copy link ·
- *                      Download · Write to NFC (the shipped `QrCard`) / "Put it on…" → Door print · Prints
+ *                      Download · Write to NFC (the shipped `QrCard`)
  *
  * The list is the only place that picks a code; the sheet is the only place with buttons. A row whose sheet is not
  * drawn on this visit (Customers › QR codes reads Booked OR Crew per visit) goes to its own address, where its sheet
- * opens. "Put it on…" is Shop › Promote's only (`usePromoteBridge`): it hands THIS code to the Prints sheet — the door
- * print and the badge print are pieces INSIDE prints (6 Nov "ONE HOME FOR EVERY PROMOTE TOOL").
+ * opens. Customers › QR codes (Booked · Crew) is its one home now: the shop's own codes and their "Put it on…" moved to
+ * Shop › My QRs (23 Nov 2026), where a code's page prints it ("Print it" › Door print · Prints, `printWithQrHref`).
  */
 export type QrRow = {
   key: string;
@@ -39,8 +37,6 @@ export type QrRow = {
   /** The sheet's body (options, the card, its own rows). Null = not drawn on this visit: the row goes to `href`. */
   body: ReactNode | null;
   href?: string;
-  /** This code can go onto the shop's prints (Shop › Promote's codes). */
-  putOn?: PrintQrMode;
   /** A form to fill (the Booked deal) rises FULL SCREEN instead of the half sheet (W1 walk 16 Nov; DECISION_LOG
    *  2026-11-10 "RISE FULL SCREEN" — a picker or code viewer stays the half sheet, 2026-11-12). */
   rise?: boolean;
@@ -55,29 +51,8 @@ export function QrCodeList({ rows, openKey = null }: { rows: QrRow[]; openKey?: 
     if (askedKey) setOpen(askedKey);
   }, [askedKey]);
   const router = useRouter();
-  const bridge = usePromoteBridge();
   const titleId = useId();
   const row = rows.find((r) => r.key === open) ?? null;
-
-  /**
-   * "Put it on…": close THIS sheet, then hand the code to the Prints sheet — but only once this sheet's own Back entry
-   * is gone (`useBackCloses` steps back through it a tick after the close). Opening Prints first would let that late
-   * step back land on the Prints sheet's entry and shut it at once. A fallback timer covers a sheet that pushed none.
-   */
-  const handOff = (code: PrintQrMode, piece: 'door' | null) => {
-    if (!bridge) return;
-    let done = false;
-    const go = () => {
-      if (done) return;
-      done = true;
-      window.removeEventListener('popstate', go);
-      // one more tick: the Back's own popstate listeners (the router's) run first
-      window.setTimeout(() => bridge.putOn(code, piece), 0);
-    };
-    window.addEventListener('popstate', go);
-    window.setTimeout(go, 700);
-    setOpen(null);
-  };
 
   return (
     <>
@@ -138,40 +113,10 @@ export function QrCodeList({ rows, openKey = null }: { rows: QrRow[]; openKey?: 
           <div className="px-4 pb-6" data-qr-sheet={row.key}>
             <p className="text-[13px] text-[var(--sn-ink-500)]">{row.sheetLine}</p>
             {row.body}
-            {row.putOn && bridge ? (
-              <div data-qr-put-on={row.putOn}>
-                <div className="my-3.5 h-px bg-[var(--sn-line)]" />
-                <p className="mt-1.5 text-[15px] font-semibold text-ink">Put it on…</p>
-                <PutOnRow
-                  title="Door print"
-                  line="We are part of Setnayan"
-                  data="door"
-                  onClick={() => handOff(row.putOn!, 'door')}
-                />
-                <PutOnRow
-                  title="Prints"
-                  line="This code on your print pieces"
-                  data="prints"
-                  onClick={() => handOff(row.putOn!, null)}
-                />
-              </div>
-            ) : null}
           </div>
         ) : null}
       </Sheet>
     </>
-  );
-}
-
-function PutOnRow({ title, line, data, onClick }: { title: string; line: string; data: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="sn-press flex min-h-14 w-full items-center gap-3 border-b border-[var(--sn-hairline)] py-2.5 text-left last:border-b-0" data-qr-put-on-row={data}>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-medium leading-tight text-ink">{title}</span>
-        <span className="mt-0.5 block text-[13px] text-[color:var(--m-slate-2)]">{line}</span>
-      </span>
-      <ChevronRight aria-hidden className="h-[18px] w-[18px] flex-none text-sn-accent" strokeWidth={2} />
-    </button>
   );
 }
 

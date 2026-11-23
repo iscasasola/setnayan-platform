@@ -232,8 +232,8 @@ test('c · an unread number prints "—" or "couldn’t load", never 0', () => {
   assert.equal(glanceDays(null).value, '—');
   // The widgets themselves: `home-control-reads-honestly.test.ts` renders every failed one (never 0, never ₱0).
   const html = draw({ control: fixtureControlUnread('e1') });
-  const row = html.slice(html.indexOf('data-home-control="compact"'), html.indexOf('data-home-services'));
-  assert.match(row, /Couldn’t load/, 'an unread guest list must say so on its widget');
+  const row = html.slice(html.indexOf('data-home-control="board"'), html.indexOf('data-home-services'));
+  assert.match(row, /Guest counts couldn’t load/, 'an unread guest list must say so on its widget');
   assert.match(row, /Money couldn’t load/, 'an unread money read must say so on the Budget widget');
   assert.doesNotMatch(row.replace(/not ₱0/g, ''), /₱0/, 'an unread sum rendered as ₱0');
 });
@@ -252,8 +252,10 @@ test('d · the services row is on the first screen, last, under the control row'
   const html = draw();
   assert.equal(count(html, 'data-home-services'), 1, 'the Your services row is missing');
   const at = html.indexOf('data-home-services');
-  assert.ok(at > html.indexOf('data-home-control="detail"'), 'the row sits under the control row');
-  assert.equal(count(html, 'See all'), 0, 'there is nothing under the row to "see all" of');
+  assert.ok(at > html.indexOf('data-home-board="right"'), 'the row sits under the control row');
+  // 🌐 "See all" is a SECTION HEAD's words now (owner 23 Nov 2026, v5 drawing in the website look): each one sits in a
+  // widget whose whole section is already the door to its page — never a link of its own, never under Your services.
+  assert.equal(count(html.slice(at), 'See all'), 0, 'there is nothing under the row to "see all" of');
   // 📷 Without the couple's card (the page was removed 2026-10-26), the Papic row opens Papic's photos, in Memories.
   assert.match(html, /<a data-home-service="papic"[^>]*href="\/dashboard\/e1\/memories"[^>]*>[\s\S]*?On · 12 photos/, 'Papic opens its photos with its status');
   assert.match(html, /<a data-home-service="ai"[^>]*href="\/dashboard\/e1\/studio\/setnayan-ai"[^>]*>[\s\S]*?Try it/, 'Setnayan AI opens its page with its status');
@@ -297,30 +299,27 @@ test('d · the store shell draws no services row (both are STORE_SHELL_HIDDEN_AD
 /* ══ e · EACH THING ONCE ═════════════════════════════════════════════════════
    Owner 2026-10-01, on the TEST wedding's Home (desktop) after the first screen
    shipped: *"you updated the Home of that event but instead of changing it I
-   see dupes on the event."* Since 2026-10-24 Home draws each widget TWICE in the
-   markup — the phone's tile and the md+ card, one hidden at every width — so the
-   rule is held PER VERSION: each fact once in the tiles, once in the cards. */
+   see dupes on the event."* From 2026-10-24 Home drew each widget two or three times (the phone's tile, the md+ card,
+   the 1280 board); since 23 Nov 2026 (v5 drawing, the website look) the board's cards are the ONE copy at every width,
+   so each fact is stated once on the whole screen. */
 
 test('e · each version states each fact exactly once', () => {
   const html = draw();
-  const compact = html.slice(html.indexOf('data-home-control="compact"'), html.indexOf('data-home-control="detail"'));
-  const detail = html.slice(html.indexOf('data-home-control="detail"'), html.indexOf('data-home-control="board"'));
-  // 🖥 The 1280 board is the third version (owner-approved 16 Nov 2026): its two card columns, held to the same rule.
+  assert.equal(count(html, 'data-home-control="compact"') + count(html, 'data-home-control="detail"'), 0, 'a second copy of the widgets is back');
+  // 🖥 The board's two card columns (owner-approved 16 Nov 2026), the one copy since 23 Nov.
   const boardMid = html.slice(html.indexOf('data-home-board="middle"'), html.indexOf('data-home-board-col="right"'));
   const board = boardMid + html.slice(html.indexOf('data-home-board="right"'), html.indexOf('data-home-services'));
   // 🎴 "days to go" is the event card's (Home redraw 2026-11-02) — stated once on the whole screen, in neither version.
   assert.equal(count(html, '>days to go<'), 1, 'the card does not state "days to go" exactly once');
-  assert.equal(count(compact + detail + board, 'days to go'), 0, 'a widget states "days to go" again');
+  assert.equal(count(board, 'days to go'), 0, 'a widget states "days to go" again');
   for (const [what, needle] of [
     ['"coming"', '> coming<'],
     ['"no reply"', 'no reply<'],
   ] as const) {
-    assert.equal(count(compact, needle), 1, `phone: ${what} is not stated exactly once`);
+    assert.equal(count(html, needle), 1, `${what} is not stated exactly once`);
   }
-  assert.equal(count(detail, '>Paid<'), 1, 'cards: Paid is not stated exactly once');
-  assert.equal(count(detail, '>Still owing<'), 1, 'cards: Still owing is not stated exactly once');
-  assert.equal(count(board, '>Paid<'), 1, 'board: Paid is not stated exactly once');
-  assert.equal(count(board, '>Still owing<'), 1, 'board: Still owing is not stated exactly once');
+  assert.equal(count(html, '>Paid <'), 1, 'Paid is not stated exactly once');
+  assert.equal(count(html, ' · still owing <'), 1, 'Still owing is not stated exactly once');
 });
 
 test('e · the Home draws exactly one h1 — the cover name — and it is the first screen\'s', () => {
@@ -337,7 +336,7 @@ test('e · the Home draws exactly one h1 — the cover name — and it is the fi
   assert.match(html, /aria-hidden="true"[^>]*>Ana &amp; Miguel</, 'the seen copy must be hidden from a screen reader, or the name is read twice');
 });
 
-test('e · compact on the phone, detail from md — one column, no second section, no toggle', () => {
+test('e · ONE copy of the widgets at every width — one column, no second section, no toggle', () => {
   const html = draw();
   assert.equal(count(html, 'data-home-first-screen'), 1, 'one first screen');
   // One centred column on a phone; the whole body from md up (owner 2026-10-24: the split moves down from lg to md).
@@ -347,16 +346,20 @@ test('e · compact on the phone, detail from md — one column, no second sectio
   // it is the first column's card, round all round (owner-approved 16 Nov 2026, the three-column board) — that one only.
   assert.match(html, /data-home-cover="[^"]*"[^>]*class="[^"]*\bxl:static xl:mx-0 xl:mt-0 xl:rounded-3xl\b/, 'from 1280 the cover is the first column\'s card');
   assert.doesNotMatch(html.slice(html.indexOf('data-home-cover'), html.indexOf('data-home-column')).replace(/rounded-b-3xl/, '').replace(/xl:rounded-3xl/, ''), /rounded-(?!full)/, 'the cover band is rounded beyond its bottom corners');
-  // The two versions, each switched by width alone — no Compact/Detail toggle.
-  // 🧱 The phone's stack (owner 2026-11-01): Countdown · Schedule · the glance row · Budget — still hidden from md.
-  assert.match(html, /class="hc-stack md:hidden" data-home-control="compact"/, 'the phone tiles must hide from md');
-  assert.match(html, /class="hc-two hidden md:grid xl:hidden" data-home-control="detail"/, 'the cards must show from md (and give way to the board from 1280)');
+  // 🌐 ONE copy at every width (owner 23 Nov 2026, v5 drawing — the phone's rotating tiles and the tablet's second copy
+  // are retired): the board's two columns show at every width, stacked under the list below 1280. No toggle.
+  for (const side of ['middle', 'right']) {
+    const at = html.indexOf(`data-home-board="${side}"`);
+    const cls = html.slice(html.lastIndexOf('class="', at), at);
+    assert.ok(at > 0 && !/\bhidden\b/.test(cls), `the board's ${side} column is hidden at some width`);
+  }
   assert.doesNotMatch(html, /Compact|Detail view|aria-pressed="(true|false)"[^>]*>Detail/, 'a Compact/Detail toggle');
   assert.equal(count(html, '#home-all'), 0, 'a "See all" / "#home-all" link with nothing under it');
-  assert.equal(count(html, '>See all<'), 0);
+  // Every "See all" is a section head's words, inside a widget that is itself the door (never a link of its own).
+  assert.equal(count(html, 'class="hc-see-all">See all<'), count(html, 'See all'), 'a "See all" that is not a section head');
   // The blocks: cover · Today · the control row (two versions) · services. The cover's Settings pill is GONE — the
   // Countdown is Event Settings' one door (owner-approved 2026-10-24).
-  for (const marker of ['data-home-today=', 'data-home-control="compact"', 'data-home-control="detail"', 'data-home-services']) {
+  for (const marker of ['data-home-today=', 'data-home-board="middle"', 'data-home-board="right"', 'data-home-services']) {
     assert.equal(count(html, marker), 1, `${marker} must be drawn exactly once`);
   }
   assert.equal(count(html, 'data-home-event-details'), 0, 'the cover’s Settings pill is back — a second door to Event Settings');

@@ -26,7 +26,7 @@ import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { hubDayWords, hubHref } from '@/lib/hub-events';
 import { crewJoinPath } from '@/lib/crew-pass';
 import { canManageVendor, resolveVendorRole } from '@/lib/vendor-role';
-import { CUSTOMERS_QR_MODES, PROMOTE_HREF, crewQrEvents, isPromoteQrMode, pickCrewQrEvent, supplierQrModeOf } from '@/lib/supplier-qr-codes';
+import { CUSTOMERS_QR_MODES, crewQrEvents, myQrHref, isPromoteQrMode, pickCrewQrEvent, supplierQrModeOf } from '@/lib/supplier-qr-codes';
 import { LockedQrGenerator, type LockedQrInitial } from './_components/locked-qr-generator';
 import { customerCardHref } from '@/lib/upcoming-schedule-door';
 import { QrCodes, type CrewQr, type IssuedRow } from './_components/qr-codes';
@@ -49,8 +49,8 @@ export const dynamic = 'force-dynamic';
  *     (`vendor_claim_locked_qr()`). Its ledger — every code issued, claimed / pending / void — is the Issued fold
  *     (it was `/locked-qr`, which now forwards here with the fold open).
  *
- * 📣 MOVED 2026-11-05 (owner: the marketing codes belong in Shop, not Customers): Shortlist · free, Check a date · free
- * and My page now live in Shop › Promote (`shop/promote/page.tsx`). Any `?mode=` for one of them — and a bare
+ * 📣 MOVED 2026-11-05 (owner: the marketing codes belong in Shop, not Customers): Shortlist · free, Check a date · free,
+ * My page and Reviews now live in Shop › My QRs (`shop/qrs/`, 23 Nov 2026). Any `?mode=` for one of them — and a bare
  * `/vendor-dashboard/invite`, which always meant the Shortlist code — forwards there with its picks, so an old link or
  * bookmark still lands on its code. Crew for an event stays here (its code is made in Hub › Crew).
  *
@@ -141,10 +141,8 @@ export default async function VendorQrCodesPage({
   const asked = supplierQrModeOf(search.mode);
   // 📣 The three marketing codes live in Shop › Promote now — forward with the picks a Shortlist link carried.
   if (isPromoteQrMode(asked)) {
-    const q = new URLSearchParams({ mode: asked });
-    if (search.et) q.set('et', search.et);
-    if (search.cat) q.set('cat', search.cat);
-    redirect(`${PROMOTE_HREF}?${q.toString()}`);
+    // 🔳 23 Nov 2026: the shop's codes live on My QRs — each opens its own page; a Shortlist link keeps its picks.
+    redirect(myQrHref(asked, { et: search.et, cat: search.cat }));
   }
   const mode = asked;
   // The outside booking a code is being made for (Customers › People). Shape only — the database refuses one that is
@@ -199,7 +197,7 @@ export default async function VendorQrCodesPage({
   const open = search.open === '1' || Boolean(search.issued || search.error || search.ledger || search.date || search.block || search.event || search.edit) ? mode : null;
 
   if (!canShare) {
-    return <QrCodes backHref={DATES_HREF} canShare={false} setupHref="/vendor-dashboard/shop" shortlist={null} booked={null} />;
+    return <QrCodes backHref={DATES_HREF} canShare={false} setupHref="/vendor-dashboard/shop" booked={null} />;
   }
 
   // 🎁 OWN CLIENTS v4 (owner 16 Nov, drawing part 1): "Add a client" sits above Booked and Crew. Its gift step reads the
@@ -223,7 +221,6 @@ export default async function VendorQrCodesPage({
         backHref={DATES_HREF}
         canShare
         setupHref="/vendor-dashboard/shop"
-        shortlist={null}
         booked={null}
         crew={await readCrewQr(supabase, user.id, vendorProfileId, today, search.event ?? null)}
       />
@@ -369,7 +366,6 @@ export default async function VendorQrCodesPage({
       backHref={blockId ? `/vendor-dashboard/customers?block=${blockId}#outside` : DATES_HREF}
       canShare
       setupHref="/vendor-dashboard/shop"
-      shortlist={null}
       booked={{
         issued,
         error: search.error ? (BOOKED_ERRORS[search.error] ?? 'Could not make the code. Please try again.') : null,

@@ -28,6 +28,7 @@ import type { DemandRadar } from '@/lib/demand-radar';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
 import { formatCount } from '@/lib/format-number';
 import { feeDueStage } from '@/lib/booking-fee-disclosure';
+import { myQrHref } from '@/lib/supplier-qr-codes';
 
 /* ─── MODES ───────────────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -458,8 +459,8 @@ export type GrowStage = {
 export const GROW_STAGE_TITLES = ['Get set up', 'Get found', 'Get inquiries', 'Win bookings', 'Earn badges and keep them'] as const;
 
 export const SHARE_PAGE_HREF = '/vendor-dashboard/shop/promote#share';
-export const PAGE_QR_HREF = '/vendor-dashboard/shop/promote?mode=page';
-export const REVIEW_QR_HREF = '/vendor-dashboard/shop/promote?mode=reviews';
+export const PAGE_QR_HREF = myQrHref('page');
+export const REVIEW_QR_HREF = myQrHref('reviews');
 
 export type GrowInput = {
   /** A new shop's six steps are drawn on top of Today — stage 1 is already there, so no grow card. */

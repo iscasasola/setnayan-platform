@@ -448,6 +448,13 @@ export function HomeTile({
       ) : model.label ? (
         <span className="hc-lab">{model.label}</span>
       ) : null}
+      {/* 🌐 The Schedule's section head ends with the door's words, like every Today section (v5 drawing, 23 Nov). */}
+      {model.doors && model.label ? (
+        <span aria-hidden className="hc-see-all">
+          See all
+          <ArrowRight className="h-[18px] w-[18px]" strokeWidth={2} />
+        </span>
+      ) : null}
       {/* 🎴 No "Today" chip: Now rides the event card and is never repeated below (Home redraw 2026-11-02). */}
       <div className="hc-faces">
         <div className="hc-track" ref={track} style={{ transform: `translateX(${-index * 100}%)` }} role="list" aria-label={`${model.label ?? model.key} — swipe for more`}>

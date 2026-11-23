@@ -28,7 +28,10 @@ const PUBLIC = 'https://setnayan.com/ana-and-miguel';
 test('1 · every View is a new-tab link on the web; Edit in Maker stays in the tab', () => {
   const html = drawHome();
   const views = [...html.matchAll(/<a [^>]*data-home-hub-view="[^"]*"[^>]*>/g)].map((m) => m[0]);
-  assert.ok(views.length >= 3, `premise: the card's door, its View button and the tile's face — found ${views.length}`);
+  // 🌐 23 Nov 2026 (owner, v5 drawing in the website look): the phone's tile (whose faces were Views) is retired — the
+  // card is the ONE Event Hub widget at every width: its door and its View button.
+  assert.ok(views.length >= 2, `premise: the card's door and its View button — found ${views.length}`);
+  assert.ok(views.some((a) => /data-home-hub-view="card"/.test(a)) && views.some((a) => /data-home-hub-view="card-button"/.test(a)), 'the card’s door or its View button is not a View');
   for (const a of views) {
     assert.match(a, new RegExp(`href="${PUBLIC}"`), 'a View that does not open the public page');
     assert.match(a, /target="_blank"/, 'a View that would leave Home');

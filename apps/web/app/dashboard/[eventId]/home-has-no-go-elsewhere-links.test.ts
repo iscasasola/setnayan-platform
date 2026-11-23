@@ -58,11 +58,11 @@ test('no arrow link copy on the rendered Home — read, failed, and every Today'
   }
   // The Maker door is on the Event Hub widget and nowhere else.
   const html = draw(false);
-  // Once on the phone's Event Hub tile (its pen, named "Maker" — owner 2026-10-24), once on the md+ Event Hub card
-  // ("Edit in Maker") and once on the 1280 board's Event Hub card (the same card, drawn for its own width — owner-approved
-  // 16 Nov 2026, event dashboard drawing v13). Each sits on the Event Hub widget, which the loop below holds.
+  // ONCE, on the board's Event Hub card ("Edit in Maker") — since 23 Nov 2026 (owner, v5 drawing in the website look)
+  // the board's cards are the ONE copy at every width; the phone tile's pen and the md card's copy are retired. It sits
+  // on the Event Hub widget, which the loop below holds.
   const MAKER = /aria-label="(?:Edit in )?Maker"/g;
-  assert.equal([...html.matchAll(MAKER)].length, 3, 'the Maker door is drawn somewhere other than the Event Hub widget');
+  assert.equal([...html.matchAll(MAKER)].length, 1, 'the Maker door is drawn somewhere other than the Event Hub widget');
   for (const at of [...html.matchAll(MAKER)].map((m) => m.index!)) {
     const before = html.slice(0, at);
     const owner = Math.max(before.lastIndexOf('data-home-tile="'), before.lastIndexOf('data-home-card-key="'));

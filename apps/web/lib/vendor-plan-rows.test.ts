@@ -97,9 +97,11 @@ test('picking a plan says what happens, by the live ladder', () => {
   assert.equal(planPickLine('free', 'free', null), 'You are on Free — nothing to pay');
 });
 
-test('owner 2026-11-22: every tool on every paid size — Plus says "All included" too', () => {
-  assert.equal(line('solo', 'tools'), 'All included');
-  assert.doesNotMatch(line('verified', 'tools') ?? '', /^All included$/);
-  assert.equal(line('pro', 'tools'), 'All included');
-  assert.equal(line('enterprise', 'tools'), 'All included');
+test('owner a02673ac (23 Nov): no plan says it includes a paid widget — bought once in the Toolkit, it works from Plus', () => {
+  for (const t of ['solo', 'pro', 'enterprise'] as const) {
+    assert.equal(line(t, 'tools'), 'Free widgets included · paid widgets work once bought in the Toolkit');
+  }
+  assert.equal(line('verified', 'tools'), 'Free widgets included · paid widgets work from Plus');
+  assert.equal(line('free', 'tools'), 'Free widgets from Verified · paid widgets work from Plus');
+  for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise'] as const) assert.doesNotMatch(line(t, 'tools') ?? '', /All included/);
 });

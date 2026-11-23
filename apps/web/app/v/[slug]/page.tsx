@@ -16,6 +16,7 @@ import { Suspense } from 'react';
 import { CheckADateLink } from './_components/check-a-date-link';
 import { CheckADateOverShop } from './_components/check-a-date-over-shop';
 import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
+import { readShopSpecialToolOpen } from '@/lib/paid-widget-open.server';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import Image from 'next/image';
@@ -1551,7 +1552,7 @@ export async function renderVendorBySlug({
   });
 
   // Per-category attribute details + portfolio gallery (iteration 0044).
-  const [attributeDetails, portfolioPhotos, microsite, igMedia, repertoire] = await Promise.all([
+  const [attributeDetails, portfolioPhotos, microsite, igMedia, repertoire, songBankOpen] = await Promise.all([
     fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
     resolvePortfolioPhotos(shopPortfolioKeys(vendor.portfolio_r2_keys, unlistedPageRefs), ownShop),
     // Microsite curation (My Shop → Website editor). Defensive read — an
@@ -1573,6 +1574,12 @@ export async function renderVendorBySlug({
       video with no viewer would have been a gate with no handle.
     */
     fetchVendorSongs(admin, vendor.vendor_profile_id),
+    // 🔒 Song bank is a paid widget (owner via the controller, 23 Nov): the set list shows only while it is open —
+    // bought once in the Toolkit, or in the plan. The Cake Maker's gate. Kept, never deleted, while shut.
+    // Asked only for a music shop — every other page skips the three reads.
+    isMusicToolCategory(vendor.services)
+      ? readShopSpecialToolOpen(admin, vendor.vendor_profile_id, 'song_bank')
+      : Promise.resolve({ status: 'none' } as const),
   ]);
   // ── Tier-gated website features · downgrade REVERTS (owner 2026-07-03) ──────
   // Every premium customization is gated on the vendor's CURRENT tier, mirroring
@@ -3208,7 +3215,7 @@ export async function renderVendorBySlug({
           couple this band plays nothing, which is a claim we cannot make about a
           list the band simply has not filled in yet.
         */}
-        {repertoire.length > 0 && isMusicToolCategory(vendor.services) ? (
+        {repertoire.length > 0 && isMusicToolCategory(vendor.services) && songBankOpen.status === 'ok' && songBankOpen.data ? (
           <section className="space-y-3 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               Songs they play

@@ -26,8 +26,9 @@ const src = stripComments(
 test('the public songs block is gated on the shared music rule, not just repertoire.length', () => {
   assert.match(
     src,
-    /\{repertoire\.length > 0 && isMusicToolCategory\(vendor\.services\) \? \(/,
-    'a non-music vendor with stray legacy repertoire rows must not show the songs block',
+    // 🔒 + the Song bank's paid gate (owner a02673ac): the set list shows only while the widget is open (bought AND on a plan).
+    /\{repertoire\.length > 0 && isMusicToolCategory\(vendor\.services\) && songBankOpen\.status === 'ok' && songBankOpen\.data \? \(/,
+    'a non-music vendor with stray legacy repertoire rows must not show the songs block, nor a shop whose Song bank is shut',
   );
 });
 

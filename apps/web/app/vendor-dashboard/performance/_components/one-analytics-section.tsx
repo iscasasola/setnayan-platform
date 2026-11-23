@@ -67,6 +67,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import { VerifiedMedianCard } from './verified-median-card';
 import { AnalyticsCarousel } from './analytics-carousel';
+import { analyticsGraphs } from '@/lib/supplier-store';
 import { fetchVendorPricePosition, type PricePositionResult } from '@/lib/price-position';
 import {
   EMPTY_FUNNEL_BENCHMARK,
@@ -165,10 +166,14 @@ export async function OneAnalyticsSection({
   supabase,
   userId,
   profile,
+  store,
 }: {
   supabase: SupabaseClient;
   userId: string;
   profile: VendorProfileRow;
+  /** 🛍 On the Shop (Store drawing v10): the graphs the shop picked, in its order (`null` = never picked → every open
+   *  graph), plus the "Add a graph" tile into the Store. Absent (Performance) = the carousel as before. */
+  store?: { graphs: readonly string[] | null; addHref: string };
 }) {
   // Owner/admin only — the ROI + momentum panels surface booking revenue. On the Shop tab a team member who is not an
   // owner/admin is TOLD so (the section's own line), never shown an empty carousel.
@@ -669,6 +674,8 @@ export async function OneAnalyticsSection({
         view={growthView}
         graphs={newGraphs}
         unlocks={{ hidden: [...unlocks.hidden], locked: unlocks.locked, unsure: unlocks.unsure }}
+        order={store ? analyticsGraphs(store.graphs, unlocks) : undefined}
+        addHref={store?.addHref}
         gifts={giftsOpen ? { '30': gifts30, '12': gifts12 } : null}
         giftsRecFacts={{ giftPoints, examplePoints: giftExamples }}
       />

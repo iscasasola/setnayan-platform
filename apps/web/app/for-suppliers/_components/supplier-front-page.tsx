@@ -25,7 +25,7 @@
  *   · § 5 is the live cards (`SupplierLiveCards`): the real Check a date month and Card 14, played on native scroll;
  *   · § 7 is the plans as growth stairs (`PlanStairs`, facts from `planStair`), replacing the plan rows;
  *   · a new specialized-tools part under Plans: each paid tool's chip reads its own live gate — the Cake Maker's from
- *     the special tools' start date (`readSpecialToolsPaidFrom` → `specialToolsOpenToAll`), the Papic challenge and
+ *     the paid widgets (bought once in the Toolkit, working on a paid plan — owner a02673ac), the Papic challenge and
  *     3D plan from the plan gate (`PRO_TOOLS_MIN_TIER`); the on-the-day tools are `SPECIALIZED_TOOLS`.
  *   Held by `the-redraw-plays-what-ships.test.ts`.
  *
@@ -50,8 +50,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { actionButtonClass } from '@/components/action-button-class';
-import { specialToolsOpenToAll } from '@/lib/special-tools';
 import type { SpecializedToolKey } from '@/lib/specialized-tools';
+import { toolkitCountWords, toolkitCounts } from '@/lib/supplier-store';
+import { SHOP_BADGE_KEYS } from '@/lib/badge-tiers';
 import { bookingFeeCapAmount, bookingFeeFigures, bookingFeeMinimumAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { BOOKING_FEE_CHARGED_WHEN } from '@/lib/booking-fee-lock';
 import { FEE_FREE_CHIP, FEE_SCOPE, SUPPLIER_FREE_BOOKING_LINE } from '@/lib/booking-fee-who-words';
@@ -209,20 +210,14 @@ const TOOLS: ReadonlyArray<{ img?: string; alt?: string; b: string; t: string; c
   { img: 't-price', alt: 'A caterer plating a dish', b: 'Your prices', t: 'Per guest, per hour, by size or one price.' },
 ];
 
-/** The special tools' start date as the page read it (`readSpecialToolsPaidFrom`, the reader the gate itself uses). */
-export type SupplierFrontSpecialTools = { status: 'ok'; paidFrom: string | null } | { status: 'unread' };
-
 export function SupplierFrontPage({
   prices,
   fee,
   afterPlans,
   giftFrom = null,
-  specialTools = { status: 'unread' },
   nowMs = Date.now(),
 }: {
   prices: SupplierFrontPrices;
-  /** The special tools' start date; unread → the Cake Maker's chip says nothing (never "open", never "locked"). */
-  specialTools?: SupplierFrontSpecialTools;
   /** The server's clock: the sample month, Check a date's today, and the special tools' gate. */
   nowMs?: number;
   /** Papic 150's catalogue LIST price, formatted ("₱…"), for the "How Setnayan earns" gift row; null when unread. */
@@ -261,8 +256,8 @@ export function SupplierFrontPage({
     FIRST_TOOLS_TIER && isGrowTier(FIRST_TOOLS_TIER)
       ? { name: growName(FIRST_TOOLS_TIER), price: growPrice(FIRST_TOOLS_TIER), href: openShopWithPlanHref(FIRST_TOOLS_TIER) }
       : null;
-  /** The Cake Maker's live gate: open to every plan before the admin's date; null when the date could not be read. */
-  const specialOpen = specialTools.status === 'ok' ? specialToolsOpenToAll(specialTools.paidFrom, nowMs) : null;
+  /** The Toolkit's live count (owner 5ae3fbb2), read from the one Toolkit list; nothing read = nothing shown. */
+  const toolkitCount = toolkitCountWords(toolkitCounts(SHOP_BADGE_KEYS));
 
   return (
     <div className={s.root}>
@@ -488,14 +483,14 @@ export function SupplierFrontPage({
         {afterPlans ? <div className={s.after}>{afterPlans}</div> : null}
       </section>
 
-      {/* SPECIALIZED TOOLS — under Plans (redraw 23 Nov). The three that come with a paid size, each chip from its OWN live
-          gate (`paidToolChip`): the Papic challenge and the 3D plan are Plus and up always (`PRO_TOOLS_MIN_TIER`); the Cake
-          Maker is open to every plan until the admin's start date (`special_tools_paid_from`), and says so. Then the
+      {/* THE TOOLKIT — under Plans (redraw 23 Nov). Its live count per shelf (owner 5ae3fbb2, `toolkitCounts`), then the
+          paid widgets, each bought once and working only on Plus, Pro or Ultra (owner a02673ac, `paidToolChip`). Then the
           on-the-day tools every shop has. Names and lines are `SPECIALIZED_TOOLS`. */}
       <section className={s.part} id="special" aria-labelledby="sf-h-special" data-rv="">
-        <SecHead id="sf-h-special">Specialized tools</SecHead>
-        <p className={s.ledeText}>Built for your craft. In every paid size.</p>
-        <ul className={s.strip} aria-label="Which plans carry the specialized tools">
+        <SecHead id="sf-h-special">Toolkit</SecHead>
+        {toolkitCount ? <p className={s.fine} data-toolkit-count="">{toolkitCount}</p> : null}
+        <p className={s.ledeText}>Built for your craft. Buy a paid widget once; it works in every paid size.</p>
+        <ul className={s.strip} aria-label="Which plans a paid widget works on">
           {STAIR_TIERS.map((t) => (
             <li key={t} className={stairHasTools(t) ? s.stripYes : undefined}>
               {stairHasTools(t) ? <Check aria-label="has them" className={s.stripIc} strokeWidth={2.4} /> : <Lock aria-label="locked" className={s.stripIc} strokeWidth={2} />}
@@ -505,7 +500,7 @@ export function SupplierFrontPage({
         </ul>
         <ul className={`${s.row} ${s.shelf}`}>
           {PAID_TOOL_TILES.map((t) => {
-            const chip = paidToolChip(t.key, specialOpen);
+            const chip = paidToolChip(t.key);
             return (
               <li key={t.key} className={s.tool}>
                 <div className={s.art}>

@@ -37,14 +37,6 @@ export default async function ForSuppliersLabPage({ searchParams }: { searchPara
   // `?paywall=1` draws the table as it reads with the plan paywall ON; the default is production's switch, OFF.
   const q = await searchParams;
   const paywallOn = q.paywall === '1';
-  // `?tools=paid` draws the specialized tools after the admin's start date (Free and Verified locked), `?tools=unread` a
-  // refused read; the default is "never set" — open to every plan, as production is until the admin sets the date.
-  const specialTools =
-    q.tools === 'paid'
-      ? ({ status: 'ok', paidFrom: new Date(0).toISOString() } as const)
-      : q.tools === 'unread'
-        ? ({ status: 'unread' } as const)
-        : ({ status: 'ok', paidFrom: null } as const);
   const origin = siteOrigin();
   const page = myPageUrl(origin, SAMPLE_SHOP.slug);
   const urls = {
@@ -67,7 +59,6 @@ export default async function ForSuppliersLabPage({ searchParams }: { searchPara
         fee={{ schedule: BOOKING_FEE, enabled: true }}
         codes={codes}
         paywallOn={paywallOn}
-        specialTools={specialTools}
       />
     </main>
   );

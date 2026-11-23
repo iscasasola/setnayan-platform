@@ -147,12 +147,16 @@ export function PartEditGate({
   }, [eventId, part]);
 
   const [saving, setSaving] = useState(false);
-  const confirm = useCallback(() => {
+  const confirm = useCallback(async () => {
     if (!draft) return;
     setSaving(true);
-    lock.edited();
-    writeFieldValues(bodyRef.current, resolveDraft(draft.rows, picks));
-    setDraft(null);
+    // The draft may have sat open past the 5 s window: claim the part again first. Someone else holding it now →
+    // nothing is written and the draft stays, under their "is editing" bar.
+    const mine = await lock.claim();
+    if (mine) {
+      writeFieldValues(bodyRef.current, resolveDraft(draft.rows, picks));
+      setDraft(null);
+    }
     setSaving(false);
   }, [draft, picks, lock]);
 
@@ -160,15 +164,19 @@ export function PartEditGate({
   let bar: ReactNode = null;
   if (draft) {
     bar = (
+      <>
+      {/* Someone claimed the part while the draft sat open: said, and Confirm writes nothing until it is free. */}
+      {locked ? <PartEditBar tone="held" words={editingWords(holder, part)} /> : null}
       <DraftOnLatestCard
         host={draft.by}
         rows={draft.rows}
         picks={picks}
         busy={saving}
         onPick={(k, p) => setPicks((v) => ({ ...v, [k]: p }))}
-        onConfirm={confirm}
+        onConfirm={() => void confirm()}
         onDiscard={() => setDraft(null)}
       />
+      </>
     );
   } else if (kept) {
     bar = (

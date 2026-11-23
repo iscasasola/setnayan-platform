@@ -4729,6 +4729,21 @@
       "actions": [],
       "blocks": []
     },
+    "/admin/admin-log": {
+      "files": [
+        "admin/admin-log/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "ErrorState",
+        "InfoTip",
+        "NoteField",
+        "PageMasthead",
+        "PickField"
+      ]
+    },
     "/admin/app-performance": {
       "files": [
         "admin/app-performance/_components/action-center.tsx",
@@ -4873,17 +4888,20 @@
     "/admin/approvals": {
       "files": [
         "admin/approvals/actions.ts",
+        "admin/approvals/escalation-ops.server.ts",
         "admin/approvals/page.tsx"
       ],
       "destinations": [],
       "actions": [
+        "adminTeamAct",
         "approveRequest",
-        "rejectRequest",
         "requestPrivilegedGrant"
       ],
       "blocks": [
         "ConsoleTable",
         "ErrorState",
+        "InfoTip",
+        "NoteField",
         "PageMasthead",
         "SubmitButton"
       ]
@@ -7376,6 +7394,31 @@
         "TemplateRow",
         "TemplateRows",
         "TemplateSection"
+      ]
+    },
+    "/admin/team": {
+      "files": [
+        "admin/team/_components/team-fields.tsx",
+        "admin/team/page.tsx",
+        "admin/team/team-ops.server.ts"
+      ],
+      "destinations": [
+        "/admin/admin-log?person=[seg]"
+      ],
+      "actions": [
+        "adminTeamAct"
+      ],
+      "blocks": [
+        "AreaGrid",
+        "ErrorState",
+        "FormRows",
+        "InfoTip",
+        "NoteField",
+        "PageMasthead",
+        "PickMenu",
+        "SubmitButton",
+        "TypedField",
+        "TypedRow"
       ]
     },
     "/admin/ugat": {

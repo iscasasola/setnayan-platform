@@ -184,6 +184,11 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-11-13 (admin areas × levels, migration 20271350705084) ──
+  admin_scopes:
+    'Staff console configuration: which admin areas an account may act in (granted_by is an actor stamp). Same kind of fact as the users.is_team_member flag, which the export already carries on the profile; no customer data.',
+  work_escalations:
+    'Admin notes about a WORK ITEM (a queue row). escalated_by / resolved_by are the ADMINS who acted — actor stamps, not the subject of the row.',
   admin_received_transactions:
     'Setnayan\'s own bank record (a transfer that arrived in our BDO, read from an admin screenshot). created_by / matched_by are the STAFF who dropped or matched it — actor stamps; the buyer\'s side of the money is their payments row, which is exported.',
   // ── added 2026-11-08 (service card checks, migration 20271328838140) ──

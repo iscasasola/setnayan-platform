@@ -68,6 +68,7 @@ Source: corpus `North_Star_Home_of_Every_Filipino_Celebration_2026-11-19.md`.
 
 Full values: corpus `HOUSE_DESIGN_STANDARD_2026-11-20.md` (it outranks anything here on values) plus `HOUSE_TEMPLATES.md`,
 `MOTION_STANDARD_2026-11-18.md`, `DARK_MODE_STANDARD_2026-11-20.md`. Token map: [`docs/design-token-map.md`](docs/design-token-map.md).
+**No generic "AI look":** the five Part I rules are in [`DESIGN.md`](DESIGN.md) (a pointer; the corpus standard wins).
 
 | Job | The one piece (path from `apps/web/`) | Rule |
 |---|---|---|

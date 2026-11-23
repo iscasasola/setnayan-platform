@@ -2,20 +2,16 @@
 import { TablePageSkeleton } from '@/components/skeletons';
 
 /**
- * ⚠ `actions={1}` IS LOAD-BEARING AND WAS LOST ONCE ALREADY.
+ * ⚠ THE ACTIONS COUNT FOLLOWS THE MASTHEAD — and it has already been wrong once in each direction.
  *
- * `TablePageSkeleton` used to hardcode `actions={1}` for every page that used
- * it. When that default flipped to 0 (2026-08-25) this file did not change and
- * its behaviour did — the reservation vanished from a bare re-export nobody
- * edited. /admin/pricing's DEFAULT tab renders an unconditional "Download
- * legacy catalog report" button in its masthead (`_surfaces/pricing-surface.tsx`),
- * so on every plain load a 44px control now dropped in out of nowhere.
- *
- * 🔑 It went unseen because this page has NO `<PageMasthead>` of its own — the
- * masthead lives in the tab surface it imports, and the guard's actions rule
- * only read page.tsx. That asymmetry is closed; see
- * `the-skeleton-promises-only-what-the-page-draws.test.ts`.
+ * Until 23 Nov 2026 this was `actions={1}`: the default tab's masthead (`_surfaces/pricing-surface.tsx`) held an
+ * unconditional "Download legacy catalog report" button, and losing that reservation once (the 2026-08-25 default
+ * flip) made a 44px control drop in on every load. The admin clean port (#8018, owner 19 Nov) moved that link down
+ * beside the legacy catalogue it downloads, so the masthead is title-only and a reserved slot would now collapse when
+ * the page lands. 🔑 The masthead lives in the tab surface, not page.tsx —
+ * `the-skeleton-promises-only-what-the-page-draws.test.ts` reads both, so a button added back there fails until this
+ * says 1 again.
  */
 export default function Loading() {
-  return <TablePageSkeleton actions={1} />;
+  return <TablePageSkeleton actions={0} />;
 }

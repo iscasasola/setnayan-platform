@@ -20,7 +20,8 @@ test('a search hit returns to its results, words and all', () => {
   const a = arrivalParams({ src: 'search', q: 'lights and sound' });
   assert.deepEqual(shopBackDoor({ src: a.src, eventId: null, q: a.q }), { href: '/?q=lights%20and%20sound', label: 'Back to results', back: true });
   // No words → Discover, as before; never a bare "/" labelled as the results.
-  assert.equal(shopBackDoor({ src: 'search', eventId: null }).href, '/');
+  // 23 Nov 2026: Discover's own door — a signed-in bare `/` opens Home.
+  assert.equal(shopBackDoor({ src: 'search', eventId: null }).href, '/?discover=1');
 });
 
 test('a door from another page of ours carries that page, checked', () => {
@@ -60,5 +61,7 @@ test('the eight doors that sent no origin now send one', () => {
     assert.doesNotMatch(src, /<(?:Link|a)\s+href=\{`(?:\/v\/\$\{[\w.]+\}|\$\{shopPath\([\w.]+\)\})`\}/, `${f}: a bare /v/<slug> link is back`);
   }
   // The shop page reads both new halves of the arrival.
-  assert.match(code('app/v/[slug]/page.tsx'), /q: arrivalParams\(search\)\.q, from: arrivalParams\(search\)\.from \}/);
+  // (2026-11-16: read once into `arrivalTags`, which also carries the material tag — lib/material-tags.ts.)
+  assert.match(code('app/v/[slug]/page.tsx'), /const arrivalTags = arrivalParams\(search\);/);
+  assert.match(code('app/v/[slug]/page.tsx'), /q: arrivalTags\.q, from: arrivalTags\.from,/);
 });

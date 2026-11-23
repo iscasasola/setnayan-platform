@@ -21,6 +21,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
 import { ConsoleTable, type ConsoleColumn } from '@/app/admin/_components/console-table';
 import { formatCount } from '@/lib/format-number';
+import { DISCOVER_HREF } from '@/lib/discover-href';
 
 /**
  * StorytellersSurface — the chapter-featuring body of the tabbed /admin/studio
@@ -284,7 +285,7 @@ export async function StorytellersSurface({
       <PageMasthead
         title="Storytellers"
         actions={
-          <ActionButton tone="info" href="/" icon={<BookOpen aria-hidden />} label="View on Discover" />
+          <ActionButton tone="info" href={DISCOVER_HREF} icon={<BookOpen aria-hidden />} label="View on Discover" />
         }
         className="mb-6"
       />

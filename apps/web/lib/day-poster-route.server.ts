@@ -147,7 +147,7 @@ export async function dayPosterGet(url: URL, eventId: string): Promise<NextRespo
 }
 
 /** Measure a photo's pixels once, when it is first picked (the too-small warning reads them). Unreadable → null. */
-async function measure(ref: string): Promise<{ w: number; h: number } | null> {
+async function measurePhotoSides(ref: string): Promise<{ w: number; h: number } | null> {
   try {
     const u = await displayUrlForStoredAsset(ref);
     const res = u ? await fetch(u, { signal: AbortSignal.timeout(10000) }) : null;
@@ -180,7 +180,7 @@ export async function dayPosterPost(form: FormData, eventId: string): Promise<Ne
   // A photo picked for the first time is measured here (unknown sides never warn — `photoTooSmallFor`).
   const sized = async (p: PosterPhoto | null): Promise<PosterPhoto | null> => {
     if (!p || (p.w && p.h)) return p;
-    const m = await measure(p.ref);
+    const m = await measurePhotoSides(p.ref);
     return m ? { ref: p.ref, ...m } : p;
   };
   const [main, ...supporting] = await Promise.all([sized(asked.main), ...asked.supporting.map(sized)]);

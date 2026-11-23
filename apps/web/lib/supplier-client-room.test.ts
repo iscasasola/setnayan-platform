@@ -14,21 +14,21 @@ import { storageWords } from './downgrade-limits';
 import { STORAGE_GB, STORAGE_MB, TIER_CAPS, VENDOR_TIERS } from './vendor-tier-caps';
 import { CLIENTS_FOOTNOTE, CLIENT_WORDS_FROM, clientsKept, clientsKeptWords, friendlyFloor, planStorageLine } from './supplier-client-room';
 
-test('1 · each plan keeps about: Free 100 MB · Verified 1 GB · Plus 10 GB · Pro 256 GB · Ultra 1 TB', () => {
-  assert.equal(clientsKept(TIER_CAPS.free.storageBytes), 120);
+test('1 · each plan keeps about: Free 50 MB · Verified 1 GB · Plus 50 GB · Pro 256 GB · Ultra 1 TB', () => {
+  assert.equal(clientsKept(TIER_CAPS.free.storageBytes), 60);
   assert.equal(clientsKept(TIER_CAPS.verified.storageBytes), 1_300);
-  assert.equal(clientsKept(TIER_CAPS.solo.storageBytes), 13_000);
+  assert.equal(clientsKept(TIER_CAPS.solo.storageBytes), 65_000);
   assert.equal(clientsKept(TIER_CAPS.pro.storageBytes), 330_000);
   assert.equal(clientsKept(TIER_CAPS.enterprise.storageBytes), 1_300_000);
 });
 
 test('1b · it follows the size, not a typed table', () => {
-  assert.equal(clientsKept(50 * STORAGE_MB), 62);
+  assert.equal(clientsKept(100 * STORAGE_MB), 120);
   assert.equal(clientsKept(2 * STORAGE_GB), 2_600);
 });
 
 test('2 · the headline on each plan card, with its asterisk, and the one footnote', () => {
-  assert.equal(clientsKeptWords('free'), 'Keeps about 120 clients at a time*');
+  assert.equal(clientsKeptWords('free'), 'Keeps about 60 clients at a time*');
   assert.equal(clientsKeptWords('verified'), 'Keeps about 1,300 clients at a time*');
   assert.equal(clientsKeptWords('solo'), 'Keeps tens of thousands of clients*');
   assert.equal(clientsKeptWords('pro'), 'Keeps hundreds of thousands of clients*');
@@ -44,7 +44,7 @@ test('2 · the headline on each plan card, with its asterisk, and the one footno
 });
 
 test('3 · the size line under it is the size from storageWords; a counted plan says how to make room', () => {
-  assert.equal(planStorageLine('free'), '100 MB storage · clear older clients’ photos to make room');
+  assert.equal(planStorageLine('free'), '50 MB storage · clear older clients’ photos to make room');
   assert.equal(planStorageLine('verified'), '1 GB storage · clear older clients’ photos to make room');
   assert.equal(planStorageLine('pro'), '256 GB storage');
   for (const t of VENDOR_TIERS) assert.ok(planStorageLine(t)!.startsWith(`${storageWords(TIER_CAPS[t].storageBytes!)} storage`), t);
@@ -54,7 +54,8 @@ test('4 · unknown sizes, rounding down, and order', () => {
   for (const v of [null, undefined, 0, -1, Number.NaN, Infinity]) assert.equal(clientsKept(v as number | null), null, String(v));
   assert.equal(friendlyFloor(128.4), 120);
   assert.equal(friendlyFloor(1_308), 1_300);
-  assert.equal(friendlyFloor(62.9), 62);
+  assert.equal(friendlyFloor(62.9), 60);
+  assert.equal(friendlyFloor(7.9), 7);
   assert.equal(friendlyFloor(0.4), 0);
   let last = 0;
   for (const t of VENDOR_TIERS) {

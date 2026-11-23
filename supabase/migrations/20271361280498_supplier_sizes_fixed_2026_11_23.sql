@@ -2,14 +2,14 @@
 -- Created via `pnpm migration:new`. KEEP THIS MIGRATION IDEMPOTENT (it may be re-applied).
 -- ============================================================================
 -- 💾 SUPPLIER SIZES FIXED — owner 2026-11-23 (specs DECISION_LOG 2026-11-23 "SUPPLIER SIZES FIXED"). The final cut, after
--- "Let's fix this" the same day: Free 100 MB ("free … is only for them to experience it") · Verified 1 GB · Plus 10 GB
--- ("100MB 1GB 10 GB") · Pro 256 GB ("Pro is 256Gb") · Ultra 1 TB ("Ultra is 1TB"). The chat & documents room is dropped
--- ("let us not set Room anymore?" → "Yes, drop it"): one storage number per plan.
+-- "Let's fix this" the same day: Free 50 MB ("free should only be 50 clients compressed photos" · "it is only for them to
+-- experience it") · Verified 1 GB · Plus 50 GB · Pro 256 GB ("Pro is 256Gb") · Ultra 1 TB ("Ultra is 1TB"); confirmed by
+-- the owner in the builder session. The chat & documents room is dropped ("Yes, drop it"): one storage number per plan.
 --
 --   plan (code)          was       now
---   Free     (free)       256 MB    100 MB
+--   Free     (free)       256 MB    50 MB
 --   Verified (verified)   2 GB      1 GB
---   Plus     (solo)       128 GB    10 GB
+--   Plus     (solo)       128 GB    50 GB
 --   Pro      (pro)        500 GB    256 GB
 --   Ultra    (enterprise) 1 TB      1 TB
 --
@@ -63,9 +63,9 @@ AS $$
         END
       WHEN 'storage_mb' THEN                    -- whole MB (decimal, as the supplier reads it); replaces 'storage_gb'
         CASE t.plan
-          WHEN 'free'       THEN 100            -- owner 2026-11-23 "100MB" (was 256)
-          WHEN 'verified'   THEN 1000           -- owner 2026-11-23 "1GB" (was 2,000)
-          WHEN 'solo'       THEN 10000          -- owner 2026-11-23 "10 GB" (was 128,000)
+          WHEN 'free'       THEN 50             -- owner 2026-11-23 "free should only be 50 clients compressed photos" (was 256)
+          WHEN 'verified'   THEN 1000           -- owner 2026-11-23 Verified 1 GB (was 2,000)
+          WHEN 'solo'       THEN 50000          -- owner 2026-11-23 Plus 50 GB (was 128,000)
           WHEN 'pro'        THEN 256000         -- owner 2026-11-23 "Pro is 256Gb" (was 500,000)
           WHEN 'enterprise' THEN 1000000        -- owner 2026-11-23 "Ultra is 1TB" (unchanged)
         END
@@ -80,6 +80,6 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.vendor_tier_limit(text, text) IS
-  'Per-plan limits. Reads public.vendor_plan_contents first (admin-editable since 2026-11-13, two-admin approval), falling back to the code values when no row exists. Keys: whitelist_per_date · waitlist_acceptances · branches_included · storage_mb (the table also holds service_cards_total · parent_categories · agent_accounts, which the app reads). branches_included: NULL = no limit (Pro and Ultra since 2026-11-22), and a stored NULL row is honoured. storage_mb (whole MB, decimal): 100 · 1000 · 10000 · 256000 · 1000000 (owner 2026-11-23 "SUPPLIER SIZES FIXED": Free 100 MB · Verified 1 GB · Plus 10 GB · Pro 256 GB · Ultra 1 TB; no chat & documents room). An unknown TIER reads as Free; an unknown KEY returns NULL on purpose. Fallback mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts.';
+  'Per-plan limits. Reads public.vendor_plan_contents first (admin-editable since 2026-11-13, two-admin approval), falling back to the code values when no row exists. Keys: whitelist_per_date · waitlist_acceptances · branches_included · storage_mb (the table also holds service_cards_total · parent_categories · agent_accounts, which the app reads). branches_included: NULL = no limit (Pro and Ultra since 2026-11-22), and a stored NULL row is honoured. storage_mb (whole MB, decimal): 50 · 1000 · 50000 · 256000 · 1000000 (owner 2026-11-23 "SUPPLIER SIZES FIXED": Free 50 MB · Verified 1 GB · Plus 50 GB · Pro 256 GB · Ultra 1 TB; no chat & documents room). An unknown TIER reads as Free; an unknown KEY returns NULL on purpose. Fallback mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts.';
 
 COMMIT;

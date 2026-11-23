@@ -105,7 +105,7 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
       line: clientsKeptWords(tier) ?? 'Couldn’t read',
     },
     {
-      // 💾 Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes — 100 MB · 1 GB · 10 GB · 256 GB · 1 TB (fixed 23 Nov), in the words
+      // 💾 Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes — 50 MB · 1 GB · 50 GB · 256 GB · 1 TB (fixed 23 Nov), in the words
       // `storageWords` prints everywhere else (decimal GB / TB).
       key: 'storage',
       title: 'Storage for your files',

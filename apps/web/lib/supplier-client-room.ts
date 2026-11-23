@@ -52,10 +52,10 @@ export const CLIENT_WORDS_FROM = 10_000;
 /** The footnote under the plan cards — one string, read by every surface that shows the asterisk. */
 export const CLIENTS_FOOTNOTE = `*An estimate: one booked client with ${CLIENT_PHOTOS} photos collected for that event only.`;
 
-/** Rounded DOWN to two significant figures, so the card never promises more: 128 → 120 · 1,308 → 1,300 · 13,104 → 13,000. */
+/** Rounded DOWN to a friendly number, so the card never promises more: 62.9 → 60 · 128 → 120 · 1,308 → 1,300 · 65,530 → 65,000. */
 export function friendlyFloor(n: number): number {
   if (!Number.isFinite(n) || n < 1) return 0;
-  const step = n < 100 ? 1 : 10 ** (Math.floor(Math.log10(n)) - 1);
+  const step = n < 10 ? 1 : n < 100 ? 5 : 10 ** (Math.floor(Math.log10(n)) - 1);
   return Math.floor(n / step) * step;
 }
 
@@ -76,7 +76,7 @@ function sizeWords(n: number): string {
 const isWords = (n: number) => n >= CLIENT_WORDS_FROM;
 
 /**
- * The plan card's headline: "Keeps about 120 clients at a time*" · "Keeps tens of thousands of clients*".
+ * The plan card's headline: "Keeps about 60 clients at a time*" · "Keeps tens of thousands of clients*".
  * Null when the plan's size is unknown (the card then leads with its size, never a guess).
  */
 export function clientsKeptWords(plan: string | null | undefined): string | null {
@@ -87,7 +87,7 @@ export function clientsKeptWords(plan: string | null | undefined): string | null
 
 /**
  * The line under the headline: the size, from `TIER_CAPS` via `storageWords`. A plan whose count is a number also says
- * how to make room ("100 MB storage · clear older clients’ photos to make room"); a paid size says its size alone.
+ * how to make room ("50 MB storage · clear older clients’ photos to make room"); a paid size says its size alone.
  */
 export function planStorageLine(plan: string | null | undefined): string | null {
   const bytes = TIER_CAPS[asVendorTier(plan)].storageBytes;

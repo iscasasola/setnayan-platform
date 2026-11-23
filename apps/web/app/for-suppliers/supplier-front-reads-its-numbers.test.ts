@@ -138,7 +138,7 @@ test('owner 2026-11-22: every tool on every paid size — the 3D booth logo and 
 });
 
 test('owner via controller 22 Nov: a plan is never its size alone — Free and Verified cards say what they hold, with the size', () => {
-  assert.equal(planLine('free'), 'Keeps about 120 clients at a time*. Run your own clients, 1 live service, just you, main shop only, and 100 MB.');
+  assert.equal(planLine('free'), 'Keeps about 60 clients at a time*. Run your own clients, 1 live service, just you, main shop only, and 50 MB.');
   assert.equal(planLine('verified'), 'Keeps about 1,300 clients at a time*. On the marketplace with the basics, 3 live services, just you, main shop only, and 1 GB.');
   // 23 Nov redraw (plans as growth stairs): every card — Free and Verified too — is its size AND its facts, from `planStair`.
   const page = code('app/for-suppliers/_components/supplier-front-page.tsx');

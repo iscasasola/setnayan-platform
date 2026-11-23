@@ -25,11 +25,11 @@ test('what a plan gives is read from TIER_CAPS', () => {
   assert.equal(line('pro', 'services'), 'No limit in total · every kind of work');
   assert.match(line('pro', 'helpers')!, /^No limit \+ 1 free Helper/);
   assert.equal(line('enterprise', 'services'), 'No limit in total · every kind of work');
-  // Storage is what the plans are sold by: 100 MB · 1 GB · 10 GB · 256 GB · 1 TB (owner 2026-11-23 "SUPPLIER SIZES FIXED").
-  assert.deepEqual(['free', 'verified', 'solo', 'pro', 'enterprise'].map((t) => line(t, 'storage')), ['100 MB', '1 GB', '10 GB', '256 GB', '1 TB']);
+  // Storage is what the plans are sold by: 50 MB · 1 GB · 50 GB · 256 GB · 1 TB (owner 2026-11-23 "SUPPLIER SIZES FIXED").
+  assert.deepEqual(['free', 'verified', 'solo', 'pro', 'enterprise'].map((t) => line(t, 'storage')), ['50 MB', '1 GB', '50 GB', '256 GB', '1 TB']);
   // …and, clients first, about how many clients that keeps, computed from the size (owner 2026-11-23, `clientsKeptWords`).
   for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise']) assert.equal(line(t, 'clients'), clientsKeptWords(t), t);
-  assert.equal(line('free', 'clients'), 'Keeps about 120 clients at a time*');
+  assert.equal(line('free', 'clients'), 'Keeps about 60 clients at a time*');
   // 🔓 No reach line on any plan since 2026-11-19 (owner: "unlock the range. not plan dependend anymore").
   for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise']) assert.equal(line(t, 'reach'), undefined, t);
   // Own web address from Plus up ("website applies to solo as well"); below it, the plan is named from the table.

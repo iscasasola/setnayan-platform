@@ -3,7 +3,7 @@
  * 20271361280498_supplier_sizes_fixed_2026_11_23 (on top of 20271360033501_supplier_final_ladder_2026_11_22).
  *
  * Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes; sizes fixed by owner 2026-11-23 "SUPPLIER SIZES FIXED":
- * Free 100 MB · Verified 1 GB · Plus 10 GB · Pro 256 GB · Ultra 1 TB (no chat & documents room: "Yes, drop it"). Every plan has an allowance (Free and Verified had none before).
+ * Free 50 MB · Verified 1 GB · Plus 50 GB · Pro 256 GB · Ultra 1 TB (no chat & documents room: "Yes, drop it"). Every plan has an allowance (Free and Verified had none before).
  *
  *   · PARITY derives from the TypeScript side (`TIER_CAPS[t].storageBytes`), so editing one side alone turns CI red;
  *   · the database refuses NEW bytes past the allowance, as the shop itself under RLS;
@@ -118,8 +118,8 @@ test('vendor_tier_limit(…,storage_mb) says exactly what TIER_CAPS says — eve
     assert.equal(mb === null ? null : mb * MB, TIER_CAPS[tier].storageBytes, `${tier} storage`);
   }
   const unknown = await db.query<{ mb: number | null }>(`SELECT public.vendor_tier_limit(NULL,'storage_mb') AS mb`);
-  assert.equal(unknown.rows[0]!.mb, 100, 'an unknown tier reads as Free — 100 MB');
-  // The whole-GB key is gone (it could not say 100 MB): an unknown key answers NULL, never a stale number.
+  assert.equal(unknown.rows[0]!.mb, 50, 'an unknown tier reads as Free — 50 MB');
+  // The whole-GB key is gone (it could not say 50 MB): an unknown key answers NULL, never a stale number.
   const old = await db.query<{ gb: number | null }>(`SELECT public.vendor_tier_limit('free','storage_gb') AS gb`);
   assert.equal(old.rows[0]!.gb, null, 'storage_gb still answers — two keys for one number');
   // The branch arm still answers beside it: Pro has no limit (NULL), as TIER_CAPS' Infinity.
@@ -137,18 +137,18 @@ test('Verified: files up to exactly 1 GB, and the next new byte is refused with 
   assert.equal(await used(s.shop), 1 * GB, 'the refused file was counted');
 });
 
-test('Plus holds 10 GB, Pro 256 GB and Ultra (enterprise) 1 TB — owner 2026-11-23', async () => {
-  for (const [tier, gb] of [['solo', 10], ['pro', 256], ['enterprise', 1000]] as const) {
+test('Plus holds 50 GB, Pro 256 GB and Ultra (enterprise) 1 TB — owner 2026-11-23', async () => {
+  for (const [tier, gb] of [['solo', 50], ['pro', 256], ['enterprise', 1000]] as const) {
     const s = await newShop(tier);
     assert.equal((await file(s, await store(s, gb * GB))).error, null, `${tier}: exactly ${gb} GB must fit`);
     assert.match((await file(s, await store(s, 1))).error ?? '', /storage_allowance/, `${tier}: a byte past ${gb} GB was let in`);
   }
 });
 
-test('Free holds 100 MB — the next new byte past it is refused, in the supplier\'s words (owner 2026-11-23)', async () => {
+test('Free holds 50 MB — the next new byte past it is refused, in the supplier\'s words (owner 2026-11-23)', async () => {
   const s = await newShop('free');
-  assert.equal((await file(s, await store(s, 100 * MB))).error, null, 'exactly 100 MB must fit');
-  assert.match((await file(s, await store(s, 1))).error ?? '', /storage_allowance: this file does not fit the 100 MB your plan holds/);
+  assert.equal((await file(s, await store(s, 50 * MB))).error, null, 'exactly 50 MB must fit');
+  assert.match((await file(s, await store(s, 1))).error ?? '', /storage_allowance: this file does not fit the 50 MB your plan holds/);
 });
 
 test('a link to a copy already counted adds nothing and is never refused — even at full', async () => {

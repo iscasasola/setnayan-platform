@@ -49,19 +49,19 @@ const GB = 1_000_000_000;
 const MB = 1_000_000;
 
 // ── 1 · the numbers ────────────────────────────────────────────────────────
-test('the owner’s numbers (2026-11-23 SUPPLIER SIZES FIXED): Free 100 MB · Verified 1 GB · Plus 10 GB · Pro 256 GB · Ultra 1 TB', () => {
+test('the owner’s numbers (2026-11-23 SUPPLIER SIZES FIXED): Free 50 MB · Verified 1 GB · Plus 50 GB · Pro 256 GB · Ultra 1 TB', () => {
   assert.equal(STORAGE_GB, GB, 'a storage GB is the decimal GB the supplier reads');
-  assert.equal(TIER_CAPS.free.storageBytes, 100 * MB, 'owner 23 Nov: "100MB"');
-  assert.equal(TIER_CAPS.verified.storageBytes, 1 * GB, 'owner 23 Nov: "1GB"');
-  assert.equal(TIER_CAPS.solo.storageBytes, 10 * GB, 'owner 23 Nov: "10 GB"');
+  assert.equal(TIER_CAPS.free.storageBytes, 50 * MB, 'owner 23 Nov: "free should only be 50 clients compressed photos"');
+  assert.equal(TIER_CAPS.verified.storageBytes, 1 * GB, 'owner 23 Nov: Verified 1 GB');
+  assert.equal(TIER_CAPS.solo.storageBytes, 50 * GB, 'owner 23 Nov: Plus 50 GB');
   assert.equal(TIER_CAPS.pro.storageBytes, 256 * GB, 'owner 23 Nov: "Pro is 256Gb"');
   assert.equal(TIER_CAPS.enterprise.storageBytes, 1000 * GB);
 });
 
 test('storageAllowanceBytes reads TIER_CAPS for every plan — and an unknown plan reads as Free', () => {
   for (const t of VENDOR_TIERS) assert.equal(storageAllowanceBytes(t), TIER_CAPS[t].storageBytes, t);
-  assert.equal(storageAllowanceBytes(null), 100 * MB, 'an unknown plan reads as Free');
-  assert.equal(storageAllowanceBytes('nonsense'), 100 * MB);
+  assert.equal(storageAllowanceBytes(null), 50 * MB, 'an unknown plan reads as Free');
+  assert.equal(storageAllowanceBytes('nonsense'), 50 * MB);
   // The old stub returned null for every plan; the server module now re-exports the rule rather than typing a number.
   const src = read('lib/downgrade-limits.server.ts');
   assert.match(src, /export \{ storageAllowanceBytes \} from '@\/lib\/supplier-storage'/);
@@ -76,27 +76,27 @@ test('the paid storage packs stay off: nothing here offers or prices them', () =
 
 test('“What <plan> gives you” names each plan’s storage from the table', () => {
   const line = (t: string) => planGivesLines(t, true).find((l) => l.key === 'storage')?.line;
-  assert.equal(line('free'), '100 MB');
+  assert.equal(line('free'), '50 MB');
   assert.equal(line('verified'), '1 GB');
-  assert.equal(line('solo'), '10 GB');
+  assert.equal(line('solo'), '50 GB');
   assert.equal(line('pro'), '256 GB');
   assert.equal(line('enterprise'), '1 TB');
 });
 
 // ── 2 · the refusal ────────────────────────────────────────────────────────
 test('storageFits: up to the allowance fits, one byte past does not — on every plan', () => {
-  assert.equal(storageFits('solo', 9 * GB, GB), true, 'exactly 10 GB fits');
-  assert.equal(storageFits('solo', 9 * GB, GB + 1), false);
+  assert.equal(storageFits('solo', 49 * GB, GB), true, 'exactly 50 GB fits');
+  assert.equal(storageFits('solo', 49 * GB, GB + 1), false);
   assert.equal(storageFits('pro', 255.9 * GB, 0.2 * GB), false);
   assert.equal(storageFits('enterprise', 999 * GB, GB), true);
-  assert.equal(storageFits('free', 50 * MB, 50 * MB), true, 'exactly 100 MB fits');
-  assert.equal(storageFits('free', 50 * MB, 50 * MB + 1), false);
+  assert.equal(storageFits('free', 25 * MB, 25 * MB), true, 'exactly 50 MB fits');
+  assert.equal(storageFits('free', 25 * MB, 25 * MB + 1), false);
   assert.equal(storageFits('verified', 1 * GB, 1), false);
 });
 
 test('the refusal names the plan, what is left, the way to make room and the next plan up — and touches nothing', () => {
-  const m = storageFullMessage('solo', 9.9 * GB, 200_000_000);
-  assert.match(m, /This file is 200 MB, and your Plus plan has 100 MB of its 10 GB left\./);
+  const m = storageFullMessage('solo', 49.9 * GB, 200_000_000);
+  assert.match(m, /This file is 200 MB, and your Plus plan has 100 MB of its 50 GB left\./);
   assert.match(m, /Remove files from an event to make room or move to Pro: every tool, no limit on services, people or branches, and 256 GB\./);
   assert.match(m, /Nothing you stored was changed\./);
   const full = storageFullMessage('pro', 256 * GB, 1_000_000);
@@ -107,7 +107,7 @@ test('the refusal names the plan, what is left, the way to make room and the nex
   assert.match(ultra, /Your Ultra plan’s 1 TB of storage is full\. Remove files from an event to make room\./);
   assert.doesNotMatch(ultra, /move to/);
   // Free and Verified point at the first PAID size — Verified is earned by verifying, never "moved to".
-  assert.match(storageFullMessage('free', 100 * MB, 1_000_000), /Your Free plan’s 100 MB of storage is full\. Remove files from an event to make room or move to Plus: every tool, 15 live services, you and 2 more, main shop only, and 10 GB\./);
+  assert.match(storageFullMessage('free', 50 * MB, 1_000_000), /Your Free plan’s 50 MB of storage is full\. Remove files from an event to make room or move to Plus: every tool, 15 live services, you and 2 more, main shop only, and 50 GB\./);
   assert.equal(nextStoragePlan('free'), 'solo');
   assert.equal(nextStoragePlan('verified'), 'solo');
   assert.equal(nextStoragePlan('solo'), 'pro');
@@ -141,11 +141,11 @@ function stub(opts: { tier?: string | null; tierError?: boolean; used?: unknown;
   } as unknown as Parameters<typeof server.readStoredBytes>[0];
 }
 
-test('checkSupplierStorage: a Plus shop at 9.9 GB is refused a 200 MB file, with the sentence the supplier reads', async () => {
-  const r = await server.checkSupplierStorage(stub({ tier: 'solo', used: 9.9 * GB }), 'shop', 200_000_000);
+test('checkSupplierStorage: a Plus shop at 49.9 GB is refused a 200 MB file, with the sentence the supplier reads', async () => {
+  const r = await server.checkSupplierStorage(stub({ tier: 'solo', used: 49.9 * GB }), 'shop', 200_000_000);
   assert.equal(r.kind, 'full');
-  assert.equal(r.kind === 'full' && r.message, storageFullMessage('solo', 9.9 * GB, 200_000_000));
-  assert.equal((await server.checkSupplierStorage(stub({ tier: 'solo', used: 9.9 * GB }), 'shop', 50_000_000)).kind, 'fits');
+  assert.equal(r.kind === 'full' && r.message, storageFullMessage('solo', 49.9 * GB, 200_000_000));
+  assert.equal((await server.checkSupplierStorage(stub({ tier: 'solo', used: 49.9 * GB }), 'shop', 50_000_000)).kind, 'fits');
   // A shop already over (grandfathered) keeps everything — and is refused only the next file.
   assert.equal((await server.checkSupplierStorage(stub({ tier: 'pro', used: 300 * GB }), 'shop', 1)).kind, 'full');
   // Free · Verified have an allowance now too: counted, refused past it, and a blind read fails closed.
@@ -194,11 +194,11 @@ test('a failed read refuses the upload (fail closed) — a cap that waves files 
 });
 
 test('the Plan’s Storage row: “X of Y used”, full, over — and a failed read says so instead of 0', () => {
-  assert.equal(storageRowLine('solo', { status: 'ok', bytes: 1_240_000_000 }), '1.2 GB of 10 GB used');
+  assert.equal(storageRowLine('solo', { status: 'ok', bytes: 1_240_000_000 }), '1.2 GB of 50 GB used');
   assert.equal(storageRowLine('pro', { status: 'ok', bytes: 0 }), '0 MB of 256 GB used');
   assert.equal(storageRowLine('pro', { status: 'ok', bytes: 800_000_000 }), '800 MB of 256 GB used');
   assert.equal(storageRowLine('verified', { status: 'ok', bytes: 1 * GB }), '1 GB of 1 GB used · full');
-  assert.equal(storageRowLine('free', { status: 'ok', bytes: 1.5 * GB }), '1.5 GB of 100 MB used · over — new files wait for room');
+  assert.equal(storageRowLine('free', { status: 'ok', bytes: 1.5 * GB }), '1.5 GB of 50 MB used · over — new files wait for room');
   assert.equal(storageRowLine('enterprise', { status: 'unread' }), STORAGE_UNREAD);
   assert.equal(storageRowLine('free', { status: 'unread' }), STORAGE_UNREAD, 'every plan draws the row now');
   assert.doesNotMatch(STORAGE_UNREAD, /\b0\b/);
@@ -215,20 +215,20 @@ test('the Plan screen draws the row from the honest read, and the limits sheet r
   assert.match(facts, /storedBytes: stored\.status === 'ok' \? stored\.bytes : null/);
 });
 
-test('the limits sheet: Pro → Plus over 10 GB waits for room; an unread store says so, never “fits”', () => {
+test('the limits sheet: Pro → Plus over 50 GB waits for room; an unread store says so, never “fits”', () => {
   const facts: DowngradeFacts = {
     founder: false,
     cards: [],
     includedBranches: 0,
     seats: null,
     extraSeats: 0,
-    storedBytes: 17 * GB,
+    storedBytes: 57 * GB,
     badge: null,
   };
   const over = downgradeFit(facts, 'pro', 'solo', { paywallOn: true, storageAllowanceBytes: storageAllowanceBytes('solo'), now: new Date('2026-11-13') });
   const row = over.rows.find((r) => r.key === 'storage');
   assert.equal(row?.state, 'blocks');
-  assert.match(row?.line ?? '', /You store 17 GB · Plus holds 10 GB\. Remove 7 GB first\./);
+  assert.match(row?.line ?? '', /You store 57 GB · Plus holds 50 GB\. Remove 7 GB first\./);
   const blind = downgradeFit({ ...facts, storedBytes: null }, 'pro', 'solo', { paywallOn: true, storageAllowanceBytes: storageAllowanceBytes('solo'), now: new Date('2026-11-13') });
   assert.equal(blind.rows.find((r) => r.key === 'storage')?.state, 'unread');
 });
@@ -236,9 +236,9 @@ test('the limits sheet: Pro → Plus over 10 GB waits for room; an unread store 
 // 📋 Owner 2026-11-22: "supplier plans is not just Memory Space. but features for their account as well" — a plan is never
 // shown as its size alone (build-sessions/SUPPLIER-PLANS-EXPLAINED-2026-11-22.md).
 test('a plan reads its account features WITH its size — never the size alone', () => {
-  assert.equal(planSummaryWords('free'), 'run your own clients, 1 live service, just you, main shop only, and 100 MB');
+  assert.equal(planSummaryWords('free'), 'run your own clients, 1 live service, just you, main shop only, and 50 MB');
   assert.equal(planSummaryWords('verified'), 'on the marketplace with the basics, 3 live services, just you, main shop only, and 1 GB');
-  assert.equal(planSummaryWords('solo'), `every tool, ${TIER_CAPS.solo.serviceCardsTotal} live services, you and ${TIER_CAPS.solo.agentAccounts} more, main shop only, and 10 GB`);
+  assert.equal(planSummaryWords('solo'), `every tool, ${TIER_CAPS.solo.serviceCardsTotal} live services, you and ${TIER_CAPS.solo.agentAccounts} more, main shop only, and 50 GB`);
   assert.equal(planSummaryWords('pro'), 'every tool, no limit on services, people or branches, and 256 GB');
   assert.equal(planSummaryWords('enterprise'), 'every tool, no limit on services, people or branches, and 1 TB');
   for (const p of VENDOR_TIERS) assert.doesNotMatch(planSummaryWords(p), /Infinity|—|NaN/, p);

@@ -562,27 +562,20 @@ export const LIVE_SCRIPT: readonly LiveState[] = [
 ];
 
 /**
- * 💬 THE "WHAT'S HAPPENING" TIP — owner 23 Nov: *"this needs to show what is happening and not just changing"* ·
- * *"pointing at something like a what's happening pop up"*. One tip points at what just changed, then settles away.
- * Every word it says is here, in one place.
+ * 💬 THE "WHAT'S HAPPENING" STORY — owner 23 Nov: *"this needs to show what is happening and not just changing"*, then,
+ * on the preview: *"shouldn't we maximize the screen? so the story telling of what is happening can be under?"*. One plain
+ * sentence under the cards, swapped at each change; the card itself is marked (a ring, or the changed line washes).
+ * Nothing floats over the cards. Every word the story says is here, in one place. The amounts and distances are the
+ * card's own (`mallPrice`, `aboutKmLine`), passed in already formatted.
  */
-export const LIVE_TIPS = {
-  leaves: (shop: string, day: string) => ({
-    title: `${shop} is booked on ${day}`,
-    body: 'Its card steps out of the list by itself, so you never check your schedule over and over.',
-  }),
-  returns: (shop: string, day: string) => ({
-    title: `${shop} is free on ${day}`,
-    body: 'Its card is back by itself. Your calendar answers for you.',
-  }),
-  guests: (guests: string) => ({
-    title: `The price follows ${guests} guests`,
-    body: 'Set your price per guest once. Every couple sees their own total, with no recomputing.',
-  }),
-  place: (venue: string) => ({
-    title: `How far you are from ${venue}`,
-    body: 'You start with the couples near you, so you build around your own area, with room to expand later.',
-  }),
+export const LIVE_STORY = {
+  start: 'Pick a day, a guest count or a venue, and watch the cards answer.',
+  leaves: (shop: string, day: string) => `${shop} is booked on ${day}, so it leaves. You never check your schedule twice.`,
+  returns: (shop: string, day: string) => `${shop} is free on ${day}, so it is back by itself.`,
+  guests: (shop: string, guests: string, total: string) =>
+    `${shop} now shows ${total} for ${guests} guests. You set your price per guest once; every couple sees their own total.`,
+  place: (shop: string, venue: string, km: string) =>
+    `The venue is in ${venue}: ${shop} is now ${km}. You start with the couples near you, with room to expand later.`,
   none: (day: string) => `None of these four shops is free on ${day}. Pick another day.`,
 } as const;
 

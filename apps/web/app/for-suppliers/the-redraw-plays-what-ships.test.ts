@@ -107,20 +107,32 @@ test('a closed shop leaves the row — never "Booked that day" on a card — and
   assert.match(CSS, /\.liveScene\[data-motion\] \.liveCard\[data-out\] \{ opacity: 0; transform: scale\(\.\d+\); \}/);
   // Some sample day closes all four (24 · 25 Dec): the row then speaks, it is never a blank strip.
   assert.ok(Array.from({ length: 31 }, (_, i) => i + 1).some((d) => LIVE_CARD_SAMPLES.every((c) => c.closed.includes(d))));
-  assert.match(LIVE, /\{allOut \? \(\s*<li className=\{s\.liveNone\}[^>]*>\s*\{LIVE_TIPS\.none\(dayLabel\)\}/);
+  assert.match(LIVE, /\{allOut \? \(\s*<li className=\{s\.liveNone\}[^>]*>\s*\{LIVE_STORY\.none\(dayLabel\)\}/);
 });
 
-test('💬 each change is explained by ONE tip that points at it, in words from one place, heard by a screen reader', () => {
-  assert.match(LIVE, /className=\{s\.liveTip\}\s+role="status"/);
-  for (const k of ['leaves', 'returns', 'guests', 'place'] as const) {
-    assert.match(LIVE, new RegExp(`LIVE_TIPS\\.${k}\\b`), `no change says "${k}"`);
+test('💬 the story is told UNDER the cards — one sentence per change, words from one place; nothing floats over them', () => {
+  // Owner 23 Nov on the preview: "shouldn't we maximize the screen? so the story telling of what is happening can be under?"
+  assert.match(LIVE, /className=\{s\.liveStory\}\s+role="status"/);
+  const row = LIVE.indexOf('className={s.liveRow}');
+  const story = LIVE.indexOf('className={s.liveStory}');
+  assert.ok(row > 0 && story > row, 'the story is not under the cards');
+  for (const k of ['start', 'leaves', 'returns', 'guests', 'place', 'none'] as const) {
+    assert.match(LIVE, new RegExp(`LIVE_STORY\\.${k}\\b`), `no change tells "${k}"`);
   }
-  assert.equal(LIVE.match(/className=\{s\.liveTip\}/g)?.length, 1, 'more than one tip');
-  // The tip settles on the motion tokens, and only with the script and without reduced motion.
-  assert.match(CSS, /\.liveScene\[data-motion\] \.liveTip \{ transition: opacity var\(--sn-m-move\) var\(--sn-m-settle\)/);
-  assert.match(CSS, /\.liveTip \{ position: absolute;[^}]*pointer-events: none; \}/, 'the tip can catch a tap meant for the stage');
-  // Seen on the 23 Nov preview at 375 px: the card's shop line drew OVER the tip. The row is its own layer.
-  assert.match(CSS, /\.liveRow \{ isolation: isolate;/, 'a card’s own layers can rise over the tip');
+  // The floating tip is gone by design (owner: its text overlapped the cards).
+  assert.doesNotMatch(LIVE, /liveTip|LIVE_TIPS|position: ?'absolute'/, 'a floating tip is back over the cards');
+  assert.doesNotMatch(CSS, /\.liveTip\b/, 'a floating tip is back over the cards');
+  // The pointer is on the card: a ring (motion tokens, behind the script's mark) and the changed line's wash.
+  assert.match(CSS, /\.liveScene\[data-motion\] \.liveCard\[data-ring\]::after \{[^}]*animation: liveRing var\(--sn-m-rise\) var\(--sn-m-settle\)/);
+  assert.match(LIVE, /hit\(li, 'data-ring'\)/, 'the card that left or came back is not marked');
+  // The stage fills the screen under the top bar — by the bar's own height, never the measured top (that would chase itself).
+  assert.match(CSS, /\.liveScene\[data-motion\] \.livePin \{ display: flex; flex-direction: column; min-height: calc\(100svh - var\(--fd-bar, 56px\) - 8px\); \}/);
+  assert.match(CSS, /\.liveStory \{[^}]*background: var\(--sf-card\)/, 'the story panel is not on the solid card surface');
+});
+
+test('a sample card never cuts its badge line ("F", "S…")', () => {
+  assert.match(CSS, /\.liveCard :global\(\[data-mall-medals\]\) \{ flex-wrap: wrap;/);
+  assert.match(CSS, /\.liveCard :global\(\.card-badge-label\) \{ white-space: normal; overflow: visible; text-overflow: clip; \}/);
 });
 
 test('the one per-guest caterer: its band is mallPrice — "for your N guests" and the total', () => {

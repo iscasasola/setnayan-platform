@@ -62,7 +62,7 @@
   height: 36px;
   border-radius: var(--m-r-sm);
   background: rgb(var(--color-wash));
-  color: rgb(var(--color-terracotta-700));
+  color: rgb(var(--color-ink-2));
 }
 .ic svg {
   width: 18px;

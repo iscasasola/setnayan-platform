@@ -69,7 +69,11 @@ export function usePartEditorLock(eventId: string, part: EditPart, label: string
   const read = useCallback(async () => {
     const supabase = createClient();
     const { data, error } = await supabase.rpc('part_editor_lock_state', { p_event_id: eventId, p_part: part });
-    if (error) return; // keep what we knew; never "free" on a failure
+    if (error) {
+      // Keep what we knew — never "free" on a failure; the next watch asks again.
+      console.error('[part-edit-lock] who is editing could not be read', error.message);
+      return;
+    }
     apply(readPartLockState(data));
   }, [eventId, part, apply]);
 
@@ -85,7 +89,11 @@ export function usePartEditorLock(eventId: string, part: EditPart, label: string
           p_label: labelRef.current,
           p_take_over: takeOver,
         });
-        if (error || !data) return false;
+        if (error || !data) {
+          // Not claimed: the part stays as it was and the next edit asks again.
+          console.error('[part-edit-lock] the part could not be claimed', error?.message ?? 'no answer');
+          return false;
+        }
         const env = data as Env;
         if (env.status === 'acquired' || env.status === 'refreshed' || env.status === 'took_over') {
           lockIdRef.current = env.lock_id ?? null;
@@ -109,7 +117,11 @@ export function usePartEditorLock(eventId: string, part: EditPart, label: string
     if (!lid) return;
     const supabase = createClient();
     const { data, error } = await supabase.rpc('touch_part_editor_lock', { p_lock_id: lid });
-    if (error || !data) return; // best effort — the next edit or read says what is true
+    if (error || !data) {
+      // Best effort — the next edit or watch says what is true.
+      console.error('[part-edit-lock] the edit could not be marked', error?.message ?? 'no answer');
+      return;
+    }
     const env = data as Env;
     if (env.status === 'taken_over' || env.status === 'lost') {
       lockIdRef.current = null;

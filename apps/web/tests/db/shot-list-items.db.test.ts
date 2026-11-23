@@ -243,3 +243,50 @@ test('a stranger reads nothing', async () => {
 test('a blank label is refused by the CHECK', async () => {
   await assert.rejects(() => bareInsertAs(F.photoUser, F.eventId, F.photoVendor, '   '));
 });
+
+// ─── 4 · 🧰 The hub tools ride the same rows (migration 20271361191665) ───────────────────────────────────────────
+
+test('a row with no tool is the shot list; the supplier writes their checklist and queue rows on the same rows', async () => {
+  await asUser(F.caterUser);
+  const r = await db.query<{ tool_key: string }>(
+    `INSERT INTO public.event_shot_list_items (event_id, vendor_profile_id, label, position, tool_key)
+     VALUES ($1, $2, 'Gate pass', 0, 'load_in_and_venue_access'),
+            ($1, $2, 'Served', 0, 'queue_counter')
+     RETURNING tool_key`,
+    [F.eventId, F.caterVendor],
+  );
+  assert.deepEqual(r.rows.map((x) => x.tool_key).sort(), ['load_in_and_venue_access', 'queue_counter']);
+  await asUser(F.couple);
+  const couple = await db.query<{ tool_key: string; label: string }>(
+    `SELECT tool_key, label FROM public.event_shot_list_items WHERE event_id = $1 AND vendor_profile_id = $2`,
+    [F.eventId, F.caterVendor],
+  );
+  assert.equal(couple.rows.length, 2, 'the couple reads the checklist rows too (the same event read policy)');
+  await asOwner();
+  const old = await db.query<{ tool_key: string }>(
+    `SELECT DISTINCT tool_key FROM public.event_shot_list_items WHERE vendor_profile_id = $1`,
+    [F.photoVendor],
+  );
+  assert.deepEqual(old.rows.map((x) => x.tool_key), ['shot_list'], 'rows written with no tool are the shot list');
+});
+
+test('a row can only name a hub tool record, and its tool can never be changed', async () => {
+  await assert.rejects(
+    async () => {
+      await asUser(F.caterUser);
+      await db.query(
+        `INSERT INTO public.event_shot_list_items (event_id, vendor_profile_id, label, position, tool_key)
+         VALUES ($1, $2, 'Nope', 0, 'not_a_tool')`,
+        [F.eventId, F.caterVendor],
+      );
+    },
+    /foreign key|violates/i,
+  );
+  await asOwner();
+  const upd = await db.query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.column_privileges
+     WHERE table_schema = 'public' AND table_name = 'event_shot_list_items'
+       AND grantee = 'authenticated' AND privilege_type = 'INSERT' AND column_name = 'tool_key'`,
+  );
+  assert.equal(upd.rows.length, 1, 'tool_key is insertable');
+});

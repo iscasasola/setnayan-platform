@@ -9,6 +9,11 @@
  * supplier writes only their own list, only on an event they are booked on.
  * The booked check below is a friendlier early answer, not the authority.
  *
+ * 🧰 ONE CHECKLIST, MANY TOOLS (DECISION_LOG 2026-11-23). The same actions keep the Paperwork checklist, Load-in &
+ * venue access, Delivery & drop-off and the Queue counter's served rows (`event_shot_list_items.tool_key`, migration
+ * 20271361191665). `tool` is an optional last argument defaulting to the shot list, so no new action is exported
+ * (the server-action budget) and every shipped call keeps its meaning. An unknown tool is refused, never written.
+ *
  * 🔑 NO SUCCESS-SHAPED NOTHING. An UPDATE/DELETE that matches zero rows is
  * reported as a failure (`.select()` + a row count), because the console shows
  * "saved — the couple can see this" on `ok: true`, and a refused write that
@@ -20,10 +25,12 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import {
+  isListToolKey,
   normalizeShotLabel,
   shotFromRow,
   type ServerRead,
   type Shot,
+  type ListToolKey,
   type ShotRow,
 } from '@/lib/shot-list';
 import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
@@ -37,6 +44,13 @@ type Ctx =
   | { ok: false; error: string };
 
 const ROW_COLUMNS = 'item_id, vendor_profile_id, label, position, captured_at';
+
+/** The tool a call is for — the shot list when not given; null when the caller named something that is not a list tool. */
+function toolOf(tool: unknown): ListToolKey | null {
+  if (tool === undefined) return 'shot_list';
+  return isListToolKey(tool) ? tool : null;
+}
+const UNKNOWN_TOOL = { ok: false as const, error: 'That tool does not keep a list.' };
 
 async function requireShotListVendor(eventId: string): Promise<Ctx> {
   const supabase = await createClient();
@@ -62,7 +76,9 @@ async function requireShotListVendor(eventId: string): Promise<Ctx> {
 export type ShotListWriteResult = { ok: true } | { ok: false; error: string };
 
 /** This supplier's saved list for the event. `unreadable` ≠ empty. */
-export async function loadShotList(eventId: string): Promise<ServerRead> {
+export async function loadShotList(eventId: string, tool?: ListToolKey): Promise<ServerRead> {
+  const key = toolOf(tool);
+  if (!key) return { state: 'unreadable' };
   const ctx = await requireShotListVendor(eventId);
   if (!ctx.ok) return { state: 'unreadable' };
 
@@ -71,6 +87,7 @@ export async function loadShotList(eventId: string): Promise<ServerRead> {
     .select(ROW_COLUMNS)
     .eq('event_id', eventId)
     .eq('vendor_profile_id', ctx.vendorProfileId)
+    .eq('tool_key', key)
     .order('position', { ascending: true });
 
   if (error || !data) {
@@ -91,7 +108,10 @@ export async function loadShotList(eventId: string): Promise<ServerRead> {
 export async function replaceShotList(
   eventId: string,
   shots: ReadonlyArray<{ label: string; done: boolean }>,
+  tool?: ListToolKey,
 ): Promise<{ ok: true; shots: Shot[] } | { ok: false; error: string }> {
+  const key = toolOf(tool);
+  if (!key) return UNKNOWN_TOOL;
   const ctx = await requireShotListVendor(eventId);
   if (!ctx.ok) return ctx;
 
@@ -104,7 +124,9 @@ export async function replaceShotList(
     .from('event_shot_list_items')
     .select('item_id')
     .eq('event_id', eventId)
-    .eq('vendor_profile_id', ctx.vendorProfileId);
+    .eq('vendor_profile_id', ctx.vendorProfileId)
+    // 🔑 ONLY THIS TOOL'S ROWS are replaced — a new paperwork list must never clear the shot list.
+    .eq('tool_key', key);
   if (beforeError) return { ok: false, error: beforeError.message };
 
   const now = new Date().toISOString();
@@ -119,6 +141,7 @@ export async function replaceShotList(
           label: s.label,
           position: i,
           captured_at: s.done ? now : null,
+          tool_key: key,
         })),
       )
       .select(ROW_COLUMNS);
@@ -149,9 +172,12 @@ export async function addShot(
   eventId: string,
   rawLabel: string,
   position: number,
+  tool?: ListToolKey,
 ): Promise<{ ok: true; shot: Shot } | { ok: false; error: string }> {
+  const key = toolOf(tool);
+  if (!key) return UNKNOWN_TOOL;
   const label = normalizeShotLabel(rawLabel);
-  if (!label) return { ok: false, error: 'Write the shot first.' };
+  if (!label) return { ok: false, error: key === 'shot_list' ? 'Write the shot first.' : 'Write it first.' };
 
   const ctx = await requireShotListVendor(eventId);
   if (!ctx.ok) return ctx;
@@ -163,6 +189,9 @@ export async function addShot(
       vendor_profile_id: ctx.vendorProfileId,
       label,
       position: Number.isFinite(position) ? Math.max(0, Math.floor(position)) : 0,
+      tool_key: key,
+      // ＋ on the Queue counter IS a serve: it is done the moment it is written (its time is the serve's time).
+      ...(key === 'queue_counter' ? { captured_at: new Date().toISOString() } : {}),
     })
     .select(ROW_COLUMNS)
     .single();
@@ -186,7 +215,7 @@ export async function setShotCaptured(
     .eq('vendor_profile_id', ctx.vendorProfileId)
     .select('item_id');
   if (error) return { ok: false, error: error.message };
-  if (!data || data.length !== 1) return { ok: false, error: 'That shot is no longer on the saved list.' };
+  if (!data || data.length !== 1) return { ok: false, error: 'That row is no longer on the saved list.' };
   return { ok: true };
 }
 
@@ -202,6 +231,6 @@ export async function removeShot(eventId: string, itemId: string): Promise<ShotL
     .eq('vendor_profile_id', ctx.vendorProfileId)
     .select('item_id');
   if (error) return { ok: false, error: error.message };
-  if (!data || data.length !== 1) return { ok: false, error: 'That shot is no longer on the saved list.' };
+  if (!data || data.length !== 1) return { ok: false, error: 'That row is no longer on the saved list.' };
   return { ok: true };
 }

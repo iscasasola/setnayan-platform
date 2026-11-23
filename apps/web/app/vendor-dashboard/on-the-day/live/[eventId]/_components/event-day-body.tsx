@@ -3,14 +3,19 @@ import {
   CalendarClock,
   Camera,
   ChefHat,
+  FileCheck2,
   HandHeart,
   ListChecks,
   Music,
+  PackageCheck,
   QrCode,
   ScanLine,
   Star,
+  Ticket,
   TriangleAlert,
+  Truck,
   Users,
+  UsersRound,
 } from 'lucide-react';
 import type { DayOfModuleId } from '@/lib/vendor-dayof-modules';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
@@ -54,6 +59,12 @@ const TOOL_ICON: Record<DayOfModuleId, Icon> = {
   issues_log: TriangleAlert,
   production_sheet: ChefHat,
   vendor_papic: Camera,
+  // 🧰 Hub tools — drawn inline (`hubTools`), never a row; their marks still answer for the jump bar and labs.
+  queue_counter: Ticket,
+  entourage: UsersRound,
+  paperwork_checklist: FileCheck2,
+  load_in_and_venue_access: Truck,
+  delivery_and_drop_off: PackageCheck,
 };
 
 export type DayCount = { key: string; value: string; word: string; href?: string; hot?: boolean };
@@ -74,6 +85,7 @@ export function EventDayBody({
   headcount,
   tools,
   reviews,
+  hubTools,
   desk,
   otherView,
 }: {
@@ -98,6 +110,8 @@ export function EventDayBody({
   tools: readonly DayTool[];
   /** Live reviews, or null when the module is off. */
   reviews: ReactNode;
+  /** 🧰 The hub tools switched on for this booking (`HubToolsSection`), or null when none is. */
+  hubTools?: ReactNode;
   /** The specialization slot (Song Desk · Emcee script · Floor Command) — its own contents, unchanged; null = none. */
   desk: ReactNode;
   /** The Scanner or Announce view, drawn in place of The Day. */
@@ -188,6 +202,8 @@ export function EventDayBody({
                   ))}
                 </PartList>
               ) : null}
+
+              {hubTools ?? null}
 
               {reviews ? <PartCard>{reviews}</PartCard> : null}
             </section>

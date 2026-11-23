@@ -172,7 +172,13 @@ export type DayOfModuleId =
   | 'setlist'
   | 'issues_log'
   | 'production_sheet'
-  | 'vendor_papic';
+  | 'vendor_papic'
+  // 🧰 Hub tools from the shared library (`lib/hub-tools.ts`, DECISION_LOG 2026-11-23) — `hubTool: true` below.
+  | 'queue_counter'
+  | 'entourage'
+  | 'paperwork_checklist'
+  | 'load_in_and_venue_access'
+  | 'delivery_and_drop_off';
 // 🗑 `guest_delivery` ("Who’s received theirs") was REMOVED 2026-10-04 (owner,
 // 2026-10-03 S1): it shipped always padlocked — `dayOfModuleHref` was null and
 // no screen ever existed behind it — so every caterer saw a locked promise. The
@@ -196,6 +202,12 @@ export type DayOfModule = {
    * with the consent gate + always-on NSFW filter; never silently on.
    */
   counselGated?: boolean;
+  /**
+   * 🧰 A record of the ONE hub tool library (`hub_tools.tool_key` = this id). Any shop may switch it on
+   * (`alwaysAvailable`); it starts ON when Admin › Categories › Hub tools suggests it for a booked category
+   * (`resolveModules`' `hub` input) — a suggestion, never a gate — and leaves every Hub when admin turns it off.
+   */
+  hubTool?: true;
 };
 
 export const DAY_OF_MODULES: readonly DayOfModule[] = [
@@ -311,6 +323,53 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
     requiresGrant: true,
     counselGated: true,
   },
+  // ── 🧰 HUB TOOLS (DECISION_LOG 2026-11-23: the most-shared unbuilt tools, free) ──────────────────────────────────
+  // ON for nobody by family: the category switches suggest them per booking, and every shop may switch any on.
+  {
+    id: 'queue_counter',
+    label: 'Queue counter',
+    blurb: 'Tap ＋ for each guest served. Shows served of coming.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: true,
+  },
+  {
+    id: 'entourage',
+    label: 'Entourage',
+    blurb: 'The couple’s entourage, one row per person, with their role.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: true,
+  },
+  {
+    id: 'paperwork_checklist',
+    label: 'Paperwork checklist',
+    blurb: 'The papers for this event, ticked when in hand.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: true,
+  },
+  {
+    id: 'load_in_and_venue_access',
+    label: 'Load-in & venue access',
+    blurb: 'Gate pass, parking, power and times, ticked as you sort them.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: true,
+  },
+  {
+    id: 'delivery_and_drop_off',
+    label: 'Delivery & drop-off',
+    blurb: 'What goes where and when, ticked when done.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: true,
+  },
 ];
 
 const MODULE_BY_ID: Record<DayOfModuleId, DayOfModule> = Object.fromEntries(
@@ -339,15 +398,22 @@ export type ResolvedModule = DayOfModule & {
   enabled: boolean;
 };
 
+/**
+ * `hub` — Admin › Categories › Hub tools for this booking (`readHubToolSuggestions`): `suggested` hub tools start ON,
+ * `inactive` ones (admin's Turn off) are not offered. Absent or null (not read) = suggest nothing, hide nothing.
+ */
+export type HubToolInput = { suggested: ReadonlySet<string>; inactive: ReadonlySet<string> } | null | undefined;
+
 export function resolveModules(
   services: readonly string[] | null | undefined,
   eventTiles: readonly string[] | null | undefined,
   override?: readonly string[] | null,
+  hub?: HubToolInput,
 ): ResolvedModule[] {
   const families = familiesForServices(services, eventTiles ?? null);
   const overrideSet = override ? new Set(override) : null;
-  return DAY_OF_MODULES.map((m) => {
-    const defaultOn = m.defaultOnFor.some((f) => families.has(f));
+  return DAY_OF_MODULES.filter((m) => !(m.hubTool && hub?.inactive.has(m.id))).map((m) => {
+    const defaultOn = m.defaultOnFor.some((f) => families.has(f)) || Boolean(m.hubTool && hub?.suggested.has(m.id));
     const available = defaultOn || m.alwaysAvailable;
     const enabled = overrideSet
       ? overrideSet.has(m.id)

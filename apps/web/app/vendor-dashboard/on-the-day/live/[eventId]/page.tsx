@@ -26,6 +26,9 @@ import { loadMarch } from '@/app/[slug]/_lib/loaders';
 import { marchSections } from '@/lib/march-sections';
 import { marchWalkCount, supplierSeesMarch } from '@/lib/supplier-march';
 import { MarchRead } from './_components/march-read';
+import { HubToolsSection } from './_components/hub-tools/hub-tools-section';
+import { readHubToolSuggestions } from '@/lib/hub-tool-suggestions.server';
+import { entourageSheet } from '@/lib/supplier-march';
 import { EventDayBody } from './_components/event-day-body';
 import { EventHubAnnounce, EventHubScanner } from './_components/event-hub-views';
 import { eventHubViewOf } from '@/lib/event-hub-views';
@@ -247,10 +250,15 @@ export default async function VendorOnTheDayLivePage({
      moderators; this page has already proved the booking (or the day-of grant) above, and the read is scoped to
      this `eventId`. The SAME loader the couple's march maker reads (`loadMarch` → `marchSections`), as applied. */
   const seesMarch = supplierSeesMarch([...(brief?.booked_categories ?? []), ...bookedServiceCategories]);
-  const march = seesMarch ? await loadMarch(createAdminClient(), eventId) : null;
+  // 🧰 Read beside the march: Admin › Categories › Hub tools for this booking — which hub tools start ON (a suggestion,
+  // never a gate; `readHubToolSuggestions`).
+  const [march, hubSuggestions] = await Promise.all([
+    seesMarch ? loadMarch(createAdminClient(), eventId) : Promise.resolve(null),
+    readHubToolSuggestions(supabase, eventTiles),
+  ]);
   const marchShown = march ? (march.unread ? [] : marchSections(march.walking)) : [];
 
-  const modules = resolveModules(profile.services, eventTiles, override).filter((m) => m.enabled);
+  const modules = resolveModules(profile.services, eventTiles, override, hubSuggestions).filter((m) => m.enabled);
   const has = (id: DayOfModuleId) => modules.some((m) => m.id === id);
 
   // THE SPECIALIZATION GATE — server-side, on the vendor's live subscription
@@ -269,6 +277,11 @@ export default async function VendorOnTheDayLivePage({
     // this against `unlockedSets` and ignores anything they do not hold.
     activeSet: requestedRole ?? null,
   });
+
+  /* 👥 The Entourage hub tool — the couple's own entourage, from the SAME read the march uses. Reuses the march's
+     read when this booking already made it; else reads it (admin client, this already-proved booking, this eventId). */
+  const entourageMarch = has('entourage') ? (march ?? (await loadMarch(createAdminClient(), eventId))) : null;
+  const entourage = entourageMarch && !entourageMarch.unread ? entourageSheet(entourageMarch.walking, entourageMarch.out) : null;
 
   const coupleName = brief?.event.display_name ?? booking.eventName ?? 'Your event';
   const place = brief?.event.venue_name ?? null;
@@ -336,6 +349,15 @@ export default async function VendorOnTheDayLivePage({
       // Enabled-module quick links — one row each; the whole row opens.
       tools={linkModules.map(({ mod, href }) => ({ id: mod.id, label: mod.label, blurb: mod.blurb, href }))}
       reviews={has('live_reviews') ? <LiveReviews vendorProfileId={profile.vendor_profile_id} initial={reviews} /> : null}
+      hubTools={
+        <HubToolsSection
+          eventId={eventId}
+          eventName={coupleName}
+          on={modules.map((m) => m.id)}
+          coming={brief ? attending : null}
+          entourage={entourage}
+        />
+      }
       // ── THE SPECIALIZATION SLOT — the only gated section on this page ───
       desk={
         frame.specialization ? (

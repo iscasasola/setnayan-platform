@@ -13,8 +13,8 @@
 // the work). See the guest-list precedent in lib/guests.ts.
 // ==========================================================================
 
-import { Camera, CheckCircle2, Circle } from 'lucide-react';
-import type { ShotRow } from '@/lib/shot-list';
+import { Camera, CheckCircle2, Circle, FileCheck2, PackageCheck, Truck, type LucideIcon } from 'lucide-react';
+import { CHECKLIST_TOOLS, type ChecklistToolKey, type ShotRow } from '@/lib/shot-list';
 import { formatCount } from '@/lib/format-number';
 import { Badge } from '@/app/_components/badge';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -38,25 +38,42 @@ function fmtTime(iso: string): string {
   }
 }
 
+/** Each checklist tool's mark — the same one the supplier's Hub draws. */
+const TOOL_MARK: Record<ChecklistToolKey, LucideIcon> = {
+  shot_list: Camera,
+  paperwork_checklist: FileCheck2,
+  load_in_and_venue_access: Truck,
+  delivery_and_drop_off: PackageCheck,
+};
+
+/**
+ * 🧰 `tool` (DECISION_LOG 2026-11-23): the same card shows the supplier's other checklist hub tools — Paperwork
+ * checklist, Load-in & venue access, Delivery & drop-off — read from the same rows (`tool_key`). Only the shot list is
+ * EXPECTED of a trade; another checklist with no rows draws nothing.
+ */
 export function ShotListCard({
   vendorName,
   category,
   list,
+  tool = 'shot_list',
 }: {
   vendorName: string;
   category: string;
   list: ShotListCardState;
+  tool?: ChecklistToolKey;
 }) {
-  const expected = SHOT_LIST_CATEGORIES.has(category);
+  const expected = tool === 'shot_list' && SHOT_LIST_CATEGORIES.has(category);
+  const cfg = CHECKLIST_TOOLS[tool];
+  const headingId = tool === 'shot_list' ? 'shot-list-heading' : `${tool}-heading`;
 
   // 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 5 · 6 · 7 · 13): no tile — the section's grey capitals, then plain hairline
   // rows; the count is a soft chip, the explaining line sits behind ⓘ, an empty or refused read is one line.
   if (list.state === 'unreadable') {
     return (
-      <section aria-labelledby="shot-list-heading">
-        <ShotListLabel />
+      <section aria-labelledby={headingId}>
+        <ShotListLabel tool={tool} id={headingId} />
         <p role="status" className="py-2 text-sm text-warn-800">
-          Couldn’t load {vendorName}’s shot list — not the same as them not having one. Refresh to try again.
+          Couldn’t load {vendorName}’s {cfg.title.toLowerCase()} — not the same as them not having one. Refresh to try again.
         </p>
       </section>
     );
@@ -68,8 +85,8 @@ export function ShotListCard({
     // florist an absent card is the honest answer.
     if (!expected) return null;
     return (
-      <section aria-labelledby="shot-list-heading">
-        <ShotListLabel tip={`When ${vendorName} saves one from their day-of console, it shows up here — and you can follow along as shots are captured on the day.`} />
+      <section aria-labelledby={headingId}>
+        <ShotListLabel tool={tool} id={headingId} tip={`When ${vendorName} saves one from their day-of console, it shows up here — and you can follow along as shots are captured on the day.`} />
         <p className="py-2 text-sm text-ink/70">{vendorName} hasn’t shared a shot list yet.</p>
       </section>
     );
@@ -77,11 +94,19 @@ export function ShotListCard({
 
   const captured = rows.filter((r) => r.captured_at != null).length;
   return (
-    <section aria-labelledby="shot-list-heading">
+    <section aria-labelledby={headingId} data-checklist-tool={tool}>
       <div className="flex items-center justify-between gap-2">
-        <ShotListLabel tip={`The must-get shots ${vendorName} is working from. Want one added? Message them.`} />
+        <ShotListLabel
+          tool={tool}
+          id={headingId}
+          tip={
+            tool === 'shot_list'
+              ? `The must-get shots ${vendorName} is working from. Want one added? Message them.`
+              : `${vendorName}’s ${cfg.title.toLowerCase()} for your event. Want something added? Message them.`
+          }
+        />
         <Badge tone="quiet">
-          {formatCount(captured)}/{formatCount(rows.length)} captured
+          {formatCount(captured)}/{formatCount(rows.length)} {cfg.doneWord}
         </Badge>
       </div>
       <ul className="divide-y divide-ink/10">
@@ -95,7 +120,7 @@ export function ShotListCard({
             <span className={r.captured_at ? 'text-ink/70' : 'text-ink'}>
               {r.label}
               {r.captured_at ? (
-                <span className="ml-1.5 text-[13px] text-ink/70">· captured {fmtTime(r.captured_at)}</span>
+                <span className="ml-1.5 text-[13px] text-ink/70">· {cfg.doneWord} {fmtTime(r.captured_at)}</span>
               ) : null}
             </span>
           </li>
@@ -106,17 +131,19 @@ export function ShotListCard({
 }
 
 /** The section's label — grey capitals, no box; its explaining line (when there is one) behind the ⓘ. */
-function ShotListLabel({ tip }: { tip?: string }) {
+function ShotListLabel({ tip, tool, id }: { tip?: string; tool: ChecklistToolKey; id: string }) {
   const cls = 'text-xs font-semibold uppercase tracking-[0.06em] text-ink/70';
+  const Mark = TOOL_MARK[tool];
+  const title = CHECKLIST_TOOLS[tool].title;
   return (
-    <h2 id="shot-list-heading" className="mb-1 mt-[18px] flex items-center gap-2">
-      <Camera aria-hidden className="h-4 w-4 text-terracotta-700" strokeWidth={1.75} />
+    <h2 id={id} className="mb-1 mt-[18px] flex items-center gap-2">
+      <Mark aria-hidden className="h-4 w-4 text-terracotta-700" strokeWidth={1.75} />
       {tip ? (
-        <InfoTip label="Shot list" labelAs="span" labelClassName={cls} align="start">
+        <InfoTip label={title} labelAs="span" labelClassName={cls} align="start">
           {tip}
         </InfoTip>
       ) : (
-        <span className={cls}>Shot list</span>
+        <span className={cls}>{title}</span>
       )}
     </h2>
   );

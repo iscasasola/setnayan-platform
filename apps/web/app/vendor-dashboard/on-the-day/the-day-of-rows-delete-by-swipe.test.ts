@@ -21,7 +21,10 @@ const page = read('page.tsx');
 
 test('a shot is the one SwipeToDelete and its write waits out the Undo window', () => {
   assert.match(shots, /<SwipeToDelete[\s\S]{0,200}?label=\{`Remove "\$\{s\.label\}"`\}/);
-  assert.match(shots, /deleteWithUndo\(\{[\s\S]{0,900}?commit: \(\) => commitRef\.current\(shotsRef\.current, \(\) => removeShot\(eventId, shot\.id\)\)/);
+  // 🧰 The list talks to its store (the shipped actions by default; a dev lab hands an in-memory one — hub tools,
+  // 2026-11-23), so the write is `store.remove`, and the default store's remove IS `removeShot`.
+  assert.match(shots, /deleteWithUndo\(\{[\s\S]{0,900}?commit: \(\) => commitRef\.current\(shotsRef\.current, \(\) => store\.remove\(eventId, shot\.id\)\)/);
+  assert.match(shots, /remove: \(eventId, itemId\) => removeShot\(eventId, itemId\)/);
   assert.doesNotMatch(shots, /aria-label=\{`Remove "\$\{s\.label\}"`\}/);
 });
 

@@ -174,7 +174,7 @@ test('🪤 STANDING ASIDE STILL STARTS THE FILM — and through the shipped path
   //     first render and `__stdRevealActive` is never set true.
   assert.match(
     overlay,
-    /const active =\s*\n\s*enabled &&\s*\n\s*!alreadySeen &&/,
+    /const active =\s*\n\s*enabled &&\s*\n\s*!reducedMotion &&\s*\n\s*!alreadySeen &&/,
     'the deferral is not folded into `active` — if it were bolted on at the render ' +
       'instead, `__stdRevealActive` would be set true and the film would wait for a ' +
       'lift that is never coming',

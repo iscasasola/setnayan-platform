@@ -18,7 +18,9 @@ import { DiscoverEventShelves, PeopleToFollowShelf } from './front-door-discover
 import { loadDiscover, searchDiscoverEvents } from '@/lib/discover-events';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SignedInCluster } from './signed-in-cluster';
-import { FrontDoorAccountBar } from './front-door-account-bar';
+import { hubDrawsTheShell } from '@/lib/hub-shell';
+import { DiscoverPinnedRow } from './discover-pin';
+import { discoverFollowingOn, discoverUpcomingCount } from '@/lib/discover-pin';
 import { resolveCommandItems } from './command-data';
 // ⚡ Signed in only — loaded only when drawn (front-door-lazy.tsx).
 import { DiscoverThumbRow } from './front-door-lazy';
@@ -258,69 +260,34 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
     freePapic: freeGrant ? (papicFreeCreditPromise(freeGrant)?.sentence ?? null) : null,
   };
 
-  return (
+  /*
+    🏠 SIGNED IN, THE BAR IS NOT THIS PAGE'S ANY MORE (owner 18 Nov 2026, *"yes, unify home and discover on fable"*).
+    `/` and `/dashboard` sit under ONE layout (`app/(hub)/layout.tsx`), which draws the top bar, the rail and the
+    account bar for a signed-in person, so the tap Home ↔ Discover keeps them mounted — it used to mount a new bar
+    and rail on every tap (measured on live f8f278f). Here the page draws only its content and the one heading the
+    app variant leaves to the page (`ownsHeading`). The same question (`hubDrawsTheShell`) decides both halves.
+    Signed out, nothing below changes: the front-door shell is drawn here, as before.
+  */
+  const hubShell = (await hubDrawsTheShell()) !== null;
+  /*
+    📌 DISCOVER'S PINNED ROW (approved 28 Oct; walker D2a, 18 Nov) — on the plain feed, signed in: "Discover ▾ · N
+    upcoming · Following · ⚙". 💸 No new read: the count is the events the shelves already read (`lib/discover-pin.ts`),
+    and Following only narrows what the same reads drew.
+  */
+  const following = account.signedIn && discoverFollowingOn(params as Record<string, string | string[] | undefined>);
+  const pinned =
+    hubShell && account.signedIn && discover ? (
+      <DiscoverPinnedRow upcoming={discoverUpcomingCount(discover.people, discover.world, following)} following={following} />
+    ) : null;
+  const content = (
     <>
-    <FrontDoorShell
-      account={account}
-      /*
-        THE PAGE'S ONE VISIBLE HEADING — SIGNED-OUT ONLY, owner-confirmed this
-        session. A stranger needs the five-second "what is this"; a signed-in
-        visitor who lands back on `/` already knows, so pitching them again is
-        the wrong sentence for that reader. Signed in, `heading` is left
-        unset and the shell falls back to its screen-reader-only <h1>, same as
-        every other converted app surface — see `front-door-anchor.tsx`'s own
-        docblock for the fuller reasoning behind dropping the old always-on
-        opening.
-      */
-      heading={account.signedIn ? undefined : <FrontDoorAnchor tiles={frontPageTiles(eventTypes, experienceQuizEnabled())} kinds={eventTypes.length} />}
-      /*
-        🧭 NO TOOL LISTS ON `/` (owner 2026-10-01, built 2026-10-23): the rail
-        is Discover · Find suppliers · Features · How it works · Sign in signed
-        out, and your own rows + Features signed in. /features lists the tools.
-      */
-      /*
-        🔴 THE SAME FALLBACK LEAK THE DOORWAY PAGES HAD — this is the page in
-        the owner's second screenshot. `/` handed in no cluster, so a signed-in
-        visitor got the shell's stranger-facing "🔔" emoji and a plain initials
-        circle, while every page inside the app showed the live bell and the
-        account switcher. Owner 2026-08-15: *"why does the top nav differ?"*
-
-        This page is ALREADY dynamic (its own note above: "measured live: MISS,
-        private, no-store") and already resolves the account, so the cluster's
-        two reads cost nothing new here.
-      */
-      topBarSlot={account.signedIn ? <SignedInCluster /> : undefined}
-      /*
-        ⚠ THIS COMMENT USED TO SAY THE SEARCH STAYS THE MARKETPLACE FORM HERE
-        "deliberately — this is the public shopfront". That reading made the
-        bar depend on WHICH PAGE, and the very next paragraph of this file
-        (the Studio rows) and the one above it (the cluster) had both already
-        been corrected to depend on WHO IS LOOKING. Holding both rules at once
-        is what produced the split the owner photographed on 2026-08-16: `/`
-        showed the marketplace box while every other public page showed the
-        palette.
-
-        One rule now, both mounts:
-          signed out → the marketplace box (the shell's fallback)
-          signed in  → the palette over their own things
-
-        Nothing is lost either way: the palette carries the marketplace as an
-        escape row (`command-escape.ts`), which is the whole reason it was
-        allowed to win the 2026-08-14 ruling. What that ruling settled — that
-        one bar means one search — is finally true across every surface rather
-        than on five of them.
-      */
-      search={account.signedIn ? false : undefined}
-      /*
-        Signed out, the front page runs edge to edge: the hero's photo fills the content column and each
-        section keeps its own gutter (front-door-landing.css). Signed in, Discover keeps the measured column.
-      */
-      bleed={signedOut}
-    >
+      {pinned}
       {/* 🔍 Signed in, Discover's search is its thumb row (owner 2026-10-22, "One thumb row") — the top bar has none. */}
       {account.signedIn ? <DiscoverThumbRow key={searchQuery} q={searchQuery} /> : null}
       {/*
-        `data-fd-page` is the content the bar's slide moves — Discover is an
+        `data-fd-page` is Discover's content. ⚠ SINCE 18 NOV THE SLIDE AND THE DOCK'S ROOM BELOW ARE THE (hub)
+        LAYOUT'S <main>, signed in — this element carries neither (two `.sn-vt-page` would be two views with one
+        name). What follows is the history of when this element carried them: Discover is an
         account tab: `.sn-vt-page` + `while-sliding` (signed in, where the bar
         is), the same slide as every other tab (owner 2026-10-24; globals.css). Signed in, it also
         reserves the account bar's MEASURED height below 1024, the launcher's own
@@ -330,10 +297,13 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
       */}
       <div
         data-fd-page=""
-        data-sn-slide="while-sliding"
         className={
-          account.signedIn
-            ? 'sn-vt-page pb-[max(calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem),var(--sn-thumb-room,0px))] lg:pb-[var(--sn-thumb-room,0px)]'
+          hubShell
+            ? /* the slide's `.sn-vt-page` and the dock's room are the (hub) layout's <main> now — one of each.
+                 ↔ THE GUTTER STAYS: signed in, `.fd-main` used to give Discover 16px below 1024 and 24px above
+                 (front-door.css); the hub's app-variant <main> pads nothing, so the page carries the same two values
+                 — measured flush to the screen edge at 390 px without it (catch-up 19 Nov). */
+              `px-4 lg:px-6${searchQuery || supplierView ? ' fl-gutter' : ''}`
             : searchQuery || supplierView
               ? 'fl-gutter'
               : undefined
@@ -397,7 +367,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
               beforeShops={
                 discover ? (
                   <>
-                    <DiscoverEventShelves discover={discover} />
+                    <DiscoverEventShelves discover={discover} followingOnly={following} />
                     <PeopleToFollowShelf discover={discover} />
                   </>
                 ) : null
@@ -419,13 +389,77 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
         </>
       )}
       </div>
-    </FrontDoorShell>
-    {/*
-      THE ACCOUNT BAR, SIGNED IN (owner 2026-10-22, "Discover needs to show the
-      bottom nav still"). Outside the shell's <main> on purpose — see the
-      component. Signed out it is not rendered: the public front door is as it was.
-    */}
-    {account.signedIn ? <FrontDoorAccountBar /> : null}
     </>
+  );
+
+  if (hubShell) {
+    return (
+      <>
+        <h1 className="fd-sr-only">Setnayan — plan your event, keep it together</h1>
+        {content}
+      </>
+    );
+  }
+
+  return (
+    <FrontDoorShell
+      account={account}
+      /*
+        THE PAGE'S ONE VISIBLE HEADING — SIGNED-OUT ONLY, owner-confirmed this
+        session. A stranger needs the five-second "what is this"; a signed-in
+        visitor who lands back on `/` already knows, so pitching them again is
+        the wrong sentence for that reader. Signed in, `heading` is left
+        unset and the shell falls back to its screen-reader-only <h1>, same as
+        every other converted app surface — see `front-door-anchor.tsx`'s own
+        docblock for the fuller reasoning behind dropping the old always-on
+        opening.
+      */
+      heading={account.signedIn ? undefined : <FrontDoorAnchor tiles={frontPageTiles(eventTypes, experienceQuizEnabled())} kinds={eventTypes.length} />}
+      /*
+        🧭 NO TOOL LISTS ON `/` (owner 2026-10-01, built 2026-10-23): the rail
+        is Discover · Find suppliers · Features · How it works · Sign in signed
+        out, and your own rows + Features signed in. /features lists the tools.
+      */
+      /*
+        🔴 THE SAME FALLBACK LEAK THE DOORWAY PAGES HAD — this is the page in
+        the owner's second screenshot. `/` handed in no cluster, so a signed-in
+        visitor got the shell's stranger-facing "🔔" emoji and a plain initials
+        circle, while every page inside the app showed the live bell and the
+        account switcher. Owner 2026-08-15: *"why does the top nav differ?"*
+
+        This page is ALREADY dynamic (its own note above: "measured live: MISS,
+        private, no-store") and already resolves the account, so the cluster's
+        two reads cost nothing new here.
+      */
+      topBarSlot={account.signedIn ? <SignedInCluster /> : undefined}
+      /*
+        ⚠ THIS COMMENT USED TO SAY THE SEARCH STAYS THE MARKETPLACE FORM HERE
+        "deliberately — this is the public shopfront". That reading made the
+        bar depend on WHICH PAGE, and the very next paragraph of this file
+        (the Studio rows) and the one above it (the cluster) had both already
+        been corrected to depend on WHO IS LOOKING. Holding both rules at once
+        is what produced the split the owner photographed on 2026-08-16: `/`
+        showed the marketplace box while every other public page showed the
+        palette.
+
+        One rule now, both mounts:
+          signed out → the marketplace box (the shell's fallback)
+          signed in  → the palette over their own things
+
+        Nothing is lost either way: the palette carries the marketplace as an
+        escape row (`command-escape.ts`), which is the whole reason it was
+        allowed to win the 2026-08-14 ruling. What that ruling settled — that
+        one bar means one search — is finally true across every surface rather
+        than on five of them.
+      */
+      search={account.signedIn ? false : undefined}
+      /*
+        Signed out, the front page runs edge to edge: the hero's photo fills the content column and each
+        section keeps its own gutter (front-door-landing.css). Signed in, Discover keeps the measured column.
+      */
+      bleed={signedOut}
+    >
+      {content}
+    </FrontDoorShell>
   );
 }

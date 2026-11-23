@@ -50,7 +50,14 @@ function EventGrid({ items }: { items: DiscoverEventCard[] }) {
 }
 
 /** Shelves 1 and 2 — the two event layers. Rendered above the shops. */
-export function DiscoverEventShelves({ discover }: { discover: DiscoverData }) {
+export function DiscoverEventShelves({
+  discover,
+  followingOnly = false,
+}: {
+  discover: DiscoverData;
+  /** Discover's pinned "Following" toggle (`?following=1`, walker D2a 18 Nov): only the people you follow — the world shelf is not drawn. */
+  followingOnly?: boolean;
+}) {
   const { people, world, viewerRegionLabel } = discover;
   /*
     🧹 NO EXPLAINER LABELS BESIDE THE HEADINGS (owner 2026-10-01, "NO SMALL
@@ -101,7 +108,8 @@ export function DiscoverEventShelves({ discover }: { discover: DiscoverData }) {
         </section>
       ) : null}
 
-      {/* ═ 2 · THE REST OF THE WORLD — everyone, signed out included ═ */}
+      {/* ═ 2 · THE REST OF THE WORLD — everyone, signed out included (not with Following on) ═ */}
+      {followingOnly && people ? null : (
       <section aria-labelledby="discover-world" data-discover-shelf="world">
         <h2 className="fd-sechead">
           <span className="fd-badge" aria-hidden="true">
@@ -137,6 +145,7 @@ export function DiscoverEventShelves({ discover }: { discover: DiscoverData }) {
           <EventGrid items={world.items} />
         )}
       </section>
+      )}
     </>
   );
 }

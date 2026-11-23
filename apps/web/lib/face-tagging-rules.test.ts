@@ -223,7 +223,7 @@ test('R4 · the Papic-close erase is a registered job, carried by admin AND publ
   assert.ok(job, 'the Papic-close erase is not in the job registry — nothing records whether it ran');
   assert.equal(job?.kind, 'retention');
   assert.ok((job?.gapMs ?? Infinity) <= 60 * 60 * 1000, 'the close erase may trail the promised instant by more than an hour');
-  for (const rel of ['app/admin/layout.tsx', 'app/page.tsx']) {
+  for (const rel of ['app/admin/layout.tsx', 'app/(hub)/page.tsx']) {
     assert.match(code(rel), /after\(\(\) => maybeRunPapicCloseSelfieErase\(\)/, `${rel} no longer carries the Papic-close erase`);
   }
 });
@@ -424,7 +424,7 @@ test('R5 · only between the event’s end and Papic’s close, and only where f
 test('R5 · the wiring: a registered job on admin + public traffic; the server embedder stays out of every client bundle', async () => {
   const { PERIODIC_JOBS } = await import('./periodic-job-registry');
   assert.ok(PERIODIC_JOBS.some((j) => j.key === 'face-rescan-after-event'), 'the rescan is not a registered job');
-  for (const rel of ['app/admin/layout.tsx', 'app/page.tsx']) {
+  for (const rel of ['app/admin/layout.tsx', 'app/(hub)/page.tsx']) {
     assert.match(code(rel), /after\(\(\) => maybeRunFaceRescan\(\)/, `${rel} no longer carries the rescan`);
   }
   for (const rel of ['lib/face-embed-server.ts', 'lib/face-rescan.ts']) {

@@ -31,7 +31,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const LAUNCHER = path.join(import.meta.dirname, '..', 'page.tsx');
+const LAUNCHER = path.join(import.meta.dirname, '..', '..', '..', '(hub)', 'dashboard', 'page.tsx');
 
 test('the launcher never re-seeds the admin total to 0 on a failed read', () => {
   /*

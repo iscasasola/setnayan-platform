@@ -15,7 +15,7 @@ import { formatCount } from '@/lib/format-number';
  * six rules, and the closing `+ New <thing>` tile.
  *
  * ─── WHERE THIS CAME FROM ──────────────────────────────────────────────────
- * It was `GlassEventCard`'s body, inline in `app/dashboard/(launcher)/page.tsx`.
+ * It was `GlassEventCard`'s body, inline in `app/(hub)/dashboard/page.tsx`.
  * Step 1 of the standard is extraction with Planning as the only caller and
  * NOTHING changing on screen; the extraction was proved by rendering the old
  * inline card and this one for the same fixture events and comparing the HTML

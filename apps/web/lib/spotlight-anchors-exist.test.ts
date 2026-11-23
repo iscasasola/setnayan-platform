@@ -148,7 +148,7 @@ test('the spotlight never draws the old centred card', () => {
  */
 const ANCHOR_HOME: Record<string, string | string[]> = {
   // (16 Nov 2026, W1-B14) the seven supplier page tours were retired; their stops left this map with them.
-  'create-event': 'app/dashboard/(launcher)/page.tsx',
+  'create-event': 'app/(hub)/dashboard/page.tsx',
   'home-tiles': 'app/dashboard/[eventId]/_components/home-control-row.tsx',
   'guests-add': 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
   'guests-setup': 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
@@ -201,10 +201,10 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'people-loved-ones': 'app/dashboard/(account)/people/_components/people-roster-view.tsx',
   'people-view': 'app/dashboard/(account)/people/_components/people-roster-view.tsx',
   'people-find': 'app/dashboard/(account)/people/_components/find-or-invite.tsx',
-  'events-planning': 'app/dashboard/(launcher)/page.tsx',
+  'events-planning': 'app/(hub)/dashboard/page.tsx',
   // 🏠 Home's sections (owner 11 Nov 2026, "HOME IS THE PROFILE") — the `customer_account_bar_v2` stop.
   'home-segments': 'app/dashboard/(launcher)/_components/home-pin.tsx',
-  'events-worth': 'app/dashboard/(launcher)/page.tsx',
+  'events-worth': 'app/(hub)/dashboard/page.tsx',
   'account-avatar': 'app/_components/account-switcher/account-switcher.tsx',
   'guests-views': 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
   'guests-counts': 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',

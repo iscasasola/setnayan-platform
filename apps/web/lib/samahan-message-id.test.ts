@@ -46,5 +46,5 @@ test('the composer: the shared Enter rule, one id per message, a fresh box once 
 test('F-W3-11 · the group’s "Ask someone from People" opens People ready to pick', () => {
   assert.match(code('app/dashboard/(account)/samahan/[communityId]/page.tsx'), /\/dashboard\?seg=people&ask=\$\{encodeURIComponent\(communityId\)\}/);
   assert.match(code('app/dashboard/(account)/people/_components/people-roster-view.tsx'), /useState\(Boolean\(askInto\)\)/);
-  assert.match(code('app/dashboard/(launcher)/page.tsx'), /ask: one\('ask'\)/);
+  assert.match(code('app/(hub)/dashboard/page.tsx'), /ask: one\('ask'\)/);
 });

@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  addSeatingConstraint,
   assignGroup,
   assignGuest,
   swapSeats,
@@ -10,7 +9,7 @@ import {
   createTable,
   deleteTable,
   lockAndFill,
-  removeSeatingConstraint,
+  seatingConstraint,
   toggleSeatLock,
   publishSeating,
   unpublishSeating,
@@ -47,6 +46,16 @@ import { useSeatingStore, type SeatingWrites } from './seating-store';
  * Adds no server action: it only names the ones that exist (server actions are capped).
  * 🔒 the-seat-plan-is-one-editor.test.ts
  */
+// Keep-apart rules are ONE server action (`seatingConstraint`, routed by `op`); the editor keeps calling them by name.
+const addSeatingConstraint = (formData: FormData) => {
+  formData.set('op', 'add');
+  return seatingConstraint(formData);
+};
+const removeSeatingConstraint = (formData: FormData) => {
+  formData.set('op', 'remove');
+  return seatingConstraint(formData);
+};
+
 const EVENT_WRITES: SeatingWrites = {
   addSeatingConstraint,
   assignGroup,

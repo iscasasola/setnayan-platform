@@ -51,7 +51,12 @@ export const SEATING_STORE_ACTIONS = [
   'setGhostBoothsEnabled',
 ] as const;
 
-export type SeatingStore = Pick<typeof SeatingActions, (typeof SEATING_STORE_ACTIONS)[number]> & {
+/** Calls the editor makes by name that are not their own export: both route through `seatingConstraint` (op). */
+type FoldedWrites = 'addSeatingConstraint' | 'removeSeatingConstraint';
+
+export type SeatingStore = Pick<typeof SeatingActions, Exclude<(typeof SEATING_STORE_ACTIONS)[number], FoldedWrites>> & {
+  addSeatingConstraint: (formData: FormData) => Promise<void>;
+  removeSeatingConstraint: (formData: FormData) => Promise<void>;
   guestSeatView: typeof guestSeatView;
   saveEntrance: typeof saveEntrance;
   /** 🏛 A venue's own table: its shape, its ONE chair count and its end chairs, saved together (Spaces `updateTable`).

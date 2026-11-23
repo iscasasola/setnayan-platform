@@ -958,8 +958,7 @@ export async function savePriorityOrder(formData: FormData) {
 // couple-only. Guest ids are validated as UUIDs before use in any filter.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function addSeatingConstraint(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
+async function addKeepApart(formData: FormData) {
   const eventId = formData.get('event_id');
   const a = formData.get('guest_a_id');
   const b = formData.get('guest_b_id');
@@ -994,8 +993,7 @@ export async function addSeatingConstraint(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
-export async function removeSeatingConstraint(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
+async function removeKeepApart(formData: FormData) {
   const eventId = formData.get('event_id');
   const a = formData.get('guest_a_id');
   const b = formData.get('guest_b_id');
@@ -1029,6 +1027,20 @@ export async function removeSeatingConstraint(formData: FormData) {
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+/**
+ * The ONE server action for keep-apart rules: `op` = 'add' | 'remove' routes to the matching write, each exactly as it
+ * was when they were two exports (the gate runs here, once, first; then UUID checks, lock, write, revalidate). Folded to hold the server-action
+ * ceiling (lint-server-action-budget.mjs). The editor still calls `addSeatingConstraint` / `removeSeatingConstraint`
+ * by name; `seating-writes.ts` sets `op` and calls this.
+ */
+export async function seatingConstraint(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
+  const op = formData.get('op');
+  if (op === 'add') return addKeepApart(formData);
+  if (op === 'remove') return removeKeepApart(formData);
+  throw new Error('Invalid input');
 }
 
 // Pin/unpin a seated guest (smart seat-plan · Phase 4 lock-and-fill). A locked

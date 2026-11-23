@@ -12,7 +12,7 @@
 import * as THREE from 'three';
 import { ss } from '@/lib/reveal-motion';
 import { DEFAULT_VEIL_LOOK } from '@/lib/reveal-config-pure';
-import { CAMZ, FZ, canvas, ctx2d, shadowsOnly, stamp, texOf, veilLights, type Ctx, type Pt, type Scene } from './kit';
+import { CAMZ, FZ, canvas, ctx2d, lay, shadowsOnly, stamp, texOf, veilLights, wideness, type Ctx, type Pt, type Scene } from './kit';
 
 const L = DEFAULT_VEIL_LOOK;
 const COMP = 0.16;
@@ -131,7 +131,10 @@ class Drape {
     private c: Ctx,
     o: DrapeOpts,
   ) {
-    const cols = (this.cols = o.cols ?? 66);
+    /* 🖥 a wide screen hangs MORE cloth, not stretched cloth (owner 23 Nov: *"create more fabric … extend it"*): the
+       weave is laid per pixel already, so here the threads across and the folds multiply with the width */
+    const wide = wideness(c.px);
+    const cols = (this.cols = Math.round((o.cols ?? 66) * Math.min(3, wide)));
     const rows = (this.rows = o.rows ?? 50);
     const N = (this.N = cols * rows);
     const { vh, vw } = c;
@@ -202,7 +205,7 @@ class Drape {
         const rf = iy / (rows - 1);
         this.px[q] = this.pin0[ix]!;
         this.py[q] = this.topPin - iy * this.dy;
-        this.pz[q] = iy === 0 ? FZ : FZ + (cf.full / 100) * 0.26 * env(rf) * Math.sin(fx * 6.2832 * cf.folds * (pinW / (2.4 * vw)) + rf * this.twist);
+        this.pz[q] = iy === 0 ? FZ : FZ + (cf.full / 100) * 0.26 * env(rf) * Math.sin(fx * 6.2832 * cf.folds * wide * (pinW / (2.4 * vw)) + rf * this.twist);
         this.qx[q] = this.px[q]!;
         this.qy[q] = this.py[q]!;
         this.qz[q] = this.pz[q]!;
@@ -530,14 +533,18 @@ export const fabric = (): Scene =>
     async build(c) {
       veilLights(c, 0.5);
       shadowsOnly(c, 0.3);
-      const sc = canvas(512, 888);
+      /* 🖥 the satin at its own size, laid outward across a wide screen (more fabric, never wider fabric); the logo
+         embroidered once, in the middle, at its phone size */
+      const wide = Math.min(4, wideness(c.px));
+      const cw = Math.round(512 * wide);
+      const sc = canvas(cw, 888);
       const sx = ctx2d(sc);
       sx.fillStyle = '#d8c49a';
-      sx.fillRect(0, 0, 512, 888);
+      sx.fillRect(0, 0, cw, 888);
       const satin = await c.art('satin');
-      sx.drawImage(satin, 0, 0, 512, 888);
-      stamp(sx, c.logo, 258, 446, 250, '#7a6238', 0.35);
-      stamp(sx, c.logo, 256, 444, 250, '#fff6dc', 0.7);
+      lay(sx, satin, [0, 0, satin.width, satin.height], cw, { dy: 0, dw: 512, dh: 888, step: 512, anchor: 'center' });
+      stamp(sx, c.logo, cw / 2 + 2, 446, 250, '#7a6238', 0.35);
+      stamp(sx, c.logo, cw / 2, 444, 250, '#fff6dc', 0.7);
       const mat = clothMaterial({ color: '#f1e4cf', map: texOf(sc), opacity: 1, rough: 0.5, fresnel: 0.3, fresnelA: 0, solid: true });
       return [new Drape(c, { cols: 88, rows: 76, mode: 'slide', material: mat, twist: 5.5, shadow: true, cfg: { weight: 30, wind: 14, full: 100, folds: 7, reach: 0, bounce: 90 } })];
     },

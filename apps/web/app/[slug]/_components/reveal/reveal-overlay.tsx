@@ -585,6 +585,9 @@ export function RevealOverlay({
         monogram={monogram}
         markSvg={markSvg}
         veilColor={eventEffects?.veilColor ?? veilColor}
+        sealConfig={sealConfig}
+        sealFallbackSeed={sealFallbackSeed}
+        waxColor={waxColor}
         autoplay={preview !== null}
         autoplayAfterMs={preview?.liftAfterMs}
         onAutoLift={

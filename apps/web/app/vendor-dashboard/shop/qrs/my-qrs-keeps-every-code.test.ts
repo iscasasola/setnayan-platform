@@ -41,7 +41,7 @@ const CODE_PAGE = read('app/vendor-dashboard/shop/qrs/[code]/page.tsx');
 
 /** The app route file an internal href lands on (static segments, then a `[param]` folder). */
 function routeFileOf(href: string): string | null {
-  const segs = href.split(/[?#]/)[0].split('/').filter(Boolean);
+  const segs = (href.split(/[?#]/)[0] ?? '').split('/').filter(Boolean);
   let dir = path.join(WEB, 'app');
   for (const seg of segs) {
     if (fs.existsSync(path.join(dir, seg))) dir = path.join(dir, seg);

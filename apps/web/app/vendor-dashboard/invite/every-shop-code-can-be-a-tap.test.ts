@@ -42,10 +42,11 @@ test('every shop code is drawn by QrCard — so each carries Write to NFC', () =
   const openedCards = [...opened.matchAll(/<QrCard\b[\s\S]*?\/>/g)].map((m) => m[0]);
   // My QRs' one card draws whichever shop code is opened: its `data` is that code's own (`MY_QR_WORDS`).
   assert.equal(openedCards.length, 1);
-  assert.match(openedCards[0], /\bdata=\{w\.data\}/);
-  assert.match(openedCards[0], /\burl=\{d\.url\}/, 'the opened card must hand its own url');
+  const openedCard = openedCards[0] ?? '';
+  assert.match(openedCard, /\bdata=\{w\.data\}/);
+  assert.match(openedCard, /\burl=\{d\.url\}/, 'the opened card must hand its own url');
   const report = SUPPLIER_QR_MODES.map((mode) => {
-    if (isPromoteQrMode(mode)) return { mode, card: MY_QR_WORDS[mode].data === CARD_OF_MODE[mode] ? openedCards[0] : undefined };
+    if (isPromoteQrMode(mode)) return { mode, card: MY_QR_WORDS[mode].data === CARD_OF_MODE[mode] ? openedCard : undefined };
     return { mode, card: cards.find((c) => c.includes(`data="${CARD_OF_MODE[mode]}"`)) };
   });
   console.log(report.map((r) => `${r.mode}: ${r.card ? 'QrCard' : 'MISSING'}`).join(' · '));

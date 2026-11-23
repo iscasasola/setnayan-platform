@@ -403,7 +403,8 @@ export function CounterTool({
 
   return (
     <div data-hub-tool={toolKey} data-hub-template="counter">
-      <ToolHead icon={icon} title={title} end={attending == null ? 'guests: couldn’t read' : `${formatCount(attending)} coming`} />
+      {/* The coming count is drawn ONCE, in the page's Headcount row; the counter compares against it and never repeats it (root map: one fact, shown once). */}
+      <ToolHead icon={icon} title={title} end={attending == null ? 'guests: couldn’t read' : undefined} />
       {rows.length === 0 ? <p data-hub-tool-empty="">{empty}</p> : null}
       <ul className="-mx-3">
         {rows.map((r) => {
@@ -418,10 +419,10 @@ export function CounterTool({
                       {m.base == null
                         ? 'Guests coming couldn’t be read — the count is still yours.'
                         : m.gap!.kind === 'even'
-                          ? `Exactly one each for ${formatCount(m.base)} coming`
+                          ? 'Exactly one each for the guests coming'
                           : m.gap!.kind === 'short'
-                            ? `${formatCount(m.gap!.by)} short of ${formatCount(m.base)} coming`
-                            : `${formatCount(m.gap!.by)} more than ${formatCount(m.base)} coming`}
+                            ? `${formatCount(m.gap!.by)} short of the guests coming`
+                            : `${formatCount(m.gap!.by)} more than the guests coming`}
                     </span>
                   </span>
                   <span className={`${setTwo.big} tabular-nums`} aria-live="polite">

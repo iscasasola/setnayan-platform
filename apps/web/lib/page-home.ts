@@ -115,6 +115,8 @@ const LABELS: Record<string, string> = {
   // The supplier's Hub room is no tab any more (THE ONE BUILD) — its own heading's word ("Hub", never the couple's
   // "Event Hub" — owner 2026-11-05), for the live console's ‹.
   '/vendor-dashboard/on-the-day': 'Hub',
+  // 🔳 My QRs (owner 23 Nov 2026): one opened code's ‹ is the list.
+  '/vendor-dashboard/shop/qrs': 'My QRs',
   '/admin': 'Work',
   '/admin/payments': 'Money',
   '/admin/accounts': 'People',

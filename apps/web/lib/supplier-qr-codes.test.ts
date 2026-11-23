@@ -16,6 +16,10 @@ import { renderUrlQrSvg } from './qr';
 import { stripComments } from './strip-comments';
 import {
   CUSTOMERS_QR_MODES,
+  MY_QRS_HREF,
+  MY_QR_WORDS,
+  myQrCodeOf,
+  myQrHref,
   PROMOTE_HREF,
   PROMOTE_QR_MODES,
   SUPPLIER_QR_MODES,
@@ -36,6 +40,10 @@ const PAGE = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard
 // THE ONE BUILD (C4): Promote's codes are drawn by its ONE body (`promote-body.tsx`), mounted by the page and Shop's QR sheet.
 const PROMOTE = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), 'utf8'));
 const VIEW = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard/invite/_components/qr-codes.tsx'), 'utf8'));
+// 🔳 Shop › My QRs (owner 23 Nov 2026): the shop's four codes' new home — its reads, its opened code, its page.
+const MYQR_DATA = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard/shop/qrs/_components/my-qrs-data.ts'), 'utf8'));
+const MYQR_VIEW = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard/shop/qrs/_components/my-qr-code.tsx'), 'utf8'));
+const MYQR_PAGE = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard/shop/qrs/[code]/page.tsx'), 'utf8'));
 
 // Retargeted 2026-11-06 (QR codes Option B, owner "B"): the dropdown became ONE LIST, a row per code, and Reviews joined
 // it (the prototype's fourth Promote row) — the six codes, the two live ones still first.
@@ -58,38 +66,52 @@ test('📣 every code has ONE home: Shop › Promote markets the shop, Customers
   for (const m of SUPPLIER_QR_MODES) assert.equal(isPromoteQrMode(m), (PROMOTE_QR_MODES as readonly string[]).includes(m));
   // Promote is Shop's own section, and every link to a code is built for its home.
   assert.equal(PROMOTE_HREF, SHOP_SEGMENT_HREF.promote);
-  assert.equal(supplierQrHref('shortlist'), '/vendor-dashboard/shop/promote?mode=shortlist');
-  assert.equal(supplierQrHref('page'), '/vendor-dashboard/shop/promote?mode=page');
-  assert.equal(supplierQrHref('reviews'), '/vendor-dashboard/shop/promote?mode=reviews');
+  // 🔳 23 Nov 2026: a shop code's link opens its own page on My QRs (Shop › My QRs replaces Promote's QR part).
+  assert.equal(MY_QRS_HREF, '/vendor-dashboard/shop/qrs');
+  assert.equal(supplierQrHref('shortlist'), '/vendor-dashboard/shop/qrs/shortlist');
+  assert.equal(supplierQrHref('page'), '/vendor-dashboard/shop/qrs/page');
+  assert.equal(supplierQrHref('reviews'), '/vendor-dashboard/shop/qrs/reviews');
+  assert.equal(supplierQrHref('dates'), '/vendor-dashboard/shop/qrs/dates');
+  assert.equal(myQrHref('shortlist', { et: 'wedding', cat: 'florist' }), '/vendor-dashboard/shop/qrs/shortlist?et=wedding&cat=florist', 'a Shortlist link keeps its two picks');
+  assert.equal(myQrHref('page', { et: 'wedding' }), '/vendor-dashboard/shop/qrs/page', 'only the Shortlist code carries picks');
+  for (const m of PROMOTE_QR_MODES) assert.equal(myQrCodeOf(m), m);
+  assert.equal(myQrCodeOf('locked'), null, 'My QRs must not open Booked — it stays with Customers');
+  assert.equal(myQrCodeOf('crew'), null);
   assert.equal(supplierQrHref('locked'), '/vendor-dashboard/invite?mode=locked');
   assert.equal(supplierQrHref('crew'), '/vendor-dashboard/invite?mode=crew');
   assert.equal(promoteQrModeOf('locked'), 'shortlist', 'Promote must not draw the Booked code');
   assert.equal(promoteQrModeOf('dates'), 'dates');
 });
 
-test('📣 Customers › QR codes forwards a moved code to Shop › Promote — never draws it, never an "Edit in X" link', () => {
-  // The forward runs before any read, keeps a Shortlist link's picks, and covers a bare /invite (always the Shortlist).
+test('📣 every old way into a shop code forwards to its My QRs page — never draws it, never an "Edit in X" link', () => {
+  // Customers › QR codes: the forward runs before any read, keeps a Shortlist link's picks, and covers a bare /invite.
   const fwd = PAGE.indexOf('if (isPromoteQrMode(asked))');
   assert.ok(fwd > 0, 'the old home no longer forwards the moved codes');
   assert.ok(fwd < PAGE.indexOf('createClient()'), 'the forward must run before the page reads anything');
-  assert.match(PAGE.slice(fwd, fwd + 400), /q\.set\('et'[\s\S]*q\.set\('cat'[\s\S]*redirect\(`\$\{PROMOTE_HREF\}\?/);
+  assert.match(PAGE.slice(fwd, fwd + 400), /redirect\(myQrHref\(asked, \{ et: search\.et, cat: search\.cat \}\)\)/);
+  // Shop › Promote: an old `?mode=` (Today's "Open QR", a bookmark) forwards before any read, with its picks.
+  const PROMOTE_PAGE = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard/shop/promote/page.tsx'), 'utf8'));
+  const pfwd = PROMOTE_PAGE.indexOf('if (asked) redirect(myQrHref(asked, search));');
+  assert.ok(pfwd > 0 && pfwd < PROMOTE_PAGE.indexOf('createClient()'), 'Promote no longer forwards a code link to My QRs before reading');
   assert.doesNotMatch(PAGE, /checkADateQr\(|myPage=\{|buildVendorInviteUrl\(|mode === 'shortlist'|mode === 'dates'|mode === 'page'/, 'Customers still draws a moved code');
-  assert.doesNotMatch(PROMOTE, /mode === 'locked'|mode === 'crew'|LockedQrGenerator|readCrewQr/, 'Promote draws a code that stays with Customers');
-  assert.doesNotMatch(PAGE + PROMOTE + VIEW, /Edit in |↗/, 'a go-edit-elsewhere link');
-  assert.match(PROMOTE, /<QrCodes[\s\S]{0,40}place: 'promote'|place: 'promote' as const/, 'Promote does not draw the shared view as its section');
+  assert.doesNotMatch(PROMOTE + MYQR_DATA + MYQR_VIEW, /mode === 'locked'|mode === 'crew'|LockedQrGenerator|readCrewQr/, 'My QRs draws a code that stays with Customers');
+  assert.doesNotMatch(PAGE + PROMOTE + VIEW + MYQR_VIEW, /Edit in |↗/, 'a go-edit-elsewhere link');
+  assert.match(PROMOTE, /withQr \? <MyQrsList\b/, 'Promote does not draw the My QRs list as its QR section');
 });
 
-// Retargeted 2026-11-06 (Option B): each home builds its ROWS from its slice — Promote draws all four codes on one visit
-// (every row shows its own small code), Customers draws Booked or Crew per visit and links the other row.
-test('each home builds its rows from its slice of the one list and draws each code', () => {
+// Retargeted 2026-11-23 (My QRs): Customers builds its rows from its slice; each shop code is read and drawn on its own
+// page — `/shop/qrs/<code>` opens only the four (`myQrCodeOf`, anything else 404s).
+test('each home draws its slice of the one list, and each code is drawn', () => {
   assert.match(PAGE, /CUSTOMERS_QR_MODES\.map\(/, 'the Customers rows are not built from CUSTOMERS_QR_MODES');
-  assert.match(PROMOTE, /PROMOTE_QR_MODES as readonly string\[\]\)\.includes\(/, 'Promote opens a sheet for a code outside PROMOTE_QR_MODES');
-  for (const prop of ['checkADate=', 'shortlist=', 'myPage=', 'reviews=']) assert.ok(PROMOTE.includes(prop), `Promote does not draw ${prop.slice(0, -1)}`);
+  assert.match(MYQR_PAGE, /const code = myQrCodeOf\(raw\);\s*if \(!code\) notFound\(\);/, 'My QRs opens a page for a code outside PROMOTE_QR_MODES');
+  assert.match(MYQR_DATA, /code === 'dates' \? await checkADateQr\(/, 'Check a date is not drawn');
+  assert.match(MYQR_DATA, /buildVendorInviteUrl\(shop\.slug, \{ eventType: et, category: cat \}\)/, 'Shortlist is not drawn from its picks');
+  assert.match(MYQR_DATA, /printQrUrl\(code, origin, shop\.slug\)/, 'Your page · Reviews are not drawn');
   assert.match(PAGE, /mode === 'crew'[\s\S]{0,600}crew=\{await readCrewQr\(/, 'Crew for an event is not drawn');
-  assert.match(VIEW, /row\(\s*'page',\s*myPage\?\.svg \?\? null,\s*myPage \?/);
   assert.match(VIEW, /row\('crew',[^\n]*crew \? <CrewCode crew=\{crew\} \/> : null\)/);
-  // One code per sheet: each choice draws exactly one QrCard.
-  assert.equal((VIEW.match(/data="my-page"/g) ?? []).length, 1);
+  // One code per page: the opened page draws exactly one QrCard, named by its own code.
+  assert.equal((MYQR_VIEW.match(/<QrCard\b/g) ?? []).length, 1);
+  assert.equal(MY_QR_WORDS.page.data, 'my-page');
   assert.equal((VIEW.match(/data="crew"/g) ?? []).length, 1);
 });
 
@@ -157,6 +179,7 @@ test('📣 the QR card reads Share · Copy link · Download, and the strip under
   assert.match(CARD, /const copy = async \(\) => \{[\s\S]{0,120}navigator\.clipboard\.writeText\(url\)/, 'Copy link copies the code’s own address');
   assert.match(CARD, /'Copy link'/);
   assert.match(CARD, /<QrActions url=\{url\} hideCopy\b/, 'the strip still draws its own Copy link — two on one card');
-  // Every Promote code is a QrCard, so each gets it: Shortlist · Check a date · My page.
-  for (const d of ['shortlist', 'check-a-date', 'my-page']) assert.match(VIEW, new RegExp(`data="${d}"`), `${d} is not a QR card`);
+  // Every My QRs code is the one QrCard on its page, so each gets it: Shortlist · Check a date · Your page · Reviews.
+  assert.match(MYQR_VIEW, /<QrCard[\s\S]{0,300}data=\{w\.data\}/);
+  assert.deepEqual(PROMOTE_QR_MODES.map((m) => MY_QR_WORDS[m].data).sort(), ['check-a-date', 'my-page', 'reviews', 'shortlist']);
 });

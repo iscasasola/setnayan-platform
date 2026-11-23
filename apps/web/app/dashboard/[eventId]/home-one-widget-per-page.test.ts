@@ -3,9 +3,9 @@
  * 2026-10-24, `home_control_center_2026-10-24_fable.html`). Owner: *"like now, we have guests, coming and no reply
  * opening the same thing"* → one widget per destination; *"it opens the exact payment and not just the budget page"*.
  *
- *   1 · RENDERED, both versions (the phone's tiles and the md+ cards): every door inside a widget — the tile, each
- *       face, each tiny action, each card button — lands on THAT widget's one page, and no page is the door of two
- *       widgets. Countdown → Event Settings · Guests → Guests · Event Hub → the Hub (Maker or public page) · Suppliers
+ *   1 · RENDERED, the ONE copy (the board's cards at every width since 23 Nov 2026 — v5 drawing, the website look;
+ *       the phone's tiles and the md copy are retired): every door inside a widget — the card, each figure, each
+ *       button — lands on THAT widget's one page, and no page is the door of two widgets. Countdown → Event Settings · Guests → Guests · Event Hub → the Hub (Maker or public page) · Suppliers
  *       → Suppliers · Budget → Budget · To do → Planning Stage (its To do filter, since 2026-11-01).
  *   2 · THE TABLE ("A face opens the EXACT item"): each face's href, as the notes list it.
  *   3 · THE OTHER CALLERS STILL WORK: the params Home leans on are read by their pages as before (`?q=` by the
@@ -58,15 +58,13 @@ function pageOf(href: string): string {
 const GRID_KEYS = HOME_CONTROL_KEYS.filter((k) => k !== 'count' && k !== 'plan');
 const hrefs = (html: string) => [...html.matchAll(/(?:href|data-home-face-href)="([^"]*)"/g)].map((m) => m[1]!);
 
-test('1 · every door inside a widget opens THAT widget’s one page — on the phone and from md up', () => {
+test('1 · every door inside a widget opens THAT widget’s one page — at every width', () => {
   const html = drawHome();
-  const compact = slice(html, 'data-home-control="compact"', ['data-home-control="detail"']);
-  const detail = slice(html, 'data-home-control="detail"', ['data-home-services']);
-  assert.ok(compact.length > 0 && detail.length > 0, 'premise: both versions are drawn');
-  for (const [version, part, marker] of [
-    ['compact', compact, 'data-home-tile="'],
-    ['detail', detail, 'data-home-card-key="'],
-  ] as const) {
+  // 🌐 23 Nov 2026 (owner, v5 drawing): one copy of the widgets — the board's — at every width.
+  assert.equal(html.split('data-home-control="compact"').length + html.split('data-home-control="detail"').length - 2, 0, 'a retired copy of the widgets is back');
+  const board = slice(html, 'data-home-control="board"', ['data-home-services']);
+  assert.ok(board.length > 0, 'premise: the board is drawn');
+  for (const [version, part, marker] of [['board', board, 'data-home-card-key="']] as const) {
     const owners = new Map<string, HomeControlKey>();
     for (const key of GRID_KEYS) {
       const one = slice(part, `${marker}${key}"`, HOME_CONTROL_KEYS.filter((k) => k !== key).map((k) => `${marker}${k}"`));
@@ -90,7 +88,7 @@ test('1 · every door inside a widget opens THAT widget’s one page — on the 
   // rows are payments and asks as well as tasks. Each door in it is the door `lib/event-today.ts` names for a row —
   // never a page of the list's own — and the plan's own doors (the "N more" row, the closing line) still open
   // Planning Stage.
-  const todo = slice(html, 'data-home-todo=""', ['data-home-your-event']);
+  const todo = slice(html, 'data-home-todo=""', ['data-home-control="board"']);
   const todoDoors = hrefs(todo).map((d) => d.replace(/&amp;/g, '&'));
   assert.ok(todoDoors.length > 0, 'the list has no door');
   const c = fixtureControl('e1');

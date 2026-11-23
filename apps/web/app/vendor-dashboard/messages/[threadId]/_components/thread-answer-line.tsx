@@ -126,7 +126,8 @@ export function QuickReplies({
 }: {
   threadId: string;
   replies: readonly string[];
-  sendAction: (formData: FormData) => void | Promise<void>;
+  /** The shipped send. With `return_to` set, a refusal redirects back with its reason — the returned refusal is never read here. */
+  sendAction: (formData: FormData) => void | Promise<void | { ok: false; reason: string }>;
 }) {
   return (
     <div className="flex gap-2 overflow-x-auto pb-0.5" data-quick-replies="">

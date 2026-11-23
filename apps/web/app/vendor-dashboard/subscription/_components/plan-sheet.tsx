@@ -75,8 +75,8 @@ export type SheetPlan = {
 };
 
 const lead = (Icon: typeof Gem) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />;
-const CYCLE_WORD: Record<Cycle, string> = { monthly: '4 weeks' };
-const EVERY_WORD: Record<Cycle, string> = { monthly: 'every 4 weeks' };
+const CYCLE_WORD: Record<Cycle, string> = { monthly: 'month' };
+const EVERY_WORD: Record<Cycle, string> = { monthly: 'every month' };
 
 function LimitRow({ l, compare }: { l: LimitChange; compare: boolean }) {
   return (
@@ -95,7 +95,7 @@ function LimitRow({ l, compare }: { l: LimitChange; compare: boolean }) {
   );
 }
 
-/** `pesos` is a catalogue amount (formatted here, with its commas); `cycle` the term it buys ("/ 28 days"). */
+/** `pesos` is a catalogue amount (formatted here, with its commas); `cycle` the term it buys ("/ month"). */
 function PayRow({ title, line, pesos, cycle }: { title: string; line: string; pesos: number | null; cycle?: Cycle }) {
   return (
     <div className="flex min-h-11 items-center gap-3 border-t border-ink/10 py-1.5" data-plan-pay-row="">
@@ -159,8 +159,8 @@ export function PlanSheet({
   /** L-2: the catalogue read was REFUSED — a missing price is "Couldn't load", never "Not sold on this cycle". */
   pricesUnread?: boolean;
 }) {
-  // The year switch is gone (owner 2026-11-22: "no yearly for any supplier subscription"): every plan is paid every
-  // 4 weeks, so there is one cycle and no control to change it.
+  // The year switch is gone (owner 2026-11-22: "no yearly for any supplier subscription"): every plan is billed
+  // monthly, so there is one cycle and no control to change it.
   const cycle: Cycle = startCycle;
 
   const button = (p: SheetPlan, kind: 'renew' | 'up' | 'down') => {

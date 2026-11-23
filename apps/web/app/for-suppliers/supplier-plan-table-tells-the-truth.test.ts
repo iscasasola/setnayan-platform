@@ -150,7 +150,7 @@ test('every price cell is the price the page read — or "—" when it read noth
   for (const c of cells) {
     for (const m of c.match(/₱[^\s/]*/g) ?? []) assert.match(m, /^₱SENT:/, `a price cell prints ${m}, which the page never read`);
   }
-  assert.equal(row(g, 'price:4w').cells.pro.text, SENT('pro-mo'));
+  assert.equal(row(g, 'price:month').cells.pro.text, SENT('pro-mo'));
   // Owner 2026-11-22 "no yearly for any supplier subscription": the table has no year row.
   assert.equal(rowsOf(g).some((r) => r.key === 'price:yr' || /year/i.test(r.label)), false, 'a yearly price row is offered');
   for (const t of TABLE_TIERS) {

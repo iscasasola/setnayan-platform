@@ -171,7 +171,7 @@ const TIER_WORD: Readonly<Record<string, string>> = {
 
 export function tierWords(tier: string | null | undefined, cycle: string | null | undefined): string {
   const t = TIER_WORD[(tier ?? '').toLowerCase()] ?? 'a plan';
-  const c = cycle === 'annual' || cycle === 'yearly' ? ' for a year' : cycle ? ' for 28 days' : '';
+  const c = cycle === 'annual' || cycle === 'yearly' ? ' for a year' : cycle ? ' for a month' : '';
   return `${t}${c}`;
 }
 

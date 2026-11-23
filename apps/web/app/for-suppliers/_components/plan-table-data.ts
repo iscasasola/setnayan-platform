@@ -172,7 +172,7 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
 
   const free = (t: VendorTier) => t === 'free' || t === 'verified';
   const price: TableRow[] = [
-    { key: 'price:4w', label: 'Every 4 weeks', cells: each((t) => (free(t) ? words('Free') : words(prices.monthly[t] ?? DASH))) },
+    { key: 'price:month', label: 'Every month', cells: each((t) => (free(t) ? words('Free') : words(prices.monthly[t] ?? DASH))) },
   ];
 
   const tools: TableRow[] = [

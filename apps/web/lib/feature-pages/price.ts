@@ -39,7 +39,7 @@ const SUFFIX: Readonly<Record<string, { en: string; tl: string }>> = {
   per_28d: { en: ' / 28 days', tl: ' / 28 araw' },
   per_day: { en: ' / day', tl: ' / araw' },
   per_year: { en: ' / year', tl: ' / taon' },
-  subscription_monthly: { en: ' / 28 days', tl: ' / 28 araw' },
+  subscription_monthly: { en: ' / month', tl: ' / buwan' },
   subscription_annual: { en: ' / year', tl: ' / taon' },
   vendor_addon_recurring: { en: ' / 28 days', tl: ' / 28 araw' },
   branch: { en: ' / 28 days', tl: ' / 28 araw' },

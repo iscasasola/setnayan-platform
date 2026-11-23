@@ -4,7 +4,7 @@
  *
  * `tier_state` enum on vendor_profiles = free | verified | solo | pro | enterprise.
  * free + verified are legacy states kept for backward compatibility.
- * The three marketed tiers are Supplier Plus (₱999/28d) · Pro (₱2,499/28d) · Enterprise (₱7,999/28d).
+ * The three marketed tiers are Supplier Plus · Pro · Ultra, billed monthly (prices: vendor_billing_catalog, never here).
  * (Prices shown for reference only — the live figures are read from
  * vendor_billing_catalog; this file only carries capability caps, not prices.)
  *
@@ -579,7 +579,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     premiumPage: false,
     inquireLink: true,
   },
-  // Supplier Plus — ₱999/28d entry-level paid tier (price from vendor_billing_catalog).
+  // Supplier Plus — the entry-level paid tier, billed monthly (price from vendor_billing_catalog).
   // One category, one operator + one helper. Real name shown day-1 (paid).
   // Token-burn model same as Pro/Enterprise (inAppGated = true). One agent seat
   // (owner 2026-07-02 — Supplier Plus now sits one seat above Free · Verified's 0).

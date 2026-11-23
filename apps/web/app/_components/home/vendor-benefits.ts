@@ -36,7 +36,7 @@ export type VendorTierSection = {
   /** One-line "what this tier is for". */
   tagline: string;
   groups: VendorTierGroup[];
-  // NOTE: prices are NOT stored here — the overlay resolves each tier's 28-day +
+  // NOTE: prices are NOT stored here — the overlay resolves each tier's monthly +
   // annual price from the live catalog (getVendorPrices via PricingData.vendor)
   // so a catalog reprice propagates without a code edit (never hardcode prices).
 };

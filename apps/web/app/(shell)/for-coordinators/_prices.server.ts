@@ -6,7 +6,7 @@
  * comes back `null` and the page leaves the figure out — a missing price is recoverable, a confidently
  * stale one is not (same rule as `getVendorPrices` in lib/v2-catalog.ts).
  *
- *   Supplier Plus / Pro / Ultra per 4 weeks ................ `solo|pro|enterprise_vendor_monthly` (no yearly plan)
+ *   Supplier Plus / Pro / Ultra per month .................. `solo|pro|enterprise_vendor_monthly` (no yearly plan)
  *   +1 branch .................................... `BRANCH_SKU_CODE` (the row a branch order is charged by)
  *   +1 team seat ................................. `SEAT_SKU_CODE`   (the row a seat order is charged by)
  */

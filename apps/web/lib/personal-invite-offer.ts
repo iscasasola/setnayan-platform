@@ -123,7 +123,7 @@ export function offerResultLine(o: PersonalInviteOffer): string | null {
   return parts.length ? `${parts.join(' · ')} — written when they claim.` : null;
 }
 
-/** Monthly (28-day) catalogue price per paid plan; absent = not in the catalogue, so named without a price. */
+/** Monthly catalogue price per paid plan; absent = not in the catalogue, so named without a price. */
 export type PlanPrices = Partial<Record<PersonalInviteTier, number>>;
 
 /** "Supplier Plus ₱1,000" — or "Ultra" when the catalogue holds no price for it. */
@@ -132,17 +132,17 @@ function planWithPrice(tier: PersonalInviteTier, prices: PlanPrices): string {
   return typeof p === 'number' && Number.isFinite(p) ? `${planWord(tier)} ${formatPhp(p)}` : planWord(tier);
 }
 
-/** "Free, Supplier Plus ₱1,000, Pro ₱2,500 or Ultra ₱10,000 / 28 days" — the four choices after the gift (prices read). */
+/** "Free, Supplier Plus ₱1,000, Pro ₱2,500 or Ultra ₱10,000 / month" — the four choices after the gift (prices read). */
 export function planChoicesLine(prices: PlanPrices): string {
   const paid = PERSONAL_INVITE_TIERS.map((t) => planWithPrice(t, prices));
-  return `Free, ${paid.slice(0, -1).join(', ')} or ${paid[paid.length - 1]} / 28 days`;
+  return `Free, ${paid.slice(0, -1).join(', ')} or ${paid[paid.length - 1]} / month`;
 }
 
 /** The dropdown's trailing note per plan: "no gift" for Free, the catalogue price, or nothing when there is none. */
 export function planMenuNote(tier: 'free' | PersonalInviteTier, prices: PlanPrices): string | null {
   if (tier === 'free') return 'no gift';
   const p = prices[tier];
-  return typeof p === 'number' && Number.isFinite(p) ? `${formatPhp(p)} / 28 days` : null;
+  return typeof p === 'number' && Number.isFinite(p) ? `${formatPhp(p)} / month` : null;
 }
 
 /**

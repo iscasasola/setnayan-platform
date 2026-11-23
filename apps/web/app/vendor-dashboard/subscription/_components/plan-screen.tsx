@@ -40,7 +40,7 @@ import { BadgeUpgradesSection } from './badge-upgrades-section';
 import { loadBadgeUpgradesSection } from './badge-upgrades-data';
 import { PlanChangeNotice } from './plan-change-notice';
 import { COUNT_ADDON_KINDS, COUNT_ADDONS, fetchAddOnExtras } from '@/lib/vendor-ultra-addons';
-import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
+import { monthlyTermIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { formatPhp } from '@/lib/php';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { downgradeFit } from '@/lib/downgrade-limits';
@@ -117,11 +117,6 @@ type PaidTier = Extract<VendorTier, 'solo' | 'pro' | 'enterprise'>;
 
 const PAID_TIERS: PaidTier[] = ['solo', 'pro', 'enterprise'];
 
-/**
- * How many days a block BUYS — the period `create_vendor_subscription` writes for a monthly SKU (28), the same number
- * the too-short rule is measured against there, so the screen and the database cannot disagree.
- */
-const TERM_DAYS = { monthly: 28 } as const;
 
 function skuFor(tier: PaidTier): string {
   return `${tier}_vendor_monthly`;
@@ -352,7 +347,8 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       // 💰 The catalogue row or nothing (owner 2026-11-13): an unread plan price shows no figure and no Pay button.
       price: ((v) => (v !== undefined && Number.isFinite(v) ? { monthly: v } : {}))(priceBySku.get(skuFor(tier))) as PlanPick['price'],
       tooShort: {
-        monthly: termIsTooShort(TERM_DAYS.monthly, tierExpiresAt, now) ? termTooShortMessage(tierExpiresAt) : null,
+        // 🗓 A month started now vs the plan already held: the picker's copy of create_vendor_subscription's rule.
+        monthly: monthlyTermIsTooShort(tierExpiresAt, now) ? termTooShortMessage(tierExpiresAt) : null,
       },
       pickLine: planPickLine(currentTier, tier, expiresOn),
     })),
@@ -436,7 +432,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       : null;
   const pays =
     currentPrice !== null
-      ? `${formatPhp(currentPrice)} / 28 days`
+      ? `${formatPhp(currentPrice)} / month`
       : isPaid
         ? 'paid'
         : 'nothing to pay';

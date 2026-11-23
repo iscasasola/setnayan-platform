@@ -41,7 +41,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 type Row = Record<string, unknown>;
 
 /** Every row of a paged read, or null when any page was refused (or the read was too big to bucket here). */
-async function pagedRows(label: string, vendorProfileId: string, page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>): Promise<Row[] | null> {
+export async function pagedRows(label: string, vendorProfileId: string, page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>): Promise<Row[] | null> {
   const out: Row[] = [];
   for (let p = 0; p < MAX_PAGES; p++) {
     const { data, error } = await page(p * PAGE, p * PAGE + PAGE - 1);

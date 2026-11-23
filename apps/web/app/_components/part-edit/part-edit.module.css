@@ -1,0 +1,155 @@
+/*
+ * part-edit.module.css — ✍️ the quiet bar, the kept change and the draft of ONE EDITOR PER PART (owner 2026-11-21;
+ * drawing `prototypes/desktop_split_view_2026-11-21/desktop_split_view_v2_fable.html`, frames 3–5: `.lockbar`,
+ * `.lockbar.free`, `.lockbar.bump`, `.keep`, `.drow`, `.ro`).
+ *
+ * TOKENS ONLY: colour by job (`--color-*`, light and dark paired in globals.css), radii `--m-r-*`, spacing 4 8 12 16.
+ * A quiet bar, never a pop-up.
+ */
+
+.bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 8px 12px;
+  border-radius: var(--m-r-md);
+  background: rgb(var(--color-wash));
+  color: rgb(var(--color-ink-2));
+  font-size: var(--sn-fs-md);
+  line-height: 1.4;
+}
+.bar > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: rgb(var(--color-ink-3));
+}
+.bar b {
+  color: rgb(var(--color-ink));
+  font-weight: 700;
+}
+.barWords {
+  flex: 1;
+  min-width: 0;
+}
+.barAct {
+  flex: none;
+  margin: -6px -6px -6px 0;
+}
+.free {
+  background: rgb(var(--color-ok) / 0.12);
+}
+.free > svg {
+  color: rgb(var(--color-ok));
+}
+.bump {
+  background: rgb(var(--color-warn) / 0.12);
+}
+.bump > svg {
+  color: rgb(var(--color-warn));
+}
+
+/* The part while somebody else holds it: read-only, quieter (drawing `.ro`). */
+.readOnly {
+  opacity: 0.6;
+}
+
+/* "Your unsaved change" — kept, with Put it back · Discard (drawing `.keep`). */
+.keep {
+  margin: 0 0 12px;
+  padding: 12px;
+  border-radius: var(--m-r-md);
+  background: rgb(var(--color-raised));
+  box-shadow: var(--sn-frame-shadow);
+  border-left: 3px solid rgb(var(--color-mulberry));
+}
+.keep > b {
+  display: block;
+  color: rgb(var(--color-ink));
+  font-size: var(--sn-fs-base);
+}
+.keepLines {
+  margin: 2px 0 12px;
+  padding: 0;
+  list-style: none;
+  color: rgb(var(--color-ink-3));
+  font-size: var(--sn-fs-md);
+}
+.two {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The draft on top of the host's latest (frame 5, `.drow`). */
+.draftList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: var(--m-r-md);
+  background: rgb(var(--color-raised));
+  box-shadow: var(--sn-frame-shadow);
+  overflow: hidden;
+}
+.drow {
+  padding: 12px 16px;
+  border-top: 1px solid rgb(var(--color-ink) / 0.08);
+}
+.drow:first-child {
+  border-top: 0;
+}
+.drowHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: rgb(var(--color-ink));
+  font-size: var(--sn-fs-base);
+  font-weight: 700;
+}
+.drowLine {
+  display: block;
+  margin-top: 2px;
+  color: rgb(var(--color-ink-3));
+  font-size: var(--sn-fs-md);
+}
+.drowPick {
+  margin-top: 8px;
+}
+.pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--m-r-full);
+  font-size: var(--sn-fs-xs);
+  font-weight: 700;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.pillYours {
+  background: rgb(var(--color-ok) / 0.14);
+  color: rgb(var(--color-ok));
+}
+.pillToo {
+  background: rgb(var(--color-warn) / 0.14);
+  color: rgb(var(--color-warn));
+}
+.pillDraft {
+  background: rgb(var(--color-wash));
+  color: rgb(var(--color-ink-2));
+}
+.pickFace small {
+  display: block;
+  font-size: var(--sn-fs-xs);
+  font-weight: 600;
+  opacity: 0.8;
+}
+.draftActs {
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+}
+.draftActs > :first-child {
+  flex: 1;
+}

@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:phrases
 //
 // The ⌘K box's phrase bank: every phrase and the ONE place its first row must open.
-// 1689 phrases — 344 page names · 344 job phrasings · 986 keyword-table phrasings · 15 misspellings.
+// 1690 phrases — 344 page names · 345 job phrasings · 986 keyword-table phrasings · 15 misspellings.
 // ask-phrase-bank.test.ts fails if this drifts from buildPhraseBank(), and holds the box's accuracy over it.
 
 import { parsePhraseBank } from './ask-phrase-bank';
@@ -457,6 +457,7 @@ admin decline inquiry	/admin/demo-vendors/inquiries	job
 admin lift concierge enforcement	/admin/concierge-abuse	job
 admin reply as vendor	/admin/demo-vendors/inquiries	job
 admin takedown recap	/admin/studio?tab=recaps	job
+admin team act	/admin/approvals	job
 agree to request from work list	/admin/work	job
 apply correction request	/admin/corrections	job
 approve and delete	/admin/account-deletions	job

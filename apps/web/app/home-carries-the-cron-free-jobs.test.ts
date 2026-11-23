@@ -67,6 +67,12 @@ const JOBS = [
     fn: 'maybeRunInterconnectionProbes',
     what: 'the interconnection probes',
   },
+  {
+    fn: 'maybeRunOwnerApprovals',
+    what:
+      "the owner's own two-admin requests, which run 24 hours after he types " +
+      'the word (DECISION_LOG 2026-11-13) — with no runner they would wait forever',
+  },
 ] as const;
 
 test('ANCHOR — the page source was actually read', () => {

@@ -5,7 +5,7 @@ import { Check, CircleDot, Gem, Images, LayoutTemplate, ListChecks, Maximize2, P
 import { ActionButton } from '@/components/action-button';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { Sheet } from '@/app/_components/sheet';
-import { FormRow, FormRows, SwitchRow } from '@/app/_components/form-row';
+import { FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { FileUpload } from '@/app/_components/file-upload';
 import { Sk } from '@/components/skeletons';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -459,20 +459,18 @@ export function DayPosterBuilder({ boot, initial, onClose }: { boot: DayPosterBo
           />
         ))}
         {record.show.line ? (
-          <label className="flex flex-col gap-1 py-2" data-form-row="day-poster-line">
-            <span className="text-sn-base text-ink">Your line</span>
-            <input
-              className="input-field w-full"
-              defaultValue={record.line ?? ''}
-              maxLength={DAY_POSTER_LINE_MAX}
-              placeholder="Your closing words"
-              aria-label="Your line"
-              onBlur={(e) => {
-                const v = e.currentTarget.value.trim() || null;
-                if (v !== record.line) change((r) => ({ ...r, line: v }), { now: true });
-              }}
-            />
-          </label>
+          <TypedRow
+            name="Your line"
+            value={record.line ?? ''}
+            empty="Your closing words"
+            placeholder="Your closing words"
+            maxLength={DAY_POSTER_LINE_MAX}
+            onKeep={(text) => {
+              const v = text.trim() || null;
+              if (v !== record.line) change((r) => ({ ...r, line: v }), { now: true });
+            }}
+            data="day-poster-line"
+          />
         ) : null}
         <FormRow name="QR · Our story" line="Always printed — it opens your Event Hub, and your story after the day." data="day-poster-qr" />
         {t.rolls ? null : <p className="pt-2 text-sn-sm text-ink/55">Sponsors and the entourage print on Collage and Words + one photo.</p>}

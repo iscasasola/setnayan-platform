@@ -483,7 +483,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     : PORTFOLIO_ALLOWANCE_UNREAD;
 
   // 📏 THE STORAGE METER (owner 2026-11-23 "THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SHOP OWNS"): Photos &
-  // video · Files · Records and the chat & documents room, from the ONE breakdown read — the limits sheet above already
+  // video · Files · Records, from the ONE breakdown read — the limits sheet above already
   // read it (`downgradeFacts.storage`); read again only when it did not (Free has no sheet). A failed read says so.
   const storageRead =
     storageAllowanceBytes(currentTier) === null

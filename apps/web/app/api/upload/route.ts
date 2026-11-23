@@ -967,8 +967,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Asked BEFORE the PUT is signed, so a file past the allowance never reaches storage. The shop was proven the
   // caller's by the tenancy check above. Nothing stored is touched; the database's backstop
   // (`enforce_supplier_storage_allowance`) refuses the same file on every other path. Fail CLOSED when blind.
-  // Photos and video fit the plan less the chat & documents room; a document fits the room; EVIDENCE (verification
-  // papers, contracts) is counted and never refused (spec § ★ K).
+  // One number per plan: only photos and video past it wait. A document and EVIDENCE (verification papers,
+  // contracts) are counted and never refused (owner 23 Nov, the chat & documents room dropped).
   const shopUploadKind = { media: isMediaContentType(baseContentType), evidence: isEvidenceUpload(bucketKey) };
   if (supplierStorageShopId) {
     const room = await checkSupplierStorage(createAdminClient(), supplierStorageShopId, sizeBytes, shopUploadKind);

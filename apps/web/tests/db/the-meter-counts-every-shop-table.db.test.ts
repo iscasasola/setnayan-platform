@@ -8,8 +8,8 @@
  *   · EVERY TABLE THAT NAMES A SHOP is counted, or left out with its reason — and the left-out list is short, real and
  *     only the platform's own books, safety records, secrets and the meter's own rows. A NEW table that names a shop is
  *     counted by default (made here, measured here);
- *   · every stored file lands in its kind: Photos & video · Files (evidence inside it) · Records; the room is the
- *     non-media files + the chat messages;
+ *   · every stored file lands in its kind: Photos & video · Files (evidence inside it) · Records — one number per
+ *     plan, no chat & documents room (owner 23 Nov, "Yes, drop it"), so the read has no room column;
  *   · a new shop reads its true few KB — no reserve;
  *   · the measure is the nightly job's (every shop, one pass) or a first look's (one shop) — the read never rescans;
  *   · media vs document: the SQL twin says exactly what `isMediaContentType` says;
@@ -79,7 +79,7 @@ async function newShop(tier = 'solo'): Promise<Shop> {
   return { uid, shop, ev, thread };
 }
 
-type Breakdown = { pv: number; files: number; records: number; room: number; evidence: number; measured: string | null };
+type Breakdown = { pv: number; files: number; records: number; evidence: number; measured: string | null; columns: string[] };
 async function breakdown(shop: string): Promise<Breakdown> {
   await asOwner();
   const r = (
@@ -89,9 +89,9 @@ async function breakdown(shop: string): Promise<Breakdown> {
     pv: Number(r.photos_video_bytes),
     files: Number(r.files_bytes),
     records: Number(r.records_bytes),
-    room: Number(r.room_bytes),
     evidence: Number(r.evidence_bytes),
     measured: r.records_measured_at === null ? null : String(r.records_measured_at),
+    columns: Object.keys(r),
   };
 }
 async function used(shop: string): Promise<number> {
@@ -257,7 +257,7 @@ test('a NEW shop reads its true few KB — no reserve, no “System” block (ow
   assert.equal(await used(s.shop), b.pv + b.files + b.records, 'the total is the three kinds added');
 });
 
-test('a BUSY shop: every file in its kind, evidence inside Files, the room = documents + chat words', async () => {
+test('a BUSY shop: every file in its kind, evidence inside Files, the chat words inside Records — no room', async () => {
   const s = await newShop('solo');
   const MB = 1_000_000;
   // Photos & video
@@ -290,8 +290,7 @@ test('a BUSY shop: every file in its kind, evidence inside Files, the room = doc
   assert.equal(b.files, 1 * MB + 400_000 + 600_000, 'Files');
   assert.equal(b.evidence, 1 * MB + 600_000, 'evidence: the contract + the verification paper');
   assert.ok(b.records > 5 * 200, 'Records');
-  assert.ok(b.room > b.files, 'the room holds the documents AND the chat words');
-  assert.ok(b.room - b.files <= b.records, 'the chat words in the room are part of Records, not added again');
+  assert.ok(!b.columns.includes('room_bytes'), 'the read still has a chat & documents room — the owner dropped it 23 Nov');
   assert.equal(await used(s.shop), b.pv + b.files + b.records);
 
   // A released upload, a removed chat file and a dropped original stop counting.

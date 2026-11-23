@@ -4,7 +4,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
   isMediaContentType,
-  roomFullMessage,
   storageAllowanceBytes,
   storageFitsUpload,
   mediaFullMessage,
@@ -42,8 +41,8 @@ export type StorageCheck =
   | { kind: 'unavailable' };
 
 /**
- * 📏 THE ONE READ (`vendor_storage_breakdown`, migration 20271360925434): Photos & video · Files · Records, the chat &
- * documents room's use and the evidence share, in ONE call. A refused or malformed answer is `unread`, never zeros.
+ * 📏 THE ONE READ (`vendor_storage_breakdown`, migration 20271360925434): Photos & video · Files · Records and the
+ * evidence share, in ONE call. A refused or malformed answer is `unread`, never zeros.
  * Service role only — the caller resolved the shop from the session first.
  */
 export async function readStorageBreakdown(admin: SupabaseClient, vendorProfileId: string): Promise<StorageBreakdownRead> {
@@ -63,11 +62,10 @@ export async function readStorageBreakdown(admin: SupabaseClient, vendorProfileI
       photosVideo: n('photos_video_bytes'),
       files: n('files_bytes'),
       records: n('records_bytes'),
-      room: n('room_bytes'),
       evidence: n('evidence_bytes'),
       recordsMeasuredAt: typeof row?.records_measured_at === 'string' ? row.records_measured_at : null,
     };
-    if ([breakdown.photosVideo, breakdown.files, breakdown.records, breakdown.room, breakdown.evidence].some((x) => Number.isNaN(x))) {
+    if ([breakdown.photosVideo, breakdown.files, breakdown.records, breakdown.evidence].some((x) => Number.isNaN(x))) {
       console.error('[supplier-storage] breakdown malformed', vendorProfileId, data);
       return { status: 'unread' };
     }
@@ -82,8 +80,9 @@ export async function readStorageBreakdown(admin: SupabaseClient, vendorProfileI
  * May `incomingBytes` more be stored by this shop? Asked by `/api/upload` BEFORE the PUT is signed (every shop upload,
  * not only event files), so a file that does not fit never reaches storage. The plan is the shop's `tier_state` — the
  * same column the database's backstop (`enforce_supplier_storage_allowance`) reads. `kind` says media or a document,
- * and whether it is EVIDENCE (contracts, receipts, payment proofs, verification papers): evidence always fits — it is
- * counted, never refused (owner 22 Nov, spec § ★ K). Default: media, not evidence.
+ * and whether it is EVIDENCE. Only photos and video can be refused: a document or evidence (contracts, receipts,
+ * payment proofs, verification papers) always fits — it is counted, never refused (owner 23 Nov, the room dropped:
+ * "Yes, drop it"). Default: media, not evidence.
  */
 export async function checkSupplierStorage(
   admin: SupabaseClient,
@@ -91,7 +90,7 @@ export async function checkSupplierStorage(
   incomingBytes: number,
   kind: UploadKind = { media: true, evidence: false },
 ): Promise<StorageCheck> {
-  if (kind.evidence) return { kind: 'fits' }; // never refused, never even blind-refused
+  if (kind.evidence || !kind.media) return { kind: 'fits' }; // never refused, never even blind-refused
   const shop = await admin
     .from('vendor_profiles')
     .select('tier_state')
@@ -109,12 +108,8 @@ export async function checkSupplierStorage(
   if (storageAllowanceBytes(plan) === null) return { kind: 'fits' }; // no allowance on this plan
   const read = await readStorageBreakdown(admin, vendorProfileId);
   if (read.status !== 'ok') return { kind: 'unavailable' };
-  const fit = storageFitsUpload(plan, read.breakdown, incomingBytes, kind);
-  if (fit.fits) return { kind: 'fits' };
-  return {
-    kind: 'full',
-    message: fit.inRoom ? roomFullMessage(plan) : mediaFullMessage(plan, read.breakdown, incomingBytes),
-  };
+  if (storageFitsUpload(plan, read.breakdown, incomingBytes, kind)) return { kind: 'fits' };
+  return { kind: 'full', message: mediaFullMessage(plan, read.breakdown, incomingBytes) };
 }
 
 /**

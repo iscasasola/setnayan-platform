@@ -15,7 +15,7 @@ import { StorageMeter } from './storage-meter';
  *
  *   You are on <plan> · <what you pay> · until <date>          (the answer line)
  *   Pay every ▾ · the plan rows (What changes · What you pay)    (`PlanSheet`, handed in — Build 5 Lane B)
- *   📏 the storage meter — plan · size, Photos & video · Files · Records, the chat & documents room (`StorageMeter`)
+ *   📏 the storage meter — plan · size, Photos & video · Files · Records (`StorageMeter`)
  *   Booking fee — the live schedule · "N of 5 used" / Waived   (`bookingFeeRow`)
  *   What <plan> gives you ▾ — read from the plan table         (`planGivesLines`)
  *   Receipts ▾ — paid plan orders, each to /receipts/<id>
@@ -72,7 +72,7 @@ export function PlanRows({
   photosLine?: string | null;
   /**
    * 📏 The storage meter's read (`readStorageBreakdown`): the top block — plan · size, the bar split Photos & video ·
-   * Files · Records, the chat & documents room. null = the plan has no allowance and the block is not drawn.
+   * Files · Records. null = the plan has no allowance and the block is not drawn.
    */
   storage?: StorageBreakdownRead | null;
   /** 💳 Deep Search, the one thing every plan still buys (2026-11-14): its catalogue price; null = not drawn. */

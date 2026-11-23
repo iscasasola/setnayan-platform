@@ -27,6 +27,7 @@ import {
   type StorageBreakdownRead,
 } from './supplier-storage';
 import { PERIODIC_JOBS } from './periodic-job-registry';
+import { TIER_CAPS } from './vendor-tier-caps';
 import { StorageMeter } from '../app/vendor-dashboard/subscription/_components/storage-meter';
 
 const HOUR = 3_600_000;
@@ -125,7 +126,7 @@ test('recordsMeasure: never · fresh · stale, in plain words', () => {
 const NOW = Date.parse('2026-11-24T12:00:00Z');
 const read = (records: number, recordsMeasuredAt: string | null): StorageBreakdownRead => ({
   status: 'ok',
-  breakdown: { photosVideo: 2.4e9, files: 180e6, records, room: 180e6, evidence: 40e6, recordsMeasuredAt },
+  breakdown: { photosVideo: 2.4e9, files: 180e6, records, evidence: 40e6, recordsMeasuredAt },
 });
 const render = (r: StorageBreakdownRead) => renderToStaticMarkup(React.createElement(StorageMeter, { tier: 'solo', read: r, nowMs: NOW }));
 
@@ -152,4 +153,19 @@ test('an unread breakdown is still "Couldn’t read" — not zeros, not "not mea
   const html = render({ status: 'unread' });
   assert.match(html, /data-plan-storage="unread"/);
   assert.doesNotMatch(html, /Not measured yet|0 KB/);
+});
+
+test('ONE number per plan: no chat & documents room line, and a full plan stops only photos and video (owner 23 Nov, "Yes, drop it")', () => {
+  // Plus, filled to the byte (its size read from TIER_CAPS, never typed): photos + 180 MB of files.
+  const plus = Number(TIER_CAPS.solo.storageBytes);
+  const html = renderToStaticMarkup(
+    React.createElement(StorageMeter, {
+      tier: 'solo',
+      read: { status: 'ok', breakdown: { photosVideo: plus - 180e6, files: 180e6, records: 0, evidence: 0, recordsMeasuredAt: new Date(NOW).toISOString() } },
+      nowMs: NOW,
+    }),
+  );
+  assert.match(html, /data-plan-storage="full"/);
+  assert.doesNotMatch(html, /data-plan-storage-room|Chat &amp; documents|kept for chat/);
+  assert.match(html, /New photos and videos wait for room\. Nothing has been removed, and your messages, documents, quotes, contracts, receipts and proofs still go through\./);
 });

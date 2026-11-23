@@ -89,7 +89,8 @@ export function planRole(plan: string | null | undefined): string {
 
 /**
  * The next PAID plan up that holds more than this one, or null (Ultra — nothing is above it, and there are no packs).
- * Verified is never "moved to": it is earned by verifying, not bought — so Free and Verified both point at Plus.
+ * Verified is never "moved to": it is earned by verifying, not bought — so Free and Verified both point at Plus. The
+ * words of the way up are `storageWayUp`: a full Free is offered Get verified first.
  */
 export function nextStoragePlan(plan: string | null | undefined): VendorTier | null {
   const current = asVendorTier(plan);
@@ -101,6 +102,18 @@ export function nextStoragePlan(plan: string | null | undefined): VendorTier | n
     if (s !== null && s > have) return t;
   }
   return null;
+}
+
+/**
+ * The way up at the end of a storage refusal, after "Remove files … to make room". A full FREE shop is offered Get
+ * verified, not a paid plan (owner via the controller, DECISION_LOG "SUPPLIER SIZES FIXED (FINAL)": "Full Free → Get
+ * verified" — Free is a trial, not a plan to stay on). Every other plan names the next paid size with its account
+ * features (owner 2026-11-22: never the size alone). Ultra: nothing — never an invented offer.
+ */
+export function storageWayUp(plan: string | null | undefined): string {
+  if (asVendorTier(plan) === 'free') return ` or get verified, free: ${planSummaryWords('verified')}`;
+  const next = nextStoragePlan(plan);
+  return next ? ` or move to ${planWord(next)}: ${planSummaryWords(next)}` : '';
 }
 
 /**
@@ -129,9 +142,7 @@ export function storageFullMessage(plan: string | null | undefined, usedBytes: n
   const allowance = storageAllowanceBytes(plan) ?? 0;
   const name = planWord(asVendorTier(plan));
   const left = Math.max(0, allowance - Math.max(0, usedBytes));
-  const next = nextStoragePlan(plan);
-  // The way up names the plan's account features with its size, never the size alone (owner 2026-11-22).
-  const up = next ? ` or move to ${planWord(next)}: ${planSummaryWords(next)}` : '';
+  const up = storageWayUp(plan);
   const reason =
     left < 1e6
       ? `Your ${name} plan’s ${storageWords(allowance)} of storage is full.`
@@ -159,17 +170,18 @@ export function isStorageRefusal(message: string | null | undefined): boolean {
  *
  *   · read     — `vendor_storage_breakdown` (migration 20271360925434), ONE batched read: every stored file, live, and
  *                the shop's data as last measured (a nightly job; a new shop is measured on its first look).
- *   · shown    — three kinds: Photos & video · Files · Records, then the chat & documents room's own line. No reserve,
- *                no "System" block: a new shop reads its true few KB.
- *   · refused  — media past the plan less the room; documents past the room. EVIDENCE (contracts, receipts, payment
- *                proofs, verification papers) and words are counted but NEVER refused.
+ *   · shown    — three kinds: Photos & video · Files · Records, against ONE number per plan. No reserve, no "System"
+ *                block, no separate room: a new shop reads its true few KB.
+ *   · refused  — only new photos and video past the plan (owner 23 Nov, "let us not set Room anymore?" → "Yes, drop
+ *                it"). Documents, chat words and EVIDENCE (contracts, receipts, payment proofs, verification papers) are
+ *                counted but NEVER refused.
  * ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════ */
 
 /**
  * Is this content type MEDIA (photos, video, audio, archives — zip can hide photos), or a document (everything else)?
  * Spec § ★ K: "Media (photos incl. RAW, video, audio/voice notes, zip/archives) counts in the rest … classify by
- * content type, never the file name". An unknown type is media: the room is the smaller, reserved space and nothing
- * unknown may hide in it. SQL twin: `supplier_storage_is_media` — parity held by
+ * content type, never the file name". An unknown type is media: only media waits when the plan is full, so nothing
+ * unknown may slip past the limit as a document. SQL twin: `supplier_storage_is_media` — parity held by
  * tests/db/the-meter-counts-every-shop-table.db.test.ts.
  */
 export function isMediaContentType(mime: string | null | undefined): boolean {
@@ -190,31 +202,6 @@ const MEDIA_ARCHIVE_TYPES: ReadonlySet<string> = new Set([
   'application/octet-stream',
 ]);
 
-/**
- * 🗄 THE CHAT & DOCUMENTS ROOM, as ruled — owner 23 Nov, the room beside each new storage size, verbatim:
- * *"storage - Chat&Documents · Free 50Mb - 5Mb · Verified 1Gb - 100Mb · Plus 50Gb - 5Gb · Pro 256Gb - 25Gb ·
- * Ultra 1Tb - 100 Gb"* (about a tenth of each plan; supersedes the 22 Nov room sizes 0.5 GB · 1 GB · 10 GB · 50 GB).
- * ONE constant map, switchable (spec § ★ K: "Sizes as ONE constant map … re-measure once real shops use it").
- */
-export const DOCUMENTS_ROOM_RULED_BYTES: Readonly<Record<VendorTier, number>> = {
-  free: 5 * 1e6,
-  verified: 100 * 1e6,
-  solo: 5 * 1e9,
-  pro: 25 * 1e9,
-  enterprise: 100 * 1e9,
-};
-
-/**
- * The room a plan keeps for chat and documents, in bytes: the ruled size, never more than HALF the plan (23 Nov, "so
- * the room never equals the whole plan"). Every ruled room is about a tenth of its plan, so the half cap only bites if a
- * plan's storage is ever cut below twice its room. Null = the plan holds no allowance.
- */
-export function documentsRoomBytes(plan: string | null | undefined): number | null {
-  const allowance = storageAllowanceBytes(plan);
-  if (allowance === null) return null;
-  return Math.min(DOCUMENTS_ROOM_RULED_BYTES[asVendorTier(plan)], Math.floor(allowance / 2));
-}
-
 /** What the shop stores, split as the meter shows it. Every number is bytes. */
 export type StorageBreakdown = {
   /** Photos, video, audio and archives — every copy kept. */
@@ -223,8 +210,6 @@ export type StorageBreakdown = {
   files: number;
   /** The shop's data: calendar, cards, quotes, bookings, clients, chat messages… as last measured. */
   records: number;
-  /** The chat & documents room's use: every non-media file + the chat messages. Inside the three above, not added. */
-  room: number;
   /** Contracts and other kept papers — counted, never refused. Inside `files`. */
   evidence: number;
   /** When the records were last measured (ISO); null = never. */
@@ -287,7 +272,7 @@ export function recordsMeasure(measuredAt: string | null | undefined, nowMs: num
 }
 const plural = (n: number, unit: string) => `${formatCount(n)} ${unit}${n === 1 ? '' : 's'} ago`;
 
-/** The whole: the three kinds added. The room and evidence are inside them, never added twice. */
+/** The whole: the three kinds added. Evidence is inside Files, never added twice. */
 export function storageTotal(b: StorageBreakdown): number {
   return b.photosVideo + b.files + b.records;
 }
@@ -334,22 +319,14 @@ export function storageUsedLine(plan: string | null | undefined, usedBytes: numb
   return `${meterWords(used)} of ${storageWords(allowance)} used · ${meterWords(allowance - used)} free`;
 }
 
-/** "Chat & documents · 0.3 GB of 10 GB kept for your chats" (spec § ★ H, the room's own line). Null = no allowance. */
-export function roomLine(plan: string | null | undefined, roomUsedBytes: number): string | null {
-  const room = documentsRoomBytes(plan);
-  if (room === null) return null;
-  return `Chat & documents · ${meterWords(roomUsedBytes)} of ${storageWords(room)} kept for your chats`;
-}
-
 /** What a new upload is, for the gate: media or a document, and whether it is evidence (never refused). */
 export type UploadKind = { media: boolean; evidence: boolean };
 
 /**
- * May `incomingBytes` more go in? (spec § ★ K: "Media can never borrow the room and the room never borrows media
- * space"; "100% ⇒ non-media uploads/sends stop; chat words, quotes, contracts, receipts, payment proofs never stop").
- *   · evidence           — always fits (it still counts).
- *   · media              — photos/video + the data outside the room must fit the plan LESS the room.
- *   · document           — every non-media file + the chat messages must fit the room.
+ * May `incomingBytes` more go in? ONE number per plan (owner 23 Nov: "let us not set Room anymore?" → "Yes, drop it"):
+ *   · photos and video   — everything already stored + this file must fit the plan.
+ *   · a document, evidence — always fits (it still counts): chat files, quotes, contracts, receipts and payment proofs
+ *                          never stop.
  * No allowance on the plan = fits.
  */
 export function storageFitsUpload(
@@ -357,46 +334,27 @@ export function storageFitsUpload(
   b: StorageBreakdown,
   incomingBytes: number,
   kind: UploadKind,
-): { fits: true } | { fits: false; inRoom: boolean } {
-  if (kind.evidence) return { fits: true };
+): boolean {
+  if (kind.evidence || !kind.media) return true;
   const allowance = storageAllowanceBytes(plan);
-  const room = documentsRoomBytes(plan);
-  if (allowance === null || room === null) return { fits: true };
-  const incoming = Math.max(0, incomingBytes);
-  if (kind.media) return mediaUsedBytes(b) + incoming <= allowance - room ? { fits: true } : { fits: false, inRoom: false };
-  return b.room + incoming <= room ? { fits: true } : { fits: false, inRoom: true };
-}
-
-/** What counts against the space OUTSIDE the room: photos and video, and the data that is not chat. */
-export function mediaUsedBytes(b: StorageBreakdown): number {
-  const chat = Math.max(0, b.room - b.files);
-  return b.photosVideo + Math.max(0, b.records - chat);
+  if (allowance === null) return true;
+  return storageTotal(b) + Math.max(0, incomingBytes) <= allowance;
 }
 
 /**
- * The plain reason a photo or video is refused, with the way up: what is left OUTSIDE the chat & documents room (the
- * room is kept for chats and papers, so media never borrows it). Nothing already stored is touched.
+ * The plain reason a photo or video is refused, with the way up: what is left of the plan, and that documents and
+ * messages still go through. Nothing already stored is touched.
  */
 export function mediaFullMessage(plan: string | null | undefined, b: StorageBreakdown, incomingBytes: number): string {
   const allowance = storageAllowanceBytes(plan) ?? 0;
-  const room = documentsRoomBytes(plan) ?? 0;
   const name = planWord(asVendorTier(plan));
-  const left = Math.max(0, allowance - room - mediaUsedBytes(b));
-  const next = nextStoragePlan(plan);
-  const up = next ? ` or move to ${planWord(next)}: ${planSummaryWords(next)}` : '';
+  const left = Math.max(0, allowance - storageTotal(b));
+  const up = storageWayUp(plan);
   const reason =
     left < 1e6
-      ? `Your ${name} plan’s ${storageWords(allowance)} is full for photos and video (${storageWords(room)} of it is kept for chat and documents).`
-      : `This file is ${meterWords(incomingBytes)}, and your ${name} plan has ${meterWords(left)} left for photos and video.`;
-  return `${reason} Remove files to make room${up}. Nothing you stored was changed.`;
-}
-
-/** The plain reason a document is refused because the chat & documents room is full, with the way up. */
-export function roomFullMessage(plan: string | null | undefined): string {
-  const room = documentsRoomBytes(plan) ?? 0;
-  const next = nextStoragePlan(plan);
-  const up = next ? ` or move to ${planWord(next)}: ${planSummaryWords(next)}` : '';
-  return `Your ${planWord(asVendorTier(plan))} plan’s ${storageWords(room)} for chat and documents is full. Contracts, receipts, payment proofs and your messages still go through. Remove files you sent to make room${up}. Nothing you stored was changed.`;
+      ? `Your ${name} plan’s ${storageWords(allowance)} is full, so new photos and videos wait for room.`
+      : `This file is ${meterWords(incomingBytes)}, and your ${name} plan has ${meterWords(left)} left.`;
+  return `${reason} Your messages, documents, contracts and receipts still go through. Remove files to make room${up}. Nothing you stored was changed.`;
 }
 
 /**
@@ -474,43 +432,30 @@ export function keyMayBeLedgered(key: string): boolean {
 }
 
 /**
- * The meter's state in one place (the Plans page block and its tests read it): the whole plan's percent, and the level
- * by whichever limit is CLOSER — the plan, or the space for photos and video (the plan less the room). A shop whose
- * photos have filled their space reads "full" even when the room is empty, because new photos are refused.
+ * The meter's state in one place (the Plans page block and its tests read it): the plan's percent and its level. One
+ * number per plan — no separate room for chat and documents (owner 23 Nov, "Yes, drop it").
  */
 export function storageMeterState(
   plan: string | null | undefined,
   b: StorageBreakdown,
-): { pct: number; mediaPct: number; level: 'ok' | 'near' | 'full'; roomPct: number; roomLevel: 'ok' | 'near' | 'full' } | null {
+): { pct: number; level: 'ok' | 'near' | 'full' } | null {
   const allowance = storageAllowanceBytes(plan);
-  const room = documentsRoomBytes(plan);
-  if (allowance === null || room === null || allowance <= 0) return null;
+  if (allowance === null || allowance <= 0) return null;
   const pct = Math.floor((storageTotal(b) / allowance) * 100);
-  const mediaSpace = allowance - room;
-  const mediaPct = mediaSpace > 0 ? Math.floor((mediaUsedBytes(b) / mediaSpace) * 100) : 100;
-  const roomPct = room > 0 ? Math.floor((Math.max(0, b.room) / room) * 100) : 100;
-  return { pct, mediaPct, level: storageLevel(Math.max(pct, mediaPct)), roomPct, roomLevel: storageLevel(roomPct) };
+  return { pct, level: storageLevel(pct) };
 }
 
 /**
- * The plain words under the meter at 80% and 100% (spec § ★ F · K): what stops, what never stops, the way up. Null =
- * nothing to say. It names the space that is filling — photos and video, or the chat & documents room.
+ * The plain words under the meter at 80% and 100% (spec § ★ F · K): what stops (new photos and videos only), what never
+ * stops, the way up. Null = nothing to say.
  */
 export function storageNotice(state: NonNullable<ReturnType<typeof storageMeterState>>): { tone: 'warn' | 'danger'; words: string } | null {
-  const never = 'your messages, quotes, contracts, receipts and proofs still go through';
+  const never = 'your messages, documents, quotes, contracts, receipts and proofs still go through';
   if (state.level === 'full') {
     return { tone: 'danger', words: `New photos and videos wait for room. Nothing has been removed, and ${never}. Move up a plan below, or remove files.` };
   }
-  if (state.roomLevel === 'full') {
-    return { tone: 'danger', words: `Your room for chat and documents is full. New documents wait for room; ${never}. Move up a plan below, or remove files you sent.` };
-  }
   if (state.level === 'near') {
-    return state.mediaPct > state.pct
-      ? { tone: 'warn', words: `Your space for photos and video is ${state.mediaPct}% full. Move up a plan below before uploads pause.` }
-      : { tone: 'warn', words: `You’ve used ${state.pct}%. Move up a plan below before uploads pause.` };
-  }
-  if (state.roomLevel === 'near') {
-    return { tone: 'warn', words: `Your room for chat and documents is ${state.roomPct}% full. Move up a plan below before new documents pause.` };
+    return { tone: 'warn', words: `You’ve used ${state.pct}%. Move up a plan below before new photos and videos pause.` };
   }
   return null;
 }

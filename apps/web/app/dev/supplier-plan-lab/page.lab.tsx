@@ -6,7 +6,7 @@
  * is what ships. Every write is the SHIPPED action; with no session each one refuses, nothing is written.
  *
  *   ?s=plan            the Plan (who=parish · caterer · studio)       &unverified=1 · &ticket=1 · &fail=1 (receipts + fee unread)
- *                      📏 &meter=new · busy · near · full · room · unread — the storage meter (default: new on Free, busy on paid)
+ *                      📏 &meter=new · busy · near · full · unread — the storage meter (default: new on Free, busy on paid)
  *   ?s=lock            🔒 the shared lock explainer (&lock=<key> · &plan=pro for a plan lock)
  *   ?s=plan&who=studio&limits=1   📉 the limits sheet on a lower plan (ruling 5683) · &floor=1 the storage floor (lab allowance)
  *   ?s=limit           ⤴ Door 1 — past a plan limit (&tier=solo &key=bookingsPerDate &want=2 · &unverified=1)
@@ -72,7 +72,7 @@ import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-r
 import { giftEndedLine, giftEndsSoon, giftPlanLine, planGiftOf, portfolioPlanRowLine } from '@/lib/plan-gift';
 import { dayAfterWords } from '@/lib/personal-invite-offer';
 import { portfolioPhotoCap } from '@/lib/vendor-tier-caps';
-import type { StorageBreakdownRead } from '@/lib/supplier-storage';
+import { storageAllowanceBytes, type StorageBreakdownRead } from '@/lib/supplier-storage';
 import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 import type { VendorTeamMemberWithUser } from '@/lib/vendor-team';
@@ -186,7 +186,7 @@ const LAB_SHEET_NOW = Date.parse('2026-11-10T02:00:00Z');
 const LAB_EXPIRES_AT: Record<string, string | null> = { free: null, solo: '2026-12-08T15:59:59Z', pro: '2027-10-03T15:59:59Z' };
 
 /**
- * 📏 LAB-ONLY storage meter fixtures (`&meter=new|busy|near|full|room|unread|unmeasured|stale`) — sample sizes for the screenshot, never
+ * 📏 LAB-ONLY storage meter fixtures (`&meter=new|busy|near|full|unread|unmeasured|stale`) — sample sizes for the screenshot, never
  * a ruled figure. A new shop holds only its sign-up rows (a few KB, owner 23 Nov "No, real usage only"); a busy shop
  * holds albums, cards, chat files, contracts and its data.
  */
@@ -197,16 +197,17 @@ function labMeter(kind: string | undefined, tier: string): StorageBreakdownRead 
   if (k === 'unread') return { status: 'unread' };
   // Records never measured (the nightly measure has not reached this shop) · or last measured four nights ago.
   const measuredAt = k === 'unmeasured' ? null : k === 'stale' ? new Date(Date.now() - 4 * 86_400_000).toISOString() : new Date(Date.now() - 5 * 3_600_000).toISOString();
-  const b = (photosVideo: number, files: number, records: number, chat: number, evidence: number): StorageBreakdownRead => ({
+  const b = (photosVideo: number, files: number, records: number, evidence: number): StorageBreakdownRead => ({
     status: 'ok',
-    breakdown: { photosVideo, files, records, room: files + chat, evidence, recordsMeasuredAt: measuredAt },
+    breakdown: { photosVideo, files, records, evidence, recordsMeasuredAt: measuredAt },
   });
-  if (k === 'unmeasured') return b(2.4 * GB, 180 * MB, 0, 0, 40 * MB);
-  if (k === 'new') return b(0, 0, 6_200, 0, 0);
-  if (k === 'near') return b(99 * GB, 1.1 * GB, 61 * MB, 24 * MB, 0.3 * GB);
-  if (k === 'full') return b(118.2 * GB, 1.4 * GB, 74 * MB, 30 * MB, 0.4 * GB);
-  if (k === 'room') return b(12.6 * GB, 9.95 * GB, 92 * MB, 48 * MB, 2.1 * GB);
-  return b(41.3 * GB, 620 * MB, 38 * MB, 22 * MB, 210 * MB);
+  if (k === 'unmeasured') return b(2.4 * GB, 180 * MB, 0, 40 * MB);
+  if (k === 'new') return b(0, 0, 6_200, 0);
+  // Near and full follow the plan's own size, so the fixtures stay right when a size is re-cut.
+  const plan = storageAllowanceBytes(tier) ?? 128 * GB;
+  if (k === 'near') return b(Math.round(plan * 0.85), Math.round(plan * 0.01), 61 * MB, Math.round(plan * 0.002));
+  if (k === 'full') return b(plan - Math.round(plan * 0.011) - 74 * MB, Math.round(plan * 0.011), 74 * MB, Math.round(plan * 0.003));
+  return b(41.3 * GB, 620 * MB, 38 * MB, 210 * MB);
 }
 
 function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { floor: boolean } | null = null, ticket = false, meter?: string) {

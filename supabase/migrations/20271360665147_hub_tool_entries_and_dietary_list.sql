@@ -108,7 +108,7 @@ GRANT ALL ON public.vendor_hub_tool_entries TO service_role;
 DROP POLICY IF EXISTS vendor_hub_tool_entries_admin_read ON public.vendor_hub_tool_entries;
 CREATE POLICY vendor_hub_tool_entries_admin_read
   ON public.vendor_hub_tool_entries FOR SELECT TO authenticated
-  USING (public.is_admin());
+  USING ((SELECT public.is_admin()));
 
 -- The booked supplier manages their OWN rows, only on an event they are booked on. USING and WITH CHECK are identical,
 -- so an UPDATE can move a row neither onto another supplier nor onto an event they are not on.

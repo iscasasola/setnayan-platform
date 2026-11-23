@@ -41,6 +41,7 @@ export function FloorStartButtons({
   onAddTable,
   onStartFromHall,
   onStartEmpty,
+  venue = false,
 }: {
   /** People who are coming and have no seat. */
   toSeat: number;
@@ -54,8 +55,17 @@ export function FloorStartButtons({
   onAddTable: () => void;
   onStartFromHall?: () => void;
   onStartEmpty?: () => void;
+  /** 🏛 A venue's own hall in Spaces: nobody to seat, so its one step is "Add a table". */
+  venue?: boolean;
 }) {
   const off = !canEdit ? 'Tap Edit first' : null;
+  if (venue) {
+    return (
+      <div data-floor-start="venue" className="flex min-w-0 flex-col gap-1.5">
+        <ActionButton tone="brand" main icon={Plus} label="Add a table" onClick={onAddTable} disabled={!canEdit || busy} title={off ?? undefined} data-floor-add-table="" className="w-full" />
+      </div>
+    );
+  }
   // The venue's hall comes first — only when there is a way to bring it in (never a button that does nothing).
   if (hall && onStartFromHall) {
     return (
@@ -98,7 +108,14 @@ export function FloorStartButtons({
 }
 
 /** The card's heading — "8 guests to seat ⓘ", or the venue's line when it drew the hall. */
-export function FloorStartTitle({ toSeat, hall = null }: { toSeat: number; hall?: FloorHall | null }) {
+export function FloorStartTitle({ toSeat, hall = null, venue = false }: { toSeat: number; hall?: FloorHall | null; venue?: boolean }) {
+  if (venue) {
+    return (
+      <InfoTip label="Your hall is empty" labelClassName="text-[13.5px] font-semibold text-ink" align="start">
+        Set the room’s size, then add its doors and its usual tables.
+      </InfoTip>
+    );
+  }
   return (
     <InfoTip
       label={hall ? `${hall.shop} drew this hall` : toSeat > 0 ? `${formatCount(toSeat)} ${toSeat === 1 ? 'guest' : 'guests'} to seat` : 'Your floor is empty'}
@@ -116,7 +133,7 @@ export function FloorStartTitle({ toSeat, hall = null }: { toSeat: number; hall?
 export function FloorStartCard(props: Parameters<typeof FloorStartButtons>[0]) {
   return (
     <div data-floor-start-card="" className="sn-frame flex min-w-0 flex-col gap-2 px-3.5 py-3">
-      <FloorStartTitle toSeat={props.toSeat} hall={props.hall} />
+      <FloorStartTitle toSeat={props.toSeat} hall={props.hall} venue={props.venue} />
       <FloorStartButtons {...props} />
     </div>
   );

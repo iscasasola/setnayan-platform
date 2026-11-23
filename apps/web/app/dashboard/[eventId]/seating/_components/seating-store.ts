@@ -4,6 +4,7 @@ import { createContext, useContext } from 'react';
 import type * as SeatingActions from '../actions';
 import type { guestSeatView } from '../../guests/seat-view-actions';
 import type { saveEntrance } from '../../studio/indoor-blueprint/actions';
+import type { PlanTableShape } from '@/lib/seat-plan-engine';
 
 /**
  * 🪑 THE SEAT PLAN'S WRITES, IN ONE PLACE (seat plan PR2, option B — DECISION_LOG d1fafcd5: the couple's editor is the
@@ -53,7 +54,13 @@ export const SEATING_STORE_ACTIONS = [
 export type SeatingStore = Pick<typeof SeatingActions, (typeof SEATING_STORE_ACTIONS)[number]> & {
   guestSeatView: typeof guestSeatView;
   saveEntrance: typeof saveEntrance;
+  /** 🏛 A venue's own table: its shape, its ONE chair count and its end chairs, saved together (Spaces `updateTable`).
+   *  An event has no such call — its tables change shape through `updateTableType` and chairs through `setTableSeat`. */
+  venueTable?: (row: { id: string; name: string; shape: PlanTableShape; chairs: number; ends: boolean }) => Promise<{ ok: boolean; error?: string }>;
 };
+
+/** Whose plan the one editor draws: an event's (the default) or a venue's own hall in Spaces. */
+export type SeatingSource = { kind: 'event' } | { kind: 'venue'; spaceId: string; floorPlanOpen: boolean };
 
 export const SeatingStoreContext = createContext<SeatingStore | null>(null);
 

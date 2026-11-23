@@ -125,6 +125,7 @@ export function PhoneSeatPlanHead({
   view,
   onView,
   show3D,
+  venue = false,
   toast,
   trailing,
 }: {
@@ -149,6 +150,8 @@ export function PhoneSeatPlanHead({
   toast: { text: string; onUndo: (() => void) | null; onDismiss: () => void } | null;
   /** The save chip, the view-only pill, the notices badge — as the bar had them. */
   trailing?: ReactNode;
+  /** 🏛 A venue's own plan (Spaces): no guests, so no Auto arrange, no Rules, no Unseated count. */
+  venue?: boolean;
 }) {
   const views: PickOption[] = [
     { key: '2d', label: '2D' },
@@ -182,6 +185,7 @@ export function PhoneSeatPlanHead({
         {status}
       </p>
       {toast ? <SeatToast toast={toast} /> : null}
+      {venue ? null : (
       <div className="flex items-center gap-2">
         <AutoArrange onAutoArrange={onAutoArrange} disabled={autoDisabled} busy={autoBusy} />
         <Pop
@@ -197,7 +201,9 @@ export function PhoneSeatPlanHead({
           {rules}
         </Pop>
       </div>
+      )}
       <div className="flex items-center gap-2">
+        {venue ? null : (
         <button
           type="button"
           onClick={onUnseated}
@@ -210,6 +216,7 @@ export function PhoneSeatPlanHead({
           Unseated: {formatCount(unseated)}
           <ChevronRight aria-hidden className="h-3.5 w-3.5" />
         </button>
+        )}
         <span className="flex-1" />
         {/* 🔦 The tour's stop 3 rides on a box of its own — PickMenu takes no attribute beyond its one data hook. */}
         <span data-tour="seat-plan-view" className="inline-flex">
@@ -520,6 +527,7 @@ export function PhoneTableDock({
   swapPressed = false,
   onSwap,
   seatPeople,
+  venue = false,
   onDone,
   onDelete,
 }: {
@@ -548,6 +556,8 @@ export function PhoneTableDock({
   swapPressed?: boolean;
   onSwap?: () => void;
   seatPeople: ReactNode;
+  /** 🏛 A venue's own hall: no chairs to mark as taken and no linked rows (those are an event's). */
+  venue?: boolean;
   onDone: () => void;
   onDelete: () => void;
 }) {
@@ -583,8 +593,8 @@ export function PhoneTableDock({
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <ActionButton tone="neutral" icon={RotateCw} label="Rotate" disabled={!canEdit} onClick={onRotate} />
-        <ActionButton tone="neutral" icon={Armchair} label="Edit chairs…" disabled={!canEdit} onClick={onEditChairs} />
-        {linked ? (
+        {venue ? null : <ActionButton tone="neutral" icon={Armchair} label="Edit chairs…" disabled={!canEdit} onClick={onEditChairs} />}
+        {venue ? null : linked ? (
           <ActionButton tone="neutral" icon={Ungroup} label="Unlink" disabled={!canEdit} onClick={onUnlink} />
         ) : (
           <span data-seat-plan-link="" className="inline-flex">

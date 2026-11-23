@@ -245,6 +245,45 @@ export function planFootprintM(t: PlanTable): number {
   return planTableGeometry(t).box.w * PLAN_M_PER_PX;
 }
 
+/** The fields of an editor row (`EventTableRow`) that decide how its table is drawn. */
+export type PlanRowShape = Pick<EventTableRow, 'table_type' | 'capacity' | 'plan_shape' | 'chairs_at_ends'>;
+
+/**
+ * 🪑 ONE READER for how the one editor draws a row. A couple's row (no `plan_shape`) goes straight through
+ * `tableGeometry(shapeHintFor(type), capacity, linked)` — byte for byte what every couple site drew before. A venue's
+ * own hall (`plan_shape` set by the Spaces mapper, never stored on `event_tables`) draws its round · long · long with
+ * ends · half-moon through `planTableGeometry`, the shapes PlanMaker drew.
+ */
+export function rowGeometry(t: PlanRowShape, linked = false): TableGeometry {
+  if (!t.plan_shape) return tableGeometry(shapeHintFor(t.table_type), t.capacity, linked);
+  return planTableGeometry({ id: '', label: '', kind: t.plan_shape, chairs: t.capacity, chairsAtEnds: t.chairs_at_ends === true, x: null, y: null });
+}
+
+/** 🏛 The one editor's Shape pick for a venue's own table: the three shapes, Long split by its end chairs. */
+export const VENUE_TABLE_PICKS: ReadonlyArray<{ key: string; label: string; shape: PlanTableShape; ends: boolean }> = [
+  { key: 'round', label: 'Round', shape: 'round', ends: false },
+  { key: 'long', label: 'Long', shape: 'long', ends: false },
+  { key: 'long_ends', label: 'Long, a chair at each end', shape: 'long', ends: true },
+  { key: 'half_moon', label: 'Half-moon booth', shape: 'half_moon', ends: false },
+];
+
+/** Which `VENUE_TABLE_PICKS` row a venue table is. */
+export function venuePickFor(t: Pick<PlanRowShape, 'plan_shape' | 'chairs_at_ends'>): (typeof VENUE_TABLE_PICKS)[number] {
+  const ends = t.plan_shape === 'long' && t.chairs_at_ends === true;
+  return VENUE_TABLE_PICKS.find((p) => p.shape === t.plan_shape && p.ends === ends) ?? VENUE_TABLE_PICKS[0]!;
+}
+
+/** "Round · 8 chairs" · "Long · 10 chairs · 2 at the ends" — a venue row said the way PlanMaker said it. */
+export function venueRowWords(t: Pick<PlanRowShape, 'plan_shape' | 'chairs_at_ends' | 'capacity'>): string {
+  return planTableWords({ id: '', label: '', kind: t.plan_shape ?? 'round', chairs: t.capacity, chairsAtEnds: t.chairs_at_ends === true, x: null, y: null });
+}
+
+/** A row's real width in metres, chairs included — the couple's `TABLE_FOOTPRINT_M`, or a venue shape at true scale. */
+export function rowFootprintM(t: PlanRowShape): number {
+  if (!t.plan_shape) return TABLE_FOOTPRINT_M[t.table_type];
+  return rowGeometry(t).box.w * PLAN_M_PER_PX;
+}
+
 // ── The room ────────────────────────────────────────────────────────────────
 
 export function planRoomSized(room: PlanRoom): boolean {

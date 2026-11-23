@@ -255,7 +255,6 @@ export default async function PricingPage() {
   const buildAvailability = (status: BuildStatus): string =>
     status === 'not_built' ? 'https://schema.org/PreOrder' : 'https://schema.org/InStock';
   const vendorSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_monthly');
-  const vendorAnnualSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_annual');
   const pricingJsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -286,11 +285,9 @@ export default async function PricingPage() {
             : {}),
         },
       })),
-      ...[...vendorSubs, ...vendorAnnualSubs].map((s) => {
-        const isAnnual = s.offering_type === 'subscription_annual';
-        const cadence = isAnnual
-          ? { billingDuration: 'P1Y', unitText: 'annual subscription', shortLabel: 'per year' }
-          : { billingDuration: 'P28D', unitText: '28-day prepaid block', shortLabel: 'per 28 days' };
+      // Monthly only — no yearly supplier plan (owner 2026-11-22).
+      ...vendorSubs.map((s) => {
+        const cadence = { billingDuration: 'P28D', unitText: '28-day prepaid block', shortLabel: 'per 28 days' };
         return {
           '@type': 'Service',
           '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
@@ -650,7 +647,7 @@ export default async function PricingPage() {
               ))}
             </ul>
             <p className="m-0 mt-2 text-[13.5px] text-ink/65">
-              Any plan can be paid for the year, at ten blocks&rsquo; price.{' '}
+              Every plan is paid every 4 weeks. There is no yearly plan.{' '}
               <Link href="/for-suppliers" className="font-semibold text-terracotta-700">
                 See supplier plans →
               </Link>

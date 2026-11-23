@@ -5,26 +5,30 @@
  * "Supplier Ultra shares its album" · "Ultra album share — default"; drawn as the "Supplier side — Now beside Proposed"
  * panel of `prototypes/approved_2026-11-13/story-suppliers-fable.html` v6: "The same album screen, with one new switch").
  *
- *   · Supplier Ultra: one switch on the album. OFF by default (the album promises "Only you see this"). On, the album
+ *   · Every paid plan (Plus, Pro, Ultra — owner 2026-11-22 "SAME FEATURES IN EVERY SIZE"): one switch on the album. OFF by default (the album promises "Only you see this"). On, the album
  *     fills this supplier's own scene in the event's story. Switchable any time.
- *   · After the event, an Ultra that has never answered is asked ONCE: "Share your album to <couple>'s story?" — one tap.
+ *   · After the event, a paid shop that has never answered is asked ONCE: "Share your album to <couple>'s story?" — one tap.
  *     Either answer (or using the switch) is the answer; it is never asked again.
- *   · Supplier Plus / Pro and below: the same row, locked, with Problem → Solution and the way to Supplier Ultra.
+ *   · Free and Verified: the same row, locked, with Problem → Solution and the way to the first paid plan.
  *
  * Writes through the ONE per-event supplier dispatcher (`eventFilesAction`, op `albumshare`) — the server re-checks the
  * plan and the owner role; this file decides nothing.
  */
 
 import { useState, useTransition } from 'react';
+import { FIRST_PAID_SIZE, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import Link from 'next/link';
 import { Lock, Share } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { eventFilesAction } from '@/app/_actions/event-files-actions';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { InfoTip } from '@/app/_components/info-tip';
+/** The first paid size's name — where a locked story share points (owner 2026-11-22). */
+const FIRST_PAID = TIER_LABEL[FIRST_PAID_SIZE];
+
 
 export const ALBUM_SHARE_TIP =
-  'On, everyone who opens this event’s story sees this album in your own scene, with your shop name, your Ultra badge and a button to your shop. Off, the album stays private. You can switch it any time.';
+  'On, everyone who opens this event’s story sees this album in your own scene, with your shop name and a button to your shop. Off, the album stays private. You can switch it any time.';
 
 export function AlbumShareSwitch({
   eventId,
@@ -83,7 +87,7 @@ export function AlbumShareSwitch({
               Share this album to the event’s story
             </b>
             <small className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              Ultra shares its album to the event story
+              Every paid plan shares its album to the event story
             </small>
           </span>
         </summary>
@@ -91,10 +95,10 @@ export function AlbumShareSwitch({
           <b>Problem.</b> Your plan lists you in the story, with no scene of your own.
         </p>
         <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-          <b>Solution.</b> Move to Ultra. Your album then fills your own scene.
+          <b>Solution.</b> Move to {FIRST_PAID}. Your album then fills your own scene.
         </p>
         <Link href={upgradeHref} className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--m-slate-1)' }}>
-          See Ultra
+          See {FIRST_PAID}
         </Link>
       </details>
     );

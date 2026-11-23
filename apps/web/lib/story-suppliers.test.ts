@@ -24,12 +24,14 @@ const s = (name: string, tier: VendorTier | null, slug: string | null = tier ? n
   ({ name, tier, slug, category: null }) as StorySupplierLike & { category: string | null };
 
 describe('the tap follows the supplier plan', () => {
-  it('Supplier Pro and Ultra raise the rich card first', () => {
+  // Same features in every paid size (owner 2026-11-22): Plus, Pro and Ultra all raise the rich card.
+  it('every paid size raises the rich card first', () => {
     assert.equal(storySupplierTap(s('A', 'enterprise')), 'card');
     assert.equal(storySupplierTap(s('B', 'pro')), 'card');
+    assert.equal(storySupplierTap(s('P', 'solo')), 'card');
   });
-  it('Supplier Plus, Verified and Free open the shop directly — every booked supplier is tappable', () => {
-    for (const t of ['solo', 'verified', 'free'] as const) assert.equal(storySupplierTap(s('C', t)), 'shop');
+  it('Verified and Free open the shop directly — every booked supplier is tappable', () => {
+    for (const t of ['verified', 'free'] as const) assert.equal(storySupplierTap(s('C', t)), 'shop');
   });
   it('a supplier the couple added (no shop) is a plain name', () => {
     assert.equal(storySupplierTap(s('Tita Baby’s Cakes', null)), 'none');
@@ -87,8 +89,8 @@ describe('a story with 100 suppliers', () => {
     assert.equal(t.shown.length, 3);
     assert.equal(t.more, 4);
   });
-  it('EVERY Supplier Ultra gets a scene — no cap', () => {
-    assert.equal(ultraSuppliers(hundred).length, 20);
+  it('EVERY paid supplier gets a scene — no cap (Plus, Pro and Ultra since 2026-11-22)', () => {
+    assert.equal(ultraSuppliers(hundred).length, 60);
   });
 });
 

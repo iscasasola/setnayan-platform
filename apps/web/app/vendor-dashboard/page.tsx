@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import Link from 'next/link';
 import { DATE_ANSWER_NOTICE } from '@/lib/date-change';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -784,7 +785,7 @@ export default async function VendorOverviewPage({
         readGuestReviewsForVendor(admin, vendorProfileId, { limit: 100 }).catch(() => ({ state: 'refused' }) as const),
         readStorySilenceDays(admin).catch(() => null),
       ]);
-      const ultra = shopRow ? shopRow.tierState === 'enterprise' : null;
+      const ultra = shopRow ? isPaidSize(shopRow.tierState) : null; // story pages are every paid size since 2026-11-22
       const pairs = await Promise.all(
         doneCards.map(async (c) => [c.id, await readWrapUpFacts({ supabase, admin, vendorProfileId, card: c, guestReviews, ultra, silenceDays }).catch(() => null)] as const),
       );

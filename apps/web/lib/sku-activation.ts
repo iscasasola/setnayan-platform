@@ -2870,6 +2870,21 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
     } catch (e) {
       reportActivationFault('deactivate:vendor_photo_challenge', ctx, e);
     }
+  } else if (purchaseIdFromVendorSubscriptionServiceKey(ctx.serviceKey) !== null) {
+    // ✦ E (owner 22 Nov, spec SUPPLIER_SUBSCRIPTIONS item E): a plan order whose money went back — an admin refund, a
+    // Maya void/refund, a chargeback recorded as a refund — DROPS THE PLAN AT ONCE. Until now the plan ran on to its
+    // end after a refund. `vendor_plan_money_reversed` is the one door Apple's REFUND/REVOKE also uses (migration
+    // 20271359936839): the purchase reads refunded and, when it is the web plan the shop stands on, the shared sweep
+    // drops it to Verified/Free — whose storage allowance then holds uploads. Idempotent; a failure is reported loud.
+    try {
+      const { error } = await ctx.admin.rpc('vendor_plan_money_reversed', {
+        p_purchase_id: purchaseIdFromVendorSubscriptionServiceKey(ctx.serviceKey),
+        p_reason: 'order_refunded',
+      });
+      if (error) reportActivationFault('deactivate:vendor_plan', ctx, error);
+    } catch (e) {
+      reportActivationFault('deactivate:vendor_plan', ctx, e);
+    }
   }
   // 🔒 The `SETNAYAN_AI_SUB` branch that stood here was removed 2026-08-01 with
   // the rest of the per-USER path. Its activation handler went in the same

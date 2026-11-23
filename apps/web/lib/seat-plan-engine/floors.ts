@@ -19,8 +19,8 @@
 
 // ── Who gets what (the page applies it) ──────────────────────────────────────
 
-/** "Floor plan is Pro and up" (DECISION_LOG 2026-11-19, CORRECTION). The Grid is every shop's. Renaming is Pro too. */
-export const SUPPLIER_FLOOR_PLAN_MIN_TIER = 'pro' as const;
+/** The floor plan opens on every paid size (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE"; was Pro and up, 2026-11-19). The Grid is every shop's. */
+export const SUPPLIER_FLOOR_PLAN_MIN_TIER = 'solo' as const;
 
 /** The views a plan offers. A couple always has the floor; a supplier has the Grid, and the floor when it is open. */
 export function planViewsFor(side: 'event' | 'supplier', floorPlanOpen: boolean): Array<'grid' | 'floor'> {

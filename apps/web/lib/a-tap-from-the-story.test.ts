@@ -70,7 +70,9 @@ test('every booked supplier is tappable by its plan — and a supplier with no s
   const { toStorySupplierViews } = await import('./story-suppliers-views');
   assert.equal(storySupplierTap({ name: 'x', tier: 'enterprise', slug: 'x' }), 'card');
   assert.equal(storySupplierTap({ name: 'x', tier: 'pro', slug: 'x' }), 'card');
-  for (const tier of ['solo', 'verified', 'free'] as const) assert.equal(storySupplierTap({ name: 'x', tier, slug: 'x' }), 'shop');
+  // Same features in every paid size (owner 2026-11-22): Plus opens the rich card too.
+  assert.equal(storySupplierTap({ name: 'x', tier: 'solo', slug: 'x' }), 'card');
+  for (const tier of ['verified', 'free'] as const) assert.equal(storySupplierTap({ name: 'x', tier, slug: 'x' }), 'shop');
   assert.equal(storySupplierTap({ name: 'x', tier: null, slug: null }), 'none');
   assert.equal(storySupplierTap({ name: 'x', tier: 'pro', slug: null }), 'none');
   const [own] = toStorySupplierViews([{ name: 'Own cake', tier: null, slug: 'ignored', category: null, logoUrl: null }], 'e');

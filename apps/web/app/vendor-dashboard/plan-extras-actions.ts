@@ -38,7 +38,7 @@ export async function supplierPlanExtra(_prev: PlanExtraResult | null, formData:
   const op = formData.get('op');
 
   if (op === 'story_note') {
-    if (!hasStoryPages(ctx.tierState)) return { ok: false, message: 'Story pages come with Ultra.' };
+    if (!hasStoryPages(ctx.tierState)) return { ok: false, message: 'Story pages come with every paid plan, from Plus.' };
     const eventId = String(formData.get('event_id') ?? '');
     if (!UUID.test(eventId)) return { ok: false, message: 'That story was not found.' };
     let admin: ReturnType<typeof createAdminClient>;

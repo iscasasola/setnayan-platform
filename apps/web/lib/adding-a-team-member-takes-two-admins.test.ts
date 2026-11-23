@@ -23,7 +23,7 @@
  *
  * 🔒 The writer list is exact. A new writer fails here, which is the point:
  * the obvious action is never the only writer (see
- * a-price-change-takes-two-admins.test.ts for the same lesson, three times).
+ * a-price-change-applies-at-once.test.ts for the same lesson, three times).
  */
 
 import { test } from 'node:test';

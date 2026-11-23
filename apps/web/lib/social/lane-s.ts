@@ -9,6 +9,7 @@
  */
 
 import { shopPath } from '@/lib/shop-address';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { isShopLive } from '@/lib/vendor-visibility';
 import { rewardSourceWords, type RewardBadge } from '@/lib/badge-rewards';
 
@@ -116,11 +117,11 @@ export function isBadgeShopPostable(row: BadgeShopRow | null | undefined, ownerI
   return ownerIsInternal === false;
 }
 
-/** Named for an active Pro / Ultra shop, unnamed (category + region) for the rest — the same hybrid the
+/** Named for an active paid-size shop (Plus, Pro, Ultra since 2026-11-22), unnamed (category + region) for the rest — the same hybrid the
  *  vendor_feature sweep applies (tiers sell REACH), with the same expiry guard. */
 export function badgePostIsNamed(row: Pick<BadgeShopRow, 'tier_state' | 'tier_expires_at'>, now: Date): boolean {
   return (
-    (row.tier_state === 'pro' || row.tier_state === 'enterprise') &&
+    isPaidSize(row.tier_state) &&
     (!row.tier_expires_at || new Date(row.tier_expires_at).getTime() > now.getTime())
   );
 }

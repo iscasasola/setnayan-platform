@@ -22,14 +22,11 @@
  *
  * 🔒 app/vendor-dashboard/subscription/the-plan-is-rows.test.ts · lib/plan-sheet.test.ts
  */
-import { useState } from 'react';
-import { BadgeCheck, CalendarDays, Gem, Sparkles, Wallet } from 'lucide-react';
-import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { BadgeCheck, Gem, Sparkles, Wallet } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
 import { LockButton } from '@/app/_components/lock/locked-feature';
-import { DatesRow } from '../../customers/_components/dates-row';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { formatPhp } from '@/lib/php';
 import type { LimitChange, PayToday, PlanChanges } from '@/lib/plan-sheet';
@@ -38,7 +35,8 @@ import { LimitsList, LowerPlanSwitch } from './limits-sheet';
 import type { PlanLine } from '@/lib/vendor-plan-rows';
 
 type Action = (formData: FormData) => void | Promise<void>;
-export type Cycle = 'monthly' | 'annual';
+/** Monthly only: no yearly supplier plan (owner 2026-11-22, "remove the annual subscription everywhere"). */
+export type Cycle = 'monthly';
 
 /** One plan with its catalogue price per cycle — the server's read, before it becomes a sheet row. */
 export type PlanPick = {
@@ -77,8 +75,8 @@ export type SheetPlan = {
 };
 
 const lead = (Icon: typeof Gem) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />;
-const CYCLE_WORD: Record<Cycle, string> = { monthly: '4 weeks', annual: 'a year' };
-const EVERY_WORD: Record<Cycle, string> = { monthly: 'every 4 weeks', annual: 'every year' };
+const CYCLE_WORD: Record<Cycle, string> = { monthly: '4 weeks' };
+const EVERY_WORD: Record<Cycle, string> = { monthly: 'every 4 weeks' };
 
 function LimitRow({ l, compare }: { l: LimitChange; compare: boolean }) {
   return (
@@ -161,24 +159,9 @@ export function PlanSheet({
   /** L-2: the catalogue read was REFUSED — a missing price is "Couldn't load", never "Not sold on this cycle". */
   pricesUnread?: boolean;
 }) {
-  const [cycle, setCycle] = useState<Cycle>(startCycle);
-  const anyPaid = plans.some((p) => p.paid);
-  // The year switch's words: the shop's own paid plan (else the first paid one listed), what a year saves against
-  // thirteen blocks of 4 weeks — both prices are the catalogue's, as the rows below print them.
-  const ownPaid = plans.find((p) => p.key === current && p.paid) ?? null;
-  const basis = ownPaid ?? plans.find((p) => p.paid) ?? null;
-  const mo = basis?.price.monthly;
-  const yr = basis?.price.annual;
-  const save = mo !== undefined && yr !== undefined && mo * 13 > yr ? mo * 13 - yr : null;
-  const yearTitle = ownPaid ? (cycle === 'annual' ? 'Paying for the year' : 'Paying every 4 weeks') : 'Pay for the year';
-  const yearLine =
-    cycle === 'annual'
-      ? save !== null
-        ? `${ownPaid ? 'You save' : `${basis?.name ?? 'A plan'} saves`} ${formatPhp(save)} · prices below are for a year`
-        : 'Prices below are for a year'
-      : save !== null
-        ? `Switch to the year and save ${formatPhp(save)}${ownPaid ? '' : ` on ${basis?.name ?? 'a plan'}`}`
-        : 'A year is ten blocks’ price';
+  // The year switch is gone (owner 2026-11-22: "no yearly for any supplier subscription"): every plan is paid every
+  // 4 weeks, so there is one cycle and no control to change it.
+  const cycle: Cycle = startCycle;
 
   const button = (p: SheetPlan, kind: 'renew' | 'up' | 'down') => {
     const price = p.price[cycle];
@@ -212,30 +195,6 @@ export function PlanSheet({
 
   return (
     <div data-plan-sheet="">
-      {anyPaid ? (
-        /* 💳 THE YEAR SWITCH (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS" item 2; drawing § 3): one
-           switch — "Pay for the year", a year = 10 blocks' price — the same switch as the public page, in place of the
-           "Pay every ▾" menu. Every price below follows it. The saving is the shop's own plan's catalogue prices. */
-        <DatesRow
-          data="plan-cycle"
-          lead={lead(CalendarDays)}
-          title={yearTitle}
-          line={yearLine}
-          end={
-            <button
-              type="button"
-              role="switch"
-              aria-checked={cycle === 'annual'}
-              aria-label="Pay for the year"
-              className={SWITCH_BUTTON}
-              onClick={() => setCycle((c) => (c === 'annual' ? 'monthly' : 'annual'))}
-              data-plan-cycle-switch=""
-            >
-              <SwitchTrack on={cycle === 'annual'} />
-            </button>
-          }
-        />
-      ) : null}
       {plans.map((p) => {
         const isCurrent = p.key === current;
         const dir = isCurrent ? 'same' : p.changes.direction;
@@ -318,9 +277,9 @@ export function PlanSheet({
                         ) : price === undefined && pricesUnread ? (
                           <PayRow title="Couldn’t load the price" line="Refresh in a moment to try again" pesos={null} />
                         ) : price === undefined ? (
-                          <PayRow title="Not sold on this cycle right now" line="Pick the other one above" pesos={null} />
+                          <PayRow title="Not on sale right now" line="This plan has no price yet" pesos={null} />
                         ) : tooShort ? (
-                          <PayRow title="Pick a longer term" line={tooShort} pesos={null} />
+                          <PayRow title="Not yet" line={tooShort} pesos={null} />
                         ) : (
                           <>
                             <PayRow

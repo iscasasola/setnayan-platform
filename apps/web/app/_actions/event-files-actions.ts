@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -381,8 +382,8 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
     if (want === 'on') {
       const { data: plan, error: planErr } = await supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', shop).maybeSingle();
       if (planErr || !plan) return { status: 'error', message: 'We couldn’t check your plan just now. Nothing changed — please try again.' };
-      if ((plan as { tier_state: string | null }).tier_state !== 'enterprise') {
-        return { status: 'error', message: 'Sharing your album to the event’s story comes with Ultra.', href: ALBUM_SHARE_UPGRADE_HREF };
+      if (!isPaidSize((plan as { tier_state: string | null }).tier_state)) {
+        return { status: 'error', message: 'Sharing your album to the event’s story comes with Plus, Pro and Ultra.', href: ALBUM_SHARE_UPGRADE_HREF };
       }
     }
     const now = new Date().toISOString();

@@ -190,7 +190,7 @@ export type GrowthInputs = {
   inquiriesBySource: Record<GrowthWindow, SourceSlice[] | null>;
   bookedBySource: Record<GrowthWindow, SourceSlice[] | null>;
   attribution: Record<GrowthWindow, SourceAttribution | null>;
-  /** "~N× your annual plan" — only on 12 months, only on a paid plan (as `RoiAttributionCard`). */
+  /** "~N× a year of your plan" — only on 12 months, only on a paid plan (as `RoiAttributionCard`). */
   annualPlanPhp: number | null;
   recs: Record<GrowthWindow, GrowthRec[]>;
   verdict: ReplyTimeVerdict | null;
@@ -235,7 +235,7 @@ function windowView(inp: GrowthInputs, w: GrowthWindow): WindowView {
   const hasBooked = Boolean(att && att.totalBookings > 0);
   const roi =
     !day && inp.annualPlanPhp && inp.annualPlanPhp > 0 && att && att.setnayan.revenuePhp > 0
-      ? `~${(att.setnayan.revenuePhp / inp.annualPlanPhp).toFixed(1)}× your annual plan`
+      ? `~${(att.setnayan.revenuePhp / inp.annualPlanPhp).toFixed(1)}× a year of your plan`
       : null;
   return {
     sentence: growthSentence({ figures, viewsChange, unit: day ? 'day' : 'month', booked }),

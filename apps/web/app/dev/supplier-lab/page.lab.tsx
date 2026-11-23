@@ -137,6 +137,7 @@ import { suggestablePartsForShop, supplierTradeWord } from '@/lib/inspiration-su
 import { fallbackInspirationParts } from '@/lib/inspiration-parts';
 import { supplierRoleLine } from '@/lib/inspiration-suggestions';
 import { canonicalServicesForTile } from '@/lib/vendor-counts';
+import { MyQrsLab } from './my-qrs-lab';
 
 /** `events` — the approved v13's own five events (Customers › Events); `people` stays a working address for older links. */
 const PEOPLE_STATES = ['events', 'people', 'clash', 'empty', 'fail', 'nopools'] as const;
@@ -333,7 +334,7 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ hero?: string; shop?: string; win?: string; thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; skip?: string; card?: string; domains?: string; scan?: string; answer?: string; two?: string; review?: string; numbers?: string; place?: string; verified?: string; locked?: string; v2?: string; cards?: string; tomorrow?: string; wrap?: string }>;
+  searchParams: Promise<{ hero?: string; shop?: string; win?: string; thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; skip?: string; card?: string; domains?: string; scan?: string; answer?: string; two?: string; review?: string; numbers?: string; place?: string; code?: string; verified?: string; locked?: string; v2?: string; cards?: string; tomorrow?: string; wrap?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -348,7 +349,7 @@ export default async function SupplierLabPage({
     if (s.startsWith('money')) return '/vendor-dashboard/customers?seg=money';
     if (s === 'page') return '/vendor-dashboard/website';
     if (s === 'collections') return '/vendor-dashboard/collections';
-    if (s === 'services') return '/vendor-dashboard/shop';
+    if (s === 'services' || s.startsWith('my-qr')) return '/vendor-dashboard/shop';
     if (s === 'analytics') return '/vendor-dashboard/shop';
     if (s === 'details') return '/vendor-dashboard/profile';
     if (s === 'hub') return '/vendor-dashboard/on-the-day';
@@ -370,6 +371,10 @@ export default async function SupplierLabPage({
     // page cannot do (both read the one `profile`) (Build 3 empty modes, 9 Nov).
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : q.easy === 'setup' ? 'caterer' : 'studio';
     return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} cards={/^\d+-\d+$/.test(q.cards ?? '') ? { live: Number(q.cards!.split('-')[0]), hidden: Number(q.cards!.split('-')[1]) } : null} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} tomorrow={q.tomorrow === '1'} wrap={q.wrap === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' || q.docs === 'some' || q.docs === 'unread' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} coarse={q.coarse === '1'} qrSvg={q.easy === 'setup' ? await renderUrlQrSvg(LAB_SHOP_QR_URL, 220).catch(() => null) : null} tourScript={TOURS[SETUP_TOUR_KEY].spotlight ?? null} heroPhoto={q.hero === '1'} v2={q.v2 === '1'} />, 'today');
+  }
+  if (q.s === 'my-qrs' || q.s === 'my-qr') {
+    /* 🔳 Shop › My QRs (owner 23 Nov 2026) — `my-qrs-lab.tsx`; &code=page|reviews|shortlist|dates · &state=fail|no-address. */
+    return wrap(<MyQrsLab s={q.s} code={q.code} state={q.state} />, 'own');
   }
   if (q.s === 'hub') {
     /* 🗓 The supplier's Hub, set up (v13, owner 2026-10-29) — `hub-lab.tsx`; &seg=setup|crew|pages · &ev=ic|rf|lk|mj. */

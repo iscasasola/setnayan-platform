@@ -89,11 +89,18 @@ test('every link-QR mounts the strip, exactly as many times as it has QRs', () =
 });
 
 test('the supplier’s codes are drawn by the QR card (kind 24), so each carries the strip', () => {
+  // Customers › QR codes draws the two per-event codes: the issued Booked code · Crew for an event.
   const page = read('app/vendor-dashboard/invite/_components/qr-codes.tsx');
-  // Six codes (2026-10-28 · 2026-11-01 · Option B 2026-11-06 added Reviews): Shortlist · the issued Booked code · Check a
-  // date (`lib/check-a-date-qr.ts`) · My page · Reviews · Crew for an event (`lib/supplier-qr-codes.ts`).
-  assert.equal(count(page, '<QrCard'), 6, 'the Shortlist, the issued Booked code, Check a date, My page, Reviews and the crew code are not all QR cards');
+  assert.equal(count(page, '<QrCard'), 2, 'the issued Booked code and the crew code are not both QR cards');
   assert.match(page, /from '@\/app\/_components\/qr-card'/);
+  // 🔳 Shop › My QRs (owner 23 Nov 2026): Your page · Reviews · Shortlist · Check a date each open on their OWN page
+  // ("One QR, opened"), which draws its code as ONE QR card — so every shop code still carries the strip.
+  const opened = read('app/vendor-dashboard/shop/qrs/_components/my-qr-code.tsx');
+  assert.equal(count(opened, '<QrCard'), 1, 'One QR, opened must draw its code as exactly one QR card');
+  assert.match(opened, /from '@\/app\/_components\/qr-card'/);
+  // The My QRs list draws no code at all — the drawing's rows carry the QR mark; a code is made on its own page.
+  const mine = read('app/vendor-dashboard/shop/qrs/_components/my-qrs-list.tsx');
+  assert.equal(count(mine, 'dangerouslySetInnerHTML') + count(mine, '<QrCard'), 0, 'the My QRs list draws a code outside the QR card');
   // Option B's row shows a SMALL code as a preview only — the row is one button that opens the sheet, where the QR card
   // (and so the strip) is. The thumb is never itself a code you can save or share.
   const list = read('app/vendor-dashboard/invite/_components/qr-code-list.tsx');

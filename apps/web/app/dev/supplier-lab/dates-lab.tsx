@@ -22,9 +22,8 @@ import { DaySheet, type DaySheetData } from '@/app/vendor-dashboard/customers/_c
 import { OutsideClientAdd } from '@/app/vendor-dashboard/customers/_components/outside-client-add';
 import { QrCodes } from '@/app/vendor-dashboard/invite/_components/qr-codes';
 import { crewJoinPath } from '@/lib/crew-pass';
-import { PromoteBridge } from '@/app/vendor-dashboard/shop/promote/_components/promote-bridge';
 import { ShopPrintsSection } from '@/app/vendor-dashboard/shop/promote/_components/shop-prints-section';
-import { PROMOTE_QR_MODES, type PromoteQrMode } from '@/lib/supplier-qr-codes';
+import { MyQrsList } from '@/app/vendor-dashboard/shop/qrs/_components/my-qrs-list';
 import { LockedQrGenerator } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
@@ -254,40 +253,12 @@ export async function DatesLab({
     // QR codes Option B (owner 2026-11-06, "B"): ONE LIST, a row per code. Shop › Promote lists the shop's four codes
     // (Check a date · Shortlist · My page · Reviews); Customers › QR codes lists Booked and Crew, per event. `qr-page` /
     // `qr-dates` open that code's sheet on arrival (`open`), as a `?mode=page` / `?mode=dates` link does on the real page.
-    const shortUrl = 'https://www.setnayan.com/vendor-invite/lumina?et=wedding';
     const lockUrl = 'https://www.setnayan.com/vendor/lock/lab-token';
-    const shortlist = {
-      url: shortUrl,
-      svg: state === 'qr-fail' ? null : await renderUrlQrSvg(shortUrl, 220),
-      shopName: 'Lumina Studio',
-      eventPick: { value: 'wedding', options: [{ key: 'any', label: 'Any event', href: base }, { key: 'wedding', label: 'Wedding', href: base }, { key: 'debut', label: 'Debut', href: base }] },
-      servicePick: { value: 'all', options: [{ key: 'all', label: 'All my services', href: base }, { key: 'photo_video', label: 'Photo & video', href: base }] },
-      scope: ' on their wedding plan',
-    };
     if (place === 'promote' || state === 'qr-page' || state === 'qr-dates') {
-      const code = async (url: string) => ({ url, svg: await renderUrlQrSvg(url, 220), shopName: 'Lumina Studio' });
-      const [checkADate, myPage, reviews] = await Promise.all([
-        code('https://www.setnayan.com/lumina/dates'),
-        code('https://www.setnayan.com/lumina'),
-        code('https://www.setnayan.com/lumina#reviews'),
-      ]);
+      // 🔳 23 Nov 2026: Promote's QR part IS the My QRs list now, and a code opens on its own page (`?s=my-qr`).
       return (
-        <PromoteBridge>
         <div className="min-h-screen bg-cream px-4 pb-24 pt-4" data-supplier-lab={state}>
-          <QrCodes
-            place="promote"
-            open={state === 'qr-page' ? 'page' : state === 'qr-dates' ? 'dates' : open && (PROMOTE_QR_MODES as readonly string[]).includes(open) ? (open as PromoteQrMode) : null}
-            backHref="/dev/supplier-lab?s=dates"
-            canShare
-            setupHref="/dev/supplier-lab?s=qr"
-            shortlist={shortlist}
-            booked={null}
-            checkADate={checkADate}
-            myPage={myPage}
-            reviews={reviews}
-          />
-          {/* Shop › Promote's own order: QR codes, then Prints — one bridge, so a code's "Put it on…" opens the Prints
-              sheet with that code (the lab's prints pictures: the plan lab's fixture twin of /api/vendor/prints). */}
+          <MyQrsList canShare setupHref="/dev/supplier-lab?s=qr" embedded />
           <div className="mt-6">
             <ShopPrintsSection
               canShare
@@ -295,10 +266,10 @@ export async function DatesLab({
               artBase="/dev/supplier-plan-lab/prints-art/plain"
               member={{ name: 'Juan dela Cruz', role: null }}
               facts={{ name: 'Lumina Studio', line: 'Photo & video' }}
+              initialAsk={state === 'qr-page' ? { qr: 'page', piece: null } : state === 'qr-dates' ? { qr: 'dates', piece: 'door' } : null}
             />
           </div>
         </div>
-        </PromoteBridge>
       );
     }
     const svg = state === 'qr-fail' ? null : await renderUrlQrSvg(lockUrl, 220);
@@ -331,7 +302,6 @@ export async function DatesLab({
           backHref="/dev/supplier-lab?s=dates"
           canShare
           setupHref="/dev/supplier-lab?s=qr"
-          shortlist={null}
           booked={booked}
           crew={{
             eventPick: { value: 'ev-1', options: [{ key: 'ev-1', label: 'Ana & Ben · Dec 12', href: base }, { key: 'ev-2', label: 'Mika’s debut · Jan 9', href: base }] },

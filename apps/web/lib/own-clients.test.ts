@@ -104,7 +104,7 @@ test('🪪 ONE verified test, the one the server uses', () => {
   assert.equal(shopIsVerified('verified'), true);
   assert.equal(shopIsVerified('unverified'), false);
   assert.equal(shopIsVerified(null), false);
-  for (const f of ['app/vendor-dashboard/invite/page.tsx', 'app/vendor-dashboard/shop/promote/_components/promote-body.tsx']) {
+  for (const f of ['app/vendor-dashboard/invite/page.tsx', 'app/vendor-dashboard/shop/qrs/_components/my-qrs-data.ts']) {
     const src = readFileSync(join(process.cwd(), f), 'utf8');
     assert.match(src, /fetchShopVerified\(/, `${f} asks the shared verified test`);
     assert.doesNotMatch(src, /verified=\{await isMarketplaceVendorBookable|isMarketplaceVendorBookable\([^)]*\)\.catch\(\(\) => false\),/, `${f} must not promise from "bookable"`);
@@ -191,9 +191,11 @@ test('owner "7. Yes" / "8. Yes" (#7889): the three re-worded lines, and the own 
   const block = readFileSync(join(process.cwd(), 'app/vendor-dashboard/invite/_components/own-client-gift.tsx'), 'utf8');
   assert.match(block, /v=\{CONFIRM_BOOKING_FEE\}/);
   assert.doesNotMatch(block, /None — your client/);
-  // Every own code's sheet carries the notice: My page · Check a date · Reviews.
-  const codes = readFileSync(join(process.cwd(), 'app/vendor-dashboard/invite/_components/qr-codes.tsx'), 'utf8');
-  assert.equal((codes.match(/\{ownLinkNotice\}/g) ?? []).length, 3);
-  const promote = readFileSync(join(process.cwd(), 'app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), 'utf8');
-  assert.match(promote, /ownLinkNotice=\{ownVerified === true && ownLinkRead === null \? <OwnLinkAddGiftNotice \/> : null\}/);
+  // Every own code's page carries the notice: Your page · Check a date · Reviews (My QRs, 23 Nov 2026) — never Shortlist,
+  // and only on a PROVEN verified shop whose link has no gift (a refused read is never "no gift").
+  const data = readFileSync(join(process.cwd(), 'app/vendor-dashboard/shop/qrs/_components/my-qrs-data.ts'), 'utf8');
+  assert.match(data, /const own = code !== 'shortlist';/);
+  assert.match(data, /addGiftNotice: verified === true && ownLink === null,/);
+  const opened = readFileSync(join(process.cwd(), 'app/vendor-dashboard/shop/qrs/_components/my-qr-code.tsx'), 'utf8');
+  assert.match(opened, /\{d\.addGiftNotice \? <OwnLinkAddGiftNotice \/> : null\}/);
 });

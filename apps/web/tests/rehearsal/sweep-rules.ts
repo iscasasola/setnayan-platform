@@ -176,6 +176,8 @@ export function responseNoise(url: string): Noise | null {
 /** One failure text, without the run-specific parts, so the same bug on 30 routes is one line. */
 export function failureKey(kind: string, text: string): string {
   return `${kind}|${text
+    // An address's query (?phase=rsvp&style=…) is the screen's state, not the bug.
+    .replace(/(https?:\/\/[^\s'"?]+)\?[^\s'")]*/g, '$1?…')
     .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<id>')
     .replace(/\b\d{2,}\b/g, '<n>')
     .replace(/\s+/g, ' ')

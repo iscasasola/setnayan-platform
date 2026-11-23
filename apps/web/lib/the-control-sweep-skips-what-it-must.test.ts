@@ -85,6 +85,12 @@ test('the same bug on many screens is one line of the failure list', () => {
   );
 });
 
+test('one bug seen with many addresses is still one line', () => {
+  const a = "Blocked script execution in 'http://localhost:3000/rehearsal-maria-juan?phase=rsvp&style=rsvp%3Aticket' because the document's frame is sandboxed";
+  const b = "Blocked script execution in 'http://localhost:3000/rehearsal-maria-juan?phase=rsvp&style=countdown%3Aline' because the document's frame is sandboxed";
+  assert.equal(failureKey('console-error', a), failureKey('console-error', b));
+});
+
 test('the route list is the app\'s own map: every dashboard screen, redirects named, [param] screens last', () => {
   const screens = (JSON.parse(readFileSync(join(process.cwd(), 'lib/ugat/screens.generated.json'), 'utf8')) as { screens: ScreenRow[] }).screens;
   const couple = planRoutes(screens, 'couple');

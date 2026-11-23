@@ -53,6 +53,9 @@ import {
 const OUT = process.env.REHEARSAL_OUT ?? path.resolve(__dirname, '../../rehearsal-out');
 const SCREENS = path.join(OUT, 'screens');
 const BASE = assertLocalUrl(process.env.REHEARSAL_BASE_URL ?? 'http://localhost:3000', 'the app under rehearsal').origin;
+const COUNTER = process.env.REHEARSAL_COUNTER_URL
+  ? assertLocalUrl(process.env.REHEARSAL_COUNTER_URL, 'the request counter').origin
+  : '';
 const PASSWORDS: Record<Persona, string> = {
   couple: process.env.REHEARSAL_HOST_PASSWORD ?? '',
   supplier: process.env.REHEARSAL_SUPPLIER_PASSWORD ?? '',
@@ -120,6 +123,9 @@ type RouteResult = {
 type Report = {
   persona: Persona;
   width: Width;
+  part: string;
+  /** Tabs the sweep had to replace, and the screen that trapped each. */
+  tabsReplaced: string[];
   finished: boolean;
   minutes: number;
   routes: RouteResult[];
@@ -166,7 +172,9 @@ function eventDateYmd(): string {
 
 class Sweep {
   readonly report: Report;
-  private readonly page: Page;
+  private page: Page;
+  /** Tabs replaced because they refused to leave a screen (every goto came back ERR_ABORTED). */
+  private renewals = 0;
   private inflight = new Set<unknown>();
   private lastNet = Date.now();
   private now: { route: string; url: string; control: string } = { route: '(sign in)', url: '', control: '(page load)' };
@@ -183,11 +191,14 @@ class Sweep {
     page: Page,
     readonly persona: Persona,
     readonly width: Width,
+    /** "" or "-1of2": this test's share of the persona's screens. */
+    readonly part: string,
   ) {
     this.page = page;
     this.report = {
       persona,
       width,
+      part,
       finished: false,
       minutes: SWEEP_MINUTES,
       routes: [],
@@ -197,8 +208,13 @@ class Sweep {
       blocked: {},
       nativeDialogs: [],
       appFaults: [],
+      tabsReplaced: [],
     };
+    this.attach(page);
+  }
 
+  /** Every listener the sweep needs, on one tab. */
+  private attach(page: Page): void {
     // The app reports its own faults to /api/telemetry/client-fault. Outside a
     // production deployment that route records nothing and answers 500
     // (`backgroundWritesAllowed`), so the sweep answers it here and keeps what
@@ -211,6 +227,11 @@ class Sweep {
           const list = Array.isArray(body.faults) ? (body.faults as Record<string, unknown>[]) : [body];
           for (const f of list) {
             if (this.report.appFaults.length >= 500) break;
+            // A burst of taps is the sweep opening one dropdown once per option, not a person losing patience.
+            if (String(f.event_type) === 'RAGE_TAP') {
+              this.noise('rage-tap', "the app's RAGE_TAP: the sweep reopens a dropdown once per option, faster than a person");
+              continue;
+            }
             this.report.appFaults.push({
               route: this.now.route,
               control: this.now.control,
@@ -283,6 +304,21 @@ class Sweep {
     });
   }
 
+  /**
+   * A tab that will not leave a screen (every address it is sent to comes back
+   * ERR_ABORTED) is replaced by a fresh one in the same signed-in context, and
+   * the screen that trapped it is named — that trap is itself worth a look.
+   */
+  private async renew(reason: string): Promise<void> {
+    this.renewals += 1;
+    this.report.tabsReplaced.push(`${this.now.route} · after "${this.now.control}": ${reason}`);
+    const old = this.page;
+    this.page = await old.context().newPage();
+    this.attach(this.page);
+    this.inflight.clear();
+    await old.close({ runBeforeUnload: false }).catch(() => {});
+  }
+
   private noise(id: string, why: string): void {
     const n = (this.report.noise[id] ??= { why, count: 0 });
     n.count += 1;
@@ -304,7 +340,7 @@ class Sweep {
     console.log(`::error title=Sweep (${this.persona} · ${this.width}) ${kind}::${f.route} · "${f.control}" — ${text.replace(/\r?\n/g, ' ').slice(0, 300)}`);
     if (this.shots < MAX_FAILURE_SHOTS) {
       this.shots += 1;
-      const shot = `sweep-${this.persona}-${this.width}-${String(this.shots).padStart(2, '0')}-${slugOf(kind + '-' + f.control)}.png`;
+      const shot = `sweep-${this.persona}-${this.width}${this.part}-${String(this.shots).padStart(2, '0')}-${slugOf(kind + '-' + f.control)}.png`;
       f.screenshot = shot;
       this.page.screenshot({ path: path.join(SCREENS, shot) }).catch(() => {
         f.screenshot = undefined;
@@ -314,7 +350,7 @@ class Sweep {
 
   write(): void {
     fs.mkdirSync(OUT, { recursive: true });
-    fs.writeFileSync(path.join(OUT, `sweep-${this.persona}-${this.width}.json`), JSON.stringify(this.report, null, 2));
+    fs.writeFileSync(path.join(OUT, `sweep-${this.persona}-${this.width}${this.part}.json`), JSON.stringify(this.report, null, 2));
   }
 
   /** The browser has asked this machine for nothing for 300 ms (or `max` has passed). */
@@ -352,10 +388,16 @@ class Sweep {
     }
   }
 
-  /** Open an address; signs in again if the session was lost. */
+  /** Open an address; signs in again if the session was lost; replaces a tab that will not move. */
   async open(url: string): Promise<void> {
     this.inflight.clear();
-    await this.page.goto(`${BASE}${url}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    try {
+      await this.page.goto(`${BASE}${url}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    } catch (e) {
+      if (!/ERR_ABORTED|Target (page, context or browser )?(has been )?closed|crashed/i.test(String(e)) || this.renewals >= 20) throw e;
+      await this.renew(firstLine(e));
+      await this.page.goto(`${BASE}${url}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    }
     await this.quiet(300, 10_000);
     if (new URL(this.page.url()).pathname.startsWith('/login')) {
       if (await this.signIn(url)) {
@@ -1028,13 +1070,13 @@ async function openContext(browser: Browser, width: Width, blocked: Record<strin
 
 // ── THE TESTS: each persona, phone first, then desktop ─────────────────────
 
-async function sweepPersona(browser: Browser, persona: Persona, width: Width): Promise<Report> {
+async function sweepPersona(browser: Browser, persona: Persona, width: Width, shard: number, shards: number): Promise<Report> {
   expect(PASSWORDS[persona], `the workflow hands the ${persona} password in by env`).not.toBe('');
   fs.mkdirSync(SCREENS, { recursive: true });
   const blocked: Record<string, number> = {};
   const context = await openContext(browser, width, blocked);
   const page = await context.newPage();
-  const sweep = new Sweep(page, persona, width);
+  const sweep = new Sweep(page, persona, width, shards > 1 ? `-${shard + 1}of${shards}` : '');
   sweep.report.blocked = blocked;
   const deadline = Date.now() + SWEEP_MINUTES * 60_000;
 
@@ -1043,10 +1085,18 @@ async function sweepPersona(browser: Browser, persona: Persona, width: Width): P
     expect(signedIn, `the ${persona} account signs in`).toBe(true);
 
     const plan = planRoutes(readScreens(), persona);
-    sweep.report.left = plan.left;
-    const statics = plan.sweep.filter((s) => routeParams(s.route).filter((p) => p !== 'eventId').length === 0);
-    const dynamics = plan.sweep.filter((s) => !statics.includes(s));
+    // This test's share: every `shards`-th screen. Redirect-only screens are named by the first share only.
+    const mine = plan.sweep.filter((_, i) => i % shards === shard);
+    sweep.report.left = shard === 0 ? plan.left : [];
+    // The guest card first: it is where the reply dropdown crashed on 2026-11-23, and a card per reply state is the point.
+    const first = mine.filter((s) => /\/guests\/\[guestId\]$/.test(s.route));
+    const statics = mine.filter((s) => !first.includes(s) && routeParams(s.route).filter((p) => p !== 'eventId').length === 0);
+    const dynamics = [...first, ...mine.filter((s) => !first.includes(s) && !statics.includes(s))];
+    // The request counter files what the sweep costs under its own row, not the walk's last step.
+    if (COUNTER) await fetch(`${COUNTER}/__rehearsal/step?name=${encodeURIComponent('(the control sweep)')}`).catch(() => {});
 
+    // The guest cards before anything else.
+    await sweepDynamics(first);
     for (const s of statics) {
       const url = fillRoute(s.route, { eventId: FIXTURE.eventId });
       if (!url) continue;
@@ -1057,9 +1107,18 @@ async function sweepPersona(browser: Browser, persona: Persona, width: Width): P
       await sweep.sweepRoute(s.route, s.route, url, deadline);
     }
 
-    // [param] screens: the fixture's own ids where it has them, else the first
-    // address of that shape a swept screen linked to.
-    for (const s of dynamics) {
+    await sweepDynamics(dynamics.filter((s) => !first.includes(s)));
+    sweep.report.finished = true;
+  } finally {
+    sweep.write();
+    await context.close().catch(() => {});
+  }
+  return sweep.report;
+
+  // [param] screens: the fixture's own ids where it has them, else the first
+  // address of that shape a swept screen linked to.
+  async function sweepDynamics(list: ScreenRow[]): Promise<void> {
+    for (const s of list) {
       const instances: Array<{ url: string; label: string }> = [];
       if (persona === 'couple' && /\[guestId\]$/.test(s.route)) {
         const all = [
@@ -1096,12 +1155,7 @@ async function sweepPersona(browser: Browser, persona: Persona, width: Width): P
         await sweep.sweepRoute(s.route, inst.label, inst.url, deadline);
       }
     }
-    sweep.report.finished = true;
-  } finally {
-    sweep.write();
-    await context.close().catch(() => {});
   }
-  return sweep.report;
 }
 
 function notReached(route: string, url: string): RouteResult {
@@ -1122,18 +1176,26 @@ function assertClean(r: Report): void {
   const lines = [...seen.values()].map(({ f, n }) => `${f.kind} · ${f.route} · "${f.control}" — ${f.text.slice(0, 240)}${n > 1 ? ` (×${n})` : ''}`);
   const unreached = r.routes.filter((x) => x.status === 'not-reached').length;
   expect(lines, `every control on every ${r.persona} screen at ${r.width} width works`).toEqual([]);
-  expect(r.finished, `the ${r.persona} sweep at ${r.width} width reached the end of its route list (${unreached} not reached)`).toBe(true);
+  expect(r.finished && unreached === 0, `the ${r.persona} sweep at ${r.width} width reached every screen of its list (${unreached} not reached)`).toBe(true);
 }
 
 test.describe.configure({ mode: 'parallel' });
 
-// Declared phone-first: with two workers, both 375 px sweeps run before either desktop one.
+/**
+ * The couple has about twice the supplier's screens, so its list is shared
+ * between two tests (every other screen each). Declared phone-first: with fewer
+ * workers than tests, every 375 px part runs before any desktop one.
+ */
+const SHARDS: Record<Persona, number> = { couple: Number(process.env.SWEEP_COUPLE_SHARDS || 2), supplier: 1 };
 for (const width of ['phone', 'desktop'] as const) {
   for (const persona of ['couple', 'supplier'] as const) {
-    test(`every control — ${persona} · ${width === 'phone' ? '375 px' : 'desktop 1280 px'}`, async ({ browser }) => {
-      test.setTimeout((SWEEP_MINUTES + 15) * 60_000);
-      const report = await sweepPersona(browser, persona, width);
-      assertClean(report);
-    });
+    for (let shard = 0; shard < SHARDS[persona]; shard++) {
+      const part = SHARDS[persona] > 1 ? ` · part ${shard + 1} of ${SHARDS[persona]}` : '';
+      test(`every control — ${persona} · ${width === 'phone' ? '375 px' : 'desktop 1280 px'}${part}`, async ({ browser }) => {
+        test.setTimeout((SWEEP_MINUTES + 15) * 60_000);
+        const report = await sweepPersona(browser, persona, width, shard, SHARDS[persona]);
+        assertClean(report);
+      });
+    }
   }
 }

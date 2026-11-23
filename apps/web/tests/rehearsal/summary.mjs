@@ -59,13 +59,15 @@ const cell = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 const stepList = Array.isArray(steps?.steps) ? steps.steps : [];
 const failedStep = stepList.find((s) => s.ok === false);
 const walked = stepList.length > 0;
-const SWEEP_PARTS = [
-  ['couple', 'phone'],
-  ['supplier', 'phone'],
-  ['couple', 'desktop'],
-  ['supplier', 'desktop'],
-];
-const sweeps = SWEEP_PARTS.map(([persona, width]) => ({ persona, width, r: readJson(`sweep-${persona}-${width}.json`) }));
+// One report per persona × width × part: sweep-<persona>-<width>[-<n>of<m>].json — phone first.
+const sweepFiles = existsSync(out) ? readdirSync(out).filter((f) => /^sweep-(couple|supplier)-(phone|desktop)(-\d+of\d+)?\.json$/.test(f)) : [];
+const sweepOrder = (f) => (f.includes('-phone') ? 0 : 2) + (f.includes('-supplier') ? 1 : 0);
+const sweeps = sweepFiles
+  .sort((a, b) => sweepOrder(a) - sweepOrder(b) || a.localeCompare(b))
+  .map((f) => {
+    const m = /^sweep-(couple|supplier)-(phone|desktop)(?:-(\d+)of(\d+))?\.json$/.exec(f);
+    return { persona: m[1], width: m[2], part: m[3] ? ` (part ${m[3]} of ${m[4]})` : '', r: readJson(f) };
+  });
 const sweepRan = sweeps.some((x) => x.r);
 const sweepFailures = sweeps.flatMap((x) => x.r?.failures ?? []);
 // A sweep that was switched off (0 minutes) is "skipped"; one that ran must be clean and complete.
@@ -208,9 +210,9 @@ if (!sweepRan) {
   sws();
   sws('| Who | Width | Screens swept | Controls pressed | Options picked | Dialogs opened | Never pressed (skip list) | Could not press | Not swept | **Failures** | Time |');
   sws('|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|');
-  for (const { persona, width, r } of sweeps) {
+  for (const { persona, width, part, r } of sweeps) {
     if (!r) {
-      sws(`| ${persona} | ${widthLabel(width)} | did not run | | | | | | | | |`);
+      sws(`| ${persona}${part} | ${widthLabel(width)} | did not run | | | | | | | | |`);
       continue;
     }
     const routes = r.routes ?? [];
@@ -221,7 +223,7 @@ if (!sweepRan) {
     if ((r.left ?? []).length) why['redirect-only'] = r.left.length;
     const notSwept = `${Object.values(why).reduce((a, b) => a + b, 0)}${Object.keys(why).length ? ` (${Object.entries(why).map(([k, n]) => `${k} ${n}`).join(', ')})` : ''}`;
     const secs = routes.reduce((n, x) => n + (x.seconds ?? 0), 0);
-    sws(`| ${persona} | ${widthLabel(width)} | ${swept} | ${sum('pressed')} | ${sum('options')} | ${sum('dialogs')} | ${sum('skipped')} | ${sum('unpressable')} | ${notSwept} | **${(r.failures ?? []).length}** | ${mins(secs)}${r.finished ? '' : ' (did not finish)'} |`);
+    sws(`| ${persona}${part} | ${widthLabel(width)} | ${swept} | ${sum('pressed')} | ${sum('options')} | ${sum('dialogs')} | ${sum('skipped')} | ${sum('unpressable')} | ${notSwept} | **${(r.failures ?? []).length}** | ${mins(secs)}${r.finished ? '' : ' (did not finish)'} |`);
   }
   sws();
   if (failureLines.length === 0) {
@@ -257,6 +259,13 @@ if (sweepRan) {
     }
     if (top.length > 30) sws(`- … and ${top.length - 30} more in SWEEP.md`);
   }
+  sws();
+}
+const tabs = sweeps.flatMap((x) => (x.r?.tabsReplaced ?? []).map((t) => `${x.persona} · ${widthLabel(x.width)}: ${t}`));
+if (sweepRan && tabs.length > 0) {
+  sws(`### Tabs that would not leave a screen — ${tabs.length} (each was replaced and the sweep went on)`);
+  sws();
+  for (const t of tabs.slice(0, 20)) sws(`- ${cell(t)}`);
   sws();
 }
 const sweepSummary = [...sw];

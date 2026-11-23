@@ -304,7 +304,8 @@ test('the launch-critical journey', async ({ browser }) => {
     // Opened again on its own, so this row of the request table is the Home's
     // cost and nothing else's (the row above also holds the sign-in).
     await host.reload();
-    const home = host.locator('section[aria-label="Home"]:visible').first();
+    // The Home's first screen ("Today", home-first-screen.tsx — the v5 drawing).
+    const home = host.locator('section[data-home-first-screen]:visible').first();
     await expect(home).toBeVisible();
     await expect(host.locator('[data-home-cover] h1').first()).toContainText(FIXTURE.eventName);
     check(`the event is "${FIXTURE.eventName}"`);
@@ -485,9 +486,9 @@ test('the launch-critical journey', async ({ browser }) => {
   await walk.step('E · Left open', `The host's Home, left open for ${IDLE_SECONDS} seconds`, () => host, async (check) => {
     // The step above ended on the Home and waited for it to go quiet. Nothing
     // is pressed here: whatever is counted now, the app asked on its own.
-    await expect(host.locator('section[aria-label="Home"]:visible').first()).toBeVisible();
+    await expect(host.locator('section[data-home-first-screen]:visible').first()).toBeVisible();
     await host.waitForTimeout(IDLE_SECONDS * 1000);
-    await expect(host.locator('section[aria-label="Home"]:visible').first()).toBeVisible();
+    await expect(host.locator('section[data-home-first-screen]:visible').first()).toBeVisible();
     const { stepDb } = await counted();
     check(`nothing was pressed for ${IDLE_SECONDS} s — the app made ${stepDb < 0 ? 'an unread number of' : stepDb} database requests on its own`);
   }, ['A · Host', 'C · Guests']);

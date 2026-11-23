@@ -63,8 +63,9 @@ name: release-rehearsal
 #
 # Measured 2026-10-08 on ubuntu-latest: stack 1m 10s · 1,570 migrations 1m 30s ·
 # build 8m 20s · walk 3m 25s (two of those minutes are the "left open" steps).
-# The sweep adds up to `sweep_minutes` per persona × width (four run side by
-# side); set it to 0 to rehearse without it.
+# The sweep adds up to `sweep_minutes` (its six parts — the couple's list in
+# two halves, the supplier's whole, at 375 px and desktop — run side by side);
+# set it to 0 to rehearse without it.
 on:
   workflow_dispatch:
     inputs:
@@ -427,13 +428,14 @@ jobs:
         working-directory: apps/web
         env:
           REHEARSAL_BASE_URL: http://localhost:3000
+          REHEARSAL_COUNTER_URL: http://127.0.0.1:54320
           SWEEP_MINUTES: ${{ inputs.sweep_minutes || '80' }}
           CI: 'true'
         run: |
           set -euo pipefail
           t0=$(date +%s)
           rc=0
-          pnpm exec playwright test -c tests/rehearsal/playwright.rehearsal.config.ts --project=sweep --workers=4 || rc=$?
+          pnpm exec playwright test -c tests/rehearsal/playwright.rehearsal.config.ts --project=sweep --workers=6 || rc=$?
           echo "sweep_seconds=$(( $(date +%s) - t0 ))" >> "$REHEARSAL_OUT/timings.env"
           exit $rc
 
@@ -452,6 +454,12 @@ jobs:
           node apps/web/tests/rehearsal/summary.mjs "$REHEARSAL_OUT" "${{ steps.walk.outcome }}" "${{ steps.sweep.outcome }}" | tee -a "$GITHUB_STEP_SUMMARY"
           # The full sweep report goes into the log as well, so it can be read
           # without downloading the artifact.
+          # Where each failed walk step ended, and its headings, without the artifact.
+          for u in "$REHEARSAL_OUT"/failure-*.url.txt; do
+            [ -f "$u" ] || continue
+            echo "walk failure page: $(basename "$u" .url.txt) → $(cat "$u")"
+            grep -oE '<h[12][^>]*>[^<]{1,120}' "${u%.url.txt}.html" 2>/dev/null | sed -E 's/<[^>]*>//' | head -5 | sed 's/^/  heading: /' || true
+          done
           if [ -f "$REHEARSAL_OUT/SWEEP.md" ]; then
             echo "::group::SWEEP.md — every screen, every skip, every fault"
             cat "$REHEARSAL_OUT/SWEEP.md"
@@ -461,8 +469,8 @@ jobs:
           cp "$REHEARSAL_OUT"/screens/*.png "$RUNNER_TEMP/artifact/rehearsal-screens/" 2>/dev/null || true
           cp "$REHEARSAL_OUT/REHEARSAL.md" "$RUNNER_TEMP/artifact/" 2>/dev/null || true
           cp "$REHEARSAL_OUT/SWEEP.md" "$RUNNER_TEMP/artifact/" 2>/dev/null || true
-          for f in requests.json steps.json migrations.json db-push.log in-this-upload.txt blocked-requests.json timings.env \
-                   sweep-couple-phone.json sweep-couple-desktop.json sweep-supplier-phone.json sweep-supplier-desktop.json; do
+          cp "$REHEARSAL_OUT"/sweep-*.json "$RUNNER_TEMP/artifact/diagnostics/" 2>/dev/null || true
+          for f in requests.json steps.json migrations.json db-push.log in-this-upload.txt blocked-requests.json timings.env; do
             cp "$REHEARSAL_OUT/$f" "$RUNNER_TEMP/artifact/diagnostics/" 2>/dev/null || true
           done
           cp "$REHEARSAL_OUT"/failure-* "$RUNNER_TEMP/artifact/diagnostics/" 2>/dev/null || true

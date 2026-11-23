@@ -1,8 +1,9 @@
 /**
  * 🎭 THE ENVELOPE, IN THE OWNER'S TWO STYLES (owner 23 Nov: *"we want both styles"*; drawing v22 `src/env2.js`). Built to read as a photograph: paper that takes light across its relief, gold foil and wax that
  * mirror a room, soft shadows cast flap on flap, flaps that bend as paper does while they turn, film tone.
- *   CLASSIC  — an ornate scalloped front flap, gold edge, a gold wax seal carrying the event's logo.
- *   GATEFOLD — two embossed panels, closed with the couple's seal OR a satin ribbon and bow, never both (owner 23 Nov:
+ *   CLASSIC  — an ornate front flap cut to the couple's shape (v24: seven, scalloped the default), 1.34× the screen
+ *              wide, gold edge, a gold wax seal carrying the event's logo.
+ *   GATEFOLD — two embossed panels (v24: the sculpted lilies or one of six designs pressed in code), closed with the couple's seal OR a satin ribbon and bow, never both (owner 23 Nov:
  *              *"ribbon and wax seal never co exist together"*). Sealed: the whole seal rides the left panel, which opens
  *              first. Tied: the bow comes undone and the ribbon slides off before the panels part.
  * The wax seal never breaks: it stays on the flap it was pressed on and goes where that paper goes.

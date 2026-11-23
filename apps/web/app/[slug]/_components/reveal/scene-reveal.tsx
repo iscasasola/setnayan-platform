@@ -2,8 +2,8 @@
 
 /**
  * 🎭 SceneReveal — ONE STAGE for every reveal that is not the veil: Beach curtains · Envelope (classic, gatefold) ·
- * Fabric · Scratch · Smoke · Cathedral doors · Petals · Fireworks (owner 23 Nov 2026, DECISION_LOG "NINE REVEALS
- * SHIP; THE GIFT BOX IS HELD"; drawing specs `prototypes/reveals_round3_veil_rules_2026-11-23/`, artifact
+ * Fabric · Scratch · Smoke · Cathedral doors · Petals · Fireworks · Gift box (owner 23 Nov 2026, DECISION_LOG "NINE
+ * REVEALS SHIP", then "ten reveals approved" for the v25 gift box; drawing specs `prototypes/reveals_round3_veil_rules_2026-11-23/`, artifact
  * U4pTTfGDn6TBxA3PixFPLq v12–13).
  *
  * The stage runs the SHARED MOTION RULES (`lib/reveal-motion.ts`) — the veil's, read off `veil-reveal.tsx`: one tap

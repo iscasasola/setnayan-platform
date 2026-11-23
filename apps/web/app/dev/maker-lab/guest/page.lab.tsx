@@ -112,7 +112,7 @@ import { CoverPlayOpening } from '@/app/[slug]/_components/reveal/cover-play-ope
 import { DEFAULT_REVEAL_CONFIG, canonicalRevealId } from '@/lib/reveal-config-pure';
 import { defaultConfigFromSeed, type WaxSealConfig } from '@/lib/wax-seal/types';
 import { hexForColorName } from '@/lib/color-names';
-import { DEFAULT_REVEAL_EFFECTS, type RevealEffects } from '@/lib/std-reveal-effects';
+import { DEFAULT_REVEAL_EFFECTS, REVEAL_LOOK_OPTIONS, withGatefoldClosure, withRevealLook, type RevealEffects, type RevealLookKey } from '@/lib/std-reveal-effects';
 import { withVeilFold, withVeilWeave, withVeilWind } from '@/lib/veil-style';
 
 /** maria-and-jose's run of show and venues (read-only shape, 2026-10-05) — the lab has no database. */
@@ -296,9 +296,19 @@ const LAB_SEAL: WaxSealConfig = { ...defaultConfigFromSeed(4242), wax: { color: 
 
 function labOpeningEffects(e: ReturnType<typeof labVeil>, sp: Record<string, string | string[] | undefined>): RevealEffects | undefined {
   const speed = Number(sp.speed);
-  if (!Number.isFinite(speed) || speed <= 0) return e;
-  const base = e ?? DEFAULT_REVEAL_EFFECTS;
-  return { ...base, tune: { ...(base.tune ?? {}), speed } };
+  let out = e;
+  if (Number.isFinite(speed) && speed > 0) {
+    const base = out ?? DEFAULT_REVEAL_EFFECTS;
+    out = { ...base, tune: { ...(base.tune ?? {}), speed } };
+  }
+  /* 🎨 `&flap= · &panel= · &fabric= · &lining= · &floor= · &around=` — a reveal's own designs (REVEAL_LOOK_OPTIONS),
+     `&closure=ribbon` the gatefold's bow, laid in as the event's std_reveal_effects carries them. */
+  for (const k of Object.keys(REVEAL_LOOK_OPTIONS) as RevealLookKey[]) {
+    const v = sp[k];
+    if (typeof v === 'string') out = withRevealLook(out ?? DEFAULT_REVEAL_EFFECTS, k, v);
+  }
+  if (sp.closure === 'ribbon') out = withGatefoldClosure(out ?? DEFAULT_REVEAL_EFFECTS, 'ribbon');
+  return out;
 }
 
 export default async function MakerLabGuestPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

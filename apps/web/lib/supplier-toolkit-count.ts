@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { SHOP_BADGE_KEYS } from './badge-tiers';
+import { formatCount } from './format-number';
 import { toolkitCounts } from './supplier-store';
 import { PRINT_DESIGNS, PRINT_PIECES } from './supplier-prints';
 import { SPECIALIZED_TOOLS } from './specialized-tools';
@@ -23,7 +24,7 @@ import { AVAILABILITY_STYLES, CARD_STYLES_COMING_SOON } from './availability-sty
  *   · the print designs and pieces, and the availability styles a card can pick today.
  * Left out, so the figure stays a floor: scanner modes, quick replies, status presets and table shapes.
  *
- * `toolkitClaim` rounds the total DOWN to the nearest 10 and adds "+" (394 → "390+", 401 → "400+"); never up. A few
+ * `toolkitClaim` rounds the total DOWN to the nearest 10 and adds "+" (394 → "390+", 401 → "400+", 1,234 → "1,230+", with commas by `formatCount`); never up. A few
  * items are paid widgets (Cake Maker, Song bank, Papic challenge, 3D plan), so the line never says "free".
  * /for-suppliers shows THIS count and no other total. `app/for-suppliers/the-toolkit-claim-is-true.test.ts` runs the
  * same reader on the seeded templates and fails if the honest total falls under `TOOLKIT_CLAIM_FLOOR`.
@@ -62,7 +63,7 @@ export function toolkitTotal(cardTemplates: number | null): number | null {
 /** "400+ tools and templates" — the total rounded DOWN to the nearest 10, then "+". No total = no words (never 0+). */
 export function toolkitClaim(total: number | null): string | null {
   if (total == null || !Number.isFinite(total) || total < 10) return null;
-  return `${Math.floor(total / 10) * 10}+ tools and templates`;
+  return `${formatCount(Math.floor(total / 10) * 10)}+ tools and templates`;
 }
 
 /** How many starting card templates the admin keeps; `null` when the count was refused (never 0). */

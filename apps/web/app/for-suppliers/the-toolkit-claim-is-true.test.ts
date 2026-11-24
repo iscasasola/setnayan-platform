@@ -47,6 +47,7 @@ test('it adapts: one more template moves the total, and the words round DOWN to 
   assert.equal(toolkitClaim(399), '390+ tools and templates', 'rounded up');
   assert.equal(toolkitClaim(400), '400+ tools and templates');
   assert.equal(toolkitClaim(401), '400+ tools and templates');
+  assert.equal(toolkitClaim(1234), '1,230+ tools and templates'); // commas, by formatCount
   // an unread template count draws no number — never 0+, never a guess
   assert.equal(toolkitTotal(null), null);
   assert.equal(toolkitClaim(null), null);

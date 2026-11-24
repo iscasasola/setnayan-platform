@@ -4541,6 +4541,15 @@ function ReviewHeroMetrics({
     { star: 1, count: stats.count_1_star },
   ];
   const max = Math.max(1, ...totals.map((t) => t.count));
+  /**
+   * ⭐ ONE COUNT, THE BARS' OWN (supplier walk on live, 24 Nov 2026): the line read "0 reviews across all their
+   * services" over bars of 5★ 2 · 4★ 1 and a printed review — the count came off the TRUSTED aggregate while the bars
+   * and the list read the raw stats. The count now sums the very bars it sits beside. The STAR AVERAGE stays trusted
+   * (anti-fraud 2026-07-05: only booked-through-Setnayan, arm's-length reviews move it), and the gap is SAID, never hidden.
+   * 🔒 lib/shop-review-count-is-the-bars-count.test.ts
+   */
+  const reviewCount = totals.reduce((sum, t) => sum + t.count, 0);
+  const starsCountFewer = trustedCount < reviewCount;
 
   return (
     <div className="grid gap-6 rounded-2xl border border-ink/10 bg-cream p-5 sm:grid-cols-[180px_1fr]">
@@ -4556,8 +4565,15 @@ function ReviewHeroMetrics({
           <span className="text-sm font-semibold text-ink">overall</span>
         </div>
         <p className="text-xs text-ink/60">
-          {formatCount(trustedCount)} review{trustedCount === 1 ? '' : 's'} across all their services
+          {formatCount(reviewCount)} review{reviewCount === 1 ? '' : 's'} across all their services
         </p>
+        {starsCountFewer ? (
+          <p className="text-xs text-ink/50" data-review-stars-count="trusted">
+            {trustedCount === 0
+              ? 'Stars count reviews booked through Setnayan · none yet'
+              : `Stars count the ${formatCount(trustedCount)} booked through Setnayan`}
+          </p>
+        ) : null}
         <GuestStarsLine read={guestReviews} />
       </div>
       <ul className="space-y-1.5 text-xs">

@@ -246,6 +246,7 @@ const PROPOSAL_NOTICE: Record<string, string> = {
     'Your gifts on that quote didn’t fit — over this booking’s gift limit, or more than your stock. Check them and send again.',
   // 📅 No lifetime quotation (2026-11-09).
   proposal_needs_valid_until: 'Pick how long this quote is valid before you send it — nothing was sent.',
+  proposal_needs_guest_count: 'No guest count yet — set Bill at least before sending a per-guest quote. Nothing was sent.',
   proposal_plan_not_in_full: 'The payment plan must pay the whole quote — nothing was sent.',
   // 🧾 OWN-01: a "first N couples" offer is used up once N other couples have it on their quote.
   proposal_offer_taken:
@@ -1498,7 +1499,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           papicStanding={composerPapicStanding}
           shopGifts={shopGifts.basis}
           shopGiftsBuy={shopGifts.buy}
-          requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
+          // 👥 No guessed count: with neither, the maker says "No guest count yet" (walk 24 Nov; was `?? 100`).
+          requestedPax={thread.pax_at_inquiry ?? headerPax ?? null}
           livePax={headerPax ?? null}
           paxKnown={guestCounts.atInquiry != null || guestCounts.live != null}
           coupleName={coupleLabel}

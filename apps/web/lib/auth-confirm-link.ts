@@ -29,8 +29,7 @@
  */
 
 import { homeSegHref } from './home-segments';
-import { doorOpenShopHref, type Door } from './doors';
-import { routes } from './routes';
+import { doorOpenShopHref, doorShopHomeHref, type Door } from './doors';
 
 /**
  * OTP types `/auth/confirm` will accept.
@@ -172,7 +171,7 @@ export function landingForAccount(
   if (next !== '/') return next;
   if (at) {
     const business = at.hasShop ?? accountType === 'vendor';
-    return business ? routes.vendorDashboard.index() : doorOpenShopHref(at.door);
+    return business ? doorShopHomeHref() : doorOpenShopHref(at.door);
   }
   return accountType === 'vendor' ? homeSegHref('shop') : homeSegHref('events');
 }

@@ -183,6 +183,15 @@ test('the ONE door flag draws the door chrome: no rail, no search, no couple lin
   assert.match(mw, /if \(appDoor\) request\.headers\.set\(DOOR_HEADER, appDoor\);\s*else request\.headers\.delete\(DOOR_HEADER\);/);
 });
 
+test('the door landing never pulls the route table into the client (Maker bundle budget, #8263)', async () => {
+  const { routes } = await import('./routes');
+  const { doorShopHomeHref } = await import('./doors');
+  assert.equal(doorShopHomeHref(), routes.vendorDashboard.index(), 'the door lands somewhere the route table does not know');
+  for (const f of ['lib/auth-confirm-link.ts', 'lib/doors.ts', 'lib/sign-in-landing.ts']) {
+    assert.doesNotMatch(stripComments(read(f)), /from '(?:\.\/|@\/lib\/)routes'/, `${f} imports the route table, which reaches the client shell`);
+  }
+});
+
 test('the one search rule answers "no box" on a door, signed in or out', async () => {
   const { topBarSearch } = await import('../app/_components/frontdoor/shell-page-search');
   assert.equal(topBarSearch({ handed: undefined, signedIn: false, pageHasOwnSearch: false, onADoor: true }), false);

@@ -92,6 +92,16 @@ export function doorLandingHref(door: Door): string {
 }
 
 /**
+ * Where a door's person with a shop lands: the supplier dashboard. Written here, not read from `lib/routes`, on
+ * purpose: this file reaches the client shell (`front-door-shell` → `sign-in-landing` → `auth-confirm-link`), and the
+ * route table is 25 KB the Event Hub Maker's first load cannot afford (bundle budget, #8263). Held by lib/doors.test.ts,
+ * which checks it against `routes.vendorDashboard.index()`.
+ */
+export function doorShopHomeHref(): string {
+  return '/vendor-dashboard';
+}
+
+/**
  * The shop set-up a door's person starts at — the same account gains a shop, never a second account.
  * On the coordinator door, Coordination is already picked (`/open-shop?as=coordinator`, the shipped wizard's own).
  */

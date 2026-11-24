@@ -10,8 +10,7 @@
  *       database (the atomic claim `claimIncludedDeepSearchRun` relies on it), the next slot is free, a new month starts
  *       again at slot 1, and history rows (no slot) never collide;
  *   4 · the retired one-per-28-day index is gone.
- * 🛡 SABOTAGE (seen RED, then restored — 2026-11-24): the unique index dropped from the migration (red: 3) · the seed
- *   UPDATE removed (red: 2) · `is_active = FALSE` flipped to TRUE (red: 1).
+ * 🛡 SABOTAGE (seen RED, then restored — 2026-11-24): the month/slot index made non-unique in the migration (red: 3).
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -36,7 +35,10 @@ async function makeVendor(email: string): Promise<string> {
     [email],
   );
   const vp = await db.query<{ vendor_profile_id: string }>(
-    `INSERT INTO public.vendor_profiles (user_id, business_name) VALUES ($1, 'Deep Search Test Shop') RETURNING vendor_profile_id`,
+    // A vendor sign-up already makes the shop row (the auth trigger) — take it, as the other replay tests do.
+    `INSERT INTO public.vendor_profiles (user_id, business_name) VALUES ($1, 'Deep Search Test Shop')
+     ON CONFLICT (user_id) DO UPDATE SET business_name = EXCLUDED.business_name
+     RETURNING vendor_profile_id`,
     [u.rows[0]!.id],
   );
   return vp.rows[0]!.vendor_profile_id;

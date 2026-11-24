@@ -673,10 +673,9 @@ function gatedRow(tool: SpecializedTool, suggested: boolean, f: ToolFacts): { ro
   let status = toolStatus(tool.key, f);
   let installed = toolIsInstalled(tool.key, status, f);
   let hidden = false;
-  if (Array.isArray(f.cards) && !toolServedByCards(tool, tags, f.cards)) {
+  if (Array.isArray(f.cards) && status.kind !== 'no_card' && !toolServedByCards(tool, tags, f.cards)) {
     hidden = !heldByShop(status, installed);
-    // `toolStatus` never answers no_card itself, so the prior is one of the other states.
-    status = { kind: 'no_card', category: noCardCategory(tags), installed, prior: status as Exclude<ToolStatus, { kind: 'no_card' }> };
+    status = { kind: 'no_card', category: noCardCategory(tags), installed, prior: status };
     installed = toolIsInstalled(tool.key, status, f);
   }
   return { row: { tool, suggested, status, installed, act: toolAct(tool.key, status, installed), tags, forYou: toolIsForYou(tool, tags, f) }, hidden };

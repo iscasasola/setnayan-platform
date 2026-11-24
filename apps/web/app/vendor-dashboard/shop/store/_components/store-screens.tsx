@@ -881,9 +881,9 @@ function priceWord(s: ReturnType<typeof toolStatus>): string {
 
 /** Who it suits: the first tag (and how many more), or — a widget with no tag — any shop (tags suggest, never gate). */
 function forWord(tags: readonly { label: string }[]): string {
-  if (tags.length === 0) return 'Any shop';
-  const first = tags[0]?.label ?? 'Any shop';
-  return tags.length === 1 ? first : `${first} +${tags.length - 1}`;
+  const [first] = tags;
+  if (!first) return 'Any shop';
+  return tags.length === 1 ? first.label : `${first.label} +${tags.length - 1}`;
 }
 
 /** The Status row: said only for an item the shop holds — installed, owned and taken off, or locked off-plan. */

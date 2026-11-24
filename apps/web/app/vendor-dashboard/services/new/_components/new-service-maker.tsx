@@ -67,6 +67,7 @@ export function NewServiceMaker({
         giftFree={ctx.giftFree}
         bookingsPerDate={ctx.bookingsPerDate}
         availabilityOf={ctx.availabilityOf}
+        avTemplates={ctx.avTemplates}
         checkRules={ctx.checkRules}
         detailsKind={details ? ctx.onlyKind : null}
         detailsSlot={

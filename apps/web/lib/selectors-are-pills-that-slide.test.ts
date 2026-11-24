@@ -376,7 +376,8 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
   assert.ok(sw.length > 1500, 'anti-vacuity: the stage pill was not found');
   assert.doesNotMatch(sw, /<ISegmented\b|StudioHalf|<PillThumb/, 'the stage pill is still a track of halves');
   assert.match(sw, /data-stage-pill=""[\s\S]*?className="sn-press [^"]*rounded-full bg-sn-accent [^"]*text-sn-on-accent"/, 'the stage pill is not the accent pill');
-  assert.match(read(`${L}/studio-tools.tsx`), /<ISegmented label="Look">\s*\{LOOK_SECTION_ITEM_KEYS\.map\(\(k\) => \(\s*<ISeg /);
+  // RE-AIMED 23 Nov (Maker parts 4–6): Look's bar is Theme · Background · Elements · Music (`STUDIO_LOOK_TABS`) — still ONE thumb.
+  assert.match(read(`${L}/studio-tools.tsx`), /<ISegmented label="Look">\s*(?:\{\s*\}\s*)?\{STUDIO_LOOK_TABS\.map\(\(k\) => \(\s*<ISeg /);
 
   // 3 · PHASES (Look | Background | Arrange · Build in | Action | Build out) — every use: the thumb is in the component.
   for (const c of ['group/seg', 'relative', 'rounded-full', 'h-11', 'w-full']) assert.ok(has(SP_PHASES, c), `Phases’ track lost ${c}`);

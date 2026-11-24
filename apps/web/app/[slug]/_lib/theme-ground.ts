@@ -75,7 +75,8 @@ export function resolveThemeGround(
   if (!t.media) return null;
   const legible = hubLegibility(input.colours ? { ...t, palette: input.colours } : t, { kind: 'theme' });
   return {
-    loop: publicUrl(t.media.loop),
+    // 🖼 A still theme has no loop: its poster is the whole ground.
+    loop: t.media.loop ? publicUrl(t.media.loop) : null,
     poster: publicUrl(t.media.poster),
     scrim: legible.scrim.opacity,
     foil: t.foilNames && !input.ownColours,

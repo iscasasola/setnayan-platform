@@ -14,6 +14,7 @@
  *   · Every state is SAID: a refused read is "couldn't load", not an empty form; not on the door list is said, with
  *     the shop's page offered (prototype § 7: "never a silent empty form").
  */
+import { publicEventPath } from '@/lib/public-event-url';
 import { shopPath } from '@/lib/shop-address';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -83,7 +84,7 @@ export default async function GuestReviewPage({ params, searchParams }: Props) {
 
   const ev = evRes.data as { display_name: string | null; event_type: string | null; slug: string | null } | null;
   if (!ev) return <Shell><NotOnDoorList shopName={shopName} shopHref={shopHref} /></Shell>;
-  const backHref = ev.slug ? `/${ev.slug}` : shopHref;
+  const backHref = ev.slug ? `${publicEventPath(ev.slug)}` : shopHref;
   const eventTitle = `${ev.display_name?.trim() || 'the'}’s ${formatEventTypeLabel(ev.event_type).toLowerCase()}`;
 
   const checkedInAt = (checkinRes.data as { checked_in_at?: string } | null)?.checked_in_at ?? null;

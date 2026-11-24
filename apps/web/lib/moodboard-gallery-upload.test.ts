@@ -142,20 +142,12 @@ test('the owner’s figure is the ladder: 20, per category, every tier', () => {
   }
 });
 
-test('the NEW ladder never overwrote the portfolio ladder beside it', () => {
-  // MB11: "add the per-category pair ALONGSIDE the existing quota precedent —
-  // never overwriting it". These are the shipped portfolioPhotos figures; if a
-  // future edit collapses the two axes into one, this goes red.
-  assert.equal(TIER_CAPS.free.portfolioPhotos, 50);
-  // Owner 2026-11-22 "FINAL LADDER": no portfolio photo cap on a paid size — storage is the only limit.
-  assert.equal(TIER_CAPS.pro.portfolioPhotos, Infinity);
-  assert.equal(TIER_CAPS.enterprise.portfolioPhotos, Infinity);
+test('the back-catalogue ladder is its own number — the portfolio has no count at all (owner 2026-11-23)', () => {
+  // MB11 kept the per-category pair ALONGSIDE the portfolio quota. The portfolio quota is gone (storage is the only
+  // limit), so the back-catalogue number must not have been collapsed into it — or dropped with it.
   for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise'] as const) {
-    assert.notEqual(
-      TIER_CAPS[tier].portfolioPhotos,
-      TIER_CAPS[tier].galleryBackCatalogPhotosPerCategory,
-      `${tier}: the two photo ladders must stay distinct numbers`,
-    );
+    assert.equal('portfolioPhotos' in TIER_CAPS[tier], false, `${tier}: a portfolio count came back`);
+    assert.equal(TIER_CAPS[tier].galleryBackCatalogPhotosPerCategory, 20, `${tier}: the back-catalogue cap moved`);
   }
 });
 

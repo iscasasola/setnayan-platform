@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import 'server-only';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
@@ -1203,7 +1204,7 @@ function eventHit(e: any, score: number): UgatSearchHit {
     id: e.public_id ?? e.event_id,
     type: 'event',
     title: e.display_name || e.public_id || 'Event',
-    sub: e.slug ? `Event · /${e.slug}` : 'Event',
+    sub: e.slug ? `Event · ${publicEventPath(e.slug)}` : 'Event',
     href: ugatRecordHref({ kind: 'event', publicId: e.public_id ?? null, slug: e.slug ?? null }),
     publicId: e.public_id ?? null,
     score,

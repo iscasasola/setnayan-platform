@@ -66,7 +66,14 @@ type View = {
   steps: string[];
 };
 type Report = Record<
-  'page' | 'pageWithCard' | 'cardAlone' | 'layoutAndPage' | 'oneReadRefused' | 'delegateWithoutGuestList' | 'signedOut',
+  | 'page'
+  | 'pageWithCard'
+  | 'cardAlone'
+  | 'layoutAndPage'
+  | 'oneReadRefused'
+  | 'delegateWithoutGuestList'
+  | 'signedOut'
+  | 'sessionCleared',
   View
 >;
 
@@ -159,4 +166,18 @@ test('6 · 🔑 no session → sent to sign in, and not one read leaves as anon'
   const v = REPORT.signedOut;
   assert.match(v.redirectedTo ?? '', /^\/login/, `a signed-out request was sent to ${v.redirectedTo}`);
   assert.equal(v.calls, 0, `a signed-out request still sent ${v.calls} request(s) as anon:\n${shape(v)}`);
+});
+
+/*
+  🧹 LIVE FAULT (app_telemetry_logs, `GET events` 42501 as anon, 21 Nov 19:25Z): the middleware's refresh was refused
+  (`POST auth/v1/token?grant_type=refresh_token` → 400, a dead refresh token), so @supabase/ssr removed the session by
+  writing the cookie back with an EMPTY value. The name was still in the jar, test 6's check matched the NAME alone, and
+  the page sent the event row, the role words, the invite's words, the not-counted rows, the song requests and the
+  service counts as anon — every one refused. Sabotage: match the name only (`isSessionCookieName(c.name)`) and this
+  goes red with every read sent.
+*/
+test('6b · 🧹 a session the middleware could not refresh (the cookie emptied) → sent to sign in, not one read as anon', () => {
+  const v = REPORT.sessionCleared;
+  assert.match(v.redirectedTo ?? '', /^\/login/, `a cleared session was sent to ${v.redirectedTo}`);
+  assert.equal(v.calls, 0, `a cleared session still sent ${v.calls} request(s) as anon:\n${shape(v)}`);
 });

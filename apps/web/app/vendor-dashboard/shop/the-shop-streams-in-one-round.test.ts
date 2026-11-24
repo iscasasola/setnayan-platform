@@ -51,7 +51,7 @@ test('2 · the service list asks no second sign-in and awaits its data once', ()
 
 test('3 · the carousel reads through one cache, with Batch B and the plan started early', () => {
   assert.match(SECTION, /const readOneAnalytics = cache\(async \(supabase: SupabaseClient, userId: string, profile: VendorProfileRow\)/);
-  assert.match(SECTION, /const draw = await readOneAnalytics\(supabase, userId, profile\);/);
+  assert.match(SECTION, /const drawn = await readOneAnalytics\(supabase, userId, profile\);/);
   const tierAt = SECTION.indexOf('const tierRead = resolveVendorTier(');
   const roleAt = SECTION.indexOf('const role = await resolveVendorRole(');
   assert.ok(tierAt > 0 && tierAt < roleAt, 'the plan read waits for the role read again');

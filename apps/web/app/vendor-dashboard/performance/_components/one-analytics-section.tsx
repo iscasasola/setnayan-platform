@@ -177,8 +177,9 @@ export async function OneAnalyticsSection({
    *  graph), plus the "Add a graph" tile into the Store. Absent (Performance) = the carousel as before. */
   store?: StorePick;
 }) {
-  const draw = await readOneAnalytics(supabase, userId, profile);
-  return draw(store);
+  const drawn = await readOneAnalytics(supabase, userId, profile);
+  // A lock (role · plan · Verified) is drawn as it is; the full carousel takes the Shop's graph pick.
+  return typeof drawn === 'function' ? drawn(store) : drawn;
 }
 
 type StorePick = { graphs: readonly string[] | null; addHref: string };
@@ -197,7 +198,7 @@ export function preloadOneAnalytics(supabase: SupabaseClient, userId: string, pr
  * themselves, so a preload and the section share one set of reads. It answers with the drawing, which needs only the
  * Shop's graph pick (`store`, from the Shop's own layout read) at the very end.
  */
-const readOneAnalytics = cache(async (supabase: SupabaseClient, userId: string, profile: VendorProfileRow): Promise<(store?: StorePick) => ReactNode> => {
+const readOneAnalytics = cache(async (supabase: SupabaseClient, userId: string, profile: VendorProfileRow): Promise<ReactNode | ((store?: StorePick) => ReactNode)> => {
   // Owner/admin only — the ROI + momentum panels surface booking revenue. On the Shop tab a team member who is not an
   // owner/admin is TOLD so (the section's own line), never shown an empty carousel.
   // ⚡ The plan read starts WITH the role read (it needs only the shop id), so the two cost one trip, not two. Marked
@@ -209,7 +210,7 @@ const readOneAnalytics = cache(async (supabase: SupabaseClient, userId: string, 
     // 🔒 Six roles (owner 19 Nov 2026): Marketing now opens the Shop tab — the numbers stay the Shop Manager's, and the
     // lock says so with the Problem and the Solution.
     const standing = await resolveVendorStanding(supabase, userId).catch(() => null);
-    return () => (
+    return (
       <div className="px-4 pt-5" data-shop-analytics-owner-only="">
         <RoleLock duty={standing?.duty ?? null} capability="insights" />
       </div>
@@ -236,7 +237,7 @@ const readOneAnalytics = cache(async (supabase: SupabaseClient, userId: string, 
   );
 
   if (gateOn && !canSeePerformanceTrends(tier)) {
-    return () => (
+    return (
       <VendorTierGate
         feature="Analytics"
         requiredTier="solo"
@@ -262,7 +263,7 @@ const readOneAnalytics = cache(async (supabase: SupabaseClient, userId: string, 
         }),
     ]);
     // The counts stay numbers (Opened · Asked · Booked, each with its window switch); every graph is ONE locked card.
-    return () => <AnalyticsCarousel locked={{ progress: papersProgress(papers), totals: { '30': countsNow.totals, '12': countsYear.totals } }} />;
+    return <AnalyticsCarousel locked={{ progress: papersProgress(papers), totals: { '30': countsNow.totals, '12': countsYear.totals } }} />;
   }
 
   // 📌 v13: the pinned row's three figures — the last 30 days and the 60, read with the HONEST reader (`totals: null`
@@ -729,7 +730,8 @@ const readOneAnalytics = cache(async (supabase: SupabaseClient, userId: string, 
   // 🛍 Booked value is the monthly series Batch B already read — joined here, never read a second time.
   const storeGraphs = withBookedValue(await storeGraphsRead, bookingSeries);
 
-  return (store?: StorePick) => (
+  return function DrawnAnalytics(store?: StorePick) {
+    return (
     <>
       <AnalyticsCarousel
         view={growthView}
@@ -768,5 +770,6 @@ const readOneAnalytics = cache(async (supabase: SupabaseClient, userId: string, 
         </div>
       )}
     </>
-  );
+    );
+  };
 });

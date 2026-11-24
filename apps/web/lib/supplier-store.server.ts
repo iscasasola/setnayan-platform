@@ -81,26 +81,27 @@ async function readOnlineCards(client: SupabaseClient, vendorProfileId: string):
  */
 export async function readHubOverrides(admin: SupabaseClient): Promise<HubOverrides> {
   try {
-    // ⚡ ONE round (supplier walk 24 Nov, every page under 0.7 s): each saved category's name rides its own row through
-    // the foreign key (`category_hub_settings.category_id → service_categories.id`) — it used to be a second read after
-    // the first, on every Toolkit and Shop page.
-    const [set, sw] = await Promise.all([
-      admin.from('category_hub_settings').select('category_id, service_categories(label_en)'),
+    // ⚡ ONE round (supplier walk 24 Nov, every page under 0.7 s): the saved categories' names are read BESIDE the saved
+    // rows — only categories that have a saved row (`!inner` on `category_hub_settings.category_id → service_categories.id`)
+    // — instead of in a second read after the first, on every Toolkit and Shop page.
+    const [set, sw, cats] = await Promise.all([
+      admin.from('category_hub_settings').select('category_id'),
       admin.from('category_hub_tool_switches').select('category_id, tool_key'),
+      admin.from('service_categories').select('id, label_en, category_hub_settings!inner(category_id)'),
     ]);
     if (set.error || sw.error) {
       logQueryError('readHubOverrides', set.error ?? sw.error, {}, 'graceful_degrade');
       return new Map();
     }
-    type Saved = { category_id: string; service_categories: { label_en: string | null } | { label_en: string | null }[] | null };
-    const saved = ((set.data ?? []) as unknown as Saved[]).map((r) => {
-      const c = Array.isArray(r.service_categories) ? r.service_categories[0] : r.service_categories;
-      return { id: r.category_id, label: c?.label_en ?? null };
-    });
-    if (saved.length === 0) return new Map();
-    const on = new Map<string, string[]>(saved.map((c) => [c.id, []]));
+    const ids = ((set.data ?? []) as { category_id: string }[]).map((r) => r.category_id);
+    if (ids.length === 0) return new Map();
+    if (cats.error) {
+      logQueryError('readHubOverrides.categories', cats.error, {}, 'graceful_degrade');
+      return new Map();
+    }
+    const on = new Map<string, string[]>(ids.map((id) => [id, []]));
     for (const r of (sw.data ?? []) as { category_id: string; tool_key: string }[]) on.get(r.category_id)?.push(r.tool_key);
-    return new Map(saved.filter((c) => c.label).map((c) => [nameKey(c.label!), on.get(c.id) ?? []]));
+    return new Map(((cats.data ?? []) as unknown as { id: string; label_en: string | null }[]).filter((c) => c.label_en && on.has(c.id)).map((c) => [nameKey(c.label_en!), on.get(c.id) ?? []]));
   } catch (err) {
     logQueryError('readHubOverrides', err, {});
     return new Map();

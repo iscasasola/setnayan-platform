@@ -13373,18 +13373,18 @@
         "EventServicesView",
         "HTMLElement",
         "IapScreen",
-        "Icon",
-        "InfoTip",
+        "Image",
+        "InfoDot",
         "Link",
-        "Mark",
-        "PackFact",
+        "PackKey",
         "PageMasthead",
         "Price",
-        "Sheet",
         "SingleRow",
         "StateWord",
+        "Tag",
         "ThumbDock",
-        "ThumbRow"
+        "ThumbRow",
+        "Tick"
       ]
     },
     "/dashboard/[eventId]/vendors": {

@@ -38,6 +38,7 @@ import {
   outcomeFromSqlAnswer,
   parseQueuedItem,
   adaptQueuedItem,
+  writtenOfflineLine,
   rowUnchanged,
   type Clash,
   type MoneySeen,
@@ -574,7 +575,9 @@ async function joinTheClientsScan(
 
 async function messageSend(ctx: Ctx, item: SupplierQueuedItem): Promise<SyncOutcome> {
   const threadId = typeof item.fields.thread_id === 'string' ? item.fields.thread_id : '';
-  const body = typeof item.fields.body === 'string' ? item.fields.body : '';
+  const typed = typeof item.fields.body === 'string' ? item.fields.body : '';
+  // The other side sees when it was really written (review #2 item 16) — the phone's time, said as phone time.
+  const body = typed.trim() ? `${typed}\n\n${writtenOfflineLine(item.phoneTime)}` : typed;
   const res = await sendChatMessageCore(ctx.supabase, { threadId, body });
   if (res.ok) return { status: 'applied' };
   if (res.code === 'unauthenticated') return { status: 'retry', why: 'signed_out' };
@@ -795,6 +798,15 @@ async function seenDevice(fd: FormData): Promise<SupplierOfflineReply> {
   const ctx = await contextFor(str(fd, 'shop'), 'schedule');
   if ('why' in ctx) return refusal('device.seen', ctx.why, ctx.retry);
   const queued = Math.max(0, Math.min(10000, Math.trunc(Number(str(fd, 'queued')) || 0)));
+  // The count this phone reported last time — handed back to THIS phone only (never a teammate, R5).
+  const { data: before, error: bErr } = await ctx.admin
+    .from('vendor_offline_devices')
+    .select('last_queue_count')
+    .eq('device_id', device)
+    .eq('vendor_profile_id', ctx.shop)
+    .eq('member_user_id', ctx.userId)
+    .maybeSingle();
+  if (bErr) console.error('[supabase-error] supplier-offline: last queue count', bErr.message);
   const { data, error } = await ctx.admin
     .from('vendor_offline_devices')
     .update({ last_seen_at: new Date().toISOString(), last_queue_count: queued })
@@ -809,7 +821,7 @@ async function seenDevice(fd: FormData): Promise<SupplierOfflineReply> {
   }
   // A stopped phone (lost, or its member left) is told so: the screens sign it out (review #2 item 8).
   if ((data as { status?: string } | null)?.status === 'stopped') return refusal('device.seen', 'stopped');
-  return { op: 'device.seen', ok: true };
+  return { op: 'device.seen', ok: true, lastQueued: Number((before as { last_queue_count?: number } | null)?.last_queue_count ?? 0) };
 }
 
 /**

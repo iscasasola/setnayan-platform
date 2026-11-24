@@ -507,6 +507,17 @@ export function waitingToSendLine(waiting: number): string | null {
   return waiting > 0 ? `${waiting} ${waiting === 1 ? 'change' : 'changes'} waiting to send` : null;
 }
 
+/** "3 changes may not have reached Setnayan" — this phone's own line when the browser erased its queue (review #2 item 19). */
+export function lostQueueLine(n: number): string | null {
+  return n > 0 ? `${n} ${n === 1 ? 'change' : 'changes'} made offline on this phone may not have reached Setnayan. Check them.` : null;
+}
+
+/** "· Written 2:14 pm (offline)" — the line a message written offline carries when it is sent (review #2 item 16). */
+export function writtenOfflineLine(phoneTime: string): string {
+  const t = timeWords(phoneTime);
+  return `· Written ${t || 'earlier'} (offline)`;
+}
+
 /** What a queued item shows until the server accepts it (team-clash rule 2). */
 export const NOT_CONFIRMED_YET = 'Not confirmed yet';
 /** R14: a time a booking made on this phone already took. */

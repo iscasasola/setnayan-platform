@@ -357,3 +357,23 @@ test('11 · a phone never loses work it did not really send; dependent and newer
   assert.match(engine, /The shop is paused, so this wasn’t saved\./);
   assert.match(engine, /if \(!\(await eventHostIsTheClient\(ctx\.admin, eventId, contact\)\)\)/, 'a passed-on QR gives the gift to a stranger’s event');
 });
+
+test('12 · a change this browser would lose is never accepted; the phone says what it cannot see; offline is said', async () => {
+  const { offlineHereFrom, APP_OFFLINE_OFF, PRIVATE_WINDOW_OFF, HOME_SCREEN_WARNING } = await import('@/lib/offline/supplier-here');
+  const ok = { userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/130', standalone: false, hasIdb: true, hasWorker: true, quotaBytes: 2e9, writeReadsBack: true };
+  assert.deepEqual(offlineHereFrom(ok), { ok: true, warning: null });
+  assert.deepEqual(offlineHereFrom({ ...ok, userAgent: `${ok.userAgent} SetnayanApp SetnayanSignIn/1` }), { ok: false, why: APP_OFFLINE_OFF }, 'the App Store app accepted offline work it cannot keep');
+  assert.doesNotMatch(APP_OFFLINE_OFF, /install/i, 'the words say "install the app" (they must say Add to Home Screen)');
+  assert.deepEqual(offlineHereFrom({ ...ok, writeReadsBack: false }), { ok: false, why: PRIVATE_WINDOW_OFF }, 'a private window accepted work it will delete');
+  assert.deepEqual(offlineHereFrom({ ...ok, quotaBytes: 10e6 }), { ok: false, why: PRIVATE_WINDOW_OFF });
+  const iphone = { ...ok, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1' };
+  assert.deepEqual(offlineHereFrom(iphone), { ok: true, warning: HOME_SCREEN_WARNING }, 'iPhone Safari outside Home Screen mode is not warned');
+  assert.deepEqual(offlineHereFrom({ ...iphone, standalone: true }), { ok: true, warning: null });
+  const queue = read('lib/offline/supplier-queue.ts');
+  const q = queue.slice(queue.indexOf('export async function queueSupplierAction'), queue.indexOf('export async function queuedSupplierActions'));
+  assert.ok(q.indexOf('await offlineHere()') > -1 && q.indexOf('await offlineHere()') < q.indexOf('enqueueOfflineItem('), 'work is queued before the browser is asked whether it can keep it');
+  assert.match(queue, /const lost = left === 0 && sent === 0 && lastQueued > 0 \? lastQueued : 0;/, 'an erased queue is not noticed');
+  const engine = read('lib/supplier-offline/engine.server.ts');
+  assert.match(engine, /\$\{typed\}\\n\\n\$\{writtenOfflineLine\(item\.phoneTime\)\}/, 'a message written offline is not stamped');
+  assert.match(read('app/vendor-dashboard/calendar/actions.ts'), /\/date_held\/\.test\(error\.message \?\? ''\) \? 'date_held' : 'save_failed'/, 'a teammate’s hold is said online as "try again"');
+});

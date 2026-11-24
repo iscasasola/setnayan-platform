@@ -23,6 +23,7 @@ import { dequeueOfflineItem, enqueueOfflineItem, listOfflineItems } from './db';
 import { phoneDeviceIds, phoneKeyId, readPhoneKey, wipeSupplierOffline, writePhoneKey } from './supplier-keys';
 import { triggerSyncNow } from './sync-daemon';
 import { supplierWire } from './supplier-wire';
+import { offlineHere } from './supplier-here';
 import {
   dismissSupplierOutcome,
   readSupplierOutcomes,
@@ -68,11 +69,15 @@ export type QueueInput = {
   giftsAsOf?: string | null;
 };
 
-export type Queued = { itemId: string; phoneTime: string; line: string };
+/** `warning`: kept, but say it (iPhone Safari outside Home Screen mode erases a site's data after ~7 days unused). */
+export type Queued = { itemId: string; phoneTime: string; line: string; warning?: string | null };
 
 /** Keep one action on this phone. Only a listed kind — nothing that buys or pays is one (R15, "Needs internet"). */
 export async function queueSupplierAction(input: QueueInput): Promise<Queued> {
   if (!isSupplierOfflineKind(input.kind)) throw new Error('This needs internet.');
+  // A change this browser would lose is never accepted (the App Store app, a private window — review #2 items 6, 22).
+  const here = await offlineHere();
+  if (!here.ok) throw new Error(here.why);
   const phoneTime = new Date().toISOString();
   const item: SupplierQueuedItem = {
     v: 1,
@@ -91,7 +96,7 @@ export async function queueSupplierAction(input: QueueInput): Promise<Queued> {
   // The shop rides in `event_id`, the daemon's scoping key (its index lists one shop's items without reading all).
   // `ageByTriesOnly`: never dropped by the phone's clock, only after real tries (review #2 item 3).
   await enqueueOfflineItem('supplier', { item_id: item.itemId, event_id: input.shop, payload: { ...item, ageByTriesOnly: true }, queued_at: phoneTime });
-  return { itemId: item.itemId, phoneTime, line: NOT_CONFIRMED_YET };
+  return { itemId: item.itemId, phoneTime, line: NOT_CONFIRMED_YET, warning: here.warning };
 }
 
 /** This account's actions still waiting in this shop, oldest first — each drawn "Not confirmed yet". */
@@ -132,14 +137,19 @@ export async function unqueueSupplierAction(itemId: string): Promise<void> {
  * (R5: "last seen", never a count). A reconnect does NOT end an expo hold (review #2 item 14): a hold ends at its end
  * date, or when someone lets it go. `stopped` = this phone's QR key was stopped (a lost phone): the screens sign out.
  */
-export async function sendQueuedSupplierActions(member: string, shop: string): Promise<{ sent: number; left: number; stopped: boolean }> {
+export async function sendQueuedSupplierActions(member: string, shop: string): Promise<{ sent: number; left: number; stopped: boolean; lost: number }> {
   setSupplierMember(member);
   const summary = await triggerSyncNow();
   const left = (await queuedSupplierActions(member, shop)).length;
   const key = await readPhoneKey(shop, member).catch(() => null);
   const seen = key?.registered ? await door('device.seen', { shop, device_id: key.deviceId, queued: String(left) }) : null;
   const stopped = seen?.op === 'device.seen' && !seen.ok && seen.why === 'stopped';
-  return { sent: summary.find((s) => s.service === 'supplier')?.synced ?? 0, left, stopped };
+  // A queue the browser erased (iPhone's 7-day wipe — review #2 item 19): last time this phone said it held N changes;
+  // now it holds none and sent none. Said to THIS phone only, never to the team.
+  const lastQueued = seen?.op === 'device.seen' && seen.ok ? seen.lastQueued : 0;
+  const sent = summary.find((s) => s.service === 'supplier')?.synced ?? 0;
+  const lost = left === 0 && sent === 0 && lastQueued > 0 ? lastQueued : 0;
+  return { sent, left, stopped, lost };
 }
 
 /** The money re-confirm's one tap: the same action again, now with the LIVE amounts as what was shown. */

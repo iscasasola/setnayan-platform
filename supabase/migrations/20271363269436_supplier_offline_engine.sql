@@ -343,6 +343,36 @@ CREATE TRIGGER vendor_calendar_blocks_respect_holds
   BEFORE INSERT OR UPDATE ON public.vendor_calendar_blocks
   FOR EACH ROW EXECUTE FUNCTION public.vendor_calendar_blocks_respect_holds();
 
+-- ── 4a · a day lock is a booking write too: a teammate's held day is refused online ──
+CREATE OR REPLACE FUNCTION public.vendor_calendar_day_states_respect_holds()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid  UUID := auth.uid();
+  v_hold RECORD;
+BEGIN
+  IF v_uid IS NULL THEN
+    RETURN NEW;
+  END IF;
+  SELECT * INTO v_hold
+    FROM public.supplier_offline_hold_in_the_way(NEW.vendor_profile_id, v_uid, NEW.pool_id, NEW.state_date, NEW.state_date);
+  IF FOUND THEN
+    RAISE EXCEPTION 'date_held'
+      USING ERRCODE = 'P0001', DETAIL = format('held by %s since %s', v_hold.member_user_id, v_hold.created_at);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.vendor_calendar_day_states_respect_holds() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS vendor_calendar_day_states_respect_holds ON public.vendor_calendar_day_states;
+CREATE TRIGGER vendor_calendar_day_states_respect_holds
+  BEFORE INSERT OR UPDATE ON public.vendor_calendar_day_states
+  FOR EACH ROW EXECUTE FUNCTION public.vendor_calendar_day_states_respect_holds();
+
 -- ── 4b · a member who leaves the team: their phones stop signing QR codes ──
 CREATE OR REPLACE FUNCTION public.vendor_offline_devices_stop_on_leave()
 RETURNS TRIGGER
@@ -736,16 +766,20 @@ BEGIN
      WHERE s.vendor_profile_id = v_shop AND s.state_date = v_day
        AND s.pool_id IS NOT DISTINCT FROM v_pool
      FOR UPDATE;
-    -- base 0 = the phone saw no state on that day.
-    IF FOUND AND v_state.version <> v_base THEN
+    -- base 0 = the phone saw no state on that day. A teammate's held day is refused first.
+    SELECT * INTO v_hold FROM public.supplier_offline_hold_in_the_way(v_shop, v_member, v_pool, v_day, v_day);
+    IF FOUND THEN
+      v_out := jsonb_build_object('status', 'clash', 'why', 'held', 'by', v_hold.member_user_id, 'by_kind', 'member',
+                                  'at', v_hold.created_at, 'start_date', v_hold.start_date, 'end_date', v_hold.end_date);
+    ELSIF v_state.day_state_id IS NOT NULL AND v_state.version <> v_base THEN
       v_out := jsonb_build_object('status', 'clash', 'why', 'changed', 'by', v_state.updated_by,
                                   'by_kind', 'member', 'at', v_state.updated_at, 'version', v_state.version);
-    ELSIF NOT FOUND AND v_base <> 0 THEN
+    ELSIF v_state.day_state_id IS NULL AND v_base <> 0 THEN
       v_out := jsonb_build_object('status', 'clash', 'why', 'removed', 'by', NULL, 'by_kind', 'member', 'at', NULL);
     ELSIF NULLIF(p->>'day_state', '') IS NULL THEN
       DELETE FROM public.vendor_calendar_day_states WHERE day_state_id = v_state.day_state_id;
       v_out := jsonb_build_object('status', 'applied', 'day_state', NULL);
-    ELSIF FOUND THEN
+    ELSIF v_state.day_state_id IS NOT NULL THEN
       UPDATE public.vendor_calendar_day_states
          SET day_state = p->>'day_state', note = left(NULLIF(p->>'note', ''), 300), updated_by = v_member
        WHERE day_state_id = v_state.day_state_id

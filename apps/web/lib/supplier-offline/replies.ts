@@ -44,7 +44,7 @@ export type SupplierOfflineReply =
   | ({ op: 'device.register' } & OpRefusal)
   | { op: 'device.stop'; ok: true; stopped: boolean }
   | ({ op: 'device.stop' } & OpRefusal)
-  | { op: 'device.seen'; ok: true }
+  | { op: 'device.seen'; ok: true; lastQueued: number }
   | ({ op: 'device.seen' } & OpRefusal)
   | { op: 'holds.claim'; ok: true; holdId: string }
   | { op: 'holds.claim'; ok: false; why: string; retry: boolean; clash?: Clash }

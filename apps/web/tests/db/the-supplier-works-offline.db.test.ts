@@ -211,6 +211,17 @@ test('3 · expo mode: held dates refuse the others, offline and online; released
   );
   await setAuthUid(db, null);
 
+  // a day lock is a booking write too: refused for another member online, and offline
+  await setAuthUid(db, ben);
+  await assert.rejects(
+    db.query(`INSERT INTO public.vendor_calendar_day_states (vendor_profile_id, pool_id, state_date, day_state) VALUES ($1, $2, $3::date, 'locked')`, [shop, pool, d2]),
+    /date_held/,
+    'an online member locked another member’s held day',
+  );
+  await setAuthUid(db, null);
+  const benDay = await write({ op: 'day_state', vendor_profile_id: shop, member_user_id: ben, item_id: uuid(), pool_id: pool, state_date: d2, day_state: 'locked', base_version: 0 });
+  assert.equal(benDay.why, 'held', 'another member locked a held day offline');
+
   const anaOwn = await write({ op: 'add_client', vendor_profile_id: shop, member_user_id: ana, item_id: uuid(), pool_id: pool, start_date: d2, client_name: 'Ana’s' });
   assert.equal(anaOwn.status, 'applied', 'the holder was refused by their own hold');
 

@@ -31,6 +31,8 @@ export const DATES_NOTICES: Readonly<Record<string, { tone: SupplierOutcomeTone;
   bad_capacity: { tone: 'bad', text: 'How many a day must be 1 or more. Nothing was saved.', retry: true },
   bad_booking_window: { tone: 'bad', text: 'Pick At least and At most from the list. Nothing was saved.', retry: true },
   save_failed: { tone: 'bad', text: 'That did not go through. Nothing changed — please try again.', retry: true },
+  // 📅 Expo mode (owner 2026-11-24): a teammate holds these dates; only they can book them until they let them go.
+  date_held: { tone: 'bad', text: 'Held by a teammate for expo mode — only they can book these dates until they let them go.' },
 };
 
 /**

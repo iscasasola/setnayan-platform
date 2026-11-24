@@ -78,6 +78,8 @@ import { TIER_LABEL } from '@/lib/vendor-tier-caps';
 /** Where a vendor starts an upgrade. The one canonical route (the same href the
  *  subscription surfaces and every other vendor upsell already point at). */
 export const SPECIALIZATION_UPGRADE_HREF = '/vendor-dashboard/subscription';
+/** Where a shop gets Verified — the door for a free desk held back until then. */
+export const SPECIALIZATION_VERIFY_HREF = '/vendor-dashboard/verify';
 
 /**
  * The state of the specialization section. Three values, and every one of them
@@ -127,6 +129,9 @@ export type DayOfFrameUpsell = {
   /** Distinguishes "renew" from "subscribe" — a lapsed subscriber and a
    *  never-subscribed vendor deserve different sentences. */
   lapsed: boolean;
+  /** A free desk held back only because the shop is not Verified yet (owner 23 Nov: free widgets open from Verified
+   *  up). Its door is Verify, never the plans. */
+  needsVerified: boolean;
   /** The minimum tier that unlocks it, already humanised ("Supplier Plus"). Read from
    *  SPECIALIZATION_MIN_TIER so moving the floor moves this copy for free. */
   minTierLabel: string;
@@ -246,8 +251,9 @@ export function buildDayOfFrame(input: {
         label: def.label,
         blurb: def.blurb,
         lapsed: access.reason === 'subscription_lapsed',
+        needsVerified: access.reason === 'not_verified',
         minTierLabel: TIER_LABEL[SPECIALIZATION_MIN_TIER],
-        href: SPECIALIZATION_UPGRADE_HREF,
+        href: access.reason === 'not_verified' ? SPECIALIZATION_VERIFY_HREF : SPECIALIZATION_UPGRADE_HREF,
       };
 
   // Only offer a choice when there IS one. One held set is not a picker.

@@ -60,7 +60,8 @@ test('1 · ⛔ a refused read is said — never "none", never "0 to go"', () => 
 test('2 · the badges are the Shop tab’s one row, directly under the carousel — Analytics draws no second copy', () => {
   const shop = src('app/vendor-dashboard/shop/page.tsx');
   const render = shop.slice(shop.indexOf('<OneAnalyticsSection'));
-  assert.match(render, /^<OneAnalyticsSection \{\.\.\.data\.analytics\} \/>\s*<\/Suspense>\s*(?:\{\s*\}\s*)*<ShopBadgeRow tiles=\{data\.badges\}[^>]*\/>/, 'the badge row is not directly under the carousel');
+  // Store drawing v12 (owner 23 Nov 2026): the row shows the badges the shop chose, any number (else the three closest).
+  assert.match(render, /^<OneAnalyticsSection \{\.\.\.data\.analytics\}[^>]*\/>\s*<\/Suspense>\s*(?:\{\s*\}\s*)*<ShopBadgeRow\s+tiles=\{data\.badges \? followedTiles\(data\.badges, data\.layout\) : null\}[\s\S]*?\/>/, 'the badge row is not directly under the carousel');
   // 🏅 Owner 15 Nov (the approved badges are the only badges) + 17 Nov ("old pop ups of badges"): the row is the v84
   // shelf, built on the reward engine's own counts — the ones `readBadgeRewardTracker` already read — never beside it.
   assert.match(shop, /shopBadgeShelf\(\{\s*counts: rewards\?\.facts \?\? null,/);

@@ -351,5 +351,8 @@ test('7 · Glide — an inner scroller contains its overscroll, one shared edge 
     'app/vendor-dashboard/shop/_components/shop-badge-row.tsx',
     'app/vendor-dashboard/shop/_components/shop-makers.tsx',
     'app/vendor-dashboard/shop/promote/_components/shop-prints-section.tsx',
+    // The Store (owner 23 Nov 2026, drawing `supplier_store_graphs_badges_2026-11-23` v12): its shelf rows and tag chips.
+    'app/vendor-dashboard/shop/store/_components/store-client.tsx',
+    'app/vendor-dashboard/shop/store/_components/store-views.tsx',
   ]);
 });

@@ -1,4 +1,5 @@
 import 'server-only';
+import { shopIsVerified } from '@/lib/own-clients';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { asVendorTier, tierRank } from '@/lib/vendor-tier-caps';
@@ -34,7 +35,7 @@ import {
  * client can set.
  */
 
-type TierRow = { tier_state: string | null; tier_expires_at: string | null };
+type TierRow = { tier_state: string | null; tier_expires_at: string | null; verification_state?: string | null };
 
 /**
  * The vendor's live subscription state, ready to feed the pure gate.
@@ -52,25 +53,27 @@ type TierRow = { tier_state: string | null; tier_expires_at: string | null };
 export async function fetchVendorSpecializationSubscription(
   supabase: SupabaseClient,
   vendorProfileId: string,
-): Promise<VendorSubscriptionState> {
+): Promise<VendorSubscriptionState & { verified: boolean | null }> {
   // ⚡ Neither waits on the other — asked together (speed pass 2026-11-14; was one after the other). Same reads, same
   // graceful degrade (a missing row still leaves the expiry at null).
   const [effectiveTier, { data }] = await Promise.all([
     resolveVendorTier(supabase, vendorProfileId),
     supabase
       .from('vendor_profiles')
-      .select('tier_state, tier_expires_at')
+      .select('tier_state, tier_expires_at, verification_state')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle(),
   ]);
 
   const row = (data as TierRow | null) ?? null;
+  // Verified rides the same row (no second read). No row = not known = null, and the gate keeps free widgets closed.
   const rowTier = asVendorTier(row?.tier_state);
   const promoted = tierRank(effectiveTier) > tierRank(rowTier);
 
   return {
     tier_state: effectiveTier,
     tier_expires_at: promoted ? null : (row?.tier_expires_at ?? null),
+    verified: row ? shopIsVerified(row.verification_state) : null,
   };
 }
 
@@ -97,6 +100,7 @@ export async function resolveVendorSpecializationAccessForVendor(
   );
   return resolveVendorSpecializationAccess({
     subscription,
+    verified: subscription.verified,
     services: args.services,
     eventTiles: args.eventTiles ?? null,
   });

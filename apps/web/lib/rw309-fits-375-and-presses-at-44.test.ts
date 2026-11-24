@@ -89,8 +89,9 @@ test('6 · RW-314: Story, Invitation and the Shop cover — each named control h
   // 🔁 RE-AIMED 2026-11-19 (owner, "Yes, all three"): the plan link left the cover photo — the Plan tile under it is the
   // one door, and it is 72 px tall (`the-quick-row-is-the-drawn-five.test.ts`).
   assert.doesNotMatch(cover, /data-shop-plan=/, 'the plan link is back on the cover photo');
-  assert.match(cover, /<a href="#plan" className=\{QUICK_TILE\} data-shop-quick="plan">/, 'the Plan tile');
-  assert.match(cover, /const QUICK_TILE =\s*'[^']*min-h-\[72px\]/, 'the Plan tile lost its height');
+  // 🔁 RE-AIMED 2026-11-23 (owner; Store drawing v12): the quick row is gone — the plan's one door on the cover is the
+  // Storage row's plan chip, a 44-px press that opens the storage sheet.
+  assert.match(cover, /className="sn-press inline-flex min-h-11 shrink-0 items-center rounded-full px-1"\s+data-shop-plan-chip=""/, 'the plan chip lost its 44-px press');
 });
 
 test('8 · admin walk: the Studio section tabs (Moodboard library …) press at 44', () => {

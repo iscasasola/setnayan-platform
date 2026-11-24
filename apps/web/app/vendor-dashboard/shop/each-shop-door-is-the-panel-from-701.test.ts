@@ -84,7 +84,9 @@ test('3 · every Shop door opens through the door, none past it', () => {
     assert.ok(body.length > 0, `${name} not found`);
     assert.match(body, /<ShopDoorScreen\b/, `${name} does not open through the Shop door`);
   }
-  for (const id of ['promote', 'qr', 'logo', 'cover']) assert.match(cover, new RegExp(`<ParamSheet open=\\{sheet === '${id}'\\}`), `the ${id} door lost its screen`);
+  for (const id of ['logo', 'cover', 'storage']) assert.match(cover, new RegExp(`<ParamSheet open=\\{sheet === '${id}'\\}`), `the ${id} door lost its screen`);
+  // Promote and QR are ONE sheet with two tabs (Store drawing v10, owner 23 Nov 2026).
+  assert.match(cover, /<ParamSheet\s+open=\{promoteOpen\}/, 'the Promote door lost its screen');
   for (const src of [cover, badges, tiles]) assert.doesNotMatch(src, /<RiseScreen\b/, 'a door rises past the Shop door');
 });
 

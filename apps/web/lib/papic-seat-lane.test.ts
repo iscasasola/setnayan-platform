@@ -49,8 +49,10 @@ test('every recordSeatCapture refusal KEEPS the shot — none reads as landed, n
 });
 
 test('the money refusals land where the camera says so', () => {
-  for (const code of ['camera_points_exhausted', 'camera_photo_cap', 'camera_video_cap']) {
-    assert.equal(classifyAnswer(402, { error: seatRefusal(code).error }).verdict, 'credits', `${code} is not a credits refusal`);
+  assert.equal(classifyAnswer(402, { error: seatRefusal('camera_points_exhausted').error }).verdict, 'credits', 'the pool refusal is not a credits refusal');
+  // ⛔ The per-camera caps are retired (2026-11-23): nothing raises them, so they are no longer money refusals.
+  for (const code of ['camera_photo_cap', 'camera_video_cap']) {
+    assert.notEqual(seatRefusal(code).error, 'camera_points_exhausted', `${code} came back as a seat cap`);
   }
   for (const code of ['capture_not_started', 'capture_window_closed', 'awaiting_payment', 'event_put_away', 'uploads_closed', 'revoked']) {
     const r = seatRefusal(code);

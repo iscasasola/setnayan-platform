@@ -11,9 +11,6 @@ import type { VendorProfileRow } from '@/lib/vendor-profile';
 import { MICROSITE_COLUMNS, micrositeFromRow } from '@/lib/vendor-microsite';
 import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
 import type { CollectionsInput } from '@/lib/supplier-collections';
-import { portfolioPhotoCap } from '@/lib/vendor-tier-caps';
-import { allowanceForCap, readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
-import { fetchShopWalletBalance } from '@/lib/shop-wallet.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { isInstagramConnectConfigured } from '@/lib/vendor-instagram';
 import {
@@ -65,11 +62,6 @@ export type CollectionsData = {
   saved: PageSaved;
   portfolioRefs: string[];
   portfolioDisplayMap: Record<string, string>;
-  portfolioMax: number;
-  /** The shop's own allowance could not be read — the widget says so instead of "first 50 free". */
-  portfolioAllowanceUnread: boolean;
-  /** 💳 The shop wallet the portfolio spends past its free room. `null` = unread — never 0. */
-  walletBalance: number | null;
   galleryVideoLinks: string[];
   /** 🎬 Each video link's title, keyed by the link (`lib/video-link-titles.ts`). null = the row was unread — the editor
    *  then offers no Title field, so a save can never wipe titles it could not see. */
@@ -435,10 +427,6 @@ export async function loadCollectionsData(
       logQueryError('VendorCollections.albumOpens', err, { vendorId }, 'graceful_degrade');
       return null;
     });
-  // Started with the rest, read at the cap below (its own select — `readPortfolioAllowance`).
-  const allowanceRead = readPortfolioAllowance(supabase, vendorId);
-  // 💳 The shop wallet the portfolio spends past its free room (owner 2026-10-23). Unread → null, never 0.
-  const walletRead = fetchShopWalletBalance(supabase, vendorId);
   // The service cards' first photos, presigned beside the rest (chained on the cards read only).
   const cardThumbsRead = cardsRead.then(async (c) => {
     if (!c) return [] as string[];
@@ -487,12 +475,8 @@ export async function loadCollectionsData(
   const thisYear = Number(new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 4));
 
   const saved = pageSavedFrom(micrositeFromRow(own), (profile.services ?? []) as string[], portfolioRefs);
-  // 🎁 The shop's own allowance (a personal invite's 100, kept after the gift) lifts the base — `portfolioPhotoCap`.
-  const [allowance, walletBalance, views, cardOpens, albumOpens, eventFacts, lookLines] = await Promise.all([allowanceRead, walletRead, viewsRead, cardOpensRead, albumOpensRead, eventFactsRead, lookLinesRead]);
-  const portfolioCap = portfolioPhotoCap(
-    (own?.tier_state as string | null | undefined) ?? null,
-    allowanceForCap(allowance),
-  );
+  // 🔓 No portfolio count since 2026-11-23 (owner: storage is the only limit) — so no allowance, cap or wallet read here.
+  const [views, cardOpens, albumOpens, eventFacts, lookLines] = await Promise.all([viewsRead, cardOpensRead, albumOpensRead, eventFactsRead, lookLinesRead]);
 
   return {
     vendorId,
@@ -516,9 +500,6 @@ export async function loadCollectionsData(
     },
     portfolioRefs,
     portfolioDisplayMap,
-    portfolioMax: portfolioCap,
-    portfolioAllowanceUnread: !allowance.ok,
-    walletBalance,
     galleryVideoLinks,
     videoTitles: own ? videoTitlesOf(own.gallery_video_titles) : null,
     igConfigured,

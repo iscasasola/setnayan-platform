@@ -1,26 +1,18 @@
 /**
- * Vendor on-the-day Papic capture — the DB derivation layer over the pure model
- * in lib/vendor-papic-tier.ts. Owner-locked 2026-07-18 (DECISION_LOG).
+ * Supplier on-the-day Papic — the DB reads behind the pure model in lib/vendor-papic-tier.ts.
  *
- * Reads three sources to answer "what tier is this vendor for this booked event,
- * and how many capture points have they spent?":
- *   1. vendor_event_unlocks.comp_reason → the derived BASE tier (founder-comp).
- *   2. vendor_papic_capture_grants (tier='unli') → a PAID Unli upgrade override.
- *   3. vendor_papic_captures → capture points already spent.
+ * 📸 OWNER 2026-11-23: what a shop may capture at one event is its PLAN's rule (`eventCaptureRule`, TIER_CAPS) —
+ * Free · Verified 10 photos and no videos, Plus · Pro · Ultra no limit (storage only). So the capture allowance reads
+ * two things only: the shop's plan (`vendor_profiles.tier_state`) and how many photos it has taken here
+ * (`vendor_papic_captures`, not hidden). 🔁 The old reads — the founder-comp Lite/Ltd tier from
+ * `vendor_event_unlocks`, the paid Unli row in `vendor_papic_capture_grants` (dropped) and the capture POINTS spent —
+ * are retired with the points model.
  *
- * 🚫 TOKENS RETIRED (owner 2026-07-21): the old lead_token_holds / tokens_burned
- * signals that used to earn Ltd are dead and are no longer read — only the
- * non-token founder-comp remains. (The fee-scaled allowance in vendor-papic-tier
- * supersedes this Lite/Ltd ladder once the booking-fee input is built.)
+ * The per-event CREDIT ledger below (`vendor_papic_portfolio_credit_grants`) stays: it is the portfolio-import
+ * album's meter (G3), which captures no longer share.
  *
- * ALL reads FAIL-CLOSED: the base tier degrades to 'lite' (the floor) and a paid
- * upgrade degrades to false. This perk is free, so a hiccup can only ever
- * UNDER-grant, never hand out a capability that wasn't earned/paid — and the
- * Unli check is money logic, so it must never open on error.
- *
- * Run on the SERVICE-ROLE admin client: vendor_event_unlocks is RLS-scoped to the
- * vendor owner/admin only, and the live console can run as a per-event grantee
- * (not the owner), so an RLS read would see nothing.
+ * Every read is honest: an unread count is `null`, never 0. Run on the SERVICE-ROLE admin client — the live console
+ * can run as a per-event grantee, not the owner, so an RLS read would see nothing.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -32,94 +24,73 @@ import {
   type VendorPapicPortfolioCredits,
 } from '@/lib/vendor-papic-credits';
 import { portfolioCreditsSpent } from '@/lib/vendor-papic-portfolio-album';
-import {
-  captureAllowance,
-  pointsSpent,
-  resolveVendorPapicTier,
-  type CaptureAllowance,
-  type VendorAcceptProvenance,
-  type VendorPapicMedia,
-  type VendorPapicTier,
-} from '@/lib/vendor-papic-tier';
-
-const EMPTY_PROVENANCE: VendorAcceptProvenance = {
-  hasUnlock: false,
-  founderComp: false,
-};
+import { eventCaptureAllowance, type EventCaptureAllowance } from '@/lib/vendor-papic-tier';
 
 /**
- * Read accept provenance for (vendor, event) from vendor_event_unlocks. No unlock
- * row → the vendor never accepted → floor (Lite). Only the founder-comp signal is
- * read now (tokens retired 2026-07-21 — see the module header).
+ * The shop's plan (`vendor_profiles.tier_state`). `null` = could not be read — the caller refuses; a limit that cannot
+ * see the plan is not allowed to guess the most generous one.
  */
-export async function fetchVendorAcceptProvenance(
-  admin: SupabaseClient,
-  vendorProfileId: string,
-  eventId: string,
-): Promise<VendorAcceptProvenance> {
+export async function fetchShopPlan(admin: SupabaseClient, vendorProfileId: string): Promise<string | null> {
   try {
-    const { data: unlock, error } = await admin
-      .from('vendor_event_unlocks')
-      .select('comp_reason')
+    const { data, error } = await admin
+      .from('vendor_profiles')
+      .select('tier_state')
       .eq('vendor_profile_id', vendorProfileId)
-      .eq('event_id', eventId)
       .maybeSingle();
-    if (error) console.error('[supabase-error] lib/vendor-papic-grants.ts · from:vendor_event_unlocks.select', error);
-    if (error || !unlock) return EMPTY_PROVENANCE;
-
-    const row = unlock as { comp_reason: string | null };
-    return { hasUnlock: true, founderComp: row.comp_reason === 'founder' };
+    if (error || !data) {
+      if (error) console.error('[supabase-error] lib/vendor-papic-grants.ts · from:vendor_profiles.select(tier_state)', error);
+      return null;
+    }
+    return (data as { tier_state: string | null }).tier_state ?? 'free';
   } catch {
-    return EMPTY_PROVENANCE;
+    return null;
   }
 }
 
 /**
- * Is there a PAID Unli upgrade for (vendor, event)? TRUE only when a
- * vendor_papic_capture_grants row has tier='unli' AND its upgrade_order_id order
- * is paid/fulfilled. Fail-CLOSED — this frees an unlimited paid tier, so any read
- * error or unpaid/unknown order returns false. An admin-granted row with no order
- * (upgrade_order_id NULL) is trusted (comp path).
+ * Photos this shop has taken at this event — the rows that count against a limited plan's 10 (not hidden: a shot the
+ * screen blocked, or the shop took down, gives its place back). Clips never count (a limited plan takes none).
+ * `null` on a read error — NEVER 0, which would hand a fresh 10 to a shop that already used them.
  */
-export async function hasPaidUnliUpgrade(
-  admin: SupabaseClient,
+export async function fetchVendorEventPhotosTaken(
+  client: SupabaseClient,
   vendorProfileId: string,
   eventId: string,
-): Promise<boolean> {
+): Promise<number | null> {
   try {
-    const { data: grant } = await admin
-      .from('vendor_papic_capture_grants')
-      .select('tier, upgrade_order_id')
+    const { count, error } = await client
+      .from('vendor_papic_captures')
+      .select('capture_id', { count: 'exact', head: true })
       .eq('vendor_profile_id', vendorProfileId)
       .eq('event_id', eventId)
-      .maybeSingle();
-    if (!grant) return false;
-    const row = grant as { tier: string; upgrade_order_id: string | null };
-    if (row.tier !== 'unli') return false;
-    if (!row.upgrade_order_id) return true; // admin comp — no order to verify
-    const { data: order } = await admin
-      .from('orders')
-      .select('status')
-      .eq('order_id', row.upgrade_order_id)
-      .maybeSingle();
-    const status = (order as { status?: string } | null)?.status ?? '';
-    return status === 'paid' || status === 'fulfilled';
+      .eq('media_type', 'photo')
+      .is('hidden_at', null);
+    if (error) {
+      console.error('[supabase-error] lib/vendor-papic-grants.ts · from:vendor_papic_captures.count', error);
+      return null;
+    }
+    return typeof count === 'number' ? count : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
-/** The vendor's derived Papic tier for a booked event (base tier + any paid upgrade). */
-export async function deriveVendorPapicTier(
+/**
+ * What this shop may still capture at this event — the plan's rule plus the count, in one read. What the supplier SEES
+ * (their camera, the on-the-day badge) and what the capture route ENFORCES both come from here, so they cannot drift.
+ * `plan` null = the plan could not be read; the caller says so rather than drawing a limit.
+ */
+export async function fetchVendorEventCaptureAllowance(
   admin: SupabaseClient,
   vendorProfileId: string,
   eventId: string,
-): Promise<VendorPapicTier> {
-  const [provenance, paidUnli] = await Promise.all([
-    fetchVendorAcceptProvenance(admin, vendorProfileId, eventId),
-    hasPaidUnliUpgrade(admin, vendorProfileId, eventId),
+): Promise<{ plan: string | null; allowance: EventCaptureAllowance }> {
+  const [plan, taken] = await Promise.all([
+    fetchShopPlan(admin, vendorProfileId),
+    fetchVendorEventPhotosTaken(admin, vendorProfileId, eventId),
   ]);
-  return resolveVendorPapicTier(provenance, paidUnli);
+  // An unread plan reads as Free's rule (the narrowest) — withholding, never granting.
+  return { plan, allowance: eventCaptureAllowance(plan ?? 'free', taken) };
 }
 
 /**
@@ -137,11 +108,9 @@ export async function deriveVendorPapicTier(
  * about the rate:
  *
  * ⚠ RETURNS null ON A READ ERROR, NEVER 0 — and null is NOT "they hold
- * nothing". `allowancePointsFor` treats null as "unproven" and falls back to
- * the tier's own number, so a transient failure can never MINT points. That is
- * the mirror of `fetchVendorPapicPointsSpent` below, which fails closed in the
- * other direction by assuming the budget is exhausted. Both refuse to invent
- * generosity out of an outage.
+ * nothing". `fetchVendorPapicPortfolioCredits` turns null into nothing to
+ * spend, so a transient failure can never MINT credits, and the card says it
+ * could not read.
  *
  * 🔑 `waived_free5` / `waived_import` STILL MEAN THEY PAID NOTHING — enforced
  * one step earlier now: the activation hook grants only from a charge whose
@@ -256,15 +225,13 @@ export async function fetchShopPapicPacks(admin: SupabaseClient): Promise<ShopPa
 }
 
 /**
- * Credits spent through the OTHER door — importing a photo into the private
- * portfolio album (`vendor_papic_portfolio_photos`, G3). A hidden row (NSFW-
- * blocked, or the supplier's own takedown) does not count, mirroring
- * `fetchVendorPapicPointsSpent` below exactly, because both feed the SAME
- * "left" total (G2: "ONE meter per (vendor, event)").
+ * Credits spent importing photos into the private portfolio album
+ * (`vendor_papic_portfolio_photos`, G3) — the only thing that spends this
+ * meter since 2026-11-23 (the on-the-day camera spends nothing). A hidden row
+ * (NSFW-blocked, or the supplier's own takedown) does not count.
  *
- * Money logic (see module header): fails CLOSED on a read error, same
- * ASSUME_EXHAUSTED sentinel as the capture-points reader — a metering outage
- * must block new spend, never silently un-meter it.
+ * Money logic: fails CLOSED on a read error (ASSUME_EXHAUSTED) — a metering
+ * outage must block new spend, never silently un-meter it.
  */
 export async function fetchVendorPapicPortfolioPhotosSpent(
   client: SupabaseClient,
@@ -289,21 +256,12 @@ export async function fetchVendorPapicPortfolioPhotosSpent(
 }
 
 /**
- * WHAT G3 CALLS — the supplier's credits, spend and pack, in ONE read.
+ * WHAT G3 CALLS — the supplier's portfolio-import credits, spend and pack, in ONE read.
  *
- * Owner 2026-09-05: a grant under a pack's worth still lands and the pack is the
- * CTA beside it. This returns everything that surface needs so it re-derives
- * nothing: the ledger total, what the same meter has already spent through
- * EITHER door (on-the-day capture + the portfolio-import album), the
- * allowance's own "left" reduced by both, and the pack's SKU, live price and
- * credit count.
- *
- * 🔑 TWO SPEND READERS, ONE TOTAL. `allowance.pointsLeft` already subtracts
- * capture spend; portfolio spend is subtracted again here rather than folded
- * into `captureAllowance` itself, because that function's contract (photo/clip
- * points, the video-credits threshold) is the on-the-day CAMERA's and must not
- * grow a second, unrelated meaning. `null` (Unli, uncapped) stays `null` — an
- * unlimited allowance has nothing to subtract a portfolio import from.
+ * Owner 2026-09-05: a grant under a pack's worth still lands and the pack is the CTA beside it. Since 2026-11-23 the
+ * on-the-day camera spends NOTHING (its limit is the plan's — lib/vendor-papic-tier.ts), so this meter is the album's
+ * alone: `left` = the ledger total − what the portfolio-import album has spent. An unread ledger (`credits: null`)
+ * leaves nothing to spend (`left: 0`) and the card says it could not read — a metering outage never mints credits.
  *
  * Run on the SERVICE-ROLE admin client, like every reader in this module.
  */
@@ -312,66 +270,17 @@ export async function fetchVendorPapicPortfolioCredits(
   vendorProfileId: string,
   eventId: string,
 ): Promise<VendorPapicPortfolioCredits> {
-  const [allowance, credits, packs, portfolioSpent] = await Promise.all([
-    fetchVendorPapicAllowance(admin, vendorProfileId, eventId),
+  const [credits, packs, portfolioSpent] = await Promise.all([
     fetchVendorPapicCreditsGranted(admin, vendorProfileId, eventId),
     fetchShopPapicPacks(admin),
     fetchVendorPapicPortfolioPhotosSpent(admin, vendorProfileId, eventId),
   ]);
   return {
     credits,
-    spent: allowance.pointsSpent + portfolioSpent,
-    left: allowance.pointsLeft == null ? null : Math.max(0, allowance.pointsLeft - portfolioSpent),
+    spent: portfolioSpent,
+    left: credits === null ? 0 : Math.max(0, credits - portfolioSpent),
     packCredits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
     packs,
     offerPack: offerPack(credits ?? 0),
   };
-}
-
-/** Capture points already spent by this vendor on this event (non-hidden rows). */
-export async function fetchVendorPapicPointsSpent(
-  client: SupabaseClient,
-  vendorProfileId: string,
-  eventId: string,
-): Promise<number> {
-  // Money logic (see module header): a read failure must FAIL-CLOSED. Reporting
-  // 0 spent would hand the vendor a full fresh budget on any transient error.
-  // Return an assume-exhausted sentinel so captureAllowance clamps pointsLeft to
-  // 0 (blocked) — a metering outage stops capture, never silently un-meters it.
-  const ASSUME_EXHAUSTED = Number.MAX_SAFE_INTEGER;
-  try {
-    const { data, error } = await client
-      .from('vendor_papic_captures')
-      .select('media_type')
-      .eq('vendor_profile_id', vendorProfileId)
-      .eq('event_id', eventId)
-      .is('hidden_at', null);
-    if (error) return ASSUME_EXHAUSTED;
-    return pointsSpent((data ?? []) as { media_type: VendorPapicMedia }[]);
-  } catch {
-    return ASSUME_EXHAUSTED;
-  }
-}
-
-/**
- * Tier + live allowance (points spent, remaining, video-allowed) for a booked event.
- *
- * ⚠ IT MUST READ THE SAME THREE THINGS THE CAPTURE ROUTE READS. This is what a
- * supplier SEES; the route is what a supplier GETS. When this was wired to the
- * credit ledger, missing it here would have shown a supplier "50 credits" on
- * their own screen while the route happily accepted their 125th — a screen
- * contradicting the screen beside it, with no error anywhere. Pinned by
- * `the-fee-reaches-the-allowance.test.ts`.
- */
-export async function fetchVendorPapicAllowance(
-  admin: SupabaseClient,
-  vendorProfileId: string,
-  eventId: string,
-): Promise<CaptureAllowance> {
-  const [tier, spent, creditsGranted] = await Promise.all([
-    deriveVendorPapicTier(admin, vendorProfileId, eventId),
-    fetchVendorPapicPointsSpent(admin, vendorProfileId, eventId),
-    fetchVendorPapicCreditsGranted(admin, vendorProfileId, eventId),
-  ]);
-  return captureAllowance(tier, spent, creditsGranted);
 }

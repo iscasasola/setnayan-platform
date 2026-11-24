@@ -234,7 +234,6 @@ apps/web/lib/the-bill-has-somewhere-to-be-paid.test.ts
 apps/web/lib/the-chips-move-the-calendar.test.ts
 apps/web/lib/the-cure-was-already-written-down.test.ts
 apps/web/lib/the-event-card-carries-a-photograph.test.ts
-apps/web/lib/the-fee-reaches-the-allowance.test.ts
 apps/web/lib/the-first-visit-to-a-schedule-crashed.test.ts
 apps/web/lib/the-flow-stops-asking-what-it-knows.test.ts
 apps/web/lib/the-four-photo-names.test.ts

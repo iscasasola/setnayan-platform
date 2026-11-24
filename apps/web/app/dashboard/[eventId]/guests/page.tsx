@@ -16,7 +16,7 @@ import { fetchEventViewer, isDelegateWithoutArea, viewerAreaLevel, type EventVie
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, resolveRoleSetKeyForEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import { isSessionCookieName } from '@/lib/appearance';
+import { isLiveSessionCookie } from '@/lib/appearance';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import {
@@ -349,8 +349,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     (`the-guests-page-asks-once.test.ts`). It only answers "is anybody signed in at all"; WHO is signed in is still
     `getCurrentUser()` (verified) below, and every read is still RLS-checked against the verified token.
     Guard: `the-guests-page-asks-once.test.ts` test 6.
+    🧹 A NAME IS NOT A SESSION (live fault, 21 Nov): a session the middleware could not refresh is left as the cookie's
+    name with an EMPTY value, so the check asks for a value too (`isLiveSessionCookie`). Guard: test 6b.
   */
-  if (!(await cookies()).getAll().some((c) => isSessionCookieName(c.name))) {
+  if (!(await cookies()).getAll().some(isLiveSessionCookie)) {
     redirect(loginRedirectPath(`/dashboard/${eventId}/guests`));
   }
 

@@ -11,7 +11,8 @@ import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role'
 import { fetchVendorRoomEventsDetailed } from '@/lib/vendor-room-access';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { SponsoredShotsStrip } from '../_components/sponsored-shots-strip';
-import { fetchVendorPapicAllowance, fetchVendorPapicPortfolioCredits } from '@/lib/vendor-papic-grants';
+import { fetchVendorEventCaptureAllowance, fetchVendorPapicPortfolioCredits } from '@/lib/vendor-papic-grants';
+import { TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 import { PapicDeskBody, PapicReadFailed } from '../_components/papic-desk-body';
 import { OwnCapturesStrip } from '../_components/own-captures-strip';
 import { PortfolioCreditsCard } from '../_components/portfolio-credits-card';
@@ -105,10 +106,10 @@ export default async function VendorPapicCapturePage({
   // is a mis-tagged photo in someone's album). The gallery is not.
   const isEventDay = booking.bookedDate === phToday();
 
-  // Derive the tier + live capture-point allowance (service-role reads). Only
-  // the shutter needs it, so it is not read on a look-back visit.
+  // 📸 The plan's event limit + what this shop has taken here (service-role reads; owner 2026-11-23). Only the shutter
+  // needs it, so it is not read on a look-back visit.
   const allowance = isEventDay
-    ? await fetchVendorPapicAllowance(
+    ? await fetchVendorEventCaptureAllowance(
         createAdminClient(),
         profile.vendor_profile_id,
         eventId,
@@ -143,18 +144,18 @@ export default async function VendorPapicCapturePage({
         isEventDay && allowance
           ? {
               uploadOwner: papicOwnerTag('vendor', profile.vendor_profile_id, eventId),
-              tier: allowance.tier,
-              allowVideo: allowance.allowVideo,
-              pointsCap: allowance.pointsCap,
-              pointsSpent: allowance.pointsSpent,
+              // An unread plan draws Free's rule with the count unread — the shutter waits and says why.
+              plan: allowance.plan ?? 'free',
+              planLabel: TIER_LABEL[asVendorTier(allowance.plan)],
+              photosTaken: allowance.plan === null ? null : allowance.allowance.photosTaken,
             }
           : null
       }
       // What they already shot, under the shutter — read with the vendor's OWN client so the RLS policy stays the
       // boundary. After the day it is the whole point of the page.
       shotStrip={<OwnCapturesStrip supabase={supabase} eventId={eventId} />}
-      // Papic credits + the pack upsell (G3) — reads the ONE-METER total, reduced by BOTH doors (on-the-day capture
-      // above, portfolio import below), so this number never disagrees with either.
+      // Papic credits + the pack upsell (G3) — the portfolio-import album's meter (the camera above spends nothing
+      // since 2026-11-23; its limit is the plan's).
       walletCard={
         <PortfolioCreditsCard
           eventId={eventId}

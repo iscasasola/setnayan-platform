@@ -64,7 +64,9 @@ function readOnlyLines(plan: VendorTier): [string, string][] {
   return [
     // ⛔ No "Service area" row: reach is not a plan allowance since 2026-11-19 (owner, "unlock the range. not plan
     // dependend anymore") — unverified 0 km, verified sets its own, on every plan.
-    ['Free portfolio photos', planValueWords(Number.isFinite(c.portfolioPhotos) ? c.portfolioPhotos : null)],
+    // 📸 Owner 2026-11-23: portfolio photos have no count on any plan (storage only); event photos are per plan.
+    ['Photos per event', planValueWords(Number.isFinite(c.eventPhotosPerEvent) ? c.eventPhotosPerEvent : null)],
+    ['Videos at events', yes(c.eventVideos)],
     ['Search visibility', c.seoLevel],
     ['Own web address', yes(c.customWebsiteName)],
     ['Market insights', yes(c.marketIntel)],

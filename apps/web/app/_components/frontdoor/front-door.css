@@ -3205,6 +3205,42 @@ html[data-chrome-away] [data-account-sheet-layer] {
    pinned category head travel with it and carry no reduced-motion exception either
    (🔒 app/dashboard/[eventId]/vendors/find-walk-fixes.test.ts #2). */
 
+/* ➕ UNIHOME v5 (owner-approved 23 Nov 2026): on Home, "Create an event" heads the rail on a computer — the drawing's
+   48-px terracotta pill at the top of the left rail (`unihome-v5.html` · Desktop 1280). It is the phone's floating
+   button in another seat, so it is drawn only where the rail shows words (≥1280); below that the strip keeps icons only
+   and Home floats the button instead. Tokens only. */
+.fd-rail-create {
+  display: none;
+}
+@media (min-width: 1280px) {
+  .fd-rail-create {
+    display: block;
+    padding: 0 0 12px;
+  }
+}
+.fd-rail-create-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  border-radius: var(--m-r-full);
+  background: rgb(var(--color-mulberry));
+  color: rgb(var(--color-on-accent));
+  font-size: var(--sn-fs-lg);
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.fd-rail-create-btn svg {
+  width: 20px;
+  height: 20px;
+}
+.fd-rail-create-btn:focus-visible {
+  outline: 2px solid rgb(var(--color-mulberry));
+  outline-offset: 3px;
+}
+
 /* 🏠 HOME'S SECTION DOORS (owner 11 Nov 2026, "One profile page approve" — v3 row 1): Events · People · Shop · Memories
    as small doors under the Home row, a step quieter than a destination and indented past its icon. Still a 44-px
    press. Words only, so the 72-px icon strip — which keeps icons and drops words — hides them outright, as it hides

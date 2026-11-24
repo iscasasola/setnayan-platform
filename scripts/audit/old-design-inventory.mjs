@@ -76,13 +76,30 @@ function routeOf(file) {
   return kept.length ? `/${kept.join('/')}` : '/';
 }
 
+/**
+ * CSS only (TS and TSX go through the repo's one lexer, `stripComments`): CSS has block comments and no line
+ * comments, so this walks `/*` … `*\/` pairs and blanks them with spaces, keeping offsets and line numbers.
+ */
+function blankCssComments(raw) {
+  let out = '';
+  let i = 0;
+  for (;;) {
+    const a = raw.indexOf('/*', i);
+    if (a < 0) return out + raw.slice(i);
+    const b = raw.indexOf('*/', a + 2);
+    const end = b < 0 ? raw.length : b + 2;
+    out += raw.slice(i, a) + raw.slice(a, end).replace(/[^\n]/g, ' ');
+    i = end;
+  }
+}
+
 /* ── source cache ──────────────────────────────────────────────────────────────────────────────────────── */
 const srcCache = new Map();
 function src(abs) {
   let s = srcCache.get(abs);
   if (s === undefined) {
     const raw = readFileSync(abs, 'utf8');
-    s = abs.endsWith('.css') ? raw.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')) : stripComments(raw);
+    s = abs.endsWith('.css') ? blankCssComments(raw) : stripComments(raw);
     srcCache.set(abs, s);
   }
   return s;

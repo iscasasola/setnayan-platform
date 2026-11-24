@@ -27,7 +27,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 import { seededBeforeTheOneVerifiedShopRule } from './shop-registration-fixture';
 import {
-  SPECIALIZED_TOOL_KEYS,
+  TOOL_USAGE_KEYS,
   specializedToolsUnlockFrom,
   type SpecializedToolsFacts,
 } from '../../lib/specialized-tools-access';
@@ -518,5 +518,5 @@ test('4f · the TS tool-key list is the table’s CHECK list, exactly', async ()
     `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'specialized_tool_usage_tool_key_known'`,
   );
   const sqlKeys = [...(r.rows[0]?.def ?? '').matchAll(/'([a-z0-9_]+)'/g)].map((m) => m[1]).sort();
-  assert.deepEqual(sqlKeys, [...SPECIALIZED_TOOL_KEYS].sort());
+  assert.deepEqual(sqlKeys, [...TOOL_USAGE_KEYS].sort());
 });

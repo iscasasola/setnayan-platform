@@ -138,6 +138,9 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   // self_published_at (migration 20271303245624) — the shop chose to show its page before verification. Their own choice.
   'screen_name, screen_name_id, screen_name_slug, screen_name_taxonomy, self_published_at, services, ' +
   'show_team_bookings_in_backend_count, social_feature_opt_out, social_featured_at, ' +
+  // store_layout (migration 20271360126307, #8193) — which graphs, badges and tools the Shop shows, in its order. The
+  // shop's own setting, exported like portfolio_section_order above.
+  'store_layout, ' +
   'social_post_url, subscription_credit_php, supplier_categories, tagline, ' +
   'tier_billing_cycle, tier_expires_at, ' +
   // tier_source (migration 20271209332066) — HOW the subject reached their

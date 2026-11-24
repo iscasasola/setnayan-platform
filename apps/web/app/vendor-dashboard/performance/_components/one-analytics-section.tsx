@@ -44,6 +44,7 @@ import {
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { readNewGraphs } from '@/lib/vendor-analytics-graphs.server';
+import { readStoreGraphs, withBookedValue } from '@/lib/vendor-store-graphs.server';
 import { quietCard, slowMonth } from '@/lib/vendor-analytics-graphs';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchVendorInquiryAnalytics } from '@/lib/vendor-inquiry-analytics';
@@ -67,6 +68,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import { VerifiedMedianCard } from './verified-median-card';
 import { AnalyticsCarousel } from './analytics-carousel';
+import { analyticsGraphs } from '@/lib/supplier-store';
 import { fetchVendorPricePosition, type PricePositionResult } from '@/lib/price-position';
 import {
   EMPTY_FUNNEL_BENCHMARK,
@@ -165,10 +167,14 @@ export async function OneAnalyticsSection({
   supabase,
   userId,
   profile,
+  store,
 }: {
   supabase: SupabaseClient;
   userId: string;
   profile: VendorProfileRow;
+  /** 🛍 On the Shop (Store drawing v10): the graphs the shop picked, in its order (`null` = never picked → every open
+   *  graph), plus the "Add a graph" tile into the Store. Absent (Performance) = the carousel as before. */
+  store?: { graphs: readonly string[] | null; addHref: string };
 }) {
   // Owner/admin only — the ROI + momentum panels surface booking revenue. On the Shop tab a team member who is not an
   // owner/admin is TOLD so (the section's own line), never shown an empty carousel.
@@ -422,6 +428,15 @@ export async function OneAnalyticsSection({
     cards: graphCards,
     nowMs,
   });
+  // 🛍 The Store's twelve new graphs (owner 23 Nov 2026), started beside the five — each refusal its own `null`.
+  // `guest_saved_vendors` and the photo-view ledger on `bookingsAdmin` (no shop SELECT on either; counts only).
+  const storeGraphsRead = readStoreGraphs({
+    session: supabase,
+    admin: bookingsAdmin,
+    vendorProfileId: profile.vendor_profile_id,
+    pageKeys: profile.portfolio_r2_keys ?? [],
+    nowMs,
+  });
   // Started before Batch A (beside the badges), so this wait costs no extra round trip.
   const [pinNow, pinYear] = await Promise.all([pinNowRead, pinYearRead]);
 
@@ -662,6 +677,8 @@ export async function OneAnalyticsSection({
         safeRead(readGiftPointExamples(bookingsAdmin), null, 'gift_point_examples'),
       ])
     : [null, null, null];
+  // 🛍 Booked value is the monthly series Batch B already read — joined here, never read a second time.
+  const storeGraphs = withBookedValue(await storeGraphsRead, bookingSeries);
 
   return (
     <>
@@ -669,8 +686,11 @@ export async function OneAnalyticsSection({
         view={growthView}
         graphs={newGraphs}
         unlocks={{ hidden: [...unlocks.hidden], locked: unlocks.locked, unsure: unlocks.unsure }}
+        order={store ? analyticsGraphs(store.graphs, unlocks) : undefined}
+        addHref={store?.addHref}
         gifts={giftsOpen ? { '30': gifts30, '12': gifts12 } : null}
         giftsRecFacts={{ giftPoints, examplePoints: giftExamples }}
+        store={storeGraphs}
       />
       {verifiedMedian ? (
         <div className="px-4 pt-4">

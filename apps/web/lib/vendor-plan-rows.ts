@@ -20,7 +20,7 @@ import { storageWords } from './downgrade-limits';
 import { clientsKeptWords } from './supplier-client-room';
 import { TIER_CAPS, TIER_LABEL, VENDOR_TIERS, WAITLIST_SETTING_MAX, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
-import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from './specialized-tools-access';
+import { PRO_TOOLS_MIN_TIER } from './specialized-tools-access';
 import { PLAN_CHATBOT_LEVEL } from './vendor-ai-level';
 
 export type PlanRowBadge = { tone: 'ok' | 'wait' | 'no' | 'quiet'; word: string };
@@ -121,19 +121,17 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     {
       key: 'tools',
       title: 'Specialized tools',
-      // 🎁 Owner 20 Nov: Papic Challenges and the branded 3D booth left the unlock for Pro and up — so a plan below
-      // Pro that includes the unlock must not say "All included".
-      line: SPECIALIZED_TOOLS_INCLUDED_TIERS.includes(tier)
-        ? isTierAtLeastPro(tier)
-          ? 'All included'
-          : `Included · Papic Challenges and the 3D booth come with ${TIER_LABEL[PRO_TOOLS_MIN_TIER]}`
-        : `The free set · all of them from ${TIER_LABEL[SPECIALIZED_TOOLS_INCLUDED_TIERS[0] ?? 'solo']}`,
+      // 🧰 Owner a02673ac (23 Nov): a paid widget is bought once in the Toolkit and works only on Plus, Pro or Ultra — so
+      // no plan says it includes one. Below the plan floor, a bought widget stays locked ("Works again when you subscribe").
+      line: isTierAtLeastPro(tier)
+        ? 'Free widgets included · paid widgets work once bought in the Toolkit'
+        : `${tier === 'free' ? 'Free widgets from Verified' : 'Free widgets included'} · paid widgets work from ${TIER_LABEL[PRO_TOOLS_MIN_TIER]}`,
     },
     { key: 'chatbot', title: 'AI chatbot', line: chatbotLine(tier) },
   ];
 }
 
-/** Is this plan at or above the tier the Pro-only tools open on? Order = `VENDOR_TIERS`. */
+/** Is this plan at or above the plan floor a bought paid widget works on (`PRO_TOOLS_MIN_TIER`)? Order = `VENDOR_TIERS`. */
 function isTierAtLeastPro(tier: VendorTier): boolean {
   return VENDOR_TIERS.indexOf(tier) >= VENDOR_TIERS.indexOf(PRO_TOOLS_MIN_TIER);
 }

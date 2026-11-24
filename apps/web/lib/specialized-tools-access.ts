@@ -21,7 +21,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { isTierAtLeast, type VendorTier } from '@/lib/vendor-tier-caps';
+import { firstPlanWith, isTierAtLeast, type VendorTier } from '@/lib/vendor-tier-caps';
 
 /** The 4-week unlock. */
 export const SPECIALIZED_TOOLS_SKU_CODE = 'vendor_specialized_tools' as const;
@@ -93,17 +93,22 @@ export type FreeSpecializedTool = (typeof FREE_SPECIALIZED_TOOLS)[number];
 
 /**
  * 🔓 THE PAID TOOLS — what the unlock opened. Since owner 20 Nov the photo challenge (`papic_challenge`) and the 3D booth
- * (`3d_plan`) come with Pro and up instead ({@link PRO_INCLUDED_TOOLS}); the unlock keeps opening the rest. Every future Setnayan tool and the shop's own
+ * (`plan_3d` — the Store's key, its SKU `vendor_tool_plan_3d`) come with Pro and up instead ({@link PRO_INCLUDED_TOOLS}); the unlock keeps opening the rest. Every future Setnayan tool and the shop's own
  * tools (Tools Maker, Thu 12 Nov) join this side. Forms Maker is NOT a tool here: it is free on
  * every plan (owner 2026-11-09, *"Form make it free"*).
  */
-export const PAID_SPECIALIZED_TOOLS = ['papic_challenge', '3d_plan', 'custom'] as const;
+export const PAID_SPECIALIZED_TOOLS = ['papic_challenge', 'plan_3d', 'custom'] as const;
 export type PaidSpecializedTool = (typeof PAID_SPECIALIZED_TOOLS)[number];
 
-export type SpecializedToolKey = FreeSpecializedTool | PaidSpecializedTool;
+/**
+ * A key the usage log (`specialized_tool_usage.tool_key`) accepts. NOT a second tool key: the ONE widget key is
+ * `SpecializedToolKey` in `lib/specialized-tools.ts` (owner 23 Nov via the controller, "one SpecializedToolKey") — this
+ * list only adds the log's own extras (`march`, `custom`), and shares the 3D key `plan_3d` with the Store's SKU.
+ */
+export type ToolUsageKey = FreeSpecializedTool | PaidSpecializedTool;
 
 /** Every key `record_specialized_tool_use` accepts — mirrors the table's CHECK. */
-export const SPECIALIZED_TOOL_KEYS: readonly SpecializedToolKey[] = [
+export const TOOL_USAGE_KEYS: readonly ToolUsageKey[] = [
   ...FREE_SPECIALIZED_TOOLS,
   ...PAID_SPECIALIZED_TOOLS,
 ];
@@ -177,67 +182,34 @@ export function specializedToolsUnlockFrom(
   return { unlocked: false, source: null };
 }
 
-// ── THE PHOTO CHALLENGE AND THE 3D BOOTH: PRO AND UP (owner 20 Nov) ──────────
+// ── A PAID WIDGET: BOUGHT AND SUBSCRIBED (owner 23 Nov) ──────────────────────
 
 /**
- * ⚖ DECISION_LOG 2026-11-20 "SUPPLIER AI CHATBOT, 3D BOOTH AND PHOTO CHALLENGE ARE INCLUDED IN PRO AND UP" — owner,
- * verbatim: *"the AI chatbot / the 3D booth / the photo challenge this is part of Pro and Up"*; Free · Verified · Plus
- * may not have them (controller, under owner delegation, same day), with GRANDFATHERING: what a shop already held
- * when it shipped runs to its end. The two tools below therefore leave the Specialized tools unlock, which keeps
- * opening every OTHER paid tool ({@link specializedToolsUnlockFrom} is unchanged).
- * 💬 The CHATBOT half of that row was re-ruled on 21 Nov (owner: *"AI Chatbot is for verified and up but smarter chatbot
- * is for pro and up"*) — its gate is `PLAN_CHATBOT_LEVEL` in lib/vendor-ai-level.ts, not this file.
+ * ⚖ DECISION_LOG a02673ac (owner 23 Nov 2026): a paid widget (Cake Maker · Song bank · Papic challenge · 3D plan) opens
+ * only when the shop BOUGHT it in the Toolkit AND is on Plus, Pro or Ultra. The plan alone no longer includes it, and
+ * the frozen 20 Nov grandfather columns open nothing any more (5bfefe76 grandfathers saved work as owned rows instead).
  *
- * ⚖ WIDENED 2026-11-22 (owner, "FINAL LADDER": *every tool on every paid size*): the two tools now come with EVERY paid
- * plan — Plus (50 GB) included — so {@link PRO_TOOLS_MIN_TIER} is `solo`. The grandfather columns stay as they were.
- *
- * THE MIRROR of `vendor_pro_tools_included(shop, event)` (migration 20271356215288, widened by the 2026-11-22 ladder
- * migration), held in step by
- * `tests/db/pro-tools-come-with-pro.db.test.ts`.
+ * {@link proToolsIncludedFrom} is the SUBSCRIPTION HALF only — the mirror of `vendor_pro_tools_included(shop, event)`
+ * (migration 20271360126307 § 4), held in step by `tests/db/pro-tools-come-with-pro.db.test.ts`. The whole answer is
+ * the database's `vendor_store_tool_open` (bought AND this).
+ * {@link PRO_TOOLS_MIN_TIER} is read from the plan table (`TIER_CAPS.specialTools`), so the plan floor has one home.
  */
-export const PRO_INCLUDED_TOOLS = ['papic_challenge', '3d_plan'] as const satisfies readonly PaidSpecializedTool[];
-export const PRO_TOOLS_MIN_TIER: VendorTier = 'solo';
+export const PRO_INCLUDED_TOOLS = ['papic_challenge', 'plan_3d'] as const satisfies readonly PaidSpecializedTool[];
+export const PRO_TOOLS_MIN_TIER: VendorTier = firstPlanWith((c) => c.specialTools) ?? 'solo';
 
-/** Does this paid tool come with Pro and up only (not with the Specialized tools unlock)? */
+/** Is this one of the two widgets that used to come with the plan (they leave the Specialized tools unlock)? */
 export function isProIncludedTool(tool: string): boolean {
   return (PRO_INCLUDED_TOOLS as readonly string[]).includes(tool);
 }
 
-/**
- * The frozen grandfather columns on `vendor_specialized_tools_access` (null = held nothing that way at ship time).
- * `pro_tools_plus_until = 'infinity'` is a Plus plan with no end date. `trial_event_id` is the row's own, never
- * changed once set.
- */
-export type ProToolsGrandfather = {
-  pro_tools_plus_until: string | null;
-  pro_tools_unlock_until: string | null;
-  pro_tools_trial_until: string | null;
-  trial_event_id: string | null;
-};
-
-const OPEN_ENDED = 'infinity';
-
+/** Subscribed: a live Plus, Pro or Ultra plan right now. Never opens a widget on its own. */
 export function proToolsIncludedFrom(
-  facts: Pick<SpecializedToolsFacts, 'tier_state' | 'tier_expires_at' | 'verification_state'> | null | undefined,
-  grandfather: ProToolsGrandfather | null | undefined,
-  eventId: string | null | undefined,
+  facts: Pick<SpecializedToolsFacts, 'tier_state' | 'tier_expires_at'> | null | undefined,
   nowMs: number = Date.now(),
 ): boolean {
   if (!facts) return false;
-  const tier = facts.tier_state;
   const planLiveNow = !facts.tier_expires_at || liveAt(facts.tier_expires_at, nowMs);
-  if (isTierAtLeast(tier, PRO_TOOLS_MIN_TIER) && planLiveNow) return true;
-  const g = grandfather;
-  if (!g) return false;
-  if (g.pro_tools_plus_until === OPEN_ENDED) {
-    if (tier === 'solo' && !facts.tier_expires_at) return true;
-  } else if (liveAt(g.pro_tools_plus_until, nowMs)) {
-    return true;
-  }
-  if (facts.verification_state !== 'verified') return false;
-  if (!isTierAtLeast(tier, SPECIALIZED_TOOLS_MIN_TIER)) return false;
-  if (liveAt(g.pro_tools_unlock_until, nowMs)) return true;
-  return !!eventId && g.trial_event_id === eventId && liveAt(g.pro_tools_trial_until, nowMs);
+  return isTierAtLeast(facts.tier_state, PRO_TOOLS_MIN_TIER) && planLiveNow;
 }
 
 // ── MAY THIS SHOP BUY IT? ────────────────────────────────────────────────────

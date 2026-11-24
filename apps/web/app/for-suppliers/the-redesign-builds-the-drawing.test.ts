@@ -20,6 +20,7 @@ import { BOOKING_FEE, bookingFeePhp, type BookingFeeSchedule } from '@/lib/booki
 import { formatPhpRounded } from '@/lib/php';
 import { listedWidgets } from '@/lib/specialized-tools';
 import { SHOP_BADGE_KEYS } from '@/lib/badge-tiers';
+import { SHELF_BADGE_KEYS } from '@/lib/shop-badge-shelf';
 import { BUILT_IN_WIDGETS, PAID_STORE_TOOLS, toolkitItems } from '@/lib/supplier-store';
 import { PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
@@ -125,12 +126,12 @@ test('the Toolkit sheet names the one Toolkit list — the page’s one count is
   const shelves = toolkitShelves(false);
   const widgets = listedWidgets(false);
   // every item of the one list, once, by name; no shelf carries a count of its own
-  const items = toolkitItems({ papicCapture: false, badges: SHOP_BADGE_KEYS });
+  const items = toolkitItems({ papicCapture: false, badges: SHELF_BADGE_KEYS });
   assert.equal(shelves.reduce((n, sh) => n + sh.rows.length, 0), items.length, 'the sheet lists a different set than the Toolkit');
   for (const sh of shelves) assert.ok(!('count' in sh), `${sh.key} carries a second count`);
   assert.deepEqual(tools(false).map((r) => r.name), widgets.map((t) => t.title));
   assert.equal(shelves.find((sh) => sh.key === 'graphs')!.rows.length, CARD_ORDER.length);
-  assert.equal(shelves.find((sh) => sh.key === 'badges')!.rows.length, SHOP_BADGE_KEYS.length);
+  assert.equal(shelves.find((sh) => sh.key === 'badges')!.rows.length, SHELF_BADGE_KEYS.length);
   // the tags are the Toolkit's own (owner a02673ac): the paid widgets are Paid — the Song bank too — the built-in
   // widgets Built in, the rest Free; there is no start date any more, so nothing is ever untagged
   const tags = Object.fromEntries(tools(false).map((r) => [r.key, r.tag]));

@@ -70,10 +70,13 @@ export function StoreTile({
   data,
   show,
   tags,
+  meta,
 }: {
   href: string;
   art: ReactNode;
   title: string;
+  /** The price meta, under the title on its own full-width line (at most 2 lines), never squeezed beside the button. */
+  meta?: ReactNode;
   line: string;
   /** The tool's tag chips under its line (v12). */
   tags?: ReactNode;
@@ -87,6 +90,11 @@ export function StoreTile({
       <Link href={href} className="sn-press sn-frame flex h-full min-h-[176px] flex-col gap-1 p-3" data-store-tile={data}>
         <span className="mb-1">{art}</span>
         <b className="text-sn-lg font-semibold leading-tight text-ink">{title}</b>
+        {meta ? (
+          <span className="line-clamp-2 text-sn-sm font-semibold leading-tight text-[color:var(--m-slate-2)]" data-store-tile-meta="">
+            {meta}
+          </span>
+        ) : null}
         <span className="line-clamp-2 text-sn-md leading-snug text-[color:var(--m-slate-2)]">{line}</span>
         {tags}
         <span className="mt-auto flex items-center justify-between gap-2 pt-2">
@@ -162,13 +170,19 @@ export function StoreToolTile({ row }: { row: StoreToolRow }) {
     ) : a.kind === 'buy' ? (
       <Pill>{buyWords(a.price, php)}</Pill>
     ) : null;
-  const foot =
-    s.kind === 'free' && s.added ? 'Free' : s.kind === 'owned' ? 'Owned' : s.kind === 'buy' ? (s.needsPlan ? `One-time · ${PAID_WIDGET_PLAN_WORDS}` : 'One-time') : toolFootWords(s, php);
+  /**
+   * 📏 A paid widget's price meta sits UNDER THE TITLE, full width, at most 2 lines (re-walk 24 Nov 2026: "One-time ·
+   * Plus, Pro or Ultra" was squeezed beside "Buy ₱…" into 4 short lines, at 390 and on a computer). The foot keeps the
+   * button alone. 🔒 app/vendor-dashboard/shop/store/the-price-meta-sits-under-the-title.test.ts
+   */
+  const meta = s.kind === 'buy' ? (s.needsPlan ? `One-time · ${PAID_WIDGET_PLAN_WORDS}` : 'One-time') : null;
+  const foot = s.kind === 'free' && s.added ? 'Free' : s.kind === 'owned' ? 'Owned' : s.kind === 'buy' ? null : toolFootWords(s, php);
   return (
     <StoreTile
       href={shop.store.item('tools', row.tool.key)}
       art={<ToolArt toolKey={row.tool.key} />}
       title={row.tool.title}
+      meta={meta}
       line={row.tool.line}
       tags={<TagChips tags={row.tags} max={1} />}
       foot={foot}

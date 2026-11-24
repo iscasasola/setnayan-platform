@@ -59,6 +59,14 @@ export function dayOfModuleHref(id: DayOfModuleId, eventId: string): string | nu
     case 'chair_schedule':
     case 'reservation_slots':
     case 'brackets_and_scoring':
+    case 'pick_up_times_and_routes':
+    case 'itinerary':
+    case 'serving_times':
+    case 'remembrance_schedule':
+    case 'march_cue_sheet':
+    case 'rehearsal_and_cues':
+    case 'reveal_cue':
+    case 'wellness_plan':
       return null;
     case 'vendor_papic':
       // Counsel-gated: callers filter it out unless the capability is live

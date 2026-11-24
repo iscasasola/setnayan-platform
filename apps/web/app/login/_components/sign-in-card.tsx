@@ -26,14 +26,15 @@
  * they were reading instead of dropping them on the account board.
  */
 import { useActionState, useEffect, useRef, useState } from 'react';
-import { DOOR_SIGN_IN_WORDS, type Door } from '@/lib/doors';
+import type { Door } from '@/lib/doors';
+import { DOOR_SIGN_IN_WORDS } from '@/lib/door-words';
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { signInWithPassword, signInInPlace } from '../actions';
 import { humanAuthError } from '@/lib/human-auth-error';
-import { DEAD_LINK_WORDS } from '@/lib/auth-confirm-link';
+import { DEAD_LINK_WORDS } from '@/lib/dead-link-words';
 import { inboxFor } from '@/lib/reset-sent';
 import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
 import { providerNextStep, SET_PASSWORD_WORDS, type KnownProvider } from '@/lib/sign-in-door';

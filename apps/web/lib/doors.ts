@@ -154,16 +154,5 @@ export function appShellDoor(userAgent: string | null | undefined, cookie: strin
   return parseDoor(cookie);
 }
 
-/** The sign-in card's words on a door — the heading slot only; the card itself is the one card. */
-export const DOOR_SIGN_IN_WORDS: Record<Door, { eyebrow: string; title: string; sub: string }> = {
-  supplier: {
-    eyebrow: 'For suppliers',
-    title: 'Sign in to your shop.',
-    sub: 'Your business account. Pick up right where you left off.',
-  },
-  coordinator: {
-    eyebrow: 'For coordinators',
-    title: 'Sign in to your business.',
-    sub: 'Your business account. Pick up right where you left off.',
-  },
-};
+/** The sign-in card's words on a door: kept in a leaf module so the client card never pulls this file. */
+export { DOOR_SIGN_IN_WORDS } from './door-words';

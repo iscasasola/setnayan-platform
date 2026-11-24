@@ -136,14 +136,8 @@ export function deadLinkLanding(next: string): string {
   return `/login?${q.toString()}`;
 }
 
-/** The sign-in card's words for a dead link — plain, and naming the one control that fixes it. */
-export const DEAD_LINK_WORDS = {
-  line: 'That link has expired or was already used. Send yourself a new one — it opens on any device.',
-  button: 'Send a new link',
-  pending: 'Sending…',
-  sent: 'Open the newest email from Setnayan — its link works on your phone or your computer.',
-  needEmail: 'Type the email you signed up with.',
-} as const;
+/** The sign-in card's words for a dead link: kept in a leaf module so the client card never pulls this file. */
+export { DEAD_LINK_WORDS } from './dead-link-words';
 
 /**
  * 🏠 WHERE A SIGN-IN LANDS WHEN IT NAMES NO DESTINATION OF ITS OWN (`/`) — THE ONE RULE, FOR EVERY DOOR.

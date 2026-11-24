@@ -1,0 +1,11 @@
+## 2026-11-23 · feat(chat): Share from your tools — the supplier's ＋ row, its picker and five tool cards
+
+Built from Fable's drawing `prototypes/supplier_store_graphs_badges_2026-11-23/` frame 7 ("Add to chat · The picker · What the couple sees"). Ruling: DECISION_LOG 2026-11-23 "SPECIALIZED TOOLS WORK ON THEIR OWN AND SHARE INTO CHAT" (specs dee66686). Stacked on #8193 (the Store).
+
+- **One new ＋ row** on the supplier's chat tray: "Share from your tools" (marked New), before Every version. An unverified shop sees it locked like every tile. Not on the host's ＋ or a group's.
+- **The picker** lists ONLY the tools this shop has, read the Store's own way (`readShareableTools` over #8193's tool facts: a free tool added to Your tools, or a paid tool bought / with the plan / in the 30-day trial). Five can be shared: Cake Maker · 3D plan · Run of show · Emcee script · Song bank. The event-day tools and the Papic challenge never appear. None held → it says so, with a way to the Store; a list that could not be read → "Couldn't load your tools" with Try again, never "none".
+- **Five card kinds** in the stream, on the one card look: the couple sees the kind, the title, where it was made, **Open** (3D plan → the seat plan's 3D room · Run of show and Emcee script → the schedule · Song bank → the playlist · Cake Maker → its designer, in the chat) and **Approve**. The shop sees "Waiting for their OK" / "Approved by your client". No price, no lock, no buy on either face.
+- **No new server action and no migration.** A share and an approval are exact-words chat lines through the shipped send (`sendChatMessage` → `sendChatMessageCore`), which now refuses a share of a tool the shop does not hold, or from an unverified shop (`tool_share_refused`). Approved is read from the hosts' later line, never stored.
+- Guard: `lib/chat-tool-share.test.ts` (a tool not held never appears; the couple never sees a price or a lock; only the hosts approve; the send refuses a tool not held). Lab: `/dev/chat-lab/t/x?share=1` (`&side=vendor&tools=all|some|none|unread`).
+
+SPEC IMPACT: None — builds the ruled row and the drawn frame 7 as drawn; the five card titles are the tools' own plain words (the drawing's titles are marked sample).

@@ -105,10 +105,13 @@ export function HubSavedMarkView({
 }) {
   const seal = { [COPY_VIEWER_ATTR]: viewer };
   if (!mark) return <div data-hub-saved="" {...seal} hidden />;
+  // The ONE frame (`.sn-frame`), so the line reads on every couple's theme ground, light and dark alike.
   return (
-    <div data-hub-saved="" {...seal} className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 pt-3">
-      <SavedMarkLine mark={mark} busy={busy} />
-      {onUpdate ? <ActionButton tone="neutral" quiet icon={RefreshCw} label="Update now" onClick={onUpdate} /> : null}
+    <div data-hub-saved="" {...seal} className="mx-auto flex w-full max-w-3xl justify-center px-4 pt-3">
+      <div className="sn-frame inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-3 py-2">
+        <SavedMarkLine mark={mark} busy={busy} />
+        {onUpdate ? <ActionButton tone="neutral" quiet icon={RefreshCw} label="Update now" onClick={onUpdate} /> : null}
+      </div>
     </div>
   );
 }

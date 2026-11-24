@@ -45,6 +45,7 @@ import { ticketName } from '@/lib/name-style';
 import { loadNameStyle } from '@/lib/name-style.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { companionNames, type CompanionSeatRow } from '@/lib/extra-seats';
+import { RoomSavedMark } from '../_components/room-saved-mark';
 
 export const metadata = { title: 'Find your seat' };
 
@@ -337,6 +338,8 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
       names={names}
       footer={!(dayOf && table)}
     >
+      {/* 📶 R18 — saved for offline with the rest of this guest's Event Hub (the viewer's own copy only). */}
+      <RoomSavedMark slug={slug} />
       {/* A reseat on the day shows without a reload (PR 5); and a guest seated
           while the page sits open in a tab sees it when they come back to it —
           "No need to check back — this updates by itself" (A4) is a promise. */}

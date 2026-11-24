@@ -138,6 +138,7 @@ function PhotoWithRemove({
       </div>
       <p className="text-xs text-ink/65">{guestPhotoWhen(photo)}</p>
       <ActionButton
+        data-needs-internet=""
         tone="danger"
         quiet
         icon={X}

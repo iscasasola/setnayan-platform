@@ -193,7 +193,7 @@ function boot() {
   };
   const kept = (cache: string) => [...(stores.get(cache)?.keys() ?? [])].map(rel).sort();
   const keptAnywhere = () => [...stores.entries()].flatMap(([name, s]) => [...s.keys()].map((u) => `${name} ${rel(u)}`));
-  return { dispatch, load, sent, net, renders, kept, keptAnywhere, slowPut };
+  return { dispatch, load, sent, net, renders, kept, keptAnywhere, slowPut, context };
 }
 
 /** The Maker's canvas, as `BufferedCanvasFrame` mounts it: an iframe of the stage's address, inside the Maker. */
@@ -281,9 +281,12 @@ test('a page opened from the host’s app, or from inside a canvas, is left to t
   const fromCanvas = await w.load(`/${SLUG}/find-my-table`, { destination: 'document', referrer: `${ORIGIN}${canvas('event')}`, hydrates: false });
   assert.equal(fromCanvas.responded, false, 'a link followed inside the canvas was answered by the worker');
   assert.deepEqual(w.sent, []);
-  // Another site's /dashboard/ is not ours: that visitor is a guest.
-  const other = await w.load(`/${SLUG}`, { destination: 'document', referrer: 'https://example.com/dashboard/x', hydrates: false });
-  assert.equal(other.responded, true, 'a referrer on another origin was read as the host’s app');
+  // Another site's /dashboard/ is not ours: that visitor is a guest. (Since R18 an unsaved guest page is the browser's
+  // either way, so the rule is asked directly — a cross-origin referrer is never the host's app.)
+  const isHostAppNavigation = (w.context as unknown as { isHostAppNavigation: (r: object, u: URL) => boolean }).isHostAppNavigation;
+  const at = new URL(`/${SLUG}`, ORIGIN);
+  assert.equal(isHostAppNavigation({ destination: 'document', referrer: 'https://example.com/dashboard/x' }, at), false, 'a referrer on another origin was read as the host’s app');
+  assert.equal(isHostAppNavigation({ destination: 'document', referrer: MAKER }, at), true);
 });
 
 test('no sender can have a host canvas address kept', async () => {
@@ -308,102 +311,58 @@ test('the Maker’s code, images and fonts are cached as before', async () => {
 
 // ── a guest (and the host's own dashboard) — unchanged ─────────────────────
 
-test('a guest’s own visit is one render: answered, kept for the day, its icons preloaded — and its own page not fetched again', async () => {
+test('a guest’s own visit is one render — and the preload keeps only icons: a guest page lives in the viewer’s saved copy alone (R18)', async () => {
   for (const referrer of ['', 'https://www.facebook.com/', `${ORIGIN}/`, `${ORIGIN}/${SLUG}`]) {
     const w = boot();
     await w.dispatch('install');
-    const nav = await w.load(`/${SLUG}`, { referrer });
-    assert.equal(nav.responded, true, `referrer "${referrer}": the guest's navigation is no longer answered (no offline copy)`);
-    assert.equal(await nav.response!.text(), `/${SLUG} #1`);
-    assert.deepEqual(w.kept(DAYOF), [`/${SLUG}`], 'the guest’s page is no longer kept for the day');
-    assert.deepEqual(w.kept(IMAGES), ['/icon-192.svg', '/icon-512.svg', '/manifest.json'], 'the guest’s preload is no longer kept');
+    await w.load(`/${SLUG}`, { referrer });
+    assert.deepEqual(w.kept(IMAGES), ['/icon-192.svg', '/icon-512.svg', '/manifest.json'], 'the guest’s preload kept something other than icons');
     assert.deepEqual(
-      w.sent,
+      w.sent.filter((x) => x.mode === 'no-cors'),
       [
-        { url: `/${SLUG}`, mode: 'navigate' },
         { url: '/manifest.json', mode: 'no-cors' },
         { url: '/icon-192.svg', mode: 'no-cors' },
         { url: '/icon-512.svg', mode: 'no-cors' },
       ],
-      'what the worker asks the network for on a guest’s visit changed',
+      'what the preload asks the network for on a guest’s visit changed',
     );
-    assert.equal(w.renders(), 1, `a guest's own visit cost ${w.renders()} renders of the guest page (was 2)`);
-    // …and the page is still there with no signal: the day-of copy.
-    w.net.down = true;
-    const offline = await w.load(`/${SLUG}`, { hydrates: false });
-    assert.equal(await offline.response!.text(), `/${SLUG} #1`);
+    assert.equal(w.renders(), 1, `a guest's own visit cost ${w.renders()} renders of the guest page`);
+    assert.deepEqual(w.keptAnywhere().filter((k) => k.includes(`/${SLUG}`)), [], 'a guest page was kept outside the viewer’s saved copy');
+    assert.ok(!w.kept(DAYOF).length, 'the retired day-of cache was written');
   }
 });
 
-test('a guest’s first visit — the worker did not answer the page — still has its own page preloaded: that is its offline copy', async () => {
+test('no page’s preload of a guest page is fetched — bare or nested address, its own or another’s', async () => {
   const w = boot();
   await w.dispatch('install');
-  // The page loaded before the worker controlled it: no fetch event, only the message once the worker is ready.
-  await w.dispatch('message', {
-    data: { type: 'PRELOAD_ASSETS', urls: ['/manifest.json', '/icon-192.svg', '/icon-512.svg', `/${SLUG}`] },
-    source: { url: `${ORIGIN}/${SLUG}`, frameType: 'top-level', type: 'window' },
-  });
-  assert.ok(w.kept(IMAGES).includes(`/${SLUG}`), 'the first visit’s page was not kept — the guest has no offline copy');
-  w.net.down = true;
-  const back = await w.load(`/${SLUG}`, { hydrates: false });
-  assert.equal(await back.response!.text(), `/${SLUG} #1`);
+  for (const from of [`${ORIGIN}/${SLUG}`, `${ORIGIN}/${SLUG}/find-my-table`, `${ORIGIN}/ana/${SLUG}`]) {
+    await w.dispatch('message', {
+      data: { type: 'PRELOAD_ASSETS', urls: [`/${SLUG}`, `/ana/${SLUG}`, `/${SLUG}/find-my-table`, `/${SLUG}?tab=me`] },
+      source: { url: from, frameType: 'top-level', type: 'window' },
+    });
+  }
+  assert.equal(w.renders(), 0, `a preload rendered a guest page: ${JSON.stringify(w.sent)}`);
+  assert.deepEqual(w.keptAnywhere().filter((k) => k.includes(`/${SLUG}`)), [], 'a preload kept a guest page');
 });
 
-test('a guest’s own page whose day-of copy is still being written is waited for — not fetched a second time', async () => {
-  const w = boot();
-  await w.dispatch('install');
-  let release!: () => void;
-  w.slowPut.until = new Promise<void>((r) => (release = r));
-  await w.load(`/${SLUG}`, { hydrates: false }); // answered; the copy's body is still coming in
-  assert.deepEqual(w.kept(DAYOF), [], 'the stand-in did not hold the write back');
-  const preload = w.dispatch('message', {
-    data: { type: 'PRELOAD_ASSETS', urls: [`/${SLUG}`] },
-    source: { url: `${ORIGIN}/${SLUG}`, frameType: 'top-level', type: 'window' },
-  });
-  setTimeout(() => release(), 30);
-  await preload;
-  assert.deepEqual(w.kept(DAYOF), [`/${SLUG}`]);
-  assert.equal(w.renders(), 1, `the preload fetched the page while its day-of copy was being written: ${JSON.stringify(w.sent)}`);
-});
-
-test('another page’s preload of an address held for the day is fetched as before — only the sender’s OWN page is skipped', async () => {
-  const w = boot();
-  await w.dispatch('install');
-  await w.load(`/${SLUG}`, { hydrates: false });
-  // The same guest, now on their table page, asks for the landing to be kept — it is not that page's own address.
-  await w.dispatch('message', {
-    data: { type: 'PRELOAD_ASSETS', urls: [`/${SLUG}`] },
-    source: { url: `${ORIGIN}/${SLUG}/find-my-table`, frameType: 'top-level', type: 'window' },
-  });
-  assert.equal(w.renders(), 2, 'a page other than the sender’s own was skipped');
-  assert.ok(w.kept(IMAGES).includes(`/${SLUG}`));
-});
-
-test('a guest with no signal still gets the kept page, and the offline page for one never seen', async () => {
+test('a guest with no signal and nothing saved gets nothing invented — the worker answers no guest page it does not keep', async () => {
   const w = boot();
   await w.dispatch('install');
   await w.load(`/${SLUG}`, { hydrates: false });
   await w.load(`/${SLUG}/find-my-table`, { hydrates: false });
   w.net.down = true;
-  const again = await w.load(`/${SLUG}`, { hydrates: false });
-  assert.equal(await again.response!.text(), `/${SLUG} #1`, 'offline, the guest no longer gets the page kept from the last visit');
-  const table = await w.load(`/${SLUG}/find-my-table`, { hydrates: false });
-  assert.equal(await table.response!.text(), `/${SLUG}/find-my-table #1`);
-  const unseen = await w.load('/maria-jose', { hydrates: false });
-  assert.equal(await unseen.response!.text(), 'shell /offline.html', 'offline, an unseen page no longer falls back to offline.html');
+  for (const p of [`/${SLUG}`, `/${SLUG}/find-my-table`]) {
+    const again = await w.load(p, { hydrates: false });
+    assert.ok(!again.responded || (await again.response!.text()) === 'shell /offline.html', `${p}: a copy nobody saved was opened`);
+  }
 });
 
-test('a guest who arrived on a personal link keeps the offline copy the preload made', async () => {
+test('a guest who arrived on a personal link: the pass hop is still the browser’s alone, and keeps nothing', async () => {
   const w = boot();
   await w.dispatch('install');
-  // The pass hop is the browser's alone — never answered, never kept…
   const hop = await w.load(`/${SLUG}?invite=abc123`, { client: { url: `${ORIGIN}/${SLUG}?invite=abc123`, frameType: 'top-level' } });
   assert.equal(hop.responded, false, 'a pass hop was answered by the worker');
-  assert.deepEqual(w.kept(DAYOF), []);
-  // …so the page's preload is that guest's only copy, and it is still made.
-  w.net.down = true;
-  const back = await w.load(`/${SLUG}`, { hydrates: false });
-  assert.equal(await back.response!.text(), `/${SLUG} #1`, 'the preload’s copy no longer serves the guest offline');
+  assert.deepEqual(w.keptAnywhere().filter((k) => k.includes(`/${SLUG}`)), [], 'the hop’s page was kept');
 });
 
 test('the host’s dashboard can still warm its event-day pictures', async () => {

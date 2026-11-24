@@ -15,6 +15,7 @@ import { isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { giftsAreOn } from '@/lib/event-answers';
 import { loadGiftPage } from './_lib/gift-page.server';
 import { GiftPageBody } from './_components/gift-page-body';
+import { RoomSavedMark } from '../_components/room-saved-mark';
 
 /**
  * GET /[slug]/pabuya — the public "digital money dance" surface. Guests see the
@@ -135,10 +136,12 @@ export default async function PabuyaPublicPage({
             <Logo height={26} />
           </Link>
           <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">
-            Pabuya
+            E-Gifts
           </span>
         </div>
       </header>
+      {/* 📶 R18 — saved for offline with the rest of this guest's Event Hub (the viewer's own copy only). */}
+      <RoomSavedMark slug={slug} />
 
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
         <div className="mb-8 text-center">

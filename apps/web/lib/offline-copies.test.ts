@@ -6,21 +6,26 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  GUEST_HUB_TABS_KEPT,
   OFFLINE_COPY_UNREAD,
+  OFFLINE_MAX_PAGES,
   STALE_AFTER_MS,
   coordinatorOfflinePaths,
   coordinatorSchedulePath,
   copyVersionIn,
   copyVersionOf,
-  offlineEventDay,
-  staleFor,
-  supplierSchedulePath,
+  copyViewerIn,
+  guestCopyViewer,
+  guestHubSavePaths,
   offlineCopiesUntil,
+  offlineEventDay,
   offlineSavingOpen,
   parseOfflineRegistry,
   savedAtFor,
   savedMark,
+  staleFor,
   supplierOfflinePaths,
+  supplierSchedulePath,
   type SavedPhase,
 } from './offline-copies';
 import { guestMePath, isOfflineCopyPath, offlineCopyEventId } from './offline-copy-addresses';
@@ -134,8 +139,8 @@ test('every person’s "Your schedule" has a saved address — the guest’s Me,
     `/vendor-dashboard/clients/${E}`,
     `/vendor-dashboard/clients/${E}?tab=schedule&x=1`,
     `/dashboard/${E}/schedule?maker=1`,
-    '/ana-ben',
-    '/ana-ben?tab=home',
+    '/ana-ben?tab=gallery',
+    '/ana-ben/venue',
     '/dashboard?tab=me',
     '/login?tab=me',
     '/schedule?tab=me',
@@ -144,6 +149,12 @@ test('every person’s "Your schedule" has a saved address — the guest’s Me,
     assert.equal(isOfflineCopyPath(p), false, `${p} would be kept`);
   }
   assert.equal(guestMePath('dashboard'), null, 'a reserved word made a guest address');
+  // 📶 R18: the guest's whole Event Hub is kept now — its arrival page, its own pages and its rooms, in either address
+  // form, all under the event word (the photos' Gallery and the 3D walk stay out, above).
+  for (const p of ['/ana-ben', '/ana-ben?tab=home', '/ana-ben?tab=live', '/ana-ben/find-my-table', '/ana-ben/announcement', '/ana/ana-ben', '/ana/ana-ben?tab=me', '/ana/ana-ben/seat']) {
+    assert.ok(isOfflineCopyPath(p), `${p} is not a saved address`);
+    assert.equal(offlineCopyEventId(p), 'ana-ben', `${p} is kept under ${offlineCopyEventId(p)}`);
+  }
   assert.equal(coordinatorSchedulePath('../x'), null);
   assert.equal(supplierSchedulePath('a?b'), null);
 });
@@ -208,4 +219,55 @@ test('the event day, Philippine time, for the amber line — one day or every da
   assert.equal(offlineEventDay(DAY, Date.parse('2026-11-15T00:00:00+08:00')), false);
   assert.equal(offlineEventDay(DAY, Date.parse('2026-11-15T09:00:00+08:00'), '2026-11-16'), true);
   assert.equal(offlineEventDay(null, NOON), false);
+});
+
+// ── 📶 R18 — the guest's whole Event Hub ──────────────────────────────────────────────────────────────────────────
+
+test('R18 · a guest’s hub save asks for every page they can open — and is never more than the cap', () => {
+  const paths = guestHubSavePaths('/ana-ben', ['live', 'home', 'gallery', 'details', 'live']);
+  assert.deepEqual(paths, [
+    '/ana-ben',
+    '/ana-ben?tab=me',
+    '/ana-ben?tab=live',
+    '/ana-ben?tab=home',
+    '/ana-ben?tab=details',
+    '/ana-ben/find-my-table',
+    '/ana-ben/find-seat',
+    '/ana-ben/seat',
+    '/ana-ben/pabuya',
+    '/ana-ben/everyone',
+    '/ana-ben/announcement',
+  ]);
+  assert.ok(!paths.includes('/ana-ben?tab=gallery'), 'the Gallery (photos) was asked for');
+  assert.ok(guestHubSavePaths('/ana-ben', [...GUEST_HUB_TABS_KEPT]).length <= OFFLINE_MAX_PAGES);
+  assert.equal(guestHubSavePaths('/ana-ben', [...GUEST_HUB_TABS_KEPT]).length, OFFLINE_MAX_PAGES, 'the cap is not the hub’s real page count');
+  for (const p of paths) assert.ok(isOfflineCopyPath(p), `${p} is asked for but is no saved address`);
+});
+
+test('R18 · whose copy a guest page is — the ONE rule: the pass holder, or the account whose own seat it is; never a host’s look', () => {
+  const G = '0e0e0e0e-0000-4000-8000-0000000000aa';
+  const base = { refused: false, accountId: null, seatHolderId: null, passGuestId: null, drawnGuestId: G } as const;
+  assert.equal(guestCopyViewer({ ...base, passGuestId: G }), `g-${G}`);
+  assert.equal(guestCopyViewer({ ...base, passGuestId: 'someone-else-0000' }), null, 'another guest’s pass made a copy');
+  assert.equal(guestCopyViewer(base), null, 'a stranger made a copy');
+  assert.equal(guestCopyViewer({ ...base, accountId: 'user-ana-0000000001', seatHolderId: 'user-ana-0000000001' }), 'user-ana-0000000001');
+  assert.equal(guestCopyViewer({ ...base, accountId: 'user-ana-0000000001', seatHolderId: 'user-ben-0000000002', passGuestId: G }), null, 'a signed-in account kept another person’s seat');
+  assert.equal(guestCopyViewer({ ...base, passGuestId: G, refused: true }), null, 'a host’s look / the Maker made a copy');
+});
+
+test('R18 · the seal: a page names its viewer, and the copy reads it back', () => {
+  assert.equal(copyViewerIn('<div data-hub-saved="" data-sn-copy-viewer="g-0e0e0e0e-0000-4000-8000-0000000000aa" hidden></div>'), 'g-0e0e0e0e-0000-4000-8000-0000000000aa');
+  assert.equal(copyViewerIn('<div data-hub-saved=""></div>'), null);
+  assert.equal(copyViewerIn('{"data-sn-copy-viewer":"g-0e0e0e0e-0000-4000-8000-0000000000aa"}'), null, 'a JSON prop in the RSC payload read as the seal');
+});
+
+test('R18 · a hub page this viewer cannot open is not missing from the copy — the mark speaks for the rest', () => {
+  const reg = parseOfflineRegistry({
+    v: 1,
+    viewer: 'g-x-00000000',
+    events: { 'ana-ben': { until: NOON + HOUR, pages: { '/ana-ben': NOON - HOUR, '/ana-ben?tab=me': NOON - 2 * HOUR }, absent: { '/ana-ben/pabuya': NOON - 30 * 60_000 } } },
+  });
+  assert.equal(savedAtFor(reg, 'g-x-00000000', 'ana-ben', ['/ana-ben', '/ana-ben?tab=me', '/ana-ben/pabuya'], NOON), NOON - 2 * HOUR);
+  assert.equal(savedAtFor(reg, 'g-x-00000000', 'ana-ben', ['/ana-ben', '/ana-ben/seat'], NOON), null, 'a room never asked about read as saved');
+  assert.equal(savedAtFor(reg, 'g-x-00000000', 'ana-ben', ['/ana-ben/pabuya'], NOON), null, 'nothing kept at all read as saved');
 });

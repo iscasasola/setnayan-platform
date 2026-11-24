@@ -22,7 +22,16 @@ import { watchLiveOccasion } from '@/lib/watch-live-occasion';
  *   both          → the same player, with a second link beside "Open on YouTube"
  *   Facebook only → the link card below (no player — there is nothing to embed)
  */
-export function WatchLiveBlock({
+/**
+ * 📶 R15 — Live Watch needs internet: with no signal the whole block stays in place, greys out and says "Needs
+ * internet" (`data-needs-internet`, `lib/needs-internet.ts`), and a tap on it does nothing but say why.
+ */
+export function WatchLiveBlock(props: Parameters<typeof WatchLiveBlockInner>[0]) {
+  const inner = WatchLiveBlockInner(props);
+  return inner ? <div data-needs-internet="">{inner}</div> : null;
+}
+
+function WatchLiveBlockInner({
   watchLive,
   slug,
   occasion = 'event',

@@ -27,6 +27,7 @@ import {
 } from '@/lib/entourage';
 import { EntourageSection } from '../_components/entourage-section';
 import { withDayNote } from '../_lib/day-words';
+import { RoomSavedMark } from '../_components/room-saved-mark';
 
 export const metadata = {
   title: 'Everyone who will be there',
@@ -200,6 +201,8 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
+      {/* 📶 R18 — saved for offline with the rest of this guest's Event Hub (the viewer's own copy only). */}
+      <RoomSavedMark slug={slug} />
       <header className="mb-8 text-center">
         <p className="pahina-eyebrow justify-center">
           <span>Everyone</span>

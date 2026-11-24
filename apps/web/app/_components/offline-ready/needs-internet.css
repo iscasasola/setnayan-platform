@@ -1,0 +1,26 @@
+/*
+ * needs-internet.css — the look of R15's "Needs internet" (owner 2026-11-24): with no signal, a control that needs a
+ * connection stays in place, greys out and says so. The marks are written by ONE mechanism (`lib/needs-internet.ts`,
+ * mounted by `needs-internet-guard.tsx`); this only draws them. An `ActionButton` wears its own waiting look
+ * (`data-waiting`, globals.css — "a button that cannot be used yet is grey"); everything else is drawn grey here.
+ * Colour tokens only; nothing moves.
+ */
+html[data-sn-offline] [data-sn-ni-grey] {
+  filter: grayscale(1);
+  opacity: 0.55;
+  cursor: default;
+}
+/* The word, after a button or a link: "Watch live · Needs internet". */
+html[data-sn-offline] [data-sn-ni-word]:not([data-sn-ni-block])::after {
+  content: ' · ' attr(data-sn-ni-word);
+}
+/* …and above a block (the live photo wall, Live Watch's player), as its own quiet line. */
+html[data-sn-offline] [data-sn-ni-block][data-sn-ni-word]::before {
+  content: attr(data-sn-ni-word);
+  display: block;
+  margin-bottom: 8px;
+  font-size: var(--sn-fs-md);
+  font-weight: 600;
+  text-align: center;
+  color: rgb(var(--color-ink));
+}

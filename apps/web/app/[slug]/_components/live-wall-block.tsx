@@ -246,6 +246,7 @@ export function LiveWallBlock({
   if (display.length === 0) {
     return (
       <section
+        data-needs-internet=""
         aria-label="Memory lane"
         className="sn-gal p-6 text-center"
       >
@@ -267,6 +268,7 @@ export function LiveWallBlock({
 
   return (
     <section
+      data-needs-internet=""
       aria-label="Memory lane"
       className="sn-gal p-5 sm:p-6"
     >

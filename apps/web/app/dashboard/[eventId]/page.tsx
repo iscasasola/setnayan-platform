@@ -94,6 +94,7 @@ import { demoScopeFor } from '@/lib/demo-scope';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { ReadyForNoSignal, type ReadyRow } from '@/app/_components/offline-ready/ready-for-no-signal';
+import { NeedsInternetGuard } from '@/app/_components/offline-ready/needs-internet-guard';
 import { formatCount } from '@/lib/format-number';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
@@ -1447,6 +1448,8 @@ export default async function EventHomePage({
        line, the Budget tile and payment rows carry `data-money` and every peso
        figure is masked (lib/last-seen). A refused guest read is not kept. */
     <LastSeenCapture page="home" fresh={guestsMeasured}>
+      {/* 📶 R15 — with no signal, the Maker's doors (Home's cards and the menu row) grey out and say "Needs internet". */}
+      <NeedsInternetGuard />
       {/* 🧭 The event menu's first-visit tour (Stage D, owner 2026-09-29) —
           the five places, once, on Home; waits for the couple welcome. */}
       <MiniTour tourKey="customer_event_menu_v1" storeShell={storeShell} after="couple_welcome_v1" />

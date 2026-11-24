@@ -86,7 +86,7 @@ export function FaceTaggingRow({
               Retake selfie
             </button>
           ) : null}
-          <form action={turnOff} className="flex-1">
+          <form data-needs-internet="" action={turnOff} className="flex-1">
             <button type="submit" className="min-h-11 w-full rounded-full bg-ink/[0.06] px-4 text-sm font-medium text-ink">
               Turn off
             </button>

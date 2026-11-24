@@ -49,6 +49,7 @@ unreadable	orders	app/vendor-dashboard/subscription/photo-challenge-actions.ts	2
 unreadable	orders	app/vendor-dashboard/subscription/specialized-tools-purchase.ts	1
 unreadable	orders	app/vendor-dashboard/subscription/ultra-addon-actions.ts	1
 unreadable	orders	app/vendor-dashboard/team/actions.ts	1
+unreadable	orders	lib/event-services-orders.ts	1
 unreadable	orders	lib/iap/fulfil.server.ts	1
 unreadable	orders	lib/onboarding-services-orders.ts	1
 unreadable	users	app/dashboard/(account)/profile/actions.ts	2
@@ -113,6 +114,7 @@ waits	orders	app/vendor-dashboard/subscription/specialized-tools-purchase.ts	1
 waits	orders	app/vendor-dashboard/subscription/ultra-addon-actions.ts	1
 waits	orders	app/vendor-dashboard/team/actions.ts	1
 waits	orders	lib/booking-fee-lock.server.ts	2
+waits	orders	lib/event-services-orders.ts	1
 waits	orders	lib/iap/fulfil.server.ts	2
 waits	orders	lib/onboarding-services-orders.ts	1
 waits	orders	lib/one-press-one-order.ts	1

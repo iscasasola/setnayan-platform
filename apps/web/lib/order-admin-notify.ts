@@ -2,7 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitAdminNotice } from '@/lib/notification-emit';
 import { composeFormalName } from '@/lib/formal-name';
-import { ONBOARDING_SERVICES_SKU, readOnboardingOrderItems } from '@/lib/onboarding-order-items';
+import { isBasketOrderKey, readOnboardingOrderItems } from '@/lib/onboarding-order-items';
 import { isVatInclusiveServiceKey, orderGrossOwed } from '@/lib/orders';
 import { fetchPlatformSettings, getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { channelLabel as accountName } from '@/lib/payment-channels';
@@ -386,7 +386,7 @@ async function readAdminOrderAlertFacts(
   let lines: AdminOrderAlertFacts['lines'];
   const codes: string[] = [];
   let basket: Awaited<ReturnType<typeof readOnboardingOrderItems>> = [];
-  if (order.service_key === ONBOARDING_SERVICES_SKU) {
+  if (isBasketOrderKey(order.service_key)) {
     basket = await readOnboardingOrderItems(admin, orderId);
     for (const i of basket) codes.push(i.serviceCode);
   } else if (order.service_key) {
@@ -402,7 +402,7 @@ async function readAdminOrderAlertFacts(
       if (r.service_code && r.title?.trim()) titleFor.set(r.service_code, r.title.trim());
     }
   }
-  if (order.service_key === ONBOARDING_SERVICES_SKU) {
+  if (isBasketOrderKey(order.service_key)) {
     // An empty basket is a failed read or a broken order — either way, said.
     lines =
       basket.length === 0

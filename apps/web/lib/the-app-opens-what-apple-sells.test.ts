@@ -337,7 +337,8 @@ test('3 · the Papic card reads the gate once, and every web-only offer on it as
   }
   // The card's Add more: Apple's sheet where Apple sells, none in the bare store shell, the web's sheet elsewhere.
   // (The bare store shell never reaches the branch: the card is not drawn there — the line below.)
-  assert.match(src, /const cardBuy = iap\.iap \? \(\s*<IapPapicSheet\b[\s\S]{0,120}?\) : \(\s*<PapicBuySheet\b/, 'the card’s Add more is not Apple’s sheet in the app');
+  // 🛒 2026-11-23: the web's Add more is a door to Event services (photo sizes open), never a web checkout in the app.
+  assert.match(src, /const cardBuy = iap\.iap \? \(\s*<IapPapicSheet\b[\s\S]{0,120}?\) : \([\s\S]{0,200}?<ActionButton\b[\s\S]{0,160}?routes\.dashboard\.eventServices\(eventId, 'photos'\)/, 'the card’s Add more is not Apple’s sheet in the app');
   // The card is drawn in the app only where Apple sells (the page opened only there, `IAP_OPENED_ROUTE`) — the couple's.
   assert.match(src, /const papicCardShown = !iap\.storeShell \|\| iap\.iap;/, 'the card reaches the bare store shell');
   assert.match(src, /const host = membershipRes\.data\?\.member_type === 'couple';/, 'the card is no longer the couple’s');
@@ -466,7 +467,8 @@ const DOORS: Array<[file: string, gate: RegExp[]]> = [
       /if \(appleIap && paywallOn && !appleSells\) redirect\(`\/dashboard\/\$\{eventId\}`\);/,
       /price=\{pricePhp != null && !appleIap \? priceLabel : undefined\}/,
       /appleProduct && showBuy \? \(\s*<IapUnlockSheet\b/,
-      /const settings = showBuy && !appleIap \?/,
+      // 🛒 2026-11-23: the web's Unlock is a door to Event services (Setnayan AI ticked), past Apple's branch above.
+      /\) : pricePhp != null \? \(\s*<ActionButton\b[\s\S]{0,200}?routes\.dashboard\.eventServices\(eventId, 'ai'\)/,
     ],
   ],
   [`${STUDIO}/pakanta/page.tsx`, [/const appleIap = \(await getIapGate\(\)\)\.iap;/, /const skuRecord = appleIap \? null :/]],

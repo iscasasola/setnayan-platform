@@ -6,7 +6,6 @@ import { ArrowLeft, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku } from '@/lib/entitlements';
 import { setnayanAiOffered, isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
@@ -14,7 +13,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   resolveSetnayanAiPaywallEnabled,
 } from '@/lib/integration-config';
-import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { ActionButton } from '@/components/action-button';
+import { routes } from '@/lib/routes';
 import { loadAiActivity } from '@/lib/setnayan-ai-activity';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { SetnayanAiValue } from './_components/setnayan-ai-value';
@@ -167,7 +167,6 @@ export default async function SetnayanAiPage({ params }: Props) {
   const offered = setnayanAiOffered(await readEventNeedsFor(supabase, eventId, 'SetnayanAiStudio'));
   const notOffered = !offered && !owns;
 
-  // Only the BUY branch needs the BDO/GCash settings · fetch lazily there.
   const showBuy = !active && !owns && paywallOn && !notOffered;
 
   /* 🍎 THE iPHONE APP, WHERE APPLE SELLS (`getIapGate().iap`; owner 2026-10-23, "five more Apple products"). The page
@@ -186,7 +185,6 @@ export default async function SetnayanAiPage({ params }: Props) {
   // Paid Sai (paywall on) is shown in the app — bought, owned or for sale — only where Apple sells this event's tier
   // (3.1.3(b)); a free Sai (paywall off) is planning and stays.
   if (appleIap && paywallOn && !appleSells) redirect(`/dashboard/${eventId}`);
-  const settings = showBuy && !appleIap ? await fetchPlatformSettings(supabase) : null;
 
   return (
     <section className="space-y-6">
@@ -291,15 +289,15 @@ export default async function SetnayanAiPage({ params }: Props) {
                   triggerTestId="iap-setnayan-ai-unlock"
                   triggerClassName="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90 disabled:opacity-70"
                 />
-              ) : pricePhp != null && settings ? (
-                <InlineCheckoutDrawer
-                  eventId={eventId}
-                  serviceKey={SKU_CODE}
-                  displayName={`Setnayan AI${event.display_name ? ` · ${event.display_name}` : ''}`}
-                  originalPriceCentavos={String(Math.round(pricePhp * 100))}
-                  settings={settings}
-                  triggerLabel="Unlock Setnayan AI"
-                  triggerClassName="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90 disabled:opacity-70"
+              ) : pricePhp != null ? (
+                // 🛒 One place to buy (owner 2026-11-23): Unlock opens Event services with Setnayan AI ticked — one cart,
+                // one order, the shipped pay page. The price there is the same authority's (`resolveOrderChargeCentavos`).
+                <ActionButton
+                  tone="brand"
+                  main
+                  icon={<Sparkles aria-hidden strokeWidth={1.9} />}
+                  label="Unlock Setnayan AI"
+                  href={routes.dashboard.eventServices(eventId, 'ai')}
                 />
               ) : (
                 <p className="inline-flex items-center gap-2 text-sm text-ink/70">

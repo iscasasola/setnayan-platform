@@ -1,9 +1,11 @@
 /**
  * desktop-readiness-gate-is-disclosed.test.ts
  *
- * S10's readiness gate — "Works on an Apple-silicon Mac on macOS 14 or later
- * with the Safari 26 update, or Windows 10/11 with hardware video encoding.
- * Older machines: use OBS instead." — has to say the same thing everywhere it
+ * S10's readiness gate — "Streaming Live Watch from this computer needs an
+ * Apple-silicon Mac on macOS 14 or later with the Safari 26 update, or Windows
+ * 10/11 with hardware video encoding. Older computers can stream with OBS
+ * instead." (owner 24 Nov: worded as a Live Watch requirement, so a host who
+ * only plans never reads it as "my Mac may not work") — has to say the same thing everywhere it
  * appears, and it has to actually APPEAR everywhere someone deciding whether to
  * download or wire up the encoder would look: `/download` (before the click)
  * and the `encoderNotice`/readiness surface (`BroadcastReadiness`, after
@@ -34,6 +36,7 @@ const DOWNLOAD_PAGE = 'app/(shell)/download/page.tsx';
 const READINESS_SURFACE = 'app/_components/live-studio/broadcast-readiness.tsx';
 
 test('⭐ the sentence itself names both floors and the fallback', () => {
+  assert.match(DESKTOP_ENCODER_READINESS_NOTICE, /^Streaming Live Watch\b/, 'must lead with Live Watch streaming — a planning host must not read it as a rule for the whole app');
   assert.match(DESKTOP_ENCODER_READINESS_NOTICE, /macOS 14/, 'must name the macOS floor');
   assert.match(DESKTOP_ENCODER_READINESS_NOTICE, /Safari 26/, 'must name the WebKit floor S0 measured');
   assert.match(DESKTOP_ENCODER_READINESS_NOTICE, /Windows 10\/11/, 'must name the Windows floor');

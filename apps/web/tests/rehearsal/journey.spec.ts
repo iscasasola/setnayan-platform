@@ -304,20 +304,21 @@ test('the launch-critical journey', async ({ browser }) => {
     // Opened again on its own, so this row of the request table is the Home's
     // cost and nothing else's (the row above also holds the sign-in).
     await host.reload();
-    const home = host.locator('section[aria-label="Home"]:visible').first();
+    // The Home's first screen ("Today", home-first-screen.tsx — the v5 drawing).
+    const home = host.locator('section[data-home-first-screen]:visible').first();
     await expect(home).toBeVisible();
     await expect(host.locator('[data-home-cover] h1').first()).toContainText(FIXTURE.eventName);
     check(`the event is "${FIXTURE.eventName}"`);
     await expect(host.locator('[data-home-guests-unread]')).toHaveCount(0);
     // The Guests widget's "coming" figure (owner-approved 2026-10-24: one Guests widget — the phone's tile face, the
     // md+ card's figure; whichever this width draws).
-    const coming = host.locator('[data-count="home-guests-coming"]:visible').first();
+    const coming = host.locator('[data-count^="home-guests-coming"]:visible').first();
     await expect(coming).toBeVisible();
     comingBefore = await settledNumber(coming);
     // The seed made this many say yes; the couple's own two rows may count too.
-    expect(comingBefore).toBeGreaterThanOrEqual(FIXTURE.attendingAtStart);
-    expect(comingBefore).toBeLessThanOrEqual(FIXTURE.attendingAtStart + 2);
-    check(`the "coming" tile reads ${comingBefore} (the fixture has ${FIXTURE.attendingAtStart} guests who said yes)`);
+    expect(comingBefore).toBeGreaterThanOrEqual(FIXTURE.comingAtStart);
+    expect(comingBefore).toBeLessThanOrEqual(FIXTURE.comingAtStart + 2);
+    check(`the "coming" tile reads ${comingBefore} (the fixture has ${FIXTURE.comingAtStart} guests who said yes)`);
     await expect(host.getByRole('link', { name: 'Event Hub', exact: true }).first()).toBeVisible();
     check('the Event Hub door is on the Home');
   });
@@ -476,7 +477,7 @@ test('the launch-critical journey', async ({ browser }) => {
     await expect(row).toContainText('Attending');
     check(`${invited.fullName} is marked Attending in the guest list`);
     await host.goto(`${BASE}${eventUrl}`);
-    await expect(host.locator('[data-count="home-guests-coming"]:visible').first()).toContainText(String(comingBefore + 1), { timeout: 20_000 });
+    await expect(host.locator('[data-count^="home-guests-coming"]:visible').first()).toContainText(String(comingBefore + 1), { timeout: 20_000 });
     check(`the Home's "coming" count went ${comingBefore} → ${comingBefore + 1}`);
   }, ['A · Host']);
 
@@ -485,9 +486,9 @@ test('the launch-critical journey', async ({ browser }) => {
   await walk.step('E · Left open', `The host's Home, left open for ${IDLE_SECONDS} seconds`, () => host, async (check) => {
     // The step above ended on the Home and waited for it to go quiet. Nothing
     // is pressed here: whatever is counted now, the app asked on its own.
-    await expect(host.locator('section[aria-label="Home"]:visible').first()).toBeVisible();
+    await expect(host.locator('section[data-home-first-screen]:visible').first()).toBeVisible();
     await host.waitForTimeout(IDLE_SECONDS * 1000);
-    await expect(host.locator('section[aria-label="Home"]:visible').first()).toBeVisible();
+    await expect(host.locator('section[data-home-first-screen]:visible').first()).toBeVisible();
     const { stepDb } = await counted();
     check(`nothing was pressed for ${IDLE_SECONDS} s — the app made ${stepDb < 0 ? 'an unread number of' : stepDb} database requests on its own`);
   }, ['A · Host', 'C · Guests']);

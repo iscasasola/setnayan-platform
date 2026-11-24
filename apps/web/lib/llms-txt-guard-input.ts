@@ -84,6 +84,9 @@ export const RETAIL: RetailRow[] = [
   // 🏛 Owner 20 Nov 2026 (`Pricing.md` §1.1): Event Pro ₱5,690 → ₱5,490 (migration 20271356433378, guarded on 5,690).
   { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', retail_price_php: 5490, is_active: true },
   { service_code: 'EVENT_PLUS', title: 'Event Plus', retail_price_php: 2990, is_active: true },
+  // 🛒 The Event Hub single, NEW 2026-11-23 (DECISION_LOG "EVENT PLANS ARE PACKAGES": "Event Hub unlock 2790"). Mirrors
+  // migration 20271359355225's own INSERT; the db guard compares it to the replay.
+  { service_code: 'EVENT_HUB', title: 'Event Hub', retail_price_php: 2790, is_active: true },
   // Mirrors migration 20271344860040_event_ultra_plan (the row's own INSERT); the db guard compares it to the replay.
   { service_code: 'EVENT_ULTRA', title: 'Event Ultra', retail_price_php: 9990, is_active: true },
   // 💎 Event Pro, part by part (owner 2026-10-22) — migration 20271282742262 seeds these; OFF SALE since 2026-10-26

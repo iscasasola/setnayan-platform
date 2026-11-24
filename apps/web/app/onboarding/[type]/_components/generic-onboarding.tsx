@@ -317,6 +317,9 @@ export function GenericOnboarding(props: Props) {
    * Not persisted in the draft, for the same reason as `honoreeDependentId`.
    */
   const [carriedLink, setCarriedLink] = useState<HonoreeCarry | null>(null);
+  // ⚖ "For · You" carried from the grid for a type that asks no celebrant (owner 2026-11-23: the answer is KEPT on
+  // the event, because only a For-you event may have its booking fee waived). A ref, not state: it draws nothing.
+  const carriedForSelf = useRef(false);
   // Arrived from the reader's OWN moment on /dashboard/year (their birthday off
   // their own profile). Blank honoree has always meant "the account holder", so
   // there is nothing to prefill — only a question to stop asking as if we did
@@ -569,6 +572,7 @@ export function GenericOnboarding(props: Props) {
     } else {
       const carried = takeHonoree();
       if (carried?.dependentId) setCarriedLink(carried);
+      if (carried?.forSelf) carriedForSelf.current = true;
     }
     // Started from a row on /dashboard/year: that row was DERIVED from facts
     // this account already holds, so the day it falls on and "this one is mine"
@@ -1064,6 +1068,19 @@ export function GenericOnboarding(props: Props) {
       displayName: displayName.trim() || `Our ${eventWord || 'Event'}`,
       honoreeLabel: asksHonoree ? honoree.trim() || null : carriedLink?.name ?? null,
       honoreeDependentId: asksHonoree ? honoreeDependentId : carriedLink?.dependentId ?? null,
+      // ⚖ Who it is for (owner 2026-11-23). For you = the account holder's own blank slot; a typed name is someone
+      // else (or the business); a blank that was never "For you" is not recorded, and pays. The server re-checks.
+      forWhom: asksHonoree
+        ? momentForSelf && !honoree.trim()
+          ? 'self'
+          : honoree.trim()
+            ? businessHonoree ? 'business' : 'someone'
+            : null
+        : carriedLink
+          ? 'someone'
+          : carriedForSelf.current
+            ? 'self'
+            : null,
       anchorDate: isAnniversary ? anchorDate || null : null,
       anchorOrigin: isAnniversary ? anchorOrigin : null,
       // Anniversary and birthday return every year by nature; the toggle types

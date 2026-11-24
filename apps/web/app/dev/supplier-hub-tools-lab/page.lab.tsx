@@ -15,6 +15,8 @@
  *                  (checklists) · Fittings · Looks · Crew roster · Room list (per-person) · Chair schedule ·
  *                  Reservation slots · Brackets & scoring (ordered lists, ▲ ▼; Brackets keeps a score)
  *   ?s=rest-empty  the same ten, nothing added yet · ?s=rest-unread  the same ten, every read failed
+ *   ?s=timelines   the free rest · part 2 (24 Nov): the seven live timelines (NOW row, Next ›, Back) and the
+ *                  Wellness plan (dated sessions) · ?s=timelines-empty · ?s=timelines-unread
  */
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -42,6 +44,9 @@ const STATES: Record<string, { label: string; tools: LabState; attending: number
   rest: { label: 'The free rest · part 1 — ten more tools (checklists, per-person, ordered lists)', tools: 'rest', attending: ATTENDING },
   'rest-empty': { label: 'The ten more tools · nothing added yet', tools: 'rest-empty', attending: ATTENDING },
   'rest-unread': { label: 'The ten more tools · every read failed', tools: 'rest-unread', attending: ATTENDING },
+  timelines: { label: 'The free rest · part 2 — seven live timelines and the Wellness plan', tools: 'timelines', attending: ATTENDING },
+  'timelines-empty': { label: 'The timelines · nothing added yet', tools: 'timelines-empty', attending: ATTENDING },
+  'timelines-unread': { label: 'The timelines · every read failed', tools: 'timelines-unread', attending: ATTENDING },
 };
 
 const FRAME = buildDayOfFrame({

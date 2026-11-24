@@ -43,7 +43,10 @@ const LAB_GIFTS: SupplierFrontGifts = {
 };
 const UNREAD_GIFTS: SupplierFrontGifts = { packs: null, bundles: null, credits: { plusCredits: null, proCredits: null } };
 
-export default async function ForSuppliersLabPage({ searchParams }: { searchParams: Promise<{ gifts?: string; fee?: string }> }) {
+/** A sample count of the admin's starting card templates — the lab's stand-in for `readCardTemplateCount`. */
+const LAB_CARD_TEMPLATES = 320;
+
+export default async function ForSuppliersLabPage({ searchParams }: { searchParams: Promise<{ gifts?: string; fee?: string; toolkit?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
   return (
@@ -54,6 +57,8 @@ export default async function ForSuppliersLabPage({ searchParams }: { searchPara
         fee={{ schedule: q.fee === 'unread' ? null : BOOKING_FEE, enabled: true }}
         gifts={q.gifts === 'unread' ? UNREAD_GIFTS : LAB_GIFTS}
         paywallOn={false}
+        // a lab's sample template count (the route reads the live one); `?toolkit=unread` draws the no-number line
+        cardTemplates={q.toolkit === 'unread' ? null : LAB_CARD_TEMPLATES}
       />
     </main>
   );

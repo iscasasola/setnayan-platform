@@ -23,6 +23,7 @@ import { loginErrorFromParam } from '@/lib/human-auth-error';
 import { LINK_EXPIRED_VALUE } from '@/lib/auth-confirm-link';
 import { eventSlugFromNext } from '@/lib/sign-in-for-a-guest';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { doorLandingHref, doorOpenShopHref, parseDoor, type Door } from '@/lib/doors';
 
 export type LoginSearchParams = {
   error?: string;
@@ -40,6 +41,8 @@ export type LoginSearchParams = {
   provider?: string;
   /** W1-B24 — `link=expired`: an email link that can no longer finish (expired, spent, or opened on another device). */
   link?: string;
+  /** 🚪 `door=supplier|coordinator` — the card opened from a business door (lib/doors.ts). */
+  door?: string;
 };
 
 export type LoginView = {
@@ -59,6 +62,8 @@ export type LoginView = {
   forGuest: boolean;
   /** W1-B24 — the card leads with "That link has expired…" and a "Send a new link" button. */
   linkExpired: boolean;
+  /** 🚪 The business door the card opened from: its words, its ✕, its landing, its "Create one, free". */
+  door: Door | null;
 };
 
 /**
@@ -95,14 +100,20 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
     : null;
   const readyEmail = params.ready ? decodeURIComponent(params.ready) : null;
   const prefilledEmail = readyEmail ?? '';
+  // 🚪 FROM A BUSINESS DOOR (`/login?door=X`, lib/doors.ts): a sign-in that names nowhere of its own lands through
+  // the door (`/auth/door`, which asks `landingForAccount` with the door) — the door rides `next`, so the password,
+  // Google / Apple, the magic link and the any-device email link all carry it unchanged. "Create one, free" is the shop
+  // set-up on the same account (Coordination already picked on the coordinator door), never the couple sign-up.
+  const door = parseDoor(params.door);
   const next = safeNext(params.next);
+  const landsAt = door && next === '/' ? doorLandingHref(door) : next;
   // Carry both the return destination and the (whitelisted) account-type hint
   // onto the signup link so a login-first vendor CTA doesn't lose vendor intent.
   const signupParams = new URLSearchParams();
-  if (next !== '/') signupParams.set('next', next);
+  if (landsAt !== '/') signupParams.set('next', landsAt);
   if (params.as === 'vendor') signupParams.set('as', 'vendor');
   const signupQuery = signupParams.toString();
-  const signupHref = `/signup${signupQuery ? `?${signupQuery}` : ''}`;
+  const signupHref = door ? doorOpenShopHref(door) : `/signup${signupQuery ? `?${signupQuery}` : ''}`;
 
   // OAuth visibility by shell (lib/oauth-shell-gate.ts). Desktop renders the
   // loopback variant; the phone app the native variant (only in a build that
@@ -115,16 +126,18 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
 
   return {
     linkExpired: params.link === LINK_EXPIRED_VALUE,
+    door,
     errorMessage,
     provider,
     justSignedUpEmail,
     readyEmail,
     prefilledEmail,
-    next,
+    next: landsAt,
     signupHref,
     showOAuth,
     desktopOAuth,
     nativeOAuth,
-    forGuest,
+    // A door's card speaks to a business, never to a guest.
+    forGuest: forGuest && !door,
   };
 }

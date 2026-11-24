@@ -411,8 +411,11 @@ test('5ae3fbb2 · the live count, from the ONE Toolkit list — unique items, ga
   const screens = readFileSync(join(WEB, 'app/vendor-dashboard/shop/store/_components/store-screens.tsx'), 'utf8');
   assert.match(screens, /toolkitCountWords\(toolkitCounts\(listFacts\(d\)\)\)/);
   assert.match(screens, /const items = toolkitItems\(listFacts\(d\)\);\n  const shelves = visibleShelves\(items\);/, 'the front does not draw its shelves from the one list');
+  // /for-suppliers (the 23 Nov redesign, v4.3.1) draws the count as its Toolkit shelves; the shelves read the one list.
+  const frontData = readFileSync(join(WEB, 'app/for-suppliers/_components/supplier-front-data.ts'), 'utf8');
+  assert.match(frontData, /const counts = toolkitCounts\(\{ papicCapture, badges: SHOP_BADGE_KEYS \}\);/);
   const front = readFileSync(join(WEB, 'app/for-suppliers/_components/supplier-front-page.tsx'), 'utf8');
-  assert.match(front, /toolkitCountWords\(toolkitCounts\(\{ papicCapture, badges: SHOP_BADGE_KEYS \}\)\)/);
+  assert.match(front, /const shelves = toolkitShelves\(papicCapture\);/);
 });
 
 test('v19 PR 2 · a shelf with no real item is hidden: the three Forms shelves today; never a sample item', () => {

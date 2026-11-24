@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { SHOP_BADGE_KEYS } from './badge-tiers';
+import { SHELF_BADGE_KEYS } from './shop-badge-shelf';
 import { formatCount } from './format-number';
 import { toolkitCounts } from './supplier-store';
 import { PRINT_DESIGNS, PRINT_PIECES } from './supplier-prints';
@@ -16,7 +16,7 @@ import { AVAILABILITY_STYLES, CARD_STYLES_COMING_SOON } from './availability-sty
  * The count is never typed. `toolkitTotal` adds up what the app ships, each item ONCE:
  *   · the Toolkit's own list, counted by its one reader (`toolkitCounts`, lib/supplier-store.ts) as a shop sees it
  *     with the Papic camera's switch OFF: the widgets, the payment-plan and availability templates, the QR designs,
- *     the graphs and the badges;
+ *     the graphs and the badges (the shelf's one list, `SHELF_BADGE_KEYS`: Verified + the five, as the Toolkit counts);
  *   · the starting "What's included" card templates the admin keeps (`service_included_templates`, read live by
  *     `readCardTemplateCount`, so a template the admin adds moves the count);
  *   · the shipped `HUB_TOOL_LIBRARY` tools that are not a widget (a hub tool that IS a widget, by `hubKeys`, counts
@@ -35,7 +35,7 @@ export const TOOLKIT_CLAIM_FLOOR = 390;
 
 /** Everything the code ships, by part — the card templates are the one part read from the database. */
 export function toolkitCodeParts() {
-  const kit = toolkitCounts({ papicCapture: false, badges: SHOP_BADGE_KEYS });
+  const kit = toolkitCounts({ papicCapture: false, badges: SHELF_BADGE_KEYS });
   const widgetKeys = new Set<string>();
   for (const t of SPECIALIZED_TOOLS) {
     widgetKeys.add(t.key);

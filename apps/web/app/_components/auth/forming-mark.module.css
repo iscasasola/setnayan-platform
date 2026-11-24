@@ -1,0 +1,110 @@
+/*
+ * The forming mark (`forming-mark.tsx`) — the approved drawing's `.mark` CSS, on the house motion tokens
+ * (`--sn-m-rise` 700 ms, `--sn-m-settle`). Each animation fills `backwards` only: its START state is held through any
+ * delay, and its END state is the element's own resting style, so the finished mark is what every element rests as —
+ * and what reduced motion shows at once.
+ *
+ * The timeline (one Rise for the round, one Rise for the inside):
+ *   0 → rise      the four arcs (`.ring`) circle one round and grow to length; the filled mark is hidden.
+ *   rise          the arcs stop exactly as the ring and the filled mark shows in their place (visibility, never
+ *                 opacity — nothing fades); the disc in the mask still holds the inside back.
+ *   rise → 2·rise the disc shrinks to nothing, so every inner line grows inward together and ends at the same moment.
+ * SVG elements transform about the viewBox (`transform-box: view-box`), so the origin is the mark's centre in its own units.
+ */
+.mark {
+  display: block;
+  width: 32px;
+  height: 32px;
+  margin: 0 auto 12px;
+}
+
+.fill path {
+  fill: var(--sn-mark-gold);
+}
+
+/* The arcs: hidden at rest — the filled mark's ring is exactly where they stop. */
+.ring {
+  visibility: hidden;
+  transform-box: view-box;
+  transform-origin: 2666.67px 2666.67px;
+}
+.ring circle {
+  fill: none;
+  stroke: var(--sn-mark-gold);
+  stroke-width: 470;
+  stroke-linecap: butt;
+  stroke-dasharray: 78.4 281.6;
+}
+/* Each arc stops as one quarter of the ring (pathLength 360). */
+.a1 {
+  stroke-dashoffset: -95.8;
+}
+.a2 {
+  stroke-dashoffset: -275.8;
+}
+.a3 {
+  stroke-dashoffset: -5.8;
+}
+.a4 {
+  stroke-dashoffset: -185.8;
+}
+
+/* The disc that holds the inside back: gone at rest (the finished mark). */
+.inside {
+  transform-box: view-box;
+  transform-origin: 2666.67px 2666.67px;
+  transform: scale(0);
+}
+
+.ring {
+  animation: sn-fm-circle var(--sn-m-rise) var(--sn-m-settle) backwards;
+}
+.ring circle {
+  animation: sn-fm-grow var(--sn-m-rise) var(--sn-m-settle) backwards;
+}
+/* Hidden for one Rise (while the arcs circle), then the resting style shows it: no raw duration, no fade. */
+.fill {
+  animation: sn-fm-show var(--sn-m-rise) step-end backwards;
+}
+.inside {
+  animation: sn-fm-inward var(--sn-m-rise) var(--sn-m-settle) var(--sn-m-rise) backwards;
+}
+
+@keyframes sn-fm-circle {
+  from {
+    visibility: visible;
+    transform: rotate(-360deg);
+  }
+  to {
+    visibility: visible;
+    transform: rotate(0deg);
+  }
+}
+@keyframes sn-fm-grow {
+  from {
+    stroke-dasharray: 12 348;
+  }
+}
+@keyframes sn-fm-show {
+  from,
+  to {
+    visibility: hidden;
+  }
+}
+@keyframes sn-fm-inward {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring,
+  .ring circle,
+  .fill,
+  .inside {
+    animation: none;
+  }
+}

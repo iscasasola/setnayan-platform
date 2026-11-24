@@ -24,9 +24,10 @@ export function eventSlugFromNext(next: string | null | undefined): string | nul
   return slug.toLowerCase();
 }
 
-/** The guest's words on the sign-in card — no "Welcome back", no "couples and vendors". */
+/**
+ * The guest's words on the sign-in card — no "Welcome back", no "couples and vendors". Its own title only: the eyebrow
+ * and the sentence went with every card's (owner 24 Nov 2026, "too many texts we want it simple").
+ */
 export const GUEST_SIGN_IN_WORDS = {
-  eyebrow: 'Your invitation',
   title: 'Sign in to open it.',
-  sub: 'Use the email on your Setnayan account.',
 } as const;

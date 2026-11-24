@@ -6,16 +6,11 @@
  */
 import type { Door } from './doors';
 
-/** The sign-in card's words on a door — the heading slot only; the card itself is the one card. */
-export const DOOR_SIGN_IN_WORDS: Record<Door, { eyebrow: string; title: string; sub: string }> = {
-  supplier: {
-    eyebrow: 'For suppliers',
-    title: 'Sign in to your shop.',
-    sub: 'Your business account. Pick up right where you left off.',
-  },
-  coordinator: {
-    eyebrow: 'For coordinators',
-    title: 'Sign in to your business.',
-    sub: 'Your business account. Pick up right where you left off.',
-  },
+/**
+ * The sign-in card's words on a door — the heading slot only; the card itself is the one card. Its title only: the
+ * simple sign-in card (owner 24 Nov 2026) draws no eyebrow and no sentence, the same as the guest's words.
+ */
+export const DOOR_SIGN_IN_WORDS: Record<Door, { title: string }> = {
+  supplier: { title: 'Sign in to your shop.' },
+  coordinator: { title: 'Sign in to your business.' },
 };

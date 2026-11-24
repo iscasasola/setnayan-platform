@@ -8,6 +8,11 @@ import { grantFounderSeat, revokeFounderSeat } from './actions';
 import { formatCount } from '@/lib/format-number';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ReadFailed } from '../_components/read-failed';
+import { PostedFieldRow } from '../_components/posted-field-row';
+import { ADMIN_FRAME } from '../_components/admin-frame';
+import { FormRows } from '@/app/_components/form-row';
+import { TEMPLATE_SUBLINE, TemplateRow, TemplateRows, TemplateSection } from '@/app/_components/template-rows';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = { title: 'Founder seats · Admin' };
 export const dynamic = 'force-dynamic';
@@ -67,110 +72,92 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
   const bySeat = new Map(seats.map((s) => [s.seat_no, s]));
   const openSeats = FOUNDER_SEAT_CAP - seats.length;
 
+  // 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): the pinned row names the page; the sentence
+  // about what a seat gives moved behind the ⓘ; the grant form is Form rows in one frame; each seat is ONE row with
+  // ONE action (Revoke). Same reads, same two server actions, same posted names (`email`, `label`, `seat_no`).
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
-      {/* The page starts at its content.
-          ⚖ The sentence survives: granting one of these gives an account every
-          paid feature for good, and the last line — vendors are still paid
-          directly, like by any client — is the part that stops somebody
-          thinking a seat is Setnayan covering a supplier's fee. */}
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       <PageMasthead title="Founder seats" />
-      <div className="mb-6">
-        <p className="text-sm text-ink/70">
-          {/* The "token-free vendor inquiries" clause was removed 2026-09-08:
-              answering became free for EVERY vendor when the inbox was ungated
-              (owner 2026-07-24) and token packs were retired, so it stopped
-              being something a seat confers. The comp row is still written for
-              the audit trail; it simply comps nothing. Listing it here told an
-              admin a seat buys something it no longer buys. */}
-          Up to {FOUNDER_SEAT_CAP} owner-granted founder accounts. A seat means every
-          in-app feature is already paid for, and suppliers see the server-asserted
-          “Setnayan Founder” badge. Suppliers are still paid directly, like by any
-          client.
-        </p>
-      </div>
 
       {errorMsg ? <FormFlash tone="error">{errorMsg}</FormFlash> : null}
       {savedMsg ? <FormFlash tone="success">{savedMsg}</FormFlash> : null}
 
-      <section className="sn-row mb-6 p-4">
-        <h2 className="mb-3 text-sm font-semibold text-ink">
-          Grant a seat{' '}
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-            {/* A refused read never prints a blank or a guessed count (AW-7). */}
-            {seatsUnread
-              ? `Couldn’t count the open seats — ${formatCount(FOUNDER_SEAT_CAP)} in all`
-              : `${formatCount(openSeats)} of ${formatCount(FOUNDER_SEAT_CAP)} open`}
-          </span>
-        </h2>
-        <form action={grantFounderSeat} className="flex flex-wrap items-end gap-3">
-          <label className="flex min-w-56 flex-1 flex-col gap-1 text-xs font-medium text-ink/70">
-            Account email
-            <input
-              autoComplete="off"
-              type="email"
-              name="email"
-              required
-              placeholder="name@example.com"
-              className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
-            />
-          </label>
-          <label className="flex min-w-40 flex-col gap-1 text-xs font-medium text-ink/70">
-            Label (optional)
-            <input
-              type="text"
-              name="label"
-              placeholder="e.g. Cale"
-              className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
-            />
-          </label>
-          <SubmitButton pendingLabel="Granting…">Grant seat</SubmitButton>
+      <TemplateSection
+        label="Grant a seat"
+        first
+        data="grant"
+        /* ⚖ The sentence survives, behind the ⓘ: granting one of these gives an account every paid feature for good,
+           and the last line — suppliers are still paid directly, like by any client — is the part that stops somebody
+           thinking a seat is Setnayan covering a supplier's fee. (The "token-free vendor inquiries" clause was removed
+           2026-09-08: answering became free for EVERY vendor when the inbox was ungated and token packs retired.) */
+        tip={
+          <>
+            Up to {FOUNDER_SEAT_CAP} owner-granted founder accounts. A seat means every
+            in-app feature is already paid for, and suppliers see the server-asserted
+            “Setnayan Founder” badge. Suppliers are still paid directly, like by any
+            client.
+          </>
+        }
+        right={
+          /* A refused read never prints a blank or a guessed count (AW-7). */
+          seatsUnread
+            ? `Couldn’t count the open seats — ${formatCount(FOUNDER_SEAT_CAP)} in all`
+            : `${formatCount(openSeats)} of ${formatCount(FOUNDER_SEAT_CAP)} open`
+        }
+      >
+        <form action={grantFounderSeat} className={`${ADMIN_FRAME} px-4 py-2`}>
+          <FormRows width="wide">
+            <PostedFieldRow name="Account email" fieldName="email" empty="name@example.com" />
+            <PostedFieldRow name="Label (optional)" fieldName="label" empty="e.g. Cale" />
+          </FormRows>
+          <div className="flex justify-end pb-2 pt-1">
+            <SubmitButton pendingLabel="Granting…" className={actionButtonClass('brand', { main: true })}>
+              Grant seat
+            </SubmitButton>
+          </div>
         </form>
-      </section>
+      </TemplateSection>
 
-      {seatsUnread ? (
-        <ReadFailed what="the founder seats — every seat would look empty, and that is not known" />
-      ) : null}
+      <TemplateSection label="Seats" data="seats">
+        {seatsUnread ? (
+          <ReadFailed what="the founder seats — every seat would look empty, and that is not known" />
+        ) : null}
 
-      <section className="space-y-2">
-        {seatsUnread ? null : Array.from({ length: FOUNDER_SEAT_CAP }, (_, i) => i + 1).map((n) => {
-          const seat = bySeat.get(n);
-          return (
-            <div
-              key={n}
-              className="sn-row flex items-center justify-between gap-3 p-4"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
-                  Seat {n}
-                </span>
-                {seat ? (
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-ink">
-                      {seat.label || seat.users?.email || seat.user_id}
-                      <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-mulberry">
-                        Setnayan Founder
-                      </span>
-                    </p>
-                    <p className="truncate font-mono text-[11px] text-ink/55">
-                      {seat.users?.email ?? seat.user_id} · granted{' '}
-                      {new Date(seat.granted_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-ink/45">Empty — fill later.</p>
-                )}
-              </div>
-              {seat ? (
-                <form action={revokeFounderSeat}>
-                  <input type="hidden" name="seat_no" value={n} />
-                  <SubmitButton pendingLabel="Revoking…">Revoke</SubmitButton>
-                </form>
-              ) : null}
-            </div>
-          );
-        })}
-      </section>
+        {/* The frame is drawn only over a read that worked; the board inside keeps its own refused-read gate (AW-7). */}
+        {!seatsUnread && (
+          <TemplateRows label="Founder seats">
+            {seatsUnread ? null : Array.from({ length: FOUNDER_SEAT_CAP }, (_, i) => i + 1).map((n) => {
+              const seat = bySeat.get(n);
+              return (
+                <TemplateRow
+                  key={n}
+                  data={`seat-${n}`}
+                  lead={<span className={TEMPLATE_SUBLINE}>Seat {n}</span>}
+                  title={seat ? seat.label || seat.users?.email || seat.user_id : <span className="font-normal text-ink/45">Empty — fill later.</span>}
+                  line={
+                    seat ? (
+                      <>
+                        Setnayan Founder · {seat.users?.email ?? seat.user_id} · granted{' '}
+                        {new Date(seat.granted_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })}
+                      </>
+                    ) : undefined
+                  }
+                  right={
+                    seat ? (
+                      <form action={revokeFounderSeat}>
+                        <input type="hidden" name="seat_no" value={n} />
+                        <SubmitButton pendingLabel="Revoking…" className={actionButtonClass('danger')}>
+                          Revoke
+                        </SubmitButton>
+                      </form>
+                    ) : undefined
+                  }
+                />
+              );
+            })}
+          </TemplateRows>
+        )}
+      </TemplateSection>
     </div>
   );
 }

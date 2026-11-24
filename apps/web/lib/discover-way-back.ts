@@ -25,20 +25,23 @@
  * 🔒 lib/discover-way-back.test.ts
  */
 import { HOME_HREF } from './home-segments';
+import { DISCOVER_HREF } from './discover-href';
 
 /** The marker's query key and value: `?via=discover`. Read in the browser only — never by a server render. */
 export const DISCOVER_ARRIVAL_PARAM = 'via';
 export const DISCOVER_ARRIVAL_VALUE = 'discover';
 
+
 /** Where a back from Discover goes when it cannot step back in place: Discover itself. */
-export const DISCOVER_WAY_BACK = { href: '/', label: 'Discover' } as const;
+export const DISCOVER_WAY_BACK = { href: DISCOVER_HREF, label: 'Discover' } as const;
 
 /**
  * "Home" for a page opened cold — nothing of ours behind it (the drawing: *"A page opened cold … shows 'Discover'
  * signed out and 'Home' signed in"*). Home is the account bar's own Home (`HOME_HREF`).
  */
 export function coldWayBack(signedIn: boolean): { href: string; label: string } {
-  return signedIn ? { href: HOME_HREF, label: 'Home' } : { ...DISCOVER_WAY_BACK };
+  // Signed out, the bare `/` IS Discover (nothing forwards a stranger), so the cold door keeps the clean address.
+  return signedIn ? { href: HOME_HREF, label: 'Home' } : { href: '/', label: DISCOVER_WAY_BACK.label };
 }
 
 function splitHref(href: string): { path: string; q: URLSearchParams; hash: string } {

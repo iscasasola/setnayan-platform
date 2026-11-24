@@ -18,6 +18,7 @@ import {
 } from '@/lib/v2-catalog';
 import { ChevronLeft } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VoucherForm, type VoucherFormInitial } from '../../_components/voucher-form';
 import { EligibilitySection, type EligibleRow } from '../../_components/eligibility-section';
@@ -185,8 +186,9 @@ export default async function EditDiscountCodePage({ params }: Props) {
     max_uses: code.max_uses,
   };
 
+  // 📐 ADMIN CLEAN PORT (19 Nov 2026): the booking-fees wrapper; the name stays only in the zero-pixel masthead.
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-[760px] space-y-4 px-4 pb-8 pt-2 sm:px-6">
       <Link
         href="/admin/studio?tab=discount-codes"
         className="inline-flex items-center gap-1 text-sm underline-offset-2 hover:underline"
@@ -205,17 +207,10 @@ export default async function EditDiscountCodePage({ params }: Props) {
       />
 
       {!code.is_active && (
-        <div
-          className="rounded-md border px-4 py-3 text-sm"
-          style={{
-            background: 'var(--m-paper-2)',
-            borderColor: 'var(--m-line)',
-            color: 'var(--m-slate)',
-          }}
-        >
+        <p className={TEMPLATE_SUBLINE}>
           This code is disabled. Re-enable it from the list page before
           editing.
-        </div>
+        </p>
       )}
 
       {/* Eligibility · empty = public anyone-with-code · ≥1 = private locked */}

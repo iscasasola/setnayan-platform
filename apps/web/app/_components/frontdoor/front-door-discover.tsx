@@ -31,6 +31,7 @@ import { DiscoverFollowButton } from './discover-follow-button';
 import { DiscoverEventCard as EventCard } from './discover-event-card';
 import { EmptyShelf } from './empty-shelf';
 import { InfoTip } from '@/app/_components/info-tip';
+import { DISCOVER_HREF } from '@/lib/discover-href';
 
 /** The id the "Find people to follow" invitation scrolls to. Always rendered. */
 export const PEOPLE_TO_FOLLOW_ID = 'people-to-follow';
@@ -93,7 +94,7 @@ export function DiscoverEventShelves({
             <EmptyShelf
               line="We couldn’t check who you follow just now."
               tip="This does not mean nothing is coming up. Try again in a moment."
-              href="/"
+              href={DISCOVER_HREF}
               go="Try again"
             />
           ) : people.items.length === 0 ? (
@@ -131,7 +132,7 @@ export function DiscoverEventShelves({
           <EmptyShelf
             line="We couldn’t load upcoming events just now."
             tip="This does not mean nothing is coming up. Try again in a moment."
-            href="/"
+            href={DISCOVER_HREF}
             go="Try again"
           />
         ) : world.items.length === 0 ? (
@@ -209,7 +210,7 @@ export function PeopleToFollowShelf({ discover }: { discover: DiscoverData }) {
         <EmptyShelf
           line="We couldn’t load people to follow just now."
           tip="This does not mean there is nobody here. Try again in a moment."
-          href="/"
+          href={DISCOVER_HREF}
           go="Try again"
         />
       ) : peopleToFollow.items.length === 0 ? (

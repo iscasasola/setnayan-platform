@@ -33,7 +33,7 @@ import { CreditCard, LogOut } from 'lucide-react';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { FEE_FIRST_SUPPLIER_LINE } from '@/lib/booking-fee-who-words';
 import { SPECIALIZED_TOOLS } from '@/lib/specialized-tools';
-import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
+import { OPEN_SHOP_VERIFIED_HREF, openShopWithPlanHref } from '@/lib/supplier-plan-offer';
 import { formatPhpRounded } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import type { PlanCredits } from '@/lib/event-plans';
@@ -101,11 +101,11 @@ function Still({ still }: { still: FrontStill }) {
   );
 }
 
-function Part({ id, title, lede, children }: { id: string; title: string; lede: string; children: ReactNode }) {
+function Part({ id, title, lede, children }: { id: string; title: string; lede?: string; children: ReactNode }) {
   return (
     <section className={s.part} id={id} aria-labelledby={`sf-h-${id}`}>
       <h2 id={`sf-h-${id}`}>{title}</h2>
-      <p className={s.lede}>{lede}</p>
+      {lede ? <p className={s.lede}>{lede}</p> : null}
       {children}
     </section>
   );
@@ -148,7 +148,7 @@ export function SupplierFrontPage({
     const tools = { ok: step.tools, text: step.tools ? PLAN_PAID_TOOLS_OK : PLAN_PAID_TOOLS_LOCKED };
     const base = { tier: t, name: step.name, keep: step.clients ?? step.role, size: step.sizeLine ?? `${step.size} storage`, share: railShare(t), tools };
     if (!isGrowTier(t)) {
-      return { ...base, price: 'Free', per: null, cta: t === 'free' ? CTA : 'Get verified', href: OPEN_SHOP };
+      return { ...base, price: 'Free', per: null, cta: t === 'free' ? CTA : 'Get verified', href: t === 'free' ? OPEN_SHOP : OPEN_SHOP_VERIFIED_HREF };
     }
     return { ...base, price: growPrice(t), per: PLAN_PERIOD.per, cta: `Start on ${step.name}`, href: openShopWithPlanHref(t) };
   });
@@ -315,8 +315,9 @@ export function SupplierFrontPage({
         </div>
       </Part>
 
-      {/* #tools */}
-      <Part id="tools" title="Tools made for your trade." lede="Most of them free.">
+      {/* #tools: no lede (re-walk 24 Nov 2026, controller call). "Most of them free." sat over the only two tiles, both
+          Paid, so it was false where it stood. What is free is said where it is true: the Toolkit count and its sheet. */}
+      <Part id="tools" title="Tools made for your trade.">
         <div className={`${s.caps} ${s.tiles}`}>
           {tileTools.map((t) => (
             <figure key={t.key} className={s.tile}>

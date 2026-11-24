@@ -108,7 +108,7 @@ async function newCoupleUser(email: string): Promise<string> {
 
 async function newEvent(name: string, coupleUserId?: string): Promise<string> {
   const r = await db.query<{ event_id: string }>(
-    `INSERT INTO public.events (display_name, event_type) VALUES ($1, 'birthday') RETURNING event_id`,
+    `INSERT INTO public.events (for_whom, display_name, event_type) VALUES ('self', $1, 'birthday') RETURNING event_id`,
     [name],
   );
   const eventId = r.rows[0]!.event_id;

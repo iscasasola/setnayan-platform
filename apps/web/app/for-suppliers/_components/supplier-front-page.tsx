@@ -15,7 +15,9 @@
  *   · the fee steps, fee rows and cap line → `feeSteps` / `feeRowWords` on `fee.schedule`, the LIVE schedule;
  *   · the gifts and "from ₱…" → `gifts.packs` (the shop-gift packs on sale, `platform_retail_catalog_v2`), the plans'
  *     included credits, the 10+1 bundle — `giftRows` / `giftFromPrice` / `giftBundleLine`;
- *   · the Toolkit count → `toolkitShelves` (the one Toolkit list, `toolkitCounts`); its tags → `PAID_STORE_TOOLS`;
+ *   · the Toolkit count → `toolkitClaim(toolkitTotal(cardTemplates))` (lib/supplier-toolkit-count.ts: the live card
+ *     templates plus what the code ships, rounded down); its sheet → `toolkitShelves` (the one Toolkit list,
+ *     `toolkitItems`), names only; its tags → `PAID_STORE_TOOLS`;
  *   · the plans → `planStair` (`TIER_CAPS`) and `prices` (`getVendorPrices`, "—" when unread);
  *   · the badges → `BADGE_ROW` (`SHOP_BADGE_KEYS`, `BADGE_NAME`, the v84 art).
  * A part whose read failed says so ("Couldn't read the gifts.") — never ₱0, never empty.
@@ -56,11 +58,11 @@ import {
   giftRows,
   planStair,
   railShare,
-  toolkitCountLine,
   toolkitShelves,
   type FrontStill,
   type GrowTier,
 } from './supplier-front-data';
+import { toolkitClaim, toolkitTotal } from '@/lib/supplier-toolkit-count';
 import { FeeSteps, FrontClip, OpenShopFollow, PlanPicker, ToolkitCount, type PlanCard } from './supplier-front-client';
 import s from './supplier-front.module.css';
 
@@ -117,6 +119,7 @@ export function SupplierFrontPage({
   gifts = { packs: null, bundles: null, credits: { plusCredits: null, proCredits: null } },
   afterPlans,
   papicCapture = false,
+  cardTemplates = null,
 }: {
   prices: SupplierFrontPrices;
   fee: SupplierFrontFee;
@@ -128,6 +131,8 @@ export function SupplierFrontPage({
   afterPlans?: ReactNode;
   /** The Papic camera's privacy switch (`isVendorPapicCaptureEnabled`) — the Toolkit lists it only while on. */
   papicCapture?: boolean;
+  /** The starting card templates the admin keeps (`readCardTemplateCount`) — the one live part of the Toolkit count; null = unread. */
+  cardTemplates?: number | null;
 }) {
   const schedule = fee.enabled ? fee.schedule : null;
   const giftFrom = giftFromPrice(gifts.packs);
@@ -137,9 +142,9 @@ export function SupplierFrontPage({
   const rows = schedule ? feeRowWords(schedule) : null;
   const bundle = giftBundleLine(gifts.packs, gifts.bundles);
 
-  /** The Toolkit's shelves: counts from the one Toolkit list, tags from the paid list (owner a02673ac — no start date). */
+  /** The Toolkit: ONE count, the honest total rounded down (`toolkitClaim`); the sheet names the one Toolkit list's items. */
   const shelves = toolkitShelves(papicCapture);
-  const count = toolkitCountLine(shelves);
+  const claim = toolkitClaim(toolkitTotal(cardTemplates));
 
   /** The plan cards: every fact `planStair` (TIER_CAPS), every price the catalog's, one real door each. */
   const growPrice = (t: GrowTier) => monthlyPlanPrice(prices, t);
@@ -331,7 +336,7 @@ export function SupplierFrontPage({
             </figure>
           ))}
         </div>
-        <ToolkitCount total={count.total} parts={count.parts} shelves={shelves} graphsLine="Every graph is free, in your Analytics." />
+        <ToolkitCount claim={claim} shelves={shelves} />
       </Part>
 
       {/* #gift */}

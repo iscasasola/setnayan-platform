@@ -53,6 +53,9 @@ import type { RailFocus } from './rail-focus';
 import type { RailMatchRow } from './rail-active';
 import { resolveRailAccount } from './rail-data';
 import { discoverOpensHere } from '@/lib/request-platform';
+import { requestDoor } from '@/lib/door-request';
+import { doorSignInHref } from '@/lib/doors';
+import { siteOrigin } from '@/lib/site-origin';
 import { SignedInCluster } from './signed-in-cluster';
 import type { ShellBoundary } from '@/app/_components/shell-boundary';
 
@@ -136,7 +139,7 @@ export async function AppRailShell({
   /** 📌 From 701 the bar is the page's pinned row (page menu ▾ left) — pure pass-through, see `front-door-shell.tsx`. */
   pinnedBar?: { lead: React.ReactNode };
 }) {
-  const [account, navLabels, discoverOpen] = await Promise.all([
+  const [account, navLabels, discoverOpen, door] = await Promise.all([
     resolveRailAccount(),
     /*
       🔑 LABELS COME FROM THE NAV REGISTRY, which is where an admin renames
@@ -163,11 +166,16 @@ export async function AppRailShell({
       again loses the row in the same change.
     */
     discoverOpensHere(),
+    // 🚪 THE ONE DOOR FLAG (lib/doors.ts): a business door host, or an app shell that asks for a door.
+    requestDoor(),
   ]);
 
   return (
     <FrontDoorShell
       variant={variant}
+      /* 🚪 A business door: the shell draws the door's chrome (see `door` in front-door-shell.tsx). Sign-in goes to the
+         ONE auth origin with the door on it — never the in-place panel on a door host. */
+      door={door ? { door, signInHref: doorSignInHref(door, siteOrigin()) } : null}
       bleed={bleed}
       boundary={boundary}
       pinnedBar={pinnedBar}

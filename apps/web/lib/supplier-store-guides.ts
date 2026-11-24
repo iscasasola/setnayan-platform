@@ -140,4 +140,64 @@ export const WIDGET_GUIDES: Record<SpecializedToolKey, WidgetGuide> = {
       step('See it in their plan', 'Your booth shows in the couple’s 3D plan, in their colours, with your logo.'),
     ],
   },
+  // on-the-day/page.tsx ShotListSection · shot-list.tsx · shot-list-actions.ts
+  shot_list: {
+    key: 'shot_list',
+    title: 'Shot list',
+    steps: [
+      step('Open On the day', 'In Your widgets, tap Shot list, then open On the day. Pick the booked event.'),
+      step('Add your must-get shots', 'Type a shot in Add a shot… and tap Add. The list is saved for that event.'),
+      step('Tick them off as you shoot', 'Tap a shot to mark it captured; tap again to undo. Reset puts back the starting list.'),
+    ],
+  },
+  // on-the-day/_components/issues-log.tsx
+  issues_log: {
+    key: 'issues_log',
+    title: 'Issues log',
+    steps: [
+      step('Open On the day', 'In Your widgets, tap Issues log, then open On the day. It sits with each booked event for coordinators.'),
+      step('Log what comes up', 'Type it in Log an issue… and tap Log. It is private to you, on this device.'),
+    ],
+  },
+  // clients/[eventId]/production-sheet · add-rule-sheet.tsx · rule-rows.tsx · production-sheet-body.tsx
+  production_sheet: {
+    key: 'production_sheet',
+    title: 'Production sheet',
+    steps: [
+      step('Open a booked client', 'In Your widgets, tap Production sheet, then pick a booked event. It is for food services.'),
+      step('Add your portion rules', 'Tap Add a portion rule: what you serve per guest and who counts. Save rule.'),
+      step('Read the totals', 'Ingredient totals come from your rules × the couple’s confirmed guests. Print production sheet when you need paper.'),
+    ],
+  },
+  // on-the-day/live/[eventId] LiveReviews
+  live_reviews: {
+    key: 'live_reviews',
+    title: 'Live reviews',
+    steps: [ON_THE_DAY, step('Read them as they land', 'Reviews, as they land shows each new review — private to you and read-only.')],
+  },
+  // clients/[eventId] "Your handovers" (vendorPostHandover) · chat handover-card.tsx
+  handover: {
+    key: 'handover',
+    title: 'Hand over to the couple',
+    steps: [
+      step('Open a booked client', 'In Your widgets, tap Hand over to the couple, then pick a booked event.'),
+      step('Post what you hand over', 'Under Your handovers, post an Album link, a Sample / proof, a Note, or All delivered.'),
+      step('The couple confirms', 'The couple sees it in your chat and taps I received it.'),
+    ],
+  },
+  // clients/[eventId]/seat-plan/seat-plan-body.tsx (get_vendor_seat_plan)
+  seat_plan: {
+    key: 'seat_plan',
+    title: 'Seat plan',
+    steps: [
+      step('Open a booked client', 'In Your widgets, tap Seat plan, then pick a booked event.'),
+      step('Read the floor', 'Once the couple publishes their plan, you see the stage, the dance floor, the entrances and each table with its seated count — never guest names. Your spot shows where you are.'),
+    ],
+  },
+  // on-the-day/live/[eventId]/papic (counsel-gated: vendor-dayof-flags.ts)
+  papic_camera: {
+    key: 'papic_camera',
+    title: 'Papic camera',
+    steps: [ON_THE_DAY, step('Shoot the event', 'Take photos and clips of the event you are working. It spends your Papic credits for that event.')],
+  },
 };

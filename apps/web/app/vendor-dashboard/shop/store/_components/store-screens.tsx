@@ -1,15 +1,27 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { BadgeCheck, ChevronRight, Lock, MessageSquare, MinusCircle, Plus, ReceiptText, ShoppingBag, Sparkles } from 'lucide-react';
+import { ArrowUpRight, BadgeCheck, BookOpen, ChevronRight, Layers, Lock, MessageSquare, MinusCircle, Plus, ReceiptText, ShoppingBag, Sparkles } from 'lucide-react';
 import { CARD_ORDER } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { ToolChip, ToolEmpty, ToolFail, ToolPin, ToolRow, ToolSection } from '@/app/vendor-dashboard/_components/tool-page';
 import { TemplateRows } from '@/app/_components/template-rows';
 import { ActionButton } from '@/components/action-button';
 import { routes } from '@/lib/routes';
-import { SPECIALIZED_TOOLS } from '@/lib/specialized-tools';
 import {
   GRAPH_GROUPS,
+  SHELF_LINE,
   SHELF_TITLE,
+  WIDGET_SHELF_WORD,
+  installedQrs,
+  isBuiltInQr,
+  isBuiltInWidget,
+  isNewGraph,
+  isWidgetShelf,
+  qrWords,
+  shelfItems,
+  toolkitItems,
+  visibleShelves,
+  type ToolkitListFacts,
+  type ToolkitShelf,
   STORE_GRAPHS,
   followedBadges,
   goalWords,
@@ -21,6 +33,10 @@ import {
   isPaidStoreTool,
   storeToolOf,
   storeToolRows,
+  toolRowFor,
+  noCardWords,
+  cardHiddenWidgets,
+  CARDS_UNREAD_WORDS,
   toolChipGroups,
   INSTALLED_WORD,
   INSTALL_WORD,
@@ -41,21 +57,25 @@ import {
 } from '@/lib/supplier-store';
 import type { ShelfTile } from '@/lib/shop-badge-shelf';
 import type { CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
+import { MY_QR_WORDS, PROMOTE_QR_MODES, supplierQrHref, type PromoteQrMode } from '@/lib/supplier-qr-codes';
 import { BadgeArt } from '@/app/vendor-dashboard/shop/_components/shop-badge-row';
 import type { StoreData } from './store-data';
-import { GraphShelfRow, OnPage, StoreBadgeTile, StoreGraphTile, StoreShelfRow, StoreToolTile, TagChips, ToolArt, ToolShelfRow, ToolVideo, php } from './store-views';
-import { StoreChips, StoreOp, StoreThumb } from './store-client';
+import { GraphArt, GraphShelfRow, HeroPill, OnPage, QrArt, StoreBadgeTile, StoreGraphTile, StoreHeroCard, StoreQrTile, StoreShelfRow, StoreToolTile, TagChips, ToolArt, ToolShelfRow, ToolVideo, php, toolOpenHref, toolShowTags } from './store-views';
+import { StoreChips, StoreInstalledSwitch, StoreOp, StoreThumb } from './store-client';
 import { WidgetGuideSteps } from './widget-guide';
 import { WIDGET_GUIDES } from '@/lib/supplier-store-guides';
-import { PAID_WIDGET_NEEDS_PLAN_WORDS } from '@/lib/special-tools';
+import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from '@/lib/special-tools';
 import { toolVideoSrc } from '@/lib/toolkit-videos.server';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 🛍 THE STORE'S SCREENS (owner 23 Nov 2026 — drawing `supplier_store_graphs_badges_2026-11-23` v12). Each page reads
  * once (`loadStore`) and hands its facts here; the supplier lab mounts the same screens on fixtures. No reads in this
  * file. 🔒 shop/store/the-store-is-the-drawing.test.ts
  *
- *   StoreFront        F1 — three shelves: Specialized Tools · Graphs · Badges, each with "See all N".
+ *   StoreFront        v19 frame 1 — chips (All · Widgets · QR designs · Graphs · Badges), the Installed switch, the
+ *                     featured cards, then every shelf of the ONE Toolkit list that holds a real item, each with
+ *                     "See all N" (the three Forms shelves hold none today, so they are not drawn).
  *   StoreShelfScreen  F6 Tools (tag chips; "For you" · "Yours" · "More tools", each tool with its supplier-type tags) ·
  *                     F12 Graphs ("On your Analytics", ✓ On your page; then the groups with Get) · F15 Badges ("On your
  *                     Shop", any number; "More badges" with Add; Verified ✓ Earned). Order lives on the Shop's Edit.
@@ -64,59 +84,173 @@ import { toolVideoSrc } from '@/lib/toolkit-videos.server';
  *                     know, Install (Toolkit v19: one word for the act). A badge has no item of its own: it opens on the Badges page.
  */
 
-/** F1 · the Store front: three shelves, each a sideways row with "See all N". */
+/** What the one Toolkit list is built from, on this visit. */
+function listFacts(d: StoreData): ToolkitListFacts {
+  // 🟢 The dashboard count is what this shop is shown: the card gate's hidden widgets are out (3a2419fd).
+  return { papicCapture: d.tools.papicCapture === true, badges: d.badges ? d.badges.map((t) => t.key) : null, hidden: cardHiddenWidgets(d.tools) };
+}
+
+/** The front's chips: All, then one per kind of item that has a shelf showing (a kind with nothing has no chip). */
+const KIND_CHIPS: readonly { key: string; label: string; shelves: readonly ToolkitShelf[] }[] = [
+  { key: 'k-widget', label: 'Widgets', shelves: ['chat', 'present', 'hub', 'shop_page'] },
+  { key: 'k-form', label: 'Forms', shelves: ['chat_forms', 'card_forms', 'payment_plans'] },
+  { key: 'k-qr', label: 'QR designs', shelves: ['qr'] },
+  { key: 'k-graph', label: 'Graphs', shelves: ['graphs'] },
+  { key: 'k-badge', label: 'Badges', shelves: ['badges'] },
+];
+
+/** v19 frame 1 · the Toolkit front. */
 export function StoreFront({ d }: { d: StoreData }) {
   const tools = storeToolRows(d.tools);
-  const yours = d.badges ? followedBadges(d.layout?.badges ?? null, d.badges).keys : [];
-  const graphs = [...d.on, ...CARD_ORDER.filter((k) => !d.on.includes(k))];
-  // 🔢 The live count per shelf (owner 5ae3fbb2), from the one Toolkit list; a failed badge read drops that part.
-  const counts = toolkitCounts(d.badges);
-  const countWords = toolkitCountWords(counts);
+  const items = toolkitItems(listFacts(d));
+  const shelves = visibleShelves(items);
+  // 🔢 The live count (owner 5ae3fbb2), from the one Toolkit list; a failed badge read drops that part.
+  const countWords = toolkitCountWords(toolkitCounts(listFacts(d)));
+  const installedCount = yourTools(d.tools).filter((r) => r.installed).length;
   return (
     <>
       <ToolPin
         route="/vendor-dashboard/shop/store"
         title="Toolkit"
-        sub={<span data-store-sub="">{countWords ? <span data-toolkit-count="">{countWords}</span> : 'Widgets, graphs and badges for your shop.'}</span>}
+        sub={<span data-store-sub="">{countWords ? <span data-toolkit-count="">{countWords}</span> : 'Widgets, QR designs, graphs and badges for your shop.'}</span>}
       />
       {d.layout === null ? <ToolFail title="Couldn’t load your Shop’s rows" line="What is yours may show as not yet. Nothing was changed." retryHref={routes.vendorDashboard.shop.store.index()} /> : null}
+      {d.tools.cards === null ? <ToolFail title={CARDS_UNREAD_WORDS} line="Every widget is shown for now. Nothing was changed." retryHref={routes.vendorDashboard.shop.store.index()} data="store-cards" /> : null}
 
-      <StoreShelfRow title={SHELF_TITLE.tools} count={counts.tools ?? SPECIALIZED_TOOLS.length} href={routes.vendorDashboard.shop.store.shelf('tools')} data="tools">
-        {tools.map((r) => (
-          <StoreToolTile key={r.tool.key} row={r} />
-        ))}
-      </StoreShelfRow>
+      <div className="flex items-center gap-2" data-store-front-tools="">
+        <div className="min-w-0 flex-1">
+          <StoreChips label="Show" chips={[{ key: 'all', label: 'All' }, ...KIND_CHIPS.filter((c) => c.shelves.some((x) => shelves.includes(x))).map(({ key, label }) => ({ key, label }))]} />
+        </div>
+        <StoreInstalledSwitch label={INSTALLED_WORD} />
+      </div>
+      <Link href={routes.vendorDashboard.shop.store.shelf('yours')} className="sn-press sn-frame mt-2 flex min-h-12 items-center gap-3 px-4" data-store-yours-door="">
+        <b className="flex-1 text-sn-lg font-semibold text-ink">{SHELF_TITLE.yours}</b>
+        <span className="text-sn-base text-[color:var(--m-slate-2)]">
+          {d.layout === null ? 'Couldn’t load' : `${formatCount(installedCount)} ${INSTALLED_WORD.toLowerCase()}`}
+        </span>
+        <ChevronRight aria-hidden className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={2} />
+      </Link>
 
-      <StoreShelfRow title={SHELF_TITLE.graphs} count={counts.graphs ?? CARD_ORDER.length} href={routes.vendorDashboard.shop.store.shelf('graphs')} data="graphs">
-        {graphs.map((k) => (
-          <StoreGraphTile key={k} k={k} status={graphStatus(k, d.on, d.unlocks, d.badges)} />
-        ))}
-      </StoreShelfRow>
+      <StoreHeroes d={d} tools={tools} />
 
-      {d.badges ? (
-        <StoreShelfRow title={SHELF_TITLE.badges} count={d.badges.length} href={routes.vendorDashboard.shop.store.shelf('badges')} data="badges">
-          {d.badges.map((t) => (
-            <StoreBadgeTile key={t.key} tile={t} following={t.key !== 'verified' && yours.includes(t.key)} />
-          ))}
-        </StoreShelfRow>
-      ) : (
-        <ToolFail title="Couldn’t load your badges" retryHref={routes.vendorDashboard.shop.store.index()} data="store-badges" />
-      )}
+      {shelves.map((sh) => (
+        <FrontShelf key={sh} shelf={sh} d={d} tools={tools} count={shelfItems(items, sh).length} />
+      ))}
+      {/* A refused badge read lists no badge, so the shelf is not drawn — said, never an empty shelf. */}
+      {d.badges ? null : <ToolFail title="Couldn’t load your badges" retryHref={routes.vendorDashboard.shop.store.index()} data="store-badges" />}
       <p hidden data-store-none="" className="py-6 text-center text-sn-lg text-[color:var(--m-slate-2)]">
         Nothing in the Toolkit matches that.
       </p>
-      <StoreThumb name="front" placeholder="Search the Store" />
+      <StoreThumb name="front" placeholder="Search the Toolkit" />
     </>
   );
 }
 
-/** F2 · F4/F5 · F9 — one shelf: Tools · Graphs · Badges. */
+/** The featured cards: a "New · Recommended" graph not yet installed, and a paid widget for the shop's own services. */
+function StoreHeroes({ d, tools }: { d: StoreData; tools: readonly StoreToolRow[] }) {
+  const graph = CARD_ORDER.find((k) => isNewGraph(k) && graphStatus(k, d.on, d.unlocks, d.badges).kind === 'off') ?? null;
+  const widget = tools.find((r) => isPaidStoreTool(r.tool.key) && r.forYou && !r.installed && (r.act.kind === 'buy' || r.act.kind === 'install')) ?? null;
+  if (!graph && !widget) return null;
+  return (
+    <section className="mt-3" data-store-block="" data-store-heroes="">
+      <ul className="grid gap-2 sm:grid-cols-2" data-store-list="">
+        {graph ? (
+          <StoreHeroCard
+            eyebrow="New · Recommended"
+            title={STORE_GRAPHS[graph].title}
+            line={STORE_GRAPHS[graph].asks}
+            href={routes.vendorDashboard.shop.store.item('graphs', graph)}
+            art={<GraphArt />}
+            pill={<HeroPill>{INSTALL_WORD}</HeroPill>}
+            show="k-graph"
+            data={`graph:${graph}`}
+          />
+        ) : null}
+        {widget ? (
+          <StoreHeroCard
+            eyebrow="For your services"
+            title={widget.tool.title}
+            line={widget.tool.line}
+            href={routes.vendorDashboard.shop.store.item('tools', widget.tool.key)}
+            art={<ToolArt toolKey={widget.tool.key} />}
+            pill={<HeroPill>{widget.act.kind === 'buy' ? buyWords(widget.act.price, php) : INSTALL_WORD}</HeroPill>}
+            show={toolShowTags(widget)}
+            data={`tool:${widget.tool.key}`}
+            wide={graph !== null}
+          />
+        ) : null}
+      </ul>
+    </section>
+  );
+}
+
+/** One shelf on the front: its tiles in one sideways row, "See all N" to its page. */
+function FrontShelf({ shelf, d, tools, count }: { shelf: ToolkitShelf; d: StoreData; tools: readonly StoreToolRow[]; count: number }) {
+  if (isWidgetShelf(shelf)) {
+    return (
+      <StoreShelfRow title={SHELF_TITLE[shelf]} count={count} href={routes.vendorDashboard.shop.store.shelf(shelf)} data={shelf}>
+        {tools
+          .filter((r) => r.tool.shelves.includes(shelf))
+          .map((r) => (
+            <StoreToolTile key={r.tool.key} row={r} />
+          ))}
+      </StoreShelfRow>
+    );
+  }
+  if (shelf === 'qr') {
+    const on = installedQrs(d.layout);
+    return (
+      <StoreShelfRow title={SHELF_TITLE.qr} count={count} href={routes.vendorDashboard.shop.store.shelf('qr')} data="qr">
+        {PROMOTE_QR_MODES.map((k) => (
+          <StoreQrTile key={k} k={k} installed={on.includes(k)} builtIn={isBuiltInQr(k)} />
+        ))}
+      </StoreShelfRow>
+    );
+  }
+  if (shelf === 'graphs') {
+    const graphs = [...d.on, ...CARD_ORDER.filter((k) => !d.on.includes(k))];
+    return (
+      <StoreShelfRow title={SHELF_TITLE.graphs} count={count} href={routes.vendorDashboard.shop.store.shelf('graphs')} data="graphs">
+        {graphs.map((k) => (
+          <StoreGraphTile key={k} k={k} status={graphStatus(k, d.on, d.unlocks, d.badges)} />
+        ))}
+      </StoreShelfRow>
+    );
+  }
+  if (shelf === 'badges') {
+    if (!d.badges) return <ToolFail title="Couldn’t load your badges" retryHref={routes.vendorDashboard.shop.store.index()} data="store-badges" />;
+    const yours = followedBadges(d.layout?.badges ?? null, d.badges).keys;
+    return (
+      <StoreShelfRow title={SHELF_TITLE.badges} count={count} href={routes.vendorDashboard.shop.store.shelf('badges')} data="badges">
+        {d.badges.map((t) => (
+          <StoreBadgeTile key={t.key} tile={t} following={t.key !== 'verified' && yours.includes(t.key)} />
+        ))}
+      </StoreShelfRow>
+    );
+  }
+  // A Forms shelf: never drawn while it holds no item (`visibleShelves`).
+  return null;
+}
+
+/** One shelf's page: every widget (`tools`), a widget shelf, the QR designs, Your widgets, Graphs or Badges. */
 export function StoreShelfScreen({ shelf, d }: { shelf: StoreShelf; d: StoreData }) {
   return (
     <>
       <ToolPin route="/vendor-dashboard/shop/store/[shelf]" title={SHELF_TITLE[shelf]} sub={<span data-store-sub="">{subLine(shelf, d)}</span>} />
       {d.layout === null ? <ToolFail title="Couldn’t load your Shop’s rows" line="Nothing was changed. Try again in a moment." retryHref={routes.vendorDashboard.shop.store.shelf(shelf)} /> : null}
-      {shelf === 'tools' ? <ToolsShelf d={d} /> : shelf === 'graphs' ? <GraphsShelf d={d} /> : <BadgesShelf d={d} />}
+      {shelf === 'tools' ? (
+        <ToolsShelf d={d} />
+      ) : isWidgetShelf(shelf) ? (
+        <WidgetShelfList d={d} shelf={shelf} />
+      ) : shelf === 'qr' ? (
+        <QrShelf d={d} />
+      ) : shelf === 'yours' ? (
+        <YourWidgets d={d} />
+      ) : shelf === 'graphs' ? (
+        <GraphsShelf d={d} />
+      ) : (
+        <BadgesShelf d={d} />
+      )}
       <p hidden data-store-none="" className="py-6 text-center text-sn-lg text-[color:var(--m-slate-2)]">
         Nothing here matches that.
       </p>
@@ -132,6 +266,10 @@ export function StoreShelfScreen({ shelf, d }: { shelf: StoreShelf; d: StoreData
             { key: 'paid', label: 'One-time' },
           ]}
         />
+      ) : isWidgetShelf(shelf) || shelf === 'yours' ? (
+        <StoreThumb name={shelf} placeholder="Search widgets" countWord="widget" />
+      ) : shelf === 'qr' ? (
+        <StoreThumb name="qr" placeholder="Search QR designs" countWord="QR design" />
       ) : shelf === 'graphs' ? (
         <StoreThumb
           name="graphs"
@@ -151,15 +289,18 @@ export function StoreShelfScreen({ shelf, d }: { shelf: StoreShelf; d: StoreData
   );
 }
 
-/** F3 · F7 — one item: a tool (price or state, what it adds, one button) or a graph. */
-export function StoreItemScreen({ shelf, itemKey, d }: { shelf: 'tools' | 'graphs'; itemKey: string; d: StoreData }) {
+/** One item: a widget (price or state, the strip, what it adds, one button), a graph, or a QR design. */
+export function StoreItemScreen({ shelf, itemKey, d }: { shelf: 'tools' | 'graphs' | 'qr'; itemKey: string; d: StoreData }) {
+  if (shelf === 'qr') return <QrItem d={d} qrKey={itemKey as PromoteQrMode} />;
   return shelf === 'tools' ? <ToolItem d={d} toolKey={itemKey} /> : <GraphItem d={d} graphKey={itemKey} />;
 }
 
 function subLine(shelf: StoreShelf, d: StoreData): string {
-  if (shelf === 'tools') return `${SPECIALIZED_TOOLS.length} widgets`;
+  if (shelf === 'tools') return `${storeToolRows(d.tools).length} widgets`;
+  if (shelf === 'yours') return d.layout === null ? 'Couldn’t load which are installed.' : `${yourTools(d.tools).filter((r) => r.installed).length} installed`;
   if (shelf === 'graphs') return `${CARD_ORDER.length} graphs, all free. ${d.on.length} ${d.on.length === 1 ? 'is' : 'are'} on your Analytics.`;
-  return 'Earned, never sold. Pick the badges that show on your Shop.';
+  if (shelf === 'badges') return 'Earned, never sold. Pick the badges that show on your Shop.';
+  return SHELF_LINE[shelf];
 }
 
 /** The keys in Your tools now — a Get adds to their end. null = the layout was refused (no Get is offered). */
@@ -195,6 +336,121 @@ function ToolsShelf({ d }: { d: StoreData }) {
       <ToolGroup label="For you" rows={forYou} yours={keys} data="store-foryou" />
       <ToolGroup label="Yours" rows={yours} yours={keys} data="store-yours" />
       <ToolGroup label="More widgets" rows={more} yours={keys} data="store-more" />
+    </>
+  );
+}
+
+/** A widget shelf (Chat · Present · Event Hub · Shop page): its widgets as a list, each with its one press. */
+function WidgetShelfList({ d, shelf }: { d: StoreData; shelf: ToolkitShelf }) {
+  const rows = storeToolRows(d.tools).filter((r) => (r.tool.shelves as readonly string[]).includes(shelf));
+  return <ToolGroup label={SHELF_TITLE[shelf]} rows={rows} yours={yourToolKeys(d)} data={`store-${shelf}`} />;
+}
+
+/** The QR designs (v19): the four codes Promote draws. My page is built in; the rest Install / ✓ Installed. */
+function QrShelf({ d }: { d: StoreData }) {
+  const on = installedQrs(d.layout);
+  return (
+    <ToolSection label="Your QR codes" count={PROMOTE_QR_MODES.length} data="store-qr">
+      <div data-store-block="">
+        <div data-store-list="">
+          <TemplateRows label="Your QR codes">
+            {PROMOTE_QR_MODES.map((k) => {
+              const w = qrWords(k);
+              const installed = on.includes(k);
+              return (
+                <ToolRow
+                  key={k}
+                  attrs={{ 'data-store-row': '', 'data-store-name': w.name, 'data-store-show': installed ? 'k-qr installed' : 'k-qr', 'data-store-qr': k }}
+                  lead={<QrArt />}
+                  title={
+                    <Link href={routes.vendorDashboard.shop.store.item('qr', k)} className="hover:underline">
+                      {w.name}
+                    </Link>
+                  }
+                  lines={[w.line, isBuiltInQr(k) ? 'Built in' : 'Free']}
+                  right={
+                    installed ? (
+                      <OnPage />
+                    ) : d.layout === null ? (
+                      <ToolChip tone="wait">Couldn’t load</ToolChip>
+                    ) : (
+                      <StoreOp op="layout" fields={{ row: 'qrs', intent: 'add', key: [...on, k] }} tone="info" icon={<Plus aria-hidden strokeWidth={2} />} label={INSTALL_WORD} />
+                    )
+                  }
+                />
+              );
+            })}
+          </TemplateRows>
+        </div>
+      </div>
+    </ToolSection>
+  );
+}
+
+/**
+ * 🧩 YOUR WIDGETS (v19, the manager — "like an extensions page"): every widget the shop has installed, as a card —
+ * where it is used, then Open · How to use it · Remove (a built-in has no Remove). Chips by place: All · Chat · Present ·
+ * Event Hub · Shop page (a place no installed widget uses has no chip).
+ */
+function YourWidgets({ d }: { d: StoreData }) {
+  if (d.layout === null) return <ToolFail title="Couldn’t load your widgets" line="Nothing was changed." retryHref={routes.vendorDashboard.shop.store.shelf('yours')} />;
+  const rows = yourTools(d.tools).filter((r) => r.installed);
+  const keys = rows.map((r) => r.tool.key);
+  const places = (['chat', 'present', 'hub', 'shop_page'] as const).filter((p) => rows.some((r) => r.tool.shelves.includes(p)));
+  if (rows.length === 0) {
+    return (
+      <ToolSection label={SHELF_TITLE.yours} data="store-yours-list">
+        <ToolEmpty>No widgets installed yet. Install one from the Toolkit.</ToolEmpty>
+      </ToolSection>
+    );
+  }
+  return (
+    <>
+      <StoreChips label="Show widgets used in" chips={[{ key: 'all', label: 'All' }, ...places.map((p) => ({ key: `p-${p}`, label: WIDGET_SHELF_WORD[p] }))]} />
+      <div data-store-block="">
+        <ul className="mt-2 grid gap-2 lg:grid-cols-3" data-store-list="" data-store-yours-list="">
+          {rows.map((r) => {
+            const k = r.tool.key;
+            const paid = isPaidStoreTool(k);
+            return (
+              <li key={k} className={`sn-frame flex flex-col gap-2 p-4${r.act.kind === 'no_card' ? ' opacity-60' : ''}`} data-store-row="" data-store-name={r.tool.title} data-store-show={toolShowTags(r)} data-store-yours={k} data-store-no-card={r.act.kind === 'no_card' ? '' : undefined}>
+                <span className="flex items-start gap-3">
+                  <ToolArt toolKey={k} />
+                  <span className="min-w-0 flex-1">
+                    <b className="block text-sn-lg font-semibold leading-tight text-ink">{r.tool.title}</b>
+                    <span className="block text-sn-md leading-snug text-[color:var(--m-slate-2)]">{r.tool.line}</span>
+                    <span className="mt-1 block text-sn-sm font-semibold text-[color:var(--m-slate-2)]" data-store-yours-places="">
+                      {r.tool.shelves.map((p) => WIDGET_SHELF_WORD[p]).join(' · ')}
+                      {r.act.kind === 'resubscribe' ? ` · ${PAID_WIDGET_RESUBSCRIBE_WORDS}` : r.act.kind === 'no_card' ? ` · ${noCardWords(r.act.category)}` : ''}
+                    </span>
+                  </span>
+                </span>
+                <span className="flex flex-wrap items-center gap-2">
+                  {r.act.kind === 'no_card' ? (
+                    // 🟢 No online card serves it (3a2419fd): the door turns a card on, in place of Open.
+                    <ActionButton tone="info" icon={<Layers aria-hidden strokeWidth={1.8} />} label="Your services" href={routes.vendorDashboard.services()} />
+                  ) : (
+                    <ActionButton tone="info" icon={<ArrowUpRight aria-hidden strokeWidth={2} />} label="Open" href={toolOpenHref(k)} />
+                  )}
+                  <ActionButton tone="neutral" quiet icon={<BookOpen aria-hidden strokeWidth={1.8} />} label="How to use it" href={`${routes.vendorDashboard.shop.store.item('tools', k)}#guide`} />
+                  {isBuiltInWidget(k) ? (
+                    <ToolChip tone="quiet">Built in</ToolChip>
+                  ) : (
+                    <StoreOp
+                      op="layout"
+                      fields={{ row: 'tools', intent: 'remove', key: keys.filter((x) => x !== k), off: paid ? [k] : [] }}
+                      tone="neutral"
+                      quiet
+                      icon={<MinusCircle aria-hidden strokeWidth={1.8} />}
+                      label="Remove"
+                    />
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </>
   );
 }
@@ -349,12 +605,14 @@ function addsOf(key: string, line: string): { icon: ReactNode; title: string; li
 
 function ToolItem({ d, toolKey }: { d: StoreData; toolKey: string }) {
   const tool = storeToolOf(toolKey)!;
-  const s = toolStatus(tool.key, d.tools);
-  const installed = toolIsInstalled(tool.key, s, d.tools);
-  const a = toolAct(tool.key, s, installed);
+  // 🟢 The card gate's row (3a2419fd): a widget no online card serves reads "Turn on a <category> card to use it".
+  const row = toolRowFor(tool.key, d.tools);
+  const s = row ? row.status : toolStatus(tool.key, d.tools);
+  const installed = row ? row.installed : toolIsInstalled(tool.key, s, d.tools);
+  const a = row ? row.act : toolAct(tool.key, s, installed);
   const paid = isPaidStoreTool(tool.key);
   const keys = yourToolKeys(d);
-  const tags = toolTags(tool, d.tools.hubOverrides);
+  const tags = row ? row.tags : toolTags(tool, d.tools.hubOverrides);
   const head =
     s.kind === 'buy' ? (
       <>
@@ -388,6 +646,20 @@ function ToolItem({ d, toolKey }: { d: StoreData; toolKey: string }) {
             label="Remove"
           />
         )}
+      </span>
+    ) : a.kind === 'no_card' ? (
+      // 🟢 No online card serves it: kept (installed stays installed, bought stays owned) — the door turns a card on.
+      <span className="flex flex-wrap items-center gap-3" data-store-no-card="">
+        <ActionButton tone="brand" main icon={<Layers aria-hidden strokeWidth={1.8} />} label="Your services" href={routes.vendorDashboard.services()} />
+        {a.installed && keys !== null ? (
+          <StoreOp
+            op="layout"
+            fields={{ row: 'tools', intent: 'remove', key: keys.filter((k) => k !== tool.key), off: paid ? [tool.key] : [] }}
+            tone="neutral"
+            icon={<MinusCircle aria-hidden strokeWidth={1.8} />}
+            label="Remove"
+          />
+        ) : null}
       </span>
     ) : a.kind === 'install' && keys === null ? (
       <ToolChip tone="wait">Couldn’t load</ToolChip>
@@ -440,6 +712,7 @@ function ToolItem({ d, toolKey }: { d: StoreData; toolKey: string }) {
       <div className="mt-4 flex [&>*]:w-full" data-store-buy="">
         {button}
       </div>
+      <ItemStrip cells={[{ k: 'Price', v: priceWord(s) }, { k: 'Works in', v: tool.shelves.map((p) => WIDGET_SHELF_WORD[p]).join(' · ') }, { k: 'For', v: forWord(tags) }]} />
       <ToolSection label="What it adds to your shop" data="store-adds">
         <ul className="sn-frame px-4 py-1">
           {addsOf(tool.key, tool.line).map((x) => (
@@ -472,13 +745,138 @@ function ToolItem({ d, toolKey }: { d: StoreData; toolKey: string }) {
           <WidgetGuideSteps guide={WIDGET_GUIDES[tool.key]} />
         </ToolSection>
       </div>
+      <ToolSection label="Information" data="store-info">
+        <InfoTable
+          rows={[
+            { k: 'Price', v: s.kind === 'buy' ? `${php(s.price)} one-time` : priceWord(s) },
+            { k: 'Renewal', v: paid ? 'None — paid once' : 'None — free' },
+            { k: 'Suggested for', v: tags.length ? tags.map((t) => t.label).join(', ') : forWord(tags) },
+            ...(statusWord(a) ? [{ k: 'Status', v: statusWord(a)! }] : []),
+          ]}
+        />
+      </ToolSection>
+    </>
+  );
+}
+
+/** The strip under an item's button (v19): three short facts side by side. */
+function ItemStrip({ cells }: { cells: readonly { k: string; v: string }[] }) {
+  return (
+    <dl className="sn-frame mt-4 grid grid-cols-3 divide-x divide-[color:var(--sn-hair)] py-3 text-center" data-store-strip="">
+      {cells.map((c) => (
+        <div key={c.k} className="min-w-0 px-2">
+          <dt className="text-sn-sm font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">{c.k}</dt>
+          <dd className="mt-0.5 truncate text-sn-base font-semibold text-ink">{c.v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** An item's Information table (v19). */
+function InfoTable({ rows }: { rows: readonly { k: string; v: string }[] }) {
+  return (
+    <dl className="sn-frame grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 p-4 text-sn-base" data-store-info="">
+      {rows.map((r) => (
+        <div key={r.k} className="contents">
+          <dt className="font-semibold text-ink">{r.k}</dt>
+          <dd className="text-[color:var(--m-slate-2)]">{r.v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** The price in one or two words — the catalog's (never typed), or the state; a failed read says so, never ₱0. */
+function priceWord(s: ReturnType<typeof toolStatus>): string {
+  if (s.kind === 'no_card') return priceWord(s.prior);
+  if (s.kind === 'buy') return php(s.price);
+  if (s.kind === 'owned' || s.kind === 'resubscribe') return 'Owned';
+  if (s.kind === 'free' || s.kind === 'verify') return 'Free';
+  if (s.kind === 'pending') return 'In review';
+  if (s.kind === 'no_price') return 'Not set yet';
+  return 'Couldn’t load';
+}
+
+/** Who it suits: the first tag (and how many more), or — a widget with no tag — any shop (tags suggest, never gate). */
+function forWord(tags: readonly { label: string }[]): string {
+  if (tags.length === 0) return 'Any shop';
+  return tags.length === 1 ? tags[0].label : `${tags[0].label} +${tags.length - 1}`;
+}
+
+/** The Status row: said only for an item the shop holds — installed, owned and taken off, or locked off-plan. */
+function statusWord(a: ReturnType<typeof toolAct>): string | null {
+  if (a.kind === 'installed') return a.builtIn ? 'Built in · always installed' : INSTALLED_WORD;
+  if (a.kind === 'install' && a.owned) return 'Owned · taken off your page. Install again is free.';
+  if (a.kind === 'resubscribe') return PAID_WIDGET_RESUBSCRIBE_WORDS;
+  if (a.kind === 'no_card') return noCardWords(a.category);
+  return null;
+}
+
+/** A QR design's page (v19): what it opens, Install or ✓ Installed with Remove (My page is built in), Where it works. */
+function QrItem({ d, qrKey }: { d: StoreData; qrKey: PromoteQrMode }) {
+  const w = MY_QR_WORDS[qrKey];
+  const on = installedQrs(d.layout);
+  const installed = on.includes(qrKey);
+  const builtIn = isBuiltInQr(qrKey);
+  const button =
+    d.layout === null ? (
+      <ToolChip tone="wait">Couldn’t load</ToolChip>
+    ) : installed ? (
+      <span className="flex flex-wrap items-center gap-3" data-store-installed="">
+        <OnPage />
+        {builtIn ? null : (
+          <StoreOp op="layout" fields={{ row: 'qrs', intent: 'remove', key: on.filter((k) => k !== qrKey) }} tone="neutral" icon={<MinusCircle aria-hidden strokeWidth={1.8} />} label="Remove" />
+        )}
+      </span>
+    ) : (
+      <StoreOp op="layout" fields={{ row: 'qrs', intent: 'add', key: [...on, qrKey] }} tone="brand" main icon={<Plus aria-hidden strokeWidth={2} />} label={INSTALL_WORD} landTo={supplierQrHref(qrKey)} />
+    );
+  return (
+    <>
+      <ToolPin route="/vendor-dashboard/shop/store/[shelf]/[item]" title={w.name} sub={<ItemSub line={w.line} d={d} />} />
+      <BackToShelf shelf="qr" />
+      <Card data="qr-head">
+        <div className="flex items-start gap-3">
+          <QrArt />
+          <b className="block text-sn-xl font-semibold text-ink" data-store-state={installed ? 'installed' : 'install'}>
+            {builtIn ? 'Built in · always on your shop' : 'Free'}
+          </b>
+        </div>
+      </Card>
+      <div className="mt-4 flex [&>*]:w-full" data-store-buy="">
+        {button}
+      </div>
+      <ItemStrip cells={[{ k: 'Price', v: 'Free' }, { k: 'Works in', v: 'My QRs' }, { k: 'For', v: 'Any shop' }]} />
+      <ToolSection label="What it does" data="store-shows">
+        <Card>
+          <p className="text-sn-lg leading-snug text-ink">{w.sheetLine}</p>
+        </Card>
+      </ToolSection>
+      <ToolSection label="Where it works" data="store-where">
+        <ul className="sn-frame px-4 py-1">
+          <li className="flex items-center gap-3 py-2.5" data-store-place="my-qrs">
+            <span className="min-w-0 flex-1">
+              <b className="block text-sn-lg font-semibold leading-tight text-ink">My QRs</b>
+              <span className="block text-sn-md leading-snug text-[color:var(--m-slate-2)]">Shop › My QRs, with your other codes — print it or share it</span>
+            </span>
+            <Link href={supplierQrHref(qrKey)} className="sn-press inline-flex min-h-11 flex-none items-center gap-0.5 text-sn-base font-semibold text-[rgb(var(--color-link))]" data-store-place-open="my-qrs">
+              Open
+              <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </Link>
+          </li>
+        </ul>
+      </ToolSection>
+      <ToolSection label="Information" data="store-info">
+        <InfoTable rows={[{ k: 'Price', v: 'Free' }, { k: 'Renewal', v: 'None — free' }, { k: 'Status', v: d.layout === null ? 'Couldn’t load' : builtIn ? 'Built in · always installed' : installed ? INSTALLED_WORD : 'Not on your My QRs' }]} />
+      </ToolSection>
     </>
   );
 }
 
 /** An item page's masthead line: what it is, then the Toolkit's live count (owner 5ae3fbb2; a failed read drops it). */
 function ItemSub({ line, d }: { line: string; d: StoreData }) {
-  const count = toolkitCountWords(toolkitCounts(d.badges));
+  const count = toolkitCountWords(toolkitCounts(listFacts(d)));
   return (
     <span data-store-sub="">
       {line}
@@ -554,7 +952,7 @@ function GraphItem({ d, graphKey }: { d: StoreData; graphKey: string }) {
 }
 
 /** The shelf this item sits on — the drawing's "‹ Specialized Tools" / "‹ Graphs" under the pinned row. */
-function BackToShelf({ shelf }: { shelf: 'tools' | 'graphs' }) {
+function BackToShelf({ shelf }: { shelf: 'tools' | 'graphs' | 'qr' }) {
   return (
     <Link href={routes.vendorDashboard.shop.store.shelf(shelf)} className="sn-press inline-flex min-h-11 items-center text-sn-base font-semibold text-[rgb(var(--color-link))]" data-store-shelf-back={shelf}>
       All {SHELF_TITLE[shelf]}

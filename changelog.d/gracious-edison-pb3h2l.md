@@ -8,3 +8,5 @@
 - Checked against the new rules: the homepage title, meta description and share card make no claim about originals lasting forever, so no copy change was needed.
 
 SPEC IMPACT: None. Wording rules only; no product fact changes.
+
+- Controller fixes (24 Nov): the 0% line is only the exact sentence "Hosts pay 0% commission."; the promise ban covers marketing promises, not true status lines or legal disclaimers.

@@ -42,7 +42,8 @@ Elevate the Philippine events industry:
 ## Claims never made in UI or marketing copy
 
 1. **A hand-typed price.** Always read the live price table.
-2. **The booking fee, shown to hosts or guests.** Host pages may say "0% commission".
+2. **The booking fee, shown to hosts or guests.** The only allowed line is the exact
+   sentence "Hosts pay 0% commission." (DECISION_LOG 20 Nov). No other 0% wording.
 3. **Price promises.** Never "free for life", "always free", "first booking free" or free
    months.
    - "Every photo kept for life" about Memories is product truth and allowed.
@@ -57,7 +58,9 @@ Elevate the Philippine events industry:
    `MARKETING_RESEARCH_BRIEF_2026-11-24.md` § 3, "COMING (do not advertise yet)".
    Read it with `gh api repos/iscasasola/Setnayan-specs/contents/MARKETING_RESEARCH_BRIEF_2026-11-24.md`
    or `git -C <corpus> show origin/main:MARKETING_RESEARCH_BRIEF_2026-11-24.md`.
-10. **Promises:** "safe", "scam-free", "guaranteed", "trusted".
+10. **Promises about Setnayan or its suppliers:** "safe", "scam-free", "guaranteed",
+    "trusted". This bans marketing promises only. A true status line ("Your photos are
+    safe") and the legal disclaimers in the terms are allowed.
 11. **Rank claims:** "first", "#1", "only".
 12. **Named competitors.**
 13. **"Data Privacy Act compliant"** used as a slogan.

@@ -13,6 +13,7 @@
  * Held by `lib/vendor-plan-rows.test.ts`.
  */
 import { bookingFeeScheduleSummary, unverifiedBookingFeeScheduleSummary } from './booking-fee';
+import { planRenewal } from './plan-renewal-words';
 import { ordinalWord, type BookingFeeStanding } from './booking-fee-disclosure';
 import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
@@ -209,14 +210,22 @@ const RANK: Record<VendorTier, number> = { free: 1, verified: 2, solo: 3, pro: 4
  * the day it is paid; a lower one starts when the current term ends; Free is simply not paying the next one (nothing
  * renews by itself). `expiresOn` is the day words for `tier_expires_at`, or null.
  */
-export function planPickLine(currentRaw: string | null | undefined, picked: string, expiresOn: string | null): string {
+export function planPickLine(
+  currentRaw: string | null | undefined,
+  picked: string,
+  expiresOn: string | null,
+  /** 🔁 `getIapGate().iap` — an Apple plan in the app renews until it is cancelled there (lib/plan-renewal-words.ts). */
+  appleSells = false,
+): string {
   const current = asVendorTier(currentRaw);
   const next = asVendorTier(picked);
   if (next === 'free' || next === 'verified') {
     if (RANK[current] <= RANK.verified) return 'You are on Free — nothing to pay';
+    const renewal = planRenewal(appleSells);
+    if (renewal.renews) return renewal.howToStop(expiresOn);
     return expiresOn
-      ? `Nothing renews by itself · ${planWord(current)} ends ${expiresOn}, then Free`
-      : 'Nothing renews by itself · skip the next payment and you are on Free';
+      ? `${renewal.title} · ${planWord(current)} ends ${expiresOn}, then Free`
+      : `${renewal.title} · skip the next payment and you are on Free`;
   }
   if (next === current) return expiresOn ? `Adds a new term after ${expiresOn}` : 'Starts once your payment is confirmed';
   if (RANK[next] > RANK[current]) return 'Starts the day your payment is confirmed · what is left of your plan comes off';

@@ -41,8 +41,15 @@ export async function readStoredBytes(admin: SupabaseClient, vendorProfileId: st
  */
 export async function readStoredBytesWithoutMeasuring(admin: SupabaseClient, vendorProfileId: string): Promise<StoredBytesRead> {
   const { data, error } = await admin.rpc('vendor_storage_used_bytes', { p_vendor_profile_id: vendorProfileId });
+  if (error) {
+    console.error('[supplier-storage] stored total unreadable', vendorProfileId, error.message);
+    return { status: 'unread' };
+  }
   const bytes = Number(data);
-  if (error || data == null || !Number.isFinite(bytes) || bytes < 0) return { status: 'unread' };
+  if (data == null || !Number.isFinite(bytes) || bytes < 0) {
+    console.error('[supplier-storage] stored total malformed', vendorProfileId, data);
+    return { status: 'unread' };
+  }
   return { status: 'ok', bytes };
 }
 

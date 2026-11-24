@@ -16,7 +16,7 @@ What changed (no new reads, no new writes, no screen change):
   - Batch B, the partnership count, the Store's twelve graphs and the verified median start beside Batch A;
   - the five new graphs start at once, and only the card-sells graph waits for the card list (`readNewGraphs` takes the cards as a promise).
 - **The Shop starts both parts' reads with its own batch** (`preloadServicesManager`, `preloadOneAnalytics`), so they are already running when they render.
-- **The Toolkit facts** no longer wait for the layout read to start (`readStoreToolFacts` takes its promise). The hub-tool overrides read the category names through the foreign key in one round, instead of a second read (`readHubOverrides`). This helps the Shop, every Toolkit page and the chat's widget share.
+- **The Toolkit facts** no longer wait for the layout read to start (`readStoreToolFacts` takes its promise). The hub-tool overrides read the saved categories' names beside the saved rows (`!inner` on the foreign key), in one round instead of a second read (`readHubOverrides`). This helps the Shop, every Toolkit page and the chat's widget share.
 - **Every read keeps its honest-failure shape.** An unread value stays null or `ok: false`, and the page says so.
 
 New guard: `app/vendor-dashboard/shop/the-shop-streams-in-one-round.test.ts`. Three sabotages went red, then were restored: the carousel preload removed, `auth.getUser()` put back, and the plan read moved behind the role read.

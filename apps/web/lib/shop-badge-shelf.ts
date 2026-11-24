@@ -21,6 +21,17 @@ import { BADGE_WORDS } from '@/app/vendor-dashboard/shop/_components/badges/badg
 import { BADGE_REWARDS, rewardLineFor, tierRewardKey, type BadgeRewardFacts, type GrantedReward, type RewardNames } from './badge-rewards';
 import { SHOP_BADGE_KEYS, SHOP_BADGE_STEPS, TIER_KEYS, shopBadgeTier, tierName, type ShopBadgeKey } from './badge-tiers';
 
+/** The name the Verified tile wears on the shelf and in every list that names the shelf's badges. */
+export const VERIFIED_TILE_TITLE = 'Setnayan Verified';
+
+/**
+ * 🧮 THE SHELF'S ONE BADGE LIST: what the badge row draws, in rank order — Setnayan Verified, then the five tiered
+ * badges (`SHOP_BADGE_KEYS`). `shopBadgeShelf` builds its tiles from it, and every surface that counts or names the
+ * Toolkit's badges (the Toolkit's own count, /for-suppliers' count and its "See all" sheet) reads THIS list, so the
+ * two can never disagree (walk 24 Nov: the Toolkit said 6 badges, /for-suppliers 5). 🔒 lib/one-badge-list.test.ts
+ */
+export const SHELF_BADGE_KEYS: readonly ('verified' | ShopBadgeKey)[] = ['verified', ...SHOP_BADGE_KEYS];
+
 export type ShelfFamily = 'calendar' | 'bubble' | 'giftbox' | 'shield' | 'invite';
 
 /** Each badge's picture family in the approved art (v84 `FAMT`). */
@@ -214,7 +225,7 @@ export function shelfBadge(badge: ShopBadgeKey, i: ShelfInput): ShelfTile {
 /** Setnayan Verified's tile — the blue check, no tiers. */
 export function shelfVerified(i: ShelfInput): ShelfTile {
   const reward = rewardLineFor('verified', null, i.verified, i.granted, i.names);
-  const base = { key: 'verified' as const, title: 'Setnayan Verified', family: null, tier: null, tierName: null, src: null, goal: false, how: VERIFIED_HOW, now: null, progress: null, next: null, nextShort: null, reward, ring: 'found' as const };
+  const base = { key: 'verified' as const, title: VERIFIED_TILE_TITLE, family: null, tier: null, tierName: null, src: null, goal: false, how: VERIFIED_HOW, now: null, progress: null, next: null, nextShort: null, reward, ring: 'found' as const };
   if (i.verified === null) return { ...base, state: 'unread', sub: COULDNT_LOAD, pct: 0, awardedAt: null, door: null };
   if (i.verified) return { ...base, state: 'earned', sub: 'Verified', pct: 100, awardedAt: grantedAt(i.granted, 'verified'), door: null };
   return { ...base, state: 'locked', sub: 'Not yet', pct: 0, awardedAt: null, door: { label: 'Send your documents', href: '/vendor-dashboard/profile#docs' } };
@@ -230,7 +241,7 @@ const BAND: Readonly<Record<ShelfState, number>> = { earned: 0, locked: 1, not_c
  * (Part B, drawn, not built) they come last, highest last, ending with No. 1. 🔒 lib/shop-badge-shelf.test.ts § 9.
  */
 export function shopBadgeShelf(i: ShelfInput): ShelfTile[] {
-  const tiles = [shelfVerified(i), ...SHOP_BADGE_KEYS.map((k) => shelfBadge(k, i))];
+  const tiles = SHELF_BADGE_KEYS.map((k) => (k === 'verified' ? shelfVerified(i) : shelfBadge(k, i)));
   const order = new Map(tiles.map((t, n) => [t.key, n]));
   const sorted = [...tiles].sort((a, b) => {
     const band = BAND[a.state] - BAND[b.state];

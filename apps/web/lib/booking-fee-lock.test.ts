@@ -53,6 +53,7 @@ const SOURCED = {
   flagEnabled: true,
   onPlatform: true,
   attribution: 'sourced',
+  forYou: true,
   shopVerified: true,
   frozenFree: false,
   launchOffer: false,

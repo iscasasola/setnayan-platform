@@ -46,7 +46,7 @@
 
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { stepName, type ShopBadge, type TrackerRow } from '@/lib/shop-badges';
-import { SHOP_BADGE_STEPS, TIER_KEYS, tierKeyAt, tierName, type ShopBadgeKey, type TierKey } from '@/lib/badge-tiers';
+import { SHOP_BADGE_KEYS, SHOP_BADGE_STEPS, TIER_KEYS, tierKeyAt, tierName, type ShopBadgeKey, type TierKey } from '@/lib/badge-tiers';
 import type { SpotlightAwardType } from '@/lib/spotlight-awards';
 import { upgradeLineFor, type BadgeUpgradeRow } from '@/lib/badge-upgrades';
 
@@ -436,7 +436,7 @@ function shopBadgeOwed(badge: ShopBadgeKey, f: BadgeRewardFacts): OwedReward[] {
 export function rewardsOwed(f: BadgeRewardFacts): OwedReward[] {
   const out: OwedReward[] = [];
   if (f.verified === true) out.push({ key: rewardKey('verified'), badge: 'verified', reward: papic(1), note: 'Badge reward · SETNAYAN Verified' });
-  for (const badge of ['completed_bookings', 'five_star_reviews', 'gifts_given', 'trusted_by', 'invites'] as const) {
+  for (const badge of SHOP_BADGE_KEYS) {
     out.push(...shopBadgeOwed(badge, f));
   }
   const award = BADGE_REWARDS.award;

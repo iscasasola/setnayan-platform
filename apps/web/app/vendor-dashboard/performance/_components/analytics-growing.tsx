@@ -651,11 +651,12 @@ function Attribution({ split, roi }: { split: NonNullable<GrowthView['windows'][
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const BLOCKS = ['12a', '3a', '6a', '9a', '12p', '3p', '6p', '9p'];
 
-function Heat({ grid }: { grid: number[][] }) {
+/** The weekday × time heat. `compact` = the card's 144-px picture (shorter cells, no caption — the line says it). */
+export function Heat({ grid, compact = false }: { grid: number[][]; compact?: boolean }) {
   const max = Math.max(...grid.flat(), 1);
   return (
     <>
-      <div className="ag-heat">
+      <div className={compact ? 'ag-heat ag-heat-sm' : 'ag-heat'} data-graph-pic={compact ? 'whenask' : undefined}>
         <span />
         {BLOCKS.map((b) => (
           <span key={b} className="ag-h">
@@ -666,7 +667,7 @@ function Heat({ grid }: { grid: number[][] }) {
           <HeatRow key={i} day={DAYS[i]!} row={r} max={max} />
         ))}
       </div>
-      <p className="ag-cap">Darker = more inquiries arrive then · Philippine time</p>
+      {compact ? null : <p className="ag-cap">Darker = more inquiries arrive then · Philippine time</p>}
     </>
   );
 }

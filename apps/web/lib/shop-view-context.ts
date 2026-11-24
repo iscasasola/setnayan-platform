@@ -31,6 +31,8 @@ export async function readShopViewContext(opts: { mint?: boolean } = {}): Promis
       data: { user },
     } = await supabase.auth.getUser();
     ctx.userId = user?.id ?? null;
+    // 📝 Only a real (non-anonymous) account can be "a sign-up a piece brought" (`lib/material-tags.ts`).
+    ctx.accountCreatedAt = user && !(user.is_anonymous ?? false) ? (user.created_at ?? null) : null;
   } catch {
     /* auth read is best-effort */
   }

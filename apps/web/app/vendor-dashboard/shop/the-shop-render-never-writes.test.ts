@@ -80,7 +80,10 @@ function functionBodies(code: string): Map<string, string> {
 // + shop_completed_bookings_count, shop_trusted_by_count (2026-11-16): STABLE SQL counts, no write (same migration).
 // + service_card_badge_facts (2026-11-17, J3): a STABLE SQL read of the 30-day numbers, no write (migration
 //   20271348906302). ⛔ NOT service_card_badge_settle — it opens and closes holds, and runs only from the sweep.
-const READ_ONLY_RPCS = ['service_card_badge_facts', 'shop_booked_loop_count', 'shop_trusted_five_star_count', 'shop_gift_points', 'shop_completed_bookings_count', 'shop_trusted_by_count'];
+// + vendor_pro_tools_included, vendor_storage_used_bytes, vendor_store_tool_open (2026-11-23, the Store): STABLE SQL reads
+//   of the plan's tools, the stored bytes and a bought tool — no write (migrations 20271356215288, 20271342883073,
+//   20271360126307).
+const READ_ONLY_RPCS = ['vendor_pro_tools_included', 'vendor_storage_used_bytes', 'vendor_store_tool_open', 'service_card_badge_facts', 'shop_booked_loop_count', 'shop_trusted_five_star_count', 'shop_gift_points', 'shop_completed_bookings_count', 'shop_trusted_by_count'];
 const WRITE = new RegExp(String.raw`\.(insert|update|upsert|delete)\s*\(|\bgrantOwed\w*\s*\(|\.rpc\(\s*(?!'(?:${READ_ONLY_RPCS.join('|')})')`);
 
 test('1 · the badge tracker, and every reader it reaches, never writes', () => {
@@ -108,8 +111,25 @@ test('2 · the Shop page calls no write; its service-role client feeds only the 
   assert.doesNotMatch(page, WRITE, 'the Shop render writes');
   const admins = [...page.matchAll(/createAdminClient\(\)/g)].length;
   const intoTracker = [...page.matchAll(/readBadgeRewardTracker\(\s*createAdminClient\(\)/g)].length;
+  // 🛍 The Store's reads (owner 23 Nov 2026): ONE more service-role client, `storeAdmin`, handed only to the tool-state and
+  // stored-bytes readers — both read-only all the way down (checked below).
+  const intoStore = [...page.matchAll(/const storeAdmin = createAdminClient\(\);/g)].length;
   assert.ok(admins >= 1, 'the tracker no longer reads (the badge rows lost their rewards)');
-  assert.equal(admins, intoTracker, 'the Shop render hands its service-role client to something other than the read-only tracker');
+  assert.equal(admins, intoTracker + intoStore, 'the Shop render hands its service-role client to something other than the read-only readers');
+  const uses = [...page.matchAll(/\bstoreAdmin\b/g)].length;
+  const allowed = [...page.matchAll(/readStoreToolFacts\(supabase, storeAdmin,|readStoredBytesWithoutMeasuring\(storeAdmin,|const storeAdmin =/g)].length;
+  assert.equal(uses, allowed, 'the Store’s service-role client reaches something other than its two read-only readers');
+  assert.doesNotMatch(src('lib/supplier-store.server.ts'), WRITE, 'a Store reader writes');
+  // The page's stored-bytes reader is `readStoredBytesWithoutMeasuring`. NOT `readStoredBytes`: that one goes through
+  // `vendor_storage_breakdown`, which measures a never-measured shop once (a write).
+  const storage = src('lib/supplier-storage.server.ts');
+  const readerAt = storage.indexOf('export async function readStoredBytesWithoutMeasuring(');
+  assert.ok(readerAt >= 0, 'the read-only stored-bytes reader is gone');
+  const readerEnd = storage.indexOf('\nexport ', readerAt + 1);
+  const reader = storage.slice(readerAt, readerEnd < 0 ? undefined : readerEnd);
+  assert.doesNotMatch(reader, WRITE, 'the stored-bytes reader writes');
+  assert.doesNotMatch(reader, /readStorageBreakdown|readStoredBytes\(|vendor_storage_breakdown/, 'the stored-bytes reader reaches the measuring read');
+  assert.doesNotMatch(page, /\breadStoredBytes\(|readStorageBreakdown\(/, 'the Shop page calls the measuring read');
   // The Analytics carousel streams inside this same render (owner 11 Nov 2026) — it must not pay either.
   assert.doesNotMatch(src('app/vendor-dashboard/performance/_components/one-analytics-section.tsx'), WRITE, 'the Analytics render writes');
 });

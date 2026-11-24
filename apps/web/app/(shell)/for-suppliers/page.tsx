@@ -28,8 +28,6 @@ import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { supplierCommissionPromise, supplierCommissionShort } from '@/lib/commission-promise';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { readSpecialToolsPaidFrom } from '@/lib/special-tools.server';
 import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 
 type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
@@ -187,13 +185,10 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
 export default async function ForSuppliersPage() {
   // 🎁 The lowest single gift's LIST price (owner: Papic 150) for the "How Setnayan earns" gift row — every shop pays the
   // list price (DECISION_LOG 14 Nov "BUY 10, GET 1 FREE"; 16 Nov 03e465e1). Never the withheld gift column.
-  // 🧰 The special tools' start date, read by the SAME reader the Cake Maker's gate uses (`readSpecialToolsPaidFrom`):
-  // before it the page says the tool is open to every plan; a refused read says nothing either way.
-  const [p, fee, papic150, specialTools] = await Promise.all([
+  const [p, fee, papic150] = await Promise.all([
     getVendorPrices(),
     getLiveBookingFeeSchedule(),
     getCustomerSkuPrice(GIFT_FROM_SKU),
-    readSpecialToolsPaidFrom(createAdminClient()).catch(() => ({ status: 'unread' as const })),
   ]);
   return (
     <>
@@ -212,7 +207,6 @@ export default async function ForSuppliersPage() {
             bySku: p.bySku,
           }}
           giftFrom={papic150 ? `₱${papic150}` : null}
-          specialTools={specialTools}
           nowMs={Date.now()}
           paywallOn={isVendorFeatureGateEnabled()}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}

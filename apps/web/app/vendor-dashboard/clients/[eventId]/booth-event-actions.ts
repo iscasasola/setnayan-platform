@@ -112,10 +112,10 @@ export async function buyBoothBrandingForEvent(
     verification_state?: string | null;
     booth_addon_expires_at?: string | null;
   } | null;
-  // ⚖ Every paid size, from Plus (owner 2026-11-22 "SAME FEATURES IN EVERY SIZE"; was Pro and up) — the effective plan,
-  // as the Special tools read it (PRO_TOOLS_MIN_TIER).
+  // ⚖ The plan floor of a paid widget (owner a02673ac, 23 Nov: bought AND on Plus, Pro or Ultra) — the effective plan,
+  // PRO_TOOLS_MIN_TIER. The per-event booth is retired (its SKU is off) and no screen offers it since the 3D plan widget.
   if (!isTierAtLeast(await resolveVendorTier(supabase, vendorProfileId), PRO_TOOLS_MIN_TIER)) {
-    return err('Your branded 3D booth comes with every paid plan, from Plus. Upgrade to Plus to brand it.');
+    return err('Your branded 3D booth is the 3D plan widget: buy it once in the Toolkit. It works on Plus, Pro or Ultra.');
   }
   if (gate?.verification_state !== 'verified') {
     return err('Get your shop verified first — 3D Booth branding unlocks once you’re verified.');

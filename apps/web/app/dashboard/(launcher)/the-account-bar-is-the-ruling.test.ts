@@ -95,7 +95,8 @@ test('the bar grid has exactly one column per tab it draws (no blank slot)', () 
 });
 
 test('every door is an existing one — Home keeps ?hub=1 — and none is a section, Admin or a floating Create', () => {
-  const doors = new Set(['/dashboard?hub=1', '/']);
+  // Discover's own door (`DISCOVER_HREF`): a signed-in bare `/` opens Home since 23 Nov 2026.
+  const doors = new Set(['/dashboard?hub=1', '/?discover=1']);
   let combos = 0;
   for (const hasVendor of [false, true])
     for (const canOpenShop of [false, true])
@@ -182,14 +183,15 @@ test('🍎 the rail hides its Discover row where Discover does not open — and 
   const shell = src('app/_components/frontdoor/app-rail-shell.tsx');
   assert.match(shell, /\{discoverOpen \? null : <span hidden data-discover-bounced="" \/>\}/, 'the shell no longer marks a bounced Discover');
   const css = stripComments(readFileSync(join(WEB, 'app/_components/frontdoor/front-door.css'), 'utf8'));
-  const rule = css.match(/\.fd:has\(\[data-discover-bounced\]\) \.fd-rail > a\.fd-row\[href='\/'\][^{]*\{([^}]*)\}/);
+  // Signed out the row is `/`, signed in Discover's own door `/?discover=1` (23 Nov 2026) — the rule names both.
+  const rule = css.match(/\.fd:has\(\[data-discover-bounced\]\) \.fd-rail > a\.fd-row\[href='\/'\][^{]*?a\.fd-row\[href='\/\?discover=1'\][^{]*\{([^}]*)\}/);
   assert.ok(rule, 'no stylesheet rule hides the rail Discover row on a bounced shell');
   assert.match(rule![1]!, /display:\s*none/, 'the row must leave (display:none takes it out of the tab order too)');
   // The selector names the row by its href — so it must be the ONLY rail row to `/`.
   const fd = src('app/_components/frontdoor/front-door-shell.tsx');
-  const rows = fd.match(/<Link href="\/" \{\.\.\.rowProps\('home'\)\}>/g) ?? [];
+  const rows = fd.match(/<Link href=\{account\.signedIn \? DISCOVER_HREF : '\/'\} \{\.\.\.rowProps\('home'\)\}>/g) ?? [];
   assert.equal(rows.length, 1, `expected the one Discover row, found ${rows.length}`);
-  assert.equal((fd.match(/<Link href="\/" \{\.\.\.rowProps\(/g) ?? []).length, 1, 'a second rail row to `/` would be hidden with it');
+  assert.equal((fd.match(/<Link href=\{[^}]*(?:'\/'|DISCOVER_HREF)[^}]*\} \{\.\.\.rowProps\(|<Link href="\/" \{\.\.\.rowProps\(/g) ?? []).length, 1, 'a second rail row to Discover would be hidden with it');
 });
 
 test('the account-level screens wear the mark AND the word — and only they carry the marker', () => {

@@ -37,6 +37,11 @@ type RecordVendorViewInput = {
   source?: string | null;
   /** Raw UTM query string when present on the landing URL. */
   utm?: string | null;
+  /**
+   * 🏷 The material tag (`?via=card`, … — `lib/material-tags.ts`, owner 2026-11-16): which piece the shop handed out
+   * brought this view. Re-validated here — only a known piece is written.
+   */
+  via?: string | null;
   /** Couple-event context, when a signed-in couple with an active event views. */
   eventId?: string | null;
   /**

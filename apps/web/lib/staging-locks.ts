@@ -177,7 +177,7 @@ export function confineCopySource(copySource: string, prefix: string): string {
   const path = q === -1 ? body : body.slice(0, q);
   const tail = q === -1 ? '' : body.slice(q);
   const slash = path.indexOf('/');
-  if (slash <= 0) throw new Error(`staging lock: CopySource "${copySource}" names no object`);
+  if (slash <= 0) throw new Error(`staging copy: CopySource "${copySource}" names no object`);
   const bucket = path.slice(0, slash);
   const key = decodeURIComponent(path.slice(slash + 1));
   const confined = confineKey(key, prefix).split('/').map(encodeURIComponent).join('/');
@@ -199,7 +199,7 @@ export function confineR2Input(
 ): Record<string, unknown> {
   const name = commandName.replace(/Command$/, '');
   if (BUCKET_WRITE.test(name)) {
-    throw new Error(`staging lock: ${name} is a bucket-level write — refused on a staging copy`);
+    throw new Error(`staging copy: ${name} is a bucket-level write — refused on a staging copy`);
   }
   const out: Record<string, unknown> = { ...input };
   if (typeof out.Key === 'string') out.Key = confineKey(out.Key, prefix);

@@ -103,7 +103,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Setnayan\'s assisted planner. It is not sold on its own: it comes with Event Pro and Event Ultra, through your event date (current rates on setnayan.com/pricing). It matches suppliers to your date, budget, venue, guest count, religion and reviews, and walks you through each decision, from the venue to thank-you cards, with faith-specific steps and deadlines (for a Filipino wedding: Pre-Cana, marriage licence windows, sponsors).',
+        body: 'Setnayan\'s assisted planner. It comes with Event Pro and Event Ultra, or on its own for one event, through your event date (current rates on setnayan.com/pricing). It matches suppliers to your date, budget, venue, guest count, religion and reviews, and walks you through each decision, from the venue to thank-you cards, with faith-specific steps and deadlines (for a Filipino wedding: Pre-Cana, marriage licence windows, sponsors).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',

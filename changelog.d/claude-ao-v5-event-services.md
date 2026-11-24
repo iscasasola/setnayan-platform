@@ -19,4 +19,6 @@ Owner 23 Nov 2026, specs DECISION_LOG "EVENT SERVICES v5 (WEBSITE TEMPLATE) APPR
 - **Guard:** `event-services-wears-the-website-look.test.ts` (5 tests; four sabotages seen red). The ⓘ guard's reason for this site is updated.
 - No migration, no server action, no price typed. Prices still come from `platform_retail_catalog_v2`.
 
+- Setnayan AI is on sale on its own again (₱2,790, DECISION_LOG 2026-11-23), so the copy says so: llms.txt quotes the SETNAYAN_AI row and lists it in REQUIRED_RETAIL again, and the Setnayan AI feature page, its FAQ and the help topic say it comes with Event Pro and Event Ultra or on its own. The llms.txt fixture row is live again (the DB guard `llms-fixture-matches-the-catalog` caught it).
+
 SPEC IMPACT: None. This builds the approved v5 drawing. The differences left are listed in the PR's STATUS: the 16 px house ⓘ; no ⓘ on singles, because the drawing defines no list for them; the Pay icon; quiet pills instead of text links; /pay not restyled.

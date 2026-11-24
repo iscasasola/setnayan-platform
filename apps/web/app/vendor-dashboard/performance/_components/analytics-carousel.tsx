@@ -56,6 +56,26 @@ import { storeGraphSpecs } from './store-graphs';
 /** The switch's two buttons — the ONE window list (`GROWTH_WINDOWS`), its "Last …" dropped: "30 days" · "12 months". */
 export const WINDOW_OPTIONS: readonly { key: GrowthWindow; label: string }[] = GROWTH_WINDOWS.map((w) => ({ key: w.key, label: w.label.replace(/^Last /, '') }));
 
+/**
+ * 📏 THE SWITCH FITS ITS CARD (supplier re-walk on live, 24 Nov 2026): on a computer the Shop's side column draws the
+ * cards two across (~171 px), and "30 days · 12 months" ran past the card's edge, cut by the next card. Each button
+ * carries its full words AND a short face; the card (a size container, `analytics-growing.css`) shows the short face
+ * only when it is too narrow for the figure plus the full words. There the figure steps aside too: the line under the
+ * graph already says the same number. A phone's 340-wide card is unchanged. The full words stay the button's name.
+ * 🔒 app/vendor-dashboard/performance/the-window-switch-fits-its-card.test.ts
+ */
+const WINDOW_SHORT: Record<GrowthWindow, string> = { '30': 'Month', '12': 'Year' };
+export const WINDOW_SWITCH_OPTIONS = WINDOW_OPTIONS.map((o) => ({
+  key: o.key,
+  ariaLabel: `Last ${o.label}`,
+  label: (
+    <>
+      <span className="ag-wl">{o.label}</span>
+      <span className="ag-ws">{WINDOW_SHORT[o.key]}</span>
+    </>
+  ),
+}));
+
 const WINDOW_WORD: Record<GrowthWindow, string> = { '30': 'in the last 30 days', '12': 'in the last 12 months' };
 
 /** The rule each count card may show (the prototype's own). */
@@ -206,7 +226,7 @@ export function AnalyticsCarousel(props: Props & Picks) {
         {FIXED_WINDOW[k]}
       </span>
     ) : (
-      <PillSelector label={`Window for ${title}`} value={winOf(k)} options={WINDOW_OPTIONS} onPick={(v) => setWin(k, v)} grow={false} data={`analytics-window-${k}`} />
+      <PillSelector label={`Window for ${title}`} value={winOf(k)} options={WINDOW_SWITCH_OPTIONS} onPick={(v) => setWin(k, v)} grow={false} data={`analytics-window-${k}`} />
     );
 
   const totalsOf = (win: GrowthWindow): Totals | null => {

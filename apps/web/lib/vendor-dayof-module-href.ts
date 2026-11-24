@@ -49,6 +49,16 @@ export function dayOfModuleHref(id: DayOfModuleId, eventId: string): string | nu
     case 'paperwork_checklist':
     case 'load_in_and_venue_access':
     case 'delivery_and_drop_off':
+    case 'ceremony_details':
+    case 'proofs_and_approval':
+    case 'safety_permit_and_cue':
+    case 'fittings_and_measurements':
+    case 'looks_per_person':
+    case 'crew_roster':
+    case 'room_list':
+    case 'chair_schedule':
+    case 'reservation_slots':
+    case 'brackets_and_scoring':
       return null;
     case 'vendor_papic':
       // Counsel-gated: callers filter it out unless the capability is live

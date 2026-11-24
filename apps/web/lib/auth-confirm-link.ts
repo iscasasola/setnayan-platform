@@ -29,7 +29,7 @@
  */
 
 import { homeSegHref } from './home-segments';
-import { doorOpenShopHref, doorShopHomeHref, type Door } from './doors';
+import { doorOpenShopHref, doorShopHomeHref, type Door } from './door-map';
 
 /**
  * OTP types `/auth/confirm` will accept.

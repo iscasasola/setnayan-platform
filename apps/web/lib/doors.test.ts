@@ -187,9 +187,17 @@ test('the door landing never pulls the route table into the client (Maker bundle
   const { routes } = await import('./routes');
   const { doorShopHomeHref } = await import('./doors');
   assert.equal(doorShopHomeHref(), routes.vendorDashboard.index(), 'the door lands somewhere the route table does not know');
-  for (const f of ['lib/auth-confirm-link.ts', 'lib/doors.ts', 'lib/sign-in-landing.ts']) {
-    assert.doesNotMatch(stripComments(read(f)), /from '(?:\.\/|@\/lib\/)routes'/, `${f} imports the route table, which reaches the client shell`);
+  for (const f of ['lib/auth-confirm-link.ts', 'lib/doors.ts', 'lib/door-map.ts', 'lib/sign-in-landing.ts']) {
+    assert.doesNotMatch(read(f), /from '(?:\.\/|@\/lib\/)routes'/, `${f} imports the route table, which reaches the client shell`);
   }
+  // the map and the client-reached links are a leaf; the modules on every page's first load import only the leaf
+  assert.doesNotMatch(read('lib/door-map.ts'), /^\s*import\s/m, 'door-map.ts is no longer a leaf');
+  for (const f of ['lib/auth-confirm-link.ts', 'lib/reserved-slugs.ts']) {
+    assert.doesNotMatch(read(f), /from '(?:\.\/|@\/lib\/)doors'/, `${f} pulls the door routing into every page's bundle`);
+    assert.match(read(f), /from '\.\/door-map'/);
+  }
+  // one map: DOOR_HOSTS is written once, in the leaf
+  assert.doesNotMatch(read('lib/doors.ts'), /export const DOOR_HOSTS/);
 });
 
 test('the one search rule answers "no box" on a door, signed in or out', async () => {

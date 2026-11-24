@@ -23,7 +23,7 @@
 // added tomorrow is protected the moment its folder exists.
 // ============================================================================
 
-import { DOOR_LABELS } from './doors';
+import { DOOR_LABELS } from './door-map';
 
 /**
  * The hand-authored half. This is the set MIRRORED BY THE DATABASE

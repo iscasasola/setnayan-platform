@@ -3,7 +3,8 @@
  * alias of the supplier door). Owner, 24 Nov 2026; drawing "Business door drawing" v7, approved.
  *
  * ─── ONE MAP ──────────────────────────────────────────────────────────────────────────────────────────────────────
- * `DOOR_HOSTS` is the only place a door's host label is written. Everything else asks this file:
+ * `DOOR_HOSTS` (in the leaf `door-map.ts`, re-exported here) is the only place a door's host label is written.
+ * Everything else asks this file:
  *   · middleware routes a door host by it (`doorRoute`): `/` is an internal rewrite to the door's front page (the
  *     address bar keeps the door's name), the five legal pages open inside the door, and any other page is a 308 to
  *     the same path on the site (setnayan.com) — sign-in never runs on a door host, so there is ONE auth origin;
@@ -16,35 +17,15 @@
  * 🔒 Every label in the map is reserved: middleware answers it before the paid event-subdomain rewrite, and
  * `RESERVED_SLUGS` (lib/reserved-slugs.ts) refuses it as an event or shop address. Held by lib/doors.test.ts.
  *
- * Pure on purpose (no `server-only`, no request): middleware, the client shell and node:test all import it.
+ * Pure on purpose (no `server-only`, no request): middleware, server pages and node:test all import it. Modules that
+ * reach every page's browser bundle import the leaf `door-map.ts` instead (the Maker's first-load budget, #8263).
  */
 import { POLICY_LINKS } from './policy-links';
 
-/** The two doors. A door is who the page speaks to; a host label is how a person typed it. */
-export const DOORS = ['supplier', 'coordinator'] as const;
-export type Door = (typeof DOORS)[number];
+import { DOORS, DOOR_HOSTS, DOOR_PARAM, type Door, type DoorHost, type DoorLabel } from './door-map';
 
-type DoorHost = { door: Door; front: string } | { aliasOf: string };
-
-/**
- * THE ONE MAP — a door host's label → its front page and its door, or the label it is an alias of.
- * `business` forwards to `supplier` (owner 24 Nov: "business.setnayan.com forwards here").
- */
-export const DOOR_HOSTS = {
-  supplier: { door: 'supplier', front: '/for-suppliers' },
-  coordinator: { door: 'coordinator', front: '/for-coordinators' },
-  business: { aliasOf: 'supplier' },
-} as const satisfies Record<string, DoorHost>;
-
-export type DoorLabel = keyof typeof DOOR_HOSTS;
-
-/** Every label in the map — each one is reserved (middleware, `RESERVED_SLUGS`). */
-export const DOOR_LABELS: readonly DoorLabel[] = Object.keys(DOOR_HOSTS) as DoorLabel[];
-
-/** The request header middleware sets on a door host (and on `/login?door=X`); the shared shell reads it. */
-export const DOOR_HEADER = 'x-sn-door';
-/** The query parameter that carries a door to the one sign-in card: `/login?door=supplier`. */
-export const DOOR_PARAM = 'door';
+// The one map and the client-reached links live in the leaf `door-map.ts`; this file is their home and re-exports them.
+export * from './door-map';
 
 /** The door's label, the way the map writes it (`supplier` → `supplier`). */
 function labelOfDoor(door: Door): DoorLabel {
@@ -84,29 +65,6 @@ export function doorFrontHref(door: Door, origin: string): string {
 /** Every sign-in or sign-up control on a door goes to the ONE auth origin: `https://<site>/login?door=X`. */
 export function doorSignInHref(door: Door, origin: string): string {
   return `${origin.replace(/\/+$/, '')}/login?${DOOR_PARAM}=${door}`;
-}
-
-/** Where a door's sign-in hands off: the one landing route, which asks `landingForAccount` with the door. */
-export function doorLandingHref(door: Door): string {
-  return `/auth/door?${DOOR_PARAM}=${door}`;
-}
-
-/**
- * Where a door's person with a shop lands: the supplier dashboard. Written here, not read from `lib/routes`, on
- * purpose: this file reaches the client shell (`front-door-shell` → `sign-in-landing` → `auth-confirm-link`), and the
- * route table is 25 KB the Event Hub Maker's first load cannot afford (bundle budget, #8263). Held by lib/doors.test.ts,
- * which checks it against `routes.vendorDashboard.index()`.
- */
-export function doorShopHomeHref(): string {
-  return '/vendor-dashboard';
-}
-
-/**
- * The shop set-up a door's person starts at — the same account gains a shop, never a second account.
- * On the coordinator door, Coordination is already picked (`/open-shop?as=coordinator`, the shipped wizard's own).
- */
-export function doorOpenShopHref(door: Door): string {
-  return door === 'coordinator' ? '/open-shop?as=coordinator' : '/open-shop';
 }
 
 /** The pages that open INSIDE a door (drawing: "one legal line … that opens inside this same door"). */

@@ -38,6 +38,7 @@ import { BADGE_WORDS } from '@/app/vendor-dashboard/shop/_components/badges/badg
 import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from './special-tools';
 import { formatCount } from './format-number';
 import { routes } from './routes';
+import { AV_TEMPLATES, NO_TEMPLATES, PAY_PLAN_TEMPLATES, avInstalled, payInstalled, readTemplatesLayout, type AvTemplate, type PayPlanTemplate, type TemplateKind, type TemplatesLayout } from './toolkit-templates';
 
 // ── THE SHELVES (Toolkit v19) ───────────────────────────────────────────────
 //
@@ -47,10 +48,10 @@ import { routes } from './routes';
 // Forms shelves today: there are no ready-made forms on main, and the Toolkit never lists a sample). Two more screens
 // share the address: `tools` = every widget (the shelf the Shop's [+] opens) and `yours` = the Your widgets manager.
 
-export const TOOLKIT_SHELVES = ['chat', 'present', 'hub', 'shop_page', 'chat_forms', 'card_forms', 'payment_plans', 'qr', 'graphs', 'badges'] as const;
+export const TOOLKIT_SHELVES = ['chat', 'present', 'hub', 'shop_page', 'chat_forms', 'card_forms', 'payment_plans', 'availability', 'qr', 'graphs', 'badges'] as const;
 export type ToolkitShelf = (typeof TOOLKIT_SHELVES)[number];
 
-export const STORE_SHELVES = ['tools', 'yours', 'chat', 'present', 'hub', 'shop_page', 'qr', 'graphs', 'badges'] as const;
+export const STORE_SHELVES = ['tools', 'yours', 'chat', 'present', 'hub', 'shop_page', 'payment_plans', 'availability', 'qr', 'graphs', 'badges'] as const;
 export type StoreShelf = (typeof STORE_SHELVES)[number];
 
 export const SHELF_TITLE: Readonly<Record<StoreShelf | ToolkitShelf, string>> = {
@@ -63,6 +64,7 @@ export const SHELF_TITLE: Readonly<Record<StoreShelf | ToolkitShelf, string>> = 
   chat_forms: 'Chat forms',
   card_forms: 'Card forms',
   payment_plans: 'Payment plans',
+  availability: 'Availability',
   qr: 'QR designs',
   graphs: 'Graphs',
   badges: 'Badges',
@@ -79,6 +81,7 @@ export const SHELF_LINE: Readonly<Record<StoreShelf | ToolkitShelf, string>> = {
   chat_forms: 'Send a form for a client to fill in',
   card_forms: 'Let a client choose what is included',
   payment_plans: 'Ready-made ways to split a payment',
+  availability: 'How a service card books',
   qr: 'Your QR codes, and designs to print them',
   graphs: 'See what is working',
   badges: 'Earned, never sold',
@@ -104,6 +107,8 @@ export function isWidgetShelf(v: unknown): v is WidgetShelf {
 export type ToolkitItem =
   | { kind: 'widget'; key: SpecializedToolKey; shelves: readonly WidgetShelf[] }
   | { kind: 'qr'; key: PromoteQrMode; builtIn: boolean }
+  /** 🧩 A ready-made template (Toolkit templates, specs 24dcf90c): a payment plan or an availability set-up. Free. */
+  | { kind: 'template'; key: string; of: TemplateKind }
   | { kind: 'graph'; key: CardKey }
   | { kind: 'badge'; key: string };
 
@@ -117,27 +122,36 @@ export type ToolkitListFacts = {
    * (`cardHiddenWidgets`, DECISION_LOG 3a2419fd). Absent = the whole catalogue (/for-suppliers).
    */
   hidden?: ReadonlySet<string>;
+  /**
+   * Templates this shop is not shown, as `pay:<key>` / `av:<key>` (`hiddenTemplates`): the shop has no online service
+   * card and never installed them. Absent = the whole catalogue (/for-suppliers).
+   */
+  hiddenTemplates?: ReadonlySet<string>;
 };
 
 export function toolkitItems(f: ToolkitListFacts): ToolkitItem[] {
   const items: ToolkitItem[] = [
     ...listedWidgets(f.papicCapture).filter((t) => !f.hidden?.has(t.key)).map((t) => ({ kind: 'widget' as const, key: t.key, shelves: t.shelves })),
+    ...PAY_PLAN_TEMPLATES.filter((t) => !f.hiddenTemplates?.has(`pay:${t.key}`)).map((t) => ({ kind: 'template' as const, key: t.key, of: 'pay' as const })),
+    ...AV_TEMPLATES.filter((t) => !f.hiddenTemplates?.has(`av:${t.key}`)).map((t) => ({ kind: 'template' as const, key: t.key, of: 'av' as const })),
     ...PROMOTE_QR_MODES.map((k) => ({ kind: 'qr' as const, key: k, builtIn: isBuiltInQr(k) })),
     ...CARD_ORDER.map((k) => ({ kind: 'graph' as const, key: k })),
     ...(f.badges ?? []).map((k) => ({ kind: 'badge' as const, key: k })),
   ];
   const seen = new Set<string>();
   return items.filter((i) => {
-    const id = `${i.kind}:${i.key}`;
+    const id = i.kind === 'template' ? `${i.kind}:${i.of}:${i.key}` : `${i.kind}:${i.key}`;
     if (seen.has(id)) return false;
     seen.add(id);
     return true;
   });
 }
 
-/** The items one shelf holds, in the list's order. A Forms shelf holds none today (hidden). */
+/** The items one shelf holds, in the list's order. Chat forms and Card forms hold none today (hidden). */
 export function shelfItems(items: readonly ToolkitItem[], shelf: ToolkitShelf): ToolkitItem[] {
   if (isWidgetShelf(shelf)) return items.filter((i) => i.kind === 'widget' && i.shelves.includes(shelf));
+  if (shelf === 'payment_plans') return items.filter((i) => i.kind === 'template' && i.of === 'pay');
+  if (shelf === 'availability') return items.filter((i) => i.kind === 'template' && i.of === 'av');
   if (shelf === 'qr') return items.filter((i) => i.kind === 'qr');
   if (shelf === 'graphs') return items.filter((i) => i.kind === 'graph');
   if (shelf === 'badges') return items.filter((i) => i.kind === 'badge');
@@ -154,30 +168,46 @@ export function visibleShelves(items: readonly ToolkitItem[]): ToolkitShelf[] {
  * holds, counted from `toolkitItems` — never typed. The Toolkit masthead and the /for-suppliers Toolkit section both
  * read it. `badges: null` = the badge read failed: that part shows nothing.
  */
-export const COUNT_PARTS = ['widgets', 'qr', 'graphs', 'badges'] as const;
+export const COUNT_PARTS = ['widgets', 'templates', 'qr', 'graphs', 'badges'] as const;
 export type CountPart = (typeof COUNT_PARTS)[number];
 export type ToolkitCounts = Readonly<Record<CountPart, number | null>>;
 
 export function toolkitCounts(f: ToolkitListFacts): ToolkitCounts {
   const items = toolkitItems(f);
   const n = (k: ToolkitItem['kind']) => items.filter((i) => i.kind === k).length;
-  return { widgets: n('widget'), qr: n('qr'), graphs: n('graph'), badges: f.badges ? n('badge') : null };
+  return { widgets: n('widget'), templates: n('template'), qr: n('qr'), graphs: n('graph'), badges: f.badges ? n('badge') : null };
 }
 
 const COUNT_NOUN: Readonly<Record<CountPart, [string, string]>> = {
   widgets: ['widget', 'widgets'],
+  templates: ['template', 'templates'],
   qr: ['QR design', 'QR designs'],
   graphs: ['graph', 'graphs'],
   badges: ['badge', 'badges'],
 };
 
-/** "18 widgets · 4 QR designs · 17 graphs · 5 badges" — a part whose count is unread is left out; nothing read = null. */
+/** "18 widgets · 14 templates · 4 QR designs · 17 graphs · 5 badges" — a part whose count is unread is left out; nothing read = null. */
 export function toolkitCountWords(c: ToolkitCounts): string | null {
   const parts = COUNT_PARTS.flatMap((k) => {
     const n = c[k];
     return n == null || !Number.isFinite(n) ? [] : [`${formatCount(n)} ${COUNT_NOUN[k][n === 1 ? 0 : 1]}`];
   });
   return parts.length ? parts.join(' · ') : null;
+}
+
+/**
+ * 🧩 "71 included · 8 with a plan" (Toolkit templates drawing, frame 0; owner "Prices only on plan-only tools"): the same
+ * one list, split into what every shop has free (Included) and the plan-only paid widgets (With a plan). Counted, never
+ * typed; in the dashboard a shop counts only what it is shown.
+ */
+export function includedSplit(items: readonly ToolkitItem[]): { included: number; withPlan: number } {
+  const withPlan = items.filter((i) => i.kind === 'widget' && isPaidStoreTool(i.key)).length;
+  return { included: items.length - withPlan, withPlan };
+}
+
+export function includedSplitWords(items: readonly ToolkitItem[]): string {
+  const { included, withPlan } = includedSplit(items);
+  return withPlan > 0 ? `${formatCount(included)} included · ${formatCount(withPlan)} with a plan` : `${formatCount(included)} included`;
 }
 
 // ── QR DESIGNS (Toolkit v19) ────────────────────────────────────────────────
@@ -548,6 +578,68 @@ export function toolServedByCards(tool: SpecializedTool, tags: readonly ToolTag[
   return orphan && tags.some((t) => t.label === EVERYTHING_ELSE);
 }
 
+/**
+ * 🧩 "For your services" on a template shelf: one of its "For first" categories is a kind the shop has an online card
+ * in (the same tile match the widget gate uses). Order only — a template is never locked by it (drawing, Notes).
+ */
+export function templateForYou(categories: readonly string[], cards: readonly string[] | null | undefined): boolean {
+  if (!cards || cards.length === 0) return false;
+  const have = new Set(cards.map((k) => cardTileOf(k)).filter((t): t is string => !!t));
+  return categories.some((c) => {
+    const t = seedTileOf(c);
+    return t !== null && have.has(t);
+  });
+}
+
+/**
+ * 🧩 The template card gate (DECISION_LOG 2026-11-23: "Payment plans and Availability fit any service, so they show while
+ * the shop has any online card"): with NO online card a template the shop never installed is hidden, an installed one
+ * greys ("Turn on a service card to use it"). Unread cards (null) or not read on this page (undefined) gate nothing.
+ */
+export const NO_ONLINE_CARD_WORDS = 'Turn on a service card to use it.';
+export function templatesGreyed(cards: readonly string[] | null | undefined): boolean {
+  return Array.isArray(cards) && cards.length === 0;
+}
+export function hiddenTemplates(cards: readonly string[] | null | undefined, installed: ReadonlySet<string>): Set<string> {
+  if (!templatesGreyed(cards)) return new Set();
+  return new Set([...PAY_PLAN_TEMPLATES.map((t) => `pay:${t.key}`), ...AV_TEMPLATES.map((t) => `av:${t.key}`)].filter((id) => !installed.has(id)));
+}
+
+/** One template on its shelf, as this shop sees it. `installed` null = the saved plans could not be read. */
+export type StoreTemplateRow =
+  | { of: 'pay'; t: PayPlanTemplate; installed: boolean | null; forYou: boolean; greyed: boolean }
+  | { of: 'av'; t: AvTemplate; installed: boolean | null; forYou: boolean; greyed: boolean };
+
+/**
+ * 🧩 A template shelf's rows, in the drawing's order, for this shop: installed (the plan it made is live / its key is in
+ * the layout), "For your services" (`templateForYou`), greyed with no online card. A refused layout read installs
+ * nothing (null); a refused plans read says unread, never "not installed".
+ */
+export function storeTemplateRows(
+  of: TemplateKind,
+  f: { layout: StoreLayout | null; livePlanIds: ReadonlySet<string> | null; cards: readonly string[] | null | undefined },
+): StoreTemplateRow[] {
+  const l = f.layout?.templates ?? null;
+  const greyed = templatesGreyed(f.cards);
+  if (of === 'pay')
+    return PAY_PLAN_TEMPLATES.map((t) => {
+      const installed = l === null ? null : payInstalled(t.key, l, f.livePlanIds);
+      return { of: 'pay' as const, t, installed, forYou: templateForYou(t.forCategories, f.cards), greyed };
+    }).filter((r) => !(r.greyed && r.installed !== true));
+  return AV_TEMPLATES.map((t) => ({ of: 'av' as const, t, installed: l === null ? null : avInstalled(t.key, l), forYou: templateForYou(t.forCategories, f.cards), greyed })).filter(
+    (r) => !(r.greyed && r.installed !== true),
+  );
+}
+
+/** The set `hiddenTemplates` reads: every template this shop installed, as `pay:<key>` / `av:<key>`. */
+export function installedTemplateIds(l: StoreLayout | null, livePlanIds: ReadonlySet<string> | null): Set<string> {
+  if (!l) return new Set();
+  return new Set([
+    ...PAY_PLAN_TEMPLATES.filter((t) => payInstalled(t.key, l.templates, livePlanIds) !== false).map((t) => `pay:${t.key}`),
+    ...AV_TEMPLATES.filter((t) => avInstalled(t.key, l.templates)).map((t) => `av:${t.key}`),
+  ]);
+}
+
 /** The category a greyed widget names ("Turn on a Florist card to use it"): its first tag in the table's order. */
 function noCardCategory(tags: readonly ToolTag[]): string {
   return tags[0]?.label ?? 'service';
@@ -583,7 +675,8 @@ function gatedRow(tool: SpecializedTool, suggested: boolean, f: ToolFacts): { ro
   let hidden = false;
   if (Array.isArray(f.cards) && !toolServedByCards(tool, tags, f.cards)) {
     hidden = !heldByShop(status, installed);
-    status = { kind: 'no_card', category: noCardCategory(tags), installed, prior: status };
+    // `toolStatus` never answers no_card itself, so the prior is one of the other states.
+    status = { kind: 'no_card', category: noCardCategory(tags), installed, prior: status as Exclude<ToolStatus, { kind: 'no_card' }> };
     installed = toolIsInstalled(tool.key, status, f);
   }
   return { row: { tool, suggested, status, installed, act: toolAct(tool.key, status, installed), tags, forYou: toolIsForYou(tool, tags, f) }, hidden };
@@ -846,15 +939,24 @@ export function isLayoutRow(v: unknown): v is LayoutRow {
 }
 
 /** `vendor_profiles.store_layout`, read. A row that is null was never arranged (its default is drawn). */
-export type StoreLayout = { graphs: string[] | null; badges: string[] | null; tools: string[] | null; toolsOff: string[]; /** The QR designs installed (Toolkit v19); null = never arranged (all four). */ qrs: string[] | null };
+export type StoreLayout = {
+  graphs: string[] | null;
+  badges: string[] | null;
+  tools: string[] | null;
+  toolsOff: string[];
+  /** The QR designs installed (Toolkit v19); null = never arranged (all four). */
+  qrs: string[] | null;
+  /** 🧩 The templates installed (Toolkit templates): a pay template → the plan it made; the availability ones. */
+  templates: TemplatesLayout;
+};
 
-export const NO_LAYOUT: StoreLayout = { graphs: null, badges: null, tools: null, toolsOff: [], qrs: null };
+export const NO_LAYOUT: StoreLayout = { graphs: null, badges: null, tools: null, toolsOff: [], qrs: null, templates: NO_TEMPLATES };
 
 /** The column's jsonb as the app reads it — anything malformed reads as never arranged, never as "nothing chosen". */
 export function readLayout(raw: unknown): StoreLayout {
   const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   const list = (v: unknown): string[] | null => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : null);
-  return { graphs: list(o.graphs), badges: list(o.badges), tools: list(o.tools), toolsOff: list(o.tools_off) ?? [], qrs: list(o.qrs) };
+  return { graphs: list(o.graphs), badges: list(o.badges), tools: list(o.tools), toolsOff: list(o.tools_off) ?? [], qrs: list(o.qrs), templates: readTemplatesLayout(o.templates) };
 }
 
 /** At most this many keys in one row (the column's size check backs it). */
@@ -887,8 +989,15 @@ export function withLayoutRow(prev: StoreLayout, row: LayoutRow, sent: readonly 
 }
 
 /** The layout as the column stores it. */
-export function layoutColumn(l: StoreLayout): { graphs: string[] | null; badges: string[] | null; tools: string[] | null; tools_off: string[]; qrs: string[] | null } {
-  return { graphs: l.graphs, badges: l.badges, tools: l.tools, tools_off: l.toolsOff, qrs: l.qrs };
+export function layoutColumn(l: StoreLayout): {
+  graphs: string[] | null;
+  badges: string[] | null;
+  tools: string[] | null;
+  tools_off: string[];
+  qrs: string[] | null;
+  templates: { pay: Record<string, string>; av: string[] };
+} {
+  return { graphs: l.graphs, badges: l.badges, tools: l.tools, tools_off: l.toolsOff, qrs: l.qrs, templates: { pay: { ...l.templates.pay }, av: [...l.templates.av] } };
 }
 
 /** The ring's two short lines on the Shop: "60 to go" · "Bronze next" (or the tier reached / the honest state). */

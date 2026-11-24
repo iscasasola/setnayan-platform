@@ -10,6 +10,8 @@ import { analyticsGraphs, type StoreLayout, type ToolFacts } from '@/lib/supplie
 import type { GraphUnlocks } from '@/lib/graph-unlocks';
 import type { ShelfTile } from '@/lib/shop-badge-shelf';
 import type { CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
+import { readPayPlanTemplates } from '@/lib/pay-plan-templates.server';
+import type { PlanTemplatesRead } from '@/lib/pay-plan-templates';
 
 export type StoreData = {
   /** The shop's layout of its three rows; null = it could not be read (the defaults are drawn). */
@@ -20,6 +22,8 @@ export type StoreData = {
   unlocks: GraphUnlocks;
   /** The graphs on the shop's Analytics, in its order. */
   on: CardKey[];
+  /** 🧩 The shop's live saved payment plans — a pay template is installed while the plan it made is one of them. */
+  plans: PlanTemplatesRead;
 };
 
 /**
@@ -38,7 +42,7 @@ export async function loadStore(): Promise<StoreData> {
 
   const layoutRead = readStoreLayout(supabase, id);
   const badgesRead = readStoreBadges(admin, id);
-  const [layout, tools, badges, unlocks] = await Promise.all([
+  const [layout, tools, badges, unlocks, plans] = await Promise.all([
     layoutRead,
     layoutRead.then((l) => readStoreToolFacts(supabase, admin, id, services, l)),
     badgesRead,
@@ -47,6 +51,7 @@ export async function loadStore(): Promise<StoreData> {
       id,
       badgesRead.then((b) => b.facts),
     ),
+    readPayPlanTemplates(supabase, id),
   ]);
-  return { layout, tools, badges: badges.tiles, unlocks, on: analyticsGraphs(layout?.graphs ?? null, unlocks) };
+  return { layout, tools, badges: badges.tiles, unlocks, on: analyticsGraphs(layout?.graphs ?? null, unlocks), plans };
 }

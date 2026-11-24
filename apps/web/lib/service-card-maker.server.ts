@@ -46,6 +46,7 @@ import type { VendorServiceTimeSlot } from '@/lib/vendor-time-slots';
 import type { AudienceOption } from '@/lib/canvas-audience-groups';
 import { fetchCategoryChipRefinementsMany, type CategoryRefinements } from '@/lib/vendor-service-attributes';
 import { loadCardCheckRules, type CardCheckRules } from '@/lib/service-card-checks.server';
+import { installedAvTemplates, readTemplatesLayout, type AvTemplate } from '@/lib/toolkit-templates';
 
 /**
  * service-card-maker.server.ts — EVERYTHING THE SIMPLER MAKER READS, read once, for all three doors.
@@ -100,6 +101,11 @@ export type MakerContext = {
    * (step 2). `null` = the read was REFUSED — the maker then draws no recommendation, never "Not set".
    */
   availabilityOf: Record<string, AvailabilityStyle> | null;
+  /**
+   * 🧩 The availability templates the shop installed from the Toolkit (`store_layout.templates.av`) — the Availability
+   * row's "From a template". `null` = the shop row could not be read (the row then offers none, never guessed).
+   */
+  avTemplates: AvTemplate[] | null;
   kindLabel: (kind: string) => string;
   /**
    * 🗂 THE SERVICES ROW'S SECOND LINE (Card Maker HYBRID, owner-approved 17 Nov): where a service sits in the live
@@ -131,7 +137,7 @@ export async function loadMakerContext(
 
   const [ownRowsRes, tierRes, tree, vendorCoverages, eventTypes, poolsRes, poolCatsRes, giftPacks, giftStock, checkRules, availabilityRes] = await Promise.all([
     supabase.from('vendor_services').select('category').eq('vendor_profile_id', vendorProfileId),
-    supabase.from('vendor_profiles').select('tier_state, is_founder, services').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
+    supabase.from('vendor_profiles').select('tier_state, is_founder, services, store_layout').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
     getCoverageTaxonomy().catch(() => [] as CoverageParent[]),
     fetchVendorCoverages(supabase, vendorProfileId).catch(() => []),
     getVendorServableEventTypes().catch(() => []),
@@ -174,7 +180,7 @@ export async function loadMakerContext(
   const cardsByCategory: Record<string, number> = {};
   for (const c of ownCategories) cardsByCategory[c] = (cardsByCategory[c] ?? 0) + 1;
 
-  const tierRow = tierRes.data as { tier_state?: string | null; is_founder?: boolean | null; services?: string[] | null } | null;
+  const tierRow = tierRes.data as { tier_state?: string | null; is_founder?: boolean | null; services?: string[] | null; store_layout?: unknown } | null;
   // The plan's allowances PLUS the Ultra add-ons the shop bought (owner 2026-11-06), the same read as the save's.
   const baseCaps = await fetchCapsWithAddOns(supabase, vendorProfileId, tierRow?.tier_state);
   // No plan cap since 2026-11-18 (ruling 17): the ceiling is the same on every plan.
@@ -391,6 +397,7 @@ export async function loadMakerContext(
     ownKinds: ownRowsRes.error ? null : Array.from(new Set(ownCategories)),
     bookingsPerDate,
     availabilityOf,
+    avTemplates: tierRes.error || !tierRow ? null : installedAvTemplates(readTemplatesLayout((tierRow.store_layout as { templates?: unknown } | null)?.templates)),
     kindLabel,
     kindPath: (kind: string) => kindPathOf.get(kind) ?? null,
     giftPacks,

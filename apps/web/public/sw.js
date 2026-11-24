@@ -755,9 +755,13 @@ const HUB_PAGE_WORDS = new Set([
 ]);
 const GUEST_WORD = /^[a-z0-9-]{3,32}$/;
 const GUEST_KEPT_ROOMS = new Set([...GUEST_HUB_ROOMS, GUEST_HUB_ANSWER]);
+// The business doors' host labels — a COPY of `DOOR_LABELS` (lib/door-map.ts, the one door map), held equal by
+// app/sw-offline-copies.test.ts. No event or shop may take one (lib/reserved-slugs.ts), and they are not route folders,
+// so they cannot live in RESERVED (sw-reserved-routes.test.ts holds that to the folders).
+const DOOR_WORDS = new Set(['supplier', 'coordinator', 'business']);
 
 function isGuestWord(w) {
-  return typeof w === 'string' && GUEST_WORD.test(w) && !RESERVED.has(w);
+  return typeof w === 'string' && GUEST_WORD.test(w) && !RESERVED.has(w) && !DOOR_WORDS.has(w);
 }
 
 // A guest Event Hub page this copy keeps, in either address form, or null: { event, suffix, key (the bare form) }.

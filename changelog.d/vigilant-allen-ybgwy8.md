@@ -26,6 +26,7 @@ The owner ruled the release order on 24 Nov: "start with event hub. then supplie
   - Me keeps its own "Your schedule" mark.
 - **The address move (#7868, `NEXT_PUBLIC_U_NESTING_CUTOVER`, still off).** Every guest shape reads both `/<event>…` and `/{username}/<event>…` and keeps them as one copy under the bare form. This covers saving, opening, sign-out and the old-copy clean-up.
   - The "second word" rule is the train's own `isNotANestedEvent` / `EVENT_SUB_ROUTES` (`lib/u-nesting.ts`). `main` was merged after #8277 landed.
+  - The business doors' labels (`supplier` · `coordinator` · `business`, the one door map in `lib/door-map.ts`) are never an event's word, in the worker as in lib. The worker keeps a copy of the labels, `DOOR_WORDS`, held equal to the map by the agreement test, which caught the gap when the door map landed on `main`.
   - A save follows the switch's 307 only when it lands on the same page.
   - The guard tests run with the switch on, so turning it on cannot silently stop offline.
 - **Needs internet (R15).** With no signal, these grey out in place, say "Needs internet" and are `aria-disabled`:

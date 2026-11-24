@@ -42,6 +42,7 @@ import {
   supplierSchedulePath,
 } from '@/lib/offline-copies';
 import { DB_MIRRORED_RESERVED_SLUGS, RESERVED_SLUGS } from '@/lib/reserved-slugs';
+import { DOOR_LABELS } from '@/lib/door-map';
 import {
   HUB_PAGE_WORDS,
   guestHubAddress,
@@ -750,6 +751,8 @@ test('R18 · the worker and lib agree on every guest address, in BOTH address fo
     `/${NEST}${BASE}/announcement`, `/${NEST}${BASE}/venue`, `/${NEST}${BASE}/seat/claim`, `/${NEST}/dates`, `/${NEST}/c/abc`,
     `/${NEST}/invite`, '/dashboard/ana-ben', '/u/ana-ben', '/dashboard?tab=me', '/login?tab=me', '/ab?tab=me', '/Ana-Ben?tab=me',
     '/ana/hub', '/vendor-dashboard/ana-ben', `/${NEST}${BASE}/x/y`,
+    // The business doors' labels: never an event (lib/door-map.ts), in either word of the address.
+    '/supplier', '/coordinator?tab=me', '/business/seat', `/supplier${BASE}`, `/${NEST}/business`,
   ];
   for (const p of table) {
     assert.equal(ctx.isOfflineCopyPath(p), isOfflineCopyPath(p), `sw.js and lib disagree whether ${p} may be kept`);
@@ -778,7 +781,13 @@ test('R18 · the worker and lib agree on every guest address, in BOTH address fo
   // (The event's own pages are the address move's `EVENT_SUB_ROUTES`, which `lib/u-nesting.test.ts` holds to the folders.)
   // ⚖ The reserved words: the worker asks the route half (`RESERVED`), lib the whole pool. Every slug-shaped word only
   // lib reserves must be one the database refuses as an event's word — so no real event's address can differ.
-  const swReserved = list('RESERVED');
+  // The business doors' labels are reserved in lib too (no event may take one); the worker keeps them as DOOR_WORDS.
+  assert.deepEqual(list('DOOR_WORDS'), [...DOOR_LABELS].sort(), 'the worker’s door words are not lib’s door map');
+  for (const w of DOOR_LABELS) {
+    assert.ok(RESERVED_SLUGS.has(w), `the door label "${w}" is no longer reserved in lib`);
+    assert.equal(guestHubAddress(`/${w}`), null);
+  }
+  const swReserved = [...list('RESERVED'), ...list('DOOR_WORDS')];
   const libOnly = [...RESERVED_SLUGS].filter((w) => /^[a-z0-9-]{3,32}$/.test(w) && !swReserved.includes(w));
   assert.ok(libOnly.length > 0, 'the two lists are equal now — tighten this to deepEqual');
   for (const w of libOnly) {

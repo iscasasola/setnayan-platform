@@ -33,6 +33,7 @@ import { supplierCommissionPromise, supplierCommissionShort } from '@/lib/commis
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
+import { readCardTemplateCount } from '@/lib/supplier-toolkit-count';
 
 /** The service-role client, or null where it cannot be made (a build with no key): every read then says "couldn't read". */
 function createAdminClientOrNull() {
@@ -200,7 +201,7 @@ export default async function ForSuppliersPage() {
   // 🧰 No special-tools start date any more (owner a02673ac, 23 Nov): a paid widget is bought once in the Toolkit and
   // works only on a paid plan, so the Toolkit's tags are the one paid list (`PAID_STORE_TOOLS`), with nothing to read.
   const admin = createAdminClientOrNull();
-  const [p, fee, giftRead, catalog, papicCapture] = await Promise.all([
+  const [p, fee, giftRead, catalog, papicCapture, cardTemplates] = await Promise.all([
     getVendorPrices(),
     getLiveBookingFeeSchedule(),
     admin
@@ -211,6 +212,9 @@ export default async function ForSuppliersPage() {
     fetchV2CustomerCatalog(),
     // 📷 The Toolkit lists the Papic camera only while its privacy switch is on; a refused read keeps it off.
     isVendorPapicCaptureEnabled().catch(() => false),
+    // 🧰 The starting card templates the admin keeps — the one live part of the Toolkit's count (`toolkitTotal`); a
+    // refused read is null and the page draws no number, never 0+.
+    admin ? readCardTemplateCount(admin).catch(() => null) : Promise.resolve(null),
   ]);
   const credits = planCreditsFrom(catalog);
   return (
@@ -232,6 +236,7 @@ export default async function ForSuppliersPage() {
           gifts={{ packs: giftRead.packs, bundles: giftRead.bundles, credits: { plusCredits: credits.plusCredits, proCredits: credits.proCredits } }}
           paywallOn={isVendorFeatureGateEnabled()}
           papicCapture={papicCapture}
+          cardTemplates={cardTemplates}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}
           afterPlans={
             /*

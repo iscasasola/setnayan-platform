@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1990
-# tables: 543
-# columns: 6507
-# notnull: 3915
+# ledger: 2013
+# tables: 551
+# columns: 6606
+# notnull: 3967
 [ledger]
 20260512000000
 20260513000000
@@ -2007,6 +2007,7 @@
 20271359913146
 20271359936839
 20271360033501
+20271360126307
 20271360318379
 20271360321657
 20271360344805
@@ -2015,6 +2016,7 @@
 20271360665147
 20271360925434
 20271360932916
+20271360986087
 20271361280498
 20271361284618
 20271361301072
@@ -4169,6 +4171,7 @@ events.experience_for_whom
 events.experience_persona
 events.face_tagging_declined_by_couple
 events.final_pax
+events.for_whom
 events.full_res_drop_warned_at
 events.gender_separation
 events.geolocation_enabled

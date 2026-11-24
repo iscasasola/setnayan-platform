@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { makerProUsable } from '@/lib/paid-mark';
@@ -272,7 +273,7 @@ export default async function OurStoryEditorPage({
     themeName: theme.name,
     motionLabel: HUB_MOTION_PRESET_LABEL[theme.motion],
     makerHref: `${base}/launch`,
-    guestHref: event.slug ? `/${event.slug}?phase=rsvp` : null,
+    guestHref: event.slug ? `${publicEventPath(event.slug)}?phase=rsvp` : null,
     ownsPro: proUsable,
     tryingPro: proUsable && !proActive,
     storeShell,

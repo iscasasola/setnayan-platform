@@ -148,7 +148,7 @@ const RAILS: OpenRail[] = [
 const PACKS: ShopPapicPack[] = [{ code: 'lab-pack', title: 'Papic Plus', credits: 300, pricePhp: 2999 }];
 
 function papic({ isEventDay, coupleName = COUPLE }: { isEventDay: boolean; coupleName?: string }) {
-  const capture = isEventDay ? { uploadOwner: null, tier: 'ltd' as const, allowVideo: true, pointsCap: 60, pointsSpent: 12 } : null;
+  const capture = isEventDay ? { uploadOwner: null, plan: 'free', planLabel: 'Free', photosTaken: 7 } : null;
   return (
     <PapicDeskBody
       eventId={EVENT_ID}

@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import { Fragment, isValidElement } from 'react';
 import type { SetnayanMark } from '@/lib/setnayan-mark-by-plan';
 import { effectiveRoleOf, standingInWords, standsInForYouWords } from '@/lib/guest-proxy';
@@ -2021,8 +2022,8 @@ export async function SiteBody({
           // send an unrecognised visitor BACK TO THIS INVITATION instead
           // of to Setnayan's homepage — which was the only way off it.
           camera: hostCameraOpen ? `/papic/guest?from=${event.slug}` : null,
-          watch: `/${event.slug}?tab=live`,
-          join: `/${event.slug}/invite`,
+          watch: `${publicEventPath(event.slug)}?tab=live`,
+          join: `${publicEventPath(event.slug)}/invite`,
         },
         stageSlots: STAGE_BAR[pageStage].slots,
         // 🏠 The day's Welcome, when this reader has one (the reminders, E-Gifts,
@@ -2383,7 +2384,7 @@ export async function SiteBody({
             {group(stagesPages ? 'home' : readerAt('f:find_your_seat', 'home'), <>{insideAllowed && !storyLeads && doorwayFacts?.seatingSurfaceEnabled && doorwayFacts?.seatingPublished ? (
             <div className="mt-8 text-center">
               <Link
-                href={`/${event.slug}/find-seat`}
+                href={`${publicEventPath(event.slug)}/find-seat`}
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm hover:border-terracotta hover:text-terracotta-700"
               >
                 <MapPin aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -3113,8 +3114,8 @@ export async function SiteBody({
         // Same reason as the anonymous tree: the address carries the event so a
         // refusal can hand them back their invitation (`guestCameraHref`).
         camera: guestCameraHref,
-        watch: `/${event.slug}?tab=live`,
-        join: `/${event.slug}/invite`,
+        watch: `${publicEventPath(event.slug)}?tab=live`,
+        join: `${publicEventPath(event.slug)}/invite`,
       },
     });
     const tabs = pageTabsFor(guestBar);
@@ -3158,7 +3159,7 @@ export async function SiteBody({
       /* 🔘 ON ME (owner 2026-10-24, the Me redraw): a small icon-and-word pill beside "Stop keeping a record" — still
          asking first (`SignOutOfInvitation`). Me's own hairline sits above the two. */
       <SignOutOfInvitation
-        action={`/${event.slug}/sign-out`}
+        action={`${publicEventPath(event.slug)}/sign-out`}
         pill
         erases={
           guest.photo_source === 'selfie' ? (
@@ -3174,7 +3175,7 @@ export async function SiteBody({
          44px press, and the first press asks (`SignOutOfInvitation`). */
       <section className="border-t border-ink/10 pt-6 text-center text-sm text-ink/70">
         <SignOutOfInvitation
-          action={`/${event.slug}/sign-out`}
+          action={`${publicEventPath(event.slug)}/sign-out`}
           /* 🧽 Said BEFORE the tap (owner 2026-09-30): the sign-out route
              erases the face-tagging selfie; tags stay. */
           erases={
@@ -3236,7 +3237,7 @@ export async function SiteBody({
             {isEditorCanvas || !seatPassActive ? null : (
               <p className="mt-2 text-center">
                 <Link
-                  href={`/${event.slug}/find-my-table`}
+                  href={`${publicEventPath(event.slug)}/find-my-table`}
                   className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-ink/80 underline decoration-ink/30 underline-offset-4 hover:text-ink"
                 >
                   See the venue map

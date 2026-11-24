@@ -1133,14 +1133,29 @@ export function selectSchedulePreviewBlocks(
 export function formatBlockTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString(undefined, {
-    timeZone: 'UTC',
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return `${wallDayWords(d)}, ${wallClockWords(d)}`;
+}
+
+/*
+ * 🌐 NO LOCALE EITHER (live fault, 22–23 Nov: React #418 — a hydration TEXT mismatch — on the public Event Hub
+ * `/[slug]`). `toLocaleString(undefined, …)` pinned the zone but not the LANGUAGE: `undefined` is the machine's own.
+ * The server wrote "2:00 PM"; a guest's phone set to English (UK) — or any language with a 24-hour clock — wrote
+ * "14:00" for the same block while the schedule widget hydrated, and React threw. The words are spelled here, from the
+ * UTC components, the way the hero's own time already is (`hubTimeDefaultWords`, lib/hub-date-formats.ts): the same
+ * bytes on the server, on every phone and in CI. Guard: `lib/a-schedule-time-reads-the-same-everywhere.test.ts`.
+ */
+const WALL_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+const WALL_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+
+/** "2:00 PM" — the stored wall clock, read with UTC getters. */
+function wallClockWords(d: Date): string {
+  const h = d.getUTCHours();
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(d.getUTCMinutes()).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+/** "Sat, Dec 12" — the stored wall-clock day, read with UTC getters. */
+function wallDayWords(d: Date): string {
+  return `${WALL_DAYS[d.getUTCDay()]}, ${WALL_MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
 
 /** The same wall-clock rule as `formatBlockTime`, for a start–end pair.
@@ -1149,8 +1164,7 @@ export function formatBlockTime(iso: string): string {
 export function formatBlockTimeRange(startIso: string, endIso: string | null): string {
   const start = new Date(startIso);
   if (Number.isNaN(start.getTime())) return '';
-  const timeOpts = { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' } as const;
-  const startStr = start.toLocaleString(undefined, timeOpts);
+  const startStr = wallClockWords(start);
   if (!endIso) return startStr;
   const end = new Date(endIso);
   if (Number.isNaN(end.getTime())) return startStr;
@@ -1158,10 +1172,7 @@ export function formatBlockTimeRange(startIso: string, endIso: string | null): s
     start.getUTCFullYear() === end.getUTCFullYear() &&
     start.getUTCMonth() === end.getUTCMonth() &&
     start.getUTCDate() === end.getUTCDate();
-  const endStr = end.toLocaleString(undefined, timeOpts);
-  return sameDay
-    ? `${startStr} – ${endStr}`
-    : `${startStr} → ${end.toLocaleString(undefined, { timeZone: 'UTC' })}`;
+  return sameDay ? `${startStr} – ${wallClockWords(end)}` : `${startStr} → ${wallDayWords(end)}, ${wallClockWords(end)}`;
 }
 
 // ── Viewer-local time (mirror of ~/Setnayan-Native/src/lib/timezone.ts) ────────

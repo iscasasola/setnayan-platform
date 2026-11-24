@@ -4,8 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
-import { portfolioShortText } from '@/lib/shop-portfolio-credits';
-import { formatCount } from '@/lib/format-number';
 import { R2_BUCKETS } from '@/lib/r2';
 import { parseR2Ref } from '@/lib/nsfw-screen';
 import { parseClientRef, vendorOwnedMediaPolicy } from '@/lib/r2-client-ref';
@@ -97,30 +95,21 @@ export async function putAlbumPhotoOnMyPage(_prev: PutOnPageResult | null, formD
   // The QR guard reads the ALBUM photo — the same bytes the page copy will carry — before anything is filed.
   if (await vendorQrGuardRejects([photo.r2_object_key])) return { ok: false, error: VENDOR_QR_MEDIA_ERROR };
 
-  // 💳 FILED AND PRICED IN ONE STEP (`file_supplier_page_notice`, under the wallet's per-shop lock): the notice row
-  // (its trigger stamps the 7 days) and, past the free room, the shop-wallet charge (owner 2026-10-23: 50 free, then
-  // 1 credit a photo). Photos still WAITING count toward the free room, so the day they go up nothing is charged twice
-  // and nothing goes up unpaid. A charge the wallet cannot cover files NOTHING and says so.
+  // 📮 FILED IN ONE STEP (`file_supplier_page_notice`): the notice row (its trigger stamps the 7 days). No charge since
+  // 2026-11-23 — the portfolio has no count or price (owner: storage is the only limit).
   const filed = await supabase.rpc('file_supplier_page_notice', { p_photo_id: photoId, p_page_ref: pageRef });
   const answer = (filed.data ?? null) as
-    | (Partial<SupplierPageNoticeRow> & { status?: string; charged?: number; charge?: number; balance?: number | null })
+    | (Partial<SupplierPageNoticeRow> & { status?: string })
     | null;
   if (filed.error) console.error('[supabase-error] app/vendor-dashboard/collections/actions.ts · rpc:file_supplier_page_notice', filed.error);
-  if (answer?.status === 'insufficient') {
-    return { ok: false, error: portfolioShortText(Number(answer.charge ?? 0), Number(answer.balance ?? 0)) };
-  }
   if (answer?.status === 'not_owner') return { ok: false, error: 'Only the shop owner can change the portfolio.' };
   if (answer?.status === 'refused') return { ok: false, error: 'That photo can’t go on your page.' };
   if (filed.error || (answer?.status !== 'ok' && answer?.status !== 'exists') || !answer?.public_from) {
     return { ok: false, error: 'Your page could not be updated just now. Nothing was changed — please try again.' };
   }
-  const charged = Number(answer.charged ?? 0);
   const said = answerForExisting(answer as SupplierPageNoticeRow);
 
   revalidatePath('/vendor-dashboard/collections');
   revalidatePath(`/vendor-dashboard/on-the-day/live/${(photoRes.data as { event_id: string }).event_id}/papic`);
-  if (said.ok && charged > 0) {
-    return { ...said, text: `${said.text} · ${formatCount(charged)} ${charged === 1 ? 'credit' : 'credits'} from your shop wallet` };
-  }
   return said;
 }

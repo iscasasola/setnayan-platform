@@ -116,6 +116,7 @@ import { sanitizeReceptionDesign, sel } from '@/lib/reception-scene';
 import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
 import { formatCount } from '@/lib/format-number';
+import { youAreAtWords } from '@/lib/venue-your-table';
 import { canvasDpr } from '@/lib/phone-gpu-budget';
 import { usePhoneGpu, useWebglContextLost, ContextLostNotice } from '@/app/_components/plan3d/phone-gpu-budget';
 
@@ -189,6 +190,8 @@ export type VenueScene = {
    *  every guest who never made one, both of which keep the blob figure. */
   you: {
     table: string;
+    /** The table's NAME, joined server-side by `withYourTableName` (the RPC sends only the public id in `table`). */
+    tableName?: string | null;
     seatNumber: number;
     tablemates: { name: string; seatNumber: number }[];
     avatarConfig?: unknown;
@@ -1603,7 +1606,7 @@ export default function GuestVenue3D({
         <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 text-center text-sm text-white backdrop-blur-md">
           {scene.you ? (
             <>
-              <p className="font-medium">You&rsquo;re at {scene.you.table}</p>
+              <p className="font-medium">You&rsquo;re at {youAreAtWords(scene.you)}</p>
               {scene.you.tablemates.length > 1 ? (
                 <p className="mt-0.5 text-xs text-white/75">
                   With {scene.you.tablemates.map((m) => m.name).slice(0, 6).join(' · ')}

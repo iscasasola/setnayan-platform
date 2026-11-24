@@ -26,6 +26,7 @@
  * they were reading instead of dropping them on the account board.
  */
 import { useActionState, useEffect, useRef, useState } from 'react';
+import { DOOR_SIGN_IN_WORDS, type Door } from '@/lib/doors';
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
@@ -114,6 +115,12 @@ export type SignInCardProps = {
   forGuest?: boolean;
   /** W1-B24 — arrived from an email link that can no longer finish: plain words + "Send a new link". */
   linkExpired?: boolean;
+  /**
+   * 🚪 Opened from a business door (`/login?door=X`, lib/doors.ts): the heading slot says the door's words
+   * (`DOOR_SIGN_IN_WORDS`) — the card is otherwise the one card — and Google / Apple carry the supplier intent, so a
+   * brand-new account comes in as a supplier and opens its shop.
+   */
+  door?: Door | null;
 };
 
 export function SignInCard({
@@ -131,6 +138,7 @@ export function SignInCard({
   onSignedIn,
   forGuest = false,
   linkExpired = false,
+  door = null,
 }: SignInCardProps) {
   const inPlace = Boolean(onSignedIn);
   const [state, submitInPlace] = useActionState(
@@ -201,7 +209,13 @@ export function SignInCard({
 
   return (
     <>
-      {forGuest ? (
+      {door ? (
+        <>
+          <div className="hr-ov-eyebrow">{DOOR_SIGN_IN_WORDS[door].eyebrow}</div>
+          <h2 className="hr-ov-title">{DOOR_SIGN_IN_WORDS[door].title}</h2>
+          <p className="hr-ov-sub">{DOOR_SIGN_IN_WORDS[door].sub}</p>
+        </>
+      ) : (<>{forGuest ? (
         <>
           <div className="hr-ov-eyebrow">{GUEST_SIGN_IN_WORDS.eyebrow}</div>
           <h2 className="hr-ov-title">{GUEST_SIGN_IN_WORDS.title}</h2>
@@ -215,7 +229,7 @@ export function SignInCard({
             One account for couples and suppliers. Pick up right where you left off.
           </p>
         </>
-      )}
+      )}</>)}
 
       {/* 🔗 W1-B24 (walk 2, 16 Nov 2026): a confirmation link opened on the phone after signing up on the laptop
           failed and spent itself; the second open showed SDK text and no way forward. Now: plain words, and a button
@@ -335,7 +349,7 @@ export function SignInCard({
           ) : nativeOAuth ? (
             <NativeOAuthButtons next={next} />
           ) : (
-            <OAuthButtonRow next={next} />
+            <OAuthButtonRow next={next} withAccountType={!!door} defaultAccountType={door ? 'vendor' : 'customer'} />
           )}
         </div>
       ) : null}

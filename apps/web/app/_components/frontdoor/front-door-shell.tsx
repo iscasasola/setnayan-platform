@@ -78,6 +78,7 @@ import { topBarSearch } from './shell-page-search';
 import { ShellBoundaryProvider, type ShellBoundary } from '@/app/_components/shell-boundary';
 import { useOneOpen } from '@/lib/one-open';
 import { POLICY_LINKS } from '@/lib/policy-links';
+import type { Door } from '@/lib/doors';
 import { HOME_HREF, homeSegHref } from '@/lib/home-segments';
 import type { EventMenuIconName } from '@/lib/customer-menu';
 /*
@@ -585,6 +586,16 @@ type Props = {
    * `vendor-dashboard/_components/the-supplier-frame-holds.test.ts`.
    */
   pinnedBar?: { lead: React.ReactNode };
+  /**
+   * 🚪 A BUSINESS DOOR — the ONE door flag (lib/doors.ts; owner 24 Nov 2026, drawing "Business door drawing" v7).
+   * Set on supplier.setnayan.com / coordinator.setnayan.com, and by an app shell that asks for a door (DECISION_LOG
+   * 866cebc5, the "Setnayan Business" app). With it there is no way out to the couple side or Discover:
+   *   · the public variants draw only the wordmark (not a link), Sign in (to `signInHref`, the ONE auth origin —
+   *     never the in-place panel) and one legal line under the page — no rail, no ☰, no search;
+   *   · the signed-in `app` variant keeps the surface's own menu but drops Home, Discover, Features, the way back
+   *     and the company links, and its wordmark is not a link.
+   */
+  door?: { door: Door; signInHref: string } | null;
 };
 
 /** A count that failed to load says so. It NEVER says 0, and it never invents
@@ -660,6 +671,7 @@ export function FrontDoorShell({
   pageSearchPaths,
   boundary = 'lg',
   pinnedBar,
+  door = null,
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
   /*
@@ -839,11 +851,16 @@ export function FrontDoorShell({
   const isBleed = bleed || (bleedPaths?.includes(pathname ?? '') ?? false);
   /* 🔎 A page that searches in its own bottom row (/help, /features): no second box up here — `false`, the same
      switch a signed-in host hands in. Exact path, so /features/<slug> keeps the box. */
+  // 🚪 A door draws no search (drawing v7): the same `false` answer, from the one rule.
   const search = topBarSearch({
     handed: searchProp,
     signedIn: account.signedIn,
     pageHasOwnSearch: pageSearchPaths?.includes(pathname ?? '') ?? false,
+    onADoor: door !== null,
   });
+  /* 🚪 The public door draws no rail at all (drawing v7), so it has no Menu button to open one — every other mount,
+     signed-in door included, keeps the rail and the control that opens it on a phone. */
+  const railDrawn = !(door && !inApp);
 
   /*
     HIDE ON SCROLL — the app's universal top-nav rule (owner 2026-06-15), and
@@ -1011,6 +1028,7 @@ export function FrontDoorShell({
             collapsing the whole page layout.
             `fd-only-narrow` is a real CSS mount condition, not a visual one.
           */}
+          {railDrawn ? (
           <button
             type="button"
             className="fd-iconbtn fd-only-narrow"
@@ -1021,6 +1039,7 @@ export function FrontDoorShell({
           >
             ☰
           </button>
+          ) : null}
           {/*
             🔒 THE TEXT IS TITLE-CASE "Setnayan" AND THE CAPITALS COME FROM CSS.
             It looks identical to the approved prototype — `.fd-wordmark` carries
@@ -1095,7 +1114,13 @@ export function FrontDoorShell({
             doorway branch below — the signed-out world — still goes to `/`.
             Pinned by `seam-invariants.test.ts`.
           */}
-          {inApp ? (
+          {/* 🚪 On a door the wordmark is the name, not a way out (drawing v7). */}
+          {door ? (
+            <span className={inApp ? 'fd-wordmark fd-wordmark-app' : 'fd-wordmark'} data-door-mark="">
+              {inApp ? <LogoMark size={28} className="fd-mark" /> : null}
+              {inApp ? <span className="fd-wordmark-text">Setnayan</span> : 'Setnayan'}
+            </span>
+          ) : (<>{inApp ? (
             <Link href="/dashboard?hub=1" className="fd-wordmark fd-wordmark-app">
               <LogoMark size={28} className="fd-mark" />
               <span className="fd-wordmark-text">Setnayan</span>
@@ -1104,7 +1129,7 @@ export function FrontDoorShell({
             <Link href={homeHref} className="fd-wordmark">
               Setnayan
             </Link>
-          )}
+          )}</>)}
         </div>
         {/* 📌 THE PAGE MENU ▾ — the pinned row's LEFT from 701, in the wordmark's seat (`pinnedBar`; hidden below 701). */}
         {pinnedBar ? (
@@ -1202,6 +1227,12 @@ export function FrontDoorShell({
                   it is the first room inside, not the last step outside. That
                   is handled on the panel itself; here it is a quiet control so
                   the page never nags. */}
+              {/* 🚪 On a door: a plain link to the ONE auth origin (`/login?door=X`) — sign-in never runs on a door host. */}
+              {door ? (
+                <a href={door.signInHref} className="fd-btn-quiet">
+                  Sign in
+                </a>
+              ) : (
               <Link
                 href="/login"
                 prefetch={false}
@@ -1211,11 +1242,45 @@ export function FrontDoorShell({
               >
                 Sign in
               </Link>
+              )}
             </>
           )}
         </div>
       </header>
   );
+
+  /*
+    🚪 A BUSINESS DOOR, PUBLIC SIDE (supplier.setnayan.com, coordinator.setnayan.com — drawing v7, "what this
+    removes"): the wordmark (the name, not a way out) and Sign in, then the page, then one legal line that opens
+    inside this same door. No ☰, no rail, no search, no couple links. Sign in is the quiet button (HOUSE_DESIGN_STANDARD
+    Part K1: the page's "Open your shop" is the one filled button) and a plain link to the ONE auth origin.
+  */
+  if (door && !inApp) {
+    return (
+      <ShellBoundaryProvider value={boundary}>
+        <div className="fd" data-chrome="front-door" data-door={door.door} data-bar-hidden={barHidden ? '' : undefined}>
+          {topBarEl}
+          <div className="fd-body">
+            <MainEl className={isBleed ? 'fd-main fd-bleed' : 'fd-main'}>
+              <div className={isBleed ? 'fd-col fd-bleed' : 'fd-col'}>
+                {children}
+                <footer className="fd-doorfoot">
+                  <span>© 2026 Setnayan</span>
+                  <nav aria-label="Legal">
+                    {POLICY_LINKS.map((p) => (
+                      <Link key={p.href} href={p.href}>
+                        {p.label}
+                      </Link>
+                    ))}
+                  </nav>
+                </footer>
+              </div>
+            </MainEl>
+          </div>
+        </div>
+      </ShellBoundaryProvider>
+    );
+  }
 
   return (
     // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
@@ -1343,6 +1408,8 @@ export function FrontDoorShell({
             if ((e.target as Element | null)?.closest?.('a[href]')) closeRail();
           }}
         >
+          {/* 🚪 On a door the surface's own menu is the whole rail: no Home, Discover, Features or way back. */}
+          {door ? null : (<>
           {focused && focus ? (
             /* THE WAY BACK — the only row above the section's own menu. The
                words say where it goes, and so does the drawing: the arrow is
@@ -1573,6 +1640,7 @@ export function FrontDoorShell({
 
           </>
           )}
+          </>)}
 
           {/*
             2b · THE CONTEXT GROUP.
@@ -1624,6 +1692,7 @@ export function FrontDoorShell({
               <h*> elements — the rail has no heading outline to slot into — and each column is a named group.
             */}
             <div className="fd-sp-cols">
+              {door ? null : (
               <div className="fd-sp-col" role="group" aria-label="Company">
                 <span className="fd-sp-h" aria-hidden="true">
                   Company
@@ -1656,6 +1725,7 @@ export function FrontDoorShell({
                 */}
                 <Link href="/download" data-web-only="">Download</Link>
               </div>
+              )}
               <div className="fd-sp-col" role="group" aria-label="Legal">
                 <span className="fd-sp-h" aria-hidden="true">
                   Legal

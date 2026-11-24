@@ -29,6 +29,8 @@
  */
 
 import { homeSegHref } from './home-segments';
+import { doorOpenShopHref, type Door } from './doors';
+import { routes } from './routes';
 
 /**
  * OTP types `/auth/confirm` will accept.
@@ -162,7 +164,21 @@ export const DEAD_LINK_WORDS = {
  * W1-B25 (16 Nov) sent a supplier's link to /vendor-dashboard to keep it off the Events board's empty state; Home on
  * Shop keeps that (the Shop section never runs the board) and is the profile page the 22 Nov ruling names.
  */
-export function landingForAccount(next: string, accountType: string | null | undefined): string {
+export function landingForAccount(
+  next: string,
+  accountType: string | null | undefined,
+  /**
+   * 🚪 ARRIVED THROUGH A BUSINESS DOOR (supplier.setnayan.com / coordinator.setnayan.com — lib/doors.ts, owner 24 Nov
+   * 2026; asked by `/auth/door`). `hasShop`: the account owns or is on a shop; `null` = the shop list could not be
+   * read, so the account type decides. A shop → the supplier dashboard; no shop → the shop set-up on the SAME account
+   * (Coordination already picked on the coordinator door) — never a second account.
+   */
+  at?: { door: Door; hasShop: boolean | null } | null,
+): string {
   if (next !== '/') return next;
+  if (at) {
+    const business = at.hasShop ?? accountType === 'vendor';
+    return business ? routes.vendorDashboard.index() : doorOpenShopHref(at.door);
+  }
   return accountType === 'vendor' ? homeSegHref('shop') : homeSegHref('events');
 }

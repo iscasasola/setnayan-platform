@@ -34,6 +34,8 @@ import {
 } from '@/lib/store-shell';
 import { iapAvailable } from '@/lib/iap/iap-gate';
 import { REQUEST_PATH_HEADER, requestPathOf } from '@/lib/shop-console-path';
+import { DOOR_COOKIE, DOOR_HEADER, DOOR_LABELS, appShellDoor, doorRoute } from '@/lib/doors';
+import { siteOrigin } from '@/lib/site-origin';
 import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
 import {
   GUEST_PASS_BOOK_COOKIE_NAME,
@@ -92,6 +94,8 @@ const RESERVED_SUBDOMAINS = new Set([
   'demo',    // reserved
   'staging', // reserved
   'preview', // reserved
+  // 🚪 The business doors (supplier · coordinator · business): every label in the ONE map, lib/doors.ts.
+  ...DOOR_LABELS,
 ]);
 
 // 📲 THE APP OPENS EVERY PAGE THE WEBSITE OPENS (owner 2026-11-02, DECISION_LOG
@@ -269,6 +273,23 @@ async function middlewareCore(request: NextRequest) {
   // subdomain request, fail-open (miss/error → no rewrite → normal routing);
   // the primary www host pays nothing. (Vendors keep BYO custom domains — the
   // separate resolve_custom_domain path below — but no *.setnayan.com subdomain.)
+  // 🚪 THE BUSINESS DOORS (lib/doors.ts, owner 24 Nov 2026) — answered FIRST, so no paid event subdomain can take a
+  // door's label. `/` is an internal rewrite to the door's front page (the address bar keeps the door's name), the
+  // legal pages open inside the door, and every other page is a 308 to the same path on the site — sign-in never runs
+  // on a door host. The door rides `DOOR_HEADER` to the shared shell, which draws the door's chrome.
+  const route = doorRoute(hostname, pathname, search, siteOrigin());
+  if (route) {
+    if (route.kind === 'away') return NextResponse.redirect(route.to, 308);
+    const headers = new Headers(request.headers);
+    headers.set(DOOR_HEADER, route.door);
+    if (route.kind === 'front') {
+      const rewrite = request.nextUrl.clone();
+      rewrite.pathname = route.rewrite;
+      return NextResponse.rewrite(rewrite, { request: { headers } });
+    }
+    return NextResponse.next({ request: { headers } });
+  }
+
   const subLabel = detectVendorSubdomain(hostname);
   if (subLabel) {
     const eventPath = await resolveEventSubdomainPath(subLabel); // '/{slug}' | null
@@ -558,6 +579,11 @@ async function middlewareCore(request: NextRequest) {
   // and back (Next does not hand a layout its URL). ALWAYS overwritten, so a
   // client cannot supply its own; `updateSession` forwards request headers.
   request.headers.set(REQUEST_PATH_HEADER, requestPathOf(request.nextUrl));
+  // 🚪 OFF a door host the door flag comes only from an app shell (`appShellDoor`: the `SetnayanBusiness` user agent
+  // or the `setnayan-door` cookie, lib/doors.ts) — ALWAYS overwritten, so a browser cannot hand in its own.
+  const appDoor = appShellDoor(request.headers.get('user-agent'), request.cookies.get(DOOR_COOKIE)?.value);
+  if (appDoor) request.headers.set(DOOR_HEADER, appDoor);
+  else request.headers.delete(DOOR_HEADER);
   const { response, user } = await updateSession(request);
 
   // Demo-mode URL flag bootstrap (PR brief 2026-05-22 · CLAUDE.md row

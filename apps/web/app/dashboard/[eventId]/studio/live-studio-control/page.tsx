@@ -13,6 +13,7 @@ import {
   Lock,
   Tv,
   Unlink2,
+  Plus,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -46,6 +47,9 @@ import { setYoutubeLiveReadyAck } from './actions';
 import { formatCount } from '@/lib/format-number';
 
 import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
+import { routes } from '@/lib/routes';
+import { isStoreShellRequest } from '@/lib/request-platform';
 // UNIFIED Live Studio — one switching-based product that merges Cast (the directed
 // single feed) + Roam (guests pick their view) into a directed Main Stage plus
 // switchable guest cameras (owner 2026-07-25; Live_Studio_Unified_Spec_2026-07-25.md).
@@ -265,6 +269,11 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </Link>
       ) : null}
+      {/* 🛒 One place to buy (owner 2026-11-23): on the web, Add opens Event services with Live Watch ticked — the one
+          cart and the one pay page. Every other state (open, verifying, blocked, expired) is the shipped control. */}
+      {stateCtx.state === 'add' && !(await isStoreShellRequest()) ? (
+        <ActionButton tone="brand" main icon={<Plus aria-hidden strokeWidth={1.9} />} label="Add Live Watch" href={routes.dashboard.eventServices(eventId, 'live')} />
+      ) : (
       <AddOnStateCta
         context={stateCtx}
         launchLabel="Open controller"
@@ -331,6 +340,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
           'Apply-then-pay flow · we confirm price before payment · no refunds: if you cannot use it, its value becomes Papic credits for this event. Cameras join as phones via the event QR — no per-camera fee. The single-camera livestream stays included.',
         }}
       />
+      )}
     </div>
   );
 

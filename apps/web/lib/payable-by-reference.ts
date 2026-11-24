@@ -2,7 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { purchaseIdFromVendorSubscriptionServiceKey } from './vendor-subscription-service-key';
 import { planAwarePayableStatus, type PayableStatus, type PlanRead } from './payable-status';
-import { ONBOARDING_SERVICES_SKU, readBasketLinesForPayer } from './onboarding-order-items';
+import { isBasketOrderKey, readBasketLinesForPayer } from './onboarding-order-items';
 import { isVatInclusiveServiceKey, orderGrossOwed } from './orders';
 import { getEffectiveVatRatePct } from './platform-settings';
 import { isBookingFeeOrder, payBackLink, payHomeHref } from './pay-back-link';
@@ -351,7 +351,7 @@ async function fetchRows(
   supabase: SupabaseClient,
   order: OrderRow,
 ): Promise<{ rows: Array<{ label: string; value: string }>; unreadable: boolean }> {
-  if (order.service_key !== ONBOARDING_SERVICES_SKU) return { rows: [], unreadable: false };
+  if (!isBasketOrderKey(order.service_key)) return { rows: [], unreadable: false };
   try {
     const read = await readBasketLinesForPayer(supabase, order.order_id);
     if (!read.ok) return { rows: [], unreadable: true };

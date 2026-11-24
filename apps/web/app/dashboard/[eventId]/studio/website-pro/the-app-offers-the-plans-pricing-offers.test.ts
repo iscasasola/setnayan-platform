@@ -1,10 +1,10 @@
 /**
- * 💰 F-W2-29 (Controller walkthrough, 2026-11-13): inside the app NO Event Plus was offered anywhere, though /pricing
- * offers it, and no Papic credits were shown with the plans. The plan screen (this page) now offers Free · Event Plus ·
- * Event Pro, each price and its included credits READ from the catalogue through the front door's own helpers.
+ * 💰 F-W2-29 (2026-11-13) → 🛒 EVENT SERVICES (owner 2026-11-23, v4 "Yes, build it"): inside the app a couple is offered
+ * the SAME plans /pricing offers — now as PACKS on the one Event services page — each price and its included photos
+ * READ (the catalogue rows, through the front door's own helpers and the charge authority).
  *
- * Executed, not grepped: the real component is rendered with figures handed in, and must show exactly those — and
- * nothing at all where a row did not read.
+ * Executed, not grepped: the real component is rendered with facts handed in, and must show exactly those — and say
+ * "Couldn't read" where a row did not read, never ₱0 and never a remembered figure.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,80 +13,99 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { PlanOffer, UltraOffer, proCreditsLine, type PlanOfferFacts } from './_components/plan-offer';
+import { EventServicesView } from './_components/event-services-view';
 import { planCreditsFrom, planPricesFrom, PLAN_PRICE_CODES } from '@/lib/event-plans';
 import { stripComments } from '@/lib/strip-comments';
+import type { EventServicesFacts, EventServicesPick, PackFact } from '@/lib/event-services';
 
 (globalThis as unknown as { React: unknown }).React = React;
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-const facts = (over: Partial<PlanOfferFacts> = {}): PlanOfferFacts => ({
-  plusPhp: 1234,
-  plusCredits: 4321,
-  proCredits: 8765,
-  freePapic: null,
-  plus: 'buy',
-  ultraPhp: 5678,
-  ultraCredits: 3456,
-  ultra: 'buy',
-  paidTowardAPlan: false,
+/* TEST INPUTS — odd figures on purpose, so a match can only come from what was handed in. */
+const pack = (key: PackFact['key'], php: number | null, credits: number | null, over: Partial<PackFact> = {}): PackFact => ({
+  key,
+  code: PLAN_PRICE_CODES[key],
+  name: key === 'plus' ? 'Event Plus' : key === 'pro' ? 'Event Pro' : 'Event Ultra',
+  credits,
+  addsCredits: credits,
+  php,
+  upgrade: false,
+  state: 'buy',
+  savePhp: null,
+  fits: null,
+  info: ['Everything in Event Plus'],
   ...over,
 });
-const drawUltra = (f: PlanOfferFacts) =>
+const facts = (over: Partial<EventServicesFacts> = {}): EventServicesFacts => ({
+  eyebrow: 'Ana & Miguel · Sat 12 Dec 2026',
+  plan: 'free',
+  planName: 'Free',
+  photosLeft: 151,
+  packs: [pack('plus', 1234, 4321, { savePhp: 77 }), pack('pro', 2345, 8765, { fits: 'Fits: 11 suppliers booked.' }), pack('ultra', 5678, 3456)],
+  singles: [
+    { key: 'hub', code: 'EVENT_HUB', php: 1111, state: 'buy' },
+    { key: 'ai', code: 'SETNAYAN_AI', php: 2222, state: 'buy' },
+    { key: 'live', code: 'LIVE_STUDIO', php: 3333, state: 'buy' },
+  ],
+  photos: [{ code: 'PAPIC_GUEST_1K', points: 1000, php: 444 }],
+  ...over,
+});
+const draw = (f: EventServicesFacts, initialPick?: EventServicesPick, initialOpen = false) =>
   renderToStaticMarkup(
-    React.createElement(UltraOffer, { facts: f, ultraDrawer: (php: number) => React.createElement('button', { 'data-buy-ultra': php }, 'buy') }),
-  );
-const draw = (f: PlanOfferFacts, proHeld = false) =>
-  renderToStaticMarkup(
-    React.createElement(PlanOffer, { facts: f, proHeld, plusDrawer: (php: number) => React.createElement('button', { 'data-buy-plus': php }, 'buy') }),
+    React.createElement(EventServicesView, { eventId: 'EVENT', facts: f, ordersHref: '/dashboard/EVENT/orders', initialPick, initialOpen, lab: true }),
   );
 
-test('Free and Event Plus are offered, with the price and credits the catalogue handed in', () => {
+test('Free: your plan, then every pack with the price, photos and saving the reads handed in', () => {
   const html = draw(facts());
-  assert.match(html, /data-event-plan="free"/);
-  assert.match(html, /data-event-plan="plus"/);
+  assert.match(html, /data-event-services-plan="free"/);
+  assert.match(html, /Your plan/);
+  assert.match(html, /151 guest photos left/);
+  for (const k of ['plus', 'pro', 'ultra']) assert.match(html, new RegExp(`data-event-services-pack="${k}"`));
   assert.match(html, /₱1,234/, 'the Plus price read from the row');
-  assert.match(html, /4,321 Papic credits/, 'the Plus credits read from the row');
-  assert.match(html, /data-buy-plus="1234"/, 'the buy button charges the catalogue price');
-  assert.match(html, /Your plan/, 'a couple holding nothing is on Free');
-  assert.equal(proCreditsLine(8765), '8,765 Papic credits included.');
+  assert.match(html, /4,321 photos/, 'the Plus photos read from the row');
+  assert.match(html, /Save ₱77/, 'the saving handed in');
+  assert.match(html, /Fits: 11 suppliers booked\./);
+  assert.match(html, /Pick a pack/);
+  assert.match(html, /Or just what you need/);
 });
 
-test('an unread row names no price and no count — never a remembered one', () => {
-  const html = draw(facts({ plusPhp: null, plusCredits: null }));
-  assert.doesNotMatch(html, /data-event-plan="plus"/, 'Plus not on sale → not drawn');
-  assert.doesNotMatch(html, /₱/);
-  assert.equal(proCreditsLine(null), null);
-  const noCredits = draw(facts({ plusCredits: null }));
-  assert.doesNotMatch(noCredits, /Papic credits —/);
+test('an unread row says “Couldn’t read” — never a remembered price, never ₱0', () => {
+  const html = draw(facts({ packs: [pack('plus', null, null), pack('pro', 2345, 8765), pack('ultra', 5678, 3456)], photosLeft: null, planName: null, plan: null }));
+  assert.match(html, /Couldn’t read/);
+  assert.match(html, /Guest photos left: couldn’t read/);
+  assert.doesNotMatch(html, /₱0(?![\d,])/);
 });
 
-test('Event Pro includes everything in Plus — once Pro is held, Plus is not sold', () => {
-  assert.doesNotMatch(draw(facts(), true), /data-event-plan="plus"/);
-  assert.match(draw(facts({ plus: 'yours' })), /Yours/);
-  assert.match(draw(facts({ plus: 'review' })), /Payment under review/);
-  assert.doesNotMatch(draw(facts({ plus: 'yours' })), /data-buy-plus/);
+test('on Event Pro only the next pack shows, the add-ons are open, and what the plan holds reads “In your plan”', () => {
+  const html = draw(
+    facts({
+      plan: 'pro',
+      planName: 'Event Pro',
+      packs: [pack('plus', null, 4321, { state: 'yours' }), pack('pro', null, 8765, { state: 'yours' }), pack('ultra', 999, 3456, { addsCredits: 3000, upgrade: true })],
+    }),
+  );
+  assert.match(html, /Next pack/);
+  assert.doesNotMatch(html, /data-event-services-pack="plus"/, 'Pro holds everything in Plus — Plus is not sold');
+  assert.match(html, /data-event-services-pack="ultra"/);
+  assert.match(html, /pay the difference/);
+  assert.match(html, /Adds Live Watch · 3,000 more photos/);
+  assert.match(html, /data-event-services-singles="open"/);
+  assert.equal((html.match(/In your plan/g) ?? []).length, 2, 'Event Hub and Setnayan AI read “In your plan”');
 });
 
-test('💎 Event Ultra (#7601) is offered with its catalogue price and credits; Plus/Pro events are told they pay the difference', () => {
-  const html = drawUltra(facts());
-  assert.match(html, /data-event-plan="ultra"/);
-  assert.match(html, /₱5,678/);
-  assert.match(html, /3,456 Papic credits/);
-  assert.match(html, /data-buy-ultra="5678"/, 'the drawer is handed the row price; its server quote asks only the difference');
-  assert.doesNotMatch(html, /data-ultra-pays-the-difference/);
-  assert.match(drawUltra(facts({ paidTowardAPlan: true })), /data-ultra-pays-the-difference/);
-  assert.equal(drawUltra(facts({ ultraPhp: null })), '', 'not on sale / unread → no card, no figure');
-  assert.match(drawUltra(facts({ ultra: 'yours' })), /Yours/);
-  assert.doesNotMatch(draw(facts({ ultra: 'yours' })), /data-event-plan="plus"/, 'Ultra holds everything in Plus');
-  assert.doesNotMatch(draw(facts({ ultra: 'yours' })), /Your plan/);
+test('a picked pack and add-ons: one cart bar label, one Pay — never a second checkout', () => {
+  const html = draw(facts(), { pack: 'pro', singles: ['live'], photos: 'PAPIC_GUEST_1K' }, true);
+  assert.match(html, /data-event-services-pack="pro" data-picked=""/);
+  assert.match(html, /After this: <span[^>]*>9,916 photos/, '151 + 8,765 + 1,000');
+  assert.doesNotMatch(html, /InlineCheckoutDrawer|data-buy-/);
 });
 
-test('the page reads its plans through the front door’s helpers, from the customer catalogue', () => {
+test('the page reads its packs through the one reader, priced by the charge authority, from the customer catalogue', () => {
   const page = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
-  assert.match(page, /fetchV2CustomerCatalog\(\)/);
-  assert.match(page, /planPricesFrom\(catalog\)/);
-  assert.match(page, /planCreditsFrom\(catalog\)/);
+  assert.match(page, /readEventServices\(eventId\)/);
+  const reader = stripComments(readFileSync(join(HERE, '../../../../../lib/event-services.server.ts'), 'utf8'));
+  assert.match(reader, /fetchV2CustomerCatalog\(\)/);
+  assert.match(reader, /resolveOrderChargeCentavos\(\{ serviceKey, eventId \}\)/);
   assert.deepEqual(PLAN_PRICE_CODES, { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO', ultra: 'EVENT_ULTRA' });
   const rows = [
     { service_code: 'EVENT_PLUS', retail_price_php: 10, included_papic_credits: 20 },
@@ -95,4 +114,37 @@ test('the page reads its plans through the front door’s helpers, from the cust
   ];
   assert.deepEqual(planPricesFrom(rows), { plus: 10, pro: 30, ultra: 50 });
   assert.deepEqual(planCreditsFrom(rows), { plusCredits: 20, proCredits: 40, ultraCredits: 60 });
+});
+
+/* ── 🍎 THE iPHONE APP (v4 frames 08 · 08f) ─────────────────────────────── */
+
+const appleKit = (state: 'ready' | 'silent' = 'ready') => ({
+  products: { EVENT_PLUS: 'p.plus', COUPLE_WEBSITE_PRO: 'p.pro', EVENT_ULTRA: 'p.ultra', LIVE_STUDIO: 'p.live', PAPIC_GUEST_1K: 'p.1k' },
+  prices: { state, display: new Map(state === 'ready' ? [['p.pro', 'APPLE-PRO'], ['p.live', 'APPLE-LIVE'], ['p.1k', 'APPLE-1K']] : []) },
+  buy: async () => ({ kind: 'on' as const }),
+  refresh: () => {},
+});
+const drawApple = (f: EventServicesFacts, initialPick?: EventServicesPick, state: 'ready' | 'silent' = 'ready') =>
+  renderToStaticMarkup(
+    React.createElement(EventServicesView, { eventId: 'EVENT', facts: f, ordersHref: '/o', initialPick, initialOpen: true, apple: appleKit(state) }),
+  );
+
+test('🍎 the app shows Apple’s prices only — no web figure, no web saving, no Event Hub or Setnayan AI alone', () => {
+  const html = drawApple(facts(), { pack: 'pro', singles: [], photos: 'PAPIC_GUEST_1K' });
+  assert.match(html, /APPLE-PRO/);
+  assert.match(html, /APPLE-LIVE/);
+  for (const web of ['₱1,234', '₱2,345', '₱3,333', '₱444', 'Save ₱']) assert.doesNotMatch(html, new RegExp(web), `a web figure in the app: ${web}`);
+  assert.doesNotMatch(html, /data-event-services-single="hub"|data-event-services-single="ai"/, 'a single with no Apple product is shown');
+  assert.match(html, /Apple’s prices · 2 Apple payments/, 'the bar says how many Apple payments follow');
+});
+
+test('🍎 the App Store not answering is said, with Try again', () => {
+  assert.match(drawApple(facts(), undefined, 'silent'), /data-event-services-apple-silent=""[\s\S]*The App Store isn’t answering right now/);
+});
+
+test('🍎 the page strips every web peso before the app’s browser sees it', () => {
+  const page = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+  assert.match(page, /const facts = appleProducts \? withoutWebFigures\(read\) : read;/);
+  assert.match(page, /packs: f\.packs\.map\(\(p\) => \(\{ \.\.\.p, php: null, savePhp: null \}\)\)/);
+  assert.match(page, /if \(gate\.storeShell && !gate\.iap\) redirect/);
 });

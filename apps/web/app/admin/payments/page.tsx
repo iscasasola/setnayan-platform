@@ -25,7 +25,7 @@ import {
   type ReceiptReadRow,
   type RecordTarget,
 } from './_components/desk';
-import { ONBOARDING_SERVICES_SKU, readOnboardingOrderItems } from '@/lib/onboarding-order-items';
+import { isBasketOrderKey, readOnboardingOrderItems } from '@/lib/onboarding-order-items';
 import { SETNAYAN_AI_SKU, resolveSetnayanAiTypePricePhp } from '@/lib/setnayan-ai-event-pricing';
 import { MONEY_STATUSES } from '@/lib/payment-reference-match';
 import {
@@ -488,7 +488,7 @@ async function fetchDeskBills(
   if (orders.size === 0) return out;
 
   const basketIds = [...orders.entries()]
-    .filter(([, o]) => o.service_key === ONBOARDING_SERVICES_SKU)
+    .filter(([, o]) => isBasketOrderKey(o.service_key))
     .map(([id]) => id);
   const itemsByOrder = new Map<string, Awaited<ReturnType<typeof readOnboardingOrderItems>>>();
   await Promise.all(
@@ -501,7 +501,7 @@ async function fetchDeskBills(
   const codes = new Set<string>();
   for (const items of itemsByOrder.values()) for (const i of items) codes.add(i.serviceCode);
   for (const o of orders.values()) {
-    if (o.service_key && o.service_key !== ONBOARDING_SERVICES_SKU) codes.add(o.service_key);
+    if (o.service_key && !isBasketOrderKey(o.service_key)) codes.add(o.service_key);
   }
   const titleFor = new Map<string, string>();
   const retailFor = new Map<string, number>();
@@ -539,7 +539,7 @@ async function fetchDeskBills(
 
   for (const [orderId, o] of orders) {
     const eventType = o.event_id ? (eventsById.get(o.event_id)?.eventType ?? null) : null;
-    if (o.service_key === ONBOARDING_SERVICES_SKU) {
+    if (isBasketOrderKey(o.service_key)) {
       const items = itemsByOrder.get(orderId) ?? [];
       if (items.length === 0) {
         // Could be a failed read or a genuinely empty basket — readOnboarding-

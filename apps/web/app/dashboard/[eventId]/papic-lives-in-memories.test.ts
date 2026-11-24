@@ -187,7 +187,8 @@ const MOVED: ReadonlyArray<readonly [control: string, file: string, needle: RegE
   ['the head control (Off · On — event day · On — everyone, now)', MEMORIES, /headControl:\s*\(\s*<Suspense fallback=\{null\}>\s*<PapicHeadControl\b/],
   ['Papic Off · On — event day · On — everyone, now (the head\'s one dropdown)', CARD_SETTINGS, /return <PapicHeadPicker eventId=\{eventId\}/],
   ['Total · Taken · Remaining + Add more', MEMORIES, /counts:\s*\{\s*total:\s*now\.total/],
-  ['Add more (web sheet / Apple sheet)', MEMORIES, /const cardBuy = iap\.iap \? \(\s*<IapPapicSheet\b[\s\S]*?<PapicBuySheet\b/],
+  // 🛒 2026-11-23: on the web, Add more opens Event services with the photo sizes (one place to buy).
+  ['Add more (Event services on the web / Apple sheet)', MEMORIES, /const cardBuy = iap\.iap \? \(\s*<IapPapicSheet\b[\s\S]*?routes\.dashboard\.eventServices\(eventId, 'photos'\)/],
   ['every save\'s answer (banners)', MEMORIES, /<PapicOutcomeBanners\b/],
   ['the camera settings (opened by ›)', MEMORIES, /<PapicCameraSettings eventId=\{eventId\} seat="memories"/],
   ['Setup & help (shutter · capture defaults · DSLR)', MEMORIES, /<PapicCameraHelp\b/],

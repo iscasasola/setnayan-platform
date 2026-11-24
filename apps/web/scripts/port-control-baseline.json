@@ -184,6 +184,7 @@
         "_components/chat/cards/schedule-seen-body.tsx",
         "_components/chat/cards/schedule-time-ask-card.tsx",
         "_components/chat/cards/stream-line-card.tsx",
+        "_components/chat/cards/tool-share-card.tsx",
         "_components/chat/changed-row.tsx",
         "_components/chat/chat-back.tsx",
         "_components/chat/chat-blocker.tsx",
@@ -808,6 +809,8 @@
         "respondAmendmentFromChat",
         "respondAppointment",
         "respondToProposal",
+        "routes.dashboard.addOns.playlist",
+        "routes.dashboard.schedule",
         "routes.filter",
         "routes.help.guide",
         "routes.help.topic",
@@ -1824,6 +1827,8 @@
         "ToastProvider",
         "TodayPutOffResult",
         "ToneMapping",
+        "ToolShareCard",
+        "ToolSharePicture",
         "Topper",
         "TotalStrip",
         "Trail",
@@ -2368,44 +2373,28 @@
         "for-suppliers/_components/sample-card-date-fit.tsx",
         "for-suppliers/_components/supplier-front-client.tsx",
         "for-suppliers/_components/supplier-front-data.ts",
-        "for-suppliers/_components/supplier-front-info.tsx",
-        "for-suppliers/_components/supplier-front-page.tsx",
-        "for-suppliers/_components/supplier-how-we-earn-data.ts",
-        "for-suppliers/_components/supplier-how-we-earn.tsx",
-        "for-suppliers/_components/supplier-live-cards.tsx"
+        "for-suppliers/_components/supplier-front-page.tsx"
       ],
       "destinations": [
         "/pricing"
       ],
       "actions": [],
       "blocks": [
-        "ActionButton",
-        "CardBadgeRow",
-        "Fact",
-        "FeeRuler",
-        "HTMLButtonElement",
+        "FeeSteps",
+        "FrontClip",
         "HTMLDivElement",
-        "HTMLElement",
-        "HTMLLIElement",
+        "HTMLVideoElement",
         "Icon",
         "Image",
-        "Info",
-        "Lede",
         "Link",
-        "LiveCard",
-        "People",
-        "PillSelector",
-        "PlanStairs",
-        "SampleDateFit",
-        "SeatMonths",
-        "SecHead",
-        "ServiceFace",
-        "Stage",
+        "OpenShopFollow",
+        "Part",
+        "PlanPicker",
+        "Say",
+        "Sheet",
+        "Still",
         "SupplierFrontPage",
-        "SupplierHowWeEarn",
-        "SupplierLiveCards",
-        "ToolArt",
-        "Wedding"
+        "ToolkitCount"
       ]
     },
     "/(shell)/guest-list": {
@@ -8948,6 +8937,7 @@
         "nowAction",
         "planNextYearEvent",
         "routes.dashboard.accessRequests",
+        "routes.dashboard.eventServices",
         "savePatiktokBoothTemplates",
         "updatePaxSettings",
         "useDate"
@@ -9200,7 +9190,6 @@
         "PaidAtAdd",
         "PaidMark",
         "PaidServiceRow",
-        "PapicBuySheet",
         "PapicChapterRow",
         "PapicCounts",
         "PapicHeadContext.Provider",
@@ -11361,8 +11350,11 @@
       "destinations": [
         "/dashboard/[seg]/memories/download-all"
       ],
-      "actions": [],
+      "actions": [
+        "routes.dashboard.eventServices"
+      ],
       "blocks": [
+        "ActionButton",
         "AddToLibrary",
         "DriveCopyCard",
         "EventMemoriesGallery",
@@ -11378,7 +11370,6 @@
         "MemoriesAddPhotosButton",
         "MemoriesKeepsakeRow",
         "MemoriesSettings",
-        "PapicBuySheet",
         "PapicCameraHelp",
         "PapicCameraSettings",
         "PapicCard",
@@ -11563,6 +11554,7 @@
       "actions": [
         "clearStudioAction",
         "clearUploadedMarkAction",
+        "routes.dashboard.eventServices",
         "saveStudioAction"
       ],
       "blocks": [
@@ -11676,7 +11668,9 @@
         "dashboard/[eventId]/orders/new/page.tsx"
       ],
       "destinations": [],
-      "actions": [],
+      "actions": [
+        "routes.dashboard.eventServices"
+      ],
       "blocks": []
     },
     "/dashboard/[eventId]/pabuya": {
@@ -12530,8 +12524,11 @@
         "/api/oauth/youtube/start?event_id=[seg]",
         "/privacy"
       ],
-      "actions": [],
+      "actions": [
+        "routes.dashboard.eventServices"
+      ],
       "blocks": [
+        "ActionButton",
         "AddOnStateCta",
         "AppStoreLayout",
         "ChoosePlanSheet",
@@ -13326,11 +13323,13 @@
       "destinations": [
         "/dashboard/[seg]/vendors"
       ],
-      "actions": [],
+      "actions": [
+        "routes.dashboard.eventServices"
+      ],
       "blocks": [
+        "ActionButton",
         "IapUnlockSheet",
         "InfoTip",
-        "InlineCheckoutDrawer",
         "Link",
         "PageMasthead",
         "PaidMark",
@@ -13341,24 +13340,40 @@
     },
     "/dashboard/[eventId]/studio/website-pro": {
       "files": [
-        "dashboard/[eventId]/studio/website-pro/_components/plan-offer.tsx",
-        "dashboard/[eventId]/studio/website-pro/_components/pro-parts-body.tsx",
+        "dashboard/[eventId]/studio/website-pro/_components/event-services-body.tsx",
+        "dashboard/[eventId]/studio/website-pro/_components/event-services-view.tsx",
         "dashboard/[eventId]/studio/website-pro/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/launch${search.then === 'apply' ?",
-        "/dashboard/[seg]/orders"
+        "/dashboard/[seg]/launch${search.then === 'apply' ?"
       ],
-      "actions": [],
+      "actions": [
+        "routes.dashboard.eventServices",
+        "routes.dashboard.orders.index"
+      ],
       "blocks": [
+        "ActionButton",
+        "AppleCtx.Provider",
         "CapizLight",
-        "InlineCheckoutDrawer",
+        "Chips",
+        "Dock",
+        "EventServicesBody",
+        "EventServicesPick",
+        "EventServicesView",
+        "HTMLElement",
+        "IapScreen",
+        "Image",
+        "InfoDot",
         "Link",
-        "PaidMark",
-        "PlanOffer",
-        "ProPartsBody",
-        "ProPlanCard",
-        "UltraOffer"
+        "PackKey",
+        "PageMasthead",
+        "Price",
+        "SingleRow",
+        "StateWord",
+        "Tag",
+        "ThumbDock",
+        "ThumbRow",
+        "Tick"
       ]
     },
     "/dashboard/[eventId]/vendors": {
@@ -18483,6 +18498,7 @@
         "declinePaxSurcharge",
         "recordInquiryOutcome",
         "refuseVendorPayment",
+        "routes.vendorDashboard.shop.store.shelf",
         "sendAction",
         "sendProposalFromChat"
       ],

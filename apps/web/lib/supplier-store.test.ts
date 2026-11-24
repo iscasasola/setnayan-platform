@@ -254,7 +254,10 @@ test('6 · storage: an unread store is unread, never 0 of the plan', () => {
   assert.deepEqual(storageMeter('pro', null), { kind: 'unread' });
   const m = storageMeter('pro', { status: 'ok', bytes: 0 });
   assert.ok(m.kind === 'meter' || m.kind === 'no_limit');
-  if (m.kind === 'meter') assert.equal(m.used, '0 MB');
+  // The meter's words (lib/supplier-storage.ts `meterWords`, owner 23 Nov "real usage only"): never "0 MB" for a new shop.
+  if (m.kind === 'meter') assert.equal(m.used, '0 KB');
+  const few = storageMeter('pro', { status: 'ok', bytes: 12_000 });
+  if (few.kind === 'meter') assert.equal(few.used, '12 KB', 'a new shop’s few KB say KB');
 });
 
 test('7 · one layout: one column, one action op, every row add/remove/reorder through it', () => {
@@ -322,8 +325,11 @@ test('5ae3fbb2 · the live count per shelf, from the one Toolkit list — a fail
   // Both surfaces read the ONE function — never a typed number.
   const screens = readFileSync(join(WEB, 'app/vendor-dashboard/shop/store/_components/store-screens.tsx'), 'utf8');
   assert.match(screens, /const counts = toolkitCounts\(d\.badges\);/);
+  // /for-suppliers (the 23 Nov redesign, v4.3.1) draws the count as its Toolkit shelves; the shelves read the one function.
+  const frontData = readFileSync(join(WEB, 'app/for-suppliers/_components/supplier-front-data.ts'), 'utf8');
+  assert.match(frontData, /const counts = toolkitCounts\(SHOP_BADGE_KEYS\);/);
   const front = readFileSync(join(WEB, 'app/for-suppliers/_components/supplier-front-page.tsx'), 'utf8');
-  assert.match(front, /toolkitCountWords\(toolkitCounts\(SHOP_BADGE_KEYS\)\)/);
+  assert.match(front, /const shelves = toolkitShelves\(\);/);
 });
 
 test('4c07edd7 · a paid widget’s clip sits at the top of its Toolkit page and draws nothing until it is recorded', () => {

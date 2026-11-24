@@ -99,9 +99,9 @@ export const HUB_TOOL_LIBRARY = [
   { key: "rehearsal_and_cues", label: "Rehearsal & cues", template: "live_timeline", shipped: false },
   { key: "insured_people_list", label: "Insured people list", template: "per_person", shipped: false },
   { key: "proofs_and_approval", label: "Proofs & approval", template: "checklist", shipped: true },
-  { key: "incident_log", label: "Incident log", template: "log", shipped: false },
+  { key: "incident_log", label: "Incident log", template: "log", shipped: true },
   { key: "brackets_and_scoring", label: "Brackets & scoring", template: "ordered_list", shipped: true },
-  { key: "shot_list", label: "Shot list", template: "checklist", shipped: false },
+  { key: "shot_list", label: "Shot list", template: "checklist", shipped: true },
   { key: "photo_delivery", label: "Photo delivery", template: "media", shipped: false },
   { key: "reveal_cue", label: "Reveal cue", template: "live_timeline", shipped: false },
   { key: "floor_plan", label: "Floor plan", template: "plan", shipped: true },
@@ -246,7 +246,9 @@ export type HubToolsAnswer = {
 /**
  * THE READER — the tools SUGGESTED to a supplier of this category ("Popular for florists").
  * 🔑 A SUGGESTION, NEVER A GATE (owner 2026-10-28: "These forms and tools are all available to all services"): the
- * supplier Hub must offer EVERY active tool; this only orders what is shown first. Never filter a supplier's tools by it.
+ * supplier Hub must offer EVERY active tool; this only orders what is shown first. Never filter a supplier's Hub tools
+ * by it. (The Toolkit's widgets are another matter: DECISION_LOG 3a2419fd shows a widget only to a shop with an online
+ * card of a category it is tagged with — `toolServedByCards` in lib/supplier-store.ts.)
  * `library` = the ACTIVE tool records (`hub_tools` where is_active; the code seed when not given). A tool switched
  * off in the library (Turn off keeps data) simply drops out — its switches stay stored for when it comes back.
  */

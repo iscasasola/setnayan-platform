@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { BOOKING_FEE, bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { formatPhpRounded } from '@/lib/php';
-import { SPECIALIZED_TOOLS } from '@/lib/specialized-tools';
+import { listedWidgets } from '@/lib/specialized-tools';
 import { SHOP_BADGE_KEYS } from '@/lib/badge-tiers';
 import { BUILT_IN_WIDGETS, PAID_STORE_TOOLS } from '@/lib/supplier-store';
 import { PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
@@ -113,23 +113,30 @@ test('the gifts are the packs the catalogue sells — titles and prices read, un
   assert.match(ROUTE, /fetchShopGiftPacks\(admin\)/);
   assert.match(ROUTE, /fetchShopGiftBundles\(admin, packs\)/);
   assert.match(ROUTE, /planCreditsFrom\(catalog\)/);
-  assert.match(ROUTE, /const \[p, fee, giftRead, catalog\] = await Promise\.all\(\[/, 'the page reads in more than one batch');
+  assert.match(ROUTE, /const \[p, fee, giftRead, catalog, papicCapture\] = await Promise\.all\(\[/, 'the page reads in more than one batch');
+  assert.match(ROUTE, /isVendorPapicCaptureEnabled\(\)\.catch\(\(\) => false\)/, 'a refused privacy-switch read lists the Papic camera');
+  assert.match(ROUTE, /papicCapture=\{papicCapture\}/);
 });
 
 test('the Toolkit count is the lists’ own lengths — never a typed number', () => {
-  const shelves = toolkitShelves();
+  // The Papic camera is listed only while its privacy switch is on (v19 PR 2, `listedWidgets`).
+  assert.ok(!toolkitShelves(false)[0]!.rows.some((r) => r.key === 'papic_camera'), 'the Papic camera is listed with its switch off');
+  assert.ok(toolkitShelves(true)[0]!.rows.some((r) => r.key === 'papic_camera'));
+  const shelves = toolkitShelves(false);
+  const widgets = listedWidgets(false);
   const { total, parts } = toolkitCountLine(shelves);
-  assert.equal(total, SPECIALIZED_TOOLS.length + CARD_ORDER.length + SHOP_BADGE_KEYS.length);
-  assert.equal(parts, `${SPECIALIZED_TOOLS.length} tools · ${CARD_ORDER.length} graphs · ${SHOP_BADGE_KEYS.length} badges`);
-  assert.deepEqual(shelves[0]!.rows.map((r) => r.name), SPECIALIZED_TOOLS.map((t) => t.title));
+  assert.equal(total, widgets.length + CARD_ORDER.length + SHOP_BADGE_KEYS.length);
+  assert.equal(parts, `${widgets.length} tools · ${CARD_ORDER.length} graphs · ${SHOP_BADGE_KEYS.length} badges`);
+  assert.deepEqual(shelves[0]!.rows.map((r) => r.name), widgets.map((t) => t.title));
   // the tags are the Toolkit's own (owner a02673ac): the paid widgets are Paid — the Song bank too — the built-in
   // widgets Built in, the rest Free; there is no start date any more, so nothing is ever untagged
   const tags = Object.fromEntries(shelves[0]!.rows.map((r) => [r.key, r.tag]));
   for (const k of PAID_STORE_TOOLS) assert.equal(tags[k], 'paid', `${k} is not tagged Paid`);
   for (const k of BUILT_IN_WIDGETS) assert.equal(tags[k], 'built', `${k} is not tagged Built in`);
-  for (const t of SPECIALIZED_TOOLS) {
+  for (const t of widgets) {
     if (!(PAID_STORE_TOOLS as readonly string[]).includes(t.key) && !BUILT_IN_WIDGETS.includes(t.key)) assert.equal(tags[t.key], 'free', t.key);
   }
+  assert.match(PAGE, /const shelves = toolkitShelves\(papicCapture\);/);
   assert.match(PAGE, /const count = toolkitCountLine\(shelves\);/);
   assert.doesNotMatch(PAGE + CLIENT, /\b33\b|\b11 tools\b|\b17 graphs\b/, 'a Toolkit number is typed');
 });

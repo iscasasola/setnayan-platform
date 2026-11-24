@@ -343,7 +343,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   // 🪪 ＋ FINAL: is this shop verified? Started here and awaited where the ＋ is drawn — never a waterfall. Null = the
   // read failed: the tray draws open and the server's gate (`lib/shop-plus-gate.server.ts`) still decides each send.
   const shopVerifiedRead = fetchShopVerified(supabase, profile.vendor_profile_id);
-  // 🧰 Share from your tools (DECISION_LOG 2026-11-23 dee66686): the tools this shop has, read the Store's own way —
+  // 🧰 Share from your widgets (DECISION_LOG 2026-11-23 dee66686): the tools this shop has, read the Store's own way —
   // started here, awaited where the ＋ is drawn. A failed read is `null`: the picker says it could not load.
   const shareToolsRead = readShareableTools(createAdminClient(), profile.vendor_profile_id, (profile.services ?? []) as string[]).catch((err: unknown) => {
     console.error('[supplier thread] shareable tools read failed', err);

@@ -3,7 +3,7 @@
  * "SPECIALIZED TOOLS WORK ON THEIR OWN AND SHARE INTO CHAT", specs dee66686; drawing
  * `prototypes/supplier_store_graphs_badges_2026-11-23` frame 7: Add to chat · The picker · What the couple sees).
  *
- *   · ONE ＋ row, "Share from your tools", in the supplier's tray (`lib/chat-plus.ts`). Its picker lists ONLY the tools the
+ *   · ONE ＋ row, "Share from your widgets", in the supplier's tray (`lib/chat-plus.ts`). Its picker lists ONLY the tools the
  *     shop has (free and added, or bought / with its plan / in its trial) — `lib/chat-tool-share-held.ts`, read from the
  *     Store's own facts (`lib/supplier-store.server.ts`), never from the layout alone.
  *   · Five shareable tools, the planning ones: Cake Maker · 3D plan · Run of show · Emcee script · Song bank. The
@@ -40,7 +40,7 @@ export type ToolShareWords = {
   from: string;
 };
 
-/** The drawing's words (frame 7). The card titles there are sample; these are the tools' own plain words. */
+/** The drawing's words (frame 7). The card titles there are sample; these are the widgets' own plain words (owner 23 Nov: the Toolkit sells widgets; no demo, no trial). */
 export const TOOL_SHARE_WORDS: Readonly<Record<ShareableTool, ToolShareWords>> = {
   cake_tool: { tool: 'Cake Maker', pickLine: 'A cake design to look at and approve', kind: 'Cake design', title: 'Your cake, in 3D', from: 'Made in the Cake Maker' },
   plan_3d: { tool: '3D plan', pickLine: 'The layout of the room', kind: 'Layout', title: 'The layout of the room', from: 'Made in the 3D plan' },
@@ -50,17 +50,17 @@ export const TOOL_SHARE_WORDS: Readonly<Record<ShareableTool, ToolShareWords>> =
 };
 
 /** The ＋ row (frame 7, "Add to chat"). */
-export const SHARE_ROW_LABEL = 'Share from your tools';
+export const SHARE_ROW_LABEL = 'Share from your widgets';
 export const SHARE_ROW_LINE = 'A cake, a layout, a timeline, a script, a playlist';
 /** The picker's honest states. */
-export const SHARE_NONE_YET = 'None of your tools can be shared yet. Add Run of show or Emcee script in your Store, or get a paid tool there.';
-export const SHARE_READ_FAILED = 'Couldn’t load your tools. Try again.';
+export const SHARE_NONE_YET = 'None of your widgets can be shared yet. Add Run of show or Emcee script to your Shop from the Toolkit.';
+export const SHARE_READ_FAILED = 'Couldn’t load your widgets. Try again.';
 export const SHARE_SEND_FAILED = 'Couldn’t share that. Try again.';
 export const APPROVE_SEND_FAILED = 'Couldn’t send your OK. Try again.';
 
 /** The server's refusals (`sendChatMessageCore`) — words the supplier can act on. */
-export const SHARE_NOT_HELD = 'That tool isn’t in your shop yet. Get it in the Store first.';
-export const SHARE_NOT_CHECKED = 'Couldn’t check your tools just now. Nothing was sent — try again.';
+export const SHARE_NOT_HELD = 'That widget isn’t on your Shop yet. Add it from the Toolkit first.';
+export const SHARE_NOT_CHECKED = 'Couldn’t check your widgets just now. Nothing was sent — try again.';
 
 const HEAD = '🧰 ';
 const SHARE_TAIL = ' · Open it here, then tap Approve.';

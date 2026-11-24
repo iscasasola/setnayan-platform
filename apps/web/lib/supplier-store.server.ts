@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { getTaxonomy } from './taxonomy-db';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveCoverageLabels } from '@/lib/vendor-coverages';
@@ -14,6 +15,7 @@ import { fetchVendorSpecializationSubscription } from '@/lib/vendor-specializati
 import { freeWidgetsOpen } from '@/lib/vendor-specialization-gate';
 import { PAID_STORE_TOOLS, STORE_TOOL_SKUS, readLayout, toolOfSku, toolStatus, type ToolStatus, type PaidStoreTool, type HubOverrides, type StoreLayout, type ToolFacts, type ToolPrice } from '@/lib/supplier-store';
 import { nameKey } from '@/lib/hub-tools';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { shareableTools, type ShareableRead } from '@/lib/chat-tool-share-held';
 
 /**
@@ -51,6 +53,24 @@ async function readCategoryLabels(client: SupabaseClient, vendorProfileId: strin
   } catch (err) {
     logQueryError('readStoreCategoryLabels', err, { vendor_profile_id: vendorProfileId });
     return [];
+  }
+}
+
+/**
+ * 🟢 The kinds of the shop's ONLINE service cards (`vendor_services.category` where `is_active`) — the card gate's one
+ * read (DECISION_LOG 3a2419fd). null = refused: the Toolkit then hides nothing, greys nothing and says so.
+ */
+async function readOnlineCards(client: SupabaseClient, vendorProfileId: string): Promise<string[] | null> {
+  try {
+    const { data, error } = await client.from('vendor_services').select('category').eq('vendor_profile_id', vendorProfileId).eq('is_active', true);
+    if (error) {
+      logQueryError('readStoreOnlineCards', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+      return null;
+    }
+    return [...new Set(((data ?? []) as { category: string | null }[]).map((r) => (r.category ?? '').trim()).filter(Boolean))];
+  } catch (err) {
+    logQueryError('readStoreOnlineCards', err, { vendor_profile_id: vendorProfileId });
+    return null;
   }
 }
 
@@ -158,13 +178,18 @@ export async function readStoreToolFacts(
   services: readonly string[],
   layout: StoreLayout | null,
 ): Promise<ToolFacts> {
-  const [freeOpen, orders, subscribed, prices, categoryLabels, hubOverrides] = await Promise.all([
+  const [freeOpen, orders, subscribed, prices, categoryLabels, hubOverrides, papicCapture, cards, taxonomy] = await Promise.all([
     readFreeOpen(admin, vendorProfileId),
     readToolOrders(admin, vendorProfileId),
     readSubscribed(admin, vendorProfileId),
     readStoreToolPrices(admin),
     readCategoryLabels(client, vendorProfileId),
     readHubOverrides(admin),
+    // 📷 The Papic camera is listed only while its privacy switch is on; a refused read keeps it off (fail closed).
+    isVendorPapicCaptureEnabled().catch(() => false),
+    readOnlineCards(client, vendorProfileId),
+    // The card gate joins on the LIVE taxonomy; `getTaxonomy` falls back to the seed itself when the tables are unread.
+    getTaxonomy(),
   ]);
   return {
     freeOpen,
@@ -177,11 +202,14 @@ export async function readStoreToolFacts(
     categoryLabels,
     services,
     hubOverrides,
+    papicCapture,
+    cards,
+    tiles: { map: taxonomy.map, tileLabel: taxonomy.tileLabel },
   };
 }
 
 /**
- * 🧰 The tools this shop may share into a chat ("Share from your tools", DECISION_LOG 2026-11-23 dee66686) — the tool
+ * 🧰 The tools this shop may share into a chat ("Share from your widgets", DECISION_LOG 2026-11-23 dee66686) — the tool
  * facts above, read with the shop's saved layout, through the one rule (`shareableTools`). Read by the supplier's chat
  * page (the picker) and by the chat send (`sendChatMessageCore`, which refuses a share of a tool not held).
  */

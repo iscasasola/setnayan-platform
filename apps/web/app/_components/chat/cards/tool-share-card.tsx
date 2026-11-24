@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * 🧰 A SHARED TOOL — the card a supplier's "Share from your tools" posts (DECISION_LOG 2026-11-23 dee66686), PORTED from
+ * 🧰 A SHARED TOOL — the card a supplier's "Share from your widgets" posts (DECISION_LOG 2026-11-23 dee66686), PORTED from
  * the drawing, not redrawn: `prototypes/supplier_store_graphs_badges_2026-11-23` frame 7, "What the couple sees"
  * (`.ccard`). Class for class:
  *   `.ccard`  the house frame (`.sn-frame`), 280 px wide at most, 12 px in, 4 px between parts

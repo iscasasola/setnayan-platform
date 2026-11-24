@@ -17,7 +17,7 @@
  *                   `below` slot, as the couple's thread page draws it (DECISION_LOG 2026-11-07 ruling (4))
  *                   (vendor side) the shop is not verified → its ＋ tiles locked and NO mic, as the supplier's page
  *   ?share=1        🧰 the five tool cards the supplier shared (DECISION_LOG 2026-11-23 dee66686) — waiting, and the 3D
- *                   plan approved; on ?side=vendor the ＋ › Share from your tools picker lists &tools=all (default) ·
+ *                   plan approved; on ?side=vendor the ＋ › Share from your widgets picker lists &tools=all (default) ·
  *                   some · none · unread. Open / Approve / a pick post the REAL send, which needs a session here.
  *
  * The real thread routes' `loading.tsx` is `ThreadArrival`; this lab has NO loading.tsx (a dev route under a loading

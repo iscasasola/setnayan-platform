@@ -19,6 +19,7 @@
 
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { SupplierFrontPage } from '@/app/for-suppliers/_components/supplier-front-page';
 import { growSpec } from '@/app/for-suppliers/_components/supplier-front-data';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
@@ -198,7 +199,7 @@ export default async function ForSuppliersPage() {
   // 🧰 No special-tools start date any more (owner a02673ac, 23 Nov): a paid widget is bought once in the Toolkit and
   // works only on a paid plan, so the Toolkit's tags are the one paid list (`PAID_STORE_TOOLS`), with nothing to read.
   const admin = createAdminClientOrNull();
-  const [p, fee, giftRead, catalog] = await Promise.all([
+  const [p, fee, giftRead, catalog, papicCapture] = await Promise.all([
     getVendorPrices(),
     getLiveBookingFeeSchedule(),
     admin
@@ -207,6 +208,8 @@ export default async function ForSuppliersPage() {
           .catch(() => ({ packs: null, bundles: null }))
       : Promise.resolve({ packs: null, bundles: null }),
     fetchV2CustomerCatalog(),
+    // 📷 The Toolkit lists the Papic camera only while its privacy switch is on; a refused read keeps it off.
+    isVendorPapicCaptureEnabled().catch(() => false),
   ]);
   const credits = planCreditsFrom(catalog);
   return (
@@ -227,6 +230,7 @@ export default async function ForSuppliersPage() {
           }}
           gifts={{ packs: giftRead.packs, bundles: giftRead.bundles, credits: { plusCredits: credits.plusCredits, proCredits: credits.proCredits } }}
           paywallOn={isVendorFeatureGateEnabled()}
+          papicCapture={papicCapture}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}
           afterPlans={
             /*

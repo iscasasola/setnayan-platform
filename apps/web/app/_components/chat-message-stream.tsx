@@ -2340,7 +2340,7 @@ export function ChatMessageStream({
           // below. The shop's "Design your cake for us" invite is drawn as its card INSTEAD of a bubble.
           const cakeAt = m.sender_role === 'couple' ? cakeDesignAt(m.body) : -1;
           const cakeInvite = m.sender_role === 'vendor' && isCakeInvite(m.body);
-          // 🧰 A tool the shop shared ("Share from your tools") is drawn as its card INSTEAD of a bubble.
+          // 🧰 A tool the shop shared ("Share from your widgets") is drawn as its card INSTEAD of a bubble.
           const sharedTool = m.sender_role === 'vendor' ? toolShareFromLine(m.body) : null;
           const node = (() => {
           if (cakeInvite || sharedTool) return null;

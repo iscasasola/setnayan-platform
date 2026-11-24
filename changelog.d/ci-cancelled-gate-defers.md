@@ -14,5 +14,6 @@ Every pull_request run of ci.yml shares the group `ci-pr-<N>` with `cancel-in-pr
 - **New lint rule j:** the gate keeps `actions: read` and those inputs.
 - **Tests:** `scripts/ci-gate.test.mjs` gets six new tests, including end-to-end runs of the real script against a stub GitHub (green with a waiting successor; red with none, with only an in-progress run, with a 500, with no token, on push, or after a real failure).
 - **Unchanged:** the 9 names posted by the guards and build report steps. Every post lands in one shared check suite (measured on #8274), so the newest post already replaces the older ones. No required name changed.
+- **Not covered yet (proved on #8285):** three required JOB names in a cancelled run end `cancelled` and still block: `production build`, `playwright e2e (chromium)` and `lighthouse`. A same-commit cancel of a FULL run (reopen, re-trigger) still needs a fresh head commit. The draft-run race is fully covered, because those jobs skip there and are never cancelled.
 
 SPEC IMPACT: None. CI plumbing only, and branch protection is unchanged.

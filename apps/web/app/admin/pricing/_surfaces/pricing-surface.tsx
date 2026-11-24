@@ -2,6 +2,8 @@
 // re-homed here (2026-07-10). actions/_components stay in /admin/pricing; the
 // legacy route is now a redirect (or, for pricing/settings, the studio shell).
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { TemplateFail, TemplateSection } from '@/app/_components/template-rows';
+import { actionButtonClass } from '@/components/action-button-class';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { computeRetailRemovabilityMap } from '@/lib/admin/pricing-removability';
@@ -385,27 +387,14 @@ export async function PricingSurface(_props: Props) {
           the download link beside it does NOT go with it — `HELD_IN_THE_OLD_
           HEADER` in admin-page-starts-at-its-content.test.ts pins this as the
           ONLY export path for the legacy v1 `service_catalog`. */}
-      <PageMasthead
-        title="Pricing & Catalog"
-        className="mb-4"
-        actions={
-          <a
-            href="/admin/addons/pricing-report"
-            className="button-secondary self-start whitespace-nowrap text-sm"
-            download
-          >
-            Download legacy catalog report
-          </a>
-        }
-      />
+      {/* 📐 Admin clean port (owner 19 Nov 2026): the name stays in the document at zero pixels; the legacy report's
+          download moved to the "Older catalogue" section at the foot, still the only export path (HELD_IN_THE_OLD_HEADER). */}
+      <PageMasthead title="Pricing & Catalog" />
 
       {(retailRes.error || bundleRes.error || vendorRes.error) && (
-        <div className="mb-6 rounded-2xl border border-danger-300/60 bg-danger-50/80 p-5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-danger-900">Catalog load error</p>
-          <p className="mt-1 text-sm text-danger-900">
-            The pricing catalog couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
-          </p>
-        </div>
+        <TemplateFail retryHref="/admin/pricing" data="pricing-catalog">
+          The pricing catalog couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
+        </TemplateFail>
       )}
 
       {!settingsRes.error && !retailRes.error && (
@@ -466,13 +455,11 @@ export async function PricingSurface(_props: Props) {
         separate headings and each names who pays in its own first line, because
         the collision is exactly how the wrong number gets edited.
       */}
-      <section className="mt-10">
-        <h2 className="mb-1 text-base font-semibold tracking-tight">Supplier booking fee</h2>
-        <p className="mb-3 max-w-prose text-sm text-ink/60">
-          What a supplier pays Setnayan for an introduction that turns into a booking. Owner-set:
-          the rate below the threshold, the threshold itself, and the rate above it. The minimum is
-          fixed; the lock, the every-Nth free booking fee and the new-client free window are shown under the form.
-        </p>
+      <TemplateSection
+        label="Supplier booking fee"
+        tip="What a supplier pays Setnayan for an introduction that turns into a booking. Owner-set: the rate below the threshold, the threshold itself, and the rate above it. The minimum is fixed; the lock, the every-Nth free booking fee and the new-client free window are shown under the form. Charged to the supplier when Setnayan introduces them to a couple — never to the couple, and never a commission. The couple pays the supplier directly."
+        data="booking-fee"
+      >
         <BookingFeeForm
           action={saveBookingFeeSchedule}
           ratePct={bookingFee.ratePct}
@@ -485,11 +472,20 @@ export async function PricingSurface(_props: Props) {
           isFromDb={bookingFee.isFromDb}
           enabled={isBookingFeeEnabled()}
         />
-      </section>
+      </TemplateSection>
 
-      <section className="mt-10">
+      <TemplateSection
+        label="Older catalogue"
+        tip="These are the prices from the system Setnayan used before. Readable here at last, and deliberately not editable — an editable dead catalogue would be a second price authority waiting to disagree with the one above. Use the Download legacy catalog report link beside this heading for the full file."
+        right={
+          <a href="/admin/addons/pricing-report" className={actionButtonClass('neutral', { quiet: true })} download>
+            Download legacy catalog report
+          </a>
+        }
+        data="legacy-catalog"
+      >
         <LegacyCatalogDisclosure />
-      </section>
+      </TemplateSection>
     </div>
   );
 }

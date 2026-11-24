@@ -36,7 +36,7 @@ export async function joinVendorWaitlist(formData: FormData): Promise<void> {
   const backTo = slug ? `/${slug}` : '/explore';
   // Where the visit came from rides back onto the page, so its back door is unchanged (lib/shop-back.ts). The event
   // is re-checked by the page on arrival, exactly as on any other visit.
-  const arrival = arrivalParams({ src: str(formData, 'src'), event: str(formData, 'event') });
+  const arrival = arrivalParams({ src: str(formData, 'src'), event: str(formData, 'event'), via: str(formData, 'via') });
   const back = (wl: string) => withShopArrival(backTo, arrival, { wl });
 
   const vendorProfileId = str(formData, 'vendor_profile_id');

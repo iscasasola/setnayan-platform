@@ -86,7 +86,7 @@ test('the event page shows ‹ Discover WITH the marker, returning in place', ()
   assert.ok(check > -1 && set > check, 'the button is switched on before (or without) the arrival check');
   assert.equal((r.match(/setArrivedAt\(/g) ?? []).length, 1, 'one way to switch it on');
   // The shipped BackButton, in place (while still where the visit arrived).
-  assert.match(r, /<BackButton href="\/" label="Discover" className="mb-0" inPlace=\{\{ whileAt: arrivedAt \}\} \/>/);
+  assert.match(r, /<BackButton href=\{DISCOVER_HREF\} label="Discover" className="mb-0" inPlace=\{\{ whileAt: arrivedAt \}\} \/>/);
   // The page mounts it once; the map says the route works its back out per visit.
   assert.equal((src(EVENT_PAGE).match(/<DiscoverArrivalBack \/>/g) ?? []).length, 1);
   assert.deepEqual(pageHome('/[slug]'), { kind: 'none', reason: 'computed', by: 'lib/discover-way-back.ts' });

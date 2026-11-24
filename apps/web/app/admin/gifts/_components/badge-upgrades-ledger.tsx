@@ -1,5 +1,6 @@
 import { Rocket } from 'lucide-react';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { TemplateSection } from '@/app/_components/template-rows';
 import { BADGE_UPGRADE_NAME, upgradeSourceWords, upgradeWords } from '@/lib/badge-upgrades';
 import type { BadgeUpgradeLedgerRow } from '@/lib/badge-upgrades.server';
 
@@ -14,13 +15,18 @@ const fmtDay = (iso: string) =>
  */
 export function BadgeUpgradesLedger({ rows, readError }: { rows: BadgeUpgradeLedgerRow[] | null; readError: { message: string } | null }) {
   return (
-    <section className="mb-10" data-admin-badge-upgrades="">
-      <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">Badge upgrades</h2>
-      <p className="mb-4 text-xs text-ink/60">
-        Four weeks of an add-on for the shop itself — Verified → Papic Challenges · first booking → 3D Booth (Papic
-        Challenges below Plus) · 5 reviews → AI Chatbot · Top Pick / Most Booked → their choice. Each waits, never
-        expiring, until the supplier taps Start on their Plan page; Start adds four weeks to that add-on.
-      </p>
+    <div data-admin-badge-upgrades="">
+    <TemplateSection
+      label="Badge upgrades"
+      tip={
+        <>
+          Four weeks of an add-on for the shop itself — Verified → Papic Challenges · first booking → 3D Booth (Papic
+          Challenges below Plus) · 5 reviews → AI Chatbot · Top Pick / Most Booked → their choice. Each waits, never
+          expiring, until the supplier taps Start on their Plan page; Start adds four weeks to that add-on.
+        </>
+      }
+      data="badge-upgrades"
+    >
       <ConsoleTable<BadgeUpgradeLedgerRow>
         rows={rows}
         readError={readError}
@@ -49,6 +55,7 @@ export function BadgeUpgradesLedger({ rows, readError }: { rows: BadgeUpgradeLed
           },
         ]}
       />
-    </section>
+    </TemplateSection>
+    </div>
   );
 }

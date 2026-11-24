@@ -38,6 +38,7 @@ import { CheckinDeskRows, MessageEveryoneRows, SeatFinderRow } from '../_compone
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { resolveDayOfConsoleKind, type DayOfConsoleKind } from '@/lib/vendor-day-of';
 import { resolveModules } from '@/lib/vendor-dayof-modules';
+import { readHubToolSuggestions } from '@/lib/hub-tool-suggestions.server';
 import { fetchDayOfOverride } from '@/lib/vendor-dayof-config';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import {
@@ -569,8 +570,12 @@ async function readEventTools({
   bookedCategories: string[] | null;
 }): Promise<ConfiguratorModule[]> {
   const eventTiles = tilesForVendorCategories(bookedCategories);
-  const override = await fetchDayOfOverride(supabase, vendorProfileId, eventId);
-  const modules: ConfiguratorModule[] = resolveModules(services, eventTiles, override).map((m) => ({
+  // 🧰 With Admin › Categories › Hub tools for this booking: suggested hub tools start ON (never a gate).
+  const [override, hubSuggestions] = await Promise.all([
+    fetchDayOfOverride(supabase, vendorProfileId, eventId),
+    readHubToolSuggestions(supabase, eventTiles),
+  ]);
+  const modules: ConfiguratorModule[] = resolveModules(services, eventTiles, override, hubSuggestions).map((m) => ({
     id: m.id,
     label: m.label,
     blurb: m.blurb,

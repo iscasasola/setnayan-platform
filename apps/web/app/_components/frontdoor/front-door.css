@@ -2150,7 +2150,9 @@ button.fd-ask.quiet {
    `display: none` takes the row out of the tab order and the accessibility
    tree as well as the paint — a real removal, not a look. */
 .fd:has([data-discover-bounced]) .fd-rail > a.fd-row[href='/'],
-.fd:has([data-discover-bounced]) .fd-rail > a.fd-row[href='/'] + .fd-rdiv {
+.fd:has([data-discover-bounced]) .fd-rail > a.fd-row[href='/'] + .fd-rdiv,
+.fd:has([data-discover-bounced]) .fd-rail > a.fd-row[href='/?discover=1'],
+.fd:has([data-discover-bounced]) .fd-rail > a.fd-row[href='/?discover=1'] + .fd-rdiv {
   display: none;
 }
 

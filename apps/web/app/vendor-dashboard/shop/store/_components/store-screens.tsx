@@ -189,7 +189,7 @@ export function StoreFront({ d }: { d: StoreData }) {
       {paid.length > 0 ? (
         <section className="mt-[18px]" data-store-block="" data-store-with-plan="">
           <h2 className="hc-k2">With a plan</h2>
-          <p className="text-sn-base text-[color:var(--m-slate-2)]">Plus or higher. Buy once; it works while you stay on a plan.</p>
+          <p className="text-sn-base text-[color:var(--m-slate-2)]" data-web-only="">Plus or higher. Buy once; it works while you stay on a plan.</p>
           <div className="mt-2" data-store-list="">
             <TemplateRows label="With a plan">
               {paid.map((r) => (

@@ -54,9 +54,9 @@ export const PAY_PLAN_TEMPLATES: readonly PayPlanTemplate[] = [
   },
   {
     key: 'deposit_monthly',
-    name: 'Deposit, then monthly',
-    line: 'A deposit, then one part each month',
-    parts: [p('Deposit', 25, 'on_lock'), p('Second payment', 25, 'before_event', 90), p('Third payment', 25, 'before_event', 60), p('Final balance', 25, 'before_event', 30)],
+    name: 'First payment, then monthly',
+    line: 'A first payment, then one part each month',
+    parts: [p('First payment', 25, 'on_lock'), p('Second payment', 25, 'before_event', 90), p('Third payment', 25, 'before_event', 60), p('Final balance', 25, 'before_event', 30)],
     forCategories: ['Reception', 'Ceremony', 'Accommodation'],
   },
   {
@@ -119,10 +119,10 @@ export function templatePlanItems(t: PayPlanTemplate): PayPlanItem[] {
   }));
 }
 
-/** "When booked" · "30 days after booking" · "7 days before" · "On the day" — the drawing's Due words. */
+/** "When booked" · "30 days after booking" · "7 days before" · "The Day" — the drawing's Due words. */
 export function partDueWords(x: Pick<PlanPart, 'anchor' | 'days'>): string {
   if (x.anchor === 'on_lock') return x.days > 0 ? `${formatCount(x.days)} ${x.days === 1 ? 'day' : 'days'} after booking` : 'When booked';
-  return x.days > 0 ? `${formatCount(x.days)} ${x.days === 1 ? 'day' : 'days'} before` : 'On the day';
+  return x.days > 0 ? `${formatCount(x.days)} ${x.days === 1 ? 'day' : 'days'} before` : 'The Day';
 }
 
 /** "2 parts · 20 · 80" — the tile's line after the kind word. */

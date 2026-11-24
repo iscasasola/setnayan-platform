@@ -34,7 +34,7 @@ test('1 · the eight payment plans and six availability set-ups are the drawing�
     PAY_PLAN_TEMPLATES.map((t) => [t.name, t.parts.map((x) => x.pct)]),
     [
       ['Reserve with 20%', [20, 80]],
-      ['Deposit, then monthly', [25, 25, 25, 25]],
+      ['First payment, then monthly', [25, 25, 25, 25]],
       ['Full upfront', [100]],
       ['Half now, half before', [50, 50]],
       ['20% to book, two more parts', [20, 40, 40]],
@@ -58,7 +58,7 @@ test('1 · the eight payment plans and six availability set-ups are the drawing�
   assert.equal(partsLine(PAY_PLAN_TEMPLATES[0]!), '2 parts · 20 · 80');
   assert.equal(partDueWords({ anchor: 'on_lock', days: 0 }), 'When booked');
   assert.equal(partDueWords({ anchor: 'on_lock', days: 30 }), '30 days after booking');
-  assert.equal(partDueWords({ anchor: 'before_event', days: 0 }), 'On the day');
+  assert.equal(partDueWords({ anchor: 'before_event', days: 0 }), 'The Day');
   assert.deepEqual(avInside(AV_TEMPLATES[2]!).map((r) => r.value), ['Made to order', 'You set it', '14 days before']);
 });
 

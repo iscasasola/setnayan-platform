@@ -35,7 +35,7 @@ const sizeWords = (bytes: number | null): string => (bytes == null ? 'Your stora
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
 import { SPECIALIZED_TOOLS, type SpecializedToolKey } from '@/lib/specialized-tools';
-import { SHELF_TITLE, STORE_GRAPHS, isPaidStoreTool, qrWords, toolkitItems } from '@/lib/supplier-store';
+import { SHELF_TITLE, STORE_GRAPHS, isPaidStoreTool, isShopBadgeKey, qrWords, toolkitItems } from '@/lib/supplier-store';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
   PORTFOLIO_FREE_BASE,
@@ -637,8 +637,6 @@ export function toolkitShelves(papicCapture: boolean): ToolkitShelf[] {
   ];
   return shelves.filter((sh) => sh.rows.length > 0);
 }
-
-const isShopBadgeKey = (k: string): k is ShopBadgeKey => (SHOP_BADGE_KEYS as readonly string[]).includes(k);
 
 /* ── #plans · the rail and the plan cards ────────────────────────────────────────────────────────────────────────── */
 

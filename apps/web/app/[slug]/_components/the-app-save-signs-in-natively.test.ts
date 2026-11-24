@@ -202,12 +202,16 @@ test('5 · after return the save completes for the SAME event: one `next`, carri
 test('6 · the app is named Setnayan wherever the phone shows it — the bundle id unchanged', () => {
   const root = join(process.cwd(), '..', 'mobile');
   const plist = readFileSync(join(root, 'ios', 'App', 'App', 'Info.plist'), 'utf8');
+  const pbx = readFileSync(join(root, 'ios', 'App', 'App.xcodeproj', 'project.pbxproj'), 'utf8');
   const key = (k: string) => new RegExp(`<key>${k}</key>\\s*<string>([^<]*)</string>`).exec(plist)?.[1];
   // CFBundleName is what the sign-in prompt reads ("“App” Wants to Use …") —
-  // measured in the simulator; it was $(PRODUCT_NAME) = App.
-  assert.equal(key('CFBundleName'), 'Setnayan');
-  assert.equal(key('CFBundleDisplayName'), 'Setnayan');
-  const pbx = readFileSync(join(root, 'ios', 'App', 'App.xcodeproj', 'project.pbxproj'), 'utf8');
+  // measured in the simulator; it was $(PRODUCT_NAME) = App. Since Supnayan
+  // (24 Nov 2026) both names come from SETNAYAN_DISPLAY_NAME, which every
+  // Setnayan configuration sets to Setnayan (ios/supnayan.xcconfig names the other app).
+  assert.equal(key('CFBundleName'), '$(SETNAYAN_DISPLAY_NAME)');
+  assert.equal(key('CFBundleDisplayName'), '$(SETNAYAN_DISPLAY_NAME)');
+  const names = [...pbx.matchAll(/SETNAYAN_DISPLAY_NAME = ([^;]+);/g)].map((m) => m[1]);
+  assert.ok(names.length >= 2 && names.every((n) => n === 'Setnayan'), `the Setnayan build is named Setnayan (got ${names.join(', ')})`);
   const ids = pbx.match(/PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/g) ?? [];
   assert.ok(ids.length >= 2 && ids.every((l) => l.includes('com.setnayan.app')), 'bundle id stays com.setnayan.app');
   const strings = readFileSync(join(root, 'android', 'app', 'src', 'main', 'res', 'values', 'strings.xml'), 'utf8');

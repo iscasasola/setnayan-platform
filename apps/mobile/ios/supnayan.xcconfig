@@ -1,0 +1,36 @@
+// Supnayan: the suppliers' and coordinators' iPhone app (owner, DECISION_LOG 24 Nov 2026
+// "Three iOS apps: Setnayan · Supnayan · Chatnayan"). It is the SAME target, the same Swift and the same web app
+// as Setnayan, built from the "Debug Supnayan" / "Release Supnayan" configurations (scheme Supnayan). This file
+// is the whole of its identity; the Setnayan defaults sit on the project's Debug / Release configurations.
+//
+// What it opens and how it announces itself is capacitor.config.ts › plugins.SetnayanShell.supnayan, applied by
+// App/SetnayanShell.swift. Held by apps/web/lib/supnayan-is-the-same-app.test.ts.
+
+// The app (Info.plist `SetnayanShell`, read by SetnayanShell.swift).
+SETNAYAN_SHELL = supnayan
+
+// The name under the icon, and in the system's sign-in prompts (Info.plist CFBundleDisplayName / CFBundleName).
+SETNAYAN_DISPLAY_NAME = Supnayan
+
+// Its own return scheme, so setnayan:// links (a guest's "Open in the Setnayan app", the crew pairing code) always
+// open Setnayan when both apps are on one phone. Native sign-in does not need it: ASWebAuthenticationSession
+// takes its own callback in-process.
+SETNAYAN_URL_SCHEME = supnayan
+
+// Its own App Store record (owner step: create it in App Store Connect).
+PRODUCT_BUNDLE_IDENTIFIER = com.setnayan.supnayan
+
+// ⚠ PLACEHOLDER ICON. App/Assets.xcassets/SupnayanIcon.appiconset holds a marked placeholder until the Fable
+// drawing of the real Supnayan icon is approved. Never submit a build with it.
+ASSETCATALOG_COMPILER_APPICON_NAME = SupnayanIcon
+
+// Sign in with Apple and NFC only: no Universal Links domain (no apple-app-site-association names this app) and no
+// push yet (lib/apns.ts sends to the one Setnayan topic).
+CODE_SIGN_ENTITLEMENTS = App/Supnayan.entitlements
+
+// Its own version line, apart from Setnayan's (each App Store record counts its own builds).
+MARKETING_VERSION = 1.0
+CURRENT_PROJECT_VERSION = 1
+
+// iPhone only.
+TARGETED_DEVICE_FAMILY = 1

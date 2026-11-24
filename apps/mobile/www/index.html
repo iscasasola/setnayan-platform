@@ -47,8 +47,24 @@
       <h1>You're offline</h1>
       <p>We couldn't reach Setnayan. Check your connection and try again — <em>set na 'yan.</em></p>
       <!-- Retry navigates back to the hosted app, not a reload of this local
-           fallback page. Keep in sync with server.url in capacitor.config.ts. -->
-      <button onclick="location.href='https://www.setnayan.com'">Retry</button>
+           fallback page. Keep the default in sync with server.url in
+           capacitor.config.ts. Both iPhone apps share this page, so the iOS
+           shell passes its own start address as ?retry= (SetnayanBridgeViewController
+           showOfflineFallback): Supnayan reopens the supplier door, never the
+           host side. Only a setnayan.com address (or a local dev server) is
+           followed; anything else falls back to the default. -->
+      <button id="retry" type="button">Retry</button>
     </div>
+    <script>
+      (function () {
+        var fallback = 'https://www.setnayan.com';
+        var asked = new URLSearchParams(location.search).get('retry') || '';
+        var ours = /^https:\/\/(?:[a-z0-9-]+\.)*setnayan\.com(?:[/?#]|$)/i.test(asked) ||
+          /^http:\/\/(?:[a-z0-9-]+\.)*localhost(?::\d+)?(?:[/?#]|$)/i.test(asked);
+        document.getElementById('retry').addEventListener('click', function () {
+          location.href = ours ? asked : fallback;
+        });
+      })();
+    </script>
   </body>
 </html>

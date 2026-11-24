@@ -106,6 +106,14 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
         SideSafeWebView(frame: frame, configuration: configuration)
     }
 
+    /// 📱 Which app this build is (SetnayanShell.swift): Setnayan keeps capacitor.config.json as it is; Supnayan gets
+    /// its own start address, user-agent and allowed hosts from the same file, before the web view is made.
+    override func instanceDescriptor() -> InstanceDescriptor {
+        let descriptor = super.instanceDescriptor()
+        SetnayanShell.apply(to: descriptor)
+        return descriptor
+    }
+
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
         bridge?.registerPluginInstance(SetnayanAuthPlugin())
@@ -202,8 +210,11 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
 
     /// Loads the bundled `public/index.html` — the same file Android serves
     /// from `file:///android_asset/public/index.html`. Its Retry button
-    /// navigates back to `server.url`, which Capacitor treats as the app's own
-    /// host and therefore keeps inside the WebView.
+    /// navigates back to this app's start address, which Capacitor treats as
+    /// the app's own host and therefore keeps inside the WebView. The address
+    /// rides in as `?retry=` because the page is shared by both apps
+    /// (SetnayanShell.swift): Supnayan's Retry must reopen the supplier door,
+    /// never the host side. Without it the page falls back to www.setnayan.com.
     private func showOfflineFallback() {
         guard let webView else { return }
         guard let fallback = Bundle.main.url(
@@ -214,7 +225,13 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
             NSLog("[offline-fallback] public/index.html missing from the bundle")
             return
         }
-        webView.loadFileURL(fallback, allowingReadAccessTo: fallback.deletingLastPathComponent())
+        var page = fallback
+        if let start = bridge?.config.serverURL.absoluteString,
+           var parts = URLComponents(url: fallback, resolvingAgainstBaseURL: false) {
+            parts.queryItems = [URLQueryItem(name: "retry", value: start)]
+            page = parts.url ?? fallback
+        }
+        webView.loadFileURL(page, allowingReadAccessTo: fallback.deletingLastPathComponent())
     }
 }
 

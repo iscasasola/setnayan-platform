@@ -10,6 +10,7 @@
     "open:ios": "cap open ios",
     "open:android": "cap open android",
     "dev:ios": "CAP_SERVER_URL=http://localhost:3000 cap run ios",
+    "dev:supnayan": "CAP_SUPNAYAN_URL=http://supplier.localhost:3000 cap run ios --scheme Supnayan --configuration 'Debug Supnayan'",
     "dev:android": "CAP_SERVER_URL=http://10.0.2.2:3000 cap run android"
   },
   "dependencies": {

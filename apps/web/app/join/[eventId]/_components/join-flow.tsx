@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -216,7 +217,7 @@ export async function JoinFlow({
     // A signed-in guest who already holds a seat goes straight to their own
     // invitation (lib/guest-one-path.ts recognises the account's seat).
     if (existing.member_type === 'guest' && event.slug) {
-      redirect(`/${event.slug}`);
+      redirect(`${publicEventPath(event.slug)}`);
     }
     redirect(`/join/${eventId}/success?token=${encodeURIComponent(token)}`);
   }

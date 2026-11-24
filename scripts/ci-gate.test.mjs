@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { gateVerdict, shapeProblems, parseJobs, summariseTap, parseReportedChecks, reportConclusions, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM } from './lib/ci-shape.mjs';
+import { gateVerdict, shapeProblems, parseJobs, summariseTap, parseReportedChecks, reportConclusions, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM, LIVE_DRAFT_JOB, LIVE_DRAFT_CLAUSE } from './lib/ci-shape.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -151,7 +151,7 @@ test('the gate stands for every job that is not required under its own name', ()
 /* ── the workflow, broken one way at a time ─────────────────────────────────*/
 
 test('🚨 a job left out of the gate is caught — it would block nothing', () => {
-  mentions(problemsOf(broken('needs: [guards, typecheck, eslint, unit-tests, db-replay]', 'needs: [guards, typecheck, eslint, unit-tests]')), /"db-replay".*not in the gate's `needs:`/);
+  mentions(problemsOf(broken('needs: [pr-state, guards, typecheck, eslint, unit-tests, db-replay]', 'needs: [pr-state, guards, typecheck, eslint, unit-tests]')), /"db-replay".*not in the gate's `needs:`/);
 });
 
 test('a NEW job nobody needs is caught', () => {
@@ -160,7 +160,7 @@ test('a NEW job nobody needs is caught', () => {
 });
 
 test('🚨 the gate without `if: always()` is caught — skipped would count as passed', () => {
-  mentions(problemsOf(broken('    needs: [guards, typecheck, eslint, unit-tests, db-replay]\n    if: ${{ always() }}\n', '    needs: [guards, typecheck, eslint, unit-tests, db-replay]\n')), /must be `if: \$\{\{ always\(\) \}\}`/);
+  mentions(problemsOf(broken('    needs: [pr-state, guards, typecheck, eslint, unit-tests, db-replay]\n    if: ${{ always() }}\n', '    needs: [pr-state, guards, typecheck, eslint, unit-tests, db-replay]\n')), /must be `if: \$\{\{ always\(\) \}\}`/);
   mentions(problemsOf(broken('    if: ${{ always() }}\n    steps:\n      - uses: actions/checkout@v4\n', '    if: ${{ !cancelled() }}\n    steps:\n      - uses: actions/checkout@v4\n')), /must be `if:/);
 });
 
@@ -170,7 +170,7 @@ test('a gate that reads a hand-picked subset, or runs nothing, is caught', () =>
 });
 
 test('a gate that needs a job that does not exist is caught', () => {
-  mentions(problemsOf(broken('needs: [guards, typecheck,', 'needs: [guards, typechek,')), /needs "typechek", which is not a job/);
+  mentions(problemsOf(broken('needs: [pr-state, guards, typecheck,', 'needs: [pr-state, guards, typechek,')), /needs "typechek", which is not a job/);
 });
 
 test('a renamed or duplicated required name is caught', () => {
@@ -232,12 +232,61 @@ test('🚨 the gate that gets the draft clause is caught — it would SKIP on a 
 });
 
 test('🚨 a gate that is not told the PR is a draft is caught', () => {
-  mentions(problemsOf(broken(/ {10}PR_DRAFT: \$\{\{ github\.event\.pull_request\.draft == true \}\}\n/, '')), /must hand the script `PR_DRAFT:/);
+  mentions(problemsOf(broken(/ {10}PR_DRAFT: \$\{\{ needs\.pr-state\.outputs\.draft \}\}\n/, '')), /must hand the script `PR_DRAFT:/);
 });
 
-test('the draft clause is the ONLY job-level `if:` a gated job may carry', () => {
-  assert.ok(CI.includes(`    name: typecheck\n    if: \${{ ${DRAFT_CLAUSE} }}\n`), 'typecheck skips drafts');
-  mentions(problemsOf(broken(`    name: typecheck\n    if: \${{ ${DRAFT_CLAUSE} }}\n`, '    name: typecheck\n    if: ${{ github.event.pull_request.draft == false }}\n')), /"typecheck" has a job-level `if:`/);
+test('the live draft clause is the ONLY job-level `if:` a gated job may carry, and `pr-state` its only need', () => {
+  const live = `    name: typecheck\n    needs: ${LIVE_DRAFT_JOB}\n    if: \${{ ${LIVE_DRAFT_CLAUSE} }}\n`;
+  assert.ok(CI.includes(live), 'typecheck skips drafts, read live');
+  mentions(problemsOf(broken(live, `    name: typecheck\n    needs: ${LIVE_DRAFT_JOB}\n    if: \${{ needs.pr-state.outputs.draft != 'maybe' }}\n`)), /"typecheck" has a job-level `if:`/);
+  mentions(problemsOf(broken(live, `    name: typecheck\n    needs: [${LIVE_DRAFT_JOB}, guards]\n    if: \${{ ${LIVE_DRAFT_CLAUSE} }}\n`)), /"typecheck" has its own `needs:`/);
+  mentions(problemsOf(broken(live, `    name: typecheck\n    if: \${{ ${LIVE_DRAFT_CLAUSE} }}\n`)), /"typecheck" reads `needs\.pr-state\.outputs` but does not `needs: pr-state`/);
+});
+
+/* ── draft-or-ready is read LIVE (24 Nov 2026: #8252, #8259, #8261 sat BLOCKED with every check green) ──────────*/
+
+test('🚨 ci.yml never decides draft-or-ready from the event payload — a re-run replays it, so a ready PR stays red', () => {
+  const live = `    name: typecheck\n    needs: ${LIVE_DRAFT_JOB}\n    if: \${{ ${LIVE_DRAFT_CLAUSE} }}\n`;
+  // the old shape, exactly as it shipped until 24 Nov
+  mentions(problemsOf(broken(live, `    name: typecheck\n    if: \${{ ${DRAFT_CLAUSE} }}\n`)), /"typecheck" decides draft-or-ready from the event payload/);
+  mentions(problemsOf(broken(/ {10}PR_DRAFT: \$\{\{ needs\.pr-state\.outputs\.draft \}\}\n/, '          PR_DRAFT: ${{ github.event.pull_request.draft == true }}\n')), /reads the event payload's draft flag/);
+  // the production build is not gated, but it still may not read the payload
+  const build = `    name: production build\n    needs: ${LIVE_DRAFT_JOB}\n    if: \${{ ${LIVE_DRAFT_CLAUSE} }}\n`;
+  mentions(problemsOf(broken(build, `    name: production build\n    if: \${{ ${DRAFT_CLAUSE} }}\n`)), /reads the event payload's draft flag/);
+  // a comment may still name it (the history is written there)
+  assert.ok(/^\s*#.*github\.event\.pull_request\.draft/m.test(CI));
+});
+
+test('🚨 the live read exists, runs everywhere, asks the API, and a failed read is a red gate', () => {
+  assert.deepEqual(problemsOf(CI), [], 'the real ci.yml is sound');
+  const jobs = parseJobs(CI);
+  const liveJob = jobs.find((j) => j.id === LIVE_DRAFT_JOB);
+  assert.ok(liveJob, 'ci.yml has the pr-state job');
+  assert.equal(liveJob.if, null);
+  assert.deepEqual(liveJob.needs, []);
+  assert.ok(jobs.find((j) => j.name === GATE_NAME).needs.includes(LIVE_DRAFT_JOB), 'the gate needs it');
+  for (const id of ['typecheck', 'eslint', 'unit-tests', 'db-replay', 'build']) {
+    const j = jobs.find((x) => x.id === id);
+    assert.equal(j.if, `\${{ ${LIVE_DRAFT_CLAUSE} }}`, `${id} follows the live read`);
+    assert.deepEqual(j.needs, [LIVE_DRAFT_JOB], `${id} waits on the live read and nothing else`);
+  }
+  mentions(problemsOf(broken('needs: [pr-state, guards,', 'needs: [guards,')), /must `needs: pr-state`/);
+  mentions(problemsOf(broken(`  ${LIVE_DRAFT_JOB}:\n    name: draft or ready (read live)\n`, `  ${LIVE_DRAFT_JOB}:\n    name: draft or ready (read live)\n    if: \${{ github.event_name == 'pull_request' }}\n`)), /"pr-state" must have no `if:`/);
+  mentions(problemsOf(broken('      contents: read\n      pull-requests: read\n    outputs:\n', '      contents: read\n    outputs:\n')), /must have `permissions: pull-requests: read`/);
+  mentions(problemsOf(broken(`gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.draft'`, `echo "$EVENT_DRAFT"`)), /must read the flag from GitHub's API at run time/);
+  mentions(problemsOf(broken('      draft: ${{ steps.live.outputs.draft }}\n', '')), /must output `draft`/);
+  mentions(problemsOf(CI.replace(`  ${LIVE_DRAFT_JOB}:\n`, '  pr-state-renamed:\n')), /no job "pr-state" in ci\.yml/);
+});
+
+test('🚨 the live read fails closed: no answer → the job is red; only exact true/false are written', () => {
+  const step = parseJobs(CI).find((j) => j.id === LIVE_DRAFT_JOB).steps.find((s) => /id: live/.test(s));
+  assert.match(step, /\[ "\$draft" != "true" \] && \[ "\$draft" != "false" \][\s\S]*exit 1/, 'an unreadable flag exits 1');
+  assert.match(step, /"\$EVENT_NAME" != "pull_request"[\s\S]*draft=false/, 'push / dispatch: every job runs');
+  // a re-run of ONLY the gate replays the old answer — the script must say how to clear it honestly
+  const allGreen = JSON.stringify({ guards: { result: 'success' } });
+  const run = spawnSync(process.execPath, [path.join(HERE, 'ci-gate.mjs')], { env: { ...process.env, NEEDS: allGreen, PR_DRAFT: 'true', GITHUB_STEP_SUMMARY: '' }, encoding: 'utf8' });
+  assert.equal(run.status, 1);
+  assert.match(run.stdout, /Re-run all jobs/);
 });
 
 test('🚨 skipping drafts without `ready_for_review` is caught — a PR marked ready would keep only skipped checks', () => {

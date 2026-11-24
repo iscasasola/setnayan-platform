@@ -58,7 +58,8 @@ test('2 · the shape sign-up writes — coarse first, then the picked leaf — c
 
 test('3 · the maker context adds them to the set the question asks of — and lists nothing new (read only)', () => {
   const ctx = stripComments(readFileSync(join(WEB, 'lib/service-card-maker.server.ts'), 'utf8'));
-  assert.match(ctx, /from\('vendor_profiles'\)\.select\('tier_state, is_founder, services'\)/, 'the sign-up services are not read');
+  /* One read: the sign-up services ride on the tier read, and later columns may follow (e.g. store_layout) — never a second round trip. */
+  assert.match(ctx, /from\('vendor_profiles'\)\.select\('tier_state, is_founder, services(?:, [a-z_]+)*'\)/, 'the sign-up services are not read');
   assert.match(ctx, /for \(const leaf of signupCoveredLeaves\(tierRow\?\.services, leaves\)\) coveredLeafSet\.add\(leaf\);/, 'a sign-up service is asked about again');
   const at = ctx.indexOf('for (const leaf of signupCoveredLeaves(');
   assert.ok(at > ctx.indexOf('const coveredLeafSet = new Set('), 'the coarse leaves are added before the covered set exists');

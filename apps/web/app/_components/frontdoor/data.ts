@@ -500,7 +500,7 @@ export async function searchLiveShops(
  * Returns `null` as the COUNT on a failed read so the caller can say
  * "couldn't load" instead of quietly claiming the marketplace is empty.
  */
-async function loadLiveShops(
+export async function loadLiveShops(
   limit: number,
 ): Promise<{ shops: FrontDoorShop[]; count: number | null; realCount: number | null }> {
   /*

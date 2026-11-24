@@ -32,6 +32,7 @@ import { signedInRootLanding } from '@/lib/sign-in-landing';
 import { DISCOVER_HREF, DISCOVER_PARAM } from '@/lib/discover-href';
 import { DISCOVER_WAY_BACK, coldWayBack } from '@/lib/discover-way-back';
 import { homeSegHref } from '@/lib/home-segments';
+import { unihomeHref } from '@/lib/unihome';
 import { shopBackDoor, SHOP_BACK_COLD, SHOP_ARRIVAL_SRC } from '@/lib/shop-back';
 import { discoverFollowingHref } from '@/lib/discover-pin';
 import { stayOnPageSearchHref } from '@/lib/shell-search';
@@ -100,7 +101,13 @@ test('every press that MEANS Discover uses its own door — never the bare `/`, 
   ]) {
     assert.ok(!bareDiscover.test(read(f)), `${f} links Discover with the bare "/" — signed in, that opens Home now`);
   }
-  assert.match(read('app/_components/frontdoor/front-door-shell.tsx'), /href=\{account\.signedIn \? DISCOVER_HREF : '\/'\}/, 'the ☰ Discover row');
+  // The ☰'s Discover (UNIHOME v5, owner-approved 23 Nov 2026, DECISION_LOG "UNIHOME v5 APPROVED"; drawing
+  // `unihome-v5.html`): signed out, the row is Discover's own door; signed in, Discover is Home's last section,
+  // `/dashboard#discover`, reached by Home's jump icons. The root redirect above is unchanged.
+  const shell = read('app/_components/frontdoor/front-door-shell.tsx');
+  assert.match(shell, /<Link href=\{DISCOVER_HREF\} \{\.\.\.rowProps\('home'\)\}>/, 'the signed-out ☰ Discover row');
+  assert.match(shell, /<Link href=\{unihomeHref\('discover'\)\} className="fd-row fd-hsub" data-home-door="discover">/, 'the signed-in ☰ Discover door');
+  assert.equal(unihomeHref('discover'), '/dashboard#discover', 'signed in, Discover is a part of Home');
 });
 
 test('the root page asks the one rule, with the layout’s session, after the cron-free jobs', () => {

@@ -8,7 +8,7 @@
  *
  *   reach · categories · service cards · team seats · branches · waiting list ... `TIER_CAPS` (lib/vendor-tier-caps.ts)
  *   the plan a fold line opens from ............................................ `firstPlanWith` over `TIER_CAPS`
- *   50 portfolio photos ......................................................... `PORTFOLIO_FREE_BASE`
+ *   portfolio photos, no limit (storage only, owner 2026-11-23) ................. no count to read
  *   one free helper .............................................................. `FREE_HELPER_SEATS` (lib/vendor-free-helper.ts)
  *   access ends 7 days after the event .......................................... `DELEGATE_GRACE_DAYS`
  *   badges at 10 · 50 · … · 10,000 ............................................... `MILESTONE_THRESHOLDS`
@@ -28,7 +28,6 @@ import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
-  PORTFOLIO_FREE_BASE,
   TIER_CAPS,
   TIER_LABEL,
   FIRST_PAID_SIZE,
@@ -42,7 +41,7 @@ import { growSpec as supplierGrowSpec } from '@/app/for-suppliers/_components/su
 
 import { countWord, type ClaimSwitch } from './_claims';
 
-export { DELEGATE_GRACE_DAYS, FREE_HELPER_SEATS, PORTFOLIO_FREE_BASE };
+export { DELEGATE_GRACE_DAYS, FREE_HELPER_SEATS };
 
 /** "1 category" / "2 categories". */
 function many(n: number, one: string, more: string): string {
@@ -138,7 +137,7 @@ export function foldGroups(): readonly FoldGroup[] {
       icon: 'find',
       items: [
         { text: 'Your public page, auto-built, ready for Google', tag: FREE },
-        { text: `${formatCount(PORTFOLIO_FREE_BASE)} portfolio photos`, tag: FREE },
+        { text: 'Portfolio photos, no limit', tag: FREE },
         { text: 'Six QR codes: Shortlist, Check a date, My page, Booked, Crew, Review', tag: FREE },
         { text: 'Shown in search, as far as you go', tag: { kind: 'ver', text: 'Verified' } },
         { text: 'Your own reach on every plan — you set it', tag: { kind: 'ver', text: 'Verified' } },

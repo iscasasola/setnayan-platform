@@ -31,7 +31,6 @@ import { fileURLToPath } from 'node:url';
 
 import { TIER_CAPS, type VendorTier } from '@/lib/vendor-tier-caps';
 import {
-  FREE_PHOTOS,
   GROW_TIERS,
   VERIFIED_REACH,
   buyMoreLine,
@@ -58,7 +57,7 @@ const RENDER: Record<string, (n: number) => string> = {
   'Service cards': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n}`),
   'Team seats': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n}`),
   'Bookings a day': (n) => (!Number.isFinite(n) ? 'You set it' : n === 0 ? '—' : `${n}`),
-  'Portfolio photos': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n} free`),
+  'Photos per event': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n}`),
   'Answering couples': (n) => (!Number.isFinite(n) ? 'No limit' : n === 0 ? '—' : `${n}`),
 };
 
@@ -67,7 +66,7 @@ const FIELD: Record<string, keyof (typeof TIER_CAPS)['pro']> = {
   'Service cards': 'serviceCardsTotal',
   'Team seats': 'agentAccounts',
   'Bookings a day': 'slotsPerDay',
-  'Portfolio photos': 'portfolioPhotos',
+  'Photos per event': 'eventPhotosPerEvent',
   'Answering couples': 'inAppCustomersPerWeek',
 };
 
@@ -124,7 +123,6 @@ test('the approved page routes EVERY cap it shows through a formatter', () => {
     ['verifiedSpec', verifiedSpec()],
     ['reachSentence', reachSentence()],
     ['VERIFIED_REACH', VERIFIED_REACH],
-    ['FREE_PHOTOS', FREE_PHOTOS],
     ['helperLine', helperLine() ?? ''],
     ['buyMoreLine', buyMoreLine(null)],
     ...GROW_TIERS.map((t) => [`growSpec(${t})`, growSpec(t)] as [string, string]),

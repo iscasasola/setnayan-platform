@@ -15,11 +15,13 @@ import {
 } from './supplier-plan-offer';
 import { TIER_LABEL } from './vendor-tier-caps';
 
-test('?plan= is whitelisted to plus · pro · ultra', () => {
+test('?plan= is whitelisted to verified · plus · pro · ultra', () => {
   assert.equal(parseSupplierPlan('plus'), 'plus');
   assert.equal(parseSupplierPlan(' PRO '), 'pro');
   assert.equal(parseSupplierPlan('ultra'), 'ultra');
-  for (const bad of [undefined, null, '', 'free', 'solo', 'enterprise', 'verified', 'pro#x', ['pro'], 3]) {
+  // 24 Nov 2026 re-walk: "Get verified" carries `verified` (not a paid row; 🔒 lib/get-verified-carries-the-choice.test.ts).
+  assert.equal(parseSupplierPlan('verified'), 'verified');
+  for (const bad of [undefined, null, '', 'free', 'solo', 'enterprise', 'pro#x', ['pro'], 3]) {
     assert.equal(parseSupplierPlan(bad), null, `${JSON.stringify(bad)} must read as no plan`);
   }
 });

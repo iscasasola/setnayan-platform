@@ -21,15 +21,15 @@ import {
 } from './personal-invite-offer';
 import { personalInviteCardSvg } from './personal-invite-card';
 import { FEE_FREE_RULE } from './booking-fee-who-words';
-import { PORTFOLIO_FREE_BASE } from './vendor-tier-caps';
 import { stripComments } from './strip-comments';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PRICES = { solo: 1000, pro: 2500, enterprise: 8000 };
 
-test('the 100 is the owner’s number, above the every-plan base', () => {
+test('the 100 is the owner’s number (retired as a limit 2026-11-23 — the portfolio has no cap; the admin form no longer offers it)', () => {
   assert.equal(PERSONAL_INVITE_PHOTO_ALLOWANCE, 100);
-  assert.ok(PERSONAL_INVITE_PHOTO_ALLOWANCE > PORTFOLIO_FREE_BASE);
+  const form = readFileSync(join(WEB, 'app/admin/vendors/_components/invite-vendor-form.tsx'), 'utf8');
+  assert.doesNotMatch(form, /name="offer_photos"/, 'the admin form offers portfolio photos again — they have no limit to lift');
 });
 
 test('the form: Free + switch off is no offer; a plan needs a day after today; the switch gives exactly 100', () => {

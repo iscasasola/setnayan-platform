@@ -113,11 +113,14 @@ test('a celebration on the Planning shelf never re-lists itself under Worth plan
 // Without this, worthPlanningMoments is a correct function nothing calls — the
 // gate-with-no-handle shape this repo has now found six times.
 test('the Worth-planning strip routes its rows through worthPlanningMoments', () => {
-  const strip = stripped('_components/year-moments-strip.tsx');
-  const calls = strip.match(/worthPlanningMoments\(/g) ?? [];
+  // 🔁 Unihome v5 (23 Nov 2026): the read and the filter moved into the ONE reader the strip and Home's row share.
+  const reader = stripped('../../../lib/worth-planning.server.ts');
+  const calls = reader.match(/worthPlanningMoments\(/g) ?? [];
   assert.equal(
     calls.length,
     1,
-    `expected the strip to apply worthPlanningMoments exactly once, found ${calls.length}`,
+    `expected the reader to apply worthPlanningMoments exactly once, found ${calls.length}`,
   );
+  const strip = stripped('_components/year-moments-strip.tsx');
+  assert.match(strip, /await readWorthPlanning\(userId\)/, 'the strip must read its rows through readWorthPlanning');
 });

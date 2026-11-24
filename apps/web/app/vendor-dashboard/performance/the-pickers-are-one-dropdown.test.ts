@@ -25,7 +25,7 @@ const DOING = read('business-doing.tsx');
 
 test('the window is the house sliding switch, one per card — never a ▾, a track of its own or a native select', () => {
   assert.match(CAROUSEL, /import \{ PillSelector \} from '@\/app\/_components\/pill-selector';/);
-  assert.match(CAROUSEL, /<PillSelector label=\{`Window for \$\{title\}`\} value=\{winOf\(k\)\} options=\{WINDOW_OPTIONS\}/);
+  assert.match(CAROUSEL, /<PillSelector label=\{`Window for \$\{title\}`\} value=\{winOf\(k\)\} options=\{WINDOW_SWITCH_OPTIONS\}/);
   for (const src of [CAROUSEL, TREE, SECTION, DOING]) {
     assert.doesNotMatch(src, /<PickMenu\b|PillTrack|role="tablist"|<select\b/, 'a second kind of window picker is back');
   }

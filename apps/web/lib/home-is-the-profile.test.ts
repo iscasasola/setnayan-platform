@@ -32,6 +32,7 @@ import {
   homeSegments,
   resolveHomeSeg,
 } from '@/lib/home-segments';
+import { unihomeHref } from '@/lib/unihome';
 import { PEOPLE_GROUPS_HREF, peopleViewHref, pickedPeopleHref } from '@/lib/people-views';
 import { personHref } from '@/lib/people-person-link';
 
@@ -46,38 +47,34 @@ function barLabels(): { labels: string[]; hrefs: string[] } {
   return { labels: cells.map((m) => m[2]!), hrefs: cells.map((m) => m[1]!.replace(/&amp;/g, '&')) };
 }
 
-/** The signed-in drawer's top-level entries, in source order: the Home row, then the Discover row. */
-function drawerEntries(): { label: string; href: string }[] {
-  const fd = src('app/_components/frontdoor/front-door-shell.tsx');
-  const home = fd.match(/<Link href=\{HOME_HREF\} \{\.\.\.rowProps\('events'\)\} data-home-row="">[\s\S]*?<span className="fd-label-text">([^<]+)<\/span>/);
-  // Signed in, the Discover row is Discover's own door (23 Nov 2026 — a signed-in bare `/` opens Home).
-  const disc = fd.match(/<Link href=\{account\.signedIn \? DISCOVER_HREF : '\/'\} \{\.\.\.rowProps\('home'\)\}>[\s\S]*?<span className="fd-label-text">([^<]+)<\/span>/);
-  assert.ok(home, 'the ☰ has no Home row (a link to HOME_HREF marked data-home-row)');
-  assert.ok(disc, 'the ☰ has no Discover row');
-  return [
-    { label: home[1]!, href: HOME_HREF, at: home.index! },
-    { label: disc[1]!, href: '/?discover=1', at: disc.index! },
-  ]
-    .sort((a, b) => a.at - b.at)
-    .map(({ label, href }) => ({ label, href }));
-}
-
-test('1 · the bar and the ☰ list the same two entries, in the same order — Home, then Discover', () => {
+/**
+ * The signed-in ☰ (UNIHOME v5, owner-approved 23 Nov 2026, DECISION_LOG "UNIHOME v5 APPROVED"; drawing
+ * `unihome-v5.html`): the Home row, then Home's parts as small doors, Discover the last of them, because Discover is a
+ * section of Home reached by its jump icons. Signed in, there is no Discover row of its own; the one Discover row is
+ * the signed-out front door, Discover's own address.
+ */
+test('1 · the ☰ reads the bar\'s two words in the bar\'s order — Home, then Discover as Home\'s last section', () => {
   const bar = barLabels();
   assert.deepEqual(bar.labels, ['Home', 'Discover']);
-  const drawer = drawerEntries();
-  assert.deepEqual(
-    drawer.map((d) => d.label),
-    bar.labels,
-    `the ☰ reads ${drawer.map((d) => d.label).join(' · ')}, the bar ${bar.labels.join(' · ')}`,
-  );
-  assert.deepEqual(drawer.map((d) => d.href), bar.hrefs, 'the ☰ and the bar open different places for the same word');
-  // Nothing else in the ☰ may be a destination between them: Home's sections are small doors, the rest fine print.
+  assert.equal(bar.hrefs[0], HOME_HREF, 'the bar\'s Home is not Home');
   const fd = src('app/_components/frontdoor/front-door-shell.tsx');
-  const between = fd.slice(fd.indexOf('data-home-row=""'), fd.indexOf(`<Link href={account.signedIn ? DISCOVER_HREF : '/'} {...rowProps('home')}>`));
+  const home = fd.match(/<Link href=\{HOME_HREF\} \{\.\.\.rowProps\('events'\)\} data-home-row="">[\s\S]*?<span className="fd-label-text">([^<]+)<\/span>/);
+  assert.ok(home, 'the ☰ has no Home row (a link to HOME_HREF marked data-home-row)');
+  assert.equal(home[1], bar.labels[0], `the ☰'s Home row reads ${home[1]}`);
+  const signedOutRow = `<Link href={DISCOVER_HREF} {...rowProps('home')}>`;
+  assert.equal(fd.split(`{...rowProps('home')}`).length - 1, 1, 'the ☰ draws more than one Discover row');
+  assert.ok(fd.indexOf(signedOutRow) > home.index!, 'the signed-out Discover row is not Discover\'s own door, after Home');
+  // Nothing between Home and the signed-out row may be a destination: Home's parts are small doors.
+  const between = fd.slice(fd.indexOf('data-home-row=""', home.index!), fd.indexOf(signedOutRow));
   assert.ok(!/rowProps\(/.test(between.slice(20)), 'a full rail row sits between Home and Discover — only section doors belong there');
-  for (const seg of ['events', 'people', 'shop', 'memories'])
-    assert.match(between, new RegExp(`data-home-door="${seg}"`), `Home's ${seg} door left the ☰`);
+  const doors = [...between.matchAll(/data-home-door="([a-z]+)"/g)].map((m) => m[1]!);
+  for (const seg of ['events', 'people', 'shop', 'memories', 'discover'])
+    assert.ok(doors.includes(seg), `Home's ${seg} door left the ☰`);
+  assert.equal(doors.at(-1), 'discover', `Discover is not Home's last part in the ☰ (${doors.join(' · ')})`);
+  const disc = between.match(/<Link href=\{unihomeHref\('discover'\)\} className="fd-row fd-hsub" data-home-door="discover">\s*<span className="fd-label-text">([^<]+)<\/span>/);
+  assert.ok(disc, 'the ☰\'s Discover door does not land on Home\'s Discover part');
+  assert.equal(disc[1], bar.labels[1], `the ☰'s Discover door reads ${disc[1]}`);
+  assert.equal(unihomeHref('discover'), '/dashboard#discover');
 });
 
 test('2 · Home\'s sections: Events · People · Shop · Memories, Shop only for an owner', () => {

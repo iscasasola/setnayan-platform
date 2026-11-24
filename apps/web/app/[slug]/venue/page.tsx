@@ -13,6 +13,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveBoothStudioContent } from '@/lib/booth-studio';
 import type { VenueScene } from './_components/guest-venue-3d';
 import { withDayNote } from '../_lib/day-words';
+import { withYourTableName } from '@/lib/venue-your-table';
 
 // Guest-facing 3D venue explorer (owner 2026-06-26, Sims-style). Public, no
 // session: a guest opens this from their invite (the `?t=` personal token
@@ -143,12 +144,18 @@ export default async function VenuePage({
     event_type: string | null;
     event_date: string | null;
   };
-  const roomLinks = await loadRoomLinks({
-    event: eventRow,
-    current: 'venue',
-    guestToken: token,
-    pabuyaViewerAllowed: true,
-  });
+  // The guest's own table by its NAME (the RPC sends only the public id), read beside the room links so
+  // the page makes no extra round trip. The live-refresh route makes the same join.
+  const [roomLinks, named] = await Promise.all([
+    loadRoomLinks({
+      event: eventRow,
+      current: 'venue',
+      guestToken: token,
+      pabuyaViewerAllowed: true,
+    }),
+    scene ? withYourTableName(admin, scene) : Promise.resolve(scene),
+  ]);
+  scene = named;
 
   // The RPC returns guest photos as RAW stored refs (r2:// or bare URL) — the
   // client can't resolve an r2:// ref, so we do it HERE. Mirrors the 3D-demo

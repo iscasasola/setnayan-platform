@@ -1,0 +1,13 @@
+## 2026-11-23 · feat(suppliers): event photo limits by plan; the portfolio's 50-photo cap is dropped
+
+Owner rulings 2026-11-23 (specs DECISION_LOG a4348ec8 → 6215f5f4, the last row winning).
+
+- **Event captures, per (shop, event).** Free: 10 photos, no videos. Verified: 10 photos, no videos. Plus, Pro and Ultra: no limit on photos or videos; storage is the only ceiling. The numbers live only in `TIER_CAPS` (`eventPhotosPerEvent`, `eventVideos`), read through `eventCaptureRule`. The rule matches `isTierAtLeast(tier, 'solo')`, the Plus gate, and a test holds the two together.
+- **The limit line.** "10 of 10 photos at this event · Go Plus for unlimited", "Storage full", or "No limit · photos + video". The supplier sees it on the camera and on the on-the-day badge, and the route returns the same line when it refuses. A refused shot stays on the phone (`event_photo_limit` and `supplier_storage_full` are KEPT refusals in the uploader).
+- **`/api/vendor/papic-capture`.** The Lite/Ltd/Unli points budget is replaced. The route now checks the plan's rule against the count of photos not hidden, and checks the shop's storage (`checkSupplierStorage`) before signing. It refuses if the plan or the count cannot be read. A supplier's capture spends nothing and never touches the couple's Papic pool.
+- **Portfolio.** No count on any plan. `PORTFOLIO_FREE_BASE`, `portfolioPhotoCap`, `capPortfolioRefs`, the "coming soon" refusal and the per-photo wallet charge are gone. `shop_portfolio_commit` and `file_supplier_page_notice` write and charge nothing. The uploader, Plan row, Portfolio ⚙, Today stat, /for-suppliers, /for-coordinators, the home benefits and the admin plan sheet now say "no limit". The admin personal-invite "100 portfolio photos" switch is removed; `vendor_profiles.portfolio_photo_allowance` is retired, not deleted.
+- **Seat lane.** The dead `camera_photo_cap` / `camera_video_cap` refusal codes are removed. Nothing in the database raised them.
+- **Migration `20271360535722_supplier_event_photo_limits`** drops `vendor_papic_capture_grants` (no writer, 0 rows), and replaces the two portfolio functions so they charge nothing. Same signatures and grants.
+- Proof: `lib/supplier-event-photo-limits.test.ts` has 13 tests: each plan at its edge, the Plus gate, the honest line, the route's wiring, the uploader's kept codes, the seat lane and the migration.
+
+SPEC IMPACT: Builds the 2026-11-23 rulings as written. One call made in the build and not in the corpus: the portfolio-import album (G3) keeps its own credit meter. The camera no longer shares that meter. This is an owner question in the PR.

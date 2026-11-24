@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import 'server-only';
 
 import { createClient } from '@/lib/supabase/server';
@@ -267,7 +268,7 @@ export async function loadSupplierDesk(
             // The room is at the celebration's own address. Without a public
             // address there is no room to step into, so the link falls back to
             // the booking — never to a URL that would 404.
-            href: r.slug ? `/${r.slug}` : `/vendor-dashboard/clients/${r.event_id}`,
+            href: r.slug ? `${publicEventPath(r.slug)}` : `/vendor-dashboard/clients/${r.event_id}`,
           })))
       : [];
 

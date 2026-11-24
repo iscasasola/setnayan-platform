@@ -24,6 +24,7 @@
  * `heldByShop` from `gatedRow`, or gate on a null card read (3a2419fd).
  */
 import { test } from 'node:test';
+import { AV_TEMPLATES, PAY_PLAN_TEMPLATES } from './toolkit-templates';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -278,7 +279,7 @@ test('7 · one layout: one column, one action op, every row add/remove/reorder t
   // The column reads leniently: anything malformed = never arranged, never "nothing chosen".
   assert.deepEqual(readLayout(null), NO_LAYOUT);
   assert.deepEqual(readLayout('x'), NO_LAYOUT);
-  assert.deepEqual(readLayout({ graphs: ['slow', 3], badges: [], tools_off: ['plan_3d'] }), { graphs: ['slow'], badges: [], tools: null, toolsOff: ['plan_3d'], qrs: null });
+  assert.deepEqual(readLayout({ graphs: ['slow', 3], badges: [], tools_off: ['plan_3d'] }), { graphs: ['slow'], badges: [], tools: null, toolsOff: ['plan_3d'], qrs: null, templates: { pay: {}, av: [] } });
   // Cleaning: known keys of that row only, once each, in order.
   assert.deepEqual(cleanLayoutRow('graphs', ['slow', 'nope', 'slow', 'opened']), ['slow', 'opened']);
   assert.deepEqual(cleanLayoutRow('badges', ['verified', 'invites', 'trusted_by']), ['invites', 'trusted_by']);
@@ -290,7 +291,7 @@ test('7 · one layout: one column, one action op, every row add/remove/reorder t
   const off = withLayoutRow(NO_LAYOUT, 'tools', ['scanner'], ['plan_3d', 'headcount']);
   assert.deepEqual(off.toolsOff, ['plan_3d']);
   assert.deepEqual(withLayoutRow(off, 'tools', ['scanner', 'plan_3d']).toolsOff, []);
-  assert.deepEqual(layoutColumn(off), { graphs: null, badges: null, tools: ['scanner'], tools_off: ['plan_3d'], qrs: null });
+  assert.deepEqual(layoutColumn(off), { graphs: null, badges: null, tools: ['scanner'], tools_off: ['plan_3d'], qrs: null, templates: { pay: {}, av: [] } });
   // QR designs (v19 PR 2): known codes only; My page is built in — a save that leaves it out keeps it.
   assert.deepEqual(cleanLayoutRow('qrs', ['reviews', 'crew', 'page', 'reviews']), ['reviews', 'page']);
   assert.deepEqual(withLayoutRow(NO_LAYOUT, 'qrs', ['dates']).qrs, ['page', 'dates']);
@@ -391,18 +392,20 @@ test('5ae3fbb2 · the live count, from the ONE Toolkit list — unique items, ga
   const on = { papicCapture: true, badges: SHOP_BADGE_KEYS };
   const off = { papicCapture: false, badges: SHOP_BADGE_KEYS };
   const c = toolkitCounts(off);
-  assert.deepEqual(c, { widgets: SPECIALIZED_TOOLS.length - 1, qr: PROMOTE_QR_MODES.length, graphs: CARD_ORDER.length, badges: SHOP_BADGE_KEYS.length });
+  // 🧩 Toolkit templates: the 8 payment plans and 6 availability set-ups are counted from the same list.
+  const tpl = PAY_PLAN_TEMPLATES.length + AV_TEMPLATES.length;
+  assert.deepEqual(c, { widgets: SPECIALIZED_TOOLS.length - 1, templates: tpl, qr: PROMOTE_QR_MODES.length, graphs: CARD_ORDER.length, badges: SHOP_BADGE_KEYS.length });
   assert.equal(toolkitCounts(on).widgets, SPECIALIZED_TOOLS.length, 'the Papic camera counts only while its switch is on');
   assert.equal(
     toolkitCountWords(c),
-    `${SPECIALIZED_TOOLS.length - 1} widgets · ${PROMOTE_QR_MODES.length} QR designs · ${CARD_ORDER.length} graphs · ${SHOP_BADGE_KEYS.length} badges`,
+    `${SPECIALIZED_TOOLS.length - 1} widgets · ${tpl} templates · ${PROMOTE_QR_MODES.length} QR designs · ${CARD_ORDER.length} graphs · ${SHOP_BADGE_KEYS.length} badges`,
   );
-  assert.equal(toolkitCountWords(toolkitCounts({ papicCapture: false, badges: null })), `${SPECIALIZED_TOOLS.length - 1} widgets · ${PROMOTE_QR_MODES.length} QR designs · ${CARD_ORDER.length} graphs`, 'an unread badge count is left out, never 0');
-  assert.equal(toolkitCountWords({ widgets: null, qr: null, graphs: null, badges: null }), null, 'nothing read = nothing shown');
+  assert.equal(toolkitCountWords(toolkitCounts({ papicCapture: false, badges: null })), `${SPECIALIZED_TOOLS.length - 1} widgets · ${tpl} templates · ${PROMOTE_QR_MODES.length} QR designs · ${CARD_ORDER.length} graphs`, 'an unread badge count is left out, never 0');
+  assert.equal(toolkitCountWords({ widgets: null, templates: null, qr: null, graphs: null, badges: null }), null, 'nothing read = nothing shown');
   // ONE array: the count IS the list's length, by kind; every item once, however many shelves it sits on.
   const items = toolkitItems(on);
   assert.equal(items.length, Object.values(toolkitCounts(on)).reduce<number>((a, n) => a + (n ?? 0), 0));
-  const ids = items.map((i) => `${i.kind}:${i.key}`);
+  const ids = items.map((i) => (i.kind === 'template' ? `${i.kind}:${i.of}:${i.key}` : `${i.kind}:${i.key}`));
   assert.equal(new Set(ids).size, ids.length, 'an item is listed twice');
   assert.equal(ids.filter((i) => i === 'widget:scanner').length, 1, 'Scanner is ONE item, never one per service');
   // Graphs read CARD_ORDER: a graph added there is counted the day it lands.
@@ -418,10 +421,11 @@ test('5ae3fbb2 · the live count, from the ONE Toolkit list — unique items, ga
   assert.match(front, /const shelves = toolkitShelves\(papicCapture\);/);
 });
 
-test('v19 PR 2 · a shelf with no real item is hidden: the three Forms shelves today; never a sample item', () => {
+test('v19 PR 2 · a shelf with no real item is hidden: Chat forms and Card forms today; never a sample item', () => {
   const items = toolkitItems({ papicCapture: false, badges: SHOP_BADGE_KEYS });
-  for (const f of ['chat_forms', 'card_forms', 'payment_plans'] as const) assert.deepEqual(shelfItems(items, f), [], `${f} lists an item`);
-  assert.deepEqual(visibleShelves(items), ['chat', 'present', 'hub', 'shop_page', 'qr', 'graphs', 'badges']);
+  for (const f of ['chat_forms', 'card_forms'] as const) assert.deepEqual(shelfItems(items, f), [], `${f} lists an item`);
+  // 🧩 Payment plans and Availability hold the real templates now (Toolkit templates, specs 24dcf90c).
+  assert.deepEqual(visibleShelves(items), ['chat', 'present', 'hub', 'shop_page', 'payment_plans', 'availability', 'qr', 'graphs', 'badges']);
   // A failed badge read lists no badge: that shelf is hidden, and the screen says the read failed.
   assert.ok(!visibleShelves(toolkitItems({ papicCapture: false, badges: null })).includes('badges'));
   // Each widget shelf holds exactly the widgets that name it.

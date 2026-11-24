@@ -79,6 +79,11 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   ['/blog/wedding-budget-breakdown-philippines', '/articles/wedding-budget-breakdown-philippines'],
   ['/realstories', '/?discover=1'], // 🔁 2026-11-23: Discover's own door, not the bare `/`
   ['/realstories/maria-and-juan-tagaytay-garden-wedding', '/?discover=1'],
+  // 🗞✂ 2026-11-24: Real Stories' FEATURE page (both languages) still answered 200 — it forwards like /realstories.
+  ['/features/real-stories', '/?discover=1'],
+  ['/features/real-stories/anything', '/?discover=1'],
+  ['/tl/features/real-stories', '/?discover=1'],
+  ['/tl/features/real-stories/anything', '/?discover=1'],
 ];
 
 /** The page file each old path used to be (relative to app/). */
@@ -115,6 +120,12 @@ const DELETED_PAGES: readonly string[] = [
   'blog/[slug]/page.tsx',
   '(shell)/realstories/page.tsx',
   'realstories/[slug]/page.tsx',
+  // The feature page was the `real-stories` entry of the shared `(shell)/features/[slug]` route (that entry left the
+  // registry 2026-11-24); no route of its own may come back for it, in either language.
+  '(shell)/features/real-stories/page.tsx',
+  '(shell)/features/real-stories/[slug]/page.tsx',
+  'tl/features/real-stories/page.tsx',
+  'tl/features/real-stories/[slug]/page.tsx',
 ];
 
 test('every retired path forwards to the destination its stub had', () => {

@@ -283,12 +283,13 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
       question: 'Can guests upload photos to Setnayan for free?',
       answer:
         `Guests take photos and short clips with Papic, the camera that opens from each guest's own QR link — no app to install and no sign-up. ` +
-        `Each photo spends one credit from the event's shared pot, which the host fills from an event plan or a credit pack, and the host can cap what any one guest spends. ` +
+        `If the couple allows it, guests can also add photos and short clips from their phone's camera roll — only ones taken on the event day — and they go to the couple's Memories. ` +
+        `Each photo, clip or upload spends credits from the event's shared pot, which the host fills from an event plan or a credit pack, and the host can cap what any one guest spends. ` +
         `Cameras themselves are free and unlimited.`,
-      corrects: '"Photo upload limit: gated by credits" (vs rivals called "unlimited")',
+      corrects: '"Photo upload limit: gated by credits" (vs rivals called "unlimited") · "guests cannot upload from their camera roll"',
       route: '/features',
       evidence:
-        'app/api/papic/guest-capture/route.ts (papicCaptureCost · guest_spend_ceiling) · there is no free plain camera-roll upload on main (measured 2026-11-10)',
+        'app/api/papic/guest-capture/route.ts (papicCaptureCost · guest_spend_ceiling · phoneShotOnEventDay) · lib/papic-phone-uploads.ts (guest phone uploads, live since the 14 Nov rulings on #7607: event-day photos and 3–10 s clips at the upload price) · lib/help/topics-existing.ts `photo-wall` · `add-photos-from-your-phone` ("Yes, if the couple allows it")',
     },
     {
       id: 'payment-milestones',

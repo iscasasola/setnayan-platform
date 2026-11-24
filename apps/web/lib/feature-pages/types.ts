@@ -44,7 +44,6 @@ export const FEATURE_SLUGS = [
   'papic',
   'live-watch',
   'alaala',
-  'real-stories',
   'supplier-page',
   'supplier-chat',
   'supplier-calendar',

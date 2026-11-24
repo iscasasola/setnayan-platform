@@ -30,7 +30,8 @@ import { supplierPlanTier } from '@/lib/supplier-plan-offer';
 import { changeKind, payToday, planChanges, planDirection, planRowLine, sheetPlans } from '@/lib/plan-sheet';
 import { papersProgress } from '@/lib/locks';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate } from '@/lib/request-platform';
+import { planRenewal } from '@/lib/plan-renewal-words';
 import { PlanRows } from './plan-rows';
 import { startSubscriptionPurchase } from '../actions';
 import { BadgeUpgradesSection } from './badge-upgrades-section';
@@ -337,8 +338,12 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
 
   // Every plan with its catalogue price per cycle — the plan sheet's rows read these.
   const expiresOn = isPaid && tierExpiresAt ? fmtDate(tierExpiresAt) : null;
+  // 🔁 The request's Apple gate (store app + StoreKit build + NEXT_PUBLIC_APPLE_IAP_ENABLED): an Apple plan renews by
+  // itself, a web plan never does — every renewal line below asks lib/plan-renewal-words.ts with it. A header read.
+  const iapGate = await getIapGate();
+  const appleSells = iapGate.iap;
   const plans: PlanPick[] = [
-    { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(currentTier, 'free', expiresOn) },
+    { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(currentTier, 'free', expiresOn, appleSells) },
     ...visibleTiers.map((tier) => ({
       key: tier,
       name: planWord(tier),
@@ -348,7 +353,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         // 🗓 A month started now vs the plan already held: the picker's copy of create_vendor_subscription's rule.
         monthly: monthlyTermIsTooShort(tierExpiresAt, now) ? termTooShortMessage(tierExpiresAt) : null,
       },
-      pickLine: planPickLine(currentTier, tier, expiresOn),
+      pickLine: planPickLine(currentTier, tier, expiresOn, appleSells),
     })),
   ];
 
@@ -379,7 +384,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             console.error('[supabase-error] subscription/plan-screen · latest application', err);
             return null;
           }),
-    isStoreShellRequest(),
+    Promise.resolve(iapGate.storeShell),
     // 🍎 One channel at a time (owner 22 Nov): who bills this shop's live plan — read for THIS shop's own id.
     readAppleShopPlan(createAdminClient(), profile.vendor_profile_id),
   ]);
@@ -404,7 +409,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             ? expiresOn
               ? `Active until ${expiresOn}`
               : isVerifiedVendor || t !== 'free'
-                ? 'Nothing to pay · nothing renews by itself'
+                ? `Nothing to pay · ${planRenewal(false).inline}` // Free never renews, on any channel
                 : 'Not verified yet · nothing to pay'
             : planRowLine(currentTier, t, paywallOn, expiresOn),
         paid,
@@ -416,7 +421,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             payToday({ kind, price: v, unusedPhp, creditPhp: heldCreditPhp, currentRaw: currentTier, endsOn: expiresOn }),
           ]),
         ),
-        pickLine: planPickLine(currentTier, t, expiresOn),
+        pickLine: planPickLine(currentTier, t, expiresOn, appleSells),
         changes: planChanges(currentTier, t, paywallOn),
         fit:
           downgradeFacts && planDirection(currentTier, t) === 'down'
@@ -583,6 +588,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             action={startSubscriptionPurchase}
             expiresOn={expiresOn}
             storeShell={storeShell}
+            appleSells={appleSells}
             papersProgress={papersProgress(papersRead)}
             pricesUnread={catalogUnread}
             gift={
@@ -607,6 +613,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         photosLine={photosLine}
         storage={storageRead}
         deepSearch={deepSearchRow}
+        appleSells={appleSells}
         extras={extrasRow}
         bought={bought}
       />

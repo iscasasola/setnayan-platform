@@ -8,27 +8,33 @@
  *   · which plan a Solo / Pro / Ultra line sits under                 → the Plans page's own rows,
  *                                                                       `VENDOR_TIER_SECTIONS` (vendor-benefits.ts)
  *   · which plan first has a fold line ("Pro+")                       → the same rows, or `firstPlanWith(TIER_CAPS)`
- *   · the 3D seat-plan logo                                           → `PRO_TOOLS_MIN_TIER` (specialized-tools-access, owner 20 Nov)
+ *   · the 3D seat-plan logo                                           → a paid widget, bought in the Toolkit (owner a02673ac, not a plan line)
  *   · plan prices, the year price, the branch + seat add-ons          → the catalog, read by the page (getVendorPrices)
  *   · the booking fee                                                  → the live schedule, read by the page
  *
  * Pure module (no React, no I/O) — `supplier-front-reads-its-numbers.test.ts` runs it.
  */
 import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
-import { bookingFeeCapPhp, bookingFeeLockPointPhp, bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
+import { bookingFeeCapAmount, bookingFeeFigures, bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
+import { formatPhpRounded } from '@/lib/php';
+import { SHOP_BADGE_KEYS, type ShopBadgeKey } from '@/lib/badge-tiers';
+import { BADGE_NAME } from '@/lib/graph-unlocks';
+import { BADGE_ART_H, BADGE_ART_W, SHELF_FAMILY, badgeArtSrc } from '@/lib/shop-badge-shelf';
+import { alwaysAllowedPack, bundleFreePacks, type ShopGiftBundle, type ShopGiftPack } from '@/lib/shop-gifts';
+import type { PlanCredits } from '@/lib/event-plans';
 import { countNoun, formatCount } from '@/lib/format-number';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { FREE_FINDABLE } from './plan-table-data';
 import { storageWords } from '@/lib/downgrade-limits';
 import { planRole, planSummaryWords } from '@/lib/supplier-storage';
+import { clientsKeptWords, planStorageLine } from '@/lib/supplier-client-room';
 
 /** A plan's size in words. `null` is only the type's "unreadable row" — every plan has a size — so it never invents one. */
 const sizeWords = (bytes: number | null): string => (bytes == null ? 'Your storage' : storageWords(bytes));
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
-import { SPECIALIZED_TOOLS, type SpecializedTool, type SpecializedToolKey } from '@/lib/specialized-tools';
-import { SPECIAL_TOOLS_LOCKED_WORDS } from '@/lib/special-tools';
-import type { CardBadgeView } from '@/lib/card-badges';
+import { SPECIALIZED_TOOLS, type SpecializedToolKey } from '@/lib/specialized-tools';
+import { isBuiltInWidget, isPaidStoreTool, toolkitCounts } from '@/lib/supplier-store';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
   PORTFOLIO_FREE_BASE,
@@ -99,7 +105,7 @@ export function verifiedSpec(): string {
 /**
  * A paid plan's spec line, from its caps. 💾 Owner 2026-11-22 ("SAME FEATURES IN EVERY SIZE" + "STARTER BUSINESS"): the
  * plans are storage sizes, so the size leads; Plus says its starter limits, Pro and Ultra say "no limit". E.g. Plus:
- * "128 GB · every category · 15 service cards live · you and 2 more"; Pro: "500 GB · every category · no limit on
+ * "50 GB · every category · 15 service cards live · you and 2 more"; Pro: "256 GB · every category · no limit on
  * cards, people or branches". A part a plan does not have (Plus's branches) is left out. Every number is TIER_CAPS;
  * a no-limit cap is said in words, never as "—" or "Infinity".
  */
@@ -122,14 +128,18 @@ export function growSpec(t: GrowTier): string {
 /**
  * Each plan's one line on its card, from its caps (owner 2026-11-22: the plans are sizes with the same features, and a
  * plan is never shown as its size alone). A paid size leads with its role ("The starter business: …"); Free and Verified
- * already carry their name on the card, so their line is the summary itself ("Run your own clients, … and 256 MB.").
+ * already carry their name on the card, so their line is the summary itself ("Run your own clients, … and 50 MB.").
+ * Clients first (owner 2026-11-23 "Yes, clients first", `clientsKeptWords`): "Keeps about 60 clients at a time*. Run
+ * your own clients, … and 50 MB." The asterisk's footnote is `CLIENTS_FOOTNOTE`, said once under the plans.
  */
 export function planLine(t: VendorTier): string {
+  const clients = clientsKeptWords(t);
+  const lead = clients ? `${clients}. ` : '';
   if (!isPaidSize(t)) {
     const w = planSummaryWords(t);
-    return `${w.charAt(0).toUpperCase()}${w.slice(1)}.`;
+    return `${lead}${w.charAt(0).toUpperCase()}${w.slice(1)}.`;
   }
-  return `${planRole(t)}: ${planSummaryWords(t)}.`;
+  return `${lead}${planRole(t)}: ${planSummaryWords(t)}.`;
 }
 
 
@@ -152,7 +162,7 @@ export const GROW_LINES: ReadonlyArray<{ text: string; tail?: string; lead?: tru
   { text: 'Your own reply and booking metrics', row: /^Your own funnel metrics$/ },
   { text: 'Earnings dashboard', row: /^Earnings dashboard$/ },
   { text: 'Recap sharing to your Facebook Page', row: /^Recap sharing$/ },
-  { text: 'Your logo on your booth in the couple’s 3D seat plan', row: /3D seat plan/ },
+  // (The 3D seat-plan logo left the plan lines: it is the 3D plan widget, bought in the Toolkit — owner a02673ac.)
   { text: 'Premium two-column page', tail: ' with a sticky Inquire rail', lead: true, row: /^Premium two-column page$/ },
   { text: 'One business identity for your whole crew', row: /^One clean business identity$/ },
   { text: 'Demand Radar', row: /^Demand Radar$/ },
@@ -182,15 +192,10 @@ export function foldedLines(t: GrowTier): GrowLine[] {
   const firstBasic = (['verified', ...GROW_TIERS] as const).find((g) => PLAN_CHATBOT_LEVEL[g] === 'basic') ?? null;
   const firstAdvanced = GROW_TIERS.find((g) => PLAN_CHATBOT_LEVEL[g] === 'advanced') ?? null;
   const out: GrowLine[] = [];
-  if (firstTools === t) {
-    out.push(
-      firstTools === PRO_TOOLS_MIN_TIER
-        ? { text: 'All specialized tools, included', lead: true }
-        : { text: 'Specialized tools, included', tail: ': Papic Challenges and the branded 3D booth come with Pro', lead: true },
-    );
-  }
-  // 🎁 Owner 20 Nov: the photo challenge comes with Pro and up (the booth line rides GROW_LINES' 3D row).
-  if (t === PRO_TOOLS_MIN_TIER && firstTools !== t) out.push({ text: 'Papic Challenges at your events', lead: true });
+  if (firstTools === t) out.push({ text: 'Every free widget, included', lead: true });
+  // 🧰 Owner a02673ac (23 Nov): a paid widget is bought once in the Toolkit and works only on a paid plan — so the plan
+  // says it lets them work, never that it includes them.
+  if (t === PRO_TOOLS_MIN_TIER) out.push({ text: 'Paid widgets work here', tail: ': buy each once in the Toolkit', lead: true });
   if (firstBasic === t) out.push({ text: 'AI chatbot, included', tail: ': answers price, dates and what’s included', lead: true });
   if (firstAdvanced === t) {
     out.push({ text: 'The smarter AI chatbot', tail: ': writes in your voice, replies in the couple’s language', lead: true });
@@ -210,16 +215,11 @@ export function foldedLines(t: GrowTier): GrowLine[] {
 
 /**
  * The lines shown under one paid plan. A line whose Plans-page row is gone is dropped (never shown under a guess);
- * the 3D seat-plan line additionally sits under the plan `PRO_TOOLS_MIN_TIER` names (owner 20 Nov: Pro and up), so the gate and the page
- * cannot disagree.
+ * the 3D seat-plan line is not a plan line any more (a paid widget, bought in the Toolkit — owner a02673ac).
  */
 export function growLines(t: GrowTier): GrowLine[] {
-  // 🎁 Owner 20 Nov: the branded booth comes with Pro and up — anchored to the same tier the database gate opens it on.
-  const firstBooth = GROW_TIERS.find((g) => g === PRO_TOOLS_MIN_TIER) ?? null;
-  return [...foldedLines(t), ...GROW_LINES.filter((l) => {
-    const at = l.row.source.includes('3D') ? firstBooth : tierOfPlansRow(l.row);
-    return at === t;
-  }).map((l) => ({ text: l.text, tail: l.tail, lead: l.lead === true }))];
+  // 🧰 Owner a02673ac (23 Nov): the branded 3D booth is a paid widget bought in the Toolkit, no longer a plan line.
+  return [...foldedLines(t), ...GROW_LINES.filter((l) => tierOfPlansRow(l.row) === t).map((l) => ({ text: l.text, tail: l.tail, lead: l.lead === true }))];
 }
 
 /** The papers Verified asks for, as the step says them. `REQUIRED_DOC_COUNT` holds the count (see the test). */
@@ -334,63 +334,6 @@ export function foldGroups(): FoldGroup[] {
 
 /* ───────────────────────── illustrations (NOT prices) ───────────────────────── */
 
-/**
- * The four "Your price, your way" cards. ⚠ THESE ARE ILLUSTRATIONS, NOT PRICES FROM THE APP — the page says so in
- * the card section's ⓘ ("Examples above are illustrations, not prices from the app."). They are the only peso
- * figures typed for this page, and they live here, in one named place, so the guard can tell them apart.
- */
-export const PRICE_SHAPE_EXAMPLES = {
-  perGuest: { rate: 850, n: 150, step: 10, min: 10, max: 1000 },
-  perHour: { rate: 4000, n: 5, step: 1, min: 2, max: 12 },
-  bySize: {
-    start: 1,
-    list: [
-      { label: 'Small tent · 100 guests', value: 18000 },
-      { label: 'Medium tent · 200 guests', value: 32000 },
-      { label: 'Large tent · 300 guests', value: 45000 },
-    ],
-  },
-  onePrice: {
-    start: 0,
-    list: [
-      { label: 'Full day', value: 45000 },
-      { label: 'Full day + drone', value: 53000 },
-      { label: 'Full day + drone + album', value: 60000 },
-    ],
-  },
-} as const;
-
-/** The fee slider's travel — an example booking price the visitor drags, not a price. */
-export const FEE_SLIDER = { min: 10000, max: 1000000, step: 5000, start: 300000 } as const;
-
-/**
- * The fee ruler's stops (approved drawing `prototypes/for_suppliers_2026-11-20/`, "Test it: drag the bar"): EXAMPLE
- * booking prices a visitor swipes through, not prices. Each stop's fee is computed from the LIVE schedule by
- * `bookingFeePhp` — no fee is typed anywhere. The ruler opens on `FEE_STOP_START`.
- *
- * 🔒 The drawing's 26th stop — where the fee reaches the ₱100,000 lock — is NOT typed here: `feeRulerStops` adds it from
- * the schedule (`bookingFeeLockPointPhp`), so an edited cap or rate moves it. On the live schedule it lands at 80%.
- */
-export const FEE_STOPS = [
-  50000, 75000, 100000, 150000, 200000, 250000, 300000, 400000, 500000, 600000, 750000, 1000000, 1250000, 1500000, 1750000,
-  2000000, 2250000, 2500000, 2750000, 3000000, 4000000, 5000000, 6000000, 8000000, 10000000,
-] as const;
-export const FEE_STOP_START = 6;
-
-/** One ruler stop: the booking price, its fee, whether the fee sits at the lock, and whether it is the lock point. */
-export type FeeRulerStop = { v: number; fee: number; locked: boolean; lockPoint: boolean };
-
-/** The ruler's stops on a schedule — the example prices plus the lock point, in order, each with its LIVE fee. PURE. */
-export function feeRulerStops(schedule: BookingFeeSchedule): FeeRulerStop[] {
-  const cap = bookingFeeCapPhp(schedule);
-  const at = bookingFeeLockPointPhp(schedule);
-  const vs = [...new Set<number>([...FEE_STOPS, ...(at !== null ? [at] : [])])].sort((a, b) => a - b);
-  return vs.map((v) => {
-    const fee = bookingFeePhp(v, schedule);
-    return { v, fee, locked: fee >= cap, lockPoint: v === at };
-  });
-}
-
 /* ───────────────────────── small read facts the page prints ───────────────────────── */
 
 /** "More seats from Solo" — the first plan whose caps carry a team seat. Null if no plan does. */
@@ -429,148 +372,6 @@ export function growName(t: GrowTier): string {
   return planName(t);
 }
 
-/* ───────────────────────── 5 · the live service cards (redraw 23 Nov) ───────────────────────── */
-
-/**
- * 🃏 THE LIVE CARDS (owner-approved drawing `prototypes/for_suppliers_redraw_2026-11-23/for_suppliers_redraw_fable.html`,
- * owner 23 Nov: *"Approved, build it"*). Four Card 14 samples answer a couple's date, guest count and venue; the scroll
- * plays four states and a tap drives the same state. ⚠ ILLUSTRATIONS, NOT APP DATA — the shops, prices, ratings, km and
- * closed days are samples, and the section says so ("Sample cards."). They live here, in one named place, beside the
- * other illustrations, so the guards can tell them apart. Every WORD a card prints is the app's own: the price band is
- * `mallPrice`, the date line `DATE_FIT_WORDS`, the distance `aboutKmLine`, the month `SeatMonths`.
- */
-export type LiveCardSample = {
-  name: string;
-  cover: string;
-  shop: string;
-  city: string;
-  /** A one-price card's price (pesos); null on the per-guest card. */
-  price: number | null;
-  priceNote: string | null;
-  /** The per-guest card's rate (pesos per guest) — its band says the couple's total (`mallPrice`). */
-  perGuest: number | null;
-  rating: { avg: number; count: number };
-  badges: readonly CardBadgeView[];
-  /** The days of the sample month this shop closed (Check a date's grey, striped days). */
-  closed: readonly number[];
-  /** km to each sample venue, in `LIVE_VENUES` order. */
-  km: readonly number[];
-  /** Where the shop sits on the venue sketch (its viewBox is 300 × 150). */
-  at: readonly [number, number];
-};
-
-const LIVE_ART = '/marketing/2026-11-20/for-suppliers';
-
-export const LIVE_CARD_SAMPLES: readonly LiveCardSample[] = [
-  {
-    name: 'Plated dinner, five courses',
-    cover: `${LIVE_ART}/t-price.webp`,
-    shop: 'Casa Lirio Catering',
-    city: 'Pasig',
-    price: null,
-    priceNote: null,
-    perGuest: 850,
-    rating: { avg: 4.9, count: 212 },
-    badges: [
-      { key: 'trending_now', since: null },
-      { key: 'rave_reviews', since: null },
-      { key: 'verified', since: null },
-    ],
-    closed: [6, 12, 13, 24, 25, 26, 31],
-    km: [52, 7, 9],
-    at: [212, 60],
-  },
-  {
-    name: 'Full-day photo & video',
-    cover: `${LIVE_ART}/c-photo.webp`,
-    shop: 'Lumen Studio',
-    city: 'Quezon City',
-    price: 45999,
-    priceNote: 'whole day, 2 shooters',
-    perGuest: null,
-    rating: { avg: 4.9, count: 128 },
-    badges: [
-      { key: 'trending_now', since: null },
-      { key: 'verified', since: null },
-    ],
-    closed: [5, 19, 20, 24, 25, 27],
-    km: [61, 12, 3],
-    at: [180, 22],
-  },
-  {
-    name: 'Bridal make-up and hair',
-    cover: `${LIVE_ART}/c-makeup.webp`,
-    shop: 'Blush by Ria',
-    city: 'Makati',
-    price: 18999,
-    priceNote: 'bride + 1, with trial',
-    perGuest: null,
-    rating: { avg: 4.8, count: 86 },
-    badges: [
-      { key: 'quick_responder', since: null },
-      { key: 'rave_reviews', since: null },
-      { key: 'verified', since: null },
-    ],
-    closed: [13, 24, 25, 30],
-    km: [48, 2, 13],
-    at: [140, 76],
-  },
-  {
-    name: 'Event highlights film',
-    cover: `${LIVE_ART}/c-video.webp`,
-    shop: 'Reel Day Films',
-    city: 'Pasig',
-    price: 35999,
-    priceNote: '4-minute film',
-    perGuest: null,
-    rating: { avg: 5.0, count: 41 },
-    badges: [
-      { key: 'hot_booking', since: null },
-      { key: 'verified', since: null },
-    ],
-    closed: [12, 24, 25],
-    km: [53, 6, 10],
-    at: [198, 44],
-  },
-];
-
-/** The three sample venues and where each sits on the sketch. */
-export const LIVE_VENUES: ReadonlyArray<{ name: string; pin: readonly [number, number] }> = [
-  { name: 'Tagaytay', pin: [96, 122] },
-  { name: 'Makati', pin: [152, 66] },
-  { name: 'Quezon City', pin: [166, 32] },
-];
-
-/** The guest counts a couple can try. One dot on the slide is ten guests. */
-export const LIVE_GUESTS = [50, 120, 250] as const;
-export const LIVE_GUESTS_PER_DOT = 10;
-
-/** One state of the stage: the couple's day (of the sample month), guests, venue (index) and the slide in view. */
-export type LiveState = { day: number; guests: number; venue: number; slide: 0 | 1 | 2 };
-
-/** What the scroll plays, step by step (the drawing's SCRIPT): the day moves, then the guests, then the venue. */
-export const LIVE_SCRIPT: readonly LiveState[] = [
-  { day: 12, guests: 50, venue: 0, slide: 0 },
-  { day: 19, guests: 50, venue: 0, slide: 0 },
-  { day: 19, guests: 120, venue: 0, slide: 1 },
-  { day: 19, guests: 120, venue: 1, slide: 2 },
-];
-
-/** Where the scroll's progress (0–1) switches step — the drawing's 10 · 40 · 70 %. */
-export function liveStepAt(progress: number): number {
-  return progress < 0.1 ? 0 : progress < 0.4 ? 1 : progress < 0.7 ? 2 : 3;
-}
-
-/**
- * The sample month: the coming December (the season the drawing plays — 12 Dec is a "Popular day"), or next year's
- * once December has begun. Read from the server's clock, so the month is never in the past.
- */
-export function liveCardsMonth(nowMs: number): { y: number; m: number } {
-  const d = new Date(nowMs);
-  const y = d.getUTCFullYear();
-  return { y: d.getUTCMonth() >= 11 ? y + 1 : y, m: 12 };
-}
-
 /* ───────────────────────── 7 · plans as growth stairs (redraw 23 Nov) ───────────────────────── */
 
 /** Every plan, smallest to biggest — the stairs. */
@@ -585,14 +386,18 @@ export type PlanStair = {
   name: string;
   role: string;
   size: string;
-  /** The size's share of the biggest plan's, on a log scale (256 MB and 1 TB both stay visible). 0–1. */
+  /** The card's headline, clients first (`clientsKeptWords`, owner 2026-11-23 "Yes, clients first"); null = lead with the size. */
+  clients: string | null;
+  /** The line under the headline: the size, and for a counted plan how to make room (`planStorageLine`). */
+  sizeLine: string | null;
+  /** The size's share of the biggest plan's, on a log scale (50 MB and 1 TB both stay visible). 0–1. */
   share: number;
   services: StairFact;
   people: StairFact & { team: boolean };
   branches: StairFact;
   /** On Discover and Find — every verified shop, on every plan (`marketplaceSearchable`, gated on verification). */
   marketplace: boolean;
-  /** Every specialized tool — the plans the two gates both open (`specialTools`, `PRO_TOOLS_MIN_TIER`). */
+  /** A bought paid widget works on this plan (`specialTools`, `PRO_TOOLS_MIN_TIER` — owner a02673ac). */
   tools: boolean;
 };
 
@@ -604,7 +409,7 @@ function stairRole(t: VendorTier): string {
   return t === 'verified' ? 'Get found' : 'Run your own clients';
 }
 
-/** Do this plan's shops have every specialized tool? Both gates, read — never a list typed here. */
+/** Does a bought paid widget work on this plan? The gates, read — never a list typed here (owner a02673ac). */
 export function stairHasTools(t: VendorTier): boolean {
   return TIER_CAPS[t].specialTools && isTierAtLeast(t, PRO_TOOLS_MIN_TIER);
 }
@@ -634,6 +439,8 @@ export function planStair(t: VendorTier): PlanStair {
     name: t === 'free' ? 'Free' : planName(t),
     role: stairRole(t),
     size: sizeWords(c.storageBytes),
+    clients: clientsKeptWords(t),
+    sizeLine: planStorageLine(t),
     share,
     services,
     people,
@@ -643,39 +450,260 @@ export function planStair(t: VendorTier): PlanStair {
   };
 }
 
-/* ───────────────────────── specialized tools (redraw 23 Nov) ───────────────────────── */
+
+/* ══════════════════════ THE REDESIGN OF 23 NOV 2026 (owner-APPROVED, drawing v4.3.1) ══════════════════════
+ *
+ * Specs `prototypes/for_suppliers_redesign_2026-11-23/index.html` (v4.3.1) · DECISION_LOG 2026-11-23 "/for-suppliers
+ * redesign APPROVED (owner)": *"if this is the best you can do, setnayan for suppliers approve."* Everything below is a
+ * PURE fact the page prints, each read from where the app keeps it — never typed:
+ *
+ *   · the fee steps' fees      → `bookingFeePhp(v, schedule)` on the LIVE schedule; the two bookings are examples
+ *   · the fee rows + cap line   → `bookingFeeFigures` / `bookingFeeCapAmount` on the same schedule
+ *   · the gifts                 → the shop-gift packs (`fetchShopGiftPacks`, `platform_retail_catalog_v2`) + the
+ *                                 event plans' included credits (`planCreditsFrom`) + the 10+1 bundle (`bundleFreePacks`)
+ *   · the Toolkit count + sheet → `SPECIALIZED_TOOLS` · `CARD_ORDER` · `SHOP_BADGE_KEYS` (see `toolkitShelves`)
+ *   · the plans                 → `planStair` (`TIER_CAPS`); prices from the catalog, handed in by the page
+ *   · the badges row            → `SHOP_BADGE_KEYS`, their names `BADGE_NAME`, their art `badgeArtSrc`
+ *
+ * 🎞 MEDIA SLOTS (`FRONT_MEDIA`): every picture and clip the page draws, in ONE place, so the follow-up that swaps in
+ * the real captures (DECISION_LOG: "replace it in a follow-up once video-loops has filmed them") edits this table only.
+ */
+
+/** Where the redesign's art lives (copied from the drawing's `art/`, stills as webp). */
+export const FRONT_ART = '/marketing/2026-11-23/for-suppliers';
+
+/** A clip: an mp4 that plays only while on screen, its poster painted first. `shape` is its crop (4:3 · 3:4). */
+export type FrontClip = { src: string; poster: string; label: string; shape: 'wide' | 'tall' };
+/** A still: one picture, its own size (for the box it reserves) and what it shows. */
+export type FrontStill = { src: string; alt: string; w: number; h: number };
+
+const clip = (name: string, label: string, shape: FrontClip['shape']): FrontClip => ({
+  src: `${FRONT_ART}/clip-${name}.mp4`,
+  poster: `${FRONT_ART}/clip-${name}-poster.webp`,
+  label,
+  shape,
+});
+const still = (name: string, alt: string, w: number, h: number): FrontStill => ({ src: `${FRONT_ART}/${name}.webp`, alt, w, h });
+
+/** One beat of "A couple finds your card": the couple's pick (4:3) beside the cards it moves (3:4). */
+export type CardBeat = { say: string; mean: string; pick: FrontClip; cards: FrontClip };
+
+export const FRONT_MEDIA = {
+  hero: { src: '/marketing/2026-11-20/for-suppliers/hero.webp', alt: 'A florist setting a long table before a reception' },
+  beats: [
+    {
+      say: 'A couple picks Sat 19 Dec.',
+      mean: 'Lumen Studio is booked that day. Its card steps aside.',
+      pick: clip('date-pick', 'The couple picks 19 December on the month', 'wide'),
+      cards: clip('date-cards', 'One card leaves the row', 'tall'),
+    },
+    {
+      say: 'They invite 120 guests.',
+      mean: 'Casa Lirio Catering shows its price for 120 guests by itself.',
+      pick: clip('guests-pick', 'The couple picks 120 guests', 'wide'),
+      cards: clip('guests-cards', 'The caterer’s price changes', 'tall'),
+    },
+    {
+      say: 'Their venue is in Makati.',
+      mean: 'Each card shows how far it is from their venue.',
+      pick: clip('venue-pick', 'The couple picks a venue in Makati', 'wide'),
+      cards: clip('venue-cards', 'Each card’s distance changes', 'tall'),
+    },
+  ] satisfies readonly CardBeat[],
+  shop: [
+    still('still-shop', 'A shop page: its name, Verified seal, stars, years in business and events', 750, 562),
+    still('still-check-a-date', 'Check a date: a month showing which days are free', 800, 600),
+  ],
+  verified: [
+    still('still-open-shop', 'Open your shop: three answers', 814, 610),
+    still('still-clients', 'Your clients: booked, asked and to collect, then the first two clients', 854, 640),
+  ],
+  /** The two tool stills, keyed to the `SPECIALIZED_TOOLS` entry whose name and line they carry. */
+  tools: [
+    { key: 'papic_challenge', still: still('tool-papic', 'The Papic camera with its challenge', 780, 584) },
+    { key: 'plan_3d', still: still('tool-3d', 'The 3D plan’s dessert station', 780, 584) },
+  ] satisfies ReadonlyArray<{ key: SpecializedToolKey; still: FrontStill }>,
+  gift: clip('gift-box', 'A gift box from the shop opens and a Papic ticket rises out', 'tall'),
+} as const;
+
+/* ── #fees · the timed steps ─────────────────────────────────────────────────────────────────────────────────────── */
 
 /**
- * The three tools that come with a paid size, each with the gate that really holds it:
- *   · `special` — the Cake Maker, the first special tool: open to every plan until the admin's start date
- *     (`platform_settings.special_tools_paid_from`, `specialToolsOpenToAll`), then `TIER_CAPS[t].specialTools`;
- *   · `plan` — the Papic challenge and the 3D plan: `PRO_INCLUDED_TOOLS`, from `PRO_TOOLS_MIN_TIER` up, always.
- * Names and lines are `SPECIALIZED_TOOLS` (lib/specialized-tools.ts), never typed here.
+ * ⚠ ILLUSTRATIONS, NOT PRICES: the two booking amounts the fee steps play (the drawing's). Each step's FEE is computed
+ * from the live schedule by `bookingFeePhp`; nothing about the fee is typed.
  */
-export const PAID_TOOL_GATES: Readonly<Partial<Record<SpecializedToolKey, 'special' | 'plan'>>> = {
-  cake_tool: 'special',
-  papic_challenge: 'plan',
-  plan_3d: 'plan',
-};
-
-export const PAID_TOOL_TILES: readonly SpecializedTool[] = SPECIALIZED_TOOLS.filter((t) => PAID_TOOL_GATES[t.key]);
-/** The on-the-day tools every shop has, on every plan — every other `SPECIALIZED_TOOLS` tile. */
-export const EVERY_PLAN_TOOLS: readonly SpecializedTool[] = SPECIALIZED_TOOLS.filter((t) => !PAID_TOOL_GATES[t.key]);
-
-/** The first plan that carries every specialized tool — "Start on Plus". */
-export const FIRST_TOOLS_TIER: VendorTier | null = STAIR_TIERS.find(stairHasTools) ?? null;
-/** "Included in Plus" — the lock words of the plan gate (the special tools' own are `SPECIAL_TOOLS_LOCKED_WORDS`). */
-export const PLAN_TOOLS_LOCKED_WORDS = `Included in ${planName(PRO_TOOLS_MIN_TIER)}`;
-/** What the Cake Maker's tile says while the special tools are still open to every plan. */
-export const SPECIAL_TOOLS_OPEN_WORDS = 'Every plan, for now';
+export const FEE_STEP_BOOKINGS = { usual: 80_000, big: 500_000 } as const;
 
 /**
- * The chip on one paid tool's picture, from its real gate. `specialOpen` is the live answer of
- * `specialToolsOpenToAll` (null when the start date could not be read: then the Cake Maker's chip says nothing).
+ * The share a booking the supplier brought carries: none. One formatted value ("0%") for the hero line and the
+ * "Clients you bring" row, through the same formatter as the steps' shares — never typed into the page.
  */
-export function paidToolChip(key: SpecializedToolKey, specialOpen: boolean | null): { words: string; locked: boolean } | null {
-  const gate = PAID_TOOL_GATES[key];
-  if (gate === 'plan') return { words: PLAN_TOOLS_LOCKED_WORDS, locked: true };
-  if (gate !== 'special' || specialOpen === null) return null;
-  return specialOpen ? { words: SPECIAL_TOOLS_OPEN_WORDS, locked: false } : { words: SPECIAL_TOOLS_LOCKED_WORDS, locked: true };
+export const BROUGHT_CLIENT_SHARE = new Intl.NumberFormat('en-PH', { style: 'percent', maximumFractionDigits: 1 }).format(0);
+
+/** One step: what happened, the ONE figure, its line under it, then what it meant. */
+export type FeeStep = { say: string; fee: string; sub: string; mean: string };
+
+const PCT_OF = new Intl.NumberFormat('en-PH', { style: 'percent', maximumFractionDigits: 1 });
+
+/**
+ * The three steps, ₱0 → the usual fee → a bigger booking's fee, on the schedule the page read. `giftTitle` is the
+ * smallest gift's catalogue title (the step-1 line names it); null when the gifts could not be read (the line then
+ * says nothing rather than name a gift).
+ */
+export function feeSteps(schedule: BookingFeeSchedule, giftTitle: string | null): FeeStep[] {
+  const f = bookingFeeFigures(schedule);
+  const { usual, big } = FEE_STEP_BOOKINGS;
+  const share = (v: number) => `${PCT_OF.format(bookingFeePhp(v, schedule) / v)} of the booking`;
+  return [
+    {
+      say: `A couple you brought books you for ${formatPhpRounded(usual)}.`,
+      fee: formatPhpRounded(0),
+      sub: giftTitle ? `Your gift to them: ${giftTitle}` : '',
+      mean: 'Clients you bring carry no fee.',
+    },
+    {
+      say: `A couple who found you on Setnayan books ${formatPhpRounded(usual)}.`,
+      fee: formatPhpRounded(bookingFeePhp(usual, schedule)),
+      sub: share(usual),
+      mean: `That is ${f.head} of the first ${f.band}.`,
+    },
+    {
+      say: `A bigger booking: ${formatPhpRounded(big)}.`,
+      fee: formatPhpRounded(bookingFeePhp(big, schedule)),
+      sub: share(big),
+      mean: `The rate drops above ${f.band}.`,
+    },
+  ];
+}
+
+/** The two fee rows and the cap line, on the same schedule: "5%, 3% above ₱100,000" · "Never more than ₱100,000.". */
+export function feeRowWords(schedule: BookingFeeSchedule): { setnayan: string; cap: string } {
+  const f = bookingFeeFigures(schedule);
+  return {
+    setnayan: `${f.head}, ${f.tail} above ${f.band}`,
+    cap: `Never more than ${bookingFeeCapAmount(schedule)}. Your couple never pays it.`,
+  };
+}
+
+/* ── #cards · the badges row ─────────────────────────────────────────────────────────────────────────────────────── */
+
+/** The tier picture the row shows (the drawing's art is each family's third tier). */
+const BADGE_ROW_TIER = 3;
+
+/** The five shop badges, each with its name and its approved v84 picture — the Shop's own list, never a second one. */
+export const BADGE_ROW: ReadonlyArray<{ key: ShopBadgeKey; name: string; src: string; w: number; h: number }> = SHOP_BADGE_KEYS.map(
+  (k) => ({ key: k, name: BADGE_NAME[k], src: badgeArtSrc(SHELF_FAMILY[k], BADGE_ROW_TIER), w: BADGE_ART_W, h: BADGE_ART_H }),
+);
+
+/* ── #tools · the Toolkit count and its "See all" sheet ──────────────────────────────────────────────────────────── */
+
+export type ToolkitTag = 'free' | 'paid' | 'built';
+export type ToolkitRow = { key: string; name: string; line: string | null; tag: ToolkitTag | null };
+export type ToolkitShelf = { key: 'tools' | 'graphs' | 'badges'; title: string; count: number; rows: ToolkitRow[] };
+
+/**
+ * 🧾 THE TOOLKIT: the tools (`SPECIALIZED_TOOLS`), the graphs (`CARD_ORDER`, the Analytics carousel's one list) and
+ * the badges (`SHOP_BADGE_KEYS`). The counts are the ONE Toolkit list's (`toolkitCounts`, lib/supplier-store.ts —
+ * DECISION_LOG 5ae3fbb2, the same count the Toolkit masthead reads) — never typed.
+ *
+ * ⏭ The graph rows stay count-only: their Store names (`STORE_GRAPHS`) are not drawn in this sheet yet.
+ *
+ * A tool's tag is the Toolkit's own (owner a02673ac, 23 Nov): the paid widgets (`PAID_STORE_TOOLS`, each bought once
+ * in the Toolkit, working only on a paid plan) are Paid; the built-in widgets (`BUILT_IN_WIDGETS`) are Built in; every
+ * other tool is Free. There is no start date to read any more. A badge is earned, never sold.
+ */
+export function toolkitShelves(): ToolkitShelf[] {
+  const counts = toolkitCounts(SHOP_BADGE_KEYS);
+  const toolTag = (k: SpecializedToolKey): ToolkitTag => (isPaidStoreTool(k) ? 'paid' : isBuiltInWidget(k) ? 'built' : 'free');
+  return [
+    {
+      key: 'tools',
+      title: 'Tools',
+      count: counts.tools ?? 0,
+      rows: SPECIALIZED_TOOLS.map((t) => ({ key: t.key, name: t.title, line: t.line, tag: toolTag(t.key) })),
+    },
+    { key: 'graphs', title: 'Graphs', count: counts.graphs ?? 0, rows: [] },
+    {
+      key: 'badges',
+      title: 'Badges',
+      count: counts.badges ?? 0,
+      rows: SHOP_BADGE_KEYS.map((k) => ({ key: k, name: BADGE_NAME[k], line: null, tag: 'built' as const })),
+    },
+  ];
+}
+
+/** "33 in the Toolkit: 11 tools · 17 graphs · 5 badges" — the shelves' own counts, added up. */
+export function toolkitCountLine(shelves: readonly ToolkitShelf[]): { total: number; parts: string } {
+  const total = shelves.reduce((n, sh) => n + sh.count, 0);
+  const parts = shelves.map((sh) => `${formatCount(sh.count)} ${sh.title.toLowerCase()}`).join(' · ');
+  return { total, parts };
+}
+
+/* ── #plans · the rail and the plan cards ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The words a plan card says about the paid tools (owner a02673ac, 23 Nov: bought AND subscribed): from
+ * `PRO_TOOLS_MIN_TIER` up a bought paid widget works (`stairHasTools`) — the drawing's "Paid tools: buy each once. They
+ * work while you’re subscribed." A plan never says it includes a paid widget. Below it they are locked.
+ */
+export const PLAN_PAID_TOOLS_OK = 'Paid tools: buy each once. They work while you’re subscribed.';
+export const PLAN_PAID_TOOLS_LOCKED = `Paid tools need ${planName(PRO_TOOLS_MIN_TIER)} or higher`;
+
+/* ── #gift · what a supplier can hand a couple ───────────────────────────────────────────────────────────────────── */
+
+export type GiftRow = { code: string; title: string; price: string; line: string };
+
+/**
+ * The three gifts the drawing names — the smallest Papic pack, Event Plus and Event Pro — read from the shop-gift
+ * packs on sale (`ShopGiftPack`, the catalogue's title and list price). Their lines name the credits the catalogue
+ * gives (the pack's own credits; the plans' `included_papic_credits`), or none when unread. `null` = the gifts could
+ * not be read (the section then says so); a gift not on sale today is simply not listed.
+ */
+export function giftRows(packs: readonly ShopGiftPack[] | null, credits: Pick<PlanCredits, 'plusCredits' | 'proCredits'>): GiftRow[] | null {
+  if (!packs) return null;
+  const papic = alwaysAllowedPack(packs);
+  const plus = packs.find((p) => p.kind === 'event_plus') ?? null;
+  const pro = packs.find((p) => p.kind === 'event_pro') ?? null;
+  const price = (p: ShopGiftPack) => formatPhpRounded(p.srpCentavos / 100);
+  const papicWords = (n: number | null) => (n ? `, ${formatCount(n)} Papic credits` : '');
+  const rows: GiftRow[] = [];
+  if (papic) rows.push({ code: papic.code, title: papic.title, price: price(papic), line: `${formatCount(papic.credits)} Papic credits for their guests’ photos.` });
+  if (plus) {
+    rows.push({ code: plus.code, title: plus.title, price: price(plus), line: `Their Event Hub with every theme, a cinematic Save the Date${papicWords(credits.plusCredits)}.` });
+  }
+  if (pro) {
+    rows.push({
+      code: pro.code,
+      title: pro.title,
+      price: price(pro),
+      line: `Everything in ${plus?.title ?? 'Event Plus'}, with their own photos and video, Setnayan AI${papicWords(credits.proCredits)}, no Setnayan mark.`,
+    });
+  }
+  return rows;
+}
+
+/** "from ₱99" — the smallest gift's list price; null when the gifts could not be read. */
+export function giftFromPrice(packs: readonly ShopGiftPack[] | null): string | null {
+  const p = packs ? alwaysAllowedPack(packs) : null;
+  return p ? formatPhpRounded(p.srpCentavos / 100) : null;
+}
+
+/** "Buy 10, get 1 free." — the smallest pack's bundle, as the catalogue sets it; null when none is on sale or unread. */
+export function giftBundleLine(packs: readonly ShopGiftPack[] | null, bundles: readonly ShopGiftBundle[] | null): string | null {
+  const papic = packs ? alwaysAllowedPack(packs) : null;
+  const b = papic && bundles ? bundles.find((x) => x.pack.code === papic.code) : null;
+  if (!b) return null;
+  const free = bundleFreePacks(b);
+  if (free <= 0) return null;
+  return `Buy ${formatCount(b.quantity - free)}, get ${formatCount(free)} free.`;
+}
+
+/**
+ * The rail bar's height for a plan (0–1): its storage over the biggest plan's, straight (the drawing's `gb / 1000`), so
+ * the bars read as the room each plan holds. Read from `TIER_CAPS`; a plan with no size reads 0 (the bar's 5 px floor).
+ */
+export function railShare(t: VendorTier): number {
+  const max = Math.max(...STAIR_TIERS.map((x) => TIER_CAPS[x].storageBytes ?? 0));
+  const b = TIER_CAPS[t].storageBytes ?? 0;
+  return max > 0 ? b / max : 0;
 }

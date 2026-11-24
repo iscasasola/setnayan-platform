@@ -64,11 +64,13 @@ function accessFor(
   services: readonly string[],
   tier: string | null,
   expiry: string | null = null,
+  verified: boolean | null = true,
 ): VendorSpecializationAccess {
   return resolveVendorSpecializationAccess({
     subscription: tier === null ? null : { tier_state: tier, tier_expires_at: expiry },
     services,
     freeSets: PAYWALL_FIXTURE_FREE_SETS,
+    verified,
   });
 }
 
@@ -83,6 +85,7 @@ function frame(
 const ONE_PER_REASON: Record<VendorSpecializationReason, VendorSpecializationAccess> = {
   unlocked: accessFor(['live_band'], 'solo'),
   free_set: accessFor(['coordinator'], 'free'),
+  not_verified: accessFor(['coordinator'], 'free', null, false),
   below_tier_floor: accessFor(['live_band'], 'free'),
   subscription_lapsed: accessFor(['live_band'], 'pro', '2020-01-01T00:00:00Z'),
   no_specialization_for_category: accessFor(['florist'], 'pro'),
@@ -174,6 +177,14 @@ test('🆓 a FREE coordinator gets the floor desk ready, with no upsell (owner 2
   assert.equal(model.specialization?.set, 'floor_command');
   assert.equal(model.specialization?.state, 'ready');
   assert.equal(model.upsell, null);
+});
+
+test('🆓 an UNVERIFIED free coordinator → locked, and the door is Verify, never the plans (owner 23 Nov)', () => {
+  const model = frame(accessFor(['coordinator'], 'free', null, false), new Set(['floor_command']));
+  assert.equal(model.specialization?.state, 'locked');
+  assert.equal(model.upsell?.needsVerified, true);
+  assert.equal(model.upsell?.lapsed, false);
+  assert.equal(model.upsell?.href, '/vendor-dashboard/verify');
 });
 
 test('LAPSED mid-event → locked + a renew-flavoured upsell, kit intact', () => {
@@ -357,6 +368,7 @@ test('the free tier: every set is free in production — a Free band and a Free 
     const access = resolveVendorSpecializationAccess({
       subscription: { tier_state: 'free', tier_expires_at: null },
       services,
+      verified: true,
     });
     assert.equal(access.reason, 'free_set', services.join());
     assert.equal(frame(access, new Set(access.unlockedSets)).specialization?.state, 'ready', services.join());

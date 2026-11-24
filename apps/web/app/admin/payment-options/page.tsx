@@ -15,7 +15,15 @@ import {
   removePaymentMethod,
 } from './actions';
 import { DirectPayPreviewButton } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
-import { FormFlash } from '@/app/_components/forms/form-flash';
+import { Badge, type BadgeTone } from '@/app/_components/badge';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { actionButtonClass } from '@/components/action-button-class';
+import {
+  TEMPLATE_SUBLINE,
+  TemplateEmpty,
+  TemplateFail,
+  TemplateSection,
+} from '@/app/_components/template-rows';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -99,31 +107,30 @@ export default async function AdminPaymentOptionsPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       <PageMasthead
         title="Payment options"
       />
 
       {error ? (
-        <FormFlash tone="error">
+        <TemplateFail retryHref="/admin/payments?view=payment-options" data="payment-options">
           Payment options couldn&apos;t load right now. We&apos;ve logged the
           issue — refresh in a moment.
-        </FormFlash>
+        </TemplateFail>
       ) : null}
 
       {/* ── Section 1 · Needs review ─────────────────────────────────────── */}
-      <section className="mb-10">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
-          Needs review
-          <span className="rounded-full bg-warn-100 px-2 py-0.5 text-warn-900 text-[12px] font-bold">
-            {error ? '—' : needsReview.length}
-          </span>
-        </h2>
+      <TemplateSection
+        label="Needs review"
+        first
+        data="payment-options-review"
+        right={error ? '—' : String(needsReview.length)}
+      >
         {error ? null : needsReview.length === 0 ? (
-          <p className="border-dashed py-10 text-center text-sm text-ink/55 border-t border-ink/10">
+          <TemplateEmpty data="payment-options-review">
             Nothing waiting for review — every payment method is approved or
             removed.
-          </p>
+          </TemplateEmpty>
         ) : (
           <ul className="grid gap-3">
             {needsReview.map((r) => (
@@ -133,24 +140,24 @@ export default async function AdminPaymentOptionsPage() {
             ))}
           </ul>
         )}
-      </section>
+      </TemplateSection>
 
       {/* ── Section 2 · Published links & QRs ────────────────────────────── */}
-      <section>
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
-          Published links &amp; QRs
-          <span className="rounded-full bg-success-100 px-2 py-0.5 text-success-800 text-[12px] font-bold">
-            {error ? '—' : published.length}
-          </span>
-        </h2>
-        <p className="mb-3 max-w-2xl text-xs text-ink/55">
-          Approved links and QR codes already visible to couples. Re-screen any
-          that look off with Hold or Remove.
-        </p>
+      <TemplateSection
+        label="Published links & QRs"
+        data="payment-options-published"
+        right={error ? '—' : String(published.length)}
+        tip={
+          <>
+            Approved links and QR codes already visible to couples. Re-screen any
+            that look off with Hold or Remove.
+          </>
+        }
+      >
         {error ? null : published.length === 0 ? (
-          <p className="border-dashed py-10 text-center text-sm text-ink/55 border-t border-ink/10">
+          <TemplateEmpty data="payment-options-published">
             No approved links or QR codes yet.
-          </p>
+          </TemplateEmpty>
         ) : (
           <ul className="grid gap-3">
             {published.map((r) => (
@@ -160,7 +167,7 @@ export default async function AdminPaymentOptionsPage() {
             ))}
           </ul>
         )}
-      </section>
+      </TemplateSection>
     </div>
   );
 }
@@ -177,13 +184,13 @@ function PaymentMethodCard({
   surface: 'needs_review' | 'published';
 }) {
   return (
-    <article className="space-y-4 sn-tile p-5">
+    <article className={`space-y-4 p-4 ${ADMIN_FRAME}`}>
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-base font-semibold text-ink">
+          <p className="truncate text-[15px] font-semibold text-ink">
             {row.business_name}
           </p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+          <p className={`mt-0.5 flex flex-wrap items-center gap-2 ${TEMPLATE_SUBLINE}`}>
             <span>{row.label || '—'}</span>
             {row.provider ? (
               <>
@@ -197,9 +204,7 @@ function PaymentMethodCard({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {row.is_primary ? (
-            <span className="rounded-full bg-ink/8 px-2 py-0.5 text-ink/65 text-[12px] font-bold">
-              Primary
-            </span>
+            <Badge tone="quiet">Primary</Badge>
           ) : null}
           <MethodTypeBadge type={row.method_type} />
           <ModerationBadge status={row.moderation_status} />
@@ -254,7 +259,7 @@ function MethodDetail({ row }: { row: CardRow }) {
     return (
       <div className="flex flex-wrap items-start gap-4 text-xs text-ink/65">
         {row.qr_display_url ? (
-          <span className="inline-flex h-28 w-28 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-white">
+          <span className="inline-flex h-28 w-28 shrink-0 overflow-hidden rounded-lg bg-white">
             <Image
               src={row.qr_display_url}
               alt={`QR code for ${row.business_name}`}
@@ -265,7 +270,7 @@ function MethodDetail({ row }: { row: CardRow }) {
             />
           </span>
         ) : (
-          <span className="inline-flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border border-dashed border-ink/15 bg-white/50 text-center text-[12px] text-ink/45">
+          <span className="inline-flex h-28 w-28 shrink-0 items-center justify-center rounded-lg bg-ink/[0.04] text-center text-[12px] text-[color:var(--m-slate-2)]">
             No QR image
           </span>
         )}
@@ -342,7 +347,7 @@ function ActionRow({
             name="payment_method_id"
             value={row.payment_method_id}
           />
-          <SubmitButton className="button-primary h-9 px-3 text-xs" pendingLabel="Approving…">
+          <SubmitButton className={actionButtonClass('ok', { main: true })} pendingLabel="Approving…">
             Approve
           </SubmitButton>
         </form>
@@ -356,7 +361,7 @@ function ActionRow({
             value={row.payment_method_id}
           />
           <SubmitButton
-            className="inline-flex h-9 items-center rounded-md border border-warn-300 bg-warn-50 px-3 text-xs font-medium text-warn-900 hover:bg-warn-100"
+            className={actionButtonClass('warn')}
             pendingLabel="Holding…"
           >
             Hold
@@ -371,7 +376,7 @@ function ActionRow({
           value={row.payment_method_id}
         />
         <SubmitButton
-          className="inline-flex h-9 items-center rounded-md border border-terracotta/30 bg-terracotta/5 px-3 text-xs font-medium text-terracotta-700 hover:bg-terracotta/15"
+          className={actionButtonClass('danger')}
           pendingLabel="Removing…"
         >
           Remove
@@ -391,26 +396,15 @@ function MethodTypeBadge({ type }: { type: PaymentMethodType }) {
     qr: 'QR',
     link: 'Link',
   };
-  const tone: Record<PaymentMethodType, string> = {
-    bank: 'bg-ink/8 text-ink/65',
-    qr: 'bg-indigo-100 text-indigo-800',
-    link: 'bg-sky-100 text-sky-800',
-  };
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${tone[type]}`}
-    >
-      {label[type]}
-    </span>
-  );
+  return <Badge tone="quiet">{label[type]}</Badge>;
 }
 
 function ModerationBadge({ status }: { status: ModerationStatus }) {
-  const tone: Record<ModerationStatus, string> = {
-    approved: 'bg-success-100 text-success-800',
-    pending_review: 'bg-warn-100 text-warn-900',
-    held: 'bg-warn-50 text-warn-900 border border-warn-300',
-    removed: 'bg-terracotta/10 text-terracotta-700',
+  const tone: Record<ModerationStatus, BadgeTone> = {
+    approved: 'ok',
+    pending_review: 'wait',
+    held: 'wait',
+    removed: 'no',
   };
   const label: Record<ModerationStatus, string> = {
     approved: 'Approved',
@@ -418,23 +412,13 @@ function ModerationBadge({ status }: { status: ModerationStatus }) {
     held: 'Held',
     removed: 'Removed',
   };
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${tone[status]}`}
-    >
-      {label[status]}
-    </span>
-  );
+  return <Badge tone={tone[status]}>{label[status]}</Badge>;
 }
 
 function AllowlistBadge({ allowlisted }: { allowlisted: boolean }) {
   return allowlisted ? (
-    <span className="rounded-full bg-success-100 px-2 py-0.5 text-success-800 text-[12px] font-bold">
-      on allowlist
-    </span>
+    <Badge tone="ok">on allowlist</Badge>
   ) : (
-    <span className="rounded-full bg-warn-100 px-2 py-0.5 text-warn-900 text-[12px] font-bold">
-      off allowlist
-    </span>
+    <Badge tone="wait">off allowlist</Badge>
   );
 }

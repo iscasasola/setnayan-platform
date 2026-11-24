@@ -1,5 +1,6 @@
 import { shopPath } from '@/lib/shop-address';
 import type { VendorDay } from '@/lib/vendor-day-picker';
+import { withVia, type MaterialVia } from '@/lib/material-tags';
 
 /**
  * 🔳 THE SHOP'S QR CODES — the choices of the "Which code ▾" dropdown. Since 2026-11-05 the list is split between two
@@ -140,24 +141,35 @@ export function myPageUrl(origin: string, slug: string): string {
  * supplier's QR, door sticker, print or share link is stamped `website` — their own client, no booking fee — while an
  * untagged arrival (somebody who found the shop on Setnayan) is `shop_page`, Setnayan-sourced. Every code or link the
  * SUPPLIER distributes is built here; a page Setnayan itself links to uses `myPageUrl`.
+ *
+ * 🏷 AND THE PIECE (owner 2026-11-16, DECISION_LOG "EVERY MATERIAL A SHOP HANDS OUT CARRIES ITS OWN TAG"): every own
+ * address also names the material it is on — `?src=own&via=card` (`lib/material-tags.ts`). `via` is REQUIRED here so
+ * no new code or link can be built without saying which piece it is.
  */
 export const OWN_LINK_SRC = 'own';
-export function ownPageUrl(origin: string, slug: string): string {
-  return `${myPageUrl(origin, slug)}?src=${OWN_LINK_SRC}`;
+export function ownPageUrl(origin: string, slug: string, via: MaterialVia): string {
+  return withVia(`${myPageUrl(origin, slug)}?src=${OWN_LINK_SRC}`, via);
 }
 /** 💳 RW-19 (walk 13 Nov 2026): the supplier's own "Check a date" code — `/<slug>/dates`, tagged as theirs. */
-export function ownDatesUrl(origin: string, slug: string): string {
-  return `${myPageUrl(origin, slug)}/dates?src=${OWN_LINK_SRC}`;
+export function ownDatesUrl(origin: string, slug: string, via: MaterialVia): string {
+  return withVia(`${myPageUrl(origin, slug)}/dates?src=${OWN_LINK_SRC}`, via);
 }
 /** 💳 RW-19: the supplier's own "Reviews" code — `/<slug>/review`, tagged as theirs (the door keeps the tag). */
-export function ownReviewsUrl(origin: string, slug: string): string {
-  return `${myPageUrl(origin, slug)}/review?src=${OWN_LINK_SRC}`;
+export function ownReviewsUrl(origin: string, slug: string, via: MaterialVia): string {
+  return withVia(`${myPageUrl(origin, slug)}/review?src=${OWN_LINK_SRC}`, via);
 }
+
 
 /**
  * 💳 THE ONE RULE for what an arrival on the shop (or its Check-a-date page) is stamped when it asks (owner 2026-11-13,
  * walk F-W1-58 · RW-19): `?src=own` — the supplier's own code or link — is 'website', their own client; a Setnayan
  * surface's tag is that surface; NO tag found the shop on Setnayan → 'shop_page', sourced.
+ *
+ * 🔓 THE PIECE NEVER CHANGES THIS (owner 2026-11-16, DECISION_LOG "EVERY VERIFIED ACCOUNT GETS THE QR FEATURES, ON ANY
+ * PLAN", which superseded "only Supplier Ultra's prints are the shop's own"): a printed card, a tarp, the door sticker
+ * and a shared link are all the shop's own code on every plan. Whether that own arrival is really the shop's own
+ * client is decided at the inquiry, from the shop's verification read THEN (`ownLinkArrival` in
+ * `lib/own-clients.server.ts`): an unverified shop's scan is 'shop_page', Setnayan-sourced.
  */
 export function arrivalInquirySourceOf(src: unknown): 'website' | 'editorial' | 'favorites' | 'explore' | 'search' | 'shop_page' {
   if (src === OWN_LINK_SRC) return 'website';

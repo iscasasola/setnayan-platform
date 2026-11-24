@@ -24,7 +24,7 @@
  */
 
 import { useActionState, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, Lock, Search, Trash2, CircleCheck } from 'lucide-react';
+import { Archive, ChevronDown, Lock, RotateCcw, Save, Search, Trash2, CircleCheck, X } from 'lucide-react';
 import {
   CLUSTER_ORDER,
   type PriceCluster,
@@ -51,6 +51,10 @@ import {
 import { INITIAL_ROW_STATE, INITIAL_REMOVE_ALL_STATE } from '@/app/admin/pricing/_components/action-state';
 import { formatCount } from '@/lib/format-number';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { ChosenRow, FormRows } from '@/app/_components/form-row';
+import { TEMPLATE_SUBLINE, TemplateEmpty } from '@/app/_components/template-rows';
 import { formulaAppliesTo, formulaPrice, type PricingFormulaSettings } from '@/lib/pricing-formula';
 import {
   FormulaLine,
@@ -288,7 +292,7 @@ export function PriceCatalogBrowser({
         </div>
       </div>
 
-      <PillTrack role="tablist" aria-label="Price state" className="mb-3">
+      <PillTrack role="tablist" aria-label="Price state" className="mb-3 mt-3">
         {(
           [
             ['sale', 'On sale'],
@@ -306,28 +310,22 @@ export function PriceCatalogBrowser({
             aria-selected={view === key}
             className="px-3"
           >
-            {label} <span className={`font-mono text-[11px] ${view === key ? 'text-white/80' : 'text-ink/45'}`}>{formatCount(counts[key])}</span>
+            {label} <span className={`text-[11px] tabular-nums ${view === key ? 'text-white/80' : 'text-ink/45'}`}>{formatCount(counts[key])}</span>
           </PillButton>
         ))}
       </PillTrack>
 
-      <div className="mb-4 flex flex-wrap gap-1.5">
-        {(['all', 'Customer', 'Bundles', 'Supplier'] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setScope(s)}
-            aria-pressed={scope === s}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-              scope === s
-                ? 'border-ink bg-ink text-cream'
-                : 'border-ink/15 text-ink/60 hover:border-ink/30 hover:text-ink'
-            }`}
-          >
-            {s === 'all' ? 'All' : s}
-          </button>
-        ))}
-      </div>
+      {/* 📐 Admin clean port (owner 19 Nov 2026): the four kind chips are one dropdown — any set of choices is one. */}
+      <FormRows data="price-kind">
+        <ChosenRow
+          data="price-kind"
+          name="Kind"
+          value={scope}
+          options={(['all', 'Customer', 'Bundles', 'Supplier'] as const).map((k) => ({ key: k, label: k === 'all' ? 'All' : k }))}
+          onPick={(k) => setScope(k as Family | 'all')}
+          dataAttr="data-price-kind"
+        />
+      </FormRows>
 
       {view === 'off' && filtered.length === 0 && !q.trim() ? (
         <EmptyState
@@ -360,20 +358,21 @@ export function PriceCatalogBrowser({
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-2xl border border-ink/10 bg-paper p-11 text-center">
-      <p className="text-base font-semibold">{title}</p>
-      <p className="mx-auto mt-1.5 max-w-md text-sm text-ink/60">{body}</p>
+    <div className="sn-frame sn-frame-flush mt-3 px-4">
+      <TemplateEmpty data="price-catalog">
+        <b className="font-semibold text-ink">{title}</b> {body}
+      </TemplateEmpty>
     </div>
   );
 }
 
 function Shelf({ title, count, tone, note }: { title: string; count: number; tone?: 'danger' | 'hold'; note?: string }) {
-  const toneCls = tone === 'danger' ? 'text-danger-700' : tone === 'hold' ? 'text-warn-700' : 'text-ink/55';
+  const toneCls = tone === 'danger' ? 'text-danger-700' : tone === 'hold' ? 'text-warn-700' : 'text-[color:var(--m-slate-2)]';
   return (
-    <div className="flex items-baseline gap-2 border-b border-ink/5 px-1 pb-1.5 pt-4 first:pt-0">
-      <h3 className={`font-mono text-[10.5px] font-bold uppercase tracking-[0.15em] ${toneCls}`}>{title}</h3>
-      <span className="font-mono text-[10.5px] text-ink/45">{formatCount(count)}</span>
-      {note && <span className="ml-auto font-mono text-[10.5px] text-ink/45">{note}</span>}
+    <div className="flex items-baseline gap-2 border-b border-[color:var(--sn-divider)] px-1 pb-1.5 pt-4 first:pt-0">
+      <h3 className={`text-[11.5px] font-bold uppercase tracking-[0.1em] ${toneCls}`}>{title}</h3>
+      <span className="text-[13px] tabular-nums text-[color:var(--m-slate-2)]">{formatCount(count)}</span>
+      {note && <span className="ml-auto text-[13px] text-[color:var(--m-slate-2)]">{note}</span>}
     </div>
   );
 }
@@ -392,7 +391,7 @@ function Shelf({ title, count, tone, note }: { title: string; count: number; ton
  */
 function SaleOrDraftShelves(props: ShelfListProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-ink/10">
+    <div className="sn-frame sn-frame-flush mt-3 overflow-hidden">
       {CLUSTER_ORDER.map((cluster) => {
         const group = props.rows.filter((r) => clusterOf(r) === cluster);
         if (group.length === 0) return null;
@@ -459,12 +458,8 @@ function CreditLadderRow({
             Papic credits — the top-up ladder
           </span>
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
-            <code className="font-mono text-[10px] uppercase tracking-[0.13em] text-ink/50">
-              PAPIC_GUEST_*
-            </code>
-            <span className="rounded-full border border-ink/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.13em] text-ink/55">
-              One product · {summary.rungs} sizes
-            </span>
+            <span className="text-[12px] text-ink/50">PAPIC_GUEST_*</span>
+            <Badge tone="quiet">One product · {summary.rungs} sizes</Badge>
           </span>
           <span className="mt-1 block text-[13px] text-ink/60">
             Every size tops up the event&apos;s shared pot. Edited as a ladder on its
@@ -512,7 +507,7 @@ function RetiredShelves(props: ShelfListProps) {
   const unchecked = props.rows.filter((r) => r.kind !== 'retail');
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-ink/10">
+    <div className="sn-frame sn-frame-flush mt-3 overflow-hidden">
       {safe.length > 0 && (
         <div className="px-4">
           <Shelf title="Safe to remove" count={safe.length} tone="danger" note="never sold · nothing points at them" />
@@ -565,32 +560,26 @@ function RemoveAllBar({ count }: { count: number }) {
   return (
     <div className="flex flex-wrap items-center gap-2.5 border-b border-ink/5 py-2.5">
       {!confirming ? (
-        <button
-          type="button"
+        <ActionButton
+          tone="danger"
+          icon={<Trash2 aria-hidden strokeWidth={1.9} />}
+          label={`Remove all ${formatCount(count)} for good`}
           onClick={() => setConfirming(true)}
-          className="inline-flex items-center gap-1.5 rounded-md border border-danger-300/60 px-3 py-1.5 text-xs font-semibold text-danger-700 transition hover:bg-danger-50"
-        >
-          <Trash2 className="h-3.5 w-3.5" aria-hidden /> Remove all {formatCount(count)} for good
-        </button>
+        />
       ) : (
         <form action={formAction} className="flex flex-wrap items-center gap-2.5">
           <span className="text-xs text-ink/70">
             None of these has ever been sold and nothing points at them. This cannot be undone.
           </span>
-          <button
-            type="button"
-            onClick={() => setConfirming(false)}
-            className="rounded-md border border-ink/20 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5"
-          >
-            Cancel
-          </button>
-          <button
+          <ActionButton tone="neutral" quiet icon={<X aria-hidden strokeWidth={1.9} />} label="Cancel" onClick={() => setConfirming(false)} />
+          <ActionButton
+            tone="danger"
+            main
             type="submit"
             disabled={pending}
-            className="rounded-md bg-danger-700 px-3 py-1.5 text-xs font-semibold text-cream transition hover:bg-danger-800 disabled:opacity-60"
-          >
-            {pending ? 'Removing…' : `Remove all ${formatCount(count)}`}
-          </button>
+            icon={<Trash2 aria-hidden strokeWidth={1.9} />}
+            label={pending ? 'Removing…' : `Remove all ${formatCount(count)}`}
+          />
         </form>
       )}
       <span className="text-[11px] text-ink/45">This is the broom — it is your press, on your day.</span>
@@ -706,7 +695,7 @@ function RowCard(props: {
       </button>
 
       {open && (
-        <div className="mt-3 rounded-xl border border-ink/10 bg-cream">
+        <div className="mt-3 overflow-hidden rounded-[var(--sn-frame-radius)] bg-[rgb(var(--sn-page-bg))]">
           <CardBody {...props} row={row} />
         </div>
       )}
@@ -715,17 +704,7 @@ function RowCard(props: {
 }
 
 function Tag({ children, tone }: { children: ReactNode; tone?: 'gold' | 'neg' }) {
-  const cls =
-    tone === 'gold'
-      ? 'bg-warn-50 text-warn-800 border-warn-200'
-      : tone === 'neg'
-        ? 'bg-danger-50 text-danger-800 border-danger-200'
-        : 'bg-ink/5 text-ink/55 border-ink/10';
-  return (
-    <span className={`rounded px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.08em] ${cls} border`}>
-      {children}
-    </span>
-  );
+  return <Badge tone={tone === 'gold' ? 'wait' : tone === 'neg' ? 'no' : 'quiet'}>{children}</Badge>;
 }
 
 // ─── The open card ──────────────────────────────────────────────────────────
@@ -781,9 +760,9 @@ function HeldByPanel({
             <li key={r}>{r}</li>
           ))}
         </ul>
-        <p className="mt-1.5 text-[12.5px] text-ink/55">
-          It stays retired and off the price page. When nothing here needs it any more, <b>Remove for good</b> will
-          appear on its own.
+        <p className="mt-1.5 text-[12.5px] text-ink/55">It stays retired and off the price page.</p>
+        <p className="text-[12.5px] text-ink/55">
+          When nothing here needs it any more, <b>Remove for good</b> will appear on its own.
         </p>
       </div>
     </div>
@@ -833,6 +812,7 @@ function SaveSection({ row }: { row: PriceRowProp }) {
   const [cost, setCost] = useState(row.kind === 'retail' ? String(row.cost) : '');
   const [price, setPrice] = useState(String(row.price));
   const [paxOn, setPaxOn] = useState(row.kind === 'retail' ? row.isPaxPriced : false);
+  const [billing, setBilling] = useState<string>(row.kind === 'retail' ? row.billingPeriod : 'one_time');
   const margin = row.kind === 'retail' ? marginPct(Number(price), Number(cost)) : null;
   // 🧮 The 2026-11-21 formula, from the cost AS TYPED in this card. "Use formula price" only fills the Price box —
   // the admin still presses "Save this price", so it goes through the same audited save as a typed price.
@@ -848,7 +828,7 @@ function SaveSection({ row }: { row: PriceRowProp }) {
       <input type="hidden" name={row.kind === 'retail' ? 'service_code' : row.kind === 'bundle' ? 'package_code' : 'sku_code'} value={row.code} />
 
       <div className="border-b border-ink/10 p-4">
-        <h4 className="mb-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-gold-text">What it is</h4>
+        <h4 className="mb-2.5 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">What it is</h4>
         {/* Row 22 (2026-10-01): supplier plans are renamed here too — the
             name used to be fixed in code, and nothing keys on it. */}
         <div className="mb-3">
@@ -871,7 +851,7 @@ function SaveSection({ row }: { row: PriceRowProp }) {
       </div>
 
       <div className="border-b border-ink/10 p-4">
-        <h4 className="mb-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-gold-text">
+        <h4 className="mb-2.5 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           What it costs {row.kind === 'vendor' ? 'a supplier' : 'them'}
         </h4>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -896,17 +876,22 @@ function SaveSection({ row }: { row: PriceRowProp }) {
         {row.kind === 'retail' && (
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <FieldLabel>Charged</FieldLabel>
-              <select
-                name="billing_period"
-                defaultValue={row.billingPeriod}
-                className="input-field h-9 w-full text-sm"
-              >
-                <option value="one_time">Once</option>
-                <option value="per_day">Per day of the event</option>
-                <option value="per_year">Per year</option>
-                <option value="per_28d">Every 28 days</option>
-              </select>
+              <FormRows data="price-billing">
+                <ChosenRow
+                  data="price-billing"
+                  name="Charged"
+                  value={billing}
+                  options={[
+                    { key: 'one_time', label: 'Once' },
+                    { key: 'per_day', label: 'Per day of the event' },
+                    { key: 'per_year', label: 'Per year' },
+                    { key: 'per_28d', label: 'Every 28 days' },
+                  ]}
+                  onPick={setBilling}
+                  dataAttr="data-price-billing"
+                />
+              </FormRows>
+              <input type="hidden" name="billing_period" value={billing} />
             </div>
             <div>
               <FieldLabel>Priced per head?</FieldLabel>
@@ -962,7 +947,7 @@ function SaveSection({ row }: { row: PriceRowProp }) {
 
       {row.kind === 'retail' && (
         <div className="border-b border-ink/10 p-4">
-          <h4 className="mb-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-gold-text">
+          <h4 className="mb-2.5 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             What it costs us
           </h4>
           <div className="max-w-[230px]">
@@ -972,7 +957,7 @@ function SaveSection({ row }: { row: PriceRowProp }) {
           <p className="mt-2 text-[13px] text-ink/60">
             {margin !== null ? (
               <>
-                Margin <b className="font-mono tabular-nums text-ink">{margin}%</b>
+                Margin <b className="tabular-nums text-ink">{margin}%</b>
               </>
             ) : (
               "No cost recorded — no margin shown."
@@ -1004,12 +989,7 @@ function SaveSection({ row }: { row: PriceRowProp }) {
       )}
 
       <div className="flex items-center gap-2 p-4">
-        <button
-          type="submit"
-          className="rounded-md bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
-        >
-          Save this price
-        </button>
+        <ActionButton tone="brand" main type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save this price" />
         {state.message && (
           <span className={`text-xs ${state.ok ? 'text-success-800' : 'text-danger-700'}`}>{state.message}</span>
         )}
@@ -1021,25 +1001,25 @@ function SaveSection({ row }: { row: PriceRowProp }) {
 function HistorySection({ history }: { history: PricingHistoryEntryProp[] }) {
   return (
     <div className="border-b border-ink/10 p-4">
-      <h4 className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-gold-text">History</h4>
+      <h4 className="mb-2 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">History</h4>
       {history.length === 0 ? (
         <p className="text-[13px] text-ink/55">No changes recorded from this screen yet.</p>
       ) : (
         <ul className="space-y-1">
           {history.map((h, i) => (
             <li key={i} className="flex items-baseline gap-2.5 border-b border-ink/5 py-1 text-[12.5px] last:border-b-0">
-              <span className="min-w-[84px] font-mono text-[11px] text-ink/50">
+              <span className="min-w-[84px] text-[12px] tabular-nums text-ink/50">
                 {new Date(h.date).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
-              <span className="font-mono tabular-nums">{h.summary}</span>
+              <span className="tabular-nums">{h.summary}</span>
               <span className="ml-auto text-[11.5px] text-ink/50">{h.who}</span>
             </li>
           ))}
         </ul>
       )}
-      <p className="mt-2 text-[11.5px] text-ink/45">
-        Recorded on every save made from this screen since 1 July 2026. A price changed by a code release (not from
-        here) won&apos;t show up — this history is partial, not complete.
+      <p className={`mt-2 ${TEMPLATE_SUBLINE}`}>Recorded on every save made from this screen since 1 July 2026.</p>
+      <p className={TEMPLATE_SUBLINE}>
+        A price changed by a code release (not from here) won&apos;t show up — this history is partial, not complete.
       </p>
     </div>
   );
@@ -1054,6 +1034,7 @@ function CardFooter({
 }) {
   const view = viewOf(row);
   const [retiring, setRetiring] = useState(false);
+  const [replacedBy, setReplacedBy] = useState('');
 
   const retireAction = row.kind === 'retail' ? retireRetailRow : row.kind === 'bundle' ? retireBundleRow : retireVendorRow;
   const reactivateAction =
@@ -1095,20 +1076,14 @@ function CardFooter({
   return (
     <div className="p-4">
       {view === 'sale' && !retiring && (
-        <button
-          type="button"
-          onClick={() => setRetiring(true)}
-          className="rounded-md border border-ink/20 px-3.5 py-1.5 text-sm font-medium text-ink/70 transition hover:bg-ink/5"
-        >
-          Retire this price
-        </button>
+        <ActionButton tone="neutral" icon={<Archive aria-hidden strokeWidth={1.9} />} label="Retire this price" onClick={() => setRetiring(true)} />
       )}
       {view === 'sale' && retiring && (
-        <form action={retireFormAction} className="space-y-2.5 rounded-lg border border-ink/10 bg-ink/[0.02] p-3">
+        <form action={retireFormAction} className="space-y-2.5">
           <input type="hidden" name={codeField} value={row.code} />
+          <p className="text-[13px] text-ink/70">It comes off the public price page right away.</p>
           <p className="text-[13px] text-ink/70">
-            It comes off the public price page right away. Anything already sold or wired keeps working, and you can
-            put it back on sale any time.
+            Anything already sold or wired keeps working, and you can put it back on sale any time.
           </p>
           <div>
             <FieldLabel>
@@ -1118,32 +1093,27 @@ function CardFooter({
           </div>
           {row.kind === 'retail' && (
             <div>
-              <FieldLabel>
-                Replaced by <span className="font-normal text-ink/50">(optional)</span>
-              </FieldLabel>
-              <select name="replaced_by" defaultValue="" className="input-field h-9 w-full text-sm">
-                <option value="">— nothing —</option>
-                {retailTitlesForReplacement
-                  .filter(([code]) => code !== row.code)
-                  .map(([code, title]) => (
-                    <option key={code} value={code}>
-                      {title}
-                    </option>
-                  ))}
-              </select>
+              <FormRows data="price-replaced-by">
+                <ChosenRow
+                  data="price-replaced-by"
+                  name="Replaced by (optional)"
+                  value={replacedBy || 'nothing'}
+                  options={[
+                    { key: 'nothing', label: '— nothing —' },
+                    ...retailTitlesForReplacement
+                      .filter(([code]) => code !== row.code)
+                      .map(([code, title]) => ({ key: code, label: title })),
+                  ]}
+                  onPick={(k) => setReplacedBy(k === 'nothing' ? '' : k)}
+                  dataAttr="data-price-replaced-by"
+                />
+              </FormRows>
+              <input type="hidden" name="replaced_by" value={replacedBy} />
             </div>
           )}
           <div className="flex items-center gap-2">
-            <button type="submit" className="rounded-md bg-terracotta-700 px-3.5 py-1.5 text-sm font-semibold text-cream hover:bg-terracotta-800">
-              Retire it
-            </button>
-            <button
-              type="button"
-              onClick={() => setRetiring(false)}
-              className="rounded-md border border-ink/20 px-3.5 py-1.5 text-sm font-medium text-ink/70 hover:bg-ink/5"
-            >
-              Keep selling
-            </button>
+            <ActionButton tone="warn" main type="submit" icon={<Archive aria-hidden strokeWidth={1.9} />} label="Retire it" />
+            <ActionButton tone="neutral" quiet icon={<X aria-hidden strokeWidth={1.9} />} label="Keep selling" onClick={() => setRetiring(false)} />
             {retireState.message && !retireState.ok && (
               <span className="text-xs text-danger-700">{retireState.message}</span>
             )}
@@ -1154,9 +1124,7 @@ function CardFooter({
       {view !== 'sale' && (
         <form action={reactivateFormAction} className="inline-flex items-center gap-2">
           <input type="hidden" name={codeField} value={row.code} />
-          <button type="submit" className="rounded-md border border-ink/20 px-3.5 py-1.5 text-sm font-medium text-ink/70 transition hover:bg-ink/5">
-            Put back on sale
-          </button>
+          <ActionButton tone="ok" type="submit" icon={<RotateCcw aria-hidden strokeWidth={1.9} />} label="Put back on sale" />
           {reactivateState.message && (
             <span className={`text-xs ${reactivateState.ok ? 'text-success-800' : 'text-danger-700'}`}>{reactivateState.message}</span>
           )}
@@ -1166,30 +1134,16 @@ function CardFooter({
       {canOfferRemove && (
         <div className="mt-2.5">
           {!removing ? (
-            <button
-              type="button"
-              onClick={() => setRemoving(true)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-danger-300/60 px-3.5 py-1.5 text-sm font-semibold text-danger-700 transition hover:bg-danger-50"
-            >
-              <Trash2 className="h-3.5 w-3.5" aria-hidden /> Remove for good
-            </button>
+            <ActionButton tone="danger" icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Remove for good" onClick={() => setRemoving(true)} />
           ) : (
-            <form action={removeFormAction} className="space-y-2 rounded-lg border border-danger-200 bg-danger-50/50 p-3">
+            <form action={removeFormAction} className="space-y-2">
               <input type="hidden" name="service_code" value={row.code} />
               <p className="text-[13px] text-ink/70">
                 Never sold, and nothing depends on it. It disappears completely — <b>no record kept, no undo</b>.
               </p>
               <div className="flex items-center gap-2">
-                <button type="submit" className="rounded-md bg-danger-700 px-3.5 py-1.5 text-sm font-semibold text-cream hover:bg-danger-800">
-                  Remove for good
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRemoving(false)}
-                  className="rounded-md border border-ink/20 px-3.5 py-1.5 text-sm font-medium text-ink/70 hover:bg-ink/5"
-                >
-                  Keep it retired
-                </button>
+                <ActionButton tone="danger" main type="submit" icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Remove for good" />
+                <ActionButton tone="neutral" quiet icon={<X aria-hidden strokeWidth={1.9} />} label="Keep it retired" onClick={() => setRemoving(false)} />
                 {removeState.message && !removeState.ok && (
                   <span className="text-xs text-danger-700">{removeState.message}</span>
                 )}

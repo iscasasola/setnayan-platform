@@ -16,8 +16,6 @@ import {
   type SupplierSheetData,
 } from '@/lib/supplier-sheet';
 import { isFollowingVendor } from '@/lib/follow';
-import { isVendorNameRevealed } from '@/lib/vendors';
-import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { shopFileUrls } from '@/lib/supplier-file-sign.server';
 import { ownShopServe } from '@/lib/free-shop-files';
@@ -54,7 +52,9 @@ export async function readSupplierSheet(
   // 💸 A review from an event whose booking-fee top-up is overdue is unlisted until settled (owner 2026-11-12).
   const unlisted = await readOverdueTopUpEventIds(vendorProfileId, manilaToday());
   const [reviews, completed, profile, services, following, taxonomy] = await Promise.all([
-    fetchReviewsForVendor(supabase, vendorProfileId, { limit: 12, excludeEventIds: [...unlisted] })
+    // 🛡 The PUBLIC read (owner 2026-11-23, b89e2420 D): a review the screener holds never reaches a couple's sheet.
+    // `vendor_reviews_public` is service-role only, hence `admin`.
+    fetchReviewsForVendor(admin, vendorProfileId, { limit: 12, excludeEventIds: [...unlisted], publicOnly: true })
       .then((rows) => sheetReviews(rows))
       .catch((err) => {
         console.error('[supplier-sheet] reviews read failed', err);
@@ -88,16 +88,9 @@ export async function readSupplierSheet(
     getTaxonomy(),
   ]);
 
-  // A shop whose name is still withheld is not named by its photos or its
-  // address either — the same gate the marketplace list uses.
-  const revealed =
-    profile != null &&
-    isVendorNameRevealed({
-      name_revealed_at: profile.name_revealed_at,
-      isPaidTier: isTrueNameTier(profile.tier_state),
-      is_verified: profile.verification_state === 'verified',
-      services: profile.services,
-    });
+  // 🏷 Owner ruling 2026-11-16 (15) — real shop name everywhere — and (18), the shop page is open to anyone with its
+  // link before verification: nothing about the shop is withheld any more, so its photos and its address show for
+  // every shop (was: only once `isVendorNameRevealed`).
 
   return {
     reviews,
@@ -106,7 +99,7 @@ export async function readSupplierSheet(
     // 🔒 FREE FILES STAY PRIVATE (spec § ★ J): the couple is signed in, so a shop Setnayan has not verified yet shows
     // its photos as 15-minute links — never the permanent public address (lib/free-shop-files.ts).
     photos:
-      profile && revealed
+      profile
         ? await shopFileUrls(
             profile.portfolio_r2_keys ?? [],
             new Map(),
@@ -127,6 +120,6 @@ export async function readSupplierSheet(
         )
       : null,
     following,
-    sharePath: profile && revealed && profile.business_slug ? `${shopPath(profile.business_slug)}` : null,
+    sharePath: profile && profile.business_slug ? `${shopPath(profile.business_slug)}` : null,
   };
 }

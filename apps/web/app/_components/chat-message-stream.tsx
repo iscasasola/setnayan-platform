@@ -172,7 +172,8 @@ import { markThreadRead } from '@/lib/chat-actions';
 import { isCoHostMessage, ownsBubble } from '@/lib/chat-bubble-owner';
 import { LIVE_LINE_REFRESH_MS, refreshesTheChat } from '@/lib/chat-live-refresh';
 import { answeredBookAsks, cakeDesignAt, formLineTitle, isCakeInvite, streamLineKind } from '@/lib/chat-card-lines';
-import { AskChangeDoor, CakeDesignCard, CakeInviteCard, DealSheet, DroppedOfferCard, FormAnswerCard, InquiryCard, StreamLineCard } from './chat/cards/lazy-cards';
+import { AskChangeDoor, CakeDesignCard, CakeInviteCard, DealSheet, DroppedOfferCard, FormAnswerCard, InquiryCard, StreamLineCard, ToolShareCard } from './chat/cards/lazy-cards';
+import { approvedToolShares, toolShareFromLine } from '@/lib/chat-tool-share';
 import { StayForm } from '@/app/_components/stay-form';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
@@ -231,9 +232,8 @@ type Props = {
    */
   hosts?: readonly ChatHost[] | null;
   /**
-   * 🏪 THE SHOP'S FACE (12 Nov 2026). The display URL of the supplier's logo, passed ONLY by the couple's thread page and
-   * only once the shop's name is REVEALED (`couple_thread_supplier_names` sends no logo before — a logo is as identifying
-   * as the name). A message from the shop's side then wears it as its small round avatar; absent, or a picture that
+   * 🏪 THE SHOP'S FACE (12 Nov 2026). The display URL of the supplier's logo, passed ONLY by the couple's thread page
+   * (`couple_thread_supplier_names` sends every shop's logo since owner ruling 2026-11-16 (15)). A message from the shop's side then wears it as its small round avatar; absent, or a picture that
    * fails to load → the initials, as before.
    */
   shopLogoUrl?: string | null;
@@ -1786,6 +1786,11 @@ export function ChatMessageStream({
     () => answeredBookAsks(messages.map((m) => ({ id: m.message_id, body: m.body, role: m.sender_role }))),
     [messages],
   );
+  // 🧰 The shop's shared tools the hosts have approved ("✓ Approved · …", their own later line) — read, never stored.
+  const approvedShares = useMemo(
+    () => approvedToolShares(messages.map((m) => ({ id: m.message_id, body: m.body, senderRole: m.sender_role }))),
+    [messages],
+  );
   const latestProposalRef = useRef<HTMLLIElement | null>(null);
   // The newest quote in the thread — what "jump to the quote" means, and the
   // only card that gets the ref. Older quotes stay in place as the audit trail.
@@ -2335,8 +2340,10 @@ export function ChatMessageStream({
           // below. The shop's "Design your cake for us" invite is drawn as its card INSTEAD of a bubble.
           const cakeAt = m.sender_role === 'couple' ? cakeDesignAt(m.body) : -1;
           const cakeInvite = m.sender_role === 'vendor' && isCakeInvite(m.body);
+          // 🧰 A tool the shop shared ("Share from your tools") is drawn as its card INSTEAD of a bubble.
+          const sharedTool = m.sender_role === 'vendor' ? toolShareFromLine(m.body) : null;
           const node = (() => {
-          if (cakeInvite) return null;
+          if (cakeInvite || sharedTool) return null;
           // Proposal cards — a vendor-sent structured proposal lands in the
           // thread. Render the card (title · price · status + a Review/View
           // link to the existing /proposals page) instead of a plain bubble;
@@ -3295,6 +3302,18 @@ export function ChatMessageStream({
                       // one-render: keep (no-revalidate) — cakeAction's send revalidates nothing; the sent design must appear.
                       router.refresh();
                     }}
+                  />
+                </li>
+              ) : null}
+              {sharedTool ? (
+                <li data-tool-share-card="">
+                  <ToolShareCard
+                    tool={sharedTool}
+                    viewer={viewerRole === 'vendor' ? 'vendor' : 'couple'}
+                    approved={approvedShares.has(m.message_id)}
+                    threadId={threadId}
+                    eventId={m.event_id}
+                    stamp={`${viewerRole === 'vendor' ? 'You' : counterpartyLabel} · ${formatChatTimestamp(m.created_at)}`}
                   />
                 </li>
               ) : null}

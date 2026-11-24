@@ -102,7 +102,8 @@ test('a couple can actually SEE the set list — the column has a viewer', () =>
   // Both halves must gate the SAME block, not two different ones.
   assert.match(
     pub,
-    /repertoire\.length > 0 && isMusicToolCategory\(vendor\.services\) \?/,
+    // 🔒 + the Song bank gate (owner via the controller, 23 Nov: a paid widget) on the SAME conditional.
+    /repertoire\.length > 0 && isMusicToolCategory\(vendor\.services\) && songBankOpen\.status === 'ok' && songBankOpen\.data \?/,
     'the length check and the music check must gate the same conditional — ' +
       'an empty repertoire renders nothing, and so does a non-music shop',
   );

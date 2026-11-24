@@ -26,6 +26,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadPublicAsset } from '@/lib/storage';
+import { STORAGE_CHECK_FAILED } from '@/lib/supplier-storage';
+import { checkSupplierStorage, recordServerShopUpload } from '@/lib/supplier-storage.server';
 import { screenGalleryImage } from '@/lib/moodboard-gallery-screen.server';
 import { extractPaletteFromBytes } from '@/lib/extract-palette.server';
 import { fetchShopLogoBytes, listShopOwnPhotos, readShopOwnPhotoBytes, type ShopOwnPhoto } from '@/lib/shop-own-photos.server';
@@ -145,11 +147,21 @@ export async function suggestInspirationPhoto(formData: FormData): Promise<Sugge
     /* 5 · STORED where the couple's own board photos live, under this event. */
     const type = photo.contentType && ACCEPTED.includes(photo.contentType) ? photo.contentType : 'image/jpeg';
     const ext = type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg';
+    // 📏 The suggestion is the shop's photo: it must fit the shop's plan, and it counts for the shop (owner 2026-11-23).
+    const room = await checkSupplierStorage(admin, door.vendor_profile_id, photo.bytes.byteLength);
+    if (room.kind === 'full') return await refuse(room.message);
+    if (room.kind === 'unavailable') return await refuse(STORAGE_CHECK_FAILED);
     const upload = await uploadPublicAsset({
       pathPrefix: `inspiration/${eventId}/suggestions/${slotKey}`,
       file: new File([photo.bytes as BlobPart], `suggestion.${ext}`, { type }),
     });
     if (!upload.ok) return await refuse(SUGGEST_REFUSAL.failed);
+    await recordServerShopUpload(admin, door.vendor_profile_id, {
+      bucket: upload.bucket,
+      key: upload.key,
+      bytes: photo.bytes.byteLength,
+      contentType: type,
+    });
 
     /* 6 · NOW, AND ONLY NOW, THE COUPLE CAN SEE IT — the one write the supplier's session cannot make. */
     const { error: doneErr } = await admin

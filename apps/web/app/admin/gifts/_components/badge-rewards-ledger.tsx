@@ -1,5 +1,6 @@
 import { Award } from 'lucide-react';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { TemplateSection } from '@/app/_components/template-rows';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { TakeBackReasonField } from './take-back-reason-field';
 import { revokeBadgeFeeWaiver } from '@/app/admin/gifts/badge-reward-actions';
@@ -41,13 +42,18 @@ export function BadgeRewardsLedger({
   names: RewardNames;
 }) {
   return (
-    <section className="mb-10" data-admin-badge-rewards="">
-      <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">Badge rewards</h2>
-      <p className="mb-4 text-xs text-ink/60">
-        What each badge gave a shop — once per badge step, never expiring. They sit outside a booking&rsquo;s gift limit.
-        A free booking fee is used by itself on the shop&rsquo;s next booking that would carry a fee (never one already
-        free) and can be taken back while unused.
-      </p>
+    <div data-admin-badge-rewards="">
+    <TemplateSection
+      label="Badge rewards"
+      tip={
+        <>
+          What each badge gave a shop — once per badge step, never expiring. They sit outside a booking&rsquo;s gift limit.
+          A free booking fee is used by itself on the shop&rsquo;s next booking that would carry a fee (never one already
+          free) and can be taken back while unused.
+        </>
+      }
+      data="badge-rewards"
+    >
       <ConsoleTable<BadgeRewardLedgerRow>
         rows={rows}
         readError={readError}
@@ -89,6 +95,7 @@ export function BadgeRewardsLedger({
           },
         ]}
       />
-    </section>
+    </TemplateSection>
+    </div>
   );
 }

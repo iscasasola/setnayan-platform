@@ -130,12 +130,7 @@ export async function fetchVendorInquiryAnalytics(
     avg_minutes: number | string | null;
   }>(replyRes);
 
-  const missedRow = firstRow<{
-    declined: number | null;
-    unanswered_over_sla: number | null;
-    self_reported_no_response: number | null;
-    waitlisted: number | null;
-  }>(missedRes);
+  const missedRow = firstRow<MissedRow>(missedRes);
 
   const tokenRow = firstRow<{
     tokens_burned: number | string | null;
@@ -159,19 +154,8 @@ export async function fetchVendorInquiryAnalytics(
           avgMinutes: num(replyRow.avg_minutes),
         }
       : EMPTY.reply,
-    missed: missedRow
-      ? {
-          declined: Number(missedRow.declined ?? 0),
-          unansweredOverSla: Number(missedRow.unanswered_over_sla ?? 0),
-          selfReportedNoResponse: Number(missedRow.self_reported_no_response ?? 0),
-          waitlisted: Number(missedRow.waitlisted ?? 0),
-        }
-      : EMPTY.missed,
-    heatmap: heatRows.map((r) => ({
-      dow: Number(r.dow ?? 0),
-      hr: Number(r.hr ?? 0),
-      count: Number(r.inquiry_count ?? 0),
-    })),
+    missed: missedRow ? missedOf(missedRow) : EMPTY.missed,
+    heatmap: heatOf(heatRows),
     tokens: tokenRow
       ? {
           tokensBurned: Number(tokenRow.tokens_burned ?? 0),
@@ -181,6 +165,62 @@ export async function fetchVendorInquiryAnalytics(
         }
       : EMPTY.tokens,
   };
+}
+
+type MissedRow = {
+  declined: number | null;
+  unanswered_over_sla: number | null;
+  self_reported_no_response: number | null;
+  waitlisted: number | null;
+};
+
+const missedOf = (r: MissedRow): InquiryMissed => ({
+  declined: Number(r.declined ?? 0),
+  unansweredOverSla: Number(r.unanswered_over_sla ?? 0),
+  selfReportedNoResponse: Number(r.self_reported_no_response ?? 0),
+  waitlisted: Number(r.waitlisted ?? 0),
+});
+
+const heatOf = (rows: readonly { dow: number | null; hr: number | null; inquiry_count: number | null }[]): InquiryHeatCell[] =>
+  rows.map((r) => ({ dow: Number(r.dow ?? 0), hr: Number(r.hr ?? 0), count: Number(r.inquiry_count ?? 0) }));
+
+/**
+ * 🔑 THE HONEST SINGLE READS (the Store's graphs, owner 23 Nov 2026): the same two RPCs as the bundle above, one at a
+ * time, and `null` when the RPC refused — never the bundle's empty shape, which a graph would draw as a real zero.
+ */
+export async function fetchInquiryMissed(supabase: SupabaseClient, vendorProfileId: string, sinceIso: string | null): Promise<InquiryMissed | null> {
+  const { data, error } = await supabase.rpc('vendor_inquiry_missed', { p_vendor_profile_id: vendorProfileId, p_since: sinceIso });
+  if (error || !Array.isArray(data)) {
+    console.error('[vendor-inquiry-analytics] missed rpc failed', { vendor_profile_id: vendorProfileId, error: error?.message ?? 'no rows' });
+    return null;
+  }
+  const row = (data as MissedRow[])[0];
+  return row ? missedOf(row) : missedOf({ declined: 0, unanswered_over_sla: 0, self_reported_no_response: 0, waitlisted: 0 });
+}
+
+/** Inquiries by Manila weekday × hour since `sinceIso` — `null` when the RPC refused. */
+export async function fetchInquiryHeatmap(supabase: SupabaseClient, vendorProfileId: string, sinceIso: string | null): Promise<InquiryHeatCell[] | null> {
+  const { data, error } = await supabase.rpc('vendor_inquiry_heatmap', { p_vendor_profile_id: vendorProfileId, p_since: sinceIso });
+  if (error || !Array.isArray(data)) {
+    console.error('[vendor-inquiry-analytics] heatmap rpc failed', { vendor_profile_id: vendorProfileId, error: error?.message ?? 'no rows' });
+    return null;
+  }
+  return heatOf(data as { dow: number | null; hr: number | null; inquiry_count: number | null }[]);
+}
+
+/** Philippine-time heat: rows Monday → Sunday, eight 3-hour blocks (12a 3a 6a 9a 12p 3p 6p 9p). `null` = no inquiry. */
+export function heatGrid(cells: readonly InquiryHeatCell[]): number[][] | null {
+  const g = Array.from({ length: 7 }, () => Array(8).fill(0) as number[]);
+  let any = false;
+  for (const c of cells) {
+    // dow: 0 = Sunday (Postgres extract(dow)) → row 6; Monday → row 0.
+    const row = (c.dow + 6) % 7;
+    const col = Math.floor(c.hr / 3);
+    if (row < 0 || row > 6 || col < 0 || col > 7) continue;
+    g[row]![col]! += c.count;
+    if (c.count > 0) any = true;
+  }
+  return any ? g : null;
 }
 
 /** Minutes → "2h 10m" / "45m" / "just now". null → em dash handled by caller. */

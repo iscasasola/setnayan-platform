@@ -32,6 +32,7 @@
 
 import type { WeddingTile, WeddingFolder } from '@/lib/taxonomy';
 import { TILE_PARENT } from '@/lib/taxonomy';
+import type { HubToolKey } from '@/lib/hub-tools';
 
 /**
  * Controller families — the day-of "job shape" a vendor is doing on the floor.
@@ -152,6 +153,21 @@ export function familiesForServices(
   return out;
 }
 
+/** The marketplace folders a vendor's (event-scoped) tiles sit in — the same narrowing as `familiesForServices`. */
+export function foldersForServices(
+  services: readonly string[] | null | undefined,
+  eventTiles?: readonly string[] | null,
+): Set<WeddingFolder> {
+  const out = new Set<WeddingFolder>();
+  const eventSet = eventTiles && eventTiles.length > 0 ? new Set(eventTiles) : null;
+  for (const s of services ?? []) {
+    if (eventSet && !eventSet.has(s)) continue;
+    const folder = TILE_PARENT[s as WeddingTile];
+    if (folder) out.add(folder);
+  }
+  return out;
+}
+
 // ─── Modules ────────────────────────────────────────────────────────────────
 
 /**
@@ -172,7 +188,32 @@ export type DayOfModuleId =
   | 'setlist'
   | 'issues_log'
   | 'production_sheet'
-  | 'vendor_papic';
+  | 'vendor_papic'
+  // ── Hub tools, second five (DECISION_LOG 2026-11-23 "THE TEN MOST-SHARED UNBUILT HUB TOOLS"; free). Each is drawn
+  // INLINE on the live console by its template (`dayOfModuleHref` → null) from `hubTool` below.
+  | 'tech_rider'
+  | 'personalisation_list'
+  | 'dietary_and_allergies'
+  | 'quantity_vs_guests'
+  | 'set_list'
+  // ── Hub tools, first five (#8212, same ruling) — drawn inline by `HubToolPanels` like the five above.
+  | 'queue_counter'
+  | 'entourage'
+  | 'paperwork_checklist'
+  | 'load_in_and_venue_access'
+  | 'delivery_and_drop_off'
+  // ── Hub tools, the free rest · part 1 (DECISION_LOG "Seven open calls settled" item 3, 24 Nov) — same row store,
+  // drawn inline by `HubToolPanels`; ON for nobody by family (the category switches suggest them).
+  | 'ceremony_details'
+  | 'proofs_and_approval'
+  | 'safety_permit_and_cue'
+  | 'fittings_and_measurements'
+  | 'looks_per_person'
+  | 'crew_roster'
+  | 'room_list'
+  | 'chair_schedule'
+  | 'reservation_slots'
+  | 'brackets_and_scoring';
 // 🗑 `guest_delivery` ("Who’s received theirs") was REMOVED 2026-10-04 (owner,
 // 2026-10-03 S1): it shipped always padlocked — `dayOfModuleHref` was null and
 // no screen ever existed behind it — so every caterer saw a locked promise. The
@@ -196,6 +237,18 @@ export type DayOfModule = {
    * with the consent gate + always-on NSFW filter; never silently on.
    */
   counselGated?: boolean;
+  /**
+   * ON BY DEFAULT for a vendor booked under one of these marketplace FOLDERS — narrower than a family where a family
+   * would switch a tool on for trades it is not for (Dietary & allergies: the food folder, not every `serve` shop).
+   */
+  defaultOnForFolders?: readonly WeddingFolder[];
+  /**
+   * The hub tool record this module draws (`lib/hub-tools.ts` HUB_TOOL_LIBRARY key) — inline, by its template, its rows
+   * in the ONE home `vendor_hub_tool_entries` (controller, DECISION_LOG 23 Nov 2026). Any shop may switch it on
+   * (`alwaysAvailable`); it also starts ON when Admin › Categories › Hub tools suggests it for a booked category
+   * (`resolveModules`' `hub` input) — a suggestion, never a gate — and leaves every Hub when admin turns it off.
+   */
+  hubTool?: HubToolKey;
 };
 
 export const DAY_OF_MODULES: readonly DayOfModule[] = [
@@ -266,9 +319,12 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
     requiresGrant: true,
   },
   {
+    // The door to the shop's song bank (/vendor-dashboard/repertoire). Was labelled "Setlist"; the working Set list is
+    // its own module below (23 Nov), so this row now says where it goes — the same words as the Song bank tile
+    // (`lib/specialized-tools.ts`).
     id: 'setlist',
-    label: 'Setlist',
-    blurb: 'Your set against the couple’s requests.',
+    label: 'Song bank',
+    blurb: 'The songs you play; couples request and preview.',
     defaultOnFor: ['perform'],
     alwaysAvailable: false,
     requiresGrant: false,
@@ -311,6 +367,192 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
     requiresGrant: true,
     counselGated: true,
   },
+  // ── Hub tools, second five (DECISION_LOG 2026-11-23; drawing prototypes/hub_tools_working_2026-10-28/) ──────────
+  {
+    id: 'tech_rider',
+    label: 'Tech rider',
+    blurb: 'What you need at the venue — mics, power, sound check — ticked as it’s ready.',
+    defaultOnFor: ['perform'],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'tech_rider',
+  },
+  {
+    id: 'personalisation_list',
+    label: 'Personalisation list',
+    blurb: 'A row per person: the name to engrave or print, ticked when it’s done.',
+    defaultOnFor: [],
+    defaultOnForFolders: ['prints', 'gifts_giveaways'],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'personalisation_list',
+  },
+  {
+    id: 'dietary_and_allergies',
+    label: 'Dietary & allergies',
+    blurb: 'Coming guests’ meal picks and dietary notes, from their RSVPs — for the caterer.',
+    defaultOnFor: [],
+    defaultOnForFolders: ['feast'],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'dietary_and_allergies',
+  },
+  {
+    id: 'quantity_vs_guests',
+    label: 'Quantity vs guests',
+    blurb: 'Count what you made or served against the guests coming.',
+    defaultOnFor: ['serve'],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'quantity_vs_guests',
+  },
+  {
+    id: 'set_list',
+    label: 'Set list',
+    blurb: 'Your sets for the night, in order.',
+    defaultOnFor: ['perform'],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'set_list',
+  },
+  // ── Hub tools, first five (#8212, DECISION_LOG 2026-11-23) ─────────────────────────────────────────────────────
+  // ON for nobody by family: the category switches suggest them per booking, and every shop may switch any on.
+  {
+    id: 'queue_counter',
+    label: 'Queue counter',
+    blurb: 'Count each guest served, against the guests coming.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'queue_counter',
+  },
+  {
+    id: 'entourage',
+    label: 'Entourage',
+    blurb: 'The couple’s entourage, one row per person, with their role.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'entourage',
+  },
+  {
+    id: 'paperwork_checklist',
+    label: 'Paperwork checklist',
+    blurb: 'The papers for this event, ticked when in hand.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'paperwork_checklist',
+  },
+  {
+    id: 'load_in_and_venue_access',
+    label: 'Load-in & venue access',
+    blurb: 'Gate pass, parking, power and times, ticked as you sort them.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'load_in_and_venue_access',
+  },
+  {
+    id: 'delivery_and_drop_off',
+    label: 'Delivery & drop-off',
+    blurb: 'What goes where and when, ticked when done.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'delivery_and_drop_off',
+  },
+  // ── Hub tools, the free rest · part 1 (24 Nov, DECISION_LOG "Seven open calls settled" item 3) ────────────────────
+  {
+    id: 'ceremony_details',
+    label: 'Ceremony details',
+    blurb: 'The ceremony’s time, sponsors, readings and banns, ticked as each is set.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'ceremony_details',
+  },
+  {
+    id: 'proofs_and_approval',
+    label: 'Proofs & approval',
+    blurb: 'Each proof you send, ticked when the couple approves it.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'proofs_and_approval',
+  },
+  {
+    id: 'safety_permit_and_cue',
+    label: 'Safety permit & cue',
+    blurb: 'The permit papers, the safe zone and the go cue, ticked as each is cleared.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'safety_permit_and_cue',
+  },
+  {
+    id: 'fittings_and_measurements',
+    label: 'Fittings & measurements',
+    blurb: 'A row per person with their sizes, ticked when their fitting is done.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'fittings_and_measurements',
+  },
+  {
+    id: 'looks_per_person',
+    label: 'Looks per person',
+    blurb: 'A row per person with the look they chose, ticked when they’re done.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'looks_per_person',
+  },
+  {
+    id: 'crew_roster',
+    label: 'Crew roster',
+    blurb: 'Who works the event and their call time or meal, ticked as they check in.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'crew_roster',
+  },
+  {
+    id: 'room_list',
+    label: 'Room list',
+    blurb: 'Which guest is in which room, ticked when they’ve checked in.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'room_list',
+  },
+  {
+    id: 'chair_schedule',
+    label: 'Chair schedule',
+    blurb: 'Who sits when, in order, ticked as each one is done.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'chair_schedule',
+  },
+  {
+    id: 'reservation_slots',
+    label: 'Reservation slots',
+    blurb: 'Your slots in order — the time and how many — ticked as each is seated.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'reservation_slots',
+  },
+  {
+    id: 'brackets_and_scoring',
+    label: 'Brackets & scoring',
+    blurb: 'Teams or players in order, each with their score.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'brackets_and_scoring',
+  },
 ];
 
 const MODULE_BY_ID: Record<DayOfModuleId, DayOfModule> = Object.fromEntries(
@@ -339,15 +581,26 @@ export type ResolvedModule = DayOfModule & {
   enabled: boolean;
 };
 
+/**
+ * `hub` — Admin › Categories › Hub tools for this booking (`readHubToolSuggestions`): `suggested` hub tools start ON,
+ * `inactive` ones (admin's Turn off) are not offered. Absent or null (not read) = suggest nothing, hide nothing.
+ */
+export type HubToolInput = { suggested: ReadonlySet<string>; inactive: ReadonlySet<string> } | null | undefined;
+
 export function resolveModules(
   services: readonly string[] | null | undefined,
   eventTiles: readonly string[] | null | undefined,
   override?: readonly string[] | null,
+  hub?: HubToolInput,
 ): ResolvedModule[] {
   const families = familiesForServices(services, eventTiles ?? null);
+  const folders = foldersForServices(services, eventTiles ?? null);
   const overrideSet = override ? new Set(override) : null;
-  return DAY_OF_MODULES.map((m) => {
-    const defaultOn = m.defaultOnFor.some((f) => families.has(f));
+  return DAY_OF_MODULES.filter((m) => !(m.hubTool && hub?.inactive.has(m.hubTool))).map((m) => {
+    const defaultOn =
+      m.defaultOnFor.some((f) => families.has(f)) ||
+      (m.defaultOnForFolders ?? []).some((f) => folders.has(f)) ||
+      Boolean(m.hubTool && hub?.suggested.has(m.hubTool));
     const available = defaultOn || m.alwaysAvailable;
     const enabled = overrideSet
       ? overrideSet.has(m.id)

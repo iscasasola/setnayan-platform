@@ -69,6 +69,8 @@ export function InquireSheet({
   signedIn,
   events,
   inquirySource,
+  inquiryVia = null,
+  inquiryUtm = null,
   referringChapterPublicId,
   send = startServiceInquiry,
 }: {
@@ -77,6 +79,9 @@ export function InquireSheet({
   signedIn: boolean;
   events: InquireEvent[];
   inquirySource: string | null;
+  /** 🏷 The material tag and campaign tags of the arrival (owner 2026-11-16) — carried into the inquiry, never shown. */
+  inquiryVia?: string | null;
+  inquiryUtm?: string | null;
   referringChapterPublicId: string | null;
   /** The one send. A lab passes a stand-in; the shop page never does. */
   send?: (input: SendArgs) => Promise<StartServiceInquiryResult>;
@@ -207,6 +212,8 @@ export function InquireSheet({
         general,
         requirements: message.trim() ? { specialRequest: message.trim() } : undefined,
         inquirySource,
+        inquiryVia,
+        inquiryUtm,
         referringChapterPublicId,
       });
       // 📨 ONE reading of the result (`inquireSendOutcome`): only a delivery is the Sent step. Anything else goes back

@@ -215,25 +215,21 @@ test('the section stands in the retired slot, booked-only, and explains every st
     'cycleActive ?',
     "orderState === 'active'",
     "orderState === 'pending'",
-    // 🎁 Owner 20 Nov: below Pro, unverified or unpriced is ONE state — the shared 🔒 pointing to Pro; Pro and up
-    // (or a grandfathered shop) is its own state, branded by the plan.
-    '!tierOk || !verified || eventPricePhp == null ?',
     "included && !cycleActive && orderState !== 'active' ?",
     'lock="boothBranding"',
   ]) {
     assert.ok(section.includes(state), `state branch present: ${state}`);
   }
-  // ⚖ specs 66ae2cce: a Plus shop never meets the buy form — the section's floor is Pro, on the effective plan.
-  assert.ok(section.includes('isTierAtLeast(planTier, PRO_TOOLS_MIN_TIER)'), 'the section floor is Pro and up');
-  assert.ok(section.includes('resolveVendorTier(supabase, vendorProfileId)'), 'the section reads the effective plan');
-  assert.ok(section.includes('line={`Included in ${planWord(PRO_TOOLS_MIN_TIER)} · Upgrade`}'), 'below Pro the lock says "Included in Pro · Upgrade" (66ae2cce)');
+  // 🧰 Owner a02673ac (23 Nov): the branded booth is the 3D plan widget — bought in the Toolkit AND on Plus, Pro or
+  // Ultra, read with the Toolkit's own status (`readPaidWidgetStatus` → `toolStatus`). The per-event buy is not offered.
+  assert.ok(section.includes("readPaidWidgetStatus(admin, vendorProfileId, 'plan_3d')"), 'the section reads the 3D plan widget');
+  assert.ok(section.includes("kind: 'widget'"), 'the lock is the paid-widget lock (Toolkit page or plans door)');
+  assert.ok(!section.includes('<BoothEventBuyForm'), 'the retired per-event buy is offered again');
   assert.ok(!section.includes('BOOTH_BRANDING_MIN_TIER'), 'the section is back on the Plus floor');
   assert.ok(section.includes('fetchVendorBoothEventOrderState(admin, vendorProfileId, eventId)'), 'order state read with ADMIN — a teammate\'s order has another user_id');
-  assert.ok(section.includes('<BoothEventBuyForm eventId={eventId} pricePhp={eventPricePhp} openRails={openRails} />'), 'the buy form is reached only in the buyable state');
 });
 
 test('CHAT-30 · an unpriced per-event booth is said plainly — never a "temporarily unavailable" notice', () => {
   const section = read(SECTION);
   assert.ok(!/temporarily unavailable/i.test(section), 'the broken notice is back on a client’s Details');
-  assert.ok(section.includes('eventPricePhp == null'), 'the unpriced state is still drawn');
 });

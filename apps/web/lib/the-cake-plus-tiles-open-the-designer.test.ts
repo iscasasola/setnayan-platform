@@ -26,7 +26,7 @@ test('each side’s ＋ asks for its own cake tile', () => {
   // Since the ＋ FINAL tray (#8132): an unverified shop has every tile locked, so it is not handed the cake tile either.
   assert.match(
     SHEET,
-    /<ToolsSheetButton rows=\{rows\} sheetMark="vendor" threadId=\{threadId\} cake=\{verified === false \? undefined : 'vendor'\} unverified=\{verified === false\} \/>/,
+    /<ToolsSheetButton rows=\{rows\} sheetMark="vendor" threadId=\{threadId\} cake=\{verified === false \? undefined : 'vendor'\} unverified=\{verified === false\} share=\{share\} \/>/,
     'the supplier’s ＋ draws no cake tile',
   );
   assert.match(SHEET, /const cakeOn = useCakeTile\(cake \? threadId : undefined, cake \?\? 'couple'\)/);

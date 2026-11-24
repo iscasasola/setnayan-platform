@@ -5,6 +5,8 @@ import type { RowActionState } from '@/app/admin/pricing/actions';
 import { formatCount } from '@/lib/format-number';
 import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { TEMPLATE_SUBLINE, TemplateSection } from '@/app/_components/template-rows';
 import { RefreshCw, Save } from 'lucide-react';
 
 export type PapicTypeSizingRow = {
@@ -63,32 +65,34 @@ export function PapicTypeSizingEditor({
   const learnedCount = rows.filter((r) => r.inForceSource === 'learned').length;
 
   return (
-    <section className="mt-10">
-      <h2 className="mb-1 text-base font-semibold tracking-tight">
-        Credits recommended, by kind of event
-      </h2>
-      <p className="mb-4 max-w-prose text-sm leading-relaxed text-ink/60">
-        What we tell a couple their event is likely to want:{' '}
-        <span className="font-mono text-[13px]">guests × per head</span>, held between the
-        least and the most. A wedding and a christening are not the same job, so they do
-        not carry the same number.
-      </p>
-
-      <div className="mb-5 rounded-2xl border border-ink/10 bg-ink/[0.02] p-4">
+    <TemplateSection
+      label="Credits recommended, by kind of event"
+      tip={
+        <>
+          What we tell a couple their event is likely to want: <span>guests × per head</span>, held
+          between the least and the most. A wedding and a christening are not the same job, so they
+          do not carry the same number.
+        </>
+      }
+    >
+      {/* 📐 Clean port (19 Nov): the lede and the learning note went behind ⓘs; the box is one frame. */}
+      <div className={`${ADMIN_FRAME} mb-5 p-4`}>
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[15px] font-semibold">
-              {learnedCount === 0
-                ? 'Every figure here is yours'
-                : `${formatCount(learnedCount)} figure${learnedCount === 1 ? ' is' : 's are'} learned`}
-            </p>
-            <p className="mt-0.5 max-w-prose text-[13px] leading-relaxed text-ink/60">
+          <div className="min-w-0 text-[15px] font-semibold">
+            <InfoTip
+              label={
+                learnedCount === 0
+                  ? 'Every figure here is yours'
+                  : `${formatCount(learnedCount)} figure${learnedCount === 1 ? ' is' : 's are'} learned`
+              }
+              align="start"
+            >
               A figure is only learned from events that have <em>finished</em> shooting{' '}
               <em>and did not run out of credits</em> — an event that spent everything it had
               tells us it wanted <em>at least</em> that much, never that it wanted exactly
               that much. Those can raise a number; they can never lower one. Nothing here
               recomputes on its own.
-            </p>
+            </InfoTip>
           </div>
           <form action={recompute}>
             <ActionButton tone="neutral" type="submit" disabled={recomputing} className="shrink-0" icon={<RefreshCw aria-hidden strokeWidth={1.9} />} label={recomputing ? 'Recomputing…' : 'Recompute from finished events'} />
@@ -103,12 +107,12 @@ export function PapicTypeSizingEditor({
         ) : null}
       </div>
 
-      <div className={`${ADMIN_FRAME} divide-y divide-ink/10 overflow-hidden`}>
+      <div className={`${ADMIN_FRAME} divide-y divide-[color:var(--sn-divider)] overflow-hidden`}>
         {rows.map((row) => (
           <TypeRow key={row.eventType} row={row} saveAction={saveAction} />
         ))}
       </div>
-    </section>
+    </TemplateSection>
   );
 }
 
@@ -128,7 +132,7 @@ function TypeRow({
 
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-[15px] font-semibold text-ink">{row.label}</p>
-        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/55">
+        <p className={TEMPLATE_SUBLINE}>
           {/* THE ANSWER TO "what is a couple actually told", first. */}
           {row.inForce} a head ·{' '}
           <span className={learned ? 'text-mulberry-600' : 'text-ink/55'}>
@@ -149,7 +153,7 @@ function TypeRow({
         <ActionButton tone="neutral" type="submit" disabled={saving} icon={<Save aria-hidden strokeWidth={1.9} />} label={saving ? 'Saving…' : 'Save'} />
       </div>
 
-      <p className="text-[12.5px] leading-relaxed text-ink/55">
+      <div className={TEMPLATE_SUBLINE}>
         {learned ? (
           <>
             Quoting <span className="font-medium text-ink/75">{row.learnedPerGuest}</span> a head,
@@ -163,7 +167,7 @@ function TypeRow({
         ) : (
           <>{row.candidateReason}</>
         )}
-      </p>
+      </div>
 
       {state.message ? (
         <p className={`text-[13px] ${state.ok ? 'text-ink/70' : 'text-danger-900'}`}>
@@ -187,16 +191,14 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="block font-mono text-[10px] uppercase tracking-[0.14em] text-ink/50">
-        {label}
-      </span>
+      <span className={`block ${TEMPLATE_SUBLINE}`}>{label}</span>
       <input
         type="number"
         name={name}
         min={0}
         step={1}
         defaultValue={defaultValue}
-        className="mt-1 w-28 rounded-lg border border-ink/15 px-2.5 py-1.5 text-sm"
+        className="input-field mt-1 h-9 w-28 text-sm"
       />
       {hint ? <span className="mt-0.5 block text-[11px] text-ink/45">{hint}</span> : null}
     </label>

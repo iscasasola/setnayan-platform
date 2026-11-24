@@ -22,19 +22,27 @@ import { ArrowRight } from 'lucide-react';
 import { SupplierFrontPage } from '@/app/for-suppliers/_components/supplier-front-page';
 import { growSpec } from '@/app/for-suppliers/_components/supplier-front-data';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
-import { getCustomerSkuPrice, getVendorPrices } from '@/lib/v2-catalog';
+import { fetchV2CustomerCatalog, getVendorPrices } from '@/lib/v2-catalog';
+import { fetchShopGiftBundles, fetchShopGiftPacks } from '@/lib/shop-gifts.server';
+import { planCreditsFrom } from '@/lib/event-plans';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { supplierCommissionPromise, supplierCommissionShort } from '@/lib/commission-promise';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { readSpecialToolsPaidFrom } from '@/lib/special-tools.server';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
+
+/** The service-role client, or null where it cannot be made (a build with no key): every read then says "couldn't read". */
+function createAdminClientOrNull() {
+  try {
+    return createAdminClient();
+  } catch {
+    return null;
+  }
+}
 
 type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
-
-/** The gift the "How Setnayan earns" row prices from — the smallest single gift a supplier can give (owner, 16 Nov). */
-const GIFT_FROM_SKU = 'PAPIC_GUEST_150';
 
 const HEADLINE = 'Run the business you already have.';
 
@@ -66,9 +74,9 @@ export async function generateMetadata() {
   const [p, fee] = await Promise.all([getVendorPrices(), getLiveBookingFeeSchedule()]);
   const all = ['solo', 'pro', 'enterprise'] as const;
   const allLine = tierPriceCopy(p, all);
-  const title = `Setnayan for Suppliers · ${HEADLINE}${allLine ? ` · ${allLine} / 28d` : ''}`;
-  const perBlock = tierPriceCopy(p, all, '/28d');
-  const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], '/28d');
+  const title = `Setnayan for Suppliers · ${HEADLINE}${allLine ? ` · ${allLine} ${PLAN_PERIOD.slash}` : ''}`;
+  const perBlock = tierPriceCopy(p, all, PLAN_PERIOD.slash);
+  const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], PLAN_PERIOD.slash);
   return {
     title,
     description: `Your clients, quotes and dates. One free place. Free to start, free to stay. ${supplierCommissionShort(fee)} — your booking is free when you bring the event first.${perBlock ? ` ${perBlock}.` : ''}`,
@@ -85,7 +93,7 @@ export async function generateMetadata() {
       images: BRAND_TWITTER_IMAGES,
       card: 'summary_large_image',
       title,
-      description: `${HEADLINE} ${supplierCommissionShort(fee)}.${allLine ? ` ${allLine}/28d.` : ''}`,
+      description: `${HEADLINE} ${supplierCommissionShort(fee)}.${allLine ? ` ${allLine} ${PLAN_PERIOD.slash}.` : ''}`,
     },
   };
 }
@@ -118,8 +126,8 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
             '@type': 'UnitPriceSpecification',
             price: String(price),
             priceCurrency: 'PHP',
-            billingDuration: 'P28D',
-            unitText: '28-DAY BLOCK',
+            billingDuration: PLAN_PERIOD.isoDuration,
+            unitText: PLAN_PERIOD.unitText,
           },
           availability: 'https://schema.org/InStock',
           seller: { '@id': `${SITE_URL}/#organization` },
@@ -141,7 +149,7 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
         '@type': 'WebPage',
         '@id': `${SITE_URL}/for-suppliers#webpage`,
         url: `${SITE_URL}/for-suppliers`,
-        name: `Setnayan for suppliers · ${HEADLINE}${allLine ? ` · ${allLine} / 28d` : ''}`,
+        name: `Setnayan for suppliers · ${HEADLINE}${allLine ? ` · ${allLine} ${PLAN_PERIOD.slash}` : ''}`,
         isPartOf: { '@id': `${SITE_URL}/#website` },
         about: { '@id': `${SITE_URL}/#organization` },
         audience: {
@@ -152,23 +160,23 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
       },
       offer(
         'solo-vendor-subscription',
-        'Plus (28-day prepaid block)',
+        'Plus (monthly plan)',
         // Lane J: the plan's caps, read (this said "1 marketplace category · solo operator" — Supplier Plus is 2 · 1 seat since 4 Nov).
         `${growSpec('solo')}. ${supplierCommissionPromise(fee)}`,
         p.num.soloMonthly,
       ),
       offer(
         'pro-vendor-subscription',
-        'Pro (28-day prepaid block)',
+        'Pro (monthly plan)',
         // Lane J: was "3 marketplace categories · 3 team accounts" — Pro is 8 · 5 since 4 Nov.
-        `${growSpec('pro')}. 28-day prepaid blocks.`,
+        `${growSpec('pro')}. Plans are ${PLAN_PERIOD.billed}.`,
         p.num.proMonthly,
       ),
       offer(
         'enterprise-subscription',
-        'Ultra (28-day prepaid block)',
+        'Ultra (monthly plan)',
         // Lane J: was "All marketplace categories · reach up to 100 km" — Ultra is 15 categories, nationwide, since 4 Nov.
-        `${growSpec('enterprise')}. 28-day prepaid blocks.`,
+        `${growSpec('enterprise')}. Plans are ${PLAN_PERIOD.billed}.`,
         p.num.enterpriseMonthly,
       ),
       {
@@ -184,16 +192,23 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
 }
 
 export default async function ForSuppliersPage() {
-  // 🎁 The lowest single gift's LIST price (owner: Papic 150) for the "How Setnayan earns" gift row — every shop pays the
-  // list price (DECISION_LOG 14 Nov "BUY 10, GET 1 FREE"; 16 Nov 03e465e1). Never the withheld gift column.
-  // 🧰 The special tools' start date, read by the SAME reader the Cake Maker's gate uses (`readSpecialToolsPaidFrom`):
-  // before it the page says the tool is open to every plan; a refused read says nothing either way.
-  const [p, fee, papic150, specialTools] = await Promise.all([
+  // ONE batched read (house G2). 🎁 The gifts a shop can hand a couple — the shop-gift packs on sale (title + LIST price,
+  // `platform_retail_catalog_v2`), then their 10+1 bundles — chained inside the batch; the plans' included Papic
+  // credits from the customer catalogue. A refused read is null and the gift part says so, never ₱0.
+  // 🧰 No special-tools start date any more (owner a02673ac, 23 Nov): a paid widget is bought once in the Toolkit and
+  // works only on a paid plan, so the Toolkit's tags are the one paid list (`PAID_STORE_TOOLS`), with nothing to read.
+  const admin = createAdminClientOrNull();
+  const [p, fee, giftRead, catalog] = await Promise.all([
     getVendorPrices(),
     getLiveBookingFeeSchedule(),
-    getCustomerSkuPrice(GIFT_FROM_SKU),
-    readSpecialToolsPaidFrom(createAdminClient()).catch(() => ({ status: 'unread' as const })),
+    admin
+      ? fetchShopGiftPacks(admin)
+          .then(async (packs) => ({ packs, bundles: packs ? await fetchShopGiftBundles(admin, packs) : null }))
+          .catch(() => ({ packs: null, bundles: null }))
+      : Promise.resolve({ packs: null, bundles: null }),
+    fetchV2CustomerCatalog(),
   ]);
+  const credits = planCreditsFrom(catalog);
   return (
     <>
       <script
@@ -210,9 +225,7 @@ export default async function ForSuppliersPage() {
             seat: p.seat,
             bySku: p.bySku,
           }}
-          giftFrom={papic150 ? `₱${papic150}` : null}
-          specialTools={specialTools}
-          nowMs={Date.now()}
+          gifts={{ packs: giftRead.packs, bundles: giftRead.bundles, credits: { plusCredits: credits.plusCredits, proCredits: credits.proCredits } }}
           paywallOn={isVendorFeatureGateEnabled()}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}
           afterPlans={

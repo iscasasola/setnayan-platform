@@ -23,6 +23,7 @@
 
 import { LOCKED_FIELD_LABEL, isLockedIdentityFieldKey } from '@/lib/vendor-corrections';
 import { SUPPLIER_WORK_REASONS, correctionReasonList, type ReasonList } from '@/lib/admin/supplier-work';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 
 /** The server action a card's buttons post to — mapped to the real function in the drawer, one table. */
 export type CardActionKind =
@@ -171,7 +172,7 @@ const TIER_WORD: Readonly<Record<string, string>> = {
 
 export function tierWords(tier: string | null | undefined, cycle: string | null | undefined): string {
   const t = TIER_WORD[(tier ?? '').toLowerCase()] ?? 'a plan';
-  const c = cycle === 'annual' || cycle === 'yearly' ? ' for a year' : cycle ? ' for 28 days' : '';
+  const c = cycle === 'annual' || cycle === 'yearly' ? ' for a year' : cycle ? ` ${PLAN_PERIOD.forOne}` : '';
   return `${t}${c}`;
 }
 

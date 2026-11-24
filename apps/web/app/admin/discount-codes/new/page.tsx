@@ -88,8 +88,9 @@ export default async function NewDiscountCodePage() {
     max_uses: null,
   };
 
+  // 📐 ADMIN CLEAN PORT (19 Nov 2026): the booking-fees wrapper; the name stays only in the zero-pixel masthead.
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-[760px] space-y-4 px-4 pb-8 pt-2 sm:px-6">
       {/* Breadcrumb back to list */}
       <Link
         href="/admin/studio?tab=discount-codes"

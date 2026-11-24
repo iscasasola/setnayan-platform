@@ -153,6 +153,70 @@ export function termIsTooShort(
 }
 
 /**
+ * 🗓 THE ONE WORDING of a supplier or coordinator plan's billing period. Owner 2026-11-23: *"the plan is not per 4
+ * weeks. it is now monthly"*; and *"the only difference is the extent of the services we provide exclusively for
+ * coordinators"*, so /for-suppliers, /for-coordinators, /pricing, the Plan screen and admin all draw it from here.
+ * Never type "per month" / "4 weeks" / "28 days" beside a plan price; read it from this.
+ */
+export const PLAN_PERIOD = {
+  /** "₱1,990 per month" */
+  per: 'per month',
+  /** "₱1,990 / month" */
+  slash: '/ month',
+  /** "…, every month." */
+  every: 'every month',
+  /** "Every month" — a table row's label. */
+  everyLabel: 'Every month',
+  /** "Plans are billed monthly." */
+  billed: 'billed monthly',
+  /** " · monthly" — beside a plan's name. */
+  adjective: 'monthly',
+  /** "for a month" */
+  forOne: 'for a month',
+  /** The unit, as in "1 month from today". */
+  unit: 'month',
+  /** schema.org UnitPriceSpecification */
+  isoDuration: 'P1M',
+  unitText: 'MONTH',
+} as const;
+
+const MANILA_OFFSET_MS = 8 * 3_600_000; // Manila keeps no daylight saving.
+
+/**
+ * 🗓 The same instant one CALENDAR MONTH on, on the Manila calendar: the picker's copy of SQL
+ * `vendor_plan_term_end(…, 'monthly', …)` (migration 20271360344805; owner 2026-11-23: *"the plan is not per 4
+ * weeks. it is now monthly"*). A day the next month lacks clamps to its last day (Jan 31 → Feb 28, or Feb 29).
+ */
+export function oneCalendarMonthOnMs(nowMs: number): number {
+  const local = new Date(nowMs + MANILA_OFFSET_MS);
+  const y = local.getUTCFullYear();
+  const m = local.getUTCMonth() + 1;
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return (
+    Date.UTC(
+      y,
+      m,
+      Math.min(local.getUTCDate(), lastDay),
+      local.getUTCHours(),
+      local.getUTCMinutes(),
+      local.getUTCSeconds(),
+      local.getUTCMilliseconds(),
+    ) - MANILA_OFFSET_MS
+  );
+}
+
+/**
+ * Is a MONTHLY plan too short to be bought right now? The month-shaped form of `termIsTooShort`: a month started
+ * now would end before the plan already held. Strictly shorter, as above. The database is still the gate.
+ */
+export function monthlyTermIsTooShort(tierExpiresAt: string | null, nowMs: number): boolean {
+  if (!tierExpiresAt) return false;
+  const end = new Date(tierExpiresAt).getTime();
+  if (!Number.isFinite(end) || end <= nowMs) return false; // lapsed or never subscribed — anything goes
+  return oneCalendarMonthOnMs(nowMs) < end;
+}
+
+/**
  * The sentence a shop reads when their choice is too short. Names the DAY and
  * says what to do instead — a refusal that does not give you a way out is just
  * a wall.

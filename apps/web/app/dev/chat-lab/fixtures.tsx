@@ -2,6 +2,7 @@
  * Fixture data for /dev/chat-lab — sample names, nobody real. Shared by the inbox and the thread pages of the lab.
  */
 import type { ChatMessageRow } from '@/lib/chat';
+import { toolApprovalBody, toolShareBody } from '@/lib/chat-tool-share';
 import { threadSupplierName, type CoupleThreadSupplierRow } from '@/lib/chat-supplier-names';
 
 export const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
@@ -13,8 +14,8 @@ export const EVENT_LINE = 'December 18, 2026 · Ana & Miguel';
 /**
  * HIDDEN-SHOP FIXTURES (owner bug 2026-10-28 — a shop the couple's RLS cannot read drew as "Supplier"). Each name is
  * computed by the REAL `threadSupplierName` from the row shape `couple_thread_supplier_names` returns, so the lab draws
- * exactly what production now draws for: a not-yet-verified shop whose name is revealed (it replied/accepted), one
- * still pre-reveal (its screen name, never its business name), and a read that failed (it says so).
+ * exactly what production now draws for: a not-yet-verified shop with its real name (every shop with a business name
+ * since owner ruling 2026-11-16 (15)), one with NO business name on file (its screen name), and a read that failed.
  */
 const hiddenShop = (over: Partial<CoupleThreadSupplierRow>): string =>
   threadSupplierName({
@@ -81,3 +82,19 @@ export const LAB_MESSAGES: ChatMessageRow[] = [
   { ...row(12, 'vendor', '', at(10, 45)), unsent_at: at(10, 46) } as ChatMessageRow,
   row(13, 'couple', 'Can we add a second shooter?', new Date(Date.now() - 60_000).toISOString()),
 ];
+
+/**
+ * 🧰 `?share=1` — the five tool cards a supplier shared ("Share from your tools", DECISION_LOG 2026-11-23 dee66686), the
+ * hosts' OK on the second (the 3D plan), so both faces show: waiting and approved. The words are the shipped ones.
+ */
+export function labToolShareMessages(): ChatMessageRow[] {
+  const t = (m: number) => new Date(Date.now() - (30 - m) * 60_000).toISOString();
+  return [
+    row(101, 'vendor', toolShareBody('cake_tool'), t(1)),
+    row(102, 'vendor', toolShareBody('plan_3d'), t(2)),
+    row(103, 'vendor', toolShareBody('run_of_show'), t(3)),
+    row(104, 'vendor', toolShareBody('emcee_script'), t(4)),
+    row(105, 'vendor', toolShareBody('song_bank'), t(5)),
+    row(106, 'couple', toolApprovalBody('plan_3d'), t(6)),
+  ];
+}

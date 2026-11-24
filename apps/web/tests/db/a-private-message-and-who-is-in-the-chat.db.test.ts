@@ -518,6 +518,10 @@ const AUDITED_DEFINER_READERS: string[] = [
   // shop's own non-bot lines (sender_role · is_bot · created_at) — never body, recipient or attachment; returns
   // timestamps per card; EXECUTE for service_role only (neither browser role). Pinned by service-card-badges.db.test.ts.
   'service_card_badge_facts',
+  // 📦 20271360925434 (the storage meter counts everything): EXECUTE for service_role only (neither browser role).
+  // Sums pg_column_size(t.*) of each counted table's rows per shop — chat_messages among them — into
+  // supplier_storage_records (records_bytes · chat_bytes); returns the number of shops written, never a row or a body.
+  'supplier_storage_measure_records',
   'tg_chat_message_hearts_scope', // copies a heart's thread from its message; returns no body
   'tg_chat_messages_card_names_this_conversation', // validates NEW's card ids; returns no other row
   'tg_chat_messages_group_rules', // 20271340374819: reads NEW's thread kind only; returns no other row
@@ -530,6 +534,9 @@ const AUDITED_DEFINER_READERS: string[] = [
   'unread_message_threads_by_event', // filters recipient_user_id
   'unread_message_threads_by_vendor', // filters recipient_user_id
   'unsend_my_chat_message', // ✏️ 20271354347259: the edit's twin — the caller's own words or voice note; returns thread id + time
+  // 📦 20271360925434: EXECUTE for service_role only. Reads the shop's OWN sent files' attachment_size_bytes and
+  // attachment_mime (sender_role = 'vendor', file still kept) and returns three byte sums — never a body, a recipient or a row.
+  'vendor_storage_files',
 ];
 
 test('no view reads chat_messages', async () => {

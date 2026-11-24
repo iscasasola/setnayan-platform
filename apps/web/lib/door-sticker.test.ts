@@ -18,6 +18,7 @@ import { printBadgesV84, type PrintBadgeArt } from './print-badges-v84';
 import { resolvePrintBadgeArt } from './print-badge-art';
 import { stripComments } from './strip-comments';
 import {
+  DOOR_STICKER_CM,
   DOOR_STICKER_CODES,
   DOOR_STICKER_CODE_LABEL,
   DOOR_STICKER_SIZES,
@@ -41,18 +42,26 @@ test.before(async () => {
 const ORIGIN = 'https://www.setnayan.com';
 const SLUG = 'tita-nenas-catering';
 // 💳 The door sticker is the supplier's own code: ?src=own (owner 2026-11-13, F-W1-58).
-const URLS = { page: ownPageUrl(ORIGIN, SLUG), dates: ownDatesUrl(ORIGIN, SLUG) } as const;
+// 🏷 …and names its piece: via=sticker (owner 2026-11-16).
+const URLS = { page: ownPageUrl(ORIGIN, SLUG, 'sticker'), dates: ownDatesUrl(ORIGIN, SLUG, 'sticker') } as const;
 
-async function scan(svg: string): Promise<string | null> {
-  const { data, info } = await sharp(Buffer.from(svg), { density: 72 }).resize(1000, 1000).flatten({ background: '#ffffff' }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+async function scan(svg: string, px: number): Promise<string | null> {
+  const { data, info } = await sharp(Buffer.from(svg), { density: 72 }).resize(px, px).flatten({ background: '#ffffff' }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   return jsQR(new Uint8ClampedArray(data.buffer, data.byteOffset, data.length), info.width, info.height)?.data ?? null;
 }
+
+// The sticker is rasterised at its REAL size (20 cm door, 40 cm window), at a coarse 100 dpi AND at 150 dpi — both must
+// read back. (Until 2026-11-20 both sizes were squashed into one 1000-px square; with the v84 badge pictures and the
+// 64-character `?src=own&via=sticker` address, jsQR missed the code at exactly 1000 px while 800, 900 and 1100–1300 px
+// and every badge-free render read it — a detector artefact at one scale, not a sticker that fails to scan.)
+const DPI = [100, 150] as const;
+const pxAt = (size: (typeof DOOR_STICKER_SIZES)[number], dpi: number) => Math.round((DOOR_STICKER_CM[size] / 2.54) * dpi);
 
 test('every code × size scans back to the SAME address the QR card shows', async () => {
   for (const code of DOOR_STICKER_CODES) {
     for (const size of DOOR_STICKER_SIZES) {
       const svg = doorStickerSvg({ shopName: 'Tita Nena’s Catering', url: URLS[code], code, size, badges: ARTS });
-      assert.equal(await scan(svg), URLS[code], `${code} · ${size} did not scan to ${URLS[code]}`);
+      for (const dpi of DPI) assert.equal(await scan(svg, pxAt(size, dpi)), URLS[code], `${code} · ${size} @ ${dpi} dpi did not scan to ${URLS[code]}`);
     }
   }
 });
@@ -68,8 +77,8 @@ test('the code is one of the shop’s own — My page or Check a date — named 
   for (const m of SUPPLIER_QR_MODES.filter((m) => m !== 'dates')) assert.equal(doorStickerCodeFor(m), 'page');
   // The route builds the address with the same two helpers the QR card uses — no sticker page.
   const route = stripComments(fs.readFileSync(path.join(__dirname, '../app/api/vendor/door-sticker/route.ts'), 'utf8'));
-  assert.match(route, /ownDatesUrl\(siteOrigin\(\), slug\)/); // 💳 RW-19: the sticker's Check a date code is the supplier's own
-  assert.match(route, /ownPageUrl\(siteOrigin\(\), slug\)/);
+  assert.match(route, /ownDatesUrl\(siteOrigin\(\), slug, 'sticker'\)/); // 💳 RW-19: the sticker's Check a date code is the supplier's own
+  assert.match(route, /ownPageUrl\(siteOrigin\(\), slug, 'sticker'\)/);
   assert.equal(fs.existsSync(path.join(__dirname, '../app/v/[slug]/sticker')), false, 'a sticker must not get its own public page');
 });
 

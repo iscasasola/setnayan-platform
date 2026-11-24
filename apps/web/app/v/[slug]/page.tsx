@@ -16,6 +16,7 @@ import { Suspense } from 'react';
 import { CheckADateLink } from './_components/check-a-date-link';
 import { CheckADateOverShop } from './_components/check-a-date-over-shop';
 import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
+import { readShopSpecialToolOpen } from '@/lib/paid-widget-open.server';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import Image from 'next/image';
@@ -193,6 +194,7 @@ import {
 } from '@/lib/service-card-record';
 import {
   fetchReviewsForVendorWithCouple,
+  reviewIsOwnClient,
   fetchReviewForVendorWithCouple,
   pinReviewFirst,
   fetchReviewStats,
@@ -301,6 +303,8 @@ type Props = {
     utm_campaign?: string;
     utm?: string;
     src?: string;
+    /** 🏷 The material tag (`lib/material-tags.ts`) — which printed piece, sticker or link brought this visit. */
+    via?: string;
     // Creator Economy PR-C — a chapter Book CTA referral (chapter public_id).
     // Server-validated in startServiceInquiry before any attribution stamp.
     ref_chapter?: string;
@@ -1146,7 +1150,9 @@ export async function renderVendorBySlug({
     // `reviewStats` above still backs the per-star histogram bars + the review
     // LIST pagination (`hasMore`), which stay as-is.
     fetchTrustedReviewStats(admin, vendor.vendor_profile_id),
-    fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents] }),
+    // 🛡 Fake proof fixes (owner 2026-11-23, b89e2420 C + D): the PUBLIC read — a held review never lists, and each row
+    // says whether it counts (a booked review that does not wears the supplier's-own-client pill, `reviewIsOwnClient`).
+    fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents], publicOnly: true }),
     fetchVendorServices(admin, vendor.vendor_profile_id),
     // Vendor packages (owner directive 2026-05-22) — bundled multi-category
     // wedding offerings. Public-read via RLS when is_active=TRUE. The fetch
@@ -1551,7 +1557,7 @@ export async function renderVendorBySlug({
   });
 
   // Per-category attribute details + portfolio gallery (iteration 0044).
-  const [attributeDetails, portfolioPhotos, microsite, igMedia, repertoire] = await Promise.all([
+  const [attributeDetails, portfolioPhotos, microsite, igMedia, repertoire, songBankOpen] = await Promise.all([
     fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
     resolvePortfolioPhotos(shopPortfolioKeys(vendor.portfolio_r2_keys, unlistedPageRefs), ownShop),
     // Microsite curation (My Shop → Website editor). Defensive read — an
@@ -1573,6 +1579,12 @@ export async function renderVendorBySlug({
       video with no viewer would have been a gate with no handle.
     */
     fetchVendorSongs(admin, vendor.vendor_profile_id),
+    // 🔒 Song bank is a paid widget (owner via the controller, 23 Nov): the set list shows only while it is open —
+    // bought once in the Toolkit, or in the plan. The Cake Maker's gate. Kept, never deleted, while shut.
+    // Asked only for a music shop — every other page skips the three reads.
+    isMusicToolCategory(vendor.services)
+      ? readShopSpecialToolOpen(admin, vendor.vendor_profile_id, 'song_bank')
+      : Promise.resolve({ status: 'none' } as const),
   ]);
   // ── Tier-gated website features · downgrade REVERTS (owner 2026-07-03) ──────
   // Every premium customization is gated on the vendor's CURRENT tier, mirroring
@@ -1641,6 +1653,8 @@ export async function renderVendorBySlug({
         admin,
         vendor.vendor_profile_id,
         pinnedReviewId,
+        // 🛡 A held review (screener flag not yet dismissed) is never pinned onto the public page either.
+        { publicOnly: true },
       );
       // 💸 A pinned review from an unlisted event (overdue top-up) is not shown either.
       if (pinnedOutsideWindow?.event_id && unlistedEvents.has(pinnedOutsideWindow.event_id)) pinnedOutsideWindow = null;
@@ -1985,7 +1999,9 @@ export async function renderVendorBySlug({
 
   /* 🧭 WHERE THIS VISIT CAME FROM (owner 2026-11-07, "back to suppliers … went to a wrong shell"). Read once; the
      back door at the foot of Inquire and every screen this page opens carry it (lib/shop-back.ts). */
-  const shopArrival = { src: arrivalParams(search).src, eventId: arrivalEventId, q: arrivalParams(search).q, from: arrivalParams(search).from };
+  const arrivalTags = arrivalParams(search);
+  // 🏷 `via` + `utm` ride along too (owner 2026-11-16), so every inner door keeps the piece that brought the visit.
+  const shopArrival = { src: arrivalTags.src, eventId: arrivalEventId, q: arrivalTags.q, from: arrivalTags.from, via: arrivalTags.via, utm: arrivalTags.utm };
   const shopBack = shopBackDoor(shopArrival);
   /*
     💬 THE INQUIRE POP-UP (owner 2026-11-07: "inquire for your event is it should have been a pop up to first ask what
@@ -2040,6 +2056,9 @@ export async function renderVendorBySlug({
   // them"; walk F-W1-58). Every link the supplier hands out carries `?src=own` (`ownPageUrl`) → 'website', their own
   // client, an import. An arrival with NO tag found the shop on Setnayan → 'shop_page', SOURCED. It used to be null,
   // which is an import: a booking made wholly in the app read "This client did not come from Setnayan".
+  // 🔓 Whether an own arrival is really the shop's own client is judged where the money is decided: `startServiceInquiry`
+  // asks `ownLinkArrival` (a VERIFIED shop, any plan, any piece — owner 2026-11-16). The piece (`?via=`) rides along
+  // as `inquiryVia` for the stats only. Here the address alone says what the 13 Nov rule says.
   const arrivalInquirySource = arrivalInquirySourceOf(search.src);
   const arrivalChapter =
     typeof search.ref_chapter === 'string' && search.ref_chapter ? search.ref_chapter : null;
@@ -2439,6 +2458,7 @@ export async function renderVendorBySlug({
           vendorProfileId: viewVendorProfileId,
           source: viewSource,
           utm: utmParam,
+          via: shopArrival.via,
           eventId: viewEventId,
         }, viewCtx),
       );
@@ -3208,7 +3228,7 @@ export async function renderVendorBySlug({
           couple this band plays nothing, which is a claim we cannot make about a
           list the band simply has not filled in yet.
         */}
-        {repertoire.length > 0 && isMusicToolCategory(vendor.services) ? (
+        {repertoire.length > 0 && isMusicToolCategory(vendor.services) && songBankOpen.status === 'ok' && songBankOpen.data ? (
           <section className="space-y-3 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               Songs they play
@@ -3742,6 +3762,7 @@ export async function renderVendorBySlug({
                     <input type="hidden" name="requested_date" value={waitlistDate} />
                     {/* Where this visit came from, so the page the join returns to keeps its back door. */}
                     {shopArrival.src ? <input type="hidden" name="src" value={shopArrival.src} /> : null}
+                    {shopArrival.via ? <input type="hidden" name="via" value={shopArrival.via} /> : null}
                     {shopArrival.eventId ? <input type="hidden" name="event" value={shopArrival.eventId} /> : null}
                     <SubmitButton
                       pendingLabel="Joining…"
@@ -3762,6 +3783,8 @@ export async function renderVendorBySlug({
               signedIn={viewerSignedIn}
               events={inquireEvents}
               inquirySource={arrivalInquirySource}
+              inquiryVia={shopArrival.via}
+              inquiryUtm={shopArrival.utm}
               referringChapterPublicId={arrivalChapter}
             />
           ) : null}
@@ -3879,7 +3902,7 @@ export async function renderVendorBySlug({
             slug={vendor.business_slug ?? slug}
             logoUrl={logoDisplayUrl}
             shopHref={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival)}
-            search={{ d: search.d, s: search.s, step: search.step, src: search.src }}
+            search={{ d: search.d, s: search.s, step: search.step, src: search.src, via: shopArrival.via, utm: shopArrival.utm }}
           />
         </Suspense>
       ) : null}
@@ -4602,7 +4625,7 @@ function ReviewRow({
               came via the vendor's invite QR (import); "Verified wedding" when
               the couple booked on-platform themselves; nothing for off-platform
               bookings with no linked profile. */}
-          {review.via_vendor_import ? (
+          {reviewIsOwnClient(review) ? (
             <VerifiedBookingPill />
           ) : review.booked_through_setnayan ? (
             <VerifiedWeddingPill />
@@ -4663,7 +4686,9 @@ function VerifiedWeddingPill() {
  * "Verified booking" — the vendor brought this couple onto Setnayan via their
  * invite QR (event_vendors.source = 'vendor_invite'). Still a verified,
  * platform-confirmed relationship — just sourced from the vendor's own client
- * rather than on-platform discovery.
+ * rather than on-platform discovery. Since 2026-11-23 (fake proof fixes C) it is
+ * also worn by a booked review whose event was not arm's length: the review
+ * still shows, as the supplier's own client, and does not move the stars.
  */
 function VerifiedBookingPill() {
   return (

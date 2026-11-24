@@ -38,6 +38,28 @@ export function dayOfModuleHref(id: DayOfModuleId, eventId: string): string | nu
     case 'review_qr':
     case 'live_reviews':
       return null; // rendered inline on the floor console
+    // The hub tools (23 Nov) are drawn INLINE on the live console by their template — panels, not destinations.
+    case 'tech_rider':
+    case 'personalisation_list':
+    case 'dietary_and_allergies':
+    case 'quantity_vs_guests':
+    case 'set_list':
+    case 'queue_counter':
+    case 'entourage':
+    case 'paperwork_checklist':
+    case 'load_in_and_venue_access':
+    case 'delivery_and_drop_off':
+    case 'ceremony_details':
+    case 'proofs_and_approval':
+    case 'safety_permit_and_cue':
+    case 'fittings_and_measurements':
+    case 'looks_per_person':
+    case 'crew_roster':
+    case 'room_list':
+    case 'chair_schedule':
+    case 'reservation_slots':
+    case 'brackets_and_scoring':
+      return null;
     case 'vendor_papic':
       // Counsel-gated: callers filter it out unless the capability is live
       // (isVendorPapicCaptureEnabled); the page itself also fail-closes.

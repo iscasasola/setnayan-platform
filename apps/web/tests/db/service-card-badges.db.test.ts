@@ -75,6 +75,12 @@ async function paidBooking(
   source = 'host_marketplace_search',
 ): Promise<{ event: string }> {
   const event = await newEvent();
+  // 🛡 Fake proof fixes (B, owner 2026-11-23): "different couples" are couple ACCOUNTS, so each booking's event carries
+  // its own couple — an event with no couple account counts as no couple.
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'couple')`,
+    [event, await newUser()],
+  );
   // Found on Setnayan (a save from Find) unless the case says otherwise — an import never counts.
   await db.query(
     `INSERT INTO public.event_vendors

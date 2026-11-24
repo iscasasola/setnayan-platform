@@ -6,6 +6,7 @@ import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
 import { maybeRunTopUpUnlist } from '@/lib/booking-fee-top-up.server';
 import { maybeRunSupplierPagePublish } from '@/lib/supplier-page-notice.server';
+import { maybeRunSupplierStorageMeasure } from '@/lib/supplier-storage-measure.server';
 import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
@@ -295,6 +296,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // A supplier's event photo goes on its page once the guests' 7-day notice has passed (owner 2026-10-03) —
   // CRON-FREE, dual-mounted with the supplier layout; hourly claim; never throws.
   after(() => maybeRunSupplierPagePublish().catch(() => {}));
+  // 📏 What every supplier's records weigh, for the storage meter — once a Manila night from 03:00, cron-free (no
+  // pg_cron), dual-mounted with the homepage; the claim keeps it to one run a night. Never throws.
+  after(() => maybeRunSupplierStorageMeasure().catch(() => {}));
   // 💳 BDO matches that happened by themselves (owner 2026-11-17, "Hold 30 min, then pay"): once a hold's
   // 30-minute Undo window is over, the SAME approvePaymentCore a Match press runs. CRON-FREE, 5-min claim.
   after(() => maybeReleaseReceivedHolds(approvePaymentCore).catch(() => {}));

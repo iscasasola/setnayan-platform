@@ -187,6 +187,7 @@ export function ToolRow({
   lead,
   right,
   data,
+  attrs,
 }: {
   title: ReactNode;
   /** Each a line under the name, in order; a falsy entry is skipped. */
@@ -196,9 +197,11 @@ export function ToolRow({
   /** A chip, ONE small button, a figure. */
   right?: ReactNode;
   data?: string;
+  /** Extra `data-*` hooks on the row (the Store's in-place search reads `data-store-*`). */
+  attrs?: Readonly<Record<`data-${string}`, string>>;
 }) {
   return (
-    <li data-tool-row={data ?? ''} className="flex min-h-14 items-center gap-3 py-2.5">
+    <li data-tool-row={data ?? ''} {...attrs} className="flex min-h-14 items-center gap-3 py-2.5">
       {lead ? <span className="flex-none">{lead}</span> : null}
       <span className="flex min-w-0 flex-1 flex-col">
         <b className="block text-[15px] font-semibold leading-tight text-ink [overflow-wrap:anywhere]">{title}</b>

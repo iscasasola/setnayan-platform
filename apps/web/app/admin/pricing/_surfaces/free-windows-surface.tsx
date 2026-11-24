@@ -5,6 +5,10 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { actionButtonClass } from '@/components/action-button-class';
+import { TemplateEmpty, TemplateRows, TemplateSection } from '@/app/_components/template-rows';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { FieldPick } from '@/app/admin/_components/field-pick';
 import { ReadFailed } from '../../_components/read-failed';
 import {
   fetchV2CustomerCatalog,
@@ -131,7 +135,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
   const flagOn = isPromoFreeWindowsEnabled();
 
   return (
-    <div className="mx-auto w-full max-w-4xl">
+    <div>
       {/* The tab strip already says "Free windows", with the same Gift icon.
           The name stays in the document at zero pixels.
           ⚖ The sentence survives whole. This screen gives a paid product away
@@ -139,71 +143,89 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
           already bought it — is the part an operator most needs before
           pressing anything here. */}
       <PageMasthead title="Free windows" />
-      <p className="mb-6 text-sm text-ink/70">
-        Schedule an announcement that makes services <strong>free during a date
-        range</strong> — pick services for <strong>couples</strong>, or a paid
-        tier for <strong>suppliers</strong>. While it&rsquo;s live the freebie shows
-        as included (no code, no checkout) and a banner tells them about it. When
-        the window ends, it reverts to paid unless they already bought it.
-      </p>
-
+      {/* 📐 Clean port (19 Nov): the sentence moved whole behind the first section's ⓘ. The master-switch line stays
+          visible — it is a state, not an explanation — as plain coloured words, no box. */}
+      <TemplateSection
+        first
+        label="Master switch"
+        tip={
+          <>
+            Schedule an announcement that makes services <strong>free during a date
+            range</strong> — pick services for <strong>couples</strong>, or a paid
+            tier for <strong>suppliers</strong>. While it&rsquo;s live the freebie shows
+            as included (no code, no checkout) and a banner tells them about it. When
+            the window ends, it reverts to paid unless they already bought it.
+          </>
+        }
+      >
       {/* Master-switch status */}
       {flagOn ? (
-        <p className="mb-5 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+        <div className="mb-3 flex items-center gap-2 py-1 text-sm" style={{ color: 'rgb(var(--color-ok))' }}>
           <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={1.75} />
           <span>
             Master switch <code>PROMO_FREE_WINDOWS_ENABLED</code> is{' '}
             <strong>ON</strong> — any live window below is freeing its services
             right now.
           </span>
-        </p>
+        </div>
       ) : (
-        <p className="mb-5 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <div className="mb-3 flex items-center gap-2 py-1 text-sm" style={{ color: 'rgb(var(--color-warn))' }}>
           <AlertTriangle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
           <span>
             Master switch <code>PROMO_FREE_WINDOWS_ENABLED</code> is{' '}
             <strong>OFF</strong> — you can author windows now, but nothing is
             freed and no banner shows until it&rsquo;s set to <code>true</code>.
           </span>
-        </p>
+        </div>
       )}
 
       {/* Flash banners */}
       {sp.created && (
-        <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+        <p className="mb-2 text-sm" style={{ color: 'rgb(var(--color-ok))' }}>
           Free window created.
         </p>
       )}
       {sp.saved && (
-        <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+        <p className="mb-2 text-sm" style={{ color: 'rgb(var(--color-ok))' }}>
           Updated.
         </p>
       )}
       {sp.deleted && (
-        <p className="mb-4 rounded-md border border-ink/15 bg-ink/[0.03] px-3 py-2 text-sm text-ink/70">
+        <p className="mb-2 text-sm text-ink/70">
           Free window deleted.
         </p>
       )}
       {sp.createError && (
-        <p className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+        <p className="mb-2 text-sm" style={{ color: 'rgb(var(--color-danger))' }}>
           {FREE_WINDOW_CREATE_ERROR_COPY[sp.createError] ?? 'Could not create the free window.'}
         </p>
       )}
       {sp.error && (
-        <p className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+        <p className="mb-2 text-sm" style={{ color: 'rgb(var(--color-danger))' }}>
           Something went wrong. Please try again.
         </p>
       )}
 
+      </TemplateSection>
+
       {/* Create form */}
+      <TemplateSection
+        label="New free window · for couples"
+        tip={
+          <>
+            Leave both blank to free these services for <strong>any event</strong>
+            (unchanged). Set one or both to restrict the freebie to couples whose
+            event date falls in that range — inclusive; use the same date in both
+            fields for one specific date. An event with no locked date yet does
+            not qualify for a date-restricted window.
+          </>
+        }
+      >
       <form
         action={createFreeWindow}
-        className="sn-tile mb-6 space-y-4 !p-5"
+        className={`${ADMIN_FRAME} space-y-4 p-5`}
       >
         <input type="hidden" name="audience_type" value="all_couples" />
-        <h2 className="text-sm font-semibold text-ink">
-          New free window · <span className="text-ink/60">for couples</span>
-        </h2>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">
@@ -273,13 +295,6 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
             />
           </label>
         </div>
-        <p className="-mt-2 text-xs text-ink/50">
-          Leave both blank to free these services for <strong>any event</strong>
-          (unchanged). Set one or both to restrict the freebie to couples whose
-          event date falls in that range — inclusive; use the same date in both
-          fields for one specific date. An event with no locked date yet does
-          not qualify for a date-restricted window.
-        </p>
 
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-ink/80">
@@ -305,7 +320,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
                   <span className="min-w-0 flex-1 truncate text-ink">
                     {s.title}
                   </span>
-                  <span className="shrink-0 font-mono text-[11px] text-ink/50">
+                  <span className="shrink-0 text-[12px] tabular-nums text-ink/50">
                     ₱{formatPeso(s.retail_price_php)}
                   </span>
                 </label>
@@ -339,20 +354,19 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
         </label>
 
         <div className="flex items-center gap-3 pt-1">
-          <SubmitButton className="button-primary text-sm" pendingLabel="Creating…">
+          <SubmitButton className={actionButtonClass('brand', { main: true })} pendingLabel="Creating…">
             Create couple free window
           </SubmitButton>
           <span className="text-xs text-ink/50">Audience: all couples.</span>
         </div>
       </form>
+      </TemplateSection>
 
       {/* Create form — vendors */}
-      <form action={createFreeWindow} className="sn-tile mb-8 space-y-4 !p-5">
-        <input type="hidden" name="audience_type" value="all_vendors" />
-        <h2 className="text-sm font-semibold text-ink">
-          New free window · <span className="text-ink/60">for suppliers</span>
-        </h2>
-        <p className="text-xs text-ink/55">
+      <TemplateSection
+        label="New free window · for suppliers"
+        tip={
+          <>
           Gives <strong>every verified supplier</strong> a paid tier&rsquo;s features for
           free during the window (a tier upgrade, not a ₱0 plan). Reverts when it
           ends. Unverified and pending suppliers get nothing. For a deal aimed at
@@ -361,7 +375,11 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
           <Link href="/admin/gifts" className="underline underline-offset-2">Gifts</Link>.
           Note: while paid supplier billing is still off for launch, all suppliers
           already have every feature — this only bites once paid tiers go live.
-        </p>
+          </>
+        }
+      >
+      <form action={createFreeWindow} className={`${ADMIN_FRAME} space-y-4 p-5`}>
+        <input type="hidden" name="audience_type" value="all_vendors" />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">
@@ -378,11 +396,18 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
             <span className="mb-1 block font-medium text-ink/80">
               Give suppliers this tier
             </span>
-            <select name="promoted_vendor_tier" required className="input-field w-full">
-              <option value="solo">Plus</option>
-              <option value="pro">Pro</option>
-              <option value="enterprise">Ultra</option>
-            </select>
+            <FieldPick
+              name="promoted_vendor_tier"
+              required
+              label="Give suppliers this tier"
+              defaultValue="solo"
+              className="min-h-11 w-full"
+              options={[
+                { key: 'solo', label: 'Plus' },
+                { key: 'pro', label: 'Pro' },
+                { key: 'enterprise', label: 'Ultra' },
+              ]}
+            />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-ink/80">
@@ -434,30 +459,29 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
         </label>
 
         <div className="flex items-center gap-3 pt-1">
-          <SubmitButton className="button-primary text-sm" pendingLabel="Creating…">
+          <SubmitButton className={actionButtonClass('brand', { main: true })} pendingLabel="Creating…">
             Create supplier free window
           </SubmitButton>
           <span className="text-xs text-ink/50">Audience: all verified suppliers.</span>
         </div>
       </form>
+      </TemplateSection>
 
       {/* Existing windows */}
-      <h2 className="mb-3 text-sm font-semibold text-ink">Scheduled &amp; past windows</h2>
+      <TemplateSection label="Scheduled & past windows">
       {error ? (
         // 🔑 "No free windows yet" over a refused read invites a SECOND live
         // freebie on top of one that is already running.
         <ReadFailed what="the scheduled windows — don’t create a new one until this loads" />
       ) : rows.length === 0 ? (
-        <p className="sn-tile !p-5 text-sm text-ink/55">
-          No free windows yet. Create one above.
-        </p>
+        <TemplateEmpty data="free-windows">No free windows yet. Create one above.</TemplateEmpty>
       ) : (
-        <ul className="space-y-3">
+        <TemplateRows label="Scheduled & past windows">
           {rows.map((row) => {
             const status = statusOf(row, now);
             const style = STATUS_STYLE[status];
             return (
-              <li key={row.promo_window_id} className="sn-tile !p-4">
+              <li key={row.promo_window_id} className="py-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -471,7 +495,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
                     {row.blurb ? (
                       <p className="mt-1 text-sm text-ink/70">{row.blurb}</p>
                     ) : null}
-                    <p className="mt-1 text-xs text-ink/55">
+                    <div className="mt-1 text-xs text-ink/55">
                       {fmtDateTime(row.starts_at)} → {fmtDateTime(row.ends_at)}
                       {' · '}
                       {AUDIENCE_LABEL[row.audience_type] ?? row.audience_type}
@@ -488,7 +512,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
                             : ` · only for events dated through ${fmtDay(row.event_date_to!)}`
                         : ''}
                       {row.show_banner ? ' · banner on' : ' · banner off'}
-                    </p>
+                    </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {isVendorDealAudience(row.audience_type) ? (
                         <span className="inline-flex rounded-md bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium capitalize text-terracotta-700">
@@ -519,7 +543,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
                         value={row.is_active ? 'false' : 'true'}
                       />
                       <SubmitButton
-                        className="button-secondary text-xs"
+                        className={actionButtonClass('neutral')}
                         pendingLabel="…"
                       >
                         {row.is_active ? 'Deactivate' : 'Activate'}
@@ -532,7 +556,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
                         value={row.promo_window_id}
                       />
                       <SubmitButton
-                        className="text-xs text-rose-700 underline underline-offset-2 hover:text-rose-900"
+                        className={actionButtonClass('danger', { quiet: true })}
                         pendingLabel="…"
                       >
                         Delete
@@ -543,8 +567,9 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
               </li>
             );
           })}
-        </ul>
+        </TemplateRows>
       )}
+      </TemplateSection>
     </div>
   );
 }

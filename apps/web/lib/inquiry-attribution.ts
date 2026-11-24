@@ -165,9 +165,14 @@ export async function stampThreadProvenance(
     referringChapterId?: string | null;
     inquirySource?: string | null;
     isReturning?: boolean;
+    /** 🏷 The material tag + campaign tags of the arrival (owner 2026-11-16) — already validated by the caller. */
+    via?: string | null;
+    utm?: string | null;
   },
 ): Promise<void> {
   const patch: Record<string, unknown> = {};
+  if (provenance.via) patch.inquiry_via = provenance.via;
+  if (provenance.utm) patch.inquiry_utm = provenance.utm;
   if (provenance.referringChapterId) {
     patch.referring_chapter_id = provenance.referringChapterId;
   }

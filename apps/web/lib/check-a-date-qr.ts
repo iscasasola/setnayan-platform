@@ -12,7 +12,7 @@ import { ownDatesUrl } from '@/lib/supplier-qr-codes';
  * rasterises it and scans it back with `jsqr` to the exact address.
  */
 export async function checkADateQr(slug: string, origin: string = siteOrigin()): Promise<{ url: string; svg: string | null }> {
-  const url = ownDatesUrl(origin, slug); // 💳 RW-19: the supplier's own code → ?src=own
+  const url = ownDatesUrl(origin, slug, 'link'); // 💳 RW-19: the supplier's own code → ?src=own · 🏷 on screen: via=link
   const svg = await renderUrlQrSvg(url, 220).catch(() => null);
   return { url, svg };
 }

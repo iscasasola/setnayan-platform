@@ -325,8 +325,11 @@ test('5ae3fbb2 · the live count per shelf, from the one Toolkit list — a fail
   // Both surfaces read the ONE function — never a typed number.
   const screens = readFileSync(join(WEB, 'app/vendor-dashboard/shop/store/_components/store-screens.tsx'), 'utf8');
   assert.match(screens, /const counts = toolkitCounts\(d\.badges\);/);
+  // /for-suppliers (the 23 Nov redesign, v4.3.1) draws the count as its Toolkit shelves; the shelves read the one function.
+  const frontData = readFileSync(join(WEB, 'app/for-suppliers/_components/supplier-front-data.ts'), 'utf8');
+  assert.match(frontData, /const counts = toolkitCounts\(SHOP_BADGE_KEYS\);/);
   const front = readFileSync(join(WEB, 'app/for-suppliers/_components/supplier-front-page.tsx'), 'utf8');
-  assert.match(front, /toolkitCountWords\(toolkitCounts\(SHOP_BADGE_KEYS\)\)/);
+  assert.match(front, /const shelves = toolkitShelves\(\);/);
 });
 
 test('4c07edd7 · a paid widget’s clip sits at the top of its Toolkit page and draws nothing until it is recorded', () => {

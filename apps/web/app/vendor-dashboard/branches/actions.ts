@@ -110,7 +110,7 @@ async function requireBranchManager(opts: { buying: boolean } = { buying: true }
   // ones · renewBranch): ULTRA ONLY, ALWAYS, whatever the switch says (owner 2026-11-05, "Ultra only, always").
   // Cancelling a branch a shop already holds is not a purchase and stays open to it (`buying: false`).
   if (opts.buying && vendorPaywallApplies(planHasBranches(tier))) {
-    return { error: err(`Branches come with Supplier Pro and ${TIER_LABEL.enterprise}. Pick one on the Plans page to add a branch.`) };
+    return { error: err(`Branches come with ${TIER_LABEL.pro} and ${TIER_LABEL.enterprise}. Pick one on the Plans page to add a branch.`) };
   }
 
   return { supabase, userId: user.id, vendorProfileId: profile.vendor_profile_id, tier };

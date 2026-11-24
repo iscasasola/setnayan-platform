@@ -7163,6 +7163,9 @@
         "markAllNotificationsRead",
         "markNotificationRead",
         "removeBrandIcon",
+        "routes.vendorDashboard.deepSearch",
+        "routes.vendorDashboard.profile",
+        "routes.vendorDashboard.subscription",
         "saveAdminDigest",
         "saveBusinessIdentity",
         "saveLoaderAppearance",
@@ -18213,19 +18216,20 @@
       ],
       "destinations": [],
       "actions": [
-        "formAction"
+        "formAction",
+        "routes.vendorDashboard.deepSearch",
+        "routes.vendorDashboard.profile",
+        "routes.vendorDashboard.subscription"
       ],
       "blocks": [
+        "ActionButton",
         "Badge",
         "DeepSearchRunner",
         "DossierView",
         "ListPageSkeleton",
         "PageMasthead",
-        "PaidMark",
-        "PaymentsPausedNote",
         "Section",
         "SharePdfButton",
-        "SubmitButton",
         "VendorDeepSearchActionState"
       ]
     },
@@ -19283,10 +19287,10 @@
         "vendor-dashboard/profile/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/deep-search",
         "/vendor-dashboard/website"
       ],
       "actions": [
+        "routes.vendorDashboard.deepSearch",
         "updateBusinessStartDate"
       ],
       "blocks": [
@@ -20515,7 +20519,6 @@
       ],
       "destinations": [
         "/vendor-dashboard/collections",
-        "/vendor-dashboard/deep-search",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/profile",
         "/vendor-dashboard/team"
@@ -20526,6 +20529,7 @@
         "formAction",
         "routes.privacy",
         "routes.terms",
+        "routes.vendorDashboard.deepSearch",
         "startSubscriptionPurchase"
       ],
       "blocks": [

@@ -16,7 +16,33 @@ import type { Song } from '@/lib/songs';
 const uuid = () => crypto.randomUUID();
 const e = (label: string, over: Partial<HubToolEntry> = {}): HubToolEntry => ({ id: uuid(), label, note: '', done: false, qty: 0, ...over });
 
-export type LabState = 'band' | 'caterer' | 'souvenirs' | 'empty' | 'unread' | 'not-food';
+export type LabState = 'band' | 'caterer' | 'souvenirs' | 'empty' | 'unread' | 'not-food' | 'rest' | 'rest-empty' | 'rest-unread';
+
+/** The free rest · part 1 (24 Nov): three checklists, four per-person sheets, three ordered lists. */
+const REST: DayOfModuleId[] = [
+  'ceremony_details',
+  'proofs_and_approval',
+  'safety_permit_and_cue',
+  'fittings_and_measurements',
+  'looks_per_person',
+  'crew_roster',
+  'room_list',
+  'chair_schedule',
+  'reservation_slots',
+  'brackets_and_scoring',
+];
+const REST_ROWS: Record<string, HubToolEntry[]> = {
+  ceremony_details: [e('Mass at 3:00 PM', { done: true }), e('Principal sponsors confirmed', { done: true }), e('First reading · Tita Lorna'), e('Banns posted')],
+  proofs_and_approval: [e('Invitation proof 1', { done: true }), e('Invitation proof 2'), e('Menu card proof')],
+  safety_permit_and_cue: [e('Fire permit in hand', { done: true }), e('Safe zone marked · 30 m'), e('Go cue · after the first dance')],
+  fittings_and_measurements: [e('Maria Reyes', { note: 'Size M · fitting 2 of 3', done: true }), e('Jose Santos', { note: '40R · 12 Dec' }), e('Ana Cruz', { note: 'Size S · final fitting' })],
+  looks_per_person: [e('Claire Santos', { note: 'Soft glam · bride', done: true }), e('Lea Lim', { note: 'Natural' }), e('Ana Cruz', { note: 'Soft glam' })],
+  crew_roster: [e('Paolo Dizon', { note: 'Lead · 2:00 PM · chicken', done: true }), e('Jun Reyes', { note: 'Assist · 3:00 PM' })],
+  room_list: [e('Claire & Indalecio', { note: 'Suite 1201', done: true }), e('Maria Reyes', { note: '1202' }), e('Jose Santos', { note: '1203' })],
+  chair_schedule: [e('Claire Santos', { note: '6:00 AM' }), e('Maria Reyes', { note: '7:00 AM' }), e('Ana Cruz', { note: '7:45 AM' }), e('Lea Lim', { note: '8:30 AM' })],
+  reservation_slots: [e('2:00 PM · Santos', { note: '6 people' }), e('3:00 PM · Reyes', { note: '4 people' }), e('4:30 PM · Cruz', { note: '8 people' })],
+  brackets_and_scoring: [e('Team Reyes', { note: 'Group A', qty: 12 }), e('Team Santos', { note: 'Group A', qty: 9 }), e('Team Cruz', { note: 'Group B', qty: 7 })],
+};
 
 const REPERTOIRE: Song[] = [
   { song_id: 1, title: 'Canon in D', artist: 'Pachelbel' },
@@ -57,9 +83,21 @@ const MODULES: Record<LabState, DayOfModuleId[]> = {
   empty: ['tech_rider', 'personalisation_list', 'quantity_vs_guests'],
   unread: ['tech_rider', 'personalisation_list', 'dietary_and_allergies', 'quantity_vs_guests', 'set_list'],
   'not-food': ['dietary_and_allergies'],
+  rest: REST,
+  'rest-empty': REST,
+  'rest-unread': REST,
 };
 
 function readsFor(state: LabState): HubToolReads {
+  if (state === 'rest' || state === 'rest-empty' || state === 'rest-unread') {
+    const entries = new Map(
+      REST.map((k) => [
+        k as string,
+        state === 'rest-unread' ? { state: 'unread' as const } : { state: 'ok' as const, entries: state === 'rest' ? REST_ROWS[k] ?? [] : [] },
+      ]),
+    );
+    return { entries, dietary: null, setList: null };
+  }
   if (state === 'unread') {
     const u = { state: 'unread' as const };
     return { entries: new Map([['tech_rider', u], ['personalisation_list', u], ['quantity_vs_guests', u]]), dietary: u, setList: u };

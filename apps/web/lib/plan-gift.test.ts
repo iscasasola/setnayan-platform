@@ -12,7 +12,6 @@ import {
   planGiftOf,
   portfolioPlanRowLine,
 } from './plan-gift';
-import { portfolioPhotoCap, portfolioOverCapMessage, PORTFOLIO_FREE_BASE, PORTFOLIO_OVER_BASE_MESSAGE } from './vendor-tier-caps';
 
 const END = '2027-01-31T15:59:59.000Z'; // 31 Jan 2027, 23:59:59 Manila
 const NOW_EARLY = Date.parse('2026-11-01T00:00:00Z');
@@ -43,29 +42,9 @@ test('Your plan: the gift in place of a price, and the end once it is over', () 
   assert.equal(giftEndedLine('Pro', '2027-01-31'), 'your Pro gift ended 31 Jan 2027');
 });
 
-test('the 100 photos are the shop’s, not the plan’s — the cap holds after the plan is Free', () => {
-  assert.equal(portfolioPhotoCap('free', null), PORTFOLIO_FREE_BASE);
-  // Paid plans have no photo cap since 2026-11-22 ("FINAL LADDER"): storage is their only ceiling.
-  assert.equal(portfolioPhotoCap('pro', 100), Infinity);
-  assert.equal(portfolioPhotoCap('free', 100), 100, 'the gift ended and took the photos with it');
-  assert.equal(portfolioPhotoCap('free', 10), PORTFOLIO_FREE_BASE, 'an allowance never lowers the base');
-  assert.equal(portfolioOverCapMessage(PORTFOLIO_FREE_BASE), PORTFOLIO_OVER_BASE_MESSAGE);
-  assert.equal(portfolioOverCapMessage(100), 'Your first 100 portfolio photos are free. More photos with Papic credits is coming soon.');
-});
-
-test('the photos row: C1 while the gift runs, C3 after, and the plain row for everyone else', () => {
-  assert.equal(
-    portfolioPlanRowLine({ held: 14, cap: 100, gifted: true, giftUntilDay: '2027-01-31', giftEnded: false }),
-    '14 of 100 free · your gift, it stays after 31 Jan',
-  );
-  assert.equal(portfolioPlanRowLine({ held: 14, cap: 50, gifted: false, giftUntilDay: '2027-01-31', giftEnded: false }), '14 of 50 free');
-  assert.equal(
-    portfolioPlanRowLine({ held: 62, cap: 100, gifted: true, giftUntilDay: null, giftEnded: true }),
-    '62 kept · 100 free (your gift) · more with Papic credits soon',
-  );
-  assert.equal(
-    portfolioPlanRowLine({ held: 62, cap: 50, gifted: false, giftUntilDay: null, giftEnded: true }),
-    '62 kept · 50 free · more with Papic credits soon',
-  );
-  assert.equal(portfolioPlanRowLine({ held: 80, cap: 50, gifted: false, giftUntilDay: null, giftEnded: false }), '80 kept · 50 free · more with Papic credits soon');
+test('the photos row: no count on any plan, a gift or not (owner 2026-11-23 — storage is the only limit)', () => {
+  assert.equal(portfolioPlanRowLine(14), '14 photos · no limit — your storage is the only one');
+  assert.equal(portfolioPlanRowLine(1), '1 photo · no limit — your storage is the only one');
+  assert.equal(portfolioPlanRowLine(0), '0 photos · no limit — your storage is the only one');
+  assert.doesNotMatch(portfolioPlanRowLine(80), /free|Papic credits|kept/);
 });

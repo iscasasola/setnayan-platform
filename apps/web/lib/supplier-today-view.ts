@@ -110,7 +110,7 @@ export type SupplierTodayInput = {
   /** 📊 Booked events dated this Manila month (`fetchVendorOverviewData().bookedThisMonth`) — null = could not count. */
   bookedThisMonth?: number | null;
   /** 🖼 The Portfolio stat — C4's `getPortfolioCount` (undefined until it lands: the stat then shows no figure). */
-  portfolio?: { used: number; free: number } | null;
+  portfolio?: { used: number } | null;
   /** `YYYY-MM-DD` in Manila, and the render instant. */
   todayIso: string;
   now: number;
@@ -198,7 +198,7 @@ export type TodayStats = {
   inquiries: number | null;
   booked: number | null;
   /** undefined = the Portfolio count is not wired yet (no figure); null = it could not be read. */
-  portfolio: { used: number; free: number } | null | undefined;
+  portfolio: { used: number } | null | undefined;
   toComeInPhp: number | null;
 };
 

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { personPath, publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { CLOSED_SHOP_SLUG_ENTITY_TYPE } from '@/lib/closed-shop-slug';
 import { isPubliclyVisible, parseVisibility } from '@/lib/vendor-visibility';
 
@@ -208,7 +208,7 @@ export async function resolveRenamedPath(
   if (person?.public_profile_enabled !== true) return null;
   const slug = person.slug?.trim();
   if (!slug || same(slug)) return null;
-  return `/u/${slug}`;
+  return personPath(slug);
 }
 
 /**

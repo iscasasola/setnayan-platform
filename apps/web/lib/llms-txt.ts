@@ -101,6 +101,12 @@ export type LlmsTxtInput = {
    */
   launchOfferCap?: number | null;
   /**
+   * 🔎 Deep Search searches each paid month on Plus, Pro and Ultra (`platform_settings.deep_search_runs_per_month`,
+   * owner 2026-11-22 "Deep Search 1 a month"), read by the route. Absent = unread → the table prints "—"; null = not set.
+   * Never sold per search, so there is no price to print.
+   */
+  deepSearchRunsPerMonth?: number | null;
+  /**
    * Discover's public articles, newest first (`readPublicArticles`, owner 17 Nov — Build 3: "llms.txt lists the
    * articles"). Absent or empty (none yet, or the read was refused) = no Articles section — say less, never wrong.
    */
@@ -190,6 +196,10 @@ const REQUIRED_RETAIL = [
   // ♻️ SETNAYAN_AI BACK 2026-11-23 at ₱2,790 (DECISION_LOG 2026-11-23: "so there is a separate price for setnayan AI
   // 2790"; migration 20271359355225). Entry and prose came back together.
   'SETNAYAN_AI',
+  // 🛒 EVENT_HUB NEW 2026-11-23 (DECISION_LOG 2026-11-23 "EVENT PLANS ARE PACKAGES; SINGLES ARE THE SECOND CHOICE";
+  // migration 20271359355225; the price is the catalog row's). The whole Hub for one event, no Papic credits. Entry and
+  // prose came in together — and its prose names it beside its price, because the figure is the same as Setnayan AI's.
+  'EVENT_HUB',
   'EVENT_PLUS',
   'LIVE_STUDIO',
   // ♻️ BACK 2026-09-03 (LS8) at ₱3,000/day, after one day off sale. It is here
@@ -576,7 +586,11 @@ export function subCategoriesPhrase(n: number | null): string {
  * words ("Opens once Verified"), never an icon an assistant cannot read.
  */
 export function supplierPlanTable(input: LlmsTxtInput): string {
-  const groups = planTable({ paywallOn: input.vendorPaywallOn ?? false, prices: planTablePrices(input) });
+  const groups = planTable({
+    paywallOn: input.vendorPaywallOn ?? false,
+    prices: planTablePrices(input),
+    deepSearchRunsPerMonth: input.deepSearchRunsPerMonth,
+  });
   const tiers = TABLE_TIERS as readonly VendorTier[];
   const head = `| | ${tiers.map(tableTierName).join(' | ')} |`;
   const rule = `|---|${tiers.map(() => '---').join('|')}|`;
@@ -855,6 +869,7 @@ ${llmsArticlesSection(input.articles ?? [], ORIGIN)}## Currently shipped public 
 - **Event Pro** — ${R('COUPLE_WEBSITE_PRO')} one-time per event. Everything in Event Plus with more Papic credits, plus Setnayan AI (supplier matchmaking plus the guided planning workspace that tells you what's next and flags what's at risk) and 1 GB of uploads. No Setnayan watermark on the Event Hub page.
 - **Event Ultra** — ${R('EVENT_ULTRA')} one-time per event. Everything in Event Pro with the most Papic credits, plus Live Watch for one day, 2 GB of uploads and full-size originals kept 12 months after the event.
 - Setnayan AI comes with Event Pro and Event Ultra, and is also sold on its own at ${R('SETNAYAN_AI')} one-time per event. Beyond these three plans everything is à la carte.
+- The whole Event Hub (every theme, every part to design) comes with every plan, and is also sold on its own at ${R('EVENT_HUB')} one-time per event, without Papic credits.
 
 ## Customer software services (à la carte)
 
@@ -866,7 +881,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Thank You Video** — free. A short film made from the guests' shared photos, for everyone who came.
 - **Memory lane** — free. Live photo collage with live attendance count, shown on a screen at the venue and mirrored on every guest's own phone during the celebration.
 - **Monogram Maker** — free. A bespoke monogram generated from the couple's inputs; Event Pro animates it.
-- **Event Hub** — free. The event's own website, from save-the-date through RSVP and the day itself to the after-the-event page, with unlimited RSVP; Event Pro designs every part of it.
+- **Event Hub** — free. The event's own website, from save-the-date through RSVP and the day itself to the after-the-event page, with unlimited RSVP; every plan designs every part of it, or the Event Hub on its own at ${R('EVENT_HUB')}.
 - **Editorial authoring** — free. Arrange your own story: the order of the day, the moments worth naming, the wishes worth showing.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Photo Notes** — free. Guest-contributed stories and messages.
@@ -902,7 +917,7 @@ Supplier-side: public page editor · inquiry inbox · calendar with intra-day bl
 ## Common questions Setnayan answers
 
 - **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}) are the three paid plans for an event; Setnayan AI comes inside Event Pro and Event Ultra. Everything else is à la carte. Supplier side: Free and Verified cost nothing, for good; every month, ${TIER_LABEL.solo} is ${V('solo_vendor_monthly')} · ${TIER_LABEL.pro} ${V('pro_vendor_monthly')} · ${TIER_LABEL.enterprise} ${V('enterprise_vendor_monthly')} (no yearly plan). Couples pay no commission. Suppliers pay a booking fee, ${FEE_SCOPE_THIRD} (see the supplier plans).
-- **Is Setnayan free?** Starting is free and the planning workspace stays free. The Event Hub with unlimited RSVP is free; designing every part of it comes with Event Pro ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is included.
+- **Is Setnayan free?** Starting is free and the planning workspace stays free. The Event Hub with unlimited RSVP is free; designing every part of it comes with every plan, or on its own at ${R('EVENT_HUB')}. A single-camera livestream is included.
 - **What is Setnayan AI?** The assisted-planning layer — supplier matchmaking plus the guided planning workspace, until the event date. It comes with Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}), or on its own at ${R('SETNAYAN_AI')} one-time per event.
 - **What is Papic?** Guests' phones become a coordinated capture crew. Credits come with an event plan or as packs — ${papicLadderCompact(R)} — and every guest shoots from that shared pot. Cameras are free and unlimited. Photos are matched to the guests in them (face matching only with each guest's consent), so each guest can find the photos they're in.
 - **What is Live Watch?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} once per event, unlimited streams; single-camera streaming is included, and so is rehearsing with up to 12 cameras.

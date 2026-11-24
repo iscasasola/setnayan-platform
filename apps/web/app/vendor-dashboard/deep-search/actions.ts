@@ -2,72 +2,62 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { payPath } from '@/lib/pay-path';
-import { railForNewOrder } from '@/lib/rail-for-new-order';
-import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { createMoneyWriterClient } from '@/lib/supabase/admin';
-import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
-import { vendorAddonSkuCode } from '@/lib/vendor-addon-tier-pricing';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { isTierAtLeast } from '@/lib/vendor-tier-caps';
-import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { deepSearchAiConfigured } from '@/lib/vendor-deep-search';
+import { routes } from '@/lib/routes';
 import {
-  VENDOR_DEEP_SEARCH_SKU_CODE,
   deepSearchEligibility,
-  resolveDeepSearchPricePhp,
+  deepSearchMonth,
+  fetchDeepSearchRunsPerMonth,
   DEEP_SEARCH_DENY_MESSAGE,
 } from '@/lib/vendor-deep-search-addon';
+import {
+  buildVendorDeepSearchInputs,
+  claimIncludedDeepSearchRun,
+  releaseIncludedDeepSearchRun,
+  runAndRecordVendorDeepSearch,
+} from '@/lib/vendor-deep-search-run';
 
 /**
- * Deep Search (vendor-facing) — buy ONE web-research deep search on the vendor's OWN business; it runs on payment
- * approval and its "What We Learned" review auto-fills their profile. Owner-locked 2026-07-22, repriced 2026-11-09
- * (DECISION_LOG 🔎💳 "DEEP SEARCH = ₱499, ONE USE, EVERY PLAN — NO FREE SEARCH ON PRO/ULTRA"): ONE catalogue price on
- * every plan, ONE search per purchase, and ⛔ NO free search — the Pro/Ultra "1 free per 28-day cycle" path (its
- * atomic `was_free` claim and the instant free run) was removed with it.
+ * Deep Search (supplier-facing) — run one of the paid month's INCLUDED web-research searches on the shop's OWN business;
+ * its "What We Learned" review shows on the Deep Search page and in Shop › Details.
  *
- * ── WHY the gate + price re-check is HERE, server-side ──────────────────────
- * Nothing else gates a vendor add-on on the orders spine. This action is the ONLY gate: it rejects — BEFORE pricing —
- * an unverified shop (and, while the paywall switch is on, a plan below Solo), then re-reads the authoritative price +
- * the SKU's is_active flag from vendor_billing_catalog. The client sends only the pay channel — never a price.
+ * ⚖ 2026-11-22 (DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" + 🔎 "DEEP SEARCH ALLOWANCE = 1 RUN A MONTH"). Owner,
+ * verbatim: *"Retire it"* · *"Deep Search 1 a month"*. ⛔ NOTHING IS SOLD HERE: no price is read, no order or payment is
+ * minted, the shop never reaches a payment page. Plus, Pro and Ultra include `platform_settings.deep_search_runs_per_month`
+ * runs each paid month; Free and Verified include none. 🔒 lib/deep-search-is-never-sold.test.ts
  *
- * ONE path: apply-then-pay — a 'submitted' order + a pending 'payments' row that lands in /admin/payments. On admin
- * approval, the sku-activation hook ('vendor_deep_search') RUNS the one search, stores the dossier, and records it
- * (was_free=false) — pay-then-run, one order = one search.
+ * ── THE ORDER OF THE GATES ───────────────────────────────────────────────────
+ * signed in → the DPO control (fail-closed) → the shop (server-resolved) → the role ON THIS SHOP (owner/admin) → plan +
+ * verification on a fresh read → the research engine is configured → the allowance READ (a refused read refuses the
+ * run, never a guessed number) → the CLAIM: one row per included run, written BEFORE the search
+ * (`claimIncludedDeepSearchRun` — atomic on `vendor_deep_search_uses_month_slot_uidx`), so a burst of presses can never
+ * take more than the month includes.
+ *
+ * ── THE RUN ──────────────────────────────────────────────────────────────────
+ * The research pass takes minutes, so it runs after the response (`after`, inside this route's `maxDuration`); the page
+ * shows the search as running ("Searching since …") until its result lands. A run that fails hands its claim back
+ * (`releaseIncludedDeepSearchRun`), so a failure never spends one of the month's runs.
  */
 
 export type VendorDeepSearchActionState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
-  /** Paid search — an apply-then-pay order was created; runs on admin approval. */
-  | { status: 'ordered'; referenceCode: string; amountPhp: number; message: string };
+  /** An included run was claimed and the search started; its result appears on the page when it lands. */
+  | { status: 'started'; message: string };
 
 function err(message: string): VendorDeepSearchActionState {
   return { status: 'error', message };
 }
 
-/** 'SN' + 8 uppercase hex — matches the branch / couple / AI-addon reference format. */
-function generateReferenceCode(): string {
-  const arr = new Uint8Array(4);
-  crypto.getRandomValues(arr);
-  return (
-    'SN' +
-    Array.from(arr)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-      .toUpperCase()
-  );
-}
-
-
-const DEEP_SEARCH_PAGE = '/vendor-dashboard/deep-search';
-
 export async function runVendorDeepSearch(
   _prev: VendorDeepSearchActionState,
-  formData: FormData,
+  _formData: FormData,
 ): Promise<VendorDeepSearchActionState> {
   const supabase = await createClient();
   const {
@@ -75,9 +65,8 @@ export async function runVendorDeepSearch(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // DPO gate — Deep Search is a privacy-sensitive flow (AI web-research over
-  // public sources + dossier storage). Fail-closed until the owner approves it
-  // at /admin/data-privacy, so it never runs (or charges) while undisclosed.
+  // DPO gate — Deep Search is a privacy-sensitive flow (AI web-research over public sources + dossier storage).
+  // Fail-closed until the owner approves it at /admin/data-privacy, so it never runs while undisclosed.
   if (!(await isDataPrivacyControlActive('vendor_deep_search'))) {
     return err('Deep Search isn’t available yet — it’s pending a privacy review.');
   }
@@ -86,122 +75,95 @@ export async function runVendorDeepSearch(
   if (!profile) return err('No supplier profile found.');
   const vendorProfileId = profile.vendor_profile_id;
 
-  // Scope the role check to THIS vendor profile (not the user's global-highest
-  // role) so an agent/viewer on this shop can't spend on Deep Search via a role
-  // they hold on some other vendor.
+  // Scope the role check to THIS shop (not the user's highest role anywhere), so an agent or viewer here cannot spend
+  // the shop's run through a role held on another shop.
   const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
-  if (!canManageVendor(role)) {
-    return err('Only the owner or an admin can run Deep Search.');
-  }
+  if (!canManageVendor(role)) return err('Only the owner or an admin can run Deep Search.');
 
-  // ── Tier + verification gate (BEFORE pricing) ──────────────────────────────
-  // tier_state / verification_state are not in
-  // FULL_VENDOR_PROFILE_SELECT — soft probe them together.
-  const { data: gateRow } = await supabase
+  // ── Plan + verification (fresh read) ───────────────────────────────────────
+  const { data: gateRow, error: gateErr } = await supabase
     .from('vendor_profiles')
-    .select('tier_state, verification_state')
+    .select('tier_state, tier_expires_at, verification_state')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  const tier = (gateRow as { tier_state?: string | null } | null)?.tier_state ?? null;
-  const verification =
-    (gateRow as { verification_state?: string | null } | null)?.verification_state ?? null;
+  if (gateErr || !gateRow) return err('Couldn’t read your plan just now. Try again.');
+  const gate = gateRow as { tier_state?: string | null; tier_expires_at?: string | null; verification_state?: string | null };
+  const eligibility = deepSearchEligibility({ tier: gate.tier_state ?? null, verification: gate.verification_state ?? null });
+  if (!eligibility.ok) return err(DEEP_SEARCH_DENY_MESSAGE[eligibility.reason]);
 
-  // The paid-plan requirement is asked through the one flag-aware question —
-  // here, at the final action (Run), and only while the switch is on.
-  const eligibility = deepSearchEligibility({
-    tier,
-    verification,
-    tierPaywall: vendorPaywallApplies(isTierAtLeast(tier, 'solo')),
-  });
-  if (!eligibility.ok) {
-    return err(DEEP_SEARCH_DENY_MESSAGE[eligibility.reason]);
-  }
-
-  // ── The price decision ─────────────────────────────────────────────────────
-  // Re-read the authoritative price + is_active from the admin-managed catalog — the ONE row on every plan (owner
-  // 2026-11-09). A retired row (is_active=false) blocks the sale. The ORDER carries `VENDOR_DEEP_SEARCH_SKU_CODE`.
-  const { data: skuRow } = await supabase
-    .from('vendor_billing_catalog')
-    .select('price_php, is_active')
-    .eq('sku_code', vendorAddonSkuCode('deep_search_about_you', tier))
-    .maybeSingle();
-  if (skuRow && (skuRow as { is_active?: boolean | null }).is_active === false) {
-    return err('Deep Search is temporarily unavailable. Please try again later.');
-  }
-  const cyclePricePhp = skuRow ? Number((skuRow as { price_php: number | string }).price_php) : null;
-  const pricePhp = resolveDeepSearchPricePhp({ cyclePricePhp });
-
-  // ── apply-then-pay (runs on admin approval) ─────────────────────────────────
-  // Without the AI research engine (ANTHROPIC_API_KEY unset) a run silently
-  // degrades to the keyless Lite pass — so a paid charge would buy nothing worth
-  // paying for. Block the SALE. No order is created, so nothing is charged.
+  // Without the AI research engine (ANTHROPIC_API_KEY unset) a run degrades to the keyless Lite pass — not worth one of
+  // the month's runs. Refuse before anything is claimed.
   if (!deepSearchAiConfigured()) {
-    return err(
-      'Deep Search is temporarily unavailable — the research engine is offline. You won’t be charged.',
-    );
+    return err('Deep Search is offline for a moment — the research engine isn’t answering. Your search wasn’t used.');
   }
 
-  // The rail kill switch (lib/rail-for-new-order.ts): never mint an order
-  // nobody can pay into.
-  const channel = await railForNewOrder(supabase, formData.get('channel'));
-  if (!channel) return err(PAYMENTS_PAUSED_MESSAGE);
-  const referenceCode = generateReferenceCode();
+  // ── The allowance (admin setting) and the claim ────────────────────────────
+  const admin = createAdminClient();
+  const runs = await fetchDeepSearchRunsPerMonth(admin);
+  if (!runs.read) return err('Couldn’t read this month’s searches just now. Try again.');
+  const month = deepSearchMonth(gate.tier_expires_at ?? null, Date.now());
+  const claim = await claimIncludedDeepSearchRun(admin, {
+    vendorProfileId,
+    monthStartIso: month.startIso,
+    perMonth: runs.perMonth,
+  });
+  if (!claim.claimed) {
+    return claim.reason === 'used_up'
+      ? err('This month’s searches are used. They come back when your plan’s next month starts.')
+      : err('Couldn’t start your search just now. Try again.');
+  }
 
-  // ── SEC-4b · service-role mint ─────────────────────────────────────────────
-  // `orders` + `payments` INSERT are revoked from `authenticated` (migration
-  // 20271008178212). service_role bypasses `orders_owner_write`'s
-  // `WITH CHECK (user_id = auth.uid())`, which was RLS's only contribution here
-  // — it never validated vendorProfileId, tier, verification or the allowance.
-  //
-  // AUTHORIZATION IS UNCHANGED and is the strongest of the converted set:
-  // authenticated → `isDataPrivacyControlActive('vendor_deep_search')` (DPO
-  // gate, fail-closed) → `fetchOwnVendorProfile` (server-resolved id) →
-  // `resolveVendorRoleForProfile` + canManageVendor (PROFILE-scoped, so a role
-  // held on another shop does not count) → `deepSearchEligibility` on a fresh
-  // tier/verification read → the SKU is_active reject → `deepSearchAiConfigured`.
-  const { data: orderRow, error: oErr } = await createMoneyWriterClient()
-    .from('orders')
-    .insert(
-      orderRowFor(
-        { userId: user.id, eventId: null, vendorProfileId },
-        {
-          service_key: VENDOR_DEEP_SEARCH_SKU_CODE,
-          description: 'Deep Search (per search)',
-          requested_total_php: pricePhp,
-          status: 'submitted',
-          reference_code: referenceCode,
-        },
-      ),
-    )
-    .select('order_id')
+  // ── The shop's facts, snapshotted now ──────────────────────────────────────
+  const { data: vp, error: vpErr } = await admin
+    .from('vendor_profiles')
+    .select('business_name, website, location_city, services, gallery_video_links')
+    .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (oErr || !orderRow) {
-    return err('Could not start the Deep Search order. Please try again.');
+  if (vpErr || !vp) {
+    await releaseIncludedDeepSearchRun(admin, claim.useId);
+    return err('Couldn’t read your shop just now. Your search wasn’t used.');
   }
-  const orderId = (orderRow as { order_id: string }).order_id;
+  const facts = vp as {
+    business_name?: string | null;
+    website?: string | null;
+    location_city?: string | null;
+    services?: string[] | null;
+    gallery_video_links?: string[] | null;
+  };
+  const inputs = buildVendorDeepSearchInputs({
+    business_name: facts.business_name ?? '',
+    website: facts.website ?? null,
+    location_city: facts.location_city ?? null,
+    services: facts.services ?? [],
+    gallery_video_links: facts.gallery_video_links ?? [],
+  });
 
-  const { error: pErr } = await createMoneyWriterClient().from('payments').insert(
-    paymentRowFor(
-      { userId: user.id, verifiedOrderId: orderId },
-      {
-        amount_php: pricePhp,
-        channel,
-        reference_number: null,
-        screenshot_url: null,
-        paid_at: new Date().toISOString().slice(0, 10),
-      },
-    ),
-  );
-  if (pErr) {
-    // Same client that minted it — a mixed-client compensation is how a
-    // rollback silently stops rolling back.
-    await createMoneyWriterClient().from('orders').delete().eq('order_id', orderId);
-    return err('Could not start the Deep Search payment. Please try again.');
-  }
+  // ── Run after the response; a failure hands the run back ───────────────────
+  const useId = claim.useId;
+  after(async () => {
+    try {
+      const result = await runAndRecordVendorDeepSearch({
+        admin,
+        vendorProfileId,
+        requestedByUserId: user.id,
+        inputs,
+        wasFree: true,
+        orderId: null,
+        claimUseId: useId,
+      });
+      if (result.status === 'failed') await releaseIncludedDeepSearchRun(admin, useId);
+    } catch (e) {
+      console.error('[deep-search] included run threw', e);
+      await releaseIncludedDeepSearchRun(admin, useId);
+    }
+    revalidatePath(routes.vendorDashboard.deepSearch());
+    revalidatePath(routes.vendorDashboard.profile());
+  });
 
-  revalidatePath(DEEP_SEARCH_PAGE);
-  // The ONE payment page (owner 2026-08-21): the amount rides inside the QR,
-  // and it is the only screen that can take the screenshot and the reference.
-  // The old panel just quoted a code and left them to work the rest out.
-  redirect(payPath(referenceCode));
+  revalidatePath(routes.vendorDashboard.deepSearch());
+  revalidatePath(routes.vendorDashboard.profile());
+  return {
+    status: 'started',
+    message: 'Your Deep Search is running. It takes a few minutes — the result appears here when it’s ready.',
+  };
 }

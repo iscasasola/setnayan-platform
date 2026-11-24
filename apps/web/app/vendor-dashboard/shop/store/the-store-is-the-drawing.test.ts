@@ -41,8 +41,9 @@ test('1 · the v19 shelves in the drawing’s order, each with See all, from the
   const { TOOLKIT_SHELVES, SHELF_TITLE } = await import('@/lib/supplier-store');
   assert.deepEqual(
     TOOLKIT_SHELVES.map((k) => SHELF_TITLE[k]),
-    ['Chat widgets', 'Present widgets', 'Event Hub widgets', 'Shop page widgets', 'Chat forms', 'Card forms', 'Payment plans', 'QR designs', 'Graphs', 'Badges'],
-    'the ten shelves are not the drawing’s, in its order',
+    // 🧩 Toolkit templates (specs 24dcf90c) adds the Availability shelf after Payment plans.
+    ['Chat widgets', 'Present widgets', 'Event Hub widgets', 'Shop page widgets', 'Chat forms', 'Card forms', 'Payment plans', 'Availability', 'QR designs', 'Graphs', 'Badges'],
+    'the eleven shelves are not the drawing’s, in its order',
   );
   assert.match(SCREENS, /\{shelves\.map\(\(sh\) => \(\s*<FrontShelf key=\{sh\}/, 'the front does not draw every shelf the list holds');
   assert.match(SCREENS, /<StoreInstalledSwitch label=\{INSTALLED_WORD\} \/>/, 'the Installed switch is gone (v19 frame 1)');

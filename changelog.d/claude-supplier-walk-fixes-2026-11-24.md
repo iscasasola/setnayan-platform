@@ -1,0 +1,11 @@
+## 2026-11-24 · fix(supplier): the walk's own findings — no guessed guest count, honest first paint, the quote is the supplier's line, one review count, no clipped pane
+
+A walk of the 4 supplier-ready areas on live (report: `build-sessions/SUPPLIER-WALK-2026-11-24.md`, 4 of 4 working) found wrong numbers and wrong prompts. Fixed at their causes:
+
+- **Quote bills a guessed 100 guests.** `requestedPax={… ?? 100}` is gone. The maker opens at the live count, else the inquiry count, else nothing (`openingPax`). With no count it says "No guest count yet". A per-guest quote that bills nobody can't be sent: the maker dims Send and points at "Bill at least", and the send core refuses it (`needs_guest_count`, 422). The card's "from" price no longer falls back to `min_pax ?? 1`. Guard: `lib/no-guest-count-is-guessed.test.ts` scans app/lib/components for any guest count that falls back to a typed number.
+- **The card editor's first paint said a complete card was missing everything.** The photo count and both status lines draw a skeleton until the first form read. The live-card price wait needs that read too. Guard: `lib/card-editor-first-paint-is-honest.test.ts`.
+- **Today asked the supplier to "Reply" to their own quote.** The quote card, the offer card, the form line and the questions line now post with `sent_as: 'vendor'`. With no side named, the DB derived the sender "couple first", so on an account that also hosts the event the supplier's quote counted as the couple's message. Guard: `lib/supplier-lines-say-the-supplier-sent-them.test.ts`.
+- **The public shop said "0 reviews" above 3.** The count now sums the same star totals the bars draw. The star average stays on the trusted aggregate (anti-fraud 2026-07-05), and when fewer reviews count toward the stars, the page says so. Guard: `lib/shop-review-count-is-the-bars-count.test.ts`.
+- **Desktop Clients detail cut the first letter.** The list's sticky day heading bled 32 px into the pane at z 3. In two columns it now bleeds left only. Guard: `lib/clients-day-heading-stays-in-its-column.test.ts`.
+
+SPEC IMPACT: None. The fixes follow existing rules (CLAUDE.md rule 3 "never guess a number that governs money", rule 4 honest states, the anti-fraud trusted aggregate). Rows already sent as the couple's stay as stored; no migration.

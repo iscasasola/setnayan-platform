@@ -77,27 +77,11 @@ export function giftEndedLine(plan: string, untilDay: string): string {
 }
 
 /**
- * Your plan's **Portfolio photos** row (frames C1 · C3). `held` = photos on the page, `cap` = `portfolioPhotoCap`,
- * `gifted` = the cap came from the shop's own allowance (a personal invite's 100). The 100 is the shop's to keep, so
- * the row says so while a plan gift runs, and keeps saying "your gift" after it ends. Past the cap nothing is taken
- * away — the row says the photos are kept and the next one waits for Papic credits (`PORTFOLIO_OVER_BASE_MESSAGE`).
+ * Your plan's **Portfolio photos** row. 🔓 No count since 2026-11-23 (owner, "THE 50-PHOTO PORTFOLIO CAP IS DROPPED —
+ * STORAGE IS THE ONLY LIMIT": *"Yes, drop it"*): the row says how many photos are on the page and that the plan's
+ * storage is the only limit — the same on every plan, a personal invite's 100 included.
  */
-export function portfolioPlanRowLine(input: {
-  held: number;
-  cap: number;
-  gifted: boolean;
-  /** The running plan gift's last day (frame C1), or null. */
-  giftUntilDay: string | null;
-  /** A plan gift that has ended (frame C3). */
-  giftEnded: boolean;
-}): string {
-  const { gifted, giftUntilDay, giftEnded } = input;
-  const held = formatCount(input.held);
-  const cap = formatCount(input.cap);
-  if (giftEnded || input.held > input.cap) {
-    return `${held} kept · ${cap} free${gifted ? ' (your gift)' : ''} · more with Papic credits soon`;
-  }
-  const until = giftUntilDay ? offerDayWords(giftUntilDay).replace(/ \d{4}$/, '') : null;
-  if (gifted) return `${held} of ${cap} free · your gift${until ? `, it stays after ${until}` : ''}`;
-  return `${held} of ${cap} free`;
+export function portfolioPlanRowLine(held: number): string {
+  const n = Math.max(0, Math.floor(held));
+  return `${formatCount(n)} ${n === 1 ? 'photo' : 'photos'} · no limit — your storage is the only one`;
 }

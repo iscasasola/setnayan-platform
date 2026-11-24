@@ -94,6 +94,7 @@ export async function sendQuestionsToEvent(
     event_id: thread.event_id,
     vendor_profile_id: thread.vendor_profile_id,
     body: `A few questions so we plan this right — ${questions} for you to answer in your event.`,
+    sent_as: 'vendor', // "as the supplier" — never derived couple-first (walk 24 Nov 2026)
   });
   // The ask above IS saved (they find the questions in their event); only the chat note can be missing — and the
   // button says so, never a plain "Sent" over a line that never posted.

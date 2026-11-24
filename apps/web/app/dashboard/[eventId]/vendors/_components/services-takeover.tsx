@@ -337,17 +337,23 @@ export function ServicesTakeover({
     // custom property re-set to itself still costs the page a style pass.
     let lastTop = -1;
     let lastStick = -1;
+    // ⚡ EVERY READING FIRST, THEN THE WRITES (speed pass 24 Nov 2026, measured at 390 px, 4× CPU): a write to `--sup-top`
+    // between two readings made the browser lay the whole page out again for the next one — three layouts per call,
+    // ~350 ms of the main thread on the Suppliers page's mount. "Stuck" is read before `--sup-top` moves the row, as it
+    // was in effect before (the row's `top` follows over .3s, and `transitionend` asks again once it has arrived).
     const sync = () => {
       const top = shellBarShows(bar) ? bar.getBoundingClientRect().height : 0;
+      const stickH = stick.offsetHeight;
+      const stuck = window.scrollY > 0 && stick.getBoundingClientRect().top <= top + 1;
       if (top !== lastTop) {
         lastTop = top;
         root.style.setProperty('--sup-top', `${top}px`);
       }
-      if (top + stick.offsetHeight !== lastStick) {
-        lastStick = top + stick.offsetHeight;
-        root.style.setProperty('--stick-h', `${top + stick.offsetHeight}px`);
+      if (top + stickH !== lastStick) {
+        lastStick = top + stickH;
+        root.style.setProperty('--stick-h', `${top + stickH}px`);
       }
-      stick.toggleAttribute('data-stuck', window.scrollY > 0 && stick.getBoundingClientRect().top <= top + 1);
+      stick.toggleAttribute('data-stuck', stuck);
     };
     sync();
     const mo = bar ? new MutationObserver(sync) : null;

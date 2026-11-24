@@ -535,6 +535,8 @@ export const routes = {
       detail: (contractId: string) => `/vendor-dashboard/contracts/${contractId}`,
       new: () => `/vendor-dashboard/contracts/new`,
     },
+    // 🔎 Deep Search: the shop's included searches and their results (owner 2026-11-22, "Deep Search 1 a month").
+    deepSearch: () => `/vendor-dashboard/deep-search`,
     earnings: () => `/vendor-dashboard/earnings`,
     manpower: () => `/vendor-dashboard/manpower`,
     messages: {
@@ -560,11 +562,11 @@ export const routes = {
       badges: () => `/vendor-dashboard/shop/badges`,
       // 🛍 The Store — Tools · Graphs · Badges (owner 23 Nov 2026). A shelf opens filtered; an item opens its detail.
       // The Toolkit. A shelf is one of `STORE_SHELVES` (lib/supplier-store.ts, spelt here since that file reads this one);
-      // an item is a widget (`tools`), a graph or a QR design (`qr`).
+      // an item is a widget (`tools`), a graph, a QR design (`qr`) or a template (`payment_plans` · `availability`).
       store: {
         index: () => `/vendor-dashboard/shop/store`,
-        shelf: (shelf: 'tools' | 'yours' | 'chat' | 'present' | 'hub' | 'shop_page' | 'qr' | 'graphs' | 'badges') => `/vendor-dashboard/shop/store/${shelf}`,
-        item: (shelf: 'tools' | 'graphs' | 'qr' | 'badges', key: string) => `/vendor-dashboard/shop/store/${shelf}/${encodeURIComponent(key)}`,
+        shelf: (shelf: 'tools' | 'yours' | 'chat' | 'present' | 'hub' | 'shop_page' | 'payment_plans' | 'availability' | 'qr' | 'graphs' | 'badges') => `/vendor-dashboard/shop/store/${shelf}`,
+        item: (shelf: 'tools' | 'graphs' | 'qr' | 'badges' | 'payment_plans' | 'availability', key: string) => `/vendor-dashboard/shop/store/${shelf}/${encodeURIComponent(key)}`,
       },
     },
     subscription: () => `/vendor-dashboard/subscription`,

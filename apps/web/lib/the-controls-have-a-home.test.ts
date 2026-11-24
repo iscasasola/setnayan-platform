@@ -65,7 +65,8 @@ test('Your year and Your Story are retired as MENUS, not as places', () => {
   // held that the shelf did not, and they are the dates the shelf exists to warn
   // about (Christmas, Valentine's — the ones that book out early). Retiring the
   // page without this flag would have deleted them from the product silently.
-  const strip = read('app/dashboard/(launcher)/_components/year-moments-strip.tsx');
+  // 🔁 Unihome v5 (23 Nov 2026): the read moved into the ONE reader the shelf and Home's row share.
+  const strip = read('lib/worth-planning.server.ts');
   assert.ok(
     /includeHolidays:\s*true/.test(strip),
     'the shelf stopped including holidays, so retiring /dashboard/year now loses ' +
@@ -75,7 +76,7 @@ test('Your year and Your Story are retired as MENUS, not as places', () => {
   // The old page must not serve content any more, or there are two years again.
   const yearPage = read('app/dashboard/(account)/year/page.tsx');
   assert.ok(
-    /redirect\('\/dashboard#worth-planning'\)/.test(yearPage),
+    /redirect\('\/dashboard\?seg=events#worth-planning'\)/.test(yearPage),
     '/dashboard/year no longer redirects to the shelf. It is linked from the ' +
       'daily digest email and from anybody who bookmarked it — deleting the ' +
       'route 404s them, and restoring the page brings back the duplicate.',

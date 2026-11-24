@@ -227,43 +227,20 @@ test('2 · tenancy: never another shop’s album photo, never a ref outside the 
   );
 });
 
-test('2b · 💳 past the free room a page photo costs 1 credit from the shop wallet — and the WAITING photos count', async () => {
-  // A fresh shop: 49 photos on the page + 1 waiting = the free 50 used. The next one is past it.
+test('2b · a page photo costs nothing, however many are on the page (owner 2026-11-23 — no portfolio cap)', async () => {
+  // A fresh shop with 80 photos on the page and an EMPTY wallet: the old free 50 is long past, and the photo still files.
   const userC = await newUser('vendor-c-spn@test.test', 'vendor');
   const vendorC = await vendorOf(userC, 'Notice Studio C');
-  const own = Array.from({ length: 49 }, (_, i) => `r2://setnayan-media/vendors/${vendorC}/portfolio/own-${i}.jpg`);
+  const own = Array.from({ length: 80 }, (_, i) => `r2://setnayan-media/vendors/${vendorC}/portfolio/own-${i}.jpg`);
   await db.query(`UPDATE public.vendor_profiles SET portfolio_r2_keys = $2 WHERE vendor_profile_id = $1`, [vendorC, own]);
-  const waiting = await albumPhoto(vendorC);
-  const w = await fileRpc(userC, waiting.photoId, waiting.pageRef);
-  assert.equal(w.status, 'ok');
-  assert.equal(Number(w.charged), 0, 'the 50th photo (inside the free room) was charged');
-
-  // 51st — counting the waiting one — costs a credit. An empty wallet files NOTHING.
   const next = await albumPhoto(vendorC);
-  const short = await fileRpc(userC, next.photoId, next.pageRef);
-  assert.equal(short.status, 'insufficient', `a photo past the free room went in unpaid: ${JSON.stringify(short)}`);
-  assert.equal(Number(short.charge), 1);
-  const none = await db.query(`SELECT 1 FROM public.supplier_page_photo_notices WHERE photo_id = $1`, [next.photoId]);
-  assert.equal(none.rows.length, 0, 'a refused charge still filed the notice');
-
-  await db.query(
-    `INSERT INTO public.shop_papic_wallet_entries (vendor_profile_id, delta, kind, note) VALUES ($1, 5, 'comp', 'test')`,
-    [vendorC],
-  );
-  const paid = await fileRpc(userC, next.photoId, next.pageRef);
-  assert.equal(paid.status, 'ok');
-  assert.equal(Number(paid.charged), 1, 'the photo past the free room was not charged');
-  assert.equal(await walletBalance(vendorC), 4);
-  const row = await db.query<{ kind: string; delta: number }>(
-    `SELECT kind, delta FROM public.shop_papic_wallet_entries WHERE vendor_profile_id = $1 AND spend_ref = $2`,
-    [vendorC, `page-notice:${paid.notice_id}`],
-  );
-  assert.deepEqual(row.rows[0], { kind: 'portfolio_spend', delta: -1 });
-
-  // The publish never charges again — the photo was paid at the tap.
-  await sevenDaysPass(String(paid.notice_id));
-  assert.equal(await publish(String(paid.notice_id)), true);
-  assert.equal(await walletBalance(vendorC), 4, 'the publish charged a photo that was already paid');
+  const filed = await fileRpc(userC, next.photoId, next.pageRef);
+  assert.equal(filed.status, 'ok', `a page photo was refused: ${JSON.stringify(filed)}`);
+  assert.equal(Number(filed.charged), 0, 'a page photo was charged');
+  assert.equal(await walletBalance(vendorC), 0, 'the wallet moved');
+  await sevenDaysPass(String(filed.notice_id));
+  assert.equal(await publish(String(filed.notice_id)), true);
+  assert.equal(await walletBalance(vendorC), 0, 'the publish charged');
 });
 
 test('3 · after 7 days with nobody removing it, it goes up — and a takedown pulls it straight back off', async () => {

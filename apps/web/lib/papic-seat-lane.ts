@@ -24,9 +24,10 @@ export const RECORD_TYPES: Readonly<Partial<Record<CaptureTier, readonly string[
  */
 export function seatRefusal(code: string): { status: number; error: string } {
   switch (code) {
+    // ⛔ No `camera_photo_cap` / `camera_video_cap` (retired 2026-11-23): nothing in the database raises them, and a
+    // supplier's own limit is its PLAN's (TIER_CAPS, the supplier lane `/api/vendor/papic-capture`) — never a seat cap.
+    // A supplier's captures never spend the couple's Papic credits.
     case 'camera_points_exhausted':
-    case 'camera_photo_cap':
-    case 'camera_video_cap':
       return { status: 402, error: 'camera_points_exhausted' };
     case 'capture_not_started':
     case 'capture_window_closed':

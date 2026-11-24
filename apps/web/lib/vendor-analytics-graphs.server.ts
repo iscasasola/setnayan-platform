@@ -295,7 +295,8 @@ export async function readNewGraphs(input: {
   session: SupabaseClient;
   admin: SupabaseClient;
   vendorProfileId: string;
-  cards: readonly { serviceId: string; name: string }[];
+  /** The shop's live cards — or the read of them still on its way: the four graphs that need no card start at once. */
+  cards: readonly { serviceId: string; name: string }[] | PromiseLike<readonly { serviceId: string; name: string }[]>;
   nowMs: number;
 }): Promise<ByWindow<NewGraphs>> {
   const { session, admin, vendorProfileId, cards, nowMs } = input;
@@ -306,7 +307,7 @@ export async function readNewGraphs(input: {
     });
   const [lost, cardsell, replyvs, slow, quotes] = await Promise.all([
     soft(readLostDates(session, vendorProfileId, nowMs), 'lost'),
-    soft(readCardSells(admin, vendorProfileId, cards, nowMs, session), 'cardsell'),
+    soft(Promise.resolve(cards).then((c) => readCardSells(admin, vendorProfileId, c, nowMs, session)), 'cardsell'),
     soft(readReplyVsBooked(session, admin, vendorProfileId, nowMs), 'replyvs'),
     soft(readMonthsAhead(session, vendorProfileId, nowMs), 'slow'),
     soft(readQuoteStates(session, vendorProfileId, nowMs), 'quotes'),

@@ -74,7 +74,7 @@ test('3 · the window lives inside each card — a sliding switch, or a fixed la
   const pushes = CAROUSEL.match(/cards\.push\(\{ key: k,[^\n]*/g) ?? [];
   assert.equal(pushes.length, 2, 'a card kind was added without passing through the one card builder');
   for (const p of pushes) assert.match(p, /control=\{control\(k, g\.title\)\}/, `a card has no window control: ${p}`);
-  assert.match(CAROUSEL, /FIXED_WINDOW\[k\] \?[\s\S]*?data-analytics-fixed-window[\s\S]*?: \([\s\S]*?<PillSelector\b[^>]*options=\{WINDOW_OPTIONS\}/, 'a card’s window is not the sliding switch-or-label');
+  assert.match(CAROUSEL, /FIXED_WINDOW\[k\] \?[\s\S]*?data-analytics-fixed-window[\s\S]*?: \([\s\S]*?<PillSelector\b[^>]*options=\{WINDOW_SWITCH_OPTIONS\}/, 'a card’s window is not the sliding switch-or-label');
   assert.match(CAROUSEL, /WINDOW_OPTIONS[^=]*= GROWTH_WINDOWS\.map\(\(w\) => \(\{ key: w\.key, label: w\.label\.replace\(\/\^Last \/, ''\) \}\)\)/, 'the switch’s two buttons are not the one window list');
   // The counts always switch; a fixed card is never a count card.
   for (const k of ['opened', 'asked', 'booked'] as const) assert.equal(FIXED_WINDOW[k], undefined, `${k} lost its switch`);

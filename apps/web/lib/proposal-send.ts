@@ -1,4 +1,5 @@
 import { manilaTodayIsoFor, validUntilRefusal } from '@/lib/quote-valid-until';
+import { needsGuestCount } from '@/lib/quote-money';
 import { keepLineStructure, lineStructureOf } from '@/lib/quote-line-structure';
 import { offerTakenRefusal } from '@/lib/offer-taken';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -48,6 +49,8 @@ import { quoteTermsFromCards } from '@/lib/deal-end';
 export type SendProposalError =
   // 📅 No lifetime quotation (2026-11-09): a quote is not sent without a Valid until after today.
   | 'needs_valid_until'
+  // 👥 No guessed guest count (24 Nov 2026): per-guest lines need a count or a minimum before a quote is sent.
+  | 'needs_guest_count'
   // 💳 Pay in full (2026-11-09): a plan whose payments do not add up to the quote total is refused, never saved.
   | 'plan_not_in_full'
   | 'unauthenticated'
@@ -313,6 +316,10 @@ async function supersedeAndPostCard(
     vendor_profile_id: thread.vendor_profile_id,
     body,
     proposal_id: proposalId,
+    // 🗣 THE QUOTE IS THE SUPPLIER'S WORD (supplier walk 24 Nov 2026): with no side asked, the DB derives "couple
+    // first", so on an account that is ALSO the event's host the quote landed as the couple's line and Today said
+    // "Reply to … · 'Quote ₱… sent'". The supplier sent it; say so (`chat_messages.sent_as`, re-checked by the DB).
+    sent_as: 'vendor',
   });
 
   // Notify the couple, same path as a normal vendor message — fire even if the
@@ -737,6 +744,12 @@ export async function sendCustomProposalCore(
   {
     const refusal = validUntilRefusal(validUntil, manilaTodayIsoFor(Date.now()), null);
     if (refusal) return { ok: false, code: 'needs_valid_until', message: refusal };
+  }
+
+  // 👥 No guessed guest count (supplier walk 24 Nov 2026): per-guest lines billed against nobody are refused at the
+  // door — the maker dims Send for the same rule (`needsGuestCount`), this holds for any other client.
+  if (input.pax && needsGuestCount(input.lineItems ?? [], quotePaxSnapshot(input.pax).billed_pax ?? 0)) {
+    return { ok: false, code: 'needs_guest_count', message: 'Add a guest count (Bill at least) before sending a per-guest quote.' };
   }
 
   // 📜 TERMS AT ACCEPT (Unichat part H2, 20 Nov 2026). The supplier's own reservation terms — written on the service

@@ -1,4 +1,5 @@
 import { after } from 'next/server';
+import { cache, type ReactNode } from 'react';
 import { Gauge, TrendingUp, Radar } from 'lucide-react';
 import { replyTimeVerdict } from '@/lib/vendor-reply-time';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -174,10 +175,36 @@ export async function OneAnalyticsSection({
   profile: VendorProfileRow;
   /** 🛍 On the Shop (Store drawing v10): the graphs the shop picked, in its order (`null` = never picked → every open
    *  graph), plus the "Add a graph" tile into the Store. Absent (Performance) = the carousel as before. */
-  store?: { graphs: readonly string[] | null; addHref: string };
+  store?: StorePick;
 }) {
+  const drawn = await readOneAnalytics(supabase, userId, profile);
+  // A lock (role · plan · Verified) is drawn as it is; the full carousel takes the Shop's graph pick.
+  return typeof drawn === 'function' ? drawn(store) : drawn;
+}
+
+type StorePick = { graphs: readonly string[] | null; addHref: string };
+
+/**
+ * ⚡ Start the carousel's reads NOW — the Shop page calls this with its own batch, once the shop is known, so the
+ * carousel (drawn after the cover's reads, in its own Suspense) finds them already on their way. A failure is not
+ * handled here: the section awaits the same promise and meets it there, as if it had started the reads itself.
+ */
+export function preloadOneAnalytics(supabase: SupabaseClient, userId: string, profile: VendorProfileRow): void {
+  readOneAnalytics(supabase, userId, profile).catch(() => undefined);
+}
+
+/**
+ * THE CAROUSEL'S READS — `cache()`d per request on (session client, user, shop row), all three request-cached
+ * themselves, so a preload and the section share one set of reads. It answers with the drawing, which needs only the
+ * Shop's graph pick (`store`, from the Shop's own layout read) at the very end.
+ */
+const readOneAnalytics = cache(async (supabase: SupabaseClient, userId: string, profile: VendorProfileRow): Promise<ReactNode | ((store?: StorePick) => ReactNode)> => {
   // Owner/admin only — the ROI + momentum panels surface booking revenue. On the Shop tab a team member who is not an
   // owner/admin is TOLD so (the section's own line), never shown an empty carousel.
+  // ⚡ The plan read starts WITH the role read (it needs only the shop id), so the two cost one trip, not two. Marked
+  // handled here so a team member's early return never leaves it unawaited; the await below still meets any failure.
+  const tierRead = resolveVendorTier(supabase, profile.vendor_profile_id);
+  tierRead.catch(() => undefined);
   const role = await resolveVendorRole(supabase, userId);
   if (!canManageVendor(role)) {
     // 🔒 Six roles (owner 19 Nov 2026): Marketing now opens the Shop tab — the numbers stay the Shop Manager's, and the
@@ -198,7 +225,7 @@ export async function OneAnalyticsSection({
 
   // ── Tier gating (flag-dark). Resolve tier up front so a free/verified vendor
   //    short-circuits to the upsell WITHOUT running the full data batch.
-  const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
+  const tier = await tierRead;
   const gateOn = isVendorFeatureGateEnabled();
 
   // 🏅 The badge facts feed the reputation card's ring ("N of M events · next badge"). The badges THEMSELVES are the Shop
@@ -260,6 +287,104 @@ export async function OneAnalyticsSection({
   // links, the service scope's hrefs) still lands on 12 months.
   const nowMs = Date.now();
 
+  // ⚡ EVERY READ THAT NEEDS ONLY THE SHOP STARTS HERE, beside Batch A (supplier walk 24 Nov: the Shop's Analytics
+  // arrived ~0.9 s after the cover, its reads in seven rounds one after another). The shop's cards (Batch A's
+  // `services`) are a promise of their own, so the five new graphs start the moment the cards are known instead of
+  // after the slowest read in Batch A; Batch B, the partnership count, the Store's twelve graphs and the verified
+  // median need nothing Batch A reads, so they start now too. Each keeps its own honest-failure shape.
+  const servicesRead = safeRead(fetchVendorServices(supabase, profile.vendor_profile_id), [], 'services');
+  // 📈 The five new graphs (Build 6 Lane I — lost dates · which card sells · reply speed vs bookings · slow months ·
+  // quotes waiting), started the moment the shop's cards are known and awaited at the recommendations below, so they
+  // ride beside the pins and the partnership count. Each refusal is its own `null` ("Couldn’t load"), never a zero.
+  // `event_vendors` (cardsell + replyvs) on `bookingsAdmin` — it has no vendor SELECT policy (see above).
+  const graphCardsRead = servicesRead.then((services) =>
+    services
+      .filter((s) => s.is_active)
+      .map((s) => ({ serviceId: s.vendor_service_id, name: s.title?.trim() || displayServiceLabel(s.category) })),
+  );
+  const newGraphsRead = readNewGraphs({
+    session: supabase,
+    admin: bookingsAdmin,
+    vendorProfileId: profile.vendor_profile_id,
+    cards: graphCardsRead,
+    nowMs,
+  });
+  // 🛍 The Store's twelve new graphs (owner 23 Nov 2026), started beside the five — each refusal its own `null`.
+  // `guest_saved_vendors` and the photo-view ledger on `bookingsAdmin` (no shop SELECT on either; counts only).
+  const storeGraphsRead = readStoreGraphs({
+    session: supabase,
+    admin: bookingsAdmin,
+    vendorProfileId: profile.vendor_profile_id,
+    pageKeys: profile.portfolio_r2_keys ?? [],
+    nowMs,
+  });
+  // Live partnerships, either direction — so the "link up" card stops being
+  // shown to a vendor who has already built their circle. Fail-soft to 0: a
+  // failed count would otherwise read as "none" and nag someone who has ten.
+  // (0 with a read error is the same value as 0 with none — so on error we
+  // suppress the card instead, by reporting a count above the threshold.)
+  const partnershipRead = Promise.resolve(
+    supabase
+      .from('vendor_partnerships')
+      .select('id', { count: 'exact', head: true })
+      .or(
+        `recommending_vendor_id.eq.${profile.vendor_profile_id},recommended_vendor_id.eq.${profile.vendor_profile_id}`,
+      )
+      .eq('status', 'accepted')
+      .eq('is_active', true),
+  );
+  // Every card reads the WHOLE shop (the per-service ▾ of the old page has no place on a carousel card).
+  const serviceId: string | null = null;
+
+  // ── Batch B — the SEGMENTABLE readers (the attribution windows: money + the Setnayan / own split; the booked lanes:
+  //    daily + monthly series). They read the whole shop (`serviceId` is null), so they start NOW, beside Batch A.
+  const batchBRead = Promise.all([
+    safeRead(
+      fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365), serviceId),
+      null,
+      'attribution_year',
+    ),
+    safeRead(
+      fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(30), serviceId),
+      null,
+      'attribution_day',
+    ),
+    safeRead(
+      fetchVendorBookingSeries(supabase, profile.vendor_profile_id, 12, serviceId),
+      [],
+      'booking_monthly',
+    ),
+    safeRead(
+      fetchVendorBookingDailySeries(supabase, profile.vendor_profile_id, 30, serviceId),
+      [],
+      'booking_daily',
+    ),
+    canAdvanced
+      ? safeRead(
+          fetchVendorReputationAnalytics(supabase, profile.vendor_profile_id),
+          null,
+          'reputation_analytics',
+        )
+      : Promise.resolve(null),
+    canAdvanced
+      ? safeRead(
+          fetchVendorCapacityAnalytics(supabase, profile.vendor_profile_id),
+          null,
+          'capacity_analytics',
+        )
+      : Promise.resolve(null),
+  ]);
+  // Verified-median pricing (dark behind NEXT_PUBLIC_VERIFIED_MEDIAN_ENABLED).
+  // Off → skip the read entirely, render nothing. Started here (after every early return above), awaited below.
+  const verifiedMedianRead = verifiedMedianEnabled()
+    ? fetchVendorVerifiedMedian(profile.vendor_profile_id)
+    : Promise.resolve(null);
+  // Marked handled so a refusal elsewhere in the batch never leaves these unawaited; their awaits below still meet it.
+  newGraphsRead.catch(() => undefined);
+  storeGraphsRead.catch(() => undefined);
+  verifiedMedianRead.catch(() => undefined);
+  partnershipRead.catch(() => undefined);
+
   // ── Batch A — everything that does NOT depend on the chosen service scope: the activity-stats row (health + growth),
   //    the vendor's own services (to build + validate the scope selector), the catalog (plan price), the radar and the
   //    benchmark, the 12-month inquiry + conversion analytics, the by-source slices for BOTH windows, the price meter,
@@ -267,7 +392,7 @@ export async function OneAnalyticsSection({
   //    The 28-day reads are retired with the "Monthly" picker (the window is 30 days or 12 months).
   const [
     statsRead,
-    services,
+    , // the shop's cards: `servicesRead`, read above (the five new graphs wait on it alone)
     vendorCatalog,
     demandRadarRead,
     funnelBenchmarkRead,
@@ -317,7 +442,7 @@ export async function OneAnalyticsSection({
       unmeasuredStats<ActivityStatsRow>(),
       'activity_stats',
     ),
-    safeRead(fetchVendorServices(supabase, profile.vendor_profile_id), [], 'services'),
+    servicesRead,
     safeRead(fetchV2VendorCatalog(), [], 'catalog'),
     safeRead(
       getVendorDemandRadar(supabase, profile.vendor_profile_id),
@@ -414,29 +539,8 @@ export async function OneAnalyticsSection({
     // and inquiries series above carry theirs. `event_vendors` on `bookingsAdmin` (no vendor SELECT policy, see above).
     safeRead(fetchBookedSeries(bookingsAdmin as unknown as SeriesClient, profile.vendor_profile_id, nowMs), null, 'booked_series'),
   ]);
-  // 📈 The five new graphs (Build 6 Lane I — lost dates · which card sells · reply speed vs bookings · slow months ·
-  // quotes waiting), started the moment the shop's cards are known and awaited at the recommendations below, so they
-  // ride beside the pins and the partnership count. Each refusal is its own `null` ("Couldn’t load"), never a zero.
-  // `event_vendors` (cardsell + replyvs) on `bookingsAdmin` — it has no vendor SELECT policy (see above).
-  const graphCards = services
-    .filter((s) => s.is_active)
-    .map((s) => ({ serviceId: s.vendor_service_id, name: s.title?.trim() || displayServiceLabel(s.category) }));
-  const newGraphsRead = readNewGraphs({
-    session: supabase,
-    admin: bookingsAdmin,
-    vendorProfileId: profile.vendor_profile_id,
-    cards: graphCards,
-    nowMs,
-  });
-  // 🛍 The Store's twelve new graphs (owner 23 Nov 2026), started beside the five — each refusal its own `null`.
-  // `guest_saved_vendors` and the photo-view ledger on `bookingsAdmin` (no shop SELECT on either; counts only).
-  const storeGraphsRead = readStoreGraphs({
-    session: supabase,
-    admin: bookingsAdmin,
-    vendorProfileId: profile.vendor_profile_id,
-    pageKeys: profile.portfolio_r2_keys ?? [],
-    nowMs,
-  });
+  // 📈 The five new graphs' cards — the same list Batch A read (`servicesRead`, already settled).
+  const graphCards = await graphCardsRead;
   // Started before Batch A (beside the badges), so this wait costs no extra round trip.
   const [pinNow, pinYear] = await Promise.all([pinNowRead, pinYearRead]);
 
@@ -470,19 +574,8 @@ export async function OneAnalyticsSection({
   const health = statsRead.measured
     ? buildVendorHealthComposite((statsRow as VendorHealthInputs | null) ?? null)
     : unmeasuredVendorHealthComposite();
-  // Live partnerships, either direction — so the "link up" card stops being
-  // shown to a vendor who has already built their circle. Fail-soft to 0: a
-  // failed count would otherwise read as "none" and nag someone who has ten.
-  // (0 with a read error is the same value as 0 with none — so on error we
-  // suppress the card instead, by reporting a count above the threshold.)
-  const { count: partnershipCount, error: partnershipErr } = await supabase
-    .from('vendor_partnerships')
-    .select('id', { count: 'exact', head: true })
-    .or(
-      `recommending_vendor_id.eq.${profile.vendor_profile_id},recommended_vendor_id.eq.${profile.vendor_profile_id}`,
-    )
-    .eq('status', 'accepted')
-    .eq('is_active', true);
+  // Live partnerships (started beside Batch A above) — fail-soft as before: an error suppresses the card.
+  const { count: partnershipCount, error: partnershipErr } = await partnershipRead;
   if (partnershipErr) {
     logQueryError('vendor-dashboard/performance/page.tsx: vendor_partnerships count', partnershipErr, {
       vendor_profile_id: profile.vendor_profile_id,
@@ -522,11 +615,7 @@ export async function OneAnalyticsSection({
   const shownGrowthRecs = withoutPartnershipRecWhenNobodyToLink(growthRecs, eligiblePartners);
   const shownGrowthRecsYear = withoutPartnershipRecWhenNobodyToLink(growthRecsYear, eligiblePartners);
 
-  // Every card reads the WHOLE shop (the per-service ▾ of the old page has no place on a carousel card).
-  const serviceId: string | null = null;
-
-  // ── Batch B — the SEGMENTABLE readers, now that serviceId is validated: the attribution windows (money + the
-  //    Setnayan / own split) and the booked lanes (daily + monthly series) filter to the selected service.
+  // ── Batch B — started beside Batch A above; awaited here.
   const [
     attributionYear,
     attributionDay,
@@ -534,42 +623,7 @@ export async function OneAnalyticsSection({
     bookingDailySeries,
     reputationAnalytics,
     capacityAnalytics,
-  ] = await Promise.all([
-    safeRead(
-      fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365), serviceId),
-      null,
-      'attribution_year',
-    ),
-    safeRead(
-      fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(30), serviceId),
-      null,
-      'attribution_day',
-    ),
-    safeRead(
-      fetchVendorBookingSeries(supabase, profile.vendor_profile_id, 12, serviceId),
-      [],
-      'booking_monthly',
-    ),
-    safeRead(
-      fetchVendorBookingDailySeries(supabase, profile.vendor_profile_id, 30, serviceId),
-      [],
-      'booking_daily',
-    ),
-    canAdvanced
-      ? safeRead(
-          fetchVendorReputationAnalytics(supabase, profile.vendor_profile_id),
-          null,
-          'reputation_analytics',
-        )
-      : Promise.resolve(null),
-    canAdvanced
-      ? safeRead(
-          fetchVendorCapacityAnalytics(supabase, profile.vendor_profile_id),
-          null,
-          'capacity_analytics',
-        )
-      : Promise.resolve(null),
-  ]);
+  ] = await batchBRead;
 
   // A year of the shop's own plan — 12 × the live monthly row (owner 2026-11-22 "FINAL LADDER": monthly only, no
   // yearly plan). No row → null → the "× a year of your plan" line is left out, never a typed fallback price.
@@ -577,12 +631,8 @@ export async function OneAnalyticsSection({
   const catalogMonthly = vendorCatalog.find((r) => r.sku_code === monthlySku)?.price_php ?? null;
   const annualPlanPhp = catalogMonthly !== null ? catalogMonthly * 12 : null;
 
-  // Verified-median pricing (dark behind NEXT_PUBLIC_VERIFIED_MEDIAN_ENABLED).
-  // Off → skip the read entirely, render nothing. Computed on the full-render
-  // path only (after every early return above).
-  const verifiedMedian = verifiedMedianEnabled()
-    ? await fetchVendorVerifiedMedian(profile.vendor_profile_id)
-    : null;
+  // Verified-median pricing — started beside Batch A above (null while its flag is off).
+  const verifiedMedian = await verifiedMedianRead;
 
   // The public reply-time claim, decided by the SAME function the marketplace
   // card calls — never a second copy of the floor, the sentinel, the four-hour
@@ -680,7 +730,8 @@ export async function OneAnalyticsSection({
   // 🛍 Booked value is the monthly series Batch B already read — joined here, never read a second time.
   const storeGraphs = withBookedValue(await storeGraphsRead, bookingSeries);
 
-  return (
+  return function DrawnAnalytics(store?: StorePick) {
+    return (
     <>
       <AnalyticsCarousel
         view={growthView}
@@ -719,5 +770,6 @@ export async function OneAnalyticsSection({
         </div>
       )}
     </>
-  );
-}
+    );
+  };
+});

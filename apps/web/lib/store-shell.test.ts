@@ -290,7 +290,7 @@ test('every order page except the ledger is refused — each is a pay-now screen
   assert.equal(isStoreShellWebOnlyPath(`${EV}/orders/`), false, 'trailing slash is still the ledger');
 });
 
-test('vendor Deep Search (a paid per-run service) is refused; the rest of the shop is not', () => {
+test('vendor Deep Search (web research on the shop’s own site) is refused; the rest of the shop is not', () => {
   assert.equal(isStoreShellWebOnlyPath('/vendor-dashboard/deep-search'), true);
   assert.equal(isStoreShellWebOnlyPath('/vendor-dashboard/deep-search/result'), true);
   for (const p of ['/vendor-dashboard/booking-fees', '/vendor-dashboard/booking-fees/abc', '/vendor-dashboard/clients/S89E-ABCDEFGHIJ']) {

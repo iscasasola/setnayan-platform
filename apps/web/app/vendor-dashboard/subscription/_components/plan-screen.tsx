@@ -12,20 +12,17 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalogRead } from '@/lib/v2-catalog';
 import { planGiftOf, giftEndsSoon, giftPlanLine, giftEndedLine, portfolioPlanRowLine } from '@/lib/plan-gift';
 import { dayAfterWords, offerDayWords, offerFromInvite } from '@/lib/personal-invite-offer';
-import { readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
 import { readClaimedTeamInvite } from '@/lib/vendor-invites';
 import {
   TIER_CAPS,
   asVendorTier,
   canBuyExtraSeats,
   holdsBoughtExtras,
-  portfolioPhotoCap,
-  PORTFOLIO_FREE_BASE,
-  PORTFOLIO_ALLOWANCE_UNREAD,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 import { fetchVendorAiAddonState, isVendorAiAddonActive } from '@/lib/vendor-addon-pricing';
-import { fetchVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
+import { fetchDeepSearchRunsPerMonth } from '@/lib/vendor-deep-search-addon';
+import { deepSearchAllowanceWords } from '@/lib/deep-search-findings';
 import { SEAT_SKU_CODE } from '@/lib/vendor-seats';
 import { BRANCH_SKU_CODE } from '@/lib/vendor-branches';
 import { PlanSheet, type PlanPick, type SheetPlan } from './plan-sheet';
@@ -216,14 +213,15 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
 
   // ── 💳 WHAT IS LEFT TO BUY, AND WHAT A SHOP ALREADY BOUGHT (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS",
   // drawing § 3). The AI chatbot, specialized tools and Ultra's four "+1" add-ons are folded into the plans, so their
-  // cards leave this page (what a plan includes is under "What <plan> gives you"). Left: a Deep Search row with its
-  // price (every plan) and, on Ultra, an extra seats and branches row. A shop that bought a chatbot window or an Ultra
+  // cards leave this page (what a plan includes is under "What <plan> gives you"). Left: a Deep Search row — since
+  // 2026-11-22 NOT a price (DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" + 🔎 "1 RUN A MONTH"): what the paid plans include,
+  // from the admin's monthly number — and, on Ultra, an extra seats and branches row. A shop that bought a chatbot window or an Ultra
   // "+1" before the change keeps it until it runs out (item 11) — said on its own row while it runs.
   const ultraHoldsExtras = holdsBoughtExtras(currentTier);
-  const [ultraExtras, aiAddonState, deepSearchPricePhp, extraSeatsRead] = await Promise.all([
+  const [ultraExtras, aiAddonState, deepSearchRuns, extraSeatsRead] = await Promise.all([
     ultraHoldsExtras ? fetchAddOnExtras(supabase, profile.vendor_profile_id) : Promise.resolve(null),
     fetchVendorAiAddonState(supabase, profile.vendor_profile_id),
-    fetchVendorAddonPricePhp(supabase, 'deep_search_about_you', currentTier),
+    fetchDeepSearchRunsPerMonth(createAdminClient()),
     canBuyExtraSeats(currentTier)
       ? supabase.from('vendor_profiles').select('extra_agent_seats').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle()
       : Promise.resolve(null),
@@ -448,8 +446,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
 
   // 🎁 A PLAN SETNAYAN GAVE (prototype supplier_personal_invite_2026-10-23 C1 · C3, owner-approved). While it runs,
   // the answer line names the gift instead of a price nobody pays, and the picker's rows say ₱0 until the day. Once a
-  // personal invite's plan gift has ended (the comp lapse wrote the shop back to Free), the line says it ended. The
-  // photos row reads the shop's own allowance — the invite's 100 are kept (owner ruling 2026-10-23).
+  // personal invite's plan gift has ended (the comp lapse wrote the shop back to Free), the line says it ended.
   const gift = planGiftOf(
     {
       tier_state: (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null,
@@ -458,13 +455,12 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     },
     now,
   );
-  const [allowance, claimedInvite] = await Promise.all([
-    readPortfolioAllowance(supabase, profile.vendor_profile_id),
-    (async () => readClaimedTeamInvite(createAdminClient(), profile.vendor_profile_id))().catch((err) => {
+  const claimedInvite = await (async () => readClaimedTeamInvite(createAdminClient(), profile.vendor_profile_id))().catch(
+    (err) => {
       console.error('[supabase-error] subscription · claimed invite', err);
       return null;
-    }),
-  ]);
+    },
+  );
   const invited = claimedInvite ? offerFromInvite(claimedInvite) : null;
   const todayDay = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
   const giftEnded =
@@ -472,16 +468,8 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       ? { plan: planWord(invited.tier), untilDay: invited.untilDay }
       : null;
 
-  // An allowance that could not be read says so — never "50 free" in its place (a gifted 100 would read as 50).
-  const photosLine = allowance.ok
-    ? portfolioPlanRowLine({
-        held: (profile.portfolio_r2_keys ?? []).length,
-        cap: portfolioPhotoCap(currentTier, allowance.allowance),
-        gifted: (allowance.allowance ?? 0) > PORTFOLIO_FREE_BASE,
-        giftUntilDay: gift ? gift.untilDay : null,
-        giftEnded: Boolean(giftEnded),
-      })
-    : PORTFOLIO_ALLOWANCE_UNREAD;
+  // 🔓 No portfolio count on any plan since 2026-11-23 — the row says what is on the page and that storage is the limit.
+  const photosLine = portfolioPlanRowLine((profile.portfolio_r2_keys ?? []).length);
 
   // 📏 THE STORAGE METER (owner 2026-11-23 "THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SHOP OWNS"): Photos &
   // video · Files · Records, from the ONE breakdown read — the limits sheet above already
@@ -496,10 +484,8 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   const deepSearchRow = storeShell
     ? null
     : {
-        line:
-          deepSearchPricePhp !== null
-            ? `${formatPhp(deepSearchPricePhp)} a search · on every plan`
-            : 'One search at a time · on every plan',
+        // An unread number says no number — never a remembered one.
+        line: deepSearchAllowanceWords(deepSearchRuns.read ? deepSearchRuns.perMonth : null),
       };
   const seatPrice = seatPricePhp !== null ? formatPhp(seatPricePhp) : null;
   const branchPrice = branchPricePhp !== null ? formatPhp(branchPricePhp) : null;

@@ -24,6 +24,7 @@ import { renderLlmsTxt, type RetailRow, type VendorRow } from '@/lib/llms-txt';
 import { readTaxonomyFrom } from '@/lib/taxonomy-read';
 import { liveSubCategoryCount } from '@/lib/category-count';
 import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
+import { fetchDeepSearchRunsPerMonth } from '@/lib/vendor-deep-search-addon';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
@@ -67,7 +68,7 @@ export async function GET(): Promise<Response> {
     // through B/C/D rows that are is_active=FALSE by design (price-source only,
     // see lib/setnayan-ai-type-pricing.ts). Filtering here would silently flatten
     // the ladder back to a single price, which is the exact bug this replaces.
-    const [retailRes, vendorRes, articles, taxonomy] = await Promise.all([
+    const [retailRes, vendorRes, articles, taxonomy, deepSearchRuns] = await Promise.all([
       admin
         .from('platform_retail_catalog_v2')
         .select('service_code, title, retail_price_php, is_active'),
@@ -79,6 +80,8 @@ export async function GET(): Promise<Response> {
       readPublicArticles(),
       // 🔢 The live taxonomy, so the sub-category count is counted, never typed (24 Nov). A fallback says no number.
       readTaxonomyFrom(admin),
+      // 🔎 Deep Search's monthly searches on the paid plans (owner 2026-11-22) — the admin's number; unread prints "—".
+      fetchDeepSearchRunsPerMonth(admin),
     ]);
 
     if (retailRes.error || vendorRes.error || !retailRes.data || !vendorRes.data) {
@@ -101,6 +104,7 @@ export async function GET(): Promise<Response> {
       subCategoryCount: liveSubCategoryCount(taxonomy),
       // 🔁 The owner's Apple switch: when on, the plan line adds that app plans renew through Apple.
       appleIapOn: isAppleIapEnabled(),
+      deepSearchRunsPerMonth: deepSearchRuns.read ? deepSearchRuns.perMonth : undefined,
       refreshedOn: new Date().toISOString().slice(0, 10),
       articles: articles.items,
     });

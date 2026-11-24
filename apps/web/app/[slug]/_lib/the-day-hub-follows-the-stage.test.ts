@@ -199,7 +199,8 @@ test('nothing the hub alone opened is lost: the venue map’s door now stands by
   // the event page's `YourSeatBlock`, which shows the same table; without it the map would be unreachable.
   const BODY = read('_components/site-body.tsx');
   const block = BODY.indexOf('<YourSeatBlock');
-  const door = BODY.indexOf('href={`/${event.slug}/find-my-table`}');
+  // The address move (#7868): the door is built through `publicEventPath`, never a hand-typed `/${event.slug}`.
+  const door = BODY.indexOf('href={`${publicEventPath(event.slug)}/find-my-table`}');
   assert.ok(block > 0, 'could not find the event page’s seat block — update this guard, do not delete it');
   assert.ok(door > block && door - block < 1500, 'the venue map lost its door beside the seat block');
 });

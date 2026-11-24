@@ -4,7 +4,9 @@ import { loadMyRequests, loadRequestTree } from '@/lib/service-requests.server';
 import { DecisionNotice, RequestStatusPill } from '../requests/_components/request-bits';
 import { giftLimitPctOrDefault } from '@/lib/setnayan-gift';
 import { reachTally, serviceReach } from '@/lib/service-reach';
-import { Fragment } from 'react';
+import { Fragment, cache } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import {
   ChevronDown,
@@ -21,7 +23,7 @@ import { readShopSeals } from '@/lib/shop-seals.server';
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
 import { CardLockedMedals } from '@/app/_components/card-badges/card-locked-medals';
 import type { CardBadgesRead } from '@/lib/card-badges';
-import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { fetchOwnVendorProfile, type VendorProfileRow } from '@/lib/vendor-profile';
 import { CardRecordSection } from '@/app/_components/card-record-section';
 import { cardRecordHasSomethingToSayToTheShop } from '@/lib/service-card-record';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
@@ -145,43 +147,21 @@ export type ServicesManagerSearch = {
   wantCategory?: string;
 };
 
-export async function VendorServicesManager({
-  search,
-  basePath = '/vendor-dashboard/services',
-  toolsByCoverage = {},
-}: {
-  search: ServicesManagerSearch;
-  basePath?: string;
-  /** Each service's "Tools on every event" line (the Event Hub's own tools), by coverage id — drawn under its heading. */
-  toolsByCoverage?: Readonly<Record<number, string>>;
-}) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) redirect('/vendor-dashboard');
-
+/**
+ * ⚡ THE SERVICE LIST'S READS, IN ONE ROUND (owner 18 Nov: every page under 0.7 s; supplier walk 24 Nov: the Shop's
+ * stream ended 1.5–2.4 s in, and the card list was its last second). Every read starts at once; the only chains are
+ * the true ones — the per-card reads wait for the card ids, the medals and the branches wait for the plan row.
+ *
+ * `cache()`d per request on (session client, shop row) — both are themselves request-cached, so the Shop page can
+ * START this read with its own batch (`preloadServicesManager`) and the list below picks up the same promise.
+ * Every read keeps its own honest-failure shape (unread → null / `ok: false`, said on the page, never "none").
+ */
+const readServicesManager = cache(async (supabase: SupabaseClient, profile: VendorProfileRow) => {
   // 🧭 Which cards the PLAN holds (owner 2026-11-06, SERVICES LIFE CYCLE) — its own read, so a database without the
   // columns degrades to "every card as it always was" (null), never to a claim that nothing is held.
   // 🎁 The gift limit is the admin setting (C2 → C4, THE ONE BUILD spec §5 #3) — read beside the list, never typed.
-  const [services, planHolds, giftLimitPct] = await Promise.all([
-    fetchVendorServices(supabase, profile.vendor_profile_id),
-    readPlanHolds(supabase, profile.vendor_profile_id),
-    getGiftLimitPct(createAdminClient()),
-  ]);
-
-  /**
-   * ONE clock for every card in this list, mirroring the public profile's own
-   * note: the early-booking ladder must not be able to resolve two different
-   * tiers within a single render. Hoisted here rather than taken per row, which
-   * is what a `new Date()` inside the map would silently do.
-   */
-  const cardListNow = new Date();
-
-  const serviceIdList = services.map((s) => s.vendor_service_id);
+  const servicesRead = fetchVendorServices(supabase, profile.vendor_profile_id);
+  const idsRead = servicesRead.then((services) => services.map((s) => s.vendor_service_id));
 
   // CARD RECORD (owner-locked 2026-07-28) — the vendor's own view of what each
   // card has compiled: booked count, event-type mix, anonymized ledger, and the
@@ -194,9 +174,9 @@ export async function VendorServicesManager({
   // vendor's own view too. Read as the signed-in vendor (the RPC is granted to
   // `authenticated`, never to anon). ONE batched call for every card on the
   // page. Flag-gated: OFF costs not one extra query.
-  const cardRecordByService = cardRecordEnabled()
-    ? await fetchServiceCardRecords(supabase, serviceIdList)
-    : new Map<string, CompiledCardRecord>();
+  const cardRecordRead = cardRecordEnabled()
+    ? idsRead.then((serviceIdList) => fetchServiceCardRecords(supabase, serviceIdList))
+    : Promise.resolve(new Map<string, CompiledCardRecord>());
 
   // 🔒 WHO BOOKED EACH CARD, AND WHICH BOOKINGS ARE STILL OPEN (owner 10 Nov on PR #7464: no delete and no turning off
   // until every booking is complete). ONE read for every card on the page, on the ADMIN client because
@@ -205,27 +185,242 @@ export async function VendorServicesManager({
   // 🔗 WHERE SHARE CAN POST (owner 2026-11-11: "It is share to an client event. To enter to a chat.") — this shop's
   // client events, ONE read for the whole page, beside the bookings read. A refused read is `null` and the Share sheet
   // says so (never "no client events"); the post (`offerServiceCore`) asks the server again before it writes.
-  const [cardBookings, shareRead] = await Promise.all([
-    readCardBookings(createAdminClient(), serviceIdList),
-    readShareTargets(supabase, createAdminClient(), profile.vendor_profile_id),
+  const cardBookingsRead = idsRead.then((serviceIdList) => readCardBookings(createAdminClient(), serviceIdList));
+  const shareTargetsRead = readShareTargets(supabase, createAdminClient(), profile.vendor_profile_id);
+
+  // Child-table lists (multi-discount + free inclusions + Fixed pax brackets ·
+  // migration 20270502342558), grouped by service for the off-peak nudge, row
+  // badge, and the Phase 3b list editors on each form. Batched into one round-trip.
+  // V-4 (supplier audit 2026-11-17): the outcomes are kept — a refused read drew every card with no "What's included"
+  // and no discount, which reads as "you never added any". Unread is said once over the cards.
+  const discountsReadP = idsRead.then((serviceIdList) => fetchDiscountsByServiceRead(supabase, serviceIdList));
+  const inclusionsReadP = idsRead.then((serviceIdList) => fetchInclusionsByServiceRead(supabase, serviceIdList));
+
+  // Presigned display URLs for existing showcase media (Phase 3c) so the edit
+  // forms render thumbnails of what's already uploaded. Only refs that exist;
+  // resolved in parallel; fail-soft per ref (a signing hiccup degrades to a
+  // filename chip in FileUpload, never a broken page).
+  const showcaseRead = servicesRead.then(async (services): Promise<Record<string, string>> => {
+    const showcaseRefs = Array.from(
+      new Set(
+        services.flatMap((s) => [
+          ...(s.primary_photo_r2_key ? [s.primary_photo_r2_key] : []),
+          ...(s.showcase_video_r2_key ? [s.showcase_video_r2_key] : []),
+          ...(s.showcase_photo_r2_keys ?? []),
+        ]),
+      ),
+    );
+    return Object.fromEntries(
+      (
+        await Promise.all(
+          showcaseRefs.map(async (ref) => {
+            try {
+              const url = await displayUrlForStoredAsset(ref);
+              return url ? ([ref, url] as const) : null;
+            } catch {
+              return null;
+            }
+          }),
+        )
+      ).filter((e): e is readonly [string, string] => e !== null),
+    );
+  });
+
+  // The tier / verification soft-probe. (The links, time slots and payment schedules this list used to read for
+  // its inline editors are read by the card's own screen now — /vendor-dashboard/services/[serviceId].)
+  const tierProbeRead = supabase
+    .from('vendor_profiles')
+    .select('tier_state, verification_state, name_revealed_at, screen_name')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle()
+    .then(
+      (r) => r,
+      (err: unknown) => ({ data: null, error: err }),
+    );
+  const planRead = tierProbeRead.then((tierProbeRes) => {
+    // V-3 (supplier audit 2026-11-17): the error was never read, so a REFUSED plan read hid every branch and relabelled
+    // each card "assigned to You" — the "silent lie" the branch comment below forbids. Bound, logged, and honoured.
+    const tierUnread = Boolean(tierProbeRes.error);
+    if (tierUnread) logQueryError('ServicesManager.tierProbe', tierProbeRes.error, { vendorProfileId: profile.vendor_profile_id }, 'graceful_degrade');
+    const row = tierProbeRes.data as { tier_state?: string | null; verification_state?: string | null } | null;
+    return { tierUnread, tier: row?.tier_state ?? null, shopVerified: row?.verification_state === 'verified' };
+  });
+
+  // 🏅 EACH CARD'S MEDALS (owner 17 Nov, "badges and seal is still not visible") — the SAME read the public shop page
+  // makes (`readShopSeals` → `readCardBadges`, J3), so the shop sees on its own cards exactly the medals couples see. A
+  // refused read is `unreadable` and draws nothing (never "no medals").
+  const cardBadgesRead: Promise<CardBadgesRead> = planRead
+    .then(async ({ shopVerified }): Promise<CardBadgesRead> => {
+      const seals = await readShopSeals(profile.vendor_profile_id, shopVerified);
+      if (!seals) return { kind: 'unreadable' };
+      return readCardBadges(createAdminClient(), {
+        vendorProfileId: profile.vendor_profile_id,
+        shopVerified,
+        verifiedPartner: seals.seals.includes('verified_partner'),
+      });
+    })
+    .catch((): CardBadgesRead => ({ kind: 'unreadable' }));
+
+  // Ultra (enterprise) — rank-derived, not a hard equality.
+  // The service-role ORDER reader matters here: a shop's second manager
+  // cannot see the order its owner paid, so without it every branch would
+  // read as unpaid to them and the gate below would refuse a live branch.
+  // Branches on Pro (included) and Ultra (included + bought) — owner 2026-11-04, "branches 0,0,3,10".
+  // An unread plan still reads the branches: their LABELS must survive, or every card says "assigned to You".
+  const branchesRead = planRead.then(async ({ tier, tierUnread }) =>
+    planHasBranches(tier) || tierUnread
+      ? (
+          await fetchVendorBranches(
+            supabase,
+            profile.vendor_profile_id,
+            createAdminClient(),
+          )
+        ).filter((b) => b.status !== 'cancelled')
+      : [],
+  );
+
+  // ── Service requests (own rows only) ────────────────────────────────────
+  // ⚠ SERVICE REQUESTS THEY HAVE SENT US AND ARE WAITING ON. A refused read is SAID below ("We couldn't load your
+  // ⚠ requests"), never drawn as "none" — the supplier would see no sign they ever asked, and ask again.
+  // The read + the card counts are `loadMyRequests` (lib/service-requests.server.ts), shared with "Your requests".
+  const [
+    services,
+    planHolds,
+    giftLimitPct,
+    cardRecordByService,
+    cardBookings,
+    shareRead,
+    vendorCoveragesRead,
+    coverageTree,
+    coverageLabels,
+    eventVocab,
+    discountsRead,
+    inclusionsRead,
+    showcaseDisplayUrls,
+    tierProbeRes,
+    plan,
+    cardBadges,
+    allBranches,
+    myRequestsRead,
+    requestTree,
+    tax,
+  ] = await Promise.all([
+    servicesRead,
+    readPlanHolds(supabase, profile.vendor_profile_id),
+    getGiftLimitPct(createAdminClient()),
+    cardRecordRead,
+    cardBookingsRead,
+    shareTargetsRead,
+    // ── Coverage-first rework: first-class coverages + the LIVE taxonomy tree ──
+    // (parent → branch → leaf, read from the admin taxonomy so admin edits flow
+    // through with no deploy). Each read fails soft to empty so the page renders.
+    // 🔎 EXCEPT the shop's own categories (supplier dashboard audit, 2026-11-17): read as [] on a refusal, every card
+    // said "not in what you do" and the panel said "Nothing yet". `null` = unread, and the render says so instead.
+    fetchVendorCoverages(supabase, profile.vendor_profile_id).catch((e: unknown) => {
+      console.error('[services] fetchVendorCoverages failed:', e);
+      return null;
+    }),
+    getCoverageTaxonomy().catch(() => []),
+    resolveCoverageLabels().catch(() => null),
+    getVendorServableEventTypes().catch(() => []),
+    discountsReadP,
+    inclusionsReadP,
+    showcaseRead,
+    tierProbeRead,
+    planRead,
+    cardBadgesRead,
+    branchesRead,
+    loadMyRequests(supabase, profile.vendor_profile_id),
+    loadRequestTree(),
+    // Live admin-taxonomy DISPLAY labels for the category picker — null when unread (the static labels are drawn).
+    getTaxonomy().catch(() => null),
   ]);
+  return {
+    services,
+    planHolds,
+    giftLimitPct,
+    cardRecordByService,
+    cardBookings,
+    shareRead,
+    vendorCoveragesRead,
+    coverageTree,
+    coverageLabels,
+    eventVocab,
+    discountsRead,
+    inclusionsRead,
+    showcaseDisplayUrls,
+    tierProbeRes,
+    tierUnread: plan.tierUnread,
+    cardBadges,
+    allBranches,
+    myRequestsRead,
+    requestTree,
+    tax,
+  };
+});
+
+/**
+ * ⚡ Start the service list's reads NOW (the Shop page calls this beside its own batch, once the shop is known), so the
+ * list — drawn after the cover's reads — finds them already on their way. A failure is not handled here: the list
+ * awaits the same promise and meets it there, exactly as if it had started the reads itself.
+ */
+export function preloadServicesManager(supabase: SupabaseClient, profile: VendorProfileRow): void {
+  readServicesManager(supabase, profile).catch(() => undefined);
+}
+
+export async function VendorServicesManager({
+  search,
+  basePath = '/vendor-dashboard/services',
+  toolsByCoverage = {},
+}: {
+  search: ServicesManagerSearch;
+  basePath?: string;
+  /** Each service's "Tools on every event" line (the Event Hub's own tools), by coverage id — drawn under its heading. */
+  toolsByCoverage?: Readonly<Record<number, string>>;
+}) {
+  // ⚡ The session and the shop are this request's own cached reads (`getCurrentUser`, `fetchOwnVendorProfile`): the
+  // layout and the Shop page already asked them, so these lines cost no trip. (This used to call
+  // `supabase.auth.getUser()` itself — one more round trip to the auth server on every Shop and Services visit.)
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const supabase = await createClient();
+
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+
+  // ⚡ EVERY READ IN ONE ROUND (`readServicesManager` below): the list used to wait for each read before starting the
+  // next — about twelve trips in single file, the last second of the Shop's stream (measured 24 Nov on live, signed in).
+  const {
+    services,
+    planHolds,
+    giftLimitPct,
+    cardRecordByService,
+    cardBookings,
+    shareRead,
+    vendorCoveragesRead,
+    coverageTree,
+    coverageLabels,
+    eventVocab,
+    discountsRead,
+    inclusionsRead,
+    showcaseDisplayUrls,
+    tierProbeRes,
+    cardBadges,
+    allBranches,
+    myRequestsRead,
+    requestTree,
+    tax,
+  } = await readServicesManager(supabase, profile);
+
+  /**
+   * ONE clock for every card in this list, mirroring the public profile's own
+   * note: the early-booking ladder must not be able to resolve two different
+   * tiers within a single render. Hoisted here rather than taken per row, which
+   * is what a `new Date()` inside the map would silently do.
+   */
+  const cardListNow = new Date();
   const shareTargets = shareRead.status === 'ok' ? shareRead.targets : null;
 
-  // ── Coverage-first rework: first-class coverages + the LIVE taxonomy tree ──
-  // (parent → branch → leaf, read from the admin taxonomy so admin edits flow
-  // through with no deploy). Each read fails soft to empty so the page renders.
-  // 🔎 EXCEPT the shop's own categories (supplier dashboard audit, 2026-11-17): read as [] on a refusal, every card
-  // said "not in what you do" and the panel said "Nothing yet". `null` = unread, and the render says so instead.
-  const [vendorCoveragesRead, coverageTree, coverageLabels, eventVocab] =
-    await Promise.all([
-      fetchVendorCoverages(supabase, profile.vendor_profile_id).catch((e: unknown) => {
-        console.error('[services] fetchVendorCoverages failed:', e);
-        return null;
-      }),
-      getCoverageTaxonomy().catch(() => []),
-      resolveCoverageLabels().catch(() => null),
-      getVendorServableEventTypes().catch(() => []),
-    ]);
   const coveragesUnread = vendorCoveragesRead === null;
   const vendorCoverages = vendorCoveragesRead ?? [];
   const serviceCountByCoverage = services.reduce<Record<number, number>>(
@@ -305,63 +500,9 @@ export async function VendorServicesManager({
     const rb = groupOrder.get(groupLabelOf(b)) ?? 9998;
     return ra !== rb ? ra - rb : groupLabelOf(a).localeCompare(groupLabelOf(b));
   });
-  // Child-table lists (multi-discount + free inclusions + Fixed pax brackets ·
-  // migration 20270502342558), grouped by service for the off-peak nudge, row
-  // badge, and the Phase 3b list editors on each form. Batched into one round-trip.
-  // V-4 (supplier audit 2026-11-17): the outcomes are kept — a refused read drew every card with no "What's included"
-  // and no discount, which reads as "you never added any". Unread is said once over the cards.
-  const [discountsRead, inclusionsRead] =
-    await Promise.all([
-      fetchDiscountsByServiceRead(supabase, serviceIdList),
-      fetchInclusionsByServiceRead(supabase, serviceIdList),
-    ]);
   const discountsByService = discountsRead.byService;
   const inclusionsByService = inclusionsRead.byService;
   const cardExtrasUnread = !discountsRead.ok || !inclusionsRead.ok;
-
-  // Presigned display URLs for existing showcase media (Phase 3c) so the edit
-  // forms render thumbnails of what's already uploaded. Only refs that exist;
-  // resolved in parallel; fail-soft per ref (a signing hiccup degrades to a
-  // filename chip in FileUpload, never a broken page).
-  const showcaseRefs = Array.from(
-    new Set(
-      services.flatMap((s) => [
-        ...(s.primary_photo_r2_key ? [s.primary_photo_r2_key] : []),
-        ...(s.showcase_video_r2_key ? [s.showcase_video_r2_key] : []),
-        ...(s.showcase_photo_r2_keys ?? []),
-      ]),
-    ),
-  );
-  const showcaseDisplayUrls: Record<string, string> = Object.fromEntries(
-    (
-      await Promise.all(
-        showcaseRefs.map(async (ref) => {
-          try {
-            const url = await displayUrlForStoredAsset(ref);
-            return url ? ([ref, url] as const) : null;
-          } catch {
-            return null;
-          }
-        }),
-      )
-    ).filter((e): e is readonly [string, string] => e !== null),
-  );
-
-  // The tier / verification soft-probe. (The links, time slots and payment schedules this list used to read for
-  // its inline editors are read by the card's own screen now — /vendor-dashboard/services/[serviceId].)
-  const tierProbeRes = await supabase
-    .from('vendor_profiles')
-    .select('tier_state, verification_state, name_revealed_at, screen_name')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .maybeSingle()
-    .then(
-      (r) => r,
-      (err: unknown) => ({ data: null, error: err }),
-    );
-  // V-3 (supplier audit 2026-11-17): the error was never read, so a REFUSED plan read hid every branch and relabelled
-  // each card "assigned to You" — the "silent lie" the branch comment below forbids. Bound, logged, and honoured.
-  const tierUnread = Boolean(tierProbeRes.error);
-  if (tierUnread) logQueryError('ServicesManager.tierProbe', tierProbeRes.error, { vendorProfileId: profile.vendor_profile_id }, 'graceful_degrade');
 
   // #1 multi-service-per-leaf: a category can now hold several listings, so we
   // track a COUNT per category (not just presence) to show on the picker.
@@ -380,39 +521,9 @@ export async function VendorServicesManager({
     screen_name?: string | null;
   } | null;
   const tier: string | null = tierRow?.tier_state ?? null;
-
-  // 🏅 EACH CARD'S MEDALS (owner 17 Nov, "badges and seal is still not visible") — the SAME read the public shop page
-  // makes (`readShopSeals` → `readCardBadges`, J3), so the shop sees on its own cards exactly the medals couples see. A
-  // refused read is `unreadable` and draws nothing (never "no medals").
-  const shopVerified = tierRow?.verification_state === 'verified';
   const badgesNow = Date.now();
-  const cardBadges: CardBadgesRead = await (async (): Promise<CardBadgesRead> => {
-    const seals = await readShopSeals(profile.vendor_profile_id, shopVerified);
-    if (!seals) return { kind: 'unreadable' };
-    return readCardBadges(createAdminClient(), {
-      vendorProfileId: profile.vendor_profile_id,
-      shopVerified,
-      verifiedPartner: seals.seals.includes('verified_partner'),
-    });
-  })().catch((): CardBadgesRead => ({ kind: 'unreadable' }));
   const caps = tierCaps(tier);
 
-  const allBranches =
-    // Ultra (enterprise) — rank-derived, not a hard equality.
-    // The service-role ORDER reader matters here: a shop's second manager
-    // cannot see the order its owner paid, so without it every branch would
-    // read as unpaid to them and the gate below would refuse a live branch.
-    // Branches on Pro (included) and Ultra (included + bought) — owner 2026-11-04, "branches 0,0,3,10".
-    // An unread plan still reads the branches: their LABELS must survive, or every card says "assigned to You".
-    planHasBranches(tier) || tierUnread
-      ? (
-          await fetchVendorBranches(
-            supabase,
-            profile.vendor_profile_id,
-            createAdminClient(),
-          )
-        ).filter((b) => b.status !== 'cancelled')
-      : [];
   // Owner 2026-08-28 — "paid". Only a paid, in-window branch may be CHOSEN.
   // The picker used to offer every non-cancelled branch, so a branch nobody
   // had paid for was fully usable. The server refuses it too; this is the
@@ -428,19 +539,6 @@ export async function VendorServicesManager({
     allBranches.filter((b) => !branchIsUsable(b.status)).map((b) => b.branch_id),
   );
 
-  // (The standalone "Explore card preview" section — and its review/badge/
-  // display-name reads — was REMOVED per the owner's v20 prototype ("remove
-  // explore preview … when we create a service card, we want to see the exact
-  // card"). The WYSIWYG preview moves INTO the card form as a follow-up slice.)
-
-  // ── Service requests (own rows only) ────────────────────────────────────
-  // ⚠ SERVICE REQUESTS THEY HAVE SENT US AND ARE WAITING ON. A refused read is SAID below ("We couldn't load your
-  // ⚠ requests"), never drawn as "none" — the supplier would see no sign they ever asked, and ask again.
-  // The read + the card counts are `loadMyRequests` (lib/service-requests.server.ts), shared with "Your requests".
-  const [myRequestsRead, requestTree] = await Promise.all([
-    loadMyRequests(supabase, profile.vendor_profile_id),
-    loadRequestTree(),
-  ]);
   const requestsMeasured = myRequestsRead.ok;
   const myRequests = myRequestsRead.ok ? myRequestsRead.value : [];
   const requestNotice = unseenDecision(myRequests);
@@ -482,13 +580,7 @@ export async function VendorServicesManager({
   // / "Add coverage" links open it; kill-switch falls back to the inline form.
   const wizardEnabled = process.env.NEXT_PUBLIC_SERVICE_WIZARD_ENABLED !== 'false';
 
-  // Live admin-taxonomy DISPLAY labels for the category picker.
-  let tax: Awaited<ReturnType<typeof getTaxonomy>> | null = null;
-  try {
-    tax = await getTaxonomy();
-  } catch {
-    tax = null;
-  }
+  // Live admin-taxonomy DISPLAY labels for the category picker (`tax`, read in the one round above; null = unread).
   const labelFor = (cat: VendorCategory): string =>
     tax ? labelForVendorCategory(cat, tax) : VENDOR_CATEGORY_LABEL[cat];
 

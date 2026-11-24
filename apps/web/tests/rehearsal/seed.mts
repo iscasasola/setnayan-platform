@@ -1,20 +1,23 @@
 /**
  * RELEASE REHEARSAL — seeds the fixture into the throw-away stack.
  *
- *   1. The host ACCOUNT is created through GoTrue's own admin endpoint, so the
- *      real `on_auth_user_created` trigger provisions the profile row exactly
- *      as a real sign-up does. The password is made by the workflow for this
- *      run, handed in by env, and never printed.
- *   2. Everything else (the event, 30 guests, 12 suppliers, 3 orders) is
- *      `seed.sql`, run as `postgres`.
+ *   1. The two ACCOUNTS (the host, and the supplier the control sweep signs in
+ *      as) are created through GoTrue's own admin endpoint, so the real
+ *      `on_auth_user_created` trigger provisions each profile row exactly as a
+ *      real sign-up does. The passwords are made by the workflow for this run,
+ *      handed in by env, and never printed.
+ *   2. Everything else (the event, 39 guests in every reply state, 12
+ *      suppliers — one of them the supplier account's own shop — and 3
+ *      orders) is `seed.sql`, run as `postgres`.
  *
  * ⛔ Both addresses must be this machine (`assertLocalUrl`).
  */
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FIXTURE } from './fixture';
+import { FIXTURE, REPLY_STATE_GUESTS, TOURS_SEEN } from './fixture';
 import { assertLocalUrl } from './local-only';
+import { TERMS_VERSION } from '../../lib/terms-agreement';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -23,25 +26,32 @@ async function main(): Promise<void> {
   const db = assertLocalUrl(process.env.REHEARSAL_DB_URL ?? '', 'the rehearsal database');
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
   const password = process.env.REHEARSAL_HOST_PASSWORD ?? '';
-  if (!serviceKey || !password) throw new Error('seed: the local service key or the host password is missing.');
-
-  const res = await fetch(new URL('/auth/v1/admin/users', api), {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      apikey: serviceKey,
-      authorization: `Bearer ${serviceKey}`,
-    },
-    body: JSON.stringify({
-      email: FIXTURE.hostEmail,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name: FIXTURE.groomName },
-    }),
-  });
-  if (!res.ok) {
-    throw new Error(`seed: the auth server refused to create the host (${res.status} ${await res.text()})`);
+  const supplierPassword = process.env.REHEARSAL_SUPPLIER_PASSWORD ?? '';
+  if (!serviceKey || !password || !supplierPassword) {
+    throw new Error('seed: the local service key, the host password or the supplier password is missing.');
   }
+
+  const createAccount = async (email: string, pw: string, fullName: string, who: string): Promise<void> => {
+    const res = await fetch(new URL('/auth/v1/admin/users', api), {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        apikey: serviceKey,
+        authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({
+        email,
+        password: pw,
+        email_confirm: true,
+        user_metadata: { full_name: fullName },
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`seed: the auth server refused to create the ${who} (${res.status} ${await res.text()})`);
+    }
+  };
+  await createAccount(FIXTURE.hostEmail, password, FIXTURE.groomName, 'host');
+  await createAccount(FIXTURE.supplier.email, supplierPassword, FIXTURE.supplier.fullName, 'supplier');
 
   const r = spawnSync(
     'psql',
@@ -60,6 +70,13 @@ async function main(): Promise<void> {
         guest_token: FIXTURE.invitedGuest.qrToken,
         other_guests: String(FIXTURE.otherGuests),
         attending: String(FIXTURE.attendingAtStart),
+        supplier_email: FIXTURE.supplier.email,
+        supplier_name: FIXTURE.supplier.fullName,
+        supplier_shop: String(FIXTURE.supplier.shopNumber),
+        tours_seen: `{${TOURS_SEEN.join(',')}}`,
+        reply_states: JSON.stringify(REPLY_STATE_GUESTS),
+        // The version the app asks for today, so neither account is met by the Terms re-ask.
+        terms_version: TERMS_VERSION,
       }).flatMap(([k, v]) => ['-v', `${k}=${v}`]),
       '-f', path.join(HERE, 'seed.sql'),
     ],

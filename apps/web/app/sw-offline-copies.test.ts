@@ -833,11 +833,18 @@ test('R18 · a deploy (a new worker VERSION) does not erase a guest’s saved hu
   const before = w.kept();
   assert.ok(before.length >= 8);
   // The next deploy: the stamped VERSION changes, the new worker installs and activates (deleting unknown caches).
-  const next = readFileSync(SW_FILE, 'utf8').replace(/const VERSION = '[^']*';/, "const VERSION = 'deploy-2';");
-  assert.notEqual(next, readFileSync(SW_FILE, 'utf8'), 'the deploy did not change the worker');
+  // The REAL line — `^const VERSION` — not the comment above it that quotes the same shape (`'…'`).
+  const next = readFileSync(SW_FILE, 'utf8').replace(/^const VERSION = '[^']*';$/m, "const VERSION = 'deploy-2';");
+  assert.match(next, /^const VERSION = 'deploy-2';$/m, 'the deploy did not change the worker’s VERSION');
+  const shellBefore = [...w.stores.keys()].filter((n) => /^setnayan-v\d/.test(n));
+  assert.ok(shellBefore.length > 0, 'the first worker kept no versioned cache to replace');
   w.restart(next);
   await w.dispatch('install');
   await w.dispatch('activate');
+  // The deploy really happened: the old version's caches are gone and the new one's exist…
+  assert.deepEqual([...w.stores.keys()].filter((n) => shellBefore.includes(n)), [], 'the old version’s caches survived — the deploy did not happen');
+  assert.ok(w.stores.has('setnayan-deploy-2'), 'the new version did not install');
+  // …and the guest's saved hub did not go with them.
   assert.deepEqual(w.kept(), before, 'a deploy erased the guest’s saved hub');
   assert.ok(![...w.stores.keys()].some((n) => n.startsWith('setnayan-dayof')), 'a day-of cache still exists');
   w.server.down = true;

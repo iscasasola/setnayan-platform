@@ -4549,7 +4549,12 @@ function ReviewHeroMetrics({
    * 🔒 lib/shop-review-count-is-the-bars-count.test.ts
    */
   const reviewCount = totals.reduce((sum, t) => sum + t.count, 0);
-  const starsCountFewer = trustedCount < reviewCount;
+  const starsNote =
+    trustedCount >= reviewCount
+      ? null
+      : trustedCount === 0
+        ? 'Stars count reviews booked through Setnayan · none yet'
+        : `Stars count the ${formatCount(trustedCount)} booked through Setnayan`;
 
   return (
     <div className="grid gap-6 rounded-2xl border border-ink/10 bg-cream p-5 sm:grid-cols-[180px_1fr]">
@@ -4567,11 +4572,9 @@ function ReviewHeroMetrics({
         <p className="text-xs text-ink/60">
           {formatCount(reviewCount)} review{reviewCount === 1 ? '' : 's'} across all their services
         </p>
-        {starsCountFewer ? (
+        {starsNote ? (
           <p className="text-xs text-ink/50" data-review-stars-count="trusted">
-            {trustedCount === 0
-              ? 'Stars count reviews booked through Setnayan · none yet'
-              : `Stars count the ${formatCount(trustedCount)} booked through Setnayan`}
+            {starsNote}
           </p>
         ) : null}
         <GuestStarsLine read={guestReviews} />

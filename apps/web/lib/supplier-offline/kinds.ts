@@ -166,9 +166,9 @@ export function ruleOf(kind: SupplierOfflineKind): OfflineRule {
  * compares these with the live rows; any difference stops the write.
  */
 export type MoneySeen = {
-  /** the booking's total (`event_vendors.total_cost_php`, through `event_vendor_money_read`) */
+  /** the booking's agreed total NOW, as the screens show it (`agreedTotalNow`: the headline plus its change lines) */
   totalPhp: number | null;
-  /** the reservation fee paid so far (`deposit_paid_php`) */
+  /** the reservation fee on file (`recordedDepositPhp`: the ledger's deposit row, else the legacy figure) */
   depositPhp: number | null;
   /** one payment record's amount (`event_vendor_payments.amount_php`) — `payment.confirm` only */
   paymentPhp?: number | null;

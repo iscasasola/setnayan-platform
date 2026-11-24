@@ -200,6 +200,9 @@ BEGIN
 END;
 $$;
 
+-- A trigger's function is never called by a session.
+REVOKE ALL ON FUNCTION public.supplier_schedule_item_versioned() FROM PUBLIC, anon, authenticated;
+
 DROP TRIGGER IF EXISTS vendor_calendar_blocks_versioned ON public.vendor_calendar_blocks;
 CREATE TRIGGER vendor_calendar_blocks_versioned
   BEFORE UPDATE ON public.vendor_calendar_blocks
@@ -323,6 +326,9 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- A trigger's function is never called by a session.
+REVOKE ALL ON FUNCTION public.vendor_calendar_blocks_respect_holds() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS vendor_calendar_blocks_respect_holds ON public.vendor_calendar_blocks;
 CREATE TRIGGER vendor_calendar_blocks_respect_holds

@@ -100,6 +100,10 @@ const ROSTER: Record<string, { count: number; why: string }> = {
     count: 3,
     why: 'row type (the select no longer names it — #5936, merged from event_vendor_money_read); the paid figure via paidToVendorCentavos, and the unreconciled_deposit warning compares the column to the log ON PURPOSE',
   },
+  'lib/supplier-offline/engine.server.ts': {
+    count: 1,
+    why: 'the supplier offline engine re-checks the reservation fee a booking action made offline showed — via recordedDepositPhp (R6: a moved amount is never applied)',
+  },
   'lib/budget.ts': { count: 2, why: 'both paidTotal figures via paidToVendorPhp (the two selects no longer name it — #5936, merged from the reader)' },
   'lib/vendors.ts': { count: 1, why: 'EventVendorRow type (a carrier; fetchEventVendors merges it from event_vendor_money_read — #5936)' },
   'lib/event-vendor-money.ts': {

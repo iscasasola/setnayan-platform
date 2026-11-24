@@ -141,6 +141,10 @@ export type ClientInviteRow = {
   clientName: string;
   status: 'waiting' | 'joined' | 'void';
   lines: OwnGiftLine[];
+  /** 📶 Made offline (the supplier offline engine, owner 2026-11-24): the "Made offline · <phone time>" mark the screens
+   *  show on this client; `phoneTime` is the phone's clock when it was made, shown as phone time. */
+  madeOffline: boolean;
+  phoneTime: string | null;
 };
 
 /** An Add-a-client invite by its token, for the shop it belongs to. `null` = no such waiting/joined invite; `'unread'` = refused. */
@@ -153,7 +157,7 @@ export async function fetchClientInvite(
   if (!token) return null;
   const { data, error } = await admin
     .from('vendor_client_invites')
-    .select('invite_id, vendor_profile_id, client_name, status, gift_lines')
+    .select('invite_id, vendor_profile_id, client_name, status, gift_lines, made_offline, phone_time')
     .eq('token', token)
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
@@ -162,11 +166,27 @@ export async function fetchClientInvite(
     return 'unread';
   }
   if (!data) return null;
-  const r = data as { invite_id: string; vendor_profile_id: string; client_name: string; status: ClientInviteRow['status']; gift_lines: unknown };
+  const r = data as {
+    invite_id: string;
+    vendor_profile_id: string;
+    client_name: string;
+    status: ClientInviteRow['status'];
+    gift_lines: unknown;
+    made_offline?: boolean | null;
+    phone_time?: string | null;
+  };
   const lines = (Array.isArray(r.gift_lines) ? r.gift_lines : [])
     .map((l) => ownLinkGiftLineOf({ ...(l as Record<string, unknown>), gift_kind: (l as { kind?: unknown })?.kind }))
     .filter((l): l is OwnGiftLine => l !== null);
-  return { inviteId: r.invite_id, vendorProfileId: r.vendor_profile_id, clientName: r.client_name, status: r.status, lines };
+  return {
+    inviteId: r.invite_id,
+    vendorProfileId: r.vendor_profile_id,
+    clientName: r.client_name,
+    status: r.status,
+    lines,
+    madeOffline: r.made_offline === true,
+    phoneTime: r.phone_time ?? null,
+  };
 }
 
 /**

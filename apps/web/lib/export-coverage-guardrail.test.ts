@@ -219,6 +219,15 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Maya confirmed) on its `orders` row. This table repeats those facts beside Maya’s ' +
     'checkout id and our queue reason — internal reconciliation keys, service-role only. ' +
     'Same decision as lib/export-completeness.ts.',
+  // ── added 2026-11-24 with the tables themselves (the supplier offline engine) ──
+  vendor_offline_devices:
+    "A member phone's offline QR key — the PUBLIC half only — and when that phone was last seen online. A device record kept to check QR signatures, not information about the person; it goes with the account (lib/erasure/coverage.ts). Service-role only (migration 20271363269436). Same decision as lib/export-completeness.ts.",
+  vendor_offline_code_uses:
+    "Which shop phone made an offline client QR that was used, and the schedule entry it made. The entry itself is the shop's calendar row; this is the one-use key behind it. Shop members read it (migration 20271363269436). Same decision as lib/export-completeness.ts.",
+  vendor_offline_holds:
+    'A member\'s expo-mode date claim for their shop ("I\'m handling 10–15 Dec"): the shop\'s own scheduling plumbing, ended when the phone syncs. Shop members read it (migration 20271363269436). Same decision as lib/export-completeness.ts.',
+  vendor_offline_writes:
+    "The idempotency ledger of supplier changes made offline: each queued item's id and the answer a retry gets. The changes themselves are the shop's rows; this is internal plumbing. Shop members read it (migration 20271363269436). Same decision as lib/export-completeness.ts.",
   // ── added 2026-11-23 with the table itself (Apple supplier plans: the server names the shop) ──
   vendor_app_store_plan_tokens:
     'The appAccountToken the server issued for an Apple supplier-plan purchase, and the shop it was ' +

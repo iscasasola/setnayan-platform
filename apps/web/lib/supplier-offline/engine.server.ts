@@ -11,6 +11,8 @@ import { resolveActiveShopId } from '@/lib/active-shop';
 import { resolveVendorStandingForProfile } from '@/lib/vendor-role';
 import { dutyMay, whoCanOpen, type VendorCapability, type VendorDuty } from '@/lib/vendor-duties';
 import { readOneBookingMoney } from '@/lib/event-vendor-money';
+import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
+import { recordedDepositPhp, type LoggedPayment } from '@/lib/paid-to-vendor';
 import { fetchShopGiftPacks, fetchShopGiftRewardStock, fetchShopGiftStock } from '@/lib/shop-gifts.server';
 import { freeByKind, rewardFreeByKind } from '@/lib/shop-gifts';
 import { CLIENT_INVITE_PARAM, boughtFreeByKind, fitsStock, importIsOwnClient, needByKind, ownGiftLinesOf } from '@/lib/own-clients';
@@ -328,10 +330,25 @@ async function liveMoney(ctx: Ctx, item: SupplierQueuedItem): Promise<MoneySeen 
     if (!data) return 'gone';
     return { totalPhp: null, depositPhp: null, paymentPhp: Number((data as { amount_php: number | string }).amount_php) };
   }
+  // The SAME numbers the screens show: the agreed total NOW (`agreedTotalNow` — the headline plus its change lines) and
+  // the reservation fee on file (`recordedDepositPhp` — the ledger's deposit row, else the legacy figure).
   try {
-    const m = await readOneBookingMoney(ctx.admin, f('event_id'), f('vendor_id'));
+    const eventId = f('event_id');
+    const vendorId = f('vendor_id');
+    const [m, lines, pays] = await Promise.all([
+      readOneBookingMoney(ctx.admin, eventId, vendorId),
+      fetchChangeLinesByVendor(ctx.admin, eventId),
+      ctx.admin.from('event_vendor_payments').select('amount_php, is_deposit_record').eq('vendor_id', vendorId),
+    ]);
     if (!m.money_shown) return 'unread';
-    return { totalPhp: m.total_cost_php, depositPhp: m.deposit_paid_php };
+    if (lines.error || pays.error) {
+      console.error('[supabase-error] supplier-offline: booking money read', lines.error ?? pays.error?.message);
+      return 'unread';
+    }
+    return {
+      totalPhp: agreedTotalNow(m.total_cost_php, lines.byVendor.get(vendorId) ?? []),
+      depositPhp: recordedDepositPhp((pays.data ?? []) as LoggedPayment[], m.deposit_paid_php),
+    };
   } catch (e) {
     console.error('[supplier-offline] booking money read', e instanceof Error ? e.message : e);
     return 'unread';

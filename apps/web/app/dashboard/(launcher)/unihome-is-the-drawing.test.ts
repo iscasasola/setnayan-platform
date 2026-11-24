@@ -4,7 +4,7 @@
  * edit cannot quietly bring back what was removed or cut a way in:
  *   1 · plain `/dashboard` is Unihome; a named `?seg=` is its full page, unchanged.
  *   2 · the jump icons: a nav named "Jump to", six in page order, `aria-current` on the lit one, marks only for > 0.
- *   3 · Home draws no pinned row, no bottom bar and no switcher pill (hidden while `[data-unihome]` is on screen).
+ *   3 · Home draws no pinned row and no bottom bar; the photo at the top right stays (owner 24 Nov 2026).
  *   4 · event cards: organiser Dashboard · Event Hub · remove (the SHIPPED sheet), helper no remove, invited Hub only.
  *   5 · Create an event: one labelled terracotta button, right after the icon row, opening the shipped sheet.
  *   6 · every "See all" and every ☰ door lands on a real address.
@@ -48,11 +48,13 @@ test('2 · the jump icons: "Jump to", six in page order, aria-current, marks onl
   for (const part of UNIHOME_PARTS) assert.match(view(), new RegExp(`<section id="${part}"`), `no #${part} part on Home`);
 });
 
-test('3 · Home draws no pinned row, and hides the bottom bar and the switcher pill while it is on screen', () => {
+test('3 · Home draws no pinned row, hides the bottom bar, and KEEPS the photo at the top right', () => {
   const src = view();
   assert.doesNotMatch(src, /HomePinnedRow|PinnedRow|PickMenu/, 'the Events ▾ pinned row is back on Home');
   assert.match(src, /data-unihome=""/);
-  assert.match(css(), /:global\(html\):has\(\.page\) :global\(\[data-account-bar\]\),\s*:global\(html\):has\(\.page\) :global\(\.fd-topright \.fd-acct\) \{\s*display: none;/);
+  assert.match(css(), /:global\(html\):has\(\.page\) :global\(\[data-account-bar\]\) \{\s*display: none;/);
+  // 👤 Owner 24 Nov 2026: "just return the profile icon on the upper right" — nothing on Home may hide the photo.
+  assert.doesNotMatch(stripComments(css()), /\.fd-acct|\.fd-topright/, 'Home hides the photo at the top right again');
   // ⚙ beside the name opens the SHIPPED account sheet, account rows only.
   assert.match(src, /<AccountSwitcher data=\{switcher\} trigger="gear" \/>/);
 });

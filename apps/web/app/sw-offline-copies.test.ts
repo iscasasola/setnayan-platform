@@ -988,3 +988,14 @@ test('R18 · nothing of a guest page is kept anywhere but the viewer’s own cop
     assert.ok(!off.body?.includes(GUEST), 'no signal opened a Me nobody saved');
   }
 });
+
+test('R18 · a room or the announcement is kept only beside the guest’s own sealed hub page — never on its own', async () => {
+  const w = guestWorker();
+  const r = await hubSave(w, [`${BASE}/find-my-table`, `${BASE}/announcement`]);
+  assert.equal(r?.ok, false, 'a room-only save said it landed');
+  assert.deepEqual(w.kept().filter((k) => !k.startsWith('/__setnayan-sw')), [], `rooms were kept with no sealed hub page: ${w.kept()}`);
+  // The same rooms, beside the hub's own page: kept.
+  const ok = await hubSave(w, [BASE, `${BASE}/find-my-table`, `${BASE}/announcement`]);
+  assert.equal(ok?.ok, true);
+  assert.ok(w.kept().includes(`${BASE}/find-my-table`) && w.kept().includes(`${BASE}/announcement`));
+});

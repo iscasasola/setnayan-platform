@@ -18,6 +18,7 @@ import { isRecapSocialShareAllowed } from '@/lib/social/recap-post';
 import { isBadgeSocialShareAllowed } from '@/lib/social/badge-post';
 import { vendorIdFromBadgeRef } from '@/lib/social/lane-s';
 import { sweepMilestones } from '@/lib/social/milestones';
+import { sweepJournalArticles } from '@/lib/social/articles-sweep';
 import { isFacebookConfigured, postToFacebookPage } from '@/lib/social/facebook';
 import { isInstagramConfigured, postToInstagramFeed } from '@/lib/social/instagram';
 import { isTikTokConfigured, postPhotoToTikTok } from '@/lib/social/tiktok';
@@ -38,7 +39,8 @@ import { siteUrl, socialCardUrl } from '@/lib/social/urls';
  * Two phases per flush:
  *   1. SWEEP-COMPOSE — always runs, even with autopublish off, so the admin
  *      queue shows what WOULD post: new couple-creation consents (48h pull
- *      window), unfeatured verified vendors, freshly crossed milestones
+ *      window), unfeatured verified vendors, one Journal article teaser at a
+ *      time (lib/social/articles-sweep.ts), freshly crossed milestones
  *      (real counts with test + sample data left out · aggregate numbers
  *      only · lib/social/milestones.ts), an evergreen
  *      content floor when the page goes quiet, take-down awareness for
@@ -131,6 +133,7 @@ export async function runSocialFlush(): Promise<void> {
     // even while the master switch is off) ────────────────────────────────
     await sweepCoupleCreations(admin, now);
     await sweepVendorFeatures(admin, now);
+    await sweepJournalArticles(admin, now, settings);
     await sweepMilestones(admin);
     await sweepEvergreenFloor(admin, now);
     await sweepTakedowns(admin, now);
@@ -317,9 +320,12 @@ async function sweepVendorFeatures(admin: AdminClient, now: Date): Promise<void>
   }
 }
 
-// Sweep b2 (Journal articles → posts) is RETIRED with the blog, 2026-11-16 (owner, DECISION_LOG "THE BLOG AND REAL
-// STORIES ARE RETIRED"): every teaser linked a /blog article that now forwards to /features. Teasers already queued
-// keep their rows; nothing new is composed.
+// ─────────────────────────────────────────────────────────────────────────────
+// Sweep b2: Journal articles → Facebook teasers — lives in lib/social/articles-sweep.ts. Paused 2026-11-16 with the
+// blog; BACK ON 2026-11-24 because the Journal moved into Articles on 2026-11-17 (DECISION_LOG "THE JOURNAL MOVES
+// INTO DISCOVER'S ARTICLES — ONE SOURCE"): each teaser links /articles/{slug}, one waits in the queue at a time,
+// behind autopublish_enabled + facebook_enabled, and an article already teased (old or new slug) is never reposted.
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sweep c: milestones — lives in lib/social/milestones.ts (Lane S, 2026-11-10):

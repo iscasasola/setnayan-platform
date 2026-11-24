@@ -1,6 +1,6 @@
 /**
  * A recording fake of the Supabase admin client, for the Lane S composer tests (`badge-post.test.ts`,
- * `milestones.test.ts`). Every query is ONE `Call` — table, action, filters, payload — answered by the test's
+ * `milestones.test.ts`, `articles-sweep.test.ts`). Every query is ONE `Call` — table, action, filters, payload — answered by the test's
  * `respond`. Chains are thenable, so `await admin.from(t).update(x).eq(...)` resolves like the real client.
  */
 
@@ -29,7 +29,7 @@ export function fakeAdmin(respond: (call: Call) => Answer | undefined) {
       call.filters.push([op, col, val]);
       return self;
     };
-    for (const op of ['eq', 'neq', 'in', 'is', 'or', 'not', 'gte', 'lte', 'lt']) self[op] = filter(op);
+    for (const op of ['eq', 'neq', 'in', 'is', 'or', 'not', 'gte', 'lte', 'lt', 'like']) self[op] = filter(op);
     self.order = () => self;
     self.limit = () => self;
     self.select = (columns?: string) => {

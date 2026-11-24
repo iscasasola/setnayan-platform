@@ -581,7 +581,7 @@ function gatedRow(tool: SpecializedTool, suggested: boolean, f: ToolFacts): { ro
   let status = toolStatus(tool.key, f);
   let installed = toolIsInstalled(tool.key, status, f);
   let hidden = false;
-  if (Array.isArray(f.cards) && !toolServedByCards(tool, tags, f.cards)) {
+  if (Array.isArray(f.cards) && status.kind !== 'no_card' && !toolServedByCards(tool, tags, f.cards)) {
     hidden = !heldByShop(status, installed);
     status = { kind: 'no_card', category: noCardCategory(tags), installed, prior: status };
     installed = toolIsInstalled(tool.key, status, f);

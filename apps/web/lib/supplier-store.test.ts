@@ -346,6 +346,7 @@ test('3a2419fd · the card gate: hidden unless held, greyed when held, back by i
   assert.ok(!keys(florist).includes('cake_tool'), 'Cake Maker shows to a florist with no cake card');
   assert.ok(cardHiddenWidgets(florist).has('cake_tool'));
   const all = toolkitCounts({ papicCapture: false, badges: null }).widgets;
+  assert.ok(all !== null, 'the widget count is read');
   assert.equal(toolkitCounts({ papicCapture: false, badges: null, hidden: cardHiddenWidgets(florist) }).widgets, all - cardHiddenWidgets(florist).size);
   // A cake card serves it.
   assert.ok(keys(facts({ cards: ['wedding_cake'] })).includes('cake_tool'));

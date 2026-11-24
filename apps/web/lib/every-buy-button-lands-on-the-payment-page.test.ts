@@ -39,7 +39,7 @@ const PAID_PATHS = [
   'app/vendor-dashboard/subscription/ai-addon-actions.ts', // Vendor AI
   'app/vendor-dashboard/subscription/booth-addon-actions.ts', // 3D Booth (28-day cycle)
   'app/vendor-dashboard/clients/[eventId]/booth-event-actions.ts', // 3D Booth at ONE event (₱500)
-  'app/vendor-dashboard/deep-search/actions.ts', // one Deep Search
+  // (Deep Search left 2026-11-24: not sold — the paid plans include it monthly; lib/deep-search-is-never-sold.test.ts.)
   // ⬇ ADDED 2026-08-23. A vendor sponsoring Papic Challenges for a client's
   // event pays ₱400 (free only for their first 5 bookings). It was NOT in this
   // list, so it kept the exact panel every other button here shed: the amount

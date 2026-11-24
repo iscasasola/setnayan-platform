@@ -26,9 +26,21 @@ import {
   withLayoutRow,
   type LayoutRow,
   type PaidStoreTool,
+  type StoreLayout,
 } from '@/lib/supplier-store';
 import { readStoreLayout, readStoreToolFacts } from '@/lib/supplier-store.server';
 import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from '@/lib/special-tools';
+import {
+  avTemplateOf,
+  installedToast,
+  payTemplateOf,
+  templatePlanItems,
+  withAvInstalled,
+  withPayInstalled,
+  readPlanParts,
+  type PlanPart,
+} from '@/lib/toolkit-templates';
+import { cleanPlanName } from '@/lib/vendor-pay-plans';
 
 /**
  * 🛍 THE STORE'S ONE SERVER ACTION (owner 23 Nov 2026; drawing specs `prototypes/supplier_store_graphs_badges_2026-11-23/`).
@@ -44,6 +56,14 @@ import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from '@/l
  *                    The price is the `vendor_billing_catalog` row `vendor_tool_<tool>`; the form sends the tool and the
  *                    pay channel only, never a price. Approval needs no hook: the paid order IS the ownership
  *                    (`vendor_store_tool_open`), so a refund takes it back on its own.
+ *   op=template      🧩 a ready-made template (Toolkit templates, specs 24dcf90c), `of` = pay · av, `key`, `act`:
+ *                      install — pay: one new saved plan (`vendor_pay_plans`, the shop's own from then on) holding the
+ *                                template's percents and days; av: the card maker's "From a template" row offers it.
+ *                                Either way its key goes into `store_layout.templates`. Nothing touches a card.
+ *                      remove  — pay: the plan leaves the saved plans (`retired_at`, as Templates' delete does); every
+ *                                card keeps its own copy of the payments. The Undo is the caller's window (nothing is
+ *                                written until it closes). av: it leaves the card maker's row.
+ *                      save    — pay: the installed plan's name and parts, as changed in the plan editor (total 100%).
  *
  * Who: the shop's owner or an admin of it (`canManageVendor`) — an agent or a viewer cannot change the Shop or buy.
  */
@@ -94,6 +114,7 @@ export async function storeAction(_prev: StoreActionState, formData: FormData): 
   const op = String(formData.get('op') ?? '');
 
   if (op === 'buy') return buyTool(formData, { userId: user.id, shopId, services: (profile.services ?? []) as string[] });
+  if (op === 'template') return templateOp(formData, shopId);
 
   if (op !== 'layout') return err('Nothing to do.');
   const row = formData.get('row');
@@ -105,13 +126,16 @@ export async function storeAction(_prev: StoreActionState, formData: FormData): 
   const layout = await readStoreLayout(admin, shopId);
   if (!layout) return err('Couldn’t read your shop just now. Nothing was changed — try again.');
   const next = withLayoutRow(layout, row, keys, off);
-  const { error } = await admin.from('vendor_profiles').update({ store_layout: layoutColumn(next) }).eq('vendor_profile_id', shopId);
-  if (error) {
-    logQueryError('storeAction.layout', error, { vendor_profile_id: shopId, row });
-    return err('Couldn’t save that just now. Try again.');
-  }
+  if (!(await saveLayout(admin, shopId, next, 'storeAction.layout'))) return err('Couldn’t save that just now. Try again.');
   revalidateStore();
   return ok(layoutToast(row, String(formData.get('intent') ?? 'order')));
+}
+
+/** THE ONE WRITE of `vendor_profiles.store_layout` — op=layout and op=template both go through it. */
+async function saveLayout(admin: ReturnType<typeof createAdminClient>, shopId: string, next: StoreLayout, where: string): Promise<boolean> {
+  const { error } = await admin.from('vendor_profiles').update({ store_layout: layoutColumn(next) }).eq('vendor_profile_id', shopId);
+  if (error) logQueryError(where, error, { vendor_profile_id: shopId });
+  return !error;
 }
 
 const ADDED: Readonly<Record<LayoutRow, string>> = { graphs: 'On your Analytics', badges: 'On your Shop', tools: 'In Your widgets', qrs: 'On your My QRs' };
@@ -120,6 +144,93 @@ function layoutToast(row: LayoutRow, intent: string): string {
   if (intent === 'add') return ADDED[row];
   if (intent === 'remove') return row === 'tools' ? 'Taken off your Shop. It stays yours in the Toolkit.' : row === 'qrs' ? 'Taken off your My QRs. The code still works — install it again any time.' : 'Taken off your Shop';
   return 'Saved';
+}
+
+/** 🧩 op=template — install · remove · save a ready-made template (see the header). Never a price, never a card. */
+async function templateOp(formData: FormData, shopId: string): Promise<StoreActionState> {
+  const of = String(formData.get('of') ?? '');
+  const key = String(formData.get('key') ?? '');
+  const act = String(formData.get('act') ?? '');
+  const pay = of === 'pay' ? payTemplateOf(key) : null;
+  const av = of === 'av' ? avTemplateOf(key) : null;
+  if (!pay && !av) return err('That template is not in the Toolkit.');
+  const supabase = await createClient();
+  const admin = createAdminClient();
+  const layout = await readStoreLayout(admin, shopId);
+  if (!layout) return err('Couldn’t read your shop just now. Nothing was changed — try again.');
+  const writeLayout = (templates: typeof layout.templates) => saveLayout(admin, shopId, { ...layout, templates }, 'storeAction.template');
+
+  if (av) {
+    if (act !== 'install' && act !== 'remove') return err('Nothing to do.');
+    if (!(await writeLayout(withAvInstalled(layout.templates, av.key, act === 'install')))) return err('Couldn’t save that just now. Try again.');
+    revalidateTemplates();
+    return ok(act === 'install' ? installedToast(av.name) : `${av.name} is removed. Cards that use it keep their settings.`);
+  }
+
+  const t = pay!;
+  const planId = layout.templates.pay[t.key] ?? null;
+  if (act === 'install') {
+    const { data, error } = await supabase
+      .from('vendor_pay_plans')
+      .insert({ vendor_profile_id: shopId, name: t.name, items: templatePlanItems(t) })
+      .select('pay_plan_id')
+      .single();
+    if (error) {
+      if (error.code === '23505') return err(`You already have a plan named “${t.name}”. Rename or delete it in Payment Strategies, then install again.`);
+      logQueryError('storeAction.templateInstall', error, { vendor_profile_id: shopId, key: t.key });
+      return err('Couldn’t install that just now. Nothing was changed — try again.');
+    }
+    const id = (data as { pay_plan_id: string }).pay_plan_id;
+    if (!(await writeLayout(withPayInstalled(layout.templates, t.key, id)))) {
+      // Keep the two in step: a plan the Toolkit cannot mark installed is taken back out.
+      const back = await supabase.from('vendor_pay_plans').update({ retired_at: new Date().toISOString() }).eq('pay_plan_id', id).eq('vendor_profile_id', shopId);
+      if (back.error) logQueryError('storeAction.templateInstallUndo', back.error, { vendor_profile_id: shopId, pay_plan_id: id });
+      return err('Couldn’t install that just now. Nothing was changed — try again.');
+    }
+    revalidateTemplates();
+    return ok(installedToast(t.name));
+  }
+  if (!planId) return err('That plan is not installed.');
+  if (act === 'remove') {
+    const { data, error } = await supabase
+      .from('vendor_pay_plans')
+      .update({ retired_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('pay_plan_id', planId)
+      .eq('vendor_profile_id', shopId)
+      .is('retired_at', null)
+      .select('pay_plan_id');
+    if (error) logQueryError('storeAction.templateRemove', error, { vendor_profile_id: shopId, key: t.key });
+    if (error || !data) return err('Couldn’t remove that just now. Try again.');
+    if (!(await writeLayout(withPayInstalled(layout.templates, t.key, null)))) return err('Couldn’t remove that just now. Try again.');
+    revalidateTemplates();
+    return ok(`${t.name} is removed`);
+  }
+  if (act === 'save') {
+    const name = cleanPlanName(formData.get('name'));
+    if (!name) return err('Give the plan a name, up to 60 letters.');
+    const parts: PlanPart[] | string = readPlanParts(formData);
+    if (typeof parts === 'string') return err(parts);
+    const { data, error } = await supabase
+      .from('vendor_pay_plans')
+      .update({ name, items: templatePlanItems({ ...t, parts }), updated_at: new Date().toISOString() })
+      .eq('pay_plan_id', planId)
+      .eq('vendor_profile_id', shopId)
+      .is('retired_at', null)
+      .select('pay_plan_id');
+    if (error?.code === '23505') return err(`You already have a plan named “${name}”. Pick another name.`);
+    if (error) logQueryError('storeAction.templateSave', error, { vendor_profile_id: shopId, key: t.key });
+    if (error || !data || data.length !== 1) return err('Couldn’t save your plan just now. Try again.');
+    revalidateTemplates();
+    return ok('Saved. Pick it under Pay plan on any card.');
+  }
+  return err('Nothing to do.');
+}
+
+function revalidateTemplates() {
+  revalidateStore();
+  revalidatePath(routes.vendorDashboard.shop.store.shelf('payment_plans'));
+  revalidatePath(routes.vendorDashboard.shop.store.shelf('availability'));
+  revalidatePath(routes.vendorDashboard.services());
 }
 
 async function buyTool(formData: FormData, who: { userId: string; shopId: string; services: string[] }): Promise<StoreActionState> {

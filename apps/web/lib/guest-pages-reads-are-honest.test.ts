@@ -151,7 +151,8 @@ test('1 · the page hands the door the measurement, on public AND private events
 
 test('2 · closing "Lost QR? Login" returns a guest to their event, everyone else to Discover', () => {
   const page = src('app/login/page.tsx');
-  assert.match(page, /dismissHref=\{view\.forGuest \? view\.next : '\/'\}/, 'the ✕ ignores where a guest came from');
+  // 🚪 A business door's ✕ goes back to that door first (lib/doors.ts, 24 Nov); the guest rule is unchanged after it.
+  assert.match(page, /dismissHref=\{view\.door \? doorFrontHref\(view\.door, siteOrigin\(\)\) : view\.forGuest \? view\.next : '\/'\}/, 'the ✕ ignores where a guest came from');
   // `next` is same-site and `forGuest` means it opens a real event — the ✕ can never be an open redirect or /login.
   const data = src('app/login/_components/login-data.ts');
   assert.match(data, /const next = safeNext\(params\.next\);/);

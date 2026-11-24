@@ -78,6 +78,8 @@ const WEB = join(import.meta.dirname, '..');
 
 const PALETTE = join(WEB, 'app/_components/frontdoor/command-data.ts');
 const STRIP = join(WEB, 'app/dashboard/(launcher)/_components/year-moments-strip.tsx');
+/** 🔁 Unihome v5 (23 Nov 2026): the shelf's reads live in the ONE reader it shares with Home's "Worth planning" row. */
+const READER = join(WEB, 'lib/worth-planning.server.ts');
 const LIST = join(WEB, 'app/dashboard/(launcher)/_components/year-moments-list.tsx');
 const YEAR_PAGE = join(WEB, 'app/dashboard/(account)/year/page.tsx');
 
@@ -154,7 +156,7 @@ test('both surfaces actually READ the account’s own birthday', () => {
   // ⚠ ONE SURFACE NOW, NOT TWO. The Year page is a redirect since 2026-08-21,
   // so the shelf is the only place this can be wired — which makes the check
   // MORE important, not less: there is no second surface to notice the loss.
-  for (const [name, p] of [['the "Worth planning" shelf', STRIP]] as const) {
+  for (const [name, p] of [['the "Worth planning" reader', READER]] as const) {
     const src = code(p);
     assert.ok(
       count(src, /\bbuildSelfMoments\s*\(/g) >= 1,
@@ -171,7 +173,7 @@ test('one calendar day never prints twice', () => {
   // A birthday created through onboarding is `recurs: true` by default, so a
   // person with that event AND the date on their profile collided exactly.
   // Both surfaces must go through the shared merge, not concatenate by hand.
-  for (const [name, p] of [['the "Worth planning" shelf', STRIP]] as const) {
+  for (const [name, p] of [['the "Worth planning" reader', READER]] as const) {
     assert.ok(
       count(code(p), /\bmergeSelfMoments\s*\(/g) >= 1,
       `${name} must merge via mergeSelfMoments — a raw spread prints the same date twice`,
@@ -184,7 +186,7 @@ test('the shelf checks its birthday read for an error', () => {
   // so the duty moved with the read. Supabase RESOLVES with an error rather
   // than throwing, so an unchecked read tells somebody who typed their birthday
   // months ago to add it — forever, with no error anywhere.
-  const src = code(STRIP);
+  const src = code(READER);
   assert.ok(
     /selfErr/.test(src) && /logQueryError/.test(src),
     'the shelf must capture and log its birthday read error — an unchecked read ' +

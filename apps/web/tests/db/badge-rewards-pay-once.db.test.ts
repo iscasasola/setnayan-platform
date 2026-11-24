@@ -79,8 +79,8 @@ async function newShop(): Promise<{ userId: string; shop: string }> {
 /** A Setnayan-sourced booking of `shop` (an explore thread), agreed at `total` pesos. */
 async function newBooking(shop: string, total = 50000): Promise<{ eventId: string; eventVendorId: string }> {
   const eventId = await one<string>(
-    `INSERT INTO public.events (display_name, event_type, event_date)
-     VALUES ($1,'birthday','2030-08-01') RETURNING event_id AS v`,
+    `INSERT INTO public.events (for_whom, display_name, event_type, event_date)
+     VALUES ('self', $1,'birthday','2030-08-01') RETURNING event_id AS v`,
     [uniq()],
   );
   const eventVendorId = await one<string>(

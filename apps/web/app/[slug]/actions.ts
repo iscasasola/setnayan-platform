@@ -1,5 +1,6 @@
 'use server';
 
+import { publicEventPath } from '@/lib/public-event-url';
 import { shopPath } from '@/lib/shop-address';
 import { NAME_CORRECTION_FIELD, adoptDeclinedContactArm, readNameCorrection, withNameCorrection } from '@/lib/rsvp-you-step';
 import { redirect } from 'next/navigation';
@@ -253,7 +254,7 @@ export async function submitRsvp(
       .maybeSingle();
     // 🔌 Never the site's home (lib/guest-read.ts `eventAddressUnread`): nothing
     // has been written yet, so "not sent" is the truth.
-    redirect(ev?.slug ? (toInvite ? `/${ev.slug}/invite` : `/${ev.slug}`) : eventAddressUnread('submitRsvp · session'));
+    redirect(ev?.slug ? (toInvite ? `${publicEventPath(ev.slug)}/invite` : `${publicEventPath(ev.slug)}`) : eventAddressUnread('submitRsvp · session'));
   }
 
   // 📵 No reply carries a face (owner 2026-09-30): every selfie field a crafted
@@ -972,7 +973,7 @@ export async function submitRsvp(
   // the site's home, and never a throw: a throw here would tell a guest whose
   // reply landed that it was not sent.
   if (toInvite && !ev?.slug) redirect(`${inviteEnterPath(replySlug)}?rsvp=${outcome}`);
-  redirect(ev?.slug ? `/${ev.slug}?rsvp=${outcome}` : `/${replySlug}?rsvp=${outcome}`);
+  redirect(ev?.slug ? `${publicEventPath(ev.slug)}?rsvp=${outcome}` : `/${replySlug}?rsvp=${outcome}`);
 }
 
 /**
@@ -1364,7 +1365,7 @@ export async function withdrawFaceConsent(
     card all have to be thrown away here, not on their own clocks.
   */
   await everyCopyIsNowStale(eventId);
-  redirect(ev?.slug ? `/${ev.slug}?face_removed=1` : '/');
+  redirect(ev?.slug ? `${publicEventPath(ev.slug)}?face_removed=1` : '/');
 }
 
 /**
@@ -1447,7 +1448,7 @@ export async function setGuestFaceBlock(
     any other and comes down on every copy.
   */
   await everyCopyIsNowStale(eventId);
-  if (ev?.slug) redirect(`/${ev.slug}?faceblock=${enabled ? 'on' : 'off'}`);
+  if (ev?.slug) redirect(`${publicEventPath(ev.slug)}?faceblock=${enabled ? 'on' : 'off'}`);
 }
 
 /**
@@ -1502,7 +1503,7 @@ export async function setGuestScanTracking(
     .select('slug')
     .eq('event_id', eventId)
     .maybeSingle();
-  if (ev?.slug) redirect(`/${ev.slug}?scan_trail=${optOut ? 'off' : 'on'}`);
+  if (ev?.slug) redirect(`${publicEventPath(ev.slug)}?scan_trail=${optOut ? 'off' : 'on'}`);
 }
 
 /**

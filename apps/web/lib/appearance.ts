@@ -168,6 +168,17 @@ export function isSessionCookieName(name: string): boolean {
 }
 
 /**
+ * 🧹 A session cookie that still HOLDS a session — the name AND a value. When the middleware's refresh is refused (a
+ * dead refresh token: `auth/v1/token?grant_type=refresh_token` → 400), @supabase/ssr removes the session by writing
+ * the cookie back EMPTY, onto the request the page then reads. The name alone said "signed in" and the page's reads
+ * left as anon, each refused (`GET events` 42501, live 21 Nov). For a server page's "is anybody signed in at all"
+ * gate; WHO is signed in is still `getCurrentUser()`.
+ */
+export function isLiveSessionCookie(cookie: { name: string; value?: string | null }): boolean {
+  return isSessionCookieName(cookie.name) && (cookie.value ?? '').trim() !== '';
+}
+
+/**
  * Is `pathname` on the ready-list?
  *
  * An entry is a path PREFIX ("/dashboard/people" → itself and everything below it, never the sibling

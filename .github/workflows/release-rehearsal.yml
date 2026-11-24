@@ -16,12 +16,20 @@ name: release-rehearsal
 #   2. every migration: the live site's set through the repo's own replay
 #      engine, then THIS RELEASE's new ones through the real
 #      `supabase db push --include-all --yes` — the command deploy-prod.yml runs;
-#   3. a small fixture (one host, one event, 30 guests, 12 suppliers, 3 orders);
+#   3. a small fixture (one host, one event, 39 guests — one per reply state
+#      among them — 12 suppliers, one owned by a supplier account, 3 orders);
 #   4. the app built in production mode (`pnpm build`, the script Vercel runs)
 #      and started with `next start`, pointed ONLY at that stack;
 #   5. the launch-critical journey walked in a phone-sized browser (375×812),
 #      one screenshot per step, each step asserting what a person would check;
-#   6. the number of database requests each step cost, as a table.
+#   6. the number of database requests each step cost, as a table;
+#   7. THE CONTROL SWEEP (`sweep.spec.ts`): signed in as the couple, then as the
+#      supplier, every dashboard screen in the app's own route map is opened
+#      and every control on it pressed — buttons, tabs, toggles, every option
+#      of every dropdown and menu, every sheet opened and closed — at 375 px,
+#      then on a desktop. Red on an error screen, a page or console error, or
+#      any 5xx. Destructive, money and outward-facing controls (delete, pay,
+#      send, publish, sign out) are never pressed, and each skip is listed.
 #
 # Red = do not upload. Green = the screenshots are in the run's artifact
 # (`release-rehearsal` → rehearsal-screens/) and the table is on the run page.
@@ -55,6 +63,9 @@ name: release-rehearsal
 #
 # Measured 2026-10-08 on ubuntu-latest: stack 1m 10s · 1,570 migrations 1m 30s ·
 # build 8m 20s · walk 3m 25s (two of those minutes are the "left open" steps).
+# The sweep adds up to `sweep_minutes` (its six parts — the couple's list in
+# two halves, the supplier's whole, at 375 px and desktop — run side by side);
+# set it to 0 to rehearse without it.
 on:
   workflow_dispatch:
     inputs:
@@ -66,6 +77,10 @@ on:
         description: 'What the site is on now (default: the deployed-prod tag)'
         required: false
         default: 'deployed-prod'
+      sweep_minutes:
+        description: 'Control sweep: minutes per persona × width (0 = no sweep)'
+        required: false
+        default: '110'
 
 permissions:
   contents: read
@@ -78,7 +93,8 @@ jobs:
   rehearse:
     name: rehearse the release
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # The walk's ~16 minutes plus the sweep's budget (its four parts run side by side).
+    timeout-minutes: 160
     env:
       REHEARSE_REF: ${{ inputs.ref || 'main' }}
       LIVE_REF: ${{ inputs.live_ref || 'deployed-prod' }}
@@ -261,16 +277,19 @@ jobs:
           fi
 
       # ── 2. THE FIXTURE ──────────────────────────────────────────────────
-      - name: Seed the fixture (one host, one event, 30 guests, 12 suppliers, 3 orders)
+      - name: Seed the fixture (a host, a supplier, one event, 39 guests, 12 suppliers, 3 orders)
         working-directory: apps/web
         run: |
           set -euo pipefail
-          # A password made here, for an account that exists only on this
-          # runner, masked, never printed.
+          # Passwords made here, for accounts that exist only on this runner,
+          # masked, never printed.
           pw="Rh-$(openssl rand -hex 16)"
+          spw="Rs-$(openssl rand -hex 16)"
           echo "::add-mask::$pw"
+          echo "::add-mask::$spw"
           echo "REHEARSAL_HOST_PASSWORD=$pw" >> "$GITHUB_ENV"
-          REHEARSAL_HOST_PASSWORD="$pw" REHEARSAL_API_URL=http://127.0.0.1:54321 \
+          echo "REHEARSAL_SUPPLIER_PASSWORD=$spw" >> "$GITHUB_ENV"
+          REHEARSAL_HOST_PASSWORD="$pw" REHEARSAL_SUPPLIER_PASSWORD="$spw" REHEARSAL_API_URL=http://127.0.0.1:54321 \
             pnpm exec tsx tests/rehearsal/seed.mts
           # PostgREST caches the schema; the migrations just changed all of it.
           PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qc "NOTIFY pgrst, 'reload schema'"
@@ -397,8 +416,27 @@ jobs:
           set -euo pipefail
           t0=$(date +%s)
           rc=0
-          pnpm exec playwright test -c tests/rehearsal/playwright.rehearsal.config.ts || rc=$?
+          pnpm exec playwright test -c tests/rehearsal/playwright.rehearsal.config.ts --project=journey || rc=$?
           echo "walk_seconds=$(( $(date +%s) - t0 ))" >> "$REHEARSAL_OUT/timings.env"
+          exit $rc
+
+      # After the walk, and whatever the walk's result: the two are independent,
+      # and one run should show every broken part of a release.
+      - name: Press every control — couple and supplier, 375 px then desktop
+        id: sweep
+        if: ${{ !cancelled() && (steps.walk.outcome == 'success' || steps.walk.outcome == 'failure') && inputs.sweep_minutes != '0' }}
+        working-directory: apps/web
+        env:
+          REHEARSAL_BASE_URL: http://localhost:3000
+          REHEARSAL_COUNTER_URL: http://127.0.0.1:54320
+          SWEEP_MINUTES: ${{ inputs.sweep_minutes || '110' }}
+          CI: 'true'
+        run: |
+          set -euo pipefail
+          t0=$(date +%s)
+          rc=0
+          pnpm exec playwright test -c tests/rehearsal/playwright.rehearsal.config.ts --project=sweep --workers=6 || rc=$?
+          echo "sweep_seconds=$(( $(date +%s) - t0 ))" >> "$REHEARSAL_OUT/timings.env"
           exit $rc
 
       # ── 5. THE REPORT — always, red or green ────────────────────────────
@@ -413,10 +451,25 @@ jobs:
           PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
             "select count(*) from rehearsal.swallowed_http" > "$REHEARSAL_OUT/swallowed-http.txt" 2>/dev/null || true
           echo "finished=$(date +%s)" >> "$REHEARSAL_OUT/timings.env"
-          node apps/web/tests/rehearsal/summary.mjs "$REHEARSAL_OUT" "${{ steps.walk.outcome }}" | tee -a "$GITHUB_STEP_SUMMARY"
+          node apps/web/tests/rehearsal/summary.mjs "$REHEARSAL_OUT" "${{ steps.walk.outcome }}" "${{ steps.sweep.outcome }}" | tee -a "$GITHUB_STEP_SUMMARY"
+          # The full sweep report goes into the log as well, so it can be read
+          # without downloading the artifact.
+          # Where each failed walk step ended, and its headings, without the artifact.
+          for u in "$REHEARSAL_OUT"/failure-*.url.txt; do
+            [ -f "$u" ] || continue
+            echo "walk failure page: $(basename "$u" .url.txt) → $(cat "$u")"
+            grep -oE '<h[12][^>]*>[^<]{1,120}' "${u%.url.txt}.html" 2>/dev/null | sed -E 's/<[^>]*>//' | head -5 | sed 's/^/  heading: /' || true
+          done
+          if [ -f "$REHEARSAL_OUT/SWEEP.md" ]; then
+            echo "::group::SWEEP.md — every screen, every skip, every fault"
+            cat "$REHEARSAL_OUT/SWEEP.md"
+            echo "::endgroup::"
+          fi
           mkdir -p "$RUNNER_TEMP/artifact/rehearsal-screens" "$RUNNER_TEMP/artifact/diagnostics"
           cp "$REHEARSAL_OUT"/screens/*.png "$RUNNER_TEMP/artifact/rehearsal-screens/" 2>/dev/null || true
           cp "$REHEARSAL_OUT/REHEARSAL.md" "$RUNNER_TEMP/artifact/" 2>/dev/null || true
+          cp "$REHEARSAL_OUT/SWEEP.md" "$RUNNER_TEMP/artifact/" 2>/dev/null || true
+          cp "$REHEARSAL_OUT"/sweep-*.json "$RUNNER_TEMP/artifact/diagnostics/" 2>/dev/null || true
           for f in requests.json steps.json migrations.json db-push.log in-this-upload.txt blocked-requests.json timings.env; do
             cp "$REHEARSAL_OUT/$f" "$RUNNER_TEMP/artifact/diagnostics/" 2>/dev/null || true
           done

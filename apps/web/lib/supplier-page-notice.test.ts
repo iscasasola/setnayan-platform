@@ -25,7 +25,6 @@ import {
 import { isFromAlbumPageRef, keepOnlyNoticedAlbumRefs, withoutAlbumRefs } from './put-photo-on-my-page';
 import { planCleanupDelete, supplierPageAlbumCopyScope } from './cleanup-delete-scope';
 import { readdirSync } from 'node:fs';
-import { PORTFOLIO_FREE_CREDITS } from './shop-portfolio-credits';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -172,14 +171,12 @@ test('9 · the page copy is deleted only inside THIS shop’s from-album folder'
   assert.equal(planCleanupDelete(ALBUM_REF, supplierPageAlbumCopyScope('../x')).ok, false, 'a traversal id widened the scope');
 });
 
-test('10 · the notice is priced with the SAME free room as the gallery save', () => {
+test('10 · the notice charges nothing — the portfolio has no free room or price since 2026-11-23', () => {
   const dir = join(WEB, '..', '..', 'supabase', 'migrations');
-  const file = readdirSync(dir).find((f) => f.endsWith('_supplier_page_photo_notice.sql'));
-  assert.ok(file, 'the migration is gone');
-  const sql = readFileSync(join(dir, file!), 'utf8');
-  const base = /v_base\s+CONSTANT INTEGER := (\d+);/.exec(sql);
-  assert.ok(base, 'the notice no longer names its free base');
-  assert.equal(Number(base![1]), PORTFOLIO_FREE_CREDITS, 'the notice and the gallery save disagree on the free room');
-  assert.match(sql, /v_free := GREATEST\(v_base, COALESCE\(v_allow, 0\)\);/, 'the personal-invite allowance no longer lifts the free room');
-  assert.match(sql, /public\.shop_papic_wallet_spend\(/, 'the charge no longer goes through the wallet’s one spend door');
+  const file = readdirSync(dir).find((f) => f.endsWith('_supplier_event_photo_limits.sql'));
+  assert.ok(file, 'the migration that dropped the charge is gone');
+  const sql = readFileSync(join(dir, file!), 'utf8').replace(/--.*$/gm, '');
+  const fn = sql.slice(sql.indexOf('FUNCTION public.file_supplier_page_notice('), sql.indexOf('REVOKE EXECUTE ON FUNCTION public.file_supplier_page_notice'));
+  assert.ok(fn.length > 300, 'the notice is no longer redefined there');
+  assert.doesNotMatch(fn, /shop_papic_wallet_spend|v_charge|v_free/, 'the notice charges again');
 });

@@ -2208,15 +2208,15 @@ export const UGAT_JOINTS: UgatJoint[] = [
      * never reaches here — tests/db/vendor-papic-credits-are-the-suppliers.db.test.ts.
      *
      * ⚠ GRANTS ARE APPEND-ONLY AND ALWAYS POSITIVE; THE SPEND SIDE IS NOT A
-     * COUNTER HERE. What the supplier has spent is their own captures
-     * (vendor_papic_captures, 1 point per photo, 8 per clip) — the same meter
-     * the capture route charges — so there is no second table to drift from
-     * it. G3's portfolio imports must count against the same meter.
+     * COUNTER HERE. Since 2026-11-23 the only thing that spends them is G3's
+     * portfolio imports (vendor_papic_portfolio_photos.credits_spent). The
+     * on-the-day camera (vendor_papic_captures) spends NOTHING: its limit is the
+     * shop's PLAN (TIER_CAPS.eventPhotosPerEvent / eventVideos — Free · Verified
+     * 10 photos, no videos; Plus and up no limit), counted from the captures.
      *
-     * ⚠ vendor_papic_capture_grants is the TIER row (one per vendor×event,
-     * UNIQUE on the pair — free/ltd/unli, admin-comped), not the credit ledger.
-     * It could not hold a second pack for the same event, which is why the
-     * ledger is a table of its own rather than a `source` value on it.
+     * ⛔ vendor_papic_capture_grants (the Lite/Ltd/Unli TIER row) is DROPPED
+     * (migration supplier_event_photo_limits, owner 2026-11-23) — the plan is
+     * the only tier a supplier capture has.
      *
      * ⚠ NO WRITE POLICY ON THE LEDGER. A supplier that could INSERT a grant
      * could grant itself the pack. Writes are service-role only, from
@@ -2228,7 +2228,6 @@ export const UGAT_JOINTS: UgatJoint[] = [
     id: 'J49',
     claims: [
       { kind: 'table', table: 'vendor_papic_portfolio_credit_grants' },
-      { kind: 'table', table: 'vendor_papic_capture_grants' },
       { kind: 'table', table: 'vendor_papic_captures' },
       {
         kind: 'fk',
@@ -2266,14 +2265,12 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // Papic packs (platform_retail_catalog_v2 PAPIC_GUEST* rows, order key
       // vendor_papic_pack__<code>); the ₱500 vendor_papic_portfolio_pack is retired.
       { kind: 'no_column', table: 'vendor_papic_portfolio_credit_grants', column: 'price_php' },
-      // The tier row: one per vendor×event, and the spend side's columns.
-      { kind: 'unique', table: 'vendor_papic_capture_grants', columns: ['vendor_profile_id', 'event_id'] },
-      { kind: 'column', table: 'vendor_papic_capture_grants', column: 'tier' },
+      // The captures the plan's event limit counts (photos, not hidden).
       { kind: 'fk', table: 'vendor_papic_captures', column: 'event_id', references: 'events' },
       { kind: 'column', table: 'vendor_papic_captures', column: 'media_type' },
       { kind: 'column', table: 'vendor_papic_captures', column: 'hidden_at' },
       // G3 — the private portfolio album a supplier IMPORTS into (never the
-      // couple's to see), spending the SAME meter as the captures above. A
+      // couple's to see), the one thing that spends the credit ledger above. A
       // FOURTH table, not a fourth spend-source on vendor_papic_captures,
       // because an import is not a camera event (no media_type, no clip
       // duration) — it is a finished photo the supplier already had.

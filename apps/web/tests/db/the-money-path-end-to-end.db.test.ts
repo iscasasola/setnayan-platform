@@ -215,7 +215,7 @@ test('0 · a verified supplier, the free booking already behind them, and a coup
   // collision here would make the run's own agree return resolve_others_first.
   for (let i = 1; i <= FREE_BOOKING_LIMIT; i++) {
     const e = await db.query<{ event_id: string }>(
-      `INSERT INTO public.events (display_name, event_type) VALUES ($1, 'birthday')
+      `INSERT INTO public.events (for_whom, display_name, event_type) VALUES ('self', $1, 'birthday')
        RETURNING event_id`,
       [`earlier-customer-${i}`],
     );
@@ -273,8 +273,8 @@ test('1 · the couple inquires from the marketplace → the pair is SOURCED', as
   const e = await db.query<{ event_id: string }>(
     // 'birthday' so the fixture needn't satisfy the wedding-field checks; a
     // real date because the quote's balance is due 14 days BEFORE the event.
-    `INSERT INTO public.events (display_name, event_type, event_date, event_date_precision)
-     VALUES ('Rosa & Ben', 'birthday', (NOW() + INTERVAL '120 days')::date, 'day')
+    `INSERT INTO public.events (for_whom, display_name, event_type, event_date, event_date_precision)
+     VALUES ('self', 'Rosa & Ben', 'birthday', (NOW() + INTERVAL '120 days')::date, 'day')
      RETURNING event_id`,
   );
   run.eventId = e.rows[0]!.event_id;
@@ -1065,7 +1065,7 @@ test('waived · a booking inside the first five bills ₱0, mints no bill, and s
      RETURNING id`,
   );
   const e = await db.query<{ event_id: string }>(
-    `INSERT INTO public.events (display_name, event_type) VALUES ('First Customer', 'birthday')
+    `INSERT INTO public.events (for_whom, display_name, event_type) VALUES ('self', 'First Customer', 'birthday')
      RETURNING event_id`,
   );
   const eventId = e.rows[0]!.event_id;
@@ -1173,7 +1173,7 @@ test('skips · a booking that cannot be billed is skipped, never billed twice', 
 
   // An off-platform supplier: no marketplace identity, so no fee, ever.
   const e = await db.query<{ event_id: string }>(
-    `INSERT INTO public.events (display_name, event_type) VALUES ('off-platform', 'birthday')
+    `INSERT INTO public.events (for_whom, display_name, event_type) VALUES ('self', 'off-platform', 'birthday')
      RETURNING event_id`,
   );
   const off = await db.query<{ vendor_id: string }>(
@@ -1197,7 +1197,7 @@ test('skips · a booking that cannot be billed is skipped, never billed twice', 
     [byoUser.rows[0]!.id],
   );
   const byoEvent = await db.query<{ event_id: string }>(
-    `INSERT INTO public.events (display_name, event_type) VALUES ('BYO couple', 'birthday')
+    `INSERT INTO public.events (for_whom, display_name, event_type) VALUES ('self', 'BYO couple', 'birthday')
      RETURNING event_id`,
   );
   // Arrived through the shop's OWN link — an import, closed by the owner 2026-07-26.

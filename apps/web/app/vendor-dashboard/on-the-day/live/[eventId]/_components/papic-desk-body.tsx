@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import type { VendorPapicTier } from '@/lib/vendor-papic-tier';
 import { hubHref } from '@/lib/hub-events';
 import { PartPage, PartText, setTwo } from '../../../../_components/set-two/parts';
 import { ReadFailedBody } from '../../../../_components/set-two/read-failed';
@@ -49,10 +48,11 @@ export function PapicReadFailed({ eventId }: { eventId: string }) {
 
 export type PapicCapture = {
   uploadOwner: string | null;
-  tier: VendorPapicTier;
-  allowVideo: boolean;
-  pointsCap: number | null;
-  pointsSpent: number;
+  /** The shop's plan — its event limit comes from TIER_CAPS (owner 2026-11-23). */
+  plan: string;
+  planLabel: string;
+  /** Photos taken here; `null` = unread. */
+  photosTaken: number | null;
 };
 
 export function PapicDeskBody({
@@ -95,10 +95,9 @@ export function PapicDeskBody({
           eventId={eventId}
           uploadOwner={capture.uploadOwner}
           coupleName={coupleName}
-          tier={capture.tier}
-          allowVideo={capture.allowVideo}
-          pointsCap={capture.pointsCap}
-          pointsSpent={capture.pointsSpent}
+          plan={capture.plan}
+          planLabel={capture.planLabel}
+          photosTaken={capture.photosTaken}
         />
       ) : (
         <>

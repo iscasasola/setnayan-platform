@@ -1,6 +1,6 @@
 /**
- * hub-tool-entries.ts — the rows behind the hub tools drawn with the Checklist, Per-person, Counter and Ordered list
- * templates (DECISION_LOG 2026-11-23 "THE TEN MOST-SHARED UNBUILT HUB TOOLS" + "Seven open calls settled" item 3, the
+ * hub-tool-entries.ts — the rows behind the hub tools drawn with the Checklist, Per-person, Counter, Ordered list, Live
+ * timeline and (dated) Plan templates (DECISION_LOG 2026-11-23 "THE TEN MOST-SHARED UNBUILT HUB TOOLS" + "Seven open calls settled" item 3, the
  * free rest; drawing `prototypes/hub_tools_working_2026-10-28/`).
  *
  * A tool is a RECORD (`lib/hub-tools.ts`: key · name · template); its rows live in ONE table, `vendor_hub_tool_entries`,
@@ -9,7 +9,11 @@
  * (per_person), Quantity vs guests and the Queue counter (counter) are keys, not tables, and a later tool on these
  * templates needs no schema. 24 Nov: Ceremony details · Proofs & approval · Safety permit & cue (checklist), Fittings &
  * measurements · Looks per person · Crew roster · Room list (per_person), Chair schedule · Reservation slots · Brackets &
- * scoring (ordered_list — `position` is the order, ▲ ▼ swap it; Brackets keeps a score in `qty`). The Shot list keeps its own couple-read table (`event_shot_list_items`) and nothing else
+ * scoring (ordered_list — `position` is the order, ▲ ▼ swap it; Brackets keeps a score in `qty`). 24 Nov, part 2:
+ * Pick-up times & routes · Itinerary · Serving times · Remembrance schedule · March cue sheet · Rehearsal & cues · Reveal
+ * cue (live_timeline — `qty` is the minute of the day, the time as typed; "Next ›" ticks the NOW row) and the Wellness
+ * plan (plan — `qty` is the session's calendar day; dates and plain activity words only, no health field). `qty` is
+ * read as a time or a day ONLY through `rowMinute` / `rowDay` below (controller, 24 Nov). The Shot list keeps its own couple-read table (`event_shot_list_items`) and nothing else
  * writes there (🔒 lib/no-hub-tool-borrows-the-shot-list.test.ts).
  * Dietary & allergies reads the RSVPs (`vendor_event_dietary_list`), never this table; Set list is Song Desk's own sets
  * (`lib/vendor-sets.ts`).
@@ -21,7 +25,7 @@
 import { HUB_TOOL_LIBRARY, type HubToolTemplate } from '@/lib/hub-tools';
 
 /** The templates whose rows this table holds. */
-export const ENTRY_TEMPLATES = ['checklist', 'per_person', 'counter', 'ordered_list'] as const satisfies readonly HubToolTemplate[];
+export const ENTRY_TEMPLATES = ['checklist', 'per_person', 'counter', 'ordered_list', 'live_timeline', 'plan'] as const satisfies readonly HubToolTemplate[];
 export type EntryTemplate = (typeof ENTRY_TEMPLATES)[number];
 
 export const ENTRY_LABEL_MAX = 140;
@@ -35,9 +39,31 @@ export const ENTRY_ROWS_MAX = 200;
  * writer refuses them and the reader never asks for them: Dietary & allergies (the RSVP answers,
  * `vendor_event_dietary_list`), Entourage (the couple's own entourage, `loadMarch` → `entourageSheet`), and the two
  * ordered lists Song Desk keeps in its own tables — Set list (`vendor_event_sets`) and Song Desk (the couple's picks) —
- * and the Shot list, whose rows are its own couple-read table (`event_shot_list_items`), shipped or not.
+ * and the Shot list, whose rows are its own couple-read table (`event_shot_list_items`), shipped or not. The live
+ * timelines that run on the couple's own program are read too, never typed here: Run of show, Floor Command, the March
+ * and the Emcee script.
  */
-export const READ_ONLY_TOOLS = ['dietary_and_allergies', 'entourage', 'set_list', 'song_desk', 'shot_list'] as const;
+export const READ_ONLY_TOOLS = [
+  'dietary_and_allergies',
+  'entourage',
+  'set_list',
+  'song_desk',
+  'shot_list',
+  'run_of_show',
+  'floor_command',
+  'march',
+  'emcee_script',
+] as const;
+
+/**
+ * Plan tools whose rows are DATED SESSIONS kept here — the Wellness plan: a day and the activity in plain words
+ * (controller, 24 Nov: no health or medical field). Every other Plan tool (Floor plan, Tables & seating) draws the
+ * couple's own seat plan and keeps no rows here.
+ */
+export const DATED_TOOLS = ['wellness_plan'] as const;
+export function isDatedTool(toolKey: string): boolean {
+  return (DATED_TOOLS as readonly string[]).includes(toolKey);
+}
 
 /**
  * Ordered-list tools whose rows also keep a SCORE (the row's `qty`, 0 to start): Brackets & scoring — teams in order,
@@ -57,6 +83,7 @@ export function entryTemplateOf(toolKey: string): EntryTemplate | null {
   if ((READ_ONLY_TOOLS as readonly string[]).includes(toolKey)) return null;
   const t = HUB_TOOL_LIBRARY.find((x) => x.key === toolKey);
   if (!t || !t.shipped) return null;
+  if (t.template === 'plan' && !isDatedTool(toolKey)) return null;
   return (ENTRY_TEMPLATES as readonly string[]).includes(t.template) ? (t.template as EntryTemplate) : null;
 }
 
@@ -93,6 +120,52 @@ export function groupEntries(rows: readonly HubToolEntryRow[], toolKeys: readonl
   const sorted = [...rows].sort((a, b) => a.position - b.position);
   for (const r of sorted) out.get(r.tool_key)?.push(entryFromRow(r));
   return out;
+}
+
+// ── WHEN A ROW HAPPENS — the ONE reading of `qty` as a time or a day (controller, 24 Nov) ──────────────────────
+// A live-timeline row keeps its time as the MINUTE OF THE DAY, the clock as typed (Manila wall time — no zone is
+// applied, so 2:00 PM stays 2:00 PM); a Wellness plan row keeps its CALENDAR DAY as days since 1970-01-01. Nothing
+// else reads `qty` as either: a screen asks these four.
+
+export const DAY_MINUTES = 24 * 60;
+
+/** A live-timeline row's minute of the day (0–1439); null when the number is not one (never read as midnight). */
+export function rowMinute(qty: number | null | undefined): number | null {
+  return typeof qty === 'number' && Number.isInteger(qty) && qty >= 0 && qty < DAY_MINUTES ? qty : null;
+}
+
+/** "14:05" → 845, to store; null for anything that is not a time. */
+export function minuteQty(hhmm: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  return h < 24 && min < 60 ? h * 60 + min : null;
+}
+
+/** 845 → "14:05" (what the time picker holds); '' when the row has no time. */
+export function hhmmOf(qty: number | null | undefined): string {
+  const at = rowMinute(qty);
+  return at === null ? '' : `${String(Math.floor(at / 60)).padStart(2, '0')}:${String(at % 60).padStart(2, '0')}`;
+}
+
+const DAY_MS = 86_400_000;
+
+/** A Wellness plan row's calendar day ("2026-11-28"); null when the number is not one. */
+export function rowDay(qty: number | null | undefined): string | null {
+  if (typeof qty !== 'number' || !Number.isInteger(qty) || qty < 0 || qty > ENTRY_QTY_MAX) return null;
+  return new Date(qty * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** "2026-11-28" → its day number, to store; null for a date that does not exist. */
+export function dayQty(day: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day.trim());
+  if (!m) return null;
+  const at = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const n = at / DAY_MS;
+  // A day that rolled over (Feb 30 → Mar 2) is not the day typed.
+  if (!Number.isInteger(n) || rowDay(n) !== day.trim()) return null;
+  return n;
 }
 
 /** Trim and collapse a typed line; '' when nothing is left. */
@@ -135,6 +208,17 @@ export function parseHubToolEntryOp(input: unknown): { ok: true; op: HubToolEntr
       const label = cleanLine(o.label, ENTRY_LABEL_MAX);
       if (!label) return { ok: false, error: template === 'per_person' ? 'Type a name first.' : 'Type something first.' };
       const note = cleanLine(o.note, ENTRY_NOTE_MAX) || null;
+      if (template === 'live_timeline') {
+        const at = rowMinute(typeof o.qty === 'number' ? o.qty : null);
+        if (at === null) return { ok: false, error: 'Pick a time first.' };
+        return { ok: true, op: { op: 'add', toolKey, label, note, qty: at } };
+      }
+      if (template === 'plan') {
+        const day = typeof o.qty === 'number' && rowDay(o.qty) ? o.qty : null;
+        if (day === null) return { ok: false, error: 'Pick a date first.' };
+        // Dates and plain activity words only — a Wellness plan row keeps no note (no health field).
+        return { ok: true, op: { op: 'add', toolKey, label, note: null, qty: day } };
+      }
       if (template === 'counter') {
         const qty = o.qty === undefined || o.qty === null ? 0 : qtyOf(o.qty);
         if (qty === null) return { ok: false, error: 'That number is out of range.' };
@@ -196,6 +280,34 @@ export function swapWithNeighbour(
 }
 
 // ── THE TEMPLATES' READ MODELS ─────────────────────────────────────────────
+
+/**
+ * Live timeline (and the dated Plan): the rows in the order they happen — by time (or day), a tie keeping the order
+ * they were added, a row with none last — and the NOW row, the first not yet done (the drawing: "Next ›" ticks it and
+ * the next one is now). `whenOf` is `rowMinute` or `rowDay`'s day number.
+ */
+export function runningOrder(
+  entries: readonly HubToolEntry[],
+  whenOf: (qty: number) => number | null,
+): { rows: { entry: HubToolEntry; when: number | null; now: boolean }[]; nowId: string | null; done: number; total: number } {
+  const timed = entries.map((entry, i) => ({ entry, when: whenOf(entry.qty), i }));
+  timed.sort((a, b) => {
+    if (a.when === null || b.when === null) return a.when === b.when ? a.i - b.i : a.when === null ? 1 : -1;
+    return a.when - b.when || a.i - b.i;
+  });
+  const nowId = timed.find((t) => !t.entry.done)?.entry.id ?? null;
+  return {
+    rows: timed.map((t) => ({ entry: t.entry, when: t.when, now: t.entry.id === nowId })),
+    nowId,
+    done: entries.filter((e) => e.done).length,
+    total: entries.length,
+  };
+}
+
+/** The dated Plan's day number for `runningOrder` (a row's day, as a number to sort by). */
+export function rowDayNumber(qty: number): number | null {
+  return rowDay(qty) === null ? null : qty;
+}
 
 /** Checklist: ticked of total ("3 of 7 ready"). */
 export function checklistProgress(entries: readonly HubToolEntry[]): { done: number; total: number } {

@@ -28,13 +28,15 @@
  * they were reading instead of dropping them on the account board.
  */
 import { useActionState, useEffect, useRef, useState } from 'react';
+import type { Door } from '@/lib/doors';
+import { DOOR_SIGN_IN_WORDS } from '@/lib/door-words';
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { signInWithPassword, signInInPlace } from '../actions';
 import { humanAuthError } from '@/lib/human-auth-error';
-import { DEAD_LINK_WORDS } from '@/lib/auth-confirm-link';
+import { DEAD_LINK_WORDS } from '@/lib/dead-link-words';
 import { inboxFor } from '@/lib/reset-sent';
 import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
 import { providerNextStep, SET_PASSWORD_WORDS, type KnownProvider } from '@/lib/sign-in-door';
@@ -118,6 +120,12 @@ export type SignInCardProps = {
   forGuest?: boolean;
   /** W1-B24 — arrived from an email link that can no longer finish: plain words + "Send a new link". */
   linkExpired?: boolean;
+  /**
+   * 🚪 Opened from a business door (`/login?door=X`, lib/doors.ts): the heading slot says the door's words
+   * (`DOOR_SIGN_IN_WORDS`) — the card is otherwise the one card — and Google / Apple carry the supplier intent, so a
+   * brand-new account comes in as a supplier and opens its shop.
+   */
+  door?: Door | null;
 };
 
 export function SignInCard({
@@ -135,6 +143,7 @@ export function SignInCard({
   onSignedIn,
   forGuest = false,
   linkExpired = false,
+  door = null,
 }: SignInCardProps) {
   const inPlace = Boolean(onSignedIn);
   const [state, submitInPlace] = useActionState(
@@ -206,10 +215,13 @@ export function SignInCard({
   return (
     <>
       {/* THE HEADING SLOT (owner 24 Nov 2026, "simple and straight to the point"): the forming mark, centred, over one
-          centred title — no eyebrow, no sentence. A guest keeps its own title (no "Welcome back"). */}
+          centred title — no eyebrow, no sentence. A guest keeps its own title (no "Welcome back"); a business door
+          (#8263, `/login?door=X`) keeps its own title from `DOOR_SIGN_IN_WORDS`. */}
       <div className="hr-si-head">
         <FormingMark />
-        <h2 className="hr-ov-title">{forGuest ? GUEST_SIGN_IN_WORDS.title : 'Sign in'}</h2>
+        <h2 className="hr-ov-title">
+          {door ? DOOR_SIGN_IN_WORDS[door].title : forGuest ? GUEST_SIGN_IN_WORDS.title : 'Sign in'}
+        </h2>
       </div>
 
       {/* 🔗 W1-B24 (walk 2, 16 Nov 2026): a confirmation link opened on the phone after signing up on the laptop
@@ -330,7 +342,7 @@ export function SignInCard({
           ) : nativeOAuth ? (
             <NativeOAuthButtons next={next} />
           ) : (
-            <OAuthButtonRow next={next} />
+            <OAuthButtonRow next={next} withAccountType={!!door} defaultAccountType={door ? 'vendor' : 'customer'} />
           )}
         </div>
       ) : null}

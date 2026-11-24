@@ -265,7 +265,7 @@ export async function loadDetailsData(
   const payRead = fetchOwnPaymentMethodsMeasured(supabase, vendorId);
   // 🔎 Deep Search (Supplier dashboard v13 note 2): the same offer `/vendor-dashboard/deep-search` makes — it waits for
   // the plan + verification in the shop row above, and nothing else — and the last search, started with the rest.
-  // 🔒 The App Store / Play Store shell refuses Deep Search (a paid per-run service — `lib/store-shell.ts`), so there
+  // 🔒 The App Store / Play Store shell refuses Deep Search (a web-only route — `lib/store-shell.ts`), so there
   // the card is not drawn and none of its reads run.
   const storeShellRead = isStoreShellRequest();
   // The two loaders log their own refusals (`logQueryError`) and say `measured: false` — nothing is swallowed here.

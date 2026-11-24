@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1988
-# tables: 540
-# columns: 6489
-# notnull: 3900
+# ledger: 1990
+# tables: 543
+# columns: 6507
+# notnull: 3915
 [ledger]
 20260512000000
 20260513000000
@@ -1929,6 +1929,7 @@
 20271350444634
 20271350575211
 20271350627144
+20271350667658
 20271350696878
 20271350875090
 20271350884376
@@ -1999,6 +2000,7 @@
 20271359913146
 20271359936839
 20271360033501
+20271360318379
 20271360321657
 [columns]
 account_deletion_requests.admin_note
@@ -4635,6 +4637,13 @@ guests.side
 guests.std_sent_at
 guests.ugc_terms_accepted_at
 guests.updated_at
+help_asks.article_slug
+help_asks.ask_id
+help_asks.coverage
+help_asks.created_at
+help_asks.outcome
+help_asks.surface
+help_asks.words
 help_messages.admin_notes
 help_messages.body
 help_messages.created_at
@@ -6949,6 +6958,17 @@ vendor_album_opens.album_key
 vendor_album_opens.album_kind
 vendor_album_opens.opened_at
 vendor_album_opens.vendor_profile_id
+vendor_app_store_plan_tokens.app_account_token
+vendor_app_store_plan_tokens.created_at
+vendor_app_store_plan_tokens.product_id
+vendor_app_store_plan_tokens.user_id
+vendor_app_store_plan_tokens.vendor_profile_id
+vendor_app_store_reversals.notification
+vendor_app_store_reversals.original_transaction_id
+vendor_app_store_reversals.recorded_at
+vendor_app_store_reversals.reversal_id
+vendor_app_store_reversals.status
+vendor_app_store_reversals.transaction_id
 vendor_app_store_subscriptions.auto_renew_product_id
 vendor_app_store_subscriptions.billing_failed_at
 vendor_app_store_subscriptions.created_at
@@ -10017,6 +10037,12 @@ guests.rsvp_status
 guests.scan_tracking_opt_out
 guests.side
 guests.updated_at
+help_asks.ask_id
+help_asks.coverage
+help_asks.created_at
+help_asks.outcome
+help_asks.surface
+help_asks.words
 help_messages.body
 help_messages.created_at
 help_messages.message_id
@@ -11455,6 +11481,15 @@ vendor_album_opens.album_key
 vendor_album_opens.album_kind
 vendor_album_opens.opened_at
 vendor_album_opens.vendor_profile_id
+vendor_app_store_plan_tokens.app_account_token
+vendor_app_store_plan_tokens.created_at
+vendor_app_store_plan_tokens.product_id
+vendor_app_store_plan_tokens.user_id
+vendor_app_store_plan_tokens.vendor_profile_id
+vendor_app_store_reversals.original_transaction_id
+vendor_app_store_reversals.recorded_at
+vendor_app_store_reversals.reversal_id
+vendor_app_store_reversals.status
 vendor_app_store_subscriptions.created_at
 vendor_app_store_subscriptions.environment
 vendor_app_store_subscriptions.original_transaction_id

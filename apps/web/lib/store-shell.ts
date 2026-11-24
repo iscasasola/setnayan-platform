@@ -151,7 +151,7 @@ export const STORE_SHELL_WEB_ONLY_STUDIO_SEGMENTS: ReadonlySet<string> = new Set
  *     own buy button and row links — see app/dashboard/[eventId]/orders/page.tsx.
  *   · /dashboard/<eventId>/checkout    — the checkout action surface
  *   · /papic/order/<token>             — the guest-side camera buy sheet
- *   · /vendor-dashboard/deep-search    — a paid web-research run (₱ per search)
+ *   · /vendor-dashboard/deep-search    — web research on the shop's own website (included on the paid plans, 2026-11-22)
  *
  * NOT here: `/pay/<reference>`. It is the ONE payment page for every order,
  * including a supplier's booking fee — a real-world service the store shell

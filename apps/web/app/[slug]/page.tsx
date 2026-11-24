@@ -2564,6 +2564,9 @@ async function invitationBody({
   const hubCopyBase = ownDayViewer ? guestHubBase(event.slug ?? slug) : null;
   const hubSaved =
     ownDayViewer && hubCopyBase && !isEditorCanvas ? (
+      <>
+      {/* 🔑 ONE VIEWER: on a shared phone, this guest's page erases the copies somebody else saved here. */}
+      <OfflineViewerScript viewer={ownDayViewer} />
       <HubSavedMark
         viewer={ownDayViewer}
         base={hubCopyBase}
@@ -2571,6 +2574,7 @@ async function invitationBody({
         eventEndDate={event.event_end_date ?? null}
         draw={!(search.tab === 'me' && yourScheduleRead)}
       />
+      </>
     ) : null;
   const meSaved =
     ownDayViewer && meCopyPath && yourScheduleRead ? (

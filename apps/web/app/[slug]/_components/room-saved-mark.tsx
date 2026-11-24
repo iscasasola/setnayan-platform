@@ -1,4 +1,5 @@
 import { HubSavedMark } from '@/app/_components/offline-ready/hub-saved-mark';
+import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
 import { guestHubBase } from '@/lib/offline-copy-addresses';
 
 import { loadEventShell } from '../_lib/loaders';
@@ -25,11 +26,15 @@ export async function RoomSavedMark({ slug }: { slug: string }) {
   const viewer = await roomCopyViewer(event.event_id);
   if (!viewer) return null;
   return (
-    <HubSavedMark
-      viewer={viewer}
-      base={base}
-      eventDate={event.event_date ?? null}
-      eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
-    />
+    <>
+      {/* 🔑 ONE VIEWER: on a shared phone, this guest's room erases the copies somebody else saved here. */}
+      <OfflineViewerScript viewer={viewer} />
+      <HubSavedMark
+        viewer={viewer}
+        base={base}
+        eventDate={event.event_date ?? null}
+        eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
+      />
+    </>
   );
 }

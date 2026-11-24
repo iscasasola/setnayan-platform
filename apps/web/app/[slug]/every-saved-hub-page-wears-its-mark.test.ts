@@ -24,6 +24,7 @@ test('every kept room draws the hub’s saved mark, once, for its own viewer', (
   const mark = code(read('_components/room-saved-mark.tsx'));
   assert.match(mark, /roomCopyViewer\(event\.event_id\)/, 'the room mark no longer asks the one viewer rule');
   assert.match(mark, /if \(!viewer\) return null/, 'the room mark draws for nobody’s copy');
+  assert.match(mark, /<OfflineViewerScript viewer=\{viewer\} \/>/, 'a room no longer tells the worker who is on this phone');
   assert.match(code(read('_lib/room-copy-viewer.server.ts')), /guestCopyViewer\(/, 'the rooms decide whose copy it is themselves');
 });
 
@@ -32,6 +33,7 @@ test('the hub page draws the mark for its own viewer, at the top, with the seal 
   assert.match(page, /const ownDayViewer: string \| null = guestCopyViewer\(/, 'the hub no longer asks the one rule');
   assert.match(page, /return wearDraft\(\s*<>\s*\{hubSaved\}\s*<SiteBody/, 'the saved mark is not the first thing on the guest’s page');
   assert.match(page, /<HubSavedMark\b/);
+  assert.match(page, /const hubSaved =[\s\S]{0,260}<OfflineViewerScript viewer=\{ownDayViewer\} \/>/, 'the hub page no longer tells the worker who is on this phone');
   const view = code(read('../_components/offline-ready/hub-saved-mark.tsx'));
   assert.match(view, /\[COPY_VIEWER_ATTR\]: viewer/, 'the mark no longer carries the seal');
   assert.equal(COPY_VIEWER_ATTR, 'data-sn-copy-viewer');

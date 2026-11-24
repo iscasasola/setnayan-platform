@@ -302,8 +302,15 @@ async function settleItem(ctx: Ctx, item: SupplierQueuedItem, out: SyncOutcome):
 async function rowStillAsSeen(ctx: Ctx, item: SupplierQueuedItem): Promise<SyncOutcome | null> {
   const seen = item.rowVersion;
   if (!seen) return null;
-  const key = VERSIONED_ROWS[seen.table];
-  const { data, error } = await ctx.admin.from(seen.table).select('updated_at').eq(key, seen.id).maybeSingle();
+  // One literal read per table (never `.from(<a variable>)`, which the column scan cannot check).
+  const q =
+    seen.table === 'event_vendors'
+      ? ctx.admin.from('event_vendors').select('updated_at').eq('vendor_id', seen.id)
+      : seen.table === 'vendor_client_notes'
+        ? ctx.admin.from('vendor_client_notes').select('updated_at').eq('note_id', seen.id)
+        : ctx.admin.from('chat_threads').select('updated_at').eq('thread_id', seen.id);
+  if (VERSIONED_ROWS[seen.table] === undefined) return { status: 'refused', why: COULD_NOT_SAVE };
+  const { data, error } = await q.maybeSingle();
   if (error) {
     console.error('[supabase-error] supplier-offline: row version read', error.message);
     return { status: 'retry', why: 'unread' };

@@ -256,6 +256,11 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'reason — internal reconciliation keys, service-role only (migration 20271356998019).',
   },
   {
+    table: 'vendor_calendar_blocks',
+    decision: 'excluded',
+    why: "The shop's own calendar (its \"not available\" blocks and outside clients). created_by / updated_by (supplier offline engine, migration 20271363269436) are actor stamps: which team member made or last changed an item, so a clash can name them. The rows are the shop's records, not information about that person.",
+  },
+  {
     table: 'vendor_offline_devices',
     decision: 'excluded',
     why: "A member phone's offline QR key — the PUBLIC half only — and when that phone was last seen online. A device record kept to check QR signatures, not information about the person; it goes with the account (lib/erasure/coverage.ts). Service-role only (migration 20271363269436).",

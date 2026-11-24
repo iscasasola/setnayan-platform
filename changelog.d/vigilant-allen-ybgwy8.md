@@ -19,11 +19,13 @@ The owner ruled the release order on 24 Nov: "start with event hub. then supplie
   - A rotated QR or a removed guest draws a stranger's page. That page is never kept, and the network answering without the seal erases the event's copy.
   - Rooms and the announcement are kept only beside a sealed hub page.
   - The hub's "whose copy is this" rule is now ONE function (`guestCopyViewer`). The rooms ask it too (`roomCopyViewer`).
+  - Every kept page tells the worker who is on the phone (`OfflineViewerScript`), so a second guest on a shared phone erases the first one's copy.
   - Sign-out, another person signing in, and the day after the event erase the copy, as before.
 - **The mark.** Every saved page shows the shipped mark at the top, in the one frame: `savedMark` / `SavedMarkLine`, "Saved for offline · updated 6:40 PM", amber after 3 h on the day.
   - A failed save says so and offers the one "Update now" its words name.
   - Me keeps its own "Your schedule" mark.
 - **The address move (#7868, `NEXT_PUBLIC_U_NESTING_CUTOVER`, still off).** Every guest shape reads both `/<event>…` and `/{username}/<event>…` and keeps them as one copy under the bare form. This covers saving, opening, sign-out and the old-copy clean-up.
+  - The "second word" rule is the train's own `isNotANestedEvent` / `EVENT_SUB_ROUTES` (`lib/u-nesting.ts`). `main` was merged after #8277 landed.
   - A save follows the switch's 307 only when it lands on the same page.
   - The guard tests run with the switch on, so turning it on cannot silently stop offline.
 - **Needs internet (R15).** With no signal, these grey out in place, say "Needs internet" and are `aria-disabled`:
@@ -44,7 +46,12 @@ The owner ruled the release order on 24 Nov: "start with event hub. then supplie
   - `lib/offline-copies.test.ts`: 4 new tests.
   - `app/[slug]/every-saved-hub-page-wears-its-mark.test.ts`.
   - `app/sw-the-maker-asks-once.test.ts`: its day-of tests are re-pointed to the new rules.
-  - 17 sabotages were each measured landing (1 → 0) and seen red. One guard was decorative on the first run (rooms kept without a sealed hub page) and got its own test.
+  - 18 sabotages were each measured landing (1 → 0) and seen red. Two guards were decorative on the first run and were fixed:
+    - nothing tested that a room is kept only beside a sealed hub page;
+    - the deploy test's `VERSION` replace hit the COMMENT quoting `const VERSION = '…'`, not the real line.
+- **Real Chromium, the real worker** (stand-in pages, a non-development host):
+  - the save, opening offline, the announcement, a real deploy, a rotated QR, the switch on, and sign-out all behave as above;
+  - the greys go aria-disabled offline, show the toast on a tap, and clear when back online.
 - Waits for the owner's OK on drawing frame Q (the greys' look); labelled `do-not-auto-merge`.
 
 SPEC IMPACT: None. This builds R18 and the Event Hub part of R15 exactly as written in DECISION_LOG 24 Nov ("Offline goes live in pieces: the Event Hub first", the coverage audit) and OFFLINE_MODE_PLAN_2026-11-24.md (R18). Nothing was re-decided.

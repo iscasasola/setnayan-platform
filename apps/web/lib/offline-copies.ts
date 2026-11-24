@@ -15,7 +15,9 @@
  *   3. ERASED AFTER THE EVENT. Every copy carries its event's `until` (the end of the day after the event, Philippine
  *      time); past it the worker deletes it. Sign-out deletes them all (`OFFLINE_COPIES_WIPE_SCRIPT`); a guest's
  *      "Remove it from this browser" (the POST to `/<slug>/sign-out`, every guest sign-out door) deletes that event's.
- *   4. SMALL. Four pages per event at most; no photos or albums are kept by this cache.
+ *   4. SMALL. `OFFLINE_MAX_PAGES` pages per event at most — a guest's whole Event Hub is the most any one save holds
+ *      (R18, 24 Nov 2026: the old cap of four was the coordinator's and supplier's day, raised to the hub's real page
+ *      count, written down at `OFFLINE_MAX_PAGES`); no photos or albums are kept by this cache.
  *
  * `public/sw.js` cannot import this file, so it holds a COPY of `isOfflineCopyPath` / `offlineCopyEventId` (those two live
  * in `./offline-copy-addresses.ts`);
@@ -72,9 +74,8 @@ const EVENT_ID = /^[A-Za-z0-9-]{8,64}$/;
  * 📅 YOUR SCHEDULE (owner-approved 5 Nov, the schedule plan's "each person's day: Your schedule, saved for no signal"):
  *   coordinator · `/dashboard/<event>/schedule` (the day, as the hosts and their coordinator run it)
  *   supplier    · `/vendor-dashboard/clients/<event>?tab=schedule` (Customer › Schedule — a Host/MC's too)
- *   guest       · `/<slug>?tab=me` (Event Hub › Me — "Your schedule"; a role holder's call time is on it)
- * The guest's address names no event id: its owner is the SLUG (a guest save is kept under the slug), and a reserved
- * first segment (`/dashboard?tab=me`) is never a guest's page.
+ *   guest       · `/<slug>?tab=me` (Event Hub › Me — "Your schedule"; a role holder's call time is on it) — since R18
+ *                 one of the guest's Event Hub pages, below (`GUEST_HUB_TABS_KEPT`), not a shape of its own here.
  */
 export const OFFLINE_COPY_SHAPES = [
   /^\/dashboard\/([A-Za-z0-9-]{8,64})$/,
@@ -83,8 +84,101 @@ export const OFFLINE_COPY_SHAPES = [
   /^\/vendor-dashboard\/on-the-day\/live\/([A-Za-z0-9-]{8,64})$/,
   /^\/dashboard\/([A-Za-z0-9-]{8,64})\/schedule$/,
   /^\/vendor-dashboard\/clients\/([A-Za-z0-9-]{8,64})\?tab=schedule$/,
-  /^\/([a-z0-9-]{3,32})\?tab=me$/,
 ] as const;
+
+/**
+ * 📶 R18 — THE WHOLE EVENT HUB, SAVED FOR ITS GUEST (owner 2026-11-24, DECISION_LOG "The supplier dashboard works
+ * offline…" R18 · "Offline coverage audit" · "Offline goes live in pieces: the Event Hub first"). Opened with signal
+ * inside the window, a guest's phone keeps EVERY Event Hub page that guest can open, in THIS saved copy and under its
+ * rules — one viewer, erased at sign-out and the day after the event, and never by a deploy:
+ *   · the arrival page `/<event>` — the Invitation's one page (Home, Details, Story, the latest announcement), or
+ *     The Day's first tab;
+ *   · its own pages (`?tab=`, `GUEST_HUB_TABS_KEPT`) — The Day's Live (the program: Now · Next), Home, Details, Story
+ *     and Me (the pass, the table, "Your schedule");
+ *   · its rooms (`GUEST_HUB_ROOMS_KEPT`) — seat and table (`/find-my-table`, `/find-seat`, `/seat`), E-Gifts with the
+ *     couple's own numbers (`/pabuya`), and the guest list (`/everyone`);
+ *   · the latest announcement's answer (`GUEST_HUB_ANSWER`, what the announcement card asks on every open).
+ * Left out on purpose — small data, no albums: The Day's Gallery (`?tab=gallery`, the photos), the 3D walk (`/venue`,
+ * whose scene and models load on demand), the reply and its meal choices (`/invite/…`, which need internet — R15) and
+ * the door screens. The venue's address, its saved directions and "Open in Maps" are on the hub page itself.
+ *
+ * 🔗 ONE COPY PER PAGE, WHICHEVER ADDRESS (the address move, PR #7868, behind `NEXT_PUBLIC_U_NESTING_CUTOVER`): a guest
+ * page is `/<event>…` today and `/{username}/<event>…` once the switch is on, and the hub's own links may still name the
+ * bare form (one forward hop). Both are the SAME copy, kept under the bare form (`offlineCopyKey`), so turning the
+ * switch on never strands a saved hub. The event word is one pool with people and shops, so it alone names the event.
+ */
+export const GUEST_HUB_TABS_KEPT = ['live', 'home', 'details', 'story', 'me'] as const;
+export const GUEST_HUB_ROOMS_KEPT = ['find-my-table', 'find-seat', 'seat', 'pabuya', 'everyone'] as const;
+export const GUEST_HUB_ANSWER = 'announcement';
+
+/**
+ * 📏 THE MOST PAGES ONE SAVE MAY HOLD — the guest's whole Event Hub: the arrival page, its five pages, its five rooms
+ * and the announcement's answer = 12. Raised from four (the coordinator's Home + desk, the supplier's Hub + console +
+ * desk) on 24 Nov 2026 for R18. Measured on setnayan.com that day: a hub page is ~370 KB (57 KB on the wire), a room
+ * 70–130 KB, the announcement 13 bytes — about 2 MB for a whole hub, no photos. `public/sw.js` holds the number as a
+ * literal; `app/sw-offline-copies.test.ts` holds the two equal.
+ */
+export const OFFLINE_MAX_PAGES = 1 + GUEST_HUB_TABS_KEPT.length + GUEST_HUB_ROOMS_KEPT.length + 1;
+
+/**
+ * 🔒 THE COPY'S OWNER, IN THE PAGE ITSELF — the seal of the cached hub (`lib/hub-view-key.ts`) carried into the copy.
+ * A guest page draws `data-sn-copy-viewer="<viewer>"` only when it was drawn FOR that viewer: the pass held for this
+ * event, checked against the guest's CURRENT QR token (`readGuestSession` → `checkedSession`; the cached route's own
+ * seal check), or the signed-in account whose seat it is. A rotated QR, a removed guest or a stranger draws the
+ * stranger's page, without it — and the worker keeps no guest page whose HTML does not name the viewer saving it
+ * (`copyViewerIn`, a COPY in sw.js), and erases the event's guest copies when the network answers one without it.
+ */
+export const COPY_VIEWER_ATTR = 'data-sn-copy-viewer';
+const COPY_VIEWER = /^[A-Za-z0-9_-]{8,128}$/;
+
+/** The viewer a kept page's HTML names, or null. The worker holds a COPY of this (`copyViewerIn` in sw.js). */
+export function copyViewerIn(html: string): string | null {
+  const m = /data-sn-copy-viewer="([A-Za-z0-9_-]{8,128})"/.exec(html);
+  return m ? m[1]! : null;
+}
+
+/**
+ * 🔑 WHOSE COPY A GUEST PAGE IS — the ONE rule (the hub `app/[slug]/page.tsx` and every kept room ask it): the pass
+ * holder's (no account: `g-<guest>`), or the signed-in account whose OWN seat this is. Never a host's look at a guest
+ * (`refused`: the Maker's canvas, a preview, the owner's look, a host who opened a guest's pass), never somebody else's
+ * pass held in this browser, never a stranger. Null = nobody's: nothing is saved and no seal is drawn.
+ */
+export function guestCopyViewer(i: {
+  refused: boolean;
+  /** The signed-in account, or null signed out. */
+  accountId: string | null;
+  /** The account bound to the guest the page draws (their seat), or null. */
+  seatHolderId: string | null;
+  /** The guest whose pass this browser holds for THIS event (already checked against the current QR), or null. */
+  passGuestId: string | null;
+  /** The guest the page draws. */
+  drawnGuestId: string | null;
+}): string | null {
+  if (i.refused || !i.drawnGuestId) return null;
+  const viewer = i.accountId
+    ? i.seatHolderId === i.accountId
+      ? i.accountId
+      : null
+    : i.passGuestId === i.drawnGuestId
+      ? `g-${i.drawnGuestId}`
+      : null;
+  return viewer && COPY_VIEWER.test(viewer) ? viewer : null;
+}
+
+/**
+ * The bare (kept) addresses of one event's saved hub that a page asks the worker for: the arrival page, Me, the tabs
+ * the guest's own bar offers (`barTabs`, read from the page — only those in `GUEST_HUB_TABS_KEPT`), every room and the
+ * announcement. `base` is the event's bare address (`/<event>`, already checked — `guestMePath`). A room this guest
+ * cannot open is answered by the server with a forward or a 404, and the worker records it as not theirs, never failed.
+ */
+export function guestHubSavePaths(base: string, barTabs: readonly string[] = []): string[] {
+  const kept = new Set<string>(GUEST_HUB_TABS_KEPT);
+  const tabs = ['me', ...barTabs.filter((t) => kept.has(t))];
+  const out = [base, ...[...new Set(tabs)].map((t) => `${base}?tab=${t}`)];
+  for (const room of GUEST_HUB_ROOMS_KEPT) out.push(`${base}/${room}`);
+  out.push(`${base}/${GUEST_HUB_ANSWER}`);
+  return out.slice(0, OFFLINE_MAX_PAGES);
+}
 
 /**
  * `isOfflineCopyPath` / `offlineCopyEventId` / `guestMePath` live in `./offline-copy-addresses.ts`: the guest's shape
@@ -215,8 +309,13 @@ export type OfflineRegistry = {
   v: 1;
   /** Whose copies these are (the signed-in account, or a guest pass holder `g-<guest id>`). Exactly one at a time. */
   viewer: string;
-  /** `versions`: the copy version each kept page's HTML carried (only pages that carry one — `COPY_VERSION_ATTR`). */
-  events: Record<string, { until: number; pages: Record<string, number>; versions?: Record<string, string> }>;
+  /** `versions`: the copy version each kept page's HTML carried (only pages that carry one — `COPY_VERSION_ATTR`).
+   *  `absent`: 📶 R18 — a hub page this viewer cannot open (the server answered with a forward to another page of the
+   *  event, or a 404), and when that was last asked. Nothing is kept for it, and it is not missing from the copy. */
+  events: Record<
+    string,
+    { until: number; pages: Record<string, number>; versions?: Record<string, string>; absent?: Record<string, number> }
+  >;
 };
 
 /** Parses a stored registry; anything malformed reads as none (never as somebody's copy). */
@@ -229,7 +328,8 @@ export function parseOfflineRegistry(json: unknown): OfflineRegistry | null {
 
 /**
  * When THIS viewer's copy of THESE pages was saved — the OLDEST of them, because the mark speaks for all of them —
- * or null when any one is missing, expired, or the copies belong to somebody else.
+ * or null when any one is missing, expired, or the copies belong to somebody else. A hub page this viewer cannot open
+ * (`absent`) is not missing; it counts at the time it was last asked, so it ages like a kept page.
  */
 export function savedAtFor(
   reg: OfflineRegistry | null,
@@ -242,12 +342,16 @@ export function savedAtFor(
   const ev = reg.events[eventId];
   if (!ev || !(ev.until > now)) return null;
   let oldest = Infinity;
+  let kept = 0;
   for (const p of paths) {
     const at = ev.pages[p];
-    if (typeof at !== 'number' || !Number.isFinite(at)) return null;
-    oldest = Math.min(oldest, at);
+    const gone = ev.absent?.[p];
+    const when = typeof at === 'number' ? at : gone;
+    if (typeof when !== 'number' || !Number.isFinite(when)) return null;
+    if (typeof at === 'number') kept += 1;
+    oldest = Math.min(oldest, when);
   }
-  return Number.isFinite(oldest) ? oldest : null;
+  return kept > 0 && Number.isFinite(oldest) ? oldest : null;
 }
 
 /**

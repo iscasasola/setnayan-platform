@@ -452,8 +452,9 @@ function parsePricingFields(formData: FormData): {
     out.per_pax_price_php = parseInt0OrNull(formData.get('per_pax_price_php'));
     const mp = parseInt0OrNull(formData.get('min_pax'));
     out.min_pax = mp && mp > 0 ? mp : null;
+    // "From" price: the rate × the supplier's own minimum; with no minimum it is the per-guest rate itself (no guessed count).
     out.starting_price_php =
-      out.per_pax_price_php != null ? out.per_pax_price_php * (out.min_pax ?? 1) : null;
+      out.per_pax_price_php == null ? null : out.min_pax != null ? out.per_pax_price_php * out.min_pax : out.per_pax_price_php;
   } else if (pricing_basis === 'per_hour') {
     out.hour_base_php = parseInt0OrNull(formData.get('hour_base_php'));
     out.min_hours = parsePosNumOrNull(formData.get('min_hours'));

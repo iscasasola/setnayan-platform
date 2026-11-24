@@ -9,6 +9,11 @@ import {
   signupPriceFor,
 } from '@/lib/onboarding-family-discount';
 import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
+import { TEMPLATE_SUBLINE, TemplateNums, TemplateSection } from '@/app/_components/template-rows';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { FieldPick } from '@/app/admin/_components/field-pick';
 
 export type EventKindView = {
   eventType: string;
@@ -44,6 +49,7 @@ export function AiBandsEditor({
   discountPct,
   setBandAction,
   savePriceAction,
+  locked = false,
 }: {
   bands: AiBandView[];
   unassigned: EventKindView[];
@@ -52,6 +58,8 @@ export function AiBandsEditor({
   setBandAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
   /** Sets ONE band's regular price. The sign-up price follows the one sign-up discount. */
   savePriceAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
+  /** 🛑 The page could not read every price — nothing here may save (Save and Move both off). */
+  locked?: boolean;
 }) {
   const [bandState, bandFormAction] = useActionState<RowActionState, FormData>(setBandAction, {
     ok: false,
@@ -64,19 +72,32 @@ export function AiBandsEditor({
 
   return (
     <div>
-      <p className="mb-5 max-w-prose text-sm leading-relaxed text-ink/70">
-        Setnayan AI does not cost the same for a wedding as it does for a coffee catch-up. Five
-        price bands; every kind of event sits in <strong>exactly one</strong> of them. Ticking
-        a kind here takes it out of wherever it was, so the same event can never be quoted two
-        prices.
-      </p>
-
-      <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl border border-ink/10 bg-ink/[0.02] p-3.5 sm:grid-cols-4">
-        <Stat label="Price bands" value={String(bands.length)} />
-        <Stat label="Kinds of event" value={String(totalKinds)} />
-        <Stat label="No price chosen" value={String(unassigned.length)} bad={unassigned.length > 0} />
-        <Stat label="Sold as its own row" value={String(bands.filter((b) => b.isSellable).length)} />
-      </div>
+      {/* 📐 Clean port (19 Nov): the lede went behind the ⓘ; the four stat boxes are one numbers frame. */}
+      <TemplateSection
+        first
+        label="Price bands"
+        tip={
+          <>
+            Setnayan AI does not cost the same for a wedding as it does for a coffee catch-up. Five
+            price bands; every kind of event sits in <strong>exactly one</strong> of them. Ticking
+            a kind here takes it out of wherever it was, so the same event can never be quoted two
+            prices.
+          </>
+        }
+      >
+        <TemplateNums
+          items={[
+            { label: 'Price bands', value: String(bands.length) },
+            { label: 'Kinds of event', value: String(totalKinds) },
+            {
+              label: 'No price chosen',
+              value: String(unassigned.length),
+              tone: unassigned.length > 0 ? 'danger' : undefined,
+            },
+            { label: 'Sold as its own row', value: String(bands.filter((b) => b.isSellable).length) },
+          ]}
+        />
+      </TemplateSection>
 
       {/*
         ⚠ THE TRAY IS PERMANENT, EVEN WHEN EMPTY. Its whole job is to turn a
@@ -105,7 +126,8 @@ export function AiBandsEditor({
             allKinds={allKinds}
             discountPct={discountPct}
             formAction={bandFormAction}
-              savePriceAction={savePriceAction}
+            savePriceAction={savePriceAction}
+            locked={locked}
           />
         ))}
       </div>
@@ -113,37 +135,10 @@ export function AiBandsEditor({
   );
 }
 
-function Stat({ label, value, bad }: { label: string; value: string; bad?: boolean }) {
-  return (
-    <div
-      className={`rounded-lg border p-2.5 ${
-        bad ? 'border-danger-700/35 bg-danger-700/[0.06]' : 'border-ink/8 bg-cream'
-      }`}
-    >
-      <span className="block font-mono text-[9.5px] uppercase tracking-[0.15em] text-ink/55">
-        {label}
-      </span>
-      <span
-        className={`mt-0.5 block text-[19px] font-bold tabular-nums tracking-tight ${
-          bad ? 'text-danger-700' : 'text-ink'
-        }`}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
 function UnassignedTray({ kinds }: { kinds: EventKindView[] }) {
   const empty = kinds.length === 0;
   return (
-    <div
-      className={`mb-6 rounded-2xl border p-4 ${
-        empty
-          ? 'border-success-800/30 bg-success-800/[0.06]'
-          : 'border-danger-700/35 bg-danger-700/[0.06]'
-      }`}
-    >
+    <div className={`${ADMIN_FRAME} my-4 p-4`}>
       <h3
         className={`flex items-center gap-2 text-[15px] font-bold ${
           empty ? 'text-success-800' : 'text-danger-700'
@@ -154,29 +149,30 @@ function UnassignedTray({ kinds }: { kinds: EventKindView[] }) {
         ) : (
           <AlertTriangle className="h-4 w-4" strokeWidth={2} aria-hidden />
         )}
-        {empty
-          ? 'Every kind of event has a price'
-          : `${kinds.length} kind${kinds.length === 1 ? '' : 's'} of event ${
-              kinds.length === 1 ? 'has' : 'have'
-            } no price of their own`}
+        <InfoTip
+          label={
+            empty
+              ? 'Every kind of event has a price'
+              : `${kinds.length} kind${kinds.length === 1 ? '' : 's'} of event ${
+                  kinds.length === 1 ? 'has' : 'have'
+                } no price of their own`
+          }
+          align="start"
+        >
+          {empty
+            ? 'This stays here on purpose. The next kind of event you add will appear in this box until you give it a band — so a price is never chosen for it by accident.'
+            : 'These are being charged already — they fall through to the middle band, because that is what happens when nothing is chosen. Nobody decided that price. Give each one a home, or decide out loud that the middle is right for it.'}
+        </InfoTip>
       </h3>
-      <p className="mt-1.5 max-w-prose text-[13px] leading-relaxed text-ink/65">
-        {empty
-          ? 'This stays here on purpose. The next kind of event you add will appear in this box until you give it a band — so a price is never chosen for it by accident.'
-          : 'These are being charged already — they fall through to the middle band, because that is what happens when nothing is chosen. Nobody decided that price. Give each one a home, or decide out loud that the middle is right for it.'}
-      </p>
       {!empty && (
         <div className="mt-3 flex flex-wrap gap-2">
           {kinds.map((k) => (
-            <span
-              key={k.eventType}
-              className="inline-flex items-center gap-2 rounded-xl border border-danger-700/30 bg-cream px-3 py-2"
-            >
+            <span key={k.eventType} className="inline-flex items-center gap-2 py-1">
               <span className="text-[17px] leading-none" aria-hidden>
                 {k.emoji}
               </span>
               <span className="text-[14px] font-bold">{k.label}</span>
-              <span className="font-mono text-[11.5px] text-danger-700">falling through</span>
+              <Badge tone="no">falling through</Badge>
             </span>
           ))}
         </div>
@@ -191,12 +187,14 @@ function BandCard({
   discountPct,
   formAction,
   savePriceAction,
+  locked,
 }: {
   band: AiBandView;
   allKinds: EventKindView[];
   discountPct: number;
   formAction: (fd: FormData) => void;
   savePriceAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
+  locked: boolean;
 }) {
   const notOffered = band.regularPhp == null;
   const computedSignup =
@@ -204,14 +202,10 @@ function BandCard({
   const storedDiscount = effectiveDiscountPct(band.regularPhp ?? 0, band.signupPhp);
 
   return (
-    <section
-      className={`overflow-hidden rounded-2xl border ${
-        notOffered ? 'border-ink/10 bg-ink/[0.03]' : 'border-ink/10 bg-cream'
-      }`}
-    >
-      <header className="flex flex-wrap items-center gap-4 border-b border-ink/10 bg-ink/[0.02] p-4">
+    <section className={`${ADMIN_FRAME} overflow-hidden`}>
+      <header className="flex flex-wrap items-center gap-4 border-b border-[color:var(--sn-divider)] p-4">
         <span
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md font-mono text-[15px] font-bold ${
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[15px] font-bold ${
             notOffered ? 'bg-ink/8 text-ink/55' : 'bg-gold/[0.16] text-gold-deep'
           }`}
         >
@@ -219,10 +213,11 @@ function BandCard({
         </span>
 
         {notOffered ? (
-          <div className="min-w-0 flex-1">
-            <p className="rounded-lg border border-dashed border-ink/15 px-3 py-2 text-center font-mono text-[12.5px] text-ink/60">
-              Not offered — no price
-            </p>
+          <div className={`min-w-0 flex-1 ${TEMPLATE_SUBLINE}`}>
+            <InfoTip label="Not offered — no price" align="start">
+              Setnayan AI is not sold for these at all. <strong>This is not a free version</strong> —
+              there are no suppliers to reach, so the planner has nobody to plan with.
+            </InfoTip>
           </div>
         ) : (
           <>
@@ -230,12 +225,11 @@ function BandCard({
               band={band.band}
               regularPhp={band.regularPhp!}
               action={savePriceAction}
+              locked={locked}
             />
             <div className="w-40">
-              <span className="mb-1 block font-mono text-[9.5px] uppercase tracking-[0.15em] text-ink/55">
-                At set-up
-              </span>
-              <p className="font-mono text-[15px] font-bold tabular-nums text-ink">
+              <span className={`mb-1 block ${TEMPLATE_SUBLINE}`}>At set-up</span>
+              <p className="text-[15px] font-bold tabular-nums text-ink">
                 {band.signupPhp == null ? '—' : peso(band.signupPhp)}
                 {storedDiscount != null && (
                   <span className="ml-1.5 font-sans text-[11.5px] font-semibold text-ink/50">
@@ -256,27 +250,17 @@ function BandCard({
           <span className="text-[14.5px] font-bold">
             {band.kinds.length} kind{band.kinds.length === 1 ? '' : 's'}
           </span>
-          <span
-            className={`inline-flex items-center self-start rounded-full border px-2.5 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.11em] ${
-              band.isSellable
-                ? 'border-success-800/30 bg-success-800/[0.10] text-success-800'
-                : 'border-ink/12 bg-ink/[0.03] text-ink/55'
-            }`}
-          >
-            {band.isSellable ? 'Sold as its own row' : notOffered ? 'No row' : 'Price source only'}
+          <span className="self-start">
+            <Badge tone={band.isSellable ? 'ok' : 'quiet'}>
+              {band.isSellable ? 'Sold as its own row' : notOffered ? 'No row' : 'Price source only'}
+            </Badge>
           </span>
         </div>
       </header>
 
       <div className="p-4">
-        {notOffered && (
-          <p className="mb-2.5 max-w-prose text-[12.5px] leading-relaxed text-ink/60">
-            Setnayan AI is not sold for these at all. <strong>This is not a free version</strong> —
-            there are no suppliers to reach, so the planner has nobody to plan with.
-          </p>
-        )}
         {band.kinds.length === 0 ? (
-          <p className="text-[13px] italic text-ink/50">No kind of event pays this price.</p>
+          <p className={TEMPLATE_SUBLINE}>No kind of event pays this price.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {band.kinds.map((k) => (
@@ -306,31 +290,24 @@ function BandCard({
           className="mt-3 flex flex-wrap items-center gap-2"
         >
           <input type="hidden" name="band" value={band.band} />
-          <label className="font-mono text-[9.5px] uppercase tracking-[0.15em] text-ink/55">
-            Move a kind here
-          </label>
-          <select
+          <span className={TEMPLATE_SUBLINE}>Move a kind here</span>
+          {/* Only kinds NOT already here — moving a kind into the band it is
+              already in is a no-op the action would report as "no changes".
+              📐 Clean port: the ▾ house pick, still posting `event_type`. */}
+          <FieldPick
             name="event_type"
-            defaultValue=""
             required
-            className="input-field h-9 max-w-[15rem] text-sm"
-            aria-label={`Move a kind of event into band ${band.band}`}
-          >
-            <option value="" disabled>
-              Choose an event…
-            </option>
-            {/* Only kinds NOT already here — moving a kind into the band it is
-                already in is a no-op the action would report as "no changes". */}
-            {allKinds
+            label={`Move a kind of event into band ${band.band}`}
+            placeholder="Choose an event…"
+            className="min-h-9 max-w-[15rem]"
+            options={allKinds
               .filter((k) => k.band !== band.band)
-              .map((k) => (
-                <option key={k.eventType} value={k.eventType}>
-                  {k.emoji} {k.label}
-                  {k.band == null ? ' — no band yet' : ` — now in ${k.band}`}
-                </option>
-              ))}
-          </select>
-          <ActionButton tone="neutral" type="submit" icon={<ArrowRightLeft aria-hidden strokeWidth={1.9} />} label="Move" />
+              .map((k) => ({
+                key: k.eventType,
+                label: `${k.emoji} ${k.label}${k.band == null ? ' — no band yet' : ` — now in ${k.band}`}`,
+              }))}
+          />
+          <ActionButton tone="neutral" type="submit" icon={<ArrowRightLeft aria-hidden strokeWidth={1.9} />} label="Move" disabled={locked} />
         </form>
       </div>
     </section>
@@ -360,10 +337,12 @@ function BandPriceField({
   band,
   regularPhp,
   action,
+  locked,
 }: {
   band: string;
   regularPhp: number;
   action: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
+  locked: boolean;
 }) {
   const [state, formAction] = useActionState<RowActionState, FormData>(action, {
     ok: false,
@@ -377,15 +356,12 @@ function BandPriceField({
       className="w-40"
     >
       <input type="hidden" name="band" value={band} />
-      <label
-        className="mb-1 block font-mono text-[9.5px] uppercase tracking-[0.15em] text-ink/55"
-        htmlFor={`ai-band-price-${band}`}
-      >
+      <label className={`mb-1 block ${TEMPLATE_SUBLINE}`} htmlFor={`ai-band-price-${band}`}>
         Regular price
       </label>
       <div className="flex items-center gap-1.5">
         <div className="relative">
-          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[12px] text-ink/45">
+          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[12px] text-ink/45">
             ₱
           </span>
           <input
@@ -395,11 +371,11 @@ function BandPriceField({
             min="1"
             step="1"
             defaultValue={String(regularPhp)}
-            className="input-field h-9 w-28 pl-5 text-right font-mono text-[14px] tabular-nums"
+            className="input-field h-9 w-28 pl-5 text-right text-[14px] tabular-nums"
             aria-label={`Regular price for band ${band}`}
           />
         </div>
-        <ActionButton tone="neutral" type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save" />
+        <ActionButton tone="neutral" type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save" disabled={locked} />
       </div>
       {state.message && (
         <span

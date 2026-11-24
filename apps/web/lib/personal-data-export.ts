@@ -300,6 +300,7 @@ export async function buildPersonalDataExport(
     inviteMutesRes,
     chatMutesRes,
     eventTypeAsksRes,
+    signupAttributionRes,
     vendorReuseRequestsRes,
     workingNotesRes,
     broadcastsSentRes,
@@ -609,6 +610,12 @@ export async function buildPersonalDataExport(
       .select('label, status, event_type, created_at, resolved_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-11-16) — which shop and printed piece brought the subject's sign-up (migration
+    // 20271350227421, `signup_attributions`): one row, keyed to them (user_id), readable under their own RLS.
+    supabase
+      .from('signup_attributions')
+      .select('vendor_profile_id, via, src, utm, created_at')
+      .eq('user_id', user.id),
     // RA 10173 (2026-08-04) — RE-BOOKING REQUESTS the subject initiated
     // (migration 20271103100614). AUTHOR-scoped on requested_by_user_id, not
     // event-scoped: the row records a request THIS person made, and a co-host
@@ -1242,6 +1249,7 @@ export async function buildPersonalDataExport(
   const inviteMutes = listOutcome('invite_mutes', inviteMutesRes);
   const chatMutes = listOutcome('chat_thread_mutes', chatMutesRes);
   const eventTypeAsks = listOutcome('event_type_requests', eventTypeAsksRes);
+  const signupAttribution = listOutcome('signup_attributions', signupAttributionRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const ownSuggestions = listOutcome('event_inspiration_suggestions', ownSuggestionsRes);
   const couplePhotoShares = listOutcome('couple_photo_shares', couplePhotoSharesRes);
@@ -1425,6 +1433,7 @@ export async function buildPersonalDataExport(
     inviteMutes,
     chatMutes,
     eventTypeAsks,
+    signupAttribution,
     vendorReuseRequests,
     ownSuggestions,
     eventRemovalReasons,
@@ -1552,6 +1561,7 @@ export async function buildPersonalDataExport(
     invite_mutes: inviteMutes.rows,
     chats_you_muted: chatMutes.rows,
     event_type_requests: eventTypeAsks.rows,
+    signup_attribution: signupAttribution.rows,
     vendor_reuse_requests: vendorReuseRequests.rows,
     // 🤝🖼 Photos the subject suggested to couples' boards as a booked supplier (author-scoped).
     inspiration_suggestions_sent: ownSuggestions.rows,

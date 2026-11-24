@@ -2,7 +2,7 @@
  * the-day-of-rows-delete-by-swipe.test.ts — 👈 the day-of console's rows delete by their SWIPE, not a visible trash
  * (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON ROWS"), each with Undo:
  * a shot (same `removeShot` write, after the window), an issue (device-local), a song in a set
- * (`removeSongFromVendorEventSet`). A whole SET — whose songs cascade — is deleted from its rename editor, also after
+ * (`updateVendorEventSet` with `removeSong`, folded 23 Nov). A whole SET — whose songs cascade — is deleted from its rename editor, also after
  * the Undo window, never at once from a ✕ on the card.
  */
 import test from 'node:test';
@@ -37,7 +37,7 @@ test('the console mounts the one Undo toast', () => {
 
 test('a set song swipes out with Undo; a set is deleted from its editor, after the Undo window', () => {
   assert.match(sets, /<SwipeToDelete[\s\S]{0,200}?label=\{`Remove \$\{s\.title\} from \$\{set\.name\}`\}/);
-  assert.match(sets, /commit: \(\) => removeSongFromVendorEventSet\(eventId, setSongId\)/);
+  assert.match(sets, /commit: \(\) => updateVendorEventSet\(eventId, set\.setId, \{ removeSong: setSongId \}\)/);
   assert.match(sets, /commit: \(\) => deleteVendorEventSet\(eventId, set\.setId\)/);
   assert.doesNotMatch(sets, /run\(\(\) => deleteVendorEventSet/, 'the set no longer deletes at once');
   const editor = sets.slice(sets.indexOf('function SetHeaderEditor('));

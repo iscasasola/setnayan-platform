@@ -4,7 +4,7 @@
  * Event Ultra shipped with a live catalogue row and a working charge path, and NO screen opened a checkout for it —
  * every unit test stayed green, because nothing asked whether a plan has a door. This asks, for EVERY plan in
  * `PLAN_PRICE_CODES` (so a fourth plan is held the day it is added):
- *   1. some app screen mounts the checkout drawer for that plan's code;
+ *   1. it is a pack on Event services (owner 2026-11-23), whose ONE cart posts ONE order (it was a drawer per plan);
  *   2. that screen is the one the public doors lead to (`planScreenHref`);
  *   3. /pricing and /pricing/plan each offer the door (`PlanBuyCta`) for that plan.
  * Comments are stripped before scanning, so a commented-out drawer does not count.
@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 import { PLAN_PRICE_CODES } from './event-plans';
 import { PLAN_KEYS, planScreenHref } from './plan-buy-doors';
+import { PACK_KEYS } from './event-services';
 import * as hubParts from './hub-parts';
 import * as eventUltra from './event-ultra';
 import { stripComments } from './strip-comments';
@@ -57,27 +58,31 @@ function drawerCodes(src: string): Set<string> {
 
 const screens = walk(APP).map((f) => ({ rel: relative(WEB, f), src: stripComments(readFileSync(f, 'utf8')) }));
 
-test('1 · every plan has a checkout drawer on some screen', () => {
-  const missing: string[] = [];
-  for (const code of Object.values(PLAN_PRICE_CODES)) {
-    if (!screens.some((s) => drawerCodes(s.src).has(code))) missing.push(code);
-  }
-  assert.deepEqual(missing, [], `no screen opens a checkout for: ${missing.join(', ')}`);
+test('1 · every plan is a pack on Event services, and its cart posts ONE order (owner 2026-11-23)', () => {
+  // 🛒 Since Event services (v4, "Yes, build it") a plan is bought as a PACK in the one cart, not in a drawer of its own:
+  // every plan code is a pack the page reads and the order mint prices, and the page's cart posts the folded intent.
+  const packCodes = Object.values(PLAN_PRICE_CODES);
+  assert.deepEqual(
+    [...PACK_KEYS].map((k) => PLAN_PRICE_CODES[k]).sort(),
+    [...packCodes].sort(),
+    'a plan in PLAN_PRICE_CODES is not a pack on Event services',
+  );
+  const body = screens.find((s) => s.rel === 'app/dashboard/[eventId]/studio/website-pro/_components/event-services-view.tsx')!.src;
+  assert.match(body, /await submit\(fd\)/, 'the Event services cart no longer posts its order');
+  const dock = screens.find((s) => s.rel === 'app/dashboard/[eventId]/studio/website-pro/_components/event-services-body.tsx')!.src;
+  assert.match(dock, /submit=\{submitOrderAction\}/, 'the page no longer hands the cart submitOrderAction');
+  assert.match(body, /fd\.set\('intent', 'event_services'\)/, 'the cart no longer names the Event services intent');
+  const mint = stripComments(readFileSync(join(WEB, 'lib/event-services-orders.ts'), 'utf8'));
+  assert.match(mint, /export const EVENT_SERVICES_INTENT = 'event_services'/, 'the mint no longer answers the cart’s intent');
 });
 
-test('2 · the public doors lead to the screen that holds those drawers', () => {
+test('2 · the public doors lead to the screen that sells every pack', () => {
   const href = planScreenHref('EVENT', 'ultra');
-  assert.match(href, /^\/dashboard\/EVENT\/studio\/website-pro\?plan=ultra#plan-ultra$/);
+  assert.match(href, /^\/dashboard\/EVENT\/studio\/website-pro\?plan=ultra$/);
   const route = 'app/dashboard/[eventId]/studio/website-pro/';
-  const onRoute = screens.filter((s) => s.rel.startsWith(route));
-  for (const code of Object.values(PLAN_PRICE_CODES)) {
-    assert.ok(
-      onRoute.some((s) => drawerCodes(s.src).has(code)),
-      `${code}: the plan screen the doors open (${route}) has no drawer for it`,
-    );
-  }
   const page = screens.find((s) => s.rel === `${route}page.tsx`)!;
-  assert.match(page.src, /isPlanKey\(search\.plan\)/, 'the plan screen no longer reads which plan a door opened it for');
+  assert.match(page.src, /search\.plan/, 'the plan screen no longer reads which plan a door opened it for');
+  assert.match(page.src, /readEventServices\(eventId\)/, 'the plan screen no longer reads the packs it sells');
 });
 
 test('3 · /pricing and /pricing/plan offer the door for every plan', () => {

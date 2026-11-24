@@ -1,6 +1,8 @@
 import 'server-only';
 import { r2Delete } from '@/lib/r2';
 import { bindCleanupExecutor } from '@/lib/cleanup-delete-scope';
+import { releaseDeletedShopUpload } from '@/lib/supplier-storage-release.server';
+import { parseStoredAsset } from '@/lib/uploads';
 
 /**
  * cleanup-delete.ts — THE ONLY PLACE A CLEANUP JOB MAY DELETE AN R2 OBJECT.
@@ -29,8 +31,21 @@ import { bindCleanupExecutor } from '@/lib/cleanup-delete-scope';
  */
 const executor = bindCleanupExecutor(r2Delete);
 
-/** Delete one object that `planCleanupDelete` already proved; refuses anything else. */
-export const executeCleanupDelete = executor.executeCleanupDelete;
+/**
+ * Delete one object that `planCleanupDelete` already proved; refuses anything else. 📏 Once it is gone, a shop's
+ * upload stops counting on its storage meter (owner 2026-11-23 "THE METER COUNTS EVERYTHING").
+ */
+export const executeCleanupDelete: typeof executor.executeCleanupDelete = async (target) => {
+  await executor.executeCleanupDelete(target);
+  await releaseDeletedShopUpload(target.bucket, target.key);
+};
 
-/** Plan + execute; `'refused'` as data when the ref is not the row's own. */
-export const cleanupDelete = executor.cleanupDelete;
+/** Plan + execute; `'refused'` as data when the ref is not the row's own. A deleted shop upload stops counting. */
+export const cleanupDelete: typeof executor.cleanupDelete = async (ref, scope) => {
+  const outcome = await executor.cleanupDelete(ref, scope);
+  if (outcome === 'deleted') {
+    const stored = typeof ref === 'string' ? parseStoredAsset(ref) : null;
+    if (stored?.kind === 'r2') await releaseDeletedShopUpload(stored.bucket, stored.key);
+  }
+  return outcome;
+};

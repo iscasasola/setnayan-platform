@@ -65,7 +65,7 @@ const LAB_QR =
   );
 
 export function labPaySheet(vendorId: string, stage: MoneyStage = 'due'): LoadPaySheetResult {
-  const name = vendorId === 'v-seda' ? 'Seda Vertis North' : vendorId === 'v-bituin' ? 'Bituin Catering' : 'Lumina Studio';
+  const name = vendorId === 'v-seda' ? 'Tala Grove Pavilion' : vendorId === 'v-bituin' ? 'Bituin Catering' : 'Tanglaw Frames';
   if (vendorId === 'v-seda' || vendorId === 'v-bituin') {
     const own = vendorId === 'v-seda';
     return {
@@ -91,8 +91,8 @@ export function labPaySheet(vendorId: string, stage: MoneyStage = 'due'): LoadPa
         // Seda is a supplier the couple added — How to pay them comes from their own record (2026-10-29).
         ownWays: own
           ? [
-              { method: 'gcash', details: 'Seda Vertis North Corp · 0917 555 1234', qr: 'r2://setnayan-thread-files/lab/qr.png', qrUrl: LAB_QR },
-              { method: 'bank', details: 'BPI · Seda Vertis North Corp · 1234-5678-90', qr: null, qrUrl: null },
+              { method: 'gcash', details: 'Tala Grove Pavilion Inc. · 0917 555 1234', qr: 'r2://setnayan-thread-files/lab/qr.png', qrUrl: LAB_QR },
+              { method: 'bank', details: 'BPI · Tala Grove Pavilion Inc. · 1234-5678-90', qr: null, qrUrl: null },
             ]
           : [],
         planChange: own ? { fromPhp: 1_000_000, toPhp: 1_056_000 } : null,

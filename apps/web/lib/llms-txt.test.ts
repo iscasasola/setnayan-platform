@@ -97,35 +97,57 @@ test('RETIRED products never appear — the 2026-07-31 drift cases', () => {
   assert.ok(!body.includes('₱1,999'), 'Papic Pool 6k is ₱2,000 now, not ₱1,999');
 });
 
-test('Setnayan AI is never quoted a price of its own — it comes with Event Pro and Event Ultra', () => {
+test('Setnayan AI is quoted at its own catalog price — and no old event-type rung is', () => {
   /*
-    ⚖ Owner 2026-11-04 (final price sheet): "Setnayan ai no separate purchase will be part of event plus and event
-    pro". Until that day this test proved the four-rung AI ladder rendered; the ladder is no longer for sale, so the
-    property flips — NO rung may be quoted, and the planner is described inside the two plans instead.
+    ⚖ Owner 2026-11-23 (DECISION_LOG: "so there is a separate price for setnayan AI 2790"): Setnayan AI is on sale on
+    its own again, at the SETNAYAN_AI row's price, and still comes inside Event Pro and Event Ultra. It was off sale
+    2026-11-04 → 2026-11-23, when this test proved NO price was quoted.
 
-    🔑 The rung figures are read from the FIXTURE's AI rows (still present, inactive, as price sources), not typed
-    here — so a reprice of a rung cannot leave this check testing a figure nobody would ever render.
+    🔑 Every figure is read from the FIXTURE, never typed here. The B/C/D/RENEW rungs stay off sale, so none of them
+    may be quoted, and the page must not go back to selling the AI "by event type".
   */
   const body = renderLlmsTxt(INPUT);
-  const aiCodes = new Set(['SETNAYAN_AI', 'SETNAYAN_AI_B', 'SETNAYAN_AI_C', 'SETNAYAN_AI_D', 'SETNAYAN_AI_RENEW']);
+  const single = RETAIL.find((r) => r.service_code === 'SETNAYAN_AI')!;
+  assert.ok(single.is_active, 'the fixture keeps SETNAYAN_AI on sale');
+  assert.ok(figures(body).has(peso(Number(single.retail_price_php))), 'llms.txt does not quote Setnayan AI at its own price');
+  const rungCodes = new Set(['SETNAYAN_AI_B', 'SETNAYAN_AI_C', 'SETNAYAN_AI_D', 'SETNAYAN_AI_RENEW']);
   const otherFigures = new Set([
-    ...RETAIL.filter((r) => r.is_active && !aiCodes.has(r.service_code)).map((r) => peso(Number(r.retail_price_php))),
+    ...RETAIL.filter((r) => r.is_active && !rungCodes.has(r.service_code)).map((r) => peso(Number(r.retail_price_php))),
     ...VENDOR.map((r) => peso(Number(r.price_php))),
   ]);
-  for (const row of RETAIL.filter((r) => aiCodes.has(r.service_code))) {
+  for (const row of RETAIL.filter((r) => rungCodes.has(r.service_code))) {
     const fig = peso(Number(row.retail_price_php));
     if (otherFigures.has(fig)) continue; // the same peso is some live product's price — not evidence either way
     assert.ok(!figures(body).has(fig), `llms.txt still quotes ${row.service_code} at ${fig}`);
   }
   assert.ok(!/priced by event type/i.test(body), 'llms.txt still sells Setnayan AI by event type');
-  // Re-pointed 2026-11-13: Event Ultra is the third plan and carries the AI too (AI_INCLUDED_PLAN_SKUS, lib/sku-activation.ts).
-  // Re-pointed 2026-11-18 (the re-cut): Event Plus no longer carries it for new buyers — Event Pro and Event Ultra do.
-  assert.match(body, /Setnayan AI is not sold on its own — it comes with Event Pro and Event Ultra/);
+  assert.match(body, /Setnayan AI comes with Event Pro and Event Ultra, and is also sold on its own/);
+  assert.doesNotMatch(body, /Setnayan AI is not sold on its own|It is not sold on its own: it comes with Event Pro/, 'llms.txt still says Setnayan AI is not sold on its own');
   assert.doesNotMatch(body, /- \*\*Event Plus\*\*[^\n]*Setnayan AI/, 'llms.txt still sells Setnayan AI inside Event Plus');
   assert.match(body, /- \*\*Event Pro\*\*[^\n]*Setnayan AI/, 'llms.txt no longer names Setnayan AI inside Event Pro');
   assert.ok(body.includes(peso(Number(RETAIL.find((r) => r.service_code === 'EVENT_PLUS')!.retail_price_php))), 'Event Plus is not priced');
   // The ladder primitive still resolves (other callers price from it); it is simply not rendered here.
   assert.equal(aiLadder(buildPriceBook(INPUT)).length, 4);
+});
+
+test('the Event Hub single is quoted at its own catalog price, by name, after the plans', () => {
+  /*
+    ⚖ Owner 2026-11-23 (DECISION_LOG "EVENT PLANS ARE PACKAGES; SINGLES ARE THE SECOND CHOICE"; migration
+    20271359355225). The plans lead; the single is the second choice.
+
+    🔑 Its figure is read from the FIXTURE, never typed. It equals Setnayan AI's today, so "every active price is quoted"
+    alone cannot see a missing Event Hub line — this one ties the figure to the Event Hub's own words.
+  */
+  const body = renderLlmsTxt(INPUT);
+  const hub = RETAIL.find((r) => r.service_code === 'EVENT_HUB')!;
+  assert.ok(hub.is_active, 'the fixture keeps EVENT_HUB on sale');
+  const price = peso(Number(hub.retail_price_php)).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const single = new RegExp(`- The whole Event Hub[^\\n]*comes with every plan, and is also sold on its own at ${price} one-time per event`);
+  assert.match(body, single, 'llms.txt does not sell the Event Hub on its own at its catalog price');
+  const plans = body.indexOf('- **Event Ultra**');
+  const singleAt = body.search(single);
+  assert.ok(plans > -1 && singleAt > plans, 'the Event Hub single must come after the plans, never before them');
+  assert.doesNotMatch(body, /Event Pro designs every part of it|designing every part of it comes with Event Pro/, 'llms.txt still says only Event Pro designs the Event Hub — every plan does, and the single');
 });
 
 test('every linked route is in the audit KNOWN_PUBLIC_ROUTES set', () => {

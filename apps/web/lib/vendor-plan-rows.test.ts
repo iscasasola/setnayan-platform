@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 
 import { BOOKING_FEE, type BookingFeeSchedule } from './booking-fee';
 import { TIER_CAPS } from './vendor-tier-caps';
+import { clientsKeptWords } from './supplier-client-room';
 import { bookingFeeRow, planGivesLines, planPickLine } from './vendor-plan-rows';
 
 const line = (tier: string, key: string, paywallOn = true) =>
@@ -24,8 +25,11 @@ test('what a plan gives is read from TIER_CAPS', () => {
   assert.equal(line('pro', 'services'), 'No limit in total · every kind of work');
   assert.match(line('pro', 'helpers')!, /^No limit \+ 1 free Helper/);
   assert.equal(line('enterprise', 'services'), 'No limit in total · every kind of work');
-  // Storage is what the plans are sold by: 256 MB · 2 GB · 128 GB · 500 GB · 1 TB.
-  assert.deepEqual(['free', 'verified', 'solo', 'pro', 'enterprise'].map((t) => line(t, 'storage')), ['256 MB', '2 GB', '128 GB', '500 GB', '1 TB']);
+  // Storage is what the plans are sold by: 50 MB · 1 GB · 50 GB · 256 GB · 1 TB (owner 2026-11-23 "SUPPLIER SIZES FIXED").
+  assert.deepEqual(['free', 'verified', 'solo', 'pro', 'enterprise'].map((t) => line(t, 'storage')), ['50 MB', '1 GB', '50 GB', '256 GB', '1 TB']);
+  // …and, clients first, about how many clients that keeps, computed from the size (owner 2026-11-23, `clientsKeptWords`).
+  for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise']) assert.equal(line(t, 'clients'), clientsKeptWords(t), t);
+  assert.equal(line('free', 'clients'), 'Keeps about 60 clients at a time*');
   // 🔓 No reach line on any plan since 2026-11-19 (owner: "unlock the range. not plan dependend anymore").
   for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise']) assert.equal(line(t, 'reach'), undefined, t);
   // Own web address from Plus up ("website applies to solo as well"); below it, the plan is named from the table.
@@ -97,9 +101,11 @@ test('picking a plan says what happens, by the live ladder', () => {
   assert.equal(planPickLine('free', 'free', null), 'You are on Free — nothing to pay');
 });
 
-test('owner 2026-11-22: every tool on every paid size — Plus says "All included" too', () => {
-  assert.equal(line('solo', 'tools'), 'All included');
-  assert.doesNotMatch(line('verified', 'tools') ?? '', /^All included$/);
-  assert.equal(line('pro', 'tools'), 'All included');
-  assert.equal(line('enterprise', 'tools'), 'All included');
+test('owner a02673ac (23 Nov): no plan says it includes a paid widget — bought once in the Toolkit, it works from Plus', () => {
+  for (const t of ['solo', 'pro', 'enterprise'] as const) {
+    assert.equal(line(t, 'tools'), 'Free widgets included · paid widgets work once bought in the Toolkit');
+  }
+  assert.equal(line('verified', 'tools'), 'Free widgets included · paid widgets work from Plus');
+  assert.equal(line('free', 'tools'), 'Free widgets from Verified · paid widgets work from Plus');
+  for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise'] as const) assert.doesNotMatch(line(t, 'tools') ?? '', /All included/);
 });

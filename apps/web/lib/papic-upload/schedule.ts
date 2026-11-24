@@ -271,6 +271,10 @@ export const KEPT_REFUSALS: ReadonlySet<string> = new Set([
   'no_vendor',
   'not_allowed',
   'video_not_allowed',
+  // 📸 the plan's event limit (owner 2026-11-23: Free · Verified 10 photos) and a full storage — a move to Plus, or
+  // room made, lets the very same shot send later
+  'event_photo_limit',
+  'supplier_storage_full',
   'event_over',
   'no_event',
   // both — the shot itself was refused (never seen in practice; kept, not lost)

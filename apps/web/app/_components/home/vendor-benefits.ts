@@ -11,7 +11,7 @@ import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 import { formatCount } from '@/lib/format-number';
 
 import { supplierCommissionShort, supplierCommissionPromise } from '@/lib/commission-promise';
-import { PORTFOLIO_FREE_BASE, TIER_CAPS } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 import { storageWords } from '@/lib/downgrade-limits';
 import { planRole, planSummaryWords } from '@/lib/supplier-storage';
 
@@ -36,7 +36,7 @@ export type VendorTierSection = {
   /** One-line "what this tier is for". */
   tagline: string;
   groups: VendorTierGroup[];
-  // NOTE: prices are NOT stored here — the overlay resolves each tier's 28-day +
+  // NOTE: prices are NOT stored here — the overlay resolves each tier's monthly +
   // annual price from the live catalog (getVendorPrices via PricingData.vendor)
   // so a catalog reprice propagates without a code edit (never hardcode prices).
 };
@@ -92,7 +92,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: `${many(TIER_CAPS.verified.serviceCardsTotal, 'service card', 'service cards')} live`, b: `Make as many service cards as you like. Show ${many(TIER_CAPS.verified.serviceCardsTotal, 'card', 'cards')} to couples once you’re verified.` },
           // 🔓 Reach is not a plan allowance (owner 2026-11-19): once verified, every plan sets its own.
           { n: 'Set your own reach', b: 'Once you’re verified, you choose how far you go — on every plan. Until then couples reach you by your own link and QR.' },
-          { n: `${PORTFOLIO_FREE_BASE} portfolio photos, free`, b: `Your first ${PORTFOLIO_FREE_BASE} portfolio photos are free on every plan.` },
+          { n: 'Portfolio photos, no limit', b: 'No count on portfolio photos on any plan — your plan’s storage is the only limit.' },
           { n: 'One supplier dashboard', b: 'Run bookings, calendar, clients, threads and quotes from one place.' },
           { n: 'Shared team calendar', b: 'One calendar across every service and crew member.' },
           { n: 'Double-booking guard', b: 'A held date blocks a second booking, scoped per service and role.' },

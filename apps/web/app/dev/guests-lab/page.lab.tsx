@@ -31,6 +31,8 @@
  *                   — with &seat=3d the SHIPPED 3D room on synthetic data; &big=1 its 25-table / 230-guest plan, the phone
  *                   budget's measuring size — the shipped makers, Guests › Seats and Guests › March), &q=… to search, &empty=1 for
  *                   an empty list, &fail=1 for a refused read
+ *   &faces=1        (screen) profile photos on most of the roster — AI-generated faces of people who do not exist
+ *                   (`lab-faces.ts`), the rest initials, as a list looks once guests have accounts (owner 2026-11-23)
  *   &req=0          (screen) no requests to join waiting — the carousel's card ① says "No requests waiting"
  *   &gshow=requests (screen) open on Asking to join — the Requests page drawn in place (a labelled stand-in here)
  *   &select=to-invite (screen) ⚙ › Pick who's cold link — Select on, the list narrowed to To invite
@@ -74,6 +76,7 @@ import { GUEST_IMPORT_OPENS_MESSAGE } from '@/lib/event-date-floor';
 import { YourSeat } from '@/app/[slug]/find-seat/_components/your-seat';
 import { LabSeatViewCards } from './lab-seat-view';
 import { LAB_SEAT_BOOTHS, LAB_SEAT_TABLES } from './lab-seat-view-data';
+import { LAB_FACES } from './lab-faces';
 import { notFound } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
@@ -333,7 +336,7 @@ const MJ_ROSTER: ReadonlyArray<[string, string, GuestRow['role'], GuestRow['side
   ['Lourdes', 'Bautista', 'principal_sponsor_ninang', 'bride', 'Principal Sponsors 1'],
   ['Corazon', 'Reyes', 'principal_sponsor_ninang', 'bride', 'Principal Sponsors 1'],
   ['Fernando', 'Villanueva', 'principal_sponsor_ninong', 'groom', 'Principal Sponsors 2'],
-  ['Ramon', 'Aquino', 'principal_sponsor_ninong', 'groom', 'Principal Sponsors 2'],
+  ['Ramon', 'Dalisay', 'principal_sponsor_ninong', 'groom', 'Principal Sponsors 2'],
   ['Teresita', 'Aquino', 'principal_sponsor_ninang', 'groom', 'Principal Sponsors 2'],
   ['Imelda', 'Villanueva', 'principal_sponsor_ninang', 'groom', 'Principal Sponsors 2'],
   ['Rosa', 'Santos', 'guest', 'bride', 'Family of the Bride'],
@@ -1057,7 +1060,7 @@ export default async function GuestsLabPage({
                     views={GUESTS_VIEWS}
                     filter={parseGuestsFilter(sp)}
                     bodies={{
-                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} big={sp.big === '1'} cale={sp.cale === 'before' || sp.cale === 'after' ? sp.cale : null} vip={sp.vip === 'none' || sp.vip === 'beside' || sp.vip === 'nearest' ? sp.vip : null} />,
+                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} big={sp.big === '1'} cale={sp.cale === 'before' || sp.cale === 'after' ? sp.cale : null} vip={sp.vip === 'none' || sp.vip === 'beside' || sp.vip === 'nearest' ? sp.vip : null} floor={sp.floor === 'empty' ? 'empty' : null} />,
                       march: <LabMarch shape={typeof sp.march === 'string' ? sp.march : null} nicks={sp.nicks === '1'} />,
                     }}
                     guests={empty || fail ? [] : sp.oneqr === '1' ? roster.filter((g) => g.role === 'bride' || g.role === 'groom') : roster}
@@ -1086,7 +1089,7 @@ export default async function GuestsLabPage({
                         : undefined
                     }
                     songsByGuest={{}}
-                    faceByGuest={{}}
+                    faceByGuest={sp.faces === '1' ? LAB_FACES : {}}
                     requests={sp.req === '0' ? 0 : 3}
                     /* 📥 Requests inside Guests (slice 11): the real body is the Requests page, which reads the database —
                        the lab draws a labelled stand-in in its place, so the in-place frame can be walked. */

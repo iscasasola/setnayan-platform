@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
-    # Draft PRs: the heavy jobs skip (their `if:`) and the gate is RED; marking the PR ready runs everything.
+    # Draft PRs: the heavy jobs skip (their `if:`, read LIVE by the pr-state job) and the gate is RED; marking the PR
+    # ready runs everything, and so does "Re-run all jobs" on a run that started while the PR was a draft.
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
@@ -1011,9 +1012,59 @@ jobs:
             migration timestamp guard=${{ steps.req_mig_prefixes.outcome }},${{ steps.req_mig_rules.outcome }},${{ steps.req_mig_doctor.outcome }},${{ steps.req_mig_drift.outcome }},${{ steps.req_mig_feature_register.outcome }},${{ steps.req_mig_preflight.outcome }},${{ steps.req_mig_ci_gate.outcome }}
         run: node scripts/ci-report-checks.mjs
 
+  # ═══ DRAFT OR READY, READ LIVE (2026-11-24) ═══
+  # The heavy jobs skip a draft PR (owner, 16 Nov: runners go to PRs that are ready) and the gate is RED on one, so a
+  # draft can never merge. Until today both read `github.event.pull_request.draft`: the EVENT's copy of the PR, frozen
+  # when the event fired. Two things then left a green PR BLOCKED (measured 24 Nov on #8252, #8259, #8261):
+  #   · `opened` (as a draft) and `ready_for_review` fire a second apart and their runs can be created in either
+  #     order, so a draft-payload run lands on the head commit AFTER the PR is ready and its red gate stays there;
+  #   · re-running that run replays the same frozen payload, so it fails again, forever.
+  # This job asks GitHub for the PR's draft flag NOW, once per run attempt. Every heavy job and the gate follow its
+  # answer, so a run created late reads "ready" and tests everything, and "Re-run all jobs" on an old draft run reads
+  # the live state and passes on its merits. Fail-closed: if the read fails this job is red, the heavy jobs skip, and
+  # the gate (which needs this job) is red.
+  # ⚠ Re-running ONLY the gate replays this job's old answer and the old skipped jobs, so it stays red — on purpose,
+  # since nothing was tested in that run. Use "Re-run all jobs".
+  pr-state:
+    name: draft or ready (read live)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      draft: ${{ steps.live.outputs.draft }}
+    steps:
+      - name: Read the PR's draft flag from GitHub now, not from the event payload
+        id: live
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "draft=false" >> "$GITHUB_OUTPUT"
+            echo "Not a pull request ($EVENT_NAME): every job runs."
+            exit 0
+          fi
+          draft=""
+          for try in 1 2 3; do
+            draft="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.draft' 2>/dev/null || true)"
+            [ "$draft" = "true" ] || [ "$draft" = "false" ] && break
+            sleep 5
+          done
+          if [ "$draft" != "true" ] && [ "$draft" != "false" ]; then
+            echo "::error title=PR state unread::Could not read PR #$PR_NUMBER's draft flag from GitHub (got '$draft'). The heavy jobs skip and the gate is red. Re-run all jobs."
+            exit 1
+          fi
+          echo "draft=$draft" >> "$GITHUB_OUTPUT"
+          echo "PR #$PR_NUMBER is draft=$draft right now (read live, not from the event payload)."
+
   typecheck:
     name: typecheck
-    if: ${{ github.event.pull_request.draft != true }}
+    needs: pr-state
+    if: ${{ needs.pr-state.outputs.draft == 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -1033,7 +1084,8 @@ jobs:
 
   eslint:
     name: eslint
-    if: ${{ github.event.pull_request.draft != true }}
+    needs: pr-state
+    if: ${{ needs.pr-state.outputs.draft == 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -1053,7 +1105,8 @@ jobs:
 
   unit-tests:
     name: unit tests (${{ matrix.shard }}/3)
-    if: ${{ github.event.pull_request.draft != true }}
+    needs: pr-state
+    if: ${{ needs.pr-state.outputs.draft == 'false' }}
     runs-on: ubuntu-latest
     # ── SHARDS ──────────────────────────────────────────────────────────────
     # `tsx --test --test-shard=<i>/<n>` deals the SORTED test files out
@@ -1110,7 +1163,8 @@ jobs:
 
   db-replay:
     name: DB replay (${{ matrix.shard }}/10)
-    if: ${{ github.event.pull_request.draft != true }}
+    needs: pr-state
+    if: ${{ needs.pr-state.outputs.draft == 'false' }}
     runs-on: ubuntu-latest
     # Ten shards, because this is the long one: every one of the ~380 DB tests
     # replays ALL the migrations into its own PGlite, and as a single step it
@@ -1181,7 +1235,7 @@ jobs:
   typecheck-lint:
     name: typecheck + lint
     runs-on: ubuntu-latest
-    needs: [guards, typecheck, eslint, unit-tests, db-replay]
+    needs: [pr-state, guards, typecheck, eslint, unit-tests, db-replay]
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@v4
@@ -1195,12 +1249,14 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
           # 📝 A draft PR is RED here, always: its heavy jobs were skipped, and a red required check is what keeps
           # auto-merge (armed on every new PR) from merging it. The gate itself never takes the draft `if:`.
-          PR_DRAFT: ${{ github.event.pull_request.draft == true }}
+          # LIVE, from the pr-state job — never `github.event.pull_request.draft`, which a re-run replays (see pr-state).
+          PR_DRAFT: ${{ needs.pr-state.outputs.draft }}
         run: node scripts/ci-gate.mjs
 
   build:
     name: production build
-    if: ${{ github.event.pull_request.draft != true }}
+    needs: pr-state
+    if: ${{ needs.pr-state.outputs.draft == 'false' }}
     runs-on: ubuntu-latest
     # ═══ ONE PRODUCTION BUILD, TWO REQUIRED CHECKS (2026-11-18) ═══
     # `bundle size check` used to be a job of its own that ran a SECOND full

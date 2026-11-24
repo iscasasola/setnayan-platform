@@ -93,6 +93,13 @@ export const HUB_FONT_KEYS = [
   'cookie',
   'delafield',
   'monoton',
+  // ── 2026-11-23 · the Event Hub themes redraw, batch 1: every face its sheet names is a face a couple can pick.
+  'raleway',
+  'gloock',
+  'mulish',
+  'worksans',
+  'epilogue',
+  'newsreader',
 ] as const;
 export type HubFontKey = (typeof HUB_FONT_KEYS)[number];
 
@@ -160,6 +167,13 @@ export const HUB_FONTS: readonly HubFont[] = [
   { key: 'outfit', label: 'Outfit', family: 'Outfit', note: 'Even, contemporary sans', group: 'Sans', cssVar: '--font-hub-outfit', fallback: SANS },
   { key: 'schibsted', label: 'Schibsted Grotesk', family: 'Schibsted Grotesk', note: 'Bold newsroom sans', group: 'Sans', cssVar: '--font-hub-schibsted', fallback: SANS },
   { key: 'poppins', label: 'Poppins', family: 'Poppins', note: 'Round geometric sans', group: 'Sans', cssVar: '--font-hub-poppins', fallback: SANS },
+  /* 2026-11-23 — the Event Hub themes redraw, batch 1 (`app/_fonts/choice-faces.ts`). */
+  { key: 'raleway', label: 'Raleway', family: 'Raleway', note: 'Elegant, airy sans', group: 'Sans', cssVar: '--font-hub-raleway', fallback: SANS },
+  { key: 'gloock', label: 'Gloock', family: 'Gloock', note: 'High-contrast display serif', group: 'Display', cssVar: '--font-hub-gloock', fallback: SERIF },
+  { key: 'mulish', label: 'Mulish', family: 'Mulish', note: 'Clean, friendly sans', group: 'Sans', cssVar: '--font-hub-mulish', fallback: SANS },
+  { key: 'worksans', label: 'Work Sans', family: 'Work Sans', note: 'Plain, sturdy sans', group: 'Sans', cssVar: '--font-hub-worksans', fallback: SANS },
+  { key: 'epilogue', label: 'Epilogue', family: 'Epilogue', note: 'Heavy modern sans', group: 'Display', cssVar: '--font-hub-epilogue', fallback: SANS },
+  { key: 'newsreader', label: 'Newsreader', family: 'Newsreader', note: 'Soft, readable text serif', group: 'Serif', cssVar: '--font-hub-newsreader', fallback: SERIF },
 
   /* 2026-10-04 — the ten theme faces (`app/_fonts/choice-faces.ts`, from
      google/fonts, never preloaded). `family` is exactly what `lib/invite-themes.ts`
@@ -196,7 +210,8 @@ export const HUB_FONTS: readonly HubFont[] = [
  * Baskerville, Crimson Pro first) — `MOST_USED_OWNER_TIE_ORDER` in
  * `lib/hub-fonts-most-used.ts`, which says why the second step is needed.
  */
-export const HUB_FONTS_MOST_USED: readonly HubFontKey[] = ['cormorant', 'cormorantsc', 'lora', 'baskerville', 'crimson'];
+// Re-measured 23 Nov, with the redraw's batch 1 in the registry (`lib/hub-fonts-most-used.test.ts` holds it is computed).
+export const HUB_FONTS_MOST_USED: readonly HubFontKey[] = ['outfit', 'cormorant', 'cormorantsc', 'lora', 'italiana'];
 
 /*
  * The dropdown's order — Recently used · Most used · All fonts, each face once —
@@ -298,6 +313,12 @@ export const HUB_FONT_FACES: Readonly<Record<HubFontKey, { weights: readonly num
   outfit: { weights: [400, 500], italic: false },
   schibsted: { weights: [600], italic: false },
   poppins: { weights: [400, 500, 700], italic: false },
+  raleway: { weights: [100, 200, 300, 400, 500, 600, 700, 800, 900], italic: false },
+  gloock: { weights: [400], italic: false },
+  mulish: { weights: [400, 600], italic: false },
+  worksans: { weights: [400, 600], italic: false },
+  epilogue: { weights: [700, 800], italic: false },
+  newsreader: { weights: [400], italic: true },
   // A variable file covers every hundred in its range ('400 700', '100 700').
   lora: { weights: [400, 500, 600, 700], italic: true },
   baskerville: { weights: [400, 500, 600, 700], italic: true },

@@ -101,6 +101,9 @@ for (const rel of SWEPT_FILES) {
       /bookingFeeBandsLine\(/.test(src) ||
       /bookingFeeFigures\(/.test(src) ||
       /<BookingFeeLine\b/.test(src) ||
+      // 23 Nov redesign (v4.3.1): /for-suppliers states "5%, 3% above ₱100,000" through `feeRowWords(schedule)`, which is
+      // `bookingFeeFigures` on the same live schedule (app/for-suppliers/_components/supplier-front-data.ts).
+      /feeRowWords\(schedule\)/.test(src) ||
       /supplierCommission(Promise|Short)\(/.test(src);
     assert.ok(
       statesLiteral || derivesIt,

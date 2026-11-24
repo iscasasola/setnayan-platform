@@ -21,15 +21,15 @@ import {
 } from './personal-invite-offer';
 import { personalInviteCardSvg } from './personal-invite-card';
 import { FEE_FREE_RULE } from './booking-fee-who-words';
-import { PORTFOLIO_FREE_BASE } from './vendor-tier-caps';
 import { stripComments } from './strip-comments';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PRICES = { solo: 1000, pro: 2500, enterprise: 8000 };
 
-test('the 100 is the owner’s number, above the every-plan base', () => {
+test('the 100 is the owner’s number (retired as a limit 2026-11-23 — the portfolio has no cap; the admin form no longer offers it)', () => {
   assert.equal(PERSONAL_INVITE_PHOTO_ALLOWANCE, 100);
-  assert.ok(PERSONAL_INVITE_PHOTO_ALLOWANCE > PORTFOLIO_FREE_BASE);
+  const form = readFileSync(join(WEB, 'app/admin/vendors/_components/invite-vendor-form.tsx'), 'utf8');
+  assert.doesNotMatch(form, /name="offer_photos"/, 'the admin form offers portfolio photos again — they have no limit to lift');
 });
 
 test('the form: Free + switch off is no offer; a plan needs a day after today; the switch gives exactly 100', () => {
@@ -84,10 +84,10 @@ test('the card pill, the result line and the door rows say the prototype’s wor
 
 test('the dropdown and the message read the catalogue — a plan with no price is named without one', () => {
   assert.equal(planMenuNote('free', PRICES), 'no gift');
-  assert.equal(planMenuNote('pro', PRICES), '₱2,500 / 28 days');
+  assert.equal(planMenuNote('pro', PRICES), '₱2,500 / month');
   assert.equal(planMenuNote('enterprise', { solo: 1000 }), null);
-  assert.equal(planChoicesLine(PRICES), 'Free, Plus ₱1,000, Pro ₱2,500 or Ultra ₱8,000 / 28 days');
-  assert.equal(planChoicesLine({ solo: 1000, pro: 2500 }), 'Free, Plus ₱1,000, Pro ₱2,500 or Ultra / 28 days');
+  assert.equal(planChoicesLine(PRICES), 'Free, Plus ₱1,000, Pro ₱2,500 or Ultra ₱8,000 / month');
+  assert.equal(planChoicesLine({ solo: 1000, pro: 2500 }), 'Free, Plus ₱1,000, Pro ₱2,500 or Ultra / month');
 });
 
 test('the message: the offer, the live free-booking sentence, the launch offer only while it runs, the link', () => {
@@ -100,7 +100,7 @@ test('the message: the offer, the live free-booking sentence, the launch offer o
   const open = personalInviteMessage({ ...base, launchCapWords: '2,000' });
   assert.match(open, /^Hi Tita Nena’s Catering — your Setnayan shop is set up\./);
   assert.match(open, /Your offer: Pro, free until 31 Jan 2027, and 100 portfolio photos, yours to keep\./);
-  assert.match(open, /Free, Plus ₱1,000, Pro ₱2,500 or Ultra ₱8,000 \/ 28 days\. Nothing renews by itself\./);
+  assert.match(open, /Free, Plus ₱1,000, Pro ₱2,500 or Ultra ₱8,000 \/ month\. Nothing renews by itself\./);
   assert.ok(open.includes(FEE_FREE_RULE), 'the free rule is not the live sentence');
   assert.doesNotMatch(open, /first booking/i, '20 Nov: no free first booking');
   assert.match(open, /While Setnayan's first 2,000 bookings run, there is no booking fee at all\./);

@@ -404,6 +404,7 @@ const hostAccess = (tier: string, expires: string | null = null) =>
     subscription: { tier_state: tier, tier_expires_at: expires },
     services: ['host_mc'],
     now: Date.parse('2026-07-27T10:00:00Z'),
+    verified: true,
   });
 
 const REGISTERED = new Set(['stage_script' as const]);

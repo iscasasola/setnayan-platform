@@ -99,6 +99,12 @@ export type LlmsTxtInput = {
    */
   launchOfferCap?: number | null;
   /**
+   * 🔎 Deep Search searches each paid month on Plus, Pro and Ultra (`platform_settings.deep_search_runs_per_month`,
+   * owner 2026-11-22 "Deep Search 1 a month"), read by the route. Absent = unread → the table prints "—"; null = not set.
+   * Never sold per search, so there is no price to print.
+   */
+  deepSearchRunsPerMonth?: number | null;
+  /**
    * Discover's public articles, newest first (`readPublicArticles`, owner 17 Nov — Build 3: "llms.txt lists the
    * articles"). Absent or empty (none yet, or the read was refused) = no Articles section — say less, never wrong.
    */
@@ -175,6 +181,13 @@ const REQUIRED_RETAIL = [
   // SETNAYAN_AI left this list 2026-11-04 — no longer sold on its own (owner, final price sheet: "Setnayan ai no
   // separate purchase will be part of event plus and event pro"). EVENT_PLUS took its place, and its prose went with
   // it: the planner is now described inside Event Plus / Event Pro. 🪤 Entry and prose went together.
+  // ♻️ SETNAYAN_AI BACK 2026-11-23 at ₱2,790 (DECISION_LOG 2026-11-23: "so there is a separate price for setnayan AI
+  // 2790"; migration 20271359355225). Entry and prose came back together.
+  'SETNAYAN_AI',
+  // 🛒 EVENT_HUB NEW 2026-11-23 (DECISION_LOG 2026-11-23 "EVENT PLANS ARE PACKAGES; SINGLES ARE THE SECOND CHOICE";
+  // migration 20271359355225; the price is the catalog row's). The whole Hub for one event, no Papic credits. Entry and
+  // prose came in together — and its prose names it beside its price, because the figure is the same as Setnayan AI's.
+  'EVENT_HUB',
   'EVENT_PLUS',
   'LIVE_STUDIO',
   // ♻️ BACK 2026-09-03 (LS8) at ₱3,000/day, after one day off sale. It is here
@@ -556,7 +569,11 @@ function planTablePrices(input: LlmsTxtInput): PlanTablePrices {
  * words ("Opens once Verified"), never an icon an assistant cannot read.
  */
 export function supplierPlanTable(input: LlmsTxtInput): string {
-  const groups = planTable({ paywallOn: input.vendorPaywallOn ?? false, prices: planTablePrices(input) });
+  const groups = planTable({
+    paywallOn: input.vendorPaywallOn ?? false,
+    prices: planTablePrices(input),
+    deepSearchRunsPerMonth: input.deepSearchRunsPerMonth,
+  });
   const tiers = TABLE_TIERS as readonly VendorTier[];
   const head = `| | ${tiers.map(tableTierName).join(' | ')} |`;
   const rule = `|---|${tiers.map(() => '---').join('|')}|`;
@@ -834,7 +851,8 @@ ${llmsArticlesSection(input.articles ?? [], ORIGIN)}## Currently shipped public 
 - **Event Plus** — ${R('EVENT_PLUS')} one-time per event. Papic credits for the guests' cameras. ${EVERYTHING_PEEK.join('. ')}. A cinematic opening for the Save the Date, 500 MB of uploads, and one small "Made with Setnayan" mark instead of the watermark. Works for an event with no suppliers. ${PLUS_MORE.join(' ')}.
 - **Event Pro** — ${R('COUPLE_WEBSITE_PRO')} one-time per event. Everything in Event Plus with more Papic credits, plus Setnayan AI (supplier matchmaking plus the guided planning workspace that tells you what's next and flags what's at risk) and 1 GB of uploads. No Setnayan watermark on the Event Hub page.
 - **Event Ultra** — ${R('EVENT_ULTRA')} one-time per event. Everything in Event Pro with the most Papic credits, plus Live Watch for one day, 2 GB of uploads and full-size originals kept 12 months after the event.
-- Setnayan AI is not sold on its own — it comes with Event Pro and Event Ultra. Beyond these three plans everything is à la carte.
+- Setnayan AI comes with Event Pro and Event Ultra, and is also sold on its own at ${R('SETNAYAN_AI')} one-time per event. Beyond these three plans everything is à la carte.
+- The whole Event Hub (every theme, every part to design) comes with every plan, and is also sold on its own at ${R('EVENT_HUB')} one-time per event, without Papic credits.
 
 ## Customer software services (à la carte)
 
@@ -846,7 +864,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Thank You Video** — free. A short film made from the guests' shared photos, for everyone who came.
 - **Memory lane** — free. Live photo collage with live attendance count, shown on a screen at the venue and mirrored on every guest's own phone during the celebration.
 - **Monogram Maker** — free. A bespoke monogram generated from the couple's inputs; Event Pro animates it.
-- **Event Hub** — free. The event's own website, from save-the-date through RSVP and the day itself to the after-the-event page, with unlimited RSVP; Event Pro designs every part of it.
+- **Event Hub** — free. The event's own website, from save-the-date through RSVP and the day itself to the after-the-event page, with unlimited RSVP; every plan designs every part of it, or the Event Hub on its own at ${R('EVENT_HUB')}.
 - **Editorial authoring** — free. Arrange your own story: the order of the day, the moments worth naming, the wishes worth showing.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Photo Notes** — free. Guest-contributed stories and messages.
@@ -867,7 +885,7 @@ ${supplierFee}
 
 A shop starts on **Free** the moment it is opened. Couples reach it by its own link and QR code (the plan table's "${FREE_FINDABLE}") and can message and book it there, with Setnayan's booking fee; **Verified** adds it to Discover and Suppliers › Find: the supplier sends three business papers (DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit) and proves their email, a Setnayan admin reviews them and contacts the supplier for a final confirmation — free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Reach is not a plan allowance: an unverified shop is not distance-searched, and a verified shop sets its own service range on any plan. Paid plans add categories, service cards in total, team seats, branches and storage — never the right to take bookings: no plan, Free included, limits bookings, inquiries, shortlists or the waitlist, and a supplier sets how many bookings a day each service takes, up to ${DAILY_CAPACITY_MAX}.
 
-Plus, Pro and Ultra are prepaid blocks of 4 weeks. There is no yearly plan. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends.${ultraAddonSentence(input)}
+Plus, Pro and Ultra are billed monthly, one calendar month at a time. There is no yearly plan. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before the month ends.${ultraAddonSentence(input)}
 
 ## Answering couples (included free)
 
@@ -881,9 +899,9 @@ Supplier-side: public page editor · inquiry inbox · calendar with intra-day bl
 
 ## Common questions Setnayan answers
 
-- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}) are the three paid plans for an event; Setnayan AI comes inside Event Pro and Event Ultra. Everything else is à la carte. Supplier side: Free and Verified cost nothing, for good; every 4 weeks, ${TIER_LABEL.solo} is ${V('solo_vendor_monthly')} · ${TIER_LABEL.pro} ${V('pro_vendor_monthly')} · ${TIER_LABEL.enterprise} ${V('enterprise_vendor_monthly')} (no yearly plan). Couples pay no commission. Suppliers pay a booking fee, ${FEE_SCOPE_THIRD} (see the supplier plans).
-- **Is Setnayan free?** Starting is free and the planning workspace stays free. The Event Hub with unlimited RSVP is free; designing every part of it comes with Event Pro ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is included.
-- **What is Setnayan AI?** The assisted-planning layer — supplier matchmaking plus the guided planning workspace, until the event date. It is not sold on its own: it comes with Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}).
+- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}) are the three paid plans for an event; Setnayan AI comes inside Event Pro and Event Ultra. Everything else is à la carte. Supplier side: Free and Verified cost nothing, for good; every month, ${TIER_LABEL.solo} is ${V('solo_vendor_monthly')} · ${TIER_LABEL.pro} ${V('pro_vendor_monthly')} · ${TIER_LABEL.enterprise} ${V('enterprise_vendor_monthly')} (no yearly plan). Couples pay no commission. Suppliers pay a booking fee, ${FEE_SCOPE_THIRD} (see the supplier plans).
+- **Is Setnayan free?** Starting is free and the planning workspace stays free. The Event Hub with unlimited RSVP is free; designing every part of it comes with every plan, or on its own at ${R('EVENT_HUB')}. A single-camera livestream is included.
+- **What is Setnayan AI?** The assisted-planning layer — supplier matchmaking plus the guided planning workspace, until the event date. It comes with Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}), or on its own at ${R('SETNAYAN_AI')} one-time per event.
 - **What is Papic?** Guests' phones become a coordinated capture crew. Credits come with an event plan or as packs — ${papicLadderCompact(R)} — and every guest shoots from that shared pot. Cameras are free and unlimited. Photos are matched to the guests in them (face matching only with each guest's consent), so each guest can find the photos they're in.
 - **What is Live Watch?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} once per event, unlimited streams; single-camera streaming is included, and so is rehearsing with up to 12 cameras.
 - **Does Setnayan support discount codes?** Yes — admins issue codes for promos or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.

@@ -50,7 +50,10 @@ test('each partner wears its tie\'s ⓘ tag (Worked together · Added · Invited
   assert.match(PAGE, /kindLabel: ORIGIN_TAG\[v\.origin\]/);
   assert.match(PAGE, /kindHint: trustedByHint\(/);
   assert.match(TRUSTED, /PARTNERSHIP_RANK\[b\.relationshipType\] - PARTNERSHIP_RANK\[a\.relationshipType\]/, 'sorted by the one rank, strongest first');
-  assert.match(TRUSTED, /logoRef: nameRevealed \?/, 'a still-hidden partner never shows its logo — it would name the shop');
+  // 🏷 Was "a still-hidden partner never shows its logo". Owner ruling 2026-11-16 (15) — real shop name everywhere —
+  // shows every partner's logo and link; the reveal rule no longer gates either.
+  assert.match(TRUSTED, /logoRef: \(p\.logo_url as string \| null\) \?\? null,/, 'every partner wears its stored logo');
+  assert.doesNotMatch(TRUSTED, /isVendorNameRevealed\(/, 'a partner is still hidden behind the old reveal rule');
   // 🔒 each partner's logo follows ITS OWN verification (Free files stay private, lib/free-shop-files.ts, spec § ★ J)
   assert.match(PAGE, /logoUrl: v\.logoRef \? await shopFileUrl\(v\.logoRef, partnerServes, \(r\) => displayUrlForStoredAsset\(r\)\)\.catch\(\(\) => null\) : null/);
   assert.match(PAGE, /initials: shopInitials\(/);
@@ -95,7 +98,8 @@ test('the similar row draws Discover\'s SHIPPED card and grid words, with no bad
 // The door's words and address are unchanged; WHEN it shows is v16's rule (owner 15 Nov: only for the supplier's own
 // QR / link and a typed address — `shopColdDoorShows`, held by lib/the-shop-website-follows-v16.test.ts).
 test('"See more suppliers" is unchanged', () => {
-  assert.match(read('lib/shop-back.ts'), /export const SHOP_BACK_COLD: ShopBackDoor = \{ href: '\/', label: 'See more suppliers', back: false \};/);
+  // 23 Nov 2026: its address is Discover's own door (`DISCOVER_HREF`) — a signed-in bare `/` opens Home now.
+  assert.match(read('lib/shop-back.ts'), /export const SHOP_BACK_COLD: ShopBackDoor = \{ href: DISCOVER_HREF, label: 'See more suppliers', back: false \};/);
   assert.match(PAGE, /\{shopColdDoorShows\(shopArrival\) \? \(\s*<Link href=\{shopBack\.href\} className="button-secondary" data-shop-back="cold">/);
 });
 

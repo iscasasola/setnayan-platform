@@ -8,6 +8,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { regionBySlug } from '@/lib/region-source';
 import { paxBucketLabel, prettyCategory } from '@/lib/price-position';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { actionButtonClass } from '@/components/action-button-class';
+import { Badge } from '@/app/_components/badge';
+import { TEMPLATE_SUBLINE, TemplateRows, TemplateSection } from '@/app/_components/template-rows';
 import { recomputeFunnelBands, recomputePriceBands } from '@/app/admin/price-bands/actions';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 
@@ -88,7 +91,7 @@ export async function PriceBandsSurface({
       : null;
 
   return (
-    <div className="mx-auto w-full max-w-5xl">
+    <div>
       {/* The tab strip already says "Price bands", with the same Gauge icon
           on it — so the row underneath was the second copy of both. The name
           stays in the document at zero pixels.
@@ -97,26 +100,30 @@ export async function PriceBandsSurface({
           see is missing. Deleting either turns an empty screen into a bug
           report. */}
       <PageMasthead title="Price bands" />
-      <div className="mb-6 space-y-2">
-        <p className="text-sm text-ink/65">
-          The market low / median / high per{' '}
-          <strong>category × region × guest-count bucket</strong>, computed from
-          published supplier prices. Suppliers see where their own price lands inside
-          their band (the Price-Position Meter on their My Performance page, Pro and up). Values
-          are computed, never hand-set.
-        </p>
-        <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
-          <span className="font-semibold">Behavioral min-N.</span> A bucket only
-          appears once enough <em>distinct</em> suppliers have published a price for
-          it (the platform min-N sample floor). Below the floor it&rsquo;s
-          suppressed, so the meter never shows a range built from one or two
-          suppliers. Founder-only today → expect few or zero rows until more suppliers
-          list.
-        </p>
-      </div>
-
+      {/* 📐 Clean port (19 Nov): both sentences moved behind the ⓘ, word for word; the two recompute
+          controls are two rows of one frame. */}
+      <TemplateSection
+        first
+        label="Price bands"
+        tip={
+          <>
+            The market low / median / high per{' '}
+            <strong>category × region × guest-count bucket</strong>, computed from
+            published supplier prices. Suppliers see where their own price lands inside
+            their band (the Price-Position Meter on their My Performance page, Pro and up). Values
+            are computed, never hand-set.{' '}
+            <span className="font-semibold">Behavioral min-N.</span> A bucket only
+            appears once enough <em>distinct</em> suppliers have published a price for
+            it (the platform min-N sample floor). Below the floor it&rsquo;s
+            suppressed, so the meter never shows a range built from one or two
+            suppliers. Founder-only today → expect few or zero rows until more suppliers
+            list.
+          </>
+        }
+      >
+      <TemplateRows label="Recompute">
       {/* Recompute control */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 sn-tile px-4 py-3">
+      <li className="flex flex-wrap items-center justify-between gap-3 py-3">
         <div className="text-sm text-ink/70">
           {lastComputed ? (
             <>
@@ -138,27 +145,29 @@ export async function PriceBandsSurface({
             <>No bands computed yet (or all suppressed below the min-N floor).</>
           )}
           {recomputed != null && (
-            <span className="ml-2 rounded-full border border-success-200 bg-success-50 px-2 py-0.5 text-[11px] font-medium text-success-900">
-              ✓ Recomputed · {recomputed} band{recomputed === '1' ? '' : 's'} written
+            <span className="ml-2">
+              <Badge tone="ok">
+                ✓ Recomputed · {recomputed} band{recomputed === '1' ? '' : 's'} written
+              </Badge>
             </span>
           )}
         </div>
         <form action={recomputePriceBands}>
-          <SubmitButton className="button-secondary inline-flex items-center gap-1.5 text-xs" pendingLabel="Recomputing…">
+          <SubmitButton className={actionButtonClass('neutral')} pendingLabel="Recomputing…">
             <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             Recompute now
           </SubmitButton>
         </form>
-      </div>
+      </li>
 
       {/* Funnel bands — the SAME recompute-now contract for the other half of
           the supplier benchmark. Before this control existed nothing ever
           wrote market_funnel_bands, so every supplier's funnel card said "not
           enough peer data" regardless of the data. */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 sn-tile px-4 py-3">
+      <li className="flex flex-wrap items-center justify-between gap-3 py-3">
         <div className="text-sm text-ink/70">
           <span className="font-medium text-ink">Funnel bands</span>{' '}
-          <span className="text-ink/60">(reply rate · reply time · inquiry→booking)</span>
+          <span className={TEMPLATE_SUBLINE}>(reply rate · reply time · inquiry→booking)</span>
           <br />
           {funnelRows === null ? (
             <>Could not read the funnel-band table, so this is not a count of zero.</>
@@ -180,18 +189,24 @@ export async function PriceBandsSurface({
             <>No funnel bands computed yet (or all suppressed below the min-N floor).</>
           )}
           {funnelRecomputed != null && (
-            <span className="ml-2 rounded-full border border-success-200 bg-success-50 px-2 py-0.5 text-[11px] font-medium text-success-900">
-              ✓ Recomputed · {funnelRecomputed} band{funnelRecomputed === '1' ? '' : 's'} written
+            <span className="ml-2">
+              <Badge tone="ok">
+                ✓ Recomputed · {funnelRecomputed} band{funnelRecomputed === '1' ? '' : 's'} written
+              </Badge>
             </span>
           )}
         </div>
         <form action={recomputeFunnelBands}>
-          <SubmitButton className="button-secondary inline-flex items-center gap-1.5 text-xs" pendingLabel="Recomputing…">
+          <SubmitButton className={actionButtonClass('neutral')} pendingLabel="Recomputing…">
             <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             Recompute funnel bands
           </SubmitButton>
         </form>
-      </div>
+      </li>
+      </TemplateRows>
+      </TemplateSection>
+
+      <div className="mt-[18px]">
 
       <ConsoleTable
         rows={rows}
@@ -213,9 +228,7 @@ export async function PriceBandsSurface({
             cell: (r) => (
               <>
                 <p className="font-medium text-ink">{prettyCategory(r.category)}</p>
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
-                  {r.category}
-                </p>
+                <p className={TEMPLATE_SUBLINE}>{r.category}</p>
               </>
             ),
           },
@@ -260,8 +273,7 @@ export async function PriceBandsSurface({
           },
         ]}
       />
-
-      
+      </div>
     </div>
   );
 }

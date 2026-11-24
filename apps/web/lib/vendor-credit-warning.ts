@@ -21,7 +21,7 @@
  * How long before the term ends the warning goes out.
  *
  * Seven days rather than one: the shop has to have time to DO something — a
- * 28-day plan is bought and paid for by hand in this product, with a reference
+ * monthly plan is bought and paid for by hand in this product, with a reference
  * code and a bank transfer, and a day's notice cannot be acted on over a
  * weekend. Longer than this and it stops reading as urgent.
  */

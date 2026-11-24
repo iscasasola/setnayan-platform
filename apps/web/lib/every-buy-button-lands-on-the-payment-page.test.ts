@@ -39,7 +39,7 @@ const PAID_PATHS = [
   'app/vendor-dashboard/subscription/ai-addon-actions.ts', // Vendor AI
   'app/vendor-dashboard/subscription/booth-addon-actions.ts', // 3D Booth (28-day cycle)
   'app/vendor-dashboard/clients/[eventId]/booth-event-actions.ts', // 3D Booth at ONE event (₱500)
-  'app/vendor-dashboard/deep-search/actions.ts', // one Deep Search
+  // (Deep Search left 2026-11-24: not sold — the paid plans include it monthly; lib/deep-search-is-never-sold.test.ts.)
   // ⬇ ADDED 2026-08-23. A vendor sponsoring Papic Challenges for a client's
   // event pays ₱400 (free only for their first 5 bookings). It was NOT in this
   // list, so it kept the exact panel every other button here shed: the amount
@@ -48,6 +48,8 @@ const PAID_PATHS = [
   'app/vendor-dashboard/subscription/photo-challenge-actions.ts',
   // ⬇ ADDED 2026-11-08 (Build 4). The Specialized tools unlock — ₱499 / 4 weeks or ₱4,990 / year.
   'app/vendor-dashboard/subscription/specialized-tools-purchase.ts',
+  // ⬇ ADDED 2026-11-23 (the Store, drawing v10). The one-time tools — Cake Maker · Song bank · Papic challenge · 3D plan.
+  'app/vendor-dashboard/shop/store/store-actions.ts',
   // ⬇ ADDED 2026-09-06 (G3). A vendor buying a Papic portfolio-credit pack
   // (₱500/100 credits, per booked event) pays real money and must land on the
   // same one screen as every other paid buy button.

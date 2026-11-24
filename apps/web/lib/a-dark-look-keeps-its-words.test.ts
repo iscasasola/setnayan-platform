@@ -105,7 +105,8 @@ const { guestLookFrom } = require('../app/[slug]/_lib/loaders') as typeof import
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
-const CSS = read('app/globals.css');
+// 🎨 The 23 Nov redraw's theme blocks live in app/hub-themes.css (globals.css sits at its ceiling) — read both, as a themed page loads both.
+const CSS = `${read('app/globals.css')}\n${read('app/hub-themes.css')}`;
 
 /** Every block for `selector` (top level or inside `@layer`), merged in source order (later wins). */
 function cssVars(selector: string): Record<string, string> {

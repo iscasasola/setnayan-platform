@@ -522,6 +522,16 @@ export type GrowLines =
       soonEventDays: number | null;
       /** 👤 Supplier roles d–h (e): own past clients a card needs before its split is cut from them. NULL = not set. */
       splitOwnEnough?: number | null;
+      /**
+       * 🛡 Fake proof fixes (C), owner 2026-11-23 (b89e2420): distinct guests who must RSVP or capture Papic before a
+       * review from an event the couple did NOT find on Setnayan counts. NULL = not set — that route never counts.
+       */
+      proofRealGuestsMin?: number | null;
+      /**
+       * 🤝 Owner 21 Nov 2026 ("TRUSTED SHOPS RANK HIGHER IN SEARCH" (5)): each search step needs this many times the
+       * trusted shops of the step below (2 = steps at 1 · 2 · 4 · 8). NULL = not set — trust lifts nobody.
+       */
+      trustSearchStep?: number | null;
     }
   | { read: false };
 
@@ -529,7 +539,7 @@ export async function fetchGrowLines(supabase: SupabaseClient): Promise<GrowLine
   try {
     const { data, error } = await supabase
       .from('platform_settings')
-      .select('grow_few_inquiries_28d, grow_few_bookings_month, story_photo_silence_days, today_soon_ask_hours, today_soon_event_days, inquiry_split_own_enough')
+      .select('grow_few_inquiries_28d, grow_few_bookings_month, story_photo_silence_days, today_soon_ask_hours, today_soon_event_days, inquiry_split_own_enough, proof_real_guests_min, trust_search_step')
       .eq('id', 1)
       .maybeSingle();
     if (error) {
@@ -546,6 +556,8 @@ export async function fetchGrowLines(supabase: SupabaseClient): Promise<GrowLine
       soonAskHours: n(row.today_soon_ask_hours),
       soonEventDays: n(row.today_soon_event_days),
       splitOwnEnough: n(row.inquiry_split_own_enough),
+      proofRealGuestsMin: n(row.proof_real_guests_min),
+      trustSearchStep: n(row.trust_search_step),
     };
   } catch (e) {
     logQueryError('platform-settings: fetchGrowLines (threw)', e);

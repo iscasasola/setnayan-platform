@@ -416,6 +416,7 @@ export function MallFaceBody({
   medals = null,
   lines = null,
   extra = null,
+  shopMark = null,
   distance = null,
   askVenue = false,
 }: {
@@ -442,6 +443,9 @@ export function MallFaceBody({
   lines?: ReactNode;
   /** Lines a surface keeps between the medals and the foot (Find's standing, unread, own record…). */
   extra?: ReactNode;
+  /** A small mark a surface keeps right beside the shop name (Find: this supplier's unread replies). It sits in the
+   *  shop row, never the stacked column below it, where a flex column would stretch a round pill into a full bar. */
+  shopMark?: ReactNode;
   distance?: string | null;
   askVenue?: boolean;
 }) {
@@ -470,9 +474,10 @@ export function MallFaceBody({
         ) : null}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1.5 px-2.5 pb-2.5 pt-[9px]">
-        {shop || city ? (
+        {shop || city || shopMark ? (
           <span className="flex min-w-0 items-center gap-1.5">
             {shop ? <ShopLine shop={shop} mall /> : null}
+            {shopMark}
             {city ? (
               <span className="min-w-0 shrink truncate text-[11px] leading-tight text-[var(--m-slate-3)]" data-mall-city="">
                 {city}

@@ -80,7 +80,7 @@ test('a refusal never repeats the password it was handed', () => {
 });
 
 test('every rehearsal script that is handed an address passes it through the guard', () => {
-  for (const file of ['apply-migrations.mts', 'count-proxy.mts', 'seed.mts', 'journey.spec.ts']) {
+  for (const file of ['apply-migrations.mts', 'count-proxy.mts', 'seed.mts', 'journey.spec.ts', 'sweep.spec.ts']) {
     const code = stripComments(readFileSync(join(REHEARSAL, file), 'utf8'));
     assert.match(code, /assertLocalUrl\(/, `${file} no longer guards its address with assertLocalUrl`);
   }

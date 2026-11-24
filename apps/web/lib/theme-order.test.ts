@@ -31,14 +31,21 @@ import { PRO_THEMES_ITEM } from './website-pro-items';
 
 const WEB = join(__dirname, '..');
 
-const ORDER: InviteThemeId[] = ['house', 'galeriya', 'cyber', 'velvet', 'vintage', 'regency', 'abaca', 'cinderella', 'gatsby', 'whimsical'];
+// RE-AIMED 23 Nov — the redraw's batch 1 (one still each, DECISION_LOG "EVENT HUB THEMES ROUND 2") is lighter than every
+// loop, so by the same "based on size" rule it sits right after the free three, lightest still first.
+const ORDER: InviteThemeId[] = [
+  'house', 'galeriya', 'cyber',
+  'perlas', 'waling', 'capiz', 'hagdan', 'solihiya',
+  'velvet', 'vintage', 'regency', 'abaca', 'cinderella', 'gatsby', 'whimsical',
+];
 
 test('1 · Classic · Modern · Cyber Neon first, then Pro lightest loop to heaviest', () => {
   assert.deepEqual([...INVITE_THEME_IDS], ORDER);
   assert.deepEqual(HUB_THEMES.map((t) => t.id), ORDER, 'HUB_THEMES is not the one order');
   assert.deepEqual(
     HUB_THEMES.map((t) => t.name),
-    ['Classic', 'Modern', 'Cyber Neon', 'Luxe', 'Vintage', 'Regency', 'Rustic', 'Cinderella', 'Great Gatsby', 'Whimsical'],
+    ['Classic', 'Modern', 'Cyber Neon', 'Perlas', 'Waling-waling', 'Capiz', 'Hagdan', 'Solihiya',
+      'Luxe', 'Vintage', 'Regency', 'Rustic', 'Cinderella', 'Great Gatsby', 'Whimsical'],
   );
   // THE RULE, not just the list: every free theme before every Pro one…
   const firstPro = HUB_THEMES.findIndex((t) => t.tier === 'pro');
@@ -46,7 +53,7 @@ test('1 · Classic · Modern · Cyber Neon first, then Pro lightest loop to heav
   assert.ok(HUB_THEMES.slice(firstPro).every((t) => t.tier === 'pro'), 'a free theme sits after a Pro one');
   // …and the Pro ones never get heavier-then-lighter (measured 2026-09-28).
   const mb = PRO_THEMES.map((t) => t.loopMb);
-  assert.ok(mb.every((m) => typeof m === 'number' && m > 0), 'a Pro theme has no measured loop');
+  assert.ok(mb.every((m) => typeof m === 'number' && m > 0), 'a Pro theme has no measured background (loop or still)');
   for (let i = 1; i < mb.length; i += 1) {
     assert.ok(mb[i]! >= mb[i - 1]!, `${PRO_THEMES[i]!.name} (${mb[i]} MB) comes after a heavier ${PRO_THEMES[i - 1]!.name} (${mb[i - 1]} MB)`);
   }
@@ -85,7 +92,8 @@ test('2b · Prints & Tickets’ theme choice is fed from the one order', () => {
 
 test('2c · the Pro pitch names the Pro themes lightest first', () => {
   assert.equal(hubProPitchFor(PRO_THEMES_ITEM)!.blurb.startsWith(`Choose ${themeNames(PRO_THEMES, 'or')}.`), true);
-  assert.ok(themeNames(PRO_THEMES, 'or').startsWith('Luxe, Vintage, Regency'), 'the pitch is not in the one order');
+  // RE-AIMED 23 Nov: the redraw's lightest stills now lead the Pro list.
+  assert.ok(themeNames(PRO_THEMES, 'or').startsWith('Perlas, Waling-waling, Capiz'), 'the pitch is not in the one order');
 });
 
 function* sourceFiles(dir: string): Generator<string> {

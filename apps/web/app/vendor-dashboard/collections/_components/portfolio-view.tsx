@@ -61,9 +61,6 @@ export function PortfolioView({
   gallery,
   showAlbums,
   photos,
-  free,
-  allowanceUnread,
-  walletBalance,
   igFlash,
   groups,
   allPhotos,
@@ -85,9 +82,6 @@ export function PortfolioView({
   /** Every photo each pickable album can Show (already loaded — no new read). */
   showAlbums: Partial<Record<CollectionKey, ShowAlbum>>;
   photos: number;
-  free: number;
-  allowanceUnread: boolean;
-  walletBalance: number | null;
   /** Instagram's OAuth answer — said at the top, and it opens "All albums" where the Instagram editor lives. */
   igFlash: ReactNode;
   /** The three groups + stories (`collections-data.ts`); absent in callers that draw only the collections. */
@@ -141,9 +135,6 @@ export function PortfolioView({
     <span className="inline-flex" data-tour="collections-gear">
       <PortfolioSettings
         photos={photos}
-        free={free}
-        allowanceUnread={allowanceUnread}
-        walletBalance={walletBalance}
         vendorId={vendorId}
         input={input}
         saved={saved}

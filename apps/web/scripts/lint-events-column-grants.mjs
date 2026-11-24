@@ -115,6 +115,12 @@ const NO_GRANT_NEEDED = new Set([
   // check, and the free booking fee depends on it; the lock trigger refuses every change once a supplier joins.
   'for_whom',
 
+  // ── 🔗 THE EVENT'S CREATOR — whose username its address uses (the address move, 20271357986226) ──
+  // Read ONLY through the service role, by `resolveEventOwnerSlug` (lib/public-event-url.ts) — the address is
+  // resolved for anonymous visitors, so a user session never needs it, and a grant would only tell a guest which
+  // account made the event.
+  'created_by_user_id',
+
   // ── ✅ THE 2026-08-15 BILL IS PAID — every line below was CHECKED ──────────
   // That list said: "Whether each is a live defect depends on whether its
   // feature reads it through the cookie-scoped client or only through

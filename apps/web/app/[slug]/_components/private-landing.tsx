@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import type { SetnayanMark } from '@/lib/setnayan-mark-by-plan';
 import Link from 'next/link';
 import { Lock } from 'lucide-react';
@@ -114,7 +115,7 @@ export async function PrivateLanding({
           <p className="text-sm text-ink/70">
             Kept this invitation in your Setnayan account?{' '}
             <Link
-              href={`/login?next=${encodeURIComponent(`/${event.slug}`)}`}
+              href={`/login?next=${encodeURIComponent(`${publicEventPath(event.slug)}`)}`}
               className="font-medium text-link underline-offset-2 hover:underline"
             >
               Sign in

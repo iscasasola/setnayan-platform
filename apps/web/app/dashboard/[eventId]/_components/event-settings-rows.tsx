@@ -11,6 +11,7 @@ import { PutAwayCard } from '../details/_components/put-away-card';
 import { PlanMyselfSwitch } from '../launch/_components/plan-myself';
 import { OneCodeUnderGetIn } from '../studio/papic/_components/one-code';
 import type { EventSettingsInput } from '../launch/_components/details-settings-load';
+import { AddToCalendarLink } from './add-to-calendar-link';
 
 /**
  * 🗂 THE REST OF EVENT DETAILS' OWN SETTINGS (owner 2026-10-30, *"move them all in the event settings"* · *"they were
@@ -116,6 +117,12 @@ export function EventSettingsRows({
       {input && editors ? (
         <FactRow row="date" title={yourEventLabel('date', input.kind)}>
           {editors.date}
+          {/* 📅 Unihome v5: Add to calendar moved here from the Home card's ⋯ (a set day only). */}
+          <AddToCalendarLink
+            eventId={eventId}
+            title={input.names?.storedName?.trim() || input.oneName?.initial?.trim() || more?.putAway?.eventName || 'Our event'}
+            dateIso={input.date.dateValue}
+          />
         </FactRow>
       ) : null}
       {input && editors ? (

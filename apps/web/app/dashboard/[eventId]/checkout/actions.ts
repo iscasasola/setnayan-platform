@@ -84,6 +84,7 @@ import { hubPartPrices } from '@/lib/couple-website-pro';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { EVENT_ULTRA_SKU, type UltraUpgradeFrom } from '@/lib/event-ultra';
 import { siteOrigin } from '@/lib/site-origin';
+import { EVENT_SERVICES_INTENT, submitEventServicesOrder } from '@/lib/event-services-orders';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -302,6 +303,9 @@ export async function submitOrderAction(
   formData: FormData,
 ): Promise<SubmitOrderResult> {
   await refuseLimitedHelper(formData.get('event_id'), null);
+  // 🛒 EVENT SERVICES (owner 2026-11-23): the page's ONE cart → ONE order. Folded in here, not a new action (the
+  // server-action ceiling is full). The pick is closed values only; the bill is priced by the charge authority there.
+  if (formData.get('intent') === EVENT_SERVICES_INTENT) return submitEventServicesOrder(formData);
   const eventId = formData.get('event_id');
   const serviceKey = formData.get('service_key');
   const displayName = formData.get('display_name');

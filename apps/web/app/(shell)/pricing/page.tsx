@@ -19,6 +19,8 @@ import { readOurPrices, papicRungWords } from './_pricing-reads';
 // The client pieces — Event Pro's one dropdown, and the included group's "See all included ↓". Figures arrive formatted.
 import { HubProWays, IncludedGroup, PriceRowShell, type IncludedRow } from './_pricing-pickers';
 import { FEE_SCOPE_THIRD } from '@/lib/booking-fee-who-words';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
+import { MAKER_PAGE_STAGES, makerStageLabel } from '@/app/dashboard/[eventId]/launch/_components/maker-bar';
 
 /**
  * /pricing — OURS ONLY, QUALITY-LED (owner 2026-10-25, verbatim: "Yes, build this pricing page and the questionnaire
@@ -170,7 +172,7 @@ export default async function PricingPage() {
 
   const peso = (n: number) => `₱${formatPeso(n)}`;
   // 💳 The four supplier plans (2026-11-14, drawing § 4) — names from TIER_LABEL, prices from the supplier catalogue's
-  // 4-week rows, what each adds from the gates (specialized tools, the chatbot). Never a typed figure. ⚖ This page's own
+  // monthly rows, what each adds from the gates (specialized tools, the chatbot). Never a typed figure. ⚖ This page's own
   // rule (pricing-ours-only.test.ts) holds here too: the entry plan reads "No fee", never a zero or the giveaway word.
   const vendorPrice = (sku: string): number | null => vendorSkus.find((r) => r.sku_code === sku)?.price_php ?? null;
   const supplierPlans: { key: string; name: string; php: number | null; what: string }[] = [
@@ -196,8 +198,10 @@ export default async function PricingPage() {
   const included: IncludedRow[] = [
     {
       name: 'The Event Hub',
-      tip: 'A complete design written from your details, all five stages — Save-the-Date, RSVP, the day, Memories, Post Event. Yours with every event; Pro changes only how it looks.',
-      what: 'A complete design, your details in it, all five stages.',
+      // ⚖ The stages are the Maker's own list (`MAKER_PAGE_STAGES`: Save the Date · RSVP · Invitation · The Day ·
+      // Post Event), read, never typed. The typed line named "Memories", which is not a stage, and left out the Invitation.
+      tip: `A complete design written from your details, all ${MAKER_PAGE_STAGES.length} stages: ${MAKER_PAGE_STAGES.map(makerStageLabel).join(', ')}. Yours with every event; Pro changes only how it looks.`,
+      what: `A complete design, your details in it, all ${MAKER_PAGE_STAGES.length} stages.`,
     },
     { name: 'Guest list & RSVPs', tip: 'No limit on guests; each replies by link, without an account.', what: 'No limit; guests reply by link.' },
     {
@@ -287,7 +291,7 @@ export default async function PricingPage() {
       })),
       // Monthly only — no yearly supplier plan (owner 2026-11-22).
       ...vendorSubs.map((s) => {
-        const cadence = { billingDuration: 'P28D', unitText: '28-day prepaid block', shortLabel: 'per 28 days' };
+        const cadence = { billingDuration: PLAN_PERIOD.isoDuration, unitText: PLAN_PERIOD.unitText, shortLabel: PLAN_PERIOD.per };
         return {
           '@type': 'Service',
           '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
@@ -621,7 +625,7 @@ export default async function PricingPage() {
           {/* 💳 THE FOUR SUPPLIER PLANS (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS" item 7; drawing § 4) — the
               door to the supplier plans (owner 2026-09-22 — the two pricing pages point at each other;
               `lib/the-two-pricing-pages-point-at-each-other.test.ts`), now naming the four plans in the same ◆ row style.
-              Every figure is the supplier catalogue's 4-week row (`vendor_billing_catalog`); an unread one shows none. */}
+              Every figure is the supplier catalogue's monthly row (`vendor_billing_catalog`); an unread one shows none. */}
           <div className="mt-8 border-t border-ink/10 pt-5" data-pricing-suppliers="">
             <p className={KICK}>For suppliers</p>
             <h2 className={H2}>Selling to couples? Open your shop.</h2>
@@ -640,14 +644,14 @@ export default async function PricingPage() {
                   </span>
                   <span className="whitespace-nowrap font-pahina text-xl text-terracotta-700">
                     {sp.key === 'entry' ? 'No fee' : sp.php === null ? '—' : peso(sp.php)}
-                    {sp.php !== null ? <small className="ml-1 font-sans text-xs text-ink/65">/ 4 weeks</small> : null}
+                    {sp.php !== null ? <small className="ml-1 font-sans text-xs text-ink/65">{PLAN_PERIOD.slash}</small> : null}
                   </span>
                   <p className="col-start-1 m-0 text-[13.5px] leading-snug text-ink/65">{sp.what}</p>
                 </li>
               ))}
             </ul>
             <p className="m-0 mt-2 text-[13.5px] text-ink/65">
-              Every plan is paid every 4 weeks. There is no yearly plan.{' '}
+              Every plan is {PLAN_PERIOD.billed}. There is no yearly plan.{' '}
               <Link href="/for-suppliers" className="font-semibold text-terracotta-700">
                 See supplier plans →
               </Link>

@@ -41,7 +41,7 @@ export function LimitSheet({
 }: {
   ask: LimitAsk;
   verified: boolean;
-  /** The offered plan's catalogue price, worded by the caller from the catalogue ("₱… / 28 days"); null = not shown. */
+  /** The offered plan's catalogue price, worded by the caller from the catalogue ("₱… / month"); null = not shown. */
   price?: string | null;
   storeShell?: boolean;
   /** Keep the current number — the caller saves `ask.savedAt`. */

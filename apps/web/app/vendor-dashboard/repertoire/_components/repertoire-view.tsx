@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import { Check, Music, Plus } from 'lucide-react';
+import { BookOpen, Check, Lock, Music, Plus, ShoppingBag } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { routes } from '@/lib/routes';
 import type { Song } from '@/lib/songs';
 import { formatCount } from '@/lib/format-number';
 import { Fold } from '@/app/_components/fold';
@@ -120,6 +122,50 @@ export function RepertoireView({
 }
 
 /** A shop with no music service — the shipped door, the drawing's look. */
+/** The Song bank's Toolkit page — where it is bought (or shown as part of the plan), with its guide. */
+const SONG_BANK_IN_TOOLKIT = routes.vendorDashboard.shop.store.item('tools', 'song_bank');
+
+/**
+ * 🔒 Song bank, not open for this shop (owner via the controller, 23 Nov: a paid widget, gated everywhere it opens,
+ * like the Cake Maker). Saved songs are kept, never deleted, and come back the moment it opens. Its one door goes to
+ * the Toolkit page, which shows the catalog price or "With your plan".
+ */
+export function RepertoireLocked({ saved }: { saved: number }) {
+  return (
+    <ToolPage name="repertoire">
+      <ToolPin route="/vendor-dashboard/repertoire" title="Repertoire" />
+      <div className="sn-frame mt-3 flex flex-col gap-2 p-4" data-song-bank="locked">
+        <p className="flex items-center gap-2 text-sn-lg font-bold text-ink">
+          <Lock aria-hidden className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={1.8} /> Song bank
+        </p>
+        <p className="text-sn-base text-[color:var(--m-slate-2)]">
+          The songs you play, with a video of you playing each one, on your shop page — so couples comparing bands see
+          what you can do. Get it once in the Toolkit; it is yours to keep.
+        </p>
+        {saved > 0 ? (
+          <p className="text-sn-base text-[color:var(--m-slate-2)]">
+            Your {formatCount(saved)} saved {saved === 1 ? 'song is' : 'songs are'} kept as they are.
+          </p>
+        ) : null}
+        <div className="mt-1 flex flex-wrap gap-2">
+          <ActionButton tone="brand" main icon={ShoppingBag} label="See it in the Toolkit" href={SONG_BANK_IN_TOOLKIT} />
+          <ActionButton tone="neutral" icon={BookOpen} label="How to use it" href={`${SONG_BANK_IN_TOOLKIT}#guide`} />
+        </div>
+      </div>
+    </ToolPage>
+  );
+}
+
+/** The Song bank's gate could not be read — say so, with Try again; never a lock by guess, never an open list. */
+export function RepertoireUnread() {
+  return (
+    <ToolPage name="repertoire">
+      <ToolPin route="/vendor-dashboard/repertoire" title="Repertoire" />
+      <ToolFail title="Couldn’t load your Song bank" line="Nothing was changed." retryHref={routes.vendorDashboard.repertoire()} />
+    </ToolPage>
+  );
+}
+
 export function RepertoireNotMusic() {
   return (
     <ToolPage name="repertoire">

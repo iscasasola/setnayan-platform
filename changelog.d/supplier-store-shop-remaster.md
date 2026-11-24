@@ -1,0 +1,58 @@
+## 2026-11-23 · feat(shop): the Shop remaster and the Toolkit (widgets · graphs · badges)
+
+Built from Fable's drawing `prototypes/supplier_store_graphs_badges_2026-11-23/` (v12: v10 + the Edit frames + tool tags), owner-approved, rulings DECISION_LOG 2026-11-23 (specs 5a8c6bf3 → 46690f6d, 060467d5, 14827167).
+
+- **Shop, in the drawing's order:**
+  - Cover: a Storage row (bar, "12 GB of 128 GB" from the plan's `TIER_CAPS` and `readStoredBytes`; "Couldn't load", never 0), with the plan as a small chip that opens the storage sheet. Then one line: View shop · Share · Promote. The five-tile quick row is gone. Promote is one sheet with two tabs, Posters & prints (the shipped Promote body: Prints · Gifts · Share your work) and QR codes. Old `?sheet=prints|qr` links still land.
+  - Analytics: the graphs the shop picked, in its order, then an "Add a graph" tile into the Toolkit. Never picked = every open graph, as before.
+  - Badges: the badges the shop chose, any number, in its order (never chosen = the three closest), each with what is left and the next step, "See all" (the new Badges page) and "Add a badge" (the Toolkit).
+  - Your widgets: the widgets in the shop's order — free ones added, paid ones held (bought · with the plan) — then "Add a widget". It replaces the Specialized tools carousel. `?tool=<key>` opens a widget (with a "How to use it" door to its guide), and `?added=tool:<key>` marks it New.
+  - Each of the three rows has a count beside its name and an **Edit**: one shared sheet ("Arrange Analytics" · "Arrange Badges" · "Arrange your widgets") to drag into order and (−) take one off; Done saves. Taking a paid widget off the page keeps it owned. The section order stays fixed.
+  - Templates: Chat forms · Card forms · Offer maker · Payment plans ("N saved"). Each opens what it opened before.
+  - Services: the list ends in an "Add a service" tile. The thumb row's ＋ is gone (the head keeps its ＋).
+- **Toolkit** (the page a person reads as "Toolkit"; the address stays `/vendor-dashboard/shop/store`, a shelf, an item):
+  - Three shelves (Widgets · Graphs · Badges), with search at the thumb and Show & sort behind Sliders.
+  - Every widget shows the supplier types it is for (Cake Maker → Cake; Scanner → Every service), read only from the per-category hub-tools table (`HUB_TOOLS_SEED` + an admin's saved switches) and `suggestedFor`'s rules — no category is typed. The Tools shelf opens with tag chips (All · For you · each supplier group), then For you · Yours · More tools. Tags only order and suggest: every shop can still get every widget.
+  - A widget item shows its one-time price from the catalog (or "Price not set yet"), what it adds, one button (Open · Get · Buy · Get Verified), and **How to use it** (`#guide`): short numbered steps for each of the 11 widgets, in the Guide & Help guide's shape (`lib/supplier-store-guides.ts`, `store/_components/widget-guide.tsx`), written from what each widget does today. Each step has a picture frame; no screen is captured yet, so every frame is an honest empty frame, never a stand-in. Live Watch has no screen of its own, so its guide says so instead of inventing steps.
+  - No "Try it first": the Cake Maker demo and every demo door are gone (`lib/cake-demo.ts` deleted).
+  - Graphs: "On your Analytics" (✓ On your page), then the groups with Get. A badge-locked graph names its badge and what is left.
+  - Badges: "On your Shop" (✓ On your page) and "More badges" (Add). They are earned, never sold.
+- **Live count** (owner 5ae3fbb2): the Toolkit masthead and the /for-suppliers Toolkit section show the count per shelf (widgets · graphs · badges) from the one Toolkit list (`toolkitCounts` / `toolkitCountWords`); built-in, free and paid all count, and a failed badge read leaves that shelf out.
+- **Tool videos** (owner 4c07edd7): each paid widget's Toolkit page has a top slot (`ToolVideo`) that reads its clip from `lib/toolkit-videos.ts` (an R2 key per widget, all empty today) and draws nothing while the key is empty.
+- **/for-suppliers and the Plan page** no longer say a plan includes a paid widget: "Buy once · Plus, Pro or Ultra".
+- **Badges page** (`/vendor-dashboard/shop/badges`): every badge with its ring, the seven-step ladder, what is left, and the next gift (Verified's Papic gift once).
+- **Money:**
+  - Four tools are sold ONCE and owned forever: Cake Maker · Song bank · Papic challenge · 3D plan. Each is one `vendor_billing_catalog` row (`vendor_tool_<key>`), and the price is read from the row.
+  - Buying is apply-then-pay through the one `storeAction` (no new server-action export; `suggested-coverage-actions.ts` folded two exports into one to make room).
+  - No trial (owner 23 Nov, "guides only").
+  - **Bought AND subscribed** (owner a02673ac): a paid widget opens only when the shop bought it AND is on Plus, Pro or Ultra. The plan alone no longer includes one, and the admin's launch-window date opens nothing. ONE rule: `vendor_store_tool_open` = a paid order AND `vendor_pro_tools_included` (now the subscription half only: a live Plus, Pro or Ultra plan); the TS mirror is `proToolsIncludedFrom`, `PRO_TOOLS_MIN_TIER` is derived from `TIER_CAPS.specialTools`, and `specialToolsAllowed(tier)` reads the same cap. `lib/special-tools.server.ts` is deleted.
+  - Before payment the Buy sheet and every price say "Works only while your shop is on Plus, Pro or Ultra"; on Free or Verified the button is "See plans" and `buyTool` refuses ("you have not been charged"). An owned widget off-plan reads "Works again when you subscribe" with the plans door and no second Buy (`ToolStatus` `resubscribe`).
+  - The Cake Maker gates (save, open, couple's send, chat ＋), Song bank, Papic challenge and the 3D plan all ask `vendor_store_tool_open`. The client page's Papic challenge and branded-booth locks are one shared `LockedFeature` kind `widget` (`widgetLock`), pointing at the Toolkit item or the plans; the per-event booth buy form is no longer shown (its SKU is inactive).
+  - **Grandfathering** (owner 5bfefe76): the migration gives each shop on a live Plus, Pro or Ultra plan with a saved Papic challenge or 3D booth poster an owned, zero-total `orders` row (`payment_method_key` "grandfathered", reference `GF-…`), once, and still plan-gated. No prod write outside the pipeline.
+  - **Song bank is gated the same way** (`readShopSpecialToolOpen(…, 'song_bank')`): the Repertoire page shows a lock with "Get it in the Toolkit" (saved songs kept), its three actions refuse while shut, and the public shop page shows "songs in their set" only while open.
+- **Free widgets open from Verified up** — ONE rule, `freeWidgetsOpen` (`lib/vendor-specialization-gate.ts`): verified (`shopIsVerified`) or a tier at Verified or above. The day-of gate holds a free desk back with reason `not_verified` and a "Get Verified" door (never the plans); the Toolkit's `toolStatus` reads the same rule through `ToolFacts.freeOpen` and shows "Free once you're Verified". Unread = "Couldn't load".
+- **Install, never push** (owner 23 Nov: "move them or recommend them inside the Toolkit; if they install it, it returns to its proper place"):
+  - Nothing a shop sees today disappears: with no `store_layout` row, the Shop is exactly today's — the Analytics row falls back to `DEFAULT_INSTALLED_GRAPHS` (`analytics-cards.ts`), an EXPLICIT list of the 17 graphs a shop had on 23 Nov, never `CARD_ORDER`. A graph added to `CARD_ORDER` later (#8206's 12) is "New · Recommended" in the Toolkit and lands on the Analytics row only when installed.
+  - Scanner is built in: always installed, first unless the shop moved it, never removable (no (−) in the Edit sheet; a save that drops it keeps it), and not held back by the Verified rule.
+  - A badge-locked graph is never greyed on the Shop (it is simply not on the row). The Toolkit shows it locked with "Unlocks free when you earn the <badge> badge", the name read from the badge rows.
+- **One widget key:** `SpecializedToolKey` (`lib/specialized-tools.ts`) is the one key, matching the SKU `vendor_tool_<key>` and `vendor_store_tool_open`'s `p_tool`. The usage log's list is renamed `ToolUsageKey` / `TOOL_USAGE_KEYS` and its 3D key is now `plan_3d`.
+- **Migration `20271360126307_supplier_store_tools_graphs_badges.sql`:**
+  - 4 catalog rows.
+  - `vendor_store_tool_open` (service role): bought once, nothing else.
+  - `specialized_tool_usage`: rows move `3d_plan` → `plan_3d`, then the tool-key CHECK is swapped.
+  - `vendor_papic_challenge_entitled` and `event_branded_booth_vendor_ids` now honour it.
+  - ONE column for the Shop's three rows: `vendor_profiles.store_layout` jsonb `{graphs, badges, tools, tools_off}` (object, ≤ 8 KB; SELECT to the shop, none to anon; `vendor_profiles_self` rebuilt). Written only by `storeAction` op `layout` — add, remove and reorder are all that one write.
+- **Screens and lab:**
+  - The Toolkit pages read once, then hand their facts to `store/_components/store-screens.tsx`. The Badges page hands its facts to `shop/_components/badges-list.tsx`.
+  - `store/_components/graph-art.tsx`: the graph sketch, shared by the Toolkit and the Edit sheet.
+  - The supplier lab mounts the same screens on fixtures: `/dev/supplier-lab?s=store|store-tools|store-cake|store-graphs|store-graph|store-badges|badges-page`.
+  - `?s=shop-tab` now shows the new order and the storage row.
+- **Guards:**
+  - `lib/supplier-store.test.ts` (now also: a shop with no layout row renders today's Shop, and no CARD_ORDER key outside the default list is ever a default pick; Scanner is built in; one layout column + one op; tags from the table only, never a gate; no trial anywhere; free widgets read the Verified rule).
+  - `shop/store/the-store-is-the-drawing.test.ts` (now also: no "Try it first"; a guide for every widget, its `#guide` section and its panel door).
+  - `lib/vendor-specialization-gate.test.ts` · `lib/vendor-dayof-frame.test.ts`: an unverified free shop holds no desk and is sent to Verify.
+  - `shop/the-cover-is-the-store-drawing.test.ts` (re-aims `the-quick-row-is-the-drawn-five`).
+  - 12 Shop guards re-aimed to the new order.
+  - Both money rosters list the Toolkit's buy.
+
+SPEC IMPACT: Builds owner rulings a02673ac (bought AND subscribed), 5bfefe76 (grandfathering), 5ae3fbb2 (live count) and 4c07edd7 (tool-video slot), already in the specs DECISION_LOG. The 30-day trial (DECISION_LOG 2026-11-23, specs 6a7db142) is withdrawn by the owner's "Yes, guides only" (relayed by the controller, who records it in the corpus); the place a person reads is "Toolkit" and its tools are "widgets". Otherwise this builds the 2026-11-23 rulings as drawn. The storage sheet leaves out the drawing's "photos at each event, by plan" list: those limits have no home in the catalog or `TIER_CAPS` yet (raised as an owner question on the PR).

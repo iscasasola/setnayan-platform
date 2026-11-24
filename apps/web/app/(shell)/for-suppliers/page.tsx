@@ -19,6 +19,8 @@
 
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
+import { readCardTemplateCount } from '@/lib/supplier-toolkit-count';
 import { SupplierFrontPage } from '@/app/for-suppliers/_components/supplier-front-page';
 import { growSpec } from '@/app/for-suppliers/_components/supplier-front-data';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
@@ -41,7 +43,6 @@ function createAdminClientOrNull() {
     return null;
   }
 }
-import { readSpecialToolsPaidFrom } from '@/lib/special-tools.server';
 
 type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
 
@@ -196,10 +197,11 @@ export default async function ForSuppliersPage() {
   // ONE batched read (house G2). 🎁 The gifts a shop can hand a couple — the shop-gift packs on sale (title + LIST price,
   // `platform_retail_catalog_v2`), then their 10+1 bundles — chained inside the batch; the plans' included Papic
   // credits from the customer catalogue. A refused read is null and the gift part says so, never ₱0.
-  // 🧰 The special tools' start date, read by the SAME reader the Cake Maker's gate uses (`readSpecialToolsPaidFrom`):
-  // before it the Toolkit tags the Cake Maker free; a refused read tags nothing either way.
+  // 📷 The Toolkit's sheet lists the Papic camera only while its privacy switch is on; a refused read keeps it off.
+  // 🧰 The starting card templates the admin keeps — the one live part of the Toolkit's count (`toolkitTotal`); a
+  // refused read is null and the page shows no number.
   const admin = createAdminClientOrNull();
-  const [p, fee, giftRead, catalog, specialTools] = await Promise.all([
+  const [p, fee, giftRead, catalog, papicCapture, cardTemplates] = await Promise.all([
     getVendorPrices(),
     getLiveBookingFeeSchedule(),
     admin
@@ -208,7 +210,8 @@ export default async function ForSuppliersPage() {
           .catch(() => ({ packs: null, bundles: null }))
       : Promise.resolve({ packs: null, bundles: null }),
     fetchV2CustomerCatalog(),
-    admin ? readSpecialToolsPaidFrom(admin).catch(() => ({ status: 'unread' as const })) : Promise.resolve({ status: 'unread' as const }),
+    isVendorPapicCaptureEnabled().catch(() => false),
+    admin ? readCardTemplateCount(admin).catch(() => null) : Promise.resolve(null),
   ]);
   const credits = planCreditsFrom(catalog);
   return (
@@ -228,8 +231,8 @@ export default async function ForSuppliersPage() {
             bySku: p.bySku,
           }}
           gifts={{ packs: giftRead.packs, bundles: giftRead.bundles, credits: { plusCredits: credits.plusCredits, proCredits: credits.proCredits } }}
-          specialTools={specialTools}
-          nowMs={Date.now()}
+          papicCapture={papicCapture}
+          cardTemplates={cardTemplates}
           paywallOn={isVendorFeatureGateEnabled()}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}
           afterPlans={

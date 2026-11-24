@@ -7,6 +7,8 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { findOrCreateSongId, isMusicToolCategory } from '@/lib/songs';
 import { parseVideoLink } from '@/lib/video-embed';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readShopSpecialToolOpen } from '@/lib/cake-maker.server';
 
 const BASE = '/vendor-dashboard/repertoire';
 
@@ -33,6 +35,18 @@ async function ensureProfile() {
 }
 
 /**
+ * 🔒 Song bank is a paid widget (owner via the controller, 23 Nov): a write goes through only while it is open — bought
+ * once in the Toolkit, or the plan includes it (the Cake Maker's gate). The page hides the tools when it is shut; a
+ * server action is a POST target of its own, so it asks again. null = open; else the sentence to show.
+ */
+async function songBankRefusal(vendorProfileId: string): Promise<string | null> {
+  const open = await readShopSpecialToolOpen(createAdminClient(), vendorProfileId, 'song_bank');
+  if (open.status === 'unread') return 'We couldn’t check your Song bank just now. Nothing was changed — try again.';
+  if (open.status !== 'ok' || !open.data) return 'Song bank is not open for your shop. Get it once in the Toolkit.';
+  return null;
+}
+
+/**
  * Add a song to the vendor's repertoire. Accepts either an existing master
  * `song_id` (a pick from search / curated) or a typed `title` + `artist` (a new
  * song → find-or-create in the master catalogue). The vendor_songs upsert is
@@ -52,6 +66,8 @@ export async function addRepertoireSong(formData: FormData) {
   if (!isMusicToolCategory(profile.services)) {
     back({ q, error: 'Song bank is for music performers only.' });
   }
+  const shut = await songBankRefusal(profile.vendor_profile_id);
+  if (shut) back({ q, error: shut });
 
   const rawId = String(formData.get('song_id') ?? '').trim();
   let songId: number | null = null;
@@ -84,6 +100,8 @@ export async function addRepertoireSong(formData: FormData) {
 export async function removeRepertoireSong(songId: number): Promise<{ ok: true } | { ok: false; error: string }> {
   const { supabase, profile } = await ensureProfile();
   if (!Number.isInteger(songId) || songId <= 0) return { ok: false, error: 'Missing song.' };
+  const shut = await songBankRefusal(profile.vendor_profile_id);
+  if (shut) return { ok: false, error: shut };
 
   const { error } = await supabase
     .from('vendor_songs')
@@ -124,6 +142,8 @@ export async function setPerformanceLink(formData: FormData) {
   const q = String(formData.get('q') ?? '').trim();
 
   if (!Number.isInteger(songId) || songId <= 0) back({ q, error: 'Missing song.' });
+  const shut = await songBankRefusal(profile.vendor_profile_id);
+  if (shut) back({ q, error: shut });
 
   // Empty clears the link — removing a video must be as easy as adding one.
   let value: string | null = null;

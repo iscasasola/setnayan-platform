@@ -6,7 +6,7 @@ import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
 
 import { useToast } from '@/app/_components/toast/toast-provider';
-import { applySuggestedCoverage, dismissSuggestedCoverage } from '../suggested-coverage-actions';
+import { suggestedCoverage } from '../suggested-coverage-actions';
 
 export type SuggestedCoverageItem = {
   key: string;
@@ -62,7 +62,7 @@ export function SuggestedCoverageCard({
     for (const key of picked) fd.append('trade_key', key);
     setPending(true);
     startTransition(async () => {
-      const res = await applySuggestedCoverage(null, fd);
+      const res = await suggestedCoverage(null, fd);
       setPending(false);
       if (!res.ok) {
         toast.error(res.error);
@@ -78,9 +78,10 @@ export function SuggestedCoverageCard({
   function notNow() {
     const fd = new FormData();
     fd.set('dossier_id', String(dossierId));
+    fd.set('op', 'dismiss');
     setPending(true);
     startTransition(async () => {
-      await dismissSuggestedCoverage(null, fd);
+      await suggestedCoverage(null, fd);
       setPending(false);
       setResolved(true);
     });

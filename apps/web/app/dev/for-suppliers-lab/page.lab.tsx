@@ -41,17 +41,15 @@ const LAB_GIFTS: SupplierFrontGifts = {
   bundles: [{ code: 'GIFT_BUNDLE_PAPIC_GUEST_150', title: 'Papic 150 · 10 + 1', pack: LAB_PACKS[0]!, quantity: 11, priceCentavos: 99_000 }],
   credits: { plusCredits: 1_000, proCredits: 3_000 },
 };
+/** LAB FIXTURE — the seeded starting card templates (migration 20271351904391); `?templates=unread` = a refused count. */
+const LAB_CARD_TEMPLATES = 321;
 const UNREAD_GIFTS: SupplierFrontGifts = { packs: null, bundles: null, credits: { plusCredits: null, proCredits: null } };
 
-export default async function ForSuppliersLabPage({ searchParams }: { searchParams: Promise<{ gifts?: string; fee?: string; tools?: string }> }) {
+export default async function ForSuppliersLabPage({ searchParams }: { searchParams: Promise<{ gifts?: string; fee?: string; papic?: string; templates?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
-  const specialTools =
-    q.tools === 'paid'
-      ? ({ status: 'ok', paidFrom: new Date(0).toISOString() } as const)
-      : q.tools === 'unread'
-        ? ({ status: 'unread' } as const)
-        : ({ status: 'ok', paidFrom: null } as const);
+  // `?papic=1` lists the Papic camera in the Toolkit sheet, as production does once its privacy switch is on.
+  const papicCapture = q.papic === '1';
   return (
     // `.fd` + front-door.css: the shell's tokens and Discover's button, as the real route wears them inside the shell.
     <main className="fd" style={{ ['--fd-bar' as string]: '0px' }}>
@@ -60,7 +58,8 @@ export default async function ForSuppliersLabPage({ searchParams }: { searchPara
         fee={{ schedule: q.fee === 'unread' ? null : BOOKING_FEE, enabled: true }}
         gifts={q.gifts === 'unread' ? UNREAD_GIFTS : LAB_GIFTS}
         paywallOn={false}
-        specialTools={specialTools}
+        papicCapture={papicCapture}
+        cardTemplates={q.templates === 'unread' ? null : LAB_CARD_TEMPLATES}
       />
     </main>
   );

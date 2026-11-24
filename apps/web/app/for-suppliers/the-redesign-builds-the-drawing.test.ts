@@ -6,7 +6,8 @@
  *   · the parts, in the drawing's order, on the one route;
  *   · the fee steps' fees are `bookingFeePhp` on the schedule handed in — move the schedule and they move;
  *   · the gifts are the shop-gift packs read from the catalogue; an unread read says so, never ₱0;
- *   · the Toolkit count is the lists' own lengths, never a typed number;
+ *   · the Toolkit shows ONE count (`toolkitClaim`, held by the-toolkit-claim-is-true.test.ts); its sheet is the one
+ *     Toolkit list (`toolkitItems`), names only, never a second number;
  *   · the plans open on Verified, every paid card carries its own checkout door, an unread price draws "—";
  *   · every media slot is a real file, every clip has a poster and fetches nothing for the first paint;
  *   · Part I: no shadow on a static card, no gradient but the hero's band, tabular numbers on the figures.
@@ -18,7 +19,9 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { BOOKING_FEE, bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { formatPhpRounded } from '@/lib/php';
-import { SPECIALIZED_TOOLS } from '@/lib/specialized-tools';
+import { listedWidgets } from '@/lib/specialized-tools';
+import { PROMOTE_QR_MODES } from '@/lib/supplier-qr-codes';
+import { isPaidStoreTool } from '@/lib/supplier-store';
 import { SHOP_BADGE_KEYS } from '@/lib/badge-tiers';
 import { CARD_ORDER } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { bundleFreePacks, type ShopGiftPack } from '@/lib/shop-gifts';
@@ -34,7 +37,6 @@ import {
   giftFromPrice,
   giftRows,
   railShare,
-  toolkitCountLine,
   toolkitShelves,
 } from './_components/supplier-front-data';
 
@@ -107,23 +109,26 @@ test('the gifts are the packs the catalogue sells — titles and prices read, un
   assert.match(ROUTE, /fetchShopGiftPacks\(admin\)/);
   assert.match(ROUTE, /fetchShopGiftBundles\(admin, packs\)/);
   assert.match(ROUTE, /planCreditsFrom\(catalog\)/);
-  assert.match(ROUTE, /const \[p, fee, giftRead, catalog, specialTools\] = await Promise\.all\(\[/, 'the page reads in more than one batch');
+  assert.match(ROUTE, /const \[p, fee, giftRead, catalog, papicCapture, cardTemplates\] = await Promise\.all\(\[/, 'the page reads in more than one batch');
 });
 
-test('the Toolkit count is the lists’ own lengths — never a typed number', () => {
-  const shelves = toolkitShelves(null);
-  const { total, parts } = toolkitCountLine(shelves);
-  assert.equal(total, SPECIALIZED_TOOLS.length + CARD_ORDER.length + SHOP_BADGE_KEYS.length);
-  assert.equal(parts, `${SPECIALIZED_TOOLS.length} tools · ${CARD_ORDER.length} graphs · ${SHOP_BADGE_KEYS.length} badges`);
-  assert.deepEqual(shelves[0]!.rows.map((r) => r.name), SPECIALIZED_TOOLS.map((t) => t.title));
-  // the tags are the gates: plan-gated → Paid; the Cake Maker follows its start date; unread → no tag
-  const tag = (open: boolean | null, k: string) => toolkitShelves(open)[0]!.rows.find((r) => r.key === k)!.tag;
-  assert.equal(tag(null, 'papic_challenge'), 'paid');
-  assert.equal(tag(null, 'cake_tool'), null);
-  assert.equal(tag(true, 'cake_tool'), 'free');
-  assert.equal(tag(false, 'cake_tool'), 'paid');
-  assert.match(PAGE, /const count = toolkitCountLine\(shelves\);/);
-  assert.doesNotMatch(PAGE + CLIENT, /\b33\b|\b11 tools\b|\b17 graphs\b/, 'a Toolkit number is typed');
+test('the Toolkit sheet is the one Toolkit list, and the page shows ONE count — never a typed number', () => {
+  for (const papic of [false, true]) {
+    const shelves = toolkitShelves(papic);
+    const rows = (k: string) => shelves.find((sh) => sh.key === k)?.rows ?? [];
+    assert.deepEqual(rows('tools').map((r) => r.key), listedWidgets(papic).map((t) => t.key), 'the widgets are not the listed widgets');
+    assert.equal(rows('qr').length, PROMOTE_QR_MODES.length);
+    assert.equal(rows('graphs').length, CARD_ORDER.length);
+    assert.equal(rows('badges').length, SHOP_BADGE_KEYS.length);
+    for (const r of rows('graphs')) assert.ok(r.name && r.name !== r.key, `graph ${r.key} has no name`);
+  }
+  assert.ok(!toolkitShelves(false).some((sh) => sh.rows.some((r) => r.key === 'papic_camera')), 'the Papic camera is listed with its switch off');
+  // the tags are the rules (owner a02673ac): a paid widget is Paid; every other widget Free; badges are Built in
+  for (const r of toolkitShelves(true).find((sh) => sh.key === 'tools')!.rows) assert.equal(r.tag, isPaidStoreTool(r.key) ? 'paid' : 'free', r.key);
+  assert.match(PAGE, /const shelves = toolkitShelves\(papicCapture\);/);
+  assert.match(PAGE, /<ToolkitCount claim=\{claim\} shelves=\{shelves\} \/>/);
+  assert.doesNotMatch(CLIENT, /formatCount\((total|sh\.count)\)|sh\.count/, 'the Toolkit sheet draws a second count');
+  assert.doesNotMatch(PAGE + CLIENT, /\b33\b|\b11 tools\b|\b17 graphs\b|\b390\b/, 'a Toolkit number is typed');
 });
 
 test('the plans open on Verified; every paid card opens its own checkout; an unread price draws "—"', () => {

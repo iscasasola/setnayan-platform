@@ -30,5 +30,6 @@ test('the tile says the count honestly', () => {
   const fn = makers.slice(makers.indexOf('export function formsSub('));
   assert.match(fn, /saved === null\) return 'Couldn’t load'/, 'an unread count must say so');
   assert.match(fn, /saved === 0 \? 'None yet' : `\$\{formatCount\(saved\)\} saved`/);
-  assert.match(makers, /title: 'Forms Maker', sub: formsSub\(formsSaved\)/, 'the Forms tile no longer says the count');
+  // Store drawing v10 (owner 23 Nov 2026): the Forms Maker's tile is "Chat forms" under Templates — the same count.
+  assert.match(makers, /title: 'Chat forms', sub: formsSub\(formsSaved\)/, 'the Forms tile no longer says the count');
 });

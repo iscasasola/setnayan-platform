@@ -2,6 +2,8 @@
 
 import './analytics-growing.css';
 import { useMemo, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { Plus } from 'lucide-react';
 import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
 import { PillSelector } from '@/app/_components/pill-selector';
 import { formatCount } from '@/lib/format-number';
@@ -16,12 +18,15 @@ import { drawsLastYearLine, pctWord, vsLastYear, vsLastYearWords, type VsLastYea
 import { ordinal } from '@/lib/analytics-growing';
 import { AnalyticsLock } from './analytics-lock';
 import { HeldCount } from './growth-motion';
-import { CARD_ORDER, FIXED_WINDOW, type CardKey } from './analytics-cards';
+import { DEFAULT_INSTALLED_GRAPHS, FIXED_WINDOW, type CardKey } from './analytics-cards';
 import type { GrowthView, Totals } from './growth-view';
 import { BRONZE_LINES, LOCKED_HEAD, lockedLine, type GiftsRecFacts, type GiftsToBookings, type LockedBadge, type UnlockBadge } from '@/lib/graph-unlocks';
 import { COULDNT_LOAD } from '@/lib/shop-badge-row';
 import { giftsSpec } from './gifts-graph';
 import { invitesSpec } from './invites-graph';
+import { STORE_GRAPHS, graphWindowWords } from '@/lib/supplier-store';
+import { ArrangeEdit } from '@/app/vendor-dashboard/shop/store/_components/store-client';
+import { GraphArt } from '@/app/vendor-dashboard/shop/store/_components/graph-art';
 import type { InviteMonth } from '@/lib/graph-unlocks';
 
 /**
@@ -157,7 +162,15 @@ type Props =
     }
   | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined; unlocks?: undefined; gifts?: undefined; giftsRecFacts?: undefined; invites?: undefined };
 
-export function AnalyticsCarousel(props: Props) {
+/**
+ * 🛍 THE SHOP'S PICKS (owner 23 Nov 2026 — Store drawing v12, F0 + "Edit · Analytics"): `order` = the graphs the shop
+ * picked, in its order (`analyticsGraphs`, lib/supplier-store.ts — open ones only); `addHref` = the dashed "Add a graph"
+ * tile at the end, into the Store's Graphs shelf; the head's "Edit" opens "Arrange Analytics" (reorder · remove). With the Store, a shut graph lives on its shelf ("Unlocks free when you earn the … badge"), so the lines under the
+ * carousel step aside. Without them (Performance), the carousel is exactly as before.
+ */
+type Picks = { order?: readonly CardKey[]; addHref?: string };
+
+export function AnalyticsCarousel(props: Props & Picks) {
   const [wins, setWins] = useState<Partial<Record<CardKey, GrowthWindow>>>({});
   const winOf = (k: CardKey): GrowthWindow => wins[k] ?? '30';
   const setWin = (k: CardKey, w: GrowthWindow) => setWins((cur) => ({ ...cur, [k]: w }));
@@ -199,7 +212,8 @@ export function AnalyticsCarousel(props: Props) {
   };
 
   const cards: CarouselCard[] = [];
-  for (const k of CARD_ORDER) {
+  // Never arranged = the graphs installed by default — an explicit list, so a new graph never lands here uninstalled.
+  for (const k of props.order ?? DEFAULT_INSTALLED_GRAPHS) {
     if (k === 'opened' || k === 'asked' || k === 'booked') {
       const win = winOf(k);
       const g = countSpec(k, win, totalsOf(win), props.view ?? null);
@@ -212,6 +226,19 @@ export function AnalyticsCarousel(props: Props) {
     const g = specs[winOf(k)][k as GraphKey];
     if (!g) continue;
     cards.push({ key: k, label: g.title, node: <GraphCard g={g} control={control(k, g.title)} /> });
+  }
+  const graphCount = cards.length;
+  if (props.addHref && !props.locked) {
+    cards.push({
+      key: 'add',
+      label: 'Add a graph',
+      node: (
+        <Link href={props.addHref} className="ag-card-in sn-press flex h-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[color:var(--m-line)] text-[color:var(--m-slate-2)]" data-analytics-add="">
+          <Plus aria-hidden className="h-7 w-7" strokeWidth={1.8} />
+          <b className="text-sn-lg font-semibold text-ink">Add a graph</b>
+        </Link>
+      ),
+    });
   }
   if (props.locked) {
     cards.push({
@@ -227,13 +254,30 @@ export function AnalyticsCarousel(props: Props) {
 
   return (
     <section aria-labelledby="shop-analytics-h" data-shop-analytics="" data-tour="shop-analytics" id="analytics" className="scroll-mt-24" data-growth="" data-analytics-carousel={props.locked ? 'locked' : 'full'}>
-      <div className="flex items-baseline justify-between px-4 pb-2 pt-5">
-        <h2 id="shop-analytics-h" className="home-k2 !my-0">
-          Analytics
-        </h2>
-        <span className="text-xs text-ink/70">
-          {formatCount(cards.length)} {cards.length === 1 ? 'card' : 'cards'}
+      <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-5">
+        <span className="flex items-center gap-2">
+          <h2 id="shop-analytics-h" className="home-k2 !my-0">
+            Analytics
+          </h2>
+          {props.addHref ? (
+            <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" aria-label={`${graphCount} ${graphCount === 1 ? 'graph' : 'graphs'}`} data-analytics-count="">
+              {formatCount(graphCount)}
+            </span>
+          ) : null}
         </span>
+        {props.addHref ? (
+          <ArrangeEdit
+            row="graphs"
+            items={cards.slice(0, graphCount).map((c) => {
+              const k = c.key as CardKey;
+              return { key: k, title: STORE_GRAPHS[k].title, sub: graphWindowWords(k), art: <GraphArt size={44} /> };
+            })}
+          />
+        ) : (
+          <span className="text-xs text-ink/70">
+            {formatCount(cards.length)} {cards.length === 1 ? 'card' : 'cards'}
+          </span>
+        )}
       </div>
       {/* No auto-advance and no dots (spec §9 #4) — the loop stays (owner 27 Oct). */}
       <SnapCarousel cards={cards} label="Analytics" advanceMs={0} dots={false} />
@@ -249,7 +293,7 @@ export function AnalyticsCarousel(props: Props) {
           return line ? [{ key: b, lead: line.lead, rest: `— ${COULDNT_LOAD}.` }] : [];
         });
         const rows = [...shut, ...unread];
-        if (rows.length === 0) return null;
+        if (rows.length === 0 || props.addHref) return null;
         return (
           <div className="space-y-1 px-4 pt-3 text-sm text-ink/70" data-graph-unlock-lines="">
             <p className="font-semibold text-ink">{LOCKED_HEAD}</p>

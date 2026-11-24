@@ -103,10 +103,6 @@ const SITES: Record<string, Site> = {
     why: 'Event services (approved v5 drawing, website template, 2026-11-23): each pack’s ⓘ at its row’s end opens the pack’s full list IN PLACE, in a note box under the row — not a hover note or a popup',
   },
   'app/_components/chat/cards/card-bits.tsx': { why: 'a chat card’s 44-px ⓘ button that opens that card’s details sheet (Unichat part C)' },
-  'app/for-suppliers/_components/supplier-front-info.tsx': {
-    why: 'the approved /for-suppliers page (2026-11-06) opens its ⓘ words IN the page under the section, from a labelled pill — not a hover note or a popup',
-    colours: 'template',
-  },
   'app/_components/site-stage/site-stage.tsx': {
     why: 'the Maker’s who×when stage is obsidian in both themes; InfoTip’s ink and popover are the light page’s',
     colours: 'obsidian',

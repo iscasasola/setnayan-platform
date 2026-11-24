@@ -876,12 +876,14 @@ async function editSetSongs(
   return { ok: true };
 }
 
-// ── HUB TOOLS — the one writer for every tool drawn with the Checklist, Per-person or Counter template ────────────
+// ── HUB TOOLS — the one writer for every tool drawn with the Checklist, Per-person, Counter or Ordered list template
 
 export type HubToolEntryResult = { ok: true; entryId?: string } | { ok: false; error: string };
 
 /**
- * ONE dispatcher for the hub tools' rows (`vendor_hub_tool_entries`): add · edit · tick · count · remove.
+ * ONE dispatcher for the hub tools' rows (`vendor_hub_tool_entries`): add · edit · tick · count · move · remove.
+ * `move` is the Ordered list's ▲ ▼ (24 Nov: Chair schedule · Reservation slots · Brackets & scoring): the row swaps
+ * positions with its neighbour IN ITS OWN TOOL (`swapWithNeighbour`, the Set list's idiom) — two writes, never a renumber.
  * DECISION_LOG 2026-11-23 "THE TEN MOST-SHARED UNBUILT HUB TOOLS" (Tech rider · Personalisation list · Quantity vs
  * guests here; any later tool on these templates writes through the same door). One export, not six: the budget sits
  * at its ceiling, paid for by folding `removeSongFromVendorEventSet` into `updateVendorEventSet` above.
@@ -955,6 +957,44 @@ export async function hubToolEntry(eventId: string, input: unknown): Promise<Hub
       .select('entry_id');
     return counted(data, error) ?? done();
   }
+
+  if (op.op === 'move') {
+    const { data: me, error: meErr } = await supabase
+      .from('vendor_hub_tool_entries')
+      .select('tool_key')
+      .eq('entry_id', op.entryId)
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (meErr) return { ok: false, error: 'We couldn’t read your list — try again.' };
+    if (!me) return { ok: false, error: 'That row is gone — refresh.' };
+    const { data: list, error: listErr } = await supabase
+      .from('vendor_hub_tool_entries')
+      .select('entry_id, position')
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('tool_key', (me as { tool_key: string }).tool_key);
+    if (listErr || !list) return { ok: false, error: 'We couldn’t read your list — try again.' };
+    const swap = swapWithNeighbour(
+      (list as { entry_id: string; position: number }[]).map((r) => ({ id: r.entry_id, position: r.position })),
+      op.entryId,
+      op.dir,
+    );
+    if (!swap) return { ok: true }; // already first / last — nothing to do, nothing claimed
+    for (const side of [swap.a, swap.b]) {
+      const { data: hit, error: wErr } = await supabase
+        .from('vendor_hub_tool_entries')
+        .update({ position: side.position })
+        .eq('entry_id', side.id)
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', vendorProfileId)
+        .select('entry_id');
+      const bad = counted(hit, wErr);
+      if (bad) return bad;
+    }
+    return done();
+  }
+
   const patch =
     op.op === 'edit'
       ? { label: op.label, note: op.note }

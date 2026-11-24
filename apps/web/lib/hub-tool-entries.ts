@@ -1,12 +1,15 @@
 /**
- * hub-tool-entries.ts — the rows behind the hub tools drawn with the Checklist, Per-person and Counter templates
- * (DECISION_LOG 2026-11-23 "THE TEN MOST-SHARED UNBUILT HUB TOOLS"; drawing `prototypes/hub_tools_working_2026-10-28/`).
+ * hub-tool-entries.ts — the rows behind the hub tools drawn with the Checklist, Per-person, Counter and Ordered list
+ * templates (DECISION_LOG 2026-11-23 "THE TEN MOST-SHARED UNBUILT HUB TOOLS" + "Seven open calls settled" item 3, the
+ * free rest; drawing `prototypes/hub_tools_working_2026-10-28/`).
  *
  * A tool is a RECORD (`lib/hub-tools.ts`: key · name · template); its rows live in ONE table, `vendor_hub_tool_entries`,
  * keyed by `tool_key` (an FK to `hub_tools`). The ONE home for every hub tool's rows (controller, DECISION_LOG 23 Nov
  * 2026): Tech rider, Paperwork checklist, Load-in & venue access, Delivery & drop-off (checklist), Personalisation list
  * (per_person), Quantity vs guests and the Queue counter (counter) are keys, not tables, and a later tool on these
- * templates needs no schema. The Shot list keeps its own couple-read table (`event_shot_list_items`) and nothing else
+ * templates needs no schema. 24 Nov: Ceremony details · Proofs & approval · Safety permit & cue (checklist), Fittings &
+ * measurements · Looks per person · Crew roster · Room list (per_person), Chair schedule · Reservation slots · Brackets &
+ * scoring (ordered_list — `position` is the order, ▲ ▼ swap it; Brackets keeps a score in `qty`). The Shot list keeps its own couple-read table (`event_shot_list_items`) and nothing else
  * writes there (🔒 lib/no-hub-tool-borrows-the-shot-list.test.ts).
  * Dietary & allergies reads the RSVPs (`vendor_event_dietary_list`), never this table; Set list is Song Desk's own sets
  * (`lib/vendor-sets.ts`).
@@ -18,7 +21,7 @@
 import { HUB_TOOL_LIBRARY, type HubToolTemplate } from '@/lib/hub-tools';
 
 /** The templates whose rows this table holds. */
-export const ENTRY_TEMPLATES = ['checklist', 'per_person', 'counter'] as const satisfies readonly HubToolTemplate[];
+export const ENTRY_TEMPLATES = ['checklist', 'per_person', 'counter', 'ordered_list'] as const satisfies readonly HubToolTemplate[];
 export type EntryTemplate = (typeof ENTRY_TEMPLATES)[number];
 
 export const ENTRY_LABEL_MAX = 140;
@@ -30,15 +33,30 @@ export const ENTRY_ROWS_MAX = 200;
 /**
  * Tools drawn with one of these templates whose rows are READ from elsewhere, never typed into this table — so the one
  * writer refuses them and the reader never asks for them: Dietary & allergies (the RSVP answers,
- * `vendor_event_dietary_list`) and Entourage (the couple's own entourage, `loadMarch` → `entourageSheet`).
+ * `vendor_event_dietary_list`), Entourage (the couple's own entourage, `loadMarch` → `entourageSheet`), and the two
+ * ordered lists Song Desk keeps in its own tables — Set list (`vendor_event_sets`) and Song Desk (the couple's picks) —
+ * and the Shot list, whose rows are its own couple-read table (`event_shot_list_items`), shipped or not.
  */
-export const READ_ONLY_TOOLS = ['dietary_and_allergies', 'entourage'] as const;
+export const READ_ONLY_TOOLS = ['dietary_and_allergies', 'entourage', 'set_list', 'song_desk', 'shot_list'] as const;
 
-/** The tool's template, when it is one this table serves; null for any other key (or an unknown one). */
+/**
+ * Ordered-list tools whose rows also keep a SCORE (the row's `qty`, 0 to start): Brackets & scoring — teams in order,
+ * each with its points. Every other ordered list is order and words only (`qty` stays NULL).
+ */
+export const SCORED_TOOLS = ['brackets_and_scoring'] as const;
+export function isScoredTool(toolKey: string): boolean {
+  return (SCORED_TOOLS as readonly string[]).includes(toolKey);
+}
+
+/**
+ * The tool's template, when it is one this table serves; null for any other key (or an unknown one). Only a SHIPPED
+ * tool keeps rows: a held tool (the privacy pick Insured people list, the owner's call) is refused by the one writer
+ * even though its template is served (controller, 24 Nov).
+ */
 export function entryTemplateOf(toolKey: string): EntryTemplate | null {
   if ((READ_ONLY_TOOLS as readonly string[]).includes(toolKey)) return null;
   const t = HUB_TOOL_LIBRARY.find((x) => x.key === toolKey);
-  if (!t) return null;
+  if (!t || !t.shipped) return null;
   return (ENTRY_TEMPLATES as readonly string[]).includes(t.template) ? (t.template as EntryTemplate) : null;
 }
 
@@ -90,6 +108,7 @@ export type HubToolEntryOp =
   | { op: 'edit'; entryId: string; label: string; note: string | null }
   | { op: 'tick'; entryId: string; done: boolean }
   | { op: 'count'; entryId: string; qty: number }
+  | { op: 'move'; entryId: string; dir: 'up' | 'down' }
   | { op: 'remove'; entryId: string };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -101,7 +120,8 @@ function qtyOf(v: unknown): number | null {
 
 /**
  * The dispatcher's input, validated. Refuses (an error a person can read) an unknown op, a tool this table does not
- * serve, an empty label, a bad id or a count out of range. A counter row starts at its given count (0 when none).
+ * serve, an empty label, a bad id, a count out of range or a move with no direction. A counter row starts at its given
+ * count (0 when none); a scored ordered-list row starts at 0; every other row has no count.
  */
 export function parseHubToolEntryOp(input: unknown): { ok: true; op: HubToolEntryOp } | { ok: false; error: string } {
   if (!input || typeof input !== 'object') return { ok: false, error: 'Nothing to save.' };
@@ -120,7 +140,7 @@ export function parseHubToolEntryOp(input: unknown): { ok: true; op: HubToolEntr
         if (qty === null) return { ok: false, error: 'That number is out of range.' };
         return { ok: true, op: { op: 'add', toolKey, label, note: null, qty } };
       }
-      return { ok: true, op: { op: 'add', toolKey, label, note, qty: null } };
+      return { ok: true, op: { op: 'add', toolKey, label, note, qty: template === 'ordered_list' && isScoredTool(toolKey) ? 0 : null } };
     }
     case 'edit': {
       if (!id) return { ok: false, error: 'That row is gone — refresh.' };
@@ -138,6 +158,10 @@ export function parseHubToolEntryOp(input: unknown): { ok: true; op: HubToolEntr
       if (qty === null) return { ok: false, error: 'That number is out of range.' };
       return { ok: true, op: { op: 'count', entryId: id, qty } };
     }
+    case 'move':
+      if (!id) return { ok: false, error: 'That row is gone — refresh.' };
+      if (o.dir !== 'up' && o.dir !== 'down') return { ok: false, error: 'Nothing to move.' };
+      return { ok: true, op: { op: 'move', entryId: id, dir: o.dir } };
     case 'remove':
       if (!id) return { ok: false, error: 'That row is gone — refresh.' };
       return { ok: true, op: { op: 'remove', entryId: id } };

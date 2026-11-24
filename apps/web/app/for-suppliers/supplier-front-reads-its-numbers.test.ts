@@ -127,12 +127,14 @@ test('the page says nothing the brief forbids', () => {
   }
 });
 
-test('owner 2026-11-22: every tool on every paid size — the 3D booth logo and Papic Challenges are named once, from Plus, and nothing calls the booth an add-on', async () => {
+test('owner a02673ac (23 Nov): a plan never says it includes a paid widget — it says bought widgets work there, once, from Plus; nothing calls the booth an add-on', async () => {
   const { growLines } = await import('./_components/supplier-front-data');
   const words = (t: 'solo' | 'pro' | 'enterprise') => growLines(t).map((l) => l.text + (l.tail ?? '')).join(' | ');
-  assert.match(words('solo'), /3D seat plan/);
-  assert.match(words('solo'), /Papic Challenges|All specialized tools/);
-  assert.doesNotMatch(words('pro'), /3D seat plan/, 'Pro repeats a line Plus already gives');
+  assert.match(words('solo'), /Paid widgets work here: buy each once in the Toolkit/);
+  for (const t of ['solo', 'pro', 'enterprise'] as const) {
+    assert.doesNotMatch(words(t), /3D seat plan|Papic Challenges|All specialized tools/, `${t} says a paid widget comes with the plan`);
+  }
+  assert.doesNotMatch(words('pro'), /Paid widgets work here/, 'Pro repeats a line Plus already gives');
   for (const t of ['solo', 'pro', 'enterprise'] as const) assert.doesNotMatch(words(t), /add-on\)/);
 });
 

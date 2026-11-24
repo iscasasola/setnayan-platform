@@ -251,7 +251,9 @@ function LockedUpsell({ model }: { model: DayOfFrameModel }) {
   const upsell = model.upsell;
   if (!upsell) return null;
 
-  const line = upsell.lapsed
+  const line = upsell.needsVerified
+    ? 'Free for your trade once your shop is Verified. Everything else on this screen keeps working.'
+    : upsell.lapsed
     ? 'Your subscription has lapsed, so this desk is paused. Renewing brings it back — everything else on this screen keeps working.'
     : `Built for your trade, and included from ${upsell.minTierLabel} up. Everything else on this screen stays exactly as it is.`;
 
@@ -266,7 +268,7 @@ function LockedUpsell({ model }: { model: DayOfFrameModel }) {
       <ActionButton
         tone="brand"
         icon={<ArrowRight aria-hidden />}
-        label={upsell.lapsed ? 'Renew your plan' : 'See the plans'}
+        label={upsell.needsVerified ? 'Get Verified' : upsell.lapsed ? 'Renew your plan' : 'See the plans'}
         href={upsell.href}
       />
     </div>

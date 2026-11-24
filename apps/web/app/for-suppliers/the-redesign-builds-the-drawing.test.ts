@@ -20,6 +20,9 @@ import { BOOKING_FEE, bookingFeePhp, type BookingFeeSchedule } from '@/lib/booki
 import { formatPhpRounded } from '@/lib/php';
 import { SPECIALIZED_TOOLS } from '@/lib/specialized-tools';
 import { SHOP_BADGE_KEYS } from '@/lib/badge-tiers';
+import { BUILT_IN_WIDGETS, PAID_STORE_TOOLS } from '@/lib/supplier-store';
+import { PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
+import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { CARD_ORDER } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { bundleFreePacks, type ShopGiftPack } from '@/lib/shop-gifts';
 import { FEE_FIRST_SUPPLIER_LINE } from '@/lib/booking-fee-who-words';
@@ -27,6 +30,8 @@ import {
   BADGE_ROW,
   FEE_STEP_BOOKINGS,
   FRONT_MEDIA,
+  PLAN_PAID_TOOLS_LOCKED,
+  PLAN_PAID_TOOLS_OK,
   STAIR_TIERS,
   feeRowWords,
   feeSteps,
@@ -34,6 +39,7 @@ import {
   giftFromPrice,
   giftRows,
   railShare,
+  stairHasTools,
   toolkitCountLine,
   toolkitShelves,
 } from './_components/supplier-front-data';
@@ -107,23 +113,36 @@ test('the gifts are the packs the catalogue sells — titles and prices read, un
   assert.match(ROUTE, /fetchShopGiftPacks\(admin\)/);
   assert.match(ROUTE, /fetchShopGiftBundles\(admin, packs\)/);
   assert.match(ROUTE, /planCreditsFrom\(catalog\)/);
-  assert.match(ROUTE, /const \[p, fee, giftRead, catalog, specialTools\] = await Promise\.all\(\[/, 'the page reads in more than one batch');
+  assert.match(ROUTE, /const \[p, fee, giftRead, catalog\] = await Promise\.all\(\[/, 'the page reads in more than one batch');
 });
 
 test('the Toolkit count is the lists’ own lengths — never a typed number', () => {
-  const shelves = toolkitShelves(null);
+  const shelves = toolkitShelves();
   const { total, parts } = toolkitCountLine(shelves);
   assert.equal(total, SPECIALIZED_TOOLS.length + CARD_ORDER.length + SHOP_BADGE_KEYS.length);
   assert.equal(parts, `${SPECIALIZED_TOOLS.length} tools · ${CARD_ORDER.length} graphs · ${SHOP_BADGE_KEYS.length} badges`);
   assert.deepEqual(shelves[0]!.rows.map((r) => r.name), SPECIALIZED_TOOLS.map((t) => t.title));
-  // the tags are the gates: plan-gated → Paid; the Cake Maker follows its start date; unread → no tag
-  const tag = (open: boolean | null, k: string) => toolkitShelves(open)[0]!.rows.find((r) => r.key === k)!.tag;
-  assert.equal(tag(null, 'papic_challenge'), 'paid');
-  assert.equal(tag(null, 'cake_tool'), null);
-  assert.equal(tag(true, 'cake_tool'), 'free');
-  assert.equal(tag(false, 'cake_tool'), 'paid');
+  // the tags are the Toolkit's own (owner a02673ac): the paid widgets are Paid — the Song bank too — the built-in
+  // widgets Built in, the rest Free; there is no start date any more, so nothing is ever untagged
+  const tags = Object.fromEntries(shelves[0]!.rows.map((r) => [r.key, r.tag]));
+  for (const k of PAID_STORE_TOOLS) assert.equal(tags[k], 'paid', `${k} is not tagged Paid`);
+  for (const k of BUILT_IN_WIDGETS) assert.equal(tags[k], 'built', `${k} is not tagged Built in`);
+  for (const t of SPECIALIZED_TOOLS) {
+    if (!(PAID_STORE_TOOLS as readonly string[]).includes(t.key) && !BUILT_IN_WIDGETS.includes(t.key)) assert.equal(tags[t.key], 'free', t.key);
+  }
   assert.match(PAGE, /const count = toolkitCountLine\(shelves\);/);
   assert.doesNotMatch(PAGE + CLIENT, /\b33\b|\b11 tools\b|\b17 graphs\b/, 'a Toolkit number is typed');
+});
+
+test('🔒 owner a02673ac: a paid widget is bought once and works on a paid plan — no plan says it includes one, no start date is read', () => {
+  // the plan cards mark exactly the plans a bought widget works on
+  for (const t of STAIR_TIERS) assert.equal(stairHasTools(t), isTierAtLeast(t, PRO_TOOLS_MIN_TIER), t);
+  assert.doesNotMatch(PLAN_PAID_TOOLS_OK, /includ/i, 'a plan card says the paid tools come with the plan');
+  assert.match(PLAN_PAID_TOOLS_OK, /buy each once/);
+  assert.match(PLAN_PAID_TOOLS_LOCKED, /or higher$/);
+  // the old open-to-all start date opens nothing any more: the route no longer reads it and the page never decides on it
+  assert.doesNotMatch(ROUTE, /readSpecialToolsPaidFrom|specialTools=/);
+  assert.doesNotMatch(PAGE + CLIENT, /specialToolsOpenToAll|Every plan, for now|Included in/);
 });
 
 test('the plans open on Verified; every paid card opens its own checkout; an unread price draws "—"', () => {

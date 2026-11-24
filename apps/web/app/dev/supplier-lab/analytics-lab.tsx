@@ -31,6 +31,7 @@ import type { SourceAttribution } from '@/lib/vendor-source-attribution';
 import type { GrowthSeries } from '@/lib/vendor-growth-series';
 import { buildCompareSeries, windowSpan, type InstantRow } from '@/lib/analytics-vs-last-year';
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
+import { windowSeries, type StoreGraphs } from '@/lib/vendor-store-graphs';
 
 export type LabShop = 'setnaprod' | 'sample' | 'new' | 'drawing';
 
@@ -480,6 +481,54 @@ function drawing(): Lab {
   };
 }
 
+/**
+ * The Supplier Store drawing's 12 new graphs (supplier_store_graphs_badges_2026-11-23) on fixture rows, put through the
+ * same pure bucketing (`windowSeries`) the server reader uses. Sample data — this is a lab.
+ */
+const STORE_REFUSED: StoreGraphs = { followers: null, saved: null, photos: null, whenask: null, missed: null, value: null, owed: null, lead: null, types: null, revmonth: null, substars: null, replied: null };
+const STORE_EMPTY_ONE = (w: GrowthWindow): StoreGraphs => ({
+  followers: windowSeries([], NOW_MS, w),
+  saved: windowSeries([], NOW_MS, w),
+  photos: { top: [], total: 0, urls: {} },
+  whenask: [],
+  missed: { declined: 0, unansweredOverSla: 0, selfReportedNoResponse: 0, waitlisted: 0 },
+  value: monthBuckets(NOW_MS, 12).map((m) => ({ key: m.key, label: m.label, php: 0 })),
+  owed: { receivedPhp: 0, toComePhp: 0, overdue: 0, unresolved: 0, bookings: 0 },
+  lead: { bookedWithDateCount: 0, avgLeadDays: null, medianLeadDays: null },
+  types: { kinds: [], total: 0, atLeast: false },
+  revmonth: monthBuckets(NOW_MS, 12).map((m) => ({ key: m.key, label: m.label, count: 0 })),
+  substars: { n: 0, avg: { communication: 0, quality: 0, value: 0, on_time: 0 } },
+  replied: { replied: 0, total: 0 },
+});
+function storeSample(w: GrowthWindow): StoreGraphs {
+  const DAYMS = 24 * 60 * 60 * 1000;
+  const spread = (n: number, every: number) => Array.from({ length: n }, (_, i) => new Date(NOW_MS - (i * every + 3) * DAYMS * 0.5).toISOString());
+  const months = monthBuckets(NOW_MS, 12);
+  const VALUE = [0, 85000, 120000, 60000, 210000, 0, 95000, 180000, 140000, 250000, 160000, 70000];
+  const REVS = [1, 0, 2, 1, 3, 0, 1, 2, 2, 4, 3, 1];
+  return {
+    followers: windowSeries(spread(41, 17), NOW_MS, w),
+    saved: windowSeries(spread(26, 23), NOW_MS, w),
+    photos: {
+      top: w === '30' ? [{ key: 'a', views: 64 }, { key: 'b', views: 41 }, { key: 'c', views: 22 }] : [{ key: 'a', views: 512 }, { key: 'c', views: 380 }, { key: 'b', views: 301 }],
+      total: w === '30' ? 188 : 1740,
+      urls: { a: '/demo/maria-jose/reception.webp', b: '/demo/maria-jose/wall-1.webp', c: '/demo/maria-jose/wall-3.webp' },
+    },
+    whenask: [
+      { dow: 0, hr: 20, count: 9 }, { dow: 0, hr: 14, count: 5 }, { dow: 6, hr: 10, count: 6 }, { dow: 6, hr: 21, count: 7 },
+      { dow: 1, hr: 19, count: 3 }, { dow: 3, hr: 12, count: 2 }, { dow: 4, hr: 20, count: 4 }, { dow: 5, hr: 22, count: 5 },
+    ],
+    missed: w === '30' ? { declined: 1, unansweredOverSla: 2, selfReportedNoResponse: 0, waitlisted: 1 } : { declined: 6, unansweredOverSla: 9, selfReportedNoResponse: 2, waitlisted: 3 },
+    value: months.map((m, i) => ({ key: m.key, label: m.label, php: VALUE[i] ?? 0 })),
+    owed: { receivedPhp: 340000, toComePhp: 215000, overdue: 1, unresolved: 1, bookings: 7 },
+    lead: { bookedWithDateCount: 23, avgLeadDays: 214, medianLeadDays: 196 },
+    types: { kinds: [{ key: 'wedding', label: 'Wedding', count: 18 }, { key: 'debut', label: 'Debut', count: 6 }, { key: 'christening', label: 'Christening', count: 3 }, { key: 'corporate', label: 'Corporate', count: 2 }], total: 29, atLeast: false },
+    revmonth: months.map((m, i) => ({ key: m.key, label: m.label, count: REVS[i] ?? 0 })),
+    substars: { n: 20, avg: { communication: 4.8, quality: 4.9, value: 4.4, on_time: 4.6 } },
+    replied: { replied: 14, total: 20 },
+  };
+}
+
 /** The carousel's props for a lab shop — shared with the Shop tab lab, so both labs draw the same fixtures. */
 export function labCarouselProps({ shop, fail, locked = false }: { shop?: string; fail: boolean; locked?: boolean }): Parameters<typeof AnalyticsCarousel>[0] {
   const which: LabShop = shop === 'sample' || shop === 'new' || shop === 'drawing' ? shop : 'setnaprod';
@@ -491,7 +540,12 @@ export function labCarouselProps({ shop, fail, locked = false }: { shop?: string
     : which === 'sample' || which === 'drawing'
       ? { '30': SAMPLE_GRAPHS_30, '12': SAMPLE_GRAPHS }
       : { '30': EMPTY_GRAPHS, '12': EMPTY_GRAPHS };
-  return { view: buildGrowthView(lab.inputs), graphs };
+  const store: Record<GrowthWindow, StoreGraphs> = fail
+    ? { '30': STORE_REFUSED, '12': STORE_REFUSED }
+    : which === 'sample' || which === 'drawing'
+      ? { '30': storeSample('30'), '12': storeSample('12') }
+      : { '30': STORE_EMPTY_ONE('30'), '12': STORE_EMPTY_ONE('12') };
+  return { view: buildGrowthView(lab.inputs), graphs, store };
 }
 
 export function AnalyticsLab({ shop, fail, locked = false }: { shop?: string; fail: boolean; locked?: boolean }) {

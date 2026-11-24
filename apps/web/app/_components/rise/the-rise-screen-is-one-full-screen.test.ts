@@ -159,7 +159,10 @@ test('5 · the Shop tab map: every door rises into the ONE screen — no popup s
   // The cover's doors: Logo · Promote · QR · Cover (ParamSheet) · Share · View shop — each through the door.
   const fn = (src: string, name: string) => src.slice(src.indexOf(`function ${name}(`), src.indexOf('\n}\n', src.indexOf(`function ${name}(`)));
   for (const f of ['ParamSheet', 'ShareSheet', 'ViewShopScreen']) assert.match(fn(files.cover, f), /<ShopDoorScreen\b/, `${f} does not rise`);
-  for (const id of ['promote', 'qr', 'logo', 'cover']) assert.match(files.cover, new RegExp(`<ParamSheet open=\\{sheet === '${id}'\\}`), `the ${id} door lost its screen`);
+  // 🔁 RE-AIMED 2026-11-23 (owner; Store drawing `supplier_store_graphs_badges_2026-11-23` v12): Promote is ONE screen
+  // with two tabs (Posters & prints · QR codes) — `?sheet=qr` lands on its QR tab — and the plan chip opens Storage.
+  for (const id of ['logo', 'cover', 'storage']) assert.match(files.cover, new RegExp(`<ParamSheet open=\\{sheet === '${id}'\\}`), `the ${id} door lost its screen`);
+  assert.match(files.cover, /<ParamSheet\s+open=\{promoteOpen\}[\s\S]{0,1200}promoteTab === 'qr' \? qrBody : promoteBody/, 'the promote door lost its screen (or its QR tab)');
   assert.match(fn(files.badges, 'BadgeSheet'), /<ShopDoorScreen\b/, 'a badge does not rise');
   assert.match(fn(files.analytics, 'GraphCard'), /<ShopDoorScreen\b/, 'an analytics card does not rise');
   // ⚙ — the pinned row's and the cover's (`?gear=1`) — through the ONE door, risen.
@@ -167,7 +170,7 @@ test('5 · the Shop tab map: every door rises into the ONE screen — no popup s
   assert.match(code('app/vendor-dashboard/shop/_components/shop-settings.tsx'), /<MenuSettingsButton menu="shop" open=/, 'the Shop ⚙ lost its one door');
   assert.doesNotMatch(code('app/vendor-dashboard/shop/_components/shop-settings.tsx'), /<MenuSettingsButton[^>]*\binLayer\b/, 'the Shop ⚙ opens a popup sheet');
   // View shop: both doors are buttons that rise the page in the app; the only new tab is "Open in browser ↗" inside it.
-  assert.match(files.cover, /onClick=\{\(\) => setViewOpen\(true\)\}[\s\S]{0,260}data-view-shop=""/, 'View shop does not rise');
+  assert.match(files.cover, /onClick=\{\(\) => setViewOpen\(true\)\}[\s\S]{0,420}data-view-shop=""/, 'View shop does not rise');
   assert.match(files.cover, /onClick=\{\(\) => setViewOpen\(true\)\}[\s\S]{0,260}data-view-shop-pin=""/, 'the pinned row’s View shop does not rise');
   assert.equal([...files.cover.matchAll(/target="_blank"/g)].length, 1, 'View shop opens a new tab again');
   assert.match(fn(files.cover, 'ViewShopScreen'), /target="_blank"[\s\S]{0,200}data-view-shop-browser=""/, 'the risen page lost its "Open in browser ↗"');

@@ -21,12 +21,13 @@ const ACTIONS = read('app/vendor-dashboard/offers/actions.ts');
 test('it rises full screen through the shared RiseScreen (the bars step away) and is its own chunk', () => {
   assert.match(LIST, /<RiseScreen\b[\s\S]*?title="Offers"/, 'Shop › Offers is not the shared full screen');
   assert.match(MAKERS, /lazy\(\(\) => import\('\.\.\/\.\.\/offers\/_components\/offer-maker'\)/, 'the Offer Maker rides the Shop tab’s first load');
-  assert.match(MAKERS, /k: 'offers' as const, title: 'Offer Maker'/, 'no Offer Maker tile in Makers');
+  // 🔁 RE-AIMED 2026-11-23 (owner; Store drawing v12): the Offer maker is one of the four Templates tiles.
+  assert.match(MAKERS, /k: 'offers' as const, title: 'Offer maker'/, 'no Offer maker tile in Templates');
 });
 
 test('🔒 the shared lock: an unverified shop sees the tile with its lock, and a tap shows Problem → Solution', () => {
   assert.match(MAKERS, /<LockExplainer lock="offerMaker" need=\{\{ kind: 'verify'/, 'the Offer Maker lock is not the shared one');
-  assert.match(MAKERS, /t\.k === 'offers' && offers && !offers\.verified \? setLockOpen\(true\)/, 'an unverified shop opens the maker');
+  assert.match(MAKERS, /if \(t\.k === 'offers' && offers && !offers\.verified\) setLockOpen\(true\);\s*else go\(t\.k, t\.tpl\)/, 'an unverified shop opens the maker');
   assert.match(ACTIONS, /canUse\('offerMaker'/, 'the server does not ask the lock');
 });
 

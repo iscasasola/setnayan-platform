@@ -1,16 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { SortFace } from '@/components/sort-face';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
-import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
-import { addChoices, NEW_BUNDLE_HREF } from '@/lib/shop-add-choices';
 
 /**
- * 👍 SHOP'S THUMB ROW — Search services · Show & sort · ＋ (New bundle · New service — Build 3 Lane E item 6: the one add
- * control, the same two choices as the services head's ＋) (owner v95: "Thumb row: search · Show & sort
+ * 👍 SHOP'S THUMB ROW — Search services · Show & sort. The ＋ left it (Store drawing v10, owner 23 Nov 2026): Services
+ * ends in its own "Add a service" tile, and the services head keeps its ＋ (New bundle · New service) (owner v95: "Thumb row: search · Show & sort
  * (Show All/Live/Draft; Sort Most viewed/Most asked/Name) · ＋"; THE ONE BUILD A3 W12, lane C4).
  *
  *   · Search narrows the shipped card list IN PLACE by its words (the house move — Hub's crew search), no request.
@@ -59,8 +56,7 @@ function apply(words: string, show: Show, sort: Sort) {
   if (none) none.hidden = shown > 0;
 }
 
-export function ShopServicesThumb({ bundlesOn = false }: { bundlesOn?: boolean } = {}) {
-  const router = useRouter();
+export function ShopServicesThumb() {
   const [show, setShow] = useState<Show>('all');
   const [sort, setSort] = useState<Sort>('listed');
   const [words, setWords] = useState('');
@@ -110,13 +106,6 @@ export function ShopServicesThumb({ bundlesOn = false }: { bundlesOn?: boolean }
               face: <SortFace on={show !== 'all' || sort !== 'listed'} />,
             },
           ]}
-          action={{
-            menu: addChoices(bundlesOn).map((c) => ({ key: c.key, label: c.label })),
-            label: 'Add',
-            value: null,
-            onPick: (k: string) => router.push(k === 'bundle' ? NEW_BUNDLE_HREF : SERVICE_MAKER_HREF),
-            mark: 'data-shop-services-add-thumb',
-          }}
         />
       }
     />

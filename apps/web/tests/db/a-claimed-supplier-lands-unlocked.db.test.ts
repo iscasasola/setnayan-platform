@@ -149,8 +149,8 @@ before(async () => {
   await asOwner();
   F.eventId = (
     await db.query<{ e: string }>(
-      `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting, event_date)
-       VALUES ('Founders Walk', 'wedding', 'catholic', 'banquet_hall', DATE '2027-02-14') RETURNING event_id AS e`,
+      `INSERT INTO public.events (for_whom, display_name, event_type, ceremony_type, venue_setting, event_date)
+       VALUES ('self', 'Founders Walk', 'wedding', 'catholic', 'banquet_hall', DATE '2027-02-14') RETURNING event_id AS e`,
     )
   ).rows[0]!.e;
   await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'couple')`, [F.eventId, F.host]);

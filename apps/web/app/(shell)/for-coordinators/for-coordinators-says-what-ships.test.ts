@@ -79,7 +79,6 @@ const FALSE_CLAIMS: readonly { claim: RegExp; why: string }[] = [
   },
   { claim: /coming soon|\bComing\b/i, why: 'owner: never write "Coming" — the page waits for the feature instead' },
   { claim: /whisper/i, why: 'the coordinator whisper is ruled, not built (lib/chat-whisper.ts is the hosts’ own); the drawing: "must not go live before whisper does"' },
-  { claim: /Trusted partner/i, why: 'the rename is ruled, not built — the app says "preferred supplier" and "Trusted by"' },
   { claim: /first paid booking/i, why: 'an invite counts after the supplier’s first COMPLETED booking (INVITE_INFO)' },
   { claim: /Refer a supplier/i, why: 'the app calls it "Invite a supplier" (INVITE_SHEET_TITLE)' },
   { claim: /Patiktok|Music Maker/i, why: 'never on this page (brief, 20 Nov)' },
@@ -244,7 +243,7 @@ test('the switches are read with the gates the features themselves use, and fail
     assert.ok(reader.includes(gate), `_claims.server.ts does not read ${gate}`);
   }
   assert.equal((reader.match(/\.catch\(\(\) => false\)/g) ?? []).length, 3, 'a DB-read switch is not failing closed');
-  assert.match(PAGE, /const \[on, prices, fee\] = await Promise\.all\(\[\s*readClaimSwitches\(\),/, 'the page does not read the live switches');
+  assert.match(PAGE, /const \[on, prices, fee, door\] = await Promise\.all\(\[\s*readClaimSwitches\(\),/, 'the page does not read the live switches');
 });
 
 test('a switched item shows only when its switch is on; an unswitched one always shows', () => {
@@ -290,4 +289,9 @@ test('the sample service card is the LIVE card (ServiceFace + CardBadgeRow), nev
   assert.match(PAGE, /<ServiceFace\b/);
   assert.match(PAGE, /<CardBadgeRow\b/);
   assert.doesNotMatch(PAGE, /fc-sf-(g|cv|t|p|s|in|no|b)\b/, 'a hand-drawn service card is back');
+});
+
+test('the closing part says "Trusted partners" through the app\u2019s own word (owner 19 Nov; built: TRUSTED_PARTNERS)', () => {
+  assert.match(PAGE, /<p className="fc-kick2">\{TRUSTED_PARTNERS\}<\/p>/);
+  assert.doesNotMatch(WORDS, /preferred suppliers?/i, 'the page still says "preferred supplier"');
 });

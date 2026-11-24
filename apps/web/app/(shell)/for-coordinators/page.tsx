@@ -21,8 +21,8 @@
  *     "must not go live before whisper does." Its chip goes with it.
  *   · THE FREE-BOOKING RULE — LIVE since 16 Nov (`booking_fee_attribution_for`). The page quotes the ONE wording,
  *     `lib/booking-fee-who-words.ts` (SUPPLIER_FREE_BOOKING_LINE · FEE_FREE_CHIP · FEE_SCOPE), never its own sentence.
- *   · "TRUSTED PARTNERS" — the rename is ruled, not built. The app says "preferred supplier" and "Trusted by"
- *     (lib/supplier-invite.ts), so the page does too.
+ *   · "TRUSTED PARTNERS" — ruled 19 Nov and now built (`TRUSTED_PARTNERS`, lib/supplier-onboarding.ts, the shop page's
+ *     section), so the closing part says it through that one word (24 Nov, the business doors build).
  *   · COORDINATOR SETUP (Coordination already picked, the first card needs a price) — not built. The live door is
  *     `/open-shop?as=coordinator`, which opens step 2 on the coordination services; the three steps say that.
  *   · WHEN AN INVITE COUNTS — the live rule is the supplier's first COMPLETED booking: the ⓘ reads `INVITE_INFO`.
@@ -42,6 +42,10 @@
 import type { ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { requestDoor } from '@/lib/door-request';
+import { TRUSTED_PARTNERS } from '@/lib/supplier-onboarding';
+import { doorFrontHref } from '@/lib/doors';
+import { siteOrigin } from '@/lib/site-origin';
 
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
 import { ServiceFace } from '@/app/_components/service-face';
@@ -191,11 +195,16 @@ function Head(props: { id: string; title: string; lede: string; info: ReactNode;
 }
 
 export default async function ForCoordinatorsPage() {
-  const [on, prices, fee] = await Promise.all([
+  const [on, prices, fee, door] = await Promise.all([
     readClaimSwitches(),
     getVendorPrices(),
     getLiveBookingFeeSchedule().catch(() => null),
+    // 🚪 On the coordinator door (coordinator.setnayan.com — lib/doors.ts): no couple links, and the shell draws the
+    // one legal line in place of this page's footer.
+    requestDoor(),
   ]);
+  // "For suppliers →" stays (drawing v7): on a door it goes to the supplier door, on the site to the same page there.
+  const forSuppliersHref = door ? doorFrontHref('supplier', siteOrigin()) : '/for-suppliers';
 
   // The day-of rows. The announcement line rides its switch (the composer and its sends are live only while it is on).
   const dayRows: Fact[] = shownWith(
@@ -396,7 +405,7 @@ export default async function ForCoordinatorsPage() {
             lede="A shop page, service cards and a calendar, like any supplier’s."
             infoLabel="Your shop, fees and plans"
             go={
-              <Link className="fd-sechead-go fc-go" href="/for-suppliers">
+              <Link className="fd-sechead-go fc-go" href={forSuppliersHref}>
                 For suppliers →
               </Link>
             }
@@ -506,7 +515,7 @@ export default async function ForCoordinatorsPage() {
 
         {/* ── THE END — invite the suppliers you trust (Shop › Partnerships) ── */}
         <section className="fc-close fc-rv" id="start" aria-labelledby="h-close">
-          <p className="fc-kick2">Your preferred suppliers</p>
+          <p className="fc-kick2">{TRUSTED_PARTNERS}</p>
           <h2 id="h-close">Invite the suppliers you trust.</h2>
           <div className="fc-lede fc-big fc-hasi">
             Each Invites tier you reach pays a reward. Free.
@@ -560,6 +569,7 @@ export default async function ForCoordinatorsPage() {
         </section>
       </main>
 
+      {door ? null : (
       <footer className="fc-foot">
         <nav aria-label="Footer">
           <Link href="/about">About</Link>
@@ -570,6 +580,7 @@ export default async function ForCoordinatorsPage() {
           <Link href="/terms">Terms</Link>
         </nav>
       </footer>
+      )}
     </div>
   );
 }

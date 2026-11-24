@@ -80,8 +80,8 @@ async function newShop(verified = true): Promise<string> {
 /** A booking Setnayan brought: a chat that started in Explore. */
 async function sourcedBooking(shop: string, totalPhp: number) {
   const e = await db.query<{ event_id: string }>(
-    `INSERT INTO public.events (display_name, event_type, event_date)
-     VALUES ('A birthday','birthday','2031-02-14') RETURNING event_id`,
+    `INSERT INTO public.events (for_whom, display_name, event_type, event_date)
+     VALUES ('self', 'A birthday','birthday','2031-02-14') RETURNING event_id`,
   );
   const eventId = e.rows[0]!.event_id;
   await db.query(
@@ -100,8 +100,8 @@ async function sourcedBooking(shop: string, totalPhp: number) {
 /** A booking the supplier brought: the event's first import (its own Locked QR), nothing from Setnayan. */
 async function selfBroughtBooking(shop: string, totalPhp: number) {
   const e = await db.query<{ event_id: string }>(
-    `INSERT INTO public.events (display_name, event_type, event_date)
-     VALUES ('Their own client','birthday','2031-03-14') RETURNING event_id`,
+    `INSERT INTO public.events (for_whom, display_name, event_type, event_date)
+     VALUES ('self', 'Their own client','birthday','2031-03-14') RETURNING event_id`,
   );
   const eventId = e.rows[0]!.event_id;
   const ev = await db.query<{ vendor_id: string }>(
@@ -256,7 +256,7 @@ test('4 · every Nth fee booking on Setnayan is free, across shops — a ticket 
   assert.equal(isPlatformFreeNumber(16, 5), false);
   assert.equal(isPlatformFreeNumber(100_000, 100_000), true);
   const d = decideLockFee({
-    flagEnabled: true, onPlatform: true, attribution: 'sourced', shopVerified: true, frozenFree: false,
+    flagEnabled: true, onPlatform: true, attribution: 'sourced', forYou: true, shopVerified: true, frozenFree: false,
     launchOffer: false, promoWindow: false, schedule: BOOKING_FEE, nextPlatformNumber: 15, freeEveryNth: 5,
     ticketWaiting: true, agreedTotalPhp: 100_000,
   });

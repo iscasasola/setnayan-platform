@@ -11,7 +11,7 @@
  *                         23 Nov "a timed fee scene");
  *   · `PlanPicker`      — #plans: the rail (one bar per plan, its height the plan's size) picks a card; a swipe of the
  *                         cards moves the rail. Verified is picked first, as drawn;
- *   · `ToolkitCount`    — #tools: the Toolkit count line and its "See all" `Sheet`;
+ *   · `ToolkitCount`    — #tools: the ONE Toolkit count (`toolkitClaim`) and its "See all" `Sheet`;
  *   · `OpenShopFollow`  — "Open your shop" follows the reader: a floating pill on a phone, a pill under the shell's top bar
  *                         on desktop, shown only while neither the hero's button nor the closing button is on screen.
  *
@@ -23,7 +23,6 @@ import Link from 'next/link';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Check, Lock } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
-import { formatCount } from '@/lib/format-number';
 import type { FeeStep, FrontClip as Clip, ToolkitShelf, ToolkitTag } from './supplier-front-data';
 import s from './supplier-front.module.css';
 
@@ -395,15 +394,26 @@ export function PlanPicker({ plans, start }: { plans: readonly PlanCard[]; start
 
 const TAG_WORDS: Readonly<Record<ToolkitTag, string>> = { free: 'Free', paid: 'Paid', built: 'Built in' };
 
-export function ToolkitCount({ total, parts, shelves, graphsLine }: { total: number; parts: string; shelves: readonly ToolkitShelf[]; graphsLine: string }) {
+/**
+ * The Toolkit's ONE count, `toolkitClaim` (the honest total rounded DOWN to 10: "400+ tools and templates"; null when
+ * the templates could not be counted, then no number is drawn), then "See all": the sheet lists every Toolkit item by
+ * name, shelf by shelf, and carries no second number (controller, 24 Nov: one count).
+ */
+export function ToolkitCount({ claim, shelves }: { claim: string | null; shelves: readonly ToolkitShelf[] }) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
   return (
     <>
-      <p className={s.count}>
-        <span className={s.num}>{formatCount(total)}</span> in the Toolkit: {parts}.{' '}
+      <p className={s.count} data-toolkit-claim="">
+        {claim ? (
+          <>
+            <span className={s.num}>{claim}</span>, ready to use.
+          </>
+        ) : (
+          'Your Toolkit, ready to use.'
+        )}{' '}
         <button type="button" className={s.countBtn} onClick={() => setOpen(true)} aria-haspopup="dialog">
-          See all {formatCount(total)}
+          See all
         </button>
       </p>
       <Sheet open={open} onClose={() => setOpen(false)} labelledById={titleId} rise>
@@ -411,31 +421,25 @@ export function ToolkitCount({ total, parts, shelves, graphsLine }: { total: num
           <h3 id={titleId} className={s.kitTitle}>
             The Toolkit
           </h3>
-          <p className={s.lede}>{formatCount(total)} in all. Most are free.</p>
+          <p className={s.lede}>Most are free. Your card templates and print designs wait inside the app.</p>
           {shelves.map((sh) => (
             <section key={sh.key}>
-              <p className={s.k}>
-                {sh.title} · {formatCount(sh.count)}
-              </p>
-              {sh.rows.length ? (
-                <ul className={`${s.rows} ${s.rowsSm}`}>
-                  {sh.rows.map((r) => (
-                    <li key={r.key}>
-                      <div className={s.hd}>
-                        <b>{r.name}</b>
-                        {r.tag ? (
-                          <span className={s.tag} data-tag={r.tag}>
-                            {TAG_WORDS[r.tag]}
-                          </span>
-                        ) : null}
-                      </div>
-                      {r.line ? <p>{r.line}</p> : null}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className={s.fine}>{graphsLine}</p>
-              )}
+              <p className={s.k}>{sh.title}</p>
+              <ul className={`${s.rows} ${s.rowsSm}`}>
+                {sh.rows.map((r) => (
+                  <li key={r.key}>
+                    <div className={s.hd}>
+                      <b>{r.name}</b>
+                      {r.tag ? (
+                        <span className={s.tag} data-tag={r.tag}>
+                          {TAG_WORDS[r.tag]}
+                        </span>
+                      ) : null}
+                    </div>
+                    {r.line ? <p>{r.line}</p> : null}
+                  </li>
+                ))}
+              </ul>
             </section>
           ))}
         </div>

@@ -49,7 +49,8 @@ function declared(source: string, selectors: readonly string[], into: TokenMap):
       const nested = source.indexOf('{', i + 1);
       segStart = i + 1;
       if (close < 0 || (nested >= 0 && nested < close)) continue; // not an innermost block
-      if (!selectors.includes(sel)) continue;
+      // `.sn-dark-scope, html.dark` is the dark set reaching one element too (the sign-in pop-up) — read it as `html.dark`.
+      if (!selectors.includes(sel.replace(/^\.sn-dark-scope\s*,\s*/, ''))) continue;
       for (const d of source.slice(i + 1, close).split(';')) {
         const k = d.indexOf(':');
         if (k < 0) continue;

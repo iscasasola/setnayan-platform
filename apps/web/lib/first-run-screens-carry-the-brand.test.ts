@@ -4,7 +4,9 @@
  * well"; prototype `first_run_you_and_next_steps_2026-10-21.html`; controller decisions, owner may veto).
  *
  * The properties held here (each sabotaged RED, then restored — see the PR body):
- *   1. EVERY FIRST-RUN SCREEN CARRIES THE SHIPPED WORDMARK: sign-up, the You card, "What do you need?" (the
+ *   1. EVERY FIRST-RUN SCREEN CARRIES THE SHIPPED BRAND: sign-up (since 24 Nov 2026 the forming MARK, `FormingMark`,
+ *      owner DECISION_LOG "Sign in and Create account: simple, dark, a forming logo" — no wordmark line, no eyebrow),
+ *      and the shipped wordmark on the You card, "What do you need?" (the
  *      generic wizard and the Get-together form), and the open-shop wizard (one line above its four segments, so
  *      on every step) draw `FirstRunBrand` — which is the shipped `Wordmark`, never a redraw. The event-type picker
  *      draws NONE: it sits under the account bar, whose top bar already shows the mark + "Setnayan" at every
@@ -35,8 +37,12 @@ test('1 · every first-run screen draws the shipped wordmark', () => {
   const brand = read('app/_components/first-run-brand.tsx');
   assert.match(brand, /import \{ Wordmark \} from '\.\/brand-marks';/, 'FirstRunBrand is not the shipped Wordmark');
   assert.match(brand, /<Wordmark size=\{size\}/);
+  // Create account wears the forming mark at its head (24 Nov 2026), above its one title — never also the wordmark line.
+  const signup = read('app/signup/page.tsx');
+  assert.match(signup, /<FormingMark\b/, 'app/signup/page.tsx has no Setnayan mark');
+  assert.ok(signup.indexOf('<FormingMark') < signup.indexOf('className="hr-ov-title"'), 'the mark is not above the title');
+  assert.doesNotMatch(signup, /<FirstRunBrand\b/, 'one brand per card — the forming mark replaced the wordmark line');
   for (const f of [
-    'app/signup/page.tsx',
     'app/signup/you/_components/you-card.tsx',
     'app/onboarding/[type]/_components/generic-onboarding.tsx',
     'app/onboarding/simple/page.tsx',
@@ -49,8 +55,8 @@ test('1 · every first-run screen draws the shipped wordmark', () => {
   assert.ok(wiz.indexOf('<FirstRunBrand') > 0 && wiz.indexOf('<FirstRunBrand') < wiz.indexOf('role="progressbar"'), 'the brand line is inside one step');
   // The onboarding header no longer hand-draws a copy of the mark.
   assert.doesNotMatch(read('app/onboarding/[type]/_components/generic-onboarding.tsx'), /fill="#cb9e4b"/, 'a hand-drawn mark is back');
-  // The sign-up and You cards put it ABOVE the eyebrow.
-  for (const f of ['app/signup/page.tsx', 'app/signup/you/_components/you-card.tsx']) {
+  // The You card puts it ABOVE the eyebrow.
+  for (const f of ['app/signup/you/_components/you-card.tsx']) {
     const s = read(f);
     assert.ok(s.indexOf('<FirstRunBrand') < s.indexOf('className="hr-ov-eyebrow"'), `${f}: the brand line is not above the eyebrow`);
   }

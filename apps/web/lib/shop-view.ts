@@ -38,6 +38,9 @@ export const SHOP_LIVE_PARAMS: readonly string[] = [
   // SHOP-02 v7: Check a date opens OVER the shop on `?dates` (with the day, services and step it resumes on) — read
   // live, never answered from a stranger's cached copy.
   'dates', 'd', 's', 'step',
+  // 🏷 The material tag (owner 2026-11-16, lib/material-tags.ts): which piece brought the visit rides into the Inquire
+  // sheet and onto the inquiry, so a tagged arrival renders live (like `src`). The cached copy cannot carry it.
+  'via',
 ];
 
 /**

@@ -1,13 +1,4 @@
 import { Suspense, type ReactNode } from 'react';
-import Link from 'next/link';
-import {
-  DollarSign,
-  Gauge,
-  Gift,
-  Sparkles,
-  Camera,
-  Layers,
-} from 'lucide-react';
 import {
   TablePageSkeleton,
   GridPageSkeleton,
@@ -85,15 +76,6 @@ function coerceTab(v: string | undefined): Tab {
   away cannot be confused with it. The tab KEY is unchanged, so every existing
   deep link and redirect stub still resolves.
 */
-const TAB_STRIP: { key: Tab; label: string; icon: typeof DollarSign }[] = [
-  { key: 'pricing', label: 'Pricing', icon: DollarSign },
-  { key: 'setnayan-ai', label: 'Setnayan AI prices', icon: Sparkles },
-  { key: 'papic-shots', label: 'Papic shot prices', icon: Camera },
-  { key: 'price-bands', label: 'Market price bands', icon: Gauge },
-  { key: 'free-windows', label: 'Free windows', icon: Gift },
-  // Owner 2026-11-13 ("Yes, add both") — what each supplier and event plan includes (approved catalogue.html › Plan contents).
-  { key: 'plan-contents', label: 'Plan contents', icon: Layers },
-];
 
 const TAB_TITLE: Record<Tab, string> = {
   pricing: 'Pricing',
@@ -199,33 +181,11 @@ export default async function CatalogStudioPage({ searchParams }: Props) {
   const search = await searchParams;
   const tab = coerceTab(first(search.tab));
 
+  // 📐 ADMIN CLEAN PORT (owner 19 Nov 2026, "ok" on "Money screens: now and proposed"): the six tab pills that sat
+  // here were a second copy of the pinned row's "Prices · … ▾" dropdown (`lib/admin/admin-pages.ts` › prices), so
+  // they are gone and each tab starts straight at its content. Every tab is still one pick away in that dropdown.
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <nav
-        aria-label="Catalog sections"
-        className="mb-6 flex flex-wrap gap-1.5 border-b border-ink/10 pb-3"
-      >
-        {TAB_STRIP.map((t) => {
-          const active = t.key === tab;
-          const Icon = t.icon;
-          return (
-            <Link
-              key={t.key}
-              href={`/admin/pricing?tab=${t.key}`}
-              aria-current={active ? 'page' : undefined}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-terracotta/10 text-terracotta-700'
-                  : 'text-ink/65 hover:bg-ink/5 hover:text-ink'
-              }`}
-            >
-              <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              {t.label}
-            </Link>
-          );
-        })}
-      </nav>
-
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6" data-pricing-tab={tab}>
       <Suspense key={tab} fallback={tabSkeleton(tab)}>
         {activeSurface(tab, search)}
       </Suspense>

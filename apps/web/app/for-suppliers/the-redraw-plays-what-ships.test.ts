@@ -7,8 +7,8 @@
  *         (`ServiceFace layout="mall"`) with `mallPrice` / `DATE_FIT_WORDS` / `aboutKmLine`, played on NATIVE scroll
  *         (passive, nothing takes the wheel), with its scroll room a real block inside the scene;
  *   § 7 · the stairs — every fact `TIER_CAPS`, every price the catalog's, every paid step a real checkout door;
- *   tools — each paid tool's chip from its OWN live gate; the Cake Maker's from the special tools' start date, read by
- *         the same reader the gate uses; the on-the-day tools are `SPECIALIZED_TOOLS`, never a typed list.
+ *   tools — each paid widget's chip says the one rule (bought once, works on Plus, Pro or Ultra — owner a02673ac), the
+ *         Toolkit's live count (5ae3fbb2); the on-the-day tools are `SPECIALIZED_TOOLS`, never a typed list.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,9 +20,9 @@ import { DATE_FIT_WORDS } from '@/lib/calendar-truth';
 import { aboutKmLine, mallPrice } from '@/lib/mall-card';
 import { formatPhpRounded } from '@/lib/php';
 import { storageWords } from '@/lib/downgrade-limits';
-import { PRO_INCLUDED_TOOLS, PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
+import { PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
 import { SPECIALIZED_TOOLS } from '@/lib/specialized-tools';
-import { SPECIAL_TOOLS_LOCKED_WORDS } from '@/lib/special-tools';
+import { PAID_WIDGET_PLAN_WORDS } from '@/lib/special-tools';
 import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
 import {
   EVERY_PLAN_TOOLS,
@@ -34,8 +34,7 @@ import {
   PAID_TOOL_GATES,
   PAID_TOOL_TILES,
   SET_UP_ONCE_TOOLS,
-  PLAN_TOOLS_LOCKED_WORDS,
-  SPECIAL_TOOLS_OPEN_WORDS,
+  PAID_WIDGET_CHIP_WORDS,
   STAIR_TIERS,
   liveCardsMonth,
   liveStepAt,
@@ -149,8 +148,9 @@ test('the stairs are every plan, smallest to biggest, each fact read from TIER_C
 });
 
 test('every stair’s price is the catalog’s, and every paid step opens its own checkout door', () => {
-  assert.match(PAGE, /const growPrice = \(t: GrowTier\) => \(\{ solo: prices\.soloMonthly, pro: prices\.proMonthly, enterprise: prices\.enterpriseMonthly \}\)\[t\]/);
-  assert.match(PAGE, /price: growPrice\(t\), per: 'per 4 weeks', cta: `Start on \$\{step\.name\}`, href: openShopWithPlanHref\(t\)/);
+  assert.match(PAGE, /const growPrice = \(t: GrowTier\) => monthlyPlanPrice\(prices, t\)/);
+  assert.match(code('lib/v2-catalog.ts'), /\{ solo: prices\.soloMonthly, pro: prices\.proMonthly, enterprise: prices\.enterpriseMonthly \}\[tier\]/);
+  assert.match(PAGE, /price: growPrice\(t\), per: PLAN_PERIOD\.per, cta: `Start on \$\{step\.name\}`, href: openShopWithPlanHref\(t\)/);
   assert.match(CLIENT, /\{p\.price \?\? '—'\}/, 'an unread price draws something other than "—"');
   assert.ok(openShopWithPlanHref('solo').startsWith('/open-shop?plan='));
 });
@@ -167,37 +167,32 @@ test('the plan words are the house words — no Max, no Enterprise, no Supplier 
 
 /* ───────────────────────── specialized tools ───────────────────────── */
 
-test('the three paid tools are SPECIALIZED_TOOLS, each held by its real gate', () => {
+test('the three paid widgets are SPECIALIZED_TOOLS, each under the one Toolkit rule', () => {
   assert.deepEqual(PAID_TOOL_TILES.map((t) => t.key), ['cake_tool', 'papic_challenge', 'plan_3d']);
-  // the plan gate's tools are PRO_INCLUDED_TOOLS (the access file names the 3D plan `3d_plan`)
-  const planGated = Object.entries(PAID_TOOL_GATES).filter(([, g]) => g === 'plan').map(([k]) => (k === 'plan_3d' ? '3d_plan' : k));
-  assert.deepEqual(planGated.sort(), [...PRO_INCLUDED_TOOLS].sort());
-  assert.equal(FIRST_TOOLS_TIER, PRO_TOOLS_MIN_TIER, 'the tools’ door is not the first plan that carries them');
+  assert.ok(Object.values(PAID_TOOL_GATES).every((g) => g === 'toolkit'), 'a paid widget drawn under another gate');
+  assert.equal(FIRST_TOOLS_TIER, PRO_TOOLS_MIN_TIER, 'the tools’ door is not the first plan a bought widget works on');
   assert.equal(EVERY_PLAN_TOOLS.length + PAID_TOOL_TILES.length + SET_UP_ONCE_TOOLS.size, SPECIALIZED_TOOLS.length);
   assert.equal(EVERY_PLAN_TOOLS.length, 8, 'the drawing’s eight on-the-day tools');
   assert.match(PAGE, /EVERY_PLAN_TOOLS\.map\(/, 'the on-the-day tools are typed, not read');
   assert.match(PAGE, /\{t\.title\}/);
 });
 
-test('🔒 honesty: the Cake Maker’s chip reads the live start date; the plan tools’ lock is always true', () => {
-  assert.deepEqual(paidToolChip('cake_tool', true), { words: SPECIAL_TOOLS_OPEN_WORDS, locked: false });
-  assert.deepEqual(paidToolChip('cake_tool', false), { words: SPECIAL_TOOLS_LOCKED_WORDS, locked: true });
-  assert.equal(paidToolChip('cake_tool', null), null, 'an unread date still claims open or locked');
-  for (const k of ['papic_challenge', 'plan_3d'] as const) {
-    assert.deepEqual(paidToolChip(k, true), { words: PLAN_TOOLS_LOCKED_WORDS, locked: true });
+test('🔒 honesty (owner a02673ac): every paid widget’s chip says bought once, works on a paid plan — never “included”, never “every plan”', () => {
+  for (const k of ['cake_tool', 'papic_challenge', 'plan_3d'] as const) {
+    assert.deepEqual(paidToolChip(k), { words: PAID_WIDGET_CHIP_WORDS, locked: true });
   }
-  // the strip locks exactly the plans the plan gate refuses
+  assert.equal(PAID_WIDGET_CHIP_WORDS, `Buy once · ${PAID_WIDGET_PLAN_WORDS}`);
+  assert.equal(paidToolChip('scanner'), null, 'a free widget wears a paid chip');
+  // the strip marks exactly the plans a bought widget works on
   for (const t of STAIR_TIERS) assert.equal(stairHasTools(t), isTierAtLeast(t, PRO_TOOLS_MIN_TIER), t);
-  // the page reads the date with the gate's own reader and decides with the gate's own rule
-  assert.match(ROUTE, /readSpecialToolsPaidFrom\(createAdminClient\(\)\)/);
-  assert.match(ROUTE, /specialTools=\{specialTools\}/);
-  assert.match(PAGE, /specialTools\.status === 'ok' \? specialToolsOpenToAll\(specialTools\.paidFrom, nowMs\) : null/);
-  assert.doesNotMatch(PAGE, /special_tools_paid_from'?\s*[<>]=?|Date\.parse\(specialTools/, 'the page re-implements the gate');
+  // the old open-to-all start date opens nothing any more: the page no longer reads it
+  assert.doesNotMatch(ROUTE, /readSpecialToolsPaidFrom|specialTools=/);
+  assert.doesNotMatch(PAGE, /specialToolsOpenToAll|Every plan, for now|Included in/);
 });
 
 test('the tools’ door is a real checkout door, priced from the catalog', () => {
   assert.match(PAGE, /href: openShopWithPlanHref\(FIRST_TOOLS_TIER\)/);
   assert.match(PAGE, /price: growPrice\(FIRST_TOOLS_TIER\)/);
   assert.match(PAGE, /\{toolsDoor\.price \?\? '—'\}/);
-  assert.match(PAGE, /per 4 weeks, with \{toolsDoor\.name\}/);
+  assert.match(PAGE, /\{PLAN_PERIOD\.per\}, with \{toolsDoor\.name\}/);
 });

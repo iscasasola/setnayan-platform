@@ -17,9 +17,10 @@ import { ordinalWord, type BookingFeeStanding } from './booking-fee-disclosure';
 import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
 import { storageWords } from './downgrade-limits';
+import { clientsKeptWords } from './supplier-client-room';
 import { TIER_CAPS, TIER_LABEL, VENDOR_TIERS, WAITLIST_SETTING_MAX, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
-import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from './specialized-tools-access';
+import { PRO_TOOLS_MIN_TIER } from './specialized-tools-access';
 import { PLAN_CHATBOT_LEVEL } from './vendor-ai-level';
 
 export type PlanRowBadge = { tone: 'ok' | 'wait' | 'no' | 'quiet'; word: string };
@@ -97,7 +98,14 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     // dependend anymore"); once verified, every plan sets its own.
     { key: 'branches', title: 'Branches beyond your main shop', line: branches },
     {
-      // 💾 Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes — 256 MB · 2 GB · 128 GB · 500 GB · 1 TB (re-cut 22 Nov), in the words
+      // 👥 Clients first (owner 2026-11-23 "Yes, clients first"): what the storage keeps, computed from the size
+      // (`clientsKeptWords`, lib/supplier-client-room.ts), never typed. Its asterisk's footnote is `CLIENTS_FOOTNOTE`.
+      key: 'clients',
+      title: 'Clients you keep',
+      line: clientsKeptWords(tier) ?? 'Couldn’t read',
+    },
+    {
+      // 💾 Owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes — 50 MB · 1 GB · 50 GB · 256 GB · 1 TB (fixed 23 Nov), in the words
       // `storageWords` prints everywhere else (decimal GB / TB).
       key: 'storage',
       title: 'Storage for your files',
@@ -113,19 +121,17 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     {
       key: 'tools',
       title: 'Specialized tools',
-      // 🎁 Owner 20 Nov: Papic Challenges and the branded 3D booth left the unlock for Pro and up — so a plan below
-      // Pro that includes the unlock must not say "All included".
-      line: SPECIALIZED_TOOLS_INCLUDED_TIERS.includes(tier)
-        ? isTierAtLeastPro(tier)
-          ? 'All included'
-          : `Included · Papic Challenges and the 3D booth come with ${TIER_LABEL[PRO_TOOLS_MIN_TIER]}`
-        : `The free set · all of them from ${TIER_LABEL[SPECIALIZED_TOOLS_INCLUDED_TIERS[0] ?? 'solo']}`,
+      // 🧰 Owner a02673ac (23 Nov): a paid widget is bought once in the Toolkit and works only on Plus, Pro or Ultra — so
+      // no plan says it includes one. Below the plan floor, a bought widget stays locked ("Works again when you subscribe").
+      line: isTierAtLeastPro(tier)
+        ? 'Free widgets included · paid widgets work once bought in the Toolkit'
+        : `${tier === 'free' ? 'Free widgets from Verified' : 'Free widgets included'} · paid widgets work from ${TIER_LABEL[PRO_TOOLS_MIN_TIER]}`,
     },
     { key: 'chatbot', title: 'AI chatbot', line: chatbotLine(tier) },
   ];
 }
 
-/** Is this plan at or above the tier the Pro-only tools open on? Order = `VENDOR_TIERS`. */
+/** Is this plan at or above the plan floor a bought paid widget works on (`PRO_TOOLS_MIN_TIER`)? Order = `VENDOR_TIERS`. */
 function isTierAtLeastPro(tier: VendorTier): boolean {
   return VENDOR_TIERS.indexOf(tier) >= VENDOR_TIERS.indexOf(PRO_TOOLS_MIN_TIER);
 }

@@ -104,6 +104,7 @@
 /dev/spotlight-lab/[[...page]]	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/story-suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-chat-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/supplier-hub-tools-lab	# 2026-11-24 · internal (dev lab, 404 in production) · the hub tools (#8211 + #8212) on fixtures, for the §4 shots; reached by typing its address
 /dev/supplier-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-plan-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-print-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -128,5 +129,6 @@
 /onboarding/simple	# first run 2026-10-02 · sign-in & onboarding · a page nobody can reach without typing its address
 /papic/lightcheck	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
 /sample/[...rest]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
+/vendor-dashboard/shop/store	# 2026-11-23 · the Toolkit front (#8193); its door is the drawn "Toolkit" button on the Shop cover (v19 frame 0), which #8231 builds. Until #8231 lands the shelves open straight from the Shop's [+] tiles. Drop this line with #8231
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /dev/drive-copy-lab	# 2026-11-22 · internal (dev lab, 404 in production) · Copy to Google Drive per event on fixtures (#8170); reached by typing its address

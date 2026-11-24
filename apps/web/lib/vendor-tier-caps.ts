@@ -4,7 +4,7 @@
  *
  * `tier_state` enum on vendor_profiles = free | verified | solo | pro | enterprise.
  * free + verified are legacy states kept for backward compatibility.
- * The three marketed tiers are Supplier Plus (₱999/28d) · Pro (₱2,499/28d) · Enterprise (₱7,999/28d).
+ * The three marketed tiers are Supplier Plus · Pro · Ultra, billed monthly (prices: vendor_billing_catalog, never here).
  * (Prices shown for reference only — the live figures are read from
  * vendor_billing_catalog; this file only carries capability caps, not prices.)
  *
@@ -453,23 +453,24 @@ export interface TierCaps {
   /** Card maker units view: Floor plan (rooms and tables) — every paid plan (owner 2026-11-22 "FINAL LADDER": every tool on every paid size). Grid is on every plan. */
   floorPlanUnits: boolean;
   /**
-   * 🎂 SPECIAL TOOLS — the Cake Maker and every special tool after it: a plan benefit of every paid plan (owner 2026-11-22 "FINAL LADDER":
-   * "every tool on every paid size"; was Pro and up), never a separate fee. Until the admin
-   * start date (`specialToolsOpenToAll`, lib/special-tools.ts) every shop may use them. A shop that drops to Free or
-   * Verified keeps its saved options and designs; the tool locks and comes back on upgrade.
+   * 🧰 PAID WIDGETS — the plans a BOUGHT paid widget (Cake Maker · Song bank · Papic challenge · 3D plan) works on
+   * (owner a02673ac, 23 Nov 2026: bought AND on Plus, Pro or Ultra; the plan alone no longer includes it). The SQL twin
+   * is `vendor_pro_tools_included`; the whole answer is `vendor_store_tool_open`. A shop that drops to Free or Verified
+   * keeps what it bought and its saved work; the widget locks ("Works again when you subscribe").
    */
   specialTools: boolean;
   /**
-   * STORAGE — the stored files a shop may keep, in bytes (owner 2026-11-22 "FINAL LADDER", sizes re-cut by "SUPPLIER SIZES RE-CUT" + "PLUS CUT TO 128 GB"; the plans ARE storage sizes):
-   * Free 256 MB ("free unverified is 256 MB. so they run out of space asap.", owner 23 Nov) · Verified 2 GB ("verified is 2Gb only", owner 22 Nov) · Plus 128 GB · Pro 500 GB · Ultra 1 TB. Every plan has one now; `null` stays in the type only for an unreadable
+   * STORAGE — the stored files a shop may keep, in bytes (owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes; sizes fixed by owner 2026-11-23
+   * "SUPPLIER SIZES FIXED": "free should only be 50 clients compressed photos" · "Pro is 256Gb · Ultra is 1TB"; no chat &
+   * documents room, "Yes, drop it"): Free 50 MB · Verified 1 GB · Plus 50 GB · Pro 256 GB · Ultra 1 TB. Every plan has one now; `null` stays in the type only for an unreadable
    * row and is never a plan value.
    *
-   * GB are 1,000,000,000 bytes — the GB the supplier reads (`storageWords`, lib/downgrade-limits.ts) — so "2 GB" on the
+   * GB are 1,000,000,000 bytes — the GB the supplier reads (`storageWords`, lib/downgrade-limits.ts) — so "1 GB" on the
    * Plan is exactly this number. What counts: each stored copy (`supplier_media`) that a filed event file still points
    * at, once (`vendor_storage_used_bytes`). The paid packs `vendor_storage_5/10/15gb` are priced and INACTIVE; they add
    * nothing here.
    *
-   * The SQL twin is `vendor_tier_limit(…,'storage_mb')` in whole MB (256 · 2,000 · 128,000 · 500,000 · 1,000,000); the database refuses new
+   * The SQL twin is `vendor_tier_limit(…,'storage_mb')` in whole MB (50 · 1,000 · 50,000 · 256,000 · 1,000,000); the database refuses new
    * bytes past it (`enforce_supplier_storage_allowance`). Held in step by `supplier-storage-allowance.db.test.ts`.
    * GRANDFATHERED: nothing already stored is ever touched — only the next new file past the allowance is refused.
    */
@@ -478,12 +479,12 @@ export interface TierCaps {
 
 /** One storage GB, as the supplier reads it (decimal — see `TierCaps.storageBytes`). */
 export const STORAGE_GB = 1_000_000_000;
-/** One storage MB (decimal). Free is 256 MB (owner 2026-11-23 "free unverified is 256 MB. so they run out of space asap."); the SQL twin counts whole MB. */
+/** One storage MB (decimal). Free is 50 MB (owner 2026-11-23: "it is only for them to experience it"); the SQL twin counts whole MB. */
 export const STORAGE_MB = 1_000_000;
 
 export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   free: {
-    storageBytes: 256 * STORAGE_MB, // owner 2026-11-23 "free unverified is 256 MB. so they run out of space asap." (was 1 GB) · owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": storage 256 MB · 2 GB · 128 GB · 500 GB · 1 TB (re-cut 22 Nov) — every file the shop holds counts
+    storageBytes: 50 * STORAGE_MB, // owner 2026-11-23 "SUPPLIER SIZES FIXED": "free should only be 50 clients compressed photos", a trial, not a plan to stay on (was 256 MB) — every file the shop holds counts
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 — same on every plan (was 1)
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
     serviceCardsTotal: 1, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": live cards 1 · 3 · 15 · no limit · no limit
@@ -509,7 +510,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     formMediaUploads: false, // owner 2026-11-22 "FINAL LADDER": every tool on every paid size — not on the free plans
     cardMakerDetailed: false, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
     floorPlanUnits: false, // owner 2026-11-22 "FINAL LADDER": Floor plan view on every paid size; Grid for all
-    specialTools: false, // owner 2026-11-22 "FINAL LADDER": every tool on every paid size
+    specialTools: false, // a paid widget works only on a paid plan, and only once bought (owner a02673ac, 23 Nov)
     formVideoLinks: false, // owner 2026-11-22 "FINAL LADDER": every tool on every paid size
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
@@ -529,7 +530,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // cap and the 2-per-category edge are GONE (owner 2026-10-23, "plans price reach,
   // not income"): Supplier Plus is better on reach and tools, never on how much a shop may sell.
   verified: {
-    storageBytes: 2 * STORAGE_GB, // owner 2026-11-22 "verified is 2Gb only" (was 5 GB) · owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": storage 256 MB · 2 GB · 128 GB · 500 GB · 1 TB (re-cut 22 Nov) — every file the shop holds counts
+    storageBytes: 1 * STORAGE_GB, // owner 2026-11-23 "SUPPLIER SIZES FIXED": Verified 1 GB (was 2 GB) — every file the shop holds counts
     // OWNER 2026-08-29 — verified gets its OWN pair, 2 / 1. It used to clone the
     // FREE numbers (1 / 0) because the 2026-08-09 grid gave four numbers for five
     // tiers and `verified` was the row the build had to invent. Asked directly, the
@@ -560,7 +561,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     formMediaUploads: false, // owner 2026-11-22 "FINAL LADDER": every tool on every paid size — not on the free plans
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
     floorPlanUnits: false, // owner 2026-11-22 "FINAL LADDER": Floor plan view on every paid size; Grid for all
-    specialTools: false, // owner 2026-11-22 "FINAL LADDER": every tool on every paid size
+    specialTools: false, // a paid widget works only on a paid plan, and only once bought (owner a02673ac, 23 Nov)
     formVideoLinks: false, // owner 2026-11-22 "FINAL LADDER": every tool on every paid size
     slotsPerDay: Infinity, // no plan limit (2026-10-23; was 1)
     slotsTimeBounded: false,
@@ -579,12 +580,12 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     premiumPage: false,
     inquireLink: true,
   },
-  // Supplier Plus — ₱999/28d entry-level paid tier (price from vendor_billing_catalog).
+  // Supplier Plus — the entry-level paid tier, billed monthly (price from vendor_billing_catalog).
   // One category, one operator + one helper. Real name shown day-1 (paid).
   // Token-burn model same as Pro/Enterprise (inAppGated = true). One agent seat
   // (owner 2026-07-02 — Supplier Plus now sits one seat above Free · Verified's 0).
   solo: {
-    storageBytes: 128 * STORAGE_GB, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": storage 256 MB · 2 GB · 128 GB · 500 GB · 1 TB (re-cut 22 Nov) — every file the shop holds counts
+    storageBytes: 50 * STORAGE_GB, // owner 2026-11-23 "SUPPLIER SIZES FIXED": Plus 50 GB (was 128 GB) — every file the shop holds counts
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 3)
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
     serviceCardsTotal: 15, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": live cards 1 · 3 · 15 · no limit · no limit
@@ -596,7 +597,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     formMediaUploads: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
     floorPlanUnits: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
-    specialTools: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
+    specialTools: true, // a paid widget bought in the Toolkit works on this plan (owner a02673ac, 23 Nov; was "included")
     formVideoLinks: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
     chat: 'chat',
     parentCategories: Infinity, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": no category cap on a paid size
@@ -625,7 +626,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inquireLink: true,
   },
   pro: {
-    storageBytes: 500 * STORAGE_GB, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": storage 256 MB · 2 GB · 128 GB · 500 GB · 1 TB (re-cut 22 Nov) — every file the shop holds counts
+    storageBytes: 256 * STORAGE_GB, // owner 2026-11-23 "SUPPLIER SIZES FIXED": "Pro is 256Gb" (was 500 GB) — every file the shop holds counts
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS,
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
     // Market intel (cross-business Demand Radar + Price-Position) is PRO-AND-UP
@@ -640,7 +641,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     formMediaUploads: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
     floorPlanUnits: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
-    specialTools: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
+    specialTools: true, // a paid widget bought in the Toolkit works on this plan (owner a02673ac, 23 Nov; was "included")
     formVideoLinks: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
     serviceCardsTotal: Infinity, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": live cards 1 · 3 · 15 · no limit · no limit
     chat: 'chat',
@@ -675,7 +676,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // app 2026-11-06 — Ultra's add-ons are the way past Ultra.) Left unbounded: parentCategories ("all
   // categories" — taxonomy-bounded already) + servicesPerLeaf + inApp volume.
   enterprise: {
-    storageBytes: 1000 * STORAGE_GB, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": storage 256 MB · 2 GB · 128 GB · 500 GB · 1 TB (re-cut 22 Nov) — every file the shop holds counts
+    storageBytes: 1000 * STORAGE_GB, // owner 2026-11-23 "SUPPLIER SIZES FIXED": "Ultra is 1TB" — every file the shop holds counts
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 10)
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
     marketIntel: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
@@ -686,7 +687,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     formMediaUploads: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
     cardMakerDetailed: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" (ruling 33): Free = Basic maker only; Verified and up = Detailed + all 7 Availability styles
     floorPlanUnits: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
-    specialTools: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
+    specialTools: true, // a paid widget bought in the Toolkit works on this plan (owner a02673ac, 23 Nov; was "included")
     formVideoLinks: true, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": every tool on every paid size
     serviceCardsTotal: Infinity, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": live cards 1 · 3 · 15 · no limit · no limit
     chat: 'chat',

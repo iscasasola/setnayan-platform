@@ -24,6 +24,7 @@ import React from 'react';
 import { stripComments } from '@/lib/strip-comments';
 import { stayOnPageSearchHref } from '@/lib/shell-search';
 import { ownSupplierItems, YOUR_OWN_SUPPLIER, ON_YOUR_EVENT } from '@/lib/own-supplier-items';
+import { signedInRootLanding } from '@/lib/sign-in-landing';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -67,7 +68,11 @@ test('1 · the Discover row reaches no other destination', () => {
 });
 
 test('2 · a member’s /?q= stays on / and draws the results in the sections’ place', () => {
-  assert.doesNotMatch(code('app/(hub)/page.tsx'), /redirect\(/, 'app/(hub)/page.tsx sends a search somewhere else again');
+  // 23 Nov 2026: the page's ONE redirect is a signed-in BARE `/` opening Home (`signedInRootLanding`) — a search
+  // (`?q=`, even empty) is never it, so the words still answer here.
+  assert.deepEqual(code('app/(hub)/page.tsx').match(/redirect\(/g) ?? [], ['redirect('], 'app/(hub)/page.tsx gained a second redirect');
+  assert.match(code('app/(hub)/page.tsx'), /if \(home\) redirect\(home\);/);
+  for (const q of ['seda', '']) assert.equal(signedInRootLanding({ q }, { signedIn: true, isAnonymous: false, accountType: 'customer' }), null, 'app/(hub)/page.tsx sends a search somewhere else again');
   const fd = code('app/_components/frontdoor/front-door.tsx');
   assert.match(fd, /<DiscoverThumbRow key=\{searchQuery\} q=\{searchQuery\} \/>/, 'the row is not redrawn with the words it searched');
   // 2026-11-12: the supplier view (a supplier parameter on `/`) is tested first, so the search branch now follows
@@ -83,12 +88,12 @@ test('3 · an empty query renders the normal Discover feed, never a blank page',
   assert.match(fd, /\) : \(\s*<>\s*\{view\.kind === 'stories' \?[\s\S]*?\) : \(\s*<FrontDoorFeed\b/, 'with no words, Discover no longer draws its feed');
   // The old results address with no words: back to Discover before anything is drawn.
   const page = code('app/dashboard/(account)/search/page.tsx');
-  const bare = page.indexOf("if (!query) redirect('/');");
+  const bare = page.indexOf('if (!query) redirect(DISCOVER_HREF);');
   assert.ok(bare > 0, '/dashboard/search with no words no longer goes back to Discover');
   assert.ok(bare < page.indexOf('return ('), 'the empty page draws something before it goes back');
   // Clear on Discover's results is Discover.
   const results = code('app/_components/frontdoor/front-door-results.tsx');
-  assert.match(results, /<Link href=\{place === 'shell' \? SHELL_SEARCH_PATH : '\/'\} className="fd-sechead-go">/);
+  assert.match(results, /<Link href=\{place === 'shell' \? SHELL_SEARCH_PATH : DISCOVER_HREF\} className="fd-sechead-go">/);
   for (const f of ['app/dashboard/(account)/search/page.tsx', 'app/_components/frontdoor/front-door.tsx', 'app/_components/frontdoor/front-door-results.tsx']) {
     assert.doesNotMatch(code(f), /in the search at the top/, `${f} points at a search that is not there`);
   }

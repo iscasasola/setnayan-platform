@@ -328,6 +328,8 @@ const NOT_A_SHOP_SAVE: Record<string, string> = {
     "the homepage strip's own flag — the shop page names a shop's awards (`fetchVendorCurrentAwards` reads `award_type`), not whether `/` features them",
   'app/admin/reviews/actions.ts :: dismissReviewFlag':
     "a flag is the admin queue's — the shop page draws no flag (lib/reviews.ts only INSERTS them); the action's guest-review hide/show branch clears the shop's copy itself (`setGuestReviewVisibility` → `revalidateShopPage`)",
+  'app/vendor-dashboard/shop/store/store-actions.ts :: storeAction':
+    "writes `vendor_profiles.store_layout` (the order of the supplier's OWN Shop tab rows — no public page reads it) and submits a Toolkit order; a bought widget (the Song bank's set list) reaches the shop page only once the order is PAID, which the admin's approval decides, never this save",
   'app/api/vendor/papic-capture/route.ts :: POST':
     "the event-day camera's raw captures, one write per photo during an event — a shop page shows the portfolio photos a supplier IMPORTS (`papic-portfolio-import`, which revalidates); the copy's 60 s window covers the rest",
 };

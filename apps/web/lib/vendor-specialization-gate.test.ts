@@ -15,6 +15,7 @@ import {
   SPECIALIZATION_MIN_TIER,
   VENDOR_SPECIALIZATIONS,
   resolveVendorSpecializationAccess as resolveForProduction,
+  freeWidgetsOpen,
   specializationFreeWindowActive,
   specializationSetForServices,
   specializationSetsForServices,
@@ -182,7 +183,7 @@ test('🆓 every set is free since 2026-11-09 — Song Desk and Emcee script joi
 test('🆓 in production a Free band, a Free host and a Free coordinator each hold their desk', () => {
   for (const [services, set] of [[BAND, 'song_desk'], [HOST, 'stage_script'], [COORDINATOR, 'floor_command']] as const) {
     for (const subscription of [null, sub('free'), sub('verified'), sub('pro', PAST)]) {
-      const access = resolveForProduction({ subscription, services, now: NOW, freeUntilIso: null });
+      const access = resolveForProduction({ subscription, services, now: NOW, freeUntilIso: null, verified: true });
       assert.equal(access.reason, 'free_set', `${set} · ${subscription?.tier_state ?? 'none'}`);
       assert.equal(holdsSpecialization(access, set), true, `${set} · ${subscription?.tier_state ?? 'none'}`);
     }
@@ -195,13 +196,37 @@ test('🆓 in production a Free band that also coordinates holds BOTH desks', ()
     services: [...BAND, ...COORDINATOR],
     now: NOW,
     freeUntilIso: null,
+    verified: true,
   });
   assert.deepEqual([...access.unlockedSets].sort(), ['floor_command', 'song_desk']);
 });
 
+test('🆓 free widgets open from Verified up (owner 23 Nov): an unverified Free shop holds no desk, and says why', () => {
+  for (const [services, set] of [[BAND, 'song_desk'], [HOST, 'stage_script'], [COORDINATOR, 'floor_command']] as const) {
+    for (const verified of [false, null, undefined]) {
+      for (const subscription of [null, sub('free')]) {
+        const access = resolveForProduction({ subscription, services, now: NOW, freeUntilIso: null, verified });
+        assert.equal(access.reason, 'not_verified', `${set} · ${String(verified)} · ${subscription?.tier_state ?? 'none'}`);
+        assert.deepEqual(access.unlockedSets, [], `${set} · ${String(verified)}`);
+        assert.equal(holdsSpecialization(access, set), false, `${set} · ${String(verified)}`);
+        assert.equal(access.genericKit, true);
+      }
+    }
+    // Verified up: the Verified tier on the ladder (a comp tier) opens it too, and a paid plan clears the floor.
+    assert.equal(resolveForProduction({ subscription: sub('verified'), services, now: NOW, freeUntilIso: null }).reason, 'free_set', set);
+    assert.equal(resolveForProduction({ subscription: sub('solo'), services, now: NOW, freeUntilIso: null }).reason, 'unlocked', set);
+  }
+  // The one rule, both ends read it: freeWidgetsOpen.
+  assert.equal(freeWidgetsOpen(sub('free'), true), true);
+  assert.equal(freeWidgetsOpen(sub('free'), false), false);
+  assert.equal(freeWidgetsOpen(sub('free'), null), false);
+  assert.equal(freeWidgetsOpen(null, undefined), false);
+  assert.equal(freeWidgetsOpen(sub('verified'), null), true);
+});
+
 test('a COORDINATOR on any tier, or none, holds the floor-command desk — no Supplier Plus needed', () => {
   for (const subscription of [null, undefined, sub('free'), sub('verified'), sub('platinum_deluxe')]) {
-    const access = resolveVendorSpecializationAccess({ subscription, services: COORDINATOR, now: NOW });
+    const access = resolveVendorSpecializationAccess({ subscription, services: COORDINATOR, now: NOW, verified: true });
     assert.equal(access.genericKit, true);
     assert.equal(access.unlockedSet, 'floor_command');
     assert.deepEqual(access.unlockedSets, ['floor_command']);
@@ -221,6 +246,7 @@ test('(paywall fixture) a free band that also coordinates gets the floor, never 
     subscription: sub('free'),
     services: [...BAND, ...COORDINATOR],
     now: NOW,
+    verified: true,
   });
   assert.deepEqual(access.unlockedSets, ['floor_command']);
   assert.equal(holdsAnySpecialization(access, 'song_desk'), false);

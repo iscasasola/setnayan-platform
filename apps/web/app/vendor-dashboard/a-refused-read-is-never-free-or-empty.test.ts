@@ -65,7 +65,8 @@ test('C-1 · a refused booth order read never re-offers the buy form, and the bu
   assert.match(lib, /booth order state', error\);\s*return 'unread';/, 'a refused orders read is not "none"');
   const section = dash('clients/[eventId]/_components/booth-event-section.tsx');
   assert.match(section, /unread: !!r\.error,/, 'the plan read must keep its error');
-  assert.match(section, /\) : orderState === 'unread' \|\| gateUnread \? \([\s\S]{0,400}\) : orderState === 'pending' \?/, 'the unread line must come before the buy form and the plan upsell');
+  assert.match(section, /\) : orderState === 'unread' \|\| gateUnread \? \([\s\S]{0,400}\) : orderState === 'pending' \?/, 'the unread line must come before the widget lock');
+  assert.match(section, /unread: st\.kind === 'unread'/, 'a refused widget read is unread, never the lock');
   const action = dash('clients/[eventId]/booth-event-actions.ts');
   assert.match(action, /if \(existing === 'unread'\) \{\s*return err\(/, 'the buy must refuse when it cannot tell whether this event is already paid');
 });

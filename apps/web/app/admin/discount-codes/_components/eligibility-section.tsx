@@ -19,6 +19,11 @@ import Link from 'next/link';
 import { addEligibleUser, removeEligibleUser } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { formatCount } from '@/lib/format-number';
+import { FormRows } from '@/app/_components/form-row';
+import { TemplateEmpty, TemplateRow, TemplateRows, TemplateSection } from '@/app/_components/template-rows';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { PostedFieldRow } from '@/app/admin/_components/posted-field-row';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export type EligibleRow = {
   user_id: string;
@@ -35,63 +40,38 @@ type Props = {
 export function EligibilitySection({ discountCodeId, eligibleUsers }: Props) {
   const isPrivate = eligibleUsers.length > 0;
 
+  // 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): the lock state is the section's label, both
+  // explaining sentences sit behind its ⓘ, each account is ONE row with ONE action (Remove), and the add box is the
+  // house Form row. Same two actions, same posted names (`discount_code_id`, `user_id`, `email`).
   return (
-    <div>
-      <span
-        className="block text-sm font-medium"
-        style={{ color: 'var(--m-ink)' }}
-      >
-        {isPrivate ? (
-          <>
-            Private code · {formatCount(eligibleUsers.length)} account
-            {eligibleUsers.length === 1 ? '' : 's'} can redeem
-          </>
-        ) : (
-          'Anyone with the code can redeem'
-        )}
-      </span>
-      <p
-        className="mt-1 text-xs"
-        style={{ color: 'var(--m-slate)' }}
-      >
-        Empty = public (anyone with the code can redeem · max_uses still
-        applies). Add accounts to lock this code to specific people · gift
-        cards for family members, birthday codes for one customer, etc.
-      </p>
-
-      <div
-        className="mt-3 space-y-3 rounded-md border p-4"
-        style={{
-          background: 'var(--m-paper)',
-          borderColor: 'var(--m-line)',
-        }}
-      >
-        {/* Existing eligibles · list with remove */}
-        {eligibleUsers.length > 0 ? (
-          <ul className="space-y-1.5">
-            {eligibleUsers.map((u) => (
-              <li
-                key={u.user_id}
-                className="flex items-center justify-between gap-2 text-sm"
-              >
-                <span
-                  className="leading-tight"
-                  style={{ color: 'var(--m-ink)' }}
-                >
-                  {u.full_name ? (
-                    <>
-                      {u.full_name}
-                      <span
-                        className="ml-1 text-xs tabular-nums"
-                        style={{ color: 'var(--m-slate)' }}
-                      >
-                        ({u.email})
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-xs tabular-nums">{u.email}</span>
-                  )}
-                </span>
+    <TemplateSection
+      label={
+        isPrivate
+          ? `Private code · ${formatCount(eligibleUsers.length)} account${eligibleUsers.length === 1 ? '' : 's'} can redeem`
+          : 'Anyone with the code can redeem'
+      }
+      tip={
+        <>
+          Empty = public (anyone with the code can redeem · max_uses still
+          applies). Add accounts to lock this code to specific people · gift
+          cards for family members, birthday codes for one customer, etc.{' '}
+          The account must already exist on Setnayan — they sign up first,
+          then you add their email here.
+        </>
+      }
+      first
+      data="voucher-eligibility"
+    >
+      {/* Existing eligibles · list with remove */}
+      {eligibleUsers.length > 0 ? (
+        <TemplateRows label="Accounts that can redeem">
+          {eligibleUsers.map((u) => (
+            <TemplateRow
+              key={u.user_id}
+              data={u.user_id}
+              title={u.full_name ?? u.email}
+              line={u.full_name ? `(${u.email})` : undefined}
+              right={
                 <form action={removeEligibleUser}>
                   <input
                     type="hidden"
@@ -99,85 +79,41 @@ export function EligibilitySection({ discountCodeId, eligibleUsers }: Props) {
                     value={discountCodeId}
                   />
                   <input type="hidden" name="user_id" value={u.user_id} />
-                  <SubmitButton
-                    className="text-xs underline-offset-2 hover:underline"
-                    pendingLabel="Removing…"
-                    style={{ color: 'var(--m-slate)' }}
-                  >
+                  <SubmitButton className={actionButtonClass('neutral')} pendingLabel="Removing…">
                     Remove
                   </SubmitButton>
                 </form>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p
-            className="text-xs italic"
-            style={{ color: 'var(--m-slate)' }}
-          >
-            No accounts yet · code is public.
-          </p>
-        )}
-
-        {/* Add new */}
-        <form
-          action={addEligibleUser}
-          className="flex flex-wrap items-end gap-2 border-t pt-3"
-          style={{ borderColor: 'var(--m-line)' }}
-        >
-          <input
-            type="hidden"
-            name="discount_code_id"
-            value={discountCodeId}
-          />
-          <div className="flex-1 min-w-[200px]">
-            <label
-              htmlFor={`add_email_${discountCodeId}`}
-              className="block text-xs font-medium"
-              style={{ color: 'var(--m-ink)' }}
-            >
-              Add account by email
-            </label>
-            <input
-              autoComplete="off"
-              type="email"
-              id={`add_email_${discountCodeId}`}
-              name="email"
-              required
-              placeholder="customer@example.com"
-              className="mt-1 block w-full rounded-md border px-3 py-1.5 text-sm"
-              style={{
-                background: 'var(--m-paper)',
-                borderColor: 'var(--m-line)',
-                color: 'var(--m-ink)',
-              }}
+              }
             />
-          </div>
-          <SubmitButton
-            className="rounded-md px-3 py-1.5 text-sm font-medium"
-            pendingLabel="Adding…"
-            style={{
-              background: 'var(--m-orange-2)',
-              color: 'var(--m-paper)',
-            }}
-          >
-            Add
-          </SubmitButton>
-        </form>
-        <p
-          className="text-xs"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          The account must already exist on Setnayan — they sign up first,
-          then you add their email here.{' '}
+          ))}
+        </TemplateRows>
+      ) : (
+        <TemplateEmpty data="voucher-eligibility">No accounts yet · code is public.</TemplateEmpty>
+      )}
+
+      {/* Add new */}
+      <form action={addEligibleUser} className={`${ADMIN_FRAME} mt-2.5 px-4 py-1`}>
+        <input
+          type="hidden"
+          name="discount_code_id"
+          value={discountCodeId}
+        />
+        <FormRows width="wide">
+          <PostedFieldRow name="Add account by email" fieldName="email" empty="customer@example.com" />
+        </FormRows>
+        <div className="flex flex-wrap items-center justify-end gap-3 pb-2">
           <Link
             href="/admin/accounts?tab=users"
-            className="underline-offset-2 hover:underline"
+            className="text-sm underline-offset-2 hover:underline"
+            style={{ color: 'var(--m-slate)' }}
           >
             Browse users →
           </Link>
-        </p>
-      </div>
-    </div>
+          <SubmitButton className={actionButtonClass('brand')} pendingLabel="Adding…">
+            Add
+          </SubmitButton>
+        </div>
+      </form>
+    </TemplateSection>
   );
 }

@@ -47,7 +47,7 @@ import {
   readShopCakeCards,
   readCakeMakerOn,
   readShopCakeMaker,
-  readShopSpecialToolsAllowed,
+  readShopCakeToolOpen,
   readStoredCakeDesign,
   saveShopCakeMaker,
   storeCakeDesign,
@@ -124,7 +124,7 @@ export async function runCakeAction(input: CakeActionInput): Promise<CakeActionR
       return fail('Only the shop owner or an admin can change the Cake Maker.');
     }
     const admin = createAdminClient();
-    const allowed = await readShopSpecialToolsAllowed(admin, shop);
+    const allowed = await readShopCakeToolOpen(admin, shop);
     if (allowed.status !== 'ok') return fail();
     if (op === 'options') {
       const read = await readShopCakeMaker(supabase, shop);
@@ -148,7 +148,7 @@ export async function runCakeAction(input: CakeActionInput): Promise<CakeActionR
     ]);
     if (thread.error || options.status === 'unread') return fail();
     if (!thread.data) return fail('This chat is not your shop’s.');
-    if (options.status !== 'ok') return fail('Set up your Cake Maker first — Shop › Specialized tools › Cake Maker.');
+    if (options.status !== 'ok') return fail('Set up your Cake Maker first — Shop › Your widgets › Cake Maker.');
     // 🪪 A ＋ tool needs a verified shop (owner 21 Nov 2026) — asked HERE, at the server, before the invite is written:
     // hiding the tile is not a check. A refused read refuses too ('unknown'), never lets the invite through. Read with
     // the service client for the same reason as the options above (an Account Manager cannot read the shop row).
@@ -258,7 +258,7 @@ export async function runCakeAction(input: CakeActionInput): Promise<CakeActionR
   if (op !== 'open') return fail();
   const [options, allowed, cards, mood, shopRes, eventRes, shopPhotos, ownPhotos] = await Promise.all([
     readShopCakeMaker(admin, t.vendor_profile_id),
-    readShopSpecialToolsAllowed(admin, t.vendor_profile_id),
+    readShopCakeToolOpen(admin, t.vendor_profile_id, t.event_id),
     readShopCakeCards(admin, t.vendor_profile_id),
     readMoodCakeColours(supabase, t.event_id),
     admin.from('vendor_profiles').select('business_name').eq('vendor_profile_id', t.vendor_profile_id).maybeSingle(),

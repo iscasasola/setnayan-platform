@@ -166,15 +166,15 @@ export const LOCKS = {
     server: 'lib/vendor-autoreply/inbox-hook.ts',
     draft: true,
   },
-  // 🎁 Owner 20 Nov: the photo challenge and the 3D booth come with Pro and up (DECISION_LOG "… INCLUDED IN PRO AND UP";
-  // Free · Verified · Plus may not have them — controller under owner delegation, same day). The database is the gate
-  // (`vendor_pro_tools_included`, migration 20271356215288); a shop that held them when it shipped keeps them to the end.
+  // 🧰 Owner a02673ac (23 Nov): the photo challenge and the 3D booth are paid widgets — bought once in the Toolkit AND on
+  // Plus, Pro or Ultra (the plan alone no longer includes them). The database is the gate (`vendor_store_tool_open`,
+  // migration 20271360126307); their locks use the `widget` need (the Toolkit page or the plans door). `opens` = the plan floor.
   photoChallenge: {
     name: 'Photo challenge',
     problem: 'Guests forget which supplier made the event special.',
     solution: 'Guests snap your service on a photo mission at the event.',
-    opens: 'pro',
-    // The authoring RPC papic_create_vendor_challenge asks vendor_papic_challenge_entitled → vendor_pro_tools_included.
+    opens: 'solo',
+    // The authoring RPC papic_create_vendor_challenge asks vendor_papic_challenge_entitled → vendor_store_tool_open.
     server: 'app/vendor-dashboard/clients/[eventId]/actions.ts',
     draft: true,
   },
@@ -182,8 +182,8 @@ export const LOCKS = {
     name: '3D booth',
     problem: 'In the couple’s 3D plan, your booth looks like anyone’s.',
     solution: 'Your logo and poster on your booth in their 3D plan.',
-    opens: 'pro',
-    // fetchBooths reads event_branded_booth_vendor_ids → vendor_pro_tools_included (service role).
+    opens: 'solo',
+    // fetchBooths reads event_branded_booth_vendor_ids → vendor_store_tool_open (service role).
     server: 'lib/seating.ts',
     draft: true,
   },

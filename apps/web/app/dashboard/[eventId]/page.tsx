@@ -28,7 +28,8 @@ import { AppStoreTransactions } from '@/app/_components/iap/app-store-transactio
 import { boughtWhere, liveWatchHomeStatus } from '@/lib/iap/where-bought';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { liveStudioControlPath } from '@/lib/live-studio-control';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
+import { hasLiveSessionCookie } from '@/lib/session-cookie.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -174,6 +175,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   try {
     const { eventId } = await params;
+    // 🔑 Signed out (or a session the middleware could not refresh): the site's own title, and no read as anon.
+    if (!(await hasLiveSessionCookie())) return {};
     const supabase = await createClient();
     // A refusal costs a browser-tab title and nothing else — the fallback
     // below is the site default, which is the right answer either way. Bound
@@ -241,6 +244,10 @@ export default async function EventHomePage({
 }) {
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
+  // 🔑 NO SESSION, NO READ (live fault 21 Nov, `GET events` 42501 as anon): the row below opens BEFORE the sign-in check,
+  // beside the layout's own redirect, so a signed-out request — or a session the middleware could not refresh, left as
+  // an emptied cookie — sent it as anon. The jar is asked first; no trip (`lib/session-cookie.server.ts`).
+  if (!(await hasLiveSessionCookie())) redirect(loginRedirectPath(`/dashboard/${eventId}`));
   const supabase = await createClient();
   // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts) — opened before anything asks a
   // column of it: the layout's chrome, the needs, the tab title, Home's own row (`HOME_EVENT_COLUMNS`)

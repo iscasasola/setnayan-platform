@@ -1,8 +1,29 @@
 'use client';
 
 import type { ComponentType, ReactNode, SVGProps } from 'react';
-import { FileCheck2, ListOrdered, Mic, PackageCheck, PenLine, Salad, Tally5, Ticket, Truck, UsersRound } from 'lucide-react';
-import { entryTemplateOf, type DietaryRead, type EntriesRead } from '@/lib/hub-tool-entries';
+import {
+  Armchair,
+  BedDouble,
+  Church,
+  Clock,
+  FileCheck2,
+  HardHat,
+  ListOrdered,
+  Mic,
+  PackageCheck,
+  PenLine,
+  Ruler,
+  Salad,
+  ShieldCheck,
+  Sparkles,
+  Stamp,
+  Tally5,
+  Ticket,
+  Trophy,
+  Truck,
+  UsersRound,
+} from 'lucide-react';
+import { entryTemplateOf, isScoredTool, type DietaryRead, type EntriesRead } from '@/lib/hub-tool-entries';
 import { HUB_TOOL_LIBRARY } from '@/lib/hub-tools';
 import { getModule, type DayOfModuleId } from '@/lib/vendor-dayof-modules';
 import type { VendorSet } from '@/lib/vendor-sets';
@@ -10,7 +31,7 @@ import type { Song } from '@/lib/songs';
 import { PartCard } from '@/app/vendor-dashboard/_components/set-two/parts';
 import { ReadFailedNote } from '@/app/vendor-dashboard/_components/set-two/read-failed';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
-import { ChecklistTool, CounterTool, PerPersonTool, type HubToolSave } from './entry-tools';
+import { ChecklistTool, CounterTool, OrderedListTool, PerPersonTool, type HubToolSave } from './entry-tools';
 import type { EntourageSheetSection } from '@/lib/supplier-march';
 import { DietarySheet } from './dietary-sheet';
 import { EntourageSheet } from './entourage-sheet';
@@ -34,6 +55,11 @@ type Icon = ComponentType<SVGProps<SVGSVGElement> & { strokeWidth?: number | str
  *   Queue counter         ④ Counter         rows in vendor_hub_tool_entries (a count per row), against the headcount
  *   Entourage             ② Per-person, read-only — the couple's own entourage (`loadMarch`), never typed here
  *
+ * 24 Nov, the free rest · part 1 (DECISION_LOG "Seven open calls settled" item 3), every one rows in vendor_hub_tool_entries:
+ *   Ceremony details · Proofs & approval · Safety permit & cue                     ① Checklist (the couple sees the ticks)
+ *   Fittings & measurements · Looks per person · Crew roster · Room list           ② Per-person
+ *   Chair schedule · Reservation slots · Brackets & scoring (a score per row)      ⑤ Ordered list, ▲ ▼
+ *
  * ONE home (controller, DECISION_LOG 23 Nov 2026): every row above is in `vendor_hub_tool_entries`; the Shot list's
  * couple-read table is the Shot list's alone.
  *
@@ -51,10 +77,70 @@ const MARK: Partial<Record<DayOfModuleId, Icon>> = {
   paperwork_checklist: FileCheck2,
   load_in_and_venue_access: Truck,
   delivery_and_drop_off: PackageCheck,
+  ceremony_details: Church,
+  proofs_and_approval: Stamp,
+  safety_permit_and_cue: ShieldCheck,
+  fittings_and_measurements: Ruler,
+  looks_per_person: Sparkles,
+  crew_roster: HardHat,
+  room_list: BedDouble,
+  chair_schedule: Armchair,
+  reservation_slots: Clock,
+  brackets_and_scoring: Trophy,
 };
 
-/** Each entry tool's words — the add box and the empty line (the drawing's examples). */
-const ENTRY_WORDS: Record<string, { placeholder: string; empty: string; second?: string }> = {
+/** Each entry tool's words — the add box and the empty line (the drawing's examples). `first` names an ordered list's row. */
+const ENTRY_WORDS: Record<string, { placeholder: string; empty: string; second?: string; first?: string }> = {
+  ceremony_details: {
+    placeholder: 'e.g. Mass at 3:00 PM',
+    empty: 'List what the ceremony needs settled — the time, sponsors, readings, banns — and tick each when it’s set.',
+  },
+  proofs_and_approval: {
+    placeholder: 'e.g. Invitation proof 2',
+    empty: 'List each proof you send the couple, and tick it when they approve it.',
+  },
+  safety_permit_and_cue: {
+    placeholder: 'e.g. Fire permit in hand',
+    empty: 'List the permit papers, the safe zone and the go cue, and tick each when it’s cleared.',
+  },
+  fittings_and_measurements: {
+    placeholder: 'Name',
+    second: 'Sizes or fitting date',
+    empty: 'Add each person you dress, with their sizes or next fitting, and tick them when their fitting is done.',
+  },
+  looks_per_person: {
+    placeholder: 'Name',
+    second: 'Their look',
+    empty: 'Add each person and the look they chose — soft glam, natural — and tick them when they’re done.',
+  },
+  crew_roster: {
+    placeholder: 'Name',
+    second: 'Role, call time or meal',
+    empty: 'Add each person working the event, with their role and call time, and tick them as they check in.',
+  },
+  room_list: {
+    placeholder: 'Name',
+    second: 'Room',
+    empty: 'Add each guest and their room, and tick them when they’ve checked in.',
+  },
+  chair_schedule: {
+    first: 'Name',
+    placeholder: 'Their name',
+    second: 'Call time',
+    empty: 'Add each person in the order they sit, with their call time, and move them up or down as the morning changes.',
+  },
+  reservation_slots: {
+    first: 'Slot',
+    placeholder: 'e.g. 2:00 PM · Santos',
+    second: 'How many, or a note',
+    empty: 'List each slot in order — the time and who — and move them as plans change.',
+  },
+  brackets_and_scoring: {
+    first: 'Team or player',
+    placeholder: 'e.g. Team Reyes',
+    second: 'Group or match',
+    empty: 'Add each team or player in order, then count their score as the games go.',
+  },
   tech_rider: {
     placeholder: 'e.g. 2× wireless mic',
     empty: 'List what you need at the venue — mics, power, a sound check — and tick each as it’s ready.',
@@ -152,6 +238,22 @@ export function HubToolPanelsView({
         body = <ChecklistTool eventId={eventId} toolKey={key} title={title} icon={icon} initial={read.entries} save={save} placeholder={words.placeholder} empty={words.empty} />;
       } else if (template === 'per_person') {
         body = <PerPersonTool eventId={eventId} toolKey={key} title={title} icon={icon} initial={read.entries} save={save} second={words.second ?? 'Note'} empty={words.empty} />;
+      } else if (template === 'ordered_list') {
+        body = (
+          <OrderedListTool
+            eventId={eventId}
+            toolKey={key}
+            title={title}
+            icon={icon}
+            initial={read.entries}
+            save={save}
+            first={words.first ?? 'Item'}
+            placeholder={words.placeholder}
+            second={words.second ?? 'Note'}
+            empty={words.empty}
+            scored={isScoredTool(key)}
+          />
+        );
       } else {
         body = <CounterTool eventId={eventId} toolKey={key} title={title} icon={icon} initial={read.entries} save={save} attending={attending} placeholder={words.placeholder} empty={words.empty} />;
       }

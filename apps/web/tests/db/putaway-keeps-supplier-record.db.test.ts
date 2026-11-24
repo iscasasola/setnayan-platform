@@ -29,6 +29,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { foundOnSetnayan } from './found-on-setnayan';
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
@@ -79,6 +80,8 @@ async function newEvent(name: string): Promise<string> {
 
 /** A DELIVERED booking — the state these relations count. */
 async function newDeliveredBooking(eventId: string, vendorProfileId: string): Promise<string> {
+  // Since 2026-11-23 (b89e2420 C) only an ARM'S-LENGTH job counts: every booking here is one the couple found here.
+  await foundOnSetnayan(db, vendorProfileId, eventId);
   const r = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors
        (event_id, category, vendor_name, status, linked_vendor_profile_id)

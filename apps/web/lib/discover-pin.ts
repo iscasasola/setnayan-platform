@@ -14,6 +14,7 @@
  * Pure: no React, no reads. Held by `lib/discover-pin.test.ts`.
  */
 import type { DiscoverEventCard } from '@/lib/discover-events-core';
+import { DISCOVER_HREF } from './discover-href';
 
 type Shelf<T> = { status: 'ok'; items: T[] } | { status: 'unavailable' };
 
@@ -27,7 +28,8 @@ export function discoverFollowingOn(params: Record<string, string | string[] | u
 
 /** The address the toggle goes to — `/` with it on, `/` with it off. Nothing else rides along. */
 export function discoverFollowingHref(on: boolean): string {
-  return on ? '/' : `/?${DISCOVER_FOLLOWING_PARAM}=1`;
+  // Off is Discover's own door, never the bare `/` (a signed-in `/` opens Home, 23 Nov 2026).
+  return on ? DISCOVER_HREF : `/?${DISCOVER_FOLLOWING_PARAM}=1`;
 }
 
 /**

@@ -23,9 +23,7 @@ import {
   eventGetsAnimatedMonogramFromHubPro,
   animatedMonogramIncludedNote,
 } from '@/lib/animated-monogram';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { hubPart } from '@/lib/hub-parts';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { routes } from '@/lib/routes';
 import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { STUDIO_NOTICES } from './studio-notices';
@@ -165,26 +163,10 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
    * Absent (null) when owned, when the store shell withholds purchases (App
    * Review 3.1.1), or when the catalog price cannot be read — and the step then
    * offers no purchase rather than a guessed one. */
-  let checkout: {
-    serviceKey: string;
-    displayName: string;
-    originalPriceCentavos: string;
-    settings: Awaited<ReturnType<typeof fetchPlatformSettings>>;
-  } | null = null;
-  if (!ownsAnimated && !storeShell) {
-    /* 💎 The animation is Event Pro's Logo & QR part (owner 2026-10-22, Q2): the standalone Animated Monogram is
-       retired from sale (migration 20271283592608), so the ONE button sells the part, at the part's catalogue price. */
-    const logoQr = hubPart('logo_qr');
-    const pricePhp = (await formatV2Sku(logoQr.sku).catch(() => null))?.price_php ?? null;
-    if (pricePhp != null) {
-      checkout = {
-        serviceKey: logoQr.sku,
-        displayName: `Event Pro · ${logoQr.name}${event.display_name ? ` · ${event.display_name}` : ''}`,
-        originalPriceCentavos: String(Math.round(pricePhp * 100)),
-        settings: await fetchPlatformSettings(supabase),
-      };
-    }
-  }
+  /* 🛒 ONE PLACE TO BUY (owner 2026-11-23, Event services): the animation comes with the whole Event Hub (Event Plus,
+     the Event Hub single, Pro, Ultra — `SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM`), so its button opens Event services
+     with the Event Hub ready. Absent when owned or in the store shell (App Review 3.1.1). */
+  const unlockHref = !ownsAnimated && !storeShell ? routes.dashboard.eventServices(eventId, 'hub') : null;
 
   // The "Your monogram, everywhere" save sequence (benchmark §5): plays once
   // right after a successful save — studio or upload — on the EFFECTIVE mark.
@@ -336,7 +318,7 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
         // `includedNote` renders only when `owned`, so the shell never sees it.
         owned={ownsAnimated && !storeShell}
         includedNote={includedNote}
-        checkout={checkout}
+        unlockHref={unlockHref}
         unlock={!storeShell && ownsAnimated ? <AnimatedMonogramUpgrade eventId={eventId} /> : null}
       />
     </section>

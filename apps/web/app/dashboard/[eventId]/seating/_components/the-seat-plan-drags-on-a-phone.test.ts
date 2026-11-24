@@ -59,7 +59,8 @@ test('2 · the tray renders the drawing — and nothing when nobody is left to s
     React.createElement(SeatFaceTray, { faces, groups: [{ id: 'grp', label: 'Lim family', count: 4 }], canEdit: true, onTapFace: noop, onMore: noop, onDrop: noop, onPan: noop }),
   );
   assert.match(html, /To seat · 9/, 'the count is not everyone still to seat');
-  assert.match(html, /Press and hold a face, then drag it to a chair\. Or tap · move\./);
+  // The line is the 20 Nov drawing's (§ 9 frame 3) — it replaced "Press and hold a face, then drag it to a chair. Or tap · move."
+  assert.match(html, /Tap a table, or hold a face and drop it\./);
   // Before the row is measured (here: the server) every face is drawn; the browser then keeps what fits.
   assert.equal((html.match(/data-seat-tray-face=/g) ?? []).length, 9);
   assert.match(html, /class="[^"]*\bh-11 w-11\b/, 'a face is not 44 px');
@@ -148,7 +149,8 @@ test('5 · the gesture: the List hold, the house slop, the one edge rule — and
 test('6 · reachable: Guests › Seats › 2D on a phone, over the thumb row, under the Undo line', () => {
   const ed = code('seating-editor.tsx');
   assert.match(ed, /const seatTray =\s*roomOnly && isPhone && comingUnseated\.length > 0 \? \(\s*<SeatFaceTray/);
-  assert.match(ed, /\{seatToast \? <SeatToast toast=\{seatToast\} \/> : null\}\s*\{seatPop \?\? tableBar \?\? seatTray\}/);
+  assert.match(ed, /\{seatToast \? <SeatToast toast=\{seatToast\} \/> : null\}\s*\{seatLegend\}\s*\{overThumb\}/);
+  assert.match(ed, /const overThumb = seatPop \?\? \(addBar \? <>\{seatTray\}\{addBar\}<\/> : tableBar \?\? startCard \?\? seatTray\);/);
   assert.match(ed, /const roomOnly = inGuests && !in3d && view === 'plan';/);
   assert.match(ed, /onTapFace=\{openMove\}/, 'a tap is no longer the shipped "Move … to…"');
 });

@@ -270,6 +270,13 @@ export const routes = {
   dashboard: {
     index: () => `/dashboard`,
     activity: (eventId: string) => `/dashboard/${eventId}/activity`,
+    /**
+     * 🛒 EVENT SERVICES — the one place to buy for an event (owner 2026-11-23). It lives at the plans page's address
+     * (`studio/website-pro`, which every plan door already used). `add` opens the singles with that one ready:
+     * photos (Papic "Add more"), live (the Live Watch page), ai (Setnayan AI), hub (an Event Hub lock).
+     */
+    eventServices: (eventId: string, add?: 'photos' | 'live' | 'ai' | 'hub') =>
+      `/dashboard/${eventId}/studio/website-pro${add ? `?add=${add}` : ''}`,
     addOns: {
       // `index` (/studio) removed 2026-10-02 with the full-page More Services
       // (owner, tracker d1) — zero callers; the services open through
@@ -528,6 +535,8 @@ export const routes = {
       detail: (contractId: string) => `/vendor-dashboard/contracts/${contractId}`,
       new: () => `/vendor-dashboard/contracts/new`,
     },
+    // 🔎 Deep Search: the shop's included searches and their results (owner 2026-11-22, "Deep Search 1 a month").
+    deepSearch: () => `/vendor-dashboard/deep-search`,
     earnings: () => `/vendor-dashboard/earnings`,
     manpower: () => `/vendor-dashboard/manpower`,
     messages: {
@@ -538,6 +547,7 @@ export const routes = {
     moodboardLibrary: () => `/vendor-dashboard/moodboard-library`,
     more: () => `/vendor-dashboard/more`,
     notifications: () => `/vendor-dashboard/notifications`,
+    onTheDay: () => `/vendor-dashboard/on-the-day`,
     paymentOptions: () => `/vendor-dashboard/payment-options`,
     profile: () => `/vendor-dashboard/profile`,
     proposals: () => `/vendor-dashboard/proposals`,
@@ -545,6 +555,20 @@ export const routes = {
     repertoire: () => `/vendor-dashboard/repertoire`,
     reviews: () => `/vendor-dashboard/reviews`,
     services: () => `/vendor-dashboard/services`,
+    performance: () => `/vendor-dashboard/performance`,
+    shop: {
+      index: () => `/vendor-dashboard/shop`,
+      // 🏅 Every badge, its seven steps and what is left (owner 23 Nov 2026).
+      badges: () => `/vendor-dashboard/shop/badges`,
+      // 🛍 The Store — Tools · Graphs · Badges (owner 23 Nov 2026). A shelf opens filtered; an item opens its detail.
+      // The Toolkit. A shelf is one of `STORE_SHELVES` (lib/supplier-store.ts, spelt here since that file reads this one);
+      // an item is a widget (`tools`), a graph, a QR design (`qr`) or a template (`payment_plans` · `availability`).
+      store: {
+        index: () => `/vendor-dashboard/shop/store`,
+        shelf: (shelf: 'tools' | 'yours' | 'chat' | 'present' | 'hub' | 'shop_page' | 'payment_plans' | 'availability' | 'qr' | 'graphs' | 'badges') => `/vendor-dashboard/shop/store/${shelf}`,
+        item: (shelf: 'tools' | 'graphs' | 'qr' | 'badges' | 'payment_plans' | 'availability', key: string) => `/vendor-dashboard/shop/store/${shelf}/${encodeURIComponent(key)}`,
+      },
+    },
     subscription: () => `/vendor-dashboard/subscription`,
     team: () => `/vendor-dashboard/team`,
     verify: () => `/vendor-dashboard/verify`,

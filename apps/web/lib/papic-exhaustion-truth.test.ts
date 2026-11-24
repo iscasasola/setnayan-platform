@@ -297,7 +297,7 @@ test('a shot refused for credits is KEPT and counted — never drawn as saved (t
   assert.match(chip, /case 'credits':\s*return 'The event’s credits ran out, so these shots are kept on this phone\./);
   // The seat's money refusals reach that hold (lib/papic-seat-lane.ts → classifyAnswer 'credits').
   const lane = stripComments(readFileSync(join(process.cwd(), 'lib', 'papic-seat-lane.ts'), 'utf8'));
-  assert.match(lane, /case 'camera_points_exhausted':\s*case 'camera_photo_cap':\s*case 'camera_video_cap':\s*return \{ status: 402, error: 'camera_points_exhausted' \};/);
+  assert.match(lane, /case 'camera_points_exhausted':\s*return \{ status: 402, error: 'camera_points_exhausted' \};/);
 });
 
 test('the comment stripper is not itself the reason these pass', () => {

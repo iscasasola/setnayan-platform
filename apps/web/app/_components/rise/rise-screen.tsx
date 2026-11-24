@@ -19,7 +19,8 @@
  *            back on close — the exact reverse. Never drawn with the bars.
  *   REDUCED  a 120 ms cross-fade both ways, no movement.
  *   LAYERS   the pop layer (`--sn-z-pop`, drawn on <body>) — over the thumb row and the bar; a picker or sheet opened
- *            from inside it is at `--sn-z-modal`, above it. ONE LEVEL: sections inside open in place, never a second
+ *            from inside it is at `--sn-z-modal`, above it. Opened from INSIDE a sheet, it rises on `--sn-z-modal` itself,
+ *            over that sheet. ONE LEVEL: sections inside open in place, never a second
  *            full screen on top.
  *
  * The tab you are on, tapped again (`sn:tab-reselect`), still goes to its top: the screen closes at once and the tab's
@@ -120,6 +121,9 @@ export type RiseScreenProps = {
 
 export function RiseScreen({ title, line, info, labelledById, actions, thumb, fill = false, onClose, busy = false, data, kind = 'grow', children }: RiseScreenProps) {
   const host = usePortalHost();
+  // Opened from inside a Sheet (a hall's floor plan, from its Spaces sheet): the sheet is on the modal layer, so the
+  // full screen rises on that layer too — drawn on <body> after the sheet, it stands over the sheet that opened it.
+  const overSheet = useContext(InSheet);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const originRef = useRef<HTMLElement | null>(null);
   const closingRef = useRef(false);
@@ -218,6 +222,8 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
       // Stack lands on the Spring: for a few frames it stands ~5 % ABOVE its place. The same cream runs on below it, so
       // the page behind never shows through at the foot (a shadow paints; it is not animated).
       style={kind === 'stack' ? { boxShadow: '0 12vh 0 0 rgb(var(--color-cream))' } : undefined}
+      // Opened from a sheet: globals.css lifts it to `--sn-z-modal` (`[data-rise-screen][data-rise-over-sheet]`).
+      data-rise-over-sheet={overSheet ? '' : undefined}
     >
       {/* 📌 The head: ✕ · the title over its one line · the screen's own action · ⓘ (settings prototype `.fs-head`). */}
       <div className="shrink-0 border-b border-ink/10 bg-cream pt-[env(safe-area-inset-top)]" data-rise-head="">

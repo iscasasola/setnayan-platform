@@ -135,6 +135,52 @@ export const REVEAL_MATERIALS: Readonly<Record<InviteThemeId, RevealMaterials | 
     veil: '#26222d',
     petals: '#ec8cd6',
   },
+  // ── 23 Nov redraw, batch 1: each theme's own palette (canvas · surface · accent), as the rule above says.
+  perlas: {
+    name: 'Champagne silk and a pearl seal',
+    paper: '#fffaf1',
+    liner: '#f3e7d3',
+    door: '#f3e7d3',
+    seal: '#4a3b2c',
+    veil: '#4a3b2c',
+    petals: '#fbf3e4',
+  },
+  waling: {
+    name: 'Night paper and an orchid seal',
+    paper: '#1f1122',
+    liner: '#c23a86',
+    door: '#150a17',
+    seal: '#c23a86',
+    veil: '#1f1122',
+    petals: '#f0a6d0',
+  },
+  capiz: {
+    name: 'Shell paper and a dark wood seal',
+    paper: '#fffcf4',
+    liner: '#f5eedf',
+    door: '#5a3a22',
+    seal: '#5a3a22',
+    veil: '#3a2a1c',
+    petals: '#fff8ea',
+  },
+  hagdan: {
+    name: 'Terrace green paper and a rice-gold seal',
+    paper: '#234029',
+    liner: '#dfc27a',
+    door: '#1d3524',
+    seal: '#dfc27a',
+    veil: '#234029',
+    petals: '#f4f1e6',
+  },
+  solihiya: {
+    name: 'Cane paper and an amber seal',
+    paper: '#fffbf3',
+    liner: '#f6efe2',
+    door: '#8a5a1e',
+    seal: '#8a5a1e',
+    veil: '#3b2a16',
+    petals: '#f6efe2',
+  },
 });
 
 export function revealMaterialsFor(theme: string | null | undefined): RevealMaterials | null {

@@ -1463,7 +1463,7 @@ export const UGAT_FINDINGS: UgatFinding[] = [
     trace: [
       ['Surface', 'Vendor profile badge (Plus/Pro/Ultra pill)'],
       ['Still true', 'tier_state remains denormalized on vendor_profiles; NO database trigger re-syncs it'],
-      ['New since 07-05', 'Pay-activation stamps tier_expires_at = now+28d; a login-driven sweep fires from vendor-dashboard/layout.tsx:238 (write guard 20270920020000)'],
+      ['New since 07-05', 'Pay-activation stamps tier_expires_at = start + 1 calendar month (vendor_plan_term_end, 20271360344805; was now+28d); a login-driven sweep fires from vendor-dashboard/layout.tsx:238 (write guard 20270920020000)'],
       ['The residual', 'Public readers are BUILT to pair the columns (v/[slug]/page.tsx:253-259,1516-1520 · vendorHoldsActivePaidSub · enterprise-vendor-gate.ts:32) — but any NEW reader of tier_state alone regresses silently. A convention cannot be enforced by review alone.'],
       ['Audit trail', 'Flagged 2026-07-04 · re-verified 2026-07-30 as mitigated. Live signal counts vendors currently wearing a lapsed badge.'],
     ],
@@ -2208,15 +2208,15 @@ export const UGAT_JOINTS: UgatJoint[] = [
      * never reaches here — tests/db/vendor-papic-credits-are-the-suppliers.db.test.ts.
      *
      * ⚠ GRANTS ARE APPEND-ONLY AND ALWAYS POSITIVE; THE SPEND SIDE IS NOT A
-     * COUNTER HERE. What the supplier has spent is their own captures
-     * (vendor_papic_captures, 1 point per photo, 8 per clip) — the same meter
-     * the capture route charges — so there is no second table to drift from
-     * it. G3's portfolio imports must count against the same meter.
+     * COUNTER HERE. Since 2026-11-23 the only thing that spends them is G3's
+     * portfolio imports (vendor_papic_portfolio_photos.credits_spent). The
+     * on-the-day camera (vendor_papic_captures) spends NOTHING: its limit is the
+     * shop's PLAN (TIER_CAPS.eventPhotosPerEvent / eventVideos — Free · Verified
+     * 10 photos, no videos; Plus and up no limit), counted from the captures.
      *
-     * ⚠ vendor_papic_capture_grants is the TIER row (one per vendor×event,
-     * UNIQUE on the pair — free/ltd/unli, admin-comped), not the credit ledger.
-     * It could not hold a second pack for the same event, which is why the
-     * ledger is a table of its own rather than a `source` value on it.
+     * ⛔ vendor_papic_capture_grants (the Lite/Ltd/Unli TIER row) is DROPPED
+     * (migration supplier_event_photo_limits, owner 2026-11-23) — the plan is
+     * the only tier a supplier capture has.
      *
      * ⚠ NO WRITE POLICY ON THE LEDGER. A supplier that could INSERT a grant
      * could grant itself the pack. Writes are service-role only, from
@@ -2228,7 +2228,6 @@ export const UGAT_JOINTS: UgatJoint[] = [
     id: 'J49',
     claims: [
       { kind: 'table', table: 'vendor_papic_portfolio_credit_grants' },
-      { kind: 'table', table: 'vendor_papic_capture_grants' },
       { kind: 'table', table: 'vendor_papic_captures' },
       {
         kind: 'fk',
@@ -2266,14 +2265,12 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // Papic packs (platform_retail_catalog_v2 PAPIC_GUEST* rows, order key
       // vendor_papic_pack__<code>); the ₱500 vendor_papic_portfolio_pack is retired.
       { kind: 'no_column', table: 'vendor_papic_portfolio_credit_grants', column: 'price_php' },
-      // The tier row: one per vendor×event, and the spend side's columns.
-      { kind: 'unique', table: 'vendor_papic_capture_grants', columns: ['vendor_profile_id', 'event_id'] },
-      { kind: 'column', table: 'vendor_papic_capture_grants', column: 'tier' },
+      // The captures the plan's event limit counts (photos, not hidden).
       { kind: 'fk', table: 'vendor_papic_captures', column: 'event_id', references: 'events' },
       { kind: 'column', table: 'vendor_papic_captures', column: 'media_type' },
       { kind: 'column', table: 'vendor_papic_captures', column: 'hidden_at' },
       // G3 — the private portfolio album a supplier IMPORTS into (never the
-      // couple's to see), spending the SAME meter as the captures above. A
+      // couple's to see), the one thing that spends the credit ledger above. A
       // FOURTH table, not a fourth spend-source on vendor_papic_captures,
       // because an import is not a camera event (no media_type, no clip
       // duration) — it is a finished photo the supplier already had.
@@ -4442,6 +4439,36 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'tests/db/a-tagged-files-photo-shows-in-inspiration-only-when-the-shop-does.db.test.ts (card parts · nothing before the shop shows it · one per photo × part · no public read of source_event_id/event_file_id · removed → retired) · column grants (event_file_id: service role only)',
     traps:
       'Never DELETE a tag that was ever approved — event_inspiration_assets.library_asset_id CASCADES, so a delete takes the tile off every saved board; untag RETIRES. The shop page reads on the service role, which skips the policy, so it filters by the listing view itself (lib/inspiration-tags.server.ts). The gate is LIVE: a Hide or a moved date takes the tag off at once — never copy “shown” into a column.',
+  },  {
+    /**
+     * 📏 THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SHOP OWNS (owner 2026-11-23, migration 20271360925434). The
+     * plan is a storage size; the meter is every stored file (live) plus every row naming the shop (measured nightly),
+     * split Photos & video · Files · Records, against one number per plan (the chat & documents room dropped 23 Nov).
+     */
+    id: 'J73',
+    claims: [
+      { kind: 'table', table: 'supplier_stored_files' },
+      { kind: 'fk', table: 'supplier_stored_files', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'supplier_stored_files', column: 'released_at' },
+      { kind: 'column', table: 'supplier_stored_files', column: 'evidence' },
+      { kind: 'table', table: 'supplier_storage_records' },
+      { kind: 'fk', table: 'supplier_storage_records', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'supplier_storage_records', column: 'chat_bytes' },
+    ],
+    chain: 7,
+    pair: ['TYPE-VENDORS', 'TYPE-BILLING'],
+    title: 'Shop → what it stores against its plan (Photos & video · Files · Records)',
+    joint: 'vendor_storage_breakdown',
+    cardinality:
+      'A shop has 0..n ledger rows (one per object it uploaded that no other table sizes; PK object_ref) and 0..1 records row (its data as last measured); every table naming the shop is counted unless supplier_storage_record_sources leaves it out with a reason',
+    implementedBy:
+      'supplier_stored_files (uploads with no other size: vendors/ · vendor-payment-qr/ · vendor-originals/ · handovers · suggestions · the marked public copy) · supplier_storage_records (pg_column_size of every row naming the shop, chat apart) · supplier_storage_record_sources · supplier_storage_measure_records (the nightly claimed job supplier-storage-records, cron-free — lib/supplier-storage-measure.server.ts; one shop on its first look) · vendor_storage_files · vendor_storage_breakdown (THE read) · vendor_storage_used_bytes (the total, for the filing backstop) · supplier_storage_is_media (twin of isMediaContentType)',
+    writtenBy:
+      'recordShopUpload from /api/upload (after the PUT is signed, `ledger` roots only — lib/supplier-storage.ts SHOP_UPLOAD_ROOTS) and recordServerShopUpload (handover, mood-board suggestion, supplier-photo-publish); releaseDeletedShopUpload from the two delete choke points (the cleanup executor and the public-asset delete in lib/storage.ts); supplier_storage_measure_records (the job, and vendor_storage_breakdown on a never-measured shop)',
+    guardedBy:
+      'tests/db/the-meter-counts-every-shop-table.db.test.ts (every shop table counted or left out with a reason · a new table counted by default · booking rows through event_vendors · a new shop reads a few KB · every file in its kind · media twin · service role only) · lib/supplier-storage.test.ts (the gate: only photos and video past the plan wait; documents and evidence never refused) · lib/the-meter-counts-every-upload-root.test.ts (every upload root is a counted shop root or a named non-shop root)',
+    traps:
+      'Never ledger a supplier-files/ upload: its size is on supplier_media and it would count twice. Records are MEASURED, not live — a page view never rescans (owner: "never a scan per page view"); the nightly job refreshes. A signed upload that never completed still counts until its object is deleted (the presign is the only moment the size is known). Only photos and video are refused: a document, a chat file or evidence past the plan still goes in (owner 23 Nov, the room dropped) — the database backstop skips them too.',
   },
 ];
 

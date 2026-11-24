@@ -24,7 +24,6 @@ import { allowance } from '@/lib/vendor-plan-rows';
 import { TIER_CAPS, WAITLIST_SETTING_MAX, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
-import { vendorAddonSkuCode } from '@/lib/vendor-addon-tier-pricing';
 import { ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnSku } from '@/lib/vendor-ultra-addons';
 import { EVENT_PLUS_SKU, HUB_PART_IDS, hubOwnershipFrom } from '@/lib/hub-parts';
 import {
@@ -47,6 +46,7 @@ const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 /** Sentinel prices: every one the table prints must be one of these, so a typed figure cannot pass. */
 const SENT = (k: string) => `₱SENT:${k}`;
 const SKUS = [
+  // `vendor_deep_search` stays in the sentinel catalogue on purpose: the row exists (retired) and the table must not print it.
   'vendor_deep_search',
   'vendor_ai_addon',
   'vendor_ai_addon_entry',
@@ -107,10 +107,10 @@ test('every limit cell is the entitlement code — in both states of the plan pa
   assert.equal(cards.cells.solo.text, formatCount(TIER_CAPS.solo.serviceCardsTotal));
   assert.equal(cards.cells.pro.text, 'No limit');
   assert.equal(cards.cells.enterprise.text, 'No limit');
-  // Storage is the first limit — the plans are storage sizes; Verified's 2 GB is said in the Free cell.
+  // Storage is the first limit — the plans are storage sizes; Verified's 1 GB is said in the Free cell.
   const storage = row(g, 'limit:storage');
   assert.equal(g.find((gr) => gr.rows.some((r) => r.key === 'limit:storage'))!.rows[0]!.key, 'limit:storage');
-  assert.deepEqual(TABLE_TIERS.map((t) => storage.cells[t].text), ['256 MB; 2 GB once Verified', '128 GB', '500 GB', '1 TB']);
+  assert.deepEqual(TABLE_TIERS.map((t) => storage.cells[t].text), ['50 MB; 1 GB once Verified', '50 GB', '256 GB', '1 TB']);
   assert.equal(g.flatMap((gr) => gr.rows).some((r) => r.key === 'limit:bookingsPerDate'), false, 'a bookings-a-day row is back');
 });
 
@@ -150,11 +150,18 @@ test('every price cell is the price the page read — or "—" when it read noth
   for (const c of cells) {
     for (const m of c.match(/₱[^\s/]*/g) ?? []) assert.match(m, /^₱SENT:/, `a price cell prints ${m}, which the page never read`);
   }
-  assert.equal(row(g, 'price:4w').cells.pro.text, SENT('pro-mo'));
+  assert.equal(row(g, 'price:month').cells.pro.text, SENT('pro-mo'));
   // Owner 2026-11-22 "no yearly for any supplier subscription": the table has no year row.
   assert.equal(rowsOf(g).some((r) => r.key === 'price:yr' || /year/i.test(r.label)), false, 'a yearly price row is offered');
+  // 🔎 Owner 2026-11-22 (DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" + 🔎 "1 RUN A MONTH"): no Deep Search price anywhere —
+  // a Tools row with the admin's monthly number on Plus, Pro and Ultra; even a catalogue holding its old row prints none.
+  assert.equal(rowsOf(g).some((r) => r.key === 'buy:deep'), false, 'Deep Search is sold in the table again');
+  const withRuns = planTable({ paywallOn: true, prices: PRICES, deepSearchRunsPerMonth: 2 });
+  assert.equal(row(withRuns, 'tool:deep').cells.free.text, 'Not included');
+  for (const t of ['solo', 'pro', 'enterprise'] as const) assert.equal(row(withRuns, 'tool:deep').cells[t].text, '2 searches a month', t);
+  assert.equal(row(g, 'tool:deep').cells.pro.text, '—', 'an unread allowance printed a number');
+  for (const t of TABLE_TIERS) assert.doesNotMatch(row(withRuns, 'tool:deep').cells[t].text, /₱/, `Deep Search is priced on ${t}`);
   for (const t of TABLE_TIERS) {
-    assert.equal(row(g, 'buy:deep').cells[t].text, `${SENT(vendorAddonSkuCode('deep_search_about_you', t))} a search`);
     assert.equal(canBuyExtraSeats(t) || canBuyExtraBranches(t), false, `${t} may buy a seat or branch — the table has no row for it`);
   }
   assert.equal(rowsOf(g).some((r) => r.key === 'buy:seatbranch'), false, 'an extra seat or branch is offered (no add-ons since 2026-11-22)');

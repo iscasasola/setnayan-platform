@@ -41,6 +41,10 @@
  */
 
 import { after } from 'next/server';
+import { redirect } from 'next/navigation';
+import { hubDrawsTheShell } from '@/lib/hub-shell';
+import { createClient } from '@/lib/supabase/server';
+import { signedInRootLanding } from '@/lib/sign-in-landing';
 import '@/app/_components/frontdoor/front-door.css';
 import '@/app/_components/frontdoor/front-door-landing.css';
 import { FrontDoor } from '@/app/_components/frontdoor/front-door';
@@ -52,6 +56,7 @@ import { maybeRunPapicCloseSelfieErase } from '@/lib/face-selfie-erase';
 import { maybeRunFaceRescan } from '@/lib/face-rescan';
 import { maybeRunOAuthRefresh } from '@/lib/oauth-refresh-job';
 import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
+import { maybeRunSupplierStorageMeasure } from '@/lib/supplier-storage-measure.server';
 import { maybeRunOwnerApprovals } from '@/lib/admin/self-approval-runner';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
@@ -324,10 +329,41 @@ export default async function HomePage({
   // photo against every registered selfie, before Papic closes. Sliced — a
   // photo cap + a time budget per ~5-min claim; resumable. Never throws.
   after(() => maybeRunFaceRescan().catch(() => {}));
+  // 📏 What every supplier's records weigh, for the storage meter — once a Manila night from 03:00, cron-free (no
+  // pg_cron: cron.job stays empty). The first request after 03:00 runs it. Never throws.
+  after(() => maybeRunSupplierStorageMeasure().catch(() => {}));
   // ⏳ The owner's own two-admin requests run 24 h after he types the word
   // (DECISION_LOG 2026-11-13). Public traffic carries it so a request still
   // runs when he is away from the console. Throttled; never throws.
   after(() => maybeRunOwnerApprovals().catch(() => {}));
+
+  /*
+    🏠 A SIGNED-IN VISIT TO THE BARE `/` OPENS HOME (owner 23 Nov 2026, *"Yes, go to Home"*; DECISION_LOG 2026-11-23
+    "A signed-in visit to setnayan.com opens Home"). The rule is the sign-in's own (`landingForAccount`, through
+    `signedInRootLanding`): a host, guest or admin → Home `?hub=1`; a supplier or coordinator → Home's Shop. Discover's
+    own door (`DISCOVER_HREF`, `/?discover=1`), its `?q=` search and its filters still draw Discover here.
+
+    🔒 SAFE BY CONSTRUCTION: the session is the SAME verified read the (hub) layout already made (`hubDrawsTheShell`,
+    cache()d — no new request), and a failure there is `null`, so a stranger or a broken read always gets the public
+    page, never a sign-in loop. The account-type read is asked ONLY on the redirect path; if it fails the type is
+    unknown and `landingForAccount` sends them to Home `?hub=1` — still Home, never `/`. The cron-free `after()` jobs
+    above are registered first, so they still ride every request. `redirect()` is outside any try (it throws).
+  */
+  const user = await hubDrawsTheShell();
+  const who = { signedIn: !!user, isAnonymous: !!user?.is_anonymous };
+  if (user && signedInRootLanding(params, { ...who, accountType: null })) {
+    let accountType: string | null = null;
+    try {
+      const supabase = await createClient();
+      const { data: row, error } = await supabase.from('users').select('account_type').eq('user_id', user.id).maybeSingle();
+      if (error) console.error('[supabase-error] app/(hub)/page.tsx · from:users.select (account_type)', error);
+      accountType = (row?.account_type as string | null | undefined) ?? null;
+    } catch {
+      // Unknown type → Home `?hub=1` by the one rule; never a 500 on the front page.
+    }
+    const home = signedInRootLanding(params, { ...who, accountType });
+    if (home) redirect(home);
+  }
 
   return (
     <>

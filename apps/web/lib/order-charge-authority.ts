@@ -64,7 +64,7 @@ import {
   type OrderChargeAuthority,
 } from '@/lib/order-charge-math';
 import { EVENT_ULTRA_SKU, ultraPlanPaymentOpen, ultraUpgradeCharge, type UltraUpgradeCharge } from '@/lib/event-ultra';
-import { EVENT_PLUS_SKU, FULL_PRO_SKU, HUB_PARTS_ORDER_KEY, hubPart, hubPartOfSku, hubPartsCharge, type HubPartId } from '@/lib/hub-parts';
+import { EVENT_HUB_SKU, EVENT_PLUS_SKU, FULL_PRO_SKU, HUB_PARTS_ORDER_KEY, hubPart, hubPartOfSku, hubPartsCharge, type HubPartId } from '@/lib/hub-parts';
 import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
 import { eventOwnsSku, eventSkuLinesFor, orderStatusConfersAccess } from '@/lib/entitlements';
 
@@ -203,6 +203,20 @@ export async function resolveOrderChargeCentavos(
       return { ok: false, refusal: 'read_error', detail: e instanceof Error ? e.message : String(e) };
     }
     if (holds[0].full || holds[1]) return { ok: false, refusal: 'already_owned', detail: serviceKey };
+  }
+
+  // ── (1d′) 🛒 The Event Hub single (owner 2026-11-23) — once per event, never under a plan ──
+  // It is the whole Hub; Event Plus, Pro and Ultra all hold the whole Hub already, so an event holding any of them (or an
+  // earlier Hub single, pending counts) is refused rather than charged twice for one unlock.
+  if (serviceKey === EVENT_HUB_SKU) {
+    if (!eventId) return { ok: false, refusal: 'no_price_source', detail: 'Event Hub is sold for an event only' };
+    let hub;
+    try {
+      hub = await eventHubOwnership(admin, eventId, 'owned');
+    } catch (e) {
+      return { ok: false, refusal: 'read_error', detail: e instanceof Error ? e.message : String(e) };
+    }
+    if (hub.full) return { ok: false, refusal: 'already_owned', detail: serviceKey };
   }
 
   // ── (1e) 💎 Event Ultra (owner 2026-11-13) — once per event ─────────────────

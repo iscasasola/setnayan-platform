@@ -20,6 +20,7 @@ import { TIER_CAPS, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-t
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 import { formatCount } from '@/lib/format-number';
 import { storageWords } from '@/lib/downgrade-limits';
+import { CLIENTS_FOOTNOTE, clientsKeptWords, planStorageLine } from '@/lib/supplier-client-room';
 import {
   ADDON_TIERS,
   GROW_LINES,
@@ -30,6 +31,7 @@ import {
   growLines,
   growSpec,
   planLine,
+  STAIR_TIERS,
   planStair,
   tierOfPlansRow,
 } from './_components/supplier-front-data';
@@ -40,10 +42,6 @@ const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const PAGE_FILES = [
   'app/for-suppliers/_components/supplier-front-page.tsx',
   'app/for-suppliers/_components/supplier-front-client.tsx',
-  'app/for-suppliers/_components/supplier-live-cards.tsx',
-  'app/for-suppliers/_components/supplier-front-info.tsx',
-  'app/for-suppliers/_components/supplier-how-we-earn.tsx',
-  'app/for-suppliers/_components/supplier-how-we-earn-data.ts',
   'app/(shell)/for-suppliers/page.tsx',
 ];
 
@@ -55,16 +53,19 @@ test('no peso figure is typed into the page', () => {
 });
 
 test('the fee is read and computed, never typed as a rate', () => {
+  // Redesign 23 Nov (v4.3.1): the timed fee steps and the fee rows are `feeSteps` / `feeRowWords`, handed the LIVE schedule.
   const page = code('app/for-suppliers/_components/supplier-front-page.tsx');
-  assert.match(page, /bookingFeeFigures\(fee\.schedule\)/, 'the fee sentence does not place the live figures');
-  assert.doesNotMatch(page, /\b\d+(\.\d+)?%\s*(on the first|after|booking fee)/i, 'a fee rate is typed into the page');
-  const client = code('app/for-suppliers/_components/supplier-front-client.tsx');
-  // The ruler's stops (with the 🔒 lock point) are built by `feeRulerStops(schedule)` in the data file since the lock landed.
-  assert.match(client, /feeRulerStops\(schedule\)/, 'the slider does not build its stops from the schedule it was handed');
+  assert.match(page, /const schedule = fee\.enabled \? fee\.schedule : null;/, 'the fee part does not read the schedule the route handed in');
+  assert.match(page, /feeSteps\(schedule, /, 'the fee steps are not built from the live schedule');
+  assert.match(page, /feeRowWords\(schedule\)/, 'the fee rows are not built from the live schedule');
+  assert.doesNotMatch(page, /\b\d+(\.\d+)?%\s*(on the first|after|booking fee|above)/i, 'a fee rate is typed into the page');
   const data = code('app/for-suppliers/_components/supplier-front-data.ts');
-  assert.match(data, /bookingFeePhp\(v, schedule\)/, 'the ruler stops do not compute the fee from the schedule they were handed');
-  assert.doesNotMatch(data, /BOOKING_FEE\b(?!_)/, 'the ruler stops can fall back to the code default schedule');
-  assert.doesNotMatch(client, /BOOKING_FEE\b(?!_)/, 'the slider can fall back to the code default schedule');
+  assert.match(data, /bookingFeePhp\(usual, schedule\)/, 'the usual step does not compute its fee from the schedule it was handed');
+  assert.match(data, /bookingFeePhp\(big, schedule\)/, 'the big step does not compute its fee from the schedule it was handed');
+  assert.match(data, /bookingFeeFigures\(schedule\)/, 'the fee words do not place the live figures');
+  for (const src of [data, page, code('app/for-suppliers/_components/supplier-front-client.tsx')]) {
+    assert.doesNotMatch(src, /BOOKING_FEE\b(?!_)/, 'the fee part can fall back to the code default schedule');
+  }
   assert.match(code('app/(shell)/for-suppliers/page.tsx'), /getLiveBookingFeeSchedule\(\)/);
 });
 
@@ -126,18 +127,20 @@ test('the page says nothing the brief forbids', () => {
   }
 });
 
-test('owner 2026-11-22: every tool on every paid size — the 3D booth logo and Papic Challenges are named once, from Plus, and nothing calls the booth an add-on', async () => {
+test('owner a02673ac (23 Nov): a plan never says it includes a paid widget — it says bought widgets work there, once, from Plus; nothing calls the booth an add-on', async () => {
   const { growLines } = await import('./_components/supplier-front-data');
   const words = (t: 'solo' | 'pro' | 'enterprise') => growLines(t).map((l) => l.text + (l.tail ?? '')).join(' | ');
-  assert.match(words('solo'), /3D seat plan/);
-  assert.match(words('solo'), /Papic Challenges|All specialized tools/);
-  assert.doesNotMatch(words('pro'), /3D seat plan/, 'Pro repeats a line Plus already gives');
+  assert.match(words('solo'), /Paid widgets work here: buy each once in the Toolkit/);
+  for (const t of ['solo', 'pro', 'enterprise'] as const) {
+    assert.doesNotMatch(words(t), /3D seat plan|Papic Challenges|All specialized tools/, `${t} says a paid widget comes with the plan`);
+  }
+  assert.doesNotMatch(words('pro'), /Paid widgets work here/, 'Pro repeats a line Plus already gives');
   for (const t of ['solo', 'pro', 'enterprise'] as const) assert.doesNotMatch(words(t), /add-on\)/);
 });
 
 test('owner via controller 22 Nov: a plan is never its size alone — Free and Verified cards say what they hold, with the size', () => {
-  assert.equal(planLine('free'), 'Run your own clients, 1 live service, just you, main shop only, and 256 MB.');
-  assert.equal(planLine('verified'), 'On the marketplace with the basics, 3 live services, just you, main shop only, and 2 GB.');
+  assert.equal(planLine('free'), 'Keeps about 60 clients at a time*. Run your own clients, 1 live service, just you, main shop only, and 50 MB.');
+  assert.equal(planLine('verified'), 'Keeps about 1,300 clients at a time*. On the marketplace with the basics, 3 live services, just you, main shop only, and 1 GB.');
   // 23 Nov redraw (plans as growth stairs): every card — Free and Verified too — is its size AND its facts, from `planStair`.
   const page = code('app/for-suppliers/_components/supplier-front-page.tsx');
   assert.match(page, /STAIR_TIERS\.map\(\(t\) => \{\s*const step = planStair\(t\)/, 'a plan card is drawn from something other than its read facts');
@@ -146,15 +149,28 @@ test('owner via controller 22 Nov: a plan is never its size alone — Free and V
     assert.equal(st.size, storageWords(TIER_CAPS[t].storageBytes!), `${t}: the card lost its size`);
     assert.ok(st.services.lead && st.people.text && st.branches.text, `${t}: the card is a slogan again`);
   }
+  // Owner 2026-11-23 "Yes, clients first": every card leads with the clients it keeps, its size under it, one footnote —
+  // all from ONE helper (lib/supplier-client-room.ts).
+  for (const t of STAIR_TIERS) {
+    assert.equal(planStair(t).clients, clientsKeptWords(t), `${t}: the card's headline is not the helper's`);
+    assert.equal(planStair(t).sizeLine, planStorageLine(t), `${t}: the line under it is not the helper's`);
+  }
+  // The redesign's plan card (v4.3.1, `PlanPicker`): its "keep" line is the clients kept, its size line under it.
+  const client = code('app/for-suppliers/_components/supplier-front-client.tsx');
+  assert.match(page, /keep: step\.clients \?\? step\.role, size: step\.sizeLine \?\? `\$\{step\.size\} storage`/, 'the plan card does not lead with the clients it keeps');
+  assert.match(client, /<p className=\{s\.keep\}>\{p\.keep\}<\/p>\s*<p className=\{s\.size\}>\{p\.size\}<\/p>/, 'the plan card lost its clients line or its size line');
+  assert.match(page, /\{CLIENTS_FOOTNOTE\}/, 'the asterisk has no footnote under the plans');
+  assert.match(code('app/(shell)/for-coordinators/page.tsx'), /\{CLIENTS_FOOTNOTE\}/, '/for-coordinators shows the asterisk without its footnote');
+  assert.ok(CLIENTS_FOOTNOTE.startsWith('*'));
   const coord = code('app/(shell)/for-coordinators/page.tsx');
   assert.match(coord, /\{planLine\('free'\)\}/);
   assert.match(coord, /\{planLine\('verified'\)\}/);
 });
 
 test('owner 23 Nov "this is not our agreed service card": the samples wear Card 14, the mall face (approved 20 Nov, #8070)', () => {
-  // /for-suppliers draws its samples in the live cards (redraw 23 Nov); /for-coordinators still draws the still row.
+  // /for-suppliers shows its samples as clips of the real Card 14 since the 23 Nov redesign (v4.3.1, `FRONT_MEDIA.beats`);
+  // /for-coordinators still draws the still row.
   const SLOTS: Record<string, readonly string[]> = {
-    'app/for-suppliers/_components/supplier-live-cards.tsx': ['city=', 'rating=', 'mallPrice={band}', 'medals=', 'lines={<SampleDateFit fit={fit} />}', 'distance={km}', 'aboutKmLine(', 'mallPrice({'],
     'app/(shell)/for-coordinators/page.tsx': ['city=', 'rating=', 'price=', 'priceNote=', 'medals=', 'lines={<SampleDateFit />}', 'distance={aboutKmLine('],
   };
   for (const [rel, slots] of Object.entries(SLOTS)) {

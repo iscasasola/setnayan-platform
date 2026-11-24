@@ -38,6 +38,12 @@ export type CardHostReviewLike = {
   /** Already the couple's "Shown as" (`shownCoupleName`). */
   couple_display_name: string | null;
   booked_through_setnayan: boolean;
+  /**
+   * 🛡 Fake proof fixes (C, owner 2026-11-23): FALSE when the review does not move the stars (its event was not arm's
+   * length). The card's quote sits under the card's trusted NUMBER, so it never quotes a review that number leaves out.
+   * Absent (a read that did not ask) keeps the shipped behaviour.
+   */
+  counts_as_proof?: boolean;
 };
 
 export function buildCardReviews(input: {
@@ -60,7 +66,7 @@ export function buildCardReviews(input: {
     const gs = input.guestStats?.get(id) ?? null;
     let hosts: CardReviews['hosts'] = null;
     if (hs && hs.count > 0) {
-      const withWords = hostsNewest.find((r) => r.service_id === id && clipQuote(r.body));
+      const withWords = hostsNewest.find((r) => r.service_id === id && r.counts_as_proof !== false && clipQuote(r.body));
       hosts = {
         count: hs.count,
         average: hs.average,

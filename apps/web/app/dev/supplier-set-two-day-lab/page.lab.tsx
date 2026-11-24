@@ -8,7 +8,9 @@
  *   (no params)   the list of states
  *   ?s=<state>    one state — `day`, `day-program-unread`, `scanner`, `papic-consent`, `papic-camera` (the consent's
  *                 button pressed by the shot; a browser with no camera shows the shipped "Camera unavailable"),
- *                 `papic-not-the-day`, `papic-unread`
+ *                 `papic-not-the-day`, `papic-unread`, `hub-tools` (the five hub tools of 23 Nov on sample data, drawn by the
+ *                 shipped `HubToolPanelsView` — every add, tick, count and swipe runs the dispatcher's own decision in
+ *                 memory), `hub-tools-unread` (each tool's honest "couldn't load")
  */
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -32,6 +34,36 @@ import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
 import type { OpenRail } from '@/lib/payment-channels';
 import type { ShopPapicPack } from '@/lib/vendor-papic-credits';
+import { HubToolsLab } from './hub-tools-lab';
+import { SupplierChecklistsCard } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-checklists-card';
+import type { CoupleChecklistsRead } from '@/lib/hub-tool-entries.server';
+
+/** 👀 What the couple reads on their supplier workspace (owner 23 Nov 2026: "let couples see the checklist ticks"). */
+const COUPLE_LISTS: CoupleChecklistsRead = {
+  state: 'ok',
+  lists: [
+    {
+      toolKey: 'paperwork_checklist',
+      title: 'Paperwork checklist',
+      entries: [
+        { id: 'p1', label: 'Valid IDs', note: '', done: true, qty: 0 },
+        { id: 'p2', label: 'Signed forms', note: 'Both sets, with the church', done: false, qty: 0 },
+        { id: 'p3', label: 'Permits', note: '', done: false, qty: 0 },
+      ],
+    },
+    {
+      toolKey: 'delivery_and_drop_off',
+      title: 'Delivery & drop-off',
+      entries: [
+        { id: 'd1', label: 'Delivery time agreed', note: '9:00 AM at the suite', done: true, qty: 0 },
+        { id: 'd2', label: 'Who receives it', note: '', done: false, qty: 0 },
+      ],
+    },
+  ],
+};
+
+/** The five hub tools of 23 Nov, all switched on (the booking's switches decide this on the live page). */
+const HUB_TOOL_ON: DayOfModuleId[] = ['queue_counter', 'entourage', 'paperwork_checklist', 'load_in_and_venue_access', 'delivery_and_drop_off'];
 
 const EVENT_ID = '00000000-0000-4000-8000-00000000e001';
 const COUPLE = 'Claire & Indalecio';
@@ -75,7 +107,7 @@ const FRAME = buildDayOfFrame({
   genericModuleIds: ['run_of_show', 'pax_headcount', ...TOOL_IDS, 'live_reviews'],
 });
 
-function day(view: 'day' | 'scanner', programUnread: boolean, deskDoor = false) {
+function day(view: 'day' | 'scanner', programUnread: boolean, deskDoor = false, hubTools: ReactNode = null) {
   const blocks = programUnread ? [] : BLOCKS;
   return (
     <EventDayBody
@@ -101,6 +133,7 @@ function day(view: 'day' | 'scanner', programUnread: boolean, deskDoor = false) 
       headcount={{ attending: ATTENDING, invited: INVITED }}
       tools={TOOLS}
       reviews={<LiveReviews vendorProfileId="lab-shop" initial={[]} />}
+      hubTools={hubTools}
       desk={<SpecializationSlot model={FRAME} eventId={EVENT_ID} vendorProfileId="lab-shop" coupleName={COUPLE} blocks={blocks} bookedCategories={['band']} />}
       otherView={view === 'scanner' ? <EventHubScanner eventId={EVENT_ID} run={null} floorIsYours={false} scan={[]} deskDoorParts={deskDoor ? ['guests', 'suppliers'] : []} /> : null}
     />
@@ -115,7 +148,7 @@ const RAILS: OpenRail[] = [
 const PACKS: ShopPapicPack[] = [{ code: 'lab-pack', title: 'Papic Plus', credits: 300, pricePhp: 2999 }];
 
 function papic({ isEventDay, coupleName = COUPLE }: { isEventDay: boolean; coupleName?: string }) {
-  const capture = isEventDay ? { uploadOwner: null, tier: 'ltd' as const, allowVideo: true, pointsCap: 60, pointsSpent: 12 } : null;
+  const capture = isEventDay ? { uploadOwner: null, plan: 'free', planLabel: 'Free', photosTaken: 7 } : null;
   return (
     <PapicDeskBody
       eventId={EVENT_ID}
@@ -156,6 +189,34 @@ const STATES: Record<string, { label: string; page: string; draw: () => ReactNod
     label: 'Scanner view · the hosts picked you for the Check-in desk’s door (new)',
     page: '/vendor-dashboard/on-the-day',
     draw: () => day('scanner', false, true),
+  },
+  'hub-tools': {
+    label: 'The Day · the five hub tools on sample data (Queue counter · Entourage · three checklists) · new',
+    page: '/vendor-dashboard/on-the-day',
+    draw: () => day('day', false, false, <HubToolsLab eventId={EVENT_ID} coming={ATTENDING} on={HUB_TOOL_ON} />),
+  },
+  'hub-tools-unread': {
+    label: 'The hub tools · every read refused (honest states · new)',
+    page: '/vendor-dashboard/on-the-day',
+    draw: () => day('day', false, false, <HubToolsLab eventId={EVENT_ID} coming={null} on={HUB_TOOL_ON} unread />),
+  },
+  'couple-checklists': {
+    label: 'The couple’s workspace · their supplier’s checklist ticks (new, 23 Nov)',
+    page: '/vendor-dashboard/on-the-day',
+    draw: () => (
+      <div className="p-4" data-couple-checklists-lab="">
+        <SupplierChecklistsCard vendorName="Bloom & Co" read={COUPLE_LISTS} />
+      </div>
+    ),
+  },
+  'couple-checklists-unread': {
+    label: 'The couple’s workspace · the checklists could not be read (honest state)',
+    page: '/vendor-dashboard/on-the-day',
+    draw: () => (
+      <div className="p-4" data-couple-checklists-lab="">
+        <SupplierChecklistsCard vendorName="Bloom & Co" read={{ state: 'unread' }} />
+      </div>
+    ),
   },
   'papic-consent': { label: 'Papic · before you shoot', page: '/vendor-dashboard/on-the-day', draw: () => papic({ isEventDay: true }) },
   'papic-camera': { label: 'Papic · the camera (press Agree)', page: '/vendor-dashboard/on-the-day', draw: () => papic({ isEventDay: true }) },

@@ -348,17 +348,18 @@ export async function submitCoupleReview(formData: FormData) {
   }
 
   // Review-fraud screener (No fake reviews) — deterministic velocity/burst +
-  // rating-anomaly + reviewer-device-linkage scoring. Runs in an after() task so
-  // it NEVER blocks or fails the couple's submit; the screener is internally
-  // fail-soft. A high score upserts a review_fraud row into the /admin/
-  // integrity-watch queue for a moderator — it NEVER auto-deletes the review or
-  // dings the vendor.
+  // rating-anomaly + reviewer-device-linkage scoring. A high score upserts a
+  // review_fraud row into the /admin/integrity-watch queue — it NEVER deletes
+  // the review or dings the vendor.
+  // 🛡 HELD, NOT JUST FLAGGED (owner 2026-11-23, DECISION_LOG b89e2420 D): an open
+  // flag keeps the review out of every public count and list until an admin
+  // dismisses it (migration 20271361301072). So the screen runs BEFORE this
+  // action returns and the pages below revalidate — in an after() task the review
+  // was public, and counted, until the task happened to run. Still fail-soft: the
+  // screener swallows its own errors, so it can never fail the couple's submit.
   if (createdReviewId) {
-    const reviewIdForScreen = createdReviewId;
-    after(async () => {
-      const { screenReviewForFraud } = await import('@/lib/review-fraud-screener');
-      await screenReviewForFraud(reviewIdForScreen);
-    });
+    const { screenReviewForFraud } = await import('@/lib/review-fraud-screener');
+    await screenReviewForFraud(createdReviewId);
   }
 
   // Vendor-level fraud detection (Anti-Fraud Phase 3, § 4) — recompute the five

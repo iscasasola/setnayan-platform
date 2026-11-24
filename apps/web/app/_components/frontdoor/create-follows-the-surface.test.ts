@@ -34,6 +34,16 @@ test('a surface that says nothing draws NO create button (owner 2026-10-22)', ()
   assert.ok(!/createSlot \?\? \(/.test(shell), 'a ?? fallback would bring the default button back');
 });
 
+test('🏠 Unihome v5: the RAIL carries "Create an event" on Home only — never the bar (owner-approved 23 Nov 2026)', () => {
+  // DECISION_LOG "UNIHOME v5 APPROVED": the labelled button floats on a phone and sits at the TOP OF THE LEFT RAIL on a
+  // computer. It is its own component, mounted in the rail only while the page is Home — the bar stays create-free.
+  const shell = read('app/_components/frontdoor/front-door-shell.tsx');
+  assert.match(shell, /\{pathname === homePath \? <RailHomeCreate \/> : null\}/, 'the rail create is no longer Home-only');
+  const create = read('app/_components/frontdoor/rail-home-create.tsx');
+  assert.match(create, /href="\/dashboard\/create-event"/, 'the rail create no longer opens the shipped New event sheet');
+  assert.match(create, /className="fd-rail-create"/, 'the rail create lost its ≥1280-only seat');
+});
+
 test('the Shop makes a service card, and the press opens the maker', () => {
   const vendor = read('app/vendor-dashboard/layout.tsx');
   assert.match(vendor, /createSlot=\{/, 'the Shop lost its own create button');

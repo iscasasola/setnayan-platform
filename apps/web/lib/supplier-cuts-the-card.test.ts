@@ -20,7 +20,8 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 test('(1) the sign-up kind is read, listed as covered, and never asked about', () => {
   const ctx = read('lib/service-card-maker.server.ts');
-  assert.match(ctx, /from\('vendor_profiles'\)\.select\('tier_state, is_founder, services'\)/, 'the sign-up services are not read');
+  /* One read: later columns may follow services on the tier read (e.g. store_layout) — never a second round trip. */
+  assert.match(ctx, /from\('vendor_profiles'\)\.select\('tier_state, is_founder, services(?:, [a-z_]+)*'\)/, 'the sign-up services are not read');
   assert.match(ctx, /const signupLeaves = \(tierRow\?\.services \?\? \[\]\)\.filter\(/);
   assert.match(ctx, /leaves\.label\.has\(s\)/, 'a sign-up service that is no live leaf would be offered');
   assert.match(ctx, /const coveredLeafSet = new Set\(\[\.\.\.vendorCoverages\.map\(\(c\) => c\.canonical_service\), \.\.\.signupLeaves\]\);/, 'the sign-up kind is asked about again');

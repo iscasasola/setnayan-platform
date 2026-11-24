@@ -6,6 +6,7 @@
  * is what ships. Every write is the SHIPPED action; with no session each one refuses, nothing is written.
  *
  *   ?s=plan            the Plan (who=parish · caterer · studio)       &unverified=1 · &ticket=1 · &fail=1 (receipts + fee unread)
+ *                      📏 &meter=new · busy · near · full · unread — the storage meter (default: new on Free, busy on paid)
  *   ?s=lock            🔒 the shared lock explainer (&lock=<key> · &plan=pro for a plan lock)
  *   ?s=plan&who=studio&limits=1   📉 the limits sheet on a lower plan (ruling 5683) · &floor=1 the storage floor (lab allowance)
  *   ?s=limit           ⤴ Door 1 — past a plan limit (&tier=solo &key=bookingsPerDate &want=2 · &unverified=1)
@@ -70,8 +71,7 @@ import { BOOKING_FEE } from '@/lib/booking-fee';
 import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-rows';
 import { giftEndedLine, giftEndsSoon, giftPlanLine, planGiftOf, portfolioPlanRowLine } from '@/lib/plan-gift';
 import { dayAfterWords } from '@/lib/personal-invite-offer';
-import { portfolioPhotoCap } from '@/lib/vendor-tier-caps';
-import { storageRowLine } from '@/lib/supplier-storage';
+import { storageAllowanceBytes, type StorageBreakdownRead } from '@/lib/supplier-storage';
 import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 import type { VendorTeamMemberWithUser } from '@/lib/vendor-team';
@@ -184,7 +184,32 @@ const LAB_STORAGE_ALLOWANCE = 5_000_000_000;
 const LAB_SHEET_NOW = Date.parse('2026-11-10T02:00:00Z');
 const LAB_EXPIRES_AT: Record<string, string | null> = { free: null, solo: '2026-12-08T15:59:59Z', pro: '2027-10-03T15:59:59Z' };
 
-function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { floor: boolean } | null = null, ticket = false) {
+/**
+ * 📏 LAB-ONLY storage meter fixtures (`&meter=new|busy|near|full|unread|unmeasured|stale`) — sample sizes for the screenshot, never
+ * a ruled figure. A new shop holds only its sign-up rows (a few KB, owner 23 Nov "No, real usage only"); a busy shop
+ * holds albums, cards, chat files, contracts and its data.
+ */
+function labMeter(kind: string | undefined, tier: string): StorageBreakdownRead {
+  const GB = 1e9;
+  const MB = 1e6;
+  const k = kind ?? (tier === 'free' ? 'new' : 'busy');
+  if (k === 'unread') return { status: 'unread' };
+  // Records never measured (the nightly measure has not reached this shop) · or last measured four nights ago.
+  const measuredAt = k === 'unmeasured' ? null : k === 'stale' ? new Date(Date.now() - 4 * 86_400_000).toISOString() : new Date(Date.now() - 5 * 3_600_000).toISOString();
+  const b = (photosVideo: number, files: number, records: number, evidence: number): StorageBreakdownRead => ({
+    status: 'ok',
+    breakdown: { photosVideo, files, records, evidence, recordsMeasuredAt: measuredAt },
+  });
+  if (k === 'unmeasured') return b(2.4 * GB, 180 * MB, 0, 40 * MB);
+  if (k === 'new') return b(0, 0, 6_200, 0);
+  // Near and full follow the plan's own size, so the fixtures stay right when a size is re-cut.
+  const plan = storageAllowanceBytes(tier) ?? 128 * GB;
+  if (k === 'near') return b(Math.round(plan * 0.85), Math.round(plan * 0.01), 61 * MB, Math.round(plan * 0.002));
+  if (k === 'full') return b(plan - Math.round(plan * 0.011) - 74 * MB, Math.round(plan * 0.011), 74 * MB, Math.round(plan * 0.003));
+  return b(41.3 * GB, 620 * MB, 38 * MB, 210 * MB);
+}
+
+function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { floor: boolean } | null = null, ticket = false, meter?: string) {
   const shop = SHOPS[who];
   const plans: PlanPick[] = [
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(shop.tier, 'free', shop.expires) },
@@ -212,7 +237,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
   return (
     <PlanRows
       tier={shop.tier}
-      pays={price !== null ? `₱${price.toLocaleString('en-PH')} / 28 days` : 'nothing to pay'}
+      pays={price !== null ? `₱${price.toLocaleString('en-PH')} / month` : 'nothing to pay'}
       expiresOn={shop.expires}
       expiresSoon={who === 'caterer'}
       isPaid={shop.tier !== 'free'}
@@ -227,6 +252,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
           papersProgress={papersProgress({ done: 2, of: REQUIRED_DOC_COUNT })}
         />
       }
+      storage={labMeter(meter, shop.tier)}
       feeRow={bookingFeeRow(standing, who === 'studio' ? 1 : 0)}
       gives={planGivesLines(shop.tier, false)}
       receipts={
@@ -241,7 +267,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
       }
       papicPackPrice={99}
       featured={shop.tier === 'pro'}
-      deepSearch={{ line: 'Lab price a search · on every plan' }}
+      deepSearch={{ line: 'Included in Plus, Pro and Ultra: 1 search each paid month. Unused searches don’t carry over.' }}
       extras={shop.tier === 'enterprise' ? { line: '1 extra seat · lab price each, every 4 weeks' } : null}
     />
   );
@@ -253,7 +279,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
  * on Pro, starting 1 Feb — no Free gap), or after it ended. The words are the shipped helpers' (`lib/plan-gift.ts`);
  * the lab's "now" is 1 Nov 2026 (running), 27 Jan 2027 (soon) or 2 Feb 2027 (ended).
  */
-function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean) {
+function giftPlanFixture(mode: 'running' | 'soon' | 'ended', _photos100: boolean) {
   const now = Date.parse(
     mode === 'running' ? '2026-11-01T02:00:00Z' : mode === 'soon' ? '2027-01-27T02:00:00Z' : '2027-02-02T02:00:00Z',
   );
@@ -269,7 +295,6 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
       pickLine: planPickLine(tier, t, gift ? '31 January 2027' : null),
     })),
   ];
-  const cap = portfolioPhotoCap(tier, photos100 ? 100 : null);
   return (
     <PlanRows
       tier={tier}
@@ -299,14 +324,8 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
       papicPackPrice={99}
       featured={tier === 'pro'}
       gift={gift ? { line: giftPlanLine(gift) } : { line: giftEndedLine('Pro', '2027-01-31') }}
-      photosLine={portfolioPlanRowLine({
-        held: mode === 'ended' ? 62 : 14,
-        cap,
-        gifted: photos100,
-        giftUntilDay: gift ? gift.untilDay : null,
-        giftEnded: mode === 'ended',
-      })}
-      storageLine={storageRowLine(tier, { status: 'ok', bytes: 1_240_000_000 })}
+      photosLine={portfolioPlanRowLine(mode === 'ended' ? 62 : 14)}
+      storage={labMeter(undefined, tier)}
     />
   );
 }
@@ -537,7 +556,7 @@ export default async function SupplierPlanLabPage({
     body =
       sp.gift === 'running' || sp.gift === 'soon' || sp.gift === 'ended'
         ? giftPlanFixture(sp.gift, sp.photos === '100')
-        : planFixture(who, sp.unverified === '1', sp.fail === '1', sp.limits === '1' ? { floor: sp.floor === '1' } : null, sp.ticket === '1');
+        : planFixture(who, sp.unverified === '1', sp.fail === '1', sp.limits === '1' ? { floor: sp.floor === '1' } : null, sp.ticket === '1', sp.meter);
   }
   // 🔒 ?s=lock&lock=quotation (any key in lib/locks.ts) — the shared lock's explainer, risen; &plan=pro = a plan lock.
   else if (s === 'lock') {
@@ -547,7 +566,7 @@ export default async function SupplierPlanLabPage({
           lock={key}
           need={
             sp.plan
-              ? { kind: 'plan', plan: sp.plan, price: `${planWord(sp.plan)} · lab price / 28 days`, href: '/vendor-dashboard/subscription' }
+              ? { kind: 'plan', plan: sp.plan, price: `${planWord(sp.plan)} · lab price / month`, href: '/vendor-dashboard/subscription' }
               : { kind: 'verify', progress: papersProgress({ done: 2, of: REQUIRED_DOC_COUNT }) }
           }
           preview={
@@ -566,7 +585,7 @@ export default async function SupplierPlanLabPage({
     const tier = sp.tier ?? 'solo';
     const ask = limitAsk(tier, key, Number(sp.want ?? '2'), false);
     body = ask ? (
-      <LabLimit ask={ask} verified={sp.unverified !== '1'} price="lab price / 28 days" />
+      <LabLimit ask={ask} verified={sp.unverified !== '1'} price="lab price / month" />
     ) : (
       <p>Within the limit — no sheet.</p>
     );

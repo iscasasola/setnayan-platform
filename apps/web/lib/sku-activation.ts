@@ -29,6 +29,8 @@ import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
 import { AI_PLAN_SKUS_BEFORE_RECUT, placedBeforeRecut, planOrderCarriesSetnayanAi } from '@/lib/event-plans';
 import { papicPointsBoughtBySku } from '@/lib/papic-pass-tiers';
 import {
+  EVENT_SERVICES_SKU,
+  isBasketOrderKey,
   ONBOARDING_SERVICES_SKU,
   readOnboardingOrderItems,
 } from '@/lib/onboarding-order-items';
@@ -1460,12 +1462,14 @@ async function deactivateSpecializedToolsOrder(ctx: ActivationContext): Promise<
 }
 
 /**
- * Deep Search (vendor-facing) — on approval of a ₱500 apply-then-pay order, RUN
+ * Deep Search (vendor-facing) — on approval of an apply-then-pay order, RUN
  * the web-research deep search on the paying vendor's OWN business and record it
- * (owner 2026-07-22). Pay-then-run: there is no pre-paid credit ledger to draw
- * from, so the paid run happens HERE, at approval, reusing the same engine +
- * store as the free-search run action (runAndRecordVendorDeepSearch, was_free=
- * false). The resulting dossier is what the vendor's Deep Search surface renders.
+ * (owner 2026-07-22). ⚖ Since 2026-11-22 (DECISION_LOG ✂️ "DEEP SEARCH IS
+ * RETIRED") nothing new is sold: the paid plans include monthly searches, run by
+ * the run action. This hook stays ONLY so an order somebody paid for before the
+ * retirement still runs its one search, reusing the same engine + store
+ * (runAndRecordVendorDeepSearch, was_free=false). The resulting dossier is what
+ * the vendor's Deep Search surface renders.
  *
  * Reads the paying vendor + user off the order, snapshots their current profile
  * facts, and runs. IDEMPOTENT two ways: a prior 'service_activated' ledger row
@@ -1651,9 +1655,9 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // activatePhotoChallengeSponsorship.
   [VENDOR_PHOTO_CHALLENGE_SKU_CODE]: activatePhotoChallengeSponsorship,
 
-  // 'vendor_deep_search' → paid (₱500) vendor Deep Search. Runs the research on
-  // approval + records was_free=false (pay-then-run). See
-  // activateVendorDeepSearchOrder.
+  // 'vendor_deep_search' → a Deep Search bought before the sale retired
+  // (2026-11-22). Runs the research on approval + records was_free=false
+  // (pay-then-run). Nothing new carries this key. See activateVendorDeepSearchOrder.
   [VENDOR_DEEP_SEARCH_SKU_CODE]: activateVendorDeepSearchOrder,
 
   // 'vendor_papic_portfolio_pack' → VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS Papic
@@ -1958,6 +1962,8 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // Setnayan AI picks. Its children are PER ORDER, not static, so it gets its
   // own fan-out. See activateOnboardingBasket.
   [ONBOARDING_SERVICES_SKU]: (ctx) => activateOnboardingBasket(ctx),
+  // 🛒 The Event services bill (2026-11-23) — the same one-bill shape, the same fan-out.
+  [EVENT_SERVICES_SKU]: (ctx) => activateOnboardingBasket(ctx),
 });
 
 /**
@@ -2015,7 +2021,10 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
 // 💎 2026-11-04: Event Pro LEFT this set — it now provisions Setnayan AI and its included Papic credits
 // (`activateEventPlan`), so a Pro inside a basket must run its hook like any other item. Its Hub gates still read
 // the order/basket status live; the set stays for the next item that truly needs nothing.
-const ORDER_GATED_BASKET_ITEMS: ReadonlySet<string> = new Set<string>();
+// 🛒 2026-11-23 — the Event services bill sells two items that need nothing provisioned: Live Watch (every Live Watch gate
+// reads the order — and the basket line — live, exactly as a direct LIVE_STUDIO order has always worked with no hook) and
+// the Event Hub single (`eventHubOwnership` reads its line; approving the bill IS the unlock).
+const ORDER_GATED_BASKET_ITEMS: ReadonlySet<string> = new Set<string>(['LIVE_STUDIO', 'EVENT_HUB']);
 
 async function activateOnboardingBasket(ctx: ActivationContext): Promise<void> {
   const items = await readOnboardingOrderItems(ctx.admin, ctx.orderId);
@@ -2933,7 +2942,7 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
 /** Does this order carry Setnayan AI — directly, in an onboarding basket, or as a bundle child? */
 async function orderGrantsSetnayanAi(ctx: ActivationContext): Promise<boolean> {
   const basketItems =
-    ctx.serviceKey === ONBOARDING_SERVICES_SKU
+    isBasketOrderKey(ctx.serviceKey)
       ? await readOnboardingOrderItems(ctx.admin, ctx.orderId)
       : [];
   // 🎟 An Event Plus order may have turned the AI on (bought before the 18 Nov re-cut), so reversing one re-derives too —

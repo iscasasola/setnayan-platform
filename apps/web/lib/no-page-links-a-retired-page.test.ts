@@ -111,8 +111,10 @@ test('4 · the old addresses forward where the owner ruled, at every depth — a
     ['/blog', '/articles'],
     ['/blog/', '/articles'],
     ['/blog/filipino-wedding-traditions-explained', '/articles/filipino-wedding-traditions-explained'],
-    ['/realstories', '/'],
-    ['/realstories/maria-and-juan-tagaytay-garden-wedding', '/'],
+    // 🔁 UPDATED ON PURPOSE 2026-11-23 (owner "Fix the two leftover forwards too"): Discover's own door, since a
+    // signed-in bare `/` opens Home.
+    ['/realstories', '/?discover=1'],
+    ['/realstories/maria-and-juan-tagaytay-garden-wedding', '/?discover=1'],
     ['/vendor-dashboard/real-stories', '/vendor-dashboard'],
   ] as const) {
     assert.equal(legacyRedirectTarget(from), to, `${from} must forward to ${to}`);

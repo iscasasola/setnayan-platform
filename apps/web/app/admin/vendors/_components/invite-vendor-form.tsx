@@ -9,17 +9,14 @@ import {
 import { useSaveLoader } from '@/components/sd-loader';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { SWITCH_TRACK } from '@/app/_components/switch-track';
 import { FormRows, TypedRow, nudgeFormRows } from '@/app/_components/form-row';
 import { svgDataUri, qrFileName } from '@/lib/qr-download';
 import { SHOP_NAME_MAX } from '@/lib/business-slug';
 import {
-  PERSONAL_INVITE_PHOTO_ALLOWANCE,
   PERSONAL_INVITE_TIERS,
   planMenuNote,
   type PlanPrices,
 } from '@/lib/personal-invite-offer';
-import { PORTFOLIO_FREE_BASE } from '@/lib/vendor-tier-caps';
 import { planWord } from '@/lib/vendor-plan-change-words';
 import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
@@ -44,7 +41,8 @@ function Sec({ children }: { children: string }) {
  *
  * 🎁 THE PERSONAL INVITE (owner 2026-10-23, prototype `supplier_personal_invite_2026-10-23.html` frames A2 · A3) —
  * the same form, the same one button, with **The offer** appended: the plan they get free (one dropdown), until when
- * (a date), and a switch, off, for 100 portfolio photos that stay theirs after the offer ends. The result keeps the
+ * (a date). (The "100 portfolio photos" switch left 2026-11-23: portfolio photos have no count on any plan — storage
+ * is the only limit, owner *"Yes, drop it"*.) The result keeps the
  * link and Copy exactly as shipped and adds the card to download and the message to copy. Prices in the dropdown are
  * the catalogue's (`readPersonalInvitePlanPrices`), handed in — none is typed here.
  */
@@ -52,7 +50,7 @@ export function InviteVendorForm({
   prices = {},
   categories = [],
 }: {
-  /** 28-day catalogue price per plan; a plan with none is listed without a price. */
+  /** Monthly catalogue price per plan; a plan with none is listed without a price. */
   prices?: PlanPrices;
   /** Every supplier category, `{ key, label }`, in the taxonomy's order. */
   categories?: ReadonlyArray<{ key: string; label: string }>;
@@ -66,8 +64,6 @@ export function InviteVendorForm({
   const [business, setBusiness] = useState('');
   const [category, setCategory] = useState<string>('');
   const [plan, setPlan] = useState<string>('free');
-  const [photos, setPhotos] = useState(false);
-  const switchId = useId();
   const untilId = useId();
 
   const planOptions = (['free', ...PERSONAL_INVITE_TIERS] as const).map((k) => {
@@ -110,7 +106,6 @@ export function InviteVendorForm({
               setBusiness('');
               setCategory('');
               setPlan('free');
-              setPhotos(false);
               return;
             }
             if (result.status === 'invalid_email') {
@@ -198,26 +193,6 @@ export function InviteVendorForm({
               </label>
             ) : null}
           </div>
-          <label htmlFor={switchId} className="mt-2 flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2" data-invite-photos="">
-            <span>
-              <span className="block text-[15px] text-ink">Give {PERSONAL_INVITE_PHOTO_ALLOWANCE} portfolio photos</span>
-              <span className="mt-0.5 block text-[12.5px] text-ink/60">
-                Off: {PORTFOLIO_FREE_BASE}, as on every plan. On: {PERSONAL_INVITE_PHOTO_ALLOWANCE}, and it stays after the offer ends.
-              </span>
-            </span>
-            <span className="relative flex-none">
-              <input
-                id={switchId}
-                type="checkbox"
-                role="switch"
-                name="offer_photos"
-                checked={photos}
-                onChange={(e) => setPhotos(e.target.checked)}
-                className="peer sr-only"
-              />
-              <span aria-hidden className={SWITCH_TRACK} />
-            </span>
-          </label>
         </div>
 
         <div className="col-span-full">

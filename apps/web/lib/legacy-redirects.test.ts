@@ -55,8 +55,9 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   ['/vendor-dashboard/funnel', '/vendor-dashboard/performance'],
   ['/vendor-dashboard/tax-documents', '/vendor-dashboard'],
   // 🔁 UPDATED ON PURPOSE 2026-11-12: /explore itself forwards to Discover now — one hop, not two.
-  ['/explore/categories', '/'],
-  ['/explore', '/'],
+  // 🔁 UPDATED ON PURPOSE 2026-11-23 (owner "Fix the two leftover forwards too"): Discover's own door, not the bare `/`.
+  ['/explore/categories', '/?discover=1'],
+  ['/explore', '/?discover=1'], // 23 Nov 2026: Discover's own door — a signed-in bare `/` opens Home
   [`/dashboard/${EID}/suite`, MORE],
   [`/dashboard/${EID}/studio`, MORE],
   // 👗 "THE DRESS CODE IS SET IN THE MOOD BOARD" (2026-10-01; removed 2026-10-04).
@@ -76,8 +77,8 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   // 📰 2026-11-17: the Journal moved into Articles — each post forwards to its own article, not /features.
   ['/blog', '/articles'],
   ['/blog/wedding-budget-breakdown-philippines', '/articles/wedding-budget-breakdown-philippines'],
-  ['/realstories', '/'],
-  ['/realstories/maria-and-juan-tagaytay-garden-wedding', '/'],
+  ['/realstories', '/?discover=1'], // 🔁 2026-11-23: Discover's own door, not the bare `/`
+  ['/realstories/maria-and-juan-tagaytay-garden-wedding', '/?discover=1'],
 ];
 
 /** The page file each old path used to be (relative to app/). */
@@ -172,8 +173,8 @@ test('🗞✂ the retired blog and Real Stories forward at every depth, but thei
   );
   // The printable planner a moved post links to is a FILE under public/blog/ — never forwarded.
   assert.equal(legacyRedirectTarget('/blog/setnayan-wedding-checklist.pdf'), null);
-  assert.equal(legacyRedirectTarget('/realstories/'), '/');
-  assert.equal(legacyRedirectTarget('/realstories/a-wedding-in-cavite/'), '/');
+  assert.equal(legacyRedirectTarget('/realstories/'), '/?discover=1');
+  assert.equal(legacyRedirectTarget('/realstories/a-wedding-in-cavite/'), '/?discover=1');
   // public/realstories/ still holds the photos and clips other screens show — a file is never a page.
   for (const file of [
     '/realstories/maria-juan-tagaytay.jpg',
@@ -260,7 +261,6 @@ test('d1 · nothing hand-types the old hub address — every door goes through s
     'app/dashboard/[eventId]/launch/page.tsx',
     'app/dashboard/[eventId]/live/page.tsx',
     'app/dashboard/[eventId]/documents/page.tsx',
-    'app/dashboard/[eventId]/orders/new/page.tsx',
     'app/vendor-dashboard/recommendations/share-actions.ts',
     'app/panood/control/[eventId]/actions.ts',
     'app/panood/control/[eventId]/screens-actions.ts',
@@ -271,6 +271,8 @@ test('d1 · nothing hand-types the old hub address — every door goes through s
     assert.ok(!/\/(suite|studio)`/.test(src), `${f} hand-types the retired hub address`);
     assert.match(src, /studioHubHref\(eventId\)/, `${f} lost its door to the services`);
   }
+  // 🛒 "New order" is Event services since 2026-11-23 — the one place to buy for an event.
+  assert.match(read('app/dashboard/[eventId]/orders/new/page.tsx'), /redirect\(routes\.dashboard\.eventServices\(eventId\)\)/);
 });
 
 test('d1 · a service with no door is not listed in the More menu (it used to open the gone page)', async () => {
@@ -311,8 +313,8 @@ test('(d) /explore forwards to Discover carrying its filters; /explore/compare s
   );
   // Every parameter is carried, unknown ones too; only the old compare notice is dropped.
   assert.equal(legacyRedirectTarget('/explore', '?q=lechon&page=2&notice=compare_v1_2&demo=1'), '/?q=lechon&page=2&demo=1');
-  assert.equal(legacyRedirectTarget('/explore', ''), '/');
-  assert.equal(legacyRedirectTarget('/explore', '?notice=compare_v1_2'), '/');
+  assert.equal(legacyRedirectTarget('/explore', ''), '/?discover=1');
+  assert.equal(legacyRedirectTarget('/explore', '?notice=compare_v1_2'), '/?discover=1');
   // No loop: Discover itself is never forwarded.
   assert.equal(legacyRedirectTarget('/', '?category=x'), null);
   assert.equal(legacyRedirectTarget('/explore/compare', '?ids=a,b'), null);

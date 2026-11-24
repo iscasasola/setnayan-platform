@@ -12,8 +12,9 @@
  * Saved as ONE row per shop (`vendor_cake_makers`) through `cakeAction({ op: 'save' })`, which runs the same
  * `sanitizeCakeShopOptions` the couple's design is checked against — a refusal is the sentence shown here.
  *
- * 🔒 SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP (or open to every shop before the admin's start date). Locked,
- * the page shows "Included in Plus · Upgrade" and saves nothing — any saved options stay as they are.
+ * 🔒 A PAID WIDGET (owner a02673ac, 23 Nov 2026): open only when bought in the Toolkit AND on Plus, Pro or Ultra. Locked,
+ * the page says so with one door to the Cake Maker's Toolkit page (which shows Buy, the plans door, or "Works again when
+ * you subscribe") and saves nothing — any saved options stay as they are.
  *
  * Lazy-loaded from the tile (shop-makers.tsx), so none of it is in the Shop's first load.
  */
@@ -54,7 +55,8 @@ import {
   tierLabel,
   type CakePriced,
   type CakeShopOptions, CAKE_PICKER_START } from '@/lib/cake-maker';
-import { SPECIAL_TOOLS_LOCKED_WORDS, SPECIAL_TOOLS_UPGRADE_HREF } from '@/lib/special-tools';
+import { SPECIAL_TOOLS_LOCKED_WORDS } from '@/lib/special-tools';
+import { routes } from '@/lib/routes';
 import { CakeFigure } from '@/app/_components/plan3d/kit/cake-figure';
 import { cakeAction } from '@/app/_components/cake-maker/cake-call';
 import styles from './cake-maker-panel.module.css';
@@ -102,8 +104,8 @@ export function CakeMakerPanel({ seed }: { seed?: { options: CakeShopOptions; sa
   return <CakeMakerEditor start={load.options} saved={load.saved} />;
 }
 
-/** Free or Verified after the start date (v6 drew "Included in Pro"; Plus since 2026-11-22): the drawing's words, Upgrade, and what was saved — read-only,
- *  kept just as it is. Nothing here writes. */
+/** Not open (not bought, or bought on Free or Verified — owner a02673ac): the lock words, the Toolkit door, and what was
+ *  saved — read-only, kept just as it is. Nothing here writes. */
 function LockedCakeMaker({ saved, options }: { saved: boolean; options: CakeShopOptions }) {
   return (
     <div className={styles.root} data-cake-maker="locked">
@@ -113,8 +115,8 @@ function LockedCakeMaker({ saved, options }: { saved: boolean; options: CakeShop
           <b>{SPECIAL_TOOLS_LOCKED_WORDS}</b>
           <small>Couples design their cake in your chat — tiers, shapes, accents, the 3D cake, cupcakes. Your cards don’t change.</small>
         </span>
-        <Link href={SPECIAL_TOOLS_UPGRADE_HREF} className={styles.pill} data-web-only="">
-          Upgrade
+        <Link href={routes.vendorDashboard.shop.store.item('tools', 'cake_tool')} className={styles.pill} data-web-only="">
+          See in the Toolkit
         </Link>
       </div>
       {saved ? (

@@ -9,6 +9,7 @@ import { CalendarDays, CircleCheck, MessageCircle, Send, Undo2, Wallet, X } from
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readShareableTools } from '@/lib/supplier-store.server';
 import { WHISPER_AUDIENCE_UNREAD, readTeamWhisper, type WhisperAudience } from '@/lib/chat-whisper.server';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
@@ -246,6 +247,7 @@ const PROPOSAL_NOTICE: Record<string, string> = {
     'Your gifts on that quote didn’t fit — over this booking’s gift limit, or more than your stock. Check them and send again.',
   // 📅 No lifetime quotation (2026-11-09).
   proposal_needs_valid_until: 'Pick how long this quote is valid before you send it — nothing was sent.',
+  proposal_needs_guest_count: 'No guest count yet — set Bill at least before sending a per-guest quote. Nothing was sent.',
   proposal_plan_not_in_full: 'The payment plan must pay the whole quote — nothing was sent.',
   // 🧾 OWN-01: a "first N couples" offer is used up once N other couples have it on their quote.
   proposal_offer_taken:
@@ -342,6 +344,12 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   // 🪪 ＋ FINAL: is this shop verified? Started here and awaited where the ＋ is drawn — never a waterfall. Null = the
   // read failed: the tray draws open and the server's gate (`lib/shop-plus-gate.server.ts`) still decides each send.
   const shopVerifiedRead = fetchShopVerified(supabase, profile.vendor_profile_id);
+  // 🧰 Share from your widgets (DECISION_LOG 2026-11-23 dee66686): the tools this shop has, read the Store's own way —
+  // started here, awaited where the ＋ is drawn. A failed read is `null`: the picker says it could not load.
+  const shareToolsRead = readShareableTools(createAdminClient(), profile.vendor_profile_id, (profile.services ?? []) as string[]).catch((err: unknown) => {
+    console.error('[supplier thread] shareable tools read failed', err);
+    return null;
+  });
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
@@ -1498,7 +1506,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           papicStanding={composerPapicStanding}
           shopGifts={shopGifts.basis}
           shopGiftsBuy={shopGifts.buy}
-          requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
+          // 👥 No guessed count: with neither, the maker says "No guest count yet" (walk 24 Nov; was `?? 100`).
+          requestedPax={thread.pax_at_inquiry ?? headerPax ?? null}
           livePax={headerPax ?? null}
           paxKnown={guestCounts.atInquiry != null || guestCounts.live != null}
           coupleName={coupleLabel}
@@ -1793,6 +1802,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     display text, and "Your call time" / "Ask for a payment" open only once they book you.
   */
   const shopVerified = await shopVerifiedRead;
+  const shareTools = await shareToolsRead;
   const toolsState = {
     hasAgreement: THREAD_STAGE_HAS_AGREEMENT[railStage],
     askOpen,
@@ -2244,7 +2254,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                 <ChatSendForm
                   threadId={threadId}
                   sendAction={sendChatMessage}
-                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} threadId={threadId} hasQuote={dealEntry.offerDeal} verified={shopVerified} />}
+                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} threadId={threadId} hasQuote={dealEntry.offerDeal} verified={shopVerified} share={shareTools} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
                   userId={user.id}
                   // 🏪 The shop's composer: this login may also host the event — here it speaks as the shop.

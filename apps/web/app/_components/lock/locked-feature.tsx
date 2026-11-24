@@ -9,7 +9,7 @@
  * unreadability, never a dead button. Tapping it RISES FULL SCREEN (the shipped `RiseScreen`, T4) with, in this order:
  *   1. THE PROBLEM, then THE SOLUTION — the two lines from `lib/locks.ts` (the type will not take a lock without both);
  *   2. a real-looking preview of the feature, VIEW-ONLY (`inert`: nothing in it can be pressed or focused);
- *   3. the progress (verify: "2 of 3 papers in · then press Submit") or the price (plan: "₱… / 28 days");
+ *   3. the progress (verify: "2 of 3 papers in · then press Submit") or the price (plan: "₱… / month");
  *   4. ONE button — **Get verified** (the shipped papers flow, `/vendor-dashboard/profile#docs`) or **Upgrade to <plan>**.
  *      ✕ falls back into the row they tapped.
  *
@@ -28,19 +28,34 @@ import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { LOCKS, type LockDef, type LockKey } from '@/lib/locks';
 import { planWord } from '@/lib/vendor-plan-change-words';
+import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from '@/lib/special-tools';
+
+/** A paid widget's one door: the Toolkit page when it can be bought now, else the plans page. */
+function widgetDoor(need: Extract<LockNeed, { kind: 'widget' }>): { label: string; href: string; plans: boolean } {
+  return !need.owned && need.subscribed
+    ? { label: 'See it in the Toolkit', href: need.toolkitHref, plans: false }
+    : { label: 'See plans', href: need.plansHref, plans: true };
+}
 
 /** Where the papers are sent from every verify lock — the shipped Get-verified fold. */
 export const GET_VERIFIED_HREF = '/vendor-dashboard/profile#docs';
 
 export type LockNeed =
   | { kind: 'verify'; /** `papersProgress(...)` */ progress: string }
-  | { kind: 'plan'; plan: string; /** The catalogue price, worded ("₱… / 28 days") — never typed by the caller. */ price: string | null; href: string }
+  | { kind: 'plan'; plan: string; /** The catalogue price, worded ("₱… / month") — never typed by the caller. */ price: string | null; href: string }
   /**
    * 🔒 A lock lifted by the shop's OWN bookings finishing, not by papers or a plan — a card a booked client is using
    * (`CARD_IN_USE_LOCK`, lib/service-open-bookings.ts). `progress` is what is still open (or that it could not be
    * read); `way` is the one door that exists today (the maker's "Start another from this").
    */
-  | { kind: 'bookings'; progress: string; way: { label: string; href: string } | null };
+  | { kind: 'bookings'; progress: string; way: { label: string; href: string } | null }
+  /**
+   * 🧰 A PAID WIDGET (owner a02673ac, 23 Nov 2026): it opens only when bought in the Toolkit AND on Plus, Pro or Ultra.
+   * `owned` — bought, off-plan: "Works again when you subscribe", the plans door, no second Buy. Not owned — the
+   * catalog price (worded, never typed) and the notice; on a paid plan the button is the widget's Toolkit page, on Free
+   * or Verified it is the plans door.
+   */
+  | { kind: 'widget'; owned: boolean; subscribed: boolean; price: string | null; toolkitHref: string; plansHref: string };
 
 /** The lines a lock outside the shop-gate registry brings with it (same shape as a `LOCKS` entry's words). */
 export type LockLines = { key: string; name: string; problem: string; solution: string };
@@ -63,9 +78,20 @@ export function LockExplainer({
   const lockKey = typeof lock === 'string' ? lock : lock.key;
   const isPlan = need.kind === 'plan';
   const opensLine =
-    need.kind === 'bookings' ? 'Opens once every booking on it is finished' : isPlan ? `Comes with ${planWord(need.plan)}` : 'Opens once you are Verified';
+    need.kind === 'bookings'
+      ? 'Opens once every booking on it is finished'
+      : need.kind === 'widget'
+        ? need.owned
+          ? PAID_WIDGET_RESUBSCRIBE_WORDS
+          : PAID_WIDGET_NEEDS_PLAN_WORDS
+        : isPlan
+          ? `Comes with ${planWord(need.plan)}`
+          : 'Opens once you are Verified';
+  const door = need.kind === 'widget' ? widgetDoor(need) : null;
   const button =
-    need.kind === 'bookings' ? (
+    need.kind === 'widget' ? (
+      storeShell || !door ? null : <ActionButton tone="brand" main icon={door.plans ? Sparkles : Lock} label={door.label} href={door.href} />
+    ) : need.kind === 'bookings' ? (
       need.way ? <ActionButton tone="brand" main icon={Copy} label={need.way.label} href={need.way.href} /> : null
     ) : need.kind === 'verify' ? (
       <ActionButton tone="brand" main icon={BadgeCheck} label="Get verified" href={GET_VERIFIED_HREF} />
@@ -104,7 +130,11 @@ export function LockExplainer({
                 ? need.progress
                 : storeShell
                   ? 'Plans are chosen on setnayan.com'
-                  : need.price ?? 'Price from the price sheet when you tap Upgrade'
+                  : need.kind === 'widget'
+                    ? need.owned
+                      ? 'Yours, kept. It works again on a paid plan.'
+                      : need.price ?? 'Price not set yet'
+                    : need.price ?? 'Price from the price sheet when you tap Upgrade'
             }
           />
         </div>
@@ -149,7 +179,7 @@ export function LockedFeature({
             </span>
           }
           line={line ?? def.solution}
-          badge={{ tone: 'quiet', word: need.kind === 'verify' ? 'Get verified' : need.kind === 'plan' ? planWord(need.plan) : 'Booked' }}
+          badge={{ tone: 'quiet', word: need.kind === 'verify' ? 'Get verified' : need.kind === 'plan' ? planWord(need.plan) : need.kind === 'widget' ? 'Toolkit' : 'Booked' }}
           onOpen={() => setOpen(true)}
         />
       </span>
@@ -180,7 +210,7 @@ export function LockButton({
         <ActionButton
           tone="neutral"
           icon={Lock}
-          label={label ?? (need.kind === 'verify' ? 'Get verified' : need.kind === 'plan' ? `Upgrade to ${planWord(need.plan)}` : 'Why')}
+          label={label ?? (need.kind === 'verify' ? 'Get verified' : need.kind === 'plan' ? `Upgrade to ${planWord(need.plan)}` : need.kind === 'widget' ? widgetDoor(need).label : 'Why')}
           onClick={() => setOpen(true)}
         />
       </span>

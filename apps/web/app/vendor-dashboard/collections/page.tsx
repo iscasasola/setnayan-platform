@@ -86,9 +86,6 @@ export default async function YourCollectionsPage({
         saved={d.saved}
         showAlbums={showAlbums}
         photos={d.portfolioRefs.length}
-        free={d.portfolioMax}
-        allowanceUnread={d.portfolioAllowanceUnread}
-        walletBalance={d.walletBalance}
         // Instagram's OAuth answer: its presence opens "All albums", where the Instagram editor now lives.
         igFlash={igFlash ? <span hidden data-ig-flash={igFlash.kind} /> : null}
         groups={d.groups}
@@ -104,21 +101,14 @@ export default async function YourCollectionsPage({
         albumStats={d.albumStats}
         placesUnread={d.placesUnread}
         chats={{ targets: chatsAnswer.status === 'ok' ? chatsAnswer.targets : null, share: offerServiceInterest }}
-        uploadFacts={{
-          vendorProfileId: d.vendorId,
-          storedRefs: d.portfolioRefs,
-          free: d.portfolioMax,
-          allowanceUnread: d.portfolioAllowanceUnread,
-          walletBalance: d.walletBalance,
-        }}
+        uploadFacts={{ vendorProfileId: d.vendorId, storedRefs: d.portfolioRefs }}
         gallery={
           <GalleryMedia
             vendorProfileId={d.vendorId}
             portfolioRefs={d.portfolioRefs}
             portfolioDisplayMap={d.portfolioDisplayMap}
-            portfolioMax={d.portfolioMax}
-            portfolioAllowanceUnread={d.portfolioAllowanceUnread}
-            walletBalance={d.walletBalance}
+            // 🔓 No portfolio count on any plan (owner 2026-11-23) — storage is the only limit.
+            portfolioMax={Infinity}
             galleryVideoLinks={d.galleryVideoLinks}
             videosHere={false}
             igConfigured={d.igConfigured}

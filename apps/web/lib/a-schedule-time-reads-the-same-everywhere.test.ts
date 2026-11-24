@@ -190,3 +190,52 @@ test('the guard can see the defect it was written for', () => {
   const commented = `// b.start_at: the obvious toLocaleTimeString(x, { hour: 'numeric' }) is wrong`;
   assert.equal(reZoningCalls(commented), 0);
 });
+
+// ── 🌐 …AND IN EVERY LANGUAGE (live fault 22–23 Nov: React #418 on the public Event Hub) ─────────────────────────
+// The zone was pinned; the LANGUAGE was not — `toLocaleString(undefined, …)` is the machine's own. The server (en-US)
+// wrote "1:30 PM" and a guest's phone in English (UK), or any 24-hour language, wrote "13:30" while the schedule widget
+// hydrated: a text mismatch, and React threw. A phone's language is simulated here by giving every locale-less call
+// another language; the words must not move. Sabotage: put `toLocaleString(undefined, …)` back in either formatter.
+function underLanguage<T>(lang: string, fn: () => T): T {
+  const proto = Date.prototype as unknown as Record<string, (...a: unknown[]) => string>;
+  const names = ['toLocaleString', 'toLocaleTimeString', 'toLocaleDateString'] as const;
+  const saved = names.map((k) => proto[k]!);
+  names.forEach((k, i) => {
+    const original = saved[i]!;
+    proto[k] = function (this: Date, locales?: unknown, opts?: unknown) {
+      return original.call(this, locales ?? lang, opts);
+    };
+  });
+  try {
+    return fn();
+  } finally {
+    names.forEach((k, i) => (proto[k] = saved[i]!));
+  }
+}
+
+test('🌐 a schedule time reads the same in any phone language — the server and the guest hydrate one string', () => {
+  const late = '2026-12-19T01:00:00+00:00'; // past midnight: the long, next-day form
+  const server = {
+    range: formatBlockTimeRange(GUESTS_ARRIVE, null),
+    pair: formatBlockTimeRange(GUESTS_ARRIVE, '2026-12-18T17:00:00+00:00'),
+    nextDay: formatBlockTimeRange(GUESTS_ARRIVE, late),
+    dated: formatBlockTime(GUESTS_ARRIVE),
+  };
+  assert.equal(server.range, '1:30 PM');
+  assert.equal(server.pair, '1:30 PM – 5:00 PM');
+  assert.equal(server.nextDay, '1:30 PM → Sat, Dec 19, 1:00 AM');
+  assert.equal(server.dated, 'Fri, Dec 18, 1:30 PM');
+  for (const lang of ['en-GB', 'fil-PH', 'de-DE', 'ja-JP']) {
+    for (const tz of ZONES) {
+      const phone = underTz(tz, () =>
+        underLanguage(lang, () => ({
+          range: formatBlockTimeRange(GUESTS_ARRIVE, null),
+          pair: formatBlockTimeRange(GUESTS_ARRIVE, '2026-12-18T17:00:00+00:00'),
+          nextDay: formatBlockTimeRange(GUESTS_ARRIVE, late),
+          dated: formatBlockTime(GUESTS_ARRIVE),
+        })),
+      );
+      assert.deepEqual(phone, server, `a phone in ${lang} (${tz}) hydrates different words than the server wrote`);
+    }
+  }
+});

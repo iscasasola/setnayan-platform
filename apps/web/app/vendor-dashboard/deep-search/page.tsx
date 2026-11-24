@@ -5,22 +5,27 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { isStoreShellRequest } from '@/lib/request-platform';
 import type { VendorDossier } from '@/lib/vendor-deep-search';
 import { loadDeepSearchOffer } from '@/lib/vendor-deep-search-offer';
-import { isTierAtLeast } from '@/lib/vendor-tier-caps';
-import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
-import { deepSearchPdfFileName, deepSearchPdfHref, deepSearchStillKept } from '@/lib/deep-search-findings';
+import {
+  DEEP_SEARCH_FINDINGS,
+  deepSearchAllowanceWords,
+  deepSearchPdfFileName,
+  deepSearchPdfHref,
+  deepSearchStillKept,
+} from '@/lib/deep-search-findings';
 import { SharePdfButton } from '@/app/_components/share-pdf-button';
 import { DeepSearchRunner } from './_components/deep-search-runner';
 import { DossierView } from './_components/dossier-view';
 
 /**
  * /vendor-dashboard/deep-search — the Deep Search surface (owner-locked
- * 2026-07-22). A verified, paid-tier vendor runs the web-research deep search on
- * their OWN business and reviews the "What We Learned" result to auto-fill their
- * profile. One catalogue price per search on every plan, one search per
- * purchase — no free search (owner 2026-11-09, DECISION_LOG 🔎💳).
+ * 2026-07-22). A verified shop on Plus, Pro or Ultra runs the web-research deep
+ * search on its OWN business and reviews the "What We Learned" result.
+ * ⚖ 2026-11-22 (DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" + 🔎 "DEEP SEARCH
+ * ALLOWANCE = 1 RUN A MONTH"): never sold per search — the paid plans include
+ * the admin-set number of searches each paid month; Free and Verified see what
+ * it finds and "Included in Plus · Upgrade".
  *
  * Doorway: the "Plan & tokens" hub links here (mirrors the Custom-plan sub-route
  * pattern), so it lives OUTSIDE the locked 5-page sidebar IA.
@@ -34,7 +39,8 @@ import { DossierView } from './_components/dossier-view';
 
 export const metadata = { title: 'Deep Search · Supplier' };
 
-const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
+// The included run's research pass finishes after the response (`after` in ./actions.ts), inside this route's time.
+export const maxDuration = 300;
 
 function fmtDateTime(s: string) {
   return new Date(s).toLocaleString('en-PH', {
@@ -84,20 +90,15 @@ export default async function VendorDeepSearchPage() {
   const verification =
     (tierRow as { verification_state?: string | null } | null)?.verification_state ?? null;
 
-  // 🔎 Price, rails and eligibility: the ONE resolver Shop › Details' card uses too
-  // (`lib/vendor-deep-search-offer.ts`, moved from here 2026-10-29 — every rule it carries is the one this page had).
-  // TRY-FIRST (2026-09-30): the runner opens for every VERIFIED shop; the paid-plan requirement is asked through the
-  // one flag-aware question, only at Run — `planAsks` just draws the ◆ note. 🔒 No ◆ hint in the store shell.
-  const planAsks =
-    vendorPaywallApplies(isTierAtLeast(tier, 'solo')) && !(await isStoreShellRequest());
+  // 🔎 Plan, verification and this month's searches: the ONE resolver Shop › Details' card uses too
+  // (`lib/vendor-deep-search-offer.ts`). Nothing is priced — the plans include the searches (owner 2026-11-22).
   const admin = createAdminClient();
   const offer = await loadDeepSearchOffer(supabase, admin, { vendorProfileId, tier, tierExpiresAt, verification });
-  const { eligible, cyclePricePhp, openRails } = offer;
-  // 💰 The catalogue price, or no figure when the row did not read (truth sweep 2026-11-13) — chosen here, said once.
-  const priceLine =
-    cyclePricePhp !== null
-      ? `Each search is ${peso(cyclePricePhp)} — one search per purchase, on every plan.`
-      : 'One search per purchase, on every plan.';
+  const allowanceLine = !offer.included
+    ? deepSearchAllowanceWords(null)
+    : offer.allowance.read
+      ? deepSearchAllowanceWords(offer.allowance.perMonth)
+      : 'Included in your plan.';
 
   // History — the vendor's own uses (RLS-scoped), resolved to their dossiers by
   // the explicit id list (admin-read; verification dossiers have no use row).
@@ -149,17 +150,24 @@ export default async function VendorDeepSearchPage() {
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold text-ink">Run a Deep Search</h2>
             <p className="mt-1 max-w-prose text-sm text-ink/65">
-              {priceLine}
+              {allowanceLine}
             </p>
           </div>
         </div>
 
-        <DeepSearchRunner
-          eligible={eligible}
-          planAsks={planAsks}
-          pricePhp={offer.pricePhp}
-          openRails={openRails}
-        />
+        {/* What it finds — the demo a Free or Verified shop sees above its "Included in Plus · Upgrade". */}
+        {!offer.included ? (
+          <ul className="mt-4 divide-y divide-[color:var(--m-line)]" data-deep-search-findings="">
+            {DEEP_SEARCH_FINDINGS.map((f) => (
+              <li key={f.key} className="flex min-h-12 items-center justify-between gap-3 py-2">
+                <span className="text-sm font-semibold text-ink">{f.title}</span>
+                <span className="text-right text-sm text-ink/65">{f.line}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        <DeepSearchRunner verified={offer.verified} included={offer.included} allowance={offer.allowance} />
       </section>
 
       {latestDossier ? (
@@ -190,8 +198,8 @@ export default async function VendorDeepSearchPage() {
                       />
                     ) : null}
                     <span className="text-xs text-ink/55">
-                      {/* A free use is history: Pro/Ultra had 1 free per 28 days until 2026-11-09. */}
-                      {u.was_free ? 'Free (cycle)' : cyclePricePhp !== null ? peso(cyclePricePhp) : '—'}
+                      {/* An included run, or one bought before the per-search sale retired (2026-11-22). */}
+                      {u.was_free ? 'Included' : 'Bought'}
                     </span>
                     <span
                       className={

@@ -3,7 +3,7 @@ import { Printer, QrCode } from 'lucide-react';
 import { TemplateRow, TemplateRows } from '@/app/_components/template-rows';
 import { ToolSection } from '@/app/vendor-dashboard/_components/tool-page';
 import { RowIcon } from '@/app/vendor-dashboard/_components/row-icon';
-import { MY_QRS_HREF, MY_QRS_SHOP_ORDER, MY_QR_WORDS, myQrHref, printWithQrHref } from '@/lib/supplier-qr-codes';
+import { MY_QRS_HREF, MY_QRS_SHOP_ORDER, MY_QR_WORDS, myQrHref, printWithQrHref, type PromoteQrMode } from '@/lib/supplier-qr-codes';
 
 /**
  * 🔳 MY QRs — the list (drawing `supplier_store_graphs_badges_2026-11-23`, frame "My QRs", v18). ONE list, drawn in three
@@ -23,7 +23,18 @@ import { MY_QRS_HREF, MY_QRS_SHOP_ORDER, MY_QR_WORDS, myQrHref, printWithQrHref 
  *
  * Server-safe: no hooks, no reads — the caller says whether the shop has a web address yet (every code is built on it).
  */
-export function MyQrsList({ canShare, setupHref, embedded = false }: { canShare: boolean; setupHref: string; embedded?: boolean }) {
+export function MyQrsList({
+  canShare,
+  setupHref,
+  embedded = false,
+  hide = [],
+}: {
+  canShare: boolean;
+  setupHref: string;
+  embedded?: boolean;
+  /** 🧩 Toolkit v19: the QR designs the shop removed in the Toolkit — not listed (Your page is built in, never hidden). The code still works. */
+  hide?: readonly PromoteQrMode[];
+}) {
   return (
     <div data-my-qrs={embedded ? 'embedded' : 'page'}>
       {embedded ? (
@@ -41,6 +52,7 @@ export function MyQrsList({ canShare, setupHref, embedded = false }: { canShare:
         {canShare ? (
           <TemplateRows label="Your shop’s codes">
             {MY_QRS_SHOP_ORDER.map((code) => {
+              if (code !== 'page' && hide.includes(code)) return null;
               const w = MY_QR_WORDS[code];
               return (
                 <TemplateRow

@@ -34,12 +34,15 @@ test('2 · bundles first, then services grouped Group › Category', () => {
   assert.match(MANAGER, /data-shop-card-group-label=""/);
 });
 
-test('3 · one add control: New bundle · New service — nothing else', () => {
+// Store drawing v10 (owner 23 Nov 2026): the thumb row's ＋ left; Services ends in its own "Add a service" tile instead.
+test('3 · one add menu (the head): New bundle · New service; the list ends in "Add a service"', () => {
   const CHOICES = stripComments(readFileSync(join(process.cwd(), 'lib/shop-add-choices.ts'), 'utf8'));
   assert.match(CHOICES, /label: 'New bundle'/);
   assert.match(CHOICES, /label: 'New service'/);
   assert.match(HEAD, /addChoices\(bundlesOn\)/, 'the head’s ＋ is not the two choices');
-  assert.match(THUMB, /addChoices\(bundlesOn\)/, 'the thumb row’s ＋ is not the same two choices');
+  assert.doesNotMatch(THUMB, /addChoices\(|action=\{/, 'the thumb row’s ＋ is back (the services end in their own tile)');
+  // The tile is the house's NewThingTile, ghost layout (collection-card.tsx): the dashed frame drawn once, not by hand.
+  assert.match(PAGE, /<NewThingTile\s+layout="ghost"\s+href=\{SERVICE_MAKER_HREF\}[\s\S]{0,300}data-shop-service-add=""[\s\S]{0,200}Add a service/, 'the "Add a service" tile is gone');
   assert.doesNotMatch(MANAGER + PAGE, /Add a service or coverage|data-shop-add-service=""/, 'the old add doors are back');
   assert.doesNotMatch(MANAGER, />\s*Add a service\s*</, 'the "+ Add a service" link is back in the list');
 });

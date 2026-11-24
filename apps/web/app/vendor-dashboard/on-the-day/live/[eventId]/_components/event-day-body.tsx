@@ -1,16 +1,43 @@
 import type { ComponentProps, ComponentType, ReactNode, SVGProps } from 'react';
 import {
+  Armchair,
+  BedDouble,
   CalendarClock,
+  CalendarHeart,
   Camera,
+  CarFront,
   ChefHat,
+  Church,
+  Clock,
+  FileCheck2,
+  Flower2,
+  Footprints,
   HandHeart,
+  HardHat,
   ListChecks,
+  ListOrdered,
+  MapPinned,
+  Mic,
   Music,
+  PackageCheck,
+  PartyPopper,
+  PenLine,
   QrCode,
+  Ruler,
+  Salad,
   ScanLine,
+  ShieldCheck,
+  Sparkles,
+  Stamp,
   Star,
+  Ticket,
+  Tally5,
   TriangleAlert,
+  Trophy,
+  Truck,
   Users,
+  UsersRound,
+  UtensilsCrossed,
 } from 'lucide-react';
 import type { DayOfModuleId } from '@/lib/vendor-dayof-modules';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
@@ -54,6 +81,35 @@ const TOOL_ICON: Record<DayOfModuleId, Icon> = {
   issues_log: TriangleAlert,
   production_sheet: ChefHat,
   vendor_papic: Camera,
+  // 🧰 The hub tools draw inline (`hubTools`), never as a row here; their marks match the panels' own.
+  tech_rider: Mic,
+  personalisation_list: PenLine,
+  dietary_and_allergies: Salad,
+  quantity_vs_guests: Tally5,
+  set_list: ListOrdered,
+  queue_counter: Ticket,
+  entourage: UsersRound,
+  paperwork_checklist: FileCheck2,
+  load_in_and_venue_access: Truck,
+  delivery_and_drop_off: PackageCheck,
+  ceremony_details: Church,
+  proofs_and_approval: Stamp,
+  safety_permit_and_cue: ShieldCheck,
+  fittings_and_measurements: Ruler,
+  looks_per_person: Sparkles,
+  crew_roster: HardHat,
+  room_list: BedDouble,
+  chair_schedule: Armchair,
+  reservation_slots: Clock,
+  brackets_and_scoring: Trophy,
+  pick_up_times_and_routes: CarFront,
+  itinerary: MapPinned,
+  serving_times: UtensilsCrossed,
+  remembrance_schedule: Flower2,
+  march_cue_sheet: Music,
+  rehearsal_and_cues: Footprints,
+  reveal_cue: PartyPopper,
+  wellness_plan: CalendarHeart,
 };
 
 export type DayCount = { key: string; value: string; word: string; href?: string; hot?: boolean };
@@ -73,6 +129,7 @@ export function EventDayBody({
   march,
   headcount,
   tools,
+  hubTools = null,
   reviews,
   desk,
   otherView,
@@ -96,6 +153,8 @@ export function EventDayBody({
   /** The headcount row (attending of invited), or null when the module is off. */
   headcount: { attending: number; invited: number } | null;
   tools: readonly DayTool[];
+  /** The hub tools switched on for this booking, drawn inline by their templates (23 Nov), or null for none. */
+  hubTools?: ReactNode;
   /** Live reviews, or null when the module is off. */
   reviews: ReactNode;
   /** The specialization slot (Song Desk · Emcee script · Floor Command) — its own contents, unchanged; null = none. */
@@ -188,6 +247,8 @@ export function EventDayBody({
                   ))}
                 </PartList>
               ) : null}
+
+              {hubTools}
 
               {reviews ? <PartCard>{reviews}</PartCard> : null}
             </section>

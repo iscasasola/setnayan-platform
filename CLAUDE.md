@@ -47,10 +47,7 @@ Source: corpus `North_Star_Home_of_Every_Filipino_Celebration_2026-11-19.md`.
   - Suppliers: **Free · Plus · Pro · Ultra**. Verified is part of Free. Code tiers: `free · verified · solo(=Plus) · pro · enterprise(=Ultra)`, in `apps/web/lib/vendor-tier-caps.ts`. Special tools are on Pro and Ultra only (`lib/specialized-tools-access.ts`).
   - Couples: **Free · Event Plus · Event Pro · Event Ultra** (`apps/web/lib/event-plans.ts`).
   - No "Max", no "Enterprise" and no "Supplier Plus" in any word a person reads.
-- **Words:**
-  - **Supplier**, never "vendor". **Event Hub**, never "website".
-  - The app says "event"; brand lines say "celebration".
-  - Email only, no SMS.
+- **Words:** see [`docs/brand.md`](docs/brand.md) § Word rules. Email only, no SMS.
 
 ## 2 · Who does what (owner rulings, 20–22 Nov 2026)
 
@@ -68,6 +65,7 @@ Source: corpus `North_Star_Home_of_Every_Filipino_Celebration_2026-11-19.md`.
 
 Full values: corpus `HOUSE_DESIGN_STANDARD_2026-11-20.md` (it outranks anything here on values) plus `HOUSE_TEMPLATES.md`,
 `MOTION_STANDARD_2026-11-18.md`, `DARK_MODE_STANDARD_2026-11-20.md`. Token map: [`docs/design-token-map.md`](docs/design-token-map.md).
+**No generic "AI look":** the five Part I rules are in [`DESIGN.md`](DESIGN.md) (a pointer; the corpus standard wins).
 
 | Job | The one piece (path from `apps/web/`) | Rule |
 |---|---|---|
@@ -175,3 +173,14 @@ Below is the human summary. **Every number shown to a person comes from the ONE 
 | `docs/SETNAYAN_MASTER_BRIEF.md` | The portable brief to upload into Claude Chat for planning. |
 | `.claude/rules/design-and-wiring.md` | The guardrails every build obeys (auto-loaded). |
 | `.claude/skills/think-and-build/SKILL.md` | The mandatory 4-step thought process. |
+| `docs/brand.md` | Positioning and marketing rules: words, banned claims, tone, page order (auto-loaded). |
+
+## 9 · Positioning and marketing rules
+
+Every word a person reads follows [`docs/brand.md`](docs/brand.md): the positioning, the
+mission, the word rules, the claims we never make, the tone and the page order. It is
+imported here so every session loads it:
+@docs/brand.md
+
+The short version: **Plan it · Live it · Keep it.** Say supplier, Event Hub, E-Gifts,
+Logo Maker, Articles and reservation fee. Never hand-type a price, a count or a promise.

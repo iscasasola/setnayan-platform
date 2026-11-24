@@ -83,6 +83,9 @@ const JOBS = [
   // 🏅 Owner 2026-11-15: the badge-reward backstop sweep (a reward whose after() was lost still pays).
   { fn: 'maybeRunBadgeRewardSweep', what: 'paying badge rewards whose moment-of-earning sweep was lost' },
   { fn: 'maybeRunSupplierPagePublish', what: 'a supplier’s event photo going on its page after the guests’ 7-day notice' },
+  // 📏 2026-11-23 (PR #8191): the storage meter's Records, measured once a Manila night. It replaced a pg_cron job the
+  // repo never runs (cron.job stays empty) — drop this line and every shop's Records freeze at their first look.
+  { fn: 'maybeRunSupplierStorageMeasure', what: 'the nightly measure of what every supplier’s records weigh (the storage meter)' },
   // PR-H. Nudges a supplier at day 5 and closes an unanswered booking request at
   // day 7. Mounted here AND on the vendor layout: the DB claim picks one winner
   // per window, and an admin-only mount would leave a supplier's fuse waiting on

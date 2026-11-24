@@ -37,6 +37,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  */
 export const ONBOARDING_SERVICES_SKU = 'ONBOARDING_SERVICES';
 
+/**
+ * 🛒 The Event services bill (owner 2026-11-23, "ONE PLACE TO BUY FOR AN EVENT" · v4 approved "Yes, build it"): a plan,
+ * singles and photos ticked on the Event services page, billed as ONE order with ONE reference on the shipped
+ * `/pay/[reference]` page. The same one-bill shape as the sign-up basket — its lines live in `onboarding_order_items`,
+ * activation fans out over them, ownership reads them — under its own key so the payments desk can say where it came
+ * from. Minted only by `lib/event-services-orders.ts`. No catalogue row, for the same reason as the sign-up basket.
+ */
+export const EVENT_SERVICES_SKU = 'EVENT_SERVICES';
+
+/** Every order key whose contents are its LINES (one bill, many items). Each basket reader asks THIS, never one key. */
+export const BASKET_ORDER_KEYS: readonly string[] = Object.freeze([ONBOARDING_SERVICES_SKU, EVENT_SERVICES_SKU]);
+
+/** Is this order a basket — one bill whose items are its `onboarding_order_items` lines? */
+export function isBasketOrderKey(serviceKey: string | null | undefined): boolean {
+  return typeof serviceKey === 'string' && BASKET_ORDER_KEYS.includes(serviceKey);
+}
+
 export type OnboardingOrderItem = {
   serviceCode: string;
   quantity: number;

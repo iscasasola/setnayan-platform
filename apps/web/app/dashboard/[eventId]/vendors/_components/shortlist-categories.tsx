@@ -1128,6 +1128,7 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .fold.flat .vc.mall .mcorner{display:flex;flex-wrap:wrap;gap:4px}
 .slcat .fold.flat .vc.mall .mcorner>.pcorner,.slcat .fold.flat .vc.mall .mcorner>.rpill{position:static;inset:auto;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .slcat .fold.flat .vc.mall .badges{margin:0}
+.slcat .fold.flat .vc.mall .unrd{margin-left:0}
 .slcat .fold.flat .vc.mall .fits{margin:0}
 .slcat .fold.flat .vc.mall .stand,.slcat .fold.flat .vc.mall .incl{margin:0;padding:0}
 .slcat .fold.flat .vc.mall .price{font-size:19px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
@@ -1766,9 +1767,9 @@ function VendorCard({
           priceSlot={recordedPrice}
           priceMissing={cardPriceMissing}
           rating={ratingEl}
+          shopMark={unreadEl}
           extra={
             <>
-              {unreadEl}
               {selfAdded ? <span className="sc-own">added by you</span> : null}
               {badgesEl}
               {recordLine}

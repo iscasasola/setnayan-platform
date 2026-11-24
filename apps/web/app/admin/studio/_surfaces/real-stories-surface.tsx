@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import Link from 'next/link';
@@ -13,6 +14,7 @@ import { ConfirmForm } from '@/app/_components/confirm-form';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable, type ConsoleColumn } from '@/app/admin/_components/console-table';
 import { formatCount } from '@/lib/format-number';
+import { DISCOVER_HREF } from '@/lib/discover-href';
 
 /**
  * RealStoriesSurface — the Real Stories featuring body of the tabbed
@@ -108,7 +110,7 @@ export async function RealStoriesSurface({
         return (
           <div id={`rs-${r.eventId}`}>
             <Link
-              href={`/${r.slug}`}
+              href={`${publicEventPath(r.slug)}`}
               className="font-medium text-ink hover:text-mulberry hover:underline"
             >
               {r.coupleNames}
@@ -222,7 +224,7 @@ export async function RealStoriesSurface({
       <PageMasthead
         title="Real Stories"
         actions={
-          <ActionButton tone="info" href="/" icon={<Sparkles aria-hidden />} label="View on Discover" />
+          <ActionButton tone="info" href={DISCOVER_HREF} icon={<Sparkles aria-hidden />} label="View on Discover" />
         }
         className="mb-6"
       />

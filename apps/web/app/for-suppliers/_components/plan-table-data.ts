@@ -11,12 +11,14 @@ import { storageWords } from '@/lib/downgrade-limits';
 import { LOCKS, LOCK_KEYS, canUse, type LockDef, type LockKey } from '@/lib/locks';
 import { PLAN_LIMITS, limitOf, limitWords, type PlanLimitKey } from '@/lib/plan-sheet';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
-import { vendorAddonSkuCode } from '@/lib/vendor-addon-tier-pricing';
+import { deepSearchIncluded } from '@/lib/vendor-deep-search-addon';
+import { deepSearchRunsWords } from '@/lib/deep-search-findings';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { allowance } from '@/lib/vendor-plan-rows';
 import { TIER_CAPS, TIER_LABEL, WAITLIST_SETTING_MAX, type VendorTier } from '@/lib/vendor-tier-caps';
 import { ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnSku, type UltraAddOnKind } from '@/lib/vendor-ultra-addons';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 
 /**
  * Free's search line: the 15 Nov rule the database applies (`vendor_profiles.is_findable`, lib/findable-shop.ts) — an
@@ -52,7 +54,9 @@ function planName(t: VendorTier): string {
  *   · the chatbot → `PLAN_CHATBOT_LEVEL` (lib/vendor-ai-level.ts — the same table the inbox's gate reads);
  *   · gifts → the SAME list price on every plan (📦 2026-11-14 / 2026-11-17: one price per gift; the buy-10-get-1
  *     bundles are open to every shop — lib/shop-gifts.ts), so no plan buys gifts for less;
- *   · Deep Search → the SKU each plan is CHARGED from (`vendorAddonSkuCode`), priced by the catalogue;
+ *   · Deep Search → NOT SOLD (owner 2026-11-22, DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" + 🔎 "1 RUN A MONTH"): a Tools
+ *     row — Plus, Pro and Ultra print the admin's monthly number (`deepSearchRunsPerMonth`, read by the caller from
+ *     platform_settings), Free prints "Not included"; an unread number prints "—", never a price;
  *   · storage → `TIER_CAPS.storageBytes` in `storageWords` (owner 2026-11-22 "FINAL LADDER": the plans ARE storage sizes);
  *   · no add-on row: nothing is sold on top of a plan since 2026-11-22 (`canBuyUltraAddOn` says no for all six);
  *   · the locks → `LOCKS` + `canUse` (lib/locks.ts). ⚠ ONLY a lock whose server gate exists (`server !== null`) is
@@ -133,12 +137,22 @@ function chatbotCell(t: VendorTier): TableCell {
   return no('Not included');
 }
 
-export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }): TableGroup[] {
+export function planTable(input: {
+  paywallOn: boolean;
+  prices: PlanTablePrices;
+  /** Deep Search runs each paid month includes (platform_settings); null = not set; undefined = unread → "—". */
+  deepSearchRunsPerMonth?: number | null;
+}): TableGroup[] {
   const { paywallOn, prices } = input;
-  /** "₱499 a search" — or just "—" when the row could not be read (never a suffix on nothing). */
-  const per = (code: string, tail: string): string => (prices.bySku[code] ? `${prices.bySku[code]}${tail}` : DASH);
+  const deepSearchCell = (t: VendorTier): TableCell => {
+    if (!deepSearchIncluded(t)) return no('Not included');
+    const n = input.deepSearchRunsPerMonth;
+    if (n === undefined) return words(DASH);
+    if (n === null) return yes('Included');
+    return yes(`${deepSearchRunsWords(n)} a month`);
+  };
 
-  // 💾 Storage first — what the plans are sold by (owner 2026-11-22 "FINAL LADDER"). Verified joins Free: its 2 GB is said
+  // 💾 Storage first — what the plans are sold by (owner 2026-11-22 "FINAL LADDER"). Verified joins Free: its 1 GB is said
   // in the Free cell, like every other limit where the verified step differs.
   const storageCell = (t: VendorTier): TableCell => {
     const w = (b: number | null) => (b === null ? DASH : storageWords(b));
@@ -172,7 +186,7 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
 
   const free = (t: VendorTier) => t === 'free' || t === 'verified';
   const price: TableRow[] = [
-    { key: 'price:4w', label: 'Every 4 weeks', cells: each((t) => (free(t) ? words('Free') : words(prices.monthly[t] ?? DASH))) },
+    { key: 'price:month', label: PLAN_PERIOD.everyLabel, cells: each((t) => (free(t) ? words('Free') : words(prices.monthly[t] ?? DASH))) },
   ];
 
   const tools: TableRow[] = [
@@ -189,14 +203,10 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
     { key: 'tool:trends', label: 'Trends on your own numbers', cells: each((t) => has(TIER_CAPS[t].performanceTrends)) },
     { key: 'tool:intel', label: 'Market Intelligence: your category vs peers', cells: each((t) => has(TIER_CAPS[t].marketIntel)) },
     { key: 'tool:theft', label: 'Reverse-image theft watch', cells: each((t) => has(TIER_CAPS[t].theftWatch)) },
+    { key: 'tool:deep', label: 'Deep Search: what the web says about your shop', cells: each(deepSearchCell) },
   ];
 
   const buy: TableRow[] = [
-    {
-      key: 'buy:deep',
-      label: 'Deep Search',
-      cells: each((t) => words(per(vendorAddonSkuCode('deep_search_about_you', t), ' a search'))),
-    },
     { key: 'money:gift', label: 'Setnayan gifts you buy', cells: each(() => words('List price')) },
   ];
 

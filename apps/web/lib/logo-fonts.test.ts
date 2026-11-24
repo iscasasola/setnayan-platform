@@ -96,7 +96,8 @@ test('2b · a variable outline file draws at the weight the stage sets — never
     const drawn = LOGO_FONT_VARIATION[f.key]?.wght ?? wght.defaultValue;
     assert.equal(drawn, 400, `${f.key}: the logo would draw weight ${drawn}, the stage draws 400`);
   }
-  assert.deepEqual(variable.sort(), ['baskerville', 'josefin', 'lora'], 'precondition: the three variable files were found');
+  // 23 Nov: Raleway (the redraw's batch 1) ships whole — it reserves its name — so it is the fourth variable file.
+  assert.deepEqual(variable.sort(), ['baskerville', 'josefin', 'lora', 'raleway'], 'precondition: the four variable files were found');
   // Non-vacuity: the pin MOVES the outline — Josefin at 400 is wider than at 100.
   const b = readFileSync(join(ROOT, 'public', LOGO_FONT_OUTLINE.josefin));
   const raw = () => parseFont(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer) as unknown as OtFace;

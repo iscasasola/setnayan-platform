@@ -104,9 +104,9 @@ const titleCase = (s: string) =>
 
 /** What each plan adds to the page — composed from the plan table, never typed (`TIER_CAPS` is the one source). */
 export function pagePlanLines(): PagePlanLine[] {
-  // 📸 The photo count is the SAME free base on every plan (owner 2026-10-23), so it is said once, on Free — a plan
-  // line never sells a photo count. Read from the table, never typed.
-  const photos = `${TIER_CAPS.free.portfolioPhotos.toLocaleString('en-PH')} photos free`;
+  // 📸 Portfolio photos have no count on any plan (owner 2026-11-23: storage is the only limit), so it is said once, on
+  // Free — a plan line never sells a photo count.
+  const photos = 'photos, no limit';
   return [
     { plan: 'Free', line: `Name · services · reviews · ${photos}`, pro: false },
     // 🌐 Your own web address sits on the first plan that has it — Solo since owner 2026-11-04 ("website applies to

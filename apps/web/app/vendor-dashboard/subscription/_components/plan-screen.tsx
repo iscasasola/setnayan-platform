@@ -12,16 +12,12 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalogRead } from '@/lib/v2-catalog';
 import { planGiftOf, giftEndsSoon, giftPlanLine, giftEndedLine, portfolioPlanRowLine } from '@/lib/plan-gift';
 import { dayAfterWords, offerDayWords, offerFromInvite } from '@/lib/personal-invite-offer';
-import { readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
 import { readClaimedTeamInvite } from '@/lib/vendor-invites';
 import {
   TIER_CAPS,
   asVendorTier,
   canBuyExtraSeats,
   holdsBoughtExtras,
-  portfolioPhotoCap,
-  PORTFOLIO_FREE_BASE,
-  PORTFOLIO_ALLOWANCE_UNREAD,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 import { fetchVendorAiAddonState, isVendorAiAddonActive } from '@/lib/vendor-addon-pricing';
@@ -443,8 +439,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
 
   // 🎁 A PLAN SETNAYAN GAVE (prototype supplier_personal_invite_2026-10-23 C1 · C3, owner-approved). While it runs,
   // the answer line names the gift instead of a price nobody pays, and the picker's rows say ₱0 until the day. Once a
-  // personal invite's plan gift has ended (the comp lapse wrote the shop back to Free), the line says it ended. The
-  // photos row reads the shop's own allowance — the invite's 100 are kept (owner ruling 2026-10-23).
+  // personal invite's plan gift has ended (the comp lapse wrote the shop back to Free), the line says it ended.
   const gift = planGiftOf(
     {
       tier_state: (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null,
@@ -453,13 +448,12 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     },
     now,
   );
-  const [allowance, claimedInvite] = await Promise.all([
-    readPortfolioAllowance(supabase, profile.vendor_profile_id),
-    (async () => readClaimedTeamInvite(createAdminClient(), profile.vendor_profile_id))().catch((err) => {
+  const claimedInvite = await (async () => readClaimedTeamInvite(createAdminClient(), profile.vendor_profile_id))().catch(
+    (err) => {
       console.error('[supabase-error] subscription · claimed invite', err);
       return null;
-    }),
-  ]);
+    },
+  );
   const invited = claimedInvite ? offerFromInvite(claimedInvite) : null;
   const todayDay = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
   const giftEnded =
@@ -467,16 +461,8 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       ? { plan: planWord(invited.tier), untilDay: invited.untilDay }
       : null;
 
-  // An allowance that could not be read says so — never "50 free" in its place (a gifted 100 would read as 50).
-  const photosLine = allowance.ok
-    ? portfolioPlanRowLine({
-        held: (profile.portfolio_r2_keys ?? []).length,
-        cap: portfolioPhotoCap(currentTier, allowance.allowance),
-        gifted: (allowance.allowance ?? 0) > PORTFOLIO_FREE_BASE,
-        giftUntilDay: gift ? gift.untilDay : null,
-        giftEnded: Boolean(giftEnded),
-      })
-    : PORTFOLIO_ALLOWANCE_UNREAD;
+  // 🔓 No portfolio count on any plan since 2026-11-23 — the row says what is on the page and that storage is the limit.
+  const photosLine = portfolioPlanRowLine((profile.portfolio_r2_keys ?? []).length);
 
   // 📏 THE STORAGE METER (owner 2026-11-23 "THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SHOP OWNS"): Photos &
   // video · Files · Records, from the ONE breakdown read — the limits sheet above already

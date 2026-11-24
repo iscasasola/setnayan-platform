@@ -44,7 +44,7 @@ export function todayStatsOf(s: Stats): Stat[] {
       ? { id: 'portfolio', figure: null, label: 'Portfolio', line: 'your photos' }
       : s.portfolio === null
         ? { id: 'portfolio', figure: null, label: 'Portfolio', line: UNREAD }
-        : { id: 'portfolio', figure: `${formatCount(s.portfolio.used)} of ${formatCount(s.portfolio.free)}`, label: 'Portfolio', line: 'free photos' },
+        : { id: 'portfolio', figure: formatCount(s.portfolio.used), label: 'Portfolio', line: s.portfolio.used === 1 ? 'photo · no limit' : 'photos · no limit' },
     {
       id: 'money',
       figure: s.toComeInPhp === null ? null : formatPesoCompact(s.toComeInPhp * 100),

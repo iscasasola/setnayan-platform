@@ -17,10 +17,17 @@ import {
   History,
   Lock,
   Plus,
+  Shapes,
   Star,
   Store,
   type LucideIcon,
 } from 'lucide-react';
+import { sendChatMessage } from '@/lib/chat-actions';
+import { CHAT_SENT_AS_FIELD } from '@/lib/chat-sent-as';
+import { SHARE_NONE_YET, SHARE_READ_FAILED, SHARE_ROW_LABEL, SHARE_SEND_FAILED, TOOL_SHARE_WORDS, toolShareBody, type ShareableTool } from '@/lib/chat-tool-share';
+import type { ShareableRead } from '@/lib/chat-tool-share-held';
+import { routes } from '@/lib/routes';
+import { toolIcon } from '@/app/vendor-dashboard/shop/_components/specialized-tool-icon';
 import { Sheet } from '@/app/_components/sheet';
 import { layerHolder } from '@/lib/use-back-closes';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -83,8 +90,8 @@ const ICON: Record<VendorThreadToolIcon, LucideIcon> = {
 };
 
 /** 📷 · 🖼 The composer's two shortcuts live inside the (+) (v8.3) — since 11 Nov as rows of `lib/chat-plus.ts`, under Files. */
-type SheetIcon = VendorThreadToolIcon | 'camera' | 'photo' | 'history';
-const SHEET_ICON: Record<SheetIcon, LucideIcon> = { ...ICON, camera: Camera, photo: ImageIcon, history: History };
+type SheetIcon = VendorThreadToolIcon | 'camera' | 'photo' | 'history' | 'tools';
+const SHEET_ICON: Record<SheetIcon, LucideIcon> = { ...ICON, camera: Camera, photo: ImageIcon, history: History, tools: Shapes };
 const ATTACH_INPUT: Record<'file' | 'camera' | 'photo', string> = {
   file: CHAT_ATTACH_INPUT_ID,
   camera: CHAT_CAMERA_INPUT_ID,
@@ -140,6 +147,10 @@ export type SheetRow = {
   tray?: PlusTrayGroup;
   /** ＋ FINAL: Every version — raises the chat's versions sheet (`raiseDeal`). */
   opensVersions?: boolean;
+  /** 🧰 Share from your tools — opens the tray's second level, the picker of the tools this shop has. */
+  opensTools?: boolean;
+  /** The drawing's "New" mark beside the name. */
+  isNew?: boolean;
 };
 
 /**
@@ -202,10 +213,16 @@ export function ToolsSheetButton({
   threadId,
   cake,
   unverified = false,
+  share,
 }: {
   rows: readonly SheetRow[];
   sheetMark: string;
   threadId?: string;
+  /**
+   * 🧰 The tools this shop may share here (`readShareableTools`, read once by the page) — the "Share from your tools"
+   * picker lists ONLY these. `null` = they could not be read (the picker says so, never an empty "none").
+   */
+  share?: ShareableRead | null;
   /**
    * 🎂 Cake Maker v6 — the side whose cake tile this ＋ may draw: the couple's "Design a cake" (full width, at the end of
    * Ask) or the supplier's For your service › "Ask for a cake design". Drawn only when this chat's shop has it on.
@@ -218,8 +235,10 @@ export function ToolsSheetButton({
   const cakeOn = useCakeTile(cake ? threadId : undefined, cake ?? 'couple');
   const [cakeOpen, setCakeOpen] = useState(false);
   // The supplier's second level (For your service) and the invite's own state.
-  const [level, setLevel] = useState<'top' | 'service'>('top');
+  const [level, setLevel] = useState<'top' | 'service' | 'tools'>('top');
   const [ask, setAsk] = useState<{ s: 'idle' | 'sending' } | { s: 'failed'; message: string }>({ s: 'idle' });
+  // 🧰 The share picker's own state: which tool is being posted, or the plain reason it was not.
+  const [sharing, setSharing] = useState<{ s: 'idle' } | { s: 'sending'; tool: ShareableTool } | { s: 'failed' }>({ s: 'idle' });
   const router = useRouter();
   const plus = usePlus(threadId ?? '');
   /* 🧰 ＋ ⇄ ← (Unichat part B, 20 Nov 2026 — approved drawing: "The + turns into ←. Tap it to go back; your text
@@ -322,7 +341,14 @@ export function ToolsSheetButton({
     }
     const words = (
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-bold leading-tight text-ink">{row.label}</span>
+        <span className="flex items-center gap-1.5 text-sn-base font-bold leading-tight text-ink">
+          <span className="min-w-0">{row.label}</span>
+          {row.isNew ? (
+            <span className="shrink-0 rounded-full bg-sn-accent px-1.5 py-px text-sn-2xs font-bold text-sn-on-accent" data-plus-new="">
+              New
+            </span>
+          ) : null}
+        </span>
         {helping ? <span className="mt-0.5 block text-[13px] leading-tight text-[color:var(--m-slate-2)]">{row.line}</span> : null}
       </span>
     );
@@ -352,6 +378,12 @@ export function ToolsSheetButton({
             title={row.line}
             className={`sn-press ${tileClass}`}
             onClick={() => {
+              if (row.opensTools) {
+                // 🧰 The tray's second level: the tools this shop has. The sheet (or the third column) stays open.
+                setSharing({ s: 'idle' });
+                setLevel('tools');
+                return;
+              }
               if (row.opensVersions && threadId) {
                 // Every version is a place to go: the chat raises its own versions sheet once the tray is away.
                 const holds = open && Boolean(layerHolder(window.history.state));
@@ -484,8 +516,95 @@ export function ToolsSheetButton({
         ) : null}
       </div>
     ) : null;
+  // 🧰 Share from your tools — the second level (drawing frame 7, "The picker"): ONLY the tools this shop has, in the
+  // drawing's order. A pick posts its card through the shipped send, as the shop (`sent_as=vendor`); the server checks
+  // the shop holds that tool. Nothing held → said, with the way to the Store; an unread list → said, never "none".
+  const shareTools = share?.tools ?? [];
+  const toolsLevel = (
+    <div data-plus-level="tools">
+      <button type="button" onClick={() => setLevel('top')} className="sn-press -ml-1 mb-2 inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-sn-base font-semibold text-ink">
+        <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
+        {SHARE_ROW_LABEL}
+      </button>
+      {shareTools.length > 0 ? (
+        <ul className="grid gap-2" data-share-tools="">
+          {shareTools.map((tool) => {
+            const w = TOOL_SHARE_WORDS[tool];
+            const Icon = toolIcon(tool);
+            const busy = sharing.s === 'sending' && sharing.tool === tool;
+            return (
+              <li key={tool} data-share-tool={tool}>
+                <button
+                  type="button"
+                  aria-busy={busy || undefined}
+                  title={w.pickLine}
+                  className={`sn-press ${tileClass}`}
+                  onClick={async () => {
+                    if (sharing.s === 'sending' || !threadId) return;
+                    setSharing({ s: 'sending', tool });
+                    const fd = new FormData();
+                    fd.set('thread_id', threadId);
+                    fd.set('body', toolShareBody(tool));
+                    fd.set(CHAT_SENT_AS_FIELD, 'vendor');
+                    try {
+                      await sendChatMessage(fd);
+                    } catch {
+                      setSharing({ s: 'failed' });
+                      return;
+                    }
+                    setSharing({ s: 'idle' });
+                    // The card arrives like every message: the stream's Realtime feed (one save, one render — no refresh).
+                    close();
+                  }}
+                >
+                  <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--m-paper)] text-sn-accent">
+                    <Icon className="h-[17px] w-[17px]" strokeWidth={1.75} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sn-base font-bold leading-tight text-ink">{w.tool}</span>
+                    <span className="mt-0.5 block truncate text-sn-md leading-tight text-[color:var(--m-slate-2)]">{busy ? 'Sharing…' : w.pickLine}</span>
+                  </span>
+                  <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[color:var(--m-slate-2)]" strokeWidth={1.9} />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      {share == null || share.unread ? (
+        <p role="status" className="mt-2 flex flex-wrap items-center gap-2 text-sn-md text-ink" data-share-unread="">
+          <span>{SHARE_READ_FAILED}</span>
+          <button
+            type="button"
+            className="sn-press min-h-11 font-bold text-sn-accent"
+            onClick={() => {
+              // one-render: keep (retry) — the list could not be read; Try again reads the page again, nothing was written.
+              router.refresh();
+            }}
+            data-share-retry=""
+          >
+            Try again
+          </button>
+        </p>
+      ) : shareTools.length === 0 ? (
+        <p className="mt-1 flex flex-wrap items-center gap-2 text-sn-md text-ink" data-share-none="">
+          <span>{SHARE_NONE_YET}</span>
+          <Link href={routes.vendorDashboard.shop.store.shelf('tools')} className="sn-press inline-flex min-h-11 items-center font-bold text-sn-accent" data-share-store="">
+            Open the Store
+          </Link>
+        </p>
+      ) : null}
+      {sharing.s === 'failed' ? (
+        <p role="alert" className="mt-2 text-sn-md text-danger-700" data-share-failed="">
+          {SHARE_SEND_FAILED}
+        </p>
+      ) : null}
+    </div>
+  );
   const tiles =
-    level === 'service' && serviceLevel ? (
+    level === 'tools' ? (
+      toolsLevel
+    ) : level === 'service' && serviceLevel ? (
       serviceLevel
     ) : (
       <ul className="grid grid-cols-2 gap-2" data-plus-tiles="">
@@ -592,7 +711,7 @@ function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: stri
       label: r.label,
       line: r.line,
       // A card wears its topic's glyph (above); a row that is not a card wears its own: the camera, the photo, the flag.
-      icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'report' ? 'problem' : r.key === 'quote' ? 'quote' : r.key === 'versions' ? 'history' : 'file',
+      icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'report' ? 'problem' : r.key === 'quote' ? 'quote' : r.key === 'versions' ? 'history' : r.key === 'share' ? 'tools' : 'file',
       shut: r.shutNow ?? (r.shutUntilAgreement && !hasAgreement ? r.shutUntilAgreement : null),
       card: r.card,
       href: d?.href,
@@ -607,6 +726,8 @@ function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: stri
       wide: r.wide,
       tray: r.tray,
       opensVersions: r.opensVersions,
+      opensTools: r.opensTools,
+      isNew: r.isNew,
     };
   });
 }
@@ -623,6 +744,7 @@ export function ThreadToolsSheet({
   paid = false,
   hasQuote,
   verified = null,
+  share = null,
 }: {
   eventId: string;
   state: VendorThreadToolsState;
@@ -636,12 +758,14 @@ export function ThreadToolsSheet({
   hasQuote?: boolean;
   /** 🪪 ＋ FINAL: `false` = the shop is not verified (every tile locked, "Get verified" said once). Null = unknown. */
   verified?: boolean | null;
+  /** 🧰 The tools this shop may share here (`readShareableTools`); null = could not be read. */
+  share?: ShareableRead | null;
 }) {
   // 🗳 One open poll per chat: the stream's poll card tells the store; the Poll row goes grey with its reason.
   const { pollOpen } = usePlus(threadId ?? '');
   const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen, hasQuote, booked: state.hasAgreement, verified }), 'vendor', eventId, state.hasAgreement);
   // 🪪 An unverified shop has every ＋ tile locked (＋ FINAL) — it is not handed the cake tile either.
-  return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} cake={verified === false ? undefined : 'vendor'} unverified={verified === false} />;
+  return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} cake={verified === false ? undefined : 'vendor'} unverified={verified === false} share={share} />;
 }
 
 /**

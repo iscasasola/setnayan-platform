@@ -43,6 +43,7 @@
  */
 import type { PickedClientPage } from './upcoming-schedule-door';
 import type { ChatTopic } from './topic-icons';
+import { SHARE_ROW_LABEL, SHARE_ROW_LINE } from './chat-tool-share';
 
 export type PlusCardKind =
   | 'quote'
@@ -67,7 +68,7 @@ export type PlusCardKind =
 /** A row that opens one of the composer's own file inputs inside the tap (a phone only opens a picker from a gesture). */
 export type PlusAttach = 'camera' | 'photo' | 'file';
 
-export type PlusRowKey = PlusCardKind | 'camera' | 'photo' | 'report' | 'versions';
+export type PlusRowKey = PlusCardKind | 'camera' | 'photo' | 'report' | 'versions' | 'share';
 // ('offer' is a card kind, so it is a row key too. 'versions' left on 20 Nov 2026 and Report a problem moved to the ⋯
 // (part G, `picked-client-more.ts`); the (+) holds only things you send.)
 
@@ -100,6 +101,13 @@ export type PlusRow = {
   opensVersions?: boolean;
   /** ＋ FINAL: the host's tray is two jobs, headed by their own words — Ask · Share. */
   tray?: PlusTrayGroup;
+  /**
+   * 🧰 Share from your tools (DECISION_LOG 2026-11-23, specs dee66686): the row opens the tray's second level — the
+   * picker of the tools this shop has (`lib/chat-tool-share-held.ts`) — and each pick posts its card. Not a card itself.
+   */
+  opensTools?: boolean;
+  /** The drawing's "New" mark beside the row's name. */
+  isNew?: boolean;
 };
 
 /** ＋ FINAL (owner 21 Nov, "CHAT ＋ FINAL — APPROVED"): the host's two jobs, and their words. */
@@ -151,6 +159,7 @@ export const PLUS_ROW_PAGE: Record<PlusRowKey, PlusGroup> = {
   file: 'files',
   report: 'report',
   versions: NEGOTIATE_GROUP,
+  share: 'files',
 };
 
 /**
@@ -194,6 +203,7 @@ export const PLUS_ROW_SECTION: Record<PlusRowKey, PlusSection> = {
   file: 'files',
   report: 'report',
   versions: 'negotiate',
+  share: 'files',
 };
 
 /**
@@ -327,6 +337,9 @@ export function supplierPlusRows(opts: {
     // ➖ "Ask for access" LEFT the ＋ (owner 21 Nov, DECISION_LOG "NO 'ASK FOR ACCESS' TILE ON THE CHAT ＋" — the row AFTER
     // "CHAT ＋ FINAL", and it names the final tray: *"this means we do not need access request on +"*). Asking lives in
     // ONE place: the "Their event" list's last row, "Ask for access to more" (lib/their-event.ts).
+    // 🧰 Share from your tools (owner 23 Nov, "Yes, add it" — DECISION_LOG dee66686; drawing frame 7): the picker of the
+    // planning tools this shop has. Always drawn in its place; a shop with none is told so in the picker, never hidden.
+    { key: 'share', label: SHARE_ROW_LABEL, line: SHARE_ROW_LINE, card: null, door: null, opensTools: true, isNew: true },
     {
       key: 'versions',
       label: 'Every version',

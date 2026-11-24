@@ -10,7 +10,8 @@
  *   acc (the one button) → --color-mulberry       acc-word      → --color-mulberry-700
  *   acc-soft             → --color-band-from / mulberry 16 %   gold (photo ring) → --color-terracotta
  *   link                 → --color-link            ok            → --color-ok
- *   sup / sup-tile       → --color-supplier / --color-supplier-tile (supplier navy — ONLY inside the shop block)
+ *   sup / sup-tile       → supplier navy, ONLY inside the shop block — set HERE, not in globals.css, since nothing
+ *                          else paints it (the-stylesheet-stays-in-budget: surface-only colours live on the surface)
  */
 
 .page {
@@ -25,8 +26,10 @@
   --uh-gold: rgb(var(--color-terracotta));
   --uh-link: rgb(var(--color-link));
   --uh-ok: rgb(var(--color-ok));
-  --uh-sup: rgb(var(--color-supplier));
-  --uh-sup-tile: rgb(var(--color-supplier-tile));
+  /* 🏪 SUPPLIER NAVY (Unihome v5, owner-approved 23 Nov 2026): the shop block's fill and tiles, the drawing's --sup /
+     --sup-tile. The supplier dashboard keeps its own blue look (supplier-look.css). White on #3B4E67 = 8.22:1. */
+  --uh-sup: rgb(59 78 103);       /* #3B4E67 */
+  --uh-sup-tile: rgb(238 242 248); /* #EEF2F8 */
   --uh-jump-h: 76px;
   background: rgb(var(--color-cream));
   color: rgb(var(--color-ink));
@@ -35,6 +38,8 @@
   padding-bottom: 112px;
 }
 :global(html.dark) .page {
+  --uh-sup: rgb(34 114 230);      /* #2272E6 — white on it 4.55:1 */
+  --uh-sup-tile: rgb(31 47 74);   /* #1F2F4A */
   --uh-m1: rgb(var(--color-ink-2));
   --uh-m2: rgb(var(--color-ink-3));
   --uh-acc-soft: rgb(var(--color-mulberry) / 0.16);

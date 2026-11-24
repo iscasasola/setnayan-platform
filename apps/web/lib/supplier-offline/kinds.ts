@@ -19,7 +19,7 @@
  * engine adds only the checks the ruling names; it never re-implements an action.
  */
 import { formatPhp } from '@/lib/php';
-import type { VendorCapability } from '@/lib/vendor-duties';
+import type { VendorCapability, VendorDuty } from '@/lib/vendor-duties';
 
 /** How the server decides a queued action. */
 export type OfflineRule =
@@ -108,6 +108,13 @@ export const NEEDS_INTERNET_ACTIONS: readonly string[] = [
   'app/vendor-dashboard/subscription/ultra-addon-actions.ts › buyUltraAddOn',
 ];
 
+/**
+ * The roles that book (controller under the 20 Nov delegation, DECISION_LOG 24 Nov; review #2 item 1): only they may
+ * book, block or hold dates — offline exactly as online — and an offline QR only counts while its phone's member still
+ * holds one of them.
+ */
+export const BOOKING_DUTIES: ReadonlyArray<VendorDuty> = ['shop_manager', 'branch_manager', 'account_manager'];
+
 /* ── R15: what needs internet ─────────────────────────────────────────────────────────────────────────────────── */
 
 /** The greyed button's label and the one quiet line a tap shows (owner 24 Nov, R15). */
@@ -150,6 +157,35 @@ export function rowUnchanged(seen: RowVersion, liveUpdatedAt: string | null): bo
 }
 
 export type SupplierOfflineKind = keyof typeof SUPPLIER_OFFLINE_KINDS;
+
+/**
+ * Each kind's payload version (review #2 item 11). A phone keeps items made by the code it had; the server keeps an
+ * adapter for every version it ever accepted (`adaptQueuedItem`) and refuses a newer one it does not know.
+ */
+export const KIND_SCHEMA: Readonly<Record<SupplierOfflineKind, number>> = {
+  'schedule.client': 1,
+  'schedule.block': 1,
+  'schedule.edit': 1,
+  'schedule.remove': 1,
+  'schedule.day': 1,
+  'qr.booking': 1,
+  'client.add': 1,
+  'lead.outcome': 1,
+  'note.add': 1,
+  'note.done': 1,
+  'note.delete': 1,
+  'message.send': 1,
+  'payment.ask': 1,
+  'payment.ask_withdraw': 1,
+  'payment.confirm': 1,
+  'deposit.ack': 1,
+  'booking.accept': 1,
+};
+
+/** Older payload versions → today's. Version 1 is today's; a later version adds its adapter here. */
+export function adaptQueuedItem(item: SupplierQueuedItem): SupplierQueuedItem {
+  return { ...item, schema: KIND_SCHEMA[item.kind] };
+}
 
 export function isSupplierOfflineKind(v: unknown): v is SupplierOfflineKind {
   return typeof v === 'string' && Object.hasOwn(SUPPLIER_OFFLINE_KINDS, v);
@@ -210,6 +246,10 @@ export type SupplierQueuedItem = {
   baseVersion?: number | null;
   /** any other row it changes, with that row's `updated_at` as the phone saw it */
   rowVersion?: RowVersion | null;
+  /** an edit or removal of something THIS phone made offline: the item that made it (the server waits for its answer) */
+  dependsOn?: string | null;
+  /** the payload version of this kind (`KIND_SCHEMA`); an item newer than this server knows is never guessed at */
+  schema?: number;
   /** the amounts the phone showed (money kinds) */
   seen?: MoneySeen | null;
   /** "8 gifts left · as of 2:14 pm" — when the gift balance the phone gave from was read (ISO) */
@@ -240,6 +280,9 @@ export function parseQueuedItem(raw: unknown): SupplierQueuedItem | null {
   if (base !== undefined && base !== null && !(Number.isInteger(base) && (base as number) >= 0)) return null;
   let seen: MoneySeen | null = null;
   if (r.rowVersion !== undefined && r.rowVersion !== null && !isRowVersion(r.rowVersion)) return null;
+  if (r.dependsOn !== undefined && r.dependsOn !== null && !isUuid(r.dependsOn)) return null;
+  const schema = r.schema === undefined ? 1 : r.schema;
+  if (!Number.isInteger(schema) || (schema as number) < 1 || (schema as number) > KIND_SCHEMA[r.kind as SupplierOfflineKind]) return null;
   if (r.seen && typeof r.seen === 'object') {
     const s = r.seen as Record<string, unknown>;
     seen = { totalPhp: amountOf(s.totalPhp), depositPhp: amountOf(s.depositPhp), paymentPhp: amountOf(s.paymentPhp) };
@@ -254,6 +297,8 @@ export function parseQueuedItem(raw: unknown): SupplierQueuedItem | null {
     kind: r.kind,
     baseVersion: (base as number | null | undefined) ?? null,
     rowVersion: (r.rowVersion as RowVersion | null | undefined) ?? null,
+    dependsOn: (r.dependsOn as string | null | undefined) ?? null,
+    schema: schema as number,
     seen,
     giftsAsOf: typeof r.giftsAsOf === 'string' ? r.giftsAsOf : null,
     fields,
@@ -288,19 +333,24 @@ export type RetryWhy =
   /** a live read failed — never decided on an unread number */
   | 'unread'
   /** the same item is being applied right now */
-  | 'busy';
+  | 'busy'
+  /** it follows another change made offline (an edit of a booking made offline) that has not been sent yet */
+  | 'waiting_parent';
 
 export type SyncOutcome =
   | { status: 'applied'; deduped?: boolean; ref?: string | null; version?: number | null }
   | { status: 'clash'; clash: Clash }
   | { status: 'needs_reconfirm'; offline: MoneySeen | null; live: MoneySeen }
   | { status: 'no_gifts_left'; asOf: string }
+  /** an offline QR was used by an event whose hosts do not match the client the supplier typed: the gift waits until
+   *  the supplier confirms it is their client — never auto-given to a stranger's event (review #2 item 17) */
+  | { status: 'confirm_claim'; eventName: string | null; inviteId: string }
   | { status: 'refused'; why: string }
   | { status: 'retry'; why: RetryWhy };
 
 export type SyncReply = SyncOutcome & { itemId: string; kind: SupplierOfflineKind };
 
-export const SYNC_STATUSES = ['applied', 'clash', 'needs_reconfirm', 'no_gifts_left', 'refused', 'retry'] as const;
+export const SYNC_STATUSES = ['applied', 'clash', 'needs_reconfirm', 'no_gifts_left', 'confirm_claim', 'refused', 'retry'] as const;
 
 /** Final = the phone stops sending it. Only `retry` keeps it queued. */
 export function isFinalOutcome(o: Pick<SyncOutcome, 'status'>): boolean {
@@ -349,6 +399,7 @@ export const SQL_INVALID: Readonly<Record<string, string>> = {
   name: 'Add the client’s name.',
   day_part: 'Pick a part of the day.',
   base_version: 'This change doesn’t say which version it was made on. Open the item and make it again.',
+  hold_cap: 'You hold 5 date ranges already — let one go first.',
   source: 'A booking made through Setnayan can’t be changed here.',
   day_state: 'That day setting can’t be saved.',
   code: 'That QR code isn’t one of this shop’s.',
@@ -424,6 +475,8 @@ export function outcomeLine(o: SyncOutcome): string | null {
     }
     case 'no_gifts_left':
       return 'Gift not sent: no gifts left';
+    case 'confirm_claim':
+      return `Your offline QR was used for ${o.eventName?.trim() || 'an event'}. Is this your client? Confirm before the gift is given.`;
     case 'refused':
       return `Couldn’t save: ${o.why}`;
     default:

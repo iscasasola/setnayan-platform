@@ -123,7 +123,11 @@ export interface OfflineQueueStat {
  * dequeue. `ok: false` keeps the item in the queue; `error` is stored
  * on the IDB row's `last_error` for the diagnostic page to show.
  */
-export type SyncResult = { ok: true } | { ok: false; error: string };
+export type SyncResult =
+  | { ok: true }
+  /** `waiting` (supplier offline, controller review #2 item 3): nothing was really sent — no signal, another account,
+   *  another shop, an older payload. It never counts as a try, so a waiting item is never given up on for waiting. */
+  | { ok: false; error: string; waiting?: true };
 
 /**
  * Aggregate result of `triggerSyncNow()` — one row per service with

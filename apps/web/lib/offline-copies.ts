@@ -342,9 +342,6 @@ export function savedMark(input: {
   return { tone: 'ok', text: `Saved for offline · updated ${age < 60_000 ? 'just now' : clockWords(savedAt)}` };
 }
 
-/** The supplier offline answers' key (`lib/offline/service-handlers/supplier-handler.ts`, held equal by its guard). */
-export const SUPPLIER_OFFLINE_OUTCOMES_KEY = 'sn-offline-supplier-outcomes:v1';
-
 /**
  * 🧹 SIGN-OUT ERASES THE COPIES — an inline script for the pages a signed-out person lands on, beside the last-seen
  * wipe (`app/_components/last-seen/last-seen-wipe-script.tsx`; same doors, same cookie test). With no Supabase auth
@@ -353,9 +350,6 @@ export const SUPPLIER_OFFLINE_OUTCOMES_KEY = 'sn-offline-supplier-outcomes:v1';
 export const OFFLINE_COPIES_WIPE_SCRIPT =
   `try{if(!${AUTH_COOKIE}.test(document.cookie)){` +
   `if(self.caches)caches.delete(${JSON.stringify(OFFLINE_COPIES_CACHE)});` +
-  // 📶 the supplier offline answers kept on this phone (`supplier-handler.ts` · SUPPLIER_OUTCOMES_KEY) go too; the queue
-  // and the one-time codes are erased by the worker on OFFLINE_FORGET (`forgetSupplierOffline`, public/sw.js).
-  `try{localStorage.removeItem(${JSON.stringify(SUPPLIER_OFFLINE_OUTCOMES_KEY)})}catch(e){}` +
   `var c=navigator.serviceWorker&&navigator.serviceWorker.controller;if(c)c.postMessage({type:"OFFLINE_FORGET"})}}catch(e){}`;
 
 /**

@@ -248,7 +248,7 @@ test('4 · one code, one entry — whoever arrives first; a stopped phone, an ed
 
   // the client's phone first, then the supplier's own sync of the same code
   const c1 = uuid();
-  const byClient = await useCode({ code_id: c1, device_id: anaPhone.deviceId, via: 'client', booked_date: d, pool_id: pool, event_id: eventId, label: 'Liza & Paolo', phone_time: '2026-11-24T03:10:00Z', amount_php: 15000 });
+  const byClient = await useCode({ code_id: c1, device_id: anaPhone.deviceId, via: 'client', booked_date: d, pool_id: pool, event_id: eventId, label: 'Liza & Paolo', phone_time: '2026-11-24T03:10:00Z', total_php: 85000, first_php: 15000, service_ids: [] });
   assert.equal(byClient.status, 'applied');
   const item = uuid();
   const bySupplier = await useCode({ code_id: c1, device_id: anaPhone.deviceId, via: 'supplier', booked_date: d, pool_id: pool, item_id: item, client_name: 'Liza Santos', client_contact: '0917 555 1234' });
@@ -297,11 +297,11 @@ test('4 · one code, one entry — whoever arrives first; a stopped phone, an ed
 
   // a payload edited after signing is refused — checked against the public key exactly as the database keeps it
   const { verifyOfflineQrSignature } = await serverQr();
-  const fields = { codeId: uuid(), deviceId: anaPhone.deviceId, shop, member: await memberTagOf(ana), date: d, time: '14:00', poolId: pool, amountPhp: 15000, madeOffline: true as const, phoneTime: '2026-11-24T06:00:00.000Z' };
+  const fields = { codeId: uuid(), deviceId: anaPhone.deviceId, shop, member: await memberTagOf(ana), date: d, time: '14:00', poolId: pool, services: [], totalPhp: 85000, firstPhp: 15000, madeOffline: true as const, phoneTime: '2026-11-24T06:00:00.000Z' };
   const token = (await signOfflineQr(fields, anaPhone.privateKey))!;
   const kept = await one<unknown>(`SELECT public_key AS v FROM public.vendor_offline_devices WHERE device_id = $1`, [anaPhone.deviceId]);
   assert.equal(verifyOfflineQrSignature(parseOfflineQrToken(token)!, kept), true, 'a genuine code fails against the kept key');
-  const edited = token.replace(`.${d.replace(/-/g, '')}.`, `.${(await day(52)).replace(/-/g, '')}.`).replace('.15000.', '.1.');
+  const edited = token.replace(`.${d.replace(/-/g, '')}.`, `.${(await day(52)).replace(/-/g, '')}.`).replace('.85000.', '.1.');
   assert.ok(parseOfflineQrToken(edited), 'the edited code no longer parses — the test is not testing the signature');
   assert.equal(verifyOfflineQrSignature(parseOfflineQrToken(edited)!, kept), false, 'a code edited after signing was accepted');
   const benKey = await one<unknown>(`SELECT public_key AS v FROM public.vendor_offline_devices WHERE device_id = $1`, [benPhone.deviceId]);
@@ -337,7 +337,7 @@ test('6 · RLS: no session reads a phone’s key row, writes a hold or a code us
   try {
     await setAuthUid(db, owner);
     await assert.rejects(db.query(`SELECT public_key FROM public.vendor_offline_devices WHERE device_id = $1`, [p.deviceId]), /permission denied/, 'a session read a phone’s key row');
-    assert.ok(Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.vendor_offline_holds WHERE vendor_profile_id = $1`, [shop])) >= 1, 'the shop cannot read its own holds');
+    await assert.rejects(db.query(`SELECT 1 FROM public.vendor_offline_holds WHERE vendor_profile_id = $1`, [shop]), /permission denied/, 'a session read holds past the door (they are served through team.read)');
     assert.ok(Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.vendor_offline_code_uses WHERE vendor_profile_id = $1`, [shop])) >= 1, 'the shop cannot read its own code uses');
     await assert.rejects(
       db.query(`INSERT INTO public.vendor_offline_holds (vendor_profile_id, member_user_id, start_date, end_date) VALUES ($1, $2, CURRENT_DATE, CURRENT_DATE)`, [shop, owner]),
@@ -353,7 +353,7 @@ test('6 · RLS: no session reads a phone’s key row, writes a hold or a code us
       await assert.rejects(db.query(`SELECT public.${fn}('{}'::jsonb)`), /permission denied/, `a session called ${fn}`);
     }
     await setAuthUid(db, stranger);
-    for (const t of ['vendor_offline_holds', 'vendor_offline_code_uses', 'vendor_offline_writes']) {
+    for (const t of ['vendor_offline_code_uses', 'vendor_offline_writes']) {
       assert.equal(Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.${t} WHERE vendor_profile_id = $1`, [shop])), 0, `another shop reads ${t}`);
     }
   } finally {

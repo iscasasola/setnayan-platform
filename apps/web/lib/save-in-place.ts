@@ -17,20 +17,8 @@
  * Pure. Held by `lib/a-save-never-resets-the-screen.test.ts`.
  */
 
-/** `note` — a landed save that still has something to say ("2 not coming were left as they were").
- *  `reply` — a door whose work returns a typed answer instead of redirecting (the supplier offline door,
- *  `lib/supplier-offline/engine.server.ts`) hands it back here; every other door leaves it unset. */
-export type StayResult = { ok: true; note?: string; reply?: unknown } | { ok: false; error: string };
-
-/**
- * A door's returned value that is an ANSWER for the browser: only `{ stayReply: … }` — any other value an action
- * returns (most return nothing; some return their own state) is never sent back through the door.
- */
-export function stayReplyOf(value: unknown): unknown {
-  return value !== null && typeof value === 'object' && Object.hasOwn(value, 'stayReply')
-    ? (value as { stayReply: unknown }).stayReply
-    : undefined;
-}
+/** `note` — a landed save that still has something to say ("2 not coming were left as they were"). */
+export type StayResult = { ok: true; note?: string } | { ok: false; error: string };
 
 /** How one area reads its own redirect: its refusal words, and the screens a press may stay on. */
 export type StayWords = {

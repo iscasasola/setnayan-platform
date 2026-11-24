@@ -58,7 +58,9 @@ async function fields(deviceId: string, over: Partial<OfflineQrFields> = {}): Pr
     date: '2026-12-12',
     time: '14:00',
     poolId: POOL,
-    amountPhp: 15000,
+    services: ['5a1e2b3c-4d5e-4f60-8a7b-9c0d1e2f3a4b'],
+    totalPhp: 85000,
+    firstPhp: 15000,
     madeOffline: true,
     phoneTime: '2026-11-24T06:14:00.000Z',
     ...over,
@@ -82,7 +84,7 @@ test('1 · signed on the phone, verified on the server with THAT phone’s publi
   assert.equal(verify(parsed, { ...phone.publicJwk, d: 'x' }), false, 'a key with a private part was accepted as a public key');
 });
 
-test('2 · every field is signed — an edited code, phone, shop, member, date, time, schedule, amount, phone time or signature fails', async () => {
+test('2 · every field is signed — an edited code, phone, shop, member, the deal, phone time or signature fails', async () => {
   const verify = await verifier();
   const phone = await newPhoneKey();
   const token = (await signOfflineQr(await fields(phone.deviceId), phone.privateKey))!;
@@ -96,9 +98,11 @@ test('2 · every field is signed — an edited code, phone, shop, member, date, 
     ['date', (p) => void (p[5] = '20261213')],
     ['time', (p) => void (p[6] = '1500')],
     ['schedule', (p) => void (p[7] = '-')],
-    ['amount', (p) => void (p[8] = '1')],
-    ['phone time', (p) => void (p[10] = (parseInt(p[10]!, 36) + 60).toString(36))],
-    ['signature', (p) => void (p[11] = `${p[11]!.slice(0, -2)}${p[11]!.endsWith('AA') ? 'BB' : 'AA'}`)],
+    ['services', (p) => void (p[8] = '-')],
+    ['total', (p) => void (p[9] = '1')],
+    ['first payment', (p) => void (p[10] = '1')],
+    ['phone time', (p) => void (p[12] = (parseInt(p[12]!, 36) + 60).toString(36))],
+    ['signature', (p) => void (p[13] = `${p[13]!.slice(0, -2)}${p[13]!.endsWith('AA') ? 'BB' : 'AA'}`)],
   ];
   for (const [what, edit] of edits) {
     const copy = [...parts];
@@ -112,7 +116,7 @@ test('2 · every field is signed — an edited code, phone, shop, member, date, 
 test('3 · the QR carries the made-offline mark and no personal data', async () => {
   const phone = await newPhoneKey();
   const token = (await signOfflineQr(await fields(phone.deviceId), phone.privateKey))!;
-  assert.equal(token.split('.')[9], '1', 'the made-offline mark is missing');
+  assert.equal(token.split('.')[11], '1', 'the made-offline mark is missing');
   assert.ok(!token.includes(MEMBER) && !token.includes(MEMBER.replace(/-/g, '')), 'the member’s account id is in the QR');
   assert.doesNotMatch(token, /@|\s|%20/, 'something that reads like a name or a contact is in the QR');
   assert.equal(await signOfflineQr({ ...(await fields(phone.deviceId)), madeOffline: false as unknown as true }, phone.privateKey), null, 'a QR without the made-offline mark was signed');

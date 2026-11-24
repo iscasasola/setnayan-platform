@@ -38,13 +38,13 @@ import path from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
 import { STAY_DOORS } from '@/lib/stay-doors';
-import { stayReplyOf } from '@/lib/save-in-place';
 import { SERVICE_CODES } from '@/lib/offline/types';
-import { SUPPLIER_OFFLINE_OUTCOMES_KEY } from '@/lib/offline-copies';
+import { isOfflineItemExpired } from '@/lib/offline/sync-daemon';
 import { readdirSync, statSync } from 'node:fs';
 import {
   BOOKED_NOT_CONFIRMED,
   KIND_COVERS,
+  KIND_SCHEMA,
   NEEDS_INTERNET_ACTIONS,
   SUPPLIER_OFFLINE_KINDS,
   giftsLeftWithQueue,
@@ -98,47 +98,48 @@ test('1 · one engine: the supplier queue is the shipped daemon, sent only by it
   const handler = read('lib/offline/service-handlers/supplier-handler.ts');
   assert.doesNotMatch(handler, /^import (?!type)[^;]*supplier-offline\//m, 'the supplier handler loads the engine’s modules up front');
 
-  const store = new Map<string, string>();
-  (globalThis as { window?: unknown }).window = {
-    localStorage: {
-      getItem: (k: string) => store.get(k) ?? null,
-      setItem: (k: string, v: string) => void store.set(k, v),
-      removeItem: (k: string) => void store.delete(k),
-    },
-  };
+  const h = await import('@/lib/offline/service-handlers/supplier-handler');
+  const rows = new Map<string, { id: string } & Record<string, unknown>>();
+  h.useOutcomeStoreForTest({
+    all: async () => [...rows.values()],
+    put: async (r) => void rows.set(r.id, r),
+    remove: async (id) => void rows.delete(id),
+  });
   try {
-    const h = await import('@/lib/offline/service-handlers/supplier-handler');
     const queued = { item_id: 'i1', event_id: SHOP, queued_at: '2026-11-24T06:14:00.000Z', retry_count: 0, payload: item() };
     h.setSupplierMember('someone-else');
-    assert.deepEqual(await h.syncOne(queued), { ok: false, error: 'Waiting for the account that made it.' }, 'another account’s phone sent Ana’s work');
+    assert.deepEqual(await h.syncOne(queued), { ok: false, error: 'Waiting for the account that made it.', waiting: true }, 'another account’s phone sent Ana’s work (or the wait counted as a try)');
     h.setSupplierMember(null);
     assert.equal((await h.syncOne(queued)).ok, false, 'work was sent with nobody signed in');
     h.noteGaveUp(queued);
-    const notes = h.readSupplierOutcomes(ANA, SHOP);
+    await new Promise((r) => setTimeout(r, 0));
+    const notes = await h.readSupplierOutcomes(ANA, SHOP);
     assert.equal(notes.length, 1, 'a given-up action left no answer');
     assert.equal(notes[0]!.reply.status, 'refused');
-    assert.deepEqual(h.readSupplierOutcomes('someone-else', SHOP), [], 'another account reads Ana’s answers');
-    assert.equal(h.SUPPLIER_OUTCOMES_KEY, SUPPLIER_OFFLINE_OUTCOMES_KEY, 'the sign-out wipe forgets a different key than the answers are kept under');
-    h.dismissSupplierOutcome(ANA, notes[0]!.item.itemId);
-    assert.deepEqual(h.readSupplierOutcomes(ANA, SHOP), []);
+    assert.deepEqual(await h.readSupplierOutcomes('someone-else', SHOP), [], 'another account reads Ana’s answers');
+    await h.dismissSupplierOutcome(ANA, notes[0]!.item.itemId);
+    assert.deepEqual(await h.readSupplierOutcomes(ANA, SHOP), []);
   } finally {
-    delete (globalThis as { window?: unknown }).window;
+    h.useOutcomeStoreForTest(null);
   }
+  const handlerSrc = read('lib/offline/service-handlers/supplier-handler.ts');
+  assert.doesNotMatch(handlerSrc, /localStorage/, 'answers are kept in localStorage — they belong in IndexedDB, wiped together (review #2 item 18)');
 });
 
-test('2 · no new server action: the engine is a stay door on the ONE dispatcher, and only a door’s reply comes back', () => {
-  assert.ok((STAY_DOORS as readonly string[]).includes('supOffline.supplierOffline'), 'the supplier offline door is not a stay door');
-  for (const f of ['lib/supplier-offline/engine.server.ts', 'lib/supplier-offline/claim.server.ts', 'lib/supplier-offline/kinds.ts', 'lib/supplier-offline/qr.ts']) {
-    assert.doesNotMatch(readFileSync(path.join(root, f), 'utf8'), /^\s*['"]use server['"]/m, `${f} is a server action file — one more Vercel route`);
+test('2 · no new server action: the queue goes to ONE stable, versioned route — never a server action', () => {
+  for (const f of ['lib/supplier-offline/engine.server.ts', 'lib/supplier-offline/claim.server.ts', 'lib/supplier-offline/kinds.ts', 'lib/supplier-offline/qr.ts', 'app/api/offline/supplier-sync/route.ts']) {
+    assert.doesNotMatch(readFileSync(path.join(root, f), 'utf8'), /^\s*['"]use server['"]/m, `${f} is a server action file — its id changes with every deploy`);
   }
-  const registry = read('app/_actions/stay-registry/supOffline.ts');
-  assert.match(registry, /'supOffline\.supplierOffline':\s*supOffline\(supplierOffline\)/);
-  assert.deepEqual(stayReplyOf({ stayReply: { op: 'sync' } }), { op: 'sync' });
-  assert.equal(stayReplyOf({ status: 'added', url: 'x' }), undefined, 'an action’s own returned state leaked through the door');
-  assert.equal(stayReplyOf(undefined), undefined);
-  assert.equal(stayReplyOf(null), undefined);
-  const door = read('app/_actions/save-in-place.ts');
-  assert.match(door, /const reply = stayReplyOf\(value\);/, 'the dispatcher no longer hands a door’s reply back');
+  const route = read('app/api/offline/supplier-sync/route.ts');
+  assert.match(route, /if \(body\.v !== SUPPLIER_OFFLINE_WIRE\) return NextResponse\.json\(\{ v: SUPPLIER_OFFLINE_WIRE, update: true \}, \{ status: 409 \}\)/, 'another payload version is guessed at');
+  assert.match(route, /enforceRateLimit\(/, 'the route is not rate-limited');
+  assert.match(route, /await supplierOffline\(fd\)/);
+  const wire = read('lib/offline/supplier-wire.ts');
+  assert.match(wire, /fetch\(SUPPLIER_OFFLINE_ROUTE,/, 'the phone does not send to the route');
+  for (const f of ['lib/offline/service-handlers/supplier-handler.ts', 'lib/offline/supplier-queue.ts']) {
+    assert.doesNotMatch(read(f), /save-in-place|saveInPlace/, `${f} sends through a server action`);
+  }
+  assert.ok(!(STAY_DOORS as readonly string[]).some((d) => d.startsWith('supOffline.')), 'a stay door for the offline engine came back');
 });
 
 test('3 · every kind has a rule and a role; a named door is real; nothing that buys is a kind; a named row must be unchanged', () => {
@@ -226,11 +227,13 @@ test('6 · a clash is typed — {why, by, at} — said in the ruling’s words, 
 test('7 · expo holds end on sync; the right roles hold, release and stop; teammates see last seen, never a count', () => {
   const queue = read('lib/offline/supplier-queue.ts');
   const body = queue.slice(queue.indexOf('export async function sendQueuedSupplierActions'), queue.indexOf('export async function reconfirmMoney'));
-  assert.match(body, /if \(left === 0\) await door\('holds\.synced'/, 'holds end while changes are still waiting (or never end)');
-  assert.match(body, /door\('device\.seen'/, 'teammates are not told this phone was seen');
+  assert.doesNotMatch(body, /holds\.synced/, 'a reconnect ends an expo hold — a hold ends at its end date or by hand (review #2 item 14)');
+  assert.match(body, /door\('device\.seen', \{ shop, device_id: key\.deviceId, queued: String\(left\) \}\)/, 'teammates are not told this phone was seen');
   assert.doesNotMatch(queue, /presence\.report|waiting: String/, 'a count of this phone’s changes is sent to the team (R5)');
   const engine = read('lib/supplier-offline/engine.server.ts');
-  assert.match(engine, /HOLD_DUTIES: ReadonlyArray<VendorDuty> = \['shop_manager', 'branch_manager', 'account_manager'\]/, 'the roles that may hold dates changed');
+  assert.match(read('lib/supplier-offline/kinds.ts'), /BOOKING_DUTIES: ReadonlyArray<VendorDuty> = \['shop_manager', 'branch_manager', 'account_manager'\]/, 'the roles that may book and hold dates changed');
+  assert.match(engine, /HOLD_DUTIES: ReadonlyArray<VendorDuty> = BOOKING_DUTIES;/, 'holds read a second copy of the booking roles');
+  assert.match(engine, /if \(rule === 'schedule' && !HOLD_DUTIES\.includes\(ctx\.duty\)\)/, 'a role that cannot book online can book offline');
   assert.match(engine, /if \(!HOLD_DUTIES\.includes\(ctx\.duty\)\) return refusal\(op,/, 'any role can hold dates');
   const may = engine.slice(engine.indexOf('async function mayStopFor'), engine.indexOf('/** "Stop QR codes from this phone"'));
   assert.match(may, /ctx\.duty === 'shop_manager'\) return true/);
@@ -247,12 +250,15 @@ test('8 · sign-out wipes the queue, the codes and the answers', () => {
   assert.match(fn, /'supplier_queue', 'supplier_keys'/, 'the worker does not erase the supplier queue and signing keys');
   const at = sw.indexOf(": data.type === 'OFFLINE_FORGET'");
   const forget = sw.slice(at, sw.indexOf('withOfflineLock(async () =>', at));
-  assert.match(forget, /forgetSupplierOffline\(\)/, 'a signed-out page’s wipe leaves the supplier’s work on the phone');
-  assert.match(sw, /forget === '\*' \? forgetSupplierOffline\(\)/, 'an account’s sign-out leaves the supplier’s work on the phone');
-  const wipe = read('lib/offline-copies.ts');
-  assert.match(wipe, /localStorage\.removeItem\(\$\{JSON\.stringify\(SUPPLIER_OFFLINE_OUTCOMES_KEY\)\}\)/, 'the signed-out wipe keeps the supplier’s answers');
+  assert.doesNotMatch(forget, /forgetSupplierOffline\(\)/, 'a LOST session (no cookie) wipes the supplier’s unsent work — only a deliberate sign-out may (review #2 item 2)');
+  assert.match(sw, /forget === '\*' \? forgetSupplierOffline\(\)/, 'a deliberate sign-out leaves the supplier’s work on the phone');
+  assert.match(fn, /'supplier_queue', 'supplier_keys', 'supplier_outcomes'/, 'the sign-out wipe misses the answers');
+  const copies = read('lib/offline-copies.ts');
+  const wipeScript = copies.slice(copies.indexOf('export const OFFLINE_COPIES_WIPE_SCRIPT'), copies.indexOf(';', copies.indexOf('export const OFFLINE_COPIES_WIPE_SCRIPT')));
+  assert.doesNotMatch(wipeScript, /supplier/i, 'the no-cookie wipe script touches the supplier’s work');
   const queue = read('lib/offline/supplier-queue.ts');
-  assert.match(queue, /forgetSupplierOutcomes\(\);\s*await wipeSupplierOffline\(\)/, 'the in-app sign-out does not wipe everything');
+  assert.match(queue, /setSupplierMember\(null\);\s*await wipeSupplierOffline\(\)/, 'the in-app sign-out does not wipe everything');
+  assert.match(read('lib/offline/supplier-keys.ts'), /\[storeNameForService\('supplier'\), SUPPLIER_KEYS_STORE, SUPPLIER_OUTCOMES_STORE\]/, 'the queue, keys and answers are not wiped together');
   const route = read('app/auth/sign-out/route.ts');
   assert.match(route, /stopOfflineDevicesOnSignOut\(admin, leaving\.id, request\.cookies\.get\(OFFLINE_DEVICES_COOKIE\)/, 'signing out leaves this phone’s QR key rows active');
   assert.ok(route.indexOf('stopOfflineDevicesOnSignOut(') < route.indexOf('supabase.auth.signOut()'), 'the key rows are stopped after the session that names them is gone');
@@ -328,4 +334,26 @@ test('10 · every supplier action is decided: an offline kind, "needs internet",
   const stale = baseline.filter((l) => !all.includes(l) || covered.has(l) || online.has(l));
   assert.deepEqual(stale, [], 'These lines are decided (or gone) — take them off not-yet-offline.baseline.txt (it only shrinks).');
   assert.equal(new Set(baseline).size, baseline.length, 'a line is listed twice');
+});
+
+test('11 · a phone never loses work it did not really send; dependent and newer items are never guessed at', () => {
+  const old = { queued_at: '2020-01-01T00:00:00.000Z', retry_count: 0 };
+  assert.equal(isOfflineItemExpired(old), true, 'the shipped TTL changed for the other queues');
+  assert.equal(isOfflineItemExpired(old, Date.now(), false), false, 'a supplier item was aged out by the phone’s clock');
+  assert.equal(isOfflineItemExpired({ ...old, payload: { ageByTriesOnly: true } }), false, 'the item’s own mark is not read');
+  assert.equal(isOfflineItemExpired({ ...old, retry_count: 50 }, Date.now(), false), true, 'real tries no longer end an item');
+  const daemon = read('lib/offline/sync-daemon.ts');
+  assert.match(daemon, /retry_count: result\.waiting \? item\.retry_count : item\.retry_count \+ 1/, 'waiting burns a try');
+  assert.match(read('lib/offline/supplier-queue.ts'), /payload: \{ \.\.\.item, ageByTriesOnly: true \}/, 'supplier items are aged by the clock');
+  assert.match(daemon, /locks\s*\.request\('setnayan-offline-supplier', \{ ifAvailable: true \}/, 'two tabs can send the supplier queue at once');
+  assert.match(read('lib/offline/db.ts'), /request\.result\.onversionchange = \(\) => request\.result\.close\(\)/, 'an old tab blocks the database upgrade');
+  const engine = read('lib/supplier-offline/engine.server.ts');
+  assert.match(engine, /if \(!o\) return \{ status: 'retry', why: 'waiting_parent' \}/, 'an edit of an unsent offline booking is sent first');
+  assert.match(engine, /o\.status !== 'applied' \|\| !o\.block_id\) return \{ status: 'refused'/, 'an edit of an offline booking that failed is applied anyway');
+  for (const k of Object.keys(SUPPLIER_OFFLINE_KINDS) as SupplierOfflineKind[]) assert.ok(KIND_SCHEMA[k] >= 1, `${k} has no payload version`);
+  assert.equal(parseQueuedItem(item({ schema: KIND_SCHEMA['schedule.client'] + 1 })), null, 'a payload newer than this server knows was accepted');
+  assert.ok(parseQueuedItem(item({ dependsOn: '9e8d7c6b-5a49-4382-a716-151413121199', kind: 'schedule.edit' })));
+  assert.match(engine, /You’re no longer on this team, so this wasn’t saved\./, 'a removed member’s work waits forever instead of a final answer');
+  assert.match(engine, /The shop is paused, so this wasn’t saved\./);
+  assert.match(engine, /if \(!\(await eventHostIsTheClient\(ctx\.admin, eventId, contact\)\)\)/, 'a passed-on QR gives the gift to a stranger’s event');
 });

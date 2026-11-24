@@ -28,6 +28,7 @@ import { SV_MESSAGES } from '@/app/_actions/stay-registry/svMessages';
 import type { Door } from '@/app/_actions/stay-registry/_door';
 
 import {
+  BOOKING_DUTIES,
   SQL_INVALID,
   VERSIONED_ROWS,
   SUPPLIER_OFFLINE_KINDS,
@@ -36,6 +37,7 @@ import {
   moneyMoved,
   outcomeFromSqlAnswer,
   parseQueuedItem,
+  adaptQueuedItem,
   rowUnchanged,
   type Clash,
   type MoneySeen,
@@ -46,13 +48,12 @@ import {
 } from './kinds';
 import { DEVICE_ID_RE, isPublicKeyJwk, memberTagOf } from './qr';
 import { checkOfflineQr } from './claim.server';
-import { isSupplierOfflineOp, type StayReply, type SupplierOfflineReply, type TeamDevice, type TeamHold, type TeamSeen } from './replies';
+import { isSupplierOfflineOp, type SupplierOfflineReply, type TeamDevice, type TeamHold, type TeamSeen } from './replies';
 
 /**
  * 📶 THE SUPPLIER OFFLINE DOOR (owner 24 Nov 2026, DECISION_LOG "The supplier dashboard works offline and catches up
- * when back online"). ONE function, reached through the ONE dispatcher every in-place save already uses
- * (`app/_actions/save-in-place.ts`, stay door `supOffline.supplierOffline`) — no new server action
- * (`scripts/lint-server-action-budget.mjs`).
+ * when back online"). ONE function, reached through ONE stable route (`/api/offline/supplier-sync`, a versioned
+ * payload, so a deploy never strands a phone's queue) — no new server action (`scripts/lint-server-action-budget.mjs`).
  *
  * `op=sync` sends ONE queued action:
  *   1 · who — signed in, the same account that made it (a shared phone never sends another person's work), a member of
@@ -82,7 +83,7 @@ type Ctx = {
 const refusal = (op: SupplierOfflineReply['op'], why: string, retry = false) =>
   ({ op, ok: false, why, retry }) as SupplierOfflineReply;
 
-const reply = (r: SupplierOfflineReply): StayReply<SupplierOfflineReply> => ({ stayReply: r });
+const reply = (r: SupplierOfflineReply): SupplierOfflineReply => r;
 
 const str = (fd: FormData, k: string): string => {
   const v = fd.get(k);
@@ -97,12 +98,29 @@ async function contextFor(shop: string, capability: VendorCapability): Promise<C
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { why: 'signed_out', retry: true };
+  const admin = createAdminClient();
+  // A paused shop takes nothing new (the shipped rule) — said once, as a final answer (review #2 item 15).
+  const { data: shopRow, error: shopErr } = await admin.from('vendor_profiles').select('user_id, paused_at').eq('vendor_profile_id', shop).maybeSingle();
+  if (shopErr) {
+    console.error('[supabase-error] supplier-offline: shop read', shopErr.message);
+    return { why: 'unread', retry: true };
+  }
+  if (!shopRow) return { why: 'This shop is no longer on Setnayan.', retry: false };
+  if ((shopRow as { paused_at: string | null }).paused_at) return { why: 'The shop is paused, so this wasn’t saved.', retry: false };
   const standing = await resolveVendorStandingForProfile(supabase, user.id, shop).catch(() => null);
-  // A refused read and a missing seat both deny — and are asked again later, so nothing made offline is dropped on a
-  // read that failed once.
-  if (!standing) return { why: 'unread', retry: true };
+  if (!standing) {
+    // No seat: proven gone (a final answer), or a read that failed (asked again later — nothing is dropped on it).
+    const { data: seats, error: seatErr } = await admin.from('vendor_team_members').select('deactivated_at').eq('vendor_profile_id', shop).eq('user_id', user.id);
+    if (seatErr) {
+      console.error('[supabase-error] supplier-offline: seat read', seatErr.message);
+      return { why: 'unread', retry: true };
+    }
+    const owner = (shopRow as { user_id: string | null }).user_id === user.id;
+    const active = ((seats ?? []) as { deactivated_at: string | null }[]).some((r) => !r.deactivated_at);
+    return owner || active ? { why: 'unread', retry: true } : { why: 'You’re no longer on this team, so this wasn’t saved.', retry: false };
+  }
   if (!dutyMay(standing.duty, capability)) return { why: `Only ${whoCanOpen(capability)} can do this.`, retry: false };
-  return { supabase, admin: createAdminClient(), userId: user.id, shop, duty: standing.duty, branchId: standing.branchId };
+  return { supabase, admin, userId: user.id, shop, duty: standing.duty, branchId: standing.branchId };
 }
 
 /** Display names for the members a clash names (`users.display_name`). A failed read names nobody — never a guess. */
@@ -162,6 +180,27 @@ async function scheduleWrite(ctx: Ctx, item: SupplierQueuedItem): Promise<SyncOu
     return pools ? outsideClientPoolOf(null, pools) : null;
   };
 
+  // An edit or removal of something THIS phone made offline (review #2 item 10): it waits for that item's answer, takes
+  // the id and version it got, and is refused — never applied — when that item was not saved.
+  let parentBlock: string | null = null;
+  let parentVersion: number | null = null;
+  if (item.dependsOn && (item.kind === 'schedule.edit' || item.kind === 'schedule.remove')) {
+    const { data: parent, error: pErr } = await ctx.admin
+      .from('vendor_offline_writes')
+      .select('outcome')
+      .eq('vendor_profile_id', item.shop)
+      .eq('item_id', item.dependsOn)
+      .maybeSingle();
+    if (pErr) {
+      console.error('[supabase-error] supplier-offline: parent read', pErr.message);
+      return { status: 'retry', why: 'unread' };
+    }
+    const o = (parent as { outcome: SqlAnswer | null } | null)?.outcome ?? null;
+    if (!o) return { status: 'retry', why: 'waiting_parent' };
+    if (o.status !== 'applied' || !o.block_id) return { status: 'refused', why: 'The change this follows wasn’t saved, so this one wasn’t either.' };
+    parentBlock = o.block_id;
+    parentVersion = o.version ?? 1;
+  }
   let rpc: 'supplier_offline_schedule_write' | 'supplier_offline_code_use' = 'supplier_offline_schedule_write';
   let p: Record<string, unknown>;
   switch (item.kind) {
@@ -172,13 +211,13 @@ async function scheduleWrite(ctx: Ctx, item: SupplierQueuedItem): Promise<SyncOu
       p = { ...base, op: 'add_block', pool_id: f('scope') && f('scope') !== 'org' ? f('scope') : null, start_date: f('start_date'), end_date: f('end_date') || f('start_date'), label: f('label'), day_part: f('day_part') || 'all_day' };
       break;
     case 'schedule.edit':
-      p = { ...base, op: 'edit', block_id: f('block_id'), base_version: item.baseVersion, label: f('label'), client_name: f('client_name'), client_contact: f('client_contact'), client_note: f('client_note') };
+      p = { ...base, op: 'edit', block_id: parentBlock ?? f('block_id'), base_version: parentVersion ?? item.baseVersion, label: f('label'), client_name: f('client_name'), client_contact: f('client_contact'), client_note: f('client_note') };
       if (f('start_date')) p.start_date = f('start_date');
       if (f('end_date')) p.end_date = f('end_date');
       if (f('client_time')) p.client_time = f('client_time');
       break;
     case 'schedule.remove':
-      p = { ...base, op: 'remove', block_id: f('block_id'), base_version: item.baseVersion };
+      p = { ...base, op: 'remove', block_id: parentBlock ?? f('block_id'), base_version: parentVersion ?? item.baseVersion };
       break;
     case 'schedule.day':
       p = { ...base, op: 'day_state', pool_id: f('pool_id') || null, state_date: f('state_date'), day_state: f('day_state'), note: f('note'), base_version: item.baseVersion ?? 0 };
@@ -187,11 +226,15 @@ async function scheduleWrite(ctx: Ctx, item: SupplierQueuedItem): Promise<SyncOu
       // qr.booking — this phone's own signed QR: the SAME check the client's scan gets (an active key of this shop
       // and member, the signature over every field), then one code, one entry.
       const qr = await checkOfflineQr(ctx.admin, f('token'), item.shop);
-      if (qr.status !== 'ok') return qr.status === 'unread' ? { status: 'retry', why: 'unread' } : { status: 'refused', why: qr.status === 'stopped' ? 'QR codes from this phone were stopped. Make the client a new one.' : SQL_INVALID.code! };
+      if (qr.status !== 'ok') {
+        if (qr.status === 'unread') return { status: 'retry', why: 'unread' };
+        const why = qr.status === 'stopped' ? 'QR codes from this phone were stopped. Make the client a new one.' : qr.status === 'expired' ? 'This QR code was for a date that has passed.' : SQL_INVALID.code!;
+        return { status: 'refused', why };
+      }
       if (qr.memberUserId !== item.member) return { status: 'refused', why: SQL_INVALID.code! };
       rpc = 'supplier_offline_code_use';
       const qf = qr.fields;
-      p = { code_id: qf.codeId, device_id: qf.deviceId, via: 'supplier', item_id: item.itemId, phone_time: qf.phoneTime, booked_date: qf.date, client_time: qf.time ?? '', pool_id: await poolFor(qf.poolId ?? ''), amount_php: qf.amountPhp ?? '', client_name: f('client_name'), client_contact: f('client_contact'), client_note: f('client_note') };
+      p = { code_id: qf.codeId, device_id: qf.deviceId, via: 'supplier', item_id: item.itemId, phone_time: qf.phoneTime, booked_date: qf.date, client_time: qf.time ?? '', pool_id: await poolFor(qf.poolId ?? ''), total_php: qf.totalPhp ?? '', first_php: qf.firstPhp ?? '', service_ids: qf.services, client_name: f('client_name'), client_contact: f('client_contact'), client_note: f('client_note') };
     }
   }
   if (poolsUnread) return { status: 'retry', why: 'unread' };
@@ -225,6 +268,7 @@ async function claimItem(ctx: Ctx, item: SupplierQueuedItem): Promise<'claimed' 
   const { data, error: readErr } = await ctx.admin
     .from('vendor_offline_writes')
     .select('outcome, received_at')
+    .eq('vendor_profile_id', item.shop)
     .eq('item_id', item.itemId)
     .maybeSingle();
   if (readErr || !data) {
@@ -243,8 +287,8 @@ async function settleItem(ctx: Ctx, item: SupplierQueuedItem, out: SyncOutcome):
   // A retry is not an answer: the claim is let go so the next pass runs it.
   const q =
     out.status === 'retry'
-      ? ctx.admin.from('vendor_offline_writes').delete().eq('item_id', item.itemId).is('outcome', null)
-      : ctx.admin.from('vendor_offline_writes').update({ outcome: out, settled_at: new Date().toISOString() }).eq('item_id', item.itemId);
+      ? ctx.admin.from('vendor_offline_writes').delete().eq('vendor_profile_id', item.shop).eq('item_id', item.itemId).is('outcome', null)
+      : ctx.admin.from('vendor_offline_writes').update({ outcome: out, settled_at: new Date().toISOString() }).eq('vendor_profile_id', item.shop).eq('item_id', item.itemId);
   const { error } = await q;
   if (error) console.error('[supabase-error] supplier-offline: settle item', error.message);
 }
@@ -438,9 +482,9 @@ async function clientAdd(ctx: Ctx, item: SupplierQueuedItem): Promise<SyncOutcom
     return { status: 'applied', ref: null };
   }
   const inviteId = (invite as { invite_id: string }).invite_id;
-  if (codeId) await joinTheClientsScan(ctx, codeId, inviteId, lines);
+  const joined = codeId ? await joinTheClientsScan(ctx, codeId, inviteId, lines, typeof item.fields.client_contact === 'string' ? item.fields.client_contact : '') : null;
   revalidatePath('/vendor-dashboard/invite');
-  return { status: 'applied', ref: inviteId };
+  return joined ?? { status: 'applied', ref: inviteId };
 }
 
 /**
@@ -448,7 +492,34 @@ async function clientAdd(ctx: Ctx, item: SupplierQueuedItem): Promise<SyncOutcom
  * the invite this sync made is THAT client's (joined, their event), and its gift is given now — through the shipped
  * door (`own_client_gift_give`, from bought stock, exactly once per shop and event) — exactly as the invite link would.
  */
-async function joinTheClientsScan(ctx: Ctx, codeId: string, inviteId: string, lines: NonNullable<ReturnType<typeof ownGiftLinesOf>>): Promise<void> {
+const digits = (v: string) => v.replace(/\D/g, '').slice(-10);
+/** Is one of the event's hosts the client the supplier typed (email, or the last 10 digits of a phone)? */
+async function eventHostIsTheClient(admin: SupabaseClient, eventId: string, contact: string): Promise<boolean> {
+  const c = contact.trim().toLowerCase();
+  if (!c) return false;
+  const { data: members, error } = await admin.from('event_members').select('user_id').eq('event_id', eventId).eq('member_type', 'couple');
+  if (error || !members?.length) {
+    if (error) console.error('[supabase-error] supplier-offline: event hosts', error.message);
+    return false;
+  }
+  const ids = (members as { user_id: string | null }[]).map((m) => m.user_id).filter((x): x is string => Boolean(x));
+  const { data: users, error: uErr } = await admin.from('users').select('email, phone').in('user_id', ids);
+  if (uErr) {
+    console.error('[supabase-error] supplier-offline: host contacts', uErr.message);
+    return false;
+  }
+  return ((users ?? []) as { email: string | null; phone?: string | null }[]).some(
+    (u) => (u.email ?? '').trim().toLowerCase() === c || (digits(c).length >= 7 && digits(u.phone ?? '') === digits(c)),
+  );
+}
+
+async function joinTheClientsScan(
+  ctx: Ctx,
+  codeId: string,
+  inviteId: string,
+  lines: NonNullable<ReturnType<typeof ownGiftLinesOf>>,
+  contact: string,
+): Promise<SyncOutcome | null> {
   const { data: code, error } = await ctx.admin
     .from('vendor_offline_code_uses')
     .update({ invite_id: inviteId })
@@ -458,23 +529,29 @@ async function joinTheClientsScan(ctx: Ctx, codeId: string, inviteId: string, li
     .maybeSingle();
   if (error) {
     console.error('[supabase-error] supplier-offline: link code to invite', error.message);
-    return;
+    return null;
   }
   // No row = the QR's date never landed (a clash): the invite stays a plain one, with no code to point at.
-  if (!code) return;
+  if (!code) return null;
   const { error: markErr } = await ctx.admin.from('vendor_client_invites').update({ offline_code_id: codeId }).eq('invite_id', inviteId);
   if (markErr) console.error('[supabase-error] supplier-offline: invite code mark', markErr.message);
   const eventId = (code as { claimed_event_id: string | null }).claimed_event_id;
-  if (!eventId) return;
+  if (!eventId) return null;
+  // THE BEARER RACE (review #2 item 17): a QR can be passed on. The gift goes to the claimed event only when one of its
+  // hosts is the client the supplier typed (the same email or phone); otherwise the supplier is asked first.
+  if (!(await eventHostIsTheClient(ctx.admin, eventId, contact))) {
+    const { data: ev } = await ctx.admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle();
+    return { status: 'confirm_claim', eventName: (ev as { display_name?: string | null } | null)?.display_name ?? null, inviteId };
+  }
   const gave = await giveOwnClientGift(ctx.admin, { vendorProfileId: ctx.shop, eventId, via: 'invite', inviteId, lines, userId: null });
-  if (gave.status !== 'given' && gave.status !== 'already') return;
+  if (gave.status !== 'given' && gave.status !== 'already') return null;
   const { error: joinErr } = await ctx.admin
     .from('vendor_client_invites')
     .update({ status: 'joined', claimed_event_id: eventId, claimed_at: new Date().toISOString() })
     .eq('invite_id', inviteId);
   if (joinErr) console.error('[supabase-error] supplier-offline: join invite', joinErr.message);
   const verified = await fetchShopVerified(ctx.admin, ctx.shop);
-  if (!importIsOwnClient(gave.facts, verified === true)) return;
+  if (!importIsOwnClient(gave.facts, verified === true)) return null;
   const { data: row, error: rowErr } = await ctx.admin
     .from('event_vendors')
     .select('vendor_id')
@@ -483,6 +560,7 @@ async function joinTheClientsScan(ctx: Ctx, codeId: string, inviteId: string, li
     .maybeSingle();
   if (rowErr) console.error('[supabase-error] supplier-offline: own client row', rowErr.message);
   if (row) await markOwnClientRow(ctx.admin, (row as { vendor_id: string }).vendor_id);
+  return null;
 }
 
 /* ── a message written offline ─────────────────────────────────────────────────────────────────────────────────── */
@@ -506,7 +584,8 @@ async function syncOne(raw: string): Promise<SupplierOfflineReply> {
   } catch {
     parsed = null;
   }
-  const item = parseQueuedItem(parsed);
+  const parsedItem = parseQueuedItem(parsed);
+  const item = parsedItem ? adaptQueuedItem(parsedItem) : null;
   if (!item) return refusal('sync', 'That saved change could not be read.');
   const done = (o: SyncOutcome): SupplierOfflineReply => ({ op: 'sync', ok: true, reply: { ...o, itemId: item.itemId, kind: item.kind } as SyncReply });
 
@@ -520,6 +599,10 @@ async function syncOne(raw: string): Promise<SupplierOfflineReply> {
   if (ctx.userId !== item.member) return done({ status: 'retry', why: 'other_member' });
 
   const rule = SUPPLIER_OFFLINE_KINDS[item.kind].rule;
+  // The SAME permission the online calendar gives (review #2 item 1): only the roles that book may book or block dates.
+  if (rule === 'schedule' && !HOLD_DUTIES.includes(ctx.duty)) {
+    return done({ status: 'refused', why: 'Only a Shop Manager, Branch Manager or Account Manager can book or block dates.' });
+  }
   if (rule === 'schedule') return done(await scheduleWrite(ctx, item));
 
   // The shipped actions act on the shop the person is standing in — never on another one.
@@ -575,6 +658,18 @@ async function registerDevice(fd: FormData): Promise<SupplierOfflineReply> {
     const same = row.vendor_profile_id === ctx.shop && row.member_user_id === ctx.userId && row.public_key?.x === jwk.x && row.public_key?.y === jwk.y;
     if (!same || row.status !== 'active') return refusal('device.register', 'This phone’s QR key was stopped. Sign in again to make a new one.');
   } else {
+    // At most 5 phones per member per shop (review #2): an old one is stopped first, in Settings › Offline.
+    const { count, error: cErr } = await ctx.admin
+      .from('vendor_offline_devices')
+      .select('device_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', ctx.shop)
+      .eq('member_user_id', ctx.userId)
+      .eq('status', 'active');
+    if (cErr) {
+      console.error('[supabase-error] supplier-offline: device count', cErr.message);
+      return refusal('device.register', 'unread', true);
+    }
+    if ((count ?? 0) >= 5) return refusal('device.register', 'You have 5 phones set up for offline already — stop an old one first.');
     const { error: insErr } = await ctx.admin.from('vendor_offline_devices').insert({
       device_id: device,
       vendor_profile_id: ctx.shop,
@@ -643,7 +738,7 @@ async function stopDevice(fd: FormData): Promise<SupplierOfflineReply> {
 /* ── expo mode ─────────────────────────────────────────────────────────────────────────────────────────────────── */
 
 /** Who may hold dates (controller under the 20 Nov delegation, DECISION_LOG 24 Nov): any role that can book. */
-export const HOLD_DUTIES: ReadonlyArray<VendorDuty> = ['shop_manager', 'branch_manager', 'account_manager'];
+export const HOLD_DUTIES: ReadonlyArray<VendorDuty> = BOOKING_DUTIES;
 
 async function holdOp(op: 'holds.claim' | 'holds.release' | 'holds.synced', fd: FormData): Promise<SupplierOfflineReply> {
   const ctx = await contextFor(str(fd, 'shop'), 'schedule');
@@ -692,16 +787,21 @@ async function seenDevice(fd: FormData): Promise<SupplierOfflineReply> {
   if (!DEVICE_ID_RE.test(device)) return refusal('device.seen', 'This phone could not be named.');
   const ctx = await contextFor(str(fd, 'shop'), 'schedule');
   if ('why' in ctx) return refusal('device.seen', ctx.why, ctx.retry);
-  const { error } = await ctx.admin
+  const queued = Math.max(0, Math.min(10000, Math.trunc(Number(str(fd, 'queued')) || 0)));
+  const { data, error } = await ctx.admin
     .from('vendor_offline_devices')
-    .update({ last_seen_at: new Date().toISOString() })
+    .update({ last_seen_at: new Date().toISOString(), last_queue_count: queued })
     .eq('device_id', device)
     .eq('vendor_profile_id', ctx.shop)
-    .eq('member_user_id', ctx.userId);
+    .eq('member_user_id', ctx.userId)
+    .select('status')
+    .maybeSingle();
   if (error) {
     console.error('[supabase-error] supplier-offline: last seen', error.message);
     return refusal('device.seen', COULD_NOT_SAVE, true);
   }
+  // A stopped phone (lost, or its member left) is told so: the screens sign it out (review #2 item 8).
+  if ((data as { status?: string } | null)?.status === 'stopped') return refusal('device.seen', 'stopped');
   return { op: 'device.seen', ok: true };
 }
 
@@ -767,10 +867,11 @@ async function readTeam(fd: FormData): Promise<SupplierOfflineReply> {
 /* ── the door ──────────────────────────────────────────────────────────────────────────────────────────────────── */
 
 /**
- * The stay door `supOffline.supplierOffline`. Its answer rides back through `saveInPlace` as `{ ok: true, reply }`
- * (`stayReplyOf`); a refused op is in the reply too (`ok: false`, `retry`), so the phone always knows whether to keep it.
+ * The door, called by ONE stable route (`app/api/offline/supplier-sync/route.ts`, a versioned JSON payload — never a
+ * server action, whose id changes with every deploy). A refused op is in the reply too (`ok: false`, `retry`), so the
+ * phone always knows whether to keep it.
  */
-export async function supplierOffline(fd: FormData): Promise<StayReply<SupplierOfflineReply>> {
+export async function supplierOffline(fd: FormData): Promise<SupplierOfflineReply> {
   const op = str(fd, 'op');
   if (!isSupplierOfflineOp(op)) return reply(refusal('sync', COULD_NOT_SAVE));
   switch (op) {

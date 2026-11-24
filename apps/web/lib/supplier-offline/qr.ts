@@ -9,8 +9,9 @@
  *   · THE CODE. Offline, each QR gets a new random code id and is signed by the phone over every field below. As many
  *     as needed: nothing to refill, nothing to run out of, no "codes left".
  *   · THE PAYLOAD — and nothing else (NO personal data: the client's name stays on the supplier's phone and travels in
- *     its queued copy): code id · phone (device id) · shop · member (an opaque tag, a hash of their account id) · date
- *     and time · schedule · the amount shown · the made-offline mark · the phone's time.
+ *     its queued copy): code id · phone (device id) · shop · member (an opaque tag, a hash of their account id) · the
+ *     deal (date and time, schedule, the services, the total and the first payment, as shown) · the made-offline mark ·
+ *     the phone's time.
  *   · THE CHECK. The server verifies the signature against that phone's ACTIVE public key with node:crypto
  *     (`./qr.server.ts`) and takes each code id once. A stopped phone, an edited payload or a code used twice is refused.
  *
@@ -37,8 +38,11 @@ export type OfflineQrFields = {
   time: string | null;
   /** the schedule (`vendor_schedule_pools.pool_id`), or null for a shop with one schedule */
   poolId: string | null;
-  /** the amount the QR showed (whole ₱), or null — kept for the record; nothing is charged from it */
-  amountPhp: number | null;
+  /** the services in the deal (up to 3 `vendor_services` ids), as shown */
+  services: string[];
+  /** the deal's total and its first payment (whole ₱), as shown, or null — kept for the record; nothing is charged */
+  totalPhp: number | null;
+  firstPhp: number | null;
   /** made offline — always true for a code made by this module */
   madeOffline: true;
   /** the phone's clock, ISO */
@@ -51,7 +55,7 @@ export type PublicKeyJwk = { kty: 'EC'; crv: 'P-256'; x: string; y: string };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const DEVICE_ID_RE = /^[A-Za-z0-9_-]{16,64}$/;
 export const OFFLINE_QR_TOKEN_RE =
-  /^v2\.[0-9a-f]{32}\.[A-Za-z0-9_-]{16,64}\.[0-9a-f]{32}\.[A-Za-z0-9_-]{10}\.\d{8}\.(?:\d{4}|-)\.(?:[0-9a-f]{32}|-)\.(?:\d{1,9}|-)\.1\.[0-9a-z]{1,9}\.[A-Za-z0-9_-]{86}$/;
+  /^v2\.[0-9a-f]{32}\.[A-Za-z0-9_-]{16,64}\.[0-9a-f]{32}\.[A-Za-z0-9_-]{10}\.\d{8}\.(?:\d{4}|-)\.(?:[0-9a-f]{32}|-)\.(?:[0-9a-f]{32}(?:~[0-9a-f]{32}){0,2}|-)\.(?:\d{1,9}|-)\.(?:\d{1,9}|-)\.1\.[0-9a-z]{1,9}\.[A-Za-z0-9_-]{86}$/;
 
 const enc = new TextEncoder();
 
@@ -118,7 +122,10 @@ function validFields(f: OfflineQrFields): boolean {
     /^\d{4}-\d{2}-\d{2}$/.test(f.date) &&
     (f.time === null || /^\d{2}:\d{2}$/.test(f.time)) &&
     (f.poolId === null || UUID.test(f.poolId)) &&
-    (f.amountPhp === null || (Number.isInteger(f.amountPhp) && f.amountPhp >= 0 && f.amountPhp < 1e9)) &&
+    Array.isArray(f.services) &&
+    f.services.length <= 3 &&
+    f.services.every((x) => UUID.test(x)) &&
+    [f.totalPhp, f.firstPhp].every((n) => n === null || (Number.isInteger(n) && n >= 0 && n < 1e9)) &&
     f.madeOffline === true &&
     Number.isFinite(Date.parse(f.phoneTime))
   );
@@ -135,7 +142,9 @@ export function offlineQrMessage(f: OfflineQrFields): string {
     f.date.replace(/-/g, ''),
     f.time ? f.time.replace(':', '') : '-',
     f.poolId ? compact(f.poolId) : '-',
-    f.amountPhp === null ? '-' : String(f.amountPhp),
+    f.services.length ? f.services.map(compact).join('~') : '-',
+    f.totalPhp === null ? '-' : String(f.totalPhp),
+    f.firstPhp === null ? '-' : String(f.firstPhp),
     '1',
     Math.floor(Date.parse(f.phoneTime) / 1000).toString(36),
   ].join('.');
@@ -154,8 +163,8 @@ export type ParsedOfflineQr = { fields: OfflineQrFields; message: string; sig: s
 /** Read a token back into its fields — shape only; `qr.server.ts` decides whether it is genuine. */
 export function parseOfflineQrToken(raw: unknown): ParsedOfflineQr | null {
   if (typeof raw !== 'string' || !OFFLINE_QR_TOKEN_RE.test(raw)) return null;
-  const [, code, device, shop, member, date, time, pool, amt, , phone, sig] = raw.split('.') as string[];
-  if (!code || !device || !shop || !member || !date || !time || !pool || !amt || !phone || !sig) return null;
+  const [, code, device, shop, member, date, time, pool, svc, total, first, , phone, sig] = raw.split('.') as string[];
+  if (!code || !device || !shop || !member || !date || !time || !pool || !svc || !total || !first || !phone || !sig) return null;
   const seconds = parseInt(phone, 36);
   if (!Number.isFinite(seconds)) return null;
   const fields: OfflineQrFields = {
@@ -166,7 +175,9 @@ export function parseOfflineQrToken(raw: unknown): ParsedOfflineQr | null {
     date: `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`,
     time: time === '-' ? null : `${time.slice(0, 2)}:${time.slice(2, 4)}`,
     poolId: pool === '-' ? null : expand(pool),
-    amountPhp: amt === '-' ? null : Number(amt),
+    services: svc === '-' ? [] : svc.split('~').map(expand),
+    totalPhp: total === '-' ? null : Number(total),
+    firstPhp: first === '-' ? null : Number(first),
     madeOffline: true,
     phoneTime: new Date(seconds * 1000).toISOString(),
   };

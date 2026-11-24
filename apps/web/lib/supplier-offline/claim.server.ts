@@ -6,6 +6,8 @@ import { outsideClientPoolOf } from '@/lib/outside-client-pool';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { memberTagOf, parseOfflineQrToken, type OfflineQrFields } from './qr';
 import { verifyOfflineQrSignature } from './qr.server';
+import { BOOKING_DUTIES } from './kinds';
+import { resolveVendorStandingForProfile } from '@/lib/vendor-role';
 
 /**
  * 🔳 THE CLIENT'S PHONE DOES THE SYNC (owner 24 Nov 2026: "if they create a QR Code for the client. and the client used
@@ -25,7 +27,7 @@ import { verifyOfflineQrSignature } from './qr.server';
 
 export type OfflineQrCheck =
   | { status: 'ok'; fields: OfflineQrFields; memberUserId: string }
-  | { status: 'invalid' | 'stopped' | 'unread' };
+  | { status: 'invalid' | 'stopped' | 'expired' | 'unread' };
 
 export async function checkOfflineQr(admin: SupabaseClient, token: unknown, vendorProfileId: string): Promise<OfflineQrCheck> {
   const parsed = parseOfflineQrToken(token);
@@ -46,12 +48,17 @@ export async function checkOfflineQr(admin: SupabaseClient, token: unknown, vend
   if (device.status !== 'active') return { status: 'stopped' };
   if ((await memberTagOf(device.member_user_id)) !== parsed.fields.member) return { status: 'invalid' };
   if (!verifyOfflineQrSignature(parsed, device.public_key)) return { status: 'invalid' };
+  // A code lives until its booked date (Manila), never after (review #2 item 8).
+  if (parsed.fields.date < new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })) return { status: 'expired' };
+  // …and only while its member is still on the team, in a role that books (re-checked now, not when it was made).
+  const standing = await resolveVendorStandingForProfile(admin, device.member_user_id, vendorProfileId).catch(() => null);
+  if (!standing || !BOOKING_DUTIES.includes(standing.duty)) return { status: 'stopped' };
   return { status: 'ok', fields: parsed.fields, memberUserId: device.member_user_id };
 }
 
 export type OfflineQrClaim =
   | { status: 'applied'; inviteToken: string | null; blockId: string | null }
-  | { status: 'held' | 'booked' | 'closed' | 'removed' | 'stopped' | 'used' | 'invalid' | 'unread' };
+  | { status: 'held' | 'booked' | 'closed' | 'removed' | 'stopped' | 'expired' | 'used' | 'invalid' | 'unread' };
 
 /** The invite page's status for each refusal (`STATUS_COPY` there spreads `OFFLINE_QR_STATUS_COPY`). */
 export const OFFLINE_QR_STATUS_COPY: Readonly<Record<string, string>> = {
@@ -61,6 +68,7 @@ export const OFFLINE_QR_STATUS_COPY: Readonly<Record<string, string>> = {
   oc_removed: 'Couldn’t save your date: the supplier removed it. You can still add this supplier.',
   oc_stopped: 'This QR code was stopped by the supplier. You can still add them, or ask them for a new one.',
   oc_used: 'This QR code was already used for another event. You can still add this supplier.',
+  oc_expired: 'This QR code was for a date that has passed. You can still add this supplier.',
   oc_invalid: 'This QR code couldn’t be checked. You can still add this supplier.',
   oc_unread: 'We couldn’t check this QR code just now. Please try again.',
 };
@@ -89,7 +97,9 @@ export async function claimOfflineQr(
       booked_date: f.date,
       client_time: f.time ?? '',
       pool_id: poolId,
-      amount_php: f.amountPhp ?? '',
+      total_php: f.totalPhp ?? '',
+      first_php: f.firstPhp ?? '',
+      service_ids: f.services,
       phone_time: f.phoneTime,
       event_id: input.eventId,
       label: input.eventName ?? '',

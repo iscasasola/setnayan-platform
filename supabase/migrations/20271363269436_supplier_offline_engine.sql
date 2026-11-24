@@ -74,11 +74,15 @@ CREATE TABLE IF NOT EXISTS public.vendor_offline_devices (
                       CHECK (status IN ('active', 'stopped')),
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_seen_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- how many changes this phone said it still held when last seen — PRIVATE (service role only): never shown to a
+  -- teammate (R5); only this phone compares it, to notice a queue the browser erased (iPhone's 7-day wipe)
+  last_queue_count  INTEGER NOT NULL DEFAULT 0
+                      CONSTRAINT vendor_offline_devices_queue_range CHECK (last_queue_count BETWEEN 0 AND 10000),
   stopped_at        TIMESTAMPTZ,
   stopped_by        UUID,
   stop_reason       TEXT
                       CONSTRAINT vendor_offline_devices_stop_reason_allowed
-                      CHECK (stop_reason IS NULL OR stop_reason IN ('lost', 'signed_out')),
+                      CHECK (stop_reason IS NULL OR stop_reason IN ('lost', 'signed_out', 'left_team')),
   CONSTRAINT vendor_offline_devices_stop_shape
     CHECK ((status = 'stopped') = (stopped_at IS NOT NULL))
 );
@@ -112,10 +116,13 @@ CREATE TABLE IF NOT EXISTS public.vendor_offline_code_uses (
   booked_date       DATE NOT NULL,
   booked_time       TIME,
   pool_id           UUID REFERENCES public.vendor_schedule_pools(pool_id) ON DELETE SET NULL,
-  -- the amount the QR showed, as signed (₱, whole pesos); kept for the record — nothing is charged from it
-  amount_php        INTEGER
-                      CONSTRAINT vendor_offline_code_uses_amount_range
-                      CHECK (amount_php IS NULL OR amount_php >= 0),
+  -- the deal the QR showed, as signed (services; ₱, whole pesos) — kept for the record, nothing is charged from it
+  service_ids       UUID[] NOT NULL DEFAULT '{}'
+                      CONSTRAINT vendor_offline_code_uses_services_max CHECK (cardinality(service_ids) <= 3),
+  total_php         INTEGER
+                      CONSTRAINT vendor_offline_code_uses_total_range CHECK (total_php IS NULL OR total_php >= 0),
+  first_php         INTEGER
+                      CONSTRAINT vendor_offline_code_uses_first_range CHECK (first_php IS NULL OR first_php >= 0),
   phone_time        TIMESTAMPTZ,
   block_id          UUID,
   invite_id         UUID REFERENCES public.vendor_client_invites(invite_id) ON DELETE SET NULL,
@@ -193,6 +200,11 @@ LANGUAGE plpgsql
 SET search_path = public
 AS $$
 BEGIN
+  -- Only a REAL change moves the version (review #2): a write that leaves every field as it was is no change.
+  IF (to_jsonb(NEW) - ARRAY['version', 'updated_at', 'updated_by']) = (to_jsonb(OLD) - ARRAY['version', 'updated_at', 'updated_by']) THEN
+    NEW.version := OLD.version;
+    RETURN NEW;
+  END IF;
   NEW.version := OLD.version + 1;
   NEW.updated_by := COALESCE(auth.uid(), NEW.updated_by);
   NEW.updated_at := NOW();
@@ -241,23 +253,13 @@ CREATE INDEX IF NOT EXISTS vendor_offline_holds_live_idx
 
 COMMENT ON TABLE public.vendor_offline_holds IS
   'Expo mode (owner 2026-11-24, team-clash rule 1): a member, while online, claims a date range; until they '
-  'sync or release it only they may write into it (supplier_offline_hold_in_the_way — the offline door and '
-  'the vendor_calendar_blocks trigger both ask it). Shop members read; only the server writes.';
+  'release it (or its end date passes) only they may write into it (supplier_offline_hold_in_the_way — the offline '
+  'door and the vendor_calendar_blocks trigger both ask it). Service role only; teammates read it through the door.';
 
 ALTER TABLE public.vendor_offline_holds ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS vendor_offline_holds_shop_read ON public.vendor_offline_holds;
-CREATE POLICY vendor_offline_holds_shop_read
-  ON public.vendor_offline_holds
-  FOR SELECT TO authenticated
-  USING (
-    vendor_profile_id IN (SELECT public.current_vendor_profile_ids())
-    OR (SELECT public.is_admin())
-  );
-
-REVOKE ALL ON TABLE public.vendor_offline_holds FROM anon;
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-  ON TABLE public.vendor_offline_holds FROM authenticated;
+-- No policy on purpose (review #2): every teammate reads holds through the server door (`team.read`) after its own
+-- member check — `current_vendor_profile_ids()` admits only the shop's owner and admins, not the whole team.
+REVOKE ALL ON TABLE public.vendor_offline_holds FROM anon, authenticated;
 
 -- The ONE test of "a hold is in the way": a live hold (not released, not yet
 -- past) of ANOTHER member, on any day of the range, on the same schedule (or a
@@ -279,6 +281,12 @@ AS $$
    WHERE h.vendor_profile_id = p_vendor_profile_id
      AND h.released_at IS NULL
      AND h.member_user_id IS DISTINCT FROM p_member_user_id
+     -- a member who left the team (or was deactivated) holds nothing any more
+     AND NOT EXISTS (
+       SELECT 1 FROM public.vendor_team_members tm
+        WHERE tm.vendor_profile_id = h.vendor_profile_id AND tm.user_id = h.member_user_id
+          AND tm.deactivated_at IS NOT NULL
+     )
      AND h.end_date >= (NOW() AT TIME ZONE 'Asia/Manila')::date
      AND h.start_date <= p_end
      AND h.end_date >= p_start
@@ -335,9 +343,32 @@ CREATE TRIGGER vendor_calendar_blocks_respect_holds
   BEFORE INSERT OR UPDATE ON public.vendor_calendar_blocks
   FOR EACH ROW EXECUTE FUNCTION public.vendor_calendar_blocks_respect_holds();
 
+-- ── 4b · a member who leaves the team: their phones stop signing QR codes ──
+CREATE OR REPLACE FUNCTION public.vendor_offline_devices_stop_on_leave()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'DELETE' OR (NEW.deactivated_at IS NOT NULL AND OLD.deactivated_at IS NULL) THEN
+    UPDATE public.vendor_offline_devices
+       SET status = 'stopped', stopped_at = NOW(), stop_reason = 'left_team'
+     WHERE vendor_profile_id = OLD.vendor_profile_id AND member_user_id = OLD.user_id AND status = 'active';
+  END IF;
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.vendor_offline_devices_stop_on_leave() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS vendor_team_members_stop_offline_devices ON public.vendor_team_members;
+CREATE TRIGGER vendor_team_members_stop_offline_devices
+  AFTER DELETE OR UPDATE OF deactivated_at ON public.vendor_team_members
+  FOR EACH ROW EXECUTE FUNCTION public.vendor_offline_devices_stop_on_leave();
+
 -- ── 5 · every queued item, once ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.vendor_offline_writes (
-  item_id           UUID PRIMARY KEY,
+  item_id           UUID NOT NULL,
   vendor_profile_id UUID NOT NULL
                       REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE CASCADE,
   member_user_id    UUID NOT NULL,
@@ -349,7 +380,9 @@ CREATE TABLE IF NOT EXISTS public.vendor_offline_writes (
   received_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   -- NULL while it is being applied; then the answer every retry gets.
   outcome           JSONB,
-  settled_at        TIMESTAMPTZ
+  settled_at        TIMESTAMPTZ,
+  -- keyed by shop + item (review #2): one shop's item id can never answer for another shop
+  PRIMARY KEY (vendor_profile_id, item_id)
 );
 
 CREATE INDEX IF NOT EXISTS vendor_offline_writes_shop_idx
@@ -446,7 +479,7 @@ BEGIN
 
   -- A retry of an item that already has its answer gets the same answer.
   IF v_item IS NOT NULL THEN
-    SELECT w.outcome INTO v_prev FROM public.vendor_offline_writes w WHERE w.item_id = v_item;
+    SELECT w.outcome INTO v_prev FROM public.vendor_offline_writes w WHERE w.vendor_profile_id = v_shop AND w.item_id = v_item;
     IF v_prev IS NOT NULL THEN
       RETURN v_prev || jsonb_build_object('repeat', TRUE);
     END IF;
@@ -492,7 +525,7 @@ BEGIN
           INSERT INTO public.vendor_offline_writes
             (item_id, vendor_profile_id, member_user_id, kind, phone_time, outcome, settled_at)
           VALUES (v_item, v_shop, v_member, v_kind, v_phone, v_out, NOW())
-          ON CONFLICT (item_id) DO UPDATE SET outcome = EXCLUDED.outcome, settled_at = EXCLUDED.settled_at;
+          ON CONFLICT (vendor_profile_id, item_id) DO UPDATE SET outcome = EXCLUDED.outcome, settled_at = EXCLUDED.settled_at;
         END IF;
         RETURN v_out;
       END IF;
@@ -636,6 +669,22 @@ BEGIN
         SELECT sp.daily_booking_capacity INTO v_cap FROM public.vendor_schedule_pools sp WHERE sp.pool_id = v_row.pool_id;
         v_day := v_start;
         WHILE v_day <= v_end LOOP
+          -- the same closed-day and locked-day checks the add path makes
+          IF EXISTS (
+            SELECT 1 FROM public.vendor_calendar_blocks b
+             WHERE b.vendor_profile_id = v_shop AND b.block_source = 'manual'
+               AND COALESCE(b.day_part, 'all_day') = 'all_day'
+               AND (b.pool_id IS NULL OR b.pool_id = v_row.pool_id)
+               AND public.calendar_block_on_day(b.blocked_at, b.blocked_until, b.repeat_rule, b.repeat_until, v_day)
+          ) OR EXISTS (
+            SELECT 1 FROM public.vendor_calendar_day_states ds
+             WHERE ds.vendor_profile_id = v_shop AND ds.state_date = v_day AND ds.day_state = 'locked'
+               AND (ds.pool_id IS NULL OR ds.pool_id = v_row.pool_id)
+          ) THEN
+            v_out := jsonb_build_object('status', 'clash', 'why', 'closed', 'by', NULL, 'by_kind', 'member',
+                                        'at', NULL, 'start_date', v_day, 'end_date', v_day);
+            EXIT;
+          END IF;
           -- this item's own seat on the day is not counted against itself
           v_taken := public.schedule_pool_taken_on(v_row.pool_id, v_day, NULL)
                      - CASE WHEN public.calendar_block_on_day(v_row.blocked_at, v_row.blocked_until, v_row.repeat_rule,
@@ -714,7 +763,7 @@ BEGIN
     INSERT INTO public.vendor_offline_writes
       (item_id, vendor_profile_id, member_user_id, kind, phone_time, outcome, settled_at)
     VALUES (v_item, v_shop, v_member, v_kind, v_phone, v_out, NOW())
-    ON CONFLICT (item_id) DO UPDATE SET outcome = EXCLUDED.outcome, settled_at = EXCLUDED.settled_at;
+    ON CONFLICT (vendor_profile_id, item_id) DO UPDATE SET outcome = EXCLUDED.outcome, settled_at = EXCLUDED.settled_at;
   END IF;
   RETURN v_out;
 END;
@@ -762,6 +811,12 @@ BEGIN
       RETURN jsonb_build_object('status', 'clash', 'why', 'held', 'by', v_hold.member_user_id, 'by_kind', 'member',
                                 'at', v_hold.created_at, 'start_date', v_hold.start_date, 'end_date', v_hold.end_date);
     END IF;
+    -- at most 5 live holds per member (review #2)
+    IF (SELECT count(*) FROM public.vendor_offline_holds h
+         WHERE h.vendor_profile_id = v_shop AND h.member_user_id = v_member AND h.released_at IS NULL
+           AND h.end_date >= (NOW() AT TIME ZONE 'Asia/Manila')::date) >= 5 THEN
+      RETURN jsonb_build_object('status', 'invalid', 'reason', 'hold_cap');
+    END IF;
     INSERT INTO public.vendor_offline_holds (vendor_profile_id, member_user_id, pool_id, start_date, end_date)
     VALUES (v_shop, v_member, v_pool, v_start, v_end)
     RETURNING hold_id INTO v_id;
@@ -800,7 +855,7 @@ GRANT EXECUTE ON FUNCTION public.supplier_offline_hold(JSONB) TO service_role;
 -- it knows (the supplier's copy carries the client's name; the client's scan
 -- carries the event they picked). The phone is checked again here, under lock:
 -- a code from a stopped phone is refused even after the signature passed.
--- p: { code_id, device_id, via, booked_date, client_time?, pool_id, amount_php?,
+-- p: { code_id, device_id, via, booked_date, client_time?, pool_id, service_ids?, total_php?, first_php?,
 --      phone_time?, item_id?, event_id?, label?, client_name?, client_contact?, client_note? }
 CREATE OR REPLACE FUNCTION public.supplier_offline_code_use(p JSONB)
 RETURNS JSONB
@@ -832,11 +887,12 @@ BEGIN
 
   INSERT INTO public.vendor_offline_code_uses
     (code_id, device_id, vendor_profile_id, member_user_id, used_via, booked_date, booked_time, pool_id,
-     amount_php, phone_time, claimed_event_id)
+     service_ids, total_php, first_php, phone_time, claimed_event_id)
   VALUES
     (v_code, v_device, v_d.vendor_profile_id, v_d.member_user_id, v_via, v_date,
      NULLIF(p->>'client_time', '')::time, NULLIF(p->>'pool_id', '')::uuid,
-     NULLIF(p->>'amount_php', '')::integer, NULLIF(p->>'phone_time', '')::timestamptz,
+     COALESCE(ARRAY(SELECT jsonb_array_elements_text(CASE WHEN jsonb_typeof(p->'service_ids') = 'array' THEN p->'service_ids' ELSE '[]'::jsonb END))::uuid[], '{}'),
+     NULLIF(p->>'total_php', '')::integer, NULLIF(p->>'first_php', '')::integer, NULLIF(p->>'phone_time', '')::timestamptz,
      CASE WHEN v_via = 'client' THEN v_event END)
   ON CONFLICT (code_id) DO NOTHING;
   GET DIAGNOSTICS v_n = ROW_COUNT;

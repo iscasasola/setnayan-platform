@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { getURLFromRedirectError } from 'next/dist/client/components/redirect';
-import { COULD_NOT_SAVE, redirectPath, stayReplyOf, type StayResult } from '@/lib/save-in-place';
+import { COULD_NOT_SAVE, redirectPath, type StayResult } from '@/lib/save-in-place';
 import { isStayDoor, type StayDoor } from '@/lib/stay-doors';
 import { limitedHelperRefusal } from '@/lib/host-gate';
 import { plainRefusal } from '@/app/dashboard/[eventId]/guests/_components/plain-refusal';
@@ -36,10 +36,8 @@ export async function saveInPlace(door: StayDoor, formData: FormData): Promise<S
     if (helperRefusal) return { ok: false, error: helperRefusal };
   }
   try {
-    const value = await run(formData);
-    /* 📶 A door that answers instead of redirecting (the supplier offline door) hands its typed answer back. */
-    const reply = stayReplyOf(value);
-    return reply === undefined ? { ok: true } : { ok: true, reply };
+    await run(formData);
+    return { ok: true };
   } catch (e) {
     if (!isRedirectError(e)) {
       /* A refusal a gate throws with its own words (`refuseLimitedHelper`) is said as it is — a database's words never

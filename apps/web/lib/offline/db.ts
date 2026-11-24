@@ -39,6 +39,8 @@ const DB_VERSION = 3;
  * CryptoKey itself; nothing can read the key out). Deleted at sign-out.
  */
 export const SUPPLIER_KEYS_STORE = 'supplier_keys';
+/** The answers that need a person ("Couldn't save: <why>") — in IndexedDB, never localStorage (review #2 item 18). */
+export const SUPPLIER_OUTCOMES_STORE = 'supplier_outcomes';
 
 // The key store's helpers live in `./supplier-keys.ts`, loaded only by the supplier screens — this module rides in
 // every page's shared bundle (the root layout's daemon mount).
@@ -69,6 +71,11 @@ export function storeNameForService(service: ServiceCode): string {
  * the sync daemon can log + retry. Browsers in private mode or with
  * IDB quota exceeded will surface here.
  */
+/** The phone's saved offline data was made by a newer Setnayan (or another tab is upgrading it): the page must reload. */
+export class OfflineDbNeedsReload extends Error {
+  readonly needsReload = true;
+}
+
 export function openOfflineDB(): Promise<IDBDatabase> {
   if (typeof window === 'undefined' || typeof indexedDB === 'undefined') {
     return Promise.reject(
@@ -94,20 +101,25 @@ export function openOfflineDB(): Promise<IDBDatabase> {
         store.createIndex('queued_at', 'queued_at', { unique: false });
       }
       if (!db.objectStoreNames.contains(SUPPLIER_KEYS_STORE)) db.createObjectStore(SUPPLIER_KEYS_STORE, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(SUPPLIER_OUTCOMES_STORE)) db.createObjectStore(SUPPLIER_OUTCOMES_STORE, { keyPath: 'id' });
     };
 
     request.onsuccess = () => {
+      // Another tab (or a newer deploy) upgrading the database: let go at once, so it is never blocked by this tab.
+      request.result.onversionchange = () => request.result.close();
       resolve(request.result);
     };
     request.onerror = () => {
-      reject(request.error ?? new Error('IndexedDB open failed'));
+      // A rollback (the phone holds a NEWER database than this code knows): say "reload", never a dead queue.
+      if (request.error?.name === 'VersionError') reject(new OfflineDbNeedsReload('This page is older than the saved data — reload Setnayan.'));
+      else reject(request.error ?? new Error('IndexedDB open failed'));
     };
     request.onblocked = () => {
       // Another tab is holding an older version open. Don't reject —
       // surface as an error result so the admin diagnostic can show
       // "another tab is blocking the upgrade · close other tabs". The
       // sync daemon treats this as a soft failure.
-      reject(new Error('IndexedDB upgrade blocked by another tab'));
+      reject(new OfflineDbNeedsReload('Another Setnayan tab is open — reload this one.'));
     };
   });
 }

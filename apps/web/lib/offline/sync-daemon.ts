@@ -115,11 +115,14 @@ export const OFFLINE_MAX_RETRY_COUNT = 50;
  * retry cap is the guaranteed backstop in that case.
  */
 export function isOfflineItemExpired(
-  item: Pick<OfflineItem, 'queued_at' | 'retry_count'>,
+  item: Pick<OfflineItem, 'queued_at' | 'retry_count'> & { payload?: Record<string, unknown> },
   nowMs: number = Date.now(),
+  /** false = never age it out by the phone's clock (a phone whose clock reset must not drop work) — only real tries
+   *  count. A supplier item says so itself (`payload.ageByTriesOnly`, review #2 item 3). */
+  byAge = item.payload?.ageByTriesOnly !== true,
 ): boolean {
   const queuedMs = Date.parse(item.queued_at);
-  const agedOut = Number.isFinite(queuedMs) && nowMs - queuedMs > OFFLINE_ITEM_TTL_MS;
+  const agedOut = byAge && Number.isFinite(queuedMs) && nowMs - queuedMs > OFFLINE_ITEM_TTL_MS;
   const retriedOut = item.retry_count >= OFFLINE_MAX_RETRY_COUNT;
   return agedOut || retriedOut;
 }
@@ -190,74 +193,88 @@ export async function triggerSyncNow(): Promise<SyncRunSummary[]> {
 
   return Promise.all(
     SERVICE_CODES.map(async (service) => {
-      const handler = HANDLERS[service];
-      let items: OfflineItem[] = [];
-      try {
-        items = await listOfflineItems(service);
-      } catch {
-        return { service, synced: 0, failed: 0 };
+      // 📶 One tab sends the supplier queue at a time (controller review #2 item 13): another tab already sending means
+      // this pass skips it, so a slower tab can never write back an item the other one already sent and removed.
+      const locks = (typeof navigator !== 'undefined' ? (navigator as Navigator & { locks?: LockManager }).locks : undefined);
+      if (service === 'supplier' && locks) {
+        const held = await locks
+          .request('setnayan-offline-supplier', { ifAvailable: true }, async (lock) => (lock ? drainService(service) : null))
+          .catch(() => null);
+        return held ?? { service, synced: 0, failed: 0 };
       }
-
-      let synced = 0;
-      let failed = 0;
-
-      for (const item of items) {
-        // 📮 Save-first Papic shots (and old guest/supplier items it adopts)
-        // belong to the page's ONE uploader (lib/papic-upload/). Two senders over
-        // one queue race — so this daemon never touches them, not even to evict.
-        if (service === 'papic' && ownedByPageUploader(item)) continue;
-        // Eviction backstop: a still-failing item past the 7-day TTL or the
-        // retry cap is doomed — evict it (dequeue) instead of attempting it
-        // again, so permanently-failing captures stop retrying forever. Counts
-        // as `failed` (it never delivered), and the pending count drops so the
-        // diagnostic no longer shows a stuck item hammering the network.
-        if (isOfflineItemExpired(item)) {
-          try {
-            await dequeueOfflineItem(service, item.item_id);
-            ON_EVICT[service]?.(item);
-          } catch {
-            // Dequeue failed — leave it; the next pass retries the eviction.
-          }
-          failed += 1;
-          continue;
-        }
-
-        let result: SyncResult;
-        try {
-          result = await handler(item);
-        } catch (err) {
-          result = {
-            ok: false,
-            error: err instanceof Error ? err.message : String(err),
-          };
-        }
-
-        if (result.ok) {
-          try {
-            await dequeueOfflineItem(service, item.item_id);
-            synced += 1;
-          } catch {
-            // Dequeue failed — IDB transaction error, quota, etc. Count
-            // as failed so admin sees the discrepancy; item stays in
-            // queue for next sync pass.
-            failed += 1;
-          }
-        } else {
-          try {
-            await updateOfflineItem(service, {
-              ...item,
-              retry_count: item.retry_count + 1,
-              last_error: result.error,
-            });
-          } catch {
-            // Update failed — surface as a sync failure for the admin
-            // diagnostic without losing the original item.
-          }
-          failed += 1;
-        }
-      }
-
-      return { service, synced, failed };
+      return drainService(service);
     }),
   );
+}
+
+async function drainService(service: ServiceCode): Promise<SyncRunSummary> {
+  const handler = HANDLERS[service];
+  let items: OfflineItem[] = [];
+  try {
+    items = await listOfflineItems(service);
+  } catch {
+    return { service, synced: 0, failed: 0 };
+  }
+
+  let synced = 0;
+  let failed = 0;
+
+  for (const item of items) {
+    // 📮 Save-first Papic shots (and old guest/supplier items it adopts)
+    // belong to the page's ONE uploader (lib/papic-upload/). Two senders over
+    // one queue race — so this daemon never touches them, not even to evict.
+    if (service === 'papic' && ownedByPageUploader(item)) continue;
+    // Eviction backstop: a still-failing item past the 7-day TTL or the
+    // retry cap is doomed — evict it (dequeue) instead of attempting it
+    // again, so permanently-failing captures stop retrying forever. Counts
+    // as `failed` (it never delivered), and the pending count drops so the
+    // diagnostic no longer shows a stuck item hammering the network.
+    if (isOfflineItemExpired(item)) {
+      try {
+        await dequeueOfflineItem(service, item.item_id);
+        ON_EVICT[service]?.(item);
+      } catch {
+        // Dequeue failed — leave it; the next pass retries the eviction.
+      }
+      failed += 1;
+      continue;
+    }
+
+    let result: SyncResult;
+    try {
+      result = await handler(item);
+    } catch (err) {
+      result = {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+
+    if (result.ok) {
+      try {
+        await dequeueOfflineItem(service, item.item_id);
+        synced += 1;
+      } catch {
+        // Dequeue failed — IDB transaction error, quota, etc. Count
+        // as failed so admin sees the discrepancy; item stays in
+        // queue for next sync pass.
+        failed += 1;
+      }
+    } else {
+      try {
+        await updateOfflineItem(service, {
+          ...item,
+          // Waiting (nothing was really sent) is not a try.
+          retry_count: result.waiting ? item.retry_count : item.retry_count + 1,
+          last_error: result.error,
+        });
+      } catch {
+        // Update failed — surface as a sync failure for the admin
+        // diagnostic without losing the original item.
+      }
+      failed += 1;
+    }
+  }
+
+  return { service, synced, failed };
 }

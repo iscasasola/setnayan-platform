@@ -914,7 +914,7 @@ function forgetSupplierOffline() {
     req.onerror = () => resolve(false);
     req.onsuccess = () => {
       const db = req.result;
-      const names = ['supplier_queue', 'supplier_keys'].filter((n) => db.objectStoreNames.contains(n));
+      const names = ['supplier_queue', 'supplier_keys', 'supplier_outcomes'].filter((n) => db.objectStoreNames.contains(n));
       if (names.length === 0) {
         db.close();
         return resolve(true);
@@ -1360,8 +1360,9 @@ self.addEventListener('message', (event) => {
         : data.type === 'OFFLINE_FORGET'
           ? withOfflineLock(() =>
               // 🔒 F-W1-82: a signed-out page's wipe erases the day-of guest pages too, never only the saved copies.
-              // 📶 …and the supplier's queued work and one-time codes (`forgetSupplierOffline`).
-              Promise.all([forgetOfflineCopies(), forgetGuestPages(null).catch(() => undefined), forgetSupplierOffline()]).then(() => ({ ok: true })),
+              // 📶 The supplier's queued work is NOT erased here: this wipe also runs when a session is merely lost (an
+              // expired token, a password reset). Only a deliberate sign-out (`/auth/sign-out`, below) erases it.
+              Promise.all([forgetOfflineCopies(), forgetGuestPages(null).catch(() => undefined)]).then(() => ({ ok: true })),
             )
           : withOfflineLock(async () => {
               /* 🔒 ONE VIEWER AT A TIME — FOR EVERY CACHE THAT HOLDS A PERSON'S PAGES (walk 13 Nov 2026, F-W1-82: after an
@@ -1445,7 +1446,7 @@ self.addEventListener('fetch', (event) => {
       Promise.all([
         withOfflineLock(() => (forget === '*' ? forgetOfflineCopies() : forgetOfflineEvent(forget))).catch(() => undefined),
         forgetGuestPages(forget === '*' ? null : forget).catch(() => undefined),
-        // 📶 An account's sign-out (`/auth/sign-out`) also erases the supplier's queued work and one-time codes.
+        // 📶 A DELIBERATE sign-out (`/auth/sign-out`) also erases the supplier's queued work, keys and answers.
         forget === '*' ? forgetSupplierOffline() : Promise.resolve(false),
       ]),
     );

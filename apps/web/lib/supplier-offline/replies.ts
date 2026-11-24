@@ -1,7 +1,6 @@
 /**
  * 📶 What the supplier offline door answers, per op (`lib/supplier-offline/engine.server.ts`, reached through the ONE
- * dispatcher `app/_actions/save-in-place.ts` as the stay door `supOffline.supplierOffline`). Pure — the phone and the
- * screens read these shapes.
+ * stable route `/api/offline/supplier-sync`). Pure — the phone and the screens read these shapes.
  */
 import type { Clash, SyncReply } from './kinds';
 
@@ -54,5 +53,6 @@ export type SupplierOfflineReply =
   | { op: 'team.read'; ok: true; holds: TeamHold[]; seen: TeamSeen[]; devices: TeamDevice[]; readAt: string }
   | ({ op: 'team.read' } & OpRefusal);
 
-/** The key the door's reply rides on through `saveInPlace` (`stayReplyOf`, `lib/save-in-place.ts`). */
-export type StayReply<T> = { stayReply: T };
+/** The wire: the payload version the route speaks. A phone on an older version is told to update, never guessed at. */
+export const SUPPLIER_OFFLINE_WIRE = 1;
+export const SUPPLIER_OFFLINE_ROUTE = '/api/offline/supplier-sync';

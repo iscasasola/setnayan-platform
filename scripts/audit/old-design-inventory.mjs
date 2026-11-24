@@ -199,19 +199,34 @@ const drFor = (r, k) => {
 };
 
 /* ── the Part I audit (23 Nov): icon tiles, equal KPI rows, filler copy, by file ───────────────────────────── */
-const partI = { tiles: new Map(), kpi: new Map(), filler: new Map() };
+const partI = { gradient: new Map(), tiles: new Map(), kpi: new Map(), shadow: new Map(), filler: new Map() };
 {
   const p = join(ROOT, 'audits', 'part-i-2026-11-23.md');
   if (existsSync(p)) {
     let rule = null;
     for (const line of readFileSync(p, 'utf8').split('\n')) {
-      if (/^#{2,4} .*Rule 2/i.test(line)) rule = 'tiles';
-      else if (/^#{2,4} .*Rule 3/i.test(line)) rule = 'kpi';
-      else if (/^#{2,4} .*Rule 5/i.test(line)) rule = 'filler';
-      else if (/^#{1,4} /.test(line)) rule = null;
-      if (!rule || !line.startsWith('|')) continue;
+      if (/^#{2,4} /.test(line)) {
+        rule = /Rule 1/i.test(line)
+          ? 'gradient'
+          : /Rule 2/i.test(line)
+            ? 'tiles'
+            : /Rule 3/i.test(line)
+              ? 'kpi'
+              : /Rule 4/i.test(line) || /Appendix B/i.test(line)
+                ? 'shadow'
+                : /Rule 5/i.test(line)
+                  ? 'filler'
+                  : null;
+        continue;
+      }
+      if (!rule) continue;
       const m = /`(app\/[^`:]+?\.(?:tsx|ts|css))(?::\d+)?/.exec(line);
-      if (m) partI[rule].set(m[1], (partI[rule].get(m[1]) ?? 0) + 1);
+      if (!m || !(line.startsWith('|') || line.startsWith('- '))) continue;
+      // Rule 4's tables also list radii; only shadow rows count as a hand-typed shadow.
+      if (rule === 'shadow' && line.startsWith('|') && !/shadow/i.test(line)) continue;
+      const more = /\(\+(\d+) more/.exec(line);
+      const n = 1 + (more ? Number(more[1]) : 0);
+      partI[rule].set(m[1], (partI[rule].get(m[1]) ?? 0) + n);
     }
   }
 }
@@ -225,7 +240,8 @@ const P = {
   palette:
     /\b(?:text|bg|border|ring|from|to|via|fill|stroke|outline|divide|shadow|accent|decoration|placeholder)-(?:red|amber|emerald|green|yellow|blue|gray|grey|slate|zinc|neutral|stone|orange|rose|pink|purple|violet|indigo|sky|teal|lime|cyan|fuchsia)-\d{2,3}\b/g,
   // B4 / K2: white or black surfaces never flip in dark
-  whiteBlack: /\b(?:bg|text|border|from|to|via|fill|stroke|ring|divide)-(?:white|black)\b/g,
+  // (white words on a photo and black video grounds are right in both modes, so only these two are counted)
+  whiteBlack: /\bbg-white\b|\btext-black\b/g,
   darkPrefix: /\bdark:/g,
   // B5: the type scale
   textPx: /\btext-\[\d+(?:\.\d+)?(?:px|rem)\]/g,
@@ -237,10 +253,11 @@ const P = {
   // Part I rule 1: no decorative gradients
   gradient: /\bbg-gradient-to-[a-z]+\b|\b(?:linear|radial|conic)-gradient\(/g,
   // H3: never a coloured side stripe
-  stripe: /\bborder-(?:l|s)-(?:[2-8]|\[\d)|\bborderLeft(?:Width|Color)?\s*:|\bborderInlineStart(?:Width|Color)?\s*:/g,
+  stripe: /\bborder-(?:l|s)-(?:[2-8]|\[\d)|\bborderLeft(?:Width|Color)?\s*:|\bborderInlineStart(?:Width|Color)?\s*:/g, // raw count; see colouredStripes()
   stripeCss: /\bborder-(?:left|inline-start)(?:-width)?\s*:\s*(?:[2-9]|\d{2})px/g,
   // D2 / K1: one button primitive, one main button per scope
-  legacyBtn: /\b(?:button-primary|button-secondary|btn-primary|btn-secondary|btn-ghost)\b|className=["'`]btn\b|["'`\s]btn["'`\s]/g,
+  // `.m-btn` / `.m-btn-primary` is the website kit's own button (Part H, front-door.css), not legacy.
+  legacyBtn: /(?<![\w-])(?:button-primary|button-secondary|btn-primary|btn-secondary|btn-ghost)\b|className=["'`]btn\b|["'`\s]btn["'`\s]/g,
   handBtn:
     /<button\b[^>]*className=["'`][^"'`]*(?:\bbg-mulberry\b|\bbg-terracotta\b|\bbg-ink\b|rounded-full[^"'`]*\bbg-(?:mulberry|terracotta|ink|ok|danger|info))/g,
   // D2 / D3: one input primitive, buttons inside the box
@@ -257,6 +274,9 @@ const P = {
   transitionAll: /\btransition-all\b|transition:\s*all\b/g,
   // Inline styles (counted, not a rule on their own)
   inline: /style=\{\{/g,
+  // Anchors only (the counts come from lint:no-card and lint:field-template baselines)
+  noCardShape: /\brounded-(?:lg|xl|2xl|3xl|card|tile)\b[^"'`]*\b(?:border\b|shadow\b|shadow-)/g,
+  rawBox: /<(?:input|textarea)\b/g,
   // Shadows typed by hand (Part I rule 4; floating surfaces keep theirs, so this is a candidate count)
   shadow: /\bshadow-(?:sm|md|lg|xl|2xl|inner|\[)/g,
   // Cards at 22 / 36 (Part I rule 4: cards are 12)
@@ -287,6 +307,27 @@ const SORT_WRONG = new Set([
 ]);
 const count = (s, re) => (s.match(re) ?? []).length;
 
+/**
+ * H3 🚫: a COLOURED side stripe. A grey quote bar (`border-l-2 border-ink/15` on a quoted line) is counted apart:
+ * it is still a side line, but not the accent stripe the owner banned on 23 Nov.
+ */
+const STRIPE_COLOUR =
+  /\bborder-(?:l-|s-)?(?:gold|terracotta|mulberry|accent|ok|warn|danger|info|link|private|success|error|sky|sn-cat-\w+|(?:red|amber|emerald|green|yellow|blue|orange|rose|pink|purple|indigo|teal|lime|cyan)-\d{2,3})\b|\bborder-(?:l-|s-)?\[(?:#|rgb|var)/;
+function stripesOf(s) {
+  let coloured = 0;
+  let grey = 0;
+  for (const m of s.matchAll(/(["'`])((?:(?!\1)[\s\S]){0,400}?)\1/g)) {
+    const cls = m[2];
+    if (!/\bborder-(?:l|s)-(?:[2-8]|\[\d)/.test(cls)) continue;
+    if (STRIPE_COLOUR.test(cls)) coloured++;
+    else grey++;
+  }
+  for (const m of s.matchAll(/\bborder(?:Left|InlineStart)\s*:\s*([^,}\n]+)/g)) {
+    if (/\b(?:[2-9]|\d{2})px\b/.test(m[1])) coloured++;
+  }
+  return { coloured, grey };
+}
+
 /** K1: brand ActionButtons that are not the main verb are accent-outlined; two `main` in one file is a candidate. */
 function k1Of(s) {
   let brandSecond = 0;
@@ -308,10 +349,12 @@ function k1Of(s) {
 function symbolAt(s, idx) {
   const head = s.slice(0, idx);
   let best = null;
-  for (const m of head.matchAll(/(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)|(?:const|let)\s+([A-Z][\w$]*)\s*[:=]/g)) {
+  for (const m of head.matchAll(/(?:async\s+)?function\s+([A-Za-z_$][\w$]*)|(?:const|let)\s+([A-Z][a-z][\w$]*)\s*(?::[^=]{0,80})?=\s*(?:\(|async|memo|forwardRef|React\.)/g)) {
     best = m[1] ?? m[2];
   }
-  return best;
+  if (best) return best;
+  const exp = /export\s+(?:default\s+)?function\s+([A-Za-z_$][\w$]*)/.exec(s);
+  return exp ? exp[1] : null;
 }
 
 /**
@@ -320,7 +363,7 @@ function symbolAt(s, idx) {
  * print designs, colour wheels, device mock-ups. Their gradients and colours are not counted.
  */
 const PRODUCT_ART =
-  /\/invite\/_components\/themes\/|\/_components\/award\/|monogram|wax-?stamp|gift-box|cover-scene|stage-panel|supplier-prints|colou?r-wheel|device-(?:frame|mock)|phone-mock|\/themes?\//;
+  /shop-badge-pill|\/badges?\/|seal-art|\/invite\/_components\/themes\/|\/_components\/award\/|monogram|wax-?stamp|gift-box|cover-scene|stage-panel|supplier-prints|colou?r-wheel|device-(?:frame|mock)|phone-mock|\/themes?\//;
 
 const fileCache = new Map();
 function fileSignals(abs) {
@@ -361,6 +404,9 @@ function fileSignals(abs) {
       for (const name of m[1].split(',').map((x) => x.trim().split(/\s+as\s+/)[0])) if (SORT_WRONG.has(name)) sortWrong++;
     }
     c.sortWrong = sortWrong;
+    const st = stripesOf(s);
+    c.stripe = st.coloured;
+    c.quoteBar = st.grey;
     const k1 = k1Of(s);
     c.k1BrandSecond = k1.brandSecond;
     c.k1Mains = k1.mains;
@@ -385,10 +431,14 @@ function fileSignals(abs) {
   c.mastheadDrift = masthead.has(r) ? 1 : 0;
   c.labelDark = labelDarkByFile.get(r) ?? 0;
   c.iconTiles = partI.tiles.get(r) ?? 0;
+  c.partIGradient = partI.gradient.get(r) ?? 0;
+  c.partIShadow = partI.shadow.get(r) ?? 0;
   c.kpiRow = partI.kpi.get(r) ?? 0;
   c.filler = partI.filler.get(r) ?? 0;
   if (PRODUCT_ART.test(r)) {
     c.art = 1;
+    c.noCard = 0;
+    c.partIShadow = 0;
     c.gradient = 0;
     c.hex = 0;
     c.rgbLit = 0;
@@ -404,11 +454,11 @@ function fileSignals(abs) {
 /* ── rule families (the doc's "what is old" column) ───────────────────────────────────────────────────────── */
 export const FAMILIES = [
   // [key, label, rule cite, visible?, (sum) => n]
-  ['gradient', 'decorative gradient', 'Part I·1', true, (t) => t.gradient],
+  ['gradient', 'decorative gradient', 'Part I·1', true, (t) => t.partIGradient],
   ['stripe', 'coloured side stripe', 'H3 🚫', true, (t) => t.stripe],
   ['iconTile', 'icon tile', 'Part I·2', true, (t) => t.iconTiles],
   ['kpi', 'equal KPI row', 'Part I·3', true, (t) => t.kpiRow],
-  ['frame', 'hand-made frame / static shadow', 'Part I·4 · lint:no-card', true, (t) => t.noCard + (t.shadow >= 3 ? t.shadow : 0)],
+  ['frame', 'hand-made frame / static shadow', 'Part I·4 · lint:no-card', true, (t) => t.noCard + t.partIShadow],
   ['button', 'legacy / hand-made button', 'D2 · T19', true, (t) => t.legacyBtn + t.handBtn],
   ['rank', 'second button in accent', 'K1', true, (t) => t.k1BrandSecond + t.k1TwoMains],
   ['input', 'legacy input / raw select / raw box', 'D2 · D3 · T15', true, (t) => t.legacyInput + t.select + t.fieldTpl],
@@ -432,7 +482,7 @@ function roleOf(route, mapArea) {
     return 'supplier';
   if (route === '/for-coordinators' || route.startsWith('/host/accept')) return 'coordinator';
   if (route.startsWith('/dashboard/[eventId]')) return 'couple';
-  if (route.startsWith('/dashboard') || route.startsWith('/onboarding') || route.startsWith('/site-editor') || route.startsWith('/host'))
+  if (route.startsWith('/dashboard') || route.startsWith('/onboarding') || route.startsWith('/site-editor') || route.startsWith('/host') || route.startsWith('/samahan'))
     return 'couple';
   if (mapArea === 'guest') return 'guest';
   if (mapArea === 'host') return 'couple';
@@ -443,7 +493,7 @@ function roleOf(route, mapArea) {
 const WEBSITE_FRONT = new Set(['/', '/for-suppliers', '/for-coordinators', '/pricing', '/features']);
 function templateOf(route, role, isStub) {
   if (isStub) return '— (redirect: nothing to draw)';
-  if (WEBSITE_FRONT.has(route)) return 'W · Website (Part H, H3 blocks + H4 order)';
+  if (WEBSITE_FRONT.has(route)) return 'W · Public page (Part H, H3 blocks + H4 order)';
   if (/^\/(?:login|signup|forgot-password|reset-password|auth|claim|join|vendor-invite|host\/accept|papic\/claim|papic\/join)/.test(route))
     return 'D · Door / sign-in card (light only, K2.4)';
   if (route.startsWith('/onboarding') || route.startsWith('/open-shop') || route === '/dashboard/create-event')
@@ -457,17 +507,17 @@ function templateOf(route, role, isStub) {
   if (role === 'supplier') return 'A-sup · App page, supplier navy (shell + T2 pinned row + ThumbRow)';
   if (role === 'couple' || role === 'coordinator') return 'A-cpl · App page, couple terracotta (shell + T2 pinned row + ThumbRow)';
   if (role === 'guest') return 'G · Guest page (Event Hub link; light, no login)';
-  return 'W · Website (Part H)';
+  return 'W · Public page (Part H)';
 }
 
 /* Which raw signals feed each family (for the symbol anchor) */
 const FAMILY_SIGNALS = {
   gradient: ['gradient'],
   stripe: ['stripe'],
-  frame: ['shadow'],
+  frame: ['noCardShape', 'shadow'],
   button: ['legacyBtn', 'handBtn'],
   rank: ['actionButton'],
-  input: ['legacyInput', 'select'],
+  input: ['legacyInput', 'select', 'rawBox'],
   layer: ['ariaModal', 'inline'],
   loading: ['spinner', 'pulse'],
   sort: [],
@@ -516,8 +566,14 @@ for (const abs of walkPages(APP)) {
   raw.push({ abs, route, ...sc });
 }
 
-/** A file drawn by more than this many pages is an AREA-SHARED piece: fixed once, listed in its own section. */
+/**
+ * A file drawn by at most PAGE_ONLY_MAX pages belongs to those pages. One drawn by up to TEMPLATE_MAX pages is an
+ * area template (the marketing landing kit, a chat card): it renders on each of them, so it counts for each, and the
+ * row names it ("via"), because one fix there moves every page that draws it. A file drawn by more pages than that
+ * is a house piece: fixed once, listed in the doc's fix-once section, not charged to every page.
+ */
 const PAGE_ONLY_MAX = 3;
+const TEMPLATE_MAX = 12;
 const famOf = (c) => {
   const px = new Proxy(c, { get: (o, key) => o[key] ?? 0 });
   const out = {};
@@ -538,20 +594,25 @@ for (const { abs, route, own, deps, shared } of raw) {
   const role = roleOf(route, mapArea);
   const counted = new Set(own);
   const viaShared = [];
+  const via = [];
   for (const d of deps) {
-    if ((importers.get(rel(d))?.size ?? 0) <= PAGE_ONLY_MAX) counted.add(d);
+    const n = importers.get(rel(d))?.size ?? 0;
+    if (n <= TEMPLATE_MAX) counted.add(d);
     else viaShared.push(rel(d));
+    if (n > PAGE_ONLY_MAX && n <= TEMPLATE_MAX) via.push(rel(d));
   }
   const loading = join(dirname(abs), 'loading.tsx');
   if (existsSync(loading)) counted.add(loading);
   const t = {};
   const perFile = [];
   let lines = 0;
+  let ownLines = 0;
   for (const f of counted) {
     const fsig = fileSignals(f);
     perFile.push(fsig);
     for (const [k, v] of Object.entries(fsig.c)) t[k] = (t[k] ?? 0) + v;
     lines += fsig.c.lines;
+    if (own.has(f) || (importers.get(rel(f))?.size ?? 0) <= PAGE_ONLY_MAX) ownLines += fsig.c.lines;
   }
   t.lines = lines;
   const sharedRel = [...shared].map(rel);
@@ -589,13 +650,16 @@ for (const { abs, route, own, deps, shared } of raw) {
   const hygieneHits = hygiene.reduce((a, k) => a + fam[k], 0);
   const visibleHits = visible.reduce((a, k) => a + fam[k], 0);
   const weight = visible.reduce((a, k) => a + 2 * Math.min(fam[k], 10), 0) + hygiene.reduce((a, k) => a + Math.min(fam[k], 10), 0);
+  // Drawn before the house kit: hand-made or legacy buttons, and no ActionButton anywhere it draws.
+  const preKit = t.legacyBtn + t.handBtn > 0 && t.actionButton === 0;
   let verdict;
   if (isStub) verdict = 'redirect';
   else if (visible.length === 0 && hygieneHits <= 5) verdict = 'current';
-  else if (visible.length >= 4 || weight >= 40) verdict = 'old';
+  else if (visible.length >= 4 || preKit || (visible.length >= 3 && visibleHits >= 10)) verdict = 'old';
   else verdict = 'partly old';
   const hits = visibleHits + hygieneHits;
-  const size = isStub ? '—' : lines > 2500 || hits > 120 || visible.length >= 7 ? 'L' : lines < 500 && hits < 20 ? 'S' : 'M';
+  // Size of the redraw: the page's OWN code (area templates are fixed once, in their own row of the doc).
+  const size = isStub ? '—' : ownLines > 3000 || hits > 150 || visible.length >= 8 ? 'L' : ownLines < 600 && hits < 25 && visible.length <= 2 ? 'S' : 'M';
 
   // ── how often it is seen (no traffic data in the repo: a door-count proxy from the Ugat map) ──
   const doors = map?.doors ?? [];
@@ -619,16 +683,19 @@ for (const { abs, route, own, deps, shared } of raw) {
     template: templateOf(route, role, isStub),
     files: counted.size,
     lines,
+    ownLines,
     totals: t,
     fam,
     visible,
     hygiene,
     weight,
     verdict,
+    preKit,
     size,
     worst,
     viaShared,
     sharedFam,
+    via: via.filter((f) => Object.entries(famOf(fileSignals(join(WEB, f)).c)).some(([k, n]) => n && FAMILIES.find((x) => x[0] === k)?.[3])),
     usesMasthead,
     glow: t.glow > 0,
     templateScore: templateScore[relative(APP, dirname(abs)).split(sep).join('/')] ?? 0,
@@ -660,4 +727,226 @@ if (args.includes('--summary') || jsonAt < 0) {
   }
   console.log(`pages ${pages.length} (intercepting views and parallel slots skipped: ${intercepting})`);
   for (const [r, v] of Object.entries(by)) console.log(`  ${r.padEnd(12)} ${JSON.stringify(v)}`);
+}
+
+/* ── --md <out>: the generated tables of the inventory doc ───────────────────────────────────────────────── */
+const mdAt = args.indexOf('--md');
+if (mdAt >= 0) {
+  const notes = readJson(join(ROOT, 'scripts', 'audit', 'old-design-inventory.notes.json'));
+  const lookup = (map, route) => {
+    if (map[route]) return map[route];
+    let best = null;
+    for (const k of Object.keys(map)) {
+      if (!k.endsWith('/*')) continue;
+      const base = k.slice(0, -2);
+      if (route.startsWith(`${base}/`) && (!best || base.length > best.length)) best = base;
+    }
+    return best ? map[`${best}/*`] : null;
+  };
+  const FAM = Object.fromEntries(FAMILIES.map(([k, label, cite, visible]) => [k, { label, cite, visible }]));
+  FAM.shell = { label: 'hand-rolled masthead', cite: 'CLAUDE.md §3 · lint:masthead', visible: true };
+  FAM.noMasthead = { label: 'no PageMasthead (no h1)', cite: 'CLAUDE.md §3', visible: false };
+  const FIRST_FIX = {
+    gradient: 'flat fill',
+    stripe: 'drop the side stripe; hairline rows',
+    iconTile: 'bare monochrome icon',
+    kpi: 'one hero number + a quiet row',
+    frame: '`.sn-frame` hairline card',
+    button: '`ActionButton`',
+    rank: 'one main button; the rest `tone="neutral"`',
+    input: '`form-row` + `.input-field`; `PickMenu`',
+    layer: '`Sheet` + `OverlayBackdrop`',
+    loading: 'Ghost skeleton (`Sk`), no spinner',
+    sort: '`SortFace` (SlidersHorizontal)',
+    search: '`search-add` (icon until tapped)',
+    confirm: 'Undo toast; confirm only the irreversible',
+    dark: 'colour tokens that flip; no `bg-white`',
+    shell: '`PageMasthead`',
+  };
+  const esc = (x) => String(x).replace(/\|/g, '\\|');
+  const SHORT = {
+    stripe: 'side stripe',
+    gradient: 'gradient',
+    iconTile: 'icon tile',
+    kpi: 'equal KPIs',
+    rank: 'K1 rank',
+    dark: 'no-flip surface',
+    layer: 'own layer',
+    button: 'old button',
+    frame: 'hand frame',
+    loading: 'spinner',
+    input: 'old input',
+    search: 'open search',
+    sort: 'sort icon',
+    confirm: 'confirm()',
+    shell: 'own masthead',
+    colour: 'raw colour',
+    type: 'px type',
+    radius: 'raw radius',
+    motion: 'raw motion',
+    filler: 'filler copy',
+    noMasthead: 'no h1',
+  };
+  const short = (f) => f.replace(/^app\//, '');
+  const tier = (p) => (ENTRY.has(p.route) ? 'A' : p.inMenu ? 'B' : (p.doorKinds.link ?? 0) + (p.doorKinds.navigate ?? 0) + (p.doorKinds.builder ?? 0) >= 3 ? 'C' : 'D');
+  const ROLE_ORDER = ['supplier', 'couple', 'guest', 'coordinator', 'public', 'admin'];
+  const ROLE_NAME = { supplier: 'Supplier', couple: 'Couple (host)', guest: 'Guest', coordinator: 'Coordinator', public: 'Public pages, doors and sign-in', admin: 'Admin' };
+  // How loud a break is, loudest first: the owner's latest bans (side stripes, the AI look, button rank), then the
+  // breaks a person sees at once (dark, layers, buttons, frames, loading), then the quiet ones.
+  const LOUD = ['stripe', 'gradient', 'iconTile', 'kpi', 'rank', 'dark', 'layer', 'button', 'frame', 'loading', 'input', 'search', 'sort', 'confirm', 'shell'];
+  const loud = (k) => (LOUD.includes(k) ? LOUD.indexOf(k) : 99);
+  const famsOf = (p) =>
+    [...p.visible, ...p.hygiene]
+      .filter((k) => FAM[k])
+      .sort((a, b) => (FAM[b].visible ? 1 : 0) - (FAM[a].visible ? 1 : 0) || loud(a) - loud(b) || p.fam[b] - p.fam[a]);
+  const whatIsOld = (p) => {
+    if (p.verdict === 'redirect') return `forwards to \`${esc(p.redirectsTo ?? 'another page')}\``;
+    const ks = famsOf(p);
+    if (!ks.length) return `nothing found${notes.checked[p.route] ? ' ✔' : ''}`;
+    const parts = ks.slice(0, 3).map((k) => {
+      const w = p.worst[k];
+      const where = w ? ` \`${esc(short(w.file))}${w.sym ? `:${w.sym}` : ''}\`` : '';
+      return `${FAM[k].label} ×${p.fam[k]} (${FAM[k].cite})${where}`;
+    });
+    const more = ks.length > 3 ? ` · +${ks.length - 3} more: ${ks.slice(3).map((k) => SHORT[k] ?? k).join(', ')}` : '';
+    const via = p.via?.length ? ` · via ${p.via.slice(0, 2).map((f) => `\`${esc(short(f))}\``).join(', ')}${p.via.length > 2 ? ` +${p.via.length - 2}` : ''}` : '';
+    const chk = notes.checked[p.route] ? ' ✔' : '';
+    return parts.join(' · ') + more + via + chk;
+  };
+  const out = [];
+  const live = pages.filter((p) => !p.isStub);
+  const count = (arr, v) => arr.filter((p) => p.verdict === v).length;
+
+  out.push('<!-- GENERATED by `node scripts/audit/old-design-inventory.mjs --md` — tables below this line are machine-made -->');
+  out.push('');
+  out.push('## 2 · Counts');
+  out.push('');
+  out.push('| Role | Pages | Current | Partly old | Old | Redirect only |');
+  out.push('|---|---:|---:|---:|---:|---:|');
+  for (const r of ROLE_ORDER) {
+    const ps = pages.filter((p) => p.role === r);
+    out.push(`| ${ROLE_NAME[r]} | ${ps.length} | ${count(ps, 'current')} | ${count(ps, 'partly old')} | ${count(ps, 'old')} | ${count(ps, 'redirect')} |`);
+  }
+  out.push(`| **All** | **${pages.length}** | **${count(pages, 'current')}** | **${count(pages, 'partly old')}** | **${count(pages, 'old')}** | **${count(pages, 'redirect')}** |`);
+  out.push('');
+  out.push('Which rule each page breaks, counted over the pages that draw something (redirects left out):');
+  out.push('');
+  out.push('| Rule | What the scan looks for | Pages |');
+  out.push('|---|---|---:|');
+  for (const k of [...FAMILIES.map((f) => f[0]), 'shell', 'noMasthead']) {
+    const n = live.filter((p) => p.fam[k] > 0).length;
+    out.push(`| ${FAM[k].cite} | ${FAM[k].label}${FAM[k].visible ? '' : ' (tokens / hygiene)'} | ${n} |`);
+  }
+  out.push('');
+
+  // ── the ranked redraw list ──
+  out.push('## 3 · The ranked redraw list (most-seen first, by area)');
+  out.push('');
+  out.push(
+    '`Seen`: **A** an entry page everyone passes · **B** in its area\'s menu · **C** three or more links point at it · **D** deep or rare. ' +
+      'Within an area, rows are in "seen" order (menu weight, then the number of doors in the Ugat map). `Size`: the page\'s own code, see §1.4. ' +
+      '`Drawing on file`: the newest drawing folder in corpus `prototypes/` for that page; **none** means a Fable drawing comes first (guardrail A1). ' +
+      '`Open PR`: open on 24 Nov and touching that page\'s files: wait for it, or coordinate with its builder.',
+  );
+  out.push('');
+  for (const r of ROLE_ORDER) {
+    const ps = live.filter((p) => p.role === r && p.verdict !== 'current').sort((a, b) => b.seen - a.seen || b.weight - a.weight);
+    if (!ps.length) continue;
+    out.push(`### ${ROLE_NAME[r]} · ${ps.length} pages to fix (${count(ps, 'old')} old · ${count(ps, 'partly old')} partly old)`);
+    out.push('');
+    out.push('| # | Page | Verdict | Seen | Size | Old parts | First fix | Drawing on file | Open PR |');
+    out.push('|---:|---|---|:---:|:---:|---|---|---|---|');
+    ps.forEach((p, i) => {
+      const ks = famsOf(p).filter((k) => FAM[k].visible);
+      const parts = (ks.length ? ks : famsOf(p))
+        .slice(0, 5)
+        .map((k) => `${SHORT[k] ?? FAM[k].label} ×${p.fam[k]}`)
+        .join(' · ');
+      const fix = ks.length ? FIRST_FIX[ks[0]] ?? '' : 'tokens only (type scale, colour by job)';
+      const drawing = lookup(notes.drawings, p.route);
+      const pr = lookup(notes.prs, p.route);
+      out.push(
+        `| ${i + 1} | \`${esc(p.route)}\` | ${p.verdict === 'old' ? '**old**' : 'partly old'} | ${tier(p)} | ${p.size} | ${esc(parts)} | ${fix} | ${drawing ? esc(drawing) : '**none**'} | ${pr ?? ''} |`,
+      );
+    });
+    out.push('');
+  }
+
+  // ── shared pieces ──
+  const roleOfRoute = new Map(pages.map((p) => [p.route, p.role]));
+  const vis = (fam) => Object.entries(fam).filter(([k, n]) => n && FAM[k]?.visible);
+  const area = result.sharedInApp
+    .map((x) => ({ ...x, roles: [...new Set(x.routes.map((r) => roleOfRoute.get(r)).filter(Boolean))] }))
+    .filter((x) => x.roles.length >= 2 && x.routes.length <= TEMPLATE_MAX && vis(x.fam).length)
+    .sort((a, b) => b.roles.length - a.roles.length || b.routes.length - a.routes.length || vis(b.fam).length - vis(a.fam).length);
+  out.push('## 4 · Pages two areas share');
+  out.push('');
+  out.push('### 4.1 · Routes two roles use (read by hand)');
+  out.push('');
+  out.push('| Route(s) | Roles | How the second role gets there | Who should own the redraw |');
+  out.push('|---|---|---|---|');
+  for (const r of notes.sharedRoutes ?? []) out.push(`| ${r.routes} | ${r.roles} | ${r.how} | ${r.owner} |`);
+  out.push('');
+  out.push('### 4.2 · Files drawn by pages of two or more areas (generated)');
+  out.push('');
+  out.push(
+    `Every file under \`app/\` that pages of two or more roles draw, drawn by ${TEMPLATE_MAX} pages or fewer, that still holds an old part. ` +
+      'A fix here changes every page listed, in every area listed: **one builder owns each file**, and the others wait for it.',
+  );
+  out.push('');
+  out.push('| File | Areas | Pages that draw it | Old parts |');
+  out.push('|---|---|---|---|');
+  for (const x of area.slice(0, 80)) {
+    const pg = x.routes.slice(0, 5).map((r) => `\`${esc(r)}\``).join(', ') + (x.routes.length > 5 ? ` +${x.routes.length - 5}` : '');
+    out.push(`| \`${esc(short(x.file))}\` | ${x.roles.join(' · ')} | ${pg} | ${vis(x.fam).map(([k, n]) => `${FAM[k].label} ×${n}`).join(' · ')} |`);
+  }
+  if (area.length > 80) out.push(`| … | | ${area.length - 80} more in the JSON (\`--json\`) | |`);
+  out.push('');
+  const house = result.sharedInApp
+    .filter((x) => x.routes.length > TEMPLATE_MAX && vis(x.fam).length)
+    .sort((a, b) => b.routes.length - a.routes.length);
+  out.push('### 4.3 · House pieces with an old part (drawn by more than 12 pages: fix once)');
+  out.push('');
+  out.push('| File | Pages that draw it | Areas | Old parts |');
+  out.push('|---|---:|---|---|');
+  for (const x of house) {
+    const roles = [...new Set(x.routes.map((r) => roleOfRoute.get(r)).filter(Boolean))];
+    out.push(`| \`${esc(short(x.file))}\` | ${x.routes.length} | ${roles.join(' · ')} | ${vis(x.fam).map(([k, n]) => `${FAM[k].label} ×${n}`).join(' · ')} |`);
+  }
+  out.push('');
+
+  // ── the full table ──
+  out.push('## 5 · Every page');
+  out.push('');
+  out.push(
+    'One row per page, by role, then by route. `What is old` lists the three biggest rule breaks: the break, how many the scan found, ' +
+      'the rule, and the file:symbol holding the most. "via" names an area template the page draws (fix it once). ✔ = a person opened and read the page; ' +
+      'every other row is the scan, to be confirmed line by line before a change (see §1.5).',
+  );
+  out.push('');
+  for (const r of ROLE_ORDER) {
+    const ps = pages.filter((p) => p.role === r).sort((a, b) => (a.route < b.route ? -1 : a.route > b.route ? 1 : 0));
+    out.push(`### 5.${ROLE_ORDER.indexOf(r) + 1} · ${ROLE_NAME[r]} (${ps.length})`);
+    out.push('');
+    out.push('| Route | Role | Verdict | What is old (rule · file:symbol) | Size | Template |');
+    out.push('|---|---|---|---|:---:|---|');
+    for (const p of ps) {
+      const v = p.verdict === 'old' ? '**old**' : p.verdict;
+      out.push(`| \`${esc(p.route)}\` | ${p.role} | ${v} | ${whatIsOld(p)} | ${p.verdict === 'current' ? '—' : p.size} | ${esc(p.template)} |`);
+    }
+    out.push('');
+  }
+  out.push('<!-- END GENERATED -->');
+  // Into the doc in place: only the region between the two markers is replaced; the prose around it is kept.
+  const target = args[mdAt + 1];
+  const body = out.join('\n');
+  const START = '<!-- GENERATED by';
+  const END = '<!-- END GENERATED -->';
+  if (existsSync(target) && readFileSync(target, 'utf8').includes(START)) {
+    const doc = readFileSync(target, 'utf8');
+    const a = doc.indexOf(START);
+    const b = doc.indexOf(END) + END.length;
+    writeFileSync(target, doc.slice(0, a) + body + doc.slice(b));
+  } else writeFileSync(target, `${body}\n`);
+  console.log(`wrote ${target}`);
 }

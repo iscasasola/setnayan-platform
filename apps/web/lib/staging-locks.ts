@@ -11,7 +11,8 @@
  *                   Applied inside `sendEmail` (lib/email.ts), the one function every email goes through.
  *   (b) PAYMENTS  — test mode only: a Maya endpoint that is not Maya's sandbox is refused, keys and all.
  *                   Applied inside `resolveMayaConfig` (lib/integration-config.ts), the one place Maya's keys are read.
- *   (c) HIDDEN    — every build that is not production answers `X-Robots-Tag: noindex`.
+ *   (c) HIDDEN    — every published build that is not production (a Vercel preview, a staging copy) answers
+ *                   `X-Robots-Tag: noindex`.
  *                   Applied in `next.config.ts` `headers()` (never in middleware — the doors PR owns it).
  *   (d) STORAGE   — every R2 object key is confined under `STAGING_R2_PREFIX`; with no valid prefix R2 is OFF.
  *                   Applied inside `getR2Client` (lib/r2.ts), the one constructor every R2 call goes through.
@@ -120,11 +121,19 @@ export type HeaderRule = {
 };
 
 /**
- * (c) The header rule `next.config.ts` adds: `X-Robots-Tag: noindex, nofollow` on every path of every build whose
- * `VERCEL_ENV` is not `production` (previews, the staging copy, local and CI builds). Production gets no rule at all.
+ * (c) The header rule `next.config.ts` adds: `X-Robots-Tag: noindex, nofollow` on every path of every PUBLISHED build
+ * that is not production — a Vercel deployment whose `VERCEL_ENV` is `preview` or `development` (every preview, the
+ * final-check staging copy among them), and any build with `STAGING` on. Production gets no rule at all, even with
+ * `STAGING` set by mistake.
+ *
+ * 🔑 A build with NO `VERCEL_ENV` (a local or CI build that is not on Vercel) gets no rule either: nothing serves it
+ * to the public, and it is what Lighthouse audits in CI — a `noindex` there scored the build's own SEO at 0.66 and
+ * measured a header production never sends (found on this PR's first run).
  */
-export function noindexHeaderRules(vercelEnv: string | undefined): HeaderRule[] {
+export function noindexHeaderRules(env: Env): HeaderRule[] {
+  const vercelEnv = (env.VERCEL_ENV ?? '').trim();
   if (vercelEnv === 'production') return [];
+  if (!vercelEnv && !isStagingCopy(env)) return [];
   return [
     {
       source: '/(.*)',

@@ -4,7 +4,7 @@
  *
  *   (a) EMAIL     sendEmail (lib/email.ts) routes every send through stagingEmailRoute before Resend is called
  *   (b) PAYMENTS  resolveMayaConfig (lib/integration-config.ts) hands back NO keys for a live endpoint on staging
- *   (c) HIDDEN    next.config.ts headers() spreads noindexHeaderRules(process.env.VERCEL_ENV); middleware has none
+ *   (c) HIDDEN    next.config.ts headers() spreads noindexHeaderRules(process.env); middleware has none
  *   (d) STORAGE   getR2Client / isR2Configured / publicUrlFor / r2StableMediaGet (lib/r2.ts) all ask stagingStorage
  *   (e) FLAGS     held in scripts/staging/flags.ts's own test (lib/staging-flags.test.ts)
  *
@@ -124,18 +124,24 @@ test('(b) resolveMayaConfig refuses a live endpoint’s keys on staging, and is 
 
 // ── (c) HIDDEN ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('(c) every non-production build answers noindex; production gets no rule', () => {
-  assert.deepEqual(noindexHeaderRules('production'), []);
-  for (const env of ['preview', 'development', undefined, '']) {
+test('(c) every published non-production build answers noindex; production never does', () => {
+  // Production gets no rule — not even with STAGING set by mistake.
+  assert.deepEqual(noindexHeaderRules({ VERCEL_ENV: 'production' }), []);
+  assert.deepEqual(noindexHeaderRules({ VERCEL_ENV: 'production', STAGING: '1' }), []);
+  // Every Vercel preview/development deployment, and every staging build wherever it is built.
+  for (const env of [{ VERCEL_ENV: 'preview' }, { VERCEL_ENV: 'development' }, { STAGING: '1' }, { VERCEL_ENV: '', STAGING: 'true' }]) {
     const rules = noindexHeaderRules(env);
-    assert.equal(rules.length, 1, String(env));
+    assert.equal(rules.length, 1, JSON.stringify(env));
     assert.equal(rules[0]!.source, '/(.*)');
     assert.deepEqual(rules[0]!.headers, [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }]);
   }
+  // A local or CI build that is not on Vercel and not staging: no rule — it is what Lighthouse audits.
+  assert.deepEqual(noindexHeaderRules({}), []);
+  assert.deepEqual(noindexHeaderRules({ VERCEL_ENV: '' }), []);
 });
 
 test('(c) the belt: the rule never fires on setnayan.com or a subdomain, always on a Vercel preview host', () => {
-  const [rule] = noindexHeaderRules('preview');
+  const [rule] = noindexHeaderRules({ VERCEL_ENV: 'preview' });
   assert.deepEqual(rule!.missing, [{ type: 'host', value: PRODUCTION_HOST_PATTERN }]);
   // Next matches a `host` condition against the whole host.
   const live = new RegExp(`^${PRODUCTION_HOST_PATTERN}$`);
@@ -149,7 +155,7 @@ test('(c) next.config.ts spreads the rule into headers(), and middleware does no
   const cfg = code('next.config.ts');
   assert.match(cfg, /import \{ noindexHeaderRules \} from '\.\/lib\/staging-locks';/);
   const headers = cfg.slice(cfg.indexOf('async headers()'), cfg.indexOf('async redirects()'));
-  assert.match(headers, /\.\.\.noindexHeaderRules\(process\.env\.VERCEL_ENV\),/);
+  assert.match(headers, /\.\.\.noindexHeaderRules\(process\.env\),/);
   assert.doesNotMatch(code('middleware.ts'), /X-Robots-Tag/i, 'one place for the header: next.config.ts');
 });
 

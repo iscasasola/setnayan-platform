@@ -59,6 +59,7 @@ import {
 } from './supplier-onboarding';
 import { OPEN_SHOP_FIELD_STEP } from './open-shop-error-field';
 import { firstCoordinationPick } from './coordinator-trade';
+import { doorOpenShopHref } from './doors';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 const WIZARD = read('app/open-shop/_components/open-shop-wizard.tsx');
@@ -451,7 +452,10 @@ test('10 · Door C — coordination pre-picked in ONE dropdown, then "Invite sho
   // The two fixes: every /for-coordinators button carries ?as=coordinator; no invite perk promises the marketplace.
   // Main's 20 Nov page (batch A) has two start buttons, both `href={START}`; none opens the bare self-serve door.
   const fc = read('app/(shell)/for-coordinators/page.tsx');
-  assert.match(fc, /const START = '\/open-shop\?as=coordinator';/);
+  // Re-walk 24 Nov, fault 5: START is absolute (no 308 hop on coordinator.setnayan.com), built from the door map,
+  // whose coordinator door still carries ?as=coordinator.
+  assert.match(fc, /const START = onSiteHref\(doorOpenShopHref\('coordinator'\), siteOrigin\(\)\);/);
+  assert.equal(doorOpenShopHref('coordinator'), '/open-shop?as=coordinator', 'the coordinator door lost ?as=coordinator');
   assert.equal((fc.match(/href=\{START\}/g) ?? []).length, 2, 'the hero and the close each open the coordinator door');
   assert.equal((fc.match(/href="\/open-shop[?"]/g) ?? []).length, 0, 'a /for-coordinators button opens /open-shop without ?as=coordinator');
   for (const f of ['app/vendor/claim/[token]/_components/claim-parts.tsx', 'app/vendor/claim/[token]/page.tsx']) {

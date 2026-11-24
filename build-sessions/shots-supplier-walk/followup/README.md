@@ -4,7 +4,7 @@
 
 | Fix | Now | Proposed | Measured |
 |---|---|---|---|
-| 4 · Analytics window switch, desktop Shop | `4-analytics-switch-1280-now.jpg`: "12 months" runs past each card and the next card cuts it off | `4-analytics-switch-1280-proposed.jpg`: "Month · Year" fills the row | Switch overflow past the card's inner edge: 0 px on all 6 cards (was up to 30 px). At 390 the card is 340 wide and keeps "30 days · 12 months" plus the figure (`.ag-wl` shown, `.ag-ws` hidden). |
+| 4 · Analytics window switch, desktop Shop | `4-analytics-switch-1280-now.jpg`: "12 months" runs past each card and the next card cuts it off | `4-analytics-switch-1280-proposed.jpg`: "Month · Year" fills the row | Switch overflow past the card's inner edge: 0 px on all 6 cards measured (Now: the "12 months" text ran past its card, and the carousel edge clipped it). At 390 the card is 340 wide and keeps "30 days · 12 months" plus the figure (`.ag-wl` shown, `.ag-ws` hidden). |
 | 6 · Paid widget price line, Toolkit | `6-price-meta-390-now.jpg`, `6-price-meta-1280-now.jpg`: 4 short lines beside Buy | `6-price-meta-390-proposed.jpg`, `6-price-meta-1280-proposed.jpg`: under the title | 4 lines → 2 lines on every paid tile, at 390 and 1280; never clamped. |
 | 3 · "Most of them free." over two Paid tiles | `3-tools-lede-390-now.jpg` | `3-tools-lede-390-proposed.jpg`: no lede; the Toolkit count line stays | n/a |
 

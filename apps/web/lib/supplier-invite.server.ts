@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { cleanInviteSlug } from '@/lib/supplier-invite';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { fetchShopTrust, TRUSTED_BY_UNREADABLE } from '@/lib/vendor-trusted-by';
 
 /**
  * 🤝 INVITE A SUPPLIER — the reads and the one sign-up write (owner 16 Nov 2026, "Invite a supplier v3 APPROVED").
@@ -62,37 +63,18 @@ export async function recordNewShopInvite(
 
 /**
  * The Invites count: shops CREATED through this shop's link (`brought_new_shop`), still partners, and how many of them
- * have a completed booking — the same vetted test as Completed bookings (`vendor_public_completed_events_stats`).
- * `null` = a read failed: say so, never "0".
+ * COUNT — from the ONE trust reader (`fetchShopTrust`, owner 21 Nov 2026: "Their counts must use the same qualified-trust
+ * reader, so a badge, Trusted by and search never disagree"): a new shop counts once it is verified and has its first
+ * completed, paid booking through Setnayan. `null` = a read failed: say so, never "0".
  */
 export async function readInvitesCount(
   admin: SupabaseClient,
   vendorProfileId: string,
 ): Promise<{ counted: number; joined: number } | null> {
-  const { data: rows, error } = await admin
-    .from('vendor_partnerships')
-    .select('recommended_vendor_id')
-    .eq('recommending_vendor_id', vendorProfileId)
-    .eq('origin', 'invited')
-    .eq('brought_new_shop', true)
-    .eq('status', 'accepted')
-    .eq('is_active', true);
-  if (error) {
-    logQueryError('readInvitesCount.rows', error, { vendorProfileId }, 'graceful_degrade');
-    return null;
-  }
-  const ids = [...new Set((rows ?? []).map((r) => (r as { recommended_vendor_id: string }).recommended_vendor_id))];
-  if (ids.length === 0) return { counted: 0, joined: 0 };
-  const { data: stats, error: statsError } = await admin
-    .from('vendor_public_completed_events_stats')
-    .select('vendor_profile_id, public_completed_count')
-    .in('vendor_profile_id', ids);
-  if (statsError) {
-    logQueryError('readInvitesCount.stats', statsError, { vendorProfileId }, 'graceful_degrade');
-    return null;
-  }
-  const counted = (stats ?? []).filter((s) => Number((s as { public_completed_count: unknown }).public_completed_count ?? 0) > 0).length;
-  return { counted, joined: ids.length };
+  const ties = await fetchShopTrust(admin, [vendorProfileId]);
+  if (ties === TRUSTED_BY_UNREADABLE) return null;
+  const brought = ties.filter((t) => t.vendorProfileId === vendorProfileId && t.broughtNewShop);
+  return { counted: brought.filter((t) => t.counts).length, joined: brought.length };
 }
 
 /**

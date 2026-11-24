@@ -160,13 +160,12 @@ test('a MISSING row (no error) leaves NO record — the log is for refusals, not
 
 // ── shape 2: honest render state (vendor-trusted-by.ts) ─────────────────────
 
-/** A client whose `vendor_partnerships` read succeeds with one endorsement,
+/** A client whose trust read (`shop_trust`) succeeds with one trusted partner,
  *  but whose SECOND call (`vendor_profiles`) can be made to refuse. */
 function trustedByClient(profilesResult: { data: unknown; error: unknown }): SupabaseClient {
-  // Answered by TABLE, not call order: fetchTrustedByVendors reads vendor_partnerships (one accepted row) and
+  // Answered by TABLE, not call order: fetchTrustedByVendors reads shop_trust (one trusted partner) and
   // vendor_trusted_by_hidden (none) together, then vendor_profiles — which can be made to refuse.
   const answers: Record<string, { data: unknown; error: unknown }> = {
-    vendor_partnerships: { data: [{ recommending_vendor_id: 'v-2', relationship_type: 'accredited' }], error: null },
     vendor_trusted_by_hidden: { data: [], error: null },
     vendor_profiles: profilesResult,
   };
@@ -177,8 +176,8 @@ function trustedByClient(profilesResult: { data: unknown; error: unknown }): Sup
       builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve(answers[table]).then(resolve);
       return builder;
     },
-    // 🤝 the automatic "Worked together" half (shop_worked_with_counts) — none here.
-    rpc: () => Promise.resolve({ data: [], error: null }),
+    // 🤝 the one trust reader (shop_trust): one trusted partner.
+    rpc: () => Promise.resolve({ data: [{ vendor_profile_id: 'vp-1', other_vendor_profile_id: 'v-2', relationship_types: ['accredited'], origins: ['added'], made_by_this_shop: false, brought_new_shop: false, events_together: 1, trusted: true, counts: true }], error: null }),
   } as unknown as SupabaseClient;
 }
 
@@ -191,8 +190,8 @@ test('fetchTrustedByVendors: a refused vendor_profiles read returns the UNREADAB
   assert.match(String(logs[0]![0]), /^\[supabase-error\] lib\/vendor-trusted-by\.ts · from:vendor_profiles\.select/);
 });
 
-test('fetchTrustedByVendors: a refused worked-together read returns UNREADABLE, never [] (Invite a supplier v3)', async () => {
-  // No partnerships at all — the case where a refused automatic half used to fall through to "nobody".
+test('fetchTrustedByVendors: a refused trust read returns UNREADABLE, never [] (owner 21 Nov)', async () => {
+  // The trust read refuses — never "nobody trusts this shop".
   const builder: Record<string, unknown> = {};
   for (const m of ['select', 'eq', 'neq', 'in', 'or', 'order']) builder[m] = () => builder;
   builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(resolve);
@@ -202,9 +201,9 @@ test('fetchTrustedByVendors: a refused worked-together read returns UNREADABLE, 
   } as unknown as SupabaseClient;
 
   const { value, logs } = await recorded(() => trustedBy.fetchTrustedByVendors(client, 'vp-1'));
-  assert.equal(value, trustedBy.TRUSTED_BY_UNREADABLE, 'a refused worked-together read must not draw an empty list');
+  assert.equal(value, trustedBy.TRUSTED_BY_UNREADABLE, 'a refused trust read must not draw an empty list');
   assert.equal(logs.length, 1);
-  assert.match(String(logs[0]![0]), /^\[supabase-error\] lib\/vendor-trusted-by\.ts · rpc:shop_worked_with_counts/);
+  assert.match(String(logs[0]![0]), /^\[supabase-error\] lib\/vendor-trusted-by\.ts · rpc:shop_trust/);
 });
 
 test('fetchTrustedByVendors: a refused hidden-rows read returns UNREADABLE — never a row the shop hid (owner Q5)', async () => {
@@ -227,7 +226,6 @@ test('fetchTrustedByVendors: a refused hidden-rows read returns UNREADABLE — n
 
 test('fetchTrustedByVendors: a row the shop hid is not on its Trusted by (owner Q5)', async () => {
   const answers: Record<string, { data: unknown; error: unknown }> = {
-    vendor_partnerships: { data: [{ recommending_vendor_id: 'v-2', relationship_type: 'general' }], error: null },
     vendor_trusted_by_hidden: { data: [{ hidden_vendor_profile_id: 'v-2' }], error: null },
     vendor_profiles: { data: [], error: null },
   };
@@ -238,10 +236,10 @@ test('fetchTrustedByVendors: a row the shop hid is not on its Trusted by (owner 
       builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve(answers[table]).then(resolve);
       return builder;
     },
-    rpc: () => Promise.resolve({ data: [{ other_vendor_profile_id: 'v-2', events: 2 }], error: null }),
+    rpc: () => Promise.resolve({ data: [{ vendor_profile_id: 'vp-1', other_vendor_profile_id: 'v-2', relationship_types: ['accredited'], origins: ['added'], made_by_this_shop: false, brought_new_shop: false, events_together: 1, trusted: true, counts: true }], error: null }),
   } as unknown as SupabaseClient;
   const { value } = await recorded(() => trustedBy.fetchTrustedByVendors(client, 'vp-1'));
-  assert.deepEqual(value, [], 'the hidden partner (tied AND worked-with) is gone from this page');
+  assert.deepEqual(value, [], 'the hidden trusted partner is gone from this page');
 });
 
 test('fetchTrustedByVendors: a genuine read (no partnerships) returns [] with NO record', async () => {

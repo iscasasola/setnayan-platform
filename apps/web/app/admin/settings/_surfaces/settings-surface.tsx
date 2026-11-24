@@ -385,6 +385,28 @@ export async function SettingsSurface({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
+          <Field
+            label="Trust in search — how much more trust each step needs"
+            htmlFor="trust_search_step"
+            help={
+              growLines.read
+                ? 'Among suppliers that fit a search, those trusted by more shops show higher. Each step needs this many times the trusted shops of the one below: 2 means steps at 1, 2, 4 and 8 shops. Leave blank and trust does not move anyone.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="trust_search_step"
+              name="trust_search_step"
+              type="number"
+              min={2}
+              max={10}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.trustSearchStep != null ? growLines.trustSearchStep : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
         </section>
 
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">

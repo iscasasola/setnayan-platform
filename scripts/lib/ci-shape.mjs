@@ -68,10 +68,51 @@ export function gateVerdict(needsJson, prDraft) {
  *     (`queued`/`pending`/`waiting`/`requested`), never `in_progress`: the group lets ONE run of a PR be in
  *     progress at a time — this one — so a waiting run is the one queued to replace it, and its gate decides.
  *     A run that is not waiting behind this one (or a failed lookup) means no deferral: the gate stays red.
- * The successor's gate is required too, and it is pending until it finishes honestly, so the PR stays blocked until
- * then. The chain always ends in a run nothing replaced, and that run's gate never defers.
+ * The chain always ends in a run nothing replaced, and that run's gate never defers.
+ *
+ * 🔒 A DEFERRING GATE NEVER SAYS SUCCESS (controller, 24 Nov, on #8285). Between the cancelled run finishing and the
+ * successor creating its own check runs there is a window. In a draft run the heavy required jobs are SKIPPED, and
+ * GitHub counts skipped as passed, so a green gate there could make every required context read green on a commit
+ * nothing typechecked or built. So, before the cancelled run's gate job ends, it POSTS a check run of the same name,
+ * "typecheck + lint", with status `in_progress` and NO conclusion (deferredCheckBody). It is required (same app, same
+ * name), and GitHub counts every check run of a required name, so the context reads PENDING until someone completes it.
+ * The job itself may only end 0 once that post was accepted. A job cannot end "pending": its own check run is success
+ * or failure, and a failure is what stuck on #8252, #8259 and #8274. If the post is refused, the gate stays red.
+ * The successor's HONEST gate then COMPLETES every pending deferred check on the commit with its own verdict
+ * (completionConclusion). It PATCHes the same check run, because a newer run of the same name does not replace an
+ * older one (measured on #8274: an attempt-1 failure stayed counted beside two successes). A draft-red gate leaves
+ * them pending: a draft vouches for nothing either way.
  */
 export const WAITING_RUN_STATUSES = ['queued', 'pending', 'waiting', 'requested'];
+export const DEFERRED_EXTERNAL_ID_PREFIX = 'deferred-gate:';
+
+/** The check run a deferring gate posts. PENDING: `in_progress`, and never a `conclusion` key. */
+export function deferredCheckBody({ runId, headSha, successor }) {
+  const summary = `Run ${runId} was cancelled because run ${successor?.id} is replacing it on this same commit. Nothing was tested here. This check stays PENDING until that run's own "${GATE_NAME}" finishes and completes it with its real result.`;
+  return {
+    name: GATE_NAME,
+    head_sha: headSha,
+    status: 'in_progress',
+    external_id: `${DEFERRED_EXTERNAL_ID_PREFIX}${runId}`,
+    ...(successor?.html_url ? { details_url: successor.html_url } : {}),
+    output: { title: `Deferred to run ${successor?.id}: pending`, summary },
+  };
+}
+
+/** Deferred checks on a commit that no honest gate has completed yet. */
+export function pendingDeferredChecks(checkRuns) {
+  if (!Array.isArray(checkRuns)) return [];
+  return checkRuns.filter((c) => c?.name === GATE_NAME && c?.status !== 'completed' && String(c?.external_id ?? '').startsWith(DEFERRED_EXTERNAL_ID_PREFIX));
+}
+
+/**
+ * What an honest (non-deferring) gate writes into pending deferred checks: its own verdict, or null (leave them
+ * PENDING) when it is red only because the PR is a draft. A draft run tested nothing, so it may not vouch either way.
+ */
+export function completionConclusion(ok, prDraft) {
+  if (prDraft === 'true') return null;
+  return ok ? 'success' : 'failure';
+}
 
 /** May this red be handed to a successor? Only when nothing FAILED: every needed job is success, cancelled or skipped. */
 export function deferrable(needsJson) {
@@ -332,6 +373,7 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
     if (line.includes('github.event.pull_request.draft')) problems.push(`ci.yml line ${i + 1} reads the event payload's draft flag (\`${line.trim()}\`) — a re-run replays it. Read \`needs.${LIVE_DRAFT_JOB}.outputs.draft\` instead.`);
   });
   /* j · a cancelled run's gate can see the run replacing it — or a superseded commit stays red forever (see supersedingRun) */
+  if (!/^ {6}checks:\s*write\s*$/m.test(gate.body)) problems.push(`"${GATE_NAME}" must have \`permissions: checks: write\` — a deferring gate posts a PENDING check (never success) and an honest gate completes it; without it a cancelled run stays red`);
   if (!/^ {6}actions:\s*read\s*$/m.test(gate.body)) problems.push(`"${GATE_NAME}" must have \`permissions: actions: read\` — without it a run cancelled for a newer run on the same commit cannot see that run, and posts a FAILED gate nothing replaces`);
   for (const [key, expr] of [
     ['EVENT_NAME', 'github.event_name'],

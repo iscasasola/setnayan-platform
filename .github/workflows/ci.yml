@@ -1242,6 +1242,9 @@ jobs:
       # Only to list this workflow's runs on the same commit: a run CANCELLED because a newer run is replacing it
       # defers to that run instead of leaving a red "typecheck + lint" behind (scripts/lib/ci-shape.mjs › supersedingRun).
       actions: read
+      # Only for "typecheck + lint" itself: a deferring gate posts it PENDING (never success), and an honest gate
+      # completes every pending one on the commit with its real verdict (deferredCheckBody / completionConclusion).
+      checks: write
     steps:
       - uses: actions/checkout@v4
 
@@ -1258,7 +1261,8 @@ jobs:
           PR_DRAFT: ${{ needs.pr-state.outputs.draft }}
           # 📝 A cancelled run's gate still runs (`always()`) and would post FAILED on this commit, in its own check
           # suite, where the newer run's green never replaces it (#8252, run 45266185097). With these, a red made only
-          # of cancelled/skipped/draft defers to a run WAITING on the same commit. Anything else stays red.
+          # of cancelled/skipped/draft defers to a run WAITING on the same commit, and posts "typecheck + lint" as
+          # PENDING, never success, until that run's gate completes it. Anything else stays red.
           EVENT_NAME: ${{ github.event_name }}
           GITHUB_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.run_id }}

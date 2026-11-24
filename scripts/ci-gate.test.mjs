@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { gateVerdict, shapeProblems, parseJobs, summariseTap, parseReportedChecks, reportConclusions, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM, LIVE_DRAFT_JOB, LIVE_DRAFT_CLAUSE, deferrable, supersedingRun } from './lib/ci-shape.mjs';
+import { gateVerdict, shapeProblems, parseJobs, summariseTap, parseReportedChecks, reportConclusions, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM, LIVE_DRAFT_JOB, LIVE_DRAFT_CLAUSE, deferrable, supersedingRun, deferredCheckBody, pendingDeferredChecks, completionConclusion } from './lib/ci-shape.mjs';
 import http from 'node:http';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -331,15 +331,34 @@ test('🚨 the successor must be WAITING on the same commit, branch and PR — a
   assert.equal(supersedingRun([run()], { ...ME, headSha: '' }), null);
 });
 
-/** Run the real gate script against a stub GitHub that answers the runs lookup with `answer`. */
-async function gateAgainst(env, answer) {
+/**
+ * Run the real gate script against a stub GitHub. `gh` sets what each endpoint answers; every request is recorded.
+ *   runs:    the workflow_runs list, or a status number to refuse it
+ *   post:    the POST /check-runs answer, or a status number to refuse it (default: GitHub's echo, pending, id 900)
+ *   checks:  the check runs already on the commit (for an honest gate to complete)
+ */
+async function gateAgainst(env, gh = {}) {
+  const calls = [];
   const server = http.createServer((req, res) => {
-    if (typeof answer === 'number') {
-      res.writeHead(answer).end('nope');
-      return;
-    }
-    assert.match(req.url, /^\/repos\/o\/r\/actions\/workflows\/ci\.yml\/runs\?head_sha=abc123&event=pull_request/);
-    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ workflow_runs: answer }));
+    let raw = '';
+    req.on('data', (d) => (raw += d));
+    req.on('end', () => {
+      const body = raw ? JSON.parse(raw) : null;
+      calls.push({ method: req.method, url: req.url, body });
+      const send = (code, json) => res.writeHead(code, { 'content-type': 'application/json' }).end(JSON.stringify(json ?? {}));
+      if (req.method === 'GET' && /^\/repos\/o\/r\/actions\/workflows\/ci\.yml\/runs\?head_sha=abc123&event=pull_request/.test(req.url)) {
+        return typeof gh.runs === 'number' ? send(gh.runs) : send(200, { workflow_runs: gh.runs ?? [] });
+      }
+      if (req.method === 'POST' && req.url === '/repos/o/r/check-runs') {
+        if (typeof gh.post === 'number') return send(gh.post);
+        return send(201, gh.post ?? { id: 900, ...body, conclusion: null });
+      }
+      if (req.method === 'GET' && /^\/repos\/o\/r\/commits\/abc123\/check-runs\?check_name=typecheck%20%2B%20lint&filter=all/.test(req.url)) {
+        return send(200, { check_runs: gh.checks ?? [] });
+      }
+      if (req.method === 'PATCH' && /^\/repos\/o\/r\/check-runs\/\d+$/.test(req.url)) return send(200, { id: Number(req.url.split('/').pop()), ...body });
+      return send(404);
+    });
   });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = {
@@ -354,31 +373,81 @@ async function gateAgainst(env, answer) {
     child.on('close', (status) => resolve({ status, stdout }));
   });
   server.close();
-  return out;
+  return { ...out, calls, posts: calls.filter((c) => c.method === 'POST'), patches: calls.filter((c) => c.method === 'PATCH') };
 }
 
-test('🚨 end to end: a cancelled run with a successor WAITING on the same commit is green and names it', async () => {
-  const r = await gateAgainst({}, [run()]);
+const ALL_GREEN = JSON.stringify({ 'pr-state': { result: 'success' }, guards: { result: 'success' }, typecheck: { result: 'success' } });
+const DEFERRED = { id: 900, name: GATE_NAME, status: 'in_progress', conclusion: null, external_id: 'deferred-gate:100' };
+
+test('🔒 the deferred check is PENDING by construction: in_progress, and no conclusion key at all', () => {
+  const b = deferredCheckBody({ runId: '100', headSha: 'abc123', successor: run() });
+  assert.equal(b.name, GATE_NAME);
+  assert.equal(b.status, 'in_progress');
+  assert.equal('conclusion' in b, false, 'a deferring gate never carries a conclusion, so it can never say success');
+  assert.equal('completed_at' in b, false);
+  assert.match(b.external_id, /^deferred-gate:100$/);
+  assert.equal(completionConclusion(true, 'true'), null, 'a draft gate never completes a deferred check, not even as success');
+  assert.equal(completionConclusion(false, 'true'), null);
+  assert.equal(completionConclusion(true, 'false'), 'success');
+  assert.equal(completionConclusion(false, 'false'), 'failure');
+  assert.deepEqual(pendingDeferredChecks([DEFERRED, { ...DEFERRED, id: 901, status: 'completed' }, { ...DEFERRED, id: 902, external_id: null }, { ...DEFERRED, id: 903, name: 'production build' }]).map((c) => c.id), [900]);
+});
+
+test('🔒 end to end: a deferring gate posts PENDING and nothing else, and ends 0 only after GitHub accepted it', async () => {
+  const r = await gateAgainst({}, { runs: [run()] });
   assert.equal(r.status, 0, r.stdout);
-  assert.match(r.stdout, /Superseded on the same commit[\s\S]*run 101/);
+  assert.match(r.stdout, /Deferred, pending[\s\S]*run 101/);
+  assert.equal(r.posts.length, 1, 'exactly one check run is posted');
+  assert.equal(r.posts[0].body.status, 'in_progress');
+  assert.equal('conclusion' in r.posts[0].body, false, '🔒 the deferring path can never emit success');
+  assert.equal(r.patches.length, 0, 'a deferring gate completes nothing');
+});
+
+test('🔒 every deferring path that cannot hold the context PENDING stays RED — it never ends 0 on its own', async () => {
+  const refused = await gateAgainst({}, { runs: [run()], post: 403 });
+  assert.equal(refused.status, 1, 'GitHub refused the pending check → red');
+  assert.match(refused.stdout, /was not accepted by GitHub[\s\S]*stays red/);
+  const completedEcho = await gateAgainst({}, { runs: [run()], post: { id: 900, status: 'completed', conclusion: 'success' } });
+  assert.equal(completedEcho.status, 1, 'if GitHub echoes anything but a pending check, the gate does not trust it → red');
+  for (const res of [refused, completedEcho]) for (const p of res.posts) assert.equal('conclusion' in p.body, false, 'no post from a deferring gate carries a conclusion');
 });
 
 test('🚨 end to end: the gate stays RED when there is no successor, the lookup fails, or something really failed', async () => {
-  assert.equal((await gateAgainst({}, [])).status, 1, 'nothing waiting → red');
-  assert.equal((await gateAgainst({}, [run({ status: 'in_progress' })])).status, 1, 'nothing WAITING → red');
-  const refused = await gateAgainst({}, 500);
+  assert.equal((await gateAgainst({}, { runs: [] })).status, 1, 'nothing waiting → red');
+  assert.equal((await gateAgainst({}, { runs: [run({ status: 'in_progress' })] })).status, 1, 'nothing WAITING → red');
+  const refused = await gateAgainst({}, { runs: 500 });
   assert.equal(refused.status, 1, 'a refused lookup → red');
-  assert.match(refused.stdout, /GitHub answered 500 — the gate stays red/);
-  assert.equal((await gateAgainst({ GITHUB_TOKEN: '' }, [run()])).status, 1, 'no token → red');
-  assert.equal((await gateAgainst({ EVENT_NAME: 'push' }, [run()])).status, 1, 'not a pull request → red');
+  assert.match(refused.stdout, /GitHub answered 500[\s\S]*stays red/);
+  assert.equal((await gateAgainst({ GITHUB_TOKEN: '' }, { runs: [run()] })).status, 1, 'no token → red');
+  assert.equal((await gateAgainst({ EVENT_NAME: 'push' }, { runs: [run()] })).status, 1, 'not a pull request → red');
   const failed = JSON.stringify({ guards: { result: 'failure' }, typecheck: { result: 'cancelled' } });
-  assert.equal((await gateAgainst({ NEEDS: failed }, [run()])).status, 1, 'a real failure is never handed on');
+  const f = await gateAgainst({ NEEDS: failed }, { runs: [run()] });
+  assert.equal(f.status, 1, 'a real failure is never handed on');
+  assert.equal(f.posts.length, 0, 'and posts no pending check');
 });
 
-test('a draft run replaced on the same commit defers too — the successor reads the draft flag live and decides', async () => {
+test('a draft run replaced on the same commit defers PENDING too; a lone draft is red and completes nothing', async () => {
   const draftRun = JSON.stringify({ 'pr-state': { result: 'success' }, guards: { result: 'success' }, typecheck: { result: 'skipped' } });
-  assert.equal((await gateAgainst({ NEEDS: draftRun, PR_DRAFT: 'true' }, [run()])).status, 0);
-  assert.equal((await gateAgainst({ NEEDS: draftRun, PR_DRAFT: 'true' }, [])).status, 1, 'with nobody replacing it a draft is red, as always');
+  const d = await gateAgainst({ NEEDS: draftRun, PR_DRAFT: 'true' }, { runs: [run()] });
+  assert.equal(d.status, 0);
+  assert.equal(d.posts[0].body.status, 'in_progress');
+  const lone = await gateAgainst({ NEEDS: draftRun, PR_DRAFT: 'true' }, { runs: [], checks: [DEFERRED] });
+  assert.equal(lone.status, 1, 'with nobody replacing it a draft is red, as always');
+  assert.equal(lone.patches.length, 0, 'a draft vouches for nothing: the pending deferred check stays pending');
+});
+
+test('🔒 an HONEST gate completes every pending deferred check with its own verdict — and only those', async () => {
+  const checks = [DEFERRED, { ...DEFERRED, id: 901, external_id: 'deferred-gate:99' }, { ...DEFERRED, id: 902, status: 'completed', conclusion: 'success' }, { ...DEFERRED, id: 903, external_id: null }];
+  const green = await gateAgainst({ NEEDS: ALL_GREEN }, { checks });
+  assert.equal(green.status, 0);
+  assert.deepEqual(green.patches.map((p) => [p.url, p.body.status, p.body.conclusion]), [['/repos/o/r/check-runs/900', 'completed', 'success'], ['/repos/o/r/check-runs/901', 'completed', 'success']]);
+  assert.equal(green.posts.length, 0, 'an honest gate posts nothing new');
+  const red = await gateAgainst({ NEEDS: JSON.stringify({ guards: { result: 'failure' } }) }, { checks: [DEFERRED] });
+  assert.equal(red.status, 1);
+  assert.deepEqual(red.patches.map((p) => p.body.conclusion), ['failure'], 'a red honest gate completes them red');
+  const lone = await gateAgainst({}, { runs: [], checks: [DEFERRED] });
+  assert.equal(lone.status, 1, 'cancelled with nobody replacing it: red');
+  assert.deepEqual(lone.patches.map((p) => p.body.conclusion), ['failure'], 'and the chain ends: the pending check is completed red, never left open');
 });
 
 test('🚨 a gate that cannot see the run replacing it is caught', () => {

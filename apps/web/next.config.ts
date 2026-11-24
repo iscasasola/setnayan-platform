@@ -4,6 +4,7 @@ import { withSentryConfig } from '@sentry/nextjs';
 import { sentrySourcemapsCanUpload } from './lib/sentry-sourcemaps-can-upload';
 import { findLayoutAnchors, oneCopyPerLayoutGroups } from './lib/one-copy-per-layout';
 import { keepWebpackCache } from './lib/build-webpack-cache';
+import { noindexHeaderRules } from './lib/staging-locks';
 
 function getHostnameFromEnv(url: string | undefined): string | null {
   if (!url) return null;
@@ -715,6 +716,11 @@ const nextConfig: NextConfig = {
         source: '/.well-known/apple-app-site-association',
         headers: [{ key: 'Content-Type', value: 'application/json' }],
       },
+      // 🔒 STAGING LOCK (c) — every build that is not production (a preview, the final-check staging copy, a local
+      // or CI build) answers `X-Robots-Tag: noindex, nofollow` on every path, so no search engine lists it. Here and
+      // never in middleware. Production (VERCEL_ENV=production) gets no rule at all, and the rule carries a belt:
+      // it never fires on setnayan.com or a subdomain of it, whatever VERCEL_ENV says (lib/staging-locks.ts).
+      ...noindexHeaderRules(process.env.VERCEL_ENV),
     ];
   },
   // v2.1 keynote static decks · CLAUDE.md 2026-05-28 11th row "v2.1

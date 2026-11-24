@@ -185,3 +185,6 @@ apps/web/lib/ugat/fields.generated.json
 apps/web/scripts/demo-shop/.local-env
 apps/web/public/demo-shop-local/
 apps/web/demo-shop-shots/
+
+# 🔑 The final-check staging kit (scripts/staging/seed.ts) writes the generated test sign-ins here — never committed.
+scripts/staging/accounts.local.json

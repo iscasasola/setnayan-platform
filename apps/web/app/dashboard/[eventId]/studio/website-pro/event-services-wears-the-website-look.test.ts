@@ -4,7 +4,8 @@
  * drawing `prototypes/buy_event_services_one_place_2026-11-23/frames_v5_website/` + `strip-v5.jpg`; HOUSE_DESIGN_STANDARD
  * Part H). The functions are v4's and stay held by their own guards; this file holds only the LOOK:
  *
- *   1 · the sheet is the page's alone: every rule scoped to the page or its cart bar, loaded by the page and the lab
+ *   1 · the sheet is the page's alone: every rule scoped to the page or its two layers on <body> (the cart bar, the
+ *       Apple step), loaded by the page and the lab
  *       (never globals, never a unit-rendered part), made of existing tokens — no hex, no rgb() literal, no motion;
  *   2 · a white page, and none of the forbidden looks: no peach band, no floating lifted card, no coloured side stripe;
  *   3 · plan rows split by hairlines, each pack with its tick circle, the saving an outlined tag;
@@ -68,7 +69,7 @@ test('1 · the sheet is the page’s alone, loaded where the page draws, and mad
   const css = sheet();
   for (const rule of css.split('}').map((r) => r.trim()).filter(Boolean)) {
     const selector = rule.slice(0, rule.indexOf('{')).trim();
-    assert.match(selector, /\[data-event-services(-cart)?\]/, `a rule reaches past Event services: ${selector}`);
+    assert.match(selector, /\[data-event-services(-cart|-apple-step)?\]/, `a rule reaches past Event services: ${selector}`);
   }
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/i, 'a typed hex colour');
   assert.doesNotMatch(css, /\brgba?\(\s*\d/, 'a typed rgb() colour');

@@ -164,9 +164,9 @@ test('the help article names no fixed account either (the § 9.1 clause quote is
 
 test('the surfaces that hold the open rails SAY their names', () => {
   for (const rel of [
-    'app/vendor-dashboard/deep-search/_components/deep-search-runner.tsx',
-    // (the booth and AI add-on cards were deleted 2026-11-14 — folded into the plans)
-  ]) {
+    // (the booth and AI add-on cards were deleted 2026-11-14 — folded into the plans; the Deep Search runner holds no
+    // rails since 2026-11-24 — nothing is sold there, owner 2026-11-22 "DEEP SEARCH IS RETIRED")
+  ] as string[]) {
     assert.match(src(rel), /ourAccountPhrase\(openRails\.map/, `${rel} does not read the list`);
   }
   assert.match(

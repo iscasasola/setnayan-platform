@@ -6,11 +6,11 @@
  *   (`lib/deep-search-pdf.ts`) all name the same five findings, in the same order, from THIS list — so the card never
  *   promises a heading the result or the file does not carry.
  *
- * ── THE PRICE IS NEVER TYPED HERE ──────────────────────────────────────────
- * The band words are BUILT from the one price source the run action charges from, read by the caller
- * (`fetchVendorAddonBandPrices`). Since 2026-11-09 (DECISION_LOG 🔎💳 "DEEP SEARCH = ₱499, ONE USE, EVERY PLAN") both
- * sides of the band are the ONE `vendor_billing_catalog.vendor_deep_search` row, one search per purchase, and there is
- * NO free search on any plan — so the words never promise one.
+ * ── NOTHING IS SOLD, NO NUMBER IS TYPED HERE ────────────────────────────────
+ * Since 2026-11-22 (DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" + 🔎 "DEEP SEARCH ALLOWANCE = 1 RUN A MONTH") Deep Search
+ * has no price: Plus, Pro and Ultra include `platform_settings.deep_search_runs_per_month` runs each paid month (read
+ * by the caller, `fetchDeepSearchRunsPerMonth`), Free and Verified none. The words below are BUILT from that read —
+ * never a typed count, never a peso.
  *
  * ── HOW LONG A SEARCH IS KEPT ───────────────────────────────────────────────
  * `DEEP_SEARCH_KEEP_DAYS` is the ONE number: the retention sweep (`lib/vendor-dossier-retention.ts`) deletes a result
@@ -21,6 +21,7 @@
  * PURE: no I/O, no env read (the caller passes the flag's answer).
  */
 import { TIER_LABEL } from '@/lib/vendor-tier-caps';
+import { formatCount } from '@/lib/format-number';
 import type { VendorDossier } from '@/lib/vendor-deep-search';
 
 /** A Deep Search result is kept this many days, then deleted (RA 10173 storage limitation). */
@@ -50,21 +51,20 @@ export function deepSearchCounts(d: VendorDossier): Record<Exclude<DeepSearchFin
   };
 }
 
-const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
+/** "Plus, Pro and Ultra" — the plans that include Deep Search, in the plan words people read. */
+export const DEEP_SEARCH_PLANS_WORDS = `${TIER_LABEL.solo}, ${TIER_LABEL.pro} and ${TIER_LABEL.enterprise}`;
+
+/** "1 search" / "3 searches". */
+export const deepSearchRunsWords = (n: number): string => `${formatCount(n)} ${n === 1 ? 'search' : 'searches'}`;
 
 /**
- * The band in words, for the card's ⓘ: one price for everyone reads "₱499 a search on every plan, one search per
- * purchase." (2026-11-09). Two prices — should an admin ever split the rows again — read "₱X a search on Free, Verified
- * and Supplier Plus · ₱Y on Pro and Ultra, one search per purchase." Never a free search.
+ * What the plans include, in words, for the card's ⓘ and the plan rows: "Included in Plus, Pro and Ultra: 1 search
+ * each paid month. Unused searches don't carry over." `null` (the admin has not set it) says no number; an unread
+ * setting is the caller's "couldn't read", never this.
  */
-export function deepSearchBandWords(band: { entryPhp: number | null; growthPhp: number | null }): string {
-  const entry = `${TIER_LABEL.free}, Verified and ${TIER_LABEL.solo}`;
-  const growth = `${TIER_LABEL.pro} and ${TIER_LABEL.enterprise}`;
-  // 💰 An unread side shows no figure (owner 2026-11-13: no typed prices).
-  if (band.entryPhp === null || band.growthPhp === null) return 'One search per purchase.';
-  return band.entryPhp === band.growthPhp
-    ? `${peso(band.entryPhp)} a search on every plan, one search per purchase.`
-    : `${peso(band.entryPhp)} a search on ${entry} · ${peso(band.growthPhp)} on ${growth}, one search per purchase.`;
+export function deepSearchAllowanceWords(perMonth: number | null): string {
+  if (perMonth === null) return `Included in ${DEEP_SEARCH_PLANS_WORDS}.`;
+  return `Included in ${DEEP_SEARCH_PLANS_WORDS}: ${deepSearchRunsWords(perMonth)} each paid month. Unused searches don’t carry over.`;
 }
 
 /** The date a result stops being kept (and its PDF with it). */

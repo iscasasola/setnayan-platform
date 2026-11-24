@@ -93,7 +93,8 @@ test('the mint stays out of the module that must not contain one', () => {
 test('the success page opens the invitation — and nobody off the list reaches it any more', () => {
   assert.doesNotMatch(SUCCESS, /on its way/, 'the false promise is back');
   assert.match(SUCCESS, /Open your invitation/, 'the way onto the celebration is gone');
-  assert.match(SUCCESS, /href=\{`\/\$\{event\.slug\}`\}/, 'the link is not the event address');
+  // The address move (#7868): the event's address comes from `publicEventPath(event.slug)` — the one builder — never hand-typed.
+  assert.match(SUCCESS, /href=\{`\$\{publicEventPath\(event\.slug\)\}`\}/, 'the link is not the event address');
   assert.match(SUCCESS, /public_id, slug/, 'the page links to a slug it never selected');
   assert.match(SUCCESS, /event\.slug \?/, 'the no-address fallback was collapsed away');
   assert.doesNotMatch(SUCCESS, /added you and let the hosts/, 'the "we have added you" sentence is back — nobody is added by asking');
@@ -173,7 +174,7 @@ const PAGE = code(readFileSync(join(__dirname, 'page.tsx'), 'utf8'));
 test('🚪 on "Only my Guest List" the join page sends everyone to the event — a poster token included', () => {
   const at = PAGE.indexOf('if (!anyoneMayAskToJoin(event.rsvp_ask_config)) {');
   assert.ok(at > -1, 'the page no longer asks "Who can RSVP?" before offering the request form');
-  assert.match(PAGE.slice(at, at + 200), /if \(event\.slug\) redirect\(`\/\$\{event\.slug\}`\);/, 'it does not go to the event');
+  assert.match(PAGE.slice(at, at + 200), /if \(event\.slug\) redirect\(`\$\{publicEventPath\(event\.slug\)\}`\);/, 'it does not go to the event');
   assert.ok(at < PAGE.indexOf('<JoinFlow'), 'the request form renders before the rule is asked');
   // The poster token must not be a way round it.
   assert.doesNotMatch(PAGE, /tokenValid/, 'a valid poster token decides something on this page again');

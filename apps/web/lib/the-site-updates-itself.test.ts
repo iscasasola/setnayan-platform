@@ -72,7 +72,24 @@ test('the component never reloads past the typing check', () => {
   const reloads = src.match(/window\.location\.(reload|assign)\(/g) ?? [];
   console.log(`  ${reloads.length} reload points: 1 self-update on show · 1 link press · 1 the notice's own button`);
   assert.equal(reloads.length, 3);
-  assert.match(src, /onClick=\{\(\) => window\.location\.reload\(\)\}/, 'the third is the notice button the person presses');
+  assert.match(src, /onClick=\{\(\) => \{\s*setReloading\(true\);\s*window\.location\.reload\(\);\s*\}\}/, 'the third is the notice button the person presses');
+});
+
+/*
+  ⏳ LIVE FAULT (app_telemetry_logs, DEAD_TAP "Reload" · "nothing happened within 2s", 6× on the Suppliers tab and on
+  admin, the shop, Launch and the Event Hub editor, 18–23 Nov). `window.location.reload()` changes nothing on screen
+  until the new page arrives — on a phone's slow line, seconds of a button that looked dead. The press must say it is
+  working AT ONCE, in the button itself, before the reload is asked. Sabotage: drop `setReloading(true)` or the
+  "Reloading…" word → red.
+*/
+test('the notice\'s Reload says "Reloading…" the moment it is pressed — never a button that looks dead', () => {
+  const src = stripComments(readFileSync(join(__dirname, '..', 'app', '_components', 'stale-tab-notice.tsx'), 'utf8'));
+  assert.match(src, /<ActionButton\b[\s\S]{0,200}icon=\{RotateCw\}/, 'the notice button is the one house button');
+  assert.match(src, /label=\{reloading \? 'Reloading…' : 'Reload'\}/, 'the word changes on the press');
+  assert.match(src, /waiting=\{reloading\}/, 'a second press does nothing while the page is on its way');
+  const press = src.slice(src.indexOf('setReloading(true)'), src.indexOf('window.location.reload();', src.indexOf('setReloading(true)')));
+  assert.ok(src.includes('setReloading(true)') && press.length > 0, 'the busy state is set BEFORE the reload is asked');
+  assert.doesNotMatch(src, /<button\b[^>]*>\s*Reload\s*<\/button>/, 'a hand-made Reload button is back');
 });
 
 /* ── 3 · never twice ── */

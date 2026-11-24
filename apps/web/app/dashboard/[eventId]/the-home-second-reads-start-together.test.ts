@@ -38,6 +38,7 @@ function topLevelAwaits(src: string, fnStart: string): string[] {
 const MUST_COME_FIRST = [
   /^const \{ eventId \} = await params;$/,
   /^const search = searchParams \? await searchParams : \{\};$/,
+  /^if \(!\(await hasLiveSessionCookie\(\)\)\) redirect\(/, // the request's cookie jar — no trip; no read leaves signed out
   /^const user = await getCurrentUser\(\);$/,
   /^const supabase = await createClient\(\);$/,
   /^const eventRes = await \(async \(\) => \{$/, // the event row — notFound() gates every service-role read on it

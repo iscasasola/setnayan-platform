@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { readAllPages } from '@/lib/read-all-pages';
+import { isNetworkReadFailure } from '@/lib/read-retry';
 import { CHAT_PRIVATE_RECIPIENT_COLUMN, CHAT_PRIVATE_RECIPIENTS_COLUMN } from '@/lib/chat-private';
 import { CHAT_WHISPER_SIDE_COLUMN } from '@/lib/chat-whisper';
 
@@ -326,21 +327,42 @@ export async function countUnreadMessages(
  * re-read draw a false 0 over a real count. The envelope's poll (`startCountPoll`, lib/tab-return.ts) leaves the drawn
  * count alone on `null`.
  */
-export async function readUnreadMessageThreads(supabase: SupabaseClient): Promise<number | null> {
+export async function readUnreadMessageThreads(
+  supabase: SupabaseClient,
+  /** 📶 Told WHY a read failed — `network` when it never reached the database (no HTTP answer). The answer is still `null`. */
+  onFail?: (why: UnreadReadFailure) => void,
+): Promise<number | null> {
   try {
-    const { data, error } = await supabase.rpc('count_unread_message_threads');
+    const { data, error, status } = await supabase.rpc('count_unread_message_threads');
     if (error) {
       // Recorded, then answered "unknown" — the badge keeps what it drew.
       logQueryError('readUnreadMessageThreads', error, { missing_relation: isMissingRelationError(error) }, 'graceful_degrade');
+      onFail?.({ network: isNetworkReadFailure(error, status), detail: unreadFailureDetail(error) });
       return null;
     }
-    if (data === null || data === undefined) return null;
+    if (data === null || data === undefined) {
+      onFail?.({ network: false, detail: 'no answer' });
+      return null;
+    }
     const n = typeof data === 'number' ? data : Number(data);
+    if (!Number.isFinite(n)) onFail?.({ network: false, detail: 'not a number' });
     return Number.isFinite(n) ? n : null;
   } catch (caught) {
     logQueryError('readUnreadMessageThreads (threw)', caught instanceof Error ? caught : new Error(String(caught)), {}, 'graceful_degrade');
+    onFail?.({ network: isNetworkReadFailure(caught) || caught instanceof TypeError, detail: unreadFailureDetail(caught) });
     return null;
   }
+}
+
+/** Why the envelope's count could not be read — carried into Connection Logs so the row says it (live fault, 21 Nov). */
+export type UnreadReadFailure = { network: boolean; detail: string };
+
+/** A short, non-personal reason: the PostgREST code, else the error's first words. */
+function unreadFailureDetail(error: unknown): string {
+  const e = error as { code?: unknown; message?: unknown } | null;
+  const code = typeof e?.code === 'string' && e.code ? e.code : null;
+  const message = typeof e?.message === 'string' ? e.message.slice(0, 80) : String(error).slice(0, 80);
+  return code ? `${code} ${message}` : message;
 }
 
 /**

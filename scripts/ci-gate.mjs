@@ -9,7 +9,7 @@
  * only this: read each job's result, and be red unless every one is `success`.
  *
  *   env NEEDS = ${{ toJSON(needs) }}
- *   env PR_DRAFT = ${{ github.event.pull_request.draft == true }}   — a draft is always RED (see gateVerdict)
+ *   env PR_DRAFT = ${{ needs.pr-state.outputs.draft }}   — read LIVE at run time; a draft is always RED (see gateVerdict)
  *
  * FAIL-CLOSED — see gateVerdict in scripts/lib/ci-shape.mjs. `skipped` and
  * `cancelled` are failures here on purpose: GitHub treats a skipped check as
@@ -20,7 +20,12 @@ import fs from 'node:fs';
 import { gateVerdict } from './lib/ci-shape.mjs';
 
 const { ok, rows, problems } = gateVerdict(process.env.NEEDS, process.env.PR_DRAFT);
-if (process.env.PR_DRAFT === 'true') console.log('::error title=Draft PR::Draft PR: checks not run. Mark ready to test.');
+if (process.env.PR_DRAFT === 'true') {
+  console.log('::error title=Draft PR::Draft PR: checks not run. Mark ready to test.');
+  // The draft flag came from the pr-state job of THIS run attempt. Re-running only this job replays that answer (and
+  // the skipped jobs); "Re-run all jobs" reads the flag again and, on a ready PR, tests everything.
+  console.log('This run read the PR as a draft when it started. Once the PR is ready, marking it ready starts a full run; to turn THIS run green, use "Re-run all jobs" (re-running only this job replays the draft answer).');
+}
 
 for (const r of rows) console.log(`  ${r.result === 'success' ? 'PASS' : 'FAIL'}  ${r.job} (${r.result})`);
 for (const r of rows) {

@@ -22,7 +22,9 @@
 
 import { useState } from 'react';
 import { CalendarClock, Check, Plus, Trash2, ArrowUp, ArrowDown, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
 import { ActionButton } from '@/components/action-button';
+import { routes } from '@/lib/routes';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ChosenRow, TypedRow } from '@/app/_components/form-row';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
@@ -271,6 +273,14 @@ export function PaymentScheduleEditor({
                   data="pay-plan"
                 />
               ) : null}
+              {/* 🧩 Ready-made plans live in the Toolkit (Toolkit templates drawing frame 2, "More in the Toolkit"). */}
+              <Link
+                href={routes.vendorDashboard.shop.store.shelf('payment_plans')}
+                className="sn-press inline-flex min-h-11 items-center text-sn-base font-semibold text-[rgb(var(--color-link))]"
+                data-pay-plan-toolkit=""
+              >
+                More in the Toolkit
+              </Link>
             </div>
           ) : null}
         </>

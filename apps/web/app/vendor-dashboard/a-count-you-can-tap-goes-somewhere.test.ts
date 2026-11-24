@@ -35,7 +35,7 @@ const stats = () => stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/_
 
 test('every headline count on Today has a destination', async () => {
   const { TODAY_STAT_HREFS, todayStatsOf } = await import('./_components/today-stats');
-  const ids = todayStatsOf({ views: 1, inquiries: 1, booked: 1, portfolio: { used: 1, free: 50 }, toComeInPhp: 1 }).map((x) => x.id);
+  const ids = todayStatsOf({ views: 1, inquiries: 1, booked: 1, portfolio: { used: 1 }, toComeInPhp: 1 }).map((x) => x.id);
   assert.deepEqual(ids, ['views', 'inquiries', 'booked', 'portfolio', 'money']);
   for (const id of ids) assert.ok(TODAY_STAT_HREFS[id], `the ${id} stat goes nowhere`);
   // Each is drawn as ONE link to its own place — never a button that does nothing, never a tile with no door.

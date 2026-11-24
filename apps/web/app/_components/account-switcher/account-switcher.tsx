@@ -35,6 +35,7 @@ import { newLabel, readSheetUnreadUrls, splitSheetUnread, type SheetUnread } fro
 // ⚡ Not from lib/account-jars: that module names `Buffer`, which ships the buffer polyfill to the browser.
 import { signOutAllAction } from '@/lib/account-sign-out-path';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { ActionButton } from '@/components/action-button';
 import { appearanceSwitchShown } from '@/lib/appearance';
 import { AppearanceChoice } from './appearance-choice';
 import { sheetBackLabel } from '@/lib/sheet-back-label';
@@ -71,6 +72,14 @@ type Props = {
   here?: SheetPlace;
   /** The vendor layout's open shop, so its row (of several) wears the ✓. */
   activeShopId?: string | null;
+  /**
+   * ⚙ UNIHOME v5 (owner-approved 23 Nov 2026, DECISION_LOG "UNIHOME v5 APPROVED"): on Home the round photo at the top
+   * right is gone and THIS sheet opens from ⚙ beside your name instead. `gear` draws that ⚙ (the shipped `ActionButton`)
+   * and opens the sheet WITHOUT its place rows: Your events is Home itself, each shop and Create your shop are Home's
+   * Shop part, Setnayan HQ is the ☰ menu. What stays is the drawing's list — Profile & settings, other accounts on this
+   * phone, Billing & receipts, Appearance, Help, Show me around, Sign out. Default `pill`: every other bar unchanged.
+   */
+  trigger?: 'pill' | 'gear';
 };
 
 export type ShopRow = { key: string; href: string; label: string; sub: string };
@@ -250,9 +259,12 @@ export function SwitcherPanelBody({
   activeShopId = null,
   unread = null,
   referHref = null,
+  scope = 'all',
 }: {
   data: SwitcherData;
   close: () => void;
+  /** `account` — ⚙ on Home: no place rows (Your events · shops · HQ · Create your shop). See `Props.trigger`. */
+  scope?: 'all' | 'account';
   referHref?: string | null;
   shopRows?: readonly ShopRow[] | null;
   adminRows?: readonly AdminRow[] | null;
@@ -273,6 +285,9 @@ export function SwitcherPanelBody({
   const youAreIn = supplierSheet ? (shops.find((s) => s.id === currentShopId) ?? null) : null;
   /* 🤝 Refer a couple has no tile any more (owner 7 Nov 2026, "NO NEED") — its door stays reachable inside Help (spec
      §S3: "their destinations stay reachable inside Help"): on an event whose programme is on, Help names this event. */
+  // ⚙ on Home (`scope: 'account'`) draws no place rows — Home itself holds them (Unihome v5). Other accounts stay.
+  const placeRows = scope === 'all';
+  const hasAccountRows = (data.otherAccounts ?? []).length > 0 || (!data.isAnonymous && Boolean(data.canAddAccount));
   const referEvent = referHref ? /^\/dashboard\/([A-Za-z0-9-]{1,64})\/refer$/.exec(referHref)?.[1] ?? null : null;
   // ❓ The help for the ACTIVE account (owner 13 Nov 2026, "Help coverage = active account" · "Three helps"): Setnayan
   // HQ's sheet opens the team's help, a shop's sheet the shop's, every other sheet the user's.
@@ -383,10 +398,14 @@ export function SwitcherPanelBody({
       </div>
 
       {/* ── 2 · Switch to — every place this login can be, one card ── */}
+      {placeRows || hasAccountRows ? (
+      <>
       <span className="sn-sheet-k px-6 pb-1.5 pt-3">
         Switch to
       </span>
       <nav aria-label="Switch to" className="sn-sheet-card mx-3 overflow-hidden rounded-tile bg-[var(--m-paper)]" data-sheet-switch="">
+        {placeRows ? (
+        <>
         <Link
           href="/dashboard?hub=1"
           onClick={close}
@@ -448,6 +467,8 @@ export function SwitcherPanelBody({
             <Trail on={false} />
           </Link>
         ) : null}
+        </>
+        ) : null}
 
         {/* 🔁 OTHER ACCOUNTS ON THIS PHONE (owner 2026-10-22, "Like in facebook how i can switch to different email
             addresses"). Each row posts its id to the switch, which refreshes that account's jar, checks it IS that
@@ -484,6 +505,8 @@ export function SwitcherPanelBody({
           </form>
         ) : null}
       </nav>
+      </>
+      ) : null}
 
       {/* ── 3 · Your shop — the supplier's own rows, vendor layout only. On the supplier sheet the shop you are in
           heads the card as "You are in": its row (✓) and View page ↗, then these rows (v113/v114). ── */}
@@ -626,7 +649,7 @@ export function SwitcherPanelBody({
   );
 }
 
-export function AccountSwitcher({ data, currentEventName, referHref, shopRows, adminRows = null, here = 'events', activeShopId = null }: Props) {
+export function AccountSwitcher({ data, currentEventName, referHref, shopRows, adminRows = null, here = 'events', activeShopId = null, trigger = 'pill' }: Props) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [unread, setUnread] = useState<SheetUnread | null>(null);
@@ -825,9 +848,10 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, a
           referHref={referHref}
           shopRows={shopRows}
           adminRows={adminRows}
-          here={here}
+          here={trigger === 'gear' ? null : here}
           activeShopId={activeShopId}
           unread={unread}
+          scope={trigger === 'gear' ? 'account' : 'all'}
         />
       </div>
     );
@@ -835,6 +859,21 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, a
 
   return (
     <>
+      {trigger === 'gear' ? (
+        /* ⚙ Unihome v5: beside your name. The same sheet, account rows only (see `Props.trigger`). */
+        <ActionButton
+          tone="neutral"
+          iconOnly
+          icon={Settings}
+          label="Settings"
+          name="Settings and account"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          data-home-gear=""
+        />
+      ) : (
+      <>
       {/* ── Trigger pill ──────────────────────────────────────── */}
       {/* `fd-acct` is the shared bar's hook: below 768 `front-door.css` draws
           this as a plain round photo — no pill, no chevron (owner 2026-10-03). */}
@@ -885,6 +924,8 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, a
           strokeWidth={2.5}
         />
       </button>
+      </>
+      )}
 
       {/* ── Backdrop + Panel (portaled to body) ───────────────── */}
       {open && mounted && typeof document !== 'undefined'

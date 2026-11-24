@@ -3313,6 +3313,7 @@
         "[slug]/_lib/event-words.ts",
         "[slug]/_lib/first-screen-fit-dom.ts",
         "[slug]/_lib/first-screen-fit.ts",
+        "[slug]/_lib/forward-old-sub-page.ts",
         "[slug]/_lib/guest-checklist-facts.ts",
         "[slug]/_lib/guest-details-changed.ts",
         "[slug]/_lib/held-pass-name.ts",

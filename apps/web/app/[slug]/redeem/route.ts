@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import { NextResponse, type NextRequest } from 'next/server';
 import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -273,7 +274,7 @@ async function redeem(request: NextRequest, retry: { href: string | null }): Pro
         carriedCode: true,
         reason: spent.reason,
       });
-      return NextResponse.redirect(new URL(`/${event.slug}`, url.origin));
+      return NextResponse.redirect(new URL(`${publicEventPath(event.slug)}`, url.origin));
     }
     await setGuestSession({ guest_id: spent.guestId, event_id: spent.eventId, qr_token: spent.qrToken });
     return NextResponse.redirect(destination);
@@ -312,7 +313,7 @@ async function redeem(request: NextRequest, retry: { href: string | null }): Pro
   const keyState = requestKeyState(keyRow);
   if (keyState.kind === 'pending' || keyState.kind === 'declined') {
     await rememberRequestKey(keyRow.qr_token as string);
-    return NextResponse.redirect(new URL(`/${event.slug}/request`, url.origin));
+    return NextResponse.redirect(new URL(`${publicEventPath(event.slug)}/request`, url.origin));
   }
   if (keyState.kind === 'none') {
     target.searchParams.set('invite_error', 'invalid_token');
@@ -373,12 +374,12 @@ async function redeem(request: NextRequest, retry: { href: string | null }): Pro
 
   if (wasRequest) {
     await forgetRequestKey();
-    return NextResponse.redirect(new URL(`/${event.slug}/invite/enter?in=1`, url.origin));
+    return NextResponse.redirect(new URL(`${publicEventPath(event.slug)}/invite/enter?in=1`, url.origin));
   }
 
   if (isTbaPlusOne && !guest.plus_one_name_confirmed_at) {
     // event.slug, not the query value — the database's own spelling.
-    return NextResponse.redirect(new URL(`/${event.slug}/welcome`, url.origin));
+    return NextResponse.redirect(new URL(`${publicEventPath(event.slug)}/welcome`, url.origin));
   }
 
   // 👋 A NAMED plus-one opening THEIR OWN link (owner 2026-09-29, prototype
@@ -396,7 +397,7 @@ async function redeem(request: NextRequest, retry: { href: string | null }): Pro
       seatHeld: (await readSeatHolder(guest.event_id, guest.guest_id)) !== null,
     })
   ) {
-    return NextResponse.redirect(new URL(`/${event.slug}/welcome`, url.origin));
+    return NextResponse.redirect(new URL(`${publicEventPath(event.slug)}/welcome`, url.origin));
   }
 
   /* 🚪 THE PERSONAL LINK OPENS THE GUEST'S OWN LANDING PAGE (owner 2026-09-30,

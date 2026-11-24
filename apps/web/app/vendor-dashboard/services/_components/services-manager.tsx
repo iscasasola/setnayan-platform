@@ -228,15 +228,17 @@ const readServicesManager = cache(async (supabase: SupabaseClient, profile: Vend
 
   // The tier / verification soft-probe. (The links, time slots and payment schedules this list used to read for
   // its inline editors are read by the card's own screen now — /vendor-dashboard/services/[serviceId].)
-  const tierProbeRead = supabase
-    .from('vendor_profiles')
-    .select('tier_state, verification_state, name_revealed_at, screen_name')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .maybeSingle()
-    .then(
-      (r) => r,
-      (err: unknown) => ({ data: null, error: err }),
-    );
+  // `Promise.resolve` turns the builder's PromiseLike into a real Promise (one with `.catch`) and starts it now.
+  const tierProbeRead = Promise.resolve(
+    supabase
+      .from('vendor_profiles')
+      .select('tier_state, verification_state, name_revealed_at, screen_name')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle(),
+  ).then(
+    (r) => r,
+    (err: unknown) => ({ data: null, error: err }),
+  );
   const planRead = tierProbeRead.then((tierProbeRes) => {
     // V-3 (supplier audit 2026-11-17): the error was never read, so a REFUSED plan read hid every branch and relabelled
     // each card "assigned to You" — the "silent lie" the branch comment below forbids. Bound, logged, and honoured.

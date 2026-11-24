@@ -55,6 +55,25 @@ import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
  * unconditionally and the shell's signed-out branch (the rail's sign-in
  * prompt) is untouched.
  */
+
+/**
+ * ⚡ START THE CLUSTER'S READS NOW (speed audit L1, 24 Nov 2026; the #8278 pattern). The cluster is drawn by
+ * `AppRailShell` AFTER the rail's own reads come back, so on its own it begins only then: the bell and the switcher
+ * were the last reads on every signed-in public page. A layout that will draw it calls this beside everything else,
+ * and the cluster finds the same per-request `cache()` promises (`getCurrentUser`, `getDashboardShell`,
+ * `getSwitcherData`) already on their way. Nothing is read for a signed-out visitor. A failure is not handled here: the
+ * cluster awaits the same promises and meets it there, exactly as if it had started the reads itself.
+ */
+export function preloadSignedInCluster(): void {
+  getCurrentUser()
+    .then((user) => {
+      if (!user) return;
+      getDashboardShell(user.id).catch(() => undefined);
+      getSwitcherData(user.id).catch(() => undefined);
+    })
+    .catch(() => undefined);
+}
+
 export async function SignedInCluster({
   /** Where the bell points. Every current caller wants the account inbox. */
   href = '/dashboard/notifications',

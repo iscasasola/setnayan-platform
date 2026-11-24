@@ -1,4 +1,5 @@
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
+import { preloadSignedInCluster } from '@/app/_components/frontdoor/signed-in-cluster';
 
 /**
  * `app/(shell)/layout.tsx` — the shared shell, mounted ONCE.
@@ -77,5 +78,8 @@ export default function ShellLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // ⚡ This shell hands in no top bar, so `AppRailShell` draws the signed-in cluster after its own reads come back.
+  // Start the cluster's reads now, beside them (speed audit L1; `preloadSignedInCluster`, a no-op when signed out).
+  preloadSignedInCluster();
   return <AppRailShell variant="doorway">{children}</AppRailShell>;
 }

@@ -2,8 +2,7 @@ import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
-import { countUnread } from '@/lib/notifications';
-import { deliverDueChatReminders } from '@/lib/chat-reminders.server';
+import { unreadCountWithDueReminders } from '@/lib/chat-reminders.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
@@ -50,9 +49,9 @@ export const getDashboardShell = cache(async (userId: string) => {
       } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
     }),
     // ⏰ A "Remind me" that came due lands in the bell on THIS render (Unichat H1; cron-free — `lib/chat-reminders.server.ts`,
-    // which never throws): one small own-rows read first, then the count that includes whatever it delivered.
-    deliverDueChatReminders(supabase, userId)
-      .then(() => countUnread(supabase, userId))
+    // which never throws). ⚡ The count runs BESIDE the delivery, and is asked again only when a reminder was told
+    // (speed audit L1, 24 Nov 2026): one trip on a normal open, where it used to be two in a row.
+    unreadCountWithDueReminders(supabase, userId)
       .catch((err: unknown) => {
         logQueryError(
           'getDashboardShell(unread)',

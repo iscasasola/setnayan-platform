@@ -10,6 +10,7 @@ import { coupleChatHref } from '@/lib/couple-chat-door';
 import { readCoupleWorkspaceRowId } from '@/lib/couple-chat-door.server';
 import { groupChatHref } from '@/lib/chat-groups';
 import { CHAT_REMINDER_TITLE, reminderPreview } from '@/lib/chat-reminders';
+import { countUnread, readUnreadNotificationCount } from '@/lib/notifications';
 
 type Msg = {
   message_id: string;
@@ -113,33 +114,74 @@ export async function deliverDueChatReminders(supabase: SupabaseClient, userId: 
     }
 
     const admin = deps.admin();
+    // ⚡ EVERY CLAIMED REMINDER IS TOLD AT ONCE (speed audit L1, 24 Nov 2026). This runs inside the signed-in shell's
+    // render, and it used to tell one reminder after another: a couple's link read, then the notice, then the next —
+    // two trips per reminder on the page's critical path. Now each reminder's link read and notice run side by side.
+    // `told` counts only the notices that went out: one that fails is logged and not counted, and never stops the rest.
+    const outcomes = await Promise.allSettled(
+      claimed.map(async (c): Promise<boolean> => {
+        const m = readable.get(c.message_id);
+        // Not readable by this person any more, or unsent since: nothing is said.
+        if (!m || m.unsent_at) return false;
+        const relatedUrl = !m.vendor_profile_id
+          ? groupChatHref(m.thread_id)
+          : c.side === 'vendor'
+            ? supplierChatHref(m.event_id, m.thread_id)
+            : coupleChatHref(
+                m.event_id,
+                await readCoupleWorkspaceRowId(admin, { eventId: m.event_id, vendorProfileId: m.vendor_profile_id, threadId: m.thread_id }),
+                m.thread_id,
+              );
+        await deps.notify({
+          userId,
+          type: 'chat_reminder',
+          title: CHAT_REMINDER_TITLE,
+          body: reminderPreview(m),
+          eventId: m.event_id,
+          relatedUrl,
+        });
+        return true;
+      }),
+    );
     let told = 0;
-    for (const c of claimed) {
-      const m = readable.get(c.message_id);
-      // Not readable by this person any more, or unsent since: nothing is said.
-      if (!m || m.unsent_at) continue;
-      const relatedUrl = !m.vendor_profile_id
-        ? groupChatHref(m.thread_id)
-        : c.side === 'vendor'
-          ? supplierChatHref(m.event_id, m.thread_id)
-          : coupleChatHref(
-              m.event_id,
-              await readCoupleWorkspaceRowId(admin, { eventId: m.event_id, vendorProfileId: m.vendor_profile_id, threadId: m.thread_id }),
-              m.thread_id,
-            );
-      await deps.notify({
-        userId,
-        type: 'chat_reminder',
-        title: CHAT_REMINDER_TITLE,
-        body: reminderPreview(m),
-        eventId: m.event_id,
-        relatedUrl,
-      });
-      told += 1;
+    for (const o of outcomes) {
+      if (o.status === 'fulfilled') {
+        if (o.value) told += 1;
+      } else {
+        console.error('[deliverDueChatReminders] a notice failed:', o.reason instanceof Error ? o.reason.message : String(o.reason));
+      }
     }
     return told;
   } catch (caught) {
     console.error('[deliverDueChatReminders] threw:', caught instanceof Error ? caught.message : String(caught));
     return 0;
   }
+}
+
+/**
+ * 🔔 THE BELL'S UNREAD COUNT, WITH THE REMINDERS DUE RIGHT NOW ALREADY IN IT, in ONE round on a normal open (speed
+ * audit L1, 24 Nov 2026).
+ *
+ * Before, every signed-in shell ran `deliverDueChatReminders(…).then(() => countUnread(…))`: the count waited for the
+ * delivery, so even an open with nothing due paid two trips in a row before the bell could draw. Now the count starts
+ * BESIDE the delivery:
+ *   · nothing was told (nothing was due: the normal open) → the count it ran beside is exact, since nothing was added;
+ *   · something was told → the count is asked once more AFTER the notices, so the bell includes them, exactly as before.
+ *
+ * The second ask is `readUnreadNotificationCount`, not `countUnread`: `countUnread` is a per-render `cache()`, so asking
+ * it again would hand back the first answer, from before the notices. If the second ask is refused, the bell shows the
+ * first measured count plus the notices this very request just added.
+ *
+ * Never throws: the delivery never throws, and a refused first count is 0, exactly as `countUnread` has always
+ * answered the chrome (a thrown error there would take a whole dashboard subtree down).
+ */
+export async function unreadCountWithDueReminders(
+  supabase: SupabaseClient,
+  userId: string,
+  deps: ReminderDeps = REAL_DEPS,
+): Promise<number> {
+  const [told, counted] = await Promise.all([deliverDueChatReminders(supabase, userId, deps), countUnread(supabase, userId)]);
+  if (told === 0) return counted;
+  const recounted = await readUnreadNotificationCount(supabase, userId);
+  return recounted ?? counted + told;
 }

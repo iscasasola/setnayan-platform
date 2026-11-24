@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useHydrated } from '@/lib/use-hydrated';
-import { Archive, ArrowLeft, CalendarPlus, Eye, MessageCircle, MoreVertical, Send, Trash2, X } from 'lucide-react';
+import { Archive, ArrowLeft, CalendarPlus, ChevronRight, Eye, MessageCircle, MoreVertical, Send, Trash2, X } from 'lucide-react';
 import { ActionButton, EQUAL_ROW_CLASS } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 
@@ -101,6 +101,7 @@ export function EventCardMenu({
   tone = 'light',
   align = 'right',
   hubUrl = null,
+  trigger = 'menu',
 }: {
   eventId: string;
   eventName: string;
@@ -135,6 +136,16 @@ export function EventCardMenu({
    * event"*. Opens through `openEventHub`: the in-app browser sheet in the app, a new tab on the web.
    */
   hubUrl?: string | null;
+  /**
+   * 🗑 HOW THE CARD OPENS THIS (Unihome v5, owner-approved 23 Nov 2026 — DECISION_LOG "UNIHOME v5 APPROVED"):
+   *   · `menu` — the board's "⋯" and its popover, exactly as shipped.
+   *   · `remove` — Home's event card: the card already carries Dashboard · Event Hub as buttons, so the ⋯ goes and a
+   *     small grey trash icon at the far end of the row opens THIS remove sheet straight away. It never removes on tap:
+   *     screen 1 names what goes and offers "Put this away" FIRST (the ⋯'s row, moved into the sheet), screen 2 needs
+   *     the name typed. Add to calendar moved into the event dashboard. No new delete flow — the same sheet, actions
+   *     and guards.
+   */
+  trigger?: 'menu' | 'remove';
 }) {
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -396,6 +407,20 @@ export function EventCardMenu({
       the card's edges and `align` can actually put the panel on screen.
     */
     <>
+      {trigger === 'remove' ? (
+        <ActionButton
+          tone="neutral"
+          quiet
+          iconOnly
+          icon={Trash2}
+          label="Remove"
+          name={`Remove ${eventName}`}
+          aria-haspopup="dialog"
+          onClick={openDelete}
+          disabled={pending}
+          data-event-remove={eventId}
+        />
+      ) : (
       <button
         type="button"
         onClick={() => (open ? close() : setOpen(true))}
@@ -410,6 +435,7 @@ export function EventCardMenu({
       >
         <MoreVertical aria-hidden className="h-4 w-4" strokeWidth={2} />
       </button>
+      )}
 
       {open && !confirming ? (
         <>
@@ -728,6 +754,32 @@ export function EventCardMenu({
             */
             <>
               <ImpactLines impact={impact} />
+              {/* 📦 THE GENTLE CHOICE FIRST (Unihome v5): on Home the ⋯ is gone, so its "Put this away" leads this
+                  screen — the undoable answer before the permanent one. The board's ⋯ still carries it. */}
+              {trigger === 'remove' ? (
+                <button
+                  type="button"
+                  onClick={putAway}
+                  disabled={pending}
+                  data-remove-put-away=""
+                  className="sn-press mt-3 flex min-h-[60px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-ink disabled:opacity-60"
+                  style={{ background: 'rgb(var(--color-raised-2))' }}
+                >
+                  <Archive aria-hidden className="h-5 w-5 shrink-0" strokeWidth={1.9} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sn-lg font-semibold">{archived ? 'Bring it back' : 'Put this away'}</span>
+                    <span className="block text-sn-sm text-ink/70">
+                      {archived ? 'Back onto your active list.' : 'Off your list. Nothing is deleted.'}
+                    </span>
+                  </span>
+                  <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
+                </button>
+              ) : null}
+              {trigger === 'remove' && error ? (
+                <p role="alert" className="mt-1.5 text-sn-md font-semibold text-[color:var(--sn-danger)]">
+                  {error}
+                </p>
+              ) : null}
               {/*
                 ⚖ ASKED, NEVER DEMANDED. The Remove button does not wait
                 on this — holding somebody's own celebration hostage to a

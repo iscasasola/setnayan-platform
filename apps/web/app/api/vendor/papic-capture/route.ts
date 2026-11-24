@@ -5,12 +5,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured } from '@/lib/r2';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
-import {
-  deriveVendorPapicTier,
-  fetchVendorPapicPointsSpent,
-  fetchVendorPapicCreditsGranted,
-} from '@/lib/vendor-papic-grants';
-import { canCapture, pointsForMedia } from '@/lib/vendor-papic-tier';
+import { fetchVendorEventCaptureAllowance } from '@/lib/vendor-papic-grants';
+import { canCapture, captureLimitLine } from '@/lib/vendor-papic-tier';
+import { checkSupplierStorage } from '@/lib/supplier-storage.server';
+import { STORAGE_CHECK_FAILED, STORAGE_FULL_CODE, STORAGE_UPGRADE_HREF } from '@/lib/supplier-storage';
 import { eventClockOf } from '@/lib/event-clock.server';
 import { readClientCaptureId, CLIENT_CAPTURE_ID_FIELD } from '@/lib/papic-client-capture-id';
 import {
@@ -34,9 +32,10 @@ import { maybeRunPapicUploadSweep } from '@/lib/papic-upload-sweep';
 // POST /api/vendor/papic-capture
 //
 // The vendor ON-THE-DAY Papic capture lane (owner-locked 2026-07-18). A signed-in
-// vendor working a booked event shoots photos (and, on Ltd/Unli, ≤10s clips) into
+// vendor working a booked event shoots photos (and, on Plus and up, ≤10s clips) into
 // their OWN capture lane (public.vendor_papic_captures). validate → enforce the
-// tier's capture-point budget → the phone PUTs straight to R2 → insert the row
+// PLAN's event limit (owner 2026-11-23: Free · Verified 10 photos, no videos;
+// Plus · Pro · Ultra no limit) and the shop's storage → the phone PUTs straight to R2 → insert the row
 // under the vendor's RLS client (the insert policy is the hard booked/own-profile
 // gate) → NSFW-screen.
 //
@@ -111,29 +110,35 @@ async function eventOver(admin: Admin, eventId: string, shotAtMs: number): Promi
   return eventClockOf(ev, { nowMs: shotAtMs }).menu === 'after';
 }
 
-// Tier + capture-points enforcement (service-role reads — the tier must be
-// authoritative). Each tier's point budget is the ceiling (photo=1, clip=7).
-// ⚠ THE CREDITS THEY HOLD ARE PART OF THE ALLOWANCE — owner 2026-09-05: an
-// unread ledger is `null`, which grants nothing.
-async function budgetRefusal(
+// 📸 THE PLAN'S EVENT LIMIT (owner 2026-11-23) — per (shop, event): Free · Verified 10 photos and no videos, Plus ·
+// Pro · Ultra no limit. Read from TIER_CAPS through `fetchVendorEventCaptureAllowance` — the same read the supplier's
+// own camera draws from, so what they SEE and what they GET cannot drift. A supplier's capture spends NOTHING: not
+// its own credits, and never the couple's Papic credits (this lane never touches the event pool).
+// 🔒 An unread plan or count on a limited plan refuses as a retry — a limit blind to its count is no limit.
+async function limitRefusal(
   admin: Admin,
   vendorProfileId: string,
   eventId: string,
   mediaType: 'photo' | 'clip',
 ): Promise<NextResponse | null> {
-  const [tier, spent, creditsGranted] = await Promise.all([
-    deriveVendorPapicTier(admin, vendorProfileId, eventId),
-    fetchVendorPapicPointsSpent(admin, vendorProfileId, eventId),
-    fetchVendorPapicCreditsGranted(admin, vendorProfileId, eventId),
-  ]);
-  const check = canCapture(tier, spent, mediaType, creditsGranted);
-  if (!check.ok) {
-    return json(
-      { error: check.reason, tier, pointsSpent: spent },
-      check.reason === 'video_not_allowed' ? 403 : 409,
-    );
-  }
-  return null;
+  const { plan, allowance } = await fetchVendorEventCaptureAllowance(admin, vendorProfileId, eventId);
+  if (plan === null) return json({ error: 'lookup_failed' }, 503);
+  const check = canCapture(allowance.rule, allowance.photosTaken, mediaType);
+  if (check.ok) return null;
+  if (check.reason === 'count_unread') return json({ error: 'lookup_failed' }, 503);
+  return json(
+    { error: check.reason, message: captureLimitLine(allowance), href: STORAGE_UPGRADE_HREF },
+    check.reason === 'video_not_allowed' ? 403 : 409,
+  );
+}
+
+// 💾 THE SHOP'S STORAGE — the only ceiling on a plan with no count. The same question /api/upload asks before any bytes
+// move (`checkSupplierStorage`); full answers with the way up, and a check that could not be made refuses (a retry).
+async function storageRefusal(admin: Admin, vendorProfileId: string, sizeBytes: number): Promise<NextResponse | null> {
+  const room = await checkSupplierStorage(admin, vendorProfileId, Number.isFinite(sizeBytes) ? sizeBytes : 0);
+  if (room.kind === 'fits') return null;
+  if (room.kind === 'full') return json({ error: STORAGE_FULL_CODE, message: room.message, href: STORAGE_UPGRADE_HREF }, 413);
+  return json({ error: 'storage_unchecked', message: STORAGE_CHECK_FAILED }, 503);
 }
 
 // The tier's OPEN upload — a settled intent is never promoted twice (review
@@ -330,9 +335,12 @@ export async function POST(req: Request) {
         }
       }
       if (await eventOver(admin, eventId, shotAtMs)) return json({ error: 'event_over' }, 403);
-      const refused = await budgetRefusal(admin, vendorProfileId, eventId, mediaType);
+      const refused = await limitRefusal(admin, vendorProfileId, eventId, mediaType);
       if (refused) return refused;
     }
+    const sizeBytes = typeof body.size_bytes === 'number' ? body.size_bytes : NaN;
+    const full = await storageRefusal(admin, vendorProfileId, sizeBytes);
+    if (full) return full;
     const signed = await signCaptureTierPut(admin, {
       lane: 'vendor',
       eventId,
@@ -340,7 +348,7 @@ export async function POST(req: Request) {
       clientCaptureId,
       tier,
       contentType: typeof body.content_type === 'string' ? body.content_type : '',
-      sizeBytes: typeof body.size_bytes === 'number' ? body.size_bytes : NaN,
+      sizeBytes,
     });
     if (!signed.ok) {
       return json({ error: signed.error }, signed.error === 'sign_failed' ? 503 : signed.error === 'too_large' ? 413 : 400);
@@ -362,7 +370,7 @@ export async function POST(req: Request) {
       });
     }
     if (await eventOver(admin, eventId, shotAtMs)) return json({ error: 'event_over' }, 403);
-    const refused = await budgetRefusal(admin, vendorProfileId, eventId, mediaType);
+    const refused = await limitRefusal(admin, vendorProfileId, eventId, mediaType);
     if (refused) return refused;
 
     let durationMs: number | null = null;
@@ -492,7 +500,6 @@ export async function POST(req: Request) {
       status: 'ok',
       captureId,
       mediaType,
-      points: pointsForMedia(mediaType),
       wantFull,
     });
   }

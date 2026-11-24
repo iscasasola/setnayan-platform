@@ -5,9 +5,9 @@ import { formatCount } from '@/lib/format-number';
  * host's — the opposite direction from `lib/vendor-own-captures.ts`, which is
  * the vendor looking back at shots taken of somebody ELSE's wedding.
  *
- * Photo-only by construction (no `media_type` column at all): the owner's
- * video threshold (`VENDOR_PAPIC_VIDEO_CREDITS`, lib/vendor-papic-tier.ts)
- * governs the on-the-day CAMERA, and this module has no camera — it is an
+ * Photo-only by construction (no `media_type` column at all): video at an
+ * event is the plan's (`TIER_CAPS.eventVideos`, the on-the-day CAMERA), and
+ * this module has no camera — it is an
  * import lane for finished photographs the supplier already has. Keeping
  * video out of it means a re-price of that threshold never has to reason
  * about a second surface that could also unlock video.

@@ -109,6 +109,6 @@ test('8 · "Only my Guest List" → no Ask to join anywhere; only "Anyone, I app
   const INVITE = read('[slug]/invite/page.tsx');
   const at = INVITE.indexOf('if (!anyoneMayAskToJoin(event.rsvp_ask_config)) {');
   assert.ok(at > -1, 'the poster door opens a request on a closed list');
-  assert.match(INVITE.slice(at, at + 120), /redirect\(`\/\$\{event\.slug\}`\)/);
+  assert.match(INVITE.slice(at, at + 120), /redirect\(`\$\{publicEventPath\(event\.slug\)\}`\)/);
   assert.ok(at < INVITE.indexOf('<JoinFlow'), 'the request form renders before the list is checked');
 });

@@ -68,6 +68,13 @@ export type PasswordFieldProps = InputProps & {
    * (`autoComplete="new-password"`, the same server rules) — only the meter is not drawn.
    */
   quiet?: boolean;
+  /**
+   * ✂ `mode="new" brief` — the create-account card's meter (owner 24 Nov 2026, drawing `login_simple_dark_2026-11-24`:
+   * "The password checks show only while typing"). The same bar and the same three rules, drawn only once the box
+   * holds something, in the drawing's short words: "8+ characters" · "Not your name or email" · "Not a leaked
+   * password". Every other create-password box keeps the full wording.
+   */
+  brief?: boolean;
 };
 
 /** The form boxes whose words a new password must not contain. */
@@ -95,6 +102,7 @@ export function PasswordField({
   personal,
   leaked,
   quiet = false,
+  brief = false,
   ...input
 }: PasswordFieldProps) {
   const autoId = useId();
@@ -231,7 +239,9 @@ export function PasswordField({
         {...input}
         {...(tracks
           ? {
-              'aria-describedby': [input['aria-describedby'], isNew ? meterId : typed ? quietId : ''].filter(Boolean).join(' ') || undefined,
+              'aria-describedby':
+                [input['aria-describedby'], isNew ? (brief && !typed ? '' : meterId) : typed ? quietId : ''].filter(Boolean).join(' ') ||
+                undefined,
               onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
                 setTyped(e.target.value);
                 input.onChange?.(e);
@@ -283,12 +293,15 @@ export function PasswordField({
       ) : isNew ? (
         <>
           <span className="relative block">{box}</span>
-          <NewPasswordMeter
-            id={meterId}
-            password={typed}
-            personal={[...formPersonal, ...(personal ?? [])]}
-            leaked={leakedValue !== null && typed === leakedValue}
-          />
+          {brief && !typed ? null : (
+            <NewPasswordMeter
+              id={meterId}
+              password={typed}
+              personal={[...formPersonal, ...(personal ?? [])]}
+              leaked={leakedValue !== null && typed === leakedValue}
+              brief={brief}
+            />
+          )}
         </>
       ) : (
         box
@@ -321,11 +334,14 @@ function NewPasswordMeter({
   password,
   personal,
   leaked,
+  brief = false,
 }: {
   id: string;
   password: string;
   personal: ReadonlyArray<string | null | undefined>;
   leaked: boolean;
+  /** The create-account card's short words (`brief` above). */
+  brief?: boolean;
 }) {
   const { level, rules } = assessNewPassword(password, { personal, leaked });
   const fill = LEVEL_FILL[level];
@@ -352,14 +368,14 @@ function NewPasswordMeter({
           ))}
         </span>
         <span aria-live="polite" className={`min-w-[4.5rem] text-right font-semibold ${level === 'empty' ? 'opacity-60' : ''}`}>
-          {level === 'empty' ? LEVEL_WORD.empty : `${LEVEL_WORD[level]} password`}
+          {level === 'empty' ? LEVEL_WORD.empty : brief ? LEVEL_WORD[level] : `${LEVEL_WORD[level]} password`}
         </span>
       </span>
       <span role="list" className="mt-1.5 block space-y-1">
-        <Rule state={rules.length}>8 or more characters</Rule>
+        <Rule state={rules.length}>{brief ? '8+ characters' : '8 or more characters'}</Rule>
         <Rule state={rules.personal}>Not your name or email</Rule>
         <Rule state={rules.leaked}>
-          <LeakRuleWords failed={rules.leaked === 'fail'} />
+          <LeakRuleWords failed={rules.leaked === 'fail'} brief={brief} />
         </Rule>
       </span>
     </span>
@@ -370,9 +386,11 @@ function NewPasswordMeter({
  * THE LEAK RULE'S WORDS — one sentence for every new-password box (`/reset-password`'s meter and the supplier sign-up's
  * quiet rule alike, W1-B3 16 Nov 2026), so the two doors never say it two ways.
  */
-function LeakRuleWords({ failed }: { failed: boolean }) {
+function LeakRuleWords({ failed, brief = false }: { failed: boolean; brief?: boolean }) {
   return failed ? (
     <>Found in a known data leak — choose another</>
+  ) : brief ? (
+    <>Not a leaked password</>
   ) : (
     <>
       Not a known leaked password <span className="opacity-70">· checked when you continue</span>

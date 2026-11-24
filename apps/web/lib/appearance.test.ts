@@ -23,7 +23,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from './strip-comments';
-import { DARK_READY, DEFAULT_APPEARANCE, THEME_COLOR, appearanceSwitchShown, appearanceCookieAssignment, appearanceFromCookie, darkApplies, signedInFromCookie } from './appearance';
+import { DARK_READY, DEFAULT_APPEARANCE, SIGNED_OUT_FOLLOWS_PHONE, THEME_COLOR, appearanceSwitchShown, appearanceCookieAssignment, appearanceFromCookie, choiceIsDark, darkApplies, signInCardChoice, signedInFromCookie } from './appearance';
 import { ROUTE_RESERVED_SLUGS } from './reserved-slugs';
 import { buildThemeBootstrapScript, themeBootstrapScript } from '../app/_components/theme-bootstrap-script';
 
@@ -59,11 +59,15 @@ const PATHS = [
   '/vendor-dashboard/clients',
   '/admin',
   '/login',
+  '/signup',
+  '/signup/you',
   '/marco-marga', // a couple's Event Hub
   '/marco-marga/rsvp',
   '/papic/abc',
 ];
 const SAMPLE_READY = ['/dashboard', '/papic'];
+/** A ready-list that also holds the two sign-in pages, so (b) walks the signed-out follow-the-phone branch too. */
+const SAMPLE_READY_WITH_CARDS = [...SAMPLE_READY, '/login', '/signup'];
 
 /** Run an inline head script against a fake page; return what it painted. */
 function runScript(script: string, pathname: string, cookie: string, prefersDark = false) {
@@ -117,12 +121,13 @@ test('(a) the rule: dark only for a signed-in person whose choice means dark, on
 });
 
 test('(b) the real <head> script decides and paints exactly as the rule, for every person, path and phone', () => {
-  const script = buildThemeBootstrapScript(SAMPLE_READY);
   let n = 0;
+  for (const ready of [SAMPLE_READY, SAMPLE_READY_WITH_CARDS]) {
+  const script = buildThemeBootstrapScript(ready);
   for (const prefersDark of [false, true]) {
     for (const [who, cookie] of Object.entries(COOKIES)) {
       for (const path of PATHS) {
-        const want = darkApplies({ pathname: path, cookie, appRoutes: ROUTE_RESERVED_SLUGS, prefersDark }, SAMPLE_READY);
+        const want = darkApplies({ pathname: path, cookie, appRoutes: ROUTE_RESERVED_SLUGS, prefersDark }, ready);
         const got = runScript(script, path, cookie, prefersDark);
         const tag = `${who} on ${path} (${prefersDark ? 'dark' : 'light'} phone)`;
         assert.equal(got.dark, want, `${tag}: script painted ${got.dark ? 'dark' : 'light'}, the rule says ${want ? 'dark' : 'light'}`);
@@ -132,7 +137,8 @@ test('(b) the real <head> script decides and paints exactly as the rule, for eve
       }
     }
   }
-  assert.ok(n >= 200, `only ${n} cases ran`);
+  }
+  assert.ok(n >= 400, `only ${n} cases ran`);
 });
 
 test('(c) as shipped — dark reaches ONLY the couple’s /dashboard area + the sign-in cards (B3, 18 Nov 2026)', () => {
@@ -144,7 +150,7 @@ test('(c) as shipped — dark reaches ONLY the couple’s /dashboard area + the 
   // Events board itself stay Light until they are swept and walked (review of #7993, 19 Nov 2026).
   const E = '/dashboard/7f3a9c1e-2b4d-4c6e-8a10-3f5b7d9e1c2a';
   const SHIPPED_LIGHT = ['/', '/dashboard', '/dashboard/billing', '/dashboard/search', `${E}/vendors`, `${E}/launch`, `${E}/studio`, `${E}/website/editor`, `${E}/seating`, `${E}/guests/checkin`, `${E}/budget/x`, '/vendor-dashboard', '/vendor-dashboard/shop', '/vendor-dashboard/clients/7f3a9c1e', '/admin', '/marco-marga', '/papic/abc'];
-  const SHIPPED_DARK = [E, `${E}/`, `${E}/budget`, `${E}/guests`, `${E}/schedule`, '/dashboard/S89E-4KQ7M2XW9T', '/vendor-dashboard/clients', '/vendor-dashboard/customers', '/dashboard/people', '/dashboard/profile', '/dashboard/library/photos', '/dashboard/samahan/c1', '/login', '/signup/you'];
+  const SHIPPED_DARK = [E, `${E}/`, `${E}/budget`, `${E}/guests`, `${E}/schedule`, '/dashboard/S89E-4KQ7M2XW9T', '/vendor-dashboard/clients', '/vendor-dashboard/customers', '/dashboard/people', '/dashboard/profile', '/dashboard/library/photos', '/dashboard/samahan/c1', '/login', '/signup', '/signup/you'];
   for (const prefersDark of [false, true]) {
     for (const [who, cookie] of Object.entries(COOKIES)) {
       const chose = darkApplies({ pathname: '/dashboard/profile', cookie, appRoutes: ROUTE_RESERVED_SLUGS, prefersDark });
@@ -155,7 +161,10 @@ test('(c) as shipped — dark reaches ONLY the couple’s /dashboard area + the 
       }
       for (const path of SHIPPED_DARK) {
         const got = runScript(themeBootstrapScript, path, cookie, prefersDark);
-        assert.equal(got.dark, chose, `${who} on ${path}: dark only for a signed-in person whose choice means dark`);
+        // The two sign-in pages follow the phone signed out too (owner 24 Nov 2026) — exactly those two, never below.
+        const card = (path === '/login' || path === '/signup') && !signedInFromCookie(cookie);
+        const want = card ? choiceIsDark(signInCardChoice(cookie), prefersDark) : chose;
+        assert.equal(got.dark, want, `${who} on ${path}: dark only for a signed-in person whose choice means dark${card ? ' (or, on a sign-in page signed out, the phone)' : ''}`);
       }
     }
   }
@@ -167,6 +176,36 @@ test('(c) as shipped — dark reaches ONLY the couple’s /dashboard area + the 
   assert.deepEqual(statics.filter((n) => /\d/.test(n)), [], 'a static /dashboard folder holds a digit — `*` in DARK_READY would match it');
   assert.ok(!DARK_READY.includes('/vendor-dashboard'), 'the whole supplier tree is on the ready-list — only its walked screens may be');
   assert.ok(!DARK_READY.some((p) => p.startsWith('/admin')), 'admin opens in its own batch');
+});
+
+// SABOTAGE: drop SIGNED_OUT_FOLLOWS_PHONE from darkApplies → RED (a dark phone gets a light /login signed out).
+// SABOTAGE: drop the `$` from '/login$' → RED (the follow-the-phone exception leaks under /login).
+// SABOTAGE: make the signed-out choice ignore the cookie → RED (an explicit Light must win).
+test('(c2) the sign-in pages follow the phone signed out — exactly /login and /signup, and an explicit choice wins (owner 24 Nov 2026)', () => {
+  assert.deepEqual([...SIGNED_OUT_FOLLOWS_PHONE].sort(), ['/login$', '/signup$'], 'exactly the two sign-in pages, each exactly');
+  const at = (pathname: string, cookie: string, prefersDark: boolean) =>
+    runScript(themeBootstrapScript, pathname, cookie, prefersDark).dark;
+  const rule = (pathname: string, cookie: string, prefersDark: boolean) =>
+    darkApplies({ pathname, cookie, appRoutes: ROUTE_RESERVED_SLUGS, prefersDark });
+  for (const path of ['/login', '/signup']) {
+    for (const f of [at, rule]) {
+      assert.equal(f(path, '', true), true, `${path}: signed out, no choice, dark phone → the dark card`);
+      assert.equal(f(path, '', false), false, `${path}: signed out, no choice, light phone → light`);
+      assert.equal(f(path, 'sn-theme=light', true), false, `${path}: an explicit Light wins over a dark phone`);
+      assert.equal(f(path, 'sn-theme=dark', false), true, `${path}: an explicit Dark wins over a light phone`);
+      assert.equal(f(path, 'sn-theme=auto', true), true, `${path}: Automatic follows the phone`);
+      assert.equal(f(path, 'sn-theme=darker', true), true, `${path}: an unknown value is no choice — follow the phone`);
+    }
+  }
+  for (const f of [at, rule]) {
+    assert.equal(f('/signup/you', '', true), false, 'the route below /signup is not a sign-in card — signed out stays Light');
+    assert.equal(f('/login-help', '', true), false, 'a look-alike is not the page');
+    assert.equal(f('/', '', true), false, 'the front door stays Light signed out (call 4)');
+    assert.equal(f('/dashboard/profile', '', true), false, 'a signed-in screen is never dark for a signed-out visitor');
+  }
+  // Signed in, the sign-in pages follow the person's own choice (Light by default), as everywhere else.
+  assert.equal(rule('/login', SESSION, true), false, 'signed in, never chose: Light is the default, even on /login');
+  assert.equal(at('/login', SESSION, true), false);
 });
 
 test('(d) a ready-list entry is always an app route, never a couple’s slug', () => {

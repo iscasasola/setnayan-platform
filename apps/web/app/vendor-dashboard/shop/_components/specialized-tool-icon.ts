@@ -14,6 +14,7 @@ const ICONS: Readonly<Record<SpecializedToolKey, LucideIcon>> = {
   live_watch: Eye,
   papic_challenge: Gamepad2,
   plan_3d: Shapes,
+  spaces: LayoutGrid,
   // The day-of console's own marks for the same tools (on-the-day/live/[eventId]/_components/event-day-body.tsx TOOL_ICON).
   shot_list: ListChecks,
   issues_log: TriangleAlert,

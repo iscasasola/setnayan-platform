@@ -11,6 +11,10 @@
  *   ?s=unread      every tool's read failed — each says so in its place
  *   ?s=not-food    Dietary & allergies for a supplier not booked for food
  *   ?s=no-headcount  Quantity vs guests when the guest count could not be read
+ *   ?s=rest        the free rest · part 1 (24 Nov): Ceremony details · Proofs & approval · Safety permit & cue
+ *                  (checklists) · Fittings · Looks · Crew roster · Room list (per-person) · Chair schedule ·
+ *                  Reservation slots · Brackets & scoring (ordered lists, ▲ ▼; Brackets keeps a score)
+ *   ?s=rest-empty  the same ten, nothing added yet · ?s=rest-unread  the same ten, every read failed
  */
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -35,6 +39,9 @@ const STATES: Record<string, { label: string; tools: LabState; attending: number
   unread: { label: 'Every read failed (honest states)', tools: 'unread', attending: ATTENDING },
   'not-food': { label: 'Dietary & allergies · not booked for food', tools: 'not-food', attending: ATTENDING },
   'no-headcount': { label: 'Quantity vs guests · the guest count could not be read', tools: 'souvenirs', attending: null },
+  rest: { label: 'The free rest · part 1 — ten more tools (checklists, per-person, ordered lists)', tools: 'rest', attending: ATTENDING },
+  'rest-empty': { label: 'The ten more tools · nothing added yet', tools: 'rest-empty', attending: ATTENDING },
+  'rest-unread': { label: 'The ten more tools · every read failed', tools: 'rest-unread', attending: ATTENDING },
 };
 
 const FRAME = buildDayOfFrame({

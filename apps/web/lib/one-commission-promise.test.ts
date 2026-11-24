@@ -179,7 +179,9 @@ test('the supplier list still covers what it claims to', () => {
   // leave the pages that matter while the count stays up.
   for (const f of [
     'app/(shell)/for-suppliers/page.tsx',
-    'app/for-suppliers/_components/supplier-front-page.tsx',
+    // (supplier-front-page.tsx left this named list 2026-11-23: the owner-APPROVED redesign, v4.3.1, no longer says
+    // "Setnayan never takes a cut" — it STATES the fee instead, "Clients Setnayan brings · 5%, 3% above ₱100,000", read
+    // by `feeRowWords(schedule)`. It stays in SUPPLIER_SURFACES, so the claim coming back still owes the fee sentence.)
     'app/(shell)/pricing/page.tsx',
     'app/vendor/claim/[token]/_components/claim-parts.tsx',
     'lib/help/topics-existing.ts', // the help's claim moved here with the split (2026-11-14)
@@ -192,8 +194,10 @@ test('the supplier list still covers what it claims to', () => {
   // 9, not 10, since 2026-11-07: the admin Custom-plan composer (custom-composer.tsx) said the claim and was
   // DELETED with the Custom plan (f4a93e99) — no supplier lost the sentence; the page that held it is gone.
   // The named pages above are the stricter half of this check.
+  // 8, not 9, since 2026-11-23: the /for-suppliers redesign (v4.3.1) states the fee instead of the zero (see above) —
+  // no supplier lost the fee sentence; the page that said "never takes a cut" now says the rate.
   assert.ok(
-    saying >= 9,
+    saying >= 8,
     `only ${saying} of the listed surfaces still mention commission — if the claim moved, this list is pointed at the wrong files`,
   );
 });

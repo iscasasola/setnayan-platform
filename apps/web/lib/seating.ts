@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PlanTableShape } from './seat-plan-engine/plan';
 import { parseGuestSeatView, type GuestSeatView } from './guest-seat-view';
 import { compareTables, sortTables } from './table-order';
 import { rosterRoleRank } from './role-groups';
@@ -130,6 +131,11 @@ export type EventTableRow = {
   // auto arrange seats role holders here first, role first then group. Optional so render-only literals need not set
   // it; fetchTables always returns a boolean.
   is_vip?: boolean;
+  // 🏛 A VENUE'S OWN HALL only (Spaces, the one editor in venue mode): the shape the supplier drew — round · long ·
+  // half-moon — and, for a long table, one chair at each end (counted in `capacity`). Set by the Spaces mapper, never
+  // read from or written to `event_tables`; a couple's row leaves both unset and draws from `table_type` as always.
+  plan_shape?: PlanTableShape | null;
+  chairs_at_ends?: boolean;
 };
 
 export type SeatAssignmentRow = {

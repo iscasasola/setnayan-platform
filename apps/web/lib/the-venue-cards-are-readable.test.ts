@@ -51,7 +51,8 @@ import {
 } from '@/app/[slug]/_lib/pro-site-vars';
 
 const WEB = join(__dirname, '..');
-const CSS = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
+// 🎨 The 23 Nov redraw's theme blocks live in app/hub-themes.css (globals.css sits at its ceiling) — read both, as a themed page loads both.
+const CSS = ['app/globals.css', 'app/hub-themes.css'].map((f) => readFileSync(join(WEB, f), 'utf8')).join('\n');
 const LOADERS = readFileSync(join(WEB, 'app/[slug]/_lib/loaders.ts'), 'utf8');
 const WIDGET = readFileSync(join(WEB, 'app/[slug]/_components/venue-widget.tsx'), 'utf8');
 const DIRECTIONS = readFileSync(join(WEB, 'app/_components/nav-links.tsx'), 'utf8');

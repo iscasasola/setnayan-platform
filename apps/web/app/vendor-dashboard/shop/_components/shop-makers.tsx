@@ -81,6 +81,7 @@ export function ShopMakers({
   services = [],
   booked = null,
   offers = null,
+  spacesCount,
   mine,
   addToolHref,
   plansSaved,
@@ -107,6 +108,9 @@ export function ShopMakers({
   offers?: OfferTileFacts | null;
   /** 🧰 Your tools (Store drawing v10): the free tools the shop added and the paid ones it holds, in order
    *  (`yourTools`, lib/supplier-store.ts). Absent (the lab) = Scanner and the tools suggested for its services. */
+  /** 🏛 How many spaces the shop has (owner 19 Nov: "Spaces shows only once the shop has one"). 0 = the tile is not
+   *  drawn; null = unread, and the tile stays (a refused read never hides a door); absent = not measured (the lab). */
+  spacesCount?: number | null;
   mine?: readonly MyTool[];
   /** The dashed "Add a tool" row — into the Store's Tools shelf. Absent = no row. */
   addToolHref?: string;
@@ -142,7 +146,7 @@ export function ShopMakers({
   useEffect(() => {
     frame.current = (root.current?.closest('[data-shop-tab],[data-shop-tab-lab]') as HTMLElement | null) ?? null;
   }, []);
-  const tools = specializedToolsFor(categories, services);
+  const tools = specializedToolsFor(categories, services).filter((t) => t.tool.key !== 'spaces' || spacesCount !== 0);
   // 🧰 YOUR TOOLS: the shop's own, in its order; the lab (no `mine`) shows Scanner and the suggested ones.
   const myTools: MyTool[] = (
     mine ?? tools.filter(({ tool: t, suggested }) => t.key === 'scanner' || suggested).map(({ tool: t }) => ({ key: t.key }))

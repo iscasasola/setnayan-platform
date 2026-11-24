@@ -90,7 +90,7 @@ export default async function SupplierInvitePage({
           isSelf
             ? 'This is your own invite link — share it with the suppliers you work with.'
             : hasShop
-              ? `You join as each other’s trusted partners. ${inviter.businessName} shows on your Trusted partners, and you on theirs.`
+              ? `You join as partners. ${inviter.businessName} shows on your Trusted partners, and you on theirs, once you have served an event together.`
               : null
         }
       />

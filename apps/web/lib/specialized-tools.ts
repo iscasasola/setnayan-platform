@@ -36,6 +36,7 @@ export type SpecializedToolKey =
   | 'live_watch'
   | 'papic_challenge'
   | 'plan_3d'
+  | 'spaces'
   // 🧭 Finished features (owner 23 Nov, "Yes, include them"; controller GO): shipped day-of screens, listed so the
   // Toolkit shows them. Each opens its shipped home; nothing about them is re-coded here.
   | 'shot_list'
@@ -102,6 +103,11 @@ export const SPECIALIZED_TOOLS: readonly SpecializedTool[] = [
   { key: 'live_watch', title: 'Live Watch', line: 'The day’s live feed', door: { kind: 'per_event' }, hubKeys: ['live_watch'], shelves: ['hub'] },
   { key: 'papic_challenge', title: 'Papic challenge', line: 'Photo games for the guests', door: { kind: 'page', href: '/vendor-dashboard/subscription' }, hubKeys: ['papic_camera'], shelves: ['hub'] },
   { key: 'plan_3d', title: '3D plan', line: 'Your booth inside the couple’s 3D plan', door: { kind: 'page', href: '/vendor-dashboard/subscription' }, hubKeys: ['floor_plan', 'tables_and_seating', 'floor_command'], shelves: ['chat', 'present', 'shop_page'] },
+  // 🏛 Owner 19 Nov ("SHOP PAGE FINAL + SPACES COMBINED WITH ROOMS & SEATING"): Spaces is a tool inside Specialized tools,
+  // AFTER Scanner — halls, rooms and what the shop rents out, set once. It replaces 18 Nov's "Rooms & seating" tile and
+  // page, and fills the `floor_plan` + `tables_and_seating` hub keys. Shown only once the shop has a space (the page's
+  // `spacesCount`); the first is added from a card's Uses pick.
+  { key: 'spaces', title: 'Spaces', line: 'Rooms · clothing · objects you rent out', door: { kind: 'page', href: '/vendor-dashboard/spaces' }, hubKeys: ['floor_plan', 'tables_and_seating'], shelves: ['present', 'hub'] },
   // ── Finished features (owner 23 Nov "Yes, include them"): each is a shipped screen, opened where it already lives. ──
   // on-the-day/page.tsx ShotListSection · shot-list-actions.ts (event_shot_list_items)
   { key: 'shot_list', title: 'Shot list', line: 'Your must-get shots, checked off as you shoot', door: { kind: 'day_console' }, hubKeys: ['shot_list'], shelves: ['hub'] },
@@ -146,6 +152,9 @@ export function specializedToolsFor(categoryLabels: readonly string[], services:
   all.sort((a, b) => {
     if (a.tool.key === 'scanner') return -1;
     if (b.tool.key === 'scanner') return 1;
+    // Spaces sits right after Scanner (owner 19 Nov, Shop final pick 2: "Specialized tools (Spaces inside, after Scanner)").
+    if (a.tool.key === 'spaces') return -1;
+    if (b.tool.key === 'spaces') return 1;
     if (a.suggested !== b.suggested) return a.suggested ? -1 : 1;
     return a.i - b.i;
   });

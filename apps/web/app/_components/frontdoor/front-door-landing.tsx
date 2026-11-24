@@ -36,7 +36,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
 
-import { marketingPhoto } from '@/lib/front-page-photos';
+import { marketingPhoto, marketingSmallPhoto } from '@/lib/front-page-photos';
 import {
   eventTypePhotoSrc,
   eventTypeRepoPhotoSrc,
@@ -71,12 +71,20 @@ const SHELF_ORDER = [
  * Where the app's event-type photo misreads at tile size (a hall, not people), the drawing uses the marketing photo of
  * the same event, with its own crop. Every other kind keeps the app's one photo rule (`eventTypePhotoSrc`).
  */
+/**
+ * ⚡ The sample wedding's photos at the size this page draws them (`public/demo/maria-jose/sm/`, 480 px on the short
+ * side): the shelf tile is 150–200 CSS px wide and a Papic pile photo 124 × 156, so a phone at 3× needs ~470 px. The
+ * full files are 1.1–1.8 MB each and loaded ~8 MB on a phone's first open of `/` (measured 24 Nov 2026); the small
+ * copies are 11–27 KB. Same picture, same crop.
+ */
+const demoSmallPhoto = (name: string) => `/demo/maria-jose/sm/${name}.webp`;
+
 const TILE_PHOTO: Record<string, { photo: string; focus: string }> = {
-  wedding: { photo: '/demo/maria-jose/toast.webp', focus: '40% 50%' },
-  debut: { photo: marketingPhoto('hero-debut'), focus: '68% 50%' },
-  christening: { photo: marketingPhoto('hero-christening'), focus: '42% 50%' },
-  birthday: { photo: marketingPhoto('hero-birthday'), focus: '82% 60%' },
-  reunion: { photo: marketingPhoto('hero-reunion'), focus: '30% 50%' },
+  wedding: { photo: demoSmallPhoto('toast'), focus: '40% 50%' },
+  debut: { photo: marketingSmallPhoto('hero-debut'), focus: '68% 50%' },
+  christening: { photo: marketingSmallPhoto('hero-christening'), focus: '42% 50%' },
+  birthday: { photo: marketingSmallPhoto('hero-birthday'), focus: '82% 60%' },
+  reunion: { photo: marketingSmallPhoto('hero-reunion'), focus: '30% 50%' },
 };
 
 export function frontPageTiles(
@@ -208,11 +216,11 @@ const LIVE_SCREENS = [
 ] as const;
 
 const PILE = [
-  { src: '/demo/maria-jose/wall-7.webp', s: '--fx:-150px;--fy:-30px;--fr:-16deg;--tx:-98px;--ty:8px;--tr:-10deg' },
-  { src: '/demo/maria-jose/wall-5.webp', s: '--fx:150px;--fy:-20px;--fr:16deg;--tx:98px;--ty:10px;--tr:10deg' },
-  { src: '/demo/maria-jose/wall-1.webp', s: '--fx:-110px;--fy:50px;--fr:4deg;--tx:-50px;--ty:0px;--tr:-4.5deg' },
-  { src: '/demo/maria-jose/wall-8.webp', s: '--fx:110px;--fy:56px;--fr:-4deg;--tx:50px;--ty:2px;--tr:4.5deg' },
-  { src: '/demo/maria-jose/wall-4.webp', s: '--fx:0px;--fy:70px;--fr:0deg;--tx:0px;--ty:-6px;--tr:0deg' },
+  { src: demoSmallPhoto('wall-7'), s: '--fx:-150px;--fy:-30px;--fr:-16deg;--tx:-98px;--ty:8px;--tr:-10deg' },
+  { src: demoSmallPhoto('wall-5'), s: '--fx:150px;--fy:-20px;--fr:16deg;--tx:98px;--ty:10px;--tr:10deg' },
+  { src: demoSmallPhoto('wall-1'), s: '--fx:-110px;--fy:50px;--fr:4deg;--tx:-50px;--ty:0px;--tr:-4.5deg' },
+  { src: demoSmallPhoto('wall-8'), s: '--fx:110px;--fy:56px;--fr:-4deg;--tx:50px;--ty:2px;--tr:4.5deg' },
+  { src: demoSmallPhoto('wall-4'), s: '--fx:0px;--fy:70px;--fr:0deg;--tx:0px;--ty:-6px;--tr:0deg' },
 ] as const;
 
 const cssVars = (s: string): CSSProperties =>
@@ -392,8 +400,9 @@ export function FrontDoorLanding({
           ].map((c) => (
             <li key={c.key}>
               <figure>
+                {/* ⚡ 64 px: the small copy — except the wedding, which is the first screen's own photo, already loaded. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={marketingPhoto(c.key)} alt="" loading="lazy" decoding="async" />
+                <img src={c.key === 'hero-wedding' ? marketingPhoto(c.key) : marketingSmallPhoto(c.key)} alt="" loading="lazy" decoding="async" />
               </figure>
               <span>
                 <b>{c.b}</b>

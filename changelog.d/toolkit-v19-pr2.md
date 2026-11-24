@@ -42,4 +42,7 @@ Built from Fable's drawing `prototypes/supplier_store_graphs_badges_2026-11-23/`
 
 Not drawn: the drawing's QR print designs (sample names) and its item "Pictures" (there are no real pictures yet; the clip slot stays empty until recorded).
 
+- Spaces (the shop's halls, rooms and rentals, owner 19 Nov) joins the widget list on the Present and Event Hub shelves (`['present', 'hub']`, controller 24 Nov). It was not in the v19 drawing, which predates it; the lists only grow.
+- The card gate joins on the LIVE taxonomy (`getTaxonomy()`), never a hard-coded copy (`no-taxonomy-literals`). /for-suppliers passes the Papic camera's privacy switch to the Toolkit (`toolkitShelves(papicCapture)`), so its count and sheet list the camera only while the switch is on.
+
 SPEC IMPACT: Builds DECISION_LOG 3a2419fd (the card gate; already in the corpus) and keeps 1b9ebf78 (price bands: the four `vendor_tool_<key>` values change in #8193's migration, not here; no migration in this PR). No new ruling.

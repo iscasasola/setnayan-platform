@@ -27,3 +27,11 @@ stage WOFF2 **decompressed and nothing else** — every glyph and table, a varia
 font left variable (the Logo pins Josefin Sans to 400 at draw time,
 `LOGO_FONT_VARIATION` in `lib/logo-fonts.ts`). Crimson Pro and Alex Brush reserve
 nothing; their stage files are already Latin cuts and are decoded as they are.
+
+## The redraw's batch 1 faces (2026-11-23)
+
+`raleway` · `gloock` · `mulish` · `worksans` · `epilogue` · `newsreader` are decoded from the stage files
+`scripts/build-theme-faces.py` committed under `app/_fonts/<family>/` (each family's upstream `OFL.txt` beside them),
+by `scripts/make-logo-outline-fonts.py --only=…`. Raleway carries a **Reserved Font Name**, so it is the stage WOFF2
+decompressed and nothing else (the Logo pins it to 400, `LOGO_FONT_VARIATION`); the other five reserve nothing and are
+the stage's own Latin cuts.

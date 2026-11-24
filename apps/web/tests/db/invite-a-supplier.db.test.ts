@@ -11,7 +11,7 @@
  *   4 · an EXISTING shop joining (join_supplier_invite): the handshake, never counted; "already" on a second join;
  *       its own link is "self".
  *   5 · origin and brought_new_shop cannot be changed after insert.
- *   6 · supplier_invite_join and shop_worked_with_counts are not callable by a signed-in supplier.
+ *   6 · supplier_invite_join is not callable by a signed-in supplier (shop_worked_with_counts is dropped, 21 Nov).
  *   7 · joining answers a pending "+ Add" between the same two shops instead of colliding with it.
  *   8 · owner Q4: "+ Add" naming an UNVERIFIED shop is refused (ADD_NEEDS_A_VERIFIED_SHOP).
  *   9 · owner Q5: the automatic "Worked together" list holds verified shops only.
@@ -22,6 +22,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { completedAndPaid } from './counts-for-trust';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 
 let replay: ReplayResult;
@@ -191,14 +192,13 @@ test('5 · origin and the Invites mark are pinned after insert', async () => {
   }
 });
 
-test('6 · the internal writer and the worked-with read are not a supplier’s to call', async () => {
+test('6 · the internal writer is not a supplier’s to call', async () => {
   await asUser(S.caterer.uid);
   try {
     await assert.rejects(
       db.query(`SELECT public.supplier_invite_join($1, $2, true)`, [S.lights.vp, S.caterer.vp]),
       /permission denied/,
     );
-    await assert.rejects(db.query(`SELECT * FROM public.shop_worked_with_counts($1)`, [S.caterer.vp]), /permission denied/);
   } finally {
     await asOwner();
   }
@@ -236,7 +236,7 @@ test('8 · "+ Add" naming an unverified shop is refused (owner Q4)', async () =>
   assert.equal((await rowsBetween(S.caterer, S.unverified)).length, 0);
 });
 
-test('9 · "Worked together" lists verified shops only (owner Q5)', async () => {
+test('9 · a shop served with but never partnered is not trusted — the automatic "Worked together" is gone (owner 21 Nov)', async () => {
   const past = (
     await db.query<{ event_id: string }>(
       `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting, event_date, event_date_precision)
@@ -250,14 +250,25 @@ test('9 · "Worked together" lists verified shops only (owner Q5)', async () => 
       [past, cat, shop.vp],
     );
   }
-  const others = (
-    await db.query<{ other_vendor_profile_id: string; events: string }>(
-      `SELECT * FROM public.shop_worked_with_counts($1)`,
-      [S.caterer.vp],
+  // Since 21 Nov 2026 "served together" means both bookings completed and paid through Setnayan.
+  await completedAndPaid(db, past, S.caterer.vp);
+  await completedAndPaid(db, past, S.florist.vp);
+  // They DID serve together (the one definition says so) …
+  const together = (
+    await db.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM public.vendor_served_together_rows($1) WHERE other_vendor_profile_id = $2`,
+      [S.caterer.vp, S.florist.vp],
     )
+  ).rows[0]!.n;
+  assert.notEqual(together, '0', 'both bookings completed and paid on one event — served together');
+  // … but no partnership ties them, so Trusted by (shop_trust) has no row for either one.
+  const trusted = (
+    await db.query<{ other_vendor_profile_id: string }>(`SELECT * FROM public.shop_trust(ARRAY[$1]::uuid[])`, [S.caterer.vp])
   ).rows.map((r) => r.other_vendor_profile_id);
-  assert.ok(others.includes(S.florist.vp), 'a verified shop booked on the same past event is listed');
-  assert.ok(!others.includes(S.unverified.vp), 'an unverified shop is never listed');
+  assert.ok(!trusted.includes(S.florist.vp), 'served with but never partnered is not trusted');
+  assert.ok(!trusted.includes(S.unverified.vp));
+  // The old automatic list is gone (Ugat both-ends: no caller → dropped).
+  await assert.rejects(db.query(`SELECT * FROM public.shop_worked_with_counts($1)`, [S.caterer.vp]), /does not exist/);
 });
 
 test('10 · a shop hides rows on its own Trusted by only (owner Q5)', async () => {

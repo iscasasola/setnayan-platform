@@ -1669,7 +1669,8 @@ export type HubMainLoop = HubMainLook & HubMainFx & { ground: 'loop'; loop: Invi
 
 /** The themes whose loop may be picked as a moving background — every shipped theme that has one, in THE one theme order (`INVITE_THEME_IDS`). */
 export function hubMovingBackgroundIds(): InviteThemeId[] {
-  return INVITE_THEME_IDS.filter((id) => INVITE_THEMES[id].media !== null && INVITE_THEMES[id].ready);
+  // 🖼 A still theme (`media.loop === null`, the 23 Nov redraw) is a picture, not a moving background: it never shows as a Video card.
+  return INVITE_THEME_IDS.filter((id) => Boolean(INVITE_THEMES[id].media?.loop) && INVITE_THEMES[id].ready);
 }
 
 export type HubMainGround = HubMainFollow | HubMainOwn | HubMainChoice;

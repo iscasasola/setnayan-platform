@@ -85,11 +85,12 @@ test('"+ Add" is the shipped propose with origin added — one flow, not a secon
   assert.match(actions, /if \(!added\) \{\s*const servedTogether = await servedTogetherWith/);
 });
 
-test('Trusted by reads both directions, the adder’s pending adds, and the worked-with shops', () => {
+test('Trusted by reads the one trust reader: only trusted ties, in both directions (owner 21 Nov)', () => {
   const src = read('lib/vendor-trusted-by.ts');
-  assert.match(src, /\.or\(`recommending_vendor_id\.eq\.\$\{me\},recommended_vendor_id\.eq\.\$\{me\}`\)/);
-  assert.match(src, /if \(r\.status === 'proposed' && !iMade\) continue;/, 'a pending tie shows only on the adder’s page');
-  assert.match(src, /rpc\('shop_worked_with_counts'/);
+  assert.match(src, /fetchShopTrust\(admin, \[me\]\)/, 'Trusted by comes from the one reader');
+  assert.match(src, /if \(t\.vendorProfileId !== me \|\| !t\.trusted\) continue;/, 'a tie still waiting is not shown');
+  assert.match(src, /rpc\('shop_trust'/);
+  assert.doesNotMatch(src, /shop_worked_with_counts/);
 });
 
 test('the Invites badge card carries the drawing §5 count line, and a refused read never reads as 0 (#7891)', async () => {

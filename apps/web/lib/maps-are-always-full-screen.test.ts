@@ -20,8 +20,8 @@
  *   (3) THE ROW floats over the plan right under the top nav — above the 3D room's layer, below the plan's dialogs.
  *   (4) NOTHING TO SCROLL: the event column and its wrapper drop their foot padding while a full view shows.
  *   (5) THE PARTS FILL IT: the seat plan fills the surface (no height or bleed of its own); the map fills it and starts
- *       its fit under the row; the 2D zoom stack rides the lower third above the thumb row; the 3D tools stay one row
- *       on the room's bottom edge (the thumb zone).
+ *       its fit under the row; the 2D zoom is a pill IN the thumb row (20 Nov 2026, drawing § 5 — nothing stands on the
+ *       plan); the 3D tools stay one row on the room's bottom edge (the thumb zone).
  *
  * 🛡 Sabotaged (2026-10-30, each run → red → restored): the ⤢ button put back in `room-view-tools.tsx` → (1) RED ·
  * `position: fixed` added to `.fullSurface` → (2) RED · the row's full-view `z-index: 50` → `z-index: 15` → (3) RED ·
@@ -126,16 +126,18 @@ test('(4) nothing to scroll: the event column and its wrapper drop their foot wh
   assert.ok(at > GLOBALS.indexOf('padding-bottom: var(--sn-thumb-room, 0px);'), 'the rule is overridden by the column’s own');
 });
 
-test('(5) the parts fill the surface: seat plan, map, the 2D zoom in the lower third, the 3D tools in the thumb zone', () => {
+test('(5) the parts fill the surface: seat plan, map, the 2D zoom in the thumb row, the 3D tools in the thumb zone', () => {
   assert.match(IN_GUESTS, /el\.closest\('\[data-guests-full-surface\]'\) !== null/);
   assert.match(IN_GUESTS, /height: fill \? '100%' :/, 'the seat plan keeps a height of its own in the surface');
   assert.match(MAP, /const h = surface \? surface\.clientHeight :/, 'the map does not fill the surface');
   assert.match(MAP, /row\.bottom - el\.getBoundingClientRect\(\)\.top/, 'the map fits behind the row');
   assert.match(MAP, /\(box\.h - box\.inset - lower - 24\) \/ map\.height/);
+  // 20 Nov 2026 (drawing § 5): in Guests the 2D zoom left the plan for the thumb row — fit · − · + as one pill, so nothing
+  // stands on the full-screen plan (the-floor-wears-its-chrome.test.ts). Never at the top under the pinned row either.
   const zoom = EDITOR.slice(EDITOR.indexOf('const zoomStack = ('), EDITOR.indexOf('const studioPeople ='));
-  assert.match(zoom, /\$\{inGuests \? '' : studioSeat \? 'top-3' :/, 'the zoom rides the top of the plan in Guests (under the row)');
-  assert.match(zoom, /bottom: 'max\(0\.75rem, calc\(var\(--sn-thumb-room, 0px\) - var\(--sn-bottomdock-h, 0px\)\)\)'/);
-  assert.match(EDITOR, /\{inGuests && view === 'plan' \? zoomStack : null\}/, 'the zoom is not drawn on the plan’s cell in Guests');
+  assert.match(zoom, /\$\{studioSeat \? 'top-3' : 'bottom-\[64px\] lg:bottom-3'\}/, 'the shipped stack outside Guests moved');
+  assert.doesNotMatch(EDITOR, /\{inGuests && view === 'plan' \? zoomStack : null\}/, 'the zoom stack is back on the plan’s cell in Guests');
   assert.match(EDITOR, /\{inGuests \? null : zoomStack\}/);
+  assert.match(EDITOR, /\.\.\.\(roomOnly \? \[\{ node: <SeatZoomPill onFit=\{fitView\}/, 'the 2D zoom is not in Guests’ thumb row');
   assert.match(TOOLS, /data-room-view-tools=""\s*className="pointer-events-none absolute inset-x-0 bottom-0 /, 'the 3D tools left the thumb zone');
 });

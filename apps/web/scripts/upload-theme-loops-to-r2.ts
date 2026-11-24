@@ -1,6 +1,8 @@
 /**
- * upload-theme-loops-to-r2.ts — put the nine theme loops and their stills on the
- * PUBLIC media bucket, at exactly the keys `lib/invite-themes.ts` names.
+ * upload-theme-loops-to-r2.ts — put every theme's loop and still on the PUBLIC media
+ * bucket, at exactly the keys `lib/invite-themes.ts` names. Since 23 Nov a redrawn
+ * theme has ONE still and no loop (`theme-art/<date>/<id>.webp`, from the corpus
+ * `assets/theme-art-<date>/`); the same command uploads it.
  *
  * Event Hub Maker Phase 3 (build plan D11): the loops go to `setnayan-media`
  * (served from its r2.dev URL, egress free) — never to `public/`, because Vercel
@@ -38,7 +40,17 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { HUB_THEMES, themeMediaKey } from '../lib/invite-themes';
 
-const SOURCE = path.join(os.homedir(), 'Documents/Claude/Projects/Setnayan/assets/theme-backgrounds-2026-09-24');
+const CORPUS_ASSETS = path.join(os.homedir(), 'Documents/Claude/Projects/Setnayan/assets');
+const SOURCE = path.join(CORPUS_ASSETS, 'theme-backgrounds-2026-09-24');
+/**
+ * 🖼 The 23 Nov redraw's STILLS (one picture per theme, no loop) live beside the loops, each dated folder under the
+ * corpus `assets/` named exactly as its key's folder: `theme-art/2026-11-23/<id>.webp` ← `assets/theme-art-2026-11-23/`.
+ */
+function sourceFor(key: string): string {
+  const art = /^theme-art\/(\d{4}-\d{2}-\d{2})\/(.+)$/.exec(key);
+  return art ? path.join(CORPUS_ASSETS, `theme-art-${art[1]}`, art[2]!) : path.join(SOURCE, path.basename(key));
+}
+const TYPES: Record<string, string> = { '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.webp': 'image/webp' };
 const BUCKET = 'setnayan-media';
 const APPLY = process.argv.includes('--apply');
 
@@ -48,10 +60,12 @@ const jobs: Job[] = [];
 const missing: string[] = [];
 for (const theme of HUB_THEMES) {
   if (!theme.media) continue;
+  // A still theme (23 Nov redraw) has no loop — its poster IS its ground.
   for (const ref of [theme.media.loop, theme.media.poster]) {
+    if (ref === null) continue;
     const key = themeMediaKey(ref);
     if (!key) throw new Error(`${theme.id}: ${ref} is not a public-bucket ref`);
-    const file = path.join(SOURCE, path.basename(key));
+    const file = sourceFor(key);
     if (!fs.existsSync(file)) {
       missing.push(`${theme.id}: ${file}`);
       continue;
@@ -59,7 +73,7 @@ for (const theme of HUB_THEMES) {
     jobs.push({
       key,
       file,
-      type: key.endsWith('.mp4') ? 'video/mp4' : 'image/jpeg',
+      type: TYPES[path.extname(key)] ?? 'application/octet-stream',
       bytes: fs.statSync(file).size,
     });
   }

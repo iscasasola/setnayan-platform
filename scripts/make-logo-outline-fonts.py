@@ -83,7 +83,21 @@ THEME_FACES = {
     'cookie': ('app/_fonts/cookie/cookie-400.woff2', 400, True),
     'delafield': ('app/_fonts/mrs-saint-delafield/mrs-saint-delafield-400.woff2', 400, True),
     'monoton': ('app/_fonts/monoton/monoton-400.woff2', 400, True),
+    # 2026-11-23 · the Event Hub themes redraw, batch 1 (`scripts/build-theme-faces.py`). Raleway reserves its name
+    # (whole; the Logo pins it to 400, `LOGO_FONT_VARIATION`); the rest are already the stage's Latin cuts.
+    'raleway': ('app/_fonts/raleway/raleway-variable.woff2', 400, True),
+    'gloock': ('app/_fonts/gloock/gloock-400.woff2', 400, False),
+    'mulish': ('app/_fonts/mulish/mulish-400.woff2', 400, False),
+    'worksans': ('app/_fonts/work-sans/work-sans-400.woff2', 400, False),
+    'epilogue': ('app/_fonts/epilogue/epilogue-700.woff2', 700, False),
+    'newsreader': ('app/_fonts/newsreader/newsreader-400.woff2', 400, False),
 }
+
+# `--only=a,b` rebuilds just those keys (a new batch), leaving every shipped outline byte-for-byte as it is.
+ONLY = next((arg.split('=', 1)[1].split(',') for arg in sys.argv[1:] if arg.startswith('--only=')), None)
+if ONLY is not None:
+    THEME_FACES = {k: v for k, v in THEME_FACES.items() if k in ONLY}
+    SOURCES = {k: v for k, v in SOURCES.items() if k in ONLY}
 
 
 def reserved(src_path: str) -> bool:

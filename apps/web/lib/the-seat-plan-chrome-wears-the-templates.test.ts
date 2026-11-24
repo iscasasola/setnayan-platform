@@ -126,11 +126,22 @@ test('4 · NO LAB draws the seat plan — a lab press cannot reach it — and FI
   const SEATS_LAB = 'app/dev/guests-lab/lab-seats-march.tsx';
   if (found.includes(SEATS_LAB)) {
     const lab = readFileSync(join(WEB, SEATS_LAB), 'utf8');
-    const ids = [...lab.matchAll(/eventId="([^"]+)"/g)].map((m) => m[1]!);
+    const ids = [...lab.matchAll(/eventId(?:=|: )"([^"]+)"/g)].map((m) => m[1]!); // an attribute, or the editor's props object (2026-11-20)
     assert.ok(ids.length > 0 && ids.every((id) => /^S89E-[0-9A-Z]*[ILOU][0-9A-Z]*$/.test(id)), `the seats lab's event id could be a real event's: ${ids.join(', ')}`);
     assert.doesNotMatch(lab, /seating\/actions|indoor-blueprint\/actions/, 'the seats lab imports a seat-plan action');
   }
-  const others = found.filter((f) => f !== SHEET_LAB && f !== SEATS_LAB);
+  /* ONE more (2026-11-20, the Guests redesign's floor — "add a table" and "Seat everyone for me" must be TAPPED through at
+     375, and the fixture event refuses every write): `&floor=empty` draws the shipped editor inside `lab-seat-floor.tsx`,
+     which stands in for the floor's four writes through `SeatFloorWritesContext` (the app never provides it —
+     🔒 the-empty-floor-starts-in-one-tap.test.ts). 🔒 held here: it imports no seat-plan action, so a lab press still
+     reaches no database. */
+  const FLOOR_LAB = 'app/dev/guests-lab/lab-seat-floor.tsx';
+  if (found.includes(FLOOR_LAB)) {
+    const lab = readFileSync(join(WEB, FLOOR_LAB), 'utf8');
+    assert.doesNotMatch(lab, /seating\/actions|indoor-blueprint\/actions|'use server'/, 'the floor lab imports a seat-plan action');
+    assert.match(lab, /<SeatFloorWritesContext\.Provider value=\{writes\}>/, 'the floor lab does not stand in for the writes');
+  }
+  const others = found.filter((f) => f !== SHEET_LAB && f !== SEATS_LAB && f !== FLOOR_LAB);
   assert.deepEqual(others, [], `a lab draws the seat plan: ${others.join(', ')}`);
   for (const f of ['maker-details.tsx', 'maker-shell.tsx', 'details-workspace.tsx', 'details-lazy.tsx']) {
     const src = read(`app/dashboard/[eventId]/launch/_components/${f}`).replace(/^import type [^;]*;$/gm, '').replace(/import\(\/\*[^*]*\*\/ '[^']*'\)/g, '');

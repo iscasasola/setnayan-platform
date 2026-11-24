@@ -354,7 +354,10 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           storeShell: false,
           suggested: 'vintage',
           sampleVersion: null,
-          posters: {},
+          /* 🎬 The theme set's cards and pieces in the lab: the real print engine on lab facts, the corpus's pictures
+             (`/dev/maker-lab/theme-print`), and the lab's themed hub page standing in for the sample page. */
+          posters: Object.fromEntries(themes.map((t) => [t.id, t.media ? `/dev/maker-lab/theme-print?piece=art&theme=${t.id}` : null])),
+          setLab: { page: '/dev/maker-lab/guest?heldpass=signedout&hub=1&look={theme}', print: '/dev/maker-lab/theme-print?piece={piece}&theme={theme}' },
           tour: false,
           chosen: mj || !fresh,
           // maria-and-jose's film keeps a picked background (plain #e8d9bd).

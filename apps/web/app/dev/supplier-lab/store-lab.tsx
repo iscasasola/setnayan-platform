@@ -26,7 +26,7 @@ export type StoreLabState = (typeof STORE_LAB_STATES)[number];
 function labStore(fail: boolean, none: boolean, tiles: ShelfTile[] | null): StoreData {
   const on: CardKey[] = fail ? ['opened', 'asked', 'booked'] : none ? ['opened', 'asked'] : ['opened', 'asked', 'booked', 'reply', 'slow'];
   return {
-    layout: fail ? null : { graphs: on, badges: null, tools: none ? null : ['scanner', 'headcount', 'run_of_show'], toolsOff: [] },
+    layout: fail ? null : { graphs: on, badges: null, tools: none ? null : ['scanner', 'headcount', 'run_of_show'], toolsOff: [], qrs: null },
     tools: {
       // "none" doubles as the shop that is not Verified yet: its free widgets say "Free once you’re Verified".
       freeOpen: fail ? null : none ? false : true,

@@ -1,3 +1,5 @@
+// 🎨 The Event Hub themes' page blocks (the 23 Nov redraw) — a theme is worn on the guest Event Hub.
+import '@/app/hub-themes.css';
 import { type AnnouncementStage } from '@/lib/coordinator-broadcasts';
 import { announcementStageOf } from './_lib/announcement-stage';
 import { DayOfAnnouncement } from './_components/day-of-announcement';

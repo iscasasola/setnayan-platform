@@ -234,14 +234,19 @@ test('(1b) each Look row of Event Details opens the panel on ITS section — and
   assert.match(details, /<StudioTool part="look" item=\{k\} \/>\s*<LookPanel sections=\{LOOK_ITEM_SECTIONS\[k\]\} item=\{k\} extras=\{lookExtras\[k\]\} \/>/);
   assert.match(details, /background: st\.main !== undefined \? \{ background: <StudioTool part="main-extras"/, 'the main background’s extras are not under the main background');
   assert.match(details, /\? \{ colours: <StudioTool part="main-colours"/, 'the five main colours are not under Elements › Colours');
-  assert.match(details, /bodyAlias=\{\{ background: 'theme', elements: 'theme', music: 'theme' \}\}/, 'a Look row does not show the page');
+  // RE-AIMED 23 Nov (Maker parts 4–6): in the Maker, Look's own Theme tab shows the moving set, so Background · Elements ·
+  // Music share Background's body — the SAME page (`DetailsLookPageBody`); outside the Maker they share the Look's, as before.
+  assert.match(details, /bodyAlias=\{props\.studio \? \{ elements: 'background', music: 'background' \} : \{ background: 'theme', elements: 'theme', music: 'theme' \}\}/, 'a Look row does not show the page');
+  assert.match(details, /bodies\.background = <DetailsLookPageBody \/>;/, 'a Look row does not show the page');
   // The Studio's home tile names the three too — derived from the list, never a second copy of it.
   const { STUDIO_TILES } = await import('./studio-tiles');
   assert.equal(STUDIO_TILES.look.sub, 'Background · Elements · Music', 'the Look tile still names the old sections');
   // The Studio's one bar says the three, and draws one segment per row of that list.
   const tools = read(`${L}/studio-tools.tsx`);
   assert.match(tools, /STUDIO_LOOK_LABEL: Readonly<Record<LookSectionItemKey, string>> = \{\s*background: 'Background',\s*elements: 'Elements',\s*music: 'Music',\s*\};/, 'the Studio’s bar does not say Background · Elements · Music');
-  assert.match(tools, /\{LOOK_SECTION_ITEM_KEYS\.map\(\(k\) => \(\s*<ISeg key=\{k\} on=\{k === item\}/, 'the Studio’s bar is not drawn from the one list');
+  // RE-AIMED 23 Nov (Maker parts 4–6): the bar is drawn from `STUDIO_LOOK_TABS` — Theme, then exactly the three sections.
+  assert.match(tools, /\{STUDIO_LOOK_TABS\.map\(\(k\) => \(\s*<ISeg key=\{k\} on=\{k === item\}/, 'the Studio’s bar is not drawn from the one list');
+  assert.match(read('lib/studio-tile-defs.ts'), /export const STUDIO_LOOK_TABS = \['theme', \.\.\.LOOK_SECTION_ITEM_KEYS\] as const/, 'Look’s tabs are not Theme and the three sections');
 });
 
 /* ── (2) the Look door's item ─────────────────────────────────────────── */

@@ -4,7 +4,7 @@ import { findSampleEventId } from '@/app/tour/_lib/sample-event';
 import { normalizeThemeId } from '@/lib/invite-themes';
 import { loadPrintSet } from '@/lib/print-set.server';
 import { sampleBoardFor } from '@/lib/sample-board.server';
-import { layoutPieceView } from '@/lib/print-layout';
+import { layoutPieceView, layoutTableSign } from '@/lib/print-layout';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import { spotLayersFor } from '@/lib/print-pieces';
 import { samplePreviewCacheControl } from '@/lib/print-preview-cache';
@@ -28,12 +28,12 @@ import { samplePreviewCacheControl } from '@/lib/print-preview-cache';
  * block) keep describing the couple's path exactly; this door is held by
  * `theme-print-previews-wear-the-theme.test.ts`.
  */
-export const SAMPLE_PIECES = ['invitation', 'details', 'pass'] as const;
+export const SAMPLE_PIECES = ['invitation', 'details', 'pass', 'table-sign'] as const;
 
 export async function sampleView(rawPiece: string, url: URL): Promise<NextResponse> {
   const piece = (SAMPLE_PIECES as readonly string[]).includes(rawPiece) ? (rawPiece as (typeof SAMPLE_PIECES)[number]) : null;
   if (!piece || url.searchParams.get('mode') !== 'screen') {
-    return new NextResponse('The sample shows its invitation, details and pass on screen only.', { status: 404 });
+    return new NextResponse('The sample shows its invitation, details, pass and table sign on screen only.', { status: 404 });
   }
   const sampleId = await findSampleEventId();
   if (!sampleId) return new NextResponse('No sample.', { status: 404 });
@@ -50,11 +50,11 @@ export async function sampleView(rawPiece: string, url: URL): Promise<NextRespon
   });
   if (!set) return new NextResponse('No sample.', { status: 404 });
   const spot = spotLayersFor(set.theme);
-  const svg = renderPrintSvg(
-    layoutPieceView(piece, { look: set.look, data: set.data, mode: 'screen', foil: spot.foil, whiteInk: spot.whiteInk, format: null }),
-    set.images,
-    { compact: true },
-  );
+  const input = { look: set.look, data: set.data, mode: 'screen' as const, foil: spot.foil, whiteInk: spot.whiteInk, format: null };
+  /* 🪧 The table sign in the theme (the Maker's theme set, 23 Nov): the sample's "Table 4" — no table code is drawn for a
+     sample, so the sign carries none. */
+  const doc = piece === 'table-sign' ? layoutTableSign(input, { label: 'Table 4', line: '', qrRef: null }) : layoutPieceView(piece, input);
+  const svg = renderPrintSvg(doc, set.images, { compact: true });
   return new NextResponse(svg, {
     status: 200,
     headers: {

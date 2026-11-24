@@ -6,7 +6,8 @@
  *
  *   1 · a proposal between two shops that never served together is REFUSED by the insert trigger (NOT_SERVED_TOGETHER);
  *   2 · a shared event that has not happened yet does not count — refused;
- *   3 · a shared event whose date has passed, both shops BOOKED — allowed;
+ *   3 · a shared event whose date has passed, both shops' bookings completed and paid through Setnayan — allowed
+ *       (owner 21 Nov 2026, "TRUST NEEDS ONE COMPLETED, PAID EVENT THE TWO SHOPS SERVED TOGETHER", 20271361607663);
  *   4 · "considering" is not booked, a sample event is not an event — refused;
  *   5 · partners_you_served_with() lists ONLY the eligible shops — type + date, never the event's name;
  *       and refuses a shop that is not the caller's (not_your_shop), rather than answering empty;
@@ -19,6 +20,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { completedAndPaid } from './counts-for-trust';
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
@@ -108,6 +110,8 @@ before(async () => {
   await book(past, S.florist, 'florist', 'complete');
   await book(past, S.band, 'band_dj', 'deposit_paid');
   await book(past, S.maybe, 'florist', 'considering');
+  // Since 21 Nov 2026 "served together" means both bookings completed and paid through Setnayan.
+  for (const shop of [S.photo, S.florist, S.band]) await completedAndPaid(db, past, shop.vp);
 
   // A wedding that has not happened yet — photo + future booked.
   const coming = await mkEvent('Next Year Wedding', '2099-12-18');
@@ -135,7 +139,7 @@ test('2 · a shared event in the future does not count yet', async () => {
   await assert.rejects(propose(S.photo, S.future), /NOT_SERVED_TOGETHER/);
 });
 
-test('3 · after a shared past event, both booked — the link is allowed (either direction)', async () => {
+test('3 · after a shared past event, both completed and paid — the link is allowed (either direction)', async () => {
   await propose(S.photo, S.florist);
   await propose(S.band, S.photo);
   const n = await db.query<{ c: number }>(

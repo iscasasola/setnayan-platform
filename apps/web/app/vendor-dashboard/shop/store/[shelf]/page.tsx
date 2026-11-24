@@ -12,7 +12,9 @@ export async function generateMetadata({ params }: { params: Promise<{ shelf: st
 }
 
 /**
- * 🛍 ONE STORE SHELF (drawing v12 — Specialized Tools · Graphs · Badges). A Shop [+] tile lands here.
+ * 🛍 ONE TOOLKIT SHELF (drawing v19). A Shop [+] tile lands here. `tools` = every widget; `chat` · `present` · `hub` ·
+ * `shop_page` = a widget shelf (its widgets as a list); `qr` = the QR designs; `yours` = the Your widgets manager
+ * (place chips, Open · How to use it · Remove). The three Forms shelves have no item yet, so they have no page.
  *   Tools  — tag chips, then "For you", "Yours" (✓ Installed) and "More tools" (Install · Buy ₱ the one-time price · Price not
  *            set yet), each tool with the supplier types it is for.
  *   Graphs — "On your Analytics" (✓ On your page; the order lives on the Shop’s Edit), then the groups with Get, or the badge that opens it.

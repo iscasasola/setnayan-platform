@@ -3,6 +3,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { MY_QRS_HREF } from '@/lib/supplier-qr-codes';
+import { readStoreLayout } from '@/lib/supplier-store.server';
+import { hiddenQrs } from '@/lib/supplier-store';
 import { ToolFail, ToolPage, ToolPin } from '../../_components/tool-page';
 import { MyQrsList } from './_components/my-qrs-list';
 
@@ -18,7 +20,9 @@ export const dynamic = 'force-dynamic';
  * old `?mode=` link (Promote, Customers › QR codes, Today) lands on the code's own page here (`myQrHref`). Booked ·
  * one-use and Crew stay per event on Customers › QR codes.
  *
- * One read: the shop (its web address and name). A refused read is said, with Try again — never an empty list.
+ * Reads: the shop (its web address and name), then its Toolkit layout — a QR design removed in the Toolkit is not
+ * listed (Your page is built in). A refused shop read is said, with Try again — never an empty list; a refused layout
+ * read hides nothing.
  */
 export default async function MyQrsPage() {
   const user = await getCurrentUser();
@@ -28,6 +32,8 @@ export default async function MyQrsPage() {
   // 🔑 A refused read throws (`fetchOwnVendorProfile`); only a proven "no shop" is null.
   const profile = await fetchOwnVendorProfile(supabase, user.id).catch(() => 'unread' as const);
   if (profile === null) redirect('/vendor-dashboard');
+  const hide =
+    profile === 'unread' ? [] : await readStoreLayout(supabase, (profile as { vendor_profile_id: string }).vendor_profile_id).then(hiddenQrs).catch(() => []);
 
   return (
     <ToolPage name="my-qrs">
@@ -35,7 +41,7 @@ export default async function MyQrsPage() {
       {profile === 'unread' ? (
         <ToolFail title="Couldn’t load your QR codes" line="Every code you printed or shared still works." retryHref={MY_QRS_HREF} data="my-qrs" />
       ) : (
-        <MyQrsList canShare={Boolean((profile as { business_slug?: string | null }).business_slug)} setupHref="/vendor-dashboard/shop" />
+        <MyQrsList canShare={Boolean((profile as { business_slug?: string | null }).business_slug)} setupHref="/vendor-dashboard/shop" hide={hide} />
       )}
     </ToolPage>
   );

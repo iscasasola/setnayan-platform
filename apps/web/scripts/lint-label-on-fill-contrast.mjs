@@ -855,9 +855,13 @@ const hex = (rgb) => '#' + rgb.map((c) => c.toString(16).padStart(2, '0')).join(
 const GUEST_DIRS = ['app/[slug]', 'app/join'];
 const FAINT_BASELINE_FILE = join(__dirname, 'guest-faint-ink.baseline.json');
 
-/** [name, ink, paper] for the house look and every hub theme that sets both, read from globals.css. */
+/**
+ * [name, ink, paper] for the house look and every hub theme that sets both, read from globals.css — and from
+ * app/hub-themes.css, where the 23 Nov redraw's theme blocks live (globals.css sits at its ceiling), so a theme moved
+ * there is still measured.
+ */
 function guestLooks() {
-  const css = stripComments(readFileSync(join(WEB_ROOT, 'app/globals.css'), 'utf8'));
+  const css = ['app/globals.css', 'app/hub-themes.css'].map((f) => stripComments(readFileSync(join(WEB_ROOT, f), 'utf8'))).join('\n');
   const tok = (body, name) => {
     const m = body.match(new RegExp('--color-' + name + ':\\s*(\\d{1,3})\\s+(\\d{1,3})\\s+(\\d{1,3})\\s*;'));
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;

@@ -147,7 +147,7 @@ export type SheetRow = {
   tray?: PlusTrayGroup;
   /** ＋ FINAL: Every version — raises the chat's versions sheet (`raiseDeal`). */
   opensVersions?: boolean;
-  /** 🧰 Share from your tools — opens the tray's second level, the picker of the tools this shop has. */
+  /** 🧰 Share from your widgets — opens the tray's second level, the picker of the tools this shop has. */
   opensTools?: boolean;
   /** The drawing's "New" mark beside the name. */
   isNew?: boolean;
@@ -219,7 +219,7 @@ export function ToolsSheetButton({
   sheetMark: string;
   threadId?: string;
   /**
-   * 🧰 The tools this shop may share here (`readShareableTools`, read once by the page) — the "Share from your tools"
+   * 🧰 The tools this shop may share here (`readShareableTools`, read once by the page) — the "Share from your widgets"
    * picker lists ONLY these. `null` = they could not be read (the picker says so, never an empty "none").
    */
   share?: ShareableRead | null;
@@ -516,7 +516,7 @@ export function ToolsSheetButton({
         ) : null}
       </div>
     ) : null;
-  // 🧰 Share from your tools — the second level (drawing frame 7, "The picker"): ONLY the tools this shop has, in the
+  // 🧰 Share from your widgets — the second level (drawing frame 7, "The picker"): ONLY the tools this shop has, in the
   // drawing's order. A pick posts its card through the shipped send, as the shop (`sent_as=vendor`); the server checks
   // the shop holds that tool. Nothing held → said, with the way to the Store; an unread list → said, never "none".
   const shareTools = share?.tools ?? [];

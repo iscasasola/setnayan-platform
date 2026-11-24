@@ -262,7 +262,8 @@ test('7 · each tile (RSVP left in R1, Wedding March and Seat plan in R4, Prints
   const { STUDIO_TILE_KEYS, STUDIO_TILES, studioTileItem } = await import('./studio-tiles');
   /* 🖨 No Prints tile (R8): Prints is its own page (`lib/prints-has-its-own-page.test.ts`). */
   const want: Record<string, string> = {
-    info: 'names', look: 'background', logo: 'logo', mood: 'mood-board', schedule: 'schedule', story: 'love-story',
+    // RE-AIMED 23 Nov (DECISION_LOG "THEMES ARE SHOWN AS THE ANIMATED SET", Maker parts 4–6): Look opens on its Theme tab.
+    info: 'names', look: 'theme', logo: 'logo', mood: 'mood-board', schedule: 'schedule', story: 'love-story',
     gifts: 'gifts',
   };
   assert.deepEqual([...STUDIO_TILE_KEYS].sort(), Object.keys(want).sort(), 'a tile has no editor named here, or one named here is no tile');

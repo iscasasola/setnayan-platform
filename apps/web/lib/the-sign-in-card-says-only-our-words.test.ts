@@ -51,7 +51,8 @@ test('a sign-in that leads back to an event is a guest’s — the candidate slu
 test('the guest version drops "Welcome back" and "couples and vendors"; nobody is told "vendor"', () => {
   const card = stripComments(readFileSync(join(__dirname, '..', 'app', 'login', '_components', 'sign-in-card.tsx'), 'utf8'));
   // Since 24 Nov 2026 (owner, "fewer words") the guest version is its one title, `GUEST_SIGN_IN_WORDS.title`.
-  assert.match(card, /\{forGuest \? GUEST_SIGN_IN_WORDS\.title : 'Sign in'\}/, 'the card has no guest version');
+  // A business door (#8263) puts its own title first: `door ? DOOR… : forGuest ? GUEST… : 'Sign in'`.
+  assert.match(card, /forGuest \? GUEST_SIGN_IN_WORDS\.title : 'Sign in'\}/, 'the card has no guest version');
   assert.doesNotMatch(card, /Welcome back/, 'the simple card says "Sign in", nothing more');
   assert.doesNotMatch(card, /couples and vendors/);
   assert.match(card, /placeholder="you@email\.com"/);

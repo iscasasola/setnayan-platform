@@ -275,7 +275,8 @@ function run(script: string, env: Record<string, string>): { status: number | nu
   const r = spawnSync(TSX, [join(KIT, script), '--dry-run'], {
     cwd: ROOT,
     encoding: 'utf8',
-    env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', ...env },
+    // A clean environment on purpose: nothing STAGING_* or production-shaped is inherited from the test runner.
+    env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', ...env } as unknown as NodeJS.ProcessEnv,
     timeout: 60_000,
   });
   return { status: r.status, out: `${r.stdout}${r.stderr}` };

@@ -49,7 +49,7 @@ test('the ten are shipped, each on its library template; the four held tools get
   }
   for (const key of HELD) {
     assert.ok(HUB_TOOL_LIBRARY.some((x) => x.key === key), `${key} stays in the library`);
-    assert.ok(!DAY_OF_MODULES.some((m) => m.id === key || m.hubTool === key), `${key} is held — no switch on the Hub`);
+    assert.ok(!DAY_OF_MODULES.some((m) => (m.id as string) === key || m.hubTool === key), `${key} is held — no switch on the Hub`);
   }
 });
 

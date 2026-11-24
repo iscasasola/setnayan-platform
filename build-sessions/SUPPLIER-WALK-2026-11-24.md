@@ -116,3 +116,38 @@ The faults below are wrong numbers, wrong prompts and speed.
   - `/open-shop` ×3: name and address check reads.
   - `/vendor-dashboard/clients/<id>?tab=quote` ×3: quote loader actions.
   - `/api/telemetry/client-fault` ×2.
+
+---
+
+## Re-walk: /for-suppliers on live 43cac96 (AK #8245 + #8258), signed out, read-only
+
+How it was walked: a clean headless Chromium on this Mac (no cookies, so truly signed out), at 390 (touch, light and dark) and 1280. Every link was fetched. Every button on the page was pressed: menu, fee steps 1·2·3, the five plan tabs, "See all 45", and the sheet's Close. Nothing was submitted and nothing was written to prod. File anchors are on `origin/main` 43cac96a19.
+
+**Works (no fault):**
+- All 17 links land with 200: `/open-shop`, `/open-shop?plan=plus|pro|ultra`, `/login`, `/pricing` ("Couple pricing"), the menu pages and the legal pages.
+- Plan tabs Free · Verified · Plus · Pro · Ultra: each press marks its tab (`aria-pressed`) and centres its card. The page opens on Verified, as drawn (`START_PLAN`).
+- Plan prices: Plus ₱1,990 · Pro ₱4,990 · Ultra ₱8,990 per month, read from `getVendorPrices()` (`vendor_billing_catalog`). Free and Verified both say "Free". No typed peso exists in the page code.
+- Gift rows (₱99 · ₱2,990 · ₱5,490) come from `platform_retail_catalog_v2`, with "Couldn't read the gifts just now." when the read fails.
+- The storage bars over the tabs are linear (1 TB = 152 px), with a 5 px floor.
+- Toolkit: "45 in the Toolkit: 11 tools · 29 graphs · 5 badges" matches the sheet, which lists exactly 11 tools and 5 badges and one "29 graphs" line. Close shuts it.
+- The ☰ menu opens the drawer at 390.
+- No horizontal overflow at 390.
+- Every still, badge and tool picture loads (`complete`, `naturalWidth > 0`). An early screenshot showed the two tool tiles blank and the follow button pale, but that was the scroll-in reveal caught mid-fade; settled shots are full.
+- Console: no errors. Network: no failed responses.
+
+**Load (navigation timing, signed out):**
+
+| Width | TTFB | FCP | load | Note |
+|---|---|---|---|---|
+| 390 cold | 150 ms | 1,572 ms | 2,195 ms | over the 0.7 s budget |
+| 390 warm | 127 ms | 684 ms | 1,084 ms | |
+| 1280 | 113 ms | 488 ms | 528 ms | |
+
+`setnayan.com/for-suppliers` adds a 307 to `www.` (about 0.4 s) before any of the above. These go to the speed session, not this PR.
+
+**Faults (report only; nothing fixed without the controller's GO):**
+
+1. **"Get verified →" lands on a bare `/open-shop`, the same door as Free.** The verify choice is dropped: after the shop opens, nothing takes the supplier to verification. Paid plans carry `?plan=` for exactly this reason (W1-B21, `lib/supplier-plan-offer.ts`), but `parseSupplierPlan` accepts only plus · pro · ultra. Anchor: `apps/web/app/for-suppliers/_components/supplier-front-page.tsx:148` (`cta: t === 'free' ? CTA : 'Get verified', href: OPEN_SHOP`).
+2. **The link-preview text drops Ultra.** `og:description` prices only Plus and Pro, while the title, the meta description and `twitter:description` all list Ultra ₱8,990. Anchor: `apps/web/app/(shell)/for-suppliers/page.tsx:79` (`perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], …)`), used at `:87`.
+3. **(copy, owner's call) "Most of them free." sits over the only two tiles, and both say Paid** (Papic challenge, 3D plan). The claim is true of the Toolkit as a whole: 8 of 11 tools are free or built in, and every graph and badge is free. But the shelf as seen shows paid only. Anchor: `apps/web/app/for-suppliers/_components/supplier-front-page.tsx:316`.
+4. **(unreproduced) One `/api/telemetry/client-fault` POST** fired at 390 during the first button run. Two more full runs at both widths fired none, and there was no page error or console error. The body was not captured. Check Sentry around 24 Nov 05:15 UTC.

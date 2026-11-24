@@ -7,21 +7,26 @@
  *       phone never sends another account's work; an item given up on leaves an answer, never silence.
  *   2 · NO NEW SERVER ACTION — the engine rides the ONE dispatcher (`saveInPlace`, a stay door), and only a door's
  *       `{ stayReply }` is handed back through it.
- *   3 · EVERY KIND HAS A RULE — a role, and (when it names one) a real shipped door; a purchase is answered "Pay when
- *       online" before anything else runs, and never reaches a writer.
+ *   3 · EVERY KIND HAS A RULE — a role, and (when it names one) a real shipped door; nothing that buys or pays is a kind
+ *       (R15: "Needs internet"); every write that names a row is applied only if its `updated_at` is unchanged.
  *   4 · MONEY — the live amounts are re-read through the ONE reader and compared BEFORE the shipped action runs; a moved
  *       amount is `needs_reconfirm {offline, live}`, never applied.
  *   5 · GIFTS — the live stock decides before Add a client runs; none left is `no_gifts_left`; nothing is bought.
  *   6 · A CLASH IS TYPED — `{why, by, at}`, said in the ruling's words, never read as saved.
- *   7 · EXPO HOLDS END ON SYNC — only once nothing is left on the phone.
- *   8 · SIGN-OUT WIPES — the queue, the codes and the answers.
+ *   7 · EXPO HOLDS END ON SYNC — only once nothing is left on the phone; only Shop, Branch and Account Managers hold;
+ *       a Shop Manager or that branch's Branch Manager lets anyone's go (and stops anyone's phone). Teammates see "last
+ *       seen", never a count of another phone's changes (R5, corrected).
+ *   8 · SIGN-OUT WIPES — the queue, the signing keys and the answers; the server stops the phone's key rows.
+ *   9 · R14 — A BOOKING MADE OFFLINE COUNTS ON THAT PHONE AT ONCE: 12 Dec 2 PM booked offline is not offered again; a
+ *       full day reads full; the QR's free-time check, "To collect" and the gift balance read the same copy + queue.
  *
  * Sabotages (2026-11-24), each turns its own test red:
  *   1 · dropping `if (p.member !== activeMember)` from supplier-handler.ts;
  *   4 · moving the `moneyMoved(` check below the first replay in engine.server.ts;
  *   5 · dropping the `fitsStock(` check in clientAdd;
  *   7 · `if (left === 0)` → `if (true)` in supplier-queue.ts;
- *   8 · dropping `forgetSupplierOffline()` from the worker's OFFLINE_FORGET.
+ *   8 · dropping `forgetSupplierOffline()` from the worker's OFFLINE_FORGET;
+ *   9 · dropping the queue's seats from `localSlot` (`copy.taken + q.seats` → `copy.taken`).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -34,15 +39,24 @@ import { stayReplyOf } from '@/lib/save-in-place';
 import { SERVICE_CODES } from '@/lib/offline/types';
 import { SUPPLIER_OFFLINE_OUTCOMES_KEY } from '@/lib/offline-copies';
 import {
+  BOOKED_NOT_CONFIRMED,
   SUPPLIER_OFFLINE_KINDS,
+  giftsLeftWithQueue,
   isFinalOutcome,
+  lastSeenLine,
+  localSlot,
   moneyMoved,
+  offerableTimes,
   outcomeFromSqlAnswer,
   outcomeLine,
   parseQueuedItem,
   parseSyncReply,
-  pendingLine,
+  rowUnchanged,
+  toCollectWithQueue,
+  waitingToSendLine,
+  type LocalDayCopy,
   type SupplierOfflineKind,
+  type SupplierQueuedItem,
 } from './kinds';
 
 const root = path.join(import.meta.dirname, '..', '..');
@@ -121,23 +135,30 @@ test('2 · no new server action: the engine is a stay door on the ONE dispatcher
   assert.match(door, /const reply = stayReplyOf\(value\);/, 'the dispatcher no longer hands a door’s reply back');
 });
 
-test('3 · every kind has a rule and a role; a named door is real; a purchase is "Pay when online" before anything runs', () => {
+test('3 · every kind has a rule and a role; a named door is real; nothing that buys is a kind; a named row must be unchanged', () => {
   const kinds = Object.keys(SUPPLIER_OFFLINE_KINDS) as SupplierOfflineKind[];
   // The ruling's list: schedule, client and lead, note, message draft, booking, payment record, gift.
-  for (const want of ['schedule.client', 'schedule.edit', 'schedule.remove', 'qr.booking', 'client.add', 'lead.outcome', 'note.add', 'message.send', 'booking.accept', 'payment.confirm', 'payment.ask', 'deposit.ack', 'purchase']) {
+  for (const want of ['schedule.client', 'schedule.edit', 'schedule.remove', 'qr.booking', 'client.add', 'lead.outcome', 'note.add', 'message.send', 'booking.accept', 'payment.confirm', 'payment.ask', 'deposit.ack']) {
     assert.ok(kinds.includes(want as SupplierOfflineKind), `${want} cannot be done offline`);
   }
   for (const k of kinds) {
     const r = SUPPLIER_OFFLINE_KINDS[k] as { rule: string; capability: string; door?: string };
     if (r.door) assert.ok((STAY_DOORS as readonly string[]).includes(r.door), `${k} replays through ${r.door}, which is not a shipped door`);
-    if (r.rule === 'purchase') assert.equal(r.door, undefined, `${k} is a purchase that names a writer`);
+    assert.notEqual(r.capability, 'plan', `${k} buys something — R15: buying needs internet`);
+    assert.doesNotMatch(k, /purchase|buy|pay_online|checkout/, `${k} reads like a purchase — R15: nothing is bought offline`);
   }
-  assert.deepEqual(kinds.filter((k) => SUPPLIER_OFFLINE_KINDS[k].rule === 'purchase'), ['purchase']);
-  const engine = read('lib/supplier-offline/engine.server.ts');
-  const pay = engine.indexOf("done({ status: 'pay_when_online' })");
-  assert.ok(pay > -1 && pay < engine.indexOf('await contextFor(item.shop'), 'a purchase reaches a check (or a writer) before it is answered "Pay when online"');
+  assert.equal(parseQueuedItem(item({ kind: 'purchase' })), null, 'a purchase was accepted into the queue');
   assert.equal(parseQueuedItem(item({ kind: 'buy_anything' })), null, 'an unknown action was accepted into the queue');
   assert.equal(parseQueuedItem(item({ madeOffline: false })), null, 'an action without the made-offline mark was accepted');
+  assert.equal(parseQueuedItem(item({ rowVersion: { table: 'users', id: 'x', updatedAt: '2026-11-24T00:00:00Z' } })), null, 'a queued item named a table it may not');
+  assert.ok(parseQueuedItem(item({ rowVersion: { table: 'event_vendors', id: 'ev1', updatedAt: '2026-11-24T00:00:00Z' } })));
+  assert.equal(rowUnchanged({ table: 'event_vendors', id: 'ev1', updatedAt: '2026-11-24T00:00:00Z' }, '2026-11-24T00:00:00+00:00'), true, 'the same instant spelled differently read as a change');
+  assert.equal(rowUnchanged({ table: 'event_vendors', id: 'ev1', updatedAt: '2026-11-24T00:00:00Z' }, '2026-11-24T00:00:01Z'), false, 'a changed row read as unchanged');
+  assert.equal(rowUnchanged({ table: 'event_vendors', id: 'ev1', updatedAt: '2026-11-24T00:00:00Z' }, null), false);
+  const engine = read('lib/supplier-offline/engine.server.ts');
+  const sync = engine.slice(engine.indexOf('async function syncOne'), engine.indexOf('/* ── the phone'));
+  const stale = sync.indexOf('await rowStillAsSeen(ctx, item)');
+  assert.ok(stale > -1 && stale < sync.indexOf('await moneyAction(') && stale < sync.indexOf('await replayDoor('), 'a write that names a row runs before the row is compared');
   assert.ok(parseQueuedItem(item()));
 });
 
@@ -188,27 +209,36 @@ test('6 · a clash is typed — {why, by, at} — said in the ruling’s words, 
   assert.match(outcomeLine(couple) ?? '', /A couple booked/);
   assert.equal(outcomeFromSqlAnswer(null, names).status, 'refused', 'no answer was read as saved');
   assert.equal(isFinalOutcome({ status: 'retry' }), false, 'a retry is dropped from the phone');
-  for (const s of ['applied', 'clash', 'needs_reconfirm', 'no_gifts_left', 'pay_when_online', 'refused'] as const) assert.equal(isFinalOutcome({ status: s }), true);
+  for (const s of ['applied', 'clash', 'needs_reconfirm', 'no_gifts_left', 'refused'] as const) assert.equal(isFinalOutcome({ status: s }), true);
   assert.equal(parseSyncReply({ itemId: 'x', kind: 'schedule.client', status: 'clash', clash: { why: 'merged' } }), null, 'an unknown clash was accepted');
-  assert.equal(pendingLine('Ben', 3, null), 'Ben: 3 changes waiting');
-  assert.equal(pendingLine('Ben', 0, null), null);
+  assert.equal(lastSeenLine('Ana', null, { start: '2026-12-10', end: '2026-12-15' }), 'Ana · holding Dec 10–Dec 15');
+  assert.doesNotMatch(lastSeenLine('Ana', '2026-11-24T06:14:00Z', null), /waiting|change/, 'a teammate’s line counts changes the server cannot see');
+  assert.equal(waitingToSendLine(3), '3 changes waiting to send');
+  assert.equal(waitingToSendLine(0), null);
 });
 
-test('7 · expo holds end on sync — only once nothing is left on the phone', () => {
+test('7 · expo holds end on sync; the right roles hold, release and stop; teammates see last seen, never a count', () => {
   const queue = read('lib/offline/supplier-queue.ts');
   const body = queue.slice(queue.indexOf('export async function sendQueuedSupplierActions'), queue.indexOf('export async function reconfirmMoney'));
   assert.match(body, /if \(left === 0\) await door\('holds\.synced'/, 'holds end while changes are still waiting (or never end)');
-  assert.match(body, /door\('presence\.report'/, 'teammates are not told how many changes are waiting');
+  assert.match(body, /door\('device\.seen'/, 'teammates are not told this phone was seen');
+  assert.doesNotMatch(queue, /presence\.report|waiting: String/, 'a count of this phone’s changes is sent to the team (R5)');
   const engine = read('lib/supplier-offline/engine.server.ts');
-  assert.match(engine, /may_release_any: dutyMay\(ctx\.duty, 'team'\)/, 'anyone can let another member’s hold go');
-  assert.match(engine, /contextFor\(str\(fd, 'shop'\), 'schedule'\);\n\s*if \('why' in ctx\) return refusal\('codes\.cancel'/, 'cancelling a lost phone’s codes is not open to every teammate');
+  assert.match(engine, /HOLD_DUTIES: ReadonlyArray<VendorDuty> = \['shop_manager', 'branch_manager', 'account_manager'\]/, 'the roles that may hold dates changed');
+  assert.match(engine, /if \(!HOLD_DUTIES\.includes\(ctx\.duty\)\) return refusal\(op,/, 'any role can hold dates');
+  const may = engine.slice(engine.indexOf('async function mayStopFor'), engine.indexOf('/** "Stop QR codes from this phone"'));
+  assert.match(may, /ctx\.duty === 'shop_manager'\) return true/);
+  assert.match(may, /ctx\.duty !== 'branch_manager' \|\| !ctx\.branchId\) return false/, 'someone other than a Shop or Branch Manager can stop another person’s phone');
+  assert.match(may, /r\.branch_id === ctx\.branchId/, 'a Branch Manager can stop a phone outside their branch');
+  assert.match(engine, /may_release_any: anyone/, 'releasing anyone’s hold is not decided by the same rule');
+  assert.doesNotMatch(engine, /from\('vendor_offline_presence'\)|vendor_offline_codes/, 'the retired stock or presence count is still read');
 });
 
 test('8 · sign-out wipes the queue, the codes and the answers', () => {
   const sw = readFileSync(path.join(root, 'public/sw.js'), 'utf8');
   const fn = sw.slice(sw.indexOf('function forgetSupplierOffline'), sw.indexOf('// One event’s copies only') > -1 ? sw.indexOf('// One event’s copies only') : sw.indexOf('async function forgetOfflineEvent'));
   assert.match(fn, /indexedDB\.open\('setnayan_offline'\)/, 'the worker does not open the daemon’s database');
-  assert.match(fn, /'supplier_queue', 'supplier_codes'/, 'the worker does not erase the supplier queue and codes');
+  assert.match(fn, /'supplier_queue', 'supplier_keys'/, 'the worker does not erase the supplier queue and signing keys');
   const at = sw.indexOf(": data.type === 'OFFLINE_FORGET'");
   const forget = sw.slice(at, sw.indexOf('withOfflineLock(async () =>', at));
   assert.match(forget, /forgetSupplierOffline\(\)/, 'a signed-out page’s wipe leaves the supplier’s work on the phone');
@@ -217,4 +247,40 @@ test('8 · sign-out wipes the queue, the codes and the answers', () => {
   assert.match(wipe, /localStorage\.removeItem\(\$\{JSON\.stringify\(SUPPLIER_OFFLINE_OUTCOMES_KEY\)\}\)/, 'the signed-out wipe keeps the supplier’s answers');
   const queue = read('lib/offline/supplier-queue.ts');
   assert.match(queue, /forgetSupplierOutcomes\(\);\s*await wipeSupplierOffline\(\)/, 'the in-app sign-out does not wipe everything');
+  const route = read('app/auth/sign-out/route.ts');
+  assert.match(route, /stopOfflineDevicesOnSignOut\(admin, leaving\.id, request\.cookies\.get\(OFFLINE_DEVICES_COOKIE\)/, 'signing out leaves this phone’s QR key rows active');
+  assert.ok(route.indexOf('stopOfflineDevicesOnSignOut(') < route.indexOf('supabase.auth.signOut()'), 'the key rows are stopped after the session that names them is gone');
+  const stop = read('lib/supplier-offline/sign-out.server.ts');
+  assert.match(stop, /\.eq\('member_user_id', userId\)/, 'signing out could stop another person’s phone');
+  assert.match(stop, /OFFLINE_DEVICES_COOKIE = 'sn_offline_devices'/);
+  assert.match(queue, /OFFLINE_DEVICES_COOKIE = 'sn_offline_devices'/, 'the phone writes a different cookie than the sign-out reads');
+});
+
+test('9 · R14 — a booking made offline counts on that phone at once', () => {
+  const copy: LocalDayCopy = { poolId: 'POOL', date: '2026-12-12', capacity: 3, taken: 0, times: [], closed: false };
+  const times = ['10:00', '14:00', '18:00'];
+  assert.deepEqual(offerableTimes(copy, [], times), times);
+  const booked12Dec2pm = item({ itemId: '9e8d7c6b-5a49-4382-a716-151413121111', kind: 'schedule.client', fields: { pool_id: 'POOL', start_date: '2026-12-12', client_time: '14:00', client_name: 'Liza' } }) as unknown as SupplierQueuedItem;
+  assert.equal(localSlot(copy, [booked12Dec2pm], '14:00'), 'booked_not_confirmed', '12 Dec 2 PM booked offline is offered again on the same phone');
+  assert.deepEqual(offerableTimes(copy, [booked12Dec2pm], times), ['10:00', '18:00'], 'the picker still offers a time this phone already booked');
+  assert.equal(BOOKED_NOT_CONFIRMED, 'Booked · not confirmed yet');
+  // an offline QR's date takes its seat too, and a day at capacity reads full
+  const qr = item({ itemId: '9e8d7c6b-5a49-4382-a716-151413121112', kind: 'qr.booking', fields: { pool_id: '', start_date: '2026-12-12', client_time: '10:00', client_name: 'Mara' } }) as unknown as SupplierQueuedItem;
+  const tight: LocalDayCopy = { ...copy, capacity: 2 };
+  assert.equal(localSlot(tight, [booked12Dec2pm, qr], '18:00'), 'full', 'a day this phone filled still reads free');
+  assert.equal(localSlot({ ...copy, taken: 2 }, [booked12Dec2pm], null), 'full', 'the copy and the queue are not added together');
+  const closedDay = item({ itemId: '9e8d7c6b-5a49-4382-a716-151413121113', kind: 'schedule.block', fields: { scope: 'org', start_date: '2026-12-12', day_part: 'all_day' } }) as unknown as SupplierQueuedItem;
+  assert.equal(localSlot(copy, [closedDay], '10:00'), 'closed', 'a day this phone closed still takes bookings');
+  assert.equal(localSlot({ ...copy, date: '2026-12-13' }, [booked12Dec2pm], '14:00'), 'free', 'another day was taken by this booking');
+  // the gift balance and "To collect" read the same copy + queue
+  const gift = item({ itemId: '9e8d7c6b-5a49-4382-a716-151413121114', kind: 'client.add', fields: { client_name: 'Liza', gift: ['PAPIC_GUEST_150'] } }) as unknown as SupplierQueuedItem;
+  assert.equal(giftsLeftWithQueue(8, [gift], 'PAPIC_GUEST_150'), 7, 'a gift given offline is still counted as in stock');
+  assert.equal(giftsLeftWithQueue(null, [gift], 'PAPIC_GUEST_150'), null, 'an unread balance became a number');
+  const paid = item({ itemId: '9e8d7c6b-5a49-4382-a716-151413121115', kind: 'payment.confirm', seen: { totalPhp: null, depositPhp: null, paymentPhp: 5000 }, fields: { vendor_id: 'EV1', payment_id: 'P1' } }) as unknown as SupplierQueuedItem;
+  assert.equal(toCollectWithQueue(20000, [paid], 'EV1'), 15000, 'a payment recorded offline is still to collect');
+  // the phone's QR and booking doors ask the same read before they take a time
+  const queue = read('lib/offline/supplier-queue.ts');
+  const qrBody = queue.slice(queue.indexOf('export async function makeOfflineQr'), queue.indexOf('export async function stopPhone'));
+  assert.ok(qrBody.indexOf('localSlotNow(') > -1 && qrBody.indexOf('localSlotNow(') < qrBody.indexOf('signOfflineQr('), 'an offline QR is made into a time this phone already booked');
+  assert.match(queue, /if \(slot !== 'free'\) return \{ refused: slot \};\n  return \{ queued: await queueSupplierAction/, 'an offline booking is queued into a time this phone already booked');
 });

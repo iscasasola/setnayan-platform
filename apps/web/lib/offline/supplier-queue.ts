@@ -8,18 +8,19 @@
 // `supOffline.supplierOffline`). Lazy-load it (`import()`), like the desk does, so none of this is in a first load.
 //
 // What the screens (the approved drawing) will call:
-//   queueSupplierAction        — keep one action; it shows "Not confirmed yet" until the server accepts it
-//   queuedSupplierActions      — what is still waiting ("N waiting to sync")
-//   sendQueuedSupplierActions  — send now (the daemon's own pass), then tell teammates what is left, and end the
-//                                member's expo holds once nothing is left
+//   queueSupplierAction · queueBookingIfFree — keep one action; it shows "Not confirmed yet" until the server accepts it
+//   queuedSupplierActions      — what is still waiting ("3 changes waiting to send" — on THIS phone only, R5)
+//   localSlotNow               — R14: the saved copy PLUS this phone's queue (the time picker, the QR's free-time check)
+//   sendQueuedSupplierActions  — send now (the daemon's own pass); then "last seen" for the team, and the member's expo
+//                                holds end once nothing is left
 //   readSupplierOutcomes …     — the answers that need a person ("Couldn't save: <why>", the money re-confirm, …)
 //   reconfirmMoney / requeueWith — the one-tap fixes
-//   refillOfflineCodes · makeOfflineQr · cancelMemberCodes — the offline client QR
-//   claimDates · releaseHold · readTeamOffline — expo mode and the teammates' pending line
+//   ensurePhoneKey · makeOfflineQr · stopPhone — the offline client QR (no stock: the phone signs its own)
+//   claimDates · releaseHold · readTeamOffline — expo mode and Settings › Offline
 //   wipeSupplierOfflineOnThisPhone — sign-out
 
 import { dequeueOfflineItem, enqueueOfflineItem, listOfflineItems } from './db';
-import { countSupplierCodes, replaceSupplierCodes, takeSupplierCode, wipeSupplierOffline } from './supplier-codes';
+import { phoneDeviceIds, phoneKeyId, readPhoneKey, wipeSupplierOffline, writePhoneKey } from './supplier-keys';
 import { triggerSyncNow } from './sync-daemon';
 import {
   dismissSupplierOutcome,
@@ -29,31 +30,24 @@ import {
   type SupplierOutcomeNote,
 } from './service-handlers/supplier-handler';
 import {
-  PAY_WHEN_ONLINE,
+  NOT_CONFIRMED_YET,
   isSupplierOfflineKind,
+  localSlot,
+  type LocalDayCopy,
+  type LocalSlot,
   type MoneySeen,
+  type RowVersion,
   type SupplierOfflineKind,
   type SupplierQueuedItem,
 } from '@/lib/supplier-offline/kinds';
 import type { SupplierOfflineOp, SupplierOfflineReply } from '@/lib/supplier-offline/replies';
-import { memberTagOf, offlineQrUrl, signOfflineQr } from '@/lib/supplier-offline/qr';
+import { memberTagOf, newOfflineCodeId, newPhoneKey, offlineQrUrl, signOfflineQr } from '@/lib/supplier-offline/qr';
 
 export { readSupplierOutcomes, dismissSupplierOutcome, type SupplierOutcomeNote };
 
-const DEVICE_KEY = 'sn-offline-device:v1';
-
-/** This phone's own name for the code stock and the pending line — random, never a person's data. */
-export function offlineDeviceId(): string {
-  try {
-    const held = window.localStorage.getItem(DEVICE_KEY);
-    if (held && /^[A-Za-z0-9_-]{8,64}$/.test(held)) return held;
-    const made = crypto.randomUUID().replace(/-/g, '');
-    window.localStorage.setItem(DEVICE_KEY, made);
-    return made;
-  } catch {
-    return 'device-unnamed';
-  }
-}
+/** The cookie the sign-out route reads to stop this phone's QR keys (`app/auth/sign-out/route.ts` · held equal to
+ *  `lib/supplier-offline/sign-out.server.ts` by the guard). */
+export const OFFLINE_DEVICES_COOKIE = 'sn_offline_devices';
 
 /** ONE call to the door. Null = no answer (no signal) — the caller keeps what it has. */
 async function door(op: SupplierOfflineOp, fields: Record<string, string>): Promise<SupplierOfflineReply | null> {
@@ -77,15 +71,16 @@ export type QueueInput = {
   kind: SupplierOfflineKind;
   fields: Record<string, string | string[]>;
   baseVersion?: number | null;
+  rowVersion?: RowVersion | null;
   seen?: MoneySeen | null;
   giftsAsOf?: string | null;
 };
 
 export type Queued = { itemId: string; phoneTime: string; line: string };
 
-/** Keep one action on this phone. A purchase is kept too — as "Pay when online"; nothing is ever charged from here. */
+/** Keep one action on this phone. Only a listed kind — nothing that buys or pays is one (R15, "Needs internet"). */
 export async function queueSupplierAction(input: QueueInput): Promise<Queued> {
-  if (!isSupplierOfflineKind(input.kind)) throw new Error('This can’t be done offline.');
+  if (!isSupplierOfflineKind(input.kind)) throw new Error('This needs internet.');
   const phoneTime = new Date().toISOString();
   const item: SupplierQueuedItem = {
     v: 1,
@@ -96,13 +91,14 @@ export async function queueSupplierAction(input: QueueInput): Promise<Queued> {
     madeOffline: true,
     kind: input.kind,
     baseVersion: input.baseVersion ?? null,
+    rowVersion: input.rowVersion ?? null,
     seen: input.seen ?? null,
     giftsAsOf: input.giftsAsOf ?? null,
     fields: input.fields,
   };
   // The shop rides in `event_id`, the daemon's scoping key (its index lists one shop's items without reading all).
   await enqueueOfflineItem('supplier', { item_id: item.itemId, event_id: input.shop, payload: item, queued_at: phoneTime });
-  return { itemId: item.itemId, phoneTime, line: input.kind === 'purchase' ? PAY_WHEN_ONLINE : 'Not confirmed yet' };
+  return { itemId: item.itemId, phoneTime, line: NOT_CONFIRMED_YET };
 }
 
 /** This account's actions still waiting in this shop, oldest first — each drawn "Not confirmed yet". */
@@ -114,21 +110,40 @@ export async function queuedSupplierActions(member: string, shop: string): Promi
     .sort((a, b) => (a.phoneTime < b.phoneTime ? -1 : 1));
 }
 
+/** R14 — THE local availability read: the saved copy of that day PLUS this phone's queue (`localSlot`). */
+export async function localSlotNow(member: string, shop: string, copy: LocalDayCopy, time: string | null): Promise<LocalSlot> {
+  return localSlot(copy, await queuedSupplierActions(member, shop), time);
+}
+
+/**
+ * R14 — book a client offline only into a time this phone still sees free: the copy plus everything this phone already
+ * queued. A time it already booked reads "Booked · not confirmed yet" and is not taken twice.
+ */
+export async function queueBookingIfFree(
+  input: Omit<QueueInput, 'kind'>,
+  copy: LocalDayCopy,
+): Promise<{ queued: Queued } | { refused: Exclude<LocalSlot, 'free'> }> {
+  const time = typeof input.fields.client_time === 'string' && input.fields.client_time ? input.fields.client_time : null;
+  const slot = await localSlotNow(input.member, input.shop, copy, time);
+  if (slot !== 'free') return { refused: slot };
+  return { queued: await queueSupplierAction({ ...input, kind: 'schedule.client' }) };
+}
+
 /** An action taken back before it was ever sent. */
 export async function unqueueSupplierAction(itemId: string): Promise<void> {
   await dequeueOfflineItem('supplier', itemId);
 }
 
 /**
- * Send what this account has waiting (the daemon's own pass over every queue). Then tell the team what is left
- * ("<member>: N changes waiting, last online <time>"), and — once nothing is left — end this member's expo holds
- * (release on sync).
+ * Send what this account has waiting (the daemon's own pass over every queue). Then tell the team this phone was seen
+ * (R5: "last seen", never a count), and — once nothing is left — end this member's expo holds (release on sync).
  */
 export async function sendQueuedSupplierActions(member: string, shop: string): Promise<{ sent: number; left: number }> {
   setSupplierMember(member);
   const summary = await triggerSyncNow();
   const left = (await queuedSupplierActions(member, shop)).length;
-  await door('presence.report', { shop, device_id: offlineDeviceId(), waiting: String(left) });
+  const key = await readPhoneKey(shop, member).catch(() => null);
+  if (key?.registered) await door('device.seen', { shop, device_id: key.deviceId });
   if (left === 0) await door('holds.synced', { shop });
   return { sent: summary.find((s) => s.service === 'supplier')?.synced ?? 0, left };
 }
@@ -146,22 +161,43 @@ export async function requeueWith(note: SupplierOutcomeNote, fields: Record<stri
   return queueSupplierAction({ ...note.item, fields: { ...note.item.fields, ...fields }, baseVersion: baseVersion ?? note.item.baseVersion ?? null });
 }
 
-/* ── the offline client QR ─────────────────────────────────────────────────────────────────────────────────────── */
+/* ── the offline client QR: the phone signs its own (no stock) ─────────────────────────────────────────────────── */
 
-/** While online: top this phone's codes back up (the server's list replaces what the phone holds for this member). */
-export async function refillOfflineCodes(shop: string, member: string): Promise<{ held: number } | null> {
-  const r = await door('codes.refill', { shop, device_id: offlineDeviceId() });
-  if (!r || r.op !== 'codes.refill' || !r.ok) return null;
-  await replaceSupplierCodes(
-    shop,
-    member,
-    r.codes.map((c) => ({ code_id: c.codeId, shop, member, secret: c.secret, issued_at: c.issuedAt })),
-  );
-  return { held: r.codes.length };
+function rememberDevices(ids: readonly string[]): void {
+  try {
+    document.cookie = `${OFFLINE_DEVICES_COOKIE}=${encodeURIComponent(ids.join(','))}; path=/; max-age=31536000; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
+  } catch {
+    // No cookie: the sign-out still wipes the phone; the key's row can be stopped from Settings › Offline.
+  }
 }
 
-export async function offlineCodesLeft(shop: string, member: string): Promise<number> {
-  return countSupplierCodes(shop, member);
+/**
+ * While online (the dashboard opened with signal): make this phone's key once and register its PUBLIC half. A key the
+ * server refuses for good (stopped) is replaced by a new one, registered the next time. Null = not ready yet.
+ */
+export async function ensurePhoneKey(shop: string, member: string): Promise<{ deviceId: string } | null> {
+  let key = await readPhoneKey(shop, member);
+  if (!key) {
+    const made = await newPhoneKey();
+    key = { id: phoneKeyId(shop, member), shop, member, deviceId: made.deviceId, privateKey: made.privateKey, publicJwk: made.publicJwk, createdAt: new Date().toISOString(), registered: false };
+    await writePhoneKey(key);
+  }
+  if (!key.registered) {
+    const r = await door('device.register', { shop, device_id: key.deviceId, public_key: JSON.stringify(key.publicJwk) });
+    if (!r || r.op !== 'device.register') return null;
+    if (!r.ok) {
+      if (!r.retry) {
+        const fresh = await newPhoneKey();
+        await writePhoneKey({ ...key, deviceId: fresh.deviceId, privateKey: fresh.privateKey, publicJwk: fresh.publicJwk, createdAt: new Date().toISOString(), registered: false });
+      }
+      return null;
+    }
+    key = { ...key, registered: true };
+    await writePhoneKey(key);
+  }
+  const deviceId = key.deviceId;
+  rememberDevices(await phoneDeviceIds().catch(() => [deviceId]));
+  return { deviceId };
 }
 
 export type OfflineQrInput = {
@@ -173,6 +209,10 @@ export type OfflineQrInput = {
   date: string;
   time: string | null;
   poolId: string | null;
+  /** the amount the QR shows (whole ₱, from the phone's copy of the card), or null */
+  amountPhp?: number | null;
+  /** R14: the phone's copy of that day — the QR is only made into a time this phone still sees free */
+  copy: LocalDayCopy;
   /** the client's details stay HERE, in the queued copy — never in the QR */
   clientName: string;
   clientContact?: string;
@@ -183,42 +223,56 @@ export type OfflineQrInput = {
 };
 
 /**
- * Make an offline client QR: take one code out of this phone's stock, sign it, and queue this phone's own copy (the
- * date, and — with gifts — the client). The QR is drawn from `url`; it carries the made-offline mark and no personal
- * data. Null = no codes left on this phone (open the dashboard online once to refill).
+ * Make an offline client QR: a new random code id, signed by this phone's key, carrying the made-offline mark and no
+ * personal data — and this phone's own copy queued (the date, and — with gifts — the client), so it counts here at once
+ * (R14). Refused when the time is not free on this phone, or when the phone has no registered key yet (open the
+ * dashboard online once).
  */
-export async function makeOfflineQr(input: OfflineQrInput): Promise<{ url: string; codeId: string } | null> {
-  const code = await takeSupplierCode(input.shop, input.member);
-  if (!code) return null;
-  const phoneTime = new Date().toISOString();
+export async function makeOfflineQr(input: OfflineQrInput): Promise<{ url: string; codeId: string } | { refused: Exclude<LocalSlot, 'free'> | 'no_key' }> {
+  const slot = await localSlotNow(input.member, input.shop, input.copy, input.time);
+  if (slot !== 'free') return { refused: slot };
+  const key = await readPhoneKey(input.shop, input.member);
+  if (!key?.registered) return { refused: 'no_key' };
+  const codeId = newOfflineCodeId();
   const token = await signOfflineQr(
-    { codeId: code.code_id, date: input.date, time: input.time, poolId: input.poolId, member: await memberTagOf(input.member), madeOffline: true, phoneTime },
-    code.secret,
+    {
+      codeId,
+      deviceId: key.deviceId,
+      shop: input.shop,
+      member: await memberTagOf(input.member),
+      date: input.date,
+      time: input.time,
+      poolId: input.poolId,
+      amountPhp: input.amountPhp ?? null,
+      madeOffline: true,
+      phoneTime: new Date().toISOString(),
+    },
+    key.privateKey,
   );
-  if (!token) return null;
+  if (!token) return { refused: 'no_key' };
   const client = { client_name: input.clientName, client_contact: input.clientContact ?? '', client_note: input.clientNote ?? '' };
   await queueSupplierAction({
     shop: input.shop,
     member: input.member,
     kind: 'qr.booking',
-    fields: { code_id: code.code_id, start_date: input.date, client_time: input.time ?? '', pool_id: input.poolId ?? '', ...client },
+    fields: { token, code_id: codeId, start_date: input.date, client_time: input.time ?? '', pool_id: input.poolId ?? '', ...client },
   });
   if (input.gifts && input.gifts.length > 0) {
     await queueSupplierAction({
       shop: input.shop,
       member: input.member,
       kind: 'client.add',
-      fields: { ...client, gift: input.gifts, code_id: code.code_id },
+      fields: { ...client, gift: input.gifts, code_id: codeId },
       giftsAsOf: input.giftsAsOf ?? null,
     });
   }
-  return { url: offlineQrUrl(input.origin, input.slug, token), codeId: code.code_id };
+  return { url: offlineQrUrl(input.origin, input.slug, token), codeId };
 }
 
-/** Any teammate: cancel a member's unused codes (a lost phone). */
-export async function cancelMemberCodes(shop: string, memberUserId: string): Promise<number | null> {
-  const r = await door('codes.cancel', { shop, member_user_id: memberUserId });
-  return r && r.op === 'codes.cancel' && r.ok ? r.cancelled : null;
+/** "Stop QR codes from this phone" (a Shop Manager, or the Branch Manager for that branch; anyone for their own). */
+export async function stopPhone(shop: string, deviceId: string): Promise<boolean | null> {
+  const r = await door('device.stop', { shop, device_id: deviceId });
+  return r && r.op === 'device.stop' && r.ok ? r.stopped : null;
 }
 
 /* ── expo mode and the team ────────────────────────────────────────────────────────────────────────────────────── */
@@ -231,13 +285,17 @@ export async function releaseHold(shop: string, holdId: string): Promise<Supplie
   return door('holds.release', { shop, hold_id: holdId });
 }
 
+/** Settings › Offline and the teammates' line: holds, "last seen", the team's phones. */
 export async function readTeamOffline(shop: string): Promise<SupplierOfflineReply | null> {
   return door('team.read', { shop });
 }
 
 /* ── sign-out ──────────────────────────────────────────────────────────────────────────────────────────────────── */
 
-/** 🧹 Signing out wipes this phone's offline copy of the supplier's work: the queue, the codes and the answers. */
+/**
+ * 🧹 Signing out wipes this phone's offline copy of the supplier's work: the queue, the signing keys and the answers
+ * (the sign-out route stops the keys' rows from the `sn_offline_devices` cookie; the worker wipes again on its way).
+ */
 export async function wipeSupplierOfflineOnThisPhone(): Promise<void> {
   setSupplierMember(null);
   forgetSupplierOutcomes();

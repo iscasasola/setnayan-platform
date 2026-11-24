@@ -29,19 +29,19 @@ import {
 const DB_NAME = 'setnayan_offline';
 // 2 (EV3, 2026-10-28): the `checkin_queue` store joins. The upgrade below only CREATES a store that is missing, so a
 // phone on version 1 keeps every queued item it holds.
-// 3 (supplier offline, 2026-11-24): the `supplier_queue` store and the `supplier_codes` stock join — the same rule:
+// 3 (supplier offline, 2026-11-24): the `supplier_queue` store and the `supplier_keys` store join — the same rule:
 // only what is missing is created, nothing a phone holds is touched.
 const DB_VERSION = 3;
 
 /**
- * 🔳 The member device's one-time QR codes (the supplier offline engine, owner 2026-11-24): NOT a queue — a stock the
- * server fills while online (`codes.refill`), keyed on `code_id`, each with its own secret. A code is taken out of the
- * stock the moment a QR is made from it, so it can never be used twice from this phone. Wiped at sign-out.
+ * 🔳 The phone's QR signing key (the supplier offline engine, owner 2026-11-24, DECISION_LOG 7d618cb3 — no stock): NOT a
+ * queue. One record per (shop, member) on this phone, holding a NON-EXTRACTABLE ECDSA private key (IndexedDB keeps the
+ * CryptoKey itself; nothing can read the key out). Deleted at sign-out.
  */
-export const SUPPLIER_CODES_STORE = 'supplier_codes';
+export const SUPPLIER_KEYS_STORE = 'supplier_keys';
 
-// The stock's read/write helpers live in `./supplier-codes.ts`, loaded only by the supplier screens — this module rides
-// in every page's shared bundle (the root layout's daemon mount).
+// The key store's helpers live in `./supplier-keys.ts`, loaded only by the supplier screens — this module rides in
+// every page's shared bundle (the root layout's daemon mount).
 
 /**
  * Per-service store name. `${service}_queue` keeps each queue's IDB
@@ -93,10 +93,7 @@ export function openOfflineDB(): Promise<IDBDatabase> {
         store.createIndex('event_id', 'event_id', { unique: false });
         store.createIndex('queued_at', 'queued_at', { unique: false });
       }
-      if (!db.objectStoreNames.contains(SUPPLIER_CODES_STORE)) {
-        const codes = db.createObjectStore(SUPPLIER_CODES_STORE, { keyPath: 'code_id' });
-        codes.createIndex('shop', 'shop', { unique: false });
-      }
+      if (!db.objectStoreNames.contains(SUPPLIER_KEYS_STORE)) db.createObjectStore(SUPPLIER_KEYS_STORE, { keyPath: 'id' });
     };
 
     request.onsuccess = () => {

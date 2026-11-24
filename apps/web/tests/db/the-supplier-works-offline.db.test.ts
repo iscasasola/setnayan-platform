@@ -8,20 +8,35 @@
  *       of the first item is answered from the ledger and writes nothing twice.
  *   3 · EXPO MODE — a member's held dates refuse another member's offline write AND their online insert; the holder
  *       writes; released on sync, the others write again.
- *   4 · ONE CODE, ONE ENTRY — client first or supplier first, one code makes one schedule row; the second arrival only
- *       fills in what it knows; a cancelled code makes nothing; a clash leaves the code stocked.
+ *   4 · ONE CODE, ONE ENTRY (no stock — DECISION_LOG 7d618cb3) — client first or supplier first, one code id makes one
+ *       schedule row; the same code id twice gives one entry; a code from a STOPPED phone makes nothing; a phone of
+ *       another shop cannot sign for this shop; a payload edited after signing is refused by the phone's public key as
+ *       the database keeps it; a clash gives the code id back.
  *   5 · DAY STATES are versioned the same way (base 0 = the phone saw none).
- *   6 · RLS — no session reads a code's secret, writes a hold or calls a door; another shop reads none of the rows.
+ *   6 · RLS — no session reads a phone's key row, writes a hold or a code use, or calls a door; another shop reads none.
  *
  * Sabotage (2026-11-24): dropping `AND h.member_user_id IS DISTINCT FROM p_member_user_id` from
  * supplier_offline_hold_in_the_way turns test 3 red (the holder is refused by their own hold); dropping
- * `ELSIF v_row.version <> v_base THEN` (the stale branch) turns test 1 red (a stale edit lands); dropping the
- * `IF v_code IS NOT NULL THEN … offline_code_id = v_code` dedupe turns test 4 red (two rows for one code).
+ * `ELSIF v_row.version <> v_base THEN` (the stale branch) turns test 1 red (a stale edit lands); dropping
+ * `IF v_d.status <> 'active' THEN` from supplier_offline_code_use turns test 4 red (a stopped phone's code made an entry).
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { createRequire } from 'node:module';
+import { memberTagOf, newPhoneKey, parseOfflineQrToken, signOfflineQr } from '../../lib/supplier-offline/qr';
+
+// `qr.server.ts` starts with `import 'server-only'` (Next's marker); under node:test it is a no-op stand-in.
+{
+  const Mod = createRequire(import.meta.url)('node:module') as { _load: (r: string, ...a: unknown[]) => unknown };
+  const load = Mod._load;
+  Mod._load = function (this: unknown, request: string, ...rest: unknown[]) {
+    if (request === 'server-only') return {};
+    return load.call(this, request, ...rest);
+  };
+}
+const serverQr = () => import('../../lib/supplier-offline/qr.server');
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -80,7 +95,6 @@ async function day(days: number): Promise<string> {
 }
 
 const uuid = () => crypto.randomUUID();
-const SECRET = 'A'.repeat(43);
 
 let owner: string;
 let ana: string;
@@ -212,15 +226,17 @@ test('3 · expo mode: held dates refuse the others, offline and online; released
   assert.equal(manager.status, 'applied');
 });
 
-async function stockCode(member: string): Promise<string> {
-  return one<string>(
-    `INSERT INTO public.vendor_offline_codes (vendor_profile_id, member_user_id, device_id, secret)
-     VALUES ($1, $2, 'device-0001', $3) RETURNING code_id AS v`,
-    [shop, member, SECRET],
+/** A phone of `member` on `onShop`, with a real P-256 key: its public half in the database, its private half here. */
+async function phone(member: string, onShop: string): Promise<{ deviceId: string; privateKey: CryptoKey }> {
+  const k = await newPhoneKey();
+  await db.query(
+    `INSERT INTO public.vendor_offline_devices (device_id, vendor_profile_id, member_user_id, public_key) VALUES ($1, $2, $3, $4::jsonb)`,
+    [k.deviceId, onShop, member, JSON.stringify(k.publicJwk)],
   );
+  return { deviceId: k.deviceId, privateKey: k.privateKey };
 }
 
-test('4 · one code, one entry — whoever arrives first', async () => {
+test('4 · one code, one entry — whoever arrives first; a stopped phone, an edited code and another shop’s phone are refused', async () => {
   const pool = await poolOf(shop, 3);
   const d = await day(50);
   const couple = await newUser('offline-couple@example.com', 'customer');
@@ -228,56 +244,77 @@ test('4 · one code, one entry — whoever arrives first', async () => {
     `INSERT INTO public.events (display_name, event_date, created_by) VALUES ('Liza & Paolo', $1, $2) RETURNING event_id AS v`,
     [d, couple],
   ).catch(() => null);
+  const anaPhone = await phone(ana, shop);
 
-  // the client's phone first
-  const c1 = await stockCode(ana);
-  const byClient = await useCode({ code_id: c1, via: 'client', booked_date: d, pool_id: pool, event_id: eventId, label: 'Liza & Paolo', phone_time: '2026-11-24T03:10:00Z' });
+  // the client's phone first, then the supplier's own sync of the same code
+  const c1 = uuid();
+  const byClient = await useCode({ code_id: c1, device_id: anaPhone.deviceId, via: 'client', booked_date: d, pool_id: pool, event_id: eventId, label: 'Liza & Paolo', phone_time: '2026-11-24T03:10:00Z', amount_php: 15000 });
   assert.equal(byClient.status, 'applied');
   const item = uuid();
-  const bySupplier = await useCode({ code_id: c1, via: 'supplier', booked_date: d, pool_id: pool, item_id: item, client_name: 'Liza Santos', client_contact: '0917 555 1234' });
+  const bySupplier = await useCode({ code_id: c1, device_id: anaPhone.deviceId, via: 'supplier', booked_date: d, pool_id: pool, item_id: item, client_name: 'Liza Santos', client_contact: '0917 555 1234' });
   assert.equal(bySupplier.status, 'applied');
   assert.equal(bySupplier.deduped, true, 'the supplier’s later sync of the same code was not matched');
+  const again = await useCode({ code_id: c1, device_id: anaPhone.deviceId, via: 'client', booked_date: d, pool_id: pool, event_id: eventId });
+  assert.equal(again.status, 'applied');
+  assert.equal(again.deduped, true);
   assert.equal(
     Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.vendor_calendar_blocks WHERE offline_code_id = $1`, [c1])),
     1,
-    'one code made two entries',
+    'the same code id made two entries',
   );
+  assert.equal(Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.vendor_offline_code_uses WHERE code_id = $1`, [c1])), 1);
   assert.equal(
     await one<string>(`SELECT client_name AS v FROM public.vendor_calendar_blocks WHERE offline_code_id = $1`, [c1]),
     'Liza Santos',
     'the supplier’s copy did not fill in the client’s name',
   );
-  const again = await useCode({ code_id: c1, via: 'supplier', booked_date: d, pool_id: pool, item_id: item, client_name: 'Liza Santos' });
-  assert.equal(again.repeat, true, 'a retried sync of the code was not answered from the ledger');
+  const mark = await db.query<{ made_offline: boolean; created_by: string }>(`SELECT made_offline, created_by FROM public.vendor_calendar_blocks WHERE offline_code_id = $1`, [c1]);
+  assert.equal(mark.rows[0]?.made_offline, true, 'the made-offline mark is not kept');
+  assert.equal(mark.rows[0]?.created_by, ana, 'the member is not kept');
 
   // the supplier's phone first, the client later
-  const c2 = await stockCode(ben);
-  const first = await useCode({ code_id: c2, via: 'supplier', booked_date: d, pool_id: pool, item_id: uuid(), client_name: 'Mara' });
-  assert.equal(first.status, 'applied');
-  const later = await useCode({ code_id: c2, via: 'client', booked_date: d, pool_id: pool, event_id: eventId });
-  assert.equal(later.status, 'applied');
+  const benPhone = await phone(ben, shop);
+  const c2 = uuid();
+  assert.equal((await useCode({ code_id: c2, device_id: benPhone.deviceId, via: 'supplier', booked_date: d, pool_id: pool, item_id: uuid(), client_name: 'Mara' })).status, 'applied');
+  const later = await useCode({ code_id: c2, device_id: benPhone.deviceId, via: 'client', booked_date: d, pool_id: pool, event_id: eventId });
   assert.equal(later.deduped, true);
-  assert.equal(
-    Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.vendor_calendar_blocks WHERE offline_code_id = $1`, [c2])),
-    1,
-  );
-  const wrongDate = await useCode({ code_id: c2, via: 'client', booked_date: await day(51), pool_id: pool });
-  assert.equal(wrongDate.status, 'invalid', 'a used code answered for another date');
+  assert.equal(Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.vendor_calendar_blocks WHERE offline_code_id = $1`, [c2])), 1);
+  assert.equal((await useCode({ code_id: c2, device_id: benPhone.deviceId, via: 'client', booked_date: await day(51), pool_id: pool })).status, 'invalid', 'a used code answered for another date');
 
-  // cancelled by a teammate (a lost phone)
-  const c3 = await stockCode(ana);
-  await db.query(`UPDATE public.vendor_offline_codes SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = $2 WHERE code_id = $1`, [c3, owner]);
-  const dead = await useCode({ code_id: c3, via: 'client', booked_date: d, pool_id: pool });
-  assert.equal(dead.status, 'cancelled', 'a cancelled code made an entry');
+  // a lost phone, stopped: its unscanned codes are refused
+  const lost = await phone(ana, shop);
+  await db.query(`UPDATE public.vendor_offline_devices SET status = 'stopped', stopped_at = NOW(), stopped_by = $2, stop_reason = 'lost' WHERE device_id = $1`, [lost.deviceId, owner]);
+  const dead = await useCode({ code_id: uuid(), device_id: lost.deviceId, via: 'client', booked_date: d, pool_id: pool, event_id: eventId });
+  assert.equal(dead.status, 'stopped', 'a stopped phone’s code made an entry');
 
-  // a clash leaves the code stocked
+  // a phone of ANOTHER shop cannot sign for this shop: its entry could only ever be its own shop's — this shop's
+  // schedule is refused and nothing lands here
+  const theirs = await phone(stranger, otherShop);
+  const before = Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.vendor_calendar_blocks WHERE vendor_profile_id = $1`, [shop]));
+  const foreign = await useCode({ code_id: uuid(), device_id: theirs.deviceId, via: 'client', booked_date: d, pool_id: pool, event_id: eventId });
+  assert.notEqual(foreign.status, 'applied', 'another shop’s phone wrote onto this shop’s schedule');
+  assert.equal(Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.vendor_calendar_blocks WHERE vendor_profile_id = $1`, [shop])), before);
+
+  // a payload edited after signing is refused — checked against the public key exactly as the database keeps it
+  const { verifyOfflineQrSignature } = await serverQr();
+  const fields = { codeId: uuid(), deviceId: anaPhone.deviceId, shop, member: await memberTagOf(ana), date: d, time: '14:00', poolId: pool, amountPhp: 15000, madeOffline: true as const, phoneTime: '2026-11-24T06:00:00.000Z' };
+  const token = (await signOfflineQr(fields, anaPhone.privateKey))!;
+  const kept = await one<unknown>(`SELECT public_key AS v FROM public.vendor_offline_devices WHERE device_id = $1`, [anaPhone.deviceId]);
+  assert.equal(verifyOfflineQrSignature(parseOfflineQrToken(token)!, kept), true, 'a genuine code fails against the kept key');
+  const edited = token.replace(`.${d.replace(/-/g, '')}.`, `.${(await day(52)).replace(/-/g, '')}.`).replace('.15000.', '.1.');
+  assert.ok(parseOfflineQrToken(edited), 'the edited code no longer parses — the test is not testing the signature');
+  assert.equal(verifyOfflineQrSignature(parseOfflineQrToken(edited)!, kept), false, 'a code edited after signing was accepted');
+  const benKey = await one<unknown>(`SELECT public_key AS v FROM public.vendor_offline_devices WHERE device_id = $1`, [benPhone.deviceId]);
+  assert.equal(verifyOfflineQrSignature(parseOfflineQrToken(token)!, benKey), false, 'another phone’s key verified the code');
+
+  // a clash gives the code id back
   const fullPool = await poolOf(shop, 1);
   await write({ op: 'add_client', vendor_profile_id: shop, member_user_id: ben, item_id: uuid(), pool_id: fullPool, start_date: d, client_name: 'taken' });
-  const c4 = await stockCode(ana);
-  const clash = await useCode({ code_id: c4, via: 'client', booked_date: d, pool_id: fullPool });
+  const c4 = uuid();
+  const clash = await useCode({ code_id: c4, device_id: anaPhone.deviceId, via: 'client', booked_date: d, pool_id: fullPool, event_id: eventId });
   assert.equal(clash.status, 'clash');
   assert.equal(clash.why, 'booked');
-  assert.equal(await one<string>(`SELECT status AS v FROM public.vendor_offline_codes WHERE code_id = $1`, [c4]), 'stocked');
+  assert.equal(Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.vendor_offline_code_uses WHERE code_id = $1`, [c4])), 0, 'a clashed code was spent');
 });
 
 test('5 · a day state is versioned the same way', async () => {
@@ -292,35 +329,36 @@ test('5 · a day state is versioned the same way', async () => {
   assert.equal(closed.why, 'closed', 'an outside client landed on a locked day');
 });
 
-test('6 · RLS: no session reads a secret, writes a hold or calls a door; another shop reads nothing', async () => {
-  await one(`SELECT 1 AS v`);
-  const code = await stockCode(ana);
+test('6 · RLS: no session reads a phone’s key row, writes a hold or a code use, or calls a door; another shop reads nothing', async () => {
+  const p = await phone(ana, shop);
+  await useCode({ code_id: uuid(), device_id: p.deviceId, via: 'supplier', booked_date: await day(71), pool_id: await poolOf(shop, 2), item_id: uuid(), client_name: 'x' });
   await hold({ op: 'claim', vendor_profile_id: shop, member_user_id: ana, pool_id: null, start_date: await day(70), end_date: await day(70) });
-  await db.query(
-    `INSERT INTO public.vendor_offline_presence (vendor_profile_id, member_user_id, device_id, waiting) VALUES ($1, $2, 'device-0001', 3)`,
-    [shop, ana],
-  );
   await db.exec(`SET ROLE authenticated`);
   try {
     await setAuthUid(db, owner);
-    await assert.rejects(db.query(`SELECT secret FROM public.vendor_offline_codes WHERE code_id = $1`, [code]), /permission denied/, 'a session read a code’s secret');
+    await assert.rejects(db.query(`SELECT public_key FROM public.vendor_offline_devices WHERE device_id = $1`, [p.deviceId]), /permission denied/, 'a session read a phone’s key row');
     assert.ok(Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.vendor_offline_holds WHERE vendor_profile_id = $1`, [shop])) >= 1, 'the shop cannot read its own holds');
-    assert.equal(Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.vendor_offline_presence WHERE vendor_profile_id = $1`, [shop])), 1);
+    assert.ok(Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.vendor_offline_code_uses WHERE vendor_profile_id = $1`, [shop])) >= 1, 'the shop cannot read its own code uses');
     await assert.rejects(
       db.query(`INSERT INTO public.vendor_offline_holds (vendor_profile_id, member_user_id, start_date, end_date) VALUES ($1, $2, CURRENT_DATE, CURRENT_DATE)`, [shop, owner]),
       /permission denied/,
       'a session wrote a hold past the server',
     );
+    await assert.rejects(
+      db.query(`INSERT INTO public.vendor_offline_code_uses (code_id, device_id, vendor_profile_id, member_user_id, used_via, booked_date) VALUES ($1, $2, $3, $4, 'client', CURRENT_DATE)`, [uuid(), p.deviceId, shop, owner]),
+      /permission denied/,
+      'a session spent a code past the server',
+    );
     for (const fn of ['supplier_offline_schedule_write', 'supplier_offline_hold', 'supplier_offline_code_use']) {
       await assert.rejects(db.query(`SELECT public.${fn}('{}'::jsonb)`), /permission denied/, `a session called ${fn}`);
     }
     await setAuthUid(db, stranger);
-    for (const t of ['vendor_offline_holds', 'vendor_offline_presence', 'vendor_offline_writes']) {
+    for (const t of ['vendor_offline_holds', 'vendor_offline_code_uses', 'vendor_offline_writes']) {
       assert.equal(Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.${t} WHERE vendor_profile_id = $1`, [shop])), 0, `another shop reads ${t}`);
     }
-    assert.equal(Number(await one<string>(`SELECT COUNT(*)::text AS v FROM public.vendor_offline_holds WHERE vendor_profile_id = $1`, [otherShop])), 0);
   } finally {
     await db.exec(`RESET ROLE`);
     await setAuthUid(db, null);
   }
+
 });

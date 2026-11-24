@@ -26,14 +26,15 @@ import { SV_MESSAGES } from '@/app/_actions/stay-registry/svMessages';
 import type { Door } from '@/app/_actions/stay-registry/_door';
 
 import {
-  OFFLINE_CODE_STOCK,
   SQL_INVALID,
+  VERSIONED_ROWS,
   SUPPLIER_OFFLINE_KINDS,
   clashFromSqlAnswer,
   isUuid,
   moneyMoved,
   outcomeFromSqlAnswer,
   parseQueuedItem,
+  rowUnchanged,
   type Clash,
   type MoneySeen,
   type SqlAnswer,
@@ -41,8 +42,9 @@ import {
   type SyncOutcome,
   type SyncReply,
 } from './kinds';
-import { memberTagOf, newOfflineCodeSecret } from './qr';
-import { isSupplierOfflineOp, type StayReply, type SupplierOfflineReply, type TeamCodes, type TeamHold, type TeamPending } from './replies';
+import { DEVICE_ID_RE, isPublicKeyJwk, memberTagOf } from './qr';
+import { checkOfflineQr } from './claim.server';
+import { isSupplierOfflineOp, type StayReply, type SupplierOfflineReply, type TeamDevice, type TeamHold, type TeamSeen } from './replies';
 
 /**
  * 📶 THE SUPPLIER OFFLINE DOOR (owner 24 Nov 2026, DECISION_LOG "The supplier dashboard works offline and catches up
@@ -53,12 +55,13 @@ import { isSupplierOfflineOp, type StayReply, type SupplierOfflineReply, type Te
  * `op=sync` sends ONE queued action:
  *   1 · who — signed in, the same account that made it (a shared phone never sends another person's work), a member of
  *       the shop with the role the online screen needs (`dutyMay`). Fail closed.
- *   2 · a purchase is answered "Pay when online" before anything else — nothing is ever charged from the queue.
+ *   2 · nothing that buys or pays is a kind at all (R15) — those buttons grey out, "Needs internet".
  *   3 · the rule of its kind (`SUPPLIER_OFFLINE_KINDS`):
  *         schedule → `supplier_offline_schedule_write` / `supplier_offline_code_use` (first save wins, typed clash);
  *         money    → the live amounts re-read (`event_vendor_money_read`, the payment row); moved ⇒ needs_reconfirm;
  *         gift     → the live gift stock (the readers Add a client itself uses); short ⇒ no_gifts_left;
  *         plain    → nothing more.
+ *       …and every write that names a row is applied only if that row's `updated_at` is still what the phone saw.
  *   4 · then the SHIPPED action runs (its stay door, `saveOwnClient`, `confirmVendorPayment`, the yes, the chat core),
  *       with its own gates — and its own answer is read, never assumed.
  *   5 · every final answer is kept (`vendor_offline_writes`): a retry after a lost reply gets the same answer, never a
@@ -71,6 +74,7 @@ type Ctx = {
   userId: string;
   shop: string;
   duty: VendorDuty;
+  branchId: string | null;
 };
 
 const refusal = (op: SupplierOfflineReply['op'], why: string, retry = false) =>
@@ -96,7 +100,7 @@ async function contextFor(shop: string, capability: VendorCapability): Promise<C
   // read that failed once.
   if (!standing) return { why: 'unread', retry: true };
   if (!dutyMay(standing.duty, capability)) return { why: `Only ${whoCanOpen(capability)} can do this.`, retry: false };
-  return { supabase, admin: createAdminClient(), userId: user.id, shop, duty: standing.duty };
+  return { supabase, admin: createAdminClient(), userId: user.id, shop, duty: standing.duty, branchId: standing.branchId };
 }
 
 /** Display names for the members a clash names (`users.display_name`). A failed read names nobody — never a guess. */
@@ -178,23 +182,14 @@ async function scheduleWrite(ctx: Ctx, item: SupplierQueuedItem): Promise<SyncOu
       p = { ...base, op: 'day_state', pool_id: f('pool_id') || null, state_date: f('state_date'), day_state: f('day_state'), note: f('note'), base_version: item.baseVersion ?? 0 };
       break;
     default: {
-      // qr.booking — the member's OWN code, of this shop.
-      const codeId = f('code_id');
-      if (!isUuid(codeId)) return { status: 'refused', why: SQL_INVALID.code! };
-      const { data: code, error } = await ctx.admin
-        .from('vendor_offline_codes')
-        .select('code_id')
-        .eq('code_id', codeId)
-        .eq('vendor_profile_id', item.shop)
-        .eq('member_user_id', item.member)
-        .maybeSingle();
-      if (error) {
-        console.error('[supabase-error] supplier-offline: code read', error.message);
-        return { status: 'retry', why: 'unread' };
-      }
-      if (!code) return { status: 'refused', why: SQL_INVALID.code! };
+      // qr.booking — this phone's own signed QR: the SAME check the client's scan gets (an active key of this shop
+      // and member, the signature over every field), then one code, one entry.
+      const qr = await checkOfflineQr(ctx.admin, f('token'), item.shop);
+      if (qr.status !== 'ok') return qr.status === 'unread' ? { status: 'retry', why: 'unread' } : { status: 'refused', why: qr.status === 'stopped' ? 'QR codes from this phone were stopped. Make the client a new one.' : SQL_INVALID.code! };
+      if (qr.memberUserId !== item.member) return { status: 'refused', why: SQL_INVALID.code! };
       rpc = 'supplier_offline_code_use';
-      p = { code_id: codeId, via: 'supplier', item_id: item.itemId, phone_time: item.phoneTime, booked_date: f('start_date'), client_time: f('client_time'), pool_id: await poolFor(f('pool_id')), client_name: f('client_name'), client_contact: f('client_contact'), client_note: f('client_note') };
+      const qf = qr.fields;
+      p = { code_id: qf.codeId, device_id: qf.deviceId, via: 'supplier', item_id: item.itemId, phone_time: qf.phoneTime, booked_date: qf.date, client_time: qf.time ?? '', pool_id: await poolFor(qf.poolId ?? ''), amount_php: qf.amountPhp ?? '', client_name: f('client_name'), client_contact: f('client_contact'), client_note: f('client_note') };
     }
   }
   if (poolsUnread) return { status: 'retry', why: 'unread' };
@@ -250,6 +245,26 @@ async function settleItem(ctx: Ctx, item: SupplierQueuedItem, out: SyncOutcome):
       : ctx.admin.from('vendor_offline_writes').update({ outcome: out, settled_at: new Date().toISOString() }).eq('item_id', item.itemId);
   const { error } = await q;
   if (error) console.error('[supabase-error] supplier-offline: settle item', error.message);
+}
+
+/* ── every row is versioned: its own updated_at ────────────────────────────────────────────────────────────────── */
+
+/**
+ * A write that names a row (`item.rowVersion`) is applied only if that row is still the one the phone saw — its
+ * `updated_at` unchanged (owner, "Everything at once"). Only the tables `VERSIONED_ROWS` lists, by their keys.
+ */
+async function rowStillAsSeen(ctx: Ctx, item: SupplierQueuedItem): Promise<SyncOutcome | null> {
+  const seen = item.rowVersion;
+  if (!seen) return null;
+  const key = VERSIONED_ROWS[seen.table];
+  const { data, error } = await ctx.admin.from(seen.table).select('updated_at').eq(key, seen.id).maybeSingle();
+  if (error) {
+    console.error('[supabase-error] supplier-offline: row version read', error.message);
+    return { status: 'retry', why: 'unread' };
+  }
+  if (!data) return { status: 'clash', clash: { why: 'removed', by: null, at: null, dates: null } };
+  const live = (data as { updated_at: string | null }).updated_at;
+  return rowUnchanged(seen, live) ? null : { status: 'clash', clash: { why: 'changed', by: null, at: live, dates: null } };
 }
 
 /* ── replaying the shipped action ──────────────────────────────────────────────────────────────────────────────── */
@@ -396,7 +411,7 @@ async function clientAdd(ctx: Ctx, item: SupplierQueuedItem): Promise<SyncOutcom
   const codeId = typeof item.fields.code_id === 'string' && isUuid(item.fields.code_id) ? item.fields.code_id : null;
   const { data: invite, error } = await ctx.admin
     .from('vendor_client_invites')
-    .update({ made_offline: true, phone_time: item.phoneTime, offline_code_id: codeId })
+    .update({ made_offline: true, phone_time: item.phoneTime })
     .eq('token', token ?? '')
     .eq('vendor_profile_id', ctx.shop)
     .select('invite_id')
@@ -418,7 +433,7 @@ async function clientAdd(ctx: Ctx, item: SupplierQueuedItem): Promise<SyncOutcom
  */
 async function joinTheClientsScan(ctx: Ctx, codeId: string, inviteId: string, lines: NonNullable<ReturnType<typeof ownGiftLinesOf>>): Promise<void> {
   const { data: code, error } = await ctx.admin
-    .from('vendor_offline_codes')
+    .from('vendor_offline_code_uses')
     .update({ invite_id: inviteId })
     .eq('code_id', codeId)
     .eq('vendor_profile_id', ctx.shop)
@@ -428,7 +443,11 @@ async function joinTheClientsScan(ctx: Ctx, codeId: string, inviteId: string, li
     console.error('[supabase-error] supplier-offline: link code to invite', error.message);
     return;
   }
-  const eventId = (code as { claimed_event_id: string | null } | null)?.claimed_event_id;
+  // No row = the QR's date never landed (a clash): the invite stays a plain one, with no code to point at.
+  if (!code) return;
+  const { error: markErr } = await ctx.admin.from('vendor_client_invites').update({ offline_code_id: codeId }).eq('invite_id', inviteId);
+  if (markErr) console.error('[supabase-error] supplier-offline: invite code mark', markErr.message);
+  const eventId = (code as { claimed_event_id: string | null }).claimed_event_id;
   if (!eventId) return;
   const gave = await giveOwnClientGift(ctx.admin, { vendorProfileId: ctx.shop, eventId, via: 'invite', inviteId, lines, userId: null });
   if (gave.status !== 'given' && gave.status !== 'already') return;
@@ -474,9 +493,6 @@ async function syncOne(raw: string): Promise<SupplierOfflineReply> {
   if (!item) return refusal('sync', 'That saved change could not be read.');
   const done = (o: SyncOutcome): SupplierOfflineReply => ({ op: 'sync', ok: true, reply: { ...o, itemId: item.itemId, kind: item.kind } as SyncReply });
 
-  // "Pay when online" — before any check: a purchase is never charged from the queue.
-  if (SUPPLIER_OFFLINE_KINDS[item.kind].rule === 'purchase') return done({ status: 'pay_when_online' });
-
   const ctx = await contextFor(item.shop, SUPPLIER_OFFLINE_KINDS[item.kind].capability);
   if ('why' in ctx) {
     if (ctx.why === 'signed_out') return done({ status: 'retry', why: 'signed_out' });
@@ -497,7 +513,9 @@ async function syncOne(raw: string): Promise<SupplierOfflineReply> {
   if (claim !== 'claimed') return done(claim);
   let out: SyncOutcome;
   try {
-    if (rule === 'money') out = await moneyAction(ctx, item);
+    const stale = await rowStillAsSeen(ctx, item);
+    if (stale) out = stale;
+    else if (rule === 'money') out = await moneyAction(ctx, item);
     else if (rule === 'gift') out = await clientAdd(ctx, item);
     else if (item.kind === 'message.send') out = await messageSend(ctx, item);
     else {
@@ -512,81 +530,128 @@ async function syncOne(raw: string): Promise<SupplierOfflineReply> {
   return done(out);
 }
 
-/* ── the one-time codes ────────────────────────────────────────────────────────────────────────────────────────── */
+/* ── the phone's QR key ────────────────────────────────────────────────────────────────────────────────────────── */
 
-const DEVICE_RE = /^[A-Za-z0-9_-]{8,64}$/;
-
-async function refillCodes(fd: FormData): Promise<SupplierOfflineReply> {
+async function registerDevice(fd: FormData): Promise<SupplierOfflineReply> {
   const device = str(fd, 'device_id');
-  if (!DEVICE_RE.test(device)) return refusal('codes.refill', 'This phone could not be named.');
-  const ctx = await contextFor(str(fd, 'shop'), 'clients');
-  if ('why' in ctx) return refusal('codes.refill', ctx.why, ctx.retry);
-  const own = () =>
-    ctx.admin
-      .from('vendor_offline_codes')
-      .select('code_id, secret, issued_at')
-      .eq('vendor_profile_id', ctx.shop)
-      .eq('member_user_id', ctx.userId)
-      .eq('device_id', device)
-      .eq('status', 'stocked')
-      .order('issued_at', { ascending: true });
-  const first = await own();
-  if (first.error) {
-    console.error('[supabase-error] supplier-offline: code stock', first.error.message);
-    return refusal('codes.refill', 'unread', true);
+  let jwk: unknown = null;
+  try {
+    jwk = JSON.parse(str(fd, 'public_key'));
+  } catch {
+    jwk = null;
   }
-  const short = OFFLINE_CODE_STOCK - (first.data ?? []).length;
-  if (short > 0) {
-    const rows = Array.from({ length: short }, () => ({
+  if (!DEVICE_ID_RE.test(device) || !isPublicKeyJwk(jwk)) return refusal('device.register', 'This phone’s key could not be read.');
+  const ctx = await contextFor(str(fd, 'shop'), 'clients');
+  if ('why' in ctx) return refusal('device.register', ctx.why, ctx.retry);
+  const { data: held, error } = await ctx.admin
+    .from('vendor_offline_devices')
+    .select('vendor_profile_id, member_user_id, public_key, status')
+    .eq('device_id', device)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] supplier-offline: device read', error.message);
+    return refusal('device.register', 'unread', true);
+  }
+  const row = held as { vendor_profile_id: string; member_user_id: string; public_key: { x?: string; y?: string }; status: string } | null;
+  if (row) {
+    // A device id is made with its key: the same id with another key, shop or member is refused, never re-pointed.
+    const same = row.vendor_profile_id === ctx.shop && row.member_user_id === ctx.userId && row.public_key?.x === jwk.x && row.public_key?.y === jwk.y;
+    if (!same || row.status !== 'active') return refusal('device.register', 'This phone’s QR key was stopped. Sign in again to make a new one.');
+  } else {
+    const { error: insErr } = await ctx.admin.from('vendor_offline_devices').insert({
+      device_id: device,
       vendor_profile_id: ctx.shop,
       member_user_id: ctx.userId,
-      device_id: device,
-      secret: newOfflineCodeSecret(),
-    }));
-    const { error } = await ctx.admin.from('vendor_offline_codes').insert(rows);
-    if (error) {
-      console.error('[supabase-error] supplier-offline: code refill', error.message);
-      return refusal('codes.refill', 'unread', true);
+      public_key: { kty: 'EC', crv: 'P-256', x: jwk.x, y: jwk.y },
+    });
+    if (insErr) {
+      console.error('[supabase-error] supplier-offline: device register', insErr.message);
+      return refusal('device.register', COULD_NOT_SAVE, true);
     }
   }
-  const all = short > 0 ? await own() : first;
-  if (all.error) {
-    console.error('[supabase-error] supplier-offline: code stock re-read', all.error.message);
-    return refusal('codes.refill', 'unread', true);
-  }
-  const codes = ((all.data ?? []) as { code_id: string; secret: string; issued_at: string }[]).map((c) => ({ codeId: c.code_id, secret: c.secret, issuedAt: c.issued_at }));
-  return { op: 'codes.refill', ok: true, memberTag: await memberTagOf(ctx.userId), codes, stock: OFFLINE_CODE_STOCK };
+  return { op: 'device.register', ok: true, deviceId: device, memberTag: await memberTagOf(ctx.userId) };
 }
 
-async function cancelCodes(fd: FormData): Promise<SupplierOfflineReply> {
-  // Any teammate may cancel a member's unused codes (a lost phone).
-  const ctx = await contextFor(str(fd, 'shop'), 'schedule');
-  if ('why' in ctx) return refusal('codes.cancel', ctx.why, ctx.retry);
-  const member = str(fd, 'member_user_id');
-  if (!isUuid(member)) return refusal('codes.cancel', 'Pick whose codes to cancel.');
+/** May this person stop that member's phone? A Shop Manager — or the Branch Manager for that member's branch. */
+async function mayStopFor(ctx: Ctx, member: string): Promise<boolean | null> {
+  if (member === ctx.userId || ctx.duty === 'shop_manager') return true;
+  if (ctx.duty !== 'branch_manager' || !ctx.branchId) return false;
   const { data, error } = await ctx.admin
-    .from('vendor_offline_codes')
-    .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: ctx.userId })
+    .from('vendor_team_members')
+    .select('branch_id')
     .eq('vendor_profile_id', ctx.shop)
-    .eq('member_user_id', member)
-    .eq('status', 'stocked')
-    .select('code_id');
+    .eq('user_id', member);
   if (error) {
-    console.error('[supabase-error] supplier-offline: cancel codes', error.message);
-    return refusal('codes.cancel', COULD_NOT_SAVE, true);
+    console.error('[supabase-error] supplier-offline: member branch', error.message);
+    return null;
   }
-  return { op: 'codes.cancel', ok: true, cancelled: (data ?? []).length };
+  return ((data ?? []) as { branch_id: string | null }[]).some((r) => r.branch_id === ctx.branchId);
+}
+
+/** "Stop QR codes from this phone": every code from it nobody has scanned is refused from now on. */
+async function stopDevice(fd: FormData): Promise<SupplierOfflineReply> {
+  const device = str(fd, 'device_id');
+  if (!DEVICE_ID_RE.test(device)) return refusal('device.stop', 'Pick which phone to stop.');
+  const ctx = await contextFor(str(fd, 'shop'), 'schedule');
+  if ('why' in ctx) return refusal('device.stop', ctx.why, ctx.retry);
+  const { data: held, error } = await ctx.admin
+    .from('vendor_offline_devices')
+    .select('member_user_id, status')
+    .eq('device_id', device)
+    .eq('vendor_profile_id', ctx.shop)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] supplier-offline: device read', error.message);
+    return refusal('device.stop', 'unread', true);
+  }
+  const row = held as { member_user_id: string; status: string } | null;
+  if (!row) return refusal('device.stop', 'That phone isn’t one of this shop’s.');
+  const may = await mayStopFor(ctx, row.member_user_id);
+  if (may === null) return refusal('device.stop', 'unread', true);
+  if (!may) return refusal('device.stop', 'Only a Shop Manager, or the Branch Manager for that branch, can stop another person’s phone.');
+  if (row.status === 'stopped') return { op: 'device.stop', ok: true, stopped: false };
+  const { error: upErr } = await ctx.admin
+    .from('vendor_offline_devices')
+    .update({ status: 'stopped', stopped_at: new Date().toISOString(), stopped_by: ctx.userId, stop_reason: row.member_user_id === ctx.userId && str(fd, 'reason') === 'signed_out' ? 'signed_out' : 'lost' })
+    .eq('device_id', device)
+    .eq('status', 'active');
+  if (upErr) {
+    console.error('[supabase-error] supplier-offline: device stop', upErr.message);
+    return refusal('device.stop', COULD_NOT_SAVE, true);
+  }
+  revalidatePath('/vendor-dashboard/customers');
+  return { op: 'device.stop', ok: true, stopped: true };
 }
 
 /* ── expo mode ─────────────────────────────────────────────────────────────────────────────────────────────────── */
+
+/** Who may hold dates (controller under the 20 Nov delegation, DECISION_LOG 24 Nov): any role that can book. */
+export const HOLD_DUTIES: ReadonlyArray<VendorDuty> = ['shop_manager', 'branch_manager', 'account_manager'];
 
 async function holdOp(op: 'holds.claim' | 'holds.release' | 'holds.synced', fd: FormData): Promise<SupplierOfflineReply> {
   const ctx = await contextFor(str(fd, 'shop'), 'schedule');
   if ('why' in ctx) return refusal(op, ctx.why, ctx.retry);
   const p: Record<string, unknown> = { vendor_profile_id: ctx.shop, member_user_id: ctx.userId };
-  if (op === 'holds.claim') Object.assign(p, { op: 'claim', pool_id: str(fd, 'pool_id') || null, start_date: str(fd, 'start_date'), end_date: str(fd, 'end_date') || str(fd, 'start_date') });
-  else if (op === 'holds.release') Object.assign(p, { op: 'release', hold_id: str(fd, 'hold_id'), may_release_any: dutyMay(ctx.duty, 'team') });
-  else p.op = 'synced';
+  if (op === 'holds.claim') {
+    if (!HOLD_DUTIES.includes(ctx.duty)) return refusal(op, 'Only a Shop Manager, Branch Manager or Account Manager can hold dates.');
+    Object.assign(p, { op: 'claim', pool_id: str(fd, 'pool_id') || null, start_date: str(fd, 'start_date'), end_date: str(fd, 'end_date') || str(fd, 'start_date') });
+  } else if (op === 'holds.release') {
+    // A Shop Manager, or the Branch Manager for the holder's branch, can let anyone's hold go; everyone else, their own.
+    const holdId = str(fd, 'hold_id');
+    const { data: h, error: hErr } = await ctx.admin
+      .from('vendor_offline_holds')
+      .select('member_user_id')
+      .eq('hold_id', isUuid(holdId) ? holdId : '00000000-0000-0000-0000-000000000000')
+      .eq('vendor_profile_id', ctx.shop)
+      .maybeSingle();
+    if (hErr) {
+      console.error('[supabase-error] supplier-offline: hold read', hErr.message);
+      return refusal(op, 'unread', true);
+    }
+    const holder = (h as { member_user_id: string } | null)?.member_user_id ?? null;
+    const anyone = holder !== null && holder !== ctx.userId && (await mayStopFor(ctx, holder)) === true;
+    Object.assign(p, { op: 'release', hold_id: holdId, may_release_any: anyone });
+  } else p.op = 'synced';
   const { data, error } = await ctx.admin.rpc('supplier_offline_hold', { p });
   if (error) {
     console.error('[supabase-error] supplier-offline: supplier_offline_hold', error.message);
@@ -603,31 +668,35 @@ async function holdOp(op: 'holds.claim' | 'holds.release' | 'holds.synced', fd: 
   return refusal(op, 'Only the person holding these dates, or someone who manages the team, can let them go.');
 }
 
-/* ── who has changes waiting ───────────────────────────────────────────────────────────────────────────────────── */
+/* ── last seen (R5, corrected) ─────────────────────────────────────────────────────────────────────────────────── */
 
-async function reportPresence(fd: FormData): Promise<SupplierOfflineReply> {
+async function seenDevice(fd: FormData): Promise<SupplierOfflineReply> {
   const device = str(fd, 'device_id');
-  const waiting = Math.max(0, Math.min(10000, Math.trunc(Number(str(fd, 'waiting')) || 0)));
-  if (!DEVICE_RE.test(device)) return refusal('presence.report', 'This phone could not be named.');
+  if (!DEVICE_ID_RE.test(device)) return refusal('device.seen', 'This phone could not be named.');
   const ctx = await contextFor(str(fd, 'shop'), 'schedule');
-  if ('why' in ctx) return refusal('presence.report', ctx.why, ctx.retry);
-  const { error } = await ctx.admin.from('vendor_offline_presence').upsert(
-    { vendor_profile_id: ctx.shop, member_user_id: ctx.userId, device_id: device, waiting, last_online_at: new Date().toISOString() },
-    { onConflict: 'vendor_profile_id,member_user_id,device_id' },
-  );
+  if ('why' in ctx) return refusal('device.seen', ctx.why, ctx.retry);
+  const { error } = await ctx.admin
+    .from('vendor_offline_devices')
+    .update({ last_seen_at: new Date().toISOString() })
+    .eq('device_id', device)
+    .eq('vendor_profile_id', ctx.shop)
+    .eq('member_user_id', ctx.userId);
   if (error) {
-    console.error('[supabase-error] supplier-offline: presence', error.message);
-    return refusal('presence.report', COULD_NOT_SAVE, true);
+    console.error('[supabase-error] supplier-offline: last seen', error.message);
+    return refusal('device.seen', COULD_NOT_SAVE, true);
   }
-  return { op: 'presence.report', ok: true };
+  return { op: 'device.seen', ok: true };
 }
 
-/** What every online teammate sees: who holds which dates, who has changes waiting, and unused codes per member. */
+/**
+ * What every online teammate sees (Settings › Offline): who holds which dates, when each member was last seen online
+ * (R5, corrected — never a count of what is on their phone), and the team's phones that can sign QR codes.
+ */
 async function readTeam(fd: FormData): Promise<SupplierOfflineReply> {
   const ctx = await contextFor(str(fd, 'shop'), 'schedule');
   if ('why' in ctx) return refusal('team.read', ctx.why, ctx.retry);
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
-  const [holds, presence, codes] = await Promise.all([
+  const [holds, devices] = await Promise.all([
     ctx.admin
       .from('vendor_offline_holds')
       .select('hold_id, member_user_id, pool_id, start_date, end_date, created_at')
@@ -635,31 +704,37 @@ async function readTeam(fd: FormData): Promise<SupplierOfflineReply> {
       .is('released_at', null)
       .gte('end_date', today)
       .order('start_date'),
-    ctx.admin.from('vendor_offline_presence').select('member_user_id, waiting, last_online_at').eq('vendor_profile_id', ctx.shop),
-    ctx.admin.from('vendor_offline_codes').select('member_user_id').eq('vendor_profile_id', ctx.shop).eq('status', 'stocked'),
+    ctx.admin
+      .from('vendor_offline_devices')
+      .select('device_id, member_user_id, status, created_at, last_seen_at')
+      .eq('vendor_profile_id', ctx.shop)
+      .order('created_at'),
   ]);
-  const failed = [holds.error, presence.error, codes.error].find(Boolean);
+  const failed = [holds.error, devices.error].find(Boolean);
   if (failed) {
     console.error('[supabase-error] supplier-offline: team read', failed.message);
     return refusal('team.read', 'unread', true);
   }
   const holdRows = (holds.data ?? []) as { hold_id: string; member_user_id: string; pool_id: string | null; start_date: string; end_date: string; created_at: string }[];
-  const presenceRows = (presence.data ?? []) as { member_user_id: string; waiting: number; last_online_at: string }[];
-  const codeRows = (codes.data ?? []) as { member_user_id: string }[];
-  const names = await memberNames(ctx.admin, [...holdRows, ...presenceRows, ...codeRows].map((r) => r.member_user_id));
+  const deviceRows = (devices.data ?? []) as { device_id: string; member_user_id: string; status: 'active' | 'stopped'; created_at: string; last_seen_at: string }[];
+  const names = await memberNames(ctx.admin, [...holdRows, ...deviceRows].map((r) => r.member_user_id));
 
-  const pendingBy = new Map<string, TeamPending>();
-  for (const r of presenceRows) {
-    const prev = pendingBy.get(r.member_user_id);
-    const waiting = (prev?.waiting ?? 0) + Number(r.waiting ?? 0);
-    const last = !prev || r.last_online_at > prev.lastOnlineAt ? r.last_online_at : prev.lastOnlineAt;
-    pendingBy.set(r.member_user_id, { memberUserId: r.member_user_id, name: names.get(r.member_user_id) ?? null, waiting, lastOnlineAt: last });
+  const seenBy = new Map<string, TeamSeen>();
+  for (const d of deviceRows) {
+    const prev = seenBy.get(d.member_user_id);
+    if (!prev || d.last_seen_at > prev.lastSeenAt) seenBy.set(d.member_user_id, { memberUserId: d.member_user_id, name: names.get(d.member_user_id) ?? null, lastSeenAt: d.last_seen_at });
   }
-  const codesBy = new Map<string, TeamCodes>();
-  for (const r of codeRows) {
-    const prev = codesBy.get(r.member_user_id);
-    codesBy.set(r.member_user_id, { memberUserId: r.member_user_id, name: names.get(r.member_user_id) ?? null, unused: (prev?.unused ?? 0) + 1 });
-  }
+  const mayStop = new Map<string, boolean>();
+  for (const m of new Set(deviceRows.map((d) => d.member_user_id))) mayStop.set(m, (await mayStopFor(ctx, m)) === true);
+  const teamDevices: TeamDevice[] = deviceRows.map((d) => ({
+    deviceId: d.device_id,
+    memberUserId: d.member_user_id,
+    name: names.get(d.member_user_id) ?? null,
+    status: d.status,
+    createdAt: d.created_at,
+    lastSeenAt: d.last_seen_at,
+    mayStop: d.status === 'active' && mayStop.get(d.member_user_id) === true,
+  }));
   const teamHolds: TeamHold[] = holdRows.map((h) => ({
     holdId: h.hold_id,
     memberUserId: h.member_user_id,
@@ -669,7 +744,7 @@ async function readTeam(fd: FormData): Promise<SupplierOfflineReply> {
     end: h.end_date,
     since: h.created_at,
   }));
-  return { op: 'team.read', ok: true, holds: teamHolds, pending: [...pendingBy.values()], codes: [...codesBy.values()], readAt: new Date().toISOString() };
+  return { op: 'team.read', ok: true, holds: teamHolds, seen: [...seenBy.values()], devices: teamDevices, readAt: new Date().toISOString() };
 }
 
 /* ── the door ──────────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -684,16 +759,16 @@ export async function supplierOffline(fd: FormData): Promise<StayReply<SupplierO
   switch (op) {
     case 'sync':
       return reply(await syncOne(typeof fd.get('item') === 'string' ? String(fd.get('item')) : ''));
-    case 'codes.refill':
-      return reply(await refillCodes(fd));
-    case 'codes.cancel':
-      return reply(await cancelCodes(fd));
+    case 'device.register':
+      return reply(await registerDevice(fd));
+    case 'device.stop':
+      return reply(await stopDevice(fd));
+    case 'device.seen':
+      return reply(await seenDevice(fd));
     case 'holds.claim':
     case 'holds.release':
     case 'holds.synced':
       return reply(await holdOp(op, fd));
-    case 'presence.report':
-      return reply(await reportPresence(fd));
     default:
       return reply(await readTeam(fd));
   }

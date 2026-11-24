@@ -4,25 +4,54 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchVendorPoolsOrNull } from '@/lib/vendor-schedule';
 import { outsideClientPoolOf } from '@/lib/outside-client-pool';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
-import { memberTagOf, parseOfflineQrToken, verifyOfflineQr } from './qr';
+import { memberTagOf, parseOfflineQrToken, type OfflineQrFields } from './qr';
+import { verifyOfflineQrSignature } from './qr.server';
 
 /**
  * 🔳 THE CLIENT'S PHONE DOES THE SYNC (owner 24 Nov 2026: "if they create a QR Code for the client. and the client used
- * the QR Code, and the client has internet. it should auto update the suppliers schedule").
+ * the QR Code, and the client has internet. it should auto update the suppliers schedule"; no stock — DECISION_LOG
+ * 7d618cb3).
  *
- * Called by the SHIPPED invite claim (`app/vendor-invite/[slug]/actions.ts` · `claimVendorInviteToEvent`) when the link
- * carries an offline QR (`oq`), before the shop is added to the client's event:
- *   1 · the code is this shop's, the member tag is the code's member, and the HMAC over every field checks out with THAT
- *       code's own secret — anything edited, or signed by another code, is refused;
- *   2 · `supplier_offline_code_use` makes it ONE entry under the clash rules (a held, full or closed day is refused to
- *       the client too); the supplier's later sync of the same code only fills in the name;
- *   3 · when the supplier's phone already synced it (with its Add-a-client gift), the invite's token comes back so the
- *       claim goes on as that invite — the own-client gift the shipped path gives.
+ * `checkOfflineQr` is THE check, for both arrivals (the client's scan here, the supplier's own sync in
+ * `engine.server.ts`): the QR names THIS shop; its phone is one of this shop's, ACTIVE (not stopped); the member tag is
+ * that phone's member; and the ECDSA signature over every field checks out against that phone's public key
+ * (node:crypto, `qr.server.ts`). Anything edited, signed by another phone or shop, or from a stopped phone is refused.
+ *
+ * `claimOfflineQr` (called by the SHIPPED invite claim, `app/vendor-invite/[slug]/actions.ts`, before the shop is added
+ * to the client's event) then lets `supplier_offline_code_use` take the code id once and make ONE entry under the clash
+ * rules; the supplier's later sync of the same code only fills in the name. When the supplier's phone already synced
+ * its Add-a-client invite for this code, the invite's token comes back so the claim goes on as that invite.
  */
+
+export type OfflineQrCheck =
+  | { status: 'ok'; fields: OfflineQrFields; memberUserId: string }
+  | { status: 'invalid' | 'stopped' | 'unread' };
+
+export async function checkOfflineQr(admin: SupabaseClient, token: unknown, vendorProfileId: string): Promise<OfflineQrCheck> {
+  const parsed = parseOfflineQrToken(token);
+  if (!parsed) return { status: 'invalid' };
+  // A phone of another shop can never sign for this shop.
+  if (parsed.fields.shop !== vendorProfileId) return { status: 'invalid' };
+  const { data, error } = await admin
+    .from('vendor_offline_devices')
+    .select('vendor_profile_id, member_user_id, public_key, status')
+    .eq('device_id', parsed.fields.deviceId)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] offline QR: device read', error.message);
+    return { status: 'unread' };
+  }
+  const device = data as { vendor_profile_id: string; member_user_id: string; public_key: unknown; status: string } | null;
+  if (!device || device.vendor_profile_id !== vendorProfileId) return { status: 'invalid' };
+  if (device.status !== 'active') return { status: 'stopped' };
+  if ((await memberTagOf(device.member_user_id)) !== parsed.fields.member) return { status: 'invalid' };
+  if (!verifyOfflineQrSignature(parsed, device.public_key)) return { status: 'invalid' };
+  return { status: 'ok', fields: parsed.fields, memberUserId: device.member_user_id };
+}
 
 export type OfflineQrClaim =
   | { status: 'applied'; inviteToken: string | null; blockId: string | null }
-  | { status: 'held' | 'booked' | 'closed' | 'removed' | 'cancelled' | 'used' | 'invalid' | 'unread' };
+  | { status: 'held' | 'booked' | 'closed' | 'removed' | 'stopped' | 'used' | 'invalid' | 'unread' };
 
 /** The invite page's status for each refusal (`STATUS_COPY` there spreads `OFFLINE_QR_STATUS_COPY`). */
 export const OFFLINE_QR_STATUS_COPY: Readonly<Record<string, string>> = {
@@ -30,7 +59,7 @@ export const OFFLINE_QR_STATUS_COPY: Readonly<Record<string, string>> = {
   oc_booked: 'Couldn’t save your date: it was just booked. You can still add this supplier and ask about another date.',
   oc_closed: 'Couldn’t save your date: the supplier closed it. You can still add this supplier.',
   oc_removed: 'Couldn’t save your date: the supplier removed it. You can still add this supplier.',
-  oc_cancelled: 'This QR code was cancelled by the supplier. You can still add them.',
+  oc_stopped: 'This QR code was stopped by the supplier. You can still add them, or ask them for a new one.',
   oc_used: 'This QR code was already used for another event. You can still add this supplier.',
   oc_invalid: 'This QR code couldn’t be checked. You can still add this supplier.',
   oc_unread: 'We couldn’t check this QR code just now. Please try again.',
@@ -40,24 +69,11 @@ export async function claimOfflineQr(
   admin: SupabaseClient,
   input: { token: string; vendorProfileId: string; eventId: string; eventName: string | null },
 ): Promise<OfflineQrClaim> {
-  const parsed = parseOfflineQrToken(input.token);
-  if (!parsed) return { status: 'invalid' };
-  const { data: code, error } = await admin
-    .from('vendor_offline_codes')
-    .select('code_id, member_user_id, secret')
-    .eq('code_id', parsed.fields.codeId)
-    .eq('vendor_profile_id', input.vendorProfileId)
-    .maybeSingle();
-  if (error) {
-    console.error('[supabase-error] offline QR claim: code read', error.message);
-    return { status: 'unread' };
-  }
-  const c = code as { code_id: string; member_user_id: string; secret: string } | null;
-  if (!c) return { status: 'invalid' };
-  if ((await memberTagOf(c.member_user_id)) !== parsed.fields.member) return { status: 'invalid' };
-  if (!(await verifyOfflineQr(parsed, c.secret))) return { status: 'invalid' };
+  const qr = await checkOfflineQr(admin, input.token, input.vendorProfileId);
+  if (qr.status !== 'ok') return { status: qr.status };
+  const f = qr.fields;
 
-  let poolId = parsed.fields.poolId;
+  let poolId = f.poolId;
   if (!poolId) {
     const pools = await fetchVendorPoolsOrNull(admin, input.vendorProfileId).catch(() => null);
     if (!pools) return { status: 'unread' };
@@ -67,12 +83,14 @@ export async function claimOfflineQr(
 
   const { data, error: rpcErr } = await admin.rpc('supplier_offline_code_use', {
     p: {
-      code_id: c.code_id,
+      code_id: f.codeId,
+      device_id: f.deviceId,
       via: 'client',
-      booked_date: parsed.fields.date,
-      client_time: parsed.fields.time ?? '',
+      booked_date: f.date,
+      client_time: f.time ?? '',
       pool_id: poolId,
-      phone_time: parsed.fields.phoneTime,
+      amount_php: f.amountPhp ?? '',
+      phone_time: f.phoneTime,
       event_id: input.eventId,
       label: input.eventName ?? '',
     },
@@ -86,7 +104,7 @@ export async function claimOfflineQr(
     const why = a.why === 'held' || a.why === 'booked' || a.why === 'closed' || a.why === 'removed' ? a.why : 'booked';
     return { status: why };
   }
-  if (a.status === 'cancelled' || a.status === 'used') return { status: a.status };
+  if (a.status === 'stopped' || a.status === 'used') return { status: a.status };
   if (a.status !== 'applied') return { status: 'invalid' };
   revalidateShopPage(input.vendorProfileId);
 

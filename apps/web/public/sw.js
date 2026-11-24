@@ -899,8 +899,8 @@ async function forgetOfflineCopies() {
 }
 
 // 📶 SIGN-OUT ERASES THE SUPPLIER'S OFFLINE WORK ON THIS PHONE (owner 2026-11-24, "signing out wipes the phone's offline
-// copy and unused codes"): the queued supplier actions and the member's one-time QR codes, in the daemon's own database
-// (`lib/offline/db.ts` · `supplier_queue` + `supplier_codes`). Opened with no version, so it never upgrades or creates
+// copy and unused codes"): the queued supplier actions and the phone's QR signing keys, in the daemon's own database
+// (`lib/offline/db.ts` · `supplier_queue` + `supplier_keys`). Opened with no version, so it never upgrades or creates
 // anything — a phone that never kept supplier work has nothing to erase.
 function forgetSupplierOffline() {
   return new Promise((resolve) => {
@@ -914,7 +914,7 @@ function forgetSupplierOffline() {
     req.onerror = () => resolve(false);
     req.onsuccess = () => {
       const db = req.result;
-      const names = ['supplier_queue', 'supplier_codes'].filter((n) => db.objectStoreNames.contains(n));
+      const names = ['supplier_queue', 'supplier_keys'].filter((n) => db.objectStoreNames.contains(n));
       if (names.length === 0) {
         db.close();
         return resolve(true);

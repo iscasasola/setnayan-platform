@@ -6,7 +6,11 @@
  * (`lib/supplier-offline/engine.server.ts`) and by the screens the drawing will add. The ruling, as types:
  *   · FIRST SAVE WINS — a stale or blocked write comes back as a typed clash `{why, by, at}`, never merged.
  *   · MONEY — the server recomputes every amount from live rows; if it differs from what the phone showed, nothing is
- *     applied and the answer is `needs_reconfirm {offline, live}`. A purchase is never charged from the queue.
+ *     applied and the answer is `needs_reconfirm {offline, live}`. Nothing is bought or paid offline (R15): a purchase is
+ *     never queued at all — its button reads "Needs internet".
+ *   · EVERY ROW IS VERSIONED (owner "Everything at once"): a queued write names the row it changes and that row's
+ *     `updated_at` as the phone saw it; the server applies it only if the row is unchanged.
+ *   · R14 — a booking made offline counts on that phone at once (`localSlot`, `queuedSeats`).
  *   · GIFTS — given from the last known balance; the live balance decides at sync (`no_gifts_left`, never unpaid).
  *   · NOTHING FAILS SILENTLY — every final answer is kept on the phone until a person looks at it.
  *
@@ -26,9 +30,7 @@ export type OfflineRule =
   /** gifts from the live balance before the shipped action runs */
   | 'gift'
   /** the shipped action, once (the ledger answers a retry) */
-  | 'plain'
-  /** never from the queue: "Pay when online" */
-  | 'purchase';
+  | 'plain';
 
 type KindRule = {
   rule: OfflineRule;
@@ -40,7 +42,7 @@ type KindRule = {
 
 /**
  * EVERY supplier action a phone may keep while offline. Anything else is refused before it is queued
- * (`isSupplierOfflineKind`) — and a purchase is listed only so it can be answered "Pay when online".
+ * (`isSupplierOfflineKind`). Nothing that buys or pays is here (R15): those buttons grey out — "Needs internet".
  */
 export const SUPPLIER_OFFLINE_KINDS = {
   /* ── schedule (versioned, first save wins) ── */
@@ -70,9 +72,48 @@ export const SUPPLIER_OFFLINE_KINDS = {
   'deposit.ack': { rule: 'money', capability: 'clients' },
   /** the yes (`vendorAgreeToLock`) */
   'booking.accept': { rule: 'money', capability: 'clients' },
-  /* ── never from the queue ── */
-  purchase: { rule: 'purchase', capability: 'plan' },
 } as const satisfies Record<string, KindRule>;
+
+/* ── R15: what needs internet ─────────────────────────────────────────────────────────────────────────────────── */
+
+/** The greyed button's label and the one quiet line a tap shows (owner 24 Nov, R15). */
+export const NEEDS_INTERNET = 'Needs internet';
+export const NEEDS_INTERNET_LINE = 'Needs internet · it works again when you’re back online';
+
+/* ── every row is versioned (its own `updated_at`) ─────────────────────────────────────────────────────────────── */
+
+/**
+ * The rows a queued write may name, and the key each is found by. The version is the row's EXISTING `updated_at`
+ * (owner, "Everything at once": a `version` column only where a table has none — the schedule items). The server reads
+ * the row back before the shipped action runs; changed or gone ⇒ a clash, never a merge. Only these tables, by these
+ * keys — a queued item can never name another table.
+ */
+export const VERSIONED_ROWS = {
+  event_vendors: 'vendor_id',
+  vendor_client_notes: 'note_id',
+  chat_threads: 'thread_id',
+} as const;
+export type VersionedTable = keyof typeof VERSIONED_ROWS;
+export type RowVersion = { table: VersionedTable; id: string; updatedAt: string };
+
+export function isRowVersion(v: unknown): v is RowVersion {
+  if (!v || typeof v !== 'object') return false;
+  const r = v as Record<string, unknown>;
+  return (
+    typeof r.table === 'string' &&
+    Object.hasOwn(VERSIONED_ROWS, r.table) &&
+    typeof r.id === 'string' &&
+    r.id.length > 0 &&
+    r.id.length <= 64 &&
+    typeof r.updatedAt === 'string' &&
+    Number.isFinite(Date.parse(r.updatedAt))
+  );
+}
+
+/** Is the row still the one the phone saw? Compared as instants (a timestamp may come back spelled differently). */
+export function rowUnchanged(seen: RowVersion, liveUpdatedAt: string | null): boolean {
+  return liveUpdatedAt !== null && Date.parse(liveUpdatedAt) === Date.parse(seen.updatedAt);
+}
 
 export type SupplierOfflineKind = keyof typeof SUPPLIER_OFFLINE_KINDS;
 
@@ -133,6 +174,8 @@ export type SupplierQueuedItem = {
   kind: SupplierOfflineKind;
   /** the version of the schedule item the edit was made against (0 = the phone saw none) */
   baseVersion?: number | null;
+  /** any other row it changes, with that row's `updated_at` as the phone saw it */
+  rowVersion?: RowVersion | null;
   /** the amounts the phone showed (money kinds) */
   seen?: MoneySeen | null;
   /** "8 gifts left · as of 2:14 pm" — when the gift balance the phone gave from was read (ISO) */
@@ -162,6 +205,7 @@ export function parseQueuedItem(raw: unknown): SupplierQueuedItem | null {
   const base = r.baseVersion;
   if (base !== undefined && base !== null && !(Number.isInteger(base) && (base as number) >= 0)) return null;
   let seen: MoneySeen | null = null;
+  if (r.rowVersion !== undefined && r.rowVersion !== null && !isRowVersion(r.rowVersion)) return null;
   if (r.seen && typeof r.seen === 'object') {
     const s = r.seen as Record<string, unknown>;
     seen = { totalPhp: amountOf(s.totalPhp), depositPhp: amountOf(s.depositPhp), paymentPhp: amountOf(s.paymentPhp) };
@@ -175,6 +219,7 @@ export function parseQueuedItem(raw: unknown): SupplierQueuedItem | null {
     madeOffline: true,
     kind: r.kind,
     baseVersion: (base as number | null | undefined) ?? null,
+    rowVersion: (r.rowVersion as RowVersion | null | undefined) ?? null,
     seen,
     giftsAsOf: typeof r.giftsAsOf === 'string' ? r.giftsAsOf : null,
     fields,
@@ -216,13 +261,12 @@ export type SyncOutcome =
   | { status: 'clash'; clash: Clash }
   | { status: 'needs_reconfirm'; offline: MoneySeen | null; live: MoneySeen }
   | { status: 'no_gifts_left'; asOf: string }
-  | { status: 'pay_when_online' }
   | { status: 'refused'; why: string }
   | { status: 'retry'; why: RetryWhy };
 
 export type SyncReply = SyncOutcome & { itemId: string; kind: SupplierOfflineKind };
 
-export const SYNC_STATUSES = ['applied', 'clash', 'needs_reconfirm', 'no_gifts_left', 'pay_when_online', 'refused', 'retry'] as const;
+export const SYNC_STATUSES = ['applied', 'clash', 'needs_reconfirm', 'no_gifts_left', 'refused', 'retry'] as const;
 
 /** Final = the phone stops sending it. Only `retry` keeps it queued. */
 export function isFinalOutcome(o: Pick<SyncOutcome, 'status'>): boolean {
@@ -301,6 +345,7 @@ export function outcomeFromSqlAnswer(a: SqlAnswer | null, names: ReadonlyMap<str
   if (a.status === 'clash') return { status: 'clash', clash: clashFromSqlAnswer(a, names) };
   if (a.status === 'cancelled') return { status: 'refused', why: 'This QR code was cancelled.' };
   if (a.status === 'used') return { status: 'refused', why: 'This QR code was already used.' };
+  if (a.status === 'stopped') return { status: 'refused', why: 'QR codes from this phone were stopped. Make the client a new one.' };
   return { status: 'refused', why: SQL_INVALID[a.reason ?? 'shape'] ?? SQL_INVALID.shape! };
 }
 
@@ -345,8 +390,6 @@ export function outcomeLine(o: SyncOutcome): string | null {
     }
     case 'no_gifts_left':
       return 'Gift not sent: no gifts left';
-    case 'pay_when_online':
-      return 'Pay when online';
     case 'refused':
       return `Couldn’t save: ${o.why}`;
     default:
@@ -362,17 +405,124 @@ export function giftsLeftLine(left: number | null, asOf: string | null): string 
   return `${n} ${n === 1 ? 'gift' : 'gifts'} left${when ? ` · as of ${when}` : ''}`;
 }
 
-/** "<member>: N changes waiting, last online <time>" — a teammate's pending line. */
-export function pendingLine(name: string | null, waiting: number, lastOnline: string | null): string | null {
-  if (!(waiting > 0)) return null;
-  const when = timeWords(lastOnline);
-  return `${name?.trim() || 'A teammate'}: ${waiting} ${waiting === 1 ? 'change' : 'changes'} waiting${when ? `, last online ${when}` : ''}`;
+/**
+ * R5 (corrected 24 Nov): what a TEAMMATE sees — "Ana · last seen 2:14 PM · holding 10–15 Dec". Never a count of the
+ * changes still on Ana's phone: the server cannot see them. Only her own phone says "3 changes waiting to send".
+ */
+export function lastSeenLine(name: string | null, lastSeen: string | null, holding: { start: string; end: string } | null): string {
+  const when = timeWords(lastSeen);
+  const span = holding ? (holding.start === holding.end ? dayWords(holding.start) : `${dayWords(holding.start)}–${dayWords(holding.end)}`) : null;
+  return [name?.trim() || 'A teammate', when ? `last seen ${when}` : null, span ? `holding ${span}` : null].filter(Boolean).join(' · ');
+}
+
+/** Only the phone's OWN line: "3 changes waiting to send". */
+export function waitingToSendLine(waiting: number): string | null {
+  return waiting > 0 ? `${waiting} ${waiting === 1 ? 'change' : 'changes'} waiting to send` : null;
 }
 
 /** What a queued item shows until the server accepts it (team-clash rule 2). */
 export const NOT_CONFIRMED_YET = 'Not confirmed yet';
-/** A purchase made offline (owner: "the supplier cannot purchase gifts when offline"). */
-export const PAY_WHEN_ONLINE = 'Pay when online';
-export const BUY_WHEN_ONLINE = 'Buy when online';
-/** How many one-time codes each member's device keeps (controller's call, DECISION_LOG 2026-11-24). */
-export const OFFLINE_CODE_STOCK = 50;
+/** R14: a time a booking made on this phone already took. */
+export const BOOKED_NOT_CONFIRMED = 'Booked · not confirmed yet';
+
+/* ── R14: a booking made offline counts on that phone at once ─────────────────────────────────────────────────── */
+
+/**
+ * The phone's saved copy of ONE day of ONE schedule, as the last read put it (the screens fill it from the saved
+ * copy): its seats, what is already taken, the times already booked, and whether the day is closed.
+ */
+export type LocalDayCopy = {
+  poolId: string;
+  date: string;
+  capacity: number;
+  /** seats taken on the server copy (couples' bookings + outside clients) */
+  taken: number;
+  /** HH:MM already booked on the server copy */
+  times: readonly string[];
+  closed: boolean;
+};
+
+export type LocalSlot = 'free' | 'booked' | 'booked_not_confirmed' | 'full' | 'closed';
+
+const fieldOf = (item: SupplierQueuedItem, k: string): string => {
+  const v = item.fields[k];
+  return typeof v === 'string' ? v.trim() : '';
+};
+
+const onDay = (item: SupplierQueuedItem, date: string): boolean => {
+  const start = fieldOf(item, 'start_date');
+  const end = fieldOf(item, 'end_date') || start;
+  return Boolean(start) && start <= date && date <= end;
+};
+
+/** A queued item's schedule — empty means "the shop's one schedule", which counts against any schedule (never less). */
+const onPool = (item: SupplierQueuedItem, poolId: string): boolean => {
+  const p = fieldOf(item, 'pool_id');
+  return !p || p === poolId;
+};
+
+/**
+ * What this phone's QUEUE adds to a day: the seats and times its own offline bookings took (outside clients and offline
+ * QR dates), and whether it closed the day ("not available" for the whole day). Nothing from another phone — that is
+ * what expo mode and first save wins at sync are for.
+ */
+export function queuedSeats(queued: readonly SupplierQueuedItem[], poolId: string, date: string): { seats: number; times: string[]; closed: boolean } {
+  let seats = 0;
+  const times: string[] = [];
+  let closed = false;
+  for (const item of queued) {
+    if (!onDay(item, date)) continue;
+    if (item.kind === 'schedule.client' || item.kind === 'qr.booking') {
+      if (!onPool(item, poolId)) continue;
+      seats += 1;
+      const t = fieldOf(item, 'client_time');
+      if (/^\d{2}:\d{2}$/.test(t)) times.push(t);
+    } else if (item.kind === 'schedule.block') {
+      const scope = fieldOf(item, 'scope');
+      const wholeDay = (fieldOf(item, 'day_part') || 'all_day') === 'all_day';
+      if (wholeDay && (!scope || scope === 'org' || scope === poolId)) closed = true;
+    }
+  }
+  return { seats, times, closed };
+}
+
+/**
+ * THE ONE local availability read (R14): the saved copy PLUS this phone's queue. The time picker, the offline QR's
+ * free-time check and every other screen on the phone ask this, so they all agree. A time a queued booking took reads
+ * "Booked · not confirmed yet"; a day whose seats are all taken reads full.
+ */
+export function localSlot(copy: LocalDayCopy, queued: readonly SupplierQueuedItem[], time: string | null): LocalSlot {
+  const q = queuedSeats(queued, copy.poolId, copy.date);
+  if (copy.closed || q.closed) return 'closed';
+  if (time && q.times.includes(time)) return 'booked_not_confirmed';
+  if (time && copy.times.includes(time)) return 'booked';
+  if (copy.taken + q.seats >= Math.max(1, copy.capacity)) return 'full';
+  return 'free';
+}
+
+/** The times a picker may still offer on that day (the copy plus the queue). */
+export function offerableTimes(copy: LocalDayCopy, queued: readonly SupplierQueuedItem[], times: readonly string[]): string[] {
+  return times.filter((t) => localSlot(copy, queued, t) === 'free');
+}
+
+/** R14 for gifts: the last known balance less what this phone's queue already gave ("8 gifts left · as of …"). */
+export function giftsLeftWithQueue(balance: number | null, queued: readonly SupplierQueuedItem[], packCode: string): number | null {
+  if (balance === null) return null;
+  let given = 0;
+  for (const item of queued) {
+    if (item.kind !== 'client.add') continue;
+    const g = item.fields.gift;
+    given += (Array.isArray(g) ? g : typeof g === 'string' ? [g] : []).filter((c) => c === packCode).length;
+  }
+  return Math.max(0, balance - given);
+}
+
+/** R14 for "To collect": what is still owed on a booking, less the payments this phone's queue already recorded. */
+export function toCollectWithQueue(owed: number | null, queued: readonly SupplierQueuedItem[], eventVendorId: string): number | null {
+  if (owed === null) return null;
+  let recorded = 0;
+  for (const item of queued) {
+    if (item.kind === 'payment.confirm' && fieldOf(item, 'vendor_id') === eventVendorId) recorded += item.seen?.paymentPhp ?? 0;
+  }
+  return Math.max(0, Math.round((owed - recorded) * 100) / 100);
+}

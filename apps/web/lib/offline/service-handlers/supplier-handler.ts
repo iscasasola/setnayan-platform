@@ -5,7 +5,7 @@
 // Each queued item is ONE supplier action, sent through the ONE door every in-place save uses (`saveInPlace`, stay door
 // `supOffline.supplierOffline`, op `sync`). The server answers with a typed outcome (`lib/supplier-offline/kinds.ts`):
 //   · applied                      → dequeued (the screens stop drawing it "Not confirmed yet").
-//   · clash · needs_reconfirm · no_gifts_left · pay_when_online · refused
+//   · clash · needs_reconfirm · no_gifts_left · refused
 //                                  → dequeued AND kept as an OUTCOME the person sees ("Couldn't save: <why>", with the
 //                                    one-tap fix); nothing fails silently, nothing is retried into a teammate's work.
 //   · retry (no signal, signed out, another account, an unread live number) → stays queued; the next pass sends it.

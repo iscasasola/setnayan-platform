@@ -14,24 +14,30 @@
 --     outside clients) and the shipped day states, never a parallel one.
 --   · EXPO MODE. While online a member claims a date range; until they sync or
 --     release it, only the holder may write into it — offline AND online.
---   · OFFLINE CLIENT QR. Each member's device keeps a stock of one-time codes,
---     each with its own secret. The QR carries no personal data; the server
---     checks the signature (in TypeScript, `lib/supplier-offline/qr.ts`) and
---     this file makes the use atomic: ONE CODE, ONE ENTRY, whoever arrives
---     first (the client scanning it, or the supplier's phone syncing it).
+--   · OFFLINE CLIENT QR, NO STOCK (owner 24 Nov, DECISION_LOG 7d618cb3). Each
+--     phone makes its own ECDSA P-256 key once, online; the private key never
+--     leaves the phone and the server keeps only the public half
+--     (`vendor_offline_devices`). Offline, every QR gets a new random code id
+--     and is signed by the phone. The server checks the signature against that
+--     phone's ACTIVE key (`lib/supplier-offline/qr.server.ts`, node:crypto) and
+--     this file takes each code id once (`vendor_offline_code_uses`, UNIQUE):
+--     ONE CODE, ONE ENTRY, whoever arrives first (the client scanning it, or the
+--     supplier's phone syncing it). A stopped phone's codes are refused.
 --   · MADE OFFLINE. The mark, the member and the phone's time are kept on the
 --     client and schedule rows; the server orders by its own clock.
 --
 -- WHAT THIS FILE ADDS (nothing existing changes meaning):
---   1. `vendor_offline_codes` — the one-time QR codes (service role only: each
---      row holds the code's secret).
+--   1. `vendor_offline_devices` — each phone's public key (service role only),
+--      its status (active · stopped) and when it was last seen online;
+--      `vendor_offline_code_uses` — each code id, taken once.
 --   2. `vendor_calendar_blocks` + version / created_by / updated_by /
 --      made_offline / phone_time / offline_code_id / offline_item_id.
 --      `vendor_calendar_day_states` + version / updated_by. ONE trigger bumps
 --      the version on every update, from any writer.
 --   3. `vendor_offline_holds` — expo-mode date claims; a trigger refuses an
 --      online member's write into another member's held dates.
---   4. `vendor_offline_presence` — "<member>: N changes waiting, last online".
+--   4. (R5, corrected) teammates see "last seen" from the device row — never a
+--      count of changes still on another phone, which the server cannot see.
 --   5. `vendor_offline_writes` — one row per queued item: the idempotency key
 --      and the outcome a retry is answered with.
 --   6. `vendor_client_invites` + made_offline / offline_code_id / phone_time.
@@ -47,54 +53,98 @@
 
 BEGIN;
 
--- ── 1 · the one-time QR codes ────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.vendor_offline_codes (
-  code_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-- ── 1 · each phone's key, and each code taken once ──────────────────────────
+CREATE TABLE IF NOT EXISTS public.vendor_offline_devices (
+  -- random, made on the phone with its key (a phone whose storage was wiped makes a new one)
+  device_id         TEXT PRIMARY KEY
+                      CONSTRAINT vendor_offline_devices_id_shape
+                      CHECK (device_id ~ '^[A-Za-z0-9_-]{16,64}$'),
   vendor_profile_id UUID NOT NULL
                       REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE CASCADE,
   member_user_id    UUID NOT NULL,
+  -- the PUBLIC half only, as a JWK ({kty: EC, crv: P-256, x, y}). The server stores no secret.
+  public_key        JSONB NOT NULL
+                      CONSTRAINT vendor_offline_devices_key_shape
+                      CHECK (public_key->>'kty' = 'EC' AND public_key->>'crv' = 'P-256'
+                             AND (public_key->>'x') ~ '^[A-Za-z0-9_-]{43}$'
+                             AND (public_key->>'y') ~ '^[A-Za-z0-9_-]{43}$'
+                             AND NOT (public_key ? 'd')),
+  status            TEXT NOT NULL DEFAULT 'active'
+                      CONSTRAINT vendor_offline_devices_status_allowed
+                      CHECK (status IN ('active', 'stopped')),
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  stopped_at        TIMESTAMPTZ,
+  stopped_by        UUID,
+  stop_reason       TEXT
+                      CONSTRAINT vendor_offline_devices_stop_reason_allowed
+                      CHECK (stop_reason IS NULL OR stop_reason IN ('lost', 'signed_out')),
+  CONSTRAINT vendor_offline_devices_stop_shape
+    CHECK ((status = 'stopped') = (stopped_at IS NOT NULL))
+);
+
+CREATE INDEX IF NOT EXISTS vendor_offline_devices_shop_idx
+  ON public.vendor_offline_devices (vendor_profile_id, member_user_id);
+
+COMMENT ON TABLE public.vendor_offline_devices IS
+  'Offline client QR, no stock (owner 2026-11-24, DECISION_LOG 7d618cb3): one row per phone key — the PUBLIC '
+  'half only. Offline the phone signs each QR; the server checks it against this key while it is active. '
+  '"Stop QR codes from this phone" (a Shop Manager, or the Branch Manager for that branch) and signing out set '
+  'it stopped, and every code from it nobody has scanned is refused. last_seen_at is the teammates'' "last '
+  'seen" (R5). Service role only.';
+
+ALTER TABLE public.vendor_offline_devices ENABLE ROW LEVEL SECURITY;
+-- No policy on purpose: Settings › Offline reads it through the server door after its own role check.
+REVOKE ALL ON TABLE public.vendor_offline_devices FROM anon, authenticated;
+
+CREATE TABLE IF NOT EXISTS public.vendor_offline_code_uses (
+  -- the random id the phone put in the QR — taken ONCE (the primary key is the whole one-use rule)
+  code_id           UUID PRIMARY KEY,
   device_id         TEXT NOT NULL
-                      CONSTRAINT vendor_offline_codes_device_shape
-                      CHECK (device_id ~ '^[A-Za-z0-9_-]{8,64}$'),
-  -- 32 random bytes, base64url. Never leaves the server except to the device
-  -- it was issued to (the refill answer).
-  secret            TEXT NOT NULL
-                      CONSTRAINT vendor_offline_codes_secret_shape
-                      CHECK (secret ~ '^[A-Za-z0-9_-]{43}$'),
-  status            TEXT NOT NULL DEFAULT 'stocked'
-                      CONSTRAINT vendor_offline_codes_status_allowed
-                      CHECK (status IN ('stocked', 'used', 'cancelled')),
-  issued_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  used_at           TIMESTAMPTZ,
-  used_via          TEXT
-                      CONSTRAINT vendor_offline_codes_used_via_allowed
-                      CHECK (used_via IS NULL OR used_via IN ('client', 'supplier')),
-  booked_date       DATE,
+                      REFERENCES public.vendor_offline_devices(device_id) ON DELETE CASCADE,
+  vendor_profile_id UUID NOT NULL
+                      REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE CASCADE,
+  member_user_id    UUID NOT NULL,
+  used_via          TEXT NOT NULL
+                      CONSTRAINT vendor_offline_code_uses_via_allowed
+                      CHECK (used_via IN ('client', 'supplier')),
+  used_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  booked_date       DATE NOT NULL,
   booked_time       TIME,
+  pool_id           UUID REFERENCES public.vendor_schedule_pools(pool_id) ON DELETE SET NULL,
+  -- the amount the QR showed, as signed (₱, whole pesos); kept for the record — nothing is charged from it
+  amount_php        INTEGER
+                      CONSTRAINT vendor_offline_code_uses_amount_range
+                      CHECK (amount_php IS NULL OR amount_php >= 0),
   phone_time        TIMESTAMPTZ,
   block_id          UUID,
   invite_id         UUID REFERENCES public.vendor_client_invites(invite_id) ON DELETE SET NULL,
-  claimed_event_id  UUID REFERENCES public.events(event_id) ON DELETE SET NULL,
-  cancelled_at      TIMESTAMPTZ,
-  cancelled_by      UUID,
-  CONSTRAINT vendor_offline_codes_used_shape
-    CHECK (status <> 'used' OR (used_at IS NOT NULL AND used_via IS NOT NULL))
+  claimed_event_id  UUID REFERENCES public.events(event_id) ON DELETE SET NULL
 );
 
-CREATE INDEX IF NOT EXISTS vendor_offline_codes_stock_idx
-  ON public.vendor_offline_codes (vendor_profile_id, member_user_id, device_id)
-  WHERE status = 'stocked';
+CREATE INDEX IF NOT EXISTS vendor_offline_code_uses_shop_idx
+  ON public.vendor_offline_code_uses (vendor_profile_id, used_at DESC);
 
-COMMENT ON TABLE public.vendor_offline_codes IS
-  'Offline client QR (owner 2026-11-24): one-time invite codes a member''s device keeps while online (50 per '
-  'member device, refilled when online). Each code has its own secret; an offline QR is signed with it and '
-  'carries no personal data. supplier_offline_code_use makes the use atomic — one code, one entry. Service '
-  'role only: the secret column must never reach a session.';
+COMMENT ON TABLE public.vendor_offline_code_uses IS
+  'Each offline client QR code id, taken once (owner 2026-11-24): the first arrival — the client scanning it or '
+  'the supplier''s phone syncing it — makes the one entry (supplier_offline_code_use); the second only fills in '
+  'what it knows. Keeps the made-offline facts: the phone, the member, the phone''s time. Shop members read; '
+  'only the server writes.';
 
-ALTER TABLE public.vendor_offline_codes ENABLE ROW LEVEL SECURITY;
--- No policy on purpose: no session reads or writes this table (the secrets).
--- The server reads it through the service role after its own member check.
-REVOKE ALL ON TABLE public.vendor_offline_codes FROM anon, authenticated;
+ALTER TABLE public.vendor_offline_code_uses ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS vendor_offline_code_uses_shop_read ON public.vendor_offline_code_uses;
+CREATE POLICY vendor_offline_code_uses_shop_read
+  ON public.vendor_offline_code_uses
+  FOR SELECT TO authenticated
+  USING (
+    vendor_profile_id IN (SELECT public.current_vendor_profile_ids())
+    OR (SELECT public.is_admin())
+  );
+
+REVOKE ALL ON TABLE public.vendor_offline_code_uses FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+  ON TABLE public.vendor_offline_code_uses FROM authenticated;
 
 -- ── 2 · versioned schedule items (the SHIPPED tables) ────────────────────────
 ALTER TABLE public.vendor_calendar_blocks
@@ -113,13 +163,13 @@ BEGIN
   ) THEN
     ALTER TABLE public.vendor_calendar_blocks
       ADD CONSTRAINT vendor_calendar_blocks_offline_code_fk
-      FOREIGN KEY (offline_code_id) REFERENCES public.vendor_offline_codes(code_id) ON DELETE SET NULL;
+      FOREIGN KEY (offline_code_id) REFERENCES public.vendor_offline_code_uses(code_id) ON DELETE SET NULL;
   END IF;
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'vendor_offline_codes_block_fk'
+    SELECT 1 FROM pg_constraint WHERE conname = 'vendor_offline_code_uses_block_fk'
   ) THEN
-    ALTER TABLE public.vendor_offline_codes
-      ADD CONSTRAINT vendor_offline_codes_block_fk
+    ALTER TABLE public.vendor_offline_code_uses
+      ADD CONSTRAINT vendor_offline_code_uses_block_fk
       FOREIGN KEY (block_id) REFERENCES public.vendor_calendar_blocks(block_id) ON DELETE SET NULL;
   END IF;
 END $$;
@@ -279,41 +329,6 @@ CREATE TRIGGER vendor_calendar_blocks_respect_holds
   BEFORE INSERT OR UPDATE ON public.vendor_calendar_blocks
   FOR EACH ROW EXECUTE FUNCTION public.vendor_calendar_blocks_respect_holds();
 
--- ── 4 · who has changes waiting ──────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.vendor_offline_presence (
-  vendor_profile_id UUID NOT NULL
-                      REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE CASCADE,
-  member_user_id    UUID NOT NULL,
-  device_id         TEXT NOT NULL
-                      CONSTRAINT vendor_offline_presence_device_shape
-                      CHECK (device_id ~ '^[A-Za-z0-9_-]{8,64}$'),
-  waiting           INTEGER NOT NULL DEFAULT 0
-                      CONSTRAINT vendor_offline_presence_waiting_range
-                      CHECK (waiting BETWEEN 0 AND 10000),
-  last_online_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (vendor_profile_id, member_user_id, device_id)
-);
-
-COMMENT ON TABLE public.vendor_offline_presence IS
-  'Team-clash rule 4 (owner 2026-11-24): what each member''s phone last said while online — how many changes '
-  'it still had waiting, and when — so online teammates see "<member>: N changes waiting, last online <time>". '
-  'Shop members read; only the server writes.';
-
-ALTER TABLE public.vendor_offline_presence ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS vendor_offline_presence_shop_read ON public.vendor_offline_presence;
-CREATE POLICY vendor_offline_presence_shop_read
-  ON public.vendor_offline_presence
-  FOR SELECT TO authenticated
-  USING (
-    vendor_profile_id IN (SELECT public.current_vendor_profile_ids())
-    OR (SELECT public.is_admin())
-  );
-
-REVOKE ALL ON TABLE public.vendor_offline_presence FROM anon;
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-  ON TABLE public.vendor_offline_presence FROM authenticated;
-
 -- ── 5 · every queued item, once ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.vendor_offline_writes (
   item_id           UUID PRIMARY KEY,
@@ -357,7 +372,7 @@ REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
 -- ── 6 · the made-offline mark on the client row ──────────────────────────────
 ALTER TABLE public.vendor_client_invites
   ADD COLUMN IF NOT EXISTS made_offline    BOOLEAN NOT NULL DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS offline_code_id UUID REFERENCES public.vendor_offline_codes(code_id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS offline_code_id UUID REFERENCES public.vendor_offline_code_uses(code_id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS phone_time      TIMESTAMPTZ;
 
 CREATE UNIQUE INDEX IF NOT EXISTS vendor_client_invites_offline_code_unique
@@ -770,14 +785,17 @@ REVOKE ALL ON FUNCTION public.supplier_offline_hold(JSONB) FROM PUBLIC, anon, au
 GRANT EXECUTE ON FUNCTION public.supplier_offline_hold(JSONB) TO service_role;
 
 -- ── 7c · one code, one entry ─────────────────────────────────────────────────
--- Called AFTER the server checked the QR's signature with the code's secret
--- (`lib/supplier-offline/qr.ts`). Whoever arrives first — the client scanning
--- it ('client') or the supplier's phone syncing its queued copy ('supplier') —
--- makes THE entry through supplier_offline_schedule_write; the second only
--- fills in what it knows (the supplier's copy carries the client's name; the
--- client's scan carries the event they picked).
--- p: { code_id, via, booked_date, client_time?, pool_id, phone_time?, item_id?,
---      event_id?, label?, client_name?, client_contact?, client_note? }
+-- Called AFTER the server checked the QR's signature against the phone's
+-- ACTIVE public key (`lib/supplier-offline/qr.server.ts`). Whoever arrives
+-- first — the client scanning it ('client') or the supplier's phone syncing its
+-- queued copy ('supplier') — takes the code id (the primary key) and makes THE
+-- entry through supplier_offline_schedule_write; a clash gives the code id back,
+-- so the other side meets the same answer. The second arrival only fills in what
+-- it knows (the supplier's copy carries the client's name; the client's scan
+-- carries the event they picked). The phone is checked again here, under lock:
+-- a code from a stopped phone is refused even after the signature passed.
+-- p: { code_id, device_id, via, booked_date, client_time?, pool_id, amount_php?,
+--      phone_time?, item_id?, event_id?, label?, client_name?, client_contact?, client_note? }
 CREATE OR REPLACE FUNCTION public.supplier_offline_code_use(p JSONB)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -785,69 +803,80 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_code  UUID := NULLIF(p->>'code_id', '')::uuid;
-  v_via   TEXT := p->>'via';
-  v_event UUID := NULLIF(p->>'event_id', '')::uuid;
-  v_date  DATE := NULLIF(p->>'booked_date', '')::date;
-  v_c     public.vendor_offline_codes%ROWTYPE;
-  v_r     JSONB;
+  v_code   UUID := NULLIF(p->>'code_id', '')::uuid;
+  v_device TEXT := NULLIF(p->>'device_id', '');
+  v_via    TEXT := p->>'via';
+  v_event  UUID := NULLIF(p->>'event_id', '')::uuid;
+  v_date   DATE := NULLIF(p->>'booked_date', '')::date;
+  v_d      public.vendor_offline_devices%ROWTYPE;
+  v_u      public.vendor_offline_code_uses%ROWTYPE;
+  v_r      JSONB;
+  v_n      INTEGER;
 BEGIN
-  IF v_code IS NULL OR v_via NOT IN ('client', 'supplier') OR v_date IS NULL THEN
+  IF v_code IS NULL OR v_device IS NULL OR v_via NOT IN ('client', 'supplier') OR v_date IS NULL THEN
     RETURN jsonb_build_object('status', 'invalid', 'reason', 'shape');
   END IF;
-  SELECT * INTO v_c FROM public.vendor_offline_codes WHERE code_id = v_code FOR UPDATE;
+  SELECT * INTO v_d FROM public.vendor_offline_devices WHERE device_id = v_device FOR SHARE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('status', 'invalid', 'reason', 'code');
   END IF;
-  IF v_c.status = 'cancelled' THEN
-    RETURN jsonb_build_object('status', 'cancelled', 'at', v_c.cancelled_at);
+  IF v_d.status <> 'active' THEN
+    RETURN jsonb_build_object('status', 'stopped', 'at', v_d.stopped_at);
   END IF;
-  IF v_c.status = 'used' AND v_c.booked_date IS DISTINCT FROM v_date THEN
+
+  INSERT INTO public.vendor_offline_code_uses
+    (code_id, device_id, vendor_profile_id, member_user_id, used_via, booked_date, booked_time, pool_id,
+     amount_php, phone_time, claimed_event_id)
+  VALUES
+    (v_code, v_device, v_d.vendor_profile_id, v_d.member_user_id, v_via, v_date,
+     NULLIF(p->>'client_time', '')::time, NULLIF(p->>'pool_id', '')::uuid,
+     NULLIF(p->>'amount_php', '')::integer, NULLIF(p->>'phone_time', '')::timestamptz,
+     CASE WHEN v_via = 'client' THEN v_event END)
+  ON CONFLICT (code_id) DO NOTHING;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+
+  IF v_n = 1 THEN
+    -- the first arrival makes the entry, under the clash rules
+    v_r := public.supplier_offline_schedule_write(p || jsonb_build_object(
+      'op', 'add_client', 'vendor_profile_id', v_d.vendor_profile_id, 'member_user_id', v_d.member_user_id,
+      'kind', 'qr.booking', 'start_date', v_date, 'end_date', v_date, 'made_offline', TRUE,
+      'item_id', CASE WHEN v_via = 'supplier' THEN p->>'item_id' END));
+    IF v_r->>'status' <> 'applied' THEN
+      -- a clash gives the code id back: the other side meets the same answer when it arrives
+      DELETE FROM public.vendor_offline_code_uses WHERE code_id = v_code;
+      RETURN v_r;
+    END IF;
+    UPDATE public.vendor_offline_code_uses SET block_id = NULLIF(v_r->>'block_id', '')::uuid WHERE code_id = v_code;
+    RETURN v_r || jsonb_build_object('used_via', v_via, 'claimed_event_id', CASE WHEN v_via = 'client' THEN v_event END);
+  END IF;
+
+  -- the code id is taken: the second arrival
+  SELECT * INTO v_u FROM public.vendor_offline_code_uses WHERE code_id = v_code FOR UPDATE;
+  IF v_u.device_id <> v_device OR v_u.booked_date IS DISTINCT FROM v_date THEN
     RETURN jsonb_build_object('status', 'invalid', 'reason', 'date');
   END IF;
-
-  IF v_c.status = 'used' THEN
-    IF v_via = 'client' THEN
-      IF v_c.claimed_event_id IS NOT NULL AND v_event IS NOT NULL AND v_c.claimed_event_id <> v_event THEN
-        RETURN jsonb_build_object('status', 'used', 'at', v_c.used_at);
-      END IF;
-      IF v_c.claimed_event_id IS NULL AND v_event IS NOT NULL THEN
-        UPDATE public.vendor_offline_codes SET claimed_event_id = v_event WHERE code_id = v_code;
-      END IF;
-      RETURN jsonb_build_object('status', 'applied', 'deduped', TRUE, 'block_id', v_c.block_id,
-                                'invite_id', v_c.invite_id, 'claimed_event_id', COALESCE(v_c.claimed_event_id, v_event),
-                                'used_via', v_c.used_via);
+  IF v_via = 'client' THEN
+    IF v_u.claimed_event_id IS NOT NULL AND v_event IS NOT NULL AND v_u.claimed_event_id <> v_event THEN
+      RETURN jsonb_build_object('status', 'used', 'at', v_u.used_at);
     END IF;
-    -- the entry this code made was removed since: never re-made behind a teammate's back
-    IF v_c.block_id IS NULL THEN
-      RETURN jsonb_build_object('status', 'clash', 'why', 'removed', 'by', NULL, 'by_kind', 'member', 'at', NULL,
-                                'invite_id', v_c.invite_id, 'claimed_event_id', v_c.claimed_event_id);
+    IF v_u.claimed_event_id IS NULL AND v_event IS NOT NULL THEN
+      UPDATE public.vendor_offline_code_uses SET claimed_event_id = v_event WHERE code_id = v_code;
     END IF;
-    -- the supplier's queued copy of an entry the client already made: fill in the details
-    v_r := public.supplier_offline_schedule_write(p || jsonb_build_object(
-      'op', 'add_client', 'vendor_profile_id', v_c.vendor_profile_id, 'member_user_id', v_c.member_user_id,
-      'kind', 'qr.booking', 'start_date', v_date, 'end_date', v_date, 'made_offline', TRUE));
-    RETURN v_r || jsonb_build_object('invite_id', v_c.invite_id, 'claimed_event_id', v_c.claimed_event_id,
-                                     'used_via', v_c.used_via);
+    RETURN jsonb_build_object('status', 'applied', 'deduped', TRUE, 'block_id', v_u.block_id,
+                              'invite_id', v_u.invite_id, 'claimed_event_id', COALESCE(v_u.claimed_event_id, v_event),
+                              'used_via', v_u.used_via);
   END IF;
-
-  -- stocked: the first arrival makes the entry, under the clash rules
+  -- the entry this code made was removed since: never re-made behind a teammate's back
+  IF v_u.block_id IS NULL THEN
+    RETURN jsonb_build_object('status', 'clash', 'why', 'removed', 'by', NULL, 'by_kind', 'member', 'at', NULL,
+                              'invite_id', v_u.invite_id, 'claimed_event_id', v_u.claimed_event_id);
+  END IF;
+  -- the supplier's queued copy of an entry the client already made: fill in the details
   v_r := public.supplier_offline_schedule_write(p || jsonb_build_object(
-    'op', 'add_client', 'vendor_profile_id', v_c.vendor_profile_id, 'member_user_id', v_c.member_user_id,
-    'kind', 'qr.booking', 'start_date', v_date, 'end_date', v_date, 'made_offline', TRUE,
-    'item_id', CASE WHEN v_via = 'supplier' THEN p->>'item_id' END));
-  IF v_r->>'status' <> 'applied' THEN
-    -- a clash leaves the code stocked: the same answer meets the other side when it arrives
-    RETURN v_r;
-  END IF;
-  UPDATE public.vendor_offline_codes
-     SET status = 'used', used_via = v_via, used_at = NOW(),
-         booked_date = v_date, booked_time = NULLIF(p->>'client_time', '')::time,
-         phone_time = NULLIF(p->>'phone_time', '')::timestamptz,
-         block_id = NULLIF(v_r->>'block_id', '')::uuid,
-         claimed_event_id = v_event
-   WHERE code_id = v_code;
-  RETURN v_r || jsonb_build_object('used_via', v_via, 'claimed_event_id', v_event);
+    'op', 'add_client', 'vendor_profile_id', v_d.vendor_profile_id, 'member_user_id', v_d.member_user_id,
+    'kind', 'qr.booking', 'start_date', v_date, 'end_date', v_date, 'made_offline', TRUE));
+  RETURN v_r || jsonb_build_object('invite_id', v_u.invite_id, 'claimed_event_id', v_u.claimed_event_id,
+                                   'used_via', v_u.used_via);
 END;
 $$;
 REVOKE ALL ON FUNCTION public.supplier_offline_code_use(JSONB) FROM PUBLIC, anon, authenticated;

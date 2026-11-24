@@ -48,7 +48,7 @@ The owner ruled the release order on 24 Nov: "start with event hub. then supplie
   - `lib/offline-copies.test.ts`: 4 new tests.
   - `app/[slug]/every-saved-hub-page-wears-its-mark.test.ts`.
   - `app/sw-the-maker-asks-once.test.ts`: its day-of tests are re-pointed to the new rules.
-  - 19 sabotages were each measured landing and seen red. Two guards were decorative on the first run and were fixed:
+  - 20 sabotages were each measured landing and seen red. Two guards were decorative on the first run and were fixed:
     - nothing tested that a room is kept only beside a sealed hub page;
     - the deploy test's `VERSION` replace hit the COMMENT quoting `const VERSION = '…'`, not the real line.
 - **Real Chromium, the real worker** (stand-in pages, a non-development host):

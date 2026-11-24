@@ -9,6 +9,7 @@ events.anchor_kind	# first run 2026-10-02 · host app · a screen saves an event
 events.ceremony_sub_type	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.checkin_desk_access	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.face_tagging_declined_by_couple	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
+events.for_whom	# 2026-11-24 · controller ruling on #8246 · written once by the server at creation (no authenticated column grant), locked by trigger once a supplier joins; it decides the SUPPLIER's booking fee, so there is no host edit control (no owner ruling for one)
 events.gender_separation	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.gift_registry_url	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.honoree_label	# first run 2026-10-02 · sign-in & onboarding · a screen saves an event answer that Event Details neither shows nor edits

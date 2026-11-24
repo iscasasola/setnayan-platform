@@ -876,12 +876,14 @@ async function editSetSongs(
   return { ok: true };
 }
 
-// ── HUB TOOLS — the one writer for every tool drawn with the Checklist, Per-person, Counter or Ordered list template
+// ── HUB TOOLS — the one writer for every tool drawn with the Checklist, Per-person, Counter, Ordered list, Live timeline or dated Plan template
 
 export type HubToolEntryResult = { ok: true; entryId?: string } | { ok: false; error: string };
 
 /**
  * ONE dispatcher for the hub tools' rows (`vendor_hub_tool_entries`): add · edit · tick · count · move · remove.
+ * A live-timeline row's time and a Wellness plan row's day are its `qty` (written by `add` and `count`; read only through
+ * `rowMinute` / `rowDay`); "Next ›" is a `tick`.
  * `move` is the Ordered list's ▲ ▼ (24 Nov: Chair schedule · Reservation slots · Brackets & scoring): the row swaps
  * positions with its neighbour IN ITS OWN TOOL (`swapWithNeighbour`, the Set list's idiom) — two writes, never a renumber.
  * DECISION_LOG 2026-11-23 "THE TEN MOST-SHARED UNBUILT HUB TOOLS" (Tech rider · Personalisation list · Quantity vs

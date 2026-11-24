@@ -270,6 +270,13 @@ export const routes = {
   dashboard: {
     index: () => `/dashboard`,
     activity: (eventId: string) => `/dashboard/${eventId}/activity`,
+    /**
+     * 🛒 EVENT SERVICES — the one place to buy for an event (owner 2026-11-23). It lives at the plans page's address
+     * (`studio/website-pro`, which every plan door already used). `add` opens the singles with that one ready:
+     * photos (Papic "Add more"), live (the Live Watch page), ai (Setnayan AI), hub (an Event Hub lock).
+     */
+    eventServices: (eventId: string, add?: 'photos' | 'live' | 'ai' | 'hub') =>
+      `/dashboard/${eventId}/studio/website-pro${add ? `?add=${add}` : ''}`,
     addOns: {
       // `index` (/studio) removed 2026-10-02 with the full-page More Services
       // (owner, tracker d1) — zero callers; the services open through
@@ -552,10 +559,12 @@ export const routes = {
       // 🏅 Every badge, its seven steps and what is left (owner 23 Nov 2026).
       badges: () => `/vendor-dashboard/shop/badges`,
       // 🛍 The Store — Tools · Graphs · Badges (owner 23 Nov 2026). A shelf opens filtered; an item opens its detail.
+      // The Toolkit. A shelf is one of `STORE_SHELVES` (lib/supplier-store.ts, spelt here since that file reads this one);
+      // an item is a widget (`tools`), a graph or a QR design (`qr`).
       store: {
         index: () => `/vendor-dashboard/shop/store`,
-        shelf: (shelf: 'tools' | 'graphs' | 'badges') => `/vendor-dashboard/shop/store/${shelf}`,
-        item: (shelf: 'tools' | 'graphs' | 'badges', key: string) => `/vendor-dashboard/shop/store/${shelf}/${encodeURIComponent(key)}`,
+        shelf: (shelf: 'tools' | 'yours' | 'chat' | 'present' | 'hub' | 'shop_page' | 'qr' | 'graphs' | 'badges') => `/vendor-dashboard/shop/store/${shelf}`,
+        item: (shelf: 'tools' | 'graphs' | 'qr' | 'badges', key: string) => `/vendor-dashboard/shop/store/${shelf}/${encodeURIComponent(key)}`,
       },
     },
     subscription: () => `/vendor-dashboard/subscription`,

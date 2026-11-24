@@ -273,9 +273,15 @@ test('the registry is exactly the ten the owner named, in the one order, and Cla
   // by lib/theme-order.test.ts; here, that the ten are exactly his ten.
   assert.deepEqual(
     HUB_THEMES.map((t) => t.name),
-    ['Classic', 'Modern', 'Cyber Neon', 'Luxe', 'Vintage', 'Regency', 'Rustic', 'Cinderella', 'Great Gatsby', 'Whimsical'],
+    [
+      'Classic', 'Modern', 'Cyber Neon',
+      // 23 Nov redraw, batch 1 (DECISION_LOG "EVENT HUB THEMES ROUND 2" → "BATCH 6 APPROVED"): one still each, so they
+      // sit before every loop by the owner's "based on size" rule.
+      'Perlas', 'Waling-waling', 'Capiz', 'Hagdan', 'Solihiya',
+      'Luxe', 'Vintage', 'Regency', 'Rustic', 'Cinderella', 'Great Gatsby', 'Whimsical',
+    ],
   );
-  assert.equal(new Set(INVITE_THEME_IDS).size, 10, 'a theme id is listed twice');
+  assert.equal(new Set(INVITE_THEME_IDS).size, INVITE_THEME_IDS.length, 'a theme id is listed twice');
   assert.deepEqual(HUB_THEMES.filter((t) => t.tier === 'free').map((t) => t.id), ['house', 'galeriya', 'cyber']);
   // "Bridgerton" is a Netflix trademark — the public name is Regency (D3).
   assert.ok(!HUB_THEMES.some((t) => /bridgerton/i.test(t.name + t.blurb)), 'a trademarked name reached the picker');
@@ -311,11 +317,17 @@ test('Classic is plain colour: no loop, no still, no scrim, no reveal — and ev
   assert.equal(classic.door, 'house');
   // Every theme but Classic — free or Pro (Modern and Cyber Neon are free since
   // 2026-09-29 and keep their loops; the owner chose them FOR their light loops).
+  // RE-AIMED 23 Nov (DECISION_LOG "EVENT HUB THEMES ROUND 2": *"one real still picture per theme"*, still NOT video):
+  // a redrawn theme has NO loop and its still is the whole ground, at its own dated folder on the same public bucket.
   for (const t of HUB_THEMES.filter((x) => x.id !== 'house')) {
-    assert.ok(t.media, `${t.id} has no loop — owner: "all event hub themes use video"`);
-    assert.match(t.media!.loop, /^r2:\/\/setnayan-media\/theme-backgrounds\/.+-loop\.mp4$/, `${t.id} loop is not on the public bucket`);
-    assert.match(t.media!.poster, /^r2:\/\/setnayan-media\/theme-backgrounds\/.+-poster\.jpg$/, `${t.id} still is not on the public bucket`);
-    assert.ok(t.scrim && t.scrim.opacity > 0 && t.scrim.opacity < 1, `${t.id} has no scrim over its loop`);
+    assert.ok(t.media, `${t.id} has no ground — owner: "all event hub themes use video"`);
+    if (t.media!.loop === null) {
+      assert.match(t.media!.poster, /^r2:\/\/setnayan-media\/theme-art\/\d{4}-\d{2}-\d{2}\/[a-z]+\.webp$/, `${t.id} still is not on the public bucket`);
+    } else {
+      assert.match(t.media!.loop, /^r2:\/\/setnayan-media\/theme-backgrounds\/.+-loop\.mp4$/, `${t.id} loop is not on the public bucket`);
+      assert.match(t.media!.poster, /^r2:\/\/setnayan-media\/theme-backgrounds\/.+-poster\.jpg$/, `${t.id} still is not on the public bucket`);
+    }
+    assert.ok(t.scrim && t.scrim.opacity > 0 && t.scrim.opacity < 1, `${t.id} has no scrim over its ground`);
   }
 });
 
@@ -323,27 +335,28 @@ test('foil shimmer is on by default in exactly Luxe and Great Gatsby', () => {
   assert.deepEqual(HUB_THEMES.filter((t) => t.foilNames).map((t) => t.name), ['Luxe', 'Great Gatsby']);
 });
 
-test("a retired id is READ as its alias and is never offered — the owner's own page is saved as capiz", () => {
-  assert.equal(normalizeThemeId('capiz'), 'vintage');
+test("a retired id is READ as its alias and is never offered — and capiz is a live theme again", () => {
+  // RE-AIMED 23 Nov: the redraw's batch 1 brings back Capiz as its own theme, so the one row that held it (the owner's
+  // own page, 2026-09-25) now wears the new Capiz instead of being read as Vintage.
+  assert.equal(normalizeThemeId('capiz'), 'capiz');
+  assert.equal(resolveInviteTheme({ saved: 'capiz', ...WEDDING }), 'capiz');
+  assert.equal(resolveInviteTheme({ saved: 'capiz', ownsPro: false }), 'house');
   assert.equal(normalizeThemeId('minimalist'), 'galeriya');
   assert.equal(normalizeThemeId('fairytale'), 'cinderella');
   assert.equal(normalizeThemeId('custom'), 'house');
   assert.equal(normalizeThemeId('toString'), null, 'a prototype key is not an alias');
-  // With the unlock, capiz renders as Vintage; without it, House — the Pro gate still applies.
-  assert.equal(resolveInviteTheme({ saved: 'capiz', ...WEDDING }), 'vintage');
-  assert.equal(resolveInviteTheme({ saved: 'capiz', ownsPro: false }), 'house');
-  assert.equal(suggestedInviteTheme({ saved: 'capiz', moodFeelKey: null, ...WEDDING }), 'vintage');
+  assert.equal(suggestedInviteTheme({ saved: 'capiz', moodFeelKey: null, ...WEDDING }), 'capiz');
   for (const legacy of Object.keys(LEGACY_THEME_ALIASES)) {
     assert.ok(!(INVITE_THEME_IDS as readonly string[]).includes(legacy), `${legacy} is both retired and live`);
     assert.ok(!pickableInviteThemes().some((t) => t.id === legacy), `${legacy} is offered`);
   }
 });
 
-test('the CHECK admits exactly the ten, plus only the retired ids a live row may still hold', () => {
+test('the CHECK admits exactly the registry — capiz is live again, so nothing retired is still admitted', () => {
   const inDb = checkedThemeIds();
   for (const id of INVITE_THEME_IDS) assert.ok(inDb.includes(id), `${id} would be refused by the database`);
   const extra = inDb.filter((id) => !(INVITE_THEME_IDS as readonly string[]).includes(id));
-  assert.deepEqual(extra, ['capiz'], `the CHECK admits ${extra.join(', ')} — only capiz is still stored (measured 2026-09-25)`);
+  assert.deepEqual(extra, [], `the CHECK admits ${extra.join(', ')}, which the registry cannot render`);
 });
 
 /* ── THE CSS PAINTS THE REGISTRY ─────────────────────────────────────────────
@@ -352,7 +365,8 @@ test('the CHECK admits exactly the ten, plus only the retired ids a live row may
    second opinion unless something compares them — this does, channel by
    channel, for every token the page renders through. */
 test("every Pro theme's page block in globals.css paints exactly its registry palette", () => {
-  const css = readFileSync(join(HERE, '..', 'app', 'globals.css'), 'utf8');
+  // 🎨 The 23 Nov redraw's theme blocks live in app/hub-themes.css (globals.css sits at its ceiling) — read both, as a themed page loads both.
+  const css = ['globals.css', 'hub-themes.css'].map((f) => readFileSync(join(HERE, '..', 'app', f), 'utf8')).join('\n');
   const ch = (hex: string) => {
     const n = parseInt(hex.slice(1), 16);
     return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
@@ -381,7 +395,7 @@ test("every Pro theme's page block in globals.css paints exactly its registry pa
     assert.equal(decl('--hub-radius'), `${t.radius}px`, `${t.id} radius`);
     checked += 1;
   }
-  assert.equal(checked, 9, `checked ${checked} Pro themes, expected 9`);
+  assert.equal(checked, HUB_THEMES.length - 1, `checked ${checked} themes, expected every one but Classic`);
 });
 
 /* ── B5 · EVERY THEME'S FACES REACH EVERY ROLE (2026-10-04) ────────────────
@@ -394,7 +408,8 @@ test("every Pro theme's page block in globals.css paints exactly its registry pa
    must be one `<html>` already declares — or the "face" is the fallback stack
    with no error anywhere. */
 test("every theme block wires its body, script and labels faces — not only its heading", () => {
-  const css = readFileSync(join(HERE, '..', 'app', 'globals.css'), 'utf8');
+  // 🎨 The 23 Nov redraw's theme blocks live in app/hub-themes.css (globals.css sits at its ceiling) — read both, as a themed page loads both.
+  const css = ['globals.css', 'hub-themes.css'].map((f) => readFileSync(join(HERE, '..', 'app', f), 'utf8')).join('\n');
   const loaders = ['layout.tsx', join('_fonts', 'choice-faces.ts')]
     .map((f) => readFileSync(join(HERE, '..', 'app', f), 'utf8'))
     .join('\n');
@@ -421,7 +436,7 @@ test("every theme block wires its body, script and labels faces — not only its
     }
     checked += 1;
   }
-  assert.equal(checked, 9, `checked ${checked} themes, expected the nine with a block`);
+  assert.equal(checked, HUB_THEMES.length - 1, `checked ${checked} themes, expected every one with a block (all but Classic)`);
   // Tailwind's font-script reads the theme's script first, Great Vibes otherwise.
   const tw = readFileSync(join(HERE, '..', 'tailwind.config.ts'), 'utf8');
   assert.match(tw, /script: \['var\(--font-theme-script, var\(--font-script\)\)', 'cursive'\]/);

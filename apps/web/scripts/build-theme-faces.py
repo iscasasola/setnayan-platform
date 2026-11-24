@@ -66,6 +66,17 @@ JOBS = [
     ('mrssaintdelafield', 'mrs-saint-delafield', [
         ('MrsSaintDelafield-Regular.ttf', 'mrs-saint-delafield-400.woff2', None)]),
     ('monoton', 'monoton', [('Monoton-Regular.ttf', 'monoton-400.woff2', None)]),
+    # ── 2026-11-23 · Event Hub themes redraw, batch 1 (`prototypes/maker_themes_redraw_2026-11-23/batch1/`): the faces its
+    #    sheet names that the repo did not ship. Raleway reserves its name → the whole file (Marcellus and Italiana already ship); the rest are cut
+    #    to the weights the sheet sets. A weight may be a dict of axis pins (Newsreader also has an optical-size axis).
+    ('raleway', 'raleway', [('Raleway[wght].ttf', 'raleway-variable.woff2', None)]),
+    ('gloock', 'gloock', [('Gloock-Regular.ttf', 'gloock-400.woff2', 400)]),
+    ('mulish', 'mulish', [('Mulish[wght].ttf', 'mulish-400.woff2', 400), ('Mulish[wght].ttf', 'mulish-600.woff2', 600)]),
+    ('worksans', 'work-sans', [('WorkSans[wght].ttf', 'work-sans-400.woff2', 400),
+                               ('WorkSans[wght].ttf', 'work-sans-600.woff2', 600)]),
+    ('epilogue', 'epilogue', [('Epilogue[wght].ttf', 'epilogue-700.woff2', 700), ('Epilogue[wght].ttf', 'epilogue-800.woff2', 800)]),
+    ('newsreader', 'newsreader', [('Newsreader[opsz,wght].ttf', 'newsreader-400.woff2', {'wght': 400, 'opsz': 16}),
+                                  ('Newsreader-Italic[opsz,wght].ttf', 'newsreader-400-italic.woff2', {'wght': 400, 'opsz': 16})]),
 ]
 
 
@@ -109,7 +120,11 @@ def same_font(src: bytes, out_path: str) -> None:
 
 
 def main() -> int:
+    # `--only a,b` builds just those google/fonts dirs (a new batch), leaving every shipped file untouched.
+    only = next((arg.split('=', 1)[1].split(',') for arg in sys.argv[1:] if arg.startswith('--only=')), None)
     for gf_dir, our_dir, files in JOBS:
+        if only is not None and gf_dir not in only:
+            continue
         ofl = fetch(gf_dir, 'OFL.txt').decode('utf8')
         os.makedirs(os.path.join(OUT, our_dir), exist_ok=True)
         with open(os.path.join(OUT, our_dir, 'OFL.txt'), 'w', encoding='utf8') as fh:
@@ -130,8 +145,9 @@ def main() -> int:
                     print(f'refusing {src_name}: no RFN, so cut it like every other subset', file=sys.stderr)
                     return 1
                 if 'fvar' in font:
-                    font = instancer.instantiateVariableFont(font, {'wght': weight}, updateFontNames=False)
-                    font['OS/2'].usWeightClass = weight
+                    pins = weight if isinstance(weight, dict) else {'wght': weight}
+                    font = instancer.instantiateVariableFont(font, pins, updateFontNames=False)
+                    font['OS/2'].usWeightClass = pins['wght']
                 opts = subset.Options()
                 opts.flavor = 'woff2'
                 opts.layout_features = ['*']
@@ -142,7 +158,7 @@ def main() -> int:
                 subsetter.populate(unicodes=subset.parse_unicodes(LATIN))
                 subsetter.subset(font)
                 subset.save_font(font, out_path, opts)
-                how = f'latin subset @{weight}'
+                how = f'latin subset @{weight}'  # a dict prints its axis pins
             print(f'{len(src):>8} -> {os.path.getsize(out_path):>7}  app/_fonts/{our_dir}/{name}  {how}')
     return 0
 

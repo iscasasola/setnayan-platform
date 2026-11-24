@@ -4206,6 +4206,13 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-m-shake var(--sn-
   --sn-glass-row-alpha: 62%;
   --sn-glass-row-blur: blur(16px) saturate(1.3);
 }
+/* 🧱 A FULL SCREEN OPENED FROM INSIDE A SHEET (a hall's floor plan, from its Spaces sheet): on the pop layer it stood
+   UNDER the sheet that opened it. It rises on the modal layer instead. It is drawn on <body> after that sheet, so it
+   stands over it, and the sheets it opens itself (also modal, drawn after it) still stand over it.
+   🔒 seating/_components/the-seat-plan-is-one-editor.test.ts (8) */
+[data-rise-screen][data-rise-over-sheet] {
+  z-index: var(--sn-z-modal);
+}
 /* 🎞 Spring's fallback (MOTION_STANDARD § 2 / § 3.9): where `linear()` is not understood, the house cubic spring.
    🔒 lib/the-motion-standard-tokens.test.ts */
 @supports not (transition-timing-function: linear(0, 1)) {

@@ -67,7 +67,7 @@ test('1 · ＋ FINAL — supplier tiles in their fixed places: the quote first �
   // neither Drop an offer nor Camera and lists no removal, so both are KEPT in fixed places by the same order. Partner
   // card is drawn before Every version once its card exists — never a dead tile. Ask for access LEFT the ＋ (the later
   // 21 Nov row, "NO 'ASK FOR ACCESS' TILE ON THE CHAT ＋"): asking lives in the Their event list.
-  const FINAL = ['Change quote', 'Drop an offer', 'Payment plan', 'Ask for a payment', 'Dates & times', 'Photos & files', 'Camera', 'Decision', 'Poll', 'Form', 'Every version'];
+  const FINAL = ['Change quote', 'Drop an offer', 'Payment plan', 'Ask for a payment', 'Dates & times', 'Photos & files', 'Camera', 'Decision', 'Poll', 'Form', 'Share from your widgets', 'Every version'];
   for (const opts of [{ paid: false }, { paid: true }, { paid: false, booked: true }, { paid: false, pollOpen: true }, { paid: false, verified: false }]) {
     assert.deepEqual(supplierPlusRows(opts).map((r) => r.label), FINAL, `places moved for ${JSON.stringify(opts)}`);
   }
@@ -277,6 +277,12 @@ test('9 · THE (+) HOLDS ONLY THINGS YOU SEND — no row lives in both the (+) a
     // Every version, last (＋ FINAL, owner 21 Nov — it supersedes the 20 Nov removal for the supplier only).
     if (r.opensVersions) {
       assert.equal(r.key, 'versions');
+      continue;
+    }
+    // 🧰 Share from your widgets (DECISION_LOG 2026-11-23 dee66686) opens the picker of the shop's tools — every pick SENDS
+    // a card. It is the one row that is a picker, not a card or a place to go.
+    if (r.opensTools) {
+      assert.equal(r.key, 'share');
       continue;
     }
     assert.ok(r.card !== null || r.attach !== undefined, `'${r.label}' sends nothing — it is a place to go`);

@@ -65,6 +65,15 @@ export const THEME_FACE_VAR: Readonly<Record<string, string>> = {
   Cookie: '--font-hub-cookie',
   'Mrs Saint Delafield': '--font-hub-delafield',
   Monoton: '--font-hub-monoton',
+  // ── 2026-11-23 · Event Hub themes redraw, batch 1.
+  Italiana: '--font-hub-italiana',
+  Marcellus: '--font-hub-marcellus',
+  Raleway: '--font-hub-raleway',
+  Gloock: '--font-hub-gloock',
+  Mulish: '--font-hub-mulish',
+  'Work Sans': '--font-hub-worksans',
+  Epilogue: '--font-hub-epilogue',
+  Newsreader: '--font-hub-newsreader',
 };
 
 /** The CSS variable a spec family is worn through — its own face, never another's. */

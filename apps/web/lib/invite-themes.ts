@@ -80,6 +80,15 @@ export const INVITE_THEME_IDS = [
   'house',
   'galeriya',
   'cyber',
+  // 🖼 EVENT HUB THEMES REDRAW, batch 1 (owner 23 Nov: *"Yes, this level"* → *"themes batch 6 approved"*, DECISION_LOG
+  // "EVENT HUB THEMES ROUND 2" + "BATCH 6 APPROVED"; sheet `prototypes/maker_themes_redraw_2026-11-23/batch1/`). One
+  // real still picture each, never a loop, so by the owner's "based on size" rule they sit before every loop, lightest
+  // still first (`loopMb` = the still's own weight).
+  'perlas',
+  'waling',
+  'capiz',
+  'hagdan',
+  'solihiya',
   'velvet',
   'vintage',
   'regency',
@@ -109,6 +118,11 @@ export const THEME_BACKGROUND_NAMES: Readonly<Record<InviteThemeId, string | nul
   regency: 'Regency ballroom',
   gatsby: 'Gatsby champagne deco',
   cyber: 'Cyber neon street',
+  perlas: 'Perlas pearls on silk',
+  waling: 'Waling-waling orchid at night',
+  capiz: 'Capiz shell window',
+  hagdan: 'Hagdan rice terraces',
+  solihiya: 'Solihiya woven cane',
 };
 
 /** The Main background's name for a theme's own loop — its picture-able name, else "<Theme>’s own background". */
@@ -122,7 +136,8 @@ export function themeBackgroundName(id: InviteThemeId): string {
  * fairytale→Cinderella · custom→Classic.
  */
 export const LEGACY_THEME_ALIASES: Readonly<Record<string, InviteThemeId>> = Object.freeze({
-  capiz: 'vintage',
+  // `capiz` is a live theme again (batch 1, 23 Nov), so it is no longer read as Vintage: the one row that held it
+  // (the owner's own page, 2026-09-25) now wears the new Capiz — the same capiz-shell idea, redrawn.
   minimalist: 'galeriya',
   fairytale: 'cinderella',
   custom: 'house',
@@ -172,9 +187,12 @@ export type HubThemeFonts = {
 export type HubThemeTransition = { mode: HubTransition; speed?: HubAutoSpeed };
 
 export type HubThemeMedia = {
-  /** The seamless muted loop behind the Event Hub — an `r2://setnayan-media/…` ref. */
-  loop: string;
-  /** Its first frame, for paper and for the moment before the loop plays. */
+  /**
+   * The seamless muted loop behind the Event Hub — an `r2://setnayan-media/…` ref. `null` for a STILL theme (the 23 Nov
+   * redraw: *"one real still picture per theme"*, never video): its `poster` is the whole ground, on every surface.
+   */
+  loop: string | null;
+  /** Its first frame (or, for a still theme, THE picture), for paper and for the moment before the loop plays. */
   poster: string;
   /**
    * The loop's lightest and darkest measured clusters (spec "Video" line). The
@@ -199,7 +217,12 @@ export type InviteTheme = {
     | 'Whimsical'
     | 'Regency'
     | 'Great Gatsby'
-    | 'Cyber Neon';
+    | 'Cyber Neon'
+    | 'Perlas'
+    | 'Waling-waling'
+    | 'Capiz'
+    | 'Hagdan'
+    | 'Solihiya';
   tier: 'free' | 'pro';
   /**
    * The onboarding feels (`events.mood_feel_key`, lib/match-criteria.ts
@@ -259,6 +282,18 @@ const LOOP_PREFIX = 'r2://setnayan-media/theme-backgrounds/2026-09-24/';
 
 function mediaFor(slug: string, samples: { light: string; dark: string }): HubThemeMedia {
   return { loop: `${LOOP_PREFIX}${slug}-loop.mp4`, poster: `${LOOP_PREFIX}${slug}-poster.jpg`, samples };
+}
+
+/**
+ * 🖼 A STILL theme's one picture (23 Nov redraw), on the public media bucket at a dated key — uploaded once by admin from
+ * the corpus `assets/theme-art-2026-11-23/` (`scripts/upload-theme-loops-to-r2.ts` reads every `media` ref here, so a
+ * theme added is uploaded by the same command). `samples` are the still's measured lightest and darkest 5 % (mean),
+ * which the legibility guard composites the scrim over.
+ */
+const ART_PREFIX = 'r2://setnayan-media/theme-art/2026-11-23/';
+
+function artFor(id: string, samples: { light: string; dark: string }): HubThemeMedia {
+  return { loop: null, poster: `${ART_PREFIX}${id}.webp`, samples };
 }
 
 const SCROLL = { mode: 'scroll' } as const;
@@ -594,6 +629,175 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     scrim: { color: '#0b0a12', opacity: 0.58 },
     foilNames: false,
     measured: { body: 8.1, muted: 5.2, heading: 4.2, button: 8.7 },
+  },
+  // ── EVENT HUB THEMES REDRAW · BATCH 1 (23 Nov). Values COPIED from the approved sheet
+  //    `prototypes/maker_themes_redraw_2026-11-23/batch1/src/themes_b1.py` (`--t-bg` canvas · `--t-sur` surface ·
+  //    `--t-ink` · `--t-mut` · `--t-ac` · `--t-acink` · `--t-on` heading · `--t-head`/`--t-body` faces); the art's
+  //    samples measured off `batch1/art/<id>.jpg`. ──
+  perlas: {
+    id: 'perlas',
+    name: 'Perlas',
+    word: 'Perlas',
+    tier: 'pro',
+    feels: [],
+    opening: 'envelope-classic',
+    signatureReveal: null,
+    ready: true,
+    blurb: 'Real pearls on champagne silk. The words ride a soft band across the middle.',
+    door: 'capiz',
+    palette: {
+      canvas: '#f3e7d3',
+      surface: '#fffaf1',
+      ink: '#4a3b2c',
+      muted: '#77654f',
+      accent: '#4a3b2c',
+      accentInk: '#fbf3e4',
+      heading: '#4a3b2c',
+      lightInk: '#f3e7d3',
+      darkInk: '#4a3b2c',
+    },
+    fonts: { heading: 'Italiana', body: 'Raleway', labels: 'Raleway', script: null },
+    ornament: 'pearl-dots',
+    media: artFor('perlas', { light: '#f3ede5', dark: '#5a472b' }),
+    loopMb: 0.07,
+    motion: 'calm',
+    transitions: { pattern: [SCROLL, SCROLL], rest: 'scroll' },
+    radius: 999,
+    scrim: { color: '#f3e7d3', opacity: 0.6 },
+    foilNames: false,
+    measured: { body: 8.8, muted: 4.6, heading: 8.8, button: 9.7 },
+  },
+  waling: {
+    id: 'waling',
+    name: 'Waling-waling',
+    word: 'Waling-waling',
+    tier: 'pro',
+    feels: [],
+    opening: 'veil-sheer',
+    signatureReveal: null,
+    ready: true,
+    blurb: 'The real orchid on near-black. Your words in a column down the left.',
+    door: 'velvet',
+    palette: {
+      canvas: '#150a17',
+      surface: '#1f1122',
+      ink: '#fbf1f7',
+      muted: '#cdb6c7',
+      accent: '#c23a86',
+      accentInk: '#ffffff',
+      heading: '#f0a6d0',
+      lightInk: '#fbf1f7',
+      darkInk: '#150a17',
+    },
+    fonts: { heading: 'Gloock', body: 'Outfit', labels: 'Outfit', script: null },
+    ornament: 'orchid-column',
+    media: artFor('waling', { light: '#bf9b97', dark: '#010000' }),
+    loopMb: 0.08,
+    motion: 'calm',
+    transitions: { pattern: [SCROLL, SCROLL], rest: 'scroll' },
+    radius: 999,
+    scrim: { color: '#150a17', opacity: 0.55 },
+    foilNames: false,
+    measured: { body: 17.5, muted: 10.2, heading: 10.2, button: 4.9 },
+  },
+  capiz: {
+    id: 'capiz',
+    name: 'Capiz',
+    word: 'Capiz',
+    tier: 'pro',
+    feels: [],
+    opening: 'veil-sheer',
+    signatureReveal: null,
+    ready: true,
+    blurb: 'A real capiz shell window, lit from behind. The words sit in one clear pane.',
+    door: 'capiz',
+    palette: {
+      canvas: '#f5eedf',
+      surface: '#fffcf4',
+      ink: '#3a2a1c',
+      muted: '#6e5a46',
+      accent: '#5a3a22',
+      accentInk: '#fff8ea',
+      heading: '#5a3a22',
+      lightInk: '#f5eedf',
+      darkInk: '#3a2a1c',
+    },
+    fonts: { heading: 'Marcellus', body: 'Mulish', labels: 'Mulish', script: null },
+    ornament: 'capiz-pane',
+    media: artFor('capiz', { light: '#fbfbfa', dark: '#0c0503' }),
+    loopMb: 0.14,
+    motion: 'calm',
+    transitions: { pattern: [SCROLL, SCROLL], rest: 'scroll' },
+    radius: 4,
+    scrim: { color: '#f5eedf', opacity: 0.6 },
+    foilNames: false,
+    measured: { body: 11.9, muted: 5.7, heading: 8.8, button: 9.6 },
+  },
+  hagdan: {
+    id: 'hagdan',
+    name: 'Hagdan',
+    word: 'Hagdan',
+    tier: 'pro',
+    feels: [],
+    opening: 'envelope-gatefold',
+    signatureReveal: null,
+    ready: true,
+    blurb: 'The real rice terraces. The picture on top, a deep green panel under it.',
+    door: 'velvet',
+    palette: {
+      canvas: '#1d3524',
+      surface: '#234029',
+      ink: '#f4f1e6',
+      muted: '#bfd0bd',
+      accent: '#f4f1e6',
+      accentInk: '#1d3524',
+      heading: '#dfc27a',
+      lightInk: '#f4f1e6',
+      darkInk: '#1d3524',
+    },
+    fonts: { heading: 'Lora', body: 'Work Sans', labels: 'Work Sans', script: null },
+    ornament: 'terrace-panel',
+    media: artFor('hagdan', { light: '#f9e8d0', dark: '#1e210d' }),
+    loopMb: 0.17,
+    motion: 'calm',
+    transitions: { pattern: [SCROLL, SCROLL], rest: 'scroll' },
+    radius: 999,
+    scrim: { color: '#1d3524', opacity: 0.55 },
+    foilNames: false,
+    measured: { body: 11.7, muted: 8.2, heading: 7.6, button: 11.7 },
+  },
+  solihiya: {
+    id: 'solihiya',
+    name: 'Solihiya',
+    word: 'Solihiya',
+    tier: 'pro',
+    feels: [],
+    opening: 'envelope-gatefold',
+    signatureReveal: null,
+    ready: true,
+    blurb: 'Real woven cane and its shadow. Heavy modern type, stacked at the top left.',
+    door: 'abaca',
+    palette: {
+      canvas: '#f6efe2',
+      surface: '#fffbf3',
+      ink: '#3b2a16',
+      muted: '#70593c',
+      accent: '#8a5a1e',
+      accentInk: '#ffffff',
+      heading: '#3b2a16',
+      lightInk: '#f6efe2',
+      darkInk: '#3b2a16',
+    },
+    fonts: { heading: 'Epilogue', body: 'Newsreader', labels: 'Newsreader', script: null },
+    ornament: 'cane-weave',
+    media: artFor('solihiya', { light: '#f8f3e9', dark: '#633e20' }),
+    loopMb: 0.2,
+    motion: 'calm',
+    transitions: { pattern: [SCROLL, SCROLL], rest: 'scroll' },
+    radius: 4,
+    scrim: { color: '#f6efe2', opacity: 0.6 },
+    foilNames: false,
+    measured: { body: 12.0, muted: 5.8, heading: 12.0, button: 5.9 },
   },
 };
 

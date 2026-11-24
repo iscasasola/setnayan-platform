@@ -257,8 +257,9 @@ test('💎 no sales copy sells a colour; the Pro list names media backgrounds in
   /* RE-AIMED 2026-10-22 (part by part): the buy page is the parts page — its lines are the parts' own (`HUB_PARTS`
      blurbs) and the gate table, never a hand-written list. Plural on purpose, as before: "a part's font, colour and
      size" describes a PART's Style (Pro since 2026-10-16), "your own colours for the page" would sell the free ones. */
-  const body = code('app/dashboard/[eventId]/studio/website-pro/_components/pro-parts-body.tsx');
-  assert.match(body, /HUB_PARTS/, 'the parts page no longer draws its lines from the parts table');
+  /* 🛒 RE-AIMED 2026-11-23 (Event services v4): the buy page's lines are the front door's own (the ⓘ lists, handed in by
+     `readEventServices`) — never a hand-written list on the page. */
+  const body = code('app/dashboard/[eventId]/studio/website-pro/_components/event-services-view.tsx');
   assert.doesNotMatch(body, /const BENEFITS = \[/, 'a hand-written benefits list came back');
   for (const p of HUB_PARTS) assert.doesNotMatch(p.blurb, /colou?rs\b/i, `${p.name} still sells colours`);
   const catalog = code('lib/add-ons-catalog.ts');

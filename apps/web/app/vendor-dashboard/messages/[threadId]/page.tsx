@@ -9,6 +9,7 @@ import { CalendarDays, CircleCheck, MessageCircle, Send, Undo2, Wallet, X } from
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readShareableTools } from '@/lib/supplier-store.server';
 import { WHISPER_AUDIENCE_UNREAD, readTeamWhisper, type WhisperAudience } from '@/lib/chat-whisper.server';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
@@ -343,6 +344,12 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   // 🪪 ＋ FINAL: is this shop verified? Started here and awaited where the ＋ is drawn — never a waterfall. Null = the
   // read failed: the tray draws open and the server's gate (`lib/shop-plus-gate.server.ts`) still decides each send.
   const shopVerifiedRead = fetchShopVerified(supabase, profile.vendor_profile_id);
+  // 🧰 Share from your widgets (DECISION_LOG 2026-11-23 dee66686): the tools this shop has, read the Store's own way —
+  // started here, awaited where the ＋ is drawn. A failed read is `null`: the picker says it could not load.
+  const shareToolsRead = readShareableTools(createAdminClient(), profile.vendor_profile_id, (profile.services ?? []) as string[]).catch((err: unknown) => {
+    console.error('[supplier thread] shareable tools read failed', err);
+    return null;
+  });
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
@@ -1795,6 +1802,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     display text, and "Your call time" / "Ask for a payment" open only once they book you.
   */
   const shopVerified = await shopVerifiedRead;
+  const shareTools = await shareToolsRead;
   const toolsState = {
     hasAgreement: THREAD_STAGE_HAS_AGREEMENT[railStage],
     askOpen,
@@ -2246,7 +2254,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                 <ChatSendForm
                   threadId={threadId}
                   sendAction={sendChatMessage}
-                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} threadId={threadId} hasQuote={dealEntry.offerDeal} verified={shopVerified} />}
+                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} threadId={threadId} hasQuote={dealEntry.offerDeal} verified={shopVerified} share={shareTools} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
                   userId={user.id}
                   // 🏪 The shop's composer: this login may also host the event — here it speaks as the shop.

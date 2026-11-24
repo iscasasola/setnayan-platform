@@ -25,10 +25,16 @@ test('the 2D canvas draws its border only outside Guests', () => {
   assert.doesNotMatch(tag.replace(studioCls, ''), /\bborder\b/, 'a second border is drawn');
 });
 
-test('the room\u2019s outline: in Guests only for a FIXED (saved) room, square — never the suggested / free board', () => {
+test('the room\u2019s outline: in Guests it is the Spaces wall — ink, SQUARE — and the Studio keeps its blueprint', () => {
+  /* 🏛 SUPERSEDED IN PART, 2026-11-20 (owner, verbatim: *"The Seat Plan here needs to have the same Floor Plan for
+     Suppliers on their Spaces"*; the approved drawing draws "Your room · 20 × 30 m" outlined for a room nobody sized).
+     This test held "in Guests only for a FIXED room — never the free board"; the Spaces look is drawn for every room
+     now. What it ALWAYS held, and still does: the Guests wall is SQUARE (owner 2026-10-29, "remove it" — the rounded
+     outline), and the wall is one element, never a frame on the floor itself (the test above). */
   const src = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx'), 'utf8'));
-  assert.match(src, /\{venueScaled && \(!inGuests \|\| \(floorPlan\.venue_width_m !== null && floorPlan\.venue_length_m !== null\)\) \? \(/, 'Guests draws the wall for a room nobody fixed');
-  assert.match(src, /className=\{`pointer-events-none absolute inset-0 border border-ink\/30 \$\{inGuests \? '' : 'rounded-lg'\}`\} data-seat-room-wall=""/, 'the Guests wall is rounded');
+  assert.match(src, /\{inGuests \? \(\s*<>\s*<div className="pointer-events-none absolute inset-0 border-2 border-ink" data-seat-room-wall="spaces" \/>/, 'Guests does not draw the Spaces wall');
+  assert.doesNotMatch(src.slice(src.indexOf('data-seat-room-wall="spaces"') - 90, src.indexOf('data-seat-room-wall="spaces"')), /rounded/, 'the Guests wall is rounded');
+  assert.match(src, /\) : venueScaled \? \(/, 'the Studio lost its blueprint wall');
 });
 
 test('every 2D chair is ROUND, in the guest’s colour; a blank one a dashed circle (owner 2026-10-29: "each seat square")', () => {

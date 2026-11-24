@@ -127,7 +127,7 @@ export const ENCODER_NOTICE =
  * couple ends up using today.
  */
 export const DESKTOP_ENCODER_READINESS_NOTICE =
-  'Works on an Apple-silicon Mac on macOS 14 or later with the Safari 26 update, or Windows 10/11 with hardware video encoding. Older machines: use OBS instead.';
+  'Streaming Live Watch from this computer needs an Apple-silicon Mac on macOS 14 or later with the Safari 26 update, or Windows 10/11 with hardware video encoding. Older computers can stream with OBS instead.';
 
 /**
  * ⏳ THE LEAD-TIME NOTICE — shown BEFORE a couple pays, on the buy surface.

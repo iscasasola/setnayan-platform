@@ -201,7 +201,19 @@ export type DayOfModuleId =
   | 'entourage'
   | 'paperwork_checklist'
   | 'load_in_and_venue_access'
-  | 'delivery_and_drop_off';
+  | 'delivery_and_drop_off'
+  // ── Hub tools, the free rest · part 1 (DECISION_LOG "Seven open calls settled" item 3, 24 Nov) — same row store,
+  // drawn inline by `HubToolPanels`; ON for nobody by family (the category switches suggest them).
+  | 'ceremony_details'
+  | 'proofs_and_approval'
+  | 'safety_permit_and_cue'
+  | 'fittings_and_measurements'
+  | 'looks_per_person'
+  | 'crew_roster'
+  | 'room_list'
+  | 'chair_schedule'
+  | 'reservation_slots'
+  | 'brackets_and_scoring';
 // 🗑 `guest_delivery` ("Who’s received theirs") was REMOVED 2026-10-04 (owner,
 // 2026-10-03 S1): it shipped always padlocked — `dayOfModuleHref` was null and
 // no screen ever existed behind it — so every caterer saw a locked promise. The
@@ -449,6 +461,97 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
     alwaysAvailable: true,
     requiresGrant: false,
     hubTool: 'delivery_and_drop_off',
+  },
+  // ── Hub tools, the free rest · part 1 (24 Nov, DECISION_LOG "Seven open calls settled" item 3) ────────────────────
+  {
+    id: 'ceremony_details',
+    label: 'Ceremony details',
+    blurb: 'The ceremony’s time, sponsors, readings and banns, ticked as each is set.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'ceremony_details',
+  },
+  {
+    id: 'proofs_and_approval',
+    label: 'Proofs & approval',
+    blurb: 'Each proof you send, ticked when the couple approves it.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'proofs_and_approval',
+  },
+  {
+    id: 'safety_permit_and_cue',
+    label: 'Safety permit & cue',
+    blurb: 'The permit papers, the safe zone and the go cue, ticked as each is cleared.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'safety_permit_and_cue',
+  },
+  {
+    id: 'fittings_and_measurements',
+    label: 'Fittings & measurements',
+    blurb: 'A row per person with their sizes, ticked when their fitting is done.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'fittings_and_measurements',
+  },
+  {
+    id: 'looks_per_person',
+    label: 'Looks per person',
+    blurb: 'A row per person with the look they chose, ticked when they’re done.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'looks_per_person',
+  },
+  {
+    id: 'crew_roster',
+    label: 'Crew roster',
+    blurb: 'Who works the event and their call time or meal, ticked as they check in.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'crew_roster',
+  },
+  {
+    id: 'room_list',
+    label: 'Room list',
+    blurb: 'Which guest is in which room, ticked when they’ve checked in.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'room_list',
+  },
+  {
+    id: 'chair_schedule',
+    label: 'Chair schedule',
+    blurb: 'Who sits when, in order, ticked as each one is done.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'chair_schedule',
+  },
+  {
+    id: 'reservation_slots',
+    label: 'Reservation slots',
+    blurb: 'Your slots in order — the time and how many — ticked as each is seated.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'reservation_slots',
+  },
+  {
+    id: 'brackets_and_scoring',
+    label: 'Brackets & scoring',
+    blurb: 'Teams or players in order, each with their score.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'brackets_and_scoring',
   },
 ];
 

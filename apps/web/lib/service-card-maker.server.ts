@@ -46,6 +46,7 @@ import type { VendorServiceTimeSlot } from '@/lib/vendor-time-slots';
 import type { AudienceOption } from '@/lib/canvas-audience-groups';
 import { fetchCategoryChipRefinementsMany, type CategoryRefinements } from '@/lib/vendor-service-attributes';
 import { loadCardCheckRules, type CardCheckRules } from '@/lib/service-card-checks.server';
+import { SCHEDULE_OR_HALL_POOLS } from '@/lib/schedule-pool-kinds';
 
 /**
  * service-card-maker.server.ts — EVERYTHING THE SIMPLER MAKER READS, read once, for all three doors.
@@ -139,7 +140,8 @@ export async function loadMakerContext(
       .from('vendor_schedule_pools')
       .select('pool_id, calendar_name, pool_label, daily_booking_capacity')
       .eq('vendor_profile_id', vendorProfileId)
-      .eq('is_active', true),
+      .eq('is_active', true)
+      .or(SCHEDULE_OR_HALL_POOLS),
     supabase
       .from('vendor_schedule_pool_categories')
       .select('category_key, pool_id')

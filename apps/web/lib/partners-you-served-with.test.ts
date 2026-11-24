@@ -75,7 +75,7 @@ test('the partnerships page lists ONLY served-with shops, each a row that opens 
   assert.doesNotMatch(page, /\.from\('vendor_profiles'\)\s*\.select\('vendor_profile_id, business_name'\)\s*\.eq\('public_visibility'/);
 });
 
-test('a partner row is the house row: name + Live, one quiet line, no buttons until it is opened', () => {
+test('a partner row is the house row: name + its tag, one quiet line, no buttons until it is opened', () => {
   const page = read('app/vendor-dashboard/partnerships/page.tsx');
   const start = page.indexOf('{accepted.map((p) => {');
   const end = page.indexOf('OUTGOING PROPOSALS', start);
@@ -86,7 +86,8 @@ test('a partner row is the house row: name + Live, one quiet line, no buttons un
   assert.match(rows, /data="partner-accepted"/);
   // 🤝 Invite a supplier v3 (owner 16 Nov): the one quiet line says where the tie came from — "Invited · joined through
   // your link · 16 Nov", "Added by you", "Worked together · 2 events" — through the one wording, `partnerLine`.
-  assert.match(rows, /line=\{[\s\S]{0,400}partnerLine\(\{ origin: p\.origin, iProposed/);
+  // Owner 21 Nov 2026: a partner not yet served with says "Waiting for your first event together" first.
+  assert.match(rows, /line=\{[\s\S]{0,700}partnerLine\(\{ origin: p\.origin, iProposed/);
   assert.match(rows, /<PartnerRemoveRow key=\{p\.id\} id=\{p\.id\}/, 'either side removes a partner by swiping the row left');
   // Nothing pressable before the Fold opens — the dropdown and Re-propose live INSIDE it.
   const closed = rows.slice(0, foldAt);

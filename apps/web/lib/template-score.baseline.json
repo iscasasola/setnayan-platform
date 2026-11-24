@@ -101,7 +101,7 @@
  "dashboard/[eventId]/progress": 2,
  "dashboard/[eventId]/refer": 1,
  "dashboard/[eventId]/schedule": 77,
- "dashboard/[eventId]/seating": 58,
+ "dashboard/[eventId]/seating": 57,
  "dashboard/[eventId]/seating/walkthrough": 1,
  "dashboard/[eventId]/sponsors": 5,
  "dashboard/[eventId]/story": 69,

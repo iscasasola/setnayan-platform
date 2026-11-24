@@ -32,6 +32,8 @@ export function useSeatingPresence(
   selectedTableId: string | null,
   /** This client's view of the editor lock, re-broadcast on every change. */
   lock: LockBroadcast = { lockHolderId: null, lockHolderLabel: null, lockHeartbeatAt: null },
+  /** False: join no channel (a venue's own plan in Spaces has no event to share). */
+  enabled = true,
 ) {
   const [peers, setPeersState] = useState<Map<string, PresencePeer>>(() => new Map());
   // 🔂 The list as last drawn, read OUTSIDE a state updater: an unchanged sync must not even call setState — React
@@ -47,6 +49,7 @@ export function useSeatingPresence(
   lockRef.current = lock;
 
   useEffect(() => {
+    if (!enabled) return;
     const setPeers = (next: Map<string, PresencePeer>) => {
       if (next === peersRef.current) return;
       peersRef.current = next;
@@ -87,7 +90,7 @@ export function useSeatingPresence(
       channelRef.current = null;
       void supabase.removeChannel(channel);
     };
-  }, [eventId, me.id, me.name]);
+  }, [eventId, me.id, me.name, enabled]);
 
   // Selection OR lock state changed → re-publish so the others see "editing
   // Table 7" and "X holds the editor lock" without re-joining the channel.

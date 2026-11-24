@@ -9,6 +9,7 @@ import { SortFace } from '@/components/sort-face';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { Sheet } from '@/app/_components/sheet';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import type { LayoutRow } from '@/lib/supplier-store';
 import { storeAction } from '../store-actions';
 
@@ -20,7 +21,9 @@ import { storeAction } from '../store-actions';
  *                      `landTo` address takes the shop to where the thing landed (the Shop, the item marked New).
  *  · `StoreThumb`    — the Store's thumb row: search (an icon until tapped) and, on a shelf, Show & sort behind Sliders.
  *                      It narrows the rows IN PLACE by their words — no request.
- *  · `StoreChips`    — the Tools shelf's tag chips (All · For you · each supplier group); they narrow the same rows.
+ *  · `StoreChips`    — a shelf's chips (the front: All · Widgets · QR designs · Graphs · Badges; Tools: All · For you ·
+ *                      each supplier group; Your widgets: each place); they narrow the same rows.
+ *  · `StoreInstalledSwitch` — Toolkit v19 frame 1: "Installed" on = only what the shop has installed.
  *  · `ArrangeEdit`   — a Shop row's "Edit": the sheet "Arrange …" (v12 Edit frames) — drag ⋮⋮ to reorder, (−) to take
  *                      one off, Done saves the row in ONE `storeAction` op=layout.
  */
@@ -89,14 +92,14 @@ type Show = { key: string; label: string };
 
 /** What narrows the shelf: the search words, the Show pick, the tag chip and the sort — one set, shared by the thumb
  *  row and the chips, so the two never undo each other. */
-const view = { words: '', show: 'all', chip: 'all', sort: 'listed', countWord: null as string | null };
+const view = { words: '', show: 'all', chip: 'all', sort: 'listed', countWord: null as string | null, installed: false };
 
 function renarrow() {
-  narrow(view.words, view.show, view.sort, view.countWord, view.chip);
+  narrow(view.words, view.show, view.sort, view.countWord, view.chip, view.installed);
 }
 
 /** Narrow every `[data-store-row]` under `[data-store-list]` by its words and its `data-store-show` tags. */
-function narrow(words: string, show: string, sort: string, countWord: string | null, chip = 'all') {
+function narrow(words: string, show: string, sort: string, countWord: string | null, chip = 'all', installed = false) {
   const needle = words.trim().toLowerCase();
   let shown = 0;
   for (const list of document.querySelectorAll<HTMLElement>('[data-store-list]')) {
@@ -111,7 +114,7 @@ function narrow(words: string, show: string, sort: string, countWord: string | n
     let hits = 0;
     for (const r of rows) {
       const tags = (r.dataset.storeShow ?? '').split(' ');
-      const hit = (!needle || (r.textContent ?? '').toLowerCase().includes(needle)) && (show === 'all' || tags.includes(show)) && (chip === 'all' || tags.includes(chip));
+      const hit = (!needle || (r.textContent ?? '').toLowerCase().includes(needle)) && (show === 'all' || tags.includes(show)) && (chip === 'all' || tags.includes(chip)) && (!installed || tags.includes('installed'));
       r.style.display = hit ? '' : 'none';
       r.style.order = sort === 'name' ? String(names.indexOf(r.dataset.storeName ?? '')) : '';
       if (hit) hits += 1;
@@ -203,10 +206,10 @@ export function StoreThumb({
 }
 
 /** The Tools shelf's tag chips (v12 F6): All · For you · each supplier group. One pick at a time; it narrows in place. */
-export function StoreChips({ chips }: { chips: readonly Show[] }) {
+export function StoreChips({ chips, label = 'Show widgets for' }: { chips: readonly Show[]; label?: string }) {
   const [on, setOn] = useState('all');
   return (
-    <div role="group" aria-label="Show widgets for" className="sn-glide-x -mx-4 mb-1 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-store-chips="">
+    <div role="group" aria-label={label} className="sn-glide-x -mx-4 mb-1 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-store-chips="">
       {chips.map((c) => (
         <button
           key={c.key}
@@ -229,10 +232,35 @@ export function StoreChips({ chips }: { chips: readonly Show[] }) {
   );
 }
 
+/** 🧩 THE INSTALLED SWITCH (Toolkit v19, frame 1 "Installed, switched on"): on = only the rows marked `installed`. In
+ *  place, no request — the same narrowing as the search and the chips. */
+/** `label` is `INSTALLED_WORD`, handed in by the server screen (this file reads no lib values into the bundle). */
+export function StoreInstalledSwitch({ label }: { label: string }) {
+  const [on, setOn] = useState(false);
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => {
+        const next = !on;
+        setOn(next);
+        view.installed = next;
+        renarrow();
+      }}
+      className={`${SWITCH_BUTTON} sn-press gap-2 text-sn-base font-semibold text-ink`}
+      data-store-installed-switch=""
+    >
+      <span>{label}</span>
+      <SwitchTrack on={on} />
+    </button>
+  );
+}
+
 /** `builtIn` = always installed (Scanner): it can be moved, never taken off — the sheet draws no (−) for it. */
 export type ArrangeItem = { key: string; title: string; sub: string; art: ReactNode; paid?: boolean; builtIn?: boolean };
 
-const ARRANGE_TITLE: Readonly<Record<LayoutRow, string>> = { graphs: 'Arrange Analytics', badges: 'Arrange Badges', tools: 'Arrange your widgets' };
+const ARRANGE_TITLE: Readonly<Record<LayoutRow, string>> = { graphs: 'Arrange Analytics', badges: 'Arrange Badges', tools: 'Arrange your widgets', qrs: 'Arrange your QR codes' };
 
 /**
  * A Shop row's "Edit" (v12 Edit frames · owner via the controller 23 Nov: add, remove, reorder). The link opens the

@@ -1,0 +1,454 @@
+/*
+ * event-services-website.css — EVENT SERVICES IN THE WEBSITE'S LOOK (owner 23 Nov 2026, "Yes, approve" — specs
+ * DECISION_LOG "EVENT SERVICES v5 (WEBSITE TEMPLATE) APPROVED, WITH THE TODAY DOOR"; drawing
+ * `prototypes/buy_event_services_one_place_2026-11-23/frames_v5_website/` + `strip-v5.jpg`, its values from the
+ * drawing's own sheet `src/buy5.py`).
+ *
+ * LOOK ONLY — the page's every row, price, tick and door is v4's (`event-services-view.tsx`). The website template
+ * (HOUSE_DESIGN_STANDARD Part H, Discover's own tokens), the same set Today wears (`today-website.css`):
+ *
+ *   a white page · a mono kicker and the one 28-px title · "Title" section heads (19/700) · plan rows split by hairlines,
+ *   no box · a tick circle per row · the price 17/700, the saving an outlined mono tag · the ⓘ list in a `--note` box in
+ *   place · 48-px pictures with no border or shadow · 32-px chips · a flat Pay bar with the ONE terracotta button;
+ *   every other button a quiet hairline pill.
+ *
+ * Every colour is an existing token by its job (no new value): ink `--color-ink` · second words `--sn-ink-500` (Part H
+ * m1) · third words `--m-slate-3` (m2) · hairline `--m-line` · chip and note `--m-orange-4` (light) / the raised steps
+ * (dark) · accent `--color-mulberry` · on the accent `--sn-on-accent` · scrim `--sn-scrim`. Sizes stay on the house
+ * scale (Part H's half sizes round to it).
+ *
+ * Scoped to `[data-event-services]` and the cart bar (the thumb dock carries it to <body> on a phone), imported by the
+ * page and its lab — never a global rule, and never in a unit-rendered part (no CSS loader under tsx). Held by
+ * `app/dashboard/[eventId]/studio/website-pro/event-services-wears-the-website-look.test.ts`.
+ */
+
+:is([data-event-services], [data-event-services-cart]) {
+  --web-ink: rgb(var(--color-ink));
+  --web-m1: var(--sn-ink-500);
+  --web-m2: var(--m-slate-3);
+  --web-line: var(--m-line);
+  --web-chip: var(--m-orange-4);
+  --web-note: var(--m-orange-4);
+  --web-acc: rgb(var(--color-mulberry));
+  --web-on-acc: rgb(var(--sn-on-accent));
+  --web-mono: var(--font-mono, ui-monospace, monospace);
+  color: var(--web-ink);
+}
+html.dark :is([data-event-services], [data-event-services-cart]) {
+  --web-chip: rgb(var(--color-raised-2));
+  --web-note: rgb(var(--color-raised));
+}
+
+/* ── The page is white (Part H `--page`): this page only; dark keeps the dark page. ── */
+html:not(.dark):has([data-event-services]) {
+  --sn-page-bg: var(--color-raised);
+}
+
+/* ── The column: 720 px wider than a phone (Part H "wider than a phone"), the 16 px gutter on a phone ── */
+[data-event-services].es {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 6px 16px 32px;
+}
+
+/* ── The head: the event's line as a mono kicker, the one title ── */
+[data-event-services] .es-kick {
+  font-family: var(--web-mono);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--web-m2);
+}
+[data-event-services] .es-title {
+  margin-top: 8px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.022em;
+  color: var(--web-ink);
+}
+
+/* ── Sections: "Pick a pack" (19/700) and its grey line ── */
+[data-event-services] .es-part {
+  padding-top: 26px;
+}
+[data-event-services] .es-sec {
+  margin: 0 0 2px;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--web-ink);
+}
+[data-event-services] .es-lede {
+  margin: 0 0 8px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--web-m1);
+}
+
+/* ── Plan rows: no box, a hairline between rows ── */
+[data-event-services] .es-plan {
+  margin-top: 14px;
+}
+[data-event-services] .es-rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+[data-event-services] .es-rows > .es-item + .es-item {
+  border-top: 1px solid var(--web-line);
+}
+[data-event-services] .es-row {
+  position: relative;
+  display: grid;
+  align-items: center;
+  column-gap: 12px;
+  min-height: 64px;
+  padding: 11px 0;
+}
+[data-event-services] .es-row-plan {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+[data-event-services] .es-row-pack {
+  grid-template-columns: 22px minmax(0, 1fr) auto 20px;
+}
+[data-event-services] .es-row-x {
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  min-height: 72px;
+}
+/* The whole row is the press (a stretched button under the words); its words let the press through; the ⓘ sits above. */
+[data-event-services] .es-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: var(--m-r-sm);
+  background: transparent;
+  cursor: pointer;
+}
+[data-event-services] .es-hit:disabled {
+  cursor: default;
+}
+[data-event-services] .es-row > :not(.es-hit, .sn-dot-btn) {
+  position: relative;
+  pointer-events: none;
+}
+[data-event-services] .es-row > .sn-dot-btn {
+  justify-self: center;
+}
+[data-event-services] .es-words {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+[data-event-services] .es-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--web-ink);
+}
+[data-event-services] .es-brand {
+  margin-left: -8px;
+  font-weight: 400;
+  color: var(--web-m2);
+}
+[data-event-services] .es-line {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--web-m1);
+}
+[data-event-services] .es-small {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--web-m2);
+}
+[data-event-services] .es-end {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  text-align: right;
+}
+[data-event-services] .es-price {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--web-ink);
+}
+[data-event-services] .es-unread {
+  font-size: 13px;
+  color: var(--web-m1);
+}
+[data-event-services] .es-end .es-small {
+  white-space: nowrap;
+}
+
+/* ── Small tags: Picked · Save ₱… (the accent) · In your plan · Being checked (grey) ── */
+[data-event-services] .es-tag {
+  display: inline-block;
+  padding: 3px 5px;
+  border: 1px solid currentColor;
+  border-radius: var(--m-r-xs);
+  font-family: var(--web-mono);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--web-acc);
+}
+[data-event-services] .es-tag-q {
+  color: var(--web-m2);
+}
+
+/* ── The tick circle (v5's one new piece): a quiet ring, filled in the accent when picked ── */
+[data-event-services] .es-tick {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--web-m2);
+  border-radius: var(--m-r-full);
+  color: var(--web-on-acc);
+}
+[data-event-services] .es-tick svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+}
+[data-event-services] .es-on > .es-row .es-tick {
+  border-color: var(--web-acc);
+  background: var(--web-acc);
+}
+[data-event-services] .es-on > .es-row .es-tick svg {
+  opacity: 1;
+}
+
+/* ── The singles' pictures: 48 px, 8 px corner, no border, no shadow; the tick sits on the corner ── */
+[data-event-services] .es-pic {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--m-r-sm);
+  background: var(--web-chip);
+}
+[data-event-services] .es-pic img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--m-r-sm);
+  object-fit: cover;
+}
+[data-event-services] .es-pic .es-tick {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  box-shadow: 0 0 0 2px rgb(var(--sn-page-bg));
+}
+
+/* ── The note box (Part H ⓘ detail → `--note`): a pack's list in place, a Switch line, an honest app state ── */
+[data-event-services] .es-note {
+  padding: 12px 14px;
+  border-radius: var(--m-r-md);
+  background: var(--web-note);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--web-m1);
+}
+[data-event-services] .es-note b {
+  font-weight: 700;
+  color: var(--web-ink);
+}
+[data-event-services] .es-item > .es-note {
+  margin: 0 0 14px;
+}
+[data-event-services] .es-note-list ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+[data-event-services] .es-note-list li {
+  position: relative;
+  padding-left: 14px;
+}
+[data-event-services] .es-note-list li::before {
+  content: '';
+  position: absolute;
+  top: 0.62em;
+  left: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--m-r-full);
+  background: var(--web-m2);
+}
+[data-event-services] > .es-note-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+[data-event-services] > .es-note-row > p {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Chips: the photo sizes (`.fd-chip`, 32 px paint, 8 px corner) inside the house press, indented under the row ── */
+[data-event-services] .es-indent {
+  margin-left: 60px;
+}
+[data-event-services] .es-chips {
+  margin-top: 2px;
+  margin-bottom: 4px;
+}
+[data-event-services] .es-chips [data-chip] {
+  height: 32px;
+  min-height: 32px;
+  min-width: 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--m-r-sm);
+  background: var(--web-chip);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--web-ink);
+}
+[data-event-services] .es-chips [data-chip][aria-pressed='true'] {
+  background: var(--web-ink);
+  color: rgb(var(--sn-page-bg));
+}
+[data-event-services] .es-fine {
+  margin-top: 6px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--web-m2);
+}
+[data-event-services] .es-strong {
+  font-weight: 700;
+  color: var(--web-ink);
+}
+
+/* ── "Or just what you need ⌄": the one terracotta line under the packs ── */
+[data-event-services] .es-all {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--web-line);
+  background: transparent;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--web-acc);
+  text-align: left;
+  cursor: pointer;
+}
+[data-event-services] .es-all svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ── "Orders and receipts ›": the website's closing row ── */
+[data-event-services] .es-ask {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  border-top: 1px solid var(--web-line);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--web-ink);
+  text-decoration: none;
+}
+[data-event-services] :not(.es-ask) + .es-ask {
+  margin-top: 14px;
+}
+[data-event-services] .es-ask svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ── Quiet hairline pills: every button on the page but Pay ── */
+[data-event-services] :is(button, a).ab.ab.ab.quiet {
+  border: 1px solid var(--web-line);
+  background: transparent;
+  box-shadow: none;
+  font-weight: 600;
+  color: var(--web-ink);
+}
+
+/* ── 🍎 "1 of 2 · Event Pro": named on a sheet over the scrim while Apple's own sheet opens ── */
+[data-event-services] .es-step {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--sn-scrim);
+}
+[data-event-services] .es-step-sheet {
+  width: 100%;
+  max-width: 720px;
+  padding: 18px 16px 28px;
+  border-radius: var(--m-r-lg) var(--m-r-lg) 0 0;
+  background: rgb(var(--color-raised));
+}
+[data-event-services] .es-big {
+  margin-top: 4px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.022em;
+}
+
+/* ── The Pay bar: flat on the page, a hairline above it — no floating pill, no glass ── */
+[data-thumb-dock]:has([data-event-services-cart]) {
+  padding: 0;
+}
+[data-event-services-cart].es-paybar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  border-top: 1px solid var(--web-line);
+  background: rgb(var(--sn-page-bg));
+}
+[data-event-services-cart] .es-paybar-t {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+[data-event-services-cart] .es-paybar-t > b {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+[data-event-services-cart] .es-paybar-t > small {
+  font-size: 12px;
+  color: var(--web-m2);
+}
+[data-event-services-cart] .es-warn {
+  color: rgb(var(--color-danger));
+}

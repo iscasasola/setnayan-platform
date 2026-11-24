@@ -71,7 +71,9 @@ test('the plan is READ from the shipped readers — Pro = eventProPlanActive (th
   const src = code('lib/setnayan-mark-by-plan.server.ts');
   assert.match(src, /asViewed\(eventProPlanActive\(supabase, eventId\)\.catch\(\(\) => false\)\)/);
   assert.match(src, /asViewed\(eventSkuActive\(supabase, eventId, EVENT_PLUS_SKU\)\.catch\(\(\) => false\)\)/);
-  assert.match(src, /return setnayanMarkFor\(\{ pro, plus \}\);/);
+  // 🛒 2026-11-23: the Event Hub single carries Event Plus's one small mark (Event services v4).
+  assert.match(src, /asViewed\(eventSkuActive\(supabase, eventId, EVENT_HUB_SKU\)\.catch\(\(\) => false\)\)/);
+  assert.match(src, /return setnayanMarkFor\(\{ pro, plus: plus \|\| hubSingle \}\);/);
   assert.doesNotMatch(src, /process\.env|NEXT_PUBLIC_/, 'the mark must come from the plan, never a flag');
 });
 

@@ -4,7 +4,7 @@
  *
  * TWO LADDERS since 2026-08-12 (owner):
  *   SIGN-UP  ₱1,980 / ₱1,188 / ₱714 / ₱159 / ₱0 — buying while creating the event.
- *   REGULAR  ₱3,300 / ₱1,980 / ₱1,190 / ₱265 / ₱0 — switching it on afterwards.
+ *   REGULAR  ₱2,790 / ₱1,980 / ₱1,190 / ₱265 / ₱0 — switching it on afterwards (rung A ₱2,790 since 2026-11-23).
  *   (2026-10-28 "THE ONE PRICE — APP STORE = WEBSITE": regular = the App Store
  *   price; sign-up = the house 40% dial of it. Was 2,499/1,499/899/199 and
  *   1,499/899/539/119.)
@@ -28,7 +28,7 @@ import {
 } from './setnayan-ai-type-pricing';
 
 test('the locked ladder values', () => {
-  assert.deepEqual(AI_TIER_FALLBACK_PHP, { A: 3300, B: 1980, C: 1190, D: 265, E: 0 });
+  assert.deepEqual(AI_TIER_FALLBACK_PHP, { A: 2790, B: 1980, C: 1190, D: 265, E: 0 });
   // 2026-11-03: no sign-up price on anything — the set-up fallback IS the regular one.
   assert.deepEqual(AI_TIER_ONBOARDING_FALLBACK_PHP, AI_TIER_FALLBACK_PHP);
   assert.deepEqual(AI_TIER_SKU, {
@@ -43,7 +43,7 @@ test('the locked ladder values', () => {
 test('every canonical event type maps to its locked tier + price', () => {
   // The third column is the SIGN-UP price — the regular price since 2026-11-03 (no sign-up price on anything).
   const cases: Array<[string, string, number]> = [
-    ['wedding', 'A', 3300],
+    ['wedding', 'A', 2790],
     ['debut', 'B', 1980],
     ['corporate', 'B', 1980],
     ['christening', 'C', 1190],
@@ -99,7 +99,7 @@ test('unknown / null / empty types fall back to the standard tier C, never free 
  * ------------------------------------------------------------------------- */
 test('per-EVENT pricing is UNCHANGED by the per-user retirement (every tier)', () => {
   const expected: Record<string, [string, string | null, number]> = {
-    wedding: ['A', 'SETNAYAN_AI', 3300],
+    wedding: ['A', 'SETNAYAN_AI', 2790],
     debut: ['B', 'SETNAYAN_AI_B', 1980],
     corporate: ['B', 'SETNAYAN_AI_B', 1980],
     gala_night: ['B', 'SETNAYAN_AI_B', 1980],

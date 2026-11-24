@@ -28,6 +28,8 @@ The owner approved the simple sign-in and create-account cards on 24 Nov. Drawin
   - `lib/appearance.test.ts`: the new (c2) test covers the signed-out phone cases. (b) also walks a ready-list holding the sign-in pages.
   - `lib/first-run-screens-carry-the-brand.test.ts`: Create account wears the forming mark, not the wordmark line.
   - Four dark-block parsers read `.sn-dark-scope, html.dark` as `html.dark`.
+  - `lint:contrast` skips `.sn-dark-scope …` token rules in its light pass, as it already skips `html.dark …`. Each one is the twin of an `html.dark` selector, which the dark pass judges.
+  - `lib/the-journey-words-say-what-happens.test.ts` and `lib/the-sign-in-card-says-only-our-words.test.ts` now take the "Email" box word and the guest's one title.
 - **No migration.** No new server action. No email.
 
 SPEC IMPACT: Builds DECISION_LOG 2026-11-24 "Sign in and Create account: simple, dark, a forming logo (owner)". It amends 22 Oct's Terms placement (now above Google and Apple) and 13 Oct call 4 / K2 (the two sign-in cards follow the phone signed out). Both amendments are in that ruling. No further corpus edit is needed.

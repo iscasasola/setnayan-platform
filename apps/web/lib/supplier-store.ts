@@ -27,7 +27,7 @@ import { MY_QR_WORDS, PROMOTE_QR_MODES, type PromoteQrMode } from './supplier-qr
 import { HUB_TOOLS_FALLBACK, HUB_TOOLS_SEED, nameKey } from './hub-tools';
 import { isCakeKind } from './cake-maker';
 import { MUSIC_TOOL_CATEGORIES, isMusicToolCategory } from './songs';
-import { TAXONOMY_MAP, WEDDING_TILE_LABEL } from './taxonomy';
+import { fallbackSnapshot, type TaxonomySnapshot } from './taxonomy-snapshot';
 import { CARD_ORDER, DEFAULT_INSTALLED_GRAPHS, FIXED_WINDOW, type CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { BADGE_GRAPHS, BADGE_NAME, type GraphUnlocks, type UnlockBadge } from './graph-unlocks';
 import { SHOP_BADGE_KEYS, type ShopBadgeKey } from './badge-tiers';
@@ -260,6 +260,11 @@ export type ToolFacts = {
   toolsOff: readonly string[];
   categoryLabels: readonly string[];
   services: readonly string[];
+  /**
+   * The LIVE taxonomy's leaf → tile map and tile labels (`getTaxonomy()`, read in `readStoreToolFacts`) — what the card
+   * gate joins on. Absent (a lab, a test) = the seed fallback (`fallbackSnapshot()`), never a hard-coded copy.
+   */
+  tiles?: TileLookup;
   /** An admin's saved hub tools per category (the tags' source beside the seed). Absent / empty = the seed alone. */
   hubOverrides?: HubOverrides;
   /** The Papic camera's privacy switch (`isVendorPapicCaptureEnabled`). Absent, off or unread = the camera is not listed. */
@@ -495,7 +500,7 @@ export function widgetPlaces(tool: SpecializedTool): WidgetPlace[] {
 // A card back online opens it again by itself. A failed card read hides nothing and greys nothing.
 // Always shown (shop-level): `SHOP_LEVEL_WIDGETS`, graphs, badges and QR designs, and any widget tagged with a seed
 // category no card kind maps to yet (`unmappedSeedCategories`, listed for an admin to map — never guessed).
-// The join is the code taxonomy's TILE: a card kind's tile (`TAXONOMY_MAP[leaf].tile`, or the kind when it is a tile)
+// The join is the live taxonomy's TILE (`getTaxonomy()`): a card kind's tile (`map[leaf].tile`, or the kind when it is a tile)
 // meets a seed category's tile (its kind spelt as a tile key, or a tile whose label is its name). On the day and the
 // client pages are not greyed (controller, 23 Nov).
 
@@ -505,46 +510,57 @@ export const SHOP_LEVEL_WIDGETS: readonly SpecializedToolKey[] = ['scanner', 'pr
 export const CARDS_UNREAD_WORDS = 'Couldn’t check your service cards';
 export const noCardWords = (category: string) => `Turn on a ${category} card to use it.`;
 
-const TILE_LABELS: Readonly<Record<string, string>> = WEDDING_TILE_LABEL;
-const TILE_BY_LABEL: ReadonlyMap<string, string> = new Map(Object.entries(TILE_LABELS).map(([tile, label]) => [nameKey(label), tile]));
+/** The two parts of the taxonomy the card gate reads: leaf → tile, and each tile's label. */
+export type TileLookup = Pick<TaxonomySnapshot, 'map' | 'tileLabel'>;
+
+let seedTiles: TileLookup | null = null;
+/** The seed fallback, for a caller that has no live taxonomy in hand (a lab, a test). Built once. */
+const fallbackTiles = (): TileLookup => (seedTiles ??= fallbackSnapshot());
 
 /** A seed category's tile, or null when no card kind maps to it yet (then its widgets are shop-level). */
-export function seedTileOf(category: string): string | null {
+export function seedTileOf(category: string, tiles: TileLookup = fallbackTiles()): string | null {
   const kind = kindOf(category);
-  if (TILE_LABELS[kind]) return kind;
-  return TILE_BY_LABEL.get(nameKey(category)) ?? null;
+  if (tiles.tileLabel[kind]) return kind;
+  const want = nameKey(category);
+  for (const [tile, label] of Object.entries(tiles.tileLabel)) if (nameKey(label) === want) return tile;
+  return null;
 }
 
 /** The seed categories no card kind maps to — the STATUS list an admin maps; their widgets stay shop-level. */
-export function unmappedSeedCategories(): string[] {
-  return HUB_TOOLS_SEED.map((r) => r.category).filter((c) => seedTileOf(c) === null);
+export function unmappedSeedCategories(tiles: TileLookup = fallbackTiles()): string[] {
+  return HUB_TOOLS_SEED.map((r) => r.category).filter((c) => seedTileOf(c, tiles) === null);
 }
 
 /** A card kind's tile: a leaf's tile from the one taxonomy, or the kind itself when it is a tile. */
-export function cardTileOf(kind: string): string | null {
-  const leaf = TAXONOMY_MAP[kind];
+export function cardTileOf(kind: string, tiles: TileLookup = fallbackTiles()): string | null {
+  const leaf = tiles.map[kind];
   if (leaf?.tile) return leaf.tile;
-  return TILE_LABELS[kind] ? kind : null;
+  return tiles.tileLabel[kind] ? kind : null;
 }
 
 /** The seed's catch-all row (`HUB_TOOLS_FALLBACK`) — what a card whose tile has no row of its own is served by. */
 const EVERYTHING_ELSE = HUB_TOOLS_FALLBACK.category;
 
 /** Does one of the shop's online cards serve this widget? */
-export function toolServedByCards(tool: SpecializedTool, tags: readonly ToolTag[], cards: readonly string[]): boolean {
+export function toolServedByCards(
+  tool: SpecializedTool,
+  tags: readonly ToolTag[],
+  cards: readonly string[],
+  tiles: TileLookup = fallbackTiles(),
+): boolean {
   if ((SHOP_LEVEL_WIDGETS as readonly string[]).includes(tool.key)) return true;
-  const tiles = cards.map((k) => cardTileOf(k));
-  if (tool.key === 'cake_tool') return cards.some((k, i) => isCakeKind(k) || isCakeKind(tiles[i]));
-  if (tool.key === 'song_bank') return cards.some((k, i) => MUSIC_TOOL_CATEGORIES.has(k) || (!!tiles[i] && MUSIC_TOOL_CATEGORIES.has(tiles[i]!)));
+  const cardTiles = cards.map((k) => cardTileOf(k, tiles));
+  if (tool.key === 'cake_tool') return cards.some((k, i) => isCakeKind(k) || isCakeKind(cardTiles[i]));
+  if (tool.key === 'song_bank') return cards.some((k, i) => MUSIC_TOOL_CATEGORIES.has(k) || (!!cardTiles[i] && MUSIC_TOOL_CATEGORIES.has(cardTiles[i]!)));
   if (tags.length === 0) return true;
-  const tagTiles = tags.map((t) => seedTileOf(t.label));
+  const tagTiles = tags.map((t) => seedTileOf(t.label, tiles));
   // A category no card kind maps to yet: shop-level until an admin maps it (3a2419fd, "don't guess").
   if (tagTiles.some((t) => t === null)) return true;
-  const have = new Set(tiles.filter((t): t is string => !!t));
+  const have = new Set(cardTiles.filter((t): t is string => !!t));
   if (tagTiles.some((t) => have.has(t!))) return true;
   // A card whose tile has no seed row gets the catch-all row, the way `seedFor` answers the Hub.
-  const seedTiles = new Set(HUB_TOOLS_SEED.map((r) => seedTileOf(r.category)));
-  const orphan = tiles.some((t) => !t || !seedTiles.has(t));
+  const seededTiles = new Set(HUB_TOOLS_SEED.map((r) => seedTileOf(r.category, tiles)));
+  const orphan = cardTiles.some((t) => !t || !seededTiles.has(t));
   return orphan && tags.some((t) => t.label === EVERYTHING_ELSE);
 }
 
@@ -581,7 +597,7 @@ function gatedRow(tool: SpecializedTool, suggested: boolean, f: ToolFacts): { ro
   let status = toolStatus(tool.key, f);
   let installed = toolIsInstalled(tool.key, status, f);
   let hidden = false;
-  if (Array.isArray(f.cards) && status.kind !== 'no_card' && !toolServedByCards(tool, tags, f.cards)) {
+  if (Array.isArray(f.cards) && status.kind !== 'no_card' && !toolServedByCards(tool, tags, f.cards, f.tiles)) {
     hidden = !heldByShop(status, installed);
     status = { kind: 'no_card', category: noCardCategory(tags), installed, prior: status };
     installed = toolIsInstalled(tool.key, status, f);

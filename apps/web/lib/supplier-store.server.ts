@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { getTaxonomy } from './taxonomy-db';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveCoverageLabels } from '@/lib/vendor-coverages';
@@ -177,7 +178,7 @@ export async function readStoreToolFacts(
   services: readonly string[],
   layout: StoreLayout | null,
 ): Promise<ToolFacts> {
-  const [freeOpen, orders, subscribed, prices, categoryLabels, hubOverrides, papicCapture, cards] = await Promise.all([
+  const [freeOpen, orders, subscribed, prices, categoryLabels, hubOverrides, papicCapture, cards, taxonomy] = await Promise.all([
     readFreeOpen(admin, vendorProfileId),
     readToolOrders(admin, vendorProfileId),
     readSubscribed(admin, vendorProfileId),
@@ -187,6 +188,8 @@ export async function readStoreToolFacts(
     // 📷 The Papic camera is listed only while its privacy switch is on; a refused read keeps it off (fail closed).
     isVendorPapicCaptureEnabled().catch(() => false),
     readOnlineCards(client, vendorProfileId),
+    // The card gate joins on the LIVE taxonomy; `getTaxonomy` falls back to the seed itself when the tables are unread.
+    getTaxonomy(),
   ]);
   return {
     freeOpen,
@@ -201,6 +204,7 @@ export async function readStoreToolFacts(
     hubOverrides,
     papicCapture,
     cards,
+    tiles: { map: taxonomy.map, tileLabel: taxonomy.tileLabel },
   };
 }
 

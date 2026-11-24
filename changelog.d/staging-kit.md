@@ -16,6 +16,6 @@ Runbook: `build-sessions/FINAL-CHECK-KIT.md`.
   messy accounts. Proven on the PGlite replay on every PR (`the-staging-seed-runs-clean.db.test.ts`).
 - **Catalogue copy** (`scripts/staging/copy-catalog.ts`): 20 non-personal admin tables, production read only through
   `scripts/lib/read-only-db.mjs`.
-- **Area map** (`scripts/staging/areas.ts`): all 585 shipped routes in exactly one of the 8 checker areas.
+- **Area map** (`scripts/staging/areas.ts`): every shipped route (the screens map + the admin map) in exactly one of the 8 checker areas.
 
 SPEC IMPACT: None — a test kit; on production every lock is a no-op and no product rule changes.

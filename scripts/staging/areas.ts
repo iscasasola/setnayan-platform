@@ -109,7 +109,8 @@ export function renderArea(id: Bucket, list: readonly Screen[]): string {
   const pages = list.filter((s) => !s.redirectsTo).map((s) => `\`${s.route}\``);
   const forwards = list.filter((s) => s.redirectsTo).map((s) => `\`${s.route}\` → \`${s.redirectsTo}\``);
   const head = id === 'labs' ? 'Labs (not checked)' : `Area ${id}`;
-  return [`**${head} — ${pages.length} pages${forwards.length ? `, ${forwards.length} forwards` : ''}.**`, pages.join(' · '), forwards.length ? `Forwards (check each lands): ${forwards.join(' · ')}` : '']
+  const n = (k: number, word: string) => `${k} ${word}${k === 1 ? '' : 's'}`;
+  return [`**${head} — ${n(pages.length, 'page')}${forwards.length ? `, ${n(forwards.length, 'forward')}` : ''}.**`, pages.join(' · '), forwards.length ? `Forwards (check each lands): ${forwards.join(' · ')}` : '']
     .filter(Boolean)
     .join('\n\n');
 }

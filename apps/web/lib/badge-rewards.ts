@@ -195,8 +195,9 @@ export const BADGE_REWARDS: Readonly<Record<RewardBadge, BadgeRewardRule>> = {
    * (owner 15 Nov, DECISION_LOG "BADGE OPEN ITEMS RULED" (3): "successful booking" = the event is completed — the same
    * test as Completed bookings). ✅ COUNTED since Invite a supplier v3 (#7891, owner 16 Nov): the record is
    * `vendor_partnerships.brought_new_shop` — a shop CREATED through this shop's link, still partners — and
-   * `readInvitesCount` (lib/supplier-invite.server.ts) counts those with a completed booking (the same vetted view
-   * Completed bookings reads). An existing shop joining through the link never counts (answer 2).
+   * `readInvitesCount` (lib/supplier-invite.server.ts) counts those the ONE trust reader counts (owner 21 Nov 2026:
+   * verified, with a first completed, paid booking through Setnayan — `shop_trust`, lib/vendor-trusted-by.ts). An
+   * existing shop joining through the link never counts (answer 2).
    */
   invites: shopLadder('invites', 'Invites', ['supplier you added', 'suppliers you added'], true),
   verified: { badge: 'verified', title: 'SETNAYAN Verified', measured: true, shape: 'once', reward: papic(1) },

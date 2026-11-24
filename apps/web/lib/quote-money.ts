@@ -27,6 +27,29 @@ export function billedPax(livePax: number, minPax: number): number {
   return Math.max(live, min);
 }
 
+/**
+ * 👥 NO GUESSED GUEST COUNT (supplier walk 24 Nov 2026, controller): the count a quote opens at is the couple's live
+ * count, else their inquiry count, else NOTHING — never a typed stand-in (it was `?? 100`, so a quote billed 100 guests
+ * nobody gave). Null means "no count yet": the maker says so and asks for a "Bill at least".
+ */
+export function openingPax(livePax: number | null | undefined, inquiryPax: number | null | undefined): number | null {
+  const real = (v: number | null | undefined) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.round(v) : null);
+  return real(livePax) ?? real(inquiryPax);
+}
+
+/**
+ * A quote that prices a line PER GUEST cannot be sent while it bills nobody: with no count from the couple and no
+ * minimum from the supplier, every per-guest line would go out at ₱0 × 0. Both the maker (Send waits) and the send
+ * core (refuses) ask this one rule. Lines that are free or carry no rate do not count.
+ */
+export function needsGuestCount(
+  lines: readonly { basis?: string | null; rate_centavos?: number | null; free?: boolean | null }[],
+  billed: number,
+): boolean {
+  if (Number.isFinite(billed) && billed > 0) return false;
+  return lines.some((l) => l.basis === 'per_pax' && !l.free && (l.rate_centavos ?? 0) > 0);
+}
+
 /** The ONE minimum a seed brings: the highest per-guest minimum among its per-pax lines; null when none states one. */
 export function seedMinPax(lines: readonly { basis: string; minPax: number }[]): number | null {
   const mins = lines.filter((l) => l.basis === 'per_pax' && l.minPax > 0).map((l) => Math.round(l.minPax));

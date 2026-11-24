@@ -61,7 +61,9 @@ const room = (tables: PlanTable[], over: Partial<Plan> = {}): Plan => ({
 test('Line up and the couple’s Auto-arrange space a row with the same gap', () => {
   assert.equal(engine.SLOT_GAP_PCT, 3);
   assert.match(read('lib/seating.ts'), /const SLOT_GAP = SLOT_GAP_PCT;/, 'Auto-arrange stopped reading the engine’s gap');
-  assert.match(read('lib/seat-plan-engine/plan.ts'), /const GAP = SLOT_GAP_PCT;/, 'Line up stopped reading the engine’s gap');
+  // Line up centres each row through the grid's `centredRun` at GRID_GAP (#8057), and GRID_GAP IS the engine's gap.
+  assert.match(read('lib/seat-plan-engine/plan.ts'), /centredRun\(.*, 50, GRID_GAP\);/, 'Line up stopped centring its rows at the grid gap');
+  assert.match(read('lib/seat-plan-engine/rows.ts'), /export const GRID_GAP = SLOT_GAP_PCT;/, 'the grid stopped reading the engine’s gap');
 });
 
 test('lib/seating re-exports the engine’s geometry — the very same functions, not copies', () => {

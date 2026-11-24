@@ -61,7 +61,7 @@ export async function signCoverSceneMedia(ground: HubCoverGround | null | undefi
   const refs: string[] = [];
   if (ground.kind === 'loop') {
     const media = INVITE_THEMES[ground.loop]?.media;
-    if (media) refs.push(media.poster, media.loop);
+    if (media) refs.push(media.poster, ...(media.loop ? [media.loop] : []));
   } else if (ground.kind === 'snippet') {
     for (const r of [ground.poster, coverClipRefForGuests(ground.media)]) if (typeof r === 'string' && r) refs.push(r);
   }
@@ -99,7 +99,7 @@ export function coverSceneLayer(
     if (!media) return null;
     const stand = ctx.loopMedia?.(ground.loop) ?? null;
     const still = servedUrl(media.poster, ctx.signed) ?? stand?.still ?? null;
-    const clip = servedUrl(media.loop, ctx.signed) ?? stand?.clip ?? null;
+    const clip = (media.loop ? servedUrl(media.loop, ctx.signed) : null) ?? stand?.clip ?? null;
     /* 🚫 A loop whose files do not resolve is NOT drawn as an empty veil (a failure never renders as success): the
        cover stays The theme's own. */
     if (!still && !clip) return null;

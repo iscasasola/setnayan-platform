@@ -41,7 +41,7 @@ const read = (p: string) => readFileSync(p, 'utf8');
 
 import { INVITE_THEMES, INVITE_THEME_IDS } from '@/lib/invite-themes';
 import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
-import { plusPeek } from '@/app/_components/frontdoor/front-door-landing-data';
+import { PRO_PEEK, plusPeek, proMore } from '@/app/_components/frontdoor/front-door-landing-data';
 
 const SKU = 'COUPLE_WEBSITE_PRO';
 /* 💎 2026-11-19: what THIS SKU withholds from guests is the Pro PLAN's (`eventProPlanActive`); everything
@@ -53,12 +53,15 @@ function claimSurfaces(): Array<{ where: string; text: string }> {
   /* 💎 RE-AIMED 2026-11-19 (owner, "Event plans part 2 — four calls") and 20 Nov (Event Plus is the whole Event Hub): Event
      Pro's buy page claim is its PLAN CARD — the owner's words, "Everything in Plus · Setnayan AI · no Setnayan mark" —
      and "Everything in Plus" is the Plus card's own lines (`plusPeek`), read from the same file the page draws. */
-  const offer = read(join(HERE, '_components', 'plan-offer.tsx'));
-  const card = /`(Everything in Plus · Setnayan AI · no Setnayan mark)\$\{/.exec(offer);
-  assert.ok(card, 'the Pro card sentence was not found — the scan is blind');
+  /* 🛒 RE-AIMED 2026-11-23 (Event services v4): Event Pro's claim on the buy page is its ⓘ list — `PRO_PEEK` + `proMore`,
+     the front door's own lines, which `readEventServices` hands the sheet — and "Everything in Event Plus" is Plus's
+     lines (`plusPeek`). */
+  const reader = read(join(WEB, 'lib/event-services.server.ts'));
+  assert.match(reader, /pro: \[\.\.\.PRO_PEEK, \.\.\.proMore\(planFacts\)\]/, 'the Pro ⓘ list is not the front door’s lines — the scan is blind');
+  const proLines = [...PRO_PEEK, ...proMore({ plusCredits: null, proCredits: null, freePapic: null })].join(' · ');
   const plus = plusPeek({ plusCredits: null, proCredits: null, freePapic: null }).join(' · ');
-  assert.ok(plus.length > 20, 'the Plus lines scanned empty');
-  const benefits = [card[0], `${card[1]!} — ${plus}`] as const;
+  assert.ok(plus.length > 20 && proLines.length > 20, 'the Plus or Pro lines scanned empty');
+  const benefits = [proLines, `${proLines} — ${plus}`] as const;
 
   const catalog = read(join(WEB, 'lib/add-ons-catalog.ts'));
   const entry = /key: 'website-pro',[\s\S]*?blurb: '([^']*)'/.exec(catalog);
@@ -233,7 +236,8 @@ test('the reveal is still aliased to this SKU (and, since 2026-11-19, to Event P
     // 💎 Event Ultra (owner 2026-11-13) includes Event Pro whole, so it confers the reveal too — still never sold alone.
     // 💎 2026-11-19 (rulings 34/36): Event Plus confers the Cinematic Reveal openings too, so the description no
     //    longer calls it Pro's exclusive (migration 20271356433378 drops "comes only with this").
-    new RegExp(`STD_PREMIUM_OPENINGS: Object\\.freeze\\(\\['${SKU}'(, EVENT_ULTRA_SKU)?(, 'EVENT_PLUS')?\\]\\)`),
+    // 🛒 2026-11-23: …and the Event Hub single, which opens what Event Plus opens (Event services v4).
+    new RegExp(`STD_PREMIUM_OPENINGS: Object\\.freeze\\(\\['${SKU}'(, EVENT_ULTRA_SKU)?(, 'EVENT_PLUS')?(, 'EVENT_HUB')?\\]\\)`),
     'the cinematic reveal is no longer granted by Event Pro',
   );
 });

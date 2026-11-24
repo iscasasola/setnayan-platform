@@ -40,7 +40,9 @@ const pickTheme = (id: string) => mergeHubDraft(emptyHubDraft(), { events: { inv
 test('the draft holds only a live id of a shipped theme', () => {
   assert.equal(sanitizeHubDraftEventValue('invite_theme', 'vintage'), 'vintage');
   assert.equal(sanitizeHubDraftEventValue('invite_theme', 'house'), 'house');
-  assert.equal(sanitizeHubDraftEventValue('invite_theme', 'capiz'), undefined, 'a retired alias is never written');
+  // RE-AIMED 23 Nov (themes batch 1): `capiz` is a live theme again, so the retired alias named here is `minimalist`.
+  assert.equal(sanitizeHubDraftEventValue('invite_theme', 'capiz'), 'capiz');
+  assert.equal(sanitizeHubDraftEventValue('invite_theme', 'minimalist'), undefined, 'a retired alias is never written');
   assert.equal(sanitizeHubDraftEventValue('invite_theme', 'VINTAGE'), undefined);
   assert.equal(sanitizeHubDraftEventValue('invite_theme', 42), undefined);
   assert.equal(HUB_DRAFT_EVENT_LABEL.invite_theme, 'Your theme');
@@ -75,10 +77,11 @@ test('a Pro theme is held without Pro; a free one (Classic, Modern, Cyber Neon) 
   assert.equal(back.apply.length, 1, 'going back to Classic was held');
   assert.equal(back.refused.length, 0);
 
-  // Never chosen and Classic are the same page; a retired id is its alias.
+  // Never chosen and Classic are the same page; a retired id is its alias. RE-AIMED 23 Nov (themes batch 1): `capiz` is a
+  // live theme again, so the retired id here is `minimalist` (read as Modern).
   assert.equal(planHubDraftApply(pickTheme('house'), live(null), false).apply.length, 0);
-  assert.equal(planHubDraftApply(pickTheme('vintage'), live('capiz'), false).apply.length, 0);
-  assert.equal(planHubDraftApply(pickTheme('vintage'), live('capiz'), false).refused.length, 0);
+  assert.equal(planHubDraftApply(pickTheme('galeriya'), live('minimalist'), false).apply.length, 0);
+  assert.equal(planHubDraftApply(pickTheme('galeriya'), live('minimalist'), false).refused.length, 0);
 });
 
 test('Apply writes the theme on its own — after the host check and the Pro gate — and counts the row', () => {

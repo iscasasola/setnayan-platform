@@ -64,6 +64,8 @@ const NOTICE_BY_CODE: Record<Exclude<SendProposalError, 'unauthenticated' | 'not
   gift_refused: 'proposal_gift_refused',
   // 📅 no lifetime quotation (2026-11-09).
   needs_valid_until: 'proposal_needs_valid_until',
+  // 👥 no guessed guest count (24 Nov 2026).
+  needs_guest_count: 'proposal_needs_guest_count',
   // 💳 pay in full (2026-11-09).
   plan_not_in_full: 'proposal_plan_not_in_full',
   // 🧪 the demo rule — one notice per sentence (`demoNotice` picks it from the core's own message).

@@ -34,7 +34,7 @@ const SNAPSHOT = read('./canvas-form-snapshot.ts');
 test('the edit sheet’s Save waits on a LIVE card with no price — it would only fail at the trigger', () => {
   assert.match(
     MAKER,
-    /const liveNeedsPrice = isEdit && liveOn && editing\?\.isActive === true && !snap\.hasPrice;/,
+    /const liveNeedsPrice = snapRead && isEdit && liveOn && editing\?\.isActive === true && !snap\.hasPrice;/,
     'a live card can be saved priceless again',
   );
   // 🃏 The card checks (fix before Create, owner 2026-10-26) also keep Save waiting — the live-price rule must stay in it.

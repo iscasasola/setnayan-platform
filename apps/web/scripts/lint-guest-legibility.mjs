@@ -51,7 +51,8 @@ const SCAN_EXTENSIONS = new Set(['.tsx', '.ts']);
 // by `font-size` rules in globals.css, and this guard — which read only `text-[Npx]` in TSX — could not see them.
 // A `font-size` below 12 px (px, or rem × 16) in a rule whose selector is the guest page's
 // (`.sn-editorial` · `.pahina…` · `[data-pahina…`) now counts, under the same per-file baseline.
-const CSS_FILES = ['app/globals.css'];
+// …and app/hub-themes.css, the 23 Nov redraw's theme blocks (they left globals.css for its ceiling).
+const CSS_FILES = ['app/globals.css', 'app/hub-themes.css'];
 const GUEST_SELECTOR_RE = /\.sn-editorial\b|\.pahina|\[data-pahina/;
 const CSS_SIZE_RE = /font-size:\s*(\d+(?:\.\d+)?)(px|rem)\b/;
 const MAX_PX = 11; // flag text-[<=11px]; 12px / text-xs and up are allowed

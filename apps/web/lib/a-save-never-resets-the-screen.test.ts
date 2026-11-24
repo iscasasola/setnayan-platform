@@ -213,6 +213,7 @@ const RELOAD_ALLOWED: Readonly<Record<string, string>> = {
   'app/dashboard/[eventId]/launch/_components/details-look-pages.tsx': 'reloads the PREVIEW frame, not the page',
   'app/dashboard/[eventId]/launch/_components/maker-reveal.tsx': 'reloads the PREVIEW frame, not the page',
   'app/dashboard/[eventId]/story/_components/make-it-yours.tsx': '"Try again" on a failed read',
+  'app/dashboard/[eventId]/studio/website-pro/_components/event-services-view.tsx': '"Try again" when the App Store did not answer (the iPhone app re-asks Apple for its prices) — not a save',
   'app/dashboard/[eventId]/studio/photo-delivery/_components/release-progress-poller.tsx': 'a long release finished on the server — not a press',
   'app/dashboard/[eventId]/website/editor/_components/buffered-canvas-frame.tsx': 'reloads the PREVIEW frame, not the page',
   'app/error.tsx': 'the error screen: a new deployment or a stale bundle',

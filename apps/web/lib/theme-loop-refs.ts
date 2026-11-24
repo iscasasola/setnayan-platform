@@ -23,7 +23,7 @@ export type ThemeLoopChoice = { id: InviteThemeId; name: string; loop: string; p
 export function themeLoopChoices(): ThemeLoopChoice[] {
   return hubMovingBackgroundIds().flatMap((id) => {
     const media = INVITE_THEMES[id].media;
-    return media ? [{ id, name: INVITE_THEMES[id].name, loop: media.loop, poster: media.poster }] : [];
+    return media?.loop ? [{ id, name: INVITE_THEMES[id].name, loop: media.loop, poster: media.poster }] : [];
   });
 }
 

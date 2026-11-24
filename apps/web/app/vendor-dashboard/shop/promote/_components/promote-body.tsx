@@ -27,6 +27,8 @@ import { ShareYourWork } from './share-your-work';
 import { loadShareYourWork } from './share-your-work-data';
 import { ShopPrintsSection } from './shop-prints-section';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readStoreLayout } from '@/lib/supplier-store.server';
+import { hiddenQrs } from '@/lib/supplier-store';
 import { readPrintMember } from '@/lib/supplier-prints.server';
 
 /** `prints` = the Shop quick row's Prints tile (owner 17 Nov: "change Promote on Shop to Prints") — the prints alone. */
@@ -81,11 +83,15 @@ export async function PromoteBody({
   const printFacts = kindLabel ? { name: shopName, line: printLine(profileServices, (profile as { tagline?: string | null }).tagline ?? null, kindLabel) } : null;
   const printAsk = printAskOf(search);
 
+  // 🧩 Toolkit v19: a QR design the shop removed in the Toolkit is not listed (Your page is built in). Read beside the
+  // rest; a refused read hides nothing — every code still shows.
+  const hidePromise = withQr ? readStoreLayout(supabase, profile.vendor_profile_id).then(hiddenQrs) : Promise.resolve([]);
   const [gifts, share, member] = await Promise.all([giftsPromise, sharePromise, memberPromise]);
+  const hide = await hidePromise;
 
   return (
     <div className="space-y-4" data-promote-body={part}>
-      {withQr ? <MyQrsList canShare={canShare} setupHref="/vendor-dashboard/shop" embedded /> : null}
+      {withQr ? <MyQrsList canShare={canShare} setupHref="/vendor-dashboard/shop" embedded hide={hide} /> : null}
       {withPromote ? (
         <ShopPrintsSection
           canShare={canShare}

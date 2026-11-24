@@ -6,6 +6,7 @@ import { manilaDate, type SchedulePool } from '@/lib/vendor-schedule';
 import { threadDayAnswerOf, type ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { pieceBookingIdsOf } from '@/lib/piece-seats';
 import { NOT_AVAILABLE_COLUMNS, blockClosesDay, notAvailableFieldsOf, notAvailableWindowFilter } from '@/lib/not-available';
+import { SCHEDULE_OR_HALL_POOLS } from '@/lib/schedule-pool-kinds';
 
 /**
  * thread-day-answer.server — the ONE read behind the supplier conversation's answer line (`thread-day-answer.ts`).
@@ -37,7 +38,8 @@ export async function readThreadDayAnswer(
         .from('vendor_schedule_pools')
         .select('pool_id, daily_booking_capacity')
         .eq('vendor_profile_id', vendorProfileId)
-        .eq('is_active', true),
+        .eq('is_active', true)
+        .or(SCHEDULE_OR_HALL_POOLS),
       supabase
         .from('vendor_schedule_pool_bookings')
         .select('pool_id, event_id, event_vendor_id')

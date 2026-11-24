@@ -8,6 +8,7 @@
  * the "Add to an event" picker the service pages already use. Nothing here holds a price or a credit count.
  */
 import { PLAN_PRICE_CODES } from './event-plans';
+import { routes } from './routes';
 
 export type PlanKey = keyof typeof PLAN_PRICE_CODES;
 
@@ -22,7 +23,8 @@ export function isPlanKey(v: unknown): v is PlanKey {
 
 /** The event's plan screen, opened at this plan's card (`?plan=` rings it; `#plan-<key>` scrolls to it). */
 export function planScreenHref(eventId: string, plan: PlanKey): string {
-  return `/dashboard/${eventId}/studio/website-pro?plan=${plan}#plan-${plan}`;
+  // 🛒 Event services (owner 2026-11-23) picks that pack on arrival.
+  return `${routes.dashboard.eventServices(eventId)}?plan=${plan}`;
 }
 
 /**

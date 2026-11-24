@@ -84,6 +84,9 @@ export const RETAIL: RetailRow[] = [
   // 🏛 Owner 20 Nov 2026 (`Pricing.md` §1.1): Event Pro ₱5,690 → ₱5,490 (migration 20271356433378, guarded on 5,690).
   { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', retail_price_php: 5490, is_active: true },
   { service_code: 'EVENT_PLUS', title: 'Event Plus', retail_price_php: 2990, is_active: true },
+  // 🛒 The Event Hub single, NEW 2026-11-23 (DECISION_LOG "EVENT PLANS ARE PACKAGES": "Event Hub unlock 2790"). Mirrors
+  // migration 20271359355225's own INSERT; the db guard compares it to the replay.
+  { service_code: 'EVENT_HUB', title: 'Event Hub', retail_price_php: 2790, is_active: true },
   // Mirrors migration 20271344860040_event_ultra_plan (the row's own INSERT); the db guard compares it to the replay.
   { service_code: 'EVENT_ULTRA', title: 'Event Ultra', retail_price_php: 9990, is_active: true },
   // 💎 Event Pro, part by part (owner 2026-10-22) — migration 20271282742262 seeds these; OFF SALE since 2026-10-26
@@ -162,9 +165,9 @@ export const RETAIL: RetailRow[] = [
   // prod by migration 20271205977137 and carried by FREE_FOR_ALL_SKUS (PR
   // #5185). Kept listed, inactive, same convention as KWENTO below.
   { service_code: 'SEATING_3D', title: '3D Plan', retail_price_php: 1500, is_active: false },
-  // 🗑 OFF SALE 2026-11-04 (owner: "Setnayan ai no separate purchase will be part of event plus and event pro") — a
-  // NEGATIVE fixture now, like the rows below; the price it carried is deliberately not repeated here.
-  { service_code: 'SETNAYAN_AI', title: 'Setnayan AI', retail_price_php: 1, is_active: false },
+  // ♻️ BACK ON SALE 2026-11-23 at ₱2,790 (DECISION_LOG 2026-11-23, owner: "so there is a separate price for setnayan
+  // AI 2790"; migration 20271359355225). Off sale 2026-11-04 → 2026-11-23. Entry, prose and this row came back together.
+  { service_code: 'SETNAYAN_AI', title: 'Setnayan AI', retail_price_php: 2790, is_active: true },
   // PABATI is GONE from this fixture on purpose. It went FREE on 2026-08-21 and
   // was RETIRED the same day ("we do not need pabati. retire it because it is
   // part of papic"), so it is no longer in REQUIRED_RETAIL and no longer named

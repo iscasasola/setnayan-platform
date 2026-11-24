@@ -1,0 +1,204 @@
+/* 🎨 THE EVENT HUB THEMES' PAGE BLOCKS — THE 23 NOV REDRAW (owner 23 Nov 2026: *"Yes, this level"* → *"themes batch 6
+   approved"*; DECISION_LOG "EVENT HUB THEMES ROUND 2" and "BATCH 6 APPROVED"). One block per theme, generated from the
+   registry palette by `hubThemePageTokens` (lib/invite-themes.ts) and re-derived line by line by lib/invite-themes.test.ts.
+
+   📦 WHY THEY LIVE HERE AND NOT IN globals.css: every page of the app parses globals.css, and it sits at its ceiling
+   (lib/the-stylesheet-stays-in-budget.test.ts — "put surface-only rules in that surface's own CSS file"). A theme block
+   is worn only where a theme is worn: the guest Event Hub (`app/[slug]/layout.tsx`) and the event's own pages, the Maker
+   among them (`app/dashboard/[eventId]/layout.tsx`). Both import this file; nothing else needs it. 53 themes will be about
+   60 KB — none of it on the pages that never show a theme. The ten older themes keep their blocks in globals.css. */
+
+/* PERLAS (`perlas`) — batch 1 of the 23 Nov redraw (sheet `prototypes/maker_themes_redraw_2026-11-23/batch1/`). Generated from the
+   registry palette by `hubThemePageTokens` (lib/invite-themes.test.ts re-derives every line); its still is the ground. */
+[data-hub-theme='perlas'] {
+  --hub-canvas: #f3e7d3;
+  --hub-surface: #fffaf1;
+  --hub-ink: #4a3b2c;
+  --hub-muted: #77654f;
+  --hub-accent: #4a3b2c;
+  --hub-accent-ink: #fbf3e4;
+  --hub-heading: #4a3b2c;
+  --hub-radius: 999px;
+  --color-cream: 243 231 211;
+  --color-paper: 243 231 211;
+  --color-veil: 243 231 211;
+  --color-paper-deep: 255 250 241;
+  --color-ink: 30 24 18;
+  --color-ink-on-plate: 30 24 18;
+  --color-gild: 74 59 44;
+  --color-terracotta: 74 59 44;
+  --color-terracotta-600: 74 59 44;
+  --color-terracotta-700: 74 59 44;
+  --color-mulberry: 74 59 44;
+  --color-mulberry-600: 74 59 44;
+  --color-mulberry-700: 74 59 44;
+  --m-ink: rgb(var(--color-ink));
+  --color-ink-on-light: 30 24 18;
+  --font-display: var(--font-hub-italiana);
+  --pahina-face: var(--font-hub-italiana);
+  --font-mono: var(--font-hub-raleway);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-raleway);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-hub-italiana);
+  font-family: var(--font-body), sans-serif;
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* WALING-WALING (`waling`) — batch 1 of the 23 Nov redraw (sheet `prototypes/maker_themes_redraw_2026-11-23/batch1/`). Generated from the
+   registry palette by `hubThemePageTokens` (lib/invite-themes.test.ts re-derives every line); its still is the ground. */
+[data-hub-theme='waling'] {
+  --hub-canvas: #150a17;
+  --hub-surface: #1f1122;
+  --hub-ink: #fbf1f7;
+  --hub-muted: #cdb6c7;
+  --hub-accent: #c23a86;
+  --hub-accent-ink: #ffffff;
+  --hub-heading: #f0a6d0;
+  --hub-radius: 999px;
+  --color-cream: 21 10 23;
+  --color-paper: 21 10 23;
+  --color-veil: 21 10 23;
+  --color-paper-deep: 31 17 34;
+  --color-ink: 251 241 247;
+  --color-ink-on-plate: 251 241 247;
+  --color-gild: 240 166 208;
+  --color-terracotta: 240 166 208;
+  --color-terracotta-600: 240 166 208;
+  --color-terracotta-700: 240 166 208;
+  --color-mulberry: 240 166 208;
+  --color-mulberry-600: 240 166 208;
+  --color-mulberry-700: 240 166 208;
+  --m-ink: rgb(var(--color-ink));
+  --color-ink-on-light: 21 10 23;
+  --font-display: var(--font-hub-gloock);
+  --pahina-face: var(--font-hub-gloock);
+  --font-mono: var(--font-hub-outfit);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-outfit);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-hub-gloock);
+  font-family: var(--font-body), sans-serif;
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* CAPIZ (`capiz`) — batch 1 of the 23 Nov redraw (sheet `prototypes/maker_themes_redraw_2026-11-23/batch1/`). Generated from the
+   registry palette by `hubThemePageTokens` (lib/invite-themes.test.ts re-derives every line); its still is the ground. */
+[data-hub-theme='capiz'] {
+  --hub-canvas: #f5eedf;
+  --hub-surface: #fffcf4;
+  --hub-ink: #3a2a1c;
+  --hub-muted: #6e5a46;
+  --hub-accent: #5a3a22;
+  --hub-accent-ink: #fff8ea;
+  --hub-heading: #5a3a22;
+  --hub-radius: 4px;
+  --color-cream: 245 238 223;
+  --color-paper: 245 238 223;
+  --color-veil: 245 238 223;
+  --color-paper-deep: 255 252 244;
+  --color-ink: 35 25 17;
+  --color-ink-on-plate: 35 25 17;
+  --color-gild: 90 58 34;
+  --color-terracotta: 90 58 34;
+  --color-terracotta-600: 90 58 34;
+  --color-terracotta-700: 90 58 34;
+  --color-mulberry: 90 58 34;
+  --color-mulberry-600: 90 58 34;
+  --color-mulberry-700: 90 58 34;
+  --m-ink: rgb(var(--color-ink));
+  --color-ink-on-light: 35 25 17;
+  --font-display: var(--font-hub-marcellus);
+  --pahina-face: var(--font-hub-marcellus);
+  --font-mono: var(--font-hub-mulish);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-mulish);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-hub-marcellus);
+  font-family: var(--font-body), sans-serif;
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* HAGDAN (`hagdan`) — batch 1 of the 23 Nov redraw (sheet `prototypes/maker_themes_redraw_2026-11-23/batch1/`). Generated from the
+   registry palette by `hubThemePageTokens` (lib/invite-themes.test.ts re-derives every line); its still is the ground. */
+[data-hub-theme='hagdan'] {
+  --hub-canvas: #1d3524;
+  --hub-surface: #234029;
+  --hub-ink: #f4f1e6;
+  --hub-muted: #bfd0bd;
+  --hub-accent: #f4f1e6;
+  --hub-accent-ink: #1d3524;
+  --hub-heading: #dfc27a;
+  --hub-radius: 999px;
+  --color-cream: 29 53 36;
+  --color-paper: 29 53 36;
+  --color-veil: 29 53 36;
+  --color-paper-deep: 35 64 41;
+  --color-ink: 244 241 230;
+  --color-ink-on-plate: 244 241 230;
+  --color-gild: 244 241 230;
+  --color-terracotta: 223 194 122;
+  --color-terracotta-600: 223 194 122;
+  --color-terracotta-700: 223 194 122;
+  --color-mulberry: 244 241 230;
+  --color-mulberry-600: 244 241 230;
+  --color-mulberry-700: 244 241 230;
+  --m-ink: rgb(var(--color-ink));
+  --color-ink-on-light: 29 53 36;
+  --font-display: var(--font-hub-lora);
+  --pahina-face: var(--font-hub-lora);
+  --font-mono: var(--font-hub-worksans);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-worksans);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-hub-lora);
+  font-family: var(--font-body), sans-serif;
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}
+
+/* SOLIHIYA (`solihiya`) — batch 1 of the 23 Nov redraw (sheet `prototypes/maker_themes_redraw_2026-11-23/batch1/`). Generated from the
+   registry palette by `hubThemePageTokens` (lib/invite-themes.test.ts re-derives every line); its still is the ground. */
+[data-hub-theme='solihiya'] {
+  --hub-canvas: #f6efe2;
+  --hub-surface: #fffbf3;
+  --hub-ink: #3b2a16;
+  --hub-muted: #70593c;
+  --hub-accent: #8a5a1e;
+  --hub-accent-ink: #ffffff;
+  --hub-heading: #3b2a16;
+  --hub-radius: 4px;
+  --color-cream: 246 239 226;
+  --color-paper: 246 239 226;
+  --color-veil: 246 239 226;
+  --color-paper-deep: 255 251 243;
+  --color-ink: 35 25 13;
+  --color-ink-on-plate: 35 25 13;
+  --color-gild: 138 90 30;
+  --color-terracotta: 59 42 22;
+  --color-terracotta-600: 59 42 22;
+  --color-terracotta-700: 59 42 22;
+  --color-mulberry: 138 90 30;
+  --color-mulberry-600: 138 90 30;
+  --color-mulberry-700: 138 90 30;
+  --m-ink: rgb(var(--color-ink));
+  --color-ink-on-light: 35 25 13;
+  --font-display: var(--font-hub-epilogue);
+  --pahina-face: var(--font-hub-epilogue);
+  --font-mono: var(--font-hub-newsreader);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-newsreader);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-hub-epilogue);
+  font-family: var(--font-body), sans-serif;
+  --pahina-grain-opacity: 0;
+  --pahina-frame-opacity: 1;
+  --pahina-rule-len: 3rem;
+}

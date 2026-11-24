@@ -263,11 +263,15 @@ test('the Verified Partner counters read every channel, the Booking QR token, an
   await book(shared, vpid, { status: 'contracted' });
   await book(shared, other.vpid, { status: 'contracted' });
   await book(shared, third.vpid, { status: 'contracted' });
+  // Seeded with the served-together trigger off: since 21 Nov 2026 it asks for a completed, PAID shared event, and this
+  // test is about counting recommenders, not about how a partnership is made (partners-after-a-shared-event covers that).
+  await db.exec(`ALTER TABLE public.vendor_partnerships DISABLE TRIGGER trg_vendor_partnerships_need_a_shared_event`);
   await db.query(
     `INSERT INTO public.vendor_partnerships (recommending_vendor_id, recommended_vendor_id, relationship_type, status, is_active)
      VALUES ($1, $3, 'general', 'accepted', true), ($2, $3, 'general', 'proposed', true)`,
     [other.vpid, third.vpid, vpid],
   );
+  await db.exec(`ALTER TABLE public.vendor_partnerships ENABLE TRIGGER trg_vendor_partnerships_need_a_shared_event`);
   const r2 = await db.query<{ recommenders: number }>(`SELECT recommenders FROM public.shop_verified_partner_facts($1)`, [vpid]);
   assert.equal(Number(r2.rows[0]!.recommenders), 1, 'a proposed partnership is not a recommendation');
 });

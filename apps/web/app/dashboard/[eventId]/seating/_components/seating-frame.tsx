@@ -389,12 +389,15 @@ export function SeatingViewSegment({
   active,
   onSelect,
   on3DHover,
+  no3D = false,
 }: {
   active: '2d' | '3d' | 'list';
   onSelect: (target: '2d' | '3d' | 'list') => void;
   on3DHover?: () => void;
+  /** 🏛 A venue's own plan (Spaces) has no 3D room. */
+  no3D?: boolean;
 }) {
-  const show3D = process.env.NEXT_PUBLIC_SEATING_3D !== 'false';
+  const show3D = !no3D && process.env.NEXT_PUBLIC_SEATING_3D !== 'false';
   // Order LIST | 2D | 3D (Lab chrome rules, owner 2026-07-17) — supersedes the
   // prior [2D · 3D · List]. Shared by the 2D editor + the 3D lab chrome, so both
   // render the same order. 3D still hides when the flag is off.

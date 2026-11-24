@@ -251,7 +251,7 @@ function newCtx(file, t = 0, pth = [], resolved = new Set()) {
   // resolved: React-cache()d readers already answered in this request (a second call is free);
   // started: cache()d readers started in this function (a second call gets the SAME promise);
   // cachedAll: every cache()d reader this function started, handed to the children it draws.
-  return { file, t, path: pth, maxIdl: 0, returns: [], jsx: [], leaves: 0, loops: [], fanouts: 0, tables: new Set(), getUser: [], calls: [], returned: false, suspense: 0, resolved: new Set(resolved), started: new Map(), cachedAll: new Set() };
+  return { file, t, path: pth, maxIdl: 0, returns: [], jsx: [], guards: [], leaves: 0, loops: [], fanouts: 0, tables: new Set(), getUser: [], calls: [], returned: false, suspense: 0, resolved: new Set(resolved), started: new Map(), cachedAll: new Set() };
 }
 const unionCk = (vals) => {
   const out = new Set();
@@ -442,6 +442,7 @@ function runInlineBody(info, closure, args, ctx, argVals) {
   fn.parameters.forEach((p, i) => bindPattern(p.name, argVals[i] ?? V(ctx.t, Math.max(0, ...args.map(idlOf)), ctx.path), scope, ctx));
   const sub = newCtx(info.file, ctx.t, ctx.path, ctx.resolved);
   sub.started = ctx.started;
+  sub.guards = ctx.guards;
   sub.maxIdl = Math.max(0, ...args.map(idlOf));
   const base = sub.maxIdl;
   if (!fn.body) return P(ctx.t, base, ctx.path);
@@ -477,7 +478,7 @@ function summarize(info, resolved = new Set()) {
   if (!nodeIds.has(info.fn)) nodeIds.set(info.fn, nextNodeId++);
   const key = `${nodeIds.get(info.fn)}|${[...resolved].sort().join(',')}`;
   if (memo.has(key)) return memo.get(key);
-  if (inProgress.has(info.fn)) return { cp: 0, ideal: 0, path: [], render: { cp: 0, ideal: 0, path: [], kids: [] }, leaves: 0, loops: [], fanouts: 0, tables: new Set(), getUser: [], calls: [], cachedAll: new Set(), cycle: true };
+  if (inProgress.has(info.fn)) return { cp: 0, ideal: 0, path: [], base: null, render: { cp: 0, ideal: 0, path: [], kids: [] }, leaves: 0, loops: [], fanouts: 0, tables: new Set(), getUser: [], calls: [], cachedAll: new Set(), cycle: true };
   inProgress.add(info.fn);
   const file = info.file;
   const fn = info.fn;
@@ -508,27 +509,27 @@ function summarize(info, resolved = new Set()) {
     pth = [];
   }
   // Rendering: async server children start when this component has returned.
-  let rcp = cp;
-  let rideal = ideal;
-  let rpath = pth;
-  const kids = [];
+  const parts = [];
   const atReturn = new Set([...ctx.resolved, ...ctx.cachedAll]);
   for (const j of ctx.jsx) {
     const s = summarize(j.info, atReturn);
-    if (s.render.cp === 0 && j.propsFin <= cp) continue;
-    const fin = Math.max(cp + s.render.cp, j.propsFin);
-    const idl = j.propsIdl + s.render.ideal;
-    kids.push({ label: j.label, at: j.at, cp: s.render.cp, ideal: s.render.ideal, suspense: j.suspense });
-    if (fin > rcp) {
-      rcp = fin;
-      rpath = [...pth, { call: `<${j.label}>`, at: j.at, r: s.render.cp, sub: s.render.path, suspense: j.suspense }];
-    }
-    rideal = Math.max(rideal, idl);
+    const rc = renderCost(s, j.props ?? new Set());
+    if (rc.cp === 0 && j.propsFin <= cp) continue;
+    parts.push({
+      fin: Math.max(cp + rc.cp, j.propsFin),
+      idl: j.propsIdl + rc.ideal,
+      unless: j.unless ?? [],
+      kid: { label: j.label, file: rel(j.info.file.abs), at: j.at, cp: rc.cp, ideal: rc.ideal, suspense: j.suspense },
+      entry: { call: `<${j.label}>`, file: rel(j.info.file.abs), at: j.at, r: rc.cp, sub: rc.path, suspense: j.suspense },
+    });
   }
+  const base = { cp, ideal: Math.min(ideal, cp), path: pth, parts };
+  const { cp: rcp, ideal: rideal, path: rpath, kids } = renderCost({ base }, new Set());
   const out = {
     cp,
     ideal: Math.min(ideal, cp),
     path: pth,
+    base,
     render: { cp: rcp, ideal: Math.min(rideal, rcp), path: rpath, kids },
     leaves: ctx.leaves,
     loops: ctx.loops,
@@ -542,6 +543,26 @@ function summarize(info, resolved = new Set()) {
   inProgress.delete(info.fn);
   memo.set(key, out);
   return out;
+}
+
+/** A component's full render cost, given the props its parent passed (a `prop ?? <Default/>` child drops out). */
+function renderCost(s, props) {
+  const b = s.base;
+  if (!b) return s.render ?? { cp: 0, ideal: 0, path: [], kids: [] };
+  let cp = b.cp;
+  let ideal = b.ideal;
+  let path = b.path;
+  const kids = [];
+  for (const part of b.parts) {
+    if (part.unless.some((u) => props.has(u))) continue;
+    kids.push(part.kid);
+    if (part.fin > cp) {
+      cp = part.fin;
+      path = [...b.path, part.entry];
+    }
+    ideal = Math.max(ideal, part.idl);
+  }
+  return { cp, ideal: Math.min(ideal, cp), path, kids };
 }
 
 function fnLabel(info) {
@@ -592,7 +613,7 @@ function callFn(fv, args, ctx, node, argVals) {
   ctx.fanouts += s.fanouts;
   for (const t of s.tables) ctx.tables.add(t);
   ctx.getUser.push(...s.getUser);
-  ctx.calls.push({ label: fnLabel(info), cached: info.cached, reads: s.leaves, cp: s.cp });
+  ctx.calls.push({ label: fnLabel(info), cached: info.cached, reads: s.leaves, cp: s.cp, deduped: [...s.cachedAll].some((k) => k.startsWith('askedOnce:')) });
   const fin = Math.max(ctx.t + s.cp, argFin);
   const idl = Math.max(argIdl + s.ideal, ...promiseArgs.map((a) => a.idl));
   const pth = s.cp > 0 && ctx.t + s.cp >= argFin ? [...ctx.path, { call: fnLabel(info), at: `${rel(ctx.file.abs)}:${lineOf(ctx.file, node)}`, r: s.cp, sub: s.path }] : promiseArgs.length && argFin > ctx.t ? maxBy(promiseArgs, 'fin').path : ctx.path;
@@ -815,7 +836,9 @@ function evalJsx(n, scope, ctx, suspense) {
     const tagText = tag.getText(ctx.file.sf);
     if (tagText === 'Suspense' || tagText === 'React.Suspense') inSuspense = true;
     const attrVals = [];
+    const propNames = new Set();
     for (const a of opening.attributes.properties) {
+      if (ts.isJsxAttribute(a)) propNames.add(a.name.getText(ctx.file.sf));
       if (ts.isJsxAttribute(a) && a.initializer) {
         if (ts.isJsxExpression(a.initializer) && a.initializer.expression) {
           const ex = a.initializer.expression;
@@ -828,7 +851,7 @@ function evalJsx(n, scope, ctx, suspense) {
       if (fv && !fv.info.file.isClient && fv.info.fn) {
         const live = attrVals.filter(Boolean);
         const promised = live.filter((v) => v.k === 'p' || v.k === 'pa' || v.k === 'lazy').map((v) => consume(v, ctx));
-        ctx.jsx.push({ info: fv.info, label: tagText, at: `${rel(ctx.file.abs)}:${lineOf(ctx.file, n)}`, propsIdl: Math.max(0, ...live.map(idlOf)), propsFin: Math.max(0, ...promised.map((p) => p.fin)), suspense: inSuspense });
+        ctx.jsx.push({ info: fv.info, label: tagText, at: `${rel(ctx.file.abs)}:${lineOf(ctx.file, n)}`, propsIdl: Math.max(0, ...live.map(idlOf)), propsFin: Math.max(0, ...promised.map((p) => p.fin)), suspense: inSuspense, props: propNames, unless: [...ctx.guards] });
       }
     }
   }
@@ -927,7 +950,11 @@ function evalExpr(n, scope, ctx) {
     const l = evalExpr(n.left, scope, ctx);
     if (op === ts.SyntaxKind.AmpersandAmpersandToken || op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) {
       let vr;
+      // `prop ?? <Default/>`: the default is drawn only when the parent did NOT pass `prop`.
+      const guard = op !== ts.SyntaxKind.AmpersandAmpersandToken && ts.isIdentifier(n.left) ? n.left.text : null;
+      if (guard) ctx.guards.push(guard);
       const o = branch(ctx, () => (vr = evalExpr(n.right, scope, ctx)));
+      if (guard) ctx.guards.pop();
       if (o.t > ctx.t) {
         ctx.t = o.t;
         ctx.path = o.path;
@@ -1057,7 +1084,7 @@ function flattenPath(pth, depth = 0, out = []) {
   for (const st of pth) {
     if (typeof st === 'string') out.push({ d: depth, label: st, r: 1 });
     else {
-      out.push({ d: depth, label: st.call, at: st.at, r: st.r, suspense: st.suspense });
+      out.push({ d: depth, label: st.call, file: st.file, at: st.at, r: st.r, suspense: st.suspense });
       if (st.sub && depth < 6) flattenPath(st.sub, depth + 1, out);
     }
   }
@@ -1086,15 +1113,16 @@ function analyseRoute(pageAbs) {
   for (const s of segs) {
     if (s.kind.endsWith('generateMetadata')) continue;
     for (const c of s.s.calls) {
-      if (!c.reads || c.cached) continue;
+      // A duplicate worth fixing: a loader that costs rounds, not cache()d, not deduped inside (askedOnce).
+      if (!c.reads || c.cached || !(c.cp > 0) || c.deduped) continue;
       const k = c.label;
       if (!seen.has(k)) seen.set(k, new Set());
       seen.get(k).add(rel(s.abs));
     }
   }
   const metaDupes = [];
-  const pageCalls = new Set((page?.s.calls ?? []).filter((c) => c.reads && !c.cached).map((c) => c.label));
-  for (const c of meta?.s.calls ?? []) if (c.reads && !c.cached && pageCalls.has(c.label)) metaDupes.push(c.label);
+  const pageCalls = new Set((page?.s.calls ?? []).filter((c) => c.reads && !c.cached && c.cp > 0 && !c.deduped).map((c) => c.label));
+  for (const c of meta?.s.calls ?? []) if (c.reads && !c.cached && c.cp > 0 && !c.deduped && pageCalls.has(c.label)) metaDupes.push(c.label);
   const dupes = [...seen].filter(([, set]) => set.size > 1).map(([k]) => k);
   const pageFile = page?.file;
   return {
@@ -1107,7 +1135,7 @@ function analyseRoute(pageAbs) {
     ideal: now > 0 ? Math.max(1, ideal) : 0,
     worstSegment: worst ? `${worst.kind} ${rel(worst.abs)}` : null,
     chain: worst ? flattenPath(worst.s.render.path) : [],
-    segments: segs.map((s) => ({ kind: s.kind, file: rel(s.abs), now: s.s.render.cp, body: s.s.cp, ideal: s.s.render.ideal, reads: s.s.leaves, kids: s.s.render.kids?.filter((k) => k.cp > 0).map((k) => ({ label: k.label, at: k.at, cp: k.cp, ideal: k.ideal, suspense: k.suspense })) })),
+    segments: segs.map((s) => ({ kind: s.kind, file: rel(s.abs), now: s.s.render.cp, body: s.s.cp, ideal: s.s.render.ideal, reads: s.s.leaves, kids: s.s.render.kids?.filter((k) => k.cp > 0).map((k) => ({ label: k.label, file: k.file, at: k.at, cp: k.cp, ideal: k.ideal, suspense: k.suspense })), chain: flattenPath(s.s.render.path).filter((c) => c.d <= 2) })),
     reads: segs.reduce((a, s) => a + s.s.leaves, 0),
     loops: [...new Map(segs.flatMap((s) => s.s.loops).map((l) => [l.at, l])).values()],
     getUser: [...new Set(segs.flatMap((s) => s.s.getUser))].filter((g) => !g.startsWith('lib/auth.ts')),

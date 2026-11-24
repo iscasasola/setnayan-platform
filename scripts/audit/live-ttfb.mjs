@@ -10,8 +10,11 @@
  *   BASE=https://www.setnayan.com RUNS=3 node scripts/audit/live-ttfb.mjs /pricing /features
  *
  * Columns: path · HTTP status of the first answer (redirects are NOT followed, so a 307 to /login is
- * said as a 307) · median TTFB s (curl `time_starttransfer`) · median total s · bytes on the wire ·
- * the three TTFB samples · the redirect target, if any.
+ * said as a 307) · median TTFB s (curl `time_starttransfer`, which includes DNS + TCP + TLS from wherever
+ * this runs) · median SERVER WAIT s (`time_starttransfer − time_pretransfer`: the request sent → the first
+ * byte back, i.e. the render plus one network trip) · median total s · bytes on the wire · the TTFB
+ * samples · the redirect target, if any. `/manifest.json` (a static file, no render) is measured first as
+ * the network floor.
  */
 import { execFileSync } from 'node:child_process';
 
@@ -26,15 +29,16 @@ const DEFAULT_PATHS = [
   '/setnayan-ai', '/signup', '/start', '/suppliers', '/terms', '/tl/about', '/tl/features', '/tour', '/tour/budget',
   '/tour/gallery', '/tour/seating', '/tour/vendors', '/waitlist',
 ];
-const paths = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT_PATHS;
+const paths = process.argv.slice(2).length ? process.argv.slice(2) : ['/manifest.json', ...DEFAULT_PATHS];
 const median = (xs) => {
   const s = [...xs].sort((a, b) => a - b);
   return s.length ? s[Math.floor(s.length / 2)] : NaN;
 };
 
-console.log(['path', 'status', 'ttfb_median_s', 'total_median_s', 'bytes', 'ttfb_samples', 'redirect'].join('\t'));
+console.log(['path', 'status', 'ttfb_median_s', 'server_wait_median_s', 'total_median_s', 'bytes', 'ttfb_samples', 'redirect'].join('\t'));
 for (const p of paths) {
   const ttfb = [];
+  const wait = [];
   const total = [];
   let status = '';
   let bytes = '';
@@ -44,12 +48,13 @@ for (const p of paths) {
       const out = execFileSync(
         'curl',
         ['-s', '-o', '/dev/null', '--compressed', '--max-time', '30', '-A', 'Mozilla/5.0 (speed-audit; read-only)', '-H', 'Accept: text/html',
-          '-w', '%{http_code}\t%{time_starttransfer}\t%{time_total}\t%{size_download}\t%{redirect_url}', `${BASE}${p}`],
+          '-w', '%{http_code}\t%{time_starttransfer}\t%{time_total}\t%{size_download}\t%{time_pretransfer}\t%{redirect_url}', `${BASE}${p}`],
         { encoding: 'utf8' },
       );
-      const [code, tt, tot, size, red] = out.split('\t');
+      const [code, tt, tot, size, pre, red] = out.split('\t');
       status = code;
       ttfb.push(Number(tt));
+      wait.push(Number(tt) - Number(pre));
       total.push(Number(tot));
       bytes = size;
       redirect = red ?? '';
@@ -57,5 +62,5 @@ for (const p of paths) {
       status = `ERR ${String(err?.status ?? '')}`;
     }
   }
-  console.log([p, status, median(ttfb).toFixed(3), median(total).toFixed(3), bytes, ttfb.map((t) => t.toFixed(3)).join(','), redirect.replace(BASE, '')].join('\t'));
+  console.log([p, status, median(ttfb).toFixed(3), median(wait).toFixed(3), median(total).toFixed(3), bytes, ttfb.map((t) => t.toFixed(3)).join(','), redirect.replace(BASE, '')].join('\t'));
 }

@@ -36,6 +36,8 @@ import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { FEE_FIRST_SUPPLIER_LINE } from '@/lib/booking-fee-who-words';
 import { SPECIALIZED_TOOLS } from '@/lib/specialized-tools';
 import { OPEN_SHOP_VERIFIED_HREF, openShopWithPlanHref } from '@/lib/supplier-plan-offer';
+import { doorOpenShopHref, onSiteHref } from '@/lib/doors';
+import { siteOrigin } from '@/lib/site-origin';
 import { formatPhpRounded } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import type { PlanCredits } from '@/lib/event-plans';
@@ -85,7 +87,9 @@ export type SupplierFrontGifts = {
   credits: Pick<PlanCredits, 'plusCredits' | 'proCredits'>;
 };
 
-const OPEN_SHOP = '/open-shop';
+// Absolute: this page is also the supplier door's front page, where a relative link is a 308 hop first (`onSiteHref`).
+const SITE = siteOrigin();
+const OPEN_SHOP = onSiteHref(doorOpenShopHref('supplier'), SITE);
 const CTA = 'Open your shop';
 const FREE_LINE = 'Free to start. Free to stay. No card needed.';
 const HERO_CTA_ID = 'sf-hero-cta';
@@ -153,9 +157,9 @@ export function SupplierFrontPage({
     const tools = { ok: step.tools, text: step.tools ? PLAN_PAID_TOOLS_OK : PLAN_PAID_TOOLS_LOCKED };
     const base = { tier: t, name: step.name, keep: step.clients ?? step.role, size: step.sizeLine ?? `${step.size} storage`, share: railShare(t), tools };
     if (!isGrowTier(t)) {
-      return { ...base, price: 'Free', per: null, cta: t === 'free' ? CTA : 'Get verified', href: t === 'free' ? OPEN_SHOP : OPEN_SHOP_VERIFIED_HREF };
+      return { ...base, price: 'Free', per: null, cta: t === 'free' ? CTA : 'Get verified', href: t === 'free' ? OPEN_SHOP : onSiteHref(OPEN_SHOP_VERIFIED_HREF, SITE) };
     }
-    return { ...base, price: growPrice(t), per: PLAN_PERIOD.per, cta: `Start on ${step.name}`, href: openShopWithPlanHref(t) };
+    return { ...base, price: growPrice(t), per: PLAN_PERIOD.per, cta: `Start on ${step.name}`, href: onSiteHref(openShopWithPlanHref(t), SITE) };
   });
 
   const tileTools = FRONT_MEDIA.tools.flatMap((m) => {

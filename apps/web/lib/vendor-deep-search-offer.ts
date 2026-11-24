@@ -1,43 +1,52 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { openRailOptions, type OpenRail } from '@/lib/payment-channels';
-import { fetchVendorAddonBandPrices, vendorAddonPriceBand } from '@/lib/vendor-addon-tier-pricing';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { VendorDossier } from '@/lib/vendor-deep-search';
 import { deepSearchStillKept } from '@/lib/deep-search-findings';
 import {
   deepSearchEligibility,
-  resolveDeepSearchPricePhp,
+  deepSearchIncluded,
+  deepSearchMonth,
+  deepSearchRunsLeft,
+  fetchDeepSearchRunsPerMonth,
 } from '@/lib/vendor-deep-search-addon';
 
 /**
- * 🔎 WHAT RUN DEEP SEARCH WILL DO FOR THIS SHOP, RIGHT NOW — one resolver for every surface that offers it.
+ * 🔎 WHAT RUN DEEP SEARCH WILL DO FOR THIS SHOP, RIGHT NOW — one resolver for every surface that offers it (the Deep
+ * Search page and Shop › Details' card), mirroring the run action (`deep-search/actions.ts`), which re-decides all of it
+ * server-side at Run.
  *
- * MOVED, NOT REWRITTEN, from `/vendor-dashboard/deep-search/page.tsx` (owner-locked 2026-07-22 + the 2026-07-25 band),
- * so Shop › Details' card (Supplier dashboard v13, 2026-10-29) and the Deep Search page offer the SAME price and the
- * same rails — and both mirror the run action (`deep-search/actions.ts`), which re-decides all of it server-side at Run.
+ * ⚖ 2026-11-22 (DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" + 🔎 "DEEP SEARCH ALLOWANCE = 1 RUN A MONTH"): nothing is sold
+ * — no price, no pay rails. Plus, Pro and Ultra include `platform_settings.deep_search_runs_per_month` runs each paid
+ * month; Free and Verified include none.
  *
- * ⚖ 2026-11-09 (DECISION_LOG 🔎💳 "DEEP SEARCH = ₱499, ONE USE, EVERY PLAN — NO FREE SEARCH ON PRO/ULTRA"): one price on
- * every plan, one search per purchase, NO free search — so there is no cycle, no use count and no "free now" any more.
- *
- * Reads: the catalogue price, then the open pay rails (only for a verified shop — Run always costs something).
+ * Reads: the allowance (admin client — platform_settings is the service role's), then this month's claimed runs (the
+ * shop's own rows, RLS-scoped), only for a shop whose plan includes it.
  */
+export type DeepSearchAllowance =
+  | { read: false }
+  | {
+      read: true;
+      /** Runs each paid month includes; null = not set by the admin (none included). */
+      perMonth: number | null;
+      /** Runs already taken this month. */
+      used: number;
+      left: number;
+      /** When the month's runs reset (nothing carries over). */
+      resetsAtIso: string;
+    };
+
 export type DeepSearchOffer = {
-  /** The shop is verified — the one requirement no switch lifts. */
+  /** The shop is verified — the one requirement no plan lifts. */
+  verified: boolean;
+  /** The plan includes Deep Search (Plus, Pro, Ultra). Free and Verified: the demo + "Included in Plus · Upgrade". */
+  included: boolean;
+  /** Both: Run can run now (runs left are counted separately, in `allowance`). */
   eligible: boolean;
-  /** The plan this offer was priced for — the caller asks the paywall switch with it (`vendorPaywallApplies`, at
-   *  the call site where `upsells-obey-the-switch.test.ts` can see the question being asked). */
   tier: string | null;
-  /** What Run charges — the catalogue's one per-search price (never ₱0); null when the row did not read — then no
-   *  figure is shown (💰 owner 2026-11-13: no typed prices; never a remembered fallback on screen). */
-  pricePhp: number | null;
-  /** This shop's per-search price on its plan (= `pricePhp`; kept for the page's history column). */
-  cyclePricePhp: number | null;
-  /** Both sides of the band, for the ⓘ (one row on both sides since 2026-11-09); null where unread. */
-  band: { entryPhp: number | null; growthPhp: number | null };
-  openRails: readonly OpenRail[];
+  /** This month's runs — `{ read: false }` when either read failed, and for a plan that includes none (not asked). */
+  allowance: DeepSearchAllowance;
 };
 
 export async function loadDeepSearchOffer(
@@ -51,26 +60,39 @@ export async function loadDeepSearchOffer(
   },
 ): Promise<DeepSearchOffer> {
   const { tier } = input;
-  // TRY-FIRST (2026-09-30): eligibility is verification alone here; the plan is asked at Run, through `planAsks`.
-  const eligible = deepSearchEligibility({ tier, verification: input.verification, tierPaywall: false }).ok;
+  const included = deepSearchIncluded(tier);
+  const verified = input.verification === 'verified';
+  const eligible = deepSearchEligibility({ tier, verification: input.verification }).ok;
+  if (!included) return { verified, included, eligible, tier, allowance: { read: false } };
 
-  // Both sides of the band, READ from the catalogue (one row on both sides since 2026-11-09).
-  const bandRead = await fetchVendorAddonBandPrices(supabase, 'deep_search_about_you');
-
-  // A side that did not read shows NO figure (truth sweep 2026-11-13) — never a remembered one.
-  const ownSide = vendorAddonPriceBand(tier) === 'growth' ? bandRead.growthPhp : bandRead.entryPhp;
-  const cyclePricePhp = ownSide == null ? null : resolveDeepSearchPricePhp({ cyclePricePhp: ownSide });
-  // The rails matter only for a shop that can run it; an unverified shop never shows them.
-  const openRails = eligible ? openRailOptions(await fetchPlatformSettings(supabase)) : [];
-
+  const month = deepSearchMonth(input.tierExpiresAt, Date.now());
+  const [runs, usedRead] = await Promise.all([
+    fetchDeepSearchRunsPerMonth(admin),
+    supabase
+      .from('vendor_deep_search_uses')
+      .select('id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', input.vendorProfileId)
+      .eq('was_free', true)
+      .eq('free_cycle_start', month.startIso)
+      .not('allowance_slot', 'is', null),
+  ]);
+  if (usedRead.error) logQueryError('DeepSearch.monthUses', usedRead.error, { vendorProfileId: input.vendorProfileId }, 'graceful_degrade');
+  if (!runs.read || usedRead.error || usedRead.count === null) {
+    return { verified, included, eligible, tier, allowance: { read: false } };
+  }
+  const used = usedRead.count;
   return {
+    verified,
+    included,
     eligible,
     tier,
-    pricePhp: cyclePricePhp,
-    cyclePricePhp,
-    // Flat (band off): the catalogue's one price is both sides — never a typed figure.
-    band: { entryPhp: bandRead.entryPhp ?? cyclePricePhp, growthPhp: bandRead.growthPhp ?? cyclePricePhp },
-    openRails,
+    allowance: {
+      read: true,
+      perMonth: runs.perMonth,
+      used,
+      left: deepSearchRunsLeft(runs.perMonth, used),
+      resetsAtIso: month.resetsAtIso,
+    },
   };
 }
 
@@ -120,7 +142,7 @@ export async function loadLastDeepSearch(
       return { measured: true, last: { usedAt: use.used_at, status: 'expired', dossierId: null, createdAt: null, dossier: null } };
     }
     if (use.dossier_id == null) {
-      // A paid search waiting for its payment to be confirmed, or a free one still running.
+      // A search still running (an included run, or one bought before 2026-11-24 waiting for its payment).
       return { measured: true, last: { usedAt: use.used_at, status: 'running', dossierId: null, createdAt: null, dossier: null } };
     }
     const { data: d, error: dErr } = await admin

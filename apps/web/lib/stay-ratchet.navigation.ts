@@ -63,7 +63,7 @@ export const STAY_NAVIGATION: Readonly<Record<string, string>> = {
   "app/vendor-dashboard/branches/actions.ts › renewBranch": "checkout → /pay",
   "app/vendor-dashboard/clients/[eventId]/booth-event-actions.ts › buyBoothBrandingForEvent": "checkout → /pay",
   "app/vendor-dashboard/contracts/actions.ts › uploadVendorContract": "upload → contract page",
-  "app/vendor-dashboard/deep-search/actions.ts › runVendorDeepSearch": "checkout → /pay",
+  "app/vendor-dashboard/deep-search/actions.ts › runVendorDeepSearch": "its only redirect is the signed-out gate (→ /login); Run returns { status } in place since 2026-11-24 — nothing is sold, so there is no /pay (owner 2026-11-22, \"DEEP SEARCH IS RETIRED\")",
   "app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions.ts › buyVendorPapicPortfolioPack": "checkout → /pay",
   "app/vendor-dashboard/proposals/actions.ts › createProposal": "create → quote page",
   "app/vendor-dashboard/proposals/actions.ts › deleteDraftProposal": "delete → quotes list (leave)",

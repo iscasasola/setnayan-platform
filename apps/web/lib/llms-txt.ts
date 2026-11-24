@@ -99,6 +99,12 @@ export type LlmsTxtInput = {
    */
   launchOfferCap?: number | null;
   /**
+   * 🔎 Deep Search searches each paid month on Plus, Pro and Ultra (`platform_settings.deep_search_runs_per_month`,
+   * owner 2026-11-22 "Deep Search 1 a month"), read by the route. Absent = unread → the table prints "—"; null = not set.
+   * Never sold per search, so there is no price to print.
+   */
+  deepSearchRunsPerMonth?: number | null;
+  /**
    * Discover's public articles, newest first (`readPublicArticles`, owner 17 Nov — Build 3: "llms.txt lists the
    * articles"). Absent or empty (none yet, or the read was refused) = no Articles section — say less, never wrong.
    */
@@ -559,7 +565,11 @@ function planTablePrices(input: LlmsTxtInput): PlanTablePrices {
  * words ("Opens once Verified"), never an icon an assistant cannot read.
  */
 export function supplierPlanTable(input: LlmsTxtInput): string {
-  const groups = planTable({ paywallOn: input.vendorPaywallOn ?? false, prices: planTablePrices(input) });
+  const groups = planTable({
+    paywallOn: input.vendorPaywallOn ?? false,
+    prices: planTablePrices(input),
+    deepSearchRunsPerMonth: input.deepSearchRunsPerMonth,
+  });
   const tiers = TABLE_TIERS as readonly VendorTier[];
   const head = `| | ${tiers.map(tableTierName).join(' | ')} |`;
   const rule = `|---|${tiers.map(() => '---').join('|')}|`;

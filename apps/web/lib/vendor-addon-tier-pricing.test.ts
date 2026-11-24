@@ -36,21 +36,16 @@ test('the AI chatbot reads a different catalogue row per band (kept by the 2026-
   assert.equal(vendorAddonSkuCode('ai_chatbot_basic', 'enterprise'), 'vendor_ai_addon');
 });
 
-// ── owner 2026-11-09: "DEEP SEARCH = ₱499, ONE USE, EVERY PLAN" ──────────────
+// ── owner 2026-11-22: "DEEP SEARCH IS RETIRED" — *"Retire it"* (it was one ₱499 price on every plan, 2026-11-09) ────
 
-test('Deep Search is ONE price on every plan — the vendor_deep_search row, never the retired entry row', () => {
-  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', null]) {
-    assert.equal(vendorAddonSkuCode('deep_search_about_you', tier), 'vendor_deep_search', String(tier));
-  }
-  assert.doesNotMatch(
-    readFileSync(fileURLToPath(new URL('./vendor-addon-tier-pricing.ts', import.meta.url)), 'utf8'),
-    /'vendor_deep_search_entry'/,
-    'the retired ₱799 entry row is named again',
-  );
+test('Deep Search has no band row — it is not an add-on any more, so nothing can price it', () => {
+  assert.equal('deep_search_about_you' in VENDOR_ADDON_BAND_SKU_CODES, false, 'Deep Search is mapped to a price row again');
+  const src = readFileSync(fileURLToPath(new URL('./vendor-addon-tier-pricing.ts', import.meta.url)), 'utf8');
+  assert.doesNotMatch(stripComments(src), /vendor_deep_search/, 'the band module names a Deep Search price row again');
 });
 
-test('3D booth, Papic Challenges and Deep Search are one price — the same row on both sides', () => {
-  for (const sku of ['ads_3d_plan', 'papic_challenge', 'deep_search_about_you'] as VendorAddonSku[]) {
+test('3D booth and Papic Challenges are one price — the same row on both sides', () => {
+  for (const sku of ['ads_3d_plan', 'papic_challenge'] as VendorAddonSku[]) {
     const b = VENDOR_ADDON_BAND_SKU_CODES[sku];
     assert.equal(b.entry, b.growth, sku);
   }

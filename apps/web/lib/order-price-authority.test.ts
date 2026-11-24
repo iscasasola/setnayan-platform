@@ -241,10 +241,6 @@ const ORDER_MINTERS: Record<string, string> = {
     'from fetchCountAddOnPricePhp() — the ACTIVE vendor_billing_catalog row, null refuses (no fallback); the form posts ' +
     'only the add-on kind. Service-role (`moneyWriter`), the seat\'s mint. Authorized by fetchOwnVendorProfile + ' +
     'resolveVendorRoleForProfile/canManageVendor + canBuyUltraAddOn on the session-read tier_state.',
-  'app/vendor-dashboard/deep-search/actions.ts':
-    'Vendor Deep Search SKU. pricePhp read server-side from the vendor catalog. ' +
-    'SEC-4b: now reuses the `admin` client the allowance count already created. Authorized by ' +
-    'the DPO control + fetchOwnVendorProfile + resolveVendorRoleForProfile + deepSearchEligibility.',
   'app/vendor-dashboard/branches/actions.ts':
     'Vendor branch add/renew. feePhp from fetchBranchFeePhp() — catalog, not form. ' +
     'SEC-4b: now service-role (`moneyWriter`) inside startBranchPayment, whose session-client ' +

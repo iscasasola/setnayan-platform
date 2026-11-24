@@ -31,9 +31,8 @@ const FREE_BOOKING_LIMIT = 0;
  * don't pay us anything until you've won 5 clients here.*
  *
  * SCOPE (owner 2026-07-25): the two add-ons that make a vendor VISIBLE to
- * couples. The AI Chatbot and Deep Search charge from day one — Deep Search in
- * particular costs real money per run (~₱10–30 of web search + synthesis), so
- * giving it away would be a per-use loss rather than a marketing spend.
+ * couples. The AI Chatbot charges from day one. (Deep Search is not an add-on
+ * since 2026-11-22: the paid plans include it monthly — lib/vendor-deep-search-addon.ts.)
  *
  * REPLACES the 3D booth's one-time free 28-day cycle
  * (`vendor_profiles.booth_addon_trial_used_at`). When this policy is live the

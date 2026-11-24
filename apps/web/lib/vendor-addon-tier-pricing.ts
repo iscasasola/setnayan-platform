@@ -18,6 +18,8 @@
  * both sides name `vendor_deep_search`; the entry row `vendor_deep_search_entry` is retired into it. The AI chatbot
  * KEEPS its two rows (owner, same row: "AI chatbot keeps ₱1,490 (Pro/Ultra) and ₱1,990 (Free/Verified/Supplier Plus)").
  *
+ * ⚖ 2026-11-22 (DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED"): Deep Search leaves this map — it is not sold at all.
+ *
  * The map is PURE; the read takes its Supabase client as an argument (import-type only) so this module stays
  * unit-testable under `tsx --test` with no server import.
  */
@@ -29,8 +31,10 @@ export type VendorAddonSku =
   | 'papic_challenge' // per 28-day cycle
   | 'ads_3d_plan' // per 28-day cycle
   | 'ai_chatbot_basic' // per 28-day cycle
-  | 'ai_chatbot_advanced' // per 28-day cycle — not on sale (is_active=false)
-  | 'deep_search_about_you'; // per search
+  | 'ai_chatbot_advanced'; // per 28-day cycle — not on sale (is_active=false)
+// 🔎 `deep_search_about_you` LEFT this list 2026-11-24: Deep Search is never sold per search again (owner 2026-11-22,
+// DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" — *"Retire it"*); the paid plans include it monthly
+// (lib/vendor-deep-search-addon.ts). With no add-on name there is no price to read. 🔒 lib/deep-search-is-never-sold.test.ts
 
 /**
  * Two price bands. `entry` = Free / Verified / Supplier Plus. `growth` = Pro / Enterprise (Ultra) / Custom. The boundary is
@@ -53,7 +57,6 @@ export const VENDOR_ADDON_BAND_SKU_CODES: Readonly<Record<VendorAddonSku, Readon
   ads_3d_plan: { entry: 'vendor_3d_booth', growth: 'vendor_3d_booth' },
   ai_chatbot_basic: { entry: 'vendor_ai_addon_entry', growth: 'vendor_ai_addon' },
   ai_chatbot_advanced: { entry: 'vendor_ai_addon_advanced', growth: 'vendor_ai_addon_advanced' },
-  deep_search_about_you: { entry: 'vendor_deep_search', growth: 'vendor_deep_search' }, // one price, 2026-11-09
 };
 
 /** The catalogue row a vendor on `tier` is charged from for `sku`. PURE. */

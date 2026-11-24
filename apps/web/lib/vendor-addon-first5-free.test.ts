@@ -39,12 +39,10 @@ test('scope: 3D Plan Ads + Papic Challenge only', () => {
 });
 
 test('the paid-from-day-one add-ons are NEVER free under this perk', () => {
-  // Deep Search especially: each run costs us real money (~PHP 10-30 of web
-  // search + synthesis), so a giveaway here would be a per-use loss.
+  // (Deep Search left the add-ons 2026-11-22 — not sold at all; the paid plans include it monthly.)
   for (const sku of [
     'ai_chatbot_basic',
     'ai_chatbot_advanced',
-    'deep_search_about_you',
   ] as const) {
     assert.equal(isAddonFreeDuringFirst5(sku), false, sku);
     assert.equal(

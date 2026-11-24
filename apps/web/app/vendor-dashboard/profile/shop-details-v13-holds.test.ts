@@ -7,8 +7,8 @@
  *       2026-11-19, "unlock the range. not plan dependend anymore");
  *   2 · GET VERIFIED is one component, and [Get verified] lands on the papers with the FIRST missing one marked;
  *   3 · "SINCE" IS TWO LINES — "In business since" (their year) and "On Setnayan since" (read-only);
- *   4 · DEEP SEARCH is explained by the five findings the result and its PDF carry, priced from the one source the run
- *       charges from (never a typed ₱), offered by the SAME resolver as the Deep Search page, absent in the store shell —
+ *   4 · DEEP SEARCH is explained by the five findings the result and its PDF carry, never priced (owner 2026-11-22: the
+ *       paid plans include it monthly), offered by the SAME resolver as the Deep Search page, absent in the store shell —
  *       and every kept search has a PDF drawn on the shared engine, behind its own shop's gate, never past 180 days.
  */
 import test from 'node:test';
@@ -25,7 +25,7 @@ import { COVERAGE_REACH_LOCKED_LINE, COVERAGE_REACH_TITLE } from '@/app/vendor-d
 import {
   DEEP_SEARCH_FINDINGS,
   DEEP_SEARCH_KEEP_DAYS,
-  deepSearchBandWords,
+  deepSearchAllowanceWords,
   deepSearchStillKept,
 } from '@/lib/deep-search-findings';
 import { deepSearchPdf } from '@/lib/deep-search-pdf';
@@ -90,22 +90,21 @@ test('3 · "Since" is two lines — their own year, and the month they joined Se
   assert.match(src(DATA), /onSetnayanSince: profile\.created_at \?\? null/, 'On Setnayan since is not the shop row’s own created_at');
 });
 
-test('4a · Deep Search is priced from the run’s own source — never a typed ₱, and never "1 free on Solo"', () => {
+test('4a · Deep Search is never priced — the card says what the plan includes, from the admin’s number', () => {
   for (const f of [CARD, 'lib/deep-search-findings.ts']) {
-    assert.doesNotMatch(src(f), /₱\s?\d/, `${f} types a price`);
+    assert.doesNotMatch(src(f), /₱/, `${f} names a price`);
   }
-  // 2026-11-04: both sides of the band are catalogue rows, read by the offer — never a typed matrix.
-  assert.match(src('lib/vendor-deep-search-offer.ts'), /fetchVendorAddonBandPrices\(supabase, 'deep_search_about_you'\)/, 'the band is not read from the catalogue');
-  const words = deepSearchBandWords({ entryPhp: 777, growthPhp: 333 });
-  assert.equal(words, '₱777 a search on Free, Verified and Plus · ₱333 on Pro and Ultra, one search per purchase.');
-  // 2026-11-09 (DECISION_LOG 🔎💳): no free search on any plan — the words never promise one.
-  assert.equal(deepSearchBandWords({ entryPhp: 499, growthPhp: 499 }), '₱499 a search on every plan, one search per purchase.');
-  for (const w of [words, deepSearchBandWords({ entryPhp: 499, growthPhp: 499 })]) {
-    assert.doesNotMatch(w, /\b\d+ free\b|free (search|every)/i, 'the words promise a free search again');
-  }
+  // ⚖ 2026-11-22 (DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" + 🔎 "DEEP SEARCH ALLOWANCE = 1 RUN A MONTH"): no price, no
+  // band — the offer reads the admin's monthly number and this month's claimed runs.
+  assert.match(src('lib/vendor-deep-search-offer.ts'), /fetchDeepSearchRunsPerMonth\(admin\)/, 'the allowance is not read from the admin setting');
+  assert.doesNotMatch(src('lib/vendor-deep-search-offer.ts'), /fetchVendorAddonBandPrices|vendor_billing_catalog|openRail/, 'the offer prices Deep Search again');
+  assert.equal(deepSearchAllowanceWords(1), 'Included in Plus, Pro and Ultra: 1 search each paid month. Unused searches don’t carry over.');
+  assert.equal(deepSearchAllowanceWords(3), 'Included in Plus, Pro and Ultra: 3 searches each paid month. Unused searches don’t carry over.');
+  assert.equal(deepSearchAllowanceWords(null), 'Included in Plus, Pro and Ultra.');
+  assert.match(src(CARD), /deepSearchAllowanceWords\(/, 'the card types its own allowance words');
   // One resolver for the page and the card.
   assert.match(src('app/vendor-dashboard/deep-search/page.tsx'), /await loadDeepSearchOffer\(/, 'the Deep Search page prices itself again');
-  assert.doesNotMatch(src('app/vendor-dashboard/deep-search/page.tsx'), /resolveVendorAddonPricePhp|fetchVendorDeepSearchPricePhp/, 'a second price path is back on the page');
+  assert.doesNotMatch(src('app/vendor-dashboard/deep-search/page.tsx'), /resolveVendorAddonPricePhp|fetchVendorDeepSearchPricePhp|vendor_billing_catalog/, 'a price path is back on the page');
   assert.match(src(DATA), /loadDeepSearchOffer\(supabase, createAdminClient\(\)/, 'the card is not offered by the page’s resolver');
   // The store shell refuses Deep Search — Your details draws no card there and reads nothing for it.
   assert.match(src(DATA), /if \(storeShell \|\| !withDeepSearch\) return null;/, 'the store shell is offered Deep Search');

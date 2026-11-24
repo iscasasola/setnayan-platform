@@ -211,19 +211,17 @@ const FIX: Record<Who, Fixture> = {
   },
 };
 
-/** 🔎 The Deep Search card's offer, as `loadDeepSearchOffer` would answer for this plan (band on, nothing run yet). */
+/** 🔎 The Deep Search card's offer, as `loadDeepSearchOffer` would answer for this plan (nothing run yet this month). */
 function labDeepSearchOffer(tier: string, verified: boolean): DeepSearchOffer {
-  // Lab fixture (dev-only route): one price on every plan, shaped like the catalogue's (2026-11-09), never read by a
-  // real page.
-  const band = { entryPhp: 499, growthPhp: 499 };
-  const price = band.entryPhp;
+  // Lab fixture (dev-only route): the paid plans include a month's searches (owner 2026-11-22) — never sold; the
+  // allowance is a sample, never read by a real page.
+  const included = tier === 'solo' || tier === 'pro' || tier === 'enterprise';
   return {
-    eligible: verified,
+    verified,
+    included,
+    eligible: verified && included,
     tier,
-    pricePhp: price,
-    cyclePricePhp: price,
-    band,
-    openRails: [{ id: 'gcash', label: 'GCash' }] as unknown as DeepSearchOffer['openRails'],
+    allowance: included ? { read: true, perMonth: 1, used: 0, left: 1, resetsAtIso: '2026-12-10T05:00:00.000Z' } : { read: false },
   };
 }
 

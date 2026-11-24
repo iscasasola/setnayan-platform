@@ -90,6 +90,10 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // 🎁 Setnayan gifts to a shop (owner 14 Nov 2026): "Upgrade now" STARTS a plan Setnayan gave — nothing is bought and
   // nothing is locked. What the shop may press is the database's (`setnayan_shop_gift_choices`), not the paywall.
   '_components/setnayan-shop-gift-moment.tsx': 'a Setnayan gift’s Start / Upgrade now — a gift opened, not a plan paywall',
+  // 🔎 Deep Search's searches are an ALLOWANCE the paid plans include, not a feature paywall (owner 2026-11-22, DECISION_LOG
+  // "DEEP SEARCH ALLOWANCE = 1 RUN A MONTH": "Free/Verified get none (demo + 'Included in Plus · Upgrade')"). Every run
+  // costs Setnayan a research pass, so no switch hands Free shops runs; the run action refuses the same case.
+  'deep-search/_components/deep-search-runner.tsx': 'Deep Search’s monthly searches — an allowance of Plus, Pro and Ultra; Free and Verified see “Included in Plus · Upgrade” (owner 2026-11-22)',
 };
 
 // Supplier-visible paywall copy. Words only as whole words: `upgradeHref` is
@@ -236,19 +240,17 @@ test('switch ON: only a shop that lacks it is asked; a zero stays zero', async (
   });
 });
 
-test('Deep Search: a verified Free shop may run while the switch is off', async () => {
+test('Deep Search: the searches are the paid plans’ allowance — a Free shop gets none, switch on or off (owner 2026-11-22)', async () => {
+  // ⚖ Superseded 2026-11-22 (DECISION_LOG 🔎 "DEEP SEARCH ALLOWANCE = 1 RUN A MONTH": "Free/Verified get none"): until
+  // then a verified Free shop could run (and pay for) a search while the switch was off. Nothing is sold now, and the
+  // runs are an allowance of Plus, Pro and Ultra — so the switch has nothing to lift.
   const { deepSearchEligibility } = await import('@/lib/vendor-deep-search-addon');
-  assert.deepEqual(
-    deepSearchEligibility({ tier: 'free', verification: 'verified', tierPaywall: false }),
-    { ok: true },
-  );
-  assert.deepEqual(
-    deepSearchEligibility({ tier: 'free', verification: 'verified', tierPaywall: true }),
-    { ok: false, reason: 'tier_too_low' },
-  );
+  for (const flag of ['false', 'true']) {
+    await withFlag(flag, () => {
+      assert.deepEqual(deepSearchEligibility({ tier: 'free', verification: 'verified' }), { ok: false, reason: 'tier_too_low' });
+      assert.deepEqual(deepSearchEligibility({ tier: 'solo', verification: 'verified' }), { ok: true });
+    });
+  }
   // Verification is not a plan and no switch lifts it.
-  assert.deepEqual(
-    deepSearchEligibility({ tier: 'pro', verification: 'unverified', tierPaywall: false }),
-    { ok: false, reason: 'unverified' },
-  );
+  assert.deepEqual(deepSearchEligibility({ tier: 'pro', verification: 'unverified' }), { ok: false, reason: 'unverified' });
 });

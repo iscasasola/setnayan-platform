@@ -3,18 +3,24 @@ import {
   Armchair,
   BedDouble,
   CalendarClock,
+  CalendarHeart,
   Camera,
+  CarFront,
   ChefHat,
   Church,
   Clock,
   FileCheck2,
+  Flower2,
+  Footprints,
   HandHeart,
   HardHat,
   ListChecks,
   ListOrdered,
+  MapPinned,
   Mic,
   Music,
   PackageCheck,
+  PartyPopper,
   PenLine,
   QrCode,
   Ruler,
@@ -31,6 +37,7 @@ import {
   Truck,
   Users,
   UsersRound,
+  UtensilsCrossed,
 } from 'lucide-react';
 import type { DayOfModuleId } from '@/lib/vendor-dayof-modules';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
@@ -95,6 +102,14 @@ const TOOL_ICON: Record<DayOfModuleId, Icon> = {
   chair_schedule: Armchair,
   reservation_slots: Clock,
   brackets_and_scoring: Trophy,
+  pick_up_times_and_routes: CarFront,
+  itinerary: MapPinned,
+  serving_times: UtensilsCrossed,
+  remembrance_schedule: Flower2,
+  march_cue_sheet: Music,
+  rehearsal_and_cues: Footprints,
+  reveal_cue: PartyPopper,
+  wellness_plan: CalendarHeart,
 };
 
 export type DayCount = { key: string; value: string; word: string; href?: string; hot?: boolean };

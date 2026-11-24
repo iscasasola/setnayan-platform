@@ -24,6 +24,7 @@
 //   SUFFIX — a short path handed to a builder that prefixes it (e.g. `ctaPath`); listed so it is not mistaken for a dead link
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { stripComments } from '../../apps/web/scripts/port-controls.mjs';
 import { register } from 'node:module';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -114,7 +115,8 @@ function walk(dir, out = []) {
   }
   return out;
 }
-const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
+// The repo's ONE comment stripper (lint-one-comment-stripper.mjs): never a private two-replace regex.
+const strip = stripComments;
 
 // A quoted string or template that starts with "/" + a lowercase letter and looks like a path.
 const LITERAL = /(['"`])(\/[a-z][a-z0-9\-/$[\]{}().?=&_:%]*?)\1/g;

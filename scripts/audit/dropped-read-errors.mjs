@@ -20,6 +20,7 @@
 // USAGE  node scripts/audit/dropped-read-errors.mjs [--area app/vendor-dashboard] [--json]
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { stripComments } from '../../apps/web/scripts/port-controls.mjs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -56,7 +57,8 @@ function walk(dir, out = []) {
   return out;
 }
 
-const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+// The repo's ONE comment stripper (lint-one-comment-stripper.mjs): never a private two-replace regex.
+const strip = stripComments;
 // `{ data }` or `{ data: name }` — no `error`, no `count` — followed by an awaited from()/rpc().
 const DROPPED = /const\s*\{\s*data(?:\s*:\s*[A-Za-z_$][\w$]*)?\s*\}\s*=\s*await\s+([A-Za-z_$][\w$.]*?)\s*\.\s*(from|rpc)\s*\(\s*['"`]([\w-]+)['"`]/g;
 

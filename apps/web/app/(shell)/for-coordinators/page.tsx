@@ -44,7 +44,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { requestDoor } from '@/lib/door-request';
 import { TRUSTED_PARTNERS } from '@/lib/supplier-onboarding';
-import { doorFrontHref } from '@/lib/doors';
+import { doorFrontHref, doorOpenShopHref, onSiteHref } from '@/lib/doors';
 import { siteOrigin } from '@/lib/site-origin';
 
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
@@ -86,8 +86,12 @@ const SAMPLE_BADGES: readonly CardBadgeView[] = [
   { key: 'verified', since: null },
 ];
 
-/** Every "Start as a coordinator free" — the supplier door, opened on the coordination services. */
-const START = '/open-shop?as=coordinator';
+/**
+ * Every "Start as a coordinator free" — the shop set-up, opened on the coordination services (`?as=coordinator`, the
+ * door map's `doorOpenShopHref`). Absolute: this page is the coordinator door's front page, where a relative link is a
+ * 308 hop to the site first (`onSiteHref`, re-walk 24 Nov).
+ */
+const START = onSiteHref(doorOpenShopHref('coordinator'), siteOrigin());
 
 const TITLE = 'For Coordinators — Your business’s new home';
 const DESCRIPTION =

@@ -183,7 +183,7 @@ test('the quote builder OPENS AT THE LIVE COUNT, and says so beside the inquiry 
   // 17 Nov, "Debut 18": "On their list 100" with no count anywhere — the-client-workspace-says-what-is-true.test.ts 8).
   assert.match(
     makerSrc,
-    /data-quote-live-pax=\{seedPax != null \? '' : 'none'\}[^>]*>\s*\{seedPax != null \? formatCount\(seedPax\) : 'No guest count yet'\}/,
+    /\{seedPax != null \? \(\s*<strong[^>]*data-quote-live-pax=""[^>]*>\s*\{formatCount\(seedPax\)\}[\s\S]{0,240}?data-quote-live-pax="none"[^>]*>\s*No guest count yet/,
     'and show their live count as "On their list"',
   );
 });

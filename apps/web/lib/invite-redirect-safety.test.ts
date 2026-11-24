@@ -79,7 +79,7 @@ test('the route file still uses the allowlist and never interpolates the raw que
   assert.match(src, /const SAFE_SLUG = \/\^\[a-z0-9\]/, 'SAFE_SLUG must stay in the route');
   assert.match(src, /SAFE_SLUG\.test\(slug\)/, 'the route must test the slug');
   // The /welcome hop must use the DB value, not the query value.
-  assert.match(src, /\$\{event\.slug\}\/welcome/, 'the +1 hop must redirect via event.slug');
+  assert.match(src, /\$\{publicEventPath\(event\.slug\)\}\/welcome/, 'the +1 hop must redirect via event.slug');
   assert.doesNotMatch(
     src,
     /new URL\(`\/\$\{rawSlug\}/,

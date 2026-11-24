@@ -76,8 +76,9 @@ export async function generateMetadata() {
   const all = ['solo', 'pro', 'enterprise'] as const;
   const allLine = tierPriceCopy(p, all);
   const title = `Setnayan for Suppliers · ${HEADLINE}${allLine ? ` · ${allLine} ${PLAN_PERIOD.slash}` : ''}`;
+  // ONE plan list for every description (re-walk 24 Nov 2026: og:description named Plus and Pro only, so Ultra
+  // dropped out of every link preview). Title, meta, og and twitter all read `all`. 🔒 lib/for-suppliers-previews-name-every-plan.test.ts
   const perBlock = tierPriceCopy(p, all, PLAN_PERIOD.slash);
-  const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], PLAN_PERIOD.slash);
   return {
     title,
     description: `Your clients, quotes and dates. One free place. Free to start, free to stay. ${supplierCommissionShort(fee)} — your booking is free when you bring the event first.${perBlock ? ` ${perBlock}.` : ''}`,
@@ -85,7 +86,7 @@ export async function generateMetadata() {
     openGraph: {
       images: BRAND_OG_IMAGES,
       title,
-      description: `Your clients, quotes and dates. One free place · ${supplierCommissionShort(fee)} · free when you bring the event first.${perBlockTwo ? ` ${perBlockTwo}.` : ''}`,
+      description: `Your clients, quotes and dates. One free place · ${supplierCommissionShort(fee)} · free when you bring the event first.${perBlock ? ` ${perBlock}.` : ''}`,
       url: '/for-suppliers',
       type: 'website',
       siteName: 'Setnayan',

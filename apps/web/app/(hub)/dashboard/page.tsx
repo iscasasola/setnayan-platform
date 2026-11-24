@@ -13,6 +13,11 @@ import { waitingRequestCount } from '@/lib/people-roster';
 import { HomeProfile } from '@/app/dashboard/(launcher)/_components/home-profile';
 import { HomeFindRow, HomePinnedRow } from '@/app/dashboard/(launcher)/_components/home-pin';
 import { HomeShopSegment } from '@/app/dashboard/(launcher)/_components/home-shop-segment';
+import { Unihome } from '@/app/dashboard/(launcher)/_components/unihome';
+import { readUnihomeDiscover, readUnihomeMemories, readUnihomePeople, readUnihomeShop } from '@/lib/unihome.server';
+import { UNIHOME_EVENTS_ALL, type UnihomeEventCard, type UnihomeEvents } from '@/lib/unihome';
+import { readWorthPlanning, worthPlanningDay } from '@/lib/worth-planning.server';
+import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { PeopleSegment } from '@/app/dashboard/(account)/people/_components/people-segment';
 import { MemoriesSegment } from '@/app/dashboard/(account)/library/_components/memories-segment';
 
@@ -165,6 +170,25 @@ export default async function HomePage({
   const ownsShop = switcher ? ownsAShop(switcher.context) && ownedShop !== null : false;
   const segs = homeSegments({ ownsShop });
   const seg = resolveHomeSeg(one('seg'), { ownsShop });
+
+  // 🏠 UNIHOME v5 (owner-approved 23 Nov 2026, DECISION_LOG "UNIHOME v5 APPROVED"): plain `/dashboard` — and
+  // `?hub=1`, and any `?seg=` this account has no section for — is Home: the profile, the jump icons and every part on
+  // one scroll. A section asked for by name (`?seg=events|people|shop|memories`) is that full page, exactly as before.
+  if (one('seg') !== seg) {
+    return (
+      <UnihomeHome
+        userId={user.id}
+        email={user.email ?? ''}
+        switcher={switcher}
+        sp={{
+          hub: one('hub'),
+          request_declined: one('request_declined'),
+          inviter_muted: one('inviter_muted'),
+          request_error: one('request_error'),
+        }}
+      />
+    );
+  }
 
   const [rail, handle, asking, cards, eventCounts] = await Promise.all([
     resolveRailAccount(),
@@ -325,6 +349,305 @@ export default async function HomePage({
  * AutoSurfacedEvents (`accountAutosurfaceEnabled`), and the person-spine
  * "Your story" block (`personLifeStoriesEnabled`).
  */
+
+/** The public page's address, as a person would type it — the host the app is served from. */
+function publicHost(): string {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://setnayan.com').host.replace(/^www\./, '');
+  } catch {
+    return 'setnayan.com';
+  }
+}
+
+/** How many of your events Home draws before "See all →" (the full board holds every one). */
+const UNIHOME_EVENT_CARDS = 3;
+const UNIHOME_INVITED_ROWS = 3;
+
+/**
+ * 🏠 UNIHOME v5 — Home's reads (owner-approved 23 Nov 2026; drawing `unihome-v5.html`). ONE batched wait: the
+ * membership reads come first only because the landing rule needs them (`landHome`, the board's own rules); every
+ * other read is STARTED before that and awaited in the one `Promise.all` after it. Events use the board's own readers
+ * and shelf rules (`mergeBoardMemberships` · `splitEventBoard` · `splitPlanningShelves` · `deriveEventView` ·
+ * `planningPosters` · `readPlanningProgress`), so a card on Home can never disagree with the same card on the board.
+ */
+async function UnihomeHome({
+  userId,
+  email,
+  switcher,
+  sp,
+}: {
+  userId: string;
+  email: string;
+  switcher: SwitcherData | null;
+  sp: { hub?: string; request_declined?: string; inviter_muted?: string; request_error?: string };
+}) {
+  const supabase = await createClient();
+  // Started now; awaited together below.
+  const handleRead = readHomeHandle(userId);
+  const shopRead = readUnihomeShop(switcher, userId);
+  const peopleRead = readUnihomePeople(userId);
+  const memoriesRead = readUnihomeMemories(userId);
+  const discoverRead = readUnihomeDiscover();
+  const worthRead = readWorthPlanning(userId).catch(() => null);
+  const vocabRead = getEventTypeVocab().catch(() => []);
+
+  const membership = (m: 'couple' | 'guest' | 'coordinator') =>
+    fetchUserEventsOrReconnect(supabase, userId, m).catch((err: unknown) => {
+      rethrowIfSchemaBlip(err);
+      logQueryError(`Unihome (fetchUserEvents ${m} threw)`, err instanceof Error ? err : new Error(String(err)), { user_id: userId }, 'graceful_degrade');
+      return [] as EventWithRole[];
+    });
+  const [organiserEvents, invitedEvents, helpingEvents, roles, refusedAny] = await Promise.all([
+    membership('couple'),
+    membership('guest'),
+    membership('coordinator'),
+    fetchUserRoleSummary(supabase, userId).catch(() => ({ hasVendorAccess: false, hasAdminAccess: false })),
+    Promise.all((['couple', 'guest', 'coordinator'] as const).map((m) => userEventsReadRefused(supabase, userId, m).catch(() => true))).then((r) => r.some(Boolean)),
+  ]);
+  const todayISO = manilaTodayISO();
+  const boardEvents = mergeBoardMemberships(organiserEvents, invitedEvents, helpingEvents);
+  const active = organiserEvents.filter((e) => !e.archived);
+  landHome({ sp, boardEvents, active, hasConsole: roles.hasVendorAccess || roles.hasAdminAccess, roles, todayISO });
+
+  const { comingUp, finished } = splitEventBoard(boardEvents, todayISO);
+  const { happeningNow, planning } = splitPlanningShelves(comingUp, finished, todayISO);
+  const live = [...happeningNow, ...planning];
+  const running = live.filter((e) => eventStance(e.member_type) !== 'invited');
+  const invitedLive = live.filter((e) => eventStance(e.member_type) === 'invited');
+  const shownCards = running.slice(0, UNIHOME_EVENT_CARDS);
+  const shownInvited = invitedLive.slice(0, UNIHOME_INVITED_ROWS);
+  const shown = [...shownCards, ...shownInvited];
+
+  // The cards' own reads — the board's: the hero, the poster, the guests' hub, the organiser's progress.
+  const ownHeroRead = (async (): Promise<Map<string, string>> => {
+    const out = new Map<string, string>();
+    if (shown.length === 0) return out;
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('event_id, landing_page_hero_image_url')
+        .in('event_id', shown.map((e) => e.event_id))
+        .not('landing_page_hero_image_url', 'is', null);
+      if (error) {
+        logQueryError('Unihome (hero SELECT)', error, { user_id: userId }, 'graceful_degrade');
+        return out;
+      }
+      const rows = (data ?? []) as Array<{ event_id: string; landing_page_hero_image_url: string | null }>;
+      const signed = await Promise.all(rows.map((r) => displayUrlForStoredAsset(resolveHero(r).photoRef).catch(() => null)));
+      rows.forEach((r, i) => {
+        const src = renderableImageSrc(signed[i]);
+        if (src) out.set(r.event_id, src);
+      });
+    } catch {
+      /* the type scene stands in */
+    }
+    return out;
+  })();
+  const posterRead = planningPosters(supabase, shown, ownHeroRead, userId);
+  // 👁 The Event Hub button — drawn only where guests can open the hub: a slug, and the page Public or Unlisted (the
+  // board's rule, `hubUrlById`), for every card on Home whichever side of it you stand on.
+  const hubRead = (async (): Promise<Map<string, string>> => {
+    const withSlug = shown.filter((e) => e.slug);
+    if (withSlug.length === 0) return new Map();
+    const { data, error } = await supabase
+      .from('events')
+      .select('event_id, landing_page_visibility')
+      .in('event_id', withSlug.map((e) => e.event_id));
+    if (error) {
+      logQueryError('Unihome (hub visibility)', error, { user_id: userId }, 'graceful_degrade');
+      return new Map();
+    }
+    const open = new Set(
+      (data ?? [])
+        .filter((r) => r.landing_page_visibility === 'public' || r.landing_page_visibility === 'unlisted')
+        .map((r) => r.event_id as string),
+    );
+    return new Map(withSlug.filter((e) => open.has(e.event_id)).map((e) => [e.event_id, publicEventPath(e.slug as string)]));
+  })().catch(() => new Map<string, string>());
+  const progressRead = Promise.all(
+    shownCards
+      .filter((e) => e.member_type === 'couple')
+      .map(async (e): Promise<[string, { done: number; total: number } | null]> => {
+        try {
+          const p = await readPlanningProgress(
+            supabase,
+            e.event_id,
+            {
+              event_type: e.event_type ?? null,
+              event_date: e.event_date ?? null,
+              date_candidates: e.date_candidates ?? null,
+              date_window_start: e.date_window_start ?? null,
+              created_at: e.created_at ?? null,
+            },
+            new Date(`${todayISO}T12:00:00`),
+          );
+          return [e.event_id, p ? { done: p.done, total: p.total } : null];
+        } catch {
+          return [e.event_id, null];
+        }
+      }),
+  );
+
+  // ─── HOME'S ONE WAIT ─────────────────────────────────────────────────────
+  const [handle, shop, people, memories, discover, worth, vocab, ownHero, posters, hubs, progress] = await Promise.all([
+    handleRead,
+    shopRead,
+    peopleRead,
+    memoriesRead,
+    discoverRead,
+    worthRead,
+    vocabRead,
+    ownHeroRead,
+    posterRead,
+    hubRead,
+    progressRead,
+  ]);
+  const typeHero = new Map(vocab.map((t) => [t.key, eventTypePhotoSrc(t)]));
+  const progressById = new Map(progress);
+
+  const toCard = (e: EventWithRole): UnihomeEventCard => {
+    const v = deriveEventView(e, null, false, todayISO);
+    const stance = v.stance ?? 'invited';
+    const p = progressById.get(e.event_id);
+    return {
+      key: e.event_id,
+      eventId: e.event_id,
+      stance,
+      kind: v.badge,
+      title: e.display_name,
+      when: v.dateMeta,
+      countdown: v.countdown,
+      progress:
+        e.member_type !== 'couple'
+          ? null
+          : p === undefined
+            ? null
+            : p === null
+              ? 'Couldn’t read your progress'
+              : p.total > 0
+                ? `${formatCount(p.done)} of ${formatCount(p.total)} done`
+                : null,
+      dashboardHref: stance === 'invited' ? null : v.href,
+      hubUrl: hubs.get(e.event_id) ?? null,
+      scene: {
+        eventType: e.event_type,
+        photoSrc: typeHero.get(e.event_type) ?? eventTypeRepoPhotoSrc(e.event_type),
+        ownPhotoSrc: ownHero.get(e.event_id) ?? null,
+        cover: sceneCoverFor(posters.get(e.event_id)),
+      },
+      archived: !!e.archived,
+    };
+  };
+
+  const next = worth?.moments[0] ?? null;
+  const events: UnihomeEvents = {
+    cards: shownCards.map(toCard),
+    invited: shownInvited.map(toCard),
+    more: Math.max(0, running.length - shownCards.length) + Math.max(0, invitedLive.length - shownInvited.length),
+    counts: refusedAny ? null : { planning: live.length, celebrated: boardFinished(finished).length },
+    worth: worth === null || (worth.readFailed && !next) ? 'unread' : next ? { label: next.label, day: worthPlanningDay(next.dateISO) } : null,
+  };
+  const name = switcher?.displayName?.trim() || email.replace(/@.*$/, '') || 'You';
+
+  return (
+    <>
+      <Spotlight tourKey="customer_account_bar_v2" after="host_spotlight_v1" />
+      <Unihome
+        me={{ name, photoUrl: switcher?.photoUrl ?? null, photoFrame: switcher?.photoFrame ?? null }}
+        handle={handle}
+        host={publicHost()}
+        switcher={switcher}
+        events={events}
+        shop={shop}
+        people={people}
+        memories={memories}
+        discover={discover}
+        incoming={
+          <IncomingRequests
+            flash={sp.request_error === '1' ? 'error' : sp.inviter_muted === '1' ? 'muted' : sp.request_declined === '1' ? 'declined' : null}
+          />
+        }
+        eventsExample={!refusedAny ? <PlanningExample /> : null}
+      />
+    </>
+  );
+}
+
+/**
+ * 🧭 WHERE A VISIT TO HOME LANDS — the board's landing rules, moved out of the board unchanged when Home became
+ * Unihome v5 (owner-approved 23 Nov 2026). Called by Home (plain `/dashboard`), never by the full board at
+ * `?seg=events`, which a person only reaches by asking for it.
+ */
+function landHome({
+  sp,
+  boardEvents,
+  active,
+  hasConsole,
+  roles,
+  todayISO,
+}: {
+  sp: { hub?: string };
+  boardEvents: EventWithRole[];
+  active: EventWithRole[];
+  hasConsole: boolean;
+  roles: { hasVendorAccess: boolean };
+  todayISO: string;
+}): void {
+  // Owner 2026-07-04: "keep the auto-jump, HUB REACHABLE." Only the first half
+  // ever shipped. The jump fired for every single-event non-console user, and
+  // the account switcher's Home button landed back here — which re-fired it. So
+  // the hub was not reachable at all for the core persona: Alaala, People,
+  // Samahan and the Creator's Lab did not exist for them, permanently, and that
+  // is why "how do I find my samahan" had no good answer.
+  //
+  // 🔑 OWNER 2026-08-11, the ruling this implements: **"home board is for the
+  // user's collection of events. On going and completed."** A COLLECTION is a
+  // place you visit, not a place you are bounced out of — and it must hold the
+  // wedding that already happened. Two consequences, both here:
+  //
+  //   1. The jump only fires while the one event is still UPCOMING. Once the day
+  //      has passed the person is keeping, not planning, so they land on the
+  //      collection. Without this a couple is sealed inside a finished wedding
+  //      for the rest of their life on the platform.
+  //   2. `?hub=1` always wins. The switcher's Home carries it, so Home means the
+  //      board from anywhere — the "reachable" half of the 2026-07-04 ruling,
+  //      finally.
+  //
+  // Deliberately NOT changed: the auto-jump itself. A couple mid-planning with
+  // one wedding still wants to land in it, and reversing that would undo a
+  // ruling the owner has never withdrawn.
+  //
+  // 🔑 OWNER 2026-09-19 — "shouldn't it let me pick which event first?" The
+  // jump used to be decided from `active` (ORGANISER-only) while the board and
+  // the rail's Events count read every membership, so a person who organises
+  // one wedding and is the groom on another saw "Events 2" and was dropped into
+  // one of them. The decision now reads the SAME set the board renders
+  // (`boardEvents`): it jumps only when the whole board is exactly one card,
+  // that card is their own, and it is still upcoming. See `landingJumpTarget`.
+  const wantsHub = sp.hub === '1';
+  const jumpTo = landingJumpTarget(boardEvents, todayISO);
+  if (jumpTo && !hasConsole && !wantsHub) {
+    redirect(`/dashboard/${jumpTo}`);
+  }
+  // 🚨 AND THIS ONE HAD NO HUB ESCAPE, so the board was unreachable for a whole
+  // persona. `active` is the ORGANISER-only set, so a supplier or admin who
+  // organises nothing was bounced to create-event — including one who had just
+  // been INVITED to a client's wedding and now has a card waiting on this very
+  // board. `?hub=1` (which the account switcher's Home carries) must win here for
+  // the same reason it wins over the auto-jump above: Home means the board from
+  // anywhere. The redirect itself is untouched for the person it was written for
+  // — a console user with nothing at all still lands on create-event.
+  if (active.length === 0 && hasConsole && !wantsHub && boardEvents.length === 0) {
+    // 🔁 W1-B25 (walk 2, 16 Nov 2026) — NEVER `/dashboard/create-event` FROM HERE. Reached by a CLIENT navigation (the
+    // supplier who had just opened a shop and signed in), that address is INTERCEPTED by `@modal/(.)create-event`,
+    // which keeps THIS page as the background — and this page redirects again: a loop the browser stopped after 100
+    // `history.replaceState` calls ("SecurityError … more than 100 times per 10 seconds", fault log, build afcef1e).
+    // A console user with nothing goes to their OWN console instead — a supplier's shop, an admin's HQ — neither of
+    // which this tree intercepts. Creating an event stays one tap away on the board's own add flow.
+    redirect(roles.hasVendorAccess ? '/vendor-dashboard' : '/admin');
+  }
+
+}
 
 async function EventsBoard({
   searchParams,
@@ -528,59 +851,9 @@ async function EventsBoard({
   const clashes = findDateClashes([...happeningNow, ...upcoming]);
 
   // ─── LANDING ────────────────────────────────────────────────────────────
-  // Owner 2026-07-04: "keep the auto-jump, HUB REACHABLE." Only the first half
-  // ever shipped. The jump fired for every single-event non-console user, and
-  // the account switcher's Home button landed back here — which re-fired it. So
-  // the hub was not reachable at all for the core persona: Alaala, People,
-  // Samahan and the Creator's Lab did not exist for them, permanently, and that
-  // is why "how do I find my samahan" had no good answer.
-  //
-  // 🔑 OWNER 2026-08-11, the ruling this implements: **"home board is for the
-  // user's collection of events. On going and completed."** A COLLECTION is a
-  // place you visit, not a place you are bounced out of — and it must hold the
-  // wedding that already happened. Two consequences, both here:
-  //
-  //   1. The jump only fires while the one event is still UPCOMING. Once the day
-  //      has passed the person is keeping, not planning, so they land on the
-  //      collection. Without this a couple is sealed inside a finished wedding
-  //      for the rest of their life on the platform.
-  //   2. `?hub=1` always wins. The switcher's Home carries it, so Home means the
-  //      board from anywhere — the "reachable" half of the 2026-07-04 ruling,
-  //      finally.
-  //
-  // Deliberately NOT changed: the auto-jump itself. A couple mid-planning with
-  // one wedding still wants to land in it, and reversing that would undo a
-  // ruling the owner has never withdrawn.
-  //
-  // 🔑 OWNER 2026-09-19 — "shouldn't it let me pick which event first?" The
-  // jump used to be decided from `active` (ORGANISER-only) while the board and
-  // the rail's Events count read every membership, so a person who organises
-  // one wedding and is the groom on another saw "Events 2" and was dropped into
-  // one of them. The decision now reads the SAME set the board renders
-  // (`boardEvents`): it jumps only when the whole board is exactly one card,
-  // that card is their own, and it is still upcoming. See `landingJumpTarget`.
-  const wantsHub = sp.hub === '1';
-  const jumpTo = landingJumpTarget(boardEvents, todayISO);
-  if (jumpTo && !hasConsole && !wantsHub) {
-    redirect(`/dashboard/${jumpTo}`);
-  }
-  // 🚨 AND THIS ONE HAD NO HUB ESCAPE, so the board was unreachable for a whole
-  // persona. `active` is the ORGANISER-only set, so a supplier or admin who
-  // organises nothing was bounced to create-event — including one who had just
-  // been INVITED to a client's wedding and now has a card waiting on this very
-  // board. `?hub=1` (which the account switcher's Home carries) must win here for
-  // the same reason it wins over the auto-jump above: Home means the board from
-  // anywhere. The redirect itself is untouched for the person it was written for
-  // — a console user with nothing at all still lands on create-event.
-  if (active.length === 0 && hasConsole && !wantsHub && boardEvents.length === 0) {
-    // 🔁 W1-B25 (walk 2, 16 Nov 2026) — NEVER `/dashboard/create-event` FROM HERE. Reached by a CLIENT navigation (the
-    // supplier who had just opened a shop and signed in), that address is INTERCEPTED by `@modal/(.)create-event`,
-    // which keeps THIS page as the background — and this page redirects again: a loop the browser stopped after 100
-    // `history.replaceState` calls ("SecurityError … more than 100 times per 10 seconds", fault log, build afcef1e).
-    // A console user with nothing goes to their OWN console instead — a supplier's shop, an admin's HQ — neither of
-    // which this tree intercepts. Creating an event stays one tap away on the board's own add flow.
-    redirect(roles.hasVendorAccess ? '/vendor-dashboard' : '/admin');
-  }
+  // 🏠 Unihome v5 (23 Nov 2026): this board is the FULL Events page now (`?seg=events`, Home's "See all →"), reached
+  // only by asking for it — so it never bounces anyone away. The landing rules moved WITH Home to `landHome` below,
+  // unchanged, and Home calls them.
 
   // ─── EVERY READ BELOW STARTS AT ONCE ─────────────────────────────────────
   // 🔑 NONE OF THESE READS NEEDS ANOTHER ONE'S ANSWER, so none of them waits for
@@ -1872,7 +2145,7 @@ function PutAwaySwitch({ on, count }: { on: boolean; count: number }) {
   /* The house switch (`SwitchTrack`, sheet rule 4) beside its words — no bordered pill of its own. */
   return (
     <Link
-      href={on ? '/dashboard#events' : '/dashboard?putaway=1#events'}
+      href={on ? `${UNIHOME_EVENTS_ALL}#events` : `${UNIHOME_EVENTS_ALL}&putaway=1#events`}
       aria-pressed={on}
       className={`inline-flex min-h-11 shrink-0 items-center gap-2 text-[13px] font-semibold transition-colors duration-sn-control ${
         on ? 'text-ink' : 'text-[color:var(--sn-ink-500)] hover:text-ink'
@@ -2568,7 +2841,8 @@ function PlanningHeaderActions({
  * rather than the top of the board.
  */
 function planningPageHref(page: number, putAway: boolean): string {
-  const q = new URLSearchParams();
+  // Unihome v5: the full board lives at `?seg=events` (plain `/dashboard` is Home), so its own pages stay on it.
+  const q = new URLSearchParams({ seg: 'events' });
   if (putAway) q.set('putaway', '1');
   if (page > 1) q.set('page', String(page));
   const qs = q.toString();

@@ -183,13 +183,13 @@ test('🍎 the rail hides its Discover row where Discover does not open — and 
   const shell = src('app/_components/frontdoor/app-rail-shell.tsx');
   assert.match(shell, /\{discoverOpen \? null : <span hidden data-discover-bounced="" \/>\}/, 'the shell no longer marks a bounced Discover');
   const css = stripComments(readFileSync(join(WEB, 'app/_components/frontdoor/front-door.css'), 'utf8'));
-  // Signed out the row is `/`, signed in Discover's own door `/?discover=1` (23 Nov 2026) — the rule names both.
+  // The row is Discover's own door `DISCOVER_HREF`, signed out only (Unihome v5, 23 Nov 2026) — the rule names `/` and `/?discover=1`.
   const rule = css.match(/\.fd:has\(\[data-discover-bounced\]\) \.fd-rail > a\.fd-row\[href='\/'\][^{]*?a\.fd-row\[href='\/\?discover=1'\][^{]*\{([^}]*)\}/);
   assert.ok(rule, 'no stylesheet rule hides the rail Discover row on a bounced shell');
   assert.match(rule![1]!, /display:\s*none/, 'the row must leave (display:none takes it out of the tab order too)');
   // The selector names the row by its href — so it must be the ONLY rail row to `/`.
   const fd = src('app/_components/frontdoor/front-door-shell.tsx');
-  const rows = fd.match(/<Link href=\{account\.signedIn \? DISCOVER_HREF : '\/'\} \{\.\.\.rowProps\('home'\)\}>/g) ?? [];
+  const rows = fd.match(/<Link href=\{DISCOVER_HREF\} \{\.\.\.rowProps\('home'\)\}>/g) ?? [];
   assert.equal(rows.length, 1, `expected the one Discover row, found ${rows.length}`);
   assert.equal((fd.match(/<Link href=\{[^}]*(?:'\/'|DISCOVER_HREF)[^}]*\} \{\.\.\.rowProps\(|<Link href="\/" \{\.\.\.rowProps\(/g) ?? []).length, 1, 'a second rail row to Discover would be hidden with it');
 });

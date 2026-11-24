@@ -22,5 +22,6 @@ import { redirect } from 'next/navigation';
  * `git show 877c7305d:apps/web/app/dashboard/(account)/year/page.tsx`.
  */
 export default async function YearPage() {
-  redirect('/dashboard#worth-planning');
+  // Unihome v5 (23 Nov 2026): the shelf lives on the full Events board (`?seg=events`); plain /dashboard is Home.
+  redirect('/dashboard?seg=events#worth-planning');
 }

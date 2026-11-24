@@ -166,10 +166,9 @@ export function LabCamera({ lane, pro = false, buy = false, chapter = false, cei
             eventId={LAB_EVENT_ID}
             uploadOwner={null}
             coupleName="Lab Couple"
-            tier="ltd"
-            allowVideo
-            pointsCap={500}
-            pointsSpent={0}
+            plan="solo"
+            planLabel="Plus"
+            photosTaken={0}
           />
         </div>
       )}

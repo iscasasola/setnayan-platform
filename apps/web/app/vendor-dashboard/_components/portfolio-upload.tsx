@@ -20,7 +20,7 @@ import { PortfolioForm } from '../shop/_components/portfolio-form';
  *   · What was picked goes into THE SHIPPED PORTFOLIO UPLOADER — `PortfolioForm` (`shop/_components/portfolio-form.tsx`, which Portfolio's page draws too:
  *     `<FileUpload multiple>` with the watermark, the QR guard and the compression, saved by `updateVendorProfileField`
  *     with `field=portfolio`), fed the files through `FileUpload`'s `pickedFiles`. Never a second uploader: the photo
- *     lands in Portfolio exactly as an upload there would, priced by the same free room and wallet.
+ *     lands in Portfolio exactly as an upload there would (no count since 2026-11-23 — storage is the only limit).
  *   · 📦 The uploader is a STATIC import of `portfolio-form.tsx` ALONE (about 6 KB gz on Today's and Shop's first
  *     load). Measured on the Build 3 integration (#7416): loaded on demand — from `gallery-media.tsx`, from its own
  *     file, inside `picked-pages` or a `photo-parts` chunk — every chunk the load named became an entry of the webpack
@@ -108,9 +108,6 @@ export function PortfolioUploadBody({
         vendorProfileId={facts.vendorProfileId}
         storedRefs={facts.storedRefs}
         displayMap={{}}
-        free={facts.free}
-        allowanceUnread={facts.allowanceUnread}
-        walletBalance={facts.walletBalance}
         toast={toast}
         addOnly
         pickedFiles={files}

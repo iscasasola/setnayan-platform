@@ -34,10 +34,14 @@ test('the year shelf gates its empty state on whether the read happened', () => 
   // year's contents are the board's "Worth planning" shelf. The DUTY moved with
   // the read — an unchecked failure tells somebody who has a birthday on file
   // that they have nothing coming, forever, with no error anywhere.
-  const src = read('../(launcher)/_components/year-moments-strip.tsx');
-  assert.match(src, /const readFailed = Boolean\(rowsErr\) \|\| Boolean\(selfErr\);/,
+  // 🔁 AND THE READ MOVED AGAIN (Unihome v5, 23 Nov 2026): it is `lib/worth-planning.server.ts` now, the ONE reader
+  // the board's shelf and Home's "Worth planning" row share. The flag lives with the reads; the strip gates on it.
+  const lib = stripComments(readFileSync(join(HERE, '..', '..', '..', 'lib', 'worth-planning.server.ts'), 'utf8'));
+  assert.match(lib, /readFailed: Boolean\(rowsErr\) \|\| Boolean\(selfErr\)/,
     'the flag must exist — and it must cover BOTH reads, because either one ' +
     'failing produces the same misleading emptiness');
+  const src = read('../(launcher)/_components/year-moments-strip.tsx');
+  assert.match(src, /const \{ moments, readFailed \} = await readWorthPlanning\(userId\);/, 'the strip must read through the one reader');
   assert.match(src, /unsure=\{readFailed\}/, 'and must gate the sentence');
   assert.match(src, /We couldn’t load your dates just now/, 'and say so');
 });

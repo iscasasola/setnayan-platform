@@ -12,9 +12,8 @@
  *       every plan may still put up at least one card in a category it covers (a booking needs a card);
  *   2 · no tier carries a per-day booking limit or a weekly answering limit — and NO shipped code reads either cap to
  *       refuse anything (the readers are named below, each one display-only);
- *   3 · the portfolio base is PORTFOLIO_FREE_BASE on every tier, it is grandfathered (stored photos always survive),
- *       and past it the gallery save PAYS from the shop wallet (`shop_portfolio_commit`, shop wallet PR 2/2 —
- *       `shop-portfolio-credits.test.ts` + the db test hold the price) instead of refusing;
+ *   3 · SUPERSEDED 2026-11-23 — the portfolio has NO count on any plan (owner: "Yes, drop it" — storage is the only
+ *       limit); the gallery save still goes through `shop_portfolio_commit`, which charges nothing, and never truncates;
  *   4 · couples per date is WHITELIST_PER_DATE_ALL_PLANS on every tier, in TypeScript AND in the latest SQL definition
  *       of `vendor_tier_limit` (the database is the gate);
  *   5 · Free answers couples, is searchable once verified, and shows its real name once verified.
@@ -28,14 +27,10 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from './strip-comments';
 import {
   DAILY_CAPACITY_MAX,
-  PORTFOLIO_FREE_BASE,
   WAITLIST_SETTING_MAX,
-  PORTFOLIO_OVER_BASE_MESSAGE,
-  portfolioOverCapMessage,
   TIER_CAPS,
   VENDOR_TIERS,
   WHITELIST_PER_DATE_ALL_PLANS,
-  capPortfolioRefs,
   canAcceptInAppInquiries,
   isTrueNameTier,
 } from './vendor-tier-caps';
@@ -130,53 +125,18 @@ test('2c · bookings per date are NOT a plan limit on any plan (owner 2026-11-18
   for (const t of VENDOR_TIERS) assert.equal(TIER_CAPS[t].waitlistAcceptances, WAITLIST_SETTING_MAX, `${t} limits the waitlist by plan`);
 });
 
-// ── 3 · the portfolio free base, grandfathered ─────────────────────────────────
+// ── 3 · the portfolio has no count (owner 2026-11-23) ─────────────────────────
 
-test('3a · the portfolio base is 50 free on the free plans; no cap on a paid size (owner 2026-11-22)', () => {
-  assert.equal(PORTFOLIO_FREE_BASE, 50, 'owner: "free 50"');
-  for (const t of VENDOR_TIERS) {
-    const paid = t === 'solo' || t === 'pro' || t === 'enterprise';
-    assert.equal(TIER_CAPS[t].portfolioPhotos, paid ? Infinity : PORTFOLIO_FREE_BASE, `${t} portfolio photos`);
-  }
-  assert.equal(
-    PORTFOLIO_OVER_BASE_MESSAGE,
-    'Your first 50 portfolio photos are free. More photos with Papic credits is coming soon.',
-  );
-});
-
-test('3b · capPortfolioRefs keeps every stored photo and refuses only NEW ones past the base', () => {
-  const stored = Array.from({ length: 80 }, (_, i) => `r2://media/vendors/v/p${i}.jpg`);
-  // A grandfathered shop re-saving, reordering or removing keeps everything it has.
-  const resave = capPortfolioRefs([...stored].reverse(), stored, 50);
-  assert.equal(resave.refs.length, 80);
-  assert.equal(resave.refused, 0);
-  const removed = capPortfolioRefs(stored.slice(0, 60), stored, 50);
-  assert.equal(removed.refs.length, 60);
-  assert.equal(removed.refused, 0);
-  // …but cannot ADD while over the base.
-  const added = capPortfolioRefs([...stored, 'r2://media/vendors/v/new.jpg'], stored, 50);
-  assert.equal(added.refused, 1);
-  assert.equal(added.refs.length, 80);
-  // A shop under the base adds up to it, in order, and no further.
-  const fresh = Array.from({ length: 52 }, (_, i) => `r2://media/vendors/v/n${i}.jpg`);
-  const under = capPortfolioRefs(fresh, fresh.slice(0, 10), 50);
-  assert.equal(under.refs.length, 50);
-  assert.equal(under.refused, 2);
-  assert.deepEqual(under.refs, fresh.slice(0, 50), 'order is the supplier’s');
-});
-
-test('3c · the gallery save keeps the free base, grandfathered, and pays past it — never truncates', () => {
+test('3 · the gallery save has no count and no price — one step, never truncated', () => {
+  for (const t of VENDOR_TIERS) assert.equal('portfolioPhotos' in TIER_CAPS[t], false, `${t} carries a portfolio count again`);
   const src = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/actions.ts'), 'utf8'));
   const portfolioCase = src.slice(src.indexOf("case 'portfolio':"), src.indexOf("case 'gallery_videos':"));
   assert.ok(portfolioCase.length > 100, "the portfolio case of updateVendorProfileField moved — re-point this guard");
-  // Owner 2026-10-23 (option A): past the free base the photo is paid from the shop wallet in ONE step with the
-  // list (`shop_portfolio_commit` — grandfathered, the free base read inside the function), not refused.
-  assert.match(portfolioCase, /\.rpc\('shop_portfolio_commit'/, 'the gallery save no longer goes through the priced commit');
-  assert.match(portfolioCase, /status === 'insufficient'/, 'a save the wallet cannot cover is no longer refused out loud');
-  assert.equal(portfolioOverCapMessage(PORTFOLIO_FREE_BASE), PORTFOLIO_OVER_BASE_MESSAGE, 'at the base the refusal is the owner’s sentence, byte for byte');
+  assert.match(portfolioCase, /\.rpc\('shop_portfolio_commit'/, 'the gallery save no longer goes through the one-step commit');
+  assert.doesNotMatch(portfolioCase, /insufficient|walletShort|charged/, 'the gallery save prices photos again');
   // The old silent truncation must not come back inside the parser.
   const parser = src.slice(src.indexOf('function parsePortfolioRefs('), src.indexOf('function parseVideoLinks('));
-  assert.doesNotMatch(parser, /out\.length\s*>=/, 'parsePortfolioRefs truncates by count again — that cut grandfathered shops');
+  assert.doesNotMatch(parser, /out\.length\s*>=/, 'parsePortfolioRefs truncates by count again');
 });
 
 // ── 4 · five couples a date, on every plan, in both places ─────────────────────

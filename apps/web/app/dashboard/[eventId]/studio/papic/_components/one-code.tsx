@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { CircleAlert, Printer } from 'lucide-react';
@@ -55,7 +56,7 @@ export async function readOneCode(eventId: string): Promise<OneCodeRead> {
   const slug = (eventRes.data as { slug?: string | null } | null)?.slug ?? null;
   const h = await headers();
   const appUrl = `${h.get('x-forwarded-proto') ?? 'https'}://${h.get('host') ?? 'www.setnayan.com'}`;
-  const url = link.usable && slug ? `${appUrl}/${slug}/invite` : null;
+  const url = link.usable && slug ? `${appUrl}${publicEventPath(slug)}/invite` : null;
   return {
     url,
     qrSvg: url ? await renderUrlQrSvg(url, 200) : null,

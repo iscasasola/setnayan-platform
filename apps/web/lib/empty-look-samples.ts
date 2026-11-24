@@ -249,3 +249,16 @@ export const SAMPLE_PORTFOLIO: Readonly<Record<string, SamplePortfolioTile>> = {
   stories: { name: SAMPLE_COUPLE, sub: 'Tagaytay · Dec 2026', photo: '/marketing/2026-11-04/hero-reunion.webp' },
   video: { name: 'Same-day edit', sub: 'YouTube', photo: '/event-types/wedding.webp' },
 };
+
+/** 🏠 Unihome v5's People Example (drawing "New account"): three faces, greyed, never anyone's real people. */
+export const SAMPLE_PEOPLE: ReadonlyArray<{ initials: string; name: string }> = [
+  { initials: 'MS', name: 'Mia' },
+  { initials: 'JC', name: 'Jon' },
+  { initials: 'LR', name: 'Lea' },
+];
+
+/** 🏠 Unihome v5's Memories Example (drawing "New account"): two kept celebrations, from the repo's own photos. */
+export const SAMPLE_MEMORY_SHELF: ReadonlyArray<{ title: string; sub: string; photo: string }> = [
+  { title: 'Graduation', sub: '2026', photo: '/event-types/graduation.webp' },
+  { title: 'Family reunion', sub: '2025', photo: '/event-types/reunion.webp' },
+];

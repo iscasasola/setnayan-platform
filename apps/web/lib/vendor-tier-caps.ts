@@ -106,9 +106,8 @@ export type VendorSeoLevel = 'basic' | 'enhanced' | 'aeo' | 'priority';
  *                           `TIER_CAPS[t].servicesPerLeaf`. The 23 Oct "at least 3 per category" floor is retired.
  *   · couples per date    — {@link WHITELIST_PER_DATE_ALL_PLANS} on every plan (the SQL
  *                           twin is `vendor_tier_limit(…,'whitelist_per_date')`).
- *   · portfolio photos    — {@link PORTFOLIO_FREE_BASE} free on every plan; more is
- *                           paid with Papic credits (Phase 2 — until then, blocked
- *                           with {@link PORTFOLIO_OVER_BASE_MESSAGE}).
+ *   · portfolio photos    — NO plan limit since 2026-11-23 (owner: *"Yes, drop it"*). The shop's storage
+ *                           (`TierCaps.storageBytes`) is the only limit, like every other file it holds.
  *   · distance reach      — NOT a plan allowance since 2026-11-19 (owner: *"unlock the range. not
  *                           plan dependend anymore"*). Unverified = 0 km; verified = the shop's own
  *                           range on every plan (`reachCeilingKm`, lib/vendor-service-radius.ts).
@@ -142,71 +141,25 @@ export const WAITLIST_SETTING_MAX = 10;
 /** Couples a shop may hold for one date — the same on every plan (owner 2026-10-23). */
 export const WHITELIST_PER_DATE_ALL_PLANS = 5;
 
-/**
- * The FREE portfolio base — every shop, every plan (owner 2026-10-23: "free 50"). Photos beyond it are paid with
- * Papic credits (Phase 2, after the owner approves that prototype); until then an upload past it is refused with
- * {@link PORTFOLIO_OVER_BASE_MESSAGE}. A shop already holding more keeps every photo — the check counts NEW photos
- * only (see `capPortfolioRefs`).
+/*
+ * ⛔ NO PORTFOLIO PHOTO CAP. `PORTFOLIO_FREE_BASE` (50), `portfolioPhotoCap`, `capPortfolioRefs` and the "More photos
+ * with Papic credits is coming soon" refusal were RETIRED 2026-11-23 (owner, DECISION_LOG "THE 50-PHOTO PORTFOLIO CAP IS
+ * DROPPED — STORAGE IS THE ONLY LIMIT": *"Yes, drop it"*). A portfolio photo is a stored file like any other: the plan's
+ * storage (`TierCaps.storageBytes`) is the only ceiling, on every plan. The personal invite's 100
+ * (`vendor_profiles.portfolio_photo_allowance`) stopped being a limit with it — the column is retired, never deleted.
+ * Held by `supplier-event-photo-limits.test.ts`; do not add a portfolio count back.
  */
-export const PORTFOLIO_FREE_BASE = 50;
-
-/** What a supplier reads when a new photo would go past the free base. Words fixed by the owner's ruling. */
-export const PORTFOLIO_OVER_BASE_MESSAGE = `Your first ${PORTFOLIO_FREE_BASE} portfolio photos are free. More photos with Papic credits is coming soon.`;
 
 /**
- * THE CAP A SHOP'S PAGE HOLDS — the plan's number (the every-plan base) or the shop's OWN allowance, whichever is
- * more. The allowance (`vendor_profiles.portfolio_photo_allowance`) is given by a personal invite — the owner's 100
- * (2026-10-23) — and is not the plan's, so it is KEPT after a gifted plan ends (owner ruling, DECISION_LOG
- * 2026-10-23). Null / unread allowance = the base, never more. Every place that reads the 50 reads this instead.
+ * 📸 SUPPLIER EVENT CAPTURES — PER (SHOP, EVENT), BY PLAN (owner 2026-11-23, DECISION_LOG rows "FREE SUPPLIERS: 10 PHOTOS
+ * PER EVENT, NO VIDEOS" + "PLUS GETS UNLIMITED EVENT PHOTOS AND VIDEOS TOO", the last one winning):
+ *   Free 10 photos, no videos · Verified 10 photos, no videos · Plus · Pro · Ultra no limit on photos or videos — the
+ *   shop's storage is their only ceiling.
+ * The numbers live ONLY in `TIER_CAPS` (`eventPhotosPerEvent` · `eventVideos`); the gate is `isPaidSize` (= Plus and up,
+ * `isTierAtLeast(tier, FIRST_PAID_SIZE)`), and a test holds the two together. A supplier's captures NEVER spend the
+ * couple's Papic credits — they are the shop's own lane (`vendor_papic_captures`).
  */
-export function portfolioPhotoCap(tier: string | null | undefined, allowance: number | null | undefined): number {
-  const base = tierCaps(tier).portfolioPhotos;
-  const own = typeof allowance === 'number' && Number.isFinite(allowance) && allowance > 0 ? Math.floor(allowance) : 0;
-  return Math.max(base, own);
-}
-
-/**
- * What the shop reads when its own allowance could not be read. 🔑 Never "50 free" in its place: a shop holding a
- * personal invite's 100 would be told a smaller number that is not true. Saves stay inside the base while it is
- * unread (withholding, never granting) and refuse with these words rather than the over-cap ones.
- */
-export const PORTFOLIO_ALLOWANCE_UNREAD = "Couldn't read your photo allowance";
-export const PORTFOLIO_ALLOWANCE_UNREAD_SAVE = `${PORTFOLIO_ALLOWANCE_UNREAD}. Nothing was saved — try again.`;
-
-/** The refusal past the cap — the owner's words, with the shop's own number (100 for a personal invite's gift). */
-export function portfolioOverCapMessage(cap: number): string {
-  return cap === PORTFOLIO_FREE_BASE
-    ? PORTFOLIO_OVER_BASE_MESSAGE
-    : `Your first ${cap} portfolio photos are free. More photos with Papic credits is coming soon.`;
-}
-
-/**
- * Keep a requested portfolio list inside the free base — GRANDFATHERED. Pure.
- *
- * `requested` is the list the supplier is saving (already validated + deduped), `stored` the list on the row now.
- * Every photo already stored is kept, however many there are; a NEW photo is admitted only while the total stays
- * within `max`. So a shop that held 80 photos before the base existed can re-save, reorder or remove freely, and
- * only an ADDITION past the base is refused. `refused` counts the new photos that did not fit (order preserved).
- */
-export function capPortfolioRefs(
-  requested: readonly string[],
-  stored: readonly string[],
-  max: number = PORTFOLIO_FREE_BASE,
-): { refs: string[]; refused: number } {
-  const had = new Set(stored.filter(Boolean));
-  const keptCount = requested.filter((r) => had.has(r)).length;
-  let room = Math.max(0, max - keptCount);
-  const refs: string[] = [];
-  let refused = 0;
-  for (const r of requested) {
-    if (had.has(r)) refs.push(r);
-    else if (room > 0) {
-      refs.push(r);
-      room -= 1;
-    } else refused += 1;
-  }
-  return { refs, refused };
-}
+export const EVENT_PHOTOS_FREE_PLANS = 10;
 
 export interface TierCaps {
   /*
@@ -263,18 +216,21 @@ export interface TierCaps {
    * tier matrix's shape; not read for gating.
    */
   importCustomerTokenCost: number;
-  /** Portfolio photo cap — {@link PORTFOLIO_FREE_BASE} on every plan (the free base, owner 2026-10-23). */
-  portfolioPhotos: number;
+  /**
+   * PHOTOS A SUPPLIER MAY TAKE AT ONE EVENT (per shop, per event — owner 2026-11-23): Free 10 · Verified 10 · Plus, Pro
+   * and Ultra no limit (Infinity — storage is the only ceiling). Read through `eventCaptureRule`, never directly at a gate.
+   */
+  eventPhotosPerEvent: number;
+  /** May a supplier film clips at an event? Free and Verified no; Plus, Pro and Ultra yes (owner 2026-11-23). */
+  eventVideos: boolean;
   /**
    * BACK-CATALOGUE photos the shop may put into the couple-facing moodboard
    * supplier gallery (MB11), PER CATEGORY (MB19) — the field used to be named
    * `galleryBackCatalogPhotos` and counted ACCOUNT-WIDE, which was a lie
    * nothing went red over: the number in this field means "photos per
-   * category", so the name says so. A SECOND, SMALLER ladder that sits
-   * ALONGSIDE `portfolioPhotos` and never replaces it — the two answer
-   * different questions and the owner sized them separately:
+   * category", so the name says so. It is NOT the portfolio (which has no
+   * count at all since 2026-11-23 — storage is its only limit):
    *
-   *   · `portfolioPhotos` = how much of your shop YOUR OWN page may show.
    *   · `galleryBackCatalogPhotosPerCategory` = how much of your archive, IN
    *     EACH inspiration category, we push into OTHER people's inspiration
    *     boards. A shop holding 20 Flowers photos may still upload to Tables.
@@ -500,7 +456,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppCustomersPerWeek: Infinity, // no weekly limit (2026-10-23)
     inAppGated: false,
     importCustomerTokenCost: 0,
-    portfolioPhotos: PORTFOLIO_FREE_BASE, // the free base (2026-10-23; was 30)
+    eventPhotosPerEvent: EVENT_PHOTOS_FREE_PLANS, // owner 2026-11-23: "if they are free. they will be limited to 10 photos per event only. no videos."
+    eventVideos: false,
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     marketIntel: false,
     theftWatch: false,
@@ -568,7 +525,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppCustomersPerWeek: Infinity, // no weekly limit (2026-10-23; was 10)
     inAppGated: true,
     importCustomerTokenCost: 0,
-    portfolioPhotos: PORTFOLIO_FREE_BASE,
+    eventPhotosPerEvent: EVENT_PHOTOS_FREE_PLANS, // owner 2026-11-23: Verified takes Free's number (a ₱0 plan) — 10 photos, no videos
+    eventVideos: false,
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
@@ -611,7 +569,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
     importCustomerTokenCost: 0,
-    portfolioPhotos: Infinity, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": no portfolio photo cap on a paid size — storage is the only limit
+    eventPhotosPerEvent: Infinity, // owner 2026-11-23 "PLUS GETS UNLIMITED EVENT PHOTOS AND VIDEOS TOO" — storage is the only limit
+    eventVideos: true,
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: true, // owner 2026-11-22 "SAME FEATURES IN EVERY SIZE" (was Pro and up)
@@ -656,7 +615,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
     importCustomerTokenCost: 0,
-    portfolioPhotos: Infinity, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": no portfolio photo cap on a paid size — storage is the only limit
+    eventPhotosPerEvent: Infinity, // owner 2026-11-23 "PLUS GETS UNLIMITED EVENT PHOTOS AND VIDEOS TOO" — storage is the only limit
+    eventVideos: true,
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true,
     editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
@@ -702,7 +662,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
     importCustomerTokenCost: 0,
-    portfolioPhotos: Infinity, // owner 2026-11-22 "FINAL LADDER" + "STARTER BUSINESS": no portfolio photo cap on a paid size — storage is the only limit
+    eventPhotosPerEvent: Infinity, // owner 2026-11-23 "PLUS GETS UNLIMITED EVENT PHOTOS AND VIDEOS TOO" — storage is the only limit
+    eventVideos: true,
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true,
     editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
@@ -1032,4 +993,26 @@ export function categoryLadder(): { plan: string; categories: string }[] {
     plan: plans.length > 1 ? `${plans.slice(0, -1).join(', ')} and ${plans[plans.length - 1]}` : plans[0]!,
     categories: Number.isFinite(n) ? `${n} ${n === 1 ? 'category' : 'categories'}` : 'every category',
   }));
+}
+
+/** The capture rule for one supplier at one event — read from `TIER_CAPS`, never typed at a gate. */
+export type EventCaptureRule = {
+  /** Photos this shop may take at one event. `null` = no limit (storage is the only ceiling). */
+  photoLimit: number | null;
+  /** May this shop film clips at an event? */
+  videos: boolean;
+  /** The plan that lifts the limit, by its label — "Plus" (the first paid size). `null` when nothing is limited. */
+  liftedBy: string | null;
+};
+
+/**
+ * 📸 What a supplier may capture at ONE event on this plan (owner 2026-11-23): Free · Verified 10 photos and no videos;
+ * Plus · Pro · Ultra no limit, storage only. The ONE reader of `eventPhotosPerEvent` / `eventVideos` — the capture route,
+ * the on-the-day screen and its badge all ask here, so the screen a supplier SEES and the gate they GET cannot drift.
+ */
+export function eventCaptureRule(tier: string | null | undefined): EventCaptureRule {
+  const c = tierCaps(tier);
+  const photoLimit = Number.isFinite(c.eventPhotosPerEvent) ? Math.max(0, Math.floor(c.eventPhotosPerEvent)) : null;
+  const limited = photoLimit !== null || !c.eventVideos;
+  return { photoLimit, videos: c.eventVideos, liftedBy: limited ? TIER_LABEL[FIRST_PAID_SIZE] : null };
 }

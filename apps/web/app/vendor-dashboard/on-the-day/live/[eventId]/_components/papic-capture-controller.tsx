@@ -8,18 +8,17 @@ import { newClientCaptureId } from '@/lib/papic-client-capture-id';
 import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
 import { markShutter, markShutterReady } from '@/lib/papic-upload/shutter-timing';
 import { PapicUploadChip } from '@/app/papic/_components/upload-chip';
-import { VENDOR_PAPIC_POINTS, type VendorPapicTier,
-  VENDOR_PAPIC_VIDEO_MIN_POINTS,
-} from '@/lib/vendor-papic-tier';
-import { formatCount } from '@/lib/format-number';
+import { captureKindWords, captureLimitLine, eventCaptureAllowance } from '@/lib/vendor-papic-tier';
 import { ActionButton } from '@/components/action-button';
 import { PartFoot, PartTop, setTwo } from '@/app/vendor-dashboard/_components/set-two/parts';
 
 // The vendor on-the-day Papic capture controller (owner-locked 2026-07-18).
 // A consent gate → the live camera → gesture shutter (tap = photo · press-and-
-// hold = ≤10s clip, Ltd/Unli only) → the server-side capture route enforces the
-// tier's capture-point budget. Lite is photos-only; Ltd (and an admin-comped
-// Unli) allow clips. Kept deliberately simple vs the couple seat surface (no
+// hold = ≤10s clip, Plus and up) → the server-side capture route enforces the
+// PLAN's event limit (owner 2026-11-23): Free · Verified 10 photos, no videos;
+// Plus · Pro · Ultra no limit, storage only. The camera shows the same line the
+// route answers with ("10 of 10 photos at this event · Go Plus for unlimited").
+// A supplier's shot spends nothing — never the couple's Papic credits. Kept deliberately simple vs the couple seat surface (no
 // face tag, no roll) — the vendor is working, so the shutter stays responsive
 // by firing uploads without blocking, and the server budget is the hard gate.
 //
@@ -67,17 +66,12 @@ type Props = {
    *  a shot queued here never records as another supplier signed in later. */
   uploadOwner: string | null;
   coupleName: string;
-  tier: VendorPapicTier;
-  allowVideo: boolean;
-  /** null = unlimited (Unli). */
-  pointsCap: number | null;
-  pointsSpent: number;
-};
-
-const TIER_LABEL: Record<VendorPapicTier, string> = {
-  lite: 'Papic Lite',
-  ltd: 'Papic Ltd',
-  unli: 'Papic Unli',
+  /** The shop's plan (`tier_state`) — its event limit is read from TIER_CAPS (`eventCaptureRule`). */
+  plan: string;
+  /** The plan's name as the supplier reads it ("Free", "Plus"…). */
+  planLabel: string;
+  /** Photos this shop has taken here. `null` = could not be read (a limited plan's shutter waits). */
+  photosTaken: number | null;
 };
 
 export function PapicCaptureController({
@@ -87,13 +81,13 @@ export function PapicCaptureController({
   eventId,
   uploadOwner,
   coupleName,
-  tier,
-  allowVideo,
-  pointsCap,
-  pointsSpent: initialSpent,
+  plan,
+  planLabel,
+  photosTaken: initialTaken,
 }: Props) {
   const [accepted, setAccepted] = useState(false);
-  const [spent, setSpent] = useState(initialSpent);
+  const [taken, setTaken] = useState(initialTaken);
+  const [storageFull, setStorageFull] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
 
@@ -109,12 +103,13 @@ export function PapicCaptureController({
   const chunksRef = useRef<Blob[]>([]);
   const clipStartRef = useRef<number>(0);
 
-  const unlimited = pointsCap == null;
-  const pointsLeft = unlimited ? null : Math.max(0, pointsCap - spent);
-  const canPhoto = unlimited || spent + VENDOR_PAPIC_POINTS.photo <= (pointsCap ?? 0);
-  const canClip =
-    allowVideo && (unlimited || spent + VENDOR_PAPIC_POINTS.clip <= (pointsCap ?? 0));
-  const outOfPoints = !unlimited && (pointsLeft ?? 0) <= 0;
+  // 📸 ONE model with the route (lib/vendor-papic-tier.ts): the plan's rule + the count. Optimistic — the route is the gate.
+  const allowance = eventCaptureAllowance(plan, taken);
+  const { rule } = allowance;
+  const limitLine = captureLimitLine(allowance, storageFull);
+  const canPhoto = !storageFull && (rule.photoLimit === null || (allowance.photosLeft ?? 0) > 0);
+  const canClip = !storageFull && rule.videos;
+  const blocked = !canPhoto && !canClip;
 
   const flash = useCallback((msg: string) => {
     setToast(msg);
@@ -122,36 +117,41 @@ export function PapicCaptureController({
   }, []);
 
   // What the uploader hears back, for THIS event's supplier shots. A shot that
-  // can never land gives its credits back on the meter and says why.
-  // A kept shot is asked again later; its credits come back on the meter ONCE.
+  // can never land comes off the count and says why. A kept shot is asked
+  // again later; it comes back on the count ONCE. Only photos count (a plan
+  // with a limit takes no clips).
   const uncounted = useRef(new Set<string>());
   useEffect(() => {
     return papicUploader().on((e) => {
       if (e.shot.lane !== 'vendor' || e.shot.eventId !== eventId) return;
-      const cost = e.shot.media === 'clip' ? VENDOR_PAPIC_POINTS.clip : VENDOR_PAPIC_POINTS.photo;
+      const step = e.shot.media === 'photo' ? 1 : 0;
+      const bump = (d: number) => setTaken((t) => (t === null ? t : Math.max(0, t + d)));
       if (e.type === 'recorded' && uncounted.current.delete(e.shot.id)) {
         // A kept shot landed after all: it counts again.
-        setSpent((s) => s + cost);
+        bump(step);
         return;
       }
-      if (e.type === 'credits') {
-        if (pointsCap != null) setSpent(pointsCap);
-        flash('You’re out of credits for this event — the shot waits on this phone.');
-      } else if (e.type === 'kept') {
+      if (e.type === 'kept') {
         // Kept on this phone, never erased (review 2026-10-23); it is not counted.
         if (uncounted.current.has(e.shot.id)) return;
         uncounted.current.add(e.shot.id);
-        setSpent((s) => Math.max(0, s - cost));
-        if (e.code === 'video_not_allowed') flash('This tier is photos only — the clip stays on this phone.');
+        bump(-step);
+        if (e.code === 'supplier_storage_full') {
+          setStorageFull(true);
+          flash('Storage full — the shot stays on this phone.');
+        } else if (e.code === 'event_photo_limit') {
+          if (rule.photoLimit !== null) setTaken(rule.photoLimit);
+          flash('That’s this event’s photos on your plan — the shot stays on this phone.');
+        } else if (e.code === 'video_not_allowed') flash('Your plan takes photos only — the clip stays on this phone.');
         else if (e.code === 'event_over') flash('Not sent — this event is over. The shot stays on this phone.');
         else flash('Not sent yet — the shot stays on this phone.');
       } else if (e.type === 'refused') {
-        if (!uncounted.current.has(e.shot.id)) setSpent((s) => Math.max(0, s - cost));
+        if (!uncounted.current.has(e.shot.id)) bump(-step);
         uncounted.current.add(e.shot.id);
         flash('Couldn’t save that one.');
       }
     });
-  }, [eventId, flash, pointsCap]);
+  }, [eventId, flash, rule.photoLimit]);
 
   const grabFrame = useCallback(async (): Promise<Blob | null> => {
     const video = cam.videoRef.current;
@@ -174,7 +174,6 @@ export function PapicCaptureController({
   // shutter. Nothing here waits on the network.
   const save = useCallback(
     async (kind: 'photo' | 'clip', blob: Blob, poster?: Blob | null, durationMs?: number) => {
-      const cost = kind === 'clip' ? VENDOR_PAPIC_POINTS.clip : VENDOR_PAPIC_POINTS.photo;
       try {
         await saveShot({
           id: newClientCaptureId(),
@@ -194,10 +193,9 @@ export function PapicCaptureController({
         flash('Couldn’t save that one on this phone — free up some space.');
         return;
       }
-      // Optimistic point spend so the meter + gating stay ahead of the network;
-      // the server is the hard gate. Sourced from VENDOR_PAPIC_POINTS so it can
-      // never drift from the constant the server ledger enforces.
-      setSpent((s) => s + cost);
+      // Optimistic count so the line + gating stay ahead of the network; the
+      // route is the hard gate. Only a photo counts against a plan's limit.
+      if (kind === 'photo') setTaken((t) => (t === null ? t : t + 1));
       flash(kind === 'clip' ? 'Clip saved' : 'Photo saved');
     },
     [eventId, flash, uploadOwner],
@@ -211,14 +209,14 @@ export function PapicCaptureController({
 
   const takePhoto = useCallback(async () => {
     if (!canPhoto) {
-      flash(outOfPoints ? 'You’re out of credits for this event.' : 'No credits left.');
+      flash(limitLine);
       return;
     }
     markShutter();
     const blob = await grabFrame();
     if (blob) await save('photo', blob);
     markShutterReady();
-  }, [canPhoto, outOfPoints, grabFrame, save, flash]);
+  }, [canPhoto, limitLine, grabFrame, save, flash]);
 
   const stopClip = useCallback(() => {
     if (clipTimer.current) {
@@ -261,14 +259,14 @@ export function PapicCaptureController({
   // Gesture shutter: press-and-hold past HOLD_MS → clip (if allowed); a short
   // tap → photo. Mirrors the seat surface's pointer model.
   const onShutterDown = useCallback(() => {
-    if (outOfPoints) return;
+    if (blocked) return;
     if (canClip) {
       holdTimer.current = setTimeout(() => {
         holdTimer.current = null;
         startClip();
       }, HOLD_MS);
     }
-  }, [outOfPoints, canClip, startClip]);
+  }, [blocked, canClip, startClip]);
 
   const onShutterUp = useCallback(() => {
     if (holdTimer.current) {
@@ -282,7 +280,7 @@ export function PapicCaptureController({
       stopClip();
       return;
     }
-    // No hold armed (Lite, or video disabled) → tap = photo.
+    // No hold armed (a plan without videos) → tap = photo.
     if (!canClip) void takePhoto();
   }, [recording, canClip, takePhoto, stopClip]);
 
@@ -345,17 +343,17 @@ export function PapicCaptureController({
         <div className={setTwo.camCover}>Camera unavailable. Allow camera access, then reopen this tool.</div>
       ) : null}
 
-      {/* On the frame, top: back · the tier · what is left. */}
+      {/* On the frame, top: back · the plan · the honest limit line. */}
       <div className={setTwo.camTop}>
         <Link href={backHref} aria-label={backLabel} className={setTwo.camRound}>
           <ArrowLeft aria-hidden strokeWidth={1.75} />
         </Link>
-        <span className={setTwo.camPill} data-papic-tier={tier}>
-          {TIER_LABEL[tier]}
-          <small>· {allowVideo ? 'photos + video' : 'photos only'}</small>
+        <span className={setTwo.camPill} data-papic-tier={plan}>
+          {planLabel}
+          <small>· {captureKindWords(rule)}</small>
         </span>
         <span className={`${setTwo.camPill} ${setTwo.camEnd}`} data-papic-left="">
-          {pointsCap == null ? 'Unlimited' : `${formatCount(pointsLeft)} left`}
+          {limitLine}
         </span>
       </div>
       {/* 📡 Save first, send later — the uploader's one line (details in ⓘ). */}
@@ -391,7 +389,7 @@ export function PapicCaptureController({
           <button
             type="button"
             aria-label={canClip ? 'Tap for photo, hold for video' : 'Take photo'}
-            disabled={outOfPoints || !cam.ready}
+            disabled={blocked || !cam.ready}
             onPointerDown={onShutterDown}
             onPointerUp={onShutterUp}
             onPointerCancel={() => {
@@ -417,17 +415,10 @@ export function PapicCaptureController({
         <p className={setTwo.camHint}>
           {canClip
             ? 'Tap photo · hold for a 10s clip'
-            : allowVideo
+            : rule.videos || !rule.liftedBy
               ? ''
-              : /* ⚠ THE REASON IS THE CREDIT THRESHOLD, NOT THE TIER. This
-                   read "Photos only on Papic Lite" until 2026-08-26, when
-                   video moved from an always-true tier flag onto the
-                   allowance (owner: "800 credits will allow them to take
-                   videos"). Left alone it named the wrong tier to a Ltd
-                   supplier AND the wrong reason to everyone — a refusal that
-                   misdescribes itself sends somebody to fix the wrong thing.
-                   The number is DERIVED, never re-typed. */
-                `Photos only — video unlocks at ${formatCount(VENDOR_PAPIC_VIDEO_MIN_POINTS)} credits`}
+              : /* The reason is the PLAN, named from TIER_CAPS (`liftedBy`), never typed. */
+                `Photos only — Go ${rule.liftedBy} for video`}
         </p>
       </div>
     </div>

@@ -136,9 +136,12 @@ test('(4) 2D edge to edge in Guests: the floor fills the cell around the untouch
   // The room box keeps its size — the percent math reads it (never changed).
   assert.match(ed, /\.\.\.\(scaledBox\s*\? \{ width: `\$\{scaledBox\.w\}px`, height: `\$\{scaledBox\.h\}px` \}/);
   // Fit fills the floor (the cell) in Guests.
-  assert.match(ed, /const cell = inGuests \? regionRef\.current\?\.getBoundingClientRect\(\) : null;/);
-  // Fit measures the FLOOR (fitW / fitH), the property pinned here; #7060 may cap it at the old opening zoom.
-  assert.match(ed, /const z1 = (?:Math\.min\(PLAN_ZOOM_MAX_FLOOR, )?clampZoom\(Math\.min\(fitW \/ bw, fitH \/ bh\) \* 0\.86\)\)?;/);
+  // (In layout pixels since seat plan PR2 — `layoutRectOf`: a full screen still zooming open paints a scaled box.)
+  assert.match(ed, /const cell = inGuests && regionRef\.current \? layoutRectOf\(regionRef\.current, canvasEl\) : null;/);
+  // Fit measures the FLOOR — the whole cell, never the letterboxed room box — the property pinned here. Since 2026-11-20
+  // (owner: "Fit shows the whole room") the shared core frames the ROOM inside that cell (`fitRoom`,
+  // 🔒 the-floor-fits-the-room.test.ts); what it is given to work in is still the cell.
+  assert.match(ed, /cell: cell && cell\.width > 0 \? \{ width: cell\.width, height: cell\.height \} : \{ width: rect\.width, height: rect\.height \},/);
 });
 
 const count = (html: string, re: RegExp) => (html.match(re) ?? []).length;

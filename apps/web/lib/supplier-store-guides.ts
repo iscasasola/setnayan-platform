@@ -140,4 +140,14 @@ export const WIDGET_GUIDES: Record<SpecializedToolKey, WidgetGuide> = {
       step('See it in their plan', 'Your booth shows in the couple’s 3D plan, in their colours, with your logo.'),
     ],
   },
+  // spaces/_components: add-first-space.tsx · space-sheet.tsx · base-layout-fold.tsx · venue-seat-plan.tsx
+  spaces: {
+    key: 'spaces',
+    title: 'Spaces',
+    steps: [
+      step('Add your first space', 'Open Spaces and tap Add the first space. Add another like this makes the next one with the same details.'),
+      step('Lay out the room', 'In Base layout, Add tables puts a set of tables in the hall, all of one type. Add a door places a door on a wall.'),
+      step('See the floor', 'Tap Open the floor plan to see the room as it is set.'),
+    ],
+  },
 };

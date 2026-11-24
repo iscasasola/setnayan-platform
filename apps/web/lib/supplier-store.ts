@@ -438,6 +438,19 @@ export const STORE_GRAPHS: Readonly<Record<CardKey, { title: string; group: Grap
   price: { title: 'Where your price sits', group: 'Your market', asks: 'Is my price low, middle or high for my area?', counts: 'Your starting price against your area’s' },
   gifts: { title: 'Gifts given → bookings', group: 'Opened by a badge', asks: 'Do my gifts turn into bookings?', counts: 'Couples who asked and booked, with and without a gift' },
   invites: { title: 'Suppliers you invited', group: 'Opened by a badge', asks: 'What became of the suppliers I brought in?', counts: 'Suppliers you invited: booked, completed an event' },
+  // The Supplier Store drawing's new graphs (#8206) — title = STORE_GRAPH_TITLE, asks = the drawing's question verbatim, group = the drawing's group.
+  followers: { title: 'New followers', group: 'Being found', asks: 'Is my following growing?', counts: 'Couples who followed your shop' },
+  saved: { title: 'Saved by guests', group: 'Being found', asks: 'Do guests at my events keep my shop for later?', counts: 'Guests who saved your shop' },
+  photos: { title: 'Your most viewed photos', group: 'Being found', asks: 'Which photos pull people in?', counts: 'Views of each photo on your page' },
+  whenask: { title: 'When couples ask', group: 'Inquiries and replies', asks: 'Which days and hours should I be online?', counts: 'Inquiries by weekday and time of day' },
+  missed: { title: 'Inquiries you missed', group: 'Inquiries and replies', asks: 'How many couples did I never answer?', counts: 'Inquiries declined, unanswered or waitlisted' },
+  value: { title: 'Booked value, month by month', group: 'Quotes, bookings and money', asks: 'How much work did I book each month?', counts: 'The agreed price of your bookings, by month' },
+  owed: { title: 'Paid and still owed', group: 'Quotes, bookings and money', asks: 'How much has been paid, and how much is still coming?', counts: 'Received, still to come in, overdue' },
+  lead: { title: 'How far ahead couples book', group: 'Quotes, bookings and money', asks: 'How early should I open my calendar?', counts: 'Days from booking to the event' },
+  types: { title: 'What you celebrate', group: 'Your calendar', asks: 'Which kinds of events do I really do?', counts: 'Events you completed, by kind' },
+  revmonth: { title: 'Reviews, month by month', group: 'What couples say', asks: 'Am I still collecting reviews?', counts: 'Reviews couples left you, by month' },
+  substars: { title: 'Your stars, part by part', group: 'What couples say', asks: 'Where exactly do couples mark me down?', counts: 'The four part ratings on every review' },
+  replied: { title: 'Reviews you replied to', group: 'What couples say', asks: 'Do I answer the people who reviewed me?', counts: 'Reviews you answered, of every review' },
 };
 
 export function isGraphKey(v: unknown): v is CardKey {

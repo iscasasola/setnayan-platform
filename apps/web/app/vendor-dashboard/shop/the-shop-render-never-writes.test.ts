@@ -117,14 +117,19 @@ test('2 · the Shop page calls no write; its service-role client feeds only the 
   assert.ok(admins >= 1, 'the tracker no longer reads (the badge rows lost their rewards)');
   assert.equal(admins, intoTracker + intoStore, 'the Shop render hands its service-role client to something other than the read-only readers');
   const uses = [...page.matchAll(/\bstoreAdmin\b/g)].length;
-  const allowed = [...page.matchAll(/readStoreToolFacts\(supabase, storeAdmin,|readStoredBytesAsMeasured\(storeAdmin,|const storeAdmin =/g)].length;
+  const allowed = [...page.matchAll(/readStoreToolFacts\(supabase, storeAdmin,|readStoredBytesWithoutMeasuring\(storeAdmin,|const storeAdmin =/g)].length;
   assert.equal(uses, allowed, 'the Store’s service-role client reaches something other than its two read-only readers');
   assert.doesNotMatch(src('lib/supplier-store.server.ts'), WRITE, 'a Store reader writes');
-  // The Shop reads the read-only total (main's breakdown read measures a never-measured shop, so it may write once).
+  // The page's stored-bytes reader is `readStoredBytesWithoutMeasuring`. NOT `readStoredBytes`: that one goes through
+  // `vendor_storage_breakdown`, which measures a never-measured shop once (a write).
   const storage = src('lib/supplier-storage.server.ts');
-  const asMeasured = storage.slice(storage.indexOf('export async function readStoredBytesAsMeasured'), storage.indexOf('export async function checkSupplierStorage'));
-  assert.ok(asMeasured.includes("rpc('vendor_storage_used_bytes'"), 'the Shop’s stored-bytes reader is not the read-only total');
-  assert.doesNotMatch(asMeasured, WRITE, 'the stored-bytes reader writes');
+  const readerAt = storage.indexOf('export async function readStoredBytesWithoutMeasuring(');
+  assert.ok(readerAt >= 0, 'the read-only stored-bytes reader is gone');
+  const readerEnd = storage.indexOf('\nexport ', readerAt + 1);
+  const reader = storage.slice(readerAt, readerEnd < 0 ? undefined : readerEnd);
+  assert.doesNotMatch(reader, WRITE, 'the stored-bytes reader writes');
+  assert.doesNotMatch(reader, /readStorageBreakdown|readStoredBytes\(|vendor_storage_breakdown/, 'the stored-bytes reader reaches the measuring read');
+  assert.doesNotMatch(page, /\breadStoredBytes\(|readStorageBreakdown\(/, 'the Shop page calls the measuring read');
   // The Analytics carousel streams inside this same render (owner 11 Nov 2026) — it must not pay either.
   assert.doesNotMatch(src('app/vendor-dashboard/performance/_components/one-analytics-section.tsx'), WRITE, 'the Analytics render writes');
 });

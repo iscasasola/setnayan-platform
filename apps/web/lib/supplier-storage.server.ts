@@ -33,6 +33,26 @@ export async function readStoredBytes(admin: SupabaseClient, vendorProfileId: st
   return read.status === 'ok' ? { status: 'ok', bytes: storageTotal(read.breakdown) } : { status: 'unread' };
 }
 
+/**
+ * 🔒 THE SAME TOTAL, READ ONLY — for a page render that must never write (the Shop page, `the-shop-render-never-writes`).
+ * `vendor_storage_used_bytes` is the one total the limits sheet and the filing backstop read (files + the shop's data as
+ * last measured), with no first-time measure: a never-measured shop's data counts from its first nightly measure, its
+ * files at once. A refused or malformed answer is `unread`, never 0.
+ */
+export async function readStoredBytesWithoutMeasuring(admin: SupabaseClient, vendorProfileId: string): Promise<StoredBytesRead> {
+  const { data, error } = await admin.rpc('vendor_storage_used_bytes', { p_vendor_profile_id: vendorProfileId });
+  if (error) {
+    console.error('[supplier-storage] stored total unreadable', vendorProfileId, error.message);
+    return { status: 'unread' };
+  }
+  const bytes = Number(data);
+  if (data == null || !Number.isFinite(bytes) || bytes < 0) {
+    console.error('[supplier-storage] stored total malformed', vendorProfileId, data);
+    return { status: 'unread' };
+  }
+  return { status: 'ok', bytes };
+}
+
 export type StorageCheck =
   | { kind: 'fits' }
   /** The sentence names the plan, what is left, and the way up. */
@@ -72,28 +92,6 @@ export async function readStorageBreakdown(admin: SupabaseClient, vendorProfileI
     return { status: 'ok', breakdown };
   } catch (e) {
     console.error('[supplier-storage] breakdown read threw', vendorProfileId, e instanceof Error ? e.message : e);
-    return { status: 'unread' };
-  }
-}
-
-/**
- * 🔑 THE SAME TOTAL, READ-ONLY — for a render that must never write (the Shop cover's Storage row; guard
- * `shop/the-shop-render-never-writes.test.ts`). `vendor_storage_used_bytes` (STABLE) is the database's own total —
- * files plus records as last measured — the one `readStorageBreakdown` adds up. It never MEASURES: a shop never measured
- * counts its records once its first look at the Plans page or the nightly job has (the breakdown read does that, and
- * writes). A refused or malformed answer is `unread`, never 0.
- */
-export async function readStoredBytesAsMeasured(admin: SupabaseClient, vendorProfileId: string): Promise<StoredBytesRead> {
-  try {
-    const { data, error } = await admin.rpc('vendor_storage_used_bytes', { p_vendor_profile_id: vendorProfileId });
-    if (error) {
-      console.error('[supplier-storage] used bytes unreadable', vendorProfileId, error.message);
-      return { status: 'unread' };
-    }
-    const bytes = typeof data === 'number' ? data : typeof data === 'string' ? Number(data) : NaN;
-    return Number.isFinite(bytes) && bytes >= 0 ? { status: 'ok', bytes } : { status: 'unread' };
-  } catch (e) {
-    console.error('[supplier-storage] used bytes read threw', vendorProfileId, e instanceof Error ? e.message : e);
     return { status: 'unread' };
   }
 }

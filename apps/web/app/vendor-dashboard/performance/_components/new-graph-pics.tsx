@@ -127,12 +127,12 @@ export function ReplyVsPic({ r }: { r: ReplyVsBooked }) {
 }
 
 /** d · Slow months ahead — a column per month; an empty month is a ring, a thin month pale. */
-export function SlowPic({ months }: { months: readonly MonthCount[] }) {
+export function SlowPic({ months, label = 'Live bookings by month, the next 12', pic = 'slow' }: { months: readonly MonthCount[]; label?: string; pic?: string }) {
   const max = Math.max(1, ...months.map((m) => m.count));
   const colW = W / months.length;
   const H = 44;
   return (
-    <svg viewBox={`0 0 ${W} 62`} className="ag-svg" role="img" aria-label="Live bookings by month, the next 12" data-graph-pic="slow">
+    <svg viewBox={`0 0 ${W} 62`} className="ag-svg" role="img" aria-label={label} data-graph-pic={pic}>
       {months.map((m, i) => {
         const x = i * colW + 3;
         const bw = colW - 6;
@@ -208,8 +208,14 @@ export function CountPic({
   lastYear,
   axis,
   countKey,
+  label: named,
+  pic,
 }: {
   kind: 'opened' | 'asked' | 'booked';
+  /** The picture's name for a reader, when it is not one of the three count cards (the Store's series graphs). */
+  label?: string;
+  /** `data-graph-pic`, when it is not `kind`. */
+  pic?: string;
   values: readonly number[];
   /** Last year's buckets, the same length — drawn dashed; null = no line. */
   lastYear: readonly number[] | null;
@@ -235,9 +241,9 @@ export function CountPic({
       ? path(ly, xLine)
       : ly.map((v, i) => `${i ? 'L' : 'M'}${xBar(i).toFixed(1)} ${y(v).toFixed(1)} H${(xBar(i) + bw).toFixed(1)}`).join(' ')
     : null;
-  const label = kind === 'opened' ? 'Opens over the window' : kind === 'asked' ? 'Inquiries over the window' : 'Bookings over the window';
+  const label = named ?? (kind === 'opened' ? 'Opens over the window' : kind === 'asked' ? 'Inquiries over the window' : 'Bookings over the window');
   return (
-    <span className="ag-pic" data-graph-pic={kind}>
+    <span className="ag-pic" data-graph-pic={pic ?? kind}>
       <span className="ag-plot">
         <svg viewBox={`0 0 ${PW} ${PH}`} preserveAspectRatio="none" role="img" aria-label={ly ? `${label}, with the same days last year dashed` : label}>
           {kind === 'opened' ? (

@@ -28,6 +28,8 @@ import { ArrangeEdit } from '@/app/vendor-dashboard/shop/store/_components/store
 import { GraphArt } from '@/app/vendor-dashboard/shop/store/_components/graph-art';
 import type { InviteMonth } from '@/lib/graph-unlocks';
 import { NewThingTile } from '@/app/_components/collection-card';
+import type { StoreGraphs } from '@/lib/vendor-store-graphs';
+import { storeGraphSpecs } from './store-graphs';
 
 /**
  * 📊🎠 SHOP › ANALYTICS — ONE LONG CAROUSEL, AND IT IS THE ONLY ANALYTICS (owner 11 Nov 2026: *"Analytics should be the
@@ -158,9 +160,11 @@ type Props =
       giftsRecFacts?: GiftsRecFacts;
       /** The Invites graph (a fixed 12 months) — present only once Invites Bronze has opened it; null = a refused read. */
       invites?: InviteMonth[] | null;
+      /** 🛍 The Store's twelve new graphs, per window (lib/vendor-store-graphs.server.ts) — each `null` part = refused. */
+      store?: Record<GrowthWindow, StoreGraphs>;
       locked?: undefined;
     }
-  | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined; unlocks?: undefined; gifts?: undefined; giftsRecFacts?: undefined; invites?: undefined };
+  | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined; unlocks?: undefined; gifts?: undefined; giftsRecFacts?: undefined; invites?: undefined; store?: undefined };
 
 /**
  * 🛍 THE SHOP'S PICKS (owner 23 Nov 2026 — Store drawing v12, F0 + "Edit · Analytics"): `order` = the graphs the shop
@@ -188,11 +192,11 @@ export function AnalyticsCarousel(props: Props & Picks) {
     () =>
       base
         ? {
-            '30': { ...base['30'], gifts: props.gifts ? giftsSpec(props.gifts['30'], props.giftsRecFacts) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null },
-            '12': { ...base['12'], gifts: props.gifts ? giftsSpec(props.gifts['12'], props.giftsRecFacts) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null },
+            '30': { ...base['30'], gifts: props.gifts ? giftsSpec(props.gifts['30'], props.giftsRecFacts) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null, ...(props.store ? storeGraphSpecs(props.store['30'], '30') : {}) },
+            '12': { ...base['12'], gifts: props.gifts ? giftsSpec(props.gifts['12'], props.giftsRecFacts) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null, ...(props.store ? storeGraphSpecs(props.store['12'], '12') : {}) },
           }
         : null,
-    [base, props.gifts, props.giftsRecFacts, props.invites],
+    [base, props.gifts, props.giftsRecFacts, props.invites, props.store],
   );
   const hidden = useMemo(() => new Set(props.unlocks?.hidden ?? []), [props.unlocks]);
 

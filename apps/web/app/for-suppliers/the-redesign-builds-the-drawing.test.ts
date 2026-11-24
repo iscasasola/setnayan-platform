@@ -6,7 +6,7 @@
  *   · the parts, in the drawing's order, on the one route;
  *   · the fee steps' fees are `bookingFeePhp` on the schedule handed in — move the schedule and they move;
  *   · the gifts are the shop-gift packs read from the catalogue; an unread read says so, never ₱0;
- *   · the Toolkit count is the lists' own lengths, never a typed number;
+ *   · the Toolkit's sheet names the one Toolkit list; its ONE count is `toolkitClaim` (the-toolkit-claim-is-true.test.ts);
  *   · the plans open on Verified, every paid card carries its own checkout door, an unread price draws "—";
  *   · every media slot is a real file, every clip has a poster and fetches nothing for the first paint;
  *   · Part I: no shadow on a static card, no gradient but the hero's band, tabular numbers on the figures.
@@ -20,7 +20,7 @@ import { BOOKING_FEE, bookingFeePhp, type BookingFeeSchedule } from '@/lib/booki
 import { formatPhpRounded } from '@/lib/php';
 import { listedWidgets } from '@/lib/specialized-tools';
 import { SHOP_BADGE_KEYS } from '@/lib/badge-tiers';
-import { BUILT_IN_WIDGETS, PAID_STORE_TOOLS } from '@/lib/supplier-store';
+import { BUILT_IN_WIDGETS, PAID_STORE_TOOLS, toolkitItems } from '@/lib/supplier-store';
 import { PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { CARD_ORDER } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
@@ -40,7 +40,6 @@ import {
   giftRows,
   railShare,
   stairHasTools,
-  toolkitCountLine,
   toolkitShelves,
 } from './_components/supplier-front-data';
 
@@ -113,31 +112,35 @@ test('the gifts are the packs the catalogue sells — titles and prices read, un
   assert.match(ROUTE, /fetchShopGiftPacks\(admin\)/);
   assert.match(ROUTE, /fetchShopGiftBundles\(admin, packs\)/);
   assert.match(ROUTE, /planCreditsFrom\(catalog\)/);
-  assert.match(ROUTE, /const \[p, fee, giftRead, catalog, papicCapture\] = await Promise\.all\(\[/, 'the page reads in more than one batch');
+  assert.match(ROUTE, /const \[p, fee, giftRead, catalog, papicCapture, cardTemplates\] = await Promise\.all\(\[/, 'the page reads in more than one batch');
   assert.match(ROUTE, /isVendorPapicCaptureEnabled\(\)\.catch\(\(\) => false\)/, 'a refused privacy-switch read lists the Papic camera');
   assert.match(ROUTE, /papicCapture=\{papicCapture\}/);
 });
 
-test('the Toolkit count is the lists’ own lengths — never a typed number', () => {
+test('the Toolkit sheet names the one Toolkit list — the page’s one count is the-toolkit-claim-is-true.test.ts', () => {
   // The Papic camera is listed only while its privacy switch is on (v19 PR 2, `listedWidgets`).
-  assert.ok(!toolkitShelves(false)[0]!.rows.some((r) => r.key === 'papic_camera'), 'the Papic camera is listed with its switch off');
-  assert.ok(toolkitShelves(true)[0]!.rows.some((r) => r.key === 'papic_camera'));
+  const tools = (papic: boolean) => toolkitShelves(papic).find((sh) => sh.key === 'tools')!.rows;
+  assert.ok(!tools(false).some((r) => r.key === 'papic_camera'), 'the Papic camera is listed with its switch off');
+  assert.ok(tools(true).some((r) => r.key === 'papic_camera'));
   const shelves = toolkitShelves(false);
   const widgets = listedWidgets(false);
-  const { total, parts } = toolkitCountLine(shelves);
-  assert.equal(total, widgets.length + CARD_ORDER.length + SHOP_BADGE_KEYS.length);
-  assert.equal(parts, `${widgets.length} tools · ${CARD_ORDER.length} graphs · ${SHOP_BADGE_KEYS.length} badges`);
-  assert.deepEqual(shelves[0]!.rows.map((r) => r.name), widgets.map((t) => t.title));
+  // every item of the one list, once, by name; no shelf carries a count of its own
+  const items = toolkitItems({ papicCapture: false, badges: SHOP_BADGE_KEYS });
+  assert.equal(shelves.reduce((n, sh) => n + sh.rows.length, 0), items.length, 'the sheet lists a different set than the Toolkit');
+  for (const sh of shelves) assert.ok(!('count' in sh), `${sh.key} carries a second count`);
+  assert.deepEqual(tools(false).map((r) => r.name), widgets.map((t) => t.title));
+  assert.equal(shelves.find((sh) => sh.key === 'graphs')!.rows.length, CARD_ORDER.length);
+  assert.equal(shelves.find((sh) => sh.key === 'badges')!.rows.length, SHOP_BADGE_KEYS.length);
   // the tags are the Toolkit's own (owner a02673ac): the paid widgets are Paid — the Song bank too — the built-in
   // widgets Built in, the rest Free; there is no start date any more, so nothing is ever untagged
-  const tags = Object.fromEntries(shelves[0]!.rows.map((r) => [r.key, r.tag]));
-  for (const k of PAID_STORE_TOOLS) assert.equal(tags[k], 'paid', `${k} is not tagged Paid`);
-  for (const k of BUILT_IN_WIDGETS) assert.equal(tags[k], 'built', `${k} is not tagged Built in`);
+  const tags = Object.fromEntries(tools(false).map((r) => [r.key, r.tag]));
+  for (const k of PAID_STORE_TOOLS) if (k in tags) assert.equal(tags[k], 'paid', `${k} is not tagged Paid`);
+  for (const k of BUILT_IN_WIDGETS) if (k in tags) assert.equal(tags[k], 'built', `${k} is not tagged Built in`);
   for (const t of widgets) {
     if (!(PAID_STORE_TOOLS as readonly string[]).includes(t.key) && !BUILT_IN_WIDGETS.includes(t.key)) assert.equal(tags[t.key], 'free', t.key);
   }
+  for (const sh of shelves) for (const r of sh.rows) assert.ok(r.tag !== null, `${sh.key}:${r.key} is untagged`);
   assert.match(PAGE, /const shelves = toolkitShelves\(papicCapture\);/);
-  assert.match(PAGE, /const count = toolkitCountLine\(shelves\);/);
   assert.doesNotMatch(PAGE + CLIENT, /\b33\b|\b11 tools\b|\b17 graphs\b/, 'a Toolkit number is typed');
 });
 

@@ -99,6 +99,9 @@ const SITES: Record<string, Site> = {
   'app/_components/help-ask/page-info-sheet.tsx': {
     why: 'a page’s ⓘ — a 44-px round in its pinned row that opens the page’s help SHEET (Show me · Answers · the guide; Guide & Help drawing, approved 21 Nov 2026), not a hover note or a centred popup',
   },
+  'app/dashboard/[eventId]/studio/website-pro/_components/event-services-view.tsx': {
+    why: 'Event services (approved v5 drawing, website template, 2026-11-23): each pack’s ⓘ at its row’s end opens the pack’s full list IN PLACE, in a note box under the row — not a hover note or a popup',
+  },
   'app/_components/chat/cards/card-bits.tsx': { why: 'a chat card’s 44-px ⓘ button that opens that card’s details sheet (Unichat part C)' },
   'app/_components/site-stage/site-stage.tsx': {
     why: 'the Maker’s who×when stage is obsidian in both themes; InfoTip’s ink and popover are the light page’s',

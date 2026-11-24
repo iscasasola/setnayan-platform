@@ -9,6 +9,7 @@ import {
 } from '@/lib/entitlements';
 import { askedOnce } from '@/lib/request-once';
 import {
+  EVENT_HUB_SKU,
   EVENT_PLUS_SKU,
   EVERYTHING_SKU,
   FULL_PRO_SKU,
@@ -152,10 +153,12 @@ export function eventHubOwnership(
     //    Schedule Release, View as); Plus does not. Asked in one step (the guest page's read depth).
     const holds = (sku: string) => (mode === 'active' ? eventSkuActive(supabase, eventId, sku) : eventOwnsSku(supabase, eventId, sku));
     const counts = mode === 'active' ? orderStatusConfersAccess : orderStatusConfersOwnership;
-    const [plusHeldOutright, proHeld, ultraHeld] = await Promise.all([
+    const [plusHeldOutright, proHeld, ultraHeld, hubSingleHeld] = await Promise.all([
       holds(EVENT_PLUS_SKU),
       holds(FULL_PRO_SKU),
       holds(EVENT_ULTRA_PLAN_SKU),
+      // 🛒 The Event Hub single (owner 2026-11-23): the whole Hub, no plan, no credit toward one.
+      holds(EVENT_HUB_SKU),
     ]);
     if (proHeld || ultraHeld) return everyHubPartHeld(true);
     if (plusHeldOutright) {
@@ -185,6 +188,10 @@ export function eventHubOwnership(
         plusPaid: true,
       });
     }
+    // 🛒 The Event Hub single alone: every part held, nothing paid toward Pro or Ultra — so Pro asks its row's price
+    //    (`resolveHubProCharge`: no Pro plan and nothing paid → the catalogue row). Whether a paid Hub single should
+    //    count toward a plan is the owner's to say (Event services PR); until then it earns no credit.
+    if (hubSingleHeld) return everyHubPartHeld(false);
     // 2. Each part on its own. A part is sold only by its own order (or gifted by
     //    a comp, or freed by a promo) — never in a bundle or the onboarding basket,
     //    and an internal/founder host already answered in step 1 — so the ONE batch

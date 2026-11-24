@@ -27,7 +27,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  * the SHIPPED editor, never a second drawing of it:
  *   · Plan and billing — `PlanScreen` (the Plan page's own screen: your plan, what it gives you, receipts, add-ons) and the
  *     shop wallet's balance (the Papic credits, `lib/shop-wallet.ts` words). The store shell refuses the Plan page
- *     (`lib/store-shell.ts`), so there the fold says the plan — and, where Apple can sell (`getIapGate().iap`), offers
+ *     (`lib/store-shell.ts`), so there the fold says the plan — and, where Apple sells the plans (`getIapGate().iapSubscriptions`:
+ *     a build whose app version carries the "Supplier plans" subscriptions, `SetnayanIAP/4`+, never 1.0), offers
  *     Plus · Pro · Ultra through Apple (`ApplePlanDoor`, owner-locked 22 Nov), never a web price;
  *   · Team — `TeamScreen` (the Helpers page's own screen). A save inside comes back here (`lib/gear-return.server.ts`);
  *   · Verification and documents — `VerifySection`, MOVED here from Shop › Details' "Your documents" fold;
@@ -66,11 +67,12 @@ export async function ShopSettingsBody({ search }: { search: Record<string, stri
     // `authenticated`'s column allowlist (migration 20271222518385) — the shop reads its own through the definer view
     // `vendor_profiles_self`, in its OWN select so a refusal can never take the plan read down with it.
     supabase.from('vendor_profiles_self').select('verification_state, next_renewal_due_at').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle(),
-    // 🍎 THE PLAN DOOR IN THE APP (owner-locked 22 Nov): only where Apple can sell, for a shop admin — who bills the plan
-    // (one channel at a time) and the shop's Apple subscription, read for THIS shop's own id.
+    // 🍎 THE PLAN DOOR IN THE APP (owner-locked 22 Nov): only where Apple sells the plans, for a shop admin — who bills the
+    // plan (one channel at a time) and the shop's Apple subscription, read for THIS shop's own id. Not in 1.0 (build 9):
+    // the subscriptions ship with the next app version (`iapSubscriptions`, lib/iap/iap-gate.ts `hasStoreSubscriptions`).
     storeShell && manager
       ? getIapGate().then(async (gate): Promise<AppleShopPlanRead | null> =>
-          gate.iap ? readAppleShopPlan(createAdminClient(), profile.vendor_profile_id) : null,
+          gate.iapSubscriptions ? readAppleShopPlan(createAdminClient(), profile.vendor_profile_id) : null,
         )
       : Promise.resolve(null),
   ]);

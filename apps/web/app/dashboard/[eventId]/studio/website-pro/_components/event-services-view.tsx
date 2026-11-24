@@ -96,9 +96,13 @@ function appleFacts(f: EventServicesFacts, apple: AppleKit): EventServicesFacts 
     const id = apple.products[code];
     return id && apple.prices.display.has(id) ? 0 : null;
   };
+  // 🍎 ONE plan per event in the app: Apple sells each plan whole and cannot charge "the difference", and the server
+  // refuses a second plan for an event that holds one (`startAppStorePurchase`: owned / not_on_sale). So an event on a
+  // plan is offered no pack here at all — never a "Next pack" whose Pay can only fail.
+  const onPlan = f.plan !== null && f.plan !== 'free';
   return {
     ...f,
-    packs: f.packs.map((p) => ({ ...p, php: p.state === 'buy' ? priced(p.code) : null, savePhp: null, upgrade: false })),
+    packs: onPlan ? [] : f.packs.map((p) => ({ ...p, php: p.state === 'buy' ? priced(p.code) : null, savePhp: null, upgrade: false })),
     singles: f.singles.filter((x) => has(x.code)).map((x) => ({ ...x, php: x.state === 'buy' ? priced(x.code) : null })),
     photos: f.photos ? f.photos.filter((x) => has(x.code)).map((x) => ({ ...x, php: 0 })) : null,
   };

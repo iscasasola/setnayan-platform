@@ -273,22 +273,26 @@ test('the small print is two labelled columns — Company and Legal, one link ea
 
 
 test('signed in the rail is your own rows and one Features row — no find row', async () => {
-  // 🏠 HOME IS THE PROFILE (owner 11 Nov 2026): Home · Discover, in the bar's order — Home's sections (Events · People ·
-  // Shop · Memories) are small doors under the Home row — then the fine print: HQ for an admin, and Features.
+  // 🏠 UNIHOME v5 (owner-approved 23 Nov 2026, DECISION_LOG "UNIHOME v5 APPROVED"; it amends 11 Nov "HOME IS THE
+  // PROFILE"): the ☰ is Home with its five places under it, in page order — Events · Shop · People · Memories ·
+  // Discover, each landing on its part of Home — then the fine print: HQ for an admin, and Features. Discover is the last
+  // part of Home, so a signed-in rail has no Discover row of its own.
   const rows = await railRows('app', { signedIn: true, shopName: 'Lab Florals', isAdmin: true }, '/dashboard');
   assert.deepEqual(
     rows.map((r) => `${r.label} ${r.href}`),
     [
+      // ➕ On Home the rail's top carries "Create an event" (no `fd-label-text`: it is a button, not a row).
+      ' /dashboard/create-event',
       'Home /dashboard',
-      'Events /dashboard',
-      'People /dashboard',
-      'Shop /dashboard',
-      'Memories /dashboard',
-      'Discover /',
+      'Events /dashboard#events',
+      'Shop /dashboard#shop',
+      'People /dashboard#people',
+      'Memories /dashboard#memories',
+      'Discover /dashboard#discover',
       'Setnayan HQ /admin',
       'Features /features',
     ],
-    'signed in = Home (Events · People · Shop · Memories) · Discover · HQ · Features (owner 11 Nov 2026, "HOME IS THE PROFILE")',
+    'signed in = Home (Events · Shop · People · Memories · Discover) · HQ · Features (Unihome v5, 23 Nov 2026)',
   );
   const links = await rail('app', { signedIn: true, shopName: 'Lab Florals', isAdmin: true }, '/dashboard');
   assert.ok(!links.includes('/explore'), 'a signed-in rail grew a find row again');

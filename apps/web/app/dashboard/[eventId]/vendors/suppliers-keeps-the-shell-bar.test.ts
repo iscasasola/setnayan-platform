@@ -84,7 +84,15 @@ test('the pinned block sits UNDER the bar — at its measured height — and row
   assert.match(shared, /if \(bar\.getAttribute\('data-hidden'\) !== 'true'\) return true;/, 'the shared read no longer honours a slid-away bar');
   assert.match(shared, /matchMedia\('\(min-width: 1024px\)'\)\.matches\) return true;/, 'on a desk the bar stays put — the shared read must say so');
   assert.match(src, /root\.style\.setProperty\('--sup-top', `\$\{top\}px`\)/);
-  assert.match(src, /root\.style\.setProperty\('--stick-h', `\$\{top \+ stick\.offsetHeight\}px`\)/);
+  // `--stick-h` is the bar plus the block's own height. ⚡ Speed pass 2026-11-24: the block's height is READ before the
+  // first write (`const stickH = stick.offsetHeight`), because a read after `--sup-top` is written forces another layout
+  // of the whole page — three per call at mount, ~350 ms on a mid phone. Every reading of `sync` comes before its writes.
+  assert.match(src, /const stickH = stick\.offsetHeight;/, 'the block’s own height is no longer part of --stick-h');
+  assert.match(src, /root\.style\.setProperty\('--stick-h', `\$\{top \+ stickH\}px`\)/);
+  const sync = /const sync = \(\) => \{([\s\S]*?)\n {4}\};/.exec(src)?.[1] ?? '';
+  assert.ok(sync, 'the pinned block’s sync is gone — re-anchor on `const sync`');
+  const lastRead = Math.max(...['getBoundingClientRect', 'offsetHeight', 'scrollY'].map((r) => sync.lastIndexOf(r)));
+  assert.ok(lastRead > 0 && lastRead < sync.indexOf('setProperty'), 'sync reads the layout after writing to it — a whole-page layout per read');
   // A bench doorway and a `#svc-*` section land below the bar AND the block. A folder card keeps 14 px of air; an
   // opened category's row lands ON the line, where its head pins (2026-10-29 — `lib/pin-landing.ts`; the 14 px strip
   // was what the head jumped across, held by `lib/an-opened-category-never-covers-its-card.test.ts`).

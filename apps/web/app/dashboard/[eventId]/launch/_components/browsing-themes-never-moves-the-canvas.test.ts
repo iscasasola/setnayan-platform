@@ -90,7 +90,9 @@ test('1 · an entry is the SAMPLE page + theme= — never a couple’s canvas do
 test('2a · `theme=` is honoured for a verified host only, and only for a shipped theme', () => {
   assert.equal(canvasTriedTheme({ theme: 'vintage' }, false), null, 'a stranger’s ?theme= must change nothing');
   assert.equal(canvasTriedTheme({ theme: 'vintage' }, true), 'vintage');
-  assert.equal(canvasTriedTheme({ theme: 'capiz' }, true), null, 'a retired id is not a tile');
+  // RE-AIMED 23 Nov (themes batch 1): `capiz` is a live theme again, so the retired id named here is `minimalist`.
+  assert.equal(canvasTriedTheme({ theme: 'capiz' }, true), 'capiz');
+  assert.equal(canvasTriedTheme({ theme: 'minimalist' }, true), null, 'a retired id is not a tile');
   assert.equal(canvasTriedTheme({ theme: '<script>' }, true), null);
   assert.equal(canvasTriedTheme({}, true), null);
 });

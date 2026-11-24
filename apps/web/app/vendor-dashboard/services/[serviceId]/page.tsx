@@ -17,9 +17,14 @@ import { loadCardForEdit, loadKindDetails, loadMakerContext } from '@/lib/servic
 import { loadCardMakerLibrary } from '@/lib/card-maker-library.server';
 import { canonicalServiceForVendorCategory } from '@/lib/service-customization-draft';
 import { HallsUsesPick } from '../_components/halls-uses-pick';
+import { AddFirstSpace } from '../../spaces/_components/add-first-space';
+import { SUPPLIER_FLOOR_PLAN_MIN_TIER } from '@/lib/seat-plan-engine';
+import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BOOKINGS_UNREAD, cardEditLockOf, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
 import { setServiceHalls } from '../../calendar/actions';
+import { SCHEDULE_OR_HALL_POOLS } from '@/lib/schedule-pool-kinds';
 
 export const metadata = { title: 'Your service' };
 
@@ -60,7 +65,7 @@ export default async function EditServiceCardPage({
   // 🃏📸 ONE ALBUM, TWO PLACES (DECISION_LOG 2026-10-08, frames 71–78) rides the card-record flag: OFF → the Record and
   // Portfolio folds read and say exactly what they did before; ON → the record (or its refusal) and this card's albums.
   const recordOn = cardRecordEnabled();
-  const [ctx, details, records, hallsRes, bookedNow, cardBookings, albums, library] = await Promise.all([
+  const [ctx, details, records, hallsRes, bookedNow, cardBookings, albums, library, tierRes] = await Promise.all([
     loadMakerContext(supabase, profile.vendor_profile_id, { fixedCategory: card.category, withKindList: false }),
     loadKindDetails(supabase, profile.vendor_profile_id, card.category),
     // 🃏 Flag ON: a refused record read is SAID (frame 75), never folded into "nobody booked it". Flag OFF: not read.
@@ -71,6 +76,7 @@ export default async function EditServiceCardPage({
           .select('pool_id, pool_label, calendar_name, vendor_service_halls(vendor_service_id)')
           .eq('vendor_profile_id', profile.vendor_profile_id)
           .eq('is_hall', true)
+          .or(SCHEDULE_OR_HALL_POOLS)
           .eq('is_active', true)
           .order('created_at', { ascending: true })
           .then(
@@ -89,6 +95,10 @@ export default async function EditServiceCardPage({
       : Promise.resolve(undefined),
     // 📚 Card Maker HYBRID part 2 — saved pay plans, the shop's other cards, Setnayan's starting lists for this service.
     loadCardMakerLibrary(supabase, profile.vendor_profile_id, canonicalServiceForVendorCategory(card.category)),
+    // 🏛 "Add the first" opens the Spaces sheet, whose names are Pro and up — its tier in the same batch (venue only).
+    sellsVenue
+      ? supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   // 🏷 Frame 6 (DECISION_LOG 2026-11-14): which inspirations each album's photos are in — the shop proved just above.
   const albumTags = albums
@@ -196,6 +206,22 @@ export default async function EditServiceCardPage({
         </p>
       ) : venueHalls.length > 0 ? (
         <HallsUsesPick serviceId={serviceId} halls={venueHalls} uses={hallUses} action={setServiceHalls} />
+      ) : sellsVenue ? (
+        // 🏛 No hall yet: "add the first" (drawing screen 8) — the way into Spaces for a new venue.
+        <AddFirstSpace
+          today={new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })}
+          // A refused tier read reads as below Pro: the lock holds, never a wrong "you have it". The server refuses the same.
+          proOpen={!vendorPaywallApplies(isTierAtLeast((tierRes.data as { tier_state?: string | null } | null)?.tier_state ?? null, SUPPLIER_FLOOR_PLAN_MIN_TIER))}
+          firstHall={
+            profile.venue_width_m != null || profile.capacity_max != null
+              ? {
+                  widthM: profile.venue_width_m != null ? Number(profile.venue_width_m) : null,
+                  lengthM: profile.venue_length_m != null ? Number(profile.venue_length_m) : null,
+                  seated: profile.capacity_max ?? null,
+                }
+              : null
+          }
+        />
       ) : null}
     </div>
   );

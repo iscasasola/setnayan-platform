@@ -19,6 +19,7 @@
 
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { SupplierFrontPage } from '@/app/for-suppliers/_components/supplier-front-page';
 import { growSpec } from '@/app/for-suppliers/_components/supplier-front-data';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
@@ -201,7 +202,7 @@ export default async function ForSuppliersPage() {
   const admin = createAdminClientOrNull();
   // 🚪 On the supplier door (supplier.setnayan.com — lib/doors.ts) the page draws no way to the couple side.
   const door = await requestDoor();
-  const [p, fee, giftRead, catalog] = await Promise.all([
+  const [p, fee, giftRead, catalog, papicCapture] = await Promise.all([
     getVendorPrices(),
     getLiveBookingFeeSchedule(),
     admin
@@ -210,6 +211,8 @@ export default async function ForSuppliersPage() {
           .catch(() => ({ packs: null, bundles: null }))
       : Promise.resolve({ packs: null, bundles: null }),
     fetchV2CustomerCatalog(),
+    // 📷 The Toolkit lists the Papic camera only while its privacy switch is on; a refused read keeps it off.
+    isVendorPapicCaptureEnabled().catch(() => false),
   ]);
   const credits = planCreditsFrom(catalog);
   return (
@@ -230,6 +233,7 @@ export default async function ForSuppliersPage() {
           }}
           gifts={{ packs: giftRead.packs, bundles: giftRead.bundles, credits: { plusCredits: credits.plusCredits, proCredits: credits.proCredits } }}
           paywallOn={isVendorFeatureGateEnabled()}
+          papicCapture={papicCapture}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}
           afterPlans={
             door ? undefined : (

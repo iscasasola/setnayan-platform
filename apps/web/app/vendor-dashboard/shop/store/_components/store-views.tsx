@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
 import type { ReactNode } from 'react';
-import { BadgeCheck, Check, ChevronRight, Lock, Plus, ShoppingBag, Sparkles } from 'lucide-react';
+import { BadgeCheck, Check, ChevronRight, Layers, Lock, Plus, QrCode, ShoppingBag, Sparkles } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatPhpRounded } from '@/lib/php';
 import { routes } from '@/lib/routes';
@@ -20,12 +20,14 @@ import {
   buyWords,
   toolFootWords,
   toolIsYours,
+  qrWords,
   type GraphStatus,
   type StoreToolRow,
   type ToolTag,
 } from '@/lib/supplier-store';
 import type { ShelfTile } from '@/lib/shop-badge-shelf';
 import type { CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
+import type { PromoteQrMode } from '@/lib/supplier-qr-codes';
 import { StoreOp } from './store-client';
 import { GraphArt } from './graph-art';
 import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_PLAN_WORDS } from '@/lib/special-tools';
@@ -177,10 +179,13 @@ export function StoreToolTile({ row }: { row: StoreToolRow }) {
   );
 }
 
-/** Show & sort tokens for a tool row: yours · free · paid, plus the chips it answers (For you · each tag's group). */
+/** Show & sort tokens for a tool row: yours · free · paid, plus the chips it answers (For you · each tag's group), its
+ *  kind (`k-widget`, the front's Widgets chip), its places (`p-chat` …, Your widgets' chips) and `installed` (v19 switch). */
 export function toolShowTags(row: StoreToolRow): string {
-  const tags = [toolIsYours(row.status) ? 'yours' : 'more'];
-  tags.push(row.status.kind === 'free' || row.status.kind === 'verify' ? 'free' : 'paid');
+  const tags = [toolIsYours(row.status) ? 'yours' : 'more', 'k-widget', ...row.tool.shelves.map((p) => `p-${p}`)];
+  if (row.installed) tags.push('installed');
+  const base = row.status.kind === 'no_card' ? row.status.prior : row.status;
+  tags.push(base.kind === 'free' || base.kind === 'verify' ? 'free' : 'paid');
   if (row.forYou) tags.push('foryou');
   for (const t of row.tags) if (t.group) tags.push(groupChipKey(t.group));
   return [...new Set(tags)].join(' ');
@@ -209,7 +214,7 @@ export function StoreGraphTile({ k, status }: { k: CardKey; status: GraphStatus 
         )
       }
       data={`graph:${k}`}
-      show={status.kind === 'on' ? 'on' : status.kind === 'locked' ? 'locked' : 'off'}
+      show={status.kind === 'on' ? 'on k-graph installed' : status.kind === 'locked' ? 'locked k-graph' : 'off k-graph'}
     />
   );
 }
@@ -241,8 +246,82 @@ export function StoreBadgeTile({ tile, following }: { tile: ShelfTile; following
         )
       }
       data={`badge:${tile.key}`}
+      show={(tile.key === 'verified' ? tile.state === 'earned' : following) ? 'k-badge installed' : 'k-badge'}
     />
   );
+}
+
+/** A QR design's mark (Toolkit v19). */
+export function QrArt() {
+  return (
+    <span aria-hidden className="grid h-10 w-10 place-items-center rounded-lg bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink">
+      <QrCode className="h-5 w-5" strokeWidth={1.75} />
+    </span>
+  );
+}
+
+/** A QR design's tile on the Toolkit front (v19): its words are the QR rows' own; My page reads Built in. */
+export function StoreQrTile({ k, installed, builtIn }: { k: PromoteQrMode; installed: boolean; builtIn: boolean }) {
+  const w = qrWords(k);
+  return (
+    <StoreTile
+      href={shop.store.item('qr', k)}
+      art={<QrArt />}
+      title={w.name}
+      line={w.line}
+      foot={builtIn ? 'Built in' : 'Free'}
+      pill={
+        installed ? (
+          <Pill tone="done">
+            <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.4} />
+            {INSTALLED_WORD}
+          </Pill>
+        ) : (
+          <Pill>{INSTALL_WORD}</Pill>
+        )
+      }
+      data={`qr:${k}`}
+      show={installed ? 'k-qr installed' : 'k-qr'}
+    />
+  );
+}
+
+/**
+ * ⭐ A FEATURED CARD at the Toolkit's top (v19 frame 1: one on a phone, two on a desktop) — a real item only: a graph
+ * not yet installed that reads "New · Recommended", or a paid widget suggested for the shop's own services. None = none.
+ */
+export function StoreHeroCard({ eyebrow, title, line, href, art, pill, show, data, wide }: {
+  eyebrow: string;
+  title: string;
+  line: string;
+  href: string;
+  art: ReactNode;
+  pill: ReactNode;
+  show: string;
+  data: string;
+  /** The second card shows from the desktop width up. */
+  wide?: boolean;
+}) {
+  return (
+    <li className={wide ? 'hidden sm:block' : ''} data-store-row="" data-store-name={title} data-store-show={show}>
+      <Link href={href} className="sn-press sn-frame flex h-full flex-col gap-2 p-4" data-store-hero={data}>
+        <span className="text-sn-sm font-semibold uppercase tracking-wide text-[rgb(var(--color-link))]">{eyebrow}</span>
+        <span className="flex items-start gap-3">
+          {art}
+          <span className="min-w-0 flex-1">
+            <b className="block text-sn-xl font-semibold leading-tight text-ink">{title}</b>
+            <span className="block text-sn-md leading-snug text-[color:var(--m-slate-2)]">{line}</span>
+          </span>
+        </span>
+        <span className="flex justify-end">{pill}</span>
+      </Link>
+    </li>
+  );
+}
+
+/** The featured card's pill: Install, or Buy with the catalog price. */
+export function HeroPill({ children }: { children: ReactNode }) {
+  return <Pill>{children}</Pill>;
 }
 
 /** A shelf on the Store front: its name, "See all N", and its tiles in one sideways row. */
@@ -276,6 +355,9 @@ export function ToolShelfRow({ row, yours }: { row: StoreToolRow; yours: readonl
   } else if (a.kind === 'resubscribe') {
     // 🧰 Owned on Free or Verified (owner a02673ac): kept, locked, the plans door — never a second Buy.
     right = <ActionButton tone="info" icon={<Sparkles aria-hidden strokeWidth={1.8} />} label="See plans" href={routes.vendorDashboard.subscription()} />;
+  } else if (a.kind === 'no_card') {
+    // 🟢 No online service card serves it (3a2419fd): kept and greyed — the door turns a card on, never a Buy.
+    right = <ActionButton tone="info" icon={<Layers aria-hidden strokeWidth={1.8} />} label="Your services" href={routes.vendorDashboard.services()} />;
   } else if (a.kind === 'install') {
     // Free, or owned and taken off the page: Install puts it back on Your widgets — never a second charge.
     right = yours ? (

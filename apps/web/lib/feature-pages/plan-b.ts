@@ -309,8 +309,8 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
       tl: 'Nagmumungkahi ang Setnayan AI ng supplier team ayon sa pinakabagay, tapos binabantayan ang deadlines, bayarin, budget at petsa, at sinasabi ang susunod.',
     },
     answer: {
-      en: 'Setnayan AI is a paid planner, not a chatbot. It suggests a team of verified suppliers by how well they fit your event, then tracks your deadlines, payments, budget and dates and tells you the one thing to do next. It is not sold on its own: it comes with Event Pro and Event Ultra.',
-      tl: 'Ang Setnayan AI ay bayad na planner, hindi chatbot. Nagmumungkahi ito ng team ng verified na suppliers ayon sa bagay sa event mo, tapos binabantayan ang deadlines, bayarin, budget at petsa mo at sinasabi ang susunod na dapat gawin. Hindi ito binebenta nang hiwalay: kasama ito sa Event Pro at Event Ultra.',
+      en: 'Setnayan AI is a paid planner, not a chatbot. It suggests a team of verified suppliers by how well they fit your event, then tracks your deadlines, payments, budget and dates and tells you the one thing to do next. It comes with Event Pro and Event Ultra, or you can buy it on its own for one event.',
+      tl: 'Ang Setnayan AI ay bayad na planner, hindi chatbot. Nagmumungkahi ito ng team ng verified na suppliers ayon sa bagay sa event mo, tapos binabantayan ang deadlines, bayarin, budget at petsa mo at sinasabi ang susunod na dapat gawin. Kasama ito sa Event Pro at Event Ultra, o mabibili nang hiwalay para sa isang event.',
     },
     forWho: {
       en: 'Busy hosts who would rather be told than check, and who want a team picked by fit, never cheapest first.',
@@ -334,12 +334,12 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
       en: [
         { q: 'Is Setnayan AI a chatbot?', a: 'No. A chatbot waits for you to ask. Setnayan AI watches your suppliers, budget and dates in the background and tells you what needs you.' },
         { q: 'Do I have to use it?', a: 'Never. The planning tools stay free and work on their own. Setnayan AI comes with the paid event plans and does the suggesting and watching.' },
-        { q: 'How is it priced?', a: 'It is not sold on its own. It comes with Event Pro and Event Ultra; one plan covers your event, and today’s price is on our Pricing page.' },
+        { q: 'How is it priced?', a: 'It comes with Event Pro and Event Ultra, or on its own for one event; today’s prices are on our Pricing page.' },
       ],
       tl: [
         { q: 'Chatbot ba ang Setnayan AI?', a: 'Hindi. Naghihintay ang chatbot ng tanong mo. Ang Setnayan AI ay nagbabantay sa suppliers, budget at petsa mo sa background at sinasabi kung ano ang kailangan mo.' },
         { q: 'Kailangan ko ba itong gamitin?', a: 'Hindi kailanman. Libre pa rin ang mga planning tool at gumagana nang mag-isa. Ang Setnayan AI ay kasama sa bayad na event plans at siya ang nagmumungkahi at nagbabantay.' },
-        { q: 'Paano ang presyo?', a: 'Hindi ito binebenta nang hiwalay. Kasama ito sa Event Pro at Event Ultra; isang plan para sa buong event mo, at nasa Pricing page namin ang presyo ngayon.' },
+        { q: 'Paano ang presyo?', a: 'Kasama ito sa Event Pro at Event Ultra, o mabibili nang hiwalay para sa isang event; nasa Pricing page namin ang mga presyo ngayon.' },
       ],
     },
     keywords: {
@@ -347,7 +347,8 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
       tl: ['AI event planner', 'AI planner ng kasal', 'rekomendasyon ng supplier'],
     },
     shots: [],
-    // ⚖ Owner 2026-11-04 (final price sheet): Setnayan AI is not sold on its own — every SETNAYAN_AI* row is off sale.
+    // ⚖ Owner 2026-11-04: Setnayan AI off sale on its own. ♻️ Owner 2026-11-23 (DECISION_LOG): back on its own at the
+    // SETNAYAN_AI row ("so there is a separate price for setnayan AI 2790") — the copy says so; the "From" price below is unchanged.
     // It comes inside Event Pro and Event Ultra (`AI_INCLUDED_PLAN_SKUS`, lib/sku-activation.ts — Event Plus lost it for new
     // buyers in the 18 Nov re-cut), so the page is priced by THEIR active rows: "From" the cheaper plan. Reading the retired AI ladder showed "From ₱265" (RW-149, 2026-11-14).
     // 🔒 app/features/setnayan-ai-is-priced-by-its-plans.test.ts

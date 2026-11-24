@@ -111,7 +111,11 @@ export const AI_TIER_FALLBACK_PHP: Readonly<Record<AiPriceTier, number>> = {
   // 💲 2026-10-28 (DECISION_LOG "THE ONE PRICE — APP STORE = WEBSITE"): the
   // owner's App Store prices, which the catalogue now carries too (migration
   // `*_one_price_app_store_equals_website.sql`). Was 2499 / 1499 / 899 / 199.
-  A: 3300,
+  // 💲 2026-11-23 (DECISION_LOG "EVENT PLANS ARE PACKAGES … SETNAYAN AI ₱2,790", owner verbatim: "so there is a
+  // separate price for setnayan AI 2790"): rung A follows the SETNAYAN_AI row, which migration
+  // `20271359355225_event_services_singles_back_on_sale.sql` sets to 2,790. Was 3300. B–D are the owner's call in
+  // Admin › Pricing and are unchanged here.
+  A: 2790,
   B: 1980,
   C: 1190,
   D: 265,
@@ -137,8 +141,8 @@ export const AI_TIER_ONBOARDING_FALLBACK_PHP: Readonly<Record<AiPriceTier, numbe
   // ⚖ 2026-11-03 (owner, "drop the 40% on all then"): there is NO sign-up
   // price, so buying during set-up costs the regular price — these equal
   // AI_TIER_FALLBACK_PHP. (Was 1980 / 1188 / 714 / 159, 40% off, 2026-10-28;
-  // before that 1499 / 899 / 539 / 119.)
-  A: 3300,
+  // before that 1499 / 899 / 539 / 119.) Rung A: 2,790 with the regular ladder (2026-11-23, see above). Was 3300.
+  A: 2790,
   B: 1980,
   C: 1190,
   D: 265,

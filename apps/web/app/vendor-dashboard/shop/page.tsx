@@ -1,6 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import { readStoreLayout, readStoreToolFacts } from '@/lib/supplier-store.server';
-import { followedBadges, storageMeter, yourTools, type StorageMeter, type StoreLayout } from '@/lib/supplier-store';
+import { followedBadges, noCardWords, storageMeter, yourTools, type StorageMeter, type StoreLayout } from '@/lib/supplier-store';
 import { readStoredBytesWithoutMeasuring } from '@/lib/supplier-storage.server';
 import { nextStoragePlan } from '@/lib/supplier-storage';
 import { readPayPlanTemplates } from '@/lib/pay-plan-templates.server';
@@ -158,6 +158,8 @@ type ShopData = {
   uploadFacts: PortfolioUploadFacts;
   /** 📋 How many live forms the shop has saved (the Forms Maker tile) — null = unread, said as "Couldn't load". */
   formsSaved: number | null;
+  /** 🏛 How many spaces the shop has — the Spaces tile shows only once there is one. null = unread. */
+  spacesCount: number | null;
   /** 🏷 The Offer Maker tile: Verified (the lock), how many offers run, and the papers line for the lock. */
   offerTile: OfferTileFacts;
   /** 🛍 The shop's layout of its three Store rows (graphs · badges · tools); null = unread (the defaults are drawn). */
@@ -201,8 +203,11 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     try {
       const { data, error } = await supabase
         .from('vendor_profiles')
-        .select('tier_state, verification_state, microsite_hero_photo_key, is_founder, created_at, vendor_forms!vendor_forms_vendor_profile_id_fkey(form_id), vendor_offers!vendor_offers_vendor_profile_id_fkey(is_on, until_date, who, first_n_cap, first_n_taken)')
+        .select('tier_state, verification_state, microsite_hero_photo_key, is_founder, created_at, vendor_forms!vendor_forms_vendor_profile_id_fkey(form_id), vendor_offers!vendor_offers_vendor_profile_id_fkey(is_on, until_date, who, first_n_cap, first_n_taken), vendor_schedule_pools!vendor_schedule_pools_vendor_profile_id_fkey(pool_id)')
         .is('vendor_forms.retired_at', null)
+        // 🏛 Spaces (owner 19 Nov): the tile shows only once the shop has one — counted in this same read.
+        .eq('vendor_schedule_pools.is_active', true)
+        .not('vendor_schedule_pools.space_kind', 'is', null)
         .eq('vendor_profile_id', vendorId)
         .maybeSingle();
       if (error) logQueryError('VendorShopPage.ownRow', error, { vendorId }, 'graceful_degrade');
@@ -214,6 +219,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
             is_founder?: boolean | null;
             created_at?: string | null;
             vendor_forms?: { form_id: string }[] | null;
+            vendor_schedule_pools?: { pool_id: string }[] | null;
             verification_state?: string | null;
             vendor_offers?: { is_on: boolean; until_date: string | null; who: string; first_n_cap: number | null; first_n_taken: number | null }[] | null;
           } | null) ?? null);
@@ -508,8 +514,10 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     logoFields: logoFieldData(profile, logoUrl),
     uploadFacts,
     formsSaved: own && Array.isArray(own.vendor_forms) ? own.vendor_forms.length : null,
+    spacesCount: own && Array.isArray(own.vendor_schedule_pools) ? own.vendor_schedule_pools.length : null,
     layout,
-    mine: yourTools(toolFacts).map((r) => ({ key: r.tool.key })),
+    // 🟢 A widget no online card serves stays on the row, greyed with its line (DECISION_LOG 3a2419fd).
+    mine: yourTools(toolFacts).map((r) => ({ key: r.tool.key, off: r.status.kind === 'no_card' ? noCardWords(r.status.category) : undefined })),
     // The plan is the shop's own row's; unread → the meter says "Couldn't load" (never a 0 against a guessed plan).
     storage: {
       meter: own ? storageMeter(own.tier_state ?? null, stored) : { kind: 'unread' },
@@ -783,6 +791,7 @@ async function ShopHome({
           formsBody={shopFormsBody(sp)}
           templatesBody={shopTemplatesBody(sp)}
           formsSaved={data.formsSaved}
+          spacesCount={data.spacesCount}
           categories={(data.serviceRows ?? []).map((r) => r.label)}
           services={data.services}
           booked={data.booked}

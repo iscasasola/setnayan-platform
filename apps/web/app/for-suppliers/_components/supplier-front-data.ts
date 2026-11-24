@@ -33,7 +33,7 @@ import { clientsKeptWords, planStorageLine } from '@/lib/supplier-client-room';
 const sizeWords = (bytes: number | null): string => (bytes == null ? 'Your storage' : storageWords(bytes));
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
-import { SPECIALIZED_TOOLS, type SpecializedToolKey } from '@/lib/specialized-tools';
+import { listedWidgets, type SpecializedToolKey } from '@/lib/specialized-tools';
 import { isBuiltInWidget, isPaidStoreTool, toolkitCounts } from '@/lib/supplier-store';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
@@ -612,15 +612,16 @@ export type ToolkitShelf = { key: 'tools' | 'graphs' | 'badges'; title: string; 
  * in the Toolkit, working only on a paid plan) are Paid; the built-in widgets (`BUILT_IN_WIDGETS`) are Built in; every
  * other tool is Free. There is no start date to read any more. A badge is earned, never sold.
  */
-export function toolkitShelves(): ToolkitShelf[] {
-  const counts = toolkitCounts(SHOP_BADGE_KEYS);
+export function toolkitShelves(papicCapture: boolean): ToolkitShelf[] {
+  // The one Toolkit list (`toolkitCounts`, v19 PR 2): the Papic camera is listed only while its privacy switch is on.
+  const counts = toolkitCounts({ papicCapture, badges: SHOP_BADGE_KEYS });
   const toolTag = (k: SpecializedToolKey): ToolkitTag => (isPaidStoreTool(k) ? 'paid' : isBuiltInWidget(k) ? 'built' : 'free');
   return [
     {
       key: 'tools',
       title: 'Tools',
-      count: counts.tools ?? 0,
-      rows: SPECIALIZED_TOOLS.map((t) => ({ key: t.key, name: t.title, line: t.line, tag: toolTag(t.key) })),
+      count: counts.widgets ?? 0,
+      rows: listedWidgets(papicCapture).map((t) => ({ key: t.key, name: t.title, line: t.line, tag: toolTag(t.key) })),
     },
     { key: 'graphs', title: 'Graphs', count: counts.graphs ?? 0, rows: [] },
     {

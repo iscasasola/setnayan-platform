@@ -16,6 +16,7 @@ import { lastDayOf } from '@/lib/event-date-floor';
 import { readAllPages, readInChunks } from '@/lib/read-all-pages';
 import { pieceBookingIdsOf } from '@/lib/piece-seats';
 import { NOT_AVAILABLE_COLUMNS, notAvailableFieldsOf, type DayPart, type RepeatRule } from '@/lib/not-available';
+import { SCHEDULE_OR_HALL_POOLS } from '@/lib/schedule-pool-kinds';
 
 export type SchedulePool = {
   poolId: string;
@@ -263,6 +264,7 @@ export async function fetchVendorPoolsOrNull(
       .select(poolCols)
       .eq('vendor_profile_id', vendorProfileId)
       .eq('is_active', true)
+      .or(SCHEDULE_OR_HALL_POOLS)
       .order('created_at', { ascending: true }),
     supabase
       .from('vendor_schedule_pool_categories')

@@ -164,18 +164,19 @@ function movingBackground(id: InviteThemeId): { ground: ResolvedMainGround; urls
     }
   };
   const poster = at(media.poster);
-  const clip = at(media.loop);
+  const loop = media.loop; // null on a still theme: the poster alone
+  const clip = loop ? at(loop) : null;
   if (!poster && !clip) return null;
   const urls: Record<string, string> = {};
   if (poster) urls[media.poster] = poster;
-  if (clip) urls[media.loop] = clip;
+  if (clip && loop) urls[loop] = clip;
   return {
     ground: {
       source: 'own',
       stillRef: poster ? media.poster : null,
-      clipRef: clip ? media.loop : null,
+      clipRef: clip ? loop : null,
       // The SAME guest switch every Main-background clip meets (`mainGroundClipRefForGuests`) — closed, a guest gets the still.
-      guestClipRef: clip ? mainGroundClipRefForGuests(media.loop) : null,
+      guestClipRef: clip && loop ? mainGroundClipRefForGuests(loop) : null,
       tint: { match: false, frame: [media.samples.light, media.samples.dark] },
     },
     urls,

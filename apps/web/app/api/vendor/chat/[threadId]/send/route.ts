@@ -29,6 +29,7 @@ const STATUS_BY_CODE: Record<SendMessageError, number> = {
   plus_unverified: 403, // a file is a ＋ tool — words only until the shop is verified
   private_recipient: 403, // the private recipient is not in this chat
   whisper_refused: 403, // a whisper nobody can hear, or from a non-host — refused, never sent to everyone
+  tool_share_refused: 403, // a tool share from a shop that is not verified or does not hold that tool
   insert_failed: 500,
 };
 

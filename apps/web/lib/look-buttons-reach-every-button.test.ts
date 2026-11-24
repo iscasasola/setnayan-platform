@@ -305,6 +305,8 @@ test('(6) Look › Buttons is the Reply button in THREE shapes — no "Default";
   const READS: Record<string, [number, string]> = {
     house: [4, 'rounded'], abaca: [6, 'rounded'], vintage: [2, 'rounded'], gatsby: [4, 'rounded'], cyber: [8, 'rounded'],
     galeriya: [999, 'pill'], cinderella: [999, 'pill'], velvet: [999, 'pill'], whimsical: [999, 'pill'], regency: [999, 'pill'],
+    // 23 Nov, themes batch 1 (each corner from its sheet, `prototypes/maker_themes_redraw_2026-11-23/batch1/`).
+    perlas: [999, 'pill'], waling: [999, 'pill'], capiz: [4, 'rounded'], hagdan: [999, 'pill'], solihiya: [4, 'rounded'],
   };
   assert.deepEqual(HUB_THEMES.map((t) => t.id).sort(), Object.keys(READS).sort(), 'a theme was added or removed — say what its own button reads as');
   assert.deepEqual([...HUB_BUTTON_SHAPES_OFFERED], ['square', 'rounded', 'pill']);

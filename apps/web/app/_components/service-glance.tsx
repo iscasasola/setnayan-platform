@@ -65,9 +65,12 @@ export function ServiceGlanceRow({
   marker,
   meter,
   slim,
+  tag,
 }: {
   href: string;
   name: string;
+  /** A small outlined word after the name (the website template's tag, e.g. "New" — Event services on Today, v5). */
+  tag?: string;
   brand?: string;
   icon: ReactNode;
   mood: ServiceMood;
@@ -117,7 +120,17 @@ export function ServiceGlanceRow({
             {icon}
           </span>
           <span className="min-w-0">
-            <span className="sg-name block truncate">{name}</span>
+            <span className="sg-name block truncate">
+              {name}
+              {tag ? (
+                <>
+                  {' '}
+                  <span className="et-tag" data-glance-tag="">
+                    {tag}
+                  </span>
+                </>
+              ) : null}
+            </span>
             {/* The Setnayan name, small under the plain one (owner d17). */}
             {brand ? <span className="sg-brand block truncate">{brand}</span> : null}
           </span>

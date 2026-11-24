@@ -37,7 +37,7 @@
  * a fit-frame transform (like the 2D editor's) is the documented follow-up.
  */
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
@@ -89,6 +89,7 @@ import { SEAT_PLAN_SHOW_VIEW_EVENT } from '@/lib/seat-plan-views';
 import { RoomViewTools } from './room-view-tools';
 import { AccentsSheet } from './accents-sheet';
 import { useSeatingLiveRefresh } from '@/app/dashboard/[eventId]/seating/_components/use-seating-live-refresh';
+import { SeatRoomLinkContext } from '@/app/dashboard/[eventId]/seating/_components/seat-room-link';
 import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
 import { RemotePlayers, CameraMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
 import { colorFromId } from '@/lib/plan3d-room';
@@ -176,6 +177,8 @@ import {
 } from '@/app/_components/plan3d/phone-gpu-budget';
 
 type Props = {
+  /** The room has drawn its first frames — the loader lifts its "Building your room…" poster. */
+  onRoomReady?: () => void;
   eventId: string;
   /**
    * 🪑 Drawn inside the Maker's Details › Seat plan, as its 3D view, BESIDE the
@@ -418,7 +421,21 @@ type Dancer = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; spot:
 
 /* 👁 View-only since 2026-10-30: the rules, the groups and the decor-layer family (keepApart, priorityOrder, groups,
    styleFamily) still ride `Props` from the page, and the room reads none of them — their editors live on the 2D plan. */
-export default function SeatingLab3D({ eventId, inMaker = false, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, inspirationByPart, finalizedByPart, bookedSuggestions, dismissedSuggestions, themeName, venueSetting, monogram, animatedMonogram, me, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
+/** 🖼 Says so once the room has really drawn (a few frames in) — the loader's poster lifts then (`seating-lab-loader.tsx`). */
+function RoomReady({ onReady }: { onReady: () => void }) {
+  const frames = useRef(0);
+  useFrame(() => {
+    if (frames.current < 0) return;
+    frames.current += 1;
+    if (frames.current >= 3) {
+      frames.current = -1;
+      onReady();
+    }
+  });
+  return null;
+}
+
+export default function SeatingLab3D({ onRoomReady, eventId, inMaker = false, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, inspirationByPart, finalizedByPart, bookedSuggestions, dismissedSuggestions, themeName, venueSetting, monogram, animatedMonogram, me, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
   const router = useRouter();
   // 👁 The floor is the server's (the 2D plan edits it); the room only draws it.
   const floor = floorProp;
@@ -538,6 +555,11 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   const roomOnScreen = useHasSize(wrapperRef);
   // 📱 When the browser takes WebGL away (a phone out of GPU memory), say so and offer the 2D plan — never a dead canvas.
   const webgl = useWebglContextLost();
+  /* 🖼 A room that cannot draw (the browser took its context) must still lift the loader's poster — what shows then is
+     this file's own "try again", never "Building your room…" for ever. */
+  useEffect(() => {
+    if (webgl.lost) onRoomReady?.();
+  }, [webgl.lost, onRoomReady]);
   const [camBusy, setCamBusy] = useState(false);
   // Game-pad "walk the room" mode (Play only). The on-screen sticks write into
   // walkInput each frame; WalkController reads it to drive the camera.
@@ -1024,6 +1046,16 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     url.searchParams.delete('guide');
     window.history.replaceState(window.history.state, '', url.toString());
   }, [guideTo]);
+  /* 🧊 In Guests the seat plan this room is drawn in hands down who holds ITS lock and the thumb row's search
+     (`seat-room-link.ts`, drawing § 6): a name Entered on 3D walks that guest to their seat — this room's own Guide me.
+     The room still takes no lock and writes nothing; "Take over" is the plan's own. */
+  const roomLink = useContext(SeatRoomLinkContext);
+  const guideAsk = roomLink?.guide ?? null;
+  const guidedAt = useRef(0);
+  useEffect(() => {
+    if (!guideAsk || guideAsk.at === guidedAt.current) return;
+    if (guideTo(guideAsk.guestId)) guidedAt.current = guideAsk.at;
+  }, [guideAsk, guideTo]);
   const guideOptions = useMemo(
     () =>
       [...seats.keys()]
@@ -1136,6 +1168,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         camera={{ position: [0, room.d * 1.05 + 6, room.d * 0.95 + 6], fov: 42 }}
         gl={{ antialias: true, powerPreference: phoneGpu ? 'default' : 'high-performance', ...RECOMMENDED_TONEMAP }}
       >
+        {onRoomReady ? <RoomReady onReady={onRoomReady} /> : null}
         {phoneGpu ? <DemandTail busy={!sceneSettled} /> : null}
         <color attach="background" args={[mode === 'play' ? '#0c0e14' : '#13151c']} />
         {/* Play's fog is the golden-hour tune (warmed toward the key, far
@@ -1430,6 +1463,8 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         onWalkEveryone={walkEveryone}
         onClearCrowd={() => setCrowd(null)}
         guide={{ options: guideOptions, onPick: (gid) => void guideTo(gid), active: walker?.gid ?? null }}
+        guideInSearch={roomLink !== null}
+        lock={roomLink?.lock ?? null}
         dancingCount={dancers.length}
         onClearFloor={clearFloor}
         sayHi={

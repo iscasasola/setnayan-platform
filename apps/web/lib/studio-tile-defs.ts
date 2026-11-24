@@ -47,7 +47,7 @@ export function isStudioMenuKey(key: string): boolean {
  */
 export const STUDIO_TILE_ITEM: Readonly<Record<StudioTileKey, DetailsItemKey>> = {
   info: 'names',
-  look: 'background',
+  look: 'theme',
   logo: 'logo',
   mood: 'mood-board',
   schedule: 'schedule',
@@ -61,9 +61,19 @@ export const STUDIO_TILE_ITEM: Readonly<Record<StudioTileKey, DetailsItemKey>> =
  * Background — never another Look-group item (Logo, Mood Board, Cover page, Reveal), which the lower
  * third's "stay where you were" used to carry over. Every other tile opens its own item.
  */
+/**
+ * 🎬 LOOK'S TABS: Theme · Background · Elements · Music. Theme is the whole Event Hub's one theme, shown as the moving set
+ * (owner 23 Nov 2026, DECISION_LOG "THEMES ARE SHOWN AS THE ANIMATED SET — APPROVED", built with Maker parts 4–6); its
+ * item key is the Look item's own (`theme`, the key the guided flow and old addresses have always named).
+ */
+export const STUDIO_LOOK_TABS = ['theme', ...LOOK_SECTION_ITEM_KEYS] as const satisfies readonly DetailsItemKey[];
+export type StudioLookTab = (typeof STUDIO_LOOK_TABS)[number];
+
 export function studioTileItem(key: StudioTileKey, current: string | null): DetailsItemKey {
   if (key === 'look') {
-    return current !== null && (LOOK_SECTION_ITEM_KEYS as readonly string[]).includes(current) ? (current as DetailsItemKey) : 'background';
+    /* 🎬 Look opens on Theme, the moving set (owner 23 Nov, DECISION_LOG "THEMES ARE SHOWN AS THE ANIMATED SET"), and keeps
+       a Look tab the couple was on. */
+    return current !== null && (STUDIO_LOOK_TABS as readonly string[]).includes(current) ? (current as DetailsItemKey) : 'theme';
   }
   return STUDIO_TILE_ITEM[key];
 }
@@ -75,7 +85,7 @@ export function studioTileItem(key: StudioTileKey, current: string | null): Deta
  */
 export function studioTileOfItem(item: string | null | undefined): StudioTileKey | null {
   if (!item) return null;
-  if ((LOOK_SECTION_ITEM_KEYS as readonly string[]).includes(item)) return 'look';
+  if ((STUDIO_LOOK_TABS as readonly string[]).includes(item)) return 'look';
   for (const key of STUDIO_TILE_KEYS) if (key !== 'look' && STUDIO_TILE_ITEM[key] === item) return key;
   return null;
 }

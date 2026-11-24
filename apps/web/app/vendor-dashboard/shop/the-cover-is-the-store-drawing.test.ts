@@ -5,7 +5,7 @@
  *
  *   1. The Storage row: the plan's space, read honestly (`storageMeter` — an unread store is "Couldn’t load", never 0),
  *      and the plan chip that opens the storage sheet (`?sheet=storage`).
- *   2. ONE line of doors: the logo · View shop · Share · Promote. No five-tile quick row.
+ *   2. ONE line of doors: the logo · View shop · Toolkit · Share · Promote (v19). No five-tile quick row.
  *   3. Promote is ONE sheet with two tabs — Posters & prints (the shipped Promote body: Prints · Gifts · Share your work)
  *      and QR codes (the shipped QR body). The old addresses (`?sheet=prints`, `?sheet=qr`) still land on it.
  *   4. The storage sheet: the plan, what is stored of its space, and the way up — never a typed photo limit or price.
@@ -34,15 +34,16 @@ test('1 · the Storage row: the meter, honest when unread, and the plan chip ope
   assert.equal(storageMeter('pro', null).kind, 'unread');
 });
 
-test('2 · one line of doors: the logo · View shop · Share · Promote — no quick row', () => {
+test('2 · one line of doors: the logo · View shop · Toolkit · Share · Promote — no quick row', () => {
   assert.doesNotMatch(COVER, /data-shop-quick-row/, 'the five-tile quick row is back');
   const one = COVER.slice(COVER.indexOf('data-shop-cover-line="one"'));
-  const at = ['data-tour="shop-logo"', 'data-view-shop=""', 'data-shop-cover-icon="share"', 'data-shop-cover-icon="promote"'].map((k) => one.indexOf(k));
-  assert.ok(at.every((n) => n >= 0), 'line one lost the logo, View shop, Share or Promote');
-  assert.deepEqual(at, [...at].sort((a, b) => a - b), 'line one is not logo · View shop · Share · Promote');
+  const at = ['data-tour="shop-logo"', 'data-view-shop=""', 'data-shop-cover-icon="toolkit"', 'data-shop-cover-icon="share"', 'data-shop-cover-icon="promote"'].map((k) => one.indexOf(k));
+  assert.ok(at.every((n) => n >= 0), 'line one lost the logo, View shop, Toolkit, Share or Promote');
+  assert.deepEqual(at, [...at].sort((a, b) => a - b), 'line one is not logo · View shop · Toolkit · Share · Promote');
+  assert.match(one, /href=\{routes\.vendorDashboard\.shop\.store\.index\(\)\} className=\{SHARE_PILL\} data-shop-cover-icon="toolkit"/, 'the Toolkit square is not the Toolkit door');
 });
 
-test('3 · Promote: one sheet, Posters & prints · QR codes, the old addresses still land', () => {
+test('3 · Promote: one sheet, Posters & prints · My QRs, the old addresses still land', () => {
   assert.match(COVER, /label: 'Posters & prints'/);
   // 🔳 Main's My QRs (23 Nov): Promote's second tab reads "My QRs" (held too by shop/qrs/my-qrs-keeps-every-code.test.ts).
   assert.match(COVER, /label: 'My QRs'/);

@@ -75,13 +75,17 @@ export function themePrintSrc(
 /** The sample's prints an entry shows beside its page — the sample door serves exactly these. */
 export const SAMPLE_PRINT_PIECES = ['invitation', 'details', 'pass'] as const;
 
+/** 🪧 Every piece the sample door serves: the entry's three, and the table sign the Maker's theme set shows (23 Nov). */
+export const SAMPLE_DOOR_PIECES = [...SAMPLE_PRINT_PIECES, 'table-sign'] as const;
+export type SampleDoorPiece = (typeof SAMPLE_DOOR_PIECES)[number];
+
 /**
  * A SAMPLE print in a theme (`/api/hub-print/<piece>?sample=1`, the sample door
  * — `lib/print-sample-door.server.ts`): the same picture for every couple,
  * `public` and immutable by `v` (the sample's print-inputs hash).
  */
 export function samplePrintSrc(
-  piece: (typeof SAMPLE_PRINT_PIECES)[number],
+  piece: SampleDoorPiece,
   theme: string,
   version: string | null,
   /** 🎨 The sample's board, as `sampleBoardQuery` wrote it (`palette=none` · `board=…&bv=…`); absent = the sample's own. */

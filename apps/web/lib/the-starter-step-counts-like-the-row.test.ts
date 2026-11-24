@@ -46,6 +46,7 @@ test('only the couple (or nobody coming): the step asks for guests', () => {
 test('the editor draws the helper’s words — no second count of its own', () => {
   const ed = readFileSync(join(HERE, '..', 'app', 'dashboard', '[eventId]', 'seating', '_components', 'seating-editor.tsx'), 'utf8');
   assert.match(ed, /starterDraftHint\(\{ guests, coupleRoles: roleSet\.coupleRoles \}\)/, 'the step counts its own way again');
-  assert.match(ed, /label="Build my seating draft" hint=\{draftHint\}/, 'the step does not draw the helper’s hint');
+  // 2026-11-20: the step is "Seat everyone for me" (`seat-floor-start.tsx`); when it cannot run, the reason it gives is the helper's.
+  assert.match(ed, /seatEveryoneNote: draftable === 0 \? draftHint : null,/, 'the step does not draw the helper’s hint');
   assert.doesNotMatch(ed, /g\.role !== 'bride' && g\.role !== 'groom'/, 'a hard-coded couple filter is back');
 });

@@ -42,6 +42,8 @@ import {
   type PartnershipOrigin,
 } from '@/lib/supplier-invite';
 import { readJoinedThroughLink } from '@/lib/supplier-invite.server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchShopTrust, TRUSTED_BY_UNREADABLE } from '@/lib/vendor-trusted-by';
 import { PreferredSupplierCard, type AddableShop } from './_components/preferred-supplier-card';
 import { PartnerRemoveRow } from './_components/partner-remove-row';
 
@@ -86,6 +88,9 @@ const RELATIONSHIP_LABELS_SHORT: Record<string, string> = PARTNERSHIP_VENDOR_LAB
 type Props = {
   searchParams: Promise<SearchParams>;
 };
+
+/** Owner 21 Nov 2026 ("TRUST NEEDS ONE COMPLETED, PAID EVENT THE TWO SHOPS SERVED TOGETHER"), verbatim. */
+const WAITING_FOR_FIRST_EVENT = 'Waiting for your first event together';
 
 export default async function VendorPartnershipsPage({ searchParams }: Props) {
   const sp = await searchParams;
@@ -189,10 +194,18 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   const shopName = (profile as { business_name?: string | null }).business_name?.trim() || 'Your shop';
   const invitePath = slug ? supplierInvitePath(slug) : null;
   const inviteUrl = invitePath ? `${siteOrigin()}${invitePath}` : null;
-  const [inviteSvg, joinedCount] = await Promise.all([
+  const [inviteSvg, joinedCount, trustRead] = await Promise.all([
     inviteUrl ? renderUrlQrSvg(inviteUrl).catch(() => null) : Promise.resolve(null),
     readJoinedThroughLink(supabase, myId),
+    // 🤝 Owner 21 Nov 2026 + drawing v7: each partner is Trusted (you served an event together, completed and paid, or
+    // it is a new shop from your link) or Waiting — the ONE reader (lib/vendor-trusted-by.ts). Waiting shows here only.
+    accepted.length > 0 ? fetchShopTrust(createAdminClient(), [myId]) : Promise.resolve([]),
   ]);
+  // A refused read claims neither: no Trusted tag, no Waiting line — and the list says it could not check.
+  const trustedNow: Map<string, boolean> | null =
+    trustRead === TRUSTED_BY_UNREADABLE
+      ? null
+      : new Map(trustRead.filter((t) => t.vendorProfileId === myId).map((t) => [t.otherVendorProfileId, t.trusted]));
   const query = (sp.q ?? '').trim().slice(0, 60);
   let addResults: AddableShop[] | 'unreadable' | null = null;
   if (sp.add === '1' && query.length >= 2) {
@@ -247,17 +260,17 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
         </FormFlash>
       ) : null}
       {sp.accepted ? (
-        <FormFlash tone="success">Partnership accepted — the badge is now live on both profiles.</FormFlash>
+        <FormFlash tone="success">Partnership accepted. You trust each other once you have served an event together.</FormFlash>
       ) : null}
       {sp.declined ? <FormFlash tone="success">Request declined.</FormFlash> : null}
       {sp.added ? (
         <FormFlash tone="success">
-          Added. They are on your Trusted partners now; you show on theirs once they accept.
+          Added. Once they accept and you serve an event together, you trust each other.
         </FormFlash>
       ) : null}
       {sp.removed ? <FormFlash tone="success">Removed from both shop pages.</FormFlash> : null}
       {sp.joined ? (
-        <FormFlash tone="success">You joined — you are each other&rsquo;s trusted partners now.</FormFlash>
+        <FormFlash tone="success">You joined as partners. You trust each other after your first event together.</FormFlash>
       ) : null}
       {sp.already ? <FormFlash tone="success">You two are partners already.</FormFlash> : null}
       {sp.hidden ? <FormFlash tone="success">Hidden from your Trusted partners. Your partnership is unchanged.</FormFlash> : null}
@@ -338,9 +351,16 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
           <h2 className="mb-3 flex items-center gap-2 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             <CheckCircle2 className="h-3.5 w-3.5" /> Partners ({accepted.length})
           </h2>
+          {trustedNow === null ? (
+            <p role="alert" className="mb-3 text-sn-md text-ink/70" data-partner-trust="unreadable">
+              We couldn&rsquo;t check which partners are trusted right now. Reload to try again.
+            </p>
+          ) : null}
           <ul className="space-y-3">
             {accepted.map((p) => {
               const iProposed = p.recommending_vendor_id === myId;
+              const partnerId = iProposed ? p.recommended_vendor_id : p.recommending_vendor_id;
+              const trusted = trustedNow?.get(partnerId);
               const kindLabel = RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type;
               return (
                 // 🤝 THE HOUSE ROW (coordinator 2026-11-06, from the 390 px proof): name + Live on one line, one quiet
@@ -354,16 +374,24 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                     titleNode={
                       <>
                         {otherName(p)}{' '}
-                        <span className="ml-1 inline-block rounded-full bg-success-50 px-2 py-0.5 align-middle text-[10px] font-semibold text-success-700">
-                          Live
-                        </span>
+                        {trusted === true ? (
+                          <span
+                            className="ml-1 inline-block rounded-full bg-success-50 px-2 py-0.5 align-middle text-sn-2xs font-semibold text-success-700"
+                            data-partner-trust="trusted"
+                          >
+                            Trusted
+                          </span>
+                        ) : null}
                       </>
                     }
                     line={
-                      // 🤝 Invited and added ties say where they came from (v3); a worked-together tie keeps its kind.
-                      p.origin === 'worked_together'
-                        ? `${partnerLine({ origin: p.origin, iProposed, at: p.accepted_at, events: eventsWith.get(iProposed ? p.recommended_vendor_id : p.recommending_vendor_id) ?? null })} · ${kindLabel}`
-                        : partnerLine({ origin: p.origin, iProposed, at: p.accepted_at ?? p.created_at })
+                      // 🤝 Owner 21 Nov 2026: a partner you have not served an event with yet waits — said here only.
+                      trusted === false
+                        ? WAITING_FOR_FIRST_EVENT
+                        : // 🤝 Invited and added ties say where they came from (v3); a worked-together tie keeps its kind.
+                          p.origin === 'worked_together'
+                          ? `${partnerLine({ origin: p.origin, iProposed, at: p.accepted_at, events: eventsWith.get(iProposed ? p.recommended_vendor_id : p.recommending_vendor_id) ?? null })} · ${kindLabel}`
+                          : partnerLine({ origin: p.origin, iProposed, at: p.accepted_at ?? p.created_at })
                     }
                     wrap
                     lead={<CheckCircle2 className="h-5 w-5 text-success-600" />}

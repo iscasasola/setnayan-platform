@@ -78,7 +78,8 @@ test('the selling pages are found by what they RENDER, not by a word in a commen
   // its Add more is the card's on Home. Never lower this for any other reason.
   // 4 → 3 on 2026-11-22: the Editorial PRO buy page was REMOVED (no door since 2026-07-22; it forwards to the Story
   // Maker, lib/legacy-redirects.ts) — not missed.
-  assert.ok(selling.length >= 3, `only ${selling.length} selling pages — the sweep found nothing.`);
+  // 🛒 2026-11-23: the plans page (`website-pro`) is Event services now and left this sweep (its own masthead names it).
+  assert.ok(selling.length >= 2, `only ${selling.length} selling pages — the sweep found nothing.`);
   assert.ok(
     !selling.includes('indoor-blueprint'),
     'indoor-blueprint is a retired SKU with no checkout; if it sells again, that is a decision.',
@@ -159,7 +160,8 @@ test('the words come from the one catalog record, and every key a page names exi
   for (const p of studioPages()) {
     for (const m of code(p.src).matchAll(/addOnHeroCopy\('([a-z0-9-]+)'\)/g)) named.add(m[1]!);
   }
-  assert.ok(named.size >= 3, `only ${named.size} pages read the shared copy — the sweep found nothing.`);
+  // 🛒 2026-11-23: the plans page (`website-pro`) left the sweep — it is Event services now, named by its own masthead.
+  assert.ok(named.size >= 2, `only ${named.size} pages read the shared copy — the sweep found nothing.`);
   for (const key of named) {
     const copy = addOnHeroCopy(key);
     assert.ok(copy.label.length > 0, `${key}: the catalog carries an empty label.`);

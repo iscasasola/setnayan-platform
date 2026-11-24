@@ -105,7 +105,8 @@ test('4 · every old way in opens My QRs', () => {
   assert.match(read('app/vendor-dashboard/shop/page.tsx'), /<PromoteBody search=\{qrSearch\} part="qr" \/>/);
   const body = read('app/vendor-dashboard/shop/promote/_components/promote-body.tsx');
   assert.match(body, /const withQr = part === 'all' \|\| part === 'qr';/);
-  assert.match(body, /withQr \? <MyQrsList canShare=\{canShare\} setupHref="\/vendor-dashboard\/shop" embedded \/>/);
+  // Toolkit v19 (#8231): the list also takes the Toolkit's removed QR designs (`hide`), read beside the rest.
+  assert.match(body, /withQr \? <MyQrsList canShare=\{canShare\} setupHref="\/vendor-dashboard\/shop" embedded( hide=\{hide\})? \/>/);
   assert.match(LIST, /href=\{MY_QRS_HREF\}/, 'the embedded list has no door to the My QRs page');
   // Links that named a code.
   assert.match(read('app/vendor-dashboard/shop/promote/page.tsx'), /if \(asked\) redirect\(myQrHref\(asked, search\)\);/);

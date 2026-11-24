@@ -20,6 +20,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   CircleDot,
   GripVertical,
   Lock,
@@ -66,6 +67,7 @@ import {
   AlertTriangle,
   ListOrdered,
   Scale,
+  LayoutGrid,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCloseOutside } from './close-outside';
@@ -93,7 +95,6 @@ import { UndoToastHost } from '../../guests/_components/undo-toast';
 import { pushUndo } from '../../guests/_components/undo-store';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
-import { guestSeatView } from '../../guests/seat-view-actions';
 import { GUEST_SEAT_VIEWS, GUEST_SEAT_VIEW_LABEL, GUEST_SEAT_VIEW_SHORT, parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 import { StatusLine } from '@/app/_components/status-line';
 import { Counter } from '@/app/_components/counter';
@@ -162,10 +163,27 @@ import {
   TABLE_TYPE_LABEL,
   shapeHintFor,
   tableGeometry,
+  rowGeometry,
+  rowFootprintM,
+  venuePickFor,
+  lineUpPlan,
+  snapDoor,
+  venueRowWords,
+  VENUE_TABLE_PICKS,
+  PLAN_TABLE_SHAPES,
+  clampChairs,
+  PLAN_MAX_CHAIRS,
+  type PlanTableShape,
   DEFAULT_ROOM_M,
   type TableShapeHint,
   type TableType,
   nearestWall,
+  fitRoom,
+  planRoomWords,
+  seatingBoxPct,
+  seatingJoinRow,
+  snapToLines,
+  type SeatingFloor,
 } from '@/lib/seat-plan-engine';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
 import {
@@ -180,40 +198,8 @@ import { VENDOR_CATEGORY_LABEL, type BoothVendorOption } from '@/lib/vendors';
 // derivation so the 2D editor and the 3D venue walk agree (no magic numbers,
 // one source for "which wall a booth backs onto").
 import { BOOTH_FOOTPRINT_M, boothFacingDeg2D } from '@/lib/seating-3d';
-import {
-  addSeatingConstraint,
-  assignGroup,
-  assignGuest,
-  swapSeats,
-  autoArrange,
-  buildSeatingDraft,
-  createTable,
-  deleteTable,
-  lockAndFill,
-  removeSeatingConstraint,
-  toggleSeatLock,
-  publishSeating,
-  unpublishSeating,
-  stampTableSigns,
-  saveBooths,
-  saveFloorPlan,
-  savePriorityOrder,
-  commitWeld,
-  saveSigns,
-  saveVenuePhotoVisibility,
-  seatRoleAtTable,
-  setGuestSeatingPriority,
-  setTableSeat,
-  unassignGuest,
-  linkTables,
-  unlinkTable,
-  updateTableLabel,
-  updateTablePosition,
-  updateTableRotation,
-  updateTableType,
-  swapTableOccupants,
-  setGhostBoothsEnabled,
-} from '../actions';
+import { useSeatingStore, type SeatingSource } from './seating-store';
+import { useSeatingWrites } from './seating-writes';
 import { SEAT_PLAN_SHOW_VIEW_EVENT } from '@/lib/seat-plan-views';
 import { PLAN3D_BOOTH_ADS_ENABLED } from '@/lib/ghost-booths';
 import { useSeatingPresence } from './use-seating-presence';
@@ -237,11 +223,18 @@ import {
   seatPlanPieceKey,
   seatPlanPlaceRows,
   seatPlanRoomName,
+  SEAT_NAME_PX,
   SEAT_PLAN_MAP_PIECE,
   starterDraftHint,
   type SeatPlanGuestOptions,
 } from '@/lib/seat-plan-details';
 import { SeatFaceTray, type FloorDrop, type TrayItem } from './seat-face-tray';
+import { FloorStartButtons, FloorStartCard, FloorStartTitle, OverThumbRow, type FloorHall } from './seat-floor-start';
+import { AddTableBar, DEFAULT_TABLE_TYPE, type TableDraft } from './seat-floor-add';
+import { SeatZoomPill } from './seat-floor-zoom';
+import { SpotChip, SupplierSpotsLegend, supplierSpots } from './seat-floor-spots';
+import { SeatRoomLinkContext, type SeatRoomLink } from './seat-room-link';
+import { useSeatFloorWrites } from './seat-floor-writes';
 import { MoveGuestSheet, SeatToast, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, PhoneTableDock, SeatPlanToolRounds, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
 import { Sheet } from '@/app/_components/sheet';
 import { SEAT_LIST_UNSEATED, SeatList, type SeatListGuest, type SeatListUnit } from './seat-list';
@@ -257,7 +250,6 @@ import { SEARCH_WAIT_MS } from '@/lib/guest-roster-view';
 import { createPortal } from 'react-dom';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 import { BlueprintStudio } from '../../studio/indoor-blueprint/_components/blueprint-studio';
-import { saveEntrance } from '../../studio/indoor-blueprint/actions';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Badge } from '@/app/_components/badge';
 import { resolvePlan3dFacts } from '@/lib/plan3d-control';
@@ -386,6 +378,10 @@ type Props = {
   /** Walima gender-separation advisory (null when not requested). */
   genderSeparationNote: string | null;
   /** How many non-declined guests exceed total effective seats (0 = enough). */
+  /** 🏛 The booked venue's hall, when it drew one on its Spaces and it is not on this floor yet — "Start from this hall"
+   *  comes first then (owner 2026-11-20, pick 2). ⚠ NO PAGE HANDS THIS YET: an event has no link to a shop's hall
+   *  (`vendor_units`) and a couple cannot read one. Until that path exists it is null and the floor starts without it. */
+  venueHall?: FloorHall | null;
   seatShortfall: number;
   nonDeclinedCount: number;
   totalSeats: number;
@@ -415,6 +411,8 @@ type Props = {
    * the standalone page is exactly as it was.
    */
   details?: SeatingDetailsShell | null;
+  /** 🏛 Whose plan this is: an event (the default) or a venue's own hall in Spaces (seat plan PR2, option B). */
+  source?: SeatingSource | null;
 };
 
 export type SeatingDetailsShell = {
@@ -471,6 +469,24 @@ type GuestSeatOp =
 // map (lib/seating) so the layout matches everywhere.
 const defaultGrid = defaultTablePosition;
 
+/**
+ * 📐 A box in LAYOUT pixels. Inside a full screen still zooming open (a hall's floor plan, risen from its Spaces sheet)
+ * `getBoundingClientRect` is the scaled first frame: tables placed or framed against it land metres apart and stay
+ * there. Each axis is brought back by the painted ÷ layout ratio of `ref` (the canvas); unscaled — the couple's page —
+ * the box comes back exactly as painted.
+ */
+function layoutRectOf(el: HTMLElement, ref: HTMLElement = el): { left: number; top: number; width: number; height: number } {
+  const r = el.getBoundingClientRect();
+  const p = ref === el ? r : ref.getBoundingClientRect();
+  const kx = ref.offsetWidth > 0 && Math.abs(p.width - ref.offsetWidth) >= 1 ? p.width / ref.offsetWidth : 1;
+  const ky = ref.offsetHeight > 0 && Math.abs(p.height - ref.offsetHeight) >= 1 ? p.height / ref.offsetHeight : 1;
+  return { left: r.left / kx, top: r.top / ky, width: r.width / kx, height: r.height / ky };
+}
+
+/** 🏛 What a venue's own hall can place (seat plan PR2): tables and its doors. Booths, signs, the dance floor and a
+ * cocktail room belong to an event. */
+const VENUE_ADD_KINDS: ReadonlySet<string> = new Set(['table', 'entrance', 'service']);
+
 export function SeatingEditor({
   eventId,
   roleSetKey,
@@ -491,6 +507,7 @@ export function SeatingEditor({
   seatDayHasCome = false,
   plan3d,
   genderSeparationNote,
+  venueHall = null,
   seatShortfall,
   nonDeclinedCount,
   totalSeats,
@@ -503,7 +520,51 @@ export function SeatingEditor({
   ghostBoothsEnabled,
   initialView = 'plan',
   details = null,
+  source = null,
 }: Props) {
+  // 🏛 A venue's own hall (Spaces): no guests, no lock, no live presence, no publish/print/3D — the same editor otherwise.
+  const isVenue = source?.kind === 'venue';
+  // 🪑 Every save goes through the seat plan's store (`seating-store.ts`): a venue host's writes, else the event's
+  // shipped actions (the app never provides a store under app/dashboard, so an event runs exactly as before).
+  const venueStore = useSeatingStore();
+  // Every write by its call's own name, from the ONE resolver (`seating-writes.ts`): the hall's store, else the event's
+  // shipped action. `venueStore` stays for the hall-only call (`venueTable`).
+  const {
+    addSeatingConstraint,
+    assignGroup,
+    assignGuest,
+    swapSeats,
+    autoArrange,
+    buildSeatingDraft,
+    createTable,
+    deleteTable,
+    lockAndFill,
+    removeSeatingConstraint,
+    toggleSeatLock,
+    publishSeating,
+    unpublishSeating,
+    stampTableSigns,
+    saveBooths,
+    saveFloorPlan,
+    savePriorityOrder,
+    commitWeld,
+    saveSigns,
+    saveVenuePhotoVisibility,
+    seatRoleAtTable,
+    setGuestSeatingPriority,
+    setTableSeat,
+    unassignGuest,
+    linkTables,
+    unlinkTable,
+    updateTableLabel,
+    updateTablePosition,
+    updateTableRotation,
+    updateTableType,
+    swapTableOccupants,
+    setGhostBoothsEnabled,
+    guestSeatView,
+    saveEntrance,
+  } = useSeatingWrites();
   // Iteration 0053 P4 Unit 6: the event's role set drives seating tiers + labels.
   // Pure client-safe lookup; wedding → WEDDING_ROLE_SET (byte-identical). Declared
   // first so the priority-order useState initializer below can read it.
@@ -767,6 +828,8 @@ export function SeatingEditor({
   // it and draw a hairline. Ref (not state) — the drag already re-renders per
   // move via setPositions, so the render below just reads the latest value.
   const guidesRef = useRef<{ x: number | null; y: number | null }>({ x: null, y: null });
+  /** The table a dragged table is lined up with right now (`snapToLines`) — named beside it while the drag runs. */
+  const linedWithRef = useRef<string | null>(null);
   // Venue dimensions (metres) → render the room + tables to scale.
   // The couple's own room wins; the booked venue's stated size is the fallback,
   // and the historical 20×30 is the fallback of last resort.
@@ -893,6 +956,14 @@ export function SeatingEditor({
   // seat-what-fits message after a group overflows a table.
   const [pickedGroupId, setPickedGroupId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /* 🔔 The floor's own one-line results — "Table 2 added beside Table 1 · Undo", "8 guests seated at 2 tables · Undo"
+     (owner 2026-11-20: one line with Undo, clear of the zoom). In Guests it is the thumb row's toast (`seatToast`). */
+  const [floorNote, setFloorNote] = useState<{ text: string; undo: (() => void) | null } | null>(null);
+  /** ＋ The Add box is open (Guests): shape and seats one row above it, the floor showing where the table lands. */
+  const [addingTable, setAddingTable] = useState(false);
+  const [addDraft, setAddDraft] = useState<{ type: TableType; capacity: number }>({ type: DEFAULT_TABLE_TYPE, capacity: 10 });
+  /** The draft's tables, waited for: when they arrive the toast offers to take exactly those back. */
+  const draftUndoRef = useRef<{ text: string } | null>(null);
   useEffect(() => {
     if (pickedId) setPickedGroupId(null);
   }, [pickedId]);
@@ -1001,15 +1072,19 @@ export function SeatingEditor({
   // presence peer list resolves below — breaking the lock↔presence data cycle.
   const [liveHolderHeartbeatAt, setLiveHolderHeartbeatAt] = useState<string | null>(null);
   const lock = useSeatingLock(eventId, me.name, liveHolderHeartbeatAt);
-  const canEdit = lock.status === 'editing';
+  /* 🧪 The lab's stand-ins for the floor's four writes (null in the app — `seat-floor-writes.ts`). With them the lab
+     edits its fixture floor in memory, so it holds Edit without a lock. */
+  const floorWrites = useSeatFloorWrites();
+  const canEdit = floorWrites !== null || isVenue || lock.status === 'editing';
   // View-only surface follows the editor live (the 3D lab, or another viewer) —
   // the EDITING surface never auto-refreshes (would clobber unsaved drafts).
   // 🔂 Only once the lock has SAID view-only — not in the moment before it answers (`lockSaysViewOnly`).
+  // a venue never acquires, so its lock stays idle and this never listens.
   useSeatingLiveRefresh(eventId, lockSaysViewOnly(lock.status));
   useEffect(() => {
     // Try to take the lock as soon as the editor opens (the surface itself is
     // the intent to edit). Idempotent — re-acquire just refreshes when it's ours.
-    lock.acquire();
+    if (!isVenue) lock.acquire();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Live presence: who else is in this seat plan, which table they have
@@ -1019,7 +1094,7 @@ export function SeatingEditor({
     lockHolderId: canEdit ? me.id : null,
     lockHolderLabel: canEdit ? me.name : null,
     lockHeartbeatAt: lock.holderHeartbeatAt,
-  });
+  }, !isVenue);
   const peerList = [...peers.values()];
   const peerOnTable = (tableId: string) => peerList.find((p) => p.table === tableId) ?? null;
   // The peer who claims the lock (if any) — used for the view-only banner copy.
@@ -1032,6 +1107,18 @@ export function SeatingEditor({
   useEffect(() => {
     setLiveHolderHeartbeatAt(lockHolderPeerHeartbeat);
   }, [lockHolderPeerHeartbeat]);
+  /* 🧊 What the 3D room drawn inside this plan shows of it (`seat-room-link.ts`, drawing § 6): who holds this ONE lock and
+     its own take-over (the room's "<Name> is editing · Take over"), and the thumb row's search on 3D (the room walks that
+     guest to their seat). The lab's in-memory floor holds Edit without a lock, so it hands no lock down. */
+  const [roomGuide, setRoomGuide] = useState<SeatRoomLink['guide']>(null);
+  const roomHolder = canEdit ? null : lockHolderPeer?.lockHolderLabel ?? lock.holderLabel;
+  const roomLink = useMemo<SeatRoomLink>(
+    () => ({
+      lock: floorWrites ? null : { holding: canEdit, holder: roomHolder, waiting: lock.status === 'acquiring', onTakeOver: lock.acquire },
+      guide: roomGuide,
+    }),
+    [floorWrites, canEdit, roomHolder, lock.status, lock.acquire, roomGuide],
+  );
   const [showAddTable, setShowAddTable] = useState(false);
   const [confirmAuto, setConfirmAuto] = useState(false);
   // 🪑 The last Auto arrange: its one line, what Undo puts back, and the
@@ -1077,7 +1164,8 @@ export function SeatingEditor({
     // the List view (the lab's mirrored segment links here with ?view=list).
     // 🪑 Not inside Details: there the plan is the middle part at every width
     // (the owner-approved phone frames draw the floor, the guests a panel under it).
-    if (!details && initialView !== 'list' && typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
+    // 🏛 Nor in a venue's hall: there is no one to seat, so the floor IS the plan at every width.
+    if (!details && !isVenue && initialView !== 'list' && typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
       setView('list');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1110,7 +1198,7 @@ export function SeatingEditor({
   // Left panel → three tabs (People / Tables / Rules), full height (verdict §3).
   // The active tab persists per user; the picked-guest echo lives in the canvas
   // contextual pill so pick-to-seat survives a tab switch.
-  const [panelTab, setPanelTab] = useState<'people' | 'tables' | 'rules'>('people');
+  const [panelTab, setPanelTab] = useState<'people' | 'tables' | 'rules'>(isVenue ? 'tables' : 'people');
   useEffect(() => {
     try {
       const saved = localStorage.getItem('seating:panel-tab');
@@ -1180,9 +1268,12 @@ export function SeatingEditor({
   useIsoLayoutEffect(() => {
     const el = canvasRef.current;
     if (!el || view !== 'plan') return;
-    const update = () => setCanvasW(el.getBoundingClientRect().width);
-    update();
-    const ro = new ResizeObserver(update);
+    // 📐 The layout width (see the region above): a zooming full screen must not size the tables from its first frame.
+    setCanvasW(el.offsetWidth);
+    const ro = new ResizeObserver(([entry]) => {
+      const box = entry?.borderBoxSize?.[0];
+      if (box) setCanvasW(box.inlineSize);
+    });
     ro.observe(el);
     return () => ro.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1698,19 +1789,46 @@ export function SeatingEditor({
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
     startTransition(async () => {
-      const res = await runGated(() => buildSeatingDraft(fd));
+      const res = await runGated(() => (floorWrites?.buildSeatingDraft ?? buildSeatingDraft)(fd));
       if (!res) return; // lock lost — runGated already dropped us to view-only.
       if (res.tables === 0) {
-        setNotice('Add your guests first — then “Build my seating” lays out the whole floor for you.');
+        setNotice('Add your guests first — then “Seat everyone for me” lays out the whole floor.');
         return;
       }
-      setNotice(
+      /* 🔔 ONE LINE WITH UNDO (owner 2026-11-20; it was three lines of how-to that covered the zoom — the how-to is in
+         the card's ⓘ now). The Undo is armed when the draft's tables arrive (`draftUndoRef`, the effect below). */
+      const text =
         res.seated > 0
-          ? `Built a starting floor: ${res.tables} tables placed and ${res.seated} confirmed guest${res.seated === 1 ? '' : 's'} seated by role. Drag a table to move it, or tap a guest then a chair to reseat — nothing’s locked in.`
-          : `Built a starting floor: ${res.tables} tables placed. As guests confirm, tap Auto Arrange to seat them — or drag them in yourself.`,
-      );
+          ? `${formatCount(res.seated)} ${res.seated === 1 ? 'guest' : 'guests'} seated at ${formatCount(res.tables)} ${res.tables === 1 ? 'table' : 'tables'}`
+          : `${formatCount(res.tables)} ${res.tables === 1 ? 'table' : 'tables'} placed`;
+      draftUndoRef.current = { text };
+      setFloorNote({ text, undo: null });
     });
   };
+  /** ↩ Take the draft back: exactly the tables it made, in one write. */
+  const undoDraft = (tableIds: readonly string[]) => {
+    setFloorNote(null);
+    if (!canEdit || tableIds.length === 0) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('undo_table_ids', JSON.stringify(tableIds));
+    startTransition(async () => {
+      const res = await runGated(() => (floorWrites?.buildSeatingDraft ?? buildSeatingDraft)(fd));
+      // The server refused: guests were seated by hand since the draft, so it is not the draft any more.
+      if (res && 'kept' in res && res.kept) setNotice('Guests moved since the draft, so it stays.');
+    });
+  };
+  /* The Undo is armed once BOTH are here — the draft's answer (the line) and its tables. They arrive in either order
+     (the page's fresh tables can land before the action's answer does), so this waits on the two of them. */
+  useEffect(() => {
+    const waiting = draftUndoRef.current;
+    if (!waiting || tables.length === 0 || !floorNote || floorNote.text !== waiting.text) return;
+    draftUndoRef.current = null;
+    const ids = tables.map((t) => t.table_id);
+    setFloorNote({ text: waiting.text, undo: () => undoDraft(ids) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- armed once, when the line and the tables are both here
+  }, [tables.length, floorNote]);
 
   // Tap the P-chip to cycle a guest's explicit priority override: from the
   // derived tier it starts an override at 1, then 2→3→4, then back to derived
@@ -2611,17 +2729,17 @@ export function SeatingEditor({
   // A table's on-screen footprint in px, honouring the to-scale shrink inside a
   // sized room (same maths as fitView + the table render).
   const footprintPx = (t: EventTableRow) => {
-    const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+    const geo = rowGeometry(t);
     // GUN B: true metric footprint on BOTH boards (metricPpm is always defined
     // once the canvas is measured); the scale : 1 fallback only covers the
     // canvasW === 0 first paint.
-    const s = metricPpm ? (TABLE_FOOTPRINT_M[t.table_type] * metricPpm) / geo.box.w : 1;
+    const s = metricPpm ? (rowFootprintM(t) * metricPpm) / geo.box.w : 1;
     return { w: geo.box.w * s, h: geo.box.h * s };
   };
   // Half the TABLETOP length (px) of a rectangular run — hub only, chairs hang
   // past it. Used to test whether two runs are joined flush (rectRunsJoined).
   const halfLenOf = (t: EventTableRow) => {
-    const g = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+    const g = rowGeometry(t);
     return (g.hub.w / 2) * (footprintPx(t).w / g.box.w);
   };
   // Breathing gap (px) kept between any two tables on the FREE board (no metre
@@ -2632,7 +2750,7 @@ export function SeatingEditor({
   // placement oracle (lib/seating.ts). `scaleOf`/`poseAt` build the rotation-
   // aware world pose the oracle consumes; `zonesFor` collects the no-go rects.
   const scaleOf = (t: EventTableRow) => {
-    const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+    const geo = rowGeometry(t);
     return footprintPx(t).w / geo.box.w;
   };
   const poseAt = (
@@ -2658,7 +2776,8 @@ export function SeatingEditor({
     // identical in 3D). Every other table over the stage reads as a collision
     // and heals via the same slide / monotone-escape as any obstacle. Sized room
     // only — the free auto-grow board is place-anywhere in both projections.
-    if (venueScaled)
+    // 🏛 A venue's own hall has no stage on it yet (PlanMaker drew none; the hall's stage comes with blocked areas).
+    if (venueScaled && !isVenue)
       out.push(stageZone({ stage_x: stage.x, stage_y: stage.y, stage_w: stage.w, stage_h: stage.h }, rect));
     // The dance floor + cocktail room are no-table zones.
     if (dance.enabled)
@@ -2838,6 +2957,82 @@ export function SeatingEditor({
     return nearestFree(base.x, base.y, pseudo, rect, posFor);
   };
 
+  /* 🪑 WHERE A NEW TABLE LANDS — ON THE GRID (owner 2026-11-20, pick 3; the fault, live: new tables landed off the row,
+     wherever the first free spot was). The shared core answers (`seatingJoinRow`, lib/seat-plan-engine — the same rows a
+     shop's Spaces lines up): the first row, front first, still on the grid with room; that row re-centres on the stage
+     line; a table placed by hand never moves. null = no free line (the shipped `computeSpawnFor` then finds a spot). */
+  const floorForGrid: SeatingFloor = {
+    roomM,
+    stage,
+    areas: [...(dance.enabled ? [dance] : []), ...(cocktail.enabled ? [cocktail] : [])],
+  };
+  const gridSlotFor = (type: TableType, capacity: number) =>
+    seatingJoinRow(
+      floorForGrid,
+      tables.flatMap((t) => {
+        const p = positions[t.table_id] ?? (t.x_pos !== null && t.y_pos !== null ? { x: Number(t.x_pos), y: Number(t.y_pos) } : null);
+        return p ? [{ id: t.table_id, table_type: t.table_type, capacity: t.capacity, x: p.x, y: p.y }] : [];
+      }),
+      { table_type: type, capacity },
+    );
+  /** Write one table's spot (a row re-centring) — the shipped position write, one table at a time. */
+  const writeSpot = async (tableId: string, at: { x: number; y: number }) => {
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('table_id', tableId);
+    fd.set('x_pos', String(at.x));
+    fd.set('y_pos', String(at.y));
+    return runGated(() => (floorWrites?.updateTablePosition ?? updateTablePosition)(fd));
+  };
+  /* ＋ THE ADD BOX'S ＋ (owner 2026-11-20, drawing § 9 frame 3): the table lands where the floor showed it would, the
+     box closes BY ITSELF, and one line says so with Undo ("Table 2 added beside Table 1"). */
+  const commitAddTable = (d: TableDraft) => {
+    if (!canEdit) return;
+    const slot = gridSlotFor(d.type, d.capacity);
+    const at = slot ?? computeSpawnFor(d.type, d.capacity);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('table_label', d.label);
+    fd.set('table_type', d.type);
+    fd.set('capacity', String(d.capacity));
+    if (at) {
+      fd.set('x_pos', String(at.x));
+      fd.set('y_pos', String(at.y));
+    }
+    if (chineseTradition && tableNumberEndsInFour(d.label)) setNotice(TABLE_FOUR_ADVISORY);
+    const moved = slot?.moved ?? [];
+    const before = moved.flatMap((m) => (positions[m.id] ? [{ id: m.id, ...positions[m.id]! }] : []));
+    const beside = slot?.beside ? tables.find((t) => t.table_id === slot.beside)?.table_label ?? null : null;
+    startTransition(async () => {
+      const made = await runGated(() => (floorWrites?.createTable ?? createTable)(fd));
+      if (!made) return; // not saved: the box stays open with what was typed, and the notice says so
+      // The row re-centres: only tables still on the grid shift (the core never lists a hand-placed one).
+      if (moved.length) setPositions((p) => ({ ...p, ...Object.fromEntries(moved.map((m) => [m.id, { x: m.x, y: m.y }])) }));
+      for (const m of moved) if ((await writeSpot(m.id, m)) === null) return;
+      setAddingTable(false);
+      const newId = made.tableId;
+      setFloorNote({
+        text: beside ? `${d.label} added beside ${beside}` : `${d.label} added`,
+        undo: newId
+          ? () => {
+              setFloorNote(null);
+              startTransition(async () => {
+                const del = new FormData();
+                del.set('event_id', eventId);
+                del.set('lock_id', lock.lockId ?? '');
+                del.set('table_id', newId);
+                if ((await runGated(() => (floorWrites?.deleteTable ?? deleteTable)(del))) === null) return;
+                if (before.length) setPositions((p) => ({ ...p, ...Object.fromEntries(before.map((m) => [m.id, { x: m.x, y: m.y }])) }));
+                for (const m of before) if ((await writeSpot(m.id, m)) === null) return;
+              });
+            }
+          : null,
+      });
+    });
+  };
+
   // Footprint-aware shelf pack for a sized room: lay tables left→right in rows
   // sized to their REAL to-scale footprint, wrapping at the wall. Gives the
   // resolver a tight, gap-free starting layout so to-scale tables fit whenever
@@ -2882,10 +3077,18 @@ export function SeatingEditor({
   // work" on delete — surfaced once the post-#3305 collision model began moving
   // tables during the churn). The transient optimistic set is never worth
   // re-placing; we re-resolve once cleanly when the mutation settles.
+  // 📐 The canvas size the auto-placed spots were worked out for. When the floor first lays out short and then grows (a
+  // hall's floor plan opening in Spaces: 134 px wide, then 390), spots dodged against the small floor sent the hall's
+  // tables metres past its wall — and `prev` kept them there. On a new size, a table nobody moved is placed again.
+  const placedForRef = useRef<{ w: number; h: number } | null>(null);
   useIsoLayoutEffect(() => {
     if (wallDragRef.current || isPending) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
+    // 📐 Placed in layout pixels (`layoutRectOf`), never against a still-zooming first frame.
+    const rect = canvasRef.current ? layoutRectOf(canvasRef.current) : null;
     if (!rect || rect.width === 0) return;
+    const was = placedForRef.current;
+    const resized = was !== null && (Math.abs(was.w - rect.width) >= 1 || Math.abs(was.h - rect.height) >= 1);
+    placedForRef.current = { w: rect.width, h: rect.height };
     const shelf = venueScaled ? venueShelfBase(rect) : null;
     setPositions((prev) => {
       const placed: Record<string, LocalPos> = {};
@@ -2896,7 +3099,8 @@ export function SeatingEditor({
       });
       tables.forEach((t, i) => {
         if (placed[t.table_id]) return;
-        const base = prev[t.table_id] ?? shelf?.[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
+        const kept = resized && !dirty.has(t.table_id) ? undefined : prev[t.table_id];
+        const base = kept ?? shelf?.[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
         placed[t.table_id] = nearestFree(base.x, base.y, t, rect, (o) => placed[o.table_id] ?? null);
       });
       // Cleanup: greedy placement (each table only dodges earlier ones) can leave
@@ -2971,6 +3175,9 @@ export function SeatingEditor({
   // without moving is the tap: it seats the picked guest / group there, joins
   // a table to the one waiting in "Link…", or selects. Nothing ever moves.
   const press = planPress(isPhone);
+  /** 🏪 The supplier spot whose chip shows its name (Guests › Seats › 2D, drawing § 5) — a tap on it again hides it. */
+  const [spotNamed, setSpotNamed] = useState<string | null>(null);
+  const nameSpot = (id: string) => setSpotNamed((c) => (c === id ? null : id));
   /* 🗺 2D IS THE ROOM (owner 2026-11-01, *"this makes it impossible for me to move the table"*): in Guests › Seats › 2D a
      tap on a table SELECTS it and the PICKED table drags — on a phone too (the 2026-10-01 "no drag on a phone" stays for
      everything else: an unpicked table, the elements, the booths). Any other press still pans. */
@@ -2980,6 +3187,8 @@ export function SeatingEditor({
       tapRef.current = { kind, id, sx: e.clientX, sy: e.clientY };
     };
   const runTap = (tap: NonNullable<typeof tapRef.current>) => {
+    // 🏪 A supplier spot's chip says its name on a tap (drawing § 5) — to look at, so no editing lock is needed.
+    if (roomOnly && tap.kind === 'booth') nameSpot(tap.id);
     // 🏪 2D is the room: a booth a booked supplier runs opens their card — to look at it, so no editing lock is needed.
     if (roomOnly && tap.kind === 'booth' && booths.some((b) => b.booth_id === tap.id && boothHasSupplier(b))) {
       clearSelection();
@@ -3107,12 +3316,22 @@ export function SeatingEditor({
     metricPpm
       ? tables.map(
           (t) =>
-            (TABLE_FOOTPRINT_M[t.table_type] * metricPpm) /
-            tableGeometry(shapeHintFor(t.table_type), t.capacity, t.link_group_id != null).box.w,
+            (rowFootprintM(t) * metricPpm) /
+            rowGeometry(t, t.link_group_id != null).box.w,
         )
       : [],
   );
-  const DETAIL_AT = 0.72; // chairs appear at/above this zoom; pucks below
+  /* 🔍 NAMES COME ON A TAP UNTIL THEY CAN BE READ (owner 2026-11-20, drawing § 5; the fault, live at 375: the draft's
+     names were microscopic). The chairs and their names were drawn from a fixed zoom (0.72), whatever size that left
+     them on THIS screen. In Guests they are drawn only once a name is at least `NAME_READABLE_PX` tall on screen;
+     below that a table is its number and a ring that fills as its chairs fill (`TableFillRing`), and a tap says who
+     sits there (`tableNames`). Zoom in — pinch or ＋ — and the names print as they always did. */
+  const NAME_READABLE_PX = 7;
+  const roundScale = metricPpm ? (TABLE_FOOTPRINT_M.round_10 * metricPpm) / tableGeometry('round', 10).box.w : 1;
+  const DETAIL_AT =
+    details?.host === 'guests'
+      ? Math.max(0.72, Math.min(zoomMaxRef.current * 0.85, NAME_READABLE_PX / (SEAT_NAME_PX * roundScale)))
+      : 0.72; // chairs appear at/above this zoom; pucks below
   const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(zoomMaxRef.current, z));
 
   // Apply the world transform straight to the DOM (no per-frame re-render);
@@ -3439,35 +3658,26 @@ export function SeatingEditor({
         // Alignment snap: pull to another table's centre (or the room
         // centreline) when within tolerance — the matched axis draws a guide
         // hairline. Hold Alt to drag free of all snapping.
+        /* 📏 The shared core's line-up (`snapToLines`, lib/seat-plan-engine — a shop's Spaces snaps the same way): another
+           table's row or column, or the STAGE LINE every row centres on (it was the room's middle, which is not where
+           the rows are when the stage is off-centre). It also says WHICH table it lined up with (owner 2026-11-20:
+           "the name of what it lined up with"). */
         let ax = x;
         let ay = y;
         let gx: number | null = null;
         let gy: number | null = null;
+        let lined: string | null = null;
         if (!e.altKey) {
-          const TOL = 1.2; // percent of the canvas
-          for (const o of tables) {
-            if (o.table_id === d.id) continue;
-            const op = positions[o.table_id];
-            if (!op) continue;
-            if (gx === null && Math.abs(op.x - x) < TOL) {
-              ax = op.x;
-              gx = op.x;
-            }
-            if (gy === null && Math.abs(op.y - y) < TOL) {
-              ay = op.y;
-              gy = op.y;
-            }
-            if (gx !== null && gy !== null) break;
-          }
-          // Room centreline detents (symmetric layouts want the middle).
-          if (gx === null && Math.abs(50 - x) < TOL) {
-            ax = 50;
-            gx = 50;
-          }
-          if (gy === null && Math.abs(50 - y) < TOL) {
-            ay = 50;
-            gy = 50;
-          }
+          const snap = snapToLines({
+            at: { x, y },
+            others: tables.flatMap((o) => (o.table_id !== d.id && positions[o.table_id] ? [{ id: o.table_id, ...positions[o.table_id]! }] : [])),
+            stage: { x: stage.x, y: stage.y },
+          });
+          ax = snap.x;
+          ay = snap.y;
+          gx = snap.guideX;
+          gy = snap.guideY;
+          lined = snap.withId;
           // Grid snap on any axis that didn't alignment-snap: half-metre steps
           // in a sized room, 2% steps on the free board.
           const gridX = venueScaled ? (0.5 / venue.width) * 100 : 2;
@@ -3475,6 +3685,7 @@ export function SeatingEditor({
           if (gx === null) ax = Math.round(ax / gridX) * gridX;
           if (gy === null) ay = Math.round(ay / gridY) * gridY;
         }
+        linedWithRef.current = lined;
         guidesRef.current = { x: gx, y: gy };
         // FREE FOLLOW + per-frame warning (owner 2026-07-17 · snap-back drop
         // rule, supersedes the monotone-escape slide/§4). The table follows the
@@ -3649,6 +3860,8 @@ export function SeatingEditor({
     const d = dragRef.current;
     dragRef.current = null;
     setDragId(null);
+    // 🏪 A pressed-and-let-go supplier spot (a computer's drag press) says its name too (drawing § 5).
+    if (d && !d.moved && roomOnly && d.kind === 'booth') nameSpot(d.id);
     guidesRef.current = { x: null, y: null };
     const serpRot = serpSnapRotRef.current;
     serpSnapRotRef.current = null;
@@ -4371,59 +4584,49 @@ export function SeatingEditor({
     bumpOverlay((v) => v + 1);
   };
 
-  // Frame every table in view (the "see all 50" button).
+  /* 📐 FIT SHOWS THE WHOLE ROOM (owner 2026-11-20, DECISION_LOG "GUESTS › SEATS, ROUND TWO": *Fit shows the whole
+     room*; the fault, live at 375: Fit and the draft framed the TABLES, so two tables filled the screen and the walls
+     were nowhere). The answer is the shared core's (`fitRoom`, lib/seat-plan-engine — a shop's Spaces fits the same way):
+     every wall, centred in the part of the floor nothing covers — under the pinned row (`--gs-stick-h`) and above the
+     tray and the thumb row (`--sn-thumb-room`, less the dock the cell already stops at: the zoom stack's own footing).
+     What stands BEYOND a wall stays in view too (a table dragged past one, the cocktail area docked outside).
+     🔒 the-floor-fits-the-room.test.ts */
   const fitView = () => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
+    const canvasEl = canvasRef.current;
+    // 📐 Fit in layout pixels (`layoutRectOf`): a pan worked out from a still-zooming box lands off the room.
+    const rect = canvasEl ? layoutRectOf(canvasEl) : null;
+    if (!canvasEl || !rect || rect.width === 0) return;
+    const also: Array<{ minX: number; minY: number; maxX: number; maxY: number }> = [];
     tables.forEach((t, i) => {
       const pos = positions[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
-      const geo = tableGeometry(shapeHintFor(t.table_type), t.capacity);
-      // Use the ON-SCREEN size (to-scale shrinks tables to the room box on BOTH
-      // boards now — GUN B), so the bounding box is tight and Fit zooms in enough
-      // to make tables readable.
-      const s = metricPpm ? (TABLE_FOOTPRINT_M[t.table_type] * metricPpm) / geo.box.w : 1;
+      const geo = rowGeometry(t);
+      const s = metricPpm ? (rowFootprintM(t) * metricPpm) / geo.box.w : 1;
       const cx = (pos.x / 100) * rect.width;
       const cy = (pos.y / 100) * rect.height;
-      minX = Math.min(minX, cx - (geo.box.w * s) / 2);
-      maxX = Math.max(maxX, cx + (geo.box.w * s) / 2);
-      minY = Math.min(minY, cy - (geo.box.h * s) / 2);
-      maxY = Math.max(maxY, cy + (geo.box.h * s) / 2);
+      also.push({ minX: cx - (geo.box.w * s) / 2, maxX: cx + (geo.box.w * s) / 2, minY: cy - (geo.box.h * s) / 2, maxY: cy + (geo.box.h * s) / 2 });
     });
-    // Frame the cocktail room too — it can dock OUTSIDE the reception walls
-    // (off the 0–100 canvas), so Fit must include it or it'd be out of view.
     if (cocktail.enabled) {
-      minX = Math.min(minX, ((cocktail.x - cocktail.w / 2) / 100) * rect.width);
-      maxX = Math.max(maxX, ((cocktail.x + cocktail.w / 2) / 100) * rect.width);
-      minY = Math.min(minY, ((cocktail.y - cocktail.h / 2) / 100) * rect.height);
-      maxY = Math.max(maxY, ((cocktail.y + cocktail.h / 2) / 100) * rect.height);
-      if (entrance.enabled) {
-        minX = Math.min(minX, (entrance.x / 100) * rect.width);
-        maxX = Math.max(maxX, (entrance.x / 100) * rect.width);
-        minY = Math.min(minY, (entrance.y / 100) * rect.height);
-        maxY = Math.max(maxY, (entrance.y / 100) * rect.height);
-      }
+      also.push({
+        minX: ((cocktail.x - cocktail.w / 2) / 100) * rect.width,
+        maxX: ((cocktail.x + cocktail.w / 2) / 100) * rect.width,
+        minY: ((cocktail.y - cocktail.h / 2) / 100) * rect.height,
+        maxY: ((cocktail.y + cocktail.h / 2) / 100) * rect.height,
+      });
     }
-    if (!Number.isFinite(minX)) {
-      applyView(1, { x: 0, y: 0 });
-      return;
-    }
-    const bw = Math.max(1, maxX - minX);
-    const bh = Math.max(1, maxY - minY);
-    /* 📐 In Guests Fit fills the FLOOR (the whole cell — the room box sits centred in it), not the room-aspect box: on a
-       phone the plan then uses the full width. The box stays centred in the cell, so its centre is the cell's. */
-    const cell = inGuests ? regionRef.current?.getBoundingClientRect() : null;
-    const fitW = cell && cell.width > 0 ? cell.width : rect.width;
-    const fitH = cell && cell.height > 0 ? cell.height : rect.height;
-    // Fit opens no closer than it always did — only a pinch / + goes past the old cap (#7060).
-    const z1 = Math.min(PLAN_ZOOM_MAX_FLOOR, clampZoom(Math.min(fitW / bw, fitH / bh) * 0.86));
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
-    applyView(z1, { x: rect.width / 2 - z1 * cx, y: rect.height / 2 - z1 * cy });
-    bumpOverlay((v) => v + 1);
+    const region = regionRef.current;
+    const cell = inGuests && regionRef.current ? layoutRectOf(regionRef.current, canvasEl) : null;
+    const px = (name: string) => (region ? parseFloat(getComputedStyle(region).getPropertyValue(name)) || 0 : 0);
+    const v = fitRoom({
+      room: { left: cell ? rect.left - cell.left : 0, top: cell ? rect.top - cell.top : 0, width: rect.width, height: rect.height },
+      cell: cell && cell.width > 0 ? { width: cell.width, height: cell.height } : { width: rect.width, height: rect.height },
+      inset: cell ? { top: px('--gs-stick-h'), bottom: Math.max(0, px('--sn-thumb-room') - px('--sn-bottomdock-h')) } : undefined,
+      also,
+      minZoom: ZOOM_MIN,
+      // Fit opens no closer than it always did — only a pinch / + goes past the old cap (#7060).
+      maxZoom: Math.min(PLAN_ZOOM_MAX_FLOOR, zoomMaxRef.current),
+    });
+    applyView(v.zoom, { x: v.x, y: v.y });
+    bumpOverlay((n) => n + 1);
   };
 
   // Reset to a clean whole-room overview (zoom 1, no pan) whenever to-scale mode
@@ -4442,6 +4645,7 @@ export function SeatingEditor({
       const canvas = canvasRef.current;
       const world = worldRef.current;
       if (!canvas || !world) return;
+      if (inGuests) return fitViewRef.current(); // Guests: Fit is the whole room, clear of the pinned row and the thumb row
       applyView(1, { x: 0, y: 0 });
       const box = canvas.getBoundingClientRect();
       const z = roomOverviewZoom(box, [...world.querySelectorAll('*')].map((el) => el.getBoundingClientRect()));
@@ -4595,12 +4799,14 @@ export function SeatingEditor({
   useIsoLayoutEffect(() => {
     const el = regionRef.current;
     if (!el || view !== 'plan') return;
-    const update = () => {
-      const r = el.getBoundingClientRect();
-      setRegion({ w: r.width, h: r.height });
-    };
-    update();
-    const ro = new ResizeObserver(update);
+    // 📐 The LAYOUT size, never the painted one: opened in a full screen that zooms in (a hall's floor plan in Spaces),
+    // `getBoundingClientRect` reads the first, scaled-down frame — and a transform never fires the observer again, so
+    // the room stayed a postage stamp at 390. `offset*` first (no transform in it), then the observer's exact box.
+    setRegion({ w: el.offsetWidth, h: el.offsetHeight });
+    const ro = new ResizeObserver(([entry]) => {
+      const box = entry?.borderBoxSize?.[0];
+      if (box) setRegion({ w: box.inlineSize, h: box.blockSize });
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, [view]);
@@ -5069,6 +5275,7 @@ export function SeatingEditor({
         onTableFourWarning={() => setNotice(TABLE_FOUR_ADVISORY)}
         onDone={() => setShowAddTable(false)}
         onLockLost={handleLockLost}
+        venue={isVenue}
         onNotSaved={() => setNotice(SEAT_PLAN_NOT_SAVED)}
       />
     ) : null;
@@ -5093,7 +5300,7 @@ export function SeatingEditor({
       <Section label={`Tables · ${displayUnits.length}`}>
         {displayUnits.length === 0 ? (
           <p className="px-1 py-2 text-xs text-ink/70">
-            No tables yet — tap “Build my seating” on the floor, or add one above.
+            {isVenue ? 'No tables yet — add the hall’s usual tables above.' : 'No tables yet — tap “Build my seating” on the floor, or add one above.'}
           </p>
         ) : (
           <ul className="space-y-1">
@@ -5147,10 +5354,17 @@ export function SeatingEditor({
                         {u.label}
                       </span>
                       <span className="block text-xs text-ink/70">
-                        {formatCount(filled)}/{formatCount(cap)} {cap === 1 ? 'seat' : 'seats'} ·{' '}
-                        {u.members.length > 1
-                          ? `${u.members.length} tables joined`
-                          : TABLE_TYPE_LABEL[u.lead.table_type]}
+                        {/* 🏛 A hall's row: its own shape and chairs ("Long · 12 chairs · 2 at the ends"), no one seated. */}
+                        {isVenue ? (
+                          venueRowWords(u.lead)
+                        ) : (
+                          <>
+                            {formatCount(filled)}/{formatCount(cap)} {cap === 1 ? 'seat' : 'seats'} ·{' '}
+                            {u.members.length > 1
+                              ? `${u.members.length} tables joined`
+                              : TABLE_TYPE_LABEL[u.lead.table_type]}
+                          </>
+                        )}
                       </span>
                     </span>
                     <Badge tone={full ? 'ok' : 'quiet'}>{full ? 'Filled' : 'Open'}</Badge>
@@ -5276,7 +5490,7 @@ export function SeatingEditor({
 
   // The tab strip + active pane. `panelBody` is rendered by EITHER the desktop
   // aside OR the mobile drawer (never both — `isNarrow` gates which).
-  const panelTabs = (
+  const panelTabs = isVenue ? null : (
     /* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — People · Tables · Rules
        were underlined tabs; they are the app's pill now, the thumb sliding to the picked one (`aria-selected`). */
     <div className="shrink-0 px-2 pb-1.5">
@@ -5308,10 +5522,11 @@ export function SeatingEditor({
 
   const panelBody = (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 p-3 pb-2">{searchRow}</div>
+      {/* 🏛 The search finds people; a hall has none, so it would be a box that finds nothing. */}
+      {isVenue ? null : <div className="shrink-0 p-3 pb-2">{searchRow}</div>}
       {panelTabs}
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {panelTab === 'people' ? peoplePane : panelTab === 'tables' ? tablesPane : rulesPane}
+        {isVenue || panelTab === 'tables' ? tablesPane : panelTab === 'people' ? peoplePane : rulesPane}
       </div>
     </div>
   );
@@ -5325,16 +5540,49 @@ export function SeatingEditor({
       <MenuRow icon={Plus} label="New table…" hint="Pick from the 13-type catalog" onClick={() => { selectPanelTab('tables'); setShowAddTable(true); if (details) { setGuestsMode('guests'); openDetailsEditor(); } }} disabled={!canEdit} />
       <MenuRow icon={DoorOpen} label="Entrance" onClick={addEntrance} disabled={!canEdit || view !== 'plan' || entrance.enabled} />
       <MenuRow icon={Truck} label="Service door" hint="Optional load-in / caterer door" onClick={addServiceDoor} disabled={!canEdit || view !== 'plan' || serviceDoor.enabled} />
+{isVenue ? null : (
+<>
       <MenuRow icon={Footprints} label="Dance floor" onClick={addDanceFloor} disabled={!canEdit || view !== 'plan' || dance.enabled} />
       <MenuRow icon={Martini} label="Cocktail area" hint="A second room — booths only, no tables" onClick={addCocktailArea} disabled={!canEdit || view !== 'plan' || cocktail.enabled} />
       <MenuRow icon={Signpost} label="Sign" badge={`${signs.length}/24`} onClick={addSign} disabled={!canEdit || view !== 'plan' || signs.length >= 24} />
       <MenuRow icon={Store} label="Supplier booth" onClick={addBooth} disabled={!canEdit || view !== 'plan'} />
+</>
+)}
       {/* §5.4 — "+ Add" is purely additive now; Room size & scale moved to
           Arrange (it's a policy, not a placeable). */}
     </>
   );
+  // 🏛 LINE UP (PlanMaker's tool, now the one editor's in venue mode): the hall's tables in name order, in rows that
+  //    face away from the main door — the engine's `lineUpPlan`, the same one PlanMaker ran. The spots are drafted like
+  //    a drag (marked unsaved), and Save keeps them.
+  const lineUpVenueTables = () => {
+    if (!canEdit || tables.length === 0) return;
+    const door = entrance.enabled ? snapDoor(entrance.x, entrance.y) : null;
+    const next = lineUpPlan({
+      room: { widthM: venueScaled ? venue.width : null, depthM: venueScaled ? venue.length : null },
+      doors: door ? [{ id: 'main', kind: 'main', wall: door.wall, at: door.at }] : [],
+      tables: tables.map((t) => ({
+        id: t.table_id,
+        label: t.table_label,
+        kind: t.plan_shape ?? t.table_type,
+        chairs: t.capacity,
+        chairsAtEnds: t.chairs_at_ends === true,
+        x: positions[t.table_id]?.x ?? null,
+        y: positions[t.table_id]?.y ?? null,
+        rotationDeg: rotationOf(t),
+      })),
+    });
+    const at = Object.fromEntries(next.tables.flatMap((t) => (t.x === null || t.y === null ? [] : [[t.id, { x: t.x, y: t.y }]])));
+    setPositions((p) => ({ ...p, ...at }));
+    setDirty((d) => new Set([...d, ...Object.keys(at)]));
+  };
   const arrangeMenuBody = (
     <>
+      {isVenue ? (
+        <MenuRow icon={LayoutGrid} label="Line up the tables" hint="In name order, in rows · Save keeps them" onClick={lineUpVenueTables} disabled={!canEdit || tables.length === 0} />
+      ) : null}
+{isVenue ? null : (
+<>
       <MenuCaption>Seating policies</MenuCaption>
       <form action={setSeatingAutoplace} className="px-1">
         <input type="hidden" name="event_id" value={eventId} />
@@ -5375,6 +5623,8 @@ export function SeatingEditor({
         </button>
       </form>
       <MenuDivider />
+</>
+)}
       {/* Council verdict § 3 — the one global Walkway width (metric). The clear
           space kept between any two table footprints (chair-back to chair-back).
           Drives live collision + Auto Arrange. Disabled on a free board. */}
@@ -5453,6 +5703,8 @@ export function SeatingEditor({
       {/* §5.2 — Room size & scale lives here now (policy, not a placeable). The
           auto verbs (Build draft / Fill-around-locked) moved to the gold
           split-button caret (§5.3). */}
+      {/* 🏛 A venue's hall is sized in its own Spaces sheet, so the editor does not size it again. */}
+      {isVenue ? null : (
       <MenuRow
         icon={Ruler}
         label="Room size & scale…"
@@ -5460,6 +5712,7 @@ export function SeatingEditor({
         onClick={() => setShowRoomPanel((v) => !v)}
         disabled={!canEdit || view !== 'plan'}
       />
+      )}
       {details ? (
         <>
           <MenuDivider />
@@ -5537,7 +5790,7 @@ export function SeatingEditor({
     : pickedGroup ? 'picked-group'
     : selTable ? 'table'
     : selM ? 'marker'
-    : notice || (autoRun && !isPhone) ? 'notice'
+    : !inGuests && (notice || (autoRun && !isPhone)) ? 'notice' // Guests: the thumb row's toast says it (`seatToast`), clear of the zoom
     : null;
   const displacedNotice = notice && dockPrimary !== 'notice' && dockPrimary !== null ? notice : null;
 
@@ -5558,8 +5811,8 @@ export function SeatingEditor({
     if (selTable) {
       const pos = positions[selTable.table_id];
       if (!pos) return null;
-      const geo = tableGeometry(shapeHintFor(selTable.table_type), selTable.capacity);
-      const tScale = pxPerMeter ? (TABLE_FOOTPRINT_M[selTable.table_type] * pxPerMeter) / geo.box.w : 1;
+      const geo = rowGeometry(selTable);
+      const tScale = pxPerMeter ? (rowFootprintM(selTable) * pxPerMeter) / geo.box.w : 1;
       const hw = (geo.box.w / 2) * tScale * z;
       const hh = (geo.box.h / 2) * tScale * z;
       const c = toRegion(pos.x, pos.y);
@@ -5620,6 +5873,36 @@ export function SeatingEditor({
         moreLabel={c.moreLabel}
       />
     );
+  };
+  // 🏛 A VENUE'S OWN TABLE (Spaces): its shape and its ONE chair count save together through the venue store
+  //    (`venueTable` → Spaces `updateTable`), the way PlanMaker saved them. An event's table never comes here.
+  const saveVenueTable = (t: EventTableRow, next: { shape?: PlanTableShape; ends?: boolean; chairs?: number }) => {
+    const save = venueStore?.venueTable;
+    if (!canEdit || !save || !t.plan_shape) return;
+    const shape = next.shape ?? t.plan_shape;
+    const ends = shape === 'long' && (next.ends ?? t.chairs_at_ends === true);
+    const chairs = clampChairs(next.chairs ?? t.capacity);
+    startTransition(async () => {
+      const res = await save({ id: t.table_id, name: t.table_label, shape, chairs, ends });
+      if (!res.ok) setNotice(res.error ?? 'Couldn’t save that table. Try again.');
+    });
+  };
+  const venueChairsStepper = (t: EventTableRow) => (
+    <Counter
+      label="Chairs at this table"
+      data="seats"
+      value={t.capacity}
+      onLess={() => saveVenueTable(t, { chairs: t.capacity - 1 })}
+      onMore={() => saveVenueTable(t, { chairs: t.capacity + 1 })}
+      lessDisabled={!canEdit || t.capacity <= 1}
+      moreDisabled={!canEdit || t.capacity >= PLAN_MAX_CHAIRS}
+      lessLabel="One chair fewer"
+      moreLabel="One chair more"
+    />
+  );
+  const pickVenueShape = (t: EventTableRow, key: string) => {
+    const pick = VENUE_TABLE_PICKS.find((p) => p.key === key);
+    if (pick) saveVenueTable(t, { shape: pick.shape, ends: pick.ends });
   };
   const dockRotateCluster = (t: EventTableRow, step: number) => {
     const deg = rotationOf(t);
@@ -5693,15 +5976,21 @@ export function SeatingEditor({
             role="menu"
             className="absolute bottom-full right-0 z-50 mb-1 w-48 overflow-hidden rounded-2xl bg-cream p-1 shadow-lg ring-1 ring-ink/10"
           >
+            {isVenue ? null : (
             <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); setShapePickerOpen(true); setPickerOpen(false); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
               Change shape…
             </button>
+            )}
+            {isVenue ? null : (
             <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); setEditChairs(true); setPickerOpen(false); setShapePickerOpen(false); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
               Edit chairs…
             </button>
+            )}
             <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); rotateTable(t, 180); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
               Rotate 180°
             </button>
+            {isVenue ? null : (
+              <>
             <button type="button" role="menuitem" data-seat-plan-swap="" onClick={() => { setDockOverflow(false); armSwap(t); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
               Swap with another table…
             </button>
@@ -5710,6 +5999,8 @@ export function SeatingEditor({
                 <Ungroup className="h-4 w-4" /> Break apart
               </button>
             ) : null}
+              </>
+            )}
           </div>
         </>
       ) : null}
@@ -5966,6 +6257,55 @@ export function SeatingEditor({
           </button>
         </>
       );
+      /* 🏛 A VENUE'S OWN TABLE (Spaces): the same dock, its Shape pick the venue's four and its counter the ONE chair
+         count; no guests, no chairs to mark, no linking or swapping (those are an event's). The couple's body above is
+         untouched. */
+      const venueBody = isPhone ? (
+        <PhoneTableDock
+          tableId={st.table_id}
+          tableLabel={st.table_label}
+          typeValue={venuePickFor(st).key}
+          typeOptions={VENUE_TABLE_PICKS.map((p) => ({ key: p.key, label: p.label }))}
+          typeWord={venuePickFor(st).label}
+          onRename={(label) => renameTable(st.table_id, label)}
+          onPickType={(k) => pickVenueShape(st, k)}
+          seats={venueChairsStepper(st)}
+          seatsLine={venueRowWords(st)}
+          seatNote={null}
+          canEdit={canEdit}
+          onRotate={() => rotateTable(st, 90)}
+          onEditChairs={() => {}}
+          linked={false}
+          onUnlink={() => {}}
+          linkPressed={false}
+          onLink={() => {}}
+          swapPressed={false}
+          seatPeople={null}
+          venue
+          onDone={clearSelection}
+          onDelete={() => requestRemoveTable(st)}
+        />
+      ) : (
+        <>
+          <ShapeGlyph shape={shapeHintFor(st.table_type)} className="ml-1 h-3.5 w-3.5 shrink-0 text-ink/70" />
+          {nameField(false)}
+          <PickMenu
+            label="Table shape"
+            value={venuePickFor(st).key}
+            options={VENUE_TABLE_PICKS.map((p) => ({ key: p.key, label: p.label }))}
+            onPick={(k) => pickVenueShape(st, k)}
+            dataAttr="data-seat-plan-type"
+            compact
+            className="shrink-0 border border-ink/15"
+          />
+          {venueChairsStepper(st)}
+          {dockRotateCluster(st, 15)}
+          {dockOverflowMenu(st)}
+          <span className="mx-0.5 h-6 w-px shrink-0 bg-ink/15" />
+          <ActionButton tone="danger" quiet iconOnly icon={Trash2} label="Delete table" onClick={() => requestRemoveTable(st)} className="!h-11 !w-11 shrink-0" />
+          <ActionButton tone="neutral" quiet iconOnly icon={X} label="Done" onClick={clearSelection} className="!h-11 !w-11 shrink-0" />
+        </>
+      );
       return (
         <ContextDock
           variant={variant}
@@ -5975,7 +6315,7 @@ export function SeatingEditor({
           boundsRef={regionRef}
           panel={panel}
         >
-          {body}
+          {isVenue ? venueBody : body}
         </ContextDock>
       );
     }
@@ -6219,7 +6559,7 @@ export function SeatingEditor({
         const canvas = canvasRef.current;
         const world = worldRef.current;
         if (!canvas || !world) return;
-        if (venueScaled) {
+        if (venueScaled && !inGuests) {
           applyView(1, { x: 0, y: 0 });
           const box = canvas.getBoundingClientRect();
           const z = roomOverviewZoom(box, [...world.querySelectorAll('*')].map((el) => el.getBoundingClientRect()));
@@ -6239,6 +6579,17 @@ export function SeatingEditor({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fit once per open of the plan; the observer refits while the box settles
   }, [studioSeat, view, venueScaled]);
+  /* 📐 AFTER EVERY ADD AND EVERY DRAFT THE PLAN OPENS FITTED TO THE ROOM (owner 2026-11-20) — and when the Add box
+     opens or closes, since the foot of the floor it leaves free changes (the box's height is measured a beat later). */
+  useEffect(() => {
+    if (!inGuests || view !== 'plan') return;
+    const t = setTimeout(() => {
+      fitViewRef.current();
+      studioFitRef.current = { z: zoomRef.current, x: panRef.current.x, y: panRef.current.y };
+    }, 80);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the count and the box, never every render
+  }, [tables.length, addingTable]);
   const seatPieceKey = seatPlanPieceKey({ table: highlightId, marker: selMarker });
   useEffect(() => {
     if (!details) return;
@@ -6855,6 +7206,14 @@ export function SeatingEditor({
      there is something to say. Done → one line with Undo (swap again / put back). */
   const [askMove, setAskMove] = useState<{ moverId: string; otherId: string | null; tableId: string; seat: number | null; a: MoveAssessment; on: Record<string, boolean> } | null>(null);
   const [moveNote, setMoveNote] = useState<{ text: string; undo: (() => void) | null } | null>(null);
+  /* 🔔 One line at a time: the newest wins. A seat move's line replaces the floor's ("Table 2 added…"), and the floor's
+     replaces a move's — never an older line coming back when the newer one leaves. */
+  useEffect(() => {
+    if (moveNote) setFloorNote(null);
+  }, [moveNote]);
+  useEffect(() => {
+    if (floorNote) setMoveNote(null);
+  }, [floorNote]);
   /* ↩ ONE UNDO FOR EVERY GUEST DROP (owner 2026-11-16, batch 2 "Seat plan (drag-first)": *"every guest drop shows one
      Undo line (trades have none today)"*). An Undo is pressed a render or more after its move, so it calls the LATEST
      shipped moves (`seatOps`): the move's own render still holds the seats as they were BEFORE it — a swap "again" from
@@ -7051,6 +7410,70 @@ export function SeatingEditor({
     const n = comingUnseated.filter((g) => g.group_id === gr.group_id).length;
     return n > 0 ? [{ id: gr.group_id, label: gr.label, count: n }] : [];
   });
+  /* 🪑 THE EMPTY FLOOR'S FIRST STEP IS A CARD IN THE LOWER THIRD — never on the plan (owner 2026-11-20, pick 2 and
+     "nothing depends on pressing the floor"; `seat-floor-start.tsx`). On a phone it is the "To seat" card itself, the
+     two buttons under the faces; with no faces to draw (a computer, or nobody left to seat) it is the card alone.
+     ⚠ "Start from this hall" needs the booked venue's hall, which no page can hand the plan yet (`venueHall`). */
+  const floorEmpty = tables.length === 0 && view === 'plan' && !in3d;
+  const { draftable, hint: draftHint } = starterDraftHint({ guests, coupleRoles: roleSet.coupleRoles });
+  const startProps = {
+    toSeat: comingUnseated.length,
+    hall: venueHall,
+    canEdit,
+    busy: isPending,
+    seatEveryoneNote: draftable === 0 ? draftHint : null,
+    onSeatEveryone: buildDraft,
+    onAddTable: () => addTable(),
+    venue: isVenue,
+  };
+  const startCard = inGuests && floorEmpty && !addingTable && !(isPhone && comingUnseated.length > 0) ? (
+      <OverThumbRow mark="start">
+        <FloorStartCard {...startProps} />
+      </OverThumbRow>
+    ) : null;
+  /* ＋ What the plan can add — the thumb row's ＋ menu and the Add box's "Table ▾" are this ONE list and handler. */
+  const seatAddOptions: PickOption[] = [
+    { key: 'table', label: 'New table…', disabledNote: canEdit ? undefined : 'Tap Edit first' },
+    { key: 'entrance', label: 'Entrance', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : entrance.enabled ? 'Already on the plan' : undefined },
+    { key: 'service', label: 'Service door', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : serviceDoor.enabled ? 'Already on the plan' : undefined },
+    { key: 'dance', label: 'Dance floor', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : dance.enabled ? 'Already on the plan' : undefined },
+    { key: 'cocktail', label: 'Cocktail area', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : cocktail.enabled ? 'Already on the plan' : undefined },
+    { key: 'sign', label: `Sign · ${signs.length}/24`, disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : signs.length >= 24 ? 'All 24 placed' : undefined },
+    { key: 'booth', label: 'Supplier booth', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : undefined },
+  ].filter((o) => !isVenue || VENUE_ADD_KINDS.has(o.key));
+  const onSeatAdd = (k: string) => {
+    if (k === 'table') return addTable();
+    if (k === 'entrance') return addEntrance();
+    if (k === 'service') return addServiceDoor();
+    if (k === 'dance') return addDanceFloor();
+    if (k === 'cocktail') return addCocktailArea();
+    if (k === 'sign') return addSign();
+    if (k === 'booth') return addBooth();
+  };
+  const addBar =
+    inGuests && addingTable && canEdit ? (
+      <OverThumbRow mark="add">
+       <div className="sn-frame px-2.5 py-2">
+        <AddTableBar
+          defaultLabel={nextTableName(tables.map((t) => t.table_label))}
+          busy={isPending}
+          onDraft={setAddDraft}
+          onAdd={commitAddTable}
+          onCancel={() => setAddingTable(false)}
+          /* ▾ "Table ▾" at the box's right end (drawing § 9): the ＋ menu's own list and handler. A table is what the box
+             adds already; anything else closes the box and is added the way the ＋ menu adds it. */
+          kinds={{
+            options: seatAddOptions.map((o) => (o.key === 'table' ? { ...o, label: 'New table' } : o)),
+            onPick: (k) => {
+              if (k === 'table') return;
+              setAddingTable(false);
+              onSeatAdd(k);
+            },
+          }}
+        />
+       </div>
+      </OverThumbRow>
+    ) : null;
   const seatTray =
     roomOnly && isPhone && comingUnseated.length > 0 ? (
       <SeatFaceTray
@@ -7058,6 +7481,8 @@ export function SeatingEditor({
         groups={trayGroups}
         canEdit={canEdit}
         hasTables={tables.length > 0}
+        title={floorEmpty && !addingTable ? <FloorStartTitle toSeat={comingUnseated.length} hall={venueHall} /> : undefined}
+        foot={floorEmpty && !addingTable ? <FloorStartButtons {...startProps} /> : undefined}
         onTapFace={openMove}
         onMore={() => {
           setFaceOpen((c) => (c.has(SEAT_LIST_UNSEATED) ? c : new Set([...c, SEAT_LIST_UNSEATED])));
@@ -7082,8 +7507,16 @@ export function SeatingEditor({
             ? comingUnseated.map((g) => ({ key: g.guest_id, label: g.name }))
             : [{ key: '-', label: 'Everyone coming has a seat', disabledNote: 'Nobody to add' }]
         }
+        /* 👥 THE LIST STAYS OPEN (owner 2026-11-20, pick 5: *the list stays open so you tap name after name*). A multi
+           pick never closes on a tap (`picked`); each name takes this seat — or, once it is taken, the table's next
+           free one. */
+        picked={[]}
         onPick={(k) => {
-          if (k !== '-') seatGuestHere(t, k, seat);
+          if (k === '-') return;
+          const occ = occupantsFor(t);
+          const gone = removedSeatSet(t.removed_seats, t.capacity);
+          const free = occ[seat] == null && !gone.has(seat) ? seat : occ.findIndex((g, i) => g === null && !gone.has(i));
+          if (free >= 0) seatGuestHere(t, k, free);
         }}
         dataAttr="data-seat-row-add"
         compact
@@ -7289,9 +7722,13 @@ export function SeatingEditor({
       <MenuCaption>Add a table or element</MenuCaption>
       {addMenuBody}
       <MenuDivider />
-      <MenuCaption>Share &amp; print</MenuCaption>
-      {shareMenuBody}
-      <MenuDivider />
+      {isVenue ? null : (
+        <>
+          <MenuCaption>Share &amp; print</MenuCaption>
+          {shareMenuBody}
+          <MenuDivider />
+        </>
+      )}
       <MenuCaption>The room</MenuCaption>
       {arrangeMenuBody}
     </>
@@ -7318,9 +7755,10 @@ export function SeatingEditor({
       more={phoneMore}
       view={in3d ? '3d' : view === 'list' ? 'list' : '2d'}
       onView={onSelectView}
-      show3D={process.env.NEXT_PUBLIC_SEATING_3D !== 'false'}
+      show3D={!isVenue && process.env.NEXT_PUBLIC_SEATING_3D !== 'false'}
       toast={autoRun ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) } : null}
       trailing={phoneTrailing}
+      venue={isVenue}
     />
   ) : null;
   /* 🧭 Studio: the compact head, the thumb-zone tools, the people sheet — the SAME handlers and
@@ -7402,6 +7840,15 @@ export function SeatingEditor({
         )
       : null;
   const addTable = () => {
+    /* ＋ NO NEW-TABLE SHEET IN GUESTS (owner 2026-11-20): the Add box opens over the thumb row — shape and seats one row
+       above it — and the floor shows where the table lands. Nothing is picked meanwhile, so the box is what shows. */
+    if (inGuests) {
+      setHighlightId(null);
+      setSelMarker(null);
+      setFloorNote(null);
+      setAddingTable(true);
+      return;
+    }
     selectPanelTab('tables');
     setShowAddTable(true);
     if (details) {
@@ -7417,6 +7864,13 @@ export function SeatingEditor({
   const goToFound = (words: string) => {
     if (!lens) return;
     const hits = lens.find(words);
+    /* 🧊 On 3D the room walks the first one found WITH a seat to it — the room's own Guide me (drawing § 6, "search a
+       guest and the room flies to their seat"; `seat-room-link.ts`). */
+    if (in3d) {
+      const seated = guests.find((x) => hits.has(x.guest_id) && x.seated_table_id);
+      if (seated) setRoomGuide((c) => ({ guestId: seated.guest_id, at: (c?.at ?? 0) + 1 }));
+      return;
+    }
     const g = guests.find((x) => hits.has(x.guest_id));
     if (!g) return;
     if (view === 'list') {
@@ -7429,26 +7883,15 @@ export function SeatingEditor({
       setHighlightId(g.seated_table_id);
     }
   };
-  const seatAddOptions: PickOption[] = [
-    { key: 'table', label: 'New table…', disabledNote: canEdit ? undefined : 'Tap Edit first' },
-    { key: 'entrance', label: 'Entrance', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : entrance.enabled ? 'Already on the plan' : undefined },
-    { key: 'service', label: 'Service door', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : serviceDoor.enabled ? 'Already on the plan' : undefined },
-    { key: 'dance', label: 'Dance floor', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : dance.enabled ? 'Already on the plan' : undefined },
-    { key: 'cocktail', label: 'Cocktail area', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : cocktail.enabled ? 'Already on the plan' : undefined },
-    { key: 'sign', label: `Sign · ${signs.length}/24`, disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : signs.length >= 24 ? 'All 24 placed' : undefined },
-    { key: 'booth', label: 'Supplier booth', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : undefined },
-  ];
-  const onSeatAdd = (k: string) => {
-    if (k === 'table') return addTable();
-    if (k === 'entrance') return addEntrance();
-    if (k === 'service') return addServiceDoor();
-    if (k === 'dance') return addDanceFloor();
-    if (k === 'cocktail') return addCocktailArea();
-    if (k === 'sign') return addSign();
-    if (k === 'booth') return addBooth();
-  };
+  /* 🔔 ONE toast line at a time, in the thumb row's own toast — never a strip across the floor's foot, where it covered
+     the zoom (owner 2026-11-20, live: the draft's three-line notice sat on Zoom in / Zoom out). In Guests the plan's
+     plain notices ride it too (`notice`), so the foot of the floor carries no strip at all. */
   const seatToast = moveNote
     ? { text: moveNote.text, onUndo: moveNote.undo, onDismiss: () => setMoveNote(null) }
+    : floorNote
+    ? { text: floorNote.text, onUndo: floorNote.undo, onDismiss: () => setFloorNote(null) }
+    : inGuests && notice
+    ? { text: notice, onUndo: null, onDismiss: () => setNotice(null) }
     : autoRun
       ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) }
       : null;
@@ -7550,14 +7993,36 @@ export function SeatingEditor({
   const boothCard = roomOnly ? (
     <BoothVendorCard booth={boothCardRow ? boothCardFromRow(boothCardRow) : null} onClose={() => setBoothCardId(null)} profileCta="view" />
   ) : null;
+  /* 🟢 ONE LINE UNDER THE PLAN EXPLAINS THE RINGS (owner 2026-11-20, drawing § 5): "34 seated · 0 to seat · Full · Has
+     room · Empty" — the words that replace the top row's sofa / person / target icons on 2D. It reserves its own height
+     like everything else over the thumb row. The zoom is in the thumb row now, so the line runs to the right edge.
+     🏪 "Supplier spots · N" ends it when the floor has any: its list is who is where, and a pick names that chip. */
+  const floorSpots = supplierSpots(booths);
+  const seatLegend =
+    roomOnly && tables.length > 0 && !addingTable ? (
+      <OverThumbRow mark="legend">
+        <p data-seat-legend="" className="pointer-events-none flex flex-wrap items-center gap-x-3 gap-y-0.5 px-1 text-[11px] leading-tight text-ink/70">
+          <span>
+            <b className="font-semibold text-ink">{formatCount(seatedNow)}</b> seated · <b className="font-semibold text-ink">{formatCount(comingUnseated.length)}</b> to seat
+          </span>
+          <span className="inline-flex items-center gap-1"><i aria-hidden className="h-2.5 w-2.5 rounded-full border-2 border-success-600" />Full</span>
+          <span className="inline-flex items-center gap-1"><i aria-hidden className="h-2.5 w-2.5 rounded-full border-2 border-gold" />Has room</span>
+          <span className="inline-flex items-center gap-1"><i aria-hidden className="h-2.5 w-2.5 rounded-full border-2 border-ink/20" />Empty</span>
+          {floorSpots.length > 0 ? <SupplierSpotsLegend spots={floorSpots} onPick={setSpotNamed} /> : null}
+        </p>
+      </OverThumbRow>
+    ) : null;
   /* ✋ Over the thumb row: the picked seat's or table's bar — or, with neither picked, the people still to seat (the tray
      under the floor, `seatTray`, Guests › Seats › 2D on a phone). */
+  /* While the Add box is open the people still to seat stay in sight above it (drawing § 9 frame 2). */
+  const overThumb = seatPop ?? (addBar ? <>{seatTray}{addBar}</> : tableBar ?? startCard ?? seatTray);
   const seatThumb =
     lens && lens.slot
       ? createPortal(
           <>
             {seatToast ? <SeatToast toast={seatToast} /> : null}
-            {seatPop ?? tableBar ?? seatTray}
+            {seatLegend}
+            {overThumb}
             <lens.ThumbRow
               name="guests-seats"
               /* 👥 Guests redesign pick 5 (20 Nov): Seats › List is table cards, each rising on its own — there are no
@@ -7588,6 +8053,8 @@ export function SeatingEditor({
                 },
               }}
               right={[
+                /* 🔍 2D: fit · − · + is a pill here, never a stack on the plan (drawing § 5; `seat-floor-zoom.tsx`). */
+                ...(roomOnly ? [{ node: <SeatZoomPill onFit={fitView} onOut={() => zoomAround(0.8)} onIn={() => zoomAround(1.25)} /> }] : []),
                 /* 🎚 Guests redesign § 8: the look round (List · 2D floor plan · 3D room), opening upward, before Show. */
                 ...(lens.lookRound ? [lens.lookRound] : []),
                 guestsFilterMenu({
@@ -7664,15 +8131,13 @@ export function SeatingEditor({
 
   /* zoom controls — §5.9: Fit first/largest, every target ≥44px.
      🧭 Studio: the thumb-zone tools and the people peek own the foot of the map, so the zoom rides at the top of the room.
-     🗺 Guests: the plan is the WHOLE screen (owner 2026-10-30, DECISION_LOG "SEATS 2D · SEATS 3D · THE MAP ARE ALWAYS FULL
-     SCREEN — NO FULL-SCREEN BUTTON"), and its top is under the pinned row — so the stack sits on the plan's cell, in the
-     LOWER third, just above the floating thumb row (`--sn-thumb-room`, the room that row measures, less the dock the cell
-     already stops at). Fit wears corner brackets, never ⤢. */
+     🗺 Guests: NOT drawn — the plan is the whole screen, and its fit · − · + is a pill in the thumb row instead, so nothing
+     stands on the plan (owner 2026-11-20, drawing § 5; `SeatZoomPill`, the same `fitView` · `zoomAround`).
+     Fit wears corner brackets, never ⤢. */
   const zoomStack = (
     <div
       data-seat-plan-zoom=""
-      className={`absolute right-3 z-20 flex flex-col overflow-hidden rounded-full border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm ${inGuests ? '' : studioSeat ? 'top-3' : 'bottom-[64px] lg:bottom-3'}`}
-      style={inGuests ? { bottom: 'max(0.75rem, calc(var(--sn-thumb-room, 0px) - var(--sn-bottomdock-h, 0px)))' } : undefined}
+      className={`absolute right-3 z-20 flex flex-col overflow-hidden rounded-full border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm ${studioSeat ? 'top-3' : 'bottom-[64px] lg:bottom-3'}`}
     >
       <button
         type="button"
@@ -7812,7 +8277,7 @@ export function SeatingEditor({
     isPhone && view === 'plan' && !in3d && !studioSeat ? (
       <PhoneSeatPlanFoot
         room={venueScaled ? `${roomName} · ${formatCount(venue.width)} × ${formatCount(venue.length)} m${pxPerMeter ? ` · walkway ${aisleM.toFixed(1)} m` : ''}` : roomName}
-        onOpen3D={process.env.NEXT_PUBLIC_SEATING_3D !== 'false' ? () => onSelectView('3d') : null}
+        onOpen3D={!isVenue && process.env.NEXT_PUBLIC_SEATING_3D !== 'false' ? () => onSelectView('3d') : null}
       />
     ) : null;
 
@@ -7828,19 +8293,25 @@ export function SeatingEditor({
       {/* ═══════════ ROW 1 — COMMAND BAR (the page's only blurred surface) ═══════════ */}
       {isPhone || inGuests ? null : (
       <CommandBar>
-        {/* View axis — [2D · 3D · List] (verdict §4). Prefetch the lab on hover. */}
-        <SeatingViewSegment
-          active={in3d ? '3d' : view === 'list' ? 'list' : '2d'}
-          onSelect={onSelectView}
-          /* In Details, 3D is this same address re-read with the lab in it — no
-             page to prefetch (a prefetch would render the whole Maker). */
-          on3DHover={details ? undefined : () => router.prefetch(labUrl)}
-        />
+        {/* View axis — [2D · 3D · List] (verdict §4). Prefetch the lab on hover.
+            🏛 A venue's hall has ONE view, its floor: no 3D room, and the List is guest seating (its tables are the
+            Spaces sheet's own rows), so there is nothing to pick. */}
+        {isVenue ? null : (
+          <SeatingViewSegment
+            active={in3d ? '3d' : view === 'list' ? 'list' : '2d'}
+            onSelect={onSelectView}
+            /* In Details, 3D is this same address re-read with the lab in it — no
+               page to prefetch (a prefetch would render the whole Maker). */
+            on3DHover={details ? undefined : () => router.prefetch(labUrl)}
+          />
+        )}
 
         {/* §5.5 — stats chip becomes a DOORWAY: one actionable number ("N to
             seat"). Tap flips the People pane to the unseated filter; the full
             readout is the hover/press title. (Phone: the count lives on the
             drawer peek handle instead.) */}
+{isVenue ? null : (
+<>
         <button
           type="button"
           className="hidden min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-4 text-sm text-ink/70 hover:border-terracotta sm:inline-flex"
@@ -7860,6 +8331,8 @@ export function SeatingEditor({
             {toSeatReserved} to seat
           </span>
         </button>
+</>
+)}
 
         {/* Live peers + view-only lock pill (verdict §2). */}
         {/* §5.7 — peers collapse to an avatar stack + "+N" (still hidden <md). */}
@@ -7923,9 +8396,13 @@ export function SeatingEditor({
             {arrangeMenuBody}
           </BarMenu>
           {/* ── Share & print ▾ — publish, PDFs, guest photos, walkthrough ── */}
+{isVenue ? null : (
+<>
           <BarMenu label="Share & print" icon={Printer} width="w-72" align="right" disabled={tables.length === 0}>
             {shareMenuBody}
           </BarMenu>
+</>
+)}
         </div>
 
         {/* ── Mobile `⋯` overflow sheet (verdict §7) — + Add / Arrange / Share in
@@ -7938,9 +8415,13 @@ export function SeatingEditor({
             <MenuDivider />
             <MenuCaption>Arrange</MenuCaption>
             {arrangeMenuBody}
-            <MenuDivider />
-            <MenuCaption>Share</MenuCaption>
-            {shareMenuBody}
+            {isVenue ? null : (
+              <>
+                <MenuDivider />
+                <MenuCaption>Share</MenuCaption>
+                {shareMenuBody}
+              </>
+            )}
           </BarMenu>
         </div>
 
@@ -7957,6 +8438,7 @@ export function SeatingEditor({
             one-dialog confirm; the caret holds Build-my-seating-draft + Fill-
             around-locked (moved out of Arrange). Empty floor disables the
             command-bar gold with a reason (gold transfers to the starter card). */}
+{isVenue ? null : (
         <div ref={autoMenuRef} className="relative flex shrink-0">
           <button
             type="button"
@@ -7997,6 +8479,7 @@ export function SeatingEditor({
             </>
           ) : null}
         </div>
+)}
       </CommandBar>
       )}
 
@@ -8039,7 +8522,7 @@ export function SeatingEditor({
 
         {/* Room size & scale — right-anchored popover over the canvas (verdict
             §2 row 2). Floats (absolute) so it never pushes the canvas down. */}
-        {view === 'plan' && showRoomPanel ? (
+        {view === 'plan' && showRoomPanel && !isVenue ? (
           <div
             className="absolute right-2 top-2 z-40 flex max-h-[calc(100%-1rem)] w-[min(92vw,40rem)] flex-wrap items-end gap-4 overflow-y-auto rounded-2xl bg-cream p-4 shadow-lg ring-1 ring-ink/10"
             /* 🗺 In Guests the plan's top is under the pinned row (the plan is the whole screen) — the panel opens below it. */
@@ -8273,7 +8756,19 @@ export function SeatingEditor({
               🖼 In Guests (owner 2026-10-29, "remove it" — R4 slice 6): no rounded outline on the frameless floor; the edge
               is drawn only for a FIXED room (the couple's own saved size — then it is a wall), square, never for the
               suggested / free board. The Studio keeps its blueprint as it was. */}
-          {venueScaled && (!inGuests || (floorPlan.venue_width_m !== null && floorPlan.venue_length_m !== null)) ? (
+          {/* 🏛 THE SAME FLOOR AS A SUPPLIER'S SPACES (owner 2026-11-20, verbatim: *"The Seat Plan here needs to have the
+              same Floor Plan for Suppliers on their Spaces"*): in Guests the room is always drawn the Spaces way — an INK
+              outline, SQUARE corners (`PlanMaker`'s wall), and in its top-left corner the hall's name and its size, the
+              shared core's words (`planRoomWords`). The metre marks along the walls moved to ⋯ › Room size. */}
+          {inGuests ? (
+            <>
+              <div className="pointer-events-none absolute inset-0 border-2 border-ink" data-seat-room-wall="spaces" />
+              <span className="pointer-events-none absolute left-2 top-1.5 z-[6] flex flex-col leading-tight" data-seat-room-name="">
+                <b className="text-[9px] font-semibold text-ink">{planRoomWords({ widthM: roomM.w, depthM: roomM.d }, venueHall?.name).name}</b>
+                <span className="text-[8px] text-ink/70">{planRoomWords({ widthM: roomM.w, depthM: roomM.d }).size}</span>
+              </span>
+            </>
+          ) : venueScaled ? (
             <>
               {/* Blueprint (directive 2026-07-15): hairline walls, mono dims. */}
               <div className={`pointer-events-none absolute inset-0 border border-ink/30 ${inGuests ? '' : 'rounded-lg'}`} data-seat-room-wall="" />
@@ -8300,6 +8795,18 @@ export function SeatingEditor({
               className="pointer-events-none absolute left-0 right-0 z-[15] h-px bg-terracotta/60"
               style={{ top: `${guidesRef.current.y}%` }}
             />
+          ) : null}
+
+          {/* 📏 "Lined up with Table 1" — beside the table being moved, while a guide is drawn (drawing § 10). */}
+          {dragId && linedWithRef.current && positions[dragId] && tables.some((t) => t.table_id === linedWithRef.current) ? (
+            <span
+              aria-hidden
+              data-plan-lined-with=""
+              className="pointer-events-none absolute z-[31] -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-2 py-0.5 text-[9px] font-semibold text-cream"
+              style={{ left: `${positions[dragId]!.x}%`, top: `calc(${positions[dragId]!.y}% + 6%)` }}
+            >
+              Lined up with {tables.find((t) => t.table_id === linedWithRef.current)!.table_label}
+            </span>
           ) : null}
 
           {/* live peer cursors (presence) — fade out after 5s of stillness */}
@@ -8453,6 +8960,7 @@ export function SeatingEditor({
 
           {/* resizable stage (auto-seat anchors its rings here) — drag the body
               to move, the corner grip to resize */}
+          {isVenue ? null : (
           <div
             className="absolute z-10"
             style={{
@@ -8493,6 +9001,7 @@ export function SeatingEditor({
               </button>
             ) : null}
           </div>
+          )}
 
           {/* Walk-through entrance footprint — a deeper rectangle whose back edge
               is flush to the nearest wall, extending inward by the couple's
@@ -8596,7 +9105,22 @@ export function SeatingEditor({
 
           {/* vendor booths — perimeter-anchored markers; the drag handler runs
               the wall-snap rules live so they can't leave the legal band */}
-          {booths.map((b) => {
+          {booths.map((b, bi) => {
+            /* 🏪 Guests › Seats › 2D: the booth is a numbered chip on its wall, its name on a tap (`seat-floor-spots.tsx`,
+               drawing § 5). Same presses as the marker below; a computer's drag press only once the plan is editable. */
+            if (roomOnly) {
+              const spot = floorSpots[bi]!;
+              return (
+                <div key={b.booth_id} className="absolute z-10 -translate-x-1/2 -translate-y-1/2" style={{ left: `${b.x_pos}%`, top: `${b.y_pos}%` }}>
+                  <SpotChip
+                    spot={spot}
+                    named={spotNamed === b.booth_id}
+                    picked={(selMarker?.kind === 'booth' && selMarker.id === b.booth_id) || dragId === `__booth_${b.booth_id}__`}
+                    onPointerDown={press === 'drag' && canEdit ? onBoothPointerDown(b.booth_id) : onTapDown('booth', b.booth_id)}
+                  />
+                </div>
+              );
+            }
             const unassigned = b.booth_type === 'unassigned';
             // Presence label (owner directive 2026-07-16): a booth mirrors the 3D
             // slot — a FINALIZED vendor's name when linked, "SETNAYAN" otherwise.
@@ -8715,82 +9239,41 @@ export function SeatingEditor({
           ))}
 
           {tables.length === 0 ? (
-            <div
-              className="pointer-events-none absolute inset-0 flex items-center justify-center p-6"
-              /* 📐 In Guests the floor runs under the pinned row (`--gs-stick-h`) and under the tray + thumb row
-                 (`--sn-thumb-room`, less the dock the cell already stops at — the zoom stack's own footing), so the card
-                 centres in what shows, and on a phone keeps clear of the zoom column (right-3 + its 44-px buttons): its
-                 "Build my seating draft" step is in sight without a pan (#7906 walker, 390x844). */
-              style={
-                inGuests
-                  ? {
-                      paddingTop: 'calc(var(--gs-stick-h, 0px) + 1.5rem)',
-                      paddingBottom: 'max(1.5rem, calc(var(--sn-thumb-room, 0px) - var(--sn-bottomdock-h, 0px)))',
-                      paddingRight: isPhone ? '4.25rem' : undefined,
-                    }
-                  : undefined
-              }
-            >
-              {(() => {
-                /* 🔢 RW-304b: the same count as the top row's Unseated, and the reason when they differ (`starterDraftHint`). */
-                const { draftable, hint: draftHint } = starterDraftHint({ guests, coupleRoles: roleSet.coupleRoles });
-                // §7 — blueprint-styled starter card: a faint dashed room + ghost
-                // table behind three check-off steps (no new actions; each ticks
-                // as its state lands). Gold transfers HERE (the command-bar Auto
-                // is disabled-with-reason on an empty floor).
-                const Step = ({ done, num, label, hint, onClick, gold, disabled }: {
-                  done: boolean; num: number; label: string; hint?: string;
-                  onClick?: () => void; gold?: boolean; disabled?: boolean;
-                }) => (
-                  <button
-                    type="button"
-                    onClick={onClick}
-                    disabled={disabled}
-                    className={`flex min-h-14 w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                      gold
-                        ? 'border-mulberry/40 bg-mulberry/[0.06] hover:border-mulberry'
-                        : 'border-ink/12 hover:border-terracotta/50 hover:bg-ink/[0.02]'
-                    }`}
-                  >
-                    <span
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums ${
-                        done ? 'bg-success-100 text-success-700' : gold ? 'bg-mulberry text-cream' : 'bg-ink/8 text-ink/70'
-                      }`}
-                    >
-                      {done ? <Check className="h-3.5 w-3.5" /> : num}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className={`block text-sm font-medium ${gold ? 'text-mulberry' : 'text-ink'}`}>{label}</span>
-                      {hint ? <span className="block text-xs text-ink/70">{hint}</span> : null}
-                    </span>
-                  </button>
-                );
-                return (
-                  /* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 13): the one next thing on an empty floor — on the warm surface,
-                     its three steps the only framed (pressable) rows on the screen. */
-                  /* 👆 THE STEPS TAKE A TAP (owner 2026-11-20, live: "Build my seating draft" did nothing on tap). This card
-                     sits INSIDE the floor, whose `onCanvasPointerDown` captures every press for its pan — and a captured
-                     pointer's `click` lands on the floor, never on the step. The card keeps its presses to itself. */
-                  <div
-                    data-floor-steps=""
-                    onPointerDown={(e) => e.stopPropagation()}
-                    className="pointer-events-auto w-full max-w-sm rounded-2xl bg-[var(--m-paper-2)] p-5 shadow-sm"
-                  >
-                    <div aria-hidden className="mx-auto mb-3 flex h-16 items-center justify-center rounded-lg border border-dashed border-ink/20 bg-ink/[0.02]">
-                      <span className="h-8 w-8 rounded-full border border-dashed border-ink/25" />
-                    </div>
-                    <h3 className="text-center text-[17px] font-bold text-ink">Lay out your floor</h3>
-                    <p className="mt-1 mb-3 text-center text-xs text-ink/70">Three steps — we do the heavy lifting.</p>
-                    <div className="flex flex-col gap-2">
-                      <Step num={1} done={venueScaled} label="Set room size" hint={venueScaled ? `${venue.width}×${venue.length} m` : 'Match your reception footprint'} onClick={() => setShowRoomPanel(true)} disabled={!canEdit} />
-                      <Step num={2} done={false} label="Add your first table" hint="Pick from the 13-type catalog" onClick={() => { selectPanelTab('tables'); setShowAddTable(true); if (isNarrow) setDrawerSnap('half'); }} disabled={!canEdit} />
-                      <Step num={3} done={false} gold label="Build my seating draft" hint={draftHint} onClick={buildDraft} disabled={!canEdit || isPending || draftable === 0} />
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
+            /* 🪑 THE EMPTY FLOOR (owner 2026-11-20, pick 2 · "nothing depends on pressing the floor"). In Guests the first
+               step is a card in the LOWER THIRD, over the thumb row (`startCard` / the tray's foot) — the plan itself
+               carries no button, so the STAGE label and the room are never under a card. Any other host has no thumb
+               row to carry it: there the same two buttons sit at the FOOT of the floor, and keep their presses from
+               the floor's pan (it captures every press it hears — the 20 Nov fault, #8055). */
+            inGuests ? null : (
+              <div className="pointer-events-none absolute inset-0 flex items-end justify-center p-6">
+                <div
+                  data-floor-steps=""
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="pointer-events-auto w-full max-w-sm"
+                >
+                  <FloorStartCard {...startProps} />
+                </div>
+              </div>
+            )
           ) : null}
+
+          {/* ＋ WHERE THE NEW TABLE WILL LAND (owner 2026-11-20, drawing § 9 frame 2: "the floor shows where it lands") —
+              a dashed ring on the grid slot the Add box's shape and seats would take, while the box is open. */}
+          {addingTable
+            ? (() => {
+                const slot = gridSlotFor(addDraft.type, addDraft.capacity);
+                if (!slot) return null;
+                const box = seatingBoxPct({ table_type: addDraft.type, capacity: addDraft.capacity }, roomM);
+                return (
+                  <div
+                    aria-hidden
+                    data-floor-add-ghost=""
+                    className="pointer-events-none absolute z-[18] flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-dashed border-terracotta bg-terracotta/[0.06]"
+                    style={{ left: `${slot.x}%`, top: `${slot.y}%`, width: `${box.w}%`, height: `${box.h}%` }}
+                  />
+                );
+              })()
+            : null}
 
           {tables.map((t, i) => {
             const pos = positions[t.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
@@ -8798,7 +9281,7 @@ export function SeatingEditor({
             // Linked serpentine → even chair spacing (chairs flow continuously
             // across a junction), matching the 3D lab. Non-serpentine shapes
             // ignore the flag.
-            const geo = tableGeometry(shape, t.capacity, t.link_group_id != null);
+            const geo = rowGeometry(t, t.link_group_id != null);
             const rectish = shape === 'long_banquet' || shape === 'family_head';
             const occ = occupantsFor(t);
             const filled = occ.filter(Boolean).length;
@@ -8834,13 +9317,15 @@ export function SeatingEditor({
                   .join(' ') + 'Z'
               : null;
             const showRibbon = ribbonPath !== null && detail;
+            /** 🔍 Zoomed out in Guests: the table is its number and a ring that fills (drawing § 5). */
+            const farLook = inGuests && !detail;
             // To-scale factor: render the table at its true footprint relative
             // to the room. GUN B (Sync verdict 2026-07-16): metric on BOTH boards
             // — the free board now scales against the 20×30 box exactly like a
             // sized room, so 2D matches what 3D always showed. (1 only at the
             // canvasW === 0 first paint.)
             const tableScale = metricPpm
-              ? (TABLE_FOOTPRINT_M[t.table_type] * metricPpm) /
+              ? (rowFootprintM(t) * metricPpm) /
                 (detail ? geo.box.w : geo.hub.w + 12)
               : 1;
 
@@ -9129,11 +9614,26 @@ export function SeatingEditor({
                       style={rot ? { transform: `rotate(${-rot}deg)` } : undefined}
                     >
                       {t.is_vip ? <VipMark /> : null}
-                      <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
-                      <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/70">
-                        {formatCount(filled)}/{formatCount(effCap)}
-                      </span>
+                      {farLook ? (
+                        <>
+                          {/* Zoomed out, the number is what is read — sized to the table, not to the zoom. */}
+                          <span className="font-bold leading-none text-ink" style={{ fontSize: Math.round(geo.hub.h * 0.4) }} data-plan-table-num="">
+                            {num || '·'}
+                          </span>
+                          <span className="mt-[3%] leading-none text-ink/70" style={{ fontSize: Math.max(8, Math.round(geo.hub.h * 0.15)) }}>
+                            {formatCount(filled)} of {formatCount(effCap)}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
+                          <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/70">
+                            {formatCount(filled)}/{formatCount(effCap)}
+                          </span>
+                        </>
+                      )}
                     </div>
+                    {farLook ? <TableFillRing round={geo.hub.shape === 'round'} w={geo.hub.w} h={geo.hub.h} radius={geo.hub.radius} filled={filled} of={effCap} /> : null}
                   </button>
                 )}
               </div>
@@ -9157,7 +9657,7 @@ export function SeatingEditor({
             <button
               type="button"
               onClick={() => setShowRoomPanel(true)}
-              disabled={!canEdit}
+              disabled={!canEdit || isVenue}
               aria-label="Room size & scale"
               title="Room size & scale"
               className="absolute bottom-[64px] left-3 z-20 flex flex-col items-start gap-0.5 rounded px-1 hover:bg-cream/60 disabled:cursor-default lg:bottom-3"
@@ -9220,6 +9720,47 @@ export function SeatingEditor({
               flip heuristic are DELETED (their verbs live in the Context Dock,
               rendered at the canvas bottom-center below). A ghost footprint shows
               while the shape picker previews a candidate type (§4). */}
+          {/* 💬 NAMES COME ON A TAP (owner 2026-11-20, drawing § 5): zoomed out, a tapped table says who sits there, at a
+              size you can read, with a way into that table (› = that table, open, on Seats › List — where people are
+              seated). It keeps its presses from the floor's pan. */}
+          {(() => {
+            const st = roomOnly && !detail && !dragId && highlightId ? tables.find((t) => t.table_id === highlightId) : null;
+            if (!st) return null;
+            const rect = canvasRef.current?.getBoundingClientRect();
+            const pos = positions[st.table_id];
+            if (!rect || !pos) return null;
+            const z = zoomRef.current;
+            const cx = (pos.x / 100) * rect.width * z + panRef.current.x;
+            const cy = (pos.y / 100) * rect.height * z + panRef.current.y;
+            const geo = rowGeometry(st);
+            const half = metricPpm ? ((rowFootprintM(st) * metricPpm) / geo.box.w) * (geo.box.h / 2) * z : 20;
+            const occ = occupantsFor(st);
+            const who = occ.flatMap((g) => (g ? [g.name.trim().split(/\s+/)[0] ?? g.name] : []));
+            const cap = effectiveCapacity(st.capacity, st.removed_seats);
+            const unit = displayUnits.find((u) => u.members.some((m) => m.table_id === st.table_id));
+            return (
+              <button
+                type="button"
+                data-plan-table-names={st.table_id}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                  if (unit) setFaceOpen((c) => (c.has(unit.key) ? c : new Set([...c, unit.key])));
+                  onSelectView('list');
+                }}
+                aria-label={`${st.link_group_label ?? st.table_label}, ${formatCount(who.length)} of ${formatCount(cap)} seated — open this table`}
+                className="sn-press absolute z-[32] flex min-h-11 max-w-[min(260px,70vw)] -translate-x-1/2 -translate-y-full items-center gap-2 rounded-xl bg-ink px-3 py-1.5 text-left text-cream shadow-lg"
+                style={{ left: cx, top: cy - half - 6 }}
+              >
+                <span className="min-w-0 flex-1">
+                  <b className="block text-[13px] font-semibold leading-tight">
+                    {st.link_group_label ?? st.table_label} · {formatCount(who.length)} of {formatCount(cap)}
+                  </b>
+                  <span className="block text-[12px] leading-snug text-cream/80 [overflow-wrap:anywhere]">{who.length ? who.join(', ') : 'No one seated yet'}</span>
+                </span>
+                <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+              </button>
+            );
+          })()}
           {(() => {
             const st = highlightId ? tables.find((t) => t.table_id === highlightId) : null;
             if (!st) return null;
@@ -9229,8 +9770,8 @@ export function SeatingEditor({
             const z = zoomRef.current;
             const cx = (pos.x / 100) * rect.width * z + panRef.current.x;
             const cy = (pos.y / 100) * rect.height * z + panRef.current.y;
-            const geo = tableGeometry(shapeHintFor(st.table_type), st.capacity);
-            const tScale = pxPerMeter ? (TABLE_FOOTPRINT_M[st.table_type] * pxPerMeter) / geo.box.w : 1;
+            const geo = rowGeometry(st);
+            const tScale = pxPerMeter ? (rowFootprintM(st) * pxPerMeter) / geo.box.w : 1;
             const halfH = (geo.box.h / 2) * tScale * z;
             const left = Math.max(10, Math.min(rect.width - 10, cx));
             // §2 — the rotate handle's canonical home is 12 o'clock on the object
@@ -9361,7 +9902,7 @@ export function SeatingEditor({
             {tables.length === 0 ? (
               /* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 6): empty is one plain line where the rows would be — no box. */
               <p className="px-1 py-2 text-sm text-ink/70">
-                No tables yet — tap “Build my seating” on the Map, or add one from the panel above.
+                {isVenue ? 'No tables yet — add the hall’s usual tables from the panel above.' : 'No tables yet — tap “Build my seating” on the Map, or add one from the panel above.'}
               </p>
             ) : (
               <ul>
@@ -9529,16 +10070,16 @@ export function SeatingEditor({
             </div>
           </div>
         )}
-        {/* 🗺 Guests: the zoom stack rides the plan's cell, in the lower third (`zoomStack`). */}
-        {inGuests && view === 'plan' ? zoomStack : null}
+        {/* 🗺 Guests: no zoom stack on the plan — its fit · − · + is the thumb row's pill (`SeatZoomPill`). */}
         {/* 🪑 Details · 3D — the lab, drawn over the plan in this same part (free,
             always on — DECISION_LOG "3D SEAT PLANNING STAYS FREE"). The 2D plan
-            stays mounted beneath it, so its lock, guests and lists stay put. */}
+            stays mounted beneath it, so its lock, guests and lists stay put. In Guests the room reads who holds this
+            plan's lock, and the thumb row's search, from `SeatRoomLinkContext` (drawing § 6). */}
         {details?.lab && (!inGuests || seen3d) ? (
           /* 🗂 R4: in Guests the room is mounted the first time it is opened and KEPT (hidden while 2D or List shows) —
              its code and its lock load once. */
           <div data-seat-plan-3d="" hidden={!in3d} className="absolute inset-0 z-[45] overflow-hidden bg-cream">
-            {details.lab}
+            <SeatRoomLinkContext.Provider value={inGuests ? roomLink : null}>{details.lab}</SeatRoomLinkContext.Provider>
           </div>
         ) : null}
         {/* 🧭 Studio: the thumb-zone tools and the people, pulled up over the map. */}
@@ -9572,7 +10113,7 @@ export function SeatingEditor({
           >
             <span aria-hidden className="h-1 w-9 rounded-full bg-ink/25" />
             <span className="text-xs text-ink/70">
-              {toSeatReserved} to seat · {tables.length} tables
+              {isVenue ? `${tables.length} ${tables.length === 1 ? 'table' : 'tables'}` : `${toSeatReserved} to seat · ${tables.length} tables`}
             </span>
           </button>
           <div className="min-h-0 flex-1 overflow-hidden">{panelBody}</div>
@@ -10291,9 +10832,12 @@ function AddTablePanel({
   onDone,
   onLockLost,
   onNotSaved,
+  venue = false,
 }: {
   eventId: string;
   lockId: string | null;
+  /** 🏛 A venue's own hall: the shape is Round · Long · Long with end chairs · Half-moon, with any chair count. */
+  venue?: boolean;
   // Chinese (Tsinoy) tradition avoids table number 4 (四 ≈ 死). ADVISORY ONLY:
   // when true and the entered label is a ones-digit-4 number, we surface a gentle
   // notice (via onTableFourWarning) but still create the table.
@@ -10313,6 +10857,7 @@ function AddTablePanel({
   /** The create never answered, or was refused: the parent says so in the plan's notice strip; the form stays open. */
   onNotSaved: () => void;
 }) {
+  const { createTable } = useSeatingWrites();
   const [isPending, startTransition] = useTransition();
   // A table can't have more seats than its TYPE allows (a Sweetheart seats 2).
   // Capacity is capped at the selected type's seat count and resets to it when
@@ -10320,8 +10865,11 @@ function AddTablePanel({
   const seatsFor = (t: TableType) =>
     TABLE_TYPE_CATALOG.find((c) => c.type === t)?.defaultCapacity ?? 10;
   const [tableType, setTableType] = useState<TableType>('round_10');
-  const [capacity, setCapacity] = useState(seatsFor('round_10'));
-  const maxSeats = seatsFor(tableType);
+  const [capacity, setCapacity] = useState(venue ? (PLAN_TABLE_SHAPES[0]?.chairs ?? 8) : seatsFor('round_10'));
+  const [venuePick, setVenuePick] = useState(VENUE_TABLE_PICKS[0]!);
+  const maxSeats = venue ? PLAN_MAX_CHAIRS : seatsFor(tableType);
+  // The venue's long table is placed with the couple's long footprint; round and half-moon with the round one.
+  const spawnType: TableType = venue ? (venuePick.shape === 'long' ? 'long_banquet_8' : 'round_10') : tableType;
   return (
     <form
       action={(fd) => {
@@ -10329,7 +10877,7 @@ function AddTablePanel({
         fd.set('lock_id', lockId ?? '');
         // Oracle-valid spawn (sized room) so the new table persists a
         // non-overlapping, off-stage home the 3D view reads identically.
-        const spawn = computeSpawn?.(tableType, capacity) ?? null;
+        const spawn = computeSpawn?.(spawnType, capacity) ?? null;
         if (spawn) {
           fd.set('x_pos', String(spawn.x));
           fd.set('y_pos', String(spawn.y));
@@ -10365,17 +10913,37 @@ function AddTablePanel({
       />
       {/* §4 — the SAME visual shape picker as the dock's Change-shape, so shape
           choice looks identical at create time and change time. */}
-      <input type="hidden" name="table_type" value={tableType} />
-      <ShapePicker
-        value={tableType}
-        mode="create"
-        onApply={(t) => {
-          setTableType(t);
-          setCapacity(seatsFor(t)); // reset to the new type's seat count
-        }}
-      />
+      <input type="hidden" name="table_type" value={spawnType} />
+      {venue ? (
+        <>
+          <input type="hidden" name="plan_shape" value={venuePick.shape} />
+          <input type="hidden" name="chairs_at_ends" value={venuePick.ends ? 'true' : 'false'} />
+          <PickMenu
+            label="Table shape"
+            value={venuePick.key}
+            options={VENUE_TABLE_PICKS.map((p) => ({ key: p.key, label: p.label }))}
+            onPick={(k) => {
+              const pick = VENUE_TABLE_PICKS.find((p) => p.key === k);
+              if (!pick) return;
+              setVenuePick(pick);
+              setCapacity(PLAN_TABLE_SHAPES.find((sh) => sh.key === pick.shape)?.chairs ?? 8);
+            }}
+            dataAttr="data-seat-plan-add-shape"
+            className="w-full border border-ink/15"
+          />
+        </>
+      ) : (
+        <ShapePicker
+          value={tableType}
+          mode="create"
+          onApply={(t) => {
+            setTableType(t);
+            setCapacity(seatsFor(t)); // reset to the new type's seat count
+          }}
+        />
+      )}
       <div className="flex items-center gap-2">
-        <label className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">Seats</label>
+        <label className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">{venue ? 'Chairs' : 'Seats'}</label>
         <input
           name="capacity"
           type="number"
@@ -10513,6 +11081,34 @@ function BoothPickerPanel({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * ⭕ THE RING THAT FILLS (owner 2026-11-20, drawing § 5: *each table is a number with a ring that fills as chairs fill.
+ * Green is full, gold has room*). Drawn over the hub's own edge while the plan is zoomed out; a long table wears it as
+ * a bar along its top edge. Empty = the plain hairline (no arc at all).
+ */
+function TableFillRing({ round, w, h, radius, filled, of }: { round: boolean; w: number; h: number; radius: number; filled: number; of: number }) {
+  const share = of > 0 ? Math.max(0, Math.min(1, filled / of)) : 0;
+  const full = of > 0 && filled >= of;
+  const sw = Math.max(4, Math.round(Math.min(w, h) * 0.09));
+  const tone = full ? 'text-success-600' : 'text-gold';
+  if (round) {
+    const r = Math.min(w, h) / 2 - sw / 2;
+    const c = 2 * Math.PI * r;
+    return (
+      <svg aria-hidden data-plan-fill={full ? 'full' : share > 0 ? 'room' : 'empty'} className="pointer-events-none absolute inset-0 h-full w-full -rotate-90" viewBox={`0 0 ${w} ${h}`}>
+        <circle cx={w / 2} cy={h / 2} r={r} fill="none" stroke="currentColor" strokeWidth={sw} className="text-ink/15" />
+        {share > 0 ? <circle cx={w / 2} cy={h / 2} r={r} fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${c * share} ${c}`} className={tone} /> : null}
+      </svg>
+    );
+  }
+  return (
+    <svg aria-hidden data-plan-fill={full ? 'full' : share > 0 ? 'room' : 'empty'} className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${w} ${h}`}>
+      <rect x={sw / 2} y={sw / 2} width={w - sw} height={h - sw} rx={radius} fill="none" stroke="currentColor" strokeWidth={sw} className="text-ink/15" />
+      {share > 0 ? <line x1={sw} x2={sw + (w - 2 * sw) * share} y1={sw / 2} y2={sw / 2} stroke="currentColor" strokeWidth={sw} strokeLinecap="round" className={tone} /> : null}
+    </svg>
   );
 }
 

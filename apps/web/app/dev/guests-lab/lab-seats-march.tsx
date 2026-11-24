@@ -7,6 +7,8 @@ import { MarchMaker } from '@/app/dashboard/[eventId]/launch/_components/details
 import { labMarchSections } from '@/app/dev/details-lab/march-fixture';
 import { parseSeatView } from '@/lib/guests-views';
 import { LabRoom3D } from './lab-room-3d';
+import { LabSeatFloor } from './lab-seat-floor';
+import type { ComponentProps } from 'react';
 
 /**
  * 🗂 R4 · THE LAB'S GUESTS › SEATS AND GUESTS › MARCH — the SHIPPED makers, drawn the way `guests/page.tsx` draws them
@@ -138,14 +140,35 @@ function vipLabRoom(mode: VipLab) {
   return { tables, guests, groups };
 }
 
-export function LabSeats({ guests, seat, big = false, cale = null, vip = null }: { guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined; /** `&big=1` — the 3D room on the 25-table / 230-guest synthetic plan. */ big?: boolean; cale?: 'before' | 'after' | null; vip?: VipLab | null }) {
+export function LabSeats({ guests, seat, big = false, cale = null, vip = null, floor = null }: { floor?: 'empty' | null; guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined; /** `&big=1` — the 3D room on the 25-table / 230-guest synthetic plan. */ big?: boolean; cale?: 'before' | 'after' | null; vip?: VipLab | null }) {
   const vipRoom = vip ? vipLabRoom(vip) : null;
-  const LAB_TABLES = vipRoom ? vipRoom.tables : cale ? caleShapedTables(cale === 'after') : LAB_TABLES_SMALL;
+  /* 🧪 `&floor=empty` — no tables, eight people coming with no seat, an unsized (20 × 30 m) room: the owner's test event
+     of 20 Nov, on which the floor's first steps are walked with the lab's stand-in writes (`lab-seat-floor.tsx`). */
+  const LAB_TABLES = floor === 'empty' ? [] : vipRoom ? vipRoom.tables : cale ? caleShapedTables(cale === 'after') : LAB_TABLES_SMALL;
   async function labPolicy(formData: FormData) {
     'use server';
     void formData;
   }
-  const seatingGuests: SeatingGuest[] = vipRoom ? vipRoom.guests : guests.map((g, i) => {
+  const emptyFloorGuests: SeatingGuest[] = ['Ana', 'Ben', 'Cora', 'Dan', 'Ela', 'Fel', 'Gina', 'Hugo'].map((n, i) => ({
+    guest_id: `lab-test-${i}`,
+    name: `Test ${n}`,
+    initials: `T${n[0]}`,
+    photo_url: null,
+    side: 'both',
+    group_id: null,
+    rsvp_status: 'attending',
+    seated_table_id: null,
+    seat_number: null,
+    seat_locked: false,
+    seat_placed_by: null,
+    seat_placed_at: null,
+    role: 'guest',
+    group_category: 'friend',
+    meal_preference: null,
+    dietary_restrictions: null,
+    seating_priority: null,
+  }));
+  const seatingGuests: SeatingGuest[] = floor === 'empty' ? emptyFloorGuests : vipRoom ? vipRoom.guests : guests.map((g, i) => {
     const name = [g.first_name, g.last_name].filter(Boolean).join(' ') || 'Guest';
     const seated = i % 3 !== 2 ? LAB_TABLES[i % LAB_TABLES.length]! : null;
     return {
@@ -173,33 +196,31 @@ export function LabSeats({ guests, seat, big = false, cale = null, vip = null }:
   const nonDeclined = seatingGuests.filter((g) => g.rsvp_status !== 'declined').length;
   const reserved = seatingGuests.filter((g) => g.rsvp_status === 'attending');
   const view = parseSeatView(seat);
-  return (
-    <SeatPlanInGuests seat={view}>
-      <SeatingEditor
-        eventId="S89E-LABGUESTS1"
-        roleSetKey="wedding"
-        tables={LAB_TABLES}
-        guests={seatingGuests}
-        groups={vipRoom ? vipRoom.groups : [{ group_id: 'grp-b', label: 'Barkada', color: groupColorFor(0), member_count: 4 }]}
-        floorPlan={{ ...DEFAULT_FLOOR_PLAN, venue_width_m: 24, venue_length_m: 18, vip_plus_ones: vip === 'nearest' ? 'nearest' : 'beside' }}
-        booths={LAB_BOOTHS}
-        signs={[]}
-        bookedVendors={[]}
-        constraints={[]}
-        eventDate="2026-12-12"
-        seatDayHasCome={false}
-        genderSeparationNote={null}
-        seatShortfall={Math.max(0, nonDeclined - totalSeats)}
-        nonDeclinedCount={nonDeclined}
-        totalSeats={totalSeats}
-        autoplaceEnabled
-        adjacencyEnabled
-        reservedCount={reserved.length}
-        toSeatReserved={reserved.filter((g) => !g.seated_table_id).length}
-        setSeatingAutoplace={labPolicy}
-        setSeatingGroupAdjacency={labPolicy}
-        initialView={view === 'list' ? 'list' : 'plan'}
-        details={{
+  const editorProps: ComponentProps<typeof SeatingEditor> = {
+    eventId: "S89E-LABGUESTS1",
+    roleSetKey: "wedding",
+    tables: LAB_TABLES,
+    guests: seatingGuests,
+    groups: vipRoom ? vipRoom.groups : [{ group_id: 'grp-b', label: 'Barkada', color: groupColorFor(0), member_count: 4 }],
+    floorPlan: { ...DEFAULT_FLOOR_PLAN, venue_width_m: floor === 'empty' ? null : 24, venue_length_m: floor === 'empty' ? null : 18, vip_plus_ones: vip === 'nearest' ? 'nearest' : 'beside' },
+    booths: LAB_BOOTHS,
+    signs: [],
+    bookedVendors: [],
+    constraints: [],
+    eventDate: "2026-12-12",
+    seatDayHasCome: false,
+    genderSeparationNote: null,
+    seatShortfall: Math.max(0, nonDeclined - totalSeats),
+    nonDeclinedCount: nonDeclined,
+    totalSeats: totalSeats,
+    autoplaceEnabled: true,
+    adjacencyEnabled: true,
+    reservedCount: reserved.length,
+    toSeatReserved: reserved.filter((g) => !g.seated_table_id).length,
+    setSeatingAutoplace: labPolicy,
+    setSeatingGroupAdjacency: labPolicy,
+    initialView: view === 'list' ? 'list' : 'plan',
+    details: {
           /* 🧊 The SHIPPED 3D room on synthetic data (`lab-room-3d.tsx`), opened in place like Guests › Seats — it replaces
              #7055's stand-in box, so the lab walks Seats › 3D's full screen, the auto-pin and the glide on the real room. */
           lab: <LabRoom3D big={big} />,
@@ -211,9 +232,12 @@ export function LabSeats({ guests, seat, big = false, cale = null, vip = null }:
           ],
           part: view === 'map' ? 'map' : null,
           host: 'guests',
-        }}
-        me={{ id: 'lab-user', name: 'Maria' }}
-      />
+        },
+    me: { id: 'lab-user', name: 'Maria' },
+  };
+  return (
+    <SeatPlanInGuests seat={view}>
+      {floor === 'empty' ? <LabSeatFloor editorProps={editorProps} /> : <SeatingEditor {...editorProps} />}
     </SeatPlanInGuests>
   );
 }

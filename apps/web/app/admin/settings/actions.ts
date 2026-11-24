@@ -225,6 +225,29 @@ export async function saveBusinessIdentity(formData: FormData) {
   revalidatePath(routes.vendorDashboard.profile());
   revalidatePath(routes.vendorDashboard.subscription());
 
+  // 🤝 Owner 21 Nov 2026 ("TRUSTED SHOPS RANK HIGHER IN SEARCH" (5)): how many times more trusted shops each search
+  // step needs. The same shape as the lines above, but 2–10: 1 would be no step at all. Blank = not set — trust lifts
+  // nobody. The owner's number; nothing is seeded.
+  if (formData.has('trust_search_step')) {
+    const raw = formData.get('trust_search_step');
+    const blank = typeof raw !== 'string' || raw.trim() === '';
+    const n = nullIfBlankNumber(raw);
+    if (!blank && (n === null || !Number.isInteger(n) || n < 2 || n > 10)) {
+      return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent('Business identity saved, but the trust step must be a whole number 2–10, or blank.')}`);
+    }
+    const { error: stepErr } = await admin
+      .from('platform_settings')
+      .update({ trust_search_step: n, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    if (stepErr) {
+      return redirect(
+        `/admin/settings?tab=settings&error=${encodeURIComponent(
+          `Business identity saved, but the trust step couldn't save. Try again, and tell the developers if it repeats.${logRefusal('AdminSettingsActions (trust step)', stepErr)}`,
+        )}`,
+      );
+    }
+  }
+
   revalidatePath('/admin/settings');
   revalidatePath('/receipts', 'layout');
   redirect('/admin/settings?tab=settings&saved=1');

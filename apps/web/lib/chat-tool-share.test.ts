@@ -170,7 +170,7 @@ test('6 · one ＋ row on the supplier’s tray, before Every version; never the
   const sup = supplierPlusRows({ paid: false });
   const share = sup.filter((r) => r.key === 'share');
   assert.equal(share.length, 1);
-  assert.equal(share[0]!.label, 'Share from your tools');
+  assert.equal(share[0]!.label, 'Share from your widgets');
   assert.equal(share[0]!.opensTools, true);
   assert.equal(share[0]!.card, null, 'the row opens the picker; it is not a draft card');
   assert.equal(sup.at(-1)!.key, 'versions');

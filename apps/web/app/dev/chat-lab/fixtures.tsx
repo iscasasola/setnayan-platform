@@ -84,7 +84,7 @@ export const LAB_MESSAGES: ChatMessageRow[] = [
 ];
 
 /**
- * 🧰 `?share=1` — the five tool cards a supplier shared ("Share from your tools", DECISION_LOG 2026-11-23 dee66686), the
+ * 🧰 `?share=1` — the five tool cards a supplier shared ("Share from your widgets", DECISION_LOG 2026-11-23 dee66686), the
  * hosts' OK on the second (the 3D plan), so both faces show: waiting and approved. The words are the shipped ones.
  */
 export function labToolShareMessages(): ChatMessageRow[] {

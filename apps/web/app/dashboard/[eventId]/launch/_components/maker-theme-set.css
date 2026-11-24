@@ -1,0 +1,28 @@
+/* 🎬 THE THEME, SHOWN AS ONE MOVING SET — the Maker's Look › Theme (`maker-theme-set.tsx`; owner 23 Nov 2026, *"animated
+   yes"*; drawing `prototypes/maker_theme_set_animated_2026-11-23/`). The five pieces arrive in turn, once: the page settles
+   (grows from 94 % and fades in), the RSVP sheet rises a beat after it, the ticket slides out from behind the phone, the
+   invitation and the table sign land from above with a small turn — Rise on the Spring, transform and opacity only.
+   A theme switch cross-fades each piece in place (Move, Settle). Reduce motion: no travel, and a switch is a 120 ms fade.
+   Every length is a token of the one timing table (MOTION_STANDARD_2026-11-18.md § 0); the beat between pieces is the
+   table's Quick. */
+.sn-set-arrive {
+  animation-duration: var(--sn-m-rise);
+  animation-timing-function: var(--sn-m-spring);
+  animation-fill-mode: backwards;
+}
+.sn-set-arrive--page { animation-name: sn-set-settle; }
+.sn-set-arrive--rsvp { animation-name: sn-set-rise; animation-delay: var(--sn-m-quick); }
+.sn-set-arrive--ticket { animation-name: sn-set-slide; animation-delay: calc(var(--sn-m-quick) * 2); }
+.sn-set-arrive--invitation { animation-name: sn-set-land; animation-delay: calc(var(--sn-m-quick) * 3); --sn-set-turn: 3deg; transform: rotate(var(--sn-set-turn)); }
+.sn-set-arrive--sign { animation-name: sn-set-land; animation-delay: calc(var(--sn-m-quick) * 4); --sn-set-turn: -2deg; transform: rotate(var(--sn-set-turn)); }
+@keyframes sn-set-settle { from { opacity: 0; transform: scale(0.94); } }
+@keyframes sn-set-rise { from { opacity: 0; transform: translateY(40%); } }
+@keyframes sn-set-slide { from { opacity: 0; transform: translateX(-40%); } }
+@keyframes sn-set-land { from { opacity: 0; transform: translateY(-30%) rotate(calc(var(--sn-set-turn) * 3)); } }
+.sn-set-swap { animation: sn-set-swap var(--sn-m-move) var(--sn-m-settle) both; }
+@keyframes sn-set-swap { from { opacity: 0; transform: scale(0.985); } }
+@media (prefers-reduced-motion: reduce) {
+  .sn-set-arrive { animation: none; }
+  .sn-set-swap { animation: sn-set-fade var(--sn-dur-rise-reduced) linear both; }
+  @keyframes sn-set-fade { from { opacity: 0; } }
+}

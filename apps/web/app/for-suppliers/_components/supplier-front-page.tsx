@@ -116,6 +116,7 @@ export function SupplierFrontPage({
   fee,
   gifts = { packs: null, bundles: null, credits: { plusCredits: null, proCredits: null } },
   afterPlans,
+  papicCapture = false,
 }: {
   prices: SupplierFrontPrices;
   fee: SupplierFrontFee;
@@ -125,6 +126,8 @@ export function SupplierFrontPage({
   paywallOn: boolean;
   /** Drawn under the plans — the page passes the "Couple pricing" return leg (`/pricing` ↔ `/for-suppliers`). */
   afterPlans?: ReactNode;
+  /** The Papic camera's privacy switch (`isVendorPapicCaptureEnabled`) — the Toolkit lists it only while on. */
+  papicCapture?: boolean;
 }) {
   const schedule = fee.enabled ? fee.schedule : null;
   const giftFrom = giftFromPrice(gifts.packs);
@@ -135,7 +138,7 @@ export function SupplierFrontPage({
   const bundle = giftBundleLine(gifts.packs, gifts.bundles);
 
   /** The Toolkit's shelves: counts from the one Toolkit list, tags from the paid list (owner a02673ac — no start date). */
-  const shelves = toolkitShelves();
+  const shelves = toolkitShelves(papicCapture);
   const count = toolkitCountLine(shelves);
 
   /** The plan cards: every fact `planStair` (TIER_CAPS), every price the catalog's, one real door each. */

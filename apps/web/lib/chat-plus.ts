@@ -102,7 +102,7 @@ export type PlusRow = {
   /** ＋ FINAL: the host's tray is two jobs, headed by their own words — Ask · Share. */
   tray?: PlusTrayGroup;
   /**
-   * 🧰 Share from your tools (DECISION_LOG 2026-11-23, specs dee66686): the row opens the tray's second level — the
+   * 🧰 Share from your widgets (DECISION_LOG 2026-11-23, specs dee66686): the row opens the tray's second level — the
    * picker of the tools this shop has (`lib/chat-tool-share-held.ts`) — and each pick posts its card. Not a card itself.
    */
   opensTools?: boolean;
@@ -337,7 +337,7 @@ export function supplierPlusRows(opts: {
     // ➖ "Ask for access" LEFT the ＋ (owner 21 Nov, DECISION_LOG "NO 'ASK FOR ACCESS' TILE ON THE CHAT ＋" — the row AFTER
     // "CHAT ＋ FINAL", and it names the final tray: *"this means we do not need access request on +"*). Asking lives in
     // ONE place: the "Their event" list's last row, "Ask for access to more" (lib/their-event.ts).
-    // 🧰 Share from your tools (owner 23 Nov, "Yes, add it" — DECISION_LOG dee66686; drawing frame 7): the picker of the
+    // 🧰 Share from your widgets (owner 23 Nov, "Yes, add it" — DECISION_LOG dee66686; drawing frame 7): the picker of the
     // planning tools this shop has. Always drawn in its place; a shop with none is told so in the picker, never hidden.
     { key: 'share', label: SHARE_ROW_LABEL, line: SHARE_ROW_LINE, card: null, door: null, opensTools: true, isNew: true },
     {

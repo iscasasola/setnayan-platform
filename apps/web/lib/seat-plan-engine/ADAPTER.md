@@ -1,3 +1,7 @@
+> **Done, then superseded (20 Nov).** #7968 was switched onto this engine, then reworked into Spaces (owner 19 Nov):
+> its page and storage became `app/vendor-dashboard/spaces/` and `lib/space-tables.ts`, and its tables and doors hang on a
+> hall or room (migration 20271356372536). The paths below are the 18 Nov names, kept as the record of the switch.
+
 # Switching PR #7968 (Rooms & seating, piece A) onto the shared seat-plan engine
 
 Written 20 Nov 2026 for the session that owns
@@ -19,6 +23,8 @@ action and `PlanMaker` component. It stops carrying its own copy of the core.
 | `apps/web/lib/plan-maker.test.ts` | No textual conflict. | **Delete the file.** It now lives at `lib/seat-plan-engine/plan.test.ts`, with the two changes in §3. |
 
 ## 2 · Change imports: `@/lib/plan-maker` → `@/lib/seat-plan-engine`
+
+> 23 Nov 2026: PlanMaker (`app/_components/plan-maker/`) is retired. The couple's editor is the one seat-plan editor and Spaces opens it in its venue mode (`app/vendor-dashboard/spaces/_components/venue-seat-plan.tsx`, DECISION_LOG d1fafcd5). The two PlanMaker lines below are history.
 
 Every name you import keeps its exact name and signature:
 
@@ -85,7 +91,7 @@ Keep `parseUnitNames` ("301-310 makes ten"), `moveStep`, `unitsOf`, the section 
 ```bash
 cd apps/web
 git grep -n "lib/plan-maker" -- . ':!*.md'      # must print nothing
-npx tsx --test lib/seat-plan-engine/plan.test.ts lib/seat-plan-engine/engine.test.ts app/_components/plan-maker/plan-maker.test.ts lib/rooms-seating.test.ts
+npx tsx --test lib/seat-plan-engine/plan.test.ts lib/seat-plan-engine/engine.test.ts lib/rooms-seating.test.ts
 pnpm preflight --only guards,lint,types,pins
 ```
 

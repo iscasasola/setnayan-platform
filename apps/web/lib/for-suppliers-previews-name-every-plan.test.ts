@@ -22,7 +22,7 @@ const meta = PAGE.slice(PAGE.indexOf('export async function generateMetadata'), 
 test('one plan list, every plan', () => {
   assert.ok(meta.length > 200, 'anti-vacuity: generateMetadata moved');
   assert.match(meta, /const all = \['solo', 'pro', 'enterprise'\] as const;/);
-  const calls = [...meta.matchAll(/tierPriceCopy\(p, ([^,)]+)/g)].map((m) => m[1].trim());
+  const calls = [...meta.matchAll(/tierPriceCopy\(p, ([^,)]+)/g)].map((m) => (m[1] ?? '').trim());
   assert.ok(calls.length >= 2, 'anti-vacuity: the descriptions no longer read tierPriceCopy');
   assert.deepEqual([...new Set(calls)], ['all'], `a description reads a second plan list: ${calls.join(' · ')}`);
 });

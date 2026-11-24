@@ -329,6 +329,7 @@ function mergeHappy(ctx, outs) {
   ctx.t = m.t;
   ctx.path = m.path;
   ctx.returned = live.length === 0;
+  return m;
 }
 /** Runtime tests whose answer on a live page render is known: `insideRender()` (lib/request-once.ts) is true there,
  *  `onTheCachedHub()` (lib/hub-request.ts) is false off the cached Event Hub. Returns true / false / null. */
@@ -369,15 +370,20 @@ function evalStmt(st, scope, ctx) {
     if (taken) evalStmt(taken, new Scope(scope, ctx.file), ctx);
   } else if (ts.isIfStatement(st)) {
     evalExpr(st.expression, scope, ctx);
+    const r0 = ctx.returns.length;
     const a = branch(ctx, () => evalStmt(st.thenStatement, new Scope(scope, ctx.file), ctx));
+    const r1 = ctx.returns.length;
     const b = branch(ctx, () => st.elseStatement && evalStmt(st.elseStatement, new Scope(scope, ctx.file), ctx));
+    a.rets = ctx.returns.slice(r0, r1);
+    b.rets = ctx.returns.slice(r1);
+    const keepOnly = (o) => (ctx.returns = [...ctx.returns.slice(0, r0), ...o.rets]);
     const condText = st.expression.getText(ctx.file.sf).replace(/\s+/g, '');
     if (isErrorTest(st.expression, ctx) && a.returned && !st.elseStatement && /^!|===?null|===?undefined/.test(condText)) {
       // `if (!error) return data;` — the rest of the block is the failure path (a retry), not a normal open.
       ctx.t = a.t;
       ctx.path = a.path;
       ctx.returned = true;
-    } else if (isErrorTest(st.expression, ctx)) mergeHappy(ctx, [a, b]);
+    } else if (isErrorTest(st.expression, ctx)) keepOnly(mergeHappy(ctx, [a, b]));
     else merge(ctx, [a, b]);
   } else if (ts.isBlock(st)) evalBlock(st.statements, new Scope(scope, ctx.file), ctx);
   else if (ts.isTryStatement(st)) {

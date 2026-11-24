@@ -163,7 +163,7 @@ const BATCHES = [
   { id: 'L2', title: 'Supplier layout', files: ['app/vendor-dashboard/layout.tsx'], match: () => false },
   { id: 'L3', title: 'Event layout (every host page)', files: ['app/dashboard/[eventId]/layout.tsx', 'lib/logo-plays.server.ts'], match: () => false },
   { id: 'L4', title: 'Admin layout', files: ['app/admin/layout.tsx', 'lib/admin/require-admin.ts', 'lib/admin-map/admin-row-index.ts', 'lib/admin/queue-counts.ts', 'app/_components/account-switcher/get-switcher-data.ts'], match: () => false },
-  { id: 'L5', title: 'Guest Event Hub layout + who-may-see-it', files: ['app/[slug]/layout.tsx', 'app/[slug]/_lib/loaders.ts', 'lib/slug-access.ts', 'lib/guest-session.ts', 'lib/booked-supplier.ts', 'lib/guest-membership-session.ts', 'lib/guest-seat-read.ts'], match: () => false },
+  { id: 'L5', title: 'Guest Event Hub layout + who-may-see-it', files: ['app/[slug]/layout.tsx', 'app/[slug]/_lib/loaders.ts', 'app/[slug]/_lib/hub-look.ts', 'lib/slug-access.ts', 'lib/guest-session.ts', 'lib/booked-supplier.ts', 'lib/guest-membership-session.ts', 'lib/guest-seat-read.ts'], match: () => false },
   { id: 'L6', title: 'Account, hub and public shells', files: ['app/dashboard/layout.tsx', 'app/dashboard/(account)/layout.tsx', 'app/(hub)/layout.tsx', 'app/(hub)/dashboard/layout.tsx', 'app/(shell)/layout.tsx', 'lib/user-row.ts', 'app/_components/spotlight.tsx'], match: () => false },
   // shared loaders
   { id: 'S1', title: 'Entitlement gates (one batched answer per render)', files: ['lib/entitlements.ts', 'lib/couple-website-pro.ts', 'lib/animated-monogram.ts', 'lib/event-entitlement-client.server.ts', 'lib/event-entitlement-client.ts', 'lib/retired-products.server.ts'], match: () => false },

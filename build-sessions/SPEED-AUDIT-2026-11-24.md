@@ -14,8 +14,8 @@
 | **Over 3 rounds (route, layouts included)** | **459** |
 | Over 3 rounds in the page's OWN reads (layouts aside) | 286 |
 | 1–3 rounds | 30 |
-| 4–9 rounds | 18 |
-| 10–19 rounds | 373 |
+| 4–9 rounds | 19 |
+| 10–19 rounds | 372 |
 | 20+ rounds | 68 |
 | N+1 loops on a critical path (distinct sites) | 20 |
 | Uncached `auth.getUser()` calls on a critical path (distinct sites) | 29 |
@@ -26,13 +26,13 @@
 - **Most of the wait is in four shared files, not in the pages.**
   - The event layout (`app/dashboard/[eventId]/layout.tsx`) is 17 rounds for all 116 host pages.
   - The guest Event Hub layout (`app/[slug]/layout.tsx`) is 12 for the 17 guest pages.
-  - The admin and supplier layouts are 11 each, for 119 and 91 pages.
+  - The supplier layout is 11, for 91 pages; the admin layout is 10, for 119.
 
   A page renders beside its layouts, so no page under them can finish sooner, however lean it is. **343 pages** sit under those four, and for **339 pages** a layout is the slowest part of the route or ties with the page. Fixing the layouts (batches L1–L6) takes 5 to 14 rounds off all of them at once.
 - **286 pages are over 3 rounds through their own reads.**
   - The worst are long chains of `await`s that do not depend on each other: the Story loader, the supplier's client view, the guest Event Hub, the print page, the shop page, the payment page.
   - Each is the same fix #8278 made: start the reads at once and wait once.
-  - **The payment return page (`/pay/[reference]`) writes inside its render.** When a buyer comes back from Maya with an open checkout, `app/pay/[reference]/maya-return.ts:mayaPayState` runs `settleMaya` → `approvePaymentCore`, then `notifyBuyerIfAny` → `emitNotification` (a notice, an email, a push), all before the first byte: about 45 rounds. Approving must finish before the page says "paid". The notice, email and push can move to `after()`, which matches the owner's "the webhook is only a hint" rule.
+  - **The payment return page (`/pay/[reference]`) writes inside its render.** When a buyer comes back from Maya with an open checkout, `app/pay/[reference]/maya-return.ts:mayaPayState` runs `settleMaya` → `approvePaymentCore`, then `notifyBuyerIfAny` → `emitNotification` (a notice, an email, a push), all before the first byte: about 45 rounds. Approving must finish before the page says "paid". The notice, email and push could move to `after()`. That changes when the email leaves, not what it says, so it is the controller's call.
 - **30 pages are already at 3 rounds or fewer.** They are the auth forms, the tour, the sample, the site-editor entry pages and a few token pages.
 - **Three shared readers sit under many pages and need their own batch, not a per-page fix:**
   - the entitlement gates (`lib/entitlements.ts`, `lib/couple-website-pro.ts`);
@@ -45,9 +45,9 @@
 This is an estimate, not a measurement:
 
 - PR #8278 measured the signed-in Shop live: its stream ended about **1.67 s** in.
-- This tracer counts **27 rounds** on that page today.
-- That puts a round at roughly **50–60 ms** on the live stack. Vercel `sin1` talks to Supabase Singapore, so most of a round is PostgREST and pool time, not distance.
-- At that rate, **0.7 s holds about 10–12 rounds including the render**. #8278's target of 2–3 rounds per screen leaves room for the render and the network.
+- This tracer counts **26 rounds** on that page today.
+- That puts a round at roughly **60 ms** on the live stack, render time included. Both ends are in Singapore (Vercel `sin1`, Supabase Singapore), so distance is small; most of a round is likely PostgREST and pool time.
+- At that rate, **0.7 s holds about 10 rounds before any render time**. #8278's target of 2–3 rounds per screen leaves room for the render and the phone's own network.
 
 ## 2 · How it was measured
 
@@ -74,7 +74,7 @@ This is an estimate, not a measurement:
 - **now**: statement order, every `await` blocking (what the code does today).
 - **after**: dataflow only. Each read starts once the values it uses are ready, and a child's reads start once its props are ready (the #8278 preload). It is the floor a fix in #8278's pattern reaches **without a new RPC**.
 
-**Checked against #8278 itself.** On #8278's branch the tracer counts the Shop's own reads at **16 rounds**, against **27 on main**: 11 fewer. The PR reports 12–14 → 3 for the service list and 6–7 → 2–3 for the carousel. The direction and size agree. The Shop's route total then sits at the supplier layout's 11, which is batch L2.
+**Checked against #8278 itself.** On #8278's branch the tracer counts the Shop's own reads at **16 rounds**, against **26 on main**: 10 fewer. The PR reports 12–14 → 3 for the service list and 6–7 → 2–3 for the carousel. The direction and size agree. The Shop's route total then sits at the supplier layout's 11, which is batch L2.
 
 **Limits, said plainly:**
 
@@ -119,22 +119,22 @@ The tracer needs `typescript`: the workspace's own after `pnpm install`, or `TS_
 
 ## 3 · The floor: shells and layouts
 
-Every page renders beside its layouts. A layout's rounds are therefore the least any page under it can take.
+Every page renders beside its layouts. A layout's rounds are therefore the least any page under it can take. The `(shell)` row is for a SIGNED-IN visitor; a stranger skips its `SignedInCluster` (see §7).
 
 <!-- gen:layouts -->
 | Layout | Pages under it | Rounds now | What causes them | Kids drawn after it returns | Rounds after |
 |---|--:|--:|---|---|--:|
 | `app/dashboard/[eventId]/layout.tsx` | 116 | 17 | lib/dashboard-shell.ts:getDashboardShell (8) · lib/logo-plays.server.ts:logoPlaysFor (5) · lib/auth.ts:getCurrentUser (1) · lib/event-membership-once.ts:eventMemberTypeOnce (1) | – | 3 |
 | `app/[slug]/layout.tsx` | 17 | 12 | app/[slug]/_lib/hub-look.ts:resolveHubTheme (10) · lib/event-type-profile.ts:resolveProfile (1) | – | 3 |
-| `app/admin/layout.tsx` | 119 | 11 | app/_components/account-switcher/get-switcher-data.ts:getSwitcherData (3) · lib/admin-map/admin-row-index.ts:fetchAdminRows (3) · lib/admin/require-admin.ts:requireAdmin (2) · lib/auth.ts:getCurrentUser (1) | AppRailShell 1 | 3 |
 | `app/vendor-dashboard/layout.tsx` | 91 | 11 | lib/chat-reminders.server.ts:deliverDueChatReminders (7) · <Spotlight> (_components/spotlight) (2) · lib/auth.ts:getCurrentUser (1) · lib/notifications.ts:countUnread (1) | AppRailShell 1, PromoFreeWindowBannerVendor 1, Spotlight 2 | 6 |
 | `app/(hub)/layout.tsx` | 3 | 10 | lib/dashboard-shell.ts:getDashboardShell (8) · lib/hub-shell.ts:hubDrawsTheShell (1) · <AppRailShell> (_components/frontdoor/app-rail-shell) (1) | AppRailShell 1 | 3 |
 | `app/(shell)/layout.tsx` | 52 | 10 | <AppRailShell> (_components/frontdoor/app-rail-shell) (10) | AppRailShell 10 | 2 |
+| `app/admin/layout.tsx` | 119 | 10 | lib/admin-map/admin-row-index.ts:fetchAdminRows (3) · app/_components/account-switcher/get-switcher-data.ts:getSwitcherData (2) · lib/admin/require-admin.ts:requireAdmin (2) · lib/auth.ts:getCurrentUser (1) | AppRailShell 1 | 3 |
 | `app/dashboard/(account)/layout.tsx` | 18 | 10 | lib/dashboard-shell.ts:getDashboardShell (8) · lib/auth.ts:getCurrentUser (1) · <AppRailShell> (_components/frontdoor/app-rail-shell) (1) | AppRailShell 1 | 3 |
 | `app/dashboard/[eventId]/messages/[threadId]/layout.tsx` | 1 | 10 | <CoupleMessagesPage> (dashboard/[eventId]/messages) (10) | CoupleMessagesPage 10 | 3 |
 | `app/vendor-dashboard/messages/[threadId]/layout.tsx` | 1 | 7 | <SupplierChatsPage> (vendor-dashboard/messages) (7) | SupplierChatsPage 7 | 7 |
-| `app/(hub)/dashboard/layout.tsx` | 2 | 5 | <DashboardLayout> (dashboard/layout) (5) | DashboardLayout 5 | 4 |
-| `app/dashboard/layout.tsx` | 134 | 5 | lib/user-row.ts:getUserRow (2) · <Spotlight> (_components/spotlight) (2) · lib/auth.ts:getCurrentUser (1) | Spotlight 2 | 4 |
+| `app/(hub)/dashboard/layout.tsx` | 2 | 4 | <DashboardLayout> (dashboard/layout) (4) | DashboardLayout 4 | 4 |
+| `app/dashboard/layout.tsx` | 134 | 4 | <Spotlight> (_components/spotlight) (2) · lib/auth.ts:getCurrentUser (1) · lib/user-row.ts:getUserRow (1) | Spotlight 2 | 4 |
 | `app/sample/layout.tsx` | 3 | 2 | lib/sample-event/switch.server.ts:sampleOpensHere (2) | – | 1 |
 | `app/layout.tsx` | 489 | 1 | lib/app-colours.server.ts:getAppColours (1) | – | 1 |
 <!-- /gen:layouts -->
@@ -155,15 +155,15 @@ Every page renders beside its layouts. A layout's rounds are therefore the least
   - Start the shell read, the event row and the logo gate beside the membership read. The membership answer only decides whether to `notFound()`. Gate the render on it, not the reads.
   - Floor: 3.
 - **L4 · admin layout** (`app/admin/layout.tsx`)
-  - Five `await`s in a row: `getCurrentUser` (1) → profile + unread + switcher (3) → `requireAdmin` (2) → `fetchAdminRows` + `fetchLearnedPicks` (3) → nav slots + queue digest (1).
+  - Five `await`s in a row: `getCurrentUser` (1) → profile + unread + switcher (2) → `requireAdmin` (2) → `fetchAdminRows` + `fetchLearnedPicks` (3) → nav slots + queue digest (1).
   - None of the last three needs the one before. Start them with the first batch; `requireAdmin` still decides the render.
   - Floor: 3.
 - **L5 · guest Event Hub** (`app/[slug]/layout.tsx` → `app/[slug]/_lib/loaders.ts:loadGuestLook`, and on the pages `lib/slug-access.ts:canViewSlugEvent`)
-  - `loadGuestLook` waits for `loadEventShell` → `resolveProfile` → `websiteProActiveFor`, and the last one is a whole entitlement walk (batch S1).
+  - `loadGuestLook` waits for `loadEventShell` → `resolveProfile` → then `resolveHubTheme` (`app/[slug]/_lib/hub-look.ts`, 10 rounds in series) beside `websiteProActiveFor` (an entitlement walk, batch S1). The theme's reads mostly need only the event id: start them with the shell read.
   - `canViewSlugEvent` is a "who are you" waterfall: guest pass → host → seat → booked supplier → invited account. That is up to 16 rounds for a viewer who matches late. It also asks the auth server afresh three times (`lib/slug-access.ts:83`, `:281`, `lib/guest-session.ts:589`: plain `auth.getUser()`, not the cached `getCurrentUser`).
   - The fix: one `getCurrentUser`, then the five "is this person…" reads at once, deciding in the same order.
 - **L6 · account / hub / public shells**
-  - `app/dashboard/layout.tsx` reads `getUserRow` in two steps.
+  - `app/dashboard/layout.tsx` (134 pages) draws `<Spotlight>` (2 rounds: `readSeenKeys`) only after it returns. Preload it with the layout's `getUserRow` read.
   - The `(shell)`, `(hub)` and `(account)` layouts wait on L1's cluster.
 
 ## 4 · The 30 slowest pages
@@ -173,7 +173,7 @@ These are ranked by the page's own rounds, with layouts aside: that is the part 
 **Two rows to read with care:**
 
 - **#5 `/[slug]`.** The trace's slowest branch is a bare word that turns out to be a SHOP: the page then renders `/v/[slug]`'s body (`renderVendorBySlug`). So #5's fix is #6's. A guest's or a stranger's open of an event is served from the cached hub (`/[slug]/cached/[key]`, 60 s) by the middleware. The live render is for signed-in viewers and hosts.
-- **#9 `/pay/[reference]`.** The 68 rounds are the return-from-Maya settle (`mayaPayState` → `settleMaya` → `approvePaymentCore` → notifications, email, push). They are paid only when a checkout is open. See §1. "Route" is the total with layouts. Pages served from a `revalidate` copy (the cached Event Hub, the cached shop, print, E-Gifts, help articles) pay their rounds only on a refill, so they are listed in §7 and not ranked here.
+- **#9 `/pay/[reference]`.** The rounds are the return-from-Maya settle (`mayaPayState` → `settleMaya` → `approvePaymentCore` → notifications, email, push). They are paid only when a checkout is open. See §1. "Route" is the total with layouts. Pages served from a `revalidate` copy (the cached Event Hub, the cached shop, print, E-Gifts, help articles) pay their rounds only on a refill, so they are listed in §7 and not ranked here.
 
 <!-- gen:top30 -->
 | # | Route | Role | Page rounds | Route rounds | What causes them | Fix (#8278 pattern) | After | Size |
@@ -191,22 +191,22 @@ These are ranked by the page's own rounds, with layouts aside: that is the part 
 | 11 | `/dashboard/[eventId]/prints` | host | **66** | 66 | <LaunchHubPage> (dashboard/[eventId]/launch) (66) | preload <LaunchHubPage> with the page's batch (`preload…` + `cache()`) | 8 | L |
 | 12 | `/dashboard/[eventId]/website/editor` | host | **59** | 59 | lib/post-event-compile.server.ts:readPostEventForMaker (40) · closure (12) · <MakerHeroPanel> (dashboard/[eventId]/launch/_components/maker-made-once) (6) | start the 3 serial reads at once (one `Promise.all`) · preload <MakerHeroPanel> with the page's batch (`preload…` + `cache()`) · shared loader `readPostEventForMaker` (its own batch) | 6 | L |
 | 13 | `/dashboard/[eventId]/schedule` | host | **56** | 56 | lib/schedule-release.server.ts:readScheduleRelease (11) · app/dashboard/[eventId]/checklist-actions.ts:ensureChecklistSeeded (10) · lib/schedule-seed.server.ts:seedDefaultChapters (6) | start the 18 serial reads at once (one `Promise.all`) · preload <HostQuestions> with the page's batch (`preload…` + `cache()`) · shared loader `seedNonWeddingRunOfShow`, `seedDefaultChapters`, `readScheduleRelease` (its own batch) · `cache()` on `applyDelegateAccessWindow` (read by layout and page) | 6 | L |
-| 14 | `/[slug]/find-seat` | guest | **48** | 48 | lib/slug-access.ts:canViewSlugEvent (16) · app/[slug]/_lib/loaders.ts:loadGuestLook (10) · app/[slug]/_lib/part-door.server.ts:partDoorHidden (3) | start the 17 serial reads at once (one `Promise.all`) · shared loader `canViewSlugEvent`, `readGuestBooths` (its own batch) | 7 | L |
-| 15 | `/dashboard/[eventId]/vendors/categories` | host | **48** | 48 | app/dashboard/[eventId]/vendors/_actions/category-search.ts:searchCategoryVendors (42) · lib/event-type-profile.ts:resolveProfileByEvent (2) · lib/supplier-find-read.ts:readFindList (2) | start the 5 serial reads at once (one `Promise.all`) | 9 | L |
+| 14 | `/dashboard/[eventId]/vendors/categories` | host | **48** | 48 | app/dashboard/[eventId]/vendors/_actions/category-search.ts:searchCategoryVendors (42) · lib/event-type-profile.ts:resolveProfileByEvent (2) · lib/supplier-find-read.ts:readFindList (2) | start the 5 serial reads at once (one `Promise.all`) | 9 | L |
+| 15 | `/[slug]/find-seat` | guest | **47** | 47 | lib/slug-access.ts:canViewSlugEvent (16) · app/[slug]/_lib/loaders.ts:loadGuestLook (10) · app/[slug]/_lib/part-door.server.ts:partDoorHidden (3) | start the 17 serial reads at once (one `Promise.all`) · shared loader `canViewSlugEvent` (its own batch) | 7 | L |
 | 16 | `/admin/payments` | admin | **44** | 44 | app/admin/payments/page.tsx:fetchDeskBills (20) · app/admin/payments/page.tsx:fetchRecordTarget (4) · lib/platform-settings.ts:getEffectiveVatRatePct (3) | start the 16 serial reads at once (one `Promise.all`) · N+1 at `app/admin/payments/page.tsx:552` → one `.in()` read · shared loader `getEffectiveVatRatePct`, `fetchPlatformSettings` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L |
-| 17 | `/dashboard` | host | **37** | 37 | <MemoriesSegment> (dashboard/(account)/library/_components/memories-segment) (31) · app/_components/account-switcher/get-switcher-data.ts:getSwitcherData (3) · lib/people-roster.ts:waitingRequestCount (2) | start the 3 serial reads at once (one `Promise.all`) · preload <MemoriesSegment> with the page's batch (`preload…` + `cache()`) · shared loader `getSwitcherData` (its own batch) | 9 | L |
-| 18 | `/[slug]/find-my-table` | guest | **37** | 37 | lib/slug-access.ts:canViewSlugEvent (16) · <Shell> ([slug]/find-my-table) (10) · app/[slug]/_lib/room-links.server.ts:loadRoomLinks (3) | start the 9 serial reads at once (one `Promise.all`) · preload <Shell> with the page's batch (`preload…` + `cache()`) · shared loader `canViewSlugEvent` (its own batch) | 7 | L |
-| 19 | `/vendor-dashboard/on-the-day/live/[eventId]` | supplier | **37** | 37 | lib/vendor-room-access.ts:fetchVendorRoomEvents (6) · lib/vendor-room-access.ts:fetchVendorRoomEvents (6) · 3 reads in series (3) | start the 17 serial reads at once (one `Promise.all`) · preload <HubToolPanels> with the page's batch (`preload…` + `cache()`) · shared loader `fetchVendorRoomEvents`, `fetchVendorRoomEvents`, `resolveEventFeeGate`, `readEventScanServices` (its own batch) | 6 | L |
+| 17 | `/[slug]/find-my-table` | guest | **37** | 37 | lib/slug-access.ts:canViewSlugEvent (16) · <Shell> ([slug]/find-my-table) (10) · app/[slug]/_lib/room-links.server.ts:loadRoomLinks (3) | start the 9 serial reads at once (one `Promise.all`) · preload <Shell> with the page's batch (`preload…` + `cache()`) · shared loader `canViewSlugEvent` (its own batch) | 7 | L |
+| 18 | `/vendor-dashboard/on-the-day/live/[eventId]` | supplier | **37** | 37 | lib/vendor-room-access.ts:fetchVendorRoomEvents (6) · lib/vendor-room-access.ts:fetchVendorRoomEvents (6) · 3 reads in series (3) | start the 17 serial reads at once (one `Promise.all`) · preload <HubToolPanels> with the page's batch (`preload…` + `cache()`) · shared loader `fetchVendorRoomEvents`, `fetchVendorRoomEvents`, `resolveEventFeeGate`, `readEventScanServices` (its own batch) | 6 | L |
+| 19 | `/dashboard` | host | **36** | 36 | <MemoriesSegment> (dashboard/(account)/library/_components/memories-segment) (31) · app/_components/account-switcher/get-switcher-data.ts:getSwitcherData (2) · lib/people-roster.ts:waitingRequestCount (2) | start the 3 serial reads at once (one `Promise.all`) · preload <MemoriesSegment> with the page's batch (`preload…` + `cache()`) | 9 | L |
 | 20 | `/dashboard/[eventId]/vendors` | host | **36** | 36 | <BookedSlot> (dashboard/[eventId]/vendors/_components/booked-slot) (8) · app/dashboard/[eventId]/vendors/page.tsx:fetchVendorPhotoMaps (4) · lib/budget-allocation-data.ts:resolveAllocationInputs (4) | start the 15 serial reads at once (one `Promise.all`) · preload <BookedSlot> with the page's batch (`preload…` + `cache()`) · shared loader `resolveAllocationInputs`, `setnayanAiTierInApp`, `readCalendarTruth` (its own batch) | 6 | L |
 | 21 | `/vendor/claim/[token]/finalize` | public (session-aware) | **34** | 34 | lib/vendor-invite-actions.ts:applyClaimAutoLink (18) · lib/vendor-invites.ts:fetchClaimLandingByToken (7) · 2 reads in series (2) | start the 9 serial reads at once (one `Promise.all`) · shared loader `fetchClaimLandingByToken`, `applyClaimAutoLink` (its own batch) | 9 | L |
 | 22 | `/vendor-dashboard/customers` | supplier | **33** | 33 | <CustomersPipeline> (vendor-dashboard/customers) (33) | preload <CustomersPipeline> with the page's batch (`preload…` + `cache()`) | 10 | L |
 | 23 | `/vendor-dashboard/messages/[threadId]` | supplier | **33** | 33 | lib/agree-gifts.server.ts:fetchAgreeGiftBasis (24) · lib/vendor-profile.ts:fetchOwnVendorProfile (2) · 2 reads in series (2) | start the 9 serial reads at once (one `Promise.all`) · shared loader `fetchAgreeGiftBasis` (its own batch) | 8 | L |
 | 24 | `/vendor-dashboard` | supplier | **33** | 33 | fan-out .map() (15) · lib/vendor-overview.ts:fetchVendorOverviewData (8) · lib/vendor-first-steps.server.ts:fetchVendorFirstStepsState (3) | start the 6 serial reads at once (one `Promise.all`) · preload <PapersRenewalLine> with the page's batch (`preload…` + `cache()`) · shared loader `fetchVendorOverviewData`, `fetchVendorFirstStepsState` (its own batch) | 7 | L |
-| 25 | `/dashboard/[eventId]` | host | **32** | 32 | <EventDashboard> (dashboard/[eventId]/_components/event-dashboard) (12) · lib/entitlements.ts:eventOwnsSku (8) · fan-out .map() (4) | start the 7 serial reads at once (one `Promise.all`) · preload <EventDashboard> with the page's batch (`preload…` + `cache()`) · shared loader `eventOwnsSku`, `resolveSetnayanAiDisplayPricePhp` (its own batch) | 13 | L |
-| 26 | `/panood/control/[eventId]` | guest | **32** | 32 | lib/live-studio-readiness-server.ts:fetchReadinessFacts (6) · lib/entitlements.ts:eventSkuActive (3) · lib/panood-control-room-access.ts:isLiveStudioSetupHost (2) | start the 21 serial reads at once (one `Promise.all`) · shared loader `eventSkuActive`, `fetchReadinessFacts` (its own batch) | 3 | L |
-| 27 | `/papic/me/[token]` | guest/host | **32** | 32 | <GuestGallery> (papic/me/[token]) (14) · lib/papic-limited.ts:resolveGuestCamera (13) · lib/papic-guest.ts:eventPapicGuestAccess (3) | start the 4 serial reads at once (one `Promise.all`) · preload <GuestGallery> with the page's batch (`preload…` + `cache()`) · shared loader `resolveGuestCamera`, `eventPapicGuestAccess` (its own batch) | 5 | L |
-| 28 | `/dashboard/[eventId]/guests` | host | **31** | 31 | app/dashboard/[eventId]/guests/_components/guest-card-data.ts:loadGuestCard (7) · lib/guest-helper-card.server.ts:loadGuestHelperCard (4) · 1 read in series (1) | start the 3 serial reads at once (one `Promise.all`) · shared loader `loadGuestHelperCard` (its own batch) | 8 | L |
-| 29 | `/dashboard/[eventId]/studio/website-pro` | host | **31** | 31 | lib/event-services.server.ts:readEventServices (30) · lib/auth.ts:getCurrentUser (1) | shared loader `readEventServices` (its own batch) | 4 | L |
+| 25 | `/panood/control/[eventId]` | guest | **32** | 32 | lib/live-studio-readiness-server.ts:fetchReadinessFacts (6) · lib/entitlements.ts:eventSkuActive (3) · lib/panood-control-room-access.ts:isLiveStudioSetupHost (2) | start the 21 serial reads at once (one `Promise.all`) · shared loader `eventSkuActive`, `fetchReadinessFacts` (its own batch) | 3 | L |
+| 26 | `/dashboard/[eventId]/guests` | host | **31** | 31 | app/dashboard/[eventId]/guests/_components/guest-card-data.ts:loadGuestCard (7) · lib/guest-helper-card.server.ts:loadGuestHelperCard (4) · 1 read in series (1) | start the 3 serial reads at once (one `Promise.all`) · shared loader `loadGuestHelperCard` (its own batch) | 8 | L |
+| 27 | `/dashboard/[eventId]` | host | **31** | 31 | <EventDashboard> (dashboard/[eventId]/_components/event-dashboard) (12) · lib/entitlements.ts:eventOwnsSku (8) · fan-out .map() (4) | start the 6 serial reads at once (one `Promise.all`) · preload <EventDashboard> with the page's batch (`preload…` + `cache()`) · shared loader `eventOwnsSku`, `resolveSetnayanAiDisplayPricePhp` (its own batch) | 13 | L |
+| 28 | `/dashboard/[eventId]/studio/website-pro` | host | **31** | 31 | lib/event-services.server.ts:readEventServices (30) · lib/auth.ts:getCurrentUser (1) | shared loader `readEventServices` (its own batch) | 4 | L |
+| 29 | `/papic/me/[token]` | guest/host | **31** | 31 | <GuestGallery> (papic/me/[token]) (14) · lib/papic-limited.ts:resolveGuestCamera (12) · lib/papic-guest.ts:eventPapicGuestAccess (3) | start the 4 serial reads at once (one `Promise.all`) · preload <GuestGallery> with the page's batch (`preload…` + `cache()`) · shared loader `resolveGuestCamera`, `eventPapicGuestAccess` (its own batch) | 5 | L |
 | 30 | `/vendor-dashboard/subscription` (sheet) | supplier | **30** | 30 | <PlanScreen> (vendor-dashboard/subscription/_components/plan-screen) (30) | preload <PlanScreen> with the page's batch (`preload…` + `cache()`) | 6 | L |
 <!-- /gen:top30 -->
 
@@ -247,13 +247,13 @@ These are ranked by the page's own rounds, with layouts aside: that is the part 
 
 ### L5 · Guest Event Hub layout + who-may-see-it
 
-**Owns:** `app/[slug]/layout.tsx` · `app/[slug]/_lib/loaders.ts` · `lib/slug-access.ts` · `lib/guest-session.ts` · `lib/booked-supplier.ts` · `lib/guest-membership-session.ts` · `lib/guest-seat-read.ts`  
-**Speeds up:** 24 pages (the file is on their critical path at 2+ rounds, or is their layout)
+**Owns:** `app/[slug]/layout.tsx` · `app/[slug]/_lib/loaders.ts` · `app/[slug]/_lib/hub-look.ts` · `lib/slug-access.ts` · `lib/guest-session.ts` · `lib/booked-supplier.ts` · `lib/guest-membership-session.ts` · `lib/guest-seat-read.ts`  
+**Speeds up:** 26 pages (the file is on their critical path at 2+ rounds, or is their layout)
 
 ### L6 · Account, hub and public shells
 
 **Owns:** `app/dashboard/layout.tsx` · `app/dashboard/(account)/layout.tsx` · `app/(hub)/layout.tsx` · `app/(hub)/dashboard/layout.tsx` · `app/(shell)/layout.tsx` · `lib/user-row.ts` · `app/_components/spotlight.tsx`  
-**Speeds up:** 399 pages (the file is on their critical path at 2+ rounds, or is their layout)
+**Speeds up:** 280 pages (the file is on their critical path at 2+ rounds, or is their layout)
 
 ### S1 · Entitlement gates (one batched answer per render)
 
@@ -278,7 +278,7 @@ These are ranked by the page's own rounds, with layouts aside: that is the part 
 ### P1 · Supplier: shop, services, packages
 
 **Owns:** the page folders below (each `page.tsx` with its own `_components/` and `_lib/`), never a file a shared batch owns.  
-**Pages over 3 own rounds:** 25 · **rounds now (sum):** 265 · **rounds a fix can take off:** 114 · **sizes:** 7 S, 13 M, 5 L
+**Pages over 3 own rounds:** 25 · **rounds now (sum):** 264 · **rounds a fix can take off:** 113 · **sizes:** 7 S, 13 M, 5 L
 
 <details><summary>Folders</summary>
 
@@ -313,7 +313,7 @@ These are ranked by the page's own rounds, with layouts aside: that is the part 
 ### P2 · Supplier: clients, messages, on-the-day, customers
 
 **Owns:** the page folders below (each `page.tsx` with its own `_components/` and `_lib/`), never a file a shared batch owns.  
-**Pages over 3 own rounds:** 23 · **rounds now (sum):** 493 · **rounds a fix can take off:** 353 · **sizes:** 8 S, 7 M, 8 L
+**Pages over 3 own rounds:** 23 · **rounds now (sum):** 492 · **rounds a fix can take off:** 352 · **sizes:** 8 S, 7 M, 8 L
 
 <details><summary>Folders</summary>
 
@@ -432,7 +432,7 @@ These are ranked by the page's own rounds, with layouts aside: that is the part 
 ### P6 · Host: Event Hub maker, story, logo, invitation, memories
 
 **Owns:** the page folders below (each `page.tsx` with its own `_components/` and `_lib/`), never a file a shared batch owns.  
-**Pages over 3 own rounds:** 19 · **rounds now (sum):** 501 · **rounds a fix can take off:** 427 · **sizes:** 2 S, 5 M, 12 L
+**Pages over 3 own rounds:** 19 · **rounds now (sum):** 500 · **rounds a fix can take off:** 426 · **sizes:** 2 S, 5 M, 12 L
 
 <details><summary>Folders</summary>
 
@@ -461,7 +461,7 @@ These are ranked by the page's own rounds, with layouts aside: that is the part 
 ### P7 · Host: guests, seating, live, people
 
 **Owns:** the page folders below (each `page.tsx` with its own `_components/` and `_lib/`), never a file a shared batch owns.  
-**Pages over 3 own rounds:** 19 · **rounds now (sum):** 205 · **rounds a fix can take off:** 146 · **sizes:** 6 S, 8 M, 5 L
+**Pages over 3 own rounds:** 19 · **rounds now (sum):** 202 · **rounds a fix can take off:** 143 · **sizes:** 6 S, 8 M, 5 L
 
 <details><summary>Folders</summary>
 
@@ -490,7 +490,7 @@ These are ranked by the page's own rounds, with layouts aside: that is the part 
 ### P8 · Host: suppliers, money, details, the rest
 
 **Owns:** the page folders below (each `page.tsx` with its own `_components/` and `_lib/`), never a file a shared batch owns.  
-**Pages over 3 own rounds:** 21 · **rounds now (sum):** 490 · **rounds a fix can take off:** 379 · **sizes:** 4 S, 6 M, 11 L
+**Pages over 3 own rounds:** 21 · **rounds now (sum):** 489 · **rounds a fix can take off:** 378 · **sizes:** 4 S, 6 M, 11 L
 
 <details><summary>Folders</summary>
 
@@ -521,7 +521,7 @@ These are ranked by the page's own rounds, with layouts aside: that is the part 
 ### P9 · Host: account pages, hub, create
 
 **Owns:** the page folders below (each `page.tsx` with its own `_components/` and `_lib/`), never a file a shared batch owns.  
-**Pages over 3 own rounds:** 22 · **rounds now (sum):** 268 · **rounds a fix can take off:** 170 · **sizes:** 9 S, 7 M, 6 L
+**Pages over 3 own rounds:** 22 · **rounds now (sum):** 266 · **rounds a fix can take off:** 168 · **sizes:** 9 S, 7 M, 6 L
 
 <details><summary>Folders</summary>
 
@@ -553,7 +553,7 @@ These are ranked by the page's own rounds, with layouts aside: that is the part 
 ### P10 · Guest: Event Hub pages and shop pages (`/[slug]` renders the shop body too)
 
 **Owns:** the page folders below (each `page.tsx` with its own `_components/` and `_lib/`), never a file a shared batch owns.  
-**Pages over 3 own rounds:** 20 · **rounds now (sum):** 761 · **rounds a fix can take off:** 631 · **sizes:** 1 S, 2 M, 17 L
+**Pages over 3 own rounds:** 20 · **rounds now (sum):** 759 · **rounds a fix can take off:** 629 · **sizes:** 1 S, 2 M, 17 L
 
 <details><summary>Folders</summary>
 
@@ -583,7 +583,7 @@ These are ranked by the page's own rounds, with layouts aside: that is the part 
 ### P11 · Guest: Papic, live, Panood, join, wall
 
 **Owns:** the page folders below (each `page.tsx` with its own `_components/` and `_lib/`), never a file a shared batch owns.  
-**Pages over 3 own rounds:** 17 · **rounds now (sum):** 227 · **rounds a fix can take off:** 162 · **sizes:** 3 S, 8 M, 6 L
+**Pages over 3 own rounds:** 17 · **rounds now (sum):** 225 · **rounds a fix can take off:** 160 · **sizes:** 4 S, 7 M, 6 L
 
 <details><summary>Folders</summary>
 
@@ -653,7 +653,7 @@ These are ranked by the page's own rounds, with layouts aside: that is the part 
 ### P13 · Admin: money, catalogue, settings, the rest
 
 **Owns:** the page folders below (each `page.tsx` with its own `_components/` and `_lib/`), never a file a shared batch owns.  
-**Pages over 3 own rounds:** 25 · **rounds now (sum):** 257 · **rounds a fix can take off:** 194 · **sizes:** 5 S, 13 M, 7 L
+**Pages over 3 own rounds:** 25 · **rounds now (sum):** 254 · **rounds a fix can take off:** 191 · **sizes:** 6 S, 12 M, 7 L
 
 <details><summary>Folders</summary>
 
@@ -711,7 +711,6 @@ These are ranked by the page's own rounds, with layouts aside: that is the part 
 | `app/[slug]/_components/editorial/consent-veto.ts` | P10 | `P6 /dashboard/[eventId]/story` |
 | `app/[slug]/_components/guest-column-card.tsx` | P10 | `P11 /papic/guest` |
 | `app/[slug]/_lib/event-words.ts` | P10 | `P8 /dashboard/[eventId]/pabuya`, `P6 /dashboard/[eventId]/website/our-story`, `P9 /host/accept/[token]`, `P11 /join/[eventId]` +3 |
-| `app/[slug]/_lib/hub-look.ts` | P10 | `P8 /dashboard/[eventId]`, `P6 /dashboard/[eventId]/website/editor` |
 | `app/[slug]/_lib/main-ground-picture.ts` | P10 | `P5 /dashboard/[eventId]/studio/save-the-date` |
 | `app/dashboard/[eventId]/_components/guest-setup/one-link.server.ts` | P8 | `P7 /dashboard/[eventId]/guests/send` |
 | `app/dashboard/[eventId]/_components/nikah-imam.ts` | P8 | `P7 /dashboard/[eventId]/nikah` |
@@ -885,7 +884,7 @@ Sorted by route. "Rounds now" is the route total (the max of page and layouts), 
 | `/[slug]/cached/[key]` (cached 60 s) | guest | **80** (80 · 12 [slug]) | app/[slug]/page.tsx:PublicInvitationPage (77) · app/[slug]/cached/[key]/page.tsx:resolve (3) | start each read with its inputs (move `await`s to one wait) | 9 | L | P10 |
 | `/[slug]/everyone` | guest | **29** (29 · 12 [slug]) | lib/slug-access.ts:canViewSlugEvent (16) · lib/event-type-profile.ts:resolveProfileByEvent (2) · app/[slug]/everyone/page.tsx:eventRecognisesViewer (2) | start the 11 serial reads at once (one `Promise.all`) · shared loader `canViewSlugEvent` (its own batch) | 7 | L | P10 |
 | `/[slug]/find-my-table` | guest | **37** (37 · 12 [slug]) | lib/slug-access.ts:canViewSlugEvent (16) · <Shell> ([slug]/find-my-table) (10) · app/[slug]/_lib/room-links.server.ts:loadRoomLinks (3) | start the 9 serial reads at once (one `Promise.all`) · preload <Shell> with the page's batch (`preload…` + `cache()`) · shared loader `canViewSlugEvent` (its own batch) | 7 | L | P10 |
-| `/[slug]/find-seat` | guest | **48** (48 · 12 [slug]) | lib/slug-access.ts:canViewSlugEvent (16) · app/[slug]/_lib/loaders.ts:loadGuestLook (10) · app/[slug]/_lib/part-door.server.ts:partDoorHidden (3) | start the 17 serial reads at once (one `Promise.all`) · shared loader `canViewSlugEvent`, `readGuestBooths` (its own batch) | 7 | L | P10 |
+| `/[slug]/find-seat` | guest | **47** (47 · 12 [slug]) | lib/slug-access.ts:canViewSlugEvent (16) · app/[slug]/_lib/loaders.ts:loadGuestLook (10) · app/[slug]/_lib/part-door.server.ts:partDoorHidden (3) | start the 17 serial reads at once (one `Promise.all`) · shared loader `canViewSlugEvent` (its own batch) | 7 | L | P10 |
 | `/[slug]/hub` | guest | **22** (22 · 12 [slug]) | lib/slug-access.ts:canViewSlugEvent (16) · lib/slug-access.ts:isSignedInEventHost (2) · lib/slug-access.ts:isSignedInEventHost (2) | start the 5 serial reads at once (one `Promise.all`) · shared loader `canViewSlugEvent` (its own batch) | 7 | L | P10 |
 | `/[slug]/invite` | guest | **24** (24 · 12 [slug]) | app/[slug]/invite/_lib/load-invite-look.ts:loadInviteLook (14) · <JoinFlow> (join/[eventId]/_components/join-flow) (7) · 2 reads in series (2) | start the 4 serial reads at once (one `Promise.all`) · preload <JoinFlow> with the page's batch (`preload…` + `cache()`) | 7 | L | P10 |
 | `/[slug]/invite/enter` | guest | **26** (26 · 12 [slug]) | app/[slug]/_lib/loaders.ts:loadGuestLook (11) · lib/guest-one-path.server.ts:readGuestSessionForEvent (6) · lib/guest-reentry.server.ts:mintReentryCode (2) | start the 10 serial reads at once (one `Promise.all`) · shared loader `readGuestSessionForEvent` (its own batch) | 6 | L | P10 |
@@ -895,130 +894,130 @@ Sorted by route. "Rounds now" is the route total (the max of page and layouts), 
 | `/[slug]/recap` | guest | **12** (0 · 12 [slug]) | – | page is fine; the wait is the layout ([slug]/layout) | 3 | – | – |
 | `/[slug]/request` | guest | **20** (20 · 12 [slug]) | app/[slug]/invite/_lib/load-invite-look.ts:loadInviteLook (14) · app/[slug]/_lib/event-words.ts:eventWordsForEvent (2) · lib/public-event-url.ts:resolveEventOwnerSlug (2) | start the 5 serial reads at once (one `Promise.all`) | 4 | L | P10 |
 | `/[slug]/seat` | guest | **26** (26 · 12 [slug]) | <PersonalPass> ([slug]/seat) (9) · app/[slug]/_lib/room-links.server.ts:loadRoomLinks (3) · lib/seat-pass.ts:eventOwnsCustomQrGuest (3) | start the 9 serial reads at once (one `Promise.all`) · preload <PersonalPass> with the page's batch (`preload…` + `cache()`) · shared loader `eventOwnsCustomQrGuest`, `readGuestSession` (its own batch) | 7 | L | P10 |
-| `/[slug]/venue` | guest | **24** (24 · 12 [slug]) | lib/slug-access.ts:canViewSlugEvent (16) · app/[slug]/_lib/room-links.server.ts:loadRoomLinks (3) · lib/seating.ts:fetchBooths (3) | start the 5 serial reads at once (one `Promise.all`) · shared loader `canViewSlugEvent`, `fetchBooths` (its own batch) | 7 | L | P10 |
+| `/[slug]/venue` | guest | **23** (23 · 12 [slug]) | lib/slug-access.ts:canViewSlugEvent (16) · app/[slug]/_lib/room-links.server.ts:loadRoomLinks (3) · lib/seating.ts:fetchBooths (2) | start the 5 serial reads at once (one `Promise.all`) · shared loader `canViewSlugEvent` (its own batch) | 7 | L | P10 |
 | `/[slug]/welcome` | guest | **29** (29 · 12 [slug]) | lib/qr-look.server.ts:resolveEventQrLook (10) · <PlusOneDoor> ([slug]/welcome/_components/plus-one-door) (7) · lib/guest-session.ts:readGuestSession (3) | start the 10 serial reads at once (one `Promise.all`) · preload <PlusOneDoor> with the page's batch (`preload…` + `cache()`) · shared loader `readGuestSession`, `resolveEventQrLook` (its own batch) | 8 | L | P10 |
-| `/3d_plan/demo/[token]` | public | **10** (10 · 0) | app/_actions/plan3d-demo-actions.ts:resolvePlan3DGuestToken (10) | start each read with its inputs (move `await`s to one wait) | 6 | M | P11 |
+| `/3d_plan/demo/[token]` | public | **9** (9 · 0) | app/_actions/plan3d-demo-actions.ts:resolvePlan3DGuestToken (9) | start each read with its inputs (move `await`s to one wait) | 6 | S | P11 |
 | `/about` | public | **10** (0 · 10 (shell)) | – | page is fine; the wait is the layout ((shell)/layout) | 2 | – | – |
 | `/acceptable-use` | public | **10** (0 · 10 (shell)) | – | page is fine; the wait is the layout ((shell)/layout) | 2 | – | – |
-| `/admin` | admin | **22** (22 · 11 admin) | app/admin/work/page.tsx:AdminWorkLanding (14) · <FocusHome> (admin/_components/focus-home) (6) · lib/admin/require-admin.ts:requireAdmin (2) | preload <FocusHome> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P13 |
-| `/admin/account-deletions` | admin | **11** (5 · 11 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/accounts` | admin | **11** (9 · 11 admin) | <VendorsSurface> (admin/accounts/_surfaces/vendors-surface) (7) · lib/admin/require-admin.ts:requireAdmin (2) | preload <VendorsSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
-| `/admin/addons` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/admin-log` | admin | **11** (4 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P13 |
-| `/admin/app-performance` | admin | **11** (10 · 11 admin) | <CockpitSurface> (admin/app-performance/_surfaces/overview-surface) (8) · lib/admin/require-admin.ts:requireAdmin (2) | preload <CockpitSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
-| `/admin/approvals` | admin | **11** (7 · 11 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) · lib/auth.ts:getCurrentUser (1) | start the 6 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
-| `/admin/ask` | admin | **11** (2 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/background-videos` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/background-videos.ts:fetchBackgroundVideosForAdmin (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/booking-fees` | admin | **14** (14 · 11 admin) | lib/admin/suppliers-to-review.server.ts:readSuppliersToReview (5) · 4 reads in series (4) · lib/admin/require-admin.ts:requireAdmin (2) | start the 8 serial reads at once (one `Promise.all`) · shared loader `readSuppliersToReview` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 3 | L | P13 |
-| `/admin/brain` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/budget-planner` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/business` | admin | **11** (9 · 11 admin) | lib/platform-settings.ts:fetchPlatformSettingsMeasured (3) · <ComplianceSurface> (admin/settings/_surfaces/compliance-surface) (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 3 serial reads at once (one `Promise.all`) · preload <ComplianceSurface> with the page's batch (`preload…` + `cache()`) · shared loader `fetchPlatformSettingsMeasured` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
-| `/admin/catalogue` | admin | **11** (6 · 11 admin) | app/admin/categories/_components/load.ts:loadCategories (3) · lib/admin/require-admin.ts:requireAdmin (2) · <TabLanding> (admin/_components/tab-landing) (1) | `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
-| `/admin/categories` | admin | **18** (18 · 11 admin) | <EventTypePanel> (admin/categories/_components/event-type-panel) (4) · app/admin/categories/_components/load.ts:loadCategories (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 7 serial reads at once (one `Promise.all`) · preload <EventTypePanel> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 5 | L | P13 |
-| `/admin/categories/requests` | admin | **11** (4 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P13 |
-| `/admin/categories/requests/[requestId]` | admin | **11** (6 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) · app/admin/categories/_components/load.ts:loadRequestDrafts (2) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
-| `/admin/chat-flags` | admin | **11** (4 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/colours` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/completions` | admin | **11** (5 · 11 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/compliance` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/compliance/data-sheet` | admin | **11** (5 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) · lib/auth.ts:getCurrentUser (1) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/concierge-abuse` | admin | **11** (4 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/connection-logs` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/corrections` | admin | **11** (10 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/vendor-corrections.ts:fetchCorrectionRequestsMeasured (1) · 1 read in series (1) | start the 4 serial reads at once (one `Promise.all`) · N+1 at `app/admin/corrections/page.tsx:113` → one `.in()` read · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
-| `/admin/data-privacy` | admin | **11** (5 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/data-privacy-controls.ts:fetchDataPrivacyControlsMeasured (1) · lib/periodic-job-health.ts:fetchPeriodicJobLedger (1) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/demand` | admin | **11** (1 · 11 admin) | lib/demand-radar.ts:getAdminDemandRadar (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/demo-vendors` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/demo-vendors/inquiries` | admin | **11** (4 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/demo-vendors/inquiries/[threadId]` | admin | **11** (6 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) · lib/chat.ts:fetchThreadById (1) | start the 5 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
-| `/admin/directory` | admin | **20** (20 · 11 admin) | <ApplicationsSurface> (admin/verify) (18) · lib/admin/require-admin.ts:requireAdmin (2) | preload <ApplicationsSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P12 |
-| `/admin/discount-codes` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/discount-codes/[id]/edit` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/discount-codes/new` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/v2-catalog.ts:fetchV2CustomerCatalog (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/disputes` | admin | **12** (12 · 11 admin) | <DepositDisputesSection> (admin/disputes/_components/deposit-disputes-section) (3) · lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 7 serial reads at once (one `Promise.all`) · preload <DepositDisputesSection> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
-| `/admin/editorial-review` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/editorial-review/[editorialId]` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/email-delivery` | admin | **11** (9 · 11 admin) | <NotificationsSurface> (admin/settings/_surfaces/notifications-surface) (6) · lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | preload <NotificationsSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
-| `/admin/event-deletions` | admin | **11** (4 · 11 admin) | 3 reads in series (3) · lib/auth.ts:getCurrentUser (1) | start the 4 serial reads at once (one `Promise.all`) | 3 | S | P12 |
-| `/admin/events` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/events/[eventId]` | admin | **16** (16 · 11 admin) | 5 reads in series (5) · 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 14 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | L | P12 |
-| `/admin/force-majeure` | admin | **11** (7 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) · <MiniTour> (_components/mini-tour) (2) | start the 4 serial reads at once (one `Promise.all`) · preload <MiniTour> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
-| `/admin/force-majeure/[flagId]` | admin | **11** (5 · 11 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/founder-seats` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/fraud` | admin | **11** (4 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/funnels` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/gifts` | admin | **19** (19 · 11 admin) | lib/badge-rewards.server.ts:fetchBadgeRewardLedger (3) · 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 16 serial reads at once (one `Promise.all`) · shared loader `fetchBadgeRewardLedger` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 3 | L | P13 |
-| `/admin/growth` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/help` | admin | **11** (4 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P13 |
-| `/admin/help/guides` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/help-asks.server.ts:readNoAnswerYet (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/hub-music` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/hub-music-server.ts:fetchHubMusicForAdmin (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/insights` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/integrations` | admin | **11** (6 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/auth.ts:getCurrentUser (1) · 1 read in series (1) | start the 5 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
-| `/admin/integrity-watch` | admin | **11** (8 · 11 admin) | 6 reads in series (6) · lib/admin/require-admin.ts:requireAdmin (2) | start the 7 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
-| `/admin/intelligence` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/journal-spotlights` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/launch-offer` | admin | **11** (5 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) · lib/launch-offer.server.ts:readLaunchOffer (1) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P13 |
-| `/admin/live-studio-channels` | admin | **11** (6 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/panood-youtube.ts:getYoutubeOAuthConfig (1) · 1 read in series (1) | start the 5 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
-| `/admin/menus` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/money` | admin | **11** (8 · 11 admin) | <TransactionsLedger> (admin/money/_components/transactions-ledger) (6) · lib/admin/require-admin.ts:requireAdmin (2) | preload <TransactionsLedger> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
-| `/admin/moodboard-library` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/more` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/notifications` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/npc-readiness` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/offers` | admin | **27** (27 · 11 admin) | <BadgesView> (admin/offers/_surfaces/badges-view) (8) · lib/badge-rewards.server.ts:fetchBadgeRewardLedger (3) · 3 reads in series (3) | start the 16 serial reads at once (one `Promise.all`) · preload <BadgesView> with the page's batch (`preload…` + `cache()`) · shared loader `fetchBadgeRewardLedger` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P13 |
-| `/admin/offline` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/onboarding` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/operations-hiring` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/pakanta` | admin | **11** (10 · 11 admin) | 4 reads in series (4) · fan-out .map() (4) · lib/admin/require-admin.ts:requireAdmin (2) | start the 6 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
-| `/admin/papic-storage` | admin | **11** (10 · 11 admin) | lib/old-photo-copies.server.ts:listOldPhotos (4) · lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 6 serial reads at once (one `Promise.all`) · shared loader `listOldPhotos` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
-| `/admin/patiktok` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/pax-changes` | admin | **11** (5 · 11 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/payment-options` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/payments` | admin | **44** (44 · 11 admin) | app/admin/payments/page.tsx:fetchDeskBills (20) · app/admin/payments/page.tsx:fetchRecordTarget (4) · lib/platform-settings.ts:getEffectiveVatRatePct (3) | start the 16 serial reads at once (one `Promise.all`) · N+1 at `app/admin/payments/page.tsx:552` → one `.in()` read · shared loader `getEffectiveVatRatePct`, `fetchPlatformSettings` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P4 |
-| `/admin/payments/supplier-refunds` | admin | **11** (6 · 11 admin) | 4 reads in series (4) · lib/admin/require-admin.ts:requireAdmin (2) | start the 5 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P4 |
-| `/admin/payouts` | admin | **11** (4 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P13 |
-| `/admin/price-bands` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/pricing` | admin | **11** (2 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/queues` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/real-stories` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/recaps` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/receipts` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/referrals` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/repost-watch` | admin | **11** (8 · 11 admin) | 4 reads in series (4) · lib/admin/require-admin.ts:requireAdmin (2) · <SupplierPhotoReports> (admin/repost-watch/card-checks-admin) (2) | start the 5 serial reads at once (one `Promise.all`) · preload <SupplierPhotoReports> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
-| `/admin/reveal-studio` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/reviews` | admin | **11** (10 · 11 admin) | 6 reads in series (6) · lib/admin/require-admin.ts:requireAdmin (2) · lib/guest-reviews.ts:readGuestReviewsForAdmin (2) | start the 8 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
-| `/admin/search-memory` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/admin-search-memory.ts:loadSearchMemory (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/secrets` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/seo` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/settings` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/settings/demo-mode` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/settings/payment-methods` | admin | **11** (9 · 11 admin) | lib/platform-settings.ts:fetchPlatformSettingsMeasured (3) · 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 6 serial reads at once (one `Promise.all`) · shared loader `fetchPlatformSettingsMeasured` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
-| `/admin/social-queue` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/songs` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/spotlight-awards` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/studio` | admin | **17** (17 · 11 admin) | <SocialQueueSurface> (admin/studio/_surfaces/social-queue-surface) (15) · lib/admin/require-admin.ts:requireAdmin (2) | preload <SocialQueueSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P13 |
-| `/admin/subscriptions` | admin | **11** (7 · 11 admin) | 4 reads in series (4) · lib/admin/require-admin.ts:requireAdmin (2) · lib/auth.ts:getCurrentUser (1) | start the 6 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
-| `/admin/switches` | admin | **11** (7 · 11 admin) | <DemoModeSurface> (admin/settings/_surfaces/demo-mode-surface) (4) · lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | preload <DemoModeSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
-| `/admin/team` | admin | **11** (5 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/admin/can.server.ts:getAdminPowersFor (1) · 1 read in series (1) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/ugat` | admin | **11** (2 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/ugat/map` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/ugat/data.ts:getUgatCounts (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/user-reports` | admin | **11** (6 · 11 admin) | 4 reads in series (4) · lib/admin/require-admin.ts:requireAdmin (2) | start the 5 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/users` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/users/[userId]` | admin | **20** (20 · 11 admin) | 11 reads in series (11) · 5 reads in series (5) · lib/admin/require-admin.ts:requireAdmin (2) | start the 19 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | L | P12 |
-| `/admin/vendor-partnerships` | admin | **11** (7 · 11 admin) | 5 reads in series (5) · lib/admin/require-admin.ts:requireAdmin (2) | start the 6 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
-| `/admin/vendor-recommendations` | admin | **11** (5 · 11 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/vendors` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/vendors/[vendorProfileId]` | admin | **13** (13 · 11 admin) | 4 reads in series (4) · lib/one-registered-business.server.ts:verifiedElsewhere (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 10 serial reads at once (one `Promise.all`) · shared loader `verifiedElsewhere` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 4 | M | P12 |
-| `/admin/vendors/[vendorProfileId]/edit` | admin | **11** (5 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) · lib/auth.ts:getCurrentUser (1) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
-| `/admin/vendors/[vendorProfileId]/plan` | admin | **11** (6 · 11 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) · lib/auth.ts:getCurrentUser (1) | start the 5 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
-| `/admin/vendors/[vendorProfileId]/team` | admin | **11** (9 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) · lib/vendor-team.ts:fetchOpenAdminMotions (2) | start the 7 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
-| `/admin/venues` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/venues/[id]` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/venues/new` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/verification-docs` | admin | **11** (4 · 11 admin) | lib/verification-docs-server.ts:buildVerificationDocsReport (3) · lib/verification-doc-suppliers.server.ts:verificationDocSupplierNames (1) | shared loader `buildVerificationDocsReport` (its own batch) | 3 | S | P12 |
-| `/admin/verify` | admin | **20** (20 · 11 admin) | <ApplicationsSurface> (admin/verify) (18) · lib/admin/require-admin.ts:requireAdmin (2) | preload <ApplicationsSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P12 |
-| `/admin/website` | admin | **11** (0 · 11 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/website-media` | admin | **11** (3 · 11 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/website-media-server.ts:loadWebsiteMedia (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
-| `/admin/work` | admin | **16** (16 · 11 admin) | lib/admin/supplier-work.server.ts:loadSupplierWork (8) · fan-out .map() (3) · app/admin/work/page.tsx:readLightsWithVerdicts (2) | start the 4 serial reads at once (one `Promise.all`) · shared loader `loadSupplierWork` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P13 |
+| `/admin` | admin | **22** (22 · 10 admin) | app/admin/work/page.tsx:AdminWorkLanding (14) · <FocusHome> (admin/_components/focus-home) (6) · lib/admin/require-admin.ts:requireAdmin (2) | preload <FocusHome> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P13 |
+| `/admin/account-deletions` | admin | **10** (5 · 10 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/accounts` | admin | **10** (9 · 10 admin) | <VendorsSurface> (admin/accounts/_surfaces/vendors-surface) (7) · lib/admin/require-admin.ts:requireAdmin (2) | preload <VendorsSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
+| `/admin/addons` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/admin-log` | admin | **10** (4 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P13 |
+| `/admin/app-performance` | admin | **10** (10 · 10 admin) | <CockpitSurface> (admin/app-performance/_surfaces/overview-surface) (8) · lib/admin/require-admin.ts:requireAdmin (2) | preload <CockpitSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
+| `/admin/approvals` | admin | **10** (7 · 10 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) · lib/auth.ts:getCurrentUser (1) | start the 6 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
+| `/admin/ask` | admin | **10** (2 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/background-videos` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/background-videos.ts:fetchBackgroundVideosForAdmin (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/booking-fees` | admin | **14** (14 · 10 admin) | lib/admin/suppliers-to-review.server.ts:readSuppliersToReview (5) · 4 reads in series (4) · lib/admin/require-admin.ts:requireAdmin (2) | start the 8 serial reads at once (one `Promise.all`) · shared loader `readSuppliersToReview` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 3 | L | P13 |
+| `/admin/brain` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/budget-planner` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/business` | admin | **10** (9 · 10 admin) | lib/platform-settings.ts:fetchPlatformSettingsMeasured (3) · <ComplianceSurface> (admin/settings/_surfaces/compliance-surface) (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 3 serial reads at once (one `Promise.all`) · preload <ComplianceSurface> with the page's batch (`preload…` + `cache()`) · shared loader `fetchPlatformSettingsMeasured` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
+| `/admin/catalogue` | admin | **10** (5 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · app/admin/categories/_components/load.ts:loadCategories (2) · <TabLanding> (admin/_components/tab-landing) (1) | `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
+| `/admin/categories` | admin | **17** (17 · 10 admin) | <EventTypePanel> (admin/categories/_components/event-type-panel) (4) · lib/admin/require-admin.ts:requireAdmin (2) · app/admin/categories/_components/load.ts:loadVocab (2) | start the 7 serial reads at once (one `Promise.all`) · preload <EventTypePanel> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 5 | L | P13 |
+| `/admin/categories/requests` | admin | **10** (4 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P13 |
+| `/admin/categories/requests/[requestId]` | admin | **10** (5 · 10 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P13 |
+| `/admin/chat-flags` | admin | **10** (4 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/colours` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/completions` | admin | **10** (5 · 10 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/compliance` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/compliance/data-sheet` | admin | **10** (5 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) · lib/auth.ts:getCurrentUser (1) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/concierge-abuse` | admin | **10** (4 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/connection-logs` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/corrections` | admin | **10** (10 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/vendor-corrections.ts:fetchCorrectionRequestsMeasured (1) · 1 read in series (1) | start the 4 serial reads at once (one `Promise.all`) · N+1 at `app/admin/corrections/page.tsx:113` → one `.in()` read · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
+| `/admin/data-privacy` | admin | **10** (5 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/data-privacy-controls.ts:fetchDataPrivacyControlsMeasured (1) · lib/periodic-job-health.ts:fetchPeriodicJobLedger (1) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/demand` | admin | **10** (1 · 10 admin) | lib/demand-radar.ts:getAdminDemandRadar (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/demo-vendors` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/demo-vendors/inquiries` | admin | **10** (4 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/demo-vendors/inquiries/[threadId]` | admin | **10** (6 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) · lib/chat.ts:fetchThreadById (1) | start the 5 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
+| `/admin/directory` | admin | **20** (20 · 10 admin) | <ApplicationsSurface> (admin/verify) (18) · lib/admin/require-admin.ts:requireAdmin (2) | preload <ApplicationsSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P12 |
+| `/admin/discount-codes` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/discount-codes/[id]/edit` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/discount-codes/new` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/v2-catalog.ts:fetchV2CustomerCatalog (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/disputes` | admin | **12** (12 · 10 admin) | <DepositDisputesSection> (admin/disputes/_components/deposit-disputes-section) (3) · lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 7 serial reads at once (one `Promise.all`) · preload <DepositDisputesSection> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
+| `/admin/editorial-review` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/editorial-review/[editorialId]` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/email-delivery` | admin | **10** (9 · 10 admin) | <NotificationsSurface> (admin/settings/_surfaces/notifications-surface) (6) · lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | preload <NotificationsSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
+| `/admin/event-deletions` | admin | **10** (4 · 10 admin) | 3 reads in series (3) · lib/auth.ts:getCurrentUser (1) | start the 4 serial reads at once (one `Promise.all`) | 3 | S | P12 |
+| `/admin/events` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/events/[eventId]` | admin | **16** (16 · 10 admin) | 5 reads in series (5) · 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 14 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | L | P12 |
+| `/admin/force-majeure` | admin | **10** (7 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) · <MiniTour> (_components/mini-tour) (2) | start the 4 serial reads at once (one `Promise.all`) · preload <MiniTour> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
+| `/admin/force-majeure/[flagId]` | admin | **10** (5 · 10 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/founder-seats` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/fraud` | admin | **10** (4 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/funnels` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/gifts` | admin | **19** (19 · 10 admin) | lib/badge-rewards.server.ts:fetchBadgeRewardLedger (3) · 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 16 serial reads at once (one `Promise.all`) · shared loader `fetchBadgeRewardLedger` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 3 | L | P13 |
+| `/admin/growth` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/help` | admin | **10** (4 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P13 |
+| `/admin/help/guides` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/help-asks.server.ts:readNoAnswerYet (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/hub-music` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/hub-music-server.ts:fetchHubMusicForAdmin (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/insights` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/integrations` | admin | **10** (6 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/auth.ts:getCurrentUser (1) · 1 read in series (1) | start the 5 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
+| `/admin/integrity-watch` | admin | **10** (8 · 10 admin) | 6 reads in series (6) · lib/admin/require-admin.ts:requireAdmin (2) | start the 7 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
+| `/admin/intelligence` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/journal-spotlights` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/launch-offer` | admin | **10** (5 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) · lib/launch-offer.server.ts:readLaunchOffer (1) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P13 |
+| `/admin/live-studio-channels` | admin | **10** (6 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/panood-youtube.ts:getYoutubeOAuthConfig (1) · 1 read in series (1) | start the 5 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
+| `/admin/menus` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/money` | admin | **10** (8 · 10 admin) | <TransactionsLedger> (admin/money/_components/transactions-ledger) (6) · lib/admin/require-admin.ts:requireAdmin (2) | preload <TransactionsLedger> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
+| `/admin/moodboard-library` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/more` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/notifications` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/npc-readiness` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/offers` | admin | **27** (27 · 10 admin) | <BadgesView> (admin/offers/_surfaces/badges-view) (8) · lib/badge-rewards.server.ts:fetchBadgeRewardLedger (3) · 3 reads in series (3) | start the 16 serial reads at once (one `Promise.all`) · preload <BadgesView> with the page's batch (`preload…` + `cache()`) · shared loader `fetchBadgeRewardLedger` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P13 |
+| `/admin/offline` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/onboarding` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/operations-hiring` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/pakanta` | admin | **10** (10 · 10 admin) | 4 reads in series (4) · fan-out .map() (4) · lib/admin/require-admin.ts:requireAdmin (2) | start the 6 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
+| `/admin/papic-storage` | admin | **10** (10 · 10 admin) | lib/old-photo-copies.server.ts:listOldPhotos (4) · lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 6 serial reads at once (one `Promise.all`) · shared loader `listOldPhotos` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
+| `/admin/patiktok` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/pax-changes` | admin | **10** (5 · 10 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/payment-options` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/payments` | admin | **44** (44 · 10 admin) | app/admin/payments/page.tsx:fetchDeskBills (20) · app/admin/payments/page.tsx:fetchRecordTarget (4) · lib/platform-settings.ts:getEffectiveVatRatePct (3) | start the 16 serial reads at once (one `Promise.all`) · N+1 at `app/admin/payments/page.tsx:552` → one `.in()` read · shared loader `getEffectiveVatRatePct`, `fetchPlatformSettings` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P4 |
+| `/admin/payments/supplier-refunds` | admin | **10** (6 · 10 admin) | 4 reads in series (4) · lib/admin/require-admin.ts:requireAdmin (2) | start the 5 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P4 |
+| `/admin/payouts` | admin | **10** (4 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) | start the 3 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P13 |
+| `/admin/price-bands` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/pricing` | admin | **10** (2 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/queues` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/real-stories` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/recaps` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/receipts` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/referrals` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/repost-watch` | admin | **10** (8 · 10 admin) | 4 reads in series (4) · lib/admin/require-admin.ts:requireAdmin (2) · <SupplierPhotoReports> (admin/repost-watch/card-checks-admin) (2) | start the 5 serial reads at once (one `Promise.all`) · preload <SupplierPhotoReports> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
+| `/admin/reveal-studio` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/reviews` | admin | **10** (10 · 10 admin) | 6 reads in series (6) · lib/admin/require-admin.ts:requireAdmin (2) · lib/guest-reviews.ts:readGuestReviewsForAdmin (2) | start the 8 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
+| `/admin/search-memory` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/admin-search-memory.ts:loadSearchMemory (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/secrets` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/seo` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/settings` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/settings/demo-mode` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/settings/payment-methods` | admin | **10** (9 · 10 admin) | lib/platform-settings.ts:fetchPlatformSettingsMeasured (3) · 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 6 serial reads at once (one `Promise.all`) · shared loader `fetchPlatformSettingsMeasured` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
+| `/admin/social-queue` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/songs` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/spotlight-awards` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/studio` | admin | **17** (17 · 10 admin) | <SocialQueueSurface> (admin/studio/_surfaces/social-queue-surface) (15) · lib/admin/require-admin.ts:requireAdmin (2) | preload <SocialQueueSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P13 |
+| `/admin/subscriptions` | admin | **10** (7 · 10 admin) | 4 reads in series (4) · lib/admin/require-admin.ts:requireAdmin (2) · lib/auth.ts:getCurrentUser (1) | start the 6 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
+| `/admin/switches` | admin | **10** (7 · 10 admin) | <DemoModeSurface> (admin/settings/_surfaces/demo-mode-surface) (4) · lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | preload <DemoModeSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P13 |
+| `/admin/team` | admin | **10** (5 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/admin/can.server.ts:getAdminPowersFor (1) · 1 read in series (1) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/ugat` | admin | **10** (2 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/ugat/map` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/ugat/data.ts:getUgatCounts (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/user-reports` | admin | **10** (6 · 10 admin) | 4 reads in series (4) · lib/admin/require-admin.ts:requireAdmin (2) | start the 5 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/users` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/users/[userId]` | admin | **20** (20 · 10 admin) | 11 reads in series (11) · 5 reads in series (5) · lib/admin/require-admin.ts:requireAdmin (2) | start the 19 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | L | P12 |
+| `/admin/vendor-partnerships` | admin | **10** (7 · 10 admin) | 5 reads in series (5) · lib/admin/require-admin.ts:requireAdmin (2) | start the 6 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
+| `/admin/vendor-recommendations` | admin | **10** (5 · 10 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/vendors` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/vendors/[vendorProfileId]` | admin | **13** (13 · 10 admin) | 4 reads in series (4) · lib/one-registered-business.server.ts:verifiedElsewhere (3) · lib/admin/require-admin.ts:requireAdmin (2) | start the 10 serial reads at once (one `Promise.all`) · shared loader `verifiedElsewhere` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 4 | M | P12 |
+| `/admin/vendors/[vendorProfileId]/edit` | admin | **10** (5 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) · lib/auth.ts:getCurrentUser (1) | start the 4 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | S | P12 |
+| `/admin/vendors/[vendorProfileId]/plan` | admin | **10** (6 · 10 admin) | 3 reads in series (3) · lib/admin/require-admin.ts:requireAdmin (2) · lib/auth.ts:getCurrentUser (1) | start the 5 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
+| `/admin/vendors/[vendorProfileId]/team` | admin | **10** (9 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 2 reads in series (2) · lib/vendor-team.ts:fetchOpenAdminMotions (2) | start the 7 serial reads at once (one `Promise.all`) · `cache()` on `requireAdmin` (read by layout and page) | 3 | M | P12 |
+| `/admin/venues` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/venues/[id]` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · 1 read in series (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/venues/new` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/verification-docs` | admin | **10** (4 · 10 admin) | lib/verification-docs-server.ts:buildVerificationDocsReport (3) · lib/verification-doc-suppliers.server.ts:verificationDocSupplierNames (1) | shared loader `buildVerificationDocsReport` (its own batch) | 3 | S | P12 |
+| `/admin/verify` | admin | **20** (20 · 10 admin) | <ApplicationsSurface> (admin/verify) (18) · lib/admin/require-admin.ts:requireAdmin (2) | preload <ApplicationsSurface> with the page's batch (`preload…` + `cache()`) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P12 |
+| `/admin/website` | admin | **10** (0 · 10 admin) | – | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/website-media` | admin | **10** (3 · 10 admin) | lib/admin/require-admin.ts:requireAdmin (2) · lib/website-media-server.ts:loadWebsiteMedia (1) | page is fine; the wait is the layout (admin/layout) | 3 | – | – |
+| `/admin/work` | admin | **16** (16 · 10 admin) | lib/admin/supplier-work.server.ts:loadSupplierWork (8) · fan-out .map() (3) · app/admin/work/page.tsx:readLightsWithVerdicts (2) | start the 4 serial reads at once (one `Promise.all`) · shared loader `loadSupplierWork` (its own batch) · `cache()` on `requireAdmin` (read by layout and page) | 4 | L | P13 |
 | `/alaala` | public | **10** (0 · 10 (shell)) | – | page is fine; the wait is the layout ((shell)/layout) | 2 | – | – |
 | `/api/v1` | public | **1** (0 · 0) | – | nothing to fix | 1 | – | – |
 | `/articles` | public | **10** (2 · 10 (shell)) | lib/articles.server.ts:listArticles (2) | page is fine; the wait is the layout ((shell)/layout) | 2 | – | – |
@@ -1028,8 +1027,8 @@ Sorted by route. "Rounds now" is the route total (the max of page and layouts), 
 | `/claim/[token]` | signed-in | **1** (1 · 0) | 1 read in series (1) | nothing to fix | 1 | – | – |
 | `/cookies` | public | **10** (0 · 10 (shell)) | – | page is fine; the wait is the layout ((shell)/layout) | 2 | – | – |
 | `/creators` | public | **10** (0 · 10 (shell)) | – | page is fine; the wait is the layout ((shell)/layout) | 2 | – | – |
-| `/dashboard` | host | **37** (37 · 10 (hub)) | <MemoriesSegment> (dashboard/(account)/library/_components/memories-segment) (31) · app/_components/account-switcher/get-switcher-data.ts:getSwitcherData (3) · lib/people-roster.ts:waitingRequestCount (2) | start the 3 serial reads at once (one `Promise.all`) · preload <MemoriesSegment> with the page's batch (`preload…` + `cache()`) · shared loader `getSwitcherData` (its own batch) | 9 | L | P9 |
-| `/dashboard/[eventId]` | host | **32** (32 · 17 dashboard/[eventId]) | <EventDashboard> (dashboard/[eventId]/_components/event-dashboard) (12) · lib/entitlements.ts:eventOwnsSku (8) · fan-out .map() (4) | start the 7 serial reads at once (one `Promise.all`) · preload <EventDashboard> with the page's batch (`preload…` + `cache()`) · shared loader `eventOwnsSku`, `resolveSetnayanAiDisplayPricePhp` (its own batch) | 13 | L | P8 |
+| `/dashboard` | host | **36** (36 · 10 (hub)) | <MemoriesSegment> (dashboard/(account)/library/_components/memories-segment) (31) · app/_components/account-switcher/get-switcher-data.ts:getSwitcherData (2) · lib/people-roster.ts:waitingRequestCount (2) | start the 3 serial reads at once (one `Promise.all`) · preload <MemoriesSegment> with the page's batch (`preload…` + `cache()`) | 9 | L | P9 |
+| `/dashboard/[eventId]` | host | **31** (31 · 17 dashboard/[eventId]) | <EventDashboard> (dashboard/[eventId]/_components/event-dashboard) (12) · lib/entitlements.ts:eventOwnsSku (8) · fan-out .map() (4) | start the 6 serial reads at once (one `Promise.all`) · preload <EventDashboard> with the page's batch (`preload…` + `cache()`) · shared loader `eventOwnsSku`, `resolveSetnayanAiDisplayPricePhp` (its own batch) | 13 | L | P8 |
 | `/dashboard/[eventId]/access-requests` | host | **17** (4 · 17 dashboard/[eventId]) | lib/auth.ts:getCurrentUser (1) · 1 read in series (1) · lib/claim-access-asks.server.ts:readClaimAccessAsks (1) | start the 4 serial reads at once (one `Promise.all`) | 4 | S | P7 |
 | `/dashboard/[eventId]/activity` | host | **17** (2 · 17 dashboard/[eventId]) | lib/auth.ts:getCurrentUser (1) · 1 read in series (1) | page is fine; the wait is the layout (dashboard/[eventId]/layout) | 4 | – | – |
 | `/dashboard/[eventId]/alaala` | host | **17** (6 · 17 dashboard/[eventId]) | lib/kwento-density.ts:getKwentoDensity (2) · lib/auth.ts:getCurrentUser (1) · lib/event-viewer.server.ts:fetchEventViewer (1) | start the 5 serial reads at once (one `Promise.all`) | 4 | M | P6 |
@@ -1070,7 +1069,7 @@ Sorted by route. "Rounds now" is the route total (the max of page and layouts), 
 | `/dashboard/[eventId]/manpower` | host | **17** (4 · 17 dashboard/[eventId]) | 3 reads in series (3) · lib/auth.ts:getCurrentUser (1) | start the 4 serial reads at once (one `Promise.all`) | 4 | S | P7 |
 | `/dashboard/[eventId]/memories` | host | **17** (3 · 17 dashboard/[eventId]) | lib/papic-gallery-scope.ts:viewerSeesCoupleScopedPapic (2) · lib/auth.ts:getCurrentUser (1) | page is fine; the wait is the layout (dashboard/[eventId]/layout) | 4 | – | – |
 | `/dashboard/[eventId]/memories/download-all` | host | **17** (5 · 17 dashboard/[eventId]) | lib/papic-download-all.server.ts:readDownloadPlan (3) · lib/auth.ts:getCurrentUser (1) · 1 read in series (1) | start the 3 serial reads at once (one `Promise.all`) · shared loader `readDownloadPlan` (its own batch) | 4 | S | P6 |
-| `/dashboard/[eventId]/memories/thank-you` | host | **17** (12 · 17 dashboard/[eventId]) | lib/entitlements.ts:eventSkuActive (3) · lib/platform-settings.ts:fetchPlatformSettings (3) · lib/thank-you-video.ts:buildThankYouVideoPlan (3) | start the 5 serial reads at once (one `Promise.all`) · shared loader `eventSkuActive`, `fetchPlatformSettings`, `buildThankYouVideoPlan` (its own batch) | 4 | L | P6 |
+| `/dashboard/[eventId]/memories/thank-you` | host | **17** (11 · 17 dashboard/[eventId]) | lib/entitlements.ts:eventSkuActive (3) · lib/platform-settings.ts:fetchPlatformSettings (3) · lib/event-entitlement-client.server.ts:eventEntitlementClient (2) | start the 5 serial reads at once (one `Promise.all`) · shared loader `eventSkuActive`, `fetchPlatformSettings` (its own batch) | 4 | L | P6 |
 | `/dashboard/[eventId]/messages` | host | **17** (10 · 17 dashboard/[eventId]) | <EventGroups> (dashboard/[eventId]/messages/_components/event-groups) (3) · 2 reads in series (2) · lib/auth.ts:getCurrentUser (1) | start the 7 serial reads at once (one `Promise.all`) · preload <EventGroups> with the page's batch (`preload…` + `cache()`) | 4 | M | P8 |
 | `/dashboard/[eventId]/messages/[threadId]` | host | **20** (20 · 17 dashboard/[eventId]) | lib/vendor-payment-methods.server.ts:readPublishedMethodsForCouple (7) · lib/chat-pin-facts.server.ts:readChatPinFacts (4) · lib/booked-money-step.server.ts:readBookedMoney (2) | start the 8 serial reads at once (one `Promise.all`) · preload <ThreadInterestChips> with the page's batch (`preload…` + `cache()`) · shared loader `readPublishedMethodsForCouple`, `readChatPinFacts` (its own batch) | 10 | L | P8 |
 | `/dashboard/[eventId]/messages/vendors/[vendorId]/workspace` (sheet) | host | **69** (69 · 17 dashboard/[eventId]) | <CoupleThreadBody> (dashboard/[eventId]/messages/[threadId]/_components/couple-thread-body) (19) · 8 reads in series (8) · lib/vendor-payment-methods.server.ts:readPublishedMethodsForCouple (7) | start the 33 serial reads at once (one `Promise.all`) · preload <CoupleThreadBody> with the page's batch (`preload…` + `cache()`) · shared loader `fetchVendorBudgetSummary`, `readPublishedMethodsForCouple` (its own batch) | 12 | L | P8 |
@@ -1088,9 +1087,9 @@ Sorted by route. "Rounds now" is the route total (the max of page and layouts), 
 | `/dashboard/[eventId]/progress` | host | **17** (0 · 17 dashboard/[eventId]) | – | page is fine; the wait is the layout (dashboard/[eventId]/layout) | 4 | – | – |
 | `/dashboard/[eventId]/refer` | host | **17** (8 · 17 dashboard/[eventId]) | lib/referral-actions.ts:getMyReferral (4) · lib/platform-settings.ts:isReferralProgramEnabled (3) · lib/auth.ts:getCurrentUser (1) | start the 3 serial reads at once (one `Promise.all`) · shared loader `isReferralProgramEnabled`, `getMyReferral` (its own batch) · `cache()` on `isReferralProgramEnabled` (read by layout and page) | 4 | M | P8 |
 | `/dashboard/[eventId]/schedule` | host | **56** (56 · 17 dashboard/[eventId]) | lib/schedule-release.server.ts:readScheduleRelease (11) · app/dashboard/[eventId]/checklist-actions.ts:ensureChecklistSeeded (10) · lib/schedule-seed.server.ts:seedDefaultChapters (6) | start the 18 serial reads at once (one `Promise.all`) · preload <HostQuestions> with the page's batch (`preload…` + `cache()`) · shared loader `seedNonWeddingRunOfShow`, `seedDefaultChapters`, `readScheduleRelease` (its own batch) · `cache()` on `applyDelegateAccessWindow` (read by layout and page) | 6 | L | P8 |
-| `/dashboard/[eventId]/seating` | host | **25** (25 · 17 dashboard/[eventId]) | <SeatingLabPage> (dashboard/[eventId]/seating/lab) (15) · lib/seating.ts:fetchBooths (3) · lib/event-type-profile.ts:resolveProfileByEvent (2) | start the 6 serial reads at once (one `Promise.all`) · preload <SeatingLabPage> with the page's batch (`preload…` + `cache()`) · shared loader `fetchBooths` (its own batch) | 4 | L | P7 |
+| `/dashboard/[eventId]/seating` | host | **23** (23 · 17 dashboard/[eventId]) | <SeatingLabPage> (dashboard/[eventId]/seating/lab) (14) · lib/event-type-profile.ts:resolveProfileByEvent (2) · lib/seating.ts:fetchBooths (2) | start the 6 serial reads at once (one `Promise.all`) · preload <SeatingLabPage> with the page's batch (`preload…` + `cache()`) | 4 | L | P7 |
 | `/dashboard/[eventId]/seating/chart` | host | **17** (6 · 17 dashboard/[eventId]) | lib/event-type-profile.ts:resolveProfileByEvent (2) · lib/auth.ts:getCurrentUser (1) · 1 read in series (1) | start the 5 serial reads at once (one `Promise.all`) | 4 | M | P7 |
-| `/dashboard/[eventId]/seating/lab` | host | **17** (17 · 17 dashboard/[eventId]) | lib/animated-monogram.ts:eventAnimatedMonogramActive (5) · lib/seating.ts:fetchBooths (3) · lib/vendor-services.ts:fetchBoothCardItems (3) | start the 8 serial reads at once (one `Promise.all`) · shared loader `fetchBooths`, `fetchBoothCardItems`, `eventAnimatedMonogramActive` (its own batch) | 4 | L | P7 |
+| `/dashboard/[eventId]/seating/lab` | host | **17** (16 · 17 dashboard/[eventId]) | lib/animated-monogram.ts:eventAnimatedMonogramActive (5) · lib/vendor-services.ts:fetchBoothCardItems (3) · lib/seating.ts:fetchBooths (2) | start the 8 serial reads at once (one `Promise.all`) · shared loader `fetchBoothCardItems`, `eventAnimatedMonogramActive` (its own batch) | 4 | L | P7 |
 | `/dashboard/[eventId]/seating/walkthrough` | host | **17** (6 · 17 dashboard/[eventId]) | app/dashboard/[eventId]/seating/walkthrough/actions.ts:canManageWalkthrough (4) · lib/auth.ts:getCurrentUser (1) · 1 read in series (1) | start the 3 serial reads at once (one `Promise.all`) | 4 | M | P7 |
 | `/dashboard/[eventId]/sponsors` | host | **17** (4 · 17 dashboard/[eventId]) | 3 reads in series (3) · lib/auth.ts:getCurrentUser (1) | start the 4 serial reads at once (one `Promise.all`) | 4 | S | P7 |
 | `/dashboard/[eventId]/story` | host | **100** (100 · 17 dashboard/[eventId]) | app/[slug]/_components/editorial/data.ts:loadEditorialData (40) · app/dashboard/[eventId]/story/_lib/load-make-it-yours.ts:loadMakeItYours (17) · app/[slug]/_components/editorial/data.ts:loadEditorialChaptersForEditor (13) | start the 15 serial reads at once (one `Promise.all`) · shared loader `isEditorialProActive` (its own batch) | 4 | L | P6 |
@@ -1154,7 +1153,7 @@ Sorted by route. "Rounds now" is the route total (the max of page and layouts), 
 | `/dashboard/creator` | host | **10** (7 · 10 dashboard/(account)) | <CreatorBody> (dashboard/(account)/creator) (5) · lib/auth.ts:getCurrentUser (1) · 1 read in series (1) | preload <CreatorBody> with the page's batch (`preload…` + `cache()`) | 5 | S | P9 |
 | `/dashboard/library` | host | **10** (0 · 10 dashboard/(account)) | – | page is fine; the wait is the layout (dashboard/(account)/layout) | 4 | – | – |
 | `/dashboard/life-flash` | host | **10** (7 · 10 dashboard/(account)) | lib/life-story-moment-graph.ts:fetchMomentGraph (5) · lib/auth.ts:getCurrentUser (1) · 1 read in series (1) | start the 3 serial reads at once (one `Promise.all`) · shared loader `fetchMomentGraph` (its own batch) | 6 | S | P9 |
-| `/dashboard/notifications` | host | **10** (5 · 10 dashboard/(account)) | app/_components/account-switcher/get-switcher-data.ts:getSwitcherData (3) · lib/auth.ts:getCurrentUser (1) · lib/notification-places.ts:fetchNotificationEventPlaces (1) | start the 3 serial reads at once (one `Promise.all`) · shared loader `getSwitcherData` (its own batch) | 4 | S | P9 |
+| `/dashboard/notifications` | host | **10** (4 · 10 dashboard/(account)) | app/_components/account-switcher/get-switcher-data.ts:getSwitcherData (2) · lib/auth.ts:getCurrentUser (1) · lib/notification-places.ts:fetchNotificationEventPlaces (1) | start the 3 serial reads at once (one `Promise.all`) | 4 | S | P9 |
 | `/dashboard/people` | host | **10** (0 · 10 dashboard/(account)) | – | page is fine; the wait is the layout (dashboard/(account)/layout) | 4 | – | – |
 | `/dashboard/people/[dependentId]` | host | **10** (6 · 10 dashboard/(account)) | 4 reads in series (4) · lib/data-privacy-controls.ts:isDataPrivacyControlActive (1) · lib/auth.ts:getCurrentUser (1) | start the 6 serial reads at once (one `Promise.all`) | 4 | M | P9 |
 | `/dashboard/profile` | host | **15** (15 · 10 dashboard/(account)) | lib/public-profile.ts:resolvePublicProfile (5) · 4 reads in series (4) · lib/formal-name-from-guest-list.ts:formalNameFromGuestList (3) | start the 9 serial reads at once (one `Promise.all`) · shared loader `formalNameFromGuestList`, `resolvePublicProfile` (its own batch) | 6 | M | P9 |
@@ -1214,7 +1213,7 @@ Sorted by route. "Rounds now" is the route total (the max of page and layouts), 
 | `/papic/guest` | guest/host | **26** (26 · 0) | lib/guest-live-gallery.ts:getGuestOwnShots (7) · <CameraColumn> (papic/guest) (4) · lib/guest-session.ts:readGuestSession (3) | start the 8 serial reads at once (one `Promise.all`) · preload <CameraColumn> with the page's batch (`preload…` + `cache()`) · shared loader `readGuestSession`, `eventPapicGuestAccess`, `fetchGuestQuota`, `getGuestOwnShots` (its own batch) | 7 | L | P11 |
 | `/papic/join/[token]` | guest/host | **6** (6 · 0) | N+1 loop ×2 (app/papic/join/[token]/page.tsx:91) (1) | N+1 at `app/papic/join/[token]/page.tsx:91` → one `.in()` read | 1 | M | P11 |
 | `/papic/lightcheck` | guest/host | **1** (0 · 0) | – | nothing to fix | 1 | – | – |
-| `/papic/me/[token]` | guest/host | **32** (32 · 0) | <GuestGallery> (papic/me/[token]) (14) · lib/papic-limited.ts:resolveGuestCamera (13) · lib/papic-guest.ts:eventPapicGuestAccess (3) | start the 4 serial reads at once (one `Promise.all`) · preload <GuestGallery> with the page's batch (`preload…` + `cache()`) · shared loader `resolveGuestCamera`, `eventPapicGuestAccess` (its own batch) | 5 | L | P11 |
+| `/papic/me/[token]` | guest/host | **31** (31 · 0) | <GuestGallery> (papic/me/[token]) (14) · lib/papic-limited.ts:resolveGuestCamera (12) · lib/papic-guest.ts:eventPapicGuestAccess (3) | start the 4 serial reads at once (one `Promise.all`) · preload <GuestGallery> with the page's batch (`preload…` + `cache()`) · shared loader `resolveGuestCamera`, `eventPapicGuestAccess` (its own batch) | 5 | L | P11 |
 | `/papic/order/[token]` | guest/host | **4** (4 · 0) | lib/platform-settings.ts:fetchPlatformSettings (3) · 1 read in series (1) | shared loader `fetchPlatformSettings` (its own batch) | 2 | S | P11 |
 | `/papic/pool` | guest/host | **6** (6 · 0) | lib/guest-session.ts:readGuestSession (3) · lib/papic-pool-gate.ts:papicPoolGalleryActive (1) · 1 read in series (1) | start the 4 serial reads at once (one `Promise.all`) · shared loader `readGuestSession` (its own batch) | 4 | S | P11 |
 | `/papic/seat/[token]` | guest/host | **19** (19 · 0) | lib/papic-photo-mark.server.ts:cameraProFor (10) · lib/papic-chapter.server.ts:papicCameraChapter (2) · <PapicGuestBuyPanel> (papic/_components/papic-guest-buy-panel) (2) | start the 7 serial reads at once (one `Promise.all`) · preload <PapicGuestBuyPanel> with the page's batch (`preload…` + `cache()`) · shared loader `cameraProFor` (its own batch) | 4 | L | P11 |
@@ -1313,7 +1312,7 @@ Sorted by route. "Rounds now" is the route total (the max of page and layouts), 
 | `/vendor-dashboard/messages/clients/[eventId]` (sheet) | supplier | **83** (83 · 11 vendor-dashboard) | lib/agree-gifts.server.ts:fetchGiftNeeded (26) · <DetailsDecisions> (vendor-dashboard/clients/[eventId]/_components/details-decisions) (21) · fan-out .map() (6) | start the 19 serial reads at once (one `Promise.all`) · preload <DetailsDecisions> with the page's batch (`preload…` + `cache()`) · shared loader `resolveEventFeeGate`, `getEditorialEligibility`, `fetchGiftNeeded`, `fetchPlatformSettings`, `logoPlaysFor` (its own batch) | 12 | L | P2 |
 | `/vendor-dashboard/moodboard-library` | supplier | **16** (16 · 11 vendor-dashboard) | app/vendor-dashboard/moodboard-library/actions.ts:listImportableEditorialMedia (12) · lib/moodboard-library-access.ts:resolveMoodboardLibraryAccess (2) · lib/auth.ts:getCurrentUser (1) | start the 4 serial reads at once (one `Promise.all`) · N+1 at `app/vendor-dashboard/moodboard-library/actions.ts:621` → one `.in()` read | 6 | L | P1 |
 | `/vendor-dashboard/more` | supplier | **11** (0 · 11 vendor-dashboard) | – | page is fine; the wait is the layout (vendor-dashboard/layout) | 6 | – | – |
-| `/vendor-dashboard/notifications` | supplier | **11** (5 · 11 vendor-dashboard) | app/_components/account-switcher/get-switcher-data.ts:getSwitcherData (3) · lib/auth.ts:getCurrentUser (1) · lib/notification-places.ts:fetchNotificationEventPlaces (1) | start the 3 serial reads at once (one `Promise.all`) · shared loader `getSwitcherData` (its own batch) | 6 | S | P2 |
+| `/vendor-dashboard/notifications` | supplier | **11** (4 · 11 vendor-dashboard) | app/_components/account-switcher/get-switcher-data.ts:getSwitcherData (2) · lib/auth.ts:getCurrentUser (1) · lib/notification-places.ts:fetchNotificationEventPlaces (1) | start the 3 serial reads at once (one `Promise.all`) | 6 | S | P2 |
 | `/vendor-dashboard/on-the-day` | supplier | **18** (18 · 11 vendor-dashboard) | lib/vendor-room-access.ts:fetchVendorRoomEvents (6) · app/vendor-dashboard/on-the-day/page.tsx:setupBody (4) · lib/vendor-event-fee-access.server.ts:resolveEventFeeGates (3) | start the 7 serial reads at once (one `Promise.all`) · shared loader `fetchVendorRoomEvents`, `resolveEventFeeGates` (its own batch) | 9 | L | P2 |
 | `/vendor-dashboard/on-the-day/live/[eventId]` | supplier | **37** (37 · 11 vendor-dashboard) | lib/vendor-room-access.ts:fetchVendorRoomEvents (6) · lib/vendor-room-access.ts:fetchVendorRoomEvents (6) · 3 reads in series (3) | start the 17 serial reads at once (one `Promise.all`) · preload <HubToolPanels> with the page's batch (`preload…` + `cache()`) · shared loader `fetchVendorRoomEvents`, `fetchVendorRoomEvents`, `resolveEventFeeGate`, `readEventScanServices` (its own batch) | 6 | L | P2 |
 | `/vendor-dashboard/on-the-day/live/[eventId]/papic` | supplier | **26** (26 · 11 vendor-dashboard) | lib/vendor-room-access.ts:fetchVendorRoomEventsDetailed (6) · <PortfolioAlbumSection> (vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-album-section) (4) · lib/vendor-event-fee-access.server.ts:resolveEventFeeGate (3) | start the 9 serial reads at once (one `Promise.all`) · preload <PortfolioAlbumSection> with the page's batch (`preload…` + `cache()`) · shared loader `fetchVendorRoomEventsDetailed`, `resolveEventFeeGate`, `fetchPlatformSettings` (its own batch) | 7 | L | P2 |
@@ -1340,7 +1339,7 @@ Sorted by route. "Rounds now" is the route total (the max of page and layouts), 
 | `/vendor-dashboard/services/their-work` | supplier | **11** (10 · 11 vendor-dashboard) | lib/card-portfolio-albums.server.ts:readShopWork (4) · lib/inspiration-tags.server.ts:readAlbumTags (3) · lib/vendor-profile.ts:fetchOwnVendorProfile (2) | start the 4 serial reads at once (one `Promise.all`) · shared loader `readShopWork`, `readAlbumTags` (its own batch) | 7 | M | P1 |
 | `/vendor-dashboard/settings` (sheet) | supplier | **11** (5 · 11 vendor-dashboard) | lib/vendor-role.ts:resolveVendorRole (2) · lib/vendor-payment-methods.server.ts:readSupplierPayoutReadiness (2) · lib/auth.ts:getCurrentUser (1) | start the 3 serial reads at once (one `Promise.all`) | 6 | M | P3 |
 | `/vendor-dashboard/settings` | supplier | **11** (5 · 11 vendor-dashboard) | lib/vendor-role.ts:resolveVendorRole (2) · lib/vendor-payment-methods.server.ts:readSupplierPayoutReadiness (2) · lib/auth.ts:getCurrentUser (1) | start the 3 serial reads at once (one `Promise.all`) | 6 | M | P3 |
-| `/vendor-dashboard/shop` | supplier | **27** (27 · 11 vendor-dashboard) | <ShopHome> (vendor-dashboard/shop) (27) | preload <ShopHome> with the page's batch (`preload…` + `cache()`) | 12 | L | P1 |
+| `/vendor-dashboard/shop` | supplier | **26** (26 · 11 vendor-dashboard) | <ShopHome> (vendor-dashboard/shop) (26) | preload <ShopHome> with the page's batch (`preload…` + `cache()`) | 12 | L | P1 |
 | `/vendor-dashboard/shop/badges` | supplier | **11** (6 · 11 vendor-dashboard) | lib/supplier-store.server.ts:readStoreBadges (3) · lib/vendor-profile.ts:fetchOwnVendorProfile (2) · lib/auth.ts:getCurrentUser (1) | start the 3 serial reads at once (one `Promise.all`) · shared loader `readStoreBadges` (its own batch) | 6 | M | P1 |
 | `/vendor-dashboard/shop/promote` | supplier | **14** (14 · 11 vendor-dashboard) | <PromoteBody> (vendor-dashboard/shop/promote/_components/promote-body) (7) · app/vendor-dashboard/shop/promote/_components/shop-gifts-data.ts:loadShopGiftsSection (4) · lib/vendor-profile.ts:fetchOwnVendorProfile (2) | start the 3 serial reads at once (one `Promise.all`) · preload <PromoteBody> with the page's batch (`preload…` + `cache()`) | 12 | M | P1 |
 | `/vendor-dashboard/shop/qrs` | supplier | **11** (4 · 11 vendor-dashboard) | lib/vendor-profile.ts:fetchOwnVendorProfile (2) · lib/auth.ts:getCurrentUser (1) · lib/supplier-store.server.ts:readStoreLayout (1) | start the 3 serial reads at once (one `Promise.all`) | 6 | S | P1 |

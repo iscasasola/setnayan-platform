@@ -36,7 +36,7 @@ export type PlanRenewal = {
   title: string;
   /** The same, lower-cased, for the middle of a line ("… · nothing renews by itself"). */
   inline: string;
-  /** How to stop paying, said to a shop on a paid plan. */
+  /** How to stop paying, said to a shop on a paid plan — the date first (L-7). */
   howToStop: (expiresOn: string | null) => string;
 };
 
@@ -50,10 +50,9 @@ export function planRenewal(appleSells: boolean): PlanRenewal {
       renews: true,
       title: APPLE_RENEWS,
       inline: 'renews each month through Apple',
+      // Leads with the date, like the web line (L-7: a long line at 390 px loses its end).
       howToStop: (expiresOn) =>
-        expiresOn
-          ? `Cancel in Settings › Apple ID · Free after ${expiresOn}`
-          : 'Cancel in Settings › Apple ID · Free once your paid days end',
+        expiresOn ? `Renews ${expiresOn} · cancel in Settings › Apple ID` : 'Cancel any time in Settings › Apple ID',
     };
   }
   return {

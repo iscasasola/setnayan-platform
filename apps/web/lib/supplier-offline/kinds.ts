@@ -74,6 +74,40 @@ export const SUPPLIER_OFFLINE_KINDS = {
   'booking.accept': { rule: 'money', capability: 'clients' },
 } as const satisfies Record<string, KindRule>;
 
+/**
+ * The SHIPPED supplier actions each kind stands for (`<file> › <export>`) — what the form-coverage guard
+ * (`the-supplier-works-offline.test.ts` · test 10) counts as "works offline". The schedule kinds stand for the calendar
+ * forms they replace offline (through the versioned door); the rest replay through the action itself.
+ */
+export const KIND_COVERS: Readonly<Record<SupplierOfflineKind, readonly string[]>> = {
+  'schedule.client': ['app/vendor-dashboard/calendar/actions.ts › importExternalClient'],
+  'schedule.block': ['app/vendor-dashboard/calendar/actions.ts › addManualBlock'],
+  'schedule.edit': [],
+  'schedule.remove': ['app/vendor-dashboard/calendar/actions.ts › removeBlock'],
+  'schedule.day': ['app/vendor-dashboard/calendar/actions.ts › setCalendarDayState'],
+  'qr.booking': [],
+  'client.add': ['app/vendor-dashboard/invite/own-client-actions.ts › saveOwnClient'],
+  'lead.outcome': ['app/vendor-dashboard/messages/[threadId]/outcome-actions.ts › recordInquiryOutcome'],
+  'note.add': ['app/vendor-dashboard/clients/[eventId]/actions.ts › createClientNote'],
+  'note.done': ['app/vendor-dashboard/clients/[eventId]/actions.ts › toggleClientNoteDone'],
+  'note.delete': ['app/vendor-dashboard/clients/[eventId]/actions.ts › deleteClientNote'],
+  'message.send': [],
+  'payment.ask': ['app/vendor-dashboard/clients/[eventId]/actions.ts › vendorAskForPayment'],
+  'payment.ask_withdraw': ['app/vendor-dashboard/clients/[eventId]/actions.ts › vendorWithdrawPaymentAsk'],
+  'payment.confirm': ['app/vendor-dashboard/messages/[threadId]/pay-confirm-actions.ts › confirmVendorPayment'],
+  'deposit.ack': ['app/vendor-dashboard/clients/[eventId]/actions.ts › vendorAcknowledgeDeposit'],
+  'booking.accept': ['app/vendor-dashboard/clients/[eventId]/actions.ts › vendorAgreeToLock'],
+};
+
+/**
+ * R15: supplier actions that need internet by nature (buying or paying Setnayan) — their buttons grey out, never queue.
+ * The area builders add the rest of R15's list (search across shops, Live Watch and calls, AI, renders, live outside
+ * lookups, marketplace races) as they take each area off `not-yet-offline.baseline.txt`.
+ */
+export const NEEDS_INTERNET_ACTIONS: readonly string[] = [
+  'app/vendor-dashboard/subscription/ultra-addon-actions.ts › buyUltraAddOn',
+];
+
 /* ── R15: what needs internet ─────────────────────────────────────────────────────────────────────────────────── */
 
 /** The greyed button's label and the one quiet line a tap shows (owner 24 Nov, R15). */

@@ -19,6 +19,8 @@
  *   8 · SIGN-OUT WIPES — the queue, the signing keys and the answers; the server stops the phone's key rows.
  *   9 · R14 — A BOOKING MADE OFFLINE COUNTS ON THAT PHONE AT ONCE: 12 Dec 2 PM booked offline is not offered again; a
  *       full day reads full; the QR's free-time check, "To collect" and the gift balance read the same copy + queue.
+ *  10 · EVERY SUPPLIER ACTION IS DECIDED — an offline kind, "needs internet" (R15), or a line on the area builders'
+ *       shrink-only list (`not-yet-offline.baseline.txt`). A new supplier action can never be left undecided.
  *
  * Sabotages (2026-11-24), each turns its own test red:
  *   1 · dropping `if (p.member !== activeMember)` from supplier-handler.ts;
@@ -26,7 +28,8 @@
  *   5 · dropping the `fitsStock(` check in clientAdd;
  *   7 · `if (left === 0)` → `if (true)` in supplier-queue.ts;
  *   8 · dropping `forgetSupplierOffline()` from the worker's OFFLINE_FORGET;
- *   9 · dropping the queue's seats from `localSlot` (`copy.taken + q.seats` → `copy.taken`).
+ *   9 · dropping the queue's seats from `localSlot` (`copy.taken + q.seats` → `copy.taken`);
+ *  10 · deleting one line from not-yet-offline.baseline.txt (an undecided action).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -38,8 +41,11 @@ import { STAY_DOORS } from '@/lib/stay-doors';
 import { stayReplyOf } from '@/lib/save-in-place';
 import { SERVICE_CODES } from '@/lib/offline/types';
 import { SUPPLIER_OFFLINE_OUTCOMES_KEY } from '@/lib/offline-copies';
+import { readdirSync, statSync } from 'node:fs';
 import {
   BOOKED_NOT_CONFIRMED,
+  KIND_COVERS,
+  NEEDS_INTERNET_ACTIONS,
   SUPPLIER_OFFLINE_KINDS,
   giftsLeftWithQueue,
   isFinalOutcome,
@@ -283,4 +289,43 @@ test('9 · R14 — a booking made offline counts on that phone at once', () => {
   const qrBody = queue.slice(queue.indexOf('export async function makeOfflineQr'), queue.indexOf('export async function stopPhone'));
   assert.ok(qrBody.indexOf('localSlotNow(') > -1 && qrBody.indexOf('localSlotNow(') < qrBody.indexOf('signOfflineQr('), 'an offline QR is made into a time this phone already booked');
   assert.match(queue, /if \(slot !== 'free'\) return \{ refused: slot \};\n  return \{ queued: await queueSupplierAction/, 'an offline booking is queued into a time this phone already booked');
+});
+
+/** Every exported server action under app/vendor-dashboard/ (`<file> › <export>`). */
+function supplierActions(): string[] {
+  const out: string[] = [];
+  const walk = (d: string) => {
+    for (const n of readdirSync(d)) {
+      const p = path.join(d, n);
+      if (statSync(p).isDirectory()) {
+        walk(p);
+        continue;
+      }
+      if (!/\.tsx?$/.test(n) || /\.test\.tsx?$/.test(n)) continue;
+      const src = readFileSync(p, 'utf8');
+      if (!/^\s*(?:\/\*[\s\S]*?\*\/\s*|\/\/[^\n]*\n\s*)*['"]use server['"]/.test(src)) continue;
+      for (const m of src.matchAll(/^export (?:async function|const) (\w+)/gm)) out.push(`${path.relative(root, p)} › ${m[1]}`);
+    }
+  };
+  walk(path.join(root, 'app/vendor-dashboard'));
+  return out.sort();
+}
+
+test('10 · every supplier action is decided: an offline kind, "needs internet", or on the shrink-only list', () => {
+  const all = supplierActions();
+  assert.ok(all.length > 150, `only ${all.length} supplier actions found — the scan is not reading the tree`);
+  const covered = new Set(Object.values(KIND_COVERS).flat());
+  const online = new Set(NEEDS_INTERNET_ACTIONS);
+  const baseline = readFileSync(path.join(root, 'lib/supplier-offline/not-yet-offline.baseline.txt'), 'utf8')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('#'));
+  const listed = new Set(baseline);
+  for (const c of [...covered, ...online]) assert.ok(all.includes(c), `${c} is named but is not a supplier action any more`);
+  for (const c of covered) assert.ok(!online.has(c), `${c} is both offline and "needs internet"`);
+  const undecided = all.filter((a) => !covered.has(a) && !online.has(a) && !listed.has(a));
+  assert.deepEqual(undecided, [], 'A supplier action is neither an offline kind, "needs internet" (R15), nor on not-yet-offline.baseline.txt — decide it.');
+  const stale = baseline.filter((l) => !all.includes(l) || covered.has(l) || online.has(l));
+  assert.deepEqual(stale, [], 'These lines are decided (or gone) — take them off not-yet-offline.baseline.txt (it only shrinks).');
+  assert.equal(new Set(baseline).size, baseline.length, 'a line is listed twice');
 });
